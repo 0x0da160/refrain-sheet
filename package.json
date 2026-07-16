@@ -1,0 +1,36 @@
+{
+  "name": "refrain-csv-html",
+  "version": "0.1.0",
+  "description": "A format-preserving CSV editor that runs directly from a local HTML file.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "0x0da160",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "encoding-japanese": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/encoding-japanese": "^2.2.1",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^10.0.1",
+    "fast-check": "^3.23.2",
+    "jsdom": "^26.0.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.19.0",
+    "vite": "^6.0.7",
+    "vitest": "^3.0.4"
+  }
+}

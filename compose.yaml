@@ -1,0 +1,30 @@
+# Reproducible Docker development environment.
+#
+# Common commands:
+#   docker compose run --rm app npm ci
+#   docker compose run --rm app npm run format:check
+#   docker compose run --rm app npm run lint
+#   docker compose run --rm app npm run test
+#   docker compose run --rm app npm run build
+#   docker compose up dev          # dev server on http://localhost:5173
+services:
+  app:
+    build: .
+    working_dir: /app
+    volumes:
+      # Bind-mount the project for live editing; keep node_modules in a named
+      # volume so Linux binaries never land in the host working tree.
+      - .:/app
+      - node_modules:/app/node_modules
+  dev:
+    build: .
+    working_dir: /app
+    command: npm run dev -- --host 0.0.0.0
+    ports:
+      - '5173:5173'
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+
+volumes:
+  node_modules:

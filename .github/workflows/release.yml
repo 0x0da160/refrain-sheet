@@ -1,0 +1,133 @@
+name: Release
+
+# Releases are created ONLY when a version tag (v<major>.<minor>.<patch>) is
+# pushed. Normal pushes and pull requests never create releases (see ci.yml).
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # The release job alone gets write access, and only to repository contents.
+    permissions:
+      contents: write
+    steps:
+      - name: Validate tag format
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Tag '$TAG' does not match v<major>.<minor>.<patch>" >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Package release ZIP
+        id: package
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          SHORT_HASH="$(git rev-parse --short HEAD)"
+          ZIP_NAME="refrain-csv-html-v${VERSION}-${SHORT_HASH}.zip"
+          STAGE="refrain-csv-html-v${VERSION}"
+          mkdir -p "stage/${STAGE}"
+          cp -r dist/* "stage/${STAGE}/"
+          cp README.md LICENSE THIRD-PARTY-NOTICES.md "stage/${STAGE}/"
+          (cd stage && zip -r "../${ZIP_NAME}" "${STAGE}")
+          sha256sum "${ZIP_NAME}" > "${ZIP_NAME}.sha256"
+          cat "${ZIP_NAME}.sha256"
+          {
+            echo "zip_name=${ZIP_NAME}"
+            echo "version=${VERSION}"
+            echo "short_hash=${SHORT_HASH}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write release notes
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+          SHORT_HASH: ${{ steps.package.outputs.short_hash }}
+          ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<EOF
+          # Refrain CSV HTML v${VERSION}
+
+          A CSV editor that runs directly from a local HTML file.
+          （ローカルHTMLをブラウザで直接開いて使える、書式保持CSVエディタです。）
+
+          - Version: ${VERSION}
+          - Commit: ${SHORT_HASH}
+
+          ## Verify the download
+
+          \`\`\`sh
+          sha256sum -c ${ZIP_NAME}.sha256
+          \`\`\`
+
+          ## How to use
+
+          1. Download and extract \`${ZIP_NAME}\`.
+          2. Open \`index.html\` directly in a browser (double-click, or
+             drag it onto a browser window). No installation, server, or
+             network connection is required — everything runs offline.
+          3. Open CSV files via File > Open or drag & drop, edit cell
+             values, and save.
+
+          ## Save limitations under file:// and browser permissions
+
+          - In Chromium-based browsers, files opened through the file picker
+            can usually be overwritten in place (File System Access API).
+            The browser asks for write permission first.
+          - Where the API is unavailable (Firefox, Safari, some file://
+            contexts) or permission is denied, saving falls back to a
+            **download**: the browser chooses the download location and the
+            original file is NOT overwritten. The app tells you which kind
+            of save happened.
+          EOF
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${ZIP_NAME}" "${ZIP_NAME}.sha256" \
+              --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --notes-file release-notes.md
+          else
+            gh release create "$TAG" "${ZIP_NAME}" "${ZIP_NAME}.sha256" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Refrain CSV HTML ${TAG}" \
+              --notes-file release-notes.md
+          fi

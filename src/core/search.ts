@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: MIT
+import type { LosslessDocument } from './lossless-document';
+
+export interface SearchQuery {
+  text: string;
+  matchCase: boolean;
+  regex: boolean;
+}
+
+/**
+ * JavaScript's RegExp engine can backtrack catastrophically, so searches are
+ * guarded by a pattern-length limit and a wall-clock budget checked while
+ * scanning cells. When the budget is exceeded the search stops and reports
+ * partial results instead of freezing the application.
+ */
+export const MAX_PATTERN_LENGTH = 1024;
+export const SEARCH_TIME_BUDGET_MS = 2000;
+
+export type CompiledQuery =
+  | { ok: true; kind: 'text'; needle: string; matchCase: boolean }
+  | { ok: true; kind: 'regex'; pattern: RegExp }
+  | { ok: false; error: string };
+
+export function compileQuery(query: SearchQuery): CompiledQuery {
+  if (query.text.length === 0) {
+    return { ok: false, error: 'empty' };
+  }
+  if (query.text.length > MAX_PATTERN_LENGTH) {
+    return { ok: false, error: `pattern longer than ${MAX_PATTERN_LENGTH} characters` };
+  }
+  if (!query.regex) {
+    return { ok: true, kind: 'text', needle: query.text, matchCase: query.matchCase };
+  }
+  try {
+    return { ok: true, kind: 'regex', pattern: new RegExp(query.text, query.matchCase ? 'g' : 'gi') };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Count matches of a compiled query inside one cell value. */
+export function countMatchesInValue(value: string, query: CompiledQuery): number {
+  if (!query.ok) {
+    return 0;
+  }
+  if (query.kind === 'text') {
+    const haystack = query.matchCase ? value : value.toLowerCase();
+    const needle = query.matchCase ? query.needle : query.needle.toLowerCase();
+    let count = 0;
+    let from = 0;
+    for (;;) {
+      const idx = haystack.indexOf(needle, from);
+      if (idx < 0) break;
+      count += 1;
+      from = idx + needle.length;
+    }
+    return count;
+  }
+  const pattern = query.pattern;
+  pattern.lastIndex = 0;
+  let count = 0;
+  for (;;) {
+    const m = pattern.exec(value);
+    if (!m) break;
+    count += 1;
+    if (m[0].length === 0) {
+      pattern.lastIndex += 1;
+      if (pattern.lastIndex > value.length) break;
+    }
+  }
+  return count;
+}
+
+export interface CellMatch {
+  row: number;
+  col: number;
+  count: number;
+}
+
+export interface SearchResult {
+  cells: CellMatch[];
+  matchCount: number;
+  cellCount: number;
+  aborted: boolean;
+}
+
+/** Search the current (edited or original) values of every cell. */
+export function searchDocument(
+  doc: LosslessDocument,
+  query: CompiledQuery,
+  timeBudgetMs: number = SEARCH_TIME_BUDGET_MS,
+): SearchResult {
+  const cells: CellMatch[] = [];
+  let matchCount = 0;
+  let aborted = false;
+  if (!query.ok) {
+    return { cells, matchCount: 0, cellCount: 0, aborted: false };
+  }
+  const started = Date.now();
+  let sinceCheck = 0;
+  outer: for (let r = 0; r < doc.records.length; r++) {
+    const fieldCount = doc.records[r].fields.length;
+    for (let c = 0; c < fieldCount; c++) {
+      const count = countMatchesInValue(doc.getValue(r, c), query);
+      if (count > 0) {
+        cells.push({ row: r, col: c, count });
+        matchCount += count;
+      }
+      sinceCheck += 1;
+      if (sinceCheck >= 256) {
+        sinceCheck = 0;
+        if (Date.now() - started > timeBudgetMs) {
+          aborted = true;
+          break outer;
+        }
+      }
+    }
+  }
+  return { cells, matchCount, cellCount: cells.length, aborted };
+}
+
+/**
+ * Expand a replacement template against a regex match.
+ * Supports `$$` (literal `$`), `$&` (whole match), `$1`–`$9`, and `${name}`.
+ * References to groups that do not exist are kept literally.
+ */
+export function expandTemplate(template: string, match: RegExpExecArray): string {
+  let out = '';
+  for (let i = 0; i < template.length; i++) {
+    const ch = template[i];
+    if (ch !== '$' || i + 1 >= template.length) {
+      out += ch;
+      continue;
+    }
+    const next = template[i + 1];
+    if (next === '$') {
+      out += '$';
+      i += 1;
+    } else if (next === '&') {
+      out += match[0];
+      i += 1;
+    } else if (next >= '1' && next <= '9') {
+      const n = next.charCodeAt(0) - 0x30;
+      if (n < match.length) {
+        out += match[n] ?? '';
+        i += 1;
+      } else {
+        out += ch;
+      }
+    } else if (next === '{') {
+      const close = template.indexOf('}', i + 2);
+      const name = close > i + 2 ? template.slice(i + 2, close) : null;
+      if (name && match.groups && Object.prototype.hasOwnProperty.call(match.groups, name)) {
+        out += match.groups[name] ?? '';
+        i = close;
+      } else {
+        out += ch;
+      }
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+export interface ReplaceValueResult {
+  value: string;
+  count: number;
+}
+
+/** Replace every match inside one cell value. */
+export function replaceAllInValue(
+  value: string,
+  query: CompiledQuery,
+  replacement: string,
+): ReplaceValueResult {
+  if (!query.ok) {
+    return { value, count: 0 };
+  }
+  if (query.kind === 'text') {
+    const haystack = query.matchCase ? value : value.toLowerCase();
+    const needle = query.matchCase ? query.needle : query.needle.toLowerCase();
+    let out = '';
+    let from = 0;
+    let count = 0;
+    for (;;) {
+      const idx = haystack.indexOf(needle, from);
+      if (idx < 0) break;
+      out += value.slice(from, idx) + replacement;
+      from = idx + needle.length;
+      count += 1;
+    }
+    out += value.slice(from);
+    return { value: out, count };
+  }
+  const pattern = query.pattern;
+  pattern.lastIndex = 0;
+  let out = '';
+  let last = 0;
+  let count = 0;
+  for (;;) {
+    const m = pattern.exec(value);
+    if (!m) break;
+    out += value.slice(last, m.index) + expandTemplate(replacement, m);
+    last = m.index + m[0].length;
+    count += 1;
+    if (m[0].length === 0) {
+      pattern.lastIndex += 1;
+      if (pattern.lastIndex > value.length) break;
+    }
+  }
+  out += value.slice(last);
+  return { value: out, count };
+}

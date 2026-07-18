@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { getCsvEngine } from './csv-engine';
 
 /** The document surface search needs; satisfied by CSV and RCSV documents. */
 export interface SearchableDocument {
@@ -23,9 +24,17 @@ export const MAX_PATTERN_LENGTH = 1024;
 export const SEARCH_TIME_BUDGET_MS = 2000;
 
 export type CompiledQuery =
-  | { ok: true; kind: 'text'; needle: string; matchCase: boolean }
+  | { ok: true; kind: 'text'; needle: string; matchCase: boolean; needleBytes: Uint8Array }
   | { ok: true; kind: 'regex'; pattern: RegExp }
   | { ok: false; error: string };
+
+/**
+ * Values at least this many characters use the WASM byte-level literal counter
+ * (a single boundary crossing pays off); shorter cells stay in JS `indexOf` so
+ * the marshalling cost never dominates. Only the case-sensitive literal path
+ * qualifies — case folding and regex stay in JS for Unicode correctness.
+ */
+export const LITERAL_WASM_THRESHOLD = 256;
 
 export function compileQuery(query: SearchQuery): CompiledQuery {
   if (query.text.length === 0) {
@@ -35,7 +44,13 @@ export function compileQuery(query: SearchQuery): CompiledQuery {
     return { ok: false, error: `pattern longer than ${MAX_PATTERN_LENGTH} characters` };
   }
   if (!query.regex) {
-    return { ok: true, kind: 'text', needle: query.text, matchCase: query.matchCase };
+    return {
+      ok: true,
+      kind: 'text',
+      needle: query.text,
+      matchCase: query.matchCase,
+      needleBytes: new TextEncoder().encode(query.text),
+    };
   }
   try {
     return { ok: true, kind: 'regex', pattern: new RegExp(query.text, query.matchCase ? 'g' : 'gi') };
@@ -50,6 +65,12 @@ export function countMatchesInValue(value: string, query: CompiledQuery): number
     return 0;
   }
   if (query.kind === 'text') {
+    // Long case-sensitive cells: byte-level count in WASM (parity-exact with
+    // the JS indexOf loop, since substring occurrence counts are the same in
+    // UTF-8 bytes and UTF-16 code units).
+    if (query.matchCase && value.length >= LITERAL_WASM_THRESHOLD) {
+      return getCsvEngine().countLiteral(new TextEncoder().encode(value), query.needleBytes);
+    }
     const haystack = query.matchCase ? value : value.toLowerCase();
     const needle = query.matchCase ? query.needle : query.needle.toLowerCase();
     let count = 0;

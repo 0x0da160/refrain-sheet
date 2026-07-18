@@ -2,9 +2,14 @@
 import { detectDelimiterJs, parseCsvIndexJs, type DelimiterId, type ParsedIndex } from './byte-csv-parser';
 import initWasm, {
   applyReplacements as wasmApplyReplacements,
+  countLiteral as wasmCountLiteral,
   parseCsv as wasmParseCsv,
   planReplacements as wasmPlanReplacements,
+  rcsvCrc32 as wasmCrc32,
+  rcsvDeflate as wasmDeflate,
+  rcsvInflate as wasmInflate,
   sniffDelimiter as wasmSniffDelimiter,
+  statsAggregate as wasmStatsAggregate,
 } from '../wasm-gen/refrain_csv_core';
 import { WASM_BASE64 } from '../wasm-gen/wasm-payload';
 
@@ -39,6 +44,97 @@ export interface CsvEngine {
     payload: Uint8Array,
     payloadLens: Uint32Array,
   ): Uint8Array;
+  /**
+   * Reduce finite numbers (in cell order) to `[sum, min, max]` for selection
+   * statistics. The summation order matches the JS fallback exactly.
+   */
+  statsAggregate(values: Float64Array): { sum: number; min: number; max: number };
+  /** Count non-overlapping occurrences of a literal needle in a haystack. */
+  countLiteral(haystack: Uint8Array, needle: Uint8Array): number;
+}
+
+/** Compression methods recorded in the binary `.rcsv` container header. */
+export const RCSV_COMPRESSION_STORE = 0;
+export const RCSV_COMPRESSION_DEFLATE = 1;
+
+/**
+ * Compression + checksum primitives for the binary `.rcsv` container. The
+ * WASM-backed codec compresses with DEFLATE (implemented in Rust); the JS
+ * fallback stores payloads uncompressed. Both can read the "store" method, so
+ * a document written under the JS fallback always round-trips; reading a
+ * DEFLATE-compressed container requires the WASM engine.
+ */
+export interface RcsvCodec {
+  /** Compression method this codec writes: STORE or DEFLATE. */
+  readonly writeMethod: number;
+  /** Compress the body; returns [method, payload]. */
+  compress(body: Uint8Array): { method: number; payload: Uint8Array };
+  /**
+   * Decompress `payload` (encoded with `method`) to exactly `expectedLen`
+   * bytes. Bounded by `expectedLen` as a decompression-bomb guard. Returns
+   * null on corruption, length mismatch, or an unsupported method.
+   */
+  decompress(payload: Uint8Array, method: number, expectedLen: number): Uint8Array | null;
+  /** CRC-32 (IEEE) of the uncompressed body. */
+  crc32(bytes: Uint8Array): number;
+}
+
+let crcTable: Uint32Array | null = null;
+function crc32Js(bytes: Uint8Array): number {
+  if (!crcTable) {
+    crcTable = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) {
+        c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      }
+      crcTable[n] = c >>> 0;
+    }
+  }
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) {
+    crc = (crc >>> 8) ^ crcTable[(crc ^ bytes[i]) & 0xff];
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+const jsCodec: RcsvCodec = {
+  writeMethod: RCSV_COMPRESSION_STORE,
+  compress(body) {
+    return { method: RCSV_COMPRESSION_STORE, payload: body };
+  },
+  decompress(payload, method, expectedLen) {
+    if (method !== RCSV_COMPRESSION_STORE) {
+      return null; // DEFLATE requires the WASM engine
+    }
+    return payload.length === expectedLen ? payload : null;
+  },
+  crc32: crc32Js,
+};
+
+const wasmCodec: RcsvCodec = {
+  writeMethod: RCSV_COMPRESSION_DEFLATE,
+  compress(body) {
+    return { method: RCSV_COMPRESSION_DEFLATE, payload: wasmDeflate(body) };
+  },
+  decompress(payload, method, expectedLen) {
+    if (method === RCSV_COMPRESSION_STORE) {
+      return payload.length === expectedLen ? payload : null;
+    }
+    if (method !== RCSV_COMPRESSION_DEFLATE) {
+      return null;
+    }
+    const out = wasmInflate(payload, expectedLen);
+    return out && out.length === expectedLen ? out : null;
+  },
+  crc32(bytes) {
+    return wasmCrc32(bytes) >>> 0;
+  },
+};
+
+/** The active compression codec (WASM when available, else the JS store codec). */
+export function getRcsvCodec(): RcsvCodec {
+  return activeEngine.name === 'wasm' ? wasmCodec : jsCodec;
 }
 
 const DELIMITER_BY_BYTE: Record<number, DelimiterId> = { 0x2c: ',', 0x3b: ';', 0x09: '\t' };
@@ -94,6 +190,44 @@ function applyPlan(plan: Uint32Array, bytes: Uint8Array, payload: Uint8Array): U
   return out;
 }
 
+/** JS reduction of finite numbers to sum/min/max (mirrors wasm/src/ops.rs). */
+export function statsAggregateJs(values: Float64Array): { sum: number; min: number; max: number } {
+  if (values.length === 0) {
+    return { sum: 0, min: 0, max: 0 };
+  }
+  let sum = 0;
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    sum += v;
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  return { sum, min, max };
+}
+
+/** JS non-overlapping literal byte-count (mirrors wasm/src/ops.rs). */
+export function countLiteralJs(haystack: Uint8Array, needle: Uint8Array): number {
+  const n = needle.length;
+  if (n === 0 || n > haystack.length) {
+    return 0;
+  }
+  let count = 0;
+  let i = 0;
+  outer: while (i + n <= haystack.length) {
+    for (let j = 0; j < n; j++) {
+      if (haystack[i + j] !== needle[j]) {
+        i += 1;
+        continue outer;
+      }
+    }
+    count += 1;
+    i += n;
+  }
+  return count;
+}
+
 const jsEngine: CsvEngine = {
   name: 'js',
   sniffDelimiter: detectDelimiterJs,
@@ -102,6 +236,8 @@ const jsEngine: CsvEngine = {
   applyReplacements(bytes, ranges, payload, payloadLens) {
     return applyPlan(planReplacementsJs(bytes.length, ranges, payloadLens), bytes, payload);
   },
+  statsAggregate: statsAggregateJs,
+  countLiteral: countLiteralJs,
 };
 
 const wasmEngine: CsvEngine = {
@@ -129,6 +265,13 @@ const wasmEngine: CsvEngine = {
   },
   applyReplacements(bytes, ranges, payload, payloadLens) {
     return wasmApplyReplacements(bytes, ranges, payload, payloadLens);
+  },
+  statsAggregate(values) {
+    const [sum, min, max] = wasmStatsAggregate(values);
+    return { sum, min, max };
+  },
+  countLiteral(haystack, needle) {
+    return wasmCountLiteral(haystack, needle);
   },
 };
 

@@ -6,7 +6,9 @@
 //! once per parse), and serialization is expressed as byte-range replacement
 //! plans over the original bytes so unmodified regions stay byte-identical.
 
+pub mod compress;
 pub mod csv;
+pub mod ops;
 
 use wasm_bindgen::prelude::*;
 
@@ -87,4 +89,40 @@ pub fn plan_replacements(bytes_len: u32, ranges: &[u32], payload_lens: &[u32]) -
 #[wasm_bindgen(js_name = applyReplacements)]
 pub fn apply_replacements(bytes: &[u8], ranges: &[u32], payload: &[u8], payload_lens: &[u32]) -> Vec<u8> {
     csv::apply_replacements(bytes, ranges, payload, payload_lens)
+}
+
+// ----- Binary .rcsv container primitives (see compress.rs) -----
+
+/// Raw DEFLATE compression for the `.rcsv` container payload.
+#[wasm_bindgen(js_name = rcsvDeflate)]
+pub fn rcsv_deflate(bytes: &[u8]) -> Vec<u8> {
+    compress::deflate(bytes)
+}
+
+/// Raw DEFLATE decompression, bounded by `max_len` output bytes (a
+/// decompression-bomb guard). Returns an empty array on failure; the caller
+/// distinguishes "empty payload" via the container's stored length.
+#[wasm_bindgen(js_name = rcsvInflate)]
+pub fn rcsv_inflate(bytes: &[u8], max_len: u32) -> Option<Vec<u8>> {
+    compress::inflate(bytes, max_len as usize)
+}
+
+/// CRC-32 (IEEE) checksum of the container's uncompressed body.
+#[wasm_bindgen(js_name = rcsvCrc32)]
+pub fn rcsv_crc32(bytes: &[u8]) -> u32 {
+    compress::crc32(bytes)
+}
+
+// ----- Selection statistics and literal search (see ops.rs) -----
+
+/// Reduce finite numbers to `[sum, min, max]` for selection statistics.
+#[wasm_bindgen(js_name = statsAggregate)]
+pub fn stats_aggregate(values: &[f64]) -> Vec<f64> {
+    ops::aggregate(values).to_vec()
+}
+
+/// Count non-overlapping occurrences of `needle` in `haystack` (literal search).
+#[wasm_bindgen(js_name = countLiteral)]
+pub fn count_literal(haystack: &[u8], needle: &[u8]) -> u32 {
+    ops::count_literal(haystack, needle)
 }

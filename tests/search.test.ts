@@ -34,6 +34,15 @@ describe('normal search', () => {
     expect(countMatchesInValue('Apple APPLE apple', q('apple', { matchCase: true }))).toBe(1);
   });
 
+  it('counts correctly in long values (WASM byte-count threshold path)', () => {
+    // Longer than LITERAL_WASM_THRESHOLD (256) so the byte-level counter runs.
+    const value = 'xy'.repeat(200) + 'needle' + 'zz'.repeat(200) + 'needle';
+    expect(value.length).toBeGreaterThan(256);
+    expect(countMatchesInValue(value, q('needle', { matchCase: true }))).toBe(2);
+    // Overlapping needle counts non-overlapping in long values too.
+    expect(countMatchesInValue('a'.repeat(300), q('aa', { matchCase: true }))).toBe(150);
+  });
+
   it('searches current (edited) values', () => {
     const d = doc('a,b\n');
     d.setValue(0, 1, 'needle');

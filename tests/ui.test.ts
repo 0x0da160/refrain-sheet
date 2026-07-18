@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { fileSystemAccessAvailable, saveBytes } from '../src/app/file-access';
+import { FormulaBar } from '../src/ui/formula-bar';
 import { Grid } from '../src/ui/grid';
 import { StatusBar } from '../src/ui/status-bar';
 import { TabBar } from '../src/ui/tab-bar';
@@ -27,6 +28,7 @@ const noopUi: UiPort = {
   findNext: () => undefined,
   showAbout: () => undefined,
   chooseSettings: async () => null,
+  setBusy: () => undefined,
 };
 
 function setup() {
@@ -105,6 +107,76 @@ describe('status bar', () => {
     expect(text).toContain('CRLF');
     expect(text).toContain('Comma');
     expect(text).toContain('10');
+  });
+});
+
+describe('formula bar autocomplete and pointer references', () => {
+  function formulaSetup() {
+    const { state, commands, grid } = setup();
+    const tab = state.addTab('sheet.csv', doc('a,b,c\n1,2,3\n4,5,6\n'), null);
+    state.convertToRcsv(tab);
+    const bar = new FormulaBar(state, commands, () => undefined);
+    document.body.append(bar.element);
+    grid.refresh();
+    const textarea = bar.element.querySelector('textarea')!;
+    return { state, commands, grid, tab, bar, textarea };
+  }
+
+  it('registers itself as the formula reference target', () => {
+    const { state, bar } = formulaSetup();
+    expect(state.formulaRefTarget).toBe(bar);
+  });
+
+  it('shows function completions while typing a formula', () => {
+    const { textarea, bar } = formulaSetup();
+    textarea.value = '=SU';
+    textarea.setSelectionRange(3, 3);
+    textarea.dispatchEvent(new Event('input'));
+    const popup = bar.element.querySelector('.formula-autocomplete')!;
+    expect(popup.hasAttribute('hidden')).toBe(false);
+    expect(popup.textContent).toContain('SUM(value, …)');
+    expect(textarea.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('hides completions for a non-formula value', () => {
+    const { textarea, bar } = formulaSetup();
+    textarea.value = 'plain';
+    textarea.setSelectionRange(5, 5);
+    textarea.dispatchEvent(new Event('input'));
+    expect(bar.element.querySelector('.formula-autocomplete')!.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('captures pointer references only while editing a formula', () => {
+    const { textarea, bar } = formulaSetup();
+    textarea.value = 'text';
+    textarea.focus();
+    expect(bar.isCapturing()).toBe(false);
+    textarea.value = '=';
+    expect(bar.isCapturing()).toBe(true);
+  });
+
+  it('inserts a single cell reference then a range as one span', () => {
+    const { textarea, bar } = formulaSetup();
+    textarea.value = '=';
+    textarea.setSelectionRange(1, 1);
+    textarea.focus();
+    bar.beginRef();
+    bar.setRef('A1');
+    expect(textarea.value).toBe('=A1');
+    // A drag rewrites the same span rather than appending.
+    bar.setRef('A1:B2');
+    expect(textarea.value).toBe('=A1:B2');
+    bar.endRef();
+  });
+
+  it('inserts a cell reference on grid mousedown during formula entry', () => {
+    const { textarea, grid } = formulaSetup();
+    textarea.value = '=';
+    textarea.setSelectionRange(1, 1);
+    textarea.focus();
+    const cell = grid.element.querySelector<HTMLElement>('[data-row="1"][data-col="1"]')!;
+    cell.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true }));
+    expect(textarea.value).toBe('=B2');
   });
 });
 

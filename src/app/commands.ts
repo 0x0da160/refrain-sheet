@@ -58,6 +58,11 @@ export interface UiPort {
   showAbout(): void;
   /** Edit local settings; returns the chosen maximum file size in bytes, or null when cancelled. */
   chooseSettings(currentMaxFileSize: number): Promise<number | null>;
+  /**
+   * Show or hide the busy/loading indicator. `label` is already-localized
+   * text describing the current operation; `null` hides the indicator.
+   */
+  setBusy(label: string | null): void;
 }
 
 export type CommandId =
@@ -251,6 +256,35 @@ export class Commands {
     }
   }
 
+  /**
+   * Yield to the browser so a just-shown busy indicator actually paints
+   * before a synchronous, CPU-heavy step (parsing, serializing) blocks the
+   * main thread. Two animation frames guarantee a paint has occurred; falls
+   * back to a macrotask where rAF is unavailable (tests, workers).
+   */
+  private nextPaint(): Promise<void> {
+    const raf = (globalThis as { requestAnimationFrame?: (cb: () => void) => void }).requestAnimationFrame;
+    if (typeof raf === 'function') {
+      return new Promise((resolve) => raf(() => raf(() => resolve())));
+    }
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  /**
+   * Run a heavy operation behind the busy indicator. The label is shown, the
+   * UI is given a chance to paint it, the work runs, and the indicator is
+   * always cleared afterwards (even on error).
+   */
+  private async withBusy<T>(label: string, work: () => T | Promise<T>): Promise<T> {
+    this.ui.setBusy(label);
+    await this.nextPaint();
+    try {
+      return await work();
+    } finally {
+      this.ui.setBusy(null);
+    }
+  }
+
   /** Open picked or dropped files. Every entry point (menu, shortcut, drop) funnels through here. */
   async openFiles(files: OpenedFile[], opts: { confirmNonCsv: boolean }): Promise<void> {
     for (const file of files) {
@@ -336,7 +370,9 @@ export class Commands {
 
     let doc: LosslessDocument;
     try {
-      doc = LosslessDocument.fromBytes(file.bytes);
+      doc = await this.withBusy(t('loading.opening', { name: file.name }), () =>
+        LosslessDocument.fromBytes(file.bytes),
+      );
     } catch (err) {
       this.ui.notify(
         t('notify.openFailed', { name: file.name, error: err instanceof Error ? err.message : String(err) }),
@@ -356,14 +392,16 @@ export class Commands {
   }
 
   private async openRcsvFile(file: OpenedFile): Promise<void> {
-    const result = RcsvDocument.fromBytes(file.bytes, file.name);
+    const result = await this.withBusy(t('loading.opening', { name: file.name }), () =>
+      RcsvDocument.fromBytes(file.bytes, file.name),
+    );
     if (!result.ok) {
       const reasonKey: Record<RcsvParseError, string> = {
-        'not-json': 'dialog.rcsvInvalid.notJson',
-        'not-utf8': 'dialog.rcsvInvalid.notUtf8',
-        'bad-format': 'dialog.rcsvInvalid.badFormat',
+        'bad-magic': 'dialog.rcsvInvalid.badMagic',
         'bad-version': 'dialog.rcsvInvalid.badVersion',
         'bad-shape': 'dialog.rcsvInvalid.badShape',
+        checksum: 'dialog.rcsvInvalid.checksum',
+        'unsupported-compression': 'dialog.rcsvInvalid.compression',
         'too-large': 'dialog.rcsvInvalid.tooLarge',
       };
       await this.ui.showMessage(

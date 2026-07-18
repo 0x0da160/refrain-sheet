@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { getCsvEngine } from './csv-engine';
 /**
  * Selection statistics over a rectangular grid range.
  *
@@ -70,10 +71,10 @@ export function computeSelectionStats(
 ): SelectionStats {
   let count = 0;
   let nonEmpty = 0;
-  let numeric = 0;
-  let sum = 0;
-  let min = Infinity;
-  let max = -Infinity;
+  // Collect finite numbers in cell order; the numeric reduction (sum/min/max)
+  // runs in the WASM engine (with an order-identical JS fallback). Parsing
+  // stays here so JS `Number()` semantics remain the single source of truth.
+  const numbers: number[] = [];
   for (let r = selrange.top; r <= selrange.bottom; r++) {
     const lastField = fieldCount ? fieldCount(r) - 1 : selrange.right;
     for (let c = selrange.left; c <= selrange.right; c++) {
@@ -87,13 +88,12 @@ export function computeSelectionStats(
       }
       const n = numericCellValue(display);
       if (n !== null) {
-        numeric += 1;
-        sum += n;
-        if (n < min) min = n;
-        if (n > max) max = n;
+        numbers.push(n);
       }
     }
   }
+  const numeric = numbers.length;
+  const { sum, min, max } = getCsvEngine().statsAggregate(Float64Array.from(numbers));
   return {
     count,
     nonEmpty,

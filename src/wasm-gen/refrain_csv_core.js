@@ -121,6 +121,101 @@ export function applyReplacements(bytes, ranges, payload, payload_lens) {
     return v5;
 }
 
+/**
+ * Raw DEFLATE compression for the `.rcsv` container payload.
+ * @param {Uint8Array} bytes
+ * @returns {Uint8Array}
+ */
+export function rcsvDeflate(bytes) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rcsvDeflate(ptr0, len0);
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
+ * Raw DEFLATE decompression, bounded by `max_len` output bytes (a
+ * decompression-bomb guard). Returns an empty array on failure; the caller
+ * distinguishes "empty payload" via the container's stored length.
+ * @param {Uint8Array} bytes
+ * @param {number} max_len
+ * @returns {Uint8Array | undefined}
+ */
+export function rcsvInflate(bytes, max_len) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rcsvInflate(ptr0, len0, max_len);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
+ * CRC-32 (IEEE) checksum of the container's uncompressed body.
+ * @param {Uint8Array} bytes
+ * @returns {number}
+ */
+export function rcsvCrc32(bytes) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rcsvCrc32(ptr0, len0);
+    return ret >>> 0;
+}
+
+let cachedFloat64ArrayMemory0 = null;
+
+function getFloat64ArrayMemory0() {
+    if (cachedFloat64ArrayMemory0 === null || cachedFloat64ArrayMemory0.byteLength === 0) {
+        cachedFloat64ArrayMemory0 = new Float64Array(wasm.memory.buffer);
+    }
+    return cachedFloat64ArrayMemory0;
+}
+
+function passArrayF64ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 8, 8) >>> 0;
+    getFloat64ArrayMemory0().set(arg, ptr / 8);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function getArrayF64FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getFloat64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
+}
+/**
+ * Reduce finite numbers to `[sum, min, max]` for selection statistics.
+ * @param {Float64Array} values
+ * @returns {Float64Array}
+ */
+export function statsAggregate(values) {
+    const ptr0 = passArrayF64ToWasm0(values, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.statsAggregate(ptr0, len0);
+    var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v2;
+}
+
+/**
+ * Count non-overlapping occurrences of `needle` in `haystack` (literal search).
+ * @param {Uint8Array} haystack
+ * @param {Uint8Array} needle
+ * @returns {number}
+ */
+export function countLiteral(haystack, needle) {
+    const ptr0 = passArray8ToWasm0(haystack, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(needle, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.countLiteral(ptr0, len0, ptr1, len1);
+    return ret >>> 0;
+}
+
 const ParseIndexFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_parseindex_free(ptr >>> 0, 1));
@@ -271,6 +366,7 @@ function __wbg_init_memory(imports, memory) {
 function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     __wbg_init.__wbindgen_wasm_module = module;
+    cachedFloat64ArrayMemory0 = null;
     cachedUint32ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;
 

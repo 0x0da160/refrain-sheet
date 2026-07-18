@@ -11,6 +11,7 @@ import { el } from './ui/dom';
 import { FindBar } from './ui/find-bar';
 import { FormulaBar } from './ui/formula-bar';
 import { Grid } from './ui/grid';
+import { LoadingOverlay } from './ui/loading-overlay';
 import { MenuBar } from './ui/menu-bar';
 import { StatusBar } from './ui/status-bar';
 import { TabBar } from './ui/tab-bar';
@@ -27,6 +28,7 @@ async function bootstrap(): Promise<void> {
   const state = new AppState();
   const dialogs = new Dialogs();
   const toasts = new Toasts();
+  const loadingOverlay = new LoadingOverlay();
 
   // The UI port is late-bound so the command layer can drive the find bar,
   // which itself needs the command layer for Replace All.
@@ -48,6 +50,7 @@ async function bootstrap(): Promise<void> {
     findNext: (direction) => findBar.next(direction),
     showAbout: () => void dialogs.showAbout(),
     chooseSettings: (current) => dialogs.chooseSettings(current),
+    setBusy: (label) => loadingOverlay.set(label),
   };
 
   const commands = new Commands(state, ui, document);
@@ -97,7 +100,7 @@ async function bootstrap(): Promise<void> {
   const dropOverlay = el('div', { className: 'drop-overlay', attrs: { 'aria-hidden': 'true' } }, [
     dropMessage,
   ]);
-  document.body.append(dropOverlay, toasts.element);
+  document.body.append(dropOverlay, loadingOverlay.element, toasts.element);
 
   const refreshAll = (selectionChanged: boolean) => {
     app.classList.toggle('wrap-cells', state.wrapCells);

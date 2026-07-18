@@ -242,6 +242,94 @@ with focus trapping, ARIA labels are provided throughout, and the UI uses a
 high-contrast system font stack that renders Japanese text clearly — no
 external fonts are loaded.
 
+## Spreadsheet mode (RCSV)
+
+Plain CSV cannot hold formulas, structural editing intent, or per-document
+metadata without breaking the byte-preservation guarantee. So those features
+live in a separate **spreadsheet document** saved as `.rcsv`. Converting a CSV
+is always explicit and never touches the original `.csv` on disk.
+
+### Converting a CSV to a spreadsheet
+
+Entering a formula, pasting a block that needs to grow the grid, inserting or
+deleting rows/columns, or using a fill converts the current tab to a
+spreadsheet — after a confirmation that explains the change. On conversion the
+tab is renamed to `.rcsv` and detached from the original file handle, so the
+source `.csv` can never be silently overwritten. **Sheet > Convert to
+Spreadsheet** does it up front; **Sheet > Export as CSV…** writes the computed
+values back out to CSV (a lossy export: formulas become their results).
+
+### Formulas
+
+- A cell whose input begins with `=` is a formula. The grid shows the computed
+  value; the formula bar shows the underlying expression.
+- Supported functions: **SUM, AVERAGE, MIN, MAX, COUNT, IF**. Operators
+  `+ - * / ^`, parentheses, comparisons, and numeric/string/boolean literals
+  are supported. The engine is a hand-written parser/evaluator — there is no
+  `eval` or `new Function`, and loading a document never executes anything.
+- References may be single cells (`A1`), rectangular ranges (`A1:B3`), and
+  **whole columns or rows** (`A:A`, `A:C`, `1:1`, `2:10`), bounded to the used
+  grid. Circular references resolve to `#CYCLE!` rather than hanging;
+  `#REF!`, `#DIV/0!`, `#NAME?`, and `#ERROR!` are reported per cell.
+- Inserting or deleting rows/columns rewrites references in the whole sheet as
+  one atomic, undoable operation.
+
+### Formula autocomplete and pointer references
+
+- While typing a formula, a function-name **autocomplete popup** lists matching
+  functions with their signatures and localized descriptions. Arrow keys move
+  the highlight; **Enter** or **Tab** inserts the function; **Esc** dismisses.
+- With the formula bar focused, **clicking or dragging cells in the grid**
+  inserts their reference (`A1` or `A1:B3`) at the caret instead of moving the
+  selection — the reference updates live as you drag.
+
+### Fill handle, drag-copy, and Fill Down
+
+- The selection's bottom-right corner has a **fill handle**; drag it down or
+  right to copy the selected block, tiling its pattern and adjusting relative
+  references. **Ctrl+D / Cmd+D** (Fill Down) fills the selection from its top
+  row. Each fill is one atomic undo step.
+
+### Resizable columns and auto-fit
+
+- Drag a column-header boundary to resize; **double-click** it to auto-fit to
+  the visible content. Widths are per-document for the session; plain CSV bytes
+  are never mutated by resizing, and spreadsheet documents persist widths in
+  their container.
+
+### Selection statistics
+
+- Selecting more than one cell shows **count, non-empty, numeric, sum,
+  average, min, and max** in the status bar. A cell contributes to the numeric
+  aggregates only when its displayed value trims to a finite number; blanks,
+  text, booleans, error codes, and non-finite values are ignored.
+
+### The `.rcsv` file format
+
+`.rcsv` is a compact, versioned **binary container**: magic bytes, a header
+with an uncompressed-length field and a CRC-32 checksum, and a
+DEFLATE-compressed body. It holds inert data only (no code, macros, external
+references, or URLs); loading validates magic, version, checksum, shape, and
+size bounds, and enforces a decompression ceiling so a crafted file cannot
+exhaust memory. The full specification is in
+[docs/rcsv-format.md](docs/rcsv-format.md).
+
+## Performance
+
+- The performance-critical byte-level work — CSV parsing, validation,
+  delimiter sniffing, indexing, serialization planning, `.rcsv` DEFLATE
+  compression and CRC-32, selection-statistic reduction, and long literal
+  searches — is implemented in **Rust compiled to WebAssembly**. The WASM
+  binary is embedded in the bundle as Base64 and instantiated locally; it is
+  **never fetched**, so the app still runs from `file://`. A TypeScript
+  fallback with byte-exact, parity-tested semantics runs where WebAssembly is
+  unavailable.
+- The grid is **virtualized**: only the visible rows and columns (plus a small
+  overscan) exist in the DOM, so files with hundreds of thousands of rows do
+  not materialize millions of cells.
+- Opening and parsing a large file shows an accessible, non-blocking **loading
+  indicator** (`role="status"`, `aria-busy`) while the UI stays responsive.
+
 ## Running via `file://`
 
 The build output is completely static and self-contained:
@@ -302,13 +390,20 @@ docker compose up dev                       # dev server on http://localhost:517
 
 ```text
 src/
-  core/   lossless document model, byte-level CSV parser, serializer,
-          encoding, validation, history, search — DOM-independent, unit-tested
-  app/    tabs & app state, command layer, file access, i18n
-  ui/     menu bar, toolbar, tabs, grid, formula bar, find bar, dialogs, status bar
-  locales/en.json, ja.json
-tests/    identity, fuzz/property-based, editing, encodings, save options,
-          validation, history, search, i18n, commands, UI (jsdom)
+  core/     lossless document model, byte-level CSV parser, serializer,
+            encoding, validation, history, search, formula engine, stats,
+            RCSV spreadsheet document + binary codec — DOM-independent, unit-tested
+  app/      tabs & app state, command layer, file access, settings, i18n
+  ui/       menu bar, toolbar, tabs, grid, formula bar, find bar, dialogs,
+            status bar, loading overlay
+  wasm-gen/ generated: embedded WASM (Base64) + wasm-bindgen glue
+  locales/  en.json, ja.json
+wasm/       Rust crate compiled to WebAssembly (CSV core, DEFLATE + CRC-32,
+            stats/search primitives)
+docs/       rcsv-format.md (binary .rcsv container specification)
+tests/      identity, fuzz/property-based, editing, encodings, save options,
+            validation, history, search, formulas, stats, spreadsheet,
+            RCSV binary codec, WASM/JS parity, i18n, commands, UI (jsdom)
 ```
 
 Menu actions, toolbar buttons, keyboard shortcuts, and drag & drop all pass
@@ -323,7 +418,13 @@ regions under edits, quoting/escaping rules, unrepresentable-character
 cancellation and NCR replacement, save options, validation diagnostics,
 tabs/dirty state, undo/redo atomicity, search/replace/regex/capture groups,
 invalid-regex handling, locale-key parity, XSS-safe rendering, and the save
-fallback logic.
+fallback logic. Spreadsheet coverage adds: the formula engine (functions,
+operators, whole-column/row ranges, cycle detection, error codes), function
+autocomplete and pointer-entered references, the fill handle / Fill Down,
+selection statistics, the binary `.rcsv` container (round-trip, magic/version,
+checksum, decompression bounds, store and DEFLATE paths), and byte-exact
+WASM/JS parity for parsing, serialization planning, stats reduction, and
+literal search.
 
 ## CI and releases
 
@@ -364,6 +465,13 @@ fallback logic.
 - Malformed CSV, huge inputs, undecodable bytes, and invalid regexes are
   handled without crashing; regex execution is bounded (pattern length limit
   and a time budget) to avoid catastrophic backtracking.
+- `.rcsv` files hold inert data only. Loading validates the magic bytes,
+  version, CRC-32 checksum, structure, and size bounds, and enforces a
+  decompression ceiling so a crafted (bomb) payload cannot exhaust memory.
+  Formulas are parsed and evaluated by a sandboxed engine, never executed.
+- The Rust/WebAssembly core is embedded in the bundle as Base64 and
+  instantiated from those bytes locally — it is never fetched from a URL,
+  server, or CDN.
 - The application makes **no network connections at runtime**: no CDN,
   external scripts/styles/fonts/images, APIs, analytics, or telemetry. The
   CSP sets `connect-src 'none'` and `default-src 'none'`.
@@ -380,8 +488,10 @@ spreadsheet software. The Save with Options dialog carries the same warning.
 
 ## Limitations
 
-- No row/column insertion or deletion, sorting, or filtering in this
-  version — only editing existing field values.
+- Plain CSV editing preserves bytes and offers no formulas or structural
+  changes; those require an explicit conversion to a `.rcsv` **spreadsheet
+  document** (see Spreadsheet mode). Sorting and filtering are not available in
+  this version.
 - The whole file is kept in memory, with a configurable safety limit
   (**512 MiB** by default, adjustable from 16 MiB to 2 GiB in Settings); larger
   files are refused with an explanation. Files in the hundreds of megabytes

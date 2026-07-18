@@ -248,13 +248,85 @@ describe('closing tabs', () => {
   });
 });
 
+describe('new document', () => {
+  it('opens a blank unsaved RCSV in a new active tab without touching others', async () => {
+    const { state, commands } = setup();
+    await commands.openFiles([opened('a.csv', utf8('x,y\n'))], { confirmNonCsv: false });
+    const csvTab = state.activeTab!;
+    await commands.run('file.new');
+    expect(state.tabs.length).toBe(2);
+    const tab = state.activeTab!;
+    expect(tab.id).not.toBe(csvTab.id);
+    expect(tab.doc.kind).toBe('rcsv');
+    expect(tab.name.endsWith('.rcsv')).toBe(true);
+    // New documents are unsaved until the first save.
+    expect(tab.doc.isDirty).toBe(true);
+    // The original CSV tab is untouched (undo-safe).
+    expect(csvTab.doc.kind).toBe('csv');
+    expect(csvTab.doc.isDirty).toBe(false);
+  });
+
+  it('gives successive new documents distinct default names', async () => {
+    const { state, commands } = setup();
+    await commands.run('file.new');
+    await commands.run('file.new');
+    expect(state.tabs.map((t) => t.name)).toEqual(['untitled.rcsv', 'untitled-2.rcsv']);
+  });
+});
+
+describe('convert to RCSV command', () => {
+  it('opens the converted sheet in a new tab and preserves the source CSV tab', async () => {
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    await commands.openFiles([opened('data.csv', utf8('a,b\n1,2\n'))], { confirmNonCsv: false });
+    const csvTab = state.activeTab!;
+    // An unsaved edit must be carried into the conversion (current state).
+    state.editCell(csvTab, 0, 0, 'X');
+    await commands.run('sheet.convert');
+
+    expect(ui.confirmConvert).toHaveBeenCalledWith('command', 'data.csv');
+    expect(state.tabs.length).toBe(2);
+    const rcsvTab = state.activeTab!;
+    expect(rcsvTab.id).not.toBe(csvTab.id);
+    expect(rcsvTab.doc.kind).toBe('rcsv');
+    expect(rcsvTab.name).toBe('data.rcsv');
+    expect(rcsvTab.doc.getValue(0, 0)).toBe('X');
+    expect(rcsvTab.doc.isDirty).toBe(true);
+    // Source CSV tab (and its edits) stay put.
+    expect(state.tabs[0].id).toBe(csvTab.id);
+    expect(csvTab.doc.kind).toBe('csv');
+    expect(csvTab.doc.getValue(0, 0)).toBe('X');
+    // The loading indicator was raised during conversion.
+    const busyLabels = (ui.setBusy as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+    expect(busyLabels.some((l) => typeof l === 'string' && l.length > 0)).toBe(true);
+    expect(busyLabels[busyLabels.length - 1]).toBeNull();
+  });
+
+  it('declining the confirmation leaves the CSV unchanged and opens no tab', async () => {
+    const ui = stubUi({ confirmConvert: vi.fn(async () => false) });
+    const { state, commands } = setup(ui);
+    await commands.openFiles([opened('data.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    await commands.run('sheet.convert');
+    expect(state.tabs.length).toBe(1);
+    expect(state.activeTab!.doc.kind).toBe('csv');
+  });
+
+  it('is enabled only for a not-yet-converted CSV document', async () => {
+    const { commands } = setup();
+    await commands.run('file.new');
+    expect(commands.isEnabled('sheet.convert')).toBe(false); // already RCSV
+    await commands.openFiles([opened('c.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    expect(commands.isEnabled('sheet.convert')).toBe(true);
+  });
+});
+
 describe('replace all', () => {
   it('is a single atomic undoable operation with counts', async () => {
     const { state, commands } = setup();
     await commands.openFiles([opened('a.csv', utf8('cat,catalog\ndog,cat\n'))], { confirmNonCsv: false });
     const tab = state.activeTab!;
     const query = compileQuery({ text: 'cat', matchCase: false, regex: false });
-    const result = commands.replaceAll(query, 'cow');
+    const result = await commands.replaceAll(query, 'cow');
     expect(result).toEqual({ count: 3, cells: 3 });
     expect(tab.doc.getValue(0, 1)).toBe('cowalog');
     state.undo(tab);
@@ -266,7 +338,7 @@ describe('replace all', () => {
     const { state, commands } = setup();
     await commands.openFiles([opened('a.csv', utf8('2026-07-16,2025-01-02\n'))], { confirmNonCsv: false });
     const query = compileQuery({ text: '(\\d{4})-(\\d{2})-(\\d{2})', matchCase: false, regex: true });
-    commands.replaceAll(query, '$3/$2/$1');
+    await commands.replaceAll(query, '$3/$2/$1');
     expect(state.activeTab!.doc.getValue(0, 0)).toBe('16/07/2026');
     expect(state.activeTab!.doc.getValue(0, 1)).toBe('02/01/2025');
   });

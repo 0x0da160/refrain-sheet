@@ -11,6 +11,7 @@ import {
   type ParseResult,
 } from './formula';
 import { decodeRcsv, encodeRcsv, type RcsvData, type RcsvDecodeError } from './rcsv-codec';
+import { APP_NAME, APP_VERSION } from '../app/version';
 import type { LosslessDocument } from './lossless-document';
 
 /**
@@ -27,6 +28,14 @@ import type { LosslessDocument } from './lossless-document';
  * executes anything.
  */
 export const RCSV_EXTENSION = '.rcsv';
+
+/**
+ * Default dimensions of a blank spreadsheet created by File > New: a small
+ * but usable grid (documented in the README). The virtualized grid keeps this
+ * cheap, and rows/columns can be inserted or deleted afterwards.
+ */
+export const NEW_DOC_ROWS = 100;
+export const NEW_DOC_COLS = 26;
 
 /** Failure reasons when loading a `.rcsv` container (see `rcsv-codec.ts`). */
 export type RcsvParseError = RcsvDecodeError;
@@ -92,6 +101,17 @@ export class RcsvDocument {
     return new RcsvDocument(name, ',', data, Math.max(1, cols));
   }
 
+  /**
+   * A blank spreadsheet for File > New. Identical to {@link empty} but marked
+   * unsaved from creation (there is no file on disk yet), so the tab shows a
+   * dirty indicator and closing it prompts to save.
+   */
+  static blank(name: string, rows = NEW_DOC_ROWS, cols = NEW_DOC_COLS): RcsvDocument {
+    const doc = RcsvDocument.empty(name, rows, cols);
+    doc.markUnsaved();
+    return doc;
+  }
+
   /** Parse and strictly validate binary `.rcsv` bytes. Never executes anything. */
   static fromBytes(bytes: Uint8Array, name: string): RcsvLoadResult {
     const decoded = decodeRcsv(bytes);
@@ -126,6 +146,9 @@ export class RcsvDocument {
       rowCount: this.data.length,
       columnCount: this.cols,
       cells,
+      // Record the creating/updating application (single source of truth).
+      appName: APP_NAME,
+      appVersion: APP_VERSION,
     };
     return encodeRcsv(payload);
   }
@@ -182,6 +205,16 @@ export class RcsvDocument {
 
   markSaved(): void {
     this.savedRevision = this.revision;
+  }
+
+  /**
+   * Mark the document as never-saved, so {@link isDirty} is true until the
+   * first successful save. Used for File > New and for a fresh in-memory
+   * CSV→RCSV conversion, neither of which yet exists on disk.
+   */
+  markUnsaved(): void {
+    // A sentinel that no real revision equals keeps the document dirty.
+    this.savedRevision = -1;
   }
 
   /** RCSV documents have no byte-level baseline; nothing is "edited vs original". */

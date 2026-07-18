@@ -58,7 +58,7 @@ export class FindBar {
     const prevBtn = button('find.prev', () => this.next(-1));
     const nextBtn = button('find.next', () => this.next(1));
     const replaceBtn = button('find.replaceOne', () => this.replaceCurrent());
-    const replaceAllBtn = button('find.replaceAll', () => this.replaceAll());
+    const replaceAllBtn = button('find.replaceAll', () => void this.replaceAll());
     const closeBtn = button('find.close', () => this.close());
 
     this.replaceRow = [
@@ -224,10 +224,10 @@ export class FindBar {
     this.next(1);
   }
 
-  private replaceAll(): void {
+  private async replaceAll(): Promise<void> {
     const query = this.compile();
     if (!query.ok) return;
-    const { count, cells } = this.commands.replaceAll(query, this.replaceInput.value);
+    const { count, cells } = await this.commands.replaceAll(query, this.replaceInput.value);
     this.countEl.textContent = t('find.replacedAll', { count, cells });
     this.result = null;
     this.current = -1;

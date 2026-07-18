@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-import type { AppState, Tab } from '../app/app-state';
+import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
 import { cellLabel, columnLabel } from '../core/formula';
 import { el, clearChildren } from './dom';
+import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 
 /** Fixed row/column metrics for virtualization (px). */
 export const ROW_HEIGHT = 26;
@@ -55,7 +56,14 @@ export class Grid {
 
   private lastDoc: unknown = null;
   private window: RenderWindow | null = null;
-  private editor: { row: number; col: number; input: HTMLInputElement } | null = null;
+  private editor: {
+    row: number;
+    col: number;
+    input: HTMLInputElement;
+    autocomplete: FormulaAutocomplete;
+    ref: FormulaFieldRef;
+    prevRefTarget: FormulaRefTarget | null;
+  } | null = null;
   private contextMenu: HTMLElement | null = null;
   private dragging = false;
   private scrollScheduled = false;
@@ -510,9 +518,12 @@ export class Grid {
       return;
     }
     // While a formula is being edited, clicking/dragging cells enters
-    // references into the formula instead of moving the grid selection.
+    // references into the formula instead of moving the grid selection. A
+    // click on the inline editor's own input is left alone so the caret can be
+    // positioned normally.
     const refTarget = this.state.formulaRefTarget;
-    if (refTarget?.isCapturing()) {
+    const onEditorInput = this.editor !== null && target === this.editor.input;
+    if (refTarget?.isCapturing() && !onEditorInput) {
       const cell = this.cellFromEvent(event);
       if (cell) {
         // preventDefault keeps focus in the formula editor (no blur/commit).
@@ -830,8 +841,20 @@ export class Grid {
       attrs: { type: 'text', 'aria-label': t('formulaBar.label') },
     });
     input.value = initial !== null ? initial : tab.doc.getValue(row, col);
-    this.editor = { row, col, input };
+    // Autocomplete and pointer references, identical to the formula bar. The
+    // popup floats (position: fixed) so the narrow cell never clips it.
+    const autocomplete = new FormulaAutocomplete(input, document.body, true);
+    const ref = new FormulaFieldRef(input, () => autocomplete.hide());
+    // While editing a formula inline, the grid routes cell clicks into this
+    // field as references; restore whatever target was active (the formula
+    // bar) when the editor closes.
+    const prevRefTarget = this.state.formulaRefTarget;
+    this.state.formulaRefTarget = ref;
+    this.editor = { row, col, input, autocomplete, ref, prevRefTarget };
     input.addEventListener('keydown', (event) => {
+      if (autocomplete.onKeyDown(event)) {
+        return;
+      }
       if (event.key === 'Enter') {
         event.preventDefault();
         event.stopPropagation();
@@ -850,6 +873,11 @@ export class Grid {
         this.element.focus();
       }
     });
+    input.addEventListener('input', () => {
+      ref.clear();
+      autocomplete.update();
+    });
+    input.addEventListener('click', () => autocomplete.update());
     input.addEventListener('blur', () => this.commitEditor());
     cell.append(input);
     input.focus();
@@ -857,6 +885,17 @@ export class Grid {
       input.setSelectionRange(input.value.length, input.value.length);
     } else {
       input.select();
+    }
+    // Offer completions immediately when a formula is being started/edited.
+    autocomplete.update();
+  }
+
+  /** Tear down the editor's autocomplete popup and restore the reference target. */
+  private disposeEditor(editor: NonNullable<Grid['editor']>): void {
+    editor.autocomplete.dispose();
+    editor.ref.endRef();
+    if (this.state.formulaRefTarget === editor.ref) {
+      this.state.formulaRefTarget = editor.prevRefTarget;
     }
   }
 
@@ -869,6 +908,7 @@ export class Grid {
     this.editor = null;
     const tab = this.state.activeTab;
     const value = editor.input.value;
+    this.disposeEditor(editor);
     editor.input.remove();
     if (tab && tab.doc === this.lastDoc) {
       void this.commands.commitCellEdit(tab, editor.row, editor.col, value);
@@ -885,6 +925,7 @@ export class Grid {
       return;
     }
     this.editor = null;
+    this.disposeEditor(editor);
     editor.input.remove();
   }
 

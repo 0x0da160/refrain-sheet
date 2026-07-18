@@ -79,16 +79,30 @@ The decompression ceiling (`MAX_RCSV_BODY_BYTES`) is **512 MiB**.
 
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
-| Offset | Size | Field                                                       |
-| ------ | ---- | ----------------------------------------------------------- |
-| 0      | 1    | Body version — currently `1`                                |
-| 1      | 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`) |
-| 2      | 2    | Sheet-name length `N`, `u16`                                |
-| 4      | `N`  | Sheet name (UTF-8)                                          |
-| 4+N    | 4    | Row count, `u32`                                            |
-| 8+N    | 4    | Column count, `u32`                                         |
-| 12+N   | 4    | Cell count `C`, `u32`                                       |
-| 16+N   | …    | `C` cell records                                            |
+Body **version 2** (written by this release) adds the creating/updating
+application metadata immediately after the delimiter. Body **version 1** (no
+metadata) is still accepted on read.
+
+| Size | Field                                                              |
+| ---- | ------------------------------------------------------------------ |
+| 1    | Body version — `2` (metadata-bearing); `1` (no metadata) also read |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)        |
+| 2    | _(v2 only)_ Application-name length, `u16`                         |
+| …    | _(v2 only)_ Application name (UTF-8), e.g. `Refrain CSV HTML`      |
+| 2    | _(v2 only)_ Application-version length, `u16`                      |
+| …    | _(v2 only)_ Application version (UTF-8), e.g. `0.1.1`              |
+| 2    | Sheet-name length `N`, `u16`                                       |
+| `N`  | Sheet name (UTF-8)                                                 |
+| 4    | Row count, `u32`                                                   |
+| 4    | Column count, `u32`                                                |
+| 4    | Cell count `C`, `u32`                                              |
+| …    | `C` cell records                                                   |
+
+The application metadata records which build of the software created or last
+updated the file (`Refrain CSV HTML` and the version from
+[`package.json`](../package.json), the single authoritative version source). It
+is descriptive only and never affects how the sheet is interpreted. The
+application-name and application-version strings are each capped at 255 bytes.
 
 Each **cell record** is:
 
@@ -120,8 +134,10 @@ must be consumed exactly (no trailing bytes). Any violation is `bad-shape` (or
 
 ## Versioning and compatibility
 
-This is container **version 2**. Version 1 was an experimental JSON encoding and
-is no longer produced or read; there is no migration path in-app. Future
-changes bump the container version (framing changes) or the body version (sheet
-encoding changes); readers reject versions they do not understand rather than
-guessing.
+This is container **version 2**. Version 1 of the _container_ was an experimental
+JSON encoding and is no longer produced or read; there is no migration path
+in-app. The _body_ was bumped from version 1 to version 2 to carry application
+metadata; readers accept both body versions (version 1 simply has no metadata).
+Future changes bump the container version (framing changes) or the body version
+(sheet encoding changes); readers reject container versions they do not
+understand rather than guessing.

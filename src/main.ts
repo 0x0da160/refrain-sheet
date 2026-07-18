@@ -15,7 +15,6 @@ import { LoadingOverlay } from './ui/loading-overlay';
 import { MenuBar } from './ui/menu-bar';
 import { StatusBar } from './ui/status-bar';
 import { TabBar } from './ui/tab-bar';
-import { Toolbar } from './ui/toolbar';
 
 async function bootstrap(): Promise<void> {
   initLocale();
@@ -64,7 +63,6 @@ async function bootstrap(): Promise<void> {
     wrap: () => state.wrapCells,
     stickyFirstRow: () => state.stickyFirstRow,
   });
-  const toolbar = new Toolbar(commands);
   const tabBar = new TabBar(state, commands);
   const findBar = new FindBar(state, commands, grid);
   const moveSelectionDown = () => {
@@ -88,7 +86,6 @@ async function bootstrap(): Promise<void> {
   }
   app.append(
     menuBar.element,
-    toolbar.element,
     tabBar.element,
     findBar.element,
     formulaBar.element,
@@ -105,7 +102,6 @@ async function bootstrap(): Promise<void> {
   const refreshAll = (selectionChanged: boolean) => {
     app.classList.toggle('wrap-cells', state.wrapCells);
     menuBar.render();
-    toolbar.render();
     tabBar.render();
     grid.refresh();
     formulaBar.refresh(selectionChanged);
@@ -120,7 +116,6 @@ async function bootstrap(): Promise<void> {
         findBar.refresh();
         return;
       case 'doc':
-        toolbar.render();
         tabBar.render();
         grid.refresh();
         formulaBar.refresh(false);
@@ -167,7 +162,12 @@ async function bootstrap(): Promise<void> {
     const inTextField = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
     const key = event.key.toLowerCase();
 
-    if (mod && !event.shiftKey && key === 'o') {
+    if (mod && !event.shiftKey && key === 'n') {
+      // Browsers may reserve Ctrl+N for a new window; when the page does
+      // receive it, it creates a new spreadsheet document instead.
+      event.preventDefault();
+      void commands.run('file.new');
+    } else if (mod && !event.shiftKey && key === 'o') {
       event.preventDefault();
       void commands.run('file.open');
     } else if (mod && event.shiftKey && key === 's') {

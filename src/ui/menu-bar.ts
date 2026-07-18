@@ -25,8 +25,11 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
     {
       labelKey: 'menu.file',
       items: [
+        { labelKey: 'menu.file.new', command: 'file.new', shortcut: 'Ctrl+N' },
         { labelKey: 'menu.file.open', command: 'file.open', shortcut: 'Ctrl+O' },
         { labelKey: 'menu.file.reopen', command: 'file.reopen' },
+        'separator',
+        { labelKey: 'menu.sheet.convert', command: 'sheet.convert' },
         'separator',
         { labelKey: 'menu.file.save', command: 'file.save', shortcut: 'Ctrl+S' },
         { labelKey: 'menu.file.saveOptions', command: 'file.saveOptions', shortcut: 'Ctrl+Shift+S' },
@@ -64,8 +67,6 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
     {
       labelKey: 'menu.sheet',
       items: [
-        { labelKey: 'menu.sheet.convert', command: 'sheet.convert' },
-        'separator',
         { labelKey: 'menu.sheet.insertRowAbove', command: 'sheet.insertRowAbove' },
         { labelKey: 'menu.sheet.insertRowBelow', command: 'sheet.insertRowBelow' },
         { labelKey: 'menu.sheet.deleteRows', command: 'sheet.deleteRows' },
@@ -105,8 +106,8 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
 /**
  * Desktop-style menu bar. Fully keyboard operable: Enter/Space or ArrowDown
  * opens a menu, arrows navigate, Esc closes, Left/Right switch menus.
- * Every item simply runs a command; the command layer is shared with the
- * toolbar, shortcuts, and drag-and-drop.
+ * Every item simply runs a command; the command layer is shared with
+ * context menus, shortcuts, and drag-and-drop.
  */
 export class MenuBar {
   readonly element: HTMLElement;

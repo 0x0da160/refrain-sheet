@@ -36,6 +36,27 @@ describe('binary container codec (JS store engine)', () => {
     expect(Array.from(bytes.subarray(0, 4))).toEqual(Array.from(RCSV_MAGIC));
   });
 
+  it('round-trips application metadata (body version 2)', () => {
+    const withMeta: RcsvData = { ...sample, appName: 'Refrain CSV HTML', appVersion: '0.1.1' };
+    const decoded = decodeRcsv(encodeRcsv(withMeta));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.appName).toBe('Refrain CSV HTML');
+    expect(decoded.data.appVersion).toBe('0.1.1');
+    // The sheet payload survives alongside the metadata.
+    expect(decoded.data.cells).toEqual(sample.cells);
+  });
+
+  it('omits metadata for a legacy version-1 body', () => {
+    // `sample` carries no appName/appVersion, so a version-1 body is written
+    // and the decoded data has no metadata keys.
+    const decoded = decodeRcsv(encodeRcsv(sample));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.appName).toBeUndefined();
+    expect(decoded.data.appVersion).toBeUndefined();
+  });
+
   it('rejects a truncated payload', () => {
     const bytes = encodeRcsv(sample);
     const decoded = decodeRcsv(bytes.subarray(0, bytes.length - 2));

@@ -74,7 +74,7 @@ function safeStorageSet(key: string, value: string): void {
 /**
  * Application state: open tabs, the active tab, selections, and the
  * undo/redo integration. All mutations go through this class so every UI
- * surface (menus, toolbar, shortcuts, drag-and-drop) observes the same state.
+ * surface (menus, shortcuts, drag-and-drop) observes the same state.
  */
 export class AppState {
   tabs: Tab[] = [];
@@ -442,6 +442,26 @@ export class AppState {
     tab.rcsvSaveExplained = false;
     this.clampSelection(tab);
     this.emit('tabs');
+    return doc;
+  }
+
+  /**
+   * Explicit `Convert to RCSV…`: build a new RCSV spreadsheet from a CSV tab's
+   * current (edited) values and open it in a new active tab. The source CSV
+   * tab, its unsaved edits, its file handle, and the file on disk are all left
+   * untouched — this never converts in place. The new document is marked
+   * unsaved (it exists only in memory until saved). Returns the new document,
+   * or null when the tab is not a CSV.
+   */
+  convertToRcsvNewTab(tab: Tab): RcsvDocument | null {
+    if (tab.doc.kind !== 'csv') {
+      return null;
+    }
+    const base = tab.name.replace(/\.(csv|tsv|txt)$/i, '');
+    const name = `${base}${RCSV_EXTENSION}`;
+    const doc = RcsvDocument.fromLossless(tab.doc, name);
+    doc.markUnsaved();
+    this.addTab(name, doc, null);
     return doc;
   }
 

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { encodeRcsv, RCSV_MAGIC } from '../src/core/rcsv-codec';
-import { RcsvDocument } from '../src/core/rcsv-document';
+import { decodeRcsv, encodeRcsv, RCSV_MAGIC } from '../src/core/rcsv-codec';
+import { NEW_DOC_COLS, NEW_DOC_ROWS, RcsvDocument } from '../src/core/rcsv-document';
+import { APP_NAME, APP_VERSION } from '../src/app/version';
 import { doc } from './helpers';
 
 function rcsvFromCells(cells: Array<[number, number, string]>, rows = 4, cols = 3): RcsvDocument {
@@ -124,6 +125,15 @@ describe('versioned binary serialization', () => {
     expect(reloaded.doc.delimiter).toBe(';');
   });
 
+  it('records the creating/updating application name and version in metadata', () => {
+    const bytes = rcsvFromCells([[0, 0, 'v']]).toBytes();
+    const decoded = decodeRcsv(bytes);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.appName).toBe(APP_NAME);
+    expect(decoded.data.appVersion).toBe(APP_VERSION);
+  });
+
   it('rejects non-RCSV bytes with bad magic', () => {
     for (const bytes of [new Uint8Array([1, 2, 3]), new Uint8Array(30)]) {
       const result = RcsvDocument.fromBytes(bytes, 'bad.rcsv');
@@ -178,6 +188,19 @@ describe('dirty state', () => {
   it('ignores no-op cell writes', () => {
     const sheet = rcsvFromCells([[0, 0, 'a']]);
     sheet.setCell(0, 0, 'a');
+    expect(sheet.isDirty).toBe(false);
+  });
+});
+
+describe('blank documents (File > New)', () => {
+  it('creates a usable grid at the documented default size, marked unsaved', () => {
+    const sheet = RcsvDocument.blank('untitled.rcsv');
+    expect(sheet.rowCount).toBe(NEW_DOC_ROWS);
+    expect(sheet.columnCount).toBe(NEW_DOC_COLS);
+    expect(sheet.getValue(0, 0)).toBe('');
+    // A never-saved document is dirty so closing prompts to save.
+    expect(sheet.isDirty).toBe(true);
+    sheet.markSaved();
     expect(sheet.isDirty).toBe(false);
   });
 });

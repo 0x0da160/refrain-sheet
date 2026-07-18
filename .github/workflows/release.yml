@@ -33,6 +33,18 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Verify tag matches package.json version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "v${PKG_VERSION}" != "$TAG" ]; then
+            echo "Tag '$TAG' does not match package.json version 'v${PKG_VERSION}'." >&2
+            echo "The application version is defined once in package.json." >&2
+            exit 1
+          fi
+
       - name: Install dependencies
         run: npm ci
 

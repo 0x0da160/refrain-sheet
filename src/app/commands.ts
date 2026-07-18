@@ -5,7 +5,13 @@ import { detectEncoding, type EncodingId } from '../core/encoding';
 import { isFormula, shiftFormulaRefs } from '../core/formula';
 import type { CellChange, HistoryEntry, Operation } from '../core/history';
 import { LosslessDocument } from '../core/lossless-document';
-import { RcsvDocument, RCSV_EXTENSION, type RcsvParseError } from '../core/rcsv-document';
+import {
+  RcsvDocument,
+  RCSV_EXTENSION,
+  NEW_DOC_ROWS,
+  NEW_DOC_COLS,
+  type RcsvParseError,
+} from '../core/rcsv-document';
 import { replaceAllInValue, type CompiledQuery } from '../core/search';
 import {
   serializeDocument,
@@ -27,11 +33,16 @@ import {
 import { setLocale, t, type LocaleId } from './i18n';
 import { getMaxFileSize, setMaxFileSize } from './settings';
 
-/** Why a CSV document needs converting to an RCSV spreadsheet document. */
-export type ConvertReason = 'formula' | 'paste' | 'structure' | 'fill';
+/**
+ * Why a CSV document needs converting to an RCSV spreadsheet document.
+ * `command` is the explicit `Convert to RCSV…` menu command (which opens a new
+ * tab); the others are implicit conversions triggered by an edit that a
+ * byte-preserving CSV cannot represent (they convert the current tab in place).
+ */
+export type ConvertReason = 'formula' | 'paste' | 'structure' | 'fill' | 'command';
 
 /**
- * The UI surface the command layer talks to. Menus, toolbar buttons,
+ * The UI surface the command layer talks to. Menu items, context menus,
  * keyboard shortcuts, and drag-and-drop all execute the same commands; the
  * commands drive dialogs and notifications only through this port, which
  * keeps the layer unit-testable without a DOM.
@@ -66,6 +77,7 @@ export interface UiPort {
 }
 
 export type CommandId =
+  | 'file.new'
   | 'file.open'
   | 'file.reopen'
   | 'file.save'
@@ -111,7 +123,7 @@ export class Commands {
     private readonly dom: Document,
   ) {}
 
-  /** True when the command currently makes sense (drives menu/toolbar enabled state). */
+  /** True when the command currently makes sense (drives menu-item enabled state). */
   isEnabled(id: CommandId): boolean {
     const tab = this.state.activeTab;
     switch (id) {
@@ -162,6 +174,9 @@ export class Commands {
   async run(id: CommandId): Promise<void> {
     const tab = this.state.activeTab;
     switch (id) {
+      case 'file.new':
+        this.newDocument();
+        return;
       case 'file.open': {
         const files = await pickFiles(this.dom, getMaxFileSize());
         await this.openFiles(files, { confirmNonCsv: false });
@@ -213,7 +228,7 @@ export class Commands {
         this.ui.findNext(-1);
         return;
       case 'sheet.convert':
-        if (tab) await this.ensureRcsv(tab, 'structure');
+        if (tab) await this.convertCommand(tab);
         return;
       case 'sheet.insertRowAbove':
       case 'sheet.insertRowBelow':
@@ -547,7 +562,10 @@ export class Commands {
     if (!tab.name.toLowerCase().endsWith(RCSV_EXTENSION)) {
       tab.name = `${tab.name}${RCSV_EXTENSION}`;
     }
-    const bytes = tab.doc.toBytes();
+    // Serialization compresses the body and computes the checksum; show the
+    // busy indicator so a large sheet never appears to freeze.
+    const doc = tab.doc;
+    const bytes = await this.withBusy(t('loading.savingRcsv', { name: tab.name }), () => doc.toBytes());
     let outcome: SaveOutcome;
     try {
       outcome = tab.handle
@@ -589,7 +607,10 @@ export class Commands {
       return false;
     }
     const name = tab.name.replace(/\.rcsv$/i, '') + '.csv';
-    const bytes = new TextEncoder().encode(tab.doc.exportCsv());
+    const doc = tab.doc;
+    const bytes = await this.withBusy(t('loading.exporting', { name }), () =>
+      new TextEncoder().encode(doc.exportCsv()),
+    );
     try {
       const outcome = await saveBytesAs(this.dom, name, bytes, 'csv');
       this.ui.notify(
@@ -644,6 +665,48 @@ export class Commands {
       this.ui.notify(t('notify.converted', { name: tab.name }), 'info');
     }
     return doc;
+  }
+
+  /** Blank-document counter so each File > New tab gets a distinct default name. */
+  private newDocCount = 0;
+
+  /**
+   * File > New: create a blank spreadsheet document in a new active tab. New
+   * documents are RCSV because a blank spreadsheet may gain formulas,
+   * structural edits, metadata, and user-defined dimensions that a plain CSV
+   * cannot hold. The document starts unsaved (marked dirty) and is saved as
+   * `.rcsv`; its filename and location are chosen on the first save. Creating
+   * it never mutates any other open document.
+   */
+  newDocument(): Tab {
+    this.newDocCount += 1;
+    const suffix = this.newDocCount > 1 ? `-${this.newDocCount}` : '';
+    const name = `${t('untitled.new')}${suffix}${RCSV_EXTENSION}`;
+    const doc = RcsvDocument.blank(name, NEW_DOC_ROWS, NEW_DOC_COLS);
+    return this.state.addTab(name, doc, null);
+  }
+
+  /**
+   * The explicit `Convert to RCSV…` command. Unlike the implicit conversions
+   * (which convert the current tab in place when an edit requires it), this
+   * creates a *new* RCSV tab from the CSV's current (edited) values and leaves
+   * the source CSV tab — and the original file on disk — untouched. The heavy
+   * conversion runs behind the loading indicator.
+   */
+  private async convertCommand(tab: Tab): Promise<void> {
+    if (tab.doc.kind !== 'csv') {
+      return;
+    }
+    const ok = await this.ui.confirmConvert('command', tab.name);
+    if (!ok) {
+      return;
+    }
+    const doc = await this.withBusy(t('loading.converting', { name: tab.name }), () =>
+      this.state.convertToRcsvNewTab(tab),
+    );
+    if (doc) {
+      this.ui.notify(t('notify.convertedNewTab', { name: doc.name }), 'info');
+    }
   }
 
   /**
@@ -972,33 +1035,39 @@ export class Commands {
     return this.state.bulkEdit(tab, changes, 'history.clearRange');
   }
 
-  /** Replace every match in the active tab as one atomic, singly-undoable operation. */
-  replaceAll(query: CompiledQuery, replacement: string): { count: number; cells: number } {
+  /**
+   * Replace every match in the active tab as one atomic, singly-undoable
+   * operation. The scan-and-rewrite pass runs behind the loading indicator so
+   * a large document never appears to freeze during Replace All.
+   */
+  async replaceAll(query: CompiledQuery, replacement: string): Promise<{ count: number; cells: number }> {
     const tab = this.state.activeTab;
     if (!tab || !query.ok) {
       return { count: 0, cells: 0 };
     }
-    const changes: CellChange[] = [];
-    let count = 0;
-    for (let r = 0; r < tab.doc.rowCount; r++) {
-      const fieldCount = tab.doc.fieldCount(r);
-      for (let c = 0; c < fieldCount; c++) {
-        const current = tab.doc.getValue(r, c);
-        const replaced = replaceAllInValue(current, query, replacement);
-        if (replaced.count === 0) {
-          continue;
+    return this.withBusy(t('loading.replacing'), () => {
+      const changes: CellChange[] = [];
+      let count = 0;
+      for (let r = 0; r < tab.doc.rowCount; r++) {
+        const fieldCount = tab.doc.fieldCount(r);
+        for (let c = 0; c < fieldCount; c++) {
+          const current = tab.doc.getValue(r, c);
+          const replaced = replaceAllInValue(current, query, replacement);
+          if (replaced.count === 0) {
+            continue;
+          }
+          if (tab.doc.kind === 'csv') {
+            const before = tab.doc.isEdited(r, c) ? current : null;
+            const after = replaced.value === tab.doc.getOriginalValue(r, c) ? null : replaced.value;
+            changes.push({ row: r, col: c, before, after });
+          } else {
+            changes.push({ row: r, col: c, before: current, after: replaced.value });
+          }
+          count += replaced.count;
         }
-        if (tab.doc.kind === 'csv') {
-          const before = tab.doc.isEdited(r, c) ? current : null;
-          const after = replaced.value === tab.doc.getOriginalValue(r, c) ? null : replaced.value;
-          changes.push({ row: r, col: c, before, after });
-        } else {
-          changes.push({ row: r, col: c, before: current, after: replaced.value });
-        }
-        count += replaced.count;
       }
-    }
-    const applied = this.state.bulkEdit(tab, changes, 'history.replaceAll');
-    return { count: applied ? count : 0, cells: applied ? changes.length : 0 };
+      const applied = this.state.bulkEdit(tab, changes, 'history.replaceAll');
+      return { count: applied ? count : 0, cells: applied ? changes.length : 0 };
+    });
   }
 }

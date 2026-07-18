@@ -180,6 +180,66 @@ describe('formula bar autocomplete and pointer references', () => {
   });
 });
 
+describe('inline cell editor autocomplete and references', () => {
+  function editorSetup() {
+    const { state, commands, grid } = setup();
+    const tab = state.addTab('sheet.csv', doc('a,b,c\n1,2,3\n4,5,6\n'), null);
+    state.convertToRcsv(tab);
+    grid.refresh();
+    return { state, commands, grid, tab };
+  }
+
+  it('shows function completions while typing a formula in a cell', () => {
+    const { grid, tab } = editorSetup();
+    grid.openEditor(tab, 0, 0, '=SU');
+    const input = grid.element.querySelector<HTMLInputElement>('input.cell-editor')!;
+    input.dispatchEvent(new Event('input'));
+    const popup = document.querySelector('.formula-autocomplete.floating')!;
+    expect(popup).not.toBeNull();
+    expect(popup.hasAttribute('hidden')).toBe(false);
+    expect(popup.textContent).toContain('SUM(value, …)');
+    expect(input.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('does not show completions for ordinary (non-formula) cell text', () => {
+    const { grid, tab } = editorSetup();
+    grid.openEditor(tab, 0, 0, 'plain');
+    const input = grid.element.querySelector<HTMLInputElement>('input.cell-editor')!;
+    input.dispatchEvent(new Event('input'));
+    const popup = document.querySelector('.formula-autocomplete.floating');
+    expect(popup === null || popup.hasAttribute('hidden')).toBe(true);
+  });
+
+  it('registers the inline editor as the reference target while editing a formula', () => {
+    const { state, grid, tab } = editorSetup();
+    grid.openEditor(tab, 0, 0, '=');
+    const input = grid.element.querySelector<HTMLInputElement>('input.cell-editor')!;
+    input.focus();
+    expect(state.formulaRefTarget).not.toBeNull();
+    expect(state.formulaRefTarget!.isCapturing()).toBe(true);
+  });
+
+  it('inserts a cell reference on grid mousedown during inline formula entry', () => {
+    const { grid, tab } = editorSetup();
+    grid.openEditor(tab, 0, 0, '=');
+    const input = grid.element.querySelector<HTMLInputElement>('input.cell-editor')!;
+    input.focus();
+    input.setSelectionRange(1, 1);
+    const cell = grid.element.querySelector<HTMLElement>('[data-row="1"][data-col="1"]')!;
+    cell.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true }));
+    expect(input.value).toBe('=B2');
+  });
+
+  it('restores the previous reference target when the editor closes', () => {
+    const { state, grid, tab } = editorSetup();
+    const formulaTarget = state.formulaRefTarget;
+    grid.openEditor(tab, 0, 0, '=');
+    expect(state.formulaRefTarget).not.toBe(formulaTarget);
+    grid.commitEditor();
+    expect(state.formulaRefTarget).toBe(formulaTarget);
+  });
+});
+
 describe('save fallback based on File System Access availability', () => {
   it('jsdom has no File System Access API', () => {
     expect(fileSystemAccessAvailable()).toBe(false);

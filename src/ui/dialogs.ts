@@ -13,6 +13,7 @@ import type { DelimiterId } from '../core/byte-csv-parser';
 import type { EncodingId } from '../core/encoding';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
 import type { ValidationSummary } from '../core/validation';
+import { APP_VERSION_DISPLAY } from '../app/version';
 import { el } from './dom';
 
 function cellName(row: number, col: number): string {
@@ -313,7 +314,10 @@ export class Dialogs {
   confirmConvert(reason: ConvertReason, name: string): Promise<boolean> {
     return openDialog(t('dialog.convert.title'), false, (body, buttons, close) => {
       body.append(el('p', { text: t(`dialog.convert.${reason}`, { name }) }));
-      body.append(el('p', { className: 'dialog-warning', text: t('dialog.convert.note') }));
+      // The explicit command opens a new tab (source preserved); the implicit
+      // conversions convert the current tab in place.
+      const noteKey = reason === 'command' ? 'dialog.convert.commandNote' : 'dialog.convert.note';
+      body.append(el('p', { className: 'dialog-warning', text: t(noteKey) }));
       buttons.append(
         dialogButton(t('dialog.convert.cancel'), false, false, () => close(false)),
         dialogButton(t('dialog.convert.ok'), true, true, () => close(true)),
@@ -415,11 +419,18 @@ export class Dialogs {
 
   showAbout(): Promise<void> {
     return openDialog<void>(t('dialog.about.title'), undefined, (body, buttons, close) => {
+      body.append(
+        el('p', {
+          className: 'about-version',
+          text: t('dialog.about.version', { version: APP_VERSION_DISPLAY }),
+        }),
+      );
       body.append(el('p', { text: t('dialog.about.tagline') }));
       body.append(el('p', { text: t('dialog.about.body') }));
       body.append(el('h3', { text: t('dialog.about.shortcuts') }));
       const table = el('table', { className: 'shortcut-table' });
       const rows: Array<[string, string]> = [
+        ['Ctrl+N / Cmd+N', t('shortcut.new')],
         ['Ctrl+O / Cmd+O', t('shortcut.open')],
         ['Ctrl+S / Cmd+S', t('shortcut.save')],
         ['Ctrl+W / Cmd+W', t('shortcut.closeTab')],

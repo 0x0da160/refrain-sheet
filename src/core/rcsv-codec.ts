@@ -25,13 +25,21 @@ import { getRcsvCodec, RCSV_COMPRESSION_DEFLATE, RCSV_COMPRESSION_STORE } from '
  * 20   …     payload
  * ```
  *
- * Body layout (little-endian), all strings UTF-8:
+ * Body layout (little-endian), all strings UTF-8. Body version 2 adds the
+ * creating/updating application metadata after the delimiter; version 1 (no
+ * metadata) is still accepted on read for forward compatibility:
  *
  * ```
- * 0    1     body version (1)
+ * 0    1     body version (2; 1 also readable)
  * 1    1     delimiter byte (',' ';' or TAB)
- * 2    2     sheet-name length (u16)
- * 4    …     sheet name
+ * --- body version 2 only ---
+ * 2    2     application-name length (u16)
+ * …    …     application name
+ * …    2     application-version length (u16)
+ * …    …     application version
+ * --- both versions ---
+ * …    2     sheet-name length (u16)
+ * …    …     sheet name
  * …    4     row count (u32)
  * …    4     column count (u32)
  * …    4     cell count (u32)
@@ -40,7 +48,10 @@ import { getRcsvCodec, RCSV_COMPRESSION_DEFLATE, RCSV_COMPRESSION_STORE } from '
  */
 export const RCSV_MAGIC = new Uint8Array([0x52, 0x43, 0x53, 0x56]); // "RCSV"
 export const RCSV_CONTAINER_VERSION = 2;
-export const RCSV_BODY_VERSION = 1;
+/** Body version written by this release (metadata-bearing). Version 1 is still read. */
+export const RCSV_BODY_VERSION = 2;
+/** Maximum stored length (bytes) of the application name/version metadata strings. */
+const MAX_META_LENGTH = 255;
 const HEADER_SIZE = 20;
 
 export const MAX_RCSV_ROWS = 2_000_000;
@@ -57,6 +68,14 @@ export interface RcsvData {
   columnCount: number;
   /** Non-empty cells as [row, col, input] triples. */
   cells: Array<[number, number, string]>;
+  /**
+   * Creating/updating application metadata. When either field is provided the
+   * body is written in version 2 (metadata-bearing); when both are omitted the
+   * body is written in the legacy version 1. On decode these are populated
+   * only for version-2 bodies (left undefined for version 1).
+   */
+  appName?: string;
+  appVersion?: string;
 }
 
 export type RcsvDecodeError =
@@ -134,6 +153,10 @@ export function decodeRcsv(bytes: Uint8Array): RcsvDecodeResult {
 function encodeBody(data: RcsvData): Uint8Array {
   const enc = new TextEncoder();
   const name = enc.encode(data.name.slice(0, 255));
+  // Any metadata present selects the version-2 (metadata-bearing) body.
+  const hasMeta = data.appName !== undefined || data.appVersion !== undefined;
+  const appName = hasMeta ? enc.encode((data.appName ?? '').slice(0, MAX_META_LENGTH)) : null;
+  const appVersion = hasMeta ? enc.encode((data.appVersion ?? '').slice(0, MAX_META_LENGTH)) : null;
   const cellBufs = data.cells.map(([r, c, input]) => {
     const value = enc.encode(input);
     const buf = new Uint8Array(12 + value.length);
@@ -145,12 +168,23 @@ function encodeBody(data: RcsvData): Uint8Array {
     return buf;
   });
   const cellsSize = cellBufs.reduce((n, b) => n + b.length, 0);
-  const total = 1 + 1 + 2 + name.length + 4 + 4 + 4 + cellsSize;
+  const metaSize = hasMeta ? 2 + appName!.length + 2 + appVersion!.length : 0;
+  const total = 1 + 1 + metaSize + 2 + name.length + 4 + 4 + 4 + cellsSize;
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = RCSV_BODY_VERSION;
+  out[off++] = hasMeta ? 2 : 1;
   out[off++] = data.delimiter.charCodeAt(0);
+  if (hasMeta) {
+    view.setUint16(off, appName!.length, true);
+    off += 2;
+    out.set(appName!, off);
+    off += appName!.length;
+    view.setUint16(off, appVersion!.length, true);
+    off += 2;
+    out.set(appVersion!, off);
+    off += appVersion!.length;
+  }
   view.setUint16(off, name.length, true);
   off += 2;
   out.set(name, off);
@@ -173,7 +207,11 @@ function decodeBody(body: Uint8Array): RcsvDecodeResult {
   const view = new DataView(body.buffer, body.byteOffset, body.byteLength);
   let off = 0;
   const need = (n: number): boolean => off + n <= body.length;
-  if (!need(4) || body[off++] !== RCSV_BODY_VERSION) {
+  if (!need(2)) {
+    return { ok: false, error: 'bad-shape' };
+  }
+  const bodyVersion = body[off++];
+  if (bodyVersion !== 1 && bodyVersion !== 2) {
     return { ok: false, error: 'bad-version' };
   }
   const delimByte = body[off++];
@@ -181,18 +219,42 @@ function decodeBody(body: Uint8Array): RcsvDecodeResult {
   if (!delimiter) {
     return { ok: false, error: 'bad-shape' };
   }
-  const nameLen = view.getUint16(off, true);
-  off += 2;
-  if (!need(nameLen)) {
+  // A length-prefixed UTF-8 string reader shared by the metadata and name.
+  const readString = (): string | null => {
+    if (!need(2)) {
+      return null;
+    }
+    const len = view.getUint16(off, true);
+    off += 2;
+    if (!need(len)) {
+      return null;
+    }
+    try {
+      const s = dec.decode(body.subarray(off, off + len));
+      off += len;
+      return s;
+    } catch {
+      return null;
+    }
+  };
+  let appName: string | undefined;
+  let appVersion: string | undefined;
+  if (bodyVersion === 2) {
+    const readName = readString();
+    if (readName === null) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    const readVersion = readString();
+    if (readVersion === null) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    appName = readName;
+    appVersion = readVersion;
+  }
+  const name = readString();
+  if (name === null) {
     return { ok: false, error: 'bad-shape' };
   }
-  let name: string;
-  try {
-    name = dec.decode(body.subarray(off, off + nameLen));
-  } catch {
-    return { ok: false, error: 'bad-shape' };
-  }
-  off += nameLen;
   if (!need(12)) {
     return { ok: false, error: 'bad-shape' };
   }
@@ -239,5 +301,12 @@ function decodeBody(body: Uint8Array): RcsvDecodeResult {
   if (off !== body.length) {
     return { ok: false, error: 'bad-shape' };
   }
-  return { ok: true, data: { name, delimiter, rowCount, columnCount, cells } };
+  const data: RcsvData = { name, delimiter, rowCount, columnCount, cells };
+  if (appName !== undefined) {
+    data.appName = appName;
+  }
+  if (appVersion !== undefined) {
+    data.appVersion = appVersion;
+  }
+  return { ok: true, data };
 }

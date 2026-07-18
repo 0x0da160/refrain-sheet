@@ -376,7 +376,10 @@ describe('find/replace on RCSV documents', () => {
   it('replace-all edits raw inputs atomically', async () => {
     const { state, commands, tab } = await converted('cat,dog\ncat,cat\n');
     const { compileQuery } = await import('../src/core/search');
-    const result = commands.replaceAll(compileQuery({ text: 'cat', matchCase: false, regex: false }), 'cow');
+    const result = await commands.replaceAll(
+      compileQuery({ text: 'cat', matchCase: false, regex: false }),
+      'cow',
+    );
     expect(result.count).toBe(3);
     expect(tab.doc.getValue(0, 0)).toBe('cow');
     state.undo(tab);

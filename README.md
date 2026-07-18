@@ -18,6 +18,10 @@ BOM、不正なCSV領域などを可能な限り保持します。
 > **Note on the name**: despite “CSV HTML”, this is **not** a CSV-to-HTML
 > converter. It is _a CSV editor that runs directly from a local HTML file._
 
+This is release **v0.1.1**. The version is defined once in `package.json` and
+surfaced through the app (**Help > About / Keyboard Shortcuts** shows it), the
+metadata written into saved `.rcsv` files, and the release artifact name.
+
 ## The Refrain principle
 
 This tool is not a spreadsheet application that normalizes CSV files. You
@@ -119,6 +123,23 @@ regions are preserved byte-for-byte as long as you don't edit them) or
 **Cancel**.
 
 ## Using the editor
+
+The command surface is **menu-first**: a desktop-style menu bar is the single
+visible set of commands (there is no separate toolbar duplicating it). Every
+command is also reachable by keyboard shortcut, context menu, or direct grid
+interaction.
+
+### New documents
+
+- **File > New** or **Ctrl+N / Cmd+N** creates a blank document in a new active
+  tab. New documents are **RCSV spreadsheet** documents (a blank spreadsheet may
+  gain formulas, structural edits, metadata, and user-defined dimensions that
+  plain CSV cannot hold), starting at a small usable grid of **100 rows × 26
+  columns**.
+- A new document is **unsaved** until you save it; the first save prompts for a
+  filename and location (subject to browser support, otherwise a download) and
+  writes an `.rcsv` file. Creating a new tab never modifies any other open
+  document.
 
 ### Opening files
 
@@ -238,9 +259,24 @@ time via the **Language / 言語** menu. The preference is stored only in
 
 Core operations work with the keyboard alone (menus, grid navigation and
 editing, find/replace, dialogs). Dialogs use the native `<dialog>` element
-with focus trapping, ARIA labels are provided throughout, and the UI uses a
-high-contrast system font stack that renders Japanese text clearly — no
-external fonts are loaded.
+with focus trapping, and ARIA labels are provided throughout (including the
+busy/loading indicator and the formula autocomplete listbox).
+
+### Fonts
+
+Two CSS variables define the type roles:
+
+- `--font-ui` — `"Yu Gothic UI", "Yu Gothic", "Meiryo UI", sans-serif` — the
+  menu bar, menus, dialogs, buttons, labels, forms, notifications, and general
+  application chrome.
+- `--font-sheet` — `"BIZ UDゴシック", "BIZ UDGothic", "ＭＳ ゴシック", "MS Gothic", monospace`
+  — the grid, row/column headers, cell values, the formula bar, and the inline
+  cell editor.
+
+No fonts are loaded from a CDN, remote URL, or bundled file; the app relies on
+the local/system fallback stack. Actual rendering therefore depends on the
+fonts installed on your system, and the final `sans-serif` / `monospace`
+fallbacks keep the UI usable when the preferred families are absent.
 
 ## Spreadsheet mode (RCSV)
 
@@ -251,13 +287,21 @@ is always explicit and never touches the original `.csv` on disk.
 
 ### Converting a CSV to a spreadsheet
 
-Entering a formula, pasting a block that needs to grow the grid, inserting or
-deleting rows/columns, or using a fill converts the current tab to a
-spreadsheet — after a confirmation that explains the change. On conversion the
-tab is renamed to `.rcsv` and detached from the original file handle, so the
-source `.csv` can never be silently overwritten. **Sheet > Convert to
-Spreadsheet** does it up front; **Sheet > Export as CSV…** writes the computed
-values back out to CSV (a lossy export: formulas become their results).
+There are two ways to convert, both explicit and confirmed:
+
+- **File > Convert to Spreadsheet (RCSV)…** converts up front. It uses the CSV's
+  current (including unsaved) contents and opens the result in a **new** `.rcsv`
+  tab; the source CSV tab and the file on disk stay open and unchanged. The
+  command is enabled only for a CSV document that has not already been
+  converted, and it shows a loading indicator while the sheet is built.
+- **Implicit conversion** happens when an edit needs it — entering a formula,
+  pasting a block that must grow the grid, inserting or deleting rows/columns,
+  or filling. After a confirmation, the current tab is converted in place:
+  renamed to `.rcsv` and detached from the original file handle, so the source
+  `.csv` can never be silently overwritten.
+
+**File > Export as CSV…** writes the computed values back out to CSV (a lossy
+export: formulas become their results).
 
 ### Formulas
 
@@ -276,12 +320,19 @@ values back out to CSV (a lossy export: formulas become their results).
 
 ### Formula autocomplete and pointer references
 
-- While typing a formula, a function-name **autocomplete popup** lists matching
-  functions with their signatures and localized descriptions. Arrow keys move
-  the highlight; **Enter** or **Tab** inserts the function; **Esc** dismisses.
-- With the formula bar focused, **clicking or dragging cells in the grid**
-  inserts their reference (`A1` or `A1:B3`) at the caret instead of moving the
-  selection — the reference updates live as you drag.
+Both formula-input surfaces — the **formula bar** and the **inline cell editor**
+— behave identically:
+
+- While typing a formula (text beginning with `=`), a function-name
+  **autocomplete popup** lists matching functions with their signatures and
+  localized descriptions. Arrow keys move the highlight; **Enter** or **Tab**
+  inserts the function; **Esc** dismisses. Ordinary (non-formula) cell editing
+  shows no suggestions.
+- While editing a formula, **clicking or dragging cells in the grid** inserts
+  their reference (`A1` or `A1:B3`) at the caret instead of moving the selection
+  — the reference updates live as you drag.
+- Parsing is entirely string-based; there is no `eval`, `new Function`, or
+  dynamic code execution.
 
 ### Fill handle, drag-copy, and Fill Down
 
@@ -327,8 +378,12 @@ exhaust memory. The full specification is in
 - The grid is **virtualized**: only the visible rows and columns (plus a small
   overscan) exist in the DOM, so files with hundreds of thousands of rows do
   not materialize millions of cells.
-- Opening and parsing a large file shows an accessible, non-blocking **loading
-  indicator** (`role="status"`, `aria-busy`) while the UI stays responsive.
+- Data-volume-dependent operations show an accessible, non-blocking **loading
+  indicator** (`role="status"`, `aria-busy`) with a localized operation label
+  while the UI stays responsive: opening/parsing a file, converting a CSV to
+  RCSV, saving/compressing an `.rcsv`, exporting to CSV, and Replace All. The
+  indicator is painted before the work begins and always cleared afterward
+  (even on error), so long operations never appear to freeze.
 
 ## Running via `file://`
 
@@ -393,9 +448,10 @@ src/
   core/     lossless document model, byte-level CSV parser, serializer,
             encoding, validation, history, search, formula engine, stats,
             RCSV spreadsheet document + binary codec — DOM-independent, unit-tested
-  app/      tabs & app state, command layer, file access, settings, i18n
-  ui/       menu bar, toolbar, tabs, grid, formula bar, find bar, dialogs,
-            status bar, loading overlay
+  app/      tabs & app state, command layer, file access, settings, i18n,
+            version (single authoritative app name/version source)
+  ui/       menu bar, tabs, grid, formula bar + shared formula autocomplete,
+            find bar, dialogs, status bar, loading overlay
   wasm-gen/ generated: embedded WASM (Base64) + wasm-bindgen glue
   locales/  en.json, ja.json
 wasm/       Rust crate compiled to WebAssembly (CSV core, DEFLATE + CRC-32,
@@ -406,7 +462,7 @@ tests/      identity, fuzz/property-based, editing, encodings, save options,
             RCSV binary codec, WASM/JS parity, i18n, commands, UI (jsdom)
 ```
 
-Menu actions, toolbar buttons, keyboard shortcuts, and drag & drop all pass
+Menu actions, keyboard shortcuts, context menus, and drag & drop all pass
 through the single command layer in `src/app/commands.ts`.
 
 ### Tests
@@ -420,11 +476,13 @@ tabs/dirty state, undo/redo atomicity, search/replace/regex/capture groups,
 invalid-regex handling, locale-key parity, XSS-safe rendering, and the save
 fallback logic. Spreadsheet coverage adds: the formula engine (functions,
 operators, whole-column/row ranges, cycle detection, error codes), function
-autocomplete and pointer-entered references, the fill handle / Fill Down,
-selection statistics, the binary `.rcsv` container (round-trip, magic/version,
-checksum, decompression bounds, store and DEFLATE paths), and byte-exact
-WASM/JS parity for parsing, serialization planning, stats reduction, and
-literal search.
+autocomplete and pointer-entered references in **both** the formula bar and the
+inline cell editor, the fill handle / Fill Down, selection statistics, blank
+new-document creation, the explicit CSV→RCSV convert-to-new-tab command, the
+binary `.rcsv` container (round-trip, magic/version, checksum, decompression
+bounds, store and DEFLATE paths, and application-version metadata), and
+byte-exact WASM/JS parity for parsing, serialization planning, stats reduction,
+and literal search.
 
 ## CI and releases
 
@@ -433,19 +491,20 @@ literal search.
   an artifact. It never creates releases and needs no write permissions.
 - **Releases** (`.github/workflows/release.yml`) run only when a tag
   matching `v<major>.<minor>.<patch>` is pushed (the tag is validated with a
-  regex):
+  regex, and must match the `version` in `package.json` — the single
+  authoritative version source, currently **`0.1.1`**):
 
   ```sh
-  git tag v1.2.3
-  git push origin v1.2.3
+  git tag v0.1.1
+  git push origin v0.1.1
   ```
 
   The workflow re-runs all checks, builds, and publishes a GitHub Release
   with two assets:
 
   ```text
-  refrain-csv-html-v1.2.3-<short-hash>.zip
-  refrain-csv-html-v1.2.3-<short-hash>.zip.sha256
+  refrain-csv-html-v0.1.1-<short-hash>.zip
+  refrain-csv-html-v0.1.1-<short-hash>.zip.sha256
   ```
 
   The ZIP contains the full `dist/` output plus `README.md`, `LICENSE`, and
@@ -465,10 +524,12 @@ literal search.
 - Malformed CSV, huge inputs, undecodable bytes, and invalid regexes are
   handled without crashing; regex execution is bounded (pattern length limit
   and a time budget) to avoid catastrophic backtracking.
-- `.rcsv` files hold inert data only. Loading validates the magic bytes,
-  version, CRC-32 checksum, structure, and size bounds, and enforces a
-  decompression ceiling so a crafted (bomb) payload cannot exhaust memory.
-  Formulas are parsed and evaluated by a sandboxed engine, never executed.
+- `.rcsv` files hold inert data only — cell inputs plus small descriptive
+  metadata (the creating/updating application name and version). Loading
+  validates the magic bytes, version, CRC-32 checksum, structure, and size
+  bounds, and enforces a decompression ceiling so a crafted (bomb) payload
+  cannot exhaust memory. Formulas are parsed and evaluated by a sandboxed
+  engine, never executed.
 - The Rust/WebAssembly core is embedded in the bundle as Base64 and
   instantiated from those bytes locally — it is never fetched from a URL,
   server, or CDN.

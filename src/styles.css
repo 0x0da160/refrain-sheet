@@ -589,6 +589,18 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* Large-selection statistics being computed in the background (time-sliced). */
+.status-bar .sel-stat.calculating {
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.status-bar .sel-stats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+}
+
 .status-bar button.status-problems {
   border: none;
   background: none;

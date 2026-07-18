@@ -67,6 +67,7 @@
   "status.noFinalNewline": "末尾に改行なし",
   "status.size": "{size} バイト",
   "status.cell": "{row} 行, {col} 列",
+  "status.sel.calculating": "計算中…",
   "status.sel.count": "選択 {n}",
   "status.sel.nonEmpty": "非空白 {n}",
   "status.sel.numeric": "数値 {n}",

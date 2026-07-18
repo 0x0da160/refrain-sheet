@@ -59,6 +59,63 @@ export function emptySelectionStats(): SelectionStats {
 }
 
 /**
+ * Incremental selection-statistics scanner. One row is scanned at a time so
+ * large selections can be processed in time slices off the critical
+ * selection-event path (the status bar shows "Calculating…" meanwhile);
+ * {@link computeSelectionStats} drives the same scanner synchronously, so the
+ * two paths cannot diverge.
+ */
+export class SelectionStatsAccumulator {
+  private count = 0;
+  private nonEmpty = 0;
+  // Collect finite numbers in cell order; the numeric reduction (sum/min/max)
+  // runs in the WASM engine (with an order-identical JS fallback). Parsing
+  // stays here so JS `Number()` semantics remain the single source of truth.
+  private readonly numbers: number[] = [];
+
+  constructor(
+    private readonly selrange: StatsRange,
+    private readonly readDisplay: (row: number, col: number) => string,
+    private readonly fieldCount?: (row: number) => number,
+  ) {}
+
+  /** Scan one document row of the selection rectangle. */
+  scanRow(r: number): void {
+    const { selrange } = this;
+    const lastField = this.fieldCount ? this.fieldCount(r) - 1 : selrange.right;
+    for (let c = selrange.left; c <= selrange.right; c++) {
+      this.count += 1;
+      if (c > lastField) {
+        continue; // beyond a ragged row's fields: an empty cell
+      }
+      const display = this.readDisplay(r, c);
+      if (display !== '') {
+        this.nonEmpty += 1;
+      }
+      const n = numericCellValue(display);
+      if (n !== null) {
+        this.numbers.push(n);
+      }
+    }
+  }
+
+  /** Reduce the scanned rows to the final statistics. */
+  finalize(): SelectionStats {
+    const numeric = this.numbers.length;
+    const { sum, min, max } = getCsvEngine().statsAggregate(Float64Array.from(this.numbers));
+    return {
+      count: this.count,
+      nonEmpty: this.nonEmpty,
+      numeric,
+      sum,
+      average: numeric > 0 ? sum / numeric : null,
+      min: numeric > 0 ? min : null,
+      max: numeric > 0 ? max : null,
+    };
+  }
+}
+
+/**
  * Compute statistics over a rectangular selection. `readDisplay(row, col)`
  * returns the displayed value (already computed for formula cells).
  * `fieldCount(row)`, when provided, bounds ragged rows so positions beyond a
@@ -69,38 +126,9 @@ export function computeSelectionStats(
   readDisplay: (row: number, col: number) => string,
   fieldCount?: (row: number) => number,
 ): SelectionStats {
-  let count = 0;
-  let nonEmpty = 0;
-  // Collect finite numbers in cell order; the numeric reduction (sum/min/max)
-  // runs in the WASM engine (with an order-identical JS fallback). Parsing
-  // stays here so JS `Number()` semantics remain the single source of truth.
-  const numbers: number[] = [];
+  const acc = new SelectionStatsAccumulator(selrange, readDisplay, fieldCount);
   for (let r = selrange.top; r <= selrange.bottom; r++) {
-    const lastField = fieldCount ? fieldCount(r) - 1 : selrange.right;
-    for (let c = selrange.left; c <= selrange.right; c++) {
-      count += 1;
-      if (c > lastField) {
-        continue; // beyond a ragged row's fields: an empty cell
-      }
-      const display = readDisplay(r, c);
-      if (display !== '') {
-        nonEmpty += 1;
-      }
-      const n = numericCellValue(display);
-      if (n !== null) {
-        numbers.push(n);
-      }
-    }
+    acc.scanRow(r);
   }
-  const numeric = numbers.length;
-  const { sum, min, max } = getCsvEngine().statsAggregate(Float64Array.from(numbers));
-  return {
-    count,
-    nonEmpty,
-    numeric,
-    sum,
-    average: numeric > 0 ? sum / numeric : null,
-    min: numeric > 0 ? min : null,
-    max: numeric > 0 ? max : null,
-  };
+  return acc.finalize();
 }

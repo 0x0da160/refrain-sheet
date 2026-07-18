@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
-import { t } from '../app/i18n';
+import { getLocale, t } from '../app/i18n';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
 import { cellLabel, columnLabel } from '../core/formula';
 import { el, clearChildren } from './dom';
@@ -22,6 +22,50 @@ interface RenderWindow {
   rowEnd: number;
   colStart: number;
   colEnd: number;
+}
+
+/**
+ * Layout inputs that require a full window rebuild when they change. While
+ * the signature is stable, a document mutation only repaints the already
+ * rendered cells in place (no DOM teardown), so a single-cell edit never
+ * rebuilds the visible grid.
+ */
+interface LayoutSignature {
+  doc: unknown;
+  rows: number;
+  cols: number;
+  rowHeight: number;
+  sticky: boolean;
+  locale: string;
+}
+
+/**
+ * Leading-edge per-frame coalescing for high-frequency pointer events (drag
+ * selection, column resizing, fill preview). The first event applies
+ * immediately for instant feedback; further events within the same frame
+ * only remember the latest argument, which is applied on the next frame.
+ */
+function frameCoalesced<T>(apply: (arg: T) => void): (arg: T) => void {
+  let queued: { arg: T } | null = null;
+  let scheduled = false;
+  return (arg: T) => {
+    if (scheduled) {
+      queued = { arg };
+      return;
+    }
+    apply(arg);
+    scheduled = true;
+    const raf = (globalThis as { requestAnimationFrame?: (cb: () => void) => void }).requestAnimationFrame;
+    const schedule = typeof raf === 'function' ? raf : (fn: () => void) => setTimeout(fn, 16);
+    schedule(() => {
+      scheduled = false;
+      if (queued) {
+        const { arg: latest } = queued;
+        queued = null;
+        apply(latest);
+      }
+    });
+  };
 }
 
 const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string } | 'separator'> = [
@@ -56,6 +100,7 @@ export class Grid {
 
   private lastDoc: unknown = null;
   private window: RenderWindow | null = null;
+  private layout: LayoutSignature | null = null;
   private editor: {
     row: number;
     col: number;
@@ -90,7 +135,9 @@ export class Grid {
     this.canvas.append(this.headerEl, this.stickyEl, this.rowsLayer);
     this.element.append(this.canvas);
 
-    this.element.addEventListener('scroll', () => this.onScroll());
+    // Scroll never calls preventDefault, so the listener is passive (the
+    // browser can start compositor scrolling without waiting on the handler).
+    this.element.addEventListener('scroll', () => this.onScroll(), { passive: true });
     this.element.addEventListener('keydown', (event) => this.onKeyDown(event));
     this.element.addEventListener('mousedown', (event) => this.onMouseDown(event));
     this.element.addEventListener('mousemove', (event) => this.onMouseMove(event));
@@ -175,6 +222,7 @@ export class Grid {
       this.lastDoc = null;
       this.editor = null;
       this.window = null;
+      this.layout = null;
       this.closeContextMenu();
       clearChildren(this.headerEl);
       clearChildren(this.stickyEl);
@@ -195,8 +243,41 @@ export class Grid {
       this.element.scrollLeft = 0;
       this.lastDoc = tab.doc;
     }
-    this.window = null; // force rebuild
+    // Only rebuild the rendered window when a layout input changed (document
+    // identity, dimensions, row height, sticky mode, locale). A plain cell
+    // edit keeps the signature stable, so `render` repaints the existing DOM
+    // in place — no teardown, no layout shift, no focus loss.
+    if (!this.sameLayout(tab)) {
+      this.window = null; // force rebuild
+    }
     this.render(tab);
+  }
+
+  private layoutSignature(tab: Tab): LayoutSignature {
+    return {
+      doc: tab.doc,
+      rows: tab.doc.rowCount,
+      cols: tab.doc.columnCount,
+      rowHeight: this.rowHeight,
+      sticky: this.stickyEnabled(tab),
+      locale: getLocale(),
+    };
+  }
+
+  private sameLayout(tab: Tab): boolean {
+    const a = this.layout;
+    if (a === null) {
+      return false;
+    }
+    const b = this.layoutSignature(tab);
+    return (
+      a.doc === b.doc &&
+      a.rows === b.rows &&
+      a.cols === b.cols &&
+      a.rowHeight === b.rowHeight &&
+      a.sticky === b.sticky &&
+      a.locale === b.locale
+    );
   }
 
   /** Update selection highlighting only (cheap; used for selection events). */
@@ -320,6 +401,7 @@ export class Grid {
       this.commitEditor();
     }
     this.window = win;
+    this.layout = this.layoutSignature(tab);
 
     const totalW = this.totalWidth(tab);
     const scrollRows = this.scrollRowCount(tab);
@@ -469,6 +551,9 @@ export class Grid {
   private paintWindowCells(tab: Tab): void {
     const cells = this.canvas.querySelectorAll<HTMLElement>('[data-row][data-col]');
     for (const cell of cells) {
+      if (this.editor && cell.contains(this.editor.input)) {
+        continue; // never clobber an open inline editor
+      }
       this.paintCell(tab, cell, Number(cell.dataset.row), Number(cell.dataset.col));
     }
   }
@@ -575,6 +660,28 @@ export class Grid {
     }
   }
 
+  /**
+   * Frame-coalesced pointer-drag appliers: the DOM/state updates for drag
+   * selection and the fill preview run at most once per frame (the first
+   * event in a frame applies immediately), so rapid mousemove streams never
+   * queue redundant renders. Guards re-check the live drag state because a
+   * trailing application may run just after the drag ended.
+   */
+  private readonly applyDragSelection = frameCoalesced<{ tab: Tab; cell: { row: number; col: number } }>(
+    ({ tab, cell }) => {
+      if (!this.dragging || this.state.activeTab !== tab || !tab.selection) {
+        return;
+      }
+      this.state.setSelection(tab, cell, tab.anchor ?? tab.selection);
+    },
+  );
+
+  private readonly applyFillPreview = frameCoalesced<null>(() => {
+    if (this.filling) {
+      this.updateFillPreview();
+    }
+  });
+
   private onMouseMove(event: MouseEvent): void {
     if (this.refDrag) {
       const cell = this.cellFromEvent(event);
@@ -587,8 +694,10 @@ export class Grid {
     if (this.filling) {
       const cell = this.cellFromEvent(event);
       if (cell) {
+        // Track the target synchronously (commit correctness), render the
+        // lightweight preview at most once per frame.
         this.filling.target = cell;
-        this.updateFillPreview();
+        this.applyFillPreview(null);
       }
       return;
     }
@@ -606,7 +715,7 @@ export class Grid {
     if (cell.row === tab.selection.row && cell.col === tab.selection.col && tab.anchor !== null) {
       return; // no movement
     }
-    this.state.setSelection(tab, cell, tab.anchor ?? tab.selection);
+    this.applyDragSelection({ tab, cell });
   }
 
   private onDoubleClick(event: MouseEvent): void {
@@ -640,6 +749,16 @@ export class Grid {
     this.render(tab);
   }
 
+  /** Frame-coalesced column-width application (a resize re-lays-out the window). */
+  private readonly applyResize = frameCoalesced<{ tab: Tab; col: number; width: number }>(
+    ({ tab, col, width }) => {
+      if (this.state.activeTab !== tab) {
+        return;
+      }
+      this.setColWidth(tab, col, width);
+    },
+  );
+
   private onResizeMove(event: MouseEvent): void {
     const drag = this.resizing;
     if (!drag) {
@@ -649,7 +768,7 @@ export class Grid {
     if (!tab) {
       return;
     }
-    this.setColWidth(tab, drag.col, drag.startWidth + (event.clientX - drag.startX));
+    this.applyResize({ tab, col: drag.col, width: drag.startWidth + (event.clientX - drag.startX) });
   }
 
   private endResize(): void {

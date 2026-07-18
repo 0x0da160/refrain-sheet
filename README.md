@@ -365,25 +365,77 @@ size bounds, and enforces a decompression ceiling so a crafted file cannot
 exhaust memory. The full specification is in
 [docs/rcsv-format.md](docs/rcsv-format.md).
 
-## Performance
+## Performance and responsiveness
 
-- The performance-critical byte-level work — CSV parsing, validation,
-  delimiter sniffing, indexing, serialization planning, `.rcsv` DEFLATE
-  compression and CRC-32, selection-statistic reduction, and long literal
-  searches — is implemented in **Rust compiled to WebAssembly**. The WASM
-  binary is embedded in the bundle as Base64 and instantiated locally; it is
-  **never fetched**, so the app still runs from `file://`. A TypeScript
-  fallback with byte-exact, parity-tested semantics runs where WebAssembly is
-  unavailable.
-- The grid is **virtualized**: only the visible rows and columns (plus a small
-  overscan) exist in the DOM, so files with hundreds of thousands of rows do
-  not materialize millions of cells.
-- Data-volume-dependent operations show an accessible, non-blocking **loading
-  indicator** (`role="status"`, `aria-busy`) with a localized operation label
-  while the UI stays responsive: opening/parsing a file, converting a CSV to
-  RCSV, saving/compressing an `.rcsv`, exporting to CSV, and Replace All. The
-  indicator is painted before the work begins and always cleared afterward
-  (even on error), so long operations never appear to freeze.
+Perceived responsiveness is treated as a feature: the goal is immediate
+visual feedback and an interactive UI even while large documents are being
+processed, not just raw throughput.
+
+- **Rust/WASM data core.** The performance-critical byte-level work — CSV
+  parsing, validation, delimiter sniffing, indexing, serialization planning,
+  `.rcsv` DEFLATE compression and CRC-32, selection-statistic reduction, and
+  long literal searches — is implemented in **Rust compiled to WebAssembly**.
+  The WASM binary is embedded in the bundle as Base64 and instantiated
+  locally; it is **never fetched**, so the app still runs from `file://`. A
+  TypeScript fallback with byte-exact, parity-tested semantics runs where
+  WebAssembly is unavailable. The engine initializes **in the background at
+  startup** — the UI builds and paints without waiting for it, and the first
+  file open awaits the same idempotent initialization, so it still parses
+  with the fast engine.
+- **Virtualized grid, in-place repaint.** Only the visible rows and columns
+  (plus a small overscan) exist in the DOM, so files with hundreds of
+  thousands of rows never materialize millions of cells. A single-cell edit,
+  a formula recalculation result, or a selection change **repaints the
+  existing cells in place** — the visible window is only torn down and
+  rebuilt when a layout input actually changes (document, dimensions, row
+  height, sticky row, locale).
+- **Frame-coalesced interactions.** Scrolling re-renders are scheduled with
+  `requestAnimationFrame` (the scroll listener is passive); drag selection,
+  column resizing, and the fill-handle preview apply their first event
+  immediately and coalesce the rest to at most one update per frame. Range
+  drags render a lightweight preview and commit the real operation on
+  release.
+- **Deferred selection statistics.** Selecting a range updates the visible
+  selection immediately. Statistics for selections up to 20,000 cells compute
+  synchronously (imperceptible); larger selections show a localized
+  **"Calculating…"** state in the status bar (announced politely via its
+  `role="status"` region) while a time-sliced background scan fills the
+  numbers in. A newer selection, edit, or tab switch cancels the stale scan.
+- **Time-sliced long scans with progress.** Replace All scans the document in
+  ~12 ms slices, yielding to the browser between slices so input and painting
+  stay live, and reports percentage progress in the loading indicator. The
+  mutation itself is then applied **synchronously and atomically** as one
+  undoable operation — a cancelled or superseded scan never leaves a
+  partially-replaced document. Match-count updates in the find bar are
+  debounced, and full-document search is bounded by a wall-clock budget with
+  partial results rather than a freeze.
+- **Lazy, memoized formula evaluation.** Formula cells evaluate on demand
+  with memoization; only the cells actually displayed (visible window, status
+  bar) are computed, so a simple edit never triggers a full-sheet
+  recalculation pass.
+- **Accessible busy states.** Data-volume-dependent operations show a
+  non-blocking loading indicator (`role="status"`, `aria-live="polite"`,
+  `aria-busy`) with a localized operation label: opening/parsing a file,
+  converting a CSV to RCSV, saving/compressing an `.rcsv`, exporting to CSV,
+  and Replace All. The indicator is painted before the work begins and always
+  cleared afterward (even on error).
+
+**Measurements.** Reproducible benchmarks live in `bench/` (`npm run bench`,
+deterministic in-code fixtures — 200,000-row CSVs, million-cell selections,
+100,000-cell containers, formula dependency chains). Results for the current
+revision, the reference environment, and manual browser-profiling steps are
+documented in [docs/performance.md](docs/performance.md). Responsiveness
+_structure_ (bounded DOM, in-place repaint, deferred statistics, sliced scans,
+prompt busy feedback) is locked in by deterministic tests
+(`tests/perf.test.ts`, `tests/virtual-grid.test.ts`).
+
+**Limits.** The responsiveness targets are engineering goals for the
+documented reference environment, not guarantees for every browser or device.
+Practical ceilings come from browser memory (documents are held in memory;
+the configurable open limit defaults to guarding against accidental huge
+opens), single-threaded JavaScript for DOM work, and file complexity (very
+wide sheets, extremely long cell values, or dense formula graphs cost
+proportionally more). The `.rcsv` decompression ceiling is 512 MiB.
 
 ## Running via `file://`
 
@@ -422,6 +474,7 @@ npm ci                 # install exact locked dependencies
 npm run dev            # Vite dev server (development only; the product itself needs no server)
 npm run build          # type-check + production build into dist/
 npm run test           # vitest (unit, property-based/fuzz, jsdom UI tests)
+npm run bench          # performance benchmarks (see docs/performance.md)
 npm run lint           # eslint
 npm run format         # prettier --write
 npm run format:check   # prettier --check
@@ -456,10 +509,13 @@ src/
   locales/  en.json, ja.json
 wasm/       Rust crate compiled to WebAssembly (CSV core, DEFLATE + CRC-32,
             stats/search primitives)
-docs/       rcsv-format.md (binary .rcsv container specification)
+docs/       rcsv-format.md (binary .rcsv container specification),
+            performance.md (benchmark results + profiling guide)
+bench/      reproducible performance benchmarks (npm run bench)
 tests/      identity, fuzz/property-based, editing, encodings, save options,
             validation, history, search, formulas, stats, spreadsheet,
-            RCSV binary codec, WASM/JS parity, i18n, commands, UI (jsdom)
+            RCSV binary codec, WASM/JS parity, i18n, commands, UI (jsdom),
+            responsiveness regression tests (perf)
 ```
 
 Menu actions, keyboard shortcuts, context menus, and drag & drop all pass
@@ -482,7 +538,10 @@ new-document creation, the explicit CSV→RCSV convert-to-new-tab command, the
 binary `.rcsv` container (round-trip, magic/version, checksum, decompression
 bounds, store and DEFLATE paths, and application-version metadata), and
 byte-exact WASM/JS parity for parsing, serialization planning, stats reduction,
-and literal search.
+and literal search. Responsiveness regressions are guarded by deterministic
+structural tests: bounded DOM for 100,000-row files, in-place repaint for
+single-cell edits, deferred large-selection statistics with a "Calculating…"
+state, and time-sliced atomic Replace All with progress and cancellation.
 
 ## CI and releases
 

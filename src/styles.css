@@ -323,13 +323,14 @@ button {
   max-width: 300px;
 }
 
-/* ---------- Grid ---------- */
+/* ---------- Virtualized grid ---------- */
 
 .grid-container {
   flex: 1;
   overflow: auto;
   background: #fff;
   position: relative;
+  outline-offset: -2px;
 }
 
 .grid-empty {
@@ -339,82 +340,177 @@ button {
   text-align: center;
 }
 
-table.grid {
-  border-collapse: separate;
-  border-spacing: 0;
+.vgrid-canvas {
+  position: relative;
   font-family: var(--font-mono);
   font-size: 12px;
 }
 
-table.grid th,
-table.grid td {
+.vgrid-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+}
+
+.vgrid-stickyrow {
+  position: sticky;
+  z-index: 4;
+  display: flex;
+  /* Distinct from the column header: warm pinned background + strong rule. */
+  border-bottom: 2px solid var(--accent);
+}
+
+.vgrid-stickyrow .vcell {
+  background: #fdf6df;
+}
+
+.vgrid-stickyrow[hidden] {
+  display: none;
+}
+
+.vgrid-rows {
+  position: relative;
+}
+
+.vgrid-row {
+  position: absolute;
+  left: 0;
+  display: flex;
+}
+
+.vcell {
+  flex: none;
   border-right: 1px solid #e3e3e8;
   border-bottom: 1px solid #e3e3e8;
-  padding: 3px 8px;
-  max-width: 340px;
+  padding: 4px 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: pre;
-  height: 24px;
-  vertical-align: top;
+  background: #fff;
+  position: relative;
 }
 
-#app.wrap-cells table.grid td {
+#app.wrap-cells .vcell {
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-table.grid th {
-  background: var(--panel);
-  color: var(--text-dim);
-  font-weight: 600;
-  position: sticky;
+.vspacer {
+  flex: none;
+  border: none;
+  padding: 0;
+}
+
+.col-resize-handle {
+  position: absolute;
   top: 0;
-  z-index: 2;
-  text-align: center;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 6;
+  touch-action: none;
 }
 
-table.grid th.row-head {
-  left: 0;
-  z-index: 1;
-  min-width: 44px;
-  text-align: right;
+.col-resize-handle:hover {
+  background: var(--accent);
+  opacity: 0.45;
 }
 
-table.grid thead th.row-head {
-  z-index: 3;
+.fill-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border: 1px solid #fff;
+  cursor: crosshair;
+  z-index: 7;
+  touch-action: none;
 }
 
-table.grid tbody tr:nth-child(even) td {
+.vcell.fill-target {
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+}
+
+.vgrid-row.alt .vcell {
   background: var(--row-alt);
 }
 
-table.grid tbody tr.selected-row td {
+.vgrid-row.selected-row .vcell,
+.vgrid-stickyrow.selected-row .vcell {
   background: var(--selected-row);
 }
 
-table.grid td.selected {
+.vcell.vhead,
+.vcell.vrowhead {
+  background: var(--panel) !important;
+  color: var(--text-dim);
+  font-weight: 600;
+  text-align: center;
+  user-select: none;
+}
+
+.vcell.vrowhead {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  text-align: right;
+}
+
+.vcell.vrowhead.pinned {
+  color: var(--accent);
+}
+
+.vcell.vcorner {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+}
+
+.vcell.in-range {
+  background: var(--accent-soft);
+}
+
+.vgrid-row.alt .vcell.in-range,
+.vgrid-row.selected-row .vcell.in-range {
+  background: var(--accent-soft);
+}
+
+.vcell.selected {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
-table.grid td.edited,
-table.grid tbody tr:nth-child(even) td.edited,
-table.grid tbody tr.selected-row td.edited {
-  background: var(--edited);
+.vcell.edited {
+  background: var(--edited) !important;
   box-shadow: inset 2px 0 0 var(--edited-border);
 }
 
-table.grid td.malformed {
+.vcell.malformed {
   text-decoration: underline wavy var(--danger);
   text-underline-offset: 3px;
 }
 
-table.grid td {
-  position: relative;
+.vcell.formula {
+  color: #14532d;
+  font-style: italic;
 }
 
-td .cell-editor {
+.vcell.cell-error {
+  color: var(--danger);
+  font-weight: 600;
+  font-style: normal;
+}
+
+.vcell.void {
+  background: repeating-linear-gradient(45deg, #fafafa, #fafafa 6px, #f1f1f4 6px, #f1f1f4 12px);
+}
+
+.vcell .cell-editor {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -424,12 +520,6 @@ td .cell-editor {
   font: inherit;
   background: #fff;
   z-index: 4;
-}
-
-.grid-more {
-  padding: 8px 12px;
-  color: var(--text-dim);
-  font-size: 12px;
 }
 
 /* ---------- Context menu ---------- */
@@ -463,6 +553,10 @@ td .cell-editor {
 .status-bar .warn {
   color: var(--danger);
   font-weight: 600;
+}
+
+.status-bar .sel-stat {
+  font-variant-numeric: tabular-nums;
 }
 
 .status-bar button.status-problems {
@@ -584,6 +678,17 @@ table.diag-table th {
   font: inherit;
   padding: 3px 6px;
   min-width: 200px;
+}
+
+.form-row input[type='number'] {
+  font: inherit;
+  padding: 3px 6px;
+  width: 8em;
+}
+
+.form-unit {
+  margin-left: 6px;
+  color: var(--muted, #666);
 }
 
 .shortcut-table {

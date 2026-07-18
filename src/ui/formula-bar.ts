@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 import type { AppState } from '../app/app-state';
+import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
+import { cellLabel } from '../core/formula';
 import { el } from './dom';
 
 /**
- * Formula-bar-like input for the selected cell. Values containing newlines
- * are edited here (the inline grid editor is single-line). Enter applies the
- * value and moves down; Alt+Enter inserts a newline; Escape restores the
- * value the cell had when it was selected.
+ * Formula bar for the selected cell. Shows and edits the raw cell input —
+ * for formula cells this is the underlying formula expression, while the
+ * grid shows the calculated value. Values containing newlines are edited
+ * here (the inline grid editor is single-line). Enter applies the value and
+ * moves down; Alt+Enter inserts a newline; Escape restores the value the
+ * cell had when it was selected.
  */
 export class FormulaBar {
   readonly element: HTMLElement;
@@ -18,6 +22,7 @@ export class FormulaBar {
 
   constructor(
     private readonly state: AppState,
+    private readonly commands: Commands,
     private readonly moveDown: () => void,
   ) {
     this.refEl = el('div', { className: 'cell-ref', attrs: { 'aria-hidden': 'true' } });
@@ -51,7 +56,7 @@ export class FormulaBar {
     if (!tab || !tab.selection) return;
     const { row, col } = tab.selection;
     if (this.textarea.value !== tab.doc.getValue(row, col)) {
-      this.state.editCell(tab, row, col, this.textarea.value);
+      void this.commands.commitCellEdit(tab, row, col, this.textarea.value);
     }
   }
 
@@ -67,7 +72,9 @@ export class FormulaBar {
     }
     this.textarea.disabled = false;
     const { row, col } = tab.selection;
-    this.refEl.textContent = `R${row + 1} : C${col + 1}`;
+    this.refEl.textContent = cellLabel(row, col);
+    // The formula bar always shows the raw input (the formula expression for
+    // formula cells); the grid shows the calculated value.
     const value = tab.doc.getValue(row, col);
     if (selectionChanged) {
       this.baseValue = value;

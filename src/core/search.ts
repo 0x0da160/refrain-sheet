@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: MIT
-import type { LosslessDocument } from './lossless-document';
+
+/** The document surface search needs; satisfied by CSV and RCSV documents. */
+export interface SearchableDocument {
+  rowCount: number;
+  fieldCount(row: number): number;
+  getValue(row: number, col: number): string;
+}
 
 export interface SearchQuery {
   text: string;
@@ -86,7 +92,7 @@ export interface SearchResult {
 
 /** Search the current (edited or original) values of every cell. */
 export function searchDocument(
-  doc: LosslessDocument,
+  doc: SearchableDocument,
   query: CompiledQuery,
   timeBudgetMs: number = SEARCH_TIME_BUDGET_MS,
 ): SearchResult {
@@ -98,8 +104,8 @@ export function searchDocument(
   }
   const started = Date.now();
   let sinceCheck = 0;
-  outer: for (let r = 0; r < doc.records.length; r++) {
-    const fieldCount = doc.records[r].fields.length;
+  outer: for (let r = 0; r < doc.rowCount; r++) {
+    const fieldCount = doc.fieldCount(r);
     for (let c = 0; c < fieldCount; c++) {
       const count = countMatchesInValue(doc.getValue(r, c), query);
       if (count > 0) {

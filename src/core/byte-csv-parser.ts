@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { decodeBytes, decodesCleanly, hasUtf8Bom, type EncodingId } from './encoding';
+import { hasUtf8Bom } from './encoding';
 
 export type DelimiterId = ',' | ';' | '\t';
 
@@ -24,8 +24,10 @@ export interface Diagnostic {
 }
 
 /**
- * A parsed field. All positions are byte offsets into the original file,
- * so the serializer can copy unmodified regions byte-for-byte.
+ * A materialized field. All positions are byte offsets into the original
+ * file, so the serializer can copy unmodified regions byte-for-byte.
+ * Fields are materialized lazily from the flat parse index (see
+ * LosslessDocument); for large files most fields are never materialized.
  */
 export interface FieldNode {
   /** Full raw span of the field, including whitespace around quotes. */
@@ -47,30 +49,54 @@ export interface FieldNode {
   malformed: boolean;
 }
 
-export interface RecordNode {
-  start: number;
-  /** End of the last field (terminator excluded). */
-  end: number;
-  fields: FieldNode[];
-  /** Byte range of the record terminator; termStart === termEnd when the file ends without one. */
-  termStart: number;
-  termEnd: number;
-}
-
 export interface LineEndingStats {
   crlf: number;
   lf: number;
   cr: number;
 }
 
-export interface ParseResult {
-  records: RecordNode[];
-  diagnostics: Diagnostic[];
+/**
+ * Flat structural index of a parsed CSV byte sequence. The layout matches
+ * the Rust/WASM core exactly (see wasm/src/csv.rs):
+ *
+ * - records, stride RECORD_STRIDE:
+ *   [start, end, termStart, termEnd, fieldOffset, fieldCount]
+ * - fields, stride FIELD_STRIDE:
+ *   [start, end, contentStart, contentEnd, prefixEnd, suffixStart, flags]
+ * - diagnostics, stride DIAG_STRIDE:
+ *   [row (1-based), column (1-based), type, expected, actual]
+ */
+export interface ParsedIndex {
+  records: Uint32Array;
+  fields: Uint32Array;
+  diagnostics: Uint32Array;
   lineEndings: LineEndingStats;
   hasFinalNewline: boolean;
   /** Byte length of a leading UTF-8 BOM (0 or 3). */
   bomLength: number;
 }
+
+export const RECORD_STRIDE = 6;
+export const FIELD_STRIDE = 7;
+export const DIAG_STRIDE = 5;
+
+export const FLAG_QUOTED = 1;
+export const FLAG_MALFORMED = 2;
+
+/** Numeric diagnostic codes shared with the WASM core. */
+export const DIAG_TYPES: readonly DiagnosticType[] = [
+  'unclosed-quote',
+  'text-after-quote',
+  'bare-quote',
+  'inconsistent-field-count',
+  'ambiguous',
+];
+
+const DIAG_UNCLOSED_QUOTE = 0;
+const DIAG_TEXT_AFTER_QUOTE = 1;
+const DIAG_BARE_QUOTE = 2;
+const DIAG_INCONSISTENT_FIELD_COUNT = 3;
+const DIAG_AMBIGUOUS = 4;
 
 function isFieldWhitespace(byte: number, delimiter: number): boolean {
   return byte === SPACE || (byte === TAB && delimiter !== TAB);
@@ -91,9 +117,10 @@ export function unescapeQuotedBytes(bytes: Uint8Array): Uint8Array {
 
 /**
  * Guess the delimiter by counting candidate bytes outside quoted regions in
- * the first part of the file. Defaults to a comma.
+ * the first part of the file. Defaults to a comma. (JS fallback; the WASM
+ * engine implements the identical heuristic.)
  */
-export function detectDelimiter(bytes: Uint8Array): DelimiterId {
+export function detectDelimiterJs(bytes: Uint8Array): DelimiterId {
   const limit = Math.min(bytes.length, 64 * 1024);
   const counts: Record<DelimiterId, number> = { ',': 0, ';': 0, '\t': 0 };
   let inQuotes = false;
@@ -114,157 +141,177 @@ export function detectDelimiter(bytes: Uint8Array): DelimiterId {
   return best;
 }
 
-interface FieldScan {
-  field: FieldNode;
-  /** Position of the byte that ended the field (delimiter, CR, LF, or EOF). */
-  next: number;
-  diagnostics: Omit<Diagnostic, 'row' | 'column'>[];
-}
+/** Growable Uint32Array buffer so large files avoid millions of array pushes. */
+class U32Buf {
+  private buf = new Uint32Array(1024);
+  length = 0;
 
-function scanField(bytes: Uint8Array, pos: number, delimiter: number, encoding: EncodingId): FieldScan {
-  const len = bytes.length;
-  const start = pos;
-  const diags: Omit<Diagnostic, 'row' | 'column'>[] = [];
-  let i = pos;
-  while (i < len && isFieldWhitespace(bytes[i], delimiter)) i++;
-
-  if (i < len && bytes[i] === QUOTE) {
-    const prefixEnd = i;
-    const contentStart = i + 1;
-    let j = contentStart;
-    let closed = false;
-    while (j < len) {
-      if (bytes[j] === QUOTE) {
-        if (j + 1 < len && bytes[j + 1] === QUOTE) {
-          j += 2;
-          continue;
-        }
-        closed = true;
-        break;
-      }
-      j += 1;
-    }
-    if (!closed) {
-      // Unclosed quote: the rest of the file belongs to this field.
-      const contentEnd = len;
-      const raw = unescapeQuotedBytes(bytes.subarray(contentStart, contentEnd));
-      diags.push({ type: 'unclosed-quote' });
-      let sawTerminator = false;
-      for (let k = contentStart; k < contentEnd; k++) {
-        if (bytes[k] === CR || bytes[k] === LF) {
-          sawTerminator = true;
-          break;
-        }
-      }
-      if (sawTerminator) {
-        diags.push({ type: 'ambiguous' });
-      }
-      return {
-        field: {
-          start,
-          end: len,
-          quoted: true,
-          contentStart,
-          contentEnd,
-          prefixEnd,
-          suffixStart: len,
-          value: decodeBytes(raw, encoding),
-          hasUndecodable: !decodesCleanly(raw, encoding),
-          malformed: true,
-        },
-        next: len,
-        diagnostics: diags,
-      };
-    }
-    const contentEnd = j;
-    const suffixStart = j + 1;
-    let end = suffixStart;
-    let junk = false;
-    while (end < len && bytes[end] !== delimiter && bytes[end] !== CR && bytes[end] !== LF) {
-      if (!isFieldWhitespace(bytes[end], delimiter)) junk = true;
-      end += 1;
-    }
-    if (junk) diags.push({ type: 'text-after-quote' });
-    const raw = unescapeQuotedBytes(bytes.subarray(contentStart, contentEnd));
-    const suffixBytes = bytes.subarray(suffixStart, end);
-    const value = junk
-      ? decodeBytes(raw, encoding) + decodeBytes(suffixBytes, encoding)
-      : decodeBytes(raw, encoding);
-    const hasUndecodable = !decodesCleanly(raw, encoding) || (junk && !decodesCleanly(suffixBytes, encoding));
-    return {
-      field: {
-        start,
-        end,
-        quoted: true,
-        contentStart,
-        contentEnd,
-        prefixEnd,
-        suffixStart,
-        value,
-        hasUndecodable,
-        malformed: junk,
-      },
-      next: end,
-      diagnostics: diags,
-    };
+  push6(a: number, b: number, c: number, d: number, e: number, f: number): void {
+    this.ensure(6);
+    const buf = this.buf;
+    let n = this.length;
+    buf[n++] = a;
+    buf[n++] = b;
+    buf[n++] = c;
+    buf[n++] = d;
+    buf[n++] = e;
+    buf[n++] = f;
+    this.length = n;
   }
 
-  // Unquoted field: everything up to the delimiter or record terminator,
-  // including surrounding whitespace, is part of the raw value.
-  let end = i;
-  let bareQuote = false;
-  while (end < len && bytes[end] !== delimiter && bytes[end] !== CR && bytes[end] !== LF) {
-    if (bytes[end] === QUOTE) bareQuote = true;
-    end += 1;
+  push7(a: number, b: number, c: number, d: number, e: number, f: number, g: number): void {
+    this.ensure(7);
+    const buf = this.buf;
+    let n = this.length;
+    buf[n++] = a;
+    buf[n++] = b;
+    buf[n++] = c;
+    buf[n++] = d;
+    buf[n++] = e;
+    buf[n++] = f;
+    buf[n++] = g;
+    this.length = n;
   }
-  if (bareQuote) diags.push({ type: 'bare-quote' });
-  const raw = bytes.subarray(start, end);
-  return {
-    field: {
-      start,
-      end,
-      quoted: false,
-      contentStart: start,
-      contentEnd: end,
-      prefixEnd: start,
-      suffixStart: end,
-      value: decodeBytes(raw, encoding),
-      hasUndecodable: !decodesCleanly(raw, encoding),
-      malformed: bareQuote,
-    },
-    next: end,
-    diagnostics: diags,
-  };
+
+  push5(a: number, b: number, c: number, d: number, e: number): void {
+    this.ensure(5);
+    const buf = this.buf;
+    let n = this.length;
+    buf[n++] = a;
+    buf[n++] = b;
+    buf[n++] = c;
+    buf[n++] = d;
+    buf[n++] = e;
+    this.length = n;
+  }
+
+  at(i: number): number {
+    return this.buf[i];
+  }
+
+  toArray(): Uint32Array {
+    return this.buf.slice(0, this.length);
+  }
+
+  private ensure(extra: number): void {
+    if (this.length + extra <= this.buf.length) return;
+    const next = new Uint32Array(Math.max(this.buf.length * 2, this.length + extra));
+    next.set(this.buf.subarray(0, this.length));
+    this.buf = next;
+  }
 }
 
 /**
- * Parse CSV structure at the byte level. The structural bytes `"`, the
- * delimiter, CR, and LF never occur inside multibyte characters in UTF-8,
- * CP932, or EUC-JP, so structure is tracked before any text is decoded.
- * Parsing never modifies the input and never repairs malformed content.
+ * Parse CSV structure at the byte level into a flat index (JS fallback
+ * implementation; semantics identical to the Rust/WASM core). The structural
+ * bytes `"`, the delimiter, CR, and LF never occur inside multibyte
+ * characters in UTF-8, CP932, or EUC-JP, so structure is tracked before any
+ * text is decoded. Parsing never modifies the input and never repairs
+ * malformed content.
  */
-export function parseCsvBytes(bytes: Uint8Array, encoding: EncodingId, delimiter: DelimiterId): ParseResult {
+export function parseCsvIndexJs(
+  bytes: Uint8Array,
+  delimiter: DelimiterId,
+  treatUtf8Bom: boolean,
+): ParsedIndex {
   const delimByte = delimiter.charCodeAt(0);
-  const bomLength = encoding === 'utf-8' && hasUtf8Bom(bytes) ? 3 : 0;
+  const bomLength = treatUtf8Bom && hasUtf8Bom(bytes) ? 3 : 0;
   const len = bytes.length;
-  const records: RecordNode[] = [];
-  const diagnostics: Diagnostic[] = [];
+  const records = new U32Buf();
+  const fields = new U32Buf();
+  const diagnostics = new U32Buf();
   const lineEndings: LineEndingStats = { crlf: 0, lf: 0, cr: 0 };
 
   let pos = bomLength;
+  let recordCount = 0;
   while (pos < len) {
     const recordStart = pos;
-    const fields: FieldNode[] = [];
+    const fieldOffset = fields.length / FIELD_STRIDE;
+    let fieldCount = 0;
     let termStart = len;
     let termEnd = len;
+    let lastFieldEnd = recordStart;
     for (;;) {
-      const scan = scanField(bytes, pos, delimByte, encoding);
-      const columnNumber = fields.length + 1;
-      fields.push(scan.field);
-      for (const d of scan.diagnostics) {
-        diagnostics.push({ row: records.length + 1, column: columnNumber, ...d });
+      // ----- scan one field (same algorithm as wasm/src/csv.rs) -----
+      const fieldStart = pos;
+      let i = pos;
+      while (i < len && isFieldWhitespace(bytes[i], delimByte)) i++;
+      if (i < len && bytes[i] === QUOTE) {
+        const prefixEnd = i;
+        const contentStart = i + 1;
+        let j = contentStart;
+        let closed = false;
+        while (j < len) {
+          if (bytes[j] === QUOTE) {
+            if (j + 1 < len && bytes[j + 1] === QUOTE) {
+              j += 2;
+              continue;
+            }
+            closed = true;
+            break;
+          }
+          j += 1;
+        }
+        if (!closed) {
+          // Unclosed quote: the rest of the file belongs to this field.
+          fields.push7(fieldStart, len, contentStart, len, prefixEnd, len, FLAG_QUOTED | FLAG_MALFORMED);
+          fieldCount += 1;
+          diagnostics.push5(recordCount + 1, fieldCount, DIAG_UNCLOSED_QUOTE, 0, 0);
+          let sawTerminator = false;
+          for (let k = contentStart; k < len; k++) {
+            if (bytes[k] === CR || bytes[k] === LF) {
+              sawTerminator = true;
+              break;
+            }
+          }
+          if (sawTerminator) {
+            diagnostics.push5(recordCount + 1, fieldCount, DIAG_AMBIGUOUS, 0, 0);
+          }
+          lastFieldEnd = len;
+          pos = len;
+        } else {
+          const contentEnd = j;
+          const suffixStart = j + 1;
+          let end = suffixStart;
+          let junk = false;
+          while (end < len && bytes[end] !== delimByte && bytes[end] !== CR && bytes[end] !== LF) {
+            if (!isFieldWhitespace(bytes[end], delimByte)) junk = true;
+            end += 1;
+          }
+          fields.push7(
+            fieldStart,
+            end,
+            contentStart,
+            contentEnd,
+            prefixEnd,
+            suffixStart,
+            FLAG_QUOTED | (junk ? FLAG_MALFORMED : 0),
+          );
+          fieldCount += 1;
+          if (junk) {
+            diagnostics.push5(recordCount + 1, fieldCount, DIAG_TEXT_AFTER_QUOTE, 0, 0);
+          }
+          lastFieldEnd = end;
+          pos = end;
+        }
+      } else {
+        // Unquoted field: everything up to the delimiter or record
+        // terminator, including surrounding whitespace, is the raw value.
+        let end = i;
+        let bareQuote = false;
+        while (end < len && bytes[end] !== delimByte && bytes[end] !== CR && bytes[end] !== LF) {
+          if (bytes[end] === QUOTE) bareQuote = true;
+          end += 1;
+        }
+        fields.push7(fieldStart, end, fieldStart, end, fieldStart, end, bareQuote ? FLAG_MALFORMED : 0);
+        fieldCount += 1;
+        if (bareQuote) {
+          diagnostics.push5(recordCount + 1, fieldCount, DIAG_BARE_QUOTE, 0, 0);
+        }
+        lastFieldEnd = end;
+        pos = end;
       }
-      pos = scan.next;
+
       if (pos >= len) {
         termStart = len;
         termEnd = len;
@@ -275,18 +322,9 @@ export function parseCsvBytes(bytes: Uint8Array, encoding: EncodingId, delimiter
         pos += 1;
         if (pos >= len) {
           // Trailing delimiter at EOF implies a final empty field.
-          fields.push({
-            start: len,
-            end: len,
-            quoted: false,
-            contentStart: len,
-            contentEnd: len,
-            prefixEnd: len,
-            suffixStart: len,
-            value: '',
-            hasUndecodable: false,
-            malformed: false,
-          });
+          fields.push7(len, len, len, len, len, len, 0);
+          fieldCount += 1;
+          lastFieldEnd = len;
           termStart = len;
           termEnd = len;
           break;
@@ -305,33 +343,46 @@ export function parseCsvBytes(bytes: Uint8Array, encoding: EncodingId, delimiter
       pos = termEnd;
       break;
     }
-    records.push({
-      start: recordStart,
-      end: fields.length > 0 ? fields[fields.length - 1].end : recordStart,
-      fields,
-      termStart,
-      termEnd,
-    });
+    records.push6(recordStart, lastFieldEnd, termStart, termEnd, fieldOffset, fieldCount);
+    recordCount += 1;
   }
 
-  if (records.length > 1) {
-    const expected = records[0].fields.length;
-    for (let r = 1; r < records.length; r++) {
-      const actual = records[r].fields.length;
+  if (recordCount > 1) {
+    const expected = records.at(5);
+    for (let r = 1; r < recordCount; r++) {
+      const actual = records.at(r * RECORD_STRIDE + 5);
       if (actual !== expected) {
-        diagnostics.push({
-          row: r + 1,
-          column: 1,
-          type: 'inconsistent-field-count',
-          expected,
-          actual,
-        });
+        diagnostics.push5(r + 1, 1, DIAG_INCONSISTENT_FIELD_COUNT, expected, actual);
       }
     }
   }
 
-  const last = records[records.length - 1];
-  const hasFinalNewline = records.length > 0 && last.termStart < last.termEnd;
+  const hasFinalNewline =
+    recordCount > 0 &&
+    records.at((recordCount - 1) * RECORD_STRIDE + 2) < records.at((recordCount - 1) * RECORD_STRIDE + 3);
 
-  return { records, diagnostics, lineEndings, hasFinalNewline, bomLength };
+  return {
+    records: records.toArray(),
+    fields: fields.toArray(),
+    diagnostics: diagnostics.toArray(),
+    lineEndings,
+    hasFinalNewline,
+    bomLength,
+  };
+}
+
+/** Materialize the Diagnostic list from a flat index. */
+export function materializeDiagnostics(index: ParsedIndex): Diagnostic[] {
+  const out: Diagnostic[] = [];
+  const d = index.diagnostics;
+  for (let i = 0; i < d.length; i += DIAG_STRIDE) {
+    const type = DIAG_TYPES[d[i + 2]];
+    const diag: Diagnostic = { row: d[i], column: d[i + 1], type };
+    if (type === 'inconsistent-field-count') {
+      diag.expected = d[i + 3];
+      diag.actual = d[i + 4];
+    }
+    out.push(diag);
+  }
+  return out;
 }

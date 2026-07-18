@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 
 /**
- * One cell change inside a history entry. `null` means "no edit" (the cell
- * shows its original value).
+ * One cell change inside a history operation. For CSV documents `null`
+ * means "no edit" (the cell shows its original value); for RCSV documents
+ * values are always strings (the cell input).
  */
 export interface CellChange {
   row: number;
@@ -11,23 +12,45 @@ export interface CellChange {
   after: string | null;
 }
 
+/**
+ * One atomic sub-operation of a history entry. Structural operations
+ * (row/column insertion and deletion) exist only for RCSV spreadsheet
+ * documents; `data` carries the affected row/column contents so deletion is
+ * undoable. Column data is column-major.
+ */
+export type Operation =
+  | { type: 'cells'; changes: CellChange[] }
+  | { type: 'rows'; action: 'insert' | 'delete'; index: number; count: number; data: string[][] }
+  | { type: 'cols'; action: 'insert' | 'delete'; index: number; count: number; data: string[][] };
+
 export interface HistoryEntry {
   /** i18n key describing the operation (for menus / tooltips). */
   label: string;
-  changes: CellChange[];
+  /** Applied in order on redo, inverted in reverse order on undo. */
+  ops: Operation[];
+}
+
+/** Convenience constructor for the common single-op cell-change entry. */
+export function cellsEntry(label: string, changes: CellChange[]): HistoryEntry {
+  return { label, ops: [{ type: 'cells', changes }] };
+}
+
+function isEmpty(entry: HistoryEntry): boolean {
+  return entry.ops.every((op) => (op.type === 'cells' ? op.changes.length === 0 : op.count === 0));
 }
 
 /**
- * Undo/redo stacks over cell-edit operations. Multi-cell operations such as
- * Replace All or Revert All are pushed as a single entry, so one Undo undoes
- * the whole operation atomically.
+ * Undo/redo stacks over document operations. Multi-cell operations such as
+ * Replace All, range paste, or a row deletion with its formula-reference
+ * rewrites are pushed as a single entry, so one Undo undoes the whole
+ * operation atomically.
  */
 export class History {
   private undoStack: HistoryEntry[] = [];
   private redoStack: HistoryEntry[] = [];
 
   push(entry: HistoryEntry): void {
-    if (entry.changes.length === 0) {
+    if (isEmpty(entry)) {
       return;
     }
     this.undoStack.push(entry);

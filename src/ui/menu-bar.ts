@@ -15,7 +15,12 @@ export interface MenuDef {
   items: Array<MenuItemDef | 'separator'>;
 }
 
-export function defaultMenus(wrapChecked: () => boolean): MenuDef[] {
+export interface MenuChecks {
+  wrap: () => boolean;
+  stickyFirstRow: () => boolean;
+}
+
+export function defaultMenus(checks: MenuChecks): MenuDef[] {
   return [
     {
       labelKey: 'menu.file',
@@ -25,6 +30,9 @@ export function defaultMenus(wrapChecked: () => boolean): MenuDef[] {
         'separator',
         { labelKey: 'menu.file.save', command: 'file.save', shortcut: 'Ctrl+S' },
         { labelKey: 'menu.file.saveOptions', command: 'file.saveOptions', shortcut: 'Ctrl+Shift+S' },
+        { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
+        'separator',
+        { labelKey: 'menu.file.settings', command: 'app.settings' },
         'separator',
         { labelKey: 'menu.file.closeTab', command: 'file.closeTab', shortcut: 'Ctrl+W' },
       ],
@@ -34,6 +42,10 @@ export function defaultMenus(wrapChecked: () => boolean): MenuDef[] {
       items: [
         { labelKey: 'menu.edit.undo', command: 'edit.undo', shortcut: 'Ctrl+Z' },
         { labelKey: 'menu.edit.redo', command: 'edit.redo', shortcut: 'Ctrl+Y' },
+        'separator',
+        { labelKey: 'menu.edit.copy', command: 'edit.copy', shortcut: 'Ctrl+C' },
+        { labelKey: 'menu.edit.paste', command: 'edit.paste', shortcut: 'Ctrl+V' },
+        { labelKey: 'menu.edit.fillDown', command: 'edit.fillDown', shortcut: 'Ctrl+D' },
         'separator',
         { labelKey: 'menu.edit.revertCell', command: 'edit.revertCell' },
         { labelKey: 'menu.edit.revertAll', command: 'edit.revertAll' },
@@ -50,8 +62,31 @@ export function defaultMenus(wrapChecked: () => boolean): MenuDef[] {
       ],
     },
     {
+      labelKey: 'menu.sheet',
+      items: [
+        { labelKey: 'menu.sheet.convert', command: 'sheet.convert' },
+        'separator',
+        { labelKey: 'menu.sheet.insertRowAbove', command: 'sheet.insertRowAbove' },
+        { labelKey: 'menu.sheet.insertRowBelow', command: 'sheet.insertRowBelow' },
+        { labelKey: 'menu.sheet.deleteRows', command: 'sheet.deleteRows' },
+        'separator',
+        { labelKey: 'menu.sheet.insertColLeft', command: 'sheet.insertColLeft' },
+        { labelKey: 'menu.sheet.insertColRight', command: 'sheet.insertColRight' },
+        { labelKey: 'menu.sheet.deleteCols', command: 'sheet.deleteCols' },
+        'separator',
+        { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
+      ],
+    },
+    {
       labelKey: 'menu.view',
-      items: [{ labelKey: 'menu.view.wrap', command: 'view.wrap', checked: wrapChecked }],
+      items: [
+        { labelKey: 'menu.view.wrap', command: 'view.wrap', checked: checks.wrap },
+        {
+          labelKey: 'menu.view.stickyFirstRow',
+          command: 'view.stickyFirstRow',
+          checked: checks.stickyFirstRow,
+        },
+      ],
     },
     {
       labelKey: 'menu.language',
@@ -80,9 +115,9 @@ export class MenuBar {
 
   constructor(
     private readonly commands: Commands,
-    wrapChecked: () => boolean,
+    checks: MenuChecks,
   ) {
-    this.menus = defaultMenus(wrapChecked);
+    this.menus = defaultMenus(checks);
     this.element = el('div', { className: 'menu-bar', attrs: { role: 'menubar' } });
     document.addEventListener('mousedown', (event) => {
       if (this.openIndex !== null && !this.element.contains(event.target as Node)) {

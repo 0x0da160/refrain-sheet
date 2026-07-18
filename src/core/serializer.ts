@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId, FieldNode } from './byte-csv-parser';
+import { getCsvEngine } from './csv-engine';
 import {
   UTF8_BOM,
   encodeText,
@@ -54,24 +55,28 @@ interface Replacement {
   bytes: Uint8Array;
 }
 
+/**
+ * Apply byte-range replacements through the CSV engine (Rust/WASM
+ * serialization planning, with an identical JS fallback). Bytes outside the
+ * replaced ranges are copied verbatim from the original input.
+ */
 function applyReplacements(bytes: Uint8Array, replacements: Replacement[]): Uint8Array {
-  const sorted = [...replacements].sort((a, b) => a.start - b.start);
-  let total = bytes.length;
-  for (const r of sorted) {
-    total += r.bytes.length - (r.end - r.start);
+  const ranges = new Uint32Array(replacements.length * 2);
+  const payloadLens = new Uint32Array(replacements.length);
+  let payloadTotal = 0;
+  for (let i = 0; i < replacements.length; i++) {
+    ranges[i * 2] = replacements[i].start;
+    ranges[i * 2 + 1] = replacements[i].end;
+    payloadLens[i] = replacements[i].bytes.length;
+    payloadTotal += replacements[i].bytes.length;
   }
-  const out = new Uint8Array(total);
-  let src = 0;
-  let dst = 0;
-  for (const r of sorted) {
-    out.set(bytes.subarray(src, r.start), dst);
-    dst += r.start - src;
-    out.set(r.bytes, dst);
-    dst += r.bytes.length;
-    src = r.end;
+  const payload = new Uint8Array(payloadTotal);
+  let off = 0;
+  for (const r of replacements) {
+    payload.set(r.bytes, off);
+    off += r.bytes.length;
   }
-  out.set(bytes.subarray(src), dst);
-  return out;
+  return getCsvEngine().applyReplacements(bytes, ranges, payload, payloadLens);
 }
 
 /**
@@ -197,8 +202,9 @@ function serializePatched(doc: LosslessDocument, options: SaveOptions, allowNcr:
 
   if (options.lineEnding !== 'keep') {
     const target = LINE_ENDING_BYTES[options.lineEnding];
-    for (const record of doc.records) {
-      if (record.termStart >= record.termEnd) continue;
+    for (let r = 0; r < doc.rowCount; r++) {
+      const record = doc.recordSpan(r);
+      if (!record || record.termStart >= record.termEnd) continue;
       const current = doc.bytes.subarray(record.termStart, record.termEnd);
       if (current.length === target.length && current.every((b, i) => b === target[i])) continue;
       replacements.push({ start: record.termStart, end: record.termEnd, bytes: target });
@@ -221,11 +227,14 @@ function serializeReencoded(
   const ncrReplacements: NcrCellReport[] = [];
   const parts: string[] = [];
 
-  for (let r = 0; r < doc.records.length; r++) {
-    const record = doc.records[r];
-    for (let c = 0; c < record.fields.length; c++) {
+  for (let r = 0; r < doc.rowCount; r++) {
+    const record = doc.recordSpan(r);
+    if (!record) continue;
+    for (let c = 0; c < record.fieldCount; c++) {
       if (c > 0) parts.push(doc.delimiter);
-      let text = fieldText(doc, record.fields[c], r, c);
+      const field = doc.getField(r, c);
+      if (!field) continue;
+      let text = fieldText(doc, field, r, c);
       const bad = findUnrepresentableChars(text, encoding);
       if (bad.length > 0) {
         if (!allowNcr) {

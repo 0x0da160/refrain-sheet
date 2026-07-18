@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 import './styles.css';
 import { AppState } from './app/app-state';
+import { ClipboardController } from './app/clipboard-controller';
 import { Commands, type UiPort } from './app/commands';
 import { getLocale, initLocale, onLocaleChange, t } from './app/i18n';
+import { initCsvEngine } from './core/csv-engine';
 import { validateDocument } from './core/validation';
 import { Dialogs, Toasts } from './ui/dialogs';
 import { el } from './ui/dom';
@@ -14,9 +16,13 @@ import { StatusBar } from './ui/status-bar';
 import { TabBar } from './ui/tab-bar';
 import { Toolbar } from './ui/toolbar';
 
-function bootstrap(): void {
+async function bootstrap(): Promise<void> {
   initLocale();
   document.documentElement.lang = getLocale();
+
+  // Instantiate the embedded WASM CSV core (decoded locally from Base64 —
+  // never fetched). Falls back to the identical JS engine if unavailable.
+  await initCsvEngine();
 
   const state = new AppState();
   const dialogs = new Dialogs();
@@ -32,17 +38,29 @@ function bootstrap(): void {
     notifyNcr: (reports) => dialogs.notifyNcr(reports),
     confirmUndecodableEdit: (cells) => dialogs.confirmUndecodableEdit(cells),
     chooseReopen: (tab) => dialogs.chooseReopen(tab),
+    confirmConvert: (reason, name) => dialogs.confirmConvert(reason, name),
+    explainRcsvSave: (name) => dialogs.explainRcsvSave(name),
+    confirmExportCsv: (name) => dialogs.confirmExportCsv(name),
     confirm: (title, message, ok, cancel) => dialogs.confirm(title, message, ok, cancel),
     showMessage: (title, message) => dialogs.showMessage(title, message),
     notify: (text, kind) => toasts.notify(text, kind),
     openFindBar: (replaceMode) => findBar.open(replaceMode),
     findNext: (direction) => findBar.next(direction),
     showAbout: () => void dialogs.showAbout(),
+    chooseSettings: (current) => dialogs.chooseSettings(current),
   };
 
   const commands = new Commands(state, ui, document);
   const grid = new Grid(state, commands);
-  const menuBar = new MenuBar(commands, () => state.wrapCells);
+  const clipboard = new ClipboardController(state, commands, (text, kind) => toasts.notify(text, kind));
+  commands.clipboardActions = {
+    copy: () => clipboard.copyViaApi(),
+    paste: () => clipboard.pasteViaApi(),
+  };
+  const menuBar = new MenuBar(commands, {
+    wrap: () => state.wrapCells,
+    stickyFirstRow: () => state.stickyFirstRow,
+  });
   const toolbar = new Toolbar(commands);
   const tabBar = new TabBar(state, commands);
   const findBar = new FindBar(state, commands, grid);
@@ -50,13 +68,13 @@ function bootstrap(): void {
     const tab = state.activeTab;
     if (!tab || !tab.selection) return;
     const row = Math.min(tab.doc.rowCount - 1, tab.selection.row + 1);
-    const col = Math.min(tab.selection.col, Math.max(0, (tab.doc.records[row]?.fields.length ?? 1) - 1));
+    const col = Math.min(tab.selection.col, Math.max(0, (tab.doc.fieldCount(row) || 1) - 1));
     grid.reveal(row, col);
   };
-  const formulaBar = new FormulaBar(state, moveSelectionDown);
+  const formulaBar = new FormulaBar(state, commands, moveSelectionDown);
   const statusBar = new StatusBar(state, () => {
     const tab = state.activeTab;
-    if (tab && tab.doc.diagnostics.length > 0) {
+    if (tab && tab.doc.kind === 'csv' && tab.doc.diagnostics.length > 0) {
       void dialogs.confirmValidation(tab.name, validateDocument(tab.doc));
     }
   });
@@ -112,9 +130,23 @@ function bootstrap(): void {
         statusBar.render();
         return;
       case 'view':
+        // Wrap and sticky-first-row both change grid metrics.
         app.classList.toggle('wrap-cells', state.wrapCells);
         menuBar.render();
+        grid.refresh();
         return;
+    }
+  });
+
+  // ----- Clipboard: Ctrl+C / Ctrl+V via native copy/paste events -----
+  document.addEventListener('copy', (event) => {
+    if (grid.isNavigating()) {
+      clipboard.handleCopyEvent(event);
+    }
+  });
+  document.addEventListener('paste', (event) => {
+    if (grid.isNavigating()) {
+      clipboard.handlePasteEvent(event);
     }
   });
 
@@ -152,6 +184,9 @@ function bootstrap(): void {
     } else if (mod && key === 'h') {
       event.preventDefault();
       void commands.run('search.replace');
+    } else if (mod && key === 'd' && !inTextField) {
+      event.preventDefault();
+      void commands.run('edit.fillDown');
     } else if (mod && key === 'z' && !inTextField) {
       event.preventDefault();
       void commands.run(event.shiftKey ? 'edit.redo' : 'edit.undo');
@@ -241,4 +276,4 @@ function bootstrap(): void {
   dropMessage.textContent = t('drop.hint');
 }
 
-bootstrap();
+void bootstrap();

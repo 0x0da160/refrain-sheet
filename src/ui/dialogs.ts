@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: MIT
 import type { Tab } from '../app/app-state';
+import type { ConvertReason } from '../app/commands';
 import { t } from '../app/i18n';
+import {
+  bytesToMiB,
+  miBToBytes,
+  clampMaxFileSize,
+  MIN_MAX_FILE_SIZE,
+  MAX_MAX_FILE_SIZE,
+} from '../app/settings';
 import type { DelimiterId } from '../core/byte-csv-parser';
 import type { EncodingId } from '../core/encoding';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
@@ -136,6 +144,10 @@ export class Dialogs {
 
   chooseSaveOptions(tab: Tab, downloadNote: string | null): Promise<SaveOptions | null> {
     const doc = tab.doc;
+    if (doc.kind !== 'csv') {
+      // Save-with-options applies only to byte-preserving CSV documents.
+      return Promise.resolve(null);
+    }
     return openDialog<SaveOptions | null>(t('dialog.saveOptions.title'), null, (body, buttons, close) => {
       const makeSelect = (
         labelText: string,
@@ -250,6 +262,10 @@ export class Dialogs {
 
   chooseReopen(tab: Tab): Promise<{ encoding: EncodingId; delimiter: DelimiterId } | null> {
     const doc = tab.doc;
+    if (doc.kind !== 'csv') {
+      // Reinterpretation applies only to byte-preserving CSV documents.
+      return Promise.resolve(null);
+    }
     return openDialog<{ encoding: EncodingId; delimiter: DelimiterId } | null>(
       t('dialog.reopen.title'),
       null,
@@ -293,6 +309,93 @@ export class Dialogs {
     );
   }
 
+  /** Explain and confirm the explicit CSV -> RCSV spreadsheet conversion. */
+  confirmConvert(reason: ConvertReason, name: string): Promise<boolean> {
+    return openDialog(t('dialog.convert.title'), false, (body, buttons, close) => {
+      body.append(el('p', { text: t(`dialog.convert.${reason}`, { name }) }));
+      body.append(el('p', { className: 'dialog-warning', text: t('dialog.convert.note') }));
+      buttons.append(
+        dialogButton(t('dialog.convert.cancel'), false, false, () => close(false)),
+        dialogButton(t('dialog.convert.ok'), true, true, () => close(true)),
+      );
+    });
+  }
+
+  /** Explain that spreadsheet documents are saved in the .rcsv format. */
+  explainRcsvSave(name: string): Promise<boolean> {
+    return openDialog(t('dialog.rcsvSave.title'), false, (body, buttons, close) => {
+      body.append(el('p', { text: t('dialog.rcsvSave.message', { name }) }));
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.rcsvSave.note') }));
+      buttons.append(
+        dialogButton(t('dialog.rcsvSave.cancel'), false, false, () => close(false)),
+        dialogButton(t('dialog.rcsvSave.ok'), true, true, () => close(true)),
+      );
+    });
+  }
+
+  /** Confirm the explicitly lossy CSV export of an RCSV document. */
+  confirmExportCsv(name: string): Promise<boolean> {
+    return openDialog(t('dialog.exportCsv.title'), false, (body, buttons, close) => {
+      body.append(el('p', { text: t('dialog.exportCsv.message', { name }) }));
+      body.append(el('p', { className: 'dialog-warning', text: t('dialog.exportCsv.warning') }));
+      buttons.append(
+        dialogButton(t('dialog.exportCsv.cancel'), false, true, () => close(false)),
+        dialogButton(t('dialog.exportCsv.ok'), true, false, () => close(true)),
+      );
+    });
+  }
+
+  /**
+   * Edit local settings. Currently the maximum file-size limit (in MiB).
+   * Returns the chosen limit in bytes, or null when cancelled. The value is
+   * clamped into the supported range before being returned.
+   */
+  chooseSettings(currentMaxFileSize: number): Promise<number | null> {
+    return openDialog<number | null>(t('dialog.settings.title'), null, (body, buttons, close) => {
+      const minMiB = bytesToMiB(MIN_MAX_FILE_SIZE);
+      const maxMiB = bytesToMiB(MAX_MAX_FILE_SIZE);
+      const input = el('input', {
+        attrs: {
+          type: 'number',
+          min: String(minMiB),
+          max: String(maxMiB),
+          step: '1',
+          'data-autofocus': 'true',
+          'aria-describedby': 'settings-maxsize-help',
+        },
+      });
+      input.value = String(bytesToMiB(currentMaxFileSize));
+
+      body.append(
+        el('div', { className: 'form-row' }, [
+          el('label', { text: t('dialog.settings.maxFileSize') }, [
+            input,
+            el('span', { className: 'form-unit', text: t('dialog.settings.mib') }),
+          ]),
+        ]),
+        el('p', {
+          className: 'dialog-note',
+          text: t('dialog.settings.range', { min: minMiB, max: maxMiB }),
+          attrs: { id: 'settings-maxsize-help' },
+        }),
+        el('p', { className: 'dialog-note', text: t('dialog.settings.note') }),
+        el('p', { className: 'dialog-note', text: t('dialog.settings.local') }),
+      );
+
+      buttons.append(
+        dialogButton(t('dialog.settings.cancel'), false, false, () => close(null)),
+        dialogButton(t('dialog.settings.save'), true, false, () => {
+          const mib = Number(input.value);
+          if (!Number.isFinite(mib) || mib <= 0) {
+            close(null);
+            return;
+          }
+          close(clampMaxFileSize(miBToBytes(mib)));
+        }),
+      );
+    });
+  }
+
   confirm(title: string, message: string, okLabel: string, cancelLabel: string): Promise<boolean> {
     return openDialog(title, false, (body, buttons, close) => {
       body.append(el('p', { text: message }));
@@ -323,6 +426,9 @@ export class Dialogs {
         ['Ctrl+Tab, Ctrl+PageDown / PageUp', t('shortcut.switchTab')],
         ['Ctrl+Z / Cmd+Z', t('shortcut.undo')],
         ['Ctrl+Y, Ctrl+Shift+Z / Cmd+Shift+Z', t('shortcut.redo')],
+        ['Ctrl+C / Cmd+C', t('shortcut.copy')],
+        ['Ctrl+V / Cmd+V', t('shortcut.paste')],
+        ['Shift+Arrows', t('shortcut.extendSelection')],
         ['Ctrl+F / Cmd+F', t('shortcut.find')],
         ['Ctrl+H / Cmd+H', t('shortcut.replace')],
         ['F2', t('shortcut.editCell')],

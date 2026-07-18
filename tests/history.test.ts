@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import { AppState } from '../src/app/app-state';
-import { History } from '../src/core/history';
-import { doc } from './helpers';
+import { cellsEntry, History } from '../src/core/history';
+import { asCsv, doc } from './helpers';
 
 function setup(csv = 'a,b,c\n1,2,3\n') {
   const state = new AppState();
@@ -14,7 +14,7 @@ describe('History', () => {
   it('push/undo/redo basics', () => {
     const history = new History();
     expect(history.canUndo).toBe(false);
-    history.push({ label: 'x', changes: [{ row: 0, col: 0, before: null, after: 'v' }] });
+    history.push(cellsEntry('x', [{ row: 0, col: 0, before: null, after: 'v' }]));
     expect(history.canUndo).toBe(true);
     expect(history.canRedo).toBe(false);
     expect(history.undo()?.label).toBe('x');
@@ -24,15 +24,15 @@ describe('History', () => {
 
   it('a new edit clears the redo stack', () => {
     const history = new History();
-    history.push({ label: 'a', changes: [{ row: 0, col: 0, before: null, after: '1' }] });
+    history.push(cellsEntry('a', [{ row: 0, col: 0, before: null, after: '1' }]));
     history.undo();
-    history.push({ label: 'b', changes: [{ row: 0, col: 0, before: null, after: '2' }] });
+    history.push(cellsEntry('b', [{ row: 0, col: 0, before: null, after: '2' }]));
     expect(history.canRedo).toBe(false);
   });
 
   it('ignores empty entries', () => {
     const history = new History();
-    history.push({ label: 'empty', changes: [] });
+    history.push(cellsEntry('empty', []));
     expect(history.canUndo).toBe(false);
   });
 });
@@ -81,7 +81,7 @@ describe('undo/redo through AppState', () => {
     expect(tab.doc.getValue(0, 0)).toBe('X');
     expect(tab.doc.getValue(0, 1)).toBe('Y');
     expect(tab.doc.getValue(1, 2)).toBe('Z');
-    expect(tab.doc.editCount).toBe(3);
+    expect(asCsv(tab.doc).editCount).toBe(3);
   });
 
   it('bulk edits (Replace All) undo as one operation', () => {
@@ -95,11 +95,11 @@ describe('undo/redo through AppState', () => {
       ],
       'history.replaceAll',
     );
-    expect(tab.doc.editCount).toBe(3);
+    expect(asCsv(tab.doc).editCount).toBe(3);
     state.undo(tab);
-    expect(tab.doc.editCount).toBe(0);
+    expect(asCsv(tab.doc).editCount).toBe(0);
     state.redo(tab);
-    expect(tab.doc.editCount).toBe(3);
+    expect(asCsv(tab.doc).editCount).toBe(3);
   });
 
   it('history is cleared when a saved baseline is set', () => {

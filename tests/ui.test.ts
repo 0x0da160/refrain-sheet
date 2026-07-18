@@ -17,12 +17,16 @@ const noopUi: UiPort = {
   notifyNcr: async () => undefined,
   confirmUndecodableEdit: async () => true,
   chooseReopen: async () => null,
+  confirmConvert: async () => true,
+  explainRcsvSave: async () => true,
+  confirmExportCsv: async () => true,
   confirm: async () => true,
   showMessage: async () => undefined,
   notify: () => undefined,
   openFindBar: () => undefined,
   findNext: () => undefined,
   showAbout: () => undefined,
+  chooseSettings: async () => null,
 };
 
 function setup() {
@@ -43,7 +47,7 @@ describe('XSS safety', () => {
     const payload = '<img src=x onerror="window.__pwned=true"><script>window.__pwned=true</script>';
     state.addTab('evil.csv', doc(`name,payload\nrow,"${payload.replace(/"/g, '""')}"\n`), null);
     grid.refresh();
-    const cells = grid.element.querySelectorAll('td[data-col]');
+    const cells = grid.element.querySelectorAll('[data-row][data-col]');
     const texts = Array.from(cells).map((c) => c.textContent);
     expect(texts).toContain(payload);
     expect(document.querySelector('img')).toBeNull();
@@ -69,7 +73,7 @@ describe('grid rendering', () => {
     grid.refresh();
     state.editCell(tab, 0, 1, 'changed');
     grid.refresh();
-    const td = grid.element.querySelector('td[data-row="0"][data-col="1"]')!;
+    const td = grid.element.querySelector('[data-row="0"][data-col="1"]')!;
     expect(td.classList.contains('edited')).toBe(true);
     expect(td.getAttribute('title')).toBe('b');
     expect(td.textContent).toBe('changed');
@@ -79,7 +83,7 @@ describe('grid rendering', () => {
     const { state, grid } = setup();
     state.addTab('a.csv', doc('a,"x"junk\n'), null);
     grid.refresh();
-    const td = grid.element.querySelector('td[data-row="0"][data-col="1"]')!;
+    const td = grid.element.querySelector('[data-row="0"][data-col="1"]')!;
     expect(td.classList.contains('malformed')).toBe(true);
   });
 

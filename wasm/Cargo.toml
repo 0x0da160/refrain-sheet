@@ -1,0 +1,25 @@
+[package]
+name = "refrain-csv-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Byte-level CSV core (parsing, validation, sniffing, indexing, serialization planning) for Refrain CSV HTML, compiled to WebAssembly."
+repository = "https://github.com/0x0da160/refrain-csv-html"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Pinned exactly: wasm-pack downloads the matching wasm-bindgen-cli, so the
+# crate version must stay deterministic.
+wasm-bindgen = "=0.2.100"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+
+# wasm-opt is disabled so the Docker/CI build never downloads binaryen at
+# build time; the size cost is small and documented in the README.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 
-/** Default safety limit: whole files are kept in memory. */
-export const MAX_FILE_SIZE = 512 * 1024 * 1024;
-
 export interface OpenedFile {
   name: string;
   bytes: Uint8Array;
   /** Present only when the File System Access API provided a writable handle. */
   handle: FileSystemFileHandle | null;
   size: number;
+  /**
+   * The file exceeded the configured size limit, so its bytes were never read
+   * into memory. The command layer reports it and skips loading.
+   */
+  tooLarge?: boolean;
 }
 
 export type SaveMode = 'overwrite' | 'download';
@@ -19,17 +21,32 @@ export interface SaveOutcome {
   downloadName?: string;
   /** The overwrite attempt failed and the save fell back to a download. */
   fellBack: boolean;
+  /** Handle obtained from a save picker, reusable for future saves. */
+  handle?: FileSystemFileHandle;
 }
 
 interface FilePickerCapableWindow {
   showOpenFilePicker?: (options?: unknown) => Promise<FileSystemFileHandle[]>;
+  showSaveFilePicker?: (options?: unknown) => Promise<FileSystemFileHandle>;
 }
 
 export function fileSystemAccessAvailable(): boolean {
   return typeof (globalThis as FilePickerCapableWindow).showOpenFilePicker === 'function';
 }
 
-export async function readFileObject(file: File, handle: FileSystemFileHandle | null): Promise<OpenedFile> {
+/**
+ * Read a file's bytes into memory, enforcing the size limit first. When the
+ * file is larger than `maxSize` its bytes are never read; the returned entry
+ * is flagged `tooLarge` so the caller can report it without allocating.
+ */
+export async function readFileObject(
+  file: File,
+  handle: FileSystemFileHandle | null,
+  maxSize: number,
+): Promise<OpenedFile> {
+  if (file.size > maxSize) {
+    return { name: file.name, bytes: new Uint8Array(0), handle, size: file.size, tooLarge: true };
+  }
   const buffer = await file.arrayBuffer();
   return { name: file.name, bytes: new Uint8Array(buffer), handle, size: file.size };
 }
@@ -37,9 +54,10 @@ export async function readFileObject(file: File, handle: FileSystemFileHandle | 
 /**
  * Ask the user to pick one or more files. Uses the File System Access API
  * when available (so saves can overwrite the original file); otherwise falls
- * back to a hidden <input type="file"> element.
+ * back to a hidden <input type="file"> element. The configured size limit is
+ * enforced before any file's bytes are read into memory.
  */
-export async function pickFiles(doc: Document): Promise<OpenedFile[]> {
+export async function pickFiles(doc: Document, maxSize: number): Promise<OpenedFile[]> {
   const picker = (globalThis as FilePickerCapableWindow).showOpenFilePicker;
   if (typeof picker === 'function') {
     let handles: FileSystemFileHandle[];
@@ -53,7 +71,7 @@ export async function pickFiles(doc: Document): Promise<OpenedFile[]> {
     }
     const out: OpenedFile[] = [];
     for (const handle of handles) {
-      out.push(await readFileObject(await handle.getFile(), handle));
+      out.push(await readFileObject(await handle.getFile(), handle, maxSize));
     }
     return out;
   }
@@ -61,12 +79,12 @@ export async function pickFiles(doc: Document): Promise<OpenedFile[]> {
     const input = doc.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.accept = '.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain';
+    input.accept = '.csv,.tsv,.txt,.rcsv,text/csv,text/tab-separated-values,text/plain,application/json';
     input.style.display = 'none';
     input.addEventListener('change', () => {
       const files = Array.from(input.files ?? []);
       input.remove();
-      Promise.all(files.map((f) => readFileObject(f, null))).then(resolve, reject);
+      Promise.all(files.map((f) => readFileObject(f, null, maxSize))).then(resolve, reject);
     });
     input.addEventListener('cancel', () => {
       input.remove();
@@ -120,6 +138,48 @@ export async function saveBytes(
       triggerDownload(doc, name, bytes);
       return { mode: 'download', downloadName: name, fellBack: true };
     }
+  }
+  triggerDownload(doc, name, bytes);
+  return { mode: 'download', downloadName: name, fellBack: false };
+}
+
+const SAVE_PICKER_TYPES = {
+  rcsv: [
+    {
+      description: 'Refrain spreadsheet (RCSV)',
+      accept: { 'application/json': ['.rcsv'] },
+    },
+  ],
+  csv: [
+    {
+      description: 'CSV',
+      accept: { 'text/csv': ['.csv'] },
+    },
+  ],
+} as const;
+
+/**
+ * Save to a user-chosen location. Where the File System Access API save
+ * picker exists, the user picks the destination and the returned handle is
+ * reported for reuse; otherwise this falls back to a download (the original
+ * file is never overwritten). AbortError (user cancelled) is rethrown.
+ */
+export async function saveBytesAs(
+  doc: Document,
+  name: string,
+  bytes: Uint8Array,
+  kind: keyof typeof SAVE_PICKER_TYPES,
+): Promise<SaveOutcome> {
+  const picker = (globalThis as FilePickerCapableWindow).showSaveFilePicker;
+  if (typeof picker === 'function') {
+    const handle = await picker.call(globalThis, {
+      suggestedName: name,
+      types: SAVE_PICKER_TYPES[kind],
+    });
+    const writable = await handle.createWritable();
+    await writable.write(bytes.slice());
+    await writable.close();
+    return { mode: 'overwrite', fellBack: false, handle };
   }
   triggerDownload(doc, name, bytes);
   return { mode: 'download', downloadName: name, fellBack: false };

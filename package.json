@@ -12,8 +12,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:wasm": "wasm-pack build wasm --release --target web --no-pack --out-dir pkg && node scripts/embed-wasm.mjs",
+    "check:dist": "node scripts/check-dist.mjs",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:rust": "cargo test --manifest-path wasm/Cargo.toml",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

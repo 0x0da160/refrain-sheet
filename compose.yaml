@@ -12,10 +12,13 @@ services:
     build: .
     working_dir: /app
     volumes:
-      # Bind-mount the project for live editing; keep node_modules in a named
-      # volume so Linux binaries never land in the host working tree.
+      # Bind-mount the project for live editing; keep node_modules and Rust
+      # build artifacts in named volumes so Linux binaries never land in the
+      # host working tree.
       - .:/app
       - node_modules:/app/node_modules
+      - cargo_target:/app/wasm/target
+      - cargo_registry:/usr/local/cargo/registry
   dev:
     build: .
     working_dir: /app
@@ -25,6 +28,10 @@ services:
     volumes:
       - .:/app
       - node_modules:/app/node_modules
+      - cargo_target:/app/wasm/target
+      - cargo_registry:/usr/local/cargo/registry
 
 volumes:
   node_modules:
+  cargo_target:
+  cargo_registry:

@@ -6,7 +6,7 @@ import { Commands, type UiPort } from '../src/app/commands';
 import type { OpenedFile } from '../src/app/file-access';
 import { compileQuery } from '../src/core/search';
 import { decodeBytes } from '../src/core/encoding';
-import { enc, utf8 } from './helpers';
+import { asCsv, enc, utf8 } from './helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   return {
@@ -17,12 +17,16 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     notifyNcr: vi.fn(async () => undefined),
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
+    confirmConvert: vi.fn(async () => true),
+    explainRcsvSave: vi.fn(async () => true),
+    confirmExportCsv: vi.fn(async () => true),
     confirm: vi.fn(async () => true),
     showMessage: vi.fn(async () => undefined),
     notify: vi.fn(),
     openFindBar: vi.fn(),
     findNext: vi.fn(),
     showAbout: vi.fn(),
+    chooseSettings: vi.fn(async () => null),
     ...overrides,
   };
 }
@@ -162,7 +166,7 @@ describe('saving', () => {
     await commands.openFiles([opened('a.csv', enc('名前,値\n', 'shift_jis'), fake.handle)], {
       confirmNonCsv: false,
     });
-    expect(state.activeTab!.doc.encoding).toBe('shift_jis');
+    expect(asCsv(state.activeTab!.doc).encoding).toBe('shift_jis');
     const tab = state.activeTab!;
     state.editCell(tab, 0, 1, '😀');
     const ok = await commands.save(tab, KEEP);
@@ -194,7 +198,7 @@ describe('saving', () => {
     await commands.openFiles([opened('a.csv', bytes, fake.handle)], { confirmNonCsv: false });
     const tab = state.activeTab!;
     // Reinterpret as UTF-8 so the 0xff byte is undecodable.
-    state.setBaseline(tab, tab.doc.reinterpret({ encoding: 'utf-8' }));
+    state.setBaseline(tab, asCsv(tab.doc).reinterpret({ encoding: 'utf-8' }));
     state.editCell(tab, 0, 1, 'clean');
     const ok = await commands.save(tab, KEEP);
     expect(ok).toBe(false);

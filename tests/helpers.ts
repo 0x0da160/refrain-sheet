@@ -32,6 +32,12 @@ export function doc(
   return LosslessDocument.fromBytes(bytes, interpretation);
 }
 
+/** Narrow an EditorDocument union member to the CSV document (asserting). */
+export function asCsv(document: { kind: string }): LosslessDocument {
+  expect(document.kind).toBe('csv');
+  return document as LosslessDocument;
+}
+
 /** Serialize with the given options and assert success, returning the bytes. */
 export function saved(document: LosslessDocument, options: SaveOptions = KEEP_SAVE_OPTIONS): Uint8Array {
   const result = serializeDocument(document, options);

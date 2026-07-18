@@ -6,3 +6,5 @@ coverage
 Dockerfile
 compose.yaml
 .dockerignore
+wasm/target
+wasm/pkg

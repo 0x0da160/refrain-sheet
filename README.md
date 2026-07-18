@@ -126,7 +126,9 @@ regions are preserved byte-for-byte as long as you don't edit them) or
 - Drag & drop files anywhere in the window (the whole window highlights as a
   drop target). Each dropped file opens in its own tab. Files without a
   CSV-like extension (`.csv`, `.tsv`, `.txt`) prompt before opening.
-- Files over **512 MiB** are refused (see Limitations).
+- Files over the configured size limit (**512 MiB** by default) are refused
+  before their bytes are read into memory. The limit is adjustable in
+  **File > Settings…** (see Settings).
 - If the same file is already open, its existing tab is activated instead.
   Strict file identity is not always detectable through browser file APIs;
   the app compares writable file handles when available and otherwise falls
@@ -212,6 +214,18 @@ regions are preserved byte-for-byte as long as you don't edit them) or
   and errors (denied permission, failed download) are reported clearly.
 - Files opened via drag & drop get a writable handle only in browsers that
   support `getAsFileSystemHandle`; otherwise they save as downloads.
+
+### Settings
+
+**File > Settings…** opens a dialog for local preferences. Currently it holds
+the **maximum file size** accepted when opening a file. The default is
+512 MiB; you may choose any value from **16 MiB to 2 GiB**. The limit is
+enforced _before_ a file's bytes are read into memory.
+
+Raising the limit does **not** guarantee that a large file will open: browser
+memory, device resources, and file complexity still impose practical limits,
+and files of hundreds of megabytes may be slow to render and edit. The
+setting is stored only in `localStorage` and is never transmitted anywhere.
 
 ### Language
 
@@ -368,7 +382,8 @@ spreadsheet software. The Save with Options dialog carries the same warning.
 
 - No row/column insertion or deletion, sorting, or filtering in this
   version — only editing existing field values.
-- The whole file is kept in memory, with a **512 MiB** safety limit; larger
+- The whole file is kept in memory, with a configurable safety limit
+  (**512 MiB** by default, adjustable from 16 MiB to 2 GiB in Settings); larger
   files are refused with an explanation. Files in the hundreds of megabytes
   may be slow to render and edit (rows render incrementally as you scroll).
 - UTF-16 and ISO-2022-JP are not supported.

@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { RcsvDocument, RCSV_FORMAT, RCSV_VERSION } from '../src/core/rcsv-document';
-import { doc, utf8 } from './helpers';
+import { encodeRcsv, RCSV_MAGIC } from '../src/core/rcsv-codec';
+import { RcsvDocument } from '../src/core/rcsv-document';
+import { doc } from './helpers';
 
 function rcsvFromCells(cells: Array<[number, number, string]>, rows = 4, cols = 3): RcsvDocument {
-  const json = {
-    format: RCSV_FORMAT,
-    version: RCSV_VERSION,
-    sheet: { name: 'Sheet1', rowCount: rows, columnCount: cols, cells },
-  };
-  const result = RcsvDocument.fromBytes(utf8(JSON.stringify(json)), 'test.rcsv');
+  // Build a clean (non-dirty) document via the binary container round-trip.
+  const bytes = encodeRcsv({ name: 'Sheet1', delimiter: ',', rowCount: rows, columnCount: cols, cells });
+  const result = RcsvDocument.fromBytes(bytes, 'test.rcsv');
   expect(result.ok).toBe(true);
   if (!result.ok) throw new Error('unreachable');
   return result.doc;
@@ -95,7 +93,14 @@ describe('formulas in the document', () => {
   });
 });
 
-describe('versioned serialization', () => {
+describe('versioned binary serialization', () => {
+  it('writes the RCSV magic bytes and container version', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    const bytes = sheet.toBytes();
+    expect(Array.from(bytes.subarray(0, 4))).toEqual(Array.from(RCSV_MAGIC));
+    expect(bytes[4]).toBe(2); // container version
+  });
+
   it('round-trips values, formulas, structure, and settings', () => {
     const original = rcsvFromCells(
       [
@@ -108,9 +113,6 @@ describe('versioned serialization', () => {
     );
     original.delimiter = ';';
     const bytes = original.toBytes();
-    const parsed = JSON.parse(new TextDecoder().decode(bytes));
-    expect(parsed.format).toBe('refrain-rcsv');
-    expect(parsed.version).toBe(1);
     const reloaded = RcsvDocument.fromBytes(bytes, 'again.rcsv');
     expect(reloaded.ok).toBe(true);
     if (!reloaded.ok) return;
@@ -122,71 +124,29 @@ describe('versioned serialization', () => {
     expect(reloaded.doc.delimiter).toBe(';');
   });
 
-  it('rejects wrong formats, versions, shapes, and encodings', () => {
-    const cases: Array<[Uint8Array, string]> = [
-      [utf8('not json at all'), 'not-json'],
-      [new Uint8Array([0xff, 0xfe, 0x00]), 'not-utf8'],
-      [utf8(JSON.stringify({ format: 'other', version: 1, sheet: {} })), 'bad-format'],
-      [
-        utf8(
-          JSON.stringify({
-            format: RCSV_FORMAT,
-            version: 2,
-            sheet: { name: 's', rowCount: 1, columnCount: 1, cells: [] },
-          }),
-        ),
-        'bad-version',
-      ],
-      [utf8(JSON.stringify({ format: RCSV_FORMAT, version: 1 })), 'bad-shape'],
-      [
-        utf8(
-          JSON.stringify({
-            format: RCSV_FORMAT,
-            version: 1,
-            sheet: { name: 's', rowCount: 2, columnCount: 2, cells: [[5, 0, 'out of range']] },
-          }),
-        ),
-        'bad-shape',
-      ],
-      [
-        utf8(
-          JSON.stringify({
-            format: RCSV_FORMAT,
-            version: 1,
-            sheet: { name: 's', rowCount: 1, columnCount: 1, cells: [[0, 0, 42]] },
-          }),
-        ),
-        'bad-shape',
-      ],
-      [
-        utf8(
-          JSON.stringify({
-            format: RCSV_FORMAT,
-            version: 1,
-            sheet: { name: 's', rowCount: 100_000_000, columnCount: 100, cells: [] },
-          }),
-        ),
-        'too-large',
-      ],
-      [
-        utf8(
-          JSON.stringify({
-            format: RCSV_FORMAT,
-            version: 1,
-            sheet: { name: 's', rowCount: 1, columnCount: 1, cells: [] },
-            settings: { delimiter: '|' },
-          }),
-        ),
-        'bad-shape',
-      ],
-    ];
-    for (const [bytes, error] of cases) {
+  it('rejects non-RCSV bytes with bad magic', () => {
+    for (const bytes of [new Uint8Array([1, 2, 3]), new Uint8Array(30)]) {
       const result = RcsvDocument.fromBytes(bytes, 'bad.rcsv');
-      expect(result.ok, error).toBe(false);
-      if (!result.ok) {
-        expect(result.error).toBe(error);
-      }
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toBe('bad-magic');
     }
+  });
+
+  it('rejects an unsupported container version', () => {
+    const bytes = rcsvFromCells([[0, 0, 'v']]).toBytes();
+    bytes[4] = 99;
+    const result = RcsvDocument.fromBytes(bytes, 'bad.rcsv');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('bad-version');
+  });
+
+  it('detects corruption through the checksum', () => {
+    const bytes = rcsvFromCells([[0, 0, 'value']]).toBytes();
+    // Flip a byte inside the payload (after the 20-byte header).
+    bytes[bytes.length - 1] ^= 0xff;
+    const result = RcsvDocument.fromBytes(bytes, 'bad.rcsv');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(['checksum', 'bad-shape']).toContain(result.error);
   });
 
   it('stores only inert data (no code is ever executed by loading)', () => {
@@ -196,10 +156,10 @@ describe('versioned serialization', () => {
       [0, 1, '=SUM(A1:A1)'],
     ]);
     expect(sheet.getDisplayValue(0, 0)).toBe('<script>window.x=1</script>');
-    const bytes = sheet.toBytes();
-    const text = new TextDecoder().decode(bytes);
-    expect(text).not.toContain('function');
-    expect(text).not.toContain('http');
+    const reloaded = RcsvDocument.fromBytes(sheet.toBytes(), 'again.rcsv');
+    expect(reloaded.ok).toBe(true);
+    if (!reloaded.ok) return;
+    expect(reloaded.doc.getValue(0, 0)).toBe('<script>window.x=1</script>');
   });
 });
 

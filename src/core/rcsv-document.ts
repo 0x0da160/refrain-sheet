@@ -10,50 +10,26 @@ import {
   type FormulaValue,
   type ParseResult,
 } from './formula';
+import { decodeRcsv, encodeRcsv, type RcsvData, type RcsvDecodeError } from './rcsv-codec';
 import type { LosslessDocument } from './lossless-document';
 
 /**
- * The `.rcsv` file format: a documented, versioned, UTF-8 JSON container for
+ * The `.rcsv` file format: a documented, versioned, binary container for
  * spreadsheet documents. CSV cannot store formulas, worksheet metadata, or
  * structural editing intent without breaking the original-file preservation
  * guarantee, so spreadsheet documents are saved as `.rcsv` instead.
  *
- * Format (version 1):
- *
- * ```json
- * {
- *   "format": "refrain-rcsv",
- *   "version": 1,
- *   "sheet": {
- *     "name": "Sheet1",
- *     "rowCount": 3,
- *     "columnCount": 2,
- *     "cells": [[0, 0, "value"], [1, 0, "=SUM(A1:A1)"]]
- *   },
- *   "settings": { "delimiter": "," }
- * }
- * ```
- *
- * - `cells` lists non-empty cells as `[row, column, input]` triples; an
- *   input beginning with `=` is a formula expression, anything else is a
- *   literal value.
- * - `settings` stores only what the application needs (the CSV delimiter
- *   used for export defaults).
- * - The format holds pure data: no executable code, no macros, no external
- *   references, and no network URLs. Parsing is strict (shape, types, and
- *   bounds are validated) and never executes anything.
+ * The container is a compact binary format (magic bytes, header, CRC-32
+ * checksum, DEFLATE-compressed body) defined in `rcsv-codec.ts` and
+ * documented in `docs/rcsv-format.md`. It holds pure data — no executable
+ * code, macros, external references, or network URLs — and parsing is strict
+ * (magic, version, checksum, shape, and bounds are validated) and never
+ * executes anything.
  */
-export const RCSV_FORMAT = 'refrain-rcsv';
-export const RCSV_VERSION = 1;
 export const RCSV_EXTENSION = '.rcsv';
 
-export const MAX_RCSV_ROWS = 2_000_000;
-export const MAX_RCSV_COLS = 16_384;
-export const MAX_RCSV_CELLS = 20_000_000;
-export const MAX_RCSV_CELL_LENGTH = 1_000_000;
-
-export type RcsvParseError =
-  'not-json' | 'not-utf8' | 'bad-format' | 'bad-version' | 'bad-shape' | 'too-large';
+/** Failure reasons when loading a `.rcsv` container (see `rcsv-codec.ts`). */
+export type RcsvParseError = RcsvDecodeError;
 
 export type RcsvLoadResult = { ok: true; doc: RcsvDocument } | { ok: false; error: RcsvParseError };
 
@@ -116,100 +92,24 @@ export class RcsvDocument {
     return new RcsvDocument(name, ',', data, Math.max(1, cols));
   }
 
-  /** Parse and strictly validate `.rcsv` bytes. Never executes anything. */
+  /** Parse and strictly validate binary `.rcsv` bytes. Never executes anything. */
   static fromBytes(bytes: Uint8Array, name: string): RcsvLoadResult {
-    let text: string;
-    try {
-      text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-    } catch {
-      return { ok: false, error: 'not-utf8' };
+    const decoded = decodeRcsv(bytes);
+    if (!decoded.ok) {
+      return { ok: false, error: decoded.error };
     }
-    let json: unknown;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      return { ok: false, error: 'not-json' };
-    }
-    if (typeof json !== 'object' || json === null || Array.isArray(json)) {
-      return { ok: false, error: 'bad-shape' };
-    }
-    const root = json as Record<string, unknown>;
-    if (root.format !== RCSV_FORMAT) {
-      return { ok: false, error: 'bad-format' };
-    }
-    if (root.version !== RCSV_VERSION) {
-      return { ok: false, error: 'bad-version' };
-    }
-    const sheet = root.sheet;
-    if (typeof sheet !== 'object' || sheet === null || Array.isArray(sheet)) {
-      return { ok: false, error: 'bad-shape' };
-    }
-    const s = sheet as Record<string, unknown>;
-    const rowCount = s.rowCount;
-    const columnCount = s.columnCount;
-    if (
-      typeof rowCount !== 'number' ||
-      typeof columnCount !== 'number' ||
-      !Number.isInteger(rowCount) ||
-      !Number.isInteger(columnCount) ||
-      rowCount < 1 ||
-      columnCount < 1
-    ) {
-      return { ok: false, error: 'bad-shape' };
-    }
-    if (rowCount > MAX_RCSV_ROWS || columnCount > MAX_RCSV_COLS || rowCount * columnCount > MAX_RCSV_CELLS) {
-      return { ok: false, error: 'too-large' };
-    }
-    const cells = s.cells;
-    if (!Array.isArray(cells) || cells.length > rowCount * columnCount) {
-      return { ok: false, error: 'bad-shape' };
-    }
+    const { rowCount, columnCount, cells, delimiter } = decoded.data;
     const data: string[][] = [];
     for (let r = 0; r < rowCount; r++) {
       data.push(new Array<string>(columnCount).fill(''));
     }
-    for (const entry of cells) {
-      if (!Array.isArray(entry) || entry.length !== 3) {
-        return { ok: false, error: 'bad-shape' };
-      }
-      const [r, c, input] = entry as unknown[];
-      if (
-        typeof r !== 'number' ||
-        typeof c !== 'number' ||
-        !Number.isInteger(r) ||
-        !Number.isInteger(c) ||
-        r < 0 ||
-        r >= rowCount ||
-        c < 0 ||
-        c >= columnCount ||
-        typeof input !== 'string' ||
-        input.length > MAX_RCSV_CELL_LENGTH
-      ) {
-        return { ok: false, error: 'bad-shape' };
-      }
+    for (const [r, c, input] of cells) {
       data[r][c] = input;
     }
-    let delimiter: DelimiterId = ',';
-    const settings = root.settings;
-    if (settings !== undefined) {
-      if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) {
-        return { ok: false, error: 'bad-shape' };
-      }
-      const d = (settings as Record<string, unknown>).delimiter;
-      if (d !== undefined) {
-        if (d !== ',' && d !== ';' && d !== '\t') {
-          return { ok: false, error: 'bad-shape' };
-        }
-        delimiter = d;
-      }
-    }
-    const sheetName = typeof s.name === 'string' && s.name.length <= 255 ? s.name : 'Sheet1';
-    const doc = new RcsvDocument(name, delimiter, data, columnCount);
-    void sheetName;
-    return { ok: true, doc };
+    return { ok: true, doc: new RcsvDocument(name, delimiter, data, columnCount) };
   }
 
-  /** Serialize to the versioned UTF-8 JSON `.rcsv` format. */
+  /** Serialize to the versioned binary `.rcsv` container format. */
   toBytes(): Uint8Array {
     const cells: Array<[number, number, string]> = [];
     for (let r = 0; r < this.data.length; r++) {
@@ -220,18 +120,14 @@ export class RcsvDocument {
         }
       }
     }
-    const json = {
-      format: RCSV_FORMAT,
-      version: RCSV_VERSION,
-      sheet: {
-        name: 'Sheet1',
-        rowCount: this.data.length,
-        columnCount: this.cols,
-        cells,
-      },
-      settings: { delimiter: this.delimiter },
+    const payload: RcsvData = {
+      name: 'Sheet1',
+      delimiter: this.delimiter,
+      rowCount: this.data.length,
+      columnCount: this.cols,
+      cells,
     };
-    return new TextEncoder().encode(JSON.stringify(json));
+    return encodeRcsv(payload);
   }
 
   // ----- Common document surface (shared with LosslessDocument) -----

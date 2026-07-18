@@ -21,6 +21,28 @@ export function planReplacements(bytes_len: number, ranges: Uint32Array, payload
  */
 export function applyReplacements(bytes: Uint8Array, ranges: Uint32Array, payload: Uint8Array, payload_lens: Uint32Array): Uint8Array;
 /**
+ * Raw DEFLATE compression for the `.rcsv` container payload.
+ */
+export function rcsvDeflate(bytes: Uint8Array): Uint8Array;
+/**
+ * Raw DEFLATE decompression, bounded by `max_len` output bytes (a
+ * decompression-bomb guard). Returns an empty array on failure; the caller
+ * distinguishes "empty payload" via the container's stored length.
+ */
+export function rcsvInflate(bytes: Uint8Array, max_len: number): Uint8Array | undefined;
+/**
+ * CRC-32 (IEEE) checksum of the container's uncompressed body.
+ */
+export function rcsvCrc32(bytes: Uint8Array): number;
+/**
+ * Reduce finite numbers to `[sum, min, max]` for selection statistics.
+ */
+export function statsAggregate(values: Float64Array): Float64Array;
+/**
+ * Count non-overlapping occurrences of `needle` in `haystack` (literal search).
+ */
+export function countLiteral(haystack: Uint8Array, needle: Uint8Array): number;
+/**
  * Structural index of one parsed CSV byte sequence. See `csv.rs` for the
  * array layouts (record/field/diagnostic strides).
  */
@@ -54,6 +76,11 @@ export interface InitOutput {
   readonly sniffDelimiter: (a: number, b: number) => number;
   readonly planReplacements: (a: number, b: number, c: number, d: number, e: number) => [number, number];
   readonly applyReplacements: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
+  readonly rcsvDeflate: (a: number, b: number) => [number, number];
+  readonly rcsvInflate: (a: number, b: number, c: number) => [number, number];
+  readonly rcsvCrc32: (a: number, b: number) => number;
+  readonly statsAggregate: (a: number, b: number) => [number, number];
+  readonly countLiteral: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_export_0: WebAssembly.Table;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __wbindgen_malloc: (a: number, b: number) => number;

@@ -24,6 +24,7 @@ const noopUi: UiPort = {
   findNext: () => undefined,
   showAbout: () => undefined,
   chooseSettings: async () => null,
+  setBusy: () => undefined,
 };
 
 const VIEW_HEIGHT = 520;

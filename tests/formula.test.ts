@@ -7,6 +7,7 @@ import {
   columnLabel,
   evaluateAst,
   formatValue,
+  functionCompletions,
   isFormula,
   literalToValue,
   MAX_FORMULA_LENGTH,
@@ -338,5 +339,34 @@ describe('literal coercion and formatting', () => {
     expect(formatValue({ type: 'boolean', value: true })).toBe('TRUE');
     expect(formatValue({ type: 'empty' })).toBe('');
     expect(formatValue({ type: 'error', code: '#CYCLE!' })).toBe('#CYCLE!');
+  });
+});
+
+describe('function autocomplete', () => {
+  const names = (text: string, caret = text.length) =>
+    functionCompletions(text, caret).matches.map((m) => m.name);
+
+  it('completes a bare function-name prefix at the caret', () => {
+    expect(names('=SU')).toEqual(['SUM']);
+    expect(names('=M')).toEqual(['MIN', 'MAX']);
+    expect(names('=a')).toEqual(['AVERAGE']); // case-insensitive
+    expect(functionCompletions('=SU', 3).word).toBe('SU');
+  });
+
+  it('completes after operators and open parens', () => {
+    expect(names('=1+SU')).toEqual(['SUM']);
+    expect(names('=IF(A1>0,SU')).toEqual(['SUM']);
+    expect(names('=A')).toEqual(['AVERAGE']); // a bare letter is still a name prefix
+  });
+
+  it('does not complete completed cell references or opened calls', () => {
+    expect(names('=A1')).toEqual([]); // digit ends the word: it is a reference
+    expect(names('=SUM(')).toEqual([]); // caret sits after '('
+  });
+
+  it('returns nothing outside a formula or with no word before the caret', () => {
+    expect(names('SU')).toEqual([]); // not a formula
+    expect(names('=')).toEqual([]);
+    expect(names('=SUM(1,)', 7)).toEqual([]);
   });
 });

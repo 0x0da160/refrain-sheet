@@ -27,6 +27,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     findNext: vi.fn(),
     showAbout: vi.fn(),
     chooseSettings: vi.fn(async () => null),
+    setBusy: vi.fn(),
     ...overrides,
   };
 }

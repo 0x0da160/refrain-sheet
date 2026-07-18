@@ -147,7 +147,7 @@ const SAVE_PICKER_TYPES = {
   rcsv: [
     {
       description: 'Refrain spreadsheet (RCSV)',
-      accept: { 'application/json': ['.rcsv'] },
+      accept: { 'application/octet-stream': ['.rcsv'] },
     },
   ],
   csv: [

@@ -13,6 +13,12 @@ crate-type = ["cdylib", "rlib"]
 # Pinned exactly: wasm-pack downloads the matching wasm-bindgen-cli, so the
 # crate version must stay deterministic.
 wasm-bindgen = "=0.2.100"
+# Pure-Rust DEFLATE (RFC 1951) for the binary .rcsv container. Chosen over the
+# `zstd` crate because zstd-sys needs a C toolchain, which does not build for
+# the wasm32-unknown-unknown target; miniz_oxide is dependency-free Rust and
+# compiles cleanly to WASM. The .rcsv container records its compression method
+# so a future zstd method can be added without breaking older files.
+miniz_oxide = "=0.8.0"
 
 [profile.release]
 opt-level = "s"

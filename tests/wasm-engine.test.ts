@@ -3,11 +3,13 @@ import fc from 'fast-check';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { detectDelimiterJs, parseCsvIndexJs, type DelimiterId } from '../src/core/byte-csv-parser';
 import {
+  countLiteralJs,
   decodeEmbeddedWasm,
   getCsvEngine,
   initCsvEngine,
   planReplacementsJs,
   setCsvEngineForTesting,
+  statsAggregateJs,
 } from '../src/core/csv-engine';
 import { LosslessDocument } from '../src/core/lossless-document';
 import { serializeDocument } from '../src/core/serializer';
@@ -172,6 +174,65 @@ describe('WASM/JS engine parity', () => {
         },
       ),
       { numRuns: 200 },
+    );
+  });
+});
+
+describe('stats and search primitives (WASM/JS parity)', () => {
+  it('aggregates finite numbers identically to the JS fallback', () => {
+    fc.assert(
+      fc.property(fc.array(fc.double({ min: -1e6, max: 1e6, noNaN: true }), { maxLength: 200 }), (arr) => {
+        const values = Float64Array.from(arr);
+        const wasm = getCsvEngine().statsAggregate(values);
+        const js = statsAggregateJs(values);
+        expect(wasm.sum).toBe(js.sum);
+        expect(wasm.min).toBe(js.min);
+        expect(wasm.max).toBe(js.max);
+      }),
+      { numRuns: 200 },
+    );
+  });
+
+  it('counts literal occurrences identically to the JS fallback', () => {
+    const enc = (s: string) => new TextEncoder().encode(s);
+    const cases: Array<[string, string]> = [
+      ['aaaa', 'aa'],
+      ['ababab', 'ab'],
+      ['abc', 'xyz'],
+      ['', 'a'],
+      ['héllo héllo', 'é'],
+      ['mississippi', 'issi'],
+      ['🙂🙂🙂', '🙂'],
+    ];
+    for (const [h, n] of cases) {
+      const hb = enc(h);
+      const nb = enc(n);
+      expect(getCsvEngine().countLiteral(hb, nb)).toBe(countLiteralJs(hb, nb));
+    }
+  });
+
+  it('byte-count matches the JS indexOf loop for ASCII substrings', () => {
+    fc.assert(
+      fc.property(
+        fc.string({ maxLength: 300 }).filter((s) => /^[\x20-\x7e]*$/.test(s)),
+        fc.string({ minLength: 1, maxLength: 4 }).filter((s) => /^[\x20-\x7e]+$/.test(s)),
+        (haystack, needle) => {
+          const engineCount = getCsvEngine().countLiteral(
+            new TextEncoder().encode(haystack),
+            new TextEncoder().encode(needle),
+          );
+          let js = 0;
+          let from = 0;
+          for (;;) {
+            const idx = haystack.indexOf(needle, from);
+            if (idx < 0) break;
+            js += 1;
+            from = idx + needle.length;
+          }
+          expect(engineCount).toBe(js);
+        },
+      ),
+      { numRuns: 300 },
     );
   });
 });

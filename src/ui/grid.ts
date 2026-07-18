@@ -2,8 +2,8 @@
 import type { AppState, Tab } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
-import { rangeContains, type CellRange } from '../core/clipboard';
-import { columnLabel } from '../core/formula';
+import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
+import { cellLabel, columnLabel } from '../core/formula';
 import { el, clearChildren } from './dom';
 
 /** Fixed row/column metrics for virtualization (px). */
@@ -63,6 +63,8 @@ export class Grid {
   private resizing: { col: number; startX: number; startWidth: number } | null = null;
   /** Active fill-handle drag, if any. */
   private filling: { source: CellRange; target: { row: number; col: number } } | null = null;
+  /** Active pointer reference entry into a formula editor, if any. */
+  private refDrag: { anchor: { row: number; col: number } } | null = null;
 
   constructor(
     private readonly state: AppState,
@@ -91,6 +93,7 @@ export class Grid {
       this.dragging = false;
       this.endResize();
       this.endFill();
+      this.endRefDrag();
     });
     document.addEventListener('mousedown', (event) => {
       if (this.contextMenu && !this.contextMenu.contains(event.target as Node)) {
@@ -506,6 +509,21 @@ export class Grid {
       }
       return;
     }
+    // While a formula is being edited, clicking/dragging cells enters
+    // references into the formula instead of moving the grid selection.
+    const refTarget = this.state.formulaRefTarget;
+    if (refTarget?.isCapturing()) {
+      const cell = this.cellFromEvent(event);
+      if (cell) {
+        // preventDefault keeps focus in the formula editor (no blur/commit).
+        event.preventDefault();
+        event.stopPropagation();
+        this.refDrag = { anchor: cell };
+        refTarget.beginRef();
+        refTarget.setRef(cellLabel(cell.row, cell.col));
+        return;
+      }
+    }
     const rowHead = target?.closest<HTMLElement>('[data-rowhead]');
     if (rowHead) {
       // Row header: select the whole row.
@@ -547,6 +565,14 @@ export class Grid {
   }
 
   private onMouseMove(event: MouseEvent): void {
+    if (this.refDrag) {
+      const cell = this.cellFromEvent(event);
+      const refTarget = this.state.formulaRefTarget;
+      if (cell && refTarget) {
+        refTarget.setRef(this.refText(this.refDrag.anchor, cell));
+      }
+      return;
+    }
     if (this.filling) {
       const cell = this.cellFromEvent(event);
       if (cell) {
@@ -659,6 +685,25 @@ export class Grid {
         cell.classList.add('fill-target');
       }
     }
+  }
+
+  // ----- Pointer reference entry -----
+
+  /** Reference text for a single cell or a rectangle (`A1` or `A1:B3`). */
+  private refText(anchor: { row: number; col: number }, cell: { row: number; col: number }): string {
+    if (anchor.row === cell.row && anchor.col === cell.col) {
+      return cellLabel(cell.row, cell.col);
+    }
+    const range = normalizeRange(anchor, cell);
+    return `${cellLabel(range.top, range.left)}:${cellLabel(range.bottom, range.right)}`;
+  }
+
+  private endRefDrag(): void {
+    if (!this.refDrag) {
+      return;
+    }
+    this.refDrag = null;
+    this.state.formulaRefTarget?.endRef();
   }
 
   private endFill(): void {

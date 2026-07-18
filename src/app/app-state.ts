@@ -13,6 +13,21 @@ export interface Selection {
   col: number;
 }
 
+/**
+ * A formula editor (the formula bar) that can receive cell/range references
+ * from the grid by pointer. While `isCapturing()` is true, clicking or
+ * dragging cells in the grid inserts a reference at the caret instead of
+ * moving the selection. `beginRef` marks the insertion point, `setRef`
+ * replaces the pending reference text (so a drag keeps rewriting one span),
+ * and `endRef` finalizes it.
+ */
+export interface FormulaRefTarget {
+  isCapturing(): boolean;
+  beginRef(): void;
+  setRef(text: string): void;
+  endRef(): void;
+}
+
 export interface Tab {
   id: string;
   name: string;
@@ -67,6 +82,8 @@ export class AppState {
   wrapCells = false;
   /** Keep the first record row pinned below the header while scrolling. */
   stickyFirstRow: boolean;
+  /** The formula editor currently able to accept pointer-entered references. */
+  formulaRefTarget: FormulaRefTarget | null = null;
 
   private listeners = new Set<(event: StateEventType) => void>();
 

@@ -67,6 +67,7 @@
   "status.noFinalNewline": "no final newline",
   "status.size": "{size} bytes",
   "status.cell": "Row {row}, Col {col}",
+  "status.sel.calculating": "Calculating…",
   "status.sel.count": "Selected {n}",
   "status.sel.nonEmpty": "Non-empty {n}",
   "status.sel.numeric": "Numeric {n}",

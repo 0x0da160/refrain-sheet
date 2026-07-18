@@ -1,8 +1,26 @@
 // SPDX-License-Identifier: MIT
 import type { AppState, Tab } from '../app/app-state';
 import { t } from '../app/i18n';
-import { computeSelectionStats, type SelectionStats } from '../core/stats';
+import { forEachIndexSliced } from '../core/scheduler';
+import {
+  computeSelectionStats,
+  SelectionStatsAccumulator,
+  type SelectionStats,
+  type StatsRange,
+} from '../core/stats';
 import { el, clearChildren } from './dom';
+
+/**
+ * Selections up to this many cells compute their statistics synchronously
+ * (imperceptible cost); larger selections render immediately with a
+ * "Calculating…" placeholder and fill the statistics in from a time-sliced
+ * background scan, so selecting (or drag-extending) a huge range never blocks
+ * the selection feedback itself.
+ */
+export const SYNC_STATS_CELL_LIMIT = 20_000;
+
+/** Debounce before a background stats scan starts (drags cancel and restart it). */
+export const STATS_DEBOUNCE_MS = 60;
 
 function formatStat(n: number): string {
   if (Number.isInteger(n)) {
@@ -18,6 +36,8 @@ function formatStat(n: number): string {
  */
 export class StatusBar {
   readonly element: HTMLElement;
+  /** Generation token; bumping it cancels any in-flight background stats scan. */
+  private statsToken = 0;
 
   constructor(
     private readonly state: AppState,
@@ -28,6 +48,8 @@ export class StatusBar {
   }
 
   render(): void {
+    // Any rerender invalidates a scan targeting the previous selection/document.
+    this.statsToken += 1;
     clearChildren(this.element);
     const tab = this.state.activeTab;
     if (!tab) {
@@ -133,9 +155,53 @@ export class StatusBar {
     const doc = tab.doc;
     const readDisplay = (r: number, c: number): string =>
       doc.kind === 'rcsv' ? doc.getDisplayValue(r, c) : doc.getValue(r, c);
-    const stats = computeSelectionStats(range, readDisplay, (r) => doc.fieldCount(r));
-    for (const span of this.statsSpans(stats)) {
-      this.element.append(span);
+    if (area <= SYNC_STATS_CELL_LIMIT) {
+      const stats = computeSelectionStats(range, readDisplay, (r) => doc.fieldCount(r));
+      for (const span of this.statsSpans(stats)) {
+        this.element.append(span);
+      }
+      return;
+    }
+    // Large selection: the selection label above already rendered; the
+    // aggregate scan runs in time slices in the background. The host span is
+    // replaced in place when (and only when) this scan is still current.
+    const host = el('span', { className: 'sel-stats' }, [
+      el('span', { className: 'sel-stat calculating', text: t('status.sel.calculating') }),
+    ]);
+    this.element.append(host);
+    void this.computeStatsDeferred(this.statsToken, tab, range, readDisplay, host);
+  }
+
+  /**
+   * Debounced, time-sliced statistics scan for large selections. A newer
+   * render (selection change, edit, tab switch) bumps the token and abandons
+   * this scan at its next yield point; the placeholder simply stays until the
+   * newer render's own scan completes.
+   */
+  private async computeStatsDeferred(
+    token: number,
+    tab: Tab,
+    range: StatsRange,
+    readDisplay: (row: number, col: number) => string,
+    host: HTMLElement,
+  ): Promise<void> {
+    const doc = tab.doc;
+    await new Promise((resolve) => setTimeout(resolve, STATS_DEBOUNCE_MS));
+    if (token !== this.statsToken || tab.doc !== doc) {
+      return;
+    }
+    const acc = new SelectionStatsAccumulator(range, readDisplay, (r) => doc.fieldCount(r));
+    const rows = range.bottom - range.top + 1;
+    const completed = await forEachIndexSliced(rows, (i) => acc.scanRow(range.top + i), {
+      budgetMs: 8,
+      shouldStop: () => token !== this.statsToken || tab.doc !== doc,
+    });
+    if (!completed || token !== this.statsToken || !host.isConnected) {
+      return;
+    }
+    clearChildren(host);
+    for (const span of this.statsSpans(acc.finalize())) {
+      host.append(span);
     }
   }
 

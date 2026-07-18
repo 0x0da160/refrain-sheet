@@ -16,13 +16,17 @@ import { MenuBar } from './ui/menu-bar';
 import { StatusBar } from './ui/status-bar';
 import { TabBar } from './ui/tab-bar';
 
-async function bootstrap(): Promise<void> {
+function bootstrap(): void {
   initLocale();
   document.documentElement.lang = getLocale();
 
-  // Instantiate the embedded WASM CSV core (decoded locally from Base64 —
-  // never fetched). Falls back to the identical JS engine if unavailable.
-  await initCsvEngine();
+  // Start instantiating the embedded WASM CSV core in the background (decoded
+  // locally from Base64 — never fetched; falls back to the identical JS engine
+  // if unavailable). The UI builds and paints immediately without waiting for
+  // it; every code path that needs the engine awaits the same idempotent
+  // promise before parsing/compressing, so the fast engine is still used for
+  // the first opened file.
+  void initCsvEngine();
 
   const state = new AppState();
   const dialogs = new Dialogs();
@@ -279,4 +283,4 @@ async function bootstrap(): Promise<void> {
   dropMessage.textContent = t('drop.hint');
 }
 
-void bootstrap();
+bootstrap();

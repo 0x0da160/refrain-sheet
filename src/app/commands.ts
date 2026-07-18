@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from '../core/byte-csv-parser';
 import type { CellRange } from '../core/clipboard';
+import { initCsvEngine } from '../core/csv-engine';
 import { detectEncoding, type EncodingId } from '../core/encoding';
 import { isFormula, shiftFormulaRefs } from '../core/formula';
 import type { CellChange, HistoryEntry, Operation } from '../core/history';
@@ -12,6 +13,7 @@ import {
   NEW_DOC_COLS,
   type RcsvParseError,
 } from '../core/rcsv-document';
+import { forEachIndexSliced } from '../core/scheduler';
 import { replaceAllInValue, type CompiledQuery } from '../core/search';
 import {
   serializeDocument,
@@ -385,9 +387,13 @@ export class Commands {
 
     let doc: LosslessDocument;
     try {
-      doc = await this.withBusy(t('loading.opening', { name: file.name }), () =>
-        LosslessDocument.fromBytes(file.bytes),
-      );
+      doc = await this.withBusy(t('loading.opening', { name: file.name }), async () => {
+        // The embedded WASM engine initializes in the background at startup;
+        // parsing waits for it here (idempotent, usually already resolved) so
+        // the first open still uses the fast engine.
+        await initCsvEngine();
+        return LosslessDocument.fromBytes(file.bytes);
+      });
     } catch (err) {
       this.ui.notify(
         t('notify.openFailed', { name: file.name, error: err instanceof Error ? err.message : String(err) }),
@@ -407,9 +413,10 @@ export class Commands {
   }
 
   private async openRcsvFile(file: OpenedFile): Promise<void> {
-    const result = await this.withBusy(t('loading.opening', { name: file.name }), () =>
-      RcsvDocument.fromBytes(file.bytes, file.name),
-    );
+    const result = await this.withBusy(t('loading.opening', { name: file.name }), async () => {
+      await initCsvEngine(); // reading DEFLATE-compressed containers needs the WASM codec
+      return RcsvDocument.fromBytes(file.bytes, file.name);
+    });
     if (!result.ok) {
       const reasonKey: Record<RcsvParseError, string> = {
         'bad-magic': 'dialog.rcsvInvalid.badMagic',
@@ -565,7 +572,10 @@ export class Commands {
     // Serialization compresses the body and computes the checksum; show the
     // busy indicator so a large sheet never appears to freeze.
     const doc = tab.doc;
-    const bytes = await this.withBusy(t('loading.savingRcsv', { name: tab.name }), () => doc.toBytes());
+    const bytes = await this.withBusy(t('loading.savingRcsv', { name: tab.name }), async () => {
+      await initCsvEngine(); // compression runs in the WASM codec when available
+      return doc.toBytes();
+    });
     let outcome: SaveOutcome;
     try {
       outcome = tab.handle
@@ -1037,34 +1047,61 @@ export class Commands {
 
   /**
    * Replace every match in the active tab as one atomic, singly-undoable
-   * operation. The scan-and-rewrite pass runs behind the loading indicator so
-   * a large document never appears to freeze during Replace All.
+   * operation. The read-only scan for matching cells runs in time slices
+   * behind a progress-reporting loading indicator, so a huge document never
+   * blocks input or appears frozen. The mutation itself is then built from
+   * the *current* cell values and applied synchronously in one `bulkEdit`, so
+   * there is never a partially-replaced document — not even if the tab
+   * changed while the scan was yielding (the scan aborts instead).
    */
   async replaceAll(query: CompiledQuery, replacement: string): Promise<{ count: number; cells: number }> {
     const tab = this.state.activeTab;
     if (!tab || !query.ok) {
       return { count: 0, cells: 0 };
     }
-    return this.withBusy(t('loading.replacing'), () => {
+    const doc = tab.doc;
+    const label = t('loading.replacing');
+    return this.withBusy(label, async () => {
+      // Phase 1 (sliced, read-only): find the cells containing matches.
+      const hits: Array<{ row: number; col: number }> = [];
+      const completed = await forEachIndexSliced(
+        doc.rowCount,
+        (r) => {
+          const fieldCount = doc.fieldCount(r);
+          for (let c = 0; c < fieldCount; c++) {
+            if (replaceAllInValue(doc.getValue(r, c), query, replacement).count > 0) {
+              hits.push({ row: r, col: c });
+            }
+          }
+        },
+        {
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${Math.round((done / total) * 100)}%)`),
+          // The document was replaced or the tab closed while yielding: abort
+          // without touching anything.
+          shouldStop: () => tab.doc !== doc,
+        },
+      );
+      if (!completed || tab.doc !== doc) {
+        return { count: 0, cells: 0 };
+      }
+      // Phase 2 (synchronous, atomic): rebuild each change from the current
+      // value and apply them as one undoable entry.
       const changes: CellChange[] = [];
       let count = 0;
-      for (let r = 0; r < tab.doc.rowCount; r++) {
-        const fieldCount = tab.doc.fieldCount(r);
-        for (let c = 0; c < fieldCount; c++) {
-          const current = tab.doc.getValue(r, c);
-          const replaced = replaceAllInValue(current, query, replacement);
-          if (replaced.count === 0) {
-            continue;
-          }
-          if (tab.doc.kind === 'csv') {
-            const before = tab.doc.isEdited(r, c) ? current : null;
-            const after = replaced.value === tab.doc.getOriginalValue(r, c) ? null : replaced.value;
-            changes.push({ row: r, col: c, before, after });
-          } else {
-            changes.push({ row: r, col: c, before: current, after: replaced.value });
-          }
-          count += replaced.count;
+      for (const { row, col } of hits) {
+        const current = doc.getValue(row, col);
+        const replaced = replaceAllInValue(current, query, replacement);
+        if (replaced.count === 0) {
+          continue;
         }
+        if (doc.kind === 'csv') {
+          const before = doc.isEdited(row, col) ? current : null;
+          const after = replaced.value === doc.getOriginalValue(row, col) ? null : replaced.value;
+          changes.push({ row, col, before, after });
+        } else {
+          changes.push({ row, col, before: current, after: replaced.value });
+        }
+        count += replaced.count;
       }
       const applied = this.state.bulkEdit(tab, changes, 'history.replaceAll');
       return { count: applied ? count : 0, cells: applied ? changes.length : 0 };

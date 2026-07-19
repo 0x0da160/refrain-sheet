@@ -19,7 +19,12 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
     explainRcsvSave: vi.fn(async () => true),
-    confirmExportCsv: vi.fn(async () => true),
+    chooseExportCsv: vi.fn(async () => ({
+      encoding: 'utf-8' as const,
+      bom: false,
+      lineEnding: 'lf' as const,
+    })),
+    chooseInsertShift: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
     showMessage: vi.fn(async () => undefined),
     notify: vi.fn(),
@@ -327,12 +332,12 @@ describe('saving and exporting RCSV', () => {
     expect(tab.doc.isDirty).toBe(true);
   });
 
-  it('CSV export requires explicit confirmation and never runs when declined', async () => {
-    const ui = stubUi({ confirmExportCsv: vi.fn(async () => false) });
+  it('CSV export requires explicit confirmation and never runs when cancelled', async () => {
+    const ui = stubUi({ chooseExportCsv: vi.fn(async () => null) });
     const { commands, tab } = await converted('1,2\n', ui);
     const ok = await commands.exportCsv(tab);
     expect(ok).toBe(false);
-    expect(ui.confirmExportCsv).toHaveBeenCalledWith('data.rcsv');
+    expect(ui.chooseExportCsv).toHaveBeenCalledWith('data.rcsv');
   });
 
   it('confirmed CSV export downloads calculated values', async () => {

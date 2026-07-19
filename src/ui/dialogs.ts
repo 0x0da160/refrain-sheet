@@ -12,6 +12,7 @@ import {
   MAX_MAX_FILE_SIZE,
 } from '../app/settings';
 import type { DelimiterId } from '../core/byte-csv-parser';
+import type { CsvExportOptions, CsvLineEnding } from '../core/csv-export';
 import type { EncodingId } from '../core/encoding';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
 import type { ValidationSummary } from '../core/validation';
@@ -339,16 +340,86 @@ export class Dialogs {
     });
   }
 
-  /** Confirm the explicitly lossy CSV export of an RCSV document. */
-  confirmExportCsv(name: string): Promise<boolean> {
-    return openDialog(t('dialog.exportCsv.title'), false, (body, buttons, close) => {
+  /**
+   * CSV export options: encoding, line-ending style, and BOM behavior, with
+   * the lossy-conversion explanation. Exporting requires pressing the
+   * explicit Export button (Cancel/Escape resolve null); the BOM control is
+   * disabled — with an explanation — for encodings where a BOM does not
+   * apply. Values are validated against the chosen encoding by the caller.
+   */
+  chooseExportCsv(name: string): Promise<CsvExportOptions | null> {
+    return openDialog<CsvExportOptions | null>(t('dialog.exportCsv.title'), null, (body, buttons, close) => {
       body.append(el('p', { text: t('dialog.exportCsv.message', { name }) }));
       body.append(el('p', { className: 'dialog-warning', text: t('dialog.exportCsv.warning') }));
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.exportCsv.notPreserved') }));
+
+      const makeSelect = (
+        labelText: string,
+        options: Array<{ value: string; label: string }>,
+      ): { row: HTMLElement; select: HTMLSelectElement } => {
+        const select = el('select');
+        for (const opt of options) {
+          select.append(el('option', { text: opt.label, attrs: { value: opt.value } }));
+        }
+        const row = el('div', { className: 'form-row' }, [el('label', { text: labelText }, [select])]);
+        return { row, select };
+      };
+
+      const encoding = makeSelect(t('dialog.exportCsv.encoding'), [
+        { value: 'utf-8', label: t('encoding.utf-8') },
+        { value: 'shift_jis', label: t('encoding.shift_jis') },
+        { value: 'euc-jp', label: t('encoding.euc-jp') },
+      ]);
+      const bom = makeSelect(t('dialog.exportCsv.bom'), [
+        { value: 'omit', label: t('dialog.saveOptions.bom.remove') },
+        { value: 'include', label: t('dialog.saveOptions.bom.add') },
+      ]);
+      const lineEnding = makeSelect(t('dialog.exportCsv.lineEnding'), [
+        { value: 'crlf', label: 'CRLF (\\r\\n)' },
+        { value: 'lf', label: 'LF (\\n)' },
+        { value: 'cr', label: 'CR (\\r)' },
+      ]);
+
+      const bomNote = el('p', { className: 'dialog-note', text: t('dialog.exportCsv.bomNote') });
+      const updateBom = () => {
+        // A BOM applies only to UTF-8; the control is disabled (and ignored)
+        // for the other encodings.
+        bom.select.disabled = encoding.select.value !== 'utf-8';
+      };
+      encoding.select.addEventListener('change', updateBom);
+      updateBom();
+
+      body.append(encoding.row, bom.row, bomNote, lineEnding.row);
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.saveOptions.injectionWarning') }));
+
       buttons.append(
-        dialogButton(t('dialog.exportCsv.cancel'), false, true, () => close(false)),
-        dialogButton(t('dialog.exportCsv.ok'), true, false, () => close(true)),
+        dialogButton(t('dialog.exportCsv.cancel'), false, true, () => close(null)),
+        dialogButton(t('dialog.exportCsv.ok'), true, false, () =>
+          close({
+            encoding: encoding.select.value as EncodingId,
+            bom: !bom.select.disabled && bom.select.value === 'include',
+            lineEnding: lineEnding.select.value as CsvLineEnding,
+          }),
+        ),
       );
     });
+  }
+
+  /** Choose the shift direction for Insert Copied Cells… (null cancels). */
+  chooseInsertShift(rows: number, cols: number): Promise<'right' | 'down' | null> {
+    return openDialog<'right' | 'down' | null>(
+      t('dialog.insertCells.title'),
+      null,
+      (body, buttons, close) => {
+        body.append(el('p', { text: t('dialog.insertCells.message', { rows, cols }) }));
+        body.append(el('p', { className: 'dialog-note', text: t('dialog.insertCells.note') }));
+        buttons.append(
+          dialogButton(t('dialog.insertCells.cancel'), false, true, () => close(null)),
+          dialogButton(t('dialog.insertCells.right'), false, false, () => close('right')),
+          dialogButton(t('dialog.insertCells.down'), true, false, () => close('down')),
+        );
+      },
+    );
   }
 
   /**

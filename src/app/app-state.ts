@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { normalizeRange, type CellRange } from '../core/clipboard';
-import { adjustFormulaForAxis } from '../core/formula';
+import { adjustFormulaForAxis, isFormula, shiftFormulaRefs } from '../core/formula';
 import { cellsEntry, History, type CellChange, type HistoryEntry, type Operation } from '../core/history';
 import type { LosslessDocument } from '../core/lossless-document';
 import { RcsvDocument, RCSV_EXTENSION } from '../core/rcsv-document';
@@ -154,6 +154,32 @@ export class AppState {
     }
     this.activeTabId = id;
     this.emit('active');
+  }
+
+  /** 0-based position of a tab in the strip, or -1. */
+  tabIndex(id: string): number {
+    return this.tabs.findIndex((t) => t.id === id);
+  }
+
+  /**
+   * Move a tab to a new position in the strip. Only the array order changes:
+   * the tab object (document, history, selection, handle, dirty state) is
+   * untouched and the active tab stays active. Tab order is session-only and
+   * never persisted.
+   */
+  moveTab(id: string, toIndex: number): boolean {
+    const from = this.tabIndex(id);
+    if (from < 0) {
+      return false;
+    }
+    const to = Math.max(0, Math.min(this.tabs.length - 1, toIndex));
+    if (from === to) {
+      return false;
+    }
+    const [tab] = this.tabs.splice(from, 1);
+    this.tabs.splice(to, 0, tab);
+    this.emit('tabs');
+    return true;
   }
 
   cycleTab(offset: number): void {
@@ -423,6 +449,96 @@ export class AppState {
       ],
     };
     return this.pushEntry(tab, entry);
+  }
+
+  /**
+   * Insert a copied rectangular range at `at`, shifting existing cells by
+   * inserting whole rows (`down`) or whole columns (`right`) across the sheet.
+   * Whole-axis insertion keeps every formula consistent: references are
+   * adjusted by the same rules as Insert Rows/Columns, and relative references
+   * in the inserted formulas shift by the offset from the copy origin (like a
+   * paste). The structural insertion, all formula rewrites, and the inserted
+   * values form one atomic, singly-undoable history entry.
+   */
+  insertCopiedCells(
+    tab: Tab,
+    at: Selection,
+    matrix: string[][],
+    direction: 'down' | 'right',
+    origin: Selection | null,
+  ): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rcsv' || matrix.length === 0 || matrix[0].length === 0) {
+      return false;
+    }
+    const height = matrix.length;
+    const width = matrix[0].length;
+    const ops: Operation[] = [];
+    let rewrites: CellChange[];
+    if (direction === 'down') {
+      rewrites = this.formulaRewrites(doc, 'row', 'insert', at.row, height);
+      ops.push({
+        type: 'rows',
+        action: 'insert',
+        index: at.row,
+        count: height,
+        data: Array.from({ length: height }, () => []),
+      });
+      const needCols = Math.max(0, at.col + width - doc.columnCount);
+      if (needCols > 0) {
+        ops.push({
+          type: 'cols',
+          action: 'insert',
+          index: doc.columnCount,
+          count: needCols,
+          data: Array.from({ length: needCols }, () => []),
+        });
+      }
+    } else {
+      rewrites = this.formulaRewrites(doc, 'col', 'insert', at.col, width);
+      ops.push({
+        type: 'cols',
+        action: 'insert',
+        index: at.col,
+        count: width,
+        data: Array.from({ length: width }, () => []),
+      });
+      const needRows = Math.max(0, at.row + height - doc.rowCount);
+      if (needRows > 0) {
+        ops.push({
+          type: 'rows',
+          action: 'insert',
+          index: doc.rowCount,
+          count: needRows,
+          data: Array.from({ length: needRows }, () => []),
+        });
+      }
+    }
+    const deltaRow = origin ? at.row - origin.row : 0;
+    const deltaCol = origin ? at.col - origin.col : 0;
+    const changes: CellChange[] = [...rewrites];
+    for (let i = 0; i < height; i++) {
+      for (let j = 0; j < width; j++) {
+        let value = matrix[i][j];
+        if (value === '') {
+          continue; // freshly inserted cells are already empty
+        }
+        if (origin && isFormula(value) && (deltaRow !== 0 || deltaCol !== 0)) {
+          value = shiftFormulaRefs(value, deltaRow, deltaCol);
+        }
+        changes.push({ row: at.row + i, col: at.col + j, before: '', after: value });
+      }
+    }
+    ops.push({ type: 'cells', changes });
+    const applied = this.pushEntry(tab, { label: 'history.insertCells', ops });
+    if (applied) {
+      this.setSelection(
+        tab,
+        { row: at.row, col: at.col },
+        { row: at.row + height - 1, col: at.col + width - 1 },
+      );
+    }
+    return applied;
   }
 
   /** True when any cell in the given rows (or columns) is non-empty. */

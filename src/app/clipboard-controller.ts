@@ -82,6 +82,28 @@ export class ClipboardController {
     await this.commands.applyPaste(tab, matrix, null);
   }
 
+  /**
+   * The most recently copied rectangular range, for Insert Copied Cells…
+   * Prefers the internal clipboard (raw inputs + origin, so formulas adjust);
+   * falls back to parsing the system clipboard text (origin unknown).
+   */
+  async getCopied(): Promise<{ matrix: string[][]; origin: Selection | null } | null> {
+    let text: string | null = null;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      text = null;
+    }
+    if (this.internal && (text === null || text === '' || text === this.internal.text)) {
+      return { matrix: this.internal.matrix, origin: this.internal.origin };
+    }
+    if (text !== null && text !== '') {
+      const matrix = parseClipboardText(text);
+      return matrix.length > 0 ? { matrix, origin: null } : null;
+    }
+    return null;
+  }
+
   /** Menu Copy: async clipboard API with a graceful message when blocked. */
   async copyViaApi(): Promise<void> {
     const text = this.copyText();

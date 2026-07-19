@@ -1131,6 +1131,120 @@ export function rewriteFormulaRefs(
   return `=${body}`;
 }
 
+// ---------------------------------------------------------------------------
+// Reference extraction (live highlighting while a formula is edited)
+// ---------------------------------------------------------------------------
+
+/**
+ * A referenced rectangle extracted from formula text. Whole-column and
+ * whole-row references are unbounded along one axis (marked by the flags);
+ * the renderer clamps them to the used grid.
+ */
+export interface FormulaRefRange {
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+  /** Whole-column reference (A:C): rows are unbounded. */
+  wholeCols?: boolean;
+  /** Whole-row reference (2:10): columns are unbounded. */
+  wholeRows?: boolean;
+  /** The reference exactly as written (for accessible descriptions). */
+  text: string;
+}
+
+/** Highlighting caps out so a pathological formula cannot flood the grid. */
+export const MAX_HIGHLIGHTED_REFS = 16;
+
+const REF_SCAN_PATTERN =
+  // string literal | A1[:B2] | A:C | 1:10  (longest alternatives first)
+  /"(?:[^"]|"")*"?|([A-Za-z]{1,3})([0-9]{1,7})(?::([A-Za-z]{1,3})([0-9]{1,7}))?|([A-Za-z]{1,3}):([A-Za-z]{1,3})|([0-9]{1,7}):([0-9]{1,7})/g;
+
+/**
+ * Extract every cell/range reference from (possibly incomplete) formula text.
+ * This is a tolerant text scan, not the strict parser: it works while the
+ * formula is mid-edit (`=SUM(A1:B` still highlights `A1`), skips string
+ * literals, never throws, and ignores anything that is not valid reference
+ * notation. Duplicate rectangles are merged; at most
+ * {@link MAX_HIGHLIGHTED_REFS} distinct ranges are returned.
+ */
+export function extractFormulaRefs(src: string): FormulaRefRange[] {
+  if (!src.startsWith('=')) {
+    return [];
+  }
+  const body = src.slice(1);
+  const out: FormulaRefRange[] = [];
+  const seen = new Set<string>();
+  const isWordChar = (ch: string | undefined): boolean => ch !== undefined && /[A-Za-z0-9_.]/.test(ch);
+  REF_SCAN_PATTERN.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = REF_SCAN_PATTERN.exec(body)) !== null) {
+    if (m[0].startsWith('"')) {
+      continue; // string literal
+    }
+    // Reject matches embedded in longer identifiers/numbers (e.g. `ABCD1`,
+    // the `1.5` in a decimal, or `_A1`).
+    if (isWordChar(body[m.index - 1]) || isWordChar(body[m.index + m[0].length])) {
+      continue;
+    }
+    let range: FormulaRefRange | null = null;
+    if (m[1] !== undefined && m[2] !== undefined) {
+      const from = parseRef(`${m[1]}${m[2]}`);
+      if (!from) continue;
+      if (m[3] !== undefined && m[4] !== undefined) {
+        const to = parseRef(`${m[3]}${m[4]}`);
+        if (!to) continue;
+        range = {
+          top: Math.min(from.row, to.row),
+          left: Math.min(from.col, to.col),
+          bottom: Math.max(from.row, to.row),
+          right: Math.max(from.col, to.col),
+          text: m[0],
+        };
+      } else {
+        range = { top: from.row, left: from.col, bottom: from.row, right: from.col, text: m[0] };
+      }
+    } else if (m[5] !== undefined && m[6] !== undefined) {
+      const a = parseWholeColumn(m[5]);
+      const b = parseWholeColumn(m[6]);
+      if (a === null || b === null) continue;
+      range = {
+        top: 0,
+        bottom: Number.MAX_SAFE_INTEGER,
+        left: Math.min(a, b),
+        right: Math.max(a, b),
+        wholeCols: true,
+        text: m[0],
+      };
+    } else if (m[7] !== undefined && m[8] !== undefined) {
+      const a = parseWholeRow(m[7]);
+      const b = parseWholeRow(m[8]);
+      if (a === null || b === null) continue;
+      range = {
+        top: Math.min(a, b),
+        bottom: Math.max(a, b),
+        left: 0,
+        right: Number.MAX_SAFE_INTEGER,
+        wholeRows: true,
+        text: m[0],
+      };
+    }
+    if (!range) {
+      continue;
+    }
+    const key = `${range.top},${range.left},${range.bottom},${range.right}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    out.push(range);
+    if (out.length >= MAX_HIGHLIGHTED_REFS) {
+      break;
+    }
+  }
+  return out;
+}
+
 /** Shift all references by a fixed delta (used for copy/paste). Negative results become #REF!. */
 export function shiftFormulaRefs(src: string, deltaRow: number, deltaCol: number): string {
   const mapOne = (row: number, col: number): { row: number; col: number } | 'REF_ERROR' => {

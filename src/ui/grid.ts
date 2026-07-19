@@ -3,7 +3,7 @@ import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
-import { cellLabel, columnLabel } from '../core/formula';
+import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import { el, clearChildren } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 
@@ -40,6 +40,106 @@ export function autoFitWidth(contentWidths: number[], min = MIN_COL_WIDTH, max =
     }
   }
   return Math.max(min, Math.min(max, needed));
+}
+
+/** Cap of off-screen rows measured per auto-fit (documented sampling budget). */
+export const AUTOFIT_SAMPLE_BUDGET = 1000;
+
+export interface AutoFitInput {
+  rowCount: number;
+  /** Visible header text of the column (always measured). */
+  header: string;
+  /** Displayed cell text (formula cells contribute their calculated values). */
+  getDisplayValue(row: number): string;
+  /** Rows currently materialized in the virtualized grid (measured first). */
+  visibleRows: number[];
+  /** Text width in px under the active sheet font/size/spacing. */
+  measure(text: string): number;
+  /** Non-text horizontal chrome of a cell (padding + borders) in px. */
+  cellChrome: number;
+  /** Non-text horizontal chrome of the header (padding + resize handle) in px. */
+  headerChrome: number;
+  /** Maximum number of off-screen rows to sample (0 disables sampling). */
+  sampleBudget: number;
+  min?: number;
+  max?: number;
+}
+
+export interface AutoFitResult {
+  /** Clamped target width in px. */
+  width: number;
+  /** How many data rows were actually measured. */
+  measuredRows: number;
+  /** True when the width is based on a sample, not every row. */
+  sampled: boolean;
+}
+
+/**
+ * Plan an auto-fit width from *measured text widths* of the displayed values
+ * (never character counts or average-width guesses). All currently visible
+ * rows are measured, plus a deterministic, evenly spaced sample of off-screen
+ * rows up to `sampleBudget` — the whole column is never rendered or measured
+ * synchronously for large sheets. The result is recomputed from the current
+ * content on every call (nothing is cached), so it freely shrinks as well as
+ * grows and can never retain a stale historic maximum; font, locale, or
+ * content changes are picked up on the next invocation automatically.
+ */
+export function planAutoFit(input: AutoFitInput): AutoFitResult {
+  const min = input.min ?? MIN_COL_WIDTH;
+  const max = input.max ?? MAX_COL_WIDTH;
+  let needed = input.measure(input.header) + input.headerChrome;
+  const rows = new Set<number>();
+  for (const r of input.visibleRows) {
+    if (r >= 0 && r < input.rowCount) {
+      rows.add(r);
+    }
+  }
+  if (input.sampleBudget > 0 && rows.size < input.rowCount) {
+    // Deterministic, evenly spaced sample across the whole column so short
+    // and long regions are both represented.
+    const budget = Math.min(input.sampleBudget, input.rowCount);
+    const step = input.rowCount / budget;
+    for (let k = 0; k < budget; k++) {
+      rows.add(Math.min(input.rowCount - 1, Math.floor(k * step)));
+    }
+  }
+  let measuredRows = 0;
+  for (const r of rows) {
+    const w = input.measure(input.getDisplayValue(r)) + input.cellChrome;
+    if (w > needed) {
+      needed = w;
+    }
+    measuredRows += 1;
+  }
+  return {
+    width: Math.max(min, Math.min(max, Math.ceil(needed))),
+    measuredRows,
+    sampled: measuredRows < input.rowCount,
+  };
+}
+
+/**
+ * Create a text measurer configured from an element's *computed* style via
+ * `CanvasRenderingContext2D.measureText` — the same font family, size,
+ * weight, and style the grid actually renders with (letter spacing is added
+ * per character; CSS box chrome is accounted for separately by the caller).
+ * Returns null where no 2D canvas context exists (e.g. jsdom); callers fall
+ * back to DOM `scrollWidth` measurement there.
+ */
+export function createTextMeasurer(sample: Element): ((text: string) => number) | null {
+  if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') {
+    return null;
+  }
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx || typeof ctx.measureText !== 'function') {
+    return null;
+  }
+  const cs = getComputedStyle(sample);
+  ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const spacing = Number.parseFloat(cs.letterSpacing);
+  const extra = Number.isFinite(spacing) && spacing > 0 ? spacing : 0;
+  return (text: string) => ctx.measureText(text).width + extra * text.length;
 }
 
 /**
@@ -89,6 +189,7 @@ function frameCoalesced<T>(apply: (arg: T) => void): (arg: T) => void {
 const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string } | 'separator'> = [
   { command: 'edit.copy', labelKey: 'menu.edit.copy' },
   { command: 'edit.paste', labelKey: 'menu.edit.paste' },
+  { command: 'edit.insertCopiedCells', labelKey: 'menu.edit.insertCopiedCells' },
   { command: 'edit.revertCell', labelKey: 'menu.edit.revertCell' },
   'separator',
   { command: 'sheet.insertRowAbove', labelKey: 'menu.sheet.insertRowAbove' },
@@ -138,6 +239,10 @@ export class Grid {
   private headerDrag: { axis: 'row' | 'col'; anchor: number; last: number } | null = null;
   /** Active pointer reference entry into a formula editor, if any. */
   private refDrag: { anchor: { row: number; col: number } } | null = null;
+  /** Ranges referenced by the formula currently being edited (highlighted). */
+  private formulaRefs: FormulaRefRange[] = [];
+  /** Floating note shown when a referenced range extends beyond the viewport. */
+  private readonly refIndicator: HTMLElement;
 
   constructor(
     private readonly state: AppState,
@@ -147,6 +252,12 @@ export class Grid {
       className: 'grid-container',
       attrs: { tabindex: '0', role: 'grid' },
     });
+    this.refIndicator = el('div', {
+      className: 'ref-indicator',
+      attrs: { role: 'status', 'aria-live': 'polite' },
+    });
+    this.refIndicator.hidden = true;
+    document.body.append(this.refIndicator);
     this.canvas = el('div', { className: 'vgrid-canvas' });
     this.headerEl = el('div', { className: 'vgrid-header', attrs: { role: 'row' } });
     this.stickyEl = el('div', { className: 'vgrid-stickyrow', attrs: { role: 'row' } });
@@ -437,6 +548,7 @@ export class Grid {
     if (this.sameWindow(this.window, win)) {
       this.paintWindowCells(tab);
       this.refreshSelection();
+      this.refreshFormulaRefs();
       return;
     }
     if (this.editor) {
@@ -519,6 +631,93 @@ export class Grid {
       this.rowsLayer.append(rowEl);
     }
     this.refreshSelection();
+    this.refreshFormulaRefs();
+  }
+
+  // ----- Formula-reference highlighting -----
+
+  /**
+   * Highlight the given referenced ranges while a formula is being edited
+   * (formula bar or inline editor). The highlight is fully separate from the
+   * ordinary selection/active-cell rendering: it uses its own `fref-*`
+   * classes, cycling through four visually distinct color + border-pattern
+   * pairs (solid/dashed/dotted/double — never color alone). Pass an empty
+   * array to clear. Only the currently rendered (virtualized) cells are
+   * touched; a floating status note appears when a referenced range extends
+   * beyond the rendered viewport.
+   */
+  setFormulaRefs(refs: FormulaRefRange[]): void {
+    if (refs.length === 0 && this.formulaRefs.length === 0) {
+      return;
+    }
+    this.formulaRefs = refs;
+    this.refreshFormulaRefs();
+  }
+
+  private refreshFormulaRefs(): void {
+    const tab = this.state.activeTab;
+    const usable = tab !== null && tab.doc === this.lastDoc;
+    const rows = usable ? tab.doc.rowCount : 0;
+    const cols = usable ? tab.doc.columnCount : 0;
+    // Whole-column / whole-row references clamp to the used grid.
+    const ranges = (usable ? this.formulaRefs : [])
+      .map((ref, i) => ({
+        top: Math.max(0, ref.top),
+        left: Math.max(0, ref.left),
+        bottom: Math.min(ref.bottom, rows - 1),
+        right: Math.min(ref.right, cols - 1),
+        idx: i % 4,
+      }))
+      .filter((r) => r.top <= r.bottom && r.left <= r.right);
+    for (const cell of this.canvas.querySelectorAll<HTMLElement>('[data-row][data-col]')) {
+      const row = Number(cell.dataset.row);
+      const col = Number(cell.dataset.col);
+      let match: (typeof ranges)[number] | null = null;
+      for (const r of ranges) {
+        if (row >= r.top && row <= r.bottom && col >= r.left && col <= r.right) {
+          match = r;
+          break;
+        }
+      }
+      cell.classList.toggle('fref', match !== null);
+      for (let k = 0; k < 4; k++) {
+        cell.classList.toggle(`fref-${k}`, match !== null && match.idx === k);
+      }
+      cell.classList.toggle('fref-top', match !== null && row === match.top);
+      cell.classList.toggle('fref-bottom', match !== null && row === match.bottom);
+      cell.classList.toggle('fref-left', match !== null && col === match.left);
+      cell.classList.toggle('fref-right', match !== null && col === match.right);
+    }
+    this.updateRefIndicator(tab, ranges);
+  }
+
+  /** Show/hide the "reference extends beyond the visible area" status note. */
+  private updateRefIndicator(
+    tab: Tab | null,
+    ranges: Array<{ top: number; bottom: number; left: number; right: number }>,
+  ): void {
+    const win = this.window;
+    let clipped = false;
+    if (tab && win && ranges.length > 0) {
+      const base = this.scrollRowBase(tab);
+      const firstRow = base + win.rowStart;
+      const lastRow = base + win.rowEnd - 1;
+      for (const r of ranges) {
+        if (r.top < firstRow || r.bottom > lastRow || r.left < win.colStart || r.right > win.colEnd - 1) {
+          clipped = true;
+          break;
+        }
+      }
+    }
+    if (!clipped) {
+      this.refIndicator.hidden = true;
+      return;
+    }
+    this.refIndicator.textContent = t('grid.refsBeyond');
+    const rect = this.element.getBoundingClientRect();
+    this.refIndicator.style.left = `${rect.left + 8}px`;
+    this.refIndicator.style.top = `${Math.max(0, rect.bottom - 34)}px`;
+    this.refIndicator.hidden = false;
   }
 
   private buildRowCells(tab: Tab, rowEl: HTMLElement, row: number, win: RenderWindow, pinned: boolean): void {
@@ -976,27 +1175,69 @@ export class Grid {
   }
 
   /**
-   * Auto-fit a column so its width matches the widest content, measured with
-   * the active sheet font/formatting (we read the rendered cells' `scrollWidth`
-   * directly). The result can be narrower or wider than the current width —
-   * auto-fit both grows and shrinks.
+   * Auto-fit a column to the *measured* pixel width of its displayed values
+   * (header included) under the active sheet font. Measurement uses
+   * `CanvasRenderingContext2D.measureText` configured from the computed style
+   * of a rendered cell, so font family/size/weight/style and letter spacing
+   * are exact; cell padding and borders are read from the computed style and
+   * added separately. Formula cells contribute their calculated display
+   * values, never their hidden formula source. The result can be narrower or
+   * wider than the current width — auto-fit both grows and shrinks, and no
+   * measurement is cached across invocations (so edits, recalculation, font,
+   * or locale changes are always reflected).
    *
-   * Sampling: only the materialized (visible + overscan) rows are measured,
-   * because the grid is virtualized. When the column has more rows than were
-   * measured, the fit is based on a sample and the user is told so (the width
-   * can be re-fit after scrolling to include other rows).
+   * Large sheets: all materialized (visible + overscan) rows are measured
+   * plus an evenly spaced sample of off-screen rows (values are read from the
+   * document — nothing extra is rendered). When the fit is based on a sample
+   * the user is told so.
    */
   private autoFitColumn(tab: Tab, col: number): void {
+    const doc = tab.doc;
+    const sampleCell = this.canvas.querySelector<HTMLElement>(`.vcell[data-row][data-col="${col}"]`);
+    const measure = sampleCell ? createTextMeasurer(sampleCell) : null;
+    if (measure && sampleCell) {
+      const cs = getComputedStyle(sampleCell);
+      const px = (v: string): number => {
+        const n = Number.parseFloat(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+      // +2px keeps content clear of the ellipsis threshold.
+      const cellChrome =
+        px(cs.paddingLeft) + px(cs.paddingRight) + px(cs.borderLeftWidth) + px(cs.borderRightWidth) + 2;
+      const visibleRows: number[] = [];
+      for (const cell of this.canvas.querySelectorAll<HTMLElement>(`.vcell[data-row][data-col="${col}"]`)) {
+        visibleRows.push(Number(cell.dataset.row));
+      }
+      const plan = planAutoFit({
+        rowCount: doc.rowCount,
+        header: columnLabel(col),
+        getDisplayValue: (r) => doc.getDisplayValue(r, col),
+        visibleRows,
+        measure,
+        cellChrome,
+        headerChrome: cellChrome + 10, // the header also holds the resize handle
+        sampleBudget: AUTOFIT_SAMPLE_BUDGET,
+      });
+      this.setColWidth(tab, col, plan.width);
+      if (plan.sampled) {
+        this.commands.notify(
+          t('grid.autoFitSampled', { letter: columnLabel(col), n: plan.measuredRows }),
+          'info',
+        );
+      }
+      return;
+    }
+    // Fallback without a 2D canvas context: measure the rendered cells' DOM
+    // scrollWidth (visible rows only).
     const widths: number[] = [];
     let measuredRows = 0;
     for (const cell of this.canvas.querySelectorAll<HTMLElement>(`.vcell[data-col="${col}"]`)) {
-      // +2px so the content is not clipped by the ellipsis threshold.
       widths.push(cell.scrollWidth + 2);
       measuredRows += 1;
     }
     const head = this.headerEl.querySelector<HTMLElement>(`[data-colhead="${col}"]`);
     if (head) {
-      widths.push(head.scrollWidth + 10); // header has the resize handle inset
+      widths.push(head.scrollWidth + 10);
     }
     this.setColWidth(tab, col, autoFitWidth(widths));
     if (measuredRows < tab.doc.rowCount) {
@@ -1095,7 +1336,11 @@ export class Grid {
     // Autocomplete and pointer references, identical to the formula bar. The
     // popup floats (position: fixed) so the narrow cell never clips it.
     const autocomplete = new FormulaAutocomplete(input, document.body, true);
-    const ref = new FormulaFieldRef(input, () => autocomplete.hide());
+    // Pointer-entered references rewrite the field without an input event, so
+    // the highlight refresh hooks the reference writer directly.
+    const updateRefs = () =>
+      this.setFormulaRefs(input.value.startsWith('=') ? extractFormulaRefs(input.value) : []);
+    const ref = new FormulaFieldRef(input, () => autocomplete.hide(), updateRefs);
     // While editing a formula inline, the grid routes cell clicks into this
     // field as references; restore whatever target was active (the formula
     // bar) when the editor closes.
@@ -1127,6 +1372,7 @@ export class Grid {
     input.addEventListener('input', () => {
       ref.clear();
       autocomplete.update();
+      updateRefs();
     });
     input.addEventListener('click', () => autocomplete.update());
     input.addEventListener('blur', () => this.commitEditor());
@@ -1139,6 +1385,7 @@ export class Grid {
     }
     // Offer completions immediately when a formula is being started/edited.
     autocomplete.update();
+    updateRefs();
   }
 
   /** Tear down the editor's autocomplete popup and restore the reference target. */
@@ -1148,6 +1395,8 @@ export class Grid {
     if (this.state.formulaRefTarget === editor.ref) {
       this.state.formulaRefTarget = editor.prevRefTarget;
     }
+    // The inline editor's formula is no longer being edited.
+    this.setFormulaRefs([]);
   }
 
   /** Commit the inline editor if open. */

@@ -171,6 +171,33 @@ interaction.
 - Selected rows are highlighted while unselected rows keep their alternating
   (zebra) background colors.
 
+### Copy, paste, and Insert Copied Cells
+
+- **Copy (Ctrl+C)** of any rectangular selection — including many rows × many
+  columns — produces tab-separated, newline-separated text (displayed values,
+  so formulas contribute their results), pasteable into spreadsheet software.
+  An internal clipboard additionally keeps the raw inputs and the copy origin,
+  so pasting **within the app** preserves formulas and adjusts their relative
+  references.
+- **Paste (Ctrl+V)** pastes a rectangular block starting at the active cell,
+  preserving its shape. **Pattern repeat:** when a larger destination range is
+  selected and each of its dimensions is an exact multiple of the copied
+  block's, the block tiles to fill the whole selection (references adjust per
+  tile); otherwise the block is pasted once. In an RCSV spreadsheet a paste
+  that reaches past the grid **grows it** (undoably, after nothing more than
+  the paste itself); a byte-preserving CSV never gains rows or columns
+  silently — such pastes require the explicit RCSV conversion.
+- **Edit > Insert Copied Cells…** (also on the cell context menu) inserts the
+  most recently copied block at the selection by **shifting existing cells
+  right or down**. Shifting down inserts whole rows across the sheet; shifting
+  right inserts whole columns — this keeps every formula consistent: existing
+  references adjust exactly like Insert Rows/Columns, and relative references
+  inside the inserted formulas shift by their offset from the copied location.
+  The insertion (structure + formula rewrites + values) is **one atomic undo
+  step**. Structural insertion is spreadsheet-only, so on a CSV document the
+  command explains and offers the explicit RCSV conversion first. Large pastes
+  and insertions run behind the loading indicator.
+
 ### Undo / Redo
 
 - **Ctrl+Z / Cmd+Z** undoes; **Ctrl+Y**, **Ctrl+Shift+Z**, or
@@ -206,6 +233,15 @@ interaction.
 - **F8** closes the active tab (the menu and the × button always work too).
   Ctrl+W and Ctrl+Tab are intentionally left to the browser, so switch tabs by
   clicking them in the tab bar.
+- **Reorder tabs** by dragging them (an accent bar shows the drop position),
+  via **View > Move Tab Left / Right / to Start / to End**, or from a tab's
+  right-click context menu. No shortcut is assigned by design: the remaining
+  Ctrl/Alt+arrow-style combinations conflict with browser/OS tab and history
+  shortcuts, and the commands are fully keyboard-reachable through the menu.
+  Moving a tab changes only its position — the document, dirty state,
+  selection, undo history, and file association travel with it, the active tab
+  stays active, and moves are announced to assistive technologies. Tab order
+  lasts only for the session; it is not persisted.
 - Closing a modified tab asks **Save / Discard / Cancel**. When leaving the
   page with modified tabs, browsers do not allow custom dialogs, so the
   browser's standard leave-page confirmation appears instead.
@@ -360,8 +396,34 @@ There are two ways to convert, both explicit and confirmed:
   renamed to `.rcsv` and detached from the original file handle, so the source
   `.csv` can never be silently overwritten.
 
-**File > Export as CSV…** writes the computed values back out to CSV (a lossy
-export: formulas become their results).
+### Exporting a spreadsheet as CSV
+
+**File > Export as CSV…** writes the computed values back out to plain CSV.
+The export options dialog appears first and doubles as the explicit
+confirmation — nothing is written until you press **Export CSV**:
+
+- **Encoding:** UTF-8, Shift_JIS / CP932, or EUC-JP.
+- **BOM:** include or omit. A byte order mark applies only to UTF-8 (choose
+  UTF-8 + include for "UTF-8 with BOM"); the control is disabled — with an
+  explanation — for the other encodings.
+- **Line endings:** CRLF, LF, or CR, applied exactly to every record.
+
+The dialog states clearly that CSV export is a **lossy conversion**: formulas
+are exported as their calculated display values, not expressions, and
+RCSV-only data — formulas and dependency information, structure beyond the
+exported grid, column widths, document metadata, and font preferences — is not
+preserved.
+
+Every exported value is **validated against the chosen encoding** in a
+time-sliced scan behind the progress indicator. If characters cannot be
+represented, a dialog lists the affected cells and the export is **cancelled
+by default**; only after explicit confirmation does it continue with the
+documented numeric-character-reference replacement (e.g. `&#128512;`), which is
+then reported per cell. The export flow never mutates the source `.rcsv`
+document and never marks it saved; cancellation and errors leave everything
+untouched. The file is written through the File System Access API save picker
+where available (with the download fallback otherwise), under a suggested
+name that replaces `.rcsv` with `.csv`.
 
 ### Formulas
 
@@ -409,6 +471,28 @@ Both formula-input surfaces — the **formula bar** and the **inline cell editor
 - Parsing is entirely string-based; there is no `eval`, `new Function`, or
   dynamic code execution.
 
+### Formula-reference highlighting
+
+While a formula is being edited (in either surface), every range it references
+is **highlighted live in the grid**: single cells (`A1`), rectangular ranges
+(`A1:C10`), whole columns (`A:A`, `A:C`), whole rows (`1:1`, `2:10`), and any
+mix of them in one formula. Highlights update as you type, accept an
+autocomplete suggestion, or insert a reference by clicking/dragging cells.
+
+- Distinct references cycle through four **color + pattern pairs** (solid,
+  dashed, dotted, double borders with different background patterns), so they
+  are distinguishable without relying on color alone; the referenced ranges
+  are also exposed to assistive technologies as an accessible description of
+  the formula field.
+- Highlighting is a tolerant text scan, fully separate from the ordinary
+  selection/active-cell rendering: incomplete or invalid reference syntax
+  mid-edit simply highlights fewer ranges (never crashes, never leaves stale
+  highlights — clearing the edit clears the highlight).
+- It is virtualization-aware: only the rendered cells are touched, whole-row/
+  column references clamp to the used grid, and a floating status note (also
+  announced politely) appears when a referenced range extends beyond the
+  visible viewport.
+
 ### Fill handle, drag-copy, and Fill Down
 
 - The selection's bottom-right corner has a **fill handle**; drag it down or
@@ -439,16 +523,26 @@ Both formula-input surfaces — the **formula bar** and the **inline cell editor
 
 - Drag a column-header boundary to resize; **double-click** it to auto-fit.
   Auto-fit recalculates the width from current content and **can make a column
-  narrower or wider** — it is not grow-only. Measurement uses the rendered cells
-  (so it reflects the active sheet font, size, and padding) and is clamped to a
-  reasonable minimum/maximum width.
-- Because the grid is virtualized, auto-fit measures the **visible (materialized)
-  rows** — a documented sample. When a column has more rows than were measured,
-  a notification says the fit used a sample of the visible rows; scroll to bring
-  other rows into view and re-fit if needed.
-- Widths are per-document for the session; plain CSV bytes are never mutated by
-  resizing or auto-fit, and spreadsheet documents persist widths in their
-  container.
+  narrower or wider** — it is not grow-only, and nothing is cached between
+  invocations, so a stale historic maximum can never prevent narrowing.
+- Auto-fit **measures real rendered pixel widths**, never character counts or
+  average-width guesses: `CanvasRenderingContext2D.measureText` is configured
+  from the _computed style_ of an actual cell (the active sheet font family,
+  size, weight, upright style, and letter spacing), and cell padding/borders
+  are read from the computed style and added separately. The **column header
+  is included**, and formula cells contribute their **displayed calculated
+  values**, never their hidden formula source. Because everything is
+  recomputed on demand, edits, recalculation, sheet-font changes, and locale
+  changes are reflected on the next auto-fit automatically.
+- Virtualized large sheets never render or measure the whole column
+  synchronously. The documented strategy: every currently materialized row is
+  measured, plus a deterministic, **evenly spaced sample of up to 1000
+  off-screen rows** whose display values are read straight from the document
+  (no DOM work). When the fit is based on a sample, a notification says so
+  honestly. The result is clamped to the configured minimum/maximum widths.
+- Manual drag-resizing still works exactly as before. Widths are per-document
+  for the session; plain CSV bytes are never mutated by resizing or auto-fit,
+  and spreadsheet documents persist widths in their container.
 
 ### Selection statistics
 
@@ -653,7 +747,19 @@ application), multi-row/column selection (header click/drag, Shift+Click
 extension, distinct active/anchor/range/header rendering), column auto-fit
 grow-and-shrink with min/max clamping, the formula/autocomplete/evaluator
 single-source-of-truth check, and a CSS assertion that formula cells are never
-italicized.
+italicized. Newest additions: the CSV export options pipeline (exact
+line-ending/BOM output, per-cell unrepresentable-character reporting with
+cancel-by-default and NCR continuation, formulas exported as display values,
+untouched source document), measured auto-fit planning (variable-width
+Japanese/Latin/numeric/formula values, expand and shrink, header inclusion,
+font-change sensitivity, bounded evenly spread sampling with honest
+indication), paste pattern-repeat tiling and Insert Copied Cells…
+(shift-right/shift-down, formula-reference adjustment, CSV conversion gating,
+atomic undo/redo, loading UI for large ranges), formula-reference extraction
+and live grid highlighting (multiple ranges, whole-row/column clamping,
+invalid/incomplete input safety, viewport-overflow indication, independence
+from ordinary selection), and tab reordering (state preservation, active-tab
+behavior, drag drop-indicator, context menu, live-region announcements).
 
 ## CI and releases
 

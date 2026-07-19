@@ -187,6 +187,12 @@ export class FormulaFieldRef {
   constructor(
     private readonly field: FormulaField,
     private readonly onBegin?: () => void,
+    /**
+     * Called after a pointer-entered reference rewrites the field —
+     * `setRangeText` fires no input event, so hosts that track the value
+     * (e.g. live reference highlighting) hook this instead.
+     */
+    private readonly onChange?: () => void,
   ) {}
 
   isCapturing(): boolean {
@@ -206,6 +212,7 @@ export class FormulaFieldRef {
     const [start, end] = this.span as [number, number];
     this.field.setRangeText(text, start, end, 'end');
     this.span = [start, start + text.length];
+    this.onChange?.();
   }
 
   endRef(): void {

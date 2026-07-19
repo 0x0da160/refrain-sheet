@@ -53,6 +53,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.edit.copy', command: 'edit.copy', shortcut: 'Ctrl+C' },
         { labelKey: 'menu.edit.paste', command: 'edit.paste', shortcut: 'Ctrl+V' },
+        { labelKey: 'menu.edit.insertCopiedCells', command: 'edit.insertCopiedCells' },
         { labelKey: 'menu.edit.fillDown', command: 'edit.fillDown', shortcut: 'Ctrl+D' },
         'separator',
         { labelKey: 'menu.edit.revertCell', command: 'edit.revertCell' },
@@ -95,6 +96,14 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.view.sheetFont', heading: true },
         ...sheetFontItems(checks),
+        'separator',
+        // Tab movement stays menu/context-menu driven: every remaining
+        // Ctrl/Alt+arrow-style accelerator conflicts with browser or OS tab
+        // and history shortcuts, so no shortcut is assigned by design.
+        { labelKey: 'menu.view.moveTabLeft', command: 'tab.moveLeft' },
+        { labelKey: 'menu.view.moveTabRight', command: 'tab.moveRight' },
+        { labelKey: 'menu.view.moveTabFirst', command: 'tab.moveFirst' },
+        { labelKey: 'menu.view.moveTabLast', command: 'tab.moveLast' },
       ],
     },
     {

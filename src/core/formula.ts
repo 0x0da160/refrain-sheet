@@ -353,21 +353,26 @@ export const SUPPORTED_FUNCTIONS = ['SUM', 'AVERAGE', 'MIN', 'MAX', 'COUNT', 'IF
 
 export interface FunctionInfo {
   name: (typeof SUPPORTED_FUNCTIONS)[number];
-  /** Human-readable call signature shown in autocomplete hints. */
+  /** Human-readable call signature shown in autocomplete hints and help. */
   signature: string;
+  /** A ready-to-read example formula shown in the help panel. */
+  example: string;
 }
 
 /**
- * Metadata for autocomplete. The `signature` is display-only; localized
+ * The single source of truth for supported functions: autocomplete, the
+ * formula & function help panel, and (via {@link SUPPORTED_FUNCTIONS}) the
+ * evaluator all read this list, so documented functions cannot drift from
+ * implemented ones. The `signature`/`example` are display-only; localized
  * one-line descriptions live in the locale catalogs under `formula.fn.<NAME>`.
  */
 export const FUNCTION_INFOS: readonly FunctionInfo[] = [
-  { name: 'SUM', signature: 'SUM(value, …)' },
-  { name: 'AVERAGE', signature: 'AVERAGE(value, …)' },
-  { name: 'MIN', signature: 'MIN(value, …)' },
-  { name: 'MAX', signature: 'MAX(value, …)' },
-  { name: 'COUNT', signature: 'COUNT(value, …)' },
-  { name: 'IF', signature: 'IF(condition, then, else)' },
+  { name: 'SUM', signature: 'SUM(value, …)', example: '=SUM(A1:A10)' },
+  { name: 'AVERAGE', signature: 'AVERAGE(value, …)', example: '=AVERAGE(B1:B20)' },
+  { name: 'MIN', signature: 'MIN(value, …)', example: '=MIN(A1:A10)' },
+  { name: 'MAX', signature: 'MAX(value, …)', example: '=MAX(A1:A10)' },
+  { name: 'COUNT', signature: 'COUNT(value, …)', example: '=COUNT(A1:A10)' },
+  { name: 'IF', signature: 'IF(condition, then, else)', example: '=IF(A1>10, "big", "small")' },
 ];
 
 /**

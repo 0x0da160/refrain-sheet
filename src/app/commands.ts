@@ -34,6 +34,7 @@ import {
 } from './file-access';
 import { setLocale, t, type LocaleId } from './i18n';
 import { getMaxFileSize, setMaxFileSize } from './settings';
+import { setSheetFont, type SheetFontId } from './sheet-font';
 
 /**
  * Why a CSV document needs converting to an RCSV spreadsheet document.
@@ -69,6 +70,8 @@ export interface UiPort {
   openFindBar(replaceMode: boolean): void;
   findNext(direction: 1 | -1): void;
   showAbout(): void;
+  /** Open the offline formula & function help panel. */
+  showFormulaHelp(): void;
   /** Edit local settings; returns the chosen maximum file size in bytes, or null when cancelled. */
   chooseSettings(currentMaxFileSize: number): Promise<number | null>;
   /**
@@ -106,7 +109,11 @@ export type CommandId =
   | 'sheet.exportCsv'
   | 'view.wrap'
   | 'view.stickyFirstRow'
+  | 'view.sheetFont.bizUd'
+  | 'view.sheetFont.ms'
+  | 'view.sheetFont.msUi'
   | 'app.settings'
+  | 'help.formula'
   | 'lang.en'
   | 'lang.ja'
   | 'tab.next'
@@ -249,6 +256,20 @@ export class Commands {
       case 'view.stickyFirstRow':
         this.state.setStickyFirstRow(!this.state.stickyFirstRow);
         return;
+      case 'view.sheetFont.bizUd':
+      case 'view.sheetFont.ms':
+      case 'view.sheetFont.msUi': {
+        const fonts: Record<typeof id, SheetFontId> = {
+          'view.sheetFont.bizUd': 'biz-ud',
+          'view.sheetFont.ms': 'ms',
+          'view.sheetFont.msUi': 'ms-ui',
+        };
+        setSheetFont(fonts[id]);
+        // Applying the font is pure CSS; re-emit so the menu checkmark and the
+        // grid (which measures with the active font) refresh.
+        this.state.emit('view');
+        return;
+      }
       case 'app.settings': {
         const chosen = await this.ui.chooseSettings(getMaxFileSize());
         if (chosen !== null) {
@@ -270,7 +291,15 @@ export class Commands {
       case 'help.about':
         this.ui.showAbout();
         return;
+      case 'help.formula':
+        this.ui.showFormulaHelp();
+        return;
     }
+  }
+
+  /** Surface a localized notification (used by UI surfaces without direct port access). */
+  notify(text: string, kind: 'info' | 'warn' | 'error' = 'info'): void {
+    this.ui.notify(text, kind);
   }
 
   /**

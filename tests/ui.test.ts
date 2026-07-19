@@ -27,6 +27,7 @@ const noopUi: UiPort = {
   openFindBar: () => undefined,
   findNext: () => undefined,
   showAbout: () => undefined,
+  showFormulaHelp: () => undefined,
   chooseSettings: async () => null,
   setBusy: () => undefined,
 };

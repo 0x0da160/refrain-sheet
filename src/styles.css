@@ -4,8 +4,17 @@
   /* General UI: navigation, buttons, dialogs, forms, helper text. */
   --font-ui: 'Yu Gothic UI', 'Yu Gothic', 'Meiryo UI', sans-serif;
 
-  /* Spreadsheet: cells, column headers, numbers, formulas, editing controls. */
-  --font-sheet: 'BIZ UDゴシック', 'BIZ UDGothic', 'ＭＳ ゴシック', 'MS Gothic', monospace;
+  /* Selectable spreadsheet fonts (View > Spreadsheet Font). All are local
+     Windows/Office fonts with a monospace fallback chain; nothing is fetched
+     from a CDN or bundled. */
+  --sheet-font-biz-ud: 'BIZ UDゴシック', 'BIZ UDGothic', 'ＭＳ ゴシック', 'MS Gothic', monospace;
+  --sheet-font-ms: 'ＭＳ ゴシック', 'MS Gothic', monospace;
+  --sheet-font-ms-ui: 'MS UI Gothic', 'ＭＳ ゴシック', 'MS Gothic', monospace;
+
+  /* Spreadsheet: cells, column headers, numbers, formulas, editing controls.
+     The active choice is applied by overriding this on the document root
+     (see src/app/sheet-font.ts); BIZ UD Gothic is the default. */
+  --font-sheet: var(--sheet-font-biz-ud);
   --bg: #f4f4f6;
   --panel: #ececef;
   --border: #c6c6cc;
@@ -134,6 +143,16 @@ button {
   border: none;
   border-top: 1px solid var(--border);
   margin: 4px 0;
+}
+
+.menu-heading {
+  padding: 4px 14px 2px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  cursor: default;
 }
 
 /* ---------- Tabs ---------- */
@@ -279,6 +298,8 @@ button {
   flex: 1;
   font: inherit;
   font-family: var(--font-sheet);
+  /* Formulas are shown upright everywhere, never italic. */
+  font-style: normal;
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 3px 6px;
@@ -515,6 +536,26 @@ button {
   outline-offset: -2px;
 }
 
+/* The opposite corner of a rectangular selection (distinct from the active
+   cell's solid outline). */
+.vcell.anchor {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+/* Row/column headers intersecting the selection. */
+.vcell.vrowhead.hdr-sel,
+.vcell.vhead.hdr-sel {
+  background: var(--accent-soft) !important;
+  color: var(--accent);
+}
+
+/* Whole-row / whole-column selections emphasize their headers further. */
+.grid-container.sel-rows .vcell.vrowhead.hdr-sel,
+.grid-container.sel-cols .vcell.vhead.hdr-sel {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
 .vcell.edited {
   background: var(--edited) !important;
   box-shadow: inset 2px 0 0 var(--edited-border);
@@ -525,15 +566,35 @@ button {
   text-underline-offset: 3px;
 }
 
+/* Formula cells are never italicized (italic hurts CJK legibility and can be
+   confused with the selection/editing state). They are differentiated by a
+   subtle green tint plus a non-italic corner marker in the top-right. */
 .vcell.formula {
   color: #14532d;
-  font-style: italic;
+  font-style: normal;
 }
 
+.vcell.formula::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-top: 5px solid #2f855a;
+  border-left: 5px solid transparent;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+/* Error cells stay clear without relying on color or italic alone: the cell
+   text is the literal error code (e.g. #DIV/0!) and it is bold. */
 .vcell.cell-error {
   color: var(--danger);
-  font-weight: 600;
+  font-weight: 700;
   font-style: normal;
+}
+
+.vcell.cell-error::after {
+  border-top-color: var(--danger);
 }
 
 .vcell.void {
@@ -746,6 +807,61 @@ table.diag-table th {
 .shortcut-table td:first-child {
   font-family: var(--font-sheet);
   white-space: nowrap;
+}
+
+/* ---------- Formula & function help ---------- */
+
+.formula-help .formula-help-search {
+  width: 100%;
+  font: inherit;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.formula-help .help-section {
+  margin-top: 12px;
+}
+
+.formula-help .help-section h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.formula-help .help-code,
+.formula-help .help-fn-table td:first-child code,
+.formula-help .help-fn-table td:last-child code {
+  font-family: var(--font-sheet);
+  font-style: normal;
+  background: var(--panel);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.formula-help .help-examples code {
+  margin-right: 2px;
+}
+
+.formula-help .help-fn-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.formula-help .help-fn-table th,
+.formula-help .help-fn-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+  vertical-align: top;
+}
+
+.formula-help .help-errors {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+.formula-help .help-errors li {
+  margin: 3px 0;
 }
 
 /* ---------- Drop overlay ---------- */

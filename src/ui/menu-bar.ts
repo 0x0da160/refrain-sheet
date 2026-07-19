@@ -53,7 +53,12 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.edit.copy', command: 'edit.copy', shortcut: 'Ctrl+C' },
         { labelKey: 'menu.edit.paste', command: 'edit.paste', shortcut: 'Ctrl+V' },
+        // Ctrl+A is owned only while the grid itself has focus (never inside
+        // text fields or the rest of the page — the browser keeps it there).
+        { labelKey: 'menu.edit.selectAll', command: 'edit.selectAll', shortcut: 'Ctrl+A' },
         { labelKey: 'menu.edit.insertCopiedCells', command: 'edit.insertCopiedCells' },
+        { labelKey: 'menu.edit.insertCopiedRows', command: 'edit.insertCopiedRows' },
+        { labelKey: 'menu.edit.insertCopiedCols', command: 'edit.insertCopiedCols' },
         { labelKey: 'menu.edit.fillDown', command: 'edit.fillDown', shortcut: 'Ctrl+D' },
         'separator',
         { labelKey: 'menu.edit.revertCell', command: 'edit.revertCell' },
@@ -80,6 +85,8 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.sheet.insertColLeft', command: 'sheet.insertColLeft' },
         { labelKey: 'menu.sheet.insertColRight', command: 'sheet.insertColRight' },
         { labelKey: 'menu.sheet.deleteCols', command: 'sheet.deleteCols' },
+        'separator',
+        { labelKey: 'menu.sheet.autoFitCols', command: 'sheet.autoFitCols' },
         'separator',
         { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
       ],

@@ -129,6 +129,21 @@ visible set of commands (there is no separate toolbar duplicating it). Every
 command is also reachable by keyboard shortcut, context menu, or direct grid
 interaction.
 
+### The initial screen
+
+With no document open — on first launch, and again **whenever the last tab is
+closed** — the app shows its initial **welcome screen** instead of an empty tab
+strip or a blank grid. It offers the localized entry points: **Open CSV / RCSV
+File…**, **New RCSV Spreadsheet**, a drag-and-drop hint (dropping files
+anywhere in the window always works), and a short note on offline/local-file
+usage. Closing the final tab first completes the ordinary
+**Save / Discard / Cancel** flow for unsaved changes; only when the tab
+actually closes does the welcome screen return. All document-specific UI state
+is cleared with it — selection statistics, formula-bar content, dirty
+indicators, encoding/delimiter/file information, and document-dependent menu
+items — while **application-level preferences persist** (language, spreadsheet
+font, and the configured file-size limit live outside the tab lifecycle).
+
 ### New documents
 
 - **File > New** or **Ctrl+N / Cmd+N** creates a blank document in a new active
@@ -196,7 +211,33 @@ interaction.
   The insertion (structure + formula rewrites + values) is **one atomic undo
   step**. Structural insertion is spreadsheet-only, so on a CSV document the
   command explains and offers the explicit RCSV conversion first. Large pastes
-  and insertions run behind the loading indicator.
+  and insertions run behind the loading indicator with percentage progress.
+- **Edit > Insert Copied Rows** and **Edit > Insert Copied Columns** (also on
+  the cell context menu) insert the copied block as whole rows or columns. The
+  documented placement rule — also stated by the completion notification:
+  copied **rows are inserted above the selection's top row**; copied **columns
+  are inserted to the left of the selection's left column**. Copied cells keep
+  the columns (rows) they were copied from when the copy origin is known
+  (in-app copies); a system-clipboard block of unknown origin starts at column
+  A (row 1). The copied row/column count and rectangular structure are
+  preserved, existing rows/columns shift without losing data, and formulas
+  stay consistent: existing references adjust exactly like Insert
+  Rows/Columns, while relative references inside the inserted formulas shift
+  by their offset from the copied location. Each insertion is **one atomic
+  undo/redo step**; on a CSV document the commands require the explicit RCSV
+  conversion (declining leaves the document untouched), and large insertions
+  report percentage progress. If nothing has been copied yet, running a
+  command says so instead of doing nothing.
+- **Edit > Select All Cells** selects the used range of the active document
+  (the whole logical grid of a new RCSV document; an empty CSV reports a clear
+  no-data message). **Ctrl+A / Cmd+A** triggers it **only while the grid
+  itself has focus** — inside text fields, dialogs, or anywhere else on the
+  page the browser's own Select All is never intercepted. Whole-sheet
+  selection renders through the virtualized window (no DOM is created for
+  off-screen cells), statistics for huge selections show the "Calculating…"
+  state while a background scan fills them in, and the selection feeds copy,
+  fill, auto-fit of the selected columns, and the row/column commands like any
+  other range.
 
 ### Undo / Redo
 
@@ -325,6 +366,7 @@ otherwise collide use safe alternatives.
 | Close tab            | **F8**                                |
 | Undo / Redo          | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z)     |
 | Copy / Paste         | Ctrl+C / Ctrl+V                       |
+| Select All Cells     | Ctrl+A / Cmd+A (grid focus only)      |
 | Fill Down (grid)     | Ctrl+D / Cmd+D                        |
 | Find / Replace       | **Ctrl+Shift+F** / **Ctrl+Shift+H**   |
 | Find next / previous | Enter / Shift+Enter (in the Find bar) |
@@ -335,7 +377,9 @@ otherwise collide use safe alternatives.
 The same table is shown in **Help > About / Keyboard Shortcuts**. Grid-editing
 accelerators (Undo/Redo/Fill Down) are suppressed while a text field or the cell
 editor has focus, so ordinary text editing keeps its own behavior; Save and Open
-still work from anywhere. On macOS, Cmd substitutes for Ctrl.
+still work from anywhere. **Ctrl+A** is owned only while the grid itself has
+focus — everywhere else (text fields, dialogs, the rest of the page) the
+browser's own Select All runs untouched. On macOS, Cmd substitutes for Ctrl.
 
 ### Fonts
 
@@ -373,6 +417,25 @@ Changing the sheet font is pure display state: it never alters plain CSV bytes
 and never converts a CSV to RCSV. When a preferred font is not installed, the
 declared fallbacks (and finally `monospace`) are used. No font is fetched from a
 CDN/remote URL or bundled.
+
+#### Vertical text centering
+
+Cell text is **vertically centered** by a single explicit typography model, not
+by browser baseline behavior: every grid row is exactly `--grid-row-height`
+(26 px, kept in sync with the virtualization constant), cells use border-box
+sizing with horizontal padding only, and the single-line `line-height` equals
+the cell's content height — so the line box itself centers the glyphs. Because
+this depends on the line box rather than any font's baseline or half-leading
+metrics, it holds identically for BIZ UD Gothic, MS Gothic, MS UI Gothic, and
+their fallback stacks, and for Japanese, Latin, numeric, formula-result,
+error, and mixed-script values. Row/column headers, the pinned first row, and
+formula-result cells share the same model; the inline cell editor is a native
+input (vertically centered by the browser) laid over the same box, and
+selection outlines, fill handles, and formula-reference highlights attach to
+the unchanged cell box. Wrapped cells (**View > Wrap Long Cell Text**) opt out
+of the single-line box and read top-down with a normal multi-line line-height.
+The adjustment is pure CSS — no CSV/RCSV content, formulas, stored values, or
+row structure change because of it.
 
 ## Spreadsheet mode (RCSV)
 
@@ -525,6 +588,22 @@ autocomplete suggestion, or insert a reference by clicking/dragging cells.
   Auto-fit recalculates the width from current content and **can make a column
   narrower or wider** — it is not grow-only, and nothing is cached between
   invocations, so a stale historic maximum can never prevent narrowing.
+- **Auto-fit applies to every selected column.** When whole columns are
+  selected (column headers, header dragging, Shift+Click, or any selection
+  spanning every row — including Select All) and you double-click a boundary
+  inside the selection, **all selected columns fit**; the
+  **Sheet > Auto-Fit Column Width** command (also on the context menu) fits
+  every column intersecting the current selection. Each column is measured
+  **independently** with its own header and values, so columns shrink and grow
+  on their own. The selection model is contiguous, so the target is always a
+  contiguous column span — there is no non-adjacent multi-selection to
+  support. Fitting many columns of a large sheet runs column by column with
+  yields to the browser and a **"N of M columns measured" + percentage** busy
+  label; if the document changes mid-run the operation aborts and applies
+  **no width at all** (all-or-nothing). Column widths are per-tab **view
+  state**, not document content: auto-fit never modifies plain CSV bytes and
+  is deliberately outside the document undo history (undo remains reserved
+  for data changes).
 - Auto-fit **measures real rendered pixel widths**, never character counts or
   average-width guesses: `CanvasRenderingContext2D.measureText` is configured
   from the _computed style_ of an actual cell (the active sheet font family,
@@ -597,14 +676,34 @@ processed, not just raw throughput.
   **"Calculating…"** state in the status bar (announced politely via its
   `role="status"` region) while a time-sliced background scan fills the
   numbers in. A newer selection, edit, or tab switch cancels the stale scan.
-- **Time-sliced long scans with progress.** Replace All scans the document in
-  ~12 ms slices, yielding to the browser between slices so input and painting
-  stay live, and reports percentage progress in the loading indicator. The
-  mutation itself is then applied **synchronously and atomically** as one
-  undoable operation — a cancelled or superseded scan never leaves a
-  partially-replaced document. Match-count updates in the find bar are
-  debounced, and full-document search is bounded by a wall-clock budget with
-  partial results rather than a freeze.
+- **Time-sliced long scans with progress.** No large document processing runs
+  as one long, unbroken CPU-bound loop on the main thread. Every heavy
+  read/prepare phase — Replace All scanning, CSV export validation,
+  **CSV→RCSV conversion** (both the explicit command and the implicit
+  conversion an edit triggers), the cell-collection phase of an **`.rcsv`
+  save**, and the change-list preparation of **large pastes and Insert
+  Copied … operations** (above 20,000 cells) — runs in ~12 ms cooperative
+  slices, yielding a macrotask between slices so input handling, rendering,
+  and the progress display stay live. The mutation itself is then applied
+  **synchronously and atomically** as one undoable operation — a cancelled or
+  superseded scan (e.g. the tab's document changed while yielding) aborts and
+  leaves the document untouched, never partially modified. Match-count updates
+  in the find bar are debounced, and full-document search is bounded by a
+  wall-clock budget with partial results rather than a freeze.
+- **Percentage progress, honestly reported.** Long-running loading UI shows a
+  numeric percentage plus secondary detail wherever a reliable total exists —
+  `Converting big.csv to RCSV… (37% — 1,850 of 5,000 rows)`,
+  `Pasting — 18,000 of 50,000 cells (36%)`,
+  `Auto-fitting columns — 3 of 12 columns measured (25%)`. Multi-phase work
+  labels its phases: an `.rcsv` save shows the sliced
+  `preparing data (…%)` phase and then a distinct `compressing…` phase (the
+  codec offers no honest percentage, so none is invented). Progress updates
+  are naturally rate-limited to one per slice (~12 ms), so reporting never
+  becomes its own bottleneck; percentages are floored so **100% never appears
+  while work remains**; and on cancellation or failure the indicator is
+  dismissed rather than pretending completion. The heavy byte-level kernels
+  (parsing, DEFLATE, CRC-32, statistics reduction) run inside the Rust/WASM
+  core between yield points, keeping each slice short.
 - **Lazy, memoized formula evaluation.** Formula cells evaluate on demand
   with memoization; only the cells actually displayed (visible window, status
   bar) are computed, so a simple edit never triggers a full-sheet
@@ -759,7 +858,24 @@ atomic undo/redo, loading UI for large ranges), formula-reference extraction
 and live grid highlighting (multiple ranges, whole-row/column clamping,
 invalid/incomplete input safety, viewport-overflow indication, independence
 from ordinary selection), and tab reordering (state preservation, active-tab
-behavior, drag drop-indicator, context menu, live-region announcements).
+behavior, drag drop-indicator, context menu, live-region announcements). This
+release additionally covers: the welcome screen (shown at launch, restored
+after closing the final clean tab, the dirty-tab Save/Discard/Cancel close
+flows, cleared document-specific UI, entry-point commands), the grid
+typography model (row-height/line-height synchronization with the
+virtualization constant, font-independent centering, DOM geometry for Japanese
+and Latin content, wrap-mode opt-out), multi-column auto-fit (independent
+per-column widths, non-adjacent column lists, "N of M columns" progress,
+cancellation without partial application, no document/undo mutation), Insert
+Copied Rows/Columns (placement rule, source-column preservation,
+formula-range expansion and reference shifting, atomic undo/redo, CSV
+conversion gating, percentage progress for large insertions), Select All
+(grid-focus-only Ctrl+A routing, used-range selection, empty-document
+messaging, virtualized whole-sheet rendering, pending statistics, guarded
+structural commands), and the non-blocking progress pipeline (sliced CSV→RCSV
+conversion — explicit and implicit — with percentages, the two-phase `.rcsv`
+save with a labeled compression phase, large paste/insertion percentages, and
+the "never 100% while work remains" rule).
 
 ## CI and releases
 

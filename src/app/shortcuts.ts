@@ -39,6 +39,13 @@ export interface ShortcutContext {
    * composition.
    */
   isComposing: boolean;
+  /**
+   * The spreadsheet grid itself has focus (and no cell editor is open).
+   * Ctrl+A / Cmd+A selects all cells only in this context; anywhere else —
+   * text fields, dialogs, the rest of the page — the browser's own Select
+   * All is never intercepted.
+   */
+  inGrid?: boolean;
 }
 
 /** The subset of `KeyboardEvent` the resolver reads (keeps it DOM-free/testable). */
@@ -82,6 +89,11 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     }
     if (event.shiftKey && key === 'h') {
       return 'search.replace';
+    }
+    // Select All Cells: owned only while the grid itself is focused, so the
+    // browser's global Ctrl+A (page text, text inputs) is never suppressed.
+    if (key === 'a' && !event.shiftKey && ctx.inGrid === true && !ctx.inTextField) {
+      return 'edit.selectAll';
     }
     // Grid-editing accelerators: only when not editing text, so text fields
     // and the browser keep their own undo/redo and typing.
@@ -134,6 +146,7 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Ctrl+Y, Ctrl+Shift+Z / Cmd+Shift+Z', descKey: 'shortcut.redo' },
   { keys: 'Ctrl+C / Cmd+C', descKey: 'shortcut.copy' },
   { keys: 'Ctrl+V / Cmd+V', descKey: 'shortcut.paste' },
+  { keys: 'Ctrl+A / Cmd+A', descKey: 'shortcut.selectAll' },
   { keys: 'Ctrl+D / Cmd+D', descKey: 'shortcut.fillDown' },
   { keys: 'Ctrl+Shift+F / Cmd+Shift+F', descKey: 'shortcut.find' },
   { keys: 'Ctrl+Shift+H / Cmd+Shift+H', descKey: 'shortcut.replace' },

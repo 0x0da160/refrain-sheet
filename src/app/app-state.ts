@@ -563,13 +563,16 @@ export class AppState {
    * undo history is cleared (the conversion itself is not undoable; the
    * original file on disk stays untouched).
    */
-  convertToRcsv(tab: Tab): RcsvDocument | null {
+  convertToRcsv(tab: Tab, prebuilt?: RcsvDocument): RcsvDocument | null {
     if (tab.doc.kind !== 'csv') {
       return tab.doc.kind === 'rcsv' ? (tab.doc as RcsvDocument) : null;
     }
     const base = tab.name.replace(/\.(csv|tsv|txt)$/i, '');
     const name = `${base}${RCSV_EXTENSION}`;
-    const doc = RcsvDocument.fromLossless(tab.doc, name);
+    // `prebuilt` comes from the time-sliced conversion of large documents
+    // (identical content, collected with progress instead of one long loop).
+    const doc = prebuilt ?? RcsvDocument.fromLossless(tab.doc, name);
+    doc.name = name;
     tab.doc = doc;
     tab.name = name;
     tab.handle = null;
@@ -588,13 +591,14 @@ export class AppState {
    * unsaved (it exists only in memory until saved). Returns the new document,
    * or null when the tab is not a CSV.
    */
-  convertToRcsvNewTab(tab: Tab): RcsvDocument | null {
+  convertToRcsvNewTab(tab: Tab, prebuilt?: RcsvDocument): RcsvDocument | null {
     if (tab.doc.kind !== 'csv') {
       return null;
     }
     const base = tab.name.replace(/\.(csv|tsv|txt)$/i, '');
     const name = `${base}${RCSV_EXTENSION}`;
-    const doc = RcsvDocument.fromLossless(tab.doc, name);
+    const doc = prebuilt ?? RcsvDocument.fromLossless(tab.doc, name);
+    doc.name = name;
     doc.markUnsaved();
     this.addTab(name, doc, null);
     return doc;

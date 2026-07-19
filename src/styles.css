@@ -15,18 +15,117 @@
      The active choice is applied by overriding this on the document root
      (see src/app/sheet-font.ts); BIZ UD Gothic is the default. */
   --font-sheet: var(--sheet-font-biz-ud);
+
+  /* ---------- Semantic color tokens (light theme = default) ----------
+     Every surface reads its colors from these tokens; the dark theme below
+     overrides the same names. Selection, errors, dirty state, and warnings are
+     always paired with a non-color cue (outline pattern, marker glyph, bold,
+     wavy underline) so they never rely on color alone. */
   --bg: #f4f4f6;
   --panel: #ececef;
+  --panel-hover: #e2e2e6;
+  --panel-active: #d0d0d6;
   --border: #c6c6cc;
+  --border-subtle: #e6e6ea;
   --text: #1c1c22;
   --text-dim: #5a5a66;
-  --accent: #2456a6;
-  --accent-soft: #d6e2f5;
-  --edited: #fff3c4;
-  --edited-border: #e0b400;
+  --text-muted: #8a8a95;
+  --surface: #ffffff;
+  --field-bg: #ffffff;
+  --cell-bg: #ffffff;
+  --grid-line: #e3e3e8;
   --row-alt: #f8f8fa;
   --selected-row: #eaf1fb;
+  --sticky-bg: #fdf6df;
+  --info-soft: #fbfbe8;
+  --accent: #2456a6;
+  --accent-soft: #d6e2f5;
+  --accent-contrast: #ffffff;
+  --accent-contrast-dim: #e5edff;
+  --range-fill: rgba(37, 99, 235, 0.14);
+  --edited: #fff3c4;
+  --edited-border: #e0b400;
   --danger: #b3261e;
+  --warning: #d97706;
+  --warning-soft: #fff6e0;
+  --warning-border: #e0c470;
+  --success: #16a34a;
+  --formula-text: #14532d;
+  --formula-marker: #2f855a;
+  --void-a: #fafafa;
+  --void-b: #f1f1f4;
+  --find-highlight: rgba(36, 86, 166, 0.18);
+  --scrim: rgba(20, 20, 28, 0.35);
+  --scrim-light: rgba(255, 255, 255, 0.55);
+  --tooltip-bg: #2b2b33;
+  --tooltip-text: #ffffff;
+  /* Toasts stay dark chips in both themes so their light text always reads;
+     the warn/error variants carry their own dark backgrounds. */
+  --toast-warn-bg: #7a5b00;
+  --toast-error-bg: #8f1d17;
+  --shadow: rgba(0, 0, 0, 0.15);
+  --shadow-strong: rgba(0, 0, 0, 0.3);
+  /* Four visually distinct formula-reference colors (always paired with a
+     distinct border pattern: solid / dashed / dotted / double). */
+  --fref-1: #2563eb;
+  --fref-2: #16a34a;
+  --fref-3: #d97706;
+  --fref-4: #9333ea;
+  color-scheme: light;
+}
+
+/* ---------- Dark theme ----------
+   Applied when the document root carries data-theme="dark" (set by
+   src/app/theme.ts, which resolves the "system" choice via prefers-color-scheme
+   and updates live on OS theme changes). */
+:root[data-theme='dark'] {
+  --bg: #17171b;
+  --panel: #24242b;
+  --panel-hover: #32323b;
+  --panel-active: #3d3d47;
+  --border: #3a3a43;
+  --border-subtle: #2c2c33;
+  --text: #e7e7ec;
+  --text-dim: #a6a6b3;
+  --text-muted: #74747f;
+  --surface: #212128;
+  --field-bg: #1b1b21;
+  --cell-bg: #1c1c22;
+  --grid-line: #33333b;
+  --row-alt: #202027;
+  --selected-row: #1f2c44;
+  --sticky-bg: #2f2a1a;
+  --info-soft: #24240f;
+  --accent: #5b8fe0;
+  --accent-soft: #26364f;
+  --accent-contrast: #0f141d;
+  --accent-contrast-dim: #0f141d;
+  --range-fill: rgba(91, 143, 224, 0.22);
+  --edited: #45391a;
+  --edited-border: #cfa93a;
+  --danger: #f2726a;
+  --warning: #f0a83a;
+  --warning-soft: #382c12;
+  --warning-border: #6a5520;
+  --success: #4ade80;
+  --formula-text: #86e0ac;
+  --formula-marker: #4ade80;
+  --void-a: #23232a;
+  --void-b: #1a1a20;
+  --find-highlight: rgba(120, 160, 230, 0.3);
+  --scrim: rgba(0, 0, 0, 0.55);
+  --scrim-light: rgba(0, 0, 0, 0.45);
+  --tooltip-bg: #3a3a45;
+  --tooltip-text: #f2f2f6;
+  --toast-warn-bg: #6a5214;
+  --toast-error-bg: #7c241d;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --shadow-strong: rgba(0, 0, 0, 0.72);
+  --fref-1: #6ea8ff;
+  --fref-2: #4ade80;
+  --fref-3: #fbbf24;
+  --fref-4: #c084fc;
+  color-scheme: dark;
 }
 
 * {
@@ -96,10 +195,10 @@ button {
   top: 100%;
   left: 0;
   min-width: 230px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 4px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 4px 14px var(--shadow);
   padding: 4px 0;
   z-index: 50;
 }
@@ -123,7 +222,7 @@ button {
 }
 
 .menu-item:disabled {
-  color: #a2a2ac;
+  color: var(--text-muted);
 }
 
 .menu-item .label {
@@ -175,14 +274,14 @@ button {
   border: 1px solid var(--border);
   border-bottom: none;
   border-radius: 5px 5px 0 0;
-  background: #e2e2e6;
+  background: var(--panel-hover);
   padding: 4px 6px 4px 12px;
   max-width: 240px;
   cursor: default;
 }
 
 .tab[aria-selected='true'] {
-  background: #fff;
+  background: var(--surface);
   font-weight: 600;
 }
 
@@ -207,7 +306,7 @@ button {
 }
 
 .tab .tab-close:hover {
-  background: #d0d0d6;
+  background: var(--panel-active);
 }
 
 /* ---------- Find bar ---------- */
@@ -218,7 +317,7 @@ button {
   align-items: center;
   gap: 6px;
   padding: 5px 8px;
-  background: #fbfbe8;
+  background: var(--info-soft);
   border-bottom: 1px solid var(--border);
 }
 
@@ -232,6 +331,8 @@ button {
   border: 1px solid var(--border);
   border-radius: 3px;
   width: 200px;
+  background: var(--field-bg);
+  color: var(--text);
 }
 
 .find-bar label {
@@ -242,13 +343,13 @@ button {
 
 .find-bar button {
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   border-radius: 3px;
   padding: 3px 8px;
 }
 
 .find-bar button:disabled {
-  color: #a2a2ac;
+  color: var(--text-muted);
 }
 
 .find-count {
@@ -283,7 +384,7 @@ button {
   justify-content: center;
   border: 1px solid var(--border);
   border-radius: 3px;
-  background: #fff;
+  background: var(--field-bg);
   font-family: var(--font-sheet);
   font-size: 12px;
 }
@@ -306,6 +407,8 @@ button {
   resize: vertical;
   min-height: 26px;
   height: 26px;
+  background: var(--field-bg);
+  color: var(--text);
 }
 
 .formula-autocomplete {
@@ -319,10 +422,10 @@ button {
   min-width: 260px;
   max-height: 240px;
   overflow-y: auto;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px var(--shadow);
 }
 
 /* The inline cell editor's popup floats over the grid (fixed to the viewport,
@@ -348,8 +451,8 @@ button {
 }
 
 .formula-autocomplete .ac-item.active {
-  background: var(--accent, #2563eb);
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-contrast);
 }
 
 .formula-autocomplete .ac-sig {
@@ -363,7 +466,7 @@ button {
 }
 
 .formula-autocomplete .ac-item.active .ac-desc {
-  color: #e5edff;
+  color: var(--accent-contrast-dim);
 }
 
 .formula-bar .hint {
@@ -379,7 +482,7 @@ button {
 .grid-container {
   flex: 1;
   overflow: auto;
-  background: #fff;
+  background: var(--cell-bg);
   position: relative;
   outline-offset: -2px;
 }
@@ -413,7 +516,7 @@ button {
 }
 
 .vgrid-stickyrow .vcell {
-  background: #fdf6df;
+  background: var(--sticky-bg);
 }
 
 .vgrid-stickyrow[hidden] {
@@ -446,14 +549,14 @@ button {
 
 .vcell {
   flex: none;
-  border-right: 1px solid #e3e3e8;
-  border-bottom: 1px solid #e3e3e8;
+  border-right: 1px solid var(--grid-line);
+  border-bottom: 1px solid var(--grid-line);
   padding: 0 8px;
   line-height: var(--grid-cell-line);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: pre;
-  background: #fff;
+  background: var(--cell-bg);
   position: relative;
 }
 
@@ -521,7 +624,7 @@ button {
   width: 8px;
   height: 8px;
   background: var(--accent);
-  border: 1px solid #fff;
+  border: 1px solid var(--cell-bg);
   cursor: crosshair;
   z-index: 7;
   touch-action: none;
@@ -584,7 +687,7 @@ button {
    selections (their header emphasis via .sel-rows / .sel-cols). */
 .grid-container.sel-all .vcell.vcorner {
   background: var(--accent) !important;
-  color: #fff;
+  color: var(--accent-contrast);
   box-shadow: inset 0 0 0 2px var(--accent);
 }
 
@@ -636,7 +739,7 @@ button {
    confused with the selection/editing state). They are differentiated by a
    subtle green tint plus a non-italic corner marker in the top-right. */
 .vcell.formula {
-  color: #14532d;
+  color: var(--formula-text);
   font-style: normal;
 }
 
@@ -645,7 +748,7 @@ button {
   position: absolute;
   top: 0;
   right: 0;
-  border-top: 5px solid #2f855a;
+  border-top: 5px solid var(--formula-marker);
   border-left: 5px solid transparent;
   opacity: 0.8;
   pointer-events: none;
@@ -664,7 +767,13 @@ button {
 }
 
 .vcell.void {
-  background: repeating-linear-gradient(45deg, #fafafa, #fafafa 6px, #f1f1f4 6px, #f1f1f4 12px);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--void-a),
+    var(--void-a) 6px,
+    var(--void-b) 6px,
+    var(--void-b) 12px
+  );
 }
 
 .vcell .cell-editor {
@@ -675,18 +784,27 @@ button {
   border: 2px solid var(--accent);
   padding: 1px 6px;
   font: inherit;
-  background: #fff;
+  color: var(--text);
+  background: var(--field-bg);
   z-index: 4;
+  /* A <textarea> so it holds multi-line values (Alt+Enter). Long/multi-line
+     content wraps and scrolls within the cell box while editing; committing
+     grows the row via Wrap Long Rows. */
+  resize: none;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  line-height: var(--grid-wrap-line);
 }
 
 /* ---------- Context menu ---------- */
 
 .context-menu {
   position: fixed;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 4px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 4px 14px var(--shadow);
   padding: 4px 0;
   z-index: 100;
   min-width: 180px;
@@ -743,15 +861,17 @@ button {
 dialog {
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 32px var(--shadow-strong);
   padding: 0;
   max-width: min(680px, 92vw);
   max-height: 86vh;
   font-size: 13px;
+  background: var(--surface);
+  color: var(--text);
 }
 
 dialog::backdrop {
-  background: rgba(20, 20, 28, 0.35);
+  background: var(--scrim);
 }
 
 .dialog-title {
@@ -779,8 +899,8 @@ dialog::backdrop {
 }
 
 .dialog-warning {
-  background: #fff6e0;
-  border: 1px solid #e0c470;
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-border);
   border-radius: 4px;
   padding: 8px 10px;
   margin: 0 0 10px;
@@ -798,7 +918,8 @@ dialog::backdrop {
 
 .dialog-buttons button {
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
+  color: var(--text);
   border-radius: 4px;
   padding: 6px 16px;
 }
@@ -806,7 +927,7 @@ dialog::backdrop {
 .dialog-buttons button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast);
 }
 
 .dialog-buttons button:focus-visible {
@@ -857,7 +978,7 @@ table.diag-table th {
 
 .form-unit {
   margin-left: 6px;
-  color: var(--muted, #666);
+  color: var(--text-dim);
 }
 
 .shortcut-table {
@@ -867,7 +988,7 @@ table.diag-table th {
 
 .shortcut-table td {
   padding: 3px 8px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .shortcut-table td:first-child {
@@ -916,7 +1037,7 @@ table.diag-table th {
 .formula-help .help-fn-table th,
 .formula-help .help-fn-table td {
   padding: 4px 8px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-subtle);
   text-align: left;
   vertical-align: top;
 }
@@ -935,7 +1056,7 @@ table.diag-table th {
 .drop-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(36, 86, 166, 0.18);
+  background: var(--find-highlight);
   border: 4px dashed var(--accent);
   display: none;
   align-items: center;
@@ -949,13 +1070,13 @@ table.diag-table th {
 }
 
 .drop-overlay .drop-message {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--accent);
   border-radius: 8px;
   padding: 18px 30px;
   font-size: 16px;
   color: var(--accent);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 24px var(--shadow-strong);
 }
 
 /* ---------- Loading overlay ---------- */
@@ -968,7 +1089,7 @@ table.diag-table th {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--scrim-light);
   z-index: 250;
   /* A slow load never traps the pointer beyond the translucent scrim. */
   pointer-events: none;
@@ -988,13 +1109,13 @@ table.diag-table th {
 }
 
 .loading-overlay .loading-label {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 20px;
   font-size: 14px;
   color: var(--text);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 8px 24px var(--shadow);
 }
 
 @keyframes loading-spin {
@@ -1023,27 +1144,38 @@ table.diag-table th {
 }
 
 .toast {
-  background: #2b2b33;
-  color: #fff;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-text);
   border-radius: 6px;
   padding: 10px 14px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 18px var(--shadow-strong);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
 .toast.warn {
-  background: #7a5b00;
+  background: var(--toast-warn-bg);
 }
 
 .toast.error {
-  background: var(--danger);
+  background: var(--toast-error-bg);
 }
 
 /* Keyboard focus visibility */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+/* Forced-colors / high-contrast: defer to the system palette and keep the
+   selection and focus cues visible via system colors (the non-color cues —
+   outline patterns, marker glyphs, bold error text — carry the meaning). */
+@media (forced-colors: active) {
+  .vcell.selected,
+  .vcell.anchor,
+  :focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 /* ----- Visually hidden (screen-reader-only) content ----- */
@@ -1084,55 +1216,55 @@ table.diag-table th {
 }
 
 .vcell.fref-0.fref-top {
-  border-top: 2px solid #2563eb;
+  border-top: 2px solid var(--fref-1);
 }
 .vcell.fref-0.fref-bottom {
-  border-bottom: 2px solid #2563eb;
+  border-bottom: 2px solid var(--fref-1);
 }
 .vcell.fref-0.fref-left {
-  border-left: 2px solid #2563eb;
+  border-left: 2px solid var(--fref-1);
 }
 .vcell.fref-0.fref-right {
-  border-right: 2px solid #2563eb;
+  border-right: 2px solid var(--fref-1);
 }
 
 .vcell.fref-1.fref-top {
-  border-top: 2px dashed #16a34a;
+  border-top: 2px dashed var(--fref-2);
 }
 .vcell.fref-1.fref-bottom {
-  border-bottom: 2px dashed #16a34a;
+  border-bottom: 2px dashed var(--fref-2);
 }
 .vcell.fref-1.fref-left {
-  border-left: 2px dashed #16a34a;
+  border-left: 2px dashed var(--fref-2);
 }
 .vcell.fref-1.fref-right {
-  border-right: 2px dashed #16a34a;
+  border-right: 2px dashed var(--fref-2);
 }
 
 .vcell.fref-2.fref-top {
-  border-top: 2px dotted #d97706;
+  border-top: 2px dotted var(--fref-3);
 }
 .vcell.fref-2.fref-bottom {
-  border-bottom: 2px dotted #d97706;
+  border-bottom: 2px dotted var(--fref-3);
 }
 .vcell.fref-2.fref-left {
-  border-left: 2px dotted #d97706;
+  border-left: 2px dotted var(--fref-3);
 }
 .vcell.fref-2.fref-right {
-  border-right: 2px dotted #d97706;
+  border-right: 2px dotted var(--fref-3);
 }
 
 .vcell.fref-3.fref-top {
-  border-top: 3px double #9333ea;
+  border-top: 3px double var(--fref-4);
 }
 .vcell.fref-3.fref-bottom {
-  border-bottom: 3px double #9333ea;
+  border-bottom: 3px double var(--fref-4);
 }
 .vcell.fref-3.fref-left {
-  border-left: 3px double #9333ea;
+  border-left: 3px double var(--fref-4);
 }
 .vcell.fref-3.fref-right {
-  border-right: 3px double #9333ea;
+  border-right: 3px double var(--fref-4);
 }
 
 /* Floating note: a referenced range continues beyond the rendered viewport */
@@ -1145,7 +1277,7 @@ table.diag-table th {
   padding: 3px 8px;
   font-size: 12px;
   color: var(--text-dim);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px var(--shadow);
   pointer-events: none;
 }
 
@@ -1167,7 +1299,7 @@ table.diag-table th {
   gap: 12px;
   padding: 40px;
   text-align: center;
-  background: #fff;
+  background: var(--surface);
   overflow: auto;
 }
 
@@ -1195,7 +1327,7 @@ table.diag-table th {
 
 .welcome-action {
   border: 1px solid var(--accent);
-  background: #fff;
+  background: var(--surface);
   color: var(--accent);
   border-radius: 5px;
   padding: 9px 18px;
@@ -1205,7 +1337,7 @@ table.diag-table th {
 
 .welcome-action.primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast);
 }
 
 .welcome-action:hover {

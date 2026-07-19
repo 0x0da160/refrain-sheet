@@ -6,6 +6,7 @@ import { Commands, type UiPort } from './app/commands';
 import { getLocale, initLocale, onLocaleChange, t } from './app/i18n';
 import { applySheetFont, getSheetFont } from './app/sheet-font';
 import { resolveShortcut } from './app/shortcuts';
+import { applyTheme, getTheme } from './app/theme';
 import { initCsvEngine } from './core/csv-engine';
 import { validateDocument } from './core/validation';
 import { Dialogs, Toasts } from './ui/dialogs';
@@ -24,6 +25,9 @@ function bootstrap(): void {
   document.documentElement.lang = getLocale();
   // Apply the persisted spreadsheet font before first paint (pure CSS var).
   applySheetFont(getSheetFont());
+  // Resolve and apply the color theme before first paint (no flash of the
+  // wrong theme); a "system" choice tracks OS changes live via matchMedia.
+  applyTheme(getTheme());
 
   // Start instantiating the embedded WASM CSV core in the background (decoded
   // locally from Base64 — never fetched; falls back to the identical JS engine
@@ -78,6 +82,7 @@ function bootstrap(): void {
     wrap: () => state.wrapCells,
     stickyFirstRow: () => state.stickyFirstRow,
     sheetFont: () => getSheetFont(),
+    theme: () => getTheme(),
   });
   const tabBar = new TabBar(state, commands);
   const findBar = new FindBar(state, commands, grid);

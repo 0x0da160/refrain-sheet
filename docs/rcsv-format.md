@@ -1,10 +1,15 @@
-# The `.rcsv` binary container format
+# RCSV (Refrain CSV Format) — the `.rcsv` binary container
 
-`.rcsv` is the on-disk format for **Refrain spreadsheet documents** — sheets that
-carry formulas, structural editing intent, and per-document metadata that plain
-CSV cannot represent without breaking Refrain's byte-for-byte CSV preservation
-guarantee. When a CSV is converted to a spreadsheet (explicitly, by the user),
-saving it produces an `.rcsv` file; the original `.csv` on disk is never touched.
+**RCSV (Refrain CSV Format)** is the dedicated spreadsheet document format used
+by **Refrain Sheet**, saved with the `.rcsv` extension. It carries formulas,
+structural editing intent, and per-document metadata that plain CSV cannot
+represent without breaking Refrain Sheet's byte-for-byte CSV preservation
+guarantee. RCSV is a versioned, compressed binary container — **not** a JSON
+document, **not** a plain/standard CSV file, and **not** a byte-identical
+representation of an imported CSV. When a CSV is converted to a spreadsheet
+(explicitly, by the user), saving it produces an `.rcsv` file; the original
+`.csv` on disk is never touched, and plain CSV files keep their byte-preserving
+guarantees until conversion.
 
 This document specifies the container so the format is auditable and other tools
 can read or write it. The reference implementation lives in
@@ -88,7 +93,7 @@ metadata) is still accepted on read.
 | 1    | Body version — `2` (metadata-bearing); `1` (no metadata) also read |
 | 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)        |
 | 2    | _(v2 only)_ Application-name length, `u16`                         |
-| …    | _(v2 only)_ Application name (UTF-8), e.g. `Refrain CSV HTML`      |
+| …    | _(v2 only)_ Application name (UTF-8), e.g. `Refrain Sheet`         |
 | 2    | _(v2 only)_ Application-version length, `u16`                      |
 | …    | _(v2 only)_ Application version (UTF-8), e.g. `0.1.1`              |
 | 2    | Sheet-name length `N`, `u16`                                       |
@@ -99,7 +104,7 @@ metadata) is still accepted on read.
 | …    | `C` cell records                                                   |
 
 The application metadata records which build of the software created or last
-updated the file (`Refrain CSV HTML` and the version from
+updated the file (`Refrain Sheet` and the version from
 [`package.json`](../package.json), the single authoritative version source). It
 is descriptive only and never affects how the sheet is interpreted. The
 application-name and application-version strings are each capped at 255 bytes.

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Reproducible development environment for Refrain CSV HTML.
+# Reproducible development environment for Refrain Sheet.
 #
 #   docker compose run --rm app npm ci
 #   docker compose run --rm app npm run test:rust    # Rust unit tests

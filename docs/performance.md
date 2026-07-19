@@ -1,6 +1,6 @@
 # Performance and responsiveness
 
-This document records how Refrain CSV HTML is tuned for perceived
+This document records how Refrain Sheet is tuned for perceived
 responsiveness, how to reproduce the measurements, and the numbers measured
 for the current revision. The README's
 [Performance and responsiveness](../README.md#performance-and-responsiveness)

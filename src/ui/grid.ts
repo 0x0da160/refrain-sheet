@@ -9,6 +9,7 @@ import { forEachIndexSliced, yieldToBrowser } from '../core/scheduler';
 import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../core/text-wrap';
 import { el, clearChildren } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
+import { beginsTextEntry, isComposingKey } from './ime';
 
 /** Fixed row/column metrics for virtualization (px). ROW_HEIGHT must stay in
  * sync with the `--grid-row-height` CSS variable (see styles.css), which the
@@ -310,10 +311,12 @@ export class Grid {
   private editor: {
     row: number;
     col: number;
-    input: HTMLInputElement;
+    input: HTMLTextAreaElement;
     autocomplete: FormulaAutocomplete;
     ref: FormulaFieldRef;
     prevRefTarget: FormulaRefTarget | null;
+    /** True between compositionstart and compositionend (IME is composing). */
+    composing: boolean;
   } | null = null;
   private contextMenu: HTMLElement | null = null;
   private dragging = false;
@@ -685,6 +688,13 @@ export class Grid {
   }
 
   private render(tab: Tab): void {
+    // Never disrupt an active IME composition: any rebuild would tear the
+    // focused editor out of the DOM mid-composition and drop it. Background
+    // work (the wrap-measure pass, scroll coalescing) that calls render while
+    // the user is composing simply defers until composition ends.
+    if (this.editor?.composing) {
+      return;
+    }
     const doc = tab.doc;
     const idx = this.heightIndex(tab);
     // Conditional wrapping: measure the rows about to be shown so their heights
@@ -1809,9 +1819,12 @@ export class Grid {
   // ----- Editing -----
 
   /**
-   * Open the inline cell editor. `initial` replaces the content (typing
-   * starts a fresh value, like a spreadsheet); null edits the current value
-   * (the raw formula expression for formula cells).
+   * Open the inline cell editor. `initial === null` edits the current value
+   * (the raw formula expression for formula cells) with the text selected;
+   * `initial === ''` opens an **empty** editor for type-to-edit — the caller
+   * must NOT have consumed the initiating key, so the browser delivers that
+   * key (and any IME composition) straight into the freshly focused field.
+   * The editor is a `<textarea>`, so it holds multi-line values (Alt+Enter).
    */
   openEditor(tab: Tab, row: number, col: number, initial: string | null): void {
     this.commitEditor();
@@ -1823,9 +1836,9 @@ export class Grid {
     if (!cell) {
       return;
     }
-    const input = el('input', {
+    const input = el('textarea', {
       className: 'cell-editor',
-      attrs: { type: 'text', 'aria-label': t('formulaBar.label') },
+      attrs: { rows: '1', spellcheck: 'false', 'aria-label': t('formulaBar.label') },
     });
     input.value = initial !== null ? initial : tab.doc.getValue(row, col);
     // Autocomplete and pointer references, identical to the formula bar. The
@@ -1841,8 +1854,36 @@ export class Grid {
     // bar) when the editor closes.
     const prevRefTarget = this.state.formulaRefTarget;
     this.state.formulaRefTarget = ref;
-    this.editor = { row, col, input, autocomplete, ref, prevRefTarget };
+    const editor = { row, col, input, autocomplete, ref, prevRefTarget, composing: false };
+    this.editor = editor;
+    input.addEventListener('compositionstart', () => {
+      editor.composing = true;
+    });
+    input.addEventListener('compositionend', () => {
+      editor.composing = false;
+      // Composition committed text; refresh completions/highlights from it.
+      autocomplete.update();
+      updateRefs();
+    });
     input.addEventListener('keydown', (event) => {
+      // While the IME is composing, let it own every key (Enter confirms a
+      // candidate, Escape cancels one, arrows move candidates). Never commit,
+      // navigate, or run autocomplete on a composition keystroke.
+      if (isComposingKey(event, editor.composing)) {
+        return;
+      }
+      if (event.key === 'Enter' && event.altKey) {
+        // Insert a literal newline at the caret (replacing any selection); this
+        // never commits, navigates, or opens a menu.
+        event.preventDefault();
+        event.stopPropagation();
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? input.value.length;
+        input.setRangeText('\n', start, end, 'end');
+        autocomplete.update();
+        updateRefs();
+        return;
+      }
       if (autocomplete.onKeyDown(event)) {
         return;
       }
@@ -1866,17 +1907,22 @@ export class Grid {
     });
     input.addEventListener('input', () => {
       ref.clear();
-      autocomplete.update();
+      // Don't recompute/overwrite completions mid-composition (compositionend
+      // refreshes them from the committed text).
+      if (!editor.composing) {
+        autocomplete.update();
+      }
       updateRefs();
     });
     input.addEventListener('click', () => autocomplete.update());
     input.addEventListener('blur', () => this.commitEditor());
     cell.append(input);
     input.focus();
-    if (initial !== null) {
-      input.setSelectionRange(input.value.length, input.value.length);
-    } else {
+    if (initial === null) {
       input.select();
+    } else {
+      // Empty type-to-edit: caret at the start; the browser inserts the key.
+      input.setSelectionRange(input.value.length, input.value.length);
     }
     // Offer completions immediately when a formula is being started/edited.
     autocomplete.update();
@@ -1987,10 +2033,14 @@ export class Grid {
         this.commands.clearRange(tab);
         return;
       default:
-        // Typing (including Shift+letter) starts a fresh edit with that character.
-        if (event.key.length === 1 && tab.selection) {
-          event.preventDefault();
-          this.openEditor(tab, tab.selection.row, tab.selection.col, event.key);
+        // Typing starts a fresh edit — but IME-safely. We open an EMPTY editor
+        // and focus it, then deliberately do NOT preventDefault and do NOT seed
+        // the character ourselves: the browser routes this keystroke (and any
+        // IME composition it begins) into the just-focused field, so Japanese
+        // Romaji composes correctly from the very first key instead of leaking
+        // a literal Latin character.
+        if (tab.selection && beginsTextEntry(event)) {
+          this.openEditor(tab, tab.selection.row, tab.selection.col, '');
         }
     }
   }

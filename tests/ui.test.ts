@@ -194,7 +194,7 @@ describe('inline cell editor autocomplete and references', () => {
   it('shows function completions while typing a formula in a cell', () => {
     const { grid, tab } = editorSetup();
     grid.openEditor(tab, 0, 0, '=SU');
-    const input = grid.element.querySelector<HTMLInputElement>('input.cell-editor')!;
+    const input = grid.element.querySelector<HTMLInputElement>('.cell-editor')!;
     input.dispatchEvent(new Event('input'));
     const popup = document.querySelector('.formula-autocomplete.floating')!;
     expect(popup).not.toBeNull();
@@ -206,7 +206,7 @@ describe('inline cell editor autocomplete and references', () => {
   it('does not show completions for ordinary (non-formula) cell text', () => {
     const { grid, tab } = editorSetup();
     grid.openEditor(tab, 0, 0, 'plain');
-    const input = grid.element.querySelector<HTMLInputElement>('input.cell-editor')!;
+    const input = grid.element.querySelector<HTMLInputElement>('.cell-editor')!;
     input.dispatchEvent(new Event('input'));
     const popup = document.querySelector('.formula-autocomplete.floating');
     expect(popup === null || popup.hasAttribute('hidden')).toBe(true);
@@ -215,7 +215,7 @@ describe('inline cell editor autocomplete and references', () => {
   it('registers the inline editor as the reference target while editing a formula', () => {
     const { state, grid, tab } = editorSetup();
     grid.openEditor(tab, 0, 0, '=');
-    const input = grid.element.querySelector<HTMLInputElement>('input.cell-editor')!;
+    const input = grid.element.querySelector<HTMLInputElement>('.cell-editor')!;
     input.focus();
     expect(state.formulaRefTarget).not.toBeNull();
     expect(state.formulaRefTarget!.isCapturing()).toBe(true);
@@ -224,7 +224,7 @@ describe('inline cell editor autocomplete and references', () => {
   it('inserts a cell reference on grid mousedown during inline formula entry', () => {
     const { grid, tab } = editorSetup();
     grid.openEditor(tab, 0, 0, '=');
-    const input = grid.element.querySelector<HTMLInputElement>('input.cell-editor')!;
+    const input = grid.element.querySelector<HTMLInputElement>('.cell-editor')!;
     input.focus();
     input.setSelectionRange(1, 1);
     const cell = grid.element.querySelector<HTMLElement>('[data-row="1"][data-col="1"]')!;

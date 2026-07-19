@@ -42,6 +42,7 @@ import {
 import { setLocale, t, type LocaleId } from './i18n';
 import { getMaxFileSize, setMaxFileSize } from './settings';
 import { setSheetFont, type SheetFontId } from './sheet-font';
+import { setTheme, type ThemeChoice } from './theme';
 
 /**
  * Why a CSV document needs converting to an RCSV spreadsheet document.
@@ -130,6 +131,9 @@ export type CommandId =
   | 'view.sheetFont.bizUd'
   | 'view.sheetFont.ms'
   | 'view.sheetFont.msUi'
+  | 'view.theme.system'
+  | 'view.theme.light'
+  | 'view.theme.dark'
   | 'app.settings'
   | 'help.formula'
   | 'lang.en'
@@ -348,6 +352,15 @@ export class Commands {
         setSheetFont(fonts[id]);
         // Applying the font is pure CSS; re-emit so the menu checkmark and the
         // grid (which measures with the active font) refresh.
+        this.state.emit('view');
+        return;
+      }
+      case 'view.theme.system':
+      case 'view.theme.light':
+      case 'view.theme.dark': {
+        setTheme(id.slice('view.theme.'.length) as ThemeChoice);
+        // Applying the theme is pure CSS (data-theme attribute); re-emit so the
+        // menu checkmark refreshes. Document bytes are never touched.
         this.state.emit('view');
         return;
       }

@@ -5,6 +5,7 @@ import { t } from '../app/i18n';
 import { cellLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import { el } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
+import { isComposingKey } from './ime';
 
 /**
  * Formula bar for the selected cell. Shows and edits the raw cell input —
@@ -28,6 +29,8 @@ export class FormulaBar implements FormulaRefTarget {
   private readonly autocomplete: FormulaAutocomplete;
   private readonly ref: FormulaFieldRef;
   private baseValue = '';
+  /** True between compositionstart and compositionend (IME is composing). */
+  private composing = false;
 
   constructor(
     private readonly state: AppState,
@@ -56,10 +59,22 @@ export class FormulaBar implements FormulaRefTarget {
     );
 
     this.textarea.addEventListener('keydown', (event) => this.onKeyDown(event));
+    this.textarea.addEventListener('compositionstart', () => {
+      this.composing = true;
+    });
+    this.textarea.addEventListener('compositionend', () => {
+      this.composing = false;
+      // Composition committed text; refresh completions/highlights from it.
+      this.autocomplete.update();
+      this.updateRefs();
+    });
     this.textarea.addEventListener('input', () => {
       // Typing invalidates any pending pointer-entered reference.
       this.ref.clear();
-      this.autocomplete.update();
+      // Don't recompute/overwrite completions mid-composition.
+      if (!this.composing) {
+        this.autocomplete.update();
+      }
       this.updateRefs();
     });
     this.textarea.addEventListener('click', () => this.autocomplete.update());
@@ -110,6 +125,11 @@ export class FormulaBar implements FormulaRefTarget {
   }
 
   private onKeyDown(event: KeyboardEvent): void {
+    // While the IME is composing, let it own every key (Enter confirms a
+    // candidate, Escape cancels one). Never commit or run autocomplete then.
+    if (isComposingKey(event, this.composing)) {
+      return;
+    }
     if (this.autocomplete.onKeyDown(event)) {
       return;
     }

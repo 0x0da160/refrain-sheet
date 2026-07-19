@@ -3,8 +3,8 @@ name = "refrain-csv-core"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "Byte-level CSV core (parsing, validation, sniffing, indexing, serialization planning) for Refrain CSV HTML, compiled to WebAssembly."
-repository = "https://github.com/0x0da160/refrain-csv-html"
+description = "Byte-level CSV core (parsing, validation, sniffing, indexing, serialization planning) for Refrain Sheet, compiled to WebAssembly."
+repository = "https://github.com/0x0da160/refrain-sheet"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

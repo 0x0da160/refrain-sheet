@@ -2,6 +2,7 @@
 import type { CommandId, Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../app/sheet-font';
+import { THEMES, themeLabelKey, type ThemeChoice } from '../app/theme';
 import { el, clearChildren } from './dom';
 
 export interface MenuItemDef {
@@ -23,6 +24,7 @@ export interface MenuChecks {
   wrap: () => boolean;
   stickyFirstRow: () => boolean;
   sheetFont: () => SheetFontId;
+  theme: () => ThemeChoice;
 }
 
 export function defaultMenus(checks: MenuChecks): MenuDef[] {
@@ -104,6 +106,9 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.view.sheetFont', heading: true },
         ...sheetFontItems(checks),
         'separator',
+        { labelKey: 'menu.view.theme', heading: true },
+        ...themeItems(checks),
+        'separator',
         // Tab movement stays menu/context-menu driven: every remaining
         // Ctrl/Alt+arrow-style accelerator conflicts with browser or OS tab
         // and history shortcuts, so no shortcut is assigned by design.
@@ -141,6 +146,20 @@ function sheetFontItems(checks: MenuChecks): MenuItemDef[] {
     labelKey: sheetFontLabelKey(id),
     command: font2command[id],
     checked: () => checks.sheetFont() === id,
+  }));
+}
+
+/** The three color-theme choices as checkable menu items (View > Theme). */
+function themeItems(checks: MenuChecks): MenuItemDef[] {
+  const theme2command: Record<ThemeChoice, CommandId> = {
+    system: 'view.theme.system',
+    light: 'view.theme.light',
+    dark: 'view.theme.dark',
+  };
+  return THEMES.map((id) => ({
+    labelKey: themeLabelKey(id),
+    command: theme2command[id],
+    checked: () => checks.theme() === id,
   }));
 }
 

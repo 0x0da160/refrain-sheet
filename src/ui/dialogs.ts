@@ -507,6 +507,8 @@ export class Dialogs {
         table.append(el('tr', {}, [el('td', { text: keys }), el('td', { text: t(descKey) })]));
       }
       body.append(table);
+      body.append(el('h3', { text: t('dialog.about.appearance') }));
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.about.appearanceNote') }));
       body.append(el('p', { className: 'dialog-note', text: 'MIT License — Copyright (c) 2026 0x0da160' }));
       buttons.append(dialogButton(t('dialog.close'), true, true, () => close(undefined)));
     });

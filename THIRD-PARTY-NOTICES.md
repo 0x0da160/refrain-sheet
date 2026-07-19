@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-Refrain CSV HTML is licensed under the MIT License (see [LICENSE](LICENSE)).
+Refrain Sheet is licensed under the MIT License (see [LICENSE](LICENSE)).
 
 The distributed build output (`dist/`, and the release ZIP) bundles the
 following third-party software. All bundled dependencies use permissive

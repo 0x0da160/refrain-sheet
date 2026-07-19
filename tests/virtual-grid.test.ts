@@ -219,9 +219,16 @@ describe('selection and keyboard interaction', () => {
       new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }),
     );
     expect(tab.selection).toEqual({ row: 1, col: 1 });
-    grid.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'x', bubbles: true, cancelable: true }));
-    const input = grid.element.querySelector<HTMLInputElement>('.cell-editor')!;
-    expect(input.value).toBe('x');
+    const typed = new KeyboardEvent('keydown', { key: 'x', bubbles: true, cancelable: true });
+    grid.element.dispatchEvent(typed);
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    // IME-safe: typing opens an EMPTY editor and does not synthesize the key or
+    // preventDefault — the browser routes the character into the focused field
+    // (which jsdom does not simulate), so the first char is never a literal
+    // insert by our code.
+    expect(input).not.toBeNull();
+    expect(input.value).toBe('');
+    expect(typed.defaultPrevented).toBe(false);
     input.value = 'xyz';
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     await vi.waitFor(() => expect(tab.doc.getValue(1, 1)).toBe('xyz'));

@@ -1,26 +1,27 @@
-# Refrain CSV HTML
+# Refrain Sheet
 
-A format-preserving CSV editor that runs directly from a local HTML file.
+A local-first, format-preserving CSV and spreadsheet editor.
 
-Refrain CSV HTML is an offline CSV editor distributed as static files.
+Refrain Sheet is a local-first, offline CSV and spreadsheet editor that runs
+directly from a local HTML file. It preserves CSV files as faithfully as
+possible while supporting lightweight spreadsheet editing through RCSV.
 Open `index.html` directly in a browser; no installation, server, account,
 or network connection is required.
 
-“Refrain” means refraining from touching your file unnecessarily.
+“Refrain” means refraining from touching your original CSV unnecessarily.
 Edit field values while preserving everything else as faithfully as possible:
 delimiters, quoting, surrounding whitespace, line endings, encodings, byte
-order marks, undecodable bytes, and malformed regions.
+order marks, undecodable bytes, and malformed regions. Spreadsheet-only
+features (formulas, structural edits, per-document metadata) are provided
+through **RCSV (Refrain CSV Format)**.
 
-ローカルHTMLをブラウザで直接開いて使える、オフライン対応の書式保持CSVエディタです。
+ローカルで動く、書式保持CSV・スプレッドシートエディタです。
 CSVのフィールド値だけを編集し、区切り文字、引用符、空白、改行コード、文字コード、
 BOM、不正なCSV領域などを可能な限り保持します。
 
-> **Note on the name**: despite “CSV HTML”, this is **not** a CSV-to-HTML
-> converter. It is _a CSV editor that runs directly from a local HTML file._
-
-This is release **v0.1.1**. The version is defined once in `package.json` and
-surfaced through the app (**Help > About / Keyboard Shortcuts** shows it), the
-metadata written into saved `.rcsv` files, and the release artifact name.
+The version is defined in `package.json` and surfaced through the app
+(**Help > About / Keyboard Shortcuts** shows it), the metadata written into
+saved `.rcsv` files, and the release artifact name.
 
 ## The Refrain principle
 
@@ -175,9 +176,24 @@ font, and the configured file-size limit live outside the tab lifecycle).
 
 - Click a cell to select it; double-click, press **F2**, or just start
   typing to edit inline. Inline editing never shifts the table layout.
-- The **formula bar** above the grid edits the selected cell and supports
-  multi-line values: **Enter** applies and moves down, **Alt+Enter** inserts
-  a newline, **Esc** restores the value the cell had when selected.
+- **Japanese / CJK IME input is safe from the first keystroke.** Typing on a
+  selected cell opens an empty editor and lets the browser/OS begin composition
+  in it — the initiating key is never synthesized as plain text or consumed via
+  `keydown`, so the first Romaji character joins the composition instead of
+  leaking as a literal Latin letter. While a composition is active the editor
+  stays mounted and focused, and Enter/Esc/arrows/autocomplete belong to the
+  IME (Enter confirms a candidate, never the cell) until composition completes.
+  The same guards apply to the formula bar. Editing is driven by standard
+  `beforeinput` / `input` / `composition*` events and `isComposing`, not by
+  keystroke synthesis.
+- Both the inline editor and the formula bar are multi-line: **Alt+Enter**
+  inserts a line break at the caret (replacing any selection) without
+  committing, navigating, or opening a menu. Multi-line values round-trip
+  through CSV (the edited field is quoted per the minimal-diff rules), RCSV,
+  undo/redo, copy/paste, and Wrap Long Rows (the row grows to fit).
+- The **formula bar** above the grid edits the selected cell: **Enter** applies
+  and moves down, **Alt+Enter** inserts a newline, **Esc** restores the value
+  the cell had when selected.
 - **Enter** moves to the next row; **Esc** cancels the in-progress edit.
 - Edited cells are tinted yellow; hovering one shows the original value as a
   plain-text tooltip.
@@ -426,6 +442,32 @@ and never converts a CSV to RCSV. When a preferred font is not installed, the
 declared fallbacks (and finally `monospace`) are used. No font is fetched from a
 CDN/remote URL or bundled.
 
+#### Theme (light / dark)
+
+**View > Theme** offers **System default**, **Light**, and **Dark**. New users
+start on **System default**, which follows the OS/browser `prefers-color-scheme`
+setting and updates **live** when the system theme changes (a `matchMedia`
+listener re-applies it). The choice is persisted in `localStorage` and never
+transmitted anywhere; the selected spreadsheet font applies unchanged in either
+theme, and switching theme is pure display state — it never alters CSV bytes,
+RCSV data, formulas, calculations, or document semantics.
+
+The theme is a **semantic CSS custom-property system**: `styles.css` defines one
+light palette in `:root` and one dark palette under `:root[data-theme="dark"]`,
+and every surface (app background, menus, dialogs and overlays, buttons and form
+controls, grid background, alternating rows, grid lines, row/column headers,
+cell and muted text, the active cell and selected range, formula-reference
+highlights, dirty/edited indicators, errors/warnings/success, loading and
+progress UI, tooltips, context menus, and scrollbars via `color-scheme`) reads
+its colors from those tokens — no scattered hard-coded colors remain.
+`src/app/theme.ts` resolves the choice (the `"system"` choice via
+`prefers-color-scheme`) and applies it by setting `data-theme` plus
+`color-scheme` on the document root before first paint, so there is no flash of
+the wrong theme. Selection, formula errors, dirty state, and warnings are never
+signalled by **color alone** — they always pair a non-color cue (outline
+pattern, corner marker, bold error text, wavy underline), which also keeps them
+legible in forced-colors / high-contrast modes.
+
 #### Vertical text centering
 
 Cell text is **vertically centered** by a single explicit typography model, not
@@ -477,8 +519,14 @@ with the full value visible in the formula bar).
 
 Plain CSV cannot hold formulas, structural editing intent, or per-document
 metadata without breaking the byte-preservation guarantee. So those features
-live in a separate **spreadsheet document** saved as `.rcsv`. Converting a CSV
-is always explicit and never touches the original `.csv` on disk.
+live in a separate **spreadsheet document** saved as `.rcsv` — **RCSV (Refrain
+CSV Format)**, the dedicated spreadsheet format used by Refrain Sheet. RCSV is
+a versioned, compressed binary container (not a JSON document and not a CSV
+file); it is **not** a byte-identical representation of an imported CSV.
+Converting a CSV is always explicit and never touches the original `.csv` on
+disk — plain CSV files keep the byte-preserving, minimal-diff guarantees until
+you convert them. See [`docs/rcsv-format.md`](docs/rcsv-format.md) for the
+container specification.
 
 ### Converting a CSV to a spreadsheet
 
@@ -924,6 +972,19 @@ corner Select All control (localized accessible name in English and Japanese,
 pointer and keyboard/`click` activation, `aria-pressed` whole-sheet state,
 blank-RCSV logical extent, empty-CSV no-data path, virtualized whole-sheet
 selection, copy coverage, and coexistence with formula-reference highlighting).
+The latest additions cover IME-safe editing (composition detection from
+`isComposing` / `keyCode` 229 / a tracked flag; typing opening an empty editor
+without synthesizing the key or calling `preventDefault`; Enter/Esc belonging to
+the IME while composing and committing only after; the editor surviving a
+rerender mid-composition; the formula bar's composition guard), Alt+Enter
+multi-line editing (newline insertion at the caret and over a selection in both
+the inline editor and the formula bar without committing; CSV minimal-diff
+quoting of an edited multi-line field; an RCSV multi-line save/load round trip;
+atomic undo/redo; and a row growing via Wrap Long Rows after a multi-line value
+is entered), and the color theme (system default, `prefers-color-scheme`
+resolution, explicit light/dark application to the document root, local
+persistence, live tracking of runtime system-theme changes while on system
+default, and no tracking once an explicit theme is chosen).
 
 ## CI and releases
 
@@ -944,15 +1005,15 @@ selection, copy coverage, and coexistence with formula-reference highlighting).
   with two assets:
 
   ```text
-  refrain-csv-html-v0.1.1-<short-hash>.zip
-  refrain-csv-html-v0.1.1-<short-hash>.zip.sha256
+  refrain-sheet-v0.1.1-<short-hash>.zip
+  refrain-sheet-v0.1.1-<short-hash>.zip.sha256
   ```
 
   The ZIP contains the full `dist/` output plus `README.md`, `LICENSE`, and
   `THIRD-PARTY-NOTICES.md`. Verify a download with:
 
   ```sh
-  sha256sum -c refrain-csv-html-v1.2.3-<short-hash>.zip.sha256
+  sha256sum -c refrain-sheet-v1.2.3-<short-hash>.zip.sha256
   ```
 
 ## Security policy

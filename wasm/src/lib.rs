@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-//! WebAssembly bindings for the Refrain CSV byte-level core.
+//! WebAssembly bindings for Refrain Sheet's byte-level CSV core.
 //!
 //! The exported surface mirrors `src/core/csv-engine.ts` on the JavaScript
 //! side: parsing returns flat `u32` index arrays (copied out of WASM memory

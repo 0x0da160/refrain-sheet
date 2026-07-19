@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import Encoding from 'encoding-japanese';
 
-/** Text encodings supported by Refrain CSV HTML. */
+/** Text encodings supported by Refrain Sheet. */
 export type EncodingId = 'utf-8' | 'shift_jis' | 'euc-jp';
 
 export const UTF8_BOM = new Uint8Array([0xef, 0xbb, 0xbf]);

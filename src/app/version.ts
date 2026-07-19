@@ -10,7 +10,7 @@ import { version } from '../../package.json';
  * dialog, the status bar, and the metadata written into saved `.rcsv`
  * documents — imports it from here rather than hard-coding a number.
  */
-export const APP_NAME = 'Refrain CSV HTML';
+export const APP_NAME = 'Refrain Sheet';
 
 /** The current application version, e.g. `0.1.1` (no leading `v`). */
 export const APP_VERSION: string = version;

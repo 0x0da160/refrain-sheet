@@ -68,8 +68,8 @@ jobs:
           set -euo pipefail
           VERSION="${TAG#v}"
           SHORT_HASH="$(git rev-parse --short HEAD)"
-          ZIP_NAME="refrain-csv-html-v${VERSION}-${SHORT_HASH}.zip"
-          STAGE="refrain-csv-html-v${VERSION}"
+          ZIP_NAME="refrain-sheet-v${VERSION}-${SHORT_HASH}.zip"
+          STAGE="refrain-sheet-v${VERSION}"
           mkdir -p "stage/${STAGE}"
           cp -r dist/* "stage/${STAGE}/"
           cp README.md LICENSE THIRD-PARTY-NOTICES.md "stage/${STAGE}/"
@@ -90,10 +90,10 @@ jobs:
         run: |
           set -euo pipefail
           cat > release-notes.md <<EOF
-          # Refrain CSV HTML v${VERSION}
+          # Refrain Sheet v${VERSION}
 
-          A CSV editor that runs directly from a local HTML file.
-          （ローカルHTMLをブラウザで直接開いて使える、書式保持CSVエディタです。）
+          A local-first, format-preserving CSV and spreadsheet editor.
+          （ローカルで動く、書式保持CSV・スプレッドシートエディタです。）
 
           - Version: ${VERSION}
           - Commit: ${SHORT_HASH}
@@ -140,6 +140,6 @@ jobs:
           else
             gh release create "$TAG" "${ZIP_NAME}" "${ZIP_NAME}.sha256" \
               --repo "$GITHUB_REPOSITORY" \
-              --title "Refrain CSV HTML ${TAG}" \
+              --title "Refrain Sheet ${TAG}" \
               --notes-file release-notes.md
           fi

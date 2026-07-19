@@ -103,10 +103,10 @@ describe('in-place repaint (no full-grid rerender for cell edits)', () => {
   it('an open inline editor survives an in-place repaint', () => {
     const { grid, tab, state } = gridSetup(bigCsv(100));
     grid.openEditor(tab, 1, 1, null);
-    const input = grid.element.querySelector<HTMLInputElement>('input.cell-editor')!;
+    const input = grid.element.querySelector<HTMLInputElement>('.cell-editor')!;
     state.editCell(tab, 5, 0, 'elsewhere');
     grid.refresh();
-    expect(grid.element.querySelector('input.cell-editor')).toBe(input);
+    expect(grid.element.querySelector('.cell-editor')).toBe(input);
   });
 });
 

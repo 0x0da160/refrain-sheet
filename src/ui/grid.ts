@@ -4,7 +4,9 @@ import { LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
-import { yieldToBrowser } from '../core/scheduler';
+import { RowHeightIndex } from '../core/row-height-index';
+import { forEachIndexSliced, yieldToBrowser } from '../core/scheduler';
+import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../core/text-wrap';
 import { el, clearChildren } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 
@@ -12,7 +14,14 @@ import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
  * sync with the `--grid-row-height` CSS variable (see styles.css), which the
  * cell typography uses to vertically center single-line text via line-height. */
 export const ROW_HEIGHT = 26;
-export const WRAP_ROW_HEIGHT = 78;
+/** Line box of a wrapped cell (px). Kept in sync with `--grid-wrap-line`. */
+export const WRAP_LINE_HEIGHT = 18;
+/** Vertical chrome (top+bottom padding) added around a wrapped cell's lines. */
+export const WRAP_VERTICAL_PAD = 8;
+/** Hard cap on the visual lines a single row may grow to when wrapping. */
+export const MAX_WRAP_LINES = 12;
+/** Row count above which the off-screen wrap-measure pass shows a busy label. */
+export const WRAP_PASS_BUSY_ROWS = 4000;
 export const COL_WIDTH = 132;
 export const MIN_COL_WIDTH = 40;
 export const MAX_COL_WIDTH = 1200;
@@ -21,10 +30,14 @@ export const OVERSCAN_ROWS = 8;
 export const OVERSCAN_COLS = 3;
 
 interface RenderWindow {
+  /** First document row of the scrolling region rendered (inclusive). */
   rowStart: number;
+  /** One past the last document row rendered (exclusive). */
   rowEnd: number;
   colStart: number;
   colEnd: number;
+  /** Row-height revision this window was computed against (see heightsVersion). */
+  heights: number;
 }
 
 /**
@@ -198,7 +211,9 @@ interface LayoutSignature {
   doc: unknown;
   rows: number;
   cols: number;
-  rowHeight: number;
+  wrap: boolean;
+  /** Active sheet font signature — changing it re-measures wrapped heights. */
+  font: string;
   sticky: boolean;
   locale: string;
 }
@@ -271,6 +286,27 @@ export class Grid {
   private lastDoc: unknown = null;
   private window: RenderWindow | null = null;
   private layout: LayoutSignature | null = null;
+  /**
+   * Variable row heights keyed by the *document* object (empty/uniform unless
+   * wrapping grows rows). Keying by the document means a replaced document
+   * (convert/save/reopen) automatically starts from a fresh, correct index.
+   */
+  private readonly rowHeights = new WeakMap<object, RowHeightIndex>();
+  /** Bumped whenever any row height changes, so the render window rebuilds. */
+  private heightsVersion = 0;
+  /** Offscreen measuring cell for font/chrome metrics (never shows content). */
+  private readonly measureCell: HTMLElement;
+  /** Layout signature the off-screen wrap-measure pass is running for, if any. */
+  private wrapPassSig: string | null = null;
+  /** Stable ids per document object, so a wrap pass restarts on a new document. */
+  private readonly docIds = new WeakMap<object, number>();
+  private nextDocId = 1;
+  /** Test seam: a deterministic text measurer that bypasses canvas metrics. */
+  private measurerOverride: WrapMeasure | null = null;
+  /** Cached canvas measurer, reused across frames until the font changes. */
+  private cachedMeasurer: { sig: string; measure: WrapMeasure; chrome: number } | null = null;
+  /** The top-left corner Select-All control (rebuilt each full render). */
+  private cornerButton: HTMLElement | null = null;
   private editor: {
     row: number;
     col: number;
@@ -314,7 +350,14 @@ export class Grid {
     this.stickyEl = el('div', { className: 'vgrid-stickyrow', attrs: { role: 'row' } });
     this.rowsLayer = el('div', { className: 'vgrid-rows' });
     this.emptyEl = el('div', { className: 'grid-empty' });
-    this.canvas.append(this.headerEl, this.stickyEl, this.rowsLayer);
+    // Hidden probe carrying the real cell font/box metrics (same `.vcell`
+    // styling the grid renders with) so wrap measurement never depends on a
+    // materialized cell being present.
+    this.measureCell = el('div', {
+      className: 'vcell vgrid-measure',
+      attrs: { 'aria-hidden': 'true' },
+    });
+    this.canvas.append(this.headerEl, this.stickyEl, this.rowsLayer, this.measureCell);
     this.element.append(this.canvas);
 
     // Scroll never calls preventDefault, so the listener is passive (the
@@ -345,17 +388,34 @@ export class Grid {
 
   // ----- Metrics -----
 
-  private get rowHeight(): number {
-    return this.state.wrapCells ? WRAP_ROW_HEIGHT : ROW_HEIGHT;
+  /** The per-tab row-height index (created lazily; uniform until wrapping grows a row). */
+  private heightIndex(tab: Tab): RowHeightIndex {
+    let index = this.rowHeights.get(tab.doc);
+    if (!index) {
+      index = new RowHeightIndex(ROW_HEIGHT);
+      this.rowHeights.set(tab.doc, index);
+    }
+    return index;
+  }
+
+  /**
+   * Test seam: install a deterministic text measurer so wrapping can be
+   * exercised without a real 2D canvas (jsdom returns none). Pass null to
+   * restore canvas-based measurement. Also clears cached heights so the next
+   * render re-measures with the new measurer.
+   */
+  setTextMeasurer(measure: WrapMeasure | null): void {
+    this.measurerOverride = measure;
+    this.cachedMeasurer = null;
+    this.wrapPassSig = null;
+    for (const tab of this.state.tabs) {
+      this.rowHeights.get(tab.doc)?.clear();
+    }
+    this.heightsVersion += 1;
   }
 
   private stickyEnabled(tab: Tab): boolean {
     return this.state.stickyFirstRow && tab.doc.rowCount > 0;
-  }
-
-  /** Number of rows rendered in the scrolling region. */
-  private scrollRowCount(tab: Tab): number {
-    return this.stickyEnabled(tab) ? tab.doc.rowCount - 1 : tab.doc.rowCount;
   }
 
   /** First document row of the scrolling region. */
@@ -363,9 +423,13 @@ export class Grid {
     return this.stickyEnabled(tab) ? 1 : 0;
   }
 
-  /** Height of the sticky overlays (header + optional pinned first row). */
+  /**
+   * Height of the sticky overlays (header + optional pinned first row). Both
+   * overlays are always single-line so the pinned area stays a stable height
+   * even when data rows below wrap to several lines.
+   */
   private overlayHeight(tab: Tab): number {
-    return this.rowHeight * (this.stickyEnabled(tab) ? 2 : 1);
+    return ROW_HEIGHT * (this.stickyEnabled(tab) ? 2 : 1);
   }
 
   /** Pixel width of a column (per-tab override or the default). */
@@ -441,7 +505,8 @@ export class Grid {
       doc: tab.doc,
       rows: tab.doc.rowCount,
       cols: tab.doc.columnCount,
-      rowHeight: this.rowHeight,
+      wrap: this.state.wrapCells,
+      font: this.fontSignature(),
       sticky: this.stickyEnabled(tab),
       locale: getLocale(),
     };
@@ -457,10 +522,20 @@ export class Grid {
       a.doc === b.doc &&
       a.rows === b.rows &&
       a.cols === b.cols &&
-      a.rowHeight === b.rowHeight &&
+      a.wrap === b.wrap &&
+      a.font === b.font &&
       a.sticky === b.sticky &&
       a.locale === b.locale
     );
+  }
+
+  /** Font family + size the grid currently measures/renders with. */
+  private fontSignature(): string {
+    if (typeof getComputedStyle !== 'function') {
+      return '';
+    }
+    const cs = getComputedStyle(this.measureCell);
+    return `${cs.fontFamily}|${cs.fontSize}|${cs.letterSpacing}`;
   }
 
   /** Update selection highlighting only (cheap; used for selection events). */
@@ -473,10 +548,19 @@ export class Grid {
     const active = tab.selection;
     const anchor = tab.anchor;
     const kind = tab.selectionKind;
-    // Container-level classes let CSS present whole-row / whole-column
-    // selections distinctly from an ordinary cell range.
+    // Container-level classes let CSS present whole-row / whole-column /
+    // whole-sheet selections distinctly from an ordinary cell range.
+    const whole =
+      range !== null &&
+      range.top === 0 &&
+      range.left === 0 &&
+      range.bottom === tab.doc.rowCount - 1 &&
+      range.right === tab.doc.columnCount - 1 &&
+      (tab.doc.rowCount > 1 || tab.doc.columnCount > 1);
     this.element.classList.toggle('sel-rows', kind === 'row');
     this.element.classList.toggle('sel-cols', kind === 'col');
+    this.element.classList.toggle('sel-all', whole);
+    this.syncCorner();
     const cells = this.canvas.querySelectorAll<HTMLElement>('[data-row][data-col]');
     for (const cell of cells) {
       const row = Number(cell.dataset.row);
@@ -554,16 +638,23 @@ export class Grid {
   }
 
   private computeWindow(tab: Tab): RenderWindow {
-    const rowH = this.rowHeight;
+    const idx = this.heightIndex(tab);
     const overlay = this.overlayHeight(tab);
     const viewH = Math.max(0, this.element.clientHeight - overlay);
     const viewW = Math.max(0, this.element.clientWidth - ROW_HEAD_WIDTH);
     const scrollTop = this.element.scrollTop;
     const scrollLeft = this.element.scrollLeft;
-    const totalRows = this.scrollRowCount(tab);
+    const rowCount = tab.doc.rowCount;
+    const startRow = this.scrollRowBase(tab);
     const totalCols = Math.max(1, tab.doc.columnCount);
-    const rowStart = Math.max(0, Math.floor(scrollTop / rowH) - OVERSCAN_ROWS);
-    const rowEnd = Math.min(totalRows, Math.ceil((scrollTop + viewH) / rowH) + OVERSCAN_ROWS);
+    // Row window from the height index: the scroll layer's content origin is
+    // the top of the first scroll row, so add its offset to scrollTop. With a
+    // uniform (unwrapped) index this reduces exactly to floor(scrollTop / H).
+    const originY = idx.offsetOf(startRow);
+    const first = Math.max(startRow, idx.rowAtOffset(originY + scrollTop, rowCount));
+    const last = idx.rowAtOffset(originY + scrollTop + viewH, rowCount) + 1;
+    const rowStart = Math.max(startRow, first - OVERSCAN_ROWS);
+    const rowEnd = Math.min(rowCount, last + OVERSCAN_ROWS);
     // Columns have per-column widths, so walk them to find the visible range.
     let firstVisible = 0;
     let x = 0;
@@ -579,7 +670,7 @@ export class Grid {
     }
     const colStart = Math.max(0, firstVisible - OVERSCAN_COLS);
     const colEnd = Math.min(totalCols, lastVisible + OVERSCAN_COLS);
-    return { rowStart, rowEnd, colStart, colEnd };
+    return { rowStart, rowEnd, colStart, colEnd, heights: this.heightsVersion };
   }
 
   private sameWindow(a: RenderWindow | null, b: RenderWindow): boolean {
@@ -588,14 +679,30 @@ export class Grid {
       a.rowStart === b.rowStart &&
       a.rowEnd === b.rowEnd &&
       a.colStart === b.colStart &&
-      a.colEnd === b.colEnd
+      a.colEnd === b.colEnd &&
+      a.heights === b.heights
     );
   }
 
   private render(tab: Tab): void {
     const doc = tab.doc;
-    const rowH = this.rowHeight;
-    const win = this.computeWindow(tab);
+    const idx = this.heightIndex(tab);
+    // Conditional wrapping: measure the rows about to be shown so their heights
+    // are exact *now* (immediate correctness for the visible region), recompute
+    // the window against the corrected offsets, and let the off-screen rows be
+    // filled in incrementally. Without a measurer (wrapping off, or no canvas
+    // metrics) every row keeps the single-line height.
+    const measurer = this.state.wrapCells ? this.buildWrapMeasurer() : null;
+    if (!measurer) {
+      idx.clear();
+      this.wrapPassSig = null;
+    }
+    let win = this.computeWindow(tab);
+    if (measurer) {
+      this.measureWindowRows(tab, win, measurer, idx);
+      win = this.computeWindow(tab);
+      this.scheduleWrapPass(tab, measurer);
+    }
     if (this.sameWindow(this.window, win)) {
       this.paintWindowCells(tab);
       this.refreshSelection();
@@ -610,23 +717,19 @@ export class Grid {
     this.layout = this.layoutSignature(tab);
 
     const totalW = this.totalWidth(tab);
-    const scrollRows = this.scrollRowCount(tab);
+    const startRow = this.scrollRowBase(tab);
+    const originY = idx.offsetOf(startRow);
+    const layerHeight = idx.rangeHeight(startRow, doc.rowCount);
     this.canvas.style.width = `${totalW}px`;
-    this.canvas.style.height = `${this.overlayHeight(tab) + scrollRows * rowH}px`;
+    this.canvas.style.height = `${this.overlayHeight(tab) + layerHeight}px`;
     this.element.setAttribute('aria-rowcount', String(doc.rowCount + 1));
     this.element.setAttribute('aria-colcount', String(doc.columnCount + 1));
 
-    // ----- Column header (always sticky) -----
+    // ----- Column header (always sticky, single-line) -----
     clearChildren(this.headerEl);
     this.headerEl.style.width = `${totalW}px`;
-    this.headerEl.style.height = `${rowH}px`;
-    const corner = el('div', {
-      className: 'vcell vhead vcorner',
-      text: t('grid.rowHeader'),
-      attrs: { role: 'columnheader' },
-    });
-    corner.style.width = `${ROW_HEAD_WIDTH}px`;
-    this.headerEl.append(corner);
+    this.headerEl.style.height = `${ROW_HEIGHT}px`;
+    this.headerEl.append(this.buildCorner());
     const headSpacer = el('div', { className: 'vspacer', attrs: { 'aria-hidden': 'true' } });
     headSpacer.style.width = `${this.colOffset(tab, win.colStart)}px`;
     this.headerEl.append(headSpacer);
@@ -650,13 +753,13 @@ export class Grid {
       this.headerEl.append(head);
     }
 
-    // ----- Sticky first record row (optional, distinct from the header) -----
+    // ----- Sticky first record row (optional, single-line, distinct) -----
     clearChildren(this.stickyEl);
     if (this.stickyEnabled(tab)) {
       this.stickyEl.hidden = false;
       this.stickyEl.style.width = `${totalW}px`;
-      this.stickyEl.style.height = `${rowH}px`;
-      this.stickyEl.style.top = `${rowH}px`;
+      this.stickyEl.style.height = `${ROW_HEIGHT}px`;
+      this.stickyEl.style.top = `${ROW_HEIGHT}px`;
       this.stickyEl.dataset.row = '0';
       this.stickyEl.setAttribute('aria-rowindex', '2');
       this.buildRowCells(tab, this.stickyEl, 0, win, true);
@@ -665,24 +768,255 @@ export class Grid {
       delete this.stickyEl.dataset.row;
     }
 
-    // ----- Virtualized data rows -----
+    // ----- Virtualized data rows (variable height) -----
     clearChildren(this.rowsLayer);
-    this.rowsLayer.style.height = `${scrollRows * rowH}px`;
-    const base = this.scrollRowBase(tab);
-    for (let i = win.rowStart; i < win.rowEnd; i++) {
-      const row = base + i;
+    this.rowsLayer.style.height = `${layerHeight}px`;
+    for (let row = win.rowStart; row < win.rowEnd; row++) {
+      const height = idx.heightOf(row);
+      const wrapped = height > ROW_HEIGHT;
       const rowEl = el('div', {
-        className: `vgrid-row ${row % 2 === 1 ? 'alt' : ''}`,
+        className: `vgrid-row ${row % 2 === 1 ? 'alt' : ''}${wrapped ? ' wrapped' : ''}`,
         attrs: { role: 'row', 'data-row': String(row), 'aria-rowindex': String(row + 2) },
       });
-      rowEl.style.top = `${i * rowH}px`;
-      rowEl.style.height = `${rowH}px`;
+      rowEl.style.top = `${idx.offsetOf(row) - originY}px`;
+      rowEl.style.height = `${height}px`;
       rowEl.style.width = `${totalW}px`;
       this.buildRowCells(tab, rowEl, row, win, false);
       this.rowsLayer.append(rowEl);
     }
     this.refreshSelection();
     this.refreshFormulaRefs();
+  }
+
+  // ----- Conditional row-height wrapping -----
+
+  /**
+   * Build a text measurer + horizontal cell chrome for wrap measurement, or
+   * null when no measurement is possible (no 2D canvas, e.g. jsdom, and no test
+   * override). The measurer reports rendered pixel widths under the active
+   * sheet font — wrapping is never decided from character or byte counts.
+   */
+  private buildWrapMeasurer(): { measure: WrapMeasure; chrome: number } | null {
+    if (this.measurerOverride) {
+      return { measure: this.measurerOverride, chrome: this.horizontalChrome() };
+    }
+    const sig = this.fontSignature();
+    if (this.cachedMeasurer && this.cachedMeasurer.sig === sig) {
+      return this.cachedMeasurer;
+    }
+    const measure = createTextMeasurer(this.measureCell);
+    if (!measure) {
+      return null;
+    }
+    this.cachedMeasurer = { sig, measure, chrome: this.horizontalChrome() };
+    return this.cachedMeasurer;
+  }
+
+  /** Horizontal chrome (padding + left/right borders) of a cell box, in px. */
+  private horizontalChrome(): number {
+    if (typeof getComputedStyle !== 'function') {
+      return 0;
+    }
+    const cs = getComputedStyle(this.measureCell);
+    const px = (v: string): number => {
+      const n = Number.parseFloat(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+    return px(cs.paddingLeft) + px(cs.paddingRight) + px(cs.borderLeftWidth) + px(cs.borderRightWidth);
+  }
+
+  /**
+   * Measured pixel height of a data row: the tallest of its cells' wrapped
+   * heights, each measured against that cell's own column width (a formula
+   * cell contributes its displayed result). Only rows whose content genuinely
+   * needs more than one visual line exceed the single-line height. The pinned
+   * sticky row is always single-line.
+   */
+  private computeRowHeight(tab: Tab, row: number, measure: WrapMeasure, chrome: number): number {
+    if (this.stickyEnabled(tab) && row === 0) {
+      return ROW_HEIGHT;
+    }
+    const doc = tab.doc;
+    const fields = doc.fieldCount(row);
+    let maxLines = 1;
+    for (let c = 0; c < fields; c++) {
+      const contentWidth = this.colWidth(tab, c) - chrome;
+      const lines = countVisualLines(doc.getDisplayValue(row, c), measure, contentWidth, MAX_WRAP_LINES);
+      if (lines > maxLines) {
+        maxLines = lines;
+      }
+      if (maxLines >= MAX_WRAP_LINES) {
+        break;
+      }
+    }
+    return rowHeightForLines(maxLines, ROW_HEIGHT, WRAP_LINE_HEIGHT, WRAP_VERTICAL_PAD);
+  }
+
+  /** Measure every row of the current window into the index (bumps the version on any change). */
+  private measureWindowRows(
+    tab: Tab,
+    win: RenderWindow,
+    m: { measure: WrapMeasure; chrome: number },
+    idx: RowHeightIndex,
+  ): void {
+    let changed = false;
+    for (let row = win.rowStart; row < win.rowEnd; row++) {
+      if (idx.set(row, this.computeRowHeight(tab, row, m.measure, m.chrome))) {
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.heightsVersion += 1;
+    }
+  }
+
+  /** Stable identifier for a document object (so a pass restarts on a new doc). */
+  private docToken(doc: unknown): number {
+    let id = this.docIds.get(doc as object);
+    if (id === undefined) {
+      id = this.nextDocId++;
+      this.docIds.set(doc as object, id);
+    }
+    return id;
+  }
+
+  /** Signature the off-screen wrap pass is keyed to (font/locale/dims/doc). */
+  private layoutToken(tab: Tab): string {
+    const s = this.layoutSignature(tab);
+    return `${this.docToken(tab.doc)}|${s.rows}x${s.cols}|${s.wrap}|${s.font}|${s.sticky}|${s.locale}`;
+  }
+
+  /**
+   * Start (once) an incremental pass that measures every off-screen row's
+   * height in cooperative time slices, so the scroll extent and off-screen
+   * offsets become exact without a synchronous full-document loop. Idempotent
+   * per layout: it no-ops while a pass for the same signature is already
+   * running or finished, and restarts when the document, dimensions, font,
+   * locale, or wrap mode change (which invalidate cached heights).
+   */
+  private scheduleWrapPass(tab: Tab, m: { measure: WrapMeasure; chrome: number }): void {
+    const sig = this.layoutToken(tab);
+    if (this.wrapPassSig === sig) {
+      return;
+    }
+    this.wrapPassSig = sig;
+    void this.runWrapPass(tab, m, sig);
+  }
+
+  private async runWrapPass(
+    tab: Tab,
+    m: { measure: WrapMeasure; chrome: number },
+    sig: string,
+  ): Promise<void> {
+    const doc = tab.doc;
+    const idx = this.heightIndex(tab);
+    const startRow = this.scrollRowBase(tab);
+    const total = doc.rowCount;
+    const scrollRows = total - startRow;
+    const large = scrollRows > WRAP_PASS_BUSY_ROWS;
+    const current = () =>
+      this.state.activeTab === tab && tab.doc === doc && this.state.wrapCells && this.wrapPassSig === sig;
+    let dirty = false;
+    if (large) {
+      this.commands.setBusy(t('loading.wrapMeasure', { done: 0, total, pct: 0 }));
+    }
+    try {
+      const ok = await forEachIndexSliced(
+        total,
+        (row) => {
+          if (row < startRow) {
+            return;
+          }
+          if (idx.set(row, this.computeRowHeight(tab, row, m.measure, m.chrome))) {
+            dirty = true;
+          }
+        },
+        {
+          onProgress: (done) => {
+            if (dirty) {
+              this.heightsVersion += 1;
+              this.updateScrollExtent(tab);
+              dirty = false;
+            }
+            if (large) {
+              const pct = Math.floor((done / total) * 100);
+              this.commands.setBusy(t('loading.wrapMeasure', { done, total, pct }));
+            }
+          },
+          shouldStop: () => !current(),
+        },
+      );
+      if (!ok || !current()) {
+        return;
+      }
+    } finally {
+      if (large) {
+        this.commands.setBusy(null);
+      }
+    }
+    // Re-lay-out once so every rendered row sits at its final measured height.
+    if (dirty) {
+      this.heightsVersion += 1;
+    }
+    this.window = null;
+    this.render(tab);
+  }
+
+  /** Update only the scroll extent (scrollbar) as off-screen heights fill in. */
+  private updateScrollExtent(tab: Tab): void {
+    if (this.state.activeTab !== tab || tab.doc !== this.lastDoc) {
+      return;
+    }
+    const idx = this.heightIndex(tab);
+    const layerHeight = idx.rangeHeight(this.scrollRowBase(tab), tab.doc.rowCount);
+    this.canvas.style.height = `${this.overlayHeight(tab) + layerHeight}px`;
+    this.rowsLayer.style.height = `${layerHeight}px`;
+  }
+
+  /**
+   * Invalidate cached row heights for a tab and restart the off-screen pass
+   * (used after column-width changes / auto-fit, which change wrapping without
+   * changing the layout signature).
+   */
+  private invalidateRowHeights(tab: Tab): void {
+    if (!this.state.wrapCells) {
+      return;
+    }
+    this.heightIndex(tab).clear();
+    this.wrapPassSig = null;
+    this.heightsVersion += 1;
+  }
+
+  /** Build the interactive top-left corner "Select all cells" control. */
+  private buildCorner(): HTMLElement {
+    const corner = el('button', {
+      className: 'vcell vhead vcorner',
+      text: t('grid.rowHeader'),
+      attrs: {
+        type: 'button',
+        'aria-label': t('grid.selectAllCorner'),
+        title: t('grid.selectAllCorner'),
+      },
+    });
+    corner.style.width = `${ROW_HEAD_WIDTH}px`;
+    // Enter/Space activate natively; a pointer tap does the same. Focus the
+    // grid afterward so keyboard navigation and copy keep working.
+    corner.addEventListener('click', () => {
+      this.element.focus();
+      void this.commands.run('edit.selectAll');
+    });
+    this.cornerButton = corner;
+    this.syncCorner();
+    return corner;
+  }
+
+  /** Reflect whole-sheet selection state onto the corner control for AT. */
+  private syncCorner(): void {
+    const corner = this.cornerButton;
+    if (!corner) {
+      return;
+    }
+    corner.setAttribute('aria-pressed', this.element.classList.contains('sel-all') ? 'true' : 'false');
   }
 
   // ----- Formula-reference highlighting -----
@@ -1137,6 +1471,8 @@ export class Grid {
       return;
     }
     tab.colWidths[col] = w;
+    // A width change alters which cells wrap, so cached wrap heights are stale.
+    this.invalidateRowHeights(tab);
     this.window = null; // force a re-layout with the new width
     this.render(tab);
   }
@@ -1386,6 +1722,8 @@ export class Grid {
       }
     }
     if (changed) {
+      // New column widths change wrapping, so cached wrap heights are stale.
+      this.invalidateRowHeights(tab);
       this.window = null;
       this.render(tab);
     }
@@ -1424,11 +1762,12 @@ export class Grid {
   }
 
   private scrollCellIntoView(tab: Tab, row: number, col: number): void {
-    const rowH = this.rowHeight;
+    const idx = this.heightIndex(tab);
     const overlay = this.overlayHeight(tab);
     if (!(this.stickyEnabled(tab) && row === 0)) {
-      const base = this.scrollRowBase(tab);
-      const y = (row - base) * rowH;
+      const startRow = this.scrollRowBase(tab);
+      const y = idx.offsetOf(row) - idx.offsetOf(startRow);
+      const rowH = idx.heightOf(row);
       const viewH = this.element.clientHeight - overlay;
       if (y < this.element.scrollTop) {
         this.element.scrollTop = y;

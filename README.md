@@ -238,6 +238,14 @@ font, and the configured file-size limit live outside the tab lifecycle).
   state while a background scan fills them in, and the selection feeds copy,
   fill, auto-fit of the selected columns, and the row/column commands like any
   other range.
+- **Top-left corner control.** The cell at the intersection of the row and
+  column headers is an interactive **“Select all cells” button** (localized
+  _Select all cells_ / _すべてのセルを選択_). Click or tap it — or focus it with
+  the keyboard and press **Enter/Space** — to run the same Select All command.
+  While the whole sheet is selected the corner reads as pressed
+  (`aria-pressed`), a state kept visually distinct from the active cell, an
+  ordinary range, whole-row/whole-column selections, and formula-reference
+  highlighting.
 
 ### Undo / Redo
 
@@ -432,10 +440,38 @@ error, and mixed-script values. Row/column headers, the pinned first row, and
 formula-result cells share the same model; the inline cell editor is a native
 input (vertically centered by the browser) laid over the same box, and
 selection outlines, fill handles, and formula-reference highlights attach to
-the unchanged cell box. Wrapped cells (**View > Wrap Long Cell Text**) opt out
-of the single-line box and read top-down with a normal multi-line line-height.
-The adjustment is pure CSS — no CSV/RCSV content, formulas, stored values, or
-row structure change because of it.
+the unchanged cell box. Wrapped rows (see below) opt into a multi-line box that
+is **still vertically centered** (via flex), so centering holds whatever a
+row's height becomes. The adjustment is pure CSS — no CSV/RCSV content,
+formulas, stored values, or row structure change because of it.
+
+#### Conditional row-height wrapping
+
+**View > Wrap Long Cell Text** wraps long content — but it grows **only the
+rows that actually need more than one visual line**; a row whose cells all fit
+their current column widths keeps the normal single-line height. Whether a row
+wraps is decided from the **rendered display value** measured under the active
+sheet font and the live column width (a formula cell is measured from its
+_calculated result_, never its source), honoring explicit newlines
+(`\n`), normal word-break opportunities, and long unbroken text that must break
+to avoid overflow. Only affected row heights are recomputed after a cell edit,
+formula recalculation, column-width change or auto-fit, sheet-font change,
+locale change, wrap toggle, row/column insertion or deletion, and large
+paste/fill/conversion operations.
+
+For virtualized documents the visible rows are measured immediately and the
+off-screen rows are filled in **incrementally in cooperative time slices**
+(with a percentage progress label if the pass is long-running), so the grid
+never blocks on a synchronous full-document loop. A **row-height index**
+(sparse prefix-sum of the rows that grew) keeps scroll offsets, the
+virtualization window, keyboard navigation, and the pinned sticky row correct
+as heights vary; the pinned first row itself stays single-line so the pinned
+area keeps a stable height. Turning wrapping off restores every row to the
+single-line height. Row heights are **derived view state** recomputed from
+content, column widths, and font — they are never persisted into CSV bytes or
+the RCSV container, and a value containing explicit newlines is preserved
+unchanged when wrapping is off (it simply displays clipped to the first line,
+with the full value visible in the formula bar).
 
 ## Spreadsheet mode (RCSV)
 
@@ -875,7 +911,19 @@ messaging, virtualized whole-sheet rendering, pending statistics, guarded
 structural commands), and the non-blocking progress pipeline (sliced CSV→RCSV
 conversion — explicit and implicit — with percentages, the two-phase `.rcsv`
 save with a labeled compression phase, large paste/insertion percentages, and
-the "never 100% while work remains" rule).
+the "never 100% while work remains" rule). Most recent additions: conditional
+row-height wrapping (pure visual-line counting from measured width — word
+wrap, explicit newlines, long-word breaking, `maxLines` cap; the row-height
+index's offset/inverse/total math; grid integration for short rows staying
+single-line, one long value growing a row, explicit-newline rows, a formula
+row measured from its result not its source, returning to single-line height
+when a column is widened, font-change re-measurement, wrap toggle-off restore,
+mixed heights under virtualization, single-line pinned sticky row, and
+selection/keyboard-navigation/copy across variable heights) and the top-left
+corner Select All control (localized accessible name in English and Japanese,
+pointer and keyboard/`click` activation, `aria-pressed` whole-sheet state,
+blank-RCSV logical extent, empty-CSV no-data path, virtualized whole-sheet
+selection, copy coverage, and coexistence with formula-reference highlighting).
 
 ## CI and releases
 

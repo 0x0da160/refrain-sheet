@@ -440,6 +440,8 @@ button {
 :root {
   --grid-row-height: 26px;
   --grid-cell-line: calc(var(--grid-row-height) - 1px);
+  /* Line box of a wrapped cell — kept in sync with WRAP_LINE_HEIGHT (grid.ts). */
+  --grid-wrap-line: 18px;
 }
 
 .vcell {
@@ -455,13 +457,39 @@ button {
   position: relative;
 }
 
-/* Wrapped cells hold multiple lines, so they read top-down with a normal
-   multi-line line-height instead of the single-line centering box. */
-#app.wrap-cells .vcell {
+/* Off-screen probe used only to read the cell font/box metrics for wrap
+   measurement; it never renders content or affects layout. */
+.vgrid-measure {
+  position: absolute;
+  visibility: hidden;
+  top: 0;
+  left: 0;
+  height: 0;
+  border: 0;
+  pointer-events: none;
+}
+
+/* Conditional wrapping: only rows the grid measured as needing more than one
+   visual line get the `wrapped` class (their pixel height comes from the
+   row-height index). Their data cells switch to a multi-line box that stays
+   vertically centered via flex; single-line cells in the same (taller) row are
+   centered too. Rows that fit on one line keep the normal single-line height
+   and the `.vcell` centering box above — so enabling Wrap Long Rows never
+   grows a row whose content already fits. */
+.vgrid-row.wrapped .vcell[data-col] {
+  display: flex;
+  align-items: center;
   white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.45;
-  padding: 4px 8px;
+  overflow-wrap: break-word;
+  word-break: normal;
+  text-overflow: clip;
+  line-height: var(--grid-wrap-line);
+}
+
+.vgrid-row.wrapped .vcell.vrowhead {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .vspacer {
@@ -533,10 +561,31 @@ button {
   color: var(--accent);
 }
 
+/* The top-left corner is an interactive "Select all cells" control (a real
+   <button>, so Enter/Space and focus work natively). Reset the UA button box
+   to the header-cell look and add a pointer affordance. */
 .vcell.vcorner {
   position: sticky;
   left: 0;
   z-index: 6;
+  border-top: 0;
+  border-left: 0;
+  text-align: center;
+  cursor: pointer;
+}
+
+.vcell.vcorner:hover {
+  background: var(--accent-soft) !important;
+  color: var(--accent);
+}
+
+/* Whole-sheet selection: the corner reads as pressed, distinct from the active
+   cell (solid outline), a cell range (soft fill), and whole-row/column
+   selections (their header emphasis via .sel-rows / .sel-cols). */
+.grid-container.sel-all .vcell.vcorner {
+  background: var(--accent) !important;
+  color: #fff;
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 .vcell.in-range {

@@ -19,7 +19,12 @@ function stubUi(): UiPort {
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
     explainRcsvSave: vi.fn(async () => true),
-    confirmExportCsv: vi.fn(async () => true),
+    chooseExportCsv: vi.fn(async () => ({
+      encoding: 'utf-8' as const,
+      bom: false,
+      lineEnding: 'lf' as const,
+    })),
+    chooseInsertShift: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
     showMessage: asyncNoop,
     notify: noop,

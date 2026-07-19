@@ -2,6 +2,13 @@
 import type { DelimiterId } from '../core/byte-csv-parser';
 import type { CellRange } from '../core/clipboard';
 import { initCsvEngine } from '../core/csv-engine';
+import {
+  buildCsvExportBytes,
+  newCsvExportScan,
+  scanCsvExportRow,
+  type CsvExportOptions,
+  type CsvExportScan,
+} from '../core/csv-export';
 import { detectEncoding, type EncodingId } from '../core/encoding';
 import { isFormula, shiftFormulaRefs } from '../core/formula';
 import type { CellChange, HistoryEntry, Operation } from '../core/history';
@@ -62,8 +69,14 @@ export interface UiPort {
   confirmConvert(reason: ConvertReason, name: string): Promise<boolean>;
   /** Explain that a spreadsheet document is saved as .rcsv (per-tab, once). */
   explainRcsvSave(name: string): Promise<boolean>;
-  /** Confirm the lossy CSV export (formulas become calculated values). */
-  confirmExportCsv(name: string): Promise<boolean>;
+  /**
+   * The CSV export options dialog: explains the lossy conversion and lets the
+   * user choose encoding, line endings, and BOM behavior. Resolving with
+   * options *is* the explicit confirmation; null cancels the export.
+   */
+  chooseExportCsv(name: string): Promise<CsvExportOptions | null>;
+  /** Choose the shift direction for Insert Copied Cells… (null cancels). */
+  chooseInsertShift(rows: number, cols: number): Promise<'right' | 'down' | null>;
   confirm(title: string, message: string, okLabel: string, cancelLabel: string): Promise<boolean>;
   showMessage(title: string, message: string): Promise<void>;
   notify(text: string, kind: 'info' | 'warn' | 'error'): void;
@@ -92,6 +105,7 @@ export type CommandId =
   | 'edit.redo'
   | 'edit.copy'
   | 'edit.paste'
+  | 'edit.insertCopiedCells'
   | 'edit.revertCell'
   | 'edit.revertAll'
   | 'edit.fillDown'
@@ -118,13 +132,22 @@ export type CommandId =
   | 'lang.ja'
   | 'tab.next'
   | 'tab.prev'
+  | 'tab.moveLeft'
+  | 'tab.moveRight'
+  | 'tab.moveFirst'
+  | 'tab.moveLast'
   | 'help.about';
 
 const CSV_LIKE_EXTENSIONS = ['.csv', '.tsv', '.txt', RCSV_EXTENSION];
 
 export class Commands {
   /** Set by main.ts so menu Copy/Paste can go through the clipboard controller. */
-  clipboardActions: { copy: () => Promise<void>; paste: () => Promise<void> } | null = null;
+  clipboardActions: {
+    copy: () => Promise<void>;
+    paste: () => Promise<void>;
+    /** The most recently copied range (internal clipboard, else parsed system text). */
+    getCopied: () => Promise<{ matrix: string[][]; origin: Selection | null } | null>;
+  } | null = null;
 
   constructor(
     private readonly state: AppState,
@@ -160,9 +183,12 @@ export class Commands {
         return tab !== null && tab.history.canUndo;
       case 'edit.redo':
         return tab !== null && tab.history.canRedo;
+      // Insert Copied Cells stays clickable on a CSV tab: running it explains
+      // that the structural insertion needs the explicit RCSV conversion.
       case 'edit.copy':
       case 'edit.paste':
       case 'edit.fillDown':
+      case 'edit.insertCopiedCells':
         return tab?.selection != null;
       case 'edit.revertCell':
         return (
@@ -175,6 +201,12 @@ export class Commands {
       case 'tab.next':
       case 'tab.prev':
         return this.state.tabs.length > 1;
+      case 'tab.moveLeft':
+      case 'tab.moveFirst':
+        return tab !== null && this.state.tabIndex(tab.id) > 0;
+      case 'tab.moveRight':
+      case 'tab.moveLast':
+        return tab !== null && this.state.tabIndex(tab.id) < this.state.tabs.length - 1;
       default:
         return true;
     }
@@ -214,6 +246,9 @@ export class Commands {
         return;
       case 'edit.paste':
         await this.clipboardActions?.paste();
+        return;
+      case 'edit.insertCopiedCells':
+        if (tab) await this.insertCopiedCells(tab);
         return;
       case 'edit.revertCell':
         if (tab?.selection) this.state.revertCell(tab, tab.selection.row, tab.selection.col);
@@ -287,6 +322,12 @@ export class Commands {
         return;
       case 'tab.prev':
         this.state.cycleTab(-1);
+        return;
+      case 'tab.moveLeft':
+      case 'tab.moveRight':
+      case 'tab.moveFirst':
+      case 'tab.moveLast':
+        if (tab) this.moveActiveTab(tab, id);
         return;
       case 'help.about':
         this.ui.showAbout();
@@ -636,20 +677,69 @@ export class Commands {
     return true;
   }
 
-  /** Explicit, confirmed lossy CSV export of an RCSV document. */
+  /**
+   * Explicit, confirmed lossy CSV export of an RCSV document. The options
+   * dialog (encoding, line endings, BOM) doubles as the confirmation; the
+   * displayed values are then validated against the chosen encoding in a
+   * time-sliced scan behind the progress indicator. Unrepresentable
+   * characters cancel the export by default — continuing uses the documented
+   * numeric-character-reference replacement and reports the affected cells.
+   * Nothing in this flow ever mutates the source document or marks it saved.
+   */
   async exportCsv(tab: Tab): Promise<boolean> {
     if (tab.doc.kind !== 'rcsv') {
       return false;
     }
-    const proceed = await this.ui.confirmExportCsv(tab.name);
-    if (!proceed) {
+    const options = await this.ui.chooseExportCsv(tab.name);
+    if (!options) {
       return false;
     }
     const name = tab.name.replace(/\.rcsv$/i, '') + '.csv';
     const doc = tab.doc;
-    const bytes = await this.withBusy(t('loading.exporting', { name }), () =>
-      new TextEncoder().encode(doc.exportCsv()),
-    );
+    const label = t('loading.exporting', { name });
+
+    // Sliced, read-only scan of the displayed (calculated) values. Aborts —
+    // producing nothing — if the tab's document changes while yielding.
+    const scanValues = async (allowNcr: boolean): Promise<CsvExportScan | null> => {
+      const scan = newCsvExportScan();
+      const completed = await forEachIndexSliced(
+        doc.rowCount,
+        (r) => {
+          const values: string[] = [];
+          for (let c = 0; c < doc.columnCount; c++) {
+            values.push(doc.getDisplayValue(r, c));
+          }
+          scanCsvExportRow(scan, r, values, options.encoding, allowNcr);
+        },
+        {
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${Math.round((done / total) * 100)}%)`),
+          shouldStop: () => tab.doc !== doc,
+        },
+      );
+      return completed && tab.doc === doc ? scan : null;
+    };
+
+    let scan = await this.withBusy(label, () => scanValues(false));
+    if (!scan) {
+      return false;
+    }
+    let ncrReports: NcrCellReport[] = [];
+    if (scan.unrepresentable.length > 0) {
+      const proceed = await this.ui.confirmUnrepresentable(
+        t(`encoding.${options.encoding}`),
+        scan.unrepresentable,
+      );
+      if (!proceed) {
+        return false; // cancel by default; the document is untouched
+      }
+      scan = await this.withBusy(label, () => scanValues(true));
+      if (!scan) {
+        return false;
+      }
+      ncrReports = scan.ncrReplacements;
+    }
+    const rows = scan.rows;
+    const bytes = await this.withBusy(label, () => buildCsvExportBytes(rows, doc.delimiter, options));
     try {
       const outcome = await saveBytesAs(this.dom, name, bytes, 'csv');
       this.ui.notify(
@@ -658,6 +748,9 @@ export class Commands {
           : t('notify.exportedCsvDownload', { name: outcome.downloadName ?? name }),
         'info',
       );
+      if (ncrReports.length > 0) {
+        await this.ui.notifyNcr(ncrReports);
+      }
       return true;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
@@ -828,34 +921,60 @@ export class Commands {
   }
 
   /**
-   * Paste a rectangular matrix starting at the active cell as one atomic,
-   * undoable operation. For byte-preserving CSV documents the paste must fit
-   * inside the existing cells; pastes that would change the row/column
-   * structure require the explicit RCSV conversion. `origin` is set for
-   * app-internal pastes so relative formula references adjust like a
-   * conventional spreadsheet.
+   * Paste a rectangular matrix as one atomic, undoable operation, preserving
+   * the copied shape. Normally the paste starts at the active cell. When a
+   * larger destination range is selected and each of its dimensions is an
+   * exact multiple of the source's, the source pattern repeats to fill the
+   * whole selected destination (documented behavior; otherwise the range is
+   * pasted once at the active cell). For byte-preserving CSV documents the
+   * paste must fit inside the existing cells; pastes that would change the
+   * row/column structure require the explicit RCSV conversion. `origin` is
+   * set for app-internal pastes so relative formula references adjust like a
+   * conventional spreadsheet (per tiled offset when the pattern repeats).
    */
   async applyPaste(tab: Tab, matrix: string[][], origin: Selection | null): Promise<boolean> {
-    const at = tab.selection;
-    if (!at || matrix.length === 0 || matrix[0].length === 0) {
+    if (!tab.selection || matrix.length === 0 || matrix[0].length === 0) {
       return false;
     }
-    const height = matrix.length;
-    const width = matrix[0].length;
+    const srcH = matrix.length;
+    const srcW = matrix[0].length;
+    // Pattern-repeat: fill a larger selected destination when its dimensions
+    // are exact multiples of the source's. The paste then anchors at the
+    // destination's top-left corner.
+    let at = tab.selection;
+    let height = srcH;
+    let width = srcW;
+    const dest = this.state.selectedRange(tab);
+    if (dest) {
+      const destRows = dest.bottom - dest.top + 1;
+      const destCols = dest.right - dest.left + 1;
+      if (
+        (destRows > srcH || destCols > srcW) &&
+        destRows % srcH === 0 &&
+        destCols % srcW === 0 &&
+        destRows >= srcH &&
+        destCols >= srcW
+      ) {
+        at = { row: dest.top, col: dest.left };
+        height = destRows;
+        width = destCols;
+      }
+    }
     const containsFormula = matrix.some((row) => row.some((v) => isFormula(v)));
 
     if (tab.doc.kind === 'csv') {
-      let fits = at.row + height <= tab.doc.rowCount;
+      const doc = tab.doc;
+      let fits = at.row + height <= doc.rowCount;
       if (fits) {
         for (let i = 0; i < height && fits; i++) {
-          if (at.col + width > tab.doc.fieldCount(at.row + i)) {
+          if (at.col + width > doc.fieldCount(at.row + i)) {
             fits = false;
           }
         }
       }
       if (!fits || containsFormula) {
-        const doc = await this.ensureRcsv(tab, !fits ? 'paste' : 'formula');
-        if (!doc) {
+        const converted = await this.ensureRcsv(tab, !fits ? 'paste' : 'formula');
+        if (!converted) {
           if (!fits) {
             return false;
           }
@@ -864,6 +983,24 @@ export class Commands {
       }
     }
 
+    // Large pastes run behind the loading indicator so the UI shows progress
+    // feedback instead of appearing frozen while changes are prepared.
+    const large = height * width > 20_000;
+    const run = (): boolean => this.applyPasteNow(tab, matrix, origin, at, height, width);
+    return large ? this.withBusy(t('loading.pasting'), run) : run();
+  }
+
+  /** Build and push the paste entry (synchronous, atomic). */
+  private applyPasteNow(
+    tab: Tab,
+    matrix: string[][],
+    origin: Selection | null,
+    at: Selection,
+    height: number,
+    width: number,
+  ): boolean {
+    const srcH = matrix.length;
+    const srcW = matrix[0].length;
     const doc = tab.doc;
     if (doc.kind === 'csv') {
       const changes: CellChange[] = [];
@@ -871,7 +1008,7 @@ export class Commands {
         for (let j = 0; j < width; j++) {
           const row = at.row + i;
           const col = at.col + j;
-          const value = matrix[i][j];
+          const value = matrix[i % srcH][j % srcW];
           const current = doc.getValue(row, col);
           if (value === current) {
             continue;
@@ -910,16 +1047,19 @@ export class Commands {
         data: Array.from({ length: needCols }, () => []),
       });
     }
-    const deltaRow = origin ? at.row - origin.row : 0;
-    const deltaCol = origin ? at.col - origin.col : 0;
     const changes: CellChange[] = [];
     for (let i = 0; i < height; i++) {
       for (let j = 0; j < width; j++) {
         const row = at.row + i;
         const col = at.col + j;
-        let value = matrix[i][j];
-        if (origin && isFormula(value) && (deltaRow !== 0 || deltaCol !== 0)) {
-          value = shiftFormulaRefs(value, deltaRow, deltaCol);
+        let value = matrix[i % srcH][j % srcW];
+        if (origin && isFormula(value)) {
+          // Each cell shifts by its offset from its own tiled source cell.
+          const deltaRow = row - (origin.row + (i % srcH));
+          const deltaCol = col - (origin.col + (j % srcW));
+          if (deltaRow !== 0 || deltaCol !== 0) {
+            value = shiftFormulaRefs(value, deltaRow, deltaCol);
+          }
         }
         const before = doc.getValue(row, col);
         if (before === value) {
@@ -935,6 +1075,62 @@ export class Commands {
       this.state.setSelection(tab, at, { row: at.row + height - 1, col: at.col + width - 1 });
     }
     return applied;
+  }
+
+  /**
+   * Edit > Insert Copied Cells…: insert the most recently copied range at the
+   * selection, shifting existing cells right (whole columns) or down (whole
+   * rows). Structural insertion is a spreadsheet operation, so a plain CSV
+   * document requires the explicit RCSV conversion first (the confirmation
+   * dialog explains why); declining leaves the document untouched.
+   */
+  async insertCopiedCells(tab: Tab): Promise<boolean> {
+    if (!tab.selection) {
+      return false;
+    }
+    const copied = await this.clipboardActions?.getCopied();
+    if (!copied || copied.matrix.length === 0 || copied.matrix[0].length === 0) {
+      this.ui.notify(t('notify.nothingToInsert'), 'warn');
+      return false;
+    }
+    const direction = await this.ui.chooseInsertShift(copied.matrix.length, copied.matrix[0].length);
+    if (!direction) {
+      return false;
+    }
+    const doc = await this.ensureRcsv(tab, 'structure');
+    if (!doc) {
+      return false;
+    }
+    const at = tab.selection;
+    if (!at) {
+      return false;
+    }
+    const large = copied.matrix.length * copied.matrix[0].length > 20_000;
+    const run = (): boolean => this.state.insertCopiedCells(tab, at, copied.matrix, direction, copied.origin);
+    return large ? this.withBusy(t('loading.inserting'), run) : run();
+  }
+
+  /** Move the active tab (menu/keyboard path; announced via the status toast). */
+  private moveActiveTab(tab: Tab, id: CommandId): void {
+    const index = this.state.tabIndex(tab.id);
+    const target =
+      id === 'tab.moveFirst'
+        ? 0
+        : id === 'tab.moveLast'
+          ? this.state.tabs.length - 1
+          : id === 'tab.moveLeft'
+            ? index - 1
+            : index + 1;
+    if (this.state.moveTab(tab.id, target)) {
+      this.ui.notify(
+        t('notify.tabMoved', {
+          name: tab.name,
+          pos: this.state.tabIndex(tab.id) + 1,
+          total: this.state.tabs.length,
+        }),
+        'info',
+      );
+    }
   }
 
   /**

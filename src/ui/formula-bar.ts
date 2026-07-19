@@ -2,7 +2,7 @@
 import type { AppState, FormulaRefTarget } from '../app/app-state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
-import { cellLabel } from '../core/formula';
+import { cellLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import { el } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 
@@ -23,6 +23,8 @@ export class FormulaBar implements FormulaRefTarget {
   private readonly refEl: HTMLElement;
   private readonly textarea: HTMLTextAreaElement;
   private readonly hintEl: HTMLElement;
+  /** Visually hidden description of the currently referenced ranges (for AT). */
+  private readonly refsDescEl: HTMLElement;
   private readonly autocomplete: FormulaAutocomplete;
   private readonly ref: FormulaFieldRef;
   private baseValue = '';
@@ -31,31 +33,62 @@ export class FormulaBar implements FormulaRefTarget {
     private readonly state: AppState,
     private readonly commands: Commands,
     private readonly moveDown: () => void,
+    /** Receives the referenced ranges to highlight in the grid ([] clears). */
+    private readonly onRefsChange: (refs: FormulaRefRange[]) => void = () => undefined,
   ) {
     this.refEl = el('div', { className: 'cell-ref', attrs: { 'aria-hidden': 'true' } });
     this.textarea = el('textarea', {
-      attrs: { rows: '1', spellcheck: 'false' },
+      attrs: { rows: '1', spellcheck: 'false', 'aria-describedby': 'formula-refs-desc' },
+    });
+    this.refsDescEl = el('span', {
+      className: 'visually-hidden',
+      attrs: { id: 'formula-refs-desc' },
     });
     this.hintEl = el('div', { className: 'hint' });
-    const field = el('div', { className: 'formula-field' }, [this.textarea]);
+    const field = el('div', { className: 'formula-field' }, [this.textarea, this.refsDescEl]);
     this.element = el('div', { className: 'formula-bar' }, [this.refEl, field, this.hintEl]);
 
     this.autocomplete = new FormulaAutocomplete(this.textarea, field, false);
-    this.ref = new FormulaFieldRef(this.textarea, () => this.autocomplete.hide());
+    this.ref = new FormulaFieldRef(
+      this.textarea,
+      () => this.autocomplete.hide(),
+      () => this.updateRefs(),
+    );
 
     this.textarea.addEventListener('keydown', (event) => this.onKeyDown(event));
     this.textarea.addEventListener('input', () => {
       // Typing invalidates any pending pointer-entered reference.
       this.ref.clear();
       this.autocomplete.update();
+      this.updateRefs();
     });
     this.textarea.addEventListener('click', () => this.autocomplete.update());
     this.textarea.addEventListener('blur', () => {
       this.autocomplete.hide();
       this.commit();
+      this.clearRefs();
     });
+    this.textarea.addEventListener('focus', () => this.updateRefs());
 
     this.state.formulaRefTarget = this;
+  }
+
+  /**
+   * Recompute the referenced ranges of the formula being edited and push
+   * them to the grid highlight + the accessible description. Invalid or
+   * incomplete reference syntax simply yields fewer (or no) ranges.
+   */
+  private updateRefs(): void {
+    const value = this.textarea.value;
+    const refs = value.startsWith('=') ? extractFormulaRefs(value) : [];
+    this.refsDescEl.textContent =
+      refs.length > 0 ? t('formulaBar.refsLabel', { list: refs.map((r) => r.text).join(', ') }) : '';
+    this.onRefsChange(refs);
+  }
+
+  private clearRefs(): void {
+    this.refsDescEl.textContent = '';
+    this.onRefsChange([]);
   }
 
   // ----- FormulaRefTarget: pointer-entered references from the grid -----

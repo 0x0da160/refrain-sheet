@@ -49,7 +49,8 @@ function bootstrap(): void {
     chooseReopen: (tab) => dialogs.chooseReopen(tab),
     confirmConvert: (reason, name) => dialogs.confirmConvert(reason, name),
     explainRcsvSave: (name) => dialogs.explainRcsvSave(name),
-    confirmExportCsv: (name) => dialogs.confirmExportCsv(name),
+    chooseExportCsv: (name) => dialogs.chooseExportCsv(name),
+    chooseInsertShift: (rows, cols) => dialogs.chooseInsertShift(rows, cols),
     confirm: (title, message, ok, cancel) => dialogs.confirm(title, message, ok, cancel),
     showMessage: (title, message) => dialogs.showMessage(title, message),
     notify: (text, kind) => toasts.notify(text, kind),
@@ -67,6 +68,7 @@ function bootstrap(): void {
   commands.clipboardActions = {
     copy: () => clipboard.copyViaApi(),
     paste: () => clipboard.pasteViaApi(),
+    getCopied: () => clipboard.getCopied(),
   };
   const menuBar = new MenuBar(commands, {
     wrap: () => state.wrapCells,
@@ -82,7 +84,8 @@ function bootstrap(): void {
     const col = Math.min(tab.selection.col, Math.max(0, (tab.doc.fieldCount(row) || 1) - 1));
     grid.reveal(row, col);
   };
-  const formulaBar = new FormulaBar(state, commands, moveSelectionDown);
+  // The formula bar pushes live formula-reference highlights into the grid.
+  const formulaBar = new FormulaBar(state, commands, moveSelectionDown, (refs) => grid.setFormulaRefs(refs));
   const statusBar = new StatusBar(state, () => {
     const tab = state.activeTab;
     if (tab && tab.doc.kind === 'csv' && tab.doc.diagnostics.length > 0) {

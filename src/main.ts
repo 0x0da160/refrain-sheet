@@ -17,6 +17,7 @@ import { LoadingOverlay } from './ui/loading-overlay';
 import { MenuBar } from './ui/menu-bar';
 import { StatusBar } from './ui/status-bar';
 import { TabBar } from './ui/tab-bar';
+import { WelcomeScreen } from './ui/welcome-screen';
 
 function bootstrap(): void {
   initLocale();
@@ -70,6 +71,9 @@ function bootstrap(): void {
     paste: () => clipboard.pasteViaApi(),
     getCopied: () => clipboard.getCopied(),
   };
+  commands.gridActions = {
+    autoFitSelectedColumns: () => grid.autoFitSelectedColumns(),
+  };
   const menuBar = new MenuBar(commands, {
     wrap: () => state.wrapCells,
     stickyFirstRow: () => state.stickyFirstRow,
@@ -77,6 +81,7 @@ function bootstrap(): void {
   });
   const tabBar = new TabBar(state, commands);
   const findBar = new FindBar(state, commands, grid);
+  const welcome = new WelcomeScreen(commands);
   const moveSelectionDown = () => {
     const tab = state.activeTab;
     if (!tab || !tab.selection) return;
@@ -102,6 +107,7 @@ function bootstrap(): void {
     tabBar.element,
     findBar.element,
     formulaBar.element,
+    welcome.element,
     grid.element,
     statusBar.element,
   );
@@ -114,6 +120,11 @@ function bootstrap(): void {
 
   const refreshAll = (selectionChanged: boolean) => {
     app.classList.toggle('wrap-cells', state.wrapCells);
+    // No open document: restore the initial welcome screen and hide every
+    // document-specific surface (tab strip, formula bar, find bar, grid).
+    const noTabs = state.tabs.length === 0;
+    app.classList.toggle('welcome-mode', noTabs);
+    welcome.refresh(noTabs);
     menuBar.render();
     tabBar.render();
     grid.refresh();
@@ -182,6 +193,9 @@ function bootstrap(): void {
     const command = resolveShortcut(event, {
       inTextField,
       isComposing: event.isComposing,
+      // Select All is only owned while the grid itself is focused (never a
+      // text field or the rest of the page — the browser keeps Ctrl+A there).
+      inGrid: grid.isNavigating(),
     });
     if (!command) {
       return;

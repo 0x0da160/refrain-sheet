@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
-import type { CommandId, Commands } from '../app/commands';
+import { LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
+import { yieldToBrowser } from '../core/scheduler';
 import { el, clearChildren } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 
-/** Fixed row/column metrics for virtualization (px). */
+/** Fixed row/column metrics for virtualization (px). ROW_HEIGHT must stay in
+ * sync with the `--grid-row-height` CSS variable (see styles.css), which the
+ * cell typography uses to vertically center single-line text via line-height. */
 export const ROW_HEIGHT = 26;
 export const WRAP_ROW_HEIGHT = 78;
 export const COL_WIDTH = 132;
@@ -118,6 +121,49 @@ export function planAutoFit(input: AutoFitInput): AutoFitResult {
   };
 }
 
+export interface MultiAutoFitOptions {
+  /** Called between columns of a yielding run (done columns, total columns). */
+  onProgress?: (done: number, total: number) => void;
+  /** Checked after each yield; return true to abandon the remaining columns. */
+  shouldStop?: () => boolean;
+  /** Yield to the browser between columns (used for genuinely large jobs). */
+  yieldBetween?: boolean;
+}
+
+export interface MultiAutoFitResult {
+  /** Per-column plans, keyed by column index (partial when not completed). */
+  plans: Map<number, AutoFitResult>;
+  /** False when `shouldStop` abandoned the run — apply nothing in that case. */
+  completed: boolean;
+}
+
+/**
+ * Plan auto-fit widths for several columns. Every column is measured
+ * independently with {@link planAutoFit} (its own header, displayed values,
+ * and sampling), so each column can shrink or grow on its own. Large jobs
+ * yield to the browser between columns and report per-column progress; a
+ * cancelled run returns `completed: false` and its partial plans must be
+ * discarded, so widths are only ever applied all-or-nothing.
+ */
+export async function planAutoFitColumns(
+  cols: number[],
+  makeInput: (col: number) => AutoFitInput,
+  opts: MultiAutoFitOptions = {},
+): Promise<MultiAutoFitResult> {
+  const plans = new Map<number, AutoFitResult>();
+  for (let i = 0; i < cols.length; i++) {
+    if (opts.yieldBetween && i > 0) {
+      opts.onProgress?.(i, cols.length);
+      await yieldToBrowser();
+      if (opts.shouldStop?.()) {
+        return { plans, completed: false };
+      }
+    }
+    plans.set(cols[i], planAutoFit(makeInput(cols[i])));
+  }
+  return { plans, completed: true };
+}
+
 /**
  * Create a text measurer configured from an element's *computed* style via
  * `CanvasRenderingContext2D.measureText` — the same font family, size,
@@ -189,7 +235,10 @@ function frameCoalesced<T>(apply: (arg: T) => void): (arg: T) => void {
 const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string } | 'separator'> = [
   { command: 'edit.copy', labelKey: 'menu.edit.copy' },
   { command: 'edit.paste', labelKey: 'menu.edit.paste' },
+  { command: 'edit.selectAll', labelKey: 'menu.edit.selectAll' },
   { command: 'edit.insertCopiedCells', labelKey: 'menu.edit.insertCopiedCells' },
+  { command: 'edit.insertCopiedRows', labelKey: 'menu.edit.insertCopiedRows' },
+  { command: 'edit.insertCopiedCols', labelKey: 'menu.edit.insertCopiedCols' },
   { command: 'edit.revertCell', labelKey: 'menu.edit.revertCell' },
   'separator',
   { command: 'sheet.insertRowAbove', labelKey: 'menu.sheet.insertRowAbove' },
@@ -199,6 +248,8 @@ const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string } | 'sepa
   { command: 'sheet.insertColLeft', labelKey: 'menu.sheet.insertColLeft' },
   { command: 'sheet.insertColRight', labelKey: 'menu.sheet.insertColRight' },
   { command: 'sheet.deleteCols', labelKey: 'menu.sheet.deleteCols' },
+  'separator',
+  { command: 'sheet.autoFitCols', labelKey: 'menu.sheet.autoFitCols' },
 ];
 
 /**
@@ -1048,7 +1099,27 @@ export class Grid {
     const resizeHandle = target?.closest<HTMLElement>('[data-colresize]');
     if (resizeHandle) {
       event.preventDefault();
-      this.autoFitColumn(tab, Number(resizeHandle.dataset.colresize));
+      const col = Number(resizeHandle.dataset.colresize);
+      // When whole columns are selected (column headers / Shift+Click / drag,
+      // or any selection spanning every row — including Select All) and the
+      // double-clicked handle belongs to one of them, auto-fit applies to
+      // every selected column; otherwise only the handle's own column fits.
+      const range = this.state.selectedRange(tab);
+      const wholeCols =
+        range !== null &&
+        range.right > range.left &&
+        col >= range.left &&
+        col <= range.right &&
+        (tab.selectionKind === 'col' || (range.top === 0 && range.bottom === tab.doc.rowCount - 1));
+      const cols: number[] = [];
+      if (wholeCols && range) {
+        for (let c = range.left; c <= range.right; c++) {
+          cols.push(c);
+        }
+      } else {
+        cols.push(col);
+      }
+      void this.autoFitColumns(tab, cols);
       return;
     }
     const cell = this.cellFromEvent(event);
@@ -1191,10 +1262,48 @@ export class Grid {
    * document — nothing extra is rendered). When the fit is based on a sample
    * the user is told so.
    */
-  private autoFitColumn(tab: Tab, col: number): void {
+  /**
+   * Sheet > Auto-Fit Column Width: fit every column intersecting the current
+   * selection (whole-column selections, Select All, or any cell range). Each
+   * column is measured independently, so columns can shrink and grow on
+   * their own.
+   */
+  async autoFitSelectedColumns(): Promise<void> {
+    const tab = this.state.activeTab;
+    if (!tab) {
+      return;
+    }
+    const range = this.state.selectedRange(tab);
+    if (!range) {
+      return;
+    }
+    const last = Math.max(0, tab.doc.columnCount - 1);
+    const cols: number[] = [];
+    for (let c = Math.max(0, range.left); c <= Math.min(range.right, last); c++) {
+      cols.push(c);
+    }
+    await this.autoFitColumns(tab, cols);
+  }
+
+  /**
+   * Auto-fit the given columns using the measured-displayed-width algorithm
+   * (see {@link planAutoFit}) with each column's own header and values. Large
+   * jobs (many columns × many sampled rows) run column-by-column with yields
+   * to the browser, a "N of M columns" + percentage busy label, and abort
+   * safety: if the tab or document changes mid-run, no width is applied at
+   * all (widths change all-or-nothing, so a cancelled run leaves every column
+   * untouched). Column widths are per-tab view state — never document
+   * content — so auto-fit cannot modify CSV bytes and is not an undoable
+   * document operation.
+   */
+  private async autoFitColumns(tab: Tab, cols: number[]): Promise<void> {
+    if (cols.length === 0) {
+      return;
+    }
     const doc = tab.doc;
-    const sampleCell = this.canvas.querySelector<HTMLElement>(`.vcell[data-row][data-col="${col}"]`);
+    const sampleCell = this.canvas.querySelector<HTMLElement>('.vcell[data-row][data-col]');
     const measure = sampleCell ? createTextMeasurer(sampleCell) : null;
+    let result: MultiAutoFitResult;
     if (measure && sampleCell) {
       const cs = getComputedStyle(sampleCell);
       const px = (v: string): number => {
@@ -1204,44 +1313,91 @@ export class Grid {
       // +2px keeps content clear of the ellipsis threshold.
       const cellChrome =
         px(cs.paddingLeft) + px(cs.paddingRight) + px(cs.borderLeftWidth) + px(cs.borderRightWidth) + 2;
-      const visibleRows: number[] = [];
-      for (const cell of this.canvas.querySelectorAll<HTMLElement>(`.vcell[data-row][data-col="${col}"]`)) {
-        visibleRows.push(Number(cell.dataset.row));
+      const makeInput = (col: number): AutoFitInput => {
+        const visibleRows: number[] = [];
+        for (const cell of this.canvas.querySelectorAll<HTMLElement>(`.vcell[data-row][data-col="${col}"]`)) {
+          visibleRows.push(Number(cell.dataset.row));
+        }
+        return {
+          rowCount: doc.rowCount,
+          header: columnLabel(col),
+          getDisplayValue: (r) => doc.getDisplayValue(r, col),
+          visibleRows,
+          measure,
+          cellChrome,
+          headerChrome: cellChrome + 10, // the header also holds the resize handle
+          sampleBudget: AUTOFIT_SAMPLE_BUDGET,
+        };
+      };
+      // Progress + yielding only for genuinely large jobs (measured cells
+      // across all columns beyond the large-operation threshold).
+      const heavy =
+        cols.length > 1 && cols.length * Math.min(doc.rowCount, AUTOFIT_SAMPLE_BUDGET) > LARGE_OP_CELLS;
+      if (heavy) {
+        this.commands.setBusy(t('loading.autoFitCols', { done: 0, total: cols.length, pct: 0 }));
       }
-      const plan = planAutoFit({
-        rowCount: doc.rowCount,
-        header: columnLabel(col),
-        getDisplayValue: (r) => doc.getDisplayValue(r, col),
-        visibleRows,
-        measure,
-        cellChrome,
-        headerChrome: cellChrome + 10, // the header also holds the resize handle
-        sampleBudget: AUTOFIT_SAMPLE_BUDGET,
-      });
-      this.setColWidth(tab, col, plan.width);
-      if (plan.sampled) {
-        this.commands.notify(
-          t('grid.autoFitSampled', { letter: columnLabel(col), n: plan.measuredRows }),
-          'info',
-        );
+      try {
+        result = await planAutoFitColumns(cols, makeInput, {
+          yieldBetween: heavy,
+          onProgress: (done, total) =>
+            this.commands.setBusy(
+              t('loading.autoFitCols', { done, total, pct: Math.floor((done / total) * 100) }),
+            ),
+          shouldStop: () => this.state.activeTab !== tab || tab.doc !== doc,
+        });
+      } finally {
+        if (heavy) {
+          this.commands.setBusy(null);
+        }
       }
-      return;
+    } else {
+      // Fallback without a 2D canvas context (e.g. jsdom): measure the
+      // rendered cells' DOM scrollWidth per column (visible rows only).
+      const plans = new Map<number, AutoFitResult>();
+      for (const col of cols) {
+        const widths: number[] = [];
+        let measuredRows = 0;
+        for (const cell of this.canvas.querySelectorAll<HTMLElement>(`.vcell[data-col="${col}"]`)) {
+          widths.push(cell.scrollWidth + 2);
+          measuredRows += 1;
+        }
+        const head = this.headerEl.querySelector<HTMLElement>(`[data-colhead="${col}"]`);
+        if (head) {
+          widths.push(head.scrollWidth + 10);
+        }
+        plans.set(col, {
+          width: autoFitWidth(widths),
+          measuredRows,
+          sampled: measuredRows < doc.rowCount,
+        });
+      }
+      result = { plans, completed: true };
     }
-    // Fallback without a 2D canvas context: measure the rendered cells' DOM
-    // scrollWidth (visible rows only).
-    const widths: number[] = [];
-    let measuredRows = 0;
-    for (const cell of this.canvas.querySelectorAll<HTMLElement>(`.vcell[data-col="${col}"]`)) {
-      widths.push(cell.scrollWidth + 2);
-      measuredRows += 1;
+    if (!result.completed || this.state.activeTab !== tab || tab.doc !== doc) {
+      return; // aborted: apply nothing
     }
-    const head = this.headerEl.querySelector<HTMLElement>(`[data-colhead="${col}"]`);
-    if (head) {
-      widths.push(head.scrollWidth + 10);
+    // Apply every fitted width, then re-lay-out once.
+    let changed = false;
+    for (const [col, plan] of result.plans) {
+      const w = Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, Math.round(plan.width)));
+      if (tab.colWidths[col] !== w) {
+        tab.colWidths[col] = w;
+        changed = true;
+      }
     }
-    this.setColWidth(tab, col, autoFitWidth(widths));
-    if (measuredRows < tab.doc.rowCount) {
-      this.commands.notify(t('grid.autoFitSampled', { letter: columnLabel(col), n: measuredRows }), 'info');
+    if (changed) {
+      this.window = null;
+      this.render(tab);
+    }
+    const sampledPlans = [...result.plans.entries()].filter(([, plan]) => plan.sampled);
+    if (sampledPlans.length === 1 && cols.length === 1) {
+      const [col, plan] = sampledPlans[0];
+      this.commands.notify(
+        t('grid.autoFitSampled', { letter: columnLabel(col), n: plan.measuredRows }),
+        'info',
+      );
+    } else if (sampledPlans.length > 0) {
+      this.commands.notify(t('grid.autoFitSampledMulti', { n: sampledPlans.length }), 'info');
     }
   }
 

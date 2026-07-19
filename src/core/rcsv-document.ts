@@ -93,6 +93,35 @@ export class RcsvDocument {
     return new RcsvDocument(name, doc.delimiter, data, columnCount);
   }
 
+  /**
+   * Create an RCSV document from prebuilt row-major values. Used by the
+   * time-sliced CSV→RCSV conversion, which collects the rows incrementally
+   * (with progress) instead of one long synchronous loop; the result is
+   * identical to {@link fromLossless}. Each row is padded to `columnCount`.
+   */
+  static fromValues(
+    name: string,
+    delimiter: DelimiterId,
+    rows: string[][],
+    columnCount: number,
+  ): RcsvDocument {
+    const cols = Math.max(1, columnCount);
+    const data = rows.map((row) => {
+      if (row.length === cols) {
+        return row;
+      }
+      const out = new Array<string>(cols).fill('');
+      for (let c = 0; c < Math.min(row.length, cols); c++) {
+        out[c] = row[c];
+      }
+      return out;
+    });
+    if (data.length === 0) {
+      data.push(new Array<string>(cols).fill(''));
+    }
+    return new RcsvDocument(name, delimiter, data, cols);
+  }
+
   static empty(name: string, rows = 1, cols = 1): RcsvDocument {
     const data: string[][] = [];
     for (let r = 0; r < Math.max(1, rows); r++) {
@@ -133,13 +162,30 @@ export class RcsvDocument {
   toBytes(): Uint8Array {
     const cells: Array<[number, number, string]> = [];
     for (let r = 0; r < this.data.length; r++) {
-      const row = this.data[r];
-      for (let c = 0; c < this.cols; c++) {
-        if (row[c] !== '') {
-          cells.push([r, c, row[c]]);
-        }
+      this.collectRowCells(r, cells);
+    }
+    return this.toBytesFromCells(cells);
+  }
+
+  /**
+   * Append row `r`'s non-empty cells to `cells`. Splitting the collection per
+   * row lets the save path run it in cooperative time slices (with progress)
+   * for large sheets; {@link toBytesFromCells} then finishes the container.
+   */
+  collectRowCells(r: number, cells: Array<[number, number, string]>): void {
+    const row = this.data[r];
+    if (!row) {
+      return;
+    }
+    for (let c = 0; c < this.cols; c++) {
+      if (row[c] !== '') {
+        cells.push([r, c, row[c]]);
       }
     }
+  }
+
+  /** Encode a prepared sparse cell list into the `.rcsv` container (compresses). */
+  toBytesFromCells(cells: Array<[number, number, string]>): Uint8Array {
     const payload: RcsvData = {
       name: 'Sheet1',
       delimiter: this.delimiter,

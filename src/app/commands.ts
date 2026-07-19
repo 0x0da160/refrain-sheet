@@ -10,7 +10,7 @@ import {
   type CsvExportScan,
 } from '../core/csv-export';
 import { detectEncoding, type EncodingId } from '../core/encoding';
-import { isFormula, shiftFormulaRefs } from '../core/formula';
+import { columnLabel, isFormula, shiftFormulaRefs } from '../core/formula';
 import type { CellChange, HistoryEntry, Operation } from '../core/history';
 import { LosslessDocument } from '../core/lossless-document';
 import {
@@ -106,6 +106,9 @@ export type CommandId =
   | 'edit.copy'
   | 'edit.paste'
   | 'edit.insertCopiedCells'
+  | 'edit.insertCopiedRows'
+  | 'edit.insertCopiedCols'
+  | 'edit.selectAll'
   | 'edit.revertCell'
   | 'edit.revertAll'
   | 'edit.fillDown'
@@ -120,6 +123,7 @@ export type CommandId =
   | 'sheet.insertColLeft'
   | 'sheet.insertColRight'
   | 'sheet.deleteCols'
+  | 'sheet.autoFitCols'
   | 'sheet.exportCsv'
   | 'view.wrap'
   | 'view.stickyFirstRow'
@@ -140,6 +144,24 @@ export type CommandId =
 
 const CSV_LIKE_EXTENSIONS = ['.csv', '.tsv', '.txt', RCSV_EXTENSION];
 
+/**
+ * Cell-count threshold above which an operation counts as "large": its
+ * read/prepare phase runs in cooperative time slices behind the progress
+ * indicator (with a percentage), and the atomic apply is wrapped in the busy
+ * state. Below the threshold operations complete imperceptibly fast and run
+ * synchronously.
+ */
+export const LARGE_OP_CELLS = 20_000;
+
+/**
+ * Whole-number progress percentage for loading labels. Uses floor so 100% is
+ * never shown while work remains — a label only reads 100% after the
+ * operation has actually completed.
+ */
+function pct(done: number, total: number): number {
+  return total > 0 ? Math.min(100, Math.floor((done / total) * 100)) : 0;
+}
+
 export class Commands {
   /** Set by main.ts so menu Copy/Paste can go through the clipboard controller. */
   clipboardActions: {
@@ -147,6 +169,12 @@ export class Commands {
     paste: () => Promise<void>;
     /** The most recently copied range (internal clipboard, else parsed system text). */
     getCopied: () => Promise<{ matrix: string[][]; origin: Selection | null } | null>;
+  } | null = null;
+
+  /** Set by main.ts so commands can drive grid-only operations (measurement needs the DOM). */
+  gridActions: {
+    /** Auto-fit every column intersecting the current selection. */
+    autoFitSelectedColumns: () => Promise<void>;
   } | null = null;
 
   constructor(
@@ -178,17 +206,23 @@ export class Commands {
       case 'sheet.insertColLeft':
       case 'sheet.insertColRight':
       case 'sheet.deleteCols':
+      case 'sheet.autoFitCols':
         return tab !== null && tab.selection !== null;
+      case 'edit.selectAll':
+        return tab !== null;
       case 'edit.undo':
         return tab !== null && tab.history.canUndo;
       case 'edit.redo':
         return tab !== null && tab.history.canRedo;
-      // Insert Copied Cells stays clickable on a CSV tab: running it explains
-      // that the structural insertion needs the explicit RCSV conversion.
+      // The Insert Copied … commands stay clickable on a CSV tab: running one
+      // explains that the structural insertion needs the explicit RCSV
+      // conversion (and warns when nothing has been copied yet).
       case 'edit.copy':
       case 'edit.paste':
       case 'edit.fillDown':
       case 'edit.insertCopiedCells':
+      case 'edit.insertCopiedRows':
+      case 'edit.insertCopiedCols':
         return tab?.selection != null;
       case 'edit.revertCell':
         return (
@@ -250,6 +284,15 @@ export class Commands {
       case 'edit.insertCopiedCells':
         if (tab) await this.insertCopiedCells(tab);
         return;
+      case 'edit.insertCopiedRows':
+        if (tab) await this.insertCopiedAxis(tab, 'rows');
+        return;
+      case 'edit.insertCopiedCols':
+        if (tab) await this.insertCopiedAxis(tab, 'cols');
+        return;
+      case 'edit.selectAll':
+        if (tab) this.selectAllCells(tab);
+        return;
       case 'edit.revertCell':
         if (tab?.selection) this.state.revertCell(tab, tab.selection.row, tab.selection.col);
         return;
@@ -281,6 +324,9 @@ export class Commands {
       case 'sheet.insertColRight':
       case 'sheet.deleteCols':
         if (tab) await this.runSheetOp(tab, id);
+        return;
+      case 'sheet.autoFitCols':
+        await this.gridActions?.autoFitSelectedColumns();
         return;
       case 'sheet.exportCsv':
         if (tab) await this.exportCsv(tab);
@@ -341,6 +387,15 @@ export class Commands {
   /** Surface a localized notification (used by UI surfaces without direct port access). */
   notify(text: string, kind: 'info' | 'warn' | 'error' = 'info'): void {
     this.ui.notify(text, kind);
+  }
+
+  /**
+   * Show/update or clear the busy indicator (used by UI surfaces that run
+   * their own sliced work, e.g. the grid's multi-column auto-fit). Always
+   * pass `null` when the operation ends, succeeds or not.
+   */
+  setBusy(label: string | null): void {
+    this.ui.setBusy(label);
   }
 
   /**
@@ -640,12 +695,32 @@ export class Commands {
       tab.name = `${tab.name}${RCSV_EXTENSION}`;
     }
     // Serialization compresses the body and computes the checksum; show the
-    // busy indicator so a large sheet never appears to freeze.
+    // busy indicator so a large sheet never appears to freeze. Large sheets
+    // collect their cells in time slices (phase 1, with a percentage) before
+    // the compression phase (phase 2, labeled — compression happens inside
+    // the codec, so no honest percentage exists for it).
     const doc = tab.doc;
     const bytes = await this.withBusy(t('loading.savingRcsv', { name: tab.name }), async () => {
       await initCsvEngine(); // compression runs in the WASM codec when available
-      return doc.toBytes();
+      if (doc.rowCount * doc.columnCount <= LARGE_OP_CELLS) {
+        return doc.toBytes();
+      }
+      const cells: Array<[number, number, string]> = [];
+      const completed = await forEachIndexSliced(doc.rowCount, (r) => doc.collectRowCells(r, cells), {
+        onProgress: (done, total) =>
+          this.ui.setBusy(t('loading.savingSerialize', { name: tab.name, pct: pct(done, total) })),
+        shouldStop: () => tab.doc !== doc,
+      });
+      if (!completed || tab.doc !== doc) {
+        return null;
+      }
+      this.ui.setBusy(t('loading.savingCompress', { name: tab.name }));
+      await this.nextPaint();
+      return doc.toBytesFromCells(cells);
     });
+    if (bytes === null) {
+      return false;
+    }
     let outcome: SaveOutcome;
     try {
       outcome = tab.handle
@@ -792,11 +867,65 @@ export class Commands {
     if (!ok) {
       return null;
     }
-    const doc = this.state.convertToRcsv(tab);
+    // Large documents build the converted copy in cooperative time slices
+    // behind a percentage progress label; the in-place swap is then atomic.
+    // If the scan aborts (the tab changed meanwhile) nothing is modified.
+    let prebuilt: RcsvDocument | undefined;
+    if (tab.doc.rowCount * Math.max(1, tab.doc.columnCount) > LARGE_OP_CELLS) {
+      const label = t('loading.converting', { name: tab.name });
+      const built = await this.withBusy(label, () => this.buildRcsvSliced(tab, label));
+      if (!built) {
+        return null;
+      }
+      prebuilt = built;
+    }
+    const doc = this.state.convertToRcsv(tab, prebuilt);
     if (doc) {
       this.ui.notify(t('notify.converted', { name: tab.name }), 'info');
     }
     return doc;
+  }
+
+  /**
+   * Collect a CSV document's current values and build the equivalent RCSV
+   * document. Large documents are scanned in cooperative time slices with a
+   * percentage progress label so the conversion never blocks the main thread;
+   * small ones convert synchronously. Returns null when the sliced scan was
+   * abandoned because the tab's document changed while yielding — nothing has
+   * been created or modified in that case.
+   */
+  private async buildRcsvSliced(tab: Tab, label: string): Promise<RcsvDocument | null> {
+    const doc = tab.doc;
+    if (doc.kind !== 'csv') {
+      return null;
+    }
+    const columnCount = Math.max(1, doc.columnCount);
+    if (doc.rowCount * columnCount <= LARGE_OP_CELLS) {
+      return RcsvDocument.fromLossless(doc, tab.name);
+    }
+    const rows: string[][] = [];
+    const completed = await forEachIndexSliced(
+      doc.rowCount,
+      (r) => {
+        const row = new Array<string>(columnCount).fill('');
+        const fieldCount = doc.fieldCount(r);
+        for (let c = 0; c < fieldCount; c++) {
+          row[c] = doc.getValue(r, c);
+        }
+        rows.push(row);
+      },
+      {
+        onProgress: (done, total) =>
+          this.ui.setBusy(
+            `${label} (${pct(done, total)}% — ${t('loading.rowsOf', { done: done.toLocaleString('en-US'), total: total.toLocaleString('en-US') })})`,
+          ),
+        shouldStop: () => tab.doc !== doc,
+      },
+    );
+    if (!completed || tab.doc !== doc) {
+      return null;
+    }
+    return RcsvDocument.fromValues(tab.name, doc.delimiter, rows, columnCount);
   }
 
   /** Blank-document counter so each File > New tab gets a distinct default name. */
@@ -833,9 +962,14 @@ export class Commands {
     if (!ok) {
       return;
     }
-    const doc = await this.withBusy(t('loading.converting', { name: tab.name }), () =>
-      this.state.convertToRcsvNewTab(tab),
-    );
+    // The value collection runs in time slices with percentage progress for
+    // large documents; small ones build synchronously behind the indicator.
+    const label = t('loading.converting', { name: tab.name });
+    const built = await this.withBusy(label, () => this.buildRcsvSliced(tab, label));
+    if (!built) {
+      return;
+    }
+    const doc = this.state.convertToRcsvNewTab(tab, built);
     if (doc) {
       this.ui.notify(t('notify.convertedNewTab', { name: doc.name }), 'info');
     }
@@ -983,14 +1117,39 @@ export class Commands {
       }
     }
 
-    // Large pastes run behind the loading indicator so the UI shows progress
-    // feedback instead of appearing frozen while changes are prepared.
-    const large = height * width > 20_000;
-    const run = (): boolean => this.applyPasteNow(tab, matrix, origin, at, height, width);
-    return large ? this.withBusy(t('loading.pasting'), run) : run();
+    // Small pastes apply synchronously; large ones build their change list in
+    // cooperative time slices behind a percentage progress label (the mutation
+    // itself is then applied atomically, so an abandoned scan changes nothing).
+    if (height * width <= LARGE_OP_CELLS) {
+      return this.applyPasteNow(tab, matrix, origin, at, height, width);
+    }
+    const doc = tab.doc;
+    const totalCells = height * width;
+    return this.withBusy(t('loading.pasting'), async () => {
+      const changes: CellChange[] = [];
+      const completed = await forEachIndexSliced(
+        height,
+        (i) => this.buildPasteRowChanges(doc, matrix, origin, at, width, i, changes),
+        {
+          onProgress: (done, total) =>
+            this.ui.setBusy(
+              t('loading.pastingCells', {
+                done: (done * width).toLocaleString('en-US'),
+                total: totalCells.toLocaleString('en-US'),
+                pct: pct(done, total),
+              }),
+            ),
+          shouldStop: () => tab.doc !== doc,
+        },
+      );
+      if (!completed || tab.doc !== doc) {
+        return false;
+      }
+      return this.applyPasteChanges(tab, at, height, width, changes);
+    });
   }
 
-  /** Build and push the paste entry (synchronous, atomic). */
+  /** Build and push the paste entry (synchronous, atomic; small pastes). */
   private applyPasteNow(
     tab: Tab,
     matrix: string[][],
@@ -999,78 +1158,98 @@ export class Commands {
     height: number,
     width: number,
   ): boolean {
-    const srcH = matrix.length;
-    const srcW = matrix[0].length;
-    const doc = tab.doc;
-    if (doc.kind === 'csv') {
-      const changes: CellChange[] = [];
-      for (let i = 0; i < height; i++) {
-        for (let j = 0; j < width; j++) {
-          const row = at.row + i;
-          const col = at.col + j;
-          const value = matrix[i % srcH][j % srcW];
-          const current = doc.getValue(row, col);
-          if (value === current) {
-            continue;
-          }
-          const before = doc.isEdited(row, col) ? current : null;
-          const after = value === doc.getOriginalValue(row, col) ? null : value;
-          changes.push({ row, col, before, after });
-        }
-      }
-      const applied = this.state.bulkEdit(tab, changes, 'history.paste');
-      if (applied) {
-        this.state.setSelection(tab, at, { row: at.row + height - 1, col: at.col + width - 1 });
-      }
-      return applied;
-    }
-
-    // RCSV: the grid may grow to fit the paste (atomically undoable).
-    const needRows = Math.max(0, at.row + height - doc.rowCount);
-    const needCols = Math.max(0, at.col + width - doc.columnCount);
-    const ops: Operation[] = [];
-    if (needRows > 0) {
-      ops.push({
-        type: 'rows',
-        action: 'insert',
-        index: doc.rowCount,
-        count: needRows,
-        data: Array.from({ length: needRows }, () => []),
-      });
-    }
-    if (needCols > 0) {
-      ops.push({
-        type: 'cols',
-        action: 'insert',
-        index: doc.columnCount,
-        count: needCols,
-        data: Array.from({ length: needCols }, () => []),
-      });
-    }
     const changes: CellChange[] = [];
     for (let i = 0; i < height; i++) {
+      this.buildPasteRowChanges(tab.doc, matrix, origin, at, width, i, changes);
+    }
+    return this.applyPasteChanges(tab, at, height, width, changes);
+  }
+
+  /** Collect the changes for one destination row of a (possibly tiled) paste. */
+  private buildPasteRowChanges(
+    doc: Tab['doc'],
+    matrix: string[][],
+    origin: Selection | null,
+    at: Selection,
+    width: number,
+    i: number,
+    changes: CellChange[],
+  ): void {
+    const srcH = matrix.length;
+    const srcW = matrix[0].length;
+    const row = at.row + i;
+    if (doc.kind === 'csv') {
       for (let j = 0; j < width; j++) {
-        const row = at.row + i;
         const col = at.col + j;
-        let value = matrix[i % srcH][j % srcW];
-        if (origin && isFormula(value)) {
-          // Each cell shifts by its offset from its own tiled source cell.
-          const deltaRow = row - (origin.row + (i % srcH));
-          const deltaCol = col - (origin.col + (j % srcW));
-          if (deltaRow !== 0 || deltaCol !== 0) {
-            value = shiftFormulaRefs(value, deltaRow, deltaCol);
-          }
-        }
-        const before = doc.getValue(row, col);
-        if (before === value) {
+        const value = matrix[i % srcH][j % srcW];
+        const current = doc.getValue(row, col);
+        if (value === current) {
           continue;
         }
-        changes.push({ row, col, before, after: value });
+        const before = doc.isEdited(row, col) ? current : null;
+        const after = value === doc.getOriginalValue(row, col) ? null : value;
+        changes.push({ row, col, before, after });
       }
+      return;
     }
-    ops.push({ type: 'cells', changes });
-    const entry: HistoryEntry = { label: 'history.paste', ops };
-    const applied = this.state.pushEntry(tab, entry);
+    for (let j = 0; j < width; j++) {
+      const col = at.col + j;
+      let value = matrix[i % srcH][j % srcW];
+      if (origin && isFormula(value)) {
+        // Each cell shifts by its offset from its own tiled source cell.
+        const deltaRow = row - (origin.row + (i % srcH));
+        const deltaCol = col - (origin.col + (j % srcW));
+        if (deltaRow !== 0 || deltaCol !== 0) {
+          value = shiftFormulaRefs(value, deltaRow, deltaCol);
+        }
+      }
+      const before = doc.getValue(row, col);
+      if (before === value) {
+        continue;
+      }
+      changes.push({ row, col, before, after: value });
+    }
+  }
+
+  /** Apply prepared paste changes atomically (CSV bulk edit / RCSV entry with grid growth). */
+  private applyPasteChanges(
+    tab: Tab,
+    at: Selection,
+    height: number,
+    width: number,
+    changes: CellChange[],
+  ): boolean {
+    const doc = tab.doc;
+    let applied: boolean;
+    if (doc.kind === 'csv') {
+      applied = this.state.bulkEdit(tab, changes, 'history.paste');
+    } else {
+      // RCSV: the grid may grow to fit the paste (atomically undoable).
+      const needRows = Math.max(0, at.row + height - doc.rowCount);
+      const needCols = Math.max(0, at.col + width - doc.columnCount);
+      const ops: Operation[] = [];
+      if (needRows > 0) {
+        ops.push({
+          type: 'rows',
+          action: 'insert',
+          index: doc.rowCount,
+          count: needRows,
+          data: Array.from({ length: needRows }, () => []),
+        });
+      }
+      if (needCols > 0) {
+        ops.push({
+          type: 'cols',
+          action: 'insert',
+          index: doc.columnCount,
+          count: needCols,
+          data: Array.from({ length: needCols }, () => []),
+        });
+      }
+      ops.push({ type: 'cells', changes });
+      const entry: HistoryEntry = { label: 'history.paste', ops };
+      applied = this.state.pushEntry(tab, entry);
+    }
     if (applied) {
       this.state.setSelection(tab, at, { row: at.row + height - 1, col: at.col + width - 1 });
     }
@@ -1105,9 +1284,160 @@ export class Commands {
     if (!at) {
       return false;
     }
-    const large = copied.matrix.length * copied.matrix[0].length > 20_000;
-    const run = (): boolean => this.state.insertCopiedCells(tab, at, copied.matrix, direction, copied.origin);
+    const prepared = await this.prepareCopiedMatrix(tab, copied, at, 'loading.insertCells');
+    if (!prepared) {
+      return false;
+    }
+    const large = copied.matrix.length * copied.matrix[0].length > LARGE_OP_CELLS;
+    const run = (): boolean =>
+      this.state.insertCopiedCells(tab, at, prepared.matrix, direction, prepared.origin);
     return large ? this.withBusy(t('loading.inserting'), run) : run();
+  }
+
+  /**
+   * Edit > Insert Copied Rows / Insert Copied Columns. The documented,
+   * user-visible rule (also stated by the completion notification): copied
+   * rows are inserted as whole rows **above** the selection's top row; copied
+   * columns are inserted as whole columns **to the left of** the selection's
+   * left column. Copied cells keep their source columns (rows) when the copy
+   * origin is known — i.e. for in-app copies; a system-clipboard range of
+   * unknown origin starts at column A (row 1). Existing rows/columns shift
+   * without data loss; formula references adjust exactly like Insert
+   * Rows/Columns, and relative references inside the inserted formulas shift
+   * by their offset from the copied location. Structural insertion is a
+   * spreadsheet operation, so a plain CSV document asks for the explicit RCSV
+   * conversion first; declining (or an aborted preparation) leaves the
+   * document untouched. The whole insertion is one atomic, undoable entry,
+   * and large ranges run behind the percentage progress indicator.
+   */
+  async insertCopiedAxis(tab: Tab, axis: 'rows' | 'cols'): Promise<boolean> {
+    if (!tab.selection) {
+      return false;
+    }
+    const copied = await this.clipboardActions?.getCopied();
+    if (!copied || copied.matrix.length === 0 || copied.matrix[0].length === 0) {
+      this.ui.notify(t('notify.nothingToInsert'), 'warn');
+      return false;
+    }
+    const doc = await this.ensureRcsv(tab, 'structure');
+    if (!doc) {
+      return false;
+    }
+    const range = this.state.selectedRange(tab);
+    if (!range) {
+      return false;
+    }
+    const at: Selection =
+      axis === 'rows'
+        ? { row: range.top, col: copied.origin?.col ?? 0 }
+        : { row: copied.origin?.row ?? 0, col: range.left };
+    const prepared = await this.prepareCopiedMatrix(
+      tab,
+      copied,
+      at,
+      axis === 'rows' ? 'loading.insertRows' : 'loading.insertCols',
+    );
+    if (!prepared) {
+      return false;
+    }
+    const height = copied.matrix.length;
+    const width = copied.matrix[0].length;
+    const direction = axis === 'rows' ? ('down' as const) : ('right' as const);
+    const large = height * width > LARGE_OP_CELLS;
+    const run = (): boolean =>
+      this.state.insertCopiedCells(tab, at, prepared.matrix, direction, prepared.origin);
+    const applied = large ? await this.withBusy(t('loading.inserting'), run) : run();
+    if (applied) {
+      this.ui.notify(
+        axis === 'rows'
+          ? t('notify.insertedRows', { n: height, row: at.row + 1 })
+          : t('notify.insertedCols', { n: width, col: columnLabel(at.col) }),
+        'info',
+      );
+    }
+    return applied;
+  }
+
+  /**
+   * Prepare the matrix an Insert Copied … operation actually inserts.
+   * Relative references in copied formulas shift by the offset from the copy
+   * origin: small ranges are shifted synchronously inside the atomic state
+   * operation, while large ranges are pre-shifted here in cooperative time
+   * slices behind a percentage progress label and then inserted atomically
+   * (returned with `origin: null` because they are already shifted). Returns
+   * null when the preparation was abandoned because the tab's document
+   * changed while yielding — nothing has been modified in that case.
+   */
+  private async prepareCopiedMatrix(
+    tab: Tab,
+    copied: { matrix: string[][]; origin: Selection | null },
+    at: Selection,
+    labelKey: string,
+  ): Promise<{ matrix: string[][]; origin: Selection | null } | null> {
+    const { matrix, origin } = copied;
+    const height = matrix.length;
+    const width = matrix[0].length;
+    if (height * width <= LARGE_OP_CELLS) {
+      return copied;
+    }
+    const doc = tab.doc;
+    const deltaRow = origin ? at.row - origin.row : 0;
+    const deltaCol = origin ? at.col - origin.col : 0;
+    const totalCells = height * width;
+    const shifted: string[][] = new Array<string[]>(height);
+    const completed = await this.withBusy(
+      t(labelKey, { done: 0, total: totalCells.toLocaleString('en-US'), pct: 0 }),
+      () =>
+        forEachIndexSliced(
+          height,
+          (i) => {
+            const out = matrix[i].slice();
+            if (origin && (deltaRow !== 0 || deltaCol !== 0)) {
+              for (let j = 0; j < out.length; j++) {
+                if (isFormula(out[j])) {
+                  out[j] = shiftFormulaRefs(out[j], deltaRow, deltaCol);
+                }
+              }
+            }
+            shifted[i] = out;
+          },
+          {
+            onProgress: (done, total) =>
+              this.ui.setBusy(
+                t(labelKey, {
+                  done: (done * width).toLocaleString('en-US'),
+                  total: totalCells.toLocaleString('en-US'),
+                  pct: pct(done, total),
+                }),
+              ),
+            shouldStop: () => tab.doc !== doc,
+          },
+        ),
+    );
+    if (!completed || tab.doc !== doc) {
+      return null;
+    }
+    return { matrix: shifted, origin: null };
+  }
+
+  /**
+   * Edit > Select All Cells: select the used range of the active document
+   * (for a blank RCSV document this is its whole logical grid). The
+   * virtualized grid renders the selection only on the cells it has
+   * materialized — no DOM is created for off-screen cells — and selection
+   * statistics for very large selections fill in from a background scan with
+   * a visible "Calculating…" state. An empty CSV document has no cells to
+   * select; a notification says so instead of leaving silent dead air.
+   */
+  selectAllCells(tab: Tab): boolean {
+    const rows = tab.doc.rowCount;
+    const cols = tab.doc.columnCount;
+    if (rows === 0 || cols === 0) {
+      this.ui.notify(t('notify.selectAllEmpty'), 'info');
+      return false;
+    }
+    this.state.setSelection(tab, { row: 0, col: 0 }, { row: rows - 1, col: cols - 1 });
+    return true;
   }
 
   /** Move the active tab (menu/keyboard path; announced via the status toast). */

@@ -2,6 +2,8 @@
 import type { Tab } from '../app/app-state';
 import type { ConvertReason } from '../app/commands';
 import { t } from '../app/i18n';
+import { SHORTCUT_DOCS } from '../app/shortcuts';
+import { FUNCTION_INFOS } from '../core/formula';
 import {
   bytesToMiB,
   miBToBytes,
@@ -428,30 +430,159 @@ export class Dialogs {
       body.append(el('p', { text: t('dialog.about.tagline') }));
       body.append(el('p', { text: t('dialog.about.body') }));
       body.append(el('h3', { text: t('dialog.about.shortcuts') }));
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.about.shortcutsNote') }));
       const table = el('table', { className: 'shortcut-table' });
-      const rows: Array<[string, string]> = [
-        ['Ctrl+N / Cmd+N', t('shortcut.new')],
-        ['Ctrl+O / Cmd+O', t('shortcut.open')],
-        ['Ctrl+S / Cmd+S', t('shortcut.save')],
-        ['Ctrl+W / Cmd+W', t('shortcut.closeTab')],
-        ['Ctrl+Tab, Ctrl+PageDown / PageUp', t('shortcut.switchTab')],
-        ['Ctrl+Z / Cmd+Z', t('shortcut.undo')],
-        ['Ctrl+Y, Ctrl+Shift+Z / Cmd+Shift+Z', t('shortcut.redo')],
-        ['Ctrl+C / Cmd+C', t('shortcut.copy')],
-        ['Ctrl+V / Cmd+V', t('shortcut.paste')],
-        ['Shift+Arrows', t('shortcut.extendSelection')],
-        ['Ctrl+F / Cmd+F', t('shortcut.find')],
-        ['Ctrl+H / Cmd+H', t('shortcut.replace')],
-        ['F2', t('shortcut.editCell')],
-        ['Enter', t('shortcut.commitDown')],
-        ['Esc', t('shortcut.cancelEdit')],
-      ];
-      for (const [keys, desc] of rows) {
-        table.append(el('tr', {}, [el('td', { text: keys }), el('td', { text: desc })]));
+      for (const { keys, descKey } of SHORTCUT_DOCS) {
+        table.append(el('tr', {}, [el('td', { text: keys }), el('td', { text: t(descKey) })]));
       }
       body.append(table);
       body.append(el('p', { className: 'dialog-note', text: 'MIT License — Copyright (c) 2026 0x0da160' }));
       buttons.append(dialogButton(t('dialog.close'), true, true, () => close(undefined)));
+    });
+  }
+
+  /**
+   * Offline, searchable formula & function help. Function entries are built
+   * from `FUNCTION_INFOS` (the same source autocomplete and the evaluator use),
+   * so the help can never list a function that is not implemented. Fully
+   * keyboard operable via the native <dialog>; the search box filters both the
+   * reference sections and the function rows.
+   */
+  showFormulaHelp(): Promise<void> {
+    return openDialog<void>(t('dialog.formulaHelp.title'), undefined, (body, buttons, close) => {
+      body.classList.add('formula-help');
+      body.append(el('p', { text: t('dialog.formulaHelp.intro') }));
+
+      // ----- Search box -----
+      const search = el('input', {
+        className: 'formula-help-search',
+        attrs: {
+          type: 'search',
+          'data-autofocus': 'true',
+          placeholder: t('dialog.formulaHelp.search'),
+          'aria-label': t('dialog.formulaHelp.search'),
+        },
+      });
+      body.append(el('div', { className: 'form-row' }, [search]));
+
+      // Each entry is a searchable block; `text` is matched case-insensitively.
+      const entries: Array<{ el: HTMLElement; text: string }> = [];
+      const section = (headingKey: string, ...blocks: HTMLElement[]): HTMLElement => {
+        const sec = el('section', { className: 'help-section' }, [
+          el('h3', { text: t(headingKey) }),
+          ...blocks,
+        ]);
+        entries.push({ el: sec, text: sec.textContent?.toLowerCase() ?? '' });
+        return sec;
+      };
+      const p = (key: string): HTMLElement => el('p', { text: t(key) });
+      const code = (text: string): HTMLElement => el('code', { className: 'help-code', text });
+      const codeList = (samples: string[]): HTMLElement =>
+        el(
+          'p',
+          { className: 'help-examples' },
+          samples.flatMap((s, i) => (i === 0 ? [code(s)] : [document.createTextNode(' '), code(s)])),
+        );
+
+      body.append(section('dialog.formulaHelp.section.syntax', p('dialog.formulaHelp.syntaxBody')));
+      body.append(
+        section(
+          'dialog.formulaHelp.section.references',
+          p('dialog.formulaHelp.referencesBody'),
+          codeList(['A1', 'B2', 'AA10']),
+        ),
+      );
+      body.append(
+        section(
+          'dialog.formulaHelp.section.ranges',
+          p('dialog.formulaHelp.rangesBody'),
+          codeList(['A1:B10', 'A:A', 'A:C', '1:1', '2:10']),
+        ),
+      );
+      body.append(
+        section(
+          'dialog.formulaHelp.section.operators',
+          p('dialog.formulaHelp.operatorsBody'),
+          codeList(['+', '-', '*', '/', '( )', '=', '<>', '<', '>', '<=', '>=']),
+        ),
+      );
+
+      // ----- Functions table (from the shared source of truth) -----
+      const funcSection = el('section', { className: 'help-section' }, [
+        el('h3', { text: t('dialog.formulaHelp.section.functions') }),
+      ]);
+      const table = el('table', { className: 'help-fn-table' });
+      table.append(
+        el('thead', {}, [
+          el('tr', {}, [
+            el('th', { text: t('dialog.formulaHelp.col.function') }),
+            el('th', { text: t('dialog.formulaHelp.col.description') }),
+            el('th', { text: t('dialog.formulaHelp.col.example') }),
+          ]),
+        ]),
+      );
+      const tbody = el('tbody');
+      const fnRows: Array<{ row: HTMLElement; text: string }> = [];
+      for (const info of FUNCTION_INFOS) {
+        const desc = t(`formula.fn.${info.name}`);
+        const row = el('tr', {}, [
+          el('td', {}, [code(info.signature)]),
+          el('td', { text: desc }),
+          el('td', {}, [code(info.example)]),
+        ]);
+        tbody.append(row);
+        fnRows.push({ row, text: `${info.name} ${info.signature} ${desc} ${info.example}`.toLowerCase() });
+      }
+      table.append(tbody);
+      funcSection.append(table);
+      body.append(funcSection);
+
+      // ----- Errors -----
+      const errorList = el('ul', { className: 'help-errors' });
+      const errors: Array<[string, string]> = [
+        ['#ERROR!', 'dialog.formulaHelp.err.error'],
+        ['#NAME?', 'dialog.formulaHelp.err.name'],
+        ['#VALUE!', 'dialog.formulaHelp.err.value'],
+        ['#DIV/0!', 'dialog.formulaHelp.err.div0'],
+        ['#REF!', 'dialog.formulaHelp.err.ref'],
+        ['#CYCLE!', 'dialog.formulaHelp.err.cycle'],
+      ];
+      for (const [errCode, descKey] of errors) {
+        errorList.append(el('li', {}, [code(errCode), document.createTextNode(` — ${t(descKey)}`)]));
+      }
+      body.append(
+        section('dialog.formulaHelp.section.errors', p('dialog.formulaHelp.errorsIntro'), errorList),
+      );
+
+      body.append(
+        section('dialog.formulaHelp.section.autocomplete', p('dialog.formulaHelp.autocompleteBody')),
+      );
+
+      const noResults = el('p', { className: 'dialog-note', text: t('dialog.formulaHelp.noResults') });
+      noResults.hidden = true;
+      body.append(noResults);
+
+      const applyFilter = (): void => {
+        const q = search.value.trim().toLowerCase();
+        let anyVisible = false;
+        for (const entry of entries) {
+          const show = q === '' || entry.text.includes(q);
+          entry.el.hidden = !show;
+          anyVisible = anyVisible || show;
+        }
+        let anyRow = false;
+        for (const { row, text } of fnRows) {
+          const show = q === '' || text.includes(q);
+          row.hidden = !show;
+          anyRow = anyRow || show;
+        }
+        funcSection.hidden = !anyRow;
+        anyVisible = anyVisible || anyRow;
+        noResults.hidden = anyVisible;
+      };
+      search.addEventListener('input', applyFilter);
+
+      buttons.append(dialogButton(t('dialog.close'), true, false, () => close(undefined)));
     });
   }
 }

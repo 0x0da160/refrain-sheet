@@ -184,7 +184,9 @@ interaction.
 
 ### Find and Replace
 
-- **Ctrl+F / Cmd+F** opens Find; **Ctrl+H / Cmd+H** opens Replace.
+- **Ctrl+Shift+F / Cmd+Shift+F** opens Find; **Ctrl+Shift+H / Cmd+Shift+H**
+  opens Replace. (Plain Ctrl+F and Ctrl+H are left to the browser — see
+  [Keyboard shortcuts](#keyboard-shortcuts).) Both are also on the Search menu.
 - Next / Previous with wrap-around; match counts (occurrences and matching
   cells) update as you type. Search operates on current cell values.
 - **Match case** option; case-insensitive search safely folds at least ASCII.
@@ -201,10 +203,9 @@ interaction.
 
 - Multiple files open as tabs; a newly opened file always becomes active.
 - Unsaved tabs show a `●` dirty indicator.
-- **Ctrl+W / Cmd+W** closes the active tab (browsers may reserve this
-  shortcut for closing the browser tab; the menu and the × button always
-  work). **Ctrl+Tab** or **Ctrl+PageDown / PageUp** switch tabs (Ctrl+Tab is
-  also reserved by some browsers).
+- **F8** closes the active tab (the menu and the × button always work too).
+  Ctrl+W and Ctrl+Tab are intentionally left to the browser, so switch tabs by
+  clicking them in the tab bar.
 - Closing a modified tab asks **Save / Discard / Cancel**. When leaving the
   page with modified tabs, browsers do not allow custom dialogs, so the
   browser's standard leave-page confirmation appears instead.
@@ -262,6 +263,44 @@ editing, find/replace, dialogs). Dialogs use the native `<dialog>` element
 with focus trapping, and ARIA labels are provided throughout (including the
 busy/loading indicator and the formula autocomplete listbox).
 
+### Keyboard shortcuts
+
+Shortcuts are **optional accelerators**: every command is also on the menus (and
+most on context menus), so nothing depends on a shortcut. They are chosen to
+avoid conflicts with the browser, OS, and assistive technology. Commands are
+handled with `KeyboardEvent.key` and modifier state (never the deprecated
+`keyCode`), only when the application owns the context, never during IME
+composition or ordinary text entry, and `preventDefault()` is called only for a
+recognized application command on a cancelable event.
+
+The app **does not** intercept browser-reserved or commonly essential keys,
+including new window/tab (Ctrl+N, Ctrl+T), close tab/window (Ctrl+W), reload
+(Ctrl+R, F5), history/back-forward (Ctrl+H, Alt+←/→), the address bar (Ctrl+L),
+browser find (Ctrl+F, F3), print (Ctrl+P), zoom (Ctrl +/−/0), dev tools (F12),
+and browser tab switching (Ctrl+Tab, Ctrl+PageUp/Down). Commands that would
+otherwise collide use safe alternatives.
+
+| Command              | Shortcut                              |
+| -------------------- | ------------------------------------- |
+| New spreadsheet      | **F4**                                |
+| Open file            | Ctrl+O / Cmd+O                        |
+| Save                 | Ctrl+S / Cmd+S                        |
+| Save with Options    | Ctrl+Shift+S / Cmd+Shift+S            |
+| Close tab            | **F8**                                |
+| Undo / Redo          | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z)     |
+| Copy / Paste         | Ctrl+C / Ctrl+V                       |
+| Fill Down (grid)     | Ctrl+D / Cmd+D                        |
+| Find / Replace       | **Ctrl+Shift+F** / **Ctrl+Shift+H**   |
+| Find next / previous | Enter / Shift+Enter (in the Find bar) |
+| Edit cell            | F2 (or start typing)                  |
+| Extend selection     | Shift+Arrows                          |
+| Cancel edit          | Esc                                   |
+
+The same table is shown in **Help > About / Keyboard Shortcuts**. Grid-editing
+accelerators (Undo/Redo/Fill Down) are suppressed while a text field or the cell
+editor has focus, so ordinary text editing keeps its own behavior; Save and Open
+still work from anywhere. On macOS, Cmd substitutes for Ctrl.
+
 ### Fonts
 
 Two CSS variables define the type roles:
@@ -269,14 +308,35 @@ Two CSS variables define the type roles:
 - `--font-ui` — `"Yu Gothic UI", "Yu Gothic", "Meiryo UI", sans-serif` — the
   menu bar, menus, dialogs, buttons, labels, forms, notifications, and general
   application chrome.
-- `--font-sheet` — `"BIZ UDゴシック", "BIZ UDGothic", "ＭＳ ゴシック", "MS Gothic", monospace`
-  — the grid, row/column headers, cell values, the formula bar, and the inline
-  cell editor.
+- `--font-sheet` — the grid, row/column headers, cell values, the formula bar,
+  the inline cell editor, and selection overlays. This is the **spreadsheet
+  font**, chosen in **View > Spreadsheet Font** (see below).
 
 No fonts are loaded from a CDN, remote URL, or bundled file; the app relies on
 the local/system fallback stack. Actual rendering therefore depends on the
 fonts installed on your system, and the final `sans-serif` / `monospace`
 fallbacks keep the UI usable when the preferred families are absent.
+
+#### Spreadsheet font
+
+**View > Spreadsheet Font** chooses one font family for the whole spreadsheet UI
+(grid, headers, numeric and formula values, formula bar, inline editor, and
+selection overlays). Choosing a font updates a single document-level CSS
+variable (`--font-sheet`); the current choice is shown with a checkmark. Three
+local Windows/Office families are offered, each with a monospace fallback chain:
+
+- **BIZ UD Gothic** / **BIZ UDゴシック** (`--sheet-font-biz-ud`) — the default.
+- **MS Gothic** / **ＭＳ ゴシック** (`--sheet-font-ms`).
+- **MS UI Gothic** (`--sheet-font-ms-ui`).
+
+There is no per-cell font selection in this version. The choice is an
+**application-level preference** stored in `localStorage`; RCSV documents do not
+carry a per-document sheet-font override, so the application preference always
+applies and there is no document-vs-application precedence conflict to resolve.
+Changing the sheet font is pure display state: it never alters plain CSV bytes
+and never converts a CSV to RCSV. When a preferred font is not installed, the
+declared fallbacks (and finally `monospace`) are used. No font is fetched from a
+CDN/remote URL or bundled.
 
 ## Spreadsheet mode (RCSV)
 
@@ -317,6 +377,21 @@ export: formulas become their results).
   `#REF!`, `#DIV/0!`, `#NAME?`, and `#ERROR!` are reported per cell.
 - Inserting or deleting rows/columns rewrites references in the whole sheet as
   one atomic, undoable operation.
+- Formula cells are shown **upright, never italic** (italic hurts CJK
+  legibility). They are differentiated by a subtle green tint and a small
+  non-italic corner marker; error cells show the literal error code (e.g.
+  `#DIV/0!`) in bold, so the state is clear without relying on color or italic.
+
+### Formula and function help
+
+**Help > Formula and Function Help** opens a searchable, keyboard-accessible
+panel documenting the formula language entirely offline: syntax, cell
+references (`A1`), ranges (`A1:B10`), whole-column/row ranges (`A:A`, `A:C`,
+`1:1`, `2:10`), operators, every supported function (signature, description, and
+a worked example), and the error codes (including circular references →
+`#CYCLE!`). The function list, the autocomplete metadata, and the evaluator all
+read one shared source of truth (`FUNCTION_INFOS` / `SUPPORTED_FUNCTIONS`), so
+documented functions cannot drift from implemented ones — a test enforces this.
 
 ### Formula autocomplete and pointer references
 
@@ -341,12 +416,39 @@ Both formula-input surfaces — the **formula bar** and the **inline cell editor
   references. **Ctrl+D / Cmd+D** (Fill Down) fills the selection from its top
   row. Each fill is one atomic undo step.
 
+### Selecting rows, columns, and ranges
+
+- **Drag** across cells to select any rectangular range (many rows × many
+  columns). **Shift+Click** extends the range from the anchor; **Shift+Arrows**
+  extends by cells.
+- Click a **row header** to select the whole row, or a **column header** for the
+  whole column. Drag across row/column headers to select several, and
+  **Shift+Click** a header to extend the row/column selection.
+- The roles are rendered distinctly: the **active cell** has a solid outline,
+  the **anchor** (opposite corner) a dashed outline, the **range** a tinted
+  fill, and whole-row/whole-column selections additionally highlight their
+  headers. Selection rendering is virtualization-correct — the selected
+  rectangle is tracked in state, so it stays correct when it extends beyond the
+  rendered viewport.
+- The selected rectangle feeds copy, paste, the fill handle, formula-reference
+  insertion, selection statistics, and the row/column commands unchanged.
+  Structural row/column operations still require an explicit conversion to RCSV
+  for a byte-preserving CSV document.
+
 ### Resizable columns and auto-fit
 
-- Drag a column-header boundary to resize; **double-click** it to auto-fit to
-  the visible content. Widths are per-document for the session; plain CSV bytes
-  are never mutated by resizing, and spreadsheet documents persist widths in
-  their container.
+- Drag a column-header boundary to resize; **double-click** it to auto-fit.
+  Auto-fit recalculates the width from current content and **can make a column
+  narrower or wider** — it is not grow-only. Measurement uses the rendered cells
+  (so it reflects the active sheet font, size, and padding) and is clamped to a
+  reasonable minimum/maximum width.
+- Because the grid is virtualized, auto-fit measures the **visible (materialized)
+  rows** — a documented sample. When a column has more rows than were measured,
+  a notification says the fit used a sample of the visible rows; scroll to bring
+  other rows into view and re-fit if needed.
+- Widths are per-document for the session; plain CSV bytes are never mutated by
+  resizing or auto-fit, and spreadsheet documents persist widths in their
+  container.
 
 ### Selection statistics
 
@@ -453,12 +555,12 @@ sources) blocks external connections.
 
 ### Browser differences and known limitations
 
-| Capability                              | Chrome / Edge (Chromium)        | Firefox           | Safari            |
-| --------------------------------------- | ------------------------------- | ----------------- | ----------------- |
-| Run from `file://`                      | ✔                               | ✔                 | ✔                 |
-| Overwrite save (File System Access API) | ✔ (with permission prompt)      | ✘ → download save | ✘ → download save |
-| Writable handle from drag & drop        | ✔                               | ✘                 | ✘                 |
-| Ctrl+W / Ctrl+Tab shortcuts             | usually reserved by the browser | usually reserved  | usually reserved  |
+| Capability                              | Chrome / Edge (Chromium)       | Firefox           | Safari            |
+| --------------------------------------- | ------------------------------ | ----------------- | ----------------- |
+| Run from `file://`                      | ✔                              | ✔                 | ✔                 |
+| Overwrite save (File System Access API) | ✔ (with permission prompt)     | ✘ → download save | ✘ → download save |
+| Writable handle from drag & drop        | ✔                              | ✘                 | ✘                 |
+| Browser-reserved keys (Ctrl+W/Tab/F/…)  | left to the browser (not used) | left to browser   | left to browser   |
 
 - `localStorage` may be unavailable in some `file://` configurations; the
   language preference then simply isn't persisted.
@@ -502,9 +604,11 @@ src/
             encoding, validation, history, search, formula engine, stats,
             RCSV spreadsheet document + binary codec — DOM-independent, unit-tested
   app/      tabs & app state, command layer, file access, settings, i18n,
+            keyboard-shortcut routing, spreadsheet-font preference,
             version (single authoritative app name/version source)
   ui/       menu bar, tabs, grid, formula bar + shared formula autocomplete,
-            find bar, dialogs, status bar, loading overlay
+            find bar, dialogs (incl. formula & function help), status bar,
+            loading overlay
   wasm-gen/ generated: embedded WASM (Base64) + wasm-bindgen glue
   locales/  en.json, ja.json
 wasm/       Rust crate compiled to WebAssembly (CSV core, DEFLATE + CRC-32,
@@ -542,6 +646,14 @@ and literal search. Responsiveness regressions are guarded by deterministic
 structural tests: bounded DOM for 100,000-row files, in-place repaint for
 single-cell edits, deferred large-selection statistics with a "Calculating…"
 state, and time-sliced atomic Replace All with progress and cancellation.
+This release also covers: browser-safe keyboard-shortcut routing (recognized
+accelerators, reserved-key non-interception, IME/text-field safeguards), the
+spreadsheet-font preference (default, persistence, clamping, CSS-variable
+application), multi-row/column selection (header click/drag, Shift+Click
+extension, distinct active/anchor/range/header rendering), column auto-fit
+grow-and-shrink with min/max clamping, the formula/autocomplete/evaluator
+single-source-of-truth check, and a CSS assertion that formula cells are never
+italicized.
 
 ## CI and releases
 

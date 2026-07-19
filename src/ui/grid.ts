@@ -25,6 +25,24 @@ interface RenderWindow {
 }
 
 /**
+ * Compute an auto-fit column width from measured content widths (visible cell
+ * widths plus the header), clamped to [min, max]. The result is the width the
+ * widest measured content needs — it may be **narrower or wider** than the
+ * column's current width, so auto-fit both grows and shrinks. Extracted as a
+ * pure function so the grow/shrink/clamp behavior is unit-testable without a
+ * DOM (real measurement uses `scrollWidth`).
+ */
+export function autoFitWidth(contentWidths: number[], min = MIN_COL_WIDTH, max = MAX_COL_WIDTH): number {
+  let needed = min;
+  for (const w of contentWidths) {
+    if (w > needed) {
+      needed = w;
+    }
+  }
+  return Math.max(min, Math.min(max, needed));
+}
+
+/**
  * Layout inputs that require a full window rebuild when they change. While
  * the signature is stable, a document mutation only repaints the already
  * rendered cells in place (no DOM teardown), so a single-cell edit never
@@ -116,6 +134,8 @@ export class Grid {
   private resizing: { col: number; startX: number; startWidth: number } | null = null;
   /** Active fill-handle drag, if any. */
   private filling: { source: CellRange; target: { row: number; col: number } } | null = null;
+  /** Active whole-row / whole-column header drag, if any. */
+  private headerDrag: { axis: 'row' | 'col'; anchor: number; last: number } | null = null;
   /** Active pointer reference entry into a formula editor, if any. */
   private refDrag: { anchor: { row: number; col: number } } | null = null;
 
@@ -146,6 +166,7 @@ export class Grid {
     document.addEventListener('mousemove', (event) => this.onResizeMove(event));
     document.addEventListener('mouseup', () => {
       this.dragging = false;
+      this.headerDrag = null;
       this.endResize();
       this.endFill();
       this.endRefDrag();
@@ -288,14 +309,25 @@ export class Grid {
     }
     const range = this.state.selectedRange(tab);
     const active = tab.selection;
+    const anchor = tab.anchor;
+    const kind = tab.selectionKind;
+    // Container-level classes let CSS present whole-row / whole-column
+    // selections distinctly from an ordinary cell range.
+    this.element.classList.toggle('sel-rows', kind === 'row');
+    this.element.classList.toggle('sel-cols', kind === 'col');
     const cells = this.canvas.querySelectorAll<HTMLElement>('[data-row][data-col]');
     for (const cell of cells) {
       const row = Number(cell.dataset.row);
       const col = Number(cell.dataset.col);
       const inRange = range !== null && rangeContains(range, row, col);
       const isActive = active !== null && active.row === row && active.col === col;
+      // The anchor is the opposite corner of a multi-cell range; mark it
+      // distinctly from the active cell (but only when they differ).
+      const isAnchor =
+        anchor !== null && anchor.row === row && anchor.col === col && !isActive && range !== null;
       cell.classList.toggle('in-range', inRange && !isActive);
       cell.classList.toggle('selected', isActive);
+      cell.classList.toggle('anchor', isAnchor);
       if (isActive) {
         cell.setAttribute('aria-selected', 'true');
       } else {
@@ -305,7 +337,18 @@ export class Grid {
     const rows = this.canvas.querySelectorAll<HTMLElement>('.vgrid-row, .vgrid-stickyrow');
     for (const rowEl of rows) {
       const row = Number(rowEl.dataset.row);
-      rowEl.classList.toggle('selected-row', active !== null && active.row === row);
+      const inSelRows = range !== null && kind === 'row' && row >= range.top && row <= range.bottom;
+      rowEl.classList.toggle('selected-row', inSelRows || (active !== null && active.row === row));
+    }
+    // Highlight the row/column headers intersecting the selection so whole-row
+    // and whole-column selections read clearly even outside the data cells.
+    for (const head of this.canvas.querySelectorAll<HTMLElement>('[data-rowhead]')) {
+      const row = Number(head.dataset.rowhead);
+      head.classList.toggle('hdr-sel', range !== null && row >= range.top && row <= range.bottom);
+    }
+    for (const head of this.headerEl.querySelectorAll<HTMLElement>('[data-colhead]')) {
+      const col = Number(head.dataset.colhead);
+      head.classList.toggle('hdr-sel', range !== null && col >= range.left && col <= range.right);
     }
     this.placeFillHandle(tab, range);
   }
@@ -622,21 +665,32 @@ export class Grid {
     }
     const rowHead = target?.closest<HTMLElement>('[data-rowhead]');
     if (rowHead) {
-      // Row header: select the whole row.
+      // Row header: whole-row selection. Shift+Click extends from the current
+      // row-selection anchor; a plain click starts a row-header drag.
       const row = Number(rowHead.dataset.rowhead);
       this.commitEditor();
-      const lastCol = Math.max(0, tab.doc.fieldCount(row) - 1);
-      this.state.setSelection(tab, { row, col: 0 }, { row, col: lastCol });
+      if (event.shiftKey && tab.selectionKind === 'row' && tab.anchor) {
+        this.selectRows(tab, tab.anchor.row, row);
+      } else {
+        this.selectRows(tab, row, row);
+        this.headerDrag = { axis: 'row', anchor: row, last: row };
+      }
       this.element.focus();
       event.preventDefault();
       return;
     }
     const colHead = target?.closest<HTMLElement>('[data-colhead]');
     if (colHead) {
-      // Column header: select the whole column.
+      // Column header: whole-column selection. Shift+Click extends from the
+      // current column-selection anchor; a plain click starts a header drag.
       const col = Number(colHead.dataset.colhead);
       this.commitEditor();
-      this.state.setSelection(tab, { row: 0, col }, { row: Math.max(0, tab.doc.rowCount - 1), col });
+      if (event.shiftKey && tab.selectionKind === 'col' && tab.anchor) {
+        this.selectCols(tab, tab.anchor.col, col);
+      } else {
+        this.selectCols(tab, col, col);
+        this.headerDrag = { axis: 'col', anchor: col, last: col };
+      }
       this.element.focus();
       event.preventDefault();
       return;
@@ -682,7 +736,75 @@ export class Grid {
     }
   });
 
+  /** Whole-row selection spanning rows [anchorRow, targetRow] across all columns. */
+  private selectRows(tab: Tab, anchorRow: number, targetRow: number): void {
+    const rows = tab.doc.rowCount;
+    if (rows === 0) {
+      return;
+    }
+    const a = Math.max(0, Math.min(rows - 1, anchorRow));
+    const b = Math.max(0, Math.min(rows - 1, targetRow));
+    const lastCol = Math.max(0, tab.doc.columnCount - 1);
+    // Active cell at the target row (column 0); anchor at the far corner so the
+    // normalized range covers every column of every selected row.
+    this.state.setSelection(tab, { row: b, col: 0 }, { row: a, col: lastCol }, 'row');
+  }
+
+  /** Whole-column selection spanning columns [anchorCol, targetCol] across all rows. */
+  private selectCols(tab: Tab, anchorCol: number, targetCol: number): void {
+    const cols = tab.doc.columnCount;
+    if (cols === 0 || tab.doc.rowCount === 0) {
+      return;
+    }
+    const a = Math.max(0, Math.min(cols - 1, anchorCol));
+    const b = Math.max(0, Math.min(cols - 1, targetCol));
+    const lastRow = Math.max(0, tab.doc.rowCount - 1);
+    this.state.setSelection(tab, { row: 0, col: b }, { row: lastRow, col: a }, 'col');
+  }
+
+  /** Row index under the pointer (a data cell or a row header), or null. */
+  private rowFromEvent(event: Event): number | null {
+    const target = event.target as HTMLElement | null;
+    const head = target?.closest<HTMLElement>('[data-rowhead]');
+    if (head) {
+      return Number(head.dataset.rowhead);
+    }
+    const cell = target?.closest<HTMLElement>('[data-row]');
+    return cell ? Number(cell.dataset.row) : null;
+  }
+
+  /** Column index under the pointer (a data cell or a column header), or null. */
+  private colFromEvent(event: Event): number | null {
+    const target = event.target as HTMLElement | null;
+    const head = target?.closest<HTMLElement>('[data-colhead]');
+    if (head) {
+      return Number(head.dataset.colhead);
+    }
+    const cell = target?.closest<HTMLElement>('[data-col]');
+    return cell ? Number(cell.dataset.col) : null;
+  }
+
   private onMouseMove(event: MouseEvent): void {
+    if (this.headerDrag) {
+      const tab = this.state.activeTab;
+      if (!tab) {
+        return;
+      }
+      if (this.headerDrag.axis === 'row') {
+        const row = this.rowFromEvent(event);
+        if (row !== null && row !== this.headerDrag.last) {
+          this.headerDrag.last = row;
+          this.selectRows(tab, this.headerDrag.anchor, row);
+        }
+      } else {
+        const col = this.colFromEvent(event);
+        if (col !== null && col !== this.headerDrag.last) {
+          this.headerDrag.last = col;
+          this.selectCols(tab, this.headerDrag.anchor, col);
+        }
+      }
+      return;
+    }
     if (this.refDrag) {
       const cell = this.cellFromEvent(event);
       const refTarget = this.state.formulaRefTarget;
@@ -854,22 +976,32 @@ export class Grid {
   }
 
   /**
-   * Auto-fit a column to the widest currently rendered (visible) content plus
-   * the header label — a documented sampled subset, since only the visible
-   * window is materialized.
+   * Auto-fit a column so its width matches the widest content, measured with
+   * the active sheet font/formatting (we read the rendered cells' `scrollWidth`
+   * directly). The result can be narrower or wider than the current width —
+   * auto-fit both grows and shrinks.
+   *
+   * Sampling: only the materialized (visible + overscan) rows are measured,
+   * because the grid is virtualized. When the column has more rows than were
+   * measured, the fit is based on a sample and the user is told so (the width
+   * can be re-fit after scrolling to include other rows).
    */
   private autoFitColumn(tab: Tab, col: number): void {
-    let max = MIN_COL_WIDTH;
+    const widths: number[] = [];
+    let measuredRows = 0;
     for (const cell of this.canvas.querySelectorAll<HTMLElement>(`.vcell[data-col="${col}"]`)) {
-      const needed = cell.scrollWidth + 2;
-      if (needed > max) max = needed;
+      // +2px so the content is not clipped by the ellipsis threshold.
+      widths.push(cell.scrollWidth + 2);
+      measuredRows += 1;
     }
     const head = this.headerEl.querySelector<HTMLElement>(`[data-colhead="${col}"]`);
     if (head) {
-      const needed = head.scrollWidth + 10;
-      if (needed > max) max = needed;
+      widths.push(head.scrollWidth + 10); // header has the resize handle inset
     }
-    this.setColWidth(tab, col, max);
+    this.setColWidth(tab, col, autoFitWidth(widths));
+    if (measuredRows < tab.doc.rowCount) {
+      this.commands.notify(t('grid.autoFitSampled', { letter: columnLabel(col), n: measuredRows }), 'info');
+    }
   }
 
   // ----- Selection movement -----
@@ -1139,14 +1271,13 @@ export class Grid {
       const row = Number(rowHead.dataset.rowhead);
       const range = this.state.selectedRange(tab);
       if (!range || row < range.top || row > range.bottom) {
-        const lastCol = Math.max(0, tab.doc.fieldCount(row) - 1);
-        this.state.setSelection(tab, { row, col: 0 }, { row, col: lastCol });
+        this.selectRows(tab, row, row);
       }
     } else if (colHead) {
       const col = Number(colHead.dataset.colhead);
       const range = this.state.selectedRange(tab);
       if (!range || col < range.left || col > range.right) {
-        this.state.setSelection(tab, { row: 0, col }, { row: Math.max(0, tab.doc.rowCount - 1), col });
+        this.selectCols(tab, col, col);
       }
     } else if (cell) {
       const range = this.state.selectedRange(tab);

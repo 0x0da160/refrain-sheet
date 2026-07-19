@@ -39,6 +39,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     openFindBar: vi.fn(),
     findNext: vi.fn(),
     showAbout: vi.fn(),
+    showFormulaHelp: vi.fn(),
     chooseSettings: vi.fn(async () => null),
     setBusy: vi.fn(),
     ...overrides,

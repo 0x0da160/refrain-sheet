@@ -14,6 +14,14 @@ export interface Selection {
 }
 
 /**
+ * How the current selection was made, so the grid can render it distinctly:
+ * a cell/range selection, a whole-row selection (from row headers), or a
+ * whole-column selection (from column headers). It does not change the
+ * selected rectangle — copy/paste/fill/statistics all use `selectedRange`.
+ */
+export type SelectionKind = 'cell' | 'row' | 'col';
+
+/**
  * A formula editor (the formula bar) that can receive cell/range references
  * from the grid by pointer. While `isCapturing()` is true, clicking or
  * dragging cells in the grid inserts a reference at the caret instead of
@@ -38,6 +46,8 @@ export interface Tab {
   selection: Selection | null;
   /** Selection anchor for rectangular ranges (null: single-cell selection). */
   anchor: Selection | null;
+  /** How the selection was made (drives distinct rendering). */
+  selectionKind: SelectionKind;
   /** The "must be saved as .rcsv" explanation was already shown for this tab. */
   rcsvSaveExplained: boolean;
   /**
@@ -115,6 +125,7 @@ export class AppState {
       handle,
       selection: doc.rowCount > 0 ? { row: 0, col: 0 } : null,
       anchor: null,
+      selectionKind: 'cell',
       rcsvSaveExplained: false,
       colWidths: [],
     };
@@ -181,11 +192,19 @@ export class AppState {
 
   /**
    * Set the active cell. `anchor` extends/keeps a rectangular selection:
-   * null collapses the range to the active cell.
+   * null collapses the range to the active cell. `kind` records whether the
+   * selection is a cell/range, a whole-row, or a whole-column selection (for
+   * rendering only); it defaults to a cell/range selection.
    */
-  setSelection(tab: Tab, selection: Selection | null, anchor: Selection | null = null): void {
+  setSelection(
+    tab: Tab,
+    selection: Selection | null,
+    anchor: Selection | null = null,
+    kind: SelectionKind = 'cell',
+  ): void {
     tab.selection = selection;
     tab.anchor = selection ? anchor : null;
+    tab.selectionKind = selection ? kind : 'cell';
     this.emit('selection');
   }
 

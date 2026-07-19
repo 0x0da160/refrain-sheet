@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT
 import type { CommandId, Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
+import { SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../app/sheet-font';
 import { el, clearChildren } from './dom';
 
 export interface MenuItemDef {
   labelKey: string;
-  command: CommandId;
+  /** Omitted for a non-interactive group heading (see `heading`). */
+  command?: CommandId;
   shortcut?: string;
   checked?: () => boolean;
+  /** Render as a non-interactive group heading instead of a command item. */
+  heading?: boolean;
 }
 
 export interface MenuDef {
@@ -18,6 +22,7 @@ export interface MenuDef {
 export interface MenuChecks {
   wrap: () => boolean;
   stickyFirstRow: () => boolean;
+  sheetFont: () => SheetFontId;
 }
 
 export function defaultMenus(checks: MenuChecks): MenuDef[] {
@@ -25,7 +30,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
     {
       labelKey: 'menu.file',
       items: [
-        { labelKey: 'menu.file.new', command: 'file.new', shortcut: 'Ctrl+N' },
+        { labelKey: 'menu.file.new', command: 'file.new', shortcut: 'F4' },
         { labelKey: 'menu.file.open', command: 'file.open', shortcut: 'Ctrl+O' },
         { labelKey: 'menu.file.reopen', command: 'file.reopen' },
         'separator',
@@ -37,7 +42,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.file.settings', command: 'app.settings' },
         'separator',
-        { labelKey: 'menu.file.closeTab', command: 'file.closeTab', shortcut: 'Ctrl+W' },
+        { labelKey: 'menu.file.closeTab', command: 'file.closeTab', shortcut: 'F8' },
       ],
     },
     {
@@ -57,11 +62,11 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
     {
       labelKey: 'menu.search',
       items: [
-        { labelKey: 'menu.search.find', command: 'search.find', shortcut: 'Ctrl+F' },
-        { labelKey: 'menu.search.replace', command: 'search.replace', shortcut: 'Ctrl+H' },
+        { labelKey: 'menu.search.find', command: 'search.find', shortcut: 'Ctrl+Shift+F' },
+        { labelKey: 'menu.search.replace', command: 'search.replace', shortcut: 'Ctrl+Shift+H' },
         'separator',
-        { labelKey: 'menu.search.findNext', command: 'search.findNext', shortcut: 'F3' },
-        { labelKey: 'menu.search.findPrev', command: 'search.findPrev', shortcut: 'Shift+F3' },
+        { labelKey: 'menu.search.findNext', command: 'search.findNext' },
+        { labelKey: 'menu.search.findPrev', command: 'search.findPrev' },
       ],
     },
     {
@@ -87,6 +92,9 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           command: 'view.stickyFirstRow',
           checked: checks.stickyFirstRow,
         },
+        'separator',
+        { labelKey: 'menu.view.sheetFont', heading: true },
+        ...sheetFontItems(checks),
       ],
     },
     {
@@ -98,9 +106,26 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
     },
     {
       labelKey: 'menu.help',
-      items: [{ labelKey: 'menu.help.about', command: 'help.about' }],
+      items: [
+        { labelKey: 'menu.help.formula', command: 'help.formula' },
+        { labelKey: 'menu.help.about', command: 'help.about' },
+      ],
     },
   ];
+}
+
+/** The three spreadsheet-font choices as checkable menu items (View > Spreadsheet Font). */
+function sheetFontItems(checks: MenuChecks): MenuItemDef[] {
+  const font2command: Record<SheetFontId, CommandId> = {
+    'biz-ud': 'view.sheetFont.bizUd',
+    ms: 'view.sheetFont.ms',
+    'ms-ui': 'view.sheetFont.msUi',
+  };
+  return SHEET_FONTS.map((id) => ({
+    labelKey: sheetFontLabelKey(id),
+    command: font2command[id],
+    checked: () => checks.sheetFont() === id,
+  }));
 }
 
 /**
@@ -179,8 +204,21 @@ export class MenuBar {
         list.append(el('hr', { className: 'menu-separator' }));
         continue;
       }
-      const checked = item.checked ? item.checked() : null;
       const label = item.labelKey.includes('.') ? t(item.labelKey) : item.labelKey;
+      if (item.heading || !item.command) {
+        // Non-interactive group heading (e.g. "Spreadsheet Font"). Skipped by
+        // arrow-key navigation, which only visits `.menu-item` buttons.
+        list.append(
+          el('div', {
+            className: 'menu-heading',
+            text: label,
+            attrs: { role: 'presentation' },
+          }),
+        );
+        continue;
+      }
+      const command = item.command;
+      const checked = item.checked ? item.checked() : null;
       const button = el(
         'button',
         {
@@ -201,10 +239,10 @@ export class MenuBar {
           el('span', { className: 'shortcut', text: item.shortcut ?? '' }),
         ],
       );
-      button.disabled = !this.commands.isEnabled(item.command);
+      button.disabled = !this.commands.isEnabled(command);
       button.addEventListener('click', () => {
         this.closeMenu();
-        void this.commands.run(item.command);
+        void this.commands.run(command);
       });
       button.addEventListener('keydown', (event) => {
         const items = Array.from(list.querySelectorAll<HTMLButtonElement>('.menu-item'));

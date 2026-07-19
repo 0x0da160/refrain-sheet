@@ -4,6 +4,8 @@ import { AppState } from './app/app-state';
 import { ClipboardController } from './app/clipboard-controller';
 import { Commands, type UiPort } from './app/commands';
 import { getLocale, initLocale, onLocaleChange, t } from './app/i18n';
+import { applySheetFont, getSheetFont } from './app/sheet-font';
+import { resolveShortcut } from './app/shortcuts';
 import { initCsvEngine } from './core/csv-engine';
 import { validateDocument } from './core/validation';
 import { Dialogs, Toasts } from './ui/dialogs';
@@ -19,6 +21,8 @@ import { TabBar } from './ui/tab-bar';
 function bootstrap(): void {
   initLocale();
   document.documentElement.lang = getLocale();
+  // Apply the persisted spreadsheet font before first paint (pure CSS var).
+  applySheetFont(getSheetFont());
 
   // Start instantiating the embedded WASM CSV core in the background (decoded
   // locally from Base64 — never fetched; falls back to the identical JS engine
@@ -52,6 +56,7 @@ function bootstrap(): void {
     openFindBar: (replaceMode) => findBar.open(replaceMode),
     findNext: (direction) => findBar.next(direction),
     showAbout: () => void dialogs.showAbout(),
+    showFormulaHelp: () => void dialogs.showFormulaHelp(),
     chooseSettings: (current) => dialogs.chooseSettings(current),
     setBusy: (label) => loadingOverlay.set(label),
   };
@@ -66,6 +71,7 @@ function bootstrap(): void {
   const menuBar = new MenuBar(commands, {
     wrap: () => state.wrapCells,
     stickyFirstRow: () => state.stickyFirstRow,
+    sheetFont: () => getSheetFont(),
   });
   const tabBar = new TabBar(state, commands);
   const findBar = new FindBar(state, commands, grid);
@@ -160,56 +166,27 @@ function bootstrap(): void {
   });
 
   // ----- Keyboard shortcuts (shared command layer) -----
+  // Routing lives in the pure `resolveShortcut` (unit-tested): it returns a
+  // command only for recognized, non-reserved accelerators and never during
+  // IME composition. We preventDefault only when a command is resolved and the
+  // event is cancelable, so browser/OS/AT shortcuts are never suppressed.
   window.addEventListener('keydown', (event) => {
-    const mod = event.ctrlKey || event.metaKey;
     const target = event.target as HTMLElement | null;
-    const inTextField = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
-    const key = event.key.toLowerCase();
-
-    if (mod && !event.shiftKey && key === 'n') {
-      // Browsers may reserve Ctrl+N for a new window; when the page does
-      // receive it, it creates a new spreadsheet document instead.
-      event.preventDefault();
-      void commands.run('file.new');
-    } else if (mod && !event.shiftKey && key === 'o') {
-      event.preventDefault();
-      void commands.run('file.open');
-    } else if (mod && event.shiftKey && key === 's') {
-      event.preventDefault();
-      void commands.run('file.saveOptions');
-    } else if (mod && key === 's') {
-      event.preventDefault();
-      void commands.run('file.save');
-    } else if (mod && key === 'w') {
-      // Browsers may reserve Ctrl+W for closing the browser tab; when the
-      // page does receive it, it closes the active file tab instead.
-      event.preventDefault();
-      void commands.run('file.closeTab');
-    } else if (mod && key === 'f') {
-      event.preventDefault();
-      void commands.run('search.find');
-    } else if (mod && key === 'h') {
-      event.preventDefault();
-      void commands.run('search.replace');
-    } else if (mod && key === 'd' && !inTextField) {
-      event.preventDefault();
-      void commands.run('edit.fillDown');
-    } else if (mod && key === 'z' && !inTextField) {
-      event.preventDefault();
-      void commands.run(event.shiftKey ? 'edit.redo' : 'edit.undo');
-    } else if (mod && key === 'y' && !inTextField) {
-      event.preventDefault();
-      void commands.run('edit.redo');
-    } else if (mod && (event.key === 'Tab' || event.key === 'PageDown')) {
-      event.preventDefault();
-      void commands.run(event.shiftKey && event.key === 'Tab' ? 'tab.prev' : 'tab.next');
-    } else if (mod && event.key === 'PageUp') {
-      event.preventDefault();
-      void commands.run('tab.prev');
-    } else if (event.key === 'F3') {
-      event.preventDefault();
-      void commands.run(event.shiftKey ? 'search.findPrev' : 'search.findNext');
+    const inTextField =
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target?.isContentEditable === true;
+    const command = resolveShortcut(event, {
+      inTextField,
+      isComposing: event.isComposing,
+    });
+    if (!command) {
+      return;
     }
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+    void commands.run(command);
   });
 
   // ----- Whole-window drag & drop with visual feedback -----

@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { SHEET_FONTS } from '../src/app/sheet-font';
-import { Grid, ROW_HEIGHT } from '../src/ui/grid';
+import { Grid, ROW_HEIGHT, WRAP_LINE_HEIGHT } from '../src/ui/grid';
 import { doc } from './helpers';
 
 const css = readFileSync('src/styles.css', 'utf8');
@@ -45,9 +45,17 @@ describe('grid typography model (stylesheet)', () => {
     expect(ruleBody('* ')).toMatch(/box-sizing:\s*border-box/);
   });
 
-  it('wrapped (multi-line) cells opt out of the single-line centering box', () => {
-    const body = ruleBody('#app.wrap-cells .vcell');
-    expect(body).toMatch(/line-height:\s*1\.45/);
+  it('only rows measured as wrapped switch to the multi-line centering box', () => {
+    // Conditional wrapping: the multi-line box is keyed to `.vgrid-row.wrapped`
+    // data cells (rows the grid measured as needing >1 visual line), never to a
+    // global wrap-mode class that would grow every row. It stays vertically
+    // centered (flex) and uses the wrap line box, in sync with WRAP_LINE_HEIGHT.
+    const body = ruleBody('.vgrid-row.wrapped .vcell[data-col]');
+    expect(body).toMatch(/white-space:\s*pre-wrap/);
+    expect(body).toMatch(/overflow-wrap:\s*break-word/);
+    expect(body).toMatch(/align-items:\s*center/);
+    expect(body).toMatch(/line-height:\s*var\(--grid-wrap-line\)/);
+    expect(css).toContain(`--grid-wrap-line: ${WRAP_LINE_HEIGHT}px`);
   });
 
   it('the centering is font-independent: no sheet font gets its own line-height', () => {

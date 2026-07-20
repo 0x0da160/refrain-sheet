@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from '../core/byte-csv-parser';
 import type { CellRange } from '../core/clipboard';
-import { initCsvEngine } from '../core/csv-engine';
+import { getRcsvCodec, initCsvEngine } from '../core/csv-engine';
 import {
   buildCsvExportBytes,
   newCsvExportScan,
@@ -70,6 +70,17 @@ export interface UiPort {
   confirmConvert(reason: ConvertReason, name: string): Promise<boolean>;
   /** Explain that a spreadsheet document is saved as .rcsv (per-tab, once). */
   explainRcsvSave(name: string): Promise<boolean>;
+  /**
+   * The RCSV Save dialog: pick the container's compression method. `available`
+   * lists only methods writable in the current build; `current` is preselected.
+   * Resolves with the chosen method id, or null when cancelled.
+   */
+  chooseRcsvSave(
+    name: string,
+    current: number,
+    available: number[],
+    downloadNote: string | null,
+  ): Promise<number | null>;
   /**
    * The CSV export options dialog: explains the lossy conversion and lets the
    * user choose encoding, line endings, and BOM behavior. Resolving with
@@ -199,6 +210,8 @@ export class Commands {
       case 'search.findPrev':
         return tab !== null;
       case 'file.saveOptions':
+        // CSV: encoding/EOL/BOM options. RCSV: the compression selector.
+        return tab !== null;
       case 'file.reopen':
       case 'sheet.convert':
         return tab !== null && tab.doc.kind === 'csv';
@@ -607,6 +620,10 @@ export class Commands {
   }
 
   private async saveWithOptions(tab: Tab): Promise<void> {
+    if (tab.doc.kind === 'rcsv') {
+      await this.saveRcsvWithOptions(tab);
+      return;
+    }
     if (tab.doc.kind !== 'csv') {
       return;
     }
@@ -616,6 +633,36 @@ export class Commands {
       return;
     }
     await this.save(tab, options);
+  }
+
+  /**
+   * The RCSV Save dialog: choose the container's compression method and save.
+   * The active codec's writable methods are offered (Zstandard recommended and
+   * preselected for new documents; an existing document preselects its own
+   * method). A plain Ctrl+S save always reuses the document's current method,
+   * so the method never changes silently — only this dialog changes it.
+   */
+  private async saveRcsvWithOptions(tab: Tab): Promise<void> {
+    const doc = tab.doc;
+    if (doc.kind !== 'rcsv') {
+      return;
+    }
+    // The codec only reports its real writable methods once the WASM engine is
+    // instantiated; without it, only the uncompressed store method is offered.
+    await initCsvEngine();
+    const codec = getRcsvCodec();
+    const available = codec.writableMethods();
+    const current = doc.compression ?? codec.defaultMethod();
+    const willDownload = tab.handle ? null : t('save.downloadNote', { name: tab.name });
+    const method = await this.ui.chooseRcsvSave(tab.name, current, available, willDownload);
+    if (method === null) {
+      return;
+    }
+    doc.setCompression(method);
+    // The dialog already explained the .rcsv format, so the plain save path
+    // below should not show the one-time explanation again.
+    tab.rcsvSaveExplained = true;
+    await this.saveRcsv(tab);
   }
 
   /**

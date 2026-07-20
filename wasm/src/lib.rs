@@ -107,6 +107,30 @@ pub fn rcsv_inflate(bytes: &[u8], max_len: u32) -> Option<Vec<u8>> {
     compress::inflate(bytes, max_len as usize)
 }
 
+/// Zstandard compression (method 0x02) for the `.rcsv` container payload.
+#[wasm_bindgen(js_name = rcsvZstd)]
+pub fn rcsv_zstd(bytes: &[u8]) -> Vec<u8> {
+    compress::zstd(bytes)
+}
+
+/// Zstandard decompression, bounded by `max_len` output bytes (bomb guard).
+#[wasm_bindgen(js_name = rcsvUnzstd)]
+pub fn rcsv_unzstd(bytes: &[u8], max_len: u32) -> Option<Vec<u8>> {
+    compress::unzstd(bytes, max_len as usize)
+}
+
+/// LZ4 Frame compression (method 0x03) for the `.rcsv` container payload.
+#[wasm_bindgen(js_name = rcsvLz4)]
+pub fn rcsv_lz4(bytes: &[u8]) -> Vec<u8> {
+    compress::lz4(bytes)
+}
+
+/// LZ4 Frame decompression, bounded by `max_len` output bytes (bomb guard).
+#[wasm_bindgen(js_name = rcsvUnlz4)]
+pub fn rcsv_unlz4(bytes: &[u8], max_len: u32) -> Option<Vec<u8>> {
+    compress::unlz4(bytes, max_len as usize)
+}
+
 /// CRC-32 (IEEE) checksum of the container's uncompressed body.
 #[wasm_bindgen(js_name = rcsvCrc32)]
 pub fn rcsv_crc32(bytes: &[u8]) -> u32 {

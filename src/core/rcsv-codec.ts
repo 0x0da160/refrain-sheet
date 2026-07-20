@@ -1,6 +1,21 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from './byte-csv-parser';
-import { getRcsvCodec, RCSV_COMPRESSION_DEFLATE, RCSV_COMPRESSION_STORE } from './csv-engine';
+import {
+  getRcsvCodec,
+  RCSV_COMPRESSION_DEFLATE,
+  RCSV_COMPRESSION_LZ4,
+  RCSV_COMPRESSION_STORE,
+  RCSV_COMPRESSION_ZSTD,
+  RCSV_METHODS,
+} from './csv-engine';
+
+export {
+  RCSV_COMPRESSION_STORE,
+  RCSV_COMPRESSION_DEFLATE,
+  RCSV_COMPRESSION_ZSTD,
+  RCSV_COMPRESSION_LZ4,
+  RCSV_METHODS,
+};
 
 /**
  * Binary `.rcsv` container format (version 2). Replaces the legacy JSON
@@ -16,14 +31,19 @@ import { getRcsvCodec, RCSV_COMPRESSION_DEFLATE, RCSV_COMPRESSION_STORE } from '
  * off  size  field
  * 0    4     magic "RCSV" (0x52 0x43 0x53 0x56)
  * 4    1     container version (2)
- * 5    1     compression method (0 = store, 1 = deflate)
+ * 5    1     compression method (0 = store, 1 = deflate, 2 = zstd, 3 = lz4 frame)
  * 6    1     flags (reserved, 0)
- * 7    1     reserved (0)
+ * 7    1     codec profile version (0)
  * 8    4     uncompressed body length (u32)
  * 12   4     CRC-32 of the uncompressed body (u32)
  * 16   4     compressed payload length (u32)
  * 20   …     payload
  * ```
+ *
+ * The compression method is per-file: a container records which codec packed
+ * its payload, so any supported method round-trips and unknown methods are
+ * rejected safely. The default for new documents is Zstandard (method 2). CRC-32
+ * detects accidental corruption only — it is not tamper protection.
  *
  * Body layout (little-endian), all strings UTF-8. Body version 2 adds the
  * creating/updating application metadata after the delimiter; version 1 (no
@@ -53,6 +73,13 @@ export const RCSV_BODY_VERSION = 2;
 /** Maximum stored length (bytes) of the application name/version metadata strings. */
 const MAX_META_LENGTH = 255;
 const HEADER_SIZE = 20;
+/**
+ * Codec profile version stored at header byte 7. All current codecs use stable
+ * frame formats (DEFLATE/RFC-1951, Zstandard, LZ4 Frame) at profile 0; the byte
+ * is reserved so a future codec revision can be distinguished and rejected
+ * safely by older readers. Non-zero profiles are unsupported for now.
+ */
+export const RCSV_CODEC_PROFILE = 0;
 
 export const MAX_RCSV_ROWS = 2_000_000;
 export const MAX_RCSV_COLS = 16_384;
@@ -76,6 +103,13 @@ export interface RcsvData {
    */
   appName?: string;
   appVersion?: string;
+  /**
+   * Compression method the container was packed with (one of the
+   * `RCSV_COMPRESSION_*` ids). Populated on decode so a document can preserve
+   * its method on the next save; ignored on encode (the method is passed to
+   * {@link encodeRcsv} explicitly).
+   */
+  compression?: number;
 }
 
 export type RcsvDecodeError =
@@ -83,13 +117,49 @@ export type RcsvDecodeError =
 
 export type RcsvDecodeResult = { ok: true; data: RcsvData } | { ok: false; error: RcsvDecodeError };
 
+/** Thrown by {@link encodeRcsv} when the requested method cannot be written here. */
+export class RcsvEncodeError extends Error {
+  constructor(readonly method: number) {
+    super(`rcsv: compression method ${method} is not available in this build`);
+    this.name = 'RcsvEncodeError';
+  }
+}
+
+/** True when `method` is a defined container compression method. */
+export function isRcsvMethod(method: number): boolean {
+  return RCSV_METHODS.includes(method);
+}
+
+/** i18n key stub for a method (`rcsv.method.<name>`) used for labels/descriptions. */
+export function rcsvMethodKey(method: number): string {
+  switch (method) {
+    case RCSV_COMPRESSION_ZSTD:
+      return 'rcsv.method.zstd';
+    case RCSV_COMPRESSION_LZ4:
+      return 'rcsv.method.lz4';
+    case RCSV_COMPRESSION_DEFLATE:
+      return 'rcsv.method.deflate';
+    default:
+      return 'rcsv.method.store';
+  }
+}
+
 const DELIMS: Record<number, DelimiterId> = { 0x2c: ',', 0x3b: ';', 0x09: '\t' };
 
-/** Encode a sheet into the binary `.rcsv` container. */
-export function encodeRcsv(data: RcsvData): Uint8Array {
+/**
+ * Encode a sheet into the binary `.rcsv` container using `method` (defaults to
+ * the active codec's preferred method — Zstandard when the WASM engine is
+ * available). Throws {@link RcsvEncodeError} when `method` cannot be written in
+ * this build, so the caller can surface a localized error and never silently
+ * substitutes a different codec.
+ */
+export function encodeRcsv(data: RcsvData, method: number = getRcsvCodec().defaultMethod()): Uint8Array {
   const body = encodeBody(data);
   const codec = getRcsvCodec();
-  const { method, payload } = codec.compress(body);
+  const payload = codec.compress(body, method);
+  if (payload === null) {
+    throw new RcsvEncodeError(method);
+  }
   const crc = codec.crc32(body);
 
   const out = new Uint8Array(HEADER_SIZE + payload.length);
@@ -98,7 +168,7 @@ export function encodeRcsv(data: RcsvData): Uint8Array {
   out[4] = RCSV_CONTAINER_VERSION;
   out[5] = method;
   out[6] = 0;
-  out[7] = 0;
+  out[7] = RCSV_CODEC_PROFILE;
   view.setUint32(8, body.length, true);
   view.setUint32(12, crc, true);
   view.setUint32(16, payload.length, true);
@@ -120,7 +190,12 @@ export function decodeRcsv(bytes: Uint8Array): RcsvDecodeResult {
     return { ok: false, error: 'bad-version' };
   }
   const method = bytes[5];
-  if (method !== RCSV_COMPRESSION_STORE && method !== RCSV_COMPRESSION_DEFLATE) {
+  if (!isRcsvMethod(method)) {
+    // Unknown / future compression method — reject safely, never guess.
+    return { ok: false, error: 'unsupported-compression' };
+  }
+  // A future codec profile is not something this build can decode safely.
+  if (bytes[7] !== RCSV_CODEC_PROFILE) {
     return { ok: false, error: 'unsupported-compression' };
   }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -137,17 +212,20 @@ export function decodeRcsv(bytes: Uint8Array): RcsvDecodeResult {
   const codec = getRcsvCodec();
   const body = codec.decompress(payload, method, bodyLen);
   if (!body) {
-    // A store payload we can always read; a deflate payload needs the WASM
-    // engine. Distinguish so the message can be accurate.
-    return {
-      ok: false,
-      error: method === RCSV_COMPRESSION_DEFLATE ? 'unsupported-compression' : 'bad-shape',
-    };
+    // Reconstruction failed. If this build cannot even write the method it
+    // lacks the matching decoder (the JS fallback for any compressed method),
+    // so report it as unsupported; otherwise the payload is corrupt/truncated.
+    const decodable = method === RCSV_COMPRESSION_STORE || codec.canWrite(method);
+    return { ok: false, error: decodable ? 'bad-shape' : 'unsupported-compression' };
   }
   if (codec.crc32(body) !== crc) {
     return { ok: false, error: 'checksum' };
   }
-  return decodeBody(body);
+  const decoded = decodeBody(body);
+  if (decoded.ok) {
+    decoded.data.compression = method;
+  }
+  return decoded;
 }
 
 function encodeBody(data: RcsvData): Uint8Array {

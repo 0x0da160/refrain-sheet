@@ -8,6 +8,10 @@ import initWasm, {
   rcsvCrc32 as wasmCrc32,
   rcsvDeflate as wasmDeflate,
   rcsvInflate as wasmInflate,
+  rcsvLz4 as wasmLz4,
+  rcsvUnlz4 as wasmUnlz4,
+  rcsvUnzstd as wasmUnzstd,
+  rcsvZstd as wasmZstd,
   sniffDelimiter as wasmSniffDelimiter,
   statsAggregate as wasmStatsAggregate,
 } from '../wasm-gen/refrain_csv_core';
@@ -53,22 +57,46 @@ export interface CsvEngine {
   countLiteral(haystack: Uint8Array, needle: Uint8Array): number;
 }
 
-/** Compression methods recorded in the binary `.rcsv` container header. */
-export const RCSV_COMPRESSION_STORE = 0;
-export const RCSV_COMPRESSION_DEFLATE = 1;
+/**
+ * Compression methods recorded in the binary `.rcsv` container header. All
+ * three real codecs are pure-Rust and build for `wasm32-unknown-unknown` with
+ * no C toolchain: DEFLATE (miniz_oxide), Zstandard (ruzstd), LZ4 Frame
+ * (lz4_flex). See `docs/rcsv-format.md`.
+ */
+export const RCSV_COMPRESSION_STORE = 0x00;
+export const RCSV_COMPRESSION_DEFLATE = 0x01;
+export const RCSV_COMPRESSION_ZSTD = 0x02;
+export const RCSV_COMPRESSION_LZ4 = 0x03;
+
+/** All defined method ids, ordered most-recommended first (Zstd is default). */
+export const RCSV_METHODS: readonly number[] = [
+  RCSV_COMPRESSION_ZSTD,
+  RCSV_COMPRESSION_LZ4,
+  RCSV_COMPRESSION_DEFLATE,
+  RCSV_COMPRESSION_STORE,
+];
 
 /**
  * Compression + checksum primitives for the binary `.rcsv` container. The
- * WASM-backed codec compresses with DEFLATE (implemented in Rust); the JS
- * fallback stores payloads uncompressed. Both can read the "store" method, so
- * a document written under the JS fallback always round-trips; reading a
- * DEFLATE-compressed container requires the WASM engine.
+ * WASM-backed codec can encode/decode every method; the JS fallback can only
+ * store payloads uncompressed (method 0x00), so a document written under the
+ * fallback always round-trips, but reading or writing a compressed container
+ * requires the WASM engine. Which methods a build can *write* is reported by
+ * {@link RcsvCodec.writableMethods} so the Save dialog only ever offers usable
+ * codecs (per the RCSV compression policy).
  */
 export interface RcsvCodec {
-  /** Compression method this codec writes: STORE or DEFLATE. */
-  readonly writeMethod: number;
-  /** Compress the body; returns [method, payload]. */
-  compress(body: Uint8Array): { method: number; payload: Uint8Array };
+  /** True when this build can encode `method`. */
+  canWrite(method: number): boolean;
+  /** Methods this build can encode, most-recommended first. */
+  writableMethods(): number[];
+  /** Preferred method to write: Zstd when available, else DEFLATE, else store. */
+  defaultMethod(): number;
+  /**
+   * Compress `body` with `method`. Returns the payload, or `null` when this
+   * build cannot write `method` (never silently substitutes another codec).
+   */
+  compress(body: Uint8Array, method: number): Uint8Array | null;
   /**
    * Decompress `payload` (encoded with `method`) to exactly `expectedLen`
    * bytes. Bounded by `expectedLen` as a decompression-bomb guard. Returns
@@ -98,33 +126,80 @@ function crc32Js(bytes: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
+/** A stored payload round-trips only when its length matches the header. */
+function storeDecompress(payload: Uint8Array, expectedLen: number): Uint8Array | null {
+  return payload.length === expectedLen ? payload : null;
+}
+
 const jsCodec: RcsvCodec = {
-  writeMethod: RCSV_COMPRESSION_STORE,
-  compress(body) {
-    return { method: RCSV_COMPRESSION_STORE, payload: body };
+  canWrite(method) {
+    return method === RCSV_COMPRESSION_STORE;
+  },
+  writableMethods() {
+    return [RCSV_COMPRESSION_STORE];
+  },
+  defaultMethod() {
+    // The JS fallback cannot run any compressor; storing is the only option.
+    return RCSV_COMPRESSION_STORE;
+  },
+  compress(body, method) {
+    return method === RCSV_COMPRESSION_STORE ? body : null;
   },
   decompress(payload, method, expectedLen) {
-    if (method !== RCSV_COMPRESSION_STORE) {
-      return null; // DEFLATE requires the WASM engine
-    }
-    return payload.length === expectedLen ? payload : null;
+    // Every compressed method requires the WASM engine.
+    return method === RCSV_COMPRESSION_STORE ? storeDecompress(payload, expectedLen) : null;
   },
   crc32: crc32Js,
 };
 
 const wasmCodec: RcsvCodec = {
-  writeMethod: RCSV_COMPRESSION_DEFLATE,
-  compress(body) {
-    return { method: RCSV_COMPRESSION_DEFLATE, payload: wasmDeflate(body) };
+  canWrite(method) {
+    return (
+      method === RCSV_COMPRESSION_STORE ||
+      method === RCSV_COMPRESSION_DEFLATE ||
+      method === RCSV_COMPRESSION_ZSTD ||
+      method === RCSV_COMPRESSION_LZ4
+    );
+  },
+  writableMethods() {
+    // Most-recommended first: Zstd (default), LZ4 (fast), DEFLATE (compatible),
+    // then store (uncompressed).
+    return [RCSV_COMPRESSION_ZSTD, RCSV_COMPRESSION_LZ4, RCSV_COMPRESSION_DEFLATE, RCSV_COMPRESSION_STORE];
+  },
+  defaultMethod() {
+    return RCSV_COMPRESSION_ZSTD;
+  },
+  compress(body, method) {
+    switch (method) {
+      case RCSV_COMPRESSION_STORE:
+        return body;
+      case RCSV_COMPRESSION_DEFLATE:
+        return wasmDeflate(body);
+      case RCSV_COMPRESSION_ZSTD:
+        return wasmZstd(body);
+      case RCSV_COMPRESSION_LZ4:
+        return wasmLz4(body);
+      default:
+        return null;
+    }
   },
   decompress(payload, method, expectedLen) {
-    if (method === RCSV_COMPRESSION_STORE) {
-      return payload.length === expectedLen ? payload : null;
+    let out: Uint8Array | undefined;
+    switch (method) {
+      case RCSV_COMPRESSION_STORE:
+        return storeDecompress(payload, expectedLen);
+      case RCSV_COMPRESSION_DEFLATE:
+        out = wasmInflate(payload, expectedLen);
+        break;
+      case RCSV_COMPRESSION_ZSTD:
+        out = wasmUnzstd(payload, expectedLen);
+        break;
+      case RCSV_COMPRESSION_LZ4:
+        out = wasmUnlz4(payload, expectedLen);
+        break;
+      default:
+        return null;
     }
-    if (method !== RCSV_COMPRESSION_DEFLATE) {
-      return null;
-    }
-    const out = wasmInflate(payload, expectedLen);
     return out && out.length === expectedLen ? out : null;
   },
   crc32(bytes) {

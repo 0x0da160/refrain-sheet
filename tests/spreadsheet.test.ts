@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { ClipboardController } from '../src/app/clipboard-controller';
+import { RCSV_COMPRESSION_LZ4 } from '../src/core/csv-engine';
 import type { RcsvDocument } from '../src/core/rcsv-document';
 import { serializeDocument } from '../src/core/serializer';
 import { asCsv, doc, utf8 } from './helpers';
@@ -19,6 +20,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
     explainRcsvSave: vi.fn(async () => true),
+    chooseRcsvSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => ({
       encoding: 'utf-8' as const,
       bom: false,
@@ -369,12 +371,35 @@ describe('saving and exporting RCSV', () => {
     }
   });
 
-  it('save-with-options and reopen are disabled for RCSV documents', async () => {
+  it('reopen/convert are disabled for RCSV; save-with-options opens the compression dialog', async () => {
     const { commands } = await converted('a\n');
-    expect(commands.isEnabled('file.saveOptions')).toBe(false);
+    // Save with Options is the RCSV compression dialog, so it stays enabled.
+    expect(commands.isEnabled('file.saveOptions')).toBe(true);
     expect(commands.isEnabled('file.reopen')).toBe(false);
     expect(commands.isEnabled('sheet.exportCsv')).toBe(true);
     expect(commands.isEnabled('sheet.convert')).toBe(false);
+  });
+
+  it('the RCSV Save dialog applies the chosen compression method', async () => {
+    const ui = stubUi({ chooseRcsvSave: vi.fn(async () => RCSV_COMPRESSION_LZ4) });
+    const { commands, tab } = await converted('a\n', ui);
+    await commands.run('file.saveOptions');
+    expect(ui.chooseRcsvSave).toHaveBeenCalledTimes(1);
+    expect(tab.doc.kind).toBe('rcsv');
+    if (tab.doc.kind === 'rcsv') {
+      expect(tab.doc.compression).toBe(RCSV_COMPRESSION_LZ4);
+    }
+  });
+
+  it('cancelling the RCSV Save dialog leaves the method unchanged', async () => {
+    const ui = stubUi({ chooseRcsvSave: vi.fn(async () => null) });
+    const { commands, tab } = await converted('a\n', ui);
+    await commands.run('file.saveOptions');
+    expect(ui.chooseRcsvSave).toHaveBeenCalledTimes(1);
+    if (tab.doc.kind === 'rcsv') {
+      // Never explicitly set → still the codec default (undefined marker).
+      expect(tab.doc.compression).toBeUndefined();
+    }
   });
 });
 

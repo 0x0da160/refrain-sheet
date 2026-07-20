@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import type { AppState, Tab } from '../app/app-state';
 import { t } from '../app/i18n';
+import { getRcsvCodec } from '../core/csv-engine';
+import { rcsvMethodKey } from '../core/rcsv-codec';
 import { forEachIndexSliced } from '../core/scheduler';
 import {
   computeSelectionStats,
@@ -62,6 +64,13 @@ export class StatusBar {
       this.element.append(el('span', { className: 'doc-kind', text: t('status.doc.rcsv') }));
       this.element.append(
         el('span', { text: t('status.gridSize', { rows: doc.rowCount, cols: doc.columnCount }) }),
+      );
+      const method = doc.compression ?? getRcsvCodec().defaultMethod();
+      this.element.append(
+        el('span', {
+          text: `${t('status.compression')}: ${t(`${rcsvMethodKey(method)}.short`)}`,
+          attrs: { title: t('status.compressionTitle') },
+        }),
       );
       const formulas = doc.countFormulaCells();
       if (formulas > 0) {

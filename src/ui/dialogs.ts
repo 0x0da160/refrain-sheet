@@ -14,6 +14,7 @@ import {
 import type { DelimiterId } from '../core/byte-csv-parser';
 import type { CsvExportOptions, CsvLineEnding } from '../core/csv-export';
 import type { EncodingId } from '../core/encoding';
+import { rcsvMethodKey } from '../core/rcsv-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
 import type { ValidationSummary } from '../core/validation';
 import { APP_VERSION_DISPLAY } from '../app/version';
@@ -336,6 +337,60 @@ export class Dialogs {
       buttons.append(
         dialogButton(t('dialog.rcsvSave.cancel'), false, false, () => close(false)),
         dialogButton(t('dialog.rcsvSave.ok'), true, true, () => close(true)),
+      );
+    });
+  }
+
+  /**
+   * The RCSV Save dialog: explains the `.rcsv` format and lets the user pick a
+   * compression method. `available` lists only the methods the current build
+   * can actually write (Zstandard is recommended and preselected for new
+   * documents; an existing document preselects its own method). Resolves with
+   * the chosen method id, or null on cancel.
+   */
+  chooseRcsvSave(
+    name: string,
+    current: number,
+    available: number[],
+    downloadNote: string | null,
+  ): Promise<number | null> {
+    return openDialog<number | null>(t('dialog.rcsvSave.title'), null, (body, buttons, close) => {
+      body.append(el('p', { text: t('dialog.rcsvSave.message', { name }) }));
+
+      const select = el('select', { attrs: { id: 'rcsv-compression' } }) as HTMLSelectElement;
+      for (const method of available) {
+        const option = el('option', {
+          text: t(`${rcsvMethodKey(method)}.label`),
+          attrs: { value: String(method) },
+        });
+        if (method === current) {
+          option.selected = true;
+        }
+        select.append(option);
+      }
+      body.append(
+        el('div', { className: 'form-row' }, [
+          el('label', { text: t('dialog.rcsvSave.compression'), attrs: { for: 'rcsv-compression' } }, [
+            select,
+          ]),
+        ]),
+      );
+
+      // A live description of the highlighted method (ratio/speed trade-off).
+      const desc = el('p', { className: 'dialog-note', text: t(`${rcsvMethodKey(current)}.desc`) });
+      const updateDesc = () => {
+        desc.textContent = t(`${rcsvMethodKey(Number(select.value))}.desc`);
+      };
+      select.addEventListener('change', updateDesc);
+      body.append(desc);
+
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.rcsvSave.note') }));
+      if (downloadNote) {
+        body.append(el('p', { className: 'dialog-note', text: downloadNote }));
+      }
+      buttons.append(
+        dialogButton(t('dialog.rcsvSave.cancel'), false, false, () => close(null)),
+        dialogButton(t('dialog.rcsvSave.ok'), true, true, () => close(Number(select.value))),
       );
     });
   }

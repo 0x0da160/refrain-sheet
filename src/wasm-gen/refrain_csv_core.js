@@ -156,6 +156,70 @@ export function rcsvInflate(bytes, max_len) {
 }
 
 /**
+ * Zstandard compression (method 0x02) for the `.rcsv` container payload.
+ * @param {Uint8Array} bytes
+ * @returns {Uint8Array}
+ */
+export function rcsvZstd(bytes) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rcsvZstd(ptr0, len0);
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
+ * Zstandard decompression, bounded by `max_len` output bytes (bomb guard).
+ * @param {Uint8Array} bytes
+ * @param {number} max_len
+ * @returns {Uint8Array | undefined}
+ */
+export function rcsvUnzstd(bytes, max_len) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rcsvUnzstd(ptr0, len0, max_len);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
+ * LZ4 Frame compression (method 0x03) for the `.rcsv` container payload.
+ * @param {Uint8Array} bytes
+ * @returns {Uint8Array}
+ */
+export function rcsvLz4(bytes) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rcsvLz4(ptr0, len0);
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
+ * LZ4 Frame decompression, bounded by `max_len` output bytes (bomb guard).
+ * @param {Uint8Array} bytes
+ * @param {number} max_len
+ * @returns {Uint8Array | undefined}
+ */
+export function rcsvUnlz4(bytes, max_len) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rcsvUnlz4(ptr0, len0, max_len);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
  * CRC-32 (IEEE) checksum of the container's uncompressed body.
  * @param {Uint8Array} bytes
  * @returns {number}

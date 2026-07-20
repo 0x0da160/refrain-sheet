@@ -64,6 +64,13 @@ export class RcsvDocument {
   private cols: number;
   private revision = 0;
   private savedRevision = 0;
+  /**
+   * Compression method for the next `.rcsv` save (an `RCSV_COMPRESSION_*` id),
+   * or `undefined` to use the active codec's default (Zstandard). Set from the
+   * container on load so a normal save preserves the file's method, and by the
+   * Save dialog when the user picks a different one.
+   */
+  private compressionMethod: number | undefined;
   private readonly formulaCache = new Map<string, CompiledFormula>();
   private memo = new Map<string, FormulaValue>();
   private readonly inProgress = new Set<string>();
@@ -155,7 +162,24 @@ export class RcsvDocument {
     for (const [r, c, input] of cells) {
       data[r][c] = input;
     }
-    return { ok: true, doc: new RcsvDocument(name, delimiter, data, columnCount) };
+    const doc = new RcsvDocument(name, delimiter, data, columnCount);
+    // Preserve the file's compression method so a normal save reuses it.
+    doc.compressionMethod = decoded.data.compression;
+    return { ok: true, doc };
+  }
+
+  /** The compression method the next save will write (`undefined` → codec default). */
+  get compression(): number | undefined {
+    return this.compressionMethod;
+  }
+
+  /**
+   * Choose the compression method for the next save (from the RCSV Save
+   * dialog). Rewriting the container with a different method changes no logical
+   * content, so this does not mark the document dirty on its own.
+   */
+  setCompression(method: number): void {
+    this.compressionMethod = method;
   }
 
   /** Serialize to the versioned binary `.rcsv` container format. */
@@ -196,7 +220,7 @@ export class RcsvDocument {
       appName: APP_NAME,
       appVersion: APP_VERSION,
     };
-    return encodeRcsv(payload);
+    return encodeRcsv(payload, this.compressionMethod);
   }
 
   // ----- Common document surface (shared with LosslessDocument) -----

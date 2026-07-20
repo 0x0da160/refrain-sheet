@@ -81,6 +81,7 @@ const noopUi: UiPort = {
   chooseReopen: async () => null,
   confirmConvert: async () => true,
   explainRcsvSave: async () => true,
+  chooseRcsvSave: async () => 2,
   chooseExportCsv: async () => null,
   chooseInsertShift: async () => null,
   confirm: async () => true,

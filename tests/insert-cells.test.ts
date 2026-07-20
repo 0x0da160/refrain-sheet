@@ -17,6 +17,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
     explainRcsvSave: vi.fn(async () => true),
+    chooseRcsvSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => null),
     chooseInsertShift: vi.fn(async () => 'down' as const),
     confirm: vi.fn(async () => true),

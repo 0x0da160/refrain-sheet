@@ -54,6 +54,8 @@ function bootstrap(): void {
     chooseReopen: (tab) => dialogs.chooseReopen(tab),
     confirmConvert: (reason, name) => dialogs.confirmConvert(reason, name),
     explainRcsvSave: (name) => dialogs.explainRcsvSave(name),
+    chooseRcsvSave: (name, current, available, note) =>
+      dialogs.chooseRcsvSave(name, current, available, note),
     chooseExportCsv: (name) => dialogs.chooseExportCsv(name),
     chooseInsertShift: (rows, cols) => dialogs.chooseInsertShift(rows, cols),
     confirm: (title, message, ok, cancel) => dialogs.confirm(title, message, ok, cancel),

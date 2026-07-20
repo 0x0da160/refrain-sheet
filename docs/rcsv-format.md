@@ -29,30 +29,73 @@ can read or write it. The reference implementation lives in
 - **Versioned.** A magic number plus explicit container and body version bytes
   let future revisions be detected and rejected cleanly rather than
   misinterpreted.
-- **Self-contained runtime.** Compression is DEFLATE, implemented in Rust and
-  compiled to WebAssembly that is embedded in the app as Base64 — never fetched
-  — so the editor works from a `file://` page with no network.
+- **Self-contained runtime.** Every compression codec is implemented in
+  **pure Rust** and compiled to WebAssembly that is embedded in the app as
+  Base64 — never fetched — so the editor works from a `file://` page with no
+  network, no C/C++ toolchain, and no server-side compression service.
 
-## Compression method
+## Compression methods
 
-The container records a one-byte compression method:
+The container records a one-byte compression method. All three real codecs are
+pure Rust and build for `wasm32-unknown-unknown` with no C toolchain:
 
-| Value | Method    | Notes                                                      |
-| ----- | --------- | ---------------------------------------------------------- |
-| `0`   | `store`   | Body stored uncompressed. Always readable.                 |
-| `1`   | `deflate` | Raw DEFLATE (RFC 1951). Written by the WebAssembly engine. |
+| Value  | Method    | Crate         | Role                                                        |
+| ------ | --------- | ------------- | ----------------------------------------------------------- |
+| `0x00` | `store`   | —             | Uncompressed. Explicit debugging / interoperability option. |
+| `0x01` | `deflate` | `miniz_oxide` | Raw DEFLATE (RFC 1951). Compatibility fallback.             |
+| `0x02` | `zstd`    | `ruzstd`      | Zstandard. **Default** for new documents.                   |
+| `0x03` | `lz4`     | `lz4_flex`    | LZ4 Frame. Speed-priority option.                           |
 
-> **Why DEFLATE, not Zstd?** The Refrain WASM core targets
+Method ids `0x80`–`0xFF` are reserved for future or experimental extensions.
+
+### Default policy
+
+- New RCSV documents and CSV→RCSV conversions default to **Zstandard** (`0x02`).
+  It is never the uncompressed `store` method.
+- Zstandard uses a moderate level: `ruzstd`’s encoder implements the `Fastest`
+  level (≈ zstd level 1); its higher levels are not yet implemented, so
+  `Fastest` is the level written. The output is a conformant Zstandard frame
+  readable by any compliant decoder.
+- **LZ4 Frame** is offered as an explicit speed-priority option, optimized for
+  fast saving and opening; its files may be larger than Zstandard.
+- **DEFLATE** is the compatibility fallback. It is chosen automatically only
+  when Zstandard cannot be used in the current build.
+- Saving an **existing** RCSV document preselects and preserves that file’s
+  method; the method is never changed silently by a normal save. Choosing a
+  different method in the Save dialog rewrites the container but changes no
+  logical content (cell values, formulas, structure, or metadata) other than
+  normal save timestamps and the updater version.
+- A method the current build cannot use is not offered, and a document written
+  with an unavailable/unsupported method fails safely with a localized message
+  rather than being guessed at or reinterpreted.
+
+> **Why `ruzstd`, not the `zstd` crate?** The Refrain WASM core targets
 > `wasm32-unknown-unknown`, which has no C toolchain; the `zstd` crate’s
-> `zstd-sys` C bindings do not build for that target. The dependency-free,
-> pure-Rust [`miniz_oxide`](https://crates.io/crates/miniz_oxide) DEFLATE
-> implementation compiles cleanly to WASM and is used instead. The
-> compression-method byte reserves room to add a Zstd method later without
-> breaking existing files.
+> `zstd-sys` C bindings do not build there. `ruzstd` is a dependency-light,
+> pure-Rust Zstandard encoder **and** decoder that compiles cleanly to WASM, so
+> Zstandard can be the real default with no native code.
+
+### Save dialog
+
+The RCSV Save dialog (File → Save with Options…) offers exactly these localized
+choices, in English and Japanese:
+
+| Label                     | Method | Description                                          |
+| ------------------------- | ------ | ---------------------------------------------------- |
+| `Zstandard (Recommended)` | `0x02` | Balanced ratio and speed; the default choice.        |
+| `LZ4 Frame (Fast)`        | `0x03` | Prioritizes fast saving/opening; may be larger.      |
+| `DEFLATE (Compatible)`    | `0x01` | Compatibility fallback when Zstandard is unsuitable. |
+| `None (Uncompressed)`     | `0x00` | No compression; debugging/interoperability only.     |
+
+Only methods actually bundled and usable in the current build are shown. The
+selected method is displayed in the status bar. Compression runs in the embedded
+WASM codec behind the app’s loading indicator (localized phase label with a
+percentage for the serialize phase); on cancellation or failure the in-memory
+document is preserved and no partial file is written.
 
 When the WebAssembly engine is unavailable (rare — it is embedded and normally
-always loads), the JavaScript fallback writes `store` and can always read
-`store`. Reading a `deflate` file requires the WASM engine.
+always loads), the JavaScript fallback writes `store` and can only read `store`;
+reading any compressed file requires the WASM engine.
 
 ## Container layout
 
@@ -63,9 +106,9 @@ followed by the (possibly compressed) body payload.
 | ------ | ---- | --------------------------------------------------- |
 | 0      | 4    | Magic bytes `RCSV` (`0x52 0x43 0x53 0x56`)          |
 | 4      | 1    | Container version — currently `2`                   |
-| 5      | 1    | Compression method (`0` = store, `1` = deflate)     |
+| 5      | 1    | Compression method (`0x00`–`0x03`; see above)       |
 | 6      | 1    | Flags (reserved, must be `0`)                       |
-| 7      | 1    | Reserved (must be `0`)                              |
+| 7      | 1    | Codec profile version (must be `0`)                 |
 | 8      | 4    | Uncompressed body length, `u32`                     |
 | 12     | 4    | CRC-32 (IEEE 802.3) of the uncompressed body, `u32` |
 | 16     | 4    | Compressed payload length, `u32`                    |
@@ -73,10 +116,15 @@ followed by the (possibly compressed) body payload.
 
 A reader must reject the file when: the length is under 20 bytes or the magic
 does not match (`bad-magic`); the container version is not `2` (`bad-version`);
-the method byte is not `0` or `1` (`unsupported-compression`); the stored body
-length exceeds the ceiling (`too-large`); or `20 + payloadLength` does not equal
-the file length (`bad-shape`). After decompression, the CRC-32 must match
-(`checksum`).
+the method byte is not a defined method `0x00`–`0x03`, or the codec profile byte
+is non-zero (`unsupported-compression`); the stored body length exceeds the
+ceiling (`too-large`); or `20 + payloadLength` does not equal the file length
+(`bad-shape`). After decompression, the CRC-32 must match (`checksum`).
+
+Every decompressor is bounded by the stored uncompressed length as an
+allocation ceiling, so a crafted decompression bomb, malformed frame, or
+truncated payload is rejected before it can exhaust memory. CRC-32 detects
+**accidental** corruption only — it is not cryptographic tamper protection.
 
 The decompression ceiling (`MAX_RCSV_BODY_BYTES`) is **512 MiB**.
 

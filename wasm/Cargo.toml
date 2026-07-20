@@ -13,12 +13,23 @@ crate-type = ["cdylib", "rlib"]
 # Pinned exactly: wasm-pack downloads the matching wasm-bindgen-cli, so the
 # crate version must stay deterministic.
 wasm-bindgen = "=0.2.100"
-# Pure-Rust DEFLATE (RFC 1951) for the binary .rcsv container. Chosen over the
-# `zstd` crate because zstd-sys needs a C toolchain, which does not build for
-# the wasm32-unknown-unknown target; miniz_oxide is dependency-free Rust and
-# compiles cleanly to WASM. The .rcsv container records its compression method
-# so a future zstd method can be added without breaking older files.
+# Pure-Rust compression codecs for the binary .rcsv container. All three build
+# cleanly for wasm32-unknown-unknown with no C/C++ toolchain (unlike the `zstd`
+# crate, whose zstd-sys needs cc). The container records a method id per file
+# so any method can be added without breaking older files.
+#
+#   DEFLATE (RFC 1951)  -> miniz_oxide  (compatibility fallback, method 0x01)
+#   Zstandard           -> ruzstd       (default, method 0x02; encoder + decoder)
+#   LZ4 Frame           -> lz4_flex     (speed option, method 0x03)
 miniz_oxide = "=0.8.0"
+# ruzstd provides a pure-Rust Zstandard encoder (ruzstd::encoding) and decoder
+# (ruzstd::decoding); no libzstd / C toolchain. Pinned for reproducible builds.
+# Pinned to 0.8.1: it has the pure-Rust Zstandard encoder (added in 0.8.0) yet
+# still builds on the pinned Rust 1.84.1 toolchain. 0.8.2+ uses the
+# `unsigned_is_multiple_of` API stabilized only in Rust 1.87.
+ruzstd = "=0.8.1"
+# lz4_flex: pure-Rust LZ4 with the Frame format (frame feature, default on).
+lz4_flex = "=0.14.0"
 
 [profile.release]
 opt-level = "s"

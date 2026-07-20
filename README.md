@@ -717,12 +717,33 @@ autocomplete suggestion, or insert a reference by clicking/dragging cells.
 ### The `.rcsv` file format
 
 `.rcsv` is a compact, versioned **binary container**: magic bytes, a header
-with an uncompressed-length field and a CRC-32 checksum, and a
-DEFLATE-compressed body. It holds inert data only (no code, macros, external
-references, or URLs); loading validates magic, version, checksum, shape, and
-size bounds, and enforces a decompression ceiling so a crafted file cannot
-exhaust memory. The full specification is in
+with an uncompressed-length field, a CRC-32 checksum, and a per-file
+compression method, followed by the compressed body. It holds inert data only
+(no code, macros, external references, or URLs); loading validates magic,
+version, checksum, shape, and size bounds, and enforces a decompression ceiling
+so a crafted file cannot exhaust memory. The full specification is in
 [docs/rcsv-format.md](docs/rcsv-format.md).
+
+#### Compression
+
+Each `.rcsv` file records which codec packed its body, so any supported method
+round-trips and unknown methods are rejected safely. All codecs are **pure
+Rust** in the embedded WASM core — no C toolchain, no network, fully offline:
+
+| Method                   | Codec         | When to use                                           |
+| ------------------------ | ------------- | ----------------------------------------------------- |
+| **Zstandard** (default)  | `ruzstd`      | Balanced ratio and speed — the default for new files. |
+| **LZ4 Frame** (fast)     | `lz4_flex`    | Fastest saving/opening; files may be larger.          |
+| **DEFLATE** (compatible) | `miniz_oxide` | Compatibility fallback when Zstandard is unavailable. |
+| **None** (uncompressed)  | —             | Debugging or interoperability only.                   |
+
+New documents and CSV→RCSV conversions default to **Zstandard**. Choose a
+different method any time via **File → Save with Options…**, which opens the
+RCSV Save dialog (localized in English and Japanese). A normal <kbd>Ctrl</kbd>+<kbd>S</kbd>
+save **preserves the file's existing method** — the method never changes
+silently. The status bar shows the method the next save will write. Switching
+methods rewrites the container but never changes cell values, formulas,
+structure, or metadata.
 
 ## Performance and responsiveness
 
@@ -732,8 +753,9 @@ processed, not just raw throughput.
 
 - **Rust/WASM data core.** The performance-critical byte-level work — CSV
   parsing, validation, delimiter sniffing, indexing, serialization planning,
-  `.rcsv` DEFLATE compression and CRC-32, selection-statistic reduction, and
-  long literal searches — is implemented in **Rust compiled to WebAssembly**.
+  `.rcsv` compression (Zstandard, LZ4 Frame, DEFLATE) and CRC-32,
+  selection-statistic reduction, and long literal searches — is implemented in
+  **Rust compiled to WebAssembly**.
   The WASM binary is embedded in the bundle as Base64 and instantiated
   locally; it is **never fetched**, so the app still runs from `file://`. A
   TypeScript fallback with byte-exact, parity-tested semantics runs where

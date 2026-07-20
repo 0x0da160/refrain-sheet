@@ -31,6 +31,22 @@ export function rcsvDeflate(bytes: Uint8Array): Uint8Array;
  */
 export function rcsvInflate(bytes: Uint8Array, max_len: number): Uint8Array | undefined;
 /**
+ * Zstandard compression (method 0x02) for the `.rcsv` container payload.
+ */
+export function rcsvZstd(bytes: Uint8Array): Uint8Array;
+/**
+ * Zstandard decompression, bounded by `max_len` output bytes (bomb guard).
+ */
+export function rcsvUnzstd(bytes: Uint8Array, max_len: number): Uint8Array | undefined;
+/**
+ * LZ4 Frame compression (method 0x03) for the `.rcsv` container payload.
+ */
+export function rcsvLz4(bytes: Uint8Array): Uint8Array;
+/**
+ * LZ4 Frame decompression, bounded by `max_len` output bytes (bomb guard).
+ */
+export function rcsvUnlz4(bytes: Uint8Array, max_len: number): Uint8Array | undefined;
+/**
  * CRC-32 (IEEE) checksum of the container's uncompressed body.
  */
 export function rcsvCrc32(bytes: Uint8Array): number;
@@ -78,6 +94,10 @@ export interface InitOutput {
   readonly applyReplacements: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
   readonly rcsvDeflate: (a: number, b: number) => [number, number];
   readonly rcsvInflate: (a: number, b: number, c: number) => [number, number];
+  readonly rcsvZstd: (a: number, b: number) => [number, number];
+  readonly rcsvUnzstd: (a: number, b: number, c: number) => [number, number];
+  readonly rcsvLz4: (a: number, b: number) => [number, number];
+  readonly rcsvUnlz4: (a: number, b: number, c: number) => [number, number];
   readonly rcsvCrc32: (a: number, b: number) => number;
   readonly statsAggregate: (a: number, b: number) => [number, number];
   readonly countLiteral: (a: number, b: number, c: number, d: number) => number;

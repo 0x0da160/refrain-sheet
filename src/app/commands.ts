@@ -34,6 +34,7 @@ import { AppState, type Selection, type Tab } from './app-state';
 import {
   pickFiles,
   readFileObject,
+  requestSaveHandle,
   saveBytes,
   saveBytesAs,
   type OpenedFile,
@@ -647,22 +648,49 @@ export class Commands {
     if (doc.kind !== 'rcsv') {
       return;
     }
+    // Normalize the extension first (sync) so the picker suggests the right name.
+    if (!tab.name.toLowerCase().endsWith(RCSV_EXTENSION)) {
+      tab.name = `${tab.name}${RCSV_EXTENSION}`;
+    }
+    // A document with no associated file needs a destination. Open the save
+    // picker NOW — synchronously, before the async engine init, the
+    // compression dialog, and the compression itself — so the browser's user
+    // activation (required by showSaveFilePicker) is still valid. Only the
+    // call must be in the gesture; awaiting the result immediately is fine.
+    // When the File System Access API is unavailable this resolves to null and
+    // the completed bytes are downloaded instead.
+    let handle = tab.handle;
+    if (!handle) {
+      try {
+        handle = await requestSaveHandle(tab.name, 'rcsv');
+      } catch (err) {
+        // Picker cancelled: no compression change, no save, no association.
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return;
+        }
+        this.ui.notify(
+          t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
+          'error',
+        );
+        return;
+      }
+    }
     // The codec only reports its real writable methods once the WASM engine is
     // instantiated; without it, only the uncompressed store method is offered.
     await initCsvEngine();
     const codec = getRcsvCodec();
     const available = codec.writableMethods();
     const current = doc.compression ?? codec.defaultMethod();
-    const willDownload = tab.handle ? null : t('save.downloadNote', { name: tab.name });
+    const willDownload = handle ? null : t('save.downloadNote', { name: tab.name });
     const method = await this.ui.chooseRcsvSave(tab.name, current, available, willDownload);
     if (method === null) {
       return;
     }
     doc.setCompression(method);
-    // The dialog already explained the .rcsv format, so the plain save path
-    // below should not show the one-time explanation again.
+    // The dialog already committed to saving as .rcsv, so the write path below
+    // should not show the one-time explanation again.
     tab.rcsvSaveExplained = true;
-    await this.saveRcsv(tab);
+    await this.encodeAndWriteRcsv(tab, handle);
   }
 
   /**
@@ -739,11 +767,47 @@ export class Commands {
     return true;
   }
 
-  /** Save a spreadsheet document as .rcsv (with a one-time explanation). */
+  /**
+   * Save a spreadsheet document as .rcsv (with a one-time explanation).
+   *
+   * The save picker MUST be opened synchronously from the triggering user
+   * gesture: `showSaveFilePicker` requires a live user activation, which is
+   * lost across the `await`ed explanation dialog and the `await`ed
+   * compression. So the destination handle is acquired first (before any
+   * await), and only then does the async explanation + compression + write
+   * run. An existing associated handle overwrites directly with no picker; a
+   * new/Save-As document opens the picker; a build without the File System
+   * Access API downloads the finished bytes.
+   */
   private async saveRcsv(tab: Tab): Promise<boolean> {
     if (tab.doc.kind !== 'rcsv') {
       return false;
     }
+    // Normalize the extension first (sync) so the picker suggests the .rcsv name.
+    if (!tab.name.toLowerCase().endsWith(RCSV_EXTENSION)) {
+      tab.name = `${tab.name}${RCSV_EXTENSION}`;
+    }
+    // Acquire the destination up front, inside the user gesture. `handle` is
+    // null when the File System Access API is unavailable (the finished bytes
+    // are then downloaded); the picker call itself must precede every await.
+    let handle = tab.handle;
+    if (!handle) {
+      try {
+        handle = await requestSaveHandle(tab.name, 'rcsv');
+      } catch (err) {
+        // Picker cancelled: nothing is saved, the file association is
+        // untouched, the document stays dirty, and no success is reported.
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return false;
+        }
+        this.ui.notify(
+          t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
+          'error',
+        );
+        return false;
+      }
+    }
+    // One-time explanation that a spreadsheet is written in the .rcsv format.
     if (!tab.rcsvSaveExplained) {
       const proceed = await this.ui.explainRcsvSave(tab.name);
       if (!proceed) {
@@ -751,15 +815,29 @@ export class Commands {
       }
       tab.rcsvSaveExplained = true;
     }
-    if (!tab.name.toLowerCase().endsWith(RCSV_EXTENSION)) {
-      tab.name = `${tab.name}${RCSV_EXTENSION}`;
-    }
-    // Serialization compresses the body and computes the checksum; show the
-    // busy indicator so a large sheet never appears to freeze. Large sheets
-    // collect their cells in time slices (phase 1, with a percentage) before
-    // the compression phase (phase 2, labeled — compression happens inside
-    // the codec, so no honest percentage exists for it).
+    return this.encodeAndWriteRcsv(tab, handle);
+  }
+
+  /**
+   * Serialize + compress the RCSV document behind the busy indicator, then
+   * write the completed bytes to `handle` (an already-acquired destination:
+   * an existing association or a freshly-picked file). When `handle` is null
+   * the File System Access API was unavailable and the bytes are downloaded.
+   *
+   * Serialization compresses the body and computes the checksum; the busy
+   * indicator is shown so a large sheet never appears to freeze. Large sheets
+   * collect their cells in cooperative time slices (phase 1, with a
+   * percentage) before the compression phase (phase 2, labeled — compression
+   * happens inside the codec, so no honest percentage exists for it). A
+   * cancelled encode (the tab changed while yielding) writes nothing, leaves
+   * the in-memory document intact, and returns false. The write is atomic
+   * (createWritable → write → close); a download never reports an overwrite.
+   */
+  private async encodeAndWriteRcsv(tab: Tab, handle: FileSystemFileHandle | null): Promise<boolean> {
     const doc = tab.doc;
+    if (doc.kind !== 'rcsv') {
+      return false;
+    }
     const bytes = await this.withBusy(t('loading.savingRcsv', { name: tab.name }), async () => {
       await initCsvEngine(); // compression runs in the WASM codec when available
       if (doc.rowCount * doc.columnCount <= LARGE_OP_CELLS) {
@@ -783,9 +861,9 @@ export class Commands {
     }
     let outcome: SaveOutcome;
     try {
-      outcome = tab.handle
-        ? await saveBytes(this.dom, tab.name, bytes, tab.handle)
-        : await saveBytesAs(this.dom, tab.name, bytes, 'rcsv');
+      // The handle was already acquired inside the gesture; `saveBytes`
+      // overwrites through it or, with no handle, produces a download.
+      outcome = await saveBytes(this.dom, tab.name, bytes, handle);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         return false;
@@ -799,6 +877,8 @@ export class Commands {
     if (outcome.fellBack) {
       this.ui.notify(t('notify.permissionDenied'), 'warn');
     }
+    // Associate the destination only after a successful overwrite so a
+    // cancelled/failed save never mutates the tab's file association.
     if (outcome.handle) {
       tab.handle = outcome.handle;
     }

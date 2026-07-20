@@ -1013,18 +1013,23 @@ default, and no tracking once an explicit theme is chosen).
 - **CI** (`.github/workflows/ci.yml`) runs on pull requests and pushes to
   `main`: `npm ci`, format check, lint, tests, build, and uploads `dist/` as
   an artifact. It never creates releases and needs no write permissions.
-- **Releases** (`.github/workflows/release.yml`) run only when a tag
-  matching `v<major>.<minor>.<patch>` is pushed (the tag is validated with a
-  regex, and must match the `version` in `package.json` — the single
-  authoritative version source, currently **`0.1.1`**):
+- **Releases and deployment** (`.github/workflows/release.yml`) run only when a
+  strict semantic-version tag `v<major>.<minor>.<patch>` (for example
+  `v0.1.1`) is pushed. The tag filter is numeric, and the tag is re-validated
+  with a regex; it must also match the `version` in `package.json` — the single
+  authoritative version source (currently **`0.2.2`**). Pushing a valid version
+  tag publishes **both** the GitHub Release and the GitHub Pages site:
 
   ```sh
   git tag v0.1.1
   git push origin v0.1.1
   ```
 
-  The workflow re-runs all checks, builds, and publishes a GitHub Release
-  with two assets:
+  Pushes to `main`, pull requests, non-version tags (e.g. `nightly`), and
+  malformed tags (e.g. `v1.2`, `v1.2.3.4`) never release or deploy.
+
+  The `release` job re-runs all checks (format, lint, tests) and the
+  production build, then publishes a GitHub Release with two assets:
 
   ```text
   refrain-sheet-v0.1.1-<short-hash>.zip
@@ -1035,8 +1040,36 @@ default, and no tracking once an explicit theme is chosen).
   `THIRD-PARTY-NOTICES.md`. Verify a download with:
 
   ```sh
-  sha256sum -c refrain-sheet-v1.2.3-<short-hash>.zip.sha256
+  sha256sum -c refrain-sheet-v0.1.1-<short-hash>.zip.sha256
   ```
+
+### GitHub Pages deployment
+
+Only after every check and the production build succeed does the `deploy-pages`
+job publish the same `dist/` to GitHub Pages, using the official
+`actions/configure-pages`, `actions/upload-pages-artifact`, and
+`actions/deploy-pages` actions. A broken or unchecked build is never deployed.
+No repository secrets are required — the Pages actions authenticate with the
+workflow's `GITHUB_TOKEN` and OpenID Connect.
+
+The site is published at the project-pages URL:
+
+```text
+https://<owner>.github.io/<repository>/
+```
+
+The build is fully static and self-contained — WebAssembly is embedded in the
+JS bundle, all asset paths are relative (`base: './'` in `vite.config.ts`), and
+there are no CDNs, external `.wasm` files, or runtime network access. Because
+the paths are relative, the **same** `dist/index.html` works whether it is
+served from the project-pages sub-path above or opened directly via `file://`.
+
+**One-time repository setting (cannot be set from the workflow):** in
+**Settings → Pages → Build and deployment → Source**, choose **GitHub
+Actions**. This selects the Actions-based publishing source that the
+`deploy-pages` job targets; without it the deployment step has no Pages site to
+publish to. Once selected, every future version tag redeploys automatically.
+The deployed URL is also recorded on the run's `github-pages` environment.
 
 ## Security policy
 

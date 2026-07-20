@@ -7,11 +7,15 @@
  * defensively and clamped into a supported range, so corrupt or hostile
  * storage contents can never push the application outside safe bounds.
  *
- * Currently the only configurable setting is the maximum file size accepted
- * when opening a file. The limit is enforced before a file's bytes are read
- * into memory (see `pickFiles` / `openDroppedFiles`), because the whole file
- * is held in memory while editing.
+ * Settings currently stored here: the maximum file size accepted when opening
+ * a file (enforced before a file's bytes are read into memory, because the
+ * whole file is held in memory while editing), the application-level
+ * spreadsheet zoom (used for documents that do not carry their own — RSF
+ * documents persist zoom in their container and take precedence), and the
+ * editing-help tooltip preference.
  */
+
+import { RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../core/rsf-codec';
 
 const MIB = 1024 * 1024;
 
@@ -77,6 +81,73 @@ export function setMaxFileSize(bytes: number): number {
   const clamped = clampMaxFileSize(bytes);
   safeStorageSet(MAX_FILE_SIZE_KEY, String(clamped));
   return clamped;
+}
+
+// ---------------------------------------------------------------------------
+// Spreadsheet zoom
+// ---------------------------------------------------------------------------
+
+/** Zoom presets offered in the View menu (percent). */
+export const SHEET_ZOOM_LEVELS = [50, 75, 90, 100, 110, 125, 150, 200] as const;
+/** Default spreadsheet zoom (percent) when nothing else applies. */
+export const DEFAULT_SHEET_ZOOM = 100;
+
+const SHEET_ZOOM_KEY = 'refrain-csv-html.sheetZoom';
+
+/**
+ * Clamp an arbitrary zoom value into the supported percent range (the same
+ * bounds the RSF container enforces, so a stored document zoom and the app
+ * preference can never disagree about validity). Non-finite input falls back
+ * to the default.
+ */
+export function clampSheetZoom(zoom: number): number {
+  if (!Number.isFinite(zoom)) {
+    return DEFAULT_SHEET_ZOOM;
+  }
+  return Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(zoom)));
+}
+
+/**
+ * The application-level spreadsheet zoom preference (percent). Used for new
+ * tabs whose document does not store its own zoom (plain CSV documents, and
+ * RSF documents saved before zoom persistence existed). Never written into
+ * CSV files.
+ */
+export function getSheetZoom(): number {
+  const stored = safeStorageGet(SHEET_ZOOM_KEY);
+  if (stored === null) {
+    return DEFAULT_SHEET_ZOOM;
+  }
+  const parsed = Number(stored);
+  return Number.isFinite(parsed) ? clampSheetZoom(parsed) : DEFAULT_SHEET_ZOOM;
+}
+
+/** Persist the application-level spreadsheet zoom (clamped) locally. */
+export function setSheetZoom(zoom: number): number {
+  const clamped = clampSheetZoom(zoom);
+  safeStorageSet(SHEET_ZOOM_KEY, String(clamped));
+  return clamped;
+}
+
+// ---------------------------------------------------------------------------
+// Editing-help tooltips
+// ---------------------------------------------------------------------------
+
+const EDIT_HINTS_KEY = 'refrain-csv-html.editHints';
+
+/**
+ * Whether the editing-help tooltips (inline editor / formula bar usage hints)
+ * are enabled. **Default: enabled** — new users see the guidance as tooltips
+ * and accessible descriptions; experienced users can turn it off in the View
+ * menu. Stored only locally; never written into any document.
+ */
+export function getEditHints(): boolean {
+  return safeStorageGet(EDIT_HINTS_KEY) !== '0';
+}
+
+/** Persist the editing-help tooltip preference locally. */
+export function setEditHints(enabled: boolean): void {
+  safeStorageSet(EDIT_HINTS_KEY, enabled ? '1' : '0');
 }
 
 /** Bytes -> whole MiB (rounded), for display and number inputs. */

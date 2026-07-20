@@ -26,6 +26,7 @@ function stubUi(): UiPort {
       lineEnding: 'lf' as const,
     })),
     chooseInsertShift: vi.fn(async () => null),
+    confirmFlashFill: vi.fn(async () => false),
     confirm: vi.fn(async () => true),
     showMessage: asyncNoop,
     notify: noop,

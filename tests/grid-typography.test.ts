@@ -37,8 +37,9 @@ describe('grid typography model (stylesheet)', () => {
   it('cells center single-line text via line-height, with no vertical padding', () => {
     const body = ruleBody('.vcell');
     expect(body).toMatch(/line-height:\s*var\(--grid-cell-line\)/);
-    // Horizontal padding only — vertical space is owned by the line box.
-    expect(body).toMatch(/padding:\s*0 8px/);
+    // Horizontal padding only (zoom-scaled) — vertical space is owned by the
+    // line box.
+    expect(body).toMatch(/padding:\s*0 calc\(8px \* var\(--sheet-zoom, 1\)\)/);
   });
 
   it('uses border-box sizing everywhere (no baseline-dependent box math)', () => {
@@ -84,6 +85,7 @@ const noopUi: UiPort = {
   chooseRsfSave: async () => 2,
   chooseExportCsv: async () => null,
   chooseInsertShift: async () => null,
+  confirmFlashFill: async () => false,
   confirm: async () => true,
   showMessage: async () => undefined,
   notify: () => undefined,

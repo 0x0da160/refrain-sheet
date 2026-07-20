@@ -140,24 +140,69 @@ The decompression ceiling (`MAX_RSF_BODY_BYTES`) is **512 MiB**.
 
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
-Body **version 2** (written by this release) adds the creating/updating
-application metadata immediately after the delimiter. Body **version 1** (no
-metadata) is still accepted on read.
+Version selection on write is minimal so older readers keep working where
+possible: body **version 3** is written only when display settings are
+present; **version 2** when only the creating/updating application metadata
+is present; **version 1** otherwise. Versions 1–3 are all accepted on read.
 
-| Size | Field                                                              |
-| ---- | ------------------------------------------------------------------ |
-| 1    | Body version — `2` (metadata-bearing); `1` (no metadata) also read |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)        |
-| 2    | _(v2 only)_ Application-name length, `u16`                         |
-| …    | _(v2 only)_ Application name (UTF-8), e.g. `Refrain Sheet`         |
-| 2    | _(v2 only)_ Application-version length, `u16`                      |
-| …    | _(v2 only)_ Application version (UTF-8), e.g. `0.2.4`              |
-| 2    | Sheet-name length `N`, `u16`                                       |
-| `N`  | Sheet name (UTF-8)                                                 |
-| 4    | Row count, `u32`                                                   |
-| 4    | Column count, `u32`                                                |
-| 4    | Cell count `C`, `u32`                                              |
-| …    | `C` cell records                                                   |
+| Size | Field                                                           |
+| ---- | --------------------------------------------------------------- |
+| 1    | Body version — `3`, `2`, or `1` (see version selection above)   |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)     |
+| 2    | _(v2+)_ Application-name length, `u16`                          |
+| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`          |
+| 2    | _(v2+)_ Application-version length, `u16`                       |
+| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.6`               |
+| 2    | _(v3 only)_ Spreadsheet zoom percent, `u16` (`0` = none stored) |
+| 4    | _(v3 only)_ Column-width entry count `W`, `u32`                 |
+| …    | _(v3 only)_ `W` column-width entries (see below)                |
+| 2    | Sheet-name length `N`, `u16`                                    |
+| `N`  | Sheet name (UTF-8)                                              |
+| 4    | Row count, `u32`                                                |
+| 4    | Column count, `u32`                                             |
+| 4    | Cell count `C`, `u32`                                           |
+| …    | `C` cell records                                                |
+
+### Display settings (body version 3)
+
+Body version 3 adds **non-executable display metadata**: the spreadsheet zoom
+and the user's overridden column widths. It is purely presentational — it
+never affects cell data, formula evaluation, or CSV export, and it contains
+no executable content, external URLs, macros, or network references.
+
+Each **column-width entry** is:
+
+| Size | Field                           |
+| ---- | ------------------------------- |
+| 4    | Column index (0-based), `u32`   |
+| 2    | Width in px at 100% zoom, `u16` |
+
+Types, units, ranges, defaults, and validation:
+
+- **Zoom** is a whole percent, valid range **50–200**, stored as `u16`. The
+  value `0` means "no zoom stored". Out-of-range non-zero values are
+  **clamped** into the valid range on load (never an error).
+- **Column widths** are px at 100% zoom, valid range **40–1200** (matching
+  the editor's resize bounds). Out-of-range widths are **clamped** on load.
+  Entries whose column index is outside the sheet's column count are
+  **dropped**; duplicate entries for the same column resolve to the last one.
+  Only overridden columns are stored — absent columns use the default width.
+- **Structural** problems — a truncated display block, or a width-entry count
+  larger than the maximum column count — are `bad-shape` errors (the file is
+  rejected like any other malformed container, before any allocation is made
+  from the invalid count).
+
+**Precedence** (also applied by the reference implementation):
+
+1. Settings stored in the RSF document win when present and valid.
+2. When the document stores nothing, the application-level local preference
+   (the most recently used zoom) applies.
+3. Invalid or unsupported values fall back safely as described above.
+
+Changing zoom or column widths never marks a document dirty; the current
+values are recorded into the container whenever the document is saved. Plain
+CSV files never carry display settings — for CSV documents zoom is an
+application-level local preference only.
 
 The application metadata records which build of the software created or last
 updated the file (`Refrain Sheet` and the version from
@@ -232,7 +277,9 @@ and version number — the header shape and body layout are byte-identical.
 
 Version 1 of the _container_ was an experimental JSON encoding and is no longer
 produced or read; there is no migration path in-app. The _body_ was bumped from
-version 1 to version 2 to carry application metadata; readers accept both body
-versions (version 1 simply has no metadata). Future changes bump the container
+version 1 to version 2 to carry application metadata, and from version 2 to
+version 3 to carry display settings (zoom, column widths); readers accept all
+three body versions (older bodies simply have no metadata / no display
+settings, so application defaults apply). Future changes bump the container
 version (framing changes) or the body version (sheet encoding changes); readers
 reject container versions they do not understand rather than guessing.

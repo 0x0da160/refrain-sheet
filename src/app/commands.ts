@@ -10,7 +10,13 @@ import {
   type CsvExportScan,
 } from '../core/csv-export';
 import { detectEncoding, type EncodingId } from '../core/encoding';
-import { columnLabel, isFormula, shiftFormulaRefs } from '../core/formula';
+import {
+  flashFillRow,
+  inferFlashFillCandidates,
+  type FlashFillExample,
+  type FlashFillOp,
+} from '../core/flash-fill';
+import { cellLabel, columnLabel, isFormula, shiftFormulaRefs } from '../core/formula';
 import type { CellChange, HistoryEntry, Operation } from '../core/history';
 import { LosslessDocument } from '../core/lossless-document';
 import {
@@ -42,7 +48,7 @@ import {
   type SaveOutcome,
 } from './file-access';
 import { setLocale, t, type LocaleId } from './i18n';
-import { getMaxFileSize, setMaxFileSize } from './settings';
+import { DEFAULT_SHEET_ZOOM, getEditHints, getMaxFileSize, setEditHints, setMaxFileSize } from './settings';
 import { setSheetFont, type SheetFontId } from './sheet-font';
 import { setTheme, type ThemeChoice } from './theme';
 
@@ -53,6 +59,29 @@ import { setTheme, type ThemeChoice } from './theme';
  * byte-preserving CSV cannot represent (they convert the current tab in place).
  */
 export type ConvertReason = 'formula' | 'paste' | 'structure' | 'fill' | 'command';
+
+/** Everything the Flash Fill preview dialog shows before anything is applied. */
+export interface FlashFillPreview {
+  /** Localized, human-readable description of the inferred operation. */
+  description: string;
+  /** Affected cell range in A1 notation (e.g. "C2:C120"). */
+  range: string;
+  /** Number of cells the fill would change. */
+  changeCount: number;
+  /** How many of those cells are currently non-empty (would be overwritten). */
+  overwriteCount: number;
+  /** Bounded before/after sample of the proposed changes. */
+  sample: Array<{ cell: string; before: string; after: string }>;
+}
+
+/**
+ * Flash Fill never looks beyond this many rows around the selection, so the
+ * contiguous-block detection stays bounded on very large sheets.
+ */
+export const FLASH_FILL_MAX_BLOCK_ROWS = 100_000;
+
+/** Bounded number of before/after rows shown in the Flash Fill preview. */
+export const FLASH_FILL_SAMPLE_SIZE = 8;
 
 /**
  * The UI surface the command layer talks to. Menu items, context menus,
@@ -91,6 +120,13 @@ export interface UiPort {
   chooseExportCsv(name: string): Promise<CsvExportOptions | null>;
   /** Choose the shift direction for Insert Copied Cells… (null cancels). */
   chooseInsertShift(rows: number, cols: number): Promise<'right' | 'down' | null>;
+  /**
+   * The accessible Flash Fill preview: the inferred operation, affected
+   * range, a bounded before/after sample, and the change/overwrite counts.
+   * Resolving true is the explicit confirmation to apply; false cancels and
+   * leaves the document untouched.
+   */
+  confirmFlashFill(preview: FlashFillPreview): Promise<boolean>;
   confirm(title: string, message: string, okLabel: string, cancelLabel: string): Promise<boolean>;
   showMessage(title: string, message: string): Promise<void>;
   notify(text: string, kind: 'info' | 'warn' | 'error'): void;
@@ -126,6 +162,7 @@ export type CommandId =
   | 'edit.revertCell'
   | 'edit.revertAll'
   | 'edit.fillDown'
+  | 'edit.flashFill'
   | 'search.find'
   | 'search.replace'
   | 'search.findNext'
@@ -141,6 +178,16 @@ export type CommandId =
   | 'sheet.exportCsv'
   | 'view.wrap'
   | 'view.stickyFirstRow'
+  | 'view.zoom.50'
+  | 'view.zoom.75'
+  | 'view.zoom.90'
+  | 'view.zoom.100'
+  | 'view.zoom.110'
+  | 'view.zoom.125'
+  | 'view.zoom.150'
+  | 'view.zoom.200'
+  | 'view.zoom.reset'
+  | 'view.editHints'
   | 'view.sheetFont.bizUd'
   | 'view.sheetFont.ms'
   | 'view.sheetFont.msUi'
@@ -233,12 +280,13 @@ export class Commands {
         return tab !== null && tab.history.canUndo;
       case 'edit.redo':
         return tab !== null && tab.history.canRedo;
-      // The Insert Copied … commands stay clickable on a CSV tab: running one
-      // explains that the structural insertion needs the explicit RSF
-      // conversion (and warns when nothing has been copied yet).
+      // The Insert Copied … commands and Flash Fill stay clickable on a CSV
+      // tab: running one explains that the operation needs an RSF spreadsheet
+      // document (and Insert warns when nothing has been copied yet).
       case 'edit.copy':
       case 'edit.paste':
       case 'edit.fillDown':
+      case 'edit.flashFill':
       case 'edit.insertCopiedCells':
       case 'edit.insertCopiedRows':
       case 'edit.insertCopiedCols':
@@ -251,6 +299,18 @@ export class Commands {
         );
       case 'edit.revertAll':
         return tab !== null && tab.doc.kind === 'csv' && tab.doc.isDirty;
+      case 'view.zoom.50':
+      case 'view.zoom.75':
+      case 'view.zoom.90':
+      case 'view.zoom.100':
+      case 'view.zoom.110':
+      case 'view.zoom.125':
+      case 'view.zoom.150':
+      case 'view.zoom.200':
+      case 'view.zoom.reset':
+        // Zoom applies to the active spreadsheet area; without a document
+        // there is nothing to zoom.
+        return tab !== null;
       case 'tab.next':
       case 'tab.prev':
         return this.state.tabs.length > 1;
@@ -321,6 +381,9 @@ export class Commands {
       case 'edit.fillDown':
         if (tab) await this.fillDown(tab);
         return;
+      case 'edit.flashFill':
+        if (tab) await this.flashFill(tab);
+        return;
       case 'search.find':
         this.ui.openFindBar(false);
         return;
@@ -355,6 +418,26 @@ export class Commands {
         return;
       case 'view.stickyFirstRow':
         this.state.setStickyFirstRow(!this.state.stickyFirstRow);
+        return;
+      case 'view.zoom.50':
+      case 'view.zoom.75':
+      case 'view.zoom.90':
+      case 'view.zoom.100':
+      case 'view.zoom.110':
+      case 'view.zoom.125':
+      case 'view.zoom.150':
+      case 'view.zoom.200':
+        // Application-level zoom, never the browser's page zoom (whose
+        // shortcuts are deliberately not intercepted).
+        if (tab) this.state.setTabZoom(tab, Number(id.slice('view.zoom.'.length)));
+        return;
+      case 'view.zoom.reset':
+        if (tab) this.state.setTabZoom(tab, DEFAULT_SHEET_ZOOM);
+        return;
+      case 'view.editHints':
+        setEditHints(!getEditHints());
+        // Pure preference toggle; re-emit so menus and editors refresh.
+        this.state.emit('view');
         return;
       case 'view.sheetFont.bizUd':
       case 'view.sheetFont.ms':
@@ -851,6 +934,9 @@ export class Commands {
     if (doc.kind !== 'rsf') {
       return false;
     }
+    // Record the tab's live view state (zoom, overridden column widths) so
+    // the container persists it; presentational only, never dirties the doc.
+    doc.setDisplaySettings(tab.zoom, tab.colWidths);
     const bytes = await this.withBusy(t('loading.savingRsf', { name: tab.name }), async () => {
       await initCsvEngine(); // compression runs in the WASM codec when available
       if (doc.rowCount * doc.columnCount <= LARGE_OP_CELLS) {
@@ -1642,9 +1728,8 @@ export class Commands {
    * source cell. Filling is a spreadsheet-only operation, so a plain CSV must
    * be explicitly converted to RSF first (it modifies multiple cells and may
    * extend the grid). The whole fill — including any grid growth — is one
-   * atomic, undoable operation. Absolute/mixed `$` references are not
-   * supported by the formula engine; such formulas already evaluate to
-   * #ERROR!, so no `$` adjustment is attempted.
+   * atomic, undoable operation. Absolute/mixed `$` reference components stay
+   * fixed while relative components shift (handled by `shiftFormulaRefs`).
    */
   async applyFill(tab: Tab, source: CellRange, dest: CellRange): Promise<boolean> {
     if (
@@ -1722,6 +1807,185 @@ export class Commands {
     const applied = this.state.pushEntry(tab, entry);
     if (applied) {
       this.state.setSelection(tab, { row: dest.top, col: dest.left }, { row: dest.bottom, col: dest.right });
+    }
+    return applied;
+  }
+
+  /**
+   * Flash Fill: infer a deterministic text transformation of nearby source
+   * columns from the examples the user already typed into the target column,
+   * preview it, and — only after explicit confirmation — apply it as one
+   * atomic, undoable operation. RSF-only: on a plain CSV document a localized
+   * message explains that structural multi-cell operations require the
+   * explicit conversion to RSF, and nothing is changed. The candidate
+   * agreement scan runs in cooperative time slices with honest progress for
+   * large blocks; cancellation (preview rejection, tab/document change while
+   * yielding, no reliable pattern) always leaves the document untouched.
+   * Non-empty target cells below the examples are never overwritten silently:
+   * any overwrite is counted, called out in the preview, and requires the
+   * same explicit confirmation.
+   */
+  async flashFill(tab: Tab): Promise<boolean> {
+    if (!tab.selection) {
+      return false;
+    }
+    if (tab.doc.kind !== 'rsf') {
+      await this.ui.showMessage(t('dialog.flashFill.title'), t('dialog.flashFill.csvOnly'));
+      return false;
+    }
+    const doc = tab.doc;
+    const targetCol = tab.selection.col;
+    const cols = doc.columnCount;
+
+    // Target rows: an explicitly selected multi-row range, otherwise the
+    // contiguous block of data rows around the selection (bounded).
+    const rowHasData = (r: number): boolean => {
+      for (let c = 0; c < cols; c++) {
+        if (doc.getValue(r, c) !== '') {
+          return true;
+        }
+      }
+      return false;
+    };
+    const range = this.state.selectedRange(tab);
+    let top: number;
+    let bottom: number;
+    if (range && range.bottom > range.top) {
+      top = range.top;
+      bottom = range.bottom;
+    } else {
+      top = tab.selection.row;
+      bottom = tab.selection.row;
+      while (top > 0 && bottom - top < FLASH_FILL_MAX_BLOCK_ROWS && rowHasData(top - 1)) {
+        top -= 1;
+      }
+      while (
+        bottom < doc.rowCount - 1 &&
+        bottom - top < FLASH_FILL_MAX_BLOCK_ROWS &&
+        rowHasData(bottom + 1)
+      ) {
+        bottom += 1;
+      }
+    }
+
+    // Examples: the leading run of non-empty target cells; sources: every
+    // other column with data in the block.
+    const examples: FlashFillExample[] = [];
+    let firstFill = top;
+    while (firstFill <= bottom && doc.getValue(firstFill, targetCol) !== '') {
+      examples.push({ row: firstFill, value: doc.getValue(firstFill, targetCol) });
+      firstFill += 1;
+    }
+    if (examples.length === 0) {
+      await this.ui.showMessage(t('dialog.flashFill.title'), t('dialog.flashFill.noExamples'));
+      return false;
+    }
+    if (firstFill > bottom) {
+      await this.ui.showMessage(t('dialog.flashFill.title'), t('dialog.flashFill.nothing'));
+      return false;
+    }
+    const sourceCols: number[] = [];
+    for (let c = 0; c < cols; c++) {
+      if (c === targetCol) {
+        continue;
+      }
+      for (let r = top; r <= bottom; r++) {
+        if (doc.getValue(r, c) !== '') {
+          sourceCols.push(c);
+          break;
+        }
+      }
+    }
+    if (sourceCols.length === 0) {
+      await this.ui.showMessage(t('dialog.flashFill.title'), t('dialog.flashFill.noSources'));
+      return false;
+    }
+
+    const candidates = inferFlashFillCandidates(examples, sourceCols, (r, c) => doc.getValue(r, c));
+    if (candidates.length === 0) {
+      await this.ui.showMessage(t('dialog.flashFill.title'), t('dialog.flashFill.noPattern'));
+      return false;
+    }
+
+    // Agreement scan over the fill rows (read-only, sliced for large blocks;
+    // aborts without touching anything when the document changes meanwhile).
+    const changes: CellChange[] = [];
+    let overwriteCount = 0;
+    let conflict: { a: string; b: string } | null = null;
+    const label = t('loading.flashFill');
+    const rowCount = bottom - firstFill + 1;
+    const scanRow = (i: number): void => {
+      if (conflict) {
+        return;
+      }
+      const row = firstFill + i;
+      const outcome = flashFillRow(candidates, (c) => doc.getValue(row, c));
+      if (outcome.kind === 'conflict') {
+        conflict = { a: outcome.a ?? '', b: outcome.b ?? '' };
+        return;
+      }
+      const value = outcome.value;
+      if (value === null) {
+        return; // no usable source data in this row — leave it untouched
+      }
+      const before = doc.getValue(row, targetCol);
+      if (before === value) {
+        return;
+      }
+      if (before !== '') {
+        overwriteCount += 1;
+      }
+      changes.push({ row, col: targetCol, before, after: value });
+    };
+    if (rowCount > LARGE_OP_CELLS) {
+      const completed = await this.withBusy(label, () =>
+        forEachIndexSliced(rowCount, scanRow, {
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`),
+          shouldStop: () => tab.doc !== doc || conflict !== null,
+        }),
+      );
+      if ((!completed && !conflict) || tab.doc !== doc) {
+        return false;
+      }
+    } else {
+      for (let i = 0; i < rowCount; i++) {
+        scanRow(i);
+      }
+    }
+    if (conflict) {
+      const c = conflict as { a: string; b: string };
+      await this.ui.showMessage(
+        t('dialog.flashFill.title'),
+        t('dialog.flashFill.ambiguous', { a: c.a || '(empty)', b: c.b || '(empty)' }),
+      );
+      return false;
+    }
+    if (changes.length === 0) {
+      await this.ui.showMessage(t('dialog.flashFill.title'), t('dialog.flashFill.nothing'));
+      return false;
+    }
+
+    // Accessible preview + explicit confirmation. Nothing is applied yet.
+    const first = changes[0];
+    const last = changes[changes.length - 1];
+    const preview: FlashFillPreview = {
+      description: describeFlashFillOp(candidates[0]),
+      range: `${cellLabel(first.row, targetCol)}:${cellLabel(last.row, targetCol)}`,
+      changeCount: changes.length,
+      overwriteCount,
+      sample: changes.slice(0, FLASH_FILL_SAMPLE_SIZE).map((ch) => ({
+        cell: cellLabel(ch.row, ch.col),
+        before: ch.before ?? '',
+        after: ch.after ?? '',
+      })),
+    };
+    const confirmed = await this.ui.confirmFlashFill(preview);
+    if (!confirmed || tab.doc !== doc) {
+      return false; // rejected preview (or replaced document): unchanged
+    }
+    const applied = this.state.bulkEdit(tab, changes, 'history.flashFill');
+    if (applied) {
+      this.ui.notify(t('notify.flashFilled', { n: changes.length }), 'info');
     }
     return applied;
   }
@@ -1814,5 +2078,37 @@ export class Commands {
       const applied = this.state.bulkEdit(tab, changes, 'history.replaceAll');
       return { count: applied ? count : 0, cells: applied ? changes.length : 0 };
     });
+  }
+}
+
+/**
+ * Localized, human-readable description of an inferred Flash Fill operation
+ * (shown in the preview dialog so the user knows exactly what would run).
+ */
+export function describeFlashFillOp(op: FlashFillOp): string {
+  const casing = (c: 'none' | 'upper' | 'lower'): string =>
+    c === 'none' ? '' : t(c === 'upper' ? 'flashFill.casing.upper' : 'flashFill.casing.lower');
+  switch (op.kind) {
+    case 'copy':
+      return t('flashFill.op.copy', { col: columnLabel(op.col) }) + casing(op.casing);
+    case 'concat': {
+      const parts = op.parts.map((p) => (p.type === 'col' ? columnLabel(p.col) : `"${p.text}"`)).join(' + ');
+      return t('flashFill.op.concat', { parts });
+    }
+    case 'split':
+      return (
+        t(op.fromEnd ? 'flashFill.op.splitEnd' : 'flashFill.op.split', {
+          n: op.index + 1,
+          col: columnLabel(op.col),
+          sep: op.sep,
+        }) + casing(op.casing)
+      );
+    case 'affix':
+      return (
+        t(op.side === 'prefix' ? 'flashFill.op.prefix' : 'flashFill.op.suffix', {
+          n: op.length,
+          col: columnLabel(op.col),
+        }) + casing(op.casing)
+      );
   }
 }

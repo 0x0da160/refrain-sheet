@@ -84,8 +84,27 @@ export const RSF_CONTAINER_VERSION = 3;
  */
 export const RSF_LEGACY_MAGIC = new Uint8Array([0x52, 0x43, 0x53, 0x56]); // "RCSV"
 export const RSF_LEGACY_CONTAINER_VERSION = 2;
-/** Body version written by this release (metadata-bearing). Version 1 is still read. */
-export const RSF_BODY_VERSION = 2;
+/**
+ * Highest body version this release reads and writes. Version selection on
+ * write is minimal: 3 when display settings are present, else 2 when
+ * application metadata is present, else 1 — so documents without the newer
+ * data stay readable by older releases. Versions 1–3 are all accepted on
+ * read.
+ */
+export const RSF_BODY_VERSION = 3;
+
+// ----- Display-settings bounds (body version 3) -----------------------------
+// Persisted display state is validated and clamped on load so a malformed or
+// hostile container can never push layout, allocation, or rendering outside
+// safe bounds. The width bounds mirror the grid's MIN_COL_WIDTH/MAX_COL_WIDTH
+// (src/ui/grid.ts) — the UI clamps again, but the codec enforces them first.
+
+/** Smallest / largest spreadsheet zoom the container may carry (percent). */
+export const RSF_ZOOM_MIN = 50;
+export const RSF_ZOOM_MAX = 200;
+/** Column-width bounds (px at 100% zoom) for persisted display widths. */
+export const RSF_COL_WIDTH_MIN = 40;
+export const RSF_COL_WIDTH_MAX = 1200;
 /** Maximum stored length (bytes) of the application name/version metadata strings. */
 const MAX_META_LENGTH = 255;
 const HEADER_SIZE = 20;
@@ -126,6 +145,24 @@ export interface RsfData {
    * {@link encodeRsf} explicitly).
    */
   compression?: number;
+  /**
+   * Non-executable display settings (body version 3). Purely presentational:
+   * they never affect cell data, evaluation, or export. When present on
+   * encode the body is written in version 3; on decode this is populated
+   * only for version-3 bodies, already validated and clamped (zoom into
+   * [{@link RSF_ZOOM_MIN}, {@link RSF_ZOOM_MAX}]; widths into
+   * [{@link RSF_COL_WIDTH_MIN}, {@link RSF_COL_WIDTH_MAX}]; entries for
+   * out-of-range columns dropped).
+   */
+  display?: RsfDisplaySettings;
+}
+
+/** Validated presentational state carried by a version-3 body. */
+export interface RsfDisplaySettings {
+  /** Spreadsheet zoom percent, or undefined when the file stores none. */
+  zoom?: number;
+  /** Overridden column widths as [columnIndex, widthPx-at-100%] pairs. */
+  colWidths?: Array<[number, number]>;
 }
 
 export type RsfDecodeError =
@@ -252,8 +289,14 @@ export function decodeRsf(bytes: Uint8Array): RsfDecodeResult {
 function encodeBody(data: RsfData): Uint8Array {
   const enc = new TextEncoder();
   const name = enc.encode(data.name.slice(0, 255));
-  // Any metadata present selects the version-2 (metadata-bearing) body.
-  const hasMeta = data.appName !== undefined || data.appVersion !== undefined;
+  // Version selection is minimal: display settings need version 3, metadata
+  // alone needs version 2, otherwise the legacy version-1 body is written.
+  const displayWidths = (data.display?.colWidths ?? []).filter(
+    ([col, width]) => Number.isInteger(col) && col >= 0 && Number.isInteger(width) && width > 0,
+  );
+  const displayZoom = data.display?.zoom;
+  const hasDisplay = displayZoom !== undefined || displayWidths.length > 0;
+  const hasMeta = hasDisplay || data.appName !== undefined || data.appVersion !== undefined;
   const appName = hasMeta ? enc.encode((data.appName ?? '').slice(0, MAX_META_LENGTH)) : null;
   const appVersion = hasMeta ? enc.encode((data.appVersion ?? '').slice(0, MAX_META_LENGTH)) : null;
   const cellBufs = data.cells.map(([r, c, input]) => {
@@ -268,11 +311,12 @@ function encodeBody(data: RsfData): Uint8Array {
   });
   const cellsSize = cellBufs.reduce((n, b) => n + b.length, 0);
   const metaSize = hasMeta ? 2 + appName!.length + 2 + appVersion!.length : 0;
-  const total = 1 + 1 + metaSize + 2 + name.length + 4 + 4 + 4 + cellsSize;
+  const displaySize = hasDisplay ? 2 + 4 + displayWidths.length * 6 : 0;
+  const total = 1 + 1 + metaSize + displaySize + 2 + name.length + 4 + 4 + 4 + cellsSize;
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = hasMeta ? 2 : 1;
+  out[off++] = hasDisplay ? 3 : hasMeta ? 2 : 1;
   out[off++] = data.delimiter.charCodeAt(0);
   if (hasMeta) {
     view.setUint16(off, appName!.length, true);
@@ -283,6 +327,21 @@ function encodeBody(data: RsfData): Uint8Array {
     off += 2;
     out.set(appVersion!, off);
     off += appVersion!.length;
+  }
+  if (hasDisplay) {
+    // Zoom percent (0 = not stored), clamped into the container bounds.
+    const zoom =
+      displayZoom === undefined ? 0 : Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(displayZoom)));
+    view.setUint16(off, zoom, true);
+    off += 2;
+    view.setUint32(off, displayWidths.length, true);
+    off += 4;
+    for (const [col, width] of displayWidths) {
+      view.setUint32(off, col, true);
+      off += 4;
+      view.setUint16(off, Math.max(RSF_COL_WIDTH_MIN, Math.min(RSF_COL_WIDTH_MAX, Math.round(width))), true);
+      off += 2;
+    }
   }
   view.setUint16(off, name.length, true);
   off += 2;
@@ -310,7 +369,7 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     return { ok: false, error: 'bad-shape' };
   }
   const bodyVersion = body[off++];
-  if (bodyVersion !== 1 && bodyVersion !== 2) {
+  if (bodyVersion !== 1 && bodyVersion !== 2 && bodyVersion !== 3) {
     return { ok: false, error: 'bad-version' };
   }
   const delimByte = body[off++];
@@ -338,7 +397,7 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
   };
   let appName: string | undefined;
   let appVersion: string | undefined;
-  if (bodyVersion === 2) {
+  if (bodyVersion >= 2) {
     const readName = readString();
     if (readName === null) {
       return { ok: false, error: 'bad-shape' };
@@ -349,6 +408,31 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     }
     appName = readName;
     appVersion = readVersion;
+  }
+  // Version-3 display settings. Structural truncation is bad-shape; value
+  // problems are handled by clamping (zoom, widths) or dropping (columns out
+  // of range, checked after the column count is known below) — a malformed
+  // display block must never make the sheet itself unreadable or unsafe.
+  let rawZoom = 0;
+  const rawWidths: Array<[number, number]> = [];
+  if (bodyVersion === 3) {
+    if (!need(6)) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    rawZoom = view.getUint16(off, true);
+    off += 2;
+    const widthCount = view.getUint32(off, true);
+    off += 4;
+    if (widthCount > MAX_RSF_COLS || !need(widthCount * 6)) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    for (let i = 0; i < widthCount; i++) {
+      const col = view.getUint32(off, true);
+      off += 4;
+      const width = view.getUint16(off, true);
+      off += 2;
+      rawWidths.push([col, width]);
+    }
   }
   const name = readString();
   if (name === null) {
@@ -406,6 +490,27 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
   }
   if (appVersion !== undefined) {
     data.appVersion = appVersion;
+  }
+  if (bodyVersion === 3) {
+    // Validate the display block now that the sheet dimensions are known:
+    // out-of-range zoom clamps, widths clamp, unknown columns are dropped,
+    // and duplicate column entries resolve to the last one written.
+    const display: RsfDisplaySettings = {};
+    if (rawZoom !== 0) {
+      display.zoom = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, rawZoom));
+    }
+    const widths = new Map<number, number>();
+    for (const [col, width] of rawWidths) {
+      if (col < columnCount) {
+        widths.set(col, Math.max(RSF_COL_WIDTH_MIN, Math.min(RSF_COL_WIDTH_MAX, width)));
+      }
+    }
+    if (widths.size > 0) {
+      display.colWidths = [...widths.entries()];
+    }
+    if (display.zoom !== undefined || display.colWidths) {
+      data.display = display;
+    }
   }
   return { ok: true, data };
 }

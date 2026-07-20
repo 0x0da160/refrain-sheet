@@ -399,14 +399,16 @@ button {
   flex: 1;
   font: inherit;
   font-family: var(--font-sheet);
+  /* The formula bar zooms with the spreadsheet (it displays cell content). */
+  font-size: calc(13px * var(--sheet-zoom, 1));
   /* Formulas are shown upright everywhere, never italic. */
   font-style: normal;
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 3px 6px;
   resize: vertical;
-  min-height: 26px;
-  height: 26px;
+  min-height: calc(26px * var(--sheet-zoom, 1));
+  height: calc(26px * var(--sheet-zoom, 1));
   background: var(--field-bg);
   color: var(--text);
 }
@@ -469,13 +471,8 @@ button {
   color: var(--accent-contrast-dim);
 }
 
-.formula-bar .hint {
-  display: flex;
-  align-items: center;
-  color: var(--text-dim);
-  font-size: 11px;
-  max-width: 300px;
-}
+/* Editing guidance is tooltip/ARIA-only (View > Editing Help Tooltips);
+   the formula bar shows no persistent instruction text. */
 
 /* ---------- Virtualized grid ---------- */
 
@@ -497,7 +494,7 @@ button {
 .vgrid-canvas {
   position: relative;
   font-family: var(--font-sheet);
-  font-size: 12px;
+  font-size: calc(12px * var(--sheet-zoom, 1));
 }
 
 .vgrid-header {
@@ -541,6 +538,13 @@ button {
    MS Gothic, MS UI Gothic, and their fallbacks — instead of depending on any
    font's baseline or half-leading metrics. */
 :root {
+  /* Spreadsheet zoom factor (1 = 100%). Set by the grid from the active
+     tab's zoom; scales only spreadsheet-specific rules below — never the
+     application chrome, and never the browser's own page zoom. */
+  --sheet-zoom: 1;
+  /* Default (single-line) row height. The grid overrides this inline with
+     the exact zoom-scaled pixel value so CSS line boxes and JS-computed
+     element heights can never drift apart. */
   --grid-row-height: 26px;
   --grid-cell-line: calc(var(--grid-row-height) - 1px);
   /* Line box of a wrapped cell — kept in sync with WRAP_LINE_HEIGHT (grid.ts). */
@@ -551,7 +555,7 @@ button {
   flex: none;
   border-right: 1px solid var(--grid-line);
   border-bottom: 1px solid var(--grid-line);
-  padding: 0 8px;
+  padding: 0 calc(8px * var(--sheet-zoom, 1));
   line-height: var(--grid-cell-line);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -621,8 +625,8 @@ button {
   position: absolute;
   right: 0;
   bottom: 0;
-  width: 8px;
-  height: 8px;
+  width: calc(8px * var(--sheet-zoom, 1));
+  height: calc(8px * var(--sheet-zoom, 1));
   background: var(--accent);
   border: 1px solid var(--cell-bg);
   cursor: crosshair;

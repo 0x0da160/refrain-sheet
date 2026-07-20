@@ -19,6 +19,7 @@ const noopUi: UiPort = {
   chooseRsfSave: async () => 2,
   chooseExportCsv: async () => ({ encoding: 'utf-8' as const, bom: false, lineEnding: 'lf' as const }),
   chooseInsertShift: async () => null,
+  confirmFlashFill: async () => false,
   confirm: async () => true,
   showMessage: async () => undefined,
   notify: () => undefined,

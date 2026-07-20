@@ -1,19 +1,27 @@
 name: Release
 
-# Releases are created ONLY when a version tag (v<major>.<minor>.<patch>) is
-# pushed. Normal pushes and pull requests never create releases (see ci.yml).
+# Releases AND the GitHub Pages deployment are created ONLY when a strict
+# semantic-version tag (vMAJOR.MINOR.PATCH, e.g. v0.1.1) is pushed. Ordinary
+# pushes to main, pull requests, non-version tags, and malformed tags never
+# reach this workflow (the tag filter is numeric) and, as defense in depth,
+# would still be rejected by the "Validate tag format" step below. The PR/main
+# checks live in ci.yml.
 on:
   push:
     tags:
-      - 'v*'
+      # GitHub tag filter glob: [0-9]+ = one or more digits, '.' is literal.
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
+# Least privilege by default: read-only. Each job widens only what it needs.
 permissions:
   contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    # The release job alone gets write access, and only to repository contents.
+    # The release job alone gets write access, and only to repository contents,
+    # to publish the GitHub Release assets. It also builds the static site and
+    # uploads it as the Pages artifact for the deploy-pages job to publish.
     permissions:
       contents: write
     steps:
@@ -59,6 +67,16 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # The site is fully static and self-contained (embedded WASM, relative
+      # asset paths, no network) so the same dist/ that works from file:// also
+      # works when served from https://<owner>.github.io/<repository>/. Only
+      # upload it as the Pages artifact AFTER every check and the build above
+      # have succeeded, so a broken build never reaches Pages.
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
 
       - name: Package release ZIP
         id: package
@@ -143,3 +161,33 @@ jobs:
               --title "Refrain Sheet ${TAG}" \
               --notes-file release-notes.md
           fi
+
+  # Publish the built dist/ to GitHub Pages. This runs ONLY after the release
+  # job (tag validation + full verification suite + build + upload) succeeds, so
+  # a broken or unchecked artifact is never deployed. It needs no secrets: the
+  # official Pages actions authenticate with the run's GITHUB_TOKEN and OIDC.
+  deploy-pages:
+    needs: release
+    runs-on: ubuntu-latest
+    # Only the permissions the Pages deployment requires — no contents access.
+    permissions:
+      pages: write
+      id-token: write
+    # A named environment records the deployment and surfaces the live URL.
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    # Never run two Pages deployments at once, and never cancel one mid-publish.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    # Expose the deployed site URL as a job output.
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

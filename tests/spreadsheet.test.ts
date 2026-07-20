@@ -401,6 +401,148 @@ describe('saving and exporting RCSV', () => {
       expect(tab.doc.compression).toBeUndefined();
     }
   });
+
+  // ----- File System Access save picker ordering -----
+  //
+  // showSaveFilePicker() must run inside the user gesture, before the async
+  // .rcsv explanation and compression. These tests install a fake
+  // showSaveFilePicker and assert the ordering and cancellation semantics.
+
+  type WritableSink = { bytes: Uint8Array | null; closed: boolean };
+
+  function fakeSaveHandle(sink: WritableSink): FileSystemFileHandle {
+    return {
+      createWritable: vi.fn(async () => ({
+        write: vi.fn(async (data: Uint8Array) => {
+          sink.bytes = data.slice();
+        }),
+        close: vi.fn(async () => {
+          sink.closed = true;
+        }),
+      })),
+    } as unknown as FileSystemFileHandle;
+  }
+
+  function withSavePicker(picker: unknown): () => void {
+    const g = globalThis as { showSaveFilePicker?: unknown };
+    const had = 'showSaveFilePicker' in g;
+    const prev = g.showSaveFilePicker;
+    g.showSaveFilePicker = picker;
+    return () => {
+      if (had) g.showSaveFilePicker = prev;
+      else delete g.showSaveFilePicker;
+    };
+  }
+
+  const KEEP = { encoding: 'keep', bom: 'keep', lineEnding: 'keep' } as const;
+
+  it('a new RCSV save opens the picker synchronously — before any encoding', async () => {
+    const sink: WritableSink = { bytes: null, closed: false };
+    const handle = fakeSaveHandle(sink);
+    let resolvePicker!: (h: FileSystemFileHandle) => void;
+    const picker = vi.fn(() => new Promise<FileSystemFileHandle>((resolve) => (resolvePicker = resolve)));
+    const restore = withSavePicker(picker);
+    try {
+      const { commands, tab } = await converted('a,b\n1,2\n');
+      expect(tab.handle).toBeNull();
+      // Start the save but do NOT await it yet.
+      const pending = commands.save(tab, KEEP);
+      // The picker must already have been called synchronously, and nothing
+      // may have been encoded or written yet (no async boundary crossed).
+      expect(picker).toHaveBeenCalledTimes(1);
+      expect(sink.bytes).toBeNull();
+      // Now let the picker resolve; the rest of the save runs afterwards.
+      resolvePicker(handle);
+      expect(await pending).toBe(true);
+      expect(sink.bytes).not.toBeNull();
+      expect(sink.closed).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+
+  it('a successful picker result is retained and used to write the bytes', async () => {
+    const sink: WritableSink = { bytes: null, closed: false };
+    const handle = fakeSaveHandle(sink);
+    const picker = vi.fn(async () => handle);
+    const restore = withSavePicker(picker);
+    try {
+      const ui = stubUi();
+      const { commands, tab } = await converted('a,b\n1,2\n', ui);
+      const ok = await commands.save(tab, KEEP);
+      expect(ok).toBe(true);
+      expect(handle.createWritable).toHaveBeenCalledTimes(1);
+      expect(sink.bytes).not.toBeNull();
+      // The handle is retained so subsequent saves overwrite without a picker.
+      expect(tab.handle).toBe(handle);
+      expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining('overwritten'), 'info');
+    } finally {
+      restore();
+    }
+  });
+
+  it('cancelling the picker leaves the document dirty and unassociated', async () => {
+    const picker = vi.fn(async () => {
+      throw new DOMException('User cancelled', 'AbortError');
+    });
+    const restore = withSavePicker(picker);
+    try {
+      const ui = stubUi();
+      const { state, commands, tab } = await converted('a\n', ui);
+      state.editCell(tab, 0, 0, 'x');
+      expect(tab.doc.isDirty).toBe(true);
+      const ok = await commands.save(tab, KEEP);
+      expect(ok).toBe(false);
+      expect(picker).toHaveBeenCalledTimes(1);
+      expect(tab.handle).toBeNull(); // association untouched
+      expect(tab.doc.isDirty).toBe(true); // still unsaved
+      // No misleading save-success notification.
+      expect(ui.notify).not.toHaveBeenCalledWith(expect.stringContaining('overwritten'), 'info');
+      expect(ui.notify).not.toHaveBeenCalledWith(expect.stringContaining('download'), 'info');
+    } finally {
+      restore();
+    }
+  });
+
+  it('an existing associated handle saves without reopening the picker', async () => {
+    const sink: WritableSink = { bytes: null, closed: false };
+    const handle = fakeSaveHandle(sink);
+    const picker = vi.fn(async () => {
+      throw new Error('the picker must not be shown when a handle already exists');
+    });
+    const restore = withSavePicker(picker);
+    try {
+      const { commands, tab } = await converted('a\n');
+      tab.handle = handle; // already associated with a file on disk
+      tab.rcsvSaveExplained = true; // opened/saved before
+      const ok = await commands.save(tab, KEEP);
+      expect(ok).toBe(true);
+      expect(picker).not.toHaveBeenCalled();
+      expect(handle.createWritable).toHaveBeenCalledTimes(1);
+      expect(sink.bytes).not.toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('falls back to a download (reported as such) when the picker API is unavailable', async () => {
+    interceptDownloads();
+    const restore = withSavePicker(undefined); // File System Access API unavailable
+    try {
+      const ui = stubUi();
+      const { commands, tab } = await converted('a\n', ui);
+      const ok = await commands.save(tab, KEEP);
+      expect(ok).toBe(true);
+      // A download never associates a handle nor claims an overwrite.
+      expect(tab.handle).toBeNull();
+      expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining('download'), 'info');
+      // The overwrite notice ("…overwritten in place.") must not appear; the
+      // download notice mentions "NOT overwritten", so match the unique phrase.
+      expect(ui.notify).not.toHaveBeenCalledWith(expect.stringContaining('in place'), 'info');
+    } finally {
+      restore();
+    }
+  });
 });
 
 describe('find/replace on RCSV documents', () => {

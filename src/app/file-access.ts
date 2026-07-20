@@ -129,7 +129,7 @@ export async function saveBytes(
       const writable = await handle.createWritable();
       await writable.write(bytes.slice());
       await writable.close();
-      return { mode: 'overwrite', fellBack: false };
+      return { mode: 'overwrite', fellBack: false, handle };
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         throw err;
@@ -159,10 +159,42 @@ const SAVE_PICKER_TYPES = {
 } as const;
 
 /**
+ * Open the "Save as" file picker and return the chosen file handle, WITHOUT
+ * writing anything yet. This calls `showSaveFilePicker`, which the browser
+ * only permits while a user activation (a click, key press, …) is active, so
+ * it MUST be invoked synchronously from the user-gesture handler — before any
+ * `await` for compression, a dialog transition, a worker request, or a
+ * timeout, all of which discard the activation. Awaiting the returned promise
+ * afterwards is fine; only the *call* has to happen inside the gesture.
+ *
+ * Resolves to `null` when the File System Access API is unavailable (for
+ * example a `file://` page), so the caller can encode and then fall back to a
+ * download. Rejects with `AbortError` when the user cancels the picker.
+ */
+export function requestSaveHandle(
+  name: string,
+  kind: keyof typeof SAVE_PICKER_TYPES,
+): Promise<FileSystemFileHandle | null> {
+  const picker = (globalThis as FilePickerCapableWindow).showSaveFilePicker;
+  if (typeof picker !== 'function') {
+    return Promise.resolve(null);
+  }
+  return picker.call(globalThis, {
+    suggestedName: name,
+    types: SAVE_PICKER_TYPES[kind],
+  }) as Promise<FileSystemFileHandle | null>;
+}
+
+/**
  * Save to a user-chosen location. Where the File System Access API save
  * picker exists, the user picks the destination and the returned handle is
  * reported for reuse; otherwise this falls back to a download (the original
  * file is never overwritten). AbortError (user cancelled) is rethrown.
+ *
+ * Note: this calls the picker *after* being invoked, so it is only safe from
+ * flows with no async work before the save. Flows that compress or show a
+ * dialog first must instead acquire the handle up front with
+ * {@link requestSaveHandle} and then write through {@link saveBytes}.
  */
 export async function saveBytesAs(
   doc: Document,

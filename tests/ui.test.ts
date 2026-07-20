@@ -289,7 +289,8 @@ describe('save fallback based on File System Access availability', () => {
       }),
     } as unknown as FileSystemFileHandle;
     const outcome = await saveBytes(document, 'file.csv', utf8('x,y\n'), handle);
-    expect(outcome).toEqual({ mode: 'overwrite', fellBack: false });
+    // A successful overwrite reports the handle so the caller can reuse it.
+    expect(outcome).toEqual({ mode: 'overwrite', fellBack: false, handle });
     expect(Array.from(captured!)).toEqual(Array.from(utf8('x,y\n')));
   });
 });

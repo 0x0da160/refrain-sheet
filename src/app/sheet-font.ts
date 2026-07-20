@@ -10,10 +10,10 @@
  * work is needed.
  *
  * Precedence: this is an **application-level** preference stored only in
- * `localStorage`. RCSV documents do not carry a per-document sheet-font
+ * `localStorage`. RSF documents do not carry a per-document sheet-font
  * override in this version, so the application preference always applies and
  * there is no conflict to resolve. (Choosing a font never touches document
- * bytes and never converts a CSV to RCSV — it is pure display state.)
+ * bytes and never converts a CSV to RSF — it is pure display state.)
  *
  * The three families are all local Windows/Office fonts declared in
  * `styles.css` with a monospace fallback chain. Nothing is fetched from a CDN

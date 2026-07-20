@@ -1,6 +1,6 @@
 {
   "name": "refrain-sheet",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "A format-preserving CSV editor that runs directly from a local HTML file.",
   "private": true,
   "type": "module",
@@ -20,7 +20,11 @@
     "test:rust": "cargo test --manifest-path wasm/Cargo.toml",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "check:versions": "node scripts/check-versions.mjs",
+    "audit:ci": "npm audit --omit=dev --audit-level=high",
+    "sbom": "npm sbom --sbom-format cyclonedx --omit=dev",
+    "release": "node scripts/release.mjs"
   },
   "dependencies": {
     "encoding-japanese": "^2.2.0"

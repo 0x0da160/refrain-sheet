@@ -58,34 +58,34 @@ export interface CsvEngine {
 }
 
 /**
- * Compression methods recorded in the binary `.rcsv` container header. All
+ * Compression methods recorded in the binary `.rsf` container header. All
  * three real codecs are pure-Rust and build for `wasm32-unknown-unknown` with
  * no C toolchain: DEFLATE (miniz_oxide), Zstandard (ruzstd), LZ4 Frame
- * (lz4_flex). See `docs/rcsv-format.md`.
+ * (lz4_flex). See `docs/rsf-format.md`.
  */
-export const RCSV_COMPRESSION_STORE = 0x00;
-export const RCSV_COMPRESSION_DEFLATE = 0x01;
-export const RCSV_COMPRESSION_ZSTD = 0x02;
-export const RCSV_COMPRESSION_LZ4 = 0x03;
+export const RSF_COMPRESSION_STORE = 0x00;
+export const RSF_COMPRESSION_DEFLATE = 0x01;
+export const RSF_COMPRESSION_ZSTD = 0x02;
+export const RSF_COMPRESSION_LZ4 = 0x03;
 
 /** All defined method ids, ordered most-recommended first (Zstd is default). */
-export const RCSV_METHODS: readonly number[] = [
-  RCSV_COMPRESSION_ZSTD,
-  RCSV_COMPRESSION_LZ4,
-  RCSV_COMPRESSION_DEFLATE,
-  RCSV_COMPRESSION_STORE,
+export const RSF_METHODS: readonly number[] = [
+  RSF_COMPRESSION_ZSTD,
+  RSF_COMPRESSION_LZ4,
+  RSF_COMPRESSION_DEFLATE,
+  RSF_COMPRESSION_STORE,
 ];
 
 /**
- * Compression + checksum primitives for the binary `.rcsv` container. The
+ * Compression + checksum primitives for the binary `.rsf` container. The
  * WASM-backed codec can encode/decode every method; the JS fallback can only
  * store payloads uncompressed (method 0x00), so a document written under the
  * fallback always round-trips, but reading or writing a compressed container
  * requires the WASM engine. Which methods a build can *write* is reported by
- * {@link RcsvCodec.writableMethods} so the Save dialog only ever offers usable
- * codecs (per the RCSV compression policy).
+ * {@link RsfCodec.writableMethods} so the Save dialog only ever offers usable
+ * codecs (per the RSF compression policy).
  */
-export interface RcsvCodec {
+export interface RsfCodec {
   /** True when this build can encode `method`. */
   canWrite(method: number): boolean;
   /** Methods this build can encode, most-recommended first. */
@@ -131,53 +131,53 @@ function storeDecompress(payload: Uint8Array, expectedLen: number): Uint8Array |
   return payload.length === expectedLen ? payload : null;
 }
 
-const jsCodec: RcsvCodec = {
+const jsCodec: RsfCodec = {
   canWrite(method) {
-    return method === RCSV_COMPRESSION_STORE;
+    return method === RSF_COMPRESSION_STORE;
   },
   writableMethods() {
-    return [RCSV_COMPRESSION_STORE];
+    return [RSF_COMPRESSION_STORE];
   },
   defaultMethod() {
     // The JS fallback cannot run any compressor; storing is the only option.
-    return RCSV_COMPRESSION_STORE;
+    return RSF_COMPRESSION_STORE;
   },
   compress(body, method) {
-    return method === RCSV_COMPRESSION_STORE ? body : null;
+    return method === RSF_COMPRESSION_STORE ? body : null;
   },
   decompress(payload, method, expectedLen) {
     // Every compressed method requires the WASM engine.
-    return method === RCSV_COMPRESSION_STORE ? storeDecompress(payload, expectedLen) : null;
+    return method === RSF_COMPRESSION_STORE ? storeDecompress(payload, expectedLen) : null;
   },
   crc32: crc32Js,
 };
 
-const wasmCodec: RcsvCodec = {
+const wasmCodec: RsfCodec = {
   canWrite(method) {
     return (
-      method === RCSV_COMPRESSION_STORE ||
-      method === RCSV_COMPRESSION_DEFLATE ||
-      method === RCSV_COMPRESSION_ZSTD ||
-      method === RCSV_COMPRESSION_LZ4
+      method === RSF_COMPRESSION_STORE ||
+      method === RSF_COMPRESSION_DEFLATE ||
+      method === RSF_COMPRESSION_ZSTD ||
+      method === RSF_COMPRESSION_LZ4
     );
   },
   writableMethods() {
     // Most-recommended first: Zstd (default), LZ4 (fast), DEFLATE (compatible),
     // then store (uncompressed).
-    return [RCSV_COMPRESSION_ZSTD, RCSV_COMPRESSION_LZ4, RCSV_COMPRESSION_DEFLATE, RCSV_COMPRESSION_STORE];
+    return [RSF_COMPRESSION_ZSTD, RSF_COMPRESSION_LZ4, RSF_COMPRESSION_DEFLATE, RSF_COMPRESSION_STORE];
   },
   defaultMethod() {
-    return RCSV_COMPRESSION_ZSTD;
+    return RSF_COMPRESSION_ZSTD;
   },
   compress(body, method) {
     switch (method) {
-      case RCSV_COMPRESSION_STORE:
+      case RSF_COMPRESSION_STORE:
         return body;
-      case RCSV_COMPRESSION_DEFLATE:
+      case RSF_COMPRESSION_DEFLATE:
         return wasmDeflate(body);
-      case RCSV_COMPRESSION_ZSTD:
+      case RSF_COMPRESSION_ZSTD:
         return wasmZstd(body);
-      case RCSV_COMPRESSION_LZ4:
+      case RSF_COMPRESSION_LZ4:
         return wasmLz4(body);
       default:
         return null;
@@ -186,15 +186,15 @@ const wasmCodec: RcsvCodec = {
   decompress(payload, method, expectedLen) {
     let out: Uint8Array | undefined;
     switch (method) {
-      case RCSV_COMPRESSION_STORE:
+      case RSF_COMPRESSION_STORE:
         return storeDecompress(payload, expectedLen);
-      case RCSV_COMPRESSION_DEFLATE:
+      case RSF_COMPRESSION_DEFLATE:
         out = wasmInflate(payload, expectedLen);
         break;
-      case RCSV_COMPRESSION_ZSTD:
+      case RSF_COMPRESSION_ZSTD:
         out = wasmUnzstd(payload, expectedLen);
         break;
-      case RCSV_COMPRESSION_LZ4:
+      case RSF_COMPRESSION_LZ4:
         out = wasmUnlz4(payload, expectedLen);
         break;
       default:
@@ -208,7 +208,7 @@ const wasmCodec: RcsvCodec = {
 };
 
 /** The active compression codec (WASM when available, else the JS store codec). */
-export function getRcsvCodec(): RcsvCodec {
+export function getRsfCodec(): RsfCodec {
   return activeEngine.name === 'wasm' ? wasmCodec : jsCodec;
 }
 

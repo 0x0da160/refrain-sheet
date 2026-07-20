@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppState, type Selection } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
-import { RcsvDocument } from '../src/core/rcsv-document';
+import { RsfDocument } from '../src/core/rsf-document';
 import { doc as csvDoc } from './helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
@@ -16,8 +16,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
-    explainRcsvSave: vi.fn(async () => true),
-    chooseRcsvSave: vi.fn(async () => 2),
+    explainRsfSave: vi.fn(async () => true),
+    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => null),
     chooseInsertShift: vi.fn(async () => 'down' as const),
     confirm: vi.fn(async () => true),
@@ -36,7 +36,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
 function rcsvSetup(values: string[][], ui: UiPort = stubUi()) {
   const state = new AppState();
   const commands = new Commands(state, ui, document);
-  const doc = RcsvDocument.empty('data.rcsv', values.length, values[0].length);
+  const doc = RsfDocument.empty('data.rcsv', values.length, values[0].length);
   for (let r = 0; r < values.length; r++) {
     for (let c = 0; c < values[r].length; c++) {
       doc.setCell(r, c, values[r][c]);
@@ -197,7 +197,7 @@ describe('Insert Copied Cells…', () => {
     expect(tab.doc.getValue(0, 0)).toBe('X');
   });
 
-  it('on a CSV document requires the explicit RCSV conversion; declining changes nothing', async () => {
+  it('on a CSV document requires the explicit RSF conversion; declining changes nothing', async () => {
     const ui = stubUi({ confirmConvert: vi.fn(async () => false) });
     const state = new AppState();
     const commands = new Commands(state, ui, document);
@@ -363,7 +363,7 @@ describe('Insert Copied Rows / Insert Copied Columns', () => {
     expect(tab.doc.getValue(0, 0)).toBe('X');
   });
 
-  it('on a CSV document requires the explicit RCSV conversion; declining rolls back to nothing', async () => {
+  it('on a CSV document requires the explicit RSF conversion; declining rolls back to nothing', async () => {
     const ui = stubUi({ confirmConvert: vi.fn(async () => false) });
     const state = new AppState();
     const commands = new Commands(state, ui, document);

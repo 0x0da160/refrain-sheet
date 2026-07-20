@@ -269,7 +269,7 @@ const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string } | 'sepa
 ];
 
 /**
- * Virtualized CSV/RCSV grid. Only the visible rows and columns (plus a small
+ * Virtualized CSV/RSF grid. Only the visible rows and columns (plus a small
  * overscan region) exist in the DOM, so files with hundreds of thousands of
  * rows never materialize millions of cells. The column header row is always
  * sticky; the first record row can optionally be pinned below it (visually
@@ -315,9 +315,21 @@ export class Grid {
     autocomplete: FormulaAutocomplete;
     ref: FormulaFieldRef;
     prevRefTarget: FormulaRefTarget | null;
-    /** True between compositionstart and compositionend (IME is composing). */
-    composing: boolean;
+    /** Re-derives the highlighted formula references from the field value. */
+    updateRefs: () => void;
   } | null = null;
+  /**
+   * The grid's real keyboard target: a permanently mounted, visually hidden
+   * textarea that keeps focus while navigating. An IME composition begun on a
+   * selected cell therefore starts INSIDE an editable element, and typing
+   * promotes this same element in place into the visible cell editor — never
+   * re-parented, never re-focused — so the first keystroke of a Japanese
+   * Romaji sequence composes correctly instead of leaking a literal Latin
+   * letter into the cell.
+   */
+  private readonly sink: HTMLTextAreaElement;
+  /** True between compositionstart and compositionend on the sink (IME is composing). */
+  private composing = false;
   private contextMenu: HTMLElement | null = null;
   private dragging = false;
   private scrollScheduled = false;
@@ -360,7 +372,18 @@ export class Grid {
       className: 'vcell vgrid-measure',
       attrs: { 'aria-hidden': 'true' },
     });
-    this.canvas.append(this.headerEl, this.stickyEl, this.rowsLayer, this.measureCell);
+    this.sink = el('textarea', {
+      className: 'grid-sink',
+      attrs: {
+        rows: '1',
+        spellcheck: 'false',
+        autocapitalize: 'off',
+        autocomplete: 'off',
+        tabindex: '-1',
+        'aria-label': t('grid.label'),
+      },
+    });
+    this.canvas.append(this.headerEl, this.stickyEl, this.rowsLayer, this.measureCell, this.sink);
     this.element.append(this.canvas);
 
     // Scroll never calls preventDefault, so the listener is passive (the
@@ -387,6 +410,57 @@ export class Grid {
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') this.closeContextMenu();
     });
+
+    // ----- IME-safe keyboard target (the sink) -----
+    // Focusing the grid container (tab stop, corner clicks, cell clicks)
+    // forwards focus into the sink so keystrokes and IME compositions always
+    // target an editable element.
+    this.element.addEventListener('focus', () => this.focusGrid());
+    this.sink.addEventListener('compositionstart', () => {
+      this.composing = true;
+      // A composition that starts while navigating promotes the sink into the
+      // cell editor in place (no focus change, no value reset) so the composed
+      // text lands in the cell — including engines that fire no keydown first.
+      if (!this.editor) {
+        this.beginTypedEdit();
+      }
+    });
+    this.sink.addEventListener('compositionend', () => {
+      this.composing = false;
+      if (this.editor) {
+        // Composition committed text; refresh completions/highlights from it.
+        this.editor.autocomplete.update();
+        this.editor.updateRefs();
+      } else {
+        // A composition that never had a target cell leaves no stray text.
+        this.sink.value = '';
+      }
+    });
+    this.sink.addEventListener('beforeinput', (event) => {
+      // Text about to be inserted while no editor is open (an engine that
+      // fires neither keydown 229 nor compositionstart first) still promotes
+      // the sink before the value changes. Never synthesized from keydown.
+      if (!this.editor && event.inputType.startsWith('insert')) {
+        this.beginTypedEdit();
+      }
+    });
+    this.sink.addEventListener('keydown', (event) => this.sinkKeyDown(event));
+    this.sink.addEventListener('input', () => this.sinkInput());
+    this.sink.addEventListener('click', () => this.editor?.autocomplete.update());
+    this.sink.addEventListener('blur', () => this.commitEditor());
+  }
+
+  /** Focus the grid's keyboard target (the hidden IME-capturing sink). */
+  focusGrid(): void {
+    this.sink.focus({ preventScroll: true });
+  }
+
+  /** Promote the focused sink into an empty cell editor for type-to-edit. */
+  private beginTypedEdit(): void {
+    const tab = this.state.activeTab;
+    if (tab?.selection && !this.editor) {
+      this.openEditor(tab, tab.selection.row, tab.selection.col, '');
+    }
   }
 
   // ----- Metrics -----
@@ -470,7 +544,7 @@ export class Grid {
     this.element.setAttribute('aria-label', t('grid.label'));
     if (!tab || tab.doc.rowCount === 0) {
       this.lastDoc = null;
-      this.editor = null;
+      this.closeEditor(false);
       this.window = null;
       this.layout = null;
       this.closeContextMenu();
@@ -600,6 +674,7 @@ export class Grid {
       head.classList.toggle('hdr-sel', range !== null && col >= range.left && col <= range.right);
     }
     this.placeFillHandle(tab, range);
+    this.positionSink();
   }
 
   /** Put the fill handle on the bottom-right cell of the current selection. */
@@ -692,7 +767,7 @@ export class Grid {
     // focused editor out of the DOM mid-composition and drop it. Background
     // work (the wrap-measure pass, scroll coalescing) that calls render while
     // the user is composing simply defers until composition ends.
-    if (this.editor?.composing) {
+    if (this.editor && this.composing) {
       return;
     }
     const doc = tab.doc;
@@ -1012,7 +1087,7 @@ export class Grid {
     // Enter/Space activate natively; a pointer tap does the same. Focus the
     // grid afterward so keyboard navigation and copy keep working.
     corner.addEventListener('click', () => {
-      this.element.focus();
+      this.focusGrid();
       void this.commands.run('edit.selectAll');
     });
     this.cornerButton = corner;
@@ -1188,10 +1263,12 @@ export class Grid {
   private paintWindowCells(tab: Tab): void {
     const cells = this.canvas.querySelectorAll<HTMLElement>('[data-row][data-col]');
     for (const cell of cells) {
-      if (this.editor && cell.contains(this.editor.input)) {
-        continue; // never clobber an open inline editor
+      const row = Number(cell.dataset.row);
+      const col = Number(cell.dataset.col);
+      if (this.editor && this.editor.row === row && this.editor.col === col) {
+        continue; // never clobber the cell under an open inline editor
       }
-      this.paintCell(tab, cell, Number(cell.dataset.row), Number(cell.dataset.col));
+      this.paintCell(tab, cell, row, col);
     }
   }
 
@@ -1269,7 +1346,7 @@ export class Grid {
         this.selectRows(tab, row, row);
         this.headerDrag = { axis: 'row', anchor: row, last: row };
       }
-      this.element.focus();
+      this.focusGrid();
       event.preventDefault();
       return;
     }
@@ -1285,7 +1362,7 @@ export class Grid {
         this.selectCols(tab, col, col);
         this.headerDrag = { axis: 'col', anchor: col, last: col };
       }
-      this.element.focus();
+      this.focusGrid();
       event.preventDefault();
       return;
     }
@@ -1303,7 +1380,7 @@ export class Grid {
       this.dragging = true;
     }
     if (!this.editor) {
-      this.element.focus();
+      this.focusGrid();
       event.preventDefault();
     }
   }
@@ -1813,17 +1890,19 @@ export class Grid {
       this.state.setSelection(tab, { row, col }, null);
     }
     this.scrollCellIntoView(tab, row, col);
-    this.element.focus();
+    this.focusGrid();
   }
 
   // ----- Editing -----
 
   /**
-   * Open the inline cell editor. `initial === null` edits the current value
-   * (the raw formula expression for formula cells) with the text selected;
-   * `initial === ''` opens an **empty** editor for type-to-edit — the caller
-   * must NOT have consumed the initiating key, so the browser delivers that
-   * key (and any IME composition) straight into the freshly focused field.
+   * Open the inline cell editor by promoting the permanent sink textarea in
+   * place. `initial === null` edits the current value (the raw formula
+   * expression for formula cells) with the text selected; `initial === ''`
+   * opens an **empty** editor for type-to-edit — the sink already has focus
+   * and may already be receiving the initiating keystroke or IME composition,
+   * so its value, caret, and focus are deliberately left untouched (touching
+   * them would abort the composition). Any other `initial` seeds the editor.
    * The editor is a `<textarea>`, so it holds multi-line values (Alt+Enter).
    */
   openEditor(tab: Tab, row: number, col: number, initial: string | null): void {
@@ -1836,11 +1915,15 @@ export class Grid {
     if (!cell) {
       return;
     }
-    const input = el('textarea', {
-      className: 'cell-editor',
-      attrs: { rows: '1', spellcheck: 'false', 'aria-label': t('formulaBar.label') },
-    });
-    input.value = initial !== null ? initial : tab.doc.getValue(row, col);
+    const input = this.sink;
+    input.classList.add('cell-editor');
+    input.setAttribute('aria-label', t('formulaBar.label'));
+    this.placeSinkOverCell(cell);
+    if (initial !== null && initial !== '') {
+      input.value = initial;
+    } else if (initial === null) {
+      input.value = tab.doc.getValue(row, col);
+    }
     // Autocomplete and pointer references, identical to the formula bar. The
     // popup floats (position: fixed) so the narrow cell never clips it.
     const autocomplete = new FormulaAutocomplete(input, document.body, true);
@@ -1854,79 +1937,128 @@ export class Grid {
     // bar) when the editor closes.
     const prevRefTarget = this.state.formulaRefTarget;
     this.state.formulaRefTarget = ref;
-    const editor = { row, col, input, autocomplete, ref, prevRefTarget, composing: false };
-    this.editor = editor;
-    input.addEventListener('compositionstart', () => {
-      editor.composing = true;
-    });
-    input.addEventListener('compositionend', () => {
-      editor.composing = false;
-      // Composition committed text; refresh completions/highlights from it.
-      autocomplete.update();
-      updateRefs();
-    });
-    input.addEventListener('keydown', (event) => {
-      // While the IME is composing, let it own every key (Enter confirms a
-      // candidate, Escape cancels one, arrows move candidates). Never commit,
-      // navigate, or run autocomplete on a composition keystroke.
-      if (isComposingKey(event, editor.composing)) {
-        return;
-      }
-      if (event.key === 'Enter' && event.altKey) {
-        // Insert a literal newline at the caret (replacing any selection); this
-        // never commits, navigates, or opens a menu.
-        event.preventDefault();
-        event.stopPropagation();
-        const start = input.selectionStart ?? input.value.length;
-        const end = input.selectionEnd ?? input.value.length;
-        input.setRangeText('\n', start, end, 'end');
-        autocomplete.update();
-        updateRefs();
-        return;
-      }
-      if (autocomplete.onKeyDown(event)) {
-        return;
-      }
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        event.stopPropagation();
-        this.commitEditor();
-        this.moveSelection(tab, event.shiftKey ? -1 : 1, 0, false);
-      } else if (event.key === 'Tab') {
-        event.preventDefault();
-        event.stopPropagation();
-        this.commitEditor();
-        this.moveSelection(tab, 0, event.shiftKey ? -1 : 1, false);
-      } else if (event.key === 'Escape') {
-        event.preventDefault();
-        event.stopPropagation();
-        // Restore the value the cell had when editing began.
-        this.closeEditor(false);
-        this.element.focus();
-      }
-    });
-    input.addEventListener('input', () => {
-      ref.clear();
-      // Don't recompute/overwrite completions mid-composition (compositionend
-      // refreshes them from the committed text).
-      if (!editor.composing) {
-        autocomplete.update();
-      }
-      updateRefs();
-    });
-    input.addEventListener('click', () => autocomplete.update());
-    input.addEventListener('blur', () => this.commitEditor());
-    cell.append(input);
-    input.focus();
+    this.editor = { row, col, input, autocomplete, ref, prevRefTarget, updateRefs };
+    input.focus({ preventScroll: true });
     if (initial === null) {
       input.select();
-    } else {
-      // Empty type-to-edit: caret at the start; the browser inserts the key.
+    } else if (!this.composing && initial !== '') {
       input.setSelectionRange(input.value.length, input.value.length);
     }
     // Offer completions immediately when a formula is being started/edited.
     autocomplete.update();
     updateRefs();
+  }
+
+  /** Handle a keydown on the sink while it is promoted to the cell editor. */
+  private sinkKeyDown(event: KeyboardEvent): void {
+    const editor = this.editor;
+    if (!editor) {
+      return; // navigating: the container-level onKeyDown handles it
+    }
+    // While the IME is composing, let it own every key (Enter confirms a
+    // candidate, Escape cancels one, arrows move candidates). Never commit,
+    // navigate, or run autocomplete on a composition keystroke.
+    if (isComposingKey(event, this.composing)) {
+      return;
+    }
+    const input = editor.input;
+    if (event.key === 'Enter' && event.altKey) {
+      // Insert a literal newline at the caret (replacing any selection); this
+      // never commits, navigates, or opens a menu.
+      event.preventDefault();
+      event.stopPropagation();
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+      input.setRangeText('\n', start, end, 'end');
+      editor.autocomplete.update();
+      editor.updateRefs();
+      return;
+    }
+    if (editor.autocomplete.onKeyDown(event)) {
+      return;
+    }
+    const tab = this.state.activeTab;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.commitEditor();
+      if (tab) {
+        this.moveSelection(tab, event.shiftKey ? -1 : 1, 0, false);
+      }
+    } else if (event.key === 'Tab') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.commitEditor();
+      if (tab) {
+        this.moveSelection(tab, 0, event.shiftKey ? -1 : 1, false);
+      }
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      // Restore the value the cell had when editing began.
+      this.closeEditor(false);
+      this.focusGrid();
+    }
+  }
+
+  /** Handle an input event on the sink (both navigating and editing modes). */
+  private sinkInput(): void {
+    const editor = this.editor;
+    if (!editor) {
+      // Text reached the sink with no cell to edit (no tab/selection). Never
+      // keep it — but never clear mid-composition, which would abort the IME.
+      if (!this.composing) {
+        this.sink.value = '';
+      }
+      return;
+    }
+    editor.ref.clear();
+    // Don't recompute/overwrite completions mid-composition (compositionend
+    // refreshes them from the committed text).
+    if (!this.composing) {
+      editor.autocomplete.update();
+    }
+    editor.updateRefs();
+  }
+
+  /** Position the sink exactly over a rendered cell (canvas coordinates). */
+  private placeSinkOverCell(cell: HTMLElement): void {
+    const rect = cell.getBoundingClientRect();
+    const origin = this.canvas.getBoundingClientRect();
+    const s = this.sink.style;
+    s.left = `${rect.left - origin.left}px`;
+    s.top = `${rect.top - origin.top}px`;
+    s.width = `${rect.width}px`;
+    s.height = `${rect.height}px`;
+  }
+
+  /**
+   * While navigating, keep the hidden sink parked at the selected cell so the
+   * IME candidate window opens next to the cell the composition will edit.
+   */
+  private positionSink(): void {
+    if (this.editor) {
+      return;
+    }
+    const tab = this.state.activeTab;
+    const cell = tab?.selection ? this.cellAt(tab.selection.row, tab.selection.col) : null;
+    if (cell) {
+      this.placeSinkOverCell(cell);
+    } else {
+      const s = this.sink.style;
+      s.left = '0px';
+      s.top = '0px';
+      s.width = '1px';
+      s.height = '1px';
+    }
+  }
+
+  /** Return the sink to its hidden navigating state (keeps focus untouched). */
+  private demoteSink(): void {
+    this.sink.classList.remove('cell-editor');
+    this.sink.value = '';
+    this.sink.setAttribute('aria-label', t('grid.label'));
+    this.positionSink();
   }
 
   /** Tear down the editor's autocomplete popup and restore the reference target. */
@@ -1950,7 +2082,7 @@ export class Grid {
     const tab = this.state.activeTab;
     const value = editor.input.value;
     this.disposeEditor(editor);
-    editor.input.remove();
+    this.demoteSink();
     if (tab && tab.doc === this.lastDoc) {
       void this.commands.commitCellEdit(tab, editor.row, editor.col, value);
     }
@@ -1967,12 +2099,15 @@ export class Grid {
     }
     this.editor = null;
     this.disposeEditor(editor);
-    editor.input.remove();
+    this.demoteSink();
   }
 
   /** True when the grid (not an editor input) should own copy/paste events. */
   isNavigating(): boolean {
-    return this.editor === null && document.activeElement === this.element;
+    return (
+      this.editor === null &&
+      (document.activeElement === this.element || document.activeElement === this.sink)
+    );
   }
 
   // ----- Keyboard -----
@@ -1983,6 +2118,17 @@ export class Grid {
       return;
     }
     if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    // A composition keystroke never navigates, commits, or runs a shortcut.
+    // The very first one (keyCode 229 / "Process", which can arrive before
+    // compositionstart) still begins a typed edit so the composition lands in
+    // the promoted cell editor — the initiating key is never consumed or
+    // synthesized; the browser delivers it into the already-focused sink.
+    if (isComposingKey(event, this.composing)) {
+      if (tab.selection && beginsTextEntry(event)) {
+        this.openEditor(tab, tab.selection.row, tab.selection.col, '');
+      }
       return;
     }
     const extend = event.shiftKey;

@@ -32,8 +32,8 @@ record.
 | Selection statistics                                   | ≤ 20,000 cells synchronous; larger selections deferred: debounce, time-sliced scan, cancellation on newer selection/edit/tab, "Calculating…" placeholder | `src/ui/status-bar.ts`, `src/core/stats.ts` (`SelectionStatsAccumulator`)        |
 | Replace All                                            | Time-sliced read-only match scan with % progress and cancellation, then one synchronous atomic `bulkEdit`                                                | `src/app/commands.ts` (`replaceAll`), `src/core/scheduler.ts`                    |
 | Find-as-you-type counts                                | 120 ms debounce + wall-clock search budget (partial results instead of a freeze)                                                                         | `src/ui/find-bar.ts`, `src/core/search.ts`                                       |
-| Formula recalculation                                  | Lazy evaluation with memoization; only displayed cells are computed, so edits never force a full-sheet pass                                              | `src/core/rcsv-document.ts`                                                      |
-| `.rcsv` save / open                                    | WASM DEFLATE + CRC-32 behind the busy indicator; decompression bounded by the header length (512 MiB ceiling)                                            | `src/core/rcsv-codec.ts`, `wasm/src/compress.rs`                                 |
+| Formula recalculation                                  | Lazy evaluation with memoization; only displayed cells are computed, so edits never force a full-sheet pass                                              | `src/core/rsf-document.ts`                                                       |
+| `.rsf` save / open                                     | WASM DEFLATE + CRC-32 behind the busy indicator; decompression bounded by the header length (512 MiB ceiling)                                            | `src/core/rsf-codec.ts`, `wasm/src/compress.rs`                                  |
 
 Deliberate non-optimizations, and why:
 
@@ -89,8 +89,8 @@ actual run — do not edit them by hand; re-run the bench instead.
 | Parse + index 10,000×2 CSV, 500-char values (~10 MB), WASM  | ~66 ms      | long-value documents                                        |
 | Selection statistics, 1,000,000-cell range (full scan)      | ~124–130 ms | see below — this cost is now _off_ the selection-event path |
 | Replace-All match scan, 200,000×6 cells                     | ~86 ms      | now sliced into ~12 ms tasks with % progress                |
-| `.rcsv` encode, 100,000 cells (WASM DEFLATE + CRC)          | ~806 ms     | behind the busy indicator                                   |
-| `.rcsv` decode (validate + inflate), 100,000 cells          | ~170 ms     | behind the busy indicator                                   |
+| `.rsf` encode, 100,000 cells (WASM DEFLATE + CRC)           | ~806 ms     | behind the busy indicator                                   |
+| `.rsf` decode (validate + inflate), 100,000 cells           | ~170 ms     | behind the busy indicator                                   |
 | Formula evaluation, 5,000-cell dependency chain (cold memo) | ~35 ms      | lazy + memoized thereafter                                  |
 
 Note: the WASM and JS `statsAggregate` reductions measure the same (~125 ms)

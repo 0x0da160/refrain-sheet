@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { getCsvEngine } from './csv-engine';
 
-/** The document surface search needs; satisfied by CSV and RCSV documents. */
+/** The document surface search needs; satisfied by CSV and RSF documents. */
 export interface SearchableDocument {
   rowCount: number;
   fieldCount(row: number): number;

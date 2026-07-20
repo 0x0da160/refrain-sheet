@@ -117,10 +117,15 @@ export class FormulaAutocomplete {
     this.field.removeAttribute('aria-activedescendant');
   }
 
-  /** Remove the popup from the DOM (for a transient host such as the cell editor). */
+  /** Remove the popup and the field's combobox wiring (for a transient host
+   *  such as the cell editor, whose field is reused between edits). */
   dispose(): void {
     this.hide();
     this.popup.remove();
+    this.field.removeAttribute('role');
+    this.field.removeAttribute('aria-autocomplete');
+    this.field.removeAttribute('aria-expanded');
+    this.field.removeAttribute('aria-controls');
   }
 
   private render(): void {

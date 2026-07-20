@@ -79,7 +79,9 @@ export async function pickFiles(doc: Document, maxSize: number): Promise<OpenedF
     const input = doc.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.accept = '.csv,.tsv,.txt,.rcsv,text/csv,text/tab-separated-values,text/plain,application/json';
+    // `.rsf` is the current spreadsheet format; `.rcsv` is the legacy name,
+    // still accepted so existing files open (then re-save as `.rsf`).
+    input.accept = '.csv,.tsv,.txt,.rsf,.rcsv,text/csv,text/tab-separated-values,text/plain,application/json';
     input.style.display = 'none';
     input.addEventListener('change', () => {
       const files = Array.from(input.files ?? []);
@@ -144,10 +146,10 @@ export async function saveBytes(
 }
 
 const SAVE_PICKER_TYPES = {
-  rcsv: [
+  rsf: [
     {
-      description: 'Refrain spreadsheet (RCSV)',
-      accept: { 'application/octet-stream': ['.rcsv'] },
+      description: 'Refrain Sheet (RSF)',
+      accept: { 'application/octet-stream': ['.rsf'] },
     },
   ],
   csv: [

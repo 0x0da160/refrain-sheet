@@ -13,7 +13,7 @@ crate-type = ["cdylib", "rlib"]
 # Pinned exactly: wasm-pack downloads the matching wasm-bindgen-cli, so the
 # crate version must stay deterministic.
 wasm-bindgen = "=0.2.100"
-# Pure-Rust compression codecs for the binary .rcsv container. All three build
+# Pure-Rust compression codecs for the binary .rsf container. All three build
 # cleanly for wasm32-unknown-unknown with no C/C++ toolchain (unlike the `zstd`
 # crate, whose zstd-sys needs cc). The container records a method id per file
 # so any method can be added without breaking older files.

@@ -14,7 +14,7 @@ import {
 import type { DelimiterId } from '../core/byte-csv-parser';
 import type { CsvExportOptions, CsvLineEnding } from '../core/csv-export';
 import type { EncodingId } from '../core/encoding';
-import { rcsvMethodKey } from '../core/rcsv-codec';
+import { rsfMethodKey } from '../core/rsf-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
 import type { ValidationSummary } from '../core/validation';
 import { APP_VERSION_DISPLAY } from '../app/version';
@@ -314,7 +314,7 @@ export class Dialogs {
     );
   }
 
-  /** Explain and confirm the explicit CSV -> RCSV spreadsheet conversion. */
+  /** Explain and confirm the explicit CSV -> RSF spreadsheet conversion. */
   confirmConvert(reason: ConvertReason, name: string): Promise<boolean> {
     return openDialog(t('dialog.convert.title'), false, (body, buttons, close) => {
       body.append(el('p', { text: t(`dialog.convert.${reason}`, { name }) }));
@@ -329,38 +329,38 @@ export class Dialogs {
     });
   }
 
-  /** Explain that spreadsheet documents are saved in the .rcsv format. */
-  explainRcsvSave(name: string): Promise<boolean> {
-    return openDialog(t('dialog.rcsvSave.title'), false, (body, buttons, close) => {
-      body.append(el('p', { text: t('dialog.rcsvSave.message', { name }) }));
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.rcsvSave.note') }));
+  /** Explain that spreadsheet documents are saved in the .rsf format. */
+  explainRsfSave(name: string): Promise<boolean> {
+    return openDialog(t('dialog.rsfSave.title'), false, (body, buttons, close) => {
+      body.append(el('p', { text: t('dialog.rsfSave.message', { name }) }));
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.rsfSave.note') }));
       buttons.append(
-        dialogButton(t('dialog.rcsvSave.cancel'), false, false, () => close(false)),
-        dialogButton(t('dialog.rcsvSave.ok'), true, true, () => close(true)),
+        dialogButton(t('dialog.rsfSave.cancel'), false, false, () => close(false)),
+        dialogButton(t('dialog.rsfSave.ok'), true, true, () => close(true)),
       );
     });
   }
 
   /**
-   * The RCSV Save dialog: explains the `.rcsv` format and lets the user pick a
+   * The RSF Save dialog: explains the `.rsf` format and lets the user pick a
    * compression method. `available` lists only the methods the current build
    * can actually write (Zstandard is recommended and preselected for new
    * documents; an existing document preselects its own method). Resolves with
    * the chosen method id, or null on cancel.
    */
-  chooseRcsvSave(
+  chooseRsfSave(
     name: string,
     current: number,
     available: number[],
     downloadNote: string | null,
   ): Promise<number | null> {
-    return openDialog<number | null>(t('dialog.rcsvSave.title'), null, (body, buttons, close) => {
-      body.append(el('p', { text: t('dialog.rcsvSave.message', { name }) }));
+    return openDialog<number | null>(t('dialog.rsfSave.title'), null, (body, buttons, close) => {
+      body.append(el('p', { text: t('dialog.rsfSave.message', { name }) }));
 
-      const select = el('select', { attrs: { id: 'rcsv-compression' } }) as HTMLSelectElement;
+      const select = el('select', { attrs: { id: 'rsf-compression' } }) as HTMLSelectElement;
       for (const method of available) {
         const option = el('option', {
-          text: t(`${rcsvMethodKey(method)}.label`),
+          text: t(`${rsfMethodKey(method)}.label`),
           attrs: { value: String(method) },
         });
         if (method === current) {
@@ -370,27 +370,25 @@ export class Dialogs {
       }
       body.append(
         el('div', { className: 'form-row' }, [
-          el('label', { text: t('dialog.rcsvSave.compression'), attrs: { for: 'rcsv-compression' } }, [
-            select,
-          ]),
+          el('label', { text: t('dialog.rsfSave.compression'), attrs: { for: 'rsf-compression' } }, [select]),
         ]),
       );
 
       // A live description of the highlighted method (ratio/speed trade-off).
-      const desc = el('p', { className: 'dialog-note', text: t(`${rcsvMethodKey(current)}.desc`) });
+      const desc = el('p', { className: 'dialog-note', text: t(`${rsfMethodKey(current)}.desc`) });
       const updateDesc = () => {
-        desc.textContent = t(`${rcsvMethodKey(Number(select.value))}.desc`);
+        desc.textContent = t(`${rsfMethodKey(Number(select.value))}.desc`);
       };
       select.addEventListener('change', updateDesc);
       body.append(desc);
 
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.rcsvSave.note') }));
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.rsfSave.note') }));
       if (downloadNote) {
         body.append(el('p', { className: 'dialog-note', text: downloadNote }));
       }
       buttons.append(
-        dialogButton(t('dialog.rcsvSave.cancel'), false, false, () => close(null)),
-        dialogButton(t('dialog.rcsvSave.ok'), true, true, () => close(Number(select.value))),
+        dialogButton(t('dialog.rsfSave.cancel'), false, false, () => close(null)),
+        dialogButton(t('dialog.rsfSave.ok'), true, true, () => close(Number(select.value))),
       );
     });
   }

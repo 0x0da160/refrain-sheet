@@ -7,7 +7,7 @@ import { el, clearChildren } from './dom';
  * The initial screen: shown on first launch and restored whenever the last
  * document tab is closed, so the application never sits on an empty tab strip
  * or a blank grid. It offers the primary entry points — open a file, create a
- * new RCSV spreadsheet, drag & drop — plus short offline / local-file usage
+ * new RSF spreadsheet, drag & drop — plus short offline / local-file usage
  * guidance. Application-level preferences (language, sheet font, file-size
  * limit) live outside the tab lifecycle and are unaffected; the screen simply
  * re-renders in the active locale.

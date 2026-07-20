@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { decodeRcsv, encodeRcsv, RCSV_MAGIC } from '../src/core/rcsv-codec';
-import { NEW_DOC_COLS, NEW_DOC_ROWS, RcsvDocument } from '../src/core/rcsv-document';
+import { decodeRsf, encodeRsf, RSF_MAGIC } from '../src/core/rsf-codec';
+import { NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../src/core/rsf-document';
 import { APP_NAME, APP_VERSION } from '../src/app/version';
 import { doc } from './helpers';
 
-function rcsvFromCells(cells: Array<[number, number, string]>, rows = 4, cols = 3): RcsvDocument {
+function rcsvFromCells(cells: Array<[number, number, string]>, rows = 4, cols = 3): RsfDocument {
   // Build a clean (non-dirty) document via the binary container round-trip.
-  const bytes = encodeRcsv({ name: 'Sheet1', delimiter: ',', rowCount: rows, columnCount: cols, cells });
-  const result = RcsvDocument.fromBytes(bytes, 'test.rcsv');
+  const bytes = encodeRsf({ name: 'Sheet1', delimiter: ',', rowCount: rows, columnCount: cols, cells });
+  const result = RsfDocument.fromBytes(bytes, 'test.rcsv');
   expect(result.ok).toBe(true);
   if (!result.ok) throw new Error('unreachable');
   return result.doc;
@@ -18,7 +18,7 @@ describe('conversion from CSV', () => {
   it('copies current values (including unsaved edits) into a rectangular sheet', () => {
     const csv = doc('a,b,c\n1,2\n');
     csv.setValue(0, 1, 'edited');
-    const rcsv = RcsvDocument.fromLossless(csv, 'x.rcsv');
+    const rcsv = RsfDocument.fromLossless(csv, 'x.rcsv');
     expect(rcsv.rowCount).toBe(2);
     expect(rcsv.columnCount).toBe(3);
     expect(rcsv.getValue(0, 1)).toBe('edited');
@@ -95,11 +95,11 @@ describe('formulas in the document', () => {
 });
 
 describe('versioned binary serialization', () => {
-  it('writes the RCSV magic bytes and container version', () => {
+  it('writes the RSF magic bytes and container version', () => {
     const sheet = rcsvFromCells([[0, 0, 'v']]);
     const bytes = sheet.toBytes();
-    expect(Array.from(bytes.subarray(0, 4))).toEqual(Array.from(RCSV_MAGIC));
-    expect(bytes[4]).toBe(2); // container version
+    expect(Array.from(bytes.subarray(0, 4))).toEqual(Array.from(RSF_MAGIC));
+    expect(bytes[4]).toBe(3); // container version (RSF)
   });
 
   it('round-trips values, formulas, structure, and settings', () => {
@@ -114,7 +114,7 @@ describe('versioned binary serialization', () => {
     );
     original.delimiter = ';';
     const bytes = original.toBytes();
-    const reloaded = RcsvDocument.fromBytes(bytes, 'again.rcsv');
+    const reloaded = RsfDocument.fromBytes(bytes, 'again.rcsv');
     expect(reloaded.ok).toBe(true);
     if (!reloaded.ok) return;
     expect(reloaded.doc.rowCount).toBe(5);
@@ -127,16 +127,16 @@ describe('versioned binary serialization', () => {
 
   it('records the creating/updating application name and version in metadata', () => {
     const bytes = rcsvFromCells([[0, 0, 'v']]).toBytes();
-    const decoded = decodeRcsv(bytes);
+    const decoded = decodeRsf(bytes);
     expect(decoded.ok).toBe(true);
     if (!decoded.ok) return;
     expect(decoded.data.appName).toBe(APP_NAME);
     expect(decoded.data.appVersion).toBe(APP_VERSION);
   });
 
-  it('rejects non-RCSV bytes with bad magic', () => {
+  it('rejects non-RSF bytes with bad magic', () => {
     for (const bytes of [new Uint8Array([1, 2, 3]), new Uint8Array(30)]) {
-      const result = RcsvDocument.fromBytes(bytes, 'bad.rcsv');
+      const result = RsfDocument.fromBytes(bytes, 'bad.rcsv');
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.error).toBe('bad-magic');
     }
@@ -145,7 +145,7 @@ describe('versioned binary serialization', () => {
   it('rejects an unsupported container version', () => {
     const bytes = rcsvFromCells([[0, 0, 'v']]).toBytes();
     bytes[4] = 99;
-    const result = RcsvDocument.fromBytes(bytes, 'bad.rcsv');
+    const result = RsfDocument.fromBytes(bytes, 'bad.rcsv');
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toBe('bad-version');
   });
@@ -154,7 +154,7 @@ describe('versioned binary serialization', () => {
     const bytes = rcsvFromCells([[0, 0, 'value']]).toBytes();
     // Flip a byte inside the payload (after the 20-byte header).
     bytes[bytes.length - 1] ^= 0xff;
-    const result = RcsvDocument.fromBytes(bytes, 'bad.rcsv');
+    const result = RsfDocument.fromBytes(bytes, 'bad.rcsv');
     expect(result.ok).toBe(false);
     if (!result.ok) expect(['checksum', 'bad-shape']).toContain(result.error);
   });
@@ -166,7 +166,7 @@ describe('versioned binary serialization', () => {
       [0, 1, '=SUM(A1:A1)'],
     ]);
     expect(sheet.getDisplayValue(0, 0)).toBe('<script>window.x=1</script>');
-    const reloaded = RcsvDocument.fromBytes(sheet.toBytes(), 'again.rcsv');
+    const reloaded = RsfDocument.fromBytes(sheet.toBytes(), 'again.rcsv');
     expect(reloaded.ok).toBe(true);
     if (!reloaded.ok) return;
     expect(reloaded.doc.getValue(0, 0)).toBe('<script>window.x=1</script>');
@@ -194,7 +194,7 @@ describe('dirty state', () => {
 
 describe('blank documents (File > New)', () => {
   it('creates a usable grid at the documented default size, marked unsaved', () => {
-    const sheet = RcsvDocument.blank('untitled.rcsv');
+    const sheet = RsfDocument.blank('untitled.rcsv');
     expect(sheet.rowCount).toBe(NEW_DOC_ROWS);
     expect(sheet.columnCount).toBe(NEW_DOC_COLS);
     expect(sheet.getValue(0, 0)).toBe('');

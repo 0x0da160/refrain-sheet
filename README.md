@@ -4,7 +4,7 @@ A local-first, format-preserving CSV and spreadsheet editor.
 
 Refrain Sheet is a local-first, offline CSV and spreadsheet editor that runs
 directly from a local HTML file. It preserves CSV files as faithfully as
-possible while supporting lightweight spreadsheet editing through RCSV.
+possible while supporting lightweight spreadsheet editing through RSF.
 Open `index.html` directly in a browser; no installation, server, account,
 or network connection is required.
 
@@ -13,7 +13,7 @@ Edit field values while preserving everything else as faithfully as possible:
 delimiters, quoting, surrounding whitespace, line endings, encodings, byte
 order marks, undecodable bytes, and malformed regions. Spreadsheet-only
 features (formulas, structural edits, per-document metadata) are provided
-through **RCSV (Refrain CSV Format)**.
+through **RSF (Refrain Sheet Format)**.
 
 ローカルで動く、書式保持CSV・スプレッドシートエディタです。
 CSVのフィールド値だけを編集し、区切り文字、引用符、空白、改行コード、文字コード、
@@ -21,7 +21,7 @@ BOM、不正なCSV領域などを可能な限り保持します。
 
 The version is defined in `package.json` and surfaced through the app
 (**Help > About / Keyboard Shortcuts** shows it), the metadata written into
-saved `.rcsv` files, and the release artifact name.
+saved `.rsf` files, and the release artifact name.
 
 ## The Refrain principle
 
@@ -134,8 +134,8 @@ interaction.
 
 With no document open — on first launch, and again **whenever the last tab is
 closed** — the app shows its initial **welcome screen** instead of an empty tab
-strip or a blank grid. It offers the localized entry points: **Open CSV / RCSV
-File…**, **New RCSV Spreadsheet**, a drag-and-drop hint (dropping files
+strip or a blank grid. It offers the localized entry points: **Open CSV / RSF
+File…**, **New RSF Spreadsheet**, a drag-and-drop hint (dropping files
 anywhere in the window always works), and a short note on offline/local-file
 usage. Closing the final tab first completes the ordinary
 **Save / Discard / Cancel** flow for unsaved changes; only when the tab
@@ -148,13 +148,13 @@ font, and the configured file-size limit live outside the tab lifecycle).
 ### New documents
 
 - **File > New** or **Ctrl+N / Cmd+N** creates a blank document in a new active
-  tab. New documents are **RCSV spreadsheet** documents (a blank spreadsheet may
+  tab. New documents are **RSF spreadsheet** documents (a blank spreadsheet may
   gain formulas, structural edits, metadata, and user-defined dimensions that
   plain CSV cannot hold), starting at a small usable grid of **100 rows × 26
   columns**.
 - A new document is **unsaved** until you save it; the first save prompts for a
   filename and location (subject to browser support, otherwise a download) and
-  writes an `.rcsv` file. Creating a new tab never modifies any other open
+  writes an `.rsf` file. Creating a new tab never modifies any other open
   document.
 
 ### Opening files
@@ -176,20 +176,23 @@ font, and the configured file-size limit live outside the tab lifecycle).
 
 - Click a cell to select it; double-click, press **F2**, or just start
   typing to edit inline. Inline editing never shifts the table layout.
-- **Japanese / CJK IME input is safe from the first keystroke.** Typing on a
-  selected cell opens an empty editor and lets the browser/OS begin composition
-  in it — the initiating key is never synthesized as plain text or consumed via
-  `keydown`, so the first Romaji character joins the composition instead of
-  leaking as a literal Latin letter. While a composition is active the editor
-  stays mounted and focused, and Enter/Esc/arrows/autocomplete belong to the
-  IME (Enter confirms a candidate, never the cell) until composition completes.
-  The same guards apply to the formula bar. Editing is driven by standard
-  `beforeinput` / `input` / `composition*` events and `isComposing`, not by
-  keystroke synthesis.
+- **Japanese / CJK IME input is safe from the first keystroke.** The grid's
+  keyboard target is a permanently mounted, hidden text field (a "sink") that
+  keeps focus while you navigate, so an IME composition begun on a selected cell
+  starts **inside an already-editable element**. Typing promotes that same
+  element in place into the cell editor — never re-parented, never re-focused
+  mid-composition — so the first Romaji character joins the composition instead
+  of leaking as a literal Latin letter. The initiating key is never synthesized
+  from `keydown`/`keypress` or consumed. While a composition is active the
+  editor stays mounted and focused, and Enter/Esc/arrows/autocomplete belong to
+  the IME (Enter confirms a candidate, never the cell) until composition
+  completes. The same guards apply to the formula bar. Editing is driven by
+  standard `beforeinput` / `input` / `composition*` events and `isComposing`,
+  never by keystroke synthesis.
 - Both the inline editor and the formula bar are multi-line: **Alt+Enter**
   inserts a line break at the caret (replacing any selection) without
   committing, navigating, or opening a menu. Multi-line values round-trip
-  through CSV (the edited field is quoted per the minimal-diff rules), RCSV,
+  through CSV (the edited field is quoted per the minimal-diff rules), RSF,
   undo/redo, copy/paste, and Wrap Long Rows (the row grows to fit).
 - The **formula bar** above the grid edits the selected cell: **Enter** applies
   and moves down, **Alt+Enter** inserts a newline, **Esc** restores the value
@@ -214,10 +217,10 @@ font, and the configured file-size limit live outside the tab lifecycle).
   preserving its shape. **Pattern repeat:** when a larger destination range is
   selected and each of its dimensions is an exact multiple of the copied
   block's, the block tiles to fill the whole selection (references adjust per
-  tile); otherwise the block is pasted once. In an RCSV spreadsheet a paste
+  tile); otherwise the block is pasted once. In an RSF spreadsheet a paste
   that reaches past the grid **grows it** (undoably, after nothing more than
   the paste itself); a byte-preserving CSV never gains rows or columns
-  silently — such pastes require the explicit RCSV conversion.
+  silently — such pastes require the explicit RSF conversion.
 - **Edit > Insert Copied Cells…** (also on the cell context menu) inserts the
   most recently copied block at the selection by **shifting existing cells
   right or down**. Shifting down inserts whole rows across the sheet; shifting
@@ -226,7 +229,7 @@ font, and the configured file-size limit live outside the tab lifecycle).
   inside the inserted formulas shift by their offset from the copied location.
   The insertion (structure + formula rewrites + values) is **one atomic undo
   step**. Structural insertion is spreadsheet-only, so on a CSV document the
-  command explains and offers the explicit RCSV conversion first. Large pastes
+  command explains and offers the explicit RSF conversion first. Large pastes
   and insertions run behind the loading indicator with percentage progress.
 - **Edit > Insert Copied Rows** and **Edit > Insert Copied Columns** (also on
   the cell context menu) insert the copied block as whole rows or columns. The
@@ -240,12 +243,12 @@ font, and the configured file-size limit live outside the tab lifecycle).
   stay consistent: existing references adjust exactly like Insert
   Rows/Columns, while relative references inside the inserted formulas shift
   by their offset from the copied location. Each insertion is **one atomic
-  undo/redo step**; on a CSV document the commands require the explicit RCSV
+  undo/redo step**; on a CSV document the commands require the explicit RSF
   conversion (declining leaves the document untouched), and large insertions
   report percentage progress. If nothing has been copied yet, running a
   command says so instead of doing nothing.
 - **Edit > Select All Cells** selects the used range of the active document
-  (the whole logical grid of a new RCSV document; an empty CSV reports a clear
+  (the whole logical grid of a new RSF document; an empty CSV reports a clear
   no-data message). **Ctrl+A / Cmd+A** triggers it **only while the grid
   itself has focus** — inside text fields, dialogs, or anywhere else on the
   page the browser's own Select All is never intercepted. Whole-sheet
@@ -434,11 +437,11 @@ local Windows/Office families are offered, each with a monospace fallback chain:
 - **MS UI Gothic** (`--sheet-font-ms-ui`).
 
 There is no per-cell font selection in this version. The choice is an
-**application-level preference** stored in `localStorage`; RCSV documents do not
+**application-level preference** stored in `localStorage`; RSF documents do not
 carry a per-document sheet-font override, so the application preference always
 applies and there is no document-vs-application precedence conflict to resolve.
 Changing the sheet font is pure display state: it never alters plain CSV bytes
-and never converts a CSV to RCSV. When a preferred font is not installed, the
+and never converts a CSV to RSF. When a preferred font is not installed, the
 declared fallbacks (and finally `monospace`) are used. No font is fetched from a
 CDN/remote URL or bundled.
 
@@ -450,7 +453,7 @@ setting and updates **live** when the system theme changes (a `matchMedia`
 listener re-applies it). The choice is persisted in `localStorage` and never
 transmitted anywhere; the selected spreadsheet font applies unchanged in either
 theme, and switching theme is pure display state — it never alters CSV bytes,
-RCSV data, formulas, calculations, or document semantics.
+RSF data, formulas, calculations, or document semantics.
 
 The theme is a **semantic CSS custom-property system**: `styles.css` defines one
 light palette in `:root` and one dark palette under `:root[data-theme="dark"]`,
@@ -484,7 +487,7 @@ input (vertically centered by the browser) laid over the same box, and
 selection outlines, fill handles, and formula-reference highlights attach to
 the unchanged cell box. Wrapped rows (see below) opt into a multi-line box that
 is **still vertically centered** (via flex), so centering holds whatever a
-row's height becomes. The adjustment is pure CSS — no CSV/RCSV content,
+row's height becomes. The adjustment is pure CSS — no CSV/RSF content,
 formulas, stored values, or row structure change because of it.
 
 #### Conditional row-height wrapping
@@ -511,36 +514,36 @@ as heights vary; the pinned first row itself stays single-line so the pinned
 area keeps a stable height. Turning wrapping off restores every row to the
 single-line height. Row heights are **derived view state** recomputed from
 content, column widths, and font — they are never persisted into CSV bytes or
-the RCSV container, and a value containing explicit newlines is preserved
+the RSF container, and a value containing explicit newlines is preserved
 unchanged when wrapping is off (it simply displays clipped to the first line,
 with the full value visible in the formula bar).
 
-## Spreadsheet mode (RCSV)
+## Spreadsheet mode (RSF)
 
 Plain CSV cannot hold formulas, structural editing intent, or per-document
 metadata without breaking the byte-preservation guarantee. So those features
-live in a separate **spreadsheet document** saved as `.rcsv` — **RCSV (Refrain
-CSV Format)**, the dedicated spreadsheet format used by Refrain Sheet. RCSV is
+live in a separate **spreadsheet document** saved as `.rsf` — **RSF (Refrain
+CSV Format)**, the dedicated spreadsheet format used by Refrain Sheet. RSF is
 a versioned, compressed binary container (not a JSON document and not a CSV
 file); it is **not** a byte-identical representation of an imported CSV.
 Converting a CSV is always explicit and never touches the original `.csv` on
 disk — plain CSV files keep the byte-preserving, minimal-diff guarantees until
-you convert them. See [`docs/rcsv-format.md`](docs/rcsv-format.md) for the
+you convert them. See [`docs/rsf-format.md`](docs/rsf-format.md) for the
 container specification.
 
 ### Converting a CSV to a spreadsheet
 
 There are two ways to convert, both explicit and confirmed:
 
-- **File > Convert to Spreadsheet (RCSV)…** converts up front. It uses the CSV's
-  current (including unsaved) contents and opens the result in a **new** `.rcsv`
+- **File > Convert to Spreadsheet (RSF)…** converts up front. It uses the CSV's
+  current (including unsaved) contents and opens the result in a **new** `.rsf`
   tab; the source CSV tab and the file on disk stay open and unchanged. The
   command is enabled only for a CSV document that has not already been
   converted, and it shows a loading indicator while the sheet is built.
 - **Implicit conversion** happens when an edit needs it — entering a formula,
   pasting a block that must grow the grid, inserting or deleting rows/columns,
   or filling. After a confirmation, the current tab is converted in place:
-  renamed to `.rcsv` and detached from the original file handle, so the source
+  renamed to `.rsf` and detached from the original file handle, so the source
   `.csv` can never be silently overwritten.
 
 ### Exporting a spreadsheet as CSV
@@ -557,7 +560,7 @@ confirmation — nothing is written until you press **Export CSV**:
 
 The dialog states clearly that CSV export is a **lossy conversion**: formulas
 are exported as their calculated display values, not expressions, and
-RCSV-only data — formulas and dependency information, structure beyond the
+RSF-only data — formulas and dependency information, structure beyond the
 exported grid, column widths, document metadata, and font preferences — is not
 preserved.
 
@@ -566,11 +569,11 @@ time-sliced scan behind the progress indicator. If characters cannot be
 represented, a dialog lists the affected cells and the export is **cancelled
 by default**; only after explicit confirmation does it continue with the
 documented numeric-character-reference replacement (e.g. `&#128512;`), which is
-then reported per cell. The export flow never mutates the source `.rcsv`
+then reported per cell. The export flow never mutates the source `.rsf`
 document and never marks it saved; cancellation and errors leave everything
 untouched. The file is written through the File System Access API save picker
 where available (with the download fallback otherwise), under a suggested
-name that replaces `.rcsv` with `.csv`.
+name that replaces `.rsf` with `.csv`.
 
 ### Formulas
 
@@ -663,7 +666,7 @@ autocomplete suggestion, or insert a reference by clicking/dragging cells.
   rendered viewport.
 - The selected rectangle feeds copy, paste, the fill handle, formula-reference
   insertion, selection statistics, and the row/column commands unchanged.
-  Structural row/column operations still require an explicit conversion to RCSV
+  Structural row/column operations still require an explicit conversion to RSF
   for a byte-preserving CSV document.
 
 ### Resizable columns and auto-fit
@@ -714,19 +717,32 @@ autocomplete suggestion, or insert a reference by clicking/dragging cells.
   aggregates only when its displayed value trims to a finite number; blanks,
   text, booleans, error codes, and non-finite values are ignored.
 
-### The `.rcsv` file format
+### The `.rsf` file format
 
-`.rcsv` is a compact, versioned **binary container**: magic bytes, a header
-with an uncompressed-length field, a CRC-32 checksum, and a per-file
-compression method, followed by the compressed body. It holds inert data only
-(no code, macros, external references, or URLs); loading validates magic,
-version, checksum, shape, and size bounds, and enforces a decompression ceiling
-so a crafted file cannot exhaust memory. The full specification is in
-[docs/rcsv-format.md](docs/rcsv-format.md).
+`.rsf` (**Refrain Sheet Format**) is a compact, versioned **binary container**:
+magic bytes (`RSF1`), a header with an uncompressed-length field, a CRC-32
+checksum, and a per-file compression method, followed by the compressed body.
+It holds inert data only (no code, macros, external references, or URLs);
+loading validates magic, version, checksum, shape, and size bounds, and
+enforces a decompression ceiling so a crafted file cannot exhaust memory. The
+full specification is in [docs/rsf-format.md](docs/rsf-format.md).
+
+> **Legacy `.rcsv` files.** This format was previously named _Refrain CSV
+> Format (RCSV)_ with the `.rcsv` extension and magic `RCSV`. Existing `.rcsv`
+> files are **read transparently** as a legacy import: opening one migrates the
+> in-memory document to `.rsf`, detaches the original file handle (so the
+> `.rcsv` on disk is never overwritten), and marks it unsaved. The next save
+> writes a new `.rsf` file. Only the name, extension, magic bytes, and
+> container version changed — the on-disk structure is otherwise identical.
+
+> **CSV → RSF is lossy, by design.** Converting a byte-preserving CSV document
+> to RSF moves to the spreadsheet model (cell _values_ only). It is an explicit
+> lossy conversion — never a byte-identical copy of the CSV — and the original
+> `.csv` on disk is never modified.
 
 #### Compression
 
-Each `.rcsv` file records which codec packed its body, so any supported method
+Each `.rsf` file records which codec packed its body, so any supported method
 round-trips and unknown methods are rejected safely. All codecs are **pure
 Rust** in the embedded WASM core — no C toolchain, no network, fully offline:
 
@@ -737,9 +753,9 @@ Rust** in the embedded WASM core — no C toolchain, no network, fully offline:
 | **DEFLATE** (compatible) | `miniz_oxide` | Compatibility fallback when Zstandard is unavailable. |
 | **None** (uncompressed)  | —             | Debugging or interoperability only.                   |
 
-New documents and CSV→RCSV conversions default to **Zstandard**. Choose a
+New documents and CSV→RSF conversions default to **Zstandard**. Choose a
 different method any time via **File → Save with Options…**, which opens the
-RCSV Save dialog (localized in English and Japanese). A normal <kbd>Ctrl</kbd>+<kbd>S</kbd>
+RSF Save dialog (localized in English and Japanese). A normal <kbd>Ctrl</kbd>+<kbd>S</kbd>
 save **preserves the file's existing method** — the method never changes
 silently. The status bar shows the method the next save will write. Switching
 methods rewrites the container but never changes cell values, formulas,
@@ -753,7 +769,7 @@ processed, not just raw throughput.
 
 - **Rust/WASM data core.** The performance-critical byte-level work — CSV
   parsing, validation, delimiter sniffing, indexing, serialization planning,
-  `.rcsv` compression (Zstandard, LZ4 Frame, DEFLATE) and CRC-32,
+  `.rsf` compression (Zstandard, LZ4 Frame, DEFLATE) and CRC-32,
   selection-statistic reduction, and long literal searches — is implemented in
   **Rust compiled to WebAssembly**.
   The WASM binary is embedded in the bundle as Base64 and instantiated
@@ -785,8 +801,8 @@ processed, not just raw throughput.
 - **Time-sliced long scans with progress.** No large document processing runs
   as one long, unbroken CPU-bound loop on the main thread. Every heavy
   read/prepare phase — Replace All scanning, CSV export validation,
-  **CSV→RCSV conversion** (both the explicit command and the implicit
-  conversion an edit triggers), the cell-collection phase of an **`.rcsv`
+  **CSV→RSF conversion** (both the explicit command and the implicit
+  conversion an edit triggers), the cell-collection phase of an **`.rsf`
   save**, and the change-list preparation of **large pastes and Insert
   Copied … operations** (above 20,000 cells) — runs in ~12 ms cooperative
   slices, yielding a macrotask between slices so input handling, rendering,
@@ -798,10 +814,10 @@ processed, not just raw throughput.
   wall-clock budget with partial results rather than a freeze.
 - **Percentage progress, honestly reported.** Long-running loading UI shows a
   numeric percentage plus secondary detail wherever a reliable total exists —
-  `Converting big.csv to RCSV… (37% — 1,850 of 5,000 rows)`,
+  `Converting big.csv to RSF… (37% — 1,850 of 5,000 rows)`,
   `Pasting — 18,000 of 50,000 cells (36%)`,
   `Auto-fitting columns — 3 of 12 columns measured (25%)`. Multi-phase work
-  labels its phases: an `.rcsv` save shows the sliced
+  labels its phases: an `.rsf` save shows the sliced
   `preparing data (…%)` phase and then a distinct `compressing…` phase (the
   codec offers no honest percentage, so none is invented). Progress updates
   are naturally rate-limited to one per slice (~12 ms), so reporting never
@@ -817,7 +833,7 @@ processed, not just raw throughput.
 - **Accessible busy states.** Data-volume-dependent operations show a
   non-blocking loading indicator (`role="status"`, `aria-live="polite"`,
   `aria-busy`) with a localized operation label: opening/parsing a file,
-  converting a CSV to RCSV, saving/compressing an `.rcsv`, exporting to CSV,
+  converting a CSV to RSF, saving/compressing an `.rsf`, exporting to CSV,
   and Replace All. The indicator is painted before the work begins and always
   cleared afterward (even on error).
 
@@ -836,7 +852,7 @@ Practical ceilings come from browser memory (documents are held in memory;
 the configurable open limit defaults to guarding against accidental huge
 opens), single-threaded JavaScript for DOM work, and file complexity (very
 wide sheets, extremely long cell values, or dense formula graphs cost
-proportionally more). The `.rcsv` decompression ceiling is 512 MiB.
+proportionally more). The `.rsf` decompression ceiling is 512 MiB.
 
 ## Running via `file://`
 
@@ -871,15 +887,24 @@ sources) blocks external connections.
 Requirements: Node.js ≥ 20 and npm, or Docker.
 
 ```sh
-npm ci                 # install exact locked dependencies
+npm ci --ignore-scripts  # install exact locked deps, no lifecycle scripts
 npm run dev            # Vite dev server (development only; the product itself needs no server)
 npm run build          # type-check + production build into dist/
 npm run test           # vitest (unit, property-based/fuzz, jsdom UI tests)
+npm run test:rust      # cargo test (Rust/WASM core)
 npm run bench          # performance benchmarks (see docs/performance.md)
 npm run lint           # eslint
 npm run format         # prettier --write
 npm run format:check   # prettier --check
+npm run check:versions # package.json ⇄ package-lock.json consistency
+npm run check:dist     # assert dist/ is self-contained (embedded WASM, no network)
+npm run audit:ci       # production-dependency vulnerability gate
+npm run release -- patch   # one-command release (see "Cutting a release")
 ```
+
+The committed `.npmrc` sets `ignore-scripts=true`, so `npm ci` alone already
+skips dependency lifecycle scripts; the explicit flag above documents the
+intent for environments without the repo `.npmrc`.
 
 ### Docker
 
@@ -887,7 +912,7 @@ A reproducible environment is provided via `Dockerfile` + `compose.yaml`
 (dependencies live in a named volume, never in the host tree):
 
 ```sh
-docker compose run --rm app npm ci
+docker compose run --rm app npm ci --ignore-scripts
 docker compose run --rm app npm run format:check
 docker compose run --rm app npm run lint
 docker compose run --rm app npm run test
@@ -901,7 +926,7 @@ docker compose up dev                       # dev server on http://localhost:517
 src/
   core/     lossless document model, byte-level CSV parser, serializer,
             encoding, validation, history, search, formula engine, stats,
-            RCSV spreadsheet document + binary codec — DOM-independent, unit-tested
+            RSF spreadsheet document + binary codec — DOM-independent, unit-tested
   app/      tabs & app state, command layer, file access, settings, i18n,
             keyboard-shortcut routing, spreadsheet-font preference,
             version (single authoritative app name/version source)
@@ -912,12 +937,13 @@ src/
   locales/  en.json, ja.json
 wasm/       Rust crate compiled to WebAssembly (CSV core, DEFLATE + CRC-32,
             stats/search primitives)
-docs/       rcsv-format.md (binary .rcsv container specification),
+docs/       rsf-format.md (binary .rsf container specification),
+            security.md (threat model + supply-chain policy),
             performance.md (benchmark results + profiling guide)
 bench/      reproducible performance benchmarks (npm run bench)
 tests/      identity, fuzz/property-based, editing, encodings, save options,
             validation, history, search, formulas, stats, spreadsheet,
-            RCSV binary codec, WASM/JS parity, i18n, commands, UI (jsdom),
+            RSF binary codec, WASM/JS parity, i18n, commands, UI (jsdom),
             responsiveness regression tests (perf)
 ```
 
@@ -937,8 +963,8 @@ fallback logic. Spreadsheet coverage adds: the formula engine (functions,
 operators, whole-column/row ranges, cycle detection, error codes), function
 autocomplete and pointer-entered references in **both** the formula bar and the
 inline cell editor, the fill handle / Fill Down, selection statistics, blank
-new-document creation, the explicit CSV→RCSV convert-to-new-tab command, the
-binary `.rcsv` container (round-trip, magic/version, checksum, decompression
+new-document creation, the explicit CSV→RSF convert-to-new-tab command, the
+binary `.rsf` container (round-trip, magic/version, checksum, decompression
 bounds, store and DEFLATE paths, and application-version metadata), and
 byte-exact WASM/JS parity for parsing, serialization planning, stats reduction,
 and literal search. Responsiveness regressions are guarded by deterministic
@@ -978,8 +1004,8 @@ formula-range expansion and reference shifting, atomic undo/redo, CSV
 conversion gating, percentage progress for large insertions), Select All
 (grid-focus-only Ctrl+A routing, used-range selection, empty-document
 messaging, virtualized whole-sheet rendering, pending statistics, guarded
-structural commands), and the non-blocking progress pipeline (sliced CSV→RCSV
-conversion — explicit and implicit — with percentages, the two-phase `.rcsv`
+structural commands), and the non-blocking progress pipeline (sliced CSV→RSF
+conversion — explicit and implicit — with percentages, the two-phase `.rsf`
 save with a labeled compression phase, large paste/insertion percentages, and
 the "never 100% while work remains" rule). Most recent additions: conditional
 row-height wrapping (pure visual-line counting from measured width — word
@@ -992,7 +1018,7 @@ mixed heights under virtualization, single-line pinned sticky row, and
 selection/keyboard-navigation/copy across variable heights) and the top-left
 corner Select All control (localized accessible name in English and Japanese,
 pointer and keyboard/`click` activation, `aria-pressed` whole-sheet state,
-blank-RCSV logical extent, empty-CSV no-data path, virtualized whole-sheet
+blank-RSF logical extent, empty-CSV no-data path, virtualized whole-sheet
 selection, copy coverage, and coexistence with formula-reference highlighting).
 The latest additions cover IME-safe editing (composition detection from
 `isComposing` / `keyCode` 229 / a tracked flag; typing opening an empty editor
@@ -1001,7 +1027,7 @@ the IME while composing and committing only after; the editor surviving a
 rerender mid-composition; the formula bar's composition guard), Alt+Enter
 multi-line editing (newline insertion at the caret and over a selection in both
 the inline editor and the formula bar without committing; CSV minimal-diff
-quoting of an edited multi-line field; an RCSV multi-line save/load round trip;
+quoting of an edited multi-line field; an RSF multi-line save/load round trip;
 atomic undo/redo; and a row growing via Wrap Long Rows after a multi-line value
 is entered), and the color theme (system default, `prefers-color-scheme`
 resolution, explicit light/dark application to the document root, local
@@ -1011,37 +1037,96 @@ default, and no tracking once an explicit theme is chosen).
 ## CI and releases
 
 - **CI** (`.github/workflows/ci.yml`) runs on pull requests and pushes to
-  `main`: `npm ci`, format check, lint, tests, build, and uploads `dist/` as
-  an artifact. It never creates releases and needs no write permissions.
+  `main`: `npm ci --ignore-scripts`, version-consistency, format check, lint,
+  tests, build, `check:dist`, a production-dependency `npm audit` gate, and a
+  clean-tree assertion. It is entirely read-only, creates no releases, and needs
+  no secrets, so fork PRs run safely.
+- **Dependency review** (`.github/workflows/dependency-review.yml`) runs on pull
+  requests and fails a PR that introduces a high/critical-severity or
+  disallowed-license dependency. It is read-only and uses the plain
+  `pull_request` trigger, so fork PRs never gain secrets or write access.
 - **Releases and deployment** (`.github/workflows/release.yml`) run only when a
   strict semantic-version tag `v<major>.<minor>.<patch>` (for example
-  `v0.1.1`) is pushed. The tag filter is numeric, and the tag is re-validated
+  `v0.2.4`) is pushed. The tag filter is numeric, and the tag is re-validated
   with a regex; it must also match the `version` in `package.json` — the single
-  authoritative version source (currently **`0.2.2`**). Pushing a valid version
-  tag publishes **both** the GitHub Release and the GitHub Pages site:
-
-  ```sh
-  git tag v0.1.1
-  git push origin v0.1.1
-  ```
+  authoritative version source (currently **`0.2.4`**). Pushing a valid version
+  tag publishes **both** the GitHub Release and the GitHub Pages site.
 
   Pushes to `main`, pull requests, non-version tags (e.g. `nightly`), and
   malformed tags (e.g. `v1.2`, `v1.2.3.4`) never release or deploy.
 
-  The `release` job re-runs all checks (format, lint, tests) and the
-  production build, then publishes a GitHub Release with two assets:
+  The `release` job re-runs all checks (version consistency, format, lint,
+  tests, `check:dist`, audit) and the production build, then publishes a GitHub
+  Release with these assets:
 
   ```text
-  refrain-sheet-v0.1.1-<short-hash>.zip
-  refrain-sheet-v0.1.1-<short-hash>.zip.sha256
+  refrain-sheet-v0.2.4-<short-hash>.zip
+  refrain-sheet-v0.2.4-<short-hash>.zip.sha256
+  refrain-sheet-v0.2.4.sbom.cdx.json          # CycloneDX SBOM
   ```
 
-  The ZIP contains the full `dist/` output plus `README.md`, `LICENSE`, and
-  `THIRD-PARTY-NOTICES.md`. Verify a download with:
+  plus a signed **build-provenance attestation** for the ZIP (via
+  `actions/attest-build-provenance`, OIDC — no secrets). The ZIP contains the
+  full `dist/` output plus `README.md`, `LICENSE`, `THIRD-PARTY-NOTICES.md`, and
+  the SBOM. Verify a download with:
 
   ```sh
-  sha256sum -c refrain-sheet-v0.1.1-<short-hash>.zip.sha256
+  sha256sum -c refrain-sheet-v0.2.4-<short-hash>.zip.sha256
+  gh attestation verify refrain-sheet-v0.2.4-<short-hash>.zip --repo <owner>/<repo>
   ```
+
+### Versioning policy
+
+The application version follows **Semantic Versioning** and is defined in
+exactly one place, `package.json`; `src/app/version.ts` imports it, so no
+app-visible string hard-codes a number. `npm run check:versions` fails if
+`package.json` and `package-lock.json` drift apart, and CI runs it on every
+push. The internal Rust/WASM core crate (`wasm/Cargo.toml`) has its own
+independent version and is intentionally not tied to the app version. After a
+user-requested change lands, bump the patch version once (`npm run release --
+patch` does this as part of a release).
+
+### Cutting a release (`npm run release`)
+
+A single checked-in Node script, [`scripts/release.mjs`](scripts/release.mjs),
+performs the whole release safely. It requires no globally installed tools
+beyond Node + git (both present in the Docker image):
+
+```sh
+# From an environment with Node, git, and push credentials (or the Docker
+# image, which bundles git):
+npm run release -- patch        # 0.2.4 -> 0.2.5
+npm run release -- minor        # 0.2.4 -> 0.3.0
+npm run release -- major        # 0.2.4 -> 1.0.0
+npm run release -- v1.4.0       # an explicit target version
+npm run release -- patch --yes  # skip the confirmation prompt (CI/non-interactive)
+npm run release -- patch --dry-run   # run every check, change nothing
+```
+
+In order, the script:
+
+1. validates the repository state and branch (`main` only),
+2. refuses to run with an unexpected dirty tree,
+3. runs the **full** required checks — version consistency, format, lint,
+   TypeScript tests, **Rust tests**, security audit, production build, and
+   `check:dist`,
+4. computes and validates the new SemVer version,
+5. synchronizes `package.json` + `package-lock.json` (the lockfile is
+   regenerated only via `npm install --package-lock-only --ignore-scripts`),
+6. stages exactly `package.json` and `package-lock.json`,
+7. creates a `Release vX.Y.Z` commit,
+8. creates an annotated `vX.Y.Z` tag,
+9. pushes the commit and then the tag to the upstream remote.
+
+Before staging, committing, tagging, or pushing it **prints the exact version,
+branch, remote, commit message, and tag, then requires you to type `yes`** —
+unless `--yes` is passed. It **refuses** to run from a detached HEAD, an invalid
+remote, a dirty tree with unrelated changes, a branch behind its upstream, or if
+the target tag already exists locally or remotely; and it never force-pushes,
+overwrites or deletes tags, or bypasses hooks. If a failure happens after the
+local commit or tag but before the push completes, it prints exact recovery
+commands. Pushing the validated tag is what triggers the GitHub Actions release
+workflow (Release + SBOM + provenance + Pages).
 
 ### GitHub Pages deployment
 
@@ -1081,7 +1166,7 @@ The deployed URL is also recorded on the run's `github-pages` environment.
 - Malformed CSV, huge inputs, undecodable bytes, and invalid regexes are
   handled without crashing; regex execution is bounded (pattern length limit
   and a time budget) to avoid catastrophic backtracking.
-- `.rcsv` files hold inert data only — cell inputs plus small descriptive
+- `.rsf` files hold inert data only — cell inputs plus small descriptive
   metadata (the creating/updating application name and version). Loading
   validates the magic bytes, version, CRC-32 checksum, structure, and size
   bounds, and enforces a decompression ceiling so a crafted (bomb) payload
@@ -1095,6 +1180,37 @@ The deployed URL is also recorded on the run's `github-pages` environment.
   CSP sets `connect-src 'none'` and `default-src 'none'`.
 - The repository and build output contain no secrets or credentials.
 
+### Supply-chain security
+
+The full threat model, dependency policy, lockfile policy, CI permission model,
+release controls, and local-developer expectations are documented in
+[docs/security.md](docs/security.md). In brief:
+
+- **Minimal dependencies.** The production runtime has a single dependency
+  (`encoding-japanese`, for Shift_JIS/EUC-JP encoding) with **zero transitive
+  dependencies**; everything else is dev-only tooling. Rust crates are few and
+  exactly pinned (`=x.y.z`).
+- **Lockfiles enforced.** `package-lock.json` and `wasm/Cargo.lock` are
+  committed; CI, Docker, and release instructions use `npm ci` (never
+  `npm install`), which installs strictly from the lockfile.
+- **No install scripts.** A committed `.npmrc` (`ignore-scripts=true`) plus
+  explicit `--ignore-scripts` in CI, Docker, and the release path block
+  dependency lifecycle scripts — the main npm supply-chain attack surface
+  (e.g. "Shai-Hulud"-style postinstall worms).
+- **Least-privilege CI.** Workflows default to read-only; write scopes are
+  granted only to the specific release/deploy job that needs them; every
+  workflow uses `pull_request` (never `pull_request_target`), so fork PRs get
+  no secrets or write access. Only official GitHub-maintained `actions/*` are
+  used (major-tag pinned); any third-party action must be pinned to a full
+  commit SHA.
+- **Vulnerability gates.** `npm audit` (production deps, high severity) runs in
+  CI and on release, and a PR **dependency-review** workflow blocks vulnerable
+  or disallowed-license additions.
+- **Verifiable releases.** Each release ships a SHA-256 checksum, a CycloneDX
+  **SBOM**, and a signed SLSA-style **build-provenance attestation**.
+- **No committed secrets.** `.gitignore` blocks env files and key material; the
+  committed `.npmrc` holds configuration only, never an auth token.
+
 ### CSV injection warning
 
 Values beginning with `=`, `+`, `-`, or `@` may be interpreted as **formulas**
@@ -1107,7 +1223,7 @@ spreadsheet software. The Save with Options dialog carries the same warning.
 ## Limitations
 
 - Plain CSV editing preserves bytes and offers no formulas or structural
-  changes; those require an explicit conversion to a `.rcsv` **spreadsheet
+  changes; those require an explicit conversion to a `.rsf` **spreadsheet
   document** (see Spreadsheet mode). Sorting and filtering are not available in
   this version.
 - The whole file is kept in memory, with a configurable safety limit

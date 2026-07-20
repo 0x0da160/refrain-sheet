@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, LARGE_OP_CELLS, type UiPort } from '../src/app/commands';
 import { t } from '../src/app/i18n';
-import { RcsvDocument } from '../src/core/rcsv-document';
+import { RsfDocument } from '../src/core/rsf-document';
 import { KEEP_SAVE_OPTIONS } from '../src/core/serializer';
 import { doc } from './helpers';
 
@@ -25,8 +25,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
-    explainRcsvSave: vi.fn(async () => true),
-    chooseRcsvSave: vi.fn(async () => 2),
+    explainRsfSave: vi.fn(async () => true),
+    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => null),
     chooseInsertShift: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
@@ -61,16 +61,16 @@ function largeCsv(): string {
   return Array.from({ length: 5_000 }, (_, r) => `r${r},b,c,d,e,f`).join('\n') + '\n';
 }
 
-describe('CSV → RCSV conversion progress', () => {
+describe('CSV → RSF conversion progress', () => {
   it('the explicit Convert command scans in slices with a percentage label', async () => {
     const ui = stubUi();
     const state = new AppState();
     const commands = new Commands(state, ui, document);
     const tab = state.addTab('big.csv', doc(largeCsv()), null);
     await commands.run('sheet.convert');
-    // A new RCSV tab with identical values; the source CSV tab is untouched.
+    // A new RSF tab with identical values; the source CSV tab is untouched.
     expect(state.tabs).toHaveLength(2);
-    expect(state.tabs[1].doc.kind).toBe('rcsv');
+    expect(state.tabs[1].doc.kind).toBe('rsf');
     expect(state.tabs[1].doc.getValue(4_999, 0)).toBe('r4999');
     expect(tab.doc.kind).toBe('csv');
     const labels = busyLabels(ui);
@@ -87,9 +87,9 @@ describe('CSV → RCSV conversion progress', () => {
     const state = new AppState();
     const commands = new Commands(state, ui, document);
     const tab = state.addTab('big.csv', doc(largeCsv()), null);
-    const converted = await commands.ensureRcsv(tab, 'structure');
+    const converted = await commands.ensureRsf(tab, 'structure');
     expect(converted).not.toBeNull();
-    expect(tab.doc.kind).toBe('rcsv');
+    expect(tab.doc.kind).toBe('rsf');
     expect(tab.doc.getValue(123, 0)).toBe('r123');
     expect(percentValues(busyLabels(ui)).length).toBeGreaterThan(0);
     expect(busyLabels(ui)[busyLabels(ui).length - 1]).toBeNull();
@@ -100,20 +100,20 @@ describe('CSV → RCSV conversion progress', () => {
     const state = new AppState();
     const commands = new Commands(state, ui, document);
     const tab = state.addTab('big.csv', doc(largeCsv()), null);
-    expect(await commands.ensureRcsv(tab, 'structure')).toBeNull();
+    expect(await commands.ensureRsf(tab, 'structure')).toBeNull();
     expect(tab.doc.kind).toBe('csv');
     expect(busyLabels(ui)).toHaveLength(0);
   });
 });
 
-describe('RCSV save and compression progress', () => {
-  function largeRcsvTab(state: AppState) {
-    const rcsv = RcsvDocument.empty('big.rcsv', 5_000, 6);
+describe('RSF save and compression progress', () => {
+  function largeRsfTab(state: AppState) {
+    const rcsv = RsfDocument.empty('big.rsf', 5_000, 6);
     for (let r = 0; r < 5_000; r += 7) {
       rcsv.setCell(r, 2, `value ${r}`);
     }
-    const tab = state.addTab('big.rcsv', rcsv, null);
-    tab.rcsvSaveExplained = true;
+    const tab = state.addTab('big.rsf', rcsv, null);
+    tab.rsfSaveExplained = true;
     return tab;
   }
 
@@ -122,16 +122,16 @@ describe('RCSV save and compression progress', () => {
     const ui = stubUi();
     const state = new AppState();
     const commands = new Commands(state, ui, document);
-    const tab = largeRcsvTab(state);
+    const tab = largeRsfTab(state);
     expect(await commands.save(tab, KEEP_SAVE_OPTIONS)).toBe(true);
     const labels = busyLabels(ui);
     // Phase 1: percentage progress while collecting cells.
-    const serializePrefix = t('loading.savingSerialize', { name: 'big.rcsv', pct: 999 }).split('999')[0];
+    const serializePrefix = t('loading.savingSerialize', { name: 'big.rsf', pct: 999 }).split('999')[0];
     const serialize = labels.filter((l) => typeof l === 'string' && l.startsWith(serializePrefix));
     expect(percentValues(labels).length).toBeGreaterThan(0);
     expect(serialize.length).toBeGreaterThan(0);
     // Phase 2: the labeled compression step (honestly indeterminate).
-    expect(labels).toContain(t('loading.savingCompress', { name: 'big.rcsv' }));
+    expect(labels).toContain(t('loading.savingCompress', { name: 'big.rsf' }));
     // The indicator is dismissed only at the end.
     expect(labels[labels.length - 1]).toBeNull();
     expect(tab.doc.isDirty).toBe(false);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * Lossy RCSV → CSV export planning and encoding.
+ * Lossy RSF → CSV export planning and encoding.
  *
  * The export serializes the *displayed* (calculated) values of a spreadsheet
  * document into plain CSV with a user-chosen encoding, line-ending style, and

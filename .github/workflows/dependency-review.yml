@@ -1,0 +1,32 @@
+name: Dependency review
+
+# Reviews dependency changes on pull requests and fails when a PR introduces a
+# known-vulnerable or disallowed-license dependency, before it can be merged.
+# It uses the plain `pull_request` trigger (never the privileged fork-secret
+# variant), so untrusted PR code is never executed with write access or
+# secrets: the job is read-only and touches no secret. Forks therefore cannot
+# use it to exfiltrate anything.
+on:
+  pull_request:
+
+# Least privilege: read the diff; optionally write a PR summary comment.
+permissions:
+  contents: read
+  pull-requests: write
+
+# Only official GitHub-maintained actions/* are used (pinned to a major tag per
+# the policy in docs/security.md); third-party actions would require a SHA pin.
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v4
+        with:
+          # Block a PR that adds a dependency with a known high/critical
+          # vulnerability, and surface the findings in the PR.
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure

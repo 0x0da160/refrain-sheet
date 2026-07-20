@@ -16,8 +16,8 @@
 import { bench, describe } from 'vitest';
 import { initCsvEngine, setCsvEngineForTesting } from '../src/core/csv-engine';
 import { LosslessDocument } from '../src/core/lossless-document';
-import { encodeRcsv, decodeRcsv, type RcsvData } from '../src/core/rcsv-codec';
-import { RcsvDocument } from '../src/core/rcsv-document';
+import { encodeRsf, decodeRsf, type RsfData } from '../src/core/rsf-codec';
+import { RsfDocument } from '../src/core/rsf-document';
 import { compileQuery, replaceAllInValue } from '../src/core/search';
 import { computeSelectionStats } from '../src/core/stats';
 
@@ -136,14 +136,14 @@ describe('Replace-All match scan over 200,000×6 cells', () => {
   );
 });
 
-// ----- RCSV container: encode (compress + CRC) and decode (validate + inflate) -----
+// ----- RSF container: encode (compress + CRC) and decode (validate + inflate) -----
 
-describe('RCSV container round-trip, 100,000 non-empty cells', () => {
+describe('RSF container round-trip, 100,000 non-empty cells', () => {
   const cells: Array<[number, number, string]> = [];
   for (let i = 0; i < 100_000; i++) {
     cells.push([i % 20_000, i % 5, `value-${i % 977}`]);
   }
-  const payload: RcsvData = {
+  const payload: RsfData = {
     name: 'Sheet1',
     delimiter: ',',
     rowCount: 20_000,
@@ -154,19 +154,19 @@ describe('RCSV container round-trip, 100,000 non-empty cells', () => {
     'encode (wasm deflate)',
     () => {
       setCsvEngineForTesting('wasm');
-      encodeRcsv(payload);
+      encodeRsf(payload);
     },
     OPTS,
   );
   const encodedForDecode = (() => {
     setCsvEngineForTesting(wasmAvailable ? 'wasm' : 'js');
-    return encodeRcsv(payload);
+    return encodeRsf(payload);
   })();
   bench.skipIf(!wasmAvailable)(
     'decode (validate + inflate)',
     () => {
       setCsvEngineForTesting('wasm');
-      const out = decodeRcsv(encodedForDecode);
+      const out = decodeRsf(encodedForDecode);
       if (!out.ok) throw new Error('decode failed');
     },
     OPTS,
@@ -179,7 +179,7 @@ describe('formula evaluation, 5,000-cell dependency chain', () => {
   bench(
     'evaluate all (cold memo each run)',
     () => {
-      const doc = RcsvDocument.empty('bench.rcsv', 5_000, 2);
+      const doc = RsfDocument.empty('bench.rsf', 5_000, 2);
       doc.setCell(0, 0, '1');
       for (let r = 1; r < 5_000; r++) {
         doc.setCell(r, 0, String(r));

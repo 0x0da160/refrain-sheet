@@ -3,12 +3,12 @@
 /**
  * Alt+Enter inserts a literal newline while editing (inline cell editor and
  * formula bar) without committing, and multi-line values round-trip through
- * CSV minimal-diff quoting, RCSV, undo/redo, and Wrap Long Rows.
+ * CSV minimal-diff quoting, RSF, undo/redo, and Wrap Long Rows.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
-import { RcsvDocument } from '../src/core/rcsv-document';
+import { RsfDocument } from '../src/core/rsf-document';
 import { FormulaBar } from '../src/ui/formula-bar';
 import { Grid, ROW_HEIGHT } from '../src/ui/grid';
 import { asCsv, doc, saved } from './helpers';
@@ -23,8 +23,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
-    explainRcsvSave: vi.fn(async () => true),
-    chooseRcsvSave: vi.fn(async () => 2),
+    explainRsfSave: vi.fn(async () => true),
+    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => null),
     chooseInsertShift: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
@@ -117,10 +117,10 @@ describe('multi-line value round trips', () => {
     expect(text).toContain('"a\nb"');
   });
 
-  it('preserves a multi-line cell through an RCSV save/load round trip', () => {
-    const rcsv = RcsvDocument.empty('t.rcsv', 2, 2);
+  it('preserves a multi-line cell through an RSF save/load round trip', () => {
+    const rcsv = RsfDocument.empty('t.rcsv', 2, 2);
     rcsv.setCell(0, 0, 'line1\nline2');
-    const result = RcsvDocument.fromBytes(rcsv.toBytes(), 't.rcsv');
+    const result = RsfDocument.fromBytes(rcsv.toBytes(), 't.rcsv');
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.doc.getValue(0, 0)).toBe('line1\nline2');

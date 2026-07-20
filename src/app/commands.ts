@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from '../core/byte-csv-parser';
 import type { CellRange } from '../core/clipboard';
-import { getRcsvCodec, initCsvEngine } from '../core/csv-engine';
+import { getRsfCodec, initCsvEngine } from '../core/csv-engine';
 import {
   buildCsvExportBytes,
   newCsvExportScan,
@@ -14,12 +14,13 @@ import { columnLabel, isFormula, shiftFormulaRefs } from '../core/formula';
 import type { CellChange, HistoryEntry, Operation } from '../core/history';
 import { LosslessDocument } from '../core/lossless-document';
 import {
-  RcsvDocument,
-  RCSV_EXTENSION,
+  RsfDocument,
+  RSF_EXTENSION,
+  RSF_LEGACY_EXTENSION,
   NEW_DOC_ROWS,
   NEW_DOC_COLS,
-  type RcsvParseError,
-} from '../core/rcsv-document';
+  type RsfParseError,
+} from '../core/rsf-document';
 import { forEachIndexSliced } from '../core/scheduler';
 import { replaceAllInValue, type CompiledQuery } from '../core/search';
 import {
@@ -46,8 +47,8 @@ import { setSheetFont, type SheetFontId } from './sheet-font';
 import { setTheme, type ThemeChoice } from './theme';
 
 /**
- * Why a CSV document needs converting to an RCSV spreadsheet document.
- * `command` is the explicit `Convert to RCSV…` menu command (which opens a new
+ * Why a CSV document needs converting to an RSF spreadsheet document.
+ * `command` is the explicit `Convert to RSF…` menu command (which opens a new
  * tab); the others are implicit conversions triggered by an edit that a
  * byte-preserving CSV cannot represent (they convert the current tab in place).
  */
@@ -67,16 +68,16 @@ export interface UiPort {
   notifyNcr(reports: NcrCellReport[]): Promise<void>;
   confirmUndecodableEdit(cells: Array<{ row: number; col: number }>): Promise<boolean>;
   chooseReopen(tab: Tab): Promise<{ encoding: EncodingId; delimiter: DelimiterId } | null>;
-  /** Explain and confirm the explicit CSV -> RCSV conversion. */
+  /** Explain and confirm the explicit CSV -> RSF conversion. */
   confirmConvert(reason: ConvertReason, name: string): Promise<boolean>;
-  /** Explain that a spreadsheet document is saved as .rcsv (per-tab, once). */
-  explainRcsvSave(name: string): Promise<boolean>;
+  /** Explain that a spreadsheet document is saved as .rsf (per-tab, once). */
+  explainRsfSave(name: string): Promise<boolean>;
   /**
-   * The RCSV Save dialog: pick the container's compression method. `available`
+   * The RSF Save dialog: pick the container's compression method. `available`
    * lists only methods writable in the current build; `current` is preselected.
    * Resolves with the chosen method id, or null when cancelled.
    */
-  chooseRcsvSave(
+  chooseRsfSave(
     name: string,
     current: number,
     available: number[],
@@ -158,7 +159,7 @@ export type CommandId =
   | 'tab.moveLast'
   | 'help.about';
 
-const CSV_LIKE_EXTENSIONS = ['.csv', '.tsv', '.txt', RCSV_EXTENSION];
+const CSV_LIKE_EXTENSIONS = ['.csv', '.tsv', '.txt', RSF_EXTENSION, RSF_LEGACY_EXTENSION];
 
 /**
  * Cell-count threshold above which an operation counts as "large": its
@@ -211,13 +212,13 @@ export class Commands {
       case 'search.findPrev':
         return tab !== null;
       case 'file.saveOptions':
-        // CSV: encoding/EOL/BOM options. RCSV: the compression selector.
+        // CSV: encoding/EOL/BOM options. RSF: the compression selector.
         return tab !== null;
       case 'file.reopen':
       case 'sheet.convert':
         return tab !== null && tab.doc.kind === 'csv';
       case 'sheet.exportCsv':
-        return tab !== null && tab.doc.kind === 'rcsv';
+        return tab !== null && tab.doc.kind === 'rsf';
       case 'sheet.insertRowAbove':
       case 'sheet.insertRowBelow':
       case 'sheet.deleteRows':
@@ -233,7 +234,7 @@ export class Commands {
       case 'edit.redo':
         return tab !== null && tab.history.canRedo;
       // The Insert Copied … commands stay clickable on a CSV tab: running one
-      // explains that the structural insertion needs the explicit RCSV
+      // explains that the structural insertion needs the explicit RSF
       // conversion (and warns when nothing has been copied yet).
       case 'edit.copy':
       case 'edit.paste':
@@ -493,8 +494,9 @@ export class Commands {
       return;
     }
 
-    if (file.name.toLowerCase().endsWith(RCSV_EXTENSION)) {
-      await this.openRcsvFile(file);
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith(RSF_EXTENSION) || lowerName.endsWith(RSF_LEGACY_EXTENSION)) {
+      await this.openRsfFile(file);
       return;
     }
 
@@ -564,28 +566,39 @@ export class Commands {
     this.state.addTab(file.name, doc, file.handle);
   }
 
-  private async openRcsvFile(file: OpenedFile): Promise<void> {
+  private async openRsfFile(file: OpenedFile): Promise<void> {
     const result = await this.withBusy(t('loading.opening', { name: file.name }), async () => {
       await initCsvEngine(); // reading DEFLATE-compressed containers needs the WASM codec
-      return RcsvDocument.fromBytes(file.bytes, file.name);
+      return RsfDocument.fromBytes(file.bytes, file.name);
     });
     if (!result.ok) {
-      const reasonKey: Record<RcsvParseError, string> = {
-        'bad-magic': 'dialog.rcsvInvalid.badMagic',
-        'bad-version': 'dialog.rcsvInvalid.badVersion',
-        'bad-shape': 'dialog.rcsvInvalid.badShape',
-        checksum: 'dialog.rcsvInvalid.checksum',
-        'unsupported-compression': 'dialog.rcsvInvalid.compression',
-        'too-large': 'dialog.rcsvInvalid.tooLarge',
+      const reasonKey: Record<RsfParseError, string> = {
+        'bad-magic': 'dialog.rsfInvalid.badMagic',
+        'bad-version': 'dialog.rsfInvalid.badVersion',
+        'bad-shape': 'dialog.rsfInvalid.badShape',
+        checksum: 'dialog.rsfInvalid.checksum',
+        'unsupported-compression': 'dialog.rsfInvalid.compression',
+        'too-large': 'dialog.rsfInvalid.tooLarge',
       };
       await this.ui.showMessage(
-        t('dialog.rcsvInvalid.title'),
-        t('dialog.rcsvInvalid.message', { name: file.name, reason: t(reasonKey[result.error]) }),
+        t('dialog.rsfInvalid.title'),
+        t('dialog.rsfInvalid.message', { name: file.name, reason: t(reasonKey[result.error]) }),
       );
       return;
     }
-    const tab = this.state.addTab(file.name, result.doc, file.handle);
-    tab.rcsvSaveExplained = true; // opened as .rcsv; no explanation needed
+    // A legacy `.rcsv` file opens as a migration: rename to `.rsf`, drop the
+    // original handle (a `.rcsv` handle must not be overwritten with `.rsf`
+    // bytes), and mark it unsaved so the next Save writes a fresh `.rsf` file.
+    // The original `.rcsv` on disk is never modified.
+    const isLegacy = file.name.toLowerCase().endsWith(RSF_LEGACY_EXTENSION);
+    const name = isLegacy ? `${file.name.slice(0, -RSF_LEGACY_EXTENSION.length)}${RSF_EXTENSION}` : file.name;
+    const tab = this.state.addTab(name, result.doc, isLegacy ? null : file.handle);
+    tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
+    if (isLegacy) {
+      result.doc.markUnsaved();
+      this.state.emit('doc');
+      this.ui.notify(t('notify.rsfMigrated', { name }), 'info');
+    }
   }
 
   private async findExistingTab(file: OpenedFile): Promise<Tab | null> {
@@ -621,8 +634,8 @@ export class Commands {
   }
 
   private async saveWithOptions(tab: Tab): Promise<void> {
-    if (tab.doc.kind === 'rcsv') {
-      await this.saveRcsvWithOptions(tab);
+    if (tab.doc.kind === 'rsf') {
+      await this.saveRsfWithOptions(tab);
       return;
     }
     if (tab.doc.kind !== 'csv') {
@@ -637,20 +650,20 @@ export class Commands {
   }
 
   /**
-   * The RCSV Save dialog: choose the container's compression method and save.
+   * The RSF Save dialog: choose the container's compression method and save.
    * The active codec's writable methods are offered (Zstandard recommended and
    * preselected for new documents; an existing document preselects its own
    * method). A plain Ctrl+S save always reuses the document's current method,
    * so the method never changes silently — only this dialog changes it.
    */
-  private async saveRcsvWithOptions(tab: Tab): Promise<void> {
+  private async saveRsfWithOptions(tab: Tab): Promise<void> {
     const doc = tab.doc;
-    if (doc.kind !== 'rcsv') {
+    if (doc.kind !== 'rsf') {
       return;
     }
     // Normalize the extension first (sync) so the picker suggests the right name.
-    if (!tab.name.toLowerCase().endsWith(RCSV_EXTENSION)) {
-      tab.name = `${tab.name}${RCSV_EXTENSION}`;
+    if (!tab.name.toLowerCase().endsWith(RSF_EXTENSION)) {
+      tab.name = `${tab.name}${RSF_EXTENSION}`;
     }
     // A document with no associated file needs a destination. Open the save
     // picker NOW — synchronously, before the async engine init, the
@@ -662,7 +675,7 @@ export class Commands {
     let handle = tab.handle;
     if (!handle) {
       try {
-        handle = await requestSaveHandle(tab.name, 'rcsv');
+        handle = await requestSaveHandle(tab.name, 'rsf');
       } catch (err) {
         // Picker cancelled: no compression change, no save, no association.
         if (err instanceof DOMException && err.name === 'AbortError') {
@@ -678,31 +691,31 @@ export class Commands {
     // The codec only reports its real writable methods once the WASM engine is
     // instantiated; without it, only the uncompressed store method is offered.
     await initCsvEngine();
-    const codec = getRcsvCodec();
+    const codec = getRsfCodec();
     const available = codec.writableMethods();
     const current = doc.compression ?? codec.defaultMethod();
     const willDownload = handle ? null : t('save.downloadNote', { name: tab.name });
-    const method = await this.ui.chooseRcsvSave(tab.name, current, available, willDownload);
+    const method = await this.ui.chooseRsfSave(tab.name, current, available, willDownload);
     if (method === null) {
       return;
     }
     doc.setCompression(method);
-    // The dialog already committed to saving as .rcsv, so the write path below
+    // The dialog already committed to saving as .rsf, so the write path below
     // should not show the one-time explanation again.
-    tab.rcsvSaveExplained = true;
-    await this.encodeAndWriteRcsv(tab, handle);
+    tab.rsfSaveExplained = true;
+    await this.encodeAndWriteRsf(tab, handle);
   }
 
   /**
    * Save a tab. CSV: a normal save (all options "keep") with no edits writes
    * the originally loaded bytes verbatim; with edits, only edited field
-   * ranges are reserialized. RCSV: the document is saved in the versioned
-   * .rcsv JSON format (never silently into the original .csv).
+   * ranges are reserialized. RSF: the document is saved in the versioned
+   * .rsf JSON format (never silently into the original .csv).
    * Returns true when the file was actually saved.
    */
   async save(tab: Tab, options: SaveOptions): Promise<boolean> {
-    if (tab.doc.kind === 'rcsv') {
-      return this.saveRcsv(tab);
+    if (tab.doc.kind === 'rsf') {
+      return this.saveRsf(tab);
     }
     if (tab.doc.isDirty) {
       const undecodableEdits = tab.doc.listEditedUndecodable();
@@ -768,7 +781,7 @@ export class Commands {
   }
 
   /**
-   * Save a spreadsheet document as .rcsv (with a one-time explanation).
+   * Save a spreadsheet document as .rsf (with a one-time explanation).
    *
    * The save picker MUST be opened synchronously from the triggering user
    * gesture: `showSaveFilePicker` requires a live user activation, which is
@@ -779,13 +792,13 @@ export class Commands {
    * new/Save-As document opens the picker; a build without the File System
    * Access API downloads the finished bytes.
    */
-  private async saveRcsv(tab: Tab): Promise<boolean> {
-    if (tab.doc.kind !== 'rcsv') {
+  private async saveRsf(tab: Tab): Promise<boolean> {
+    if (tab.doc.kind !== 'rsf') {
       return false;
     }
-    // Normalize the extension first (sync) so the picker suggests the .rcsv name.
-    if (!tab.name.toLowerCase().endsWith(RCSV_EXTENSION)) {
-      tab.name = `${tab.name}${RCSV_EXTENSION}`;
+    // Normalize the extension first (sync) so the picker suggests the .rsf name.
+    if (!tab.name.toLowerCase().endsWith(RSF_EXTENSION)) {
+      tab.name = `${tab.name}${RSF_EXTENSION}`;
     }
     // Acquire the destination up front, inside the user gesture. `handle` is
     // null when the File System Access API is unavailable (the finished bytes
@@ -793,7 +806,7 @@ export class Commands {
     let handle = tab.handle;
     if (!handle) {
       try {
-        handle = await requestSaveHandle(tab.name, 'rcsv');
+        handle = await requestSaveHandle(tab.name, 'rsf');
       } catch (err) {
         // Picker cancelled: nothing is saved, the file association is
         // untouched, the document stays dirty, and no success is reported.
@@ -807,19 +820,19 @@ export class Commands {
         return false;
       }
     }
-    // One-time explanation that a spreadsheet is written in the .rcsv format.
-    if (!tab.rcsvSaveExplained) {
-      const proceed = await this.ui.explainRcsvSave(tab.name);
+    // One-time explanation that a spreadsheet is written in the .rsf format.
+    if (!tab.rsfSaveExplained) {
+      const proceed = await this.ui.explainRsfSave(tab.name);
       if (!proceed) {
         return false;
       }
-      tab.rcsvSaveExplained = true;
+      tab.rsfSaveExplained = true;
     }
-    return this.encodeAndWriteRcsv(tab, handle);
+    return this.encodeAndWriteRsf(tab, handle);
   }
 
   /**
-   * Serialize + compress the RCSV document behind the busy indicator, then
+   * Serialize + compress the RSF document behind the busy indicator, then
    * write the completed bytes to `handle` (an already-acquired destination:
    * an existing association or a freshly-picked file). When `handle` is null
    * the File System Access API was unavailable and the bytes are downloaded.
@@ -833,12 +846,12 @@ export class Commands {
    * the in-memory document intact, and returns false. The write is atomic
    * (createWritable → write → close); a download never reports an overwrite.
    */
-  private async encodeAndWriteRcsv(tab: Tab, handle: FileSystemFileHandle | null): Promise<boolean> {
+  private async encodeAndWriteRsf(tab: Tab, handle: FileSystemFileHandle | null): Promise<boolean> {
     const doc = tab.doc;
-    if (doc.kind !== 'rcsv') {
+    if (doc.kind !== 'rsf') {
       return false;
     }
-    const bytes = await this.withBusy(t('loading.savingRcsv', { name: tab.name }), async () => {
+    const bytes = await this.withBusy(t('loading.savingRsf', { name: tab.name }), async () => {
       await initCsvEngine(); // compression runs in the WASM codec when available
       if (doc.rowCount * doc.columnCount <= LARGE_OP_CELLS) {
         return doc.toBytes();
@@ -893,7 +906,7 @@ export class Commands {
   }
 
   /**
-   * Explicit, confirmed lossy CSV export of an RCSV document. The options
+   * Explicit, confirmed lossy CSV export of an RSF document. The options
    * dialog (encoding, line endings, BOM) doubles as the confirmation; the
    * displayed values are then validated against the chosen encoding in a
    * time-sliced scan behind the progress indicator. Unrepresentable
@@ -902,14 +915,14 @@ export class Commands {
    * Nothing in this flow ever mutates the source document or marks it saved.
    */
   async exportCsv(tab: Tab): Promise<boolean> {
-    if (tab.doc.kind !== 'rcsv') {
+    if (tab.doc.kind !== 'rsf') {
       return false;
     }
     const options = await this.ui.chooseExportCsv(tab.name);
     if (!options) {
       return false;
     }
-    const name = tab.name.replace(/\.rcsv$/i, '') + '.csv';
+    const name = tab.name.replace(/\.(rsf|rcsv)$/i, '') + '.csv';
     const doc = tab.doc;
     const label = t('loading.exporting', { name });
 
@@ -996,11 +1009,11 @@ export class Commands {
   }
 
   /**
-   * Ensure the tab holds an RCSV spreadsheet document, asking for the
+   * Ensure the tab holds an RSF spreadsheet document, asking for the
    * explicit conversion when it is still CSV. Never converts silently.
    */
-  async ensureRcsv(tab: Tab, reason: ConvertReason): Promise<RcsvDocument | null> {
-    if (tab.doc.kind === 'rcsv') {
+  async ensureRsf(tab: Tab, reason: ConvertReason): Promise<RsfDocument | null> {
+    if (tab.doc.kind === 'rsf') {
       return tab.doc;
     }
     const ok = await this.ui.confirmConvert(reason, tab.name);
@@ -1010,16 +1023,16 @@ export class Commands {
     // Large documents build the converted copy in cooperative time slices
     // behind a percentage progress label; the in-place swap is then atomic.
     // If the scan aborts (the tab changed meanwhile) nothing is modified.
-    let prebuilt: RcsvDocument | undefined;
+    let prebuilt: RsfDocument | undefined;
     if (tab.doc.rowCount * Math.max(1, tab.doc.columnCount) > LARGE_OP_CELLS) {
       const label = t('loading.converting', { name: tab.name });
-      const built = await this.withBusy(label, () => this.buildRcsvSliced(tab, label));
+      const built = await this.withBusy(label, () => this.buildRsfSliced(tab, label));
       if (!built) {
         return null;
       }
       prebuilt = built;
     }
-    const doc = this.state.convertToRcsv(tab, prebuilt);
+    const doc = this.state.convertToRsf(tab, prebuilt);
     if (doc) {
       this.ui.notify(t('notify.converted', { name: tab.name }), 'info');
     }
@@ -1027,21 +1040,21 @@ export class Commands {
   }
 
   /**
-   * Collect a CSV document's current values and build the equivalent RCSV
+   * Collect a CSV document's current values and build the equivalent RSF
    * document. Large documents are scanned in cooperative time slices with a
    * percentage progress label so the conversion never blocks the main thread;
    * small ones convert synchronously. Returns null when the sliced scan was
    * abandoned because the tab's document changed while yielding — nothing has
    * been created or modified in that case.
    */
-  private async buildRcsvSliced(tab: Tab, label: string): Promise<RcsvDocument | null> {
+  private async buildRsfSliced(tab: Tab, label: string): Promise<RsfDocument | null> {
     const doc = tab.doc;
     if (doc.kind !== 'csv') {
       return null;
     }
     const columnCount = Math.max(1, doc.columnCount);
     if (doc.rowCount * columnCount <= LARGE_OP_CELLS) {
-      return RcsvDocument.fromLossless(doc, tab.name);
+      return RsfDocument.fromLossless(doc, tab.name);
     }
     const rows: string[][] = [];
     const completed = await forEachIndexSliced(
@@ -1065,7 +1078,7 @@ export class Commands {
     if (!completed || tab.doc !== doc) {
       return null;
     }
-    return RcsvDocument.fromValues(tab.name, doc.delimiter, rows, columnCount);
+    return RsfDocument.fromValues(tab.name, doc.delimiter, rows, columnCount);
   }
 
   /** Blank-document counter so each File > New tab gets a distinct default name. */
@@ -1073,24 +1086,24 @@ export class Commands {
 
   /**
    * File > New: create a blank spreadsheet document in a new active tab. New
-   * documents are RCSV because a blank spreadsheet may gain formulas,
+   * documents are RSF because a blank spreadsheet may gain formulas,
    * structural edits, metadata, and user-defined dimensions that a plain CSV
    * cannot hold. The document starts unsaved (marked dirty) and is saved as
-   * `.rcsv`; its filename and location are chosen on the first save. Creating
+   * `.rsf`; its filename and location are chosen on the first save. Creating
    * it never mutates any other open document.
    */
   newDocument(): Tab {
     this.newDocCount += 1;
     const suffix = this.newDocCount > 1 ? `-${this.newDocCount}` : '';
-    const name = `${t('untitled.new')}${suffix}${RCSV_EXTENSION}`;
-    const doc = RcsvDocument.blank(name, NEW_DOC_ROWS, NEW_DOC_COLS);
+    const name = `${t('untitled.new')}${suffix}${RSF_EXTENSION}`;
+    const doc = RsfDocument.blank(name, NEW_DOC_ROWS, NEW_DOC_COLS);
     return this.state.addTab(name, doc, null);
   }
 
   /**
-   * The explicit `Convert to RCSV…` command. Unlike the implicit conversions
+   * The explicit `Convert to RSF…` command. Unlike the implicit conversions
    * (which convert the current tab in place when an edit requires it), this
-   * creates a *new* RCSV tab from the CSV's current (edited) values and leaves
+   * creates a *new* RSF tab from the CSV's current (edited) values and leaves
    * the source CSV tab — and the original file on disk — untouched. The heavy
    * conversion runs behind the loading indicator.
    */
@@ -1105,11 +1118,11 @@ export class Commands {
     // The value collection runs in time slices with percentage progress for
     // large documents; small ones build synchronously behind the indicator.
     const label = t('loading.converting', { name: tab.name });
-    const built = await this.withBusy(label, () => this.buildRcsvSliced(tab, label));
+    const built = await this.withBusy(label, () => this.buildRsfSliced(tab, label));
     if (!built) {
       return;
     }
-    const doc = this.state.convertToRcsvNewTab(tab, built);
+    const doc = this.state.convertToRsfNewTab(tab, built);
     if (doc) {
       this.ui.notify(t('notify.convertedNewTab', { name: doc.name }), 'info');
     }
@@ -1117,12 +1130,12 @@ export class Commands {
 
   /**
    * Commit a cell edit from the grid or formula bar. Entering a formula
-   * (`=...`) into a CSV document offers the explicit RCSV conversion; if
+   * (`=...`) into a CSV document offers the explicit RSF conversion; if
    * declined, the text is kept as a plain literal value.
    */
   async commitCellEdit(tab: Tab, row: number, col: number, value: string): Promise<boolean> {
     if (tab.doc.kind === 'csv' && isFormula(value)) {
-      await this.ensureRcsv(tab, 'formula');
+      await this.ensureRsf(tab, 'formula');
     }
     return this.state.editCell(tab, row, col, value);
   }
@@ -1133,7 +1146,7 @@ export class Commands {
     if (!range) {
       return;
     }
-    const doc = await this.ensureRcsv(tab, 'structure');
+    const doc = await this.ensureRsf(tab, 'structure');
     if (!doc) {
       return;
     }
@@ -1202,7 +1215,7 @@ export class Commands {
    * whole selected destination (documented behavior; otherwise the range is
    * pasted once at the active cell). For byte-preserving CSV documents the
    * paste must fit inside the existing cells; pastes that would change the
-   * row/column structure require the explicit RCSV conversion. `origin` is
+   * row/column structure require the explicit RSF conversion. `origin` is
    * set for app-internal pastes so relative formula references adjust like a
    * conventional spreadsheet (per tiled offset when the pattern repeats).
    */
@@ -1247,7 +1260,7 @@ export class Commands {
         }
       }
       if (!fits || containsFormula) {
-        const converted = await this.ensureRcsv(tab, !fits ? 'paste' : 'formula');
+        const converted = await this.ensureRsf(tab, !fits ? 'paste' : 'formula');
         if (!converted) {
           if (!fits) {
             return false;
@@ -1351,7 +1364,7 @@ export class Commands {
     }
   }
 
-  /** Apply prepared paste changes atomically (CSV bulk edit / RCSV entry with grid growth). */
+  /** Apply prepared paste changes atomically (CSV bulk edit / RSF entry with grid growth). */
   private applyPasteChanges(
     tab: Tab,
     at: Selection,
@@ -1364,7 +1377,7 @@ export class Commands {
     if (doc.kind === 'csv') {
       applied = this.state.bulkEdit(tab, changes, 'history.paste');
     } else {
-      // RCSV: the grid may grow to fit the paste (atomically undoable).
+      // RSF: the grid may grow to fit the paste (atomically undoable).
       const needRows = Math.max(0, at.row + height - doc.rowCount);
       const needCols = Math.max(0, at.col + width - doc.columnCount);
       const ops: Operation[] = [];
@@ -1400,7 +1413,7 @@ export class Commands {
    * Edit > Insert Copied Cells…: insert the most recently copied range at the
    * selection, shifting existing cells right (whole columns) or down (whole
    * rows). Structural insertion is a spreadsheet operation, so a plain CSV
-   * document requires the explicit RCSV conversion first (the confirmation
+   * document requires the explicit RSF conversion first (the confirmation
    * dialog explains why); declining leaves the document untouched.
    */
   async insertCopiedCells(tab: Tab): Promise<boolean> {
@@ -1416,7 +1429,7 @@ export class Commands {
     if (!direction) {
       return false;
     }
-    const doc = await this.ensureRcsv(tab, 'structure');
+    const doc = await this.ensureRsf(tab, 'structure');
     if (!doc) {
       return false;
     }
@@ -1445,7 +1458,7 @@ export class Commands {
    * without data loss; formula references adjust exactly like Insert
    * Rows/Columns, and relative references inside the inserted formulas shift
    * by their offset from the copied location. Structural insertion is a
-   * spreadsheet operation, so a plain CSV document asks for the explicit RCSV
+   * spreadsheet operation, so a plain CSV document asks for the explicit RSF
    * conversion first; declining (or an aborted preparation) leaves the
    * document untouched. The whole insertion is one atomic, undoable entry,
    * and large ranges run behind the percentage progress indicator.
@@ -1459,7 +1472,7 @@ export class Commands {
       this.ui.notify(t('notify.nothingToInsert'), 'warn');
       return false;
     }
-    const doc = await this.ensureRcsv(tab, 'structure');
+    const doc = await this.ensureRsf(tab, 'structure');
     if (!doc) {
       return false;
     }
@@ -1562,7 +1575,7 @@ export class Commands {
 
   /**
    * Edit > Select All Cells: select the used range of the active document
-   * (for a blank RCSV document this is its whole logical grid). The
+   * (for a blank RSF document this is its whole logical grid). The
    * virtualized grid renders the selection only on the cells it has
    * materialized — no DOM is created for off-screen cells — and selection
    * statistics for very large selections fill in from a background scan with
@@ -1627,7 +1640,7 @@ export class Commands {
    * and/or rightward. The source pattern tiles into the destination; relative
    * formula references are adjusted by each cell's offset from its tiled
    * source cell. Filling is a spreadsheet-only operation, so a plain CSV must
-   * be explicitly converted to RCSV first (it modifies multiple cells and may
+   * be explicitly converted to RSF first (it modifies multiple cells and may
    * extend the grid). The whole fill — including any grid growth — is one
    * atomic, undoable operation. Absolute/mixed `$` references are not
    * supported by the formula engine; such formulas already evaluate to
@@ -1645,7 +1658,7 @@ export class Commands {
     if (dest.bottom === source.bottom && dest.right === source.right) {
       return false; // nothing to fill
     }
-    const doc = await this.ensureRcsv(tab, 'fill');
+    const doc = await this.ensureRsf(tab, 'fill');
     if (!doc) {
       return false;
     }

@@ -16,9 +16,10 @@ ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
     PATH=/usr/local/cargo/bin:$PATH
 
 # Rust toolchain (pinned) with the wasm32 target, plus wasm-pack (pinned).
-# gcc/libc are required to build proc-macro crates for the host.
+# gcc/libc are required to build proc-macro crates for the host; git lets the
+# one-command release script (scripts/release.mjs) run inside the container.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl gcc libc6-dev \
+    && apt-get install -y --no-install-recommends ca-certificates curl gcc git libc6-dev \
     && rm -rf /var/lib/apt/lists/* \
     && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
        | sh -s -- -y --profile minimal --default-toolchain 1.84.1 --target wasm32-unknown-unknown \
@@ -30,9 +31,11 @@ RUN apt-get update \
 WORKDIR /app
 
 # Install dependencies first so Docker layer caching keeps npm ci fast when
-# only source files change.
-COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; fi
+# only source files change. `--ignore-scripts` blocks dependency lifecycle
+# scripts (postinstall/preinstall) as a supply-chain hardening measure; this
+# project's toolchain needs none. A committed .npmrc also enforces this.
+COPY package.json package-lock.json* .npmrc* ./
+RUN if [ -f package-lock.json ]; then npm ci --ignore-scripts; fi
 
 COPY . .
 

@@ -2,6 +2,7 @@
 import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import { LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
+import { getEditHints } from '../app/settings';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import { RowHeightIndex } from '../core/row-height-index';
@@ -217,6 +218,8 @@ interface LayoutSignature {
   font: string;
   sticky: boolean;
   locale: string;
+  /** Spreadsheet zoom percent — changing it rescales every grid metric. */
+  zoom: number;
 }
 
 /**
@@ -255,6 +258,7 @@ const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string } | 'sepa
   { command: 'edit.insertCopiedCells', labelKey: 'menu.edit.insertCopiedCells' },
   { command: 'edit.insertCopiedRows', labelKey: 'menu.edit.insertCopiedRows' },
   { command: 'edit.insertCopiedCols', labelKey: 'menu.edit.insertCopiedCols' },
+  { command: 'edit.flashFill', labelKey: 'menu.edit.flashFill' },
   { command: 'edit.revertCell', labelKey: 'menu.edit.revertCell' },
   'separator',
   { command: 'sheet.insertRowAbove', labelKey: 'menu.sheet.insertRowAbove' },
@@ -328,6 +332,8 @@ export class Grid {
    * letter into the cell.
    */
   private readonly sink: HTMLTextAreaElement;
+  /** Hidden description element backing the inline editor's help tooltip. */
+  private readonly editorHint: HTMLElement;
   /** True between compositionstart and compositionend on the sink (IME is composing). */
   private composing = false;
   private contextMenu: HTMLElement | null = null;
@@ -383,8 +389,15 @@ export class Grid {
         'aria-label': t('grid.label'),
       },
     });
+    // Visually hidden, ARIA-linked editing guidance for the inline editor
+    // (the visible tooltip is the `title` attribute; both follow the
+    // editing-help preference and never obscure the cell or caret).
+    this.editorHint = el('span', {
+      className: 'visually-hidden',
+      attrs: { id: 'grid-editor-hint' },
+    });
     this.canvas.append(this.headerEl, this.stickyEl, this.rowsLayer, this.measureCell, this.sink);
-    this.element.append(this.canvas);
+    this.element.append(this.canvas, this.editorHint);
 
     // Scroll never calls preventDefault, so the listener is passive (the
     // browser can start compositor scrolling without waiting on the handler).
@@ -464,13 +477,50 @@ export class Grid {
   }
 
   // ----- Metrics -----
+  // All pixel metrics are zoom-aware: the tab's zoom percent scales the
+  // default row height, header width, wrap line height, and column widths.
+  // Column widths are *stored* at 100% zoom (per-tab session state; persisted
+  // by RSF documents) and only *rendered* scaled, so a saved width means the
+  // same thing at every zoom level.
+
+  /** The active tab's zoom factor (1 = 100%). */
+  private zoomOf(tab: Tab): number {
+    return (tab.zoom || 100) / 100;
+  }
+
+  /** Zoomed default (single-line) row height in px. */
+  private rowH(tab: Tab): number {
+    return Math.round(ROW_HEIGHT * this.zoomOf(tab));
+  }
+
+  /** Zoomed wrapped-line box height in px. */
+  private wrapLineH(tab: Tab): number {
+    return Math.round(WRAP_LINE_HEIGHT * this.zoomOf(tab));
+  }
+
+  /** Zoomed vertical padding around wrapped lines in px. */
+  private wrapPad(tab: Tab): number {
+    return Math.round(WRAP_VERTICAL_PAD * this.zoomOf(tab));
+  }
+
+  /** Zoomed row-header width in px. */
+  private headW(tab: Tab): number {
+    return Math.round(ROW_HEAD_WIDTH * this.zoomOf(tab));
+  }
+
+  /** Zoom the row-height index was built for, per document. */
+  private readonly indexZoom = new WeakMap<object, number>();
 
   /** The per-tab row-height index (created lazily; uniform until wrapping grows a row). */
   private heightIndex(tab: Tab): RowHeightIndex {
     let index = this.rowHeights.get(tab.doc);
-    if (!index) {
-      index = new RowHeightIndex(ROW_HEIGHT);
+    if (!index || this.indexZoom.get(tab.doc) !== tab.zoom) {
+      // A zoom change invalidates every cached height (the uniform default
+      // and any wrapped measurements), so the index starts fresh.
+      index = new RowHeightIndex(this.rowH(tab));
       this.rowHeights.set(tab.doc, index);
+      this.indexZoom.set(tab.doc, tab.zoom);
+      this.heightsVersion += 1;
     }
     return index;
   }
@@ -506,13 +556,13 @@ export class Grid {
    * even when data rows below wrap to several lines.
    */
   private overlayHeight(tab: Tab): number {
-    return ROW_HEIGHT * (this.stickyEnabled(tab) ? 2 : 1);
+    return this.rowH(tab) * (this.stickyEnabled(tab) ? 2 : 1);
   }
 
-  /** Pixel width of a column (per-tab override or the default). */
+  /** Rendered pixel width of a column (per-tab override or default, zoomed). */
   private colWidth(tab: Tab, col: number): number {
     const w = tab.colWidths[col];
-    return w && w > 0 ? w : COL_WIDTH;
+    return Math.round((w && w > 0 ? w : COL_WIDTH) * this.zoomOf(tab));
   }
 
   /** X offset (from the first column) of column `col`, i.e. the summed widths before it. */
@@ -534,7 +584,7 @@ export class Grid {
   }
 
   private totalWidth(tab: Tab): number {
-    return ROW_HEAD_WIDTH + this.totalColsWidth(tab);
+    return this.headW(tab) + this.totalColsWidth(tab);
   }
 
   // ----- Rendering -----
@@ -586,6 +636,7 @@ export class Grid {
       font: this.fontSignature(),
       sticky: this.stickyEnabled(tab),
       locale: getLocale(),
+      zoom: tab.zoom,
     };
   }
 
@@ -602,7 +653,8 @@ export class Grid {
       a.wrap === b.wrap &&
       a.font === b.font &&
       a.sticky === b.sticky &&
-      a.locale === b.locale
+      a.locale === b.locale &&
+      a.zoom === b.zoom
     );
   }
 
@@ -719,7 +771,7 @@ export class Grid {
     const idx = this.heightIndex(tab);
     const overlay = this.overlayHeight(tab);
     const viewH = Math.max(0, this.element.clientHeight - overlay);
-    const viewW = Math.max(0, this.element.clientWidth - ROW_HEAD_WIDTH);
+    const viewW = Math.max(0, this.element.clientWidth - this.headW(tab));
     const scrollTop = this.element.scrollTop;
     const scrollLeft = this.element.scrollLeft;
     const rowCount = tab.doc.rowCount;
@@ -805,6 +857,13 @@ export class Grid {
     const startRow = this.scrollRowBase(tab);
     const originY = idx.offsetOf(startRow);
     const layerHeight = idx.rangeHeight(startRow, doc.rowCount);
+    // Zoom is applied through CSS custom properties (font sizes, line boxes)
+    // plus the scaled JS metrics; the JS-computed row height stays the source
+    // of truth so CSS line heights and element heights can never drift apart.
+    this.element.style.setProperty('--sheet-zoom', String(this.zoomOf(tab)));
+    this.element.style.setProperty('--grid-row-height', `${this.rowH(tab)}px`);
+    this.element.style.setProperty('--grid-wrap-line', `${this.wrapLineH(tab)}px`);
+    document.documentElement.style.setProperty('--sheet-zoom', String(this.zoomOf(tab)));
     this.canvas.style.width = `${totalW}px`;
     this.canvas.style.height = `${this.overlayHeight(tab) + layerHeight}px`;
     this.element.setAttribute('aria-rowcount', String(doc.rowCount + 1));
@@ -813,8 +872,8 @@ export class Grid {
     // ----- Column header (always sticky, single-line) -----
     clearChildren(this.headerEl);
     this.headerEl.style.width = `${totalW}px`;
-    this.headerEl.style.height = `${ROW_HEIGHT}px`;
-    this.headerEl.append(this.buildCorner());
+    this.headerEl.style.height = `${this.rowH(tab)}px`;
+    this.headerEl.append(this.buildCorner(tab));
     const headSpacer = el('div', { className: 'vspacer', attrs: { 'aria-hidden': 'true' } });
     headSpacer.style.width = `${this.colOffset(tab, win.colStart)}px`;
     this.headerEl.append(headSpacer);
@@ -843,8 +902,8 @@ export class Grid {
     if (this.stickyEnabled(tab)) {
       this.stickyEl.hidden = false;
       this.stickyEl.style.width = `${totalW}px`;
-      this.stickyEl.style.height = `${ROW_HEIGHT}px`;
-      this.stickyEl.style.top = `${ROW_HEIGHT}px`;
+      this.stickyEl.style.height = `${this.rowH(tab)}px`;
+      this.stickyEl.style.top = `${this.rowH(tab)}px`;
       this.stickyEl.dataset.row = '0';
       this.stickyEl.setAttribute('aria-rowindex', '2');
       this.buildRowCells(tab, this.stickyEl, 0, win, true);
@@ -858,7 +917,7 @@ export class Grid {
     this.rowsLayer.style.height = `${layerHeight}px`;
     for (let row = win.rowStart; row < win.rowEnd; row++) {
       const height = idx.heightOf(row);
-      const wrapped = height > ROW_HEIGHT;
+      const wrapped = height > this.rowH(tab);
       const rowEl = el('div', {
         className: `vgrid-row ${row % 2 === 1 ? 'alt' : ''}${wrapped ? ' wrapped' : ''}`,
         attrs: { role: 'row', 'data-row': String(row), 'aria-rowindex': String(row + 2) },
@@ -919,7 +978,7 @@ export class Grid {
    */
   private computeRowHeight(tab: Tab, row: number, measure: WrapMeasure, chrome: number): number {
     if (this.stickyEnabled(tab) && row === 0) {
-      return ROW_HEIGHT;
+      return this.rowH(tab);
     }
     const doc = tab.doc;
     const fields = doc.fieldCount(row);
@@ -934,7 +993,7 @@ export class Grid {
         break;
       }
     }
-    return rowHeightForLines(maxLines, ROW_HEIGHT, WRAP_LINE_HEIGHT, WRAP_VERTICAL_PAD);
+    return rowHeightForLines(maxLines, this.rowH(tab), this.wrapLineH(tab), this.wrapPad(tab));
   }
 
   /** Measure every row of the current window into the index (bumps the version on any change). */
@@ -968,7 +1027,7 @@ export class Grid {
   /** Signature the off-screen wrap pass is keyed to (font/locale/dims/doc). */
   private layoutToken(tab: Tab): string {
     const s = this.layoutSignature(tab);
-    return `${this.docToken(tab.doc)}|${s.rows}x${s.cols}|${s.wrap}|${s.font}|${s.sticky}|${s.locale}`;
+    return `${this.docToken(tab.doc)}|${s.rows}x${s.cols}|${s.wrap}|${s.font}|${s.sticky}|${s.locale}|${s.zoom}`;
   }
 
   /**
@@ -1072,18 +1131,22 @@ export class Grid {
     this.heightsVersion += 1;
   }
 
-  /** Build the interactive top-left corner "Select all cells" control. */
-  private buildCorner(): HTMLElement {
+  /**
+   * Build the interactive top-left corner Select All Cells control. It shows
+   * no visible text by design (like conventional spreadsheet corner cells);
+   * its purpose is conveyed by the localized accessible name and tooltip, and
+   * its pressed state mirrors the whole-sheet selection.
+   */
+  private buildCorner(tab: Tab): HTMLElement {
     const corner = el('button', {
       className: 'vcell vhead vcorner',
-      text: t('grid.rowHeader'),
       attrs: {
         type: 'button',
         'aria-label': t('grid.selectAllCorner'),
         title: t('grid.selectAllCorner'),
       },
     });
-    corner.style.width = `${ROW_HEAD_WIDTH}px`;
+    corner.style.width = `${this.headW(tab)}px`;
     // Enter/Space activate natively; a pointer tap does the same. Focus the
     // grid afterward so keyboard navigation and copy keep working.
     corner.addEventListener('click', () => {
@@ -1200,7 +1263,7 @@ export class Grid {
     if (pinned) {
       head.setAttribute('title', t('grid.stickyRowTitle'));
     }
-    head.style.width = `${ROW_HEAD_WIDTH}px`;
+    head.style.width = `${this.headW(tab)}px`;
     rowEl.append(head);
     const spacer = el('div', { className: 'vspacer', attrs: { 'aria-hidden': 'true' } });
     spacer.style.width = `${this.colOffset(tab, win.colStart)}px`;
@@ -1551,9 +1614,14 @@ export class Grid {
 
   // ----- Column resizing -----
 
-  /** Set a column's width (clamped) and re-lay-out. Never marks the document dirty. */
-  private setColWidth(tab: Tab, col: number, width: number): void {
-    const w = Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, Math.round(width)));
+  /**
+   * Set a column's width from an on-screen pixel width and re-lay-out. The
+   * stored width is normalized to 100% zoom (clamped), so resizing means the
+   * same thing at every zoom level and persists zoom-independently. Never
+   * marks the document dirty.
+   */
+  private setColWidth(tab: Tab, col: number, screenWidth: number): void {
+    const w = Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, Math.round(screenWidth / this.zoomOf(tab))));
     if (tab.colWidths[col] === w) {
       return;
     }
@@ -1799,10 +1867,11 @@ export class Grid {
     if (!result.completed || this.state.activeTab !== tab || tab.doc !== doc) {
       return; // aborted: apply nothing
     }
-    // Apply every fitted width, then re-lay-out once.
+    // Apply every fitted width, then re-lay-out once. Measurements were taken
+    // under the zoomed font, so normalize back to 100%-zoom storage units.
     let changed = false;
     for (const [col, plan] of result.plans) {
-      const w = Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, Math.round(plan.width)));
+      const w = Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, Math.round(plan.width / this.zoomOf(tab))));
       if (tab.colWidths[col] !== w) {
         tab.colWidths[col] = w;
         changed = true;
@@ -1864,7 +1933,7 @@ export class Grid {
     }
     const x = this.colOffset(tab, col);
     const w = this.colWidth(tab, col);
-    const viewW = this.element.clientWidth - ROW_HEAD_WIDTH;
+    const viewW = this.element.clientWidth - this.headW(tab);
     if (x < this.element.scrollLeft) {
       this.element.scrollLeft = x;
     } else if (x + w > this.element.scrollLeft + viewW) {
@@ -1918,6 +1987,18 @@ export class Grid {
     const input = this.sink;
     input.classList.add('cell-editor');
     input.setAttribute('aria-label', t('formulaBar.label'));
+    // Editing-help tooltip (preference-controlled): a native title for the
+    // mouse plus an ARIA description for keyboard/screen-reader users.
+    // Attribute-only changes — the value, caret, and any live IME
+    // composition are untouched.
+    if (getEditHints()) {
+      input.setAttribute('title', t('formulaBar.hint'));
+      this.editorHint.textContent = t('formulaBar.hint');
+      input.setAttribute('aria-describedby', 'grid-editor-hint');
+    } else {
+      input.removeAttribute('title');
+      input.removeAttribute('aria-describedby');
+    }
     this.placeSinkOverCell(cell);
     if (initial !== null && initial !== '') {
       input.value = initial;
@@ -2058,6 +2139,8 @@ export class Grid {
     this.sink.classList.remove('cell-editor');
     this.sink.value = '';
     this.sink.setAttribute('aria-label', t('grid.label'));
+    this.sink.removeAttribute('title');
+    this.sink.removeAttribute('aria-describedby');
     this.positionSink();
   }
 

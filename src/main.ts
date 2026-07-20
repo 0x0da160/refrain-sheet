@@ -4,6 +4,7 @@ import { AppState } from './app/app-state';
 import { ClipboardController } from './app/clipboard-controller';
 import { Commands, type UiPort } from './app/commands';
 import { getLocale, initLocale, onLocaleChange, t } from './app/i18n';
+import { getEditHints, getSheetZoom } from './app/settings';
 import { applySheetFont, getSheetFont } from './app/sheet-font';
 import { resolveShortcut } from './app/shortcuts';
 import { applyTheme, getTheme } from './app/theme';
@@ -57,6 +58,7 @@ function bootstrap(): void {
     chooseRsfSave: (name, current, available, note) => dialogs.chooseRsfSave(name, current, available, note),
     chooseExportCsv: (name) => dialogs.chooseExportCsv(name),
     chooseInsertShift: (rows, cols) => dialogs.chooseInsertShift(rows, cols),
+    confirmFlashFill: (preview) => dialogs.confirmFlashFill(preview),
     confirm: (title, message, ok, cancel) => dialogs.confirm(title, message, ok, cancel),
     showMessage: (title, message) => dialogs.showMessage(title, message),
     notify: (text, kind) => toasts.notify(text, kind),
@@ -84,6 +86,8 @@ function bootstrap(): void {
     stickyFirstRow: () => state.stickyFirstRow,
     sheetFont: () => getSheetFont(),
     theme: () => getTheme(),
+    zoom: () => state.activeTab?.zoom ?? getSheetZoom(),
+    editHints: () => getEditHints(),
   });
   const tabBar = new TabBar(state, commands);
   const findBar = new FindBar(state, commands, grid);

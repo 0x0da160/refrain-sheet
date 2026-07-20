@@ -4,6 +4,7 @@ import { adjustFormulaForAxis, isFormula, shiftFormulaRefs } from '../core/formu
 import { cellsEntry, History, type CellChange, type HistoryEntry, type Operation } from '../core/history';
 import type { LosslessDocument } from '../core/lossless-document';
 import { RsfDocument, RSF_EXTENSION } from '../core/rsf-document';
+import { clampSheetZoom, getSheetZoom, setSheetZoom } from './settings';
 
 /** Either document kind; the shared surface is duck-typed across both. */
 export type EditorDocument = LosslessDocument | RsfDocument;
@@ -51,12 +52,20 @@ export interface Tab {
   /** The "must be saved as .rsf" explanation was already shown for this tab. */
   rsfSaveExplained: boolean;
   /**
-   * Per-column pixel widths for this open document during the session. A
-   * missing or zero entry means the default width. Stored on the tab so
-   * resizing a plain CSV never mutates its bytes; RSF documents persist
-   * these in their container.
+   * Per-column pixel widths for this open document during the session,
+   * expressed at 100% zoom. A missing or zero entry means the default width.
+   * Stored on the tab so resizing a plain CSV never mutates its bytes; RSF
+   * documents persist these in their container on save.
    */
   colWidths: number[];
+  /**
+   * Spreadsheet zoom percent for this tab. Initialized from the RSF
+   * document's stored zoom when present (document wins), otherwise from the
+   * application-level preference. Zooming never mutates document content and
+   * never marks a document dirty; for RSF documents the current zoom is
+   * recorded into the container on the next save.
+   */
+  zoom: number;
 }
 
 export type StateEventType = 'tabs' | 'active' | 'doc' | 'selection' | 'view';
@@ -117,6 +126,9 @@ export class AppState {
   }
 
   addTab(name: string, doc: EditorDocument, handle: FileSystemFileHandle | null): Tab {
+    // Display precedence: an RSF document's stored settings win; anything the
+    // document does not carry falls back to the application-level preference.
+    const stored = doc.kind === 'rsf' ? doc : null;
     const tab: Tab = {
       id: `tab-${nextTabId++}`,
       name,
@@ -127,7 +139,8 @@ export class AppState {
       anchor: null,
       selectionKind: 'cell',
       rsfSaveExplained: false,
-      colWidths: [],
+      colWidths: stored ? stored.displayColWidths.slice() : [],
+      zoom: clampSheetZoom(stored?.displayZoom ?? getSheetZoom()),
     };
     this.tabs.push(tab);
     this.activeTabId = tab.id;
@@ -627,6 +640,25 @@ export class AppState {
   setWrapCells(wrap: boolean): void {
     this.wrapCells = wrap;
     this.emit('view');
+  }
+
+  /**
+   * Set the active tab's spreadsheet zoom (clamped percent). Purely visual:
+   * it never changes document content, CSV bytes, or the dirty state. The
+   * chosen zoom also becomes the application-level preference (used by tabs
+   * whose document stores no zoom of its own), and RSF documents remember it
+   * for persistence with the next save.
+   */
+  setTabZoom(tab: Tab, zoom: number): void {
+    const z = clampSheetZoom(zoom);
+    setSheetZoom(z);
+    if (tab.doc.kind === 'rsf') {
+      tab.doc.displayZoom = z;
+    }
+    if (tab.zoom !== z) {
+      tab.zoom = z;
+      this.emit('view');
+    }
   }
 
   setStickyFirstRow(sticky: boolean): void {

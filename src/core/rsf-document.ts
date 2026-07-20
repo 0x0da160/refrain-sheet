@@ -74,6 +74,17 @@ export class RsfDocument {
    * Save dialog when the user picks a different one.
    */
   private compressionMethod: number | undefined;
+  /**
+   * Persisted display settings (spreadsheet zoom percent and overridden
+   * column widths, sparse, px at 100% zoom). Loaded — already validated and
+   * clamped — from a version-3 container body and written back on save.
+   * Purely presentational: changing them never marks the document dirty and
+   * never affects cell data, evaluation, or export. Precedence: when a value
+   * is present here it wins over the application-level preference; absent
+   * values fall back to the app preference / defaults.
+   */
+  displayZoom: number | undefined;
+  displayColWidths: number[] = [];
   private readonly formulaCache = new Map<string, CompiledFormula>();
   private memo = new Map<string, FormulaValue>();
   private readonly inProgress = new Set<string>();
@@ -179,6 +190,13 @@ export class RsfDocument {
     const doc = new RsfDocument(name, delimiter, data, columnCount);
     // Preserve the file's compression method so a normal save reuses it.
     doc.compressionMethod = decoded.data.compression;
+    // Restore persisted display settings (validated/clamped by the codec).
+    if (decoded.data.display) {
+      doc.displayZoom = decoded.data.display.zoom;
+      for (const [col, width] of decoded.data.display.colWidths ?? []) {
+        doc.displayColWidths[col] = width;
+      }
+    }
     return { ok: true, doc };
   }
 
@@ -222,8 +240,25 @@ export class RsfDocument {
     }
   }
 
+  /**
+   * Record the current view state to persist with the next save (called by
+   * the save path with the tab's live zoom / column widths). Presentational
+   * only — never marks the document dirty.
+   */
+  setDisplaySettings(zoom: number | undefined, colWidths: number[]): void {
+    this.displayZoom = zoom;
+    this.displayColWidths = colWidths.slice();
+  }
+
   /** Encode a prepared sparse cell list into the `.rsf` container (compresses). */
   toBytesFromCells(cells: Array<[number, number, string]>): Uint8Array {
+    const colWidths: Array<[number, number]> = [];
+    for (let c = 0; c < this.displayColWidths.length && c < this.cols; c++) {
+      const w = this.displayColWidths[c];
+      if (w && w > 0) {
+        colWidths.push([c, w]);
+      }
+    }
     const payload: RsfData = {
       name: 'Sheet1',
       delimiter: this.delimiter,
@@ -234,6 +269,12 @@ export class RsfDocument {
       appName: APP_NAME,
       appVersion: APP_VERSION,
     };
+    if (this.displayZoom !== undefined || colWidths.length > 0) {
+      payload.display = {
+        ...(this.displayZoom !== undefined ? { zoom: this.displayZoom } : {}),
+        ...(colWidths.length > 0 ? { colWidths } : {}),
+      };
+    }
     return encodeRsf(payload, this.compressionMethod);
   }
 

@@ -141,7 +141,15 @@ yield between slices). The rules, applied uniformly by the command layer:
   entry.
 - **RSF container safety:** magic/version are validated as a pair, the body
   CRC is checked, decompression is bounded by the declared length (512 MiB
-  ceiling), and parsing never executes anything.
+  ceiling), and parsing never executes anything. Display settings (zoom,
+  column widths — body version 3) are presentational only: they are validated
+  and clamped on load, never affect cell data, and never mark a document
+  dirty (see docs/rsf-format.md).
+- **Deterministic Flash Fill:** pattern inference (`src/core/flash-fill.ts`)
+  is a bounded, deterministic search over closed data structures — no
+  network, no model, no dynamic code — and a fill is proposed only when every
+  matching candidate agrees on every affected cell; anything else is refused
+  as ambiguous with an explanation.
 - **Formula index:** `RsfDocument` maintains a per-row formula-cell count in
   parallel with the data (built lazily, updated by every mutator) so
   formula enumeration skips formula-free rows; consistency with the data is

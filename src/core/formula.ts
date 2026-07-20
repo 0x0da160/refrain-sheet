@@ -17,10 +17,21 @@
  *   factor      := ('+' | '-') factor | primary
  *   primary     := NUMBER | STRING | ERROR | ref | range | colrange | rowrange
  *                | FUNC '(' [expr (',' expr)*] ')' | '(' expr ')'
- *   ref         := LETTERS DIGITS          (e.g. A1, B2, AA10; relative only)
- *   range       := ref ':' ref             (e.g. A1:B10)
- *   colrange    := LETTERS ':' LETTERS     (e.g. A:A, A:C; whole columns)
- *   rowrange    := DIGITS ':' DIGITS       (e.g. 1:1, 2:10; whole rows)
+ *   ref         := ['$'] LETTERS ['$'] DIGITS   (A1, $A$1, $A1, A$1, AA10)
+ *   range       := ref ':' ref                  (e.g. A1:B10, $A$1:B10)
+ *   colrange    := colref ':' colref            (e.g. A:A, $A:C; whole columns)
+ *   rowrange    := rowref ':' rowref            (e.g. 1:1, $2:10; whole rows)
+ *   colref      := ['$'] LETTERS
+ *   rowref      := ['$'] DIGITS
+ *
+ * References support the four A1-style forms: relative (`A1`), absolute
+ * (`$A$1`), and the two mixed forms (`$A1`, `A$1`). The `$` markers never
+ * change what a formula evaluates to — a reference resolves to the same cell
+ * either way. They control how the reference *adjusts* when the formula is
+ * copied, filled, or pasted elsewhere: absolute components stay fixed while
+ * relative components shift by the copy offset. Row/column insertion and
+ * deletion adjust absolute and relative references alike (both track the
+ * referenced cell's new position), always preserving the written `$` markers.
  *
  * Whole-column and whole-row ranges are bounded to the used grid when a
  * formula is evaluated (see EvalContext.rowCount / columnCount); they never
@@ -131,40 +142,84 @@ export function cellLabel(row: number, col: number): string {
   return `${columnLabel(col)}${row + 1}`;
 }
 
-const REF_PATTERN = /^([A-Za-z]{1,3})([1-9][0-9]{0,6})$/;
-const COL_LABEL_PATTERN = /^[A-Za-z]{1,3}$/;
-const ROW_NUMBER_PATTERN = /^[1-9][0-9]{0,6}$/;
+const REF_PATTERN = /^(\$?)([A-Za-z]{1,3})(\$?)([1-9][0-9]{0,6})$/;
+const COL_LABEL_PATTERN = /^(\$?)([A-Za-z]{1,3})$/;
+const ROW_NUMBER_PATTERN = /^(\$?)([1-9][0-9]{0,6})$/;
 
-/** Parse "A1"-style notation into 0-based coordinates, or null. */
+/**
+ * A parsed A1-style cell reference with its `$` absolute markers. The markers
+ * never change which cell is referenced; they mark components that stay fixed
+ * when the formula is copied/filled (see the module doc).
+ */
+export interface CellRefEx {
+  row: number;
+  col: number;
+  absRow: boolean;
+  absCol: boolean;
+}
+
+/**
+ * Parse "A1"-style notation (including `$A$1` / `$A1` / `A$1` absolute and
+ * mixed forms) into 0-based coordinates, or null.
+ */
 export function parseRef(text: string): { row: number; col: number } | null {
+  const full = parseRefEx(text);
+  return full ? { row: full.row, col: full.col } : null;
+}
+
+/** Like {@link parseRef} but also reports the `$` absolute markers. */
+export function parseRefEx(text: string): CellRefEx | null {
   const m = REF_PATTERN.exec(text);
   if (!m) {
     return null;
   }
-  const col = columnIndex(m[1]);
-  const row = Number(m[2]) - 1;
+  const col = columnIndex(m[2]);
+  const row = Number(m[4]) - 1;
   if (col > MAX_REF_COLUMN || row > MAX_REF_ROW) {
     return null;
   }
-  return { row, col };
+  return { row, col, absCol: m[1] === '$', absRow: m[3] === '$' };
 }
 
-/** Parse a bare column label ("A", "AB") to a 0-based column index, or null. */
+/** Render a reference, preserving `$` absolute markers ("A1", "$A$1", …). */
+export function refLabel(row: number, col: number, absRow = false, absCol = false): string {
+  return `${absCol ? '$' : ''}${columnLabel(col)}${absRow ? '$' : ''}${row + 1}`;
+}
+
+/** One endpoint of a whole-column or whole-row span, with its `$` marker. */
+export interface SpanEnd {
+  index: number;
+  abs: boolean;
+}
+
+/** Parse a bare column label ("A", "$AB") to a 0-based column index, or null. */
 export function parseWholeColumn(text: string): number | null {
-  if (!COL_LABEL_PATTERN.test(text)) {
-    return null;
-  }
-  const col = columnIndex(text);
-  return col >= 0 && col <= MAX_REF_COLUMN ? col : null;
+  return parseWholeColumnEx(text)?.index ?? null;
 }
 
-/** Parse a bare row number ("1", "10") to a 0-based row index, or null. */
-export function parseWholeRow(text: string): number | null {
-  if (!ROW_NUMBER_PATTERN.test(text)) {
+/** Like {@link parseWholeColumn} but also reports the `$` marker. */
+export function parseWholeColumnEx(text: string): SpanEnd | null {
+  const m = COL_LABEL_PATTERN.exec(text);
+  if (!m) {
     return null;
   }
-  const row = Number(text) - 1;
-  return row >= 0 && row <= MAX_REF_ROW ? row : null;
+  const col = columnIndex(m[2]);
+  return col >= 0 && col <= MAX_REF_COLUMN ? { index: col, abs: m[1] === '$' } : null;
+}
+
+/** Parse a bare row number ("1", "$10") to a 0-based row index, or null. */
+export function parseWholeRow(text: string): number | null {
+  return parseWholeRowEx(text)?.index ?? null;
+}
+
+/** Like {@link parseWholeRow} but also reports the `$` marker. */
+export function parseWholeRowEx(text: string): SpanEnd | null {
+  const m = ROW_NUMBER_PATTERN.exec(text);
+  if (!m) {
+    return null;
+  }
+  const row = Number(m[2]) - 1;
+  return row >= 0 && row <= MAX_REF_ROW ? { index: row, abs: m[1] === '$' } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +247,14 @@ class FormulaError extends Error {
     super(code);
   }
 }
+
+/**
+ * A reference token containing at least one `$` marker (plain `A1` stays on
+ * the ordinary identifier path). Longest alternatives first: a full cell
+ * reference, then a `$`-marked whole-column / whole-row span endpoint.
+ */
+const DOLLAR_REF_TOKEN =
+  /^(?:\$[A-Za-z]{1,3}\$?[0-9]{1,7}|[A-Za-z]{1,3}\$[0-9]{1,7}|\$[A-Za-z]{1,3}|\$[0-9]{1,7})/;
 
 function tokenize(src: string): Token[] {
   const tokens: Token[] = [];
@@ -256,7 +319,19 @@ function tokenize(src: string): Token[] {
       i = j;
       continue;
     }
-    if (/[A-Za-z_]/.test(ch)) {
+    if (ch === '$' || /[A-Za-z_]/.test(ch)) {
+      // `$`-marked references tokenize as one ident-shaped token so absolute
+      // and mixed forms ($A$1, $A1, A$1) and `$`-marked span endpoints ($A,
+      // $1) survive as single units; plain identifiers fall through below.
+      const m = DOLLAR_REF_TOKEN.exec(src.slice(i));
+      if (m) {
+        tokens.push({ type: 'ident', start, end: i + m[0].length, text: m[0] });
+        i += m[0].length;
+        continue;
+      }
+      if (ch === '$') {
+        throw new FormulaError('#ERROR!');
+      }
       let j = i + 1;
       while (j < len && /[A-Za-z0-9_]/.test(src[j])) j++;
       tokens.push({ type: 'ident', start, end: j, text: src.slice(i, j) });
@@ -395,9 +470,10 @@ export function functionCompletions(text: string, caret: number): { word: string
     return empty; // no word before the caret
   }
   // A word is only a function prefix when it is not part of a cell reference
-  // (letters immediately followed by digits, e.g. A1) and not preceded by a
-  // letter/digit that would make it a longer identifier.
-  if (start > 0 && /[A-Za-z0-9]/.test(text[start - 1])) {
+  // (letters immediately followed by digits, e.g. A1, or preceded by a `$`
+  // absolute marker) and not preceded by a letter/digit that would make it a
+  // longer identifier.
+  if (start > 0 && /[A-Za-z0-9$]/.test(text[start - 1])) {
     return empty;
   }
   if (caret < text.length && /[0-9(]/.test(text[caret])) {
@@ -537,12 +613,13 @@ class Parser {
     const token = this.next();
     switch (token.type) {
       case 'number': {
-        // A whole-row range such as 1:1 or 2:10.
+        // A whole-row range such as 1:1, 2:10, or 1:$10.
         if (this.peek()?.type === 'colon') {
           const fromRow = parseWholeRow(token.text);
           this.next(); // colon
-          const endToken = this.expect('number');
-          const toRow = parseWholeRow(endToken.text);
+          const endToken = this.next();
+          const toRow =
+            endToken.type === 'number' || endToken.type === 'ident' ? parseWholeRow(endToken.text) : null;
           if (fromRow === null || toRow === null) {
             throw new FormulaError('#ERROR!');
           }
@@ -589,13 +666,13 @@ class Parser {
           }
           return { kind: 'call', name, args };
         }
-        const ref = parseRef(token.text);
+        const ref = parseRefEx(token.text);
         if (ref) {
           const refNode: RefNode = { kind: 'ref', row: ref.row, col: ref.col };
           if (nextToken && nextToken.type === 'colon') {
             this.next();
             const endToken = this.expect('ident');
-            const endRef = parseRef(endToken.text);
+            const endRef = parseRefEx(endToken.text);
             if (!endRef) {
               throw new FormulaError('#ERROR!');
             }
@@ -607,7 +684,7 @@ class Parser {
           }
           return refNode;
         }
-        // A whole-column range such as A:A or A:C.
+        // A whole-column range such as A:A, A:C, or $A:$C.
         const col = parseWholeColumn(token.text);
         if (col !== null && nextToken && nextToken.type === 'colon') {
           this.next();
@@ -617,6 +694,18 @@ class Parser {
             throw new FormulaError('#ERROR!');
           }
           return { kind: 'colrange', fromCol: col, toCol: endCol };
+        }
+        // A whole-row range starting with a `$`-marked row, e.g. $1:10.
+        const row = parseWholeRowEx(token.text);
+        if (row !== null && row.abs && nextToken && nextToken.type === 'colon') {
+          this.next();
+          const endToken = this.next();
+          const toRow =
+            endToken.type === 'number' || endToken.type === 'ident' ? parseWholeRow(endToken.text) : null;
+          if (toRow === null) {
+            throw new FormulaError('#ERROR!');
+          }
+          return { kind: 'rowrange', fromRow: row.index, toRow };
         }
         throw new FormulaError('#NAME?');
       }
@@ -1015,19 +1104,27 @@ function take(numbers: number[]): number[] {
 // Reference rewriting (insert/delete/copy adjustments)
 // ---------------------------------------------------------------------------
 
-export type RefMap = (row: number, col: number) => { row: number; col: number } | 'REF_ERROR';
+/**
+ * Maps one cell reference to its rewritten coordinates. The input carries the
+ * reference's `$` markers so mappers can hold absolute components fixed
+ * (copy/paste) or ignore the markers (structural edits); the rewriter itself
+ * always re-renders the original markers on the mapped output.
+ */
+export type RefMap = (ref: CellRefEx) => { row: number; col: number } | 'REF_ERROR';
 export type RangeMap = (
-  from: { row: number; col: number },
-  to: { row: number; col: number },
+  from: CellRefEx,
+  to: CellRefEx,
 ) => { from: { row: number; col: number }; to: { row: number; col: number } } | 'REF_ERROR';
-/** Map the endpoints of a whole-column or whole-row span (1-D). */
-export type SpanMap = (from: number, to: number) => { from: number; to: number } | 'REF_ERROR';
+/** Map the endpoints of a whole-column or whole-row span (1-D, with `$` markers). */
+export type SpanMap = (from: SpanEnd, to: SpanEnd) => { from: number; to: number } | 'REF_ERROR';
 
 /**
  * Rewrite every cell reference in a formula string using the given mapping
- * functions, preserving all other text. References that map to 'REF_ERROR'
- * are replaced with the literal #REF! error. Formulas that do not tokenize
- * are returned unchanged (they already display #ERROR!).
+ * functions, preserving all other text — including each reference's `$`
+ * absolute markers, which are re-rendered onto the mapped coordinates.
+ * References that map to 'REF_ERROR' are replaced with the literal #REF!
+ * error. Formulas that do not tokenize are returned unchanged (they already
+ * display #ERROR!).
  *
  * `mapColSpan`/`mapRowSpan` handle whole-column (`A:C`) and whole-row (`1:10`)
  * ranges; when omitted those ranges are left unchanged.
@@ -1054,20 +1151,32 @@ export function rewriteFormulaRefs(
     text: string;
   }
   const splices: Splice[] = [];
+  // A whole-row span endpoint is a number token (1) or a `$`-marked ident ($1).
+  const rowEnd = (token: Token | null): SpanEnd | null =>
+    token && (token.type === 'number' || token.type === 'ident') ? parseWholeRowEx(token.text) : null;
+  const spliceRowSpan = (token: Token, endToken: Token, from: SpanEnd, to: SpanEnd): void => {
+    if (!mapRowSpan) {
+      return;
+    }
+    const mapped = mapRowSpan(from, to);
+    const text =
+      mapped === 'REF_ERROR'
+        ? '#REF!'
+        : `${from.abs ? '$' : ''}${mapped.from + 1}:${to.abs ? '$' : ''}${mapped.to + 1}`;
+    splices.push({ start: token.start, end: endToken.end, text });
+  };
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     const nextToken = tokens[i + 1] ?? null;
 
     if (token.type === 'number') {
-      // Whole-row range: NUMBER ':' NUMBER.
-      if (mapRowSpan && nextToken && nextToken.type === 'colon') {
+      // Whole-row range: NUMBER ':' (NUMBER | $ROW).
+      if (nextToken && nextToken.type === 'colon') {
         const endToken = tokens[i + 2] ?? null;
-        const fromRow = parseWholeRow(token.text);
-        const toRow = endToken && endToken.type === 'number' ? parseWholeRow(endToken.text) : null;
+        const fromRow = parseWholeRowEx(token.text);
+        const toRow = rowEnd(endToken);
         if (fromRow !== null && toRow !== null && endToken) {
-          const mapped = mapRowSpan(fromRow, toRow);
-          const text = mapped === 'REF_ERROR' ? '#REF!' : `${mapped.from + 1}:${mapped.to + 1}`;
-          splices.push({ start: token.start, end: endToken.end, text });
+          spliceRowSpan(token, endToken, fromRow, toRow);
           i += 2;
         }
       }
@@ -1080,41 +1189,54 @@ export function rewriteFormulaRefs(
     if (nextToken && nextToken.type === 'lparen') {
       continue; // function name
     }
-    const ref = parseRef(token.text);
+    const ref = parseRefEx(token.text);
     if (ref) {
       // Range: ref ':' ref
       if (nextToken && nextToken.type === 'colon') {
         const endToken = tokens[i + 2] ?? null;
-        const endRef = endToken && endToken.type === 'ident' ? parseRef(endToken.text) : null;
+        const endRef = endToken && endToken.type === 'ident' ? parseRefEx(endToken.text) : null;
         if (endRef && endToken) {
           const mapped = mapRange(ref, endRef);
           const text =
             mapped === 'REF_ERROR'
               ? '#REF!'
-              : `${cellLabel(mapped.from.row, mapped.from.col)}:${cellLabel(mapped.to.row, mapped.to.col)}`;
+              : `${refLabel(mapped.from.row, mapped.from.col, ref.absRow, ref.absCol)}:${refLabel(mapped.to.row, mapped.to.col, endRef.absRow, endRef.absCol)}`;
           splices.push({ start: token.start, end: endToken.end, text });
           i += 2;
           continue;
         }
       }
-      const mapped = mapRef(ref.row, ref.col);
+      const mapped = mapRef(ref);
       splices.push({
         start: token.start,
         end: token.end,
-        text: mapped === 'REF_ERROR' ? '#REF!' : cellLabel(mapped.row, mapped.col),
+        text: mapped === 'REF_ERROR' ? '#REF!' : refLabel(mapped.row, mapped.col, ref.absRow, ref.absCol),
       });
       continue;
     }
-    // Whole-column range: COL ':' COL (e.g. A:C).
-    const fromCol = parseWholeColumn(token.text);
+    // Whole-column range: COL ':' COL (e.g. A:C, $A:$C).
+    const fromCol = parseWholeColumnEx(token.text);
     if (fromCol !== null && mapColSpan && nextToken && nextToken.type === 'colon') {
       const endToken = tokens[i + 2] ?? null;
-      const toCol = endToken && endToken.type === 'ident' ? parseWholeColumn(endToken.text) : null;
+      const toCol = endToken && endToken.type === 'ident' ? parseWholeColumnEx(endToken.text) : null;
       if (toCol !== null && endToken) {
         const mapped = mapColSpan(fromCol, toCol);
         const text =
-          mapped === 'REF_ERROR' ? '#REF!' : `${columnLabel(mapped.from)}:${columnLabel(mapped.to)}`;
+          mapped === 'REF_ERROR'
+            ? '#REF!'
+            : `${fromCol.abs ? '$' : ''}${columnLabel(mapped.from)}:${toCol.abs ? '$' : ''}${columnLabel(mapped.to)}`;
         splices.push({ start: token.start, end: endToken.end, text });
+        i += 2;
+      }
+      continue;
+    }
+    // Whole-row range starting with a `$`-marked row: $ROW ':' (NUMBER | $ROW).
+    const fromRow = parseWholeRowEx(token.text);
+    if (fromRow !== null && nextToken && nextToken.type === 'colon') {
+      const endToken = tokens[i + 2] ?? null;
+      const toRow = rowEnd(endToken);
+      if (toRow !== null && endToken) {
+        spliceRowSpan(token, endToken, fromRow, toRow);
         i += 2;
       }
     }
@@ -1157,8 +1279,9 @@ export interface FormulaRefRange {
 export const MAX_HIGHLIGHTED_REFS = 16;
 
 const REF_SCAN_PATTERN =
-  // string literal | A1[:B2] | A:C | 1:10  (longest alternatives first)
-  /"(?:[^"]|"")*"?|([A-Za-z]{1,3})([0-9]{1,7})(?::([A-Za-z]{1,3})([0-9]{1,7}))?|([A-Za-z]{1,3}):([A-Za-z]{1,3})|([0-9]{1,7}):([0-9]{1,7})/g;
+  // string literal | A1[:B2] | A:C | 1:10 — each with optional `$` markers
+  // ($A$1, $A1, A$1, $A:C, $1:10). Longest alternatives first.
+  /"(?:[^"]|"")*"?|\$?([A-Za-z]{1,3})\$?([0-9]{1,7})(?::\$?([A-Za-z]{1,3})\$?([0-9]{1,7}))?|\$?([A-Za-z]{1,3}):\$?([A-Za-z]{1,3})|\$?([0-9]{1,7}):\$?([0-9]{1,7})/g;
 
 /**
  * Extract every cell/range reference from (possibly incomplete) formula text.
@@ -1245,45 +1368,44 @@ export function extractFormulaRefs(src: string): FormulaRefRange[] {
   return out;
 }
 
-/** Shift all references by a fixed delta (used for copy/paste). Negative results become #REF!. */
+/**
+ * Shift all references by a fixed delta (used for copy/paste/fill). Only
+ * relative components move: `$`-marked absolute rows/columns (and `$`-marked
+ * whole-column/row span endpoints) stay fixed, exactly like conventional
+ * spreadsheets. Out-of-sheet results become #REF!.
+ */
 export function shiftFormulaRefs(src: string, deltaRow: number, deltaCol: number): string {
-  const mapOne = (row: number, col: number): { row: number; col: number } | 'REF_ERROR' => {
-    const r = row + deltaRow;
-    const c = col + deltaCol;
+  const mapOne = (ref: CellRefEx): { row: number; col: number } | 'REF_ERROR' => {
+    const r = ref.absRow ? ref.row : ref.row + deltaRow;
+    const c = ref.absCol ? ref.col : ref.col + deltaCol;
     if (r < 0 || c < 0 || r > MAX_REF_ROW || c > MAX_REF_COLUMN) {
       return 'REF_ERROR';
     }
     return { row: r, col: c };
   };
-  const mapColSpan: SpanMap = (from, to) => {
-    const a = from + deltaCol;
-    const b = to + deltaCol;
-    if (a < 0 || b < 0 || a > MAX_REF_COLUMN || b > MAX_REF_COLUMN) {
-      return 'REF_ERROR';
-    }
-    return { from: a, to: b };
-  };
-  const mapRowSpan: SpanMap = (from, to) => {
-    const a = from + deltaRow;
-    const b = to + deltaRow;
-    if (a < 0 || b < 0 || a > MAX_REF_ROW || b > MAX_REF_ROW) {
-      return 'REF_ERROR';
-    }
-    return { from: a, to: b };
-  };
+  const spanShift =
+    (delta: number, max: number): SpanMap =>
+    (from, to) => {
+      const a = from.abs ? from.index : from.index + delta;
+      const b = to.abs ? to.index : to.index + delta;
+      if (a < 0 || b < 0 || a > max || b > max) {
+        return 'REF_ERROR';
+      }
+      return { from: a, to: b };
+    };
   return rewriteFormulaRefs(
     src,
     mapOne,
     (from, to) => {
-      const a = mapOne(from.row, from.col);
-      const b = mapOne(to.row, to.col);
+      const a = mapOne(from);
+      const b = mapOne(to);
       if (a === 'REF_ERROR' || b === 'REF_ERROR') {
         return 'REF_ERROR';
       }
       return { from: a, to: b };
     },
-    mapColSpan,
-    mapRowSpan,
+    spanShift(deltaCol, MAX_REF_COLUMN),
+    spanShift(deltaRow, MAX_REF_ROW),
   );
 }
 
@@ -1292,7 +1414,10 @@ export function shiftFormulaRefs(src: string, deltaRow: number, deltaCol: number
  * `index`/`count` describe the affected rows (axis 'row') or columns
  * (axis 'col'). Deletion follows conventional spreadsheet behavior:
  * references into the deleted span become #REF!; ranges are clamped and
- * become #REF! only when the whole range is deleted.
+ * become #REF! only when the whole range is deleted. Absolute (`$`) and
+ * relative references adjust identically here — both track the referenced
+ * cell's new position — and every `$` marker is preserved in the rewritten
+ * text (`$` only fixes references against copy/fill, not structural edits).
  */
 export function adjustFormulaForAxis(
   src: string,
@@ -1323,13 +1448,13 @@ export function adjustFormulaForAxis(
     const shifted = shiftPoint(v);
     return shifted === 'deleted' ? index - 1 : shifted;
   };
-  const mapRef: RefMap = (row, col) => {
-    const v = axis === 'row' ? row : col;
+  const mapRef: RefMap = (ref) => {
+    const v = axis === 'row' ? ref.row : ref.col;
     const shifted = shiftPoint(v);
     if (shifted === 'deleted') {
       return 'REF_ERROR';
     }
-    return axis === 'row' ? { row: shifted, col } : { row, col: shifted };
+    return axis === 'row' ? { row: shifted, col: ref.col } : { row: ref.row, col: shifted };
   };
   const mapRange: RangeMap = (from, to) => {
     const lowIn = axis === 'row' ? Math.min(from.row, to.row) : Math.min(from.col, to.col);
@@ -1352,8 +1477,8 @@ export function adjustFormulaForAxis(
   };
   // Whole-column / whole-row spans use the same 1-D clamp semantics as ranges.
   const mapSpan: SpanMap = (from, to) => {
-    const lowIn = Math.min(from, to);
-    const highIn = Math.max(from, to);
+    const lowIn = Math.min(from.index, to.index);
+    const highIn = Math.max(from.index, to.index);
     if (op === 'delete' && lowIn >= index && highIn < index + count) {
       return 'REF_ERROR';
     }
@@ -1362,7 +1487,7 @@ export function adjustFormulaForAxis(
     if (high < low) {
       return 'REF_ERROR';
     }
-    return from === lowIn ? { from: low, to: high } : { from: high, to: low };
+    return from.index === lowIn ? { from: low, to: high } : { from: high, to: low };
   };
   // A column operation shifts whole-column spans; a row operation shifts
   // whole-row spans. The orthogonal span kind is left untouched.

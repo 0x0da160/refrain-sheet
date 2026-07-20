@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { Tab } from '../app/app-state';
-import type { ConvertReason } from '../app/commands';
+import type { ConvertReason, FlashFillPreview } from '../app/commands';
 import { t } from '../app/i18n';
 import { SHORTCUT_DOCS } from '../app/shortcuts';
 import { FUNCTION_INFOS } from '../core/formula';
@@ -458,6 +458,66 @@ export class Dialogs {
     });
   }
 
+  /**
+   * The Flash Fill preview: the inferred operation, the affected range, the
+   * change/overwrite counts, and a bounded before/after sample table. The
+   * native <dialog> provides the focus trap and Escape-to-cancel; applying
+   * requires pressing the explicit Apply button. All content is text-only.
+   */
+  confirmFlashFill(preview: FlashFillPreview): Promise<boolean> {
+    return openDialog(t('dialog.flashFill.title'), false, (body, buttons, close) => {
+      body.append(el('p', { text: t('dialog.flashFill.op', { desc: preview.description }) }));
+      body.append(
+        el('p', {
+          text: t('dialog.flashFill.summary', { range: preview.range, n: preview.changeCount }),
+        }),
+      );
+      if (preview.overwriteCount > 0) {
+        body.append(
+          el('p', {
+            className: 'dialog-warning',
+            text: t('dialog.flashFill.overwriteWarning', { n: preview.overwriteCount }),
+          }),
+        );
+      }
+      const table = el('table', { className: 'diag-table' });
+      table.append(
+        el('thead', {}, [
+          el('tr', {}, [
+            el('th', { text: t('dialog.flashFill.col.cell') }),
+            el('th', { text: t('dialog.flashFill.col.before') }),
+            el('th', { text: t('dialog.flashFill.col.after') }),
+          ]),
+        ]),
+      );
+      const tbody = el('tbody');
+      for (const row of preview.sample) {
+        tbody.append(
+          el('tr', {}, [
+            el('td', { text: row.cell }),
+            el('td', { text: row.before }),
+            el('td', { text: row.after }),
+          ]),
+        );
+      }
+      table.append(tbody);
+      body.append(table);
+      if (preview.changeCount > preview.sample.length) {
+        body.append(
+          el('p', {
+            className: 'dialog-note',
+            text: t('dialog.flashFill.sampleNote', { n: preview.changeCount - preview.sample.length }),
+          }),
+        );
+      }
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.flashFill.note') }));
+      buttons.append(
+        dialogButton(t('dialog.flashFill.cancel'), false, true, () => close(false)),
+        dialogButton(t('dialog.flashFill.apply'), true, false, () => close(true)),
+      );
+    });
+  }
+
   /** Choose the shift direction for Insert Copied Cells… (null cancels). */
   chooseInsertShift(rows: number, cols: number): Promise<'right' | 'down' | null> {
     return openDialog<'right' | 'down' | null>(
@@ -615,7 +675,7 @@ export class Dialogs {
         section(
           'dialog.formulaHelp.section.references',
           p('dialog.formulaHelp.referencesBody'),
-          codeList(['A1', 'B2', 'AA10']),
+          codeList(['A1', 'B2', 'AA10', '$A$1', '$A1', 'A$1']),
         ),
       );
       body.append(

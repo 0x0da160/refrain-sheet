@@ -2,6 +2,7 @@
 import type { AppState, FormulaRefTarget } from '../app/app-state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
+import { getEditHints } from '../app/settings';
 import { cellLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import { el } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
@@ -41,13 +42,17 @@ export class FormulaBar implements FormulaRefTarget {
   ) {
     this.refEl = el('div', { className: 'cell-ref', attrs: { 'aria-hidden': 'true' } });
     this.textarea = el('textarea', {
-      attrs: { rows: '1', spellcheck: 'false', 'aria-describedby': 'formula-refs-desc' },
+      attrs: { rows: '1', spellcheck: 'false', 'aria-describedby': 'formula-hint formula-refs-desc' },
     });
     this.refsDescEl = el('span', {
       className: 'visually-hidden',
       attrs: { id: 'formula-refs-desc' },
     });
-    this.hintEl = el('div', { className: 'hint' });
+    // Editing guidance is no longer persistent visible chrome: it lives in a
+    // native tooltip (mouse/touch long-press) plus this visually hidden,
+    // ARIA-linked description (keyboard / screen readers), both controlled by
+    // the editing-help preference (View > Editing Help Tooltips).
+    this.hintEl = el('span', { className: 'visually-hidden', attrs: { id: 'formula-hint' } });
     const field = el('div', { className: 'formula-field' }, [this.textarea, this.refsDescEl]);
     this.element = el('div', { className: 'formula-bar' }, [this.refEl, field, this.hintEl]);
 
@@ -163,7 +168,14 @@ export class FormulaBar implements FormulaRefTarget {
 
   refresh(selectionChanged: boolean): void {
     this.textarea.setAttribute('aria-label', t('formulaBar.label'));
-    this.hintEl.textContent = t('formulaBar.hint');
+    // Tooltip + accessible description follow the editing-help preference.
+    if (getEditHints()) {
+      this.hintEl.textContent = t('formulaBar.hint');
+      this.textarea.setAttribute('title', t('formulaBar.hint'));
+    } else {
+      this.hintEl.textContent = '';
+      this.textarea.removeAttribute('title');
+    }
     const tab = this.state.activeTab;
     if (!tab || !tab.selection) {
       this.refEl.textContent = '';

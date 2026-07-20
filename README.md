@@ -353,6 +353,41 @@ memory, device resources, and file complexity still impose practical limits,
 and files of hundreds of megabytes may be slow to render and edit. The
 setting is stored only in `localStorage` and is never transmitted anywhere.
 
+### Spreadsheet zoom
+
+**View > Spreadsheet Zoom** scales the spreadsheet area — grid cells, row and
+column headers, the formula bar, the inline editor, selection overlays, and
+the fill handle — **without changing the application chrome** and without
+touching the browser's own page zoom (whose shortcuts are never intercepted).
+Levels: 50 / 75 / 90 / 100 / 110 / 125 / 150 / 200 %, plus **Reset Zoom**.
+
+- Zoom is **per tab** and purely visual: it never changes document content,
+  never modifies CSV bytes, and never marks a document dirty. Virtualization,
+  scrolling, sticky rows, wrapping, column resizing, auto-fit, selection,
+  drag operations, and keyboard navigation all work identically at every
+  level.
+- Column widths are stored **zoom-independently** (px at 100%), so a resized
+  or auto-fitted column means the same thing at every zoom level.
+- **Persistence.** RSF documents store their zoom (and overridden column
+  widths) in the container's display metadata and restore them on reopen; a
+  document's stored value takes precedence. The most recently chosen zoom is
+  also kept as a local application preference and applies to documents that
+  store none (including plain CSV files, which never carry display settings
+  in their bytes). See [docs/rsf-format.md](docs/rsf-format.md) for the
+  format, bounds, and validation rules.
+
+### Editing help tooltips
+
+The inline-editor / formula-bar usage guidance (Enter commits and moves down,
+Alt+Enter inserts a newline, Esc cancels, `=` starts a formula in RSF) is not
+persistent screen chrome: it is provided as a **tooltip** on the formula bar
+and the inline cell editor, plus an equivalent **ARIA description** announced
+to keyboard and screen-reader users on focus. **View > Editing Help Tooltips**
+toggles it; the default is **enabled** (sensible for new users). The
+preference is stored only locally in `localStorage`, never in any document,
+and the tooltips never obscure the active cell, the caret, the autocomplete
+list, or IME composition UI.
+
 ### Language
 
 Japanese and English are both first-class UI languages. The initial language
@@ -587,6 +622,15 @@ name that replaces `.rsf` with `.csv`.
   **whole columns or rows** (`A:A`, `A:C`, `1:1`, `2:10`), bounded to the used
   grid. Circular references resolve to `#CYCLE!` rather than hanging;
   `#REF!`, `#DIV/0!`, `#NAME?`, and `#ERROR!` are reported per cell.
+- **Absolute and mixed references** are supported in all four A1-style forms:
+  `A1` (relative), `$A$1` (absolute), `$A1` (absolute column), and `A$1`
+  (absolute row) — including as range endpoints (`$A$1:B10`, `SUM($A$1:$A10)`)
+  and on whole-column/row spans (`$A:C`, `$1:10`). The `$` markers are
+  preserved exactly as written when formulas are displayed, stored, and
+  rewritten. Copying, pasting, filling, and Insert Copied Cells/Rows/Columns
+  shift only the **relative** components; absolute components stay fixed.
+  Row/column insertion and deletion adjust absolute and relative references
+  alike (both keep pointing at the same data), preserving the markers.
 - Inserting or deleting rows/columns rewrites references in the whole sheet as
   one atomic, undoable operation.
 - Formula cells are shown **upright, never italic** (italic hurts CJK
@@ -649,6 +693,41 @@ autocomplete suggestion, or insert a reference by clicking/dragging cells.
   right to copy the selected block, tiling its pattern and adjusting relative
   references. **Ctrl+D / Cmd+D** (Fill Down) fills the selection from its top
   row. Each fill is one atomic undo step.
+
+### Flash Fill
+
+**Edit > Flash Fill…** (also on the cell context menu) fills a column by
+inferring a pattern from examples you already typed — entirely **offline and
+deterministic**: no cloud service, no AI model, no telemetry, no dynamic code.
+
+- Type one or more example results at the top of a target column (e.g. the
+  full name built from a first-name and last-name column), select a cell in
+  that column, and run Flash Fill.
+- The engine searches a fixed set of **safe text transformations** of the
+  row's other columns: copying a column, joining columns with constant literal
+  separators, taking a part of a delimiter-separated value (split), constant
+  prefixes/suffixes, and simple casing normalization when the examples
+  demonstrate it.
+- A transformation is proposed **only** when it reproduces every example
+  exactly _and_ every matching candidate agrees on every cell to be filled.
+  Ambiguous examples (two patterns that would fill differently) change
+  nothing — a localized explanation shows the conflicting outputs and asks for
+  one more example instead of guessing.
+- Before anything is applied you get an **accessible preview**: the inferred
+  operation in plain words, the affected range, the number of cells, a
+  bounded before/after sample, and — when any non-empty cell would be
+  overwritten — an explicit, counted overwrite warning. Applying requires
+  pressing the confirm button; cancelling (or Escape) leaves the document
+  untouched.
+- Applying is **one atomic, undoable operation** (a single Ctrl+Z restores
+  every cell). Large blocks are analyzed in cooperative time slices with an
+  honest percentage, and the operation aborts cleanly — changing nothing — if
+  the document changes meanwhile.
+- Flash Fill is **RSF-only**. On a plain CSV document it explains that
+  structural multi-cell operations require the explicit conversion to RSF
+  (Sheet > Convert to Spreadsheet (RSF)…) and changes nothing. No keyboard
+  shortcut is claimed (the conventional Ctrl+E is a browser-reserved key);
+  the command is fully keyboard-accessible through the menu and context menu.
 
 ### Selecting rows, columns, and ranges
 
@@ -724,7 +803,10 @@ magic bytes (`RSF1`), a header with an uncompressed-length field, a CRC-32
 checksum, and a per-file compression method, followed by the compressed body.
 It holds inert data only (no code, macros, external references, or URLs);
 loading validates magic, version, checksum, shape, and size bounds, and
-enforces a decompression ceiling so a crafted file cannot exhaust memory. The
+enforces a decompression ceiling so a crafted file cannot exhaust memory.
+Alongside the sheet, the container carries small **non-executable display
+metadata** — the spreadsheet zoom and overridden column widths — which is
+validated and clamped on load and restored when the document reopens. The
 full specification is in [docs/rsf-format.md](docs/rsf-format.md).
 
 > **Legacy `.rcsv` files.** This format was previously named _Refrain CSV

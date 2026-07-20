@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { CommandId, Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
+import { SHEET_ZOOM_LEVELS } from '../app/settings';
 import { SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../app/sheet-font';
 import { THEMES, themeLabelKey, type ThemeChoice } from '../app/theme';
 import { el, clearChildren } from './dom';
@@ -25,6 +26,10 @@ export interface MenuChecks {
   stickyFirstRow: () => boolean;
   sheetFont: () => SheetFontId;
   theme: () => ThemeChoice;
+  /** The active tab's spreadsheet zoom percent (app default when no tab). */
+  zoom: () => number;
+  /** Whether editing-help tooltips are enabled. */
+  editHints: () => boolean;
 }
 
 export function defaultMenus(checks: MenuChecks): MenuDef[] {
@@ -62,6 +67,10 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.edit.insertCopiedRows', command: 'edit.insertCopiedRows' },
         { labelKey: 'menu.edit.insertCopiedCols', command: 'edit.insertCopiedCols' },
         { labelKey: 'menu.edit.fillDown', command: 'edit.fillDown', shortcut: 'Ctrl+D' },
+        // No keyboard shortcut by design: Ctrl+E (the conventional Flash Fill
+        // key) is a browser-reserved address-bar shortcut. The command stays
+        // keyboard-accessible through the menu and context menu.
+        { labelKey: 'menu.edit.flashFill', command: 'edit.flashFill' },
         'separator',
         { labelKey: 'menu.edit.revertCell', command: 'edit.revertCell' },
         { labelKey: 'menu.edit.revertAll', command: 'edit.revertAll' },
@@ -102,6 +111,10 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           command: 'view.stickyFirstRow',
           checked: checks.stickyFirstRow,
         },
+        { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
+        'separator',
+        { labelKey: 'menu.view.zoom', heading: true },
+        ...zoomItems(checks),
         'separator',
         { labelKey: 'menu.view.sheetFont', heading: true },
         ...sheetFontItems(checks),
@@ -132,6 +145,24 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.help.about', command: 'help.about' },
       ],
     },
+  ];
+}
+
+/**
+ * The spreadsheet-zoom presets plus Reset Zoom (View > Spreadsheet Zoom).
+ * This is application-level zoom for the spreadsheet area only — browser
+ * zoom and its keyboard shortcuts are never touched or intercepted.
+ */
+function zoomItems(checks: MenuChecks): MenuItemDef[] {
+  const levels: Array<{ level: (typeof SHEET_ZOOM_LEVELS)[number]; command: CommandId }> =
+    SHEET_ZOOM_LEVELS.map((level) => ({ level, command: `view.zoom.${level}` as CommandId }));
+  return [
+    ...levels.map(({ level, command }) => ({
+      labelKey: `${level}%`,
+      command,
+      checked: () => checks.zoom() === level,
+    })),
+    { labelKey: 'menu.view.zoomReset', command: 'view.zoom.reset' as CommandId },
   ];
 }
 

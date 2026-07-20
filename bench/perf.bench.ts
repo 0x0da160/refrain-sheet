@@ -14,11 +14,21 @@
  * profiling steps documented in docs/performance.md.
  */
 import { bench, describe } from 'vitest';
-import { initCsvEngine, setCsvEngineForTesting } from '../src/core/csv-engine';
+import { AppState } from '../src/app/app-state';
+import {
+  initCsvEngine,
+  setCsvEngineForTesting,
+  RSF_COMPRESSION_DEFLATE,
+  RSF_COMPRESSION_LZ4,
+  RSF_COMPRESSION_STORE,
+  RSF_COMPRESSION_ZSTD,
+} from '../src/core/csv-engine';
+import type { CellChange } from '../src/core/history';
 import { LosslessDocument } from '../src/core/lossless-document';
 import { encodeRsf, decodeRsf, type RsfData } from '../src/core/rsf-codec';
 import { RsfDocument } from '../src/core/rsf-document';
 import { compileQuery, replaceAllInValue } from '../src/core/search';
+import { serializeDocument, KEEP_SAVE_OPTIONS } from '../src/core/serializer';
 import { computeSelectionStats } from '../src/core/stats';
 
 const wasmAvailable = (await initCsvEngine()) === 'wasm';
@@ -168,6 +178,165 @@ describe('RSF container round-trip, 100,000 non-empty cells', () => {
       setCsvEngineForTesting('wasm');
       const out = decodeRsf(encodedForDecode);
       if (!out.ok) throw new Error('decode failed');
+    },
+    OPTS,
+  );
+});
+
+// ----- CSV save paths: byte-identity (no edits) and minimal-diff patch -----
+
+describe('CSV save, 200,000×6 (~11 MB)', () => {
+  const bytes = makeCsvBytes(200_000, 6);
+  bench.skipIf(!wasmAvailable)(
+    'unedited save (identity path)',
+    () => {
+      setCsvEngineForTesting('wasm');
+      const doc = LosslessDocument.fromBytes(bytes);
+      const result = serializeDocument(doc, KEEP_SAVE_OPTIONS, false);
+      if (!result.ok || result.mode !== 'identity') throw new Error('expected identity save');
+    },
+    OPTS,
+  );
+  bench.skipIf(!wasmAvailable)(
+    '10 edited cells, minimal-diff save (patch path)',
+    () => {
+      setCsvEngineForTesting('wasm');
+      const doc = LosslessDocument.fromBytes(bytes);
+      for (let i = 0; i < 10; i++) {
+        doc.setValue(i * 19_777, 3, `edited-${i}`);
+      }
+      const result = serializeDocument(doc, KEEP_SAVE_OPTIONS, false);
+      if (!result.ok || result.mode !== 'patch') throw new Error('expected patch save');
+    },
+    OPTS,
+  );
+});
+
+// ----- CSV → RSF conversion (the value-collection core of the Convert command) -----
+
+describe('CSV → RSF conversion, 200,000×6', () => {
+  const bytes = makeCsvBytes(200_000, 6);
+  bench.skipIf(!wasmAvailable)(
+    'RsfDocument.fromLossless',
+    () => {
+      setCsvEngineForTesting('wasm');
+      const doc = LosslessDocument.fromBytes(bytes);
+      RsfDocument.fromLossless(doc, 'bench.rsf');
+    },
+    OPTS,
+  );
+});
+
+// ----- RSF container: every supported compression method -----
+
+describe('RSF encode/decode per compression method, 100,000 cells', () => {
+  const cells: Array<[number, number, string]> = [];
+  for (let i = 0; i < 100_000; i++) {
+    cells.push([i % 20_000, i % 5, `value-${i % 977}`]);
+  }
+  const payload: RsfData = { name: 'Sheet1', delimiter: ',', rowCount: 20_000, columnCount: 5, cells };
+  const methods: Array<[string, number]> = [
+    ['zstd', RSF_COMPRESSION_ZSTD],
+    ['lz4', RSF_COMPRESSION_LZ4],
+    ['deflate', RSF_COMPRESSION_DEFLATE],
+    ['store', RSF_COMPRESSION_STORE],
+  ];
+  for (const [label, method] of methods) {
+    bench.skipIf(!wasmAvailable)(
+      `encode (${label})`,
+      () => {
+        setCsvEngineForTesting('wasm');
+        encodeRsf(payload, method);
+      },
+      OPTS,
+    );
+  }
+  for (const [label, method] of methods) {
+    const encoded = (() => {
+      if (!wasmAvailable && method !== RSF_COMPRESSION_STORE) return null;
+      setCsvEngineForTesting(wasmAvailable ? 'wasm' : 'js');
+      return encodeRsf(payload, method);
+    })();
+    bench.skipIf(encoded === null)(
+      `decode (${label})`,
+      () => {
+        setCsvEngineForTesting(wasmAvailable ? 'wasm' : 'js');
+        const out = decodeRsf(encoded as Uint8Array);
+        if (!out.ok) throw new Error('decode failed');
+      },
+      OPTS,
+    );
+  }
+});
+
+// ----- Structural edits: row insertion with formula-reference rewriting -----
+// Exercises the per-row formula index: only rows containing formulas are
+// scanned when the whole sheet's references are adjusted.
+
+describe('insert row into 100,000×6 sheet with 1,000 formula cells', () => {
+  // The fixture is built once; each iteration inserts one more row into it
+  // (a negligible, deterministic size drift across the 5 iterations).
+  const sheetDoc = RsfDocument.empty('bench.rsf', 100_000, 6);
+  for (let r = 0; r < 100_000; r++) {
+    sheetDoc.setCell(r, 0, String(r));
+  }
+  for (let i = 0; i < 1_000; i++) {
+    sheetDoc.setCell(i * 100, 5, `=A${i * 100 + 1}+1`);
+  }
+  const sheetState = new AppState();
+  const sheetTab = sheetState.addTab('bench.rsf', sheetDoc, null);
+  bench(
+    'AppState.insertRows (index-assisted formula rewrite scan)',
+    () => {
+      sheetState.insertRows(sheetTab, 50_000, 1);
+    },
+    OPTS,
+  );
+  bench(
+    'listFormulaCells on the same sheet',
+    () => {
+      if (sheetTab.doc.kind !== 'rsf') throw new Error('unexpected');
+      const cells = sheetTab.doc.listFormulaCells();
+      if (cells.length !== 1_000) throw new Error(`unexpected: ${cells.length}`);
+    },
+    OPTS,
+  );
+  // Reference: the pre-index algorithm (scan every cell through the public
+  // surface) — kept so the whole-sheet-scan vs indexed-walk gap stays measured.
+  bench(
+    'full-sheet formula scan (pre-index reference)',
+    () => {
+      const doc = sheetTab.doc;
+      if (doc.kind !== 'rsf') throw new Error('unexpected');
+      let n = 0;
+      for (let r = 0; r < doc.rowCount; r++) {
+        for (let c = 0; c < doc.columnCount; c++) {
+          const v = doc.getValue(r, c);
+          if (v.length > 1 && v.startsWith('=')) n += 1;
+        }
+      }
+      if (n !== 1_000) throw new Error(`unexpected: ${n}`);
+    },
+    OPTS,
+  );
+});
+
+// ----- Large bulk mutation: one atomic 120,000-cell edit (paste/fill apply path) -----
+
+describe('bulk edit apply, 120,000 cells (paste/fill mutation path)', () => {
+  const changes: CellChange[] = [];
+  for (let r = 0; r < 20_000; r++) {
+    for (let c = 0; c < 6; c++) {
+      changes.push({ row: r, col: c, before: '', after: `v${r}-${c}` });
+    }
+  }
+  bench(
+    'AppState.bulkEdit',
+    () => {
+      const doc = RsfDocument.empty('bench.rsf', 20_000, 6);
+      const state = new AppState();
+      const tab = state.addTab('bench.rsf', doc, null);
+      if (!state.bulkEdit(tab, changes, 'history.paste')) throw new Error('bulkEdit failed');
     },
     OPTS,
   );

@@ -940,7 +940,7 @@ export class Commands {
           scanCsvExportRow(scan, r, values, options.encoding, allowNcr);
         },
         {
-          onProgress: (done, total) => this.ui.setBusy(`${label} (${Math.round((done / total) * 100)}%)`),
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`),
           shouldStop: () => tab.doc !== doc,
         },
       );
@@ -1783,7 +1783,7 @@ export class Commands {
           }
         },
         {
-          onProgress: (done, total) => this.ui.setBusy(`${label} (${Math.round((done / total) * 100)}%)`),
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`),
           // The document was replaced or the tab closed while yielding: abort
           // without touching anything.
           shouldStop: () => tab.doc !== doc,

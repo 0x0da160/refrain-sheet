@@ -16,14 +16,22 @@ on:
 permissions:
   contents: read
 
+# Action-pinning policy (see docs/security.md): every action here is an official
+# GitHub-maintained actions/* pinned to a major version tag; any third-party
+# (non actions/*) action would instead be pinned to a full commit SHA.
+
 jobs:
   release:
     runs-on: ubuntu-latest
-    # The release job alone gets write access, and only to repository contents,
-    # to publish the GitHub Release assets. It also builds the static site and
+    # The release job gets the narrowest write set it needs: write access to
+    # repository contents (to publish the GitHub Release assets), plus OIDC
+    # id-token and attestations write (to produce a signed build-provenance
+    # attestation for the release ZIP). It also builds the static site and
     # uploads it as the Pages artifact for the deploy-pages job to publish.
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Validate tag format
         env:
@@ -53,8 +61,16 @@ jobs:
             exit 1
           fi
 
-      - name: Install dependencies
-        run: npm ci
+      # `npm ci --ignore-scripts` reproduces node_modules strictly from the
+      # committed lockfile (and fails if it disagrees with package.json —
+      # lockfile integrity), while blocking dependency lifecycle scripts on the
+      # release path.
+      - name: Install dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts
+
+      # Belt-and-suspenders version gate: package.json ⇄ package-lock.json ⇄ tag.
+      - name: Version consistency (package.json / lockfile / tag)
+        run: npm run check:versions -- --tag "${{ github.ref_name }}"
 
       - name: Check formatting
         run: npm run format:check
@@ -67,6 +83,24 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Validate self-contained distribution
+        run: npm run check:dist
+
+      - name: Audit production dependencies
+        run: npm run audit:ci
+
+      # CycloneDX SBOM for the released artifact, generated with pinned,
+      # reproducible tooling (npm's built-in `npm sbom`, no extra dependency).
+      - name: Generate SBOM (CycloneDX)
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          npm run --silent sbom > "refrain-sheet-${VERSION}.sbom.cdx.json"
+          node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'))" \
+            "refrain-sheet-${VERSION}.sbom.cdx.json"
+          echo "SBOM bytes: $(wc -c < "refrain-sheet-${VERSION}.sbom.cdx.json")"
 
       # The site is fully static and self-contained (embedded WASM, relative
       # asset paths, no network) so the same dist/ that works from file:// also
@@ -87,24 +121,37 @@ jobs:
           VERSION="${TAG#v}"
           SHORT_HASH="$(git rev-parse --short HEAD)"
           ZIP_NAME="refrain-sheet-v${VERSION}-${SHORT_HASH}.zip"
+          SBOM_NAME="refrain-sheet-${TAG}.sbom.cdx.json"
           STAGE="refrain-sheet-v${VERSION}"
           mkdir -p "stage/${STAGE}"
           cp -r dist/* "stage/${STAGE}/"
           cp README.md LICENSE THIRD-PARTY-NOTICES.md "stage/${STAGE}/"
+          cp "${SBOM_NAME}" "stage/${STAGE}/"
           (cd stage && zip -r "../${ZIP_NAME}" "${STAGE}")
           sha256sum "${ZIP_NAME}" > "${ZIP_NAME}.sha256"
           cat "${ZIP_NAME}.sha256"
           {
             echo "zip_name=${ZIP_NAME}"
+            echo "sbom_name=${SBOM_NAME}"
             echo "version=${VERSION}"
             echo "short_hash=${SHORT_HASH}"
           } >> "$GITHUB_OUTPUT"
+
+      # Cryptographic build provenance for the release ZIP (SLSA-style), signed
+      # via OIDC with no long-lived secret. Lets consumers verify the artifact
+      # was built by this workflow from this repository:
+      #   gh attestation verify <zip> --repo <owner>/<repo>
+      - name: Attest build provenance for the release ZIP
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ steps.package.outputs.zip_name }}
 
       - name: Write release notes
         env:
           VERSION: ${{ steps.package.outputs.version }}
           SHORT_HASH: ${{ steps.package.outputs.short_hash }}
           ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+          SBOM_NAME: ${{ steps.package.outputs.sbom_name }}
         run: |
           set -euo pipefail
           cat > release-notes.md <<EOF
@@ -121,6 +168,20 @@ jobs:
           \`\`\`sh
           sha256sum -c ${ZIP_NAME}.sha256
           \`\`\`
+
+          Verify the build provenance attestation (requires the GitHub CLI):
+
+          \`\`\`sh
+          gh attestation verify ${ZIP_NAME} --repo ${GITHUB_REPOSITORY}
+          \`\`\`
+
+          ## Supply-chain artifacts
+
+          - **SBOM:** \`${SBOM_NAME}\` (CycloneDX) lists the production
+            dependency set. It is attached to this release and also bundled
+            inside the ZIP.
+          - **Provenance:** a signed SLSA-style build-provenance attestation
+            for the ZIP is published with this release.
 
           ## How to use
 
@@ -148,15 +209,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
           ZIP_NAME: ${{ steps.package.outputs.zip_name }}
+          SBOM_NAME: ${{ steps.package.outputs.sbom_name }}
         run: |
           set -euo pipefail
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" "${ZIP_NAME}" "${ZIP_NAME}.sha256" \
+            gh release upload "$TAG" "${ZIP_NAME}" "${ZIP_NAME}.sha256" "${SBOM_NAME}" \
               --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
               --notes-file release-notes.md
           else
-            gh release create "$TAG" "${ZIP_NAME}" "${ZIP_NAME}.sha256" \
+            gh release create "$TAG" "${ZIP_NAME}" "${ZIP_NAME}.sha256" "${SBOM_NAME}" \
               --repo "$GITHUB_REPOSITORY" \
               --title "Refrain Sheet ${TAG}" \
               --notes-file release-notes.md

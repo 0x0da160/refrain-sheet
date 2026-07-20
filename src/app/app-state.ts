@@ -3,10 +3,10 @@ import { normalizeRange, type CellRange } from '../core/clipboard';
 import { adjustFormulaForAxis, isFormula, shiftFormulaRefs } from '../core/formula';
 import { cellsEntry, History, type CellChange, type HistoryEntry, type Operation } from '../core/history';
 import type { LosslessDocument } from '../core/lossless-document';
-import { RcsvDocument, RCSV_EXTENSION } from '../core/rcsv-document';
+import { RsfDocument, RSF_EXTENSION } from '../core/rsf-document';
 
 /** Either document kind; the shared surface is duck-typed across both. */
-export type EditorDocument = LosslessDocument | RcsvDocument;
+export type EditorDocument = LosslessDocument | RsfDocument;
 
 export interface Selection {
   row: number;
@@ -48,12 +48,12 @@ export interface Tab {
   anchor: Selection | null;
   /** How the selection was made (drives distinct rendering). */
   selectionKind: SelectionKind;
-  /** The "must be saved as .rcsv" explanation was already shown for this tab. */
-  rcsvSaveExplained: boolean;
+  /** The "must be saved as .rsf" explanation was already shown for this tab. */
+  rsfSaveExplained: boolean;
   /**
    * Per-column pixel widths for this open document during the session. A
    * missing or zero entry means the default width. Stored on the tab so
-   * resizing a plain CSV never mutates its bytes; RCSV documents persist
+   * resizing a plain CSV never mutates its bytes; RSF documents persist
    * these in their container.
    */
   colWidths: number[];
@@ -126,7 +126,7 @@ export class AppState {
       selection: doc.rowCount > 0 ? { row: 0, col: 0 } : null,
       anchor: null,
       selectionKind: 'cell',
-      rcsvSaveExplained: false,
+      rsfSaveExplained: false,
       colWidths: [],
     };
     this.tabs.push(tab);
@@ -358,7 +358,7 @@ export class AppState {
     return entry;
   }
 
-  // ----- Structural operations (RCSV spreadsheet documents only) -----
+  // ----- Structural operations (RSF spreadsheet documents only) -----
 
   /**
    * Insert empty rows. Formula references in the whole sheet are adjusted
@@ -367,7 +367,7 @@ export class AppState {
    */
   insertRows(tab: Tab, index: number, count: number): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rcsv' || count < 1) {
+    if (doc.kind !== 'rsf' || count < 1) {
       return false;
     }
     const rewrites = this.formulaRewrites(doc, 'row', 'insert', index, count);
@@ -384,7 +384,7 @@ export class AppState {
   /** Delete rows (never all of them). Referencing formulas get #REF! or clamped ranges. */
   deleteRows(tab: Tab, index: number, count: number): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rcsv' || count < 1 || index < 0 || index + count > doc.rowCount) {
+    if (doc.kind !== 'rsf' || count < 1 || index < 0 || index + count > doc.rowCount) {
       return false;
     }
     if (count >= doc.rowCount) {
@@ -411,7 +411,7 @@ export class AppState {
 
   insertCols(tab: Tab, index: number, count: number): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rcsv' || count < 1) {
+    if (doc.kind !== 'rsf' || count < 1) {
       return false;
     }
     const rewrites = this.formulaRewrites(doc, 'col', 'insert', index, count);
@@ -427,7 +427,7 @@ export class AppState {
 
   deleteCols(tab: Tab, index: number, count: number): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rcsv' || count < 1 || index < 0 || index + count > doc.columnCount) {
+    if (doc.kind !== 'rsf' || count < 1 || index < 0 || index + count > doc.columnCount) {
       return false;
     }
     if (count >= doc.columnCount) {
@@ -468,7 +468,7 @@ export class AppState {
     origin: Selection | null,
   ): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rcsv' || matrix.length === 0 || matrix[0].length === 0) {
+    if (doc.kind !== 'rsf' || matrix.length === 0 || matrix[0].length === 0) {
       return false;
     }
     const height = matrix.length;
@@ -557,47 +557,47 @@ export class AppState {
   }
 
   /**
-   * Convert a CSV tab to an RCSV spreadsheet document (explicit, user
-   * confirmed). The tab is renamed to `.rcsv`, detached from the original
+   * Convert a CSV tab to an RSF spreadsheet document (explicit, user
+   * confirmed). The tab is renamed to `.rsf`, detached from the original
    * file handle so the `.csv` can never be silently overwritten, and the
    * undo history is cleared (the conversion itself is not undoable; the
    * original file on disk stays untouched).
    */
-  convertToRcsv(tab: Tab, prebuilt?: RcsvDocument): RcsvDocument | null {
+  convertToRsf(tab: Tab, prebuilt?: RsfDocument): RsfDocument | null {
     if (tab.doc.kind !== 'csv') {
-      return tab.doc.kind === 'rcsv' ? (tab.doc as RcsvDocument) : null;
+      return tab.doc.kind === 'rsf' ? (tab.doc as RsfDocument) : null;
     }
     const base = tab.name.replace(/\.(csv|tsv|txt)$/i, '');
-    const name = `${base}${RCSV_EXTENSION}`;
+    const name = `${base}${RSF_EXTENSION}`;
     // `prebuilt` comes from the time-sliced conversion of large documents
     // (identical content, collected with progress instead of one long loop).
-    const doc = prebuilt ?? RcsvDocument.fromLossless(tab.doc, name);
+    const doc = prebuilt ?? RsfDocument.fromLossless(tab.doc, name);
     doc.name = name;
     tab.doc = doc;
     tab.name = name;
     tab.handle = null;
     tab.history.clear();
-    tab.rcsvSaveExplained = false;
+    tab.rsfSaveExplained = false;
     this.clampSelection(tab);
     this.emit('tabs');
     return doc;
   }
 
   /**
-   * Explicit `Convert to RCSV…`: build a new RCSV spreadsheet from a CSV tab's
+   * Explicit `Convert to RSF…`: build a new RSF spreadsheet from a CSV tab's
    * current (edited) values and open it in a new active tab. The source CSV
    * tab, its unsaved edits, its file handle, and the file on disk are all left
    * untouched — this never converts in place. The new document is marked
    * unsaved (it exists only in memory until saved). Returns the new document,
    * or null when the tab is not a CSV.
    */
-  convertToRcsvNewTab(tab: Tab, prebuilt?: RcsvDocument): RcsvDocument | null {
+  convertToRsfNewTab(tab: Tab, prebuilt?: RsfDocument): RsfDocument | null {
     if (tab.doc.kind !== 'csv') {
       return null;
     }
     const base = tab.name.replace(/\.(csv|tsv|txt)$/i, '');
-    const name = `${base}${RCSV_EXTENSION}`;
-    const doc = prebuilt ?? RcsvDocument.fromLossless(tab.doc, name);
+    const name = `${base}${RSF_EXTENSION}`;
+    const doc = prebuilt ?? RsfDocument.fromLossless(tab.doc, name);
     doc.name = name;
     doc.markUnsaved();
     this.addTab(name, doc, null);
@@ -615,9 +615,9 @@ export class AppState {
     this.emit('doc');
   }
 
-  /** Mark an RCSV tab saved (its in-memory document is the baseline). */
+  /** Mark an RSF tab saved (its in-memory document is the baseline). */
   markTabSaved(tab: Tab): void {
-    if (tab.doc.kind === 'rcsv') {
+    if (tab.doc.kind === 'rsf') {
       tab.doc.markSaved();
       tab.history.clear();
       this.emit('doc');
@@ -639,7 +639,7 @@ export class AppState {
 
   /** Formula rewrites for a structural change, targeting post-change coordinates. */
   private formulaRewrites(
-    doc: RcsvDocument,
+    doc: RsfDocument,
     axis: 'row' | 'col',
     op: 'insert' | 'delete',
     index: number,
@@ -685,7 +685,7 @@ export class AppState {
       return;
     }
     const doc = tab.doc;
-    if (doc.kind !== 'rcsv') {
+    if (doc.kind !== 'rsf') {
       return;
     }
     const effective = direction === 'after' ? op.action : op.action === 'insert' ? 'delete' : 'insert';

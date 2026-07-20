@@ -26,8 +26,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
-    explainRcsvSave: vi.fn(async () => true),
-    chooseRcsvSave: vi.fn(async () => 2),
+    explainRsfSave: vi.fn(async () => true),
+    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => ({
       encoding: 'utf-8' as const,
       bom: false,
@@ -92,7 +92,7 @@ describe('in-place repaint (no full-grid rerender for cell edits)', () => {
 
   it('a structural change (different row count) still rebuilds the window', () => {
     const { state, grid, tab } = gridSetup(bigCsv(50));
-    state.convertToRcsv(tab);
+    state.convertToRsf(tab);
     grid.refresh();
     const before = grid.element.querySelector<HTMLElement>('[data-row="2"][data-col="1"]')!;
     state.insertRows(tab, 0, 1);
@@ -196,7 +196,7 @@ describe('sliced Replace All', () => {
     const query = compileQuery({ text: '1', matchCase: true, regex: false });
     const pending = commands.replaceAll(query, 'X');
     // Swap the document while the scan is yielding (reopen/convert scenario).
-    state.convertToRcsv(tab);
+    state.convertToRsf(tab);
     const result = await pending;
     expect(result).toEqual({ count: 0, cells: 0 });
     expect(tab.doc.getValue(0, 1)).toBe('1');

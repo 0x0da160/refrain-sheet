@@ -6,6 +6,7 @@ import { Commands, type UiPort } from '../src/app/commands';
 import type { OpenedFile } from '../src/app/file-access';
 import { compileQuery } from '../src/core/search';
 import { decodeBytes } from '../src/core/encoding';
+import { encodeRsf, RSF_LEGACY_CONTAINER_VERSION, RSF_LEGACY_MAGIC } from '../src/core/rsf-codec';
 import { asCsv, enc, utf8 } from './helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
@@ -18,8 +19,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
-    explainRcsvSave: vi.fn(async () => true),
-    chooseRcsvSave: vi.fn(async () => 2),
+    explainRsfSave: vi.fn(async () => true),
+    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => ({
       encoding: 'utf-8' as const,
       bom: false,
@@ -256,7 +257,7 @@ describe('closing tabs', () => {
 });
 
 describe('new document', () => {
-  it('opens a blank unsaved RCSV in a new active tab without touching others', async () => {
+  it('opens a blank unsaved RSF in a new active tab without touching others', async () => {
     const { state, commands } = setup();
     await commands.openFiles([opened('a.csv', utf8('x,y\n'))], { confirmNonCsv: false });
     const csvTab = state.activeTab!;
@@ -264,8 +265,8 @@ describe('new document', () => {
     expect(state.tabs.length).toBe(2);
     const tab = state.activeTab!;
     expect(tab.id).not.toBe(csvTab.id);
-    expect(tab.doc.kind).toBe('rcsv');
-    expect(tab.name.endsWith('.rcsv')).toBe(true);
+    expect(tab.doc.kind).toBe('rsf');
+    expect(tab.name.endsWith('.rsf')).toBe(true);
     // New documents are unsaved until the first save.
     expect(tab.doc.isDirty).toBe(true);
     // The original CSV tab is untouched (undo-safe).
@@ -277,11 +278,11 @@ describe('new document', () => {
     const { state, commands } = setup();
     await commands.run('file.new');
     await commands.run('file.new');
-    expect(state.tabs.map((t) => t.name)).toEqual(['untitled.rcsv', 'untitled-2.rcsv']);
+    expect(state.tabs.map((t) => t.name)).toEqual(['untitled.rsf', 'untitled-2.rsf']);
   });
 });
 
-describe('convert to RCSV command', () => {
+describe('convert to RSF command', () => {
   it('opens the converted sheet in a new tab and preserves the source CSV tab', async () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
@@ -295,8 +296,8 @@ describe('convert to RCSV command', () => {
     expect(state.tabs.length).toBe(2);
     const rcsvTab = state.activeTab!;
     expect(rcsvTab.id).not.toBe(csvTab.id);
-    expect(rcsvTab.doc.kind).toBe('rcsv');
-    expect(rcsvTab.name).toBe('data.rcsv');
+    expect(rcsvTab.doc.kind).toBe('rsf');
+    expect(rcsvTab.name).toBe('data.rsf');
     expect(rcsvTab.doc.getValue(0, 0)).toBe('X');
     expect(rcsvTab.doc.isDirty).toBe(true);
     // Source CSV tab (and its edits) stay put.
@@ -321,9 +322,54 @@ describe('convert to RCSV command', () => {
   it('is enabled only for a not-yet-converted CSV document', async () => {
     const { commands } = setup();
     await commands.run('file.new');
-    expect(commands.isEnabled('sheet.convert')).toBe(false); // already RCSV
+    expect(commands.isEnabled('sheet.convert')).toBe(false); // already RSF
     await commands.openFiles([opened('c.csv', utf8('a,b\n'))], { confirmNonCsv: false });
     expect(commands.isEnabled('sheet.convert')).toBe(true);
+  });
+});
+
+describe('opening files by format', () => {
+  it('opens a current .rsf container as a spreadsheet tab', async () => {
+    const { state, commands } = setup();
+    const bytes = encodeRsf({
+      name: 'Sheet1',
+      delimiter: ',',
+      rowCount: 2,
+      columnCount: 2,
+      cells: [[0, 0, 'hi']],
+    });
+    await commands.openFiles([opened('doc.rsf', bytes)], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    expect(tab.doc.kind).toBe('rsf');
+    expect(tab.name).toBe('doc.rsf');
+    expect(tab.doc.getValue(0, 0)).toBe('hi');
+  });
+
+  it('opens a legacy .rcsv file, migrating the tab to .rsf and dropping the handle', async () => {
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    // A legacy container: current bytes re-stamped with the RCSV magic + v2.
+    const bytes = encodeRsf({
+      name: 'Sheet1',
+      delimiter: ',',
+      rowCount: 2,
+      columnCount: 2,
+      cells: [[0, 0, 'legacy']],
+    });
+    bytes.set(RSF_LEGACY_MAGIC, 0);
+    bytes[4] = RSF_LEGACY_CONTAINER_VERSION;
+    const fake = fakeHandle();
+    await commands.openFiles([opened('old.rcsv', bytes, fake.handle)], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    expect(tab.doc.kind).toBe('rsf');
+    expect(tab.doc.getValue(0, 0)).toBe('legacy');
+    // Migrated: renamed to .rsf, handle dropped (so Save writes a new file),
+    // marked dirty (the migration is pending on disk).
+    expect(tab.name).toBe('old.rsf');
+    expect(tab.handle).toBeNull();
+    expect(tab.doc.isDirty).toBe(true);
+    const notes = (ui.notify as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+    expect(notes.some((n) => typeof n === 'string' && n.includes('old.rsf'))).toBe(true);
   });
 });
 

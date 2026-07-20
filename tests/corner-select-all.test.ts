@@ -18,8 +18,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
-    explainRcsvSave: vi.fn(async () => true),
-    chooseRcsvSave: vi.fn(async () => 2),
+    explainRsfSave: vi.fn(async () => true),
+    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => null),
     chooseInsertShift: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
@@ -106,7 +106,7 @@ describe('top-left corner Select All control', () => {
     expect(run).toHaveBeenCalledWith('edit.selectAll');
   });
 
-  it('selects the whole logical grid of a blank RCSV document from the corner', () => {
+  it('selects the whole logical grid of a blank RSF document from the corner', () => {
     const { state, grid, commands } = makeGrid();
     const tab = commands.newDocument();
     grid.refresh();

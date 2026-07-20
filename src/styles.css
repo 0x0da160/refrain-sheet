@@ -776,16 +776,40 @@ button {
   );
 }
 
-.vcell .cell-editor {
+/* The grid's permanent keyboard target: a visually hidden textarea that keeps
+   focus while the grid is navigated, so IME compositions start inside an
+   editable element (never on the non-editable grid container). It is parked
+   over the selected cell (candidate window placement) and promoted in place —
+   same element, same focus — into .cell-editor when editing begins. */
+.vgrid-canvas .grid-sink {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  border: none;
+  padding: 0;
+  font: inherit;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  opacity: 0;
+  overflow: hidden;
+  resize: none;
+  outline: none;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.vgrid-canvas .grid-sink.cell-editor {
   border: 2px solid var(--accent);
   padding: 1px 6px;
-  font: inherit;
   color: var(--text);
+  caret-color: auto;
   background: var(--field-bg);
+  opacity: 1;
+  pointer-events: auto;
   z-index: 4;
   /* A <textarea> so it holds multi-line values (Alt+Enter). Long/multi-line
      content wraps and scrolls within the cell box while editing; committing

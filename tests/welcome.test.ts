@@ -19,8 +19,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
-    explainRcsvSave: vi.fn(async () => true),
-    chooseRcsvSave: vi.fn(async () => 2),
+    explainRsfSave: vi.fn(async () => true),
+    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => null),
     chooseInsertShift: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
@@ -69,7 +69,7 @@ describe('welcome screen (initial screen)', () => {
     const { state, welcome } = setup();
     welcome.element.querySelectorAll<HTMLButtonElement>('.welcome-action')[1].click();
     expect(state.tabs).toHaveLength(1);
-    expect(state.tabs[0].doc.kind).toBe('rcsv');
+    expect(state.tabs[0].doc.kind).toBe('rsf');
     expect(welcome.element.hidden).toBe(true);
   });
 

@@ -48,14 +48,14 @@ build output) statically links the following pure-Rust crates. Exact versions
 are pinned in [`wasm/Cargo.lock`](wasm/Cargo.lock). All are permissively
 licensed and build for `wasm32-unknown-unknown` with no C/C++ toolchain.
 
-| Crate          | Version | Purpose                              | SPDX license                |
-| -------------- | ------- | ------------------------------------ | --------------------------- |
-| `wasm-bindgen` | 0.2.100 | JS ⇄ WASM bindings                   | `MIT OR Apache-2.0`         |
-| `miniz_oxide`  | 0.8.0   | DEFLATE codec (RCSV method `0x01`)   | `MIT OR Zlib OR Apache-2.0` |
-| `ruzstd`       | 0.8.1   | Zstandard encoder+decoder (`0x02`)   | `MIT`                       |
-| `lz4_flex`     | 0.14.0  | LZ4 Frame codec (RCSV method `0x03`) | `MIT`                       |
-| `twox-hash`    | 1.6/2.1 | xxHash checksums used by the codecs  | `MIT`                       |
-| `adler2`       | 2.0.1   | Adler-32 (miniz_oxide dependency)    | `0BSD OR MIT OR Apache-2.0` |
+| Crate          | Version | Purpose                             | SPDX license                |
+| -------------- | ------- | ----------------------------------- | --------------------------- |
+| `wasm-bindgen` | 0.2.100 | JS ⇄ WASM bindings                  | `MIT OR Apache-2.0`         |
+| `miniz_oxide`  | 0.8.0   | DEFLATE codec (RSF method `0x01`)   | `MIT OR Zlib OR Apache-2.0` |
+| `ruzstd`       | 0.8.1   | Zstandard encoder+decoder (`0x02`)  | `MIT`                       |
+| `lz4_flex`     | 0.14.0  | LZ4 Frame codec (RSF method `0x03`) | `MIT`                       |
+| `twox-hash`    | 1.6/2.1 | xxHash checksums used by the codecs | `MIT`                       |
+| `adler2`       | 2.0.1   | Adler-32 (miniz_oxide dependency)   | `0BSD OR MIT OR Apache-2.0` |
 
 `ruzstd` is pinned to `0.8.1` — the version whose pure-Rust Zstandard **encoder**
 (added in 0.8.0) still builds on the pinned Rust toolchain; 0.8.2+ requires a

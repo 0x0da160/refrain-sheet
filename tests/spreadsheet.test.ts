@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { ClipboardController } from '../src/app/clipboard-controller';
-import { RCSV_COMPRESSION_LZ4 } from '../src/core/csv-engine';
-import type { RcsvDocument } from '../src/core/rcsv-document';
+import { RSF_COMPRESSION_LZ4 } from '../src/core/csv-engine';
+import type { RsfDocument } from '../src/core/rsf-document';
 import { serializeDocument } from '../src/core/serializer';
 import { asCsv, doc, utf8 } from './helpers';
 
@@ -19,8 +19,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
-    explainRcsvSave: vi.fn(async () => true),
-    chooseRcsvSave: vi.fn(async () => 2),
+    explainRsfSave: vi.fn(async () => true),
+    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => ({
       encoding: 'utf-8' as const,
       bom: false,
@@ -49,19 +49,19 @@ function setup(csv = 'a,b,c\n1,2,3\n', ui: UiPort = stubUi()) {
 
 async function converted(csv = 'a,b,c\n1,2,3\n', ui: UiPort = stubUi()) {
   const base = setup(csv, ui);
-  const rcsv = await base.commands.ensureRcsv(base.tab, 'structure');
+  const rcsv = await base.commands.ensureRsf(base.tab, 'structure');
   expect(rcsv).not.toBeNull();
-  return { ...base, rcsv: rcsv as RcsvDocument };
+  return { ...base, rcsv: rcsv as RsfDocument };
 }
 
-describe('explicit CSV -> RCSV conversion', () => {
+describe('explicit CSV -> RSF conversion', () => {
   it('entering a formula offers conversion; accepting converts and evaluates', async () => {
     const ui = stubUi();
     const { commands, tab } = setup('1,2\n3,4\n', ui);
     await commands.commitCellEdit(tab, 1, 1, '=A1+B1');
     expect(ui.confirmConvert).toHaveBeenCalledWith('formula', 'data.csv');
-    expect(tab.doc.kind).toBe('rcsv');
-    expect(tab.name).toBe('data.rcsv');
+    expect(tab.doc.kind).toBe('rsf');
+    expect(tab.name).toBe('data.rsf');
     expect(tab.handle).toBeNull();
     expect(tab.doc.getValue(1, 1)).toBe('=A1+B1');
     expect(tab.doc.getDisplayValue(1, 1)).toBe('3');
@@ -92,16 +92,16 @@ describe('explicit CSV -> RCSV conversion', () => {
     }
   });
 
-  it('conversion copies values, renames to .rcsv, drops the handle, and clears history', async () => {
+  it('conversion copies values, renames to .rsf, drops the handle, and clears history', async () => {
     const ui = stubUi();
     const { state, commands, tab } = setup('a,b\n1,2\n', ui);
     state.editCell(tab, 0, 0, 'edited');
-    const rcsv = await commands.ensureRcsv(tab, 'structure');
+    const rcsv = await commands.ensureRsf(tab, 'structure');
     expect(rcsv?.getValue(0, 0)).toBe('edited');
-    expect(tab.name).toBe('data.rcsv');
+    expect(tab.name).toBe('data.rsf');
     expect(tab.history.canUndo).toBe(false);
-    // Converting an already-RCSV tab is a no-op.
-    const again = await commands.ensureRcsv(tab, 'structure');
+    // Converting an already-RSF tab is a no-op.
+    const again = await commands.ensureRsf(tab, 'structure');
     expect(again).toBe(rcsv);
     expect(ui.confirmConvert).toHaveBeenCalledTimes(1);
   });
@@ -172,7 +172,7 @@ describe('copy / paste', () => {
       null,
     );
     expect(applied).toBe(true);
-    expect(tab.doc.kind).toBe('rcsv');
+    expect(tab.doc.kind).toBe('rsf');
     expect(tab.doc.rowCount).toBe(2);
     expect(tab.doc.columnCount).toBe(3);
     expect(tab.doc.getValue(1, 2)).toBe('4');
@@ -302,14 +302,14 @@ describe('row and column operations', () => {
   });
 });
 
-describe('saving and exporting RCSV', () => {
+describe('saving and exporting RSF', () => {
   function interceptDownloads(): void {
     URL.createObjectURL = vi.fn(() => 'blob:fake') as unknown as typeof URL.createObjectURL;
     URL.revokeObjectURL = vi.fn();
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {});
   }
 
-  it('explains the .rcsv format once, saves JSON, and clears the dirty state', async () => {
+  it('explains the .rsf format once, saves JSON, and clears the dirty state', async () => {
     interceptDownloads();
     const ui = stubUi();
     const { state, commands, tab } = await converted('a,b\n1,2\n', ui);
@@ -317,16 +317,16 @@ describe('saving and exporting RCSV', () => {
     expect(tab.doc.isDirty).toBe(true);
     const ok = await commands.save(tab, { encoding: 'keep', bom: 'keep', lineEnding: 'keep' });
     expect(ok).toBe(true);
-    expect(ui.explainRcsvSave).toHaveBeenCalledTimes(1);
+    expect(ui.explainRsfSave).toHaveBeenCalledTimes(1);
     expect(tab.doc.isDirty).toBe(false);
     // Second save skips the explanation.
     state.editCell(tab, 0, 1, 'x');
     await commands.save(tab, { encoding: 'keep', bom: 'keep', lineEnding: 'keep' });
-    expect(ui.explainRcsvSave).toHaveBeenCalledTimes(1);
+    expect(ui.explainRsfSave).toHaveBeenCalledTimes(1);
   });
 
-  it('cancelling the .rcsv explanation cancels the save', async () => {
-    const ui = stubUi({ explainRcsvSave: vi.fn(async () => false) });
+  it('cancelling the .rsf explanation cancels the save', async () => {
+    const ui = stubUi({ explainRsfSave: vi.fn(async () => false) });
     const { state, commands, tab } = await converted('a\n', ui);
     state.editCell(tab, 0, 0, 'x');
     const ok = await commands.save(tab, { encoding: 'keep', bom: 'keep', lineEnding: 'keep' });
@@ -339,7 +339,7 @@ describe('saving and exporting RCSV', () => {
     const { commands, tab } = await converted('1,2\n', ui);
     const ok = await commands.exportCsv(tab);
     expect(ok).toBe(false);
-    expect(ui.chooseExportCsv).toHaveBeenCalledWith('data.rcsv');
+    expect(ui.chooseExportCsv).toHaveBeenCalledWith('data.rsf');
   });
 
   it('confirmed CSV export downloads calculated values', async () => {
@@ -364,39 +364,39 @@ describe('saving and exporting RCSV', () => {
         reader.readAsText(captured as unknown as Blob);
       });
       expect(text).toBe('1,10\n');
-      // The RCSV document itself is untouched (still holds the formula).
+      // The RSF document itself is untouched (still holds the formula).
       expect(tab.doc.getValue(0, 1)).toBe('=A1*10');
     } finally {
       clickSpy.mockRestore();
     }
   });
 
-  it('reopen/convert are disabled for RCSV; save-with-options opens the compression dialog', async () => {
+  it('reopen/convert are disabled for RSF; save-with-options opens the compression dialog', async () => {
     const { commands } = await converted('a\n');
-    // Save with Options is the RCSV compression dialog, so it stays enabled.
+    // Save with Options is the RSF compression dialog, so it stays enabled.
     expect(commands.isEnabled('file.saveOptions')).toBe(true);
     expect(commands.isEnabled('file.reopen')).toBe(false);
     expect(commands.isEnabled('sheet.exportCsv')).toBe(true);
     expect(commands.isEnabled('sheet.convert')).toBe(false);
   });
 
-  it('the RCSV Save dialog applies the chosen compression method', async () => {
-    const ui = stubUi({ chooseRcsvSave: vi.fn(async () => RCSV_COMPRESSION_LZ4) });
+  it('the RSF Save dialog applies the chosen compression method', async () => {
+    const ui = stubUi({ chooseRsfSave: vi.fn(async () => RSF_COMPRESSION_LZ4) });
     const { commands, tab } = await converted('a\n', ui);
     await commands.run('file.saveOptions');
-    expect(ui.chooseRcsvSave).toHaveBeenCalledTimes(1);
-    expect(tab.doc.kind).toBe('rcsv');
-    if (tab.doc.kind === 'rcsv') {
-      expect(tab.doc.compression).toBe(RCSV_COMPRESSION_LZ4);
+    expect(ui.chooseRsfSave).toHaveBeenCalledTimes(1);
+    expect(tab.doc.kind).toBe('rsf');
+    if (tab.doc.kind === 'rsf') {
+      expect(tab.doc.compression).toBe(RSF_COMPRESSION_LZ4);
     }
   });
 
-  it('cancelling the RCSV Save dialog leaves the method unchanged', async () => {
-    const ui = stubUi({ chooseRcsvSave: vi.fn(async () => null) });
+  it('cancelling the RSF Save dialog leaves the method unchanged', async () => {
+    const ui = stubUi({ chooseRsfSave: vi.fn(async () => null) });
     const { commands, tab } = await converted('a\n', ui);
     await commands.run('file.saveOptions');
-    expect(ui.chooseRcsvSave).toHaveBeenCalledTimes(1);
-    if (tab.doc.kind === 'rcsv') {
+    expect(ui.chooseRsfSave).toHaveBeenCalledTimes(1);
+    if (tab.doc.kind === 'rsf') {
       // Never explicitly set → still the codec default (undefined marker).
       expect(tab.doc.compression).toBeUndefined();
     }
@@ -405,7 +405,7 @@ describe('saving and exporting RCSV', () => {
   // ----- File System Access save picker ordering -----
   //
   // showSaveFilePicker() must run inside the user gesture, before the async
-  // .rcsv explanation and compression. These tests install a fake
+  // .rsf explanation and compression. These tests install a fake
   // showSaveFilePicker and assert the ordering and cancellation semantics.
 
   type WritableSink = { bytes: Uint8Array | null; closed: boolean };
@@ -436,7 +436,7 @@ describe('saving and exporting RCSV', () => {
 
   const KEEP = { encoding: 'keep', bom: 'keep', lineEnding: 'keep' } as const;
 
-  it('a new RCSV save opens the picker synchronously — before any encoding', async () => {
+  it('a new RSF save opens the picker synchronously — before any encoding', async () => {
     const sink: WritableSink = { bytes: null, closed: false };
     const handle = fakeSaveHandle(sink);
     let resolvePicker!: (h: FileSystemFileHandle) => void;
@@ -514,7 +514,7 @@ describe('saving and exporting RCSV', () => {
     try {
       const { commands, tab } = await converted('a\n');
       tab.handle = handle; // already associated with a file on disk
-      tab.rcsvSaveExplained = true; // opened/saved before
+      tab.rsfSaveExplained = true; // opened/saved before
       const ok = await commands.save(tab, KEEP);
       expect(ok).toBe(true);
       expect(picker).not.toHaveBeenCalled();
@@ -545,7 +545,7 @@ describe('saving and exporting RCSV', () => {
   });
 });
 
-describe('find/replace on RCSV documents', () => {
+describe('find/replace on RSF documents', () => {
   it('replace-all edits raw inputs atomically', async () => {
     const { state, commands, tab } = await converted('cat,dog\ncat,cat\n');
     const { compileQuery } = await import('../src/core/search');
@@ -574,14 +574,14 @@ describe('fill down and fill handle', () => {
     expect(tab.doc.getValue(2, 1)).toBe('0');
   });
 
-  it('requires explicit RCSV conversion before filling a plain CSV', async () => {
+  it('requires explicit RSF conversion before filling a plain CSV', async () => {
     const ui = stubUi();
     const { state, commands, tab } = setup('1,2\n3,4\n', ui);
     state.setSelection(tab, { row: 0, col: 0 }, { row: 1, col: 0 });
     const applied = await commands.fillDown(tab);
     expect(ui.confirmConvert).toHaveBeenCalledWith('fill', 'data.csv');
     expect(applied).toBe(true);
-    expect(tab.doc.kind).toBe('rcsv');
+    expect(tab.doc.kind).toBe('rsf');
     expect(tab.doc.getValue(1, 0)).toBe('1'); // the top cell filled down
   });
 

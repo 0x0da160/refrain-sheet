@@ -3,7 +3,7 @@
  * Color-theme preference (light / dark / follow the system).
  *
  * The choice is an **application-level** preference stored only in
- * `localStorage` — it never touches document bytes, RCSV data, formulas, or
+ * `localStorage` — it never touches document bytes, RSF data, formulas, or
  * calculations; it is pure display state. The resolved theme is applied by
  * setting a single `data-theme` attribute (`"light"` or `"dark"`) plus the
  * matching `color-scheme` on the document root; every surface reads its colors

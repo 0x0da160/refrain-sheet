@@ -53,9 +53,8 @@ function bootstrap(): void {
     confirmUndecodableEdit: (cells) => dialogs.confirmUndecodableEdit(cells),
     chooseReopen: (tab) => dialogs.chooseReopen(tab),
     confirmConvert: (reason, name) => dialogs.confirmConvert(reason, name),
-    explainRcsvSave: (name) => dialogs.explainRcsvSave(name),
-    chooseRcsvSave: (name, current, available, note) =>
-      dialogs.chooseRcsvSave(name, current, available, note),
+    explainRsfSave: (name) => dialogs.explainRsfSave(name),
+    chooseRsfSave: (name, current, available, note) => dialogs.chooseRsfSave(name, current, available, note),
     chooseExportCsv: (name) => dialogs.chooseExportCsv(name),
     chooseInsertShift: (rows, cols) => dialogs.chooseInsertShift(rows, cols),
     confirm: (title, message, ok, cancel) => dialogs.confirm(title, message, ok, cancel),
@@ -193,10 +192,14 @@ function bootstrap(): void {
   // event is cancelable, so browser/OS/AT shortcuts are never suppressed.
   window.addEventListener('keydown', (event) => {
     const target = event.target as HTMLElement | null;
+    // The grid's hidden IME sink is a textarea, but while the grid is merely
+    // navigated (no cell editor open) it is not a text-editing surface —
+    // grid accelerators (Undo/Redo/Fill Down/Select All) must keep working.
     const inTextField =
-      target instanceof HTMLInputElement ||
-      target instanceof HTMLTextAreaElement ||
-      target?.isContentEditable === true;
+      (target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable === true) &&
+      !grid.isNavigating();
     const command = resolveShortcut(event, {
       inTextField,
       isComposing: event.isComposing,

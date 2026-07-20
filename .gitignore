@@ -5,3 +5,23 @@ coverage/
 .DS_Store
 wasm/target/
 wasm/pkg/
+
+# ----- Secrets: never commit credentials or local environment files -----
+# (See docs/security.md. The committed .npmrc holds config only — no tokens.)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+.npmrc.local
+npm-debug.log*
+# Build artifacts produced by the release/SBOM steps (published, not tracked).
+*.sbom.json
+*.zip
+*.zip.sha256

@@ -10,6 +10,8 @@ import { describe, expect, it } from 'vitest';
 // Paths are relative to the project root (vitest's working directory).
 const release = readFileSync('.github/workflows/release.yml', 'utf8');
 const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+const dependencyReview = readFileSync('.github/workflows/dependency-review.yml', 'utf8');
+const allWorkflows = [release, ci, dependencyReview];
 
 describe('release + Pages workflow triggers', () => {
   it('triggers only on version tags — never on branches or pull requests', () => {
@@ -96,5 +98,72 @@ describe('CI workflow never deploys', () => {
     expect(ci).toMatch(/pull_request:/);
     expect(ci).not.toContain('actions/deploy-pages');
     expect(ci).not.toContain('actions/upload-pages-artifact');
+  });
+
+  it('is read-only and runs the supply-chain gates', () => {
+    expect(ci).toMatch(/^permissions:\s*\n\s*contents:\s*read\s*$/m);
+    expect(ci).not.toMatch(/:\s*write\b/); // no permission is granted write in CI
+    // Install disables lifecycle scripts; the security/consistency gates run.
+    expect(ci).toContain('npm ci --ignore-scripts');
+    expect(ci).toContain('npm run check:versions');
+    expect(ci).toContain('npm run audit:ci');
+    // A clean-tree assertion guards against drifting lockfiles / stray output.
+    expect(ci).toContain('git status --porcelain');
+  });
+});
+
+describe('supply-chain hardening', () => {
+  it('never installs with lifecycle scripts enabled (no bare `npm ci`)', () => {
+    for (const wf of [release, ci]) {
+      // Every `npm ci` must carry --ignore-scripts.
+      const bare = wf.match(/npm ci(?! --ignore-scripts)/g) ?? [];
+      expect(bare).toHaveLength(0);
+    }
+  });
+
+  it('never uses the dangerous pull_request_target trigger', () => {
+    for (const wf of allWorkflows) {
+      expect(wf).not.toContain('pull_request_target');
+    }
+  });
+
+  it('pins any non-official action to a full commit SHA', () => {
+    // Policy: official GitHub-maintained actions/* may use a version tag; any
+    // other (third-party) action must be pinned to a 40-hex commit SHA.
+    for (const wf of allWorkflows) {
+      const uses = [...wf.matchAll(/uses:\s*([^\s@]+)@(\S+)/g)];
+      for (const [, action, ref] of uses) {
+        if (!action.startsWith('actions/')) {
+          expect(ref, `${action} must be SHA-pinned`).toMatch(/^[0-9a-f]{40}$/);
+        }
+      }
+    }
+  });
+
+  it('release job produces an SBOM and a build-provenance attestation', () => {
+    const releaseJob = release.slice(0, release.indexOf('deploy-pages:'));
+    expect(releaseJob).toContain('npm run --silent sbom');
+    expect(releaseJob).toContain('actions/attest-build-provenance@');
+    // The provenance permissions live on the release job only.
+    expect(releaseJob).toMatch(/attestations:\s*write/);
+  });
+
+  it('re-checks version consistency (package.json ⇄ lockfile ⇄ tag) on release', () => {
+    expect(release).toMatch(/npm run check:versions -- --tag/);
+  });
+});
+
+describe('dependency-review workflow', () => {
+  it('runs on pull_request (never pull_request_target) with least privilege', () => {
+    expect(dependencyReview).toMatch(/on:\s*\n\s*pull_request:/);
+    expect(dependencyReview).not.toContain('pull_request_target');
+    expect(dependencyReview).toMatch(/permissions:\s*\n\s*contents:\s*read/);
+    // No contents:write / packages / id-token — it only reads the diff.
+    expect(dependencyReview).not.toMatch(/contents:\s*write/);
+  });
+
+  it('uses the official dependency-review action and fails on high severity', () => {
+    expect(dependencyReview).toContain('actions/dependency-review-action@');
+    expect(dependencyReview).toMatch(/fail-on-severity:\s*high/);
   });
 });

@@ -1,36 +1,36 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from './byte-csv-parser';
 import {
-  getRcsvCodec,
-  RCSV_COMPRESSION_DEFLATE,
-  RCSV_COMPRESSION_LZ4,
-  RCSV_COMPRESSION_STORE,
-  RCSV_COMPRESSION_ZSTD,
-  RCSV_METHODS,
+  getRsfCodec,
+  RSF_COMPRESSION_DEFLATE,
+  RSF_COMPRESSION_LZ4,
+  RSF_COMPRESSION_STORE,
+  RSF_COMPRESSION_ZSTD,
+  RSF_METHODS,
 } from './csv-engine';
 
 export {
-  RCSV_COMPRESSION_STORE,
-  RCSV_COMPRESSION_DEFLATE,
-  RCSV_COMPRESSION_ZSTD,
-  RCSV_COMPRESSION_LZ4,
-  RCSV_METHODS,
+  RSF_COMPRESSION_STORE,
+  RSF_COMPRESSION_DEFLATE,
+  RSF_COMPRESSION_ZSTD,
+  RSF_COMPRESSION_LZ4,
+  RSF_METHODS,
 };
 
 /**
- * Binary `.rcsv` container format (version 2). Replaces the legacy JSON
- * format entirely. The container is a small fixed header followed by a
- * (optionally DEFLATE-compressed) binary body describing the sheet. The
- * header records the uncompressed body length and a CRC-32 checksum so
- * corruption is detected, and decompression is bounded by the stored length
- * so a crafted payload cannot exhaust memory. See `docs/rcsv-format.md`.
+ * Binary Refrain Sheet Format (`.rsf`) container. The container is a small
+ * fixed header followed by a (optionally compressed) binary body describing
+ * the sheet. The header records the uncompressed body length and a CRC-32
+ * checksum so corruption is detected, and decompression is bounded by the
+ * stored length so a crafted payload cannot exhaust memory. See
+ * `docs/rsf-format.md`.
  *
  * Container layout (little-endian):
  *
  * ```
  * off  size  field
- * 0    4     magic "RCSV" (0x52 0x43 0x53 0x56)
- * 4    1     container version (2)
+ * 0    4     magic "RSF1" (0x52 0x53 0x46 0x31)
+ * 4    1     container version (3)
  * 5    1     compression method (0 = store, 1 = deflate, 2 = zstd, 3 = lz4 frame)
  * 6    1     flags (reserved, 0)
  * 7    1     codec profile version (0)
@@ -39,6 +39,16 @@ export {
  * 16   4     compressed payload length (u32)
  * 20   …     payload
  * ```
+ *
+ * **Compatibility.** The format was previously named "Refrain CSV Format"
+ * (RCSV) and used the magic "RCSV" (0x52 0x43 0x53 0x56) with container
+ * version 2. Only the container name, magic bytes, and version number changed
+ * in the rename to RSF — the header shape and body layout are byte-identical.
+ * Legacy `.rcsv` files (magic "RCSV", container version 2) are therefore read
+ * transparently as a legacy *import* format; the document is then saved as
+ * `.rsf` (new magic, version 3). Writing only ever produces the current
+ * format, so old readers safely reject the new magic rather than
+ * misinterpreting it.
  *
  * The compression method is per-file: a container records which codec packed
  * its payload, so any supported method round-trips and unknown methods are
@@ -66,10 +76,16 @@ export {
  * …    per cell: row (u32), col (u32), input length (u32), input bytes
  * ```
  */
-export const RCSV_MAGIC = new Uint8Array([0x52, 0x43, 0x53, 0x56]); // "RCSV"
-export const RCSV_CONTAINER_VERSION = 2;
+export const RSF_MAGIC = new Uint8Array([0x52, 0x53, 0x46, 0x31]); // "RSF1"
+export const RSF_CONTAINER_VERSION = 3;
+/**
+ * Legacy "Refrain CSV Format" container magic ("RCSV") and version, read for
+ * backward compatibility so existing `.rcsv` files open. Never written.
+ */
+export const RSF_LEGACY_MAGIC = new Uint8Array([0x52, 0x43, 0x53, 0x56]); // "RCSV"
+export const RSF_LEGACY_CONTAINER_VERSION = 2;
 /** Body version written by this release (metadata-bearing). Version 1 is still read. */
-export const RCSV_BODY_VERSION = 2;
+export const RSF_BODY_VERSION = 2;
 /** Maximum stored length (bytes) of the application name/version metadata strings. */
 const MAX_META_LENGTH = 255;
 const HEADER_SIZE = 20;
@@ -79,16 +95,16 @@ const HEADER_SIZE = 20;
  * is reserved so a future codec revision can be distinguished and rejected
  * safely by older readers. Non-zero profiles are unsupported for now.
  */
-export const RCSV_CODEC_PROFILE = 0;
+export const RSF_CODEC_PROFILE = 0;
 
-export const MAX_RCSV_ROWS = 2_000_000;
-export const MAX_RCSV_COLS = 16_384;
-export const MAX_RCSV_CELLS = 20_000_000;
-export const MAX_RCSV_CELL_LENGTH = 1_000_000;
+export const MAX_RSF_ROWS = 2_000_000;
+export const MAX_RSF_COLS = 16_384;
+export const MAX_RSF_CELLS = 20_000_000;
+export const MAX_RSF_CELL_LENGTH = 1_000_000;
 /** Decompression-bomb ceiling for the uncompressed body (512 MiB). */
-export const MAX_RCSV_BODY_BYTES = 512 * 1024 * 1024;
+export const MAX_RSF_BODY_BYTES = 512 * 1024 * 1024;
 
-export interface RcsvData {
+export interface RsfData {
   name: string;
   delimiter: DelimiterId;
   rowCount: number;
@@ -105,70 +121,70 @@ export interface RcsvData {
   appVersion?: string;
   /**
    * Compression method the container was packed with (one of the
-   * `RCSV_COMPRESSION_*` ids). Populated on decode so a document can preserve
+   * `RSF_COMPRESSION_*` ids). Populated on decode so a document can preserve
    * its method on the next save; ignored on encode (the method is passed to
-   * {@link encodeRcsv} explicitly).
+   * {@link encodeRsf} explicitly).
    */
   compression?: number;
 }
 
-export type RcsvDecodeError =
+export type RsfDecodeError =
   'bad-magic' | 'bad-version' | 'bad-shape' | 'checksum' | 'unsupported-compression' | 'too-large';
 
-export type RcsvDecodeResult = { ok: true; data: RcsvData } | { ok: false; error: RcsvDecodeError };
+export type RsfDecodeResult = { ok: true; data: RsfData } | { ok: false; error: RsfDecodeError };
 
-/** Thrown by {@link encodeRcsv} when the requested method cannot be written here. */
-export class RcsvEncodeError extends Error {
+/** Thrown by {@link encodeRsf} when the requested method cannot be written here. */
+export class RsfEncodeError extends Error {
   constructor(readonly method: number) {
-    super(`rcsv: compression method ${method} is not available in this build`);
-    this.name = 'RcsvEncodeError';
+    super(`rsf: compression method ${method} is not available in this build`);
+    this.name = 'RsfEncodeError';
   }
 }
 
 /** True when `method` is a defined container compression method. */
-export function isRcsvMethod(method: number): boolean {
-  return RCSV_METHODS.includes(method);
+export function isRsfMethod(method: number): boolean {
+  return RSF_METHODS.includes(method);
 }
 
-/** i18n key stub for a method (`rcsv.method.<name>`) used for labels/descriptions. */
-export function rcsvMethodKey(method: number): string {
+/** i18n key stub for a method (`rsf.method.<name>`) used for labels/descriptions. */
+export function rsfMethodKey(method: number): string {
   switch (method) {
-    case RCSV_COMPRESSION_ZSTD:
-      return 'rcsv.method.zstd';
-    case RCSV_COMPRESSION_LZ4:
-      return 'rcsv.method.lz4';
-    case RCSV_COMPRESSION_DEFLATE:
-      return 'rcsv.method.deflate';
+    case RSF_COMPRESSION_ZSTD:
+      return 'rsf.method.zstd';
+    case RSF_COMPRESSION_LZ4:
+      return 'rsf.method.lz4';
+    case RSF_COMPRESSION_DEFLATE:
+      return 'rsf.method.deflate';
     default:
-      return 'rcsv.method.store';
+      return 'rsf.method.store';
   }
 }
 
 const DELIMS: Record<number, DelimiterId> = { 0x2c: ',', 0x3b: ';', 0x09: '\t' };
 
 /**
- * Encode a sheet into the binary `.rcsv` container using `method` (defaults to
+ * Encode a sheet into the binary `.rsf` container using `method` (defaults to
  * the active codec's preferred method — Zstandard when the WASM engine is
- * available). Throws {@link RcsvEncodeError} when `method` cannot be written in
+ * available). Throws {@link RsfEncodeError} when `method` cannot be written in
  * this build, so the caller can surface a localized error and never silently
  * substitutes a different codec.
  */
-export function encodeRcsv(data: RcsvData, method: number = getRcsvCodec().defaultMethod()): Uint8Array {
+export function encodeRsf(data: RsfData, method: number = getRsfCodec().defaultMethod()): Uint8Array {
   const body = encodeBody(data);
-  const codec = getRcsvCodec();
+  const codec = getRsfCodec();
   const payload = codec.compress(body, method);
   if (payload === null) {
-    throw new RcsvEncodeError(method);
+    throw new RsfEncodeError(method);
   }
   const crc = codec.crc32(body);
 
   const out = new Uint8Array(HEADER_SIZE + payload.length);
-  out.set(RCSV_MAGIC, 0);
+  out.set(RSF_MAGIC, 0);
   const view = new DataView(out.buffer);
-  out[4] = RCSV_CONTAINER_VERSION;
+  out[4] = RSF_CONTAINER_VERSION;
   out[5] = method;
   out[6] = 0;
-  out[7] = RCSV_CODEC_PROFILE;
+  out[7] = RSF_CODEC_PROFILE;
   view.setUint32(8, body.length, true);
   view.setUint32(12, crc, true);
   view.setUint32(16, payload.length, true);
@@ -176,46 +192,51 @@ export function encodeRcsv(data: RcsvData, method: number = getRcsvCodec().defau
   return out;
 }
 
-/** Decode and strictly validate a binary `.rcsv` container. Never executes anything. */
-export function decodeRcsv(bytes: Uint8Array): RcsvDecodeResult {
+/** Decode and strictly validate a binary `.rsf` container (or a legacy `.rcsv`
+ *  container — see the compatibility note above). Never executes anything. */
+export function decodeRsf(bytes: Uint8Array): RsfDecodeResult {
   if (bytes.length < HEADER_SIZE) {
     return { ok: false, error: 'bad-magic' };
   }
-  for (let i = 0; i < 4; i++) {
-    if (bytes[i] !== RCSV_MAGIC[i]) {
-      return { ok: false, error: 'bad-magic' };
-    }
+  const matchesMagic = (magic: Uint8Array): boolean => magic.every((b, i) => bytes[i] === b);
+  // Accept the current RSF magic and the legacy RCSV magic; each pins its own
+  // container version so a mismatched magic/version pair is rejected.
+  const isRsf = matchesMagic(RSF_MAGIC);
+  const isLegacy = !isRsf && matchesMagic(RSF_LEGACY_MAGIC);
+  if (!isRsf && !isLegacy) {
+    return { ok: false, error: 'bad-magic' };
   }
-  if (bytes[4] !== RCSV_CONTAINER_VERSION) {
+  const expectedVersion = isRsf ? RSF_CONTAINER_VERSION : RSF_LEGACY_CONTAINER_VERSION;
+  if (bytes[4] !== expectedVersion) {
     return { ok: false, error: 'bad-version' };
   }
   const method = bytes[5];
-  if (!isRcsvMethod(method)) {
+  if (!isRsfMethod(method)) {
     // Unknown / future compression method — reject safely, never guess.
     return { ok: false, error: 'unsupported-compression' };
   }
   // A future codec profile is not something this build can decode safely.
-  if (bytes[7] !== RCSV_CODEC_PROFILE) {
+  if (bytes[7] !== RSF_CODEC_PROFILE) {
     return { ok: false, error: 'unsupported-compression' };
   }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const bodyLen = view.getUint32(8, true);
   const crc = view.getUint32(12, true);
   const payloadLen = view.getUint32(16, true);
-  if (bodyLen > MAX_RCSV_BODY_BYTES) {
+  if (bodyLen > MAX_RSF_BODY_BYTES) {
     return { ok: false, error: 'too-large' };
   }
   if (HEADER_SIZE + payloadLen !== bytes.length) {
     return { ok: false, error: 'bad-shape' };
   }
   const payload = bytes.subarray(HEADER_SIZE, HEADER_SIZE + payloadLen);
-  const codec = getRcsvCodec();
+  const codec = getRsfCodec();
   const body = codec.decompress(payload, method, bodyLen);
   if (!body) {
     // Reconstruction failed. If this build cannot even write the method it
     // lacks the matching decoder (the JS fallback for any compressed method),
     // so report it as unsupported; otherwise the payload is corrupt/truncated.
-    const decodable = method === RCSV_COMPRESSION_STORE || codec.canWrite(method);
+    const decodable = method === RSF_COMPRESSION_STORE || codec.canWrite(method);
     return { ok: false, error: decodable ? 'bad-shape' : 'unsupported-compression' };
   }
   if (codec.crc32(body) !== crc) {
@@ -228,7 +249,7 @@ export function decodeRcsv(bytes: Uint8Array): RcsvDecodeResult {
   return decoded;
 }
 
-function encodeBody(data: RcsvData): Uint8Array {
+function encodeBody(data: RsfData): Uint8Array {
   const enc = new TextEncoder();
   const name = enc.encode(data.name.slice(0, 255));
   // Any metadata present selects the version-2 (metadata-bearing) body.
@@ -280,7 +301,7 @@ function encodeBody(data: RcsvData): Uint8Array {
   return out;
 }
 
-function decodeBody(body: Uint8Array): RcsvDecodeResult {
+function decodeBody(body: Uint8Array): RsfDecodeResult {
   const dec = new TextDecoder('utf-8', { fatal: true });
   const view = new DataView(body.buffer, body.byteOffset, body.byteLength);
   let off = 0;
@@ -346,9 +367,9 @@ function decodeBody(body: Uint8Array): RcsvDecodeResult {
     return { ok: false, error: 'bad-shape' };
   }
   if (
-    rowCount > MAX_RCSV_ROWS ||
-    columnCount > MAX_RCSV_COLS ||
-    rowCount * columnCount > MAX_RCSV_CELLS ||
+    rowCount > MAX_RSF_ROWS ||
+    columnCount > MAX_RSF_COLS ||
+    rowCount * columnCount > MAX_RSF_CELLS ||
     cellCount > rowCount * columnCount
   ) {
     return { ok: false, error: 'too-large' };
@@ -364,7 +385,7 @@ function decodeBody(body: Uint8Array): RcsvDecodeResult {
     off += 4;
     const inputLen = view.getUint32(off, true);
     off += 4;
-    if (r >= rowCount || c >= columnCount || inputLen > MAX_RCSV_CELL_LENGTH || !need(inputLen)) {
+    if (r >= rowCount || c >= columnCount || inputLen > MAX_RSF_CELL_LENGTH || !need(inputLen)) {
       return { ok: false, error: 'bad-shape' };
     }
     let input: string;
@@ -379,7 +400,7 @@ function decodeBody(body: Uint8Array): RcsvDecodeResult {
   if (off !== body.length) {
     return { ok: false, error: 'bad-shape' };
   }
-  const data: RcsvData = { name, delimiter, rowCount, columnCount, cells };
+  const data: RsfData = { name, delimiter, rowCount, columnCount, cells };
   if (appName !== undefined) {
     data.appName = appName;
   }

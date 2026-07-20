@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import type { AppState, Tab } from '../app/app-state';
 import { t } from '../app/i18n';
-import { getRcsvCodec } from '../core/csv-engine';
-import { rcsvMethodKey } from '../core/rcsv-codec';
+import { getRsfCodec } from '../core/csv-engine';
+import { rsfMethodKey } from '../core/rsf-codec';
 import { forEachIndexSliced } from '../core/scheduler';
 import {
   computeSelectionStats,
@@ -60,15 +60,15 @@ export class StatusBar {
     }
     const doc = tab.doc;
 
-    if (doc.kind === 'rcsv') {
-      this.element.append(el('span', { className: 'doc-kind', text: t('status.doc.rcsv') }));
+    if (doc.kind === 'rsf') {
+      this.element.append(el('span', { className: 'doc-kind', text: t('status.doc.rsf') }));
       this.element.append(
         el('span', { text: t('status.gridSize', { rows: doc.rowCount, cols: doc.columnCount }) }),
       );
-      const method = doc.compression ?? getRcsvCodec().defaultMethod();
+      const method = doc.compression ?? getRsfCodec().defaultMethod();
       this.element.append(
         el('span', {
-          text: `${t('status.compression')}: ${t(`${rcsvMethodKey(method)}.short`)}`,
+          text: `${t('status.compression')}: ${t(`${rsfMethodKey(method)}.short`)}`,
           attrs: { title: t('status.compressionTitle') },
         }),
       );
@@ -163,7 +163,7 @@ export class StatusBar {
     }
     const doc = tab.doc;
     const readDisplay = (r: number, c: number): string =>
-      doc.kind === 'rcsv' ? doc.getDisplayValue(r, c) : doc.getValue(r, c);
+      doc.kind === 'rsf' ? doc.getDisplayValue(r, c) : doc.getValue(r, c);
     if (area <= SYNC_STATS_CELL_LIMIT) {
       const stats = computeSelectionStats(range, readDisplay, (r) => doc.fieldCount(r));
       for (const span of this.statsSpans(stats)) {

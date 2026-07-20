@@ -7,7 +7,7 @@ import { version } from '../../package.json';
  * The version string is read from `package.json` at build time (bundlers
  * tree-shake the JSON named import down to the string), so the release
  * version is defined in exactly one place. Every consumer — the About
- * dialog, the status bar, and the metadata written into saved `.rcsv`
+ * dialog, the status bar, and the metadata written into saved `.rsf`
  * documents — imports it from here rather than hard-coding a number.
  */
 export const APP_NAME = 'Refrain Sheet';

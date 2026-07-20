@@ -5,10 +5,16 @@ on:
   push:
     branches: [main]
 
-# Read-only: CI never creates releases and works for pull requests from forks
-# without write permissions.
+# Read-only by default. CI never creates releases, publishes packages, deploys
+# Pages, or modifies the repository, so pull requests from forks run with no
+# write access and no access to secrets. No job widens these permissions.
 permissions:
   contents: read
+
+# Action-pinning policy (see docs/security.md): only official GitHub-maintained
+# actions/* are used here, pinned to a major version tag. Any third-party (non
+# actions/*) action MUST instead be pinned to a full commit SHA. There are
+# currently no third-party actions in this workflow.
 
 jobs:
   ci:
@@ -21,8 +27,15 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      # `npm ci --ignore-scripts` reproduces node_modules strictly from the
+      # committed lockfile and fails if package.json and package-lock.json
+      # disagree, so it doubles as lockfile-integrity validation, while
+      # blocking dependency lifecycle scripts (a primary supply-chain vector).
+      - name: Install dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts
+
+      - name: Version consistency
+        run: npm run check:versions
 
       - name: Check formatting
         run: npm run format:check
@@ -35,6 +48,29 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Validate self-contained distribution
+        run: npm run check:dist
+
+      # Vulnerability gate. Network-dependent (queries the advisory DB), so it
+      # is one of several gates, never the only one — the lockfile-integrity
+      # install, version-consistency, and clean-tree checks do not need the
+      # network. Fails the build on a known high/critical advisory in a
+      # production dependency.
+      - name: Audit production dependencies
+        run: npm run audit:ci
+
+      # Nothing above may leave a tracked file modified: a drifting lockfile, a
+      # generated artifact committed by mistake, or a formatter/codegen side
+      # effect would all show up here and fail the build.
+      - name: Ensure the working tree is clean after install/build/test
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Tracked files changed during CI:" >&2
+            git status --porcelain >&2
+            git diff >&2
+            exit 1
+          fi
 
       - name: Upload build output
         uses: actions/upload-artifact@v4

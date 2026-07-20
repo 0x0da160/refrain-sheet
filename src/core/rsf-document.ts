@@ -10,24 +10,27 @@ import {
   type FormulaValue,
   type ParseResult,
 } from './formula';
-import { decodeRcsv, encodeRcsv, type RcsvData, type RcsvDecodeError } from './rcsv-codec';
+import { decodeRsf, encodeRsf, type RsfData, type RsfDecodeError } from './rsf-codec';
 import { APP_NAME, APP_VERSION } from '../app/version';
 import type { LosslessDocument } from './lossless-document';
 
 /**
- * The `.rcsv` file format: a documented, versioned, binary container for
+ * Refrain Sheet Format (`.rsf`): a documented, versioned, binary container for
  * spreadsheet documents. CSV cannot store formulas, worksheet metadata, or
  * structural editing intent without breaking the original-file preservation
- * guarantee, so spreadsheet documents are saved as `.rcsv` instead.
+ * guarantee, so spreadsheet documents are saved as `.rsf` instead.
  *
  * The container is a compact binary format (magic bytes, header, CRC-32
- * checksum, DEFLATE-compressed body) defined in `rcsv-codec.ts` and
- * documented in `docs/rcsv-format.md`. It holds pure data — no executable
- * code, macros, external references, or network URLs — and parsing is strict
- * (magic, version, checksum, shape, and bounds are validated) and never
- * executes anything.
+ * checksum, compressed body) defined in `rsf-codec.ts` and documented in
+ * `docs/rsf-format.md`. It holds pure data — no executable code, macros,
+ * external references, or network URLs — and parsing is strict (magic,
+ * version, checksum, shape, and bounds are validated) and never executes
+ * anything. Legacy `.rcsv` files are read transparently (see `rsf-codec.ts`)
+ * and re-saved as `.rsf`.
  */
-export const RCSV_EXTENSION = '.rcsv';
+export const RSF_EXTENSION = '.rsf';
+/** Legacy extension read as an import; migrated documents are saved as `.rsf`. */
+export const RSF_LEGACY_EXTENSION = '.rcsv';
 
 /**
  * Default dimensions of a blank spreadsheet created by File > New: a small
@@ -37,10 +40,10 @@ export const RCSV_EXTENSION = '.rcsv';
 export const NEW_DOC_ROWS = 100;
 export const NEW_DOC_COLS = 26;
 
-/** Failure reasons when loading a `.rcsv` container (see `rcsv-codec.ts`). */
-export type RcsvParseError = RcsvDecodeError;
+/** Failure reasons when loading a `.rsf` (or legacy `.rcsv`) container (see `rsf-codec.ts`). */
+export type RsfParseError = RsfDecodeError;
 
-export type RcsvLoadResult = { ok: true; doc: RcsvDocument } | { ok: false; error: RcsvParseError };
+export type RsfLoadResult = { ok: true; doc: RsfDocument } | { ok: false; error: RsfParseError };
 
 interface CompiledFormula {
   src: string;
@@ -54,8 +57,8 @@ interface CompiledFormula {
  * memoization and full invalidation on any mutation, with circular
  * references detected during evaluation.
  */
-export class RcsvDocument {
-  readonly kind = 'rcsv' as const;
+export class RsfDocument {
+  readonly kind = 'rsf' as const;
   name: string;
   /** Delimiter used as the default for CSV export. */
   delimiter: DelimiterId;
@@ -65,7 +68,7 @@ export class RcsvDocument {
   private revision = 0;
   private savedRevision = 0;
   /**
-   * Compression method for the next `.rcsv` save (an `RCSV_COMPRESSION_*` id),
+   * Compression method for the next `.rsf` save (an `RSF_COMPRESSION_*` id),
    * or `undefined` to use the active codec's default (Zstandard). Set from the
    * container on load so a normal save preserves the file's method, and by the
    * Save dialog when the user picks a different one.
@@ -82,8 +85,8 @@ export class RcsvDocument {
     this.cols = columnCount;
   }
 
-  /** Create an RCSV document from the current values of a CSV document (explicit conversion). */
-  static fromLossless(doc: LosslessDocument, name: string): RcsvDocument {
+  /** Create an RSF document from the current values of a CSV document (explicit conversion). */
+  static fromLossless(doc: LosslessDocument, name: string): RsfDocument {
     const columnCount = Math.max(1, doc.columnCount);
     const data: string[][] = [];
     for (let r = 0; r < doc.rowCount; r++) {
@@ -97,12 +100,12 @@ export class RcsvDocument {
     if (data.length === 0) {
       data.push(new Array<string>(columnCount).fill(''));
     }
-    return new RcsvDocument(name, doc.delimiter, data, columnCount);
+    return new RsfDocument(name, doc.delimiter, data, columnCount);
   }
 
   /**
-   * Create an RCSV document from prebuilt row-major values. Used by the
-   * time-sliced CSV→RCSV conversion, which collects the rows incrementally
+   * Create an RSF document from prebuilt row-major values. Used by the
+   * time-sliced CSV→RSF conversion, which collects the rows incrementally
    * (with progress) instead of one long synchronous loop; the result is
    * identical to {@link fromLossless}. Each row is padded to `columnCount`.
    */
@@ -111,7 +114,7 @@ export class RcsvDocument {
     delimiter: DelimiterId,
     rows: string[][],
     columnCount: number,
-  ): RcsvDocument {
+  ): RsfDocument {
     const cols = Math.max(1, columnCount);
     const data = rows.map((row) => {
       if (row.length === cols) {
@@ -126,15 +129,15 @@ export class RcsvDocument {
     if (data.length === 0) {
       data.push(new Array<string>(cols).fill(''));
     }
-    return new RcsvDocument(name, delimiter, data, cols);
+    return new RsfDocument(name, delimiter, data, cols);
   }
 
-  static empty(name: string, rows = 1, cols = 1): RcsvDocument {
+  static empty(name: string, rows = 1, cols = 1): RsfDocument {
     const data: string[][] = [];
     for (let r = 0; r < Math.max(1, rows); r++) {
       data.push(new Array<string>(Math.max(1, cols)).fill(''));
     }
-    return new RcsvDocument(name, ',', data, Math.max(1, cols));
+    return new RsfDocument(name, ',', data, Math.max(1, cols));
   }
 
   /**
@@ -142,15 +145,15 @@ export class RcsvDocument {
    * unsaved from creation (there is no file on disk yet), so the tab shows a
    * dirty indicator and closing it prompts to save.
    */
-  static blank(name: string, rows = NEW_DOC_ROWS, cols = NEW_DOC_COLS): RcsvDocument {
-    const doc = RcsvDocument.empty(name, rows, cols);
+  static blank(name: string, rows = NEW_DOC_ROWS, cols = NEW_DOC_COLS): RsfDocument {
+    const doc = RsfDocument.empty(name, rows, cols);
     doc.markUnsaved();
     return doc;
   }
 
-  /** Parse and strictly validate binary `.rcsv` bytes. Never executes anything. */
-  static fromBytes(bytes: Uint8Array, name: string): RcsvLoadResult {
-    const decoded = decodeRcsv(bytes);
+  /** Parse and strictly validate binary `.rsf` (or legacy `.rcsv`) bytes. Never executes anything. */
+  static fromBytes(bytes: Uint8Array, name: string): RsfLoadResult {
+    const decoded = decodeRsf(bytes);
     if (!decoded.ok) {
       return { ok: false, error: decoded.error };
     }
@@ -162,7 +165,7 @@ export class RcsvDocument {
     for (const [r, c, input] of cells) {
       data[r][c] = input;
     }
-    const doc = new RcsvDocument(name, delimiter, data, columnCount);
+    const doc = new RsfDocument(name, delimiter, data, columnCount);
     // Preserve the file's compression method so a normal save reuses it.
     doc.compressionMethod = decoded.data.compression;
     return { ok: true, doc };
@@ -174,7 +177,7 @@ export class RcsvDocument {
   }
 
   /**
-   * Choose the compression method for the next save (from the RCSV Save
+   * Choose the compression method for the next save (from the RSF Save
    * dialog). Rewriting the container with a different method changes no logical
    * content, so this does not mark the document dirty on its own.
    */
@@ -182,7 +185,7 @@ export class RcsvDocument {
     this.compressionMethod = method;
   }
 
-  /** Serialize to the versioned binary `.rcsv` container format. */
+  /** Serialize to the versioned binary `.rsf` container format. */
   toBytes(): Uint8Array {
     const cells: Array<[number, number, string]> = [];
     for (let r = 0; r < this.data.length; r++) {
@@ -208,9 +211,9 @@ export class RcsvDocument {
     }
   }
 
-  /** Encode a prepared sparse cell list into the `.rcsv` container (compresses). */
+  /** Encode a prepared sparse cell list into the `.rsf` container (compresses). */
   toBytesFromCells(cells: Array<[number, number, string]>): Uint8Array {
-    const payload: RcsvData = {
+    const payload: RsfData = {
       name: 'Sheet1',
       delimiter: this.delimiter,
       rowCount: this.data.length,
@@ -220,7 +223,7 @@ export class RcsvDocument {
       appName: APP_NAME,
       appVersion: APP_VERSION,
     };
-    return encodeRcsv(payload, this.compressionMethod);
+    return encodeRsf(payload, this.compressionMethod);
   }
 
   // ----- Common document surface (shared with LosslessDocument) -----
@@ -280,14 +283,14 @@ export class RcsvDocument {
   /**
    * Mark the document as never-saved, so {@link isDirty} is true until the
    * first successful save. Used for File > New and for a fresh in-memory
-   * CSV→RCSV conversion, neither of which yet exists on disk.
+   * CSV→RSF conversion, neither of which yet exists on disk.
    */
   markUnsaved(): void {
     // A sentinel that no real revision equals keeps the document dirty.
     this.savedRevision = -1;
   }
 
-  /** RCSV documents have no byte-level baseline; nothing is "edited vs original". */
+  /** RSF documents have no byte-level baseline; nothing is "edited vs original". */
   isEdited(_row: number, _col: number): boolean {
     return false;
   }

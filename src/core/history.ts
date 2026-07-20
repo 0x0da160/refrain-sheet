@@ -2,7 +2,7 @@
 
 /**
  * One cell change inside a history operation. For CSV documents `null`
- * means "no edit" (the cell shows its original value); for RCSV documents
+ * means "no edit" (the cell shows its original value); for RSF documents
  * values are always strings (the cell input).
  */
 export interface CellChange {
@@ -14,7 +14,7 @@ export interface CellChange {
 
 /**
  * One atomic sub-operation of a history entry. Structural operations
- * (row/column insertion and deletion) exist only for RCSV spreadsheet
+ * (row/column insertion and deletion) exist only for RSF spreadsheet
  * documents; `data` carries the affected row/column contents so deletion is
  * undoable. Column data is column-major.
  */

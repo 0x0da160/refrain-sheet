@@ -19,8 +19,8 @@ const noopUi: UiPort = {
   confirmUndecodableEdit: async () => true,
   chooseReopen: async () => null,
   confirmConvert: async () => true,
-  explainRcsvSave: async () => true,
-  chooseRcsvSave: async () => 2,
+  explainRsfSave: async () => true,
+  chooseRsfSave: async () => 2,
   chooseExportCsv: async () => ({ encoding: 'utf-8' as const, bom: false, lineEnding: 'lf' as const }),
   chooseInsertShift: async () => null,
   confirm: async () => true,
@@ -117,7 +117,7 @@ describe('formula bar autocomplete and pointer references', () => {
   function formulaSetup() {
     const { state, commands, grid } = setup();
     const tab = state.addTab('sheet.csv', doc('a,b,c\n1,2,3\n4,5,6\n'), null);
-    state.convertToRcsv(tab);
+    state.convertToRsf(tab);
     const bar = new FormulaBar(state, commands, () => undefined);
     document.body.append(bar.element);
     grid.refresh();
@@ -187,7 +187,7 @@ describe('inline cell editor autocomplete and references', () => {
   function editorSetup() {
     const { state, commands, grid } = setup();
     const tab = state.addTab('sheet.csv', doc('a,b,c\n1,2,3\n4,5,6\n'), null);
-    state.convertToRcsv(tab);
+    state.convertToRsf(tab);
     grid.refresh();
     return { state, commands, grid, tab };
   }

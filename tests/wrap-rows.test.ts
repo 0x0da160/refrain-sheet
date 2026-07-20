@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { rangeToTsv } from '../src/core/clipboard';
-import { RcsvDocument } from '../src/core/rcsv-document';
+import { RsfDocument } from '../src/core/rsf-document';
 import { countVisualLines, rowHeightForLines } from '../src/core/text-wrap';
 import { Grid, MAX_WRAP_LINES, ROW_HEIGHT, WRAP_LINE_HEIGHT, WRAP_VERTICAL_PAD } from '../src/ui/grid';
 import { doc } from './helpers';
@@ -31,8 +31,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
-    explainRcsvSave: vi.fn(async () => true),
-    chooseRcsvSave: vi.fn(async () => 2),
+    explainRsfSave: vi.fn(async () => true),
+    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => null),
     chooseInsertShift: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
@@ -62,7 +62,7 @@ interface SetupOptions {
   height?: number;
 }
 
-function setup(document_: RcsvDocument | string, opts: SetupOptions = {}) {
+function setup(document_: RsfDocument | string, opts: SetupOptions = {}) {
   const state = new AppState();
   const commands = new Commands(state, stubUi(), document);
   const grid = new Grid(state, commands);
@@ -126,7 +126,7 @@ describe('conditional row-height wrapping', () => {
   });
 
   it('measures a formula row from its displayed result, not the formula source', () => {
-    const d = RcsvDocument.empty('f.rcsv', 1, 2);
+    const d = RsfDocument.empty('f.rcsv', 1, 2);
     d.setCell(0, 0, 'hello world here now more text');
     d.setCell(0, 1, '=A1');
     d.markSaved();

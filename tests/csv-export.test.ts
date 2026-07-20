@@ -5,7 +5,7 @@ import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { encodeCsvExport, type CsvExportOptions } from '../src/core/csv-export';
 import { decodeBytes } from '../src/core/encoding';
-import { RcsvDocument } from '../src/core/rcsv-document';
+import { RsfDocument } from '../src/core/rsf-document';
 
 const UTF8_LF: CsvExportOptions = { encoding: 'utf-8', bom: false, lineEnding: 'lf' };
 
@@ -19,8 +19,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     confirmUndecodableEdit: vi.fn(async () => true),
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
-    explainRcsvSave: vi.fn(async () => true),
-    chooseRcsvSave: vi.fn(async () => 2),
+    explainRsfSave: vi.fn(async () => true),
+    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => UTF8_LF),
     chooseInsertShift: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
@@ -36,11 +36,11 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   };
 }
 
-/** An RCSV tab prepopulated from a value matrix. */
+/** An RSF tab prepopulated from a value matrix. */
 function rcsvSetup(values: string[][], ui: UiPort = stubUi()) {
   const state = new AppState();
   const commands = new Commands(state, ui, document);
-  const doc = RcsvDocument.empty('data.rcsv', values.length, values[0].length);
+  const doc = RsfDocument.empty('data.rcsv', values.length, values[0].length);
   for (let r = 0; r < values.length; r++) {
     for (let c = 0; c < values[r].length; c++) {
       doc.setCell(r, c, values[r][c]);

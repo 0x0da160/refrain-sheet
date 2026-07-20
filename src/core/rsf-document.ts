@@ -77,6 +77,17 @@ export class RsfDocument {
   private readonly formulaCache = new Map<string, CompiledFormula>();
   private memo = new Map<string, FormulaValue>();
   private readonly inProgress = new Set<string>();
+  /**
+   * Per-row count of formula cells, kept in parallel with `data`. Built
+   * lazily on first use (so opening a document costs nothing extra) and then
+   * maintained incrementally by every mutator, it lets
+   * {@link countFormulaCells} and {@link listFormulaCells} skip formula-free
+   * rows entirely — on typical sheets (few or no formulas) this turns the
+   * whole-sheet scans that run on every structural edit and status-bar render
+   * into O(rows) walks. Consistency with the data is covered by a
+   * property-based test.
+   */
+  private formulaPerRow: number[] | null = null;
 
   private constructor(name: string, delimiter: DelimiterId, data: string[][], columnCount: number) {
     this.name = name;
@@ -257,16 +268,29 @@ export class RsfDocument {
 
   private formulaCountCache: { revision: number; count: number } | null = null;
 
+  /** Formula cells in one row (rows always hold exactly `cols` entries). */
+  private countRowFormulas(row: string[]): number {
+    let n = 0;
+    for (let c = 0; c < row.length; c++) {
+      if (isFormula(row[c])) n += 1;
+    }
+    return n;
+  }
+
+  /** Build the per-row formula index on first use (mutators maintain it after). */
+  private ensureFormulaIndex(): number[] {
+    this.formulaPerRow ??= this.data.map((row) => this.countRowFormulas(row));
+    return this.formulaPerRow;
+  }
+
   /** Count of formula cells (cached per revision; the status bar calls this often). */
   countFormulaCells(): number {
     if (this.formulaCountCache?.revision === this.revision) {
       return this.formulaCountCache.count;
     }
     let count = 0;
-    for (const row of this.data) {
-      for (let c = 0; c < this.cols; c++) {
-        if (isFormula(row[c])) count += 1;
-      }
+    for (const n of this.ensureFormulaIndex()) {
+      count += n;
     }
     this.formulaCountCache = { revision: this.revision, count };
     return count;
@@ -304,6 +328,12 @@ export class RsfDocument {
     if (this.data[row][col] === input) {
       return;
     }
+    if (this.formulaPerRow) {
+      const delta = (isFormula(input) ? 1 : 0) - (isFormula(this.data[row][col]) ? 1 : 0);
+      if (delta !== 0) {
+        this.formulaPerRow[row] += delta;
+      }
+    }
     this.data[row][col] = input;
     this.touch();
   }
@@ -318,14 +348,17 @@ export class RsfDocument {
       return out;
     });
     this.data.splice(at, 0, ...prepared);
+    this.formulaPerRow?.splice(at, 0, ...prepared.map((row) => this.countRowFormulas(row)));
     this.touch();
   }
 
   /** Remove rows and return their data (for undo). */
   deleteRows(index: number, count: number): string[][] {
     const removed = this.data.splice(index, count);
+    this.formulaPerRow?.splice(index, count);
     if (this.data.length === 0) {
       this.data.push(new Array<string>(this.cols).fill(''));
+      this.formulaPerRow?.push(0);
     }
     this.touch();
     return removed;
@@ -337,6 +370,9 @@ export class RsfDocument {
     for (let r = 0; r < this.data.length; r++) {
       const inserts = colsData.map((col) => col[r] ?? '');
       this.data[r].splice(at, 0, ...inserts);
+      if (this.formulaPerRow) {
+        this.formulaPerRow[r] += this.countRowFormulas(inserts);
+      }
     }
     this.cols += count;
     this.touch();
@@ -347,6 +383,9 @@ export class RsfDocument {
     const removed: string[][] = Array.from({ length: count }, () => []);
     for (let r = 0; r < this.data.length; r++) {
       const cut = this.data[r].splice(index, count);
+      if (this.formulaPerRow) {
+        this.formulaPerRow[r] -= this.countRowFormulas(cut);
+      }
       for (let c = 0; c < count; c++) {
         removed[c].push(cut[c] ?? '');
       }
@@ -376,6 +415,7 @@ export class RsfDocument {
     }
     while (this.data.length < rows) {
       this.data.push(new Array<string>(this.cols).fill(''));
+      this.formulaPerRow?.push(0);
       changed = true;
     }
     if (changed) {
@@ -383,10 +423,14 @@ export class RsfDocument {
     }
   }
 
-  /** Iterate all formula cells as [row, col, source]. */
+  /** Iterate all formula cells as [row, col, source]. Skips formula-free rows via the index. */
   listFormulaCells(): Array<{ row: number; col: number; src: string }> {
+    const index = this.ensureFormulaIndex();
     const out: Array<{ row: number; col: number; src: string }> = [];
     for (let r = 0; r < this.data.length; r++) {
+      if (index[r] === 0) {
+        continue;
+      }
       const row = this.data[r];
       for (let c = 0; c < this.cols; c++) {
         if (isFormula(row[c])) {

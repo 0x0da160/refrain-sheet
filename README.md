@@ -838,10 +838,13 @@ processed, not just raw throughput.
   cleared afterward (even on error).
 
 **Measurements.** Reproducible benchmarks live in `bench/` (`npm run bench`,
-deterministic in-code fixtures — 200,000-row CSVs, million-cell selections,
-100,000-cell containers, formula dependency chains). Results for the current
-revision, the reference environment, and manual browser-profiling steps are
-documented in [docs/performance.md](docs/performance.md). Responsiveness
+deterministic in-code fixtures — 200,000-row CSV parsing, identity and
+minimal-diff save paths, CSV→RSF conversion, `.rsf` encode/decode for every
+compression method, million-cell selection statistics, Replace-All scans,
+structural edits with formula-reference rewriting, large bulk-edit applies,
+and formula dependency chains). Results for the current revision, the
+reference environment, and manual browser-profiling steps are documented in
+[docs/performance.md](docs/performance.md). Responsiveness
 _structure_ (bounded DOM, in-place repaint, deferred statistics, sliced scans,
 prompt busy feedback) is locked in by deterministic tests
 (`tests/perf.test.ts`, `tests/virtual-grid.test.ts`).
@@ -920,6 +923,17 @@ docker compose run --rm app npm run build   # writes dist/ to the host
 docker compose up dev                       # dev server on http://localhost:5173
 ```
 
+### Architecture
+
+The code is organized in strict layers — core/domain (`src/core/`, fully
+DOM-independent), application (`src/app/`), UI (`src/ui/`), and
+infrastructure (the WASM bridge, generated bindings, and build scripts) —
+with dependencies flowing inward only, and every user command dispatching
+through the single typed command layer. The full engineering map (layer
+diagram, command/data flow, the WASM boundary, long-running-operation rules,
+and the invariants every change must preserve) is documented in
+[docs/architecture.md](docs/architecture.md).
+
 ### Project layout
 
 ```text
@@ -937,7 +951,8 @@ src/
   locales/  en.json, ja.json
 wasm/       Rust crate compiled to WebAssembly (CSV core, DEFLATE + CRC-32,
             stats/search primitives)
-docs/       rsf-format.md (binary .rsf container specification),
+docs/       architecture.md (layers, data flow, invariants),
+            rsf-format.md (binary .rsf container specification),
             security.md (threat model + supply-chain policy),
             performance.md (benchmark results + profiling guide)
 bench/      reproducible performance benchmarks (npm run bench)

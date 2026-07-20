@@ -11,7 +11,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, LARGE_OP_CELLS, type UiPort } from '../src/app/commands';
 import { t } from '../src/app/i18n';
+import { DEFAULT_CSV_EXPORT_OPTIONS } from '../src/core/csv-export';
 import { RsfDocument } from '../src/core/rsf-document';
+import { compileQuery } from '../src/core/search';
 import { KEEP_SAVE_OPTIONS } from '../src/core/serializer';
 import { doc } from './helpers';
 
@@ -135,5 +137,41 @@ describe('RSF save and compression progress', () => {
     // The indicator is dismissed only at the end.
     expect(labels[labels.length - 1]).toBeNull();
     expect(tab.doc.isDirty).toBe(false);
+  });
+});
+
+describe('progress percentages never reach 100% early', () => {
+  it('CSV export of a large RSF document floors its percentage below 100', async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:fake') as unknown as typeof URL.createObjectURL;
+    const ui = stubUi({ chooseExportCsv: vi.fn(async () => DEFAULT_CSV_EXPORT_OPTIONS) });
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+    const rsf = RsfDocument.empty('big.rsf', 5_000, 6);
+    for (let r = 0; r < 5_000; r += 3) {
+      rsf.setCell(r, 1, `text ${r}`);
+    }
+    const tab = state.addTab('big.rsf', rsf, null);
+    tab.rsfSaveExplained = true;
+    expect(await commands.exportCsv(tab)).toBe(true);
+    const percents = percentValues(busyLabels(ui));
+    expect(percents.length).toBeGreaterThan(0);
+    for (const p of percents) {
+      expect(p).toBeLessThan(100);
+    }
+  });
+
+  it('Replace All floors its scan percentage below 100', async () => {
+    const ui = stubUi();
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+    state.addTab('big.csv', doc(largeCsv()), null);
+    const query = compileQuery({ text: 'r49', matchCase: true, regex: false });
+    const { count } = await commands.replaceAll(query, 'z49');
+    expect(count).toBeGreaterThan(0);
+    const percents = percentValues(busyLabels(ui));
+    expect(percents.length).toBeGreaterThan(0);
+    for (const p of percents) {
+      expect(p).toBeLessThan(100);
+    }
   });
 });

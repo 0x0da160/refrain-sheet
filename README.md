@@ -375,6 +375,58 @@ Levels: 50 / 75 / 90 / 100 / 110 / 125 / 150 / 200 %, plus **Reset Zoom**.
   store none (including plain CSV files, which never carry display settings
   in their bytes). See [docs/rsf-format.md](docs/rsf-format.md) for the
   format, bounds, and validation rules.
+- **Shortcuts and mouse wheel.** Step through the presets with **Zoom In**
+  (**Ctrl+Shift+.**) and **Zoom Out** (**Ctrl+Shift+,**), or **Reset**
+  (**Ctrl+Shift+0**); the browser's own zoom keys (**Ctrl +/-/0**) are never
+  intercepted. Over the grid, **Ctrl + mouse wheel** (Windows/Linux) or
+  **Cmd + mouse wheel** (macOS) zooms around the pointer, keeping the cell
+  under the cursor in place; the gesture is consumed only when the grid owns
+  the pointer — never in dialogs, text fields, during IME composition, or
+  mid-drag, and never as a plain scroll. Every zoom change is announced to
+  assistive technology ("Spreadsheet zoom: 125%") and applies instantly with
+  no animation (respecting reduced-motion preferences).
+- **Alignment.** Text stays vertically centered in every cell at every zoom
+  level — the row height, line box, editor, and selection overlays all derive
+  from one zoom-scaled sizing model, so nothing drifts at 50 %, 90 %, 125 %,
+  200 %, or any other level, for any sheet font or wrapped/multiline content.
+
+### Filtering (RSF)
+
+**Sheet > Filter…** (also the ▼ button in each column header of a filtered
+range, and the grid context menu) hides rows that do not match your criteria —
+**visually only**. Filtering never deletes, reorders, or rewrites cell data;
+row identity, formulas, references, widths, heights, and undo/redo are all
+preserved, and formula calculations always use the normal sheet model.
+
+- **RSF only.** Filtering is a spreadsheet feature; on a plain CSV document the
+  app explains that filtering requires converting to RSF and changes nothing.
+- **Range and header.** The filter covers the selected rectangle, or the
+  detected data block around the active cell. The first row is treated as a
+  **header** (never hidden) by default; the dialog shows this assumption and
+  lets you change it before applying.
+- **Criteria.** Text (contains / does not contain / equals / does not equal /
+  begins with / ends with / blank / not blank), numeric (=, ≠, >, ≥, <, ≤,
+  between), and a searchable, bounded list of the column's distinct displayed
+  values. Conditions in one column combine with a documented **AND/OR** choice
+  (plus the value list as an extra AND clause); different columns always
+  combine with **AND**. The status bar shows the visible-row / total-row count
+  while filtered.
+- **Hidden-row safety.** Copy, fill, clear, Flash Fill, and selection
+  statistics operate on **visible rows only** (a copy of a filtered selection
+  is a contiguous block); keyboard navigation skips hidden rows. Row/column
+  insertion or deletion clears the active filter as one atomic, undoable step
+  (its stored range would otherwise drift). You are told whenever hidden rows
+  were skipped or the filter was cleared.
+- **Deterministic and offline.** Predicates are plain string/number
+  comparisons — no `eval`, `new Function`, regular expressions, or network
+  access. Value enumeration and predicate evaluation run in cooperative time
+  slices with truthful progress and cancellation for large ranges, and the
+  virtualized grid never materializes DOM for hidden rows.
+- **Persistence.** The filter is saved in the RSF container (body version 4)
+  and restored — fully validated — on reopen. Malformed or unsupported filter
+  metadata is ignored with a localized warning rather than corrupting or
+  rejecting the document, and older readers safely reject a version-4 body.
+  See [docs/rsf-format.md](docs/rsf-format.md).
 
 ### Editing help tooltips
 
@@ -392,7 +444,8 @@ list, or IME composition UI.
 
 Japanese and English are both first-class UI languages. The initial language
 follows the browser (Japanese environments start in Japanese); switch at any
-time via the **Language / 言語** menu. The preference is stored only in
+time via **View > Language / 表示 > 言語** (a submenu of View — there is no
+separate top-level Language menu). The preference is stored only in
 `localStorage` and is never transmitted anywhere.
 
 ### Accessibility
@@ -419,22 +472,25 @@ browser find (Ctrl+F, F3), print (Ctrl+P), zoom (Ctrl +/−/0), dev tools (F12),
 and browser tab switching (Ctrl+Tab, Ctrl+PageUp/Down). Commands that would
 otherwise collide use safe alternatives.
 
-| Command              | Shortcut                              |
-| -------------------- | ------------------------------------- |
-| New spreadsheet      | **F4**                                |
-| Open file            | Ctrl+O / Cmd+O                        |
-| Save                 | Ctrl+S / Cmd+S                        |
-| Save with Options    | Ctrl+Shift+S / Cmd+Shift+S            |
-| Close tab            | **F8**                                |
-| Undo / Redo          | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z)     |
-| Copy / Paste         | Ctrl+C / Ctrl+V                       |
-| Select All Cells     | Ctrl+A / Cmd+A (grid focus only)      |
-| Fill Down (grid)     | Ctrl+D / Cmd+D                        |
-| Find / Replace       | **Ctrl+Shift+F** / **Ctrl+Shift+H**   |
-| Find next / previous | Enter / Shift+Enter (in the Find bar) |
-| Edit cell            | F2 (or start typing)                  |
-| Extend selection     | Shift+Arrows                          |
-| Cancel edit          | Esc                                   |
+| Command              | Shortcut                               |
+| -------------------- | -------------------------------------- |
+| New spreadsheet      | **F4**                                 |
+| Open file            | Ctrl+O / Cmd+O                         |
+| Save                 | Ctrl+S / Cmd+S                         |
+| Save with Options    | Ctrl+Shift+S / Cmd+Shift+S             |
+| Close tab            | **F8**                                 |
+| Undo / Redo          | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z)      |
+| Copy / Paste         | Ctrl+C / Ctrl+V                        |
+| Select All Cells     | Ctrl+A / Cmd+A (grid focus only)       |
+| Fill Down (grid)     | Ctrl+D / Cmd+D                         |
+| Find / Replace       | **Ctrl+Shift+F** / **Ctrl+Shift+H**    |
+| Zoom in / out        | **Ctrl+Shift+.** / **Ctrl+Shift+,**    |
+| Reset zoom           | **Ctrl+Shift+0**                       |
+| Zoom (mouse)         | Ctrl / Cmd + mouse wheel over the grid |
+| Find next / previous | Enter / Shift+Enter (in the Find bar)  |
+| Edit cell            | F2 (or start typing)                   |
+| Extend selection     | Shift+Arrows                           |
+| Cancel edit          | Esc                                    |
 
 The same table is shown in **Help > About / Keyboard Shortcuts**. Grid-editing
 accelerators (Undo/Redo/Fill Down) are suppressed while a text field or the cell
@@ -687,12 +743,23 @@ autocomplete suggestion, or insert a reference by clicking/dragging cells.
   announced politely) appears when a referenced range extends beyond the
   visible viewport.
 
-### Fill handle, drag-copy, and Fill Down
+### Fill handle, drag-copy, Fill Down, and numeric series
 
 - The selection's bottom-right corner has a **fill handle**; drag it down or
   right to copy the selected block, tiling its pattern and adjusting relative
   references. **Ctrl+D / Cmd+D** (Fill Down) fills the selection from its top
   row. Each fill is one atomic undo step.
+- **Numeric series (AutoFill).** A purely vertical or purely horizontal fill
+  whose seed lane holds **two or more** numbers forming an arithmetic
+  progression continues the series instead of merely repeating it:
+  `1, 2, 3` → `4, 5, 6`; `2, 4` → `6, 8`; `10, 7` → `4, 1`. The step is
+  inferred per column (or per row) independently and continuation values keep
+  the seeds' own decimal precision (`0.1, 0.2` → `0.3`, never float noise).
+  Documented fallbacks — never a guess: a **single** numeric seed copies its
+  value; **formulas** keep relative-reference translation (never series
+  inference); and **non-numeric, mixed, or non-linear** seeds keep the plain
+  copy/tile behavior. As with every structural fill, this applies in RSF mode
+  only (a CSV document is offered the explicit conversion first).
 
 ### Flash Fill
 
@@ -747,6 +814,14 @@ deterministic**: no cloud service, no AI model, no telemetry, no dynamic code.
   insertion, selection statistics, and the row/column commands unchanged.
   Structural row/column operations still require an explicit conversion to RSF
   for a byte-preserving CSV document.
+- The **cell-reference box** (top-left of the formula bar) shows the whole
+  current selection, not just the active cell: a single address (`A1`), the
+  normalized range regardless of drag direction (`A1:B2`), whole-row (`1:3`)
+  and whole-column (`A:C`) forms, and the concrete used range for Select All
+  (`A1:Z100`). The display is presentation only — the active cell, anchor, and
+  range semantics are unchanged — and it updates immediately after pointer
+  drags, Shift+Click / Shift+Arrow, header selection, Select All, filter
+  changes, tab changes, undo/redo, and programmatic selection restoration.
 
 ### Resizable columns and auto-fit
 

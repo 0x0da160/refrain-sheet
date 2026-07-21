@@ -10,6 +10,16 @@ import {
   type CsvExportScan,
 } from '../core/csv-export';
 import { detectEncoding, type EncodingId } from '../core/encoding';
+import { inferLinearSeries, seriesValueAt } from '../core/fill-series';
+import {
+  filterDataTop,
+  rowMatchesFilter,
+  validateFilter,
+  MAX_FILTER_ROWS,
+  MAX_FILTER_VALUES,
+  type ColumnFilter,
+  type SheetFilter,
+} from '../core/filter';
 import {
   flashFillRow,
   inferFlashFillCandidates,
@@ -48,7 +58,14 @@ import {
   type SaveOutcome,
 } from './file-access';
 import { setLocale, t, type LocaleId } from './i18n';
-import { DEFAULT_SHEET_ZOOM, getEditHints, getMaxFileSize, setEditHints, setMaxFileSize } from './settings';
+import {
+  DEFAULT_SHEET_ZOOM,
+  getEditHints,
+  getMaxFileSize,
+  nextZoomLevel,
+  setEditHints,
+  setMaxFileSize,
+} from './settings';
 import { setSheetFont, type SheetFontId } from './sheet-font';
 import { setTheme, type ThemeChoice } from './theme';
 
@@ -82,6 +99,41 @@ export const FLASH_FILL_MAX_BLOCK_ROWS = 100_000;
 
 /** Bounded number of before/after rows shown in the Flash Fill preview. */
 export const FLASH_FILL_SAMPLE_SIZE = 8;
+
+/**
+ * Everything the filter dialog needs to edit one column's criteria. The
+ * command layer prepares it (including the bounded distinct-value list,
+ * enumerated in time slices for large ranges) so the dialog itself stays a
+ * pure presentation surface.
+ */
+export interface FilterDialogInput {
+  /** Absolute document column index being edited. */
+  col: number;
+  /** Column letter (A, B, …) for labels. */
+  colLetter: string;
+  /** The column's header text (empty when the range has no header row). */
+  header: string;
+  /** Human-readable A1 range of the filter, e.g. "A1:D200". */
+  rangeLabel: string;
+  /** Whether the range's first row is treated as a header. */
+  headerRow: boolean;
+  /** True when a filter already exists (its range/header are then fixed). */
+  hasActiveFilter: boolean;
+  /** Existing criteria for this column, or null. */
+  existing: ColumnFilter | null;
+  /** Count of *other* columns that also carry criteria. */
+  otherColumns: number;
+  /** Bounded, sorted list of distinct displayed values in the data rows. */
+  values: string[];
+  /** True when the column holds more distinct values than `values` lists. */
+  valuesTruncated: boolean;
+}
+
+/** What the filter dialog resolved to (null = cancelled, nothing changes). */
+export type FilterDialogResult =
+  | { action: 'apply'; headerRow: boolean; column: ColumnFilter | null }
+  | { action: 'clearColumn' }
+  | { action: 'clearAll' };
 
 /**
  * The UI surface the command layer talks to. Menu items, context menus,
@@ -127,6 +179,12 @@ export interface UiPort {
    * leaves the document untouched.
    */
   confirmFlashFill(preview: FlashFillPreview): Promise<boolean>;
+  /**
+   * The accessible filter dialog for one column: conditions, AND/OR join,
+   * the bounded searchable value list, and the header-row setting. Resolves
+   * with the chosen action, or null when cancelled (nothing changes).
+   */
+  chooseFilter(input: FilterDialogInput): Promise<FilterDialogResult | null>;
   confirm(title: string, message: string, okLabel: string, cancelLabel: string): Promise<boolean>;
   showMessage(title: string, message: string): Promise<void>;
   notify(text: string, kind: 'info' | 'warn' | 'error'): void;
@@ -175,9 +233,13 @@ export type CommandId =
   | 'sheet.insertColRight'
   | 'sheet.deleteCols'
   | 'sheet.autoFitCols'
+  | 'sheet.filter'
+  | 'sheet.filterClear'
   | 'sheet.exportCsv'
   | 'view.wrap'
   | 'view.stickyFirstRow'
+  | 'view.zoom.in'
+  | 'view.zoom.out'
   | 'view.zoom.50'
   | 'view.zoom.75'
   | 'view.zoom.90'
@@ -280,9 +342,9 @@ export class Commands {
         return tab !== null && tab.history.canUndo;
       case 'edit.redo':
         return tab !== null && tab.history.canRedo;
-      // The Insert Copied … commands and Flash Fill stay clickable on a CSV
-      // tab: running one explains that the operation needs an RSF spreadsheet
-      // document (and Insert warns when nothing has been copied yet).
+      // The Insert Copied … commands, Flash Fill, and Filter stay clickable
+      // on a CSV tab: running one explains that the operation needs an RSF
+      // spreadsheet document (and Insert warns when nothing has been copied).
       case 'edit.copy':
       case 'edit.paste':
       case 'edit.fillDown':
@@ -290,7 +352,10 @@ export class Commands {
       case 'edit.insertCopiedCells':
       case 'edit.insertCopiedRows':
       case 'edit.insertCopiedCols':
+      case 'sheet.filter':
         return tab?.selection != null;
+      case 'sheet.filterClear':
+        return tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null;
       case 'edit.revertCell':
         return (
           tab?.selection != null &&
@@ -308,6 +373,8 @@ export class Commands {
       case 'view.zoom.150':
       case 'view.zoom.200':
       case 'view.zoom.reset':
+      case 'view.zoom.in':
+      case 'view.zoom.out':
         // Zoom applies to the active spreadsheet area; without a document
         // there is nothing to zoom.
         return tab !== null;
@@ -410,6 +477,12 @@ export class Commands {
       case 'sheet.autoFitCols':
         await this.gridActions?.autoFitSelectedColumns();
         return;
+      case 'sheet.filter':
+        if (tab) await this.filterDialog(tab);
+        return;
+      case 'sheet.filterClear':
+        if (tab) this.clearAllFilters(tab);
+        return;
       case 'sheet.exportCsv':
         if (tab) await this.exportCsv(tab);
         return;
@@ -433,6 +506,12 @@ export class Commands {
         return;
       case 'view.zoom.reset':
         if (tab) this.state.setTabZoom(tab, DEFAULT_SHEET_ZOOM);
+        return;
+      case 'view.zoom.in':
+      case 'view.zoom.out':
+        // Step through the shared zoom presets (same state as the menu and
+        // Ctrl/Cmd + mouse wheel; browser zoom is never touched).
+        if (tab) this.zoomStep(tab, id === 'view.zoom.in' ? 1 : -1);
         return;
       case 'view.editHints':
         setEditHints(!getEditHints());
@@ -677,6 +756,11 @@ export class Commands {
     const name = isLegacy ? `${file.name.slice(0, -RSF_LEGACY_EXTENSION.length)}${RSF_EXTENSION}` : file.name;
     const tab = this.state.addTab(name, result.doc, isLegacy ? null : file.handle);
     tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
+    if (result.doc.filterDropped) {
+      // The container carried filter metadata that failed validation; it was
+      // ignored (never guessed at) and the sheet itself loaded normally.
+      this.ui.notify(t('notify.filterDropped', { name }), 'warn');
+    }
     if (isLegacy) {
       result.doc.markUnsaved();
       this.state.emit('doc');
@@ -1239,12 +1323,22 @@ export class Commands {
     const clampedRange = this.state.selectedRange(tab) ?? range;
     const rows = clampedRange.bottom - clampedRange.top + 1;
     const cols = clampedRange.right - clampedRange.left + 1;
+    // Structural row/column changes clear an active filter atomically (its
+    // stored range would otherwise drift against the moved rows — documented
+    // behavior; Undo restores structure and filter together). The user is
+    // told when that happened.
+    const hadFilter = doc.filter !== null;
+    const done = (applied: boolean): void => {
+      if (applied && hadFilter && doc.filter === null) {
+        this.ui.notify(t('notify.filterClearedByStructure'), 'info');
+      }
+    };
     switch (id) {
       case 'sheet.insertRowAbove':
-        this.state.insertRows(tab, clampedRange.top, rows);
+        done(this.state.insertRows(tab, clampedRange.top, rows));
         return;
       case 'sheet.insertRowBelow':
-        this.state.insertRows(tab, clampedRange.bottom + 1, rows);
+        done(this.state.insertRows(tab, clampedRange.bottom + 1, rows));
         return;
       case 'sheet.deleteRows': {
         if (rows >= doc.rowCount) {
@@ -1262,14 +1356,14 @@ export class Commands {
             return;
           }
         }
-        this.state.deleteRows(tab, clampedRange.top, rows);
+        done(this.state.deleteRows(tab, clampedRange.top, rows));
         return;
       }
       case 'sheet.insertColLeft':
-        this.state.insertCols(tab, clampedRange.left, cols);
+        done(this.state.insertCols(tab, clampedRange.left, cols));
         return;
       case 'sheet.insertColRight':
-        this.state.insertCols(tab, clampedRange.right + 1, cols);
+        done(this.state.insertCols(tab, clampedRange.right + 1, cols));
         return;
       case 'sheet.deleteCols': {
         if (cols >= doc.columnCount) {
@@ -1287,7 +1381,7 @@ export class Commands {
             return;
           }
         }
-        this.state.deleteCols(tab, clampedRange.left, cols);
+        done(this.state.deleteCols(tab, clampedRange.left, cols));
         return;
       }
     }
@@ -1356,11 +1450,15 @@ export class Commands {
       }
     }
 
+    // Rows hidden by an active filter are never modified by a paste: the
+    // change list skips them (documented, notified below when it happens).
+    const hidden = this.state.hiddenRows(tab);
+
     // Small pastes apply synchronously; large ones build their change list in
     // cooperative time slices behind a percentage progress label (the mutation
     // itself is then applied atomically, so an abandoned scan changes nothing).
     if (height * width <= LARGE_OP_CELLS) {
-      return this.applyPasteNow(tab, matrix, origin, at, height, width);
+      return this.applyPasteNow(tab, matrix, origin, at, height, width, hidden);
     }
     const doc = tab.doc;
     const totalCells = height * width;
@@ -1368,7 +1466,7 @@ export class Commands {
       const changes: CellChange[] = [];
       const completed = await forEachIndexSliced(
         height,
-        (i) => this.buildPasteRowChanges(doc, matrix, origin, at, width, i, changes),
+        (i) => this.buildPasteRowChanges(doc, matrix, origin, at, width, i, changes, hidden),
         {
           onProgress: (done, total) =>
             this.ui.setBusy(
@@ -1384,7 +1482,7 @@ export class Commands {
       if (!completed || tab.doc !== doc) {
         return false;
       }
-      return this.applyPasteChanges(tab, at, height, width, changes);
+      return this.applyPasteChanges(tab, at, height, width, changes, hidden);
     });
   }
 
@@ -1396,12 +1494,13 @@ export class Commands {
     at: Selection,
     height: number,
     width: number,
+    hidden: Set<number> | null,
   ): boolean {
     const changes: CellChange[] = [];
     for (let i = 0; i < height; i++) {
-      this.buildPasteRowChanges(tab.doc, matrix, origin, at, width, i, changes);
+      this.buildPasteRowChanges(tab.doc, matrix, origin, at, width, i, changes, hidden);
     }
-    return this.applyPasteChanges(tab, at, height, width, changes);
+    return this.applyPasteChanges(tab, at, height, width, changes, hidden);
   }
 
   /** Collect the changes for one destination row of a (possibly tiled) paste. */
@@ -1413,10 +1512,14 @@ export class Commands {
     width: number,
     i: number,
     changes: CellChange[],
+    hidden: Set<number> | null = null,
   ): void {
     const srcH = matrix.length;
     const srcW = matrix[0].length;
     const row = at.row + i;
+    if (hidden?.has(row)) {
+      return; // filtered-out rows are never modified by a paste
+    }
     if (doc.kind === 'csv') {
       for (let j = 0; j < width; j++) {
         const col = at.col + j;
@@ -1457,6 +1560,7 @@ export class Commands {
     height: number,
     width: number,
     changes: CellChange[],
+    hidden: Set<number> | null = null,
   ): boolean {
     const doc = tab.doc;
     let applied: boolean;
@@ -1491,8 +1595,25 @@ export class Commands {
     }
     if (applied) {
       this.state.setSelection(tab, at, { row: at.row + height - 1, col: at.col + width - 1 });
+      this.notifyHiddenRowsSkipped(at.row, at.row + height - 1, hidden);
     }
     return applied;
+  }
+
+  /** Tell the user when an operation left filtered-out (hidden) rows untouched. */
+  private notifyHiddenRowsSkipped(top: number, bottom: number, hidden: Set<number> | null): void {
+    if (!hidden || hidden.size === 0) {
+      return;
+    }
+    let skipped = 0;
+    for (let r = top; r <= bottom; r++) {
+      if (hidden.has(r)) {
+        skipped += 1;
+      }
+    }
+    if (skipped > 0) {
+      this.ui.notify(t('notify.hiddenRowsSkipped', { n: skipped }), 'info');
+    }
   }
 
   /**
@@ -1528,9 +1649,14 @@ export class Commands {
       return false;
     }
     const large = copied.matrix.length * copied.matrix[0].length > LARGE_OP_CELLS;
+    const hadFilter = doc.filter !== null;
     const run = (): boolean =>
       this.state.insertCopiedCells(tab, at, prepared.matrix, direction, prepared.origin);
-    return large ? this.withBusy(t('loading.inserting'), run) : run();
+    const applied = large ? await this.withBusy(t('loading.inserting'), run) : run();
+    if (applied && hadFilter && doc.filter === null) {
+      this.ui.notify(t('notify.filterClearedByStructure'), 'info');
+    }
+    return applied;
   }
 
   /**
@@ -1583,9 +1709,13 @@ export class Commands {
     const width = copied.matrix[0].length;
     const direction = axis === 'rows' ? ('down' as const) : ('right' as const);
     const large = height * width > LARGE_OP_CELLS;
+    const hadFilter = doc.filter !== null;
     const run = (): boolean =>
       this.state.insertCopiedCells(tab, at, prepared.matrix, direction, prepared.origin);
     const applied = large ? await this.withBusy(t('loading.inserting'), run) : run();
+    if (applied && hadFilter && doc.filter === null) {
+      this.ui.notify(t('notify.filterClearedByStructure'), 'info');
+    }
     if (applied) {
       this.ui.notify(
         axis === 'rows'
@@ -1730,6 +1860,17 @@ export class Commands {
    * extend the grid). The whole fill — including any grid growth — is one
    * atomic, undoable operation. Absolute/mixed `$` reference components stay
    * fixed while relative components shift (handled by `shiftFormulaRefs`).
+   *
+   * **Numeric series (AutoFill):** a purely vertical (or purely horizontal)
+   * fill whose seed lane holds **two or more** numeric values forming an
+   * arithmetic progression continues that series in the fill direction
+   * (`1, 2, 3` → `4, 5, 6`; `2, 4` → `6, 8`; `10, 7` → `4, 1`), per column
+   * (or per row) independently, at the seeds' own decimal precision.
+   * Documented fallbacks: a single seed copies its value; formulas always
+   * use reference translation (never series inference); non-numeric, mixed,
+   * or non-linear seeds keep the plain tiling behavior — ambiguity is never
+   * guessed at. Rows hidden by an active filter are never modified (the
+   * series continues across them so the visible sequence stays consecutive).
    */
   async applyFill(tab: Tab, source: CellRange, dest: CellRange): Promise<boolean> {
     if (
@@ -1781,8 +1922,35 @@ export class Commands {
       });
     }
 
+    // Numeric-series inference per lane. Only single-axis fills continue
+    // series; a fill extending both down and right always tiles.
+    const vertical = dest.right === source.right && dest.bottom > source.bottom;
+    const horizontal = dest.bottom === source.bottom && dest.right > source.right;
+    const colSeries = new Map<number, ReturnType<typeof inferLinearSeries>>();
+    const rowSeries = new Map<number, ReturnType<typeof inferLinearSeries>>();
+    if (vertical && srcH >= 2) {
+      for (let j = 0; j < srcW; j++) {
+        colSeries.set(source.left + j, inferLinearSeries(srcValues.map((rowVals) => rowVals[j])));
+      }
+    } else if (horizontal && srcW >= 2) {
+      for (let i = 0; i < srcH; i++) {
+        rowSeries.set(source.top + i, inferLinearSeries(srcValues[i]));
+      }
+    }
+
+    const hidden = this.state.hiddenRows(tab);
     const changes: CellChange[] = [];
+    // Series step counter for vertical fills: advances only on visible
+    // destination rows, so the visible sequence is consecutive.
+    let verticalK = 0;
     for (let r = dest.top; r <= dest.bottom; r++) {
+      const rowHidden = hidden?.has(r) === true;
+      if (vertical && r > source.bottom && !rowHidden) {
+        verticalK += 1;
+      }
+      if (rowHidden) {
+        continue; // filtered-out rows are never modified by a fill
+      }
       for (let c = dest.left; c <= dest.right; c++) {
         if (r <= source.bottom && c <= source.right) {
           continue; // the source block itself is unchanged
@@ -1792,7 +1960,10 @@ export class Commands {
         const srcRow = source.top + si;
         const srcCol = source.left + sj;
         let value = srcValues[si][sj];
-        if (isFormula(value) && (r !== srcRow || c !== srcCol)) {
+        const series = vertical ? colSeries.get(c) : horizontal ? rowSeries.get(r) : null;
+        if (series) {
+          value = seriesValueAt(series, vertical ? verticalK : c - source.right);
+        } else if (isFormula(value) && (r !== srcRow || c !== srcCol)) {
           value = shiftFormulaRefs(value, r - srcRow, c - srcCol);
         }
         const before = doc.getValue(r, c);
@@ -1807,6 +1978,7 @@ export class Commands {
     const applied = this.state.pushEntry(tab, entry);
     if (applied) {
       this.state.setSelection(tab, { row: dest.top, col: dest.left }, { row: dest.bottom, col: dest.right });
+      this.notifyHiddenRowsSkipped(dest.top, dest.bottom, hidden);
     }
     return applied;
   }
@@ -1914,11 +2086,15 @@ export class Commands {
     let conflict: { a: string; b: string } | null = null;
     const label = t('loading.flashFill');
     const rowCount = bottom - firstFill + 1;
+    const hiddenRows = this.state.hiddenRows(tab);
     const scanRow = (i: number): void => {
       if (conflict) {
         return;
       }
       const row = firstFill + i;
+      if (hiddenRows?.has(row)) {
+        return; // filtered-out rows are never modified by Flash Fill
+      }
       const outcome = flashFillRow(candidates, (c) => doc.getValue(row, c));
       if (outcome.kind === 'conflict') {
         conflict = { a: outcome.a ?? '', b: outcome.b ?? '' };
@@ -1990,15 +2166,269 @@ export class Commands {
     return applied;
   }
 
-  /** Clear every cell in the selected range as one undoable operation. */
+  /**
+   * Zoom the spreadsheet one preset step in/out (shared with the menu
+   * presets; used by the keyboard shortcuts and Ctrl/Cmd + mouse wheel).
+   * Clamped at the smallest/largest preset. Never touches browser zoom, CSV
+   * bytes, or document content.
+   */
+  zoomStep(tab: Tab, direction: 1 | -1): void {
+    this.state.setTabZoom(tab, nextZoomLevel(tab.zoom, direction));
+  }
+
+  // ----- Filtering (RSF spreadsheet documents only) -----
+
+  /** The active filter's hidden-row set for a tab (null when unfiltered). */
+  hiddenRows(tab: Tab): Set<number> | null {
+    return this.state.hiddenRows(tab);
+  }
+
+  /**
+   * Sheet > Filter… (also the column-header filter buttons and the context
+   * menu): open the filter dialog for `targetCol` (default: the active
+   * cell's column) and apply the result as one atomic, undoable operation.
+   *
+   * RSF-only: on a plain CSV document a localized message explains that
+   * filtering requires the explicit conversion to RSF, and nothing changes.
+   * The filter range is the existing filter's range when one is active;
+   * otherwise the selected rectangle (when more than one cell is selected)
+   * or the detected contiguous data block around the active cell, with the
+   * first row treated as a header by default — the dialog shows this
+   * assumption and lets the user change it before applying. Value
+   * enumeration and hidden-row evaluation run in time slices with honest
+   * progress for large ranges; cancellation (dialog, document change while
+   * yielding) never applies a partial filter.
+   */
+  async filterDialog(tab: Tab, targetCol?: number): Promise<boolean> {
+    if (!tab.selection) {
+      return false;
+    }
+    if (tab.doc.kind !== 'rsf') {
+      await this.ui.showMessage(t('dialog.filter.title'), t('dialog.filter.csvOnly'));
+      return false;
+    }
+    const doc = tab.doc;
+    const existing = doc.filter;
+
+    // The filtered rectangle. An active filter fixes it (clear all filters
+    // to choose a new range); otherwise it derives from the selection.
+    let top: number;
+    let left: number;
+    let bottom: number;
+    let right: number;
+    let headerRow: boolean;
+    if (existing) {
+      ({ top, left, bottom, right, headerRow } = existing);
+    } else {
+      const sel = this.state.selectedRange(tab);
+      headerRow = true;
+      if (sel && (sel.bottom > sel.top || sel.right > sel.left)) {
+        ({ top, left, bottom, right } = sel);
+      } else {
+        // Detect the contiguous block of data rows around the active cell
+        // (bounded), spanning every sheet column.
+        const rowHasData = (r: number): boolean => {
+          for (let c = 0; c < doc.columnCount; c++) {
+            if (doc.getValue(r, c) !== '') {
+              return true;
+            }
+          }
+          return false;
+        };
+        top = tab.selection.row;
+        bottom = tab.selection.row;
+        while (top > 0 && bottom - top < MAX_FILTER_ROWS - 1 && rowHasData(top - 1)) {
+          top -= 1;
+        }
+        while (bottom < doc.rowCount - 1 && bottom - top < MAX_FILTER_ROWS - 1 && rowHasData(bottom + 1)) {
+          bottom += 1;
+        }
+        left = 0;
+        right = doc.columnCount - 1;
+        if (!rowHasData(top)) {
+          await this.ui.showMessage(t('dialog.filter.title'), t('dialog.filter.noData'));
+          return false;
+        }
+      }
+      // Enforce the documented range bound up front so a within-bounds
+      // filter always persists and restores identically.
+      bottom = Math.min(bottom, top + MAX_FILTER_ROWS - 1);
+    }
+    const col = Math.max(left, Math.min(right, targetCol ?? tab.selection.col));
+
+    // Bounded distinct displayed values of the column's data rows (sliced
+    // with progress for large ranges; aborts without changes if the document
+    // is replaced while yielding).
+    const dataTop = headerRow ? Math.min(top + 1, bottom) : top;
+    const scanRows = bottom - dataTop + 1;
+    const distinct = new Set<string>();
+    let valuesTruncated = false;
+    const collectRow = (i: number): void => {
+      const value = doc.getDisplayValue(dataTop + i, col);
+      if (distinct.has(value)) {
+        return;
+      }
+      if (distinct.size >= MAX_FILTER_VALUES) {
+        valuesTruncated = true; // the list stays bounded; the dialog says so
+        return;
+      }
+      distinct.add(value);
+    };
+    if (scanRows > LARGE_OP_CELLS) {
+      const label = t('loading.filterValues');
+      const completed = await this.withBusy(label, () =>
+        forEachIndexSliced(scanRows, collectRow, {
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`),
+          shouldStop: () => tab.doc !== doc,
+        }),
+      );
+      if (!completed || tab.doc !== doc) {
+        return false;
+      }
+    } else {
+      for (let i = 0; i < scanRows; i++) {
+        collectRow(i);
+      }
+    }
+    const values = [...distinct].sort();
+
+    const input: FilterDialogInput = {
+      col,
+      colLetter: columnLabel(col),
+      header: headerRow ? doc.getDisplayValue(top, col) : '',
+      rangeLabel: `${cellLabel(top, left)}:${cellLabel(bottom, right)}`,
+      headerRow,
+      hasActiveFilter: existing !== null,
+      existing: existing?.columns.find((c) => c.col === col) ?? null,
+      otherColumns: existing ? existing.columns.filter((c) => c.col !== col).length : 0,
+      values,
+      valuesTruncated,
+    };
+    const result = await this.ui.chooseFilter(input);
+    if (!result || tab.doc !== doc) {
+      return false; // cancelled (or replaced document): nothing changes
+    }
+    if (result.action === 'clearAll') {
+      return this.clearAllFilters(tab);
+    }
+
+    // Build the new filter state from the dialog result.
+    const keptColumns = (existing?.columns ?? []).filter((c) => c.col !== col);
+    const newHeaderRow = result.action === 'apply' ? result.headerRow : headerRow;
+    const newColumn = result.action === 'apply' ? result.column : null;
+    const columns = [...keptColumns, ...(newColumn ? [newColumn] : [])].sort((a, b) => a.col - b.col);
+    if (columns.length === 0) {
+      // No criteria left anywhere: the filter as a whole is cleared.
+      return this.clearAllFilters(tab);
+    }
+    const filter = validateFilter(
+      { top, left, bottom, right, headerRow: newHeaderRow, columns },
+      doc.rowCount,
+      doc.columnCount,
+    );
+    if (!filter) {
+      // Out-of-bounds criteria (should be prevented by the dialog's own
+      // bounds) are refused rather than partially applied.
+      await this.ui.showMessage(t('dialog.filter.title'), t('dialog.filter.invalid'));
+      return false;
+    }
+    return this.applyFilter(tab, filter);
+  }
+
+  /**
+   * Evaluate `filter` (time-sliced with progress for large ranges) and apply
+   * it as one atomic, undoable history entry. Aborts — changing nothing — if
+   * the document is replaced while yielding.
+   */
+  private async applyFilter(tab: Tab, filter: SheetFilter): Promise<boolean> {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return false;
+    }
+    const dataTop = filterDataTop(filter);
+    const rows = filter.bottom - dataTop + 1;
+    const hidden = new Set<number>();
+    const evaluateRow = (i: number): void => {
+      const row = dataTop + i;
+      if (!rowMatchesFilter(filter, row, (r, c) => doc.getDisplayValue(r, c))) {
+        hidden.add(row);
+      }
+    };
+    if (rows > LARGE_OP_CELLS) {
+      const label = t('loading.filtering');
+      const completed = await this.withBusy(label, () =>
+        forEachIndexSliced(rows, evaluateRow, {
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`),
+          shouldStop: () => tab.doc !== doc,
+        }),
+      );
+      if (!completed || tab.doc !== doc) {
+        return false;
+      }
+    } else {
+      for (let i = 0; i < rows; i++) {
+        evaluateRow(i);
+      }
+    }
+    // Seed the snapshot before the atomic apply so the grid never recomputes.
+    this.state.seedHiddenRows(filter, hidden);
+    const applied = this.state.setFilter(tab, filter);
+    if (applied) {
+      this.moveSelectionOffHiddenRow(tab);
+      this.ui.notify(t('notify.filtered', { shown: rows - hidden.size, total: rows }), 'info');
+    }
+    return applied;
+  }
+
+  /** Sheet > Clear All Filters: every row becomes visible again (undoable). */
+  clearAllFilters(tab: Tab): boolean {
+    const applied = this.state.setFilter(tab, null);
+    if (applied) {
+      this.ui.notify(t('notify.filterCleared'), 'info');
+    }
+    return applied;
+  }
+
+  /**
+   * After a filter (re)application, move a selection whose active cell ended
+   * up on a hidden row to the nearest visible row, so keyboard navigation
+   * and editing always continue from something the user can see.
+   */
+  private moveSelectionOffHiddenRow(tab: Tab): void {
+    const sel = tab.selection;
+    const hidden = this.state.hiddenRows(tab);
+    if (!sel || !hidden || !hidden.has(sel.row)) {
+      return;
+    }
+    let row = sel.row;
+    while (row < tab.doc.rowCount && hidden.has(row)) {
+      row += 1;
+    }
+    if (row >= tab.doc.rowCount) {
+      row = sel.row;
+      while (row >= 0 && hidden.has(row)) {
+        row -= 1;
+      }
+    }
+    if (row >= 0 && row < tab.doc.rowCount) {
+      this.state.setSelection(tab, { row, col: sel.col }, null);
+    }
+  }
+
+  /** Clear every cell in the selected range as one undoable operation.
+   *  Rows hidden by an active filter are never modified (documented). */
   clearRange(tab: Tab): boolean {
     const range = this.state.selectedRange(tab);
     if (!range) {
       return false;
     }
     const doc = tab.doc;
+    const hidden = this.state.hiddenRows(tab);
     const changes: CellChange[] = [];
     for (let r = range.top; r <= range.bottom; r++) {
+      if (hidden?.has(r)) {
+        continue;
+      }
       const cols = Math.min(range.right + 1, doc.fieldCount(r));
       for (let c = range.left; c < cols; c++) {
         const current = doc.getValue(r, c);

@@ -20,6 +20,7 @@ const noopUi: UiPort = {
   chooseExportCsv: async () => ({ encoding: 'utf-8' as const, bom: false, lineEnding: 'lf' as const }),
   chooseInsertShift: async () => null,
   confirmFlashFill: async () => false,
+  chooseFilter: async () => null,
   confirm: async () => true,
   showMessage: async () => undefined,
   notify: () => undefined,

@@ -76,6 +76,20 @@ export class StatusBar {
       if (formulas > 0) {
         this.element.append(el('span', { text: t('status.formulas', { n: formulas }) }));
       }
+      // Active filter: visible-row / total-row count over the filtered range.
+      if (doc.filter !== null) {
+        const hidden = this.state.hiddenRows(tab);
+        const dataTop = doc.filter.headerRow ? doc.filter.top + 1 : doc.filter.top;
+        const total = Math.max(0, doc.filter.bottom - dataTop + 1);
+        const shown = total - (hidden ? hidden.size : 0);
+        this.element.append(
+          el('span', {
+            className: 'status-filter',
+            text: t('status.filtered', { shown, total }),
+            attrs: { title: t('status.filteredTitle') },
+          }),
+        );
+      }
       if (doc.isDirty) {
         this.element.append(el('span', { text: t('status.unsaved') }));
       }
@@ -164,8 +178,12 @@ export class StatusBar {
     const doc = tab.doc;
     const readDisplay = (r: number, c: number): string =>
       doc.kind === 'rsf' ? doc.getDisplayValue(r, c) : doc.getValue(r, c);
+    // Rows hidden by an active filter are excluded from the aggregates (the
+    // stats describe the visible selection).
+    const hidden = this.state.hiddenRows(tab);
+    const isHidden = hidden ? (r: number): boolean => hidden.has(r) : undefined;
     if (area <= SYNC_STATS_CELL_LIMIT) {
-      const stats = computeSelectionStats(range, readDisplay, (r) => doc.fieldCount(r));
+      const stats = computeSelectionStats(range, readDisplay, (r) => doc.fieldCount(r), isHidden);
       for (const span of this.statsSpans(stats)) {
         this.element.append(span);
       }
@@ -199,7 +217,13 @@ export class StatusBar {
     if (token !== this.statsToken || tab.doc !== doc) {
       return;
     }
-    const acc = new SelectionStatsAccumulator(range, readDisplay, (r) => doc.fieldCount(r));
+    const hidden = this.state.hiddenRows(tab);
+    const acc = new SelectionStatsAccumulator(
+      range,
+      readDisplay,
+      (r) => doc.fieldCount(r),
+      hidden ? (r) => hidden.has(r) : undefined,
+    );
     const rows = range.bottom - range.top + 1;
     const completed = await forEachIndexSliced(rows, (i) => acc.scanRow(range.top + i), {
       budgetMs: 8,

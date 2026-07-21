@@ -2,7 +2,7 @@
 import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import { LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
-import { getEditHints } from '../app/settings';
+import { getEditHints, nextZoomLevel } from '../app/settings';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import { RowHeightIndex } from '../core/row-height-index';
@@ -220,6 +220,8 @@ interface LayoutSignature {
   locale: string;
   /** Spreadsheet zoom percent — changing it rescales every grid metric. */
   zoom: number;
+  /** Hidden-row snapshot identity — a filter change rebuilds the window. */
+  hidden: unknown;
 }
 
 /**
@@ -260,6 +262,9 @@ const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string } | 'sepa
   { command: 'edit.insertCopiedCols', labelKey: 'menu.edit.insertCopiedCols' },
   { command: 'edit.flashFill', labelKey: 'menu.edit.flashFill' },
   { command: 'edit.revertCell', labelKey: 'menu.edit.revertCell' },
+  'separator',
+  { command: 'sheet.filter', labelKey: 'menu.sheet.filter' },
+  { command: 'sheet.filterClear', labelKey: 'menu.sheet.filterClear' },
   'separator',
   { command: 'sheet.insertRowAbove', labelKey: 'menu.sheet.insertRowAbove' },
   { command: 'sheet.insertRowBelow', labelKey: 'menu.sheet.insertRowBelow' },
@@ -334,6 +339,10 @@ export class Grid {
   private readonly sink: HTMLTextAreaElement;
   /** Hidden description element backing the inline editor's help tooltip. */
   private readonly editorHint: HTMLElement;
+  /** Polite live region announcing spreadsheet-zoom changes to AT. */
+  private readonly zoomLive: HTMLElement;
+  /** Zoom last announced through the live region (null before first render). */
+  private announcedZoom: number | null = null;
   /** True between compositionstart and compositionend on the sink (IME is composing). */
   private composing = false;
   private contextMenu: HTMLElement | null = null;
@@ -396,12 +405,24 @@ export class Grid {
       className: 'visually-hidden',
       attrs: { id: 'grid-editor-hint' },
     });
+    // Zoom announcements ("Spreadsheet zoom: 125%") for screen readers; the
+    // visual change itself is instantaneous (no animation — this also honors
+    // reduced-motion preferences by construction).
+    this.zoomLive = el('div', {
+      className: 'visually-hidden',
+      attrs: { role: 'status', 'aria-live': 'polite' },
+    });
     this.canvas.append(this.headerEl, this.stickyEl, this.rowsLayer, this.measureCell, this.sink);
-    this.element.append(this.canvas, this.editorHint);
+    this.element.append(this.canvas, this.editorHint, this.zoomLive);
 
     // Scroll never calls preventDefault, so the listener is passive (the
     // browser can start compositor scrolling without waiting on the handler).
     this.element.addEventListener('scroll', () => this.onScroll(), { passive: true });
+    // Ctrl/Cmd + mouse wheel zooms the spreadsheet (grid area only). The
+    // listener must be non-passive because the recognized gesture — and only
+    // that gesture — prevents the browser's page-zoom default; a plain wheel
+    // scroll is never touched.
+    this.element.addEventListener('wheel', (event) => this.onWheel(event), { passive: false });
     this.element.addEventListener('keydown', (event) => this.onKeyDown(event));
     this.element.addEventListener('mousedown', (event) => this.onMouseDown(event));
     this.element.addEventListener('mousemove', (event) => this.onMouseMove(event));
@@ -488,6 +509,11 @@ export class Grid {
     return (tab.zoom || 100) / 100;
   }
 
+  /** The active filter's hidden-row set (null when nothing is filtered). */
+  private hiddenOf(tab: Tab): Set<number> | null {
+    return this.state.hiddenRows(tab);
+  }
+
   /** Zoomed default (single-line) row height in px. */
   private rowH(tab: Tab): number {
     return Math.round(ROW_HEIGHT * this.zoomOf(tab));
@@ -510,16 +536,32 @@ export class Grid {
 
   /** Zoom the row-height index was built for, per document. */
   private readonly indexZoom = new WeakMap<object, number>();
+  /** Hidden-row snapshot the row-height index was seeded with, per document. */
+  private readonly indexHidden = new WeakMap<object, Set<number> | null>();
 
-  /** The per-tab row-height index (created lazily; uniform until wrapping grows a row). */
+  /**
+   * The per-tab row-height index (created lazily; uniform until wrapping
+   * grows a row or a filter hides one). Rows hidden by the active filter are
+   * seeded with height 0, so the virtualization offsets, scroll extent, and
+   * hit testing collapse them without any per-frame filtering work — and
+   * without ever materializing DOM for them.
+   */
   private heightIndex(tab: Tab): RowHeightIndex {
     let index = this.rowHeights.get(tab.doc);
-    if (!index || this.indexZoom.get(tab.doc) !== tab.zoom) {
-      // A zoom change invalidates every cached height (the uniform default
-      // and any wrapped measurements), so the index starts fresh.
+    const hidden = this.hiddenOf(tab);
+    if (!index || this.indexZoom.get(tab.doc) !== tab.zoom || this.indexHidden.get(tab.doc) !== hidden) {
+      // A zoom or filter change invalidates every cached height (the uniform
+      // default and any wrapped measurements), so the index starts fresh.
       index = new RowHeightIndex(this.rowH(tab));
+      if (hidden) {
+        for (const row of hidden) {
+          index.set(row, 0);
+        }
+      }
       this.rowHeights.set(tab.doc, index);
       this.indexZoom.set(tab.doc, tab.zoom);
+      this.indexHidden.set(tab.doc, hidden ?? null);
+      this.wrapPassSig = null; // re-measure wrapped heights for the new state
       this.heightsVersion += 1;
     }
     return index;
@@ -542,7 +584,9 @@ export class Grid {
   }
 
   private stickyEnabled(tab: Tab): boolean {
-    return this.state.stickyFirstRow && tab.doc.rowCount > 0;
+    // A first row hidden by the active filter is never pinned (pinning it
+    // would show a row the filter hides).
+    return this.state.stickyFirstRow && tab.doc.rowCount > 0 && !this.hiddenOf(tab)?.has(0);
   }
 
   /** First document row of the scrolling region. */
@@ -637,6 +681,7 @@ export class Grid {
       sticky: this.stickyEnabled(tab),
       locale: getLocale(),
       zoom: tab.zoom,
+      hidden: this.hiddenOf(tab),
     };
   }
 
@@ -654,7 +699,8 @@ export class Grid {
       a.font === b.font &&
       a.sticky === b.sticky &&
       a.locale === b.locale &&
-      a.zoom === b.zoom
+      a.zoom === b.zoom &&
+      a.hidden === b.hidden
     );
   }
 
@@ -748,6 +794,57 @@ export class Grid {
     cell.append(handle);
   }
 
+  /**
+   * Ctrl (Windows/Linux) / Cmd (macOS) + mouse wheel: step the spreadsheet
+   * zoom through the shared presets, anchored at the pointer so the content
+   * under the cursor stays put instead of jumping. Only the recognized
+   * gesture over the grid is consumed; plain scrolling, IME composition,
+   * open editors, and active drags (resize/fill/selection/reference entry)
+   * are left alone, and the browser's own zoom shortcuts are never touched.
+   */
+  private onWheel(event: WheelEvent): void {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+      return; // plain scroll (or an OS-level gesture): never intercepted
+    }
+    const tab = this.state.activeTab;
+    if (!tab || tab.doc !== this.lastDoc) {
+      return;
+    }
+    if (this.composing || this.editor !== null) {
+      return; // text entry owns the interaction
+    }
+    if (this.resizing || this.filling || this.dragging || this.headerDrag || this.refDrag) {
+      return; // another pointer interaction owns the gesture
+    }
+    if (event.deltaY === 0) {
+      return;
+    }
+    // The gesture is recognized and handled from here on; preventing the
+    // default keeps the browser's page zoom out of the spreadsheet area
+    // (including at the clamp ends, where a sudden page zoom would jar).
+    event.preventDefault();
+    const direction: 1 | -1 = event.deltaY < 0 ? 1 : -1;
+    const oldZoom = this.zoomOf(tab);
+    const next = nextZoomLevel(tab.zoom, direction);
+    if (next === tab.zoom) {
+      return; // already at the preset range's end
+    }
+    // Pointer anchor in content coordinates (inside the scrolling region).
+    const rect = this.element.getBoundingClientRect();
+    const px = Math.max(0, event.clientX - rect.left - this.headW(tab));
+    const py = Math.max(0, event.clientY - rect.top - this.overlayHeight(tab));
+    const contentX = this.element.scrollLeft + px;
+    const contentY = this.element.scrollTop + py;
+    // Shared zoom state/command path (same as the menu and shortcuts); the
+    // 'view' event re-renders the grid synchronously with the new metrics.
+    this.state.setTabZoom(tab, next);
+    // Keep the content point under the pointer: content coordinates scale
+    // (approximately, up to per-cell rounding) with the zoom ratio.
+    const scale = this.zoomOf(tab) / oldZoom;
+    this.element.scrollLeft = Math.max(0, Math.round(contentX * scale - px));
+    this.element.scrollTop = Math.max(0, Math.round(contentY * scale - py));
+  }
+
   private onScroll(): void {
     if (this.scrollScheduled) {
       return;
@@ -831,7 +928,16 @@ export class Grid {
     // metrics) every row keeps the single-line height.
     const measurer = this.state.wrapCells ? this.buildWrapMeasurer() : null;
     if (!measurer) {
+      // No wrapping: every row is single-line — except rows an active filter
+      // hides, whose collapsed (0-height) overrides must be preserved so the
+      // virtualization still skips their bands.
       idx.clear();
+      const hidden = this.hiddenOf(tab);
+      if (hidden) {
+        for (const row of hidden) {
+          idx.set(row, 0);
+        }
+      }
       this.wrapPassSig = null;
     }
     let win = this.computeWindow(tab);
@@ -864,6 +970,14 @@ export class Grid {
     this.element.style.setProperty('--grid-row-height', `${this.rowH(tab)}px`);
     this.element.style.setProperty('--grid-wrap-line', `${this.wrapLineH(tab)}px`);
     document.documentElement.style.setProperty('--sheet-zoom', String(this.zoomOf(tab)));
+    // Announce zoom changes politely (menu, shortcut, or wheel — one shared
+    // path). The first render of a tab sets the baseline silently.
+    if (this.announcedZoom === null) {
+      this.announcedZoom = tab.zoom;
+    } else if (this.announcedZoom !== tab.zoom) {
+      this.announcedZoom = tab.zoom;
+      this.zoomLive.textContent = t('grid.zoomAnnounce', { pct: tab.zoom });
+    }
     this.canvas.style.width = `${totalW}px`;
     this.canvas.style.height = `${this.overlayHeight(tab) + layerHeight}px`;
     this.element.setAttribute('aria-rowcount', String(doc.rowCount + 1));
@@ -877,6 +991,7 @@ export class Grid {
     const headSpacer = el('div', { className: 'vspacer', attrs: { 'aria-hidden': 'true' } });
     headSpacer.style.width = `${this.colOffset(tab, win.colStart)}px`;
     this.headerEl.append(headSpacer);
+    const filter = doc.kind === 'rsf' ? doc.filter : null;
     for (let c = win.colStart; c < win.colEnd; c++) {
       const head = el('div', {
         className: 'vcell vhead',
@@ -888,6 +1003,30 @@ export class Grid {
         },
       });
       head.style.width = `${this.colWidth(tab, c)}px`;
+      // Active filter: every column of the filtered range gets a keyboard-
+      // accessible filter button in its header; columns that carry criteria
+      // show it filled. The button dispatches the same shared filter command
+      // as the menu and context menu.
+      if (filter && c >= filter.left && c <= filter.right) {
+        const filtered = filter.columns.some((column) => column.col === c);
+        const key = filtered ? 'grid.filterButtonActive' : 'grid.filterButton';
+        const filterButton = el('button', {
+          className: `filter-indicator${filtered ? ' active' : ''}`,
+          text: '▼',
+          attrs: {
+            type: 'button',
+            'data-colfilter': String(c),
+            'aria-label': t(key, { letter: columnLabel(c) }),
+            title: t(key, { letter: columnLabel(c) }),
+          },
+        });
+        filterButton.addEventListener('mousedown', (event) => event.stopPropagation());
+        filterButton.addEventListener('click', (event) => {
+          event.stopPropagation();
+          void this.commands.filterDialog(tab, c);
+        });
+        head.append(filterButton);
+      }
       // Draggable boundary to resize; double-click auto-fits to visible content.
       const handle = el('div', {
         className: 'col-resize-handle',
@@ -917,6 +1056,9 @@ export class Grid {
     this.rowsLayer.style.height = `${layerHeight}px`;
     for (let row = win.rowStart; row < win.rowEnd; row++) {
       const height = idx.heightOf(row);
+      if (height === 0) {
+        continue; // hidden by the active filter: no DOM is materialized
+      }
       const wrapped = height > this.rowH(tab);
       const rowEl = el('div', {
         className: `vgrid-row ${row % 2 === 1 ? 'alt' : ''}${wrapped ? ' wrapped' : ''}`,
@@ -977,6 +1119,9 @@ export class Grid {
    * sticky row is always single-line.
    */
   private computeRowHeight(tab: Tab, row: number, measure: WrapMeasure, chrome: number): number {
+    if (this.hiddenOf(tab)?.has(row)) {
+      return 0; // filtered out: the row's band collapses entirely
+    }
     if (this.stickyEnabled(tab) && row === 0) {
       return this.rowH(tab);
     }
@@ -1027,7 +1172,8 @@ export class Grid {
   /** Signature the off-screen wrap pass is keyed to (font/locale/dims/doc). */
   private layoutToken(tab: Tab): string {
     const s = this.layoutSignature(tab);
-    return `${this.docToken(tab.doc)}|${s.rows}x${s.cols}|${s.wrap}|${s.font}|${s.sticky}|${s.locale}|${s.zoom}`;
+    const hiddenToken = s.hidden ? this.docToken(s.hidden) : 0;
+    return `${this.docToken(tab.doc)}|${s.rows}x${s.cols}|${s.wrap}|${s.font}|${s.sticky}|${s.locale}|${s.zoom}|${hiddenToken}`;
   }
 
   /**
@@ -1945,9 +2091,38 @@ export class Grid {
     }
   }
 
+  /**
+   * Step a row index by `delta` counting only visible rows, so keyboard
+   * navigation (arrows, PageUp/Down) skips rows hidden by an active filter
+   * exactly like they are skipped visually. Without a filter this reduces to
+   * a plain clamped addition.
+   */
+  private stepVisibleRow(tab: Tab, from: number, delta: number): number {
+    const hidden = this.hiddenOf(tab);
+    const rowCount = tab.doc.rowCount;
+    if (!hidden || hidden.size === 0) {
+      return Math.max(0, Math.min(rowCount - 1, from + delta));
+    }
+    const dir = delta > 0 ? 1 : -1;
+    let steps = Math.abs(delta);
+    let row = from;
+    while (steps > 0) {
+      let next = row + dir;
+      while (next >= 0 && next < rowCount && hidden.has(next)) {
+        next += dir;
+      }
+      if (next < 0 || next >= rowCount) {
+        break; // no further visible row in this direction
+      }
+      row = next;
+      steps -= 1;
+    }
+    return row;
+  }
+
   private moveSelection(tab: Tab, dRow: number, dCol: number, extend: boolean): void {
     const sel = tab.selection ?? { row: 0, col: 0 };
-    const row = Math.max(0, Math.min(tab.doc.rowCount - 1, sel.row + dRow));
+    const row = dRow === 0 ? sel.row : this.stepVisibleRow(tab, sel.row, dRow);
     let col = sel.col + dCol;
     const fieldCount = tab.doc.fieldCount(row);
     if (col >= fieldCount) col = fieldCount - 1;

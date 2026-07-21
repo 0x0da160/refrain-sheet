@@ -55,6 +55,13 @@ export interface ShortcutKey {
   metaKey: boolean;
   shiftKey: boolean;
   altKey: boolean;
+  /**
+   * Physical-key code (`KeyboardEvent.code`), used only for the spreadsheet
+   * zoom shortcuts: with Shift held, `key` becomes layout-dependent
+   * punctuation, while `code` names the physical `Period`/`Comma`/`Digit0`
+   * keys on every layout.
+   */
+  code?: string;
 }
 
 /**
@@ -89,6 +96,22 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     }
     if (event.shiftKey && key === 'h') {
       return 'search.replace';
+    }
+    // Spreadsheet zoom: Ctrl+Shift+Period (in) / Ctrl+Shift+Comma (out) /
+    // Ctrl+Shift+0 (reset). Deliberately NOT the browser's zoom keys
+    // (Ctrl +/-/0), which are never intercepted. Matched on the physical key
+    // (`code`) so Shift-shifted layouts (>, <) resolve identically, and
+    // suppressed in text fields so typing punctuation is never disturbed.
+    if (event.shiftKey && !ctx.inTextField) {
+      if (event.code === 'Period') {
+        return 'view.zoom.in';
+      }
+      if (event.code === 'Comma') {
+        return 'view.zoom.out';
+      }
+      if (event.code === 'Digit0') {
+        return 'view.zoom.reset';
+      }
     }
     // Select All Cells: owned only while the grid itself is focused, so the
     // browser's global Ctrl+A (page text, text inputs) is never suppressed.
@@ -150,6 +173,10 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Ctrl+D / Cmd+D', descKey: 'shortcut.fillDown' },
   { keys: 'Ctrl+Shift+F / Cmd+Shift+F', descKey: 'shortcut.find' },
   { keys: 'Ctrl+Shift+H / Cmd+Shift+H', descKey: 'shortcut.replace' },
+  { keys: 'Ctrl+Shift+. / Cmd+Shift+.', descKey: 'shortcut.zoomIn' },
+  { keys: 'Ctrl+Shift+, / Cmd+Shift+,', descKey: 'shortcut.zoomOut' },
+  { keys: 'Ctrl+Shift+0 / Cmd+Shift+0', descKey: 'shortcut.zoomReset' },
+  { keys: 'Ctrl+Wheel / Cmd+Wheel', descKey: 'shortcut.zoomWheel' },
   { keys: 'Enter / Shift+Enter', descKey: 'shortcut.findNextPrev' },
   { keys: 'F2', descKey: 'shortcut.editCell' },
   { keys: 'Enter', descKey: 'shortcut.commitDown' },

@@ -29,14 +29,18 @@ function ruleBody(selector: string): string {
 describe('grid typography model (stylesheet)', () => {
   it('defines the row-height variable in sync with the ROW_HEIGHT constant', () => {
     expect(css).toContain(`--grid-row-height: ${ROW_HEIGHT}px`);
-    // The single-line box is the cell content height: row height minus the
-    // 1px bottom border — that is what centers the text.
-    expect(css).toContain('--grid-cell-line: calc(var(--grid-row-height) - 1px)');
   });
 
-  it('cells center single-line text via line-height, with no vertical padding', () => {
+  it('cells center single-line text via a zoom-tracking line box, no vertical padding', () => {
     const body = ruleBody('.vcell');
-    expect(body).toMatch(/line-height:\s*var\(--grid-cell-line\)/);
+    // The line box is derived from the *inherited* --grid-row-height (the
+    // grid sets the zoom-scaled value inline on the container), so it tracks
+    // the row height at every zoom level instead of freezing at 100%. This is
+    // the fix for text being mis-centered at non-100% zoom: the previous model
+    // derived the line box once at :root, using the un-zoomed value.
+    expect(body).toMatch(/line-height:\s*calc\(var\(--grid-row-height\) - 1px\)/);
+    // The variable is NOT resolved at :root (which would freeze it at 100%).
+    expect(css).not.toContain('--grid-cell-line');
     // Horizontal padding only (zoom-scaled) — vertical space is owned by the
     // line box.
     expect(body).toMatch(/padding:\s*0 calc\(8px \* var\(--sheet-zoom, 1\)\)/);
@@ -86,6 +90,7 @@ const noopUi: UiPort = {
   chooseExportCsv: async () => null,
   chooseInsertShift: async () => null,
   confirmFlashFill: async () => false,
+  chooseFilter: async () => null,
   confirm: async () => true,
   showMessage: async () => undefined,
   notify: () => undefined,

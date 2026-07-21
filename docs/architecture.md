@@ -144,7 +144,25 @@ yield between slices). The rules, applied uniformly by the command layer:
   ceiling), and parsing never executes anything. Display settings (zoom,
   column widths — body version 3) are presentational only: they are validated
   and clamped on load, never affect cell data, and never mark a document
-  dirty (see docs/rsf-format.md).
+  dirty. The sheet filter (body version 4) is pure, non-executable criteria
+  data: it is fully validated against the sheet dimensions and documented
+  bounds on load, and a structurally readable but invalid filter is dropped
+  (never guessed at) with a warning so it can never corrupt the document (see
+  docs/rsf-format.md).
+- **Filter = hide only, never mutate:** a filter (`src/core/filter.ts`) only
+  computes a hidden-row set; it never deletes, reorders, or rewrites cells,
+  and formula evaluation is unaffected. The virtualized grid collapses hidden
+  rows to zero height in the row-height index — no DOM is materialized for
+  them — and copy/fill/clear/Flash Fill/selection-stats and keyboard
+  navigation all skip hidden rows consistently. Applying/clearing a filter is
+  one atomic `HistoryEntry` (a `filter` op); structural row/column edits bundle
+  a filter-clear into the same entry so the stored range can never drift.
+- **One zoom sizing model:** the grid's per-tab zoom scales one set of JS
+  metrics (row height, header width, wrap line box) and drives the CSS via
+  inline custom properties set from those same values, so the line box a cell
+  centers text in is derived from the _inherited_ zoom-scaled row height — the
+  element height and CSS line box cannot diverge at any zoom level
+  (`tests/zoom-alignment.test.ts`). Column widths are stored at 100% zoom.
 - **Deterministic Flash Fill:** pattern inference (`src/core/flash-fill.ts`)
   is a bounded, deterministic search over closed data structures — no
   network, no model, no dynamic code — and a fill is proposed only when every

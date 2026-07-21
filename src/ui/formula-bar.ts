@@ -3,7 +3,8 @@ import type { AppState, FormulaRefTarget } from '../app/app-state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { getEditHints } from '../app/settings';
-import { cellLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
+import { extractFormulaRefs, type FormulaRefRange } from '../core/formula';
+import { selectionRefLabel } from '../core/selection-label';
 import { el } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 import { isComposingKey } from './ime';
@@ -186,7 +187,18 @@ export class FormulaBar implements FormulaRefTarget {
     }
     this.textarea.disabled = false;
     const { row, col } = tab.selection;
-    this.refEl.textContent = cellLabel(row, col);
+    // The reference box shows the whole selection (A1, A1:B2, 1:3, A:C, or the
+    // used range for Select All) — never only the active cell. Selection
+    // semantics are unchanged; this is display only.
+    const range = this.state.selectedRange(tab);
+    this.refEl.textContent = range
+      ? selectionRefLabel({
+          range,
+          kind: tab.selectionKind,
+          rowCount: tab.doc.rowCount,
+          columnCount: tab.doc.columnCount,
+        })
+      : '';
     // The formula bar always shows the raw input (the formula expression for
     // formula cells); the grid shows the calculated value.
     const value = tab.doc.getValue(row, col);

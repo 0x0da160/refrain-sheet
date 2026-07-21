@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { normalizeRange, type CellRange } from '../core/clipboard';
+import { computeHiddenRows, filtersEqual, type SheetFilter } from '../core/filter';
 import { adjustFormulaForAxis, isFormula, shiftFormulaRefs } from '../core/formula';
 import { cellsEntry, History, type CellChange, type HistoryEntry, type Operation } from '../core/history';
 import type { LosslessDocument } from '../core/lossless-document';
@@ -103,6 +104,16 @@ export class AppState {
   stickyFirstRow: boolean;
   /** The formula editor currently able to accept pointer-entered references. */
   formulaRefTarget: FormulaRefTarget | null = null;
+
+  /**
+   * Hidden-row snapshots per filter object. A filter's hidden set is computed
+   * when the filter is applied/edited/restored (documented snapshot
+   * semantics: editing cells afterwards does not re-evaluate the filter —
+   * re-apply it from the Filter dialog to re-evaluate). Filter objects are
+   * immutable, so a WeakMap keyed by them caches undo/redo restores for free
+   * and releases the sets with their filters.
+   */
+  private readonly hiddenRowsCache = new WeakMap<SheetFilter, Set<number>>();
 
   private listeners = new Set<(event: StateEventType) => void>();
 
@@ -321,7 +332,15 @@ export class AppState {
 
   /** Push and apply a prebuilt multi-op entry atomically. */
   pushEntry(tab: Tab, entry: HistoryEntry): boolean {
-    const nonEmpty = entry.ops.some((op) => (op.type === 'cells' ? op.changes.length > 0 : op.count > 0));
+    const nonEmpty = entry.ops.some((op) => {
+      if (op.type === 'cells') {
+        return op.changes.length > 0;
+      }
+      if (op.type === 'filter') {
+        return !filtersEqual(op.before, op.after);
+      }
+      return op.count > 0;
+    });
     if (!nonEmpty) {
       return false;
     }
@@ -387,6 +406,7 @@ export class AppState {
     const entry: HistoryEntry = {
       label: 'history.insertRows',
       ops: [
+        ...this.filterClearOps(doc),
         { type: 'rows', action: 'insert', index, count, data: Array.from({ length: count }, () => []) },
         { type: 'cells', changes: rewrites },
       ],
@@ -415,6 +435,7 @@ export class AppState {
     const entry: HistoryEntry = {
       label: 'history.deleteRows',
       ops: [
+        ...this.filterClearOps(doc),
         { type: 'rows', action: 'delete', index, count, data },
         { type: 'cells', changes: rewrites },
       ],
@@ -431,6 +452,7 @@ export class AppState {
     const entry: HistoryEntry = {
       label: 'history.insertCols',
       ops: [
+        ...this.filterClearOps(doc),
         { type: 'cols', action: 'insert', index, count, data: Array.from({ length: count }, () => []) },
         { type: 'cells', changes: rewrites },
       ],
@@ -457,6 +479,7 @@ export class AppState {
     const entry: HistoryEntry = {
       label: 'history.deleteCols',
       ops: [
+        ...this.filterClearOps(doc),
         { type: 'cols', action: 'delete', index, count, data },
         { type: 'cells', changes: rewrites },
       ],
@@ -486,7 +509,7 @@ export class AppState {
     }
     const height = matrix.length;
     const width = matrix[0].length;
-    const ops: Operation[] = [];
+    const ops: Operation[] = [...this.filterClearOps(doc)];
     let rewrites: CellChange[];
     if (direction === 'down') {
       rewrites = this.formulaRewrites(doc, 'row', 'insert', at.row, height);
@@ -667,6 +690,66 @@ export class AppState {
     this.emit('view');
   }
 
+  // ----- Filtering (RSF spreadsheet documents only) -----
+
+  /**
+   * The hidden data rows of a tab's active filter, or null when nothing is
+   * filtered. Computed once per filter object (snapshot semantics — see
+   * {@link hiddenRowsCache}); the filter-apply command seeds this with its
+   * time-sliced result via {@link seedHiddenRows} so large filters never
+   * compute twice.
+   */
+  hiddenRows(tab: Tab): Set<number> | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || doc.filter === null) {
+      return null;
+    }
+    let hidden = this.hiddenRowsCache.get(doc.filter);
+    if (!hidden) {
+      hidden = computeHiddenRows(doc.filter, (r, c) => doc.getDisplayValue(r, c));
+      this.hiddenRowsCache.set(doc.filter, hidden);
+    }
+    return hidden;
+  }
+
+  /** Pre-store a filter's hidden-row set (computed with slicing/progress). */
+  seedHiddenRows(filter: SheetFilter, hidden: Set<number>): void {
+    this.hiddenRowsCache.set(filter, hidden);
+  }
+
+  /** True when a row is hidden by the tab's active filter. */
+  isRowHidden(tab: Tab, row: number): boolean {
+    return this.hiddenRows(tab)?.has(row) ?? false;
+  }
+
+  /**
+   * Set (or clear, with null) the document's filter as one atomic, undoable
+   * history entry. Never touches cell values. Returns false when the tab is
+   * not an RSF document or the filter is unchanged.
+   */
+  setFilter(tab: Tab, filter: SheetFilter | null): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || filtersEqual(doc.filter, filter)) {
+      return false;
+    }
+    const entry: HistoryEntry = {
+      label: 'history.filter',
+      ops: [{ type: 'filter', before: doc.filter, after: filter }],
+    };
+    return this.pushEntry(tab, entry);
+  }
+
+  /**
+   * A filter-clearing operation to prepend to a structural entry. Structural
+   * row/column insertion and deletion clear an active filter as part of the
+   * same atomic entry (documented behavior): the stored range would otherwise
+   * silently drift against the moved rows. Undo restores structure *and*
+   * filter together.
+   */
+  private filterClearOps(doc: RsfDocument): Operation[] {
+    return doc.filter !== null ? [{ type: 'filter', before: doc.filter, after: null }] : [];
+  }
+
   // ----- Internals -----
 
   /** Formula rewrites for a structural change, targeting post-change coordinates. */
@@ -718,6 +801,10 @@ export class AppState {
     }
     const doc = tab.doc;
     if (doc.kind !== 'rsf') {
+      return;
+    }
+    if (op.type === 'filter') {
+      doc.setFilterState(direction === 'after' ? op.after : op.before);
       return;
     }
     const effective = direction === 'after' ? op.action : op.action === 'insert' ? 'delete' : 'insert';

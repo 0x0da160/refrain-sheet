@@ -29,6 +29,26 @@ import type { ValidationSummary } from '../core/validation';
 import { APP_VERSION_DISPLAY } from '../app/version';
 import { el } from './dom';
 
+/** Canonical external links (also listed at the top of README.md). */
+const SITE_URL = 'https://0x0da160.github.io/refrain-sheet/';
+const RELEASES_URL = 'https://github.com/0x0da160/refrain-sheet/releases/';
+
+/**
+ * A safe external hyperlink. The href/text are fixed constants (never CSV or
+ * user content), text goes through textContent, and the link opens in a new
+ * tab with `rel="noopener noreferrer"` so the opened page cannot reach back
+ * through `window.opener`. Keyboard/focus/screen-reader support is native to
+ * the anchor; visual styling (incl. light/dark themes and focus ring) is in
+ * `.dialog-link`.
+ */
+function externalLink(text: string, href: string): HTMLAnchorElement {
+  return el('a', {
+    className: 'dialog-link',
+    text,
+    attrs: { href, target: '_blank', rel: 'noopener noreferrer' },
+  });
+}
+
 function cellName(row: number, col: number): string {
   return `R${row + 1}C${col + 1}`;
 }
@@ -864,6 +884,13 @@ export class Dialogs {
       );
       body.append(el('p', { text: t('dialog.about.tagline') }));
       body.append(el('p', { text: t('dialog.about.body') }));
+      body.append(el('h3', { text: t('dialog.about.links') }));
+      body.append(
+        el('ul', { className: 'about-links' }, [
+          el('li', {}, [externalLink(t('dialog.about.webApp'), SITE_URL)]),
+          el('li', {}, [externalLink(t('dialog.about.releases'), RELEASES_URL)]),
+        ]),
+      );
       body.append(el('h3', { text: t('dialog.about.shortcuts') }));
       body.append(el('p', { className: 'dialog-note', text: t('dialog.about.shortcutsNote') }));
       const table = el('table', { className: 'shortcut-table' });

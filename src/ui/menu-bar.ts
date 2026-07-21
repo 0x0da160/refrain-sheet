@@ -5,6 +5,9 @@ import { SHEET_ZOOM_LEVELS } from '../app/settings';
 import { SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../app/sheet-font';
 import { THEMES, themeLabelKey, type ThemeChoice } from '../app/theme';
 import { el, clearChildren } from './dom';
+// Bundled at build time (base:'./' → relative, hashed URL) so it resolves
+// under a GitHub Pages base path and via file://; never fetched from a CDN.
+import iconUrl from '../assets/icon.svg';
 
 export interface MenuItemDef {
   labelKey: string;
@@ -233,7 +236,23 @@ export class MenuBar {
 
   render(): void {
     clearChildren(this.element);
-    this.element.append(el('span', { className: 'app-name', text: t('app.title') }));
+    // Decorative: the adjacent product name conveys the brand, so the icon is
+    // hidden from assistive technology. Explicit width/height reserve space so
+    // it never shifts layout or stretches; the SVG stays crisp at any DPI.
+    this.element.append(
+      el('img', {
+        className: 'app-icon',
+        attrs: {
+          src: iconUrl,
+          alt: '',
+          'aria-hidden': 'true',
+          width: '20',
+          height: '20',
+          draggable: 'false',
+        },
+      }),
+      el('span', { className: 'app-name', text: t('app.title') }),
+    );
     this.menus.forEach((menu, index) => {
       const wrapper = el('div', { className: 'menu' });
       const label = menu.labelKey.includes('.') ? t(menu.labelKey) : menu.labelKey;

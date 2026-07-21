@@ -141,27 +141,30 @@ The decompression ceiling (`MAX_RSF_BODY_BYTES`) is **512 MiB**.
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
 Version selection on write is minimal so older readers keep working where
-possible: body **version 3** is written only when display settings are
-present; **version 2** when only the creating/updating application metadata
-is present; **version 1** otherwise. Versions 1–3 are all accepted on read.
+possible: body **version 4** is written only when a sheet filter is present;
+**version 3** when display settings are present; **version 2** when only the
+creating/updating application metadata is present; **version 1** otherwise.
+Versions 1–4 are all accepted on read.
 
-| Size | Field                                                           |
-| ---- | --------------------------------------------------------------- |
-| 1    | Body version — `3`, `2`, or `1` (see version selection above)   |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)     |
-| 2    | _(v2+)_ Application-name length, `u16`                          |
-| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`          |
-| 2    | _(v2+)_ Application-version length, `u16`                       |
-| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.6`               |
-| 2    | _(v3 only)_ Spreadsheet zoom percent, `u16` (`0` = none stored) |
-| 4    | _(v3 only)_ Column-width entry count `W`, `u32`                 |
-| …    | _(v3 only)_ `W` column-width entries (see below)                |
-| 2    | Sheet-name length `N`, `u16`                                    |
-| `N`  | Sheet name (UTF-8)                                              |
-| 4    | Row count, `u32`                                                |
-| 4    | Column count, `u32`                                             |
-| 4    | Cell count `C`, `u32`                                           |
-| …    | `C` cell records                                                |
+| Size | Field                                                          |
+| ---- | -------------------------------------------------------------- |
+| 1    | Body version — `4`, `3`, `2`, or `1` (see version selection)   |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)    |
+| 2    | _(v2+)_ Application-name length, `u16`                         |
+| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`         |
+| 2    | _(v2+)_ Application-version length, `u16`                      |
+| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`              |
+| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)    |
+| 4    | _(v3+)_ Column-width entry count `W`, `u32`                    |
+| …    | _(v3+)_ `W` column-width entries (see below)                   |
+| 1    | _(v4 only)_ Filter flags, `u8` (bit 0: a filter block follows) |
+| …    | _(v4 only)_ Filter block (only when bit 0 is set — see below)  |
+| 2    | Sheet-name length `N`, `u16`                                   |
+| `N`  | Sheet name (UTF-8)                                             |
+| 4    | Row count, `u32`                                               |
+| 4    | Column count, `u32`                                            |
+| 4    | Cell count `C`, `u32`                                          |
+| …    | `C` cell records                                               |
 
 ### Display settings (body version 3)
 
@@ -203,6 +206,72 @@ Changing zoom or column widths never marks a document dirty; the current
 values are recorded into the container whenever the document is saved. Plain
 CSV files never carry display settings — for CSV documents zoom is an
 application-level local preference only.
+
+### Filter (body version 4)
+
+Body version 4 adds a **sheet filter**: a saved set of criteria that hides
+non-matching rows in the editor. It is pure, **non-executable** criteria data
+— operator identifiers, plain comparison strings, and numbers only. It
+contains no expressions, regular expressions, patterns, external URLs, macros,
+or code of any kind, and filtering only ever hides rows **visually**: it never
+deletes, reorders, or rewrites cell data, and formula evaluation always uses
+the normal sheet model.
+
+The filter block (present only when filter flag bit 0 is set) is:
+
+| Size | Field                                                         |
+| ---- | ------------------------------------------------------------- |
+| 1    | Header-row flag, `u8` (1 = the range's first row is a header) |
+| 4    | Range top row (0-based), `u32`                                |
+| 4    | Range left column (0-based), `u32`                            |
+| 4    | Range bottom row (0-based), `u32`                             |
+| 4    | Range right column (0-based), `u32`                           |
+| 2    | Column-filter count `K`, `u16`                                |
+| …    | `K` column filters (see below)                                |
+
+Each **column filter** is:
+
+| Size | Field                                                            |
+| ---- | ---------------------------------------------------------------- |
+| 4    | Column index (0-based), `u32`                                    |
+| 1    | Join, `u8` (0 = AND, 1 = OR — how this column's conditions join) |
+| 1    | Condition count `M`, `u8`                                        |
+| …    | `M` conditions (see below)                                       |
+| 1    | Has-value-list flag, `u8` (0 = all values, 1 = list follows)     |
+| 2    | _(if list)_ Value count `V`, `u16`                               |
+| …    | _(if list)_ `V` length-prefixed UTF-8 strings                    |
+
+Each **condition** is a kind byte (`0` = text, `1` = number), an operator
+index, and its operand(s): text conditions carry one length-prefixed UTF-8
+string; number conditions carry two little-endian `f64` values (the second is
+`NaN` when unused, e.g. for a single-bound comparison). Text operators are
+`contains`, `does not contain`, `equals`, `does not equal`, `begins with`,
+`ends with`, `is blank`, `is not blank`; number operators are `=`, `≠`, `>`,
+`≥`, `<`, `≤`, and `between`.
+
+Combination semantics: conditions **within a column** combine with that
+column's AND/OR join, its selected-value list (when present) is an additional
+AND clause, and criteria **across columns** always combine with AND.
+
+Types, bounds, and validation (all enforced on load):
+
+- Range size ≤ **1,000,000** rows; at most **64** columns carry criteria; at
+  most **4** conditions per column; at most **1,000** values per value list;
+  each comparison string ≤ **1,024** UTF-16 code units.
+- A **structurally** truncated or unreadable filter block is a `bad-shape`
+  error, exactly like any other malformed container region.
+- A **structurally readable** filter whose contents fail validation — range or
+  column indices outside the sheet, duplicate columns, an unknown operator or
+  join, or any bound above exceeded — is **ignored** (never guessed at): the
+  sheet loads normally without a filter and the application shows a localized
+  warning. This keeps a malformed or unsupported filter from ever corrupting or
+  rejecting the document itself.
+
+Unlike display settings, applying or clearing a filter **is** a document change
+(it is part of the saved file), so it is undoable and marks the document dirty.
+Structural row/column insertion and deletion clear an active filter as part of
+the same atomic, undoable operation (the stored range would otherwise drift).
+Plain CSV files never carry a filter — filtering requires converting to RSF.
 
 The application metadata records which build of the software created or last
 updated the file (`Refrain Sheet` and the version from
@@ -277,9 +346,15 @@ and version number — the header shape and body layout are byte-identical.
 
 Version 1 of the _container_ was an experimental JSON encoding and is no longer
 produced or read; there is no migration path in-app. The _body_ was bumped from
-version 1 to version 2 to carry application metadata, and from version 2 to
-version 3 to carry display settings (zoom, column widths); readers accept all
-three body versions (older bodies simply have no metadata / no display
-settings, so application defaults apply). Future changes bump the container
-version (framing changes) or the body version (sheet encoding changes); readers
-reject container versions they do not understand rather than guessing.
+version 1 to version 2 to carry application metadata, from version 2 to version
+3 to carry display settings (zoom, column widths), and from version 3 to version
+4 to carry the sheet filter; readers accept all four body versions (older bodies
+simply have no metadata / no display settings / no filter, so application
+defaults apply). Because version selection on write is minimal — the lowest body
+version sufficient for the data present is written — a document with no filter
+still writes a version 1–3 body that older readers accept. A document saved with
+an active filter writes a version 4 body, which a reader that only understands
+versions 1–3 rejects as `bad-version` (consistent with the reject-don't-guess
+policy) rather than silently dropping the filter. Future changes bump the
+container version (framing changes) or the body version (sheet encoding
+changes); readers reject versions they do not understand rather than guessing.

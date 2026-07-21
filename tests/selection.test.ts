@@ -27,6 +27,7 @@ function stubUi(): UiPort {
     })),
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
+    chooseFilter: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
     showMessage: asyncNoop,
     notify: noop,

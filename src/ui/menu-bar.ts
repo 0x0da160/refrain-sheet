@@ -99,6 +99,13 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.sheet.autoFitCols', command: 'sheet.autoFitCols' },
         'separator',
+        // Filtering is RSF-only; running the command on a CSV tab explains
+        // the required conversion. No shortcut by design (no browser-safe
+        // conventional key exists); menu, context menu, and the header
+        // filter buttons all dispatch this same command.
+        { labelKey: 'menu.sheet.filter', command: 'sheet.filter' },
+        { labelKey: 'menu.sheet.filterClear', command: 'sheet.filterClear' },
+        'separator',
         { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
       ],
     },
@@ -129,11 +136,11 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.view.moveTabRight', command: 'tab.moveRight' },
         { labelKey: 'menu.view.moveTabFirst', command: 'tab.moveFirst' },
         { labelKey: 'menu.view.moveTabLast', command: 'tab.moveLast' },
-      ],
-    },
-    {
-      labelKey: 'menu.language',
-      items: [
+        'separator',
+        // Language lives under View (no top-level Language menu). Switching
+        // is immediate, persisted locally, and initialized from the browser
+        // language with an English fallback — unchanged behavior.
+        { labelKey: 'menu.language', heading: true },
         { labelKey: 'English', command: 'lang.en', checked: () => getLocale() === 'en' },
         { labelKey: '日本語', command: 'lang.ja', checked: () => getLocale() === 'ja' },
       ],
@@ -157,12 +164,17 @@ function zoomItems(checks: MenuChecks): MenuItemDef[] {
   const levels: Array<{ level: (typeof SHEET_ZOOM_LEVELS)[number]; command: CommandId }> =
     SHEET_ZOOM_LEVELS.map((level) => ({ level, command: `view.zoom.${level}` as CommandId }));
   return [
+    // Zoom In/Out step through the presets; their shortcuts (and Ctrl/Cmd +
+    // mouse wheel) drive the same shared commands, so the menu remains a
+    // complete alternative. Browser zoom keys are never intercepted.
+    { labelKey: 'menu.view.zoomIn', command: 'view.zoom.in', shortcut: 'Ctrl+Shift+.' },
+    { labelKey: 'menu.view.zoomOut', command: 'view.zoom.out', shortcut: 'Ctrl+Shift+,' },
     ...levels.map(({ level, command }) => ({
       labelKey: `${level}%`,
       command,
       checked: () => checks.zoom() === level,
     })),
-    { labelKey: 'menu.view.zoomReset', command: 'view.zoom.reset' as CommandId },
+    { labelKey: 'menu.view.zoomReset', command: 'view.zoom.reset' as CommandId, shortcut: 'Ctrl+Shift+0' },
   ];
 }
 

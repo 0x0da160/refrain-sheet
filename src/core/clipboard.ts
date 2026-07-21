@@ -36,14 +36,33 @@ interface ReadableDocument {
 }
 
 /**
+ * The document rows of a range that a copy actually reads: every row of the
+ * rectangle except those in `hidden` (rows hidden by an active filter are
+ * excluded from copies — documented behavior — so what is copied is exactly
+ * what is visible on screen).
+ */
+export function copyRows(range: CellRange, hidden: ReadonlySet<number> | null): number[] {
+  const rows: number[] = [];
+  for (let r = range.top; r <= range.bottom; r++) {
+    if (!hidden?.has(r)) {
+      rows.push(r);
+    }
+  }
+  return rows;
+}
+
+/**
  * Build tab-separated, newline-separated text from a range so it can be
  * pasted into spreadsheet software. Cells are the *displayed* values
  * (formulas contribute their calculated values). Cells containing tabs or
- * newlines are quoted the way conventional spreadsheets do.
+ * newlines are quoted the way conventional spreadsheets do. `rows` limits
+ * the copy to specific document rows (visible rows under an active filter);
+ * omitted, every row of the rectangle is copied.
  */
-export function rangeToTsv(doc: ReadableDocument, range: CellRange): string {
+export function rangeToTsv(doc: ReadableDocument, range: CellRange, rows?: readonly number[]): string {
   const lines: string[] = [];
-  for (let r = range.top; r <= range.bottom; r++) {
+  const rowList = rows ?? copyRows(range, null);
+  for (const r of rowList) {
     const parts: string[] = [];
     for (let c = range.left; c <= range.right; c++) {
       let text = doc.getDisplayValue(r, c);
@@ -57,10 +76,12 @@ export function rangeToTsv(doc: ReadableDocument, range: CellRange): string {
   return lines.join('\n');
 }
 
-/** The raw cell inputs of a range (formula expressions preserved), row-major. */
-export function rangeToMatrix(doc: ReadableDocument, range: CellRange): string[][] {
+/** The raw cell inputs of a range (formula expressions preserved), row-major.
+ *  `rows` limits the copy to specific document rows (see {@link rangeToTsv}). */
+export function rangeToMatrix(doc: ReadableDocument, range: CellRange, rows?: readonly number[]): string[][] {
   const out: string[][] = [];
-  for (let r = range.top; r <= range.bottom; r++) {
+  const rowList = rows ?? copyRows(range, null);
+  for (const r of rowList) {
     const row: string[] = [];
     for (let c = range.left; c <= range.right; c++) {
       row.push(doc.getValue(r, c));

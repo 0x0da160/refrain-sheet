@@ -35,6 +35,7 @@ function stubUi(): UiPort {
     chooseExportCsv: vi.fn(async () => null),
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
+    chooseFilter: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
     showMessage: vi.fn(async () => undefined),
     notify: vi.fn(),

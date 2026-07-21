@@ -77,11 +77,21 @@ export class SelectionStatsAccumulator {
     private readonly selrange: StatsRange,
     private readonly readDisplay: (row: number, col: number) => string,
     private readonly fieldCount?: (row: number) => number,
+    /**
+     * Optional predicate marking rows hidden by an active filter. Hidden rows
+     * are excluded from every statistic (count included), so the status-bar
+     * aggregates describe exactly the visible selection — consistent with
+     * copy, fill, and clear, which also skip filtered-out rows.
+     */
+    private readonly isRowHidden?: (row: number) => boolean,
   ) {}
 
   /** Scan one document row of the selection rectangle. */
   scanRow(r: number): void {
     const { selrange } = this;
+    if (this.isRowHidden?.(r)) {
+      return; // filtered-out row: excluded from the visible-selection stats
+    }
     const lastField = this.fieldCount ? this.fieldCount(r) - 1 : selrange.right;
     for (let c = selrange.left; c <= selrange.right; c++) {
       this.count += 1;
@@ -125,8 +135,9 @@ export function computeSelectionStats(
   selrange: StatsRange,
   readDisplay: (row: number, col: number) => string,
   fieldCount?: (row: number) => number,
+  isRowHidden?: (row: number) => boolean,
 ): SelectionStats {
-  const acc = new SelectionStatsAccumulator(selrange, readDisplay, fieldCount);
+  const acc = new SelectionStatsAccumulator(selrange, readDisplay, fieldCount, isRowHidden);
   for (let r = selrange.top; r <= selrange.bottom; r++) {
     acc.scanRow(r);
   }

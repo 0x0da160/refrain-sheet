@@ -1,6 +1,18 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from './byte-csv-parser';
 import {
+  FILTER_NUMBER_OPS,
+  FILTER_TEXT_OPS,
+  MAX_FILTER_COLUMNS,
+  MAX_FILTER_CONDITIONS,
+  MAX_FILTER_STRING,
+  MAX_FILTER_VALUES,
+  validateFilter,
+  type ColumnFilter,
+  type FilterCondition,
+  type SheetFilter,
+} from './filter';
+import {
   getRsfCodec,
   RSF_COMPRESSION_DEFLATE,
   RSF_COMPRESSION_LZ4,
@@ -56,18 +68,26 @@ export {
  * detects accidental corruption only — it is not tamper protection.
  *
  * Body layout (little-endian), all strings UTF-8. Body version 2 adds the
- * creating/updating application metadata after the delimiter; version 1 (no
- * metadata) is still accepted on read for forward compatibility:
+ * creating/updating application metadata after the delimiter; version 3 adds
+ * the display-settings block; version 4 adds the sheet-filter block. Older
+ * versions are still accepted on read:
  *
  * ```
- * 0    1     body version (2; 1 also readable)
+ * 0    1     body version (1–4 readable; lowest sufficient version written)
  * 1    1     delimiter byte (',' ';' or TAB)
- * --- body version 2 only ---
+ * --- body versions 2+ ---
  * 2    2     application-name length (u16)
  * …    …     application name
  * …    2     application-version length (u16)
  * …    …     application version
- * --- both versions ---
+ * --- body versions 3+ ---
+ * …    2     spreadsheet zoom percent (u16; 0 = not stored)
+ * …    4     column-width entry count (u32)
+ * …    per entry: column index (u32), width px at 100% zoom (u16)
+ * --- body version 4 ---
+ * …    1     filter flags (bit 0: a filter is present)
+ * …    …     filter block (only when present — see `docs/rsf-format.md`)
+ * --- all versions ---
  * …    2     sheet-name length (u16)
  * …    …     sheet name
  * …    4     row count (u32)
@@ -86,12 +106,12 @@ export const RSF_LEGACY_MAGIC = new Uint8Array([0x52, 0x43, 0x53, 0x56]); // "RC
 export const RSF_LEGACY_CONTAINER_VERSION = 2;
 /**
  * Highest body version this release reads and writes. Version selection on
- * write is minimal: 3 when display settings are present, else 2 when
- * application metadata is present, else 1 — so documents without the newer
- * data stay readable by older releases. Versions 1–3 are all accepted on
- * read.
+ * write is minimal: 4 when a sheet filter is present, else 3 when display
+ * settings are present, else 2 when application metadata is present, else 1 —
+ * so documents without the newer data stay readable by older releases.
+ * Versions 1–4 are all accepted on read.
  */
-export const RSF_BODY_VERSION = 3;
+export const RSF_BODY_VERSION = 4;
 
 // ----- Display-settings bounds (body version 3) -----------------------------
 // Persisted display state is validated and clamped on load so a malformed or
@@ -146,15 +166,33 @@ export interface RsfData {
    */
   compression?: number;
   /**
-   * Non-executable display settings (body version 3). Purely presentational:
-   * they never affect cell data, evaluation, or export. When present on
-   * encode the body is written in version 3; on decode this is populated
-   * only for version-3 bodies, already validated and clamped (zoom into
+   * Non-executable display settings (body versions 3+). Purely
+   * presentational: they never affect cell data, evaluation, or export. When
+   * present on encode the body is written in version 3 (or 4 when a filter
+   * is also present); on decode this is populated only for version-3+
+   * bodies, already validated and clamped (zoom into
    * [{@link RSF_ZOOM_MIN}, {@link RSF_ZOOM_MAX}]; widths into
    * [{@link RSF_COL_WIDTH_MIN}, {@link RSF_COL_WIDTH_MAX}]; entries for
    * out-of-range columns dropped).
    */
   display?: RsfDisplaySettings;
+  /**
+   * The sheet's filter state (body version 4). Pure, non-executable criteria
+   * data: no expressions, patterns, URLs, or code of any kind — only operator
+   * ids, plain comparison strings, and numbers. When present on encode the
+   * body is written in version 4; on decode it is populated only when the
+   * stored filter passes full structural + bounds validation against the
+   * sheet's dimensions.
+   */
+  filter?: SheetFilter;
+  /**
+   * Set on decode when a version-4 body carried a structurally readable
+   * filter block whose contents failed validation (out-of-range coordinates,
+   * unknown operators, bounds violations). The filter is ignored — never
+   * guessed at — and the caller shows a localized warning; the sheet itself
+   * loads normally.
+   */
+  filterDropped?: boolean;
 }
 
 /** Validated presentational state carried by a version-3 body. */
@@ -286,19 +324,93 @@ export function decodeRsf(bytes: Uint8Array): RsfDecodeResult {
   return decoded;
 }
 
+/**
+ * Encode the body-version-4 filter block (its leading flags byte included).
+ * Bounds are enforced defensively on write — columns, conditions, values, and
+ * strings beyond the documented limits are truncated so an encoded filter
+ * always validates on read.
+ */
+function encodeFilterBlock(filter: SheetFilter | undefined): Uint8Array {
+  if (!filter) {
+    return Uint8Array.of(0);
+  }
+  const enc = new TextEncoder();
+  const bytes: number[] = [1];
+  const u8 = (v: number): void => {
+    bytes.push(v & 0xff);
+  };
+  const u16 = (v: number): void => {
+    bytes.push(v & 0xff, (v >> 8) & 0xff);
+  };
+  const u32 = (v: number): void => {
+    bytes.push(v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff);
+  };
+  const f64 = (v: number): void => {
+    const buf = new Uint8Array(8);
+    new DataView(buf.buffer).setFloat64(0, v, true);
+    for (const b of buf) {
+      bytes.push(b);
+    }
+  };
+  const str = (s: string): void => {
+    const encoded = enc.encode(s.slice(0, MAX_FILTER_STRING));
+    u16(encoded.length);
+    for (const b of encoded) {
+      bytes.push(b);
+    }
+  };
+  u8(filter.headerRow ? 1 : 0);
+  u32(filter.top);
+  u32(filter.left);
+  u32(filter.bottom);
+  u32(filter.right);
+  const columns = filter.columns.slice(0, MAX_FILTER_COLUMNS);
+  u16(columns.length);
+  for (const column of columns) {
+    u32(column.col);
+    u8(column.join === 'or' ? 1 : 0);
+    const conditions = column.conditions.slice(0, MAX_FILTER_CONDITIONS);
+    u8(conditions.length);
+    for (const cond of conditions) {
+      if (cond.kind === 'text') {
+        u8(0);
+        u8(Math.max(0, FILTER_TEXT_OPS.indexOf(cond.op)));
+        str(cond.value);
+      } else {
+        u8(1);
+        u8(Math.max(0, FILTER_NUMBER_OPS.indexOf(cond.op)));
+        f64(cond.value);
+        f64(cond.value2 ?? Number.NaN);
+      }
+    }
+    const values = column.values === null ? null : column.values.slice(0, MAX_FILTER_VALUES);
+    u8(values === null ? 0 : 1);
+    if (values !== null) {
+      u16(values.length);
+      for (const v of values) {
+        str(v);
+      }
+    }
+  }
+  return Uint8Array.from(bytes);
+}
+
 function encodeBody(data: RsfData): Uint8Array {
   const enc = new TextEncoder();
   const name = enc.encode(data.name.slice(0, 255));
-  // Version selection is minimal: display settings need version 3, metadata
-  // alone needs version 2, otherwise the legacy version-1 body is written.
+  // Version selection is minimal: a filter needs version 4, display settings
+  // alone need version 3, metadata alone needs version 2, otherwise the
+  // legacy version-1 body is written.
   const displayWidths = (data.display?.colWidths ?? []).filter(
     ([col, width]) => Number.isInteger(col) && col >= 0 && Number.isInteger(width) && width > 0,
   );
   const displayZoom = data.display?.zoom;
-  const hasDisplay = displayZoom !== undefined || displayWidths.length > 0;
+  const hasFilter = data.filter !== undefined;
+  const hasDisplay = hasFilter || displayZoom !== undefined || displayWidths.length > 0;
   const hasMeta = hasDisplay || data.appName !== undefined || data.appVersion !== undefined;
   const appName = hasMeta ? enc.encode((data.appName ?? '').slice(0, MAX_META_LENGTH)) : null;
   const appVersion = hasMeta ? enc.encode((data.appVersion ?? '').slice(0, MAX_META_LENGTH)) : null;
+  const filterBlock = hasFilter ? encodeFilterBlock(data.filter) : null;
   const cellBufs = data.cells.map(([r, c, input]) => {
     const value = enc.encode(input);
     const buf = new Uint8Array(12 + value.length);
@@ -312,11 +424,12 @@ function encodeBody(data: RsfData): Uint8Array {
   const cellsSize = cellBufs.reduce((n, b) => n + b.length, 0);
   const metaSize = hasMeta ? 2 + appName!.length + 2 + appVersion!.length : 0;
   const displaySize = hasDisplay ? 2 + 4 + displayWidths.length * 6 : 0;
-  const total = 1 + 1 + metaSize + displaySize + 2 + name.length + 4 + 4 + 4 + cellsSize;
+  const filterSize = filterBlock ? filterBlock.length : 0;
+  const total = 1 + 1 + metaSize + displaySize + filterSize + 2 + name.length + 4 + 4 + 4 + cellsSize;
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = hasDisplay ? 3 : hasMeta ? 2 : 1;
+  out[off++] = hasFilter ? 4 : hasDisplay ? 3 : hasMeta ? 2 : 1;
   out[off++] = data.delimiter.charCodeAt(0);
   if (hasMeta) {
     view.setUint16(off, appName!.length, true);
@@ -342,6 +455,10 @@ function encodeBody(data: RsfData): Uint8Array {
       view.setUint16(off, Math.max(RSF_COL_WIDTH_MIN, Math.min(RSF_COL_WIDTH_MAX, Math.round(width))), true);
       off += 2;
     }
+  }
+  if (filterBlock) {
+    out.set(filterBlock, off);
+    off += filterBlock.length;
   }
   view.setUint16(off, name.length, true);
   off += 2;
@@ -369,7 +486,7 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     return { ok: false, error: 'bad-shape' };
   }
   const bodyVersion = body[off++];
-  if (bodyVersion !== 1 && bodyVersion !== 2 && bodyVersion !== 3) {
+  if (bodyVersion < 1 || bodyVersion > 4) {
     return { ok: false, error: 'bad-version' };
   }
   const delimByte = body[off++];
@@ -409,13 +526,13 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     appName = readName;
     appVersion = readVersion;
   }
-  // Version-3 display settings. Structural truncation is bad-shape; value
+  // Version-3+ display settings. Structural truncation is bad-shape; value
   // problems are handled by clamping (zoom, widths) or dropping (columns out
   // of range, checked after the column count is known below) — a malformed
   // display block must never make the sheet itself unreadable or unsafe.
   let rawZoom = 0;
   const rawWidths: Array<[number, number]> = [];
-  if (bodyVersion === 3) {
+  if (bodyVersion >= 3) {
     if (!need(6)) {
       return { ok: false, error: 'bad-shape' };
     }
@@ -432,6 +549,116 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
       const width = view.getUint16(off, true);
       off += 2;
       rawWidths.push([col, width]);
+    }
+  }
+  // Version-4 filter block. Structural truncation, undecodable strings, and
+  // unreadable shapes are bad-shape (matching the rest of the codec); every
+  // *readable* filter is fully validated against the sheet dimensions and the
+  // documented bounds after those are known — a filter that fails validation
+  // is dropped with a warning flag, never guessed at, and never prevents the
+  // sheet itself from loading.
+  let rawFilter: SheetFilter | null = null;
+  let filterStored = false;
+  if (bodyVersion >= 4) {
+    if (!need(1)) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    const flags = body[off++];
+    if (flags & 1) {
+      filterStored = true;
+      if (!need(1 + 16 + 2)) {
+        return { ok: false, error: 'bad-shape' };
+      }
+      const headerRow = body[off++] !== 0;
+      const top = view.getUint32(off, true);
+      const left = view.getUint32(off + 4, true);
+      const bottom = view.getUint32(off + 8, true);
+      const right = view.getUint32(off + 12, true);
+      off += 16;
+      const columnCount = view.getUint16(off, true);
+      off += 2;
+      const columns: ColumnFilter[] = [];
+      let readable = true;
+      for (let i = 0; i < columnCount; i++) {
+        if (!need(4 + 1 + 1)) {
+          return { ok: false, error: 'bad-shape' };
+        }
+        const col = view.getUint32(off, true);
+        off += 4;
+        const joinByte = body[off++];
+        if (joinByte > 1) {
+          readable = false; // unknown join semantics: never guessed at
+        }
+        const conditionCount = body[off++];
+        const conditions: FilterCondition[] = [];
+        for (let j = 0; j < conditionCount; j++) {
+          if (!need(2)) {
+            return { ok: false, error: 'bad-shape' };
+          }
+          const kind = body[off++];
+          const opIndex = body[off++];
+          if (kind === 0) {
+            const value = readString();
+            if (value === null) {
+              return { ok: false, error: 'bad-shape' };
+            }
+            const op = FILTER_TEXT_OPS[opIndex];
+            if (op === undefined) {
+              readable = false; // unknown operator: structurally skipped, semantically dropped
+            } else {
+              conditions.push({ kind: 'text', op, value });
+            }
+          } else if (kind === 1) {
+            if (!need(16)) {
+              return { ok: false, error: 'bad-shape' };
+            }
+            const value = view.getFloat64(off, true);
+            const value2 = view.getFloat64(off + 8, true);
+            off += 16;
+            const op = FILTER_NUMBER_OPS[opIndex];
+            if (op === undefined) {
+              readable = false;
+            } else {
+              conditions.push({
+                kind: 'number',
+                op,
+                value,
+                ...(Number.isNaN(value2) ? {} : { value2 }),
+              });
+            }
+          } else {
+            // An unknown condition kind has an unknown layout; the rest of
+            // the block cannot be located, so the container is malformed.
+            return { ok: false, error: 'bad-shape' };
+          }
+        }
+        if (!need(1)) {
+          return { ok: false, error: 'bad-shape' };
+        }
+        const hasValues = body[off++];
+        let values: string[] | null = null;
+        if (hasValues === 1) {
+          if (!need(2)) {
+            return { ok: false, error: 'bad-shape' };
+          }
+          const valueCount = view.getUint16(off, true);
+          off += 2;
+          values = [];
+          for (let j = 0; j < valueCount; j++) {
+            const v = readString();
+            if (v === null) {
+              return { ok: false, error: 'bad-shape' };
+            }
+            values.push(v);
+          }
+        } else if (hasValues !== 0) {
+          return { ok: false, error: 'bad-shape' };
+        }
+        columns.push({ col, join: joinByte === 1 ? 'or' : 'and', conditions, values });
+      }
+      if (readable) {
+        rawFilter = { top, left, bottom, right, headerRow, columns };
+      }
     }
   }
   const name = readString();
@@ -491,7 +718,7 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
   if (appVersion !== undefined) {
     data.appVersion = appVersion;
   }
-  if (bodyVersion === 3) {
+  if (bodyVersion >= 3) {
     // Validate the display block now that the sheet dimensions are known:
     // out-of-range zoom clamps, widths clamp, unknown columns are dropped,
     // and duplicate column entries resolve to the last one written.
@@ -510,6 +737,17 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     }
     if (display.zoom !== undefined || display.colWidths) {
       data.display = display;
+    }
+  }
+  if (filterStored) {
+    // Full semantic validation against the (now known) sheet dimensions and
+    // the documented bounds. An invalid stored filter is ignored — the sheet
+    // loads without it and the caller shows a localized warning.
+    const validated = rawFilter === null ? null : validateFilter(rawFilter, rowCount, columnCount);
+    if (validated !== null) {
+      data.filter = validated;
+    } else {
+      data.filterDropped = true;
     }
   }
   return { ok: true, data };

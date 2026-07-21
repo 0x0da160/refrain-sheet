@@ -129,6 +129,31 @@ export function setSheetZoom(zoom: number): number {
   return clamped;
 }
 
+/**
+ * The next zoom preset in the given direction from an arbitrary current
+ * zoom (which may be a non-preset value restored from an RSF document).
+ * Clamps at the smallest/largest preset: stepping past an end returns the
+ * end preset itself. Used by Zoom In / Zoom Out (keyboard and Ctrl/Cmd +
+ * mouse wheel), which share the same command/state path as the menu presets.
+ */
+export function nextZoomLevel(current: number, direction: 1 | -1): number {
+  const zoom = clampSheetZoom(current);
+  if (direction === 1) {
+    for (const level of SHEET_ZOOM_LEVELS) {
+      if (level > zoom) {
+        return level;
+      }
+    }
+    return SHEET_ZOOM_LEVELS[SHEET_ZOOM_LEVELS.length - 1];
+  }
+  for (let i = SHEET_ZOOM_LEVELS.length - 1; i >= 0; i--) {
+    if (SHEET_ZOOM_LEVELS[i] < zoom) {
+      return SHEET_ZOOM_LEVELS[i];
+    }
+  }
+  return SHEET_ZOOM_LEVELS[0];
+}
+
 // ---------------------------------------------------------------------------
 // Editing-help tooltips
 // ---------------------------------------------------------------------------

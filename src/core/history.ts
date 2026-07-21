@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { SheetFilter } from './filter';
 
 /**
  * One cell change inside a history operation. For CSV documents `null`
@@ -14,14 +15,17 @@ export interface CellChange {
 
 /**
  * One atomic sub-operation of a history entry. Structural operations
- * (row/column insertion and deletion) exist only for RSF spreadsheet
- * documents; `data` carries the affected row/column contents so deletion is
- * undoable. Column data is column-major.
+ * (row/column insertion and deletion) and filter-state changes exist only for
+ * RSF spreadsheet documents; `data` carries the affected row/column contents
+ * so deletion is undoable. Column data is column-major. A `filter` operation
+ * swaps the document's whole filter state (never cell values), so applying and
+ * clearing filters undo/redo exactly like any other document operation.
  */
 export type Operation =
   | { type: 'cells'; changes: CellChange[] }
   | { type: 'rows'; action: 'insert' | 'delete'; index: number; count: number; data: string[][] }
-  | { type: 'cols'; action: 'insert' | 'delete'; index: number; count: number; data: string[][] };
+  | { type: 'cols'; action: 'insert' | 'delete'; index: number; count: number; data: string[][] }
+  | { type: 'filter'; before: SheetFilter | null; after: SheetFilter | null };
 
 export interface HistoryEntry {
   /** i18n key describing the operation (for menus / tooltips). */
@@ -36,7 +40,15 @@ export function cellsEntry(label: string, changes: CellChange[]): HistoryEntry {
 }
 
 function isEmpty(entry: HistoryEntry): boolean {
-  return entry.ops.every((op) => (op.type === 'cells' ? op.changes.length === 0 : op.count === 0));
+  return entry.ops.every((op) => {
+    if (op.type === 'cells') {
+      return op.changes.length === 0;
+    }
+    if (op.type === 'filter') {
+      return op.before === op.after;
+    }
+    return op.count === 0;
+  });
 }
 
 /**

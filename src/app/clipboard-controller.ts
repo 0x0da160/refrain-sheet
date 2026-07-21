@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { parseClipboardText, rangeToMatrix, rangeToTsv } from '../core/clipboard';
+import { copyRows, parseClipboardText, rangeToMatrix, rangeToTsv } from '../core/clipboard';
 import type { AppState, Selection } from './app-state';
 import type { Commands } from './commands';
 import { t } from './i18n';
@@ -27,7 +27,12 @@ export class ClipboardController {
     private readonly notify: (text: string, kind: 'info' | 'warn' | 'error') => void,
   ) {}
 
-  /** Copy the selected range, remembering raw inputs internally. Returns the TSV text. */
+  /**
+   * Copy the selected range, remembering raw inputs internally. Returns the
+   * TSV text. Rows hidden by an active filter are excluded (documented: a
+   * copy contains exactly the rows visible on screen; the copied visible
+   * rows form one contiguous block for pasting).
+   */
   copyText(): string | null {
     const tab = this.state.activeTab;
     if (!tab) {
@@ -37,10 +42,14 @@ export class ClipboardController {
     if (!range) {
       return null;
     }
-    const text = rangeToTsv(tab.doc, range);
+    const rows = copyRows(range, this.state.hiddenRows(tab));
+    if (rows.length === 0) {
+      return null;
+    }
+    const text = rangeToTsv(tab.doc, range, rows);
     this.internal = {
       text,
-      matrix: rangeToMatrix(tab.doc, range),
+      matrix: rangeToMatrix(tab.doc, range, rows),
       origin: { row: range.top, col: range.left },
     };
     return text;

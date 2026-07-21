@@ -37,11 +37,14 @@ export class RowHeightIndex {
 
   /**
    * Set a row's height, returning true when the stored height changed. A
-   * height at or below the base removes the override (the row is single-line).
+   * height equal to the base removes the override (the row is single-line);
+   * heights above it are wrapped rows, and a height of 0 hides the row
+   * entirely (filtered out) — its band collapses so the rows below take its
+   * place, exactly like variable heights in the other direction.
    */
   set(row: number, height: number): boolean {
-    const h = Math.round(height);
-    if (h <= this.base) {
+    const h = Math.max(0, Math.round(height));
+    if (h === this.base) {
       return this.overrides.delete(row) ? ((this.dirty = true), true) : false;
     }
     if (this.overrides.get(row) === h) {

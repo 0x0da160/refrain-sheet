@@ -10,6 +10,7 @@ import {
   type FormulaValue,
   type ParseResult,
 } from './formula';
+import type { SheetFilter } from './filter';
 import { decodeRsf, encodeRsf, type RsfData, type RsfDecodeError } from './rsf-codec';
 import { APP_NAME, APP_VERSION } from '../app/version';
 import type { LosslessDocument } from './lossless-document';
@@ -85,6 +86,22 @@ export class RsfDocument {
    */
   displayZoom: number | undefined;
   displayColWidths: number[] = [];
+  /**
+   * The sheet's filter state, persisted in the container (body version 4)
+   * and restored — fully validated — on load. Filtering only ever *hides*
+   * rows visually; it never deletes, reorders, or rewrites cell data, and
+   * formula evaluation is completely unaffected. Unlike display settings,
+   * applying or clearing a filter is an undoable document operation and
+   * marks the document as having unsaved changes (the filter is part of the
+   * saved file). Mutated only through {@link setFilterState} (driven by the
+   * history layer).
+   */
+  filter: SheetFilter | null = null;
+  /**
+   * True when the loaded container carried filter metadata that failed
+   * validation and was ignored (the app shows a localized warning once).
+   */
+  filterDropped = false;
   private readonly formulaCache = new Map<string, CompiledFormula>();
   private memo = new Map<string, FormulaValue>();
   private readonly inProgress = new Set<string>();
@@ -197,7 +214,28 @@ export class RsfDocument {
         doc.displayColWidths[col] = width;
       }
     }
+    // Restore the persisted filter (already fully validated by the codec);
+    // an invalid stored filter was dropped there and only sets the flag.
+    doc.filter = decoded.data.filter ?? null;
+    doc.filterDropped = decoded.data.filterDropped === true;
     return { ok: true, doc };
+  }
+
+  /**
+   * Set the sheet's filter state (called by the history layer, so applying
+   * and clearing filters are ordinary undoable operations). Cell data,
+   * formula results, and the evaluation cache are untouched — a filter only
+   * hides rows visually — but the document is marked as having unsaved
+   * changes because the filter is persisted in the saved container.
+   */
+  setFilterState(filter: SheetFilter | null): void {
+    if (this.filter === filter) {
+      return;
+    }
+    this.filter = filter;
+    // Bump the revision without invalidating the formula memo: no cell value
+    // can have changed, so recalculation would be pure waste.
+    this.revision += 1;
   }
 
   /** The compression method the next save will write (`undefined` → codec default). */
@@ -274,6 +312,9 @@ export class RsfDocument {
         ...(this.displayZoom !== undefined ? { zoom: this.displayZoom } : {}),
         ...(colWidths.length > 0 ? { colWidths } : {}),
       };
+    }
+    if (this.filter !== null) {
+      payload.filter = this.filter;
     }
     return encodeRsf(payload, this.compressionMethod);
   }

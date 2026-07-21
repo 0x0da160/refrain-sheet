@@ -21,6 +21,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseExportCsv: vi.fn(async () => null),
     chooseInsertShift: vi.fn(async () => 'down' as const),
     confirmFlashFill: vi.fn(async () => false),
+    chooseFilter: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
     showMessage: vi.fn(async () => undefined),
     notify: vi.fn(),

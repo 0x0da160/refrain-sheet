@@ -59,6 +59,7 @@ function bootstrap(): void {
     chooseExportCsv: (name) => dialogs.chooseExportCsv(name),
     chooseInsertShift: (rows, cols) => dialogs.chooseInsertShift(rows, cols),
     confirmFlashFill: (preview) => dialogs.confirmFlashFill(preview),
+    chooseFilter: (input) => dialogs.chooseFilter(input),
     confirm: (title, message, ok, cancel) => dialogs.confirm(title, message, ok, cancel),
     showMessage: (title, message) => dialogs.showMessage(title, message),
     notify: (text, kind) => toasts.notify(text, kind),
@@ -204,13 +205,23 @@ function bootstrap(): void {
         target instanceof HTMLTextAreaElement ||
         target?.isContentEditable === true) &&
       !grid.isNavigating();
-    const command = resolveShortcut(event, {
-      inTextField,
-      isComposing: event.isComposing,
-      // Select All is only owned while the grid itself is focused (never a
-      // text field or the rest of the page — the browser keeps Ctrl+A there).
-      inGrid: grid.isNavigating(),
-    });
+    const command = resolveShortcut(
+      {
+        key: event.key,
+        code: event.code,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey,
+      },
+      {
+        inTextField,
+        isComposing: event.isComposing,
+        // Select All is only owned while the grid itself is focused (never a
+        // text field or the rest of the page — the browser keeps Ctrl+A there).
+        inGrid: grid.isNavigating(),
+      },
+    );
     if (!command) {
       return;
     }

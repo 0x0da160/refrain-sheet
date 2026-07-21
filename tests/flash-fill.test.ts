@@ -33,6 +33,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseExportCsv: vi.fn(async () => null),
     chooseInsertShift: vi.fn(async () => 'down' as const),
     confirmFlashFill: vi.fn(async () => true),
+    chooseFilter: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
     showMessage: vi.fn(async () => undefined),
     notify: vi.fn(),
@@ -302,6 +303,7 @@ describe('Flash Fill command flow', () => {
         if (label) busyLabels.push(label);
       }),
       confirmFlashFill: vi.fn(async () => true),
+      chooseFilter: vi.fn(async () => null),
     });
     const rows = 25_000;
     const doc = RsfDocument.empty('big.rsf', rows, 3);

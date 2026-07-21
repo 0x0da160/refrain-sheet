@@ -531,22 +531,29 @@ button {
 }
 
 /* Cell typography model: every row is exactly --grid-row-height tall (kept in
-   sync with ROW_HEIGHT in src/ui/grid.ts); cells use border-box sizing, no
-   vertical padding, and a line-height equal to the cell's content height
-   (row height minus the 1px bottom border). A single line of text is then
-   vertically centered by the line box itself — identically in BIZ UD Gothic,
-   MS Gothic, MS UI Gothic, and their fallbacks — instead of depending on any
-   font's baseline or half-leading metrics. */
+   sync with ROW_HEIGHT in src/ui/grid.ts, which sets the exact zoom-scaled
+   pixel value inline on the grid container). Cells use border-box sizing, no
+   vertical padding, and a line-height equal to the cell's content height —
+   the row height minus the single 1px bottom border (the border is a real
+   device pixel at every zoom, so this is not a zoom-specific offset). A
+   single line of text is then vertically centered by the line box itself —
+   identically in BIZ UD Gothic, MS Gothic, MS UI Gothic, and their fallbacks,
+   and identically at every spreadsheet zoom level — instead of depending on
+   any font's baseline or half-leading metrics.
+
+   The line box is derived from the row-height variable *at the cell*, where
+   the grid's inline zoom override is inherited. Deriving it once at :root (in
+   a separate intermediate variable) would substitute the un-zoomed :root
+   value and freeze the line box at 100% — the defect this model replaces. */
 :root {
   /* Spreadsheet zoom factor (1 = 100%). Set by the grid from the active
      tab's zoom; scales only spreadsheet-specific rules below — never the
      application chrome, and never the browser's own page zoom. */
   --sheet-zoom: 1;
-  /* Default (single-line) row height. The grid overrides this inline with
-     the exact zoom-scaled pixel value so CSS line boxes and JS-computed
-     element heights can never drift apart. */
+  /* Default (single-line) row height. The grid overrides this inline on the
+     grid container with the exact zoom-scaled pixel value so CSS line boxes
+     and JS-computed element heights can never drift apart. */
   --grid-row-height: 26px;
-  --grid-cell-line: calc(var(--grid-row-height) - 1px);
   /* Line box of a wrapped cell — kept in sync with WRAP_LINE_HEIGHT (grid.ts). */
   --grid-wrap-line: 18px;
 }
@@ -556,7 +563,9 @@ button {
   border-right: 1px solid var(--grid-line);
   border-bottom: 1px solid var(--grid-line);
   padding: 0 calc(8px * var(--sheet-zoom, 1));
-  line-height: var(--grid-cell-line);
+  /* Resolved from the *inherited* (zoom-scaled) row height, so the line box
+     tracks the row height at every zoom level. */
+  line-height: calc(var(--grid-row-height) - 1px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: pre;
@@ -666,6 +675,96 @@ button {
 
 .vcell.vrowhead.pinned {
   color: var(--accent);
+}
+
+/* Column-header filter button (shown on every column of an active filter's
+   range). A real <button> so Enter/Space and focus-visible work natively;
+   filled when the column carries criteria. */
+.filter-indicator {
+  position: absolute;
+  top: 50%;
+  right: calc(6px * var(--sheet-zoom, 1));
+  transform: translateY(-50%);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 2px;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: var(--field-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.filter-indicator:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.filter-indicator.active {
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.filter-indicator:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Filter status chip and dialog sections. */
+.status-filter {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.dialog-subhead {
+  margin: 12px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.filter-condition-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.filter-condition-row select {
+  flex: 0 0 auto;
+}
+
+.filter-condition-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.filter-add {
+  margin: 2px 0 4px;
+}
+
+.filter-value-list {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 6px;
+  margin-top: 4px;
+}
+
+.filter-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The top-left corner is an interactive "Select all cells" control (a real

@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: MIT
 import type { Tab } from '../app/app-state';
-import type { ConvertReason, FlashFillPreview } from '../app/commands';
+import type { ConvertReason, FilterDialogInput, FilterDialogResult, FlashFillPreview } from '../app/commands';
 import { t } from '../app/i18n';
+import {
+  FILTER_NUMBER_OPS,
+  FILTER_TEXT_OPS,
+  MAX_FILTER_CONDITIONS,
+  type ColumnFilter,
+  type FilterCondition,
+  type FilterNumberOp,
+  type FilterTextOp,
+} from '../core/filter';
 import { SHORTCUT_DOCS } from '../app/shortcuts';
 import { FUNCTION_INFOS } from '../core/formula';
 import {
@@ -514,6 +523,248 @@ export class Dialogs {
       buttons.append(
         dialogButton(t('dialog.flashFill.cancel'), false, true, () => close(false)),
         dialogButton(t('dialog.flashFill.apply'), true, false, () => close(true)),
+      );
+    });
+  }
+
+  /**
+   * The accessible column-filter dialog. Presents the filtered range and the
+   * header-row assumption (editable only when creating the filter — an active
+   * filter's range/header are fixed until all filters are cleared), an
+   * AND/OR-combined list of comparison conditions, and a searchable,
+   * bounded checkbox list of the column's distinct displayed values. All
+   * content is text-only; the native <dialog> provides the focus trap and
+   * Escape-to-cancel. Resolves with the chosen action or null (cancel).
+   */
+  chooseFilter(input: FilterDialogInput): Promise<FilterDialogResult | null> {
+    return openDialog<FilterDialogResult | null>(t('dialog.filter.title'), null, (body, buttons, close) => {
+      body.append(
+        el('p', {
+          text: t('dialog.filter.range', { range: input.rangeLabel, col: input.colLetter }),
+        }),
+      );
+      if (input.header) {
+        body.append(
+          el('p', { className: 'dialog-note', text: t('dialog.filter.header', { header: input.header }) }),
+        );
+      }
+
+      // Header-row assumption (only editable while creating the filter).
+      const headerCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+      headerCheck.checked = input.headerRow;
+      headerCheck.disabled = input.hasActiveFilter;
+      body.append(
+        el('div', { className: 'form-row' }, [
+          el('label', {}, [headerCheck, el('span', { text: t('dialog.filter.headerRow') })]),
+        ]),
+      );
+      if (input.hasActiveFilter) {
+        body.append(el('p', { className: 'dialog-note', text: t('dialog.filter.headerLocked') }));
+      }
+
+      // ----- Conditions (AND/OR combined) -----
+      body.append(el('h3', { className: 'dialog-subhead', text: t('dialog.filter.conditions') }));
+      const joinWrap = el('div', { className: 'form-row' });
+      const joinAnd = el('input', {
+        attrs: { type: 'radio', name: 'filter-join' },
+      }) as HTMLInputElement;
+      const joinOr = el('input', {
+        attrs: { type: 'radio', name: 'filter-join' },
+      }) as HTMLInputElement;
+      const existingJoin = input.existing?.join ?? 'and';
+      joinAnd.checked = existingJoin === 'and';
+      joinOr.checked = existingJoin === 'or';
+      joinWrap.append(
+        el('label', {}, [joinAnd, el('span', { text: t('dialog.filter.joinAnd') })]),
+        el('label', {}, [joinOr, el('span', { text: t('dialog.filter.joinOr') })]),
+      );
+      body.append(joinWrap);
+
+      const conditionsHost = el('div', { className: 'filter-conditions' });
+      body.append(conditionsHost);
+
+      type Row = { op: HTMLSelectElement; value: HTMLInputElement; value2: HTMLInputElement };
+      const rows: Row[] = [];
+      const allOps: Array<{ value: string; label: string }> = [
+        ...FILTER_TEXT_OPS.map((op) => ({ value: op, label: t(`filter.op.${op}`) })),
+        ...FILTER_NUMBER_OPS.map((op) => ({ value: op, label: t(`filter.op.${op}`) })),
+      ];
+      const isNumberOp = (op: string): boolean => (FILTER_NUMBER_OPS as readonly string[]).includes(op);
+      const noValueOp = (op: string): boolean => op === 'blank' || op === 'notBlank';
+
+      const makeRow = (cond?: FilterCondition): Row => {
+        const op = el('select', {
+          attrs: { 'aria-label': t('dialog.filter.condition') },
+        }) as HTMLSelectElement;
+        for (const o of allOps) {
+          op.append(el('option', { text: o.label, attrs: { value: o.value } }));
+        }
+        const value = el('input', {
+          attrs: { type: 'text', 'aria-label': t('dialog.filter.value') },
+        }) as HTMLInputElement;
+        const value2 = el('input', {
+          attrs: { type: 'text', 'aria-label': t('dialog.filter.value2') },
+        }) as HTMLInputElement;
+        if (cond) {
+          op.value = cond.op;
+          if (cond.kind === 'text') {
+            value.value = cond.value;
+          } else {
+            value.value = String(cond.value);
+            if (cond.value2 !== undefined) {
+              value2.value = String(cond.value2);
+            }
+          }
+        }
+        const sync = (): void => {
+          value.hidden = noValueOp(op.value);
+          value2.hidden = op.value !== 'numBetween';
+        };
+        op.addEventListener('change', sync);
+        sync();
+        const row = el('div', { className: 'filter-condition-row' }, [op, value, value2]);
+        conditionsHost.append(row);
+        return { op, value, value2 };
+      };
+
+      for (const cond of input.existing?.conditions ?? []) {
+        rows.push(makeRow(cond));
+      }
+      if (rows.length === 0) {
+        rows.push(makeRow());
+      }
+      const addBtn = el('button', {
+        className: 'filter-add',
+        text: t('dialog.filter.addCondition'),
+        attrs: { type: 'button' },
+      });
+      addBtn.addEventListener('click', () => {
+        if (rows.length < MAX_FILTER_CONDITIONS) {
+          rows.push(makeRow());
+        }
+        addBtn.disabled = rows.length >= MAX_FILTER_CONDITIONS;
+      });
+      addBtn.disabled = rows.length >= MAX_FILTER_CONDITIONS;
+      body.append(addBtn);
+
+      // ----- Distinct-value selection (searchable, bounded) -----
+      body.append(el('h3', { className: 'dialog-subhead', text: t('dialog.filter.values') }));
+      const allValuesCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+      allValuesCheck.checked = input.existing?.values == null;
+      body.append(
+        el('div', { className: 'form-row' }, [
+          el('label', {}, [allValuesCheck, el('span', { text: t('dialog.filter.allValues') })]),
+        ]),
+      );
+      const search = el('input', {
+        attrs: {
+          type: 'search',
+          placeholder: t('dialog.filter.searchValues'),
+          'aria-label': t('dialog.filter.searchValues'),
+        },
+      }) as HTMLInputElement;
+      body.append(search);
+      const valueList = el('div', { className: 'filter-value-list', attrs: { role: 'group' } });
+      body.append(valueList);
+      if (input.valuesTruncated) {
+        body.append(el('p', { className: 'dialog-note', text: t('dialog.filter.valuesTruncated') }));
+      }
+      const checkedValues = new Set<string>(input.existing?.values ?? input.values);
+      const VALUE_DISPLAY_CAP = 200;
+      const renderValues = (): void => {
+        const term = search.value.toLowerCase();
+        const matches = input.values.filter((v) => v.toLowerCase().includes(term));
+        const shown = matches.slice(0, VALUE_DISPLAY_CAP);
+        const children: HTMLElement[] = shown.map((v) => {
+          const cb = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+          cb.checked = checkedValues.has(v);
+          cb.disabled = allValuesCheck.checked;
+          cb.addEventListener('change', () => {
+            if (cb.checked) {
+              checkedValues.add(v);
+            } else {
+              checkedValues.delete(v);
+            }
+          });
+          return el('label', { className: 'filter-value' }, [
+            cb,
+            el('span', { text: v === '' ? t('dialog.filter.blankValue') : v }),
+          ]);
+        });
+        if (matches.length > shown.length) {
+          children.push(
+            el('p', {
+              className: 'dialog-note',
+              text: t('dialog.filter.valuesMore', { n: matches.length - shown.length }),
+            }),
+          );
+        }
+        valueList.replaceChildren(...children);
+      };
+      allValuesCheck.addEventListener('change', renderValues);
+      search.addEventListener('input', renderValues);
+      renderValues();
+
+      body.append(
+        el('p', { className: 'dialog-note', text: t('dialog.filter.combineNote') }),
+        el('p', { className: 'dialog-note', text: t('dialog.filter.crossNote', { n: input.otherColumns }) }),
+      );
+
+      // ----- Build the result from the current inputs -----
+      const buildColumn = (): ColumnFilter | null => {
+        const conditions: FilterCondition[] = [];
+        for (const row of rows) {
+          const op = row.op.value;
+          if (noValueOp(op)) {
+            conditions.push({ kind: 'text', op: op as FilterTextOp, value: '' });
+          } else if (isNumberOp(op)) {
+            const n = Number(row.value.value.trim());
+            if (row.value.value.trim() === '' || !Number.isFinite(n)) {
+              continue; // skip an incomplete numeric condition
+            }
+            const cond: FilterCondition = { kind: 'number', op: op as FilterNumberOp, value: n };
+            if (op === 'numBetween') {
+              const n2 = Number(row.value2.value.trim());
+              if (Number.isFinite(n2)) {
+                cond.value2 = n2;
+              }
+            }
+            conditions.push(cond);
+          } else {
+            if (row.value.value === '') {
+              continue; // skip an empty text condition
+            }
+            conditions.push({ kind: 'text', op: op as FilterTextOp, value: row.value.value });
+          }
+        }
+        const values = allValuesCheck.checked ? null : [...checkedValues].sort();
+        if (conditions.length === 0 && values === null) {
+          return null; // no criteria: clears this column
+        }
+        return {
+          col: input.col,
+          join: joinOr.checked ? 'or' : 'and',
+          conditions,
+          values,
+        };
+      };
+
+      // ----- Buttons -----
+      buttons.append(dialogButton(t('dialog.filter.cancel'), false, true, () => close(null)));
+      if (input.existing) {
+        buttons.append(
+          dialogButton(t('dialog.filter.clearColumn'), false, false, () => close({ action: 'clearColumn' })),
+        );
+      }
+      if (input.hasActiveFilter) {
+        buttons.append(
+          dialogButton(t('dialog.filter.clearAll'), false, false, () => close({ action: 'clearAll' })),
+        );
+      }
+      buttons.append(
+        dialogButton(t('dialog.filter.apply'), true, false, () =>
+          close({ action: 'apply', headerRow: headerCheck.checked, column: buildColumn() }),
+        ),
       );
     });
   }

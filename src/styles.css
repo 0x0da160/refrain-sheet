@@ -167,9 +167,21 @@ button {
   user-select: none;
 }
 
+/* Fixed box keeps the badge crisp and prevents any layout shift or stretching
+   as the SVG loads; the icon carries its own background so it reads on both
+   light and dark menu bars. */
+.menu-bar .app-icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin-left: 6px;
+  border-radius: 4px;
+  display: block;
+}
+
 .menu-bar .app-name {
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 4px 10px 4px 6px;
   color: var(--text-dim);
 }
 
@@ -1025,6 +1037,30 @@ dialog::backdrop {
   font-size: 12px;
 }
 
+/* External links in dialogs (e.g. About). Uses the theme accent so contrast
+   holds in both light and dark; the native anchor keeps it keyboard- and
+   screen-reader-accessible, and focus-visible draws the shared focus ring. */
+.about-links {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+
+.dialog-link {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.dialog-link:hover {
+  text-decoration: none;
+}
+
+.dialog-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .dialog-warning {
   background: var(--warning-soft);
   border: 1px solid var(--warning-border);
@@ -1432,6 +1468,16 @@ table.diag-table th {
 
 .welcome-screen[hidden] {
   display: none;
+}
+
+/* Fixed dimensions reserve space so the screen never reflows when the SVG
+   loads; the self-contained badge needs no theme-specific contrast handling. */
+.welcome-icon {
+  width: 72px;
+  height: 72px;
+  flex: none;
+  border-radius: 16px;
+  display: block;
 }
 
 .welcome-title {

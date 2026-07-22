@@ -481,6 +481,8 @@ otherwise collide use safe alternatives.
 | Save                 | Ctrl+S / Cmd+S                         |
 | Save with Options    | Ctrl+Shift+S / Cmd+Shift+S             |
 | Close tab            | **F8**                                 |
+| Next worksheet       | **F7**                                 |
+| Previous worksheet   | **Shift+F7**                           |
 | Undo / Redo          | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z)      |
 | Copy / Paste         | Ctrl+C / Ctrl+V                        |
 | Select All Cells     | Ctrl+A / Cmd+A (grid focus only)       |
@@ -624,9 +626,64 @@ disk — plain CSV files keep the byte-preserving, minimal-diff guarantees until
 you convert them. See [`docs/rsf-format.md`](docs/rsf-format.md) for the
 container specification.
 
+### Workbooks and worksheets
+
+An `.rsf` file is a **workbook** (ブック) that can hold several **worksheets**
+(ワークシート / シート). Each worksheet keeps its own grid, formulas,
+row/column structure, filter, zoom, column widths, and selection — switching
+worksheets restores exactly where you were on that sheet. A new workbook starts
+with one worksheet named `Sheet1` (`シート1` in Japanese), and a workbook always
+keeps **at least one** worksheet: the last one cannot be deleted.
+
+Worksheets appear in their own strip **below the grid**. That strip is separate
+from the document tab strip above it: the top strip lists the open _files_, the
+bottom strip lists the _worksheets inside the current workbook_. Reordering one
+never affects the other.
+
+Everything is available from the **Sheet** menu, the worksheet strip's context
+menu (right-click a worksheet tab), and the keyboard:
+
+| Action              | How                                                            |
+| ------------------- | -------------------------------------------------------------- |
+| Switch worksheet    | Click a tab, `←` / `→`, `Home` / `End`, or `F7` / `Shift+F7`   |
+| Add worksheet       | The `+` button, or Sheet > Add Worksheet                       |
+| Rename worksheet    | Double-click a tab, `F2`, or Sheet > Rename Worksheet…         |
+| Duplicate worksheet | Sheet > Duplicate Worksheet…                                   |
+| Delete worksheet    | Sheet > Delete Worksheet                                       |
+| Reorder worksheet   | Drag a tab, `Alt`+`←` / `→`, `Alt`+`Home` / `End`, or the menu |
+
+Drag-and-drop reordering is a convenience only — every reorder has a keyboard
+and menu equivalent, and the strip announces the result to assistive
+technologies. Worksheet tabs use a roving tabindex, so the whole strip is a
+single tab stop.
+
+**Worksheet names** are trimmed, at most 100 characters, unique within the
+workbook (ignoring case), and may not contain `:` `\` `/` `?` `*` `[` `]` or
+control characters — the characters that would clash with formula-reference
+syntax. The rename dialog validates as you type, reports the problem inline in
+your language, and is IME-safe (pressing Enter to commit a Japanese candidate
+never submits the dialog).
+
+Adding, renaming, duplicating, deleting, and reordering a worksheet are each
+**one atomic operation** that Undo reverses completely — including a deleted
+worksheet's data and the formula rewrites the change implied. Deleting a
+worksheet that holds content, a filter, or non-default display settings asks
+for confirmation first, and the confirmation states how many formulas elsewhere
+in the workbook will become `#REF!`.
+
+Duplicating a very large worksheet runs in cooperative time slices behind a
+percentage progress indicator; the copy is built to the side and inserted only
+once complete, so cancelling (or switching documents) leaves the workbook
+exactly as it was.
+
+Plain CSV documents are single-sheet by definition. Their worksheet strip shows
+a short explanation instead of tabs, and the worksheet commands are disabled —
+converting to RSF is what unlocks multiple worksheets.
+
 ### Converting a CSV to a spreadsheet
 
-There are two ways to convert, both explicit and confirmed:
+There are two ways to convert, both explicit and confirmed. Either way the
+result is a workbook with **one** worksheet populated from the CSV:
 
 - **File > Convert to Spreadsheet (RSF)…** converts up front. It uses the CSV's
   current (including unsaved) contents and opens the result in a **new** `.rsf`
@@ -642,7 +699,17 @@ There are two ways to convert, both explicit and confirmed:
 ### Exporting a spreadsheet as CSV
 
 **File > Export as CSV…** writes the computed values back out to plain CSV.
-The export options dialog appears first and doubles as the explicit
+
+A CSV file holds exactly **one** sheet. So when the workbook has more than one
+worksheet, a dialog asks **which worksheet to export** before anything else —
+the export never silently takes the active worksheet. The dialog states that
+only the chosen worksheet is written and that formulas become their calculated
+values, and the exported file name includes the worksheet name so several
+exports from one workbook do not collide. A single-worksheet workbook skips
+this step (there is nothing to choose) and follows the normal flow, with the
+worksheet it will export named in the dialog.
+
+The export options dialog appears next and doubles as the explicit
 confirmation — nothing is written until you press **Export CSV**:
 
 - **Encoding:** UTF-8, Shift_JIS / CP932, or EUC-JP.
@@ -653,9 +720,9 @@ confirmation — nothing is written until you press **Export CSV**:
 
 The dialog states clearly that CSV export is a **lossy conversion**: formulas
 are exported as their calculated display values, not expressions, and
-RSF-only data — formulas and dependency information, structure beyond the
-exported grid, column widths, document metadata, and font preferences — is not
-preserved.
+RSF-only data — formulas and dependency information, **the other worksheets**,
+structure beyond the exported grid, column widths, filters, document metadata,
+and font preferences — is not preserved.
 
 Every exported value is **validated against the chosen encoding** in a
 time-sliced scan behind the progress indicator. If characters cannot be
@@ -689,8 +756,25 @@ name that replaces `.rsf` with `.csv`.
   shift only the **relative** components; absolute components stay fixed.
   Row/column insertion and deletion adjust absolute and relative references
   alike (both keep pointing at the same data), preserving the markers.
-- Inserting or deleting rows/columns rewrites references in the whole sheet as
-  one atomic, undoable operation.
+- **Cross-sheet references** address another worksheet of the same workbook:
+  `Sheet1!A1`, `Sheet1!A1:B10`, `Sheet1!$A$1`, `SUM(Sheet1!A1:A10)`. Wrap the
+  name in single quotes when it is not a plain identifier —
+  `'Quarter 1'!A1`, `'Quarter 1'!$A$1:$B10` — and double a literal single
+  quote inside it (`'O''Brien'!A1`). An unqualified reference always means the
+  current worksheet, and worksheet names match case-insensitively. Circular
+  references are detected **across** worksheets. Ranges spanning two
+  worksheets (`Sheet1!A1:Sheet2!B2`, "3D" ranges) are deliberately not
+  supported and report `#ERROR!` rather than guessing.
+- Renaming a worksheet rewrites every reference to it across the workbook
+  (re-quoting as needed) without changing any result. Deleting a worksheet
+  turns references to it into `#REF!` — never silently redirected to another
+  worksheet. Duplicating a worksheet copies formulas verbatim: qualified
+  references still point at the worksheets they name, while unqualified ones
+  stay relative to the copy.
+- Inserting or deleting rows/columns rewrites references in the whole worksheet
+  — **and** `Name!`-qualified references to it from every other worksheet — as
+  one atomic, undoable operation. A formula's own unqualified references are
+  never moved by an edit on a different worksheet.
 - Formula cells are shown **upright, never italic** (italic hurts CJK
   legibility). They are differentiated by a subtle green tint and a small
   non-italic corner marker; error cells show the literal error code (e.g.
@@ -1099,13 +1183,14 @@ and the invariants every change must preserve) is documented in
 src/
   core/     lossless document model, byte-level CSV parser, serializer,
             encoding, validation, history, search, formula engine, stats,
-            RSF spreadsheet document + binary codec — DOM-independent, unit-tested
+            RSF workbook + worksheet model + binary codec — DOM-independent,
+            unit-tested
   app/      tabs & app state, command layer, file access, settings, i18n,
             keyboard-shortcut routing, spreadsheet-font preference,
             version (single authoritative app name/version source)
-  ui/       menu bar, tabs, grid, formula bar + shared formula autocomplete,
-            find bar, dialogs (incl. formula & function help), status bar,
-            loading overlay
+  ui/       menu bar, document tabs, worksheet tabs, grid, formula bar +
+            shared formula autocomplete, find bar, dialogs (incl. formula &
+            function help), status bar, loading overlay
   wasm-gen/ generated: embedded WASM (Base64) + wasm-bindgen glue
   locales/  en.json, ja.json
 wasm/       Rust crate compiled to WebAssembly (CSV core, DEFLATE + CRC-32,
@@ -1116,8 +1201,9 @@ docs/       architecture.md (layers, data flow, invariants),
             performance.md (benchmark results + profiling guide)
 bench/      reproducible performance benchmarks (npm run bench)
 tests/      identity, fuzz/property-based, editing, encodings, save options,
-            validation, history, search, formulas, stats, spreadsheet,
-            RSF binary codec, WASM/JS parity, i18n, commands, UI (jsdom),
+            validation, history, search, formulas, cross-sheet formulas,
+            stats, spreadsheet, workbooks/worksheets, RSF binary codec,
+            WASM/JS parity, i18n, commands, UI (jsdom),
             responsiveness regression tests (perf)
 ```
 

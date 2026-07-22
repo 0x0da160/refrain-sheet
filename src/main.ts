@@ -17,6 +17,7 @@ import { FormulaBar } from './ui/formula-bar';
 import { Grid } from './ui/grid';
 import { LoadingOverlay } from './ui/loading-overlay';
 import { MenuBar } from './ui/menu-bar';
+import { SheetBar } from './ui/sheet-bar';
 import { StatusBar } from './ui/status-bar';
 import { TabBar } from './ui/tab-bar';
 import { WelcomeScreen } from './ui/welcome-screen';
@@ -60,6 +61,9 @@ function bootstrap(): void {
     chooseInsertShift: (rows, cols) => dialogs.chooseInsertShift(rows, cols),
     confirmFlashFill: (preview) => dialogs.confirmFlashFill(preview),
     chooseFilter: (input) => dialogs.chooseFilter(input),
+    promptSheetName: (mode, current, validate) => dialogs.promptSheetName(mode, current, validate),
+    confirmDeleteSheet: (name, references) => dialogs.confirmDeleteSheet(name, references),
+    chooseExportSheet: (sheets, currentId) => dialogs.chooseExportSheet(sheets, currentId),
     confirm: (title, message, ok, cancel) => dialogs.confirm(title, message, ok, cancel),
     showMessage: (title, message) => dialogs.showMessage(title, message),
     notify: (text, kind) => toasts.notify(text, kind),
@@ -91,6 +95,9 @@ function bootstrap(): void {
     editHints: () => getEditHints(),
   });
   const tabBar = new TabBar(state, commands);
+  // The worksheet strip of the active RSF workbook, rendered below the grid —
+  // a separate surface from the document tab strip above it.
+  const sheetBar = new SheetBar(state, commands);
   const findBar = new FindBar(state, commands, grid);
   const welcome = new WelcomeScreen(commands);
   const moveSelectionDown = () => {
@@ -120,6 +127,7 @@ function bootstrap(): void {
     formulaBar.element,
     welcome.element,
     grid.element,
+    sheetBar.element,
     statusBar.element,
   );
 
@@ -138,6 +146,7 @@ function bootstrap(): void {
     welcome.refresh(noTabs);
     menuBar.render();
     tabBar.render();
+    sheetBar.render(true);
     grid.refresh();
     formulaBar.refresh(selectionChanged);
     statusBar.render();
@@ -147,11 +156,28 @@ function bootstrap(): void {
     switch (event) {
       case 'tabs':
       case 'active':
+        // A different document is showing: an editor opened on the previous
+        // one must never commit into this one.
+        grid.cancelEditing();
         refreshAll(true);
+        findBar.refresh();
+        return;
+      case 'sheets':
+        // A different worksheet of the same workbook: drop any in-progress
+        // inline edit (and with it the IME composition, autocomplete popup,
+        // and formula-reference highlights) before repainting, so nothing from
+        // the previous worksheet survives the switch.
+        grid.cancelEditing();
+        menuBar.render();
+        sheetBar.render();
+        grid.refresh();
+        formulaBar.refresh(true);
+        statusBar.render();
         findBar.refresh();
         return;
       case 'doc':
         tabBar.render();
+        sheetBar.render();
         grid.refresh();
         formulaBar.refresh(false);
         statusBar.render();

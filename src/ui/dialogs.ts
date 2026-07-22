@@ -12,7 +12,7 @@ import {
   type FilterTextOp,
 } from '../core/filter';
 import { SHORTCUT_DOCS } from '../app/shortcuts';
-import { FUNCTION_INFOS } from '../core/formula';
+import { FUNCTION_INFOS, MAX_SHEET_NAME_LENGTH } from '../core/formula';
 import {
   bytesToMiB,
   miBToBytes,
@@ -804,6 +804,143 @@ export class Dialogs {
         );
       },
     );
+  }
+
+  /**
+   * Ask for a worksheet name (add / rename / duplicate). Validation runs as
+   * the user types and again on submit, reporting the problem inline through a
+   * live region rather than silently refusing, and the confirm button stays
+   * disabled while the name is unacceptable. Enter confirms and Escape cancels
+   * — both ignored while an IME composition is in progress, so committing a
+   * Japanese candidate with Enter never submits the dialog by accident.
+   */
+  promptSheetName(
+    mode: 'add' | 'rename' | 'duplicate',
+    current: string,
+    validate: (name: string) => string | null,
+  ): Promise<string | null> {
+    return openDialog<string | null>(t(`dialog.sheetName.title.${mode}`), null, (body, buttons, close) => {
+      const inputId = 'sheet-name-input';
+      const errorId = 'sheet-name-error';
+      const input = el('input', {
+        className: 'sheet-name-input',
+        attrs: {
+          type: 'text',
+          id: inputId,
+          value: current,
+          maxlength: String(MAX_SHEET_NAME_LENGTH),
+          'aria-describedby': errorId,
+          'data-autofocus': 'true',
+        },
+      }) as HTMLInputElement;
+      input.value = current;
+      const error = el('p', {
+        className: 'dialog-error',
+        attrs: { id: errorId, role: 'status', 'aria-live': 'polite' },
+      });
+      body.append(
+        el('label', { text: t('dialog.sheetName.label'), attrs: { for: inputId } }),
+        input,
+        el('p', { className: 'dialog-note', text: t('dialog.sheetName.rules') }),
+        error,
+      );
+
+      const okButton = dialogButton(t('dialog.sheetName.ok'), true, false, () => submit());
+      const refresh = (): boolean => {
+        const message = validate(input.value);
+        error.textContent = message ?? '';
+        okButton.disabled = message !== null;
+        return message === null;
+      };
+      const submit = (): void => {
+        if (refresh()) {
+          close(input.value.trim());
+        }
+      };
+      // Composition state is tracked explicitly: `isComposing` is not set on
+      // the keydown that commits a candidate in every browser.
+      let composing = false;
+      input.addEventListener('compositionstart', () => {
+        composing = true;
+      });
+      input.addEventListener('compositionend', () => {
+        composing = false;
+        refresh();
+      });
+      input.addEventListener('input', () => {
+        if (!composing) {
+          refresh();
+        }
+      });
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !composing && !event.isComposing) {
+          event.preventDefault();
+          submit();
+        }
+      });
+      refresh();
+      buttons.append(
+        dialogButton(t('dialog.sheetName.cancel'), false, false, () => close(null)),
+        okButton,
+      );
+    });
+  }
+
+  /**
+   * Confirm deleting a worksheet that holds content or is referenced by
+   * formulas. The message states — truthfully — how many formulas elsewhere in
+   * the workbook will become #REF!, because deletion never silently redirects
+   * references to another worksheet.
+   */
+  confirmDeleteSheet(name: string, referenceCount: number): Promise<boolean> {
+    return openDialog<boolean>(t('dialog.deleteSheet.title'), false, (body, buttons, close) => {
+      body.append(el('p', { text: t('dialog.deleteSheet.message', { name }) }));
+      if (referenceCount > 0) {
+        body.append(
+          el('p', {
+            className: 'dialog-note warn',
+            text: t('dialog.deleteSheet.references', { n: referenceCount }),
+          }),
+        );
+      }
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.deleteSheet.undo') }));
+      buttons.append(
+        dialogButton(t('dialog.deleteSheet.cancel'), false, true, () => close(false)),
+        dialogButton(t('dialog.deleteSheet.ok'), true, false, () => close(true)),
+      );
+    });
+  }
+
+  /**
+   * Choose which worksheet a multi-worksheet workbook exports to CSV. The
+   * dialog states that CSV holds exactly one worksheet and that formulas are
+   * written as their calculated values, so the choice doubles as the informed
+   * confirmation of what the export will and will not contain.
+   */
+  chooseExportSheet(sheets: Array<{ id: string; name: string }>, currentId: string): Promise<string | null> {
+    return openDialog<string | null>(t('dialog.exportSheet.title'), null, (body, buttons, close) => {
+      const selectId = 'export-sheet-select';
+      const select = el('select', {
+        attrs: { id: selectId, 'data-autofocus': 'true' },
+      }) as HTMLSelectElement;
+      for (const sheet of sheets) {
+        const option = el('option', { text: sheet.name, attrs: { value: sheet.id } }) as HTMLOptionElement;
+        if (sheet.id === currentId) {
+          option.selected = true;
+        }
+        select.append(option);
+      }
+      body.append(
+        el('p', { text: t('dialog.exportSheet.message', { n: sheets.length }) }),
+        el('label', { text: t('dialog.exportSheet.label'), attrs: { for: selectId } }),
+        select,
+        el('p', { className: 'dialog-note', text: t('dialog.exportSheet.note') }),
+      );
+      buttons.append(
+        dialogButton(t('dialog.exportSheet.cancel'), false, false, () => close(null)),
+        dialogButton(t('dialog.exportSheet.ok'), true, false, () => close(select.value)),
+      );
+    });
   }
 
   /**

@@ -6,28 +6,45 @@ import {
   formatValue,
   isFormula,
   literalToValue,
-  parseFormula,
+  sheetNameKey,
+  type EvalContext,
   type FormulaValue,
-  type ParseResult,
 } from './formula';
 import type { SheetFilter } from './filter';
-import { decodeRsf, encodeRsf, type RsfData, type RsfDecodeError } from './rsf-codec';
+import {
+  decodeRsfWorkbook,
+  encodeRsfWorkbook,
+  MAX_RSF_SHEETS,
+  type RsfDecodeError,
+  type RsfWorkbookData,
+  type RsfWorksheetData,
+} from './rsf-codec';
+import { Worksheet } from './worksheet';
 import { APP_NAME, APP_VERSION } from '../app/version';
 import type { LosslessDocument } from './lossless-document';
 
 /**
  * Refrain Sheet Format (`.rsf`): a documented, versioned, binary container for
- * spreadsheet documents. CSV cannot store formulas, worksheet metadata, or
- * structural editing intent without breaking the original-file preservation
- * guarantee, so spreadsheet documents are saved as `.rsf` instead.
+ * spreadsheet **workbooks**. A workbook holds one or more worksheets, each with
+ * its own grid, formulas, row/column structure, filter, and display settings.
+ * CSV cannot store formulas, multiple worksheets, or structural editing intent
+ * without breaking the original-file preservation guarantee, so spreadsheet
+ * documents are saved as `.rsf` instead.
  *
  * The container is a compact binary format (magic bytes, header, CRC-32
  * checksum, compressed body) defined in `rsf-codec.ts` and documented in
  * `docs/rsf-format.md`. It holds pure data — no executable code, macros,
  * external references, or network URLs — and parsing is strict (magic,
  * version, checksum, shape, and bounds are validated) and never executes
- * anything. Legacy `.rcsv` files are read transparently (see `rsf-codec.ts`)
- * and re-saved as `.rsf`.
+ * anything.
+ *
+ * **Compatibility.** A workbook holding a single worksheet is written in the
+ * original single-sheet container (version 3), so files that do not use
+ * multi-worksheet features stay readable by older releases; only a workbook
+ * with two or more worksheets is written in the workbook container (version 4),
+ * which older releases reject safely with an unsupported-version message.
+ * Existing single-sheet `.rsf` files — and legacy `.rcsv` files — load as
+ * one-worksheet workbooks.
  */
 export const RSF_EXTENSION = '.rsf';
 /** Legacy extension read as an import; migrated documents are saved as `.rsf`. */
@@ -41,33 +58,60 @@ export const RSF_LEGACY_EXTENSION = '.rcsv';
 export const NEW_DOC_ROWS = 100;
 export const NEW_DOC_COLS = 26;
 
+/**
+ * Fallback name for the first worksheet. The application passes a localized
+ * name (`Sheet1` / `シート1`); this constant only applies when a caller
+ * supplies none, keeping the core layer free of i18n dependencies.
+ */
+export const DEFAULT_SHEET_NAME = 'Sheet1';
+
+/** Maximum number of worksheets a workbook may hold (mirrors the container bound). */
+export const MAX_WORKSHEETS = MAX_RSF_SHEETS;
+
 /** Failure reasons when loading a `.rsf` (or legacy `.rcsv`) container (see `rsf-codec.ts`). */
 export type RsfParseError = RsfDecodeError;
 
 export type RsfLoadResult = { ok: true; doc: RsfDocument } | { ok: false; error: RsfParseError };
 
-interface CompiledFormula {
-  src: string;
-  parsed: ParseResult;
-}
-
 /**
- * A spreadsheet document. Unlike LosslessDocument there is no byte-level
- * baseline: the cell inputs are the document. Cells whose input starts with
- * `=` are formulas; their computed values are evaluated lazily with
- * memoization and full invalidation on any mutation, with circular
- * references detected during evaluation.
+ * A spreadsheet workbook. Unlike LosslessDocument there is no byte-level
+ * baseline: the cell inputs are the document.
+ *
+ * The workbook owns evaluation, because a formula may reference another
+ * worksheet (`Sheet1!A1`): the memo and the in-progress set are workbook-wide,
+ * which is what makes results consistent across worksheets and circular
+ * references detectable *across* worksheet boundaries. Any mutation, in any
+ * worksheet, invalidates the whole memo — cross-sheet dependencies mean a
+ * change anywhere can affect a formula anywhere, so results are recomputed
+ * lazily on next access.
+ *
+ * The single-worksheet editing surface (`rowCount`, `getValue`, `setCell`, …)
+ * delegates to the **active** worksheet, so every existing UI, command, and
+ * history path operates on the active worksheet without knowing about
+ * workbooks. Operations that must target a specific worksheet — undo/redo of an
+ * edit made on another sheet, cross-sheet formula rewrites — use the explicit
+ * `…On(sheetId, …)` forms.
  */
 export class RsfDocument {
   readonly kind = 'rsf' as const;
+  /** Workbook (file) name. */
   name: string;
-  /** Delimiter used as the default for CSV export. */
+  /** Delimiter used as the default for CSV export (workbook-level). */
   delimiter: DelimiterId;
 
-  private data: string[][];
-  private cols: number;
+  private sheetList: Worksheet[];
+  private activeId: string;
+  private nextSheetSeq = 1;
+
   private revision = 0;
   private savedRevision = 0;
+
+  /** Stable workbook identifier, preserved across saves. */
+  readonly docId: string;
+  /** Creation / last-update timestamps (ms since epoch). */
+  createdAt: number;
+  updatedAt: number;
+
   /**
    * Compression method for the next `.rsf` save (an `RSF_COMPRESSION_*` id),
    * or `undefined` to use the active codec's default (Zstandard). Set from the
@@ -75,168 +119,309 @@ export class RsfDocument {
    * Save dialog when the user picks a different one.
    */
   private compressionMethod: number | undefined;
-  /**
-   * Persisted display settings (spreadsheet zoom percent and overridden
-   * column widths, sparse, px at 100% zoom). Loaded — already validated and
-   * clamped — from a version-3 container body and written back on save.
-   * Purely presentational: changing them never marks the document dirty and
-   * never affects cell data, evaluation, or export. Precedence: when a value
-   * is present here it wins over the application-level preference; absent
-   * values fall back to the app preference / defaults.
-   */
-  displayZoom: number | undefined;
-  displayColWidths: number[] = [];
-  /**
-   * The sheet's filter state, persisted in the container (body version 4)
-   * and restored — fully validated — on load. Filtering only ever *hides*
-   * rows visually; it never deletes, reorders, or rewrites cell data, and
-   * formula evaluation is completely unaffected. Unlike display settings,
-   * applying or clearing a filter is an undoable document operation and
-   * marks the document as having unsaved changes (the filter is part of the
-   * saved file). Mutated only through {@link setFilterState} (driven by the
-   * history layer).
-   */
-  filter: SheetFilter | null = null;
-  /**
-   * True when the loaded container carried filter metadata that failed
-   * validation and was ignored (the app shows a localized warning once).
-   */
-  filterDropped = false;
-  private readonly formulaCache = new Map<string, CompiledFormula>();
-  private memo = new Map<string, FormulaValue>();
-  private readonly inProgress = new Set<string>();
-  /**
-   * Per-row count of formula cells, kept in parallel with `data`. Built
-   * lazily on first use (so opening a document costs nothing extra) and then
-   * maintained incrementally by every mutator, it lets
-   * {@link countFormulaCells} and {@link listFormulaCells} skip formula-free
-   * rows entirely — on typical sheets (few or no formulas) this turns the
-   * whole-sheet scans that run on every structural edit and status-bar render
-   * into O(rows) walks. Consistency with the data is covered by a
-   * property-based test.
-   */
-  private formulaPerRow: number[] | null = null;
 
-  private constructor(name: string, delimiter: DelimiterId, data: string[][], columnCount: number) {
+  /**
+   * True when this workbook was read from a single-worksheet container
+   * (version 3, or a legacy `.rcsv`). Purely informational: the workbook is
+   * saved back in the single-sheet container while it still holds one
+   * worksheet, and migrates to the workbook container as soon as a second
+   * worksheet is added.
+   */
+  loadedAsSingleSheet = false;
+
+  /**
+   * Workbook-wide evaluation memo, keyed by worksheet id + cell. Cleared by
+   * every mutation (see {@link touch}) because a cross-sheet reference means a
+   * change in one worksheet can invalidate a formula in another.
+   */
+  private memo = new Map<string, FormulaValue>();
+  /** Cells currently being evaluated; a re-entry is a circular reference. */
+  private readonly inProgress = new Set<string>();
+  /** Per-worksheet evaluation contexts, rebuilt after any mutation. */
+  private evalContexts = new Map<string, EvalContext>();
+  /** Worksheet lookup by name key, rebuilt after any structural change. */
+  private nameIndex: Map<string, Worksheet> | null = null;
+
+  private constructor(name: string, delimiter: DelimiterId, sheets: Worksheet[], docId?: string) {
     this.name = name;
     this.delimiter = delimiter;
-    this.data = data;
-    this.cols = columnCount;
+    this.sheetList = sheets;
+    this.activeId = sheets[0].id;
+    this.docId = docId ?? `wb-${Math.random().toString(36).slice(2, 10)}`;
+    const now = Date.now();
+    this.createdAt = now;
+    this.updatedAt = now;
+    this.nextSheetSeq = sheets.length + 1;
   }
 
-  /** Create an RSF document from the current values of a CSV document (explicit conversion). */
-  static fromLossless(doc: LosslessDocument, name: string): RsfDocument {
+  // ----- Construction -----
+
+  /** Create a workbook from the current values of a CSV document (explicit conversion). */
+  static fromLossless(doc: LosslessDocument, name: string, sheetName = DEFAULT_SHEET_NAME): RsfDocument {
     const columnCount = Math.max(1, doc.columnCount);
-    const data: string[][] = [];
+    const rows: string[][] = [];
     for (let r = 0; r < doc.rowCount; r++) {
       const row = new Array<string>(columnCount).fill('');
       const fieldCount = doc.fieldCount(r);
       for (let c = 0; c < fieldCount; c++) {
         row[c] = doc.getValue(r, c);
       }
-      data.push(row);
+      rows.push(row);
     }
-    if (data.length === 0) {
-      data.push(new Array<string>(columnCount).fill(''));
-    }
-    return new RsfDocument(name, doc.delimiter, data, columnCount);
+    return new RsfDocument(name, doc.delimiter, [Worksheet.fromValues('s1', sheetName, rows, columnCount)]);
   }
 
   /**
-   * Create an RSF document from prebuilt row-major values. Used by the
-   * time-sliced CSV→RSF conversion, which collects the rows incrementally
-   * (with progress) instead of one long synchronous loop; the result is
-   * identical to {@link fromLossless}. Each row is padded to `columnCount`.
+   * Create a workbook from prebuilt row-major values. Used by the time-sliced
+   * CSV→RSF conversion, which collects the rows incrementally (with progress)
+   * instead of one long synchronous loop; the result is identical to
+   * {@link fromLossless}.
    */
   static fromValues(
     name: string,
     delimiter: DelimiterId,
     rows: string[][],
     columnCount: number,
+    sheetName = DEFAULT_SHEET_NAME,
   ): RsfDocument {
-    const cols = Math.max(1, columnCount);
-    const data = rows.map((row) => {
-      if (row.length === cols) {
-        return row;
-      }
-      const out = new Array<string>(cols).fill('');
-      for (let c = 0; c < Math.min(row.length, cols); c++) {
-        out[c] = row[c];
-      }
-      return out;
-    });
-    if (data.length === 0) {
-      data.push(new Array<string>(cols).fill(''));
-    }
-    return new RsfDocument(name, delimiter, data, cols);
+    return new RsfDocument(name, delimiter, [Worksheet.fromValues('s1', sheetName, rows, columnCount)]);
   }
 
-  static empty(name: string, rows = 1, cols = 1): RsfDocument {
-    const data: string[][] = [];
-    for (let r = 0; r < Math.max(1, rows); r++) {
-      data.push(new Array<string>(Math.max(1, cols)).fill(''));
-    }
-    return new RsfDocument(name, ',', data, Math.max(1, cols));
+  static empty(name: string, rows = 1, cols = 1, sheetName = DEFAULT_SHEET_NAME): RsfDocument {
+    return new RsfDocument(name, ',', [Worksheet.empty('s1', sheetName, rows, cols)]);
   }
 
   /**
-   * A blank spreadsheet for File > New. Identical to {@link empty} but marked
-   * unsaved from creation (there is no file on disk yet), so the tab shows a
-   * dirty indicator and closing it prompts to save.
+   * A blank workbook for File > New: one worksheet, marked unsaved from
+   * creation (there is no file on disk yet), so the tab shows a dirty
+   * indicator and closing it prompts to save.
    */
-  static blank(name: string, rows = NEW_DOC_ROWS, cols = NEW_DOC_COLS): RsfDocument {
-    const doc = RsfDocument.empty(name, rows, cols);
+  static blank(
+    name: string,
+    rows = NEW_DOC_ROWS,
+    cols = NEW_DOC_COLS,
+    sheetName = DEFAULT_SHEET_NAME,
+  ): RsfDocument {
+    const doc = RsfDocument.empty(name, rows, cols, sheetName);
     doc.markUnsaved();
     return doc;
   }
 
   /** Parse and strictly validate binary `.rsf` (or legacy `.rcsv`) bytes. Never executes anything. */
   static fromBytes(bytes: Uint8Array, name: string): RsfLoadResult {
-    const decoded = decodeRsf(bytes);
+    const decoded = decodeRsfWorkbook(bytes);
     if (!decoded.ok) {
       return { ok: false, error: decoded.error };
     }
-    const { rowCount, columnCount, cells, delimiter } = decoded.data;
-    const data: string[][] = [];
-    for (let r = 0; r < rowCount; r++) {
-      data.push(new Array<string>(columnCount).fill(''));
+    const data = decoded.data;
+    const sheets = data.sheets.map((entry) => RsfDocument.buildWorksheet(entry));
+    const doc = new RsfDocument(name, data.delimiter, sheets, data.docId);
+    doc.compressionMethod = data.compression;
+    doc.loadedAsSingleSheet = data.legacySingleSheet === true;
+    if (data.createdAt !== undefined) {
+      doc.createdAt = data.createdAt;
     }
-    for (const [r, c, input] of cells) {
-      data[r][c] = input;
+    if (data.updatedAt !== undefined) {
+      doc.updatedAt = data.updatedAt;
     }
-    const doc = new RsfDocument(name, delimiter, data, columnCount);
-    // Preserve the file's compression method so a normal save reuses it.
-    doc.compressionMethod = decoded.data.compression;
-    // Restore persisted display settings (validated/clamped by the codec).
-    if (decoded.data.display) {
-      doc.displayZoom = decoded.data.display.zoom;
-      for (const [col, width] of decoded.data.display.colWidths ?? []) {
-        doc.displayColWidths[col] = width;
-      }
-    }
-    // Restore the persisted filter (already fully validated by the codec);
-    // an invalid stored filter was dropped there and only sets the flag.
-    doc.filter = decoded.data.filter ?? null;
-    doc.filterDropped = decoded.data.filterDropped === true;
+    // Restore the saved active worksheet when it still exists; otherwise fall
+    // back safely to the first worksheet.
+    const active = data.activeSheetId && sheets.find((s) => s.id === data.activeSheetId);
+    doc.activeId = active ? active.id : sheets[0].id;
+    doc.nextSheetSeq = sheets.length + 1;
     return { ok: true, doc };
   }
 
-  /**
-   * Set the sheet's filter state (called by the history layer, so applying
-   * and clearing filters are ordinary undoable operations). Cell data,
-   * formula results, and the evaluation cache are untouched — a filter only
-   * hides rows visually — but the document is marked as having unsaved
-   * changes because the filter is persisted in the saved container.
-   */
-  setFilterState(filter: SheetFilter | null): void {
-    if (this.filter === filter) {
-      return;
+  /** Materialize one decoded worksheet record (already validated by the codec). */
+  private static buildWorksheet(entry: RsfWorksheetData): Worksheet {
+    const rows: string[][] = [];
+    for (let r = 0; r < entry.rowCount; r++) {
+      rows.push(new Array<string>(entry.columnCount).fill(''));
     }
-    this.filter = filter;
-    // Bump the revision without invalidating the formula memo: no cell value
-    // can have changed, so recalculation would be pure waste.
-    this.revision += 1;
+    for (const [r, c, input] of entry.cells) {
+      rows[r][c] = input;
+    }
+    const sheet = new Worksheet(entry.id, entry.name, rows, entry.columnCount);
+    if (entry.display) {
+      sheet.displayZoom = entry.display.zoom;
+      for (const [col, width] of entry.display.colWidths ?? []) {
+        sheet.displayColWidths[col] = width;
+      }
+    }
+    sheet.filter = entry.filter ?? null;
+    sheet.filterDropped = entry.filterDropped === true;
+    return sheet;
   }
+
+  // ----- Worksheets -----
+
+  /** The workbook's worksheets, in display order (read-only view). */
+  get sheets(): readonly Worksheet[] {
+    return this.sheetList;
+  }
+
+  get sheetCount(): number {
+    return this.sheetList.length;
+  }
+
+  get activeSheet(): Worksheet {
+    return this.sheetList.find((s) => s.id === this.activeId) ?? this.sheetList[0];
+  }
+
+  get activeSheetId(): string {
+    return this.activeSheet.id;
+  }
+
+  sheetById(id: string): Worksheet | null {
+    return this.sheetList.find((s) => s.id === id) ?? null;
+  }
+
+  /** Resolve a worksheet by display name, case-insensitively (the uniqueness policy). */
+  sheetByName(name: string): Worksheet | null {
+    if (!this.nameIndex) {
+      this.nameIndex = new Map();
+      for (const sheet of this.sheetList) {
+        this.nameIndex.set(sheetNameKey(sheet.name), sheet);
+      }
+    }
+    return this.nameIndex.get(sheetNameKey(name)) ?? null;
+  }
+
+  /** 0-based position of a worksheet, or -1. */
+  sheetIndex(id: string): number {
+    return this.sheetList.findIndex((s) => s.id === id);
+  }
+
+  /**
+   * Activate a worksheet. Purely a view change: like zoom and column widths it
+   * is recorded in the container on the next save but never marks the workbook
+   * dirty on its own, so simply looking at another worksheet does not make the
+   * file appear edited.
+   */
+  setActiveSheetId(id: string): boolean {
+    if (this.activeId === id || !this.sheetList.some((s) => s.id === id)) {
+      return false;
+    }
+    this.activeId = id;
+    return true;
+  }
+
+  /** True when `name` is free (case-insensitively), ignoring `exceptId`. */
+  isSheetNameAvailable(name: string, exceptId?: string): boolean {
+    const key = sheetNameKey(name);
+    return !this.sheetList.some((s) => s.id !== exceptId && sheetNameKey(s.name) === key);
+  }
+
+  /**
+   * `desired` if free, otherwise the first available `desired (2)`,
+   * `desired (3)`, … so a generated name never collides.
+   */
+  uniqueSheetName(desired: string, exceptId?: string): string {
+    const base = desired.trim() || DEFAULT_SHEET_NAME;
+    if (this.isSheetNameAvailable(base, exceptId)) {
+      return base;
+    }
+    for (let n = 2; n <= MAX_WORKSHEETS + 2; n++) {
+      const candidate = `${base} (${n})`;
+      if (this.isSheetNameAvailable(candidate, exceptId)) {
+        return candidate;
+      }
+    }
+    return `${base} (${Date.now()})`;
+  }
+
+  /** Mint an identifier that no current worksheet uses. */
+  private mintSheetId(): string {
+    for (;;) {
+      const id = `s${this.nextSheetSeq++}`;
+      if (!this.sheetList.some((s) => s.id === id)) {
+        return id;
+      }
+    }
+  }
+
+  /** Build (but do not insert) a new empty worksheet shaped like the active one. */
+  createWorksheet(name: string, rows?: number, cols?: number): Worksheet {
+    const active = this.activeSheet;
+    return Worksheet.empty(this.mintSheetId(), name, rows ?? active.rowCount, cols ?? active.columnCount);
+  }
+
+  /** Build (but do not insert) a deep copy of a worksheet under a new name. */
+  duplicateWorksheet(id: string, name: string): Worksheet | null {
+    const source = this.sheetById(id);
+    return source ? source.clone(this.mintSheetId(), name) : null;
+  }
+
+  /**
+   * Build (but do not insert) an *empty* copy of a worksheet, to be filled in
+   * row by row. Used by the time-sliced duplication of large worksheets, which
+   * can then be cancelled without ever touching the workbook.
+   */
+  duplicateWorksheetShell(id: string, name: string): Worksheet | null {
+    const source = this.sheetById(id);
+    return source ? source.cloneShell(this.mintSheetId(), name) : null;
+  }
+
+  /** Insert an existing worksheet object at `index` (atomic; undo inserts it back). */
+  insertSheetAt(index: number, sheet: Worksheet): boolean {
+    if (this.sheetList.length >= MAX_WORKSHEETS || this.sheetById(sheet.id)) {
+      return false;
+    }
+    const at = Math.max(0, Math.min(this.sheetList.length, index));
+    this.sheetList.splice(at, 0, sheet);
+    this.touch();
+    return true;
+  }
+
+  /**
+   * Remove a worksheet and return it (for undo). A workbook always keeps at
+   * least one worksheet, so removing the last one is refused.
+   */
+  removeSheet(id: string): { sheet: Worksheet; index: number } | null {
+    if (this.sheetList.length <= 1) {
+      return null;
+    }
+    const index = this.sheetIndex(id);
+    if (index < 0) {
+      return null;
+    }
+    const [sheet] = this.sheetList.splice(index, 1);
+    if (this.activeId === id) {
+      // Activate the neighbour that takes the removed worksheet's place.
+      this.activeId = this.sheetList[Math.min(index, this.sheetList.length - 1)].id;
+    }
+    this.touch();
+    return { sheet, index };
+  }
+
+  /** Rename a worksheet. The identifier — and everything keyed by it — is untouched. */
+  renameSheet(id: string, name: string): boolean {
+    const sheet = this.sheetById(id);
+    if (!sheet || sheet.name === name) {
+      return false;
+    }
+    sheet.name = name;
+    this.touch();
+    return true;
+  }
+
+  /** Move a worksheet to a new position in the strip. */
+  moveSheet(id: string, toIndex: number): boolean {
+    const from = this.sheetIndex(id);
+    if (from < 0) {
+      return false;
+    }
+    const to = Math.max(0, Math.min(this.sheetList.length - 1, toIndex));
+    if (from === to) {
+      return false;
+    }
+    const [sheet] = this.sheetList.splice(from, 1);
+    this.sheetList.splice(to, 0, sheet);
+    this.touch();
+    return true;
+  }
+
+  // ----- Compression / persistence settings -----
 
   /** The compression method the next save will write (`undefined` → codec default). */
   get compression(): number | undefined {
@@ -252,90 +437,153 @@ export class RsfDocument {
     this.compressionMethod = method;
   }
 
-  /** Serialize to the versioned binary `.rsf` container format. */
-  toBytes(): Uint8Array {
-    const cells: Array<[number, number, string]> = [];
-    for (let r = 0; r < this.data.length; r++) {
-      this.collectRowCells(r, cells);
-    }
-    return this.toBytesFromCells(cells);
-  }
-
   /**
-   * Append row `r`'s non-empty cells to `cells`. Splitting the collection per
-   * row lets the save path run it in cooperative time slices (with progress)
-   * for large sheets; {@link toBytesFromCells} then finishes the container.
-   */
-  collectRowCells(r: number, cells: Array<[number, number, string]>): void {
-    const row = this.data[r];
-    if (!row) {
-      return;
-    }
-    for (let c = 0; c < this.cols; c++) {
-      if (row[c] !== '') {
-        cells.push([r, c, row[c]]);
-      }
-    }
-  }
-
-  /**
-   * Record the current view state to persist with the next save (called by
-   * the save path with the tab's live zoom / column widths). Presentational
-   * only — never marks the document dirty.
+   * Record the active worksheet's current view state to persist with the next
+   * save (called by the save path with the tab's live zoom / column widths).
+   * Presentational only — never marks the document dirty.
    */
   setDisplaySettings(zoom: number | undefined, colWidths: number[]): void {
-    this.displayZoom = zoom;
-    this.displayColWidths = colWidths.slice();
+    const sheet = this.activeSheet;
+    sheet.displayZoom = zoom;
+    sheet.displayColWidths = colWidths.slice();
   }
 
-  /** Encode a prepared sparse cell list into the `.rsf` container (compresses). */
+  /** The active worksheet's persisted zoom (presentational). */
+  get displayZoom(): number | undefined {
+    return this.activeSheet.displayZoom;
+  }
+
+  set displayZoom(zoom: number | undefined) {
+    this.activeSheet.displayZoom = zoom;
+  }
+
+  /** The active worksheet's persisted column widths (presentational). */
+  get displayColWidths(): number[] {
+    return this.activeSheet.displayColWidths;
+  }
+
+  set displayColWidths(widths: number[]) {
+    this.activeSheet.displayColWidths = widths;
+  }
+
+  // ----- Serialization -----
+
+  /** Serialize the whole workbook to the versioned binary `.rsf` container. */
+  toBytes(): Uint8Array {
+    return this.toBytesFromSheetCells(this.sheetList.map((sheet) => sheet.collectCells()));
+  }
+
+  /**
+   * Append row `r`'s non-empty cells to `cells` for the active worksheet.
+   * Splitting the collection per row lets the save path run it in cooperative
+   * time slices (with progress) for large sheets.
+   */
+  collectRowCells(r: number, cells: Array<[number, number, string]>): void {
+    this.activeSheet.collectRowCells(r, cells);
+  }
+
+  /**
+   * Encode a prepared sparse cell list for a single-worksheet workbook.
+   * Retained for the sliced save path of one-worksheet documents; workbooks
+   * with several worksheets use {@link toBytesFromSheetCells}.
+   */
   toBytesFromCells(cells: Array<[number, number, string]>): Uint8Array {
-    const colWidths: Array<[number, number]> = [];
-    for (let c = 0; c < this.displayColWidths.length && c < this.cols; c++) {
-      const w = this.displayColWidths[c];
-      if (w && w > 0) {
-        colWidths.push([c, w]);
-      }
+    if (this.sheetList.length === 1) {
+      return this.toBytesFromSheetCells([cells]);
     }
-    const payload: RsfData = {
-      name: 'Sheet1',
+    const perSheet = this.sheetList.map((sheet) =>
+      sheet.id === this.activeSheetId ? cells : sheet.collectCells(),
+    );
+    return this.toBytesFromSheetCells(perSheet);
+  }
+
+  /** Total rows across every worksheet (the unit of the sliced save scan). */
+  get totalRows(): number {
+    let total = 0;
+    for (const sheet of this.sheetList) {
+      total += sheet.rowCount;
+    }
+    return total;
+  }
+
+  /**
+   * Map a flat row index (0 … {@link totalRows} - 1) onto the worksheet that
+   * owns it and append that row's non-empty cells to `perSheet[sheetIndex]`.
+   * This lets the save path scan a whole workbook in cooperative time slices
+   * with one honest progress percentage.
+   */
+  collectFlatRow(flatIndex: number, perSheet: Array<Array<[number, number, string]>>): void {
+    let remaining = flatIndex;
+    for (let s = 0; s < this.sheetList.length; s++) {
+      const sheet = this.sheetList[s];
+      if (remaining < sheet.rowCount) {
+        sheet.collectRowCells(remaining, perSheet[s]);
+        return;
+      }
+      remaining -= sheet.rowCount;
+    }
+  }
+
+  /** Encode the workbook from per-worksheet prepared cell lists (compresses). */
+  toBytesFromSheetCells(perSheet: Array<Array<[number, number, string]>>): Uint8Array {
+    this.updatedAt = Date.now();
+    const sheets: RsfWorksheetData[] = this.sheetList.map((sheet, index) => {
+      const colWidths: Array<[number, number]> = [];
+      for (let c = 0; c < sheet.displayColWidths.length && c < sheet.columnCount; c++) {
+        const w = sheet.displayColWidths[c];
+        if (w && w > 0) {
+          colWidths.push([c, w]);
+        }
+      }
+      const entry: RsfWorksheetData = {
+        id: sheet.id,
+        name: sheet.name,
+        rowCount: sheet.rowCount,
+        columnCount: sheet.columnCount,
+        cells: perSheet[index] ?? sheet.collectCells(),
+      };
+      if (sheet.displayZoom !== undefined || colWidths.length > 0) {
+        entry.display = {
+          ...(sheet.displayZoom !== undefined ? { zoom: sheet.displayZoom } : {}),
+          ...(colWidths.length > 0 ? { colWidths } : {}),
+        };
+      }
+      if (sheet.filter !== null) {
+        entry.filter = sheet.filter;
+      }
+      return entry;
+    });
+    const payload: RsfWorkbookData = {
       delimiter: this.delimiter,
-      rowCount: this.data.length,
-      columnCount: this.cols,
-      cells,
       // Record the creating/updating application (single source of truth).
       appName: APP_NAME,
       appVersion: APP_VERSION,
+      createdAt: this.createdAt,
+      updatedAt: this.updatedAt,
+      docId: this.docId,
+      activeSheetId: this.activeSheetId,
+      sheets,
     };
-    if (this.displayZoom !== undefined || colWidths.length > 0) {
-      payload.display = {
-        ...(this.displayZoom !== undefined ? { zoom: this.displayZoom } : {}),
-        ...(colWidths.length > 0 ? { colWidths } : {}),
-      };
-    }
-    if (this.filter !== null) {
-      payload.filter = this.filter;
-    }
-    return encodeRsf(payload, this.compressionMethod);
+    return encodeRsfWorkbook(payload, this.compressionMethod);
   }
 
   // ----- Common document surface (shared with LosslessDocument) -----
 
   get rowCount(): number {
-    return this.data.length;
+    return this.activeSheet.rowCount;
   }
 
   get columnCount(): number {
-    return this.cols;
+    return this.activeSheet.columnCount;
   }
 
   fieldCount(row: number): number {
-    return row >= 0 && row < this.data.length ? this.cols : 0;
+    return this.activeSheet.fieldCount(row);
   }
 
-  /** The raw input of a cell (formula expression for formula cells). */
+  /** The raw input of a cell on the active worksheet (formula source for formula cells). */
   getValue(row: number, col: number): string {
-    return this.data[row]?.[col] ?? '';
+    return this.activeSheet.getValue(row, col);
   }
 
   /** The computed display value (formula results, error codes, or the literal). */
@@ -343,39 +591,33 @@ export class RsfDocument {
     return formatValue(this.evaluateCell(row, col));
   }
 
-  /** True when the cell input is a formula expression. */
+  /** The computed display value of a cell on a specific worksheet. */
+  getSheetDisplayValue(sheetId: string, row: number, col: number): string {
+    const sheet = this.sheetById(sheetId);
+    return sheet ? formatValue(this.evaluateInSheet(sheet, row, col)) : '';
+  }
+
   isFormulaCell(row: number, col: number): boolean {
-    return isFormula(this.getValue(row, col));
+    return this.activeSheet.isFormulaCell(row, col);
   }
 
-  private formulaCountCache: { revision: number; count: number } | null = null;
-
-  /** Formula cells in one row (rows always hold exactly `cols` entries). */
-  private countRowFormulas(row: string[]): number {
-    let n = 0;
-    for (let c = 0; c < row.length; c++) {
-      if (isFormula(row[c])) n += 1;
-    }
-    return n;
-  }
-
-  /** Build the per-row formula index on first use (mutators maintain it after). */
-  private ensureFormulaIndex(): number[] {
-    this.formulaPerRow ??= this.data.map((row) => this.countRowFormulas(row));
-    return this.formulaPerRow;
-  }
-
-  /** Count of formula cells (cached per revision; the status bar calls this often). */
+  /** Count of formula cells on the active worksheet. */
   countFormulaCells(): number {
-    if (this.formulaCountCache?.revision === this.revision) {
-      return this.formulaCountCache.count;
+    return this.activeSheet.countFormulaCells();
+  }
+
+  /** Count of formula cells across every worksheet. */
+  countWorkbookFormulaCells(): number {
+    let total = 0;
+    for (const sheet of this.sheetList) {
+      total += sheet.countFormulaCells();
     }
-    let count = 0;
-    for (const n of this.ensureFormulaIndex()) {
-      count += n;
-    }
-    this.formulaCountCache = { revision: this.revision, count };
-    return count;
+    return total;
+  }
+
+  /** Formula cells of the active worksheet as [row, col, source]. */
+  listFormulaCells(): Array<{ row: number; col: number; src: string }> {
+    return this.activeSheet.listFormulaCells();
   }
 
   get isDirty(): boolean {
@@ -387,7 +629,7 @@ export class RsfDocument {
   }
 
   /**
-   * Mark the document as never-saved, so {@link isDirty} is true until the
+   * Mark the workbook as never-saved, so {@link isDirty} is true until the
    * first successful save. Used for File > New and for a fresh in-memory
    * CSV→RSF conversion, neither of which yet exists on disk.
    */
@@ -401,145 +643,124 @@ export class RsfDocument {
     return false;
   }
 
+  // ----- Filter state -----
+
+  /** The active worksheet's filter. */
+  get filter(): SheetFilter | null {
+    return this.activeSheet.filter;
+  }
+
+  /** True when any loaded worksheet dropped an invalid stored filter. */
+  get filterDropped(): boolean {
+    return this.sheetList.some((sheet) => sheet.filterDropped);
+  }
+
+  /**
+   * Set a worksheet's filter state (called by the history layer, so applying
+   * and clearing filters are ordinary undoable operations). Cell data, formula
+   * results, and the evaluation cache are untouched — a filter only hides rows
+   * visually — but the workbook is marked as having unsaved changes because the
+   * filter is persisted in the saved container.
+   */
+  setFilterStateOn(sheetId: string | undefined, filter: SheetFilter | null): void {
+    const sheet = this.resolveSheet(sheetId);
+    if (sheet.filter === filter) {
+      return;
+    }
+    sheet.filter = filter;
+    // Bump the revision without invalidating the memo: no cell value can have
+    // changed, so recalculation would be pure waste.
+    this.revision += 1;
+  }
+
+  setFilterState(filter: SheetFilter | null): void {
+    this.setFilterStateOn(undefined, filter);
+  }
+
   // ----- Mutators (called through the atomic operation layer) -----
 
-  setCell(row: number, col: number, input: string): void {
-    if (row < 0 || row >= this.data.length || col < 0 || col >= this.cols) {
-      return;
-    }
-    if (this.data[row][col] === input) {
-      return;
-    }
-    if (this.formulaPerRow) {
-      const delta = (isFormula(input) ? 1 : 0) - (isFormula(this.data[row][col]) ? 1 : 0);
-      if (delta !== 0) {
-        this.formulaPerRow[row] += delta;
-      }
-    }
-    this.data[row][col] = input;
-    this.touch();
+  private resolveSheet(sheetId: string | undefined): Worksheet {
+    return (sheetId !== undefined ? this.sheetById(sheetId) : null) ?? this.activeSheet;
   }
 
-  insertRows(index: number, rows: string[][]): void {
-    const at = Math.max(0, Math.min(this.data.length, index));
-    const prepared = rows.map((row) => {
-      const out = new Array<string>(this.cols).fill('');
-      for (let c = 0; c < Math.min(row.length, this.cols); c++) {
-        out[c] = row[c];
-      }
-      return out;
-    });
-    this.data.splice(at, 0, ...prepared);
-    this.formulaPerRow?.splice(at, 0, ...prepared.map((row) => this.countRowFormulas(row)));
-    this.touch();
-  }
-
-  /** Remove rows and return their data (for undo). */
-  deleteRows(index: number, count: number): string[][] {
-    const removed = this.data.splice(index, count);
-    this.formulaPerRow?.splice(index, count);
-    if (this.data.length === 0) {
-      this.data.push(new Array<string>(this.cols).fill(''));
-      this.formulaPerRow?.push(0);
-    }
-    this.touch();
-    return removed;
-  }
-
-  insertCols(index: number, colsData: string[][]): void {
-    const count = colsData.length;
-    const at = Math.max(0, Math.min(this.cols, index));
-    for (let r = 0; r < this.data.length; r++) {
-      const inserts = colsData.map((col) => col[r] ?? '');
-      this.data[r].splice(at, 0, ...inserts);
-      if (this.formulaPerRow) {
-        this.formulaPerRow[r] += this.countRowFormulas(inserts);
-      }
-    }
-    this.cols += count;
-    this.touch();
-  }
-
-  /** Remove columns and return their data as column-major arrays (for undo). */
-  deleteCols(index: number, count: number): string[][] {
-    const removed: string[][] = Array.from({ length: count }, () => []);
-    for (let r = 0; r < this.data.length; r++) {
-      const cut = this.data[r].splice(index, count);
-      if (this.formulaPerRow) {
-        this.formulaPerRow[r] -= this.countRowFormulas(cut);
-      }
-      for (let c = 0; c < count; c++) {
-        removed[c].push(cut[c] ?? '');
-      }
-    }
-    this.cols -= count;
-    if (this.cols === 0) {
-      this.cols = 1;
-      for (const row of this.data) {
-        row.push('');
-      }
-    }
-    this.touch();
-    return removed;
-  }
-
-  /** Grow the sheet to at least the given size (used by paste expansion). */
-  ensureSize(rows: number, cols: number): void {
-    let changed = false;
-    if (cols > this.cols) {
-      for (const row of this.data) {
-        while (row.length < cols) {
-          row.push('');
-        }
-      }
-      this.cols = cols;
-      changed = true;
-    }
-    while (this.data.length < rows) {
-      this.data.push(new Array<string>(this.cols).fill(''));
-      this.formulaPerRow?.push(0);
-      changed = true;
-    }
-    if (changed) {
+  setCellOn(sheetId: string | undefined, row: number, col: number, input: string): void {
+    if (this.resolveSheet(sheetId).setCell(row, col, input)) {
       this.touch();
     }
   }
 
-  /** Iterate all formula cells as [row, col, source]. Skips formula-free rows via the index. */
-  listFormulaCells(): Array<{ row: number; col: number; src: string }> {
-    const index = this.ensureFormulaIndex();
-    const out: Array<{ row: number; col: number; src: string }> = [];
-    for (let r = 0; r < this.data.length; r++) {
-      if (index[r] === 0) {
-        continue;
-      }
-      const row = this.data[r];
-      for (let c = 0; c < this.cols; c++) {
-        if (isFormula(row[c])) {
-          out.push({ row: r, col: c, src: row[c] });
-        }
-      }
+  setCell(row: number, col: number, input: string): void {
+    this.setCellOn(undefined, row, col, input);
+  }
+
+  insertRowsOn(sheetId: string | undefined, index: number, rows: string[][]): void {
+    this.resolveSheet(sheetId).insertRows(index, rows);
+    this.touch();
+  }
+
+  insertRows(index: number, rows: string[][]): void {
+    this.insertRowsOn(undefined, index, rows);
+  }
+
+  deleteRowsOn(sheetId: string | undefined, index: number, count: number): string[][] {
+    const removed = this.resolveSheet(sheetId).deleteRows(index, count);
+    this.touch();
+    return removed;
+  }
+
+  deleteRows(index: number, count: number): string[][] {
+    return this.deleteRowsOn(undefined, index, count);
+  }
+
+  insertColsOn(sheetId: string | undefined, index: number, colsData: string[][]): void {
+    this.resolveSheet(sheetId).insertCols(index, colsData);
+    this.touch();
+  }
+
+  insertCols(index: number, colsData: string[][]): void {
+    this.insertColsOn(undefined, index, colsData);
+  }
+
+  deleteColsOn(sheetId: string | undefined, index: number, count: number): string[][] {
+    const removed = this.resolveSheet(sheetId).deleteCols(index, count);
+    this.touch();
+    return removed;
+  }
+
+  deleteCols(index: number, count: number): string[][] {
+    return this.deleteColsOn(undefined, index, count);
+  }
+
+  /** Grow the active worksheet to at least the given size (used by paste expansion). */
+  ensureSize(rows: number, cols: number): void {
+    if (this.activeSheet.ensureSize(rows, cols)) {
+      this.touch();
     }
-    return out;
   }
 
   // ----- Evaluation -----
 
   /**
-   * Evaluate a cell to its formula value. Formula results are memoized until
-   * the next mutation; circular references resolve to #CYCLE! instead of
-   * recursing forever.
+   * Evaluate a cell on the active worksheet. Formula results are memoized
+   * until the next mutation; circular references — including ones that travel
+   * through another worksheet — resolve to #CYCLE! instead of recursing
+   * forever.
    */
   evaluateCell(row: number, col: number): FormulaValue {
-    if (row < 0 || row >= this.data.length || col < 0 || col >= this.cols) {
-      // References outside the sheet behave like empty cells.
+    return this.evaluateInSheet(this.activeSheet, row, col);
+  }
+
+  /** Evaluate a cell on a specific worksheet of this workbook. */
+  evaluateInSheet(sheet: Worksheet, row: number, col: number): FormulaValue {
+    if (!sheet.contains(row, col)) {
+      // References outside the worksheet behave like empty cells.
       return { type: 'empty' };
     }
-    const input = this.data[row][col];
+    const input = sheet.getValue(row, col);
     if (!isFormula(input)) {
       return literalToValue(input);
     }
-    const key = `${row},${col}`;
+    const key = `${sheet.id}|${row},${col}`;
     const cached = this.memo.get(key);
     if (cached) {
       return cached;
@@ -547,22 +768,14 @@ export class RsfDocument {
     if (this.inProgress.has(key)) {
       return errorValue('#CYCLE!');
     }
-    let compiled = this.formulaCache.get(key);
-    if (!compiled || compiled.src !== input) {
-      compiled = { src: input, parsed: parseFormula(input) };
-      this.formulaCache.set(key, compiled);
-    }
+    const compiled = sheet.compiled(row, col, input);
     let result: FormulaValue;
     if (!compiled.parsed.ok) {
       result = errorValue(compiled.parsed.code);
     } else {
       this.inProgress.add(key);
       try {
-        result = evaluateAst(compiled.parsed.ast, {
-          getCell: (r, c) => this.evaluateCell(r, c),
-          rowCount: this.data.length,
-          columnCount: this.cols,
-        });
+        result = evaluateAst(compiled.parsed.ast, this.contextFor(sheet));
       } finally {
         this.inProgress.delete(key);
       }
@@ -572,16 +785,58 @@ export class RsfDocument {
   }
 
   /**
-   * Export the computed values as CSV text (lossy: formulas become their
-   * calculated values; spreadsheet metadata and the original byte layout are
-   * not preserved). Fields are quoted only when needed; LF terminators.
+   * The evaluation context for one worksheet: unqualified references resolve
+   * against it, and worksheet-qualified references resolve by name through the
+   * workbook — sharing this workbook's memo and in-progress set, which is what
+   * makes cross-worksheet cycles detectable.
+   */
+  private contextFor(sheet: Worksheet): EvalContext {
+    const existing = this.evalContexts.get(sheet.id);
+    if (existing) {
+      return existing;
+    }
+    const ctx: EvalContext = {
+      getCell: (r, c) => this.evaluateInSheet(sheet, r, c),
+      rowCount: sheet.rowCount,
+      columnCount: sheet.columnCount,
+      getSheetCell: (name, r, c) => {
+        const target = this.sheetByName(name);
+        return target ? this.evaluateInSheet(target, r, c) : errorValue('#REF!');
+      },
+      getSheetBounds: (name) => {
+        const target = this.sheetByName(name);
+        return target ? { rowCount: target.rowCount, columnCount: target.columnCount } : null;
+      },
+    };
+    this.evalContexts.set(sheet.id, ctx);
+    return ctx;
+  }
+
+  /**
+   * Export the active worksheet's computed values as CSV text (lossy: formulas
+   * become their calculated values; spreadsheet metadata, the other worksheets,
+   * and the original byte layout are not preserved).
    */
   exportCsv(delimiter: DelimiterId = this.delimiter): string {
+    return this.exportSheetCsv(this.activeSheetId, delimiter);
+  }
+
+  /**
+   * Export one worksheet's computed values as CSV text. CSV holds exactly one
+   * worksheet, so a multi-worksheet workbook must name the worksheet to export
+   * (the command layer requires an explicit choice). Fields are quoted only
+   * when needed; LF terminators.
+   */
+  exportSheetCsv(sheetId: string, delimiter: DelimiterId = this.delimiter): string {
+    const sheet = this.sheetById(sheetId);
+    if (!sheet) {
+      return '';
+    }
     const lines: string[] = [];
-    for (let r = 0; r < this.data.length; r++) {
+    for (let r = 0; r < sheet.rowCount; r++) {
       const parts: string[] = [];
-      for (let c = 0; c < this.cols; c++) {
-        let text = this.getDisplayValue(r, c);
+      for (let c = 0; c < sheet.columnCount; c++) {
+        let text = formatValue(this.evaluateInSheet(sheet, r, c));
         if (text.includes(delimiter) || text.includes('"') || text.includes('\r') || text.includes('\n')) {
           text = `"${text.replace(/"/g, '""')}"`;
         }
@@ -592,8 +847,15 @@ export class RsfDocument {
     return lines.join('\n') + '\n';
   }
 
+  /**
+   * Record a mutation: bump the revision and drop every cached evaluation.
+   * The whole workbook memo is cleared because a worksheet-qualified reference
+   * means a change in one worksheet can invalidate a formula in another.
+   */
   private touch(): void {
     this.revision += 1;
     this.memo = new Map();
+    this.evalContexts = new Map();
+    this.nameIndex = null;
   }
 }

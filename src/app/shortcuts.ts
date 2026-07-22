@@ -145,6 +145,13 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     }
   }
 
+  // Worksheet switching inside the active workbook. F7 / Shift+F7 are used
+  // because the conventional Ctrl+PageUp/PageDown is browser tab switching and
+  // Alt is never part of an application accelerator (see the module note).
+  if (!mod && !event.altKey && !ctx.inTextField && event.key === 'F7') {
+    return event.shiftKey ? 'worksheet.prev' : 'worksheet.next';
+  }
+
   return null;
 }
 
@@ -165,6 +172,8 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Ctrl+S / Cmd+S', descKey: 'shortcut.save' },
   { keys: 'Ctrl+Shift+S / Cmd+Shift+S', descKey: 'shortcut.saveOptions' },
   { keys: 'F8', descKey: 'shortcut.closeTab' },
+  { keys: 'F7', descKey: 'shortcut.nextSheet' },
+  { keys: 'Shift+F7', descKey: 'shortcut.prevSheet' },
   { keys: 'Ctrl+Z / Cmd+Z', descKey: 'shortcut.undo' },
   { keys: 'Ctrl+Y, Ctrl+Shift+Z / Cmd+Shift+Z', descKey: 'shortcut.redo' },
   { keys: 'Ctrl+C / Cmd+C', descKey: 'shortcut.copy' },

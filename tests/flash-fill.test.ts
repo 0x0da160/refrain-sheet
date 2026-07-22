@@ -34,6 +34,9 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseInsertShift: vi.fn(async () => 'down' as const),
     confirmFlashFill: vi.fn(async () => true),
     chooseFilter: vi.fn(async () => null),
+    promptSheetName: vi.fn(async () => null),
+    confirmDeleteSheet: vi.fn(async () => true),
+    chooseExportSheet: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
     showMessage: vi.fn(async () => undefined),
     notify: vi.fn(),
@@ -304,6 +307,9 @@ describe('Flash Fill command flow', () => {
       }),
       confirmFlashFill: vi.fn(async () => true),
       chooseFilter: vi.fn(async () => null),
+      promptSheetName: vi.fn(async () => null),
+      confirmDeleteSheet: vi.fn(async () => true),
+      chooseExportSheet: vi.fn(async () => null),
     });
     const rows = 25_000;
     const doc = RsfDocument.empty('big.rsf', rows, 3);

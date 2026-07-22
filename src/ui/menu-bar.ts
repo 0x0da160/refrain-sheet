@@ -92,6 +92,21 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
     {
       labelKey: 'menu.sheet',
       items: [
+        // Worksheets inside the active RSF workbook. These are the same
+        // commands the worksheet tab strip and its context menu dispatch, so
+        // every one is reachable without a pointer.
+        { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add' },
+        { labelKey: 'menu.sheet.renameSheet', command: 'worksheet.rename' },
+        { labelKey: 'menu.sheet.duplicateSheet', command: 'worksheet.duplicate' },
+        { labelKey: 'menu.sheet.deleteSheet', command: 'worksheet.delete' },
+        'separator',
+        { labelKey: 'menu.sheet.nextSheet', command: 'worksheet.next', shortcut: 'F7' },
+        { labelKey: 'menu.sheet.prevSheet', command: 'worksheet.prev', shortcut: 'Shift+F7' },
+        { labelKey: 'menu.sheet.moveSheetFirst', command: 'worksheet.moveFirst' },
+        { labelKey: 'menu.sheet.moveSheetLeft', command: 'worksheet.moveLeft' },
+        { labelKey: 'menu.sheet.moveSheetRight', command: 'worksheet.moveRight' },
+        { labelKey: 'menu.sheet.moveSheetLast', command: 'worksheet.moveLast' },
+        'separator',
         { labelKey: 'menu.sheet.insertRowAbove', command: 'sheet.insertRowAbove' },
         { labelKey: 'menu.sheet.insertRowBelow', command: 'sheet.insertRowBelow' },
         { labelKey: 'menu.sheet.deleteRows', command: 'sheet.deleteRows' },

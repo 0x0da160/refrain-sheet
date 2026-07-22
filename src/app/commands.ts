@@ -26,10 +26,18 @@ import {
   type FlashFillExample,
   type FlashFillOp,
 } from '../core/flash-fill';
-import { cellLabel, columnLabel, isFormula, shiftFormulaRefs } from '../core/formula';
+import {
+  cellLabel,
+  columnLabel,
+  isFormula,
+  isValidSheetName,
+  MAX_SHEET_NAME_LENGTH,
+  shiftFormulaRefs,
+} from '../core/formula';
 import type { CellChange, HistoryEntry, Operation } from '../core/history';
 import { LosslessDocument } from '../core/lossless-document';
 import {
+  MAX_WORKSHEETS,
   RsfDocument,
   RSF_EXTENSION,
   RSF_LEGACY_EXTENSION,
@@ -37,6 +45,7 @@ import {
   NEW_DOC_COLS,
   type RsfParseError,
 } from '../core/rsf-document';
+import type { Worksheet } from '../core/worksheet';
 import { forEachIndexSliced } from '../core/scheduler';
 import { replaceAllInValue, type CompiledQuery } from '../core/search';
 import {
@@ -47,7 +56,7 @@ import {
   type UnrepresentableCell,
 } from '../core/serializer';
 import { validateDocument, type ValidationSummary } from '../core/validation';
-import { AppState, type Selection, type Tab } from './app-state';
+import { AppState, defaultSheetName, type Selection, type Tab } from './app-state';
 import {
   pickFiles,
   readFileObject,
@@ -185,6 +194,32 @@ export interface UiPort {
    * with the chosen action, or null when cancelled (nothing changes).
    */
   chooseFilter(input: FilterDialogInput): Promise<FilterDialogResult | null>;
+  /**
+   * Ask for a worksheet name when adding, renaming, or duplicating. `validate`
+   * returns an already-localized error message for an unacceptable name (empty,
+   * too long, duplicate, or containing a character the formula/file syntax
+   * reserves) or null when it is acceptable, so the dialog can report the
+   * problem inline instead of silently refusing. Resolves with the trimmed
+   * name, or null when cancelled.
+   */
+  promptSheetName(
+    mode: 'add' | 'rename' | 'duplicate',
+    current: string,
+    validate: (name: string) => string | null,
+  ): Promise<string | null>;
+  /**
+   * Confirm deleting a worksheet that holds content, a filter, or non-default
+   * display settings. `referenceCount` is how many formulas elsewhere in the
+   * workbook point at it and will become #REF!, so the warning is truthful.
+   */
+  confirmDeleteSheet(name: string, referenceCount: number): Promise<boolean>;
+  /**
+   * Choose which worksheet a multi-worksheet workbook exports to CSV. CSV holds
+   * exactly one worksheet, so the choice is always explicit — the export never
+   * silently takes the active worksheet. Resolves with the worksheet id, or
+   * null when cancelled.
+   */
+  chooseExportSheet(sheets: Array<{ id: string; name: string }>, currentId: string): Promise<string | null>;
   confirm(title: string, message: string, okLabel: string, cancelLabel: string): Promise<boolean>;
   showMessage(title: string, message: string): Promise<void>;
   notify(text: string, kind: 'info' | 'warn' | 'error'): void;
@@ -236,6 +271,18 @@ export type CommandId =
   | 'sheet.filter'
   | 'sheet.filterClear'
   | 'sheet.exportCsv'
+  // Worksheets inside the active RSF workbook (distinct from the application
+  // document tabs, whose commands are the `tab.*` ids below).
+  | 'worksheet.add'
+  | 'worksheet.rename'
+  | 'worksheet.duplicate'
+  | 'worksheet.delete'
+  | 'worksheet.moveLeft'
+  | 'worksheet.moveRight'
+  | 'worksheet.moveFirst'
+  | 'worksheet.moveLast'
+  | 'worksheet.next'
+  | 'worksheet.prev'
   | 'view.wrap'
   | 'view.stickyFirstRow'
   | 'view.zoom.in'
@@ -378,6 +425,28 @@ export class Commands {
         // Zoom applies to the active spreadsheet area; without a document
         // there is nothing to zoom.
         return tab !== null;
+      // Worksheet commands need an RSF workbook: plain CSV is a single-sheet,
+      // byte-preserving document (the UI explains that instead of hiding them).
+      case 'worksheet.add':
+      case 'worksheet.rename':
+      case 'worksheet.duplicate':
+        return tab !== null && tab.doc.kind === 'rsf';
+      case 'worksheet.delete':
+        // A workbook always keeps at least one worksheet.
+        return tab !== null && tab.doc.kind === 'rsf' && tab.doc.sheetCount > 1;
+      case 'worksheet.next':
+      case 'worksheet.prev':
+        return tab !== null && tab.doc.kind === 'rsf' && tab.doc.sheetCount > 1;
+      case 'worksheet.moveLeft':
+      case 'worksheet.moveFirst':
+        return tab !== null && tab.doc.kind === 'rsf' && tab.doc.sheetIndex(tab.doc.activeSheetId) > 0;
+      case 'worksheet.moveRight':
+      case 'worksheet.moveLast':
+        return (
+          tab !== null &&
+          tab.doc.kind === 'rsf' &&
+          tab.doc.sheetIndex(tab.doc.activeSheetId) < tab.doc.sheetCount - 1
+        );
       case 'tab.next':
       case 'tab.prev':
         return this.state.tabs.length > 1;
@@ -552,6 +621,28 @@ export class Commands {
       case 'lang.en':
       case 'lang.ja':
         setLocale(id.slice(5) as LocaleId);
+        return;
+      case 'worksheet.add':
+        if (tab) await this.addWorksheet(tab);
+        return;
+      case 'worksheet.rename':
+        if (tab) await this.renameWorksheet(tab);
+        return;
+      case 'worksheet.duplicate':
+        if (tab) await this.duplicateWorksheet(tab);
+        return;
+      case 'worksheet.delete':
+        if (tab) await this.deleteWorksheet(tab);
+        return;
+      case 'worksheet.moveLeft':
+      case 'worksheet.moveRight':
+      case 'worksheet.moveFirst':
+      case 'worksheet.moveLast':
+        if (tab) this.moveActiveWorksheet(tab, id);
+        return;
+      case 'worksheet.next':
+      case 'worksheet.prev':
+        if (tab) this.cycleWorksheet(tab, id === 'worksheet.next' ? 1 : -1);
         return;
       case 'tab.next':
         this.state.cycleTab(1);
@@ -1023,11 +1114,18 @@ export class Commands {
     doc.setDisplaySettings(tab.zoom, tab.colWidths);
     const bytes = await this.withBusy(t('loading.savingRsf', { name: tab.name }), async () => {
       await initCsvEngine(); // compression runs in the WASM codec when available
-      if (doc.rowCount * doc.columnCount <= LARGE_OP_CELLS) {
+      // The whole workbook is serialized, not just the active worksheet.
+      let totalCells = 0;
+      for (const sheet of doc.sheets) {
+        totalCells += sheet.rowCount * sheet.columnCount;
+      }
+      if (totalCells <= LARGE_OP_CELLS) {
         return doc.toBytes();
       }
-      const cells: Array<[number, number, string]> = [];
-      const completed = await forEachIndexSliced(doc.rowCount, (r) => doc.collectRowCells(r, cells), {
+      // One sliced scan across every worksheet's rows, so the percentage
+      // describes the whole save rather than one worksheet of it.
+      const perSheet: Array<Array<[number, number, string]>> = doc.sheets.map(() => []);
+      const completed = await forEachIndexSliced(doc.totalRows, (i) => doc.collectFlatRow(i, perSheet), {
         onProgress: (done, total) =>
           this.ui.setBusy(t('loading.savingSerialize', { name: tab.name, pct: pct(done, total) })),
         shouldStop: () => tab.doc !== doc,
@@ -1037,7 +1135,7 @@ export class Commands {
       }
       this.ui.setBusy(t('loading.savingCompress', { name: tab.name }));
       await this.nextPaint();
-      return doc.toBytesFromCells(cells);
+      return doc.toBytesFromSheetCells(perSheet);
     });
     if (bytes === null) {
       return false;
@@ -1088,24 +1186,46 @@ export class Commands {
     if (tab.doc.kind !== 'rsf') {
       return false;
     }
-    const options = await this.ui.chooseExportCsv(tab.name);
-    if (!options) {
+    const doc = tab.doc;
+    // CSV holds exactly one worksheet. A multi-worksheet workbook therefore
+    // requires an explicit choice — the export never silently takes the active
+    // worksheet — and the dialog states that only that worksheet is written and
+    // that formulas become their calculated values.
+    let sheetId = doc.activeSheetId;
+    if (doc.sheetCount > 1) {
+      const chosen = await this.ui.chooseExportSheet(
+        doc.sheets.map((s) => ({ id: s.id, name: s.name })),
+        doc.activeSheetId,
+      );
+      if (chosen === null || tab.doc !== doc) {
+        return false;
+      }
+      sheetId = chosen;
+    }
+    const sheet = doc.sheetById(sheetId);
+    if (!sheet) {
       return false;
     }
-    const name = tab.name.replace(/\.(rsf|rcsv)$/i, '') + '.csv';
-    const doc = tab.doc;
+    const options = await this.ui.chooseExportCsv(tab.name);
+    if (!options || tab.doc !== doc) {
+      return false;
+    }
+    const base = tab.name.replace(/\.(rsf|rcsv)$/i, '');
+    // A multi-worksheet workbook names the exported worksheet in the file name
+    // so several exports from one workbook do not collide.
+    const name = (doc.sheetCount > 1 ? `${base}-${sheet.name}` : base) + '.csv';
     const label = t('loading.exporting', { name });
 
-    // Sliced, read-only scan of the displayed (calculated) values. Aborts —
-    // producing nothing — if the tab's document changes while yielding.
+    // Sliced, read-only scan of the chosen worksheet's displayed (calculated)
+    // values. Aborts — producing nothing — if the tab's document changes.
     const scanValues = async (allowNcr: boolean): Promise<CsvExportScan | null> => {
       const scan = newCsvExportScan();
       const completed = await forEachIndexSliced(
-        doc.rowCount,
+        sheet.rowCount,
         (r) => {
           const values: string[] = [];
-          for (let c = 0; c < doc.columnCount; c++) {
-            values.push(doc.getDisplayValue(r, c));
+          for (let c = 0; c < sheet.columnCount; c++) {
+            values.push(doc.getSheetDisplayValue(sheetId, r, c));
           }
           scanCsvExportRow(scan, r, values, options.encoding, allowNcr);
         },
@@ -1224,7 +1344,7 @@ export class Commands {
     }
     const columnCount = Math.max(1, doc.columnCount);
     if (doc.rowCount * columnCount <= LARGE_OP_CELLS) {
-      return RsfDocument.fromLossless(doc, tab.name);
+      return RsfDocument.fromLossless(doc, tab.name, defaultSheetName());
     }
     const rows: string[][] = [];
     const completed = await forEachIndexSliced(
@@ -1248,7 +1368,7 @@ export class Commands {
     if (!completed || tab.doc !== doc) {
       return null;
     }
-    return RsfDocument.fromValues(tab.name, doc.delimiter, rows, columnCount);
+    return RsfDocument.fromValues(tab.name, doc.delimiter, rows, columnCount, defaultSheetName());
   }
 
   /** Blank-document counter so each File > New tab gets a distinct default name. */
@@ -1266,7 +1386,7 @@ export class Commands {
     this.newDocCount += 1;
     const suffix = this.newDocCount > 1 ? `-${this.newDocCount}` : '';
     const name = `${t('untitled.new')}${suffix}${RSF_EXTENSION}`;
-    const doc = RsfDocument.blank(name, NEW_DOC_ROWS, NEW_DOC_COLS);
+    const doc = RsfDocument.blank(name, NEW_DOC_ROWS, NEW_DOC_COLS, defaultSheetName());
     return this.state.addTab(name, doc, null);
   }
 
@@ -1308,6 +1428,198 @@ export class Commands {
       await this.ensureRsf(tab, 'formula');
     }
     return this.state.editCell(tab, row, col, value);
+  }
+
+  // ----- Worksheets (inside an RSF workbook) -----
+
+  /**
+   * Validate a proposed worksheet name against the documented policy —
+   * non-empty after trimming, within {@link MAX_SHEET_NAME_LENGTH}, free of
+   * characters the formula and file syntax reserve, and unique
+   * case-insensitively — returning an already-localized message or null.
+   */
+  private validateSheetName(doc: RsfDocument, name: string, exceptId?: string): string | null {
+    const trimmed = name.trim();
+    if (trimmed.length === 0) {
+      return t('sheet.error.empty');
+    }
+    if (trimmed.length > MAX_SHEET_NAME_LENGTH) {
+      return t('sheet.error.tooLong', { max: MAX_SHEET_NAME_LENGTH });
+    }
+    if (!isValidSheetName(trimmed)) {
+      return t('sheet.error.chars');
+    }
+    if (!doc.isSheetNameAvailable(trimmed, exceptId)) {
+      return t('sheet.error.duplicate', { name: trimmed });
+    }
+    return null;
+  }
+
+  /** True when the workbook can still take another worksheet (warns when not). */
+  private canAddWorksheet(doc: RsfDocument): boolean {
+    if (doc.sheetCount < MAX_WORKSHEETS) {
+      return true;
+    }
+    this.ui.notify(t('notify.sheetLimit', { max: MAX_WORKSHEETS }), 'warn');
+    return false;
+  }
+
+  /** Add a new empty worksheet after the active one and activate it. */
+  private async addWorksheet(tab: Tab): Promise<void> {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
+      return;
+    }
+    const suggested = doc.uniqueSheetName(t('sheet.defaultName', { n: doc.sheetCount + 1 }));
+    const name = await this.ui.promptSheetName('add', suggested, (candidate) =>
+      this.validateSheetName(doc, candidate),
+    );
+    if (name === null || tab.doc !== doc) {
+      return;
+    }
+    const sheet = this.state.addSheet(tab, name.trim());
+    if (sheet) {
+      this.ui.notify(t('notify.sheetAdded', { name: sheet.name }), 'info');
+    }
+  }
+
+  /** Rename the active worksheet, updating cross-sheet formulas workbook-wide. */
+  private async renameWorksheet(tab: Tab): Promise<void> {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return;
+    }
+    const sheet = doc.activeSheet;
+    const before = sheet.name;
+    const name = await this.ui.promptSheetName('rename', before, (candidate) =>
+      this.validateSheetName(doc, candidate, sheet.id),
+    );
+    if (name === null || tab.doc !== doc) {
+      return;
+    }
+    if (this.state.renameSheet(tab, sheet.id, name.trim())) {
+      this.ui.notify(t('notify.sheetRenamed', { before, after: name.trim() }), 'info');
+    }
+  }
+
+  /**
+   * Duplicate the active worksheet. Large worksheets are copied in cooperative
+   * time slices behind a percentage progress label; the copy is built to the
+   * side and only inserted once it is complete, so cancelling (or a tab
+   * change) leaves the workbook exactly as it was.
+   */
+  private async duplicateWorksheet(tab: Tab): Promise<void> {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
+      return;
+    }
+    const source = doc.activeSheet;
+    const suggested = doc.uniqueSheetName(t('sheet.copyName', { name: source.name }));
+    const name = await this.ui.promptSheetName('duplicate', suggested, (candidate) =>
+      this.validateSheetName(doc, candidate),
+    );
+    if (name === null || tab.doc !== doc) {
+      return;
+    }
+    const finalName = name.trim();
+    let prebuilt: Worksheet | undefined;
+    if (source.rowCount * source.columnCount > LARGE_OP_CELLS) {
+      const label = t('loading.duplicatingSheet', { name: source.name });
+      const built = await this.withBusy(label, async () => {
+        const shell = doc.duplicateWorksheetShell(source.id, finalName);
+        if (!shell) {
+          return null;
+        }
+        const completed = await forEachIndexSliced(source.rowCount, (r) => source.copyRowInto(r, shell), {
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`),
+          shouldStop: () => tab.doc !== doc,
+        });
+        // An abandoned copy is simply discarded: nothing was inserted.
+        return completed && tab.doc === doc ? shell : null;
+      });
+      if (!built) {
+        return;
+      }
+      prebuilt = built;
+    }
+    const copy = this.state.duplicateSheet(tab, source.id, finalName, prebuilt);
+    if (copy) {
+      this.ui.notify(t('notify.sheetDuplicated', { name: copy.name }), 'info');
+    }
+  }
+
+  /**
+   * Delete the active worksheet. A workbook always keeps at least one
+   * worksheet. Deletion is confirmed whenever the worksheet holds meaningful
+   * content — cell data, a filter, or non-default display settings — or when
+   * formulas elsewhere reference it, and the confirmation states how many
+   * formulas will become #REF!.
+   */
+  private async deleteWorksheet(tab: Tab): Promise<void> {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return;
+    }
+    if (doc.sheetCount <= 1) {
+      this.ui.notify(t('notify.cannotDeleteLastSheet'), 'warn');
+      return;
+    }
+    const sheet = doc.activeSheet;
+    const references = this.state.countReferencesToSheet(doc, sheet.id);
+    const meaningful =
+      sheet.hasAnyContent() ||
+      sheet.filter !== null ||
+      sheet.displayZoom !== undefined ||
+      sheet.displayColWidths.some((w) => w > 0) ||
+      references > 0;
+    if (meaningful) {
+      const ok = await this.ui.confirmDeleteSheet(sheet.name, references);
+      if (!ok || tab.doc !== doc) {
+        return;
+      }
+    }
+    if (this.state.deleteSheet(tab, sheet.id)) {
+      this.ui.notify(t('notify.sheetDeleted', { name: sheet.name }), 'info');
+    }
+  }
+
+  /** Move the active worksheet within the workbook's worksheet order. */
+  private moveActiveWorksheet(tab: Tab, id: CommandId): void {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return;
+    }
+    const from = doc.sheetIndex(doc.activeSheetId);
+    const last = doc.sheetCount - 1;
+    const to =
+      id === 'worksheet.moveLeft'
+        ? from - 1
+        : id === 'worksheet.moveRight'
+          ? from + 1
+          : id === 'worksheet.moveFirst'
+            ? 0
+            : last;
+    if (this.state.moveSheet(tab, doc.activeSheetId, to)) {
+      this.ui.notify(
+        t('notify.sheetMoved', {
+          name: doc.activeSheet.name,
+          pos: doc.sheetIndex(doc.activeSheetId) + 1,
+          total: doc.sheetCount,
+        }),
+        'info',
+      );
+    }
+  }
+
+  /** Activate the next/previous worksheet, wrapping around. */
+  private cycleWorksheet(tab: Tab, offset: number): void {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || doc.sheetCount < 2) {
+      return;
+    }
+    const index = doc.sheetIndex(doc.activeSheetId);
+    const next = doc.sheets[(index + offset + doc.sheetCount) % doc.sheetCount];
+    this.state.setActiveSheet(tab, next.id);
   }
 
   /** Row/column structural commands, driven by the selected range. */

@@ -40,7 +40,8 @@ below it, never above):
   user intent to the command layer; every mutation goes through `AppState` so
   all surfaces observe the same state through its typed
   `subscribe`/`emit` events (`tabs` / `active` / `doc` / `selection` /
-  `view`).
+  `view` / `sheets`). `tabs` is about open _documents_; `sheets` is about the
+  _worksheets inside_ the active workbook — two separate surfaces.
 - One deliberate exception is measurement: column auto-fit needs real
   rendered text metrics, so `Commands` exposes a narrow `gridActions` port
   that the grid implements. The command still owns the flow; the grid only
@@ -81,11 +82,43 @@ Two document kinds share one duck-typed editing surface (`EditorDocument`):
   overlay, and saving reserializes **only** edited field ranges
   (`serializer.ts` plans verbatim-copy + replacement segments). An unedited
   save is byte-identical by construction.
-- **`RsfDocument`** (`kind: 'rsf'`) — cell inputs are the document; formulas
+- **`RsfDocument`** (`kind: 'rsf'`) — a **workbook** of one or more
+  `Worksheet`s (`worksheet.ts`). Cell inputs are the document; formulas
   evaluate lazily with memoization and full memo invalidation per mutation.
   Saved as the versioned binary `.rsf` container (`rsf-codec.ts`,
   spec in [rsf-format.md](rsf-format.md)); legacy `.rcsv` containers are read
   and migrated.
+
+### Workbooks and worksheets
+
+A `Worksheet` owns _data_: its grid, formula inputs, row/column structure,
+filter, and display settings. It never evaluates anything, because a formula
+may reference another worksheet (`Sheet1!A1`) — evaluation belongs to the
+workbook, which holds the single shared memo and in-progress set. That is what
+makes results consistent across worksheets and makes circular references
+detectable _across_ worksheet boundaries.
+
+The whole single-sheet editing surface (`rowCount`, `getValue`, `setCell`,
+`insertRows`, `filter`, …) is delegated by `RsfDocument` to the **active**
+worksheet, so the grid, the command layer, and the history layer keep operating
+on "the sheet" without knowing about workbooks. Operations that must target a
+_specific_ worksheet — undoing an edit made on another one, or the cross-sheet
+formula rewrites a rename or delete implies — use the explicit
+`…On(sheetId, …)` forms, and history operations carry an optional `sheetId`
+for exactly that reason. A single history entry can therefore span worksheets
+and still undo atomically.
+
+Two independent tab strips exist and must not be confused:
+
+| Strip                   | Lists                                     | Owner                |
+| ----------------------- | ----------------------------------------- | -------------------- |
+| `TabBar` (above grid)   | open **documents** (files)                | `AppState.tabs`      |
+| `SheetBar` (below grid) | **worksheets** inside the active workbook | `RsfDocument.sheets` |
+
+Reordering one never affects the other. Switching worksheets is a _view_
+change (like zoom): it is persisted in the container but never marks the
+workbook dirty; every worksheet remembers its own selection, zoom, and column
+widths, which are swapped in and out of the tab on switch.
 
 Conversion between the two is **always explicit and confirmed** (never
 silent), and CSV → RSF is documented as lossy with respect to the original
@@ -138,7 +171,15 @@ yield between slices). The rules, applied uniformly by the command layer:
 - **Atomic history:** every user-visible mutation is exactly one
   `HistoryEntry`; undo/redo replays entries in reverse/forward order.
   Structural edits bundle their formula-reference rewrites into the same
-  entry.
+  entry — including rewrites that land on _other_ worksheets, which is why an
+  operation carries an optional `sheetId`. Worksheet lifecycle changes (add,
+  rename, duplicate, delete, reorder) are ordinary entries too: a deleted
+  worksheet travels inside its entry, so undo restores it with its data.
+- **Workbook-wide recalculation:** any mutation to any worksheet clears the
+  whole workbook memo, because a cross-sheet reference means a change anywhere
+  can invalidate a formula anywhere. Recalculation stays lazy and memoized
+  (values are recomputed on next access), which is the same model the
+  single-worksheet document used — there is no separate dependency graph.
 - **RSF container safety:** magic/version are validated as a pair, the body
   CRC is checked, decompression is bounded by the declared length (512 MiB
   ceiling), and parsing never executes anything. Display settings (zoom,

@@ -108,21 +108,21 @@ reading any compressed file requires the WASM engine.
 All multi-byte integers are **little-endian**. The header is a fixed 20 bytes,
 followed by the (possibly compressed) body payload.
 
-| Offset | Size | Field                                               |
-| ------ | ---- | --------------------------------------------------- |
-| 0      | 4    | Magic bytes `RSF1` (`0x52 0x53 0x46 0x31`)          |
-| 4      | 1    | Container version — currently `3`                   |
-| 5      | 1    | Compression method (`0x00`–`0x03`; see above)       |
-| 6      | 1    | Flags (reserved, must be `0`)                       |
-| 7      | 1    | Codec profile version (must be `0`)                 |
-| 8      | 4    | Uncompressed body length, `u32`                     |
-| 12     | 4    | CRC-32 (IEEE 802.3) of the uncompressed body, `u32` |
-| 16     | 4    | Compressed payload length, `u32`                    |
-| 20     | …    | Payload (the body, compressed per the method byte)  |
+| Offset | Size | Field                                                     |
+| ------ | ---- | --------------------------------------------------------- |
+| 0      | 4    | Magic bytes `RSF1` (`0x52 0x53 0x46 0x31`)                |
+| 4      | 1    | Container version — `3` (one worksheet) or `4` (workbook) |
+| 5      | 1    | Compression method (`0x00`–`0x03`; see above)             |
+| 6      | 1    | Flags (reserved, must be `0`)                             |
+| 7      | 1    | Codec profile version (must be `0`)                       |
+| 8      | 4    | Uncompressed body length, `u32`                           |
+| 12     | 4    | CRC-32 (IEEE 802.3) of the uncompressed body, `u32`       |
+| 16     | 4    | Compressed payload length, `u32`                          |
+| 20     | …    | Payload (the body, compressed per the method byte)        |
 
 A reader must reject the file when: the length is under 20 bytes or the magic
 matches neither `RSF1` nor the legacy `RCSV` (`bad-magic`); the container
-version does not match its magic — `3` for `RSF1`, `2` for legacy `RCSV`
+version does not match its magic — `3` or `4` for `RSF1`, `2` for legacy `RCSV`
 (`bad-version`); the method byte is not a defined method `0x00`–`0x03`, or the
 codec profile byte is non-zero (`unsupported-compression`); the stored body
 length exceeds the ceiling (`too-large`); or `20 + payloadLength` does not equal
@@ -135,6 +135,54 @@ truncated payload is rejected before it can exhaust memory. CRC-32 detects
 **accidental** corruption only — it is not cryptographic tamper protection.
 
 The decompression ceiling (`MAX_RSF_BODY_BYTES`) is **512 MiB**.
+
+## Workbooks and worksheets
+
+An RSF document is a **workbook** holding one or more **worksheets**. Each
+worksheet owns its grid data, formulas, row/column structure, filter, and
+display settings; the workbook owns the metadata shared by all of them
+(delimiter, application name/version, timestamps, document identifier,
+compression choice, worksheet order, and which worksheet is active).
+
+Two container versions encode this, and which one is written depends only on
+how many worksheets the workbook actually holds:
+
+| Worksheets | Container version | Body                                     |
+| ---------- | ----------------- | ---------------------------------------- |
+| exactly 1  | `3`               | the single-sheet body (below), unchanged |
+| 2 or more  | `4`               | the workbook body (below)                |
+
+This keeps the common case maximally compatible: a workbook that never uses a
+second worksheet is byte-for-byte the same kind of file earlier releases wrote
+and read. A workbook that _does_ use multiple worksheets is a version-4
+container, which older readers reject as `bad-version` (they validate the
+magic/version pair) instead of misparsing it — the reject-don't-guess policy.
+
+### Worksheet identity
+
+Every worksheet has a **stable internal identifier** that is separate from its
+mutable display name. The identifier never changes — not when the worksheet is
+renamed, moved, or when other worksheets are added or removed — so the active
+worksheet reference and any internal bookkeeping stay valid across renames.
+Identifiers must be unique within a workbook; a duplicate is `bad-shape`.
+
+The **display name** is what users see on the worksheet tab and what cross-sheet
+formulas write (`Sheet1!A1`). Names are trimmed, at most **100 characters**,
+unique within the workbook **case-insensitively**, and may not contain C0
+control characters or any of `: \ / ? * [ ]` — the characters that would
+conflict with formula-reference or file-path syntax. A name is never
+interpreted as HTML, a formula, a URL, or code anywhere in the application.
+Single quotes _are_ allowed and are escaped by doubling inside a quoted
+reference (`'O''Brien'!A1`).
+
+### Single-sheet containers have no worksheet identifier
+
+A version-3 container stores a sheet _name_ but no identifier. When one is
+read, a stable identifier is minted in memory so the whole application works
+against one model. Because a single-worksheet workbook is written back as a
+version-3 container, that minted identifier is not persisted — which is
+harmless, since a file with one worksheet has no cross-sheet references and
+nothing else keys off the identifier.
 
 ## Body layout
 
@@ -307,9 +355,106 @@ the per-cell limit, the cell count no greater than `rows × cols`, and the body
 must be consumed exactly (no trailing bytes). Any violation is `bad-shape` (or
 `too-large` for the size limits).
 
+## Workbook body layout (container version 4)
+
+Written only when the workbook holds **two or more** worksheets. All strings
+are UTF-8 and length-prefixed with a `u16`; all integers are little-endian.
+
+| Size | Field                                                           |
+| ---- | --------------------------------------------------------------- |
+| 1    | Workbook body version — currently `1`                           |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)     |
+| 2+…  | Application name (UTF-8, `u16` length; may be empty)            |
+| 2+…  | Application version (UTF-8, `u16` length; may be empty)         |
+| 8    | Creation timestamp, `f64` ms since epoch (`0` = not stored)     |
+| 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)  |
+| 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)         |
+| 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty) |
+| 2    | Worksheet count `S`, `u16`                                      |
+| …    | `S` worksheet records (below)                                   |
+
+Each worksheet record:
+
+| Size | Field                                                             |
+| ---- | ----------------------------------------------------------------- |
+| 2+…  | Worksheet identifier (UTF-8, `u16` length; must be non-empty)     |
+| 2+…  | Worksheet display name (UTF-8, `u16` length)                      |
+| 4    | Row count, `u32`                                                  |
+| 4    | Column count, `u32`                                               |
+| 4    | Cell count `C`, `u32`                                             |
+| …    | `C` cell records: row `u32`, column `u32`, length `u32`, bytes    |
+| 1    | Display flags, `u8` (bit 0: zoom present; bit 1: widths present)  |
+| 2    | _(bit 0)_ Zoom percent, `u16`                                     |
+| 4    | _(bit 1)_ Column-width entry count `W`, `u32`                     |
+| …    | _(bit 1)_ `W` entries: column `u32`, width px at 100% zoom `u16`  |
+| 1    | Filter flags, `u8` (bit 0: a filter block follows)                |
+| …    | _(bit 0)_ Filter block — identical layout to the single-sheet one |
+
+Cells are stored **sparsely**: only non-empty cells are written.
+
+### Workbook bounds
+
+Beyond the per-worksheet limits (which are the same as for a single-sheet body),
+a workbook container enforces:
+
+| Limit                                      | Value      |
+| ------------------------------------------ | ---------- |
+| Worksheets per workbook                    | 256        |
+| Worksheet identifier / name (stored bytes) | 400        |
+| Cells summed across **all** worksheets     | 20,000,000 |
+
+The worksheet count is validated **before** any worksheet is allocated, each
+worksheet's declared dimensions are validated before its cells are read, and the
+cell budget is accumulated across worksheets — so a container cannot multiply
+its way past the ceiling by declaring many worksheets. A worksheet count of `0`
+is `bad-shape` (a workbook always has at least one worksheet); a count above the
+limit is `too-large`. Duplicate worksheet identifiers are `bad-shape`. An active
+worksheet identifier that names no worksheet is not an error: it falls back to
+the first worksheet, so a partially-stale file still opens predictably. As with
+the single-sheet body, the body must be consumed exactly — trailing bytes are
+`bad-shape`.
+
+## Cross-sheet formula references
+
+A formula may reference another worksheet of the same workbook:
+
+```text
+Sheet1!A1        Sheet1!A1:B10      Sheet1!$A$1
+'Quarter 1'!A1   'Quarter 1'!$A$1:$B10
+SUM(Sheet1!A1:A10)
+```
+
+- The worksheet name is written bare when it reads as a plain identifier, and
+  single-quoted otherwise; a literal single quote inside the name is doubled
+  (`'O''Brien'!A1`).
+- An **unqualified** reference always means the current worksheet.
+- Relative, absolute, and mixed (`$`) references behave exactly as they do
+  within one worksheet; the `$` markers survive every rewrite.
+- Both endpoints of a range belong to the qualifying worksheet. A second
+  qualifier inside a range (`Sheet1!A1:Sheet2!B2`, a "3D" range) is
+  **deliberately unsupported** and resolves to `#ERROR!` rather than being
+  guessed at.
+- A reference to a worksheet that does not exist evaluates to `#REF!` and is
+  never redirected to a different worksheet.
+- Circular references are detected **across** worksheets (`#CYCLE!`), because
+  the workbook owns one shared evaluation memo and in-progress set.
+
+### What happens to formulas when worksheets change
+
+| Change                           | Effect on formulas                                                                                                                                                                                            |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worksheet **renamed**            | Every reference to it is rewritten to the new name (re-quoted as needed); results unchanged.                                                                                                                  |
+| Worksheet **deleted**            | Every reference to it becomes `#REF!`. Never silently redirected.                                                                                                                                             |
+| Worksheet **duplicated**         | Cell inputs are copied verbatim: **qualified** references still name the worksheets they named; **unqualified** references stay relative to the copy.                                                         |
+| Rows/columns inserted or deleted | References adjust on the edited worksheet _and_ in `Name!`-qualified references to it from every other worksheet. A formula's own unqualified references are never moved by an edit on a different worksheet. |
+
+Each of these is one atomic, undoable history entry: the structural change and
+every formula rewrite it implies undo and redo together.
+
 ## Versioning and compatibility
 
-This is container **version 3**, written with the magic `RSF1`.
+This is container **version 3** (one worksheet) or **version 4** (workbook),
+both written with the magic `RSF1`.
 
 ### Lossy CSV → RSF conversion
 
@@ -338,9 +483,25 @@ and version number — the header shape and body layout are byte-identical.
   readers that only understand `RCSV`/version 2 will correctly reject the new
   magic rather than misinterpreting it.
 - **Mismatched pairs are rejected.** The magic and container version are
-  validated as a pair: `RSF1`+`3` and `RCSV`+`2` are the only accepted
-  combinations; any other pairing (e.g. `RCSV` magic with version `3`) is a
-  `bad-version` error.
+  validated as a pair: `RSF1`+`3`, `RSF1`+`4`, and `RCSV`+`2` are the only
+  accepted combinations; any other pairing (e.g. `RCSV` magic with version `3`)
+  is a `bad-version` error.
+
+### Migrating a single-worksheet file to a workbook
+
+An existing single-worksheet `.rsf` (container version 3) and a legacy `.rcsv`
+both load as a workbook with exactly one worksheet, keeping their sheet name,
+delimiter, application metadata, display settings, and filter. Nothing about
+the file changes until the document does:
+
+- While the workbook still holds **one** worksheet, saving writes the same
+  version-3 container it came from — the file stays readable by older releases.
+- As soon as a **second** worksheet exists, saving writes a version-4 workbook
+  container. That is the migration, and it happens only because the document
+  now genuinely needs it.
+- Older readers encountering a version-4 container reject it with a localized
+  unsupported-version message (`bad-version`); they never misparse it or
+  silently drop the extra worksheets.
 
 ### Older container revisions
 
@@ -355,6 +516,9 @@ version sufficient for the data present is written — a document with no filter
 still writes a version 1–3 body that older readers accept. A document saved with
 an active filter writes a version 4 body, which a reader that only understands
 versions 1–3 rejects as `bad-version` (consistent with the reject-don't-guess
-policy) rather than silently dropping the filter. Future changes bump the
-container version (framing changes) or the body version (sheet encoding
-changes); readers reject versions they do not understand rather than guessing.
+policy) rather than silently dropping the filter. Multi-worksheet support was
+added as a new _container_ version (4) with its own workbook body rather than
+as another single-sheet body version, because it changes what the payload
+describes — a workbook rather than a sheet. Future changes bump the container
+version (framing changes) or the relevant body version (encoding changes);
+readers reject versions they do not understand rather than guessing.

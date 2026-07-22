@@ -2360,6 +2360,17 @@ export class Grid {
     this.demoteSink();
   }
 
+  /**
+   * Discard any in-progress inline edit without committing it, tearing down
+   * the autocomplete popup, the IME sink promotion, the formula-reference
+   * capture, and the reference highlights. Called when the active worksheet or
+   * document changes so an editor opened on one worksheet can never commit its
+   * text into another.
+   */
+  cancelEditing(): void {
+    this.closeEditor(false);
+  }
+
   /** True when the grid (not an editor input) should own copy/paste events. */
   isNavigating(): boolean {
     return (

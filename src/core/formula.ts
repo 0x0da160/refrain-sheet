@@ -15,14 +15,27 @@
  *   additive    := term (('+' | '-') term)*
  *   term        := factor (('*' | '/') factor)*
  *   factor      := ('+' | '-') factor | primary
- *   primary     := NUMBER | STRING | ERROR | ref | range | colrange | rowrange
+ *   primary     := NUMBER | STRING | ERROR | reference
  *                | FUNC '(' [expr (',' expr)*] ')' | '(' expr ')'
+ *   reference   := [sheet '!'] (ref | range | colrange | rowrange)
+ *   sheet       := NAME | "'" QUOTED "'"        (Sheet1, 'Quarter 1', 'O''Brien')
  *   ref         := ['$'] LETTERS ['$'] DIGITS   (A1, $A$1, $A1, A$1, AA10)
  *   range       := ref ':' ref                  (e.g. A1:B10, $A$1:B10)
  *   colrange    := colref ':' colref            (e.g. A:A, $A:C; whole columns)
  *   rowrange    := rowref ':' rowref            (e.g. 1:1, $2:10; whole rows)
  *   colref      := ['$'] LETTERS
  *   rowref      := ['$'] DIGITS
+ *
+ * A reference may be qualified with a worksheet of the same workbook
+ * (`Sheet1!A1`, `Sheet1!$A$1`, `SUM(Sheet1!A1:A10)`, `'Quarter 1'!$A$1:$B10`).
+ * The name is single-quoted when it is not a plain identifier, and a literal
+ * single quote inside it is doubled (`'O''Brien'!A1`). An unqualified
+ * reference always means the current worksheet. Both endpoints of a range
+ * belong to the qualifying worksheet: a second qualifier inside a range
+ * (`Sheet1!A1:Sheet2!B2`, a "3D" range) is deliberately unsupported and
+ * resolves to #ERROR! rather than being guessed at. A reference naming a
+ * worksheet that does not exist — including one that was deleted — evaluates
+ * to #REF! and is never redirected to another worksheet.
  *
  * References support the four A1-style forms: relative (`A1`), absolute
  * (`$A$1`), and the two mixed forms (`$A1`, `A$1`). The `$` markers never
@@ -108,6 +121,76 @@ export function formatValue(value: FormulaValue): string {
     case 'error':
       return value.code;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Worksheet-name notation (cross-sheet references)
+// ---------------------------------------------------------------------------
+
+/**
+ * Documented maximum worksheet-name length (characters). Names are trimmed and
+ * validated at the command layer; the codec also bounds the stored bytes.
+ */
+export const MAX_SHEET_NAME_LENGTH = 100;
+
+/**
+ * True when a name character conflicts with formula-reference or file-format
+ * syntax: a C0 control character or one of `[ ] : \ / ? *`. A single quote is
+ * allowed (escaped by doubling inside a quoted reference).
+ */
+function isDisallowedSheetChar(ch: string): boolean {
+  const code = ch.codePointAt(0) ?? 0;
+  return (
+    code < 0x20 ||
+    ch === '[' ||
+    ch === ']' ||
+    ch === ':' ||
+    ch === '\\' ||
+    ch === '/' ||
+    ch === '?' ||
+    ch === '*'
+  );
+}
+
+/** True when a trimmed worksheet name is non-empty, within length, and free of disallowed characters. */
+export function isValidSheetName(name: string): boolean {
+  const trimmed = name.trim();
+  if (trimmed.length === 0 || trimmed.length > MAX_SHEET_NAME_LENGTH) {
+    return false;
+  }
+  for (const ch of trimmed) {
+    if (isDisallowedSheetChar(ch)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * The uniqueness key for a worksheet name. Worksheet names are unique
+ * case-insensitively (documented policy), matching conventional spreadsheets,
+ * so this normalizes to a trimmed, case-folded key.
+ */
+export function sheetNameKey(name: string): string {
+  return name.trim().toLocaleLowerCase();
+}
+
+/**
+ * True when a worksheet name must be single-quoted to appear as a formula
+ * reference prefix: it is bare-safe only when it reads as one plain identifier
+ * token (letter/underscore start, then letters/digits/underscore).
+ */
+export function sheetNameNeedsQuoting(name: string): boolean {
+  return !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
+}
+
+/**
+ * Render a worksheet name as a formula-reference prefix, single-quoting and
+ * escaping (`'` → `''`) when required so `Quarter 1` becomes `'Quarter 1'` and
+ * `O'Brien` becomes `'O''Brien'`.
+ */
+export function quoteSheetName(name: string): string {
+  return sheetNameNeedsQuoting(name) ? `'${name.replace(/'/g, "''")}'` : name;
 }
 
 // ---------------------------------------------------------------------------
@@ -230,7 +313,20 @@ export const MAX_FORMULA_LENGTH = 8192;
 /** Recursion guard; ~5 depth units are consumed per nesting level. */
 const MAX_PARSE_DEPTH = 400;
 
-type TokenType = 'number' | 'string' | 'ident' | 'error' | 'op' | 'lparen' | 'rparen' | 'comma' | 'colon';
+type TokenType =
+  | 'number'
+  | 'string'
+  | 'ident'
+  | 'error'
+  | 'op'
+  | 'lparen'
+  | 'rparen'
+  | 'comma'
+  | 'colon'
+  /** Worksheet-reference separator `!` (as in `Sheet1!A1`). */
+  | 'bang'
+  /** A single-quoted worksheet name (`'Quarter 1'`); `value` is the unescaped name. */
+  | 'sheetname';
 
 interface Token {
   type: TokenType;
@@ -317,6 +413,39 @@ function tokenize(src: string): Token[] {
       }
       tokens.push({ type: 'string', start, end: j, text: src.slice(i, j), value: out });
       i = j;
+      continue;
+    }
+    if (ch === "'") {
+      // A single-quoted worksheet name (`'Quarter 1'`), used as a cross-sheet
+      // reference prefix before `!`. A literal single quote inside the name is
+      // written doubled (`''`), matching conventional spreadsheets.
+      let j = i + 1;
+      let out = '';
+      let closed = false;
+      while (j < len) {
+        if (src[j] === "'") {
+          if (j + 1 < len && src[j + 1] === "'") {
+            out += "'";
+            j += 2;
+            continue;
+          }
+          closed = true;
+          j += 1;
+          break;
+        }
+        out += src[j];
+        j += 1;
+      }
+      if (!closed || out.length === 0) {
+        throw new FormulaError('#ERROR!');
+      }
+      tokens.push({ type: 'sheetname', start, end: j, text: src.slice(i, j), value: out });
+      i = j;
+      continue;
+    }
+    if (ch === '!') {
+      tokens.push({ type: 'bang', start, end: i + 1, text: ch });
+      i += 1;
       continue;
     }
     if (ch === '$' || /[A-Za-z_]/.test(ch)) {
@@ -408,17 +537,24 @@ export interface RefNode {
   kind: 'ref';
   row: number;
   col: number;
+  /**
+   * Worksheet-qualified reference (`Sheet1!A1`): the target worksheet's name.
+   * Absent for an ordinary reference, which resolves against the current
+   * worksheet. Resolution is workbook-provided (see EvalContext.getSheetCell);
+   * an unresolvable name evaluates to #REF!.
+   */
+  sheet?: string;
 }
 
 export type AstNode =
   | { kind: 'number'; value: number }
   | { kind: 'string'; value: string }
   | RefNode
-  | { kind: 'range'; from: RefNode; to: RefNode }
+  | { kind: 'range'; from: RefNode; to: RefNode; sheet?: string }
   /** Whole-column range (e.g. A:C); bounded to the used grid at evaluation. */
-  | { kind: 'colrange'; fromCol: number; toCol: number }
+  | { kind: 'colrange'; fromCol: number; toCol: number; sheet?: string }
   /** Whole-row range (e.g. 1:10); bounded to the used grid at evaluation. */
-  | { kind: 'rowrange'; fromRow: number; toRow: number }
+  | { kind: 'rowrange'; fromRow: number; toRow: number; sheet?: string }
   | { kind: 'unary'; op: '+' | '-'; operand: AstNode }
   | { kind: 'binary'; op: string; left: AstNode; right: AstNode }
   | { kind: 'call'; name: string; args: AstNode[] }
@@ -606,6 +742,82 @@ class Parser {
     return this.parsePrimary(depth + 1);
   }
 
+  /**
+   * Parse the reference that follows a worksheet qualifier (`Sheet1!`…):
+   * a cell, a range, a whole-column range, or a whole-row range, all bound to
+   * `sheet`. A second qualifier inside a range (`Sheet1!A1:Sheet2!B2`, a "3D"
+   * range) is deliberately not supported: the endpoint fails to parse as a
+   * reference and the formula resolves to #ERROR! rather than guessing.
+   */
+  private parseSheetQualified(sheet: string, depth: number): AstNode {
+    if (depth > MAX_PARSE_DEPTH) {
+      throw new FormulaError('#ERROR!');
+    }
+    const token = this.next();
+    // `Sheet1!1:10` — a whole-row range introduced by a plain number.
+    if (token.type === 'number') {
+      if (this.peek()?.type !== 'colon') {
+        throw new FormulaError('#ERROR!');
+      }
+      const fromRow = parseWholeRow(token.text);
+      this.next(); // colon
+      const endToken = this.next();
+      const toRow =
+        endToken.type === 'number' || endToken.type === 'ident' ? parseWholeRow(endToken.text) : null;
+      if (fromRow === null || toRow === null) {
+        throw new FormulaError('#ERROR!');
+      }
+      return { kind: 'rowrange', fromRow, toRow, sheet };
+    }
+    if (token.type !== 'ident') {
+      throw new FormulaError('#ERROR!');
+    }
+    const nextToken = this.peek();
+    const ref = parseRefEx(token.text);
+    if (ref) {
+      const refNode: RefNode = { kind: 'ref', row: ref.row, col: ref.col, sheet };
+      if (nextToken && nextToken.type === 'colon') {
+        this.next();
+        const endToken = this.expect('ident');
+        const endRef = parseRefEx(endToken.text);
+        if (!endRef) {
+          throw new FormulaError('#ERROR!');
+        }
+        return {
+          kind: 'range',
+          from: refNode,
+          to: { kind: 'ref', row: endRef.row, col: endRef.col },
+          sheet,
+        };
+      }
+      return refNode;
+    }
+    // `Sheet1!A:C`
+    const col = parseWholeColumn(token.text);
+    if (col !== null && nextToken && nextToken.type === 'colon') {
+      this.next();
+      const endToken = this.expect('ident');
+      const endCol = parseWholeColumn(endToken.text);
+      if (endCol === null) {
+        throw new FormulaError('#ERROR!');
+      }
+      return { kind: 'colrange', fromCol: col, toCol: endCol, sheet };
+    }
+    // `Sheet1!$1:10`
+    const row = parseWholeRowEx(token.text);
+    if (row !== null && row.abs && nextToken && nextToken.type === 'colon') {
+      this.next();
+      const endToken = this.next();
+      const toRow =
+        endToken.type === 'number' || endToken.type === 'ident' ? parseWholeRow(endToken.text) : null;
+      if (toRow === null) {
+        throw new FormulaError('#ERROR!');
+      }
+      return { kind: 'rowrange', fromRow: row.index, toRow, sheet };
+    }
+    throw new FormulaError('#ERROR!');
+  }
+
   private parsePrimary(depth: number): AstNode {
     if (depth > MAX_PARSE_DEPTH) {
       throw new FormulaError('#ERROR!');
@@ -636,8 +848,19 @@ class Parser {
         this.expect('rparen');
         return inner;
       }
+      case 'sheetname': {
+        // A quoted worksheet name is only meaningful as a cross-sheet prefix.
+        this.expect('bang');
+        return this.parseSheetQualified(token.value as string, depth + 1);
+      }
       case 'ident': {
         const nextToken = this.peek();
+        // `Name!` can only introduce a cross-sheet reference, so an identifier
+        // directly followed by `!` is an unquoted worksheet name.
+        if (nextToken && nextToken.type === 'bang') {
+          this.next();
+          return this.parseSheetQualified(token.text, depth + 1);
+        }
         if (nextToken && nextToken.type === 'lparen') {
           // Function call.
           this.next();
@@ -723,7 +946,7 @@ class Parser {
 export const MAX_RANGE_CELLS = 2_000_000;
 
 export interface EvalContext {
-  /** Resolve a cell to its value (already computed for formula cells). */
+  /** Resolve a cell on the *current* worksheet (already computed for formula cells). */
   getCell(row: number, col: number): FormulaValue;
   /**
    * Used-grid bounds. Whole-column (`A:A`) and whole-row (`1:1`) ranges are
@@ -733,6 +956,21 @@ export interface EvalContext {
    */
   rowCount?: number;
   columnCount?: number;
+  /**
+   * Resolve a cell on another worksheet of the same workbook, for
+   * worksheet-qualified references (`Sheet1!A1`). Supplied by the workbook,
+   * which owns the shared evaluation memo and the in-progress set — that is
+   * what makes circular references detectable *across* worksheets. When this
+   * is omitted (a single-sheet context) any qualified reference is #REF!.
+   */
+  getSheetCell?(sheet: string, row: number, col: number): FormulaValue;
+  /**
+   * Used-grid bounds of another worksheet, resolved by name (case-insensitively,
+   * matching the worksheet-name uniqueness policy). Returns null when no such
+   * worksheet exists, which makes the whole reference #REF! — a deleted or
+   * unknown worksheet is never silently redirected to another one.
+   */
+  getSheetBounds?(sheet: string): { rowCount: number; columnCount: number } | null;
 }
 
 function coerceToNumber(value: FormulaValue): number | null {
@@ -789,14 +1027,52 @@ export function evaluateAst(ast: AstNode, ctx: EvalContext): FormulaValue {
  */
 type EvalResult =
   | { kind: 'scalar'; value: FormulaValue }
-  | { kind: 'range'; top: number; bottom: number; left: number; right: number };
+  | {
+      kind: 'range';
+      top: number;
+      bottom: number;
+      left: number;
+      right: number;
+      /** Worksheet the range belongs to, for a qualified range (`Sheet1!A1:B10`). */
+      sheet?: string;
+    };
 
 function scalar(value: FormulaValue): EvalResult {
   return { kind: 'scalar', value };
 }
 
-function range(top: number, bottom: number, left: number, right: number): EvalResult {
-  return { kind: 'range', top, bottom, left, right };
+function range(top: number, bottom: number, left: number, right: number, sheet?: string): EvalResult {
+  return sheet === undefined
+    ? { kind: 'range', top, bottom, left, right }
+    : { kind: 'range', top, bottom, left, right, sheet };
+}
+
+/**
+ * Resolve the used-grid bounds a reference should be clamped to. Returns null
+ * when the reference names a worksheet that cannot be resolved (deleted,
+ * renamed, or absent), which makes the whole reference #REF!.
+ */
+function boundsFor(sheet: string | undefined, ctx: EvalContext): { rows: number; cols: number } | null {
+  if (sheet === undefined) {
+    return { rows: ctx.rowCount ?? 0, cols: ctx.columnCount ?? 0 };
+  }
+  const resolved = ctx.getSheetCell && ctx.getSheetBounds ? ctx.getSheetBounds(sheet) : null;
+  return resolved ? { rows: resolved.rowCount, cols: resolved.columnCount } : null;
+}
+
+/** The cell reader for a (possibly worksheet-qualified) reference. */
+function cellReaderFor(
+  sheet: string | undefined,
+  ctx: EvalContext,
+): (row: number, col: number) => FormulaValue {
+  if (sheet === undefined) {
+    return (row, col) => ctx.getCell(row, col);
+  }
+  const getSheetCell = ctx.getSheetCell;
+  if (!getSheetCell) {
+    return () => errorValue('#REF!');
+  }
+  return (row, col) => getSheetCell(sheet, row, col);
 }
 
 function evalNode(ast: AstNode, ctx: EvalContext): EvalResult {
@@ -807,30 +1083,43 @@ function evalNode(ast: AstNode, ctx: EvalContext): EvalResult {
       return scalar({ type: 'string', value: ast.value });
     case 'error':
       return scalar(errorValue(ast.code));
-    case 'ref':
-      return scalar(ctx.getCell(ast.row, ast.col));
+    case 'ref': {
+      // A worksheet-qualified reference must resolve to a real worksheet;
+      // an unknown name is #REF!, never silently redirected.
+      if (ast.sheet !== undefined && boundsFor(ast.sheet, ctx) === null) {
+        return scalar(errorValue('#REF!'));
+      }
+      return scalar(cellReaderFor(ast.sheet, ctx)(ast.row, ast.col));
+    }
     case 'range': {
+      if (ast.sheet !== undefined && boundsFor(ast.sheet, ctx) === null) {
+        return scalar(errorValue('#REF!'));
+      }
       const top = Math.min(ast.from.row, ast.to.row);
       const bottom = Math.max(ast.from.row, ast.to.row);
       const left = Math.min(ast.from.col, ast.to.col);
       const right = Math.max(ast.from.col, ast.to.col);
-      return range(top, bottom, left, right);
+      return range(top, bottom, left, right, ast.sheet);
     }
     case 'colrange': {
       // A:C over the used grid: all used rows, columns clamped to used bounds.
-      const rows = ctx.rowCount ?? 0;
-      const cols = ctx.columnCount ?? 0;
+      const bounds = boundsFor(ast.sheet, ctx);
+      if (!bounds) {
+        return scalar(errorValue('#REF!'));
+      }
       const left = Math.min(ast.fromCol, ast.toCol);
-      const right = Math.min(Math.max(ast.fromCol, ast.toCol), cols - 1);
-      return range(0, rows - 1, left, right);
+      const right = Math.min(Math.max(ast.fromCol, ast.toCol), bounds.cols - 1);
+      return range(0, bounds.rows - 1, left, right, ast.sheet);
     }
     case 'rowrange': {
       // 1:10 over the used grid: all used columns, rows clamped to used bounds.
-      const rows = ctx.rowCount ?? 0;
-      const cols = ctx.columnCount ?? 0;
+      const bounds = boundsFor(ast.sheet, ctx);
+      if (!bounds) {
+        return scalar(errorValue('#REF!'));
+      }
       const top = Math.min(ast.fromRow, ast.toRow);
-      const bottom = Math.min(Math.max(ast.fromRow, ast.toRow), rows - 1);
-      return range(top, bottom, 0, cols - 1);
+      const bottom = Math.min(Math.max(ast.fromRow, ast.toRow), bounds.rows - 1);
+      return range(top, bottom, 0, bounds.cols - 1, ast.sheet);
     }
     case 'unary': {
       const operand = evalNode(ast.operand, ctx);
@@ -963,9 +1252,11 @@ function collectNumbers(arg: AstNode, ctx: EvalContext, out: number[]): FormulaV
     if (cellCount > MAX_RANGE_CELLS) {
       return errorValue('#VALUE!');
     }
+    // A worksheet-qualified range iterates that worksheet's cells.
+    const readCell = cellReaderFor(result.sheet, ctx);
     for (let r = top; r <= bottom; r++) {
       for (let c = left; c <= right; c++) {
-        const v = ctx.getCell(r, c);
+        const v = readCell(r, c);
         if (v.type === 'error') {
           return v;
         }
@@ -1129,12 +1420,55 @@ export type SpanMap = (from: SpanEnd, to: SpanEnd) => { from: number; to: number
  * `mapColSpan`/`mapRowSpan` handle whole-column (`A:C`) and whole-row (`1:10`)
  * ranges; when omitted those ranges are left unchanged.
  */
+/**
+ * Cross-sheet options for {@link rewriteFormulaRefs}. Omitting them keeps the
+ * single-worksheet behavior: every reference is remapped and any worksheet
+ * qualifier is preserved exactly as written.
+ */
+export interface SheetRewriteOptions {
+  /**
+   * The worksheet the formula being rewritten lives in. An unqualified
+   * reference belongs to this worksheet, which is what `shouldMapCoords`
+   * receives as the reference's effective worksheet.
+   */
+  homeSheet?: string;
+  /**
+   * Transform an explicit worksheet qualifier. Return a name to rewrite the
+   * prefix (re-quoted as needed), `'REF_ERROR'` to turn the whole reference
+   * into #REF! (the worksheet was deleted), or null to keep the prefix
+   * exactly as written.
+   */
+  mapSheet?: (sheet: string) => string | 'REF_ERROR' | null;
+  /**
+   * Whether the coordinate mappers apply to a reference whose effective
+   * worksheet is `sheet` (null when the formula's own worksheet is unknown).
+   * Structural row/column edits use this so inserting a row in one worksheet
+   * never shifts references that point at a different one. Defaults to
+   * remapping every reference.
+   */
+  shouldMapCoords?: (sheet: string | null) => boolean;
+}
+
+/**
+ * Rewrite every cell reference in a formula string using the given mapping
+ * functions, preserving all other text — including each reference's `$`
+ * absolute markers, which are re-rendered onto the mapped coordinates, and its
+ * worksheet qualifier (`Sheet1!`, `'Quarter 1'!`), which is preserved or
+ * transformed through {@link SheetRewriteOptions.mapSheet}. References that map
+ * to 'REF_ERROR' — and references into a deleted worksheet — are replaced with
+ * the literal #REF! error. Formulas that do not tokenize are returned unchanged
+ * (they already display #ERROR!).
+ *
+ * `mapColSpan`/`mapRowSpan` handle whole-column (`A:C`) and whole-row (`1:10`)
+ * ranges; when omitted those ranges keep their coordinates.
+ */
 export function rewriteFormulaRefs(
   src: string,
   mapRef: RefMap,
   mapRange: RangeMap,
   mapColSpan?: SpanMap,
   mapRowSpan?: SpanMap,
+  sheetOpts?: SheetRewriteOptions,
 ): string {
   if (!isFormula(src)) {
     return src;
@@ -1151,106 +1485,145 @@ export function rewriteFormulaRefs(
     text: string;
   }
   const splices: Splice[] = [];
+  // Token offsets are relative to the text after '='.
+  const body = src.slice(1);
   // A whole-row span endpoint is a number token (1) or a `$`-marked ident ($1).
   const rowEnd = (token: Token | null): SpanEnd | null =>
     token && (token.type === 'number' || token.type === 'ident') ? parseWholeRowEx(token.text) : null;
-  const spliceRowSpan = (token: Token, endToken: Token, from: SpanEnd, to: SpanEnd): void => {
-    if (!mapRowSpan) {
-      return;
-    }
-    const mapped = mapRowSpan(from, to);
-    const text =
-      mapped === 'REF_ERROR'
-        ? '#REF!'
-        : `${from.abs ? '$' : ''}${mapped.from + 1}:${to.abs ? '$' : ''}${mapped.to + 1}`;
-    splices.push({ start: token.start, end: endToken.end, text });
+  const colText = (index: number, abs: boolean): string => `${abs ? '$' : ''}${columnLabel(index)}`;
+  const rowText = (index: number, abs: boolean): string => `${abs ? '$' : ''}${index + 1}`;
+
+  /** True when the coordinate mappers apply to a reference on `sheetName`. */
+  const mapsCoords = (sheetName: string | null): boolean => {
+    const effective = sheetName ?? sheetOpts?.homeSheet ?? null;
+    return sheetOpts?.shouldMapCoords ? sheetOpts.shouldMapCoords(effective) : true;
   };
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i];
-    const nextToken = tokens[i + 1] ?? null;
+  /** The rewritten `Sheet!` prefix, '' when unqualified, or null for #REF!. */
+  const resolvePrefix = (sheetName: string | null, sheetText: string | null): string | null => {
+    if (sheetName === null) {
+      return '';
+    }
+    const mapped = sheetOpts?.mapSheet?.(sheetName);
+    if (mapped === 'REF_ERROR') {
+      return null;
+    }
+    if (typeof mapped === 'string') {
+      return `${quoteSheetName(mapped)}!`;
+    }
+    return `${sheetText}!`;
+  };
 
-    if (token.type === 'number') {
-      // Whole-row range: NUMBER ':' (NUMBER | $ROW).
-      if (nextToken && nextToken.type === 'colon') {
-        const endToken = tokens[i + 2] ?? null;
-        const fromRow = parseWholeRowEx(token.text);
-        const toRow = rowEnd(endToken);
-        if (fromRow !== null && toRow !== null && endToken) {
-          spliceRowSpan(token, endToken, fromRow, toRow);
-          i += 2;
-        }
-      }
+  let i = 0;
+  while (i < tokens.length) {
+    // An optional worksheet qualifier: `Name!` or `'Quoted Name'!`.
+    let sheetName: string | null = null;
+    let sheetText: string | null = null;
+    let spanStart = -1;
+    let j = i;
+    const head = tokens[i];
+    const afterHead = tokens[i + 1] ?? null;
+    if (afterHead && afterHead.type === 'bang' && (head.type === 'ident' || head.type === 'sheetname')) {
+      sheetName = head.type === 'sheetname' ? (head.value as string) : head.text;
+      sheetText = head.text;
+      spanStart = head.start;
+      j = i + 2;
+    }
+    const token = tokens[j] ?? null;
+    if (!token) {
+      i += 1;
       continue;
     }
-
-    if (token.type !== 'ident') {
-      continue;
-    }
+    const nextToken = tokens[j + 1] ?? null;
     if (nextToken && nextToken.type === 'lparen') {
-      continue; // function name
+      i = j + 1; // a function name, never a reference
+      continue;
     }
-    const ref = parseRefEx(token.text);
-    if (ref) {
-      // Range: ref ':' ref
-      if (nextToken && nextToken.type === 'colon') {
-        const endToken = tokens[i + 2] ?? null;
-        const endRef = endToken && endToken.type === 'ident' ? parseRefEx(endToken.text) : null;
-        if (endRef && endToken) {
-          const mapped = mapRange(ref, endRef);
-          const text =
+    if (spanStart < 0) {
+      spanStart = token.start;
+    }
+    const prefix = resolvePrefix(sheetName, sheetText);
+    const doMap = mapsCoords(sheetName);
+    // The coordinate text of the occurrence, or null when it becomes #REF!.
+    let coords: string | null = null;
+    let spanEnd = -1;
+    let lastIndex = j;
+
+    if (token.type === 'number' || token.type === 'ident') {
+      const ref = token.type === 'ident' ? parseRefEx(token.text) : null;
+      if (ref) {
+        if (nextToken && nextToken.type === 'colon') {
+          // Range: ref ':' ref
+          const endToken = tokens[j + 2] ?? null;
+          const endRef = endToken && endToken.type === 'ident' ? parseRefEx(endToken.text) : null;
+          if (endRef && endToken) {
+            const mapped = doMap ? mapRange(ref, endRef) : { from: ref, to: endRef };
+            coords =
+              mapped === 'REF_ERROR'
+                ? null
+                : `${refLabel(mapped.from.row, mapped.from.col, ref.absRow, ref.absCol)}:${refLabel(mapped.to.row, mapped.to.col, endRef.absRow, endRef.absCol)}`;
+            spanEnd = endToken.end;
+            lastIndex = j + 2;
+          }
+        }
+        if (spanEnd < 0) {
+          const mapped = doMap ? mapRef(ref) : { row: ref.row, col: ref.col };
+          coords = mapped === 'REF_ERROR' ? null : refLabel(mapped.row, mapped.col, ref.absRow, ref.absCol);
+          spanEnd = token.end;
+          lastIndex = j;
+        }
+      } else if (nextToken && nextToken.type === 'colon') {
+        // Whole-column range: COL ':' COL (e.g. A:C, $A:$C).
+        const fromCol = token.type === 'ident' ? parseWholeColumnEx(token.text) : null;
+        const endToken = tokens[j + 2] ?? null;
+        const toCol = endToken && endToken.type === 'ident' ? parseWholeColumnEx(endToken.text) : null;
+        if (fromCol !== null && toCol !== null && endToken) {
+          const mapped =
+            doMap && mapColSpan ? mapColSpan(fromCol, toCol) : { from: fromCol.index, to: toCol.index };
+          coords =
             mapped === 'REF_ERROR'
-              ? '#REF!'
-              : `${refLabel(mapped.from.row, mapped.from.col, ref.absRow, ref.absCol)}:${refLabel(mapped.to.row, mapped.to.col, endRef.absRow, endRef.absCol)}`;
-          splices.push({ start: token.start, end: endToken.end, text });
-          i += 2;
-          continue;
+              ? null
+              : `${colText(mapped.from, fromCol.abs)}:${colText(mapped.to, toCol.abs)}`;
+          spanEnd = endToken.end;
+          lastIndex = j + 2;
+        } else {
+          // Whole-row range: (NUMBER | $ROW) ':' (NUMBER | $ROW).
+          const fromRow = parseWholeRowEx(token.text);
+          const toRow = rowEnd(endToken);
+          if (fromRow !== null && toRow !== null && endToken) {
+            const mapped =
+              doMap && mapRowSpan ? mapRowSpan(fromRow, toRow) : { from: fromRow.index, to: toRow.index };
+            coords =
+              mapped === 'REF_ERROR'
+                ? null
+                : `${rowText(mapped.from, fromRow.abs)}:${rowText(mapped.to, toRow.abs)}`;
+            spanEnd = endToken.end;
+            lastIndex = j + 2;
+          }
         }
       }
-      const mapped = mapRef(ref);
-      splices.push({
-        start: token.start,
-        end: token.end,
-        text: mapped === 'REF_ERROR' ? '#REF!' : refLabel(mapped.row, mapped.col, ref.absRow, ref.absCol),
-      });
+    }
+
+    if (spanEnd < 0) {
+      // Not a reference occurrence; skip just the head token so a stray
+      // qualifier cannot swallow the tokens that follow it.
+      i += 1;
       continue;
     }
-    // Whole-column range: COL ':' COL (e.g. A:C, $A:$C).
-    const fromCol = parseWholeColumnEx(token.text);
-    if (fromCol !== null && mapColSpan && nextToken && nextToken.type === 'colon') {
-      const endToken = tokens[i + 2] ?? null;
-      const toCol = endToken && endToken.type === 'ident' ? parseWholeColumnEx(endToken.text) : null;
-      if (toCol !== null && endToken) {
-        const mapped = mapColSpan(fromCol, toCol);
-        const text =
-          mapped === 'REF_ERROR'
-            ? '#REF!'
-            : `${fromCol.abs ? '$' : ''}${columnLabel(mapped.from)}:${toCol.abs ? '$' : ''}${columnLabel(mapped.to)}`;
-        splices.push({ start: token.start, end: endToken.end, text });
-        i += 2;
-      }
-      continue;
+    const text = prefix === null || coords === null ? '#REF!' : `${prefix}${coords}`;
+    if (text !== body.slice(spanStart, spanEnd)) {
+      splices.push({ start: spanStart, end: spanEnd, text });
     }
-    // Whole-row range starting with a `$`-marked row: $ROW ':' (NUMBER | $ROW).
-    const fromRow = parseWholeRowEx(token.text);
-    if (fromRow !== null && nextToken && nextToken.type === 'colon') {
-      const endToken = tokens[i + 2] ?? null;
-      const toRow = rowEnd(endToken);
-      if (toRow !== null && endToken) {
-        spliceRowSpan(token, endToken, fromRow, toRow);
-        i += 2;
-      }
-    }
+    i = lastIndex + 1;
   }
   if (splices.length === 0) {
     return src;
   }
-  // Token offsets are relative to the text after '='.
-  let body = src.slice(1);
-  for (let i = splices.length - 1; i >= 0; i--) {
-    const s = splices[i];
-    body = body.slice(0, s.start) + s.text + body.slice(s.end);
+  let out = body;
+  for (let k = splices.length - 1; k >= 0; k--) {
+    const s = splices[k];
+    out = out.slice(0, s.start) + s.text + out.slice(s.end);
   }
-  return `=${body}`;
+  return `=${out}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1308,6 +1681,12 @@ export function extractFormulaRefs(src: string): FormulaRefRange[] {
     // Reject matches embedded in longer identifiers/numbers (e.g. `ABCD1`,
     // the `1.5` in a decimal, or `_A1`).
     if (isWordChar(body[m.index - 1]) || isWordChar(body[m.index + m[0].length])) {
+      continue;
+    }
+    // A worksheet-qualified reference (`Sheet1!A1`) points at another
+    // worksheet, so it has no rectangle to highlight in the current grid —
+    // and the qualifier itself (`AB1` in `AB1!C2`) is a name, not a reference.
+    if (body[m.index - 1] === '!' || body[m.index + m[0].length] === '!') {
       continue;
     }
     let range: FormulaRefRange | null = null;
@@ -1425,6 +1804,7 @@ export function adjustFormulaForAxis(
   op: 'insert' | 'delete',
   index: number,
   count: number,
+  sheetOpts?: SheetRewriteOptions,
 ): string {
   const shiftPoint = (v: number): number | 'deleted' => {
     if (op === 'insert') {
@@ -1493,5 +1873,63 @@ export function adjustFormulaForAxis(
   // whole-row spans. The orthogonal span kind is left untouched.
   const mapColSpan = axis === 'col' ? mapSpan : undefined;
   const mapRowSpan = axis === 'row' ? mapSpan : undefined;
-  return rewriteFormulaRefs(src, mapRef, mapRange, mapColSpan, mapRowSpan);
+  return rewriteFormulaRefs(src, mapRef, mapRange, mapColSpan, mapRowSpan, sheetOpts);
+}
+
+// ---------------------------------------------------------------------------
+// Worksheet-scoped rewrites (rename / delete a worksheet)
+// ---------------------------------------------------------------------------
+
+/** Coordinate mappers that leave every reference exactly where it is. */
+const IDENTITY_REF: RefMap = (ref) => ({ row: ref.row, col: ref.col });
+const IDENTITY_RANGE: RangeMap = (from, to) => ({
+  from: { row: from.row, col: from.col },
+  to: { row: to.row, col: to.col },
+});
+const IDENTITY_SPAN: SpanMap = (from, to) => ({ from: from.index, to: to.index });
+
+/**
+ * Rewrite every reference to worksheet `oldName` so it names `newName`
+ * instead, re-quoting the prefix only as the new name requires. Coordinates,
+ * `$` markers, and all other formula text are untouched, so a rename never
+ * changes what a formula computes. Worksheet names match case-insensitively,
+ * matching the uniqueness policy.
+ */
+export function renameSheetInFormula(src: string, oldName: string, newName: string): string {
+  const target = sheetNameKey(oldName);
+  return rewriteFormulaRefs(src, IDENTITY_REF, IDENTITY_RANGE, IDENTITY_SPAN, IDENTITY_SPAN, {
+    mapSheet: (sheet) => (sheetNameKey(sheet) === target ? newName : null),
+  });
+}
+
+/**
+ * Turn every reference to worksheet `sheetName` into the explicit #REF! error
+ * (the worksheet was deleted). References to other worksheets and to the
+ * formula's own worksheet are left untouched — a deleted worksheet is never
+ * silently redirected to a different one.
+ */
+export function invalidateSheetRefsInFormula(src: string, sheetName: string): string {
+  const target = sheetNameKey(sheetName);
+  return rewriteFormulaRefs(src, IDENTITY_REF, IDENTITY_RANGE, IDENTITY_SPAN, IDENTITY_SPAN, {
+    mapSheet: (sheet) => (sheetNameKey(sheet) === target ? 'REF_ERROR' : null),
+  });
+}
+
+/**
+ * True when the formula contains at least one reference qualified with
+ * `sheetName` (case-insensitively). Used to report which worksheets a delete
+ * or rename will affect without rewriting anything.
+ */
+export function formulaReferencesSheet(src: string, sheetName: string): boolean {
+  const target = sheetNameKey(sheetName);
+  let found = false;
+  rewriteFormulaRefs(src, IDENTITY_REF, IDENTITY_RANGE, IDENTITY_SPAN, IDENTITY_SPAN, {
+    mapSheet: (sheet) => {
+      if (sheetNameKey(sheet) === target) {
+        found = true;
+      }
+      return null;
+    },
+  });
+  return found;
 }

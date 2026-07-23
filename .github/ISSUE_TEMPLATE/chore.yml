@@ -1,0 +1,81 @@
+name: 保守作業 / Chore
+description: リファクタ・ドキュメント・テスト・ツールなどの保守作業 / Maintenance work (refactor, docs, tests, tooling) with clear scope
+title: '[Chore]: '
+labels: ['agent:triage', 'type:chore']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        日本語でも英語でも構いません。翻訳は不要です。
+        You may write in Japanese or English — no translation required.
+        機密情報・認証情報・トークンは記載しないでください。/ Do not include secrets, credentials, or tokens.
+
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景 / Background
+      description: なぜこの保守作業が必要か。 / Why this maintenance is needed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: 目的 / Goal
+      description: 完了時に得られる状態。 / The desired end state.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 対象範囲 / Scope
+      description: 触るファイル・領域。関係のない変更は含めないこと。 / Files/areas to touch; do not bundle unrelated changes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: 対象外 / Out of scope
+      description: 今回はやらないこと。 / What is explicitly excluded.
+    validations:
+      required: true
+
+  - type: input
+    id: area
+    attributes:
+      label: 影響範囲・コンポーネント / Affected area or component
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 受け入れ基準 / Acceptance criteria
+      description: |
+        測定可能な完了条件（例: 挙動不変、全チェック通過、ドキュメント更新）。
+        Measurable done-conditions (e.g. behavior unchanged, all checks pass, docs updated).
+      value: |
+        - [ ] No behavior change (verified by existing tests)
+        - [ ] format:check, lint, build, test, check:dist, check:versions all pass
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: セキュリティ・データ・インフラへの影響 / Security, data, or infra impact
+      options:
+        - 'なし / None'
+        - '不明 / Not sure — needs triage'
+        - 'あり / Yes — high-risk area (will require human approval)'
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 依存・関連Issue / Dependencies & related issues
+    validations:
+      required: false

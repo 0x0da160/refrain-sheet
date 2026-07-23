@@ -1,0 +1,8 @@
+# Require one of the structured forms so triage and the agent loop always receive
+# background, scope, and measurable acceptance criteria. Security issues must be
+# reported privately, never as a public issue (see docs/security.md).
+blank_issues_enabled: false
+contact_links:
+  - name: セキュリティ報告 / Security disclosure
+    url: https://github.com/0x0da160/refrain-csv-html/blob/main/docs/security.md
+    about: 脆弱性は公開Issueにせず、docs/security.md の手順で非公開に報告してください。 / Report vulnerabilities privately per docs/security.md — not as a public issue.

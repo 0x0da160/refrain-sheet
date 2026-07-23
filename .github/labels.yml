@@ -1,0 +1,70 @@
+# Label definitions for the Issue-driven agent loop.
+#
+# This file is DATA + DOCUMENTATION. No workflow in this repository creates or
+# syncs labels automatically (that would need broader permissions and a
+# third-party action). A human creates these once with the GitHub CLI — see the
+# ready-to-paste commands in docs/agent-operations.md ("Human Setup Required").
+#
+# State machine (see docs/agent-operations.md):
+#   agent:triage -> agent:needs-spec -> [human applies agent:ready]
+#     -> agent:working -> agent:review -> [human merge] -> agent:done
+#   agent:blocked may interrupt from any state and requires human input.
+#
+# IMPORTANT: automation MUST NEVER apply `agent:ready`. Humans only.
+
+# --- Lifecycle labels ---------------------------------------------------------
+- name: 'agent:triage'
+  color: '0e8a16'
+  description: 'Needs automated classification or clarification (automation or human).'
+- name: 'agent:needs-spec'
+  color: 'fbca04'
+  description: 'Acceptance criteria, constraints, or risk info are insufficient.'
+- name: 'agent:ready'
+  color: '1d76db'
+  description: 'Human-approved for autonomous implementation. HUMANS ONLY may apply.'
+- name: 'agent:working'
+  color: '5319e7'
+  description: 'An implementation workflow is currently operating on this issue (automation).'
+- name: 'agent:review'
+  color: 'd93f0b'
+  description: 'A PR exists and requires independent review or CI completion (automation).'
+- name: 'agent:blocked'
+  color: 'b60205'
+  description: 'Cannot safely continue without human input or approval.'
+- name: 'agent:done'
+  color: '0e8a16'
+  description: 'Completed after a human-approved merge and post-merge verification.'
+
+# --- Risk labels --------------------------------------------------------------
+- name: 'risk:low'
+  color: 'c2e0c6'
+  description: 'Low-risk change, narrow blast radius.'
+- name: 'risk:medium'
+  color: 'fef2c0'
+  description: 'Moderate risk; needs careful review.'
+- name: 'risk:high'
+  color: 'e99695'
+  description: 'High risk; requires explicit human approval before implementation.'
+- name: 'risk:security'
+  color: 'b60205'
+  description: 'Touches auth, secrets, crypto, or security controls. Human approval required.'
+- name: 'risk:data'
+  color: 'b60205'
+  description: 'Touches personal/sensitive data or destructive data operations. Human approval required.'
+- name: 'risk:infra'
+  color: 'b60205'
+  description: 'Touches infrastructure, networking, deploy, or permissions. Human approval required.'
+- name: 'risk:breaking-change'
+  color: 'd93f0b'
+  description: 'Public API or format breaking change.'
+
+# --- Type labels (applied by issue templates) ---------------------------------
+- name: 'type:bug'
+  color: 'd73a4a'
+  description: 'A defect in existing behavior.'
+- name: 'type:feature'
+  color: 'a2eeef'
+  description: 'A new capability or improvement.'
+- name: 'type:chore'
+  color: 'ededed'
+  description: 'Maintenance: refactor, docs, tests, tooling.'

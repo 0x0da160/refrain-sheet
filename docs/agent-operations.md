@@ -75,8 +75,9 @@ in [`.github/labels.yml`](../.github/labels.yml).
 | `close-loop.yml`      | `check_suite: completed`, dispatch                   | read checks/statuses/contents, `issues:write`, `pull-requests:write` | per-commit, cancel-in-progress | Skips when no matching agent PR                                         |
 
 Every workflow: declares an explicit `timeout-minutes`, uses `pull_request` (never
-`pull_request_target`), references the API key only as `secrets.ANTHROPIC_API_KEY`,
-and is **inert until a human completes the setup below**.
+`pull_request_target`), selects its Claude credential from exactly one method (see
+[Claude authentication](#claude-authentication)), and is **inert until a human
+completes the setup below**.
 
 ## Human setup required (GitHub UI / CLI)
 
@@ -84,8 +85,11 @@ These cannot be automated safely and must be done by a repository admin.
 
 1. **Install the Claude GitHub App** — authorize `anthropics/claude` for **only this
    repository** (not the whole org). See the action's README.
-2. **Add the secret** — repository → Settings → Secrets and variables → Actions →
-   add `ANTHROPIC_API_KEY`. Never commit it; never echo it.
+2. **Choose the Claude authentication method** — see
+   [Claude authentication](#claude-authentication). In short: set the non-secret
+   Actions **variable** `CLAUDE_AUTH_METHOD` to `oauth` or `api-key`, then configure
+   the matching **secret** (`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`). Never
+   commit or echo a secret value.
 3. **SHA-pin the third-party action** — the four agent workflows reference
    `anthropics/claude-code-action@v1`. Repo policy (`docs/security.md`) requires
    third-party actions pinned to a **full commit SHA**. Replace each `@v1` with a
@@ -124,6 +128,54 @@ These cannot be automated safely and must be done by a repository admin.
 9. **Spending limits** — set an Actions usage/spend cap and monitor Anthropic API
    usage (see Budget and circuit breakers).
 
+## Claude authentication
+
+The agent workflows authenticate to Claude with **exactly one** method per run,
+chosen explicitly by an administrator — never auto-detected, never with one
+credential falling back to the other, and never both supplied to the same action.
+
+### How the selection works
+
+- A **non-secret** GitHub Actions repository **variable** `CLAUDE_AUTH_METHOD`
+  controls the choice. It is exposed to each job as `env.CLAUDE_AUTH_METHOD`.
+- Each workflow first runs a **validation step** that fails early with a clear,
+  non-sensitive error if the variable is anything other than `oauth` or `api-key`.
+- The workflow then runs **only** the matching step:
+  - `oauth` → the step using `claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}`
+  - `api-key` → the step using `anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}`
+- The other step is skipped by its `if:` condition, so a given run passes exactly one
+  direct-Anthropic credential to the action.
+
+### Administrator setup
+
+1. Go to **Settings → Secrets and variables → Actions → Variables**.
+2. Create or update the variable **`CLAUDE_AUTH_METHOD`**.
+3. Set its value to exactly one of:
+   - `oauth`
+   - `api-key`
+
+Then configure the **secret** that matches the chosen method (Settings → Secrets and
+variables → Actions → **Secrets**):
+
+- For `oauth`, configure **`CLAUDE_CODE_OAUTH_TOKEN`**. Generate its value locally
+  with:
+
+  ```bash
+  claude setup-token
+  ```
+
+- For `api-key`, configure **`ANTHROPIC_API_KEY`**.
+
+### Notes
+
+- Only the secret matching the selected method is required at runtime.
+- Both secrets may exist during a migration, but each run uses only one.
+- **`oauth` is the preferred setting for this repository** if it currently uses a
+  Claude Code subscription token (`claude setup-token`).
+- Secret values must never be committed, logged, or shared in Issues or PRs. GitHub
+  does not reveal a secret value after it is saved; if a value is ever exposed, rotate
+  it.
+
 ## Recommended minimum permissions
 
 Default everything to **read-only**; grant write only where a workflow must act.
@@ -137,7 +189,8 @@ Default everything to **read-only**; grant write only where a workflow must act.
 | Read check / status results                   | close-loop                            | `checks: read`, `statuses: read` |
 
 Never request `administration`, `actions: write` (self-modifying workflows), org-level
-scopes, or any secret beyond `ANTHROPIC_API_KEY`.
+scopes, or any secret beyond the single selected Claude credential
+(`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`).
 
 ## Branch protection
 
@@ -166,8 +219,12 @@ Every automated action is reversible and traceable to an Issue or PR:
   (or delete/rename its file in a PR).
 - **Remove write access:** revert the workflow's `permissions:` to `contents: read`,
   or set the repo Actions default to read-only.
-- **Revoke the key:** rotate/delete `ANTHROPIC_API_KEY` in repo secrets and rotate it
-  in the Anthropic console. No workflow can call the model without it.
+- **Revoke the credential:** rotate/delete the active Claude secret
+  (`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`) in repo secrets and rotate it at
+  its source (`claude setup-token` for OAuth, the Anthropic console for the API key).
+  Alternatively, set `CLAUDE_AUTH_METHOD` to an unset/invalid value to make every
+  agent run fail fast at validation. No workflow can call the model without the
+  matching secret.
 - **Undo an agent PR:** close the PR (branch `agent/issue-*` is isolated), or if
   already merged, `git revert` the merge commit via a new PR.
 - **Remove the App:** Settings → GitHub Apps → Claude → Configure → uninstall for

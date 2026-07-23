@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
+import { createAppIcon } from './app-icon';
 import { el, clearChildren } from './dom';
-// Bundled at build time (base:'./' → relative, hashed URL): works under a
-// GitHub Pages base path and via file://, with no network request.
-import iconUrl from '../assets/icon.svg';
 
 /**
  * The initial screen: shown on first launch and restored whenever the last
@@ -47,18 +45,8 @@ export class WelcomeScreen {
     this.element.append(
       // Decorative: the welcome title states the product name, so the icon is
       // hidden from assistive technology. Sized in CSS; vector SVG stays crisp
-      // at any display density.
-      el('img', {
-        className: 'welcome-icon',
-        attrs: {
-          src: iconUrl,
-          alt: '',
-          'aria-hidden': 'true',
-          width: '72',
-          height: '72',
-          draggable: 'false',
-        },
-      }),
+      // at any display density, and it follows the light/dark theme.
+      createAppIcon('welcome-icon', 72),
       el('h1', { className: 'welcome-title', text: t('app.title') }),
       el('p', { className: 'welcome-subtitle', text: t('app.subtitle') }),
       el('div', { className: 'welcome-actions' }, [open, create]),

@@ -124,6 +124,24 @@ Conversion between the two is **always explicit and confirmed** (never
 silent), and CSV → RSF is documented as lossy with respect to the original
 byte layout.
 
+## Floating surfaces (menus, context menus, submenus)
+
+Every floating surface is placed by one viewport-aware helper,
+`src/ui/popup.ts` (`positionPopup`): it measures the mounted element, then flips
+or clamps it against the **visual** viewport (so browser/pinch zoom and on-screen
+keyboards are respected), and caps the height with `overflow-y: auto` when the
+surface is taller than the viewport. There are **no hard-coded offsets** — a
+change that reintroduces a magic `innerWidth - 240` constant is a regression.
+Right-click menus across the grid, the document tab strip, and the worksheet
+strip all use one surface, `src/ui/context-menu.ts` (`ContextMenu`), which owns
+placement, roving-focus keyboard navigation, submenu open/flip, and dismissal
+(Escape, outside interaction, resize, scroll, and — via `closeAllContextMenus`,
+called from the state subscription and the busy indicator — any change of
+document, worksheet, content, or the start of a long operation). The menu-bar
+drop-downs share the same placer and open their long lists (e.g. View ▸
+Spreadsheet Zoom) as nested submenus mounted in `document.body` so a scrollable
+parent can never clip them.
+
 ## The WASM boundary
 
 `src/core/csv-engine.ts` is the only module that touches the generated
@@ -175,6 +193,19 @@ yield between slices). The rules, applied uniformly by the command layer:
   operation carries an optional `sheetId`. Worksheet lifecycle changes (add,
   rename, duplicate, delete, reorder) are ordinary entries too: a deleted
   worksheet travels inside its entry, so undo restores it with its data.
+- **Presentational state rides with its edit:** enabling "wrap long rows"
+  automatically because a committed value contains a line break is a `wrap`
+  operation bundled into the **same** `HistoryEntry` as the edit, so one undo
+  restores both the value and the prior wrap state. It is decided from the
+  _displayed_ value (a formula's result, never its source), announced politely,
+  and — for RSF — persisted per worksheet; it never marks a document dirty and
+  never touches CSV bytes.
+- **Range move rewrites references, never guesses:** moving a rectangle
+  (`src/core/range-move.ts`, RSF-only) plans every cell write and formula
+  rewrite from current values before touching the document, so the whole move
+  is one atomic, undoable entry. A reference to a moved cell follows it (on the
+  worksheet or through a cross-sheet qualifier); every other reference — and any
+  range that only partially overlaps the move — is left exactly as written.
 - **Workbook-wide recalculation:** any mutation to any worksheet clears the
   whole workbook memo, because a cross-sheet reference means a change anywhere
   can invalidate a formula anywhere. Recalculation stays lazy and memoized

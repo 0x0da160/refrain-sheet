@@ -2,6 +2,7 @@
 import type { AppState, Tab } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
+import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 
 /** Context-menu actions for a tab (all shared with the View menu commands). */
@@ -25,7 +26,7 @@ export class TabBar {
   /** Announces drag-reorder results to assistive technologies. */
   private readonly liveRegion: HTMLElement;
   private dragId: string | null = null;
-  private contextMenu: HTMLElement | null = null;
+  private contextMenu: ContextMenu | null = null;
 
   constructor(
     private readonly state: AppState,
@@ -38,11 +39,6 @@ export class TabBar {
     });
     this.element.append(this.liveRegion);
     this.element.addEventListener('dragend', () => this.clearDragState());
-    document.addEventListener('mousedown', (event) => {
-      if (this.contextMenu && !this.contextMenu.contains(event.target as Node)) {
-        this.closeContextMenu();
-      }
-    });
     this.render();
   }
 
@@ -188,39 +184,20 @@ export class TabBar {
 
   private openContextMenu(x: number, y: number): void {
     this.closeContextMenu();
-    const menu = el('div', { className: 'context-menu', attrs: { role: 'menu' } });
-    for (const item of TAB_MENU_ITEMS) {
-      const button = el('button', {
-        className: 'menu-item',
-        attrs: { type: 'button', role: 'menuitem' },
-        text: t(item.labelKey),
-      });
-      button.disabled = !this.commands.isEnabled(item.command);
-      button.addEventListener('click', () => {
-        this.closeContextMenu();
-        void this.commands.run(item.command);
-      });
-      menu.append(button);
-    }
-    menu.append(el('hr', { className: 'menu-separator' }));
-    const closeItem = el('button', {
-      className: 'menu-item',
-      attrs: { type: 'button', role: 'menuitem' },
-      text: t('tab.close'),
+    const entries: ContextMenuEntry[] = TAB_MENU_ITEMS.map((item) => ({
+      label: t(item.labelKey),
+      disabled: !this.commands.isEnabled(item.command),
+      onSelect: () => void this.commands.run(item.command),
+    }));
+    entries.push('separator', {
+      label: t('tab.close'),
+      onSelect: () => void this.commands.run('file.closeTab'),
     });
-    closeItem.addEventListener('click', () => {
-      this.closeContextMenu();
-      void this.commands.run('file.closeTab');
-    });
-    menu.append(closeItem);
-    menu.style.left = `${Math.min(x, window.innerWidth - 240)}px`;
-    menu.style.top = `${Math.min(y, window.innerHeight - 240)}px`;
-    document.body.append(menu);
-    this.contextMenu = menu;
+    this.contextMenu = ContextMenu.open(entries, x, y, { onClose: () => (this.contextMenu = null) });
   }
 
   private closeContextMenu(): void {
-    this.contextMenu?.remove();
+    this.contextMenu?.close();
     this.contextMenu = null;
   }
 }

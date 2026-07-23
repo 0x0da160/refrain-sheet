@@ -72,6 +72,14 @@ export type Operation =
       sheetId?: string;
     }
   | { type: 'filter'; before: SheetFilter | null; after: SheetFilter | null; sheetId?: string }
+  /**
+   * A change to the "wrap long rows" display setting, carried inside the entry
+   * of the edit that caused it (an edit committing a line break turns wrapping
+   * on automatically). Purely presentational — it never touches cell data,
+   * CSV bytes, or the dirty state — but it belongs in history so undoing the
+   * edit also restores how the sheet was displayed before it.
+   */
+  | { type: 'wrap'; before: boolean; after: boolean; sheetId?: string }
   | { type: 'sheets'; op: SheetOperation };
 
 export interface HistoryEntry {
@@ -97,7 +105,7 @@ function isEmpty(entry: HistoryEntry): boolean {
     if (op.type === 'cells') {
       return op.changes.length === 0;
     }
-    if (op.type === 'filter') {
+    if (op.type === 'filter' || op.type === 'wrap') {
       return op.before === op.after;
     }
     if (op.type === 'sheets') {

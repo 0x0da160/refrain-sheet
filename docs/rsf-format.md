@@ -189,30 +189,33 @@ nothing else keys off the identifier.
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
 Version selection on write is minimal so older readers keep working where
-possible: body **version 4** is written only when a sheet filter is present;
-**version 3** when display settings are present; **version 2** when only the
-creating/updating application metadata is present; **version 1** otherwise.
-Versions 1–4 are all accepted on read.
+possible: body **version 5** is written only when wrap-long-rows is stored;
+**version 4** when a sheet filter is present; **version 3** when display
+settings are present; **version 2** when only the creating/updating application
+metadata is present; **version 1** otherwise. Versions 1–5 are all accepted on
+read; an older reader rejects a body version it does not know with a localized
+"unsupported version" message rather than misparsing it.
 
-| Size | Field                                                          |
-| ---- | -------------------------------------------------------------- |
-| 1    | Body version — `4`, `3`, `2`, or `1` (see version selection)   |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)    |
-| 2    | _(v2+)_ Application-name length, `u16`                         |
-| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`         |
-| 2    | _(v2+)_ Application-version length, `u16`                      |
-| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`              |
-| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)    |
-| 4    | _(v3+)_ Column-width entry count `W`, `u32`                    |
-| …    | _(v3+)_ `W` column-width entries (see below)                   |
-| 1    | _(v4 only)_ Filter flags, `u8` (bit 0: a filter block follows) |
-| …    | _(v4 only)_ Filter block (only when bit 0 is set — see below)  |
-| 2    | Sheet-name length `N`, `u16`                                   |
-| `N`  | Sheet name (UTF-8)                                             |
-| 4    | Row count, `u32`                                               |
-| 4    | Column count, `u32`                                            |
-| 4    | Cell count `C`, `u32`                                          |
-| …    | `C` cell records                                               |
+| Size | Field                                                       |
+| ---- | ----------------------------------------------------------- |
+| 1    | Body version — `5`, `4`, `3`, `2`, or `1` (see selection)   |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`) |
+| 2    | _(v2+)_ Application-name length, `u16`                      |
+| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`      |
+| 2    | _(v2+)_ Application-version length, `u16`                   |
+| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`           |
+| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored) |
+| 4    | _(v3+)_ Column-width entry count `W`, `u32`                 |
+| …    | _(v3+)_ `W` column-width entries (see below)                |
+| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)     |
+| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)  |
+| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)   |
+| 2    | Sheet-name length `N`, `u16`                                |
+| `N`  | Sheet name (UTF-8)                                          |
+| 4    | Row count, `u32`                                            |
+| 4    | Column count, `u32`                                         |
+| 4    | Cell count `C`, `u32`                                       |
+| …    | `C` cell records                                            |
 
 ### Display settings (body version 3)
 
@@ -254,6 +257,22 @@ Changing zoom or column widths never marks a document dirty; the current
 values are recorded into the container whenever the document is saved. Plain
 CSV files never carry display settings — for CSV documents zoom is an
 application-level local preference only.
+
+### Wrap long rows (body version 5)
+
+Body version 5 adds a single **display flag** byte carrying the worksheet's
+"wrap long rows" state (bit 0). It is payload-free and purely presentational —
+it never affects cell data, formula evaluation, or export — and, because it
+carries no length or data of its own, a reader that does not know the flag stays
+perfectly byte-aligned. The flag is written only when wrapping is on, so a
+worksheet that does not use it stays a version-4-or-lower body. In the workbook
+container (below) the same state is bit 2 of the per-worksheet display-flags
+byte, so no extra byte is needed there.
+
+Wrapping is enabled automatically when a committed cell value contains a line
+break (see the README). Like zoom and column widths, it never marks the document
+dirty on its own and is recorded whenever the document is saved; plain CSV never
+carries it (wrapping is an application-level view preference for CSV).
 
 ### Filter (body version 4)
 
@@ -383,7 +402,7 @@ Each worksheet record:
 | 4    | Column count, `u32`                                               |
 | 4    | Cell count `C`, `u32`                                             |
 | …    | `C` cell records: row `u32`, column `u32`, length `u32`, bytes    |
-| 1    | Display flags, `u8` (bit 0: zoom present; bit 1: widths present)  |
+| 1    | Display flags, `u8` (bit 0: zoom; bit 1: widths; bit 2: wrap)     |
 | 2    | _(bit 0)_ Zoom percent, `u16`                                     |
 | 4    | _(bit 1)_ Column-width entry count `W`, `u32`                     |
 | …    | _(bit 1)_ `W` entries: column `u32`, width px at 100% zoom `u16`  |

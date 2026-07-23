@@ -75,15 +75,43 @@ export function resolveTheme(choice: ThemeChoice): 'light' | 'dark' {
 let currentChoice: ThemeChoice = DEFAULT_THEME;
 let mediaListenerAttached = false;
 
+/**
+ * Observers of the **resolved** theme (`"light"` / `"dark"`). Almost every
+ * surface reacts through CSS custom properties keyed off `data-theme` and
+ * needs nothing here; this exists for the few things CSS cannot express — the
+ * theme-specific application icon, whose `src` is a different asset per theme
+ * (see `src/ui/app-icon.ts`). Notified for explicit switches *and* for
+ * `prefers-color-scheme` changes while the choice is `"system"`.
+ */
+const resolvedListeners = new Set<(resolved: 'light' | 'dark') => void>();
+let lastNotified: 'light' | 'dark' | null = null;
+
+/**
+ * Observe the resolved theme. The callback fires whenever the resolved value
+ * actually changes (never on a no-op re-apply). Returns an unsubscribe
+ * function.
+ */
+export function onResolvedThemeChange(fn: (resolved: 'light' | 'dark') => void): () => void {
+  resolvedListeners.add(fn);
+  return () => {
+    resolvedListeners.delete(fn);
+  };
+}
+
 function applyResolved(): void {
-  const root = globalThis.document?.documentElement;
-  if (!root) {
-    return;
-  }
   const resolved = resolveTheme(currentChoice);
-  root.setAttribute('data-theme', resolved);
-  // Hint native form controls / scrollbars to match, alongside the CSS tokens.
-  root.style.setProperty('color-scheme', resolved);
+  const root = globalThis.document?.documentElement;
+  if (root) {
+    root.setAttribute('data-theme', resolved);
+    // Hint native form controls / scrollbars to match, alongside the CSS tokens.
+    root.style.setProperty('color-scheme', resolved);
+  }
+  if (resolved !== lastNotified) {
+    lastNotified = resolved;
+    for (const fn of resolvedListeners) {
+      fn(resolved);
+    }
+  }
 }
 
 /**

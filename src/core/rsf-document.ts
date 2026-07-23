@@ -247,6 +247,9 @@ export class RsfDocument {
       for (const [col, width] of entry.display.colWidths ?? []) {
         sheet.displayColWidths[col] = width;
       }
+      if (entry.display.wrap) {
+        sheet.displayWrap = true;
+      }
     }
     sheet.filter = entry.filter ?? null;
     sheet.filterDropped = entry.filterDropped === true;
@@ -442,10 +445,13 @@ export class RsfDocument {
    * save (called by the save path with the tab's live zoom / column widths).
    * Presentational only — never marks the document dirty.
    */
-  setDisplaySettings(zoom: number | undefined, colWidths: number[]): void {
+  setDisplaySettings(zoom: number | undefined, colWidths: number[], wrap?: boolean): void {
     const sheet = this.activeSheet;
     sheet.displayZoom = zoom;
     sheet.displayColWidths = colWidths.slice();
+    if (wrap !== undefined) {
+      sheet.displayWrap = wrap;
+    }
   }
 
   /** The active worksheet's persisted zoom (presentational). */
@@ -464,6 +470,27 @@ export class RsfDocument {
 
   set displayColWidths(widths: number[]) {
     this.activeSheet.displayColWidths = widths;
+  }
+
+  /**
+   * The active worksheet's persisted "wrap long rows" state (presentational).
+   * `undefined` means the file stores none, and the application-level
+   * preference applies.
+   */
+  get displayWrap(): boolean | undefined {
+    return this.activeSheet.displayWrap;
+  }
+
+  set displayWrap(wrap: boolean | undefined) {
+    this.activeSheet.displayWrap = wrap;
+  }
+
+  /** Set a specific worksheet's persisted wrap state (undo/redo, cross-sheet). */
+  setDisplayWrapOn(sheetId: string | undefined, wrap: boolean | undefined): void {
+    const sheet = sheetId === undefined ? this.activeSheet : this.sheetById(sheetId);
+    if (sheet) {
+      sheet.displayWrap = wrap;
+    }
   }
 
   // ----- Serialization -----
@@ -512,6 +539,23 @@ export class RsfDocument {
    * This lets the save path scan a whole workbook in cooperative time slices
    * with one honest progress percentage.
    */
+  /**
+   * Map a flat row index (0 … {@link totalRows} - 1) onto the worksheet that
+   * owns it and its row within that worksheet, or null when out of range.
+   * Lets a workbook-wide scan run as one time-sliced loop with one honest
+   * progress percentage, without materializing a plan array per row.
+   */
+  locateFlatRow(flatIndex: number): { sheet: Worksheet; row: number } | null {
+    let remaining = flatIndex;
+    for (const sheet of this.sheetList) {
+      if (remaining < sheet.rowCount) {
+        return { sheet, row: remaining };
+      }
+      remaining -= sheet.rowCount;
+    }
+    return null;
+  }
+
   collectFlatRow(flatIndex: number, perSheet: Array<Array<[number, number, string]>>): void {
     let remaining = flatIndex;
     for (let s = 0; s < this.sheetList.length; s++) {
@@ -542,10 +586,11 @@ export class RsfDocument {
         columnCount: sheet.columnCount,
         cells: perSheet[index] ?? sheet.collectCells(),
       };
-      if (sheet.displayZoom !== undefined || colWidths.length > 0) {
+      if (sheet.displayZoom !== undefined || colWidths.length > 0 || sheet.displayWrap === true) {
         entry.display = {
           ...(sheet.displayZoom !== undefined ? { zoom: sheet.displayZoom } : {}),
           ...(colWidths.length > 0 ? { colWidths } : {}),
+          ...(sheet.displayWrap === true ? { wrap: true } : {}),
         };
       }
       if (sheet.filter !== null) {

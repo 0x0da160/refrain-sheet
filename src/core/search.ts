@@ -146,6 +146,84 @@ export function searchDocument(
   return { cells, matchCount, cellCount: cells.length, aborted };
 }
 
+// ---------------------------------------------------------------------------
+// Workbook-wide search
+// ---------------------------------------------------------------------------
+
+/** Search scope: the active worksheet only, or every worksheet in order. */
+export type SearchScope = 'sheet' | 'workbook';
+
+/** One worksheet as far as searching is concerned. */
+export interface SearchableSheet extends SearchableDocument {
+  /** Stable worksheet identifier — never an index or a name. */
+  id: string;
+  /** Current display name (only for reporting; navigation uses `id`). */
+  name: string;
+}
+
+export interface SheetCellMatch extends CellMatch {
+  sheetId: string;
+  sheetName: string;
+}
+
+export interface WorkbookSearchResult {
+  /** Matching cells in workbook order, then row-major within each worksheet. */
+  cells: SheetCellMatch[];
+  matchCount: number;
+  cellCount: number;
+  /** Number of worksheets containing at least one match. */
+  sheetCount: number;
+  aborted: boolean;
+}
+
+/**
+ * Search every worksheet of a workbook, in workbook order.
+ *
+ * Like {@link searchDocument} this reads each cell's **input** — the formula
+ * expression for a formula cell, never its calculated result — so a
+ * replacement can only ever rewrite something the user actually typed. The
+ * same wall-clock budget applies across the whole workbook, and a match always
+ * carries the worksheet's stable id, so navigating to it later cannot land on
+ * the wrong sheet after a rename or a reorder.
+ */
+export function searchWorkbook(
+  sheets: readonly SearchableSheet[],
+  query: CompiledQuery,
+  timeBudgetMs: number = SEARCH_TIME_BUDGET_MS,
+): WorkbookSearchResult {
+  const cells: SheetCellMatch[] = [];
+  let matchCount = 0;
+  let aborted = false;
+  const sheetIds = new Set<string>();
+  if (!query.ok) {
+    return { cells, matchCount: 0, cellCount: 0, sheetCount: 0, aborted: false };
+  }
+  const started = Date.now();
+  let sinceCheck = 0;
+  outer: for (const sheet of sheets) {
+    for (let r = 0; r < sheet.rowCount; r++) {
+      const fieldCount = sheet.fieldCount(r);
+      for (let c = 0; c < fieldCount; c++) {
+        const count = countMatchesInValue(sheet.getValue(r, c), query);
+        if (count > 0) {
+          cells.push({ row: r, col: c, count, sheetId: sheet.id, sheetName: sheet.name });
+          matchCount += count;
+          sheetIds.add(sheet.id);
+        }
+        sinceCheck += 1;
+        if (sinceCheck >= 256) {
+          sinceCheck = 0;
+          if (Date.now() - started > timeBudgetMs) {
+            aborted = true;
+            break outer;
+          }
+        }
+      }
+    }
+  }
+  return { cells, matchCount, cellCount: cells.length, sheetCount: sheetIds.size, aborted };
+}
+
 /**
  * Expand a replacement template against a regex match.
  * Supports `$$` (literal `$`), `$&` (whole match), `$1`–`$9`, and `${name}`.

@@ -195,3 +195,31 @@ describe('document-level persistence and reopen', () => {
     expect(loaded.doc.displayColWidths).toEqual([]);
   });
 });
+
+describe('codec: wrap-long-rows flag (body version 5)', () => {
+  it('round-trips the wrap flag and writes body version 5 only when set', () => {
+    const bytes = encodeRsf({ ...base, display: { wrap: true } }, RSF_COMPRESSION_STORE);
+    // Body version byte sits immediately after the 20-byte header.
+    expect(bytes[HEADER_SIZE]).toBe(5);
+    const decoded = decodeRsf(bytes);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.display?.wrap).toBe(true);
+  });
+
+  it('does not raise the body version when wrap is absent', () => {
+    const bytes = encodeRsf({ ...base, display: { zoom: 125 } }, RSF_COMPRESSION_STORE);
+    expect(bytes[HEADER_SIZE]).toBe(3); // display present, no wrap → version 3
+    const decoded = decodeRsf(bytes);
+    expect(decoded.ok && decoded.data.display?.wrap).toBeFalsy();
+  });
+
+  it('persists and restores wrap through the document reopen flow', () => {
+    const doc = RsfDocument.empty('t.rsf', 3, 2);
+    doc.setDisplaySettings(undefined, [], true);
+    const loaded = RsfDocument.fromBytes(doc.toBytes(), 't.rsf');
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.doc.displayWrap).toBe(true);
+  });
+});

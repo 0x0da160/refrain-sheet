@@ -202,9 +202,13 @@ button {
   background: var(--accent-soft);
 }
 
+/* Fixed positioning: the exact left/top (and a max-height when the viewport is
+   shorter than the list) are written by the shared viewport-aware placer in
+   src/ui/popup.ts, so a menu near a window edge flips or clamps instead of
+   being clipped. Never rely on the initial 0/0 — it is replaced on open. */
 .menu-list {
-  position: absolute;
-  top: 100%;
+  position: fixed;
+  top: 0;
   left: 0;
   min-width: 230px;
   background: var(--surface);
@@ -213,6 +217,27 @@ button {
   box-shadow: 0 4px 14px var(--shadow);
   padding: 4px 0;
   z-index: 50;
+}
+
+.menu-list.submenu {
+  z-index: 60;
+}
+
+/* Submenu affordance. The glyph is decorative (aria-hidden); the parent item
+   carries aria-haspopup/aria-expanded, which is what assistive technology
+   announces. It mirrors with the writing direction, not with the flip, so it
+   always points "further into" the menu chain. */
+.submenu-arrow::after {
+  content: '▸';
+  color: var(--text-dim);
+}
+
+[dir='rtl'] .submenu-arrow::after {
+  content: '◂';
+}
+
+.menu-item.has-submenu[aria-expanded='true'] {
+  background: var(--accent-soft);
 }
 
 .menu-item {
@@ -765,6 +790,60 @@ button {
   outline-offset: -1px;
 }
 
+/* Range-move handle: top-left of the selection on RSF worksheets. A move
+   glyph (aria-hidden; the accessible path is the "Move Selected Cells…"
+   command) distinguishes it from the square fill handle. */
+.move-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(10px * var(--sheet-zoom, 1));
+  height: calc(10px * var(--sheet-zoom, 1));
+  background: var(--accent);
+  border: 1px solid var(--cell-bg);
+  border-radius: 2px;
+  cursor: move;
+  z-index: 7;
+  touch-action: none;
+}
+
+/* While dragging, the whole grid shows the move cursor; an invalid drop shows
+   not-allowed. The invalid state is also conveyed by a distinct outline
+   (below), never by color alone. */
+.grid-container.moving-range {
+  cursor: move;
+}
+
+.grid-container.moving-range.move-invalid {
+  cursor: not-allowed;
+}
+
+.vcell.move-source {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
+  opacity: 0.7;
+}
+
+.vcell.move-target {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-soft);
+}
+
+/* Invalid destination: a dashed danger outline plus a crossed pattern, so the
+   state reads without relying on color perception. */
+.vcell.move-target-invalid {
+  outline: 2px dashed var(--danger);
+  outline-offset: -2px;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    var(--danger-soft, rgba(200, 0, 0, 0.12)) 4px,
+    var(--danger-soft, rgba(200, 0, 0, 0.12)) 8px
+  );
+}
+
 .vgrid-row.alt .vcell {
   background: var(--row-alt);
 }
@@ -1043,8 +1122,12 @@ button {
 
 /* ---------- Context menu ---------- */
 
+/* Placed by src/ui/popup.ts against the *visual* viewport (flip, then clamp,
+   then cap the height and scroll). No hard-coded offsets live here. */
 .context-menu {
   position: fixed;
+  top: 0;
+  left: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -1052,6 +1135,19 @@ button {
   padding: 4px 0;
   z-index: 100;
   min-width: 180px;
+  /* Never wider than the viewport, so a long localized label cannot push the
+     menu off-screen in a narrow window. */
+  max-width: min(320px, calc(100vw - 8px));
+}
+
+.context-menu.submenu {
+  z-index: 110;
+}
+
+.context-menu .menu-item .label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---------- Status bar ---------- */

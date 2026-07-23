@@ -10,6 +10,8 @@ import { resolveShortcut } from './app/shortcuts';
 import { applyTheme, getTheme } from './app/theme';
 import { initCsvEngine } from './core/csv-engine';
 import { validateDocument } from './core/validation';
+import { initAppIcons } from './ui/app-icon';
+import { closeAllContextMenus } from './ui/context-menu';
 import { Dialogs, Toasts } from './ui/dialogs';
 import { el } from './ui/dom';
 import { FindBar } from './ui/find-bar';
@@ -30,6 +32,9 @@ function bootstrap(): void {
   // Resolve and apply the color theme before first paint (no flash of the
   // wrong theme); a "system" choice tracks OS changes live via matchMedia.
   applyTheme(getTheme());
+  // Keep every product-identity icon on the theme's variant, including live
+  // `prefers-color-scheme` changes while the choice is "system".
+  initAppIcons();
 
   // Start instantiating the embedded WASM CSV core in the background (decoded
   // locally from Base64 — never fetched; falls back to the identical JS engine
@@ -42,6 +47,10 @@ function bootstrap(): void {
   const state = new AppState();
   const dialogs = new Dialogs();
   const toasts = new Toasts();
+  // Changes the application makes on the user's behalf (e.g. enabling wrapping
+  // because a cell now holds a line break) are announced politely, never with a
+  // blocking dialog. The toast surface is a polite live region.
+  state.announce = (message) => toasts.notify(message, 'info');
   const loadingOverlay = new LoadingOverlay();
 
   // The UI port is late-bound so the command layer can drive the find bar,
@@ -69,10 +78,21 @@ function bootstrap(): void {
     notify: (text, kind) => toasts.notify(text, kind),
     openFindBar: (replaceMode) => findBar.open(replaceMode),
     findNext: (direction) => findBar.next(direction),
+    confirmReplaceAllWorkbook: (input) => dialogs.confirmReplaceAllWorkbook(input),
+    confirmRangeMoveOverwrite: (input) => dialogs.confirmRangeMoveOverwrite(input),
+    promptMoveTarget: (source, suggestion, validate) =>
+      dialogs.promptMoveTarget(source, suggestion, validate),
     showAbout: () => void dialogs.showAbout(),
     showFormulaHelp: () => void dialogs.showFormulaHelp(),
     chooseSettings: (current) => dialogs.chooseSettings(current),
-    setBusy: (label) => loadingOverlay.set(label),
+    setBusy: (label) => {
+      // An operation is starting: a context menu built against the pre-operation
+      // state must not survive into it.
+      if (label !== null) {
+        closeAllContextMenus();
+      }
+      loadingOverlay.set(label);
+    },
   };
 
   const commands = new Commands(state, ui, document);
@@ -153,6 +173,12 @@ function bootstrap(): void {
   };
 
   state.subscribe((event) => {
+    // Any change of document, worksheet, or content invalidates the state a
+    // context menu was built against (its enabled items, its anchor cell), so
+    // the menu is dismissed rather than left pointing at something else.
+    if (event !== 'selection') {
+      closeAllContextMenus();
+    }
     switch (event) {
       case 'tabs':
       case 'active':

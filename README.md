@@ -295,6 +295,17 @@ font, and the configured file-size limit live outside the tab lifecycle).
 - **Replace** replaces the occurrences in the currently selected matching
   cell, then advances; **Replace All** replaces everywhere as one undoable
   operation.
+- **Scope** (RSF workbooks): search the **Current Sheet** (the default) or the
+  **Entire Workbook**. A plain CSV is a single-sheet document, so the selector
+  is disabled there with an explanation. In workbook scope, match counts name
+  how many worksheets contain matches; Next / Previous activate the worksheet a
+  match lives on before revealing it, and wrapping past the last match back to
+  the first is announced. Workbook-wide **Replace All** first shows a
+  confirmation stating how many worksheets and cells it will change, applies
+  across every matching worksheet as **one** undoable step, and reports any
+  cells skipped because they changed during the operation. Navigation resolves
+  worksheets by a stable id, so a rename, reorder, or deletion after a search
+  can never send you to the wrong place.
 
 ### Tabs
 
@@ -357,11 +368,14 @@ setting is stored only in `localStorage` and is never transmitted anywhere.
 
 ### Spreadsheet zoom
 
-**View > Spreadsheet Zoom** scales the spreadsheet area — grid cells, row and
-column headers, the formula bar, the inline editor, selection overlays, and
-the fill handle — **without changing the application chrome** and without
-touching the browser's own page zoom (whose shortcuts are never intercepted).
-Levels: 50 / 75 / 90 / 100 / 110 / 125 / 150 / 200 %, plus **Reset Zoom**.
+**View > Spreadsheet Zoom** (its own submenu, so the View menu stays short and
+fits any viewport) scales the spreadsheet area — grid cells, row and column
+headers, the formula bar, the inline editor, selection overlays, and the fill
+handle — **without changing the application chrome** and without touching the
+browser's own page zoom (whose shortcuts are never intercepted). Levels: 50 /
+75 / 90 / 100 / 110 / 125 / 150 / 200 %, plus **Zoom In**, **Zoom Out**, and
+**Reset Zoom**. The shortcuts and Ctrl/Cmd + mouse wheel drive the same
+commands whether or not the submenu is open.
 
 - Zoom is **per tab** and purely visual: it never changes document content,
   never modifies CSV bytes, and never marks a document dirty. Virtualization,
@@ -550,6 +564,14 @@ transmitted anywhere; the selected spreadsheet font applies unchanged in either
 theme, and switching theme is pure display state — it never alters CSV bytes,
 RSF data, formulas, calculations, or document semantics.
 
+The **application icon** is theme-aware: the header logo and the welcome-screen
+icon use a light asset in the light theme and `icon-dark.svg` in the dark one,
+switching live with a **System default** theme when `prefers-color-scheme`
+changes. Both variants are bundled locally (no network request), the icon stays
+decorative (empty `alt`, `aria-hidden`, so it never double-announces the brand),
+and switching only re-points the same element — its fixed dimensions never
+shift layout or distort. The favicon is unchanged.
+
 The theme is a **semantic CSS custom-property system**: `styles.css` defines one
 light palette in `:root` and one dark palette under `:root[data-theme="dark"]`,
 and every surface (app background, menus, dialogs and overlays, buttons and form
@@ -594,7 +616,16 @@ wraps is decided from the **rendered display value** measured under the active
 sheet font and the live column width (a formula cell is measured from its
 _calculated result_, never its source), honoring explicit newlines
 (`\n`), normal word-break opportunities, and long unbroken text that must break
-to avoid overflow. Only affected row heights are recomputed after a cell edit,
+to avoid overflow.
+
+Wrapping also turns **on automatically** the moment a cell edit commits a value
+containing a line break — from Alt+Enter in the inline editor or the formula
+bar, a pasted multiline value, or a formula whose _result_ contains a newline —
+because multi-line content clipped to one line is unreadable. The change is
+announced politely (never a blocking dialog), travels in the **same undoable
+step** as the edit that caused it, and, for RSF documents, is persisted per
+worksheet in the container's display metadata. In plain CSV it is local view
+state only and never changes the file's bytes. Only affected row heights are recomputed after a cell edit,
 formula recalculation, column-width change or auto-fit, sheet-font change,
 locale change, wrap toggle, row/column insertion or deletion, and large
 paste/fill/conversion operations.
@@ -846,6 +877,24 @@ autocomplete suggestion, or insert a reference by clicking/dragging cells.
   inference); and **non-numeric, mixed, or non-linear** seeds keep the plain
   copy/tile behavior. As with every structural fill, this applies in RSF mode
   only (a CSV document is offered the explicit conversion first).
+
+### Moving a selected range
+
+Drag a selected rectangle's top-left **move handle** (or use **Edit > Move
+Selected Cells…**, which is fully keyboard-driven and asks for a destination) to
+move the block to another location. A drag preview shows the source, the
+proposed destination, and whether the drop is valid (invalid drops are marked by
+an outline and cursor, not color alone). Moving carries values, formulas, and
+RSF-supported display state, and rewrites references using a standard
+spreadsheet rule: **a reference to a moved cell follows it to its new
+location — on this worksheet or through a cross-sheet reference — while every
+other reference is left as written**; `$` absolute markers are preserved, and a
+range reference follows a move only when it lies wholly inside the moved block.
+If the destination already holds data, a confirmation states the target range
+and the number of cells that would be replaced (Cancel is the default); an empty
+destination moves without prompting. The whole move is one atomic, undoable
+step, Escape cancels a drag before it commits, and it is **RSF-only** — on a
+plain CSV the command explains the required conversion first.
 
 ### Flash Fill
 

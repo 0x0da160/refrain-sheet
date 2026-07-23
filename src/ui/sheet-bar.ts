@@ -2,6 +2,7 @@
 import type { AppState } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
+import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 
 /**
@@ -44,7 +45,7 @@ export class SheetBar {
   private readonly liveRegion: HTMLElement;
   private readonly strip: HTMLElement;
   private dragId: string | null = null;
-  private contextMenu: HTMLElement | null = null;
+  private contextMenu: ContextMenu | null = null;
   /**
    * Signature of what is currently rendered. Re-rendering the strip is skipped
    * unless the worksheet set, order, names, or active worksheet actually
@@ -65,11 +66,6 @@ export class SheetBar {
     this.strip = el('div', { className: 'sheet-strip', attrs: { role: 'tablist' } });
     this.element.append(this.liveRegion, this.strip);
     this.element.addEventListener('dragend', () => this.clearDragState());
-    document.addEventListener('mousedown', (event) => {
-      if (this.contextMenu && !this.contextMenu.contains(event.target as Node)) {
-        this.closeContextMenu();
-      }
-    });
     this.render();
   }
 
@@ -320,42 +316,28 @@ export class SheetBar {
 
   private openContextMenu(x: number, y: number): void {
     this.closeContextMenu();
-    const menu = el('div', { className: 'context-menu', attrs: { role: 'menu' } });
-    const addItem = el('button', {
-      className: 'menu-item',
-      attrs: { type: 'button', role: 'menuitem' },
-      text: t('menu.sheet.addSheet'),
-    });
-    addItem.disabled = !this.commands.isEnabled('worksheet.add');
-    addItem.addEventListener('click', () => {
-      this.closeContextMenu();
-      void this.commands.run('worksheet.add');
-    });
-    menu.append(addItem);
+    const entries: ContextMenuEntry[] = [
+      {
+        label: t('menu.sheet.addSheet'),
+        disabled: !this.commands.isEnabled('worksheet.add'),
+        onSelect: () => void this.commands.run('worksheet.add'),
+      },
+    ];
     for (const item of SHEET_MENU_ITEMS) {
       if (item.separatorBefore) {
-        menu.append(el('hr', { className: 'menu-separator' }));
+        entries.push('separator');
       }
-      const button = el('button', {
-        className: 'menu-item',
-        attrs: { type: 'button', role: 'menuitem' },
-        text: t(item.labelKey),
+      entries.push({
+        label: t(item.labelKey),
+        disabled: !this.commands.isEnabled(item.command),
+        onSelect: () => void this.commands.run(item.command).then(() => this.focusActive()),
       });
-      button.disabled = !this.commands.isEnabled(item.command);
-      button.addEventListener('click', () => {
-        this.closeContextMenu();
-        void this.commands.run(item.command).then(() => this.focusActive());
-      });
-      menu.append(button);
     }
-    menu.style.left = `${Math.min(x, window.innerWidth - 240)}px`;
-    menu.style.top = `${Math.min(y, window.innerHeight - 260)}px`;
-    document.body.append(menu);
-    this.contextMenu = menu;
+    this.contextMenu = ContextMenu.open(entries, x, y, { onClose: () => (this.contextMenu = null) });
   }
 
   private closeContextMenu(): void {
-    this.contextMenu?.remove();
+    this.contextMenu?.close();
     this.contextMenu = null;
   }
 }

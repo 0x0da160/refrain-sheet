@@ -32,6 +32,9 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     promptSheetName: vi.fn(async () => null),
     confirmDeleteSheet: vi.fn(async () => true),
     chooseExportSheet: vi.fn(async () => null),
+    confirmReplaceAllWorkbook: vi.fn(async () => true),
+    confirmRangeMoveOverwrite: vi.fn(async () => true),
+    promptMoveTarget: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
     showMessage: vi.fn(async () => undefined),
     notify: vi.fn(),
@@ -385,7 +388,7 @@ describe('replace all', () => {
     const tab = state.activeTab!;
     const query = compileQuery({ text: 'cat', matchCase: false, regex: false });
     const result = await commands.replaceAll(query, 'cow');
-    expect(result).toEqual({ count: 3, cells: 3 });
+    expect(result).toMatchObject({ count: 3, cells: 3 });
     expect(tab.doc.getValue(0, 1)).toBe('cowalog');
     state.undo(tab);
     expect(tab.doc.isDirty).toBe(false);

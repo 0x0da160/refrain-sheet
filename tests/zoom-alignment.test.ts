@@ -35,6 +35,9 @@ function stubUi(): UiPort {
     promptSheetName: async () => null,
     confirmDeleteSheet: async () => true,
     chooseExportSheet: async () => null,
+    confirmReplaceAllWorkbook: async () => true,
+    confirmRangeMoveOverwrite: async () => true,
+    promptMoveTarget: async () => null,
     confirm: async () => true,
     showMessage: async () => undefined,
     notify: () => undefined,
@@ -96,7 +99,7 @@ describe('wrapped rows scale with zoom too', () => {
       const { state, grid, tab } = setup();
       // Deterministic measurer that forces the long value to wrap regardless of
       // the (absent) canvas metrics.
-      state.wrapCells = true;
+      state.setWrapCells(true);
       grid.setTextMeasurer((text: string) => text.length * 40);
       const rsf = tab.doc as RsfDocument;
       rsf.setCell(1, 0, 'a very long wrapping value that needs several visual lines here');

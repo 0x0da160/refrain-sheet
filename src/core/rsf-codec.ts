@@ -73,7 +73,7 @@ export {
  * versions are still accepted on read:
  *
  * ```
- * 0    1     body version (1–4 readable; lowest sufficient version written)
+ * 0    1     body version (1–5 readable; lowest sufficient version written)
  * 1    1     delimiter byte (',' ';' or TAB)
  * --- body versions 2+ ---
  * 2    2     application-name length (u16)
@@ -84,7 +84,9 @@ export {
  * …    2     spreadsheet zoom percent (u16; 0 = not stored)
  * …    4     column-width entry count (u32)
  * …    per entry: column index (u32), width px at 100% zoom (u16)
- * --- body version 4 ---
+ * --- body version 5+ ---
+ * …    1     display flags (bit 0: wrap long rows)
+ * --- body version 4+ ---
  * …    1     filter flags (bit 0: a filter is present)
  * …    …     filter block (only when present — see `docs/rsf-format.md`)
  * --- all versions ---
@@ -106,12 +108,14 @@ export const RSF_LEGACY_MAGIC = new Uint8Array([0x52, 0x43, 0x53, 0x56]); // "RC
 export const RSF_LEGACY_CONTAINER_VERSION = 2;
 /**
  * Highest body version this release reads and writes. Version selection on
- * write is minimal: 4 when a sheet filter is present, else 3 when display
- * settings are present, else 2 when application metadata is present, else 1 —
- * so documents without the newer data stay readable by older releases.
- * Versions 1–4 are all accepted on read.
+ * write is minimal: 5 when wrap-long-rows is stored, else 4 when a sheet filter
+ * is present, else 3 when display settings are present, else 2 when application
+ * metadata is present, else 1 — so documents without the newer data stay
+ * readable by older releases. Versions 1–5 are all accepted on read; an older
+ * reader rejects a version it does not know with `bad-version` (a localized
+ * "unsupported version" message) rather than misparsing it.
  */
-export const RSF_BODY_VERSION = 4;
+export const RSF_BODY_VERSION = 5;
 
 // ----- Display-settings bounds (body version 3) -----------------------------
 // Persisted display state is validated and clamped on load so a malformed or
@@ -282,6 +286,13 @@ export interface RsfDisplaySettings {
   zoom?: number;
   /** Overridden column widths as [columnIndex, widthPx-at-100%] pairs. */
   colWidths?: Array<[number, number]>;
+  /**
+   * Whether long cells wrap onto several visual lines (body version 5 /
+   * workbook display flag bit 2). A single payload-free flag: a reader that
+   * does not know it simply does not set it, and — because it carries no bytes
+   * — a workbook display block stays perfectly in sync for older readers.
+   */
+  wrap?: boolean;
 }
 
 export type RsfDecodeError =
@@ -479,19 +490,21 @@ function encodeFilterBlock(filter: SheetFilter | undefined): Uint8Array {
 function encodeBody(data: RsfData): Uint8Array {
   const enc = new TextEncoder();
   const name = enc.encode(data.name.slice(0, 255));
-  // Version selection is minimal: a filter needs version 4, display settings
-  // alone need version 3, metadata alone needs version 2, otherwise the
-  // legacy version-1 body is written.
+  // Version selection is minimal: stored wrap needs version 5, a filter needs
+  // version 4, display settings alone need version 3, metadata alone needs
+  // version 2, otherwise the legacy version-1 body is written. A newer section
+  // implies every older one, so the layout stays a strict prefix chain.
   const displayWidths = (data.display?.colWidths ?? []).filter(
     ([col, width]) => Number.isInteger(col) && col >= 0 && Number.isInteger(width) && width > 0,
   );
   const displayZoom = data.display?.zoom;
-  const hasFilter = data.filter !== undefined;
-  const hasDisplay = hasFilter || displayZoom !== undefined || displayWidths.length > 0;
+  const hasWrap = data.display?.wrap === true;
+  const hasFilterSection = hasWrap || data.filter !== undefined;
+  const hasDisplay = hasFilterSection || displayZoom !== undefined || displayWidths.length > 0;
   const hasMeta = hasDisplay || data.appName !== undefined || data.appVersion !== undefined;
   const appName = hasMeta ? enc.encode((data.appName ?? '').slice(0, MAX_META_LENGTH)) : null;
   const appVersion = hasMeta ? enc.encode((data.appVersion ?? '').slice(0, MAX_META_LENGTH)) : null;
-  const filterBlock = hasFilter ? encodeFilterBlock(data.filter) : null;
+  const filterBlock = hasFilterSection ? encodeFilterBlock(data.filter) : null;
   const cellBufs = data.cells.map(([r, c, input]) => {
     const value = enc.encode(input);
     const buf = new Uint8Array(12 + value.length);
@@ -505,12 +518,14 @@ function encodeBody(data: RsfData): Uint8Array {
   const cellsSize = cellBufs.reduce((n, b) => n + b.length, 0);
   const metaSize = hasMeta ? 2 + appName!.length + 2 + appVersion!.length : 0;
   const displaySize = hasDisplay ? 2 + 4 + displayWidths.length * 6 : 0;
+  const flagsSize = hasWrap ? 1 : 0;
   const filterSize = filterBlock ? filterBlock.length : 0;
-  const total = 1 + 1 + metaSize + displaySize + filterSize + 2 + name.length + 4 + 4 + 4 + cellsSize;
+  const total =
+    1 + 1 + metaSize + displaySize + flagsSize + filterSize + 2 + name.length + 4 + 4 + 4 + cellsSize;
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = hasFilter ? 4 : hasDisplay ? 3 : hasMeta ? 2 : 1;
+  out[off++] = hasWrap ? 5 : hasFilterSection ? 4 : hasDisplay ? 3 : hasMeta ? 2 : 1;
   out[off++] = data.delimiter.charCodeAt(0);
   if (hasMeta) {
     view.setUint16(off, appName!.length, true);
@@ -536,6 +551,11 @@ function encodeBody(data: RsfData): Uint8Array {
       view.setUint16(off, Math.max(RSF_COL_WIDTH_MIN, Math.min(RSF_COL_WIDTH_MAX, Math.round(width))), true);
       off += 2;
     }
+  }
+  if (hasWrap) {
+    // Version-5 display flags. Bit 0: wrap long rows. Written only when set,
+    // so a document that does not use wrapping stays a version-4-or-lower body.
+    out[off++] = 1;
   }
   if (filterBlock) {
     out.set(filterBlock, off);
@@ -567,7 +587,7 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     return { ok: false, error: 'bad-shape' };
   }
   const bodyVersion = body[off++];
-  if (bodyVersion < 1 || bodyVersion > 4) {
+  if (bodyVersion < 1 || bodyVersion > RSF_BODY_VERSION) {
     return { ok: false, error: 'bad-version' };
   }
   const delimByte = body[off++];
@@ -631,6 +651,15 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
       off += 2;
       rawWidths.push([col, width]);
     }
+  }
+  // Version-5 display flags (one byte, no payload). Unknown bits are ignored
+  // so a future flag can be added without changing this layout again.
+  let rawWrap = false;
+  if (bodyVersion >= 5) {
+    if (!need(1)) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    rawWrap = (body[off++] & 1) === 1;
   }
   // Version-4 filter block. Structural truncation, undecodable strings, and
   // unreadable shapes are bad-shape (matching the rest of the codec); every
@@ -727,7 +756,10 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     if (widths.size > 0) {
       display.colWidths = [...widths.entries()];
     }
-    if (display.zoom !== undefined || display.colWidths) {
+    if (rawWrap) {
+      display.wrap = true;
+    }
+    if (display.zoom !== undefined || display.colWidths || display.wrap) {
       data.display = display;
     }
   }
@@ -923,7 +955,9 @@ function encodeDisplayBlock(display: RsfDisplaySettings | undefined, columnCount
   );
   const zoom = display?.zoom;
   const bytes: number[] = [];
-  const flags = (zoom !== undefined ? 1 : 0) | (widths.length > 0 ? 2 : 0);
+  // Bit 0: zoom follows. Bit 1: a width table follows. Bit 2: wrap long rows
+  // (payload-free, so a reader that ignores it stays byte-aligned).
+  const flags = (zoom !== undefined ? 1 : 0) | (widths.length > 0 ? 2 : 0) | (display?.wrap ? 4 : 0);
   bytes.push(flags);
   if (zoom !== undefined) {
     const clamped = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(zoom)));
@@ -974,7 +1008,10 @@ function readDisplayBlock(rd: BodyReader, columnCount: number): RsfDisplaySettin
       display.colWidths = [...widths.entries()];
     }
   }
-  return display.zoom !== undefined || display.colWidths ? display : null;
+  if (flags & 4) {
+    display.wrap = true;
+  }
+  return display.zoom !== undefined || display.colWidths || display.wrap ? display : null;
 }
 
 /** Append a length-prefixed UTF-8 string (bounded to `max` bytes). */

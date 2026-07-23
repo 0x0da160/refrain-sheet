@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
 import type { Tab } from '../app/app-state';
-import type { ConvertReason, FilterDialogInput, FilterDialogResult, FlashFillPreview } from '../app/commands';
+import type {
+  ConvertReason,
+  FilterDialogInput,
+  FilterDialogResult,
+  FlashFillPreview,
+  RangeMoveConfirmInput,
+  WorkbookReplaceConfirmInput,
+} from '../app/commands';
 import { t } from '../app/i18n';
 import {
   FILTER_NUMBER_OPS,
@@ -907,6 +914,117 @@ export class Dialogs {
       buttons.append(
         dialogButton(t('dialog.deleteSheet.cancel'), false, true, () => close(false)),
         dialogButton(t('dialog.deleteSheet.ok'), true, false, () => close(true)),
+      );
+    });
+  }
+
+  /**
+   * Confirm a range move whose destination already holds data. The destination
+   * range and the exact number of cells that would be replaced are both stated,
+   * and Cancel is the default action, so data is never replaced by accident.
+   */
+  confirmRangeMoveOverwrite(input: RangeMoveConfirmInput): Promise<boolean> {
+    return openDialog<boolean>(t('dialog.moveRange.overwriteTitle'), false, (body, buttons, close) => {
+      body.append(
+        el('p', {
+          text: t('dialog.moveRange.overwriteMessage', {
+            target: input.target,
+            n: input.overwriteCount,
+          }),
+        }),
+        el('p', { className: 'dialog-note', text: t('dialog.moveRange.overwriteUndo') }),
+      );
+      buttons.append(
+        dialogButton(t('dialog.moveRange.cancel'), false, true, () => close(false)),
+        dialogButton(t('dialog.moveRange.overwriteOk'), true, false, () => close(true)),
+      );
+    });
+  }
+
+  /**
+   * Ask where to move the selected cells — the keyboard path to the same move
+   * the drag gesture performs. Validation runs on every keystroke and is shown
+   * in a live region; OK stays disabled while the entry is unusable. Enter
+   * confirms and Escape cancels, and neither fires while an IME composition is
+   * in progress.
+   */
+  promptMoveTarget(
+    source: string,
+    suggestion: string,
+    validate: (text: string) => string | null,
+  ): Promise<string | null> {
+    return openDialog<string | null>(t('dialog.moveRange.title'), null, (body, buttons, close) => {
+      const inputId = 'move-target-input';
+      const input = el('input', {
+        className: 'move-target-input',
+        attrs: { type: 'text', id: inputId, 'data-autofocus': 'true', autocomplete: 'off' },
+      }) as HTMLInputElement;
+      input.value = suggestion;
+      const error = el('p', {
+        className: 'dialog-error',
+        attrs: { role: 'status', 'aria-live': 'polite' },
+      });
+      const ok = dialogButton(t('dialog.moveRange.ok'), true, false, () => close(input.value.trim()));
+      const refresh = (): void => {
+        const message = validate(input.value);
+        error.textContent = message ?? '';
+        ok.disabled = message !== null;
+        input.setAttribute('aria-invalid', message === null ? 'false' : 'true');
+      };
+      let composing = false;
+      input.addEventListener('compositionstart', () => (composing = true));
+      input.addEventListener('compositionend', () => {
+        composing = false;
+        refresh();
+      });
+      input.addEventListener('input', () => {
+        if (!composing) refresh();
+      });
+      input.addEventListener('keydown', (event) => {
+        // Never act on Enter that is only ending an IME composition.
+        if (event.key === 'Enter' && !composing && !event.isComposing && !ok.disabled) {
+          event.preventDefault();
+          close(input.value.trim());
+        }
+      });
+      body.append(
+        el('p', { text: t('dialog.moveRange.message', { source }) }),
+        el('label', { attrs: { for: inputId }, text: t('dialog.moveRange.label') }),
+        input,
+        error,
+        el('p', { className: 'dialog-note', text: t('dialog.moveRange.hint') }),
+      );
+      buttons.append(
+        dialogButton(t('dialog.moveRange.cancel'), false, true, () => close(null)),
+        ok,
+      );
+      refresh();
+    });
+  }
+
+  /**
+   * Confirm a workbook-wide Replace All. The scope is stated explicitly — a
+   * replace that reaches worksheets the user is not looking at must never be
+   * a surprise — together with exactly how much it would change. Cancel is the
+   * default action, and nothing is mutated until this resolves true.
+   */
+  confirmReplaceAllWorkbook(input: WorkbookReplaceConfirmInput): Promise<boolean> {
+    return openDialog<boolean>(t('dialog.replaceWorkbook.title'), false, (body, buttons, close) => {
+      body.append(
+        el('p', {
+          text: t('dialog.replaceWorkbook.message', {
+            matches: input.matches,
+            cells: input.cells,
+            sheets: input.sheets,
+            total: input.totalSheets,
+          }),
+        }),
+        el('p', { className: 'dialog-note', text: t('dialog.replaceWorkbook.scope') }),
+        el('p', { className: 'dialog-note', text: t('dialog.replaceWorkbook.undo') }),
+      );
+      buttons.append(
+        dialogButton(t('dialog.replaceWorkbook.cancel'), false, true, () => close(false)),
+        dialogButton(t('dialog.replaceWorkbook.ok'), true, false, () => close(true)),
       );
     });
   }

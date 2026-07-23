@@ -155,6 +155,27 @@ export function nextZoomLevel(current: number, direction: 1 | -1): number {
 }
 
 // ---------------------------------------------------------------------------
+// Wrap long rows
+// ---------------------------------------------------------------------------
+
+const WRAP_CELLS_KEY = 'refrain-csv-html.wrapCells';
+
+/**
+ * The application-level "wrap long rows" preference. **Default: off.** Used
+ * for documents that carry no wrap setting of their own (plain CSV documents,
+ * and RSF worksheets saved before wrap persistence existed); an RSF worksheet's
+ * stored value always wins. Never written into any document's bytes.
+ */
+export function getWrapCells(): boolean {
+  return safeStorageGet(WRAP_CELLS_KEY) === '1';
+}
+
+/** Persist the application-level wrap preference locally. */
+export function setWrapCellsPreference(wrap: boolean): void {
+  safeStorageSet(WRAP_CELLS_KEY, wrap ? '1' : '0');
+}
+
+// ---------------------------------------------------------------------------
 // Editing-help tooltips
 // ---------------------------------------------------------------------------
 

@@ -197,8 +197,8 @@ export function quoteSheetName(name: string): string {
 // Cell reference notation
 // ---------------------------------------------------------------------------
 
-const MAX_REF_COLUMN = 16_383; // 'XFD', a conventional spreadsheet limit
-const MAX_REF_ROW = 9_999_999;
+export const MAX_REF_COLUMN = 16_383; // 'XFD', a conventional spreadsheet limit
+export const MAX_REF_ROW = 9_999_999;
 
 /** Convert a 0-based column index to spreadsheet letters (0 -> A, 26 -> AA). */
 export function columnLabel(col: number): string {

@@ -39,6 +39,9 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     promptSheetName: vi.fn(async () => null),
     confirmDeleteSheet: vi.fn(async () => true),
     chooseExportSheet: vi.fn(async () => null),
+    confirmReplaceAllWorkbook: vi.fn(async () => true),
+    confirmRangeMoveOverwrite: vi.fn(async () => true),
+    promptMoveTarget: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
     showMessage: vi.fn(async () => undefined),
     notify: vi.fn(),
@@ -203,7 +206,7 @@ describe('sliced Replace All', () => {
     // Swap the document while the scan is yielding (reopen/convert scenario).
     state.convertToRsf(tab);
     const result = await pending;
-    expect(result).toEqual({ count: 0, cells: 0 });
+    expect(result).toMatchObject({ count: 0, cells: 0 });
     expect(tab.doc.getValue(0, 1)).toBe('1');
     expect(tab.history.canUndo).toBe(false);
   });

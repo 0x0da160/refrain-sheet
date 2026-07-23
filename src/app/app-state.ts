@@ -11,7 +11,6 @@ import {
   shiftFormulaRefs,
 } from '../core/formula';
 import {
-  cellsEntry,
   History,
   type CellChange,
   type HistoryEntry,
@@ -22,7 +21,7 @@ import type { LosslessDocument } from '../core/lossless-document';
 import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument, RSF_EXTENSION } from '../core/rsf-document';
 import type { Worksheet } from '../core/worksheet';
 import { t } from './i18n';
-import { clampSheetZoom, getSheetZoom, setSheetZoom } from './settings';
+import { clampSheetZoom, getSheetZoom, getWrapCells, setSheetZoom, setWrapCellsPreference } from './settings';
 
 /**
  * The localized name of a workbook's first worksheet (`Sheet1` / `シート1`).
@@ -93,6 +92,14 @@ export interface Tab {
    * recorded into the container on the next save.
    */
   zoom: number;
+  /**
+   * Whether long cells wrap onto several visual lines in this tab. Follows the
+   * same precedence as zoom: an RSF worksheet's stored value wins, otherwise
+   * the application-level preference applies, and each worksheet of a workbook
+   * remembers its own. Purely visual — for a plain CSV it is local application
+   * state that never touches the file's bytes.
+   */
+  wrapCells: boolean;
 }
 
 /**
@@ -131,7 +138,14 @@ function safeStorageSet(key: string, value: string): void {
 export class AppState {
   tabs: Tab[] = [];
   activeTabId: string | null = null;
-  wrapCells = false;
+  /**
+   * Announce a non-blocking, already-localized status message (wired to the
+   * toast surface, which is a polite live region). Used for changes the
+   * application makes on the user's behalf — such as turning wrapping on
+   * because a cell now contains a line break — so they are never silent and
+   * never block editing. Null outside the browser (unit tests).
+   */
+  announce: ((message: string) => void) | null = null;
   /** Keep the first record row pinned below the header while scrolling. */
   stickyFirstRow: boolean;
   /** The formula editor currently able to accept pointer-entered references. */
@@ -184,6 +198,7 @@ export class AppState {
       rsfSaveExplained: false,
       colWidths: stored ? stored.displayColWidths.slice() : [],
       zoom: clampSheetZoom(stored?.displayZoom ?? getSheetZoom()),
+      wrapCells: stored?.displayWrap ?? getWrapCells(),
     };
     this.tabs.push(tab);
     this.activeTabId = tab.id;
@@ -330,8 +345,12 @@ export class AppState {
       if (before === after) {
         return false;
       }
-      tab.history.push(cellsEntry(label, [{ row, col, before, after }]));
-      this.applyChange(tab, { row, col, before, after }, 'after');
+      const changes = [{ row, col, before, after }];
+      this.applyChange(tab, changes[0], 'after');
+      // A committed line break turns wrapping on, in the same history entry.
+      const ops: Operation[] = [{ type: 'cells', changes }];
+      this.appendAutoWrap(tab, changes, ops);
+      tab.history.push({ label, ops });
       this.emit('doc');
       return true;
     }
@@ -342,8 +361,12 @@ export class AppState {
     if (before === value) {
       return false;
     }
-    tab.history.push(cellsEntry(label, [{ row, col, before, after: value }]));
-    this.applyChange(tab, { row, col, before, after: value }, 'after');
+    const sheetId = tab.doc.activeSheetId;
+    const changes = [{ row, col, before, after: value }];
+    this.applyChange(tab, changes[0], 'after', sheetId);
+    const ops: Operation[] = [{ type: 'cells', changes, sheetId }];
+    this.appendAutoWrap(tab, changes, ops, sheetId);
+    tab.history.push({ label, ops, sheetId });
     this.emit('doc');
     return true;
   }
@@ -354,10 +377,13 @@ export class AppState {
     if (effective.length === 0) {
       return false;
     }
-    tab.history.push(cellsEntry(label, effective));
+    const sheetId = tab.doc.kind === 'rsf' ? tab.doc.activeSheetId : undefined;
     for (const change of effective) {
-      this.applyChange(tab, change, 'after');
+      this.applyChange(tab, change, 'after', sheetId);
     }
+    const ops: Operation[] = [{ type: 'cells', changes: effective, ...(sheetId ? { sheetId } : {}) }];
+    this.appendAutoWrap(tab, effective, ops, sheetId);
+    tab.history.push({ label, ops, ...(sheetId ? { sheetId } : {}) });
     this.emit('doc');
     return true;
   }
@@ -371,6 +397,9 @@ export class AppState {
       if (op.type === 'filter') {
         return !filtersEqual(op.before, op.after);
       }
+      if (op.type === 'wrap') {
+        return op.before !== op.after;
+      }
       if (op.type === 'sheets') {
         return true;
       }
@@ -379,8 +408,17 @@ export class AppState {
     if (!nonEmpty) {
       return false;
     }
-    tab.history.push(entry);
+    // Applied before the entry is recorded so the automatic wrap enable — which
+    // is decided from the *committed* values — can join the same entry and
+    // therefore undo together with the edit that caused it.
     this.applyEntry(tab, entry, 'after');
+    for (const op of entry.ops) {
+      if (op.type === 'cells' && op.changes.length > 0) {
+        this.appendAutoWrap(tab, op.changes, entry.ops, op.sheetId);
+        break;
+      }
+    }
+    tab.history.push(entry);
     this.clampSelection(tab);
     this.emit('doc');
     return true;
@@ -727,9 +765,119 @@ export class AppState {
     }
   }
 
+  /**
+   * Whether the active tab wraps long cells. Falls back to the
+   * application-level preference when nothing is open, so menus and the grid
+   * always have an answer.
+   */
+  get wrapCells(): boolean {
+    return this.activeTab?.wrapCells ?? getWrapCells();
+  }
+
+  /**
+   * Turn wrapping on/off for the active tab. Purely visual: it never changes
+   * document content, CSV bytes, or the dirty state. The choice also becomes
+   * the application-level preference (used by documents that store none), and
+   * an RSF worksheet remembers it for persistence with the next save.
+   */
   setWrapCells(wrap: boolean): void {
-    this.wrapCells = wrap;
+    setWrapCellsPreference(wrap);
+    const tab = this.activeTab;
+    if (!tab) {
+      this.emit('view');
+      return;
+    }
+    this.applyWrap(tab, wrap);
     this.emit('view');
+  }
+
+  /** Set a tab's (and its active worksheet's) wrap state without emitting. */
+  private applyWrap(tab: Tab, wrap: boolean, sheetId?: string): void {
+    if (tab.doc.kind === 'rsf') {
+      tab.doc.setDisplayWrapOn(sheetId, wrap);
+      // Only the *active* worksheet's state is what the grid renders.
+      if (sheetId === undefined || sheetId === tab.doc.activeSheetId) {
+        tab.wrapCells = wrap;
+      }
+      return;
+    }
+    tab.wrapCells = wrap;
+  }
+
+  /**
+   * Number of formula cells whose evaluated value an edit will inspect when
+   * deciding whether wrapping must be turned on. Literal (non-formula) values
+   * are free to check — the committed text *is* what is displayed — so this
+   * bound only applies to formulas, whose result must actually be computed.
+   * Beyond it the automatic enable is simply not triggered; wrapping remains
+   * available from the View menu.
+   */
+  private static readonly AUTO_WRAP_FORMULA_SCAN_LIMIT = 20_000;
+
+  /**
+   * The `wrap` operation an edit implies, or null when nothing should change.
+   *
+   * The decision is made on the **displayed** value, never on formula source:
+   * `="a\nb"` is a formula whose *result* contains a line break (wrap on),
+   * while `=CONCAT(A1,"\n")` written as source text with an escape sequence is
+   * not a line break at all. Literal values are checked directly; formula
+   * cells are evaluated (bounded by
+   * {@link AppState.AUTO_WRAP_FORMULA_SCAN_LIMIT}).
+   *
+   * Call *after* the cell changes have been applied, so the values inspected
+   * are the committed ones.
+   */
+  private autoWrapOp(tab: Tab, changes: readonly CellChange[], sheetId?: string): Operation | null {
+    if (tab.wrapCells || changes.length === 0) {
+      return null; // already wrapping: nothing to turn on
+    }
+    const doc = tab.doc;
+    let formulasScanned = 0;
+    let found = false;
+    for (const change of changes) {
+      const after = change.after;
+      if (after === null) {
+        continue; // a revert to the original CSV value cannot introduce one
+      }
+      if (!isFormula(after)) {
+        if (after.includes('\n')) {
+          found = true;
+          break;
+        }
+        continue;
+      }
+      if (formulasScanned >= AppState.AUTO_WRAP_FORMULA_SCAN_LIMIT) {
+        continue;
+      }
+      formulasScanned += 1;
+      const shown =
+        doc.kind === 'rsf' && sheetId !== undefined
+          ? doc.getSheetDisplayValue(sheetId, change.row, change.col)
+          : doc.getDisplayValue(change.row, change.col);
+      if (shown.includes('\n')) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      return null;
+    }
+    return { type: 'wrap', before: false, after: true, ...(sheetId === undefined ? {} : { sheetId }) };
+  }
+
+  /**
+   * Apply and record the automatic wrap enable implied by `changes`, appending
+   * it to `ops` so the edit and the display change undo together as one
+   * operation. Announces the change politely — it is never a dialog.
+   */
+  private appendAutoWrap(tab: Tab, changes: readonly CellChange[], ops: Operation[], sheetId?: string): void {
+    const op = this.autoWrapOp(tab, changes, sheetId);
+    if (!op) {
+      return;
+    }
+    ops.push(op);
+    this.applyOp(tab, op, 'after');
+    this.announce?.(t('notify.wrapEnabled'));
   }
 
   /**
@@ -813,6 +961,10 @@ export class AppState {
    * silently drift against the moved rows. Undo restores structure *and*
    * filter together.
    */
+  filterClearOpsFor(doc: RsfDocument): Operation[] {
+    return this.filterClearOps(doc);
+  }
+
   private filterClearOps(doc: RsfDocument): Operation[] {
     return doc.filter !== null
       ? [{ type: 'filter', before: doc.filter, after: null, sheetId: doc.activeSheetId }]
@@ -840,8 +992,10 @@ export class AppState {
     view.selectionKind = tab.selectionKind;
     view.zoom = tab.zoom;
     view.colWidths = tab.colWidths.slice();
+    view.wrap = tab.wrapCells;
     doc.activeSheet.displayZoom = tab.zoom;
     doc.activeSheet.displayColWidths = tab.colWidths.slice();
+    doc.activeSheet.displayWrap = tab.wrapCells;
   }
 
   /** Load the (now) active worksheet's remembered view into the tab. */
@@ -853,6 +1007,7 @@ export class AppState {
     tab.selectionKind = view.selectionKind;
     tab.zoom = clampSheetZoom(view.zoom ?? sheet.displayZoom ?? getSheetZoom());
     tab.colWidths = view.colWidths.length > 0 ? view.colWidths.slice() : sheet.displayColWidths.slice();
+    tab.wrapCells = view.wrap ?? sheet.displayWrap ?? getWrapCells();
     this.clampSelection(tab);
   }
 
@@ -1159,6 +1314,12 @@ export class AppState {
       for (const change of changes) {
         this.applyChange(tab, change, direction, op.sheetId);
       }
+      return;
+    }
+    if (op.type === 'wrap') {
+      // Presentational: applies to plain CSV tabs too (as local view state),
+      // and never marks anything dirty.
+      this.applyWrap(tab, direction === 'after' ? op.after : op.before, op.sheetId);
       return;
     }
     const doc = tab.doc;

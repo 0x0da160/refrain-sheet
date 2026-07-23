@@ -8,6 +8,7 @@ import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from
 import { RowHeightIndex } from '../core/row-height-index';
 import { forEachIndexSliced, yieldToBrowser } from '../core/scheduler';
 import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../core/text-wrap';
+import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 import { beginsTextEntry, isComposingKey } from './ime';
@@ -261,6 +262,7 @@ const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string } | 'sepa
   { command: 'edit.insertCopiedRows', labelKey: 'menu.edit.insertCopiedRows' },
   { command: 'edit.insertCopiedCols', labelKey: 'menu.edit.insertCopiedCols' },
   { command: 'edit.flashFill', labelKey: 'menu.edit.flashFill' },
+  { command: 'edit.moveRange', labelKey: 'menu.edit.moveRange' },
   { command: 'edit.revertCell', labelKey: 'menu.edit.revertCell' },
   'separator',
   { command: 'sheet.filter', labelKey: 'menu.sheet.filter' },
@@ -345,7 +347,7 @@ export class Grid {
   private announcedZoom: number | null = null;
   /** True between compositionstart and compositionend on the sink (IME is composing). */
   private composing = false;
-  private contextMenu: HTMLElement | null = null;
+  private contextMenu: ContextMenu | null = null;
   private dragging = false;
   private scrollScheduled = false;
   /** Active column-resize drag, if any. */
@@ -356,6 +358,19 @@ export class Grid {
   private headerDrag: { axis: 'row' | 'col'; anchor: number; last: number } | null = null;
   /** Active pointer reference entry into a formula editor, if any. */
   private refDrag: { anchor: { row: number; col: number } } | null = null;
+  /**
+   * Active range-move drag, if any. `origin` is the cell under the pointer when
+   * the drag began (so the destination tracks the pointer without snapping to a
+   * corner); `delta` is the current move offset; `valid` is whether the current
+   * destination is in bounds. Committed on mouseup — the move itself, with its
+   * overwrite confirmation, runs through the shared command.
+   */
+  private movingRange: {
+    source: CellRange;
+    origin: { row: number; col: number };
+    delta: { row: number; col: number };
+    valid: boolean;
+  } | null = null;
   /** Ranges referenced by the formula currently being edited (highlighted). */
   private formulaRefs: FormulaRefRange[] = [];
   /** Floating note shown when a referenced range extends beyond the viewport. */
@@ -435,15 +450,18 @@ export class Grid {
       this.endResize();
       this.endFill();
       this.endRefDrag();
+      this.endMove();
     });
-    document.addEventListener('mousedown', (event) => {
-      if (this.contextMenu && !this.contextMenu.contains(event.target as Node)) {
-        this.closeContextMenu();
+    // Escape cancels an in-progress range-move drag (rolling back safely, since
+    // nothing has been committed) before it can reach the commit on mouseup.
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && this.movingRange) {
+        this.cancelMove();
       }
     });
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') this.closeContextMenu();
-    });
+    // Escape / outside interaction / resize / scroll dismissal is owned by
+    // `ContextMenu` itself, so every context menu in the application behaves
+    // identically (see src/ui/context-menu.ts).
 
     // ----- IME-safe keyboard target (the sink) -----
     // Focusing the grid container (tab stop, corner clicks, cell clicks)
@@ -772,7 +790,33 @@ export class Grid {
       head.classList.toggle('hdr-sel', range !== null && col >= range.left && col <= range.right);
     }
     this.placeFillHandle(tab, range);
+    this.placeMoveHandle(tab, range);
     this.positionSink();
+  }
+
+  /**
+   * Put an accessible move handle on the top-left cell of the current selection
+   * for RSF worksheets (moving a range is a structural edit a byte-preserving
+   * CSV cannot represent, so it is offered only where it is possible). Dragging
+   * it moves the selected range; the same move is available without a pointer
+   * via the "Move Selected Cells…" command.
+   */
+  private placeMoveHandle(tab: Tab, range: CellRange | null): void {
+    for (const old of this.canvas.querySelectorAll('.move-handle')) {
+      old.remove();
+    }
+    if (!range || tab.doc.kind !== 'rsf' || tab.doc.rowCount === 0) {
+      return;
+    }
+    const cell = this.cellAt(range.top, range.left);
+    if (!cell) {
+      return; // the corner is scrolled out of view
+    }
+    const handle = el('div', {
+      className: 'move-handle',
+      attrs: { 'data-movehandle': 'true', 'aria-hidden': 'true', title: t('grid.moveHandleTitle') },
+    });
+    cell.append(handle);
   }
 
   /** Put the fill handle on the bottom-right cell of the current selection. */
@@ -813,7 +857,14 @@ export class Grid {
     if (this.composing || this.editor !== null) {
       return; // text entry owns the interaction
     }
-    if (this.resizing || this.filling || this.dragging || this.headerDrag || this.refDrag) {
+    if (
+      this.resizing ||
+      this.filling ||
+      this.dragging ||
+      this.headerDrag ||
+      this.refDrag ||
+      this.movingRange
+    ) {
       return; // another pointer interaction owns the gesture
     }
     if (event.deltaY === 0) {
@@ -1248,6 +1299,12 @@ export class Grid {
     if (dirty) {
       this.heightsVersion += 1;
     }
+    if (!this.element.ownerDocument.defaultView) {
+      // The grid outlived its browsing context (a torn-down test environment,
+      // a detached document): there is nothing left to lay out, and rendering
+      // would reach for globals that no longer exist.
+      return;
+    }
     this.window = null;
     this.render(tab);
   }
@@ -1514,6 +1571,23 @@ export class Grid {
       event.stopPropagation();
       return;
     }
+    if (target?.closest<HTMLElement>('[data-movehandle]')) {
+      // Begin a range-move drag from the current selection (RSF only).
+      const range = this.state.selectedRange(tab);
+      if (range && tab.doc.kind === 'rsf') {
+        this.commitEditor();
+        this.movingRange = {
+          source: range,
+          origin: { row: range.top, col: range.left },
+          delta: { row: 0, col: 0 },
+          valid: false,
+        };
+        this.updateMovePreview(tab);
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      return;
+    }
     if (target?.closest<HTMLElement>('[data-fillhandle]')) {
       // Begin a fill-handle drag from the current selection.
       const range = this.state.selectedRange(tab);
@@ -1685,6 +1759,18 @@ export class Grid {
       }
       return;
     }
+    if (this.movingRange) {
+      const tab = this.state.activeTab;
+      const cell = this.cellFromEvent(event);
+      if (tab && cell) {
+        this.movingRange.delta = {
+          row: cell.row - this.movingRange.origin.row,
+          col: cell.col - this.movingRange.origin.col,
+        };
+        this.updateMovePreview(tab);
+      }
+      return;
+    }
     if (this.refDrag) {
       const cell = this.cellFromEvent(event);
       const refTarget = this.state.formulaRefTarget;
@@ -1843,6 +1929,86 @@ export class Grid {
       if (inDest && !inSource) {
         cell.classList.add('fill-target');
       }
+    }
+  }
+
+  // ----- Range move (drag the selection to move it) -----
+
+  /** The current move destination rectangle, or null when nothing is dragging. */
+  private moveDest(): CellRange | null {
+    if (!this.movingRange) {
+      return null;
+    }
+    const { source, delta } = this.movingRange;
+    return normalizeRange(
+      { row: source.top + delta.row, col: source.left + delta.col },
+      { row: source.bottom + delta.row, col: source.right + delta.col },
+    );
+  }
+
+  /**
+   * Repaint the drag preview: the moved rectangle at its proposed destination,
+   * marked valid or invalid. The invalid state is conveyed by a distinct class
+   * (and a `not-allowed` cursor), never by color alone. Validity is whether the
+   * destination fits inside the worksheet and actually moves the cells.
+   */
+  private updateMovePreview(tab: Tab): void {
+    for (const cell of this.canvas.querySelectorAll('.move-target, .move-target-invalid, .move-source')) {
+      cell.classList.remove('move-target', 'move-target-invalid', 'move-source');
+    }
+    const moving = this.movingRange;
+    const dest = this.moveDest();
+    if (!moving || !dest) {
+      return;
+    }
+    const rows = tab.doc.rowCount;
+    const cols = tab.doc.columnCount;
+    const inBounds = dest.top >= 0 && dest.left >= 0 && dest.bottom < rows && dest.right < cols;
+    const moved = moving.delta.row !== 0 || moving.delta.col !== 0;
+    moving.valid = inBounds && moved;
+    this.element.classList.toggle('moving-range', true);
+    this.element.classList.toggle('move-invalid', !moving.valid);
+    const source = moving.source;
+    for (const cell of this.canvas.querySelectorAll<HTMLElement>('[data-row][data-col]')) {
+      const row = Number(cell.dataset.row);
+      const col = Number(cell.dataset.col);
+      if (row >= source.top && row <= source.bottom && col >= source.left && col <= source.right) {
+        cell.classList.add('move-source');
+      }
+      if (moved && row >= dest.top && row <= dest.bottom && col >= dest.left && col <= dest.right) {
+        cell.classList.add(moving.valid ? 'move-target' : 'move-target-invalid');
+      }
+    }
+  }
+
+  /** Clear all move-preview styling and drag state. */
+  private clearMoveState(): void {
+    for (const cell of this.canvas.querySelectorAll('.move-target, .move-target-invalid, .move-source')) {
+      cell.classList.remove('move-target', 'move-target-invalid', 'move-source');
+    }
+    this.element.classList.remove('moving-range', 'move-invalid');
+    this.movingRange = null;
+  }
+
+  /** Abort a range-move drag without committing anything. */
+  private cancelMove(): void {
+    if (this.movingRange) {
+      this.clearMoveState();
+    }
+  }
+
+  /** Commit a range-move drag on mouseup (runs the shared, confirmed command). */
+  private endMove(): void {
+    const moving = this.movingRange;
+    if (!moving) {
+      return;
+    }
+    const tab = this.state.activeTab;
+    const valid = moving.valid;
+    const { source, delta } = moving;
+    this.clearMoveState();
+    if (valid && tab && tab.doc === this.lastDoc && (delta.row !== 0 || delta.col !== 0)) {
+      void this.commands.moveRange(tab, source, delta.row, delta.col);
     }
   }
 
@@ -2499,37 +2665,20 @@ export class Grid {
 
   private openContextMenu(x: number, y: number): void {
     this.closeContextMenu();
-    const menu = el('div', { className: 'context-menu', attrs: { role: 'menu' } });
-    let firstEnabled: HTMLButtonElement | null = null;
-    for (const item of CONTEXT_MENU_ITEMS) {
-      if (item === 'separator') {
-        menu.append(el('hr', { className: 'menu-separator' }));
-        continue;
-      }
-      const button = el('button', {
-        className: 'menu-item',
-        attrs: { type: 'button', role: 'menuitem' },
-        text: t(item.labelKey),
-      });
-      button.disabled = !this.commands.isEnabled(item.command);
-      button.addEventListener('click', () => {
-        this.closeContextMenu();
-        void this.commands.run(item.command);
-      });
-      if (!button.disabled && !firstEnabled) {
-        firstEnabled = button;
-      }
-      menu.append(button);
-    }
-    menu.style.left = `${Math.min(x, window.innerWidth - 240)}px`;
-    menu.style.top = `${Math.min(y, window.innerHeight - 320)}px`;
-    document.body.append(menu);
-    this.contextMenu = menu;
-    firstEnabled?.focus();
+    const entries: ContextMenuEntry[] = CONTEXT_MENU_ITEMS.map((item) =>
+      item === 'separator'
+        ? 'separator'
+        : {
+            label: t(item.labelKey),
+            disabled: !this.commands.isEnabled(item.command),
+            onSelect: () => void this.commands.run(item.command),
+          },
+    );
+    this.contextMenu = ContextMenu.open(entries, x, y, { onClose: () => (this.contextMenu = null) });
   }
 
   private closeContextMenu(): void {
-    this.contextMenu?.remove();
+    this.contextMenu?.close();
     this.contextMenu = null;
   }
 }

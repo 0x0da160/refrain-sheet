@@ -28,6 +28,8 @@ export interface WorksheetView {
   zoom: number | undefined;
   /** Live per-column widths (px at 100% zoom) while this worksheet is active. */
   colWidths: number[];
+  /** Live "wrap long rows" state while this worksheet is active. */
+  wrap: boolean | undefined;
 }
 
 /**
@@ -70,6 +72,14 @@ export class Worksheet {
    */
   displayZoom: number | undefined;
   displayColWidths: number[] = [];
+  /**
+   * Whether long cells wrap onto several visual lines on this worksheet.
+   * `undefined` means "not stored" (the application-level preference applies).
+   * Enabled automatically when a committed cell value contains a line break —
+   * multi-line content is unreadable clipped to one line. Presentational only:
+   * it never changes cell data, evaluation, export, or the dirty state.
+   */
+  displayWrap: boolean | undefined;
 
   /** Session-only view state, restored when this worksheet becomes active. */
   readonly view: WorksheetView = {
@@ -78,6 +88,7 @@ export class Worksheet {
     selectionKind: 'cell',
     zoom: undefined,
     colWidths: [],
+    wrap: undefined,
   };
 
   private readonly formulaCache = new Map<string, CompiledFormula>();
@@ -369,6 +380,7 @@ export class Worksheet {
     copy.filter = this.filter;
     copy.displayZoom = this.displayZoom;
     copy.displayColWidths = this.displayColWidths.slice();
+    copy.displayWrap = this.displayWrap;
     return copy;
   }
 
@@ -384,6 +396,7 @@ export class Worksheet {
     copy.filter = this.filter;
     copy.displayZoom = this.displayZoom;
     copy.displayColWidths = this.displayColWidths.slice();
+    copy.displayWrap = this.displayWrap;
     return copy;
   }
 

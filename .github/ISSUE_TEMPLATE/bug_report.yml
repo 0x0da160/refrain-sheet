@@ -1,0 +1,97 @@
+name: バグ報告 / Bug report
+description: 不具合を報告する / Report a defect with clear reproduction and acceptance criteria
+title: '[Bug]: '
+labels: ['agent:triage', 'type:bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        日本語でも英語でも構いません。翻訳は不要です。
+        You may write in Japanese or English — no translation required.
+        機密情報・認証情報・トークンは記載しないでください。/ Do not include secrets, credentials, or tokens.
+
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景・状況 / Background & context
+      description: どこで、どういう状況で起きたか / Where and under what conditions this occurs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する挙動 / Expected behavior
+      description: 本来どうあるべきか。可能なら Given / When / Then で。 / What should happen (Given/When/Then if possible).
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の挙動 / Actual behavior
+      description: 実際に何が起きたか。エラーメッセージやログがあれば貼り付けてください。 / What actually happens; paste errors/logs if any.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 再現手順 / Reproduction steps
+      description: 番号付きで、最小の再現手順を。 / Numbered, minimal steps to reproduce.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: input
+    id: area
+    attributes:
+      label: 影響範囲・コンポーネント / Affected area or component
+      description: 例 / e.g. grid, formula engine, RSF codec, find bar
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 受け入れ基準 / Acceptance criteria
+      description: |
+        測定可能な完了条件を書いてください（テストケース、UI状態、API入出力、エラー処理など）。
+        Measurable done-conditions (test cases, UI state, API request/response, error handling).
+        「よくする」「適切に」など曖昧な表現は避けてください。/ Avoid vague wording.
+      value: |
+        - [ ] Given ... When ... Then ...
+        - [ ] Test: ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: セキュリティ・データ・課金・インフラへの影響 / Security, data, billing, or infra impact
+      description: 認証/決済/秘密情報/個人データ/DB/インフラ等に触れるか。/ Does it touch auth, payments, secrets, personal data, DB, or infra?
+      options:
+        - 'なし / None — ordinary application logic'
+        - '不明 / Not sure — needs triage'
+        - 'あり / Yes — high-risk area (will require human approval)'
+    validations:
+      required: true
+
+  - type: textarea
+    id: rollback
+    attributes:
+      label: ロールバック上の考慮 / Rollback considerations
+      description: 修正が問題を起こした場合に元へ戻せるか、注意点。/ How to revert safely and any caveats.
+    validations:
+      required: false
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 依存・関連Issue / Dependencies & related issues
+      description: 関連する Issue / PR / 外部依存があれば。 / Linked issues, PRs, or external dependencies.
+    validations:
+      required: false

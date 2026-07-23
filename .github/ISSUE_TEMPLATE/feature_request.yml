@@ -1,0 +1,102 @@
+name: 機能要望 / Feature request
+description: 新機能や改善を提案する / Propose a new capability or improvement with measurable acceptance criteria
+title: '[Feature]: '
+labels: ['agent:triage', 'type:feature']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        日本語でも英語でも構いません。翻訳は不要です。
+        You may write in Japanese or English — no translation required.
+        機密情報・認証情報・トークンは記載しないでください。/ Do not include secrets, credentials, or tokens.
+
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景・課題 / Background & problem
+      description: なぜこの機能が必要か、解決したい課題。 / Why this is needed; the underlying problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: 目的 / Goal
+      description: この変更で達成したい成果。 / The outcome this change should achieve.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 対象範囲 / Scope
+      description: 含むもの。最小の変更で実現できる形が望ましい。 / What is included; prefer the smallest viable change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: 対象外 / Out of scope
+      description: 今回はやらないこと。 / What this issue explicitly does NOT cover.
+    validations:
+      required: true
+
+  - type: input
+    id: area
+    attributes:
+      label: 影響範囲・コンポーネント / Affected area or component
+      description: 例 / e.g. menu bar, commands, RSF codec, i18n
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 受け入れ基準 / Acceptance criteria
+      description: |
+        測定可能な完了条件（Given/When/Then、テストケース、UI状態、API入出力、性能境界、エラー処理）。
+        Measurable done-conditions (Given/When/Then, test cases, UI state, API examples, performance bounds, error handling).
+        「よくする」「適切に」など曖昧な表現は避けてください。/ Avoid vague wording such as "make it better".
+      value: |
+        - [ ] Given ... When ... Then ...
+        - [ ] Test: ...
+        - [ ] Localized in both en.json and ja.json
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: セキュリティ・データ・課金・インフラへの影響 / Security, data, billing, or infra impact
+      description: 認証/決済/秘密情報/個人データ/DB/インフラ/公開APIの破壊的変更/大きな依存更新に触れるか。
+      options:
+        - 'なし / None — ordinary application logic'
+        - '不明 / Not sure — needs triage'
+        - 'あり / Yes — high-risk area (will require human approval)'
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: 例・モック・API入出力 / Examples, mockups, or API request/response
+      description: 期待する UI 状態、スクリーンショット、API 例などがあれば。 / UI states, screenshots, or API examples if relevant.
+    validations:
+      required: false
+
+  - type: textarea
+    id: rollback
+    attributes:
+      label: ロールバック上の考慮 / Rollback considerations
+      description: 問題があった場合に無効化・撤回できるか。 / How the change can be disabled or reverted.
+    validations:
+      required: false
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 依存・関連Issue / Dependencies & related issues
+      description: 関連する Issue / PR / 外部依存。 / Linked issues, PRs, or external dependencies.
+    validations:
+      required: false

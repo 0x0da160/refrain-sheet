@@ -435,12 +435,18 @@ export class Commands {
         return tab !== null && tab.doc.kind === 'csv';
       case 'sheet.exportCsv':
         return tab !== null && tab.doc.kind === 'rsf';
+      // Row insert/delete is meaningless while a whole-column selection is
+      // active: there is no well-defined row to insert/delete around.
       case 'sheet.insertRowAbove':
       case 'sheet.insertRowBelow':
       case 'sheet.deleteRows':
+        return tab !== null && tab.selection !== null && tab.selectionKind !== 'col';
+      // Column insert/delete is meaningless while a whole-row selection is
+      // active: there is no well-defined column to insert/delete around.
       case 'sheet.insertColLeft':
       case 'sheet.insertColRight':
       case 'sheet.deleteCols':
+        return tab !== null && tab.selection !== null && tab.selectionKind !== 'row';
       case 'sheet.autoFitCols':
         return tab !== null && tab.selection !== null;
       case 'edit.selectAll':

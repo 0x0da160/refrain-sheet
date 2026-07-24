@@ -21,6 +21,9 @@ name: Implement issue
 # - Runs on base-repo issues (not fork code); contents:write pushes the agent
 #   branch only. Direct pushes to main are blocked by branch protection
 #   (see docs/agent-operations.md) as defense in depth.
+# - The agent is granted file-editing tools (Edit/Write/MultiEdit) plus read/search
+#   and build/test Bash so it can actually implement; git push, PR creation, and
+#   label/issue mutations are disallowed so the workflow stays the sole authority.
 # - Inert until a human selects CLAUDE_AUTH_METHOD + adds the matching secret.
 # - `anthropics/claude-code-action` is THIRD-PARTY. SECURITY TODO: pin `@v1` to a
 #   verified commit SHA before enabling (docs/security.md pinning policy).
@@ -120,7 +123,14 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
-          claude_args: '--max-turns 40'
+          # Grant the file-editing tools the agent needs to actually implement
+          # (without these it runs read-only and produces no change), plus
+          # read/search and build/test Bash. Disallow the GitHub-mutating commands
+          # so the WORKFLOW stays the sole authority for branch/commit/push/PR/labels.
+          claude_args: >-
+            --max-turns 40
+            --allowedTools "Read,Glob,Grep,Edit,Write,MultiEdit,Bash"
+            --disallowedTools "Bash(git push:*),Bash(gh pr:*),Bash(gh issue edit:*),Bash(gh label:*),Bash(gh api:*)"
           prompt: |
             You are an IMPLEMENTATION agent, not a planning-only agent. Follow
             `.claude/skills/implement-issue/SKILL.md` and `CLAUDE.md` to implement
@@ -164,7 +174,14 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
-          claude_args: '--max-turns 40'
+          # Grant the file-editing tools the agent needs to actually implement
+          # (without these it runs read-only and produces no change), plus
+          # read/search and build/test Bash. Disallow the GitHub-mutating commands
+          # so the WORKFLOW stays the sole authority for branch/commit/push/PR/labels.
+          claude_args: >-
+            --max-turns 40
+            --allowedTools "Read,Glob,Grep,Edit,Write,MultiEdit,Bash"
+            --disallowedTools "Bash(git push:*),Bash(gh pr:*),Bash(gh issue edit:*),Bash(gh label:*),Bash(gh api:*)"
           prompt: |
             You are an IMPLEMENTATION agent, not a planning-only agent. Follow
             `.claude/skills/implement-issue/SKILL.md` and `CLAUDE.md` to implement
@@ -218,9 +235,12 @@ jobs:
           echo "Planned agent branch: $branch"
           echo "Working-tree status:"
           git status --porcelain
-          echo "Diff against ${BASE_BRANCH} (stat):"
-          git --no-pager diff --stat || true
-          if [ -n "$(git status --porcelain)" ]; then
+          echo "Diff against origin/${BASE_BRANCH} (stat):"
+          git --no-pager diff --stat "origin/${BASE_BRANCH}" || true
+          # A real change is either uncommitted work OR commits the agent made on top
+          # of the base (some agent modes commit). Detect both so a genuine
+          # implementation is never misread as "no change".
+          if [ -n "$(git status --porcelain)" ] || ! git diff --quiet "origin/${BASE_BRANCH}"; then
             echo "changed=true" >>"$GITHUB_OUTPUT"
           else
             echo "changed=false" >>"$GITHUB_OUTPUT"
@@ -298,6 +318,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git switch -c "$BRANCH"
+          # Normalize: if the agent committed locally, fold those commits back into
+          # the index so the workflow makes exactly ONE clean commit; if it left
+          # uncommitted changes, this is a no-op.
+          git reset --soft "origin/${BASE_BRANCH}"
           git add -A
           # Never create an empty commit.
           if git diff --cached --quiet; then

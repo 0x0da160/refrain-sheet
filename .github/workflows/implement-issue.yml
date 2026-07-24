@@ -148,9 +148,12 @@ jobs:
             - Inspect the repository and the Issue's acceptance criteria.
             - Implement the smallest viable change directly in the working tree.
             - Add or update tests when behavior changes.
-            - Run the repository's available validation
-              (`.claude/skills/verify-change/SKILL.md`) and fix your own code if it
-              fails.
+            - Run the repository's available validation with the runner's already
+              installed Node — `npm run format:check`, `npm run lint`, `npm run build`,
+              `npm run test` (see `.claude/skills/verify-change/SKILL.md`) — and fix
+              your own code if it fails. Do NOT use Docker / `docker compose` here:
+              Node and dependencies are already set up on this runner, and Docker
+              would create root-owned build artifacts that break later workflow steps.
             - Write a short implementation summary (what changed and why, and the
               validation you ran) to "$RUNNER_TEMP/agent-summary.md".
 
@@ -199,9 +202,12 @@ jobs:
             - Inspect the repository and the Issue's acceptance criteria.
             - Implement the smallest viable change directly in the working tree.
             - Add or update tests when behavior changes.
-            - Run the repository's available validation
-              (`.claude/skills/verify-change/SKILL.md`) and fix your own code if it
-              fails.
+            - Run the repository's available validation with the runner's already
+              installed Node — `npm run format:check`, `npm run lint`, `npm run build`,
+              `npm run test` (see `.claude/skills/verify-change/SKILL.md`) — and fix
+              your own code if it fails. Do NOT use Docker / `docker compose` here:
+              Node and dependencies are already set up on this runner, and Docker
+              would create root-owned build artifacts that break later workflow steps.
             - Write a short implementation summary (what changed and why, and the
               validation you ran) to "$RUNNER_TEMP/agent-summary.md".
 
@@ -297,6 +303,11 @@ jobs:
         if: steps.gate.outputs.proceed == 'true' && success() && steps.changes.outputs.changed == 'true'
         run: |
           set -uo pipefail
+          # A prior tool run (e.g. the agent invoking Docker, which runs as root) can
+          # leave root-owned build artifacts that make vite's emptyDir fail with
+          # EACCES. Clear any stale dist/ before building (sudo on hosted runners,
+          # plain rm as fallback).
+          sudo rm -rf dist 2>/dev/null || rm -rf dist 2>/dev/null || true
           OK=1
           : >"$RUNNER_TEMP/verify.md"
           run_check() {

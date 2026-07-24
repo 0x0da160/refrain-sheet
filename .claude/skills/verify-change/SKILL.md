@@ -27,6 +27,11 @@ Run in this order; stop reporting nothing as passed unless it actually ran.
 Local/Docker form: `docker compose run --rm app <command>`.
 CI/runner form: `npm ci --ignore-scripts` first, then the same npm scripts.
 
+On a GitHub Actions runner, **always use the CI/runner form (native npm)** — Node and
+dependencies are already installed. Do **not** invoke Docker there: its container runs
+as root and leaves root-owned build artifacts (e.g. `dist/`) that make a later native
+`vite build` fail with `EACCES`.
+
 ## Rules
 
 1. Record the **exact command** and its outcome for every step.

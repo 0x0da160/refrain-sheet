@@ -435,12 +435,19 @@ export class Commands {
         return tab !== null && tab.doc.kind === 'csv';
       case 'sheet.exportCsv':
         return tab !== null && tab.doc.kind === 'rsf';
+      // A whole-column selection has no meaningful row to insert/delete
+      // relative to (it spans every row), and a whole-row selection has no
+      // meaningful column to insert/delete relative to (it spans every
+      // column) — disable the other axis's structural commands rather than
+      // letting them act on the entire sheet.
       case 'sheet.insertRowAbove':
       case 'sheet.insertRowBelow':
       case 'sheet.deleteRows':
+        return tab !== null && tab.selection !== null && tab.selectionKind !== 'col';
       case 'sheet.insertColLeft':
       case 'sheet.insertColRight':
       case 'sheet.deleteCols':
+        return tab !== null && tab.selection !== null && tab.selectionKind !== 'row';
       case 'sheet.autoFitCols':
         return tab !== null && tab.selection !== null;
       case 'edit.selectAll':

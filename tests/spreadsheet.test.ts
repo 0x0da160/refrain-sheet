@@ -308,6 +308,39 @@ describe('row and column operations', () => {
     expect(tab.doc.kind).toBe('csv');
     expect(tab.doc.rowCount).toBe(2);
   });
+
+  it('disables row insert/delete while a whole column is selected', async () => {
+    const { state, commands, tab } = await converted('a,b\nc,d\n');
+    state.setSelection(tab, { row: 1, col: 0 }, { row: 0, col: 0 }, 'col');
+    expect(commands.isEnabled('sheet.insertRowAbove')).toBe(false);
+    expect(commands.isEnabled('sheet.insertRowBelow')).toBe(false);
+    expect(commands.isEnabled('sheet.deleteRows')).toBe(false);
+    // Column operations stay meaningful for a column selection.
+    expect(commands.isEnabled('sheet.insertColLeft')).toBe(true);
+    expect(commands.isEnabled('sheet.insertColRight')).toBe(true);
+    expect(commands.isEnabled('sheet.deleteCols')).toBe(true);
+  });
+
+  it('disables column insert/delete while a whole row is selected', async () => {
+    const { state, commands, tab } = await converted('a,b\nc,d\n');
+    state.setSelection(tab, { row: 0, col: 1 }, { row: 0, col: 0 }, 'row');
+    expect(commands.isEnabled('sheet.insertColLeft')).toBe(false);
+    expect(commands.isEnabled('sheet.insertColRight')).toBe(false);
+    expect(commands.isEnabled('sheet.deleteCols')).toBe(false);
+    // Row operations stay meaningful for a row selection.
+    expect(commands.isEnabled('sheet.insertRowAbove')).toBe(true);
+    expect(commands.isEnabled('sheet.insertRowBelow')).toBe(true);
+    expect(commands.isEnabled('sheet.deleteRows')).toBe(true);
+  });
+
+  it('re-enables both axes once a plain cell/range is selected again', async () => {
+    const { state, commands, tab } = await converted('a,b\nc,d\n');
+    state.setSelection(tab, { row: 1, col: 0 }, { row: 0, col: 0 }, 'col');
+    expect(commands.isEnabled('sheet.insertRowAbove')).toBe(false);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    expect(commands.isEnabled('sheet.insertRowAbove')).toBe(true);
+    expect(commands.isEnabled('sheet.insertColLeft')).toBe(true);
+  });
 });
 
 describe('saving and exporting RSF', () => {

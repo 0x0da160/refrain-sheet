@@ -128,7 +128,7 @@ jobs:
           # read/search and build/test Bash. Disallow the GitHub-mutating commands
           # so the WORKFLOW stays the sole authority for branch/commit/push/PR/labels.
           claude_args: >-
-            --max-turns 40
+            --max-turns ${{ vars.AGENT_MAX_TURNS || '120' }}
             --allowedTools "Read,Glob,Grep,Edit,Write,MultiEdit,Bash"
             --disallowedTools "Bash(git push:*),Bash(gh pr:*),Bash(gh issue edit:*),Bash(gh label:*),Bash(gh api:*)"
           prompt: |
@@ -179,7 +179,7 @@ jobs:
           # read/search and build/test Bash. Disallow the GitHub-mutating commands
           # so the WORKFLOW stays the sole authority for branch/commit/push/PR/labels.
           claude_args: >-
-            --max-turns 40
+            --max-turns ${{ vars.AGENT_MAX_TURNS || '120' }}
             --allowedTools "Read,Glob,Grep,Edit,Write,MultiEdit,Bash"
             --disallowedTools "Bash(git push:*),Bash(gh pr:*),Bash(gh issue edit:*),Bash(gh label:*),Bash(gh api:*)"
           prompt: |

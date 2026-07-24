@@ -253,6 +253,10 @@ Every automated action is reversible and traceable to an Issue or PR:
   review 25, close-loop 15).
 - **Max concurrency:** `concurrency` groups key implementation to one run per Issue.
 - **Turn caps:** each agent invocation passes `--max-turns` to bound model work.
+  The implementation cap defaults to `120` and is tunable without editing YAML via
+  the optional Actions **variable** `AGENT_MAX_TURNS` (set it higher for larger
+  features, lower to cap cost). A run that exhausts the cap fails and lands on
+  `agent:blocked` — raise `AGENT_MAX_TURNS` and re-apply `agent:ready` to retry.
 - **Max retries per Issue:** treat repeated `agent:blocked` on the same Issue (e.g.
   ≥ 2 failed implementation attempts) as an escalation — a human investigates before
   re-approving.

@@ -67,12 +67,27 @@ in [`.github/labels.yml`](../.github/labels.yml).
 
 ## Workflows
 
-| Workflow              | Trigger                                              | Permissions                                                          | Concurrency                    | Stop condition                                                          |
-| --------------------- | ---------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------- |
-| `issue-triage.yml`    | `issues: opened/edited`, dispatch                    | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips issues past triage / bot edits                                    |
-| `implement-issue.yml` | `issues: labeled` (`agent:ready`), dispatch          | `contents:write`, `issues:write`, `pull-requests:write`              | per-issue, **no** cancel       | Refuses without `agent:ready` / with `agent:blocked`; blocks on failure |
-| `review-pr.yml`       | `pull_request` (same-repo `agent/issue-*`), dispatch | `contents:read`, `issues:write`, `pull-requests:write`               | per-PR, cancel-in-progress     | Skips fork / non-agent branches                                         |
-| `close-loop.yml`      | `check_suite: completed`, dispatch                   | read checks/statuses/contents, `issues:write`, `pull-requests:write` | per-commit, cancel-in-progress | Skips when no matching agent PR                                         |
+| Workflow              | Trigger                                              | Permissions                                                          | Concurrency                    | Stop condition                                                                 |
+| --------------------- | ---------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------ |
+| `issue-triage.yml`    | `issues: opened/edited`, dispatch                    | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips issues past triage / bot edits                                           |
+| `implement-issue.yml` | `issues: labeled` (`agent:ready`), dispatch          | `contents:write`, `issues:write`, `pull-requests:write`              | per-issue, **no** cancel       | No diff → `needs-spec`; failure → `blocked`; `review` only after a verified PR |
+| `review-pr.yml`       | `pull_request` (same-repo `agent/issue-*`), dispatch | `contents:read`, `issues:write`, `pull-requests:write`               | per-PR, cancel-in-progress     | Skips fork / non-agent branches                                                |
+| `close-loop.yml`      | `check_suite: completed`, dispatch                   | read checks/statuses/contents, `issues:write`, `pull-requests:write` | per-commit, cancel-in-progress | Skips when no matching agent PR                                                |
+
+### `agent:review` means a verified PR exists
+
+`implement-issue.yml` treats **the workflow** — not the model — as the authority for
+git and the PR. Claude only edits the working tree; the workflow then, in order:
+verifies a real non-empty diff (`git status --porcelain` + diff against the base
+branch), runs the required verification suite, commits, pushes, opens/updates the PR,
+and **retrieves and validates** the PR (number, URL, head branch, head SHA, base
+branch, changed-files count, additions, deletions, non-empty diff). Only after **all**
+of those pass does it remove `agent:working` and apply `agent:review`. If the run
+produced no change it goes to `agent:needs-spec`; on any failure it goes to
+`agent:blocked`. `agent:review` therefore always corresponds to a reviewable PR — it
+is never a proxy for "the model finished". `review-pr.yml` and `close-loop.yml` only
+act on a PR they retrieve from GitHub; neither creates `agent:review` and neither
+infers a PR from a label.
 
 Every workflow: declares an explicit `timeout-minutes`, uses `pull_request` (never
 `pull_request_target`), selects its Claude credential from exactly one method (see

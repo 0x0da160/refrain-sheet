@@ -308,6 +308,38 @@ describe('row and column operations', () => {
     expect(tab.doc.kind).toBe('csv');
     expect(tab.doc.rowCount).toBe(2);
   });
+
+  it('disables row insert/delete while a whole-column selection is active', async () => {
+    const { state, commands, tab } = await converted('a,b\nc,d\n');
+    state.setSelection(tab, { row: 0, col: 1 }, { row: 1, col: 0 }, 'col');
+    expect(commands.isEnabled('sheet.insertRowAbove')).toBe(false);
+    expect(commands.isEnabled('sheet.insertRowBelow')).toBe(false);
+    expect(commands.isEnabled('sheet.deleteRows')).toBe(false);
+    // Column commands stay enabled for the selection that triggered them.
+    expect(commands.isEnabled('sheet.insertColLeft')).toBe(true);
+    expect(commands.isEnabled('sheet.insertColRight')).toBe(true);
+    expect(commands.isEnabled('sheet.deleteCols')).toBe(true);
+  });
+
+  it('disables column insert/delete while a whole-row selection is active', async () => {
+    const { state, commands, tab } = await converted('a,b\nc,d\n');
+    state.setSelection(tab, { row: 1, col: 0 }, { row: 0, col: 1 }, 'row');
+    expect(commands.isEnabled('sheet.insertColLeft')).toBe(false);
+    expect(commands.isEnabled('sheet.insertColRight')).toBe(false);
+    expect(commands.isEnabled('sheet.deleteCols')).toBe(false);
+    // Row commands stay enabled for the selection that triggered them.
+    expect(commands.isEnabled('sheet.insertRowAbove')).toBe(true);
+    expect(commands.isEnabled('sheet.insertRowBelow')).toBe(true);
+    expect(commands.isEnabled('sheet.deleteRows')).toBe(true);
+  });
+
+  it('re-enables row and column commands once a plain cell selection is restored', async () => {
+    const { state, commands, tab } = await converted('a,b\nc,d\n');
+    state.setSelection(tab, { row: 0, col: 1 }, { row: 1, col: 0 }, 'col');
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    expect(commands.isEnabled('sheet.insertRowAbove')).toBe(true);
+    expect(commands.isEnabled('sheet.insertColLeft')).toBe(true);
+  });
 });
 
 describe('saving and exporting RSF', () => {

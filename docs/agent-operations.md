@@ -135,9 +135,14 @@ These cannot be automated safely and must be done by a repository admin.
 5. **Branch protection / ruleset** on `main` (see next section).
 6. **CODEOWNERS** — optional, recommended for high-risk directories (`wasm/`,
    `.github/`, `docs/security.md`, `src/core/rsf-*`).
-7. **Actions default permissions** — Settings → Actions → General → Workflow
-   permissions → set the repository default to **Read repository contents** and
-   require the per-workflow `permissions:` blocks (already declared) to opt into more.
+7. **Actions default permissions & PR creation** — Settings → Actions → General →
+   Workflow permissions: set the repository default to **Read repository contents**
+   (the per-workflow `permissions:` blocks opt into more), **and enable "Allow GitHub
+   Actions to create and approve pull requests."** Without that box, `implement-issue`
+   can push the agent branch but `gh pr create` fails with _"GitHub Actions is not
+   permitted to create or approve pull requests."_ If your organization enforces this
+   at the org level, enable it there too. (The workflows never _approve_ PRs; a human
+   approval is still required by branch protection.)
 8. **Environments** — keep the `github-pages` environment's deployment gated to the
    tag `release.yml` flow; do not add auto-deploy environments.
 9. **Spending limits** — set an Actions usage/spend cap and monitor Anthropic API

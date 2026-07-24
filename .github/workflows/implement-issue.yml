@@ -332,6 +332,17 @@ jobs:
             -m "Closes #${ISSUE_NUMBER}" \
             -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 
+          # If a stale agent branch from a previously failed run exists remotely with
+          # NO open PR, delete it so this run can push cleanly. This is a delete (not
+          # a force-push) of an automation-owned branch that has no pull request.
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            stale_pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq '.[0].number // ""')"
+            if [ -z "$stale_pr" ]; then
+              echo "Deleting stale branch $BRANCH (no open PR) before pushing."
+              git push origin --delete "$BRANCH" || true
+            fi
+          fi
+
           git push -u origin "$BRANCH"
           # Verify the remote branch actually exists.
           git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null

@@ -94,7 +94,7 @@ in [`.github/labels.yml`](../.github/labels.yml).
 | `prepare-issue-spec.yml` | `issues: opened/labeled` (`type:feature`), dispatch  | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips bots / issues past spec; comments the `agent-spec:v1` spec only                                |
 | `implement-issue.yml`    | `issues: labeled` (`agent:ready`), dispatch          | `contents:write`, `issues:write`, `pull-requests:write`              | per-issue, **no** cancel       | No `agent-spec:v1` or no diff → `needs-spec`; failure → `blocked`; `review` only after a verified PR |
 | `review-pr.yml`          | `pull_request` (same-repo `agent/issue-*`), dispatch | `contents:read`, `issues:write`, `pull-requests:write`               | per-PR, cancel-in-progress     | Skips fork / non-agent branches                                                                      |
-| `close-loop.yml`         | `check_suite: completed`, dispatch                   | read checks/statuses/contents, `issues:write`, `pull-requests:write` | per-commit, cancel-in-progress | Skips when no matching agent PR                                                                      |
+| `close-loop.yml`         | `workflow_run` (CI completed), dispatch              | read checks/statuses/contents, `issues:write`, `pull-requests:write` | per-commit, cancel-in-progress | Only same-repo `pull_request` CI runs on `agent/issue-*`; skips when no matching agent PR            |
 
 ### `agent:review` means a verified PR exists
 
@@ -370,6 +370,17 @@ Every automated action is reversible and traceable to an Issue or PR:
   configuration; and raw `gh api` wherever the job holds `pull-requests: write`,
   so an approval cannot be submitted through the API). The job's `permissions:`
   block remains the enforcing boundary; the allowlists are defense in depth.
+- **Why `close-loop.yml` follows `workflow_run`, not `check_suite`:** it originally
+  triggered on `check_suite: [completed]` and consequently **never ran once** — GitHub
+  documents that this event "does not trigger workflows if the check suite was
+  created by GitHub Actions or if the check suite's head SHA is associated with
+  GitHub Actions", and both hold here (CI's suite is created by Actions, on a commit
+  `implement-issue.yml` authored under the Actions identity). It now triggers on
+  `workflow_run` for the **CI** workflow. `workflow_run` is a privileged trigger — it
+  runs from the default branch with secrets even for fork PRs — so the job is gated
+  at event level to same-repo `pull_request` CI runs on `agent/issue-*` branches and
+  **must never gain a checkout step**: it only calls `gh` and comments, so no PR code
+  is ever executed. It carries the same single-bot allowance as `review-pr.yml` below.
 - **Why `review-pr.yml` allows one bot:** the action refuses bot-initiated runs by
   default. `implement-issue.yml` opens the agent PR under `GITHUB_TOKEN`, so the PR
   author — and the actor on the resulting `pull_request` event — is

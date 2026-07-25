@@ -354,11 +354,23 @@ Every automated action is reversible and traceable to an Issue or PR:
   review 25, close-loop 15).
 - **Max concurrency:** `concurrency` groups key implementation to one run per Issue.
 - **Turn caps:** each agent invocation passes `--max-turns` to bound model work
-  (triage 20, prepare-spec 25, review 25, close-loop 15). The implementation cap
-  defaults to `120` and is tunable without editing YAML via the optional Actions
-  **variable** `AGENT_MAX_TURNS` (set it higher for larger features, lower to cap
-  cost). A run that exhausts the cap fails and lands on `agent:blocked` — raise
-  `AGENT_MAX_TURNS` and re-apply `agent:ready` to retry.
+  (prepare-spec 25, review 25, close-loop 15). Two caps are tunable without editing
+  YAML, via optional Actions **variables**: implementation defaults to `120`
+  (`AGENT_MAX_TURNS`) and triage to `40` (`TRIAGE_MAX_TURNS`). Set them higher for
+  larger features, lower to cap cost. An implementation run that exhausts its cap
+  fails and lands on `agent:blocked` — raise `AGENT_MAX_TURNS` and re-apply
+  `agent:ready` to retry.
+- **Why triage's cap is 40, not 20:** at 20 it failed with `error_max_turns` and
+  `permission_denials_count: 0` — no tool was denied, the work simply did not fit.
+  Triage on this repository is not cheap: the skill reads `CLAUDE.md` plus
+  architecture/security context, and a feature Issue naming a subsystem (say, a new
+  formula function) invites reading that subsystem to judge duplication and scope.
+  The failure mode is asymmetric — the run sets labels early and comments last, so
+  exhausting the cap leaves the Issue labelled `agent:triage` with **no comment**,
+  which reads as "the agent ignored me". The cap was raised and, more importantly,
+  `.claude/skills/triage-issue/SKILL.md` now carries an explicit reading budget that
+  tells triage to prefer a shallow, honest comment over an unfinished deep one.
+  Re-run a failed triage from the Actions tab (**Run workflow** → Issue number).
 - **Tool allowlists:** every agent invocation also passes `--allowedTools` /
   `--disallowedTools`. This is **not optional**: with no `--allowedTools`, the
   action denies every tool call, and the run burns its entire turn budget on

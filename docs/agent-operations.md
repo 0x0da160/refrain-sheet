@@ -370,6 +370,19 @@ Every automated action is reversible and traceable to an Issue or PR:
   configuration; and raw `gh api` wherever the job holds `pull-requests: write`,
   so an approval cannot be submitted through the API). The job's `permissions:`
   block remains the enforcing boundary; the allowlists are defense in depth.
+- **Why `review-pr.yml` allows one bot:** the action refuses bot-initiated runs by
+  default. `implement-issue.yml` opens the agent PR under `GITHUB_TOKEN`, so the PR
+  author — and the actor on the resulting `pull_request` event — is
+  `github-actions[bot]`, and the review run failed with _"Workflow initiated by
+  non-human actor"_ before ever reaching Claude. `review-pr.yml` therefore sets
+  `allowed_bots: github-actions` — **exactly that one bot; never `'*'`**, and no
+  dependency bots (Dependabot/Renovate PRs are skipped anyway by the
+  `agent/issue-*` branch gate). This does **not** weaken any approval gate:
+  `agent:ready` stays human-only, this job cannot approve or merge (see the tool
+  allowlists above), it uses `pull_request` (never `pull_request_target`), and it is
+  gated to same-repo agent branches. `implement-issue.yml` deliberately does **not**
+  set `allowed_bots`, so a bot-applied `agent:ready` still cannot start an
+  implementation — that is defense in depth on top of the human-only label rule.
 - **Max retries per Issue:** treat repeated `agent:blocked` on the same Issue (e.g.
   ≥ 2 failed implementation attempts) as an escalation — a human investigates before
   re-approving.

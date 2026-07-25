@@ -5,15 +5,31 @@ name: Close loop status
 # review findings remain, and the exact remaining human action. It NEVER merges and
 # NEVER closes the issue — merge and release stay human-controlled.
 #
+# TRIGGER — why `workflow_run` and not `check_suite`
+# This workflow originally used `check_suite: [completed]` and therefore NEVER RAN
+# (zero runs), because GitHub documents that the event "does not trigger workflows
+# if the check suite was created by GitHub Actions or if the check suite's head SHA
+# is associated with GitHub Actions" — and both are true here: CI's check suite is
+# created by Actions, on a commit that `implement-issue.yml` made under the Actions
+# identity. `workflow_run` on CI is the supported replacement.
+#
 # SECURITY NOTES
-# - Triggered by check-suite completion or manual dispatch; gated to same-repo PRs
-#   on the `agent/issue-*` branch pattern.
+# - `workflow_run` runs from the DEFAULT BRANCH with secrets, so it is a privileged
+#   trigger. That is safe here only because this job NEVER CHECKS OUT OR EXECUTES
+#   PR CODE — it just calls `gh` and posts a comment. Do not add a checkout step.
+# - Additionally gated at event level to CI runs from a same-repo `pull_request` on
+#   an `agent/issue-*` branch, so fork PRs and pushes to main never reach the agent.
+# - Agent PRs are opened by `implement-issue.yml` under GITHUB_TOKEN, so the actor
+#   here is `github-actions[bot]`; `allowed_bots: github-actions` permits that ONE
+#   bot (never '*'), exactly as in `review-pr.yml`. No approval gate is affected:
+#   `agent:ready` stays human-only and this job cannot approve, merge, or push.
 # - Least-privilege: read checks/statuses/contents; write only PR/issue comments.
 # - `anthropics/claude-code-action` is THIRD-PARTY. SECURITY TODO: pin `@v1` to a
 #   verified commit SHA before enabling (docs/security.md pinning policy).
 
 on:
-  check_suite:
+  workflow_run:
+    workflows: ['CI']
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -45,13 +61,21 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: close-loop-${{ github.event.check_suite.head_sha || inputs.pr_number }}
+  group: close-loop-${{ github.event.workflow_run.head_sha || inputs.pr_number }}
   cancel-in-progress: true
 
 jobs:
   status:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Event-level gate: only CI runs that came from a SAME-REPO pull request on an
+    # approved agent branch. Without this, every CI completion on main (and every
+    # fork PR) would start this privileged `workflow_run` job.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'pull_request' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       startsWith(github.event.workflow_run.head_branch, 'agent/issue-'))
     # The admin explicitly selects the Claude auth method via this NON-secret repo
     # variable. It routes to one of the two auth steps; it is never a credential.
     env:
@@ -65,7 +89,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           DISPATCH_PR: ${{ inputs.pr_number }}
-          HEAD_SHA: ${{ github.event.check_suite.head_sha }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           pr=""
@@ -135,6 +159,11 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
+          # The agent PR — and so the CI run this workflow follows — belongs to
+          # `github-actions[bot]`, which the action's human-actor check rejects by
+          # default. Allow EXACTLY that one bot; never `'*'`. See the TRIGGER and
+          # SECURITY NOTES at the top of this file.
+          allowed_bots: github-actions
           # Grant the tools status aggregation needs: repo reading plus Bash for
           # the `gh` CLI (without an explicit allowlist EVERY tool call is denied
           # and the run burns its turns on permission denials). `gh pr
@@ -174,6 +203,8 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
+          # Same single-bot allowance as the OAuth step above; see its comment.
+          allowed_bots: github-actions
           # Grant the tools status aggregation needs: repo reading plus Bash for
           # the `gh` CLI (without an explicit allowlist EVERY tool call is denied
           # and the run burns its turns on permission denials). `gh pr

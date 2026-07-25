@@ -10,22 +10,38 @@ steps stay under human control. It is the operational companion to `CLAUDE.md`
 
 ## Overview
 
+### Simplified Issue submission
+
+A human does **not** write a full specification. To request a feature:
+
+1. Enter a short **title** (e.g. `検索結果に並び替え機能を追加したい`).
+2. Write what you want in the single **`やりたいこと`** field. A short sentence is fine.
+3. Claude reads it and posts a structured **specification** comment (background,
+   acceptance criteria, scope, risks, assumptions — all inferred and clearly labelled).
+4. A human **reviews that specification** and, only if it is correct and safe, applies
+   **`agent:ready`**. Implementation never starts from the raw request alone.
+
+Background, scope, out-of-scope, acceptance criteria, technical design, test plan,
+risk classification, rollback, model, and release details are **not** asked of the
+human — they are inferred (and questioned) in the specification stage.
+
 ### Lifecycle
 
 ```text
-Human opens Issue (structured form)
+Human opens Issue (simple form: title + `やりたいこと`)
+        │
+        ├─► [issue-triage.yml]        classify, set risk labels, note missing info
+        └─► [prepare-issue-spec.yml]  write the structured `agent-spec:v1` specification
+        │                             (may set agent:needs-spec / agent:blocked)
+        ▼
+Human reviews the generated specification and (only if approved) applies ──► agent:ready   ← HUMAN ONLY
         │
         ▼
-[issue-triage.yml] ── classify, find missing spec, set risk labels ──► agent:triage / agent:needs-spec
-        │
+[implement-issue.yml] ── requires agent:ready + a valid agent-spec:v1 comment
+        │                 agent:working ─► branch agent/issue-<n>-<slug>
+        │                 implements the SPEC (not the raw body) + tests + verification
         ▼
-Human reviews, completes spec, and (only if approved) applies ──► agent:ready   ← HUMAN ONLY
-        │
-        ▼
-[implement-issue.yml] ── agent:working ─► branch agent/issue-<n>-<slug>
-        │                 smallest change + tests + verification
-        ▼
-Pull request opened (Closes #<n>) ──► agent:review
+Pull request opened (Closes #<n>) ──► agent:review  (only after a verified, non-empty PR)
         │
         ├─► [review-pr.yml]   independent review of the diff vs. acceptance criteria
         └─► [close-loop.yml]  status comment: checks + review + remaining human action
@@ -35,6 +51,10 @@ Human reviews & approves & MERGES  ← HUMAN ONLY (branch protection enforced)
         │
         ▼
 agent:done (after merge + post-merge verification)
+        │
+        ▼
+Release: still MANUAL and tag-driven (`npm run release`). Post-merge auto-release is
+intentionally disabled — see docs/release-automation-gap.md.
 ```
 
 ### Label state machine
@@ -58,6 +78,7 @@ in [`.github/labels.yml`](../.github/labels.yml).
 | Step                               | Automated                          | Human          |
 | ---------------------------------- | ---------------------------------- | -------------- |
 | Triage & labeling                  | ✅ (`issue-triage.yml`)            | may adjust     |
+| Writing the specification          | ✅ (`prepare-issue-spec.yml`)      | reviews it     |
 | Approving an Issue (`agent:ready`) | ❌ never                           | ✅ required    |
 | Implementation + PR                | ✅ (`implement-issue.yml`)         | —              |
 | Independent review                 | ✅ (`review-pr.yml`)               | may add review |
@@ -67,12 +88,13 @@ in [`.github/labels.yml`](../.github/labels.yml).
 
 ## Workflows
 
-| Workflow              | Trigger                                              | Permissions                                                          | Concurrency                    | Stop condition                                                                 |
-| --------------------- | ---------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------ |
-| `issue-triage.yml`    | `issues: opened/edited`, dispatch                    | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips issues past triage / bot edits                                           |
-| `implement-issue.yml` | `issues: labeled` (`agent:ready`), dispatch          | `contents:write`, `issues:write`, `pull-requests:write`              | per-issue, **no** cancel       | No diff → `needs-spec`; failure → `blocked`; `review` only after a verified PR |
-| `review-pr.yml`       | `pull_request` (same-repo `agent/issue-*`), dispatch | `contents:read`, `issues:write`, `pull-requests:write`               | per-PR, cancel-in-progress     | Skips fork / non-agent branches                                                |
-| `close-loop.yml`      | `check_suite: completed`, dispatch                   | read checks/statuses/contents, `issues:write`, `pull-requests:write` | per-commit, cancel-in-progress | Skips when no matching agent PR                                                |
+| Workflow                 | Trigger                                              | Permissions                                                          | Concurrency                    | Stop condition                                                                                       |
+| ------------------------ | ---------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `issue-triage.yml`       | `issues: opened/edited`, dispatch                    | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips issues past triage / bot edits                                                                 |
+| `prepare-issue-spec.yml` | `issues: opened/labeled` (`type:feature`), dispatch  | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips bots / issues past spec; comments the `agent-spec:v1` spec only                                |
+| `implement-issue.yml`    | `issues: labeled` (`agent:ready`), dispatch          | `contents:write`, `issues:write`, `pull-requests:write`              | per-issue, **no** cancel       | No `agent-spec:v1` or no diff → `needs-spec`; failure → `blocked`; `review` only after a verified PR |
+| `review-pr.yml`          | `pull_request` (same-repo `agent/issue-*`), dispatch | `contents:read`, `issues:write`, `pull-requests:write`               | per-PR, cancel-in-progress     | Skips fork / non-agent branches                                                                      |
+| `close-loop.yml`         | `check_suite: completed`, dispatch                   | read checks/statuses/contents, `issues:write`, `pull-requests:write` | per-commit, cancel-in-progress | Skips when no matching agent PR                                                                      |
 
 ### `agent:review` means a verified PR exists
 
@@ -105,10 +127,13 @@ These cannot be automated safely and must be done by a repository admin.
    Actions **variable** `CLAUDE_AUTH_METHOD` to `oauth` or `api-key`, then configure
    the matching **secret** (`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`). Never
    commit or echo a secret value.
-3. **SHA-pin the third-party action** — the four agent workflows reference
+3. **SHA-pin the third-party action** — the five agent workflows (`issue-triage`,
+   `prepare-issue-spec`, `implement-issue`, `review-pr`, `close-loop`) reference
    `anthropics/claude-code-action@v1`. Repo policy (`docs/security.md`) requires
    third-party actions pinned to a **full commit SHA**. Replace each `@v1` with a
-   verified SHA (add a comment naming the version) before enabling.
+   verified SHA (add a comment naming the version) before enabling. While pinning,
+   also confirm the [allowlisted model ids](#allowed-model-identifiers) are valid for
+   that action build.
 4. **Create the labels** — one-time, with the GitHub CLI (colors/descriptions from
    [`.github/labels.yml`](../.github/labels.yml)):
 
@@ -196,17 +221,57 @@ variables → Actions → **Secrets**):
   does not reveal a secret value after it is saved; if a value is ever exposed, rotate
   it.
 
+## Claude model selection
+
+The model each agent workflow uses is configurable **without editing YAML** and
+**without exposing any credential** — the model id is non-secret.
+
+### Precedence
+
+1. A validated `workflow_dispatch` **input** named `model` (when a workflow is run
+   manually). Highest precedence.
+2. A non-secret repository (or organization) Actions **variable** `CLAUDE_MODEL`.
+3. If neither is set, the Claude Code Action's **default** model (the workflow omits
+   the `--model` flag entirely — it never passes an empty `--model`).
+
+The model is **never** chosen from Issue text, labels, PR comments, or any other
+untrusted content. Before invoking Claude, each workflow validates the selected id
+against a small explicit allowlist and fails fast on anything else; the allowlisted
+value is passed via `claude_args: --model <id>` (not the deprecated `model` input).
+
+### Allowed model identifiers
+
+- `claude-sonnet-4-6` — default setup: set `CLAUDE_MODEL=claude-sonnet-4-6`.
+- `claude-opus-4-6` — higher-capability option: set `CLAUDE_MODEL=claude-opus-4-6`.
+
+Manual runs may override the variable through the `model` input. The Issue form
+deliberately gives a requester **no** way to choose a model.
+
+> **Confirm the identifiers before enabling.** These two ids are the approved
+> allowlist for this repository, but the exact strings a given
+> `anthropics/claude-code-action` build accepts can change. Because the workflows are
+> inert until a human configures credentials, confirm both ids are valid for the
+> installed action version before turning the loop on, and update the allowlist (in
+> every `Resolve and validate Claude model` step) if the action requires different
+> strings. The workflow rejects any id outside the allowlist rather than guessing.
+
+### Administrator setup
+
+1. Go to **Settings → Secrets and variables → Actions → Variables**.
+2. Create the variable **`CLAUDE_MODEL`** and set it to exactly one allowlisted id
+   (or leave it unset to use the action default).
+
 ## Recommended minimum permissions
 
 Default everything to **read-only**; grant write only where a workflow must act.
 
-| Capability needed                             | Workflow(s)                           | Scope granted                    |
-| --------------------------------------------- | ------------------------------------- | -------------------------------- |
-| Read the repo / diff                          | all                                   | `contents: read`                 |
-| Add labels / comment on an Issue              | triage, implement, review, close-loop | `issues: write`                  |
-| Create a branch & push commits (agent branch) | implement                             | `contents: write`                |
-| Open / update a PR, post review comments      | implement, review, close-loop         | `pull-requests: write`           |
-| Read check / status results                   | close-loop                            | `checks: read`, `statuses: read` |
+| Capability needed                             | Workflow(s)                                         | Scope granted                    |
+| --------------------------------------------- | --------------------------------------------------- | -------------------------------- |
+| Read the repo / diff                          | all                                                 | `contents: read`                 |
+| Add labels / comment on an Issue              | triage, prepare-spec, implement, review, close-loop | `issues: write`                  |
+| Create a branch & push commits (agent branch) | implement                                           | `contents: write`                |
+| Open / update a PR, post review comments      | implement, review, close-loop                       | `pull-requests: write`           |
+| Read check / status results                   | close-loop                                          | `checks: read`, `statuses: read` |
 
 Never request `administration`, `actions: write` (self-modifying workflows), org-level
 scopes, or any secret beyond the single selected Claude credential
@@ -269,6 +334,36 @@ Every automated action is reversible and traceable to an Issue or PR:
   new implementation work immediately.
 - **Usage review:** periodically review the Actions usage report and Anthropic API
   usage; set a repository Actions spending limit.
+
+## Release automation (post-merge) — intentionally disabled
+
+**There is no automatic release-on-merge.** Merging a PR never cuts a release.
+Releasing remains the documented, human-run, **tag-driven** flow:
+
+- A human runs `npm run release -- patch | minor | major` (see the README
+  "Cutting a release" section). It runs from `main`, runs the full checks, bumps
+  the version, and pushes a `vX.Y.Z` **tag**.
+- Pushing that tag triggers [`release.yml`](../.github/workflows/release.yml), which
+  re-verifies and publishes the GitHub Release (ZIP + SHA-256 + SBOM + signed
+  provenance) and deploys `dist/` to the `github-pages` environment. No repository
+  secrets are required (GITHUB_TOKEN + OIDC).
+
+A post-merge `release-after-merge.yml` was evaluated and **deliberately not created**:
+the README does not document a complete, non-interactive, unambiguous merge-triggered
+release procedure (the version bump is a human decision, cutting a release writes to
+protected `main`, the command is confirmation-gated, and no non-destructive one-command
+rollback is documented). Building one would require _guessing_ the missing procedure,
+which is unsafe. The full analysis and the exact prerequisites that would have to be
+documented first are in
+[`docs/release-automation-gap.md`](release-automation-gap.md).
+
+**To disable releases entirely / immediately:** disable or delete
+`.github/workflows/release.yml` (Actions tab → the workflow → **Disable workflow**),
+and/or do not push version tags. Because releases are tag-triggered, simply not
+pushing a `vX.Y.Z` tag means nothing is ever released.
+
+**Required release secrets, by name:** none beyond the run's `GITHUB_TOKEN` (plus
+OIDC for provenance/Pages). No Anthropic credential is involved in releasing.
 
 ## Future auto-merge criteria (documented, NOT enabled)
 

@@ -126,7 +126,7 @@ jobs:
           # repo/secret/variable/workflow configuration. The job token
           # (contents:read + issues:write) is the enforcing boundary.
           claude_args: >-
-            --max-turns 20
+            --max-turns ${{ vars.TRIAGE_MAX_TURNS || '40' }}
             ${{ steps.model.outputs.model_flag }}
             --allowedTools "Read,Glob,Grep,Bash"
             --disallowedTools "Bash(git push:*),Bash(gh pr:*),Bash(gh release:*),Bash(gh repo:*),Bash(gh secret:*),Bash(gh variable:*),Bash(gh workflow:*)"
@@ -147,6 +147,11 @@ jobs:
             - Respond in the dominant language of the issue (Japanese or English).
             - Post an idempotent comment: update understanding rather than
               duplicating a prior triage comment.
+            - Post the comment BEFORE you run out of turns. Triage is a judgement
+              about the Issue, not a survey of the implementation: skim the repo
+              only as far as the skill's reading budget allows, then label and
+              comment. A run that dies mid-investigation leaves the Issue labelled
+              `agent:triage` with no comment, which is worse than a shallower one.
 
       - name: Triage the issue (API key)
         if: env.CLAUDE_AUTH_METHOD == 'api-key'
@@ -156,6 +161,8 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
+          # NOTE: keep this step's claude_args and prompt byte-identical to the
+          # OAuth step above; only the credential input differs.
           # Grant the tools triage actually needs: repo reading plus Bash for the
           # `gh` CLI (without an explicit allowlist EVERY tool call is denied and
           # the run burns its turns on permission denials). Deny the mutating
@@ -163,7 +170,7 @@ jobs:
           # repo/secret/variable/workflow configuration. The job token
           # (contents:read + issues:write) is the enforcing boundary.
           claude_args: >-
-            --max-turns 20
+            --max-turns ${{ vars.TRIAGE_MAX_TURNS || '40' }}
             ${{ steps.model.outputs.model_flag }}
             --allowedTools "Read,Glob,Grep,Bash"
             --disallowedTools "Bash(git push:*),Bash(gh pr:*),Bash(gh release:*),Bash(gh repo:*),Bash(gh secret:*),Bash(gh variable:*),Bash(gh workflow:*)"
@@ -184,3 +191,8 @@ jobs:
             - Respond in the dominant language of the issue (Japanese or English).
             - Post an idempotent comment: update understanding rather than
               duplicating a prior triage comment.
+            - Post the comment BEFORE you run out of turns. Triage is a judgement
+              about the Issue, not a survey of the implementation: skim the repo
+              only as far as the skill's reading budget allows, then label and
+              comment. A run that dies mid-investigation leaves the Issue labelled
+              `agent:triage` with no comment, which is worse than a shallower one.

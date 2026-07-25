@@ -4,7 +4,13 @@ import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
-  { ignores: ['dist/', 'node_modules/', 'coverage/', 'src/wasm-gen/', 'wasm/'] },
+  // `.claude/` holds agent scratch space and git worktrees (already excluded
+  // from version control). Linting a checked-out worktree would lint a second
+  // copy of the project — including its built `dist/` — and fail the run for
+  // reasons that have nothing to do with the tree being checked.
+  {
+    ignores: ['dist/', 'node_modules/', 'coverage/', 'src/wasm-gen/', 'wasm/', '.claude/'],
+  },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,

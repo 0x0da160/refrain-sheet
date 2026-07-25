@@ -50,77 +50,79 @@
  * formula is evaluated (see EvalContext.rowCount / columnCount); they never
  * imply an unbounded spreadsheet.
  *
- * Supported functions: SUM, AVERAGE, MIN, MAX, COUNT, IF.
- * Errors: #ERROR! (invalid formula), #NAME? (unsupported function),
- * #VALUE! (type error), #DIV/0!, #REF! (invalid/deleted reference),
- * #CYCLE! (circular reference).
+ * Supported functions come from the registry in `formula-functions.ts`, which
+ * is the single source of truth for names, arity, evaluation, autocomplete,
+ * and help. The value model, coercion rules, error set, and the documented
+ * limits live in `formula-value.ts`.
+ *
+ * A function may return a rectangular array, which makes the formula a
+ * **dynamic array**: `spill.ts` writes the result across the worksheet and the
+ * formula cell becomes the spill anchor.
  */
 
-export type ErrorCode = '#ERROR!' | '#NAME?' | '#VALUE!' | '#DIV/0!' | '#REF!' | '#CYCLE!';
+import {
+  coerceToNumber,
+  EMPTY_VALUE,
+  ERROR_CODES,
+  errorValue,
+  firstError,
+  makeGrid,
+  MAX_FORMULA_LENGTH,
+  MAX_FUNCTION_ARGS,
+  MAX_RANGE_CELLS,
+  numberValue,
+  scalarGrid,
+  type ErrorCode,
+  type FormulaValue,
+  type ValueGrid,
+} from './formula-value';
+import {
+  FUNCTION_INFOS,
+  isGrid,
+  lookupFunction,
+  type FnArg,
+  type FnContext,
+  type FnResult,
+  type FunctionInfo,
+  type GridResult,
+} from './formula-functions';
 
-export const ERROR_CODES: readonly ErrorCode[] = [
-  '#ERROR!',
-  '#NAME?',
-  '#VALUE!',
-  '#DIV/0!',
-  '#REF!',
-  '#CYCLE!',
-];
+export {
+  booleanValue,
+  coerceToBoolean,
+  coerceToNumber,
+  coerceToText,
+  compareValues,
+  EMPTY_VALUE,
+  ERROR_CODES,
+  errorValue,
+  flattenGrid,
+  formatValue,
+  literalToValue,
+  makeGrid,
+  MAX_FORMULA_LENGTH,
+  MAX_RANGE_CELLS,
+  numberValue,
+  scalarGrid,
+  textValue,
+  type ErrorCode,
+  type FormulaValue,
+  type ValueGrid,
+} from './formula-value';
 
-export type FormulaValue =
-  | { type: 'number'; value: number }
-  | { type: 'string'; value: string }
-  | { type: 'boolean'; value: boolean }
-  | { type: 'empty' }
-  | { type: 'error'; code: ErrorCode };
-
-export const EMPTY_VALUE: FormulaValue = { type: 'empty' };
-
-export function numberValue(value: number): FormulaValue {
-  return { type: 'number', value };
-}
-
-export function errorValue(code: ErrorCode): FormulaValue {
-  return { type: 'error', code };
-}
+export {
+  FUNCTION_INFOS,
+  SUPPORTED_FUNCTIONS,
+  VOLATILE_FUNCTIONS,
+  isVolatileFunction,
+  lookupFunction,
+  type FnContext,
+  type FunctionInfo,
+} from './formula-functions';
 
 /** True when a string is a formula (leading `=`, at least one more character). */
 export function isFormula(input: string): boolean {
   return input.length > 1 && input.startsWith('=');
-}
-
-/**
- * Coerce a literal cell string to a formula value: numeric-looking strings
- * become numbers, empty strings the empty value, everything else a string.
- */
-export function literalToValue(input: string): FormulaValue {
-  if (input === '') {
-    return EMPTY_VALUE;
-  }
-  const trimmed = input.trim();
-  if (trimmed !== '') {
-    const n = Number(trimmed);
-    if (Number.isFinite(n)) {
-      return { type: 'number', value: n };
-    }
-  }
-  return { type: 'string', value: input };
-}
-
-/** Render a formula value for display in the grid. */
-export function formatValue(value: FormulaValue): string {
-  switch (value.type) {
-    case 'number':
-      return String(value.value);
-    case 'string':
-      return value.value;
-    case 'boolean':
-      return value.value ? 'TRUE' : 'FALSE';
-    case 'empty':
-      return '';
-    case 'error':
-      return value.code;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -309,7 +311,6 @@ export function parseWholeRowEx(text: string): SpanEnd | null {
 // Tokenizer
 // ---------------------------------------------------------------------------
 
-export const MAX_FORMULA_LENGTH = 8192;
 /** Recursion guard; ~5 depth units are consumed per nesting level. */
 const MAX_PARSE_DEPTH = 400;
 
@@ -462,7 +463,15 @@ function tokenize(src: string): Token[] {
         throw new FormulaError('#ERROR!');
       }
       let j = i + 1;
-      while (j < len && /[A-Za-z0-9_]/.test(src[j])) j++;
+      // A dot continues an identifier only when a letter follows it, so the
+      // dotted function names (MODE.SNGL, STDEV.S, RANK.EQ) tokenize as one
+      // unit while `1.5` and `.5` still reach the number scanners above.
+      while (
+        j < len &&
+        (/[A-Za-z0-9_]/.test(src[j]) || (src[j] === '.' && /[A-Za-z]/.test(src[j + 1] ?? '')))
+      ) {
+        j++;
+      }
       tokens.push({ type: 'ident', start, end: j, text: src.slice(i, j) });
       i = j;
       continue;
@@ -549,6 +558,8 @@ export interface RefNode {
 export type AstNode =
   | { kind: 'number'; value: number }
   | { kind: 'string'; value: string }
+  /** The `TRUE` / `FALSE` literals. */
+  | { kind: 'boolean'; value: boolean }
   | RefNode
   | { kind: 'range'; from: RefNode; to: RefNode; sheet?: string }
   /** Whole-column range (e.g. A:C); bounded to the used grid at evaluation. */
@@ -558,39 +569,23 @@ export type AstNode =
   | { kind: 'unary'; op: '+' | '-'; operand: AstNode }
   | { kind: 'binary'; op: string; left: AstNode; right: AstNode }
   | { kind: 'call'; name: string; args: AstNode[] }
+  /**
+   * An empty argument slot (`XLOOKUP(a, b, c, , 2)`). It evaluates to the
+   * blank value, and functions can tell it apart from an explicitly written
+   * blank through {@link FnArg.isOmitted} so an omitted optional argument
+   * still means "use the default".
+   */
+  | { kind: 'blank' }
   | { kind: 'error'; code: ErrorCode };
-
-export const SUPPORTED_FUNCTIONS = ['SUM', 'AVERAGE', 'MIN', 'MAX', 'COUNT', 'IF'] as const;
-
-export interface FunctionInfo {
-  name: (typeof SUPPORTED_FUNCTIONS)[number];
-  /** Human-readable call signature shown in autocomplete hints and help. */
-  signature: string;
-  /** A ready-to-read example formula shown in the help panel. */
-  example: string;
-}
-
-/**
- * The single source of truth for supported functions: autocomplete, the
- * formula & function help panel, and (via {@link SUPPORTED_FUNCTIONS}) the
- * evaluator all read this list, so documented functions cannot drift from
- * implemented ones. The `signature`/`example` are display-only; localized
- * one-line descriptions live in the locale catalogs under `formula.fn.<NAME>`.
- */
-export const FUNCTION_INFOS: readonly FunctionInfo[] = [
-  { name: 'SUM', signature: 'SUM(value, …)', example: '=SUM(A1:A10)' },
-  { name: 'AVERAGE', signature: 'AVERAGE(value, …)', example: '=AVERAGE(B1:B20)' },
-  { name: 'MIN', signature: 'MIN(value, …)', example: '=MIN(A1:A10)' },
-  { name: 'MAX', signature: 'MAX(value, …)', example: '=MAX(A1:A10)' },
-  { name: 'COUNT', signature: 'COUNT(value, …)', example: '=COUNT(A1:A10)' },
-  { name: 'IF', signature: 'IF(condition, then, else)', example: '=IF(A1>10, "big", "small")' },
-];
 
 /**
  * Autocomplete matches for a formula being edited: the function names whose
  * start matches the identifier word immediately before the caret. Returns an
  * empty list unless the text is a formula (`=…`) and the caret sits at the end
  * of a bare identifier word (not a cell reference, not after `(`/a digit).
+ *
+ * A `.` counts as part of the word so the dotted names (`MODE.SNGL`,
+ * `STDEV.S`, `RANK.EQ`) complete from any prefix, including after the dot.
  */
 export function functionCompletions(text: string, caret: number): { word: string; matches: FunctionInfo[] } {
   const empty = { word: '', matches: [] as FunctionInfo[] };
@@ -599,7 +594,7 @@ export function functionCompletions(text: string, caret: number): { word: string
   }
   // The identifier word ending at the caret.
   let start = caret;
-  while (start > 0 && /[A-Za-z]/.test(text[start - 1])) {
+  while (start > 0 && /[A-Za-z.]/.test(text[start - 1])) {
     start -= 1;
   }
   if (start === caret) {
@@ -616,6 +611,9 @@ export function functionCompletions(text: string, caret: number): { word: string
     return empty; // already a cell ref (A1) or an opened call
   }
   const word = text.slice(start, caret);
+  if (word.startsWith('.')) {
+    return empty; // a bare dot is a decimal point, not a function prefix
+  }
   const upper = word.toUpperCase();
   const matches = FUNCTION_INFOS.filter((f) => f.name.startsWith(upper));
   return { word, matches };
@@ -870,7 +868,17 @@ class Parser {
             this.next();
           } else {
             for (;;) {
-              args.push(this.parseExpr(depth + 1));
+              // An empty slot between separators is an omitted optional
+              // argument (`XLOOKUP(a, b, c, , 2)`), not a syntax error.
+              const ahead = this.peek();
+              if (ahead && (ahead.type === 'comma' || ahead.type === 'rparen')) {
+                args.push({ kind: 'blank' });
+              } else {
+                args.push(this.parseExpr(depth + 1));
+              }
+              if (args.length > MAX_FUNCTION_ARGS) {
+                throw new FormulaError('#ERROR!');
+              }
               const sep = this.next();
               if (sep.type === 'rparen') {
                 break;
@@ -880,14 +888,24 @@ class Parser {
               }
             }
           }
-          if (!(SUPPORTED_FUNCTIONS as readonly string[]).includes(name)) {
+          const fn = lookupFunction(name);
+          if (!fn) {
             throw new FormulaError('#NAME?');
           }
-          // IF has a fixed arity; a wrong argument count is a structural error.
-          if (name === 'IF' && (args.length < 2 || args.length > 3)) {
+          // Arity is registry-driven: a wrong argument count is a structural
+          // error, reported at parse time so the cell shows it immediately.
+          if (args.length < fn.minArgs || args.length > fn.maxArgs) {
             throw new FormulaError('#ERROR!');
           }
           return { kind: 'call', name, args };
+        }
+        // Boolean literals. They are ordinary identifiers to the tokenizer and
+        // are not valid cell references, so recognising them here is what lets
+        // `=VLOOKUP(A1, B1:D9, 3, FALSE)` and `=SORT(A1:C9, 2, FALSE)` be
+        // written the conventional way instead of with 0 and 1.
+        const upperText = token.text.toUpperCase();
+        if (upperText === 'TRUE' || upperText === 'FALSE') {
+          return { kind: 'boolean', value: upperText === 'TRUE' };
         }
         const ref = parseRefEx(token.text);
         if (ref) {
@@ -942,9 +960,6 @@ class Parser {
 // Evaluator
 // ---------------------------------------------------------------------------
 
-/** Guard against absurdly large ranges keeping the UI responsive. */
-export const MAX_RANGE_CELLS = 2_000_000;
-
 export interface EvalContext {
   /** Resolve a cell on the *current* worksheet (already computed for formula cells). */
   getCell(row: number, col: number): FormulaValue;
@@ -971,53 +986,73 @@ export interface EvalContext {
    * unknown worksheet is never silently redirected to another one.
    */
   getSheetBounds?(sheet: string): { rowCount: number; columnCount: number } | null;
-}
-
-function coerceToNumber(value: FormulaValue): number | null {
-  switch (value.type) {
-    case 'number':
-      return value.value;
-    case 'boolean':
-      return value.value ? 1 : 0;
-    case 'empty':
-      return 0;
-    case 'string': {
-      const trimmed = value.value.trim();
-      if (trimmed === '') {
-        return null;
-      }
-      const n = Number(trimmed);
-      return Number.isFinite(n) ? n : null;
-    }
-    case 'error':
-      return null;
-  }
-}
-
-function firstError(...values: FormulaValue[]): FormulaValue | null {
-  for (const v of values) {
-    if (v.type === 'error') {
-      return v;
-    }
-  }
-  return null;
+  /**
+   * The wall-clock instant this recalculation pass reads, in milliseconds
+   * since the Unix epoch. Supplied by the workbook and held fixed for the
+   * whole pass so every `TODAY()` / `NOW()` in a workbook agrees. Omitted in
+   * bare test contexts, where it reads as the epoch — deliberately, so a test
+   * that forgets to set it fails loudly rather than depending on the clock.
+   */
+  nowMs?: number;
 }
 
 /**
- * Evaluate a parsed formula. Scalar semantics:
+ * The clock a recalculation pass reads. Supplied by the workbook so every
+ * volatile function in one pass agrees, and injectable so tests never depend
+ * on the wall clock.
+ */
+function contextClock(ctx: EvalContext): FnContext {
+  return { nowMs: ctx.nowMs ?? 0 };
+}
+
+/**
+ * Evaluate a parsed formula to a single value. Scalar semantics:
  * - arithmetic coerces numbers, booleans (1/0), empties (0), and numeric
  *   strings; other strings produce #VALUE!,
  * - division by zero produces #DIV/0!,
  * - a bare range in scalar context produces #VALUE!,
  * - errors propagate,
  * - references outside the sheet evaluate as empty cells.
+ *
+ * When the formula produces an **array**, this returns its top-left value —
+ * what the spill anchor itself displays. Use {@link evaluateAstArray} to get
+ * the whole array for spilling.
  */
 export function evaluateAst(ast: AstNode, ctx: EvalContext): FormulaValue {
   const result = evalNode(ast, ctx);
   if (result.kind === 'range') {
     return errorValue('#VALUE!');
   }
+  if (result.kind === 'grid') {
+    return result.grid.cells[0]?.[0] ?? EMPTY_VALUE;
+  }
   return result.value;
+}
+
+/**
+ * Evaluate a parsed formula, keeping an array result intact.
+ *
+ * Returns a {@link ValueGrid} only when the formula genuinely produced a
+ * multi-cell array; a single value comes back as `null` grid with the value
+ * set, so callers can spill only what needs spilling. A bare range
+ * (`=A1:B2`) is **not** an array result — it is `#VALUE!`, exactly as before,
+ * because implicit range-to-array promotion would change the meaning of every
+ * existing formula.
+ */
+export function evaluateAstArray(
+  ast: AstNode,
+  ctx: EvalContext,
+): { value: FormulaValue; grid: ValueGrid | null } {
+  const result = evalNode(ast, ctx);
+  if (result.kind === 'range') {
+    return { value: errorValue('#VALUE!'), grid: null };
+  }
+  if (result.kind === 'grid') {
+    const grid = result.grid;
+    const top = grid.cells[0]?.[0] ?? EMPTY_VALUE;
+    return { value: top, grid: grid.rows === 1 && grid.cols === 1 ? null : grid };
+  }
+  return { value: result.value, grid: null };
 }
 
 /**
@@ -1035,7 +1070,9 @@ type EvalResult =
       right: number;
       /** Worksheet the range belongs to, for a qualified range (`Sheet1!A1:B10`). */
       sheet?: string;
-    };
+    }
+  /** A computed array, produced only by a dynamic-array function. */
+  | { kind: 'grid'; grid: ValueGrid };
 
 function scalar(value: FormulaValue): EvalResult {
   return { kind: 'scalar', value };
@@ -1081,6 +1118,10 @@ function evalNode(ast: AstNode, ctx: EvalContext): EvalResult {
       return scalar(numberValue(ast.value));
     case 'string':
       return scalar({ type: 'string', value: ast.value });
+    case 'boolean':
+      return scalar({ type: 'boolean', value: ast.value });
+    case 'blank':
+      return scalar(EMPTY_VALUE);
     case 'error':
       return scalar(errorValue(ast.code));
     case 'ref': {
@@ -1122,42 +1163,145 @@ function evalNode(ast: AstNode, ctx: EvalContext): EvalResult {
       return range(top, bottom, 0, bounds.cols - 1, ast.sheet);
     }
     case 'unary': {
-      const operand = evalNode(ast.operand, ctx);
-      if (operand.kind === 'range') {
+      const operand = asScalar(evalNode(ast.operand, ctx));
+      if (operand === null) {
         return scalar(errorValue('#VALUE!'));
       }
-      const err = firstError(operand.value);
+      const err = firstError(operand);
       if (err) {
         return scalar(err);
       }
-      const n = coerceToNumber(operand.value);
+      const n = coerceToNumber(operand);
       if (n === null) {
         return scalar(errorValue('#VALUE!'));
       }
       return scalar(numberValue(ast.op === '-' ? -n : n));
     }
     case 'binary':
-      return scalar(evalBinary(ast.op, ast.left, ast.right, ctx));
+      return evalBinary(ast.op, ast.left, ast.right, ctx);
     case 'call':
-      return scalar(evalCall(ast.name, ast.args, ctx));
+      return evalCall(ast.name, ast.args, ctx);
   }
 }
 
-function evalBinary(op: string, leftAst: AstNode, rightAst: AstNode, ctx: EvalContext): FormulaValue {
-  const left = evalNode(leftAst, ctx);
-  const right = evalNode(rightAst, ctx);
-  if (left.kind === 'range' || right.kind === 'range') {
+/**
+ * The single value an evaluation result stands for in scalar position, or null
+ * when it has none.
+ *
+ * A range never has one — `=A1:B2 + 1` is `#VALUE!`, unchanged. A computed
+ * array collapses only when it holds exactly one cell; a genuine multi-cell
+ * array in an arithmetic position is `#VALUE!` rather than being broadcast,
+ * because element-wise broadcasting would silently turn `=SEQUENCE(3)+1` into
+ * a spilling formula and change what an existing workbook computes. This
+ * limitation is documented in the help dialog and `docs/rsf-format.md`.
+ */
+function asScalar(result: EvalResult): FormulaValue | null {
+  if (result.kind === 'scalar') {
+    return result.value;
+  }
+  if (result.kind === 'grid' && result.grid.rows === 1 && result.grid.cols === 1) {
+    return result.grid.cells[0][0];
+  }
+  return null;
+}
+
+const COMPARISON_OPS: readonly string[] = ['=', '<>', '<', '>', '<=', '>='];
+
+/**
+ * Element-wise comparison of a range or array against a scalar, or against
+ * another range or array of the same shape.
+ *
+ * This is the **only** operator that spreads over a range, and it exists
+ * because `FILTER(data, range > 5)` — the way a condition is written — needs
+ * it. Arithmetic deliberately does not spread: `=A1:A3 + 1` stays `#VALUE!`,
+ * because making it spill would change what an existing formula does, whereas
+ * `=A1:A3 > 5` is `#VALUE!` today and so has no behaviour to preserve.
+ *
+ * Mismatched shapes are `#VALUE!` rather than being recycled or truncated.
+ */
+function compareGrids(
+  op: string,
+  left: ValueGrid | FormulaValue,
+  right: ValueGrid | FormulaValue,
+): EvalResult {
+  const leftGrid = isValueGrid(left) ? left : null;
+  const rightGrid = isValueGrid(right) ? right : null;
+  const rows = leftGrid?.rows ?? rightGrid?.rows ?? 1;
+  const cols = leftGrid?.cols ?? rightGrid?.cols ?? 1;
+  if (leftGrid && rightGrid && (leftGrid.rows !== rightGrid.rows || leftGrid.cols !== rightGrid.cols)) {
+    return scalar(errorValue('#VALUE!'));
+  }
+  const cells: FormulaValue[][] = [];
+  for (let r = 0; r < rows; r++) {
+    const row: FormulaValue[] = [];
+    for (let c = 0; c < cols; c++) {
+      const a = leftGrid ? leftGrid.cells[r][c] : (left as FormulaValue);
+      const b = rightGrid ? rightGrid.cells[r][c] : (right as FormulaValue);
+      const err = firstError(a, b);
+      row.push(err ?? evalComparison(op, a, b));
+    }
+    cells.push(row);
+  }
+  if (rows === 1 && cols === 1) {
+    return scalar(cells[0][0]);
+  }
+  return { kind: 'grid', grid: makeGrid(cells) };
+}
+
+function isValueGrid(value: ValueGrid | FormulaValue): value is ValueGrid {
+  return (value as ValueGrid).cells !== undefined;
+}
+
+/**
+ * An evaluation result as either a single value or a multi-cell grid, or the
+ * error that stopped it from being either.
+ */
+function materialize(
+  result: EvalResult,
+  ctx: EvalContext,
+): { ok: true; value: ValueGrid | FormulaValue } | { ok: false; error: FormulaValue } {
+  if (result.kind === 'scalar') {
+    return { ok: true, value: result.value };
+  }
+  if (result.kind === 'grid') {
+    return { ok: true, value: result.grid };
+  }
+  const grid = rangeToGrid(result, ctx);
+  return grid.ok ? { ok: true, value: grid.grid } : { ok: false, error: grid.error };
+}
+
+function evalBinary(op: string, leftAst: AstNode, rightAst: AstNode, ctx: EvalContext): EvalResult {
+  const leftResult = evalNode(leftAst, ctx);
+  const rightResult = evalNode(rightAst, ctx);
+  if (COMPARISON_OPS.includes(op) && (leftResult.kind !== 'scalar' || rightResult.kind !== 'scalar')) {
+    const a = materialize(leftResult, ctx);
+    if (!a.ok) {
+      return scalar(a.error);
+    }
+    const b = materialize(rightResult, ctx);
+    if (!b.ok) {
+      return scalar(b.error);
+    }
+    return compareGrids(op, a.value, b.value);
+  }
+  return scalar(evalScalarBinary(op, leftResult, rightResult));
+}
+
+function evalScalarBinary(op: string, leftResult: EvalResult, rightResult: EvalResult): FormulaValue {
+  const left = asScalar(leftResult);
+  const right = asScalar(rightResult);
+  if (left === null || right === null) {
     return errorValue('#VALUE!');
   }
-  const err = firstError(left.value, right.value);
+  const err = firstError(left, right);
   if (err) {
     return err;
   }
-  if (['=', '<>', '<', '>', '<=', '>='].includes(op)) {
-    return evalComparison(op, left.value, right.value);
+  if (COMPARISON_OPS.includes(op)) {
+    return evalComparison(op, left, right);
   }
-  const a = coerceToNumber(left.value);
-  const b = coerceToNumber(right.value);
+  const a = coerceToNumber(left);
+  const b = coerceToNumber(right);
   if (a === null || b === null) {
     return errorValue('#VALUE!');
   }
@@ -1235,160 +1379,104 @@ function compareResult(op: string, cmp: number, bool: (v: boolean) => FormulaVal
 }
 
 /**
- * Collect the numeric contributions of one function argument. Ranges iterate
- * their cells (empties and non-numeric strings are skipped, like conventional
- * spreadsheets); scalars must be numeric-coercible except empties, which are
- * skipped. Errors abort.
+ * Materialize a range result as a grid, bounded by {@link MAX_RANGE_CELLS}.
+ *
+ * An empty range — a whole-column range on a sheet with no used grid, or a
+ * span entirely beyond the used bounds — becomes a 1×1 blank rather than a
+ * zero-sized grid, so aggregation over it contributes nothing instead of
+ * erroring.
  */
-function collectNumbers(arg: AstNode, ctx: EvalContext, out: number[]): FormulaValue | null {
-  const result = evalNode(arg, ctx);
-  if (result.kind === 'range') {
-    const { top, bottom, left, right } = result;
-    if (bottom < top || right < left) {
-      // Empty range (e.g. a whole-column range beyond the used grid).
-      return null;
+function rangeToGrid(result: Extract<EvalResult, { kind: 'range' }>, ctx: EvalContext): GridResult {
+  const { top, bottom, left, right } = result;
+  if (bottom < top || right < left) {
+    return { ok: true, grid: scalarGrid(EMPTY_VALUE) };
+  }
+  const cellCount = (bottom - top + 1) * (right - left + 1);
+  if (cellCount > MAX_RANGE_CELLS) {
+    return { ok: false, error: errorValue('#VALUE!') };
+  }
+  const readCell = cellReaderFor(result.sheet, ctx);
+  const cells: FormulaValue[][] = [];
+  for (let r = top; r <= bottom; r++) {
+    const row: FormulaValue[] = [];
+    for (let c = left; c <= right; c++) {
+      row.push(readCell(r, c));
     }
-    const cellCount = (bottom - top + 1) * (right - left + 1);
-    if (cellCount > MAX_RANGE_CELLS) {
-      return errorValue('#VALUE!');
-    }
-    // A worksheet-qualified range iterates that worksheet's cells.
-    const readCell = cellReaderFor(result.sheet, ctx);
-    for (let r = top; r <= bottom; r++) {
-      for (let c = left; c <= right; c++) {
-        const v = readCell(r, c);
-        if (v.type === 'error') {
-          return v;
-        }
-        if (v.type === 'number') {
-          out.push(v.value);
-        } else if (v.type === 'boolean') {
-          out.push(v.value ? 1 : 0);
-        }
-        // Strings and empties inside ranges are skipped.
-      }
-    }
-    return null;
+    cells.push(row);
   }
-  const v = result.value;
-  if (v.type === 'error') {
-    return v;
-  }
-  if (v.type === 'empty') {
-    return null;
-  }
-  const n = coerceToNumber(v);
-  if (n === null) {
-    return errorValue('#VALUE!');
-  }
-  out.push(n);
-  return null;
+  return { ok: true, grid: makeGrid(cells) };
 }
 
-function evalCall(name: string, args: AstNode[], ctx: EvalContext): FormulaValue {
-  switch (name) {
-    case 'IF': {
-      if (args.length < 2 || args.length > 3) {
-        return errorValue('#ERROR!');
+/**
+ * Build the lazy, memoized accessor a function sees for one argument.
+ *
+ * Laziness is not an optimization here, it is a correctness requirement: `IF`
+ * and `IFERROR` must be able to *not* evaluate a branch whose evaluation would
+ * raise an error the formula exists to avoid. Memoization then guarantees that
+ * a function reading the same argument as both a value and a grid evaluates
+ * it once.
+ */
+function makeArg(node: AstNode, ctx: EvalContext): FnArg {
+  let evaluated: EvalResult | null = null;
+  const resolve = (): EvalResult => (evaluated ??= evalNode(node, ctx));
+  let gridCache: GridResult | null = null;
+  const isRangeNode = node.kind === 'range' || node.kind === 'colrange' || node.kind === 'rowrange';
+  return {
+    value(): FormulaValue {
+      return asScalar(resolve()) ?? errorValue('#VALUE!');
+    },
+    grid(): GridResult {
+      if (gridCache) {
+        return gridCache;
       }
-      const cond = evalNode(args[0], ctx);
-      if (cond.kind === 'range') {
-        return errorValue('#VALUE!');
-      }
-      if (cond.value.type === 'error') {
-        return cond.value;
-      }
-      let truthy: boolean;
-      if (cond.value.type === 'boolean') {
-        truthy = cond.value.value;
-      } else {
-        const n = coerceToNumber(cond.value);
-        if (n === null) {
-          return errorValue('#VALUE!');
-        }
-        truthy = n !== 0;
-      }
-      const branch = truthy ? args[1] : args[2];
-      if (!branch) {
-        return { type: 'boolean', value: false };
-      }
-      const result = evalNode(branch, ctx);
+      const result = resolve();
       if (result.kind === 'range') {
-        return errorValue('#VALUE!');
+        gridCache = rangeToGrid(result, ctx);
+      } else if (result.kind === 'grid') {
+        gridCache = { ok: true, grid: result.grid };
+      } else if (result.value.type === 'error') {
+        gridCache = { ok: false, error: result.value };
+      } else {
+        gridCache = { ok: true, grid: scalarGrid(result.value) };
       }
-      return result.value;
-    }
-    case 'SUM':
-    case 'AVERAGE':
-    case 'MIN':
-    case 'MAX':
-    case 'COUNT': {
-      const numbers: number[] = [];
-      for (const arg of args) {
-        if (name === 'COUNT') {
-          const err = collectCount(arg, ctx, numbers);
-          if (err) {
-            return err;
-          }
-          continue;
-        }
-        const err = collectNumbers(arg, ctx, numbers);
-        if (err) {
-          return err;
-        }
-      }
-      switch (name) {
-        case 'SUM':
-          return numberValue(numbers.reduce((a, b) => a + b, 0));
-        case 'AVERAGE':
-          if (numbers.length === 0) {
-            return errorValue('#DIV/0!');
-          }
-          return numberValue(numbers.reduce((a, b) => a + b, 0) / numbers.length);
-        case 'MIN':
-          return numberValue(numbers.length === 0 ? 0 : Math.min(...take(numbers)));
-        case 'MAX':
-          return numberValue(numbers.length === 0 ? 0 : Math.max(...take(numbers)));
-        case 'COUNT':
-          return numberValue(numbers.length);
-        default:
-          return errorValue('#ERROR!');
-      }
-    }
-    default:
-      return errorValue('#NAME?');
-  }
+      return gridCache;
+    },
+    isRange(): boolean {
+      return isRangeNode;
+    },
+    isOmitted(): boolean {
+      return node.kind === 'blank';
+    },
+  };
 }
 
-/** COUNT counts numeric values only; unlike SUM it ignores non-numeric scalars. */
-function collectCount(arg: AstNode, ctx: EvalContext, out: number[]): FormulaValue | null {
-  const result = evalNode(arg, ctx);
-  if (result.kind === 'range') {
-    return collectNumbers(arg, ctx, out);
+/**
+ * Dispatch a call through the registry. The registry owns names, arity, and
+ * semantics; this function owns only the plumbing between AST nodes and
+ * {@link FnArg} accessors.
+ *
+ * A grid result becomes a `grid` evaluation result, which the workbook turns
+ * into a spill. Everything else is a scalar.
+ */
+function evalCall(name: string, args: AstNode[], ctx: EvalContext): EvalResult {
+  const fn = lookupFunction(name);
+  if (!fn) {
+    return scalar(errorValue('#NAME?'));
   }
-  const v = result.value;
-  if (v.type === 'error') {
-    return v;
+  if (args.length < fn.minArgs || args.length > fn.maxArgs) {
+    return scalar(errorValue('#ERROR!'));
   }
-  const n = coerceToNumber(v);
-  if (n !== null && v.type !== 'empty') {
-    out.push(n);
+  const accessors = args.map((node) => makeArg(node, ctx));
+  let result: FnResult;
+  try {
+    result = fn.call(accessors, contextClock(ctx));
+  } catch {
+    // A function must not be able to take the whole application down. Any
+    // unexpected throw (a host limit such as string length, or a bug) becomes
+    // an ordinary formula error in that one cell.
+    return scalar(errorValue('#VALUE!'));
   }
-  return null;
-}
-
-/** Math.min/max spread limit workaround for very large collections. */
-function take(numbers: number[]): number[] {
-  if (numbers.length <= 65_000) {
-    return numbers;
-  }
-  let min = numbers[0];
-  let max = numbers[0];
-  for (const n of numbers) {
-    if (n < min) min = n;
-    if (n > max) max = n;
-  }
-  return [min, max];
+  return isGrid(result) ? { kind: 'grid', grid: result } : scalar(result);
 }
 
 // ---------------------------------------------------------------------------

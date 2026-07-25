@@ -415,13 +415,32 @@ Releasing remains the documented, human-run, **tag-driven** flow:
   provenance) and deploys `dist/` to the `github-pages` environment. No repository
   secrets are required (GITHUB_TOKEN + OIDC).
 
-A post-merge `release-after-merge.yml` was evaluated and **deliberately not created**:
-the README does not document a complete, non-interactive, unambiguous merge-triggered
-release procedure (the version bump is a human decision, cutting a release writes to
-protected `main`, the command is confirmation-gated, and no non-destructive one-command
-rollback is documented). Building one would require _guessing_ the missing procedure,
-which is unsafe. The full analysis and the exact prerequisites that would have to be
-documented first are in
+A post-merge `release-after-merge.yml` has been evaluated twice and **deliberately not
+created**. The decisive reason is mechanical, not stylistic: `release.yml` is triggered
+by a **tag push**, and GitHub does not create a workflow run for events raised by
+`GITHUB_TOKEN` (the only exceptions are `workflow_dispatch`, `repository_dispatch`, and
+`pull_request` opened/synchronize/reopened). An automation that bumped, tagged, and
+pushed with the built-in token would therefore leave a `Release vX.Y.Z` commit and tag
+on `main` with **no** GitHub Release, SBOM, provenance, or Pages deployment — silently,
+and with no documented rollback. Introducing a PAT or GitHub App token purely to chain
+workflows is out of scope, and converting `release.yml` into a reusable `workflow_call`
+workflow would be a rewrite of the working release path that no repository document
+authorizes.
+
+Four further blockers stand independently: the bump type is not mechanically derivable
+(no `release:*` labels exist or are in use, and no conventional-commits/changesets
+mechanism is present); `npm run release` runs `test:rust`, which needs a Rust toolchain
+that no workflow installs; the script bumps, commits, tags, and pushes as one
+non-separable run and refuses the detached HEAD that `actions/checkout` produces; and no
+non-destructive rollback is documented for a published Release, tag, or Pages deploy.
+
+Note also that `main` currently has **no branch protection configured**, contrary to the
+assumption recorded elsewhere in this document. Whether `main` should be protected, and
+whether Actions may push to it, is a human decision that changes the entire release
+design. Repository settings are never changed by automation.
+
+The full analysis, the verified release-asset inventory, and the exact decisions that
+would have to be recorded in `README.md` first are in
 [`docs/release-automation-gap.md`](release-automation-gap.md).
 
 **To disable releases entirely / immediately:** disable or delete

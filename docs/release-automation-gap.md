@@ -2,90 +2,174 @@
 
 **Status: post-merge release automation is intentionally NOT implemented.**
 
-A task asked for a `release-after-merge` workflow that automatically releases once
-a qualifying pull request is merged — but **only** by following an explicit,
-complete, non-interactive release procedure documented in `README.md`. After
-inspecting the repository, the documented procedure does **not** meet that bar, so
-per the task's own safety rule (_"If README does NOT provide a complete automated
-release procedure, do not create an executable production release workflow"_) no
-executable auto-release workflow was created. This document records exactly what is
-missing so a human can decide whether — and how — to close the gap later.
+Automatic "merge a PR → cut a release" has been evaluated twice against this
+repository. Both times the conclusion was the same: the documented release
+procedure does not support unattended execution, and building one would require
+inventing commands, a version-bump rule, and a trigger that no repository
+document authorizes. This file records exactly what blocks it, verified against
+the repository and the GitHub Actions documentation, so a human can decide
+whether and how to close the gap.
 
-Nothing here changes the existing, working release path. Releases still happen the
-documented way: a human runs `npm run release -- <bump>`, which pushes a
+Nothing here changes the existing, working release path. Releases still happen
+the documented way: a human runs `npm run release -- <bump>`, which pushes a
 `vX.Y.Z` tag, and [`.github/workflows/release.yml`](../.github/workflows/release.yml)
-builds and publishes the GitHub Release + GitHub Pages deployment from that tag.
+publishes the GitHub Release **and** deploys GitHub Pages from that tag.
 
-## What the README documents today
+## Verified inventory
 
-From `README.md` (§ "CI and releases", "Versioning policy", "Cutting a release",
-"GitHub Pages deployment") and [`scripts/release.mjs`](../scripts/release.mjs):
+| Question                         | Verified answer                                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Production branch                | `main` (repository default branch; `ALLOWED_BRANCH` in `scripts/release.mjs`)                                |
+| Authoritative version            | `version` in `package.json` (single source; `src/app/version.ts` imports it)                                 |
+| Bump command                     | `npm run release -- patch \| minor \| major \| vX.Y.Z`, flags `--yes`, `--dry-run`, `--remote <name>`        |
+| Files the bump changes           | exactly `package.json` and `package-lock.json`                                                               |
+| Does the bump script commit/tag? | **Yes, and it pushes both** — commit `Release vX.Y.Z`, annotated tag `vX.Y.Z`, `git push` of branch then tag |
+| Release trigger                  | `push` of a tag matching `v[0-9]+.[0-9]+.[0-9]+`                                                             |
+| Git tag                          | Yes — created and pushed by `scripts/release.mjs`                                                            |
+| GitHub Release                   | Yes — `release.yml`, idempotent (`gh release view` → `create`, else `upload --clobber` + `edit`)             |
+| Package-registry publish         | **No** — `package.json` is `"private": true`; no `npm publish` anywhere                                      |
+| Deployment                       | Yes — GitHub Pages, `deploy-pages` job inside `release.yml`                                                  |
+| Changelog                        | **No** — no changelog file and none generated                                                                |
+| Release notes                    | Yes — a fixed template written inside `release.yml` (not derived from commits)                               |
+| Pages build / output             | `npm run build` (`tsc --noEmit && vite build`) → `dist/`                                                     |
+| Pages model                      | Official artifact model: `configure-pages` + `upload-pages-artifact` (`path: dist`) + `deploy-pages`         |
+| Pages environment                | `github-pages`, with `concurrency: pages`, `cancel-in-progress: false`                                       |
+| Required secrets                 | **None.** `GITHUB_TOKEN` + OIDC only                                                                         |
+| Rollback                         | **None documented** for a published Release, tag, or Pages deployment                                        |
 
-- **Trigger:** pushing a strict `v<major>.<minor>.<patch>` **tag** — not a PR merge.
-- **Cutting a release** is a deliberate, human-run command:
-  `npm run release -- patch | minor | major | vX.Y.Z`. It runs from `main`, refuses
-  a dirty tree, runs the full checks, bumps `package.json` + `package-lock.json`,
-  creates a `Release vX.Y.Z` commit, creates an annotated tag, and pushes both.
-- **Confirmation gate:** it prints the plan and **requires the operator to type
-  `yes`** (unless `--yes`).
-- **CI on the tag** (`release.yml`) re-validates the tag ⇄ `package.json`, re-runs
-  every check + the production build, publishes the GitHub Release (ZIP + SHA-256 +
-  CycloneDX SBOM + signed build-provenance attestation), then deploys `dist/` to
-  the `github-pages` environment. It needs **no repository secrets** (GITHUB_TOKEN +
-  OIDC).
+Validation the release path runs, in order:
 
-## Why automatic release-on-merge is not safe from this README
+- `scripts/release.mjs`: `check:versions`, `format:check`, `lint`, `test`,
+  **`test:rust`**, `audit:ci`, `build`, `check:dist` — all **before** any mutation.
+- `release.yml`: `check:versions -- --tag <tag>`, `format:check`, `lint`, `test`,
+  `build`, `check:dist`, `audit:ci` (note: **no `test:rust`**).
 
-Each of these is, on its own, a blocker under the task's rules:
+There is **no separate Pages workflow.** Pages deployment is already coupled to
+the release by a job dependency inside `release.yml`, which is the property an
+orchestrator would otherwise have had to recreate.
 
-1. **No merge-triggered procedure exists.** The README authorizes releasing on a
-   **tag push**, never on a PR merge. Auto-releasing on merge would invent a trigger
-   the README does not document.
-2. **The version bump is a human semantic decision.** `patch` vs `minor` vs `major`
-   is not derivable mechanically from a merge. Auto-releasing would have to _guess_ a
-   cadence (e.g. "a patch per merged PR"), which the README does not authorize and
-   which would produce a release for every merge.
-3. **Releasing writes to the protected `main` branch.** Cutting a release creates a
-   `Release vX.Y.Z` commit **and** a tag on `main`. An auto-release workflow would
-   need to push a version commit to a protected branch — contrary to branch
-   protection and to "do not release from a PR head branch / do not push to a
-   protected branch."
-4. **The documented command is interactive.** `scripts/release.mjs` is designed
-   around a human `yes` confirmation. `--yes` exists, but the README frames it for a
-   human operator in CI they control, not for an unattended merge hook.
-5. **No non-destructive, documented rollback exists.** The README says releases
-   never overwrite/delete tags and that a bad change is reverted via a new PR — there
-   is no explicit, safe, one-command rollback of a published Release or a Pages
-   deployment. The task forbids automatic rollback without one.
-6. **Idempotency/duplicate-release guarding is not specified** for a merge-driven
-   path (only the tag path is idempotent, because a tag is created once by a human).
+## Why automatic release-on-merge is not safe here
 
-## What would need to be documented before this could be built
+### Blocker 1 (decisive) — a `GITHUB_TOKEN` tag push cannot trigger `release.yml`
 
-If the maintainers later want post-merge (or post-merge-of-a-release-PR) automation,
-`README.md` (the authoritative source) would first need to state, explicitly and
-non-interactively:
+`release.yml` fires on a **tag push**. GitHub documents that
 
-- the **exact trigger and guard** (e.g. "merging a PR labeled `release:patch` into
-  `main` cuts a patch release", or "merging a `Release vX.Y.Z` PR pushes that tag");
-- the **version-bump rule** with no human judgement left (how the next version is
-  computed);
-- how the release **avoids pushing to a protected branch** (e.g. the version bump
-  lands _in_ the merged PR, and automation only creates/pushes the **tag**);
-- the **required secrets/credentials by name** (today: none beyond GITHUB_TOKEN);
-- a **duplicate-release guard** (skip if the tag/Release already exists);
-- an explicit, **non-destructive rollback** command;
-- confirmation that every step is **safe for unattended GitHub Actions** use.
+> "Events triggered by the `GITHUB_TOKEN` will not create a new workflow run"
 
-Only once all of that is in the README should an executable `release-after-merge.yml`
-be written — with `pull_request: [closed]`, a `github.event.pull_request.merged ==
-true` guard, a base-branch restriction to the documented production branch, a
-fork-exclusion guard, a `concurrency` group, `timeout-minutes`, least-privilege
-permissions, and checkout of the exact merge commit SHA — following _only_ the
-README-documented commands.
+with the only exceptions being `workflow_dispatch`, `repository_dispatch`, and
+`pull_request` with the `opened` / `synchronize` / `reopened` activity types. A
+tag push is not among them.
+
+So an orchestrator that bumps, commits, tags, and pushes with the built-in token
+would produce a `Release vX.Y.Z` commit and a `vX.Y.Z` tag on `main` and **no
+GitHub Release, no SBOM, no provenance attestation, and no Pages deployment** —
+silently, with no failed run to alert anyone, and (see Blocker 5) no documented
+way to roll any of it back.
+
+The two ways around this are both closed:
+
+- **A personal access token or GitHub App token** would re-enable the trigger, but
+  introducing a new credential purely to chain workflows is explicitly out of
+  scope, and it would replace a zero-secret release path with a long-lived one.
+- **Converting `release.yml` to a `workflow_call` reusable workflow** would let an
+  orchestrator invoke it directly. This is technically viable but is a rewrite of
+  the one workflow that currently works: every `github.ref_name` reference, the
+  checkout ref, the attestation subject, the release-notes inputs, and the Pages
+  environment would have to be re-plumbed to inputs. No repository document
+  describes that design, so choosing it would be invention, not implementation.
+
+### Blocker 2 — the version-bump type is not mechanically derivable
+
+`patch` vs `minor` vs `major` is a human semantic judgement in this repository:
+
+- No `release:patch` / `release:minor` / `release:major` labels exist.
+  [`.github/labels.yml`](../.github/labels.yml) defines only `agent:*`, `risk:*`,
+  and `type:*`, and no release label is in use on any pull request.
+- No conventional-commits, release-please, changesets, or semantic-release
+  mechanism exists to preserve.
+- README § "Versioning policy" says _"After a user-requested change lands, bump the
+  patch version once"_. That is **not** a rule an automation can execute: it does
+  not say every merged pull request releases (docs-only and CI-only merges plainly
+  should not), and it says nothing about when `minor` or `major` applies.
+
+Defaulting silently to `patch` would mean a release for every merge, including
+documentation and workflow changes.
+
+### Blocker 3 — the documented bump command cannot run on a GitHub runner
+
+`scripts/release.mjs` runs `npm run test:rust` (`cargo test`) as part of its
+pre-mutation checks. `ci.yml` and `release.yml` set up **Node only**; the Rust
+toolchain exists solely in the [`Dockerfile`](../Dockerfile), which no workflow
+uses. The documented command would fail at its third step on a hosted runner.
+
+Adding a Rust toolchain to the release path is a real change to release-time
+build infrastructure and is not documented anywhere.
+
+### Blocker 4 — the bump command is not decomposable
+
+The intended automation shape is a `validate-and-bump` job (commit and push the
+version) followed by a separate `tag-and-release` job (tag from the exact bump
+commit). `scripts/release.mjs` performs validate → bump → commit → tag → push
+branch → push tag as one non-separable run. Using it whole forfeits the job split
+and the per-job least-privilege boundary; splitting it means not using the
+documented command at all.
+
+Two further mechanical mismatches: `actions/checkout` produces a **detached
+HEAD**, which the script refuses (`HEAD is detached. Check out the release branch
+first.`), and the script requires the working tree to be clean and `main` to be
+level with its upstream.
+
+### Blocker 5 — no documented rollback for a published release
+
+`scripts/release.mjs` prints recovery instructions only for a **local, unpushed**
+failure (`git tag -d`, `git reset --hard HEAD~1`). Once a tag is pushed there is
+no documented, non-destructive procedure to withdraw a GitHub Release, delete a
+tag, or revert a Pages deployment — and the release path is deliberately built to
+"never force-push, overwrite or delete tags". Automation must not be given a
+publishing step whose failure mode has no documented recovery.
+
+### Blocker 6 — branch-protection documentation does not match reality
+
+`docs/agent-operations.md` states that direct pushes to `main` are blocked by
+branch protection as defense in depth. In fact `main` currently has **no branch
+protection configured at all** (the protection API returns 404). An automation
+that pushes a version commit to `main` would therefore succeed today only because
+a control the documentation claims exists is absent. That is not authorization,
+and repository settings must not be changed automatically to resolve it either
+way. A human should decide whether `main` should be protected, and if so whether
+GitHub Actions is permitted to push to it — the answer changes the entire design
+(direct push vs. a release-PR flow).
+
+## What would have to be decided and documented first
+
+Smallest set of human decisions that would unblock this, in priority order:
+
+1. **How the release stage is invoked without a `GITHUB_TOKEN` tag push.** Either
+   approve converting `release.yml` into a `workflow_call` reusable workflow (and
+   accept that the working release path is being refactored), or state that
+   post-merge automation stops at pushing the tag and a human re-runs the release
+   workflow manually. This decision is a prerequisite for everything else.
+2. **The bump-type rule**, stated in `README.md` with no judgement left: which
+   merged pull requests release at all, and how `patch`/`minor`/`major` is chosen
+   (for example, exactly one `release:*` label, required, with no default).
+3. **Whether `main` is protected and whether Actions may push to it**, and if not,
+   the approved release-PR flow to use instead.
+4. **The release-time Rust toolchain question** — either document installing Rust
+   on the release runner, or document that the automated path runs a defined
+   subset of checks and why that is acceptable.
+5. **A non-destructive rollback procedure** for a published Release, tag, and
+   Pages deployment.
+6. **A duplicate-release guard** at the merge-commit level (the tag and Release
+   guards already exist and are idempotent; what is missing is "has this merge
+   commit already been released").
+
+Only once 1–6 are recorded in `README.md` should an executable
+`release-after-merge.yml` be written — and then only with the commands those
+documents specify.
 
 ## How this is surfaced
 
-- `docs/agent-operations.md` records that post-merge release automation is
-  intentionally disabled and points here.
+- [`docs/agent-operations.md`](agent-operations.md) records that post-merge release
+  automation is intentionally disabled and links here.
 - No `release-after-merge.yml` exists, so no merge can trigger a release.
+- The existing tag-driven path is untouched and remains the only way to release.

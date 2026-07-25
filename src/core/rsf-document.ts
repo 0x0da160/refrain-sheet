@@ -2,6 +2,7 @@
 import type { DelimiterId } from './byte-csv-parser';
 import {
   evaluateAst,
+  evaluateAstArray,
   errorValue,
   formatValue,
   isFormula,
@@ -10,6 +11,16 @@ import {
   type EvalContext,
   type FormulaValue,
 } from './formula';
+import {
+  buildSpillMap,
+  canSpill,
+  cellKey,
+  EMPTY_SPILL_MAP,
+  isEmptySpillMap,
+  type SpillAnchor,
+  type SpillMap,
+} from './spill';
+import type { ValueGrid } from './formula-value';
 import type { SheetFilter } from './filter';
 import {
   decodeRsfWorkbook,
@@ -141,6 +152,35 @@ export class RsfDocument {
   private evalContexts = new Map<string, EvalContext>();
   /** Worksheet lookup by name key, rebuilt after any structural change. */
   private nameIndex: Map<string, Worksheet> | null = null;
+
+  /**
+   * Per-worksheet dynamic-array spill maps, rebuilt lazily after any mutation.
+   * Null means "not built yet"; see {@link spillFor}. Derived spill values are
+   * never stored in a worksheet and never written to a `.rsf` file — they are
+   * recomputed from the anchor formulas, which is what makes undo/redo,
+   * structural edits, and persistence need no spill-specific handling.
+   */
+  private spillMaps: Map<string, SpillMap> | null = null;
+  /**
+   * True while the spill maps are being built. Derived-cell lookups read as
+   * blank during that window, which is the documented rule that a
+   * dynamic-array formula cannot see another spill's output — and is what
+   * makes the build terminate.
+   */
+  private buildingSpill = false;
+
+  /**
+   * The clock every volatile function (`TODAY`, `NOW`) in this workbook reads,
+   * fixed so that all of them agree within one recalculation.
+   *
+   * It advances at exactly three moments: when the workbook is created or
+   * loaded, on any mutation (which invalidates the memo anyway), and when
+   * {@link recalculate} is called explicitly. There is deliberately **no
+   * background timer**: an idle workbook never recalculates on its own, so a
+   * left-open tab cannot burn CPU or make a document appear to change by
+   * itself.
+   */
+  private clockMs = Date.now();
 
   private constructor(name: string, delimiter: DelimiterId, sheets: Worksheet[], docId?: string) {
     this.name = name;
@@ -803,7 +843,34 @@ export class RsfDocument {
     }
     const input = sheet.getValue(row, col);
     if (!isFormula(input)) {
+      if (input === '') {
+        // An empty cell may be carrying a dynamic array's derived value.
+        const spill = this.spillFor(sheet);
+        if (spill.derived.size > 0) {
+          const anchorKey = spill.derived.get(cellKey(row, col));
+          if (anchorKey !== undefined) {
+            const anchor = spill.anchors.get(anchorKey);
+            if (anchor) {
+              return anchor.grid.cells[row - anchor.row][col - anchor.col];
+            }
+          }
+        }
+      }
       return literalToValue(input);
+    }
+    // A formula that produced an array reads its result from the spill map,
+    // which already holds it: re-evaluating here could disagree with what the
+    // derived cells show.
+    const spill = this.spillFor(sheet);
+    if (!isEmptySpillMap(spill)) {
+      const key = cellKey(row, col);
+      if (spill.blocked.has(key)) {
+        return errorValue('#SPILL!');
+      }
+      const anchor = spill.anchors.get(key);
+      if (anchor) {
+        return anchor.grid.cells[0][0];
+      }
     }
     const key = `${sheet.id}|${row},${col}`;
     const cached = this.memo.get(key);
@@ -852,9 +919,135 @@ export class RsfDocument {
         const target = this.sheetByName(name);
         return target ? { rowCount: target.rowCount, columnCount: target.columnCount } : null;
       },
+      nowMs: this.clockMs,
     };
     this.evalContexts.set(sheet.id, ctx);
     return ctx;
+  }
+
+  // ----- Dynamic arrays (spill) -----
+
+  /**
+   * The spill map of a worksheet, built on first use after a mutation.
+   *
+   * While a build is in progress this returns the empty map, which implements
+   * the documented rule that a dynamic-array formula reads other spills'
+   * derived cells as blank — and, more importantly, is what stops the build
+   * from re-entering itself.
+   */
+  private spillFor(sheet: Worksheet): SpillMap {
+    if (this.buildingSpill) {
+      return EMPTY_SPILL_MAP;
+    }
+    if (!this.spillMaps) {
+      this.buildSpillMaps();
+    }
+    return this.spillMaps?.get(sheet.id) ?? EMPTY_SPILL_MAP;
+  }
+
+  /**
+   * Evaluate every array formula in the workbook and place the results.
+   *
+   * Anchors are evaluated first, all of them, and only then placed, so the
+   * outcome cannot depend on the order two spills happen to appear in.
+   * Afterwards the memo is dropped: entries computed during the build saw no
+   * spill map, and every ordinary formula must see the finished one.
+   */
+  private buildSpillMaps(): void {
+    this.buildingSpill = true;
+    const maps = new Map<string, SpillMap>();
+    try {
+      for (const sheet of this.sheetList) {
+        maps.set(
+          sheet.id,
+          buildSpillMap({
+            rowCount: sheet.rowCount,
+            columnCount: sheet.columnCount,
+            getValue: (r, c) => sheet.getValue(r, c),
+            listArrayResults: () => this.evaluateArrayFormulas(sheet),
+          }),
+        );
+      }
+    } finally {
+      this.buildingSpill = false;
+    }
+    this.memo = new Map();
+    this.spillMaps = maps;
+  }
+
+  /**
+   * The array results of one worksheet's formulas, in row-major order.
+   *
+   * {@link canSpill} rejects any formula that cannot possibly return an array
+   * before it is evaluated, so a worksheet of ordinary formulas costs one
+   * cheap AST walk each and no evaluation at all.
+   */
+  private evaluateArrayFormulas(
+    sheet: Worksheet,
+  ): Array<{ row: number; col: number; grid: ValueGrid | null }> {
+    const out: Array<{ row: number; col: number; grid: ValueGrid | null }> = [];
+    for (const { row, col, src } of sheet.listFormulaCells()) {
+      const compiled = sheet.compiled(row, col, src);
+      if (!compiled.parsed.ok || !canSpill(compiled.parsed.ast)) {
+        continue;
+      }
+      // The same in-progress guard ordinary evaluation uses, so a self-
+      // referential array formula resolves to #CYCLE! instead of recursing.
+      const key = `${sheet.id}|${row},${col}`;
+      if (this.inProgress.has(key)) {
+        continue;
+      }
+      this.inProgress.add(key);
+      try {
+        const { grid } = evaluateAstArray(compiled.parsed.ast, this.contextFor(sheet));
+        out.push({ row, col, grid });
+      } finally {
+        this.inProgress.delete(key);
+      }
+    }
+    return out;
+  }
+
+  /** The spill anchor covering a cell, whether the cell is the anchor or derived. */
+  spillAnchorAt(sheetId: string | undefined, row: number, col: number): SpillAnchor | null {
+    const sheet = this.resolveSheet(sheetId);
+    const spill = this.spillFor(sheet);
+    const key = cellKey(row, col);
+    const direct = spill.anchors.get(key);
+    if (direct) {
+      return direct;
+    }
+    const anchorKey = spill.derived.get(key);
+    return anchorKey === undefined ? null : (spill.anchors.get(anchorKey) ?? null);
+  }
+
+  /**
+   * True when a cell holds a *derived* dynamic-array value — part of a spill
+   * but not its anchor. Writing to such a cell is refused by the command
+   * layer; the anchor is what the user edits or clears.
+   */
+  isSpillDerivedCell(sheetId: string | undefined, row: number, col: number): boolean {
+    const sheet = this.resolveSheet(sheetId);
+    return this.spillFor(sheet).derived.has(cellKey(row, col));
+  }
+
+  /** True when the worksheet has any dynamic array at all (placed or blocked). */
+  hasSpills(sheetId?: string): boolean {
+    return !isEmptySpillMap(this.spillFor(this.resolveSheet(sheetId)));
+  }
+
+  /**
+   * Recompute everything, advancing the clock the volatile functions read.
+   *
+   * This is the *explicit* recalculation path (Data > Recalculate). Because no
+   * timer exists, it is the only way a `TODAY()` in an untouched workbook
+   * changes without an edit.
+   */
+  recalculate(): void {
+    this.clockMs = Date.now();
+    this.memo = new Map();
+    this.evalContexts = new Map();
+    this.spillMaps = null;
   }
 
   /**
@@ -902,5 +1095,10 @@ export class RsfDocument {
     this.memo = new Map();
     this.evalContexts = new Map();
     this.nameIndex = null;
+    // Dropped, not rebuilt: the next evaluation rebuilds it lazily, so a burst
+    // of edits costs one spill rebuild rather than one per edit.
+    this.spillMaps = null;
+    // A mutation is a recalculation event, so volatile functions advance here.
+    this.clockMs = Date.now();
   }
 }

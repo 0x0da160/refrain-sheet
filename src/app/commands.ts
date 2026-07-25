@@ -330,6 +330,7 @@ export type CommandId =
   | 'sheet.autoFitCols'
   | 'sheet.filter'
   | 'sheet.filterClear'
+  | 'sheet.recalculate'
   | 'sheet.exportCsv'
   // Worksheets inside the active RSF workbook (distinct from the application
   // document tabs, whose commands are the `tab.*` ids below).
@@ -486,6 +487,10 @@ export class Commands {
       }
       case 'sheet.filterClear':
         return tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null;
+      case 'sheet.recalculate':
+        // Only spreadsheet documents evaluate anything; a plain CSV has no
+        // formulas and therefore nothing to recalculate.
+        return tab !== null && tab.doc.kind === 'rsf';
       case 'edit.revertCell':
         return (
           tab?.selection != null &&
@@ -637,6 +642,16 @@ export class Commands {
         return;
       case 'sheet.filterClear':
         if (tab) this.clearAllFilters(tab);
+        return;
+      case 'sheet.recalculate':
+        // Drops every cached result and advances the clock the volatile
+        // functions read. It changes no cell input, so the document does not
+        // become dirty and nothing is pushed onto the undo history.
+        if (tab && tab.doc.kind === 'rsf') {
+          tab.doc.recalculate();
+          this.state.emit('doc');
+          this.ui.notify(t('notify.recalculated'), 'info');
+        }
         return;
       case 'sheet.exportCsv':
         if (tab) await this.exportCsv(tab);

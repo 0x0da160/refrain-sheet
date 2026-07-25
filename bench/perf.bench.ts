@@ -361,3 +361,136 @@ describe('formula evaluation, 5,000-cell dependency chain', () => {
     OPTS,
   );
 });
+
+// ----- Formula expansion: conditional aggregation, lookups, spills -----
+//
+// Each fixture is built inside the benchmarked body, so the reported time
+// includes constructing the worksheet as well as evaluating it. That is
+// deliberate: it is the cost a user actually pays when a file is opened, and
+// it keeps the numbers honest rather than measuring a warm memo.
+
+/** A worksheet of `rows` numeric/text records: A = number, B = category. */
+function makeRecordSheet(rows: number): RsfDocument {
+  const doc = RsfDocument.empty('bench.rsf', rows + 4, 6);
+  for (let r = 0; r < rows; r++) {
+    doc.setCell(r, 0, String(r % 1000));
+    doc.setCell(r, 1, r % 3 === 0 ? 'alpha' : r % 3 === 1 ? 'beta' : 'gamma');
+  }
+  return doc;
+}
+
+describe('conditional aggregation over 100,000 cells', () => {
+  bench(
+    'COUNTIF with a numeric comparison',
+    () => {
+      const doc = makeRecordSheet(100_000);
+      doc.setCell(100_001, 3, '=COUNTIF(A1:A100000,">500")');
+      doc.getDisplayValue(100_001, 3);
+    },
+    OPTS,
+  );
+
+  bench(
+    'COUNTIF with a wildcard text criterion',
+    () => {
+      const doc = makeRecordSheet(100_000);
+      doc.setCell(100_001, 3, '=COUNTIF(B1:B100000,"al*")');
+      doc.getDisplayValue(100_001, 3);
+    },
+    OPTS,
+  );
+
+  bench(
+    'SUMIFS with two criteria pairs',
+    () => {
+      const doc = makeRecordSheet(100_000);
+      doc.setCell(100_001, 3, '=SUMIFS(A1:A100000,B1:B100000,"alpha",A1:A100000,">100")');
+      doc.getDisplayValue(100_001, 3);
+    },
+    OPTS,
+  );
+});
+
+describe('lookup over a 100,000-row range', () => {
+  bench(
+    'XLOOKUP exact match, worst case (no match)',
+    () => {
+      const doc = makeRecordSheet(100_000);
+      doc.setCell(100_001, 3, '=XLOOKUP("missing",B1:B100000,A1:A100000,"none")');
+      doc.getDisplayValue(100_001, 3);
+    },
+    OPTS,
+  );
+
+  bench(
+    'VLOOKUP exact match, worst case (no match)',
+    () => {
+      const doc = makeRecordSheet(100_000);
+      doc.setCell(100_001, 3, '=VLOOKUP("missing",B1:B100000,1,FALSE)');
+      doc.getDisplayValue(100_001, 3);
+    },
+    OPTS,
+  );
+});
+
+describe('cross-sheet recalculation', () => {
+  bench(
+    'SUM across four worksheets of 25,000 rows',
+    () => {
+      const doc = RsfDocument.empty('bench.rsf', 25_000, 4);
+      for (let s = 1; s < 4; s++) {
+        const sheet = doc.createWorksheet(`S${s}`);
+        doc.insertSheetAt(s, sheet);
+        for (let r = 0; r < 25_000; r++) {
+          doc.setCellOn(sheet.id, r, 0, String(r));
+        }
+      }
+      for (let r = 0; r < 25_000; r++) {
+        doc.setCell(r, 0, String(r));
+      }
+      doc.setCell(0, 3, '=SUM(A1:A25000)+SUM(S1!A1:A25000)+SUM(S2!A1:A25000)+SUM(S3!A1:A25000)');
+      doc.getDisplayValue(0, 3);
+    },
+    OPTS,
+  );
+});
+
+describe('dynamic-array spill', () => {
+  bench(
+    'SEQUENCE spilling 50,000 cells',
+    () => {
+      const doc = RsfDocument.empty('bench.rsf', 25_000, 4);
+      doc.setCell(0, 0, '=SEQUENCE(25000,2)');
+      doc.getDisplayValue(24_999, 1);
+    },
+    OPTS,
+  );
+
+  bench(
+    'SORT spilling 25,000 rows',
+    () => {
+      const doc = RsfDocument.empty('bench.rsf', 25_000, 4);
+      for (let r = 0; r < 25_000; r++) {
+        doc.setCell(r, 0, String((r * 7919) % 25_000));
+      }
+      doc.setCell(0, 2, '=SORT(A1:A25000)');
+      doc.getDisplayValue(24_999, 2);
+    },
+    OPTS,
+  );
+
+  bench(
+    'spill map rebuild cost on a formula-heavy sheet with no arrays',
+    () => {
+      // The canSpill() static check must keep an ordinary worksheet off the
+      // spill path entirely; this measures what that check costs.
+      const doc = RsfDocument.empty('bench.rsf', 20_000, 4);
+      for (let r = 1; r < 20_000; r++) {
+        doc.setCell(r, 0, String(r));
+        doc.setCell(r, 1, `=A${r + 1}*2`);
+      }
+      doc.getDisplayValue(1, 1);
+    },
+    OPTS,
+  );
+});

@@ -470,6 +470,123 @@ SUM(Sheet1!A1:A10)
 Each of these is one atomic, undoable history entry: the structural change and
 every formula rewrite it implies undo and redo together.
 
+## The formula value model
+
+A formula value is one of: **blank**, **number** (always a finite double),
+**text**, **boolean**, **error**, or — only where arrays are allowed — a
+rectangular **array**. Coercion rules are stated exhaustively in
+`src/core/formula-value.ts` and summarized in the offline help.
+
+Dates are **not** a separate value kind; they are numbers on the serial scale
+below. That is why `=A1+7` means "a week later" with no special case, and why a
+date displays as its serial number: this container stores no per-cell number
+formats, so there is nothing to render a serial as a calendar date.
+
+The error set is:
+
+| Error     | Meaning                                                                                   |
+| --------- | ----------------------------------------------------------------------------------------- |
+| `#ERROR!` | The formula does not parse.                                                               |
+| `#NAME?`  | Unknown function or name.                                                                 |
+| `#VALUE!` | Wrong type, or wrong shape (mismatched ranges, a range where a single value is required). |
+| `#DIV/0!` | Division by zero, or an average/deviation with no eligible values.                        |
+| `#REF!`   | A deleted or out-of-range reference.                                                      |
+| `#CYCLE!` | A circular reference, detected across worksheets.                                         |
+| `#N/A`    | A lookup found no match.                                                                  |
+| `#NUM!`   | Out of range, or a result that is not a finite number.                                    |
+| `#SPILL!` | A dynamic array cannot write its result (see below).                                      |
+| `#CALC!`  | A dynamic array produced no values at all.                                                |
+
+Errors are values: they propagate through every operator and function except
+`IFERROR`. An error code **typed literally into a cell** stays text and never
+propagates — only the engine creates error values.
+
+### Date serials
+
+- Serial `0` is **1899-12-30T00:00:00Z**. Whole numbers are days; the
+  fractional part is the time of day.
+- The calendar is proleptic Gregorian, so 1900 is a common year. This matches
+  Excel and Google Sheets for every date from **1900-03-01** onward and
+  deliberately omits Excel's fictitious 1900-02-29, which makes RSF serials one
+  greater than Excel's for the 60 days before that date.
+- Valid serials run from `0` to 9999-12-31; anything outside is `#NUM!`.
+- **All conversions are UTC.** No function in the engine reads a timezone or a
+  DST rule, so a `.rsf` file computes identical values on every machine.
+  `TODAY()` and `NOW()` report the UTC date and time.
+
+### Volatile formulas
+
+`TODAY()` and `NOW()` depend on the clock rather than on cells. The clock the
+whole workbook reads advances at exactly three moments:
+
+1. when the workbook is created or loaded,
+2. on any mutation (which invalidates the evaluation memo anyway),
+3. when **Sheet > Recalculate** is chosen.
+
+There is **no background timer**. An idle workbook never recalculates on its
+own, so an open tab cannot burn CPU and a document cannot appear to change by
+itself. Volatility is a property of the function, recorded in the registry, and
+is not stored in the file.
+
+## Dynamic arrays (spill) — nothing derived is ever stored
+
+A formula returning a rectangular array writes it across the worksheet starting
+at the formula cell. That cell is the **spill anchor**; the rest are **derived
+cells**.
+
+**The container stores the anchor's formula and nothing else.** There is no
+spill record, no cached result, and no format-version change: a worksheet holds
+exactly the inputs the user typed, and the spill is recomputed from them on
+load. Consequences that fall out of that one decision:
+
+- No derived value can go stale on disk.
+- Undo/redo, row and column insertion, worksheet rename and delete, filtering,
+  find and replace, and CSV export need no spill-specific handling, because
+  they all operate on inputs or on displayed values.
+- A file written by this version is readable by **any** version that
+  understands the container: an older reader sees an ordinary formula cell
+  whose function name it does not know, and evaluates it to `#NAME?`. It does
+  not fail to open, and it does not lose data — the formula text is preserved
+  and works again in a newer reader.
+
+Placement rules, applied in row-major order with first claim winning:
+
+1. The rectangle must fit inside the worksheet's existing rows and columns —
+   spilling never grows the grid.
+2. Every covered cell other than the anchor must be empty.
+3. No covered cell may already belong to an earlier spill.
+
+Failing any of these blocks the anchor: it shows `#SPILL!` and writes **nothing
+at all**, never a partial rectangle.
+
+A dynamic-array formula reads other spills' derived cells as **blank**. All
+anchors are evaluated before any is placed, so the result cannot depend on the
+order two spills appear in and a spill cannot feed itself. Ordinary formulas
+see spilled values normally. To chain arrays, reference the anchor cell.
+
+### Bounds and validation added for formulas
+
+Every one of these is enforced at evaluation time, so a hostile formula in an
+untrusted `.rsf` file cannot hang the tab or exhaust memory:
+
+| Bound                                | Value                        |
+| ------------------------------------ | ---------------------------- |
+| Formula source length                | 8,192                        |
+| Arguments in one call                | 255                          |
+| Parser nesting depth                 | 400 units                    |
+| Cells visited by one range argument  | 2,000,000                    |
+| Dynamic-array rows / columns / cells | 100,000 / 16,384 / 1,000,000 |
+| Spill anchors per worksheet          | 512                          |
+| Spilled cells per worksheet          | 1,000,000                    |
+| Text result length                   | 32,767                       |
+| Criteria string length               | 512                          |
+| Criteria pairs per call              | 32                           |
+| Sort keys per `SORT`                 | 8                            |
+
+Exceeding a bound produces an ordinary formula error (`#NUM!`, `#VALUE!`, or
+`#SPILL!`) in that one cell. A function that throws unexpectedly is caught and
+reported as `#VALUE!` in its cell rather than propagating.
+
 ## Versioning and compatibility
 
 This is container **version 3** (one worksheet) or **version 4** (workbook),

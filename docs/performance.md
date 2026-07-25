@@ -100,6 +100,38 @@ actual run — do not edit them by hand; re-run the bench instead.
 | Bulk edit apply, 120,000 cells (paste/fill mutation path)   | ~50 ms                | one atomic, singly-undoable `bulkEdit`                                   |
 | Formula evaluation, 5,000-cell dependency chain (cold memo) | ~25–35 ms             | lazy + memoized thereafter                                               |
 
+### Formula expansion (measured on this revision)
+
+A separate run on a smaller machine — Node v22.23.1 (x64) in the project's
+Docker container, Intel N100, 4 cores — so these numbers are **not** comparable
+with the table above; only the rows within this table compare with each other.
+Each figure is the mean of 5 iterations and includes **building the fixture
+worksheet**, not just evaluating it, because that is the cost a user actually
+pays when a file is opened. Observed rme is high (up to ±93%) on this host;
+treat the orders of magnitude as the signal.
+
+| Scenario (deterministic fixture)                               | Mean    | Notes                                                  |
+| -------------------------------------------------------------- | ------- | ------------------------------------------------------ |
+| `COUNTIF` numeric comparison over 100,000 cells                | ~232 ms | includes writing the 100,000-cell fixture              |
+| `COUNTIF` wildcard text criterion over 100,000 cells           | ~166 ms | the hand-written matcher, no regular expression        |
+| `SUMIFS` with two criteria pairs over 100,000 cells            | ~244 ms | two full scans plus the sum                            |
+| `XLOOKUP` exact match, 100,000 rows, worst case (no match)     | ~357 ms | full linear scan; a hit returns earlier                |
+| `VLOOKUP` exact match, 100,000 rows, worst case (no match)     | ~121 ms |                                                        |
+| `SUM` across four worksheets of 25,000 rows                    | ~150 ms | cross-sheet recalculation, shared memo                 |
+| `SEQUENCE` spilling 50,000 cells                               | ~31 ms  | materialize + place the spill map                      |
+| `SORT` spilling 25,000 rows                                    | ~68 ms  | stable decorated sort, source untouched                |
+| Spill-map rebuild on a 20,000-formula sheet with **no** arrays | ~59 ms  | what `canSpill()` costs when there is nothing to spill |
+
+The last row is the one that matters for the design: an ordinary formula-heavy
+worksheet pays only a static AST walk per formula, because `canSpill()` rejects
+anything that cannot return an array before it is ever evaluated. Without that
+check, every mutation would evaluate every formula eagerly.
+
+**Not measured, and therefore not claimed:** these benches run in Node, so they
+say nothing about paint or interaction latency in a browser, and no
+before/after comparison exists for the formula engine because these functions
+did not exist before this revision.
+
 Multi-column auto-fit is not benchmarked in Node: it measures real rendered
 text via the canvas `measureText` API, which jsdom/Node does not implement.
 Its structural behavior (sampling caps, cache invalidation, sliced progress)

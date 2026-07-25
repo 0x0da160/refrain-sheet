@@ -140,7 +140,7 @@ describe('parsing', () => {
   });
 
   it('reports unsupported functions as #NAME?', () => {
-    const result = parseFormula('=VLOOKUP(A1,B1:C9,2)');
+    const result = parseFormula('=NOSUCHFUNCTION(A1,B1:C9,2)');
     expect(result).toEqual({ ok: false, code: '#NAME?' });
     // A bare name that is not a valid cell reference is also a name error.
     expect(parseFormula('=hello')).toEqual({ ok: false, code: '#NAME?' });
@@ -347,16 +347,23 @@ describe('function autocomplete', () => {
     functionCompletions(text, caret).matches.map((m) => m.name);
 
   it('completes a bare function-name prefix at the caret', () => {
-    expect(names('=SU')).toEqual(['SUM']);
-    expect(names('=M')).toEqual(['MIN', 'MAX']);
-    expect(names('=a')).toEqual(['AVERAGE']); // case-insensitive
+    expect(names('=SUM')).toEqual(['SUM', 'SUMIF', 'SUMIFS']);
+    expect(names('=MOD')).toEqual(['MOD', 'MODE.SNGL']);
+    expect(names('=aver')).toEqual(['AVERAGE', 'AVERAGEIF', 'AVERAGEIFS']); // case-insensitive
     expect(functionCompletions('=SU', 3).word).toBe('SU');
   });
 
   it('completes after operators and open parens', () => {
-    expect(names('=1+SU')).toEqual(['SUM']);
-    expect(names('=IF(A1>0,SU')).toEqual(['SUM']);
-    expect(names('=A')).toEqual(['AVERAGE']); // a bare letter is still a name prefix
+    expect(names('=1+SUMI')).toEqual(['SUMIF', 'SUMIFS']);
+    expect(names('=IF(A1>0,SUMI')).toEqual(['SUMIF', 'SUMIFS']);
+    expect(names('=AV')).toEqual(['AVERAGE', 'AVERAGEIF', 'AVERAGEIFS']);
+  });
+
+  it('completes the dotted statistical names from any prefix', () => {
+    expect(names('=STDEV')).toEqual(['STDEV.P', 'STDEV.S']);
+    expect(names('=STDEV.')).toEqual(['STDEV.P', 'STDEV.S']);
+    expect(names('=STDEV.S')).toEqual(['STDEV.S']);
+    expect(names('=RANK.')).toEqual(['RANK.EQ']);
   });
 
   it('does not complete completed cell references or opened calls', () => {

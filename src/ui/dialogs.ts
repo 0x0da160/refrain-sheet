@@ -1265,12 +1265,56 @@ export class Dialogs {
         ['#DIV/0!', 'dialog.formulaHelp.err.div0'],
         ['#REF!', 'dialog.formulaHelp.err.ref'],
         ['#CYCLE!', 'dialog.formulaHelp.err.cycle'],
+        ['#N/A', 'dialog.formulaHelp.err.na'],
+        ['#NUM!', 'dialog.formulaHelp.err.num'],
+        ['#SPILL!', 'dialog.formulaHelp.err.spill'],
+        ['#CALC!', 'dialog.formulaHelp.err.calc'],
       ];
       for (const [errCode, descKey] of errors) {
         errorList.append(el('li', {}, [code(errCode), document.createTextNode(` — ${t(descKey)}`)]));
       }
       body.append(
         section('dialog.formulaHelp.section.errors', p('dialog.formulaHelp.errorsIntro'), errorList),
+      );
+
+      // ----- Topic sections for the feature areas the functions cover -----
+      body.append(
+        section(
+          'dialog.formulaHelp.section.criteria',
+          p('dialog.formulaHelp.criteriaBody'),
+          codeList(['"apple"', '"<>apple"', '">10"', '"<=5"', '"*text*"', '"?"', '"~*"']),
+        ),
+      );
+      body.append(
+        section(
+          'dialog.formulaHelp.section.lookups',
+          p('dialog.formulaHelp.lookupsBody'),
+          codeList(['=XLOOKUP(A1,B:B,C:C,"none")', '=VLOOKUP(A1,B1:D9,3,FALSE)', '=MATCH(A1,B1:B9,0)']),
+        ),
+      );
+      body.append(
+        section(
+          'dialog.formulaHelp.section.dates',
+          p('dialog.formulaHelp.datesBody'),
+          codeList(['=DATE(2026,7,25)', '=YEAR(A1)', '=DATEDIF(A1,B1,"Y")', '=TODAY()', '=NOW()']),
+        ),
+      );
+      body.append(
+        section(
+          'dialog.formulaHelp.section.text',
+          p('dialog.formulaHelp.textBody'),
+          codeList(['=LEN(A1)', '=MID(A1,2,3)', '=TEXTJOIN(", ",TRUE,A1:A9)', '=SUBSTITUTE(A1,"-","/")']),
+        ),
+      );
+      body.append(
+        section(
+          'dialog.formulaHelp.section.arrays',
+          p('dialog.formulaHelp.arraysBody'),
+          codeList(['=SORT(A1:C9,2,FALSE)', '=UNIQUE(A1:A9)', '=FILTER(A1:C9,B1:B9>5)', '=SEQUENCE(5,2)']),
+        ),
+      );
+      body.append(
+        section('dialog.formulaHelp.section.filterVsFilter', p('dialog.formulaHelp.filterVsFilterBody')),
       );
 
       body.append(

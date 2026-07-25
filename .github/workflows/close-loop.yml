@@ -21,6 +21,14 @@ on:
         description: 'PR number to summarize'
         required: true
         type: number
+      model:
+        description: 'Optional Claude model override. Leave empty to use CLAUDE_MODEL or the action default.'
+        required: false
+        type: choice
+        options:
+          - ''
+          - claude-sonnet-4-6
+          - claude-opus-4-6
 
 permissions:
   contents: read
@@ -41,6 +49,9 @@ jobs:
     # variable. It routes to one of the two auth steps; it is never a credential.
     env:
       CLAUDE_AUTH_METHOD: ${{ vars.CLAUDE_AUTH_METHOD }}
+      # SELECTED_CLAUDE_MODEL is a NON-secret model id (dispatch input, else the
+      # CLAUDE_MODEL variable, else empty → the action default).
+      SELECTED_CLAUDE_MODEL: ${{ inputs.model || vars.CLAUDE_MODEL }}
     steps:
       - name: Resolve target agent PR
         id: resolve
@@ -84,6 +95,29 @@ jobs:
               ;;
           esac
 
+      # Resolve the model to a validated flag against an explicit allowlist. Empty
+      # selection => no flag (the action default is used). An unknown value fails
+      # the run. The output is only ever empty or `--model <allowlisted-id>`.
+      - name: Resolve and validate Claude model
+        id: model
+        if: steps.resolve.outputs.proceed == 'true'
+        shell: bash
+        run: |
+          case "${SELECTED_CLAUDE_MODEL:-}" in
+            '')
+              echo "model_flag=" >>"$GITHUB_OUTPUT"
+              echo "No model selected; using the action default."
+              ;;
+            claude-sonnet-4-6|claude-opus-4-6)
+              echo "model_flag=--model ${SELECTED_CLAUDE_MODEL}" >>"$GITHUB_OUTPUT"
+              echo "Selected model: ${SELECTED_CLAUDE_MODEL}"
+              ;;
+            *)
+              echo "::error::CLAUDE_MODEL/model must be empty or one of: claude-sonnet-4-6, claude-opus-4-6."
+              exit 1
+              ;;
+          esac
+
       - name: Publish status (OAuth)
         if: steps.resolve.outputs.proceed == 'true' && env.CLAUDE_AUTH_METHOD == 'oauth'
         uses: anthropics/claude-code-action@v1 # SECURITY TODO: pin to a commit SHA
@@ -92,7 +126,9 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
-          claude_args: '--max-turns 10'
+          claude_args: >-
+            --max-turns 10
+            ${{ steps.model.outputs.model_flag }}
           prompt: |
             For pull request #${{ env.PR_NUMBER }} in ${{ github.repository }}, gather
             status with `gh` and post ONE concise, machine-readable status comment on
@@ -121,7 +157,9 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
-          claude_args: '--max-turns 10'
+          claude_args: >-
+            --max-turns 10
+            ${{ steps.model.outputs.model_flag }}
           prompt: |
             For pull request #${{ env.PR_NUMBER }} in ${{ github.repository }}, gather
             status with `gh` and post ONE concise, machine-readable status comment on

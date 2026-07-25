@@ -770,10 +770,13 @@ name that replaces `.rsf` with `.csv`.
 
 - A cell whose input begins with `=` is a formula. The grid shows the computed
   value; the formula bar shows the underlying expression.
-- Supported functions: **SUM, AVERAGE, MIN, MAX, COUNT, IF**. Operators
-  `+ - * / ^`, parentheses, comparisons, and numeric/string/boolean literals
-  are supported. The engine is a hand-written parser/evaluator — there is no
-  `eval` or `new Function`, and loading a document never executes anything.
+- **54 functions** are supported, listed in full under
+  [Function reference](#function-reference) below. Operators `+ - * /`,
+  parentheses, the comparisons `= <> < > <= >=`, and numeric / string /
+  boolean (`TRUE`, `FALSE`) literals are supported. The engine is a
+  hand-written parser and evaluator — there is no `eval`, no `new Function`,
+  no dynamic code generation, no macros, and loading a document never executes
+  anything.
 - References may be single cells (`A1`), rectangular ranges (`A1:B3`), and
   **whole columns or rows** (`A:A`, `A:C`, `1:1`, `2:10`), bounded to the used
   grid. Circular references resolve to `#CYCLE!` rather than hanging;
@@ -810,6 +813,145 @@ name that replaces `.rsf` with `.csv`.
   legibility). They are differentiated by a subtle green tint and a small
   non-italic corner marker; error cells show the literal error code (e.g.
   `#DIV/0!`) in bold, so the state is clear without relying on color or italic.
+
+### Function reference
+
+All 54 functions, grouped as they appear in the offline help. `[square
+brackets]` mark optional arguments.
+
+| Group                      | Functions                                                                                    |
+| -------------------------- | -------------------------------------------------------------------------------------------- |
+| Aggregation                | `SUM` `AVERAGE` `MIN` `MAX` `COUNT` `COUNTA` `COUNTBLANK`                                    |
+| Conditional aggregation    | `COUNTIF` `COUNTIFS` `SUMIF` `SUMIFS` `AVERAGEIF` `AVERAGEIFS`                               |
+| Logical and error handling | `IF` `AND` `OR` `NOT` `IFERROR`                                                              |
+| Math and rounding          | `ROUND` `ROUNDUP` `ROUNDDOWN` `ABS` `MOD`                                                    |
+| Lookup and reference       | `XLOOKUP` `VLOOKUP` `INDEX` `MATCH`                                                          |
+| Text                       | `LEFT` `RIGHT` `MID` `LEN` `TRIM` `CONCAT` `TEXTJOIN` `SUBSTITUTE` `REPLACE` `UPPER` `LOWER` |
+| Date and time              | `TODAY` `NOW` `DATE` `YEAR` `MONTH` `DAY` `DATEDIF`                                          |
+| Statistics                 | `MEDIAN` `MODE.SNGL` `STDEV.S` `STDEV.P` `RANK.EQ`                                           |
+| Dynamic arrays             | `FILTER` `UNIQUE` `SORT` `SEQUENCE`                                                          |
+
+Errors: `#ERROR!` (does not parse), `#NAME?` (unknown function), `#VALUE!`
+(wrong type or shape), `#DIV/0!`, `#REF!` (deleted or invalid reference),
+`#CYCLE!` (circular reference), `#N/A` (lookup found nothing), `#NUM!` (out of
+range or not a finite number), `#SPILL!` (a dynamic array cannot write its
+result), and `#CALC!` (a dynamic array produced no values). Errors propagate
+through every operator and function except `IFERROR`.
+
+**This is not a claim of Excel or Google Sheets compatibility.** The functions
+use familiar names and argument orders, and the great majority of everyday
+formulas behave identically, but the differences below are deliberate and
+documented rather than accidental.
+
+### Criteria (`COUNTIF`, `SUMIF`, and friends)
+
+A criterion is a value, or text beginning with a comparison operator:
+`"apple"`, `"=apple"`, `"<>apple"`, `">10"`, `">=10"`, `"<5"`, `"<=5"`.
+
+- Text comparison is **case-insensitive** and uses a fixed, locale-independent
+  case fold, so results never depend on the host's language settings.
+- `*` matches any run of characters and `?` matches exactly one **Unicode code
+  point**. Write `~*`, `~?`, or `~~` for a literal one.
+- An ordering comparison (`<`, `<=`, `>`, `>=`) with a numeric operand matches
+  only numeric cells; with a text operand it matches only text cells. That is
+  what stops `">10"` from counting the word `"zebra"`.
+- `""` and `"="` match blank cells; `"<>"` matches non-blank ones.
+- Every criteria range in one call must have the **same shape**; a mismatch is
+  `#VALUE!` rather than a silently misaligned scan.
+- Matching never compiles a regular expression. The wildcard matcher is a
+  hand-written scan whose worst case is proportional to pattern length ×
+  subject length, so no criterion can trigger catastrophic backtracking.
+
+### Lookups
+
+- `XLOOKUP` supports exact matching (`match_mode` 0, the default) and wildcard
+  matching (2), searching first-to-last (`search_mode` 1, the default) or
+  last-to-first (-1). The approximate modes (-1, 1) and the binary-search modes
+  (2, -2) are **not implemented** and report `#VALUE!` — they are refused
+  rather than silently downgraded to a different search.
+- `VLOOKUP` and `MATCH` do offer approximate matching. It assumes the lookup
+  column is sorted ascending (descending for `MATCH` with `match_type` -1); the
+  scan is linear and forward, so unsorted input yields a defined but not
+  meaningful answer, never a hang.
+- Nothing found is `#N/A`, unless `XLOOKUP`'s `if_not_found` argument is given.
+- Lookup arrays may live on another worksheet of the same workbook.
+
+### Text and Unicode
+
+`LEN`, `LEFT`, `RIGHT`, `MID`, `REPLACE`, and the `?` wildcard count **Unicode
+code points**, never UTF-16 units and never grapheme clusters:
+
+- Not UTF-16 units, so `LEFT` can never cut an emoji in half or emit a lone
+  surrogate.
+- Not grapheme clusters, because segmenting those depends on the host's
+  bundled Unicode tables — and a `.rsf` file must compute the same values on
+  every machine.
+
+So `LEN("日本語")` is 3 and `LEN("🍎")` is 1, while a combining accent
+(`e` + U+0301) counts 2 and a three-person family emoji counts 5. `TRIM`
+removes surrounding whitespace and collapses runs of ordinary spaces, but never
+touches a line break or an ideographic space. Text results are capped at
+32,767 characters.
+
+### Dates and times
+
+A date is a **number**, not a separate kind of value:
+
+- Serial `0` is **1899-12-30**; whole numbers are days and the fraction is the
+  time of day, so `=A1+7` means a week later.
+- That epoch makes RSF serials identical to Excel and Google Sheets for every
+  date from **1900-03-01 onward**. RSF deliberately does not reproduce Excel's
+  fictitious 1900-02-29, so for the 60 days before that an RSF serial is one
+  greater than the Excel serial.
+- **Every conversion is UTC.** `DATE`, `YEAR`, `MONTH`, `DAY`, and `DATEDIF`
+  have no timezone or DST input at all, and `TODAY()` / `NOW()` report the UTC
+  date and time. A workbook therefore computes the same values wherever it is
+  opened — at the cost that in a UTC+9 morning, "today" is the previous local
+  day.
+- `DATE` rolls month and day overflow into neighbouring months and years, so
+  `DATE(2020, 3, 0)` is 29 February 2020 and `DATE(2020, 13, 1)` is 1 January 2021. A year of 0–1899 means 1900 + year.
+- `DATEDIF` supports `"Y"`, `"M"`, `"D"`, `"YM"`, `"YD"`, and `"MD"`. `YD` and
+  `MD` advance the start date to its last anniversary on or before the end
+  date, so they never return the negative values Excel's `MD` is known for. A
+  reversed range or an unknown unit is an error, not a guess.
+- **Dates display as their serial number.** There are no cell number formats in
+  this application, so `=TODAY()` shows something like `46228`. Use `YEAR`,
+  `MONTH`, and `DAY`, or `TEXTJOIN`, to present a date readably.
+- `TODAY()` and `NOW()` are **volatile**: they change only when the workbook is
+  edited or when you choose **Sheet > Recalculate**. There is deliberately no
+  background recalculation timer, so an idle tab never burns CPU and a
+  document never appears to change by itself.
+
+### Dynamic arrays and spilling
+
+`FILTER`, `UNIQUE`, `SORT`, and `SEQUENCE` return a whole rectangle of values.
+`XLOOKUP`, `INDEX`, and `IFERROR` can too, when asked for a whole row or column.
+
+- The formula stays in **one** cell — the **spill anchor** — and the rest of
+  the rectangle is filled in automatically with **derived cells**.
+- Derived cells are not editable. Editing, pasting into, filling, or clearing
+  one is refused with a message naming the anchor to edit instead. The formula
+  bar for a derived cell is empty, because it holds no input.
+- If any cell in the rectangle is occupied, or the rectangle would run past the
+  worksheet's last row or column, the anchor shows `#SPILL!` and writes
+  **nothing at all** — never a partial result. Clearing the obstruction
+  restores the spill immediately.
+- Several spills coexist; when two would overlap, they are placed in row-major
+  order and the first to claim a cell keeps it.
+- Spilling never crosses a worksheet boundary, but a spill's **source** range
+  may be on another worksheet.
+- **Only the anchor's formula is saved.** Derived values are recomputed from it
+  every time, which is why undo/redo, row and column insertion, worksheet
+  renames, filtering, find and replace, CSV export, and the `.rsf` round trip
+  all need no spill-specific handling — and why no stale derived value can ever
+  be written to a file.
+- Arithmetic does not spread over an array: `=SEQUENCE(3)+1` is `#VALUE!`, not
+  three numbers. **Comparisons do**, because that is how a condition is
+  written: `=FILTER(A1:C9, B1:B9>5)` works as expected.
+- `FILTER()` is not the **Data > Filter** command. The function computes a new
+  list into empty cells and leaves the source untouched; the command hides
+  rows of the sheet you are looking at and is saved with the file. Filtering a
+  sheet does not change what `FILTER` returns.
 
 ### Formula and function help
 
@@ -1231,9 +1373,16 @@ and the invariants every change must preserve) is documented in
 ```text
 src/
   core/     lossless document model, byte-level CSV parser, serializer,
-            encoding, validation, history, search, formula engine, stats,
+            encoding, validation, history, search, stats,
             RSF workbook + worksheet model + binary codec — DOM-independent,
-            unit-tested
+            unit-tested. The formula engine is split into:
+              formula-value.ts      value model, errors, coercion, limits
+              formula-criteria.ts   criteria parsing + safe wildcards
+              formula-date.ts       UTC date-serial scale, DATEDIF
+              formula-text.ts       code-point-safe text helpers
+              formula-functions.ts  the function registry (54 functions)
+              formula.ts            tokenizer, parser, evaluator, rewriting
+              spill.ts              dynamic-array placement (pure)
   app/      tabs & app state, command layer, file access, settings, i18n,
             keyboard-shortcut routing, spreadsheet-font preference,
             version (single authoritative app name/version source)
@@ -1251,8 +1400,10 @@ docs/       architecture.md (layers, data flow, invariants),
 bench/      reproducible performance benchmarks (npm run bench)
 tests/      identity, fuzz/property-based, editing, encodings, save options,
             validation, history, search, formulas, cross-sheet formulas,
-            stats, spreadsheet, workbooks/worksheets, RSF binary codec,
-            WASM/JS parity, i18n, commands, UI (jsdom),
+            every worksheet function, criteria + wildcard bounds, date
+            serials + volatility, Unicode text behaviour, dynamic-array
+            spilling, stats, spreadsheet, workbooks/worksheets, RSF binary
+            codec, WASM/JS parity, i18n, commands, UI (jsdom),
             responsiveness regression tests (perf)
 ```
 

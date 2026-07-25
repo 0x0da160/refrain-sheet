@@ -20,6 +20,45 @@ The assets we protect and the boundaries we treat as untrusted:
 | Release artifacts                      | Tampering / supply-chain substitution                                                         | SHA-256 checksum, CycloneDX SBOM, and a signed SLSA-style build-provenance attestation, all published with the release.                                                                                                                            |
 | Developer machine / secrets            | Leaked credentials                                                                            | No credentials are ever committed; `.gitignore` blocks env files and key material; the committed `.npmrc` holds config only (never an auth token).                                                                                                 |
 
+### The formula engine treats every input as hostile
+
+Formula text, function arguments, criteria strings, ranges, worksheet names,
+and everything decoded from a `.rsf` file are untrusted. Three properties keep
+a crafted formula — in a file a user was sent, not just one they typed — from
+becoming a denial of service or worse.
+
+**No code execution, ever.** The engine is a hand-written tokenizer, parser,
+and tree-walking evaluator. There is no `eval`, no `new Function`, no dynamic
+JavaScript or Rust generation, no macros, no external or remote references, and
+no runtime network access. Loading a document evaluates data, never code.
+
+**No regular expressions built from user input.** Criteria wildcards (`*`,
+`?`) are matched by a hand-written two-pointer scan that remembers only the
+most recent `*` as a backtrack point. Its worst case is proportional to pattern
+length × subject length, so a pattern such as `"*a*a*a*a*a*b"` — the shape that
+makes a backtracking regular-expression engine take exponential time — costs
+milliseconds. A test asserts the bound directly.
+
+**Everything is bounded.** Formula length (8,192), call arguments (255),
+parser nesting depth (400 units), cells per range argument (2,000,000),
+dynamic-array rows / columns / cells (100,000 / 16,384 / 1,000,000), spill
+anchors per worksheet (512), spilled cells per worksheet (1,000,000), text
+result length (32,767), criteria length (512), criteria pairs (32), and sort
+keys (8). `docs/rsf-format.md` carries the same table with each bound's
+rationale. Exceeding one produces an ordinary formula error in that one cell —
+`#NUM!`, `#VALUE!`, or `#SPILL!` — not a crash, a hang, or an
+unresponsive-page dialog. Parsing and evaluation are iterative or
+depth-limited, so no attacker-controlled input can overflow the stack, and a
+function that throws unexpectedly is caught and reported as `#VALUE!` in its
+own cell rather than taking the tab down.
+
+Two further properties are correctness controls that happen to matter for
+safety: evaluation is deterministic and host-independent (UTC-only dates,
+locale-independent case folding, code-point text units), so a file cannot be
+made to compute different values on a different machine; and dynamic-array
+results are never persisted, so a file can never carry a pre-computed value
+that disagrees with the formula that claims to produce it.
+
 ### Runtime is offline by construction
 
 The built `dist/` embeds the WebAssembly core as Base64 (never fetched) and

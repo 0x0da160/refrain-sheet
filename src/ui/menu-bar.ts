@@ -135,6 +135,10 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.sheet.filter', command: 'sheet.filter' },
         { labelKey: 'menu.sheet.filterClear', command: 'sheet.filterClear' },
         'separator',
+        // The only way a volatile formula (TODAY, NOW) updates without an
+        // edit: there is deliberately no background recalculation timer.
+        { labelKey: 'menu.sheet.recalculate', command: 'sheet.recalculate' },
+        'separator',
         { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
       ],
     },

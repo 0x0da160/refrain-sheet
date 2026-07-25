@@ -3,6 +3,7 @@ import { normalizeRange, type CellRange } from '../core/clipboard';
 import { computeHiddenRows, filtersEqual, type SheetFilter } from '../core/filter';
 import {
   adjustFormulaForAxis,
+  cellLabel,
   formulaReferencesSheet,
   invalidateSheetRefsInFormula,
   isFormula,
@@ -333,6 +334,47 @@ export class AppState {
     tab.anchor = tab.anchor ? clamp(tab.anchor) : null;
   }
 
+  /**
+   * The dynamic-array spill anchor a write would land inside, or null when the
+   * cells are free to write.
+   *
+   * Derived spill cells are not independent values — they are one formula's
+   * output — so writing into one would be silently undone by the next
+   * recalculation. Every user-initiated write path consults this and refuses,
+   * pointing the user at the anchor instead. Undo and redo deliberately do
+   * **not**: they restore inputs, and a derived cell's input is always empty.
+   */
+  spillBlocked(
+    tab: Tab,
+    cells: ReadonlyArray<{ row: number; col: number }>,
+  ): { row: number; col: number } | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || cells.length === 0 || !doc.hasSpills()) {
+      return null;
+    }
+    const sheetId = doc.activeSheetId;
+    for (const cell of cells) {
+      if (doc.isSpillDerivedCell(sheetId, cell.row, cell.col)) {
+        const anchor = doc.spillAnchorAt(sheetId, cell.row, cell.col);
+        return anchor ? { row: anchor.row, col: anchor.col } : { row: cell.row, col: cell.col };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Refuse a write that would land in a spill range, announcing why.
+   * Returns true when the caller must stop.
+   */
+  private refuseSpillWrite(tab: Tab, cells: ReadonlyArray<{ row: number; col: number }>): boolean {
+    const anchor = this.spillBlocked(tab, cells);
+    if (!anchor) {
+      return false;
+    }
+    this.announce?.(t('notify.spillProtected', { cell: cellLabel(anchor.row, anchor.col) }));
+    return true;
+  }
+
   /** Set one cell's value as a single undoable operation. */
   editCell(tab: Tab, row: number, col: number, value: string, label = 'history.editCell'): boolean {
     if (tab.doc.kind === 'csv') {
@@ -361,6 +403,9 @@ export class AppState {
     if (before === value) {
       return false;
     }
+    if (this.refuseSpillWrite(tab, [{ row, col }])) {
+      return false;
+    }
     const sheetId = tab.doc.activeSheetId;
     const changes = [{ row, col, before, after: value }];
     this.applyChange(tab, changes[0], 'after', sheetId);
@@ -375,6 +420,9 @@ export class AppState {
   bulkEdit(tab: Tab, changes: CellChange[], label: string): boolean {
     const effective = changes.filter((c) => c.before !== c.after);
     if (effective.length === 0) {
+      return false;
+    }
+    if (this.refuseSpillWrite(tab, effective)) {
       return false;
     }
     const sheetId = tab.doc.kind === 'rsf' ? tab.doc.activeSheetId : undefined;
@@ -407,6 +455,13 @@ export class AppState {
     });
     if (!nonEmpty) {
       return false;
+    }
+    // Structural operations (row/column insert and delete) move a spill's
+    // anchor rather than writing into it, so only the cell writes are checked.
+    for (const op of entry.ops) {
+      if (op.type === 'cells' && this.refuseSpillWrite(tab, op.changes)) {
+        return false;
+      }
     }
     // Applied before the entry is recorded so the automatic wrap enable — which
     // is decided from the *committed* values — can join the same entry and

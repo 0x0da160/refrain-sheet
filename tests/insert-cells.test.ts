@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { AppState, type Selection } from '../src/app/app-state';
+import { AppState, type Selection, type SelectionKind } from '../src/app/app-state';
+import { ClipboardController } from '../src/app/clipboard-controller';
 import { Commands, type UiPort } from '../src/app/commands';
 import { RsfDocument } from '../src/core/rsf-document';
 import { doc as csvDoc } from './helpers';
@@ -55,11 +56,17 @@ function rcsvSetup(values: string[][], ui: UiPort = stubUi()) {
   return { state, commands, tab, doc, ui };
 }
 
-function withCopied(commands: Commands, matrix: string[][], origin: Selection | null): void {
+function withCopied(
+  commands: Commands,
+  matrix: string[][],
+  origin: Selection | null,
+  kind: SelectionKind = 'cell',
+): void {
   commands.clipboardActions = {
     copy: async () => undefined,
     paste: async () => undefined,
     getCopied: async () => ({ matrix, origin }),
+    copiedKind: () => kind,
   };
 }
 
@@ -226,6 +233,7 @@ describe('Insert Copied Cells…', () => {
       copy: async () => undefined,
       paste: async () => undefined,
       getCopied: async () => null,
+      copiedKind: () => null,
     };
     state.setSelection(tab, { row: 0, col: 0 }, null);
     expect(await commands.insertCopiedCells(tab)).toBe(false);
@@ -391,6 +399,7 @@ describe('Insert Copied Rows / Insert Copied Columns', () => {
       copy: async () => undefined,
       paste: async () => undefined,
       getCopied: async () => null,
+      copiedKind: () => null,
     };
     state.setSelection(tab, { row: 0, col: 0 }, null);
     expect(await commands.insertCopiedAxis(tab, 'rows')).toBe(false);
@@ -398,12 +407,12 @@ describe('Insert Copied Rows / Insert Copied Columns', () => {
     expect(tab.doc.isDirty).toBe(false);
   });
 
-  it('the commands are enabled with a selection and reachable through run()', async () => {
+  it('insertCopiedRows is enabled with a selection and a row copy, and reachable through run()', async () => {
     const { state, commands, tab } = rcsvSetup([['a']]);
-    withCopied(commands, [['X']], null);
+    withCopied(commands, [['X']], null, 'row');
     state.setSelection(tab, { row: 0, col: 0 }, null);
     expect(commands.isEnabled('edit.insertCopiedRows')).toBe(true);
-    expect(commands.isEnabled('edit.insertCopiedCols')).toBe(true);
+    expect(commands.isEnabled('edit.insertCopiedCols')).toBe(false);
     await commands.run('edit.insertCopiedRows');
     expect(tab.doc.rowCount).toBe(2);
   });
@@ -440,5 +449,71 @@ describe('Insert Copied Rows / Insert Copied Columns', () => {
     expect(busyCalls.some((l) => typeof l === 'string' && /\(\d+%\)/.test(l))).toBe(true);
     expect(tab.doc.columnCount).toBe(101);
     expect(busyCalls[busyCalls.length - 1]).toBeNull();
+  });
+});
+
+describe('Insert Copied … menu/context-menu enablement', () => {
+  it('disables all three commands when nothing has been copied yet, even with a selection', () => {
+    const { state, commands, tab } = rcsvSetup([['a']]);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    expect(commands.isEnabled('edit.insertCopiedCells')).toBe(false);
+    expect(commands.isEnabled('edit.insertCopiedRows')).toBe(false);
+    expect(commands.isEnabled('edit.insertCopiedCols')).toBe(false);
+  });
+
+  it('disables all three commands when there is no target selection, regardless of copy kind', () => {
+    const { state, commands, tab } = rcsvSetup([['a']]);
+    state.setSelection(tab, null);
+    withCopied(commands, [['X']], null, 'cell');
+    expect(commands.isEnabled('edit.insertCopiedCells')).toBe(false);
+    expect(commands.isEnabled('edit.insertCopiedRows')).toBe(false);
+    expect(commands.isEnabled('edit.insertCopiedCols')).toBe(false);
+  });
+
+  it('after copying a cell range, enables only Insert Copied Cells', () => {
+    const { state, commands, tab } = rcsvSetup([['a']]);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    withCopied(commands, [['X']], null, 'cell');
+    expect(commands.isEnabled('edit.insertCopiedCells')).toBe(true);
+    expect(commands.isEnabled('edit.insertCopiedRows')).toBe(false);
+    expect(commands.isEnabled('edit.insertCopiedCols')).toBe(false);
+  });
+
+  it('after copying whole rows, enables Insert Copied Cells and Insert Copied Rows', () => {
+    const { state, commands, tab } = rcsvSetup([['a']]);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    withCopied(commands, [['X']], null, 'row');
+    expect(commands.isEnabled('edit.insertCopiedCells')).toBe(true);
+    expect(commands.isEnabled('edit.insertCopiedRows')).toBe(true);
+    expect(commands.isEnabled('edit.insertCopiedCols')).toBe(false);
+  });
+
+  it('after copying whole columns, enables Insert Copied Cells and Insert Copied Columns', () => {
+    const { state, commands, tab } = rcsvSetup([['a']]);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    withCopied(commands, [['X']], null, 'col');
+    expect(commands.isEnabled('edit.insertCopiedCells')).toBe(true);
+    expect(commands.isEnabled('edit.insertCopiedRows')).toBe(false);
+    expect(commands.isEnabled('edit.insertCopiedCols')).toBe(true);
+  });
+
+  it('copying via ClipboardController.copyText() records the source selection kind synchronously', () => {
+    const { state, commands, tab } = rcsvSetup([
+      ['a', 'b'],
+      ['c', 'd'],
+    ]);
+    const clipboard = new ClipboardController(state, commands, vi.fn());
+    commands.clipboardActions = {
+      copy: () => clipboard.copyViaApi(),
+      paste: () => clipboard.pasteViaApi(),
+      getCopied: () => clipboard.getCopied(),
+      copiedKind: () => clipboard.copiedKind(),
+    };
+    expect(commands.isEnabled('edit.insertCopiedRows')).toBe(false);
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 1 }, 'row');
+    clipboard.copyText();
+    expect(clipboard.copiedKind()).toBe('row');
+    expect(commands.isEnabled('edit.insertCopiedRows')).toBe(true);
+    expect(commands.isEnabled('edit.insertCopiedCols')).toBe(false);
   });
 });

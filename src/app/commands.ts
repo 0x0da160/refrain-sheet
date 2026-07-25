@@ -58,7 +58,7 @@ import {
   type UnrepresentableCell,
 } from '../core/serializer';
 import { validateDocument, type ValidationSummary } from '../core/validation';
-import { AppState, defaultSheetName, type Selection, type Tab } from './app-state';
+import { AppState, defaultSheetName, type Selection, type SelectionKind, type Tab } from './app-state';
 import {
   pickFiles,
   readFileObject,
@@ -402,6 +402,8 @@ export class Commands {
     paste: () => Promise<void>;
     /** The most recently copied range (internal clipboard, else parsed system text). */
     getCopied: () => Promise<{ matrix: string[][]; origin: Selection | null } | null>;
+    /** The kind of the most recently copied selection in the internal clipboard, or null. Synchronous, for isEnabled(). */
+    copiedKind: () => SelectionKind | null;
   } | null = null;
 
   /** Set by main.ts so commands can drive grid-only operations (measurement needs the DOM). */
@@ -455,19 +457,33 @@ export class Commands {
         return tab !== null && tab.history.canUndo;
       case 'edit.redo':
         return tab !== null && tab.history.canRedo;
-      // The Insert Copied … commands, Flash Fill, and Filter stay clickable
-      // on a CSV tab: running one explains that the operation needs an RSF
-      // spreadsheet document (and Insert warns when nothing has been copied).
+      // Flash Fill, Move Range, and Filter stay clickable on a CSV tab:
+      // running one explains that the operation needs an RSF spreadsheet
+      // document.
       case 'edit.copy':
       case 'edit.paste':
       case 'edit.fillDown':
       case 'edit.flashFill':
       case 'edit.moveRange':
-      case 'edit.insertCopiedCells':
-      case 'edit.insertCopiedRows':
-      case 'edit.insertCopiedCols':
       case 'sheet.filter':
         return tab?.selection != null;
+      // The Insert Copied … commands additionally require a compatible kind
+      // in the internal (in-app) clipboard: Cells accepts any copied kind;
+      // Rows/Columns require a matching whole-row/whole-column copy. Nothing
+      // copied yet (or a copy of the wrong kind) disables the item outright,
+      // rather than relying on the run-time notify.nothingToInsert warning.
+      case 'edit.insertCopiedCells': {
+        const kind = this.clipboardActions?.copiedKind() ?? null;
+        return tab?.selection != null && kind !== null;
+      }
+      case 'edit.insertCopiedRows': {
+        const kind = this.clipboardActions?.copiedKind() ?? null;
+        return tab?.selection != null && kind === 'row';
+      }
+      case 'edit.insertCopiedCols': {
+        const kind = this.clipboardActions?.copiedKind() ?? null;
+        return tab?.selection != null && kind === 'col';
+      }
       case 'sheet.filterClear':
         return tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null;
       case 'edit.revertCell':

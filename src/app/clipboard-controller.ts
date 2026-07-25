@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { copyRows, parseClipboardText, rangeToMatrix, rangeToTsv } from '../core/clipboard';
-import type { AppState, Selection } from './app-state';
+import type { AppState, Selection, SelectionKind } from './app-state';
 import type { Commands } from './commands';
 import { t } from './i18n';
 
@@ -19,7 +19,8 @@ import { t } from './i18n';
  * navigator.clipboard API is used for the menu commands where available.
  */
 export class ClipboardController {
-  private internal: { text: string; matrix: string[][]; origin: Selection } | null = null;
+  private internal: { text: string; matrix: string[][]; origin: Selection; kind: SelectionKind } | null =
+    null;
 
   constructor(
     private readonly state: AppState,
@@ -51,8 +52,19 @@ export class ClipboardController {
       text,
       matrix: rangeToMatrix(tab.doc, range, rows),
       origin: { row: range.top, col: range.left },
+      kind: tab.selectionKind,
     };
     return text;
+  }
+
+  /**
+   * The kind of selection most recently copied into the internal (in-app)
+   * clipboard, or null when nothing has been copied yet. Synchronous — never
+   * touches the system clipboard — so menu/context-menu enablement can call
+   * it directly.
+   */
+  copiedKind(): SelectionKind | null {
+    return this.internal?.kind ?? null;
   }
 
   /** Ctrl+C / Cmd+C: write TSV into the clipboard event. */

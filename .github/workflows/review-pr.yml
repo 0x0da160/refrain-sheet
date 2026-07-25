@@ -10,6 +10,10 @@ name: Review PR
 # - Additionally gated to SAME-REPO PRs on the approved `agent/issue-*` branch
 #   pattern, so it only reviews trusted agent branches (fork PRs simply skip, and
 #   with `pull_request` they would have no secret anyway).
+# - Agent PRs are opened by `implement-issue.yml` under GITHUB_TOKEN, so this
+#   workflow is legitimately bot-initiated; `allowed_bots: github-actions` permits
+#   that ONE bot (never '*'). This does not weaken any approval gate: `agent:ready`
+#   stays human-only, and this job cannot approve, merge, or push.
 # - Inert until a human installs the Claude GitHub App + adds ANTHROPIC_API_KEY.
 # - `anthropics/claude-code-action` is THIRD-PARTY. SECURITY TODO: pin `@v1` to a
 #   verified commit SHA before enabling (docs/security.md pinning policy).
@@ -128,6 +132,13 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
+          # `implement-issue.yml` opens the agent PR with GITHUB_TOKEN, so the PR
+          # author — and therefore this `pull_request` event's actor — is
+          # `github-actions[bot]`. The action's human-actor check rejects that,
+          # which is why every review run on a real `agent/issue-*` PR has failed.
+          # Allow EXACTLY that one bot: never `'*'`, and no dependency bots.
+          # See docs/agent-operations.md ("Why review-pr.yml allows one bot").
+          allowed_bots: github-actions
           # Grant the tools review needs: repo reading plus Bash for `gh` and the
           # verification suite (without an explicit allowlist EVERY tool call is
           # denied and the run burns its turns on permission denials). `gh pr
@@ -170,6 +181,8 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
+          # Same single-bot allowance as the OAuth step above; see its comment.
+          allowed_bots: github-actions
           # Grant the tools review needs: repo reading plus Bash for `gh` and the
           # verification suite (without an explicit allowlist EVERY tool call is
           # denied and the run burns its turns on permission denials). `gh pr

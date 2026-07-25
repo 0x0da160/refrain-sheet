@@ -200,6 +200,24 @@ describe('conditional row-height wrapping', () => {
     expect(tab.doc.rowCount).toBe(rows);
   });
 
+  it('renders as a no-op instead of throwing when its environment is gone', () => {
+    const { grid } = setup('hello world,x\n', { colWidths: [50, 132] });
+    // A deferred pass — the off-screen wrap measure, the scroll rAF, or an async
+    // auto-fit — can resolve after the grid's browsing context is gone. That is
+    // exactly the shape of a torn-down test environment: the global `document`
+    // disappears while the element's ownerDocument is still reachable, so
+    // rendering explodes inside the DOM builder (`el`).
+    vi.stubGlobal('document', undefined);
+    try {
+      // The element's own document reference survives teardown, which is why
+      // guarding on `ownerDocument.defaultView` alone never caught this.
+      expect(grid.element.ownerDocument.defaultView).toBeTruthy();
+      expect(() => grid.refresh()).not.toThrow();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('keeps the pinned sticky first row single-line even with a long value', () => {
     const { grid } = setup('hello world,x\nsecond,y\nthird,z\n', { colWidths: [50, 132], sticky: true });
     // The pinned overlay row stays a stable single-line height…

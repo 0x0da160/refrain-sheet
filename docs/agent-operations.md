@@ -135,6 +135,17 @@ These cannot be automated safely and must be done by a repository admin.
    also confirm the [allowlisted model ids](#allowed-model-identifiers) are valid for
    that action build.
 4. **Create the labels** — one-time, with the GitHub CLI (colors/descriptions from
+   [`.github/labels.yml`](../.github/labels.yml)). **Create all of them, including
+   the `type:*` and `risk:*` labels.** GitHub **silently drops** a label an Issue
+   Form declares if that label does not exist in the repository — the issue is
+   created without it and nothing warns you. Triage is also told to apply
+   `risk:*` labels, and will only be able to recommend them in a comment while
+   they are missing. (No workflow gates on a `type:*` label, precisely so a
+   missing one cannot deadlock the loop, but the labels are still how humans
+   filter the backlog.) Verify with `gh label list` after running the block
+   below.
+
+   The one-time commands (colors/descriptions from
    [`.github/labels.yml`](../.github/labels.yml)):
 
    ```bash
@@ -322,11 +333,23 @@ Every automated action is reversible and traceable to an Issue or PR:
 - **Max runtime:** each workflow sets `timeout-minutes` (triage 15, implement 45,
   review 25, close-loop 15).
 - **Max concurrency:** `concurrency` groups key implementation to one run per Issue.
-- **Turn caps:** each agent invocation passes `--max-turns` to bound model work.
-  The implementation cap defaults to `120` and is tunable without editing YAML via
-  the optional Actions **variable** `AGENT_MAX_TURNS` (set it higher for larger
-  features, lower to cap cost). A run that exhausts the cap fails and lands on
-  `agent:blocked` — raise `AGENT_MAX_TURNS` and re-apply `agent:ready` to retry.
+- **Turn caps:** each agent invocation passes `--max-turns` to bound model work
+  (triage 20, prepare-spec 25, review 25, close-loop 15). The implementation cap
+  defaults to `120` and is tunable without editing YAML via the optional Actions
+  **variable** `AGENT_MAX_TURNS` (set it higher for larger features, lower to cap
+  cost). A run that exhausts the cap fails and lands on `agent:blocked` — raise
+  `AGENT_MAX_TURNS` and re-apply `agent:ready` to retry.
+- **Tool allowlists:** every agent invocation also passes `--allowedTools` /
+  `--disallowedTools`. This is **not optional**: with no `--allowedTools`, the
+  action denies every tool call, and the run burns its entire turn budget on
+  permission denials before failing with `error_max_turns` (look for a high
+  `permission_denials_count` in the run's JSON output — that signature means a
+  missing tool grant, not a too-small turn cap). Each workflow allows only
+  `Read,Glob,Grep,Bash` and denies the mutating command families it must never
+  use (pushes; PR merge/approve/close; releases; repo/secret/variable/workflow
+  configuration; and raw `gh api` wherever the job holds `pull-requests: write`,
+  so an approval cannot be submitted through the API). The job's `permissions:`
+  block remains the enforcing boundary; the allowlists are defense in depth.
 - **Max retries per Issue:** treat repeated `agent:blocked` on the same Issue (e.g.
   ≥ 2 failed implementation attempts) as an escalation — a human investigates before
   re-approving.

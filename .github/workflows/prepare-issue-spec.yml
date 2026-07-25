@@ -48,13 +48,18 @@ jobs:
   prepare-spec:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Run for a feature request (opened, or when it gains `agent:triage`), or on
-    # manual dispatch. Ignore bot-authored events and issues that already advanced
-    # past specification, to avoid loops and redundant work.
+    # Run when an issue is opened, or when it gains `agent:triage`, or on manual
+    # dispatch. Ignore bot-authored events and issues that already advanced past
+    # specification, to avoid loops and redundant work.
+    #
+    # NOTE: this deliberately does NOT require a `type:*` label. Issue-form labels
+    # are silently dropped by GitHub when the label does not exist in the
+    # repository, so gating on one would make this workflow skip forever (and
+    # deadlock the loop, since implement-issue requires a spec). Type/risk labels
+    # are advisory; the skill classifies the request itself.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.sender.type != 'Bot' &&
-       contains(github.event.issue.labels.*.name, 'type:feature') &&
        (github.event.action == 'opened' ||
         (github.event.action == 'labeled' && github.event.label.name == 'agent:triage')) &&
        !contains(github.event.issue.labels.*.name, 'agent:ready') &&
@@ -118,9 +123,17 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
+          # Grant the tools the spec stage needs: repo reading (to ground the spec
+          # in real files) plus Bash for the `gh` CLI (without an explicit
+          # allowlist EVERY tool call is denied and the run burns its turns on
+          # permission denials). Deny the mutating command families it must never
+          # use. The job token (contents:read + issues:write) is the enforcing
+          # boundary — it cannot push, open PRs, merge, or deploy.
           claude_args: >-
-            --max-turns 15
+            --max-turns 25
             ${{ steps.model.outputs.model_flag }}
+            --allowedTools "Read,Glob,Grep,Bash"
+            --disallowedTools "Bash(git push:*),Bash(gh pr:*),Bash(gh release:*),Bash(gh repo:*),Bash(gh secret:*),Bash(gh variable:*),Bash(gh workflow:*)"
           prompt: |
             Follow the repository skill at `.claude/skills/prepare-issue-spec/SKILL.md`
             exactly. Prepare an implementation specification for GitHub Issue
@@ -153,9 +166,17 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
+          # Grant the tools the spec stage needs: repo reading (to ground the spec
+          # in real files) plus Bash for the `gh` CLI (without an explicit
+          # allowlist EVERY tool call is denied and the run burns its turns on
+          # permission denials). Deny the mutating command families it must never
+          # use. The job token (contents:read + issues:write) is the enforcing
+          # boundary — it cannot push, open PRs, merge, or deploy.
           claude_args: >-
-            --max-turns 15
+            --max-turns 25
             ${{ steps.model.outputs.model_flag }}
+            --allowedTools "Read,Glob,Grep,Bash"
+            --disallowedTools "Bash(git push:*),Bash(gh pr:*),Bash(gh release:*),Bash(gh repo:*),Bash(gh secret:*),Bash(gh variable:*),Bash(gh workflow:*)"
           prompt: |
             Follow the repository skill at `.claude/skills/prepare-issue-spec/SKILL.md`
             exactly. Prepare an implementation specification for GitHub Issue

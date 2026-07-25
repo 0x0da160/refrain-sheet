@@ -126,9 +126,17 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
+          # Grant the tools status aggregation needs: repo reading plus Bash for
+          # the `gh` CLI (without an explicit allowlist EVERY tool call is denied
+          # and the run burns its turns on permission denials). `gh pr
+          # view/checks/comment` stay available; merging, approving, closing, and
+          # raw `gh api` are denied — this job holds pull-requests:write and must
+          # only ever comment.
           claude_args: >-
-            --max-turns 10
+            --max-turns 15
             ${{ steps.model.outputs.model_flag }}
+            --allowedTools "Read,Glob,Grep,Bash"
+            --disallowedTools "Bash(git push:*),Bash(gh pr merge:*),Bash(gh pr review:*),Bash(gh pr close:*),Bash(gh pr edit:*),Bash(gh pr ready:*),Bash(gh issue close:*),Bash(gh api:*),Bash(gh release:*),Bash(gh repo:*),Bash(gh secret:*),Bash(gh variable:*),Bash(gh workflow:*)"
           prompt: |
             For pull request #${{ env.PR_NUMBER }} in ${{ github.repository }}, gather
             status with `gh` and post ONE concise, machine-readable status comment on
@@ -157,9 +165,17 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
+          # Grant the tools status aggregation needs: repo reading plus Bash for
+          # the `gh` CLI (without an explicit allowlist EVERY tool call is denied
+          # and the run burns its turns on permission denials). `gh pr
+          # view/checks/comment` stay available; merging, approving, closing, and
+          # raw `gh api` are denied — this job holds pull-requests:write and must
+          # only ever comment.
           claude_args: >-
-            --max-turns 10
+            --max-turns 15
             ${{ steps.model.outputs.model_flag }}
+            --allowedTools "Read,Glob,Grep,Bash"
+            --disallowedTools "Bash(git push:*),Bash(gh pr merge:*),Bash(gh pr review:*),Bash(gh pr close:*),Bash(gh pr edit:*),Bash(gh pr ready:*),Bash(gh issue close:*),Bash(gh api:*),Bash(gh release:*),Bash(gh repo:*),Bash(gh secret:*),Bash(gh variable:*),Bash(gh workflow:*)"
           prompt: |
             For pull request #${{ env.PR_NUMBER }} in ${{ github.repository }}, gather
             status with `gh` and post ONE concise, machine-readable status comment on

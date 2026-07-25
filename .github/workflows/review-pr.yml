@@ -119,9 +119,18 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
+          # Grant the tools review needs: repo reading plus Bash for `gh` and the
+          # verification suite (without an explicit allowlist EVERY tool call is
+          # denied and the run burns its turns on permission denials). `gh pr
+          # view/diff/comment` stay available; the APPROVING and merging
+          # subcommands are denied, as is `gh api` — this job holds
+          # pull-requests:write, so a raw API call could otherwise submit an
+          # approving review, which this workflow must never do.
           claude_args: >-
             --max-turns 25
             ${{ steps.model.outputs.model_flag }}
+            --allowedTools "Read,Glob,Grep,Bash"
+            --disallowedTools "Bash(git push:*),Bash(gh pr merge:*),Bash(gh pr review:*),Bash(gh pr close:*),Bash(gh pr edit:*),Bash(gh pr ready:*),Bash(gh api:*),Bash(gh release:*),Bash(gh repo:*),Bash(gh secret:*),Bash(gh variable:*),Bash(gh workflow:*)"
           prompt: |
             Follow `.claude/skills/review-pr/SKILL.md` exactly. Independently review
             pull request #${{ env.PR_NUMBER }} in ${{ github.repository }}.
@@ -152,9 +161,18 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
+          # Grant the tools review needs: repo reading plus Bash for `gh` and the
+          # verification suite (without an explicit allowlist EVERY tool call is
+          # denied and the run burns its turns on permission denials). `gh pr
+          # view/diff/comment` stay available; the APPROVING and merging
+          # subcommands are denied, as is `gh api` — this job holds
+          # pull-requests:write, so a raw API call could otherwise submit an
+          # approving review, which this workflow must never do.
           claude_args: >-
             --max-turns 25
             ${{ steps.model.outputs.model_flag }}
+            --allowedTools "Read,Glob,Grep,Bash"
+            --disallowedTools "Bash(git push:*),Bash(gh pr merge:*),Bash(gh pr review:*),Bash(gh pr close:*),Bash(gh pr edit:*),Bash(gh pr ready:*),Bash(gh api:*),Bash(gh release:*),Bash(gh repo:*),Bash(gh secret:*),Bash(gh variable:*),Bash(gh workflow:*)"
           prompt: |
             Follow `.claude/skills/review-pr/SKILL.md` exactly. Independently review
             pull request #${{ env.PR_NUMBER }} in ${{ github.repository }}.

@@ -102,6 +102,7 @@ function bootstrap(): void {
     copy: () => clipboard.copyViaApi(),
     paste: () => clipboard.pasteViaApi(),
     getCopied: () => clipboard.getCopied(),
+    copiedKind: () => clipboard.copiedKind(),
   };
   commands.gridActions = {
     autoFitSelectedColumns: () => grid.autoFitSelectedColumns(),

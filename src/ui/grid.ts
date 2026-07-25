@@ -963,6 +963,18 @@ export class Grid {
   }
 
   private render(tab: Tab): void {
+    // Rendering reaches for the GLOBAL `document` (directly, and through the
+    // `el` DOM builder), so it is only safe while a browsing context exists.
+    // Three callers are deferred — the off-screen wrap-measure pass, the scroll
+    // rAF, and async auto-fit — and any of them can resolve after that context
+    // is gone (a torn-down test environment, a detached document). Guarding
+    // here covers every caller; guarding one call site only moves the crash to
+    // the next global the method touches. `typeof` is deliberate: it is safe
+    // even when the binding has been removed outright, not merely set to
+    // undefined. In a browser this is never taken.
+    if (typeof document === 'undefined') {
+      return;
+    }
     // Never disrupt an active IME composition: any rebuild would tear the
     // focused editor out of the DOM mid-composition and drop it. Background
     // work (the wrap-measure pass, scroll coalescing) that calls render while
@@ -1304,9 +1316,10 @@ export class Grid {
       this.heightsVersion += 1;
     }
     if (!this.element.ownerDocument.defaultView) {
-      // The grid outlived its browsing context (a torn-down test environment,
-      // a detached document): there is nothing left to lay out, and rendering
-      // would reach for globals that no longer exist.
+      // The element's document was detached from its view: skip the pointless
+      // re-layout. NOTE this does NOT catch a torn-down test environment —
+      // `ownerDocument.defaultView` stays truthy there while the *global*
+      // `document` disappears. `render` itself carries that guard.
       return;
     }
     this.window = null;

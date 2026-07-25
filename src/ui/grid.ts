@@ -1020,7 +1020,11 @@ export class Grid {
     this.element.style.setProperty('--sheet-zoom', String(this.zoomOf(tab)));
     this.element.style.setProperty('--grid-row-height', `${this.rowH(tab)}px`);
     this.element.style.setProperty('--grid-wrap-line', `${this.wrapLineH(tab)}px`);
-    document.documentElement.style.setProperty('--sheet-zoom', String(this.zoomOf(tab)));
+    // Use the element's own document, not the global `document`: a deferred
+    // wrap pass (see runWrapPass) can still call render() after a torn-down
+    // test environment has unbound the global `document` while this element's
+    // ownerDocument reference is still alive.
+    this.element.ownerDocument.documentElement.style.setProperty('--sheet-zoom', String(this.zoomOf(tab)));
     // Announce zoom changes politely (menu, shortcut, or wheel — one shared
     // path). The first render of a tab sets the baseline silently.
     if (this.announcedZoom === null) {

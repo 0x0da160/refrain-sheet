@@ -132,8 +132,8 @@ These cannot be automated safely and must be done by a repository admin.
    `anthropics/claude-code-action@v1`. Repo policy (`docs/security.md`) requires
    third-party actions pinned to a **full commit SHA**. Replace each `@v1` with a
    verified SHA (add a comment naming the version) before enabling. While pinning,
-   also confirm the [allowlisted model ids](#allowed-model-identifiers) are valid for
-   that action build.
+   also confirm the [allowed model values](#allowed-model-values) are valid for that
+   action build.
 4. **Create the labels** — one-time, with the GitHub CLI (colors/descriptions from
    [`.github/labels.yml`](../.github/labels.yml)):
 
@@ -239,13 +239,33 @@ untrusted content. Before invoking Claude, each workflow validates the selected 
 against a small explicit allowlist and fails fast on anything else; the allowlisted
 value is passed via `claude_args: --model <id>` (not the deprecated `model` input).
 
-### Allowed model identifiers
+### Allowed model values
 
-- `claude-sonnet-4-6` — default setup: set `CLAUDE_MODEL=claude-sonnet-4-6`.
-- `claude-opus-4-6` — higher-capability option: set `CLAUDE_MODEL=claude-opus-4-6`.
+`anthropics/claude-code-action` runs the **Claude Code CLI**, whose `--model` flag
+accepts both short aliases and full model ids. The allowlist covers both.
 
-Manual runs may override the variable through the `model` input. The Issue form
-deliberately gives a requester **no** way to choose a model.
+**Aliases** (recommended — they track the current model automatically):
+
+| Value      | Meaning                                                              |
+| ---------- | -------------------------------------------------------------------- |
+| `opusplan` | Opus for planning, Sonnet for execution — good default for this loop |
+| `opus`     | Opus tier                                                            |
+| `sonnet`   | Sonnet tier — cheapest sensible default                              |
+| `haiku`    | Haiku tier — fastest, for the lightest workflows                     |
+
+**Full model ids** (pin an exact model; must be updated as models change):
+`claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`, `claude-opus-4-6`,
+`claude-sonnet-4-6`.
+
+Leave `CLAUDE_MODEL` unset to use the action's own default. Manual runs may
+override the variable through the `model` input. The Issue form deliberately gives
+a requester **no** way to choose a model.
+
+> **Adding a value.** The allowlist is duplicated in the `Resolve and validate
+Claude model` step of all five agent workflows, and in each workflow's
+> `workflow_dispatch` `model` choice list. Update every copy together — a value
+> missing from the `case` arm fails the run with a clear error, which is the
+> intended fail-closed behavior, not a bug.
 
 > **Confirm the identifiers before enabling.** These two ids are the approved
 > allowlist for this repository, but the exact strings a given

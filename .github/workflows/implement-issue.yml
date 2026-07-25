@@ -43,8 +43,15 @@ on:
         type: choice
         options:
           - ''
-          - claude-sonnet-4-6
+          - opusplan
+          - opus
+          - sonnet
+          - haiku
+          - claude-opus-5
+          - claude-sonnet-5
+          - claude-haiku-4-5
           - claude-opus-4-6
+          - claude-sonnet-4-6
 
 permissions:
   contents: write # push the agent/* branch only (never main)
@@ -156,7 +163,9 @@ jobs:
 
       # Resolve the model to a validated flag against an explicit allowlist. Empty
       # selection => no flag (the action default is used). An unknown value fails
-      # the run. The output is only ever empty or `--model <allowlisted-id>`.
+      # the run. The action runs the Claude Code CLI, so the allowlist covers both
+      # CLI aliases (opus, sonnet, haiku, opusplan) and full model ids. The output
+      # is only ever empty or `--model <allowlisted-value>`.
       - name: Resolve and validate Claude model
         id: model
         if: steps.gate.outputs.proceed == 'true'
@@ -167,12 +176,12 @@ jobs:
               echo "model_flag=" >>"$GITHUB_OUTPUT"
               echo "No model selected; using the action default."
               ;;
-            claude-sonnet-4-6|claude-opus-4-6)
+            opus|sonnet|haiku|opusplan|claude-opus-5|claude-sonnet-5|claude-haiku-4-5|claude-opus-4-6|claude-sonnet-4-6)
               echo "model_flag=--model ${SELECTED_CLAUDE_MODEL}" >>"$GITHUB_OUTPUT"
               echo "Selected model: ${SELECTED_CLAUDE_MODEL}"
               ;;
             *)
-              echo "::error::CLAUDE_MODEL/model must be empty or one of: claude-sonnet-4-6, claude-opus-4-6."
+              echo "::error::CLAUDE_MODEL/model must be empty, a Claude Code alias (opus, sonnet, haiku, opusplan), or a supported model id (claude-opus-5, claude-sonnet-5, claude-haiku-4-5, claude-opus-4-6, claude-sonnet-4-6)."
               exit 1
               ;;
           esac

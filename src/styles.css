@@ -1542,6 +1542,39 @@ table.diag-table th {
   }
 }
 
+/* ---------- Mobile layout (phones and small tablets) ----------
+   The menu bar, tab strip, and worksheet strip are flex rows whose buttons
+   don't shrink below their own content width by default; below this width
+   they can together be wider than the viewport, which pushes the outer page
+   into an unwanted horizontal scrollbar. Everything here is gated behind
+   this query so desktop-width layout is unchanged: the overflowing strips
+   scroll within themselves instead (the tab and worksheet strips already
+   did; the menu bar now does too), and their tap targets grow for touch. */
+@media (max-width: 700px) {
+  .menu-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .menu > button,
+  .menu-item {
+    padding: 12px 14px;
+  }
+
+  .tab {
+    padding: 10px 10px 10px 14px;
+  }
+
+  .tab .tab-close {
+    padding: 6px 8px;
+  }
+
+  .sheet-tab,
+  .sheet-add {
+    padding: 9px 12px;
+  }
+}
+
 /* ----- Visually hidden (screen-reader-only) content ----- */
 .visually-hidden {
   position: absolute;

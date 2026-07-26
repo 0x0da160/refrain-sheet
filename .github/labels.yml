@@ -11,6 +11,9 @@
 #   agent:needs-spec is a SIDE BRANCH, not a required stage: it is used only when
 #     one material product decision cannot be inferred from repository evidence.
 #     An ordinary Issue goes straight from triage to agent:ready.
+#   agent:continuation-needed is also a SIDE BRANCH: the implementation run reached
+#     its turn budget. agent:ready STAYS on, the branch and draft PR are preserved,
+#     and one "Re-run" from the Actions tab continues from them.
 #   agent:blocked may interrupt from any state and requires human input.
 #
 # IMPORTANT: automation MUST NEVER apply `agent:ready`. Humans only.
@@ -28,6 +31,9 @@
 - name: 'agent:working'
   color: '5319e7'
   description: 'An implementation workflow is currently operating on this issue (automation).'
+- name: 'agent:continuation-needed'
+  color: 'c5def5'
+  description: 'Turn budget reached mid-implementation. Work is preserved; re-run to continue (automation).'
 - name: 'agent:review'
   color: 'd93f0b'
   description: 'A PR exists and requires independent review or CI completion (automation).'

@@ -2,6 +2,19 @@
 
 **Status: post-merge release automation is intentionally NOT implemented.**
 
+> **Update (2026-07-26).** A **manual** release path now exists —
+> [`manual-release.yml`](../.github/workflows/manual-release.yml), documented in
+> [`agent-operations.md`](agent-operations.md#manual-release-recovery). A maintainer
+> picks the merged PR and the bump type in the Actions UI, and the workflow calls
+> `release.yml` directly. That resolves Blocker 1 (no tag-push trigger is involved),
+> Blocker 2 (the human chooses the bump), and Blocker 4 (`actions/checkout` with
+> `ref: main` is not a detached HEAD, so the documented script runs unmodified).
+> **Blocker 3 was factually wrong** and is corrected below. Blockers 5 and 6 stand.
+>
+> This changes nothing about **automatic** release-on-merge, which remains
+> unimplemented: it would still need a mechanical bump-type rule (Blocker 2 is
+> resolved only for the manual path, where a human supplies the judgement).
+
 Automatic "merge a PR → cut a release" has been evaluated twice against this
 repository. Both times the conclusion was the same: the documented release
 procedure does not support unattended execution, and building one would require
@@ -95,15 +108,18 @@ The two ways around this are both closed:
 Defaulting silently to `patch` would mean a release for every merge, including
 documentation and workflow changes.
 
-### Blocker 3 — the documented bump command cannot run on a GitHub runner
+### ~~Blocker 3 — the documented bump command cannot run on a GitHub runner~~ (withdrawn, 2026-07-26)
 
-`scripts/release.mjs` runs `npm run test:rust` (`cargo test`) as part of its
-pre-mutation checks. `ci.yml` and `release.yml` set up **Node only**; the Rust
-toolchain exists solely in the [`Dockerfile`](../Dockerfile), which no workflow
-uses. The documented command would fail at its third step on a hosted runner.
+This blocker was **wrong**. It reasoned that because `ci.yml` and `release.yml` only
+set up Node, `npm run test:rust` (`cargo test`) inside `scripts/release.mjs` could not
+run — but the `ubuntu-24.04` hosted runner image **ships Rust preinstalled**
+(Cargo/Rust/Rustdoc 1.97.0, Rustup 1.29.0, Rustfmt 1.9.0, per the
+`actions/runner-images` manifest). No toolchain step, no third-party action, and no
+change to release-time build infrastructure is required.
 
-Adding a Rust toolchain to the release path is a real change to release-time
-build infrastructure and is not documented anywhere.
+`manual-release.yml` verifies `cargo` is present before it does anything, so if a
+future runner image drops Rust the run stops at validation instead of failing
+mid-release.
 
 ### Blocker 4 — the bump command is not decomposable
 
@@ -172,4 +188,6 @@ documents specify.
 - [`docs/agent-operations.md`](agent-operations.md) records that post-merge release
   automation is intentionally disabled and links here.
 - No `release-after-merge.yml` exists, so no merge can trigger a release.
-- The existing tag-driven path is untouched and remains the only way to release.
+- The tag-driven path is untouched. `manual-release.yml` adds a second **human-
+  initiated** entry point to the same `release.yml` implementation; neither is
+  automatic, and nothing in either path is triggered by a merge.

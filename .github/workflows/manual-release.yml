@@ -1,0 +1,447 @@
+name: Manual release recovery
+
+# Runs the documented release procedure for an ALREADY MERGED pull request, from
+# the GitHub Actions UI — so a maintainer working from a phone can release without
+# a local checkout. It is the manual counterpart to the tag-push path; both end in
+# the SAME release implementation, `release.yml`, which this workflow calls.
+#
+# WHAT IT DOES, in order:
+#   verify merged PR -> verify production branch -> verify merge commit ->
+#   validate source -> `npm run release -- <type> --yes` -> commit + tag (by that
+#   script) -> call release.yml (GitHub Release + Pages from the exact tag).
+#
+# WHAT IT REFUSES:
+# - Any branch, commit SHA, version string, command, or CLI argument supplied
+#   through workflow inputs. The only inputs are a numeric PR number, a fixed
+#   `choice` of patch/minor/major, and a boolean. Nothing else reaches a shell.
+# - The bump type is NEVER read from Issue text, PR text, comments, commits, or
+#   labels. The maintainer's explicit `release_type` choice IS the authorization.
+# - Releasing a merge commit that an existing release already contains, or a tag
+#   that points somewhere unexpected. Neither is repaired automatically.
+#
+# WHAT IT NEVER DOES: force-push; reset; delete or move a tag; delete or edit an
+# unrelated Release; roll back Pages; change repository, branch-protection,
+# environment, or Pages settings; add or mutate labels on the merged PR; use a PAT
+# or GitHub App token.
+#
+# NOTE ON `dry_run`: the input defaults to `false`, so the box must be ticked to
+# get a validation-only run. Run it that way first — see
+# docs/agent-operations.md § Manual release recovery.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Merged PR number to release'
+        required: true
+        type: string
+      release_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: 'Validate only; do not commit, tag, release, or deploy'
+        required: true
+        default: false
+        type: boolean
+
+# Least privilege by default. Each job below widens only what it needs, and the
+# job that calls release.yml is the only one holding the release write set.
+permissions:
+  contents: read
+
+# ONE global release lane. A manual release waits for a tag-push release and vice
+# versa, and neither is ever cancelled mid-publish. `release.yml` joins this same
+# group on its tag-push path; when it is CALLED from here it uses a run-scoped
+# group instead, so the called workflow cannot deadlock against its own caller.
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+env:
+  PRODUCTION_BRANCH: main
+
+jobs:
+  # ── Validation only. No write permission is held by this job at all, so no
+  # mutation is even possible until every eligibility check has passed. ────────
+  validate:
+    name: Validate release eligibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      mode: ${{ steps.check.outputs.mode }}
+      tag: ${{ steps.check.outputs.tag }}
+      version: ${{ steps.check.outputs.version }}
+      merge_sha: ${{ steps.check.outputs.merge_sha }}
+      released_in: ${{ steps.check.outputs.released_in }}
+      reason_en: ${{ steps.check.outputs.reason_en }}
+      reason_ja: ${{ steps.check.outputs.reason_ja }}
+    steps:
+      - name: Checkout the production branch (full history and tags)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts
+
+      # Eligibility check 10: the documented release tooling and everything it
+      # needs must actually be present before anything else is considered.
+      - name: Verify the release tooling is available
+        run: |
+          set -euo pipefail
+          for tool in node npm git gh jq cargo; do
+            command -v "$tool" >/dev/null || { echo "::error::Required tool '$tool' is not available on this runner."; exit 1; }
+          done
+          test -f scripts/release.mjs || { echo "::error::scripts/release.mjs is missing."; exit 1; }
+          for script in release check:versions format:check lint test test:rust audit:ci build check:dist; do
+            node -e 'const s=require("./package.json").scripts||{}; if(!s[process.argv[1]]) { console.error("::error::package.json has no script: "+process.argv[1]); process.exit(1); }' "$script"
+          done
+          echo "Release tooling present: $(node -v), npm $(npm -v), $(cargo --version)."
+
+      # Eligibility checks 1-9. This step never mutates anything; a policy stop
+      # records `mode=stop` with a bilingual reason and the run is failed at the
+      # end, after the summary has been written.
+      - name: Validate the pull request and the release state
+        id: check
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          out() { printf '%s\n' "$1=$2" >>"$GITHUB_OUTPUT"; }
+          stop() {
+            out mode stop
+            out reason_en "$1"
+            out reason_ja "$2"
+            echo "::error::$1"
+            exit 0
+          }
+
+          # (1) The inputs. `pr_number` is free text in the dispatch form, so it is
+          # constrained to digits here before it is used anywhere; `release_type`
+          # is a fixed choice and is re-checked as defence in depth. Neither value
+          # is ever interpolated into a command line.
+          if ! printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'; then
+            stop "The PR number must be a positive integer." "PR 番号は正の整数で指定してください。"
+          fi
+          case "$RELEASE_TYPE" in
+            patch|minor|major) ;;
+            *) stop "Unsupported release type." "サポートされていないリリース種別です。" ;;
+          esac
+
+          if ! meta="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --json state,mergeCommit,baseRefName,headRefName,title,url 2>/dev/null)"; then
+            stop "PR #${PR_NUMBER} does not exist in this repository." \
+                 "PR #${PR_NUMBER} はこのリポジトリに存在しません。"
+          fi
+          state="$(jq -r '.state' <<<"$meta")"
+          base="$(jq -r '.baseRefName' <<<"$meta")"
+          head="$(jq -r '.headRefName' <<<"$meta")"
+          title="$(jq -r '.title' <<<"$meta")"
+          merge_sha="$(jq -r '.mergeCommit.oid // ""' <<<"$meta")"
+
+          # (2) Merged, not merely closed.
+          if [ "$state" != "MERGED" ]; then
+            stop "PR #${PR_NUMBER} is ${state}, not MERGED. Only a merged pull request can be released." \
+                 "PR #${PR_NUMBER} の状態は ${state} でありマージ済みではありません。リリースできるのはマージ済みの PR のみです。"
+          fi
+          # (3) Base branch is the production branch.
+          if [ "$base" != "$PRODUCTION_BRANCH" ]; then
+            stop "PR #${PR_NUMBER} targeted \`${base}\`, not the production branch \`${PRODUCTION_BRANCH}\`." \
+                 "PR #${PR_NUMBER} のベースは \`${base}\` で、本番ブランチ \`${PRODUCTION_BRANCH}\` ではありません。"
+          fi
+          # (4) A real merge commit exists.
+          if [ -z "$merge_sha" ] || [ "$merge_sha" = "null" ]; then
+            stop "PR #${PR_NUMBER} has no merge commit SHA." "PR #${PR_NUMBER} にマージコミットの SHA がありません。"
+          fi
+          # (5)+(6) The release source is that merge commit, and it is reachable
+          # from the production branch — never an arbitrary branch HEAD.
+          if ! git merge-base --is-ancestor "$merge_sha" "origin/${PRODUCTION_BRANCH}"; then
+            stop "The merge commit is not reachable from \`${PRODUCTION_BRANCH}\`." \
+                 "マージコミットが \`${PRODUCTION_BRANCH}\` から到達できません。"
+          fi
+          out merge_sha "$merge_sha"
+          # (7) Release-automation convention: a release commit is `Release vX.Y.Z`
+          # and a release branch is `release/*`. Releasing one of those would mean
+          # releasing the release, so both are refused.
+          case "$head" in
+            release/*) stop "PR #${PR_NUMBER} comes from a \`release/*\` branch; release automation output is not itself releasable." \
+                            "PR #${PR_NUMBER} は \`release/*\` ブランチ由来です。リリース自動化の成果物自体はリリース対象になりません。" ;;
+          esac
+          case "$title" in
+            'Release v'*) stop "PR #${PR_NUMBER} is a release commit, not a change to release." \
+                               "PR #${PR_NUMBER} はリリースコミットであり、リリース対象の変更ではありません。" ;;
+          esac
+
+          # (8) Has this merge commit already shipped? It has, if any existing tag
+          # points at a commit that DESCENDS from it.
+          released_in=""
+          while read -r t; do
+            [ -n "$t" ] || continue
+            tsha="$(git rev-list -n1 "$t" 2>/dev/null || true)"
+            [ -n "$tsha" ] || continue
+            if git merge-base --is-ancestor "$merge_sha" "$tsha"; then
+              released_in="$t"
+              break
+            fi
+          done <<<"$(git tag --list 'v*' --sort=creatordate)"
+
+          # The target version. This mirrors `computeVersion()` in
+          # scripts/release.mjs against the same authoritative source
+          # (package.json); the documented dry run below re-computes it
+          # independently and the two are compared, so a drift cannot go unnoticed.
+          version="$(node -e '
+            const cur = require("./package.json").version;
+            const bump = process.argv[1];
+            const m = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(cur);
+            if (!m) { console.error("package.json version is not strict SemVer: " + cur); process.exit(1); }
+            const [M, mi, p] = m.slice(1).map(Number);
+            process.stdout.write(
+              bump === "major" ? `${M + 1}.0.0` : bump === "minor" ? `${M}.${mi + 1}.0` : `${M}.${mi}.${p + 1}`,
+            );
+          ' "$RELEASE_TYPE")"
+          tag="v${version}"
+          out version "$version"
+          out tag "$tag"
+
+          if [ -n "$released_in" ]; then
+            out released_in "$released_in"
+            out mode already-released
+            echo "Merge commit ${merge_sha} is already contained in release ${released_in}."
+            exit 0
+          fi
+
+          # (9) Tag state. An existing tag is never moved, deleted, or overwritten.
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            tsha="$(git rev-list -n1 "$tag")"
+            if ! git merge-base --is-ancestor "$tsha" "origin/${PRODUCTION_BRANCH}"; then
+              stop "Tag \`${tag}\` already exists but is not on \`${PRODUCTION_BRANCH}\`. Nothing was modified; a human must resolve this." \
+                   "タグ \`${tag}\` は既に存在しますが \`${PRODUCTION_BRANCH}\` 上にありません。何も変更していません。人間による対応が必要です。"
+            fi
+            tagged_version="$(git show "${tag}:package.json" | jq -r '.version')"
+            if [ "$tagged_version" != "$version" ]; then
+              stop "Tag \`${tag}\` points at a commit whose version is \`${tagged_version}\`. Nothing was modified." \
+                   "タグ \`${tag}\` が指すコミットのバージョンは \`${tagged_version}\` です。何も変更していません。"
+            fi
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              out mode already-released
+              out released_in "$tag"
+            else
+              # The bump commit and tag exist but publishing was interrupted.
+              # Finish it from verified state: no new commit, no new tag.
+              out mode complete
+              echo "::notice::Tag ${tag} exists with no GitHub Release; this run will complete the interrupted publish."
+            fi
+            exit 0
+          fi
+
+          out mode release
+
+      # The documented dry run: `scripts/release.mjs --dry-run` runs the full
+      # required suite (check:versions, format:check, lint, test, test:rust,
+      # audit:ci, build, check:dist) and changes nothing. It is the authority on
+      # the next version; its plan is compared with the value computed above.
+      - name: Documented dry run (validates source, computes the version)
+        if: steps.check.outputs.mode == 'release'
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          EXPECTED_TAG: ${{ steps.check.outputs.tag }}
+        run: |
+          set -euo pipefail
+          case "$RELEASE_TYPE" in
+            patch|minor|major) ;;
+            *) echo "::error::Unsupported release type."; exit 1 ;;
+          esac
+          npm run release -- "$RELEASE_TYPE" --dry-run 2>&1 | tee "$RUNNER_TEMP/dry-run.log"
+          planned="$(grep -oE 'version: [0-9]+\.[0-9]+\.[0-9]+ -> [0-9]+\.[0-9]+\.[0-9]+' "$RUNNER_TEMP/dry-run.log" | tail -n1 | awk '{print $NF}')"
+          if [ -z "$planned" ] || [ "v${planned}" != "$EXPECTED_TAG" ]; then
+            echo "::error::The release script plans v${planned:-unknown} but eligibility resolved ${EXPECTED_TAG}. Refusing to continue."
+            exit 1
+          fi
+          echo "Release script and eligibility agree on ${EXPECTED_TAG}."
+
+      # Written here (not only in the final job) so a stop, an already-released
+      # exit, and a dry run all produce the bilingual block even though no later
+      # job runs.
+      - name: Bilingual summary
+        if: always() && (inputs.dry_run || steps.check.outputs.mode != 'release')
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          SOURCE_SHA: ${{ steps.check.outputs.merge_sha }}
+          VERSION_TAG: ${{ steps.check.outputs.tag }}
+          MODE: ${{ steps.check.outputs.mode }}
+          RELEASED_IN: ${{ steps.check.outputs.released_in }}
+          REASON_EN: ${{ steps.check.outputs.reason_en }}
+          REASON_JA: ${{ steps.check.outputs.reason_ja }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          case "$MODE" in
+            stop)
+              RESULT=stopped
+              ACTION_EN="${REASON_EN} Nothing was changed."
+              ACTION_JA="${REASON_JA} 変更は一切行っていません。"
+              ;;
+            already-released)
+              RESULT=already-released
+              ACTION_EN="None. This change already shipped in \`${RELEASED_IN}\`."
+              ACTION_JA="なし。この変更は \`${RELEASED_IN}\` で既にリリース済みです。"
+              ;;
+            complete)
+              RESULT=dry-run
+              ACTION_EN="A tag exists without a GitHub Release. Re-run with dry_run unticked to finish publishing it."
+              ACTION_JA="タグはありますが GitHub Release がありません。dry_run のチェックを外して再実行すると公開を完了します。"
+              ;;
+            release)
+              RESULT=dry-run
+              ACTION_EN="Checks passed. Re-run with dry_run unticked to release."
+              ACTION_JA="検証に成功しました。dry_run のチェックを外して再実行するとリリースします。"
+              ;;
+            *)
+              # No mode was recorded: an earlier step (tooling, checkout, install)
+              # failed before eligibility was decided. Never report success.
+              RESULT=stopped
+              ACTION_EN="Validation did not complete; see the run log. Nothing was changed."
+              ACTION_JA="検証が完了しませんでした。実行ログを確認してください。変更は一切行っていません。"
+              ;;
+          esac
+          RESULT="$RESULT" ACTION_EN="$ACTION_EN" ACTION_JA="$ACTION_JA" \
+            node scripts/release-summary.mjs >>"$GITHUB_STEP_SUMMARY"
+
+      # Fail the run (visibly red) only after the summary above exists.
+      - name: Fail on an ineligible release
+        if: steps.check.outputs.mode == 'stop'
+        run: |
+          echo "::error::Release eligibility check failed — nothing was changed."
+          exit 1
+
+  # ── The only job that can write to the repository. It runs the documented bump
+  # script unmodified: validate -> bump -> commit -> annotated tag -> push. ─────
+  bump:
+    name: Bump, commit, and tag
+    needs: validate
+    if: needs.validate.outputs.mode == 'release' && !inputs.dry_run
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # push the version-bump commit and the tag to main
+      pull-requests: read
+    outputs:
+      tag: ${{ steps.run.outputs.tag }}
+    steps:
+      - name: Checkout the production branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts
+
+      - name: Run the documented release script
+        id: run
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          EXPECTED_TAG: ${{ needs.validate.outputs.tag }}
+        run: |
+          set -euo pipefail
+          case "$RELEASE_TYPE" in
+            patch|minor|major) ;;
+            *) echo "::error::Unsupported release type."; exit 1 ;;
+          esac
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # `--yes` only skips the interactive confirmation; every check, the
+          # tag-collision guard, and the never-force-push rule still apply.
+          npm run release -- "$RELEASE_TYPE" --yes
+          tag="v$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$EXPECTED_TAG" ]; then
+            echo "::error::Produced $tag but validation expected $EXPECTED_TAG."
+            exit 1
+          fi
+          git rev-parse -q --verify "refs/tags/${tag}" >/dev/null || { echo "::error::Tag $tag was not created."; exit 1; }
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
+
+  # ── The SAME release implementation the tag-push path uses. Called directly, so
+  # GitHub Release and Pages do not depend on a GITHUB_TOKEN push trigger. ──────
+  release:
+    name: Publish Release and deploy Pages
+    needs: [validate, bump]
+    if: >-
+      !inputs.dry_run &&
+      (needs.bump.result == 'success' ||
+       (needs.bump.result == 'skipped' && needs.validate.outputs.mode == 'complete'))
+    # These are the permissions release.yml's own jobs declare; a called workflow
+    # can never exceed what the calling job grants, so they are named once here.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      pages: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.bump.outputs.tag || needs.validate.outputs.tag }}
+
+  summary:
+    name: Bilingual summary
+    needs: [validate, bump, release]
+    if: always() && !inputs.dry_run && needs.validate.outputs.mode != 'stop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # only to fetch scripts/release-summary.mjs
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/release-summary.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Write the bilingual result
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          SOURCE_SHA: ${{ needs.validate.outputs.merge_sha }}
+          VERSION_TAG: ${{ needs.bump.outputs.tag || needs.validate.outputs.tag }}
+          RELEASE_URL: ${{ needs.release.outputs.release_url }}
+          PAGES_URL: ${{ needs.release.outputs.page_url }}
+          MODE: ${{ needs.validate.outputs.mode }}
+          RELEASED_IN: ${{ needs.validate.outputs.released_in }}
+          RELEASE_RESULT: ${{ needs.release.result }}
+        run: |
+          set -euo pipefail
+          if [ "$MODE" = "already-released" ]; then
+            RESULT=already-released
+            ACTION_EN="None. This change already shipped in \`${RELEASED_IN}\`."
+            ACTION_JA="なし。この変更は \`${RELEASED_IN}\` で既にリリース済みです。"
+          elif [ "$RELEASE_RESULT" = "success" ]; then
+            RESULT=released
+            ACTION_EN="None. Confirm the Release and the Pages deployment above."
+            ACTION_JA="なし。上記の Release と Pages のデプロイをご確認ください。"
+          else
+            RESULT=stopped
+            ACTION_EN="The release did not complete. Check the run log; no tag or Release was deleted or modified."
+            ACTION_JA="リリースは完了しませんでした。実行ログを確認してください。タグや Release の削除・変更は行っていません。"
+          fi
+          RESULT="$RESULT" ACTION_EN="$ACTION_EN" ACTION_JA="$ACTION_JA" \
+            node scripts/release-summary.mjs >>"$GITHUB_STEP_SUMMARY"

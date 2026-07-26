@@ -117,6 +117,7 @@ export {
   isVolatileFunction,
   lookupFunction,
   type FnContext,
+  type FunctionCategory,
   type FunctionInfo,
 } from './formula-functions';
 

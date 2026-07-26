@@ -185,6 +185,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
       labelKey: 'menu.help',
       items: [
         { labelKey: 'menu.help.formula', command: 'help.formula' },
+        { labelKey: 'menu.help.shortcuts', command: 'help.shortcuts' },
         { labelKey: 'menu.help.about', command: 'help.about' },
       ],
     },

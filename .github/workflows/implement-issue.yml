@@ -34,9 +34,12 @@ name: Implement issue
 #   partial work to the stable branch, opens/updates a DRAFT pull request marked
 #   incomplete, applies `agent:continuation-needed`, and KEEPS `agent:ready` so the
 #   owner can continue with a single "Re-run failed jobs" tap in GitHub Mobile.
-# - There is deliberately NO automatic continuation: GitHub does not create workflow
-#   runs for events raised by `GITHUB_TOKEN` (including `workflow_dispatch` via the
-#   API), so self-retriggering would require a PAT, which repository policy forbids.
+# - There is deliberately NO automatic continuation. A run CAN re-dispatch itself:
+#   `workflow_dispatch` is one of the documented exceptions to the rule that events
+#   raised by `GITHUB_TOKEN` create no new run. But `gh workflow run` needs
+#   `actions: write` on this job, which would let it start ANY workflow in the
+#   repository — a materially broader grant than implementing a change, and one the
+#   approved design excludes. The re-run tap costs nothing and keeps the boundary.
 # - Two CONSECUTIVE turn-limit runs escalate to `agent:blocked` with a bilingual
 #   recommendation to split the Issue — the branch and PR are still preserved.
 #

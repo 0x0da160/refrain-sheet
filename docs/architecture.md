@@ -58,6 +58,7 @@ formula-value.ts    value model, error set, coercion rules, documented limits
       ├── formula-criteria.ts   criteria parsing, safe wildcard matching
       ├── formula-date.ts       the UTC date-serial scale, DATEDIF
       ├── formula-text.ts       code-point-safe text helpers
+      ├── formula-text-format.ts   TEXT()'s Excel-compatible format-code subset
       ↑
 formula-functions.ts   the function registry: one FunctionDef per function
       ↑

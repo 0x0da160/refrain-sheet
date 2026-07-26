@@ -58,6 +58,7 @@ import {
   toCodePoints,
   trimText,
 } from './formula-text';
+import { formatValueAsText } from './formula-text-format';
 import {
   booleanValue,
   coerceToBoolean,
@@ -1441,6 +1442,30 @@ def({
     const head = points.slice(0, s - 1).join('');
     const tail = points.slice(s - 1 + n).join('');
     const bounded = boundedText(head + newText.s + tail);
+    return bounded === null ? VALUE_ERR : textValue(bounded);
+  },
+});
+
+def({
+  name: 'TEXT',
+  minArgs: 2,
+  maxArgs: 2,
+  signature: 'TEXT(value, format_text)',
+  example: '=TEXT(1234.5, "#,##0.00")',
+  call: (args) => {
+    const value = numberOf(args[0]);
+    if (!value.ok) {
+      return value.error;
+    }
+    const format = textOf(args[1]);
+    if (!format.ok) {
+      return format.error;
+    }
+    const rendered = formatValueAsText(value.n, format.s);
+    if (rendered === null) {
+      return VALUE_ERR;
+    }
+    const bounded = boundedText(rendered);
     return bounded === null ? VALUE_ERR : textValue(bounded);
   },
 });

@@ -210,9 +210,13 @@ you write in between resets it.)
 
 ### There is no automatic continuation — on purpose
 
-GitHub does not create a workflow run for events raised by `GITHUB_TOKEN`, including
-`workflow_dispatch` through the API. A self-retriggering loop would need a personal
-access token, which repository policy forbids. The re-run tap is the supported path.
+A run **could** re-dispatch itself — `workflow_dispatch` is one of the documented
+exceptions to the rule that events raised by `GITHUB_TOKEN` create no new workflow
+run, so no personal access token would be needed. It is excluded for a different
+reason: `gh workflow run` requires `actions: write` on the job, which would let the
+implementation job start **any** workflow in this repository. That is a much broader
+grant than "implement a change", and the loop's own design rules it out. The re-run
+tap costs one interaction and keeps the permission boundary where it is.
 
 ### When a desktop is genuinely required
 

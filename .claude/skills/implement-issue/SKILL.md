@@ -103,7 +103,12 @@ not high risk.
 5. **Verify.** Run the `verify-change` skill. If any required check fails, fix the code
    (not the check); if you cannot, leave the reason and stop without claiming success.
 6. **Summarize.** This feeds the PR body, which is the review point for every
-   decision you inferred. Record, in the Issue author's language:
+   decision you inferred. Write it **bilingually** — a `## English` section, then a
+   `## 日本語` section with the same meaning, the same risks, and the same hedging
+   ("may", "not verified", "assumed"). Never state a fact or caveat in one language
+   and omit it from the other. Leave code, commands, file paths, identifiers, label
+   names, URLs, and raw error text untranslated; never duplicate long command output
+   or diffs — summarize and link. Each section records:
    - **Requested outcome** — what the human asked for.
    - **Implementation decision** — what you built and where.
    - **Assumptions made** — each inferred detail and why it was reasonable.
@@ -147,6 +152,11 @@ consequence of each option.
 
 **`no-change-needed`** — the requested outcome already holds in the repository. Say
 where, and how you confirmed it.
+
+The tokens themselves are machine-read by the workflow and are **never translated**.
+The explanation you write alongside them is human-facing, so it is bilingual, and it
+must cover: what happened, why it matters, what you already checked, the smallest
+human action needed, and your recommended default when a safe one exists.
 
 Never stop merely because: an older Work Brief says `needs-clarification`; a later
 human answer was never copied into a formal brief; acceptance criteria are not

@@ -91,6 +91,10 @@ Routine uncertainty is not high risk. Do not classify it as such.
 
 ## Output (comment + run summary)
 
+Write the comment **bilingually**: a `## English` section, then a `## 日本語` section
+with the same meaning, the same questions, and the same hedging. Each section carries
+these items:
+
 - **Intended outcome:** one sentence.
 - **Likely implementation:** the default a reasonable engineer would pick from
   existing repository conventions, and the evidence for it.
@@ -100,4 +104,6 @@ Routine uncertainty is not high risk. Do not classify it as such.
 - **Suggested next state:** normally "ready for a human to review and, if approved,
   apply `agent:ready`"; `needs-spec` or `blocked` only per the decision policy.
 
-Do not imply the Issue is approved. Only a human applies `agent:ready`.
+Never translate code, commands, file paths, identifiers, label names, URLs, or raw
+error text, and quote the Issue author's own words verbatim in their original
+language. Do not imply the Issue is approved. Only a human applies `agent:ready`.

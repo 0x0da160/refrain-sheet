@@ -160,9 +160,17 @@ jobs:
               no-eval, layering, en.json/ja.json key parity, RSF compatibility).
             - You MAY run the verification suite (`.claude/skills/verify-change`) to
               confirm claims independently, but do not modify any files.
-            - Post concrete findings with `file:line` references, grouped as:
-              Blocking / Non-blocking suggestions / Verified acceptance criteria /
-              Remaining risks. Preserve the PR/issue language.
+            - Post concrete findings with `file:line` references, grouped under these
+              exact bilingual headings: "Blocking findings / マージを止める指摘",
+              "Non-blocking suggestions / 任意の改善提案", "Verified items / 確認済み項目",
+              "Remaining risks / 残存リスク".
+            - EVERY finding and suggestion must be bilingual, using
+              `**English:** <finding>` then `**日本語:** <same finding>` — never an
+              English-only or Japanese-only review. Keep the same severity and hedging
+              in both. Do not translate `file:line` references, code, commands,
+              identifiers, label names, URLs, or raw error output, and do not
+              translate GitHub review states (`APPROVE`, `REQUEST_CHANGES`,
+              `COMMENT`) — explain them bilingually in the body instead.
             - If a serious failure or risk exists, recommend `agent:blocked`. Do NOT
               create or apply `agent:review` — only the implementation workflow does
               that, and only after it verifies a real PR exists; you are reviewing a
@@ -204,9 +212,17 @@ jobs:
               no-eval, layering, en.json/ja.json key parity, RSF compatibility).
             - You MAY run the verification suite (`.claude/skills/verify-change`) to
               confirm claims independently, but do not modify any files.
-            - Post concrete findings with `file:line` references, grouped as:
-              Blocking / Non-blocking suggestions / Verified acceptance criteria /
-              Remaining risks. Preserve the PR/issue language.
+            - Post concrete findings with `file:line` references, grouped under these
+              exact bilingual headings: "Blocking findings / マージを止める指摘",
+              "Non-blocking suggestions / 任意の改善提案", "Verified items / 確認済み項目",
+              "Remaining risks / 残存リスク".
+            - EVERY finding and suggestion must be bilingual, using
+              `**English:** <finding>` then `**日本語:** <same finding>` — never an
+              English-only or Japanese-only review. Keep the same severity and hedging
+              in both. Do not translate `file:line` references, code, commands,
+              identifiers, label names, URLs, or raw error output, and do not
+              translate GitHub review states (`APPROVE`, `REQUEST_CHANGES`,
+              `COMMENT`) — explain them bilingually in the body instead.
             - If a serious failure or risk exists, recommend `agent:blocked`. Do NOT
               create or apply `agent:review` — only the implementation workflow does
               that, and only after it verifies a real PR exists; you are reviewing a

@@ -24,6 +24,22 @@ name: Implement issue
 #   required to start, and a stale `needs-clarification` brief does not block a run
 #   once a later human comment answers it. See docs/agent-operations.md.
 #
+# CONTINUATION (smartphone-first)
+# - ONE Issue == ONE stable branch `agent/issue-<n>-<slug>` == ONE pull request, for
+#   the whole life of the Issue. The branch is resolved and checked out BEFORE the
+#   agent runs, so a second run continues from the commits the first one pushed.
+#   Nothing here force-pushes, resets, squashes, or deletes an agent branch.
+# - Exhausting `--max-turns` is an EXECUTION budget boundary, not a specification
+#   failure. It never applies `agent:needs-spec`. The workflow commits the coherent
+#   partial work to the stable branch, opens/updates a DRAFT pull request marked
+#   incomplete, applies `agent:continuation-needed`, and KEEPS `agent:ready` so the
+#   owner can continue with a single "Re-run failed jobs" tap in GitHub Mobile.
+# - There is deliberately NO automatic continuation: GitHub does not create workflow
+#   runs for events raised by `GITHUB_TOKEN` (including `workflow_dispatch` via the
+#   API), so self-retriggering would require a PAT, which repository policy forbids.
+# - Two CONSECUTIVE turn-limit runs escalate to `agent:blocked` with a bilingual
+#   recommendation to split the Issue — the branch and PR are still preserved.
+#
 # SECURITY NOTES
 # - Trigger is the `agent:ready` label (human-only) or manual dispatch — never an
 #   arbitrary issue comment. Refuses to run if `agent:blocked` is present.
@@ -45,8 +61,14 @@ on:
     types: [labeled]
   workflow_dispatch:
     inputs:
+      # The ONLY free-form dispatch input. `type: number` is deliberately kept
+      # (stricter than `string` in the UI, and it renders as a numeric field on
+      # mobile); Gate 2 additionally validates it against `^[0-9]+$`. No branch,
+      # command, or CLI argument can be supplied through workflow_dispatch — the
+      # `model` input below is a fixed choice list, re-validated against an
+      # allowlist before use.
       issue_number:
-        description: 'Approved issue number to implement'
+        description: 'Issue number to implement or continue'
         required: true
         type: number
       model:
@@ -113,6 +135,13 @@ jobs:
         id: gate
         run: |
           set -euo pipefail
+          # Validate the Issue number before it reaches `gh` or any branch name.
+          # Both entry points (the `agent:ready` label event and manual dispatch)
+          # go through this same check.
+          if ! printf '%s' "$ISSUE_NUMBER" | grep -Eq '^[0-9]+$'; then
+            echo "::error::Issue number must be a positive integer."
+            exit 1
+          fi
           meta="$(gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json labels,state)"
           labels="$(jq -r '.labels[].name' <<<"$meta")"
           state="$(jq -r '.state' <<<"$meta")"
@@ -128,6 +157,62 @@ jobs:
           fi
           echo "Human approval present and no active block."
           echo "proceed=true" >>"$GITHUB_OUTPUT"
+
+      # One Issue == one stable branch == one pull request. Resolved and checked out
+      # BEFORE the agent runs, so a continuation run starts from the commits the
+      # previous run already pushed instead of an empty tree. Prior work is only ever
+      # built upon: no reset, no squash, no force-push, no branch deletion.
+      #
+      # If an open agent PR for this Issue already exists under a DIFFERENT slug
+      # (the human renamed the Issue between runs), its head branch wins — that is
+      # what keeps a retry from opening a second pull request for the same Issue.
+      - name: Prepare stable branch and locate existing pull request
+        id: branch
+        if: steps.gate.outputs.proceed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          title="$(gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json title --jq '.title')"
+          slug="$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]' \
+            | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-40 | sed -E 's/-+$//')"
+          [ -n "$slug" ] || slug="change"
+          branch="agent/issue-${ISSUE_NUMBER}-${slug}"
+
+          prefix="agent/issue-${ISSUE_NUMBER}-"
+          adopted="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --base "$BASE_BRANCH" \
+            --json number,headRefName \
+            | jq -r --arg p "$prefix" 'map(select(.headRefName | startswith($p))) | .[0].headRefName // ""')"
+          if [ -n "$adopted" ] && [ "$adopted" != "$branch" ]; then
+            echo "::notice::Reusing the branch of the existing open PR ($adopted) instead of $branch."
+            branch="$adopted"
+          fi
+
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            git fetch --no-tags origin "+refs/heads/${branch}:refs/remotes/origin/${branch}"
+            git switch -c "$branch" "origin/${branch}"
+            ahead="$(git rev-list --count "origin/${BASE_BRANCH}..HEAD")"
+            echo "Resumed existing agent branch $branch (${ahead} commit(s) ahead of ${BASE_BRANCH}); all prior work preserved."
+            echo "resumed=true" >>"$GITHUB_OUTPUT"
+          else
+            git switch -c "$branch"
+            echo "Started new agent branch $branch from ${BASE_BRANCH}."
+            echo "resumed=false" >>"$GITHUB_OUTPUT"
+          fi
+
+          pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$branch" --base "$BASE_BRANCH" \
+            --state open --json number --jq '.[0].number // ""')"
+          pr_url=""
+          if [ -n "$pr_number" ]; then
+            pr_url="$(gh pr view "$pr_number" --repo "$GITHUB_REPOSITORY" --json url --jq '.url')"
+            echo "Reusing existing open pull request #${pr_number} (${pr_url})."
+          fi
+          {
+            echo "branch=$branch"
+            echo "pr_number=$pr_number"
+            echo "pr_url=$pr_url"
+          } >>"$GITHUB_OUTPUT"
 
       - name: Mark working
         if: steps.gate.outputs.proceed == 'true'
@@ -251,6 +336,25 @@ jobs:
             technical solution was prescribed, no tests were specified, or the exact
             wording/visuals/file location could follow an existing repository pattern.
 
+            THIS MAY BE A CONTINUATION RUN. The workflow checked out the stable
+            branch `agent/issue-${{ env.ISSUE_NUMBER }}-<slug>` before starting you,
+            so the working tree may ALREADY contain committed work from an earlier
+            run that hit its turn budget. Before planning anything, spend a few turns
+            on exactly this:
+            - `git log --oneline origin/${{ env.BASE_BRANCH }}..HEAD`
+            - `git diff --stat origin/${{ env.BASE_BRANCH }}...HEAD`
+            - the newest Issue comment carrying `<!-- agent-continuation:v1 -->`,
+              which lists what the previous run completed and what remains.
+            Then implement ONLY the remaining work. Do not redo finished work, do not
+            re-explore the repository broadly, do not re-summarize the Issue at
+            length, and do not revert or rewrite the earlier commits.
+
+            Your turn budget is finite. Land coherent, reviewable work as you go and
+            keep the working tree in a consistent state: if the budget runs out, the
+            workflow commits whatever is in the tree to the stable branch as a draft
+            pull request, so half-finished edits left mid-file are the one thing that
+            genuinely loses work. Prefer finishing one file before starting the next.
+
             Do:
             - Implement the smallest viable change directly in the working tree.
             - Add or update tests when behavior changes.
@@ -363,6 +467,25 @@ jobs:
             technical solution was prescribed, no tests were specified, or the exact
             wording/visuals/file location could follow an existing repository pattern.
 
+            THIS MAY BE A CONTINUATION RUN. The workflow checked out the stable
+            branch `agent/issue-${{ env.ISSUE_NUMBER }}-<slug>` before starting you,
+            so the working tree may ALREADY contain committed work from an earlier
+            run that hit its turn budget. Before planning anything, spend a few turns
+            on exactly this:
+            - `git log --oneline origin/${{ env.BASE_BRANCH }}..HEAD`
+            - `git diff --stat origin/${{ env.BASE_BRANCH }}...HEAD`
+            - the newest Issue comment carrying `<!-- agent-continuation:v1 -->`,
+              which lists what the previous run completed and what remains.
+            Then implement ONLY the remaining work. Do not redo finished work, do not
+            re-explore the repository broadly, do not re-summarize the Issue at
+            length, and do not revert or rewrite the earlier commits.
+
+            Your turn budget is finite. Land coherent, reviewable work as you go and
+            keep the working tree in a consistent state: if the budget runs out, the
+            workflow commits whatever is in the tree to the stable branch as a draft
+            pull request, so half-finished edits left mid-file are the one thing that
+            genuinely loses work. Prefer finishing one file before starting the next.
+
             Do:
             - Implement the smallest viable change directly in the working tree.
             - Add or update tests when behavior changes.
@@ -440,29 +563,55 @@ jobs:
           esac
           echo "outcome=$outcome" >>"$GITHUB_OUTPUT"
           echo "Agent outcome token: $outcome"
+          # Whether the agent DELIBERATELY stopped (the file exists) or simply made no
+          # edits. Only a deliberate stop may route an Issue that already carries
+          # committed work on its branch away from review.
+          outcome_explicit=false
+          [ ! -f "$RUNNER_TEMP/agent-outcome.txt" ] || outcome_explicit=true
+          echo "outcome_explicit=$outcome_explicit" >>"$GITHUB_OUTPUT"
+          # Turn-budget exhaustion is an EXECUTION boundary, not a specification
+          # failure. The Claude Code CLI reports it as the result subtype
+          # `error_max_turns` (the same signature seen when triage exhausted its cap;
+          # see docs/agent-operations.md). Classifying it here is what routes the run
+          # to the continuation path instead of `agent:blocked`.
+          turn_limit=false
+          if [ -f "$RUNNER_TEMP/claude-execution-output.json" ]; then
+            subtype="$(jq -r '[.[] | select(.type=="result")] | last | .subtype // empty' \
+              "$RUNNER_TEMP/claude-execution-output.json" 2>/dev/null || true)"
+            if [ "$subtype" = "error_max_turns" ] \
+              || grep -q 'error_max_turns' "$RUNNER_TEMP/claude-execution-output.json" 2>/dev/null; then
+              turn_limit=true
+            fi
+          fi
+          echo "turn_limit=$turn_limit" >>"$GITHUB_OUTPUT"
+          echo "Turn-limit exhaustion detected: $turn_limit"
 
-      # Artifact truth check #1: is there a real, non-empty change in the working
-      # tree? Also derive the agent branch name from the issue title (sanitized).
+      # Artifact truth check #1: is there a real, non-empty change to carry forward?
+      # The branch was already resolved and checked out by the `branch` step.
       - name: Detect implementation changes
         id: changes
         if: steps.gate.outputs.proceed == 'true' && success()
+        env:
+          OUTCOME_EXPLICIT: ${{ steps.notes.outputs.outcome_explicit }}
         run: |
           set -euo pipefail
-          title="$(gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json title --jq '.title')"
-          slug="$(printf '%s' "$title" | tr '[:upper:]' '[:lower:]' \
-            | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-40 | sed -E 's/-+$//')"
-          [ -n "$slug" ] || slug="change"
-          branch="agent/issue-${ISSUE_NUMBER}-${slug}"
-          echo "branch=$branch" >>"$GITHUB_OUTPUT"
-          echo "Planned agent branch: $branch"
+          echo "Agent branch: ${{ steps.branch.outputs.branch }} (resumed: ${{ steps.branch.outputs.resumed }})"
           echo "Working-tree status:"
           git status --porcelain
           echo "Diff against origin/${BASE_BRANCH} (stat):"
           git --no-pager diff --stat "origin/${BASE_BRANCH}" || true
-          # A real change is either uncommitted work OR commits the agent made on top
-          # of the base (some agent modes commit). Detect both so a genuine
-          # implementation is never misread as "no change".
-          if [ -n "$(git status --porcelain)" ] || ! git diff --quiet "origin/${BASE_BRANCH}"; then
+          new_work=false
+          [ -z "$(git status --porcelain)" ] || new_work=true
+          ahead="$(git rev-list --count "origin/${BASE_BRANCH}..HEAD")"
+          echo "Uncommitted new work: $new_work; commits already on the branch: $ahead"
+          # A real change is uncommitted work from this run, OR commits a previous
+          # continuation run already pushed to this branch. The one exception: if the
+          # agent DELIBERATELY stopped this run (it wrote an outcome token) and added
+          # nothing new, honour that stop instead of promoting the older commits to
+          # review — the stop handler preserves the branch and PR untouched.
+          if [ "$new_work" = "true" ]; then
+            echo "changed=true" >>"$GITHUB_OUTPUT"
+          elif [ "$ahead" -gt 0 ] && [ "${OUTCOME_EXPLICIT:-false}" != "true" ]; then
             echo "changed=true" >>"$GITHUB_OUTPUT"
           else
             echo "changed=false" >>"$GITHUB_OUTPUT"
@@ -477,6 +626,8 @@ jobs:
         if: steps.gate.outputs.proceed == 'true' && success() && steps.changes.outputs.changed == 'false'
         env:
           OUTCOME: ${{ steps.notes.outputs.outcome }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
+          PR_URL: ${{ steps.branch.outputs.pr_url }}
         run: |
           set -euo pipefail
           if [ "$OUTCOME" = "blocked" ]; then
@@ -498,25 +649,33 @@ jobs:
             ja_headline="🤖 実装の前に、製品仕様に関する判断が 1 点必要なため、リポジトリへの変更は行いませんでした。"
             ja_action="必要な人間の対応: 下記の質問に**コメントで**回答してください。通常のコメントで十分で、Issue を書き直したりワークフローを再実行したりする必要はありません。その後 \`agent:ready\` を付け直してください。"
           fi
+          # Say truthfully what exists. A deliberate stop on a continued Issue leaves
+          # the earlier branch and draft PR in place — they are never deleted here.
+          if [ -n "${PR_URL:-}" ]; then
+            artifact="The existing branch \`$BRANCH\` and pull request $PR_URL were left exactly as they were, and \`agent:review\` was **not** applied."
+            ja_artifact="既存のブランチ \`$BRANCH\` とプルリクエスト $PR_URL はそのまま保持しており、\`agent:review\` は付与して**いません**。"
+          else
+            artifact="No branch or pull request was created and \`agent:review\` was **not** applied."
+            ja_artifact="ブランチとプルリクエストは作成しておらず、\`agent:review\` も付与して**いません**。"
+          fi
           # Removals are tolerant — a human may already have removed one, and under
           # `set -e` that must not abort the run before the issue is routed. The add
           # must succeed, so it stays strict.
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agent:working" || true
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agent:ready" || true
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agent:continuation-needed" || true
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "$next_label"
           summary="$(cat "$RUNNER_TEMP/agent-notes.md" 2>/dev/null || echo "No agent notes were captured.")"
           gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(cat <<EOF
           ## English
 
-          $headline No branch or pull request was created and \`agent:review\` was
-          **not** applied. Moved to \`$next_label\`.
+          $headline $artifact Moved to \`$next_label\`.
 
           $action
 
           ## 日本語
 
-          $ja_headline ブランチとプルリクエストは作成しておらず、\`agent:review\` も付与して
-          **いません**。\`$next_label\` に移しました。
+          $ja_headline $ja_artifact \`$next_label\` に移しました。
 
           $ja_action
 
@@ -577,36 +736,27 @@ jobs:
         if: steps.gate.outputs.proceed == 'true' && success() && steps.changes.outputs.changed == 'true'
         run: |
           set -euo pipefail
-          BRANCH="${{ steps.changes.outputs.branch }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          BRANCH="${{ steps.branch.outputs.branch }}"
 
-          git switch -c "$BRANCH"
-          # Normalize: if the agent committed locally, fold those commits back into
-          # the index so the workflow makes exactly ONE clean commit; if it left
-          # uncommitted changes, this is a no-op.
-          git reset --soft "origin/${BASE_BRANCH}"
+          # The stable branch is already checked out, with every commit from any
+          # earlier continuation run intact. Commit only what is new, on top. There is
+          # deliberately no `git reset`, no squash, no branch delete, and no
+          # `--force` anywhere on this path: prior agent work is never rewritten.
           git add -A
-          # Never create an empty commit.
           if git diff --cached --quiet; then
-            echo "::error::No staged changes after add — refusing to create an empty commit."
-            exit 1
-          fi
-          git commit -m "agent: implement #${ISSUE_NUMBER}" \
-            -m "Closes #${ISSUE_NUMBER}" \
-            -m "Co-Authored-By: Claude <noreply@anthropic.com>"
-
-          # If a stale agent branch from a previously failed run exists remotely with
-          # NO open PR, delete it so this run can push cleanly. This is a delete (not
-          # a force-push) of an automation-owned branch that has no pull request.
-          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-            stale_pr="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq '.[0].number // ""')"
-            if [ -z "$stale_pr" ]; then
-              echo "Deleting stale branch $BRANCH (no open PR) before pushing."
-              git push origin --delete "$BRANCH" || true
+            if [ "$(git rev-list --count "origin/${BASE_BRANCH}..HEAD")" -eq 0 ]; then
+              echo "::error::No staged changes and no commits on the branch — refusing to create an empty commit."
+              exit 1
             fi
+            echo "No new uncommitted changes; the branch already carries committed agent work."
+          else
+            git commit -m "agent: implement #${ISSUE_NUMBER}" \
+              -m "Closes #${ISSUE_NUMBER}" \
+              -m "Co-Authored-By: Claude <noreply@anthropic.com>"
           fi
 
+          # Fast-forward only. A rejected push means someone else moved the branch;
+          # that fails the job (=> blocked) rather than overwriting their work.
           git push -u origin "$BRANCH"
           # Verify the remote branch actually exists.
           git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null
@@ -647,18 +797,25 @@ jobs:
             echo "- **日本語:** ロールバックするには、この PR をクローズする (\`agent/issue-*\` ブランチは独立しています) か、マージコミットを revert してください。"
           } >"$BODY"
 
-          # Create or reuse the PR (never force; never merge).
+          # Create or reuse the ONE PR for this Issue (never force; never merge).
+          TITLE="agent: implement #${ISSUE_NUMBER} / #${ISSUE_NUMBER} を実装"
           existing="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --base "$BASE_BRANCH" --state open --json number --jq '.[0].number // ""')"
           if [ -z "$existing" ]; then
             gh pr create --repo "$GITHUB_REPOSITORY" --base "$BASE_BRANCH" --head "$BRANCH" \
-              --title "agent: implement #${ISSUE_NUMBER} / #${ISSUE_NUMBER} を実装" --body-file "$BODY"
+              --title "$TITLE" --body-file "$BODY"
           else
-            gh pr edit "$existing" --repo "$GITHUB_REPOSITORY" --body-file "$BODY"
+            # Reset the title too: a previous continuation run marked this PR as
+            # in-progress, and the work is now complete and verified.
+            gh pr edit "$existing" --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file "$BODY"
           fi
+          # A continuation run opens the PR as a draft. Implementation and the required
+          # verification above have now both passed, so take it out of draft. This only
+          # marks it ready for review — it never approves and never merges.
+          gh pr ready "$BRANCH" --repo "$GITHUB_REPOSITORY" || true
 
           # Retrieve and VALIDATE the PR (the core invariant).
           meta="$(gh pr view "$BRANCH" --repo "$GITHUB_REPOSITORY" \
-            --json number,url,headRefName,headRefOid,baseRefName,changedFiles,additions,deletions,state)"
+            --json number,url,headRefName,headRefOid,baseRefName,changedFiles,additions,deletions,state,isDraft)"
           num="$(jq -r '.number' <<<"$meta")"
           url="$(jq -r '.url' <<<"$meta")"
           head="$(jq -r '.headRefName' <<<"$meta")"
@@ -668,6 +825,7 @@ jobs:
           adds="$(jq -r '.additions' <<<"$meta")"
           dels="$(jq -r '.deletions' <<<"$meta")"
           state="$(jq -r '.state' <<<"$meta")"
+          draft="$(jq -r '.isDraft' <<<"$meta")"
 
           fail() { echo "::error::$1"; exit 1; }
           for pair in "number:$num" "url:$url" "head:$head" "sha:$sha" "base:$base"; do
@@ -676,6 +834,8 @@ jobs:
           [ "$head" = "$BRANCH" ] || fail "PR head ($head) != agent branch ($BRANCH)"
           [ "$base" = "$BASE_BRANCH" ] || fail "PR base ($base) != $BASE_BRANCH"
           [ "$state" = "OPEN" ] || fail "PR is not OPEN (state=$state)"
+          # `agent:review` may only ever describe a PR that is actually reviewable.
+          [ "$draft" = "false" ] || fail "PR is still a draft — refusing to advance to review"
           [ "${files:-0}" -ge 1 ] || fail "PR has no changed files"
           [ "$(( ${adds:-0} + ${dels:-0} ))" -ge 1 ] || fail "PR has no additions/deletions"
           # Explicit non-empty diff check straight from the PR.
@@ -699,6 +859,10 @@ jobs:
         if: steps.gate.outputs.proceed == 'true' && success() && steps.changes.outputs.changed == 'true'
         run: |
           set -euo pipefail
+          # The work is finished, so any continuation marker from an earlier
+          # turn-limited run no longer applies. Tolerant: it may not be present.
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --remove-label "agent:continuation-needed" || true
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
             --remove-label "agent:working" --add-label "agent:review"
           gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(cat <<EOF
@@ -731,12 +895,228 @@ jobs:
           EOF
           )"
 
-      # Any failure (Claude error, failed verification, git/push/PR error, or PR
-      # validation failure) lands here. Never applies `agent:review`.
-      - name: Mark blocked on failure
-        if: steps.gate.outputs.proceed == 'true' && failure()
+      # ─────────────────────────── TURN-LIMIT CONTINUATION ───────────────────────
+      # Reaching `--max-turns` is EXECUTION continuation, never a specification
+      # failure. This step therefore: never applies `agent:needs-spec`; never
+      # discards commits, the branch, or the PR; never applies `agent:review`; and
+      # never force-pushes. It check points the coherent partial work onto the stable
+      # branch, surfaces it as a DRAFT pull request marked incomplete, and KEEPS
+      # `agent:ready` in force so that "Re-run failed jobs" in GitHub Mobile is a
+      # complete one-tap continuation from the same branch and the same PR.
+      # Two CONSECUTIVE turn-limited runs escalate to `agent:blocked` instead.
+      - name: Continue after turn-limit exhaustion
+        id: continue
+        if: steps.gate.outputs.proceed == 'true' && failure() && steps.notes.outputs.turn_limit == 'true'
+        env:
+          BRANCH: ${{ steps.branch.outputs.branch }}
+          MAX_TURNS: ${{ vars.AGENT_MAX_TURNS || '120' }}
         run: |
           set -euo pipefail
+          # Consecutive attempts = the trailing run of continuation notices on the
+          # Issue. ANY other comment (a human reply, a Work Brief, a review notice)
+          # resets it, so the count needs no durable state and cannot drift.
+          attempts="$(gh issue view "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --json comments \
+            --jq '[.comments[] | if (.body | contains("<!-- agent-continuation:v1 -->")) then "c" else "x" end] | reverse | (index("x") // length)')"
+          echo "Consecutive prior turn-limit notices on this Issue: $attempts"
+
+          # Check point whatever is in the tree. Build output (dist/, node_modules/,
+          # coverage/) is git-ignored, so only source can be committed here, and an
+          # unchanged tree commits nothing at all.
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing new to check point."
+          else
+            git commit -m "agent: checkpoint #${ISSUE_NUMBER} (execution budget reached)" \
+              -m "Partial, unverified work preserved for continuation. Not ready to merge." \
+              -m "Co-Authored-By: Claude <noreply@anthropic.com>"
+          fi
+
+          ahead="$(git rev-list --count "origin/${BASE_BRANCH}..HEAD")"
+          pr_url="not yet created / 未作成"
+          completed="Nothing was committed before the budget ran out — the branch has no agent commits yet."
+          ja_completed="実行上限に達するまでにコミットできる変更はなく、ブランチにエージェントのコミットはまだありません。"
+          if [ "$ahead" -gt 0 ]; then
+            git push -u origin "$BRANCH"
+            stat="$(git --no-pager diff --shortstat "origin/${BASE_BRANCH}...HEAD" | sed -E 's/^[[:space:]]+//')"
+            completed="${ahead} commit(s) on the branch (${stat}). Partial and NOT yet verified."
+            ja_completed="ブランチ上に ${ahead} 件のコミット (${stat})。部分的な変更で、検証は未実施です。"
+
+            DRAFT="$RUNNER_TEMP/draft-pr-body.md"
+            {
+              echo "## English"
+              echo
+              echo "> **INCOMPLETE — do not merge.** This pull request is a check point of an"
+              echo "> implementation run that reached its ${MAX_TURNS}-turn execution budget."
+              echo "> The required verification suite has **not** been run on it."
+              echo
+              echo "Closes #${ISSUE_NUMBER}"
+              echo
+              echo "- Issue: #${ISSUE_NUMBER}"
+              echo "- Branch: \`${BRANCH}\`"
+              echo "- Run log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              echo
+              echo "Continuing is one tap: re-run **Implement issue** from the Actions tab."
+              echo "The next run resumes this same branch and updates this same pull request."
+              echo
+              echo "## 日本語"
+              echo
+              echo "> **未完成のためマージしないでください。** この PR は、${MAX_TURNS} ターンの実行上限に"
+              echo "> 達した実装ランの中間チェックポイントです。必要な検証スイートは**実行していません**。"
+              echo
+              echo "- Issue: #${ISSUE_NUMBER}"
+              echo "- ブランチ: \`${BRANCH}\`"
+              echo "- 実行ログ: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              echo
+              echo "続行はワンタップです。Actions タブから **Implement issue** を再実行してください。"
+              echo "次のランは同じブランチを引き継ぎ、この PR を更新します。"
+            } >"$DRAFT"
+
+            IN_PROGRESS_TITLE="agent: implement #${ISSUE_NUMBER} (in progress) / #${ISSUE_NUMBER} を実装 (作業中)"
+            existing="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --base "$BASE_BRANCH" \
+              --state open --json number --jq '.[0].number // ""')"
+            if [ -z "$existing" ]; then
+              # `gh pr create` prints the new PR's URL; take it straight from there
+              # rather than re-querying, so the comment can never say "not created"
+              # about a PR that was in fact created.
+              created="$(gh pr create --repo "$GITHUB_REPOSITORY" --base "$BASE_BRANCH" --head "$BRANCH" \
+                --draft --title "$IN_PROGRESS_TITLE" --body-file "$DRAFT" | tail -n1)"
+              case "$created" in
+                http*) pr_url="$created" ;;
+              esac
+            else
+              # Same PR, updated in place — never a second PR for the same Issue.
+              gh pr edit "$existing" --repo "$GITHUB_REPOSITORY" \
+                --title "$IN_PROGRESS_TITLE" --body-file "$DRAFT"
+              # Back to draft: the work is no longer in a reviewable state.
+              gh pr ready "$existing" --repo "$GITHUB_REPOSITORY" --undo || true
+              pr_url="$(gh pr view "$existing" --repo "$GITHUB_REPOSITORY" --json url --jq '.url')"
+            fi
+          fi
+
+          notes="$(head -c 1200 "$RUNNER_TEMP/agent-notes.md" 2>/dev/null || echo "(no agent notes were captured)")"
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ "$attempts" -ge 1 ]; then
+            # ESCALATION: two consecutive turn-limited runs. Keep every commit and the
+            # pull request; stop retrying silently. This is a genuine human decision
+            # (split the Issue, or raise the budget) — it is NOT `agent:needs-spec`.
+            gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agent:working" || true
+            gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agent:ready" || true
+            gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agent:continuation-needed" || true
+            gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "agent:blocked"
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(cat <<EOF
+          ## English
+
+          **Action required:** this Issue is too large for one run. Split it, or raise
+          the execution budget. Two consecutive runs reached the ${MAX_TURNS}-turn
+          budget without producing a review-ready pull request, so automatic retrying
+          has stopped. This is **not** a specification problem and nothing was
+          discarded.
+
+          - Branch: \`$BRANCH\` (every commit preserved)
+          - Pull request: $pr_url
+          - Completed: $completed
+          - Remaining: not reported — the run was cut off mid-work. The agent notes
+            below are its last message.
+          - Validation: not run on the check point. Treat the pull request as **draft
+            only**; do not merge it as-is.
+          - Recommended next action: open a smaller follow-up Issue covering the
+            single smallest useful next step, and let this one wait. Alternatively,
+            raise the Actions variable \`AGENT_MAX_TURNS\`, then remove
+            \`agent:blocked\` and re-apply \`agent:ready\`.
+
+          Both options are one tap each from GitHub Mobile. No local git is needed.
+
+          ## 日本語
+
+          **要対応:** この Issue は 1 回の実行には大きすぎます。分割するか、実行予算を
+          引き上げてください。連続 2 回のランが ${MAX_TURNS} ターンの上限に達し、レビュー可能な
+          プルリクエストに到達しなかったため、自動的な再試行を停止しました。これは仕様不足に
+          よる停止では**なく**、作業は一切破棄していません。
+
+          - ブランチ: \`$BRANCH\` (コミットはすべて保持)
+          - Pull request: $pr_url
+          - 完了済み: $ja_completed
+          - 残作業: 作業途中で打ち切られたため報告はありません。下記がエージェントの最後の記録です。
+          - 検証: チェックポイントに対しては未実施です。この PR は**下書き扱い**とし、
+            このままマージしないでください。
+          - 推奨する次の操作: 次に必要な最小単位だけを対象とした小さめの Issue を新規に作成し、
+            この Issue は保留してください。あるいは Actions 変数 \`AGENT_MAX_TURNS\` を
+            引き上げたうえで、\`agent:blocked\` を外して \`agent:ready\` を付け直してください。
+
+          どちらも GitHub Mobile からワンタップで操作できます。ローカルの git は不要です。
+
+          ---
+
+          Agent notes / エージェントの記録 (excerpt, verbatim):
+
+          $notes
+
+          Run log / 実行ログ: $run_url
+          EOF
+          )"
+          else
+            gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agent:working" || true
+            # `agent:ready` is deliberately KEPT: it is the human approval that is
+            # still in force, and Gate 2 re-checks it on the re-run.
+            gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+              --add-label "agent:continuation-needed" \
+              || echo "::warning::Label agent:continuation-needed does not exist yet — create it (see docs/agent-operations.md)."
+            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(cat <<EOF
+          <!-- agent-continuation:v1 -->
+
+          ## English
+
+          Implementation paused because the configured ${MAX_TURNS}-turn execution
+          budget was reached. This is not a specification problem.
+
+          - Branch: \`$BRANCH\`
+          - Pull request: $pr_url
+          - Completed: $completed
+          - Remaining: not reported — the run was cut off mid-work. The next run
+            re-reads this branch and continues from it.
+          - Validation: not run on this check point; the required suite runs when the
+            implementation completes.
+          - Next action: Re-run **Implement issue** from GitHub Actions to continue
+            from this branch.
+
+          ## 日本語
+
+          設定された${MAX_TURNS}ターンの実行上限に達したため、実装を一時停止しました。
+          これは仕様不足による停止ではありません。
+
+          - ブランチ: \`$BRANCH\`
+          - Pull request: $pr_url
+          - 完了済み: $ja_completed
+          - 残作業: 作業途中で打ち切られたため報告はありません。次のランがこのブランチを
+            読み直して続きから作業します。
+          - 検証: このチェックポイントに対しては未実施です。実装完了時に必要な検証を実行します。
+          - 次の操作: GitHub Actionsから **Implement issue** を再実行してください。
+            このブランチを引き継いで作業を続けます。
+
+          ---
+
+          Agent notes / エージェントの記録 (excerpt, verbatim):
+
+          $notes
+
+          Run log / 実行ログ: $run_url
+          EOF
+          )"
+          fi
+
+      # Any OTHER failure (Claude error, failed verification, git/push/PR error, or PR
+      # validation failure) lands here — including a turn-limited run whose
+      # continuation step itself failed, so the Issue can never be left mid-flight
+      # wearing `agent:working`. Never applies `agent:review`.
+      - name: Mark blocked on failure
+        if: >-
+          steps.gate.outputs.proceed == 'true' && failure() &&
+          (steps.notes.outputs.turn_limit != 'true' || steps.continue.outcome == 'failure')
+        run: |
+          set -euo pipefail
+          gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --remove-label "agent:continuation-needed" || true
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
             --remove-label "agent:working" --remove-label "agent:ready" \
             --add-label "agent:blocked" || true

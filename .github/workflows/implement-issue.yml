@@ -28,8 +28,11 @@ name: Implement issue
 # - Trigger is the `agent:ready` label (human-only) or manual dispatch — never an
 #   arbitrary issue comment. Refuses to run if `agent:blocked` is present.
 # - Runs on base-repo issues (not fork code); contents:write pushes the agent
-#   branch only. Direct pushes to main are blocked by branch protection
-#   (see docs/agent-operations.md) as defense in depth.
+#   branch only. NOTE: `main` currently has NO branch protection configured (the
+#   protection API returns 404), so that defense-in-depth layer does not exist
+#   today — the workflow never targeting `main` is the only thing preventing a
+#   direct push. Enabling protection is a human decision; see
+#   docs/release-automation-gap.md § Blocker 6.
 # - The agent is granted file-editing tools (Edit/Write/MultiEdit) plus read/search
 #   and build/test Bash so it can actually implement; git push, PR creation, and
 #   label/issue mutations are disallowed so the workflow stays the sole authority.

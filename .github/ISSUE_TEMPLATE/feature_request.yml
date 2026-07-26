@@ -1,5 +1,5 @@
 name: 機能要望 / Feature request
-description: やりたいことを一言で。Claudeが実装用の仕様に整理します。 / Say what you want in one line; Claude turns it into an implementation spec.
+description: やりたいことを一言で。Claudeが実装用に整理します。 / Say what you want in one line; Claude works out the implementation.
 labels: ['agent:triage', 'type:feature']
 body:
   - type: markdown
@@ -16,7 +16,7 @@ body:
     id: what
     attributes:
       label: やりたいこと
-      description: 実現したいことを自由に書いてください。短文でも構いません。Claudeが実装用の仕様に整理します。
+      description: 実現したいことを自由に書いてください。短文でも構いません。Claudeが実装用に整理します。
       placeholder: '例: 検索結果を新着順と人気順で切り替えられるようにしたい'
     validations:
       required: true

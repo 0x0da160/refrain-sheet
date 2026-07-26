@@ -6,8 +6,11 @@
 # ready-to-paste commands in docs/agent-operations.md ("Human Setup Required").
 #
 # State machine (see docs/agent-operations.md):
-#   agent:triage -> agent:needs-spec -> [human applies agent:ready]
+#   agent:triage -> [human applies agent:ready]
 #     -> agent:working -> agent:review -> [human merge] -> agent:done
+#   agent:needs-spec is a SIDE BRANCH, not a required stage: it is used only when
+#     one material product decision cannot be inferred from repository evidence.
+#     An ordinary Issue goes straight from triage to agent:ready.
 #   agent:blocked may interrupt from any state and requires human input.
 #
 # IMPORTANT: automation MUST NEVER apply `agent:ready`. Humans only.
@@ -18,7 +21,7 @@
   description: 'Needs automated classification or clarification (automation or human).'
 - name: 'agent:needs-spec'
   color: 'fbca04'
-  description: 'Acceptance criteria, constraints, or risk info are insufficient.'
+  description: 'One focused, material product decision is unresolved (not "the Issue lacks detail").'
 - name: 'agent:ready'
   color: '1d76db'
   description: 'Human-approved for autonomous implementation. HUMANS ONLY may apply.'

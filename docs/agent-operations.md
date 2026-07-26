@@ -16,30 +16,38 @@ A human does **not** write a full specification. To request a feature:
 
 1. Enter a short **title** (e.g. `検索結果に並び替え機能を追加したい`).
 2. Write what you want in the single **`やりたいこと`** field. A short sentence is fine.
-3. Claude reads it and posts a structured **specification** comment (background,
-   acceptance criteria, scope, risks, assumptions — all inferred and clearly labelled).
-4. A human **reviews that specification** and, only if it is correct and safe, applies
-   **`agent:ready`**. Implementation never starts from the raw request alone.
+3. Claude reads it and posts an **agent Work Brief** comment (what it understood, the
+   repository evidence, the implementation it will make, and every assumption).
+4. A human **reviews that brief** and, only if it is correct and safe, applies
+   **`agent:ready`**.
 
 Background, scope, out-of-scope, acceptance criteria, technical design, test plan,
 risk classification, rollback, model, and release details are **not** asked of the
-human — they are inferred (and questioned) in the specification stage.
+human — they are inferred from repository conventions and recorded as assumptions.
+
+If Claude does need something, it asks **one focused question in a comment**. Answer
+it in a comment too: a plain reply is authoritative task input. You never need to
+rewrite the Issue, regenerate the brief, or re-run a workflow to make an answer
+count — see [Autonomous execution policy](#autonomous-execution-policy).
 
 ### Lifecycle
 
 ```text
 Human opens Issue (simple form: title + `やりたいこと`)
         │
-        ├─► [issue-triage.yml]        classify, set risk labels, note missing info
-        └─► [prepare-issue-spec.yml]  write the structured `agent-spec:v1` specification
+        ├─► [issue-triage.yml]        classify, set risk labels, judge implementability
+        └─► [prepare-issue-spec.yml]  write the `agent-spec:v1` Work Brief
         │                             (may set agent:needs-spec / agent:blocked)
+        │                             ▲ also re-runs when a human comments on a
+        │                             │ agent:needs-spec Issue — no manual re-run
         ▼
-Human reviews the generated specification and (only if approved) applies ──► agent:ready   ← HUMAN ONLY
+Human reviews the Work Brief and (only if approved) applies ──────────────► agent:ready   ← HUMAN ONLY
         │
         ▼
-[implement-issue.yml] ── requires agent:ready + a valid agent-spec:v1 comment
+[implement-issue.yml] ── requires agent:ready + no agent:blocked (a Work Brief is NOT required)
         │                 agent:working ─► branch agent/issue-<n>-<slug>
-        │                 implements the SPEC (not the raw body) + tests + verification
+        │                 reads the Issue + ALL human comments + newest brief,
+        │                 implements with repository conventions + tests + verification
         ▼
 Pull request opened (Closes #<n>) ──► agent:review  (only after a verified, non-empty PR)
         │
@@ -59,15 +67,15 @@ intentionally disabled — see docs/release-automation-gap.md.
 
 ### Label state machine
 
-| Label              | Meaning                                                     | Who may apply       |
-| ------------------ | ----------------------------------------------------------- | ------------------- |
-| `agent:triage`     | Needs automated classification / clarification              | Automation or human |
-| `agent:needs-spec` | Acceptance criteria, constraints, or risk info insufficient | Automation or human |
-| `agent:ready`      | **Human-approved** for autonomous implementation            | **Human only**      |
-| `agent:working`    | An implementation workflow is running on the Issue          | Automation          |
-| `agent:review`     | A PR exists; needs independent review / CI completion       | Automation          |
-| `agent:blocked`    | Cannot safely continue without human input                  | Automation or human |
-| `agent:done`       | Completed after human-approved merge + verification         | Automation or human |
+| Label              | Meaning                                               | Who may apply       |
+| ------------------ | ----------------------------------------------------- | ------------------- |
+| `agent:triage`     | Needs automated classification / clarification        | Automation or human |
+| `agent:needs-spec` | One material product decision is genuinely needed     | Automation or human |
+| `agent:ready`      | **Human-approved** for autonomous implementation      | **Human only**      |
+| `agent:working`    | An implementation workflow is running on the Issue    | Automation          |
+| `agent:review`     | A PR exists; needs independent review / CI completion | Automation          |
+| `agent:blocked`    | Cannot safely continue without human input            | Automation or human |
+| `agent:done`       | Completed after human-approved merge + verification   | Automation or human |
 
 Risk labels (narrowly scoped): `risk:low`, `risk:medium`, `risk:high`,
 `risk:security`, `risk:data`, `risk:infra`, `risk:breaking-change`. Definitions live
@@ -78,7 +86,7 @@ in [`.github/labels.yml`](../.github/labels.yml).
 | Step                               | Automated                          | Human          |
 | ---------------------------------- | ---------------------------------- | -------------- |
 | Triage & labeling                  | ✅ (`issue-triage.yml`)            | may adjust     |
-| Writing the specification          | ✅ (`prepare-issue-spec.yml`)      | reviews it     |
+| Writing the Work Brief             | ✅ (`prepare-issue-spec.yml`)      | reviews it     |
 | Approving an Issue (`agent:ready`) | ❌ never                           | ✅ required    |
 | Implementation + PR                | ✅ (`implement-issue.yml`)         | —              |
 | Independent review                 | ✅ (`review-pr.yml`)               | may add review |
@@ -88,13 +96,13 @@ in [`.github/labels.yml`](../.github/labels.yml).
 
 ## Workflows
 
-| Workflow                 | Trigger                                              | Permissions                                                          | Concurrency                    | Stop condition                                                                                       |
-| ------------------------ | ---------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `issue-triage.yml`       | `issues: opened/edited`, dispatch                    | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips issues past triage / bot edits                                                                 |
-| `prepare-issue-spec.yml` | `issues: opened/labeled` (`type:feature`), dispatch  | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips bots / issues past spec; comments the `agent-spec:v1` spec only                                |
-| `implement-issue.yml`    | `issues: labeled` (`agent:ready`), dispatch          | `contents:write`, `issues:write`, `pull-requests:write`              | per-issue, **no** cancel       | No `agent-spec:v1` or no diff → `needs-spec`; failure → `blocked`; `review` only after a verified PR |
-| `review-pr.yml`          | `pull_request` (same-repo `agent/issue-*`), dispatch | `contents:read`, `issues:write`, `pull-requests:write`               | per-PR, cancel-in-progress     | Skips fork / non-agent branches                                                                      |
-| `close-loop.yml`         | `workflow_run` (CI completed), dispatch              | read checks/statuses/contents, `issues:write`, `pull-requests:write` | per-commit, cancel-in-progress | Only same-repo `pull_request` CI runs on `agent/issue-*`; skips when no matching agent PR            |
+| Workflow                 | Trigger                                                                         | Permissions                                                          | Concurrency                    | Stop condition                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `issue-triage.yml`       | `issues: opened/edited`, dispatch                                               | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips issues past triage / bot edits                                                                      |
+| `prepare-issue-spec.yml` | `issues: opened/labeled`, human `issue_comment` on `agent:needs-spec`, dispatch | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips bots / issues past spec; comments the `agent-spec:v1` Work Brief only                               |
+| `implement-issue.yml`    | `issues: labeled` (`agent:ready`), dispatch                                     | `contents:write`, `issues:write`, `pull-requests:write`              | per-issue, **no** cancel       | No diff → `blocked` (safety stop) or `needs-spec`; failure → `blocked`; `review` only after a verified PR |
+| `review-pr.yml`          | `pull_request` (same-repo `agent/issue-*`), dispatch                            | `contents:read`, `issues:write`, `pull-requests:write`               | per-PR, cancel-in-progress     | Skips fork / non-agent branches                                                                           |
+| `close-loop.yml`         | `workflow_run` (CI completed), dispatch                                         | read checks/statuses/contents, `issues:write`, `pull-requests:write` | per-commit, cancel-in-progress | Only same-repo `pull_request` CI runs on `agent/issue-*`; skips when no matching agent PR                 |
 
 ### `agent:review` means a verified PR exists
 
@@ -105,8 +113,9 @@ branch), runs the required verification suite, commits, pushes, opens/updates th
 and **retrieves and validates** the PR (number, URL, head branch, head SHA, base
 branch, changed-files count, additions, deletions, non-empty diff). Only after **all**
 of those pass does it remove `agent:working` and apply `agent:review`. If the run
-produced no change it goes to `agent:needs-spec`; on any failure it goes to
-`agent:blocked`. `agent:review` therefore always corresponds to a reviewable PR — it
+produced no change it goes to `agent:blocked` (a safety or approval stop) or
+`agent:needs-spec` (a focused product question, or nothing to do); on any failure it
+goes to `agent:blocked`. `agent:review` therefore always corresponds to a reviewable PR — it
 is never a proxy for "the model finished". `review-pr.yml` and `close-loop.yml` only
 act on a PR they retrieve from GitHub; neither creates `agent:review` and neither
 infers a PR from a label.
@@ -115,6 +124,80 @@ Every workflow: declares an explicit `timeout-minutes`, uses `pull_request` (nev
 `pull_request_target`), selects its Claude credential from exactly one method (see
 [Claude authentication](#claude-authentication)), and is **inert until a human
 completes the setup below**.
+
+## Autonomous execution policy
+
+**A human Issue is an outcome request, not a technical specification.** For low- and
+medium-risk work, Claude reads the Issue, every human comment, and the repository,
+then makes the professional call and implements it — recording what it inferred
+rather than asking you to pre-specify it.
+
+### What you do and do not have to write
+
+You do **not** need to supply acceptance criteria, a file name, a technical design, a
+test plan, or exact wording. Where the repository already has a convention, an
+analogous feature, or a configured tool, that is the answer, and Claude uses it. What
+you **do** need to supply is the outcome you want.
+
+`agent:ready` means _"you may build this using your judgement"_. It is **not** a
+statement that every detail was pre-specified, and it remains **human-only** —
+automation never applies it.
+
+### The Work Brief is a work record, not a gate
+
+The `agent-spec:v1` comment is a **living Work Brief**: requested outcome, relevant
+human updates, repository evidence, the implementation decision, assumptions,
+alternatives considered, validation plan, risk, and status. It exists to make
+implementation better and the PR reviewable.
+
+It is **not** required to start implementation, and a stale one cannot strand an
+Issue. Concretely:
+
+- `implement-issue.yml` requires only `agent:ready`, no `agent:blocked`, and a valid
+  open Issue. A missing brief is fine.
+- The agent reads the **full Issue and every human-authored comment**, not just the
+  brief. A later human comment outranks an earlier brief.
+- A brief marked `needs-clarification` is **spent** the moment a human answers the
+  question in a comment. The agent refreshes the brief itself; you never have to
+  re-run _Prepare issue spec_ to make your own answer count. That workflow also
+  re-runs on its own when a human comments on an `agent:needs-spec` Issue.
+- Bot comments are never mistaken for human product decisions.
+
+> **This fixed a real deadlock.** Previously the brief was the authoritative source
+> and a `needs-spec` status was a hard stop, so an Issue whose open question had
+> already been answered in a plain comment would be re-labelled `agent:needs-spec`
+> with no repository change, forever.
+
+### When Claude still stops
+
+**`agent:needs-spec` — one focused question.** Only when every reasonable reading
+would produce materially different user-visible behavior, data handling,
+compatibility, or product intent, and neither repository evidence nor any comment
+resolves it. You get at most one or two decision-oriented questions, each with a
+recommended default and the consequence of choosing otherwise — never a demand for
+generic acceptance criteria or a rewritten Issue.
+
+**`agent:blocked` — a safety boundary.** Database schema/migrations, backfills,
+destructive data operations or retention decisions; authentication, authorization,
+permissions, identity, account access; billing, payments, pricing, monetary
+calculation; personal or sensitive data, privacy, compliance, legal; secrets, keys,
+token handling, signing; infrastructure, IAM, networking, production configuration,
+deployment topology; public-API breaking changes; major dependency upgrades with
+material compatibility or security impact; contradictory human requirements; missing
+credentials or external access; and this repository's RSF binary format / `wasm/`
+core. Routine uncertainty is **not** high risk and is not treated as such.
+
+Both paths remove `agent:ready`, so answering and re-approving is a single action
+that re-fires the run.
+
+### The PR is the review point
+
+Because Claude decides more on its own, the pull request — not the Issue — is where
+those decisions are reviewed. Every autonomous implementation states in its PR body:
+requested outcome, implementation decision, **assumptions made**, repository evidence
+used, tests and validation run, trade-offs and remaining risks, and any suggested
+follow-up Issue. Nothing about merging changed: a human still reviews and merges, and
+`review-pr.yml` still reviews the diff independently.
 
 ## Human setup required (GitHub UI / CLI)
 

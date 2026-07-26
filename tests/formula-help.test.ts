@@ -58,6 +58,25 @@ describe('formula help / autocomplete / evaluator share one source of truth', ()
     }
   });
 
+  it('every function has a valid, non-empty category with a localized heading', () => {
+    const validCategories = new Set([
+      'math',
+      'conditional',
+      'logical',
+      'lookup',
+      'text',
+      'date',
+      'statistics',
+      'arrays',
+    ]);
+    for (const info of FUNCTION_INFOS) {
+      expect(validCategories.has(info.category), `category for ${info.name}`).toBe(true);
+      const headingKey = `dialog.formulaHelp.category.${info.category}`;
+      expect(CATALOGS.en[headingKey], `en ${headingKey}`).toBeTruthy();
+      expect(CATALOGS.ja[headingKey], `ja ${headingKey}`).toBeTruthy();
+    }
+  });
+
   it('all formula-help error-code descriptions exist in both locales', () => {
     for (const key of [
       'dialog.formulaHelp.err.error',

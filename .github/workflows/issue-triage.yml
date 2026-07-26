@@ -144,7 +144,12 @@ jobs:
             - Do not create branches, do not modify any source files.
             - Only apply labels that already exist in the repository; if a needed
               label is missing, recommend it in your comment instead of failing.
-            - Respond in the dominant language of the issue (Japanese or English).
+            - Write the comment BILINGUALLY: a `## English` section, then a `## 日本語`
+              section carrying the same meaning, questions, risks, and hedging. Do not
+              put a fact or caveat in one language and omit it from the other. Leave
+              code, commands, file paths, identifiers, label names, URLs, and raw error
+              text untranslated. Quote the Issue author's own words verbatim in their
+              original language.
             - Post an idempotent comment: update understanding rather than
               duplicating a prior triage comment.
             - Post the comment BEFORE you run out of turns. Triage is a judgement
@@ -188,7 +193,12 @@ jobs:
             - Do not create branches, do not modify any source files.
             - Only apply labels that already exist in the repository; if a needed
               label is missing, recommend it in your comment instead of failing.
-            - Respond in the dominant language of the issue (Japanese or English).
+            - Write the comment BILINGUALLY: a `## English` section, then a `## 日本語`
+              section carrying the same meaning, questions, risks, and hedging. Do not
+              put a fact or caveat in one language and omit it from the other. Leave
+              code, commands, file paths, identifiers, label names, URLs, and raw error
+              text untranslated. Quote the Issue author's own words verbatim in their
+              original language.
             - Post an idempotent comment: update understanding rather than
               duplicating a prior triage comment.
             - Post the comment BEFORE you run out of turns. Triage is a judgement

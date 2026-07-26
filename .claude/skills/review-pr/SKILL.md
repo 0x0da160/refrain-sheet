@@ -41,16 +41,34 @@ diff, the Issue criteria, `CLAUDE.md`, and `docs/`.
 4. **Avoid style-only nits** unless they affect maintainability, safety, or a
    documented repository convention.
 5. **Post concrete findings** with `file:line` references and a proposed remediation
-   for each. Preserve the dominant language of the PR/Issue.
+   for each, **bilingually** (see below).
 
 ## Verdict format
 
-Group findings clearly:
+Group findings under these exact bilingual headings:
 
-- **Blocking** — must be fixed before merge (with `file:line` + fix).
-- **Non-blocking suggestions** — optional improvements.
-- **Verified acceptance criteria** — which criteria the diff demonstrably satisfies.
-- **Remaining risks** — residual concerns for the human approver.
+- **Blocking findings / マージを止める指摘** — must be fixed before merge
+  (with `file:line` + fix).
+- **Non-blocking suggestions / 任意の改善提案** — optional improvements.
+- **Verified items / 確認済み項目** — which criteria the diff demonstrably satisfies.
+- **Remaining risks / 残存リスク** — residual concerns for the human approver.
+
+Every finding and suggestion is bilingual, in this shape:
+
+```markdown
+**English:** `src/core/formula.ts:120` — the guard runs after the array is
+materialized, so a 2M-cell range still allocates. Move it above the loop.
+
+**日本語:** `src/core/formula.ts:120` — 配列を実体化した後にガードが走るため、
+200万セルの範囲では依然としてメモリを確保してしまいます。ループの前に移動してください。
+```
+
+Never post an English-only or Japanese-only review. Keep the same severity and the
+same hedging in both languages — a finding you are unsure of must read as uncertain
+in Japanese too. Do not translate `file:line` references, code, commands,
+identifiers, label names, URLs, or raw error output, and do not translate GitHub's
+own review states (`APPROVE`, `REQUEST_CHANGES`, `COMMENT`) — explain them
+bilingually in the body instead.
 
 If there is any serious failure or risk, recommend `agent:blocked`. Keep `agent:review`
 while blocking findings or required checks remain outstanding. Never approve a PR that

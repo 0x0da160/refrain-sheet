@@ -230,8 +230,10 @@ jobs:
             If the newest brief is missing, stale (a human commented after it), or
             says `needs-clarification` while newer input resolves the question, post a
             refreshed Work Brief as a NEW comment using the template in
-            `.claude/skills/prepare-issue-spec/SKILL.md` (same marker; newest wins).
-            Never edit the Issue body or any human comment.
+            `.claude/skills/prepare-issue-spec/SKILL.md` (same marker and same English
+            section headings — they are machine-readable; add the Japanese `### 日本語`
+            block under each, as that template shows). Never edit the Issue body or any
+            human comment.
 
             Preconditions (verify with `gh`; if unmet, make NO changes, write the
             reason to "$RUNNER_TEMP/agent-summary.md", and stop):
@@ -264,6 +266,12 @@ jobs:
               made and why each is reasonable; repository evidence used; tests and
               validation run; trade-offs and remaining risks; any suggested follow-up
               Issue.
+              Write it BILINGUALLY: a `## English` section, then a `## 日本語` section
+              with the same meaning — same assumptions, same risks, same hedging
+              ("may", "not verified", "assumed"). Do not state a fact, decision, or
+              caveat in one language that is missing from the other. Leave code,
+              commands, file paths, identifiers, label names, URLs, and raw error text
+              untranslated and unduplicated.
 
             Stop conditions — the COMPLETE list. When one applies, make NO file
             changes, explain why in "$RUNNER_TEMP/agent-summary.md", and write exactly
@@ -334,8 +342,10 @@ jobs:
             If the newest brief is missing, stale (a human commented after it), or
             says `needs-clarification` while newer input resolves the question, post a
             refreshed Work Brief as a NEW comment using the template in
-            `.claude/skills/prepare-issue-spec/SKILL.md` (same marker; newest wins).
-            Never edit the Issue body or any human comment.
+            `.claude/skills/prepare-issue-spec/SKILL.md` (same marker and same English
+            section headings — they are machine-readable; add the Japanese `### 日本語`
+            block under each, as that template shows). Never edit the Issue body or any
+            human comment.
 
             Preconditions (verify with `gh`; if unmet, make NO changes, write the
             reason to "$RUNNER_TEMP/agent-summary.md", and stop):
@@ -368,6 +378,12 @@ jobs:
               made and why each is reasonable; repository evidence used; tests and
               validation run; trade-offs and remaining risks; any suggested follow-up
               Issue.
+              Write it BILINGUALLY: a `## English` section, then a `## 日本語` section
+              with the same meaning — same assumptions, same risks, same hedging
+              ("may", "not verified", "assumed"). Do not state a fact, decision, or
+              caveat in one language that is missing from the other. Leave code,
+              commands, file paths, identifiers, label names, URLs, and raw error text
+              untranslated and unduplicated.
 
             Stop conditions — the COMPLETE list. When one applies, make NO file
             changes, explain why in "$RUNNER_TEMP/agent-summary.md", and write exactly
@@ -467,14 +483,20 @@ jobs:
             next_label="agent:blocked"
             headline="🤖 The implementation run stopped at a **safety or approval boundary** and made no repository change."
             action="Human action required: grant or refuse the approval described below. When it is resolved, remove \`agent:blocked\` and re-apply \`agent:ready\`."
+            ja_headline="🤖 安全性・承認の境界に該当したため実装を停止し、リポジトリへの変更は行いませんでした。"
+            ja_action="必要な人間の対応: 下記の承認を許可するか却下してください。解決したら \`agent:blocked\` を外し、\`agent:ready\` を付け直してください。"
           elif [ "$OUTCOME" = "no-change-needed" ]; then
             next_label="agent:needs-spec"
             headline="🤖 The agent reports the requested outcome **already holds** in the repository, so it made no change."
             action="Human action required: confirm this reading and close the Issue, or explain what is still missing and re-apply \`agent:ready\`."
+            ja_headline="🤖 要望された結果はリポジトリで**すでに満たされている**と判断したため、変更は行いませんでした。"
+            ja_action="必要な人間の対応: この判断で問題なければ Issue をクローズしてください。不足がある場合は内容を説明し、\`agent:ready\` を付け直してください。"
           else
             next_label="agent:needs-spec"
             headline="🤖 One focused product decision is needed before this can be implemented, so no repository change was made."
             action="Human action required: answer the question below **in a comment** — a plain comment is enough, you do not need to rewrite the Issue or re-run any workflow — then re-apply \`agent:ready\`."
+            ja_headline="🤖 実装の前に、製品仕様に関する判断が 1 点必要なため、リポジトリへの変更は行いませんでした。"
+            ja_action="必要な人間の対応: 下記の質問に**コメントで**回答してください。通常のコメントで十分で、Issue を書き直したりワークフローを再実行したりする必要はありません。その後 \`agent:ready\` を付け直してください。"
           fi
           # Removals are tolerant — a human may already have removed one, and under
           # `set -e` that must not abort the run before the issue is routed. The add
@@ -484,15 +506,27 @@ jobs:
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "$next_label"
           summary="$(cat "$RUNNER_TEMP/agent-notes.md" 2>/dev/null || echo "No agent notes were captured.")"
           gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(cat <<EOF
+          ## English
+
           $headline No branch or pull request was created and \`agent:review\` was
           **not** applied. Moved to \`$next_label\`.
 
-          Agent notes:
+          $action
+
+          ## 日本語
+
+          $ja_headline ブランチとプルリクエストは作成しておらず、\`agent:review\` も付与して
+          **いません**。\`$next_label\` に移しました。
+
+          $ja_action
+
+          ---
+
+          Agent notes / エージェントの記録 (verbatim, as written by the agent):
 
           $summary
 
-          $action
-          Run log: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          Run log / 実行ログ: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           EOF
           )"
 
@@ -577,29 +611,47 @@ jobs:
           # Verify the remote branch actually exists.
           git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null
 
-          # Build the PR body from the verification summary + agent notes.
+          # Build the PR body. The agent writes its own notes bilingually (see the
+          # prompt); the workflow-authored sections below are bilingual here. The
+          # verification table is emitted ONCE — its rows are language-neutral
+          # (`command`: PASS/FAIL/SKIPPED), so duplicating them would only add noise.
+          # `Closes #<n>` stays outside both language sections so GitHub's auto-close
+          # parser sees it exactly once.
           BODY="$RUNNER_TEMP/pr-body.md"
           {
-            echo "## Summary"
-            if [ -s "$RUNNER_TEMP/agent-notes.md" ]; then cat "$RUNNER_TEMP/agent-notes.md"; else echo "Automated implementation of #${ISSUE_NUMBER}."; fi
+            if [ -s "$RUNNER_TEMP/agent-notes.md" ]; then
+              cat "$RUNNER_TEMP/agent-notes.md"
+            else
+              echo "## English"
+              echo
+              echo "Automated implementation of #${ISSUE_NUMBER}."
+              echo
+              echo "## 日本語"
+              echo
+              echo "#${ISSUE_NUMBER} の自動実装です。"
+            fi
             echo
             echo "Closes #${ISSUE_NUMBER}"
             echo
-            echo "## Verification (run by the implementation workflow)"
+            echo "## Verification / 検証 (run by the implementation workflow / 実装ワークフローが実行)"
             cat "$RUNNER_TEMP/verify.md"
             echo
-            echo "## Intentionally Not Automated"
-            echo "- No auto-merge and no production deploy. A human reviews and merges."
+            echo "## Intentionally not automated / 意図的に自動化していないこと"
             echo
-            echo "## Risks and Rollback"
-            echo "- Close this PR (the \`agent/issue-*\` branch is isolated), or revert the merge commit, to roll back."
+            echo "- **English:** No auto-merge and no production deploy. A human reviews and merges."
+            echo "- **日本語:** 自動マージも本番デプロイも行いません。レビューとマージは人間が行います。"
+            echo
+            echo "## Risks and rollback / リスクとロールバック"
+            echo
+            echo "- **English:** Close this PR (the \`agent/issue-*\` branch is isolated), or revert the merge commit, to roll back."
+            echo "- **日本語:** ロールバックするには、この PR をクローズする (\`agent/issue-*\` ブランチは独立しています) か、マージコミットを revert してください。"
           } >"$BODY"
 
           # Create or reuse the PR (never force; never merge).
           existing="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --base "$BASE_BRANCH" --state open --json number --jq '.[0].number // ""')"
           if [ -z "$existing" ]; then
             gh pr create --repo "$GITHUB_REPOSITORY" --base "$BASE_BRANCH" --head "$BRANCH" \
-              --title "agent: implement #${ISSUE_NUMBER}" --body-file "$BODY"
+              --title "agent: implement #${ISSUE_NUMBER} / #${ISSUE_NUMBER} を実装" --body-file "$BODY"
           else
             gh pr edit "$existing" --repo "$GITHUB_REPOSITORY" --body-file "$BODY"
           fi
@@ -650,20 +702,32 @@ jobs:
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
             --remove-label "agent:working" --add-label "agent:review"
           gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(cat <<EOF
+          ## English
+
           🤖 Implementation is ready for **independent review** — a verified pull
           request exists.
+
+          Human action required: review the PR and, if approved, merge it. Automation
+          does not merge.
+
+          ## 日本語
+
+          🤖 実装が完了し、**独立レビュー**の準備ができました。検証済みのプルリクエストが
+          存在します。
+
+          必要な人間の対応: PR をレビューし、問題なければマージしてください。自動マージは
+          行いません。
+
+          ---
 
           - PR: ${{ steps.pr.outputs.url }} (#${{ steps.pr.outputs.number }})
           - Branch: \`${{ steps.pr.outputs.head }}\` → base \`${{ steps.pr.outputs.base }}\`
           - Commit: \`${{ steps.pr.outputs.sha }}\`
           - Changed files: ${{ steps.pr.outputs.files }} (+${{ steps.pr.outputs.adds }}/-${{ steps.pr.outputs.dels }})
 
-          ### Verification (run by the implementation workflow)
+          ### Verification / 検証 (run by the implementation workflow / 実装ワークフローが実行)
 
           $(cat "$RUNNER_TEMP/verify.md")
-
-          Human action required: review the PR and, if approved, merge it. Automation
-          does not merge.
           EOF
           )"
 
@@ -678,14 +742,31 @@ jobs:
             --add-label "agent:blocked" || true
           notes="$(cat "$RUNNER_TEMP/agent-notes.md" 2>/dev/null || echo "(no agent notes were captured)")"
           gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(cat <<EOF
-          🤖 Automated implementation did not complete, and \`agent:review\` was **not**
-          applied. Removed \`agent:working\` and applied \`agent:blocked\`.
+          ## English
 
-          Agent notes:
+          🤖 Automated implementation did not complete, and \`agent:review\` was **not**
+          applied. Removed \`agent:working\` and \`agent:ready\`, and applied
+          \`agent:blocked\`.
+
+          Human action required: inspect the run log (no secrets are printed), fix or
+          decide the next step, then remove \`agent:blocked\` and re-apply
+          \`agent:ready\`.
+
+          ## 日本語
+
+          🤖 自動実装が完了しなかったため、\`agent:review\` は付与して**いません**。
+          \`agent:working\` と \`agent:ready\` を外し、\`agent:blocked\` を付与しました。
+
+          必要な人間の対応: 実行ログ (シークレットは出力されません) を確認し、対処または
+          方針を決めたうえで、\`agent:blocked\` を外して \`agent:ready\` を付け直して
+          ください。
+
+          ---
+
+          Agent notes / エージェントの記録 (verbatim, as written by the agent):
 
           $notes
 
-          A human should inspect the run logs (no secrets are printed) and decide next
-          steps. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          Run log / 実行ログ: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           EOF
           )"

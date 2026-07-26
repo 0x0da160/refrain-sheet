@@ -82,7 +82,7 @@ function bootstrap(): void {
     confirmRangeMoveOverwrite: (input) => dialogs.confirmRangeMoveOverwrite(input),
     promptMoveTarget: (source, suggestion, validate) =>
       dialogs.promptMoveTarget(source, suggestion, validate),
-    showAbout: () => void dialogs.showAbout(),
+    showAbout: (section) => void dialogs.showAbout(section),
     showFormulaHelp: () => void dialogs.showFormulaHelp(),
     chooseSettings: (current) => dialogs.chooseSettings(current),
     setBusy: (label) => {

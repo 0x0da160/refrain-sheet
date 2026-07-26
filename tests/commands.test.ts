@@ -404,3 +404,16 @@ describe('replace all', () => {
     expect(state.activeTab!.doc.getValue(0, 1)).toBe('02/01/2025');
   });
 });
+
+describe('Help menu commands', () => {
+  it('routes About and Keyboard Shortcuts to independent showAbout sections', async () => {
+    const ui = stubUi();
+    const { commands } = setup(ui);
+    await commands.run('help.about');
+    expect(ui.showAbout).toHaveBeenLastCalledWith('about');
+    await commands.run('help.shortcuts');
+    expect(ui.showAbout).toHaveBeenLastCalledWith('shortcuts');
+    await commands.run('help.formula');
+    expect(ui.showFormulaHelp).toHaveBeenCalled();
+  });
+});

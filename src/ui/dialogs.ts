@@ -19,7 +19,7 @@ import {
   type FilterTextOp,
 } from '../core/filter';
 import { SHORTCUT_DOCS } from '../app/shortcuts';
-import { FUNCTION_INFOS, MAX_SHEET_NAME_LENGTH } from '../core/formula';
+import { FUNCTION_INFOS, MAX_SHEET_NAME_LENGTH, type FunctionCategory } from '../core/formula';
 import {
   bytesToMiB,
   miBToBytes,
@@ -39,6 +39,28 @@ import { el } from './dom';
 /** Canonical external links (also listed at the top of README.md). */
 const SITE_URL = 'https://0x0da160.github.io/refrain-sheet/';
 const RELEASES_URL = 'https://github.com/0x0da160/refrain-sheet/releases/';
+
+/** Display order and heading for each function-help category. */
+const FUNCTION_CATEGORY_ORDER: readonly FunctionCategory[] = [
+  'math',
+  'conditional',
+  'logical',
+  'lookup',
+  'text',
+  'date',
+  'statistics',
+  'arrays',
+];
+const FUNCTION_CATEGORY_LABEL_KEY: Record<FunctionCategory, string> = {
+  math: 'dialog.formulaHelp.category.math',
+  conditional: 'dialog.formulaHelp.category.conditional',
+  logical: 'dialog.formulaHelp.category.logical',
+  lookup: 'dialog.formulaHelp.category.lookup',
+  text: 'dialog.formulaHelp.category.text',
+  date: 'dialog.formulaHelp.category.date',
+  statistics: 'dialog.formulaHelp.category.statistics',
+  arrays: 'dialog.formulaHelp.category.arrays',
+};
 
 /**
  * A safe external hyperlink. The href/text are fixed constants (never CSV or
@@ -1129,7 +1151,16 @@ export class Dialogs {
     });
   }
 
-  showAbout(): Promise<void> {
+  /**
+   * The About dialog identifies the app itself; Keyboard Shortcuts is an
+   * independent Help-menu entry (see `showShortcuts` below) so each stays a
+   * single, focused topic instead of one dialog covering both.
+   */
+  showAbout(section: 'about' | 'shortcuts' = 'about'): Promise<void> {
+    return section === 'shortcuts' ? this.showShortcuts() : this.showAboutOnly();
+  }
+
+  private showAboutOnly(): Promise<void> {
     return openDialog<void>(t('dialog.about.title'), undefined, (body, buttons, close) => {
       body.append(
         el('p', {
@@ -1146,16 +1177,21 @@ export class Dialogs {
           el('li', {}, [externalLink(t('dialog.about.releases'), RELEASES_URL)]),
         ]),
       );
-      body.append(el('h3', { text: t('dialog.about.shortcuts') }));
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.about.shortcutsNote') }));
+      body.append(el('p', { className: 'dialog-note', text: 'MIT License — Copyright (c) 2026 0x0da160' }));
+      buttons.append(dialogButton(t('dialog.close'), true, true, () => close(undefined)));
+    });
+  }
+
+  private showShortcuts(): Promise<void> {
+    return openDialog<void>(t('dialog.shortcuts.title'), undefined, (body, buttons, close) => {
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.shortcuts.note') }));
       const table = el('table', { className: 'shortcut-table' });
       for (const { keys, descKey } of SHORTCUT_DOCS) {
         table.append(el('tr', {}, [el('td', { text: keys }), el('td', { text: t(descKey) })]));
       }
       body.append(table);
-      body.append(el('h3', { text: t('dialog.about.appearance') }));
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.about.appearanceNote') }));
-      body.append(el('p', { className: 'dialog-note', text: 'MIT License — Copyright (c) 2026 0x0da160' }));
+      body.append(el('h3', { text: t('dialog.shortcuts.appearance') }));
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.shortcuts.appearanceNote') }));
       buttons.append(dialogButton(t('dialog.close'), true, true, () => close(undefined)));
     });
   }
@@ -1226,34 +1262,49 @@ export class Dialogs {
         ),
       );
 
-      // ----- Functions table (from the shared source of truth) -----
+      // ----- Functions table (from the shared source of truth), grouped by
+      // category so the list reads as a reference rather than one long
+      // alphabetical wall; FUNCTION_INFOS is already name-sorted, so each
+      // category's rows stay alphabetical too. -----
       const funcSection = el('section', { className: 'help-section' }, [
         el('h3', { text: t('dialog.formulaHelp.section.functions') }),
       ]);
-      const table = el('table', { className: 'help-fn-table' });
-      table.append(
-        el('thead', {}, [
-          el('tr', {}, [
-            el('th', { text: t('dialog.formulaHelp.col.function') }),
-            el('th', { text: t('dialog.formulaHelp.col.description') }),
-            el('th', { text: t('dialog.formulaHelp.col.example') }),
+      const categoryGroups: Array<{ el: HTMLElement; rows: Array<{ row: HTMLElement; text: string }> }> = [];
+      for (const category of FUNCTION_CATEGORY_ORDER) {
+        const infos = FUNCTION_INFOS.filter((info) => info.category === category);
+        if (infos.length === 0) {
+          continue;
+        }
+        const table = el('table', { className: 'help-fn-table' });
+        table.append(
+          el('thead', {}, [
+            el('tr', {}, [
+              el('th', { text: t('dialog.formulaHelp.col.function') }),
+              el('th', { text: t('dialog.formulaHelp.col.description') }),
+              el('th', { text: t('dialog.formulaHelp.col.example') }),
+            ]),
           ]),
-        ]),
-      );
-      const tbody = el('tbody');
-      const fnRows: Array<{ row: HTMLElement; text: string }> = [];
-      for (const info of FUNCTION_INFOS) {
-        const desc = t(`formula.fn.${info.name}`);
-        const row = el('tr', {}, [
-          el('td', {}, [code(info.signature)]),
-          el('td', { text: desc }),
-          el('td', {}, [code(info.example)]),
+        );
+        const tbody = el('tbody');
+        const rows: Array<{ row: HTMLElement; text: string }> = [];
+        for (const info of infos) {
+          const desc = t(`formula.fn.${info.name}`);
+          const row = el('tr', {}, [
+            el('td', {}, [code(info.signature)]),
+            el('td', { text: desc }),
+            el('td', {}, [code(info.example)]),
+          ]);
+          tbody.append(row);
+          rows.push({ row, text: `${info.name} ${info.signature} ${desc} ${info.example}`.toLowerCase() });
+        }
+        table.append(tbody);
+        const group = el('div', { className: 'help-fn-group' }, [
+          el('h4', { text: t(FUNCTION_CATEGORY_LABEL_KEY[category]) }),
+          table,
         ]);
-        tbody.append(row);
-        fnRows.push({ row, text: `${info.name} ${info.signature} ${desc} ${info.example}`.toLowerCase() });
+        categoryGroups.push({ el: group, rows });
+        funcSection.append(group);
       }
-      table.append(tbody);
-      funcSection.append(table);
       body.append(funcSection);
 
       // ----- Errors -----
@@ -1334,10 +1385,15 @@ export class Dialogs {
           anyVisible = anyVisible || show;
         }
         let anyRow = false;
-        for (const { row, text } of fnRows) {
-          const show = q === '' || text.includes(q);
-          row.hidden = !show;
-          anyRow = anyRow || show;
+        for (const group of categoryGroups) {
+          let anyInGroup = false;
+          for (const { row, text } of group.rows) {
+            const show = q === '' || text.includes(q);
+            row.hidden = !show;
+            anyInGroup = anyInGroup || show;
+          }
+          group.el.hidden = !anyInGroup;
+          anyRow = anyRow || anyInGroup;
         }
         funcSection.hidden = !anyRow;
         anyVisible = anyVisible || anyRow;

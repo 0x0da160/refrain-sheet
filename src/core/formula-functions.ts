@@ -1976,11 +1976,87 @@ export function isVolatileFunction(name: string): boolean {
   return BY_NAME.get(name)?.volatile === true;
 }
 
+/**
+ * Coarse grouping for the formula-help table (autocomplete ignores this).
+ * Mirrors the registry's own section banners above, given user-facing names.
+ */
+export type FunctionCategory =
+  'math' | 'conditional' | 'logical' | 'lookup' | 'text' | 'date' | 'statistics' | 'arrays';
+
+/** Every supported function, categorized for the help dialog. */
+const CATEGORY_BY_NAME: Readonly<Record<string, FunctionCategory>> = {
+  SUM: 'math',
+  AVERAGE: 'math',
+  MIN: 'math',
+  MAX: 'math',
+  COUNT: 'math',
+  ABS: 'math',
+  MOD: 'math',
+  ROUND: 'math',
+  ROUNDUP: 'math',
+  ROUNDDOWN: 'math',
+  COUNTA: 'conditional',
+  COUNTBLANK: 'conditional',
+  COUNTIF: 'conditional',
+  COUNTIFS: 'conditional',
+  SUMIF: 'conditional',
+  SUMIFS: 'conditional',
+  AVERAGEIF: 'conditional',
+  AVERAGEIFS: 'conditional',
+  IF: 'logical',
+  AND: 'logical',
+  OR: 'logical',
+  NOT: 'logical',
+  IFERROR: 'logical',
+  XLOOKUP: 'lookup',
+  VLOOKUP: 'lookup',
+  MATCH: 'lookup',
+  INDEX: 'lookup',
+  LEFT: 'text',
+  RIGHT: 'text',
+  MID: 'text',
+  LEN: 'text',
+  TRIM: 'text',
+  UPPER: 'text',
+  LOWER: 'text',
+  CONCAT: 'text',
+  TEXTJOIN: 'text',
+  SUBSTITUTE: 'text',
+  REPLACE: 'text',
+  TEXT: 'text',
+  TODAY: 'date',
+  NOW: 'date',
+  DATE: 'date',
+  YEAR: 'date',
+  MONTH: 'date',
+  DAY: 'date',
+  DATEDIF: 'date',
+  MEDIAN: 'statistics',
+  'MODE.SNGL': 'statistics',
+  'STDEV.S': 'statistics',
+  'STDEV.P': 'statistics',
+  'RANK.EQ': 'statistics',
+  FILTER: 'arrays',
+  UNIQUE: 'arrays',
+  SORT: 'arrays',
+  SEQUENCE: 'arrays',
+};
+
+/** Every function must be categorized: an omission would silently drop it from the help table. */
+function categoryOf(name: string): FunctionCategory {
+  const category = CATEGORY_BY_NAME[name];
+  if (!category) {
+    throw new Error(`formula-functions: no help category assigned for ${name}`);
+  }
+  return category;
+}
+
 /** The display metadata the help dialog and autocomplete read. */
 export interface FunctionInfo {
   name: string;
   signature: string;
   example: string;
+  category: FunctionCategory;
   volatile?: boolean;
   dynamic?: boolean;
 }
@@ -1993,6 +2069,7 @@ export const FUNCTION_INFOS: readonly FunctionInfo[] = FUNCTION_DEFS.map((entry)
   name: entry.name,
   signature: entry.signature,
   example: entry.example,
+  category: categoryOf(entry.name),
   ...(entry.volatile === true ? { volatile: true } : {}),
   ...(entry.dynamic === true ? { dynamic: true } : {}),
 }));

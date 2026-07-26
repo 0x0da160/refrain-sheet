@@ -187,4 +187,45 @@ describe('About dialog links', () => {
     // The URLs are locale-independent.
     expect(openAbout()[0].getAttribute('href')).toBe(SITE_URL);
   });
+
+  it('no longer mixes the keyboard-shortcut table into the About dialog', () => {
+    setLocale('en');
+    void new Dialogs().showAbout('about');
+    const dialog = document.body.querySelector('dialog')!;
+    expect(dialog.querySelector('.shortcut-table')).toBeNull();
+    expect(dialog.querySelector('.dialog-title')?.textContent).toBe(t('dialog.about.title'));
+  });
+});
+
+describe('Keyboard Shortcuts dialog (independent of About)', () => {
+  const locale = getLocale();
+  beforeEach(() => {
+    const proto = HTMLDialogElement.prototype as unknown as {
+      showModal?: () => void;
+      close?: () => void;
+    };
+    if (typeof proto.showModal !== 'function') {
+      proto.showModal = function (this: HTMLDialogElement) {
+        this.setAttribute('open', '');
+      };
+      proto.close = function (this: HTMLDialogElement) {
+        this.removeAttribute('open');
+        this.dispatchEvent(new Event('close'));
+      };
+    }
+  });
+  afterEach(() => {
+    setLocale(locale);
+    document.querySelectorAll('dialog').forEach((d) => d.remove());
+  });
+
+  it('shows the shortcut table and no About-only content', () => {
+    setLocale('en');
+    void new Dialogs().showAbout('shortcuts');
+    const dialog = document.body.querySelector('dialog')!;
+    expect(dialog.querySelector('.dialog-title')?.textContent).toBe(t('dialog.shortcuts.title'));
+    expect(dialog.querySelector('.shortcut-table')).not.toBeNull();
+    expect(dialog.querySelector('.about-links')).toBeNull();
+    expect(dialog.querySelector('.about-version')).toBeNull();
+  });
 });

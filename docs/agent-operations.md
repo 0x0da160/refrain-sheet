@@ -45,9 +45,13 @@ Human reviews the Work Brief and (only if approved) applies ──────�
         │
         ▼
 [implement-issue.yml] ── requires agent:ready + no agent:blocked (a Work Brief is NOT required)
-        │                 agent:working ─► branch agent/issue-<n>-<slug>
+        │                 agent:working ─► stable branch agent/issue-<n>-<slug>
         │                 reads the Issue + ALL human comments + newest brief,
         │                 implements with repository conventions + tests + verification
+        │
+        ├─► turn budget reached? ─► agent:continuation-needed + draft PR, agent:ready
+        │     KEPT, every commit preserved. One "Re-run" tap continues the SAME
+        │     branch and PR. Twice in a row ─► agent:blocked (split the Issue).
         ▼
 Pull request opened (Closes #<n>) ──► agent:review  (only after a verified, non-empty PR)
         │
@@ -67,15 +71,16 @@ intentionally disabled — see docs/release-automation-gap.md.
 
 ### Label state machine
 
-| Label              | Meaning                                               | Who may apply       |
-| ------------------ | ----------------------------------------------------- | ------------------- |
-| `agent:triage`     | Needs automated classification / clarification        | Automation or human |
-| `agent:needs-spec` | One material product decision is genuinely needed     | Automation or human |
-| `agent:ready`      | **Human-approved** for autonomous implementation      | **Human only**      |
-| `agent:working`    | An implementation workflow is running on the Issue    | Automation          |
-| `agent:review`     | A PR exists; needs independent review / CI completion | Automation          |
-| `agent:blocked`    | Cannot safely continue without human input            | Automation or human |
-| `agent:done`       | Completed after human-approved merge + verification   | Automation or human |
+| Label                       | Meaning                                                 | Who may apply       |
+| --------------------------- | ------------------------------------------------------- | ------------------- |
+| `agent:triage`              | Needs automated classification / clarification          | Automation or human |
+| `agent:needs-spec`          | One material product decision is genuinely needed       | Automation or human |
+| `agent:ready`               | **Human-approved** for autonomous implementation        | **Human only**      |
+| `agent:working`             | An implementation workflow is running on the Issue      | Automation          |
+| `agent:continuation-needed` | Turn budget reached; work preserved, re-run to continue | Automation          |
+| `agent:review`              | A PR exists; needs independent review / CI completion   | Automation          |
+| `agent:blocked`             | Cannot safely continue without human input              | Automation or human |
+| `agent:done`                | Completed after human-approved merge + verification     | Automation or human |
 
 Risk labels (narrowly scoped): `risk:low`, `risk:medium`, `risk:high`,
 `risk:security`, `risk:data`, `risk:infra`, `risk:breaking-change`. Definitions live
@@ -96,13 +101,13 @@ in [`.github/labels.yml`](../.github/labels.yml).
 
 ## Workflows
 
-| Workflow                 | Trigger                                                                         | Permissions                                                          | Concurrency                    | Stop condition                                                                                            |
-| ------------------------ | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `issue-triage.yml`       | `issues: opened/edited`, dispatch                                               | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips issues past triage / bot edits                                                                      |
-| `prepare-issue-spec.yml` | `issues: opened/labeled`, human `issue_comment` on `agent:needs-spec`, dispatch | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips bots / issues past spec; comments the `agent-spec:v1` Work Brief only                               |
-| `implement-issue.yml`    | `issues: labeled` (`agent:ready`), dispatch                                     | `contents:write`, `issues:write`, `pull-requests:write`              | per-issue, **no** cancel       | No diff → `blocked` (safety stop) or `needs-spec`; failure → `blocked`; `review` only after a verified PR |
-| `review-pr.yml`          | `pull_request` (same-repo `agent/issue-*`), dispatch                            | `contents:read`, `issues:write`, `pull-requests:write`               | per-PR, cancel-in-progress     | Skips fork / non-agent branches                                                                           |
-| `close-loop.yml`         | `workflow_run` (CI completed), dispatch                                         | read checks/statuses/contents, `issues:write`, `pull-requests:write` | per-commit, cancel-in-progress | Only same-repo `pull_request` CI runs on `agent/issue-*`; skips when no matching agent PR                 |
+| Workflow                 | Trigger                                                                         | Permissions                                                          | Concurrency                    | Stop condition                                                                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issue-triage.yml`       | `issues: opened/edited`, dispatch                                               | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips issues past triage / bot edits                                                                                                                                       |
+| `prepare-issue-spec.yml` | `issues: opened/labeled`, human `issue_comment` on `agent:needs-spec`, dispatch | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips bots / issues past spec; comments the `agent-spec:v1` Work Brief only                                                                                                |
+| `implement-issue.yml`    | `issues: labeled` (`agent:ready`), dispatch                                     | `contents:write`, `issues:write`, `pull-requests:write`              | per-issue, **no** cancel       | No diff → `blocked` (safety stop) or `needs-spec`; turn budget → `continuation-needed` (work kept); other failure → `blocked`; `review` only after a verified non-draft PR |
+| `review-pr.yml`          | `pull_request` (same-repo `agent/issue-*`), dispatch                            | `contents:read`, `issues:write`, `pull-requests:write`               | per-PR, cancel-in-progress     | Skips fork / non-agent branches                                                                                                                                            |
+| `close-loop.yml`         | `workflow_run` (CI completed), dispatch                                         | read checks/statuses/contents, `issues:write`, `pull-requests:write` | per-commit, cancel-in-progress | Only same-repo `pull_request` CI runs on `agent/issue-*`; skips when no matching agent PR                                                                                  |
 
 ### `agent:review` means a verified PR exists
 
@@ -114,8 +119,10 @@ and **retrieves and validates** the PR (number, URL, head branch, head SHA, base
 branch, changed-files count, additions, deletions, non-empty diff). Only after **all**
 of those pass does it remove `agent:working` and apply `agent:review`. If the run
 produced no change it goes to `agent:blocked` (a safety or approval stop) or
-`agent:needs-spec` (a focused product question, or nothing to do); on any failure it
-goes to `agent:blocked`. `agent:review` therefore always corresponds to a reviewable PR — it
+`agent:needs-spec` (a focused product question, or nothing to do); if it ran out of
+turns it goes to `agent:continuation-needed` with its work preserved (see
+[Smartphone-first operation](#smartphone-first-operation)); on any other failure it
+goes to `agent:blocked`. `agent:review` therefore always corresponds to a reviewable, non-draft PR — it
 is never a proxy for "the model finished". `review-pr.yml` and `close-loop.yml` only
 act on a PR they retrieve from GitHub; neither creates `agent:review` and neither
 infers a PR from a label.
@@ -124,6 +131,103 @@ Every workflow: declares an explicit `timeout-minutes`, uses `pull_request` (nev
 `pull_request_target`), selects its Claude credential from exactly one method (see
 [Claude authentication](#claude-authentication)), and is **inert until a human
 completes the setup below**.
+
+## Smartphone-first operation
+
+This loop is designed to be **supervised from a phone**. The whole normal lifecycle —
+requesting work, approving it, watching it run, continuing it after an interruption,
+reviewing it, merging it — is doable in GitHub Mobile or a mobile browser, with no
+local terminal, no local git, and no branch surgery.
+
+### The normal flow
+
+| #   | You do                                                                | Where                          |
+| --- | --------------------------------------------------------------------- | ------------------------------ |
+| 1   | Open an Issue (Japanese or English, one sentence is enough)           | Issues → New                   |
+| 2   | Read the **Agent Work Brief** comment                                 | the Issue                      |
+| 3   | Apply **`agent:ready`** — the one approval that starts implementation | the Issue's Labels             |
+| 4   | Watch the run                                                         | Actions → _Implement issue_    |
+| 5   | Read the bilingual result comment and the PR                          | the Issue / the PR             |
+| 6   | Review and **merge**                                                  | the PR                         |
+| 7   | Confirm the Release and the Pages deployment                          | Releases / Actions → _Release_ |
+
+Steps 1–6 are fully mobile. Between 6 and 7 someone must push a `vX.Y.Z` tag with
+`npm run release` — see [Release automation](#release-automation-post-merge--intentionally-disabled)
+— which needs a desktop checkout. Merging never releases anything, so nothing is
+waiting on you there.
+
+### Watching and re-running from GitHub Mobile
+
+Actions → pick the workflow → pick the run. A failed or incomplete run offers
+**Re-run failed jobs** (and **Re-run all jobs**). That is the continuation button.
+There is also **Run workflow** → _Implement issue_, which asks only for an Issue
+number; use it when there is no failed run to re-run. If the mobile app does not show
+the dispatch form on your version, open the same page in the mobile browser.
+
+Both entry points run **identical** validation, branch naming, safety checks, and
+continuation logic. Neither accepts a branch, a command, or a CLI argument.
+
+### `agent:continuation-needed`
+
+**The run hit its turn budget, not a wall.** Reaching `--max-turns` is an execution
+budget boundary — it is **not** a specification problem, and it never applies
+`agent:needs-spec`. When it happens:
+
+- Every edit made so far is **committed** to the stable branch `agent/issue-<n>-<slug>`.
+- A **draft** pull request is opened or updated, clearly marked incomplete. Its
+  verification has not been run; do not merge it as-is.
+- `agent:working` comes off, **`agent:ready` stays on** — your approval is still in
+  force — and `agent:continuation-needed` goes on.
+- A short bilingual comment states the branch, the PR, what was completed, and the
+  one action available: re-run the workflow.
+
+Nothing is discarded and nothing needs repairing by hand.
+
+### How a retry resumes
+
+One Issue has **one** branch and **one** pull request for its whole life. On every
+run, before the agent starts, the workflow resolves that branch, checks it out with
+all prior commits intact, and finds the existing open PR. The agent is told to read
+`git log`/`git diff` and the previous check point comment first, and to implement
+**only the remaining work**.
+
+The workflow never force-pushes, never resets, never squashes, and never deletes an
+agent branch. It commits on top and updates the same PR — so a retry cannot produce
+a duplicate PR, a duplicate branch, or lost commits. If the Issue title changed
+between runs, the branch of the existing open PR still wins.
+
+### After repeated turn-limit exhaustion
+
+Two **consecutive** turn-limited runs stop the cycle. The branch and PR are kept, and
+the Issue moves to `agent:blocked` with a bilingual comment recommending you either:
+
+- open a smaller follow-up Issue covering the single smallest useful next step; or
+- raise the Actions variable `AGENT_MAX_TURNS`, then remove `agent:blocked` and
+  re-apply `agent:ready`.
+
+Both are taps. (The count is the trailing run of check point comments, so any comment
+you write in between resets it.)
+
+### There is no automatic continuation — on purpose
+
+GitHub does not create a workflow run for events raised by `GITHUB_TOKEN`, including
+`workflow_dispatch` through the API. A self-retriggering loop would need a personal
+access token, which repository policy forbids. The re-run tap is the supported path.
+
+### When a desktop is genuinely required
+
+Rare, and always stated explicitly in the comment when it happens:
+
+- **Cutting a release** (`npm run release`) — needs a local checkout with the
+  toolchain; the tag push is what triggers `release.yml`.
+- **A pull request with conflicts GitHub's web editor cannot resolve.**
+- **A push rejected because the agent branch diverged** (someone else moved it). The
+  run fails to `agent:blocked` rather than overwriting anything. From a phone you can
+  close the PR and delete the branch to start clean; preserving both instead needs a
+  desktop rebase.
+
+Everything else — labels, re-runs, reviews, merges, closing a PR, deleting a branch —
+is available on mobile.
 
 ## Bilingual agent communication
 
@@ -267,6 +371,7 @@ These cannot be automated safely and must be done by a repository admin.
    gh label create "agent:needs-spec"     -c fbca04 -d "Acceptance criteria, constraints, or risk info insufficient"
    gh label create "agent:ready"          -c 1d76db -d "Human-approved for autonomous implementation (HUMANS ONLY)"
    gh label create "agent:working"        -c 5319e7 -d "Implementation workflow currently operating"
+   gh label create "agent:continuation-needed" -c c5def5 -d "Turn budget reached; work preserved, re-run to continue"
    gh label create "agent:review"         -c d93f0b -d "PR exists; needs independent review or CI"
    gh label create "agent:blocked"        -c b60205 -d "Cannot safely continue without human input"
    gh label create "agent:done"           -c 0e8a16 -d "Completed after human-approved merge + verification"
@@ -472,8 +577,8 @@ Every automated action is reversible and traceable to an Issue or PR:
   YAML, via optional Actions **variables**: implementation defaults to `120`
   (`AGENT_MAX_TURNS`) and triage to `40` (`TRIAGE_MAX_TURNS`). Set them higher for
   larger features, lower to cap cost. An implementation run that exhausts its cap
-  fails and lands on `agent:blocked` — raise `AGENT_MAX_TURNS` and re-apply
-  `agent:ready` to retry.
+  does **not** lose its work and does **not** land on `agent:blocked` — see
+  [Smartphone-first operation](#smartphone-first-operation).
 - **Why triage's cap is 40, not 20:** at 20 it failed with `error_max_turns` and
   `permission_denials_count: 0` — no tool was denied, the work simply did not fit.
   Triage on this repository is not cheap: the skill reads `CLAUDE.md` plus
@@ -522,7 +627,9 @@ Every automated action is reversible and traceable to an Issue or PR:
   implementation — that is defense in depth on top of the human-only label rule.
 - **Max retries per Issue:** treat repeated `agent:blocked` on the same Issue (e.g.
   ≥ 2 failed implementation attempts) as an escalation — a human investigates before
-  re-approving.
+  re-approving. Turn-limit continuation enforces its own bound: **two consecutive**
+  turn-limited runs escalate to `agent:blocked` automatically, with a recommendation
+  to split the Issue.
 - **Pause switch:** removing `agent:ready` (or disabling `implement-issue.yml`) halts
   new implementation work immediately.
 - **Usage review:** periodically review the Actions usage report and Anthropic API

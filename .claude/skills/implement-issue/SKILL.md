@@ -67,6 +67,31 @@ the newest brief is **missing, stale** (a human commented after it), or says
 comment rather than editing the old one — newest wins — and never edit the
 human-authored Issue body. Skip this when the newest brief is already accurate.
 
+## This may be a continuation run
+
+One Issue has **one** stable branch `agent/issue-<number>-<short-slug>` and **one**
+pull request, for its whole life. Under `implement-issue.yml` that branch is checked
+out _before_ you start, so the working tree may already contain committed work from
+an earlier run that exhausted its turn budget.
+
+Before planning anything, check:
+
+- `git log --oneline origin/<base>..HEAD` — what previous runs committed.
+- `git diff --stat origin/<base>...HEAD` — the shape of the existing change.
+- The newest Issue comment carrying `<!-- agent-continuation:v1 -->` — the previous
+  run's check point notice, listing what it completed.
+
+Then implement **only the remaining work**. Do not redo finished work, re-explore the
+repository broadly, re-summarize the Issue at length, or re-run validation that the
+existing PR body already records. Never revert, rewrite, or force-push over earlier
+commits — that work is another run's, and it is preserved deliberately.
+
+Your turn budget is finite and reaching it is normal, not a failure of the Issue.
+Keep the working tree coherent as you go: if the budget runs out, the workflow
+commits whatever is in the tree onto the stable branch as a **draft** PR marked
+incomplete, so a half-finished edit left mid-file is the one thing that genuinely
+loses work. Prefer finishing one file before starting the next.
+
 ## Autonomous decision policy
 
 Implement without asking when all of these hold:

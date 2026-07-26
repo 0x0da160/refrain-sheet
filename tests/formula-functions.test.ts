@@ -67,6 +67,7 @@ describe('registry integrity', () => {
       'TEXTJOIN',
       'SUBSTITUTE',
       'REPLACE',
+      'TEXT',
       'UPPER',
       'LOWER',
       'TODAY',
@@ -236,6 +237,41 @@ describe('math and rounding', () => {
     expect(evaluate('=ABS("apple")')).toBe('#VALUE!');
     expect(evaluate('=ROUND("x",2)')).toBe('#VALUE!');
     expect(evaluate('=ABS(1/0)')).toBe('#DIV/0!');
+  });
+});
+
+describe('TEXT()', () => {
+  it('renders documented numeric format codes', () => {
+    expect(evaluate('=TEXT(1234.5,"0")')).toBe('1235'); // rounds, no decimals
+    expect(evaluate('=TEXT(1234.5,"0.00")')).toBe('1234.50');
+    expect(evaluate('=TEXT(1234567,"#,##0")')).toBe('1,234,567');
+    expect(evaluate('=TEXT(1234567.891,"#,##0.00")')).toBe('1,234,567.89');
+    expect(evaluate('=TEXT(0.5,"0%")')).toBe('50%');
+    expect(evaluate('=TEXT(0.1234,"0.00%")')).toBe('12.34%');
+    expect(evaluate('=TEXT(-1234.5,"#,##0.00")')).toBe('-1,234.50');
+    expect(evaluate('=TEXT(0,"0.00")')).toBe('0.00');
+  });
+
+  it('renders documented date format codes from a date serial', () => {
+    expect(evaluate('=TEXT(DATE(2026,7,25),"yyyy-mm-dd")')).toBe('2026-07-25');
+    expect(evaluate('=TEXT(DATE(2026,7,25),"yyyy/mm/dd")')).toBe('2026/07/25');
+    expect(evaluate('=TEXT(DATE(2026,7,25),"mm/dd/yyyy")')).toBe('07/25/2026');
+    expect(evaluate('=TEXT(DATE(2026,7,25),"dd.mm.yyyy")')).toBe('25.07.2026');
+    expect(evaluate('=TEXT(DATE(2026,7,25),"yy-mm-dd")')).toBe('26-07-25');
+  });
+
+  it('returns #VALUE! for an unsupported or malformed format code', () => {
+    expect(evaluate('=TEXT(1234.5,"$0.00")')).toBe('#VALUE!'); // currency symbol not in the subset
+    expect(evaluate('=TEXT(1234.5,"0.0.0")')).toBe('#VALUE!');
+    expect(evaluate('=TEXT(-5,"yyyy-mm-dd")')).toBe('#VALUE!'); // outside the representable date range
+    expect(evaluate('=TEXT(1234.5,"")')).toBe('#VALUE!');
+    expect(evaluate('=TEXT(DATE(2026,7,25),"yyyy-yyyy")')).toBe('#VALUE!'); // repeated field
+  });
+
+  it('propagates a non-numeric value or a source error', () => {
+    expect(evaluate('=TEXT("apple","0.00")')).toBe('#VALUE!');
+    expect(evaluate('=TEXT(1/0,"0.00")')).toBe('#DIV/0!');
+    expect(evaluate('=TEXT(1234.5,1/0)')).toBe('#DIV/0!');
   });
 });
 

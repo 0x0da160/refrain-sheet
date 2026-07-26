@@ -65,8 +65,9 @@ Human reviews & approves & MERGES  ← HUMAN ONLY (branch protection enforced)
 agent:done (after merge + post-merge verification)
         │
         ▼
-Release: still MANUAL and tag-driven (`npm run release`). Post-merge auto-release is
-intentionally disabled — see docs/release-automation-gap.md.
+Release: still MANUAL. Either `npm run release` from a checkout, or the
+"Manual release recovery" workflow from a phone. Both run the same release.yml.
+Post-merge auto-release stays disabled — see docs/release-automation-gap.md.
 ```
 
 ### Label state machine
@@ -88,26 +89,27 @@ in [`.github/labels.yml`](../.github/labels.yml).
 
 ### Automated vs. human-controlled
 
-| Step                               | Automated                          | Human          |
-| ---------------------------------- | ---------------------------------- | -------------- |
-| Triage & labeling                  | ✅ (`issue-triage.yml`)            | may adjust     |
-| Writing the Work Brief             | ✅ (`prepare-issue-spec.yml`)      | reviews it     |
-| Approving an Issue (`agent:ready`) | ❌ never                           | ✅ required    |
-| Implementation + PR                | ✅ (`implement-issue.yml`)         | —              |
-| Independent review                 | ✅ (`review-pr.yml`)               | may add review |
-| Status aggregation                 | ✅ (`close-loop.yml`)              | —              |
-| **Merge**                          | ❌ never                           | ✅ required    |
-| **Release / deploy**               | ❌ never (unchanged `release.yml`) | ✅ tag push    |
+| Step                               | Automated                     | Human                     |
+| ---------------------------------- | ----------------------------- | ------------------------- |
+| Triage & labeling                  | ✅ (`issue-triage.yml`)       | may adjust                |
+| Writing the Work Brief             | ✅ (`prepare-issue-spec.yml`) | reviews it                |
+| Approving an Issue (`agent:ready`) | ❌ never                      | ✅ required               |
+| Implementation + PR                | ✅ (`implement-issue.yml`)    | —                         |
+| Independent review                 | ✅ (`review-pr.yml`)          | may add review            |
+| Status aggregation                 | ✅ (`close-loop.yml`)         | —                         |
+| **Merge**                          | ❌ never                      | ✅ required               |
+| **Release / deploy**               | ❌ never on merge             | ✅ tag push or manual run |
 
 ## Workflows
 
-| Workflow                 | Trigger                                                                         | Permissions                                                          | Concurrency                    | Stop condition                                                                                                                                                             |
-| ------------------------ | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `issue-triage.yml`       | `issues: opened/edited`, dispatch                                               | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips issues past triage / bot edits                                                                                                                                       |
-| `prepare-issue-spec.yml` | `issues: opened/labeled`, human `issue_comment` on `agent:needs-spec`, dispatch | `contents:read`, `issues:write`                                      | per-issue, cancel-in-progress  | Skips bots / issues past spec; comments the `agent-spec:v1` Work Brief only                                                                                                |
-| `implement-issue.yml`    | `issues: labeled` (`agent:ready`), dispatch                                     | `contents:write`, `issues:write`, `pull-requests:write`              | per-issue, **no** cancel       | No diff → `blocked` (safety stop) or `needs-spec`; turn budget → `continuation-needed` (work kept); other failure → `blocked`; `review` only after a verified non-draft PR |
-| `review-pr.yml`          | `pull_request` (same-repo `agent/issue-*`), dispatch                            | `contents:read`, `issues:write`, `pull-requests:write`               | per-PR, cancel-in-progress     | Skips fork / non-agent branches                                                                                                                                            |
-| `close-loop.yml`         | `workflow_run` (CI completed), dispatch                                         | read checks/statuses/contents, `issues:write`, `pull-requests:write` | per-commit, cancel-in-progress | Only same-repo `pull_request` CI runs on `agent/issue-*`; skips when no matching agent PR                                                                                  |
+| Workflow                 | Trigger                                                                         | Permissions                                                                                     | Concurrency                                | Stop condition                                                                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issue-triage.yml`       | `issues: opened/edited`, dispatch                                               | `contents:read`, `issues:write`                                                                 | per-issue, cancel-in-progress              | Skips issues past triage / bot edits                                                                                                                                       |
+| `prepare-issue-spec.yml` | `issues: opened/labeled`, human `issue_comment` on `agent:needs-spec`, dispatch | `contents:read`, `issues:write`                                                                 | per-issue, cancel-in-progress              | Skips bots / issues past spec; comments the `agent-spec:v1` Work Brief only                                                                                                |
+| `implement-issue.yml`    | `issues: labeled` (`agent:ready`), dispatch                                     | `contents:write`, `issues:write`, `pull-requests:write`                                         | per-issue, **no** cancel                   | No diff → `blocked` (safety stop) or `needs-spec`; turn budget → `continuation-needed` (work kept); other failure → `blocked`; `review` only after a verified non-draft PR |
+| `review-pr.yml`          | `pull_request` (same-repo `agent/issue-*`), dispatch                            | `contents:read`, `issues:write`, `pull-requests:write`                                          | per-PR, cancel-in-progress                 | Skips fork / non-agent branches                                                                                                                                            |
+| `manual-release.yml`     | `workflow_dispatch` only                                                        | `contents:read` default; `contents:write` on the bump job; release write set on the calling job | global `production-release`, **no** cancel | Stops before any mutation on a failed eligibility check; `dry_run` never mutates                                                                                           |
+| `close-loop.yml`         | `workflow_run` (CI completed), dispatch                                         | read checks/statuses/contents, `issues:write`, `pull-requests:write`                            | per-commit, cancel-in-progress             | Only same-repo `pull_request` CI runs on `agent/issue-*`; skips when no matching agent PR                                                                                  |
 
 ### `agent:review` means a verified PR exists
 
@@ -141,20 +143,20 @@ local terminal, no local git, and no branch surgery.
 
 ### The normal flow
 
-| #   | You do                                                                | Where                          |
-| --- | --------------------------------------------------------------------- | ------------------------------ |
-| 1   | Open an Issue (Japanese or English, one sentence is enough)           | Issues → New                   |
-| 2   | Read the **Agent Work Brief** comment                                 | the Issue                      |
-| 3   | Apply **`agent:ready`** — the one approval that starts implementation | the Issue's Labels             |
-| 4   | Watch the run                                                         | Actions → _Implement issue_    |
-| 5   | Read the bilingual result comment and the PR                          | the Issue / the PR             |
-| 6   | Review and **merge**                                                  | the PR                         |
-| 7   | Confirm the Release and the Pages deployment                          | Releases / Actions → _Release_ |
+| #   | You do                                                                | Where                               |
+| --- | --------------------------------------------------------------------- | ----------------------------------- |
+| 1   | Open an Issue (Japanese or English, one sentence is enough)           | Issues → New                        |
+| 2   | Read the **Agent Work Brief** comment                                 | the Issue                           |
+| 3   | Apply **`agent:ready`** — the one approval that starts implementation | the Issue's Labels                  |
+| 4   | Watch the run                                                         | Actions → _Implement issue_         |
+| 5   | Read the bilingual result comment and the PR                          | the Issue / the PR                  |
+| 6   | Review and **merge**                                                  | the PR                              |
+| 7   | Release the merged PR                                                 | Actions → _Manual release recovery_ |
+| 8   | Confirm the Release and the Pages deployment                          | Releases / the run summary          |
 
-Steps 1–6 are fully mobile. Between 6 and 7 someone must push a `vX.Y.Z` tag with
-`npm run release` — see [Release automation](#release-automation-post-merge--intentionally-disabled)
-— which needs a desktop checkout. Merging never releases anything, so nothing is
-waiting on you there.
+All eight steps are mobile. Merging never releases anything by itself — step 7 is
+always a deliberate act, whether you run `npm run release` from a desktop or
+[Manual release recovery](#manual-release-recovery) from your phone.
 
 ### Watching and re-running from GitHub Mobile
 
@@ -222,8 +224,6 @@ tap costs one interaction and keeps the permission boundary where it is.
 
 Rare, and always stated explicitly in the comment when it happens:
 
-- **Cutting a release** (`npm run release`) — needs a local checkout with the
-  toolchain; the tag push is what triggers `release.yml`.
 - **A pull request with conflicts GitHub's web editor cannot resolve.**
 - **A push rejected because the agent branch diverged** (someone else moved it). The
   run fails to `agent:blocked` rather than overwriting anything. From a phone you can
@@ -639,10 +639,94 @@ Every automated action is reversible and traceable to an Issue or PR:
 - **Usage review:** periodically review the Actions usage report and Anthropic API
   usage; set a repository Actions spending limit.
 
+## Manual release recovery
+
+**English —** `Manual release recovery`
+([`manual-release.yml`](../.github/workflows/manual-release.yml)) runs the documented
+release procedure for an **already merged** pull request, from the Actions UI, so a
+maintainer can release without a local checkout. It does not duplicate the release:
+it calls [`release.yml`](../.github/workflows/release.yml), the same implementation a
+tag push uses.
+
+**日本語 —** `Manual release recovery`
+([`manual-release.yml`](../.github/workflows/manual-release.yml)) は、**マージ済みの**
+プルリクエストに対して、Actions の画面から所定のリリース手順を実行します。ローカルの
+チェックアウトなしでリリースできます。リリース処理を二重に持つことはせず、タグ push と
+同じ実装である [`release.yml`](../.github/workflows/release.yml) を呼び出します。
+
+### When to use it / 使うタイミング
+
+- **English:** when a merged change should be released and you cannot (or do not want
+  to) run `npm run release` from a desktop. It is also the recovery path if a release
+  label or a release step was missed. **The normal path is still to decide the bump
+  before merging**, and to release with `npm run release -- <bump>` from a checkout;
+  manual recovery is an exception, not the default process.
+- **日本語:** マージ済みの変更をリリースしたいが、デスクトップから `npm run release` を
+  実行できない (またはしたくない) ときに使います。リリースのラベルや手順を取りこぼした
+  場合の復旧手段でもあります。**通常はマージ前にバージョンの上げ方を決め**、チェックアウト
+  した環境から `npm run release -- <bump>` でリリースしてください。手動復旧はあくまで
+  例外です。
+
+### Steps / 手順
+
+1. Open **Actions** in GitHub Mobile or a mobile browser. / GitHub Mobile かモバイル
+   ブラウザで **Actions** を開きます。
+2. Open **Manual release recovery**. / **Manual release recovery** を開きます。
+3. Tap **Run workflow**. / **Run workflow** をタップします。
+4. Enter the merged PR number. / マージ済みの PR 番号を入力します。
+5. Select `patch`, `minor`, or `major`. / `patch`・`minor`・`major` から選びます。
+6. **Tick `dry_run` and run it that way first.** / **まず `dry_run` にチェックを入れて
+   実行してください。**
+7. Read the bilingual dry-run summary on the run page. / 実行ページの日英併記の結果を
+   確認します。
+8. Only if it is correct, run again with `dry_run` unticked. / 内容が正しい場合にのみ、
+   `dry_run` のチェックを外して再実行します。
+9. Confirm the resulting tag, GitHub Release, and Pages deployment — both are linked
+   from the summary. / 生成されたタグ・GitHub Release・Pages のデプロイを確認します
+   (いずれも結果に URL が出ます)。
+
+> `dry_run` defaults to **unticked**, so step 6 is a deliberate action. A run with it
+> unticked releases for real.
+> `dry_run` の既定はチェックなしです。手順 6 は意識的に行ってください。チェックを外した
+> ままの実行は本番リリースになります。
+
+### What it refuses / 拒否すること
+
+- **English:** an arbitrary branch, commit SHA, version string, command, or CLI
+  argument — the only inputs are a numeric PR number, a fixed `patch`/`minor`/`major`
+  choice, and a boolean. A PR that is not merged, or not merged into `main`. A merge
+  commit unreachable from `main`. A merge commit an existing release already contains.
+  A tag that points somewhere unexpected — it stops without touching tags, commits,
+  Releases, or Pages. Two releases at once: automatic and manual share the
+  `production-release` concurrency group, and a release in progress is never cancelled.
+  The bump type is never read from Issue text, PR text, comments, commits, or labels.
+- **日本語:** 任意のブランチ・コミット SHA・バージョン文字列・コマンド・CLI 引数は
+  受け付けません。入力は PR 番号 (数値)、`patch`/`minor`/`major` の固定選択、真偽値の
+  3 つだけです。未マージの PR、`main` 以外へのマージ、`main` から到達できないマージ
+  コミット、既存リリースに既に含まれるマージコミットも拒否します。タグが想定外の場所を
+  指している場合は、タグ・コミット・Release・Pages のいずれにも触れずに停止します。
+  同時実行も防ぎます (自動・手動が `production-release` の同一グループを共有し、実行中の
+  リリースは決してキャンセルされません)。バージョンの種別を Issue・PR・コメント・
+  コミット・ラベルの文面から読み取ることはありません。
+
+### If a previous attempt was interrupted / 前回が中断された場合
+
+- **English:** if the version-bump commit and tag exist but the GitHub Release does
+  not, running the workflow again completes the publish from that verified tag — no
+  second commit, no second tag. If the Release already exists, the run reports
+  `already released` and changes nothing. Nothing is ever force-pushed, reset, or
+  deleted.
+- **日本語:** バージョン更新のコミットとタグはあるが GitHub Release がない場合、再実行
+  すると検証済みのタグから公開だけを完了します (コミットやタグを重複して作りません)。
+  Release が既にある場合は「既にリリース済み」と報告し、何も変更しません。force push・
+  reset・削除は一切行いません。
+
 ## Release automation (post-merge) — intentionally disabled
 
-**There is no automatic release-on-merge.** Merging a PR never cuts a release.
-Releasing remains the documented, human-run, **tag-driven** flow:
+**There is no automatic release-on-merge.** Merging a PR never cuts a release. Every
+release is a deliberate human act — either the tag-driven flow below, or
+[Manual release recovery](#manual-release-recovery), which runs that same flow from
+the Actions UI. Releasing remains the documented, human-run flow:
 
 - A human runs `npm run release -- patch | minor | major` (see the README
   "Cutting a release" section). It runs from `main`, runs the full checks, bumps

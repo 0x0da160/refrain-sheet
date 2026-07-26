@@ -6,15 +6,47 @@ name: Release
 # reach this workflow (the tag filter is numeric) and, as defense in depth,
 # would still be rejected by the "Validate tag format" step below. The PR/main
 # checks live in ci.yml.
+#
+# This workflow is ALSO callable (`workflow_call`) so that a manual release can
+# execute these exact steps instead of duplicating them. There is one release
+# implementation, not two. `manual-release.yml` is the only caller. The tag-push
+# path is unchanged: every step below reads `inputs.tag || github.ref_name`, which
+# on a tag push is exactly the pushed tag it always was.
 on:
   push:
     tags:
       # GitHub tag filter glob: [0-9]+ = one or more digits, '.' is literal.
       - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Exact vX.Y.Z tag to release. Must already exist and be reachable from the default branch.'
+        required: true
+        type: string
+    outputs:
+      release_url:
+        description: 'URL of the published GitHub Release.'
+        value: ${{ jobs.release.outputs.release_url }}
+      page_url:
+        description: 'URL of the GitHub Pages deployment.'
+        value: ${{ jobs.deploy-pages.outputs.page_url }}
 
 # Least privilege by default: read-only. Each job widens only what it needs.
 permissions:
   contents: read
+
+# Releases are serialized repository-wide so two of them can never bump, tag, or
+# publish at the same time — and a release in progress is NEVER cancelled.
+#
+# On a tag push this is the shared `production-release` group, the same group
+# `manual-release.yml` holds. When this workflow is CALLED, the caller already
+# holds that group; taking it again here would deadlock the run against itself,
+# so the called instance uses a group unique to the run instead. `github.event_name`
+# inside a called workflow is the caller's event, which is what distinguishes the
+# two cases.
+concurrency:
+  group: ${{ github.event_name == 'push' && 'production-release' || format('production-release-call-{0}', github.run_id) }}
+  cancel-in-progress: false
 
 # Action-pinning policy (see docs/security.md): every action here is an official
 # GitHub-maintained actions/* pinned to a major version tag; any third-party
@@ -32,17 +64,24 @@ jobs:
       contents: write
       id-token: write
       attestations: write
+    outputs:
+      release_url: ${{ steps.publish.outputs.release_url }}
     steps:
       - name: Validate tag format
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "Tag '$TAG' does not match v<major>.<minor>.<patch>" >&2
             exit 1
           fi
 
+      # Always check out the exact tag being released. On a tag push that is what
+      # checkout would do by default; when called, the caller's ref would otherwise
+      # be used, so naming it here is what keeps both paths building the same tree.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
 
       - uses: actions/setup-node@v4
         with:
@@ -51,7 +90,7 @@ jobs:
 
       - name: Verify tag matches package.json version
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
           PKG_VERSION="$(node -p "require('./package.json').version")"
@@ -70,7 +109,7 @@ jobs:
 
       # Belt-and-suspenders version gate: package.json ⇄ package-lock.json ⇄ tag.
       - name: Version consistency (package.json / lockfile / tag)
-        run: npm run check:versions -- --tag "${{ github.ref_name }}"
+        run: npm run check:versions -- --tag "${{ inputs.tag || github.ref_name }}"
 
       - name: Check formatting
         run: npm run format:check
@@ -94,7 +133,7 @@ jobs:
       # reproducible tooling (npm's built-in `npm sbom`, no extra dependency).
       - name: Generate SBOM (CycloneDX)
         env:
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
           npm run --silent sbom > "refrain-sheet-${VERSION}.sbom.cdx.json"
@@ -115,7 +154,7 @@ jobs:
       - name: Package release ZIP
         id: package
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
           VERSION="${TAG#v}"
@@ -240,9 +279,10 @@ jobs:
           EOF
 
       - name: Create GitHub Release
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
           ZIP_NAME: ${{ steps.package.outputs.zip_name }}
           SBOM_NAME: ${{ steps.package.outputs.sbom_name }}
         run: |
@@ -258,6 +298,9 @@ jobs:
               --title "Refrain Sheet ${TAG}" \
               --notes-file release-notes.md
           fi
+          # Exposed as a job output so a caller can link the Release without
+          # guessing its URL.
+          echo "release_url=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq '.url')" >>"$GITHUB_OUTPUT"
 
   # Publish the built dist/ to GitHub Pages. This runs ONLY after the release
   # job (tag validation + full verification suite + build + upload) succeeds, so

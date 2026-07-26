@@ -85,6 +85,22 @@ function parseArgs(argv) {
   return { bump: positionals[0], remote, yes: flags.has('yes'), dryRun: flags.has('dry-run') };
 }
 
+/**
+ * `git diff --cached --name-only` lists staged paths alphabetically, so
+ * package-lock.json (hyphen sorts before dot) comes before package.json.
+ * Validate the staged set independent of order: only package.json and/or
+ * package-lock.json may be staged, and package.json must be among them.
+ */
+export function isStagedFilesAllowed(staged) {
+  const stagedFiles = staged.split('\n').filter(Boolean).sort();
+  const allowed = ['package-lock.json', 'package.json'];
+  return (
+    stagedFiles.length > 0 &&
+    stagedFiles.every((file) => allowed.includes(file)) &&
+    stagedFiles.includes('package.json')
+  );
+}
+
 function computeVersion(current, bump) {
   if (!bump) {
     die('missing release argument. Use one of: patch | minor | major | vX.Y.Z');
@@ -243,7 +259,7 @@ async function main() {
   // ----- 6. Stage exactly the intended files -----
   git(['add', '--', 'package.json', 'package-lock.json']);
   const staged = git(['diff', '--cached', '--name-only']);
-  if (staged !== 'package.json\npackage-lock.json' && staged !== 'package.json') {
+  if (!isStagedFilesAllowed(staged)) {
     die(`unexpected staged files:\n${staged}\nAborting before commit.`);
   }
 
@@ -286,4 +302,9 @@ async function main() {
   );
 }
 
-main().catch((err) => die(err?.stack || String(err)));
+// Only run as the release CLI when invoked directly (e.g. `node scripts/release.mjs`),
+// not when imported — this lets tests exercise pure helpers like isStagedFilesAllowed
+// without triggering the real git/npm side effects in `main`.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main().catch((err) => die(err?.stack || String(err)));
+}

@@ -263,7 +263,8 @@ export interface UiPort {
   notify(text: string, kind: 'info' | 'warn' | 'error'): void;
   openFindBar(replaceMode: boolean): void;
   findNext(direction: 1 | -1): void;
-  showAbout(): void;
+  /** Open the About dialog, or its independent Keyboard Shortcuts dialog. */
+  showAbout(section?: 'about' | 'shortcuts'): void;
   /** Open the offline formula & function help panel. */
   showFormulaHelp(): void;
   /**
@@ -366,6 +367,7 @@ export type CommandId =
   | 'view.theme.dark'
   | 'app.settings'
   | 'help.formula'
+  | 'help.shortcuts'
   | 'lang.en'
   | 'lang.ja'
   | 'tab.next'
@@ -758,7 +760,10 @@ export class Commands {
         if (tab) this.moveActiveTab(tab, id);
         return;
       case 'help.about':
-        this.ui.showAbout();
+        this.ui.showAbout('about');
+        return;
+      case 'help.shortcuts':
+        this.ui.showAbout('shortcuts');
         return;
       case 'help.formula':
         this.ui.showFormulaHelp();

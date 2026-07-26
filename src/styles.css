@@ -1393,6 +1393,20 @@ table.diag-table th {
   margin-right: 2px;
 }
 
+.formula-help .help-fn-group {
+  margin-top: 10px;
+}
+
+.formula-help .help-fn-group:first-child {
+  margin-top: 0;
+}
+
+.formula-help .help-fn-group h4 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .formula-help .help-fn-table {
   border-collapse: collapse;
   width: 100%;

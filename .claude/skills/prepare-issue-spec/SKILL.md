@@ -108,6 +108,12 @@ Routine uncertainty is **not** high risk. Do not classify it as such.
 
 ## Work Brief template (use exactly)
 
+The marker, the `# Agent Work Brief` title, and every `##` heading below are
+**machine-readable and stay in English, byte-for-byte**. The Japanese goes in a
+`### 日本語` block _inside_ each section, so nothing that reads this file by heading
+can break. `Status` values (`implement` / `needs-clarification` / `blocked`) are
+tokens, never translated.
+
 ```markdown
 <!-- agent-spec:v1 issue=<ISSUE_NUMBER> -->
 
@@ -117,37 +123,71 @@ Routine uncertainty is **not** high risk. Do not classify it as such.
 
 <Concise restatement of the original request.>
 
+### 日本語
+
+<同じ内容の日本語。>
+
 ## Relevant human updates
 
 <Summary of later human-authored Issue comments that affect the task, or `None`.>
+
+### 日本語
+
+<同じ内容の日本語。引用は原文のまま。>
 
 ## Repository evidence
 
 <Relevant existing files, conventions, comparable behavior, and test commands.>
 
+### 日本語
+
+<同じ内容の日本語。ファイルパス・コマンド・識別子は翻訳しない。>
+
 ## Implementation decision
 
 <The professional implementation choice Claude will make.>
+
+### 日本語
+
+<同じ内容の日本語。>
 
 ## Assumptions
 
 - <Explicit assumption and why it is reasonable>
 - <Or: None>
 
+### 日本語
+
+- <同じ仮定と、それが妥当な理由>
+- <または: なし>
+
 ## Alternatives considered
 
 - <Alternative and why it was not selected>
 - <Or: None>
+
+### 日本語
+
+- <同じ代替案と、採用しなかった理由>
+- <または: なし>
 
 ## Validation plan
 
 - <Existing checks and tests to run>
 - <Tests to add or update where appropriate>
 
+### 日本語
+
+- <同じ検証計画。コマンド名は原文のまま。>
+
 ## Risk assessment
 
 - Level: low | medium | high
 - <Relevant risk and mitigation>
+
+### 日本語
+
+- <同じリスクと緩和策。Level の値は翻訳しない。>
 
 ## Status
 
@@ -156,8 +196,19 @@ Routine uncertainty is **not** high risk. Do not classify it as such.
 ## Clarification required
 
 <Only when status is needs-clarification; otherwise `None`.>
+
+### 日本語
+
+<同じ質問と推奨する既定方針。status が needs-clarification のときのみ。>
 ```
 
-Preserve the human's own words where you quote them, in their original language, and
-address the human in the dominant language of the Issue. Producing a brief is **not**
+Both languages must carry the same meaning, the same risks, and the **same
+uncertainty** — if the English says "may", "not verified", or "assumed", the Japanese
+must too. Never state a fact, decision, or caveat in one language that is absent from
+the other. Never translate code, commands, file paths, identifiers, label names,
+secret names, URLs, or raw error text, and never duplicate long output in both
+languages — summarize and link instead.
+
+Quote the human's own words verbatim in their original language; if you also
+translate a quote, label the translation clearly as one. Producing a brief is **not**
 approval — only a human applies `agent:ready`.

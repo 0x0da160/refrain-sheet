@@ -205,7 +205,12 @@ jobs:
               and never alter a human comment.
             - NEVER apply `agent:ready` (human-only). Do not create branches, edit
               code, open PRs, merge, or deploy. Only apply labels that already exist.
-            - Respond in the dominant language of the issue where you address the human.
+            - Keep the marker and the English section headings EXACTLY as the template
+              gives them — they are machine-readable. Under each, add a `### 日本語`
+              block conveying the same meaning, including the same assumptions, risks,
+              and hedging. Leave code, commands, paths, identifiers, label names, URLs,
+              and raw error text untranslated, and quote the Issue author's own words
+              verbatim in their original language.
 
       - name: Write the specification (API key)
         if: env.CLAUDE_AUTH_METHOD == 'api-key'
@@ -263,4 +268,9 @@ jobs:
               and never alter a human comment.
             - NEVER apply `agent:ready` (human-only). Do not create branches, edit
               code, open PRs, merge, or deploy. Only apply labels that already exist.
-            - Respond in the dominant language of the issue where you address the human.
+            - Keep the marker and the English section headings EXACTLY as the template
+              gives them — they are machine-readable. Under each, add a `### 日本語`
+              block conveying the same meaning, including the same assumptions, risks,
+              and hedging. Leave code, commands, paths, identifiers, label names, URLs,
+              and raw error text untranslated, and quote the Issue author's own words
+              verbatim in their original language.

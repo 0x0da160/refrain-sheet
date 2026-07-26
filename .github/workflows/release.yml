@@ -157,13 +157,22 @@ jobs:
           cat > release-notes.md <<EOF
           # Refrain Sheet v${VERSION}
 
-          A local-first, format-preserving CSV and spreadsheet editor.
-          （ローカルで動く、書式保持CSV・スプレッドシートエディタです。）
-
           - Version: ${VERSION}
           - Commit: ${SHORT_HASH}
 
-          ## Verify the download
+          ## English
+
+          A local-first, format-preserving CSV and spreadsheet editor. It runs fully
+          offline from a single static HTML file — no installation, server, or network
+          connection.
+
+          ## 日本語
+
+          ローカル環境で動作する、書式を保持する CSV・スプレッドシートエディタです。
+          単一の静的 HTML ファイルから完全にオフラインで動作し、インストール・サーバー・
+          ネットワーク接続はいずれも不要です。
+
+          ## Verify the download / ダウンロードの検証
 
           \`\`\`sh
           sha256sum -c ${ZIP_NAME}.sha256
@@ -175,15 +184,20 @@ jobs:
           gh attestation verify ${ZIP_NAME} --repo ${GITHUB_REPOSITORY}
           \`\`\`
 
-          ## Supply-chain artifacts
+          ## Supply-chain artifacts / サプライチェーン成果物
 
-          - **SBOM:** \`${SBOM_NAME}\` (CycloneDX) lists the production
+          - **English — SBOM:** \`${SBOM_NAME}\` (CycloneDX) lists the production
             dependency set. It is attached to this release and also bundled
-            inside the ZIP.
-          - **Provenance:** a signed SLSA-style build-provenance attestation
-            for the ZIP is published with this release.
+            inside the ZIP. **Provenance:** a signed SLSA-style build-provenance
+            attestation for the ZIP is published with this release.
+          - **日本語 — SBOM:** \`${SBOM_NAME}\` (CycloneDX) に本番依存関係の一覧が
+            含まれます。このリリースに添付され、ZIP にも同梱されています。
+            **来歴 (Provenance):** ZIP に対する SLSA 形式の署名付きビルド来歴証明を
+            このリリースで公開しています。
 
-          ## How to use
+          ## How to use / 使い方
+
+          ### English
 
           1. Download and extract \`${ZIP_NAME}\`.
           2. Open \`index.html\` directly in a browser (double-click, or
@@ -192,7 +206,18 @@ jobs:
           3. Open CSV files via File > Open or drag & drop, edit cell
              values, and save.
 
-          ## Save limitations under file:// and browser permissions
+          ### 日本語
+
+          1. \`${ZIP_NAME}\` をダウンロードして展開します。
+          2. \`index.html\` をブラウザで直接開きます (ダブルクリック、または
+             ブラウザウィンドウにドラッグ)。インストール・サーバー・ネットワーク接続は
+             不要で、すべてオフラインで動作します。
+          3. File > Open またはドラッグ＆ドロップで CSV を開き、セルを編集して
+             保存します。
+
+          ## Save limitations under file:// and browser permissions / file:// での保存の制限
+
+          ### English
 
           - In Chromium-based browsers, files opened through the file picker
             can usually be overwritten in place (File System Access API).
@@ -202,6 +227,16 @@ jobs:
             **download**: the browser chooses the download location and the
             original file is NOT overwritten. The app tells you which kind
             of save happened.
+
+          ### 日本語
+
+          - Chromium 系ブラウザでは、ファイルピッカーで開いたファイルは通常その場で
+            上書きできます (File System Access API)。上書き前にブラウザが書き込み
+            許可を求めます。
+          - この API が使えない場合 (Firefox、Safari、一部の file:// 環境) や許可が
+            拒否された場合は、**ダウンロード**による保存に切り替わります。この場合は
+            保存先をブラウザが決定し、元のファイルは上書きされません。どちらの方法で
+            保存されたかはアプリが表示します。
           EOF
 
       - name: Create GitHub Release

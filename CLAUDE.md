@@ -57,7 +57,12 @@ Do not invent commands. If a needed command does not exist, stop and say so.
 - Agent branch name: `agent/issue-<number>-<short-slug>`. Never push to `main`.
 - One focused change per PR. PR body must include: Summary, Files Changed,
   Verification (exact commands + pass/fail/skipped), linked Issue (`Closes #<n>`),
-  and any Human Actions Required. Preserve the Issue author's language in comments.
+  and any Human Actions Required. **All agent-authored human-facing text is
+  bilingual: English first, then Japanese** (`## English` / `## 日本語`). Never
+  translate code, commands, paths, identifiers, label names, secret names, URLs,
+  raw logs, or error messages. Quote the Issue author's own words verbatim in
+  their original language. See `docs/agent-operations.md` § Bilingual agent
+  communication.
 
 ## Required verification before opening a PR
 

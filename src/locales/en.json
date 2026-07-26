@@ -107,6 +107,7 @@
   "formula.fn.TEXTJOIN": "Joins text with a delimiter, optionally skipping blanks.",
   "formula.fn.SUBSTITUTE": "Replaces occurrences of one piece of text with another.",
   "formula.fn.REPLACE": "Replaces a fixed run of characters with new text.",
+  "formula.fn.TEXT": "Formats a number or date as text using an Excel-compatible format code.",
   "formula.fn.UPPER": "Converts the text to upper case.",
   "formula.fn.LOWER": "Converts the text to lower case.",
   "formula.fn.TODAY": "The current UTC date as a date serial; recalculates on demand.",

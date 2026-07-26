@@ -816,20 +816,20 @@ name that replaces `.rsf` with `.csv`.
 
 ### Function reference
 
-All 54 functions, grouped as they appear in the offline help. `[square
+All 55 functions, grouped as they appear in the offline help. `[square
 brackets]` mark optional arguments.
 
-| Group                      | Functions                                                                                    |
-| -------------------------- | -------------------------------------------------------------------------------------------- |
-| Aggregation                | `SUM` `AVERAGE` `MIN` `MAX` `COUNT` `COUNTA` `COUNTBLANK`                                    |
-| Conditional aggregation    | `COUNTIF` `COUNTIFS` `SUMIF` `SUMIFS` `AVERAGEIF` `AVERAGEIFS`                               |
-| Logical and error handling | `IF` `AND` `OR` `NOT` `IFERROR`                                                              |
-| Math and rounding          | `ROUND` `ROUNDUP` `ROUNDDOWN` `ABS` `MOD`                                                    |
-| Lookup and reference       | `XLOOKUP` `VLOOKUP` `INDEX` `MATCH`                                                          |
-| Text                       | `LEFT` `RIGHT` `MID` `LEN` `TRIM` `CONCAT` `TEXTJOIN` `SUBSTITUTE` `REPLACE` `UPPER` `LOWER` |
-| Date and time              | `TODAY` `NOW` `DATE` `YEAR` `MONTH` `DAY` `DATEDIF`                                          |
-| Statistics                 | `MEDIAN` `MODE.SNGL` `STDEV.S` `STDEV.P` `RANK.EQ`                                           |
-| Dynamic arrays             | `FILTER` `UNIQUE` `SORT` `SEQUENCE`                                                          |
+| Group                      | Functions                                                                                           |
+| -------------------------- | --------------------------------------------------------------------------------------------------- |
+| Aggregation                | `SUM` `AVERAGE` `MIN` `MAX` `COUNT` `COUNTA` `COUNTBLANK`                                           |
+| Conditional aggregation    | `COUNTIF` `COUNTIFS` `SUMIF` `SUMIFS` `AVERAGEIF` `AVERAGEIFS`                                      |
+| Logical and error handling | `IF` `AND` `OR` `NOT` `IFERROR`                                                                     |
+| Math and rounding          | `ROUND` `ROUNDUP` `ROUNDDOWN` `ABS` `MOD`                                                           |
+| Lookup and reference       | `XLOOKUP` `VLOOKUP` `INDEX` `MATCH`                                                                 |
+| Text                       | `LEFT` `RIGHT` `MID` `LEN` `TRIM` `CONCAT` `TEXTJOIN` `SUBSTITUTE` `REPLACE` `UPPER` `LOWER` `TEXT` |
+| Date and time              | `TODAY` `NOW` `DATE` `YEAR` `MONTH` `DAY` `DATEDIF`                                                 |
+| Statistics                 | `MEDIAN` `MODE.SNGL` `STDEV.S` `STDEV.P` `RANK.EQ`                                                  |
+| Dynamic arrays             | `FILTER` `UNIQUE` `SORT` `SEQUENCE`                                                                 |
 
 Errors: `#ERROR!` (does not parse), `#NAME?` (unknown function), `#VALUE!`
 (wrong type or shape), `#DIV/0!`, `#REF!` (deleted or invalid reference),
@@ -1380,7 +1380,8 @@ src/
               formula-criteria.ts   criteria parsing + safe wildcards
               formula-date.ts       UTC date-serial scale, DATEDIF
               formula-text.ts       code-point-safe text helpers
-              formula-functions.ts  the function registry (54 functions)
+              formula-text-format.ts  TEXT()'s Excel-compatible format codes
+              formula-functions.ts  the function registry (55 functions)
               formula.ts            tokenizer, parser, evaluator, rewriting
               spill.ts              dynamic-array placement (pure)
   app/      tabs & app state, command layer, file access, settings, i18n,

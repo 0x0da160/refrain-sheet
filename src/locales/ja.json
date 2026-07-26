@@ -107,6 +107,7 @@
   "formula.fn.TEXTJOIN": "区切り文字で連結します。空白を除くかどうかを選べます。",
   "formula.fn.SUBSTITUTE": "文字列中の特定の文字列を置き換えます。",
   "formula.fn.REPLACE": "指定した位置の文字数分を新しい文字列に置き換えます。",
+  "formula.fn.TEXT": "Excel 互換の書式コードで数値や日付を文字列に変換します。",
   "formula.fn.UPPER": "文字列を大文字に変換します。",
   "formula.fn.LOWER": "文字列を小文字に変換します。",
   "formula.fn.TODAY": "現在の UTC 日付をシリアル値で返します（都度再計算されます）。",

@@ -67,6 +67,7 @@ function bootstrap(): void {
     explainRsfSave: (name) => dialogs.explainRsfSave(name),
     chooseRsfSave: (name, current, available, note) => dialogs.chooseRsfSave(name, current, available, note),
     chooseExportCsv: (name) => dialogs.chooseExportCsv(name),
+    confirmExportXlsx: (name) => dialogs.confirmExportXlsx(name),
     chooseInsertShift: (rows, cols) => dialogs.chooseInsertShift(rows, cols),
     confirmFlashFill: (preview) => dialogs.confirmFlashFill(preview),
     chooseFilter: (input) => dialogs.chooseFilter(input),

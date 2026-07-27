@@ -25,6 +25,7 @@ function stubUi(): UiPort {
       bom: false,
       lineEnding: 'lf' as const,
     })),
+    confirmExportXlsx: vi.fn(async () => true),
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),

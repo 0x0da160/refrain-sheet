@@ -22,6 +22,7 @@ const noopUi: UiPort = {
   explainRsfSave: async () => true,
   chooseRsfSave: async () => 2,
   chooseExportCsv: async () => ({ encoding: 'utf-8' as const, bom: false, lineEnding: 'lf' as const }),
+  confirmExportXlsx: vi.fn(async () => true),
   chooseInsertShift: async () => null,
   confirmFlashFill: async () => false,
   chooseFilter: async () => null,

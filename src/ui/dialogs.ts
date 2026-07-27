@@ -517,6 +517,19 @@ export class Dialogs {
     });
   }
 
+  /** Explain and confirm the lossy XLSX export: calculated values only, every worksheet included. */
+  confirmExportXlsx(name: string): Promise<boolean> {
+    return openDialog(t('dialog.exportXlsx.title'), false, (body, buttons, close) => {
+      body.append(el('p', { text: t('dialog.exportXlsx.message', { name }) }));
+      body.append(el('p', { className: 'dialog-warning', text: t('dialog.exportXlsx.warning') }));
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.exportXlsx.notPreserved') }));
+      buttons.append(
+        dialogButton(t('dialog.exportXlsx.cancel'), false, false, () => close(false)),
+        dialogButton(t('dialog.exportXlsx.ok'), true, true, () => close(true)),
+      );
+    });
+  }
+
   /**
    * The Flash Fill preview: the inferred operation, the affected range, the
    * change/overwrite counts, and a bounded before/after sample table. The

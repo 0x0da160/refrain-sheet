@@ -53,6 +53,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     showAbout: vi.fn(),
     showFormulaHelp: vi.fn(),
     chooseSettings: vi.fn(async () => null),
+    chooseTimezone: vi.fn(async () => null),
     setBusy: vi.fn(),
     ...overrides,
   };
@@ -556,6 +557,30 @@ describe('workbook container', () => {
     if (decoded.ok) {
       expect(decoded.data.activeSheetId).toBe(workbook.sheets[0].id);
     }
+  });
+
+  it('round-trips a non-UTC workbook timezone through the workbook body (version 2)', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      timezone: 'Asia/Tokyo',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] },
+        { id: 'b', name: 'B', rowCount: 1, columnCount: 1, cells: [] },
+      ],
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.timezone).toBe('Asia/Tokyo');
+  });
+
+  it('omits the workbook timezone field for UTC, staying on the lowest sufficient body version', () => {
+    const sheets = [
+      { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] as Array<[number, number, string]> },
+      { id: 'b', name: 'B', rowCount: 1, columnCount: 1, cells: [] as Array<[number, number, string]> },
+    ];
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook({ delimiter: ',', timezone: 'UTC', sheets }));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.timezone).toBeUndefined();
   });
 
   it('loads a legacy single-sheet container as a one-worksheet workbook', () => {

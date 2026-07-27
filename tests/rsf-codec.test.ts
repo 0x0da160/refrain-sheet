@@ -84,6 +84,25 @@ describe('binary container codec (JS store engine)', () => {
     expect(decoded.data.appVersion).toBeUndefined();
   });
 
+  it('round-trips a non-UTC workbook timezone (body version 6)', () => {
+    const withTimezone: RsfData = { ...sample, timezone: 'Asia/Tokyo' };
+    const decoded = decodeRsf(encodeRsf(withTimezone));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.timezone).toBe('Asia/Tokyo');
+    expect(decoded.data.cells).toEqual(sample.cells);
+  });
+
+  it('omits the timezone field for UTC, staying on the lowest sufficient body version', () => {
+    const utcExplicit = decodeRsf(encodeRsf({ ...sample, timezone: 'UTC' }));
+    expect(utcExplicit.ok).toBe(true);
+    if (utcExplicit.ok) expect(utcExplicit.data.timezone).toBeUndefined();
+
+    const utcImplicit = decodeRsf(encodeRsf(sample));
+    expect(utcImplicit.ok).toBe(true);
+    if (utcImplicit.ok) expect(utcImplicit.data.timezone).toBeUndefined();
+  });
+
   it('rejects a truncated payload', () => {
     const bytes = encodeRsf(sample);
     const decoded = decodeRsf(bytes.subarray(0, bytes.length - 2));

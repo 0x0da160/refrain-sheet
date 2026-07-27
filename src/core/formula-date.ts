@@ -25,14 +25,23 @@
  * ## Timezone policy
  *
  * **Every conversion in this module is UTC.** There is no host-timezone or DST
- * input anywhere, so `DATE`, `YEAR`, `MONTH`, `DAY`, and `DATEDIF` return the
- * same answer on every machine, and a `.rsf` file computes the same values
- * wherever it is opened. `TODAY()` and `NOW()` read the host clock but convert
- * it as UTC, so "today" means the current UTC date. In a UTC+9 morning that is
- * the previous local calendar day — a deliberate trade of local intuition for
- * a workbook that cannot change meaning when it travels. Display and
- * localization are a separate concern and are documented in
- * `docs/rsf-format.md`.
+ * input anywhere in `serialToParts`/`partsToSerial`/`dateDif` and friends, so
+ * `DATE`, `YEAR`, `MONTH`, `DAY`, and `DATEDIF` return the same answer on every
+ * machine regardless of any setting.
+ *
+ * `TODAY()` and `NOW()` (`todaySerial`/`nowSerial` below) are handed a
+ * millisecond instant by the caller and convert it as UTC, full stop — this
+ * module never reads a clock or a timezone name itself. What varies is which
+ * instant the workbook hands in: `RsfDocument` shifts the real host-clock
+ * reading by its own **stored, per-workbook** timezone offset before calling
+ * these functions, so "today" means the current date *in the workbook's own
+ * timezone* rather than always UTC. Because that timezone is saved in the
+ * file (see `docs/rsf-format.md`), a `.rsf` file still computes the same
+ * `TODAY()`/`NOW()` wherever it is opened — the timezone travels with the
+ * workbook instead of being read from the opening machine. A file saved
+ * before this setting existed has no stored timezone and defaults to UTC on
+ * load, preserving its original behavior exactly. Display and localization
+ * are a separate concern and are documented in `docs/rsf-format.md`.
  *
  * ## Volatility
  *

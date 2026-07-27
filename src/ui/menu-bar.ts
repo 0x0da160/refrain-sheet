@@ -138,6 +138,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // The only way a volatile formula (TODAY, NOW) updates without an
         // edit: there is deliberately no background recalculation timer.
         { labelKey: 'menu.sheet.recalculate', command: 'sheet.recalculate' },
+        { labelKey: 'menu.sheet.timezone', command: 'sheet.timezone' },
         'separator',
         { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
       ],

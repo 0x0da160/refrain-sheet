@@ -8,7 +8,7 @@ import type {
   RangeMoveConfirmInput,
   WorkbookReplaceConfirmInput,
 } from '../app/commands';
-import { t } from '../app/i18n';
+import { t, type LocaleId } from '../app/i18n';
 import {
   FILTER_NUMBER_OPS,
   FILTER_TEXT_OPS,
@@ -1162,6 +1162,36 @@ export class Dialogs {
       buttons.append(
         dialogButton(t('dialog.timezone.cancel'), false, false, () => close(null)),
         dialogButton(t('dialog.timezone.ok'), true, false, () => close(select.value)),
+      );
+    });
+  }
+
+  /**
+   * The workbook Display language… dialog: a two-option `<select>` (English /
+   * Japanese, the app's only two catalogs), with `current` preselected.
+   * Resolves with the chosen language, or null when cancelled — the caller
+   * treats "unchanged" and "cancelled" the same way.
+   */
+  chooseDisplayLanguage(current: LocaleId): Promise<LocaleId | null> {
+    return openDialog<LocaleId | null>(t('dialog.displayLanguage.title'), null, (body, buttons, close) => {
+      const selectId = 'display-language-select';
+      const select = el('select', {
+        attrs: { id: selectId, 'data-autofocus': 'true' },
+      }) as HTMLSelectElement;
+      const options: LocaleId[] = ['en', 'ja'];
+      for (const language of options) {
+        const option = el('option', { text: t(`language.${language}`), attrs: { value: language } });
+        (option as HTMLOptionElement).selected = language === current;
+        select.append(option);
+      }
+      body.append(
+        el('label', { text: t('dialog.displayLanguage.label'), attrs: { for: selectId } }),
+        select,
+        el('p', { className: 'dialog-note', text: t('dialog.displayLanguage.note') }),
+      );
+      buttons.append(
+        dialogButton(t('dialog.displayLanguage.cancel'), false, false, () => close(null)),
+        dialogButton(t('dialog.displayLanguage.ok'), true, false, () => close(select.value as LocaleId)),
       );
     });
   }

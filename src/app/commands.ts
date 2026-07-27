@@ -68,7 +68,7 @@ import {
   type OpenedFile,
   type SaveOutcome,
 } from './file-access';
-import { setLocale, t, type LocaleId } from './i18n';
+import { getLocale, setLocale, t, type LocaleId } from './i18n';
 import {
   DEFAULT_SHEET_ZOOM,
   getEditHints,
@@ -297,6 +297,12 @@ export interface UiPort {
    */
   chooseTimezone(current: string): Promise<string | null>;
   /**
+   * The workbook Display language… dialog: pick `en` or `ja`, with `current`
+   * preselected. Resolves with the chosen language, or null when cancelled
+   * (nothing changes).
+   */
+  chooseDisplayLanguage(current: LocaleId): Promise<LocaleId | null>;
+  /**
    * Show or hide the busy/loading indicator. `label` is already-localized
    * text describing the current operation; `null` hides the indicator.
    */
@@ -339,6 +345,7 @@ export type CommandId =
   | 'sheet.filterClear'
   | 'sheet.recalculate'
   | 'sheet.timezone'
+  | 'sheet.displayLanguage'
   | 'sheet.exportCsv'
   // Worksheets inside the active RSF workbook (distinct from the application
   // document tabs, whose commands are the `tab.*` ids below).
@@ -503,6 +510,10 @@ export class Commands {
       case 'sheet.timezone':
         // The timezone only affects TODAY()/NOW(), which only a spreadsheet
         // document evaluates.
+        return tab !== null && tab.doc.kind === 'rsf';
+      case 'sheet.displayLanguage':
+        // The display language only affects TEXT()'s ddd/dddd tokens, which
+        // only a spreadsheet document evaluates.
         return tab !== null && tab.doc.kind === 'rsf';
       case 'edit.revertCell':
         return (
@@ -676,6 +687,23 @@ export class Commands {
             tab.doc.setTimezone(chosen);
             this.state.emit('doc');
             this.ui.notify(t('notify.timezoneChanged', { timezone: tab.doc.timezone }), 'info');
+          }
+        }
+        return;
+      case 'sheet.displayLanguage':
+        if (tab && tab.doc.kind === 'rsf') {
+          const chosen = await this.ui.chooseDisplayLanguage(tab.doc.displayLanguage);
+          // Like Timezone, this changes no cell input: no history entry, no
+          // dirty flag. setDisplayLanguage() itself invalidates every cached
+          // result so TEXT()'s ddd/dddd tokens reflect the new language
+          // immediately.
+          if (chosen !== null) {
+            tab.doc.setDisplayLanguage(chosen);
+            this.state.emit('doc');
+            this.ui.notify(
+              t('notify.displayLanguageChanged', { language: t(`language.${tab.doc.displayLanguage}`) }),
+              'info',
+            );
           }
         }
         return;
@@ -1474,7 +1502,7 @@ export class Commands {
     }
     const columnCount = Math.max(1, doc.columnCount);
     if (doc.rowCount * columnCount <= LARGE_OP_CELLS) {
-      return RsfDocument.fromLossless(doc, tab.name, defaultSheetName());
+      return RsfDocument.fromLossless(doc, tab.name, defaultSheetName(), getLocale());
     }
     const rows: string[][] = [];
     const completed = await forEachIndexSliced(
@@ -1498,7 +1526,14 @@ export class Commands {
     if (!completed || tab.doc !== doc) {
       return null;
     }
-    return RsfDocument.fromValues(tab.name, doc.delimiter, rows, columnCount, defaultSheetName());
+    return RsfDocument.fromValues(
+      tab.name,
+      doc.delimiter,
+      rows,
+      columnCount,
+      defaultSheetName(),
+      getLocale(),
+    );
   }
 
   /** Blank-document counter so each File > New tab gets a distinct default name. */
@@ -1516,7 +1551,7 @@ export class Commands {
     this.newDocCount += 1;
     const suffix = this.newDocCount > 1 ? `-${this.newDocCount}` : '';
     const name = `${t('untitled.new')}${suffix}${RSF_EXTENSION}`;
-    const doc = RsfDocument.blank(name, NEW_DOC_ROWS, NEW_DOC_COLS, defaultSheetName());
+    const doc = RsfDocument.blank(name, NEW_DOC_ROWS, NEW_DOC_COLS, defaultSheetName(), getLocale());
     return this.state.addTab(name, doc, null);
   }
 

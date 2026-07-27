@@ -189,36 +189,39 @@ nothing else keys off the identifier.
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
 Version selection on write is minimal so older readers keep working where
-possible: body **version 6** is written only when the workbook timezone is not
+possible: body **version 7** is written only when the workbook display
+language is not English; **version 6** when the workbook timezone is not
 `UTC`; **version 5** when wrap-long-rows is stored; **version 4** when a sheet
 filter is present; **version 3** when display settings are present; **version
 2** when only the creating/updating application metadata is present; **version
-1** otherwise. Versions 1–6 are all accepted on read; an older reader rejects a
+1** otherwise. Versions 1–7 are all accepted on read; an older reader rejects a
 body version it does not know with a localized "unsupported version" message
 rather than misparsing it.
 
-| Size | Field                                                          |
-| ---- | -------------------------------------------------------------- |
-| 1    | Body version — `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)    |
-| 2    | _(v2+)_ Application-name length, `u16`                         |
-| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`         |
-| 2    | _(v2+)_ Application-version length, `u16`                      |
-| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`              |
-| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)    |
-| 4    | _(v3+)_ Column-width entry count `W`, `u32`                    |
-| …    | _(v3+)_ `W` column-width entries (see below)                   |
-| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)        |
-| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)     |
-| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)      |
-| 2    | _(v6 only)_ IANA timezone-name length, `u16`                   |
-| …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`      |
-| 2    | Sheet-name length `N`, `u16`                                   |
-| `N`  | Sheet name (UTF-8)                                             |
-| 4    | Row count, `u32`                                               |
-| 4    | Column count, `u32`                                            |
-| 4    | Cell count `C`, `u32`                                          |
-| …    | `C` cell records                                               |
+| Size | Field                                                               |
+| ---- | ------------------------------------------------------------------- |
+| 1    | Body version — `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)         |
+| 2    | _(v2+)_ Application-name length, `u16`                              |
+| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`              |
+| 2    | _(v2+)_ Application-version length, `u16`                           |
+| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`                   |
+| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)         |
+| 4    | _(v3+)_ Column-width entry count `W`, `u32`                         |
+| …    | _(v3+)_ `W` column-width entries (see below)                        |
+| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)             |
+| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)          |
+| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)           |
+| 2    | _(v6 only)_ IANA timezone-name length, `u16`                        |
+| …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`           |
+| 2    | _(v7 only)_ Display-language length, `u16`                          |
+| …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`               |
+| 2    | Sheet-name length `N`, `u16`                                        |
+| `N`  | Sheet name (UTF-8)                                                  |
+| 4    | Row count, `u32`                                                    |
+| 4    | Column count, `u32`                                                 |
+| 4    | Cell count `C`, `u32`                                               |
+| …    | `C` cell records                                                    |
 
 ### Display settings (body version 3)
 
@@ -359,6 +362,27 @@ so it does not mark the document dirty, but it does recompute every cached
 formula result the same way **Sheet > Recalculate** does, since it changes
 what `TODAY()`/`NOW()` report.
 
+### Display language (body version 7)
+
+Body version 7 adds the **workbook display language**: `en` or `ja`, read by
+`TEXT()`'s `ddd`/`dddd` weekday-name tokens (see "Volatile formulas" and
+[`src/core/formula-text-format.ts`](../src/core/formula-text-format.ts)). It
+is written only when the language is not `en`, so a workbook left on the
+default stays on the lowest sufficient body version. A new workbook defaults
+to the application's current UI language at creation time; a workbook loaded
+from a file with no stored display language (every file saved before this
+field existed), or an unrecognized value, falls back to `en` — it is never a
+load error. Changing the display language (**Sheet > Display language…**) is
+like changing the timezone: it alters no cell input, so it does not mark the
+document dirty, but it does recompute every cached formula result the same
+way **Sheet > Recalculate** does, since it changes what `TEXT()`'s
+`ddd`/`dddd` tokens report.
+
+This setting is independent of the application's own UI-chrome language
+toggle (menus, dialogs): it travels with the file so a `.rsf` document's
+formula output is identical wherever it is opened, regardless of which UI
+language happens to be active on that machine or session.
+
 The application metadata records which build of the software created or last
 updated the file (`Refrain Sheet` and the version from
 [`package.json`](../package.json), the single authoritative version source). It
@@ -399,12 +423,13 @@ Written only when the workbook holds **two or more** worksheets. All strings
 are UTF-8 and length-prefixed with a `u16`; all integers are little-endian.
 
 Workbook body version selection is minimal, like the single-sheet body:
-**version 2** is written only when the workbook timezone is not `UTC`;
-**version 1** otherwise. Both versions are accepted on read.
+**version 3** is written only when the workbook display language is not `en`;
+**version 2** when the workbook timezone is not `UTC`; **version 1**
+otherwise. All three versions are accepted on read.
 
 | Size | Field                                                           |
 | ---- | --------------------------------------------------------------- |
-| 1    | Workbook body version — `2` or `1` (see selection)              |
+| 1    | Workbook body version — `3`, `2`, or `1` (see selection)        |
 | 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)     |
 | 2+…  | Application name (UTF-8, `u16` length; may be empty)            |
 | 2+…  | Application version (UTF-8, `u16` length; may be empty)         |
@@ -412,13 +437,20 @@ Workbook body version selection is minimal, like the single-sheet body:
 | 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)  |
 | 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)         |
 | 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty) |
-| 2+…  | _(v2 only)_ Workbook timezone, IANA name (UTF-8, `u16` length)  |
+| 2+…  | _(v2+)_ Workbook timezone, IANA name (UTF-8, `u16` length)      |
+| 2+…  | _(v3 only)_ Workbook display language (UTF-8, `u16` length)     |
 | 2    | Worksheet count `S`, `u16`                                      |
 | …    | `S` worksheet records (below)                                   |
 
 The workbook timezone follows the same rules as the single-sheet body version
 6 field above: written only when non-`UTC`, and an absent or unresolvable
-value falls back to `UTC` on load rather than rejecting the file.
+value falls back to `UTC` on load rather than rejecting the file. The
+workbook display language follows the same rules as the single-sheet body
+version 7 field: written only when non-`en`, and an absent or unrecognized
+value falls back to `en` on load rather than rejecting the file. Like the
+timezone, a display-language section forces the timezone section to be
+written too (even a workbook on the default `UTC` timezone), so the layout
+stays a strict prefix chain.
 
 Each worksheet record:
 
@@ -552,6 +584,12 @@ propagates — only the engine creates error values.
   machine's, that decides what "today" means. A file with no stored timezone
   (every file saved before this field existed) defaults to `UTC`, its exact
   original behavior.
+- **`TEXT()`'s `ddd`/`dddd` weekday-name tokens read the workbook's own
+  stored display language** (see "Display language (body version 7)" above),
+  not the opening machine's active UI language, for the same reason: the same
+  formula renders identical text wherever the file is opened. A file with no
+  stored display language (every file saved before this field existed), or an
+  unrecognized value, defaults to `en`.
 
 ### Volatile formulas
 
@@ -698,6 +736,10 @@ describes — a workbook rather than a sheet. The single-sheet body was later
 bumped to version 6, and the workbook body to version 2, both to carry the
 workbook timezone (see "Timezone (body version 6)" above); each is written
 only when the timezone is non-`UTC`, so a workbook left on the default stays
-on its previous, lower body version. Future changes bump the container
-version (framing changes) or the relevant body version (encoding changes);
-readers reject versions they do not understand rather than guessing.
+on its previous, lower body version. The single-sheet body was then bumped to
+version 7, and the workbook body to version 3, to carry the workbook display
+language (see "Display language (body version 7)" above); each is written
+only when the language is non-`en`, for the same reason. Future changes bump
+the container version (framing changes) or the relevant body version
+(encoding changes); readers reject versions they do not understand rather
+than guessing.

@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
+import type { LocaleId } from '../src/app/i18n';
 import type { OpenedFile } from '../src/app/file-access';
 import { compileQuery } from '../src/core/search';
 import { decodeBytes } from '../src/core/encoding';
@@ -44,6 +45,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     showFormulaHelp: vi.fn(),
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
+    chooseDisplayLanguage: vi.fn(async () => null),
     setBusy: vi.fn(),
     ...overrides,
   };
@@ -368,6 +370,41 @@ describe('sheet timezone command', () => {
     const before = tab.doc.timezone;
     await commands.run('sheet.timezone');
     expect(tab.doc.timezone).toBe(before);
+    expect(ui.notify).not.toHaveBeenCalled();
+  });
+});
+
+describe('sheet display language command', () => {
+  it('is enabled only for an RSF (spreadsheet) tab', async () => {
+    const { commands } = setup();
+    await commands.run('file.new');
+    expect(commands.isEnabled('sheet.displayLanguage')).toBe(true);
+    await commands.openFiles([opened('c.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    expect(commands.isEnabled('sheet.displayLanguage')).toBe(false);
+  });
+
+  it('applies the chosen display language, recalculates, and notifies', async () => {
+    const ui = stubUi({ chooseDisplayLanguage: vi.fn(async (): Promise<LocaleId | null> => 'ja') });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    const before = tab.doc.displayLanguage;
+    await commands.run('sheet.displayLanguage');
+    expect(ui.chooseDisplayLanguage).toHaveBeenCalledWith(before);
+    expect(tab.doc.displayLanguage).toBe('ja');
+    expect(ui.notify).toHaveBeenCalledWith(expect.any(String), 'info');
+  });
+
+  it('cancelling leaves the display language unchanged and does not notify', async () => {
+    const ui = stubUi({ chooseDisplayLanguage: vi.fn(async () => null) });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    const before = tab.doc.displayLanguage;
+    await commands.run('sheet.displayLanguage');
+    expect(tab.doc.displayLanguage).toBe(before);
     expect(ui.notify).not.toHaveBeenCalled();
   });
 });

@@ -913,6 +913,20 @@ A date is a **number**, not a separate kind of value:
   the timezone travels with the file. Changing it recalculates the workbook
   immediately. A file saved before this setting existed has no stored
   timezone and defaults to UTC, its original behavior.
+- **`TEXT()`'s date format codes** support `yyyy`, `yy`, `mm`, `dd`, `ddd`
+  (abbreviated weekday), and `dddd` (full weekday), each usable at most once
+  and joined by `-`, `/`, `.`, or a space (matching is case-insensitive, like
+  Excel's own format codes, e.g. `"YYYY-MM-DD"` and `"dddd"` both work). Any
+  other format code is outside this documented, Excel-compatible subset and
+  `TEXT()` returns `#VALUE!` rather than guessing.
+- **`ddd`/`dddd` render in the workbook's own stored display language**
+  (**Sheet > Display Language…**; a new workbook defaults to the
+  application's current menu language), not the opening machine's UI
+  language, for the same reproducibility reason as the timezone above — the
+  same formula renders identical text wherever the file is opened. It is
+  independent of the application's own English/日本語 menu-language toggle. A
+  file saved before this setting existed has no stored display language and
+  defaults to English.
 - `DATE` rolls month and day overflow into neighbouring months and years, so
   `DATE(2020, 3, 0)` is 29 February 2020 and `DATE(2020, 13, 1)` is 1 January 2021. A year of 0–1899 means 1900 + year.
 - `DATEDIF` supports `"Y"`, `"M"`, `"D"`, `"YM"`, `"YD"`, and `"MD"`. `YD` and

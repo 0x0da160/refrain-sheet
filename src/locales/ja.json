@@ -7,6 +7,7 @@
   "menu.view": "表示",
   "menu.language": "言語 / Language",
   "menu.help": "ヘルプ",
+  "menu.mobileToggle": "メニュー",
   "menu.file.new": "新規スプレッドシート",
   "menu.file.open": "開く…",
   "menu.file.reopen": "文字コードを指定して開き直す…",

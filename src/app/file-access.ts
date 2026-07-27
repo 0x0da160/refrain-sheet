@@ -158,6 +158,14 @@ const SAVE_PICKER_TYPES = {
       accept: { 'text/csv': ['.csv'] },
     },
   ],
+  xlsx: [
+    {
+      description: 'Excel Workbook',
+      accept: {
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      },
+    },
+  ],
 } as const;
 
 /**

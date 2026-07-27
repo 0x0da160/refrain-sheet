@@ -143,12 +143,28 @@ body {
   font-size: 13px;
   color: var(--text);
   background: var(--bg);
+  /* The app fills exactly one viewport (see #app below); this is a backstop
+     against any element accidentally pushing the whole page into a
+     horizontal or vertical scrollbar, since every scrollable surface here is
+     meant to scroll within itself (the grid, the tab strips, dialogs). */
+  overflow: hidden;
 }
 
 #app {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  /* On phones, 100vh is the height with the browser's address bar hidden, so
+     a static 100vh box can sit partly below the fold while the bar is shown.
+     100dvh tracks the actually-visible viewport instead; browsers without
+     support keep the 100vh value above. */
+  height: 100dvh;
+  /* Disables the double-tap-to-zoom gesture across the whole app. `manipulation`
+     still permits pinch-zoom and normal panning, so it only removes the
+     unwanted zoom, never the accessibility zoom a user asks for. An element
+     that needs a different touch gesture (e.g. the grid's drag handles) sets
+     its own more specific touch-action, which still takes precedence. */
+  touch-action: manipulation;
 }
 
 button {
@@ -1597,10 +1613,15 @@ table.diag-table th {
     flex-wrap: wrap;
   }
 
+  /* Grown toward the common ~44x44px minimum touch-target size; it was
+     previously sized like a desktop toolbar icon, too small to reliably tap. */
   .menu-bar-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 20px;
   }
 
   .menu-row {
@@ -1622,6 +1643,7 @@ table.diag-table th {
   .menu > button,
   .menu-item {
     padding: 12px 14px;
+    min-height: 44px;
   }
 
   .tab {
@@ -1629,12 +1651,90 @@ table.diag-table th {
   }
 
   .tab .tab-close {
-    padding: 6px 8px;
+    padding: 10px;
+    min-width: 36px;
+    min-height: 36px;
   }
 
   .sheet-tab,
   .sheet-add {
-    padding: 9px 12px;
+    padding: 11px 12px;
+    min-height: 40px;
+  }
+
+  .dialog-buttons button {
+    padding: 10px 16px;
+    min-height: 44px;
+  }
+
+  .find-bar button {
+    padding: 8px 12px;
+    min-height: 40px;
+  }
+
+  .welcome-action {
+    padding: 12px 20px;
+    min-height: 44px;
+  }
+
+  /* ----- Prevent unwanted zoom on focus-in -----
+     Mobile browsers zoom the page to a focused text control whose computed
+     font-size is under ~16px. Every real text/number/search input and select
+     in a dialog, plus the find bar's search field, gets the 16px floor here;
+     nothing outside this breakpoint changes, so desktop density is untouched. */
+  .dialog-body input[type='text'],
+  .dialog-body input[type='number'],
+  .dialog-body input[type='search'],
+  .dialog-body select {
+    font-size: 16px;
+  }
+
+  /* The find field also becomes full-width, now that it no longer has to
+     share a row with the rest of the bar at a fixed 200px. */
+  .find-bar input[type='text'] {
+    font-size: 16px;
+    width: 100%;
+  }
+
+  /* The formula bar and the grid's cell editor scale with the spreadsheet
+     zoom level; clamp their minimum to the same 16px so a zoom level under
+     ~130% doesn't reintroduce the focus-zoom, without changing their size at
+     higher zoom levels. */
+  .formula-bar textarea {
+    font-size: max(16px, calc(13px * var(--sheet-zoom, 1)));
+  }
+
+  .vgrid-canvas .grid-sink.cell-editor {
+    font-size: max(16px, calc(12px * var(--sheet-zoom, 1)));
+  }
+
+  /* ----- Fit narrow dialogs -----
+     These rows assumed desktop-width dialogs (a fixed-width label beside a
+     200px select, or a select beside a free-flowing input); below this width
+     they no longer fit side by side without forcing the dialog to scroll
+     horizontally, so they wrap and the controls take the full row instead. */
+  .form-row {
+    flex-wrap: wrap;
+  }
+
+  .form-row label:first-child {
+    min-width: 100%;
+  }
+
+  .form-row select,
+  .form-row input[type='number'] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filter-condition-row {
+    flex-wrap: wrap;
+  }
+
+  .filter-condition-row select,
+  .filter-condition-row input {
+    min-width: 0;
+    max-width: 100%;
   }
 }
 

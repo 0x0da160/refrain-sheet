@@ -233,6 +233,114 @@ Rare, and always stated explicitly in the comment when it happens:
 Everything else — labels, re-runs, reviews, merges, closing a PR, deleting a branch —
 is available on mobile.
 
+## Mobile notifications / モバイル通知
+
+**English.** The loop's notification mechanism is a plain GitHub **@mention**. When a
+workflow leaves the loop in a state that needs a human decision, it posts one
+bilingual Issue or pull-request comment whose first line mentions the repository
+owner. GitHub Mobile turns a direct mention into a push notification, so nothing
+outside GitHub is involved: no webhook, no Slack, no email API, no third-party push
+service, no personal access token, and no new secret. The mentioned login is
+`github.repository_owner` unless the Actions variable `NOTIFY_OWNER` overrides it.
+
+**日本語.** 通知の仕組みは GitHub の **@メンション** そのものです。人間の判断が必要な状態に
+なったとき、ワークフローは日英併記のコメントを Issue または PR に 1 件投稿し、その先頭で
+リポジトリオーナーをメンションします。GitHub Mobile はダイレクトメンションをプッシュ通知に
+するため、GitHub の外側は一切関与しません (webhook・Slack・メール API・外部プッシュ
+サービス・PAT・新しいシークレットのいずれも不要)。メンション先は
+`github.repository_owner` で、Actions 変数 `NOTIFY_OWNER` があればそちらが優先されます。
+
+### What creates a mention / メンションが発生するイベント
+
+| Event                                                     | Where the comment lands | Workflow              |
+| --------------------------------------------------------- | ----------------------- | --------------------- |
+| `agent:needs-spec` — one product decision is needed       | the Issue               | `implement-issue.yml` |
+| `agent:blocked` — a safety, approval, or failure stop     | the Issue               | `implement-issue.yml` |
+| `agent:continuation-needed` — the turn budget was reached | the Issue               | `implement-issue.yml` |
+| A **verified** pull request is ready for review           | the Issue               | `implement-issue.yml` |
+| CI failed or timed out on an agent pull request           | the pull request        | `close-loop.yml`      |
+| The independent review workflow itself failed             | the pull request        | `review-pr.yml`       |
+
+A turn-limit stop is **execution** continuation, never `agent:needs-spec` — its notice
+says so explicitly. / ターン上限による停止は**実行**の継続であり、`agent:needs-spec` では
+ありません。通知本文にもその旨を明記します。
+
+### What stays quiet / あえて通知しないイベント
+
+Triage starting or finishing · Work Brief creation or refresh · `agent:working` ·
+ordinary progress · tests passing during implementation · routine label changes ·
+a successful release · a successful Pages deployment · non-blocking review
+suggestions · a repeated status event for a state you were already told about.
+
+These still appear in the Issue, the pull request, and the Actions tab — they just do
+not ring your phone. / これらは Issue・PR・Actions には表示されますが、スマホに通知は
+届きません。
+
+### Release and Pages failure — a human decision, not implemented / リリースと Pages の失敗
+
+**English.** `release.yml` and `manual-release.yml` deliberately hold **neither**
+`issues: write` nor `pull-requests: write` — they run `contents: read` by default and
+widen only per job, only for what publishing requires. A mention comment therefore
+cannot be posted from either one without granting a comment-writing permission to a
+workflow that publishes releases, and a tag-push release has no Issue or pull request
+to comment on in the first place. That trade is the owner's to make, not
+automation's, so it is documented here instead of taken silently. Until it is
+decided, **step 4 below is what covers release and Pages failures**: GitHub Mobile's
+Actions notification for failed workflows already pushes for both.
+
+**日本語.** `release.yml` と `manual-release.yml` は `issues: write` も
+`pull-requests: write` も持ちません (既定は `contents: read` で、公開に必要な範囲だけを
+ジョブ単位で広げています)。そのためメンションコメントを投稿するには、リリースを公開する
+ワークフローにコメント書き込み権限を与える必要があり、さらにタグ push によるリリースには
+コメント先の Issue も PR も存在しません。この判断はオーナーが行うべきもので、自動化が黙って
+変更してよいものではないため、実装せずここに記録します。決定までは、**下記の手順 4** が
+リリースと Pages の失敗をカバーします (GitHub Mobile の失敗ワークフロー通知が両方に届きます)。
+
+### Enabling the notifications / 通知を有効にする手順
+
+1. **Watch or participate in the repository.** Watch → _All Activity_ or
+   _Participating and @mentions_. / リポジトリを Watch する (または参加する)。
+2. **Enable Direct mentions** in GitHub Mobile → Settings → Notifications. This is
+   the one that matters most. / GitHub Mobile の Settings → Notifications で
+   **Direct mentions** を有効にする (最も重要です)。
+3. **Enable Pull request review request notifications**, so a review request also
+   reaches you. / **Pull request review request** の通知を有効にする。
+4. **Enable Actions notifications**, preferably **failed workflows only** — that is
+   what surfaces a release or Pages failure today. / **Actions** の通知を有効にする
+   (**失敗したワークフローのみ**を推奨)。現状ではこれがリリースや Pages の失敗を知らせます。
+5. **Allow GitHub Mobile notifications in the phone's operating system.** iOS and
+   Android both mute an app silently if this is off. / 端末の OS 側で GitHub Mobile の
+   通知を許可する (無効だと iOS も Android も無言で抑止します)。
+
+### De-duplication / 重複通知の防止
+
+**English.** Every notice carries a hidden marker,
+`<!-- agent-notice:v1 type=<event-type> run=<workflow-run-id> -->`. Before posting,
+the workflow lists the existing **bot-authored** comments and looks for that exact
+marker; if it is already there, nothing is posted. Because "Re-run failed jobs"
+reuses the same run id, re-running a workflow from your phone never produces a second
+mention for the same state. A genuinely new state — a new commit, a new run, or a
+different event type — gets its own marker and does notify. Human comments are never
+matched and no comment is ever edited.
+
+**日本語.** すべての通知には `<!-- agent-notice:v1 type=<種別> run=<ランID> -->` という
+隠しマーカーが入ります。投稿前に**ボットが書いた**既存コメントを一覧して同じマーカーを探し、
+存在すれば何も投稿しません。「Re-run failed jobs」は同じランIDを再利用するため、スマホから
+再実行しても同じ状態で 2 通目が届くことはありません。新しいコミット・新しいラン・別の種別と
+いった実際に変化した状態は、別のマーカーになるので通知されます。人間のコメントは照合対象外で、
+既存コメントを編集することもありません。
+
+### Notifications are not a guarantee / 通知は保証ではありません
+
+**English.** GitHub does not promise that a notification is immediate, and a push can
+be delayed, coalesced, or dropped by the OS. The **GitHub Notifications inbox** and
+the **Actions** screen remain the source of truth — if something feels stalled, look
+there rather than assuming nothing happened.
+
+**日本語.** GitHub は通知の即時性を保証しておらず、プッシュは OS 側で遅延・集約・破棄される
+ことがあります。**GitHub の Notifications 受信箱**と **Actions** 画面が正となる情報源です。
+止まっているように見えるときは、通知が来ていないことを根拠にせず、そちらを確認してください。
+
 ## Bilingual agent communication
 
 Every human-facing message the agent writes is **English first, Japanese second** —

@@ -58,6 +58,7 @@ import {
   type UnrepresentableCell,
 } from '../core/serializer';
 import { validateDocument, type ValidationSummary } from '../core/validation';
+import { buildXlsxExport, type XlsxSheetInput } from '../core/xlsx-export';
 import { AppState, defaultSheetName, type Selection, type SelectionKind, type Tab } from './app-state';
 import {
   pickFiles,
@@ -258,6 +259,13 @@ export interface UiPort {
    * null when cancelled.
    */
   chooseExportSheet(sheets: Array<{ id: string; name: string }>, currentId: string): Promise<string | null>;
+  /**
+   * Explain and confirm the lossy XLSX export: calculated values only, no
+   * formulas or formatting. Unlike CSV, every worksheet is included, so there
+   * is no worksheet picker. Resolving true is the explicit confirmation to
+   * proceed; false cancels and leaves the document untouched.
+   */
+  confirmExportXlsx(name: string): Promise<boolean>;
   confirm(title: string, message: string, okLabel: string, cancelLabel: string): Promise<boolean>;
   showMessage(title: string, message: string): Promise<void>;
   notify(text: string, kind: 'info' | 'warn' | 'error'): void;
@@ -347,6 +355,7 @@ export type CommandId =
   | 'sheet.timezone'
   | 'sheet.displayLanguage'
   | 'sheet.exportCsv'
+  | 'sheet.exportXlsx'
   // Worksheets inside the active RSF workbook (distinct from the application
   // document tabs, whose commands are the `tab.*` ids below).
   | 'worksheet.add'
@@ -454,6 +463,10 @@ export class Commands {
         return tab !== null && tab.doc.kind === 'csv';
       case 'sheet.exportCsv':
         return tab !== null && tab.doc.kind === 'rsf';
+      // Unlike CSV (already the format for a CSV-kind tab), no tab kind is
+      // already an .xlsx file, so both kinds can export to it.
+      case 'sheet.exportXlsx':
+        return tab !== null;
       // Row insert/delete is meaningless while a whole-column selection is
       // active: there is no well-defined row to insert/delete around.
       case 'sheet.insertRowAbove':
@@ -709,6 +722,9 @@ export class Commands {
         return;
       case 'sheet.exportCsv':
         if (tab) await this.exportCsv(tab);
+        return;
+      case 'sheet.exportXlsx':
+        if (tab) await this.exportXlsx(tab);
         return;
       case 'view.wrap':
         this.state.setWrapCells(!this.state.wrapCells);
@@ -1427,6 +1443,100 @@ export class Commands {
       if (ncrReports.length > 0) {
         await this.ui.notifyNcr(ncrReports);
       }
+      return true;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return false;
+      }
+      this.ui.notify(
+        t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
+        'error',
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Explicit, confirmed lossy XLSX export. Unlike CSV (which holds only one
+   * worksheet, forcing `chooseExportSheet`), XLSX natively holds several, so
+   * an RSF workbook exports every worksheet, in tab order; a CSV-kind tab —
+   * which always has exactly one sheet — exports as a single-sheet workbook.
+   * Cells carry only their calculated/display values, matching CSV export's
+   * documented conversion. Nothing in this flow ever mutates the source
+   * document or marks it saved.
+   */
+  async exportXlsx(tab: Tab): Promise<boolean> {
+    const doc = tab.doc;
+    const confirmed = await this.ui.confirmExportXlsx(tab.name);
+    if (!confirmed || tab.doc !== doc) {
+      return false;
+    }
+    const base = tab.name.replace(/\.(rsf|rcsv|csv|tsv|txt)$/i, '');
+    const name = `${base}.xlsx`;
+    const label = t('loading.exporting', { name });
+
+    const plans =
+      doc.kind === 'rsf'
+        ? doc.sheets.map((s) => ({
+            name: s.name,
+            rowCount: s.rowCount,
+            columnCount: s.columnCount,
+            getValue: (r: number, c: number) => doc.getSheetDisplayValue(s.id, r, c),
+          }))
+        : [
+            {
+              name: base,
+              rowCount: doc.rowCount,
+              columnCount: doc.columnCount,
+              getValue: (r: number, c: number) => doc.getDisplayValue(r, c),
+            },
+          ];
+    const totalRows = plans.reduce((sum, p) => sum + p.rowCount, 0);
+
+    // Sliced, read-only scan of every planned worksheet's displayed
+    // (calculated) values. Aborts — producing nothing — if the tab's
+    // document changes.
+    const scanSheets = async (): Promise<XlsxSheetInput[] | null> => {
+      const sheets: XlsxSheetInput[] = [];
+      let doneRows = 0;
+      for (const plan of plans) {
+        const rows: string[][] = [];
+        const completed = await forEachIndexSliced(
+          plan.rowCount,
+          (r) => {
+            const values: string[] = [];
+            for (let c = 0; c < plan.columnCount; c++) {
+              values.push(plan.getValue(r, c));
+            }
+            rows.push(values);
+          },
+          {
+            onProgress: (done) => this.ui.setBusy(`${label} (${pct(doneRows + done, totalRows)}%)`),
+            shouldStop: () => tab.doc !== doc,
+          },
+        );
+        if (!completed || tab.doc !== doc) {
+          return null;
+        }
+        doneRows += plan.rowCount;
+        sheets.push({ name: plan.name, rows });
+      }
+      return sheets;
+    };
+
+    const sheets = await this.withBusy(label, scanSheets);
+    if (!sheets) {
+      return false;
+    }
+    const bytes = await this.withBusy(label, () => buildXlsxExport(sheets));
+    try {
+      const outcome = await saveBytesAs(this.dom, name, bytes, 'xlsx');
+      this.ui.notify(
+        outcome.mode === 'overwrite'
+          ? t('notify.exportedXlsx', { name })
+          : t('notify.exportedXlsxDownload', { name: outcome.downloadName ?? name }),
+        'info',
+      );
       return true;
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {

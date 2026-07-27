@@ -55,6 +55,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.file.save', command: 'file.save', shortcut: 'Ctrl+S' },
         { labelKey: 'menu.file.saveOptions', command: 'file.saveOptions', shortcut: 'Ctrl+Shift+S' },
         { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
+        { labelKey: 'menu.sheet.exportXlsx', command: 'sheet.exportXlsx' },
         'separator',
         { labelKey: 'menu.file.settings', command: 'app.settings' },
         'separator',
@@ -142,6 +143,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.sheet.displayLanguage', command: 'sheet.displayLanguage' },
         'separator',
         { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
+        { labelKey: 'menu.sheet.exportXlsx', command: 'sheet.exportXlsx' },
       ],
     },
     {

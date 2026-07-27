@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
-import { AppState } from '../src/app/app-state';
-import { Commands, type UiPort } from '../src/app/commands';
-import { LosslessDocument } from '../src/core/lossless-document';
-import { RsfDocument } from '../src/core/rsf-document';
+import { describe, expect, it } from 'vitest';
 import { buildXlsxExport, type XlsxSheetInput } from '../src/core/xlsx-export';
 
 // ----- Minimal STORE-only ZIP reader, independent of the writer under test -----
@@ -152,9 +148,7 @@ describe('buildXlsxExport (pure)', () => {
     const rows = [['42', '-3.5', '007', '1.0', 'hello', '']];
     const entries = parseZip(buildXlsxExport([{ name: 'S', rows }]));
     const sheet = expectWellFormedXml(textOf(entries, 'xl/worksheets/sheet1.xml'));
-    const cellByRef = new Map(
-      [...sheet.querySelectorAll('c')].map((c) => [c.getAttribute('r'), c]),
-    );
+    const cellByRef = new Map([...sheet.querySelectorAll('c')].map((c) => [c.getAttribute('r'), c]));
 
     expect(cellByRef.get('A1')?.getAttribute('t')).toBeNull();
     expect(cellByRef.get('A1')?.querySelector('v')?.textContent).toBe('42');

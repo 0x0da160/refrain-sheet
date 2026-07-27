@@ -139,6 +139,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // edit: there is deliberately no background recalculation timer.
         { labelKey: 'menu.sheet.recalculate', command: 'sheet.recalculate' },
         { labelKey: 'menu.sheet.timezone', command: 'sheet.timezone' },
+        { labelKey: 'menu.sheet.displayLanguage', command: 'sheet.displayLanguage' },
         'separator',
         { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
       ],

@@ -47,6 +47,7 @@ function stubUi(): UiPort {
     showFormulaHelp: () => undefined,
     chooseSettings: async () => null,
     chooseTimezone: async () => null,
+    chooseDisplayLanguage: async () => null,
     setBusy: () => undefined,
   };
 }

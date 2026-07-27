@@ -552,7 +552,8 @@ function encodeBody(data: RsfData): Uint8Array {
   // high version always physically contains every lower section's bytes,
   // even when that section's own data is empty/default, matching what
   // `decodeBody` reads for that version unconditionally.
-  const hasDisplayLanguage = data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE;
+  const hasDisplayLanguage =
+    data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE;
   const displayLanguageBytes = hasDisplayLanguage
     ? enc.encode(data.displayLanguage!.slice(0, MAX_META_LENGTH))
     : null;
@@ -1188,10 +1189,12 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
       bytes.push(b);
     }
   };
-  const hasDisplayLanguage = data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE;
+  const hasDisplayLanguage =
+    data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE;
   // A display-language section forces the timezone section too — same
   // prefix-chain rule as the single-sheet body above.
-  const hasTimezone = hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
+  const hasTimezone =
+    hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
   bytes.push(hasDisplayLanguage ? 3 : hasTimezone ? 2 : 1);
   bytes.push(data.delimiter.charCodeAt(0));
   pushString(bytes, enc, data.appName ?? '', MAX_META_LENGTH);

@@ -103,6 +103,34 @@ describe('binary container codec (JS store engine)', () => {
     if (utcImplicit.ok) expect(utcImplicit.data.timezone).toBeUndefined();
   });
 
+  it('round-trips a non-default workbook display language (body version 7)', () => {
+    const withLanguage: RsfData = { ...sample, displayLanguage: 'ja' };
+    const decoded = decodeRsf(encodeRsf(withLanguage));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.displayLanguage).toBe('ja');
+    expect(decoded.data.cells).toEqual(sample.cells);
+  });
+
+  it('carries a non-UTC timezone alongside a non-default display language (both body version 7)', () => {
+    const both: RsfData = { ...sample, timezone: 'Asia/Tokyo', displayLanguage: 'ja' };
+    const decoded = decodeRsf(encodeRsf(both));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.timezone).toBe('Asia/Tokyo');
+    expect(decoded.data.displayLanguage).toBe('ja');
+  });
+
+  it('omits the display-language field for English, staying on the lowest sufficient body version', () => {
+    const enExplicit = decodeRsf(encodeRsf({ ...sample, displayLanguage: 'en' }));
+    expect(enExplicit.ok).toBe(true);
+    if (enExplicit.ok) expect(enExplicit.data.displayLanguage).toBeUndefined();
+
+    const enImplicit = decodeRsf(encodeRsf(sample));
+    expect(enImplicit.ok).toBe(true);
+    if (enImplicit.ok) expect(enImplicit.data.displayLanguage).toBeUndefined();
+  });
+
   it('rejects a truncated payload', () => {
     const bytes = encodeRsf(sample);
     const decoded = decodeRsf(bytes.subarray(0, bytes.length - 2));

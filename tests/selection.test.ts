@@ -43,6 +43,7 @@ function stubUi(): UiPort {
     showFormulaHelp: noop,
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
+    chooseDisplayLanguage: vi.fn(async () => null),
     setBusy: noop,
   };
 }

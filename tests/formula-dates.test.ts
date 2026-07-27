@@ -14,10 +14,12 @@ import {
   partsToSerial,
   serialToParts,
   todaySerial,
+  weekdayOf,
 } from '../src/core/formula-date';
 import { RsfDocument } from '../src/core/rsf-document';
 import { VOLATILE_FUNCTIONS } from '../src/core/formula';
 import { DEFAULT_TIMEZONE, localTimeZone } from '../src/core/timezone';
+import { DEFAULT_DISPLAY_LANGUAGE } from '../src/core/display-language';
 
 function evaluate(formula: string, cells: Record<string, string> = {}): string {
   const doc = RsfDocument.empty('t.rsf', 10, 6);
@@ -179,6 +181,25 @@ describe('the UTC timezone policy', () => {
   });
 });
 
+describe('weekdayOf', () => {
+  it('returns 0 (Sunday) through 6 (Saturday), matching a known week', () => {
+    // 2026-07-19 through 2026-07-25 is Sunday through Saturday.
+    const sunday = serial(2026, 7, 19);
+    for (let i = 0; i < 7; i++) {
+      expect(weekdayOf(sunday + i)).toBe(i);
+    }
+  });
+
+  it('truncates a fractional serial (a date-with-time value) to the day', () => {
+    expect(weekdayOf(serial(2026, 7, 25) + 0.75)).toBe(weekdayOf(serial(2026, 7, 25)));
+  });
+
+  it('returns null outside the representable date range', () => {
+    expect(weekdayOf(-1)).toBeNull();
+    expect(weekdayOf(MAX_SERIAL + 1)).toBeNull();
+  });
+});
+
 describe('the workbook timezone', () => {
   afterEach(() => vi.useRealTimers());
 
@@ -225,6 +246,52 @@ describe('the workbook timezone', () => {
     const reloaded = RsfDocument.fromBytes(doc.toBytes(), 't.rsf');
     expect(reloaded.ok).toBe(true);
     if (reloaded.ok) expect(reloaded.doc.timezone).toBe('Asia/Tokyo');
+  });
+});
+
+describe('the workbook display language', () => {
+  it('defaults a new workbook (and one loaded with none stored) to English', () => {
+    const fresh = RsfDocument.empty('t.rsf', 2, 2);
+    expect(fresh.displayLanguage).toBe(DEFAULT_DISPLAY_LANGUAGE);
+
+    const bytes = RsfDocument.empty('t.rsf', 2, 2).toBytes();
+    const reloaded = RsfDocument.fromBytes(bytes, 't.rsf');
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.doc.displayLanguage).toBe('en');
+  });
+
+  it('honors an explicit display language passed at creation', () => {
+    const doc = RsfDocument.empty('t.rsf', 2, 2, undefined, 'ja');
+    expect(doc.displayLanguage).toBe('ja');
+  });
+
+  it('a no-op change to the current language does not recalculate or dirty the document', () => {
+    const doc = RsfDocument.empty('t.rsf', 2, 2);
+    doc.setCell(0, 0, '=TEXT(DATE(2026,7,25),"dddd")');
+    doc.markSaved();
+    doc.setDisplayLanguage(doc.displayLanguage);
+    expect(doc.displayLanguage).toBe('en');
+    expect(doc.isDirty).toBe(false);
+  });
+
+  it("changes TEXT()'s ddd/dddd output and recalculates without dirtying the document", () => {
+    const doc = RsfDocument.empty('t.rsf', 2, 2);
+    doc.setCell(0, 0, '=TEXT(DATE(2026,7,25),"dddd")'); // a Saturday
+    expect(doc.getDisplayValue(0, 0)).toBe('Saturday');
+
+    doc.markSaved();
+    doc.setDisplayLanguage('ja');
+    expect(doc.displayLanguage).toBe('ja');
+    expect(doc.isDirty).toBe(false); // changes no cell input, like Recalculate/setTimezone
+    expect(doc.getDisplayValue(0, 0)).toBe('土曜日');
+  });
+
+  it('round-trips a saved display language through toBytes()/fromBytes()', () => {
+    const doc = RsfDocument.empty('t.rsf', 2, 2);
+    doc.setDisplayLanguage('ja');
+    const reloaded = RsfDocument.fromBytes(doc.toBytes(), 't.rsf');
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.doc.displayLanguage).toBe('ja');
   });
 });
 

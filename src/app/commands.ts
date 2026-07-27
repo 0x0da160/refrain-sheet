@@ -1526,7 +1526,14 @@ export class Commands {
     if (!completed || tab.doc !== doc) {
       return null;
     }
-    return RsfDocument.fromValues(tab.name, doc.delimiter, rows, columnCount, defaultSheetName(), getLocale());
+    return RsfDocument.fromValues(
+      tab.name,
+      doc.delimiter,
+      rows,
+      columnCount,
+      defaultSheetName(),
+      getLocale(),
+    );
   }
 
   /** Blank-document counter so each File > New tab gets a distinct default name. */

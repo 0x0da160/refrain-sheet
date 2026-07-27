@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { RsfDocument } from '../src/core/rsf-document';
 import { FUNCTION_INFOS, SUPPORTED_FUNCTIONS } from '../src/core/formula';
+import type { DisplayLanguageId } from '../src/core/display-language';
 
 /** Build a worksheet from `{ A1: '…' }` style cell literals. */
 function sheet(cells: Record<string, string>, rows = 20, cols = 10): RsfDocument {
@@ -26,6 +27,13 @@ function at(doc: RsfDocument, ref: string): string {
 /** Evaluate a single formula against an optional set of data cells. */
 function evaluate(formula: string, data: Record<string, string> = {}): string {
   return at(sheet({ ...data, J20: formula }), 'J20');
+}
+
+/** Evaluate a single formula against a workbook stored in the given display language. */
+function evaluateInLanguage(formula: string, language: DisplayLanguageId): string {
+  const doc = RsfDocument.empty('t.rsf', 20, 10, undefined, language);
+  doc.setCell(19, 9, formula);
+  return doc.getDisplayValue(19, 9);
 }
 
 describe('registry integrity', () => {
@@ -260,12 +268,36 @@ describe('TEXT()', () => {
     expect(evaluate('=TEXT(DATE(2026,7,25),"yy-mm-dd")')).toBe('26-07-25');
   });
 
+  it("matches date tokens case-insensitively, rendering with this module's own casing", () => {
+    expect(evaluate('=TEXT(DATE(2026,7,25),"YYYY-MM-DD")')).toBe('2026-07-25');
+    expect(evaluate('=TEXT(DATE(2026,7,25),"Yyyy/Mm/Dd")')).toBe('2026/07/25');
+  });
+
+  it('renders ddd/dddd as the English weekday name by default (no stored display language)', () => {
+    // 2026-07-25 is a Saturday.
+    expect(evaluate('=TEXT(DATE(2026,7,25),"dddd")')).toBe('Saturday');
+    expect(evaluate('=TEXT(DATE(2026,7,25),"ddd")')).toBe('Sat');
+    expect(evaluate('=TEXT(DATE(2026,7,25),"DDDD")')).toBe('Saturday'); // case-insensitive token match
+    expect(evaluate('=TEXT(DATE(2026,7,25),"yyyy-mm-dd dddd")')).toBe('2026-07-25 Saturday');
+  });
+
+  it("renders ddd/dddd in the workbook's stored display language", () => {
+    expect(evaluateInLanguage('=TEXT(DATE(2026,7,25),"dddd")', 'en')).toBe('Saturday');
+    expect(evaluateInLanguage('=TEXT(DATE(2026,7,25),"ddd")', 'en')).toBe('Sat');
+    expect(evaluateInLanguage('=TEXT(DATE(2026,7,25),"dddd")', 'ja')).toBe('土曜日');
+    expect(evaluateInLanguage('=TEXT(DATE(2026,7,25),"ddd")', 'ja')).toBe('土');
+    // Sunday, the start of WEEKDAY_NAMES, in both languages.
+    expect(evaluateInLanguage('=TEXT(DATE(2026,7,26),"dddd")', 'en')).toBe('Sunday');
+    expect(evaluateInLanguage('=TEXT(DATE(2026,7,26),"dddd")', 'ja')).toBe('日曜日');
+  });
+
   it('returns #VALUE! for an unsupported or malformed format code', () => {
     expect(evaluate('=TEXT(1234.5,"$0.00")')).toBe('#VALUE!'); // currency symbol not in the subset
     expect(evaluate('=TEXT(1234.5,"0.0.0")')).toBe('#VALUE!');
     expect(evaluate('=TEXT(-5,"yyyy-mm-dd")')).toBe('#VALUE!'); // outside the representable date range
     expect(evaluate('=TEXT(1234.5,"")')).toBe('#VALUE!');
     expect(evaluate('=TEXT(DATE(2026,7,25),"yyyy-yyyy")')).toBe('#VALUE!'); // repeated field
+    expect(evaluate('=TEXT(DATE(2026,7,25),"dddd-dddd")')).toBe('#VALUE!'); // repeated field
   });
 
   it('propagates a non-numeric value or a source error', () => {

@@ -43,6 +43,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     showAbout: vi.fn(),
     showFormulaHelp: vi.fn(),
     chooseSettings: vi.fn(async () => null),
+    chooseTimezone: vi.fn(async () => null),
     setBusy: vi.fn(),
     ...overrides,
   };

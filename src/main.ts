@@ -85,6 +85,7 @@ function bootstrap(): void {
     showAbout: (section) => void dialogs.showAbout(section),
     showFormulaHelp: () => void dialogs.showFormulaHelp(),
     chooseSettings: (current) => dialogs.chooseSettings(current),
+    chooseTimezone: (current) => dialogs.chooseTimezone(current),
     setBusy: (label) => {
       // An operation is starting: a context menu built against the pre-operation
       // state must not survive into it.

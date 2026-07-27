@@ -3,7 +3,7 @@
  * The date serial system: epoch, leap years, overflow normalization, the UTC
  * timezone policy, `DATEDIF` units, and the volatile-function lifecycle.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   dateDif,
   daysInMonth,
@@ -17,6 +17,7 @@ import {
 } from '../src/core/formula-date';
 import { RsfDocument } from '../src/core/rsf-document';
 import { VOLATILE_FUNCTIONS } from '../src/core/formula';
+import { DEFAULT_TIMEZONE, localTimeZone } from '../src/core/timezone';
 
 function evaluate(formula: string, cells: Record<string, string> = {}): string {
   const doc = RsfDocument.empty('t.rsf', 10, 6);
@@ -175,6 +176,55 @@ describe('the UTC timezone policy', () => {
     // local date happens to be.
     expect(todaySerial(Date.UTC(2026, 6, 25, 23, 59, 59))).toBe(serial(2026, 7, 25));
     expect(todaySerial(Date.UTC(2026, 6, 26, 0, 0, 0))).toBe(serial(2026, 7, 26));
+  });
+});
+
+describe('the workbook timezone', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('defaults a new workbook to the local timezone and a loaded one with none stored to UTC', () => {
+    const fresh = RsfDocument.empty('t.rsf', 2, 2);
+    expect(fresh.timezone).toBe(localTimeZone());
+
+    const bytes = RsfDocument.empty('t.rsf', 2, 2).toBytes();
+    const reloaded = RsfDocument.fromBytes(bytes, 't.rsf');
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.doc.timezone).toBe(DEFAULT_TIMEZONE);
+  });
+
+  it('ignores an unresolvable zone name and a no-op change to the current zone', () => {
+    const doc = RsfDocument.empty('t.rsf', 2, 2);
+    const before = doc.timezone;
+    doc.setTimezone('Not/AZone');
+    expect(doc.timezone).toBe(before);
+    doc.setTimezone(before);
+    expect(doc.timezone).toBe(before);
+  });
+
+  it('shifts TODAY()/NOW() to the stored zone and recalculates without dirtying the document', () => {
+    vi.useFakeTimers();
+    // 2026-01-01T23:00:00Z: still Jan 1 in UTC, already Jan 2 in Asia/Tokyo (UTC+9).
+    vi.setSystemTime(Date.UTC(2026, 0, 1, 23, 0, 0));
+    const doc = RsfDocument.empty('t.rsf', 2, 2);
+    doc.setTimezone(DEFAULT_TIMEZONE);
+    doc.setCell(0, 0, '=TODAY()');
+    const utcToday = partsToSerial(2026, 0 + 1, 1);
+    expect(Number(doc.getDisplayValue(0, 0))).toBe(utcToday);
+
+    doc.markSaved();
+    doc.setTimezone('Asia/Tokyo');
+    expect(doc.timezone).toBe('Asia/Tokyo');
+    expect(doc.isDirty).toBe(false); // changes no cell input, like Recalculate
+    const tokyoToday = partsToSerial(2026, 0 + 1, 2);
+    expect(Number(doc.getDisplayValue(0, 0))).toBe(tokyoToday);
+  });
+
+  it('round-trips a saved timezone through toBytes()/fromBytes()', () => {
+    const doc = RsfDocument.empty('t.rsf', 2, 2);
+    doc.setTimezone('Asia/Tokyo');
+    const reloaded = RsfDocument.fromBytes(doc.toBytes(), 't.rsf');
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.doc.timezone).toBe('Asia/Tokyo');
   });
 });
 

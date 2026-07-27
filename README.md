@@ -903,11 +903,16 @@ A date is a **number**, not a separate kind of value:
   date from **1900-03-01 onward**. RSF deliberately does not reproduce Excel's
   fictitious 1900-02-29, so for the 60 days before that an RSF serial is one
   greater than the Excel serial.
-- **Every conversion is UTC.** `DATE`, `YEAR`, `MONTH`, `DAY`, and `DATEDIF`
-  have no timezone or DST input at all, and `TODAY()` / `NOW()` report the UTC
-  date and time. A workbook therefore computes the same values wherever it is
-  opened — at the cost that in a UTC+9 morning, "today" is the previous local
-  day.
+- **Date arithmetic is UTC.** `DATE`, `YEAR`, `MONTH`, `DAY`, and `DATEDIF`
+  have no timezone or DST input at all, so they return the same answer on
+  every machine.
+- **`TODAY()` and `NOW()` use the workbook's own timezone**, not the opening
+  machine's clock. Every workbook stores an IANA timezone (**Sheet >
+  Timezone…**; a new workbook defaults to the browser's local zone), so a
+  `.rsf` file still computes the same `TODAY()`/`NOW()` wherever it is opened —
+  the timezone travels with the file. Changing it recalculates the workbook
+  immediately. A file saved before this setting existed has no stored
+  timezone and defaults to UTC, its original behavior.
 - `DATE` rolls month and day overflow into neighbouring months and years, so
   `DATE(2020, 3, 0)` is 29 February 2020 and `DATE(2020, 13, 1)` is 1 January 2021. A year of 0–1899 means 1900 + year.
 - `DATEDIF` supports `"Y"`, `"M"`, `"D"`, `"YM"`, `"YD"`, and `"MD"`. `YD` and

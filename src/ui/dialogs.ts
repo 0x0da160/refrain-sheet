@@ -32,6 +32,7 @@ import type { CsvExportOptions, CsvLineEnding } from '../core/csv-export';
 import type { EncodingId } from '../core/encoding';
 import { rsfMethodKey } from '../core/rsf-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
+import { listTimeZones } from '../core/timezone';
 import type { ValidationSummary } from '../core/validation';
 import { APP_VERSION_DISPLAY } from '../app/version';
 import { el } from './dom';
@@ -1130,6 +1131,37 @@ export class Dialogs {
           }
           close(clampMaxFileSize(miBToBytes(mib)));
         }),
+      );
+    });
+  }
+
+  /**
+   * The workbook Timezone… dialog: a searchable-by-typing native `<select>`
+   * listing every IANA zone the runtime knows (see `listTimeZones`), with
+   * `current` preselected. Resolves with the chosen zone, or null when
+   * cancelled — the caller treats "unchanged" and "cancelled" the same way.
+   */
+  chooseTimezone(current: string): Promise<string | null> {
+    return openDialog<string | null>(t('dialog.timezone.title'), null, (body, buttons, close) => {
+      const selectId = 'timezone-select';
+      const select = el('select', {
+        attrs: { id: selectId, 'data-autofocus': 'true' },
+      }) as HTMLSelectElement;
+      for (const zone of listTimeZones()) {
+        const option = el('option', { text: zone, attrs: { value: zone } }) as HTMLOptionElement;
+        if (zone === current) {
+          option.selected = true;
+        }
+        select.append(option);
+      }
+      body.append(
+        el('label', { text: t('dialog.timezone.label'), attrs: { for: selectId } }),
+        select,
+        el('p', { className: 'dialog-note', text: t('dialog.timezone.note') }),
+      );
+      buttons.append(
+        dialogButton(t('dialog.timezone.cancel'), false, false, () => close(null)),
+        dialogButton(t('dialog.timezone.ok'), true, false, () => close(select.value)),
       );
     });
   }

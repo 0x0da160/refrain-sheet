@@ -189,33 +189,36 @@ nothing else keys off the identifier.
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
 Version selection on write is minimal so older readers keep working where
-possible: body **version 5** is written only when wrap-long-rows is stored;
-**version 4** when a sheet filter is present; **version 3** when display
-settings are present; **version 2** when only the creating/updating application
-metadata is present; **version 1** otherwise. Versions 1–5 are all accepted on
-read; an older reader rejects a body version it does not know with a localized
-"unsupported version" message rather than misparsing it.
+possible: body **version 6** is written only when the workbook timezone is not
+`UTC`; **version 5** when wrap-long-rows is stored; **version 4** when a sheet
+filter is present; **version 3** when display settings are present; **version
+2** when only the creating/updating application metadata is present; **version
+1** otherwise. Versions 1–6 are all accepted on read; an older reader rejects a
+body version it does not know with a localized "unsupported version" message
+rather than misparsing it.
 
-| Size | Field                                                       |
-| ---- | ----------------------------------------------------------- |
-| 1    | Body version — `5`, `4`, `3`, `2`, or `1` (see selection)   |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`) |
-| 2    | _(v2+)_ Application-name length, `u16`                      |
-| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`      |
-| 2    | _(v2+)_ Application-version length, `u16`                   |
-| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`           |
-| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored) |
-| 4    | _(v3+)_ Column-width entry count `W`, `u32`                 |
-| …    | _(v3+)_ `W` column-width entries (see below)                |
-| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)     |
-| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)  |
-| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)   |
-| 2    | Sheet-name length `N`, `u16`                                |
-| `N`  | Sheet name (UTF-8)                                          |
-| 4    | Row count, `u32`                                            |
-| 4    | Column count, `u32`                                         |
-| 4    | Cell count `C`, `u32`                                       |
-| …    | `C` cell records                                            |
+| Size | Field                                                          |
+| ---- | -------------------------------------------------------------- |
+| 1    | Body version — `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)    |
+| 2    | _(v2+)_ Application-name length, `u16`                         |
+| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`         |
+| 2    | _(v2+)_ Application-version length, `u16`                      |
+| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`              |
+| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)    |
+| 4    | _(v3+)_ Column-width entry count `W`, `u32`                    |
+| …    | _(v3+)_ `W` column-width entries (see below)                   |
+| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)        |
+| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)     |
+| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)      |
+| 2    | _(v6 only)_ IANA timezone-name length, `u16`                   |
+| …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`      |
+| 2    | Sheet-name length `N`, `u16`                                   |
+| `N`  | Sheet name (UTF-8)                                             |
+| 4    | Row count, `u32`                                               |
+| 4    | Column count, `u32`                                            |
+| 4    | Cell count `C`, `u32`                                          |
+| …    | `C` cell records                                               |
 
 ### Display settings (body version 3)
 
@@ -340,6 +343,22 @@ Structural row/column insertion and deletion clear an active filter as part of
 the same atomic, undoable operation (the stored range would otherwise drift).
 Plain CSV files never carry a filter — filtering requires converting to RSF.
 
+### Timezone (body version 6)
+
+Body version 6 adds the **workbook timezone**: an IANA zone name (e.g.
+`Asia/Tokyo`) that `TODAY()` and `NOW()` are computed in (see "All conversions
+are UTC" below). It is written only when the timezone is not `UTC`, so a
+workbook left on the default stays on the lowest sufficient body version. A
+new workbook defaults to the browser's local timezone; a workbook loaded from
+a file with no stored timezone (every file saved before this field existed)
+uses `UTC`, its exact original behavior. An unresolvable timezone name (e.g.
+from a future release, or a hand-edited file) is treated the same as absent
+and falls back to `UTC` — it is never a load error. Changing the timezone
+(**Sheet > Timezone…**) is like changing compression: it alters no cell input,
+so it does not mark the document dirty, but it does recompute every cached
+formula result the same way **Sheet > Recalculate** does, since it changes
+what `TODAY()`/`NOW()` report.
+
 The application metadata records which build of the software created or last
 updated the file (`Refrain Sheet` and the version from
 [`package.json`](../package.json), the single authoritative version source). It
@@ -379,9 +398,13 @@ must be consumed exactly (no trailing bytes). Any violation is `bad-shape` (or
 Written only when the workbook holds **two or more** worksheets. All strings
 are UTF-8 and length-prefixed with a `u16`; all integers are little-endian.
 
+Workbook body version selection is minimal, like the single-sheet body:
+**version 2** is written only when the workbook timezone is not `UTC`;
+**version 1** otherwise. Both versions are accepted on read.
+
 | Size | Field                                                           |
 | ---- | --------------------------------------------------------------- |
-| 1    | Workbook body version — currently `1`                           |
+| 1    | Workbook body version — `2` or `1` (see selection)              |
 | 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)     |
 | 2+…  | Application name (UTF-8, `u16` length; may be empty)            |
 | 2+…  | Application version (UTF-8, `u16` length; may be empty)         |
@@ -389,8 +412,13 @@ are UTF-8 and length-prefixed with a `u16`; all integers are little-endian.
 | 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)  |
 | 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)         |
 | 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty) |
+| 2+…  | _(v2 only)_ Workbook timezone, IANA name (UTF-8, `u16` length)  |
 | 2    | Worksheet count `S`, `u16`                                      |
 | …    | `S` worksheet records (below)                                   |
+
+The workbook timezone follows the same rules as the single-sheet body version
+6 field above: written only when non-`UTC`, and an absent or unresolvable
+value falls back to `UTC` on load rather than rejecting the file.
 
 Each worksheet record:
 
@@ -510,9 +538,20 @@ propagates — only the engine creates error values.
   deliberately omits Excel's fictitious 1900-02-29, which makes RSF serials one
   greater than Excel's for the 60 days before that date.
 - Valid serials run from `0` to 9999-12-31; anything outside is `#NUM!`.
-- **All conversions are UTC.** No function in the engine reads a timezone or a
-  DST rule, so a `.rsf` file computes identical values on every machine.
-  `TODAY()` and `NOW()` report the UTC date and time.
+- **All conversions in the formula engine itself are UTC.** No function in
+  `src/core/formula-date.ts` reads a timezone or a DST rule directly, so
+  `DATE`, `YEAR`, `MONTH`, `DAY`, and `DATEDIF` return the same answer on every
+  machine regardless of any setting.
+- **`TODAY()` and `NOW()` read the workbook's own stored timezone**, not the
+  opening machine's clock (see "Timezone (body version 6)" above). The
+  workbook shifts the real host-clock instant by its stored IANA zone's offset
+  before handing it to the UTC-only formula engine, so "today" means the
+  current date in the workbook's own timezone. Because that timezone travels
+  with the file, a `.rsf` file still computes the same `TODAY()`/`NOW()`
+  wherever it is opened — it is the file's stored choice, not the opening
+  machine's, that decides what "today" means. A file with no stored timezone
+  (every file saved before this field existed) defaults to `UTC`, its exact
+  original behavior.
 
 ### Volatile formulas
 
@@ -655,6 +694,10 @@ versions 1–3 rejects as `bad-version` (consistent with the reject-don't-guess
 policy) rather than silently dropping the filter. Multi-worksheet support was
 added as a new _container_ version (4) with its own workbook body rather than
 as another single-sheet body version, because it changes what the payload
-describes — a workbook rather than a sheet. Future changes bump the container
+describes — a workbook rather than a sheet. The single-sheet body was later
+bumped to version 6, and the workbook body to version 2, both to carry the
+workbook timezone (see "Timezone (body version 6)" above); each is written
+only when the timezone is non-`UTC`, so a workbook left on the default stays
+on its previous, lower body version. Future changes bump the container
 version (framing changes) or the relevant body version (encoding changes);
 readers reject versions they do not understand rather than guessing.

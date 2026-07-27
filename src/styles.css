@@ -185,6 +185,29 @@ button {
   color: var(--text-dim);
 }
 
+/* Hidden here; the mobile breakpoint below shows it in place of the
+   always-visible row it toggles (see .menu-row). */
+.menu-bar-toggle {
+  display: none;
+  border: none;
+  background: none;
+  padding: 6px 10px;
+  border-radius: 3px;
+  cursor: default;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.menu-bar-toggle:hover,
+.menu-bar-toggle[aria-expanded='true'] {
+  background: var(--accent-soft);
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+}
+
 .menu {
   position: relative;
 }
@@ -1557,17 +1580,43 @@ table.diag-table th {
 }
 
 /* ---------- Mobile layout (phones and small tablets) ----------
-   The menu bar, tab strip, and worksheet strip are flex rows whose buttons
-   don't shrink below their own content width by default; below this width
-   they can together be wider than the viewport, which pushes the outer page
-   into an unwanted horizontal scrollbar. Everything here is gated behind
-   this query so desktop-width layout is unchanged: the overflowing strips
-   scroll within themselves instead (the tab and worksheet strips already
-   did; the menu bar now does too), and their tap targets grow for touch. */
+   The tab strip and worksheet strip are flex rows whose buttons don't shrink
+   below their own content width by default; below this width they can
+   together be wider than the viewport, which pushes the outer page into an
+   unwanted horizontal scrollbar. Everything here is gated behind this query
+   so desktop-width layout is unchanged: those strips scroll within
+   themselves instead, and their tap targets grow for touch.
+
+   The menu bar instead collapses its row of top-level menu names (File /
+   Edit / …) behind a hamburger toggle button, rather than scrolling
+   horizontally: .menu-row is hidden until MenuBar (src/ui/menu-bar.ts) adds
+   the `mobile-open` class in response to a tap on `.menu-bar-toggle`, then
+   the row is revealed as a full-width vertical stack below the bar. */
 @media (max-width: 700px) {
   .menu-bar {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    flex-wrap: wrap;
+  }
+
+  .menu-bar-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .menu-row {
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .menu-bar.mobile-open .menu-row {
+    display: flex;
+  }
+
+  .menu-row .menu > button {
+    width: 100%;
+    text-align: left;
   }
 
   .menu > button,

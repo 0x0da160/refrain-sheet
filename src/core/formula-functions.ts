@@ -59,6 +59,7 @@ import {
   trimText,
 } from './formula-text';
 import { formatValueAsText } from './formula-text-format';
+import type { DisplayLanguageId } from './display-language';
 import {
   booleanValue,
   coerceToBoolean,
@@ -127,6 +128,11 @@ export interface FnContext {
    * workbook agrees, and injectable so tests are not clock-dependent.
    */
   readonly nowMs: number;
+  /**
+   * The workbook's stored display language, read by `TEXT()`'s `ddd`/`dddd`
+   * weekday-name tokens. See `display-language.ts`.
+   */
+  readonly displayLanguage: DisplayLanguageId;
 }
 
 export interface FunctionDef {
@@ -1452,7 +1458,7 @@ def({
   maxArgs: 2,
   signature: 'TEXT(value, format_text)',
   example: '=TEXT(1234.5, "#,##0.00")',
-  call: (args) => {
+  call: (args, ctx) => {
     const value = numberOf(args[0]);
     if (!value.ok) {
       return value.error;
@@ -1461,7 +1467,7 @@ def({
     if (!format.ok) {
       return format.error;
     }
-    const rendered = formatValueAsText(value.n, format.s);
+    const rendered = formatValueAsText(value.n, format.s, ctx.displayLanguage);
     if (rendered === null) {
       return VALUE_ERR;
     }

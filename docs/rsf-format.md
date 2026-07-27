@@ -198,30 +198,30 @@ filter is present; **version 3** when display settings are present; **version
 body version it does not know with a localized "unsupported version" message
 rather than misparsing it.
 
-| Size | Field                                                            |
-| ---- | ----------------------------------------------------------------- |
+| Size | Field                                                               |
+| ---- | ------------------------------------------------------------------- |
 | 1    | Body version — `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)      |
-| 2    | _(v2+)_ Application-name length, `u16`                           |
-| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`           |
-| 2    | _(v2+)_ Application-version length, `u16`                        |
-| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`                |
-| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)      |
-| 4    | _(v3+)_ Column-width entry count `W`, `u32`                      |
-| …    | _(v3+)_ `W` column-width entries (see below)                     |
-| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)          |
-| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)       |
-| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)        |
-| 2    | _(v6 only)_ IANA timezone-name length, `u16`                     |
-| …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`        |
-| 2    | _(v7 only)_ Display-language length, `u16`                       |
-| …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`            |
-| 2    | Sheet-name length `N`, `u16`                                     |
-| `N`  | Sheet name (UTF-8)                                               |
-| 4    | Row count, `u32`                                                 |
-| 4    | Column count, `u32`                                              |
-| 4    | Cell count `C`, `u32`                                            |
-| …    | `C` cell records                                                 |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)         |
+| 2    | _(v2+)_ Application-name length, `u16`                              |
+| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`              |
+| 2    | _(v2+)_ Application-version length, `u16`                           |
+| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`                   |
+| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)         |
+| 4    | _(v3+)_ Column-width entry count `W`, `u32`                         |
+| …    | _(v3+)_ `W` column-width entries (see below)                        |
+| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)             |
+| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)          |
+| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)           |
+| 2    | _(v6 only)_ IANA timezone-name length, `u16`                        |
+| …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`           |
+| 2    | _(v7 only)_ Display-language length, `u16`                          |
+| …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`               |
+| 2    | Sheet-name length `N`, `u16`                                        |
+| `N`  | Sheet name (UTF-8)                                                  |
+| 4    | Row count, `u32`                                                    |
+| 4    | Column count, `u32`                                                 |
+| 4    | Cell count `C`, `u32`                                               |
+| …    | `C` cell records                                                    |
 
 ### Display settings (body version 3)
 
@@ -427,20 +427,20 @@ Workbook body version selection is minimal, like the single-sheet body:
 **version 2** when the workbook timezone is not `UTC`; **version 1**
 otherwise. All three versions are accepted on read.
 
-| Size | Field                                                             |
-| ---- | ------------------------------------------------------------------ |
-| 1    | Workbook body version — `3`, `2`, or `1` (see selection)          |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)       |
-| 2+…  | Application name (UTF-8, `u16` length; may be empty)              |
-| 2+…  | Application version (UTF-8, `u16` length; may be empty)           |
-| 8    | Creation timestamp, `f64` ms since epoch (`0` = not stored)       |
-| 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)    |
-| 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)           |
-| 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty)   |
-| 2+…  | _(v2+)_ Workbook timezone, IANA name (UTF-8, `u16` length)        |
-| 2+…  | _(v3 only)_ Workbook display language (UTF-8, `u16` length)       |
-| 2    | Worksheet count `S`, `u16`                                        |
-| …    | `S` worksheet records (below)                                     |
+| Size | Field                                                           |
+| ---- | --------------------------------------------------------------- |
+| 1    | Workbook body version — `3`, `2`, or `1` (see selection)        |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)     |
+| 2+…  | Application name (UTF-8, `u16` length; may be empty)            |
+| 2+…  | Application version (UTF-8, `u16` length; may be empty)         |
+| 8    | Creation timestamp, `f64` ms since epoch (`0` = not stored)     |
+| 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)  |
+| 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)         |
+| 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty) |
+| 2+…  | _(v2+)_ Workbook timezone, IANA name (UTF-8, `u16` length)      |
+| 2+…  | _(v3 only)_ Workbook display language (UTF-8, `u16` length)     |
+| 2    | Worksheet count `S`, `u16`                                      |
+| …    | `S` worksheet records (below)                                   |
 
 The workbook timezone follows the same rules as the single-sheet body version
 6 field above: written only when non-`UTC`, and an absent or unresolvable

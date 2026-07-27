@@ -54,6 +54,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     showFormulaHelp: vi.fn(),
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
+    chooseDisplayLanguage: vi.fn(async () => null),
     setBusy: vi.fn(),
     ...overrides,
   };
@@ -581,6 +582,45 @@ describe('workbook container', () => {
     const decoded = decodeRsfWorkbook(encodeRsfWorkbook({ delimiter: ',', timezone: 'UTC', sheets }));
     expect(decoded.ok).toBe(true);
     if (decoded.ok) expect(decoded.data.timezone).toBeUndefined();
+  });
+
+  it('round-trips a non-default workbook display language through the workbook body (version 3)', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      displayLanguage: 'ja',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] },
+        { id: 'b', name: 'B', rowCount: 1, columnCount: 1, cells: [] },
+      ],
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.displayLanguage).toBe('ja');
+  });
+
+  it('carries a non-UTC timezone alongside a non-default display language (both version 3)', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      timezone: 'Asia/Tokyo',
+      displayLanguage: 'ja',
+      sheets: [{ id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] }],
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) {
+      expect(decoded.data.timezone).toBe('Asia/Tokyo');
+      expect(decoded.data.displayLanguage).toBe('ja');
+    }
+  });
+
+  it('omits the workbook display-language field for English, staying on the lowest sufficient body version', () => {
+    const sheets = [
+      { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] as Array<[number, number, string]> },
+      { id: 'b', name: 'B', rowCount: 1, columnCount: 1, cells: [] as Array<[number, number, string]> },
+    ];
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook({ delimiter: ',', displayLanguage: 'en', sheets }));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.displayLanguage).toBeUndefined();
   });
 
   it('loads a legacy single-sheet container as a one-worksheet workbook', () => {

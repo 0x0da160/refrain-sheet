@@ -109,6 +109,66 @@ jobs:
           echo "pr=$pr" >>"$GITHUB_OUTPUT"
           echo "proceed=true" >>"$GITHUB_OUTPUT"
 
+      # A failed or timed-out CI run on an agent PR is an action-required event: the
+      # PR cannot merge until a human decides what to do. Post ONE bilingual notice
+      # mentioning the owner, so GitHub Mobile's "Direct mentions" push reaches the
+      # phone. Deterministic on purpose — it must not depend on Claude having turns
+      # left, and it runs BEFORE the status step so it survives a Claude failure.
+      #
+      # `run=` in the marker is the CI run id, which is stable across "Re-run failed
+      # jobs" on that CI run. Re-running CI from GitHub Mobile therefore does NOT
+      # produce a second mention; a new commit means a new CI run, which does.
+      #
+      # A cancelled run is deliberately excluded: it is normally superseded by a newer
+      # push and needs no human action.
+      - name: Notify the owner that required checks failed
+        if: >-
+          steps.resolve.outputs.proceed == 'true' &&
+          (github.event.workflow_run.conclusion == 'failure' ||
+           github.event.workflow_run.conclusion == 'timed_out')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTIFY_OWNER: ${{ vars.NOTIFY_OWNER || github.repository_owner }}
+          NOTIFY_TARGET: ${{ steps.resolve.outputs.pr }}
+          NOTICE_TYPE: ci-failure
+          NOTICE_RUN: ${{ github.event.workflow_run.id }}
+          CI_URL: ${{ github.event.workflow_run.html_url }}
+          CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          PR_URL: ${{ github.server_url }}/${{ github.repository }}/pull/${{ steps.resolve.outputs.pr }}
+        run: |
+          set -euo pipefail
+          {
+            printf '## English\n\n### Action required\n\n'
+            printf 'CI did not pass on this pull request, so it cannot be merged until you decide what to do.\n\n'
+            printf -- '- Issue / PR: %s\n' "$PR_URL"
+            printf -- '- Workflow: %s\n' "$CI_URL"
+            printf -- '- Status: The CI run for `%s` completed with conclusion `%s`.\n' "$HEAD_BRANCH" "$CI_CONCLUSION"
+            printf -- '- What the agent checked: only the CI run conclusion reported by GitHub. Which job failed, and why, is in the linked run; this notice makes no claim about the cause.\n'
+            printf -- '- Required action: Open the linked run, read the failing job, then either re-run it from GitHub Mobile or re-apply `agent:ready` on the linked Issue so the agent continues on the same branch.\n'
+            printf -- '- Recommended default: If the failure looks transient, re-run the CI run first — that is one tap and creates no new notification.\n\n'
+            printf '## 日本語\n\n### 対応が必要です\n\n'
+            printf 'このプルリクエストで CI が成功しなかったため、対応方針が決まるまでマージできません。\n\n'
+            printf -- '- Issue / PR: %s\n' "$PR_URL"
+            printf -- '- Workflow: %s\n' "$CI_URL"
+            printf -- '- 状態: `%s` に対する CI のランが `%s` で終了しました。\n' "$HEAD_BRANCH" "$CI_CONCLUSION"
+            printf -- '- エージェントが確認した内容: GitHub が報告した CI ランの結論のみです。どのジョブがなぜ失敗したかはリンク先のランにあり、この通知は原因について何も主張しません。\n'
+            printf -- '- 必要な対応: リンク先のランを開いて失敗したジョブを確認し、GitHub Mobile から再実行するか、対象 Issue に `agent:ready` を付け直して同じブランチで作業を続けさせてください。\n'
+            printf -- '- 推奨する既定方針: 一時的な失敗に見える場合は、まず CI のランを再実行してください。タップ 1 回で済み、通知も増えません。\n'
+          } >"$RUNNER_TEMP/notice-body.md"
+          marker="<!-- agent-notice:v1 type=${NOTICE_TYPE} run=${NOTICE_RUN} -->"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${NOTIFY_TARGET}/comments" --paginate \
+            --jq '.[] | select(.user.type == "Bot") | .body' >"$RUNNER_TEMP/notice-scan.txt"
+          if grep -Fq "$marker" "$RUNNER_TEMP/notice-scan.txt"; then
+            echo "::notice::An identical ${NOTICE_TYPE} notice already exists for this CI run; not posting a duplicate."
+            exit 0
+          fi
+          { printf '%s\n\n@%s\n\n' "$marker" "$NOTIFY_OWNER"; cat "$RUNNER_TEMP/notice-body.md"; } \
+            >"$RUNNER_TEMP/notice.md"
+          jq -Rs '{body: .}' <"$RUNNER_TEMP/notice.md" \
+            | gh api "repos/${GITHUB_REPOSITORY}/issues/${NOTIFY_TARGET}/comments" \
+                --method POST --input - >/dev/null
+
       # Fail fast on a missing/invalid selection, before any Claude Code step runs.
       # Gated to a resolved run so a skipped (no matching PR) run is unaffected.
       # Reads only the non-secret variable; never touches a credential value.

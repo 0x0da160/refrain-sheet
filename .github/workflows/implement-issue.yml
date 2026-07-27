@@ -43,6 +43,20 @@ name: Implement issue
 # - Two CONSECUTIVE turn-limit runs escalate to `agent:blocked` with a bilingual
 #   recommendation to split the Issue — the branch and PR are still preserved.
 #
+# NOTIFICATIONS (smartphone-first)
+# - Every state this workflow can leave the Issue in that REQUIRES a human action
+#   (`agent:needs-spec`, `agent:blocked`, `agent:continuation-needed`, and a verified
+#   review-ready PR) posts ONE bilingual comment that opens with an explicit mention
+#   of `NOTIFY_OWNER`. That mention is the whole notification mechanism: GitHub
+#   Mobile's "Direct mentions" push is what reaches the phone. No webhook, no third
+#   party, no extra secret, no extra permission — `issues: write` was already held.
+# - Routine states (`agent:working`, progress, passing checks, label churn) never
+#   mention anyone.
+# - De-duplication: each notice carries `<!-- agent-notice:v1 type=<t> run=<id> -->`
+#   and is only written after scanning BOT-authored comments for that exact marker.
+#   Re-running a run reuses its id, so "Re-run failed jobs" cannot notify twice. Only
+#   bot comments are ever read for this, and no comment is ever edited.
+#
 # SECURITY NOTES
 # - Trigger is the `agent:ready` label (human-only) or manual dispatch — never an
 #   arbitrary issue comment. Refuses to run if `agent:blocked` is present.
@@ -118,6 +132,11 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
       BASE_BRANCH: ${{ github.event.repository.default_branch }}
+      # The login mentioned in action-required notices, so the owner gets a GitHub
+      # Mobile push. Not a credential and not free-form text: it is either an
+      # admin-set Actions variable or the repository owner. It is only ever written
+      # into a comment body with `printf '%s'`, never into a command.
+      NOTIFY_OWNER: ${{ vars.NOTIFY_OWNER || github.repository_owner }}
     steps:
       - name: Checkout base branch (full history for diff checks)
         uses: actions/checkout@v4
@@ -626,40 +645,58 @@ jobs:
       # answering the question and re-applying the label is a single human action
       # that re-fires this workflow (automation still never applies `agent:ready`).
       - name: Handle no implementable change
+        id: nochange
         if: steps.gate.outputs.proceed == 'true' && success() && steps.changes.outputs.changed == 'false'
         env:
           OUTCOME: ${{ steps.notes.outputs.outcome }}
           BRANCH: ${{ steps.branch.outputs.branch }}
           PR_URL: ${{ steps.branch.outputs.pr_url }}
+          ISSUE_URL: ${{ github.server_url }}/${{ github.repository }}/issues/${{ github.event.issue.number || inputs.issue_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
           if [ "$OUTCOME" = "blocked" ]; then
             next_label="agent:blocked"
-            headline="🤖 The implementation run stopped at a **safety or approval boundary** and made no repository change."
-            action="Human action required: grant or refuse the approval described below. When it is resolved, remove \`agent:blocked\` and re-apply \`agent:ready\`."
-            ja_headline="🤖 安全性・承認の境界に該当したため実装を停止し、リポジトリへの変更は行いませんでした。"
-            ja_action="必要な人間の対応: 下記の承認を許可するか却下してください。解決したら \`agent:blocked\` を外し、\`agent:ready\` を付け直してください。"
+            notice_type="blocked"
+            headline="The implementation run stopped at a safety or approval boundary and made no repository change."
+            status="Stopped at a safety or approval boundary. Moved to \`agent:blocked\`."
+            action="Grant or refuse the approval described in the agent notes below, then remove \`agent:blocked\` and re-apply \`agent:ready\`."
+            default="If you are unsure, leave \`agent:blocked\` in place — nothing proceeds while it is present."
+            ja_headline="安全性・承認の境界に該当したため実装を停止し、リポジトリへの変更は行いませんでした。"
+            ja_status="安全性・承認の境界で停止しました。\`agent:blocked\` に移しました。"
+            ja_action="下記のエージェントの記録にある承認を許可するか却下し、\`agent:blocked\` を外して \`agent:ready\` を付け直してください。"
+            ja_default="判断に迷う場合は \`agent:blocked\` を付けたままにしてください。付いている限り処理は進みません。"
           elif [ "$OUTCOME" = "no-change-needed" ]; then
             next_label="agent:needs-spec"
-            headline="🤖 The agent reports the requested outcome **already holds** in the repository, so it made no change."
-            action="Human action required: confirm this reading and close the Issue, or explain what is still missing and re-apply \`agent:ready\`."
-            ja_headline="🤖 要望された結果はリポジトリで**すでに満たされている**と判断したため、変更は行いませんでした。"
-            ja_action="必要な人間の対応: この判断で問題なければ Issue をクローズしてください。不足がある場合は内容を説明し、\`agent:ready\` を付け直してください。"
+            notice_type="needs-spec"
+            headline="The agent reports the requested outcome already holds in the repository, so it made no change."
+            status="Nothing to implement. Moved to \`agent:needs-spec\`."
+            action="Confirm this reading and close the Issue, or say in a plain comment what is still missing and re-apply \`agent:ready\`."
+            default="Close the Issue if the behaviour already matches what you asked for."
+            ja_headline="要望された結果はリポジトリですでに満たされていると判断したため、変更は行いませんでした。"
+            ja_status="実装すべき変更はありませんでした。\`agent:needs-spec\` に移しました。"
+            ja_action="この判断で問題なければ Issue をクローズしてください。不足があれば通常のコメントで内容を説明し、\`agent:ready\` を付け直してください。"
+            ja_default="要望どおりの動作になっている場合は Issue をクローズしてください。"
           else
             next_label="agent:needs-spec"
-            headline="🤖 One focused product decision is needed before this can be implemented, so no repository change was made."
-            action="Human action required: answer the question below **in a comment** — a plain comment is enough, you do not need to rewrite the Issue or re-run any workflow — then re-apply \`agent:ready\`."
-            ja_headline="🤖 実装の前に、製品仕様に関する判断が 1 点必要なため、リポジトリへの変更は行いませんでした。"
-            ja_action="必要な人間の対応: 下記の質問に**コメントで**回答してください。通常のコメントで十分で、Issue を書き直したりワークフローを再実行したりする必要はありません。その後 \`agent:ready\` を付け直してください。"
+            notice_type="needs-spec"
+            headline="One focused product decision is needed before this can be implemented, so no repository change was made."
+            status="Waiting on one product decision. Moved to \`agent:needs-spec\`."
+            action="Answer the question in the agent notes below **in a plain comment**, then re-apply \`agent:ready\`. You do not need to rewrite the Issue or re-run any workflow."
+            default="None — the decision below is yours to make."
+            ja_headline="実装の前に、製品仕様に関する判断が 1 点必要なため、リポジトリへの変更は行いませんでした。"
+            ja_status="製品仕様の判断を 1 点お待ちしています。\`agent:needs-spec\` に移しました。"
+            ja_action="下記のエージェントの記録にある質問に通常のコメントで回答し、\`agent:ready\` を付け直してください。Issue を書き直したりワークフローを再実行したりする必要はありません。"
+            ja_default="該当なし — 下記の判断はご自身で決めてください。"
           fi
           # Say truthfully what exists. A deliberate stop on a continued Issue leaves
           # the earlier branch and draft PR in place — they are never deleted here.
           if [ -n "${PR_URL:-}" ]; then
-            artifact="The existing branch \`$BRANCH\` and pull request $PR_URL were left exactly as they were, and \`agent:review\` was **not** applied."
-            ja_artifact="既存のブランチ \`$BRANCH\` とプルリクエスト $PR_URL はそのまま保持しており、\`agent:review\` は付与して**いません**。"
+            checked="\`agent:ready\` was in force and the Issue was open, but the agent produced no diff. The existing branch \`$BRANCH\` and pull request $PR_URL were left exactly as they were, and \`agent:review\` was **not** applied."
+            ja_checked="\`agent:ready\` が有効で Issue も open でしたが、エージェントは差分を生成しませんでした。既存のブランチ \`$BRANCH\` とプルリクエスト $PR_URL はそのまま保持しており、\`agent:review\` は付与して**いません**。"
           else
-            artifact="No branch or pull request was created and \`agent:review\` was **not** applied."
-            ja_artifact="ブランチとプルリクエストは作成しておらず、\`agent:review\` も付与して**いません**。"
+            checked="\`agent:ready\` was in force and the Issue was open, but the agent produced no diff. No branch or pull request was created and \`agent:review\` was **not** applied."
+            ja_checked="\`agent:ready\` が有効で Issue も open でしたが、エージェントは差分を生成しませんでした。ブランチとプルリクエストは作成しておらず、\`agent:review\` も付与して**いません**。"
           fi
           # Removals are tolerant — a human may already have removed one, and under
           # `set -e` that must not abort the run before the issue is routed. The add
@@ -669,28 +706,47 @@ jobs:
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agent:continuation-needed" || true
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "$next_label"
           summary="$(cat "$RUNNER_TEMP/agent-notes.md" 2>/dev/null || echo "No agent notes were captured.")"
-          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(cat <<EOF
-          ## English
+          {
+            printf '## English\n\n### Action required\n\n%s\n\n' "$headline"
+            printf -- '- Issue / PR: %s\n' "$ISSUE_URL"
+            printf -- '- Workflow: %s\n' "$RUN_URL"
+            printf -- '- Status: %s\n' "$status"
+            printf -- '- What the agent checked: %s\n' "$checked"
+            printf -- '- Required action: %s\n' "$action"
+            printf -- '- Recommended default: %s\n\n' "$default"
+            printf '## 日本語\n\n### 対応が必要です\n\n%s\n\n' "$ja_headline"
+            printf -- '- Issue / PR: %s\n' "$ISSUE_URL"
+            printf -- '- Workflow: %s\n' "$RUN_URL"
+            printf -- '- 状態: %s\n' "$ja_status"
+            printf -- '- エージェントが確認した内容: %s\n' "$ja_checked"
+            printf -- '- 必要な対応: %s\n' "$ja_action"
+            printf -- '- 推奨する既定方針: %s\n\n' "$ja_default"
+            printf -- '---\n\nAgent notes / エージェントの記録 (verbatim, as written by the agent):\n\n%s\n' "$summary"
+          } >"$RUNNER_TEMP/notice-body.md"
+          echo "notice_type=$notice_type" >>"$GITHUB_OUTPUT"
 
-          $headline $artifact Moved to \`$next_label\`.
-
-          $action
-
-          ## 日本語
-
-          $ja_headline $ja_artifact \`$next_label\` に移しました。
-
-          $ja_action
-
-          ---
-
-          Agent notes / エージェントの記録 (verbatim, as written by the agent):
-
-          $summary
-
-          Run log / 実行ログ: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          EOF
-          )"
+      # One owner mention per state transition, per run. See NOTIFICATIONS at the top
+      # of this file.
+      - name: Notify the owner (no implementable change)
+        if: steps.nochange.outputs.notice_type != ''
+        env:
+          NOTICE_TYPE: ${{ steps.nochange.outputs.notice_type }}
+          NOTICE_RUN: ${{ github.run_id }}
+          NOTIFY_TARGET: ${{ github.event.issue.number || inputs.issue_number }}
+        run: |
+          set -euo pipefail
+          marker="<!-- agent-notice:v1 type=${NOTICE_TYPE} run=${NOTICE_RUN} -->"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${NOTIFY_TARGET}/comments" --paginate \
+            --jq '.[] | select(.user.type == "Bot") | .body' >"$RUNNER_TEMP/notice-scan.txt"
+          if grep -Fq "$marker" "$RUNNER_TEMP/notice-scan.txt"; then
+            echo "::notice::An identical ${NOTICE_TYPE} notice already exists for this run; not posting a duplicate."
+            exit 0
+          fi
+          { printf '%s\n\n@%s\n\n' "$marker" "$NOTIFY_OWNER"; cat "$RUNNER_TEMP/notice-body.md"; } \
+            >"$RUNNER_TEMP/notice.md"
+          jq -Rs '{body: .}' <"$RUNNER_TEMP/notice.md" \
+            | gh api "repos/${GITHUB_REPOSITORY}/issues/${NOTIFY_TARGET}/comments" \
+                --method POST --input - >/dev/null
 
       # Required verification, run by the WORKFLOW (authoritative, not self-reported).
       # A hard failure routes to the failure/blocked path — never to review.
@@ -859,7 +915,17 @@ jobs:
       # Only reachable when a verified, non-empty PR exists. NOW it is truthful to
       # advance the state to review.
       - name: Advance to review (verified PR only)
+        id: review
         if: steps.gate.outputs.proceed == 'true' && success() && steps.changes.outputs.changed == 'true'
+        env:
+          PR_URL: ${{ steps.pr.outputs.url }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          PR_HEAD: ${{ steps.pr.outputs.head }}
+          PR_BASE: ${{ steps.pr.outputs.base }}
+          PR_SHA: ${{ steps.pr.outputs.sha }}
+          PR_FILES: ${{ steps.pr.outputs.files }}
+          PR_ADDS: ${{ steps.pr.outputs.adds }}
+          PR_DELS: ${{ steps.pr.outputs.dels }}
         run: |
           set -euo pipefail
           # The work is finished, so any continuation marker from an earlier
@@ -868,35 +934,48 @@ jobs:
             --remove-label "agent:continuation-needed" || true
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
             --remove-label "agent:working" --add-label "agent:review"
-          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(cat <<EOF
-          ## English
+          verification="$(cat "$RUNNER_TEMP/verify.md")"
+          summary="Implements #${ISSUE_NUMBER} on \`${PR_HEAD}\` → base \`${PR_BASE}\`, commit \`${PR_SHA}\`. ${PR_FILES} changed file(s), +${PR_ADDS}/-${PR_DELS}."
+          ja_summary="#${ISSUE_NUMBER} を \`${PR_HEAD}\` (ベース \`${PR_BASE}\`、コミット \`${PR_SHA}\`) で実装しました。変更ファイル ${PR_FILES} 件、+${PR_ADDS}/-${PR_DELS}。"
+          {
+            printf '## English\n\n### Pull request ready for review\n\n'
+            printf -- '- PR: %s (#%s)\n' "$PR_URL" "$PR_NUMBER"
+            printf -- '- Summary: %s\n' "$summary"
+            printf -- '- Validation: passed — the implementation workflow ran the required suite itself; per-command results are below.\n'
+            printf -- '- Assumptions: none recorded by the workflow. Any assumption the agent made is stated in the pull request body.\n'
+            printf -- '- Remaining risks: independent review has not run yet. `agent:review` means the pull request is reviewable, not that it is approved.\n'
+            printf -- '- Required action: Review and merge the PR if acceptable.\n\n'
+            printf '## 日本語\n\n### プルリクエストのレビュー準備ができました\n\n'
+            printf -- '- PR: %s (#%s)\n' "$PR_URL" "$PR_NUMBER"
+            printf -- '- 概要: %s\n' "$ja_summary"
+            printf -- '- 検証: 成功 — 実装ワークフロー自身が必要な検証スイートを実行しました。コマンドごとの結果は下記のとおりです。\n'
+            printf -- '- 仮定: ワークフローとしては記録していません。エージェントが置いた仮定があれば、プルリクエスト本文に記載されています。\n'
+            printf -- '- 残存リスク: 独立レビューはまだ実行されていません。`agent:review` はレビュー可能であることを示すもので、承認済みという意味ではありません。\n'
+            printf -- '- 必要な対応: 内容に問題がなければPRをレビューしてマージしてください。\n\n'
+            printf -- '---\n\n### Verification / 検証 (run by the implementation workflow / 実装ワークフローが実行)\n\n%s\n' "$verification"
+          } >"$RUNNER_TEMP/notice-body.md"
+          echo "notify=true" >>"$GITHUB_OUTPUT"
 
-          🤖 Implementation is ready for **independent review** — a verified pull
-          request exists.
-
-          Human action required: review the PR and, if approved, merge it. Automation
-          does not merge.
-
-          ## 日本語
-
-          🤖 実装が完了し、**独立レビュー**の準備ができました。検証済みのプルリクエストが
-          存在します。
-
-          必要な人間の対応: PR をレビューし、問題なければマージしてください。自動マージは
-          行いません。
-
-          ---
-
-          - PR: ${{ steps.pr.outputs.url }} (#${{ steps.pr.outputs.number }})
-          - Branch: \`${{ steps.pr.outputs.head }}\` → base \`${{ steps.pr.outputs.base }}\`
-          - Commit: \`${{ steps.pr.outputs.sha }}\`
-          - Changed files: ${{ steps.pr.outputs.files }} (+${{ steps.pr.outputs.adds }}/-${{ steps.pr.outputs.dels }})
-
-          ### Verification / 検証 (run by the implementation workflow / 実装ワークフローが実行)
-
-          $(cat "$RUNNER_TEMP/verify.md")
-          EOF
-          )"
+      - name: Notify the owner (pull request ready for review)
+        if: steps.review.outputs.notify == 'true'
+        env:
+          NOTICE_TYPE: pr-ready
+          NOTICE_RUN: ${{ github.run_id }}
+          NOTIFY_TARGET: ${{ github.event.issue.number || inputs.issue_number }}
+        run: |
+          set -euo pipefail
+          marker="<!-- agent-notice:v1 type=${NOTICE_TYPE} run=${NOTICE_RUN} -->"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${NOTIFY_TARGET}/comments" --paginate \
+            --jq '.[] | select(.user.type == "Bot") | .body' >"$RUNNER_TEMP/notice-scan.txt"
+          if grep -Fq "$marker" "$RUNNER_TEMP/notice-scan.txt"; then
+            echo "::notice::An identical ${NOTICE_TYPE} notice already exists for this run; not posting a duplicate."
+            exit 0
+          fi
+          { printf '%s\n\n@%s\n\n' "$marker" "$NOTIFY_OWNER"; cat "$RUNNER_TEMP/notice-body.md"; } \
+            >"$RUNNER_TEMP/notice.md"
+          jq -Rs '{body: .}' <"$RUNNER_TEMP/notice.md" \
+            | gh api "repos/${GITHUB_REPOSITORY}/issues/${NOTIFY_TARGET}/comments" \
+                --method POST --input - >/dev/null
 
       # ─────────────────────────── TURN-LIMIT CONTINUATION ───────────────────────
       # Reaching `--max-turns` is EXECUTION continuation, never a specification
@@ -998,6 +1077,7 @@ jobs:
 
           notes="$(head -c 1200 "$RUNNER_TEMP/agent-notes.md" 2>/dev/null || echo "(no agent notes were captured)")"
           run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          issue_url="${{ github.server_url }}/${{ github.repository }}/issues/${ISSUE_NUMBER}"
 
           if [ "$attempts" -ge 1 ]; then
             # ESCALATION: two consecutive turn-limited runs. Keep every commit and the
@@ -1007,57 +1087,26 @@ jobs:
             gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agent:ready" || true
             gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agent:continuation-needed" || true
             gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --add-label "agent:blocked"
-            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(cat <<EOF
-          ## English
-
-          **Action required:** this Issue is too large for one run. Split it, or raise
-          the execution budget. Two consecutive runs reached the ${MAX_TURNS}-turn
-          budget without producing a review-ready pull request, so automatic retrying
-          has stopped. This is **not** a specification problem and nothing was
-          discarded.
-
-          - Branch: \`$BRANCH\` (every commit preserved)
-          - Pull request: $pr_url
-          - Completed: $completed
-          - Remaining: not reported — the run was cut off mid-work. The agent notes
-            below are its last message.
-          - Validation: not run on the check point. Treat the pull request as **draft
-            only**; do not merge it as-is.
-          - Recommended next action: open a smaller follow-up Issue covering the
-            single smallest useful next step, and let this one wait. Alternatively,
-            raise the Actions variable \`AGENT_MAX_TURNS\`, then remove
-            \`agent:blocked\` and re-apply \`agent:ready\`.
-
-          Both options are one tap each from GitHub Mobile. No local git is needed.
-
-          ## 日本語
-
-          **要対応:** この Issue は 1 回の実行には大きすぎます。分割するか、実行予算を
-          引き上げてください。連続 2 回のランが ${MAX_TURNS} ターンの上限に達し、レビュー可能な
-          プルリクエストに到達しなかったため、自動的な再試行を停止しました。これは仕様不足に
-          よる停止では**なく**、作業は一切破棄していません。
-
-          - ブランチ: \`$BRANCH\` (コミットはすべて保持)
-          - Pull request: $pr_url
-          - 完了済み: $ja_completed
-          - 残作業: 作業途中で打ち切られたため報告はありません。下記がエージェントの最後の記録です。
-          - 検証: チェックポイントに対しては未実施です。この PR は**下書き扱い**とし、
-            このままマージしないでください。
-          - 推奨する次の操作: 次に必要な最小単位だけを対象とした小さめの Issue を新規に作成し、
-            この Issue は保留してください。あるいは Actions 変数 \`AGENT_MAX_TURNS\` を
-            引き上げたうえで、\`agent:blocked\` を外して \`agent:ready\` を付け直してください。
-
-          どちらも GitHub Mobile からワンタップで操作できます。ローカルの git は不要です。
-
-          ---
-
-          Agent notes / エージェントの記録 (excerpt, verbatim):
-
-          $notes
-
-          Run log / 実行ログ: $run_url
-          EOF
-          )"
+            {
+              printf '## English\n\n### Action required\n\n'
+              printf 'This Issue is too large for one run: two consecutive runs reached the %s-turn budget without producing a review-ready pull request, so automatic retrying has stopped. Nothing was discarded, and this is **not** a specification problem.\n\n' "$MAX_TURNS"
+              printf -- '- Issue / PR: %s\n' "$issue_url"
+              printf -- '- Workflow: %s\n' "$run_url"
+              printf -- '- Status: Moved to `agent:blocked` after two consecutive turn-limited runs. Branch `%s` keeps every commit; pull request: %s\n' "$BRANCH" "$pr_url"
+              printf -- '- What the agent checked: %s Validation was not run on the check point, so treat the pull request as **draft only** and do not merge it as-is.\n' "$completed"
+              printf -- '- Required action: Open a smaller follow-up Issue covering the single smallest useful next step, and let this one wait.\n'
+              printf -- '- Recommended default: If the work genuinely needs one long run instead, raise the Actions variable `AGENT_MAX_TURNS`, then remove `agent:blocked` and re-apply `agent:ready`. Both options are taps in GitHub Mobile; no local git is needed.\n\n'
+              printf '## 日本語\n\n### 対応が必要です\n\n'
+              printf 'この Issue は 1 回の実行には大きすぎます。連続 2 回のランが %s ターンの上限に達し、レビュー可能なプルリクエストに到達しなかったため、自動的な再試行を停止しました。作業は一切破棄しておらず、仕様不足による停止では**ありません**。\n\n' "$MAX_TURNS"
+              printf -- '- Issue / PR: %s\n' "$issue_url"
+              printf -- '- Workflow: %s\n' "$run_url"
+              printf -- '- 状態: 連続 2 回のターン上限到達により `agent:blocked` に移しました。ブランチ `%s` のコミットはすべて保持しています。Pull request: %s\n' "$BRANCH" "$pr_url"
+              printf -- '- エージェントが確認した内容: %s チェックポイントに対する検証は未実施のため、この PR は**下書き扱い**とし、このままマージしないでください。\n' "$ja_completed"
+              printf -- '- 必要な対応: 次に必要な最小単位だけを対象とした小さめの Issue を新規に作成し、この Issue は保留してください。\n'
+              printf -- '- 推奨する既定方針: どうしても 1 回の長い実行が必要な場合は、Actions 変数 `AGENT_MAX_TURNS` を引き上げたうえで、`agent:blocked` を外して `agent:ready` を付け直してください。どちらも GitHub Mobile のタップ操作だけで完了し、ローカルの git は不要です。\n\n'
+              printf -- '---\n\nAgent notes / エージェントの記録 (excerpt, verbatim):\n\n%s\n' "$notes"
+            } >"$RUNNER_TEMP/notice-body.md"
+            echo "notice_type=blocked" >>"$GITHUB_OUTPUT"
           else
             gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "agent:working" || true
             # `agent:ready` is deliberately KEPT: it is the human approval that is
@@ -1065,57 +1114,65 @@ jobs:
             gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
               --add-label "agent:continuation-needed" \
               || echo "::warning::Label agent:continuation-needed does not exist yet — create it (see docs/agent-operations.md)."
-            gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(cat <<EOF
-          <!-- agent-continuation:v1 -->
-
-          ## English
-
-          Implementation paused because the configured ${MAX_TURNS}-turn execution
-          budget was reached. This is not a specification problem.
-
-          - Branch: \`$BRANCH\`
-          - Pull request: $pr_url
-          - Completed: $completed
-          - Remaining: not reported — the run was cut off mid-work. The next run
-            re-reads this branch and continues from it.
-          - Validation: not run on this check point; the required suite runs when the
-            implementation completes.
-          - Next action: Re-run **Implement issue** from GitHub Actions to continue
-            from this branch.
-
-          ## 日本語
-
-          設定された${MAX_TURNS}ターンの実行上限に達したため、実装を一時停止しました。
-          これは仕様不足による停止ではありません。
-
-          - ブランチ: \`$BRANCH\`
-          - Pull request: $pr_url
-          - 完了済み: $ja_completed
-          - 残作業: 作業途中で打ち切られたため報告はありません。次のランがこのブランチを
-            読み直して続きから作業します。
-          - 検証: このチェックポイントに対しては未実施です。実装完了時に必要な検証を実行します。
-          - 次の操作: GitHub Actionsから **Implement issue** を再実行してください。
-            このブランチを引き継いで作業を続けます。
-
-          ---
-
-          Agent notes / エージェントの記録 (excerpt, verbatim):
-
-          $notes
-
-          Run log / 実行ログ: $run_url
-          EOF
-          )"
+            # `agent-continuation:v1` is a SEPARATE, older marker: it is what the
+            # consecutive-attempt counter above and the agent prompt look for. It stays
+            # in the body alongside the notification marker.
+            {
+              printf '<!-- agent-continuation:v1 -->\n\n'
+              printf '## English\n\n### Implementation continuation required\n\n'
+              printf 'The configured %s-turn execution turn budget was reached. This is not a specification problem.\n\n' "$MAX_TURNS"
+              printf -- '- Branch: `%s`\n' "$BRANCH"
+              printf -- '- Pull request: %s\n' "$pr_url"
+              printf -- '- Completed: %s\n' "$completed"
+              printf -- '- Remaining: not reported — the run was cut off mid-work. The next run re-reads this branch and continues from it.\n'
+              printf -- '- Validation: not run on this check point; the required suite runs when the implementation completes.\n'
+              printf -- '- Required action: Open the linked workflow in GitHub Mobile and select Re-run workflow: %s\n\n' "$run_url"
+              printf '## 日本語\n\n### 実装の継続が必要です\n\n'
+              printf '設定された%sターンの実行ターン上限に達したため、実装を一時停止しました。\nこれは仕様不足による停止ではありません。\n\n' "$MAX_TURNS"
+              printf -- '- ブランチ: `%s`\n' "$BRANCH"
+              printf -- '- Pull request: %s\n' "$pr_url"
+              printf -- '- 完了済み: %s\n' "$ja_completed"
+              printf -- '- 残作業: 作業途中で打ち切られたため報告はありません。次のランがこのブランチを読み直して続きから作業します。\n'
+              printf -- '- 検証: このチェックポイントに対しては未実施です。実装完了時に必要な検証を実行します。\n'
+              printf -- '- 必要な対応: GitHub Mobileでリンク先のworkflowを開き、Re-run workflow を選択してください: %s\n\n' "$run_url"
+              printf -- '---\n\nAgent notes / エージェントの記録 (excerpt, verbatim):\n\n%s\n' "$notes"
+            } >"$RUNNER_TEMP/notice-body.md"
+            echo "notice_type=continuation" >>"$GITHUB_OUTPUT"
           fi
+
+      - name: Notify the owner (turn-limit continuation or escalation)
+        if: failure() && steps.continue.outputs.notice_type != ''
+        env:
+          NOTICE_TYPE: ${{ steps.continue.outputs.notice_type }}
+          NOTICE_RUN: ${{ github.run_id }}
+          NOTIFY_TARGET: ${{ github.event.issue.number || inputs.issue_number }}
+        run: |
+          set -euo pipefail
+          marker="<!-- agent-notice:v1 type=${NOTICE_TYPE} run=${NOTICE_RUN} -->"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${NOTIFY_TARGET}/comments" --paginate \
+            --jq '.[] | select(.user.type == "Bot") | .body' >"$RUNNER_TEMP/notice-scan.txt"
+          if grep -Fq "$marker" "$RUNNER_TEMP/notice-scan.txt"; then
+            echo "::notice::An identical ${NOTICE_TYPE} notice already exists for this run; not posting a duplicate."
+            exit 0
+          fi
+          { printf '%s\n\n@%s\n\n' "$marker" "$NOTIFY_OWNER"; cat "$RUNNER_TEMP/notice-body.md"; } \
+            >"$RUNNER_TEMP/notice.md"
+          jq -Rs '{body: .}' <"$RUNNER_TEMP/notice.md" \
+            | gh api "repos/${GITHUB_REPOSITORY}/issues/${NOTIFY_TARGET}/comments" \
+                --method POST --input - >/dev/null
 
       # Any OTHER failure (Claude error, failed verification, git/push/PR error, or PR
       # validation failure) lands here — including a turn-limited run whose
       # continuation step itself failed, so the Issue can never be left mid-flight
       # wearing `agent:working`. Never applies `agent:review`.
       - name: Mark blocked on failure
+        id: blocked
         if: >-
           steps.gate.outputs.proceed == 'true' && failure() &&
           (steps.notes.outputs.turn_limit != 'true' || steps.continue.outcome == 'failure')
+        env:
+          ISSUE_URL: ${{ github.server_url }}/${{ github.repository }}/issues/${{ github.event.issue.number || inputs.issue_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
           gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
@@ -1124,32 +1181,44 @@ jobs:
             --remove-label "agent:working" --remove-label "agent:ready" \
             --add-label "agent:blocked" || true
           notes="$(cat "$RUNNER_TEMP/agent-notes.md" 2>/dev/null || echo "(no agent notes were captured)")"
-          gh issue comment "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(cat <<EOF
-          ## English
+          {
+            printf '## English\n\n### Action required\n\n'
+            printf 'Automated implementation did not complete, so the Issue was moved to `agent:blocked` and needs your decision before it can run again.\n\n'
+            printf -- '- Issue / PR: %s\n' "$ISSUE_URL"
+            printf -- '- Workflow: %s\n' "$RUN_URL"
+            printf -- '- Status: Removed `agent:working` and `agent:ready`, applied `agent:blocked`. `agent:review` was **not** applied.\n'
+            printf -- '- What the agent checked: the run failed before a verified pull request existed — the cause is one of the Claude step, the required verification suite, or the git/pull-request step. The run log has the detail; no secrets are printed.\n'
+            printf -- '- Required action: Open the linked run, read the failing step, fix or decide the next step, then remove `agent:blocked` and re-apply `agent:ready`.\n'
+            printf -- '- Recommended default: If the failure looks transient, re-applying `agent:ready` re-runs the implementation from the preserved branch.\n\n'
+            printf '## 日本語\n\n### 対応が必要です\n\n'
+            printf '自動実装が完了しなかったため、Issue を `agent:blocked` に移しました。再実行の前にご判断が必要です。\n\n'
+            printf -- '- Issue / PR: %s\n' "$ISSUE_URL"
+            printf -- '- Workflow: %s\n' "$RUN_URL"
+            printf -- '- 状態: `agent:working` と `agent:ready` を外し、`agent:blocked` を付与しました。`agent:review` は付与して**いません**。\n'
+            printf -- '- エージェントが確認した内容: 検証済みのプルリクエストが存在する前にランが失敗しました。原因は Claude のステップ、必要な検証スイート、git/プルリクエストのステップのいずれかです。詳細は実行ログにあります (シークレットは出力されません)。\n'
+            printf -- '- 必要な対応: リンク先のランを開いて失敗したステップを確認し、対処または方針を決めたうえで、`agent:blocked` を外して `agent:ready` を付け直してください。\n'
+            printf -- '- 推奨する既定方針: 一時的な失敗に見える場合は、`agent:ready` を付け直すと保持済みのブランチから実装を再実行します。\n\n'
+            printf -- '---\n\nAgent notes / エージェントの記録 (verbatim, as written by the agent):\n\n%s\n' "$notes"
+          } >"$RUNNER_TEMP/notice-body.md"
+          echo "notify=true" >>"$GITHUB_OUTPUT"
 
-          🤖 Automated implementation did not complete, and \`agent:review\` was **not**
-          applied. Removed \`agent:working\` and \`agent:ready\`, and applied
-          \`agent:blocked\`.
-
-          Human action required: inspect the run log (no secrets are printed), fix or
-          decide the next step, then remove \`agent:blocked\` and re-apply
-          \`agent:ready\`.
-
-          ## 日本語
-
-          🤖 自動実装が完了しなかったため、\`agent:review\` は付与して**いません**。
-          \`agent:working\` と \`agent:ready\` を外し、\`agent:blocked\` を付与しました。
-
-          必要な人間の対応: 実行ログ (シークレットは出力されません) を確認し、対処または
-          方針を決めたうえで、\`agent:blocked\` を外して \`agent:ready\` を付け直して
-          ください。
-
-          ---
-
-          Agent notes / エージェントの記録 (verbatim, as written by the agent):
-
-          $notes
-
-          Run log / 実行ログ: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          EOF
-          )"
+      - name: Notify the owner (implementation blocked)
+        if: failure() && steps.blocked.outputs.notify == 'true'
+        env:
+          NOTICE_TYPE: blocked
+          NOTICE_RUN: ${{ github.run_id }}
+          NOTIFY_TARGET: ${{ github.event.issue.number || inputs.issue_number }}
+        run: |
+          set -euo pipefail
+          marker="<!-- agent-notice:v1 type=${NOTICE_TYPE} run=${NOTICE_RUN} -->"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${NOTIFY_TARGET}/comments" --paginate \
+            --jq '.[] | select(.user.type == "Bot") | .body' >"$RUNNER_TEMP/notice-scan.txt"
+          if grep -Fq "$marker" "$RUNNER_TEMP/notice-scan.txt"; then
+            echo "::notice::An identical ${NOTICE_TYPE} notice already exists for this run; not posting a duplicate."
+            exit 0
+          fi
+          { printf '%s\n\n@%s\n\n' "$marker" "$NOTIFY_OWNER"; cat "$RUNNER_TEMP/notice-body.md"; } \
+            >"$RUNNER_TEMP/notice.md"
+          jq -Rs '{body: .}' <"$RUNNER_TEMP/notice.md" \
+            | gh api "repos/${GITHUB_REPOSITORY}/issues/${NOTIFY_TARGET}/comments" \
+                --method POST --input - >/dev/null

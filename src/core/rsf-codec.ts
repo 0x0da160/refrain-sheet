@@ -520,15 +520,21 @@ function encodeBody(data: RsfData): Uint8Array {
   // wrap needs version 5, a filter needs version 4, display settings alone
   // need version 3, metadata alone needs version 2, otherwise the legacy
   // version-1 body is written. A newer section implies every older one, so
-  // the layout stays a strict prefix chain.
+  // the layout stays a strict prefix chain — each `has*` below is OR'd with
+  // every section above it (timezone forces flags, flags force filter, filter
+  // forces display, display forces meta) so a body picking a high version
+  // always physically contains every lower section's bytes, even when that
+  // section's own data is empty/default, matching what `decodeBody` reads
+  // for that version unconditionally.
   const hasTimezone = data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE;
   const timezoneBytes = hasTimezone ? enc.encode(data.timezone!.slice(0, MAX_META_LENGTH)) : null;
   const displayWidths = (data.display?.colWidths ?? []).filter(
     ([col, width]) => Number.isInteger(col) && col >= 0 && Number.isInteger(width) && width > 0,
   );
   const displayZoom = data.display?.zoom;
-  const hasWrap = data.display?.wrap === true;
-  const hasFilterSection = hasWrap || data.filter !== undefined;
+  const wrapSet = data.display?.wrap === true;
+  const hasFlagsSection = wrapSet || hasTimezone;
+  const hasFilterSection = hasFlagsSection || data.filter !== undefined;
   const hasDisplay = hasFilterSection || displayZoom !== undefined || displayWidths.length > 0;
   const hasMeta = hasDisplay || data.appName !== undefined || data.appVersion !== undefined;
   const appName = hasMeta ? enc.encode((data.appName ?? '').slice(0, MAX_META_LENGTH)) : null;
@@ -547,7 +553,7 @@ function encodeBody(data: RsfData): Uint8Array {
   const cellsSize = cellBufs.reduce((n, b) => n + b.length, 0);
   const metaSize = hasMeta ? 2 + appName!.length + 2 + appVersion!.length : 0;
   const displaySize = hasDisplay ? 2 + 4 + displayWidths.length * 6 : 0;
-  const flagsSize = hasWrap ? 1 : 0;
+  const flagsSize = hasFlagsSection ? 1 : 0;
   const filterSize = filterBlock ? filterBlock.length : 0;
   const timezoneSize = hasTimezone ? 2 + timezoneBytes!.length : 0;
   const total =
@@ -567,7 +573,7 @@ function encodeBody(data: RsfData): Uint8Array {
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = hasTimezone ? 6 : hasWrap ? 5 : hasFilterSection ? 4 : hasDisplay ? 3 : hasMeta ? 2 : 1;
+  out[off++] = hasTimezone ? 6 : wrapSet ? 5 : hasFilterSection ? 4 : hasDisplay ? 3 : hasMeta ? 2 : 1;
   out[off++] = data.delimiter.charCodeAt(0);
   if (hasMeta) {
     view.setUint16(off, appName!.length, true);
@@ -594,10 +600,12 @@ function encodeBody(data: RsfData): Uint8Array {
       off += 2;
     }
   }
-  if (hasWrap) {
-    // Version-5 display flags. Bit 0: wrap long rows. Written only when set,
-    // so a document that does not use wrapping stays a version-4-or-lower body.
-    out[off++] = 1;
+  if (hasFlagsSection) {
+    // Version-5+ display flags. Bit 0: wrap long rows. The byte itself is
+    // written whenever the chosen version is 5 or above (even a version-6
+    // body picked solely for its timezone still carries this byte, with bit 0
+    // clear) — see the "prefix chain" note above.
+    out[off++] = wrapSet ? 1 : 0;
   }
   if (filterBlock) {
     out.set(filterBlock, off);

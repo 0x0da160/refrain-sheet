@@ -291,6 +291,12 @@ export interface UiPort {
   /** Edit local settings; returns the chosen maximum file size in bytes, or null when cancelled. */
   chooseSettings(currentMaxFileSize: number): Promise<number | null>;
   /**
+   * The workbook Timezone… dialog: pick an IANA zone from every zone the
+   * runtime knows, with `current` preselected. Resolves with the chosen zone
+   * name, or null when cancelled (nothing changes).
+   */
+  chooseTimezone(current: string): Promise<string | null>;
+  /**
    * Show or hide the busy/loading indicator. `label` is already-localized
    * text describing the current operation; `null` hides the indicator.
    */

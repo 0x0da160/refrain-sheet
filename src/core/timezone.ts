@@ -41,13 +41,17 @@ export function localTimeZone(): string {
  * Every IANA zone name the runtime knows, sorted, for a settings picker.
  * `Intl.supportedValuesOf` is a 2022-era addition; on a runtime without it,
  * this falls back to just {@link DEFAULT_TIMEZONE} and the local zone so the
- * picker still has something usable.
+ * picker still has something usable. `supportedValuesOf('timeZone')` itself
+ * does not include `"UTC"` (it is a special identifier, not a region/city
+ * name in the IANA database), so it is always added back explicitly —
+ * otherwise a workbook already on the default `UTC` would have no matching
+ * entry in its own picker.
  */
 export function listTimeZones(): string[] {
   const supportedValuesOf = (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf;
   if (typeof supportedValuesOf === 'function') {
     try {
-      return supportedValuesOf('timeZone').slice().sort();
+      return Array.from(new Set([DEFAULT_TIMEZONE, ...supportedValuesOf('timeZone')])).sort();
     } catch {
       // Fall through to the static fallback below.
     }
@@ -78,7 +82,14 @@ export function timeZoneOffsetMs(ms: number, timeZone: string): number {
     }).formatToParts(new Date(ms));
     const get = (type: string): number => Number(parts.find((p) => p.type === type)?.value ?? '0');
     // `% 24`: some engines report hour 24 (not 0) for midnight under hourCycle 'h23'.
-    const asUtc = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'), get('second'));
+    const asUtc = Date.UTC(
+      get('year'),
+      get('month') - 1,
+      get('day'),
+      get('hour') % 24,
+      get('minute'),
+      get('second'),
+    );
     return asUtc - ms;
   } catch {
     return 0;

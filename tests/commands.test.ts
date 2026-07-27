@@ -43,6 +43,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     showAbout: vi.fn(),
     showFormulaHelp: vi.fn(),
     chooseSettings: vi.fn(async () => null),
+    chooseTimezone: vi.fn(async () => null),
     setBusy: vi.fn(),
     ...overrides,
   };
@@ -333,6 +334,41 @@ describe('convert to RSF command', () => {
     expect(commands.isEnabled('sheet.convert')).toBe(false); // already RSF
     await commands.openFiles([opened('c.csv', utf8('a,b\n'))], { confirmNonCsv: false });
     expect(commands.isEnabled('sheet.convert')).toBe(true);
+  });
+});
+
+describe('sheet timezone command', () => {
+  it('is enabled only for an RSF (spreadsheet) tab', async () => {
+    const { commands } = setup();
+    await commands.run('file.new');
+    expect(commands.isEnabled('sheet.timezone')).toBe(true);
+    await commands.openFiles([opened('c.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    expect(commands.isEnabled('sheet.timezone')).toBe(false);
+  });
+
+  it('applies the chosen timezone, recalculates, and notifies', async () => {
+    const ui = stubUi({ chooseTimezone: vi.fn(async () => 'Asia/Tokyo') });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    const before = tab.doc.timezone;
+    await commands.run('sheet.timezone');
+    expect(ui.chooseTimezone).toHaveBeenCalledWith(before);
+    expect(tab.doc.timezone).toBe('Asia/Tokyo');
+    expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining('Asia/Tokyo'), 'info');
+  });
+
+  it('cancelling leaves the timezone unchanged and does not notify', async () => {
+    const ui = stubUi({ chooseTimezone: vi.fn(async () => null) });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    const before = tab.doc.timezone;
+    await commands.run('sheet.timezone');
+    expect(tab.doc.timezone).toBe(before);
+    expect(ui.notify).not.toHaveBeenCalled();
   });
 });
 

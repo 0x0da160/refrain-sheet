@@ -332,6 +332,7 @@ export type CommandId =
   | 'sheet.filter'
   | 'sheet.filterClear'
   | 'sheet.recalculate'
+  | 'sheet.timezone'
   | 'sheet.exportCsv'
   // Worksheets inside the active RSF workbook (distinct from the application
   // document tabs, whose commands are the `tab.*` ids below).
@@ -493,6 +494,10 @@ export class Commands {
         // Only spreadsheet documents evaluate anything; a plain CSV has no
         // formulas and therefore nothing to recalculate.
         return tab !== null && tab.doc.kind === 'rsf';
+      case 'sheet.timezone':
+        // The timezone only affects TODAY()/NOW(), which only a spreadsheet
+        // document evaluates.
+        return tab !== null && tab.doc.kind === 'rsf';
       case 'edit.revertCell':
         return (
           tab?.selection != null &&
@@ -653,6 +658,19 @@ export class Commands {
           tab.doc.recalculate();
           this.state.emit('doc');
           this.ui.notify(t('notify.recalculated'), 'info');
+        }
+        return;
+      case 'sheet.timezone':
+        if (tab && tab.doc.kind === 'rsf') {
+          const chosen = await this.ui.chooseTimezone(tab.doc.timezone);
+          // Like Recalculate, this changes no cell input: no history entry,
+          // no dirty flag. setTimezone() itself invalidates every cached
+          // result so TODAY()/NOW() reflect the new zone immediately.
+          if (chosen !== null) {
+            tab.doc.setTimezone(chosen);
+            this.state.emit('doc');
+            this.ui.notify(t('notify.timezoneChanged', { timezone: tab.doc.timezone }), 'info');
+          }
         }
         return;
       case 'sheet.exportCsv':

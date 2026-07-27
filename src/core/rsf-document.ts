@@ -33,6 +33,7 @@ import {
 import { Worksheet } from './worksheet';
 import { APP_NAME, APP_VERSION } from '../app/version';
 import type { LosslessDocument } from './lossless-document';
+import { DEFAULT_TIMEZONE, isValidTimeZone, localTimeZone, timeZoneOffsetMs } from './timezone';
 
 /**
  * Refrain Sheet Format (`.rsf`): a documented, versioned, binary container for
@@ -124,6 +125,17 @@ export class RsfDocument {
   updatedAt: number;
 
   /**
+   * The workbook's IANA timezone (workbook-level, like {@link delimiter}),
+   * read by `TODAY()` and `NOW()`. A new workbook defaults to the browser's
+   * local timezone; a loaded workbook uses its stored value, or `"UTC"` when
+   * none is stored (every file saved before this setting existed), which is
+   * the exact behavior those files already had. Change it with
+   * {@link setTimezone}, not by writing this field directly, so volatile
+   * functions recalculate.
+   */
+  private timezoneId: string;
+
+  /**
    * Compression method for the next `.rsf` save (an `RSF_COMPRESSION_*` id),
    * or `undefined` to use the active codec's default (Zstandard). Set from the
    * container on load so a normal save preserves the file's method, and by the
@@ -182,7 +194,21 @@ export class RsfDocument {
    */
   private clockMs = Date.now();
 
-  private constructor(name: string, delimiter: DelimiterId, sheets: Worksheet[], docId?: string) {
+  /**
+   * `timezone` defaults to the browser's local zone, which is what every
+   * *new* workbook (blank, converted, or built from values) should get. The
+   * one caller loading an *existing* file (`fromBytes`) passes the stored
+   * value explicitly instead — falling back to `"UTC"`, not the local zone,
+   * so a file saved before this setting existed keeps its exact original
+   * behavior rather than picking up whatever machine happens to reopen it.
+   */
+  private constructor(
+    name: string,
+    delimiter: DelimiterId,
+    sheets: Worksheet[],
+    docId?: string,
+    timezone: string = localTimeZone(),
+  ) {
     this.name = name;
     this.delimiter = delimiter;
     this.sheetList = sheets;
@@ -192,6 +218,7 @@ export class RsfDocument {
     this.createdAt = now;
     this.updatedAt = now;
     this.nextSheetSeq = sheets.length + 1;
+    this.timezoneId = timezone;
   }
 
   // ----- Construction -----
@@ -255,7 +282,8 @@ export class RsfDocument {
     }
     const data = decoded.data;
     const sheets = data.sheets.map((entry) => RsfDocument.buildWorksheet(entry));
-    const doc = new RsfDocument(name, data.delimiter, sheets, data.docId);
+    const timezone = data.timezone !== undefined && isValidTimeZone(data.timezone) ? data.timezone : DEFAULT_TIMEZONE;
+    const doc = new RsfDocument(name, data.delimiter, sheets, data.docId, timezone);
     doc.compressionMethod = data.compression;
     doc.loadedAsSingleSheet = data.legacySingleSheet === true;
     if (data.createdAt !== undefined) {
@@ -480,6 +508,28 @@ export class RsfDocument {
     this.compressionMethod = method;
   }
 
+  /** The workbook's stored IANA timezone, read by `TODAY()`/`NOW()` (Sheet > Timezone…). */
+  get timezone(): string {
+    return this.timezoneId;
+  }
+
+  /**
+   * Change the workbook's timezone and recompute every cached formula result
+   * against it — the same invalidation {@link recalculate} does, since a
+   * timezone change is exactly the kind of thing that moves what `TODAY()`
+   * and `NOW()` report. An unresolvable zone name (or the current value) is a
+   * no-op. Like {@link setCompression}, this changes no cell input, so it
+   * does not mark the document dirty; the new value is written into the
+   * container on the next save.
+   */
+  setTimezone(timeZone: string): void {
+    if (timeZone === this.timezoneId || !isValidTimeZone(timeZone)) {
+      return;
+    }
+    this.timezoneId = timeZone;
+    this.recalculate();
+  }
+
   /**
    * Record the active worksheet's current view state to persist with the next
    * save (called by the save path with the tab's live zoom / column widths).
@@ -647,6 +697,7 @@ export class RsfDocument {
       updatedAt: this.updatedAt,
       docId: this.docId,
       activeSheetId: this.activeSheetId,
+      timezone: this.timezoneId,
       sheets,
     };
     return encodeRsfWorkbook(payload, this.compressionMethod);
@@ -919,7 +970,10 @@ export class RsfDocument {
         const target = this.sheetByName(name);
         return target ? { rowCount: target.rowCount, columnCount: target.columnCount } : null;
       },
-      nowMs: this.clockMs,
+      // Shifted by the workbook's own timezone offset (0 for UTC) before it
+      // ever reaches formula-date.ts, which does pure UTC math on whatever
+      // instant it is handed — see that module's "Timezone policy".
+      nowMs: this.clockMs + timeZoneOffsetMs(this.clockMs, this.timezoneId),
     };
     this.evalContexts.set(sheet.id, ctx);
     return ctx;

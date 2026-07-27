@@ -60,6 +60,7 @@
  * formula cell becomes the spill anchor.
  */
 
+import { DEFAULT_DISPLAY_LANGUAGE, type DisplayLanguageId } from './display-language';
 import {
   coerceToNumber,
   EMPTY_VALUE,
@@ -995,15 +996,22 @@ export interface EvalContext {
    * that forgets to set it fails loudly rather than depending on the clock.
    */
   nowMs?: number;
+  /**
+   * The workbook's stored display language, read by `TEXT()`'s `ddd`/`dddd`
+   * weekday-name tokens (`formula-text-format.ts`). Supplied by the workbook;
+   * omitted in bare test contexts, where it falls back to
+   * {@link DEFAULT_DISPLAY_LANGUAGE}.
+   */
+  displayLanguage?: DisplayLanguageId;
 }
 
 /**
- * The clock a recalculation pass reads. Supplied by the workbook so every
- * volatile function in one pass agrees, and injectable so tests never depend
- * on the wall clock.
+ * The clock (and other per-pass settings) a recalculation pass reads.
+ * Supplied by the workbook so every volatile function in one pass agrees, and
+ * injectable so tests never depend on the wall clock.
  */
 function contextClock(ctx: EvalContext): FnContext {
-  return { nowMs: ctx.nowMs ?? 0 };
+  return { nowMs: ctx.nowMs ?? 0, displayLanguage: ctx.displayLanguage ?? DEFAULT_DISPLAY_LANGUAGE };
 }
 
 /**

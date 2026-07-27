@@ -21,7 +21,7 @@ import {
 import type { LosslessDocument } from '../core/lossless-document';
 import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument, RSF_EXTENSION } from '../core/rsf-document';
 import type { Worksheet } from '../core/worksheet';
-import { t } from './i18n';
+import { getLocale, t } from './i18n';
 import { clampSheetZoom, getSheetZoom, getWrapCells, setSheetZoom, setWrapCellsPreference } from './settings';
 
 /**
@@ -767,7 +767,7 @@ export class AppState {
     const name = `${base}${RSF_EXTENSION}`;
     // `prebuilt` comes from the time-sliced conversion of large documents
     // (identical content, collected with progress instead of one long loop).
-    const doc = prebuilt ?? RsfDocument.fromLossless(tab.doc, name, defaultSheetName());
+    const doc = prebuilt ?? RsfDocument.fromLossless(tab.doc, name, defaultSheetName(), getLocale());
     doc.name = name;
     tab.doc = doc;
     tab.name = name;
@@ -793,7 +793,7 @@ export class AppState {
     }
     const base = tab.name.replace(/\.(csv|tsv|txt)$/i, '');
     const name = `${base}${RSF_EXTENSION}`;
-    const doc = prebuilt ?? RsfDocument.fromLossless(tab.doc, name, defaultSheetName());
+    const doc = prebuilt ?? RsfDocument.fromLossless(tab.doc, name, defaultSheetName(), getLocale());
     doc.name = name;
     doc.markUnsaved();
     this.addTab(name, doc, null);

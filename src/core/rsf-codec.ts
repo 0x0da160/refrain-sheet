@@ -21,6 +21,7 @@ import {
   RSF_METHODS,
 } from './csv-engine';
 import { DEFAULT_TIMEZONE } from './timezone';
+import { DEFAULT_DISPLAY_LANGUAGE } from './display-language';
 
 export {
   RSF_COMPRESSION_STORE,
@@ -71,10 +72,11 @@ export {
  * Body layout (little-endian), all strings UTF-8. Body version 2 adds the
  * creating/updating application metadata after the delimiter; version 3 adds
  * the display-settings block; version 4 adds the sheet-filter block; version 6
- * adds the workbook timezone. Older versions are still accepted on read:
+ * adds the workbook timezone; version 7 adds the workbook display language.
+ * Older versions are still accepted on read:
  *
  * ```
- * 0    1     body version (1–6 readable; lowest sufficient version written)
+ * 0    1     body version (1–7 readable; lowest sufficient version written)
  * 1    1     delimiter byte (',' ';' or TAB)
  * --- body versions 2+ ---
  * 2    2     application-name length (u16)
@@ -93,6 +95,9 @@ export {
  * --- body version 6+ ---
  * …    2     IANA timezone-name length (u16; written only when non-UTC)
  * …    …     IANA timezone name
+ * --- body version 7+ ---
+ * …    2     display-language length (u16; written only when non-default, "en")
+ * …    …     display-language id ("en" or "ja")
  * --- all versions ---
  * …    2     sheet-name length (u16)
  * …    …     sheet name
@@ -112,15 +117,16 @@ export const RSF_LEGACY_MAGIC = new Uint8Array([0x52, 0x43, 0x53, 0x56]); // "RC
 export const RSF_LEGACY_CONTAINER_VERSION = 2;
 /**
  * Highest body version this release reads and writes. Version selection on
- * write is minimal: 6 when the workbook timezone is not UTC, else 5 when
- * wrap-long-rows is stored, else 4 when a sheet filter is present, else 3 when
- * display settings are present, else 2 when application metadata is present,
- * else 1 — so documents without the newer data stay readable by older
- * releases. Versions 1–6 are all accepted on read; an older reader rejects a
- * version it does not know with `bad-version` (a localized "unsupported
- * version" message) rather than misparsing it.
+ * write is minimal: 7 when the workbook display language is not English, else
+ * 6 when the workbook timezone is not UTC, else 5 when wrap-long-rows is
+ * stored, else 4 when a sheet filter is present, else 3 when display settings
+ * are present, else 2 when application metadata is present, else 1 — so
+ * documents without the newer data stay readable by older releases. Versions
+ * 1–7 are all accepted on read; an older reader rejects a version it does not
+ * know with `bad-version` (a localized "unsupported version" message) rather
+ * than misparsing it.
  */
-export const RSF_BODY_VERSION = 6;
+export const RSF_BODY_VERSION = 7;
 
 // ----- Display-settings bounds (body version 3) -----------------------------
 // Persisted display state is validated and clamped on load so a malformed or
@@ -168,11 +174,12 @@ export const MAX_RSF_BODY_BYTES = 512 * 1024 * 1024;
 export const RSF_CONTAINER_VERSION_WORKBOOK = 4;
 
 /**
- * Highest workbook body version this release reads and writes. Version 2
- * adds the workbook timezone (written only when it is not UTC); version 1 is
- * the original layout.
+ * Highest workbook body version this release reads and writes. Version 3
+ * adds the workbook display language (written only when it is not English);
+ * version 2 adds the workbook timezone (written only when it is not UTC);
+ * version 1 is the original layout.
  */
-export const RSF_WORKBOOK_BODY_VERSION = 2;
+export const RSF_WORKBOOK_BODY_VERSION = 3;
 
 /**
  * Bounds for workbook payloads. A malformed or hostile container can never
@@ -243,6 +250,16 @@ export interface RsfData {
    * (`RsfDocument`) falls back to UTC for an absent or unresolvable value.
    */
   timezone?: string;
+  /**
+   * The workbook's stored display language (body version 7+), read by
+   * `TEXT()`'s `ddd`/`dddd` weekday-name tokens. Written only when it differs
+   * from `"en"`, so a document using the default language (including every
+   * document saved before this field existed) stays on the lowest sufficient
+   * body version. On decode this is the raw stored string, not yet validated
+   * — the caller (`RsfDocument`) falls back to `"en"` for an absent or
+   * unrecognized value.
+   */
+  displayLanguage?: string;
 }
 
 /**
@@ -291,6 +308,14 @@ export interface RsfWorkbookData {
    * UTC for an absent or unresolvable value.
    */
   timezone?: string;
+  /**
+   * The workbook's stored display language (workbook body version 3+), read
+   * by `TEXT()`'s `ddd`/`dddd` weekday-name tokens. Written only when it
+   * differs from `"en"`; absent when not stored, including every workbook
+   * saved before this field existed. Not yet validated — `RsfDocument` falls
+   * back to `"en"` for an absent or unrecognized value.
+   */
+  displayLanguage?: string;
   sheets: RsfWorksheetData[];
   /** Compression method the container was packed with (populated on decode). */
   compression?: number;
@@ -516,18 +541,27 @@ function encodeFilterBlock(filter: SheetFilter | undefined): Uint8Array {
 function encodeBody(data: RsfData): Uint8Array {
   const enc = new TextEncoder();
   const name = enc.encode(data.name.slice(0, 255));
-  // Version selection is minimal: a non-UTC timezone needs version 6, stored
-  // wrap needs version 5, a filter needs version 4, display settings alone
-  // need version 3, metadata alone needs version 2, otherwise the legacy
-  // version-1 body is written. A newer section implies every older one, so
-  // the layout stays a strict prefix chain — each `has*` below is OR'd with
-  // every section above it (timezone forces flags, flags force filter, filter
-  // forces display, display forces meta) so a body picking a high version
-  // always physically contains every lower section's bytes, even when that
-  // section's own data is empty/default, matching what `decodeBody` reads
-  // for that version unconditionally.
-  const hasTimezone = data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE;
-  const timezoneBytes = hasTimezone ? enc.encode(data.timezone!.slice(0, MAX_META_LENGTH)) : null;
+  // Version selection is minimal: a non-default display language needs
+  // version 7, a non-UTC timezone needs version 6, stored wrap needs version
+  // 5, a filter needs version 4, display settings alone need version 3,
+  // metadata alone needs version 2, otherwise the legacy version-1 body is
+  // written. A newer section implies every older one, so the layout stays a
+  // strict prefix chain — each `has*` below is OR'd with every section above
+  // it (display language forces timezone, timezone forces flags, flags force
+  // filter, filter forces display, display forces meta) so a body picking a
+  // high version always physically contains every lower section's bytes,
+  // even when that section's own data is empty/default, matching what
+  // `decodeBody` reads for that version unconditionally.
+  const hasDisplayLanguage =
+    data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE;
+  const displayLanguageBytes = hasDisplayLanguage
+    ? enc.encode(data.displayLanguage!.slice(0, MAX_META_LENGTH))
+    : null;
+  const hasTimezone =
+    hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
+  const timezoneBytes = hasTimezone
+    ? enc.encode((data.timezone ?? DEFAULT_TIMEZONE).slice(0, MAX_META_LENGTH))
+    : null;
   const displayWidths = (data.display?.colWidths ?? []).filter(
     ([col, width]) => Number.isInteger(col) && col >= 0 && Number.isInteger(width) && width > 0,
   );
@@ -556,6 +590,7 @@ function encodeBody(data: RsfData): Uint8Array {
   const flagsSize = hasFlagsSection ? 1 : 0;
   const filterSize = filterBlock ? filterBlock.length : 0;
   const timezoneSize = hasTimezone ? 2 + timezoneBytes!.length : 0;
+  const displayLanguageSize = hasDisplayLanguage ? 2 + displayLanguageBytes!.length : 0;
   const total =
     1 +
     1 +
@@ -564,6 +599,7 @@ function encodeBody(data: RsfData): Uint8Array {
     flagsSize +
     filterSize +
     timezoneSize +
+    displayLanguageSize +
     2 +
     name.length +
     4 +
@@ -573,7 +609,19 @@ function encodeBody(data: RsfData): Uint8Array {
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = hasTimezone ? 6 : wrapSet ? 5 : hasFilterSection ? 4 : hasDisplay ? 3 : hasMeta ? 2 : 1;
+  out[off++] = hasDisplayLanguage
+    ? 7
+    : hasTimezone
+      ? 6
+      : wrapSet
+        ? 5
+        : hasFilterSection
+          ? 4
+          : hasDisplay
+            ? 3
+            : hasMeta
+              ? 2
+              : 1;
   out[off++] = data.delimiter.charCodeAt(0);
   if (hasMeta) {
     view.setUint16(off, appName!.length, true);
@@ -619,6 +667,15 @@ function encodeBody(data: RsfData): Uint8Array {
     off += 2;
     out.set(timezoneBytes!, off);
     off += timezoneBytes!.length;
+  }
+  if (hasDisplayLanguage) {
+    // Version-7 display language. Written only when it differs from "en", so
+    // a document using the default language (including every pre-existing
+    // document) stays a version-6-or-lower body.
+    view.setUint16(off, displayLanguageBytes!.length, true);
+    off += 2;
+    out.set(displayLanguageBytes!, off);
+    off += displayLanguageBytes!.length;
   }
   view.setUint16(off, name.length, true);
   off += 2;
@@ -752,6 +809,17 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     }
     timezone = readTz;
   }
+  // Version-7 workbook display language. Not validated here — that happens
+  // where it is consumed (`RsfDocument`), which falls back to `"en"` for an
+  // absent or unrecognized value rather than rejecting the whole file.
+  let displayLanguage: string | undefined;
+  if (bodyVersion >= 7) {
+    const readLang = readString();
+    if (readLang === null) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    displayLanguage = readLang;
+  }
   const name = readString();
   if (name === null) {
     return { ok: false, error: 'bad-shape' };
@@ -811,6 +879,9 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
   }
   if (timezone !== undefined) {
     data.timezone = timezone;
+  }
+  if (displayLanguage !== undefined) {
+    data.displayLanguage = displayLanguage;
   }
   if (bodyVersion >= 3) {
     // Validate the display block now that the sheet dimensions are known:
@@ -1100,9 +1171,10 @@ function pushString(bytes: number[], enc: TextEncoder, value: string, max: numbe
 }
 
 /**
- * Encode the workbook body (container version 4). Body version 2 adds the
- * workbook timezone, written only when it is not UTC; body version 1 is the
- * original layout.
+ * Encode the workbook body (container version 4). Body version 3 adds the
+ * workbook display language, written only when it is not English; body
+ * version 2 adds the workbook timezone, written only when it is not UTC;
+ * body version 1 is the original layout.
  */
 function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
   const enc = new TextEncoder();
@@ -1117,8 +1189,13 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
       bytes.push(b);
     }
   };
-  const hasTimezone = data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE;
-  bytes.push(hasTimezone ? 2 : 1);
+  const hasDisplayLanguage =
+    data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE;
+  // A display-language section forces the timezone section too — same
+  // prefix-chain rule as the single-sheet body above.
+  const hasTimezone =
+    hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
+  bytes.push(hasDisplayLanguage ? 3 : hasTimezone ? 2 : 1);
   bytes.push(data.delimiter.charCodeAt(0));
   pushString(bytes, enc, data.appName ?? '', MAX_META_LENGTH);
   pushString(bytes, enc, data.appVersion ?? '', MAX_META_LENGTH);
@@ -1127,7 +1204,10 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
   pushString(bytes, enc, data.docId ?? '', MAX_RSF_SHEET_NAME_BYTES);
   pushString(bytes, enc, data.activeSheetId ?? '', MAX_RSF_SHEET_NAME_BYTES);
   if (hasTimezone) {
-    pushString(bytes, enc, data.timezone!, MAX_META_LENGTH);
+    pushString(bytes, enc, data.timezone ?? DEFAULT_TIMEZONE, MAX_META_LENGTH);
+  }
+  if (hasDisplayLanguage) {
+    pushString(bytes, enc, data.displayLanguage!, MAX_META_LENGTH);
   }
   const sheets = data.sheets.slice(0, MAX_RSF_SHEETS);
   bytes.push(sheets.length & 0xff, (sheets.length >> 8) & 0xff);
@@ -1196,6 +1276,17 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
       return { ok: false, error: 'bad-shape' };
     }
     timezone = tz;
+  }
+  // Version-3 workbook display language. Not validated here — that happens
+  // where it is consumed (`RsfDocument`), which falls back to `"en"` for an
+  // absent or unrecognized value rather than rejecting the whole file.
+  let displayLanguage: string | undefined;
+  if (version >= 3) {
+    const lang = rd.str();
+    if (lang === null) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    displayLanguage = lang;
   }
   if (!rd.need(2)) {
     return { ok: false, error: 'bad-shape' };
@@ -1312,6 +1403,9 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
   if (timezone !== undefined && timezone !== '') {
     data.timezone = timezone;
   }
+  if (displayLanguage !== undefined && displayLanguage !== '') {
+    data.displayLanguage = displayLanguage;
+  }
   // An active-worksheet identifier that names no worksheet falls back to the
   // first one rather than leaving the workbook without an active worksheet.
   if (activeSheetId !== '' && seenIds.has(activeSheetId)) {
@@ -1350,6 +1444,9 @@ export function encodeRsfWorkbook(
     }
     if (data.timezone !== undefined) {
       single.timezone = data.timezone;
+    }
+    if (data.displayLanguage !== undefined) {
+      single.displayLanguage = data.displayLanguage;
     }
     if (only.display) {
       single.display = only.display;
@@ -1431,6 +1528,9 @@ export function decodeRsfWorkbook(bytes: Uint8Array): RsfWorkbookDecodeResult {
     }
     if (single.data.timezone !== undefined) {
       data.timezone = single.data.timezone;
+    }
+    if (single.data.displayLanguage !== undefined) {
+      data.displayLanguage = single.data.displayLanguage;
     }
     if (single.data.compression !== undefined) {
       data.compression = single.data.compression;

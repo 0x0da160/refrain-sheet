@@ -7,6 +7,7 @@
   "menu.view": "View",
   "menu.language": "Language / 言語",
   "menu.help": "Help",
+  "menu.mobileToggle": "Menu",
   "menu.file.new": "New Spreadsheet",
   "menu.file.open": "Open…",
   "menu.file.reopen": "Reopen with Encoding…",

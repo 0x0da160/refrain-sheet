@@ -182,6 +182,19 @@ export function todaySerial(nowMs: number): number {
 }
 
 /**
+ * Day of week for a serial: `0` (Sunday) … `6` (Saturday), or `null` when out
+ * of range. Used by `TEXT()`'s `ddd`/`dddd` format tokens
+ * (`formula-text-format.ts`); UTC, matching every other conversion here.
+ */
+export function weekdayOf(serial: number): number | null {
+  if (!isValidSerial(serial)) {
+    return null;
+  }
+  const days = Math.floor(serial);
+  return new Date(EPOCH_MS + days * MS_PER_DAY).getUTCDay();
+}
+
+/**
  * The current UTC date and time as a serial (`NOW()`), truncated to whole
  * seconds so two `NOW()` calls in the same recalculation agree.
  */

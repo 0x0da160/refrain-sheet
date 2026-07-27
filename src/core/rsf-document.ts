@@ -34,6 +34,7 @@ import { Worksheet } from './worksheet';
 import { APP_NAME, APP_VERSION } from '../app/version';
 import type { LosslessDocument } from './lossless-document';
 import { DEFAULT_TIMEZONE, isValidTimeZone, localTimeZone, timeZoneOffsetMs } from './timezone';
+import { DEFAULT_DISPLAY_LANGUAGE, isValidDisplayLanguage, type DisplayLanguageId } from './display-language';
 
 /**
  * Refrain Sheet Format (`.rsf`): a documented, versioned, binary container for
@@ -136,6 +137,20 @@ export class RsfDocument {
   private timezoneId: string;
 
   /**
+   * The workbook's stored display language (workbook-level, like
+   * {@link timezoneId}), read by `TEXT()`'s `ddd`/`dddd` weekday-name tokens
+   * (see `display-language.ts`). A new workbook defaults to whatever the
+   * caller passes at creation (the application's own current UI language, so
+   * a freshly created file matches what its author was looking at); a loaded
+   * workbook uses its stored value, or {@link DEFAULT_DISPLAY_LANGUAGE} when
+   * none is stored or the stored value is unrecognized (every file saved
+   * before this setting existed). Change it with {@link setDisplayLanguage},
+   * not by writing this field directly, so cached `TEXT()` results
+   * recalculate.
+   */
+  private displayLanguageId: DisplayLanguageId;
+
+  /**
    * Compression method for the next `.rsf` save (an `RSF_COMPRESSION_*` id),
    * or `undefined` to use the active codec's default (Zstandard). Set from the
    * container on load so a normal save preserves the file's method, and by the
@@ -208,6 +223,7 @@ export class RsfDocument {
     sheets: Worksheet[],
     docId?: string,
     timezone: string = localTimeZone(),
+    displayLanguage: DisplayLanguageId = DEFAULT_DISPLAY_LANGUAGE,
   ) {
     this.name = name;
     this.delimiter = delimiter;
@@ -219,12 +235,18 @@ export class RsfDocument {
     this.updatedAt = now;
     this.nextSheetSeq = sheets.length + 1;
     this.timezoneId = timezone;
+    this.displayLanguageId = displayLanguage;
   }
 
   // ----- Construction -----
 
   /** Create a workbook from the current values of a CSV document (explicit conversion). */
-  static fromLossless(doc: LosslessDocument, name: string, sheetName = DEFAULT_SHEET_NAME): RsfDocument {
+  static fromLossless(
+    doc: LosslessDocument,
+    name: string,
+    sheetName = DEFAULT_SHEET_NAME,
+    displayLanguage: DisplayLanguageId = DEFAULT_DISPLAY_LANGUAGE,
+  ): RsfDocument {
     const columnCount = Math.max(1, doc.columnCount);
     const rows: string[][] = [];
     for (let r = 0; r < doc.rowCount; r++) {
@@ -235,7 +257,14 @@ export class RsfDocument {
       }
       rows.push(row);
     }
-    return new RsfDocument(name, doc.delimiter, [Worksheet.fromValues('s1', sheetName, rows, columnCount)]);
+    return new RsfDocument(
+      name,
+      doc.delimiter,
+      [Worksheet.fromValues('s1', sheetName, rows, columnCount)],
+      undefined,
+      localTimeZone(),
+      displayLanguage,
+    );
   }
 
   /**
@@ -250,12 +279,33 @@ export class RsfDocument {
     rows: string[][],
     columnCount: number,
     sheetName = DEFAULT_SHEET_NAME,
+    displayLanguage: DisplayLanguageId = DEFAULT_DISPLAY_LANGUAGE,
   ): RsfDocument {
-    return new RsfDocument(name, delimiter, [Worksheet.fromValues('s1', sheetName, rows, columnCount)]);
+    return new RsfDocument(
+      name,
+      delimiter,
+      [Worksheet.fromValues('s1', sheetName, rows, columnCount)],
+      undefined,
+      localTimeZone(),
+      displayLanguage,
+    );
   }
 
-  static empty(name: string, rows = 1, cols = 1, sheetName = DEFAULT_SHEET_NAME): RsfDocument {
-    return new RsfDocument(name, ',', [Worksheet.empty('s1', sheetName, rows, cols)]);
+  static empty(
+    name: string,
+    rows = 1,
+    cols = 1,
+    sheetName = DEFAULT_SHEET_NAME,
+    displayLanguage: DisplayLanguageId = DEFAULT_DISPLAY_LANGUAGE,
+  ): RsfDocument {
+    return new RsfDocument(
+      name,
+      ',',
+      [Worksheet.empty('s1', sheetName, rows, cols)],
+      undefined,
+      localTimeZone(),
+      displayLanguage,
+    );
   }
 
   /**
@@ -268,8 +318,9 @@ export class RsfDocument {
     rows = NEW_DOC_ROWS,
     cols = NEW_DOC_COLS,
     sheetName = DEFAULT_SHEET_NAME,
+    displayLanguage: DisplayLanguageId = DEFAULT_DISPLAY_LANGUAGE,
   ): RsfDocument {
-    const doc = RsfDocument.empty(name, rows, cols, sheetName);
+    const doc = RsfDocument.empty(name, rows, cols, sheetName, displayLanguage);
     doc.markUnsaved();
     return doc;
   }
@@ -284,7 +335,11 @@ export class RsfDocument {
     const sheets = data.sheets.map((entry) => RsfDocument.buildWorksheet(entry));
     const timezone =
       data.timezone !== undefined && isValidTimeZone(data.timezone) ? data.timezone : DEFAULT_TIMEZONE;
-    const doc = new RsfDocument(name, data.delimiter, sheets, data.docId, timezone);
+    const displayLanguage =
+      data.displayLanguage !== undefined && isValidDisplayLanguage(data.displayLanguage)
+        ? data.displayLanguage
+        : DEFAULT_DISPLAY_LANGUAGE;
+    const doc = new RsfDocument(name, data.delimiter, sheets, data.docId, timezone, displayLanguage);
     doc.compressionMethod = data.compression;
     doc.loadedAsSingleSheet = data.legacySingleSheet === true;
     if (data.createdAt !== undefined) {
@@ -531,6 +586,28 @@ export class RsfDocument {
     this.recalculate();
   }
 
+  /** The workbook's stored display language, read by `TEXT()`'s `ddd`/`dddd` tokens (Sheet > Display language…). */
+  get displayLanguage(): DisplayLanguageId {
+    return this.displayLanguageId;
+  }
+
+  /**
+   * Change the workbook's display language and recompute every cached
+   * formula result against it — the same invalidation {@link recalculate}
+   * does, since a language change is exactly the kind of thing that moves
+   * what `TEXT()`'s `ddd`/`dddd` tokens report. The current value is a no-op.
+   * Like {@link setTimezone}, this changes no cell input, so it does not mark
+   * the document dirty; the new value is written into the container on the
+   * next save.
+   */
+  setDisplayLanguage(language: DisplayLanguageId): void {
+    if (language === this.displayLanguageId) {
+      return;
+    }
+    this.displayLanguageId = language;
+    this.recalculate();
+  }
+
   /**
    * Record the active worksheet's current view state to persist with the next
    * save (called by the save path with the tab's live zoom / column widths).
@@ -699,6 +776,7 @@ export class RsfDocument {
       docId: this.docId,
       activeSheetId: this.activeSheetId,
       timezone: this.timezoneId,
+      displayLanguage: this.displayLanguageId,
       sheets,
     };
     return encodeRsfWorkbook(payload, this.compressionMethod);
@@ -975,6 +1053,7 @@ export class RsfDocument {
       // ever reaches formula-date.ts, which does pure UTC math on whatever
       // instant it is handed — see that module's "Timezone policy".
       nowMs: this.clockMs + timeZoneOffsetMs(this.clockMs, this.timezoneId),
+      displayLanguage: this.displayLanguageId,
     };
     this.evalContexts.set(sheet.id, ctx);
     return ctx;

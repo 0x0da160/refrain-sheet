@@ -282,7 +282,8 @@ export class RsfDocument {
     }
     const data = decoded.data;
     const sheets = data.sheets.map((entry) => RsfDocument.buildWorksheet(entry));
-    const timezone = data.timezone !== undefined && isValidTimeZone(data.timezone) ? data.timezone : DEFAULT_TIMEZONE;
+    const timezone =
+      data.timezone !== undefined && isValidTimeZone(data.timezone) ? data.timezone : DEFAULT_TIMEZONE;
     const doc = new RsfDocument(name, data.delimiter, sheets, data.docId, timezone);
     doc.compressionMethod = data.compression;
     doc.loadedAsSingleSheet = data.legacySingleSheet === true;

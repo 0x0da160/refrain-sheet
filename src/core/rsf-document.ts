@@ -6,6 +6,7 @@ import {
   errorValue,
   formatValue,
   isFormula,
+  isValidSheetName,
   literalToValue,
   sheetNameKey,
   type EvalContext,
@@ -289,6 +290,32 @@ export class RsfDocument {
       localTimeZone(),
       displayLanguage,
     );
+  }
+
+  /**
+   * Create a multi-worksheet workbook from prebuilt per-sheet row-major
+   * values, one worksheet per input sheet, in order. Used by `.xlsx` import,
+   * where a workbook natively holds several sheets (unlike CSV, which
+   * {@link fromValues} builds as a single sheet). Names are sanitized and
+   * de-duplicated exactly like {@link uniqueSheetName}, since an untrusted
+   * `.xlsx` file could carry invalid or duplicate sheet names.
+   */
+  static fromSheetValues(
+    name: string,
+    sheets: { name: string; rows: string[][]; columnCount: number }[],
+    displayLanguage: DisplayLanguageId = DEFAULT_DISPLAY_LANGUAGE,
+  ): RsfDocument {
+    const taken = new Set<string>();
+    const worksheets = sheets.slice(0, MAX_WORKSHEETS).map((sheet, i) => {
+      const base = isValidSheetName(sheet.name) ? sheet.name.trim() : `Sheet${i + 1}`;
+      let candidate = base;
+      for (let n = 2; taken.has(sheetNameKey(candidate)); n++) {
+        candidate = `${base} (${n})`;
+      }
+      taken.add(sheetNameKey(candidate));
+      return Worksheet.fromValues(`s${i + 1}`, candidate, sheet.rows, sheet.columnCount);
+    });
+    return new RsfDocument(name, ',', worksheets, undefined, localTimeZone(), displayLanguage);
   }
 
   static empty(

@@ -62,6 +62,7 @@
   "welcome.open": "Open CSV / RSF File…",
   "welcome.new": "New RSF Spreadsheet",
   "welcome.drop": "…or drag and drop CSV / RSF files anywhere in this window — each file opens in its own tab.",
+  "welcome.offline": "Runs fully offline from this single local HTML file: files are opened from and saved to your device, nothing is uploaded, and no network access is needed. Language, spreadsheet font, zoom, editing-help tooltips, and the file-size limit are kept in your browser's local settings.",
   "grid.selectAllCorner": "Select all cells",
   "grid.loadMore": "Showing {shown} of {total} rows — scroll down to load more",
   "grid.filterButton": "Filter column {letter}",

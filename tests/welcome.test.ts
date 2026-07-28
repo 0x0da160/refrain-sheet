@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { t } from '../src/app/i18n';
+import { APP_VERSION_DISPLAY } from '../src/app/version';
 import { FormulaBar } from '../src/ui/formula-bar';
 import { StatusBar } from '../src/ui/status-bar';
 import { WelcomeScreen } from '../src/ui/welcome-screen';
@@ -65,7 +66,7 @@ beforeEach(() => {
 });
 
 describe('welcome screen (initial screen)', () => {
-  it('is shown on first launch with localized entry points and offline guidance', () => {
+  it('is shown on first launch with localized entry points and the app version in the footer', () => {
     const { welcome } = setup();
     expect(welcome.element.hidden).toBe(false);
     const buttons = welcome.element.querySelectorAll<HTMLButtonElement>('.welcome-action');
@@ -73,7 +74,9 @@ describe('welcome screen (initial screen)', () => {
     expect(buttons[0].textContent).toBe(t('welcome.open'));
     expect(buttons[1].textContent).toBe(t('welcome.new'));
     expect(welcome.element.querySelector('.welcome-drop')!.textContent).toBe(t('welcome.drop'));
-    expect(welcome.element.querySelector('.welcome-note')!.textContent).toBe(t('welcome.offline'));
+    expect(welcome.element.querySelector('.welcome-note')!.textContent).toBe(
+      t('dialog.about.version', { version: APP_VERSION_DISPLAY }),
+    );
   });
 
   it('the New Spreadsheet entry point creates a document and hides the screen', () => {

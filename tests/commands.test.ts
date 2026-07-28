@@ -8,6 +8,7 @@ import type { OpenedFile } from '../src/app/file-access';
 import { compileQuery } from '../src/core/search';
 import { decodeBytes } from '../src/core/encoding';
 import { encodeRsf, RSF_LEGACY_CONTAINER_VERSION, RSF_LEGACY_MAGIC } from '../src/core/rsf-codec';
+import { buildXlsxExport, type XlsxSheetInput } from '../src/core/xlsx-export';
 import { asCsv, enc, utf8 } from './helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
@@ -452,6 +453,40 @@ describe('opening files by format', () => {
     expect(tab.doc.isDirty).toBe(true);
     const notes = (ui.notify as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
     expect(notes.some((n) => typeof n === 'string' && n.includes('old.rsf'))).toBe(true);
+  });
+
+  it('imports a .xlsx workbook as a new .rsf tab (never the .xlsx as a save target)', async () => {
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    const sheets: XlsxSheetInput[] = [
+      { name: 'Alpha', rows: [['a', 'b']] },
+      { name: 'Beta', rows: [['c']] },
+    ];
+    const bytes = buildXlsxExport(sheets);
+    await commands.openFiles([opened('book.xlsx', bytes)], { confirmNonCsv: true });
+    const tab = state.activeTab!;
+    expect(tab.doc.kind).toBe('rsf');
+    expect(tab.name).toBe('book.rsf');
+    expect(tab.handle).toBeNull();
+    expect(tab.doc.isDirty).toBe(true);
+    expect(ui.confirm).not.toHaveBeenCalled(); // the "not a CSV" prompt must not fire for .xlsx
+    if (tab.doc.kind === 'rsf') {
+      expect(tab.doc.sheets.map((s) => s.name)).toEqual(['Alpha', 'Beta']);
+      expect(tab.doc.getSheetDisplayValue(tab.doc.sheets[0].id, 0, 0)).toBe('a');
+    }
+    const notes = (ui.notify as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
+    expect(notes.some((n) => typeof n === 'string' && n.includes('book.rsf'))).toBe(true);
+  });
+
+  it('reports an unreadable .xlsx without creating a tab', async () => {
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    await commands.openFiles([opened('broken.xlsx', utf8('not actually a zip'))], { confirmNonCsv: false });
+    expect(state.tabs).toHaveLength(0);
+    expect(ui.showMessage).toHaveBeenCalledWith(
+      expect.stringContaining('XLSX'),
+      expect.stringContaining('broken.xlsx'),
+    );
   });
 });
 

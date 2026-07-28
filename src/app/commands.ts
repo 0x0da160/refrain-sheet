@@ -58,6 +58,7 @@ import {
   type UnrepresentableCell,
 } from '../core/serializer';
 import { validateDocument, type ValidationSummary } from '../core/validation';
+import { parseXlsxWorkbook, type XlsxImportError } from '../core/xlsx-import';
 import { buildXlsxExport, type XlsxSheetInput } from '../core/xlsx-export';
 import { AppState, defaultSheetName, type Selection, type SelectionKind, type Tab } from './app-state';
 import {
@@ -402,6 +403,7 @@ export type CommandId =
   | 'help.about';
 
 const CSV_LIKE_EXTENSIONS = ['.csv', '.tsv', '.txt', RSF_EXTENSION, RSF_LEGACY_EXTENSION];
+const XLSX_EXTENSION = '.xlsx';
 
 /**
  * Cell-count threshold above which an operation counts as "large": its
@@ -927,6 +929,11 @@ export class Commands {
       return;
     }
 
+    if (lowerName.endsWith(XLSX_EXTENSION)) {
+      await this.openXlsxFile(file);
+      return;
+    }
+
     if (opts.confirmNonCsv) {
       const lower = file.name.toLowerCase();
       if (!CSV_LIKE_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
@@ -1031,6 +1038,40 @@ export class Commands {
       this.state.emit('doc');
       this.ui.notify(t('notify.rsfMigrated', { name }), 'info');
     }
+  }
+
+  /**
+   * Import a `.xlsx` workbook: always a new `.rsf` tab, never a matching
+   * handle, since an `.xlsx` file is never the save target for the resulting
+   * document (mirrors the legacy `.rcsv` migration above). Only calculated
+   * display values are read — no formulas, styles, or column widths —
+   * matching the documented lossy scope of `.xlsx` export.
+   */
+  private async openXlsxFile(file: OpenedFile): Promise<void> {
+    const result = await this.withBusy(t('loading.opening', { name: file.name }), async () => {
+      await initCsvEngine(); // reading DEFLATE-compressed ZIP entries needs the WASM codec
+      return parseXlsxWorkbook(file.bytes);
+    });
+    if (!result.ok) {
+      const reasonKey: Record<XlsxImportError, string> = {
+        'not-a-zip': 'dialog.xlsxInvalid.notAZip',
+        'missing-workbook': 'dialog.xlsxInvalid.missingWorkbook',
+        'no-sheets': 'dialog.xlsxInvalid.noSheets',
+        'corrupt-entry': 'dialog.xlsxInvalid.corruptEntry',
+        'too-large': 'dialog.xlsxInvalid.tooLarge',
+      };
+      await this.ui.showMessage(
+        t('dialog.xlsxInvalid.title'),
+        t('dialog.xlsxInvalid.message', { name: file.name, reason: t(reasonKey[result.error]) }),
+      );
+      return;
+    }
+    const name = `${file.name.slice(0, -XLSX_EXTENSION.length)}${RSF_EXTENSION}`;
+    const doc = RsfDocument.fromSheetValues(name, result.sheets, getLocale());
+    doc.markUnsaved();
+    const tab = this.state.addTab(name, doc, null);
+    tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
+    this.ui.notify(t('notify.xlsxImported', { name }), 'info');
   }
 
   private async findExistingTab(file: OpenedFile): Promise<Tab | null> {

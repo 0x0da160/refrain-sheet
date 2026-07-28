@@ -80,8 +80,10 @@ export async function pickFiles(doc: Document, maxSize: number): Promise<OpenedF
     input.type = 'file';
     input.multiple = true;
     // `.rsf` is the current spreadsheet format; `.rcsv` is the legacy name,
-    // still accepted so existing files open (then re-save as `.rsf`).
-    input.accept = '.csv,.tsv,.txt,.rsf,.rcsv,text/csv,text/tab-separated-values,text/plain,application/json';
+    // still accepted so existing files open (then re-save as `.rsf`). `.xlsx`
+    // imports as a new `.rsf` tab (see `Commands.openXlsxFile`).
+    input.accept =
+      '.csv,.tsv,.txt,.rsf,.rcsv,.xlsx,text/csv,text/tab-separated-values,text/plain,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     input.style.display = 'none';
     input.addEventListener('change', () => {
       const files = Array.from(input.files ?? []);

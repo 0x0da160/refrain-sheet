@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { AppState, Tab } from '../app/app-state';
 import { t } from '../app/i18n';
+import { APP_VERSION_DISPLAY } from '../app/version';
 import { getRsfCodec } from '../core/csv-engine';
 import { rsfMethodKey } from '../core/rsf-codec';
 import { forEachIndexSliced } from '../core/scheduler';
@@ -55,7 +56,7 @@ export class StatusBar {
     clearChildren(this.element);
     const tab = this.state.activeTab;
     if (!tab) {
-      this.element.append(el('span', { text: t('app.subtitle') }));
+      this.element.append(el('span', { text: t('dialog.about.version', { version: APP_VERSION_DISPLAY }) }));
       return;
     }
     const doc = tab.doc;

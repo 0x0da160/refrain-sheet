@@ -2,6 +2,7 @@
 import { t } from '../app/i18n';
 import { functionCompletions, type FunctionInfo } from '../core/formula';
 import { el } from './dom';
+import { positionPopup } from './popup';
 
 /** A text field that can hold a formula: the formula bar or an inline cell editor. */
 export type FormulaField = HTMLInputElement | HTMLTextAreaElement;
@@ -25,6 +26,7 @@ export class FormulaAutocomplete {
   /** The [start, end) range of the identifier word being completed. */
   private wordSpan: [number, number] | null = null;
   private readonly idBase: string;
+  private readonly offListeners: Array<() => void> = [];
 
   /**
    * @param field    The formula text field to complete.
@@ -46,6 +48,17 @@ export class FormulaAutocomplete {
     });
     if (floating) {
       this.popup.classList.add('floating');
+      // The popup is `position: fixed`, so it must be re-clamped into the
+      // viewport whenever the field it floats over could have moved.
+      const reposition = (): void => this.reposition();
+      window.addEventListener('resize', reposition);
+      globalThis.visualViewport?.addEventListener('resize', reposition);
+      document.addEventListener('scroll', reposition, true);
+      this.offListeners.push(() => {
+        window.removeEventListener('resize', reposition);
+        globalThis.visualViewport?.removeEventListener('resize', reposition);
+        document.removeEventListener('scroll', reposition, true);
+      });
     }
     parent.append(this.popup);
     field.setAttribute('role', 'combobox');
@@ -126,6 +139,10 @@ export class FormulaAutocomplete {
     this.field.removeAttribute('aria-autocomplete');
     this.field.removeAttribute('aria-expanded');
     this.field.removeAttribute('aria-controls');
+    for (const off of this.offListeners) {
+      off();
+    }
+    this.offListeners.length = 0;
   }
 
   private render(): void {
@@ -150,15 +167,25 @@ export class FormulaAutocomplete {
       });
       this.popup.append(item);
     });
-    if (this.floating) {
-      const rect = this.field.getBoundingClientRect();
-      this.popup.style.left = `${rect.left}px`;
-      this.popup.style.top = `${rect.bottom}px`;
-    }
     this.popup.hidden = false;
+    // Measuring must happen after the popup is unhidden and mounted.
+    this.reposition();
     this.popup.setAttribute('aria-label', t('formulaBar.autocompleteLabel'));
     this.field.setAttribute('aria-expanded', 'true');
     this.field.setAttribute('aria-activedescendant', `${this.idBase}-opt-${this.active}`);
+  }
+
+  /**
+   * Re-clamp the floating popup into the viewport, anchored below the field's
+   * current rect. Shared with `render()` and the resize/scroll listeners
+   * above, so the popup never drifts off-screen. A no-op for the in-flow
+   * (non-floating) popup, whose stylesheet placement needs no JS clamping.
+   */
+  private reposition(): void {
+    if (!this.floating || this.popup.hidden) {
+      return;
+    }
+    positionPopup(this.popup, { kind: 'below', rect: this.field.getBoundingClientRect() });
   }
 
   private move(delta: number): void {

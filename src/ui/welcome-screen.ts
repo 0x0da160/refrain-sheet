@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
-import { APP_VERSION_DISPLAY } from '../app/version';
 import { createAppIcon } from './app-icon';
 import { el, clearChildren } from './dom';
 
@@ -9,10 +8,10 @@ import { el, clearChildren } from './dom';
  * The initial screen: shown on first launch and restored whenever the last
  * document tab is closed, so the application never sits on an empty tab strip
  * or a blank grid. It offers the primary entry points — open a file, create a
- * new RSF spreadsheet, drag & drop — plus the app version in the footer.
- * Application-level preferences (language, sheet font, file-size limit) live
- * outside the tab lifecycle and are unaffected; the screen simply re-renders
- * in the active locale.
+ * new RSF spreadsheet, drag & drop — plus short offline / local-file usage
+ * guidance. Application-level preferences (language, sheet font, file-size
+ * limit) live outside the tab lifecycle and are unaffected; the screen simply
+ * re-renders in the active locale.
  */
 export class WelcomeScreen {
   readonly element: HTMLElement;
@@ -52,10 +51,7 @@ export class WelcomeScreen {
       el('p', { className: 'welcome-subtitle', text: t('app.subtitle') }),
       el('div', { className: 'welcome-actions' }, [open, create]),
       el('p', { className: 'welcome-drop', text: t('welcome.drop') }),
-      el('p', {
-        className: 'welcome-note',
-        text: t('dialog.about.version', { version: APP_VERSION_DISPLAY }),
-      }),
+      el('p', { className: 'welcome-note', text: t('welcome.offline') }),
     );
   }
 }

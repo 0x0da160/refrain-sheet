@@ -66,7 +66,7 @@ beforeEach(() => {
 });
 
 describe('welcome screen (initial screen)', () => {
-  it('is shown on first launch with localized entry points and the app version in the footer', () => {
+  it('is shown on first launch with localized entry points and offline guidance', () => {
     const { welcome } = setup();
     expect(welcome.element.hidden).toBe(false);
     const buttons = welcome.element.querySelectorAll<HTMLButtonElement>('.welcome-action');
@@ -74,9 +74,7 @@ describe('welcome screen (initial screen)', () => {
     expect(buttons[0].textContent).toBe(t('welcome.open'));
     expect(buttons[1].textContent).toBe(t('welcome.new'));
     expect(welcome.element.querySelector('.welcome-drop')!.textContent).toBe(t('welcome.drop'));
-    expect(welcome.element.querySelector('.welcome-note')!.textContent).toBe(
-      t('dialog.about.version', { version: APP_VERSION_DISPLAY }),
-    );
+    expect(welcome.element.querySelector('.welcome-note')!.textContent).toBe(t('welcome.offline'));
   });
 
   it('the New Spreadsheet entry point creates a document and hides the screen', () => {
@@ -154,8 +152,8 @@ describe('welcome screen (initial screen)', () => {
     // Document-specific info is present while the tab is open.
     expect(statusBar.element.textContent).toContain(t('status.encoding'));
     await commands.closeTab(tab);
-    // No encoding/selection/dirty info remains; only the app subtitle.
-    expect(statusBar.element.textContent).toBe(t('app.subtitle'));
+    // No encoding/selection/dirty info remains; only the app version.
+    expect(statusBar.element.textContent).toBe(t('dialog.about.version', { version: APP_VERSION_DISPLAY }));
     const textarea = formulaBar.element.querySelector('textarea')!;
     expect(textarea.value).toBe('');
     expect(textarea.disabled).toBe(true);

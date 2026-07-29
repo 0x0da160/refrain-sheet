@@ -2569,7 +2569,12 @@ export class Grid {
     if (!tab || this.editor) {
       return;
     }
-    if (event.ctrlKey || event.metaKey || event.altKey) {
+    const mod = event.ctrlKey || event.metaKey;
+    // Every Ctrl/Cmd combination is left to the application shortcut layer
+    // (`app/shortcuts.ts`) except Ctrl+Home / Ctrl+End, which are grid
+    // navigation (jump to A1 / the last used cell) and so belong here
+    // alongside the other navigation keys below.
+    if (event.altKey || (mod && event.key !== 'Home' && event.key !== 'End')) {
       return;
     }
     // A composition keystroke never navigates, commits, or runs a shortcut.
@@ -2611,11 +2616,15 @@ export class Grid {
         return;
       case 'Home':
         event.preventDefault();
-        this.moveSelection(tab, 0, -Number.MAX_SAFE_INTEGER, extend);
+        // Ctrl/Cmd+Home jumps to A1; plain Home only moves to column A of the
+        // current row.
+        this.moveSelection(tab, mod ? -Number.MAX_SAFE_INTEGER : 0, -Number.MAX_SAFE_INTEGER, extend);
         return;
       case 'End':
         event.preventDefault();
-        this.moveSelection(tab, 0, Number.MAX_SAFE_INTEGER, extend);
+        // Ctrl/Cmd+End jumps to the last used cell; plain End only moves to
+        // the last field of the current row.
+        this.moveSelection(tab, mod ? Number.MAX_SAFE_INTEGER : 0, Number.MAX_SAFE_INTEGER, extend);
         return;
       case 'Enter':
         event.preventDefault();

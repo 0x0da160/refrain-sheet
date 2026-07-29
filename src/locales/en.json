@@ -656,5 +656,7 @@
   "shortcut.copy": "Copy selected range (tab-separated)",
   "shortcut.paste": "Paste at the active cell",
   "shortcut.selectAll": "Select all cells (only while the grid has focus)",
-  "shortcut.extendSelection": "Extend the selection range"
+  "shortcut.extendSelection": "Extend the selection range",
+  "shortcut.jumpToStart": "Jump to the first cell (A1)",
+  "shortcut.jumpToEnd": "Jump to the last used cell"
 }

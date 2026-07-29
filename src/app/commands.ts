@@ -3133,7 +3133,7 @@ export class Commands {
     const sheet = doc.activeSheet;
     const sheetId = sheet.id;
     const target = moveTarget(source, deltaRow, deltaCol);
-    const rejection = validateMove(sheet, source, target);
+    const rejection = validateMove(sheet, target);
     if (rejection === 'no-op') {
       return false;
     }

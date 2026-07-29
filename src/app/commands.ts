@@ -68,7 +68,6 @@ import {
   saveBytes,
   saveBytesAs,
   type OpenedFile,
-  type SaveOutcome,
 } from './file-access';
 import { getLocale, setLocale, t, type LocaleId } from './i18n';
 import {
@@ -884,6 +883,51 @@ export class Commands {
     }
   }
 
+  /**
+   * Run one step of a save/export flow (acquiring a picker handle or
+   * writing the finished bytes), classifying a thrown error the way every
+   * save/export path must: a cancelled picker (`AbortError`) is a silent
+   * stop, anything else is reported via `notify.saveFailed`. Either way the
+   * caller gets `ok: false` and must stop without saving — the two cases
+   * are never distinguished further because both already leave the
+   * document and disk untouched.
+   */
+  private async runSaveStep<T>(work: () => Promise<T>): Promise<{ ok: true; value: T } | { ok: false }> {
+    try {
+      return { ok: true, value: await work() };
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return { ok: false };
+      }
+      this.ui.notify(
+        t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
+        'error',
+      );
+      return { ok: false };
+    }
+  }
+
+  /**
+   * Normalize a tab's name to the `.rsf` extension (sync, so a save picker
+   * shown immediately after suggests the right name) and acquire a save
+   * destination: the tab's existing handle, or a freshly requested one. A
+   * `null` handle is a legitimate outcome (the File System Access API is
+   * unavailable; the caller downloads instead) — only `ok: false` means the
+   * caller must stop.
+   */
+  private async acquireRsfHandle(
+    tab: Tab,
+  ): Promise<{ ok: true; handle: FileSystemFileHandle | null } | { ok: false }> {
+    if (!tab.name.toLowerCase().endsWith(RSF_EXTENSION)) {
+      tab.name = `${tab.name}${RSF_EXTENSION}`;
+    }
+    if (tab.handle) {
+      return { ok: true, handle: tab.handle };
+    }
+    const acquired = await this.runSaveStep(() => requestSaveHandle(tab.name, 'rsf'));
+    return acquired.ok ? { ok: true, handle: acquired.value } : acquired;
+  }
+
   /** Open picked or dropped files. Every entry point (menu, shortcut, drop) funnels through here. */
   async openFiles(files: OpenedFile[], opts: { confirmNonCsv: boolean }): Promise<void> {
     for (const file of files) {
@@ -1134,33 +1178,16 @@ export class Commands {
     if (doc.kind !== 'rsf') {
       return;
     }
-    // Normalize the extension first (sync) so the picker suggests the right name.
-    if (!tab.name.toLowerCase().endsWith(RSF_EXTENSION)) {
-      tab.name = `${tab.name}${RSF_EXTENSION}`;
+    // Acquire the destination NOW — synchronously up to the picker call,
+    // before the async engine init, the compression dialog, and the
+    // compression itself — so the browser's user activation (required by
+    // showSaveFilePicker) is still valid. Picker cancelled: no compression
+    // change, no save, no association.
+    const acquired = await this.acquireRsfHandle(tab);
+    if (!acquired.ok) {
+      return;
     }
-    // A document with no associated file needs a destination. Open the save
-    // picker NOW — synchronously, before the async engine init, the
-    // compression dialog, and the compression itself — so the browser's user
-    // activation (required by showSaveFilePicker) is still valid. Only the
-    // call must be in the gesture; awaiting the result immediately is fine.
-    // When the File System Access API is unavailable this resolves to null and
-    // the completed bytes are downloaded instead.
-    let handle = tab.handle;
-    if (!handle) {
-      try {
-        handle = await requestSaveHandle(tab.name, 'rsf');
-      } catch (err) {
-        // Picker cancelled: no compression change, no save, no association.
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          return;
-        }
-        this.ui.notify(
-          t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
-          'error',
-        );
-        return;
-      }
-    }
+    const handle = acquired.handle;
     // The codec only reports its real writable methods once the WASM engine is
     // instantiated; without it, only the uncompressed store method is offered.
     await initCsvEngine();
@@ -1219,19 +1246,11 @@ export class Commands {
       ncrReports = result.ncrReplacements;
     }
 
-    let outcome: SaveOutcome;
-    try {
-      outcome = await saveBytes(this.dom, tab.name, result.bytes, tab.handle);
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        return false;
-      }
-      this.ui.notify(
-        t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
-        'error',
-      );
+    const written = await this.runSaveStep(() => saveBytes(this.dom, tab.name, result.bytes, tab.handle));
+    if (!written.ok) {
       return false;
     }
+    const outcome = written.value;
 
     if (outcome.fellBack) {
       this.ui.notify(t('notify.permissionDenied'), 'warn');
@@ -1269,30 +1288,16 @@ export class Commands {
     if (tab.doc.kind !== 'rsf') {
       return false;
     }
-    // Normalize the extension first (sync) so the picker suggests the .rsf name.
-    if (!tab.name.toLowerCase().endsWith(RSF_EXTENSION)) {
-      tab.name = `${tab.name}${RSF_EXTENSION}`;
-    }
     // Acquire the destination up front, inside the user gesture. `handle` is
     // null when the File System Access API is unavailable (the finished bytes
     // are then downloaded); the picker call itself must precede every await.
-    let handle = tab.handle;
-    if (!handle) {
-      try {
-        handle = await requestSaveHandle(tab.name, 'rsf');
-      } catch (err) {
-        // Picker cancelled: nothing is saved, the file association is
-        // untouched, the document stays dirty, and no success is reported.
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          return false;
-        }
-        this.ui.notify(
-          t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
-          'error',
-        );
-        return false;
-      }
+    // Picker cancelled: nothing is saved, the file association is untouched,
+    // the document stays dirty, and no success is reported.
+    const acquired = await this.acquireRsfHandle(tab);
+    if (!acquired.ok) {
+      return false;
     }
+    const handle = acquired.handle;
     // One-time explanation that a spreadsheet is written in the .rsf format.
     if (!tab.rsfSaveExplained) {
       const proceed = await this.ui.explainRsfSave(tab.name);
@@ -1355,21 +1360,13 @@ export class Commands {
     if (bytes === null) {
       return false;
     }
-    let outcome: SaveOutcome;
-    try {
-      // The handle was already acquired inside the gesture; `saveBytes`
-      // overwrites through it or, with no handle, produces a download.
-      outcome = await saveBytes(this.dom, tab.name, bytes, handle);
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        return false;
-      }
-      this.ui.notify(
-        t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
-        'error',
-      );
+    // The handle was already acquired inside the gesture; `saveBytes`
+    // overwrites through it or, with no handle, produces a download.
+    const written = await this.runSaveStep(() => saveBytes(this.dom, tab.name, bytes, handle));
+    if (!written.ok) {
       return false;
     }
+    const outcome = written.value;
     if (outcome.fellBack) {
       this.ui.notify(t('notify.permissionDenied'), 'warn');
     }
@@ -1473,28 +1470,21 @@ export class Commands {
     }
     const rows = scan.rows;
     const bytes = await this.withBusy(label, () => buildCsvExportBytes(rows, doc.delimiter, options));
-    try {
-      const outcome = await saveBytesAs(this.dom, name, bytes, 'csv');
-      this.ui.notify(
-        outcome.mode === 'overwrite'
-          ? t('notify.exportedCsv', { name })
-          : t('notify.exportedCsvDownload', { name: outcome.downloadName ?? name }),
-        'info',
-      );
-      if (ncrReports.length > 0) {
-        await this.ui.notifyNcr(ncrReports);
-      }
-      return true;
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        return false;
-      }
-      this.ui.notify(
-        t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
-        'error',
-      );
+    const written = await this.runSaveStep(() => saveBytesAs(this.dom, name, bytes, 'csv'));
+    if (!written.ok) {
       return false;
     }
+    const outcome = written.value;
+    this.ui.notify(
+      outcome.mode === 'overwrite'
+        ? t('notify.exportedCsv', { name })
+        : t('notify.exportedCsvDownload', { name: outcome.downloadName ?? name }),
+      'info',
+    );
+    if (ncrReports.length > 0) {
+      await this.ui.notifyNcr(ncrReports);
+    }
+    return true;
   }
 
   /**
@@ -1570,25 +1560,18 @@ export class Commands {
       return false;
     }
     const bytes = await this.withBusy(label, () => buildXlsxExport(sheets));
-    try {
-      const outcome = await saveBytesAs(this.dom, name, bytes, 'xlsx');
-      this.ui.notify(
-        outcome.mode === 'overwrite'
-          ? t('notify.exportedXlsx', { name })
-          : t('notify.exportedXlsxDownload', { name: outcome.downloadName ?? name }),
-        'info',
-      );
-      return true;
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        return false;
-      }
-      this.ui.notify(
-        t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
-        'error',
-      );
+    const written = await this.runSaveStep(() => saveBytesAs(this.dom, name, bytes, 'xlsx'));
+    if (!written.ok) {
       return false;
     }
+    const outcome = written.value;
+    this.ui.notify(
+      outcome.mode === 'overwrite'
+        ? t('notify.exportedXlsx', { name })
+        : t('notify.exportedXlsxDownload', { name: outcome.downloadName ?? name }),
+      'info',
+    );
+    return true;
   }
 
   async closeTab(tab: Tab): Promise<void> {

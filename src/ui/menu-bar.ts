@@ -542,7 +542,9 @@ export class MenuBar {
     menuIndex: number,
     nested: boolean,
   ): void {
-    const items = Array.from(list.querySelectorAll<HTMLButtonElement>('.menu-item'));
+    const items = Array.from(list.querySelectorAll<HTMLButtonElement>('.menu-item')).filter(
+      (item) => !item.disabled,
+    );
     const current = items.indexOf(button);
     const focusAt = (index: number): void => {
       const target = items[(index + items.length) % items.length];

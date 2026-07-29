@@ -49,6 +49,12 @@ Deliberate non-optimizations, and why:
   edit is bounded by the viewport, not the sheet. A precise dependency tracker
   would speed up dense cross-sheet graphs but risks correctness bugs in
   exchange for a case the lazy model already bounds.
+- **No WASM multi-threading (`SharedArrayBuffer`).** Rejected by design, not
+  merely deferred: `SharedArrayBuffer` requires cross-origin-isolation
+  (`COOP`/`COEP` response headers), which have no `file://` equivalent, so it
+  is structurally incompatible with this project's "open `index.html`
+  directly in a browser, no server required" invariant (`README.md`). See
+  Issue #54 (round-2 audit, Candidate 4) for the analysis that ruled this out.
 
 ## Reproducing the measurements
 

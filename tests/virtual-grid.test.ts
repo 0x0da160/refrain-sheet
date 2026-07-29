@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
-import { Grid, OVERSCAN_ROWS, ROW_HEIGHT, COL_WIDTH, MIN_COL_WIDTH } from '../src/ui/grid';
+import { Grid, OVERSCAN_ROWS, ROW_HEIGHT, COL_WIDTH, MIN_COL_WIDTH, ROW_HEAD_WIDTH } from '../src/ui/grid';
 import { doc } from './helpers';
 
 const noopUi: UiPort = {
@@ -248,6 +248,65 @@ describe('selection and keyboard interaction', () => {
     expect(tab.selection).toEqual({ row: 2, col: 1 });
   });
 
+  it('Ctrl+Home jumps to A1 and Ctrl+End jumps to the last used cell', () => {
+    const { grid, tab } = setup(bigCsv(20));
+    grid.element.focus();
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+    );
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }),
+    );
+    expect(tab.selection).toEqual({ row: 1, col: 1 });
+    const end = new KeyboardEvent('keydown', {
+      key: 'End',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    grid.element.dispatchEvent(end);
+    expect(tab.selection).toEqual({ row: 19, col: 3 });
+    expect(end.defaultPrevented).toBe(true);
+    const home = new KeyboardEvent('keydown', {
+      key: 'Home',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    grid.element.dispatchEvent(home);
+    expect(tab.selection).toEqual({ row: 0, col: 0 });
+    expect(home.defaultPrevented).toBe(true);
+  });
+
+  it('Ctrl+Shift+End extends the selection to the last used cell', () => {
+    const { state, grid, tab } = setup(bigCsv(20));
+    grid.element.focus();
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'End',
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(state.selectedRange(tab)).toEqual({ top: 0, left: 0, bottom: 19, right: 3 });
+  });
+
+  it('leaves plain Home/End moving within the current row, unaffected by Ctrl+Home/End', () => {
+    const { grid, tab } = setup(bigCsv(20));
+    grid.element.focus();
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+    );
+    grid.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+    expect(tab.selection).toEqual({ row: 1, col: 3 });
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }),
+    );
+    expect(tab.selection).toEqual({ row: 1, col: 0 });
+  });
+
   it('Escape cancels an edit without changing the value', () => {
     const { grid, tab } = setup(bigCsv(20));
     grid.openEditor(tab, 0, 0, null);
@@ -319,5 +378,38 @@ describe('column resizing', () => {
     // jsdom does no layout, so scrollWidth is 0 and auto-fit lands on the minimum.
     handleFor(grid, 1).dispatchEvent(new MouseEvent('dblclick', { bubbles: true, button: 0 }));
     expect(tab.colWidths[1]).toBe(MIN_COL_WIDTH);
+  });
+
+  function canvasWidth(grid: Grid): number {
+    return parseInt(grid.element.querySelector<HTMLElement>('.vgrid-canvas')!.style.width, 10);
+  }
+
+  it('invalidates the cached column-offset total after a resize', () => {
+    const { grid, tab } = setup(bigCsv(10, 3));
+    const before = canvasWidth(grid);
+    handleFor(grid, 0).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 200 }));
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 260 }));
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    expect(tab.colWidths[0]).toBe(COL_WIDTH + 60);
+    // A stale cached prefix sum would keep reporting the pre-resize total.
+    expect(canvasWidth(grid)).toBe(before + 60);
+  });
+
+  it('invalidates the cached column-offset total after auto-fit', () => {
+    const { grid, tab } = setup(bigCsv(10, 3));
+    const before = canvasWidth(grid);
+    handleFor(grid, 1).dispatchEvent(new MouseEvent('dblclick', { bubbles: true, button: 0 }));
+    expect(tab.colWidths[1]).toBe(MIN_COL_WIDTH);
+    expect(canvasWidth(grid)).toBe(before - (COL_WIDTH - MIN_COL_WIDTH));
+  });
+
+  it('invalidates the cached column-offset total after a zoom change', () => {
+    const { state, grid, tab } = setup(bigCsv(10, 3));
+    const before = canvasWidth(grid);
+    state.setTabZoom(tab, 150);
+    grid.refresh();
+    // A stale cache would keep reporting the 100%-zoom total.
+    expect(canvasWidth(grid)).toBeGreaterThan(before);
+    expect(canvasWidth(grid)).toBe(Math.round(ROW_HEAD_WIDTH * 1.5) + Math.round(COL_WIDTH * 1.5) * 3);
   });
 });

@@ -508,6 +508,8 @@ otherwise collide use safe alternatives.
 | Find next / previous | Enter / Shift+Enter (in the Find bar)  |
 | Edit cell            | F2 (or start typing)                   |
 | Extend selection     | Shift+Arrows                           |
+| Jump to first cell   | Ctrl+Home / Cmd+Home                   |
+| Jump to last cell    | Ctrl+End / Cmd+End                     |
 | Cancel edit          | Esc                                    |
 
 The same table is shown in **Help > About / Keyboard Shortcuts**. Grid-editing

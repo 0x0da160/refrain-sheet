@@ -189,6 +189,44 @@ function textOf(arg: FnArg): { ok: true; s: string } | { ok: false; error: Formu
 }
 
 /**
+ * Read an optional numeric argument: `fallback` when the slot is absent or
+ * omitted (`FN(a,,c)`), the coerced number otherwise. `provided` distinguishes
+ * "defaulted" from "explicitly supplied", for callers where that changes
+ * behaviour beyond the numeric value itself (e.g. `INDEX`'s column axis).
+ */
+function optionalNumber(
+  args: readonly FnArg[],
+  index: number,
+  fallback: number,
+): { ok: true; n: number; provided: boolean } | { ok: false; error: FormulaValue } {
+  if (index >= args.length || args[index].isOmitted()) {
+    return { ok: true, n: fallback, provided: false };
+  }
+  const n = numberOf(args[index]);
+  return n.ok ? { ok: true, n: n.n, provided: true } : n;
+}
+
+/**
+ * Read an optional boolean argument: `fallback` when the slot is absent or
+ * omitted, the coerced boolean otherwise.
+ */
+function optionalBoolean(
+  args: readonly FnArg[],
+  index: number,
+  fallback: boolean,
+): { ok: true; b: boolean } | { ok: false; error: FormulaValue } {
+  if (index >= args.length || args[index].isOmitted()) {
+    return { ok: true, b: fallback };
+  }
+  const v = args[index].value();
+  if (v.type === 'error') {
+    return { ok: false, error: v };
+  }
+  const b = coerceToBoolean(v);
+  return b === null ? { ok: false, error: VALUE_ERR } : { ok: true, b };
+}
+
+/**
  * Collect the numeric contributions of one argument, preserving the engine's
  * long-standing split: **ranges and arrays** skip blanks and non-numeric text
  * (as conventional spreadsheets do), while a **scalar** argument must be
@@ -946,15 +984,11 @@ for (const [name, mode] of [
       if (!n.ok) {
         return n.error;
       }
-      let digits = 0;
-      if (args.length > 1 && !args[1].isOmitted()) {
-        const d = numberOf(args[1]);
-        if (!d.ok) {
-          return d.error;
-        }
-        digits = d.n;
+      const digits = optionalNumber(args, 1, 0);
+      if (!digits.ok) {
+        return digits.error;
       }
-      const result = roundTo(n.n, digits, mode);
+      const result = roundTo(n.n, digits.n, mode);
       return result === null ? NUM_ERR : numberValue(result);
     },
   });
@@ -1024,27 +1058,21 @@ def({
     }
     // Supported modes only; an unsupported one is refused rather than
     // silently downgraded to a different search.
-    let matchMode = 0;
-    if (args.length > 4 && !args[4].isOmitted()) {
-      const m = numberOf(args[4]);
-      if (!m.ok) {
-        return m.error;
-      }
-      matchMode = Math.trunc(m.n);
-      if (matchMode !== 0 && matchMode !== 2) {
-        return VALUE_ERR; // -1 / 1 (approximate) are not implemented
-      }
+    const matchModeArg = optionalNumber(args, 4, 0);
+    if (!matchModeArg.ok) {
+      return matchModeArg.error;
     }
-    let searchMode = 1;
-    if (args.length > 5 && !args[5].isOmitted()) {
-      const s = numberOf(args[5]);
-      if (!s.ok) {
-        return s.error;
-      }
-      searchMode = Math.trunc(s.n);
-      if (searchMode !== 1 && searchMode !== -1) {
-        return VALUE_ERR; // 2 / -2 (binary search) are not implemented
-      }
+    const matchMode = Math.trunc(matchModeArg.n);
+    if (matchMode !== 0 && matchMode !== 2) {
+      return VALUE_ERR; // -1 / 1 (approximate) are not implemented
+    }
+    const searchModeArg = optionalNumber(args, 5, 1);
+    if (!searchModeArg.ok) {
+      return searchModeArg.error;
+    }
+    const searchMode = Math.trunc(searchModeArg.n);
+    if (searchMode !== 1 && searchMode !== -1) {
+      return VALUE_ERR; // 2 / -2 (binary search) are not implemented
     }
     // The return array must line up with the lookup array along the search
     // axis; the other axis may be wider, which is what lets XLOOKUP return a
@@ -1091,18 +1119,11 @@ def({
       return REF_ERR;
     }
     // Approximate is the default, matching conventional spreadsheets.
-    let approximate = true;
-    if (args.length > 3 && !args[3].isOmitted()) {
-      const v = args[3].value();
-      if (v.type === 'error') {
-        return v;
-      }
-      const b = coerceToBoolean(v);
-      if (b === null) {
-        return VALUE_ERR;
-      }
-      approximate = b;
+    const approximateArg = optionalBoolean(args, 3, true);
+    if (!approximateArg.ok) {
+      return approximateArg.error;
     }
+    const approximate = approximateArg.b;
     const firstColumn: FormulaValue[] = [];
     for (let r = 0; r < table.grid.rows; r++) {
       firstColumn.push(table.grid.cells[r][0]);
@@ -1133,16 +1154,13 @@ def({
     if (!vector) {
       return VALUE_ERR;
     }
-    let matchType = 1;
-    if (args.length > 2 && !args[2].isOmitted()) {
-      const m = numberOf(args[2]);
-      if (!m.ok) {
-        return m.error;
-      }
-      matchType = Math.trunc(m.n);
-      if (matchType !== 0 && matchType !== 1 && matchType !== -1) {
-        return VALUE_ERR;
-      }
+    const matchTypeArg = optionalNumber(args, 2, 1);
+    if (!matchTypeArg.ok) {
+      return matchTypeArg.error;
+    }
+    const matchType = Math.trunc(matchTypeArg.n);
+    if (matchType !== 0 && matchType !== 1 && matchType !== -1) {
+      return VALUE_ERR;
     }
     const index =
       matchType === 0
@@ -1170,15 +1188,12 @@ def({
       return rowArg.error;
     }
     const first = Math.trunc(rowArg.n);
-    const hasCol = args.length > 2 && !args[2].isOmitted();
-    let second = 0;
-    if (hasCol) {
-      const colArg = numberOf(args[2]);
-      if (!colArg.ok) {
-        return colArg.error;
-      }
-      second = Math.trunc(colArg.n);
+    const colArg = optionalNumber(args, 2, 0);
+    if (!colArg.ok) {
+      return colArg.error;
     }
+    const hasCol = colArg.provided;
+    const second = Math.trunc(colArg.n);
     // A single row or column with one index selects along its own axis, which
     // is what makes the INDEX/MATCH idiom read naturally.
     if (!hasCol && (grid.rows === 1 || grid.cols === 1)) {
@@ -1222,16 +1237,13 @@ for (const name of ['LEFT', 'RIGHT'] as const) {
       if (!t.ok) {
         return t.error;
       }
-      let count = 1;
-      if (args.length > 1 && !args[1].isOmitted()) {
-        const n = numberOf(args[1]);
-        if (!n.ok) {
-          return n.error;
-        }
-        count = Math.trunc(n.n);
-        if (count < 0) {
-          return VALUE_ERR;
-        }
+      const countArg = optionalNumber(args, 1, 1);
+      if (!countArg.ok) {
+        return countArg.error;
+      }
+      const count = Math.trunc(countArg.n);
+      if (count < 0) {
+        return VALUE_ERR;
       }
       return textValue(name === 'LEFT' ? sliceCodePoints(t.s, 0, count) : lastCodePoints(t.s, count));
     },
@@ -1400,13 +1412,13 @@ def({
     if (!newText.ok) {
       return newText.error;
     }
+    const instanceArg = optionalNumber(args, 3, 0);
+    if (!instanceArg.ok) {
+      return instanceArg.error;
+    }
     let instance: number | undefined;
-    if (args.length > 3 && !args[3].isOmitted()) {
-      const n = numberOf(args[3]);
-      if (!n.ok) {
-        return n.error;
-      }
-      instance = Math.trunc(n.n);
+    if (instanceArg.provided) {
+      instance = Math.trunc(instanceArg.n);
       if (instance < 1) {
         return VALUE_ERR;
       }
@@ -1770,30 +1782,16 @@ def({
     if (!source.ok) {
       return source.error;
     }
-    let byColumn = false;
-    if (args.length > 1 && !args[1].isOmitted()) {
-      const v = args[1].value();
-      if (v.type === 'error') {
-        return v;
-      }
-      const b = coerceToBoolean(v);
-      if (b === null) {
-        return VALUE_ERR;
-      }
-      byColumn = b;
+    const byColumnArg = optionalBoolean(args, 1, false);
+    if (!byColumnArg.ok) {
+      return byColumnArg.error;
     }
-    let exactlyOnce = false;
-    if (args.length > 2 && !args[2].isOmitted()) {
-      const v = args[2].value();
-      if (v.type === 'error') {
-        return v;
-      }
-      const b = coerceToBoolean(v);
-      if (b === null) {
-        return VALUE_ERR;
-      }
-      exactlyOnce = b;
+    const byColumn = byColumnArg.b;
+    const exactlyOnceArg = optionalBoolean(args, 2, false);
+    if (!exactlyOnceArg.ok) {
+      return exactlyOnceArg.error;
     }
+    const exactlyOnce = exactlyOnceArg.b;
     const grid = source.grid;
     // Work on a list of "lines": rows by default, columns with by_column.
     const lines: FormulaValue[][] = byColumn
@@ -1853,30 +1851,19 @@ def({
     const grid = source.grid;
     const keys: Array<{ index: number; ascending: boolean }> = [];
     for (let i = 1; i < args.length; i += 2) {
-      let index = 1;
-      if (!args[i].isOmitted()) {
-        const n = numberOf(args[i]);
-        if (!n.ok) {
-          return n.error;
-        }
-        index = Math.trunc(n.n);
+      const indexArg = optionalNumber(args, i, 1);
+      if (!indexArg.ok) {
+        return indexArg.error;
       }
+      const index = Math.trunc(indexArg.n);
       if (index < 1 || index > grid.cols) {
         return VALUE_ERR;
       }
-      let ascending = true;
-      if (i + 1 < args.length && !args[i + 1].isOmitted()) {
-        const v = args[i + 1].value();
-        if (v.type === 'error') {
-          return v;
-        }
-        const b = coerceToBoolean(v);
-        if (b === null) {
-          return VALUE_ERR;
-        }
-        ascending = b;
+      const ascendingArg = optionalBoolean(args, i + 1, true);
+      if (!ascendingArg.ok) {
+        return ascendingArg.error;
       }
-      keys.push({ index, ascending });
+      keys.push({ index, ascending: ascendingArg.b });
     }
     if (keys.length === 0) {
       keys.push({ index: 1, ascending: true });
@@ -1908,31 +1895,26 @@ def({
   example: '=SEQUENCE(5, 2, 1, 1)',
   dynamic: true,
   call: (args) => {
-    const readInt = (index: number, fallback: number): number | FormulaValue => {
-      if (index >= args.length || args[index].isOmitted()) {
-        return fallback;
-      }
-      const n = numberOf(args[index]);
-      return n.ok ? n.n : n.error;
-    };
-    const rowsRaw = readInt(0, 1);
-    if (typeof rowsRaw !== 'number') {
-      return rowsRaw;
+    const rowsArg = optionalNumber(args, 0, 1);
+    if (!rowsArg.ok) {
+      return rowsArg.error;
     }
-    const colsRaw = readInt(1, 1);
-    if (typeof colsRaw !== 'number') {
-      return colsRaw;
+    const colsArg = optionalNumber(args, 1, 1);
+    if (!colsArg.ok) {
+      return colsArg.error;
     }
-    const start = readInt(2, 1);
-    if (typeof start !== 'number') {
-      return start;
+    const startArg = optionalNumber(args, 2, 1);
+    if (!startArg.ok) {
+      return startArg.error;
     }
-    const step = readInt(3, 1);
-    if (typeof step !== 'number') {
-      return step;
+    const stepArg = optionalNumber(args, 3, 1);
+    if (!stepArg.ok) {
+      return stepArg.error;
     }
-    const rows = Math.trunc(rowsRaw);
-    const cols = Math.trunc(colsRaw);
+    const start = startArg.n;
+    const step = stepArg.n;
+    const rows = Math.trunc(rowsArg.n);
+    const cols = Math.trunc(colsArg.n);
     if (rows < 1 || cols < 1) {
       return VALUE_ERR;
     }

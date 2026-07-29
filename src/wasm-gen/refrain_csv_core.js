@@ -19,20 +19,6 @@ function getStringFromWasm0(ptr, len) {
     return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
 }
 
-let cachedUint32ArrayMemory0 = null;
-
-function getUint32ArrayMemory0() {
-    if (cachedUint32ArrayMemory0 === null || cachedUint32ArrayMemory0.byteLength === 0) {
-        cachedUint32ArrayMemory0 = new Uint32Array(wasm.memory.buffer);
-    }
-    return cachedUint32ArrayMemory0;
-}
-
-function getArrayU32FromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
-}
-
 let WASM_VECTOR_LEN = 0;
 
 function passArray8ToWasm0(arg, malloc) {
@@ -68,15 +54,37 @@ export function sniffDelimiter(bytes) {
     return ret;
 }
 
+let cachedUint32ArrayMemory0 = null;
+
+function getUint32ArrayMemory0() {
+    if (cachedUint32ArrayMemory0 === null || cachedUint32ArrayMemory0.byteLength === 0) {
+        cachedUint32ArrayMemory0 = new Uint32Array(wasm.memory.buffer);
+    }
+    return cachedUint32ArrayMemory0;
+}
+
 function passArray32ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 4, 4) >>> 0;
     getUint32ArrayMemory0().set(arg, ptr / 4);
     WASM_VECTOR_LEN = arg.length;
     return ptr;
 }
+
+function takeFromExternrefTable0(idx) {
+    const value = wasm.__wbindgen_export_0.get(idx);
+    wasm.__externref_table_dealloc(idx);
+    return value;
+}
+
+function getArrayU32FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
+}
 /**
  * Serialization planning: ordered `[kind, a, b]` triples describing the
  * output as verbatim copies of the original bytes plus payload segments.
+ * Rejects (throws a JS error for) mismatched-length or out-of-bounds inputs
+ * instead of panicking; see `csv::plan_replacements`.
  * @param {number} bytes_len
  * @param {Uint32Array} ranges
  * @param {Uint32Array} payload_lens
@@ -88,9 +96,61 @@ export function planReplacements(bytes_len, ranges, payload_lens) {
     const ptr1 = passArray32ToWasm0(payload_lens, wasm.__wbindgen_malloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.planReplacements(bytes_len, ptr0, len0, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
     var v3 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
     return v3;
+}
+
+let cachedFloat64ArrayMemory0 = null;
+
+function getFloat64ArrayMemory0() {
+    if (cachedFloat64ArrayMemory0 === null || cachedFloat64ArrayMemory0.byteLength === 0) {
+        cachedFloat64ArrayMemory0 = new Float64Array(wasm.memory.buffer);
+    }
+    return cachedFloat64ArrayMemory0;
+}
+
+function passArrayF64ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 8, 8) >>> 0;
+    getFloat64ArrayMemory0().set(arg, ptr / 8);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function getArrayF64FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getFloat64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
+}
+/**
+ * Reduce finite numbers to `[sum, min, max]` for selection statistics.
+ * @param {Float64Array} values
+ * @returns {Float64Array}
+ */
+export function statsAggregate(values) {
+    const ptr0 = passArrayF64ToWasm0(values, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.statsAggregate(ptr0, len0);
+    var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v2;
+}
+
+/**
+ * Count non-overlapping occurrences of `needle` in `haystack` (literal search).
+ * @param {Uint8Array} haystack
+ * @param {Uint8Array} needle
+ * @returns {number}
+ */
+export function countLiteral(haystack, needle) {
+    const ptr0 = passArray8ToWasm0(haystack, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray8ToWasm0(needle, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ret = wasm.countLiteral(ptr0, len0, ptr1, len1);
+    return ret >>> 0;
 }
 
 function getArrayU8FromWasm0(ptr, len) {
@@ -99,7 +159,9 @@ function getArrayU8FromWasm0(ptr, len) {
 }
 /**
  * Apply byte-range replacements to the original bytes. Bytes outside the
- * replaced ranges are copied verbatim.
+ * replaced ranges are copied verbatim. Rejects (throws a JS error for)
+ * mismatched-length or out-of-bounds inputs instead of panicking; see
+ * `csv::apply_replacements`.
  * @param {Uint8Array} bytes
  * @param {Uint32Array} ranges
  * @param {Uint8Array} payload
@@ -116,6 +178,9 @@ export function applyReplacements(bytes, ranges, payload, payload_lens) {
     const ptr3 = passArray32ToWasm0(payload_lens, wasm.__wbindgen_malloc);
     const len3 = WASM_VECTOR_LEN;
     const ret = wasm.applyReplacements(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
     var v5 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v5;
@@ -231,55 +296,6 @@ export function rcsvCrc32(bytes) {
     return ret >>> 0;
 }
 
-let cachedFloat64ArrayMemory0 = null;
-
-function getFloat64ArrayMemory0() {
-    if (cachedFloat64ArrayMemory0 === null || cachedFloat64ArrayMemory0.byteLength === 0) {
-        cachedFloat64ArrayMemory0 = new Float64Array(wasm.memory.buffer);
-    }
-    return cachedFloat64ArrayMemory0;
-}
-
-function passArrayF64ToWasm0(arg, malloc) {
-    const ptr = malloc(arg.length * 8, 8) >>> 0;
-    getFloat64ArrayMemory0().set(arg, ptr / 8);
-    WASM_VECTOR_LEN = arg.length;
-    return ptr;
-}
-
-function getArrayF64FromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return getFloat64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
-}
-/**
- * Reduce finite numbers to `[sum, min, max]` for selection statistics.
- * @param {Float64Array} values
- * @returns {Float64Array}
- */
-export function statsAggregate(values) {
-    const ptr0 = passArrayF64ToWasm0(values, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.statsAggregate(ptr0, len0);
-    var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
-    return v2;
-}
-
-/**
- * Count non-overlapping occurrences of `needle` in `haystack` (literal search).
- * @param {Uint8Array} haystack
- * @param {Uint8Array} needle
- * @returns {number}
- */
-export function countLiteral(haystack, needle) {
-    const ptr0 = passArray8ToWasm0(haystack, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passArray8ToWasm0(needle, wasm.__wbindgen_malloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ret = wasm.countLiteral(ptr0, len0, ptr1, len1);
-    return ret >>> 0;
-}
-
 const ParseIndexFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_parseindex_free(ptr >>> 0, 1));
@@ -309,13 +325,48 @@ export class ParseIndex {
         wasm.__wbg_parseindex_free(ptr, 0);
     }
     /**
+     * @returns {number}
+     */
+    get bomLength() {
+        const ret = wasm.parseindex_bomLength(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
      * @returns {Uint32Array}
      */
-    get records() {
-        const ret = wasm.parseindex_records(this.__wbg_ptr);
+    get diagnostics() {
+        const ret = wasm.parseindex_diagnostics(this.__wbg_ptr);
         var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;
+    }
+    /**
+     * @returns {boolean}
+     */
+    get hasFinalNewline() {
+        const ret = wasm.parseindex_hasFinalNewline(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get cr() {
+        const ret = wasm.parseindex_cr(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get lf() {
+        const ret = wasm.parseindex_lf(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get crlf() {
+        const ret = wasm.parseindex_crlf(this.__wbg_ptr);
+        return ret >>> 0;
     }
     /**
      * @returns {Uint32Array}
@@ -329,46 +380,11 @@ export class ParseIndex {
     /**
      * @returns {Uint32Array}
      */
-    get diagnostics() {
-        const ret = wasm.parseindex_diagnostics(this.__wbg_ptr);
+    get records() {
+        const ret = wasm.parseindex_records(this.__wbg_ptr);
         var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;
-    }
-    /**
-     * @returns {number}
-     */
-    get crlf() {
-        const ret = wasm.parseindex_crlf(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @returns {number}
-     */
-    get lf() {
-        const ret = wasm.parseindex_lf(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @returns {number}
-     */
-    get cr() {
-        const ret = wasm.parseindex_cr(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @returns {boolean}
-     */
-    get hasFinalNewline() {
-        const ret = wasm.parseindex_hasFinalNewline(this.__wbg_ptr);
-        return ret !== 0;
-    }
-    /**
-     * @returns {number}
-     */
-    get bomLength() {
-        const ret = wasm.parseindex_bomLength(this.__wbg_ptr);
-        return ret >>> 0;
     }
 }
 
@@ -415,6 +431,10 @@ function __wbg_get_imports() {
         table.set(offset + 2, true);
         table.set(offset + 3, false);
         ;
+    };
+    imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
+        const ret = getStringFromWasm0(arg0, arg1);
+        return ret;
     };
     imports.wbg.__wbindgen_throw = function(arg0, arg1) {
         throw new Error(getStringFromWasm0(arg0, arg1));

@@ -304,6 +304,21 @@ pub fn parse(bytes: &[u8], delimiter: u8, treat_utf8_bom: bool) -> ParseOutput {
 pub const PLAN_COPY: u32 = 0;
 pub const PLAN_PAYLOAD: u32 = 1;
 
+/// Returned when `ranges`/`payload_lens` are internally inconsistent: their
+/// lengths disagree, a range doesn't satisfy `a <= b <= len`, or the payload
+/// buffer is shorter than the offsets computed from `payload_lens`. Callers
+/// today always construct matched arrays, so this should never fire in
+/// practice; it exists so a future caller bug becomes a recoverable error
+/// instead of an out-of-bounds panic (a WASM trap).
+#[derive(Debug)]
+pub struct ReplacementError;
+
+impl std::fmt::Display for ReplacementError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("invalid replacement ranges or payload lengths")
+    }
+}
+
 /// Serialization planning: given replacement ranges over the original bytes
 /// (`ranges` as `[start, end]` pairs) and the lengths of the replacement
 /// payloads, produce the ordered output plan as `[kind, a, b]` triples:
@@ -316,13 +331,31 @@ pub const PLAN_PAYLOAD: u32 = 1;
 /// unmodified regions are preserved byte-for-byte. Replacements are applied
 /// in order of their start offset (stable for equal starts, matching the
 /// TypeScript serializer).
-pub fn plan_replacements(bytes_len: u32, ranges: &[u32], payload_lens: &[u32]) -> Vec<u32> {
-    let n = ranges.len() / 2;
+///
+/// Returns `Err` when `ranges` and `payload_lens` disagree in length, a
+/// range doesn't satisfy `a <= b <= bytes_len`, or the payload offsets would
+/// overflow `u32`, rather than indexing with unvalidated input.
+pub fn plan_replacements(
+    bytes_len: u32,
+    ranges: &[u32],
+    payload_lens: &[u32],
+) -> Result<Vec<u32>, ReplacementError> {
+    if ranges.len() % 2 != 0 || ranges.len() / 2 != payload_lens.len() {
+        return Err(ReplacementError);
+    }
+    let n = payload_lens.len();
+    for i in 0..n {
+        let (start, end) = (ranges[i * 2], ranges[i * 2 + 1]);
+        if start > end || end > bytes_len {
+            return Err(ReplacementError);
+        }
+    }
+
     let mut payload_offsets: Vec<u32> = Vec::with_capacity(n);
     let mut off: u32 = 0;
     for i in 0..n {
         payload_offsets.push(off);
-        off += payload_lens[i];
+        off = off.checked_add(payload_lens[i]).ok_or(ReplacementError)?;
     }
     let mut order: Vec<usize> = (0..n).collect();
     order.sort_by_key(|&i| ranges[i * 2]);
@@ -342,14 +375,30 @@ pub fn plan_replacements(bytes_len: u32, ranges: &[u32], payload_lens: &[u32]) -
     if bytes_len > src {
         plan.extend_from_slice(&[PLAN_COPY, src, bytes_len]);
     }
-    plan
+    Ok(plan)
 }
 
 /// Execute a serialization plan: apply byte-range replacements to the
 /// original bytes. `ranges` holds `[start, end]` pairs, `payload` the
 /// concatenated replacement bytes, `payload_lens` each replacement's length.
-pub fn apply_replacements(bytes: &[u8], ranges: &[u32], payload: &[u8], payload_lens: &[u32]) -> Vec<u8> {
-    let plan = plan_replacements(bytes.len() as u32, ranges, payload_lens);
+///
+/// Returns `Err` under the same conditions as [`plan_replacements`], plus
+/// when a payload range from the plan falls outside the given `payload`
+/// buffer.
+pub fn apply_replacements(
+    bytes: &[u8],
+    ranges: &[u32],
+    payload: &[u8],
+    payload_lens: &[u32],
+) -> Result<Vec<u8>, ReplacementError> {
+    let plan = plan_replacements(bytes.len() as u32, ranges, payload_lens)?;
+    let payload_len = payload.len() as u32;
+    for step in plan.chunks_exact(3) {
+        if step[0] == PLAN_PAYLOAD && step[2] > payload_len {
+            return Err(ReplacementError);
+        }
+    }
+
     let mut total = 0usize;
     for step in plan.chunks_exact(3) {
         total += (step[2] - step[1]) as usize;
@@ -363,7 +412,7 @@ pub fn apply_replacements(bytes: &[u8], ranges: &[u32], payload: &[u8], payload_
             out.extend_from_slice(&payload[a..b]);
         }
     }
-    out
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -565,7 +614,7 @@ mod tests {
         let ranges = [0u32, 5, 6, 11];
         let payload = b"goodbyewasm";
         let lens = [7u32, 4];
-        let plan = plan_replacements(bytes.len() as u32, &ranges, &lens);
+        let plan = plan_replacements(bytes.len() as u32, &ranges, &lens).expect("valid plan");
         assert_eq!(
             plan,
             vec![
@@ -574,7 +623,7 @@ mod tests {
                 PLAN_PAYLOAD, 7, 11, // "wasm"
             ]
         );
-        let out = apply_replacements(bytes, &ranges, payload, &lens);
+        let out = apply_replacements(bytes, &ranges, payload, &lens).expect("valid apply");
         assert_eq!(out, b"goodbye wasm");
     }
 
@@ -585,14 +634,64 @@ mod tests {
         let ranges = [3u32, 5, 1, 1];
         let payload = b"XX";
         let lens = [0u32, 2];
-        let out = apply_replacements(bytes, &ranges, payload, &lens);
+        let out = apply_replacements(bytes, &ranges, payload, &lens).expect("valid apply");
         assert_eq!(out, b"aXXbcf");
     }
 
     #[test]
     fn apply_replacements_with_no_ranges_is_identity() {
         let bytes = b"unchanged";
-        let out = apply_replacements(bytes, &[], &[], &[]);
+        let out = apply_replacements(bytes, &[], &[], &[]).expect("valid apply");
         assert_eq!(out, bytes);
+    }
+
+    #[test]
+    fn plan_replacements_rejects_mismatched_lengths() {
+        // Two ranges (4 values) but only one payload length.
+        let ranges = [0u32, 1, 2, 3];
+        let lens = [1u32];
+        assert!(plan_replacements(4, &ranges, &lens).is_err());
+    }
+
+    #[test]
+    fn plan_replacements_rejects_odd_length_ranges() {
+        let ranges = [0u32, 1, 2];
+        let lens = [1u32, 1];
+        assert!(plan_replacements(4, &ranges, &lens).is_err());
+    }
+
+    #[test]
+    fn plan_replacements_rejects_start_after_end() {
+        let ranges = [5u32, 2];
+        let lens = [0u32];
+        assert!(plan_replacements(10, &ranges, &lens).is_err());
+    }
+
+    #[test]
+    fn plan_replacements_rejects_end_past_bytes_len() {
+        let ranges = [0u32, 20];
+        let lens = [0u32];
+        assert!(plan_replacements(10, &ranges, &lens).is_err());
+    }
+
+    #[test]
+    fn apply_replacements_rejects_payload_range_past_payload_len() {
+        let bytes = b"hello";
+        // Claims a 10-byte payload but only 3 bytes are actually supplied.
+        let ranges = [0u32, 5];
+        let payload = b"abc";
+        let lens = [10u32];
+        assert!(apply_replacements(bytes, &ranges, payload, &lens).is_err());
+    }
+
+    #[test]
+    fn valid_inputs_still_succeed_after_validation() {
+        // Regression guard: validation must not reject well-formed input.
+        let bytes = b"a,b,c\n";
+        let ranges = [2u32, 3];
+        let payload = b"X";
+        let lens = [1u32];
+        let out = apply_replacements(bytes, &ranges, payload, &lens).expect("valid apply");
+        assert_eq!(out, b"a,X,c\n");
     }
 }

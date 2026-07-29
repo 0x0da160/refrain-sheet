@@ -168,6 +168,25 @@ export function matchCondition(cond: FilterCondition, display: string): boolean 
   }
 }
 
+// A row scan re-evaluates every column's criteria once per row (up to
+// MAX_FILTER_ROWS times per filter application). `column.values` stays the
+// same array instance for the whole scan, so its membership Set is built
+// once — lazily, on first use — and cached here rather than rescanned with
+// `Array.includes` on every row. Keying by the array (not the ColumnFilter
+// object) means a fresh `values` array from a new filter application never
+// collides with a stale cache entry; the WeakMap lets old entries be
+// collected once that array is no longer referenced.
+const valuesSetCache = new WeakMap<string[], Set<string>>();
+
+function valuesSet(values: string[]): Set<string> {
+  let set = valuesSetCache.get(values);
+  if (!set) {
+    set = new Set(values);
+    valuesSetCache.set(values, set);
+  }
+  return set;
+}
+
 /** Evaluate one column's criteria against a displayed cell value. */
 export function matchColumn(column: ColumnFilter, display: string): boolean {
   if (column.conditions.length > 0) {
@@ -179,7 +198,7 @@ export function matchColumn(column: ColumnFilter, display: string): boolean {
       return false;
     }
   }
-  if (column.values !== null && !column.values.includes(display)) {
+  if (column.values !== null && !valuesSet(column.values).has(display)) {
     return false;
   }
   return true;

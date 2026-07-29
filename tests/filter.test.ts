@@ -130,6 +130,19 @@ describe('filter predicate core', () => {
     expect(matchColumn(withValues, 'apricot')).toBe(false); // contains 'a' but not in the value list
   });
 
+  it('a value-list check is a Set lookup, not a per-row Array#includes scan', () => {
+    const includesSpy = vi.spyOn(Array.prototype, 'includes');
+    const column = textCol(0, [], ['apple', 'banana', 'cherry']);
+    for (const display of ['apple', 'banana', 'cherry', 'apricot', 'apple']) {
+      matchColumn(column, display);
+    }
+    expect(includesSpy).not.toHaveBeenCalled();
+    includesSpy.mockRestore();
+    // Correctness still holds across repeated calls against the same column.
+    expect(matchColumn(column, 'apple')).toBe(true);
+    expect(matchColumn(column, 'durian')).toBe(false);
+  });
+
   it('columns across the filter combine with AND; header rows are never hidden', () => {
     const values = [
       ['name', 'qty'],

@@ -133,14 +133,20 @@ The committed [`.npmrc`](../.npmrc) applies to every npm invocation in the repo:
 
 ### GitHub Actions pinning policy
 
-Every action used is an **official GitHub-maintained `actions/*`** action,
-pinned to a major-version tag (e.g. `actions/checkout@v4`). This is an explicit,
-documented exception permitted for first-party actions.
+Every **official GitHub-maintained `actions/*`** action is pinned to a
+major-version tag (e.g. `actions/checkout@v4`). This is an explicit, documented
+exception permitted for first-party actions.
 
 **Any third-party (non-`actions/*`) action MUST be pinned to a full commit
-SHA**, not a mutable tag. There are currently no third-party actions in this
-repository. If one is ever introduced, pin it by SHA with a comment naming the
-version, and prefer an official GitHub-maintained alternative where one exists.
+SHA**, not a mutable tag. One third-party action, `anthropics/claude-code-action`,
+is currently in use — 8 times across `close-loop.yml`, `implement-issue.yml`,
+`issue-triage.yml`, `prepare-issue-spec.yml`, and `review-pr.yml` (twice per
+file) — and it is **not yet pinned to a commit SHA**; each call site is marked
+with a `# SECURITY TODO: pin to a commit SHA` comment. Pinning it is tracked as
+separate, deliberately scoped follow-up work, since it touches every automation
+workflow file and warrants its own careful review. Any newly introduced
+third-party action must be pinned by SHA with a comment naming the version, and
+should prefer an official GitHub-maintained alternative where one exists.
 
 ## Release security controls
 

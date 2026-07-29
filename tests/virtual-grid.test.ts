@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
-import { Grid, OVERSCAN_ROWS, ROW_HEIGHT, COL_WIDTH, MIN_COL_WIDTH } from '../src/ui/grid';
+import { Grid, OVERSCAN_ROWS, ROW_HEIGHT, COL_WIDTH, MIN_COL_WIDTH, ROW_HEAD_WIDTH } from '../src/ui/grid';
 import { doc } from './helpers';
 
 const noopUi: UiPort = {
@@ -378,5 +378,38 @@ describe('column resizing', () => {
     // jsdom does no layout, so scrollWidth is 0 and auto-fit lands on the minimum.
     handleFor(grid, 1).dispatchEvent(new MouseEvent('dblclick', { bubbles: true, button: 0 }));
     expect(tab.colWidths[1]).toBe(MIN_COL_WIDTH);
+  });
+
+  function canvasWidth(grid: Grid): number {
+    return parseInt(grid.element.querySelector<HTMLElement>('.vgrid-canvas')!.style.width, 10);
+  }
+
+  it('invalidates the cached column-offset total after a resize', () => {
+    const { grid, tab } = setup(bigCsv(10, 3));
+    const before = canvasWidth(grid);
+    handleFor(grid, 0).dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0, clientX: 200 }));
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 260 }));
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    expect(tab.colWidths[0]).toBe(COL_WIDTH + 60);
+    // A stale cached prefix sum would keep reporting the pre-resize total.
+    expect(canvasWidth(grid)).toBe(before + 60);
+  });
+
+  it('invalidates the cached column-offset total after auto-fit', () => {
+    const { grid, tab } = setup(bigCsv(10, 3));
+    const before = canvasWidth(grid);
+    handleFor(grid, 1).dispatchEvent(new MouseEvent('dblclick', { bubbles: true, button: 0 }));
+    expect(tab.colWidths[1]).toBe(MIN_COL_WIDTH);
+    expect(canvasWidth(grid)).toBe(before - (COL_WIDTH - MIN_COL_WIDTH));
+  });
+
+  it('invalidates the cached column-offset total after a zoom change', () => {
+    const { state, grid, tab } = setup(bigCsv(10, 3));
+    const before = canvasWidth(grid);
+    state.setTabZoom(tab, 150);
+    grid.refresh();
+    // A stale cache would keep reporting the 100%-zoom total.
+    expect(canvasWidth(grid)).toBeGreaterThan(before);
+    expect(canvasWidth(grid)).toBe(Math.round(ROW_HEAD_WIDTH * 1.5) + Math.round(COL_WIDTH * 1.5) * 3);
   });
 });

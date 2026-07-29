@@ -33,35 +33,35 @@ export function countLiteral(haystack: Uint8Array, needle: Uint8Array): number;
  */
 export function applyReplacements(bytes: Uint8Array, ranges: Uint32Array, payload: Uint8Array, payload_lens: Uint32Array): Uint8Array;
 /**
- * Raw DEFLATE compression for the `.rcsv` container payload.
+ * Raw DEFLATE compression for the RSF container payload.
  */
-export function rcsvDeflate(bytes: Uint8Array): Uint8Array;
+export function rsfDeflate(bytes: Uint8Array): Uint8Array;
 /**
  * Raw DEFLATE decompression, bounded by `max_len` output bytes (a
  * decompression-bomb guard). Returns an empty array on failure; the caller
  * distinguishes "empty payload" via the container's stored length.
  */
-export function rcsvInflate(bytes: Uint8Array, max_len: number): Uint8Array | undefined;
+export function rsfInflate(bytes: Uint8Array, max_len: number): Uint8Array | undefined;
 /**
- * Zstandard compression (method 0x02) for the `.rcsv` container payload.
+ * Zstandard compression (method 0x02) for the RSF container payload.
  */
-export function rcsvZstd(bytes: Uint8Array): Uint8Array;
+export function rsfZstd(bytes: Uint8Array): Uint8Array;
 /**
  * Zstandard decompression, bounded by `max_len` output bytes (bomb guard).
  */
-export function rcsvUnzstd(bytes: Uint8Array, max_len: number): Uint8Array | undefined;
+export function rsfUnzstd(bytes: Uint8Array, max_len: number): Uint8Array | undefined;
 /**
- * LZ4 Frame compression (method 0x03) for the `.rcsv` container payload.
+ * LZ4 Frame compression (method 0x03) for the RSF container payload.
  */
-export function rcsvLz4(bytes: Uint8Array): Uint8Array;
+export function rsfLz4(bytes: Uint8Array): Uint8Array;
 /**
  * LZ4 Frame decompression, bounded by `max_len` output bytes (bomb guard).
  */
-export function rcsvUnlz4(bytes: Uint8Array, max_len: number): Uint8Array | undefined;
+export function rsfUnlz4(bytes: Uint8Array, max_len: number): Uint8Array | undefined;
 /**
  * CRC-32 (IEEE) checksum of the container's uncompressed body.
  */
-export function rcsvCrc32(bytes: Uint8Array): number;
+export function rsfCrc32(bytes: Uint8Array): number;
 /**
  * Structural index of one parsed CSV byte sequence. See `csv.rs` for the
  * array layouts (record/field/diagnostic strides).
@@ -96,13 +96,13 @@ export interface InitOutput {
   readonly parseindex_lf: (a: number) => number;
   readonly parseindex_records: (a: number) => [number, number];
   readonly planReplacements: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
-  readonly rcsvCrc32: (a: number, b: number) => number;
-  readonly rcsvDeflate: (a: number, b: number) => [number, number];
-  readonly rcsvInflate: (a: number, b: number, c: number) => [number, number];
-  readonly rcsvLz4: (a: number, b: number) => [number, number];
-  readonly rcsvUnlz4: (a: number, b: number, c: number) => [number, number];
-  readonly rcsvUnzstd: (a: number, b: number, c: number) => [number, number];
-  readonly rcsvZstd: (a: number, b: number) => [number, number];
+  readonly rsfCrc32: (a: number, b: number) => number;
+  readonly rsfDeflate: (a: number, b: number) => [number, number];
+  readonly rsfInflate: (a: number, b: number, c: number) => [number, number];
+  readonly rsfLz4: (a: number, b: number) => [number, number];
+  readonly rsfUnlz4: (a: number, b: number, c: number) => [number, number];
+  readonly rsfUnzstd: (a: number, b: number, c: number) => [number, number];
+  readonly rsfZstd: (a: number, b: number) => [number, number];
   readonly sniffDelimiter: (a: number, b: number) => number;
   readonly statsAggregate: (a: number, b: number) => [number, number];
   readonly __wbindgen_export_0: WebAssembly.Table;

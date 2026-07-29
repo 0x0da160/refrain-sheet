@@ -381,25 +381,22 @@ export function rsfMethodKey(method: number): string {
 const DELIMS: Record<number, DelimiterId> = { 0x2c: ',', 0x3b: ';', 0x09: '\t' };
 
 /**
- * Encode a sheet into the binary `.rsf` container using `method` (defaults to
- * the active codec's preferred method — Zstandard when the WASM engine is
- * available). Throws {@link RsfEncodeError} when `method` cannot be written in
- * this build, so the caller can surface a localized error and never silently
- * substitutes a different codec.
+ * Pack a compressed body into an RSF container: the fixed 20-byte header
+ * (magic, `containerVersion`, method, profile, lengths, CRC-32) followed by
+ * the payload. Shared by the single-sheet and workbook encoders so the header
+ * layout has exactly one call site to update.
  */
-export function encodeRsf(data: RsfData, method: number = getRsfCodec().defaultMethod()): Uint8Array {
-  const body = encodeBody(data);
-  const codec = getRsfCodec();
-  const payload = codec.compress(body, method);
-  if (payload === null) {
-    throw new RsfEncodeError(method);
-  }
-  const crc = codec.crc32(body);
-
+function packRsfContainer(
+  containerVersion: number,
+  method: number,
+  body: Uint8Array,
+  payload: Uint8Array,
+  crc: number,
+): Uint8Array {
   const out = new Uint8Array(HEADER_SIZE + payload.length);
   out.set(RSF_MAGIC, 0);
   const view = new DataView(out.buffer);
-  out[4] = RSF_CONTAINER_VERSION;
+  out[4] = containerVersion;
   out[5] = method;
   out[6] = 0;
   out[7] = RSF_CODEC_PROFILE;
@@ -410,24 +407,39 @@ export function encodeRsf(data: RsfData, method: number = getRsfCodec().defaultM
   return out;
 }
 
-/** Decode and strictly validate a binary `.rsf` container (or a legacy `.rcsv`
- *  container — see the compatibility note above). Never executes anything. */
-export function decodeRsf(bytes: Uint8Array): RsfDecodeResult {
-  if (bytes.length < HEADER_SIZE) {
-    return { ok: false, error: 'bad-magic' };
+/** Encode a sheet or workbook body with `method`, then pack it into a container
+ *  of `containerVersion`. Shared compress/CRC/pack step for both encoders. */
+function encodeRsfContainer(containerVersion: number, method: number, body: Uint8Array): Uint8Array {
+  const codec = getRsfCodec();
+  const payload = codec.compress(body, method);
+  if (payload === null) {
+    throw new RsfEncodeError(method);
   }
-  const matchesMagic = (magic: Uint8Array): boolean => magic.every((b, i) => bytes[i] === b);
-  // Accept the current RSF magic and the legacy RCSV magic; each pins its own
-  // container version so a mismatched magic/version pair is rejected.
-  const isRsf = matchesMagic(RSF_MAGIC);
-  const isLegacy = !isRsf && matchesMagic(RSF_LEGACY_MAGIC);
-  if (!isRsf && !isLegacy) {
-    return { ok: false, error: 'bad-magic' };
-  }
-  const expectedVersion = isRsf ? RSF_CONTAINER_VERSION : RSF_LEGACY_CONTAINER_VERSION;
-  if (bytes[4] !== expectedVersion) {
-    return { ok: false, error: 'bad-version' };
-  }
+  return packRsfContainer(containerVersion, method, body, payload, codec.crc32(body));
+}
+
+/**
+ * Encode a sheet into the binary `.rsf` container using `method` (defaults to
+ * the active codec's preferred method — Zstandard when the WASM engine is
+ * available). Throws {@link RsfEncodeError} when `method` cannot be written in
+ * this build, so the caller can surface a localized error and never silently
+ * substitutes a different codec.
+ */
+export function encodeRsf(data: RsfData, method: number = getRsfCodec().defaultMethod()): Uint8Array {
+  return encodeRsfContainer(RSF_CONTAINER_VERSION, method, encodeBody(data));
+}
+
+/**
+ * Validate and decompress an RSF container's header + payload (magic/version
+ * already confirmed by the caller): method, codec profile, declared lengths,
+ * decompression, and CRC-32. Shared by the single-sheet and workbook decoders
+ * so a future bounds/CRC fix cannot land in one copy while missing the other.
+ * Returns the uncompressed body and the method it was packed with, so the
+ * caller can hand the body to its own body decoder and stamp `compression`.
+ */
+function decodeRsfContainer(
+  bytes: Uint8Array,
+): { ok: true; body: Uint8Array; method: number } | { ok: false; error: RsfDecodeError } {
   const method = bytes[5];
   if (!isRsfMethod(method)) {
     // Unknown / future compression method — reject safely, never guess.
@@ -460,9 +472,34 @@ export function decodeRsf(bytes: Uint8Array): RsfDecodeResult {
   if (codec.crc32(body) !== crc) {
     return { ok: false, error: 'checksum' };
   }
-  const decoded = decodeBody(body);
+  return { ok: true, body, method };
+}
+
+/** Decode and strictly validate a binary `.rsf` container (or a legacy `.rcsv`
+ *  container — see the compatibility note above). Never executes anything. */
+export function decodeRsf(bytes: Uint8Array): RsfDecodeResult {
+  if (bytes.length < HEADER_SIZE) {
+    return { ok: false, error: 'bad-magic' };
+  }
+  const matchesMagic = (magic: Uint8Array): boolean => magic.every((b, i) => bytes[i] === b);
+  // Accept the current RSF magic and the legacy RCSV magic; each pins its own
+  // container version so a mismatched magic/version pair is rejected.
+  const isRsf = matchesMagic(RSF_MAGIC);
+  const isLegacy = !isRsf && matchesMagic(RSF_LEGACY_MAGIC);
+  if (!isRsf && !isLegacy) {
+    return { ok: false, error: 'bad-magic' };
+  }
+  const expectedVersion = isRsf ? RSF_CONTAINER_VERSION : RSF_LEGACY_CONTAINER_VERSION;
+  if (bytes[4] !== expectedVersion) {
+    return { ok: false, error: 'bad-version' };
+  }
+  const container = decodeRsfContainer(bytes);
+  if (!container.ok) {
+    return container;
+  }
+  const decoded = decodeBody(container.body);
   if (decoded.ok) {
-    decoded.data.compression = method;
+    decoded.data.compression = container.method;
   }
   return decoded;
 }
@@ -1456,25 +1493,7 @@ export function encodeRsfWorkbook(
     }
     return encodeRsf(single, method);
   }
-  const body = encodeWorkbookBody(data);
-  const codec = getRsfCodec();
-  const payload = codec.compress(body, method);
-  if (payload === null) {
-    throw new RsfEncodeError(method);
-  }
-  const crc = codec.crc32(body);
-  const out = new Uint8Array(HEADER_SIZE + payload.length);
-  out.set(RSF_MAGIC, 0);
-  const view = new DataView(out.buffer);
-  out[4] = RSF_CONTAINER_VERSION_WORKBOOK;
-  out[5] = method;
-  out[6] = 0;
-  out[7] = RSF_CODEC_PROFILE;
-  view.setUint32(8, body.length, true);
-  view.setUint32(12, crc, true);
-  view.setUint32(16, payload.length, true);
-  out.set(payload, HEADER_SIZE);
-  return out;
+  return encodeRsfContainer(RSF_CONTAINER_VERSION_WORKBOOK, method, encodeWorkbookBody(data));
 }
 
 /**
@@ -1537,36 +1556,13 @@ export function decodeRsfWorkbook(bytes: Uint8Array): RsfWorkbookDecodeResult {
     }
     return { ok: true, data };
   }
-  const method = bytes[5];
-  if (!isRsfMethod(method)) {
-    return { ok: false, error: 'unsupported-compression' };
+  const container = decodeRsfContainer(bytes);
+  if (!container.ok) {
+    return container;
   }
-  if (bytes[7] !== RSF_CODEC_PROFILE) {
-    return { ok: false, error: 'unsupported-compression' };
-  }
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const bodyLen = view.getUint32(8, true);
-  const crc = view.getUint32(12, true);
-  const payloadLen = view.getUint32(16, true);
-  if (bodyLen > MAX_RSF_BODY_BYTES) {
-    return { ok: false, error: 'too-large' };
-  }
-  if (HEADER_SIZE + payloadLen !== bytes.length) {
-    return { ok: false, error: 'bad-shape' };
-  }
-  const payload = bytes.subarray(HEADER_SIZE, HEADER_SIZE + payloadLen);
-  const codec = getRsfCodec();
-  const body = codec.decompress(payload, method, bodyLen);
-  if (!body) {
-    const decodable = method === RSF_COMPRESSION_STORE || codec.canWrite(method);
-    return { ok: false, error: decodable ? 'bad-shape' : 'unsupported-compression' };
-  }
-  if (codec.crc32(body) !== crc) {
-    return { ok: false, error: 'checksum' };
-  }
-  const decoded = decodeWorkbookBody(body);
+  const decoded = decodeWorkbookBody(container.body);
   if (decoded.ok) {
-    decoded.data.compression = method;
+    decoded.data.compression = container.method;
   }
   return decoded;
 }

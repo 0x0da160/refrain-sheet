@@ -91,49 +91,54 @@ pub fn apply_replacements(bytes: &[u8], ranges: &[u32], payload: &[u8], payload_
     csv::apply_replacements(bytes, ranges, payload, payload_lens)
 }
 
-// ----- Binary .rcsv container primitives (see compress.rs) -----
+// ----- Binary RSF container primitives (see compress.rs) -----
+//
+// Legacy `.rcsv` containers (magic "RCSV", container version 2) are still
+// read transparently by `src/core/rsf-codec.ts`, but these primitives only
+// ever serve the current RSF container format; nothing here decodes RCSV
+// specifically.
 
-/// Raw DEFLATE compression for the `.rcsv` container payload.
-#[wasm_bindgen(js_name = rcsvDeflate)]
-pub fn rcsv_deflate(bytes: &[u8]) -> Vec<u8> {
+/// Raw DEFLATE compression for the RSF container payload.
+#[wasm_bindgen(js_name = rsfDeflate)]
+pub fn rsf_deflate(bytes: &[u8]) -> Vec<u8> {
     compress::deflate(bytes)
 }
 
 /// Raw DEFLATE decompression, bounded by `max_len` output bytes (a
 /// decompression-bomb guard). Returns an empty array on failure; the caller
 /// distinguishes "empty payload" via the container's stored length.
-#[wasm_bindgen(js_name = rcsvInflate)]
-pub fn rcsv_inflate(bytes: &[u8], max_len: u32) -> Option<Vec<u8>> {
+#[wasm_bindgen(js_name = rsfInflate)]
+pub fn rsf_inflate(bytes: &[u8], max_len: u32) -> Option<Vec<u8>> {
     compress::inflate(bytes, max_len as usize)
 }
 
-/// Zstandard compression (method 0x02) for the `.rcsv` container payload.
-#[wasm_bindgen(js_name = rcsvZstd)]
-pub fn rcsv_zstd(bytes: &[u8]) -> Vec<u8> {
+/// Zstandard compression (method 0x02) for the RSF container payload.
+#[wasm_bindgen(js_name = rsfZstd)]
+pub fn rsf_zstd(bytes: &[u8]) -> Vec<u8> {
     compress::zstd(bytes)
 }
 
 /// Zstandard decompression, bounded by `max_len` output bytes (bomb guard).
-#[wasm_bindgen(js_name = rcsvUnzstd)]
-pub fn rcsv_unzstd(bytes: &[u8], max_len: u32) -> Option<Vec<u8>> {
+#[wasm_bindgen(js_name = rsfUnzstd)]
+pub fn rsf_unzstd(bytes: &[u8], max_len: u32) -> Option<Vec<u8>> {
     compress::unzstd(bytes, max_len as usize)
 }
 
-/// LZ4 Frame compression (method 0x03) for the `.rcsv` container payload.
-#[wasm_bindgen(js_name = rcsvLz4)]
-pub fn rcsv_lz4(bytes: &[u8]) -> Vec<u8> {
+/// LZ4 Frame compression (method 0x03) for the RSF container payload.
+#[wasm_bindgen(js_name = rsfLz4)]
+pub fn rsf_lz4(bytes: &[u8]) -> Vec<u8> {
     compress::lz4(bytes)
 }
 
 /// LZ4 Frame decompression, bounded by `max_len` output bytes (bomb guard).
-#[wasm_bindgen(js_name = rcsvUnlz4)]
-pub fn rcsv_unlz4(bytes: &[u8], max_len: u32) -> Option<Vec<u8>> {
+#[wasm_bindgen(js_name = rsfUnlz4)]
+pub fn rsf_unlz4(bytes: &[u8], max_len: u32) -> Option<Vec<u8>> {
     compress::unlz4(bytes, max_len as usize)
 }
 
 /// CRC-32 (IEEE) checksum of the container's uncompressed body.
-#[wasm_bindgen(js_name = rcsvCrc32)]
-pub fn rcsv_crc32(bytes: &[u8]) -> u32 {
+#[wasm_bindgen(js_name = rsfCrc32)]
+pub fn rsf_crc32(bytes: &[u8]) -> u32 {
     compress::crc32(bytes)
 }
 

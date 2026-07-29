@@ -81,11 +81,7 @@ function shiftRange(range: CellRange, deltaRow: number, deltaCol: number): CellR
  * change the document's shape as a side effect of a drag — and must actually
  * move something.
  */
-export function validateMove(
-  sheet: MovableSheet,
-  source: CellRange,
-  target: RangeMoveTarget,
-): RangeMoveRejection | null {
+export function validateMove(sheet: MovableSheet, target: RangeMoveTarget): RangeMoveRejection | null {
   if (target.deltaRow === 0 && target.deltaCol === 0) {
     return 'no-op';
   }
@@ -93,7 +89,6 @@ export function validateMove(
   if (range.top < 0 || range.left < 0 || range.bottom >= sheet.rowCount || range.right >= sheet.columnCount) {
     return 'out-of-bounds';
   }
-  void source;
   return null;
 }
 

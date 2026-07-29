@@ -656,5 +656,7 @@
   "shortcut.copy": "選択範囲をコピー（タブ区切り）",
   "shortcut.paste": "アクティブセルに貼り付け",
   "shortcut.selectAll": "すべてのセルを選択（グリッドにフォーカスがあるときのみ）",
-  "shortcut.extendSelection": "選択範囲を拡張"
+  "shortcut.extendSelection": "選択範囲を拡張",
+  "shortcut.jumpToStart": "先頭のセル（A1）へ移動",
+  "shortcut.jumpToEnd": "最後に使用されたセルへ移動"
 }

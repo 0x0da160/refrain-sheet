@@ -127,9 +127,9 @@ describe('range-move planner', () => {
   it('rejects an out-of-bounds destination and a no-op', () => {
     const doc = RsfDocument.empty('b', 3, 3, 'S');
     const src = rect(0, 0, 1, 1);
-    expect(validateMove(doc.activeSheet, src, moveTarget(src, 0, 0))).toBe('no-op');
-    expect(validateMove(doc.activeSheet, src, moveTarget(src, 5, 0))).toBe('out-of-bounds');
-    expect(validateMove(doc.activeSheet, src, moveTarget(src, 1, 1))).toBeNull();
+    expect(validateMove(doc.activeSheet, moveTarget(src, 0, 0))).toBe('no-op');
+    expect(validateMove(doc.activeSheet, moveTarget(src, 5, 0))).toBe('out-of-bounds');
+    expect(validateMove(doc.activeSheet, moveTarget(src, 1, 1))).toBeNull();
   });
 
   it('counts non-empty destination cells as overwrites', () => {

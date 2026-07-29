@@ -190,5 +190,7 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'F2', descKey: 'shortcut.editCell' },
   { keys: 'Enter', descKey: 'shortcut.commitDown' },
   { keys: 'Shift+Arrows', descKey: 'shortcut.extendSelection' },
+  { keys: 'Ctrl+Home / Cmd+Home', descKey: 'shortcut.jumpToStart' },
+  { keys: 'Ctrl+End / Cmd+End', descKey: 'shortcut.jumpToEnd' },
   { keys: 'Esc', descKey: 'shortcut.cancelEdit' },
 ];

@@ -248,6 +248,65 @@ describe('selection and keyboard interaction', () => {
     expect(tab.selection).toEqual({ row: 2, col: 1 });
   });
 
+  it('Ctrl+Home jumps to A1 and Ctrl+End jumps to the last used cell', () => {
+    const { grid, tab } = setup(bigCsv(20));
+    grid.element.focus();
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+    );
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }),
+    );
+    expect(tab.selection).toEqual({ row: 1, col: 1 });
+    const end = new KeyboardEvent('keydown', {
+      key: 'End',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    grid.element.dispatchEvent(end);
+    expect(tab.selection).toEqual({ row: 19, col: 3 });
+    expect(end.defaultPrevented).toBe(true);
+    const home = new KeyboardEvent('keydown', {
+      key: 'Home',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    grid.element.dispatchEvent(home);
+    expect(tab.selection).toEqual({ row: 0, col: 0 });
+    expect(home.defaultPrevented).toBe(true);
+  });
+
+  it('Ctrl+Shift+End extends the selection to the last used cell', () => {
+    const { state, grid, tab } = setup(bigCsv(20));
+    grid.element.focus();
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'End',
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(state.selectedRange(tab)).toEqual({ top: 0, left: 0, bottom: 19, right: 3 });
+  });
+
+  it('leaves plain Home/End moving within the current row, unaffected by Ctrl+Home/End', () => {
+    const { grid, tab } = setup(bigCsv(20));
+    grid.element.focus();
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+    );
+    grid.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+    expect(tab.selection).toEqual({ row: 1, col: 3 });
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }),
+    );
+    expect(tab.selection).toEqual({ row: 1, col: 0 });
+  });
+
   it('Escape cancels an edit without changing the value', () => {
     const { grid, tab } = setup(bigCsv(20));
     grid.openEditor(tab, 0, 0, null);

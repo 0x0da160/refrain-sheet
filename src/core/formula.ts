@@ -682,10 +682,15 @@ class Parser {
     return token;
   }
 
-  parseExpr(depth: number): AstNode {
+  /** Shared recursion-depth guard for every recursive-descent parse method. */
+  private checkDepth(depth: number): void {
     if (depth > MAX_PARSE_DEPTH) {
       throw new FormulaError('#ERROR!');
     }
+  }
+
+  parseExpr(depth: number): AstNode {
+    this.checkDepth(depth);
     let left = this.parseAdditive(depth + 1);
     for (;;) {
       const token = this.peek();
@@ -699,9 +704,7 @@ class Parser {
   }
 
   private parseAdditive(depth: number): AstNode {
-    if (depth > MAX_PARSE_DEPTH) {
-      throw new FormulaError('#ERROR!');
-    }
+    this.checkDepth(depth);
     let left = this.parseTerm(depth + 1);
     for (;;) {
       const token = this.peek();
@@ -715,9 +718,7 @@ class Parser {
   }
 
   private parseTerm(depth: number): AstNode {
-    if (depth > MAX_PARSE_DEPTH) {
-      throw new FormulaError('#ERROR!');
-    }
+    this.checkDepth(depth);
     let left = this.parseFactor(depth + 1);
     for (;;) {
       const token = this.peek();
@@ -731,9 +732,7 @@ class Parser {
   }
 
   private parseFactor(depth: number): AstNode {
-    if (depth > MAX_PARSE_DEPTH) {
-      throw new FormulaError('#ERROR!');
-    }
+    this.checkDepth(depth);
     const token = this.peek();
     if (token && token.type === 'op' && (token.text === '+' || token.text === '-')) {
       this.next();
@@ -750,9 +749,7 @@ class Parser {
    * reference and the formula resolves to #ERROR! rather than guessing.
    */
   private parseSheetQualified(sheet: string, depth: number): AstNode {
-    if (depth > MAX_PARSE_DEPTH) {
-      throw new FormulaError('#ERROR!');
-    }
+    this.checkDepth(depth);
     const token = this.next();
     // `Sheet1!1:10` — a whole-row range introduced by a plain number.
     if (token.type === 'number') {
@@ -819,9 +816,7 @@ class Parser {
   }
 
   private parsePrimary(depth: number): AstNode {
-    if (depth > MAX_PARSE_DEPTH) {
-      throw new FormulaError('#ERROR!');
-    }
+    this.checkDepth(depth);
     const token = this.next();
     switch (token.type) {
       case 'number': {

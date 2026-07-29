@@ -79,16 +79,25 @@ pub fn sniff_delimiter(bytes: &[u8]) -> u8 {
 
 /// Serialization planning: ordered `[kind, a, b]` triples describing the
 /// output as verbatim copies of the original bytes plus payload segments.
+/// Rejects (throws a JS error for) mismatched-length or out-of-bounds inputs
+/// instead of panicking; see `csv::plan_replacements`.
 #[wasm_bindgen(js_name = planReplacements)]
-pub fn plan_replacements(bytes_len: u32, ranges: &[u32], payload_lens: &[u32]) -> Vec<u32> {
-    csv::plan_replacements(bytes_len, ranges, payload_lens)
+pub fn plan_replacements(bytes_len: u32, ranges: &[u32], payload_lens: &[u32]) -> Result<Vec<u32>, JsValue> {
+    csv::plan_replacements(bytes_len, ranges, payload_lens).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 /// Apply byte-range replacements to the original bytes. Bytes outside the
-/// replaced ranges are copied verbatim.
+/// replaced ranges are copied verbatim. Rejects (throws a JS error for)
+/// mismatched-length or out-of-bounds inputs instead of panicking; see
+/// `csv::apply_replacements`.
 #[wasm_bindgen(js_name = applyReplacements)]
-pub fn apply_replacements(bytes: &[u8], ranges: &[u32], payload: &[u8], payload_lens: &[u32]) -> Vec<u8> {
-    csv::apply_replacements(bytes, ranges, payload, payload_lens)
+pub fn apply_replacements(
+    bytes: &[u8],
+    ranges: &[u32],
+    payload: &[u8],
+    payload_lens: &[u32],
+) -> Result<Vec<u8>, JsValue> {
+    csv::apply_replacements(bytes, ranges, payload, payload_lens).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 // ----- Binary RSF container primitives (see compress.rs) -----

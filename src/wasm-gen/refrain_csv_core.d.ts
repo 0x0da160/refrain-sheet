@@ -13,6 +13,8 @@ export function sniffDelimiter(bytes: Uint8Array): number;
 /**
  * Serialization planning: ordered `[kind, a, b]` triples describing the
  * output as verbatim copies of the original bytes plus payload segments.
+ * Rejects (throws a JS error for) mismatched-length or out-of-bounds inputs
+ * instead of panicking; see `csv::plan_replacements`.
  */
 export function planReplacements(bytes_len: number, ranges: Uint32Array, payload_lens: Uint32Array): Uint32Array;
 /**
@@ -25,7 +27,9 @@ export function statsAggregate(values: Float64Array): Float64Array;
 export function countLiteral(haystack: Uint8Array, needle: Uint8Array): number;
 /**
  * Apply byte-range replacements to the original bytes. Bytes outside the
- * replaced ranges are copied verbatim.
+ * replaced ranges are copied verbatim. Rejects (throws a JS error for)
+ * mismatched-length or out-of-bounds inputs instead of panicking; see
+ * `csv::apply_replacements`.
  */
 export function applyReplacements(bytes: Uint8Array, ranges: Uint32Array, payload: Uint8Array, payload_lens: Uint32Array): Uint8Array;
 /**
@@ -80,7 +84,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly __wbg_parseindex_free: (a: number, b: number) => void;
-  readonly applyReplacements: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
+  readonly applyReplacements: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number, number, number];
   readonly countLiteral: (a: number, b: number, c: number, d: number) => number;
   readonly parseCsv: (a: number, b: number, c: number, d: number) => number;
   readonly parseindex_bomLength: (a: number) => number;
@@ -91,7 +95,7 @@ export interface InitOutput {
   readonly parseindex_hasFinalNewline: (a: number) => number;
   readonly parseindex_lf: (a: number) => number;
   readonly parseindex_records: (a: number) => [number, number];
-  readonly planReplacements: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+  readonly planReplacements: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
   readonly rsfCrc32: (a: number, b: number) => number;
   readonly rsfDeflate: (a: number, b: number) => [number, number];
   readonly rsfInflate: (a: number, b: number, c: number) => [number, number];
@@ -103,6 +107,7 @@ export interface InitOutput {
   readonly statsAggregate: (a: number, b: number) => [number, number];
   readonly __wbindgen_export_0: WebAssembly.Table;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
+  readonly __externref_table_dealloc: (a: number) => void;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __wbindgen_start: () => void;
 }

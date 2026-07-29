@@ -70,6 +70,12 @@ function passArray32ToWasm0(arg, malloc) {
     return ptr;
 }
 
+function takeFromExternrefTable0(idx) {
+    const value = wasm.__wbindgen_export_0.get(idx);
+    wasm.__externref_table_dealloc(idx);
+    return value;
+}
+
 function getArrayU32FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
@@ -77,6 +83,8 @@ function getArrayU32FromWasm0(ptr, len) {
 /**
  * Serialization planning: ordered `[kind, a, b]` triples describing the
  * output as verbatim copies of the original bytes plus payload segments.
+ * Rejects (throws a JS error for) mismatched-length or out-of-bounds inputs
+ * instead of panicking; see `csv::plan_replacements`.
  * @param {number} bytes_len
  * @param {Uint32Array} ranges
  * @param {Uint32Array} payload_lens
@@ -88,6 +96,9 @@ export function planReplacements(bytes_len, ranges, payload_lens) {
     const ptr1 = passArray32ToWasm0(payload_lens, wasm.__wbindgen_malloc);
     const len1 = WASM_VECTOR_LEN;
     const ret = wasm.planReplacements(bytes_len, ptr0, len0, ptr1, len1);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
     var v3 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
     return v3;
@@ -148,7 +159,9 @@ function getArrayU8FromWasm0(ptr, len) {
 }
 /**
  * Apply byte-range replacements to the original bytes. Bytes outside the
- * replaced ranges are copied verbatim.
+ * replaced ranges are copied verbatim. Rejects (throws a JS error for)
+ * mismatched-length or out-of-bounds inputs instead of panicking; see
+ * `csv::apply_replacements`.
  * @param {Uint8Array} bytes
  * @param {Uint32Array} ranges
  * @param {Uint8Array} payload
@@ -165,6 +178,9 @@ export function applyReplacements(bytes, ranges, payload, payload_lens) {
     const ptr3 = passArray32ToWasm0(payload_lens, wasm.__wbindgen_malloc);
     const len3 = WASM_VECTOR_LEN;
     const ret = wasm.applyReplacements(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
     var v5 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
     return v5;
@@ -415,6 +431,10 @@ function __wbg_get_imports() {
         table.set(offset + 2, true);
         table.set(offset + 3, false);
         ;
+    };
+    imports.wbg.__wbindgen_string_new = function(arg0, arg1) {
+        const ret = getStringFromWasm0(arg0, arg1);
+        return ret;
     };
     imports.wbg.__wbindgen_throw = function(arg0, arg1) {
         throw new Error(getStringFromWasm0(arg0, arg1));

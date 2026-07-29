@@ -577,7 +577,7 @@ function encodeFilterBlock(filter: SheetFilter | undefined): Uint8Array {
 
 function encodeBody(data: RsfData): Uint8Array {
   const enc = new TextEncoder();
-  const name = enc.encode(data.name.slice(0, 255));
+  const name = enc.encode(data.name.slice(0, MAX_META_LENGTH));
   // Version selection is minimal: a non-default display language needs
   // version 7, a non-UTC timezone needs version 6, stored wrap needs version
   // 5, a filter needs version 4, display settings alone need version 3,

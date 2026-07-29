@@ -547,6 +547,26 @@ describe('saving and exporting RSF', () => {
     }
   });
 
+  it('a non-cancellation picker failure reports notify.saveFailed and leaves the document dirty', async () => {
+    const picker = vi.fn(async () => {
+      throw new Error('disk full');
+    });
+    const restore = withSavePicker(picker);
+    try {
+      const ui = stubUi();
+      const { state, commands, tab } = await converted('a\n', ui);
+      state.editCell(tab, 0, 0, 'x');
+      expect(tab.doc.isDirty).toBe(true);
+      const ok = await commands.save(tab, KEEP);
+      expect(ok).toBe(false);
+      expect(tab.handle).toBeNull(); // association untouched
+      expect(tab.doc.isDirty).toBe(true); // still unsaved
+      expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining('disk full'), 'error');
+    } finally {
+      restore();
+    }
+  });
+
   it('an existing associated handle saves without reopening the picker', async () => {
     const sink: WritableSink = { bytes: null, closed: false };
     const handle = fakeSaveHandle(sink);

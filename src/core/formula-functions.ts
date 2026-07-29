@@ -135,6 +135,10 @@ export interface FnContext {
   readonly displayLanguage: DisplayLanguageId;
 }
 
+/** Coarse grouping for the formula-help table (autocomplete ignores this). */
+export type FunctionCategory =
+  'math' | 'conditional' | 'logical' | 'lookup' | 'text' | 'date' | 'statistics' | 'arrays';
+
 export interface FunctionDef {
   readonly name: string;
   /** Minimum argument count (inclusive). */
@@ -145,6 +149,8 @@ export interface FunctionDef {
   readonly signature: string;
   /** A ready-to-read example formula shown in help. */
   readonly example: string;
+  /** Coarse grouping for the formula-help table (autocomplete ignores this). */
+  readonly category: FunctionCategory;
   /** True when the result depends on the clock rather than on cells. */
   readonly volatile?: boolean;
   /** True when the function can return a grid (a dynamic array). */
@@ -627,6 +633,7 @@ for (const name of ['SUM', 'AVERAGE', 'MIN', 'MAX', 'COUNT'] as const) {
     maxArgs: Infinity,
     signature: `${name}(value, …)`,
     example: name === 'AVERAGE' ? '=AVERAGE(B1:B20)' : `=${name}(A1:A10)`,
+    category: 'math',
     call: (args) => {
       const numbers: number[] = [];
       for (const arg of args) {
@@ -699,6 +706,7 @@ def({
   maxArgs: 3,
   signature: 'IF(condition, then, else)',
   example: '=IF(A1>10, "big", "small")',
+  category: 'logical',
   call: (args) => {
     const cond = args[0].value();
     if (cond.type === 'error') {
@@ -724,6 +732,7 @@ def({
   maxArgs: Infinity,
   signature: 'COUNTA(value, …)',
   example: '=COUNTA(A1:A10)',
+  category: 'conditional',
   call: (args) => {
     const values: FormulaValue[] = [];
     const err = collectValues(args, values);
@@ -748,6 +757,7 @@ def({
   maxArgs: 1,
   signature: 'COUNTBLANK(range)',
   example: '=COUNTBLANK(A1:A10)',
+  category: 'conditional',
   call: (args) => {
     const g = gridOf(args[0]);
     if (!g.ok) {
@@ -771,6 +781,7 @@ def({
   maxArgs: 2,
   signature: 'COUNTIF(range, criterion)',
   example: '=COUNTIF(A1:A10, ">10")',
+  category: 'conditional',
   call: (args) => {
     const pairs = readCriteriaPairs(args, 0, null);
     if (!pairs.ok) {
@@ -791,6 +802,7 @@ def({
   maxArgs: Infinity,
   signature: 'COUNTIFS(range1, criterion1, …)',
   example: '=COUNTIFS(A1:A10, ">10", B1:B10, "yes")',
+  category: 'conditional',
   call: (args) => {
     const pairs = readCriteriaPairs(args, 0, null);
     if (!pairs.ok) {
@@ -811,6 +823,7 @@ def({
   maxArgs: 3,
   signature: 'SUMIF(range, criterion, [sum_range])',
   example: '=SUMIF(A1:A10, ">10", B1:B10)',
+  category: 'conditional',
   call: (args) => singleCriteriaAggregate(args, 'sum'),
 });
 
@@ -820,6 +833,7 @@ def({
   maxArgs: 3,
   signature: 'AVERAGEIF(range, criterion, [average_range])',
   example: '=AVERAGEIF(A1:A10, ">10", B1:B10)',
+  category: 'conditional',
   call: (args) => singleCriteriaAggregate(args, 'average'),
 });
 
@@ -831,6 +845,7 @@ for (const name of ['SUMIFS', 'AVERAGEIFS'] as const) {
     maxArgs: Infinity,
     signature: `${name}(${mode}_range, range1, criterion1, …)`,
     example: `=${name}(C1:C10, A1:A10, ">10", B1:B10, "yes")`,
+    category: 'conditional',
     call: (args) => {
       const valueGrid = gridOf(args[0]);
       if (!valueGrid.ok) {
@@ -854,6 +869,7 @@ for (const name of ['AND', 'OR'] as const) {
     maxArgs: Infinity,
     signature: `${name}(logical1, …)`,
     example: name === 'AND' ? '=AND(A1>0, B1<10)' : '=OR(A1>0, B1<10)',
+    category: 'logical',
     call: (args) => {
       const values: FormulaValue[] = [];
       const err = collectValues(args, values);
@@ -892,6 +908,7 @@ def({
   maxArgs: 1,
   signature: 'NOT(logical)',
   example: '=NOT(A1>10)',
+  category: 'logical',
   call: (args) => {
     const v = args[0].value();
     if (v.type === 'error') {
@@ -908,6 +925,7 @@ def({
   maxArgs: 2,
   signature: 'IFERROR(value, value_if_error)',
   example: '=IFERROR(A1/B1, 0)',
+  category: 'logical',
   dynamic: true,
   call: (args) => {
     // The fallback is evaluated only when needed, and the first argument is
@@ -941,6 +959,7 @@ for (const [name, mode] of [
     maxArgs: 2,
     signature: `${name}(number, num_digits)`,
     example: `=${name}(A1, 2)`,
+    category: 'math',
     call: (args) => {
       const n = numberOf(args[0]);
       if (!n.ok) {
@@ -966,6 +985,7 @@ def({
   maxArgs: 1,
   signature: 'ABS(number)',
   example: '=ABS(A1)',
+  category: 'math',
   call: (args) => {
     const n = numberOf(args[0]);
     return n.ok ? numberValue(Math.abs(n.n)) : n.error;
@@ -978,6 +998,7 @@ def({
   maxArgs: 2,
   signature: 'MOD(number, divisor)',
   example: '=MOD(A1, 3)',
+  category: 'math',
   call: (args) => {
     const a = numberOf(args[0]);
     if (!a.ok) {
@@ -1004,6 +1025,7 @@ def({
   maxArgs: 6,
   signature: 'XLOOKUP(lookup, lookup_array, return_array, [if_not_found], [match_mode], [search_mode])',
   example: '=XLOOKUP(A1, B1:B10, C1:C10, "none")',
+  category: 'lookup',
   dynamic: true,
   call: (args) => {
     const needle = args[0].value();
@@ -1070,6 +1092,7 @@ def({
   maxArgs: 4,
   signature: 'VLOOKUP(lookup, table, col_index, [range_lookup])',
   example: '=VLOOKUP(A1, B1:D10, 3, FALSE)',
+  category: 'lookup',
   call: (args) => {
     const needle = args[0].value();
     if (needle.type === 'error') {
@@ -1120,6 +1143,7 @@ def({
   maxArgs: 3,
   signature: 'MATCH(lookup, lookup_array, [match_type])',
   example: '=MATCH(A1, B1:B10, 0)',
+  category: 'lookup',
   call: (args) => {
     const needle = args[0].value();
     if (needle.type === 'error') {
@@ -1158,6 +1182,7 @@ def({
   maxArgs: 3,
   signature: 'INDEX(array, row_num, [column_num])',
   example: '=INDEX(A1:C10, 2, 3)',
+  category: 'lookup',
   dynamic: true,
   call: (args) => {
     const g = gridOf(args[0]);
@@ -1217,6 +1242,7 @@ for (const name of ['LEFT', 'RIGHT'] as const) {
     maxArgs: 2,
     signature: `${name}(text, [num_chars])`,
     example: `=${name}(A1, 3)`,
+    category: 'text',
     call: (args) => {
       const t = textOf(args[0]);
       if (!t.ok) {
@@ -1244,6 +1270,7 @@ def({
   maxArgs: 3,
   signature: 'MID(text, start_num, num_chars)',
   example: '=MID(A1, 2, 3)',
+  category: 'text',
   call: (args) => {
     const t = textOf(args[0]);
     if (!t.ok) {
@@ -1272,6 +1299,7 @@ def({
   maxArgs: 1,
   signature: 'LEN(text)',
   example: '=LEN(A1)',
+  category: 'text',
   call: (args) => {
     const t = textOf(args[0]);
     return t.ok ? numberValue(codePointLength(t.s)) : t.error;
@@ -1284,6 +1312,7 @@ def({
   maxArgs: 1,
   signature: 'TRIM(text)',
   example: '=TRIM(A1)',
+  category: 'text',
   call: (args) => {
     const t = textOf(args[0]);
     return t.ok ? textValue(trimText(t.s)) : t.error;
@@ -1297,6 +1326,7 @@ for (const name of ['UPPER', 'LOWER'] as const) {
     maxArgs: 1,
     signature: `${name}(text)`,
     example: `=${name}(A1)`,
+    category: 'text',
     call: (args) => {
       const t = textOf(args[0]);
       if (!t.ok) {
@@ -1315,6 +1345,7 @@ def({
   maxArgs: Infinity,
   signature: 'CONCAT(text1, …)',
   example: '=CONCAT(A1:A3)',
+  category: 'text',
   call: (args) => {
     const values: FormulaValue[] = [];
     const err = collectValues(args, values);
@@ -1342,6 +1373,7 @@ def({
   maxArgs: Infinity,
   signature: 'TEXTJOIN(delimiter, ignore_empty, text1, …)',
   example: '=TEXTJOIN(", ", TRUE, A1:A10)',
+  category: 'text',
   call: (args) => {
     const delim = textOf(args[0]);
     if (!delim.ok) {
@@ -1387,6 +1419,7 @@ def({
   maxArgs: 4,
   signature: 'SUBSTITUTE(text, old_text, new_text, [instance_num])',
   example: '=SUBSTITUTE(A1, "-", "/")',
+  category: 'text',
   call: (args) => {
     const text = textOf(args[0]);
     if (!text.ok) {
@@ -1422,6 +1455,7 @@ def({
   maxArgs: 4,
   signature: 'REPLACE(old_text, start_num, num_chars, new_text)',
   example: '=REPLACE(A1, 1, 3, "abc")',
+  category: 'text',
   call: (args) => {
     const oldText = textOf(args[0]);
     if (!oldText.ok) {
@@ -1458,6 +1492,7 @@ def({
   maxArgs: 2,
   signature: 'TEXT(value, format_text)',
   example: '=TEXT(1234.5, "#,##0.00")',
+  category: 'text',
   call: (args, ctx) => {
     const value = numberOf(args[0]);
     if (!value.ok) {
@@ -1484,6 +1519,7 @@ def({
   maxArgs: 0,
   signature: 'TODAY()',
   example: '=TODAY()',
+  category: 'date',
   volatile: true,
   call: (_args, ctx) => numberValue(todaySerial(ctx.nowMs)),
 });
@@ -1494,6 +1530,7 @@ def({
   maxArgs: 0,
   signature: 'NOW()',
   example: '=NOW()',
+  category: 'date',
   volatile: true,
   call: (_args, ctx) => numberValue(nowSerial(ctx.nowMs)),
 });
@@ -1504,6 +1541,7 @@ def({
   maxArgs: 3,
   signature: 'DATE(year, month, day)',
   example: '=DATE(2026, 7, 25)',
+  category: 'date',
   call: (args) => {
     const y = numberOf(args[0]);
     if (!y.ok) {
@@ -1535,6 +1573,7 @@ for (const name of ['YEAR', 'MONTH', 'DAY'] as const) {
     maxArgs: 1,
     signature: `${name}(serial_number)`,
     example: `=${name}(A1)`,
+    category: 'date',
     call: (args) => {
       const n = numberOf(args[0]);
       if (!n.ok) {
@@ -1555,6 +1594,7 @@ def({
   maxArgs: 3,
   signature: 'DATEDIF(start_date, end_date, unit)',
   example: '=DATEDIF(A1, B1, "Y")',
+  category: 'date',
   call: (args) => {
     const start = numberOf(args[0]);
     if (!start.ok) {
@@ -1585,6 +1625,7 @@ def({
   maxArgs: Infinity,
   signature: 'MEDIAN(number1, …)',
   example: '=MEDIAN(A1:A10)',
+  category: 'statistics',
   call: (args) => {
     const numbers: number[] = [];
     for (const arg of args) {
@@ -1608,6 +1649,7 @@ def({
   maxArgs: Infinity,
   signature: 'MODE.SNGL(number1, …)',
   example: '=MODE.SNGL(A1:A10)',
+  category: 'statistics',
   call: (args) => {
     const numbers: number[] = [];
     for (const arg of args) {
@@ -1642,6 +1684,7 @@ for (const name of ['STDEV.S', 'STDEV.P'] as const) {
     maxArgs: Infinity,
     signature: `${name}(number1, …)`,
     example: `=${name}(A1:A10)`,
+    category: 'statistics',
     call: (args) => {
       const numbers: number[] = [];
       for (const arg of args) {
@@ -1664,6 +1707,7 @@ def({
   maxArgs: 3,
   signature: 'RANK.EQ(number, ref, [order])',
   example: '=RANK.EQ(A1, A1:A10)',
+  category: 'statistics',
   call: (args) => {
     const target = numberOf(args[0]);
     if (!target.ok) {
@@ -1705,6 +1749,7 @@ def({
   maxArgs: 3,
   signature: 'FILTER(array, include, [if_empty])',
   example: '=FILTER(A1:C10, B1:B10>5)',
+  category: 'arrays',
   dynamic: true,
   call: (args) => {
     const source = gridOf(args[0]);
@@ -1764,6 +1809,7 @@ def({
   maxArgs: 3,
   signature: 'UNIQUE(array, [by_column], [exactly_once])',
   example: '=UNIQUE(A1:A10)',
+  category: 'arrays',
   dynamic: true,
   call: (args) => {
     const source = gridOf(args[0]);
@@ -1844,6 +1890,7 @@ def({
   maxArgs: 1 + MAX_SORT_KEYS * 2,
   signature: 'SORT(array, [sort_index], [is_ascending], …)',
   example: '=SORT(A1:C10, 2, FALSE)',
+  category: 'arrays',
   dynamic: true,
   call: (args) => {
     const source = gridOf(args[0]);
@@ -1906,6 +1953,7 @@ def({
   maxArgs: 4,
   signature: 'SEQUENCE(rows, [columns], [start], [step])',
   example: '=SEQUENCE(5, 2, 1, 1)',
+  category: 'arrays',
   dynamic: true,
   call: (args) => {
     const readInt = (index: number, fallback: number): number | FormulaValue => {
@@ -1982,81 +2030,6 @@ export function isVolatileFunction(name: string): boolean {
   return BY_NAME.get(name)?.volatile === true;
 }
 
-/**
- * Coarse grouping for the formula-help table (autocomplete ignores this).
- * Mirrors the registry's own section banners above, given user-facing names.
- */
-export type FunctionCategory =
-  'math' | 'conditional' | 'logical' | 'lookup' | 'text' | 'date' | 'statistics' | 'arrays';
-
-/** Every supported function, categorized for the help dialog. */
-const CATEGORY_BY_NAME: Readonly<Record<string, FunctionCategory>> = {
-  SUM: 'math',
-  AVERAGE: 'math',
-  MIN: 'math',
-  MAX: 'math',
-  COUNT: 'math',
-  ABS: 'math',
-  MOD: 'math',
-  ROUND: 'math',
-  ROUNDUP: 'math',
-  ROUNDDOWN: 'math',
-  COUNTA: 'conditional',
-  COUNTBLANK: 'conditional',
-  COUNTIF: 'conditional',
-  COUNTIFS: 'conditional',
-  SUMIF: 'conditional',
-  SUMIFS: 'conditional',
-  AVERAGEIF: 'conditional',
-  AVERAGEIFS: 'conditional',
-  IF: 'logical',
-  AND: 'logical',
-  OR: 'logical',
-  NOT: 'logical',
-  IFERROR: 'logical',
-  XLOOKUP: 'lookup',
-  VLOOKUP: 'lookup',
-  MATCH: 'lookup',
-  INDEX: 'lookup',
-  LEFT: 'text',
-  RIGHT: 'text',
-  MID: 'text',
-  LEN: 'text',
-  TRIM: 'text',
-  UPPER: 'text',
-  LOWER: 'text',
-  CONCAT: 'text',
-  TEXTJOIN: 'text',
-  SUBSTITUTE: 'text',
-  REPLACE: 'text',
-  TEXT: 'text',
-  TODAY: 'date',
-  NOW: 'date',
-  DATE: 'date',
-  YEAR: 'date',
-  MONTH: 'date',
-  DAY: 'date',
-  DATEDIF: 'date',
-  MEDIAN: 'statistics',
-  'MODE.SNGL': 'statistics',
-  'STDEV.S': 'statistics',
-  'STDEV.P': 'statistics',
-  'RANK.EQ': 'statistics',
-  FILTER: 'arrays',
-  UNIQUE: 'arrays',
-  SORT: 'arrays',
-  SEQUENCE: 'arrays',
-};
-
-/** Every function must be categorized: an omission would silently drop it from the help table. */
-function categoryOf(name: string): FunctionCategory {
-  const category = CATEGORY_BY_NAME[name];
-  if (!category) {
-    throw new Error(`formula-functions: no help category assigned for ${name}`);
-  }
-  return category;
-}
-
 /** The display metadata the help dialog and autocomplete read. */
 export interface FunctionInfo {
   name: string;
@@ -2075,7 +2048,7 @@ export const FUNCTION_INFOS: readonly FunctionInfo[] = FUNCTION_DEFS.map((entry)
   name: entry.name,
   signature: entry.signature,
   example: entry.example,
-  category: categoryOf(entry.name),
+  category: entry.category,
   ...(entry.volatile === true ? { volatile: true } : {}),
   ...(entry.dynamic === true ? { dynamic: true } : {}),
 }));

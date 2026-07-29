@@ -16,6 +16,14 @@ export function sniffDelimiter(bytes: Uint8Array): number;
  */
 export function planReplacements(bytes_len: number, ranges: Uint32Array, payload_lens: Uint32Array): Uint32Array;
 /**
+ * Reduce finite numbers to `[sum, min, max]` for selection statistics.
+ */
+export function statsAggregate(values: Float64Array): Float64Array;
+/**
+ * Count non-overlapping occurrences of `needle` in `haystack` (literal search).
+ */
+export function countLiteral(haystack: Uint8Array, needle: Uint8Array): number;
+/**
  * Apply byte-range replacements to the original bytes. Bytes outside the
  * replaced ranges are copied verbatim.
  */
@@ -51,28 +59,20 @@ export function rcsvUnlz4(bytes: Uint8Array, max_len: number): Uint8Array | unde
  */
 export function rcsvCrc32(bytes: Uint8Array): number;
 /**
- * Reduce finite numbers to `[sum, min, max]` for selection statistics.
- */
-export function statsAggregate(values: Float64Array): Float64Array;
-/**
- * Count non-overlapping occurrences of `needle` in `haystack` (literal search).
- */
-export function countLiteral(haystack: Uint8Array, needle: Uint8Array): number;
-/**
  * Structural index of one parsed CSV byte sequence. See `csv.rs` for the
  * array layouts (record/field/diagnostic strides).
  */
 export class ParseIndex {
   private constructor();
   free(): void;
-  readonly records: Uint32Array;
-  readonly fields: Uint32Array;
-  readonly diagnostics: Uint32Array;
-  readonly crlf: number;
-  readonly lf: number;
-  readonly cr: number;
-  readonly hasFinalNewline: boolean;
   readonly bomLength: number;
+  readonly diagnostics: Uint32Array;
+  readonly hasFinalNewline: boolean;
+  readonly cr: number;
+  readonly lf: number;
+  readonly crlf: number;
+  readonly fields: Uint32Array;
+  readonly records: Uint32Array;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -80,30 +80,30 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
   readonly __wbg_parseindex_free: (a: number, b: number) => void;
-  readonly parseindex_records: (a: number) => [number, number];
-  readonly parseindex_fields: (a: number) => [number, number];
-  readonly parseindex_diagnostics: (a: number) => [number, number];
-  readonly parseindex_crlf: (a: number) => number;
-  readonly parseindex_lf: (a: number) => number;
-  readonly parseindex_cr: (a: number) => number;
-  readonly parseindex_hasFinalNewline: (a: number) => number;
-  readonly parseindex_bomLength: (a: number) => number;
-  readonly parseCsv: (a: number, b: number, c: number, d: number) => number;
-  readonly sniffDelimiter: (a: number, b: number) => number;
-  readonly planReplacements: (a: number, b: number, c: number, d: number, e: number) => [number, number];
   readonly applyReplacements: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
+  readonly countLiteral: (a: number, b: number, c: number, d: number) => number;
+  readonly parseCsv: (a: number, b: number, c: number, d: number) => number;
+  readonly parseindex_bomLength: (a: number) => number;
+  readonly parseindex_cr: (a: number) => number;
+  readonly parseindex_crlf: (a: number) => number;
+  readonly parseindex_diagnostics: (a: number) => [number, number];
+  readonly parseindex_fields: (a: number) => [number, number];
+  readonly parseindex_hasFinalNewline: (a: number) => number;
+  readonly parseindex_lf: (a: number) => number;
+  readonly parseindex_records: (a: number) => [number, number];
+  readonly planReplacements: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+  readonly rcsvCrc32: (a: number, b: number) => number;
   readonly rcsvDeflate: (a: number, b: number) => [number, number];
   readonly rcsvInflate: (a: number, b: number, c: number) => [number, number];
-  readonly rcsvZstd: (a: number, b: number) => [number, number];
-  readonly rcsvUnzstd: (a: number, b: number, c: number) => [number, number];
   readonly rcsvLz4: (a: number, b: number) => [number, number];
   readonly rcsvUnlz4: (a: number, b: number, c: number) => [number, number];
-  readonly rcsvCrc32: (a: number, b: number) => number;
+  readonly rcsvUnzstd: (a: number, b: number, c: number) => [number, number];
+  readonly rcsvZstd: (a: number, b: number) => [number, number];
+  readonly sniffDelimiter: (a: number, b: number) => number;
   readonly statsAggregate: (a: number, b: number) => [number, number];
-  readonly countLiteral: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_export_0: WebAssembly.Table;
-  readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
+  readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __wbindgen_start: () => void;
 }
 

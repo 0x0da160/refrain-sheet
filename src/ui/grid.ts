@@ -4,6 +4,7 @@ import { LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { getEditHints, nextZoomLevel } from '../app/settings';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
+import { ColOffsetIndex } from '../core/col-offset-index';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import { RowHeightIndex } from '../core/row-height-index';
 import { forEachIndexSliced, yieldToBrowser } from '../core/scheduler';
@@ -41,6 +42,18 @@ interface RenderWindow {
   colEnd: number;
   /** Row-height revision this window was computed against (see heightsVersion). */
   heights: number;
+}
+
+/** Cached column-offset index plus the state it was built from, for invalidation. */
+interface ColOffsetCache {
+  index: ColOffsetIndex;
+  zoom: number;
+  columnCount: number;
+  /** Reference to the `colWidths` array the index was built from — a resize
+   *  mutates that array in place, so an explicit invalidation call is also
+   *  required (see `invalidateColOffsets`); this reference check catches the
+   *  cases where a new array is assigned instead (e.g. restoring a tab). */
+  widths: number[];
 }
 
 /**
@@ -306,6 +319,14 @@ export class Grid {
   private readonly rowHeights = new WeakMap<object, RowHeightIndex>();
   /** Bumped whenever any row height changes, so the render window rebuilds. */
   private heightsVersion = 0;
+  /**
+   * Cached column-offset prefix sum, keyed by document. Built lazily and
+   * reused across every scroll/render until a resize, autofit, zoom, or
+   * column-count change invalidates it — rebuilding from scratch on every
+   * scroll would make horizontal scroll cost scale with total column count
+   * instead of the visible window.
+   */
+  private readonly colOffsets = new WeakMap<object, ColOffsetCache>();
   /** Offscreen measuring cell for font/chrome metrics (never shows content). */
   private readonly measureCell: HTMLElement;
   /** Layout signature the off-screen wrap-measure pass is running for, if any. */
@@ -627,22 +648,43 @@ export class Grid {
     return Math.round((w && w > 0 ? w : COL_WIDTH) * this.zoomOf(tab));
   }
 
+  /**
+   * The column-offset index for `tab`, rebuilding it only when the widths
+   * array, zoom, or column count it was built from have changed since the
+   * last call.
+   */
+  private colOffsetIndex(tab: Tab): ColOffsetIndex {
+    const cached = this.colOffsets.get(tab.doc);
+    const columnCount = tab.doc.columnCount;
+    if (
+      cached &&
+      cached.zoom === tab.zoom &&
+      cached.widths === tab.colWidths &&
+      cached.columnCount === columnCount
+    ) {
+      return cached.index;
+    }
+    const index = new ColOffsetIndex(columnCount, (c) => this.colWidth(tab, c));
+    this.colOffsets.set(tab.doc, { index, zoom: tab.zoom, columnCount, widths: tab.colWidths });
+    return index;
+  }
+
+  /**
+   * Drop the cached column-offset index for `tab`'s document (used after a
+   * resize or autofit mutates `colWidths` in place, which the cache's
+   * reference check alone would not catch).
+   */
+  private invalidateColOffsets(tab: Tab): void {
+    this.colOffsets.delete(tab.doc);
+  }
+
   /** X offset (from the first column) of column `col`, i.e. the summed widths before it. */
   private colOffset(tab: Tab, col: number): number {
-    let x = 0;
-    for (let c = 0; c < col; c++) {
-      x += this.colWidth(tab, c);
-    }
-    return x;
+    return this.colOffsetIndex(tab).offsetOf(col);
   }
 
   private totalColsWidth(tab: Tab): number {
-    const cols = Math.max(1, tab.doc.columnCount);
-    let x = 0;
-    for (let c = 0; c < cols; c++) {
-      x += this.colWidth(tab, c);
-    }
-    return x;
+    return this.colOffsetIndex(tab).totalWidth;
   }
 
   private totalWidth(tab: Tab): number {
@@ -933,19 +975,12 @@ export class Grid {
     const last = idx.rowAtOffset(originY + scrollTop + viewH, rowCount) + 1;
     const rowStart = Math.max(startRow, first - OVERSCAN_ROWS);
     const rowEnd = Math.min(rowCount, last + OVERSCAN_ROWS);
-    // Columns have per-column widths, so walk them to find the visible range.
-    let firstVisible = 0;
-    let x = 0;
-    while (firstVisible < totalCols && x + this.colWidth(tab, firstVisible) <= scrollLeft) {
-      x += this.colWidth(tab, firstVisible);
-      firstVisible += 1;
-    }
+    // Columns have per-column widths; the cached offset index answers the
+    // visible range in O(log n) instead of walking every column from 0.
+    const colIdx = this.colOffsetIndex(tab);
+    const firstVisible = colIdx.colAtOrBefore(scrollLeft);
     const limit = scrollLeft + viewW;
-    let lastVisible = firstVisible;
-    while (lastVisible < totalCols && x < limit) {
-      x += this.colWidth(tab, lastVisible);
-      lastVisible += 1;
-    }
+    const lastVisible = colIdx.colAtOrAfter(limit);
     const colStart = Math.max(0, firstVisible - OVERSCAN_COLS);
     const colEnd = Math.min(totalCols, lastVisible + OVERSCAN_COLS);
     return { rowStart, rowEnd, colStart, colEnd, heights: this.heightsVersion };
@@ -1877,6 +1912,7 @@ export class Grid {
     tab.colWidths[col] = w;
     // A width change alters which cells wrap, so cached wrap heights are stale.
     this.invalidateRowHeights(tab);
+    this.invalidateColOffsets(tab);
     this.window = null; // force a re-layout with the new width
     this.render(tab);
   }
@@ -2209,6 +2245,7 @@ export class Grid {
     if (changed) {
       // New column widths change wrapping, so cached wrap heights are stale.
       this.invalidateRowHeights(tab);
+      this.invalidateColOffsets(tab);
       this.window = null;
       this.render(tab);
     }
@@ -2569,7 +2606,12 @@ export class Grid {
     if (!tab || this.editor) {
       return;
     }
-    if (event.ctrlKey || event.metaKey || event.altKey) {
+    const mod = event.ctrlKey || event.metaKey;
+    // Every Ctrl/Cmd combination is left to the application shortcut layer
+    // (`app/shortcuts.ts`) except Ctrl+Home / Ctrl+End, which are grid
+    // navigation (jump to A1 / the last used cell) and so belong here
+    // alongside the other navigation keys below.
+    if (event.altKey || (mod && event.key !== 'Home' && event.key !== 'End')) {
       return;
     }
     // A composition keystroke never navigates, commits, or runs a shortcut.
@@ -2611,11 +2653,15 @@ export class Grid {
         return;
       case 'Home':
         event.preventDefault();
-        this.moveSelection(tab, 0, -Number.MAX_SAFE_INTEGER, extend);
+        // Ctrl/Cmd+Home jumps to A1; plain Home only moves to column A of the
+        // current row.
+        this.moveSelection(tab, mod ? -Number.MAX_SAFE_INTEGER : 0, -Number.MAX_SAFE_INTEGER, extend);
         return;
       case 'End':
         event.preventDefault();
-        this.moveSelection(tab, 0, Number.MAX_SAFE_INTEGER, extend);
+        // Ctrl/Cmd+End jumps to the last used cell; plain End only moves to
+        // the last field of the current row.
+        this.moveSelection(tab, mod ? Number.MAX_SAFE_INTEGER : 0, Number.MAX_SAFE_INTEGER, extend);
         return;
       case 'Enter':
         event.preventDefault();

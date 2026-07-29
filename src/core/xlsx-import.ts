@@ -14,7 +14,7 @@
  * Google Sheets never write STORE-only archives, unlike this app's own
  * export), so — unlike the writer — this reader needs an actual ZIP central
  * directory walk and DEFLATE decompression. The DEFLATE step reuses the
- * existing bounded WASM `rcsvInflate` export (via `getRsfCodec`), already
+ * existing bounded WASM `rsfInflate` export (via `getRsfCodec`), already
  * trusted for `.rsf`'s own compressed container, so no new dependency or new
  * WASM surface is introduced.
  */

@@ -16,6 +16,7 @@
  */
 
 import { RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../core/rsf-codec';
+import { safeStorageGet, safeStorageSet } from './storage';
 
 const MIB = 1024 * 1024;
 
@@ -27,23 +28,6 @@ export const MIN_MAX_FILE_SIZE = 16 * MIB;
 export const MAX_MAX_FILE_SIZE = 2 * 1024 * MIB; // 2 GiB
 
 const MAX_FILE_SIZE_KEY = 'refrain-csv-html.maxFileSize';
-
-function safeStorageGet(key: string): string | null {
-  try {
-    return globalThis.localStorage?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function safeStorageSet(key: string, value: string): void {
-  try {
-    globalThis.localStorage?.setItem(key, value);
-  } catch {
-    // Storage may be unavailable (private mode, file:// restrictions); the
-    // preference simply is not persisted. Nothing is ever sent anywhere.
-  }
-}
 
 /** Clamp an arbitrary number of bytes into the supported file-size range. */
 export function clampMaxFileSize(bytes: number): number {

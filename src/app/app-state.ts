@@ -23,6 +23,7 @@ import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument, RSF_EXTENSION 
 import type { Worksheet } from '../core/worksheet';
 import { getLocale, t } from './i18n';
 import { clampSheetZoom, getSheetZoom, getWrapCells, setSheetZoom, setWrapCellsPreference } from './settings';
+import { safeStorageGet, safeStorageSet } from './storage';
 
 /**
  * The localized name of a workbook's first worksheet (`Sheet1` / `シート1`).
@@ -114,22 +115,6 @@ export type StateEventType = 'tabs' | 'active' | 'doc' | 'selection' | 'view' | 
 const STICKY_KEY = 'refrain-csv-html.stickyFirstRow';
 
 let nextTabId = 1;
-
-function safeStorageGet(key: string): string | null {
-  try {
-    return globalThis.localStorage?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function safeStorageSet(key: string, value: string): void {
-  try {
-    globalThis.localStorage?.setItem(key, value);
-  } catch {
-    // Storage may be unavailable; the preference simply is not persisted.
-  }
-}
 
 /**
  * Application state: open tabs, the active tab, selections, and the

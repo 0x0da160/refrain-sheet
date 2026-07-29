@@ -19,20 +19,6 @@ function getStringFromWasm0(ptr, len) {
     return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
 }
 
-let cachedUint32ArrayMemory0 = null;
-
-function getUint32ArrayMemory0() {
-    if (cachedUint32ArrayMemory0 === null || cachedUint32ArrayMemory0.byteLength === 0) {
-        cachedUint32ArrayMemory0 = new Uint32Array(wasm.memory.buffer);
-    }
-    return cachedUint32ArrayMemory0;
-}
-
-function getArrayU32FromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
-}
-
 let WASM_VECTOR_LEN = 0;
 
 function passArray8ToWasm0(arg, malloc) {
@@ -68,11 +54,25 @@ export function sniffDelimiter(bytes) {
     return ret;
 }
 
+let cachedUint32ArrayMemory0 = null;
+
+function getUint32ArrayMemory0() {
+    if (cachedUint32ArrayMemory0 === null || cachedUint32ArrayMemory0.byteLength === 0) {
+        cachedUint32ArrayMemory0 = new Uint32Array(wasm.memory.buffer);
+    }
+    return cachedUint32ArrayMemory0;
+}
+
 function passArray32ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 4, 4) >>> 0;
     getUint32ArrayMemory0().set(arg, ptr / 4);
     WASM_VECTOR_LEN = arg.length;
     return ptr;
+}
+
+function getArrayU32FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
 }
 /**
  * Serialization planning: ordered `[kind, a, b]` triples describing the
@@ -91,144 +91,6 @@ export function planReplacements(bytes_len, ranges, payload_lens) {
     var v3 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
     wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
     return v3;
-}
-
-function getArrayU8FromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
-}
-/**
- * Apply byte-range replacements to the original bytes. Bytes outside the
- * replaced ranges are copied verbatim.
- * @param {Uint8Array} bytes
- * @param {Uint32Array} ranges
- * @param {Uint8Array} payload
- * @param {Uint32Array} payload_lens
- * @returns {Uint8Array}
- */
-export function applyReplacements(bytes, ranges, payload, payload_lens) {
-    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ptr1 = passArray32ToWasm0(ranges, wasm.__wbindgen_malloc);
-    const len1 = WASM_VECTOR_LEN;
-    const ptr2 = passArray8ToWasm0(payload, wasm.__wbindgen_malloc);
-    const len2 = WASM_VECTOR_LEN;
-    const ptr3 = passArray32ToWasm0(payload_lens, wasm.__wbindgen_malloc);
-    const len3 = WASM_VECTOR_LEN;
-    const ret = wasm.applyReplacements(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
-    var v5 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    return v5;
-}
-
-/**
- * Raw DEFLATE compression for the `.rcsv` container payload.
- * @param {Uint8Array} bytes
- * @returns {Uint8Array}
- */
-export function rcsvDeflate(bytes) {
-    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.rcsvDeflate(ptr0, len0);
-    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    return v2;
-}
-
-/**
- * Raw DEFLATE decompression, bounded by `max_len` output bytes (a
- * decompression-bomb guard). Returns an empty array on failure; the caller
- * distinguishes "empty payload" via the container's stored length.
- * @param {Uint8Array} bytes
- * @param {number} max_len
- * @returns {Uint8Array | undefined}
- */
-export function rcsvInflate(bytes, max_len) {
-    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.rcsvInflate(ptr0, len0, max_len);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
-}
-
-/**
- * Zstandard compression (method 0x02) for the `.rcsv` container payload.
- * @param {Uint8Array} bytes
- * @returns {Uint8Array}
- */
-export function rcsvZstd(bytes) {
-    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.rcsvZstd(ptr0, len0);
-    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    return v2;
-}
-
-/**
- * Zstandard decompression, bounded by `max_len` output bytes (bomb guard).
- * @param {Uint8Array} bytes
- * @param {number} max_len
- * @returns {Uint8Array | undefined}
- */
-export function rcsvUnzstd(bytes, max_len) {
-    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.rcsvUnzstd(ptr0, len0, max_len);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
-}
-
-/**
- * LZ4 Frame compression (method 0x03) for the `.rcsv` container payload.
- * @param {Uint8Array} bytes
- * @returns {Uint8Array}
- */
-export function rcsvLz4(bytes) {
-    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.rcsvLz4(ptr0, len0);
-    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    return v2;
-}
-
-/**
- * LZ4 Frame decompression, bounded by `max_len` output bytes (bomb guard).
- * @param {Uint8Array} bytes
- * @param {number} max_len
- * @returns {Uint8Array | undefined}
- */
-export function rcsvUnlz4(bytes, max_len) {
-    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.rcsvUnlz4(ptr0, len0, max_len);
-    let v2;
-    if (ret[0] !== 0) {
-        v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
-        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
-    }
-    return v2;
-}
-
-/**
- * CRC-32 (IEEE) checksum of the container's uncompressed body.
- * @param {Uint8Array} bytes
- * @returns {number}
- */
-export function rcsvCrc32(bytes) {
-    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.rcsvCrc32(ptr0, len0);
-    return ret >>> 0;
 }
 
 let cachedFloat64ArrayMemory0 = null;
@@ -280,6 +142,144 @@ export function countLiteral(haystack, needle) {
     return ret >>> 0;
 }
 
+function getArrayU8FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
+}
+/**
+ * Apply byte-range replacements to the original bytes. Bytes outside the
+ * replaced ranges are copied verbatim.
+ * @param {Uint8Array} bytes
+ * @param {Uint32Array} ranges
+ * @param {Uint8Array} payload
+ * @param {Uint32Array} payload_lens
+ * @returns {Uint8Array}
+ */
+export function applyReplacements(bytes, ranges, payload, payload_lens) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArray32ToWasm0(ranges, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passArray8ToWasm0(payload, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ptr3 = passArray32ToWasm0(payload_lens, wasm.__wbindgen_malloc);
+    const len3 = WASM_VECTOR_LEN;
+    const ret = wasm.applyReplacements(ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+    var v5 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v5;
+}
+
+/**
+ * Raw DEFLATE compression for the RSF container payload.
+ * @param {Uint8Array} bytes
+ * @returns {Uint8Array}
+ */
+export function rsfDeflate(bytes) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rsfDeflate(ptr0, len0);
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
+ * Raw DEFLATE decompression, bounded by `max_len` output bytes (a
+ * decompression-bomb guard). Returns an empty array on failure; the caller
+ * distinguishes "empty payload" via the container's stored length.
+ * @param {Uint8Array} bytes
+ * @param {number} max_len
+ * @returns {Uint8Array | undefined}
+ */
+export function rsfInflate(bytes, max_len) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rsfInflate(ptr0, len0, max_len);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
+ * Zstandard compression (method 0x02) for the RSF container payload.
+ * @param {Uint8Array} bytes
+ * @returns {Uint8Array}
+ */
+export function rsfZstd(bytes) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rsfZstd(ptr0, len0);
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
+ * Zstandard decompression, bounded by `max_len` output bytes (bomb guard).
+ * @param {Uint8Array} bytes
+ * @param {number} max_len
+ * @returns {Uint8Array | undefined}
+ */
+export function rsfUnzstd(bytes, max_len) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rsfUnzstd(ptr0, len0, max_len);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
+ * LZ4 Frame compression (method 0x03) for the RSF container payload.
+ * @param {Uint8Array} bytes
+ * @returns {Uint8Array}
+ */
+export function rsfLz4(bytes) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rsfLz4(ptr0, len0);
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
+ * LZ4 Frame decompression, bounded by `max_len` output bytes (bomb guard).
+ * @param {Uint8Array} bytes
+ * @param {number} max_len
+ * @returns {Uint8Array | undefined}
+ */
+export function rsfUnlz4(bytes, max_len) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rsfUnlz4(ptr0, len0, max_len);
+    let v2;
+    if (ret[0] !== 0) {
+        v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    }
+    return v2;
+}
+
+/**
+ * CRC-32 (IEEE) checksum of the container's uncompressed body.
+ * @param {Uint8Array} bytes
+ * @returns {number}
+ */
+export function rsfCrc32(bytes) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.rsfCrc32(ptr0, len0);
+    return ret >>> 0;
+}
+
 const ParseIndexFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_parseindex_free(ptr >>> 0, 1));
@@ -309,13 +309,48 @@ export class ParseIndex {
         wasm.__wbg_parseindex_free(ptr, 0);
     }
     /**
+     * @returns {number}
+     */
+    get bomLength() {
+        const ret = wasm.parseindex_bomLength(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
      * @returns {Uint32Array}
      */
-    get records() {
-        const ret = wasm.parseindex_records(this.__wbg_ptr);
+    get diagnostics() {
+        const ret = wasm.parseindex_diagnostics(this.__wbg_ptr);
         var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;
+    }
+    /**
+     * @returns {boolean}
+     */
+    get hasFinalNewline() {
+        const ret = wasm.parseindex_hasFinalNewline(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get cr() {
+        const ret = wasm.parseindex_cr(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get lf() {
+        const ret = wasm.parseindex_lf(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get crlf() {
+        const ret = wasm.parseindex_crlf(this.__wbg_ptr);
+        return ret >>> 0;
     }
     /**
      * @returns {Uint32Array}
@@ -329,46 +364,11 @@ export class ParseIndex {
     /**
      * @returns {Uint32Array}
      */
-    get diagnostics() {
-        const ret = wasm.parseindex_diagnostics(this.__wbg_ptr);
+    get records() {
+        const ret = wasm.parseindex_records(this.__wbg_ptr);
         var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;
-    }
-    /**
-     * @returns {number}
-     */
-    get crlf() {
-        const ret = wasm.parseindex_crlf(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @returns {number}
-     */
-    get lf() {
-        const ret = wasm.parseindex_lf(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @returns {number}
-     */
-    get cr() {
-        const ret = wasm.parseindex_cr(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @returns {boolean}
-     */
-    get hasFinalNewline() {
-        const ret = wasm.parseindex_hasFinalNewline(this.__wbg_ptr);
-        return ret !== 0;
-    }
-    /**
-     * @returns {number}
-     */
-    get bomLength() {
-        const ret = wasm.parseindex_bomLength(this.__wbg_ptr);
-        return ret >>> 0;
     }
 }
 

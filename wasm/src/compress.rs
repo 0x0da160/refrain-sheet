@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-//! Compression and integrity primitives for the binary `.rcsv` container.
+//! Compression and integrity primitives for the binary RSF container.
 //!
 //! The container framing (magic bytes, header, checksum) lives on the
-//! JavaScript side in `src/core/rcsv-codec.ts`; this module provides only the
+//! JavaScript side in `src/core/rsf-codec.ts`; this module provides only the
 //! CPU-heavy primitives: the pure-Rust compression codecs and a CRC-32
 //! checksum. Every decompressor is bounded by an explicit output limit so a
 //! malicious "decompression bomb" cannot exhaust memory.
@@ -51,7 +51,7 @@ pub fn inflate(bytes: &[u8], max_len: usize) -> Option<Vec<u8>> {
 ///
 /// `ruzstd`'s encoder implements `Fastest` (≈ zstd level 1) and `Uncompressed`;
 /// its higher levels are not yet implemented, so `Fastest` is the moderate
-/// default the RCSV container writes for method `0x02`. The output is a
+/// default the RSF container writes for method `0x02`. The output is a
 /// conformant Zstandard frame readable by any compliant decoder.
 pub fn zstd(bytes: &[u8]) -> Vec<u8> {
     zstd_compress_to_vec(bytes, CompressionLevel::Fastest)

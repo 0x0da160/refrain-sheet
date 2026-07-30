@@ -308,6 +308,7 @@ export type CommandId =
   | 'edit.undo'
   | 'edit.redo'
   | 'edit.copy'
+  | 'edit.copyAsImage'
   | 'edit.paste'
   | 'edit.insertCopiedCells'
   | 'edit.insertCopiedRows'
@@ -386,6 +387,8 @@ export class Commands {
   /** Set by main.ts so menu Copy/Paste can go through the clipboard controller. */
   clipboardActions: {
     copy: () => Promise<void>;
+    /** Render the selection to a PNG and write it to the system clipboard. */
+    copyAsImage: () => Promise<void>;
     paste: () => Promise<void>;
     /** The most recently copied range (internal clipboard, else parsed system text). */
     getCopied: () => Promise<{ matrix: string[][]; origin: Selection | null } | null>;
@@ -463,6 +466,15 @@ export class Commands {
       case 'edit.moveRange':
       case 'sheet.filter':
         return tab?.selection != null;
+      // The async Clipboard API's image write has inconsistent browser
+      // support (including on file://), so the item is hidden/disabled
+      // outright there rather than failing at run time.
+      case 'edit.copyAsImage':
+        return (
+          tab?.selection != null &&
+          typeof ClipboardItem !== 'undefined' &&
+          typeof navigator.clipboard?.write === 'function'
+        );
       // The Insert Copied … commands additionally require a compatible kind
       // in the internal (in-app) clipboard: Cells accepts any copied kind;
       // Rows/Columns require a matching whole-row/whole-column copy. Nothing
@@ -583,6 +595,9 @@ export class Commands {
         return;
       case 'edit.copy':
         await this.clipboardActions?.copy();
+        return;
+      case 'edit.copyAsImage':
+        await this.clipboardActions?.copyAsImage();
         return;
       case 'edit.paste':
         await this.clipboardActions?.paste();

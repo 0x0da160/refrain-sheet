@@ -1310,7 +1310,7 @@ export class Grid {
       this.state.activeTab === tab && tab.doc === doc && this.state.wrapCells && this.wrapPassSig === sig;
     let dirty = false;
     if (large) {
-      this.commands.setBusy(t('loading.wrapMeasure', { done: 0, total, pct: 0 }));
+      this.commands.setBusy(t('loading.wrapMeasure', { done: 0, total, pct: 0 }), 0);
     }
     try {
       const ok = await forEachIndexSliced(
@@ -1332,7 +1332,7 @@ export class Grid {
             }
             if (large) {
               const pct = Math.floor((done / total) * 100);
-              this.commands.setBusy(t('loading.wrapMeasure', { done, total, pct }));
+              this.commands.setBusy(t('loading.wrapMeasure', { done, total, pct }), pct);
             }
           },
           shouldStop: () => !current(),
@@ -2190,15 +2190,15 @@ export class Grid {
       const heavy =
         cols.length > 1 && cols.length * Math.min(doc.rowCount, AUTOFIT_SAMPLE_BUDGET) > LARGE_OP_CELLS;
       if (heavy) {
-        this.commands.setBusy(t('loading.autoFitCols', { done: 0, total: cols.length, pct: 0 }));
+        this.commands.setBusy(t('loading.autoFitCols', { done: 0, total: cols.length, pct: 0 }), 0);
       }
       try {
         result = await planAutoFitColumns(cols, makeInput, {
           yieldBetween: heavy,
-          onProgress: (done, total) =>
-            this.commands.setBusy(
-              t('loading.autoFitCols', { done, total, pct: Math.floor((done / total) * 100) }),
-            ),
+          onProgress: (done, total) => {
+            const pct = Math.floor((done / total) * 100);
+            this.commands.setBusy(t('loading.autoFitCols', { done, total, pct }), pct);
+          },
           shouldStop: () => this.state.activeTab !== tab || tab.doc !== doc,
         });
       } finally {

@@ -88,13 +88,13 @@ function bootstrap(): void {
     chooseSettings: (current) => dialogs.chooseSettings(current),
     chooseTimezone: (current) => dialogs.chooseTimezone(current),
     chooseDisplayLanguage: (current) => dialogs.chooseDisplayLanguage(current),
-    setBusy: (label) => {
+    setBusy: (label, progress) => {
       // An operation is starting: a context menu built against the pre-operation
       // state must not survive into it.
       if (label !== null) {
         closeAllContextMenus();
       }
-      loadingOverlay.set(label);
+      loadingOverlay.set(label, progress);
     },
   };
 

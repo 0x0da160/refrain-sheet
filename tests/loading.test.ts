@@ -64,6 +64,31 @@ describe('loading overlay', () => {
     expect(overlay.element.hidden).toBe(true);
     expect(overlay.element.getAttribute('aria-busy')).toBe('false');
   });
+
+  it('shows a determinate progress bar in place of the spinner when a percentage is given', () => {
+    const overlay = new LoadingOverlay();
+    const spinner = overlay.element.querySelector<HTMLElement>('.loading-spinner')!;
+    const progress = overlay.element.querySelector<HTMLProgressElement>('.loading-progress')!;
+
+    overlay.set('Converting… (0%)', 0);
+    expect(spinner.hidden).toBe(true);
+    expect(progress.hidden).toBe(false);
+    expect(progress.value).toBe(0);
+    expect(progress.max).toBe(100);
+
+    overlay.set('Converting… (42%)', 42);
+    expect(progress.value).toBe(42);
+
+    // No percentage available (e.g. the RSF compression phase): the
+    // indeterminate spinner is shown, unchanged.
+    overlay.set('Compressing…');
+    expect(spinner.hidden).toBe(false);
+    expect(progress.hidden).toBe(true);
+
+    overlay.set(null);
+    expect(spinner.hidden).toBe(false);
+    expect(progress.hidden).toBe(true);
+  });
 });
 
 describe('busy indicator during file open', () => {

@@ -491,7 +491,10 @@ export class FileIoCommands {
         const perSheet: Array<Array<[number, number, string]>> = doc.sheets.map(() => []);
         const completed = await forEachIndexSliced(doc.totalRows, (i) => doc.collectFlatRow(i, perSheet), {
           onProgress: (done, total) =>
-            this.ui.setBusy(t('loading.savingSerialize', { name: tab.name, pct: pct(done, total) })),
+            this.ui.setBusy(
+              t('loading.savingSerialize', { name: tab.name, pct: pct(done, total) }),
+              pct(done, total),
+            ),
           shouldStop: () => tab.doc !== doc,
         });
         if (!completed || tab.doc !== doc) {
@@ -588,7 +591,7 @@ export class FileIoCommands {
           scanCsvExportRow(scan, r, values, options.encoding, allowNcr);
         },
         {
-          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`),
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`, pct(done, total)),
           shouldStop: () => tab.doc !== doc,
         },
       );
@@ -691,7 +694,11 @@ export class FileIoCommands {
             rows.push(values);
           },
           {
-            onProgress: (done) => this.ui.setBusy(`${label} (${pct(doneRows + done, totalRows)}%)`),
+            onProgress: (done) =>
+              this.ui.setBusy(
+                `${label} (${pct(doneRows + done, totalRows)}%)`,
+                pct(doneRows + done, totalRows),
+              ),
             shouldStop: () => tab.doc !== doc,
           },
         );
@@ -802,6 +809,7 @@ export class FileIoCommands {
         onProgress: (done, total) =>
           this.ui.setBusy(
             `${label} (${pct(done, total)}% — ${t('loading.rowsOf', { done: done.toLocaleString('en-US'), total: total.toLocaleString('en-US') })})`,
+            pct(done, total),
           ),
         shouldStop: () => tab.doc !== doc,
       },

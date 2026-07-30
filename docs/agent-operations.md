@@ -781,7 +781,12 @@ tag push uses.
    ブラウザで **Actions** を開きます。
 2. Open **Manual release recovery**. / **Manual release recovery** を開きます。
 3. Tap **Run workflow**. / **Run workflow** をタップします。
-4. Enter the merged PR number. / マージ済みの PR 番号を入力します。
+4. Enter the merged PR number — **Pull requests → Closed** lists them newest merged
+   first, and every run annotates the newest merged pull request on its own run page,
+   so a wrong guess costs one stopped run and then tells you the number. / マージ済みの
+   PR 番号を入力します。**Pull requests → Closed** に新しくマージされた順で並んでいます。
+   またこのワークフローは実行ページに最新のマージ済み PR を注記として出力するため、
+   番号を間違えても実行が 1 回停止するだけで、正しい番号が分かります。
 5. Select `patch`, `minor`, or `major`. / `patch`・`minor`・`major` から選びます。
 6. **Tick `dry_run` and run it that way first.** / **まず `dry_run` にチェックを入れて
    実行してください。**
@@ -797,6 +802,23 @@ tag push uses.
 > unticked releases for real.
 > `dry_run` の既定はチェックなしです。手順 6 は意識的に行ってください。チェックを外した
 > ままの実行は本番リリースになります。
+
+### Why the PR number is required / PR 番号が必須である理由
+
+- **English:** there is deliberately no "just release the current tip of `main`" mode.
+  The specific merged pull request you name is the release's authorization and its
+  audit trail: it is what proves the released change was reviewed, that it landed on
+  `main`, and that it is not itself a `Release vX.Y.Z` commit or a `release/*` branch.
+  Releasing whatever `main` happens to hold would give none of those guarantees and
+  would need its own separate defence against re-releasing an already-shipped commit.
+  The number is required; finding it is the part that was made easy (step 4).
+- **日本語:** 「現在の `main` の先端をそのままリリースする」モードは意図的に用意して
+  いません。指定するマージ済みの PR こそがリリースの承認であり監査証跡です。リリース
+  対象の変更がレビュー済みであること、`main` に入っていること、そしてそれ自体が
+  `Release vX.Y.Z` コミットや `release/*` ブランチではないことを示します。`main` の
+  内容を無条件にリリースする方式ではこれらの保証がいずれも得られず、既にリリース済みの
+  コミットを再リリースしないための別の防御も必要になります。番号の指定は必須のままとし、
+  番号を「見つけやすくする」側を改善しました (手順 4)。
 
 ### What it refuses / 拒否すること
 

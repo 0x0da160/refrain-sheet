@@ -457,13 +457,14 @@ These cannot be automated safely and must be done by a repository admin.
    Actions **variable** `CLAUDE_AUTH_METHOD` to `oauth` or `api-key`, then configure
    the matching **secret** (`CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY`). Never
    commit or echo a secret value.
-3. **SHA-pin the third-party action** — the five agent workflows (`issue-triage`,
+3. **Check the third-party action pin** — the five agent workflows (`issue-triage`,
    `prepare-issue-spec`, `implement-issue`, `review-pr`, `close-loop`) reference
-   `anthropics/claude-code-action@v1`. Repo policy (`docs/security.md`) requires
-   third-party actions pinned to a **full commit SHA**. Replace each `@v1` with a
-   verified SHA (add a comment naming the version) before enabling. While pinning,
-   also confirm the [allowed model values](#allowed-model-values) are valid for that
-   action build.
+   `anthropics/claude-code-action` pinned to a **full commit SHA**, as repo policy
+   (`docs/security.md`) requires; the trailing comment on each `uses:` line names
+   the release that SHA is. Nothing is required here to enable the loop. When you
+   deliberately move the pin to a newer release, change every call site to the same
+   SHA and confirm the [allowed model values](#allowed-model-values) are still valid
+   for that action build.
 4. **Create the labels** — one-time, with the GitHub CLI (colors/descriptions from
    [`.github/labels.yml`](../.github/labels.yml)). **Create all of them, including
    the `type:*` and `risk:*` labels.** GitHub **silently drops** a label an Issue

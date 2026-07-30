@@ -18,8 +18,9 @@ name: Prepare issue spec
 # - Least-privilege: contents:read + issues:write only.
 # - `pull_request` is not used here; there is no fork-code execution path.
 # - Inert until a human selects CLAUDE_AUTH_METHOD + adds the matching secret.
-# - `anthropics/claude-code-action` is THIRD-PARTY. SECURITY TODO: pin `@v1` to a
-#   verified commit SHA before enabling (docs/security.md pinning policy).
+# - `anthropics/claude-code-action` is THIRD-PARTY, so it is pinned to a full
+#   commit SHA (docs/security.md pinning policy). The trailing comment on each
+#   `uses:` line names the release that SHA is.
 
 on:
   issues:
@@ -151,7 +152,7 @@ jobs:
 
       - name: Write the specification (OAuth)
         if: env.CLAUDE_AUTH_METHOD == 'oauth'
-        uses: anthropics/claude-code-action@v1 # SECURITY TODO: pin to a commit SHA
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
         with:
@@ -214,7 +215,7 @@ jobs:
 
       - name: Write the specification (API key)
         if: env.CLAUDE_AUTH_METHOD == 'api-key'
-        uses: anthropics/claude-code-action@v1 # SECURITY TODO: pin to a commit SHA
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
         with:

@@ -1525,6 +1525,35 @@ table.diag-table th {
   animation: loading-spin 0.8s linear infinite;
 }
 
+.loading-overlay .loading-progress {
+  width: 220px;
+  height: 8px;
+  appearance: none;
+  border: none;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.loading-overlay .loading-progress::-webkit-progress-bar {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.loading-overlay .loading-progress::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 0.15s ease-out;
+}
+
+.loading-overlay .loading-progress::-moz-progress-bar {
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+.loading-overlay .loading-progress[hidden] {
+  display: none;
+}
+
 .loading-overlay .loading-label {
   background: var(--surface);
   border: 1px solid var(--border);

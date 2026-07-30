@@ -291,8 +291,11 @@ export interface UiPort {
   /**
    * Show or hide the busy/loading indicator. `label` is already-localized
    * text describing the current operation; `null` hides the indicator.
+   * `progress` is a real completion percentage (0-100) when the caller has
+   * one to report — it shows a determinate progress bar in place of the
+   * indeterminate spinner. Omit it when no honest percentage exists.
    */
-  setBusy(label: string | null): void;
+  setBusy(label: string | null, progress?: number | null): void;
 }
 
 export type CommandId =
@@ -812,8 +815,8 @@ export class Commands {
    * their own sliced work, e.g. the grid's multi-column auto-fit). Always
    * pass `null` when the operation ends, succeeds or not.
    */
-  setBusy(label: string | null): void {
-    this.ui.setBusy(label);
+  setBusy(label: string | null, progress?: number | null): void {
+    this.ui.setBusy(label, progress);
   }
 
   /**

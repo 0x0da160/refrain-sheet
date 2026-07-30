@@ -133,7 +133,7 @@ describe('copy / paste', () => {
     const { state, commands, tab } = await converted('1,2\n3,4\n');
     state.editCell(tab, 1, 1, '=A1+B1');
     state.setSelection(tab, { row: 1, col: 1 }, { row: 0, col: 0 });
-    const clip = new ClipboardController(state, commands, () => undefined);
+    const clip = new ClipboardController(state, commands, () => undefined, document);
     expect(clip.copyText()).toBe('1\t2\n3\t3');
   });
 
@@ -201,7 +201,7 @@ describe('copy / paste', () => {
     const { state, commands, tab } = await converted('1,2,\n3,4,\n');
     state.editCell(tab, 0, 2, '=A1+B1');
     state.setSelection(tab, { row: 0, col: 2 }, null);
-    const clip = new ClipboardController(state, commands, () => undefined);
+    const clip = new ClipboardController(state, commands, () => undefined, document);
     const text = clip.copyText()!;
     state.setSelection(tab, { row: 1, col: 2 }, null);
     await clip.pasteText(text);
@@ -212,7 +212,7 @@ describe('copy / paste', () => {
   it('external paste of the same-looking text pastes literally', async () => {
     const { state, commands, tab } = await converted('1,2,\n3,4,\n');
     state.setSelection(tab, { row: 1, col: 2 }, null);
-    const clip = new ClipboardController(state, commands, () => undefined);
+    const clip = new ClipboardController(state, commands, () => undefined, document);
     await clip.pasteText('external');
     expect(tab.doc.getValue(1, 2)).toBe('external');
   });

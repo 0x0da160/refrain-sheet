@@ -11,6 +11,16 @@ import type { UiPort } from '../commands';
 export const LARGE_OP_CELLS = 20_000;
 
 /**
+ * Byte threshold above which opening a file counts as "large" for busy-overlay
+ * purposes. Unlike other gated operations, a file's cell count is unknown
+ * until it has been parsed, so its byte size stands in as the upfront signal.
+ * Sized from `docs/performance.md`'s own CSV benchmark (~200,000 cells /
+ * ~11 MB, roughly 9 bytes/cell) to track {@link LARGE_OP_CELLS} at a
+ * comparable scale.
+ */
+export const LARGE_OPEN_BYTES = 200_000;
+
+/**
  * Whole-number progress percentage for loading labels. Uses floor so 100% is
  * never shown while work remains — a label only reads 100% after the
  * operation has actually completed.
@@ -46,4 +56,20 @@ export async function withBusy<T>(ui: UiPort, label: string, work: () => T | Pro
   } finally {
     ui.setBusy(null);
   }
+}
+
+/**
+ * Run `work` behind the busy indicator only when `large` is true; otherwise
+ * run it directly with no overlay. Small operations (below whichever
+ * size threshold the caller already checked — {@link LARGE_OP_CELLS} or
+ * {@link LARGE_OPEN_BYTES}) complete imperceptibly fast, so paying the
+ * indicator's guaranteed show/paint/hide cost would only produce a flicker.
+ */
+export async function withBusyIfLarge<T>(
+  large: boolean,
+  ui: UiPort,
+  label: string,
+  work: () => T | Promise<T>,
+): Promise<T> {
+  return large ? withBusy(ui, label, work) : work();
 }

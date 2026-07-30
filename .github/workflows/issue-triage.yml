@@ -11,7 +11,7 @@ name: Issue triage
 #   adds the ANTHROPIC_API_KEY secret. See docs/agent-operations.md.
 # - `anthropics/claude-code-action` is a THIRD-PARTY action. Repo policy
 #   (docs/security.md) requires third-party actions to be pinned to a full commit
-#   SHA. SECURITY TODO: before enabling, replace `@v1` with a verified commit SHA.
+#   SHA, so it is pinned below; the trailing comment names the release.
 
 on:
   issues:
@@ -113,7 +113,7 @@ jobs:
 
       - name: Triage the issue (OAuth)
         if: env.CLAUDE_AUTH_METHOD == 'oauth'
-        uses: anthropics/claude-code-action@v1 # SECURITY TODO: pin to a commit SHA
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
         with:
@@ -160,7 +160,7 @@ jobs:
 
       - name: Triage the issue (API key)
         if: env.CLAUDE_AUTH_METHOD == 'api-key'
-        uses: anthropics/claude-code-action@v1 # SECURITY TODO: pin to a commit SHA
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
         with:

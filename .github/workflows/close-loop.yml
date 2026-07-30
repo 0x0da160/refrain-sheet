@@ -24,8 +24,9 @@ name: Close loop status
 #   bot (never '*'), exactly as in `review-pr.yml`. No approval gate is affected:
 #   `agent:ready` stays human-only and this job cannot approve, merge, or push.
 # - Least-privilege: read checks/statuses/contents; write only PR/issue comments.
-# - `anthropics/claude-code-action` is THIRD-PARTY. SECURITY TODO: pin `@v1` to a
-#   verified commit SHA before enabling (docs/security.md pinning policy).
+# - `anthropics/claude-code-action` is THIRD-PARTY, so it is pinned to a full
+#   commit SHA (docs/security.md pinning policy). The trailing comment on each
+#   `uses:` line names the release that SHA is.
 
 on:
   workflow_run:
@@ -213,7 +214,7 @@ jobs:
 
       - name: Publish status (OAuth)
         if: steps.resolve.outputs.proceed == 'true' && env.CLAUDE_AUTH_METHOD == 'oauth'
-        uses: anthropics/claude-code-action@v1 # SECURITY TODO: pin to a commit SHA
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         env:
           PR_NUMBER: ${{ steps.resolve.outputs.pr }}
         with:
@@ -263,7 +264,7 @@ jobs:
 
       - name: Publish status (API key)
         if: steps.resolve.outputs.proceed == 'true' && env.CLAUDE_AUTH_METHOD == 'api-key'
-        uses: anthropics/claude-code-action@v1 # SECURITY TODO: pin to a commit SHA
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         env:
           PR_NUMBER: ${{ steps.resolve.outputs.pr }}
         with:

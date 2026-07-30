@@ -32,7 +32,8 @@ ruzstd = "=0.8.1"
 lz4_flex = "=0.14.0"
 
 [profile.release]
-opt-level = "s"
+# Measured against opt-level = "s" (see #80): "3" is both faster (~10-35% across bench/perf.bench.ts's wasm-bound cases) and smaller here (~2.4% less embedded Base64), so there is no size/speed trade-off to record beyond this.
+opt-level = 3
 lto = true
 codegen-units = 1
 

@@ -11,6 +11,20 @@ on:
 permissions:
   contents: read
 
+# Supersede, don't queue. Pushing several commits to the same pull request in
+# quick succession used to leave every older run going to completion, holding
+# runners and delaying the run that actually matters. Grouping by ref makes a
+# newer commit cancel the stale run for that same ref.
+#
+# `github.ref` is already unique per pull request (`refs/pull/<n>/merge`), so it
+# needs no separate PR key. Cancellation is deliberately limited to
+# `pull_request`: on a push to `main` each commit keeps its own CI result and
+# its `refrain-sheet-dist` artifact, rather than a fast second merge erasing the
+# first commit's only verification signal.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Action-pinning policy (see docs/security.md): only official GitHub-maintained
 # actions/* are used here, pinned to a major version tag. Any third-party (non
 # actions/*) action MUST instead be pinned to a full commit SHA. There are

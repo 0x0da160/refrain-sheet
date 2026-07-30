@@ -67,6 +67,13 @@ function percentValues(labels: Array<string | null>): number[] {
     .map((m) => Number(m[1]));
 }
 
+/** Numeric progress argument passed alongside the label, when present. */
+function progressValues(ui: UiPort): number[] {
+  return (ui.setBusy as ReturnType<typeof vi.fn>).mock.calls
+    .map((c) => c[1])
+    .filter((p): p is number => typeof p === 'number');
+}
+
 /** A CSV document large enough to cross the large-operation threshold. */
 function largeCsv(): string {
   // 5,000 rows × 6 columns = 30,000 cells > LARGE_OP_CELLS.
@@ -93,6 +100,8 @@ describe('CSV → RSF conversion progress', () => {
       expect(p).toBeLessThan(100); // 100% never shows while work remains
     }
     expect(labels[labels.length - 1]).toBeNull();
+    // The determinate progress bar's numeric value matches the labels' text.
+    expect(progressValues(ui)).toEqual(percents);
   });
 
   it('an implicit (in-place) conversion of a large document also reports progress', async () => {
@@ -104,8 +113,10 @@ describe('CSV → RSF conversion progress', () => {
     expect(converted).not.toBeNull();
     expect(tab.doc.kind).toBe('rsf');
     expect(tab.doc.getValue(123, 0)).toBe('r123');
-    expect(percentValues(busyLabels(ui)).length).toBeGreaterThan(0);
+    const percents = percentValues(busyLabels(ui));
+    expect(percents.length).toBeGreaterThan(0);
     expect(busyLabels(ui)[busyLabels(ui).length - 1]).toBeNull();
+    expect(progressValues(ui)).toEqual(percents);
   });
 
   it('declining the conversion shows no loading UI and changes nothing', async () => {
@@ -148,6 +159,13 @@ describe('RSF save and compression progress', () => {
     // The indicator is dismissed only at the end.
     expect(labels[labels.length - 1]).toBeNull();
     expect(tab.doc.isDirty).toBe(false);
+    // Phase 1 reports a determinate progress bar value; phase 2 (compression)
+    // has no honest percentage, so it carries no numeric progress argument.
+    expect(progressValues(ui)).toEqual(percentValues(labels));
+    const compressCall = (ui.setBusy as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c) => c[0] === t('loading.savingCompress', { name: 'big.rsf' }),
+    );
+    expect(compressCall?.[1]).toBeUndefined();
   });
 });
 
@@ -169,6 +187,7 @@ describe('progress percentages never reach 100% early', () => {
     for (const p of percents) {
       expect(p).toBeLessThan(100);
     }
+    expect(progressValues(ui)).toEqual(percents);
   });
 
   it('Replace All floors its scan percentage below 100', async () => {

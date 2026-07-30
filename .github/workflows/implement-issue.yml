@@ -70,8 +70,9 @@ name: Implement issue
 #   and build/test Bash so it can actually implement; git push, PR creation, and
 #   label/issue mutations are disallowed so the workflow stays the sole authority.
 # - Inert until a human selects CLAUDE_AUTH_METHOD + adds the matching secret.
-# - `anthropics/claude-code-action` is THIRD-PARTY. SECURITY TODO: pin `@v1` to a
-#   verified commit SHA before enabling (docs/security.md pinning policy).
+# - `anthropics/claude-code-action` is THIRD-PARTY, so it is pinned to a full
+#   commit SHA (docs/security.md pinning policy). The trailing comment on each
+#   `uses:` line names the release that SHA is.
 
 on:
   issues:
@@ -295,7 +296,7 @@ jobs:
 
       - name: Implement in the working tree (OAuth)
         if: steps.gate.outputs.proceed == 'true' && env.CLAUDE_AUTH_METHOD == 'oauth'
-        uses: anthropics/claude-code-action@v1 # SECURITY TODO: pin to a commit SHA
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
@@ -426,7 +427,7 @@ jobs:
 
       - name: Implement in the working tree (API key)
         if: steps.gate.outputs.proceed == 'true' && env.CLAUDE_AUTH_METHOD == 'api-key'
-        uses: anthropics/claude-code-action@v1 # SECURITY TODO: pin to a commit SHA
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}

@@ -235,10 +235,24 @@ describe('exportCsv command flow', () => {
     expect(doc.getValue(0, 0)).toBe('a😀');
   });
 
-  it('shows the loading indicator while exporting', async () => {
+  it('exports a small sheet with no loading-indicator flicker', async () => {
     const ui = stubUi();
     interceptDownload();
     const { commands, tab } = rcsvSetup([['1']], ui);
+    await commands.exportCsv(tab);
+    expect(ui.setBusy).not.toHaveBeenCalled();
+  });
+
+  it('shows the loading indicator while exporting a large sheet', async () => {
+    const ui = stubUi();
+    interceptDownload();
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+    // Cell count alone (LARGE_OP_CELLS) drives the busy gate; empty cells
+    // are enough, no need to populate every one of them.
+    const doc = RsfDocument.empty('data.rcsv', 200, 101);
+    doc.markSaved();
+    const tab = state.addTab('data.rcsv', doc, null);
     await commands.exportCsv(tab);
     const busyCalls = (ui.setBusy as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
     expect(busyCalls.some((label) => typeof label === 'string')).toBe(true);

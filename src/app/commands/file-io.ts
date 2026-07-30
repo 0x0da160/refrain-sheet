@@ -31,7 +31,7 @@ import { readFileObject, requestSaveHandle, saveBytes, saveBytesAs, type OpenedF
 import { getLocale, t } from '../i18n';
 import { getMaxFileSize } from '../settings';
 import type { ConvertReason, UiPort } from '../commands';
-import { LARGE_OP_CELLS, nextPaint, pct, withBusy } from './shared';
+import { LARGE_OP_CELLS, LARGE_OPEN_BYTES, nextPaint, pct, withBusy, withBusyIfLarge } from './shared';
 
 const CSV_LIKE_EXTENSIONS = ['.csv', '.tsv', '.txt', RSF_EXTENSION, RSF_LEGACY_EXTENSION];
 const XLSX_EXTENSION = '.xlsx';
@@ -143,13 +143,18 @@ export class FileIoCommands {
 
     let doc: LosslessDocument;
     try {
-      doc = await withBusy(this.ui, t('loading.opening', { name: file.name }), async () => {
-        // The embedded WASM engine initializes in the background at startup;
-        // parsing waits for it here (idempotent, usually already resolved) so
-        // the first open still uses the fast engine.
-        await initCsvEngine();
-        return LosslessDocument.fromBytes(file.bytes);
-      });
+      doc = await withBusyIfLarge(
+        file.size > LARGE_OPEN_BYTES,
+        this.ui,
+        t('loading.opening', { name: file.name }),
+        async () => {
+          // The embedded WASM engine initializes in the background at startup;
+          // parsing waits for it here (idempotent, usually already resolved) so
+          // the first open still uses the fast engine.
+          await initCsvEngine();
+          return LosslessDocument.fromBytes(file.bytes);
+        },
+      );
     } catch (err) {
       this.ui.notify(
         t('notify.openFailed', { name: file.name, error: err instanceof Error ? err.message : String(err) }),
@@ -169,10 +174,15 @@ export class FileIoCommands {
   }
 
   private async openRsfFile(file: OpenedFile): Promise<void> {
-    const result = await withBusy(this.ui, t('loading.opening', { name: file.name }), async () => {
-      await initCsvEngine(); // reading DEFLATE-compressed containers needs the WASM codec
-      return RsfDocument.fromBytes(file.bytes, file.name);
-    });
+    const result = await withBusyIfLarge(
+      file.size > LARGE_OPEN_BYTES,
+      this.ui,
+      t('loading.opening', { name: file.name }),
+      async () => {
+        await initCsvEngine(); // reading DEFLATE-compressed containers needs the WASM codec
+        return RsfDocument.fromBytes(file.bytes, file.name);
+      },
+    );
     if (!result.ok) {
       const reasonKey: Record<RsfParseError, string> = {
         'bad-magic': 'dialog.rsfInvalid.badMagic',
@@ -216,10 +226,15 @@ export class FileIoCommands {
    * matching the documented lossy scope of `.xlsx` export.
    */
   private async openXlsxFile(file: OpenedFile): Promise<void> {
-    const result = await withBusy(this.ui, t('loading.opening', { name: file.name }), async () => {
-      await initCsvEngine(); // reading DEFLATE-compressed ZIP entries needs the WASM codec
-      return parseXlsxWorkbook(file.bytes);
-    });
+    const result = await withBusyIfLarge(
+      file.size > LARGE_OPEN_BYTES,
+      this.ui,
+      t('loading.opening', { name: file.name }),
+      async () => {
+        await initCsvEngine(); // reading DEFLATE-compressed ZIP entries needs the WASM codec
+        return parseXlsxWorkbook(file.bytes);
+      },
+    );
     if (!result.ok) {
       const reasonKey: Record<XlsxImportError, string> = {
         'not-a-zip': 'dialog.xlsxInvalid.notAZip',
@@ -456,34 +471,40 @@ export class FileIoCommands {
     // Record the tab's live view state (zoom, overridden column widths) so
     // the container persists it; presentational only, never dirties the doc.
     doc.setDisplaySettings(tab.zoom, tab.colWidths, tab.wrapCells);
-    const bytes = await withBusy(this.ui, t('loading.savingRsf', { name: tab.name }), async () => {
-      await initCsvEngine(); // compression runs in the WASM codec when available
-      // The whole workbook is serialized, not just the active worksheet.
-      let totalCells = 0;
-      for (const sheet of doc.sheets) {
-        totalCells += sheet.rowCount * sheet.columnCount;
-      }
-      if (totalCells <= LARGE_OP_CELLS) {
-        return doc.toBytes();
-      }
-      // One sliced scan across every worksheet's rows, so the percentage
-      // describes the whole save rather than one worksheet of it.
-      const perSheet: Array<Array<[number, number, string]>> = doc.sheets.map(() => []);
-      const completed = await forEachIndexSliced(doc.totalRows, (i) => doc.collectFlatRow(i, perSheet), {
-        onProgress: (done, total) =>
-          this.ui.setBusy(
-            t('loading.savingSerialize', { name: tab.name, pct: pct(done, total) }),
-            pct(done, total),
-          ),
-        shouldStop: () => tab.doc !== doc,
-      });
-      if (!completed || tab.doc !== doc) {
-        return null;
-      }
-      this.ui.setBusy(t('loading.savingCompress', { name: tab.name }));
-      await nextPaint();
-      return doc.toBytesFromSheetCells(perSheet);
-    });
+    // The whole workbook is serialized, not just the active worksheet.
+    let totalCells = 0;
+    for (const sheet of doc.sheets) {
+      totalCells += sheet.rowCount * sheet.columnCount;
+    }
+    const large = totalCells > LARGE_OP_CELLS;
+    const bytes = await withBusyIfLarge(
+      large,
+      this.ui,
+      t('loading.savingRsf', { name: tab.name }),
+      async () => {
+        await initCsvEngine(); // compression runs in the WASM codec when available
+        if (!large) {
+          return doc.toBytes();
+        }
+        // One sliced scan across every worksheet's rows, so the percentage
+        // describes the whole save rather than one worksheet of it.
+        const perSheet: Array<Array<[number, number, string]>> = doc.sheets.map(() => []);
+        const completed = await forEachIndexSliced(doc.totalRows, (i) => doc.collectFlatRow(i, perSheet), {
+          onProgress: (done, total) =>
+            this.ui.setBusy(
+              t('loading.savingSerialize', { name: tab.name, pct: pct(done, total) }),
+              pct(done, total),
+            ),
+          shouldStop: () => tab.doc !== doc,
+        });
+        if (!completed || tab.doc !== doc) {
+          return null;
+        }
+        this.ui.setBusy(t('loading.savingCompress', { name: tab.name }));
+        await nextPaint();
+        return doc.toBytesFromSheetCells(perSheet);
+      },
+    );
     if (bytes === null) {
       return false;
     }
@@ -554,6 +575,7 @@ export class FileIoCommands {
     // so several exports from one workbook do not collide.
     const name = (doc.sheetCount > 1 ? `${base}-${sheet.name}` : base) + '.csv';
     const label = t('loading.exporting', { name });
+    const large = sheet.rowCount * sheet.columnCount > LARGE_OP_CELLS;
 
     // Sliced, read-only scan of the chosen worksheet's displayed (calculated)
     // values. Aborts — producing nothing — if the tab's document changes.
@@ -576,7 +598,7 @@ export class FileIoCommands {
       return completed && tab.doc === doc ? scan : null;
     };
 
-    let scan = await withBusy(this.ui, label, () => scanValues(false));
+    let scan = await withBusyIfLarge(large, this.ui, label, () => scanValues(false));
     if (!scan) {
       return false;
     }
@@ -589,14 +611,16 @@ export class FileIoCommands {
       if (!proceed) {
         return false; // cancel by default; the document is untouched
       }
-      scan = await withBusy(this.ui, label, () => scanValues(true));
+      scan = await withBusyIfLarge(large, this.ui, label, () => scanValues(true));
       if (!scan) {
         return false;
       }
       ncrReports = scan.ncrReplacements;
     }
     const rows = scan.rows;
-    const bytes = await withBusy(this.ui, label, () => buildCsvExportBytes(rows, doc.delimiter, options));
+    const bytes = await withBusyIfLarge(large, this.ui, label, () =>
+      buildCsvExportBytes(rows, doc.delimiter, options),
+    );
     const written = await this.runSaveStep(() => saveBytesAs(this.dom, name, bytes, 'csv'));
     if (!written.ok) {
       return false;
@@ -650,6 +674,7 @@ export class FileIoCommands {
             },
           ];
     const totalRows = plans.reduce((sum, p) => sum + p.rowCount, 0);
+    const large = plans.reduce((sum, p) => sum + p.rowCount * p.columnCount, 0) > LARGE_OP_CELLS;
 
     // Sliced, read-only scan of every planned worksheet's displayed
     // (calculated) values. Aborts — producing nothing — if the tab's
@@ -686,11 +711,11 @@ export class FileIoCommands {
       return sheets;
     };
 
-    const sheets = await withBusy(this.ui, label, scanSheets);
+    const sheets = await withBusyIfLarge(large, this.ui, label, scanSheets);
     if (!sheets) {
       return false;
     }
-    const bytes = await withBusy(this.ui, label, () => buildXlsxExport(sheets));
+    const bytes = await withBusyIfLarge(large, this.ui, label, () => buildXlsxExport(sheets));
     const written = await this.runSaveStep(() => saveBytesAs(this.dom, name, bytes, 'xlsx'));
     if (!written.ok) {
       return false;

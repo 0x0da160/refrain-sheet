@@ -59,6 +59,19 @@ describe('decode / encode round-trips', () => {
     expect(decodesCleanly(new Uint8Array([0xff, 0xfe]), 'utf-8')).toBe(false);
     expect(decodesCleanly(utf8('ok'), 'utf-8')).toBe(true);
   });
+
+  it('reuses one decoder per encoding without leaking state across interleaved calls', () => {
+    // decodeBytes/decodesCleanly are called once per field on every document
+    // load and save, so the decoder instances are cached and reused; this
+    // exercises that the reused decoders never carry state between calls.
+    expect(decodeBytes(utf8('a'), 'utf-8')).toBe('a');
+    expect(decodeBytes(enc('あ', 'shift_jis'), 'shift_jis')).toBe('あ');
+    expect(decodeBytes(enc('か', 'euc-jp'), 'euc-jp')).toBe('か');
+    expect(decodeBytes(utf8('b'), 'utf-8')).toBe('b');
+    expect(decodesCleanly(new Uint8Array([0xff, 0xfe]), 'utf-8')).toBe(false);
+    expect(decodeBytes(utf8('c'), 'utf-8')).toBe('c');
+    expect(decodesCleanly(utf8('ok'), 'utf-8')).toBe(true);
+  });
 });
 
 describe('unrepresentable characters', () => {

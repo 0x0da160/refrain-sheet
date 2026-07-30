@@ -70,15 +70,33 @@ const DECODER_LABEL: Record<EncodingId, string> = {
   'euc-jp': 'euc-jp',
 };
 
+/**
+ * `TextDecoder` instances are stateless across calls (no `{ stream: true }` is
+ * ever used here), so they are safe to reuse. `decodeBytes`/`decodesCleanly`
+ * run once per field on document load and save — constructing a fresh
+ * decoder per call measurably dominated those paths (see docs/performance.md).
+ */
+const decoderCache = new Map<string, TextDecoder>();
+
+function getDecoder(encoding: EncodingId, fatal: boolean): TextDecoder {
+  const key = fatal ? `${encoding}!` : encoding;
+  let decoder = decoderCache.get(key);
+  if (!decoder) {
+    decoder = new TextDecoder(DECODER_LABEL[encoding], { fatal });
+    decoderCache.set(key, decoder);
+  }
+  return decoder;
+}
+
 /** Decode bytes for display. Undecodable bytes become U+FFFD replacement characters. */
 export function decodeBytes(bytes: Uint8Array, encoding: EncodingId): string {
-  return new TextDecoder(DECODER_LABEL[encoding]).decode(bytes);
+  return getDecoder(encoding, false).decode(bytes);
 }
 
 /** True when the byte sequence decodes without any invalid sequences. */
 export function decodesCleanly(bytes: Uint8Array, encoding: EncodingId): boolean {
   try {
-    new TextDecoder(DECODER_LABEL[encoding], { fatal: true }).decode(bytes);
+    getDecoder(encoding, true).decode(bytes);
     return true;
   } catch {
     return false;

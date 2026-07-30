@@ -211,6 +211,9 @@ export class LosslessDocument {
 
   /** Current value of a cell: the edited value if present, otherwise the original. */
   getValue(row: number, col: number): string {
+    if (this.edits.size === 0) {
+      return this.getOriginalValue(row, col);
+    }
     return this.edits.get(`${row},${col}`) ?? this.getOriginalValue(row, col);
   }
 
@@ -220,7 +223,7 @@ export class LosslessDocument {
   }
 
   isEdited(row: number, col: number): boolean {
-    return this.edits.has(`${row},${col}`);
+    return this.edits.size > 0 && this.edits.has(`${row},${col}`);
   }
 
   /**

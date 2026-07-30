@@ -92,13 +92,32 @@ describe('loading overlay', () => {
 });
 
 describe('busy indicator during file open', () => {
-  it('shows a labeled busy state before parsing and clears it afterward', async () => {
+  it('opens a small file synchronously, with no busy overlay flicker', async () => {
     const calls: Array<string | null> = [];
     const ui = stubUi({ setBusy: (label) => calls.push(label) });
     const state = new AppState();
     const commands = new Commands(state, ui, document);
 
-    await commands.openFiles([{ name: 'a.csv', bytes: utf8('x,y\n1,2\n'), handle: null, size: 8 }], {
+    const bytes = utf8('x,y\n1,2\n');
+    await commands.openFiles([{ name: 'a.csv', bytes, handle: null, size: bytes.length }], {
+      confirmNonCsv: false,
+    });
+
+    // Small files complete well within LARGE_OPEN_BYTES: no overlay is shown at all.
+    expect(calls).toHaveLength(0);
+    expect(state.tabs).toHaveLength(1);
+  });
+
+  it('shows a labeled busy state for a large file and clears it afterward', async () => {
+    const calls: Array<string | null> = [];
+    const ui = stubUi({ setBusy: (label) => calls.push(label) });
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+
+    // Real bytes stay tiny (fast to parse in a test); only the reported
+    // `size` needs to cross LARGE_OPEN_BYTES to exercise the "large" path.
+    const bytes = utf8('x,y\n1,2\n');
+    await commands.openFiles([{ name: 'big.csv', bytes, handle: null, size: 500_000 }], {
       confirmNonCsv: false,
     });
 

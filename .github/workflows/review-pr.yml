@@ -15,8 +15,9 @@ name: Review PR
 #   that ONE bot (never '*'). This does not weaken any approval gate: `agent:ready`
 #   stays human-only, and this job cannot approve, merge, or push.
 # - Inert until a human installs the Claude GitHub App + adds ANTHROPIC_API_KEY.
-# - `anthropics/claude-code-action` is THIRD-PARTY. SECURITY TODO: pin `@v1` to a
-#   verified commit SHA before enabling (docs/security.md pinning policy).
+# - `anthropics/claude-code-action` is THIRD-PARTY, so it is pinned to a full
+#   commit SHA (docs/security.md pinning policy). The trailing comment on each
+#   `uses:` line names the release that SHA is.
 
 on:
   pull_request:
@@ -126,7 +127,7 @@ jobs:
 
       - name: Independent review (OAuth)
         if: env.CLAUDE_AUTH_METHOD == 'oauth'
-        uses: anthropics/claude-code-action@v1 # SECURITY TODO: pin to a commit SHA
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         env:
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
         with:
@@ -183,7 +184,7 @@ jobs:
 
       - name: Independent review (API key)
         if: env.CLAUDE_AUTH_METHOD == 'api-key'
-        uses: anthropics/claude-code-action@v1 # SECURITY TODO: pin to a commit SHA
+        uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1.0.183
         env:
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
         with:

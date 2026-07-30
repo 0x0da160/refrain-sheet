@@ -139,14 +139,14 @@ exception permitted for first-party actions.
 
 **Any third-party (non-`actions/*`) action MUST be pinned to a full commit
 SHA**, not a mutable tag. One third-party action, `anthropics/claude-code-action`,
-is currently in use — 8 times across `close-loop.yml`, `implement-issue.yml`,
+is currently in use — 10 times across `close-loop.yml`, `implement-issue.yml`,
 `issue-triage.yml`, `prepare-issue-spec.yml`, and `review-pr.yml` (twice per
-file) — and it is **not yet pinned to a commit SHA**; each call site is marked
-with a `# SECURITY TODO: pin to a commit SHA` comment. Pinning it is tracked as
-separate, deliberately scoped follow-up work, since it touches every automation
-workflow file and warrants its own careful review. Any newly introduced
-third-party action must be pinned by SHA with a comment naming the version, and
-should prefer an official GitHub-maintained alternative where one exists.
+file) — and every call site is pinned to the same full commit SHA, with the
+release it corresponds to kept visible as a trailing comment. Moving to a newer
+release is therefore a reviewable diff, not a silent upstream change. Any newly
+introduced third-party action must be pinned by SHA with a comment naming the
+version, and should prefer an official GitHub-maintained alternative where one
+exists.
 
 ## Release security controls
 

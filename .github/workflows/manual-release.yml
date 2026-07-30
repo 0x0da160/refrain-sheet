@@ -27,12 +27,21 @@ name: Manual release recovery
 # NOTE ON `dry_run`: the input defaults to `false`, so the box must be ticked to
 # get a validation-only run. Run it that way first — see
 # docs/agent-operations.md § Manual release recovery.
+#
+# NOTE ON `pr_number`: it stays REQUIRED, deliberately. The specific merged pull
+# request a maintainer names IS the authorization and the audit trail for the
+# release; "release whatever `main` currently holds" would give a weaker
+# guarantee and would need its own defence against re-releasing a commit or
+# releasing a `Release vX.Y.Z` commit. To make the right number easy to find from
+# a phone, the validate job prints the most recent merged pull requests as a
+# run annotation before it decides eligibility — so a wrong guess costs one
+# stopped dry run and then tells you the answer.
 
 on:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 'Merged PR number to release'
+        description: 'Merged PR number to release (Pull requests → Closed, newest merged first)'
         required: true
         type: string
       release_type:
@@ -84,6 +93,31 @@ jobs:
       reason_en: ${{ steps.check.outputs.reason_en }}
       reason_ja: ${{ steps.check.outputs.reason_ja }}
     steps:
+      # Informational only. No eligibility decision reads this, nothing later
+      # depends on it, and it cannot fail the run — it just answers "which
+      # number was I supposed to type?" from the run page, which is the only
+      # question `pr_number` being required makes awkward on a phone. It runs
+      # FIRST so the answer is there even if checkout or install later fails,
+      # and it uses the job's existing `pull-requests: read`; no new permission.
+      - name: List the most recent merged pull requests (informational)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          # `gh pr list` orders by pull request number, which is the order they
+          # were OPENED — so it is re-sorted by merge time here. Two agent pull
+          # requests can easily merge out of numeric order.
+          recent="$(gh pr list --repo "$GITHUB_REPOSITORY" --base "$PRODUCTION_BRANCH" \
+            --state merged --limit 20 --json number,title,mergedAt \
+            --jq 'sort_by(.mergedAt) | reverse | .[0:5][] | "#\(.number)  \(.mergedAt)  \(.title)"' 2>/dev/null || true)"
+          if [ -z "$recent" ]; then
+            echo "::notice::Could not list merged pull requests. This is informational only and does not affect the release checks."
+            exit 0
+          fi
+          printf 'Most recently merged pull requests into %s:\n%s\n' "$PRODUCTION_BRANCH" "$recent"
+          printf '::notice::Newest merged pull request: %s\n' "$(printf '%s\n' "$recent" | head -n1)"
+
       - name: Checkout the production branch (full history and tags)
         uses: actions/checkout@v4
         with:

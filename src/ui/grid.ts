@@ -269,6 +269,7 @@ function frameCoalesced<T>(apply: (arg: T) => void): (arg: T) => void {
 
 const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string } | 'separator'> = [
   { command: 'edit.copy', labelKey: 'menu.edit.copy' },
+  { command: 'edit.copyAsImage', labelKey: 'menu.edit.copyAsImage' },
   { command: 'edit.paste', labelKey: 'menu.edit.paste' },
   { command: 'edit.selectAll', labelKey: 'menu.edit.selectAll' },
   { command: 'edit.insertCopiedCells', labelKey: 'menu.edit.insertCopiedCells' },

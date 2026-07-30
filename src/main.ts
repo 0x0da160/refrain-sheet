@@ -100,9 +100,15 @@ function bootstrap(): void {
 
   const commands = new Commands(state, ui, document);
   const grid = new Grid(state, commands);
-  const clipboard = new ClipboardController(state, commands, (text, kind) => toasts.notify(text, kind));
+  const clipboard = new ClipboardController(
+    state,
+    commands,
+    (text, kind) => toasts.notify(text, kind),
+    document,
+  );
   commands.clipboardActions = {
     copy: () => clipboard.copyViaApi(),
+    copyAsImage: () => clipboard.copyImageAsPng(),
     paste: () => clipboard.pasteViaApi(),
     getCopied: () => clipboard.getCopied(),
     copiedKind: () => clipboard.copiedKind(),

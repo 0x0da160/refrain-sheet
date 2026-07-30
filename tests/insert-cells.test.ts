@@ -67,6 +67,7 @@ function withCopied(
 ): void {
   commands.clipboardActions = {
     copy: async () => undefined,
+    copyAsImage: async () => undefined,
     paste: async () => undefined,
     getCopied: async () => ({ matrix, origin }),
     copiedKind: () => kind,
@@ -234,6 +235,7 @@ describe('Insert Copied Cells…', () => {
     const { state, commands, tab } = rcsvSetup([['a']], ui);
     commands.clipboardActions = {
       copy: async () => undefined,
+      copyAsImage: async () => undefined,
       paste: async () => undefined,
       getCopied: async () => null,
       copiedKind: () => null,
@@ -400,6 +402,7 @@ describe('Insert Copied Rows / Insert Copied Columns', () => {
     const { state, commands, tab } = rcsvSetup([['a']], ui);
     commands.clipboardActions = {
       copy: async () => undefined,
+      copyAsImage: async () => undefined,
       paste: async () => undefined,
       getCopied: async () => null,
       copiedKind: () => null,
@@ -505,9 +508,10 @@ describe('Insert Copied … menu/context-menu enablement', () => {
       ['a', 'b'],
       ['c', 'd'],
     ]);
-    const clipboard = new ClipboardController(state, commands, vi.fn());
+    const clipboard = new ClipboardController(state, commands, vi.fn(), document);
     commands.clipboardActions = {
       copy: () => clipboard.copyViaApi(),
+      copyAsImage: () => clipboard.copyImageAsPng(),
       paste: () => clipboard.pasteViaApi(),
       getCopied: () => clipboard.getCopied(),
       copiedKind: () => clipboard.copiedKind(),

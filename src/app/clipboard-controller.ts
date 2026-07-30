@@ -2,6 +2,7 @@
 import { copyRows, parseClipboardText, rangeToMatrix, rangeToTsv } from '../core/clipboard';
 import type { AppState, Selection, SelectionKind } from './app-state';
 import type { Commands } from './commands';
+import { renderRangeToPng } from './image-export';
 import { t } from './i18n';
 
 /**
@@ -26,6 +27,7 @@ export class ClipboardController {
     private readonly state: AppState,
     private readonly commands: Commands,
     private readonly notify: (text: string, kind: 'info' | 'warn' | 'error') => void,
+    private readonly dom: Document,
   ) {}
 
   /**
@@ -136,6 +138,39 @@ export class ClipboardController {
       this.notify(t('notify.copied'), 'info');
     } catch {
       // The internal clipboard still works for in-app paste.
+      this.notify(t('notify.clipboardBlocked'), 'warn');
+    }
+  }
+
+  /**
+   * Menu "Copy as image": renders the selected range to a PNG (as a plain
+   * table image — see `image-export.ts`) and writes it to the system
+   * clipboard. The async Clipboard API's image write has inconsistent
+   * browser support, including on `file://`, so this feature-detects first
+   * and reports a warning rather than throwing when it is unavailable.
+   */
+  async copyImageAsPng(): Promise<void> {
+    const tab = this.state.activeTab;
+    if (!tab) {
+      return;
+    }
+    const range = this.state.selectedRange(tab);
+    if (!range) {
+      return;
+    }
+    if (typeof ClipboardItem === 'undefined' || typeof navigator.clipboard?.write !== 'function') {
+      this.notify(t('notify.copyImageUnsupported'), 'warn');
+      return;
+    }
+    const blob = await renderRangeToPng(this.dom, tab.doc, range, this.state.hiddenRows(tab));
+    if (blob === null) {
+      this.notify(t('notify.clipboardBlocked'), 'warn');
+      return;
+    }
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      this.notify(t('notify.copiedImage'), 'info');
+    } catch {
       this.notify(t('notify.clipboardBlocked'), 'warn');
     }
   }

@@ -1112,7 +1112,11 @@ export class RsfDocument {
    * Anchors are evaluated first, all of them, and only then placed, so the
    * outcome cannot depend on the order two spills happen to appear in.
    * Afterwards the memo is dropped: entries computed during the build saw no
-   * spill map, and every ordinary formula must see the finished one.
+   * spill map, and every ordinary formula must see the finished one. The
+   * evaluation contexts are dropped alongside it — formula.ts caches
+   * materialized range grids per context, and a range read during the build
+   * saw the same spill-blind view, so its context must not survive to be
+   * reused (and its stale grids served) by evaluation after the build.
    */
   private buildSpillMaps(): void {
     this.buildingSpill = true;
@@ -1133,6 +1137,7 @@ export class RsfDocument {
       this.buildingSpill = false;
     }
     this.memo = new Map();
+    this.evalContexts = new Map();
     this.spillMaps = maps;
   }
 

@@ -494,3 +494,32 @@ describe('dynamic-array spill', () => {
     OPTS,
   );
 });
+
+// ----- Range grid cache: the same range read by many formula cells -----
+// A copied-down VLOOKUP/XLOOKUP table is read from its own dedicated range
+// argument by every row's formula. Every individual cell in the table is
+// already memoized (see the dependency-chain benches above), but before the
+// range grid cache each formula call re-assembled a fresh rows×cols array
+// from those memoized cells; now the array itself is built once per revision
+// and reused by every formula cell that reads the same bounds.
+
+describe('VLOOKUP table shared by 2,000 formula cells over the same 50,000-row range', () => {
+  const tableRows = 50_000;
+  bench(
+    '2,000 VLOOKUP formulas, same $D$1:$F$50000 table',
+    () => {
+      const doc = RsfDocument.empty('bench.rsf', tableRows, 6);
+      for (let r = 0; r < tableRows; r++) {
+        doc.setCell(r, 3, String(r));
+        doc.setCell(r, 5, `v${r}`);
+      }
+      for (let r = 0; r < 2_000; r++) {
+        doc.setCell(r, 0, `=VLOOKUP(${r * 19},$D$1:$F$${tableRows},3,FALSE)`);
+      }
+      for (let r = 0; r < 2_000; r++) {
+        doc.getDisplayValue(r, 0);
+      }
+    },
+    OPTS,
+  );
+});

@@ -80,6 +80,41 @@ describe('formulas in the document', () => {
     expect(sheet.getDisplayValue(0, 0)).toBe('7');
   });
 
+  it('two formulas over the same range both see a later edit', () => {
+    // Reading a large range is cached across formula cells (a common
+    // VLOOKUP-table-copied-down pattern); an edit must invalidate it for
+    // every reader, not just the one that happens to be recomputed first.
+    const sheet = rcsvFromCells([
+      [0, 0, '1'],
+      [1, 0, '2'],
+      [2, 0, '3'],
+      [0, 1, '=SUM(A1:A3)'],
+      [0, 2, '=SUM(A1:A3)'],
+    ]);
+    expect(sheet.getDisplayValue(0, 1)).toBe('6');
+    expect(sheet.getDisplayValue(0, 2)).toBe('6');
+    sheet.setCell(1, 0, '20');
+    expect(sheet.getDisplayValue(0, 1)).toBe('24');
+    expect(sheet.getDisplayValue(0, 2)).toBe('24');
+  });
+
+  it('a self-referential range caught by IFERROR does not poison a later, independent read of the same range', () => {
+    // A1 reads a range containing itself while still being evaluated, so its
+    // read of its own cell is a transient #CYCLE! placeholder that IFERROR
+    // replaces with 42 before A1's real value is memoized. That transient
+    // grid must never be cached under the range's key, or B1's separate,
+    // non-cyclic SUM over the same range would see the stale placeholder
+    // instead of A1's real, memoized value.
+    const sheet = rcsvFromCells([
+      [0, 0, '=IFERROR(SUM(A1:A3),42)'],
+      [1, 0, '5'],
+      [2, 0, '3'],
+      [0, 1, '=SUM(A1:A3)'],
+    ]);
+    expect(sheet.getDisplayValue(0, 0)).toBe('42');
+    expect(sheet.getDisplayValue(0, 1)).toBe('50');
+  });
+
   it('shows explicit errors for invalid formulas and unsupported functions', () => {
     const sheet = rcsvFromCells([
       [0, 0, '=1+'],

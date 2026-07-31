@@ -1383,6 +1383,20 @@ function compareResult(op: string, cmp: number, bool: (v: boolean) => FormulaVal
 }
 
 /**
+ * Per-context cache of materialized range grids, so a range read by many
+ * formula cells (a copied-down VLOOKUP/XLOOKUP table is the common case)
+ * builds its rows×cols array once instead of once per reader. Keyed by
+ * {@link EvalContext} identity rather than stored on the interface itself,
+ * so the cache is invisible to (and never has to be wired up by) callers
+ * that build a bare context — it simply never gets populated for them.
+ *
+ * The workbook is responsible for handing out one context per worksheet per
+ * revision and dropping it on every mutation, which is what makes this
+ * cache revision-scoped; see `rsf-document.ts`'s `evalContexts` field.
+ */
+const rangeGridCaches = new WeakMap<EvalContext, Map<string, GridResult>>();
+
+/**
  * Materialize a range result as a grid, bounded by {@link MAX_RANGE_CELLS}.
  *
  * An empty range — a whole-column range on a sheet with no used grid, or a
@@ -1391,7 +1405,7 @@ function compareResult(op: string, cmp: number, bool: (v: boolean) => FormulaVal
  * erroring.
  */
 function rangeToGrid(result: Extract<EvalResult, { kind: 'range' }>, ctx: EvalContext): GridResult {
-  const { top, bottom, left, right } = result;
+  const { top, bottom, left, right, sheet } = result;
   if (bottom < top || right < left) {
     return { ok: true, grid: scalarGrid(EMPTY_VALUE) };
   }
@@ -1399,16 +1413,41 @@ function rangeToGrid(result: Extract<EvalResult, { kind: 'range' }>, ctx: EvalCo
   if (cellCount > MAX_RANGE_CELLS) {
     return { ok: false, error: errorValue('#VALUE!') };
   }
-  const readCell = cellReaderFor(result.sheet, ctx);
+  const cacheKey = `${sheet ?? ''}|${top}|${bottom}|${left}|${right}`;
+  let cache = rangeGridCaches.get(ctx);
+  const cached = cache?.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  const readCell = cellReaderFor(sheet, ctx);
   const cells: FormulaValue[][] = [];
+  // A cell still on the in-progress stack (a self-reference read through this
+  // range, typically caught by IFERROR) reads back as a transient #CYCLE!
+  // placeholder that is never what the cell settles to. Such a grid must not
+  // be cached under the range's key, or a later, independent read of the same
+  // range would see the placeholder instead of the cell's real, memoized
+  // value — see the "self-referential range" regression test.
+  let sawTransientCycle = false;
   for (let r = top; r <= bottom; r++) {
     const row: FormulaValue[] = [];
     for (let c = left; c <= right; c++) {
-      row.push(readCell(r, c));
+      const value = readCell(r, c);
+      if (value.type === 'error' && value.code === '#CYCLE!') {
+        sawTransientCycle = true;
+      }
+      row.push(value);
     }
     cells.push(row);
   }
-  return { ok: true, grid: makeGrid(cells) };
+  const built: GridResult = { ok: true, grid: makeGrid(cells) };
+  if (!sawTransientCycle) {
+    if (!cache) {
+      cache = new Map();
+      rangeGridCaches.set(ctx, cache);
+    }
+    cache.set(cacheKey, built);
+  }
+  return built;
 }
 
 /**

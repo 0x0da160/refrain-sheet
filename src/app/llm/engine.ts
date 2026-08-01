@@ -14,19 +14,6 @@ import { CreateMLCEngine, type MLCEngine } from '@mlc-ai/web-llm';
 import { prepopulateModelCache, type PrepopulateProgress } from './cache-prepopulate';
 import { MODEL_APP_CONFIG, MODEL_ID } from './model-source';
 
-export type LlmAvailability = 'available' | 'no-webgpu' | 'no-cache-storage';
-
-/** Whether this browser can plausibly run the local assistant, without starting it. */
-export function checkLlmAvailability(): LlmAvailability {
-  if (typeof caches === 'undefined') {
-    return 'no-cache-storage';
-  }
-  if (typeof navigator === 'undefined' || !('gpu' in navigator) || !navigator.gpu) {
-    return 'no-webgpu';
-  }
-  return 'available';
-}
-
 export type LlmInstallStage = 'preparing' | 'loading';
 
 export interface LlmInstallProgress {

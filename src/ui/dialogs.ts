@@ -35,14 +35,51 @@ import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/se
 import { listTimeZones } from '../core/timezone';
 import type { ValidationSummary } from '../core/validation';
 import { APP_VERSION_DISPLAY } from '../app/version';
-import {
-  askLlm,
-  checkLlmAvailability,
-  installLlm,
-  isLlmInstalled,
-  type LlmInstallProgress,
-} from '../app/llm/engine';
+import { checkLlmAvailability } from '../app/llm/availability';
+import type { LlmInstallProgress } from '../app/llm/engine';
 import { el, clearChildren } from './dom';
+
+/**
+ * The local AI assistant's engine embeds a ~190 MB Base64 model payload
+ * (see src/llm-gen/), built as its own separate classic script
+ * (`assets/llm-engine.js`, see vite.llm.config.ts) rather than pulled into
+ * this bundle — a plain `import()` here would not actually defer anything,
+ * since the main build inlines every dynamic import into one file so
+ * `dist/index.html` keeps working under `file://` (see vite.config.ts).
+ * Loaded on demand, by inserting a `<script>` tag, the first time the
+ * install or chat flow actually runs; cached after that so repeat calls
+ * resolve synchronously. See src/app/llm/engine-entry.ts and issue #116.
+ */
+type LlmEngineModule = typeof import('../app/llm/engine');
+let llmEngineModule: LlmEngineModule | undefined;
+let llmEnginePromise: Promise<LlmEngineModule> | undefined;
+function loadLlmEngine(): Promise<LlmEngineModule> {
+  if (!llmEnginePromise) {
+    llmEnginePromise = new Promise<LlmEngineModule>((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = './assets/llm-engine.js';
+      script.addEventListener('load', () => {
+        const mod = window.__refrainSheetLlmEngine;
+        if (!mod) {
+          reject(new Error('refrain-sheet: assets/llm-engine.js did not expose the LLM engine module'));
+          return;
+        }
+        resolve(mod);
+      });
+      script.addEventListener('error', () =>
+        reject(new Error('refrain-sheet: failed to load assets/llm-engine.js')),
+      );
+      document.head.append(script);
+    }).then((mod) => {
+      llmEngineModule = mod;
+      return mod;
+    });
+    llmEnginePromise.catch(() => {
+      llmEnginePromise = undefined;
+    });
+  }
+  return llmEnginePromise;
+}
 
 /** Canonical external links (also listed at the top of README.md). */
 const SITE_URL = 'https://0x0da160.github.io/refrain-sheet/';
@@ -1520,12 +1557,15 @@ export class Dialogs {
         body.append(status);
         const installButton = dialogButton(t('dialog.aiAssistant.install'), true, false, () => {
           installButton.setAttribute('disabled', 'true');
-          installLlm((progress: LlmInstallProgress) => {
-            status.textContent = t('dialog.aiAssistant.installProgress', {
-              percent: Math.round(progress.progress * 100),
-              text: progress.text,
-            });
-          })
+          loadLlmEngine()
+            .then((mod) =>
+              mod.installLlm((progress: LlmInstallProgress) => {
+                status.textContent = t('dialog.aiAssistant.installProgress', {
+                  percent: Math.round(progress.progress * 100),
+                  text: progress.text,
+                });
+              }),
+            )
             .then(() => renderChat())
             .catch((err: unknown) => {
               installButton.removeAttribute('disabled');
@@ -1561,7 +1601,8 @@ export class Dialogs {
           });
           log.append(pending);
           log.scrollTop = log.scrollHeight;
-          askLlm(message)
+          loadLlmEngine()
+            .then((mod) => mod.askLlm(message))
             .then((reply) => {
               pending.remove();
               log.append(el('p', { className: 'ai-assistant-message assistant', text: reply }));
@@ -1585,7 +1626,7 @@ export class Dialogs {
         body.append(sendButton);
       };
 
-      if (isLlmInstalled()) {
+      if (llmEngineModule?.isLlmInstalled()) {
         renderChat();
       } else {
         renderInstall();

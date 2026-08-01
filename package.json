@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && vite build --config vite.llm.config.ts",
     "build:wasm": "wasm-pack build wasm --release --target web --no-pack --out-dir pkg && node scripts/embed-wasm.mjs",
     "fetch:model": "node scripts/fetch-model.mjs",
     "embed:model": "node scripts/embed-model.mjs",

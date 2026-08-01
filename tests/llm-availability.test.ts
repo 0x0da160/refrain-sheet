@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, describe, expect, it } from 'vitest';
-import { checkLlmAvailability } from '../src/app/llm/engine';
+import { checkLlmAvailability } from '../src/app/llm/availability';
 
 describe('checkLlmAvailability', () => {
   afterEach(() => {

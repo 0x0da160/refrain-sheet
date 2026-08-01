@@ -148,11 +148,21 @@ body {
      horizontal or vertical scrollbar, since every scrollable surface here is
      meant to scroll within itself (the grid, the tab strips, dialogs). */
   overflow: hidden;
+  /* #app and the AI Assistant panel (.ai-panel) are flex siblings here, so
+     opening the panel shrinks #app's column instead of covering it (a split
+     view rather than a floating drawer). Below the 700px mobile breakpoint
+     .ai-panel switches back to a fixed full-screen overlay, unaffected by
+     this row layout. */
+  display: flex;
 }
 
 #app {
   display: flex;
   flex-direction: column;
+  /* Shrinks to make room when .ai-panel opens, instead of pushing it off
+     the viewport's fixed width. */
+  flex: 1 1 auto;
+  min-width: 0;
   height: 100vh;
   /* On phones, 100vh is the height with the browser's address bar hidden, so
      a static 100vh box can sit partly below the fold while the bar is shown.
@@ -1366,26 +1376,27 @@ dialog::backdrop {
 
 /* ---------- AI Assistant panel ---------- */
 
-/* Docked drawer on desktop, sliding in from the right; a full-screen
-   overlay below the mobile breakpoint (see the 700px media query). */
+/* A flex sibling of #app (see body above): closed, it collapses to zero
+   width so it takes no space; open, it grows to a fixed width and #app's
+   column shrinks to make room, i.e. a split view rather than a drawer
+   floating on top of the sheet. Below the mobile breakpoint (see the 700px
+   media query) it switches back to a fixed full-screen overlay instead,
+   since there is no spare width to split. */
 .ai-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(360px, 100vw);
+  flex: 0 0 auto;
+  width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border-left: 1px solid var(--border);
-  box-shadow: -8px 0 24px var(--shadow-strong);
-  transform: translateX(100%);
-  transition: transform 0.15s ease-out;
+  border-left: 0 solid var(--border);
+  transition: width 0.15s ease-out;
   z-index: 220;
 }
 
 .ai-panel.open {
-  transform: translateX(0);
+  width: min(360px, 100vw);
+  border-left-width: 1px;
 }
 
 .ai-panel-header {
@@ -1942,9 +1953,24 @@ table.diag-table th {
   }
 
   /* Below the desktop breakpoint the AI Assistant panel becomes a
-     full-screen overlay instead of a fixed-width docked drawer. */
+     fixed full-screen overlay again instead of a split-view sibling of
+     #app: there's no spare width to give it, so it slides in over the
+     sheet rather than shrinking it. */
   .ai-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
     width: 100vw;
+    border-left: none;
+    box-shadow: -8px 0 24px var(--shadow-strong);
+    transform: translateX(100%);
+    transition: transform 0.15s ease-out;
+  }
+
+  .ai-panel.open {
+    width: 100vw;
+    transform: translateX(0);
   }
 
   .ai-panel-body button {

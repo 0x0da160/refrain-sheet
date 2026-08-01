@@ -462,6 +462,7 @@ export class Grid {
   private contextMenu: ContextMenu | null = null;
   private dragging = false;
   private scrollScheduled = false;
+  private resizeScheduled = false;
   /** Active column-resize drag, if any. */
   private resizing: { col: number; startX: number; startWidth: number } | null = null;
   /** Active fill-handle drag, if any. */
@@ -545,6 +546,14 @@ export class Grid {
     // Scroll never calls preventDefault, so the listener is passive (the
     // browser can start compositor scrolling without waiting on the handler).
     this.element.addEventListener('scroll', () => this.onScroll(), { passive: true });
+    // The container's width changes not just on a window resize but also
+    // when the AI Assistant panel opens/closes (a split view shrinks/grows
+    // #app's column; see styles.css), so a ResizeObserver reflows the grid
+    // instead of a plain window 'resize' listener. jsdom (tests) has no
+    // ResizeObserver, so this is a no-op there.
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(() => this.onResize()).observe(this.element);
+    }
     // Ctrl/Cmd + mouse wheel zooms the spreadsheet (grid area only). The
     // listener must be non-passive because the recognized gesture — and only
     // that gesture — prevents the browser's page-zoom default; a plain wheel
@@ -1040,6 +1049,25 @@ export class Grid {
         : (fn: () => void) => setTimeout(fn, 16);
     schedule(() => {
       this.scrollScheduled = false;
+      const tab = this.state.activeTab;
+      if (!tab || tab.doc !== this.lastDoc) {
+        return;
+      }
+      this.render(tab);
+    });
+  }
+
+  private onResize(): void {
+    if (this.resizeScheduled) {
+      return;
+    }
+    this.resizeScheduled = true;
+    const schedule =
+      typeof requestAnimationFrame === 'function'
+        ? requestAnimationFrame
+        : (fn: () => void) => setTimeout(fn, 16);
+    schedule(() => {
+      this.resizeScheduled = false;
       const tab = this.state.activeTab;
       if (!tab || tab.doc !== this.lastDoc) {
         return;

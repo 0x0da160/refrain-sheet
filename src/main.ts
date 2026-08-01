@@ -10,6 +10,7 @@ import { resolveShortcut } from './app/shortcuts';
 import { applyTheme, getTheme } from './app/theme';
 import { initCsvEngine } from './core/csv-engine';
 import { validateDocument } from './core/validation';
+import { AiPanel } from './ui/ai-panel';
 import { initAppIcons } from './ui/app-icon';
 import { closeAllContextMenus } from './ui/context-menu';
 import { Dialogs, Toasts } from './ui/dialogs';
@@ -85,7 +86,7 @@ function bootstrap(): void {
       dialogs.promptMoveTarget(source, suggestion, validate),
     showAbout: (section) => void dialogs.showAbout(section),
     showFormulaHelp: () => void dialogs.showFormulaHelp(),
-    showAiAssistant: () => void dialogs.showAiAssistant(),
+    showAiAssistant: () => aiPanel.toggle(),
     chooseSettings: (current) => dialogs.chooseSettings(current),
     chooseTimezone: (current) => dialogs.chooseTimezone(current),
     chooseDisplayLanguage: (current) => dialogs.chooseDisplayLanguage(current),
@@ -100,6 +101,7 @@ function bootstrap(): void {
   };
 
   const commands = new Commands(state, ui, document);
+  const aiPanel = new AiPanel(commands);
   const grid = new Grid(state, commands);
   const clipboard = new ClipboardController(
     state,
@@ -140,6 +142,9 @@ function bootstrap(): void {
   };
   // The formula bar pushes live formula-reference highlights into the grid.
   const formulaBar = new FormulaBar(state, commands, moveSelectionDown, (refs) => grid.setFormulaRefs(refs));
+  // The AI Assistant panel's entry-point button sits beside the formula bar,
+  // not inside it, so FormulaBar itself stays unaware of the panel.
+  const formulaRow = el('div', { className: 'formula-row' }, [formulaBar.element, aiPanel.toggleButton]);
   const statusBar = new StatusBar(state, () => {
     const tab = state.activeTab;
     if (tab && tab.doc.kind === 'csv' && tab.doc.diagnostics.length > 0) {
@@ -155,7 +160,7 @@ function bootstrap(): void {
     menuBar.element,
     tabBar.element,
     findBar.element,
-    formulaBar.element,
+    formulaRow,
     welcome.element,
     grid.element,
     sheetBar.element,
@@ -166,7 +171,7 @@ function bootstrap(): void {
   const dropOverlay = el('div', { className: 'drop-overlay', attrs: { 'aria-hidden': 'true' } }, [
     dropMessage,
   ]);
-  document.body.append(dropOverlay, loadingOverlay.element, toasts.element);
+  document.body.append(dropOverlay, loadingOverlay.element, toasts.element, aiPanel.element);
 
   const refreshAll = (selectionChanged: boolean) => {
     app.classList.toggle('wrap-cells', state.wrapCells);

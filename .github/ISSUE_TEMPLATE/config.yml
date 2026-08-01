@@ -1,6 +1,7 @@
-# Require one of the structured forms so triage and the agent loop always receive
-# background, scope, and measurable acceptance criteria. Security issues must be
-# reported privately, never as a public issue (see docs/security.md).
+# Require one of the structured forms so triage and the agent loop always receive a
+# labeled Issue with a title; body fields are optional and filled in as needed.
+# Security issues must be reported privately, never as a public issue (see
+# docs/security.md).
 blank_issues_enabled: false
 contact_links:
   - name: セキュリティ報告 / Security disclosure

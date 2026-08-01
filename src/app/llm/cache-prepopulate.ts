@@ -24,6 +24,7 @@ import {
   shardUrl,
 } from './model-source';
 import { MODEL_FILES, type ModelFileEntry } from '../../llm-gen/model-manifest';
+import { yieldToBrowser } from '../../core/scheduler';
 
 /** Decode a Base64 chunk into raw bytes (mirrors `decodeEmbeddedWasm` in src/core/csv-engine.ts). */
 function decodeBase64(base64: string): Uint8Array {
@@ -49,7 +50,14 @@ export class ModelPayloadIntegrityError extends Error {
   }
 }
 
-/** Decode and concatenate every chunk for one source file, then verify it against its recorded SHA-256. */
+/**
+ * Decode and concatenate every chunk for one source file, then verify it against its recorded
+ * SHA-256. Yields to the browser between chunks (see src/core/scheduler.ts) so a large file's
+ * many-megabyte `atob()`/byte-copy decode never blocks the main thread in one uninterrupted
+ * stretch — on the largest vendored files that stretch was long enough to starve the page of
+ * input/paint time for the whole decode, which is indistinguishable from a hang and, under a
+ * dev server's HMR WebSocket, can trip its disconnect-and-reload recovery — see issue #140.
+ */
 async function reassembleAndVerify(entry: ModelFileEntry): Promise<Uint8Array<ArrayBuffer>> {
   const bytes = new Uint8Array(entry.byteLength);
   let offset = 0;
@@ -57,6 +65,7 @@ async function reassembleAndVerify(entry: ModelFileEntry): Promise<Uint8Array<Ar
     const decoded = decodeBase64(chunk);
     bytes.set(decoded, offset);
     offset += decoded.length;
+    await yieldToBrowser();
   }
   if (offset !== entry.byteLength) {
     throw new ModelPayloadIntegrityError(entry.name);

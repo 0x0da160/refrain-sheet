@@ -8,8 +8,20 @@ export default tseslint.config(
   // from version control). Linting a checked-out worktree would lint a second
   // copy of the project — including its built `dist/` — and fail the run for
   // reasons that have nothing to do with the tree being checked.
+  // `landing/` is a self-contained static marketing site (plain browser JS,
+  // built by `landing/build.py`), not part of the TypeScript app — same
+  // reasoning as excluding `wasm/`.
   {
-    ignores: ['dist/', 'node_modules/', 'coverage/', 'src/wasm-gen/', 'src/llm-gen/', 'wasm/', '.claude/'],
+    ignores: [
+      'dist/',
+      'node_modules/',
+      'coverage/',
+      'src/wasm-gen/',
+      'src/llm-gen/',
+      'wasm/',
+      '.claude/',
+      'landing/',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

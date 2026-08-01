@@ -549,6 +549,42 @@ button {
 
 /* ---------- Formula bar ---------- */
 
+/* Wraps the formula bar and the AI Assistant panel's toggle button, so the
+   button sits to the bar's right without the bar needing to know about it. */
+.formula-row {
+  display: flex;
+  align-items: stretch;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.formula-row .formula-bar {
+  flex: 1;
+  border-bottom: none;
+}
+
+.ai-panel-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  padding: 4px 10px;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.ai-panel-toggle:hover {
+  background: var(--surface);
+}
+
+.ai-panel-toggle[aria-expanded='true'] {
+  background: var(--accent-soft);
+}
+
 .formula-bar {
   display: flex;
   align-items: stretch;
@@ -1328,22 +1364,115 @@ dialog::backdrop {
   line-height: 1.5;
 }
 
-.ai-assistant button {
+/* ---------- AI Assistant panel ---------- */
+
+/* Docked drawer on desktop, sliding in from the right; a full-screen
+   overlay below the mobile breakpoint (see the 700px media query). */
+.ai-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(360px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px var(--shadow-strong);
+  transform: translateX(100%);
+  transition: transform 0.15s ease-out;
+  z-index: 220;
+}
+
+.ai-panel.open {
+  transform: translateX(0);
+}
+
+.ai-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-panel-header h2 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.ai-panel-close {
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.ai-panel-body {
+  flex: 1;
+  overflow: auto;
+  padding: 14px 18px;
+}
+
+.ai-panel-body p {
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.ai-plan-card {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin: 0 0 10px;
+  background: var(--panel);
+}
+
+.ai-plan-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.ai-plan-list {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  font-family: var(--font-sheet);
+  font-size: 12px;
+}
+
+.ai-plan-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ai-plan-status {
+  margin: 6px 0 0;
+  color: var(--text-dim);
+}
+
+.ai-assistant button,
+.ai-panel-body button {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   border-radius: 4px;
   padding: 6px 16px;
   font: inherit;
+  cursor: pointer;
 }
 
-.ai-assistant button.primary {
+.ai-assistant button.primary,
+.ai-panel-body button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-contrast);
 }
 
-.ai-assistant button.primary:disabled {
+.ai-assistant button.primary:disabled,
+.ai-panel-body button.primary:disabled {
   opacity: 0.6;
 }
 
@@ -1812,6 +1941,17 @@ table.diag-table th {
     font-size: max(16px, calc(12px * var(--sheet-zoom, 1)));
   }
 
+  /* Below the desktop breakpoint the AI Assistant panel becomes a
+     full-screen overlay instead of a fixed-width docked drawer. */
+  .ai-panel {
+    width: 100vw;
+  }
+
+  .ai-panel-body button {
+    padding: 10px 16px;
+    min-height: 44px;
+  }
+
   /* ----- Fit narrow dialogs -----
      These rows assumed desktop-width dialogs (a fixed-width label beside a
      200px select, or a select beside a free-flowing input); below this width
@@ -2037,7 +2177,7 @@ table.diag-table th {
 
 /* Hide the document-specific surfaces while the welcome screen is up. */
 #app.welcome-mode .tab-bar,
-#app.welcome-mode .formula-bar,
+#app.welcome-mode .formula-row,
 #app.welcome-mode .find-bar,
 #app.welcome-mode .grid-container {
   display: none;

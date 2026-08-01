@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { AiPlanChange } from '../core/ai-plan';
 import type { DelimiterId } from '../core/byte-csv-parser';
 import type { CellRange } from '../core/clipboard';
 import { type CsvExportOptions } from '../core/csv-export';
@@ -2470,6 +2471,53 @@ export class Commands {
         confirmed: true,
       };
     });
+  }
+
+  /**
+   * Applies an AI-proposed plan (see src/core/ai-plan.ts and the AI
+   * Assistant panel) as one atomic, singly-undoable operation — the same
+   * `bulkEdit` primitive Paste and Find & Replace use, so `edit.undo`
+   * reverts an approved plan exactly like any other edit. Every change was
+   * already shown to the user as a concrete `ref → value` pair before they
+   * approved it; a ref that no longer fits the current document (e.g. the
+   * sheet was edited or switched between proposal and approval) is skipped
+   * rather than growing the grid or clamping to a different cell.
+   */
+  applyAiPlan(changes: AiPlanChange[]): { applied: number; skipped: number } {
+    const tab = this.state.activeTab;
+    if (!tab) {
+      return { applied: 0, skipped: changes.length };
+    }
+    const doc = tab.doc;
+    const cellChanges: CellChange[] = [];
+    let skipped = 0;
+    for (const { row, col, value } of changes) {
+      if (doc.kind === 'csv') {
+        if (!doc.getField(row, col)) {
+          skipped++;
+          continue;
+        }
+        const current = doc.getValue(row, col);
+        if (value === current) {
+          continue;
+        }
+        const before = doc.isEdited(row, col) ? current : null;
+        const after = value === doc.getOriginalValue(row, col) ? null : value;
+        cellChanges.push({ row, col, before, after });
+        continue;
+      }
+      if (row < 0 || row >= doc.rowCount || col < 0 || col >= doc.columnCount) {
+        skipped++;
+        continue;
+      }
+      const before = doc.getValue(row, col);
+      if (before === value) {
+        continue;
+      }
+      cellChanges.push({ row, col, before, after: value });
+    }
+    const applied = this.state.bulkEdit(tab, cellChanges, 'history.aiAssistant.applyPlan');
+    return { applied: applied ? cellChanges.length : 0, skipped };
   }
 
   /**

@@ -60,8 +60,9 @@ function actionButton(label: string, primary: boolean, onClick: () => void): HTM
 
 /**
  * Side panel for the local, on-device AI assistant. Toggled by a button
- * next to the formula bar (see main.ts); a docked drawer on desktop, a
- * full-screen overlay below the existing 700px mobile breakpoint (see
+ * next to the formula bar (see main.ts); a split view on desktop — opening
+ * it shrinks the sheet's column instead of covering it — that falls back to
+ * a full-screen overlay below the existing 700px mobile breakpoint (see
  * styles.css). Plain questions get a plain chat reply, same as before this
  * panel replaced the old modal dialog. A request to change the sheet gets a
  * proposed plan instead — a concrete, previewable list of `ref → value`

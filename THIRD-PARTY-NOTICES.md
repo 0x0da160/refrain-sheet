@@ -3,9 +3,11 @@
 Refrain Sheet is licensed under the MIT License (see [LICENSE](LICENSE)).
 
 The distributed build output (`dist/`, and the release ZIP) bundles the
-following third-party software. All bundled dependencies use permissive
-licenses compatible with redistribution under the MIT License; no
-strong-copyleft code is included.
+following third-party software. No strong-copyleft code is included. The
+code dependencies use permissive licenses compatible with redistribution
+under the MIT License; the vendored AI assistant model weights are an
+explicitly approved exception under a separate, use-based license — see
+that entry below.
 
 ## encoding-japanese
 
@@ -85,6 +87,32 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## @mlc-ai/web-llm
+
+- Version: 0.2.84
+- Source: https://github.com/mlc-ai/web-llm
+- Purpose: in-browser WebGPU inference engine for the optional local AI
+  assistant. Bundled as a separate classic script
+  (`dist/assets/llm-engine.js`), loaded only if the user opens the assistant;
+  never fetched over the network. This is a documented, explicitly approved
+  exception to the single-dependency policy — see
+  [`docs/llm-model.md`](docs/llm-model.md) and
+  [`docs/security.md`](docs/security.md) § Dependency policy.
+- License: Apache-2.0 (see `node_modules/@mlc-ai/web-llm/LICENSE` after
+  `npm ci`).
+
+## AI assistant model weights
+
+- Model: [`UMASHIKA/gemma3-270m-japanese-webllm-04`](https://huggingface.co/UMASHIKA/gemma3-270m-japanese-webllm-04)
+  (Gemma 3 270M, Japanese fine-tune, `q4f32_1` quantization), vendored as the
+  Base64-encoded files under `src/llm-gen/model-payload/`.
+- Purpose: weights for the optional local AI assistant described above.
+- License: Gemma Terms of Use (see the model card at the link above) — a
+  use-based license, not an OSI-approved permissive license like the other
+  entries in this document. Its vendoring was explicitly reviewed and
+  approved; see [`docs/llm-model.md`](docs/llm-model.md) for the full
+  provenance and approval record.
 
 ## Development-only dependencies
 

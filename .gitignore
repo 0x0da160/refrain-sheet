@@ -5,6 +5,7 @@ coverage/
 .DS_Store
 wasm/target/
 wasm/pkg/
+.model-cache/
 
 # ----- Secrets: never commit credentials or local environment files -----
 # (See docs/security.md. The committed .npmrc holds config only — no tokens.)

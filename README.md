@@ -21,6 +21,8 @@ through **RSF (Refrain Sheet Format)**.
 CSVのフィールド値だけを編集し、区切り文字、引用符、空白、改行コード、文字コード、
 BOM、不正なCSV領域などを可能な限り保持します。
 
+[`CHANGELOG.md`](CHANGELOG.md) tracks notable user-visible changes by version.
+
 The version is defined in `package.json` and surfaced through the app
 (**Help > About / Keyboard Shortcuts** shows it), the metadata written into
 saved `.rsf` files, and the release artifact name.
@@ -1578,6 +1580,12 @@ push. The internal Rust/WASM core crate (`wasm/Cargo.toml`) has its own
 independent version and is intentionally not tied to the app version. After a
 user-requested change lands, bump the patch version once (`npm run release --
 patch` does this as part of a release).
+
+[`CHANGELOG.md`](CHANGELOG.md) records what changed in each version. A pull
+request that changes user-visible behavior adds an entry under its
+`Unreleased` section; cutting a release retitles that section to the new
+version and date. `npm run release` does not touch `CHANGELOG.md` itself —
+this is a manual, per-pull-request step, not part of the release script.
 
 ### Cutting a release (`npm run release`)
 

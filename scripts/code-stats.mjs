@@ -126,4 +126,6 @@ if (updated === readme) {
 }
 
 writeFileSync(readmePath, updated);
-console.warn(`code-stats: updated README.md (${languages.length} languages, ${num(sum.code)} lines of code).`);
+console.warn(
+  `code-stats: updated README.md (${languages.length} languages, ${num(sum.code)} lines of code).`,
+);

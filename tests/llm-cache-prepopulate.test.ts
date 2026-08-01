@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModelPayloadIntegrityError, prepopulateModelCache } from '../src/app/llm/cache-prepopulate';
 import {
   CACHE_SCOPES,
@@ -63,6 +63,17 @@ describe('prepopulateModelCache', () => {
       const bytes = new Uint8Array(await stored!.arrayBuffer());
       expect(bytes.length, `byte length mismatch for ${entry.name}`).toBe(entry.byteLength);
     }
+  });
+
+  it('yields to the browser between chunks so a large file never decodes in one uninterrupted stretch (issue #140)', async () => {
+    const fakeCaches = new FakeCacheStorage();
+    (globalThis as unknown as { caches: FakeCacheStorage }).caches = fakeCaches;
+
+    const totalChunks = MODEL_FILES.reduce((n, entry) => n + entry.chunks.length, 0);
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    await prepopulateModelCache();
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(totalChunks);
+    setTimeoutSpy.mockRestore();
   });
 
   it('is idempotent: a second call overwrites the same cache entries without error', async () => {

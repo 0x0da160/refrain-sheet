@@ -1,0 +1,154 @@
+name: Code statistics
+
+# Recounts the repository with `cloc` after every push to `main` and keeps the
+# table between the `<!-- code-stats:start -->` / `<!-- code-stats:end -->`
+# markers in README.md in step with it.
+#
+# It does NOT commit to `main`. When the numbers change, the workflow pushes a
+# single rolling branch (`chore/code-stats`) and opens — or leaves open — one
+# pull request, so the README change is reviewed like every other change in this
+# repository. `docs/security.md` § "CI permission model" records why: the
+# invariant is that only the tag-gated `release.yml` writes to the repository
+# without review, and opening a pull request keeps that intact even though this
+# job does hold `contents: write`.
+#
+# When the numbers do NOT change, the workflow stops before touching git at all.
+# That is why the generated table carries no timestamp, commit hash, or cloc
+# version — anything that moves on every run would produce an endless stream of
+# empty pull requests.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only by default; the one job below widens to exactly what opening a pull
+# request needs, and nothing else.
+permissions:
+  contents: read
+
+# One recount at a time. Several merges in quick succession only need the newest
+# numbers, and two concurrent runs would race on the `chore/code-stats` branch.
+concurrency:
+  group: code-stats
+  cancel-in-progress: true
+
+# Action-pinning policy (see docs/security.md): only official GitHub-maintained
+# actions/* are used here, pinned to a major version tag. `cloc` is installed
+# from the signed Ubuntu archive rather than through a third-party action, so no
+# new SHA-pinned third-party dependency is introduced.
+
+jobs:
+  code-stats:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the chore/code-stats branch
+      pull-requests: write # open the pull request that carries it
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cloc
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cloc
+
+      # Counted before `npm ci`, so node_modules does not exist yet; the
+      # exclusions are still listed explicitly because they are what Issue #135
+      # asked for and they also hold for a dirty local checkout.
+      #
+      # The report is written to the runner temp directory, never into the work
+      # tree, so it can never be picked up by the commit below.
+      - name: Count lines of code
+        run: |
+          cloc . \
+            --exclude-dir=node_modules,dist,build,coverage,vendor \
+            --json --quiet --out="$RUNNER_TEMP/cloc.json"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts
+
+      - name: Render the table into README.md
+        run: node scripts/code-stats.mjs "$RUNNER_TEMP/cloc.json"
+
+      # Belt and braces: the generator already emits Prettier-shaped tables, and
+      # this makes Prettier the authority on the result either way, so the pull
+      # request cannot fail CI's `format:check`. `--no-install` guarantees the
+      # locked local binary is used and nothing is fetched.
+      - name: Format
+        run: npx --no-install prettier --write README.md
+
+      - name: Detect a change
+        id: diff
+        run: |
+          if git diff --quiet -- README.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo '::notice::Code statistics are unchanged; nothing to propose.'
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update the pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: chore/code-stats
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -C "$BRANCH"
+          git add README.md
+          git commit -m 'chore: update code statistics'
+
+          # `main` has moved on since the branch was last pushed, so this cannot
+          # be a fast-forward. The lease is scoped to a branch only this workflow
+          # ever writes, and is stated explicitly rather than inferred from a
+          # remote-tracking ref, which a shallow `actions/checkout` does not
+          # have: the push is refused unless the branch is still exactly where
+          # this workflow left it (or, with an empty expected value, does not
+          # exist yet). Anything a human pushed there is never discarded, and no
+          # protected branch is force-pushed.
+          remote_sha="$(git ls-remote --heads origin "$BRANCH" | awk '{ print $1 }')"
+          git push --force-with-lease="refs/heads/${BRANCH}:${remote_sha}" \
+            origin "HEAD:refs/heads/${BRANCH}"
+
+          existing="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open \
+            --json number --jq '.[0].number // ""')"
+          if [ -n "$existing" ]; then
+            echo "::notice::Updated the existing pull request #${existing}."
+            exit 0
+          fi
+
+          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
+            --title 'chore: update code statistics' --body "$(cat <<'BODY'
+          ## English
+
+          Automated update of the `cloc` table in `README.md`, opened by
+          `.github/workflows/code-stats.yml`. Only the region between
+          `<!-- code-stats:start -->` and `<!-- code-stats:end -->` is rewritten;
+          nothing else in the file is machine-written.
+
+          `node_modules`, `dist`, `build`, `coverage`, and `vendor` are excluded
+          from the count. This pull request tracks a single rolling branch, so it
+          is safe to leave open — a later push to `main` updates it in place
+          rather than stacking up another pull request.
+
+          ## 日本語
+
+          `.github/workflows/code-stats.yml` が自動生成した、`README.md` 内の
+          `cloc` 集計表の更新です。書き換えるのは
+          `<!-- code-stats:start -->` と `<!-- code-stats:end -->` の間だけで、
+          それ以外の箇所を機械が書き換えることはありません。
+
+          集計からは `node_modules`・`dist`・`build`・`coverage`・`vendor` を
+          除外しています。この pull request は単一のブランチを使い回すため、
+          開いたままにしておいて問題ありません。以降の `main` への push では
+          新しい pull request が積み上がるのではなく、この pull request が
+          その場で更新されます。
+          BODY
+          )"

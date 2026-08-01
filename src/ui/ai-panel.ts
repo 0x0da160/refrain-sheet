@@ -49,7 +49,11 @@ function loadLlmEngine(): Promise<LlmEngineModule> {
 }
 
 function actionButton(label: string, primary: boolean, onClick: () => void): HTMLButtonElement {
-  const button = el('button', { className: primary ? 'primary' : '', text: label, attrs: { type: 'button' } });
+  const button = el('button', {
+    className: primary ? 'primary' : '',
+    text: label,
+    attrs: { type: 'button' },
+  });
   button.addEventListener('click', onClick);
   return button;
 }
@@ -77,7 +81,12 @@ export class AiPanel {
   constructor(private readonly commands: Commands) {
     this.toggleEl = el('button', {
       className: 'ai-panel-toggle',
-      attrs: { type: 'button', 'aria-haspopup': 'true', 'aria-expanded': 'false', 'aria-label': t('aiAssistant.toggleButton') },
+      attrs: {
+        type: 'button',
+        'aria-haspopup': 'true',
+        'aria-expanded': 'false',
+        'aria-label': t('aiAssistant.toggleButton'),
+      },
     });
     this.toggleEl.append(el('span', { text: '✨', attrs: { 'aria-hidden': 'true' } }));
     this.toggleEl.addEventListener('click', () => this.toggle());
@@ -95,7 +104,10 @@ export class AiPanel {
     ]);
     this.element = el(
       'div',
-      { className: 'ai-panel', attrs: { role: 'region', 'aria-label': t('aiAssistant.title'), 'aria-hidden': 'true' } },
+      {
+        className: 'ai-panel',
+        attrs: { role: 'region', 'aria-label': t('aiAssistant.title'), 'aria-hidden': 'true' },
+      },
       [header, this.body],
     );
     this.element.addEventListener('keydown', (event) => {
@@ -141,7 +153,11 @@ export class AiPanel {
     if (availability !== 'available') {
       this.body.append(
         el('p', {
-          text: t(availability === 'no-webgpu' ? 'aiAssistant.unavailable.noWebgpu' : 'aiAssistant.unavailable.noCacheStorage'),
+          text: t(
+            availability === 'no-webgpu'
+              ? 'aiAssistant.unavailable.noWebgpu'
+              : 'aiAssistant.unavailable.noCacheStorage',
+          ),
         }),
       );
       return;
@@ -246,7 +262,9 @@ export class AiPanel {
     const list = el(
       'ul',
       { className: 'ai-plan-list' },
-      changes.map((change) => el('li', { text: t('aiAssistant.plan.change', { ref: change.ref, value: change.value }) })),
+      changes.map((change) =>
+        el('li', { text: t('aiAssistant.plan.change', { ref: change.ref, value: change.value }) }),
+      ),
     );
     const status = el('p', { className: 'ai-plan-status' });
     const actions = el('div', { className: 'ai-plan-actions' });

@@ -53,6 +53,7 @@ function stubUi(): UiPort {
     findNext: vi.fn(),
     showAbout: vi.fn(),
     showFormulaHelp: vi.fn(),
+    showAiAssistant: vi.fn(),
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
     chooseDisplayLanguage: vi.fn(async () => null),

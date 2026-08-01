@@ -35,7 +35,14 @@ import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/se
 import { listTimeZones } from '../core/timezone';
 import type { ValidationSummary } from '../core/validation';
 import { APP_VERSION_DISPLAY } from '../app/version';
-import { el } from './dom';
+import {
+  askLlm,
+  checkLlmAvailability,
+  installLlm,
+  isLlmInstalled,
+  type LlmInstallProgress,
+} from '../app/llm/engine';
+import { el, clearChildren } from './dom';
 
 /** Canonical external links (also listed at the top of README.md). */
 const SITE_URL = 'https://0x0da160.github.io/refrain-sheet/';
@@ -1477,6 +1484,112 @@ export class Dialogs {
       search.addEventListener('input', applyFilter);
 
       buttons.append(dialogButton(t('dialog.close'), true, false, () => close(undefined)));
+    });
+  }
+
+  /**
+   * Local AI assistant: installs the embedded, on-device Japanese SLM (via
+   * WebLLM) into Cache Storage on first use, then a minimal chat to ask it
+   * questions about spreadsheet operations. Everything runs on-device — no
+   * network access at any point. See docs/llm-model.md for what is and is
+   * not verified about the underlying model and library.
+   */
+  showAiAssistant(): Promise<void> {
+    return openDialog<void>(t('dialog.aiAssistant.title'), undefined, (body, buttons, close) => {
+      body.classList.add('ai-assistant');
+      buttons.append(dialogButton(t('dialog.close'), true, true, () => close(undefined)));
+
+      const availability = checkLlmAvailability();
+      if (availability !== 'available') {
+        body.append(
+          el('p', {
+            text: t(
+              availability === 'no-webgpu'
+                ? 'dialog.aiAssistant.unavailable.noWebgpu'
+                : 'dialog.aiAssistant.unavailable.noCacheStorage',
+            ),
+          }),
+        );
+        return;
+      }
+
+      const renderInstall = (): void => {
+        clearChildren(body);
+        body.append(el('p', { text: t('dialog.aiAssistant.intro') }));
+        const status = el('p', { className: 'dialog-note', text: t('dialog.aiAssistant.installIdle') });
+        body.append(status);
+        const installButton = dialogButton(t('dialog.aiAssistant.install'), true, false, () => {
+          installButton.setAttribute('disabled', 'true');
+          installLlm((progress: LlmInstallProgress) => {
+            status.textContent = t('dialog.aiAssistant.installProgress', {
+              percent: Math.round(progress.progress * 100),
+              text: progress.text,
+            });
+          })
+            .then(() => renderChat())
+            .catch((err: unknown) => {
+              installButton.removeAttribute('disabled');
+              status.textContent = t('dialog.aiAssistant.installFailed', {
+                message: err instanceof Error ? err.message : String(err),
+              });
+            });
+        });
+        body.append(installButton);
+      };
+
+      const renderChat = (): void => {
+        clearChildren(body);
+        body.append(el('p', { className: 'dialog-note', text: t('dialog.aiAssistant.ready') }));
+        const log = el('div', { className: 'ai-assistant-log' });
+        body.append(log);
+        const input = el('textarea', {
+          className: 'ai-assistant-input',
+          attrs: { rows: '3', placeholder: t('dialog.aiAssistant.placeholder'), 'data-autofocus': 'true' },
+        });
+        body.append(el('div', { className: 'form-row' }, [input]));
+        const sendButton = dialogButton(t('dialog.aiAssistant.send'), true, false, () => {
+          const message = input.value.trim();
+          if (!message) {
+            return;
+          }
+          input.value = '';
+          sendButton.setAttribute('disabled', 'true');
+          log.append(el('p', { className: 'ai-assistant-message user', text: message }));
+          const pending = el('p', {
+            className: 'ai-assistant-message pending',
+            text: t('dialog.aiAssistant.thinking'),
+          });
+          log.append(pending);
+          log.scrollTop = log.scrollHeight;
+          askLlm(message)
+            .then((reply) => {
+              pending.remove();
+              log.append(el('p', { className: 'ai-assistant-message assistant', text: reply }));
+            })
+            .catch((err: unknown) => {
+              pending.remove();
+              log.append(
+                el('p', {
+                  className: 'ai-assistant-message error',
+                  text: t('dialog.aiAssistant.error', {
+                    message: err instanceof Error ? err.message : String(err),
+                  }),
+                }),
+              );
+            })
+            .finally(() => {
+              sendButton.removeAttribute('disabled');
+              log.scrollTop = log.scrollHeight;
+            });
+        });
+        body.append(sendButton);
+      };
+
+      if (isLlmInstalled()) {
+        renderChat();
+      } else {
+        renderInstall();
+      }
     });
   }
 }

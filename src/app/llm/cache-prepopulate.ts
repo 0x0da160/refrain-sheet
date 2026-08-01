@@ -15,7 +15,14 @@
  * the failure is a runtime error when installing the model, not something
  * `npm run check:dist` can catch — see docs/llm-model.md.
  */
-import { CACHE_SCOPES, CONFIG_URL, MODEL_LIB_URL, TENSOR_CACHE_URL, TOKENIZER_URL, shardUrl } from './model-source';
+import {
+  CACHE_SCOPES,
+  CONFIG_URL,
+  MODEL_LIB_URL,
+  TENSOR_CACHE_URL,
+  TOKENIZER_URL,
+  shardUrl,
+} from './model-source';
 import { MODEL_FILES, type ModelFileEntry } from '../../llm-gen/model-manifest';
 
 /** Decode a Base64 chunk into raw bytes (mirrors `decodeEmbeddedWasm` in src/core/csv-engine.ts). */
@@ -43,7 +50,7 @@ export class ModelPayloadIntegrityError extends Error {
 }
 
 /** Decode and concatenate every chunk for one source file, then verify it against its recorded SHA-256. */
-async function reassembleAndVerify(entry: ModelFileEntry): Promise<Uint8Array> {
+async function reassembleAndVerify(entry: ModelFileEntry): Promise<Uint8Array<ArrayBuffer>> {
   const bytes = new Uint8Array(entry.byteLength);
   let offset = 0;
   for (const chunk of entry.chunks) {
@@ -92,7 +99,9 @@ export interface PrepopulateProgress {
  * Cache Storage scope/URL WebLLM will look it up from. Idempotent: safe to
  * call again (e.g. a retried install) — `cache.put()` simply overwrites.
  */
-export async function prepopulateModelCache(onProgress?: (progress: PrepopulateProgress) => void): Promise<void> {
+export async function prepopulateModelCache(
+  onProgress?: (progress: PrepopulateProgress) => void,
+): Promise<void> {
   const opened = new Map<string, Cache>();
   const openScope = async (scope: string): Promise<Cache> => {
     const existing = opened.get(scope);

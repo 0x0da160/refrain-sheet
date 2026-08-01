@@ -85,6 +85,7 @@ function bootstrap(): void {
       dialogs.promptMoveTarget(source, suggestion, validate),
     showAbout: (section) => void dialogs.showAbout(section),
     showFormulaHelp: () => void dialogs.showFormulaHelp(),
+    showAiAssistant: () => void dialogs.showAiAssistant(),
     chooseSettings: (current) => dialogs.chooseSettings(current),
     chooseTimezone: (current) => dialogs.chooseTimezone(current),
     chooseDisplayLanguage: (current) => dialogs.chooseDisplayLanguage(current),

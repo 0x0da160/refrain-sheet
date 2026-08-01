@@ -9,7 +9,7 @@ export default tseslint.config(
   // copy of the project — including its built `dist/` — and fail the run for
   // reasons that have nothing to do with the tree being checked.
   {
-    ignores: ['dist/', 'node_modules/', 'coverage/', 'src/wasm-gen/', 'wasm/', '.claude/'],
+    ignores: ['dist/', 'node_modules/', 'coverage/', 'src/wasm-gen/', 'src/llm-gen/', 'wasm/', '.claude/'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -27,7 +27,7 @@ export default tseslint.config(
     // Node build/verification scripts run outside the browser.
     files: ['scripts/**/*.mjs'],
     languageOptions: {
-      globals: { console: 'readonly', process: 'readonly' },
+      globals: { console: 'readonly', process: 'readonly', fetch: 'readonly' },
     },
   },
 );

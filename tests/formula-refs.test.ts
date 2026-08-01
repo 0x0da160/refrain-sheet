@@ -4,7 +4,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { extractFormulaRefs } from '../src/core/formula';
-import { Grid } from '../src/ui/grid';
+import {
+  clampFormulaRefs,
+  formulaRefsExceedViewport,
+  Grid,
+  matchFormulaRefCell,
+  type ClampedFormulaRef,
+} from '../src/ui/grid';
 import { doc } from './helpers';
 
 describe('extractFormulaRefs (tolerant text scan)', () => {
@@ -51,6 +57,96 @@ describe('extractFormulaRefs (tolerant text scan)', () => {
     expect(extractFormulaRefs('=SUM(1)')).toEqual([]);
     // The `1.5` decimal never becomes a whole-row range.
     expect(extractFormulaRefs('=1.5:2')).toEqual([]);
+  });
+});
+
+describe('clampFormulaRefs (pure, no DOM)', () => {
+  it('assigns a cycling color index per reference in order', () => {
+    const refs = extractFormulaRefs('=A1+B2+C3+D4+E5');
+    const clamped = clampFormulaRefs(refs, 10, 10);
+    expect(clamped.map((r) => r.idx)).toEqual([0, 1, 2, 3, 0]);
+  });
+
+  it('clamps a whole-column reference to the used grid and drops what falls outside it', () => {
+    const refs = extractFormulaRefs('=SUM(B:B)');
+    expect(clampFormulaRefs(refs, 5, 3)).toEqual([{ top: 0, left: 1, bottom: 4, right: 1, idx: 0 }]);
+  });
+
+  it('drops a reference left empty after clamping (fully outside the used grid)', () => {
+    const refs = extractFormulaRefs('=D1');
+    expect(clampFormulaRefs(refs, 5, 2)).toEqual([]);
+  });
+
+  it('normalizes negative top/left (never seen from extractFormulaRefs, but defensive)', () => {
+    expect(clampFormulaRefs([{ top: -3, left: -1, bottom: 2, right: 2, text: 'A1' }], 10, 10)).toEqual([
+      { top: 0, left: 0, bottom: 2, right: 2, idx: 0 },
+    ]);
+  });
+});
+
+describe('matchFormulaRefCell (pure, no DOM)', () => {
+  const ranges: ClampedFormulaRef[] = [
+    { top: 1, left: 1, bottom: 2, right: 2, idx: 1 },
+    { top: 5, left: 5, bottom: 5, right: 5, idx: 2 },
+  ];
+
+  it('returns null for a cell outside every range', () => {
+    expect(matchFormulaRefCell(0, 0, ranges)).toBeNull();
+  });
+
+  it('reports the color index and which edges a corner cell sits on', () => {
+    expect(matchFormulaRefCell(1, 1, ranges)).toEqual({
+      idx: 1,
+      top: true,
+      bottom: false,
+      left: true,
+      right: false,
+    });
+    expect(matchFormulaRefCell(2, 2, ranges)).toEqual({
+      idx: 1,
+      top: false,
+      bottom: true,
+      left: false,
+      right: true,
+    });
+  });
+
+  it('reports all four edges true for a single-cell range', () => {
+    expect(matchFormulaRefCell(5, 5, ranges)).toEqual({
+      idx: 2,
+      top: true,
+      bottom: true,
+      left: true,
+      right: true,
+    });
+  });
+
+  it('matches the first containing range when ranges overlap', () => {
+    const overlapping: ClampedFormulaRef[] = [
+      { top: 0, left: 0, bottom: 3, right: 3, idx: 0 },
+      { top: 1, left: 1, bottom: 2, right: 2, idx: 1 },
+    ];
+    expect(matchFormulaRefCell(1, 1, overlapping)?.idx).toBe(0);
+  });
+});
+
+describe('formulaRefsExceedViewport (pure, no DOM)', () => {
+  const view = { firstRow: 2, lastRow: 8, colStart: 1, colEnd: 4 };
+
+  it('is false when every range is fully inside the viewport', () => {
+    const ranges: ClampedFormulaRef[] = [{ top: 3, left: 1, bottom: 4, right: 2, idx: 0 }];
+    expect(formulaRefsExceedViewport(ranges, view)).toBe(false);
+  });
+
+  it('is false with no ranges', () => {
+    expect(formulaRefsExceedViewport([], view)).toBe(false);
+  });
+
+  it('is true when a range extends above, below, left of, or right of the viewport', () => {
+    expect(formulaRefsExceedViewport([{ top: 0, left: 1, bottom: 3, right: 2, idx: 0 }], view)).toBe(true);
+    expect(formulaRefsExceedViewport([{ top: 3, left: 1, bottom: 20, right: 2, idx: 0 }], view)).toBe(true);
+    expect(formulaRefsExceedViewport([{ top: 3, left: 0, bottom: 4, right: 2, idx: 0 }], view)).toBe(true);
+    expect(formulaRefsExceedViewport([{ top: 3, left: 1, bottom: 4, right: 4, idx: 0 }], view)).toBe(true);
   });
 });
 

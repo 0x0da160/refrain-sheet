@@ -267,6 +267,96 @@ function frameCoalesced<T>(apply: (arg: T) => void): (arg: T) => void {
   };
 }
 
+/** A formula-reference range clamped to the document bounds and tagged with
+ *  its highlight color/border-pattern index (0-3, see the `fref-N` CSS
+ *  classes), in cycling order over the original reference list. */
+export interface ClampedFormulaRef {
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+  idx: number;
+}
+
+/**
+ * Clamp formula-reference ranges to the current document (whole-column/-row
+ * references extend to the used grid's edge) and drop any range left empty
+ * by clamping, assigning each survivor a highlight index that cycles through
+ * four color/border-pattern pairs. Pure so the highlighted-range set is
+ * unit-testable without a DOM (real rendering applies these to cells).
+ */
+export function clampFormulaRefs(
+  refs: FormulaRefRange[],
+  rowCount: number,
+  colCount: number,
+): ClampedFormulaRef[] {
+  return refs
+    .map((ref, i) => ({
+      top: Math.max(0, ref.top),
+      left: Math.max(0, ref.left),
+      bottom: Math.min(ref.bottom, rowCount - 1),
+      right: Math.min(ref.right, colCount - 1),
+      idx: i % 4,
+    }))
+    .filter((r) => r.top <= r.bottom && r.left <= r.right);
+}
+
+/** Which formula-reference range (if any) a cell falls in, and whether it
+ *  sits on that range's top/bottom/left/right edge (for border styling). */
+export interface FormulaRefCellMatch {
+  idx: number;
+  top: boolean;
+  bottom: boolean;
+  left: boolean;
+  right: boolean;
+}
+
+/**
+ * Find the first clamped range containing (row, col) and report its edges.
+ * Pure so per-cell highlight state is unit-testable without a DOM.
+ */
+export function matchFormulaRefCell(
+  row: number,
+  col: number,
+  ranges: ClampedFormulaRef[],
+): FormulaRefCellMatch | null {
+  for (const r of ranges) {
+    if (row >= r.top && row <= r.bottom && col >= r.left && col <= r.right) {
+      return {
+        idx: r.idx,
+        top: row === r.top,
+        bottom: row === r.bottom,
+        left: col === r.left,
+        right: col === r.right,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * True when at least one clamped range extends beyond the given rendered
+ * viewport (first/last materialized row, visible column range) — drives the
+ * "reference extends beyond the visible area" status note. Pure so this
+ * decision is unit-testable without a DOM.
+ */
+export function formulaRefsExceedViewport(
+  ranges: ClampedFormulaRef[],
+  view: { firstRow: number; lastRow: number; colStart: number; colEnd: number },
+): boolean {
+  for (const r of ranges) {
+    if (
+      r.top < view.firstRow ||
+      r.bottom > view.lastRow ||
+      r.left < view.colStart ||
+      r.right > view.colEnd - 1
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string } | 'separator'> = [
   { command: 'edit.copy', labelKey: 'menu.edit.copy' },
   { command: 'edit.copyAsImage', labelKey: 'menu.edit.copyAsImage' },
@@ -1448,55 +1538,35 @@ export class Grid {
     const usable = tab !== null && tab.doc === this.lastDoc;
     const rows = usable ? tab.doc.rowCount : 0;
     const cols = usable ? tab.doc.columnCount : 0;
-    // Whole-column / whole-row references clamp to the used grid.
-    const ranges = (usable ? this.formulaRefs : [])
-      .map((ref, i) => ({
-        top: Math.max(0, ref.top),
-        left: Math.max(0, ref.left),
-        bottom: Math.min(ref.bottom, rows - 1),
-        right: Math.min(ref.right, cols - 1),
-        idx: i % 4,
-      }))
-      .filter((r) => r.top <= r.bottom && r.left <= r.right);
+    const ranges = clampFormulaRefs(usable ? this.formulaRefs : [], rows, cols);
     for (const cell of this.canvas.querySelectorAll<HTMLElement>('[data-row][data-col]')) {
       const row = Number(cell.dataset.row);
       const col = Number(cell.dataset.col);
-      let match: (typeof ranges)[number] | null = null;
-      for (const r of ranges) {
-        if (row >= r.top && row <= r.bottom && col >= r.left && col <= r.right) {
-          match = r;
-          break;
-        }
-      }
+      const match = matchFormulaRefCell(row, col, ranges);
       cell.classList.toggle('fref', match !== null);
       for (let k = 0; k < 4; k++) {
         cell.classList.toggle(`fref-${k}`, match !== null && match.idx === k);
       }
-      cell.classList.toggle('fref-top', match !== null && row === match.top);
-      cell.classList.toggle('fref-bottom', match !== null && row === match.bottom);
-      cell.classList.toggle('fref-left', match !== null && col === match.left);
-      cell.classList.toggle('fref-right', match !== null && col === match.right);
+      cell.classList.toggle('fref-top', match?.top ?? false);
+      cell.classList.toggle('fref-bottom', match?.bottom ?? false);
+      cell.classList.toggle('fref-left', match?.left ?? false);
+      cell.classList.toggle('fref-right', match?.right ?? false);
     }
     this.updateRefIndicator(tab, ranges);
   }
 
   /** Show/hide the "reference extends beyond the visible area" status note. */
-  private updateRefIndicator(
-    tab: Tab | null,
-    ranges: Array<{ top: number; bottom: number; left: number; right: number }>,
-  ): void {
+  private updateRefIndicator(tab: Tab | null, ranges: ClampedFormulaRef[]): void {
     const win = this.window;
     let clipped = false;
     if (tab && win && ranges.length > 0) {
       const base = this.scrollRowBase(tab);
-      const firstRow = base + win.rowStart;
-      const lastRow = base + win.rowEnd - 1;
-      for (const r of ranges) {
-        if (r.top < firstRow || r.bottom > lastRow || r.left < win.colStart || r.right > win.colEnd - 1) {
-          clipped = true;
-          break;
-        }
-      }
+      clipped = formulaRefsExceedViewport(ranges, {
+        firstRow: base + win.rowStart,
+        lastRow: base + win.rowEnd - 1,
+        colStart: win.colStart,
+        colEnd: win.colEnd,
+      });
     }
     if (!clipped) {
       this.refIndicator.hidden = true;

@@ -147,4 +147,71 @@ describe('AiPanel install progress', () => {
     expect(status?.textContent).toContain('boom');
     expect(installButton.hasAttribute('disabled')).toBe(false);
   });
+
+  it('shows immediate busy feedback on click, before the engine script has even loaded', async () => {
+    const { AiPanel } = await import('../src/ui/ai-panel');
+    const ui = stubUi();
+    const commands = new Commands(new AppState(), ui, document);
+    const panel = new AiPanel(commands);
+    panel.show();
+
+    const installButton = panel.element.querySelector('button.primary') as HTMLButtonElement;
+    installButton.click();
+
+    // No engine script load has been resolved yet, but the busy indicator
+    // should already reflect that an install is starting.
+    expect(ui.setBusy).toHaveBeenCalledWith(expect.any(String), 0);
+    expect(installButton.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('renders the install button disabled with an in-progress status if the panel is closed and reopened mid-install', async () => {
+    const { AiPanel } = await import('../src/ui/ai-panel');
+    const ui = stubUi();
+    const commands = new Commands(new AppState(), ui, document);
+    const panel = new AiPanel(commands);
+    panel.show();
+
+    const installButton = panel.element.querySelector('button.primary') as HTMLButtonElement;
+    installButton.click();
+
+    resolveLlmEngine({
+      isLlmInstalled: () => false,
+      installLlm: () => new Promise(() => {}),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    panel.close();
+    panel.show();
+
+    const reopenedButton = panel.element.querySelector('button.primary') as HTMLButtonElement;
+    expect(reopenedButton.hasAttribute('disabled')).toBe(true);
+    const status = panel.element.querySelector('.dialog-note');
+    expect(status?.textContent).toBe('Installing already in progress…');
+  });
+
+  it('switches to the chat view once install finishes, even if reopened mid-install', async () => {
+    const { AiPanel } = await import('../src/ui/ai-panel');
+    const ui = stubUi();
+    const commands = new Commands(new AppState(), ui, document);
+    const panel = new AiPanel(commands);
+    panel.show();
+
+    const installButton = panel.element.querySelector('button.primary') as HTMLButtonElement;
+    installButton.click();
+
+    let resolveInstall: (() => void) | undefined;
+    resolveLlmEngine({
+      isLlmInstalled: () => true,
+      installLlm: () => new Promise<void>((resolve) => (resolveInstall = resolve)),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    panel.close();
+    panel.show();
+
+    resolveInstall?.();
+    await vi.waitFor(() => expect(panel.element.querySelector('.ai-assistant-input')).not.toBeNull());
+  });
 });

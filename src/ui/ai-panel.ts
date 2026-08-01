@@ -48,6 +48,15 @@ function loadLlmEngine(): Promise<LlmEngineModule> {
   return llmEnginePromise;
 }
 
+/**
+ * Tracks a single in-flight install across panel re-renders (close/reopen).
+ * `installLlm()` in engine.ts already dedupes concurrent calls onto one
+ * promise, but that alone doesn't stop `renderBody()` from drawing a fresh,
+ * clickable Install button on reopen — this lets `renderInstall()` render it
+ * disabled with an "already installing" status instead. See issue #159.
+ */
+let currentInstall: Promise<void> | undefined;
+
 function actionButton(label: string, primary: boolean, onClick: () => void): HTMLButtonElement {
   const button = el('button', {
     className: primary ? 'primary' : '',
@@ -172,34 +181,60 @@ export class AiPanel {
   private renderInstall(): void {
     clearChildren(this.body);
     this.body.append(el('p', { text: t('aiAssistant.intro') }));
-    const status = el('p', { className: 'dialog-note', text: t('aiAssistant.installIdle') });
+    const status = el('p', {
+      className: 'dialog-note',
+      text: currentInstall ? t('aiAssistant.installInProgress') : t('aiAssistant.installIdle'),
+    });
     this.body.append(status);
-    const installButton = actionButton(t('aiAssistant.install'), true, () => {
+    const installButton = actionButton(t('aiAssistant.install'), true, () =>
+      this.startInstall(installButton, status),
+    );
+    if (currentInstall) {
       installButton.setAttribute('disabled', 'true');
-      status.textContent = '';
-      loadLlmEngine()
-        .then((mod) =>
-          mod.installLlm((progress: LlmInstallProgress) => {
-            const percent = Math.round(progress.progress * 100);
-            this.commands.setBusy(
-              t('aiAssistant.installProgress', { percent, text: progress.text }),
-              percent,
-            );
-          }),
-        )
-        .then(() => {
-          this.commands.setBusy(null);
-          this.renderChat();
-        })
-        .catch((err: unknown) => {
-          this.commands.setBusy(null);
+    }
+    this.body.append(installButton);
+  }
+
+  /**
+   * Kicks off the install. `commands.setBusy` is called synchronously here,
+   * before the ~190 MB engine script even starts loading, so there is
+   * immediate feedback rather than a silent gap until the first progress
+   * callback — see issue #159. Success always re-renders the body as chat,
+   * even if the panel was closed and reopened mid-install (so `status` is a
+   * stale, detached element by then): otherwise a reopened panel would keep
+   * showing the disabled "installing" view forever. A failure instead only
+   * updates `installButton`/`status` if they're still live, since the
+   * subsequent reopen already recovers on its own — `currentInstall` is
+   * cleared below, so the next `renderInstall()` renders an idle, retryable
+   * button either way.
+   */
+  private startInstall(installButton: HTMLButtonElement, status: HTMLElement): void {
+    installButton.setAttribute('disabled', 'true');
+    status.textContent = '';
+    this.commands.setBusy(t('aiAssistant.installStarting'), 0);
+    currentInstall = loadLlmEngine()
+      .then((mod) =>
+        mod.installLlm((progress: LlmInstallProgress) => {
+          const percent = Math.round(progress.progress * 100);
+          this.commands.setBusy(t('aiAssistant.installProgress', { percent, text: progress.text }), percent);
+        }),
+      )
+      .then(() => {
+        this.commands.setBusy(null);
+        this.renderChat();
+      })
+      .catch((err: unknown) => {
+        this.commands.setBusy(null);
+        if (this.body.contains(status)) {
           installButton.removeAttribute('disabled');
           status.textContent = t('aiAssistant.installFailed', {
             message: err instanceof Error ? err.message : String(err),
           });
-        });
-    });
-    this.body.append(installButton);
+        }
+      })
+      .finally(() => {
+        currentInstall = undefined;
+      });
   }
 
   private renderChat(): void {

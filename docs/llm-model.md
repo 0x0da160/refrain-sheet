@@ -44,6 +44,22 @@ The same pattern `scripts/embed-wasm.mjs` uses for the Rust/WASM core
    the Python/TVM model-compilation toolchain that produced the upstream
    artifact.
 
+`src/app/llm/engine.ts` (which imports `cache-prepopulate.ts`, and therefore
+the whole embedded payload) is never pulled into the main application
+bundle — not even via a dynamic `import()`, since `vite.config.ts` sets
+`inlineDynamicImports: true` so `dist/index.html` keeps working when opened
+directly via `file://`, and that setting inlines and eagerly evaluates every
+dynamically-imported module into the same single script anyway. Instead,
+`src/app/llm/engine-entry.ts` is built as its own separate classic script
+(`vite.llm.config.ts`, a second `vite build` pass — see the `build` script
+in `package.json` — producing `dist/assets/llm-engine.js`) and
+`src/ui/dialogs.ts`'s `loadLlmEngine()` loads it at runtime by inserting a
+`<script>` tag, only once the user opens the AI Assistant dialog's
+install/chat flow. This is the same same-origin, `file://`-safe classic
+script loading path `index.html` already uses for the main bundle, and is
+explicitly allowed by the CSP (`script-src 'self' file:`) without any
+change to it. See issue #116.
+
 At runtime, `src/app/llm/cache-prepopulate.ts` decodes and concatenates each
 file's chunks, verifies it against the recorded SHA-256
 (`ModelPayloadIntegrityError` if it does not match), and writes it directly
@@ -71,6 +87,12 @@ the following were run against a real browser:
   `scripts/embed-model.mjs` actually wrote (they were computed by that
   script from the fetched files, but the embed step itself was not re-run
   in this session).
+- That `dialogs.ts`'s runtime `<script>`-tag loading of
+  `assets/llm-engine.js` (added for issue #116) actually succeeds in a real
+  browser, under both `https://` and `file://`. It was verified only at the
+  build level: `npm run build` produces `dist/assets/llm-engine.js` as a
+  separate file, the main `dist/assets/index-*.js` no longer contains the
+  embedded model payload, and `npm run check:dist` still passes.
 
 The cache-prepopulation trick also relies on **undocumented internals** of
 `@mlc-ai/web-llm@0.2.84` — the fixed Cache Storage scope names and the

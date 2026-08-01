@@ -126,8 +126,18 @@ The committed [`.npmrc`](../.npmrc) applies to every npm invocation in the repo:
   read-only aside from an optional PR summary comment, and — because it uses
   `pull_request`, not `pull_request_target` — untrusted PR code never runs with
   secrets or write access.
-- **`release.yml`** is the only workflow with write access, and only on a pushed
-  strict-SemVer tag. The `release` job holds `contents: write` (Release assets)
+- **`code-stats.yml`** (pushes to `main` + `workflow_dispatch`) recounts the
+  repository with `cloc` and refreshes the marker-delimited table in `README.md`.
+  Its single job holds `contents: write` + `pull-requests: write`, but it never
+  writes to `main`: it pushes a rolling `chore/code-stats` branch and opens one
+  pull request, so the change is reviewed like any other. The lease on that push
+  is explicit (`--force-with-lease=<ref>:<sha>`), so the branch is only ever
+  advanced from where this workflow itself left it. It runs no repository code —
+  `cloc` comes from the signed Ubuntu archive, and the only script it executes is
+  the committed `scripts/code-stats.mjs`.
+- **`release.yml`** is the only workflow that writes to the repository **without
+  review**, and only on a pushed strict-SemVer tag. The `release` job holds
+  `contents: write` (Release assets)
   plus `id-token: write` + `attestations: write` (provenance); the `deploy-pages`
   job holds only `pages: write` + `id-token: write`. Neither uses any repository
   secret — the built-in `GITHUB_TOKEN` and OIDC are sufficient.

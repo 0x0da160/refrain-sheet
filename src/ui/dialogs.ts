@@ -35,7 +35,7 @@ import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/se
 import { listTimeZones } from '../core/timezone';
 import type { ValidationSummary } from '../core/validation';
 import { APP_VERSION_DISPLAY } from '../app/version';
-import { el, clearChildren } from './dom';
+import { el } from './dom';
 
 /** Canonical external links (also listed at the top of README.md). */
 const SITE_URL = 'https://0x0da160.github.io/refrain-sheet/';
@@ -1479,7 +1479,6 @@ export class Dialogs {
       buttons.append(dialogButton(t('dialog.close'), true, false, () => close(undefined)));
     });
   }
-
 }
 
 /** Non-blocking toast notifications. */

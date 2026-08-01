@@ -53,8 +53,8 @@ dynamically-imported module into the same single script anyway. Instead,
 `src/app/llm/engine-entry.ts` is built as its own separate classic script
 (`vite.llm.config.ts`, a second `vite build` pass — see the `build` script
 in `package.json` — producing `dist/assets/llm-engine.js`) and
-`src/ui/dialogs.ts`'s `loadLlmEngine()` loads it at runtime by inserting a
-`<script>` tag, only once the user opens the AI Assistant dialog's
+`src/ui/ai-panel.ts`'s `loadLlmEngine()` loads it at runtime by inserting a
+`<script>` tag, only once the user opens the AI Assistant panel's
 install/chat flow. This is the same same-origin, `file://`-safe classic
 script loading path `index.html` already uses for the main bundle, and is
 explicitly allowed by the CSP (`script-src 'self' file:`) without any
@@ -87,12 +87,18 @@ the following were run against a real browser:
   `scripts/embed-model.mjs` actually wrote (they were computed by that
   script from the fetched files, but the embed step itself was not re-run
   in this session).
-- That `dialogs.ts`'s runtime `<script>`-tag loading of
+- That `ai-panel.ts`'s runtime `<script>`-tag loading of
   `assets/llm-engine.js` (added for issue #116) actually succeeds in a real
   browser, under both `https://` and `file://`. It was verified only at the
   build level: `npm run build` produces `dist/assets/llm-engine.js` as a
   separate file, the main `dist/assets/index-*.js` no longer contains the
   embedded model payload, and `npm run check:dist` still passes.
+- That the plan-proposal flow added for issue #122 (parsing a `PLAN: {...}`
+  line out of the model's reply, previewing it, and applying it through
+  `Commands.applyAiPlan()`) produces a usable plan from the real model —
+  only the parser (`src/core/ai-plan.ts`) and the apply step
+  (`Commands.applyAiPlan()`) have unit tests; the system prompt's actual
+  effect on the small on-device model's output was not exercised end-to-end.
 
 The cache-prepopulation trick also relies on **undocumented internals** of
 `@mlc-ai/web-llm@0.2.84` — the fixed Cache Storage scope names and the
@@ -100,7 +106,7 @@ match-before-fetch order in `ArtifactCache.addToCache()` — read directly from
 its published `lib/index.js`, not from its public API surface. If a future
 version of the dependency changes that behavior, the failure mode is a
 runtime error when a user clicks Install (caught and shown inline by the
-AI Assistant dialog — see `src/ui/dialogs.ts`), not something
+AI Assistant panel — see `src/ui/ai-panel.ts`), not something
 `npm run check:dist` or `npm run build` can catch. **Do not bump
 `@mlc-ai/web-llm` without re-reading its cache-lookup path and re-testing
 install end-to-end in a real WebGPU browser.**

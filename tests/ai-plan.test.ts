@@ -60,7 +60,10 @@ describe('parseAiPlan', () => {
   });
 
   it('rejects a plan over the max change count', () => {
-    const changes = Array.from({ length: AI_PLAN_MAX_CHANGES + 1 }, (_, i) => ({ ref: `A${i + 1}`, value: 'x' }));
+    const changes = Array.from({ length: AI_PLAN_MAX_CHANGES + 1 }, (_, i) => ({
+      ref: `A${i + 1}`,
+      value: 'x',
+    }));
     expect(parseAiPlan(plan(changes))).toEqual({ ok: false, reason: 'too-many' });
   });
 

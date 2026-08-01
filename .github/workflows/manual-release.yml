@@ -12,8 +12,9 @@ name: Manual release recovery
 #
 # WHAT IT REFUSES:
 # - Any branch, commit SHA, version string, command, or CLI argument supplied
-#   through workflow inputs. The only inputs are a numeric PR number, a fixed
-#   `choice` of patch/minor/major, and a boolean. Nothing else reaches a shell.
+#   through workflow inputs. The only inputs are a numeric (or empty) PR number, a
+#   fixed `choice` of patch/minor/major, and two booleans. Nothing else reaches a
+#   shell.
 # - The bump type is NEVER read from Issue text, PR text, comments, commits, or
 #   labels. The maintainer's explicit `release_type` choice IS the authorization.
 # - Releasing a merge commit that an existing release already contains, or a tag
@@ -28,25 +29,37 @@ name: Manual release recovery
 # get a validation-only run. Run it that way first — see
 # docs/agent-operations.md § Manual release recovery.
 #
-# NOTE ON `pr_number`: it stays REQUIRED, deliberately. The specific merged pull
-# request a maintainer names IS the authorization and the audit trail for the
-# release; "release whatever `main` currently holds" would give a weaker
-# guarantee and would need its own defence against re-releasing a commit or
-# releasing a `Release vX.Y.Z` commit. To make the right number easy to find from
-# a phone, the validate job prints the most recent merged pull requests as a
-# run annotation before it decides eligibility — so a wrong guess costs one
-# stopped dry run and then tells you the answer.
+# NOTE ON `pr_number` and `use_latest_merged_pr`: the release source is ALWAYS one
+# specific merged pull request. That is the authorization and the audit trail, and
+# it is what lets the eligibility checks refuse a `release/*` branch, a
+# `Release vX.Y.Z` commit, or a commit an existing release already contains. What
+# became optional is TYPING the number: with `use_latest_merged_pr` ticked (the
+# default, a deliberate policy exception approved in Issue #120) the workflow
+# resolves the newest pull request merged into the production branch and then runs
+# every one of those checks against it, unchanged. Untick it and give `pr_number`
+# to release an older pull request. Supplying both is refused, never guessed.
 
 on:
   workflow_dispatch:
     inputs:
-      pr_number:
-        description: 'Merged PR number to release (Pull requests → Closed, newest merged first)'
+      use_latest_merged_pr:
+        description: 'Release the newest merged PR (untick to name one below)'
         required: true
+        default: true
+        type: boolean
+      pr_number:
+        description: 'Merged PR number — only when the box above is unticked'
+        required: false
+        default: ''
         type: string
+      # Every input declares a `default`, including this one. A `choice` without an
+      # explicit default renders its first option but does not count as answered
+      # until it is touched, which is why the GitHub Mobile Run button stayed
+      # disabled until you changed the value and changed it back (Issue #120).
       release_type:
         description: 'Version bump type'
         required: true
+        default: patch
         type: choice
         options:
           - patch
@@ -86,6 +99,7 @@ jobs:
       pull-requests: read
     outputs:
       mode: ${{ steps.check.outputs.mode }}
+      pr_number: ${{ steps.check.outputs.pr_number }}
       tag: ${{ steps.check.outputs.tag }}
       version: ${{ steps.check.outputs.version }}
       merge_sha: ${{ steps.check.outputs.merge_sha }}
@@ -94,11 +108,12 @@ jobs:
       reason_ja: ${{ steps.check.outputs.reason_ja }}
     steps:
       # Informational only. No eligibility decision reads this, nothing later
-      # depends on it, and it cannot fail the run — it just answers "which
-      # number was I supposed to type?" from the run page, which is the only
-      # question `pr_number` being required makes awkward on a phone. It runs
-      # FIRST so the answer is there even if checkout or install later fails,
-      # and it uses the job's existing `pull-requests: read`; no new permission.
+      # depends on it, and it cannot fail the run. It shows the candidates — the
+      # first line is the one `use_latest_merged_pr` resolves to — so the run
+      # page says what is about to be released, and gives you a number to type
+      # when you want an older pull request instead. It runs FIRST so the list
+      # survives a later checkout or install failure, and it uses the job's
+      # existing `pull-requests: read`; no new permission.
       - name: List the most recent merged pull requests (informational)
         continue-on-error: true
         env:
@@ -153,6 +168,7 @@ jobs:
         id: check
         env:
           PR_NUMBER: ${{ inputs.pr_number }}
+          USE_LATEST: ${{ inputs.use_latest_merged_pr }}
           RELEASE_TYPE: ${{ inputs.release_type }}
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -170,13 +186,35 @@ jobs:
           # constrained to digits here before it is used anywhere; `release_type`
           # is a fixed choice and is re-checked as defence in depth. Neither value
           # is ever interpolated into a command line.
-          if ! printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'; then
-            stop "The PR number must be a positive integer." "PR 番号は正の整数で指定してください。"
-          fi
           case "$RELEASE_TYPE" in
             patch|minor|major) ;;
             *) stop "Unsupported release type." "サポートされていないリリース種別です。" ;;
           esac
+
+          # `use_latest_merged_pr` decides only WHERE the number comes from. It
+          # never decides whether the checks below run: the number is resolved
+          # here, at the top, so checks (2)-(9) apply to a resolved pull request
+          # exactly as they would to a typed one. A resolved release commit or an
+          # already-shipped commit is still refused.
+          if [ "$USE_LATEST" = "true" ]; then
+            if [ -n "$PR_NUMBER" ]; then
+              stop "Both a PR number and 'release the newest merged PR' were given; refusing to guess which was meant. Untick the box to release #${PR_NUMBER}, or clear the number to release the newest." \
+                   "PR 番号と「最新のマージ済み PR をリリース」の両方が指定されています。どちらの意図かを推測することはしません。#${PR_NUMBER} をリリースする場合はチェックを外し、最新をリリースする場合は番号を空にしてください。"
+            fi
+            PR_NUMBER="$(gh pr list --repo "$GITHUB_REPOSITORY" --base "$PRODUCTION_BRANCH" \
+              --state merged --limit 20 --json number,mergedAt \
+              --jq 'sort_by(.mergedAt) | reverse | .[0].number // ""' 2>/dev/null || true)"
+            if [ -z "$PR_NUMBER" ]; then
+              stop "No pull request merged into \`${PRODUCTION_BRANCH}\` was found, so there is nothing to release." \
+                   "\`${PRODUCTION_BRANCH}\` にマージ済みのプルリクエストが見つからないため、リリース対象がありません。"
+            fi
+            echo "::notice::Resolved the newest merged pull request: #${PR_NUMBER}."
+          fi
+          if ! printf '%s' "$PR_NUMBER" | grep -Eq '^[0-9]+$'; then
+            stop "Enter the merged PR number, or tick 'release the newest merged PR'." \
+                 "マージ済みの PR 番号を入力するか、「最新のマージ済み PR をリリース」にチェックを入れてください。"
+          fi
+          out pr_number "$PR_NUMBER"
 
           if ! meta="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
               --json state,mergeCommit,baseRefName,headRefName,title,url 2>/dev/null)"; then
@@ -315,7 +353,7 @@ jobs:
       - name: Bilingual summary
         if: always() && (inputs.dry_run || steps.check.outputs.mode != 'release')
         env:
-          PR_NUMBER: ${{ inputs.pr_number }}
+          PR_NUMBER: ${{ steps.check.outputs.pr_number }}
           RELEASE_TYPE: ${{ inputs.release_type }}
           SOURCE_SHA: ${{ steps.check.outputs.merge_sha }}
           VERSION_TAG: ${{ steps.check.outputs.tag }}
@@ -453,7 +491,7 @@ jobs:
 
       - name: Write the bilingual result
         env:
-          PR_NUMBER: ${{ inputs.pr_number }}
+          PR_NUMBER: ${{ needs.validate.outputs.pr_number }}
           RELEASE_TYPE: ${{ inputs.release_type }}
           SOURCE_SHA: ${{ needs.validate.outputs.merge_sha }}
           VERSION_TAG: ${{ needs.bump.outputs.tag || needs.validate.outputs.tag }}

@@ -254,6 +254,12 @@ export interface UiPort {
   /** Open the offline formula & function help panel. */
   showFormulaHelp(): void;
   /**
+   * Open the local AI assistant panel (install the embedded model on first
+   * use, then a simple chat to ask questions about spreadsheet operations).
+   * Everything runs on-device; nothing here reads or writes document cells.
+   */
+  showAiAssistant(): void;
+  /**
    * Confirm a workbook-wide Replace All before anything is mutated. Returns
    * false to cancel, which must leave every worksheet untouched.
    */
@@ -338,6 +344,7 @@ export type CommandId =
   | 'sheet.displayLanguage'
   | 'sheet.exportCsv'
   | 'sheet.exportXlsx'
+  | 'sheet.aiAssistant'
   // Worksheets inside the active RSF workbook (distinct from the application
   // document tabs, whose commands are the `tab.*` ids below).
   | 'worksheet.add'
@@ -816,6 +823,9 @@ export class Commands {
         return;
       case 'help.formula':
         this.ui.showFormulaHelp();
+        return;
+      case 'sheet.aiAssistant':
+        this.ui.showAiAssistant();
         return;
     }
   }

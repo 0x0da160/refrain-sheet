@@ -2,5 +2,6 @@ dist/
 node_modules/
 package-lock.json
 src/wasm-gen/
+src/llm-gen/
 wasm/target/
 wasm/pkg/

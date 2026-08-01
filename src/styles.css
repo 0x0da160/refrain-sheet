@@ -1310,6 +1310,62 @@ dialog::backdrop {
   line-height: 1.5;
 }
 
+.ai-assistant button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 6px 16px;
+  font: inherit;
+}
+
+.ai-assistant button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.ai-assistant button.primary:disabled {
+  opacity: 0.6;
+}
+
+.ai-assistant-input {
+  font: inherit;
+  width: 100%;
+  resize: vertical;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.ai-assistant-log {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.ai-assistant-message {
+  border-radius: 4px;
+  padding: 6px 10px;
+  white-space: pre-wrap;
+}
+
+.ai-assistant-message.user {
+  background: var(--panel);
+}
+
+.ai-assistant-message.assistant {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.ai-assistant-message.pending,
+.ai-assistant-message.error {
+  color: var(--text-dim);
+}
+
 .dialog-buttons {
   display: flex;
   justify-content: flex-end;

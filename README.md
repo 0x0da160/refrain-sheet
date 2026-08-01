@@ -1182,6 +1182,17 @@ metadata** — the spreadsheet zoom and overridden column widths — which is
 validated and clamped on load and restored when the document reopens. The
 full specification is in [docs/rsf-format.md](docs/rsf-format.md).
 
+### AI Assistant
+
+**Sheet > AI Assistant…** installs a small, Japanese-capable language model
+(via [WebLLM](https://github.com/mlc-ai/web-llm)/WebGPU) to help answer
+questions about spreadsheet operations. The model is bundled with the app —
+installing it writes the already-embedded model into the browser's Cache
+Storage and starts the in-browser engine, without ever making a network
+request. It requires a WebGPU-capable browser; the dialog explains when that
+is not available. See [docs/llm-model.md](docs/llm-model.md) for the model's
+source, license, and how it is embedded.
+
 > **Legacy `.rcsv` files.** This format was previously named _Refrain CSV
 > Format (RCSV)_ with the `.rcsv` extension and magic `RCSV`. Existing `.rcsv`
 > files are **read transparently** as a legacy import: opening one migrates the

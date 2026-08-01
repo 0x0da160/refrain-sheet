@@ -1289,6 +1289,24 @@ dialog::backdrop {
   background: var(--scrim);
 }
 
+/* The column-filter popover (see openPopover in src/ui/dialogs.ts): the same
+   look as a modal dialog, but a plain positioned element placed by
+   src/ui/popup.ts next to the triggering column header instead of behind a
+   centered backdrop, so the sheet stays visible and usable behind it. */
+.filter-popover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 10px 32px var(--shadow-strong);
+  max-width: min(420px, calc(100vw - 8px));
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--text);
+  z-index: 100;
+}
+
 .dialog-title {
   margin: 0;
   padding: 12px 18px;

@@ -782,12 +782,16 @@ tag push uses.
    ブラウザで **Actions** を開きます。
 2. Open **Manual release recovery**. / **Manual release recovery** を開きます。
 3. Tap **Run workflow**. / **Run workflow** をタップします。
-4. Enter the merged PR number — **Pull requests → Closed** lists them newest merged
-   first, and every run annotates the newest merged pull request on its own run page,
-   so a wrong guess costs one stopped run and then tells you the number. / マージ済みの
-   PR 番号を入力します。**Pull requests → Closed** に新しくマージされた順で並んでいます。
-   またこのワークフローは実行ページに最新のマージ済み PR を注記として出力するため、
-   番号を間違えても実行が 1 回停止するだけで、正しい番号が分かります。
+4. Leave **`use_latest_merged_pr`** ticked to release the newest merged pull request,
+   which is the usual case and needs no typing. To release an older one, untick it
+   and enter that PR number — **Pull requests → Closed** lists them newest merged
+   first, and every run also annotates the candidates on its own run page. Ticking
+   the box _and_ entering a number stops the run rather than guessing. /
+   通常は **`use_latest_merged_pr`** にチェックを入れたままにすれば、最新のマージ済み
+   プルリクエストがリリースされ、番号の入力は不要です。それより前の PR をリリースする
+   場合はチェックを外して番号を入力します。**Pull requests → Closed** に新しくマージ
+   された順で並んでおり、実行ページにも候補が注記として出力されます。チェックを入れた
+   まま番号も入力した場合は、推測せずに実行を停止します。
 5. Select `patch`, `minor`, or `major`. / `patch`・`minor`・`major` から選びます。
 6. **Tick `dry_run` and run it that way first.** / **まず `dry_run` にチェックを入れて
    実行してください。**
@@ -804,37 +808,44 @@ tag push uses.
 > `dry_run` の既定はチェックなしです。手順 6 は意識的に行ってください。チェックを外した
 > ままの実行は本番リリースになります。
 
-### Why the PR number is required / PR 番号が必須である理由
+### The release source is always one merged PR / リリース対象は常に 1 件のマージ済み PR
 
 - **English:** there is deliberately no "just release the current tip of `main`" mode.
-  The specific merged pull request you name is the release's authorization and its
-  audit trail: it is what proves the released change was reviewed, that it landed on
-  `main`, and that it is not itself a `Release vX.Y.Z` commit or a `release/*` branch.
-  Releasing whatever `main` happens to hold would give none of those guarantees and
-  would need its own separate defence against re-releasing an already-shipped commit.
-  The number is required; finding it is the part that was made easy (step 4).
+  One specific merged pull request is the release's authorization and its audit trail:
+  it is what proves the released change was reviewed, that it landed on `main`, and
+  that it is not itself a `Release vX.Y.Z` commit or a `release/*` branch. Releasing
+  whatever `main` happens to hold would give none of those guarantees. What
+  `use_latest_merged_pr` changes is only **who names the pull request** — you, or the
+  workflow resolving the newest one merged into `main`. Either way the same
+  eligibility checks then run against that pull request, so an automatic resolution
+  that lands on a release commit, or on a commit an existing release already contains,
+  still stops without releasing anything.
 - **日本語:** 「現在の `main` の先端をそのままリリースする」モードは意図的に用意して
-  いません。指定するマージ済みの PR こそがリリースの承認であり監査証跡です。リリース
+  いません。特定のマージ済み PR 1 件こそがリリースの承認であり監査証跡です。リリース
   対象の変更がレビュー済みであること、`main` に入っていること、そしてそれ自体が
   `Release vX.Y.Z` コミットや `release/*` ブランチではないことを示します。`main` の
-  内容を無条件にリリースする方式ではこれらの保証がいずれも得られず、既にリリース済みの
-  コミットを再リリースしないための別の防御も必要になります。番号の指定は必須のままとし、
-  番号を「見つけやすくする」側を改善しました (手順 4)。
+  内容を無条件にリリースする方式では、これらの保証がいずれも得られません。
+  `use_latest_merged_pr` が変えるのは **誰がその PR を指定するか** だけです (利用者が
+  指定するか、ワークフローが `main` に最後にマージされた PR を解決するか)。いずれの
+  場合も同じ判定がその PR に対して実行されるため、自動解決の結果がリリースコミットや
+  既にリリース済みのコミットであった場合も、何もリリースせずに停止します。
 
 ### What it refuses / 拒否すること
 
 - **English:** an arbitrary branch, commit SHA, version string, command, or CLI
-  argument — the only inputs are a numeric PR number, a fixed `patch`/`minor`/`major`
-  choice, and a boolean. A PR that is not merged, or not merged into `main`. A merge
+  argument — the only inputs are a numeric (or empty) PR number, a fixed
+  `patch`/`minor`/`major` choice, and two booleans. A PR that is not merged, or not
+  merged into `main`. Both a PR number and "release the newest merged PR". A merge
   commit unreachable from `main`. A merge commit an existing release already contains.
   A tag that points somewhere unexpected — it stops without touching tags, commits,
   Releases, or Pages. Two releases at once: automatic and manual share the
   `production-release` concurrency group, and a release in progress is never cancelled.
   The bump type is never read from Issue text, PR text, comments, commits, or labels.
 - **日本語:** 任意のブランチ・コミット SHA・バージョン文字列・コマンド・CLI 引数は
-  受け付けません。入力は PR 番号 (数値)、`patch`/`minor`/`major` の固定選択、真偽値の
-  3 つだけです。未マージの PR、`main` 以外へのマージ、`main` から到達できないマージ
-  コミット、既存リリースに既に含まれるマージコミットも拒否します。タグが想定外の場所を
+  受け付けません。入力は PR 番号 (数値または空)、`patch`/`minor`/`major` の固定選択、
+  真偽値 2 つだけです。未マージの PR、`main` 以外へのマージ、PR 番号と「最新のマージ済み
+  PR をリリース」の同時指定、`main` から到達できないマージコミット、既存リリースに
+  既に含まれるマージコミットも拒否します。タグが想定外の場所を
   指している場合は、タグ・コミット・Release・Pages のいずれにも触れずに停止します。
   同時実行も防ぎます (自動・手動が `production-release` の同一グループを共有し、実行中の
   リリースは決してキャンセルされません)。バージョンの種別を Issue・PR・コメント・

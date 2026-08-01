@@ -484,6 +484,8 @@
   "dialog.filter.values": "値",
   "dialog.filter.allValues": "すべての値を表示（値の制限なし）",
   "dialog.filter.searchValues": "値を検索…",
+  "dialog.filter.selectAllValues": "すべて選択",
+  "dialog.filter.deselectAllValues": "すべて選択解除",
   "dialog.filter.valuesTruncated": "この列には多数の異なる値があり、先頭の一部のみを表示しています。表示されていない値に一致させるには、上の条件を使用してください。",
   "dialog.filter.blankValue": "（空白）",
   "dialog.filter.valuesMore": "…他に {n} 件の一致する値は表示されていません。",

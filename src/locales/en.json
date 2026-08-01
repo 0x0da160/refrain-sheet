@@ -484,6 +484,8 @@
   "dialog.filter.values": "Values",
   "dialog.filter.allValues": "Show all values (no value restriction)",
   "dialog.filter.searchValues": "Search values…",
+  "dialog.filter.selectAllValues": "Select all",
+  "dialog.filter.deselectAllValues": "Deselect all",
   "dialog.filter.valuesTruncated": "This column has many distinct values; only the first are listed. Use a condition above to match values that are not shown.",
   "dialog.filter.blankValue": "(blank)",
   "dialog.filter.valuesMore": "…and {n} more matching value(s) not shown.",

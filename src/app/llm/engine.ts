@@ -70,13 +70,21 @@ export function isLlmInstalled(): boolean {
   return engine !== undefined;
 }
 
-/** Sends a single user message and returns the assistant's reply text. Requires `installLlm()` to have completed. */
-export async function askLlm(message: string): Promise<string> {
+/**
+ * Sends a single user message and returns the assistant's reply text.
+ * Requires `installLlm()` to have completed. An optional `system` message
+ * steers the reply's format (see src/core/ai-plan.ts) without changing the
+ * plain-chat call sites that omit it.
+ */
+export async function askLlm(message: string, system?: string): Promise<string> {
   if (!engine) {
     throw new Error('refrain-sheet: installLlm() must complete before askLlm()');
   }
   const completion = await engine.chat.completions.create({
-    messages: [{ role: 'user', content: message }],
+    messages: [
+      ...(system ? [{ role: 'system' as const, content: system }] : []),
+      { role: 'user' as const, content: message },
+    ],
   });
   return completion.choices[0]?.message?.content ?? '';
 }

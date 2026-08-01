@@ -8,6 +8,10 @@ body:
       value: |
         日本語でも英語でも構いません。翻訳は不要です。
         You may write in Japanese or English — no translation required.
+
+        タイトルだけで説明できる場合は、以下の項目はすべて省略できます。不足があればClaudeが質問します。
+        If the title alone explains it, every field below is optional. Claude asks when something is missing.
+
         機密情報・認証情報・トークンは記載しないでください。/ Do not include secrets, credentials, or tokens.
 
   - type: textarea
@@ -16,7 +20,7 @@ body:
       label: 背景・状況 / Background & context
       description: どこで、どういう状況で起きたか / Where and under what conditions this occurs.
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: expected
@@ -24,7 +28,7 @@ body:
       label: 期待する挙動 / Expected behavior
       description: 本来どうあるべきか。可能なら Given / When / Then で。 / What should happen (Given/When/Then if possible).
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: actual
@@ -32,7 +36,7 @@ body:
       label: 実際の挙動 / Actual behavior
       description: 実際に何が起きたか。エラーメッセージやログがあれば貼り付けてください。 / What actually happens; paste errors/logs if any.
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: reproduction
@@ -44,7 +48,7 @@ body:
         2. ...
         3. ...
     validations:
-      required: true
+      required: false
 
   - type: input
     id: area
@@ -52,7 +56,7 @@ body:
       label: 影響範囲・コンポーネント / Affected area or component
       description: 例 / e.g. grid, formula engine, RSF codec, find bar
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: acceptance
@@ -66,7 +70,7 @@ body:
         - [ ] Given ... When ... Then ...
         - [ ] Test: ...
     validations:
-      required: true
+      required: false
 
   - type: dropdown
     id: risk
@@ -78,7 +82,7 @@ body:
         - '不明 / Not sure — needs triage'
         - 'あり / Yes — high-risk area (will require human approval)'
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: rollback

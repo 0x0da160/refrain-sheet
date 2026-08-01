@@ -176,17 +176,23 @@ export class AiPanel {
     this.body.append(status);
     const installButton = actionButton(t('aiAssistant.install'), true, () => {
       installButton.setAttribute('disabled', 'true');
+      status.textContent = '';
       loadLlmEngine()
         .then((mod) =>
           mod.installLlm((progress: LlmInstallProgress) => {
-            status.textContent = t('aiAssistant.installProgress', {
-              percent: Math.round(progress.progress * 100),
-              text: progress.text,
-            });
+            const percent = Math.round(progress.progress * 100);
+            this.commands.setBusy(
+              t('aiAssistant.installProgress', { percent, text: progress.text }),
+              percent,
+            );
           }),
         )
-        .then(() => this.renderChat())
+        .then(() => {
+          this.commands.setBusy(null);
+          this.renderChat();
+        })
         .catch((err: unknown) => {
+          this.commands.setBusy(null);
           installButton.removeAttribute('disabled');
           status.textContent = t('aiAssistant.installFailed', {
             message: err instanceof Error ? err.message : String(err),

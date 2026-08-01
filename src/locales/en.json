@@ -185,6 +185,8 @@
   "aiAssistant.intro": "Installs a small Japanese-capable language model that runs entirely on this device to help with spreadsheet questions and propose changes. The model is bundled with the app; nothing is downloaded from the network.",
   "aiAssistant.installIdle": "Not installed yet.",
   "aiAssistant.install": "Install",
+  "aiAssistant.installStarting": "Starting install…",
+  "aiAssistant.installInProgress": "Installing already in progress…",
   "aiAssistant.installProgress": "Installing… {percent}% ({text})",
   "aiAssistant.installFailed": "Install failed: {message}",
   "aiAssistant.ready": "Ask a question, or ask the assistant to change your spreadsheet. The assistant runs entirely on this device.",

@@ -515,6 +515,69 @@ describe('replace all', () => {
   });
 });
 
+describe('applyAiPlan', () => {
+  it('applies changes as a single atomic undoable operation', async () => {
+    const { state, commands } = setup();
+    await commands.openFiles([opened('a.csv', utf8('1,2\n3,4\n'))], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    const result = commands.applyAiPlan([
+      { row: 0, col: 0, ref: 'A1', value: '100' },
+      { row: 1, col: 1, ref: 'B2', value: '200' },
+    ]);
+    expect(result).toEqual({ applied: 2, skipped: 0 });
+    expect(tab.doc.getValue(0, 0)).toBe('100');
+    expect(tab.doc.getValue(1, 1)).toBe('200');
+    expect(tab.history.canUndo).toBe(true);
+    state.undo(tab);
+    expect(tab.doc.getValue(0, 0)).toBe('1');
+    expect(tab.doc.getValue(1, 1)).toBe('4');
+  });
+
+  it('skips refs outside the current CSV document instead of growing it', async () => {
+    const { state, commands } = setup();
+    await commands.openFiles([opened('a.csv', utf8('1,2\n'))], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    const result = commands.applyAiPlan([
+      { row: 0, col: 0, ref: 'A1', value: '9' },
+      { row: 50, col: 50, ref: 'AY51', value: 'x' },
+    ]);
+    expect(result).toEqual({ applied: 1, skipped: 1 });
+    expect(tab.doc.getValue(0, 0)).toBe('9');
+    expect(tab.doc.rowCount).toBe(1);
+  });
+
+  it('applies to an RSF document and skips refs beyond its grid', async () => {
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    await commands.run('sheet.convert');
+    const tab = state.activeTab!;
+    expect(tab.doc.kind).toBe('rsf');
+    const beyond = tab.doc.rowCount + 10;
+    const result = commands.applyAiPlan([
+      { row: 0, col: 0, ref: 'A1', value: 'X' },
+      { row: beyond, col: 0, ref: `A${beyond + 1}`, value: 'Y' },
+    ]);
+    expect(result).toEqual({ applied: 1, skipped: 1 });
+    expect(tab.doc.getValue(0, 0)).toBe('X');
+  });
+
+  it('is a no-op when every proposed value already matches the current cell', async () => {
+    const { state, commands } = setup();
+    await commands.openFiles([opened('a.csv', utf8('1,2\n'))], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    const result = commands.applyAiPlan([{ row: 0, col: 0, ref: 'A1', value: '1' }]);
+    expect(result).toEqual({ applied: 0, skipped: 0 });
+    expect(tab.history.canUndo).toBe(false);
+  });
+
+  it('returns everything skipped when there is no active tab', () => {
+    const { commands } = setup();
+    const result = commands.applyAiPlan([{ row: 0, col: 0, ref: 'A1', value: '1' }]);
+    expect(result).toEqual({ applied: 0, skipped: 1 });
+  });
+});
+
 describe('Help menu commands', () => {
   it('routes About and Keyboard Shortcuts to independent showAbout sections', async () => {
     const ui = stubUi();

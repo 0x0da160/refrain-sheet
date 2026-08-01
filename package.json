@@ -27,6 +27,7 @@
     "release": "node scripts/release.mjs"
   },
   "dependencies": {
+    "@mlc-ai/web-llm": "0.2.84",
     "encoding-japanese": "^2.2.0"
   },
   "devDependencies": {

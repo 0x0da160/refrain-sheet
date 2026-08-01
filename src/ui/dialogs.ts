@@ -38,6 +38,7 @@ import { APP_VERSION_DISPLAY } from '../app/version';
 import { checkLlmAvailability } from '../app/llm/availability';
 import type { LlmInstallProgress } from '../app/llm/engine';
 import { el, clearChildren } from './dom';
+import { positionPopup, visualViewportRect, type AnchorRect } from './popup';
 
 /**
  * The local AI assistant's engine embeds a ~190 MB Base64 model payload
@@ -182,6 +183,136 @@ function dialogButton(
   });
   button.addEventListener('click', onClick);
   return button;
+}
+
+/**
+ * A non-modal, anchored popover built the same way as `openDialog` (same
+ * `.dialog-title`/`.dialog-body`/`.dialog-buttons` structure and CSS) but
+ * positioned with {@link positionPopup} next to `getAnchor()` instead of
+ * centered behind a modal backdrop, so the sheet stays visible and usable
+ * behind it. `getAnchor` is re-invoked on every reposition (not cached)
+ * because the grid re-renders its (virtualized) header on scroll, which can
+ * replace the anchor element entirely; when it returns null (the anchor has
+ * scrolled out of the rendered window) the popover falls back to a
+ * viewport-centered position rather than closing, since the underlying
+ * command already captured everything it needs from the triggering column.
+ * Dismissal mirrors `ContextMenu`: Escape, an outside pointer interaction,
+ * and window blur all close it, and focus returns to whatever triggered it.
+ * A manual Tab/Shift+Tab handler keeps focus cycling within the popover
+ * since, unlike `<dialog>` opened with `showModal()`, a plain positioned
+ * element has no native focus trap.
+ */
+function openPopover<T>(
+  getAnchor: () => AnchorRect | null,
+  title: string,
+  fallback: T,
+  build: DialogBuilder<T>,
+): Promise<T> {
+  return new Promise((resolve) => {
+    const popover = el('div', {
+      className: 'filter-popover',
+      attrs: { role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'filter-popover-title' },
+    });
+    const heading = el('h2', {
+      className: 'dialog-title',
+      text: title,
+      attrs: { id: 'filter-popover-title' },
+    });
+    const body = el('div', { className: 'dialog-body' });
+    const buttons = el('div', { className: 'dialog-buttons' });
+    popover.append(heading, body, buttons);
+
+    const restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const listeners: Array<() => void> = [];
+    const on = (
+      target: EventTarget,
+      type: string,
+      handler: EventListenerOrEventListenerObject,
+      capture = false,
+    ) => {
+      target.addEventListener(type, handler, capture);
+      listeners.push(() => target.removeEventListener(type, handler, capture));
+    };
+
+    let settled = false;
+    const finish = (value: T): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      for (const off of listeners) {
+        off();
+      }
+      popover.remove();
+      if (restoreFocus && restoreFocus.isConnected) {
+        restoreFocus.focus();
+      }
+      resolve(value);
+    };
+
+    const reposition = (): void => {
+      const anchor = getAnchor();
+      if (anchor) {
+        positionPopup(popover, { kind: 'below', rect: anchor });
+      } else {
+        const vp = visualViewportRect();
+        positionPopup(popover, { kind: 'point', x: vp.left + vp.width / 2, y: vp.top + vp.height / 3 });
+      }
+    };
+
+    const focusableItems = (): HTMLElement[] =>
+      Array.from(
+        popover.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+
+    build(body, buttons, finish);
+    document.body.append(popover);
+    reposition();
+    popover.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+
+    const onPointerDown = (event: Event): void => {
+      const target = event.target as Node | null;
+      if (target && popover.contains(target)) {
+        return;
+      }
+      finish(fallback);
+    };
+    const onKeyDown = (evt: Event): void => {
+      const event = evt as KeyboardEvent;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        finish(fallback);
+        return;
+      }
+      if (event.key !== 'Tab') {
+        return;
+      }
+      const items = focusableItems();
+      if (items.length === 0) {
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    on(document, 'mousedown', onPointerDown, true);
+    on(document, 'touchstart', onPointerDown, true);
+    on(popover, 'keydown', onKeyDown);
+    on(window, 'resize', reposition);
+    on(window, 'blur', () => finish(fallback));
+    on(document, 'scroll', reposition, true);
+    if (globalThis.visualViewport) {
+      on(globalThis.visualViewport, 'resize', reposition);
+    }
+  });
 }
 
 export class Dialogs {
@@ -635,245 +766,292 @@ export class Dialogs {
   }
 
   /**
-   * The accessible column-filter dialog. Presents the filtered range and the
-   * header-row assumption (editable only when creating the filter — an active
-   * filter's range/header are fixed until all filters are cleared), an
-   * AND/OR-combined list of comparison conditions, and a searchable,
-   * bounded checkbox list of the column's distinct displayed values. All
-   * content is text-only; the native <dialog> provides the focus trap and
-   * Escape-to-cancel. Resolves with the chosen action or null (cancel).
+   * The accessible column-filter popover, anchored beside the triggering
+   * column's header. Presents the filtered range and the header-row
+   * assumption (editable only when creating the filter — an active filter's
+   * range/header are fixed until all filters are cleared), an AND/OR-combined
+   * list of comparison conditions, and a searchable, bounded checkbox list of
+   * the column's distinct displayed values with select-all/deselect-all
+   * (acting on the currently search-narrowed values, like the individual
+   * checkboxes). All content is text-only. Resolves with the chosen action
+   * or null (cancel).
    */
   chooseFilter(input: FilterDialogInput): Promise<FilterDialogResult | null> {
-    return openDialog<FilterDialogResult | null>(t('dialog.filter.title'), null, (body, buttons, close) => {
-      body.append(
-        el('p', {
-          text: t('dialog.filter.range', { range: input.rangeLabel, col: input.colLetter }),
-        }),
-      );
-      if (input.header) {
+    const getAnchor = (): AnchorRect | null => {
+      const header = document.querySelector<HTMLElement>(`[data-colhead="${input.col}"]`);
+      return header ? header.getBoundingClientRect() : null;
+    };
+    return openPopover<FilterDialogResult | null>(
+      getAnchor,
+      t('dialog.filter.title'),
+      null,
+      (body, buttons, close) => {
         body.append(
-          el('p', { className: 'dialog-note', text: t('dialog.filter.header', { header: input.header }) }),
+          el('p', {
+            text: t('dialog.filter.range', { range: input.rangeLabel, col: input.colLetter }),
+          }),
         );
-      }
-
-      // Header-row assumption (only editable while creating the filter).
-      const headerCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
-      headerCheck.checked = input.headerRow;
-      headerCheck.disabled = input.hasActiveFilter;
-      body.append(
-        el('div', { className: 'form-row' }, [
-          el('label', {}, [headerCheck, el('span', { text: t('dialog.filter.headerRow') })]),
-        ]),
-      );
-      if (input.hasActiveFilter) {
-        body.append(el('p', { className: 'dialog-note', text: t('dialog.filter.headerLocked') }));
-      }
-
-      // ----- Conditions (AND/OR combined) -----
-      body.append(el('h3', { className: 'dialog-subhead', text: t('dialog.filter.conditions') }));
-      const joinWrap = el('div', { className: 'form-row' });
-      const joinAnd = el('input', {
-        attrs: { type: 'radio', name: 'filter-join' },
-      }) as HTMLInputElement;
-      const joinOr = el('input', {
-        attrs: { type: 'radio', name: 'filter-join' },
-      }) as HTMLInputElement;
-      const existingJoin = input.existing?.join ?? 'and';
-      joinAnd.checked = existingJoin === 'and';
-      joinOr.checked = existingJoin === 'or';
-      joinWrap.append(
-        el('label', {}, [joinAnd, el('span', { text: t('dialog.filter.joinAnd') })]),
-        el('label', {}, [joinOr, el('span', { text: t('dialog.filter.joinOr') })]),
-      );
-      body.append(joinWrap);
-
-      const conditionsHost = el('div', { className: 'filter-conditions' });
-      body.append(conditionsHost);
-
-      type Row = { op: HTMLSelectElement; value: HTMLInputElement; value2: HTMLInputElement };
-      const rows: Row[] = [];
-      const allOps: Array<{ value: string; label: string }> = [
-        ...FILTER_TEXT_OPS.map((op) => ({ value: op, label: t(`filter.op.${op}`) })),
-        ...FILTER_NUMBER_OPS.map((op) => ({ value: op, label: t(`filter.op.${op}`) })),
-      ];
-      const isNumberOp = (op: string): boolean => (FILTER_NUMBER_OPS as readonly string[]).includes(op);
-      const noValueOp = (op: string): boolean => op === 'blank' || op === 'notBlank';
-
-      const makeRow = (cond?: FilterCondition): Row => {
-        const op = el('select', {
-          attrs: { 'aria-label': t('dialog.filter.condition') },
-        }) as HTMLSelectElement;
-        for (const o of allOps) {
-          op.append(el('option', { text: o.label, attrs: { value: o.value } }));
-        }
-        const value = el('input', {
-          attrs: { type: 'text', 'aria-label': t('dialog.filter.value') },
-        }) as HTMLInputElement;
-        const value2 = el('input', {
-          attrs: { type: 'text', 'aria-label': t('dialog.filter.value2') },
-        }) as HTMLInputElement;
-        if (cond) {
-          op.value = cond.op;
-          if (cond.kind === 'text') {
-            value.value = cond.value;
-          } else {
-            value.value = String(cond.value);
-            if (cond.value2 !== undefined) {
-              value2.value = String(cond.value2);
-            }
-          }
-        }
-        const sync = (): void => {
-          value.hidden = noValueOp(op.value);
-          value2.hidden = op.value !== 'numBetween';
-        };
-        op.addEventListener('change', sync);
-        sync();
-        const row = el('div', { className: 'filter-condition-row' }, [op, value, value2]);
-        conditionsHost.append(row);
-        return { op, value, value2 };
-      };
-
-      for (const cond of input.existing?.conditions ?? []) {
-        rows.push(makeRow(cond));
-      }
-      if (rows.length === 0) {
-        rows.push(makeRow());
-      }
-      const addBtn = el('button', {
-        className: 'filter-add',
-        text: t('dialog.filter.addCondition'),
-        attrs: { type: 'button' },
-      });
-      addBtn.addEventListener('click', () => {
-        if (rows.length < MAX_FILTER_CONDITIONS) {
-          rows.push(makeRow());
-        }
-        addBtn.disabled = rows.length >= MAX_FILTER_CONDITIONS;
-      });
-      addBtn.disabled = rows.length >= MAX_FILTER_CONDITIONS;
-      body.append(addBtn);
-
-      // ----- Distinct-value selection (searchable, bounded) -----
-      body.append(el('h3', { className: 'dialog-subhead', text: t('dialog.filter.values') }));
-      const allValuesCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
-      allValuesCheck.checked = input.existing?.values == null;
-      body.append(
-        el('div', { className: 'form-row' }, [
-          el('label', {}, [allValuesCheck, el('span', { text: t('dialog.filter.allValues') })]),
-        ]),
-      );
-      const search = el('input', {
-        attrs: {
-          type: 'search',
-          placeholder: t('dialog.filter.searchValues'),
-          'aria-label': t('dialog.filter.searchValues'),
-        },
-      }) as HTMLInputElement;
-      body.append(search);
-      const valueList = el('div', { className: 'filter-value-list', attrs: { role: 'group' } });
-      body.append(valueList);
-      if (input.valuesTruncated) {
-        body.append(el('p', { className: 'dialog-note', text: t('dialog.filter.valuesTruncated') }));
-      }
-      const checkedValues = new Set<string>(input.existing?.values ?? input.values);
-      const VALUE_DISPLAY_CAP = 200;
-      const renderValues = (): void => {
-        const term = search.value.toLowerCase();
-        const matches = input.values.filter((v) => v.toLowerCase().includes(term));
-        const shown = matches.slice(0, VALUE_DISPLAY_CAP);
-        const children: HTMLElement[] = shown.map((v) => {
-          const cb = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
-          cb.checked = checkedValues.has(v);
-          cb.disabled = allValuesCheck.checked;
-          cb.addEventListener('change', () => {
-            if (cb.checked) {
-              checkedValues.add(v);
-            } else {
-              checkedValues.delete(v);
-            }
-          });
-          return el('label', { className: 'filter-value' }, [
-            cb,
-            el('span', { text: v === '' ? t('dialog.filter.blankValue') : v }),
-          ]);
-        });
-        if (matches.length > shown.length) {
-          children.push(
-            el('p', {
-              className: 'dialog-note',
-              text: t('dialog.filter.valuesMore', { n: matches.length - shown.length }),
-            }),
+        if (input.header) {
+          body.append(
+            el('p', { className: 'dialog-note', text: t('dialog.filter.header', { header: input.header }) }),
           );
         }
-        valueList.replaceChildren(...children);
-      };
-      allValuesCheck.addEventListener('change', renderValues);
-      search.addEventListener('input', renderValues);
-      renderValues();
 
-      body.append(
-        el('p', { className: 'dialog-note', text: t('dialog.filter.combineNote') }),
-        el('p', { className: 'dialog-note', text: t('dialog.filter.crossNote', { n: input.otherColumns }) }),
-      );
+        // Header-row assumption (only editable while creating the filter).
+        const headerCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+        headerCheck.checked = input.headerRow;
+        headerCheck.disabled = input.hasActiveFilter;
+        body.append(
+          el('div', { className: 'form-row' }, [
+            el('label', {}, [headerCheck, el('span', { text: t('dialog.filter.headerRow') })]),
+          ]),
+        );
+        if (input.hasActiveFilter) {
+          body.append(el('p', { className: 'dialog-note', text: t('dialog.filter.headerLocked') }));
+        }
 
-      // ----- Build the result from the current inputs -----
-      const buildColumn = (): ColumnFilter | null => {
-        const conditions: FilterCondition[] = [];
-        for (const row of rows) {
-          const op = row.op.value;
-          if (noValueOp(op)) {
-            conditions.push({ kind: 'text', op: op as FilterTextOp, value: '' });
-          } else if (isNumberOp(op)) {
-            const n = Number(row.value.value.trim());
-            if (row.value.value.trim() === '' || !Number.isFinite(n)) {
-              continue; // skip an incomplete numeric condition
-            }
-            const cond: FilterCondition = { kind: 'number', op: op as FilterNumberOp, value: n };
-            if (op === 'numBetween') {
-              const n2 = Number(row.value2.value.trim());
-              if (Number.isFinite(n2)) {
-                cond.value2 = n2;
+        // ----- Conditions (AND/OR combined) -----
+        body.append(el('h3', { className: 'dialog-subhead', text: t('dialog.filter.conditions') }));
+        const joinWrap = el('div', { className: 'form-row' });
+        const joinAnd = el('input', {
+          attrs: { type: 'radio', name: 'filter-join' },
+        }) as HTMLInputElement;
+        const joinOr = el('input', {
+          attrs: { type: 'radio', name: 'filter-join' },
+        }) as HTMLInputElement;
+        const existingJoin = input.existing?.join ?? 'and';
+        joinAnd.checked = existingJoin === 'and';
+        joinOr.checked = existingJoin === 'or';
+        joinWrap.append(
+          el('label', {}, [joinAnd, el('span', { text: t('dialog.filter.joinAnd') })]),
+          el('label', {}, [joinOr, el('span', { text: t('dialog.filter.joinOr') })]),
+        );
+        body.append(joinWrap);
+
+        const conditionsHost = el('div', { className: 'filter-conditions' });
+        body.append(conditionsHost);
+
+        type Row = { op: HTMLSelectElement; value: HTMLInputElement; value2: HTMLInputElement };
+        const rows: Row[] = [];
+        const allOps: Array<{ value: string; label: string }> = [
+          ...FILTER_TEXT_OPS.map((op) => ({ value: op, label: t(`filter.op.${op}`) })),
+          ...FILTER_NUMBER_OPS.map((op) => ({ value: op, label: t(`filter.op.${op}`) })),
+        ];
+        const isNumberOp = (op: string): boolean => (FILTER_NUMBER_OPS as readonly string[]).includes(op);
+        const noValueOp = (op: string): boolean => op === 'blank' || op === 'notBlank';
+
+        const makeRow = (cond?: FilterCondition): Row => {
+          const op = el('select', {
+            attrs: { 'aria-label': t('dialog.filter.condition') },
+          }) as HTMLSelectElement;
+          for (const o of allOps) {
+            op.append(el('option', { text: o.label, attrs: { value: o.value } }));
+          }
+          const value = el('input', {
+            attrs: { type: 'text', 'aria-label': t('dialog.filter.value') },
+          }) as HTMLInputElement;
+          const value2 = el('input', {
+            attrs: { type: 'text', 'aria-label': t('dialog.filter.value2') },
+          }) as HTMLInputElement;
+          if (cond) {
+            op.value = cond.op;
+            if (cond.kind === 'text') {
+              value.value = cond.value;
+            } else {
+              value.value = String(cond.value);
+              if (cond.value2 !== undefined) {
+                value2.value = String(cond.value2);
               }
             }
-            conditions.push(cond);
-          } else {
-            if (row.value.value === '') {
-              continue; // skip an empty text condition
-            }
-            conditions.push({ kind: 'text', op: op as FilterTextOp, value: row.value.value });
           }
-        }
-        const values = allValuesCheck.checked ? null : [...checkedValues].sort();
-        if (conditions.length === 0 && values === null) {
-          return null; // no criteria: clears this column
-        }
-        return {
-          col: input.col,
-          join: joinOr.checked ? 'or' : 'and',
-          conditions,
-          values,
+          const sync = (): void => {
+            value.hidden = noValueOp(op.value);
+            value2.hidden = op.value !== 'numBetween';
+          };
+          op.addEventListener('change', sync);
+          sync();
+          const row = el('div', { className: 'filter-condition-row' }, [op, value, value2]);
+          conditionsHost.append(row);
+          return { op, value, value2 };
         };
-      };
 
-      // ----- Buttons -----
-      buttons.append(dialogButton(t('dialog.filter.cancel'), false, true, () => close(null)));
-      if (input.existing) {
-        buttons.append(
-          dialogButton(t('dialog.filter.clearColumn'), false, false, () => close({ action: 'clearColumn' })),
+        for (const cond of input.existing?.conditions ?? []) {
+          rows.push(makeRow(cond));
+        }
+        if (rows.length === 0) {
+          rows.push(makeRow());
+        }
+        const addBtn = el('button', {
+          className: 'filter-add',
+          text: t('dialog.filter.addCondition'),
+          attrs: { type: 'button' },
+        });
+        addBtn.addEventListener('click', () => {
+          if (rows.length < MAX_FILTER_CONDITIONS) {
+            rows.push(makeRow());
+          }
+          addBtn.disabled = rows.length >= MAX_FILTER_CONDITIONS;
+        });
+        addBtn.disabled = rows.length >= MAX_FILTER_CONDITIONS;
+        body.append(addBtn);
+
+        // ----- Distinct-value selection (searchable, bounded) -----
+        body.append(el('h3', { className: 'dialog-subhead', text: t('dialog.filter.values') }));
+        const allValuesCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+        allValuesCheck.checked = input.existing?.values == null;
+        body.append(
+          el('div', { className: 'form-row' }, [
+            el('label', {}, [allValuesCheck, el('span', { text: t('dialog.filter.allValues') })]),
+          ]),
         );
-      }
-      if (input.hasActiveFilter) {
-        buttons.append(
-          dialogButton(t('dialog.filter.clearAll'), false, false, () => close({ action: 'clearAll' })),
+        const search = el('input', {
+          attrs: {
+            type: 'search',
+            placeholder: t('dialog.filter.searchValues'),
+            'aria-label': t('dialog.filter.searchValues'),
+          },
+        }) as HTMLInputElement;
+        body.append(search);
+        const selectAllBtn = el('button', {
+          className: 'filter-add',
+          text: t('dialog.filter.selectAllValues'),
+          attrs: { type: 'button' },
+        }) as HTMLButtonElement;
+        const deselectAllBtn = el('button', {
+          className: 'filter-add',
+          text: t('dialog.filter.deselectAllValues'),
+          attrs: { type: 'button' },
+        }) as HTMLButtonElement;
+        body.append(el('div', { className: 'form-row' }, [selectAllBtn, deselectAllBtn]));
+        const valueList = el('div', { className: 'filter-value-list', attrs: { role: 'group' } });
+        body.append(valueList);
+        if (input.valuesTruncated) {
+          body.append(el('p', { className: 'dialog-note', text: t('dialog.filter.valuesTruncated') }));
+        }
+        const checkedValues = new Set<string>(input.existing?.values ?? input.values);
+        const VALUE_DISPLAY_CAP = 200;
+        // The currently search-narrowed values (not just the ones actually
+        // rendered under VALUE_DISPLAY_CAP), kept in sync by renderValues()
+        // so select-all/deselect-all act on the narrowed set, not the
+        // column's full (possibly much larger) value set.
+        let currentMatches: string[] = input.values;
+        selectAllBtn.addEventListener('click', () => {
+          for (const v of currentMatches) {
+            checkedValues.add(v);
+          }
+          renderValues();
+        });
+        deselectAllBtn.addEventListener('click', () => {
+          for (const v of currentMatches) {
+            checkedValues.delete(v);
+          }
+          renderValues();
+        });
+        const renderValues = (): void => {
+          const term = search.value.toLowerCase();
+          const matches = input.values.filter((v) => v.toLowerCase().includes(term));
+          currentMatches = matches;
+          selectAllBtn.disabled = allValuesCheck.checked;
+          deselectAllBtn.disabled = allValuesCheck.checked;
+          const shown = matches.slice(0, VALUE_DISPLAY_CAP);
+          const children: HTMLElement[] = shown.map((v) => {
+            const cb = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+            cb.checked = checkedValues.has(v);
+            cb.disabled = allValuesCheck.checked;
+            cb.addEventListener('change', () => {
+              if (cb.checked) {
+                checkedValues.add(v);
+              } else {
+                checkedValues.delete(v);
+              }
+            });
+            return el('label', { className: 'filter-value' }, [
+              cb,
+              el('span', { text: v === '' ? t('dialog.filter.blankValue') : v }),
+            ]);
+          });
+          if (matches.length > shown.length) {
+            children.push(
+              el('p', {
+                className: 'dialog-note',
+                text: t('dialog.filter.valuesMore', { n: matches.length - shown.length }),
+              }),
+            );
+          }
+          valueList.replaceChildren(...children);
+        };
+        allValuesCheck.addEventListener('change', renderValues);
+        search.addEventListener('input', renderValues);
+        renderValues();
+
+        body.append(
+          el('p', { className: 'dialog-note', text: t('dialog.filter.combineNote') }),
+          el('p', {
+            className: 'dialog-note',
+            text: t('dialog.filter.crossNote', { n: input.otherColumns }),
+          }),
         );
-      }
-      buttons.append(
-        dialogButton(t('dialog.filter.apply'), true, false, () =>
-          close({ action: 'apply', headerRow: headerCheck.checked, column: buildColumn() }),
-        ),
-      );
-    });
+
+        // ----- Build the result from the current inputs -----
+        const buildColumn = (): ColumnFilter | null => {
+          const conditions: FilterCondition[] = [];
+          for (const row of rows) {
+            const op = row.op.value;
+            if (noValueOp(op)) {
+              conditions.push({ kind: 'text', op: op as FilterTextOp, value: '' });
+            } else if (isNumberOp(op)) {
+              const n = Number(row.value.value.trim());
+              if (row.value.value.trim() === '' || !Number.isFinite(n)) {
+                continue; // skip an incomplete numeric condition
+              }
+              const cond: FilterCondition = { kind: 'number', op: op as FilterNumberOp, value: n };
+              if (op === 'numBetween') {
+                const n2 = Number(row.value2.value.trim());
+                if (Number.isFinite(n2)) {
+                  cond.value2 = n2;
+                }
+              }
+              conditions.push(cond);
+            } else {
+              if (row.value.value === '') {
+                continue; // skip an empty text condition
+              }
+              conditions.push({ kind: 'text', op: op as FilterTextOp, value: row.value.value });
+            }
+          }
+          const values = allValuesCheck.checked ? null : [...checkedValues].sort();
+          if (conditions.length === 0 && values === null) {
+            return null; // no criteria: clears this column
+          }
+          return {
+            col: input.col,
+            join: joinOr.checked ? 'or' : 'and',
+            conditions,
+            values,
+          };
+        };
+
+        // ----- Buttons -----
+        buttons.append(dialogButton(t('dialog.filter.cancel'), false, true, () => close(null)));
+        if (input.existing) {
+          buttons.append(
+            dialogButton(t('dialog.filter.clearColumn'), false, false, () =>
+              close({ action: 'clearColumn' }),
+            ),
+          );
+        }
+        if (input.hasActiveFilter) {
+          buttons.append(
+            dialogButton(t('dialog.filter.clearAll'), false, false, () => close({ action: 'clearAll' })),
+          );
+        }
+        buttons.append(
+          dialogButton(t('dialog.filter.apply'), true, false, () =>
+            close({ action: 'apply', headerRow: headerCheck.checked, column: buildColumn() }),
+          ),
+        );
+      },
+    );
   }
 
   /** Choose the shift direction for Insert Copied Cells… (null cancels). */

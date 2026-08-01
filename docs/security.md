@@ -73,9 +73,12 @@ user's file contents.
 
 - **Keep the count minimal.** Do not add a dependency for convenience. Prefer a
   platform/browser API or a small local implementation. The production runtime
-  currently has a **single** dependency, `encoding-japanese` (Shift_JIS / EUC-JP
-  encoding, which the browser's `TextEncoder` cannot produce), and it has **zero
-  transitive dependencies**. Everything else is dev-only build/test tooling.
+  has two dependencies: `encoding-japanese` (Shift_JIS / EUC-JP encoding, which
+  the browser's `TextEncoder` cannot produce; **zero transitive dependencies**),
+  and `@mlc-ai/web-llm` (the local AI assistant's in-browser inference engine;
+  see `docs/llm-model.md` for why this large, multi-transitive-dependency
+  exception was explicitly approved and how it is kept consistent with the
+  offline guarantee below). Everything else is dev-only build/test tooling.
 - **Audit before adding.** New dependencies are reviewed for necessity,
   maintenance status, permission surface (install scripts, network access), and
   transitive footprint. Abandoned, over-permissive, or avoidable packages are

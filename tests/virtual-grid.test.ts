@@ -35,6 +35,7 @@ const noopUi: UiPort = {
   findNext: () => undefined,
   showAbout: () => undefined,
   showFormulaHelp: () => undefined,
+  showAiAssistant: () => undefined,
   chooseSettings: async () => null,
   chooseTimezone: async () => null,
   chooseDisplayLanguage: async () => null,

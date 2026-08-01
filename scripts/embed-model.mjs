@@ -90,7 +90,9 @@ for (const file of FILES) {
         `export const CHUNK_BASE64 =\n  '${base64}';\n`,
     );
 
-    manifestImports.push(`import { CHUNK_BASE64 as ${varName} } from './model-payload/${fileName.replace(/\.ts$/, '')}';`);
+    manifestImports.push(
+      `import { CHUNK_BASE64 as ${varName} } from './model-payload/${fileName.replace(/\.ts$/, '')}';`,
+    );
     chunkVarNames.push(varName);
     partIndex += 1;
   }
@@ -126,4 +128,6 @@ mkdirSync(outDir, { recursive: true });
 writeFileSync(join(outDir, 'model-manifest.ts'), manifestTs);
 
 const chunkFileCount = readdirSync(chunkDir).length;
-console.warn(`embed-model: wrote model-manifest.ts referencing ${chunkFileCount} chunk file(s) in src/llm-gen/model-payload/`);
+console.warn(
+  `embed-model: wrote model-manifest.ts referencing ${chunkFileCount} chunk file(s) in src/llm-gen/model-payload/`,
+);

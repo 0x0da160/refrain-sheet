@@ -23,10 +23,7 @@ const MODEL_BASE_URL = 'https://refrain-sheet.invalid/models/gemma3-270m-ja/reso
 export const MODEL_ID = 'gemma3-270m-japanese-webllm-04-q4f32_1';
 
 /** The compiled WebGPU/WASM kernel WebLLM loads for this model. */
-export const MODEL_LIB_URL = new URL(
-  'gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm',
-  MODEL_BASE_URL,
-).href;
+export const MODEL_LIB_URL = new URL('gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm', MODEL_BASE_URL).href;
 
 /** Cache Storage scopes WebLLM's `ArtifactCache` reads from (its fixed names, not configurable). */
 export const CACHE_SCOPES = {

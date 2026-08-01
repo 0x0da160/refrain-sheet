@@ -145,6 +145,8 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
         { labelKey: 'menu.sheet.exportXlsx', command: 'sheet.exportXlsx' },
+        'separator',
+        { labelKey: 'menu.sheet.aiAssistant', command: 'sheet.aiAssistant' },
       ],
     },
     {

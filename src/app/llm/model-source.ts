@@ -53,6 +53,17 @@ export function shardUrl(dataPath: string): string {
  * (the Cache Storage API, as opposed to IndexedDB) is already WebLLM's
  * default — the pre-population trick above depends specifically on that
  * backend, so a silent default change upstream must not go unnoticed.
+ *
+ * `overrides.sliding_window_size` corrects a defect in the vendored
+ * `mlc-chat-config.json` (see `scripts/fetch-model.mjs`): the upstream file
+ * sets both `context_window_size` (8192) and `sliding_window_size` (512) to
+ * positive values, which WebLLM's `LLMChatPipeline` rejects outright with
+ * `WindowSizeConfigurationError` ("Only one of context_window_size and
+ * sliding_window_size can be positive"), since it only supports a single KV
+ * cache strategy per model. `ModelRecord.overrides` is merged over the
+ * fetched config at load time — WebLLM's own error message points here —
+ * so disabling the sliding window (`-1`) keeps the full 8192-token
+ * `context_window_size`, which already matches `prefill_chunk_size`.
  */
 export const MODEL_APP_CONFIG = {
   cacheBackend: 'cache' as const,
@@ -61,6 +72,9 @@ export const MODEL_APP_CONFIG = {
       model: MODEL_BASE_URL,
       model_id: MODEL_ID,
       model_lib: MODEL_LIB_URL,
+      overrides: {
+        sliding_window_size: -1,
+      },
     },
   ],
 };

@@ -93,26 +93,38 @@ SOFTWARE.
 - Version: 0.2.84
 - Source: https://github.com/mlc-ai/web-llm
 - Purpose: in-browser WebGPU inference engine for the optional local AI
-  assistant. Bundled as a separate classic script
-  (`dist/assets/llm-engine.js`), loaded only if the user opens the assistant;
-  never fetched over the network. This is a documented, explicitly approved
-  exception to the single-dependency policy — see
-  [`docs/llm-model.md`](docs/llm-model.md) and
+  assistant. Each vendored model (see below) is bundled as its own separate
+  classic script (`dist/assets/llm-engine.<key>.js`), loaded only if the user
+  opens the assistant and installs that model; never fetched over the
+  network. This is a documented, explicitly approved exception to the
+  single-dependency policy — see [`docs/llm-model.md`](docs/llm-model.md) and
   [`docs/security.md`](docs/security.md) § Dependency policy.
 - License: Apache-2.0 (see `node_modules/@mlc-ai/web-llm/LICENSE` after
   `npm ci`).
 
 ## AI assistant model weights
 
+The user can choose from a small catalog of vendored models
+(`src/app/llm/model-catalog.ts`); each is independently downloadable and
+never both loaded at once. See [`docs/llm-model.md`](docs/llm-model.md) for
+the full provenance and approval record of each.
+
 - Model: [`UMASHIKA/gemma3-270m-japanese-webllm-04`](https://huggingface.co/UMASHIKA/gemma3-270m-japanese-webllm-04)
   (Gemma 3 270M, Japanese fine-tune, `q4f32_1` quantization), vendored as the
   Base64-encoded files under `src/llm-gen/model-payload/`.
-- Purpose: weights for the optional local AI assistant described above.
-- License: Gemma Terms of Use (see the model card at the link above) — a
-  use-based license, not an OSI-approved permissive license like the other
-  entries in this document. Its vendoring was explicitly reviewed and
-  approved; see [`docs/llm-model.md`](docs/llm-model.md) for the full
-  provenance and approval record.
+  - Purpose: weights for the optional local AI assistant described above.
+    The default model.
+  - License: Gemma Terms of Use (see the model card at the link above) — a
+    use-based license, not an OSI-approved permissive license like the other
+    entries in this document. Its vendoring was explicitly reviewed and
+    approved.
+- Model: [`mlc-ai/SmolLM2-135M-Instruct-q0f16-MLC`](https://huggingface.co/mlc-ai/SmolLM2-135M-Instruct-q0f16-MLC)
+  (SmolLM2 135M, general-purpose instruction-tuned, `q0f16` quantization),
+  vendored as the Base64-encoded files under
+  `src/llm-gen/smollm2-135m-instruct/model-payload/`.
+  - Purpose: weights for an additional, user-selectable, lighter-weight
+    local AI assistant model — primarily English rather than Japanese-tuned.
+  - License: Apache-2.0 (see the model card at the link above).
 
 ## Development-only dependencies
 

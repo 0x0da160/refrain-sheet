@@ -6,10 +6,8 @@
 //      embedded in the JS bundle as Base64,
 //   2. the embedded payload and the local instantiation path are present,
 //   3. no URL-based WASM fallback survived into the bundle,
-//   4. the CSP allows WebAssembly ('wasm-unsafe-eval') and the in-memory
-//      'blob:' scheme the @wllama/wllama local-assistant engine needs
-//      (see index.html and docs/llm-model.md), but no real network origin
-//      (no 'http:'/'https:' in connect-src, worker-src, or script-src).
+//   4. the CSP allows WebAssembly ('wasm-unsafe-eval') but no real network
+//      origin (no 'http:'/'https:' in connect-src, worker-src, or script-src).
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -48,15 +46,9 @@ if (wasmFiles.length > 0) {
   ok('no separate .wasm asset in dist/');
 }
 
-// Checks 2 and 3 below are about the Rust/WASM core, which is only ever
-// embedded in the main application bundle (vite.config.ts) — never in a
-// per-model `llm-engine.<key>.js` bundle (vite.llm.config.ts, see
-// docs/llm-model.md), which embeds a vendored AI model's own Base64 payload
-// instead. Those are excluded here: concatenating every vendored model's
-// multi-hundred-MB bundle alongside the main one is unnecessary for these
-// checks and, with more than one large model, has exceeded V8's maximum
-// string length (`RangeError: Invalid string length`).
-const jsFiles = files.filter((f) => f.endsWith('.js') && !/[/\\]llm-engine\./.test(f));
+// Checks 2 and 3 below are about the Rust/WASM core, embedded in the main
+// application bundle (vite.config.ts).
+const jsFiles = files.filter((f) => f.endsWith('.js'));
 if (jsFiles.length === 0) {
   fail('no JS bundle found in dist/');
 }
@@ -87,18 +79,13 @@ if (!indexHtml.includes('wasm-unsafe-eval')) {
 } else {
   ok("CSP allows local WebAssembly compilation ('wasm-unsafe-eval')");
 }
-// `connect-src` must permit only the in-memory 'blob:' scheme (needed by the
-// @wllama/wllama engine's own Worker/WASM/model loading, all built from
-// embedded bytes this app already vendored — never fetched) and no real
-// network origin. A bare `connect-src 'none'` would also be a pass by this
-// same logic, so this check accepts either exact directive rather than
-// hard-coding one, as long as neither ever names an 'http:'/'https:' source.
+// `connect-src` must forbid every real network origin.
 const cspMatch = /content="([^"]*)"/.exec(indexHtml);
 const csp = cspMatch?.[1] ?? '';
 const connectSrcMatch = /connect-src\s+([^;]+);/.exec(csp);
 const connectSrc = connectSrcMatch?.[1]?.trim();
-if (connectSrc !== "'none'" && connectSrc !== 'blob:') {
-  fail(`index.html CSP's connect-src is "${connectSrc ?? '(missing)'}", expected "'none'" or "blob:"`);
+if (connectSrc !== "'none'") {
+  fail(`index.html CSP's connect-src is "${connectSrc ?? '(missing)'}", expected "'none'"`);
 } else {
   ok(`CSP forbids real network connections (connect-src ${connectSrc})`);
 }

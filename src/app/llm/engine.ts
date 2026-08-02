@@ -64,12 +64,12 @@ export function createLlmEngine(modelSource: ModelSource, files: readonly ModelF
   let engine: MLCEngine | undefined;
   let installPromise: Promise<MLCEngine> | undefined;
 
-  function installLlm(onProgress?: (progress: LlmInstallProgress) => void): Promise<MLCEngine> {
+  function installLlm(onProgress?: (progress: LlmInstallProgress) => void): Promise<void> {
     if (engine) {
-      return Promise.resolve(engine);
+      return Promise.resolve();
     }
     if (installPromise) {
-      return installPromise;
+      return installPromise.then(() => undefined);
     }
 
     installPromise = (async () => {
@@ -96,7 +96,7 @@ export function createLlmEngine(modelSource: ModelSource, files: readonly ModelF
       installPromise = undefined;
     });
 
-    return installPromise;
+    return installPromise.then(() => undefined);
   }
 
   function isLlmInstalled(): boolean {

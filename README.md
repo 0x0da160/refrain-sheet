@@ -1346,8 +1346,9 @@ The build output is completely static and self-contained:
 There is no dev server requirement, no backend, no browser extension, no
 CDN, and no network access of any kind. The bundle is a classic (non-module)
 script specifically so it works under `file://` in Chromium, and a
-restrictive Content Security Policy (`connect-src 'none'`, no external
-sources) blocks external connections.
+restrictive Content Security Policy (`connect-src blob:`, no `http:`/`https:`
+source anywhere) blocks external connections — `blob:` is a local, in-memory
+scheme the on-device AI assistant uses, never a real network origin.
 
 ### Browser differences and known limitations
 
@@ -1727,7 +1728,9 @@ The deployed URL is also recorded on the run's `github-pages` environment.
   server, or CDN.
 - The application makes **no network connections at runtime**: no CDN,
   external scripts/styles/fonts/images, APIs, analytics, or telemetry. The
-  CSP sets `connect-src 'none'` and `default-src 'none'`.
+  CSP sets `default-src 'none'` and `connect-src blob:` (the on-device AI
+  assistant's local-only Blob URLs; no `http:`/`https:` source is ever
+  allowed).
 - The repository and build output contain no secrets or credentials.
 
 ### Supply-chain security

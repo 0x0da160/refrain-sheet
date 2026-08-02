@@ -37,7 +37,7 @@ const MAX_TOKENS = 64;
 const N_CTX = 512;
 const N_THREADS = 1;
 
-function decodeBase64ToBytes(base64: string): Uint8Array {
+function decodeBase64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
@@ -136,7 +136,11 @@ export function createWllamaEngine(files: readonly ModelFileEntry[]): LlmEngine 
     return wllama !== undefined;
   }
 
-  async function askLlm(message: string, system?: string, onToken?: (delta: string) => void): Promise<string> {
+  async function askLlm(
+    message: string,
+    system?: string,
+    onToken?: (delta: string) => void,
+  ): Promise<string> {
     if (!wllama) {
       throw new Error('refrain-sheet: installLlm() must complete before askLlm()');
     }

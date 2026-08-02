@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { normalizeRange, type CellRange } from '../core/clipboard';
-import { computeHiddenRows, filtersEqual, type SheetFilter } from '../core/filter';
-import {
-  cellLabel,
-  formulaReferencesSheet,
-  invalidateSheetRefsInFormula,
-  renameSheetInFormula,
-} from '../core/formula';
+import { filtersEqual, type SheetFilter } from '../core/filter';
+import { cellLabel } from '../core/formula';
 import {
   History,
   type CellChange,
@@ -15,12 +10,13 @@ import {
   type SheetOperation,
 } from '../core/history';
 import type { LosslessDocument } from '../core/lossless-document';
-import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../core/rsf-document';
+import { RsfDocument } from '../core/rsf-document';
 import type { Worksheet } from '../core/worksheet';
 import { t } from './i18n';
 import { clampSheetZoom, getSheetZoom, getWrapCells } from './settings';
 import { safeStorageGet } from './storage';
 import { StructuralOpsState } from './state/structural-ops';
+import { WorksheetsState } from './state/worksheets';
 
 /**
  * The localized name of a workbook's first worksheet (`Sheet1` / `シート1`).
@@ -134,24 +130,18 @@ export class AppState {
   /** The formula editor currently able to accept pointer-entered references. */
   formulaRefTarget: FormulaRefTarget | null = null;
 
-  /**
-   * Hidden-row snapshots per filter object. A filter's hidden set is computed
-   * when the filter is applied/edited/restored (documented snapshot
-   * semantics: editing cells afterwards does not re-evaluate the filter —
-   * re-apply it from the Filter dialog to re-evaluate). Filter objects are
-   * immutable, so a WeakMap keyed by them caches undo/redo restores for free
-   * and releases the sets with their filters.
-   */
-  private readonly hiddenRowsCache = new WeakMap<SheetFilter, Set<number>>();
-
   private listeners = new Set<(event: StateEventType) => void>();
 
   /** Row/column insert-delete, RSF conversion, save-baseline, wrap/zoom/sticky-row — see `StructuralOpsState`. */
   private readonly structuralOps: StructuralOpsState;
 
+  /** Filtering and worksheet lifecycle operations — see `WorksheetsState`. */
+  private readonly worksheetsState: WorksheetsState;
+
   constructor() {
     this.stickyFirstRow = safeStorageGet(STICKY_KEY) === '1';
     this.structuralOps = new StructuralOpsState(this);
+    this.worksheetsState = new WorksheetsState(this);
   }
 
   subscribe(fn: (event: StateEventType) => void): () => void {
@@ -629,32 +619,22 @@ export class AppState {
 
   /**
    * The hidden data rows of a tab's active filter, or null when nothing is
-   * filtered. Computed once per filter object (snapshot semantics — see
-   * {@link hiddenRowsCache}); the filter-apply command seeds this with its
-   * time-sliced result via {@link seedHiddenRows} so large filters never
-   * compute twice.
+   * filtered. Computed once per filter object (snapshot semantics); the
+   * filter-apply command seeds this with its time-sliced result via
+   * {@link seedHiddenRows} so large filters never compute twice.
    */
   hiddenRows(tab: Tab): Set<number> | null {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.filter === null) {
-      return null;
-    }
-    let hidden = this.hiddenRowsCache.get(doc.filter);
-    if (!hidden) {
-      hidden = computeHiddenRows(doc.filter, (r, c) => doc.getDisplayValue(r, c));
-      this.hiddenRowsCache.set(doc.filter, hidden);
-    }
-    return hidden;
+    return this.worksheetsState.hiddenRows(tab);
   }
 
   /** Pre-store a filter's hidden-row set (computed with slicing/progress). */
   seedHiddenRows(filter: SheetFilter, hidden: Set<number>): void {
-    this.hiddenRowsCache.set(filter, hidden);
+    this.worksheetsState.seedHiddenRows(filter, hidden);
   }
 
   /** True when a row is hidden by the tab's active filter. */
   isRowHidden(tab: Tab, row: number): boolean {
-    return this.hiddenRows(tab)?.has(row) ?? false;
+    return this.worksheetsState.isRowHidden(tab, row);
   }
 
   /**
@@ -663,15 +643,7 @@ export class AppState {
    * not an RSF document or the filter is unchanged.
    */
   setFilter(tab: Tab, filter: SheetFilter | null): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || filtersEqual(doc.filter, filter)) {
-      return false;
-    }
-    const entry: HistoryEntry = {
-      label: 'history.filter',
-      ops: [{ type: 'filter', before: doc.filter, after: filter }],
-    };
-    return this.pushEntry(tab, entry);
+    return this.worksheetsState.setFilter(tab, filter);
   }
 
   /**
@@ -682,64 +654,17 @@ export class AppState {
    * filter together.
    */
   filterClearOpsFor(doc: RsfDocument): Operation[] {
-    return this.filterClearOps(doc);
-  }
-
-  private filterClearOps(doc: RsfDocument): Operation[] {
-    return doc.filter !== null
-      ? [{ type: 'filter', before: doc.filter, after: null, sheetId: doc.activeSheetId }]
-      : [];
+    return this.worksheetsState.filterClearOpsFor(doc);
   }
 
   // ----- Worksheets (RSF workbooks only) -----
+  //
+  // These are thin delegating wrappers over `WorksheetsState` — see
+  // `src/app/state/worksheets.ts` for the implementations.
 
   /** The active tab's workbook, or null when it is not an RSF document. */
   activeWorkbook(): RsfDocument | null {
-    const tab = this.activeTab;
-    return tab && tab.doc.kind === 'rsf' ? tab.doc : null;
-  }
-
-  /**
-   * Snapshot the active worksheet's live view (selection, zoom, column widths)
-   * into the worksheet, so switching away and back restores where you were.
-   * Zoom and widths are also written to the worksheet's persisted display
-   * settings, which is what makes them per-worksheet in the saved file.
-   */
-  private saveSheetView(tab: Tab, doc: RsfDocument): void {
-    const view = doc.activeSheet.view;
-    view.selection = tab.selection;
-    view.anchor = tab.anchor;
-    view.selectionKind = tab.selectionKind;
-    view.zoom = tab.zoom;
-    view.colWidths = tab.colWidths.slice();
-    view.wrap = tab.wrapCells;
-    doc.activeSheet.displayZoom = tab.zoom;
-    doc.activeSheet.displayColWidths = tab.colWidths.slice();
-    doc.activeSheet.displayWrap = tab.wrapCells;
-  }
-
-  /** Load the (now) active worksheet's remembered view into the tab. */
-  private adoptActiveSheetView(tab: Tab, doc: RsfDocument): void {
-    const sheet = doc.activeSheet;
-    const view = sheet.view;
-    tab.selection = view.selection ?? (sheet.rowCount > 0 ? { row: 0, col: 0 } : null);
-    tab.anchor = view.anchor;
-    tab.selectionKind = view.selectionKind;
-    tab.zoom = clampSheetZoom(view.zoom ?? sheet.displayZoom ?? getSheetZoom());
-    tab.colWidths = view.colWidths.length > 0 ? view.colWidths.slice() : sheet.displayColWidths.slice();
-    tab.wrapCells = view.wrap ?? sheet.displayWrap ?? getWrapCells();
-    this.clampSelection(tab);
-  }
-
-  /** Switch worksheets, preserving each worksheet's own view state. */
-  private activateSheet(tab: Tab, doc: RsfDocument, sheetId: string): void {
-    if (doc.activeSheetId === sheetId) {
-      return;
-    }
-    this.saveSheetView(tab, doc);
-    if (doc.setActiveSheetId(sheetId)) {
-      this.adoptActiveSheetView(tab, doc);
-    }
+    return this.worksheetsState.activeWorkbook();
   }
 
   /**
@@ -748,13 +673,7 @@ export class AppState {
    * next save but never marks the workbook dirty and is not undoable.
    */
   setActiveSheet(tab: Tab, sheetId: string): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.activeSheetId === sheetId || !doc.sheetById(sheetId)) {
-      return false;
-    }
-    this.activateSheet(tab, doc, sheetId);
-    this.emit('sheets');
-    return true;
+    return this.worksheetsState.setActiveSheet(tab, sheetId);
   }
 
   /**
@@ -763,24 +682,7 @@ export class AppState {
    * (see the command layer).
    */
   addSheet(tab: Tab, name: string): Worksheet | null {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sheetCount >= MAX_WORKSHEETS) {
-      return null;
-    }
-    const sheet = doc.createWorksheet(name, NEW_DOC_ROWS, NEW_DOC_COLS);
-    const index = doc.sheetIndex(doc.activeSheetId) + 1;
-    // The view is saved before the entry runs, because applying it activates
-    // the new worksheet and would otherwise capture the wrong sheet's view.
-    this.saveSheetView(tab, doc);
-    const applied = this.pushEntry(tab, {
-      label: 'history.addSheet',
-      ops: [{ type: 'sheets', op: { action: 'add', sheet, index } }],
-    });
-    if (!applied) {
-      return null;
-    }
-    this.emit('sheets');
-    return sheet;
+    return this.worksheetsState.addSheet(tab, name);
   }
 
   /**
@@ -791,27 +693,7 @@ export class AppState {
    * (the documented, tested policy — see docs/rsf-format.md).
    */
   duplicateSheet(tab: Tab, sourceId: string, name: string, prebuilt?: Worksheet): Worksheet | null {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sheetCount >= MAX_WORKSHEETS) {
-      return null;
-    }
-    // `prebuilt` comes from the time-sliced duplication of large worksheets
-    // (identical content, collected with progress instead of one long loop).
-    const copy = prebuilt ?? doc.duplicateWorksheet(sourceId, name);
-    if (!copy) {
-      return null;
-    }
-    const index = doc.sheetIndex(sourceId) + 1;
-    this.saveSheetView(tab, doc);
-    const applied = this.pushEntry(tab, {
-      label: 'history.duplicateSheet',
-      ops: [{ type: 'sheets', op: { action: 'add', sheet: copy, index } }],
-    });
-    if (!applied) {
-      return null;
-    }
-    this.emit('sheets');
-    return copy;
+    return this.worksheetsState.duplicateSheet(tab, sourceId, name, prebuilt);
   }
 
   /**
@@ -820,35 +702,7 @@ export class AppState {
    * for the new name, and no formula changes what it computes.
    */
   renameSheet(tab: Tab, sheetId: string, name: string): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
-      return false;
-    }
-    const sheet = doc.sheetById(sheetId);
-    if (!sheet || sheet.name === name) {
-      return false;
-    }
-    const before = sheet.name;
-    const ops: Operation[] = [{ type: 'sheets', op: { action: 'rename', sheetId, before, after: name } }];
-    // Redo renames first, then rewrites the references; undo replays these in
-    // reverse, restoring the references before restoring the old name.
-    for (const target of doc.sheets) {
-      const changes: CellChange[] = [];
-      for (const { row, col, src } of target.listFormulaCells()) {
-        const after = renameSheetInFormula(src, before, name);
-        if (after !== src) {
-          changes.push({ row, col, before: src, after });
-        }
-      }
-      if (changes.length > 0) {
-        ops.push({ type: 'cells', changes, sheetId: target.id });
-      }
-    }
-    const applied = this.pushEntry(tab, { label: 'history.renameSheet', ops });
-    if (applied) {
-      this.emit('sheets');
-    }
-    return applied;
+    return this.worksheetsState.renameSheet(tab, sheetId, name);
   }
 
   /**
@@ -858,64 +712,12 @@ export class AppState {
    * always keeps at least one worksheet, so deleting the last one is refused.
    */
   deleteSheet(tab: Tab, sheetId: string): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sheetCount <= 1) {
-      return false;
-    }
-    const index = doc.sheetIndex(sheetId);
-    const sheet = doc.sheetById(sheetId);
-    if (!sheet || index < 0) {
-      return false;
-    }
-    // Invalidate references first (while the worksheet still exists), then
-    // remove it; undo re-inserts the worksheet before restoring the formulas.
-    const ops: Operation[] = [];
-    for (const target of doc.sheets) {
-      if (target.id === sheetId) {
-        continue;
-      }
-      const changes: CellChange[] = [];
-      for (const { row, col, src } of target.listFormulaCells()) {
-        const after = invalidateSheetRefsInFormula(src, sheet.name);
-        if (after !== src) {
-          changes.push({ row, col, before: src, after });
-        }
-      }
-      if (changes.length > 0) {
-        ops.push({ type: 'cells', changes, sheetId: target.id });
-      }
-    }
-    ops.push({ type: 'sheets', op: { action: 'remove', sheet, index } });
-    this.saveSheetView(tab, doc);
-    const applied = this.pushEntry(tab, { label: 'history.deleteSheet', ops });
-    if (applied) {
-      this.emit('sheets');
-    }
-    return applied;
+    return this.worksheetsState.deleteSheet(tab, sheetId);
   }
 
   /** Move a worksheet to a new position as one atomic, undoable operation. */
   moveSheet(tab: Tab, sheetId: string, toIndex: number): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
-      return false;
-    }
-    const from = doc.sheetIndex(sheetId);
-    if (from < 0) {
-      return false;
-    }
-    const to = Math.max(0, Math.min(doc.sheetCount - 1, toIndex));
-    if (from === to) {
-      return false;
-    }
-    const applied = this.pushEntry(tab, {
-      label: 'history.moveSheet',
-      ops: [{ type: 'sheets', op: { action: 'move', sheetId, from, to } }],
-    });
-    if (applied) {
-      this.emit('sheets');
-    }
-    return applied;
+    return this.worksheetsState.moveSheet(tab, sheetId, toIndex);
   }
 
   /**
@@ -923,22 +725,7 @@ export class AppState {
    * Used to warn — truthfully — before a deletion breaks them.
    */
   countReferencesToSheet(doc: RsfDocument, sheetId: string): number {
-    const sheet = doc.sheetById(sheetId);
-    if (!sheet) {
-      return 0;
-    }
-    let count = 0;
-    for (const target of doc.sheets) {
-      if (target.id === sheetId) {
-        continue;
-      }
-      for (const { src } of target.listFormulaCells()) {
-        if (formulaReferencesSheet(src, sheet.name)) {
-          count += 1;
-        }
-      }
-    }
-    return count;
+    return this.worksheetsState.countReferencesToSheet(doc, sheetId);
   }
 
   // ----- Internals -----
@@ -952,7 +739,7 @@ export class AppState {
     // altering a worksheet the user is not looking at.
     const doc = tab.doc;
     if (entry.sheetId !== undefined && doc.kind === 'rsf' && doc.sheetById(entry.sheetId)) {
-      this.activateSheet(tab, doc, entry.sheetId);
+      this.worksheetsState.activateSheet(tab, doc, entry.sheetId);
     }
   }
 
@@ -1013,19 +800,19 @@ export class AppState {
       case 'add':
         if (forward) {
           doc.insertSheetAt(op.index, op.sheet);
-          this.activateSheet(tab, doc, op.sheet.id);
+          this.worksheetsState.activateSheet(tab, doc, op.sheet.id);
         } else {
           doc.removeSheet(op.sheet.id);
-          this.adoptActiveSheetView(tab, doc);
+          this.worksheetsState.adoptActiveSheetView(tab, doc);
         }
         return;
       case 'remove':
         if (forward) {
           doc.removeSheet(op.sheet.id);
-          this.adoptActiveSheetView(tab, doc);
+          this.worksheetsState.adoptActiveSheetView(tab, doc);
         } else {
           doc.insertSheetAt(op.index, op.sheet);
-          this.activateSheet(tab, doc, op.sheet.id);
+          this.worksheetsState.activateSheet(tab, doc, op.sheet.id);
         }
         return;
       case 'rename':

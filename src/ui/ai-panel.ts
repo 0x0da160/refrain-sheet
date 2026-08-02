@@ -173,17 +173,14 @@ export class AiPanel {
 
   private renderBody(): void {
     clearChildren(this.body);
-    const availability = checkLlmAvailability();
+    const availability = checkLlmAvailability(getModelCatalogEntry(this.selectedModelKey).engine);
     if (availability !== 'available') {
-      this.body.append(
-        el('p', {
-          text: t(
-            availability === 'no-webgpu'
-              ? 'aiAssistant.unavailable.noWebgpu'
-              : 'aiAssistant.unavailable.noCacheStorage',
-          ),
-        }),
-      );
+      const messageKey = {
+        'no-webgpu': 'aiAssistant.unavailable.noWebgpu',
+        'no-cache-storage': 'aiAssistant.unavailable.noCacheStorage',
+        'no-wasm-worker': 'aiAssistant.unavailable.noWasmWorker',
+      } as const;
+      this.body.append(el('p', { text: t(messageKey[availability]) }));
       return;
     }
     if (llmEngineModules.get(this.selectedModelKey)?.isLlmInstalled()) {
@@ -235,7 +232,11 @@ export class AiPanel {
     modelSelect.addEventListener('change', () => {
       this.selectedModelKey = modelSelect.value;
       setSelectedAiModel(this.selectedModelKey);
-      description.textContent = t(getModelCatalogEntry(this.selectedModelKey).descriptionKey);
+      // A full re-render (rather than patching `description` in place) so
+      // switching to a model backed by a different engine (see
+      // src/app/llm/model-catalog.ts's `engine` field) re-checks that
+      // engine's own availability instead of keeping the previous model's.
+      this.renderBody();
     });
 
     this.body.append(
@@ -313,8 +314,22 @@ export class AiPanel {
       const pending = el('p', { className: 'ai-assistant-message pending', text: t('aiAssistant.thinking') });
       log.append(pending);
       log.scrollTop = log.scrollHeight;
+      // Engines that generate incrementally (see src/app/llm/wllama-engine.ts)
+      // call this per token; a non-streaming engine (src/app/llm/engine.ts)
+      // never calls it, so `pending` just keeps showing "Thinking…" until the
+      // full reply resolves below — same behavior as before streaming existed.
+      let streaming = false;
+      const onToken = (delta: string) => {
+        if (!streaming) {
+          streaming = true;
+          pending.className = 'ai-assistant-message assistant';
+          pending.textContent = '';
+        }
+        pending.textContent += delta;
+        log.scrollTop = log.scrollHeight;
+      };
       loadLlmEngine(this.selectedModelKey)
-        .then((mod) => mod.askLlm(message, AI_PLAN_SYSTEM_PROMPT))
+        .then((mod) => mod.askLlm(message, AI_PLAN_SYSTEM_PROMPT, onToken))
         .then((reply) => {
           pending.remove();
           this.renderReply(log, reply);
@@ -334,6 +349,32 @@ export class AiPanel {
         });
     });
     this.body.append(sendButton);
+
+    // Only shown when the installed engine implements it (see `LlmEngine.
+    // uninstallLlm` in src/app/llm/engine.ts) — releases the engine's
+    // resources (e.g. the wllama runtime and its Blob URL) and returns to
+    // the install screen for this model.
+    const uninstall = llmEngineModules.get(this.selectedModelKey)?.uninstallLlm;
+    if (uninstall) {
+      const uninstallButton = actionButton(t('aiAssistant.uninstall'), false, () => {
+        uninstallButton.setAttribute('disabled', 'true');
+        uninstall()
+          .then(() => {
+            llmEngineModules.delete(this.selectedModelKey);
+            this.commands.notify(t('aiAssistant.uninstalled'), 'info');
+            this.renderBody();
+          })
+          .catch((err: unknown) => {
+            uninstallButton.removeAttribute('disabled');
+            this.commands.notify(
+              t('aiAssistant.error', { message: err instanceof Error ? err.message : String(err) }),
+              'error',
+            );
+          });
+      });
+      this.body.append(uninstallButton);
+    }
+
     input.focus();
   }
 

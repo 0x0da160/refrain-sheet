@@ -45,7 +45,15 @@ if (wasmFiles.length > 0) {
   ok('no separate .wasm asset in dist/');
 }
 
-const jsFiles = files.filter((f) => f.endsWith('.js'));
+// Checks 2 and 3 below are about the Rust/WASM core, which is only ever
+// embedded in the main application bundle (vite.config.ts) — never in a
+// per-model `llm-engine.<key>.js` bundle (vite.llm.config.ts, see
+// docs/llm-model.md), which embeds a vendored AI model's own Base64 payload
+// instead. Those are excluded here: concatenating every vendored model's
+// multi-hundred-MB bundle alongside the main one is unnecessary for these
+// checks and, with more than one large model, has exceeded V8's maximum
+// string length (`RangeError: Invalid string length`).
+const jsFiles = files.filter((f) => f.endsWith('.js') && !/[/\\]llm-engine\./.test(f));
 if (jsFiles.length === 0) {
   fail('no JS bundle found in dist/');
 }

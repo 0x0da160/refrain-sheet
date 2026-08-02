@@ -44,7 +44,9 @@ for (const model of targets) {
   mkdirSync(outDir, { recursive: true });
   const base = `https://huggingface.co/${model.huggingFaceRepo}/resolve/main`;
 
-  console.warn(`fetch-model: [${model.key}] downloading ${model.files.length} file(s) from ${model.huggingFaceRepo}...`);
+  console.warn(
+    `fetch-model: [${model.key}] downloading ${model.files.length} file(s) from ${model.huggingFaceRepo}...`,
+  );
   for (const file of model.files) {
     await fetchFile(`${base}/${file}`, join(outDir, file));
   }

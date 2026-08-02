@@ -1472,13 +1472,13 @@ the normal review flow. Nothing outside the markers is ever machine-written.
 
 | Language   |   Files |     Blank |   Comment |       Code |
 | ---------- | ------: | --------: | --------: | ---------: |
-| TypeScript |     242 |     3,292 |     7,749 |     37,299 |
-| JSON       |       6 |         0 |         0 |      5,075 |
-| Markdown   |      16 |       881 |         4 |      4,648 |
+| TypeScript |     262 |     3,344 |     7,899 |     37,686 |
+| JSON       |       6 |         0 |         0 |      5,094 |
+| Markdown   |      16 |       886 |         4 |      4,744 |
 | YAML       |      16 |       274 |       773 |      2,739 |
 | CSS        |       2 |       326 |       239 |      2,479 |
-| HTML       |       4 |         4 |        34 |      2,241 |
-| JavaScript |      13 |       205 |       373 |      1,446 |
+| HTML       |       4 |         4 |        44 |      2,241 |
+| JavaScript |      14 |       210 |       422 |      1,488 |
 | Rust       |       4 |       112 |       180 |        883 |
 | Python     |       1 |        35 |        16 |        203 |
 | Dockerfile |       1 |         7 |        15 |         20 |
@@ -1486,7 +1486,7 @@ the normal review flow. Nothing outside the markers is ever machine-written.
 | XML        |       1 |         0 |         0 |         15 |
 | SVG        |       3 |         0 |         0 |          9 |
 | Text       |       1 |         1 |         0 |          3 |
-| **Total**  | **311** | **5,141** | **9,402** | **57,080** |
+| **Total**  | **332** | **5,203** | **9,611** | **57,624** |
 
 <!-- code-stats:end -->
 

@@ -16,6 +16,12 @@ user-visible effect) do not need an entry.
 
 ## [Unreleased]
 
+### Removed
+
+- The on-device "AI Assistant" feature (side panel, menu entry, in-browser
+  language model engines and bundled model weights, and the related build
+  step) has been removed. ([#190](https://github.com/0x0da160/refrain-sheet/issues/190))
+
 ### Scope note
 
 This file starts tracking changes as of `v0.6.1` (2026-08-01). Refrain Sheet

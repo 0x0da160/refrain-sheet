@@ -1073,5 +1073,4 @@ export class Commands {
   ): Promise<ReplaceAllReport> {
     return this.rangeOps.replaceAll(query, replacement, scope);
   }
-
 }

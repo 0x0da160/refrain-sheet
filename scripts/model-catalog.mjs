@@ -13,10 +13,26 @@
 // `src/llm-gen/` directly, rather than a per-model subdirectory. Left as-is
 // so re-running these scripts for that model never recommits byte-identical
 // content under a new path.
+//
+// `runtime` picks which engine a model's payload is wired up to at runtime
+// (see src/app/llm/model-catalog.ts): `'webllm'` models are pre-compiled
+// WebGPU kernels installed via `@mlc-ai/web-llm`'s Cache Storage trick (see
+// src/app/llm/model-source.ts); `'wllama'` models are plain `.gguf` files
+// loaded directly into `@wllama/wllama` as a Blob (see
+// src/app/llm/wllama-engine.ts). A `'wllama'` entry's `files` is always
+// exactly one `.gguf` file and its `wasmFileName`/`wasmUrl` are always
+// `null` — `@wllama/wllama`'s own WASM runtime is shared across every
+// `'wllama'` model and is embedded once by scripts/embed-wllama-wasm.mjs,
+// not per model. See issue #169 and docs/llm-model.md for why the catalog
+// carries both runtimes at once rather than migrating every model at once:
+// `gemma3-270m-ja` is a WebLLM-specific Japanese fine-tune with no known
+// GGUF conversion, so it stays on `'webllm'` until one is sourced and
+// approved.
 
 export const MODELS = [
   {
     key: 'gemma3-270m-ja',
+    runtime: 'webllm',
     cacheDirName: null,
     genDirName: null,
     // https://huggingface.co/UMASHIKA/gemma3-270m-japanese-webllm-04
@@ -41,6 +57,7 @@ export const MODELS = [
   },
   {
     key: 'smollm2-135m-instruct',
+    runtime: 'webllm',
     cacheDirName: 'smollm2-135m-instruct',
     genDirName: 'smollm2-135m-instruct',
     // https://huggingface.co/mlc-ai/SmolLM2-135M-Instruct-q0f16-MLC
@@ -74,5 +91,26 @@ export const MODELS = [
     wasmFileName: 'SmolLM2-135M-Instruct-q0f16_cs1k-webgpu.wasm',
     wasmUrl:
       'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_84/base/SmolLM2-135M-Instruct-q0f16_cs1k-webgpu.wasm',
+  },
+  {
+    key: 'smollm2-135m-instruct-gguf',
+    runtime: 'wllama',
+    cacheDirName: 'smollm2-135m-instruct-gguf',
+    genDirName: 'smollm2-135m-instruct-gguf',
+    // https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF
+    // Quantized by a well-known, widely-used GGUF quantizer (bartowski) from
+    // the upstream HuggingFaceTB/SmolLM2-135M-Instruct base model. License:
+    // Apache 2.0 (see the model card and README.md front matter), inherited
+    // unchanged from the base model — same license already accepted for
+    // `smollm2-135m-instruct` above. Q4_K_M balances size and quality per
+    // @wllama/wllama's own recommendation (Q4/Q5/Q6, not IQ) and the
+    // memory-constrained iOS Safari target issue #169 calls out. Single file,
+    // ~100.6 MB (105,454,432 bytes) — smaller than either existing vendored
+    // WebLLM model. See docs/llm-model.md for the full size/license
+    // disclosure recorded for this vendoring decision.
+    huggingFaceRepo: 'bartowski/SmolLM2-135M-Instruct-GGUF',
+    files: ['SmolLM2-135M-Instruct-Q4_K_M.gguf'],
+    wasmFileName: null,
+    wasmUrl: null,
   },
 ];

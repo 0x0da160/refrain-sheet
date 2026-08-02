@@ -6,7 +6,10 @@
 //      embedded in the JS bundle as Base64,
 //   2. the embedded payload and the local instantiation path are present,
 //   3. no URL-based WASM fallback survived into the bundle,
-//   4. the CSP allows WebAssembly ('wasm-unsafe-eval') but no network.
+//   4. the CSP allows WebAssembly ('wasm-unsafe-eval') and the in-memory
+//      'blob:' scheme the @wllama/wllama local-assistant engine needs
+//      (see index.html and docs/llm-model.md), but no real network origin
+//      (no 'http:'/'https:' in connect-src, worker-src, or script-src).
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -84,10 +87,25 @@ if (!indexHtml.includes('wasm-unsafe-eval')) {
 } else {
   ok("CSP allows local WebAssembly compilation ('wasm-unsafe-eval')");
 }
-if (!indexHtml.includes("connect-src 'none'")) {
-  fail("index.html CSP no longer forbids network connections (connect-src 'none')");
+// `connect-src` must permit only the in-memory 'blob:' scheme (needed by the
+// @wllama/wllama engine's own Worker/WASM/model loading, all built from
+// embedded bytes this app already vendored — never fetched) and no real
+// network origin. A bare `connect-src 'none'` would also be a pass by this
+// same logic, so this check accepts either exact directive rather than
+// hard-coding one, as long as neither ever names an 'http:'/'https:' source.
+const cspMatch = /content="([^"]*)"/.exec(indexHtml);
+const csp = cspMatch?.[1] ?? '';
+const connectSrcMatch = /connect-src\s+([^;]+);/.exec(csp);
+const connectSrc = connectSrcMatch?.[1]?.trim();
+if (connectSrc !== "'none'" && connectSrc !== 'blob:') {
+  fail(`index.html CSP's connect-src is "${connectSrc ?? '(missing)'}", expected "'none'" or "blob:"`);
 } else {
-  ok("CSP forbids network connections (connect-src 'none')");
+  ok(`CSP forbids real network connections (connect-src ${connectSrc})`);
+}
+if (/(?:connect|worker|script)-src[^;]*\bhttps?:/.test(csp)) {
+  fail('index.html CSP names an http:/https: source — the offline guarantee requires none');
+} else {
+  ok('CSP names no http:/https: source anywhere');
 }
 if (/<script[^>]*type="module"/.test(indexHtml)) {
   fail('index.html still uses a module script (breaks file:// in Chromium)');

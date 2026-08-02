@@ -49,7 +49,10 @@ describe('createCachePrepopulator', () => {
       'mlc-chat-config.json': { scope: CACHE_SCOPES.config, url: modelSource.configUrl },
       'tensor-cache.json': { scope: CACHE_SCOPES.model, url: modelSource.tensorCacheUrl },
       'tokenizer.json': { scope: CACHE_SCOPES.model, url: modelSource.tokenizerUrl },
-      'gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm': { scope: CACHE_SCOPES.wasm, url: modelSource.modelLibUrl },
+      'gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm': {
+        scope: CACHE_SCOPES.wasm,
+        url: modelSource.modelLibUrl,
+      },
     };
 
     for (const entry of MODEL_FILES) {

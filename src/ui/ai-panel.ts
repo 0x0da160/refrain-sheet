@@ -44,7 +44,9 @@ function loadLlmEngine(modelKey: string): Promise<LlmEngine> {
         }
         resolve(mod);
       });
-      script.addEventListener('error', () => reject(new Error(`refrain-sheet: failed to load ${entry.engineScript}`)));
+      script.addEventListener('error', () =>
+        reject(new Error(`refrain-sheet: failed to load ${entry.engineScript}`)),
+      );
       document.head.append(script);
     }).then((mod) => {
       llmEngineModules.set(modelKey, mod);
@@ -199,7 +201,8 @@ export class AiPanel {
     // install button are both locked while `currentInstall` is in flight,
     // so the status text never needs to distinguish "installing this model"
     // from "installing the other one".
-    const statusText = () => (currentInstall ? t('aiAssistant.installInProgress') : t('aiAssistant.installIdle'));
+    const statusText = () =>
+      currentInstall ? t('aiAssistant.installInProgress') : t('aiAssistant.installIdle');
 
     const modelSelectId = 'ai-panel-model-select';
     const modelSelect = el('select', { attrs: { id: modelSelectId } }) as HTMLSelectElement;
@@ -221,7 +224,7 @@ export class AiPanel {
       className: 'dialog-note',
       text: t(getModelCatalogEntry(this.selectedModelKey).descriptionKey),
     });
-    const status = el('p', { className: 'dialog-note', text: statusText() });
+    const status = el('p', { className: 'dialog-note ai-panel-install-status', text: statusText() });
     const installButton = actionButton(t('aiAssistant.install'), true, () =>
       this.startInstall(installButton, status),
     );

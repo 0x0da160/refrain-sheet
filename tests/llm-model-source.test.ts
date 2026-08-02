@@ -14,7 +14,10 @@ function decodeBase64(base64: string): Uint8Array {
 }
 
 /** Reassemble one embedded model file's chunks back into its original text, as `cache-prepopulate.ts` does. */
-function readEmbeddedFile(files: readonly { name: string; chunks: readonly string[] }[], name: string): string {
+function readEmbeddedFile(
+  files: readonly { name: string; chunks: readonly string[] }[],
+  name: string,
+): string {
   const entry = files.find((file) => file.name === name);
   if (!entry) throw new Error(`no embedded model file named "${name}"`);
   const parts = entry.chunks.map((chunk) => decodeBase64(chunk));
@@ -87,9 +90,10 @@ describe('createModelSource', () => {
       context_window_size: number;
       sliding_window_size: number;
     };
-    const positiveWindowCount = [vendoredConfig.context_window_size, vendoredConfig.sliding_window_size].filter(
-      (size) => size !== -1,
-    ).length;
+    const positiveWindowCount = [
+      vendoredConfig.context_window_size,
+      vendoredConfig.sliding_window_size,
+    ].filter((size) => size !== -1).length;
     expect(positiveWindowCount).toBe(1);
   });
 });

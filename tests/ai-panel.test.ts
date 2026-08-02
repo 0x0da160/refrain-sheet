@@ -112,7 +112,7 @@ describe('AiPanel install progress', () => {
 
     expect(ui.setBusy).toHaveBeenCalledWith(expect.stringContaining('42'), 42);
     // The dialog's own status line no longer duplicates the progress text.
-    const status = panel.element.querySelector('.dialog-note');
+    const status = panel.element.querySelector('.ai-panel-install-status');
     expect(status?.textContent).toBe('');
   });
 
@@ -148,7 +148,7 @@ describe('AiPanel install progress', () => {
       installLlm: () => Promise.reject(new Error('boom')),
     });
     await vi.waitFor(() => expect(lastBusyLabel(ui)).toBeNull());
-    const status = panel.element.querySelector('.dialog-note');
+    const status = panel.element.querySelector('.ai-panel-install-status');
     expect(status?.textContent).toContain('boom');
     expect(installButton.hasAttribute('disabled')).toBe(false);
   });
@@ -191,7 +191,7 @@ describe('AiPanel install progress', () => {
 
     const reopenedButton = panel.element.querySelector('button.primary') as HTMLButtonElement;
     expect(reopenedButton.hasAttribute('disabled')).toBe(true);
-    const status = panel.element.querySelector('.dialog-note');
+    const status = panel.element.querySelector('.ai-panel-install-status');
     expect(status?.textContent).toBe('Installing already in progress…');
   });
 

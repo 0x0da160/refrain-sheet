@@ -40,6 +40,12 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: false,
     modulePreload: false,
+    // Minification buys nothing here — the bulk of this bundle is already
+    // dense Base64 text, not minifiable source — and running esbuild's
+    // minifier over a single ~250-350 MB module has been observed to exceed
+    // Node's default V8 heap (OOM) for the larger vendored models. See
+    // docs/llm-model.md.
+    minify: false,
     rollupOptions: {
       input: `src/app/llm/engine-entry.${model.key}.ts`,
       output: {

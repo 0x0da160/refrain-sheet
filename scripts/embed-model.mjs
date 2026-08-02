@@ -102,7 +102,9 @@ for (const model of targets) {
         `  },`,
     );
 
-    console.warn(`embed-model: [${model.key}] embedded ${file} (${bytes.length} bytes, ${chunkVarNames.length} chunk(s))`);
+    console.warn(
+      `embed-model: [${model.key}] embedded ${file} (${bytes.length} bytes, ${chunkVarNames.length} chunk(s))`,
+    );
   }
 
   // Relative depth back to src/app/llm/ from this manifest's own directory

@@ -50,14 +50,17 @@ below it, never above):
   supplies DOM-dependent measurement.
 - **The local AI assistant is a self-contained side subsystem, not a fifth
   layer.** `src/app/llm/` (engine lifecycle, model source, cache
-  prepopulation) and the embedded model weights in `src/llm-gen/` sit beside
-  `src/app/`, driven from the UI through `src/ui/ai-panel.ts`. It is built as
-  a second, independent Rollup pass (`vite.llm.config.ts`, run by `npm run
-build` after the main bundle) into its own classic script
-  (`dist/assets/llm-engine.js`), loaded at runtime only once a user opens the
-  assistant — never part of the initial page load. It never touches document
-  state directly: like every other UI surface, it goes through the command
-  layer. See [llm-model.md](llm-model.md) for what is vendored and how, and
+  prepopulation, the model catalog) and the embedded model weights in
+  `src/llm-gen/` sit beside `src/app/`, driven from the UI through
+  `src/ui/ai-panel.ts`, which lets the user pick from a small catalog of
+  vendored models (`src/app/llm/model-catalog.ts`). Each catalog model is
+  built as its own independent Rollup pass (`vite.llm.config.ts`, one `npm
+run build` invocation per model, selected via `LLM_MODEL_KEY`) into its own
+  classic script (`dist/assets/llm-engine.<key>.js`), loaded at runtime only
+  once a user opens the assistant and installs that model — never part of
+  the initial page load. It never touches document state directly: like
+  every other UI surface, it goes through the command layer. See
+  [llm-model.md](llm-model.md) for what is vendored and how, and
   [security.md](security.md) for why it is an approved exception to the
   single-dependency policy.
 

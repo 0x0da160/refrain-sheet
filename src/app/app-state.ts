@@ -2,14 +2,10 @@
 import { normalizeRange, type CellRange } from '../core/clipboard';
 import { computeHiddenRows, filtersEqual, type SheetFilter } from '../core/filter';
 import {
-  adjustFormulaForAxis,
   cellLabel,
   formulaReferencesSheet,
   invalidateSheetRefsInFormula,
-  isFormula,
   renameSheetInFormula,
-  sheetNameKey,
-  shiftFormulaRefs,
 } from '../core/formula';
 import {
   History,
@@ -19,11 +15,12 @@ import {
   type SheetOperation,
 } from '../core/history';
 import type { LosslessDocument } from '../core/lossless-document';
-import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument, RSF_EXTENSION } from '../core/rsf-document';
+import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../core/rsf-document';
 import type { Worksheet } from '../core/worksheet';
-import { getLocale, t } from './i18n';
-import { clampSheetZoom, getSheetZoom, getWrapCells, setSheetZoom, setWrapCellsPreference } from './settings';
-import { safeStorageGet, safeStorageSet } from './storage';
+import { t } from './i18n';
+import { clampSheetZoom, getSheetZoom, getWrapCells } from './settings';
+import { safeStorageGet } from './storage';
+import { StructuralOpsState } from './state/structural-ops';
 
 /**
  * The localized name of a workbook's first worksheet (`Sheet1` / `シート1`).
@@ -112,7 +109,7 @@ export interface Tab {
  */
 export type StateEventType = 'tabs' | 'active' | 'doc' | 'selection' | 'view' | 'sheets';
 
-const STICKY_KEY = 'refrain-csv-html.stickyFirstRow';
+export const STICKY_KEY = 'refrain-csv-html.stickyFirstRow';
 
 let nextTabId = 1;
 
@@ -149,8 +146,12 @@ export class AppState {
 
   private listeners = new Set<(event: StateEventType) => void>();
 
+  /** Row/column insert-delete, RSF conversion, save-baseline, wrap/zoom/sticky-row — see `StructuralOpsState`. */
+  private readonly structuralOps: StructuralOpsState;
+
   constructor() {
     this.stickyFirstRow = safeStorageGet(STICKY_KEY) === '1';
+    this.structuralOps = new StructuralOpsState(this);
   }
 
   subscribe(fn: (event: StateEventType) => void): () => void {
@@ -376,7 +377,7 @@ export class AppState {
       this.applyChange(tab, changes[0], 'after');
       // A committed line break turns wrapping on, in the same history entry.
       const ops: Operation[] = [{ type: 'cells', changes }];
-      this.appendAutoWrap(tab, changes, ops);
+      this.structuralOps.appendAutoWrap(tab, changes, ops);
       tab.history.push({ label, ops });
       this.emit('doc');
       return true;
@@ -395,7 +396,7 @@ export class AppState {
     const changes = [{ row, col, before, after: value }];
     this.applyChange(tab, changes[0], 'after', sheetId);
     const ops: Operation[] = [{ type: 'cells', changes, sheetId }];
-    this.appendAutoWrap(tab, changes, ops, sheetId);
+    this.structuralOps.appendAutoWrap(tab, changes, ops, sheetId);
     tab.history.push({ label, ops, sheetId });
     this.emit('doc');
     return true;
@@ -415,7 +416,7 @@ export class AppState {
       this.applyChange(tab, change, 'after', sheetId);
     }
     const ops: Operation[] = [{ type: 'cells', changes: effective, ...(sheetId ? { sheetId } : {}) }];
-    this.appendAutoWrap(tab, effective, ops, sheetId);
+    this.structuralOps.appendAutoWrap(tab, effective, ops, sheetId);
     tab.history.push({ label, ops, ...(sheetId ? { sheetId } : {}) });
     this.emit('doc');
     return true;
@@ -454,7 +455,7 @@ export class AppState {
     this.applyEntry(tab, entry, 'after');
     for (const op of entry.ops) {
       if (op.type === 'cells' && op.changes.length > 0) {
-        this.appendAutoWrap(tab, op.changes, entry.ops, op.sheetId);
+        this.structuralOps.appendAutoWrap(tab, op.changes, entry.ops, op.sheetId);
         break;
       }
     }
@@ -504,6 +505,9 @@ export class AppState {
   }
 
   // ----- Structural operations (RSF spreadsheet documents only) -----
+  //
+  // These are thin delegating wrappers over `StructuralOpsState` — see
+  // `src/app/state/structural-ops.ts` for the implementations.
 
   /**
    * Insert empty rows. Formula references in the whole sheet are adjusted
@@ -511,119 +515,20 @@ export class AppState {
    * atomic history entry.
    */
   insertRows(tab: Tab, index: number, count: number): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || count < 1) {
-      return false;
-    }
-    const rewrites = this.formulaRewrites(doc, 'row', 'insert', index, count);
-    const sheetId = doc.activeSheetId;
-    const entry: HistoryEntry = {
-      label: 'history.insertRows',
-      sheetId,
-      ops: [
-        ...this.filterClearOps(doc),
-        {
-          type: 'rows',
-          action: 'insert',
-          index,
-          count,
-          data: Array.from({ length: count }, () => []),
-          sheetId,
-        },
-        { type: 'cells', changes: rewrites.active, sheetId },
-        ...rewrites.others,
-      ],
-    };
-    return this.pushEntry(tab, entry);
+    return this.structuralOps.insertRows(tab, index, count);
   }
 
   /** Delete rows (never all of them). Referencing formulas get #REF! or clamped ranges. */
   deleteRows(tab: Tab, index: number, count: number): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || count < 1 || index < 0 || index + count > doc.rowCount) {
-      return false;
-    }
-    if (count >= doc.rowCount) {
-      return false; // the last remaining rows cannot be deleted
-    }
-    const data: string[][] = [];
-    for (let r = index; r < index + count; r++) {
-      const row: string[] = [];
-      for (let c = 0; c < doc.columnCount; c++) {
-        row.push(doc.getValue(r, c));
-      }
-      data.push(row);
-    }
-    const rewrites = this.formulaRewrites(doc, 'row', 'delete', index, count);
-    const sheetId = doc.activeSheetId;
-    const entry: HistoryEntry = {
-      label: 'history.deleteRows',
-      sheetId,
-      ops: [
-        ...this.filterClearOps(doc),
-        { type: 'rows', action: 'delete', index, count, data, sheetId },
-        { type: 'cells', changes: rewrites.active, sheetId },
-        ...rewrites.others,
-      ],
-    };
-    return this.pushEntry(tab, entry);
+    return this.structuralOps.deleteRows(tab, index, count);
   }
 
   insertCols(tab: Tab, index: number, count: number): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || count < 1) {
-      return false;
-    }
-    const rewrites = this.formulaRewrites(doc, 'col', 'insert', index, count);
-    const sheetId = doc.activeSheetId;
-    const entry: HistoryEntry = {
-      label: 'history.insertCols',
-      sheetId,
-      ops: [
-        ...this.filterClearOps(doc),
-        {
-          type: 'cols',
-          action: 'insert',
-          index,
-          count,
-          data: Array.from({ length: count }, () => []),
-          sheetId,
-        },
-        { type: 'cells', changes: rewrites.active, sheetId },
-        ...rewrites.others,
-      ],
-    };
-    return this.pushEntry(tab, entry);
+    return this.structuralOps.insertCols(tab, index, count);
   }
 
   deleteCols(tab: Tab, index: number, count: number): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || count < 1 || index < 0 || index + count > doc.columnCount) {
-      return false;
-    }
-    if (count >= doc.columnCount) {
-      return false;
-    }
-    const data: string[][] = Array.from({ length: count }, (_, i) => {
-      const col: string[] = [];
-      for (let r = 0; r < doc.rowCount; r++) {
-        col.push(doc.getValue(r, index + i));
-      }
-      return col;
-    });
-    const rewrites = this.formulaRewrites(doc, 'col', 'delete', index, count);
-    const sheetId = doc.activeSheetId;
-    const entry: HistoryEntry = {
-      label: 'history.deleteCols',
-      sheetId,
-      ops: [
-        ...this.filterClearOps(doc),
-        { type: 'cols', action: 'delete', index, count, data, sheetId },
-        { type: 'cells', changes: rewrites.active, sheetId },
-        ...rewrites.others,
-      ],
-    };
-    return this.pushEntry(tab, entry);
+    return this.structuralOps.deleteCols(tab, index, count);
   }
 
   /**
@@ -642,99 +547,12 @@ export class AppState {
     direction: 'down' | 'right',
     origin: Selection | null,
   ): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || matrix.length === 0 || matrix[0].length === 0) {
-      return false;
-    }
-    const height = matrix.length;
-    const width = matrix[0].length;
-    const sheetId = doc.activeSheetId;
-    const ops: Operation[] = [...this.filterClearOps(doc)];
-    let rewrites: { active: CellChange[]; others: Operation[] };
-    if (direction === 'down') {
-      rewrites = this.formulaRewrites(doc, 'row', 'insert', at.row, height);
-      ops.push({
-        type: 'rows',
-        action: 'insert',
-        index: at.row,
-        count: height,
-        data: Array.from({ length: height }, () => []),
-        sheetId,
-      });
-      const needCols = Math.max(0, at.col + width - doc.columnCount);
-      if (needCols > 0) {
-        ops.push({
-          type: 'cols',
-          action: 'insert',
-          index: doc.columnCount,
-          count: needCols,
-          data: Array.from({ length: needCols }, () => []),
-          sheetId,
-        });
-      }
-    } else {
-      rewrites = this.formulaRewrites(doc, 'col', 'insert', at.col, width);
-      ops.push({
-        type: 'cols',
-        action: 'insert',
-        index: at.col,
-        count: width,
-        data: Array.from({ length: width }, () => []),
-        sheetId,
-      });
-      const needRows = Math.max(0, at.row + height - doc.rowCount);
-      if (needRows > 0) {
-        ops.push({
-          type: 'rows',
-          action: 'insert',
-          index: doc.rowCount,
-          count: needRows,
-          data: Array.from({ length: needRows }, () => []),
-          sheetId,
-        });
-      }
-    }
-    ops.push(...rewrites.others);
-    const deltaRow = origin ? at.row - origin.row : 0;
-    const deltaCol = origin ? at.col - origin.col : 0;
-    const changes: CellChange[] = [...rewrites.active];
-    for (let i = 0; i < height; i++) {
-      for (let j = 0; j < width; j++) {
-        let value = matrix[i][j];
-        if (value === '') {
-          continue; // freshly inserted cells are already empty
-        }
-        if (origin && isFormula(value) && (deltaRow !== 0 || deltaCol !== 0)) {
-          value = shiftFormulaRefs(value, deltaRow, deltaCol);
-        }
-        changes.push({ row: at.row + i, col: at.col + j, before: '', after: value });
-      }
-    }
-    ops.push({ type: 'cells', changes, sheetId });
-    const applied = this.pushEntry(tab, { label: 'history.insertCells', sheetId, ops });
-    if (applied) {
-      this.setSelection(
-        tab,
-        { row: at.row, col: at.col },
-        { row: at.row + height - 1, col: at.col + width - 1 },
-      );
-    }
-    return applied;
+    return this.structuralOps.insertCopiedCells(tab, at, matrix, direction, origin);
   }
 
   /** True when any cell in the given rows (or columns) is non-empty. */
   hasContent(tab: Tab, axis: 'row' | 'col', index: number, count: number): boolean {
-    const doc = tab.doc;
-    for (let i = index; i < index + count; i++) {
-      const limit = axis === 'row' ? doc.fieldCount(i) : doc.rowCount;
-      for (let j = 0; j < limit; j++) {
-        const value = axis === 'row' ? doc.getValue(i, j) : doc.getValue(j, i);
-        if (value !== '') {
-          return true;
-        }
-      }
-    }
-    return false;
+    return this.structuralOps.hasContent(tab, axis, index, count);
   }
 
   /**
@@ -745,23 +563,7 @@ export class AppState {
    * original file on disk stays untouched).
    */
   convertToRsf(tab: Tab, prebuilt?: RsfDocument): RsfDocument | null {
-    if (tab.doc.kind !== 'csv') {
-      return tab.doc.kind === 'rsf' ? (tab.doc as RsfDocument) : null;
-    }
-    const base = tab.name.replace(/\.(csv|tsv|txt)$/i, '');
-    const name = `${base}${RSF_EXTENSION}`;
-    // `prebuilt` comes from the time-sliced conversion of large documents
-    // (identical content, collected with progress instead of one long loop).
-    const doc = prebuilt ?? RsfDocument.fromLossless(tab.doc, name, defaultSheetName(), getLocale());
-    doc.name = name;
-    tab.doc = doc;
-    tab.name = name;
-    tab.handle = null;
-    tab.history.clear();
-    tab.rsfSaveExplained = false;
-    this.clampSelection(tab);
-    this.emit('tabs');
-    return doc;
+    return this.structuralOps.convertToRsf(tab, prebuilt);
   }
 
   /**
@@ -773,16 +575,7 @@ export class AppState {
    * or null when the tab is not a CSV.
    */
   convertToRsfNewTab(tab: Tab, prebuilt?: RsfDocument): RsfDocument | null {
-    if (tab.doc.kind !== 'csv') {
-      return null;
-    }
-    const base = tab.name.replace(/\.(csv|tsv|txt)$/i, '');
-    const name = `${base}${RSF_EXTENSION}`;
-    const doc = prebuilt ?? RsfDocument.fromLossless(tab.doc, name, defaultSheetName(), getLocale());
-    doc.name = name;
-    doc.markUnsaved();
-    this.addTab(name, doc, null);
-    return doc;
+    return this.structuralOps.convertToRsfNewTab(tab, prebuilt);
   }
 
   /**
@@ -790,19 +583,12 @@ export class AppState {
    * baseline document and the history is cleared.
    */
   setBaseline(tab: Tab, doc: EditorDocument): void {
-    tab.doc = doc;
-    tab.history.clear();
-    this.clampSelection(tab);
-    this.emit('doc');
+    this.structuralOps.setBaseline(tab, doc);
   }
 
   /** Mark an RSF tab saved (its in-memory document is the baseline). */
   markTabSaved(tab: Tab): void {
-    if (tab.doc.kind === 'rsf') {
-      tab.doc.markSaved();
-      tab.history.clear();
-      this.emit('doc');
-    }
+    this.structuralOps.markTabSaved(tab);
   }
 
   /**
@@ -821,103 +607,7 @@ export class AppState {
    * an RSF worksheet remembers it for persistence with the next save.
    */
   setWrapCells(wrap: boolean): void {
-    setWrapCellsPreference(wrap);
-    const tab = this.activeTab;
-    if (!tab) {
-      this.emit('view');
-      return;
-    }
-    this.applyWrap(tab, wrap);
-    this.emit('view');
-  }
-
-  /** Set a tab's (and its active worksheet's) wrap state without emitting. */
-  private applyWrap(tab: Tab, wrap: boolean, sheetId?: string): void {
-    if (tab.doc.kind === 'rsf') {
-      tab.doc.setDisplayWrapOn(sheetId, wrap);
-      // Only the *active* worksheet's state is what the grid renders.
-      if (sheetId === undefined || sheetId === tab.doc.activeSheetId) {
-        tab.wrapCells = wrap;
-      }
-      return;
-    }
-    tab.wrapCells = wrap;
-  }
-
-  /**
-   * Number of formula cells whose evaluated value an edit will inspect when
-   * deciding whether wrapping must be turned on. Literal (non-formula) values
-   * are free to check — the committed text *is* what is displayed — so this
-   * bound only applies to formulas, whose result must actually be computed.
-   * Beyond it the automatic enable is simply not triggered; wrapping remains
-   * available from the View menu.
-   */
-  private static readonly AUTO_WRAP_FORMULA_SCAN_LIMIT = 20_000;
-
-  /**
-   * The `wrap` operation an edit implies, or null when nothing should change.
-   *
-   * The decision is made on the **displayed** value, never on formula source:
-   * `="a\nb"` is a formula whose *result* contains a line break (wrap on),
-   * while `=CONCAT(A1,"\n")` written as source text with an escape sequence is
-   * not a line break at all. Literal values are checked directly; formula
-   * cells are evaluated (bounded by
-   * {@link AppState.AUTO_WRAP_FORMULA_SCAN_LIMIT}).
-   *
-   * Call *after* the cell changes have been applied, so the values inspected
-   * are the committed ones.
-   */
-  private autoWrapOp(tab: Tab, changes: readonly CellChange[], sheetId?: string): Operation | null {
-    if (tab.wrapCells || changes.length === 0) {
-      return null; // already wrapping: nothing to turn on
-    }
-    const doc = tab.doc;
-    let formulasScanned = 0;
-    let found = false;
-    for (const change of changes) {
-      const after = change.after;
-      if (after === null) {
-        continue; // a revert to the original CSV value cannot introduce one
-      }
-      if (!isFormula(after)) {
-        if (after.includes('\n')) {
-          found = true;
-          break;
-        }
-        continue;
-      }
-      if (formulasScanned >= AppState.AUTO_WRAP_FORMULA_SCAN_LIMIT) {
-        continue;
-      }
-      formulasScanned += 1;
-      const shown =
-        doc.kind === 'rsf' && sheetId !== undefined
-          ? doc.getSheetDisplayValue(sheetId, change.row, change.col)
-          : doc.getDisplayValue(change.row, change.col);
-      if (shown.includes('\n')) {
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      return null;
-    }
-    return { type: 'wrap', before: false, after: true, ...(sheetId === undefined ? {} : { sheetId }) };
-  }
-
-  /**
-   * Apply and record the automatic wrap enable implied by `changes`, appending
-   * it to `ops` so the edit and the display change undo together as one
-   * operation. Announces the change politely — it is never a dialog.
-   */
-  private appendAutoWrap(tab: Tab, changes: readonly CellChange[], ops: Operation[], sheetId?: string): void {
-    const op = this.autoWrapOp(tab, changes, sheetId);
-    if (!op) {
-      return;
-    }
-    ops.push(op);
-    this.applyOp(tab, op, 'after');
-    this.announce?.(t('notify.wrapEnabled'));
+    this.structuralOps.setWrapCells(wrap);
   }
 
   /**
@@ -928,21 +618,11 @@ export class AppState {
    * for persistence with the next save.
    */
   setTabZoom(tab: Tab, zoom: number): void {
-    const z = clampSheetZoom(zoom);
-    setSheetZoom(z);
-    if (tab.doc.kind === 'rsf') {
-      tab.doc.displayZoom = z;
-    }
-    if (tab.zoom !== z) {
-      tab.zoom = z;
-      this.emit('view');
-    }
+    this.structuralOps.setTabZoom(tab, zoom);
   }
 
   setStickyFirstRow(sticky: boolean): void {
-    this.stickyFirstRow = sticky;
-    safeStorageSet(STICKY_KEY, sticky ? '1' : '0');
-    this.emit('view');
+    this.structuralOps.setStickyFirstRow(sticky);
   }
 
   // ----- Filtering (RSF spreadsheet documents only) -----
@@ -1263,78 +943,6 @@ export class AppState {
 
   // ----- Internals -----
 
-  /**
-   * Formula rewrites for a structural change on the active worksheet.
-   *
-   * Two groups of formulas are affected, and only these two:
-   * - formulas **on the edited worksheet** whose unqualified references move
-   *   (their own coordinates also shift, so they target post-change positions);
-   * - formulas **on any other worksheet** that reference the edited worksheet
-   *   explicitly (`Sheet1!A5`) — their own coordinates do not move.
-   *
-   * A formula on another worksheet with unqualified references is untouched:
-   * those point at its own worksheet, which is not being edited. The returned
-   * `others` operations are already scoped to their worksheets.
-   */
-  private formulaRewrites(
-    doc: RsfDocument,
-    axis: 'row' | 'col',
-    op: 'insert' | 'delete',
-    index: number,
-    count: number,
-  ): { active: CellChange[]; others: Operation[] } {
-    const target = doc.activeSheet;
-    const targetKey = sheetNameKey(target.name);
-    const shouldMapCoords = (sheet: string | null): boolean =>
-      sheet !== null && sheetNameKey(sheet) === targetKey;
-
-    const active: CellChange[] = [];
-    for (const { row, col, src } of target.listFormulaCells()) {
-      const pos = axis === 'row' ? row : col;
-      if (op === 'delete' && pos >= index && pos < index + count) {
-        continue; // the cell itself is deleted with its row/column
-      }
-      const after = adjustFormulaForAxis(src, axis, op, index, count, {
-        homeSheet: target.name,
-        shouldMapCoords,
-      });
-      if (after === src) {
-        continue;
-      }
-      let postRow = row;
-      let postCol = col;
-      if (axis === 'row') {
-        postRow =
-          op === 'insert' ? (row >= index ? row + count : row) : row >= index + count ? row - count : row;
-      } else {
-        postCol =
-          op === 'insert' ? (col >= index ? col + count : col) : col >= index + count ? col - count : col;
-      }
-      active.push({ row: postRow, col: postCol, before: src, after });
-    }
-
-    const others: Operation[] = [];
-    for (const sheet of doc.sheets) {
-      if (sheet.id === target.id) {
-        continue;
-      }
-      const changes: CellChange[] = [];
-      for (const { row, col, src } of sheet.listFormulaCells()) {
-        const after = adjustFormulaForAxis(src, axis, op, index, count, {
-          homeSheet: sheet.name,
-          shouldMapCoords,
-        });
-        if (after !== src) {
-          changes.push({ row, col, before: src, after });
-        }
-      }
-      if (changes.length > 0) {
-        others.push({ type: 'cells', changes, sheetId: sheet.id });
-      }
-    }
-    return { active, others };
-  }
-
   private applyEntry(tab: Tab, entry: HistoryEntry, direction: 'before' | 'after'): void {
     const ops = direction === 'after' ? entry.ops : [...entry.ops].reverse();
     for (const op of ops) {
@@ -1359,7 +967,7 @@ export class AppState {
     if (op.type === 'wrap') {
       // Presentational: applies to plain CSV tabs too (as local view state),
       // and never marks anything dirty.
-      this.applyWrap(tab, direction === 'after' ? op.after : op.before, op.sheetId);
+      this.structuralOps.applyWrap(tab, direction === 'after' ? op.after : op.before, op.sheetId);
       return;
     }
     const doc = tab.doc;

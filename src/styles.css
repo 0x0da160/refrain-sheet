@@ -148,21 +148,11 @@ body {
      horizontal or vertical scrollbar, since every scrollable surface here is
      meant to scroll within itself (the grid, the tab strips, dialogs). */
   overflow: hidden;
-  /* #app and the AI Assistant panel (.ai-panel) are flex siblings here, so
-     opening the panel shrinks #app's column instead of covering it (a split
-     view rather than a floating drawer). Below the 700px mobile breakpoint
-     .ai-panel switches back to a fixed full-screen overlay, unaffected by
-     this row layout. */
-  display: flex;
 }
 
 #app {
   display: flex;
   flex-direction: column;
-  /* Shrinks to make room when .ai-panel opens, instead of pushing it off
-     the viewport's fixed width. */
-  flex: 1 1 auto;
-  min-width: 0;
   height: 100vh;
   /* On phones, 100vh is the height with the browser's address bar hidden, so
      a static 100vh box can sit partly below the fold while the bar is shown.
@@ -558,42 +548,6 @@ button {
 }
 
 /* ---------- Formula bar ---------- */
-
-/* Wraps the formula bar and the AI Assistant panel's toggle button, so the
-   button sits to the bar's right without the bar needing to know about it. */
-.formula-row {
-  display: flex;
-  align-items: stretch;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-}
-
-.formula-row .formula-bar {
-  flex: 1;
-  border-bottom: none;
-}
-
-.ai-panel-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 36px;
-  padding: 4px 10px;
-  border: none;
-  border-left: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.ai-panel-toggle:hover {
-  background: var(--surface);
-}
-
-.ai-panel-toggle[aria-expanded='true'] {
-  background: var(--accent-soft);
-}
 
 .formula-bar {
   display: flex;
@@ -1374,156 +1328,6 @@ dialog::backdrop {
   line-height: 1.5;
 }
 
-/* ---------- AI Assistant panel ---------- */
-
-/* A flex sibling of #app (see body above): closed, it collapses to zero
-   width so it takes no space; open, it grows to a fixed width and #app's
-   column shrinks to make room, i.e. a split view rather than a drawer
-   floating on top of the sheet. Below the mobile breakpoint (see the 700px
-   media query) it switches back to a fixed full-screen overlay instead,
-   since there is no spare width to split. */
-.ai-panel {
-  flex: 0 0 auto;
-  width: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border-left: 0 solid var(--border);
-  transition: width 0.15s ease-out;
-  z-index: 220;
-}
-
-.ai-panel.open {
-  width: min(360px, 100vw);
-  border-left-width: 1px;
-}
-
-.ai-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 18px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-}
-
-.ai-panel-header h2 {
-  margin: 0;
-  font-size: 14px;
-}
-
-.ai-panel-close {
-  border: none;
-  background: none;
-  color: var(--text);
-  font-size: 18px;
-  line-height: 1;
-  padding: 4px 8px;
-  cursor: pointer;
-}
-
-.ai-panel-body {
-  flex: 1;
-  overflow: auto;
-  padding: 14px 18px;
-}
-
-.ai-panel-body p {
-  margin: 0 0 10px;
-  line-height: 1.5;
-}
-
-.ai-plan-card {
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 10px 12px;
-  margin: 0 0 10px;
-  background: var(--panel);
-}
-
-.ai-plan-title {
-  margin: 0 0 6px;
-  font-weight: 600;
-}
-
-.ai-plan-list {
-  margin: 0 0 10px;
-  padding-left: 20px;
-  font-family: var(--font-sheet);
-  font-size: 12px;
-}
-
-.ai-plan-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.ai-plan-status {
-  margin: 6px 0 0;
-  color: var(--text-dim);
-}
-
-.ai-assistant button,
-.ai-panel-body button {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  border-radius: 4px;
-  padding: 6px 16px;
-  font: inherit;
-  cursor: pointer;
-}
-
-.ai-assistant button.primary,
-.ai-panel-body button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-contrast);
-}
-
-.ai-assistant button.primary:disabled,
-.ai-panel-body button.primary:disabled {
-  opacity: 0.6;
-}
-
-.ai-assistant-input {
-  font: inherit;
-  width: 100%;
-  resize: vertical;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface);
-  color: var(--text);
-}
-
-.ai-assistant-log {
-  max-height: 220px;
-  overflow-y: auto;
-  margin-bottom: 10px;
-}
-
-.ai-assistant-message {
-  border-radius: 4px;
-  padding: 6px 10px;
-  white-space: pre-wrap;
-}
-
-.ai-assistant-message.user {
-  background: var(--panel);
-}
-
-.ai-assistant-message.assistant {
-  background: var(--surface);
-  border: 1px solid var(--border);
-}
-
-.ai-assistant-message.pending,
-.ai-assistant-message.error {
-  color: var(--text-dim);
-}
-
 .dialog-buttons {
   display: flex;
   justify-content: flex-end;
@@ -1952,32 +1756,6 @@ table.diag-table th {
     font-size: max(16px, calc(12px * var(--sheet-zoom, 1)));
   }
 
-  /* Below the desktop breakpoint the AI Assistant panel becomes a
-     fixed full-screen overlay again instead of a split-view sibling of
-     #app: there's no spare width to give it, so it slides in over the
-     sheet rather than shrinking it. */
-  .ai-panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 100vw;
-    border-left: none;
-    box-shadow: -8px 0 24px var(--shadow-strong);
-    transform: translateX(100%);
-    transition: transform 0.15s ease-out;
-  }
-
-  .ai-panel.open {
-    width: 100vw;
-    transform: translateX(0);
-  }
-
-  .ai-panel-body button {
-    padding: 10px 16px;
-    min-height: 44px;
-  }
-
   /* ----- Fit narrow dialogs -----
      These rows assumed desktop-width dialogs (a fixed-width label beside a
      200px select, or a select beside a free-flowing input); below this width
@@ -2203,7 +1981,7 @@ table.diag-table th {
 
 /* Hide the document-specific surfaces while the welcome screen is up. */
 #app.welcome-mode .tab-bar,
-#app.welcome-mode .formula-row,
+#app.welcome-mode .formula-bar,
 #app.welcome-mode .find-bar,
 #app.welcome-mode .grid-container {
   display: none;

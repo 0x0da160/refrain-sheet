@@ -3,11 +3,9 @@
 Refrain Sheet is licensed under the MIT License (see [LICENSE](LICENSE)).
 
 The distributed build output (`dist/`, and the release ZIP) bundles the
-following third-party software. No strong-copyleft code is included. The
-code dependencies use permissive licenses compatible with redistribution
-under the MIT License; the vendored AI assistant model weights are an
-explicitly approved exception under a separate, use-based license — see
-that entry below.
+following third-party software. No strong-copyleft code is included. All
+dependencies use permissive licenses compatible with redistribution under
+the MIT License.
 
 ## encoding-japanese
 
@@ -87,44 +85,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-
-## @mlc-ai/web-llm
-
-- Version: 0.2.84
-- Source: https://github.com/mlc-ai/web-llm
-- Purpose: in-browser WebGPU inference engine for the optional local AI
-  assistant. Each vendored model (see below) is bundled as its own separate
-  classic script (`dist/assets/llm-engine.<key>.js`), loaded only if the user
-  opens the assistant and installs that model; never fetched over the
-  network. This is a documented, explicitly approved exception to the
-  single-dependency policy — see [`docs/llm-model.md`](docs/llm-model.md) and
-  [`docs/security.md`](docs/security.md) § Dependency policy.
-- License: Apache-2.0 (see `node_modules/@mlc-ai/web-llm/LICENSE` after
-  `npm ci`).
-
-## AI assistant model weights
-
-The user can choose from a small catalog of vendored models
-(`src/app/llm/model-catalog.ts`); each is independently downloadable and
-never both loaded at once. See [`docs/llm-model.md`](docs/llm-model.md) for
-the full provenance and approval record of each.
-
-- Model: [`UMASHIKA/gemma3-270m-japanese-webllm-04`](https://huggingface.co/UMASHIKA/gemma3-270m-japanese-webllm-04)
-  (Gemma 3 270M, Japanese fine-tune, `q4f32_1` quantization), vendored as the
-  Base64-encoded files under `src/llm-gen/model-payload/`.
-  - Purpose: weights for the optional local AI assistant described above.
-    The default model.
-  - License: Gemma Terms of Use (see the model card at the link above) — a
-    use-based license, not an OSI-approved permissive license like the other
-    entries in this document. Its vendoring was explicitly reviewed and
-    approved.
-- Model: [`mlc-ai/SmolLM2-135M-Instruct-q0f16-MLC`](https://huggingface.co/mlc-ai/SmolLM2-135M-Instruct-q0f16-MLC)
-  (SmolLM2 135M, general-purpose instruction-tuned, `q0f16` quantization),
-  vendored as the Base64-encoded files under
-  `src/llm-gen/smollm2-135m-instruct/model-payload/`.
-  - Purpose: weights for an additional, user-selectable, lighter-weight
-    local AI assistant model — primarily English rather than Japanese-tuned.
-  - License: Apache-2.0 (see the model card at the link above).
 
 ## Development-only dependencies
 

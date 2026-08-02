@@ -1184,27 +1184,6 @@ metadata** — the spreadsheet zoom and overridden column widths — which is
 validated and clamped on load and restored when the document reopens. The
 full specification is in [docs/rsf-format.md](docs/rsf-format.md).
 
-### AI Assistant
-
-**Sheet > AI Assistant…**, or the button next to the formula bar, opens a
-side panel (a full-screen overlay on narrow/mobile layouts) backed by a
-small, Japanese-capable language model (via
-[WebLLM](https://github.com/mlc-ai/web-llm)/WebGPU). The model is bundled
-with the app — installing it writes the already-embedded model into the
-browser's Cache Storage and starts the in-browser engine, without ever
-making a network request. It requires a WebGPU-capable browser; the panel
-explains when that is not available. See
-[docs/llm-model.md](docs/llm-model.md) for the model's source, license, and
-how it is embedded.
-
-Plain questions get a plain chat reply. Asking the assistant to change the
-sheet instead gets a proposed plan — a concrete, previewable list of
-cell → value changes — that must be explicitly approved before anything is
-written; approving applies it through the normal command layer as one
-atomic, undoable operation, so **Edit > Undo** reverts it exactly like any
-other edit. The assistant only ever proposes cell-value writes, never
-row/column/sheet structural changes.
-
 > **Legacy `.rcsv` files.** This format was previously named _Refrain CSV
 > Format (RCSV)_ with the `.rcsv` extension and magic `RCSV`. Existing `.rcsv`
 > files are **read transparently** as a legacy import: opening one migrates the
@@ -1346,9 +1325,8 @@ The build output is completely static and self-contained:
 There is no dev server requirement, no backend, no browser extension, no
 CDN, and no network access of any kind. The bundle is a classic (non-module)
 script specifically so it works under `file://` in Chromium, and a
-restrictive Content Security Policy (`connect-src blob:`, no `http:`/`https:`
-source anywhere) blocks external connections — `blob:` is a local, in-memory
-scheme the on-device AI assistant uses, never a real network origin.
+restrictive Content Security Policy (`connect-src 'none'`, no `http:`/`https:`
+source anywhere) blocks all outgoing connections.
 
 ### Browser differences and known limitations
 
@@ -1728,9 +1706,8 @@ The deployed URL is also recorded on the run's `github-pages` environment.
   server, or CDN.
 - The application makes **no network connections at runtime**: no CDN,
   external scripts/styles/fonts/images, APIs, analytics, or telemetry. The
-  CSP sets `default-src 'none'` and `connect-src blob:` (the on-device AI
-  assistant's local-only Blob URLs; no `http:`/`https:` source is ever
-  allowed).
+  CSP sets `default-src 'none'` and `connect-src 'none'` (no `http:`/`https:`
+  source is ever allowed).
 - The repository and build output contain no secrets or credentials.
 
 ### Supply-chain security

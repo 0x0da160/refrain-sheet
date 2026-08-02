@@ -30,8 +30,6 @@ below it, never above):
 │ Infrastructure                                                │
 │   csv-engine.ts (WASM bridge + JS fallback), wasm-gen/        │
 │   (embedded WASM + glue), wasm/ (Rust crate), build scripts   │
-│   src/app/llm/ (in-browser AI assistant engine), llm-gen/     │
-│   (embedded model weights), vite.llm.config.ts (2nd build)    │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -48,21 +46,6 @@ below it, never above):
   rendered text metrics, so `Commands` exposes a narrow `gridActions` port
   that the grid implements. The command still owns the flow; the grid only
   supplies DOM-dependent measurement.
-- **The local AI assistant is a self-contained side subsystem, not a fifth
-  layer.** `src/app/llm/` (engine lifecycle, model source, cache
-  prepopulation, the model catalog) and the embedded model weights in
-  `src/llm-gen/` sit beside `src/app/`, driven from the UI through
-  `src/ui/ai-panel.ts`, which lets the user pick from a small catalog of
-  vendored models (`src/app/llm/model-catalog.ts`). Each catalog model is
-  built as its own independent Rollup pass (`vite.llm.config.ts`, one `npm
-run build` invocation per model, selected via `LLM_MODEL_KEY`) into its own
-  classic script (`dist/assets/llm-engine.<key>.js`), loaded at runtime only
-  once a user opens the assistant and installs that model — never part of
-  the initial page load. It never touches document state directly: like
-  every other UI surface, it goes through the command layer. See
-  [llm-model.md](llm-model.md) for what is vendored and how, and
-  [security.md](security.md) for why it is an approved exception to the
-  single-dependency policy.
 
 ### Inside the formula engine
 

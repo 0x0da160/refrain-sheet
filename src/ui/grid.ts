@@ -546,11 +546,10 @@ export class Grid {
     // Scroll never calls preventDefault, so the listener is passive (the
     // browser can start compositor scrolling without waiting on the handler).
     this.element.addEventListener('scroll', () => this.onScroll(), { passive: true });
-    // The container's width changes not just on a window resize but also
-    // when the AI Assistant panel opens/closes (a split view shrinks/grows
-    // #app's column; see styles.css), so a ResizeObserver reflows the grid
-    // instead of a plain window 'resize' listener. jsdom (tests) has no
-    // ResizeObserver, so this is a no-op there.
+    // The container's width can change without a window resize (e.g. layout
+    // shifts elsewhere in #app; see styles.css), so a ResizeObserver reflows
+    // the grid instead of a plain window 'resize' listener. jsdom (tests) has
+    // no ResizeObserver, so this is a no-op there.
     if (typeof ResizeObserver !== 'undefined') {
       new ResizeObserver(() => this.onResize()).observe(this.element);
     }

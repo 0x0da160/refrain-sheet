@@ -2,50 +2,60 @@
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { checkLlmAvailability } from '../app/llm/availability';
-import type { LlmInstallProgress } from '../app/llm/engine';
+import type { LlmEngine, LlmInstallProgress } from '../app/llm/engine';
+import { getModelCatalogEntry, MODEL_CATALOG } from '../app/llm/model-catalog';
+import { getSelectedAiModel, setSelectedAiModel } from '../app/settings';
 import { AI_PLAN_SYSTEM_PROMPT, splitAiPlanReply, type AiPlanChange } from '../core/ai-plan';
 import { clearChildren, el } from './dom';
 
 /**
- * The local AI assistant's engine embeds a ~190 MB Base64 model payload
- * (see src/llm-gen/), built as its own separate classic script
- * (`assets/llm-engine.js`, see vite.llm.config.ts) rather than pulled into
- * this bundle — a plain `import()` here would not actually defer anything,
- * since the main build inlines every dynamic import into one file so
- * `dist/index.html` keeps working under `file://` (see vite.config.ts).
- * Loaded on demand, by inserting a `<script>` tag, the first time the
- * install or chat flow actually runs; cached after that so repeat calls
- * resolve synchronously. See src/app/llm/engine-entry.ts and issue #116.
+ * Each vendored model's engine embeds that model's own Base64 payload (see
+ * src/llm-gen/ and src/app/llm/model-catalog.ts), built as its own separate
+ * classic script (`assets/llm-engine.<key>.js`, see vite.llm.config.ts)
+ * rather than pulled into this bundle — a plain `import()` here would not
+ * actually defer anything, since the main build inlines every dynamic
+ * import into one file so `dist/index.html` keeps working under `file://`
+ * (see vite.config.ts). Loaded on demand, by inserting a `<script>` tag,
+ * the first time the install or chat flow actually runs for the currently
+ * selected model; cached per model after that so repeat calls resolve
+ * synchronously without re-inserting the script tag. Switching the selected
+ * model (see renderInstall()) loads a different script and gets its own
+ * independent engine instance. See src/app/llm/engine-entry.*.ts and issue
+ * #116 / #166.
  */
-type LlmEngineModule = typeof import('../app/llm/engine');
-let llmEngineModule: LlmEngineModule | undefined;
-let llmEnginePromise: Promise<LlmEngineModule> | undefined;
-function loadLlmEngine(): Promise<LlmEngineModule> {
-  if (!llmEnginePromise) {
-    llmEnginePromise = new Promise<LlmEngineModule>((resolve, reject) => {
+const llmEngineModules = new Map<string, LlmEngine>();
+const llmEnginePromises = new Map<string, Promise<LlmEngine>>();
+function loadLlmEngine(modelKey: string): Promise<LlmEngine> {
+  const cached = llmEngineModules.get(modelKey);
+  if (cached) {
+    return Promise.resolve(cached);
+  }
+  let promise = llmEnginePromises.get(modelKey);
+  if (!promise) {
+    const entry = getModelCatalogEntry(modelKey);
+    promise = new Promise<LlmEngine>((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = './assets/llm-engine.js';
+      script.src = entry.engineScript;
       script.addEventListener('load', () => {
         const mod = window.__refrainSheetLlmEngine;
         if (!mod) {
-          reject(new Error('refrain-sheet: assets/llm-engine.js did not expose the LLM engine module'));
+          reject(new Error(`refrain-sheet: ${entry.engineScript} did not expose the LLM engine module`));
           return;
         }
         resolve(mod);
       });
-      script.addEventListener('error', () =>
-        reject(new Error('refrain-sheet: failed to load assets/llm-engine.js')),
-      );
+      script.addEventListener('error', () => reject(new Error(`refrain-sheet: failed to load ${entry.engineScript}`)));
       document.head.append(script);
     }).then((mod) => {
-      llmEngineModule = mod;
+      llmEngineModules.set(modelKey, mod);
       return mod;
     });
-    llmEnginePromise.catch(() => {
-      llmEnginePromise = undefined;
+    llmEnginePromises.set(modelKey, promise);
+    promise.catch(() => {
+      llmEnginePromises.delete(modelKey);
     });
   }
-  return llmEnginePromise;
+  return promise;
 }
 
 /**
@@ -87,6 +97,8 @@ export class AiPanel {
   private readonly toggleEl: HTMLButtonElement;
   private readonly body: HTMLElement;
   private isOpen = false;
+  /** The model to install/chat with next; persisted so it survives a reload — see src/app/settings.ts. */
+  private selectedModelKey: string = getSelectedAiModel();
 
   constructor(private readonly commands: Commands) {
     this.toggleEl = el('button', {
@@ -172,7 +184,7 @@ export class AiPanel {
       );
       return;
     }
-    if (llmEngineModule?.isLlmInstalled()) {
+    if (llmEngineModules.get(this.selectedModelKey)?.isLlmInstalled()) {
       this.renderChat();
     } else {
       this.renderInstall();
@@ -182,18 +194,56 @@ export class AiPanel {
   private renderInstall(): void {
     clearChildren(this.body);
     this.body.append(el('p', { text: t('aiAssistant.intro') }));
-    const status = el('p', {
+
+    // Only one install (of either model) runs at a time — the select and
+    // install button are both locked while `currentInstall` is in flight,
+    // so the status text never needs to distinguish "installing this model"
+    // from "installing the other one".
+    const statusText = () => (currentInstall ? t('aiAssistant.installInProgress') : t('aiAssistant.installIdle'));
+
+    const modelSelectId = 'ai-panel-model-select';
+    const modelSelect = el('select', { attrs: { id: modelSelectId } }) as HTMLSelectElement;
+    for (const entry of MODEL_CATALOG) {
+      const option = el('option', {
+        text: t(entry.labelKey),
+        attrs: { value: entry.key },
+      }) as HTMLOptionElement;
+      if (entry.key === this.selectedModelKey) {
+        option.selected = true;
+      }
+      modelSelect.append(option);
+    }
+    if (currentInstall) {
+      modelSelect.setAttribute('disabled', 'true');
+    }
+
+    const description = el('p', {
       className: 'dialog-note',
-      text: currentInstall ? t('aiAssistant.installInProgress') : t('aiAssistant.installIdle'),
+      text: t(getModelCatalogEntry(this.selectedModelKey).descriptionKey),
     });
-    this.body.append(status);
+    const status = el('p', { className: 'dialog-note', text: statusText() });
     const installButton = actionButton(t('aiAssistant.install'), true, () =>
       this.startInstall(installButton, status),
     );
     if (currentInstall) {
       installButton.setAttribute('disabled', 'true');
     }
-    this.body.append(installButton);
+
+    modelSelect.addEventListener('change', () => {
+      this.selectedModelKey = modelSelect.value;
+      setSelectedAiModel(this.selectedModelKey);
+      description.textContent = t(getModelCatalogEntry(this.selectedModelKey).descriptionKey);
+    });
+
+    this.body.append(
+      el('div', { className: 'form-row' }, [
+        el('label', { text: t('aiAssistant.model.label'), attrs: { for: modelSelectId } }),
+        modelSelect,
+      ]),
+      description,
+      status,
+      installButton,
+    );
   }
 
   /**
@@ -210,10 +260,11 @@ export class AiPanel {
    * button either way.
    */
   private startInstall(installButton: HTMLButtonElement, status: HTMLElement): void {
+    const modelKey = this.selectedModelKey;
     installButton.setAttribute('disabled', 'true');
     status.textContent = '';
     this.commands.setBusy(t('aiAssistant.installStarting'), 0);
-    currentInstall = loadLlmEngine()
+    currentInstall = loadLlmEngine(modelKey)
       .then((mod) =>
         mod.installLlm((progress: LlmInstallProgress) => {
           const percent = Math.round(progress.progress * 100);
@@ -259,7 +310,7 @@ export class AiPanel {
       const pending = el('p', { className: 'ai-assistant-message pending', text: t('aiAssistant.thinking') });
       log.append(pending);
       log.scrollTop = log.scrollHeight;
-      loadLlmEngine()
+      loadLlmEngine(this.selectedModelKey)
         .then((mod) => mod.askLlm(message, AI_PLAN_SYSTEM_PROMPT))
         .then((reply) => {
           pending.remove();

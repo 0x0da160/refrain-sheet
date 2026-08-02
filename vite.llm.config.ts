@@ -1,22 +1,38 @@
 // SPDX-License-Identifier: MIT
 import { defineConfig } from 'vite';
+import { MODEL_CATALOG } from './src/app/llm/model-catalog';
 
 /**
- * Second, independent build pass for the local AI assistant engine
- * (src/app/llm/engine-entry.ts), which embeds the ~190 MB vendored model
- * payload. Kept out of the main build (vite.config.ts) entirely, as its
- * own classic script (`dist/assets/llm-engine.js`), so the initial page
- * load never includes it — src/ui/dialogs.ts loads this file at runtime,
- * only once the user opens the install/chat flow. See
- * src/app/llm/engine-entry.ts and docs/llm-model.md for why this needs a
- * separate Rollup invocation rather than a dynamic `import()` inside the
- * main build: Rollup's `iife` output format (required so the main bundle
- * stays a single `file://`-safe classic script) does not support
- * code-splitting within one build.
+ * Independent build pass for one local-assistant model's engine
+ * (src/app/llm/engine-entry.<key>.ts), which embeds that model's vendored
+ * payload. Kept out of the main build (vite.config.ts) entirely, as its own
+ * classic script (`dist/assets/llm-engine.<key>.js`), so the initial page
+ * load never includes it — src/ui/ai-panel.ts loads the selected model's
+ * script at runtime, only once the user installs it.
  *
- * Run after the main build (see the `build` script in package.json) with
- * `emptyOutDir: false` so it does not remove the main build's output.
+ * Run once per model in src/app/llm/model-catalog.ts (see the `build`
+ * script in package.json, one `vite build --config vite.llm.config.ts`
+ * invocation per model, selected via the `LLM_MODEL_KEY` env var) with
+ * `emptyOutDir: false` so later passes don't remove earlier ones' output.
+ * Each pass is a single-entry build, output as one `iife` script (rather
+ * than one multi-entry build covering every model) because Rollup's
+ * `inlineDynamicImports` — required so each output stays a single
+ * `file://`-safe classic script, no separate chunk files — only supports a
+ * single entry point per build. This also means selecting one model in the
+ * UI never downloads or parses another model's embedded payload. See
+ * src/app/llm/engine-entry.*.ts and docs/llm-model.md for why this needs a
+ * separate Rollup invocation rather than a dynamic `import()` inside the
+ * main build.
  */
+const modelKey = process.env.LLM_MODEL_KEY ?? MODEL_CATALOG[0].key;
+const model = MODEL_CATALOG.find((entry) => entry.key === modelKey);
+if (!model) {
+  throw new Error(
+    `vite.llm.config.ts: LLM_MODEL_KEY "${modelKey}" is not in src/app/llm/model-catalog.ts's MODEL_CATALOG`,
+  );
+}
+const entryFileName = model.engineScript.replace(/^\.\/assets\//, '');
+
 export default defineConfig({
   base: './',
   build: {
@@ -25,11 +41,11 @@ export default defineConfig({
     emptyOutDir: false,
     modulePreload: false,
     rollupOptions: {
-      input: 'src/app/llm/engine-entry.ts',
+      input: `src/app/llm/engine-entry.${model.key}.ts`,
       output: {
         format: 'iife',
         inlineDynamicImports: true,
-        entryFileNames: 'assets/llm-engine.js',
+        entryFileNames: `assets/${entryFileName}`,
         assetFileNames: 'assets/[name]-[hash][extname]',
       },
     },

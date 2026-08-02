@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
-import { checkLlmAvailability } from '../app/llm/availability';
+import { checkLlmAvailability, type LlmAvailability } from '../app/llm/availability';
 import type { LlmEngine, LlmInstallProgress } from '../app/llm/engine';
 import { getModelCatalogEntry, MODEL_CATALOG } from '../app/llm/model-catalog';
 import { getSelectedAiModel, setSelectedAiModel } from '../app/settings';
@@ -175,12 +175,7 @@ export class AiPanel {
     clearChildren(this.body);
     const availability = checkLlmAvailability(getModelCatalogEntry(this.selectedModelKey).engine);
     if (availability !== 'available') {
-      const messageKey = {
-        'no-webgpu': 'aiAssistant.unavailable.noWebgpu',
-        'no-cache-storage': 'aiAssistant.unavailable.noCacheStorage',
-        'no-wasm-worker': 'aiAssistant.unavailable.noWasmWorker',
-      } as const;
-      this.body.append(el('p', { text: t(messageKey[availability]) }));
+      this.renderUnavailable(availability);
       return;
     }
     if (llmEngineModules.get(this.selectedModelKey)?.isLlmInstalled()) {
@@ -190,19 +185,14 @@ export class AiPanel {
     }
   }
 
-  private renderInstall(): void {
-    clearChildren(this.body);
-    this.body.append(el('p', { text: t('aiAssistant.intro') }));
-
-    // Only one install (of either model) runs at a time — the select and
-    // install button are both locked while `currentInstall` is in flight,
-    // so the status text never needs to distinguish "installing this model"
-    // from "installing the other one".
-    const statusText = () =>
-      currentInstall ? t('aiAssistant.installInProgress') : t('aiAssistant.installIdle');
-
-    const modelSelectId = 'ai-panel-model-select';
-    const modelSelect = el('select', { attrs: { id: modelSelectId } }) as HTMLSelectElement;
+  /**
+   * The model `<select>` shared by renderInstall() and renderUnavailable(),
+   * so that a model whose engine the browser can't run (e.g. WebGPU missing)
+   * doesn't take the picker down with it — the user can still switch to
+   * another catalog model backed by a different engine. See issue #172.
+   */
+  private createModelSelect(id: string, disabled: boolean): HTMLSelectElement {
+    const modelSelect = el('select', { attrs: { id } }) as HTMLSelectElement;
     for (const entry of MODEL_CATALOG) {
       const option = el('option', {
         text: t(entry.labelKey),
@@ -213,9 +203,54 @@ export class AiPanel {
       }
       modelSelect.append(option);
     }
-    if (currentInstall) {
+    if (disabled) {
       modelSelect.setAttribute('disabled', 'true');
     }
+    modelSelect.addEventListener('change', () => {
+      this.selectedModelKey = modelSelect.value;
+      setSelectedAiModel(this.selectedModelKey);
+      // A full re-render (rather than patching in place) so switching to a
+      // model backed by a different engine (see src/app/llm/model-catalog.ts's
+      // `engine` field) re-checks that engine's own availability instead of
+      // keeping the previous model's.
+      this.renderBody();
+    });
+    return modelSelect;
+  }
+
+  private renderUnavailable(availability: Exclude<LlmAvailability, 'available'>): void {
+    this.body.append(el('p', { text: t('aiAssistant.intro') }));
+
+    const modelSelectId = 'ai-panel-model-select';
+    const modelSelect = this.createModelSelect(modelSelectId, false);
+
+    const messageKey = {
+      'no-webgpu': 'aiAssistant.unavailable.noWebgpu',
+      'no-cache-storage': 'aiAssistant.unavailable.noCacheStorage',
+      'no-wasm-worker': 'aiAssistant.unavailable.noWasmWorker',
+    } as const;
+
+    this.body.append(
+      el('div', { className: 'form-row' }, [
+        el('label', { text: t('aiAssistant.model.label'), attrs: { for: modelSelectId } }),
+        modelSelect,
+      ]),
+      el('p', { className: 'dialog-note', text: t(messageKey[availability]) }),
+    );
+  }
+
+  private renderInstall(): void {
+    this.body.append(el('p', { text: t('aiAssistant.intro') }));
+
+    // Only one install (of either model) runs at a time — the select and
+    // install button are both locked while `currentInstall` is in flight,
+    // so the status text never needs to distinguish "installing this model"
+    // from "installing the other one".
+    const statusText = () =>
+      currentInstall ? t('aiAssistant.installInProgress') : t('aiAssistant.installIdle');
+
+    const modelSelectId = 'ai-panel-model-select';
+    const modelSelect = this.createModelSelect(modelSelectId, !!currentInstall);
 
     const description = el('p', {
       className: 'dialog-note',
@@ -228,16 +263,6 @@ export class AiPanel {
     if (currentInstall) {
       installButton.setAttribute('disabled', 'true');
     }
-
-    modelSelect.addEventListener('change', () => {
-      this.selectedModelKey = modelSelect.value;
-      setSelectedAiModel(this.selectedModelKey);
-      // A full re-render (rather than patching `description` in place) so
-      // switching to a model backed by a different engine (see
-      // src/app/llm/model-catalog.ts's `engine` field) re-checks that
-      // engine's own availability instead of keeping the previous model's.
-      this.renderBody();
-    });
 
     this.body.append(
       el('div', { className: 'form-row' }, [

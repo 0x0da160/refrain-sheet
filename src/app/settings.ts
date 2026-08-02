@@ -11,12 +11,11 @@
  * a file (enforced before a file's bytes are read into memory, because the
  * whole file is held in memory while editing), the application-level
  * spreadsheet zoom (used for documents that do not carry their own — RSF
- * documents persist zoom in their container and take precedence), the
- * editing-help tooltip preference, and the selected local AI assistant model.
+ * documents persist zoom in their container and take precedence), and the
+ * editing-help tooltip preference.
  */
 
 import { RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../core/rsf-codec';
-import { DEFAULT_MODEL_KEY, MODEL_CATALOG } from './llm/model-catalog';
 import { safeStorageGet, safeStorageSet } from './storage';
 
 const MIB = 1024 * 1024;
@@ -179,32 +178,6 @@ export function getEditHints(): boolean {
 /** Persist the editing-help tooltip preference locally. */
 export function setEditHints(enabled: boolean): void {
   safeStorageSet(EDIT_HINTS_KEY, enabled ? '1' : '0');
-}
-
-// ---------------------------------------------------------------------------
-// Local AI assistant model
-// ---------------------------------------------------------------------------
-
-const AI_MODEL_KEY = 'refrain-csv-html.aiModel';
-
-/**
- * The vendored local-assistant model the user last selected (see
- * src/app/llm/model-catalog.ts and src/ui/ai-panel.ts). **Default:** the
- * catalog's first entry. Falls back to that default if nothing is stored or
- * the stored key no longer matches any catalog entry (e.g. after a model is
- * removed from a future release). Never written into any document.
- */
-export function getSelectedAiModel(): string {
-  const stored = safeStorageGet(AI_MODEL_KEY);
-  if (stored !== null && MODEL_CATALOG.some((entry) => entry.key === stored)) {
-    return stored;
-  }
-  return DEFAULT_MODEL_KEY;
-}
-
-/** Persist the selected local-assistant model locally. */
-export function setSelectedAiModel(key: string): void {
-  safeStorageSet(AI_MODEL_KEY, key);
 }
 
 /** Bytes -> whole MiB (rounded), for display and number inputs. */

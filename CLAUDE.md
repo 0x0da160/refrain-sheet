@@ -24,19 +24,19 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 
 ## Confirmed commands
 
-| Purpose                      | Command                                                                                  |
-| ---------------------------- | ---------------------------------------------------------------------------------------- |
-| Install (strict, no scripts) | `npm ci --ignore-scripts`                                                                |
-| Format check                 | `npm run format:check`                                                                   |
-| Format write                 | `npm run format`                                                                         |
-| Lint                         | `npm run lint`                                                                           |
-| Type-check + build           | `npm run build` (`tsc --noEmit && vite build && vite build --config vite.llm.config.ts`) |
-| Unit tests                   | `npm run test`                                                                           |
-| Rust tests                   | `npm run test:rust`                                                                      |
-| Rebuild embedded WASM        | `npm run build:wasm` (only when `wasm/` changes)                                         |
-| Self-contained dist check    | `npm run check:dist`                                                                     |
-| Version consistency          | `npm run check:versions`                                                                 |
-| Production dependency audit  | `npm run audit:ci`                                                                       |
+| Purpose                      | Command                                                                                                                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Install (strict, no scripts) | `npm ci --ignore-scripts`                                                                                                                                                                                                      |
+| Format check                 | `npm run format:check`                                                                                                                                                                                                         |
+| Format write                 | `npm run format`                                                                                                                                                                                                               |
+| Lint                         | `npm run lint`                                                                                                                                                                                                                 |
+| Type-check + build           | `npm run build` (`tsc --noEmit && vite build && node scripts/build-llm-models.mjs`, which runs one `vite build --config vite.llm.config.ts` pass per catalog model, skipping a pass whose cached output is already up to date) |
+| Unit tests                   | `npm run test`                                                                                                                                                                                                                 |
+| Rust tests                   | `npm run test:rust`                                                                                                                                                                                                            |
+| Rebuild embedded WASM        | `npm run build:wasm` (only when `wasm/` changes)                                                                                                                                                                               |
+| Self-contained dist check    | `npm run check:dist`                                                                                                                                                                                                           |
+| Version consistency          | `npm run check:versions`                                                                                                                                                                                                       |
+| Production dependency audit  | `npm run audit:ci`                                                                                                                                                                                                             |
 
 Do not invent commands. If a needed command does not exist, stop and say so.
 

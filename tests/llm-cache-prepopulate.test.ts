@@ -1,14 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ModelPayloadIntegrityError, prepopulateModelCache } from '../src/app/llm/cache-prepopulate';
-import {
-  CACHE_SCOPES,
-  CONFIG_URL,
-  MODEL_LIB_URL,
-  TENSOR_CACHE_URL,
-  TOKENIZER_URL,
-  shardUrl,
-} from '../src/app/llm/model-source';
+import { createCachePrepopulator, ModelPayloadIntegrityError } from '../src/app/llm/cache-prepopulate';
+import { CACHE_SCOPES, createModelSource } from '../src/app/llm/model-source';
 import { MODEL_FILES } from '../src/llm-gen/model-manifest';
 
 /** Minimal in-memory stand-in for the browser's Cache Storage API. */
@@ -31,7 +24,15 @@ class FakeCacheStorage {
   }
 }
 
-describe('prepopulateModelCache', () => {
+const modelSource = createModelSource({
+  key: 'gemma3-270m-ja',
+  modelId: 'gemma3-270m-japanese-webllm-04-q4f32_1',
+  wasmFileName: 'gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm',
+  overrides: { sliding_window_size: -1 },
+});
+const prepopulateModelCache = createCachePrepopulator(modelSource, MODEL_FILES);
+
+describe('createCachePrepopulator', () => {
   afterEach(() => {
     delete (globalThis as { caches?: unknown }).caches;
   });
@@ -45,15 +46,15 @@ describe('prepopulateModelCache', () => {
     expect(progress).toEqual(MODEL_FILES.map((_, i) => i + 1));
 
     const expectedTargets: Record<string, { scope: string; url: string }> = {
-      'mlc-chat-config.json': { scope: CACHE_SCOPES.config, url: CONFIG_URL },
-      'tensor-cache.json': { scope: CACHE_SCOPES.model, url: TENSOR_CACHE_URL },
-      'tokenizer.json': { scope: CACHE_SCOPES.model, url: TOKENIZER_URL },
-      'gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm': { scope: CACHE_SCOPES.wasm, url: MODEL_LIB_URL },
+      'mlc-chat-config.json': { scope: CACHE_SCOPES.config, url: modelSource.configUrl },
+      'tensor-cache.json': { scope: CACHE_SCOPES.model, url: modelSource.tensorCacheUrl },
+      'tokenizer.json': { scope: CACHE_SCOPES.model, url: modelSource.tokenizerUrl },
+      'gemma3-270m-japanese-q4f32_1-ctx4k-webgpu.wasm': { scope: CACHE_SCOPES.wasm, url: modelSource.modelLibUrl },
     };
 
     for (const entry of MODEL_FILES) {
       const target = entry.name.startsWith('params_shard_')
-        ? { scope: CACHE_SCOPES.model, url: shardUrl(entry.name) }
+        ? { scope: CACHE_SCOPES.model, url: modelSource.shardUrl(entry.name) }
         : expectedTargets[entry.name];
       expect(target, `no expected cache target for ${entry.name}`).toBeDefined();
       const cache = fakeCaches.scopes.get(target.scope);
@@ -86,6 +87,26 @@ describe('prepopulateModelCache', () => {
     const totalEntries = [...fakeCaches.scopes.values()].reduce((n, c) => n + c.store.size, 0);
     // Every vendored file has exactly one cache entry; a second run must not duplicate them.
     expect(totalEntries).toBe(MODEL_FILES.length);
+  });
+
+  it('scopes two different models to independent, non-colliding cache entries', async () => {
+    const fakeCaches = new FakeCacheStorage();
+    (globalThis as unknown as { caches: FakeCacheStorage }).caches = fakeCaches;
+
+    const otherSource = createModelSource({
+      key: 'smollm2-135m-instruct',
+      modelId: 'SmolLM2-135M-Instruct-q0f16-MLC',
+      wasmFileName: 'SmolLM2-135M-Instruct-q0f16_cs1k-webgpu.wasm',
+    });
+    const otherPrepopulate = createCachePrepopulator(otherSource, [MODEL_FILES[0]]);
+
+    await prepopulateModelCache();
+    await otherPrepopulate();
+
+    const configCache = fakeCaches.scopes.get(CACHE_SCOPES.config)!;
+    expect(configCache.store.has(modelSource.configUrl)).toBe(true);
+    expect(configCache.store.has(otherSource.configUrl)).toBe(true);
+    expect(modelSource.configUrl).not.toBe(otherSource.configUrl);
   });
 });
 

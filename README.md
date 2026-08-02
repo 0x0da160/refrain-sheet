@@ -1472,7 +1472,7 @@ the normal review flow. Nothing outside the markers is ever machine-written.
 
 | Language   |   Files |     Blank |   Comment |       Code |
 | ---------- | ------: | --------: | --------: | ---------: |
-| TypeScript |     263 |     3,358 |     7,913 |     37,756 |
+| TypeScript |     264 |     3,373 |     7,985 |     37,821 |
 | JSON       |       6 |         0 |         0 |      5,094 |
 | Markdown   |      16 |       886 |         4 |      4,752 |
 | YAML       |      16 |       274 |       773 |      2,739 |
@@ -1486,7 +1486,7 @@ the normal review flow. Nothing outside the markers is ever machine-written.
 | XML        |       1 |         0 |         0 |         15 |
 | SVG        |       3 |         0 |         0 |          9 |
 | Text       |       1 |         1 |         0 |          3 |
-| **Total**  | **334** | **5,230** | **9,659** | **57,784** |
+| **Total**  | **335** | **5,245** | **9,731** | **57,849** |
 
 <!-- code-stats:end -->
 

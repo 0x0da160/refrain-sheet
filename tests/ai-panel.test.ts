@@ -55,9 +55,13 @@ function lastBusyLabel(ui: UiPort): string | null | undefined {
   return calls[calls.length - 1]?.[0] as string | null | undefined;
 }
 
-/** Resolves the panel's dynamically-loaded engine script with a fake module. */
+/**
+ * Resolves the panel's dynamically-loaded engine script (for whichever
+ * model is currently selected — src/app/llm/model-catalog.ts's first entry
+ * unless a test changes the `<select>`) with a fake module.
+ */
 function resolveLlmEngine(mod: Record<string, unknown>): void {
-  const script = document.head.querySelector('script[src="./assets/llm-engine.js"]');
+  const script = document.head.querySelector('script[src^="./assets/llm-engine."]');
   expect(script).not.toBeNull();
   (window as unknown as { __refrainSheetLlmEngine: unknown }).__refrainSheetLlmEngine = mod;
   script?.dispatchEvent(new Event('load'));
@@ -67,9 +71,9 @@ describe('AiPanel install progress', () => {
   beforeEach(() => {
     (globalThis as unknown as { caches: unknown }).caches = {};
     (globalThis as unknown as { navigator: unknown }).navigator = { gpu: {} };
-    // ai-panel.ts caches the loaded engine module at module scope, keyed by
-    // the single `<script>` load; reset it each test so every test injects
-    // and resolves its own fake engine.
+    // ai-panel.ts caches each loaded engine module at module scope, keyed by
+    // the model's own `<script>` load; reset it each test so every test
+    // injects and resolves its own fake engine.
     vi.resetModules();
   });
 
@@ -78,6 +82,7 @@ describe('AiPanel install progress', () => {
     delete (globalThis as { navigator?: unknown }).navigator;
     delete (window as unknown as { __refrainSheetLlmEngine?: unknown }).__refrainSheetLlmEngine;
     document.head.innerHTML = '';
+    localStorage.clear();
   });
 
   it('reports install progress through the shared busy indicator, not a bespoke status line', async () => {
@@ -107,7 +112,7 @@ describe('AiPanel install progress', () => {
 
     expect(ui.setBusy).toHaveBeenCalledWith(expect.stringContaining('42'), 42);
     // The dialog's own status line no longer duplicates the progress text.
-    const status = panel.element.querySelector('.dialog-note');
+    const status = panel.element.querySelector('.ai-panel-install-status');
     expect(status?.textContent).toBe('');
   });
 
@@ -143,7 +148,7 @@ describe('AiPanel install progress', () => {
       installLlm: () => Promise.reject(new Error('boom')),
     });
     await vi.waitFor(() => expect(lastBusyLabel(ui)).toBeNull());
-    const status = panel.element.querySelector('.dialog-note');
+    const status = panel.element.querySelector('.ai-panel-install-status');
     expect(status?.textContent).toContain('boom');
     expect(installButton.hasAttribute('disabled')).toBe(false);
   });
@@ -186,7 +191,7 @@ describe('AiPanel install progress', () => {
 
     const reopenedButton = panel.element.querySelector('button.primary') as HTMLButtonElement;
     expect(reopenedButton.hasAttribute('disabled')).toBe(true);
-    const status = panel.element.querySelector('.dialog-note');
+    const status = panel.element.querySelector('.ai-panel-install-status');
     expect(status?.textContent).toBe('Installing already in progress…');
   });
 
@@ -213,5 +218,80 @@ describe('AiPanel install progress', () => {
 
     resolveInstall?.();
     await vi.waitFor(() => expect(panel.element.querySelector('.ai-assistant-input')).not.toBeNull());
+  });
+});
+
+describe('AiPanel model selection', () => {
+  beforeEach(() => {
+    (globalThis as unknown as { caches: unknown }).caches = {};
+    (globalThis as unknown as { navigator: unknown }).navigator = { gpu: {} };
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    delete (globalThis as { caches?: unknown }).caches;
+    delete (globalThis as { navigator?: unknown }).navigator;
+    delete (window as unknown as { __refrainSheetLlmEngine?: unknown }).__refrainSheetLlmEngine;
+    document.head.innerHTML = '';
+    localStorage.clear();
+  });
+
+  it('offers every catalog model and defaults to the first one', async () => {
+    const { AiPanel } = await import('../src/ui/ai-panel');
+    const { MODEL_CATALOG } = await import('../src/app/llm/model-catalog');
+    const commands = new Commands(new AppState(), stubUi(), document);
+    const panel = new AiPanel(commands);
+    panel.show();
+
+    const select = panel.element.querySelector('select') as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    expect([...select.options].map((o) => o.value)).toEqual(MODEL_CATALOG.map((m) => m.key));
+    expect(select.value).toBe(MODEL_CATALOG[0]?.key);
+  });
+
+  it('loads the selected model’s own engine script, and persists the choice across reopen', async () => {
+    const { AiPanel } = await import('../src/ui/ai-panel');
+    const { MODEL_CATALOG } = await import('../src/app/llm/model-catalog');
+    const commands = new Commands(new AppState(), stubUi(), document);
+    const panel = new AiPanel(commands);
+    panel.show();
+
+    const select = panel.element.querySelector('select') as HTMLSelectElement;
+    const otherModel = MODEL_CATALOG[1];
+    expect(otherModel).toBeDefined();
+    select.value = otherModel!.key;
+    select.dispatchEvent(new Event('change'));
+
+    const installButton = panel.element.querySelector('button.primary') as HTMLButtonElement;
+    installButton.click();
+
+    const script = document.head.querySelector('script') as HTMLScriptElement;
+    expect(script.src.endsWith(otherModel!.engineScript.replace('./', ''))).toBe(true);
+
+    panel.close();
+    panel.show();
+    const reopenedSelect = panel.element.querySelector('select') as HTMLSelectElement;
+    expect(reopenedSelect.value).toBe(otherModel!.key);
+  });
+
+  it('locks the model select while an install is in progress', async () => {
+    const { AiPanel } = await import('../src/ui/ai-panel');
+    const commands = new Commands(new AppState(), stubUi(), document);
+    const panel = new AiPanel(commands);
+    panel.show();
+
+    const installButton = panel.element.querySelector('button.primary') as HTMLButtonElement;
+    installButton.click();
+    resolveLlmEngine({
+      isLlmInstalled: () => false,
+      installLlm: () => new Promise(() => {}),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    panel.close();
+    panel.show();
+    const select = panel.element.querySelector('select') as HTMLSelectElement;
+    expect(select.hasAttribute('disabled')).toBe(true);
   });
 });

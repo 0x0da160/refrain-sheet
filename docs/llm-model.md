@@ -1,14 +1,20 @@
 # The local AI assistant model
 
 Refrain Sheet ships a choice of small language models that run entirely in
-the browser (via [`@mlc-ai/web-llm`](https://github.com/mlc-ai/web-llm),
-WebGPU inference) to help answer questions about spreadsheet operations. This
-document records what is vendored, how each model is embedded, what is and is
-not verified, and how to refresh or add one. Vendoring even the first model
-was a deliberate, explicitly human-approved exception to the single-dependency
-policy in `docs/security.md` — read that document first for the general
-dependency and offline rules this feature had to fit. Adding a second model
-(issue #166) extends that same exception; it does not introduce a new one.
+the browser to help answer questions about spreadsheet operations, via one of
+two in-browser inference engines: [`@mlc-ai/web-llm`](https://github.com/mlc-ai/web-llm)
+(WebGPU inference, pre-compiled per-model kernels) or
+[`@wllama/wllama`](https://github.com/ngxson/wllama) (a WebAssembly binding
+for llama.cpp, running plain `.gguf` model files — added for issue #169, see
+"The `wllama`/GGUF engine" below). Each catalog entry picks one engine (see
+`ModelCatalogEntry.engine` in `src/app/llm/model-catalog.ts`); the two never
+run at once. This document records what is vendored, how each model is
+embedded, what is and is not verified, and how to refresh or add one.
+Vendoring even the first model was a deliberate, explicitly human-approved
+exception to the single-dependency policy in `docs/security.md` — read that
+document first for the general dependency and offline rules this feature had
+to fit. Adding a second model (issue #166) and a second engine (issue #169)
+each extend that same exception; neither introduces a new one.
 
 ## What is vendored
 
@@ -47,6 +53,19 @@ section summarizes each entry; see those two files for the exact file lists.
   `merges.txt`, and `tokenizer_config.json` are listed upstream but never
   requested at runtime (WebLLM's tokenizer loader uses `tokenizer.json`) and
   are not vendored.
+- **`smollm2-135m-instruct-gguf`:** [`bartowski/SmolLM2-135M-Instruct-GGUF`](https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF)
+  (the same SmolLM2 135M Instruct base model as `smollm2-135m-instruct` above,
+  quantized to GGUF `Q4_K_M` by a well-known, widely-used GGUF quantizer,
+  rather than pre-compiled for WebGPU). License: Apache 2.0, inherited
+  unchanged from the base model — the same license already accepted for
+  `smollm2-135m-instruct`. Runs on `@wllama/wllama` (see "The `wllama`/GGUF
+  engine" below) instead of WebGPU, so it works on browsers/devices without
+  WebGPU support. Added for issue #169. Vendored payload is a single
+  `SmolLM2-135M-Instruct-Q4_K_M.gguf` file, **≈100.6 MB (105,454,432 bytes)**
+  raw — smaller than either WebLLM-backed model above, and with no separate
+  tokenizer/config/WASM-kernel files to vendor (the `.gguf` file embeds its
+  own tokenizer and metadata; the WASM runtime is `@wllama/wllama`'s own,
+  embedded once for every `'wllama'` model — see below, not per model).
 
 ## How it is embedded (and why it needs no network access)
 
@@ -124,14 +143,59 @@ observed to exceed the default heap.
 
 At runtime, `src/app/llm/cache-prepopulate.ts` decodes and concatenates each
 file's chunks, verifies it against the recorded SHA-256
-(`ModelPayloadIntegrityError` if it does not match), and writes it directly
-into the browser's Cache Storage under the exact scope/URL
-`@mlc-ai/web-llm`'s `ArtifactCache` reads from (`src/app/llm/model-source.ts`,
-`createModelSource()`). Because `ArtifactCache.addToCache()` checks
-`cache.match()` before ever calling `fetch()`, pre-populating the cache means
-the engine's own loading path always hits and never reaches a real network
-request. `index.html`'s Content-Security-Policy (`connect-src 'none'`) and
-`scripts/check-dist.mjs` are unchanged — this feature does not weaken either.
+(`ModelPayloadIntegrityError` if it does not match — this shared decode/verify
+step is `src/app/llm/reassemble-model-file.ts`'s `reassembleAndVerify()`, used
+by both engines, see below), and writes it directly into the browser's Cache
+Storage under the exact scope/URL `@mlc-ai/web-llm`'s `ArtifactCache` reads
+from (`src/app/llm/model-source.ts`, `createModelSource()`). Because
+`ArtifactCache.addToCache()` checks `cache.match()` before ever calling
+`fetch()`, pre-populating the cache means the engine's own loading path always
+hits and never reaches a real network request. `scripts/check-dist.mjs` still
+asserts no `http:`/`https:` source appears anywhere in the CSP — this feature
+does not weaken that guarantee, even though `connect-src` itself changed from
+`'none'` to `blob:` for the `wllama` engine below.
+
+## The `wllama`/GGUF engine (issue #169)
+
+`'wllama'`-engine models (currently just `smollm2-135m-instruct-gguf`) skip
+Cache Storage and WebGPU entirely. `src/app/llm/wllama-engine.ts`'s
+`createWllamaEngine()`:
+
+1. Calls the same `reassembleAndVerify()` used by the WebLLM path (above) to
+   decode, concatenate, and SHA-256-verify the vendored `.gguf` file's
+   chunks, then wraps the verified bytes directly in a `Blob` — never written
+   to Cache Storage, since `@wllama/wllama`'s `Wllama.loadModel()` takes
+   `Blob[]` directly.
+2. Decodes this engine's own embedded WASM runtime
+   (`src/wllama-gen/wllama-wasm-payload.ts`, generated by
+   `npm run embed:wllama-wasm` / `scripts/embed-wllama-wasm.mjs` from
+   `@wllama/wllama`'s published **single-thread** build) into a `blob:` URL —
+   the only shape `Wllama`'s constructor accepts, and, like the GGUF Blob
+   above, never a real network origin.
+3. Constructs `Wllama` and calls `loadModel()` with `n_threads: 1`, `n_ctx:
+512` (issue #169's memory-conscious defaults for iOS Safari — multi-thread
+   WASM needs `SharedArrayBuffer`, gated behind cross-origin-isolation
+   (`COOP`/`COEP`) response headers that a static file opened via `file://`
+   or GitHub Pages cannot set, so single-thread is the only option that works
+   everywhere this app runs).
+4. `askLlm()` streams tokens via `Wllama.createChatCompletion({ stream: true,
+onData })`, unlike the non-streaming WebLLM path — `src/ui/ai-panel.ts`
+   renders each token as it arrives when an engine's `askLlm()` calls its
+   `onToken` callback, and just shows the full reply at once otherwise.
+5. `uninstallLlm()` (only implemented by this engine, not the WebLLM one)
+   calls `Wllama.exit()` and `URL.revokeObjectURL()` on the WASM Blob URL,
+   releasing the runtime's resources; `src/ui/ai-panel.ts` only shows an
+   "Uninstall" action when the installed engine implements it.
+
+`@wllama/wllama` itself creates its inference Worker from a `Blob` it builds
+from its own bundled source (`URL.createObjectURL(new Blob([...]))`), which is
+why `index.html`'s CSP gained `worker-src 'self' blob:` (previously falling
+back to `script-src`, which does not allow `blob:` Workers) and why
+`connect-src` changed from `'none'` to `blob:` (`Wllama`'s WASM loader reads
+its `blob:` URL via an internal `fetch()`, which `connect-src 'none'` would
+have blocked). Both directives are scoped to the local, in-memory `blob:`
+scheme only — no `http:`/`https:` source was added anywhere, and
+`scripts/check-dist.mjs` asserts that precisely.
 
 `createModelSource()`'s synthetic base URL (`https://refrain-sheet.invalid/models/<key>/resolve/main/`)
 uses the `.invalid` TLD (IANA-reserved, RFC 2606, guaranteed never to
@@ -174,6 +238,21 @@ the following were run against a real browser, for either vendored model:
   (`Commands.applyAiPlan()`) have unit tests; the system prompt's actual
   effect on either small on-device model's output was not exercised
   end-to-end.
+- For `smollm2-135m-instruct-gguf` (issue #169), none of the above was run
+  against a real browser either, and additionally: that `@wllama/wllama`
+  actually loads and runs the vendored `.gguf` file end-to-end in any
+  browser; that streaming (`onToken`) renders correctly in
+  `src/ui/ai-panel.ts`; that `n_threads: 1` / `n_ctx: 512` / `max_tokens: 64`
+  behave acceptably on real hardware, especially iOS 26 Safari, which the
+  Issue specifically calls out and which cannot be exercised in this
+  sandbox; that the `worker-src 'self' blob:` / `connect-src blob:` CSP
+  change is sufficient for `@wllama/wllama`'s Worker/WASM loading in every
+  targeted browser; and that the SHA-256 recorded in
+  `src/llm-gen/smollm2-135m-instruct-gguf/model-manifest.ts` matches what
+  `scripts/embed-model.mjs` actually wrote from the fetched `.gguf` file (it
+  was computed by that script from a file downloaded by an earlier session
+  with outbound network access, not re-verified against a fresh download in
+  this one).
 
 The cache-prepopulation trick also relies on **undocumented internals** of
 `@mlc-ai/web-llm@0.2.84` — the fixed Cache Storage scope names and the
@@ -205,10 +284,15 @@ To add a new model to the catalog: add an entry to `scripts/model-catalog.mjs`
 (upstream repo, file list, WASM kernel source), fetch and embed it as above,
 add the matching entry to `src/app/llm/model-catalog.ts`, add a new
 `src/app/llm/engine-entry.<key>.ts` (copy an existing one and adjust the
-`modelId`/`wasmFileName`/`overrides`), add the model's `LLM_MODEL_KEY=<key>
-vite build --config vite.llm.config.ts` pass to the `build` script in
-`package.json`, and add `aiAssistant.model.<key>.label` /
-`aiAssistant.model.<key>.description` to both `src/locales/en.json` and
+`modelId`/`wasmFileName`/`overrides` for a `'webllm'` model, or the
+`createWllamaEngine(MODEL_FILES)` import for a `'wllama'` model), add the
+model's `LLM_MODEL_KEY=<key> vite build --config vite.llm.config.ts` pass to
+the `build` script in `package.json`, and add `aiAssistant.model.<key>.label`
+/ `aiAssistant.model.<key>.description` to both `src/locales/en.json` and
 `src/locales/ja.json`. Per the size/scope precedent in "What is vendored"
 above, get explicit owner sign-off on the new model's size and license before
-vendoring it — this policy is not limited to the first model.
+vendoring it — this policy is not limited to the first model. A `'wllama'`
+model needs no `wasmFileName`/`wasmUrl` in `scripts/model-catalog.mjs` (its
+runtime is the one shared `@wllama/wllama` WASM binary,
+`npm run embed:wllama-wasm` / `scripts/embed-wllama-wasm.mjs`, re-run only
+when `package.json`'s `@wllama/wllama` version changes — not per model).

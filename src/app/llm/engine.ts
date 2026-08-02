@@ -35,15 +35,27 @@ export interface LlmEngine {
    * concurrent calls share one in-flight install, and a completed install
    * is reused.
    */
-  installLlm(onProgress?: (progress: LlmInstallProgress) => void): Promise<MLCEngine>;
+  installLlm(onProgress?: (progress: LlmInstallProgress) => void): Promise<void>;
   isLlmInstalled(): boolean;
   /**
    * Sends a single user message and returns the assistant's reply text.
    * Requires `installLlm()` to have completed. An optional `system` message
    * steers the reply's format (see src/core/ai-plan.ts) without changing the
-   * plain-chat call sites that omit it.
+   * plain-chat call sites that omit it. An optional `onToken` callback
+   * receives each incremental piece of the reply as it is generated —
+   * implemented by src/app/llm/wllama-engine.ts for its native token
+   * streaming; this WebLLM-backed engine does not stream and simply invokes
+   * it once with the full reply before resolving.
    */
-  askLlm(message: string, system?: string): Promise<string>;
+  askLlm(message: string, system?: string, onToken?: (delta: string) => void): Promise<string>;
+  /**
+   * Disposes the running engine and releases any resources it holds (e.g. a
+   * `Blob` URL), returning to the not-installed state so a later
+   * `installLlm()` starts fresh. Optional — this WebLLM-backed engine has no
+   * meaningful "uninstall" beyond a page reload and does not implement it;
+   * src/ui/ai-panel.ts only shows an Uninstall action when this is present.
+   */
+  uninstallLlm?(): Promise<void>;
 }
 
 export function createLlmEngine(modelSource: ModelSource, files: readonly ModelFileEntry[]): LlmEngine {
@@ -52,12 +64,12 @@ export function createLlmEngine(modelSource: ModelSource, files: readonly ModelF
   let engine: MLCEngine | undefined;
   let installPromise: Promise<MLCEngine> | undefined;
 
-  function installLlm(onProgress?: (progress: LlmInstallProgress) => void): Promise<MLCEngine> {
+  function installLlm(onProgress?: (progress: LlmInstallProgress) => void): Promise<void> {
     if (engine) {
-      return Promise.resolve(engine);
+      return Promise.resolve();
     }
     if (installPromise) {
-      return installPromise;
+      return installPromise.then(() => undefined);
     }
 
     installPromise = (async () => {
@@ -84,7 +96,7 @@ export function createLlmEngine(modelSource: ModelSource, files: readonly ModelF
       installPromise = undefined;
     });
 
-    return installPromise;
+    return installPromise.then(() => undefined);
   }
 
   function isLlmInstalled(): boolean {

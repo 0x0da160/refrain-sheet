@@ -295,3 +295,54 @@ describe('AiPanel model selection', () => {
     expect(select.hasAttribute('disabled')).toBe(true);
   });
 });
+
+describe('AiPanel unavailable engine fallback', () => {
+  beforeEach(() => {
+    (globalThis as unknown as { caches: unknown }).caches = {};
+    // No `gpu` on navigator, so the default model (a 'webllm' entry) reports
+    // 'no-webgpu' — this must not also hide the model picker, since a
+    // 'wllama' model in the same catalog may still work. See issue #172.
+    (globalThis as unknown as { navigator: unknown }).navigator = {};
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    delete (globalThis as { caches?: unknown }).caches;
+    delete (globalThis as { navigator?: unknown }).navigator;
+    delete (globalThis as { Worker?: unknown }).Worker;
+    document.head.innerHTML = '';
+    localStorage.clear();
+  });
+
+  it('still shows the model select when the default model’s engine is unavailable', async () => {
+    const { AiPanel } = await import('../src/ui/ai-panel');
+    const { MODEL_CATALOG } = await import('../src/app/llm/model-catalog');
+    const commands = new Commands(new AppState(), stubUi(), document);
+    const panel = new AiPanel(commands);
+    panel.show();
+
+    const select = panel.element.querySelector('select') as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    expect([...select.options].map((o) => o.value)).toEqual(MODEL_CATALOG.map((m) => m.key));
+    expect(panel.element.querySelector('button.primary')).toBeNull();
+    expect(panel.element.textContent).toContain('This browser does not support WebGPU');
+  });
+
+  it('switching to a wllama model from the unavailable view renders its install button', async () => {
+    const { AiPanel } = await import('../src/ui/ai-panel');
+    const { MODEL_CATALOG } = await import('../src/app/llm/model-catalog');
+    const commands = new Commands(new AppState(), stubUi(), document);
+    const panel = new AiPanel(commands);
+    panel.show();
+
+    (globalThis as unknown as { Worker: unknown }).Worker = class {};
+    const wllamaModel = MODEL_CATALOG.find((m) => m.engine === 'wllama');
+    expect(wllamaModel).toBeDefined();
+    const select = panel.element.querySelector('select') as HTMLSelectElement;
+    select.value = wllamaModel!.key;
+    select.dispatchEvent(new Event('change'));
+
+    expect(panel.element.querySelector('button.primary')).not.toBeNull();
+    expect(panel.element.textContent).not.toContain('This browser does not support WebGPU');
+  });
+});

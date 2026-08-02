@@ -2,9 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <!-- `worker-src blob:` and `connect-src blob:` exist only for the
+         @wllama/wllama local-assistant engine (src/app/llm/wllama-engine.ts),
+         which instantiates its inference Worker from a `Blob` built in
+         memory from its own bundled source (never fetched) and then reads
+         its WASM binary and the GGUF model back out of `blob:` URLs this app
+         itself creates from embedded, integrity-verified bytes — see
+         docs/llm-model.md and docs/security.md. `blob:`/`data:` are local,
+         in-memory schemes, never a real network origin, so this keeps the
+         "no runtime network access" guarantee: no `http:`/`https:` origin is
+         ever reachable. `scripts/check-dist.mjs` asserts this precisely. -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self' file: 'wasm-unsafe-eval'; style-src 'self' file:; img-src 'self' file: data:; font-src 'self' file:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'none'; script-src 'self' file: 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' file:; img-src 'self' file: data:; font-src 'self' file:; connect-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />

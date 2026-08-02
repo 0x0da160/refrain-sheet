@@ -63,22 +63,36 @@ that disagrees with the formula that claims to produce it.
 ### Runtime is offline by construction
 
 The built `dist/` embeds the WebAssembly core as Base64 (never fetched) and
-ships a Content-Security-Policy with `connect-src 'none'`. `npm run check:dist`
-fails the build if a `.wasm` asset, a network fetch, or a module `<script>`
-(which would break `file://`) sneaks in. This offline guarantee is a security
-property, not just a convenience: there is no runtime channel to exfiltrate a
-user's file contents.
+ships a Content-Security-Policy with `connect-src blob:` (previously `'none'`;
+widened for issue #169 — see below and `docs/llm-model.md`). `npm run
+check:dist` fails the build if a `.wasm` asset, a network fetch to a real
+`http:`/`https:` origin, or a module `<script>` (which would break `file://`)
+sneaks in. This offline guarantee is a security property, not just a
+convenience: there is no runtime channel to exfiltrate a user's file contents.
+
+`connect-src blob:` and `worker-src 'self' blob:` exist only for the
+`@wllama/wllama` local-assistant engine (`src/app/llm/wllama-engine.ts`, issue
+#169): it instantiates its inference Worker from a `Blob` built in memory from
+its own bundled source (never fetched over the network), and reads its
+embedded WASM runtime and the embedded, integrity-verified GGUF model back out
+of `blob:` URLs this app itself creates. `blob:` is a local, in-memory scheme,
+never a real network origin, so no `http:`/`https:` origin is ever reachable
+and the "no runtime network access" guarantee holds — `scripts/check-dist.mjs`
+asserts this precisely (it fails the build if any `http:`/`https:` source
+appears anywhere in the CSP).
 
 ## Dependency policy
 
 - **Keep the count minimal.** Do not add a dependency for convenience. Prefer a
   platform/browser API or a small local implementation. The production runtime
-  has two dependencies: `encoding-japanese` (Shift_JIS / EUC-JP encoding, which
-  the browser's `TextEncoder` cannot produce; **zero transitive dependencies**),
-  and `@mlc-ai/web-llm` (the local AI assistant's in-browser inference engine;
-  see `docs/llm-model.md` for why this large, multi-transitive-dependency
-  exception was explicitly approved and how it is kept consistent with the
-  offline guarantee below). Everything else is dev-only build/test tooling.
+  has three dependencies: `encoding-japanese` (Shift_JIS / EUC-JP encoding,
+  which the browser's `TextEncoder` cannot produce; **zero transitive
+  dependencies**), `@mlc-ai/web-llm`, and `@wllama/wllama` (both local AI
+  assistant in-browser inference engines, kept side by side rather than one
+  replacing the other — see `docs/llm-model.md` for why this large,
+  multi-transitive-dependency exception was explicitly approved for each and
+  how both are kept consistent with the offline guarantee above). Everything
+  else is dev-only build/test tooling.
 - **Audit before adding.** New dependencies are reviewed for necessity,
   maintenance status, permission surface (install scripts, network access), and
   transitive footprint. Abandoned, over-permissive, or avoidable packages are

@@ -11,8 +11,9 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && NODE_OPTIONS=--max-old-space-size=8192 LLM_MODEL_KEY=gemma3-270m-ja vite build --config vite.llm.config.ts && NODE_OPTIONS=--max-old-space-size=8192 LLM_MODEL_KEY=smollm2-135m-instruct vite build --config vite.llm.config.ts",
+    "build": "tsc --noEmit && vite build && NODE_OPTIONS=--max-old-space-size=8192 LLM_MODEL_KEY=gemma3-270m-ja vite build --config vite.llm.config.ts && NODE_OPTIONS=--max-old-space-size=8192 LLM_MODEL_KEY=smollm2-135m-instruct vite build --config vite.llm.config.ts && NODE_OPTIONS=--max-old-space-size=8192 LLM_MODEL_KEY=smollm2-135m-instruct-gguf vite build --config vite.llm.config.ts",
     "build:wasm": "wasm-pack build wasm --release --target web --no-pack --out-dir pkg && node scripts/embed-wasm.mjs",
+    "embed:wllama-wasm": "node scripts/embed-wllama-wasm.mjs",
     "fetch:model": "node scripts/fetch-model.mjs",
     "embed:model": "node scripts/embed-model.mjs",
     "check:dist": "node scripts/check-dist.mjs",
@@ -30,6 +31,7 @@
   },
   "dependencies": {
     "@mlc-ai/web-llm": "0.2.84",
+    "@wllama/wllama": "3.5.1",
     "encoding-japanese": "^2.2.0"
   },
   "devDependencies": {

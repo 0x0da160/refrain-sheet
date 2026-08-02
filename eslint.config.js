@@ -11,6 +11,9 @@ export default tseslint.config(
   // `landing/` is a self-contained static marketing site (plain browser JS,
   // built by `landing/build.py`), not part of the TypeScript app — same
   // reasoning as excluding `wasm/`.
+  // `.llm-build-cache/` (gitignored) holds `scripts/build-llm-models.mjs`'s
+  // cached copies of the built `llm-engine.<key>.js` bundles — built output,
+  // like `dist/`, not source.
   {
     ignores: [
       'dist/',
@@ -21,6 +24,7 @@ export default tseslint.config(
       'wasm/',
       '.claude/',
       'landing/',
+      '.llm-build-cache/',
     ],
   },
   eslint.configs.recommended,

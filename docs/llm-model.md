@@ -109,8 +109,15 @@ setting inlines and eagerly evaluates every dynamically-imported module into
 the same single script anyway. Instead, each model gets its own standalone
 entry point (`src/app/llm/engine-entry.<key>.ts`), built as its own separate
 classic script by its own `vite.llm.config.ts` pass (`LLM_MODEL_KEY=<key>
-vite build --config vite.llm.config.ts`, one pass per catalog entry — see the
-`build` script in `package.json` — producing `dist/assets/llm-engine.<key>.js`).
+vite build --config vite.llm.config.ts`, one pass per catalog entry —
+producing `dist/assets/llm-engine.<key>.js`). The `build` script in
+`package.json` runs these passes via `scripts/build-llm-models.mjs`, which
+iterates `scripts/model-catalog.mjs` and skips a model's pass — reusing its
+last output from `.llm-build-cache/` (gitignored) instead — when nothing that
+pass reads (the model's generated payload, its entry point, or the shared
+build files) has changed since the last successful build; see that script's
+header comment. This is a build-time-only optimization (issue #175); a fresh
+checkout always runs every pass, unchanged from before.
 `src/ui/ai-panel.ts`'s `loadLlmEngine(modelKey)` loads the selected model's
 script at runtime by inserting a `<script>` tag, only once the user installs
 or chats with that model, so selecting one model never downloads or parses
@@ -285,11 +292,12 @@ To add a new model to the catalog: add an entry to `scripts/model-catalog.mjs`
 add the matching entry to `src/app/llm/model-catalog.ts`, add a new
 `src/app/llm/engine-entry.<key>.ts` (copy an existing one and adjust the
 `modelId`/`wasmFileName`/`overrides` for a `'webllm'` model, or the
-`createWllamaEngine(MODEL_FILES)` import for a `'wllama'` model), add the
-model's `LLM_MODEL_KEY=<key> vite build --config vite.llm.config.ts` pass to
-the `build` script in `package.json`, and add `aiAssistant.model.<key>.label`
-/ `aiAssistant.model.<key>.description` to both `src/locales/en.json` and
-`src/locales/ja.json`. Per the size/scope precedent in "What is vendored"
+`createWllamaEngine(MODEL_FILES)` import for a `'wllama'` model) — no change
+to `package.json`'s `build` script is needed, since `scripts/build-llm-models.mjs`
+derives its list of passes from `scripts/model-catalog.mjs` — and add
+`aiAssistant.model.<key>.label` / `aiAssistant.model.<key>.description` to
+both `src/locales/en.json` and `src/locales/ja.json`. Per the size/scope
+precedent in "What is vendored"
 above, get explicit owner sign-off on the new model's size and license before
 vendoring it — this policy is not limited to the first model. A `'wllama'`
 model needs no `wasmFileName`/`wasmUrl` in `scripts/model-catalog.mjs` (its

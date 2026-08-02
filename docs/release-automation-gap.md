@@ -30,25 +30,25 @@ publishes the GitHub Release **and** deploys GitHub Pages from that tag.
 
 ## Verified inventory
 
-| Question                         | Verified answer                                                                                                                                                |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Production branch                | `main` (repository default branch; `ALLOWED_BRANCH` in `scripts/release.mjs`)                                                                                  |
-| Authoritative version            | `version` in `package.json` (single source; `src/app/version.ts` imports it)                                                                                   |
-| Bump command                     | `npm run release -- patch \| minor \| major \| vX.Y.Z`, flags `--yes`, `--dry-run`, `--remote <name>`                                                          |
-| Files the bump changes           | exactly `package.json` and `package-lock.json`                                                                                                                 |
-| Does the bump script commit/tag? | **Yes, and it pushes both** — commit `Release vX.Y.Z`, annotated tag `vX.Y.Z`, `git push` of branch then tag                                                   |
-| Release trigger                  | `push` of a tag matching `v[0-9]+.[0-9]+.[0-9]+`                                                                                                               |
-| Git tag                          | Yes — created and pushed by `scripts/release.mjs`                                                                                                              |
-| GitHub Release                   | Yes — `release.yml`, idempotent (`gh release view` → `create`, else `upload --clobber` + `edit`)                                                               |
-| Package-registry publish         | **No** — `package.json` is `"private": true`; no `npm publish` anywhere                                                                                        |
-| Deployment                       | Yes — GitHub Pages, `deploy-pages` job inside `release.yml`                                                                                                    |
-| Changelog                        | Yes, but **manual** — `CHANGELOG.md` is hand-maintained per PR (its own "Maintaining this file" section); nothing in the release path generates or retitles it |
-| Release notes                    | Yes — a fixed template written inside `release.yml` (not derived from commits)                                                                                 |
-| Pages build / output             | `npm run build` (`tsc --noEmit && vite build && vite build --config vite.llm.config.ts`) → `dist/`                                                             |
-| Pages model                      | Official artifact model: `configure-pages` + `upload-pages-artifact` (`path: dist`) + `deploy-pages`                                                           |
-| Pages environment                | `github-pages`, with `concurrency: pages`, `cancel-in-progress: false`                                                                                         |
-| Required secrets                 | **None.** `GITHUB_TOKEN` + OIDC only                                                                                                                           |
-| Rollback                         | **None documented** for a published Release, tag, or Pages deployment                                                                                          |
+| Question                         | Verified answer                                                                                                                                                                                      |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Production branch                | `main` (repository default branch; `ALLOWED_BRANCH` in `scripts/release.mjs`)                                                                                                                        |
+| Authoritative version            | `version` in `package.json` (single source; `src/app/version.ts` imports it)                                                                                                                         |
+| Bump command                     | `npm run release -- patch \| minor \| major \| vX.Y.Z`, flags `--yes`, `--dry-run`, `--remote <name>`                                                                                                |
+| Files the bump changes           | exactly `package.json` and `package-lock.json`                                                                                                                                                       |
+| Does the bump script commit/tag? | **Yes, and it pushes both** — commit `Release vX.Y.Z`, annotated tag `vX.Y.Z`, `git push` of branch then tag                                                                                         |
+| Release trigger                  | `push` of a tag matching `v[0-9]+.[0-9]+.[0-9]+`                                                                                                                                                     |
+| Git tag                          | Yes — created and pushed by `scripts/release.mjs`                                                                                                                                                    |
+| GitHub Release                   | Yes — `release.yml`, idempotent (`gh release view` → `create`, else `upload --clobber` + `edit`)                                                                                                     |
+| Package-registry publish         | **No** — `package.json` is `"private": true`; no `npm publish` anywhere                                                                                                                              |
+| Deployment                       | Yes — GitHub Pages, `deploy-pages` job inside `release.yml`                                                                                                                                          |
+| Changelog                        | Yes, but **manual** — `CHANGELOG.md` is hand-maintained per PR (its own "Maintaining this file" section); nothing in the release path generates or retitles it                                       |
+| Release notes                    | Yes — a fixed template written inside `release.yml` (not derived from commits)                                                                                                                       |
+| Pages build / output             | `npm run build` (`tsc --noEmit && vite build && node scripts/build-llm-models.mjs`, one `vite build --config vite.llm.config.ts` pass per catalog model, cached — see `docs/llm-model.md`) → `dist/` |
+| Pages model                      | Official artifact model: `configure-pages` + `upload-pages-artifact` (`path: dist`) + `deploy-pages`                                                                                                 |
+| Pages environment                | `github-pages`, with `concurrency: pages`, `cancel-in-progress: false`                                                                                                                               |
+| Required secrets                 | **None.** `GITHUB_TOKEN` + OIDC only                                                                                                                                                                 |
+| Rollback                         | **None documented** for a published Release, tag, or Pages deployment                                                                                                                                |
 
 Validation the release path runs, in order:
 

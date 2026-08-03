@@ -81,7 +81,11 @@ export class SortCommands {
         while (top > 0 && bottom - top < MAX_SHEET_SORT_ROWS - 1 && rowHasData(top - 1)) {
           top -= 1;
         }
-        while (bottom < doc.rowCount - 1 && bottom - top < MAX_SHEET_SORT_ROWS - 1 && rowHasData(bottom + 1)) {
+        while (
+          bottom < doc.rowCount - 1 &&
+          bottom - top < MAX_SHEET_SORT_ROWS - 1 &&
+          rowHasData(bottom + 1)
+        ) {
           bottom += 1;
         }
         left = 0;
@@ -114,7 +118,11 @@ export class SortCommands {
       return this.clearSort(tab);
     }
 
-    const sort = validateSort({ top, left, bottom, right, headerRow: result.headerRow, keys: result.keys }, doc.rowCount, doc.columnCount);
+    const sort = validateSort(
+      { top, left, bottom, right, headerRow: result.headerRow, keys: result.keys },
+      doc.rowCount,
+      doc.columnCount,
+    );
     if (!sort) {
       await this.ui.showMessage(t('dialog.sort.title'), t('dialog.sort.invalid'));
       return false;

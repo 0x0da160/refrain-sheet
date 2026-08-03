@@ -229,11 +229,17 @@ export class WorksheetCommands {
     // Structural row/column changes clear an active filter atomically (its
     // stored range would otherwise drift against the moved rows — documented
     // behavior; Undo restores structure and filter together). The user is
-    // told when that happened.
+    // told when that happened. An active sort is dropped the same way (see
+    // `Worksheet.insertRows` etc.) but, being session-only view state, is not
+    // restored by undo.
     const hadFilter = doc.filter !== null;
+    const hadSort = doc.sort !== null;
     const done = (applied: boolean): void => {
       if (applied && hadFilter && doc.filter === null) {
         this.ui.notify(t('notify.filterClearedByStructure'), 'info');
+      }
+      if (applied && hadSort && doc.sort === null) {
+        this.ui.notify(t('notify.sortClearedByStructure'), 'info');
       }
     };
     switch (id) {

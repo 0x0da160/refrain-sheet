@@ -457,7 +457,10 @@ export class AppState {
     // Structural operations (row/column insert and delete) move a spill's
     // anchor rather than writing into it, so only the cell writes are checked.
     for (const op of entry.ops) {
-      if (op.type === 'cells' && (this.refuseSpillWrite(tab, op.changes) || this.refuseSortedWrite(tab, op.changes))) {
+      if (
+        op.type === 'cells' &&
+        (this.refuseSpillWrite(tab, op.changes) || this.refuseSortedWrite(tab, op.changes))
+      ) {
         return false;
       }
     }

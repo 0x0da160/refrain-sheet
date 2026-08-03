@@ -137,6 +137,13 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.sheet.filter', command: 'sheet.filter' },
         { labelKey: 'menu.sheet.filterClear', command: 'sheet.filterClear' },
         'separator',
+        // Sorting is RSF-only and view-only: it never reorders, deletes, or
+        // rewrites cell data (see docs/architecture.md), so it combines
+        // cleanly with an active filter. No shortcut by design, same as
+        // Filter above.
+        { labelKey: 'menu.sheet.sort', command: 'sheet.sort' },
+        { labelKey: 'menu.sheet.sortClear', command: 'sheet.sortClear' },
+        'separator',
         // The only way a volatile formula (TODAY, NOW) updates without an
         // edit: there is deliberately no background recalculation timer.
         { labelKey: 'menu.sheet.recalculate', command: 'sheet.recalculate' },

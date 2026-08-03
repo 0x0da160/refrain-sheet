@@ -6,6 +6,7 @@ import { type EncodingId } from '../core/encoding';
 import { type ColumnFilter } from '../core/filter';
 import { isFormula } from '../core/formula';
 import { RsfDocument } from '../core/rsf-document';
+import { type SortKey } from '../core/sort';
 import type { CompiledQuery, SearchScope } from '../core/search';
 import {
   KEEP_SAVE_OPTIONS,
@@ -29,6 +30,7 @@ import { setSheetFont, type SheetFontId } from './sheet-font';
 import { setTheme, type ThemeChoice } from './theme';
 import { FileIoCommands } from './commands/file-io';
 import { FilterCommands } from './commands/filter';
+import { SortCommands } from './commands/sort';
 import { WorksheetCommands } from './commands/worksheets';
 import { PasteFillCommands, type FlashFillPreview } from './commands/paste-fill';
 import { RangeOpsCommands, type ReplaceAllReport } from './commands/range-ops';
@@ -103,6 +105,28 @@ export type FilterDialogResult =
   | { action: 'clearAll' };
 
 /**
+ * Everything the sort dialog needs to edit the sheet's compound sort keys.
+ * The command layer prepares it (range detection, per-column header labels)
+ * so the dialog itself stays a pure presentation surface — mirrors
+ * `FilterDialogInput`.
+ */
+export interface SortDialogInput {
+  /** Human-readable A1 range of the sort, e.g. "A1:D200". */
+  rangeLabel: string;
+  /** Whether the range's first row is treated as a header (never reordered). */
+  headerRow: boolean;
+  /** Every column of the range, for the key column pickers. */
+  columns: Array<{ col: number; letter: string; header: string }>;
+  /** The active sort's current keys (empty when nothing is sorted yet). */
+  existingKeys: SortKey[];
+  /** True when a sort already exists (its range is then fixed). */
+  hasActiveSort: boolean;
+}
+
+/** What the sort dialog resolved to (null = cancelled, nothing changes). */
+export type SortDialogResult = { action: 'apply'; headerRow: boolean; keys: SortKey[] } | { action: 'clear' };
+
+/**
  * The UI surface the command layer talks to. Menu items, context menus,
  * keyboard shortcuts, and drag-and-drop all execute the same commands; the
  * commands drive dialogs and notifications only through this port, which
@@ -152,6 +176,12 @@ export interface UiPort {
    * with the chosen action, or null when cancelled (nothing changes).
    */
   chooseFilter(input: FilterDialogInput): Promise<FilterDialogResult | null>;
+  /**
+   * The accessible sort dialog: compound sort keys (column + direction) and
+   * the header-row setting. Resolves with the chosen action, or null when
+   * cancelled (nothing changes).
+   */
+  chooseSort(input: SortDialogInput): Promise<SortDialogResult | null>;
   /**
    * Ask for a worksheet name when adding, renaming, or duplicating. `validate`
    * returns an already-localized error message for an unacceptable name (empty,
@@ -274,6 +304,8 @@ export type CommandId =
   | 'sheet.autoFitCols'
   | 'sheet.filter'
   | 'sheet.filterClear'
+  | 'sheet.sort'
+  | 'sheet.sortClear'
   | 'sheet.recalculate'
   | 'sheet.timezone'
   | 'sheet.displayLanguage'
@@ -350,6 +382,7 @@ export class Commands {
   ) {
     this.fileIo = new FileIoCommands(state, ui, dom);
     this.filter = new FilterCommands(state, ui);
+    this.sort = new SortCommands(state, ui);
     this.worksheets = new WorksheetCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.pasteFill = new PasteFillCommands(
       state,
@@ -365,6 +398,9 @@ export class Commands {
 
   /** Filter dialog flow, apply/clear, and hidden-row queries — see `FilterCommands`. */
   private readonly filter: FilterCommands;
+
+  /** Sort dialog flow and apply/clear — see `SortCommands`. */
+  private readonly sort: SortCommands;
 
   /** Worksheet lifecycle and row/column structural commands — see `WorksheetCommands`. */
   private readonly worksheets: WorksheetCommands;
@@ -427,6 +463,7 @@ export class Commands {
       case 'edit.flashFill':
       case 'edit.moveRange':
       case 'sheet.filter':
+      case 'sheet.sort':
         return tab?.selection != null;
       // The async Clipboard API's image write has inconsistent browser
       // support (including on file://), so the item is hidden/disabled
@@ -456,6 +493,8 @@ export class Commands {
       }
       case 'sheet.filterClear':
         return tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null;
+      case 'sheet.sortClear':
+        return tab !== null && tab.doc.kind === 'rsf' && tab.doc.sort !== null;
       case 'sheet.recalculate':
         // Only spreadsheet documents evaluate anything; a plain CSV has no
         // formulas and therefore nothing to recalculate.
@@ -622,6 +661,12 @@ export class Commands {
         return;
       case 'sheet.filterClear':
         if (tab) this.clearAllFilters(tab);
+        return;
+      case 'sheet.sort':
+        if (tab) await this.sortDialog(tab);
+        return;
+      case 'sheet.sortClear':
+        if (tab) this.clearSort(tab);
         return;
       case 'sheet.recalculate':
         // Drops every cached result and advances the clock the volatile
@@ -1034,6 +1079,26 @@ export class Commands {
   /** Sheet > Clear All Filters: every row becomes visible again (undoable). See `FilterCommands.clearAllFilters`. */
   clearAllFilters(tab: Tab): boolean {
     return this.filter.clearAllFilters(tab);
+  }
+
+  // ----- Sorting (RSF spreadsheet documents only; view-only, unsaved) -----
+
+  /** The active tab's sort display order, or null when unsorted. See `SortCommands.sortOrder`. */
+  sortOrder(tab: Tab): number[] | null {
+    return this.sort.sortOrder(tab);
+  }
+
+  /**
+   * Sheet > Sort…: open the sort dialog and apply the result. See
+   * `SortCommands.sortDialog` for the full behavior contract.
+   */
+  async sortDialog(tab: Tab): Promise<boolean> {
+    return this.sort.sortDialog(tab);
+  }
+
+  /** Sheet > Clear Sort: rows return to document order. See `SortCommands.clearSort`. */
+  clearSort(tab: Tab): boolean {
+    return this.sort.clearSort(tab);
   }
 
   /** Clear every cell in the selected range as one undoable operation. See

@@ -36,6 +36,7 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | Rebuild embedded WASM        | `npm run build:wasm` (only when `wasm/` changes) |
 | Self-contained dist check    | `npm run check:dist`                             |
 | Version consistency          | `npm run check:versions`                         |
+| Changelog gate (PR CI only)  | `npm run check:changelog`                        |
 | Production dependency audit  | `npm run audit:ci`                               |
 
 Do not invent commands. If a needed command does not exist, stop and say so.
@@ -63,6 +64,12 @@ Do not invent commands. If a needed command does not exist, stop and say so.
   raw logs, or error messages. Quote the Issue author's own words verbatim in
   their original language. See `docs/agent-operations.md` § Bilingual agent
   communication.
+- A PR that changes `src/` or `wasm/src/` must add an entry under
+  `[Unreleased]` in `CHANGELOG.md` describing what a user would notice. CI
+  enforces this (`npm run check:changelog`). When the change is genuinely
+  internal — a refactor, a test, CI, or tooling with no user-visible effect —
+  put `Changelog: not-needed` in the PR description instead of inventing an
+  entry. Do not use the opt-out to skip an entry a user would have wanted.
 
 ## Required verification before opening a PR
 

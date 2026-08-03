@@ -20,7 +20,7 @@ import { Dialogs } from '../src/ui/dialogs';
 import { MenuBar, type MenuChecks } from '../src/ui/menu-bar';
 import { WelcomeScreen } from '../src/ui/welcome-screen';
 
-const SITE_URL = 'https://0x0da160.github.io/refrain-sheet/';
+const SITE_URL = 'https://app.refrain-sheet.com/';
 const RELEASES_URL = 'https://github.com/0x0da160/refrain-sheet/releases/';
 
 function stubUi(): UiPort {

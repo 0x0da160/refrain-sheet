@@ -23,6 +23,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Changed
+
+- The "Web App" link (About dialog, README, and landing page) now points to
+  `https://app.refrain-sheet.com/` instead of the GitHub Pages URL.
+  ([#204](https://github.com/0x0da160/refrain-sheet/issues/204))
+
 ### Removed
 
 - The on-device "AI Assistant" feature (side panel, menu entry, in-browser

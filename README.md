@@ -1592,8 +1592,11 @@ default, and no tracking once an explicit theme is chosen).
 - **CI** (`.github/workflows/ci.yml`) runs on pull requests and pushes to
   `main`: `npm ci --ignore-scripts`, version-consistency, format check, lint,
   tests, build, `check:dist`, a production-dependency `npm audit` gate, and a
-  clean-tree assertion. It is entirely read-only, creates no releases, and needs
-  no secrets, so fork PRs run safely.
+  clean-tree assertion. On pull requests it additionally runs the changelog
+  gate (`check:changelog`), which fails a PR that changes `src/` or `wasm/src/`
+  without an entry in [CHANGELOG.md](CHANGELOG.md); a purely internal change
+  says `Changelog: not-needed` in its description instead. CI is entirely
+  read-only, creates no releases, and needs no secrets, so fork PRs run safely.
 - **Dependency review** (`.github/workflows/dependency-review.yml`) runs on pull
   requests and fails a PR that introduces a high/critical-severity or
   disallowed-license dependency. It is read-only and uses the plain

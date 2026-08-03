@@ -609,7 +609,9 @@ switching live with a **System default** theme when `prefers-color-scheme`
 changes. Both variants are bundled locally (no network request), the icon stays
 decorative (empty `alt`, `aria-hidden`, so it never double-announces the brand),
 and switching only re-points the same element — its fixed dimensions never
-shift layout or distort. The favicon is unchanged.
+shift layout or distort. The favicon follows the OS/browser dark-mode
+preference too, via an embedded `prefers-color-scheme` style — no script runs
+before the browser tab paints it.
 
 The theme is a **semantic CSS custom-property system**: `styles.css` defines one
 light palette in `:root` and one dark palette under `:root[data-theme="dark"]`,

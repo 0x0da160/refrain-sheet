@@ -25,6 +25,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The app icon, the app favicon, and the marketing site favicon now share one
+  brand mark (a rounded frame with a grid divider and a small flourish). The
+  favicon also follows the OS/browser dark-mode preference.
+  ([#205](https://github.com/0x0da160/refrain-sheet/issues/205))
 - The "Web App" link (About dialog, README, and landing page) now points to
   `https://app.refrain-sheet.com/` instead of the GitHub Pages URL.
   ([#204](https://github.com/0x0da160/refrain-sheet/issues/204))

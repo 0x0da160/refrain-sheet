@@ -2,7 +2,7 @@
 
 A local-first, format-preserving CSV and spreadsheet editor.
 
-**[Web App](https://0x0da160.github.io/refrain-sheet/)** · **[Releases](https://github.com/0x0da160/refrain-sheet/releases/)**
+**[Web App](https://app.refrain-sheet.com/)** · **[Releases](https://github.com/0x0da160/refrain-sheet/releases/)**
 
 Refrain Sheet is a local-first, offline CSV and spreadsheet editor that runs
 directly from a local HTML file. It preserves CSV files as faithfully as

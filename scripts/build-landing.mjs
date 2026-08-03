@@ -35,7 +35,7 @@ const STATIC_ASSETS = ['main.js', 'styles.css', 'favicon.svg', 'assets'];
 const rawSite = process.argv[2];
 const SITE = rawSite ? rawSite.replace(/\/+$/, '') + '/' : undefined;
 
-const APP = 'https://0x0da160.github.io/refrain-sheet/';
+const APP = 'https://app.refrain-sheet.com/';
 const REPO = 'https://github.com/0x0da160/refrain-sheet';
 const OG_IMG = 'assets/refrain-sheet-og-image.png';
 const PAGES = { ja: 'index.html', en: 'en/index.html' };

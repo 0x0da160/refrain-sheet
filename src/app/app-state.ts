@@ -701,6 +701,11 @@ export class AppState {
     return this.worksheetsState.docRow(tab, row);
   }
 
+  /** The display slot a document row currently occupies (inverse of {@link docRow}). */
+  sortSlot(tab: Tab, row: number): number {
+    return this.worksheetsState.sortSlot(tab, row);
+  }
+
   /**
    * Set (or clear, with null) the active worksheet's sort. Session-only view
    * state, not an undoable history entry and never saved to the container —

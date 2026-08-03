@@ -3,6 +3,8 @@ import type {
   FilterDialogInput,
   FilterDialogResult,
   RangeMoveConfirmInput,
+  SortDialogInput,
+  SortDialogResult,
   WorkbookReplaceConfirmInput,
 } from '../../app/commands';
 import { t } from '../../app/i18n';
@@ -16,6 +18,7 @@ import {
   type FilterTextOp,
 } from '../../core/filter';
 import { MAX_SHEET_NAME_LENGTH } from '../../core/formula';
+import { MAX_SHEET_SORT_KEYS, type SortKey } from '../../core/sort';
 import { el } from '../dom';
 import type { AnchorRect } from '../popup';
 import { dialogButton, openDialog, openPopover } from './shared';
@@ -316,6 +319,131 @@ export class SheetOpsDialogs {
         );
       },
     );
+  }
+
+  /**
+   * The accessible sort dialog: a header-row assumption (editable only when
+   * creating the sort — an active sort's range/header are fixed until it is
+   * cleared, mirroring `chooseFilter`'s header-row lock) and a compound list
+   * of sort levels (column + ascending/descending), each addable/removable
+   * up to {@link MAX_SHEET_SORT_KEYS}, always keeping at least one level.
+   * Resolves with the chosen action or null (cancel).
+   */
+  chooseSort(input: SortDialogInput): Promise<SortDialogResult | null> {
+    return openDialog<SortDialogResult | null>(t('dialog.sort.title'), null, (body, buttons, close) => {
+      body.append(el('p', { text: t('dialog.sort.range', { range: input.rangeLabel }) }));
+
+      const headerCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+      headerCheck.checked = input.headerRow;
+      headerCheck.disabled = input.hasActiveSort;
+      body.append(
+        el('div', { className: 'form-row' }, [
+          el('label', {}, [headerCheck, el('span', { text: t('dialog.sort.headerRow') })]),
+        ]),
+      );
+      if (input.hasActiveSort) {
+        body.append(el('p', { className: 'dialog-note', text: t('dialog.sort.headerLocked') }));
+      }
+
+      body.append(el('h3', { className: 'dialog-subhead', text: t('dialog.sort.keys') }));
+      const keysHost = el('div', { className: 'sort-keys' });
+      body.append(keysHost);
+
+      type Row = { col: HTMLSelectElement; dir: HTMLSelectElement; wrap: HTMLElement };
+      const rows: Row[] = [];
+
+      const addBtn = el('button', {
+        className: 'filter-add',
+        text: t('dialog.sort.addKey'),
+        attrs: { type: 'button' },
+      }) as HTMLButtonElement;
+
+      const refreshRemoveButtons = (): void => {
+        for (const row of rows) {
+          const removeBtn = row.wrap.querySelector<HTMLButtonElement>('.sort-remove');
+          if (removeBtn) {
+            removeBtn.disabled = rows.length <= 1;
+          }
+        }
+      };
+
+      const makeRow = (key?: SortKey): void => {
+        const colSelect = el('select', {
+          attrs: { 'aria-label': t('dialog.sort.column') },
+        }) as HTMLSelectElement;
+        for (const column of input.columns) {
+          colSelect.append(
+            el('option', {
+              text: column.header ? `${column.letter} — ${column.header}` : column.letter,
+              attrs: { value: String(column.col) },
+            }),
+          );
+        }
+        const dirSelect = el('select', {
+          attrs: { 'aria-label': t('dialog.sort.direction') },
+        }) as HTMLSelectElement;
+        dirSelect.append(
+          el('option', { text: t('dialog.sort.ascending'), attrs: { value: 'asc' } }),
+          el('option', { text: t('dialog.sort.descending'), attrs: { value: 'desc' } }),
+        );
+        if (key) {
+          colSelect.value = String(key.col);
+          dirSelect.value = key.ascending ? 'asc' : 'desc';
+        }
+        const removeBtn = el('button', {
+          className: 'filter-add sort-remove',
+          text: t('dialog.sort.removeKey'),
+          attrs: { type: 'button', 'aria-label': t('dialog.sort.removeKey') },
+        }) as HTMLButtonElement;
+        const wrap = el('div', { className: 'sort-key-row' }, [colSelect, dirSelect, removeBtn]);
+        removeBtn.addEventListener('click', () => {
+          const i = rows.findIndex((r) => r.wrap === wrap);
+          if (i < 0) {
+            return;
+          }
+          rows.splice(i, 1);
+          wrap.remove();
+          refreshRemoveButtons();
+          addBtn.disabled = rows.length >= MAX_SHEET_SORT_KEYS;
+        });
+        keysHost.append(wrap);
+        rows.push({ col: colSelect, dir: dirSelect, wrap });
+      };
+
+      for (const key of input.existingKeys) {
+        makeRow(key);
+      }
+      if (rows.length === 0) {
+        makeRow();
+      }
+      refreshRemoveButtons();
+
+      addBtn.addEventListener('click', () => {
+        if (rows.length < MAX_SHEET_SORT_KEYS) {
+          makeRow();
+          refreshRemoveButtons();
+        }
+        addBtn.disabled = rows.length >= MAX_SHEET_SORT_KEYS;
+      });
+      addBtn.disabled = rows.length >= MAX_SHEET_SORT_KEYS;
+      body.append(addBtn);
+
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.sort.note') }));
+
+      buttons.append(dialogButton(t('dialog.sort.cancel'), false, true, () => close(null)));
+      if (input.hasActiveSort) {
+        buttons.append(dialogButton(t('dialog.sort.clear'), false, false, () => close({ action: 'clear' })));
+      }
+      buttons.append(
+        dialogButton(t('dialog.sort.apply'), true, false, () => {
+          const keys: SortKey[] = rows.map((row) => ({
+            col: Number(row.col.value),
+            ascending: row.dir.value === 'asc',
+          }));
+          close({ action: 'apply', headerRow: headerCheck.checked, keys });
+        }),
+      );
+    });
   }
 
   /** Choose the shift direction for Insert Copied Cells… (null cancels). */

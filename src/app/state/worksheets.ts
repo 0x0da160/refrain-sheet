@@ -142,6 +142,36 @@ export class WorksheetsState {
   }
 
   /**
+   * Inverse of {@link sortOrder}, per sort object (same lifetime as
+   * `sortOrderCache`): the display slot a document row occupies.
+   */
+  private readonly sortSlotCache = new WeakMap<SheetSort, number[]>();
+
+  /**
+   * Translate a document row to the display slot its content currently
+   * occupies. Identity when the tab has no active sort — the inverse of
+   * {@link docRow}, used by keyboard navigation and hit-testing to walk the
+   * grid in display order while every mutation still addresses document rows.
+   */
+  sortSlot(tab: Tab, row: number): number {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || doc.sort === null) {
+      return row;
+    }
+    const sort = doc.sort;
+    let inverse = this.sortSlotCache.get(sort);
+    if (!inverse) {
+      const order = this.sortOrder(tab) ?? [];
+      inverse = new Array(order.length);
+      for (let slot = 0; slot < order.length; slot++) {
+        inverse[order[slot]] = slot;
+      }
+      this.sortSlotCache.set(sort, inverse);
+    }
+    return inverse[row] ?? row;
+  }
+
+  /**
    * Set (or clear, with null) the active worksheet's sort. Session-only view
    * state — like the current selection — so this is a direct mutation, not an
    * undoable history entry: it never touches cell values, never marks the

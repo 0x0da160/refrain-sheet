@@ -6,6 +6,8 @@ import type {
   FilterDialogResult,
   FlashFillPreview,
   RangeMoveConfirmInput,
+  SortDialogInput,
+  SortDialogResult,
   WorkbookReplaceConfirmInput,
 } from '../app/commands';
 import { t, type LocaleId } from '../app/i18n';
@@ -208,6 +210,11 @@ export class Dialogs {
   /** See `SheetOpsDialogs.chooseFilter` for the full behavior contract. */
   chooseFilter(input: FilterDialogInput): Promise<FilterDialogResult | null> {
     return this.sheetOps.chooseFilter(input);
+  }
+
+  /** See `SheetOpsDialogs.chooseSort` for the full behavior contract. */
+  chooseSort(input: SortDialogInput): Promise<SortDialogResult | null> {
+    return this.sheetOps.chooseSort(input);
   }
 
   /** See `SheetOpsDialogs.chooseInsertShift` for the full behavior contract. */

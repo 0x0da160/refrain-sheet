@@ -8,6 +8,7 @@ import { ColOffsetIndex } from '../core/col-offset-index';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import { RowHeightIndex } from '../core/row-height-index';
 import { forEachIndexSliced, yieldToBrowser } from '../core/scheduler';
+import type { SheetSort } from '../core/sort';
 import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../core/text-wrap';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
@@ -34,9 +35,14 @@ export const OVERSCAN_ROWS = 8;
 export const OVERSCAN_COLS = 3;
 
 interface RenderWindow {
-  /** First document row of the scrolling region rendered (inclusive). */
+  /**
+   * First *display slot* of the scrolling region rendered (inclusive). A
+   * slot is a document row when nothing is sorted; under an active sort it
+   * is a visual position, translated to the document row it shows via
+   * `docRowOf` (see `heightIndex`, which is always slot-keyed).
+   */
   rowStart: number;
-  /** One past the last document row rendered (exclusive). */
+  /** One past the last display slot rendered (exclusive). */
   rowEnd: number;
   colStart: number;
   colEnd: number;
@@ -652,6 +658,14 @@ export class Grid {
     return this.state.hiddenRows(tab);
   }
 
+  /**
+   * The document row whose content belongs at display slot `row`. Identity
+   * when nothing is sorted — see `AppState.docRow`/`core/sort.ts`.
+   */
+  private docRowOf(tab: Tab, row: number): number {
+    return this.state.docRow(tab, row);
+  }
+
   /** Zoomed default (single-line) row height in px. */
   private rowH(tab: Tab): number {
     return Math.round(ROW_HEIGHT * this.zoomOf(tab));
@@ -676,20 +690,36 @@ export class Grid {
   private readonly indexZoom = new WeakMap<object, number>();
   /** Hidden-row snapshot the row-height index was seeded with, per document. */
   private readonly indexHidden = new WeakMap<object, Set<number> | null>();
+  /** Active sort the row-height index was built against, per document. */
+  private readonly indexSort = new WeakMap<object, SheetSort | null>();
 
   /**
    * The per-tab row-height index (created lazily; uniform until wrapping
-   * grows a row or a filter hides one). Rows hidden by the active filter are
-   * seeded with height 0, so the virtualization offsets, scroll extent, and
-   * hit testing collapse them without any per-frame filtering work — and
-   * without ever materializing DOM for them.
+   * grows a row or a filter hides one). It is keyed by **display slot**, not
+   * document row: with an active sort, slot `i`'s height is the wrapped
+   * height of whatever document row `docRowOf(tab, i)` currently shows there
+   * (see `measureWindowRows`/`runWrapPass`), so scroll offsets are always
+   * computed in the order rows are actually stacked on screen. Rows hidden
+   * by the active filter are seeded with height 0 at their own row number —
+   * a hidden row's slot always equals its document row (`computeSortOrder`
+   * never moves it) — so the virtualization offsets, scroll extent, and hit
+   * testing collapse them without any per-frame filtering work, and without
+   * ever materializing DOM for them.
    */
   private heightIndex(tab: Tab): RowHeightIndex {
     let index = this.rowHeights.get(tab.doc);
     const hidden = this.hiddenOf(tab);
-    if (!index || this.indexZoom.get(tab.doc) !== tab.zoom || this.indexHidden.get(tab.doc) !== hidden) {
-      // A zoom or filter change invalidates every cached height (the uniform
-      // default and any wrapped measurements), so the index starts fresh.
+    const sort = tab.doc.kind === 'rsf' ? tab.doc.sort : null;
+    if (
+      !index ||
+      this.indexZoom.get(tab.doc) !== tab.zoom ||
+      this.indexHidden.get(tab.doc) !== hidden ||
+      this.indexSort.get(tab.doc) !== sort
+    ) {
+      // A zoom, filter, or sort change invalidates every cached height (the
+      // uniform default and any wrapped measurements — a sort change moves
+      // which document row's content each slot's height came from), so the
+      // index starts fresh.
       index = new RowHeightIndex(this.rowH(tab));
       if (hidden) {
         for (const row of hidden) {
@@ -699,6 +729,7 @@ export class Grid {
       this.rowHeights.set(tab.doc, index);
       this.indexZoom.set(tab.doc, tab.zoom);
       this.indexHidden.set(tab.doc, hidden ?? null);
+      this.indexSort.set(tab.doc, sort);
       this.wrapPassSig = null; // re-measure wrapped heights for the new state
       this.heightsVersion += 1;
     }
@@ -1274,17 +1305,18 @@ export class Grid {
     // ----- Virtualized data rows (variable height) -----
     clearChildren(this.rowsLayer);
     this.rowsLayer.style.height = `${layerHeight}px`;
-    for (let row = win.rowStart; row < win.rowEnd; row++) {
-      const height = idx.heightOf(row);
+    for (let slot = win.rowStart; slot < win.rowEnd; slot++) {
+      const height = idx.heightOf(slot);
       if (height === 0) {
         continue; // hidden by the active filter: no DOM is materialized
       }
+      const row = this.docRowOf(tab, slot);
       const wrapped = height > this.rowH(tab);
       const rowEl = el('div', {
-        className: `vgrid-row ${row % 2 === 1 ? 'alt' : ''}${wrapped ? ' wrapped' : ''}`,
-        attrs: { role: 'row', 'data-row': String(row), 'aria-rowindex': String(row + 2) },
+        className: `vgrid-row ${slot % 2 === 1 ? 'alt' : ''}${wrapped ? ' wrapped' : ''}`,
+        attrs: { role: 'row', 'data-row': String(row), 'aria-rowindex': String(slot + 2) },
       });
-      rowEl.style.top = `${idx.offsetOf(row) - originY}px`;
+      rowEl.style.top = `${idx.offsetOf(slot) - originY}px`;
       rowEl.style.height = `${height}px`;
       rowEl.style.width = `${totalW}px`;
       this.buildRowCells(tab, rowEl, row, win, false);
@@ -1369,8 +1401,9 @@ export class Grid {
     idx: RowHeightIndex,
   ): void {
     let changed = false;
-    for (let row = win.rowStart; row < win.rowEnd; row++) {
-      if (idx.set(row, this.computeRowHeight(tab, row, m.measure, m.chrome))) {
+    for (let slot = win.rowStart; slot < win.rowEnd; slot++) {
+      const row = this.docRowOf(tab, slot);
+      if (idx.set(slot, this.computeRowHeight(tab, row, m.measure, m.chrome))) {
         changed = true;
       }
     }
@@ -1433,11 +1466,12 @@ export class Grid {
     try {
       const ok = await forEachIndexSliced(
         total,
-        (row) => {
-          if (row < startRow) {
+        (slot) => {
+          if (slot < startRow) {
             return;
           }
-          if (idx.set(row, this.computeRowHeight(tab, row, m.measure, m.chrome))) {
+          const row = this.docRowOf(tab, slot);
+          if (idx.set(slot, this.computeRowHeight(tab, row, m.measure, m.chrome))) {
             dirty = true;
           }
         },
@@ -2384,10 +2418,12 @@ export class Grid {
   private scrollCellIntoView(tab: Tab, row: number, col: number): void {
     const idx = this.heightIndex(tab);
     const overlay = this.overlayHeight(tab);
-    if (!(this.stickyEnabled(tab) && row === 0)) {
+    // The height index is keyed by display slot, not document row.
+    const slot = this.state.sortSlot(tab, row);
+    if (!(this.stickyEnabled(tab) && slot === 0)) {
       const startRow = this.scrollRowBase(tab);
-      const y = idx.offsetOf(row) - idx.offsetOf(startRow);
-      const rowH = idx.heightOf(row);
+      const y = idx.offsetOf(slot) - idx.offsetOf(startRow);
+      const rowH = idx.heightOf(slot);
       const viewH = this.element.clientHeight - overlay;
       if (y < this.element.scrollTop) {
         this.element.scrollTop = y;
@@ -2410,32 +2446,35 @@ export class Grid {
   }
 
   /**
-   * Step a row index by `delta` counting only visible rows, so keyboard
-   * navigation (arrows, PageUp/Down) skips rows hidden by an active filter
-   * exactly like they are skipped visually. Without a filter this reduces to
-   * a plain clamped addition.
+   * Step a document row by `delta` counting only visible *display slots*, so
+   * keyboard navigation (arrows, PageUp/Down) walks the grid in the order
+   * rows actually appear on screen — skipping rows hidden by an active
+   * filter, and following an active sort's reordering — exactly like the
+   * rows are stacked visually. Without a filter or sort this reduces to a
+   * plain clamped addition (`from`'s slot equals `from` itself).
    */
   private stepVisibleRow(tab: Tab, from: number, delta: number): number {
     const hidden = this.hiddenOf(tab);
     const rowCount = tab.doc.rowCount;
-    if (!hidden || hidden.size === 0) {
+    const sorted = tab.doc.kind === 'rsf' && tab.doc.sort !== null;
+    if ((!hidden || hidden.size === 0) && !sorted) {
       return Math.max(0, Math.min(rowCount - 1, from + delta));
     }
     const dir = delta > 0 ? 1 : -1;
     let steps = Math.abs(delta);
-    let row = from;
+    let slot = this.state.sortSlot(tab, from);
     while (steps > 0) {
-      let next = row + dir;
-      while (next >= 0 && next < rowCount && hidden.has(next)) {
+      let next = slot + dir;
+      while (next >= 0 && next < rowCount && hidden?.has(this.docRowOf(tab, next))) {
         next += dir;
       }
       if (next < 0 || next >= rowCount) {
         break; // no further visible row in this direction
       }
-      row = next;
+      slot = next;
       steps -= 1;
     }
-    return row;
+    return this.docRowOf(tab, slot);
   }
 
   private moveSelection(tab: Tab, dRow: number, dCol: number, extend: boolean): void {

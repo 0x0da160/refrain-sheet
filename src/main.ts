@@ -71,6 +71,7 @@ function bootstrap(): void {
     chooseInsertShift: (rows, cols) => dialogs.chooseInsertShift(rows, cols),
     confirmFlashFill: (preview) => dialogs.confirmFlashFill(preview),
     chooseFilter: (input) => dialogs.chooseFilter(input),
+    chooseSort: (input) => dialogs.chooseSort(input),
     promptSheetName: (mode, current, validate) => dialogs.promptSheetName(mode, current, validate),
     confirmDeleteSheet: (name, references) => dialogs.confirmDeleteSheet(name, references),
     chooseExportSheet: (sheets, currentId) => dialogs.chooseExportSheet(sheets, currentId),

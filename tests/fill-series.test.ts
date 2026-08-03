@@ -30,6 +30,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseInsertShift: vi.fn(async () => 'down' as const),
     confirmFlashFill: vi.fn(async () => true),
     chooseFilter: vi.fn(async () => null),
+    chooseSort: vi.fn(async () => null),
     promptSheetName: vi.fn(async () => null),
     confirmDeleteSheet: vi.fn(async () => true),
     chooseExportSheet: vi.fn(async () => null),

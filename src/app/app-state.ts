@@ -11,6 +11,7 @@ import {
 } from '../core/history';
 import type { LosslessDocument } from '../core/lossless-document';
 import { RsfDocument } from '../core/rsf-document';
+import { sortDataTop, type SheetSort } from '../core/sort';
 import type { Worksheet } from '../core/worksheet';
 import { t } from './i18n';
 import { clampSheetZoom, getSheetZoom, getWrapCells } from './settings';
@@ -351,6 +352,27 @@ export class AppState {
     return true;
   }
 
+  /**
+   * Refuse a write that would land inside an active sort's range, announcing
+   * why. Editing a sorted range is disabled — rather than translated cell by
+   * cell — so a sort can never turn "edit what I see" into a silent write to
+   * an unrelated document row; clearing the sort (Sheet ▸ Clear Sort) always
+   * re-enables editing. Returns true when the caller must stop.
+   */
+  private refuseSortedWrite(tab: Tab, cells: ReadonlyArray<{ row: number; col: number }>): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || doc.sort === null) {
+      return false;
+    }
+    const sort = doc.sort;
+    const dataTop = sortDataTop(sort);
+    if (!cells.some((cell) => cell.row >= dataTop && cell.row <= sort.bottom)) {
+      return false;
+    }
+    this.announce?.(t('notify.sortedRangeReadOnly'));
+    return true;
+  }
+
   /** Set one cell's value as a single undoable operation. */
   editCell(tab: Tab, row: number, col: number, value: string, label = 'history.editCell'): boolean {
     if (tab.doc.kind === 'csv') {
@@ -379,7 +401,7 @@ export class AppState {
     if (before === value) {
       return false;
     }
-    if (this.refuseSpillWrite(tab, [{ row, col }])) {
+    if (this.refuseSpillWrite(tab, [{ row, col }]) || this.refuseSortedWrite(tab, [{ row, col }])) {
       return false;
     }
     const sheetId = tab.doc.activeSheetId;
@@ -398,7 +420,7 @@ export class AppState {
     if (effective.length === 0) {
       return false;
     }
-    if (this.refuseSpillWrite(tab, effective)) {
+    if (this.refuseSpillWrite(tab, effective) || this.refuseSortedWrite(tab, effective)) {
       return false;
     }
     const sheetId = tab.doc.kind === 'rsf' ? tab.doc.activeSheetId : undefined;
@@ -435,7 +457,10 @@ export class AppState {
     // Structural operations (row/column insert and delete) move a spill's
     // anchor rather than writing into it, so only the cell writes are checked.
     for (const op of entry.ops) {
-      if (op.type === 'cells' && this.refuseSpillWrite(tab, op.changes)) {
+      if (
+        op.type === 'cells' &&
+        (this.refuseSpillWrite(tab, op.changes) || this.refuseSortedWrite(tab, op.changes))
+      ) {
         return false;
       }
     }
@@ -655,6 +680,42 @@ export class AppState {
    */
   filterClearOpsFor(doc: RsfDocument): Operation[] {
     return this.worksheetsState.filterClearOpsFor(doc);
+  }
+
+  // ----- Sorting (RSF spreadsheet documents only; view-only, unsaved) -----
+
+  /**
+   * The active tab's sort display order, or null when nothing is sorted.
+   * `order[slot]` is the document row rendered/edited at display position
+   * `slot`. Computed once per sort object; the sort-apply command seeds this
+   * with its time-sliced result via {@link seedSortOrder}.
+   */
+  sortOrder(tab: Tab): number[] | null {
+    return this.worksheetsState.sortOrder(tab);
+  }
+
+  /** Pre-store a sort's display order (computed with slicing/progress). */
+  seedSortOrder(sort: SheetSort, order: number[]): void {
+    this.worksheetsState.seedSortOrder(sort, order);
+  }
+
+  /** The document row displayed/edited at a tab's display slot `row`. */
+  docRow(tab: Tab, row: number): number {
+    return this.worksheetsState.docRow(tab, row);
+  }
+
+  /** The display slot a document row currently occupies (inverse of {@link docRow}). */
+  sortSlot(tab: Tab, row: number): number {
+    return this.worksheetsState.sortSlot(tab, row);
+  }
+
+  /**
+   * Set (or clear, with null) the active worksheet's sort. Session-only view
+   * state, not an undoable history entry and never saved to the container —
+   * see {@link Worksheet.sort}.
+   */
+  setSort(tab: Tab, sort: SheetSort | null): boolean {
+    return this.worksheetsState.setSort(tab, sort);
   }
 
   // ----- Worksheets (RSF workbooks only) -----

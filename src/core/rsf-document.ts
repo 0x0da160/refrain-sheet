@@ -23,6 +23,7 @@ import {
 } from './spill';
 import type { ValueGrid } from './formula-value';
 import type { SheetFilter } from './filter';
+import type { SheetSort } from './sort';
 import {
   decodeRsfWorkbook,
   encodeRsfWorkbook,
@@ -917,6 +918,13 @@ export class RsfDocument {
 
   setFilterState(filter: SheetFilter | null): void {
     this.setFilterStateOn(undefined, filter);
+  }
+
+  // ----- Sort state (session-only view state; never persisted) -----
+
+  /** The active worksheet's sort. */
+  get sort(): SheetSort | null {
+    return this.activeSheet.sort;
   }
 
   // ----- Mutators (called through the atomic operation layer) -----

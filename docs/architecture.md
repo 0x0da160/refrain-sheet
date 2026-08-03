@@ -285,6 +285,18 @@ yield between slices). The rules, applied uniformly by the command layer:
   navigation all skip hidden rows consistently. Applying/clearing a filter is
   one atomic `HistoryEntry` (a `filter` op); structural row/column edits bundle
   a filter-clear into the same entry so the stored range can never drift.
+- **Sort = display order only, never mutate:** a sort (`src/core/sort.ts`)
+  only computes a display-order mapping (document row → display slot); it
+  never deletes, reorders, or rewrites cells, so formula evaluation and cell
+  identity are unaffected. It combines with an active filter the same way a
+  conventional sort combines with a filtered view: only rows the filter
+  leaves visible take part in the reordering, and hidden rows keep their own
+  position. Unlike a filter, a sort is session-only view state (like the
+  current selection) — it is never persisted in the RSF container, is not an
+  undoable `HistoryEntry`, and never marks the document dirty; editing a cell
+  inside the sorted range is refused until the sort is cleared, and structural
+  row/column edits drop the active sort outright (there is no stored range to
+  keep consistent, unlike the filter's atomic clear-and-bundle).
 - **One zoom sizing model:** the grid's per-tab zoom scales one set of JS
   metrics (row height, header width, wrap line box) and drives the CSS via
   inline custom properties set from those same values, so the line box a cell

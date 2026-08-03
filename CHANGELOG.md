@@ -14,6 +14,13 @@ user would notice). When a release is cut with `npm run release`, retitle
 section above it. Purely internal changes (CI, tests, refactors with no
 user-visible effect) do not need an entry.
 
+CI enforces the first half of that convention: a pull request that changes
+`src/` or `wasm/src/` fails unless it also changes this file. Because "touched
+`src/`" is only an approximation of "a user would notice", the gate can be
+waived — put `Changelog: not-needed` in the pull request description when the
+change really is internal, rather than inventing an entry to satisfy it. The
+release-time half (retitling `Unreleased`) is still done by hand.
+
 ## [Unreleased]
 
 ### Removed

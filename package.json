@@ -22,6 +22,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:versions": "node scripts/check-versions.mjs",
+    "check:changelog": "node scripts/check-changelog.mjs",
     "audit:ci": "npm audit --omit=dev --audit-level=high",
     "sbom": "npm sbom --sbom-format cyclonedx --omit=dev",
     "release": "node scripts/release.mjs"

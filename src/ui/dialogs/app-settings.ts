@@ -15,7 +15,7 @@ import { el } from '../dom';
 import { dialogButton, externalLink, openDialog } from './shared';
 
 /** Canonical external links (also listed at the top of README.md). */
-const SITE_URL = 'https://0x0da160.github.io/refrain-sheet/';
+const SITE_URL = 'https://app.refrain-sheet.com/';
 const RELEASES_URL = 'https://github.com/0x0da160/refrain-sheet/releases/';
 
 /** Display order and heading for each function-help category. */

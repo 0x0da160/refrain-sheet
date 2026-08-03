@@ -952,10 +952,22 @@ button {
   outline-offset: 1px;
 }
 
-/* Filter status chip and dialog sections. */
-.status-filter {
+/* Filter/sort status chips and dialog sections. */
+.status-filter,
+.status-sort {
   color: var(--accent);
   font-weight: 600;
+}
+
+.sort-key-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.sort-key-row select {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .dialog-subhead {
@@ -1781,6 +1793,15 @@ table.diag-table th {
 
   .filter-condition-row select,
   .filter-condition-row input {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .sort-key-row {
+    flex-wrap: wrap;
+  }
+
+  .sort-key-row select {
     min-width: 0;
     max-width: 100%;
   }

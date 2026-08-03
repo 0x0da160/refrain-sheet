@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { SheetFilter } from './filter';
 import { isFormula, parseFormula, type ParseResult } from './formula';
+import type { SheetSort } from './sort';
 
 /** A parsed formula kept alongside the source it was compiled from. */
 export interface CompiledFormula {
@@ -64,6 +65,16 @@ export class Worksheet {
   filter: SheetFilter | null = null;
   /** True when a loaded filter failed validation and was ignored (warned once). */
   filterDropped = false;
+
+  /**
+   * The worksheet's sort state: session-only view state, like the current
+   * selection — it is **not** persisted in the RSF container and never
+   * reaches the codec. Sorting only ever reorders how rows *display*; it
+   * never deletes, reorders, or rewrites cell data, and formula evaluation is
+   * completely unaffected. Mutated directly (not through the history layer),
+   * and reset whenever the worksheet's row/column structure changes.
+   */
+  sort: SheetSort | null = null;
 
   /**
    * Persisted display settings for this worksheet (zoom percent, overridden
@@ -266,6 +277,10 @@ export class Worksheet {
     this.data.splice(at, 0, ...prepared);
     this.formulaPerRow?.splice(at, 0, ...prepared.map((row) => this.countRowFormulas(row)));
     this.revision += 1;
+    // The sort's stored range would otherwise silently drift against the
+    // shifted rows; since sort is session-only view state (not undo-tracked),
+    // it is simply dropped rather than bundled into the structural entry.
+    this.sort = null;
   }
 
   /** Remove rows and return their data (for undo). */
@@ -277,6 +292,7 @@ export class Worksheet {
       this.formulaPerRow?.push(0);
     }
     this.revision += 1;
+    this.sort = null;
     return removed;
   }
 
@@ -292,6 +308,7 @@ export class Worksheet {
     }
     this.cols += count;
     this.revision += 1;
+    this.sort = null;
   }
 
   /** Remove columns and return their data as column-major arrays (for undo). */
@@ -314,6 +331,7 @@ export class Worksheet {
       }
     }
     this.revision += 1;
+    this.sort = null;
     return removed;
   }
 

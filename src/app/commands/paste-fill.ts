@@ -349,11 +349,15 @@ export class PasteFillCommands {
     }
     const large = copied.matrix.length * copied.matrix[0].length > LARGE_OP_CELLS;
     const hadFilter = doc.filter !== null;
+    const hadSort = doc.sort !== null;
     const run = (): boolean =>
       this.state.insertCopiedCells(tab, at, prepared.matrix, direction, prepared.origin);
     const applied = large ? await withBusy(this.ui, t('loading.inserting'), run) : run();
     if (applied && hadFilter && doc.filter === null) {
       this.ui.notify(t('notify.filterClearedByStructure'), 'info');
+    }
+    if (applied && hadSort && doc.sort === null) {
+      this.ui.notify(t('notify.sortClearedByStructure'), 'info');
     }
     return applied;
   }
@@ -409,11 +413,15 @@ export class PasteFillCommands {
     const direction = axis === 'rows' ? ('down' as const) : ('right' as const);
     const large = height * width > LARGE_OP_CELLS;
     const hadFilter = doc.filter !== null;
+    const hadSort = doc.sort !== null;
     const run = (): boolean =>
       this.state.insertCopiedCells(tab, at, prepared.matrix, direction, prepared.origin);
     const applied = large ? await withBusy(this.ui, t('loading.inserting'), run) : run();
     if (applied && hadFilter && doc.filter === null) {
       this.ui.notify(t('notify.filterClearedByStructure'), 'info');
+    }
+    if (applied && hadSort && doc.sort === null) {
+      this.ui.notify(t('notify.sortClearedByStructure'), 'info');
     }
     if (applied) {
       this.ui.notify(

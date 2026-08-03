@@ -33,6 +33,7 @@ function stubUi(): UiPort {
     chooseInsertShift: async () => null,
     confirmFlashFill: async () => false,
     chooseFilter: async () => null,
+    chooseSort: async () => null,
     promptSheetName: async () => null,
     confirmDeleteSheet: async () => true,
     chooseExportSheet: async () => null,

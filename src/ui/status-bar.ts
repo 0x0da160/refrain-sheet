@@ -91,6 +91,16 @@ export class StatusBar {
           }),
         );
       }
+      // Active sort: session-only view state, like the filter indicator above.
+      if (doc.sort !== null) {
+        this.element.append(
+          el('span', {
+            className: 'status-sort',
+            text: t('status.sorted', { keys: doc.sort.keys.length }),
+            attrs: { title: t('status.sortedTitle') },
+          }),
+        );
+      }
       if (doc.isDirty) {
         this.element.append(el('span', { text: t('status.unsaved') }));
       }

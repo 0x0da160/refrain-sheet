@@ -7,6 +7,7 @@ import {
 } from '../../core/formula';
 import type { CellChange, HistoryEntry, Operation } from '../../core/history';
 import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../../core/rsf-document';
+import { computeSortOrder, sortsEqual, type SheetSort } from '../../core/sort';
 import type { Worksheet } from '../../core/worksheet';
 import { AppState, type Tab } from '../app-state';
 import { clampSheetZoom, getSheetZoom, getWrapCells } from '../settings';
@@ -97,6 +98,96 @@ export class WorksheetsState {
     return doc.filter !== null
       ? [{ type: 'filter', before: doc.filter, after: null, sheetId: doc.activeSheetId }]
       : [];
+  }
+
+  /**
+   * Display-order snapshots per sort object (mirrors {@link hiddenRowsCache}):
+   * computed once when the sort is applied/edited, seeded by the time-sliced
+   * apply command via {@link seedSortOrder} so large sorts never compute
+   * twice. Sort objects are immutable, so a WeakMap keyed by them releases the
+   * order array with its sort.
+   */
+  private readonly sortOrderCache = new WeakMap<SheetSort, number[]>();
+
+  /**
+   * The active sort's display order for a tab — `order[slot]` is the document
+   * row to render/edit at display position `slot` — or null when nothing is
+   * sorted. See {@link computeSortOrder} for the mapping rules (identity
+   * outside the sort's range, and for rows an active filter hides).
+   */
+  sortOrder(tab: Tab): number[] | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || doc.sort === null) {
+      return null;
+    }
+    let order = this.sortOrderCache.get(doc.sort);
+    if (!order) {
+      order = computeSortOrder(doc.sort, doc.rowCount, this.hiddenRows(tab), (r, c) =>
+        doc.getDisplayValue(r, c),
+      );
+      this.sortOrderCache.set(doc.sort, order);
+    }
+    return order;
+  }
+
+  /** Pre-store a sort's display order (computed with slicing/progress). */
+  seedSortOrder(sort: SheetSort, order: number[]): void {
+    this.sortOrderCache.set(sort, order);
+  }
+
+  /**
+   * Translate a display slot to the document row whose content belongs
+   * there. Identity when the tab has no active sort.
+   */
+  docRow(tab: Tab, row: number): number {
+    return this.sortOrder(tab)?.[row] ?? row;
+  }
+
+  /**
+   * Inverse of {@link sortOrder}, per sort object (same lifetime as
+   * `sortOrderCache`): the display slot a document row occupies.
+   */
+  private readonly sortSlotCache = new WeakMap<SheetSort, number[]>();
+
+  /**
+   * Translate a document row to the display slot its content currently
+   * occupies. Identity when the tab has no active sort — the inverse of
+   * {@link docRow}, used by keyboard navigation and hit-testing to walk the
+   * grid in display order while every mutation still addresses document rows.
+   */
+  sortSlot(tab: Tab, row: number): number {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || doc.sort === null) {
+      return row;
+    }
+    const sort = doc.sort;
+    let inverse = this.sortSlotCache.get(sort);
+    if (!inverse) {
+      const order = this.sortOrder(tab) ?? [];
+      inverse = new Array(order.length);
+      for (let slot = 0; slot < order.length; slot++) {
+        inverse[order[slot]] = slot;
+      }
+      this.sortSlotCache.set(sort, inverse);
+    }
+    return inverse[row] ?? row;
+  }
+
+  /**
+   * Set (or clear, with null) the active worksheet's sort. Session-only view
+   * state — like the current selection — so this is a direct mutation, not an
+   * undoable history entry: it never touches cell values, never marks the
+   * document dirty, and is never written to the saved container. Returns
+   * false when the tab is not an RSF document or the sort is unchanged.
+   */
+  setSort(tab: Tab, sort: SheetSort | null): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || sortsEqual(doc.activeSheet.sort, sort)) {
+      return false;
+    }
+    doc.activeSheet.sort = sort;
+    this.state.emit('doc');
+    return true;
   }
 
   /** The active tab's workbook, or null when it is not an RSF document. */

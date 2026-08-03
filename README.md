@@ -446,6 +446,41 @@ preserved, and formula calculations always use the normal sheet model.
   rejecting the document, and older readers safely reject a version-4 body.
   See [docs/rsf-format.md](docs/rsf-format.md).
 
+### Sorting (RSF)
+
+**Sheet > Sort…** reorders how rows _display_ by one or more columns —
+**visually only**, exactly like Filter. Sorting never deletes, moves, or
+rewrites cell data; row identity, formulas, references, and undo/redo are all
+untouched, and formula calculations always use the normal sheet model.
+
+- **RSF only.** Sorting is a spreadsheet feature; on a plain CSV document the
+  app explains that sorting requires converting to RSF and changes nothing.
+- **Range and header.** The sort covers the selected rectangle, or the
+  detected data block around the active cell (same detection as Filter). The
+  first row is treated as a **header** (never reordered) by default; the
+  dialog shows this assumption and lets you change it before applying. While
+  a sort is active its range and header setting are fixed — clear the sort to
+  choose a different range.
+- **Compound sort.** Add up to 8 sort levels, each a column and direction
+  (ascending/descending). Numbers compare numerically; everything else
+  compares by code-point order; blank values always sort last in either
+  direction. Ties on every level keep the rows' original relative order
+  (a stable sort).
+- **Combines with Filter.** Only rows the active filter leaves visible take
+  part in the reordering; rows the filter hides stay exactly where they are.
+  The status bar shows the number of sort levels while sorted.
+- **Editing is disabled inside the sorted range** while the sort is active
+  (the header row, if any, stays editable) — clear the sort (**Sheet > Clear
+  Sort**) to edit it again. Row/column insertion or deletion drops the active
+  sort outright, with a notification.
+- **Session-only, never saved.** A sort is view state, like the current
+  selection — it is **not** written to the RSF container, is **not**
+  undoable, and never marks the document dirty. Clearing the sort restores
+  document order.
+- **Deterministic and offline.** Comparisons are plain string/number
+  comparisons — no `eval`, `new Function`, regular expressions, or network
+  access. Large sorts run behind a busy indicator.
+
 ### Editing help tooltips
 
 The inline-editor / formula-bar usage guidance (Enter commits and moves down,

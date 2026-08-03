@@ -122,7 +122,9 @@ export class WorksheetsState {
     }
     let order = this.sortOrderCache.get(doc.sort);
     if (!order) {
-      order = computeSortOrder(doc.sort, doc.rowCount, this.hiddenRows(tab), (r, c) => doc.getDisplayValue(r, c));
+      order = computeSortOrder(doc.sort, doc.rowCount, this.hiddenRows(tab), (r, c) =>
+        doc.getDisplayValue(r, c),
+      );
       this.sortOrderCache.set(doc.sort, order);
     }
     return order;

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-window.I18N = {
+// Build-time copy dictionary, read by scripts/build-landing.mjs. Not loaded
+// by the browser — the pre-rendered pages carry the text already.
+export const I18N = {
   ja: {
     'meta.title': 'Refrain Sheet — CSVを壊さない、書式保持のブラウザCSVエディタ',
     'meta.desc':

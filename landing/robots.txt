@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://refrain-sheet.com/sitemap.xml

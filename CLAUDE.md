@@ -24,20 +24,21 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 
 ## Confirmed commands
 
-| Purpose                      | Command                                          |
-| ---------------------------- | ------------------------------------------------ |
-| Install (strict, no scripts) | `npm ci --ignore-scripts`                        |
-| Format check                 | `npm run format:check`                           |
-| Format write                 | `npm run format`                                 |
-| Lint                         | `npm run lint`                                   |
-| Type-check + build           | `npm run build` (`tsc --noEmit && vite build`)   |
-| Unit tests                   | `npm run test`                                   |
-| Rust tests                   | `npm run test:rust`                              |
-| Rebuild embedded WASM        | `npm run build:wasm` (only when `wasm/` changes) |
-| Self-contained dist check    | `npm run check:dist`                             |
-| Version consistency          | `npm run check:versions`                         |
-| Changelog gate (PR CI only)  | `npm run check:changelog`                        |
-| Production dependency audit  | `npm run audit:ci`                               |
+| Purpose                      | Command                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------ |
+| Install (strict, no scripts) | `npm ci --ignore-scripts`                                                            |
+| Format check                 | `npm run format:check`                                                               |
+| Format write                 | `npm run format`                                                                     |
+| Lint                         | `npm run lint`                                                                       |
+| Type-check + build           | `npm run build` (`tsc --noEmit && vite build`)                                       |
+| Unit tests                   | `npm run test`                                                                       |
+| Rust tests                   | `npm run test:rust`                                                                  |
+| Rebuild embedded WASM        | `npm run build:wasm` (only when `wasm/` changes)                                     |
+| Build the landing site       | `npm run build:landing` (add `-- https://refrain-sheet.com/` for the production URL) |
+| Self-contained dist check    | `npm run check:dist`                                                                 |
+| Version consistency          | `npm run check:versions`                                                             |
+| Changelog gate (PR CI only)  | `npm run check:changelog`                                                            |
+| Production dependency audit  | `npm run audit:ci`                                                                   |
 
 Do not invent commands. If a needed command does not exist, stop and say so.
 

@@ -34,7 +34,11 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
+      # Depth 2 so the changelog gate can see the merge commit's first parent
+      # (the base branch tip) and derive the pull request's own diff from it.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - uses: actions/setup-node@v4
         with:
@@ -50,6 +54,16 @@ jobs:
 
       - name: Version consistency
         run: npm run check:versions
+
+      # CHANGELOG.md stopped being updated for nine releases because nothing
+      # asked for it (Issue #178). This fails a pull request that changes
+      # application source without a changelog entry; a genuinely internal
+      # change says so with `Changelog: not-needed` in its description. Only
+      # meaningful on `pull_request` — there is no pull request to inspect on a
+      # push, and the gate already ran before the merge.
+      - name: Changelog entry
+        if: github.event_name == 'pull_request'
+        run: npm run check:changelog
 
       - name: Check formatting
         run: npm run format:check

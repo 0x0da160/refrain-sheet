@@ -196,7 +196,7 @@ export const I18N = {
     'footer.l2': 'GitHub',
     'footer.l3': 'リリース',
     'footer.l4': 'ドキュメント',
-    'footer.note': 'MIT License · このページは非公式の紹介ページです',
+    'footer.note': 'MIT License · Refrain Sheet 公式の紹介ページです',
   },
 
   en: {
@@ -395,6 +395,6 @@ export const I18N = {
     'footer.l2': 'GitHub',
     'footer.l3': 'Releases',
     'footer.l4': 'Docs',
-    'footer.note': 'MIT License · An unofficial introduction page',
+    'footer.note': 'MIT License · The official introduction page for Refrain Sheet',
   },
 };

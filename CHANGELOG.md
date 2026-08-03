@@ -32,6 +32,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 - The "Web App" link (About dialog, README, and landing page) now points to
   `https://app.refrain-sheet.com/` instead of the GitHub Pages URL.
   ([#204](https://github.com/0x0da160/refrain-sheet/issues/204))
+- The landing page no longer loads Google Fonts from an external CDN (it now
+  falls back to local/system fonts, like the app itself), and its footer no
+  longer misdescribes the page as an "unofficial" introduction page.
+  ([#209](https://github.com/0x0da160/refrain-sheet/issues/209))
 
 ### Removed
 

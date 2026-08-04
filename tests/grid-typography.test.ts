@@ -9,7 +9,7 @@
  */
 // `fs` is declared ambiently in tests/node-shims.d.ts (no @types/node needed).
 import { readFileSync } from 'fs';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { SHEET_FONTS } from '../src/app/sheet-font';

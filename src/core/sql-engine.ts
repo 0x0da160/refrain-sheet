@@ -102,8 +102,13 @@ export type SqlErrorCode =
   | 'tooLong'
   | 'tooManyTokens'
   | 'tooDeep'
+  | 'unterminatedString'
+  | 'unterminatedIdentifier'
   | 'unexpectedChar'
   | 'unexpectedToken'
+  | 'expectedColumnName'
+  | 'expectedExpression'
+  | 'unexpectedStar'
   | 'unsupportedStatement'
   | 'multipleStatements'
   | 'expectedTable'
@@ -116,8 +121,11 @@ export type SqlErrorCode =
   | 'nestedAggregate'
   | 'aggregateInWhere'
   | 'notAggregated'
+  | 'columnNotGrouped'
   | 'invalidLimit'
-  | 'invalidOrderTarget';
+  | 'invalidOrderPosition'
+  | 'orderPositionOutOfRange'
+  | 'unknownOrderTarget';
 
 export interface SqlErrorLocation {
   /** 0-based UTF-16 offset into the query text. */
@@ -130,7 +138,12 @@ export class SqlQueryError extends Error {
   readonly params: Record<string, string | number>;
   readonly location: SqlErrorLocation | null;
 
-  constructor(code: SqlErrorCode, message: string, params: Record<string, string | number> = {}, location: SqlErrorLocation | null = null) {
+  constructor(
+    code: SqlErrorCode,
+    message: string,
+    params: Record<string, string | number> = {},
+    location: SqlErrorLocation | null = null,
+  ) {
     super(message);
     this.name = 'SqlQueryError';
     this.code = code;
@@ -214,7 +227,7 @@ function tokenize(src: string): Token[] {
         i++;
       }
       if (!closed) {
-        throw new SqlQueryError('unexpectedChar', 'unterminated string literal', {}, { offset: start });
+        throw new SqlQueryError('unterminatedString', 'unterminated string literal', {}, { offset: start });
       }
       push('string', out, start);
       continue;
@@ -238,7 +251,12 @@ function tokenize(src: string): Token[] {
         i++;
       }
       if (!closed) {
-        throw new SqlQueryError('unexpectedChar', 'unterminated quoted identifier', {}, { offset: start });
+        throw new SqlQueryError(
+          'unterminatedIdentifier',
+          'unterminated quoted identifier',
+          {},
+          { offset: start },
+        );
       }
       push('qident', out, start);
       continue;
@@ -427,7 +445,12 @@ class Parser {
       const t = this.next();
       const n = t.type === 'number' ? Number(t.text) : NaN;
       if (!Number.isInteger(n) || n < 0) {
-        throw new SqlQueryError('invalidLimit', 'LIMIT must be a non-negative integer', {}, { offset: t.offset });
+        throw new SqlQueryError(
+          'invalidLimit',
+          'LIMIT must be a non-negative integer',
+          {},
+          { offset: t.offset },
+        );
       }
       limit = n;
     }
@@ -458,7 +481,12 @@ class Parser {
     for (;;) {
       const t = this.peek();
       const next = this.tokens[this.pos + 1];
-      if (t.type === 'punct' && t.text === '*' && next && (next.text === ',' || this.isKeyword(next, 'FROM'))) {
+      if (
+        t.type === 'punct' &&
+        t.text === '*' &&
+        next &&
+        (next.text === ',' || this.isKeyword(next, 'FROM'))
+      ) {
         this.next();
         items.push({ expr: { kind: 'star' }, alias: null });
       } else {
@@ -496,7 +524,7 @@ class Parser {
       return { name: t.text, offset: t.offset };
     }
     throw new SqlQueryError(
-      'unexpectedToken',
+      'expectedColumnName',
       `expected a column name, got "${t.text || '<end of query>'}"`,
       { got: t.text || '<end>' },
       { offset: t.offset },
@@ -511,7 +539,7 @@ class Parser {
       const idx = Number(t.text);
       if (!Number.isInteger(idx) || idx < 1) {
         throw new SqlQueryError(
-          'invalidOrderTarget',
+          'invalidOrderPosition',
           'ORDER BY position must be a positive integer',
           {},
           { offset: t.offset },
@@ -588,7 +616,10 @@ class Parser {
 
   private peekIsBetweenLikeIn(offset: number): boolean {
     const t = this.tokens[this.pos + offset];
-    return t !== undefined && (this.isKeyword(t, 'BETWEEN') || this.isKeyword(t, 'LIKE') || this.isKeyword(t, 'IN'));
+    return (
+      t !== undefined &&
+      (this.isKeyword(t, 'BETWEEN') || this.isKeyword(t, 'LIKE') || this.isKeyword(t, 'IN'))
+    );
   }
 
   private parseBetweenLikeIn(expr: Expr, negate: boolean): Expr {
@@ -715,7 +746,12 @@ class Parser {
         const name = t.upper;
         if (!AGGREGATE_FUNCTIONS.has(name) && !SCALAR_FUNCTIONS.has(name)) {
           this.leave();
-          throw new SqlQueryError('unknownFunction', `unknown function "${t.text}"`, { name: t.text }, { offset: t.offset });
+          throw new SqlQueryError(
+            'unknownFunction',
+            `unknown function "${t.text}"`,
+            { name: t.text },
+            { offset: t.offset },
+          );
         }
         let star = false;
         const args: Expr[] = [];
@@ -738,8 +774,8 @@ class Parser {
     }
     this.leave();
     throw new SqlQueryError(
-      'unexpectedToken',
-      `unexpected "${t.text || '<end of query>'}"`,
+      'expectedExpression',
+      `expected an expression, got "${t.text || '<end of query>'}"`,
       { got: t.text || '<end>' },
       { offset: t.offset },
     );
@@ -827,7 +863,12 @@ function assertNoNestedAggregate(expr: Expr): void {
   if (expr.kind === 'call' && AGGREGATE_FUNCTIONS.has(expr.name)) {
     for (const arg of expr.args) {
       if (containsAggregate(arg)) {
-        throw new SqlQueryError('nestedAggregate', 'aggregate functions cannot be nested', { name: expr.name }, { offset: expr.offset });
+        throw new SqlQueryError(
+          'nestedAggregate',
+          'aggregate functions cannot be nested',
+          { name: expr.name },
+          { offset: expr.offset },
+        );
       }
     }
   }
@@ -947,7 +988,10 @@ interface EvalCtx {
 function evalScalar(expr: Expr, ctx: EvalCtx): SqlValue {
   switch (expr.kind) {
     case 'star':
-      throw new SqlQueryError('unexpectedToken', '"*" is only valid as a whole select item or inside COUNT(*)');
+      throw new SqlQueryError(
+        'unexpectedStar',
+        '"*" is only valid as a whole select item or inside COUNT(*)',
+      );
     case 'literal':
       return expr.value;
     case 'column': {
@@ -1042,7 +1086,8 @@ function evalBoolean(expr: Expr, ctx: EvalCtx): boolean {
       const v = evalScalar(expr.expr, ctx);
       const lo = evalScalar(expr.low, ctx);
       const hi = evalScalar(expr.high, ctx);
-      const result = !isBlank(v) && !isBlank(lo) && !isBlank(hi) && compareValues(v, lo) >= 0 && compareValues(v, hi) <= 0;
+      const result =
+        !isBlank(v) && !isBlank(lo) && !isBlank(hi) && compareValues(v, lo) >= 0 && compareValues(v, hi) <= 0;
       return expr.negate ? !result : result;
     }
     case 'in': {
@@ -1089,7 +1134,11 @@ function evalCall(expr: Extract<Expr, { kind: 'call' }>, ctx: EvalCtx): SqlValue
     const allNumeric = values.every((v) => toNumber(v) !== null);
     let best = values[0];
     for (const v of values.slice(1)) {
-      const cmp = allNumeric ? (toNumber(v)! < toNumber(best)! ? -1 : 1) : compareStrings(toStr(v), toStr(best));
+      const cmp = allNumeric
+        ? toNumber(v)! < toNumber(best)!
+          ? -1
+          : 1
+        : compareStrings(toStr(v), toStr(best));
       if ((name === 'MIN' && cmp < 0) || (name === 'MAX' && cmp > 0)) best = v;
     }
     return best;
@@ -1164,12 +1213,15 @@ export function runSqlQuery(query: string, table: SqlTable): SqlQueryResult {
   if (isAggregate) {
     for (const item of stmt.items) {
       if (item.expr.kind === 'star') {
-        throw new SqlQueryError('notAggregated', 'SELECT * cannot be combined with GROUP BY or aggregate functions');
+        throw new SqlQueryError(
+          'notAggregated',
+          'SELECT * cannot be combined with GROUP BY or aggregate functions',
+        );
       }
       for (const col of columnsOutsideAggregates(item.expr)) {
         if (!groupByNames.has(col.name.trim().toUpperCase())) {
           throw new SqlQueryError(
-            'notAggregated',
+            'columnNotGrouped',
             `column "${col.name}" must appear in GROUP BY or inside an aggregate function`,
             { name: col.name },
             { offset: col.offset },
@@ -1242,16 +1294,20 @@ export function runSqlQuery(query: string, table: SqlTable): SqlQueryResult {
     const resolvedTargets = stmt.orderBy.map((o) => {
       if (o.target.kind === 'position') {
         if (o.target.index < 1 || o.target.index > outputColumns.length) {
-          throw new SqlQueryError('invalidOrderTarget', `ORDER BY position ${o.target.index} is out of range`, {
-            index: o.target.index,
-          });
+          throw new SqlQueryError(
+            'orderPositionOutOfRange',
+            `ORDER BY position ${o.target.index} is out of range`,
+            {
+              index: o.target.index,
+            },
+          );
         }
         return { index: o.target.index - 1, dir: o.dir };
       }
       const key = o.target.name.trim().toUpperCase();
       const idx = outputColumns.findIndex((c) => c.toUpperCase() === key);
       if (idx < 0) {
-        throw new SqlQueryError('invalidOrderTarget', `unknown ORDER BY target "${o.target.name}"`, {
+        throw new SqlQueryError('unknownOrderTarget', `unknown ORDER BY target "${o.target.name}"`, {
           name: o.target.name,
         });
       }

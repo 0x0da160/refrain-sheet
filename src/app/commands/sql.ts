@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: MIT
-import { runSqlQuery, SqlQueryError, SQL_MAX_SOURCE_ROWS, type SqlQueryResult, type SqlTable } from '../../core/sql-engine';
+import {
+  runSqlQuery,
+  SqlQueryError,
+  SQL_MAX_SOURCE_ROWS,
+  type SqlQueryResult,
+  type SqlTable,
+} from '../../core/sql-engine';
 import type { Tab } from '../app-state';
 
 /** One selectable SQL data source: a worksheet of the active RSF workbook, or the whole CSV tab. */

@@ -122,7 +122,9 @@ describe('sql-engine: GROUP BY and aggregates (issue example)', () => {
   });
 
   it('AVG/MIN/MAX ignore blank cells', () => {
-    const r = run('SELECT department, AVG(amount) AS avg_amount FROM data GROUP BY department ORDER BY department');
+    const r = run(
+      'SELECT department, AVG(amount) AS avg_amount FROM data GROUP BY department ORDER BY department',
+    );
     expect(r.rows).toEqual([
       ['Marketing', 75],
       ['Sales', (100 + 50 + 25) / 3],
@@ -141,7 +143,7 @@ describe('sql-engine: GROUP BY and aggregates (issue example)', () => {
 
   it('rejects a non-aggregated, non-grouped column in the select list', () => {
     const err = errorOf('SELECT department, amount, COUNT(*) FROM data GROUP BY department');
-    expect(err.code).toBe('notAggregated');
+    expect(err.code).toBe('columnNotGrouped');
     expect(err.params.name).toBe('amount');
   });
 
@@ -191,7 +193,10 @@ describe('sql-engine: ORDER BY / LIMIT', () => {
 describe('sql-engine: scalar functions', () => {
   it('LOWER/UPPER/TRIM/LENGTH', () => {
     const t: SqlTable = { headers: ['name'], rows: [['  Alice  ']] };
-    const r = run("SELECT LOWER(name) AS l, UPPER(name) AS u, TRIM(name) AS t, LENGTH(TRIM(name)) AS n FROM data", t);
+    const r = run(
+      'SELECT LOWER(name) AS l, UPPER(name) AS u, TRIM(name) AS t, LENGTH(TRIM(name)) AS n FROM data',
+      t,
+    );
     expect(r.rows[0]).toEqual(['  alice  ', '  ALICE  ', 'Alice', 5]);
   });
 
@@ -217,7 +222,7 @@ describe('sql-engine: rejected as a syntax error (only SELECT is implemented)', 
     "ATTACH DATABASE 'x' AS y",
     'PRAGMA table_info(data)',
     'SELECT * FROM data; SELECT * FROM data',
-    "SELECT * FROM data WHERE 1=1; DROP TABLE data;",
+    'SELECT * FROM data WHERE 1=1; DROP TABLE data;',
   ]) {
     it(`rejects: ${stmt}`, () => {
       expect(() => run(stmt)).toThrow(SqlQueryError);

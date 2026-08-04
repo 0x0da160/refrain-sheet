@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { findValidation, validationRangesEqual, type CellValidation } from '../../core/data-validation';
 import { computeHiddenRows, filtersEqual, type SheetFilter } from '../../core/filter';
 import {
   formulaReferencesSheet,
@@ -188,6 +189,63 @@ export class WorksheetsState {
     doc.activeSheet.sort = sort;
     this.state.emit('doc');
     return true;
+  }
+
+  /**
+   * Apply (add or replace) a data-validation rule on the active worksheet.
+   * Session-only view state, like {@link setSort} — a direct mutation, not an
+   * undoable history entry. Any existing rule covering the exact same range
+   * is replaced; other rules are left as-is, so several ranges can each carry
+   * their own rule at once.
+   */
+  setValidation(tab: Tab, validation: CellValidation): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return false;
+    }
+    const sheet = doc.activeSheet;
+    const next = sheet.validations.filter((v) => !validationRangesEqual(v, validation));
+    next.push(validation);
+    sheet.validations = next;
+    this.state.emit('doc');
+    return true;
+  }
+
+  /** Clear the data-validation rule covering exactly `range`, if one exists. */
+  clearValidation(tab: Tab, range: Pick<CellValidation, 'top' | 'left' | 'bottom' | 'right'>): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return false;
+    }
+    const sheet = doc.activeSheet;
+    const next = sheet.validations.filter((v) => !validationRangesEqual(v, range));
+    if (next.length === sheet.validations.length) {
+      return false;
+    }
+    sheet.validations = next;
+    this.state.emit('doc');
+    return true;
+  }
+
+  /** The rule covering exactly `range` on the active worksheet, or null. */
+  validationForRange(
+    tab: Tab,
+    range: Pick<CellValidation, 'top' | 'left' | 'bottom' | 'right'>,
+  ): CellValidation | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return null;
+    }
+    return doc.activeSheet.validations.find((v) => validationRangesEqual(v, range)) ?? null;
+  }
+
+  /** The rule applying to one cell on the active worksheet, or null. */
+  validationAt(tab: Tab, row: number, col: number): CellValidation | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return null;
+    }
+    return findValidation(doc.activeSheet.validations, row, col);
   }
 
   /** The active tab's workbook, or null when it is not an RSF document. */

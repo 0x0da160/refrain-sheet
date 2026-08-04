@@ -193,7 +193,11 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
     },
     {
       labelKey: 'menu.data',
-      items: [{ labelKey: 'menu.data.runQuery', command: 'data.runSqlQuery' }],
+      items: [
+        { labelKey: 'menu.data.runQuery', command: 'data.runSqlQuery' },
+        'separator',
+        { labelKey: 'menu.data.validation', command: 'data.validation' },
+      ],
     },
     {
       labelKey: 'menu.view',

@@ -36,6 +36,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
   falls back to local/system fonts, like the app itself), and its footer no
   longer misdescribes the page as an "unofficial" introduction page.
   ([#209](https://github.com/0x0da160/refrain-sheet/issues/209))
+- The landing page's hero and feature screenshots now load a smaller image on
+  narrow viewports (via `srcset`), cutting mobile data transfer for those
+  images by roughly two-thirds and improving Largest Contentful Paint;
+  desktop viewports still receive the full-resolution image.
+  ([#218](https://github.com/0x0da160/refrain-sheet/issues/218))
 
 ### Removed
 

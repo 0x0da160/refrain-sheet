@@ -18,9 +18,21 @@ import {
   numberFormatsEqual,
   type NumberFormat,
 } from '../src/core/cell-style';
+import { getRsfCodec, RSF_COMPRESSION_STORE } from '../src/core/csv-engine';
 import { decodeRsf, encodeRsf, type RsfData } from '../src/core/rsf-codec';
 import { RsfDocument } from '../src/core/rsf-document';
 import { doc as csvDoc } from './helpers';
+
+const HEADER_SIZE = 20;
+
+/** Patch a store-method container body byte and re-stamp the CRC. See `rsf-display.test.ts`. */
+function patchBody(bytes: Uint8Array, mutate: (body: Uint8Array) => void): Uint8Array {
+  const out = bytes.slice();
+  const body = out.subarray(HEADER_SIZE);
+  mutate(body);
+  new DataView(out.buffer).setUint32(12, getRsfCodec().crc32(body), true);
+  return out;
+}
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   return {
@@ -93,12 +105,17 @@ describe('NumberFormat core', () => {
 
   it('normalizeNumberFormat only keeps currencySymbol for kind: currency, truncated to the max length', () => {
     const long = 'A'.repeat(MAX_CURRENCY_SYMBOL_LENGTH + 5);
-    expect(normalizeNumberFormat({ kind: 'currency', decimals: 2, thousands: false, currencySymbol: long })).toEqual(
-      { kind: 'currency', decimals: 2, thousands: false, currencySymbol: long.slice(0, MAX_CURRENCY_SYMBOL_LENGTH) },
-    );
     expect(
-      normalizeNumberFormat({ kind: 'currency', decimals: 2, thousands: false }).currencySymbol,
-    ).toBe('$');
+      normalizeNumberFormat({ kind: 'currency', decimals: 2, thousands: false, currencySymbol: long }),
+    ).toEqual({
+      kind: 'currency',
+      decimals: 2,
+      thousands: false,
+      currencySymbol: long.slice(0, MAX_CURRENCY_SYMBOL_LENGTH),
+    });
+    expect(normalizeNumberFormat({ kind: 'currency', decimals: 2, thousands: false }).currencySymbol).toBe(
+      '$',
+    );
     expect(
       normalizeNumberFormat({ kind: 'percent', decimals: 0, thousands: false, currencySymbol: '¥' })
         .currencySymbol,
@@ -135,9 +152,9 @@ describe('formatCellNumber', () => {
   });
 
   it('renders "currency" with the symbol before the digits, after any minus sign', () => {
-    expect(formatCellNumber(1234.5, { kind: 'currency', decimals: 2, thousands: true, currencySymbol: '$' })).toBe(
-      '$1,234.50',
-    );
+    expect(
+      formatCellNumber(1234.5, { kind: 'currency', decimals: 2, thousands: true, currencySymbol: '$' }),
+    ).toBe('$1,234.50');
     expect(
       formatCellNumber(-1234.5, { kind: 'currency', decimals: 2, thousands: true, currencySymbol: '$' }),
     ).toBe('-$1,234.50');
@@ -148,9 +165,9 @@ describe('formatCellNumber', () => {
   });
 
   it('supports a non-ASCII currency symbol', () => {
-    expect(formatCellNumber(1000, { kind: 'currency', decimals: 0, thousands: true, currencySymbol: '¥' })).toBe(
-      '¥1,000',
-    );
+    expect(
+      formatCellNumber(1000, { kind: 'currency', decimals: 0, thousands: true, currencySymbol: '¥' }),
+    ).toBe('¥1,000');
   });
 });
 
@@ -194,7 +211,14 @@ describe('RSF codec: number-format sub-record (body version 9)', () => {
       styles: [
         [0, 0, { numberFormat: { kind: 'number', decimals: 2, thousands: true } }],
         [1, 1, { numberFormat: { kind: 'percent', decimals: 0, thousands: false } }],
-        [2, 2, { bold: true, numberFormat: { kind: 'currency', decimals: 2, thousands: true, currencySymbol: '¥' } }],
+        [
+          2,
+          2,
+          {
+            bold: true,
+            numberFormat: { kind: 'currency', decimals: 2, thousands: true, currencySymbol: '¥' },
+          },
+        ],
       ],
     };
     const bytes = encodeRsf(withFormats);
@@ -206,17 +230,15 @@ describe('RSF codec: number-format sub-record (body version 9)', () => {
 
   it('stays on body version 8 (no number-format sub-record) when only plain styles are present', () => {
     const plainStyle: RsfData = { ...base, styles: [[0, 0, { bold: true }]] };
-    const bytesWithFormat = encodeRsf({
-      ...base,
-      styles: [[0, 0, { numberFormat: { kind: 'number', decimals: 0, thousands: false } }]],
-    });
-    const bytesPlain = encodeRsf(plainStyle);
-    // A version-9 body is one byte larger per style record than version 8's
-    // for the same single bold-only record, and its leading body-version
-    // byte differs; decoding both back confirms plain styles alone don't
-    // force the number-format sub-record.
-    expect(bytesWithFormat[0]).toBe(9);
-    expect(bytesPlain[0]).toBe(8);
+    const bytesWithFormat = encodeRsf(
+      { ...base, styles: [[0, 0, { numberFormat: { kind: 'number', decimals: 0, thousands: false } }]] },
+      RSF_COMPRESSION_STORE,
+    );
+    const bytesPlain = encodeRsf(plainStyle, RSF_COMPRESSION_STORE);
+    // The body-version byte (right after the 20-byte container header)
+    // differs: plain styles alone don't force the number-format sub-record.
+    expect(bytesWithFormat[HEADER_SIZE]).toBe(9);
+    expect(bytesPlain[HEADER_SIZE]).toBe(8);
     const decoded = decodeRsf(bytesPlain);
     expect(decoded.ok).toBe(true);
     if (decoded.ok) expect(decoded.data.styles).toEqual(plainStyle.styles);
@@ -229,15 +251,16 @@ describe('RSF codec: number-format sub-record (body version 9)', () => {
   });
 
   it('rejects an unknown number-format kind byte as bad-shape rather than guessing the record length', () => {
-    const bytes = encodeRsf({
-      ...base,
-      styles: [[0, 0, { numberFormat: { kind: 'number', decimals: 0, thousands: false } }]],
+    const bytes = encodeRsf(
+      { ...base, styles: [[0, 0, { numberFormat: { kind: 'number', decimals: 0, thousands: false } }]] },
+      RSF_COMPRESSION_STORE,
+    );
+    // The number-format sub-record for this single-style, single-format
+    // record (kind/decimals/thousands, no currency symbol) is the last 3
+    // bytes of the (store-method, so uncompressed) body; the kind byte leads it.
+    const corrupted = patchBody(bytes, (body) => {
+      body[body.length - 3] = 0x7f;
     });
-    // The kind byte is the last byte of this single-style, single-format
-    // record (kind/decimals/thousands, no currency symbol), so it is the
-    // final byte of the buffer.
-    const corrupted = bytes.slice();
-    corrupted[corrupted.length - 1] = 0x7f;
     const decoded = decodeRsf(corrupted);
     expect(decoded.ok).toBe(false);
     if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
@@ -246,7 +269,9 @@ describe('RSF codec: number-format sub-record (body version 9)', () => {
   it('rejects a number-format sub-record truncated mid-currency-symbol as bad-shape', () => {
     const bytes = encodeRsf({
       ...base,
-      styles: [[0, 0, { numberFormat: { kind: 'currency', decimals: 2, thousands: false, currencySymbol: '$$' } }]],
+      styles: [
+        [0, 0, { numberFormat: { kind: 'currency', decimals: 2, thousands: false, currencySymbol: '$$' } }],
+      ],
     });
     const decoded = decodeRsf(bytes.subarray(0, bytes.length - 1));
     expect(decoded.ok).toBe(false);
@@ -258,10 +283,13 @@ describe('FormatCommands.promptNumberFormat via Commands', () => {
   it('applies the chosen format to every visible cell in the selection', async () => {
     const format: NumberFormat = { kind: 'percent', decimals: 1, thousands: false };
     const ui = stubUi({ chooseNumberFormat: vi.fn(async () => ({ action: 'apply' as const, format })) });
-    const { commands, tab, doc, state } = sheet([
-      ['1', '2'],
-      ['3', '4'],
-    ], ui);
+    const { commands, tab, doc, state } = sheet(
+      [
+        ['1', '2'],
+        ['3', '4'],
+      ],
+      ui,
+    );
     state.setSelection(tab, { row: 0, col: 0 }, { row: 1, col: 1 });
     expect(await commands.promptNumberFormat(tab)).toBe(true);
     expect(doc.getStyle(0, 0)?.numberFormat).toEqual(format);
@@ -293,7 +321,7 @@ describe('FormatCommands.promptNumberFormat via Commands', () => {
     const ui = stubUi({
       chooseNumberFormat: vi.fn(async () => ({
         action: 'apply' as const,
-        format: { kind: 'number', decimals: 2, thousands: false },
+        format: { kind: 'number' as const, decimals: 2, thousands: false },
       })),
     });
     const state = new AppState();

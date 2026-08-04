@@ -485,7 +485,7 @@ untouched, and formula calculations always use the normal sheet model.
 
 The **Format** menu applies visual formatting to the selected cell or range:
 **Bold**, **Italic**, **Underline**, **Text Color…**, **Background Color…**,
-**Borders…**, and **Clear Formatting**.
+**Borders…**, **Number Format…**, and **Clear Formatting**.
 
 - **RSF only.** Like Filter and Sort, formatting is a spreadsheet feature; it
   is disabled outright on a plain CSV document.
@@ -500,8 +500,14 @@ The **Format** menu applies visual formatting to the selected cell or range:
 - **Borders** lets you choose which of the four sides (top/right/bottom/left)
   carry a border and their shared color; every border is a thin solid line —
   there is no separate width or style choice.
-- **Clear Formatting** removes every style property from the selection
-  without touching cell values.
+- **Number Format** chooses **Number**, **Percent**, or **Currency**, with a
+  fixed decimal-place count (0–10), an optional thousands separator, and — for
+  Currency — a symbol prefix; **Clear Format** removes it ("General"). It only
+  applies to a number-typed formula result — text, boolean, blank, and error
+  values render exactly as they do today regardless of this setting (see
+  "Dates and times" above for how it interacts with date serials).
+- **Clear Formatting** removes every style property, including any number
+  format, from the selection without touching cell values.
 - **Undoable and saved.** Every formatting change is one atomic history entry
   (Ctrl+Z / Ctrl+Y undo/redo it like any other edit) and is persisted in the
   `.rsf` file, unlike the session-only Sort above.
@@ -1001,9 +1007,12 @@ A date is a **number**, not a separate kind of value:
   `MD` advance the start date to its last anniversary on or before the end
   date, so they never return the negative values Excel's `MD` is known for. A
   reversed range or an unknown unit is an error, not a guess.
-- **Dates display as their serial number.** There are no cell number formats in
-  this application, so `=TODAY()` shows something like `46228`. Use `YEAR`,
-  `MONTH`, and `DAY`, or `TEXTJOIN`, to present a date readably.
+- **Dates display as their serial number.** Cell number formats (**Format >
+  Number Format…**) offer Number, Percent, and Currency, but no date kind, so
+  applying one to a date cell only changes how the serial itself is
+  displayed (decimals, thousands separator) — `=TODAY()` still shows
+  something like `46228` either way. Use `YEAR`, `MONTH`, and `DAY`, or
+  `TEXTJOIN`, to present a date readably.
 - `TODAY()` and `NOW()` are **volatile**: they change only when the workbook is
   edited or when you choose **Sheet > Recalculate**. There is deliberately no
   background recalculation timer, so an idle tab never burns CPU and a

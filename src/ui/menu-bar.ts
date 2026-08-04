@@ -33,6 +33,7 @@ export interface MenuDef {
 export interface MenuChecks {
   wrap: () => boolean;
   stickyFirstRow: () => boolean;
+  stickyFirstColumn: () => boolean;
   sheetFont: () => SheetFontId;
   theme: () => ThemeChoice;
   /** The active tab's spreadsheet zoom percent (app default when no tab). */
@@ -196,6 +197,11 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           labelKey: 'menu.view.stickyFirstRow',
           command: 'view.stickyFirstRow',
           checked: checks.stickyFirstRow,
+        },
+        {
+          labelKey: 'menu.view.stickyFirstColumn',
+          command: 'view.stickyFirstColumn',
+          checked: checks.stickyFirstColumn,
         },
         { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
         'separator',

@@ -180,6 +180,50 @@ describe('sticky first row', () => {
   });
 });
 
+describe('sticky first column', () => {
+  it('is disabled by default and toggleable through app state', () => {
+    const { state, grid } = setup(bigCsv(20, 40));
+    expect(grid.element.querySelector('.colpin')).toBeNull();
+    state.setStickyFirstColumn(true);
+    grid.refresh();
+    const pinnedHead = grid.element.querySelector<HTMLElement>('.vgrid-header .colpin')!;
+    expect(pinnedHead).not.toBeNull();
+    expect(pinnedHead.dataset.colhead).toBe('0');
+    const pinnedCell = grid.element.querySelector<HTMLElement>('.vgrid-rows .colpin[data-row="0"]')!;
+    expect(pinnedCell).not.toBeNull();
+    expect(pinnedCell.dataset.col).toBe('0');
+    expect(pinnedCell.textContent).toBe('r0c0');
+    // Column 0 is rendered exactly once (the pinned copy), not duplicated.
+    expect(grid.element.querySelectorAll('[data-row="0"][data-col="0"]').length).toBe(1);
+    state.setStickyFirstColumn(false);
+    grid.refresh();
+    expect(grid.element.querySelector('.colpin')).toBeNull();
+  });
+
+  it('keeps column 0 pinned while the scrolling region starts at column 1', () => {
+    const { state, grid } = setup(bigCsv(20, 300));
+    state.setStickyFirstColumn(true);
+    grid.refresh();
+    // Column 0 lives in the pinned cell, not among the normally windowed cells.
+    const windowed = Array.from(
+      grid.element.querySelectorAll<HTMLElement>('[data-row="0"][data-col]:not(.colpin)'),
+    );
+    expect(windowed.some((c) => c.dataset.col === '0')).toBe(false);
+    // After scrolling far right, column 0 is still rendered (pinned).
+    grid.element.scrollLeft = 250 * COL_WIDTH;
+    grid.refresh();
+    expect(grid.element.querySelector('.colpin[data-row="0"][data-col="0"]')).not.toBeNull();
+  });
+
+  it('persists the preference in localStorage', () => {
+    const { state } = setup(bigCsv(10, 10));
+    state.setStickyFirstColumn(true);
+    expect(localStorage.getItem('refrain-csv-html.stickyFirstColumn')).toBe('1');
+    const fresh = new AppState();
+    expect(fresh.stickyFirstColumn).toBe(true);
+  });
+});
+
 describe('selection and keyboard interaction', () => {
   function mouse(el: Element, type: string, init: MouseEventInit = {}): void {
     el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ...init }));

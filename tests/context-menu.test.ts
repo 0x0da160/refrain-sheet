@@ -129,6 +129,7 @@ describe('View menu Spreadsheet Zoom submenu', () => {
   const checks = (): MenuChecks => ({
     wrap: () => false,
     stickyFirstRow: () => false,
+    stickyFirstColumn: () => false,
     sheetFont: () => 'biz-ud',
     theme: () => 'system',
     zoom: () => 100,

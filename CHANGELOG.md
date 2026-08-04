@@ -31,6 +31,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
   Formatting is purely presentational (it never affects cell values, formula
   results, sort/filter, or CSV export), is undoable, and is saved in the
   `.rsf` file. ([#212](https://github.com/0x0da160/refrain-sheet/issues/212))
+- A new **View > Sticky First Column** option pins the first data column
+  beside the row headers while scrolling horizontally, mirroring the
+  existing **Sticky First Row** option. Both can be combined so header row
+  and header column stay visible together on large sheets.
+  ([#216](https://github.com/0x0da160/refrain-sheet/issues/216))
 
 ### Changed
 

@@ -41,6 +41,9 @@ release-time half (retitling `Unreleased`) is still done by hand.
   images by roughly two-thirds and improving Largest Contentful Paint;
   desktop viewports still receive the full-resolution image.
   ([#218](https://github.com/0x0da160/refrain-sheet/issues/218))
+- The landing page's stylesheet is now minified during the build (comments
+  and whitespace stripped), shrinking it by about 22% for a slightly faster
+  first paint. ([#219](https://github.com/0x0da160/refrain-sheet/issues/219))
 
 ### Removed
 

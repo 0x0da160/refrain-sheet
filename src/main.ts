@@ -89,6 +89,9 @@ function bootstrap(): void {
     chooseSettings: (current) => dialogs.chooseSettings(current),
     chooseTimezone: (current) => dialogs.chooseTimezone(current),
     chooseDisplayLanguage: (current) => dialogs.chooseDisplayLanguage(current),
+    chooseTextColor: (current) => dialogs.chooseTextColor(current),
+    chooseBackgroundColor: (current) => dialogs.chooseBackgroundColor(current),
+    chooseBorders: (current) => dialogs.chooseBorders(current),
     setBusy: (label, progress) => {
       // An operation is starting: a context menu built against the pre-operation
       // state must not survive into it.
@@ -124,6 +127,10 @@ function bootstrap(): void {
     theme: () => getTheme(),
     zoom: () => state.activeTab?.zoom ?? getSheetZoom(),
     editHints: () => getEditHints(),
+    formatActive: (key) => {
+      const tab = state.activeTab;
+      return tab !== null && commands.isFormatActive(tab, key);
+    },
   });
   const tabBar = new TabBar(state, commands);
   // The worksheet strip of the active RSF workbook, rendered below the grid —

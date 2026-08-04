@@ -437,7 +437,7 @@ export class AppState {
   /** Push and apply a prebuilt multi-op entry atomically. */
   pushEntry(tab: Tab, entry: HistoryEntry): boolean {
     const nonEmpty = entry.ops.some((op) => {
-      if (op.type === 'cells') {
+      if (op.type === 'cells' || op.type === 'styles') {
         return op.changes.length > 0;
       }
       if (op.type === 'filter') {
@@ -809,6 +809,21 @@ export class AppState {
       const changes = direction === 'after' ? op.changes : [...op.changes].reverse();
       for (const change of changes) {
         this.applyChange(tab, change, direction, op.sheetId);
+      }
+      return;
+    }
+    if (op.type === 'styles') {
+      if (tab.doc.kind !== 'rsf') {
+        return;
+      }
+      const changes = direction === 'after' ? op.changes : [...op.changes].reverse();
+      for (const change of changes) {
+        tab.doc.setCellStyleOn(
+          op.sheetId,
+          change.row,
+          change.col,
+          direction === 'before' ? change.before : change.after,
+        );
       }
       return;
     }

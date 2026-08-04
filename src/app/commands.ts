@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from '../core/byte-csv-parser';
+import type { BorderSide } from '../core/cell-style';
 import type { CellRange } from '../core/clipboard';
 import { type CsvExportOptions } from '../core/csv-export';
 import { type EncodingId } from '../core/encoding';
@@ -30,6 +31,7 @@ import { setSheetFont, type SheetFontId } from './sheet-font';
 import { setTheme, type ThemeChoice } from './theme';
 import { FileIoCommands } from './commands/file-io';
 import { FilterCommands } from './commands/filter';
+import { FormatCommands } from './commands/format';
 import { SortCommands } from './commands/sort';
 import { WorksheetCommands } from './commands/worksheets';
 import { PasteFillCommands, type FlashFillPreview } from './commands/paste-fill';
@@ -125,6 +127,15 @@ export interface SortDialogInput {
 
 /** What the sort dialog resolved to (null = cancelled, nothing changes). */
 export type SortDialogResult = { action: 'apply'; headerRow: boolean; keys: SortKey[] } | { action: 'clear' };
+
+/** What the Text/Background Color dialog resolved to (null = cancelled, nothing changes). */
+export type ColorDialogResult = { action: 'apply'; color: string } | { action: 'clear' };
+
+/** What the Borders dialog resolved to (null = cancelled, nothing changes). */
+export type BordersDialogResult = {
+  action: 'apply';
+  sides: Partial<Record<BorderSide, string | null>>;
+};
 
 /**
  * The UI surface the command layer talks to. Menu items, context menus,
@@ -260,6 +271,20 @@ export interface UiPort {
    */
   chooseDisplayLanguage(current: LocaleId): Promise<LocaleId | null>;
   /**
+   * The Text Color dialog: a color picker preselected from `current` (null
+   * when the selection has none, or is mixed). Resolves with the chosen
+   * color, `'clear'` to remove it, or null when cancelled (nothing changes).
+   */
+  chooseTextColor(current: string | null): Promise<ColorDialogResult | null>;
+  /** The Background Color dialog — see {@link chooseTextColor}. */
+  chooseBackgroundColor(current: string | null): Promise<ColorDialogResult | null>;
+  /**
+   * The Borders dialog: which of the four sides carry a border (from
+   * `current`) and their shared color. Resolves with every side's next state
+   * (a color to set it, `null` to clear it), or null when cancelled.
+   */
+  chooseBorders(current: Partial<Record<BorderSide, string>>): Promise<BordersDialogResult | null>;
+  /**
    * Show or hide the busy/loading indicator. `label` is already-localized
    * text describing the current operation; `null` hides the indicator.
    * `progress` is a real completion percentage (0-100) when the caller has
@@ -306,6 +331,13 @@ export type CommandId =
   | 'sheet.filterClear'
   | 'sheet.sort'
   | 'sheet.sortClear'
+  | 'format.bold'
+  | 'format.italic'
+  | 'format.underline'
+  | 'format.textColor'
+  | 'format.backgroundColor'
+  | 'format.borders'
+  | 'format.clear'
   | 'sheet.recalculate'
   | 'sheet.timezone'
   | 'sheet.displayLanguage'
@@ -391,6 +423,7 @@ export class Commands {
       () => this.clipboardActions?.getCopied() ?? Promise.resolve(null),
     );
     this.rangeOps = new RangeOpsCommands(state, ui);
+    this.format = new FormatCommands(state, ui);
   }
 
   /** File I/O, save/export, and CSV↔RSF conversion — see `FileIoCommands`. */
@@ -410,6 +443,9 @@ export class Commands {
 
   /** Range move and find/replace-all (single sheet and workbook-wide) — see `RangeOpsCommands`. */
   private readonly rangeOps: RangeOpsCommands;
+
+  /** Cell/range visual formatting (bold/italic/underline, colors, borders) — see `FormatCommands`. */
+  private readonly format: FormatCommands;
 
   /** True when the command currently makes sense (drives menu-item enabled state). */
   isEnabled(id: CommandId): boolean {
@@ -465,6 +501,18 @@ export class Commands {
       case 'sheet.filter':
       case 'sheet.sort':
         return tab?.selection != null;
+      // Formatting is RSF-only, like sort/filter above, but (unlike them)
+      // there is no dialog to run and explain the required conversion from —
+      // toggling Bold on a CSV tab would just silently do nothing — so it is
+      // disabled outright instead.
+      case 'format.bold':
+      case 'format.italic':
+      case 'format.underline':
+      case 'format.textColor':
+      case 'format.backgroundColor':
+      case 'format.borders':
+      case 'format.clear':
+        return tab !== null && tab.doc.kind === 'rsf' && tab.selection != null;
       // The async Clipboard API's image write has inconsistent browser
       // support (including on file://), so the item is hidden/disabled
       // outright there rather than failing at run time.
@@ -667,6 +715,27 @@ export class Commands {
         return;
       case 'sheet.sortClear':
         if (tab) this.clearSort(tab);
+        return;
+      case 'format.bold':
+        if (tab) this.toggleBold(tab);
+        return;
+      case 'format.italic':
+        if (tab) this.toggleItalic(tab);
+        return;
+      case 'format.underline':
+        if (tab) this.toggleUnderline(tab);
+        return;
+      case 'format.textColor':
+        if (tab) await this.promptTextColor(tab);
+        return;
+      case 'format.backgroundColor':
+        if (tab) await this.promptBackgroundColor(tab);
+        return;
+      case 'format.borders':
+        if (tab) await this.promptBorders(tab);
+        return;
+      case 'format.clear':
+        if (tab) this.clearFormatting(tab);
         return;
       case 'sheet.recalculate':
         // Drops every cached result and advances the clock the volatile
@@ -1137,5 +1206,47 @@ export class Commands {
     scope: SearchScope = 'sheet',
   ): Promise<ReplaceAllReport> {
     return this.rangeOps.replaceAll(query, replacement, scope);
+  }
+
+  // ----- Cell/range formatting (RSF worksheets only) -----
+
+  /** Toggle Bold on the selection. See `FormatCommands.toggleBold` for the full behavior contract. */
+  toggleBold(tab: Tab): boolean {
+    return this.format.toggleBold(tab);
+  }
+
+  /** Toggle Italic on the selection. See `FormatCommands.toggleItalic`. */
+  toggleItalic(tab: Tab): boolean {
+    return this.format.toggleItalic(tab);
+  }
+
+  /** Toggle Underline on the selection. See `FormatCommands.toggleUnderline`. */
+  toggleUnderline(tab: Tab): boolean {
+    return this.format.toggleUnderline(tab);
+  }
+
+  /** Open the Text Color dialog and apply the choice. See `FormatCommands.promptTextColor`. */
+  async promptTextColor(tab: Tab): Promise<boolean> {
+    return this.format.promptTextColor(tab);
+  }
+
+  /** Open the Background Color dialog and apply the choice. See `FormatCommands.promptBackgroundColor`. */
+  async promptBackgroundColor(tab: Tab): Promise<boolean> {
+    return this.format.promptBackgroundColor(tab);
+  }
+
+  /** Open the Borders dialog and apply the choice. See `FormatCommands.promptBorders`. */
+  async promptBorders(tab: Tab): Promise<boolean> {
+    return this.format.promptBorders(tab);
+  }
+
+  /** Remove every style property from the selection. See `FormatCommands.clearFormatting`. */
+  clearFormatting(tab: Tab): boolean {
+    return this.format.clearFormatting(tab);
+  }
+
+  /** Whether Bold/Italic/Underline is "on" for the whole selection. See `FormatCommands.isActive`. */
+  isFormatActive(tab: Tab, key: 'bold' | 'italic' | 'underline'): boolean {
+    return this.format.isActive(tab, key);
   }
 }

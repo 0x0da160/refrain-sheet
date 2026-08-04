@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { CellStyle } from './cell-style';
 import type { SheetFilter } from './filter';
 import type { Worksheet } from './worksheet';
 
@@ -12,6 +13,14 @@ export interface CellChange {
   col: number;
   before: string | null;
   after: string | null;
+}
+
+/** One cell's style change inside a history operation (RSF documents only). */
+export interface StyleChange {
+  row: number;
+  col: number;
+  before: CellStyle | null;
+  after: CellStyle | null;
 }
 
 /**
@@ -55,6 +64,13 @@ export type SheetOperation =
  */
 export type Operation =
   | { type: 'cells'; changes: CellChange[]; sheetId?: string }
+  /**
+   * A change to one or more cells' visual style (bold/italic/underline,
+   * colors, borders). Purely presentational, like `filter`: it never touches
+   * cell values or formula results, but the workbook is marked as having
+   * unsaved changes because styles are persisted in the saved container.
+   */
+  | { type: 'styles'; changes: StyleChange[]; sheetId?: string }
   | {
       type: 'rows';
       action: 'insert' | 'delete';
@@ -102,7 +118,7 @@ export function cellsEntry(label: string, changes: CellChange[]): HistoryEntry {
 
 function isEmpty(entry: HistoryEntry): boolean {
   return entry.ops.every((op) => {
-    if (op.type === 'cells') {
+    if (op.type === 'cells' || op.type === 'styles') {
       return op.changes.length === 0;
     }
     if (op.type === 'filter' || op.type === 'wrap') {

@@ -481,6 +481,32 @@ untouched, and formula calculations always use the normal sheet model.
   comparisons — no `eval`, `new Function`, regular expressions, or network
   access. Large sorts run behind a busy indicator.
 
+### Cell formatting (RSF)
+
+The **Format** menu applies visual formatting to the selected cell or range:
+**Bold**, **Italic**, **Underline**, **Text Color…**, **Background Color…**,
+**Borders…**, and **Clear Formatting**.
+
+- **RSF only.** Like Filter and Sort, formatting is a spreadsheet feature; it
+  is disabled outright on a plain CSV document.
+- **Purely presentational.** Formatting never changes a cell's value, formula
+  results, sort/filter behavior, or CSV export — it only changes how the cell
+  displays.
+- **Bold/Italic/Underline** toggle: when every cell in the selection already
+  has the property, the next toggle turns it off everywhere; otherwise it
+  turns it on everywhere (the usual spreadsheet "uniform selection" rule).
+- **Text Color** and **Background Color** open a color picker; **Clear
+  color** in either dialog removes that color instead of choosing one.
+- **Borders** lets you choose which of the four sides (top/right/bottom/left)
+  carry a border and their shared color; every border is a thin solid line —
+  there is no separate width or style choice.
+- **Clear Formatting** removes every style property from the selection
+  without touching cell values.
+- **Undoable and saved.** Every formatting change is one atomic history entry
+  (Ctrl+Z / Ctrl+Y undo/redo it like any other edit) and is persisted in the
+  `.rsf` file, unlike the session-only Sort above.
+- **Keyboard shortcuts:** Ctrl+B / Ctrl+I / Ctrl+U toggle Bold/Italic/Underline.
+
 ### Editing help tooltips
 
 The inline-editor / formula-bar usage guidance (Enter commits and moves down,
@@ -525,29 +551,30 @@ browser find (Ctrl+F, F3), print (Ctrl+P), zoom (Ctrl +/−/0), dev tools (F12),
 and browser tab switching (Ctrl+Tab, Ctrl+PageUp/Down). Commands that would
 otherwise collide use safe alternatives.
 
-| Command              | Shortcut                               |
-| -------------------- | -------------------------------------- |
-| New spreadsheet      | **F4**                                 |
-| Open file            | Ctrl+O / Cmd+O                         |
-| Save                 | Ctrl+S / Cmd+S                         |
-| Save with Options    | Ctrl+Shift+S / Cmd+Shift+S             |
-| Close tab            | **F8**                                 |
-| Next worksheet       | **F7**                                 |
-| Previous worksheet   | **Shift+F7**                           |
-| Undo / Redo          | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z)      |
-| Copy / Paste         | Ctrl+C / Ctrl+V                        |
-| Select All Cells     | Ctrl+A / Cmd+A (grid focus only)       |
-| Fill Down (grid)     | Ctrl+D / Cmd+D                         |
-| Find / Replace       | **Ctrl+Shift+F** / **Ctrl+Shift+H**    |
-| Zoom in / out        | **Ctrl+Shift+.** / **Ctrl+Shift+,**    |
-| Reset zoom           | **Ctrl+Shift+0**                       |
-| Zoom (mouse)         | Ctrl / Cmd + mouse wheel over the grid |
-| Find next / previous | Enter / Shift+Enter (in the Find bar)  |
-| Edit cell            | F2 (or start typing)                   |
-| Extend selection     | Shift+Arrows                           |
-| Jump to first cell   | Ctrl+Home / Cmd+Home                   |
-| Jump to last cell    | Ctrl+End / Cmd+End                     |
-| Cancel edit          | Esc                                    |
+| Command                   | Shortcut                               |
+| ------------------------- | -------------------------------------- |
+| New spreadsheet           | **F4**                                 |
+| Open file                 | Ctrl+O / Cmd+O                         |
+| Save                      | Ctrl+S / Cmd+S                         |
+| Save with Options         | Ctrl+Shift+S / Cmd+Shift+S             |
+| Close tab                 | **F8**                                 |
+| Next worksheet            | **F7**                                 |
+| Previous worksheet        | **Shift+F7**                           |
+| Undo / Redo               | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z)      |
+| Copy / Paste              | Ctrl+C / Ctrl+V                        |
+| Select All Cells          | Ctrl+A / Cmd+A (grid focus only)       |
+| Fill Down (grid)          | Ctrl+D / Cmd+D                         |
+| Bold / Italic / Underline | Ctrl+B / Ctrl+I / Ctrl+U               |
+| Find / Replace            | **Ctrl+Shift+F** / **Ctrl+Shift+H**    |
+| Zoom in / out             | **Ctrl+Shift+.** / **Ctrl+Shift+,**    |
+| Reset zoom                | **Ctrl+Shift+0**                       |
+| Zoom (mouse)              | Ctrl / Cmd + mouse wheel over the grid |
+| Find next / previous      | Enter / Shift+Enter (in the Find bar)  |
+| Edit cell                 | F2 (or start typing)                   |
+| Extend selection          | Shift+Arrows                           |
+| Jump to first cell        | Ctrl+Home / Cmd+Home                   |
+| Jump to last cell         | Ctrl+End / Cmd+End                     |
+| Cancel edit               | Esc                                    |
 
 The same table is shown in **Help > About / Keyboard Shortcuts**. Grid-editing
 accelerators (Undo/Redo/Fill Down) are suppressed while a text field or the cell

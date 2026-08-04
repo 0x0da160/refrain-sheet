@@ -133,6 +133,7 @@ describe('View menu Spreadsheet Zoom submenu', () => {
     theme: () => 'system',
     zoom: () => 100,
     editHints: () => true,
+    formatActive: () => false,
   });
 
   it('nests every zoom control under a Spreadsheet Zoom submenu', () => {

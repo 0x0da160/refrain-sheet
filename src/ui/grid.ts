@@ -3,6 +3,7 @@ import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import { LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { getEditHints, nextZoomLevel } from '../app/settings';
+import type { CellStyle } from '../core/cell-style';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
 import { ColOffsetIndex } from '../core/col-offset-index';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
@@ -1706,7 +1707,28 @@ export class Grid {
       } else if (cell.title !== '') {
         cell.removeAttribute('title');
       }
+      this.paintCellStyle(cell, doc.getStyle(row, col));
     }
+  }
+
+  /**
+   * Apply (or clear) one cell's visual style — bold/italic/underline as CSS
+   * classes, colors and borders as inline styles so any `#rrggbb` value works
+   * without a matching stylesheet rule. Assigning `''` restores the normal
+   * grid appearance (the default border/background from `.vcell` in
+   * `src/styles.css`), so this is safe to call on a reused, previously
+   * styled cell element.
+   */
+  private paintCellStyle(cell: HTMLElement, style: CellStyle | null): void {
+    cell.classList.toggle('cell-bold', !!style?.bold);
+    cell.classList.toggle('cell-italic', !!style?.italic);
+    cell.classList.toggle('cell-underline', !!style?.underline);
+    cell.style.color = style?.textColor ?? '';
+    cell.style.backgroundColor = style?.backgroundColor ?? '';
+    cell.style.borderTop = style?.borderTop ? `1px solid ${style.borderTop}` : '';
+    cell.style.borderRight = style?.borderRight ? `1px solid ${style.borderRight}` : '';
+    cell.style.borderBottom = style?.borderBottom ? `1px solid ${style.borderBottom}` : '';
+    cell.style.borderLeft = style?.borderLeft ? `1px solid ${style.borderLeft}` : '';
   }
 
   /** Repaint the currently rendered cells in place (values/classes only). */

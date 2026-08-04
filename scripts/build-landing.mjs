@@ -120,6 +120,18 @@ function build(lang) {
         el.setAttribute(attr, rel(v, depth));
       }
     }
+    for (const el of doc.querySelectorAll('img[srcset]')) {
+      const rewritten = el
+        .getAttribute('srcset')
+        .split(',')
+        .map((candidate) => {
+          const [url, descriptor] = candidate.trim().split(/\s+/, 2);
+          const resolved = !/^(https?:|#|\/|\.\.)/.test(url) ? rel(url, depth) : url;
+          return descriptor ? `${resolved} ${descriptor}` : resolved;
+        })
+        .join(', ');
+      el.setAttribute('srcset', rewritten);
+    }
   }
 
   // ---------- head ----------

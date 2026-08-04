@@ -5,6 +5,7 @@ import { RsfDocument, RSF_EXTENSION } from '../../core/rsf-document';
 import {
   AppState,
   defaultSheetName,
+  STICKY_COL_KEY,
   STICKY_KEY,
   type EditorDocument,
   type Selection,
@@ -467,6 +468,12 @@ export class StructuralOpsState {
   setStickyFirstRow(sticky: boolean): void {
     this.state.stickyFirstRow = sticky;
     safeStorageSet(STICKY_KEY, sticky ? '1' : '0');
+    this.state.emit('view');
+  }
+
+  setStickyFirstColumn(sticky: boolean): void {
+    this.state.stickyFirstColumn = sticky;
+    safeStorageSet(STICKY_COL_KEY, sticky ? '1' : '0');
     this.state.emit('view');
   }
 

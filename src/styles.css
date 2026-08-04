@@ -912,6 +912,23 @@ button {
   color: var(--accent);
 }
 
+/* Sticky first column: the pinned column-0 header and its per-row data cells
+   stick to the left, right after the row-header column (see `overlayWidth`
+   in grid.ts, which reserves this space out of the scrollable viewport). The
+   accent right border marks the frozen boundary, mirroring the sticky row's
+   accent bottom border above. Normal cell/alt-row/selection backgrounds are
+   left untouched so selection highlighting still shows through when a
+   selected range includes the frozen column. */
+.vcell.colpin {
+  position: sticky;
+  z-index: 2;
+  border-right: 2px solid var(--accent);
+}
+
+.vcell.vhead.pinned {
+  color: var(--accent);
+}
+
 /* Column-header filter button (shown on every column of an active filter's
    range). A real <button> so Enter/Space and focus-visible work natively;
    filled when the column carries criteria. */

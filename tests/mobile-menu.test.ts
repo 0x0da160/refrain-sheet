@@ -59,6 +59,7 @@ function menuChecks(): MenuChecks {
   return {
     wrap: () => false,
     stickyFirstRow: () => false,
+    stickyFirstColumn: () => false,
     sheetFont: () => 'biz-ud',
     theme: () => 'system',
     zoom: () => 100,

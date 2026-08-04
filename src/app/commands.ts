@@ -4,6 +4,7 @@ import type { BorderSide, NumberFormat } from '../core/cell-style';
 import type { CellRange } from '../core/clipboard';
 import { type CsvExportOptions } from '../core/csv-export';
 import { type EncodingId } from '../core/encoding';
+import { type CellValidation, type ValidationRule } from '../core/data-validation';
 import { type ColumnFilter } from '../core/filter';
 import { isFormula } from '../core/formula';
 import { RsfDocument } from '../core/rsf-document';
@@ -29,6 +30,7 @@ import {
 } from './settings';
 import { setSheetFont, type SheetFontId } from './sheet-font';
 import { setTheme, type ThemeChoice } from './theme';
+import { ValidationCommands } from './commands/data-validation';
 import { FileIoCommands } from './commands/file-io';
 import { FilterCommands } from './commands/filter';
 import { FormatCommands } from './commands/format';
@@ -141,6 +143,20 @@ export interface SortDialogInput {
 /** What the sort dialog resolved to (null = cancelled, nothing changes). */
 export type SortDialogResult = { action: 'apply'; headerRow: boolean; keys: SortKey[] } | { action: 'clear' };
 
+/**
+ * Everything the data-validation dialog needs to edit the selected range's
+ * rule — mirrors `SortDialogInput`.
+ */
+export interface DataValidationDialogInput {
+  /** Human-readable A1 range the rule would apply to, e.g. "A1:A20". */
+  rangeLabel: string;
+  /** The rule already covering this exact range, or null when creating one. */
+  existing: ValidationRule | null;
+}
+
+/** What the data-validation dialog resolved to (null = cancelled, nothing changes). */
+export type DataValidationDialogResult = { action: 'apply'; rule: ValidationRule } | { action: 'clear' };
+
 /** What the Text/Background Color dialog resolved to (null = cancelled, nothing changes). */
 export type ColorDialogResult = { action: 'apply'; color: string } | { action: 'clear' };
 
@@ -209,6 +225,13 @@ export interface UiPort {
    * cancelled (nothing changes).
    */
   chooseSort(input: SortDialogInput): Promise<SortDialogResult | null>;
+  /**
+   * The accessible data-validation dialog for the selected range: a rule
+   * kind (a fixed list of choices, or a numeric range) and its parameters.
+   * Resolves with the chosen action, or null when cancelled (nothing
+   * changes).
+   */
+  chooseDataValidation(input: DataValidationDialogInput): Promise<DataValidationDialogResult | null>;
   /**
    * Ask for a worksheet name when adding, renaming, or duplicating. `validate`
    * returns an already-localized error message for an unacceptable name (empty,
@@ -371,6 +394,7 @@ export type CommandId =
   | 'sheet.exportCsv'
   | 'sheet.exportXlsx'
   | 'data.runSqlQuery'
+  | 'data.validation'
   // Worksheets inside the active RSF workbook (distinct from the application
   // document tabs, whose commands are the `tab.*` ids below).
   | 'worksheet.add'
@@ -444,6 +468,7 @@ export class Commands {
     this.fileIo = new FileIoCommands(state, ui, dom);
     this.filter = new FilterCommands(state, ui);
     this.sort = new SortCommands(state, ui);
+    this.validation = new ValidationCommands(state, ui);
     this.worksheets = new WorksheetCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.pasteFill = new PasteFillCommands(
       state,
@@ -464,6 +489,9 @@ export class Commands {
 
   /** Sort dialog flow and apply/clear — see `SortCommands`. */
   private readonly sort: SortCommands;
+
+  /** Data-validation dialog flow and apply/clear — see `ValidationCommands`. */
+  private readonly validation: ValidationCommands;
 
   /** Worksheet lifecycle and row/column structural commands — see `WorksheetCommands`. */
   private readonly worksheets: WorksheetCommands;
@@ -534,6 +562,7 @@ export class Commands {
       case 'edit.moveRange':
       case 'sheet.filter':
       case 'sheet.sort':
+      case 'data.validation':
         return tab?.selection != null;
       // Formatting is RSF-only, like sort/filter above, but (unlike them)
       // there is no dialog to run and explain the required conversion from —
@@ -823,6 +852,9 @@ export class Commands {
         return;
       case 'data.runSqlQuery':
         if (tab) await this.showSqlQuery(tab);
+        return;
+      case 'data.validation':
+        if (tab) await this.validationDialog(tab);
         return;
       case 'view.wrap':
         this.state.setWrapCells(!this.state.wrapCells);
@@ -1223,6 +1255,22 @@ export class Commands {
   /** Sheet > Clear Sort: rows return to document order. See `SortCommands.clearSort`. */
   clearSort(tab: Tab): boolean {
     return this.sort.clearSort(tab);
+  }
+
+  // ----- Data validation (RSF spreadsheet documents only; view-only, unsaved) -----
+
+  /** The rule applying to one cell on the active worksheet, or null. See `ValidationCommands.validationAt`. */
+  validationAt(tab: Tab, row: number, col: number): CellValidation | null {
+    return this.validation.validationAt(tab, row, col);
+  }
+
+  /**
+   * Data > Data Validation…: open the dialog for the selected range and
+   * apply the result. See `ValidationCommands.validationDialog` for the full
+   * behavior contract.
+   */
+  async validationDialog(tab: Tab): Promise<boolean> {
+    return this.validation.validationDialog(tab);
   }
 
   /** Clear every cell in the selected range as one undoable operation. See

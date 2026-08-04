@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { normalizeRange, type CellRange } from '../core/clipboard';
+import { checkValidationValue, findValidation, type CellValidation } from '../core/data-validation';
 import { filtersEqual, type SheetFilter } from '../core/filter';
 import { cellLabel } from '../core/formula';
 import {
@@ -377,6 +378,30 @@ export class AppState {
     return true;
   }
 
+  /**
+   * Refuse a write whose new value violates the data-validation rule covering
+   * that cell, announcing why. Blank values always pass (clearing a cell is
+   * never itself invalid), and only RSF documents carry rules. Returns true
+   * when the caller must stop.
+   */
+  private refuseInvalidWrite(
+    tab: Tab,
+    changes: ReadonlyArray<{ row: number; col: number; after: string | null }>,
+  ): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || doc.validations.length === 0) {
+      return false;
+    }
+    for (const change of changes) {
+      const rule = findValidation(doc.validations, change.row, change.col);
+      if (rule && !checkValidationValue(rule.rule, change.after ?? '')) {
+        this.announce?.(t('notify.invalidValue', { cell: cellLabel(change.row, change.col) }));
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Set one cell's value as a single undoable operation. */
   editCell(tab: Tab, row: number, col: number, value: string, label = 'history.editCell'): boolean {
     if (tab.doc.kind === 'csv') {
@@ -405,7 +430,11 @@ export class AppState {
     if (before === value) {
       return false;
     }
-    if (this.refuseSpillWrite(tab, [{ row, col }]) || this.refuseSortedWrite(tab, [{ row, col }])) {
+    if (
+      this.refuseSpillWrite(tab, [{ row, col }]) ||
+      this.refuseSortedWrite(tab, [{ row, col }]) ||
+      this.refuseInvalidWrite(tab, [{ row, col, after: value }])
+    ) {
       return false;
     }
     const sheetId = tab.doc.activeSheetId;
@@ -424,7 +453,11 @@ export class AppState {
     if (effective.length === 0) {
       return false;
     }
-    if (this.refuseSpillWrite(tab, effective) || this.refuseSortedWrite(tab, effective)) {
+    if (
+      this.refuseSpillWrite(tab, effective) ||
+      this.refuseSortedWrite(tab, effective) ||
+      this.refuseInvalidWrite(tab, effective)
+    ) {
       return false;
     }
     const sheetId = tab.doc.kind === 'rsf' ? tab.doc.activeSheetId : undefined;
@@ -463,7 +496,9 @@ export class AppState {
     for (const op of entry.ops) {
       if (
         op.type === 'cells' &&
-        (this.refuseSpillWrite(tab, op.changes) || this.refuseSortedWrite(tab, op.changes))
+        (this.refuseSpillWrite(tab, op.changes) ||
+          this.refuseSortedWrite(tab, op.changes) ||
+          this.refuseInvalidWrite(tab, op.changes))
       ) {
         return false;
       }
@@ -724,6 +759,35 @@ export class AppState {
    */
   setSort(tab: Tab, sort: SheetSort | null): boolean {
     return this.worksheetsState.setSort(tab, sort);
+  }
+
+  // ----- Data validation (RSF spreadsheet documents only; view-only, unsaved) -----
+
+  /**
+   * Apply (add or replace) a data-validation rule. Session-only view state,
+   * not an undoable history entry and never saved to the container — see
+   * {@link Worksheet.validations}.
+   */
+  setValidation(tab: Tab, validation: CellValidation): boolean {
+    return this.worksheetsState.setValidation(tab, validation);
+  }
+
+  /** Clear the data-validation rule covering exactly `range`, if one exists. */
+  clearValidation(tab: Tab, range: Pick<CellValidation, 'top' | 'left' | 'bottom' | 'right'>): boolean {
+    return this.worksheetsState.clearValidation(tab, range);
+  }
+
+  /** The rule covering exactly `range` on the active worksheet, or null. */
+  validationForRange(
+    tab: Tab,
+    range: Pick<CellValidation, 'top' | 'left' | 'bottom' | 'right'>,
+  ): CellValidation | null {
+    return this.worksheetsState.validationForRange(tab, range);
+  }
+
+  /** The rule applying to one cell on the active worksheet, or null. */
+  validationAt(tab: Tab, row: number, col: number): CellValidation | null {
+    return this.worksheetsState.validationAt(tab, row, col);
   }
 
   // ----- Worksheets (RSF workbooks only) -----

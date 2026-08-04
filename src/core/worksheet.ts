@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { cellStylesEqual, type CellStyle } from './cell-style';
+import type { CellValidation } from './data-validation';
 import type { SheetFilter } from './filter';
 import { isFormula, parseFormula, type ParseResult } from './formula';
 import type { SheetSort } from './sort';
@@ -76,6 +77,16 @@ export class Worksheet {
    * and reset whenever the worksheet's row/column structure changes.
    */
   sort: SheetSort | null = null;
+
+  /**
+   * Data-validation rules restricting which values cells accept (a fixed
+   * list, or a numeric range) — session-only view state, like `sort`: it is
+   * **not** persisted in the RSF container and never reaches the codec.
+   * Applying, editing, or clearing a rule never touches cell data, and
+   * dropped (not shifted) whenever the worksheet's row/column structure
+   * changes underneath it, exactly like a sort's stored range.
+   */
+  validations: CellValidation[] = [];
 
   /**
    * Persisted display settings for this worksheet (zoom percent, overridden
@@ -387,6 +398,7 @@ export class Worksheet {
     // shifted rows; since sort is session-only view state (not undo-tracked),
     // it is simply dropped rather than bundled into the structural entry.
     this.sort = null;
+    this.validations = [];
   }
 
   /** Remove rows and return their data (for undo; their cell styles are not preserved). */
@@ -400,6 +412,7 @@ export class Worksheet {
     this.shiftStyleRows((row) => (row < index ? row : row < index + count ? null : row - count));
     this.revision += 1;
     this.sort = null;
+    this.validations = [];
     return removed;
   }
 
@@ -417,6 +430,7 @@ export class Worksheet {
     this.cols += count;
     this.revision += 1;
     this.sort = null;
+    this.validations = [];
   }
 
   /** Remove columns and return their data as column-major arrays (for undo; their cell styles are not preserved). */
@@ -441,6 +455,7 @@ export class Worksheet {
     }
     this.revision += 1;
     this.sort = null;
+    this.validations = [];
     return removed;
   }
 

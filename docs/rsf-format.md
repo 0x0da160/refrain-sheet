@@ -189,39 +189,42 @@ nothing else keys off the identifier.
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
 Version selection on write is minimal so older readers keep working where
-possible: body **version 7** is written only when the workbook display
-language is not English; **version 6** when the workbook timezone is not
-`UTC`; **version 5** when wrap-long-rows is stored; **version 4** when a sheet
-filter is present; **version 3** when display settings are present; **version
-2** when only the creating/updating application metadata is present; **version
-1** otherwise. Versions 1–7 are all accepted on read; an older reader rejects a
-body version it does not know with a localized "unsupported version" message
-rather than misparsing it.
+possible: body **version 8** is written only when at least one cell carries a
+style; **version 7** when the workbook display language is not English;
+**version 6** when the workbook timezone is not `UTC`; **version 5** when
+wrap-long-rows is stored; **version 4** when a sheet filter is present;
+**version 3** when display settings are present; **version 2** when only the
+creating/updating application metadata is present; **version 1** otherwise.
+Versions 1–8 are all accepted on read; an older reader rejects a body version
+it does not know with a localized "unsupported version" message rather than
+misparsing it.
 
-| Size | Field                                                               |
-| ---- | ------------------------------------------------------------------- |
-| 1    | Body version — `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)         |
-| 2    | _(v2+)_ Application-name length, `u16`                              |
-| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`              |
-| 2    | _(v2+)_ Application-version length, `u16`                           |
-| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`                   |
-| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)         |
-| 4    | _(v3+)_ Column-width entry count `W`, `u32`                         |
-| …    | _(v3+)_ `W` column-width entries (see below)                        |
-| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)             |
-| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)          |
-| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)           |
-| 2    | _(v6 only)_ IANA timezone-name length, `u16`                        |
-| …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`           |
-| 2    | _(v7 only)_ Display-language length, `u16`                          |
-| …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`               |
-| 2    | Sheet-name length `N`, `u16`                                        |
-| `N`  | Sheet name (UTF-8)                                                  |
-| 4    | Row count, `u32`                                                    |
-| 4    | Column count, `u32`                                                 |
-| 4    | Cell count `C`, `u32`                                               |
-| …    | `C` cell records                                                    |
+| Size | Field                                                                    |
+| ---- | ------------------------------------------------------------------------ |
+| 1    | Body version — `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)              |
+| 2    | _(v2+)_ Application-name length, `u16`                                   |
+| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`                   |
+| 2    | _(v2+)_ Application-version length, `u16`                                |
+| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`                        |
+| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)              |
+| 4    | _(v3+)_ Column-width entry count `W`, `u32`                              |
+| …    | _(v3+)_ `W` column-width entries (see below)                             |
+| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)                  |
+| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)               |
+| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)                |
+| 2    | _(v6 only)_ IANA timezone-name length, `u16`                             |
+| …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`                |
+| 2    | _(v7 only)_ Display-language length, `u16`                               |
+| …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`                    |
+| 2    | Sheet-name length `N`, `u16`                                             |
+| `N`  | Sheet name (UTF-8)                                                       |
+| 4    | Row count, `u32`                                                         |
+| 4    | Column count, `u32`                                                      |
+| 4    | Cell count `C`, `u32`                                                    |
+| …    | `C` cell records                                                         |
+| 4    | _(v8 only)_ Styled-cell count `Y`, `u32`                                 |
+| …    | _(v8 only)_ `Y` style records (see below)                                |
 
 ### Display settings (body version 3)
 
@@ -403,6 +406,54 @@ begins with `=` is a **formula expression**; anything else is a **literal**.
 Formulas are evaluated by Refrain's sandboxed engine (no `eval`, no
 `new Function`) at display time — they are never executed during loading.
 
+### Cell styles (body version 8)
+
+Body version 8 adds **cell-level visual formatting**: bold, italic,
+underline, text color, background color, and per-side (top/right/bottom/left)
+borders (see the **Format** menu and
+[`src/core/cell-style.ts`](../src/core/cell-style.ts)). It is purely
+presentational, non-executable data — plain flags and `#rrggbb` colors, no
+expressions, macros, external URLs, or code of any kind — and it never
+affects a cell's value, formula evaluation, sort, filter, or CSV export. It is
+written only when at least one cell in the sheet carries a style, so a
+document with no formatting stays on the lowest sufficient body version.
+
+The style block is a `u32` styled-cell count `Y` followed by `Y` **style
+records**:
+
+| Size | Field                                                      |
+| ---- | ---------------------------------------------------------- |
+| 4    | Row index, `u32`                                           |
+| 4    | Column index, `u32`                                        |
+| 2    | Style flags, `u16` (see below)                             |
+| 0–18 | One 3-byte RGB triple per color flag bit set, in bit order |
+
+The flags bitfield, low to high: bit 0 bold, bit 1 italic, bit 2 underline,
+bit 3 text color, bit 4 background color, bit 5 border-top, bit 6
+border-right, bit 7 border-bottom, bit 8 border-left. A border side is "on"
+exactly when its flag bit is set — there is no separate width or style
+choice; every border is a thin solid line in the given color. Each set color
+flag contributes one 3-byte RGB triple (no alpha), in the fixed bit order
+above, immediately after the flags field.
+
+Only cells that carry at least one property are stored; a style with every
+property absent is never written (the canonical "no style" form is the
+absence of a record, not an empty one). Row/column indices are validated
+against the sheet's already-known dimensions exactly like cell records above
+— out of range is `bad-shape`; a count above what the grid could possibly
+hold (more styled cells than `rowCount × columnCount`) is `too-large`. A
+structurally truncated style block (a count or record cut short) is
+`bad-shape`, exactly like any other malformed container region.
+
+Applying or clearing cell formatting **is** a document change (it is part of
+the saved file), so it is undoable and marks the document dirty — unlike
+zoom, column widths, or wrap, which are presentational but session-derived.
+Row and column insertion/deletion reindex styled cells along with the data
+they were applied to; a deleted row or column's styles are dropped along with
+its data (the same trade-off already accepted for the sheet filter and sort).
+Plain CSV files never carry cell styles — formatting requires converting to
+RSF.
+
 ### Bounds (validated on load)
 
 | Limit                 | Value        |
@@ -423,13 +474,14 @@ Written only when the workbook holds **two or more** worksheets. All strings
 are UTF-8 and length-prefixed with a `u16`; all integers are little-endian.
 
 Workbook body version selection is minimal, like the single-sheet body:
-**version 3** is written only when the workbook display language is not `en`;
+**version 4** is written only when at least one cell in any worksheet carries
+a style; **version 3** when the workbook display language is not `en`;
 **version 2** when the workbook timezone is not `UTC`; **version 1**
-otherwise. All three versions are accepted on read.
+otherwise. All four versions are accepted on read.
 
 | Size | Field                                                           |
 | ---- | --------------------------------------------------------------- |
-| 1    | Workbook body version — `3`, `2`, or `1` (see selection)        |
+| 1    | Workbook body version — `4`, `3`, `2`, or `1` (see selection)   |
 | 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)     |
 | 2+…  | Application name (UTF-8, `u16` length; may be empty)            |
 | 2+…  | Application version (UTF-8, `u16` length; may be empty)         |
@@ -449,8 +501,9 @@ workbook display language follows the same rules as the single-sheet body
 version 7 field: written only when non-`en`, and an absent or unrecognized
 value falls back to `en` on load rather than rejecting the file. Like the
 timezone, a display-language section forces the timezone section to be
-written too (even a workbook on the default `UTC` timezone), so the layout
-stays a strict prefix chain.
+written too (even a workbook on the default `UTC` timezone), and a cell-style
+section forces the display-language (and so timezone) sections too, so the
+layout stays a strict prefix chain.
 
 Each worksheet record:
 
@@ -468,19 +521,27 @@ Each worksheet record:
 | …    | _(bit 1)_ `W` entries: column `u32`, width px at 100% zoom `u16`  |
 | 1    | Filter flags, `u8` (bit 0: a filter block follows)                |
 | …    | _(bit 0)_ Filter block — identical layout to the single-sheet one |
+| 4    | _(v4 only)_ Styled-cell count `Y`, `u32`                          |
+| …    | _(v4 only)_ `Y` style records — identical layout to the           |
+|      | single-sheet [cell-styles block](#cell-styles-body-version-8)     |
 
-Cells are stored **sparsely**: only non-empty cells are written.
+Cells are stored **sparsely**: only non-empty cells are written. When body
+version 4 is written, every worksheet record carries its own style block
+(even a worksheet with no styled cells writes a zero count), exactly the way
+every other version-gated section in this container is written unconditionally
+once its version is selected.
 
 ### Workbook bounds
 
 Beyond the per-worksheet limits (which are the same as for a single-sheet body),
 a workbook container enforces:
 
-| Limit                                      | Value      |
-| ------------------------------------------ | ---------- |
-| Worksheets per workbook                    | 256        |
-| Worksheet identifier / name (stored bytes) | 400        |
-| Cells summed across **all** worksheets     | 20,000,000 |
+| Limit                                         | Value      |
+| --------------------------------------------- | ---------- |
+| Worksheets per workbook                       | 256        |
+| Worksheet identifier / name (stored bytes)    | 400        |
+| Cells summed across **all** worksheets        | 20,000,000 |
+| Styled cells summed across **all** worksheets | 20,000,000 |
 
 The worksheet count is validated **before** any worksheet is allocated, each
 worksheet's declared dimensions are validated before its cells are read, and the
@@ -739,7 +800,10 @@ only when the timezone is non-`UTC`, so a workbook left on the default stays
 on its previous, lower body version. The single-sheet body was then bumped to
 version 7, and the workbook body to version 3, to carry the workbook display
 language (see "Display language (body version 7)" above); each is written
-only when the language is non-`en`, for the same reason. Future changes bump
-the container version (framing changes) or the relevant body version
-(encoding changes); readers reject versions they do not understand rather
-than guessing.
+only when the language is non-`en`, for the same reason. The single-sheet
+body was then bumped to version 8, and the workbook body to version 4, to
+carry cell-level visual formatting (see "Cell styles (body version 8)"
+above); each is written only when at least one cell carries a style, for the
+same reason. Future changes bump the container version (framing changes) or
+the relevant body version (encoding changes); readers reject versions they do
+not understand rather than guessing.

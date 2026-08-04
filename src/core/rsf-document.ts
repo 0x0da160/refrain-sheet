@@ -24,6 +24,7 @@ import {
 import type { ValueGrid } from './formula-value';
 import { formatCellNumber } from './cell-number-format';
 import type { CellStyle } from './cell-style';
+import type { CellValidation } from './data-validation';
 import type { SheetFilter } from './filter';
 import type { SheetSort } from './sort';
 import {
@@ -974,6 +975,13 @@ export class RsfDocument {
   /** The active worksheet's sort. */
   get sort(): SheetSort | null {
     return this.activeSheet.sort;
+  }
+
+  // ----- Data validation (session-only view state; never persisted) -----
+
+  /** The active worksheet's data-validation rules. */
+  get validations(): readonly CellValidation[] {
+    return this.activeSheet.validations;
   }
 
   // ----- Mutators (called through the atomic operation layer) -----

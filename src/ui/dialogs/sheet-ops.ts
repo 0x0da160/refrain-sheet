@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type {
+  DataValidationDialogInput,
+  DataValidationDialogResult,
   FilterDialogInput,
   FilterDialogResult,
   RangeMoveConfirmInput,
@@ -8,6 +10,7 @@ import type {
   WorkbookReplaceConfirmInput,
 } from '../../app/commands';
 import { t } from '../../app/i18n';
+import { MAX_VALIDATION_LIST_VALUES, type ValidationRule } from '../../core/data-validation';
 import {
   FILTER_NUMBER_OPS,
   FILTER_TEXT_OPS,
@@ -444,6 +447,147 @@ export class SheetOpsDialogs {
         }),
       );
     });
+  }
+
+  /**
+   * The accessible data-validation dialog for the selected range: a rule
+   * kind (a fixed list of choices, or a numeric range) and its parameters.
+   * The Apply button stays disabled, with an inline explanation, until the
+   * current fields describe a usable rule — mirroring `promptSheetName`'s
+   * live-validation pattern. Resolves with the chosen action, or null when
+   * cancelled (nothing changes).
+   */
+  chooseDataValidation(input: DataValidationDialogInput): Promise<DataValidationDialogResult | null> {
+    return openDialog<DataValidationDialogResult | null>(
+      t('dialog.dataValidation.title'),
+      null,
+      (body, buttons, close) => {
+        body.append(el('p', { text: t('dialog.dataValidation.range', { range: input.rangeLabel }) }));
+
+        const kindList = el('input', {
+          attrs: { type: 'radio', name: 'validation-kind', id: 'validation-kind-list' },
+        }) as HTMLInputElement;
+        const kindNumber = el('input', {
+          attrs: { type: 'radio', name: 'validation-kind', id: 'validation-kind-number' },
+        }) as HTMLInputElement;
+        const initialKind = input.existing?.kind ?? 'list';
+        kindList.checked = initialKind === 'list';
+        kindNumber.checked = initialKind === 'number';
+        body.append(
+          el('div', { className: 'form-row' }, [
+            el('label', { attrs: { for: 'validation-kind-list' } }, [
+              kindList,
+              el('span', { text: t('dialog.dataValidation.kindList') }),
+            ]),
+            el('label', { attrs: { for: 'validation-kind-number' } }, [
+              kindNumber,
+              el('span', { text: t('dialog.dataValidation.kindNumber') }),
+            ]),
+          ]),
+        );
+
+        const listValues = el('textarea', {
+          className: 'validation-list-values',
+          attrs: { rows: '6', 'aria-label': t('dialog.dataValidation.listValues'), 'data-autofocus': 'true' },
+        }) as HTMLTextAreaElement;
+        if (input.existing?.kind === 'list') {
+          listValues.value = input.existing.values.join('\n');
+        }
+        const listSection = el('div', { className: 'form-row' }, [
+          el('label', { text: t('dialog.dataValidation.listValues') }),
+          listValues,
+          el('p', { className: 'dialog-note', text: t('dialog.dataValidation.listHint') }),
+        ]);
+        body.append(listSection);
+
+        const minInput = el('input', {
+          attrs: { type: 'number', 'aria-label': t('dialog.dataValidation.min') },
+        }) as HTMLInputElement;
+        const maxInput = el('input', {
+          attrs: { type: 'number', 'aria-label': t('dialog.dataValidation.max') },
+        }) as HTMLInputElement;
+        if (input.existing?.kind === 'number') {
+          if (input.existing.min !== null) {
+            minInput.value = String(input.existing.min);
+          }
+          if (input.existing.max !== null) {
+            maxInput.value = String(input.existing.max);
+          }
+        }
+        const numberSection = el('div', { className: 'form-row' }, [
+          el('label', { text: t('dialog.dataValidation.min') }),
+          minInput,
+          el('label', { text: t('dialog.dataValidation.max') }),
+          maxInput,
+        ]);
+        body.append(numberSection);
+
+        const error = el('p', {
+          className: 'dialog-error',
+          attrs: { role: 'status', 'aria-live': 'polite' },
+        });
+        body.append(error);
+
+        const buildRule = (): ValidationRule | null => {
+          if (kindList.checked) {
+            const seen = new Set<string>();
+            const values: string[] = [];
+            for (const raw of listValues.value.split('\n')) {
+              const v = raw.trim();
+              if (v !== '' && !seen.has(v)) {
+                seen.add(v);
+                values.push(v);
+              }
+              if (values.length >= MAX_VALIDATION_LIST_VALUES) {
+                break;
+              }
+            }
+            return values.length > 0 ? { kind: 'list', values } : null;
+          }
+          const min = minInput.value.trim() === '' ? null : Number(minInput.value);
+          const max = maxInput.value.trim() === '' ? null : Number(maxInput.value);
+          if (min === null && max === null) {
+            return null;
+          }
+          if ((min !== null && !Number.isFinite(min)) || (max !== null && !Number.isFinite(max))) {
+            return null;
+          }
+          if (min !== null && max !== null && min > max) {
+            return null;
+          }
+          return { kind: 'number', min, max };
+        };
+
+        const applyBtn = dialogButton(t('dialog.dataValidation.apply'), true, false, () => {
+          const rule = buildRule();
+          if (rule) {
+            close({ action: 'apply', rule });
+          }
+        });
+
+        const refresh = (): void => {
+          listSection.hidden = !kindList.checked;
+          numberSection.hidden = !kindNumber.checked;
+          const rule = buildRule();
+          error.textContent = rule ? '' : t('dialog.dataValidation.incomplete');
+          applyBtn.disabled = rule === null;
+        };
+        kindList.addEventListener('change', refresh);
+        kindNumber.addEventListener('change', refresh);
+        listValues.addEventListener('input', refresh);
+        minInput.addEventListener('input', refresh);
+        maxInput.addEventListener('input', refresh);
+        refresh();
+
+        buttons.append(dialogButton(t('dialog.dataValidation.cancel'), false, true, () => close(null)));
+        if (input.existing) {
+          buttons.append(
+            dialogButton(t('dialog.dataValidation.clear'), false, false, () => close({ action: 'clear' })),
+          );
+        }
+        buttons.append(applyBtn);
+      },
+    );
   }
 
   /** Choose the shift direction for Insert Copied Cells… (null cancels). */

@@ -112,6 +112,7 @@ const noopUi: UiPort = {
   chooseTextColor: async () => null,
   chooseBackgroundColor: async () => null,
   chooseBorders: async () => null,
+  chooseNumberFormat: async () => null,
   setBusy: () => undefined,
 };
 

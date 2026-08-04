@@ -7,6 +7,7 @@ import type {
   FilterDialogInput,
   FilterDialogResult,
   FlashFillPreview,
+  NumberFormatDialogResult,
   RangeMoveConfirmInput,
   SortDialogInput,
   SortDialogResult,
@@ -14,7 +15,7 @@ import type {
 } from '../app/commands';
 import { t, type LocaleId } from '../app/i18n';
 import type { DelimiterId } from '../core/byte-csv-parser';
-import type { BorderSide } from '../core/cell-style';
+import type { BorderSide, NumberFormat } from '../core/cell-style';
 import type { CsvExportOptions } from '../core/csv-export';
 import type { EncodingId } from '../core/encoding';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
@@ -273,6 +274,11 @@ export class Dialogs {
   /** See `FormatDialogs.chooseBorders` for the full behavior contract. */
   chooseBorders(current: Partial<Record<BorderSide, string>>): Promise<BordersDialogResult | null> {
     return this.format.chooseBorders(current);
+  }
+
+  /** See `FormatDialogs.chooseNumberFormat` for the full behavior contract. */
+  chooseNumberFormat(current: NumberFormat | null): Promise<NumberFormatDialogResult | null> {
+    return this.format.chooseNumberFormat(current);
   }
 
   /**

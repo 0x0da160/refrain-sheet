@@ -1,7 +1,17 @@
 // SPDX-License-Identifier: MIT
-import type { BordersDialogResult, ColorDialogResult } from '../../app/commands';
+import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult } from '../../app/commands';
 import { t } from '../../app/i18n';
-import { BORDER_SIDES, isHexColor, type BorderSide } from '../../core/cell-style';
+import {
+  BORDER_SIDES,
+  isHexColor,
+  MAX_CURRENCY_SYMBOL_LENGTH,
+  MAX_NUMBER_FORMAT_DECIMALS,
+  normalizeNumberFormat,
+  NUMBER_FORMAT_KINDS,
+  type BorderSide,
+  type NumberFormat,
+  type NumberFormatKind,
+} from '../../core/cell-style';
 import { el } from '../dom';
 import { dialogButton, openDialog } from './shared';
 
@@ -14,11 +24,17 @@ const BORDER_SIDE_LABEL_KEY: Record<BorderSide, string> = {
   borderLeft: 'dialog.borders.left',
 };
 
+const NUMBER_FORMAT_KIND_LABEL_KEY: Record<NumberFormatKind, string> = {
+  number: 'dialog.numberFormat.kind.number',
+  percent: 'dialog.numberFormat.kind.percent',
+  currency: 'dialog.numberFormat.kind.currency',
+};
+
 /**
- * The Text Color / Background Color / Borders dialogs for cell formatting
- * (Format menu). Extracted as a cohesive slice, mirroring `SheetOpsDialogs` —
- * `Dialogs` still implements the same `UiPort` surface, delegating to an
- * instance of this class.
+ * The Text Color / Background Color / Borders / Number Format dialogs for
+ * cell formatting (Format menu). Extracted as a cohesive slice, mirroring
+ * `SheetOpsDialogs` — `Dialogs` still implements the same `UiPort` surface,
+ * delegating to an instance of this class.
  */
 export class FormatDialogs {
   /**
@@ -103,5 +119,96 @@ export class FormatDialogs {
         }),
       );
     });
+  }
+
+  /**
+   * Choose a cell's numeric display format: kind (number/percent/currency),
+   * decimal places, thousands separator, and — for currency — a symbol.
+   * `current` preselects every field from the top-left selected cell's
+   * existing format (falls back to a 2-decimal Number when there is none).
+   * "Clear" removes the format ("General"); resolves null when cancelled,
+   * leaving the format untouched.
+   */
+  chooseNumberFormat(current: NumberFormat | null): Promise<NumberFormatDialogResult | null> {
+    return openDialog<NumberFormatDialogResult | null>(
+      t('dialog.numberFormat.title'),
+      null,
+      (body, buttons, close) => {
+        const kindId = 'format-number-kind';
+        const decimalsId = 'format-number-decimals';
+        const thousandsId = 'format-number-thousands';
+        const symbolId = 'format-number-symbol';
+
+        const kindSelect = el('select', {
+          attrs: { id: kindId, 'data-autofocus': 'true' },
+        }) as HTMLSelectElement;
+        for (const kind of NUMBER_FORMAT_KINDS) {
+          const option = el('option', {
+            text: t(NUMBER_FORMAT_KIND_LABEL_KEY[kind]),
+            attrs: { value: kind },
+          }) as HTMLOptionElement;
+          option.selected = kind === (current?.kind ?? 'number');
+          kindSelect.append(option);
+        }
+
+        const decimalsInput = el('input', {
+          attrs: {
+            type: 'number',
+            id: decimalsId,
+            min: '0',
+            max: String(MAX_NUMBER_FORMAT_DECIMALS),
+            value: String(current?.decimals ?? 2),
+          },
+        }) as HTMLInputElement;
+
+        const thousandsInput = el('input', {
+          attrs: { type: 'checkbox', id: thousandsId },
+        }) as HTMLInputElement;
+        thousandsInput.checked = current?.thousands ?? false;
+
+        const symbolInput = el('input', {
+          attrs: {
+            type: 'text',
+            id: symbolId,
+            maxlength: String(MAX_CURRENCY_SYMBOL_LENGTH),
+            value: current?.currencySymbol ?? '$',
+          },
+        }) as HTMLInputElement;
+        const updateSymbolEnabled = (): void => {
+          symbolInput.disabled = kindSelect.value !== 'currency';
+        };
+        kindSelect.addEventListener('change', updateSymbolEnabled);
+        updateSymbolEnabled();
+
+        body.append(
+          el('label', { text: t('dialog.numberFormat.kind'), attrs: { for: kindId } }),
+          kindSelect,
+          el('label', { text: t('dialog.numberFormat.decimals'), attrs: { for: decimalsId } }),
+          decimalsInput,
+          el('div', { className: 'format-borders-row' }, [
+            thousandsInput,
+            el('label', { text: t('dialog.numberFormat.thousands'), attrs: { for: thousandsId } }),
+          ]),
+          el('label', { text: t('dialog.numberFormat.currencySymbol'), attrs: { for: symbolId } }),
+          symbolInput,
+        );
+        buttons.append(
+          dialogButton(t('dialog.numberFormat.cancel'), false, false, () => close(null)),
+          dialogButton(t('dialog.numberFormat.clear'), false, false, () => close({ action: 'clear' })),
+          dialogButton(t('dialog.numberFormat.apply'), true, false, () => {
+            const decimals = Number.parseInt(decimalsInput.value, 10);
+            close({
+              action: 'apply',
+              format: normalizeNumberFormat({
+                kind: kindSelect.value as NumberFormatKind,
+                decimals: Number.isFinite(decimals) ? decimals : 0,
+                thousands: thousandsInput.checked,
+                currencySymbol: symbolInput.value,
+              }),
+            });
+          }),
+        );
+      },
+    );
   }
 }

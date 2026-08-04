@@ -92,6 +92,7 @@ function bootstrap(): void {
     chooseTextColor: (current) => dialogs.chooseTextColor(current),
     chooseBackgroundColor: (current) => dialogs.chooseBackgroundColor(current),
     chooseBorders: (current) => dialogs.chooseBorders(current),
+    chooseNumberFormat: (current) => dialogs.chooseNumberFormat(current),
     setBusy: (label, progress) => {
       // An operation is starting: a context menu built against the pre-operation
       // state must not survive into it.

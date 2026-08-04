@@ -11,6 +11,7 @@ import type {
   RangeMoveConfirmInput,
   SortDialogInput,
   SortDialogResult,
+  SqlQueryDialogInput,
   WorkbookReplaceConfirmInput,
 } from '../app/commands';
 import { t, type LocaleId } from '../app/i18n';
@@ -25,6 +26,7 @@ import { AppSettingsDialogs } from './dialogs/app-settings';
 import { FileIoDialogs } from './dialogs/file-io';
 import { FormatDialogs } from './dialogs/format';
 import { SheetOpsDialogs } from './dialogs/sheet-ops';
+import { SqlQueryDialogs } from './dialogs/sql';
 import { dialogButton, openDialog } from './dialogs/shared';
 
 export class Dialogs {
@@ -32,6 +34,7 @@ export class Dialogs {
   private readonly fileIo = new FileIoDialogs();
   private readonly sheetOps = new SheetOpsDialogs();
   private readonly format = new FormatDialogs();
+  private readonly sqlQuery = new SqlQueryDialogs();
 
   confirmValidation(name: string, summary: ValidationSummary): Promise<boolean> {
     return openDialog(t('dialog.validation.title'), false, (body, buttons, close) => {
@@ -329,6 +332,11 @@ export class Dialogs {
   /** See `AppSettingsDialogs.showFormulaHelp` for the full behavior contract. */
   showFormulaHelp(): Promise<void> {
     return this.appSettings.showFormulaHelp();
+  }
+
+  /** See `SqlQueryDialogs.showSqlQuery` for the full behavior contract. */
+  showSqlQuery(input: SqlQueryDialogInput): Promise<void> {
+    return this.sqlQuery.showSqlQuery(input);
   }
 }
 

@@ -39,6 +39,8 @@ export interface MenuChecks {
   zoom: () => number;
   /** Whether editing-help tooltips are enabled. */
   editHints: () => boolean;
+  /** Whether Bold/Italic/Underline is "on" for the whole current selection. */
+  formatActive: (key: 'bold' | 'italic' | 'underline') => boolean;
 }
 
 export function defaultMenus(checks: MenuChecks): MenuDef[] {
@@ -152,6 +154,38 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
         { labelKey: 'menu.sheet.exportXlsx', command: 'sheet.exportXlsx' },
+      ],
+    },
+    {
+      labelKey: 'menu.format',
+      items: [
+        // Cell/range visual formatting, RSF-only (like Filter/Sort above),
+        // disabled outright on a plain CSV document rather than explaining
+        // the required conversion — see `Commands.isEnabled`.
+        {
+          labelKey: 'menu.format.bold',
+          command: 'format.bold',
+          shortcut: 'Ctrl+B',
+          checked: () => checks.formatActive('bold'),
+        },
+        {
+          labelKey: 'menu.format.italic',
+          command: 'format.italic',
+          shortcut: 'Ctrl+I',
+          checked: () => checks.formatActive('italic'),
+        },
+        {
+          labelKey: 'menu.format.underline',
+          command: 'format.underline',
+          shortcut: 'Ctrl+U',
+          checked: () => checks.formatActive('underline'),
+        },
+        'separator',
+        { labelKey: 'menu.format.textColor', command: 'format.textColor' },
+        { labelKey: 'menu.format.backgroundColor', command: 'format.backgroundColor' },
+        { labelKey: 'menu.format.borders', command: 'format.borders' },
+        'separator',
+        { labelKey: 'menu.format.clear', command: 'format.clear' },
       ],
     },
     {

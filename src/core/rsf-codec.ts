@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from './byte-csv-parser';
+import { COLOR_KEYS, type CellStyle } from './cell-style';
 import {
   FILTER_NUMBER_OPS,
   FILTER_TEXT_OPS,
@@ -72,11 +73,12 @@ export {
  * Body layout (little-endian), all strings UTF-8. Body version 2 adds the
  * creating/updating application metadata after the delimiter; version 3 adds
  * the display-settings block; version 4 adds the sheet-filter block; version 6
- * adds the workbook timezone; version 7 adds the workbook display language.
- * Older versions are still accepted on read:
+ * adds the workbook timezone; version 7 adds the workbook display language;
+ * version 8 adds the cell-style block. Older versions are still accepted on
+ * read:
  *
  * ```
- * 0    1     body version (1–7 readable; lowest sufficient version written)
+ * 0    1     body version (1–8 readable; lowest sufficient version written)
  * 1    1     delimiter byte (',' ';' or TAB)
  * --- body versions 2+ ---
  * 2    2     application-name length (u16)
@@ -105,6 +107,10 @@ export {
  * …    4     column count (u32)
  * …    4     cell count (u32)
  * …    per cell: row (u32), col (u32), input length (u32), input bytes
+ * --- body version 8+ ---
+ * …    4     styled-cell count (u32)
+ * …    per style: row (u32), col (u32), style flags (u16), then one 3-byte
+ *             RGB triple per flag bit set (see `docs/rsf-format.md`)
  * ```
  */
 export const RSF_MAGIC = new Uint8Array([0x52, 0x53, 0x46, 0x31]); // "RSF1"
@@ -117,16 +123,17 @@ export const RSF_LEGACY_MAGIC = new Uint8Array([0x52, 0x43, 0x53, 0x56]); // "RC
 export const RSF_LEGACY_CONTAINER_VERSION = 2;
 /**
  * Highest body version this release reads and writes. Version selection on
- * write is minimal: 7 when the workbook display language is not English, else
- * 6 when the workbook timezone is not UTC, else 5 when wrap-long-rows is
- * stored, else 4 when a sheet filter is present, else 3 when display settings
- * are present, else 2 when application metadata is present, else 1 — so
- * documents without the newer data stay readable by older releases. Versions
- * 1–7 are all accepted on read; an older reader rejects a version it does not
- * know with `bad-version` (a localized "unsupported version" message) rather
- * than misparsing it.
+ * write is minimal: 8 when at least one cell carries a style, else 7 when the
+ * workbook display language is not English, else 6 when the workbook timezone
+ * is not UTC, else 5 when wrap-long-rows is stored, else 4 when a sheet filter
+ * is present, else 3 when display settings are present, else 2 when
+ * application metadata is present, else 1 — so documents without the newer
+ * data stay readable by older releases. Versions 1–8 are all accepted on
+ * read; an older reader rejects a version it does not know with
+ * `bad-version` (a localized "unsupported version" message) rather than
+ * misparsing it.
  */
-export const RSF_BODY_VERSION = 7;
+export const RSF_BODY_VERSION = 8;
 
 // ----- Display-settings bounds (body version 3) -----------------------------
 // Persisted display state is validated and clamped on load so a malformed or
@@ -174,12 +181,14 @@ export const MAX_RSF_BODY_BYTES = 512 * 1024 * 1024;
 export const RSF_CONTAINER_VERSION_WORKBOOK = 4;
 
 /**
- * Highest workbook body version this release reads and writes. Version 3
- * adds the workbook display language (written only when it is not English);
- * version 2 adds the workbook timezone (written only when it is not UTC);
- * version 1 is the original layout.
+ * Highest workbook body version this release reads and writes. Version 4
+ * adds a per-worksheet cell-style block (written only when at least one cell
+ * in the workbook carries a style); version 3 adds the workbook display
+ * language (written only when it is not English); version 2 adds the
+ * workbook timezone (written only when it is not UTC); version 1 is the
+ * original layout.
  */
-export const RSF_WORKBOOK_BODY_VERSION = 3;
+export const RSF_WORKBOOK_BODY_VERSION = 4;
 
 /**
  * Bounds for workbook payloads. A malformed or hostile container can never
@@ -260,6 +269,15 @@ export interface RsfData {
    * unrecognized value.
    */
   displayLanguage?: string;
+  /**
+   * Cell-level visual formatting (body version 8): bold/italic/underline,
+   * text/background color, and per-side borders. Purely presentational — it
+   * never affects cell data, evaluation, or export. When present on encode
+   * the body is written in version 8; on decode it is populated only for
+   * version-8 bodies. Row/column indices are validated against the sheet's
+   * dimensions exactly like cell records (out of range is `bad-shape`).
+   */
+  styles?: Array<[number, number, CellStyle]>;
 }
 
 /**
@@ -280,6 +298,8 @@ export interface RsfWorksheetData {
   filter?: SheetFilter;
   /** Set when a stored filter failed validation and was dropped. */
   filterDropped?: boolean;
+  /** Per-worksheet cell styles (workbook body version 4+); see {@link RsfData.styles}. */
+  styles?: Array<[number, number, CellStyle]>;
 }
 
 /**
@@ -575,24 +595,134 @@ function encodeFilterBlock(filter: SheetFilter | undefined): Uint8Array {
   return Uint8Array.from(bytes);
 }
 
+// ----- Cell-style block (body version 8 / workbook body version 4) ----------
+// One bit per boolean/color property, in the fixed order COLOR_KEYS iterates
+// (textColor, backgroundColor, then the four border sides). A present color
+// is stored as three RGB bytes right after the flags, in that same order —
+// there is no separate width/style choice; every border is a thin solid line.
+
+const STYLE_FLAG_BOLD = 1 << 0;
+const STYLE_FLAG_ITALIC = 1 << 1;
+const STYLE_FLAG_UNDERLINE = 1 << 2;
+/** Bit index of the first color flag (`textColor`); subsequent `COLOR_KEYS` follow at +1 each. */
+const STYLE_COLOR_FLAG_BASE = 3;
+
+function hexToRgb(hex: string): [number, number, number] {
+  return [
+    parseInt(hex.slice(1, 3), 16) || 0,
+    parseInt(hex.slice(3, 5), 16) || 0,
+    parseInt(hex.slice(5, 7), 16) || 0,
+  ];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const h = (n: number): string => n.toString(16).padStart(2, '0');
+  return `#${h(r)}${h(g)}${h(b)}`;
+}
+
+/**
+ * Encode the body-version-8 / workbook-version-4 style block: a `u32` count
+ * followed by that many records. Zero is a perfectly ordinary "no styled
+ * cells" encoding (like the cell-record count), so — unlike the filter block
+ * — no separate presence flag is needed.
+ */
+function encodeStyleBlock(styles: Array<[number, number, CellStyle]> | undefined): number[] {
+  const list = styles ?? [];
+  const bytes: number[] = [
+    list.length & 0xff,
+    (list.length >>> 8) & 0xff,
+    (list.length >>> 16) & 0xff,
+    (list.length >>> 24) & 0xff,
+  ];
+  for (const [row, col, style] of list) {
+    bytes.push(row & 0xff, (row >>> 8) & 0xff, (row >>> 16) & 0xff, (row >>> 24) & 0xff);
+    bytes.push(col & 0xff, (col >>> 8) & 0xff, (col >>> 16) & 0xff, (col >>> 24) & 0xff);
+    let flags = 0;
+    if (style.bold) flags |= STYLE_FLAG_BOLD;
+    if (style.italic) flags |= STYLE_FLAG_ITALIC;
+    if (style.underline) flags |= STYLE_FLAG_UNDERLINE;
+    COLOR_KEYS.forEach((key, i) => {
+      if (style[key] !== undefined) {
+        flags |= 1 << (STYLE_COLOR_FLAG_BASE + i);
+      }
+    });
+    bytes.push(flags & 0xff, (flags >> 8) & 0xff);
+    for (const key of COLOR_KEYS) {
+      const color = style[key];
+      if (color !== undefined) {
+        bytes.push(...hexToRgb(color));
+      }
+    }
+  }
+  return bytes;
+}
+
+/**
+ * Read the style block. Row/column indices are validated against the sheet's
+ * (already-known) dimensions exactly like cell records — out of range is
+ * `bad-shape`, and a count above what the grid could possibly hold is
+ * `too-large`, matching the cell-record checks in `decodeBody`.
+ */
+function readStyleBlock(
+  rd: BodyReader,
+  rowCount: number,
+  columnCount: number,
+): { ok: true; styles: Array<[number, number, CellStyle]> } | { ok: false; error: RsfDecodeError } {
+  if (!rd.need(4)) {
+    return { ok: false, error: 'bad-shape' };
+  }
+  const count = rd.u32();
+  if (count > rowCount * columnCount) {
+    return { ok: false, error: 'too-large' };
+  }
+  const styles: Array<[number, number, CellStyle]> = [];
+  for (let i = 0; i < count; i++) {
+    if (!rd.need(4 + 4 + 2)) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    const row = rd.u32();
+    const col = rd.u32();
+    const flags = rd.u16();
+    if (row >= rowCount || col >= columnCount) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    const style: CellStyle = {};
+    if (flags & STYLE_FLAG_BOLD) style.bold = true;
+    if (flags & STYLE_FLAG_ITALIC) style.italic = true;
+    if (flags & STYLE_FLAG_UNDERLINE) style.underline = true;
+    for (let k = 0; k < COLOR_KEYS.length; k++) {
+      if (flags & (1 << (STYLE_COLOR_FLAG_BASE + k))) {
+        if (!rd.need(3)) {
+          return { ok: false, error: 'bad-shape' };
+        }
+        style[COLOR_KEYS[k]] = rgbToHex(rd.u8(), rd.u8(), rd.u8());
+      }
+    }
+    styles.push([row, col, style]);
+  }
+  return { ok: true, styles };
+}
+
 function encodeBody(data: RsfData): Uint8Array {
   const enc = new TextEncoder();
   const name = enc.encode(data.name.slice(0, MAX_META_LENGTH));
-  // Version selection is minimal: a non-default display language needs
-  // version 7, a non-UTC timezone needs version 6, stored wrap needs version
-  // 5, a filter needs version 4, display settings alone need version 3,
-  // metadata alone needs version 2, otherwise the legacy version-1 body is
-  // written. A newer section implies every older one, so the layout stays a
-  // strict prefix chain — each `has*` below is OR'd with every section above
-  // it (display language forces timezone, timezone forces flags, flags force
-  // filter, filter forces display, display forces meta) so a body picking a
-  // high version always physically contains every lower section's bytes,
-  // even when that section's own data is empty/default, matching what
+  // Version selection is minimal: any styled cell needs version 8, a
+  // non-default display language needs version 7, a non-UTC timezone needs
+  // version 6, stored wrap needs version 5, a filter needs version 4, display
+  // settings alone need version 3, metadata alone needs version 2, otherwise
+  // the legacy version-1 body is written. A newer section implies every older
+  // one, so the layout stays a strict prefix chain — each `has*` below is
+  // OR'd with every section above it (styles force display language, display
+  // language forces timezone, timezone forces flags, flags force filter,
+  // filter forces display, display forces meta) so a body picking a high
+  // version always physically contains every lower section's bytes, even
+  // when that section's own data is empty/default, matching what
   // `decodeBody` reads for that version unconditionally.
+  const hasStyles = (data.styles?.length ?? 0) > 0;
   const hasDisplayLanguage =
-    data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE;
+    hasStyles || (data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE);
   const displayLanguageBytes = hasDisplayLanguage
-    ? enc.encode(data.displayLanguage!.slice(0, MAX_META_LENGTH))
+    ? enc.encode((data.displayLanguage ?? DEFAULT_DISPLAY_LANGUAGE).slice(0, MAX_META_LENGTH))
     : null;
   const hasTimezone =
     hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
@@ -628,6 +758,8 @@ function encodeBody(data: RsfData): Uint8Array {
   const filterSize = filterBlock ? filterBlock.length : 0;
   const timezoneSize = hasTimezone ? 2 + timezoneBytes!.length : 0;
   const displayLanguageSize = hasDisplayLanguage ? 2 + displayLanguageBytes!.length : 0;
+  const styleBytes = hasStyles ? encodeStyleBlock(data.styles) : null;
+  const styleSize = styleBytes ? styleBytes.length : 0;
   const total =
     1 +
     1 +
@@ -642,23 +774,26 @@ function encodeBody(data: RsfData): Uint8Array {
     4 +
     4 +
     4 +
-    cellsSize;
+    cellsSize +
+    styleSize;
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = hasDisplayLanguage
-    ? 7
-    : hasTimezone
-      ? 6
-      : wrapSet
-        ? 5
-        : hasFilterSection
-          ? 4
-          : hasDisplay
-            ? 3
-            : hasMeta
-              ? 2
-              : 1;
+  out[off++] = hasStyles
+    ? 8
+    : hasDisplayLanguage
+      ? 7
+      : hasTimezone
+        ? 6
+        : wrapSet
+          ? 5
+          : hasFilterSection
+            ? 4
+            : hasDisplay
+              ? 3
+              : hasMeta
+                ? 2
+                : 1;
   out[off++] = data.delimiter.charCodeAt(0);
   if (hasMeta) {
     view.setUint16(off, appName!.length, true);
@@ -727,6 +862,10 @@ function encodeBody(data: RsfData): Uint8Array {
   for (const buf of cellBufs) {
     out.set(buf, off);
     off += buf.length;
+  }
+  if (styleBytes) {
+    out.set(styleBytes, off);
+    off += styleBytes.length;
   }
   return out;
 }
@@ -904,10 +1043,26 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     off += inputLen;
     cells.push([r, c, input]);
   }
+  // Version-8 cell-style block, validated against the same known dimensions
+  // exactly like the cell records just above.
+  let styles: Array<[number, number, CellStyle]> | undefined;
+  if (bodyVersion >= 8) {
+    const rd = new BodyReader(body, dec);
+    rd.off = off;
+    const block = readStyleBlock(rd, rowCount, columnCount);
+    if (!block.ok) {
+      return { ok: false, error: block.error };
+    }
+    off = rd.off;
+    styles = block.styles;
+  }
   if (off !== body.length) {
     return { ok: false, error: 'bad-shape' };
   }
   const data: RsfData = { name, delimiter, rowCount, columnCount, cells };
+  if (styles !== undefined) {
+    data.styles = styles;
+  }
   if (appName !== undefined) {
     data.appName = appName;
   }
@@ -1208,7 +1363,9 @@ function pushString(bytes: number[], enc: TextEncoder, value: string, max: numbe
 }
 
 /**
- * Encode the workbook body (container version 4). Body version 3 adds the
+ * Encode the workbook body (container version 4). Body version 4 adds a
+ * per-worksheet cell-style block, written (for every worksheet) only when at
+ * least one cell in the workbook carries a style; body version 3 adds the
  * workbook display language, written only when it is not English; body
  * version 2 adds the workbook timezone, written only when it is not UTC;
  * body version 1 is the original layout.
@@ -1226,13 +1383,14 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
       bytes.push(b);
     }
   };
+  // Styles force the display-language section too — same prefix-chain rule
+  // as the single-sheet body above.
+  const hasStyles = data.sheets.some((sheet) => (sheet.styles?.length ?? 0) > 0);
   const hasDisplayLanguage =
-    data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE;
-  // A display-language section forces the timezone section too — same
-  // prefix-chain rule as the single-sheet body above.
+    hasStyles || (data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE);
   const hasTimezone =
     hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
-  bytes.push(hasDisplayLanguage ? 3 : hasTimezone ? 2 : 1);
+  bytes.push(hasStyles ? 4 : hasDisplayLanguage ? 3 : hasTimezone ? 2 : 1);
   bytes.push(data.delimiter.charCodeAt(0));
   pushString(bytes, enc, data.appName ?? '', MAX_META_LENGTH);
   pushString(bytes, enc, data.appVersion ?? '', MAX_META_LENGTH);
@@ -1244,7 +1402,7 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
     pushString(bytes, enc, data.timezone ?? DEFAULT_TIMEZONE, MAX_META_LENGTH);
   }
   if (hasDisplayLanguage) {
-    pushString(bytes, enc, data.displayLanguage!, MAX_META_LENGTH);
+    pushString(bytes, enc, data.displayLanguage ?? DEFAULT_DISPLAY_LANGUAGE, MAX_META_LENGTH);
   }
   const sheets = data.sheets.slice(0, MAX_RSF_SHEETS);
   bytes.push(sheets.length & 0xff, (sheets.length >> 8) & 0xff);
@@ -1268,6 +1426,11 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
     }
     for (const b of encodeFilterBlock(sheet.filter)) {
       bytes.push(b);
+    }
+    if (hasStyles) {
+      for (const b of encodeStyleBlock(sheet.styles)) {
+        bytes.push(b);
+      }
     }
   }
   return Uint8Array.from(bytes);
@@ -1337,9 +1500,11 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
   }
   const sheets: RsfWorksheetData[] = [];
   const seenIds = new Set<string>();
-  // Cells are capped across the whole workbook, not just per worksheet, so a
-  // container cannot multiply its way past the ceiling with many worksheets.
+  // Cells (and styles) are capped across the whole workbook, not just per
+  // worksheet, so a container cannot multiply its way past the ceiling with
+  // many worksheets.
   let totalCells = 0;
+  let totalStyles = 0;
   for (let s = 0; s < sheetCount; s++) {
     const id = rd.str();
     const name = rd.str();
@@ -1401,6 +1566,20 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
     if (filterBlock === null) {
       return { ok: false, error: 'bad-shape' };
     }
+    // Version-4 per-worksheet cell-style block, validated against this
+    // worksheet's dimensions exactly like its cell records above.
+    let styles: Array<[number, number, CellStyle]> | undefined;
+    if (version >= 4) {
+      const styleBlock = readStyleBlock(rd, rowCount, columnCount);
+      if (!styleBlock.ok) {
+        return { ok: false, error: styleBlock.error };
+      }
+      totalStyles += styleBlock.styles.length;
+      if (totalStyles > MAX_RSF_CELLS) {
+        return { ok: false, error: 'too-large' };
+      }
+      styles = styleBlock.styles;
+    }
     const sheet: RsfWorksheetData = { id, name, rowCount, columnCount, cells };
     if (display) {
       sheet.display = display;
@@ -1415,6 +1594,9 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
       } else {
         sheet.filterDropped = true;
       }
+    }
+    if (styles !== undefined && styles.length > 0) {
+      sheet.styles = styles;
     }
     sheets.push(sheet);
   }
@@ -1491,6 +1673,9 @@ export function encodeRsfWorkbook(
     if (only.filter) {
       single.filter = only.filter;
     }
+    if (only.styles) {
+      single.styles = only.styles;
+    }
     return encodeRsf(single, method);
   }
   return encodeRsfContainer(RSF_CONTAINER_VERSION_WORKBOOK, method, encodeWorkbookBody(data));
@@ -1532,6 +1717,9 @@ export function decodeRsfWorkbook(bytes: Uint8Array): RsfWorkbookDecodeResult {
     }
     if (single.data.filterDropped) {
       sheet.filterDropped = true;
+    }
+    if (single.data.styles) {
+      sheet.styles = single.data.styles;
     }
     const data: RsfWorkbookData = {
       delimiter: single.data.delimiter,

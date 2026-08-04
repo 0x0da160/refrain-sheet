@@ -48,6 +48,9 @@ function stubUi(): UiPort {
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
     chooseDisplayLanguage: vi.fn(async () => null),
+    chooseTextColor: vi.fn(async () => null),
+    chooseBackgroundColor: vi.fn(async () => null),
+    chooseBorders: vi.fn(async () => null),
     setBusy: vi.fn(),
   };
 }
@@ -60,6 +63,7 @@ function menuChecks(): MenuChecks {
     theme: () => 'system',
     zoom: () => 100,
     editHints: () => true,
+    formatActive: () => false,
   };
 }
 

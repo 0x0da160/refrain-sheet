@@ -107,6 +107,7 @@ export interface Tab {
 export type StateEventType = 'tabs' | 'active' | 'doc' | 'selection' | 'view' | 'sheets';
 
 export const STICKY_KEY = 'refrain-csv-html.stickyFirstRow';
+export const STICKY_COL_KEY = 'refrain-csv-html.stickyFirstColumn';
 
 let nextTabId = 1;
 
@@ -128,6 +129,8 @@ export class AppState {
   announce: ((message: string) => void) | null = null;
   /** Keep the first record row pinned below the header while scrolling. */
   stickyFirstRow: boolean;
+  /** Keep the first data column pinned beside the row headers while scrolling. */
+  stickyFirstColumn: boolean;
   /** The formula editor currently able to accept pointer-entered references. */
   formulaRefTarget: FormulaRefTarget | null = null;
 
@@ -141,6 +144,7 @@ export class AppState {
 
   constructor() {
     this.stickyFirstRow = safeStorageGet(STICKY_KEY) === '1';
+    this.stickyFirstColumn = safeStorageGet(STICKY_COL_KEY) === '1';
     this.structuralOps = new StructuralOpsState(this);
     this.worksheetsState = new WorksheetsState(this);
   }
@@ -638,6 +642,10 @@ export class AppState {
 
   setStickyFirstRow(sticky: boolean): void {
     this.structuralOps.setStickyFirstRow(sticky);
+  }
+
+  setStickyFirstColumn(sticky: boolean): void {
+    this.structuralOps.setStickyFirstColumn(sticky);
   }
 
   // ----- Filtering (RSF spreadsheet documents only) -----

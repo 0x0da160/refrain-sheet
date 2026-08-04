@@ -238,6 +238,7 @@ interface LayoutSignature {
   /** Active sheet font signature — changing it re-measures wrapped heights. */
   font: string;
   sticky: boolean;
+  stickyCol: boolean;
   locale: string;
   /** Spreadsheet zoom percent — changing it rescales every grid metric. */
   zoom: number;
@@ -773,6 +774,23 @@ export class Grid {
     return this.rowH(tab) * (this.stickyEnabled(tab) ? 2 : 1);
   }
 
+  private stickyColEnabled(tab: Tab): boolean {
+    return this.state.stickyFirstColumn && tab.doc.columnCount > 0;
+  }
+
+  /** First document column of the horizontally scrolling region. */
+  private scrollColBase(tab: Tab): number {
+    return this.stickyColEnabled(tab) ? 1 : 0;
+  }
+
+  /**
+   * Width of the sticky horizontal overlay (row headers + optional pinned
+   * first column) that the scrollable column region starts after.
+   */
+  private overlayWidth(tab: Tab): number {
+    return this.headW(tab) + (this.stickyColEnabled(tab) ? this.colWidth(tab, 0) : 0);
+  }
+
   /** Rendered pixel width of a column (per-tab override or default, zoomed). */
   private colWidth(tab: Tab, col: number): number {
     const w = tab.colWidths[col];
@@ -870,6 +888,7 @@ export class Grid {
       wrap: this.state.wrapCells,
       font: this.fontSignature(),
       sticky: this.stickyEnabled(tab),
+      stickyCol: this.stickyColEnabled(tab),
       locale: getLocale(),
       zoom: tab.zoom,
       hidden: this.hiddenOf(tab),
@@ -889,6 +908,7 @@ export class Grid {
       a.wrap === b.wrap &&
       a.font === b.font &&
       a.sticky === b.sticky &&
+      a.stickyCol === b.stickyCol &&
       a.locale === b.locale &&
       a.zoom === b.zoom &&
       a.hidden === b.hidden
@@ -1055,7 +1075,7 @@ export class Grid {
     }
     // Pointer anchor in content coordinates (inside the scrolling region).
     const rect = this.element.getBoundingClientRect();
-    const px = Math.max(0, event.clientX - rect.left - this.headW(tab));
+    const px = Math.max(0, event.clientX - rect.left - this.overlayWidth(tab));
     const py = Math.max(0, event.clientY - rect.top - this.overlayHeight(tab));
     const contentX = this.element.scrollLeft + px;
     const contentY = this.element.scrollTop + py;
@@ -1111,11 +1131,12 @@ export class Grid {
     const idx = this.heightIndex(tab);
     const overlay = this.overlayHeight(tab);
     const viewH = Math.max(0, this.element.clientHeight - overlay);
-    const viewW = Math.max(0, this.element.clientWidth - this.headW(tab));
+    const viewW = Math.max(0, this.element.clientWidth - this.overlayWidth(tab));
     const scrollTop = this.element.scrollTop;
     const scrollLeft = this.element.scrollLeft;
     const rowCount = tab.doc.rowCount;
     const startRow = this.scrollRowBase(tab);
+    const startCol = this.scrollColBase(tab);
     const totalCols = Math.max(1, tab.doc.columnCount);
     // Row window from the height index: the scroll layer's content origin is
     // the top of the first scroll row, so add its offset to scrollTop. With a
@@ -1131,7 +1152,7 @@ export class Grid {
     const firstVisible = colIdx.colAtOrBefore(scrollLeft);
     const limit = scrollLeft + viewW;
     const lastVisible = colIdx.colAtOrAfter(limit);
-    const colStart = Math.max(0, firstVisible - OVERSCAN_COLS);
+    const colStart = Math.max(startCol, firstVisible - OVERSCAN_COLS);
     const colEnd = Math.min(totalCols, lastVisible + OVERSCAN_COLS);
     return { rowStart, rowEnd, colStart, colEnd, heights: this.heightsVersion };
   }
@@ -1210,6 +1231,7 @@ export class Grid {
     const totalW = this.totalWidth(tab);
     const startRow = this.scrollRowBase(tab);
     const originY = idx.offsetOf(startRow);
+    const originX = this.colOffset(tab, this.scrollColBase(tab));
     const layerHeight = idx.rangeHeight(startRow, doc.rowCount);
     // Zoom is applied through CSS custom properties (font sizes, line boxes)
     // plus the scaled JS metrics; the JS-computed row height stays the source
@@ -1240,52 +1262,17 @@ export class Grid {
     this.headerEl.style.width = `${totalW}px`;
     this.headerEl.style.height = `${this.rowH(tab)}px`;
     this.headerEl.append(this.buildCorner(tab));
+    if (this.stickyColEnabled(tab)) {
+      const pinnedHead = this.buildColumnHeaderCell(tab, 0, true);
+      pinnedHead.classList.add('colpin');
+      pinnedHead.style.left = `${this.headW(tab)}px`;
+      this.headerEl.append(pinnedHead);
+    }
     const headSpacer = el('div', { className: 'vspacer', attrs: { 'aria-hidden': 'true' } });
-    headSpacer.style.width = `${this.colOffset(tab, win.colStart)}px`;
+    headSpacer.style.width = `${this.colOffset(tab, win.colStart) - originX}px`;
     this.headerEl.append(headSpacer);
-    const filter = doc.kind === 'rsf' ? doc.filter : null;
     for (let c = win.colStart; c < win.colEnd; c++) {
-      const head = el('div', {
-        className: 'vcell vhead',
-        text: columnLabel(c),
-        attrs: {
-          role: 'columnheader',
-          'data-colhead': String(c),
-          title: t('grid.colTitle', { letter: columnLabel(c), n: c + 1 }),
-        },
-      });
-      head.style.width = `${this.colWidth(tab, c)}px`;
-      // Active filter: every column of the filtered range gets a keyboard-
-      // accessible filter button in its header; columns that carry criteria
-      // show it filled. The button dispatches the same shared filter command
-      // as the menu and context menu.
-      if (filter && c >= filter.left && c <= filter.right) {
-        const filtered = filter.columns.some((column) => column.col === c);
-        const key = filtered ? 'grid.filterButtonActive' : 'grid.filterButton';
-        const filterButton = el('button', {
-          className: `filter-indicator${filtered ? ' active' : ''}`,
-          text: '▼',
-          attrs: {
-            type: 'button',
-            'data-colfilter': String(c),
-            'aria-label': t(key, { letter: columnLabel(c) }),
-            title: t(key, { letter: columnLabel(c) }),
-          },
-        });
-        filterButton.addEventListener('mousedown', (event) => event.stopPropagation());
-        filterButton.addEventListener('click', (event) => {
-          event.stopPropagation();
-          void this.commands.filterDialog(tab, c);
-        });
-        head.append(filterButton);
-      }
-      // Draggable boundary to resize; double-click auto-fits to visible content.
-      const handle = el('div', {
-        className: 'col-resize-handle',
-        attrs: { 'data-colresize': String(c), 'aria-hidden': 'true', title: t('grid.resizeTitle') },
-      });
-      head.append(handle);
-      this.headerEl.append(head);
+      this.headerEl.append(this.buildColumnHeaderCell(tab, c, false));
     }
 
     // ----- Sticky first record row (optional, single-line, distinct) -----
@@ -1540,6 +1527,58 @@ export class Grid {
   }
 
   /**
+   * Build one column-header cell (letter label, optional filter button, and
+   * resize handle). Shared by the windowed header loop and the pinned first
+   * column's header cell — the same cell markup either way, since only the
+   * pinned copy's positioning (see `.colpin`) differs.
+   */
+  private buildColumnHeaderCell(tab: Tab, c: number, pinned: boolean): HTMLElement {
+    const doc = tab.doc;
+    const filter = doc.kind === 'rsf' ? doc.filter : null;
+    const head = el('div', {
+      className: `vcell vhead${pinned ? ' pinned' : ''}`,
+      text: pinned ? `📌 ${columnLabel(c)}` : columnLabel(c),
+      attrs: {
+        role: 'columnheader',
+        'data-colhead': String(c),
+        title: pinned ? t('grid.stickyColTitle') : t('grid.colTitle', { letter: columnLabel(c), n: c + 1 }),
+      },
+    });
+    head.style.width = `${this.colWidth(tab, c)}px`;
+    // Active filter: every column of the filtered range gets a keyboard-
+    // accessible filter button in its header; columns that carry criteria
+    // show it filled. The button dispatches the same shared filter command
+    // as the menu and context menu.
+    if (filter && c >= filter.left && c <= filter.right) {
+      const filtered = filter.columns.some((column) => column.col === c);
+      const key = filtered ? 'grid.filterButtonActive' : 'grid.filterButton';
+      const filterButton = el('button', {
+        className: `filter-indicator${filtered ? ' active' : ''}`,
+        text: '▼',
+        attrs: {
+          type: 'button',
+          'data-colfilter': String(c),
+          'aria-label': t(key, { letter: columnLabel(c) }),
+          title: t(key, { letter: columnLabel(c) }),
+        },
+      });
+      filterButton.addEventListener('mousedown', (event) => event.stopPropagation());
+      filterButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        void this.commands.filterDialog(tab, c);
+      });
+      head.append(filterButton);
+    }
+    // Draggable boundary to resize; double-click auto-fits to visible content.
+    const handle = el('div', {
+      className: 'col-resize-handle',
+      attrs: { 'data-colresize': String(c), 'aria-hidden': 'true', title: t('grid.resizeTitle') },
+    });
+    head.append(handle);
+    return head;
+  }
+
+  /**
    * Build the interactive top-left corner Select All Cells control. It shows
    * no visible text by design (like conventional spreadsheet corner cells);
    * its purpose is conveyed by the localized accessible name and tooltip, and
@@ -1653,30 +1692,41 @@ export class Grid {
     }
     head.style.width = `${this.headW(tab)}px`;
     rowEl.append(head);
-    const spacer = el('div', { className: 'vspacer', attrs: { 'aria-hidden': 'true' } });
-    spacer.style.width = `${this.colOffset(tab, win.colStart)}px`;
-    rowEl.append(spacer);
     const fieldCount = doc.fieldCount(row);
-    for (let c = win.colStart; c < win.colEnd; c++) {
-      if (c >= fieldCount) {
-        const voidCell = el('div', { className: 'vcell void', attrs: { 'aria-hidden': 'true' } });
-        voidCell.style.width = `${this.colWidth(tab, c)}px`;
-        rowEl.append(voidCell);
-        continue;
-      }
-      const cell = el('div', {
-        className: 'vcell',
-        attrs: {
-          role: 'gridcell',
-          'data-row': String(row),
-          'data-col': String(c),
-          'aria-colindex': String(c + 2),
-        },
-      });
-      cell.style.width = `${this.colWidth(tab, c)}px`;
-      this.paintCell(tab, cell, row, c);
-      rowEl.append(cell);
+    if (this.stickyColEnabled(tab)) {
+      const pinCell = this.buildDataCell(tab, row, 0, fieldCount);
+      pinCell.classList.add('colpin');
+      pinCell.style.left = `${this.headW(tab)}px`;
+      rowEl.append(pinCell);
     }
+    const originX = this.colOffset(tab, this.scrollColBase(tab));
+    const spacer = el('div', { className: 'vspacer', attrs: { 'aria-hidden': 'true' } });
+    spacer.style.width = `${this.colOffset(tab, win.colStart) - originX}px`;
+    rowEl.append(spacer);
+    for (let c = win.colStart; c < win.colEnd; c++) {
+      rowEl.append(this.buildDataCell(tab, row, c, fieldCount));
+    }
+  }
+
+  /** Build one data cell (or a void placeholder past the row's field count). */
+  private buildDataCell(tab: Tab, row: number, c: number, fieldCount: number): HTMLElement {
+    if (c >= fieldCount) {
+      const voidCell = el('div', { className: 'vcell void', attrs: { 'aria-hidden': 'true' } });
+      voidCell.style.width = `${this.colWidth(tab, c)}px`;
+      return voidCell;
+    }
+    const cell = el('div', {
+      className: 'vcell',
+      attrs: {
+        role: 'gridcell',
+        'data-row': String(row),
+        'data-col': String(c),
+        'aria-colindex': String(c + 2),
+      },
+    });
+    cell.style.width = `${this.colWidth(tab, c)}px`;
+    this.paintCell(tab, cell, row, c);
+    return cell;
   }
 
   private paintCell(tab: Tab, cell: HTMLElement, row: number, col: number): void {
@@ -2453,13 +2503,15 @@ export class Grid {
         this.element.scrollTop = y + rowH - viewH;
       }
     }
-    const x = this.colOffset(tab, col);
-    const w = this.colWidth(tab, col);
-    const viewW = this.element.clientWidth - this.headW(tab);
-    if (x < this.element.scrollLeft) {
-      this.element.scrollLeft = x;
-    } else if (x + w > this.element.scrollLeft + viewW) {
-      this.element.scrollLeft = x + w - viewW;
+    if (!(this.stickyColEnabled(tab) && col === 0)) {
+      const x = this.colOffset(tab, col);
+      const w = this.colWidth(tab, col);
+      const viewW = this.element.clientWidth - this.overlayWidth(tab);
+      if (x < this.element.scrollLeft) {
+        this.element.scrollLeft = x;
+      } else if (x + w > this.element.scrollLeft + viewW) {
+        this.element.scrollLeft = x + w - viewW;
+      }
     }
     const current = this.state.activeTab;
     if (current) {

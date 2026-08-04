@@ -123,6 +123,7 @@ function bootstrap(): void {
   const menuBar = new MenuBar(commands, {
     wrap: () => state.wrapCells,
     stickyFirstRow: () => state.stickyFirstRow,
+    stickyFirstColumn: () => state.stickyFirstColumn,
     sheetFont: () => getSheetFont(),
     theme: () => getTheme(),
     zoom: () => state.activeTab?.zoom ?? getSheetZoom(),

@@ -357,6 +357,7 @@ export type CommandId =
   | 'worksheet.prev'
   | 'view.wrap'
   | 'view.stickyFirstRow'
+  | 'view.stickyFirstColumn'
   | 'view.zoom.in'
   | 'view.zoom.out'
   | 'view.zoom.50'
@@ -788,6 +789,9 @@ export class Commands {
         return;
       case 'view.stickyFirstRow':
         this.state.setStickyFirstRow(!this.state.stickyFirstRow);
+        return;
+      case 'view.stickyFirstColumn':
+        this.state.setStickyFirstColumn(!this.state.stickyFirstColumn);
         return;
       case 'view.zoom.50':
       case 'view.zoom.75':

@@ -5,7 +5,7 @@ export const I18N = {
   ja: {
     'meta.title': 'Refrain Sheet — CSVを壊さない、書式保持のブラウザCSVエディタ',
     'meta.desc':
-      'Shift_JIS / CP932・BOM・改行コード・引用符をバイト単位で保持したまま編集できる、ローカル完結の書式保持CSVエディタ。無編集で保存すれば元ファイルとバイト単位で完全一致。インストール不要・通信ゼロ・MITライセンス。',
+      'Shift_JIS / CP932・BOM・改行・引用符をバイト単位で保持する、ローカル完結の書式保持CSVエディタ。数式・書式設定はRSFスプレッドシートで。無編集保存は元ファイルとバイト単位で完全一致。インストール不要・通信ゼロ・MIT。',
 
     'hero.sub': 'Shift_JIS対応・ブラウザ完結の書式保持CSVエディタ',
     'a11y.skip': '本文へスキップ',
@@ -19,6 +19,7 @@ export const I18N = {
 
     'nav.principle': 'Refrain原則',
     'nav.features': '機能',
+    'nav.rsf': 'スプレッドシート',
     'nav.compare': '比較',
     'nav.start': '使いはじめる',
     'nav.cta': 'アプリを開く',
@@ -98,8 +99,10 @@ export const I18N = {
       '数式・行列の挿入・メタデータはプレーンCSVでは表現できません。だから別形式（.rsf）に明示的に変換したときだけ有効になります。元の .csv は指一本触れません。',
     'f4.li1': '55関数：SUM・XLOOKUP・SUMIFS・TEXT・FILTER・UNIQUE ほか',
     'f4.li2': '複数ワークシート、シート間参照、絶対／相対参照、循環参照の検出',
-    'f4.li3': 'フィルタ、オートフィット、選択範囲の統計、CSV / XLSX エクスポート',
+    'f4.li3': 'フィルタと最大8階層の複数キー並べ替え。表示順が変わるだけで、データや数式は書き換わりません',
     'f4.li4': '数式エンジンは自作パーサ。eval も new Function も使いません',
+    'f4.li5': '太字・斜体・下線・文字色・背景色・罫線。セルの値や数式には影響せず、Undoでき、.rsf に保存されます',
+    'f4.li6': 'オートフィット、選択範囲の統計、CSV / XLSX エクスポート',
 
     'theme.eyebrow': 'DETAILS',
     'theme.h2': '英語UIとダークテーマも、標準装備。',
@@ -185,6 +188,9 @@ export const I18N = {
     'faq.q5': 'オーバーライト保存は必ずできますか？',
     'faq.a5':
       'Chromium系ブラウザでは File System Access API により元ファイルへ直接上書きできます。Firefox・Safari などではダウンロード保存にフォールバックし、その旨が通知されます。',
+    'faq.q6': 'セルの書式設定（太字・色・罫線など）はCSVのバイトを変えますか？',
+    'faq.a6':
+      '変えません。書式設定はRSFスプレッドシート専用の見た目だけの機能で、セルの値・数式の結果・並べ替えやフィルタの動作・CSVエクスポートのいずれも変更しません。プレーンCSVのままでは書式設定自体を使えません。',
 
     'cta.h2': 'まずは手元のCSVを、1つ開いてみてください。',
     'cta.p': 'インストール不要。数秒で、保存しても差分が出ないことを確認できます。',
@@ -202,7 +208,7 @@ export const I18N = {
   en: {
     'meta.title': 'Refrain Sheet — byte-preserving CSV editor for the browser',
     'meta.desc':
-      'A local-first, format-preserving CSV and spreadsheet editor. Edit field values while keeping encodings, BOMs, line endings and quoting byte-for-byte intact.',
+      'A local-first, format-preserving CSV editor. Encodings, BOMs, line endings and quoting stay byte-for-byte intact; convert to RSF for formulas, sorting and formatting.',
 
     'hero.sub': 'Browser-only, format-preserving CSV editor with Shift_JIS support',
     'a11y.skip': 'Skip to main content',
@@ -215,6 +221,7 @@ export const I18N = {
 
     'nav.principle': 'The principle',
     'nav.features': 'Features',
+    'nav.rsf': 'Spreadsheet',
     'nav.compare': 'Compare',
     'nav.start': 'Get started',
     'nav.cta': 'Open the app',
@@ -296,8 +303,12 @@ export const I18N = {
       "Plain CSV can't hold formulas, structural edits or metadata without breaking the guarantee. So those live in a separate .rsf document, created only by an explicit conversion that never touches the original .csv.",
     'f4.li1': '55 functions: SUM, XLOOKUP, SUMIFS, TEXT, FILTER, UNIQUE and more',
     'f4.li2': 'Multiple worksheets, cross-sheet references, absolute/relative refs, cycle detection',
-    'f4.li3': 'Filtering, auto-fit, selection statistics, CSV and XLSX export',
+    'f4.li3':
+      'Filtering and a compound sort with up to 8 keys — reorders the view only, never the data or formulas',
     'f4.li4': 'A hand-written formula engine — no eval, no new Function, no macros',
+    'f4.li5':
+      "Bold, italic, underline, text/background color and borders. Never touches a cell's value or formula results, is undoable, and is saved in the .rsf file",
+    'f4.li6': 'Auto-fit, selection statistics, CSV and XLSX export',
 
     'theme.eyebrow': 'DETAILS',
     'theme.h2': 'English UI and dark theme, built in.',
@@ -384,6 +395,9 @@ export const I18N = {
     'faq.q5': 'Can it always overwrite the original file?',
     'faq.a5':
       'In Chromium-based browsers, yes, via the File System Access API. Firefox and Safari fall back to a download save, and the app tells you which kind of save happened.',
+    'faq.q6': 'Does cell formatting (bold, color, borders) change the CSV bytes?',
+    'faq.a6':
+      "No. Formatting is a purely visual, RSF-only feature — it never changes a cell's value, formula results, sort/filter behavior, or CSV export. Plain CSV documents cannot use formatting at all.",
 
     'cta.h2': 'Open one of your own CSVs.',
     'cta.p': 'No install. In a few seconds you can confirm that saving produces no diff at all.',

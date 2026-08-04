@@ -34,6 +34,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The landing page's spreadsheet section now has its own navigation link and
+  is reorganized into six feature cards (formulas, workbooks, filter & sort,
+  cell formatting, export, and the no-`eval` formula engine), adding the
+  cell-formatting and sorting capabilities that were missing from its copy.
+  Its SEO metadata (meta description and structured-data feature list, in
+  both languages) was refreshed to mention them too, and a new FAQ entry
+  clarifies that cell formatting never changes CSV bytes.
+  ([#224](https://github.com/0x0da160/refrain-sheet/issues/224))
 - The app icon, the app favicon, and the marketing site favicon now share one
   brand mark (a rounded frame with a grid divider and a small flourish). The
   favicon also follows the OS/browser dark-mode preference.

@@ -25,12 +25,15 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { I18N } from '../src/landing/i18n.js';
+import { minifyCss } from './minify-css.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const srcDir = join(root, 'src', 'landing');
 const landingDir = join(root, 'landing');
 
-const STATIC_ASSETS = ['main.js', 'styles.css', 'favicon.svg', 'assets'];
+// styles.css is minified on the way out (see minify-css.mjs); the rest are
+// copied verbatim.
+const STATIC_ASSETS = ['main.js', 'favicon.svg', 'assets'];
 
 const rawSite = process.argv[2];
 const SITE = rawSite ? rawSite.replace(/\/+$/, '') + '/' : undefined;
@@ -238,6 +241,8 @@ function copyStaticAssets() {
   for (const name of STATIC_ASSETS) {
     cpSync(join(srcDir, name), join(landingDir, name), { recursive: true });
   }
+  const css = readFileSync(join(srcDir, 'styles.css'), 'utf8');
+  writeFileSync(join(landingDir, 'styles.css'), minifyCss(css), 'utf8');
 }
 
 function main() {

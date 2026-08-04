@@ -79,7 +79,11 @@ export function validateValidation(
     return null;
   }
   if (rule.kind === 'list') {
-    if (!Array.isArray(rule.values) || rule.values.length === 0 || rule.values.length > MAX_VALIDATION_LIST_VALUES) {
+    if (
+      !Array.isArray(rule.values) ||
+      rule.values.length === 0 ||
+      rule.values.length > MAX_VALIDATION_LIST_VALUES
+    ) {
       return null;
     }
     if (rule.values.some((v) => typeof v !== 'string' || v === '')) {

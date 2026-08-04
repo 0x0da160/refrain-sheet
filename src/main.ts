@@ -72,6 +72,7 @@ function bootstrap(): void {
     confirmFlashFill: (preview) => dialogs.confirmFlashFill(preview),
     chooseFilter: (input) => dialogs.chooseFilter(input),
     chooseSort: (input) => dialogs.chooseSort(input),
+    chooseDataValidation: (input) => dialogs.chooseDataValidation(input),
     promptSheetName: (mode, current, validate) => dialogs.promptSheetName(mode, current, validate),
     confirmDeleteSheet: (name, references) => dialogs.confirmDeleteSheet(name, references),
     chooseExportSheet: (sheets, currentId) => dialogs.chooseExportSheet(sheets, currentId),

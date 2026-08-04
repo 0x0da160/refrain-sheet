@@ -518,6 +518,7 @@
   "dialog.dataValidation.cancel": "キャンセル",
   "dialog.dataValidation.clear": "規則を解除",
   "dialog.dataValidation.apply": "規則を適用",
+  "dialog.dataValidation.pickerLabel": "入力可能な値",
   "dialog.color.title.text": "文字色",
   "dialog.color.title.background": "背景色",
   "dialog.color.label": "色",

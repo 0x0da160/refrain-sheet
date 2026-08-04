@@ -2,10 +2,11 @@
 
 /**
  * Visual, cell-level formatting: bold/italic/underline, text color, cell
- * background color, and per-side borders. Purely presentational — it never
- * affects a cell's value, formula evaluation, sort/filter, or CSV export.
- * Absent keys mean "not set" (inherit the sheet's normal appearance); a style
- * with no keys set is never stored (see {@link isEmptyCellStyle}).
+ * background color, per-side borders, and a numeric display format. Purely
+ * presentational — it never affects a cell's value, formula evaluation,
+ * sort/filter, or CSV export. Absent keys mean "not set" (inherit the
+ * sheet's normal appearance); a style with no keys set is never stored (see
+ * {@link isEmptyCellStyle}).
  *
  * Colors are `#rrggbb` hex strings (no alpha). A border side is "on" exactly
  * when its color string is present; there is no separate width/style choice —
@@ -21,6 +22,59 @@ export interface CellStyle {
   borderRight?: string;
   borderBottom?: string;
   borderLeft?: string;
+  numberFormat?: NumberFormat;
+}
+
+/**
+ * How a numeric cell's computed value is displayed: a fixed decimal count,
+ * an optional thousands separator, and (for `currency`) a symbol prefix.
+ * Purely a display transform of {@link CellStyle} — like every other style
+ * property it never changes the cell's underlying value, formula result,
+ * sort/filter order, or CSV/XLSX export (see `docs/rsf-format.md`). Applies
+ * only to number-typed formula results; text, boolean, blank, and error
+ * values render exactly as they do today regardless of this setting.
+ */
+export type NumberFormatKind = 'number' | 'percent' | 'currency';
+
+export const NUMBER_FORMAT_KINDS: readonly NumberFormatKind[] = ['number', 'percent', 'currency'];
+
+/** Highest decimal-place count the dialog and codec accept (clamped on both ends). */
+export const MAX_NUMBER_FORMAT_DECIMALS = 10;
+
+/** Highest currency-symbol length (UTF-16 code units) stored; longer input is truncated. */
+export const MAX_CURRENCY_SYMBOL_LENGTH = 4;
+
+export interface NumberFormat {
+  kind: NumberFormatKind;
+  /** Fixed decimal places, `0`-`{@link MAX_NUMBER_FORMAT_DECIMALS}`. */
+  decimals: number;
+  /** Group the integer part with thousands separators (e.g. `1,234`). */
+  thousands: boolean;
+  /** The prefix shown for `kind: 'currency'` (e.g. `"$"`, `"¥"`); ignored otherwise. */
+  currencySymbol?: string;
+}
+
+/** Clamp/truncate a `NumberFormat` to the bounds every writer (dialog, codec) must respect. */
+export function normalizeNumberFormat(format: NumberFormat): NumberFormat {
+  const decimals = Math.max(0, Math.min(MAX_NUMBER_FORMAT_DECIMALS, Math.round(format.decimals)));
+  const normalized: NumberFormat = { kind: format.kind, decimals, thousands: !!format.thousands };
+  if (format.kind === 'currency') {
+    normalized.currencySymbol = (format.currencySymbol ?? '$').slice(0, MAX_CURRENCY_SYMBOL_LENGTH);
+  }
+  return normalized;
+}
+
+/** Structural equality for {@link NumberFormat}, with `undefined` on both sides considered equal. */
+export function numberFormatsEqual(a: NumberFormat | undefined, b: NumberFormat | undefined): boolean {
+  if (a === undefined || b === undefined) {
+    return a === b;
+  }
+  return (
+    a.kind === b.kind &&
+    a.decimals === b.decimals &&
+    a.thousands === b.thousands &&
+    (a.kind !== 'currency' || a.currencySymbol === b.currencySymbol)
+  );
 }
 
 /** The four border sides, in the fixed order the codec and UI iterate them. */
@@ -54,7 +108,8 @@ export function isEmptyCellStyle(style: CellStyle): boolean {
     style.borderTop === undefined &&
     style.borderRight === undefined &&
     style.borderBottom === undefined &&
-    style.borderLeft === undefined
+    style.borderLeft === undefined &&
+    style.numberFormat === undefined
   );
 }
 
@@ -74,7 +129,8 @@ export function cellStylesEqual(a: CellStyle | null, b: CellStyle | null): boole
     an.borderTop === bn.borderTop &&
     an.borderRight === bn.borderRight &&
     an.borderBottom === bn.borderBottom &&
-    an.borderLeft === bn.borderLeft
+    an.borderLeft === bn.borderLeft &&
+    numberFormatsEqual(an.numberFormat, bn.numberFormat)
   );
 }
 
@@ -94,6 +150,8 @@ export interface CellStylePatch {
   borderRight?: string | null;
   borderBottom?: string | null;
   borderLeft?: string | null;
+  /** `null` clears the number format ("General"); an object replaces it whole (never merged). */
+  numberFormat?: NumberFormat | null;
 }
 
 /** Apply `patch` to `style` (or to the default empty style), returning the new style
@@ -121,6 +179,13 @@ export function applyCellStylePatch(style: CellStyle | null, patch: CellStylePat
       delete next[key];
     } else {
       next[key] = value;
+    }
+  }
+  if (patch.numberFormat !== undefined) {
+    if (patch.numberFormat === null) {
+      delete next.numberFormat;
+    } else {
+      next.numberFormat = normalizeNumberFormat(patch.numberFormat);
     }
   }
   return isEmptyCellStyle(next) ? null : next;

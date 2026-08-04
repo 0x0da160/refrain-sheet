@@ -15,6 +15,7 @@ import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 import { beginsTextEntry, isComposingKey } from './ime';
+import { ValidationPicker } from './validation-picker';
 
 /** Fixed row/column metrics for virtualization (px). ROW_HEIGHT must stay in
  * sync with the `--grid-row-height` CSS variable (see styles.css), which the
@@ -448,6 +449,9 @@ export class Grid {
     prevRefTarget: FormulaRefTarget | null;
     /** Re-derives the highlighted formula references from the field value. */
     updateRefs: () => void;
+    /** The dropdown of allowed values, and the full set it picks from — see `refreshValidationPicker`. */
+    picker: ValidationPicker;
+    pickerValues: readonly string[] | null;
   } | null = null;
   /**
    * The grid's real keyboard target: a permanently mounted, visually hidden
@@ -2624,7 +2628,13 @@ export class Grid {
     // bar) when the editor closes.
     const prevRefTarget = this.state.formulaRefTarget;
     this.state.formulaRefTarget = ref;
-    this.editor = { row, col, input, autocomplete, ref, prevRefTarget, updateRefs };
+    // The dropdown of allowed values for a `list`-kind data-validation rule
+    // covering this cell, or null when none applies (including CSV
+    // documents, where `validationAt` always returns null).
+    const rule = this.commands.validationAt(tab, row, col);
+    const pickerValues = rule?.rule.kind === 'list' ? rule.rule.values : null;
+    const picker = new ValidationPicker(input, document.body);
+    this.editor = { row, col, input, autocomplete, ref, prevRefTarget, updateRefs, picker, pickerValues };
     input.focus({ preventScroll: true });
     if (initial === null) {
       input.select();
@@ -2634,6 +2644,21 @@ export class Grid {
     // Offer completions immediately when a formula is being started/edited.
     autocomplete.update();
     updateRefs();
+    this.refreshValidationPicker(this.editor);
+  }
+
+  /**
+   * Show or hide the value-picker dropdown for the open editor: shown only
+   * when the cell carries a `list`-kind validation rule and the field is not
+   * currently a formula (the autocomplete popup owns that case instead) —
+   * the two floating popups are mutually exclusive.
+   */
+  private refreshValidationPicker(editor: NonNullable<Grid['editor']>): void {
+    if (editor.pickerValues && !editor.autocomplete.isOpen) {
+      editor.picker.update(editor.pickerValues);
+    } else {
+      editor.picker.hide();
+    }
   }
 
   /** Handle a keydown on the sink while it is promoted to the cell editor. */
@@ -2662,6 +2687,9 @@ export class Grid {
       return;
     }
     if (editor.autocomplete.onKeyDown(event)) {
+      return;
+    }
+    if (editor.picker.onKeyDown(event)) {
       return;
     }
     const tab = this.state.activeTab;
@@ -2704,6 +2732,7 @@ export class Grid {
     // refreshes them from the committed text).
     if (!this.composing) {
       editor.autocomplete.update();
+      this.refreshValidationPicker(editor);
     }
     editor.updateRefs();
   }
@@ -2753,6 +2782,7 @@ export class Grid {
   /** Tear down the editor's autocomplete popup and restore the reference target. */
   private disposeEditor(editor: NonNullable<Grid['editor']>): void {
     editor.autocomplete.dispose();
+    editor.picker.dispose();
     editor.ref.endRef();
     if (this.state.formulaRefTarget === editor.ref) {
       this.state.formulaRefTarget = editor.prevRefTarget;

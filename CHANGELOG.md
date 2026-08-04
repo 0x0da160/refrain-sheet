@@ -25,6 +25,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- A new **Data > Data Validation…** dialog restricts which values a cell in
+  the selected range accepts — a fixed list of choices (shown as a
+  keyboard-accessible dropdown while editing a covered cell) or a numeric
+  range. An edit that violates the rule covering its cell is refused with an
+  explanation; clearing a cell is always allowed. Like Sort and Filter, a
+  rule is RSF-only, session-only view state — not saved to the `.rsf`
+  container and not undoable. ([#215](https://github.com/0x0da160/refrain-sheet/issues/215))
 - A new **Data > Run SQL Query…** dialog runs a local, read-only SQL query
   (a single `SELECT`, with `WHERE`/`GROUP BY`/`ORDER BY`/`LIMIT` and common
   comparison, aggregate, and scalar functions) against the active worksheet

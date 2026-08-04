@@ -518,6 +518,7 @@
   "dialog.dataValidation.cancel": "Cancel",
   "dialog.dataValidation.clear": "Clear Rule",
   "dialog.dataValidation.apply": "Apply Rule",
+  "dialog.dataValidation.pickerLabel": "Allowed values",
   "dialog.color.title.text": "Text Color",
   "dialog.color.title.background": "Background Color",
   "dialog.color.label": "Color",

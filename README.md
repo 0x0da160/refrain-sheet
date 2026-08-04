@@ -481,6 +481,34 @@ untouched, and formula calculations always use the normal sheet model.
   comparisons — no `eval`, `new Function`, regular expressions, or network
   access. Large sorts run behind a busy indicator.
 
+### Data validation (RSF)
+
+**Data > Data Validation…** restricts which values a cell in the selected
+range accepts — a fixed list of choices (the spreadsheet-standard
+"dropdown") or a numeric range.
+
+- **RSF only.** Like Filter and Sort, data validation is a spreadsheet
+  feature; on a plain CSV document the app explains that it requires
+  converting to RSF and changes nothing.
+- **Two rule kinds.** A **list** rule names the allowed values directly (one
+  per line in the dialog); a **number** rule takes an optional minimum
+  and/or maximum. A blank cell is always valid for either kind — clearing a
+  cell is never itself an invalid edit.
+- **Dropdown while editing.** Editing a cell covered by a list rule shows a
+  keyboard-accessible popup of its allowed values below the cell (typing
+  narrows it, matching anywhere in each value); choosing one fills the field.
+- **Invalid edits are refused**, with an explanation of why, the same way an
+  edit inside a sorted range is refused — typing or pasting a value that
+  violates the rule covering its cell leaves the cell unchanged.
+- **Several rules at once**, each covering its own range; applying a rule to
+  a range that already has one replaces it, and when ranges overlap the most
+  recently applied rule wins for the overlap. Up to 64 rules per worksheet,
+  and up to 500 values in a single list rule.
+- **Session-only, never saved.** Like Sort, a rule is view state — it is
+  **not** written to the RSF container, is **not** undoable, and never marks
+  the document dirty. Row/column insertion or deletion drops every rule on
+  the worksheet outright, exactly like an active sort.
+
 ### Cell formatting (RSF)
 
 The **Format** menu applies visual formatting to the selected cell or range:

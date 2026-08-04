@@ -4,6 +4,8 @@ import type {
   BordersDialogResult,
   ColorDialogResult,
   ConvertReason,
+  DataValidationDialogInput,
+  DataValidationDialogResult,
   FilterDialogInput,
   FilterDialogResult,
   FlashFillPreview,
@@ -224,6 +226,11 @@ export class Dialogs {
   /** See `SheetOpsDialogs.chooseSort` for the full behavior contract. */
   chooseSort(input: SortDialogInput): Promise<SortDialogResult | null> {
     return this.sheetOps.chooseSort(input);
+  }
+
+  /** See `SheetOpsDialogs.chooseDataValidation` for the full behavior contract. */
+  chooseDataValidation(input: DataValidationDialogInput): Promise<DataValidationDialogResult | null> {
+    return this.sheetOps.chooseDataValidation(input);
   }
 
   /** See `SheetOpsDialogs.chooseInsertShift` for the full behavior contract. */

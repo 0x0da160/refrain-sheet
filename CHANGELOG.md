@@ -25,6 +25,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- A new **Data > Run SQL Query…** dialog runs a local, read-only SQL query
+  (a single `SELECT`, with `WHERE`/`GROUP BY`/`ORDER BY`/`LIMIT` and common
+  comparison, aggregate, and scalar functions) against the active worksheet
+  or the open CSV, and shows the result in a keyboard-navigable table. It
+  never writes back to the source document, never runs anything but
+  `SELECT`, and works fully offline — there is no new dependency; the query
+  engine is a small local implementation (see `docs/architecture.md` "The
+  SQL query engine"). ([#228](https://github.com/0x0da160/refrain-sheet/issues/228))
 - **Format > Number Format…** applies a numeric display format (Number,
   Percent, or Currency, with configurable decimal places, an optional
   thousands separator, and a currency symbol) to the selected cell or range

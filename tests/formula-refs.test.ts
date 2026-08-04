@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { extractFormulaRefs } from '../src/core/formula';
@@ -180,6 +180,7 @@ const noopUi: UiPort = {
   findNext: () => undefined,
   showAbout: () => undefined,
   showFormulaHelp: () => undefined,
+  showSqlQuery: vi.fn(async () => undefined),
   chooseSettings: async () => null,
   chooseTimezone: async () => null,
   chooseDisplayLanguage: async () => null,

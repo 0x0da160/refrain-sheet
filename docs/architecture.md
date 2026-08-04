@@ -218,6 +218,33 @@ time-sliced on the main thread (see below) — the documented trigger for
 introducing a worker is a profiled operation exceeding its budget
 (docs/performance.md, "Deliberate non-optimizations").
 
+## The SQL query engine
+
+`src/core/sql-engine.ts` provides local, read-only SQL analysis (Data > Run
+SQL Query…) without adding a WASM RDB dependency (DuckDB-Wasm, SQLite-Wasm,
+etc.). That option was evaluated and rejected for now: those engines' normal
+loading model (ES modules, dynamic Worker spin-up, multi-MB `.wasm` variants
+fetched at runtime) does not fit this app's constraints — a classic
+non-module script, a `connect-src 'none'` CSP, no Worker infrastructure, and
+exactly one production dependency (see `docs/security.md` "Dependency
+policy") — without real design work that was out of scope for the first
+iteration of this feature. A revisit is tracked as possible follow-up work,
+not ruled out permanently.
+
+Instead, the engine is a small, hand-written parser/evaluator for a strict
+`SELECT`-only subset of SQL (see the file's header comment for the full
+grammar). It has no dependency on the DOM, the command layer, or the WASM
+core, and never mutates its input: `src/app/commands/sql.ts` adapts a `Tab`'s
+document into the engine's plain `SqlTable` shape (a header row plus string
+rows, capped at `SQL_MAX_SOURCE_ROWS`), and `src/ui/dialogs/sql.ts` renders
+the result as a new, read-only table inside the existing dialog system —
+nothing is written back to the CSV/RSF document or persisted in the RSF
+format. `INSERT`/`UPDATE`/`DELETE`/`DROP`/`ATTACH`/`PRAGMA`/etc. are rejected
+by construction (there is no grammar production for them), not by a keyword
+blacklist, and there is exactly one queryable table per query — the fixed
+literal `data` in `FROM data` — so a worksheet's display name never has to be
+parsed or escaped as a SQL identifier.
+
 ## Long-running operations
 
 `src/core/scheduler.ts` provides cooperative time slicing

@@ -192,6 +192,10 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
       ],
     },
     {
+      labelKey: 'menu.data',
+      items: [{ labelKey: 'menu.data.runQuery', command: 'data.runSqlQuery' }],
+    },
+    {
       labelKey: 'menu.view',
       items: [
         { labelKey: 'menu.view.wrap', command: 'view.wrap', checked: checks.wrap },

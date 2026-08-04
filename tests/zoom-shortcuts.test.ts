@@ -6,7 +6,7 @@
  * are never intercepted, and the wheel gesture is consumed only over the grid
  * and never during text entry / IME / another pointer interaction.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { nextZoomLevel } from '../src/app/settings';
@@ -49,6 +49,7 @@ function stubUi(): UiPort {
     findNext: () => undefined,
     showAbout: () => undefined,
     showFormulaHelp: () => undefined,
+    showSqlQuery: vi.fn(async () => undefined),
     chooseSettings: async () => null,
     chooseTimezone: async () => null,
     chooseDisplayLanguage: async () => null,

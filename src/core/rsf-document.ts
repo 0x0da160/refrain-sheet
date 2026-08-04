@@ -22,6 +22,7 @@ import {
   type SpillMap,
 } from './spill';
 import type { ValueGrid } from './formula-value';
+import type { CellStyle } from './cell-style';
 import type { SheetFilter } from './filter';
 import type { SheetSort } from './sort';
 import {
@@ -405,6 +406,9 @@ export class RsfDocument {
     }
     sheet.filter = entry.filter ?? null;
     sheet.filterDropped = entry.filterDropped === true;
+    for (const [r, c, style] of entry.styles ?? []) {
+      sheet.setStyle(r, c, style);
+    }
     return sheet;
   }
 
@@ -792,6 +796,10 @@ export class RsfDocument {
       if (sheet.filter !== null) {
         entry.filter = sheet.filter;
       }
+      const styles = sheet.collectStyles();
+      if (styles.length > 0) {
+        entry.styles = styles;
+      }
       return entry;
     });
     const payload: RsfWorkbookData = {
@@ -918,6 +926,33 @@ export class RsfDocument {
 
   setFilterState(filter: SheetFilter | null): void {
     this.setFilterStateOn(undefined, filter);
+  }
+
+  // ----- Cell styles -----
+
+  /** The active worksheet's style for one cell, or `null` when it carries none. */
+  getStyle(row: number, col: number): CellStyle | null {
+    return this.activeSheet.getStyle(row, col);
+  }
+
+  /** A specific worksheet's style for one cell (undo/redo, cross-sheet). */
+  getStyleOn(sheetId: string | undefined, row: number, col: number): CellStyle | null {
+    return this.resolveSheet(sheetId).getStyle(row, col);
+  }
+
+  /**
+   * Set one worksheet's cell style (called by the history layer, so applying
+   * and clearing cell formatting are ordinary undoable operations). Cell
+   * data, formula results, and the evaluation cache are untouched — a style
+   * is purely presentational — but the workbook is marked as having unsaved
+   * changes because styles are persisted in the saved container.
+   */
+  setCellStyleOn(sheetId: string | undefined, row: number, col: number, style: CellStyle | null): void {
+    if (this.resolveSheet(sheetId).setStyle(row, col, style)) {
+      // Bump the revision without invalidating the memo: no cell value can
+      // have changed, so recalculation would be pure waste.
+      this.revision += 1;
+    }
   }
 
   // ----- Sort state (session-only view state; never persisted) -----

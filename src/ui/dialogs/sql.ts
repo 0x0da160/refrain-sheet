@@ -55,7 +55,7 @@ export class SqlQueryDialogs {
         el('p', { className: 'help-examples' }, [
           el('code', {
             className: 'help-code',
-            text: "SELECT department, COUNT(*) AS n, SUM(amount) AS total FROM data WHERE amount > 0 GROUP BY department ORDER BY total DESC LIMIT 100",
+            text: 'SELECT department, COUNT(*) AS n, SUM(amount) AS total FROM data WHERE amount > 0 GROUP BY department ORDER BY total DESC LIMIT 100',
           }),
         ]),
       ]);
@@ -68,7 +68,10 @@ export class SqlQueryDialogs {
       body.append(runRow);
 
       // ----- Status (announced) and results -----
-      const status = el('p', { className: 'sql-query-status', attrs: { role: 'status', 'aria-live': 'polite' } });
+      const status = el('p', {
+        className: 'sql-query-status',
+        attrs: { role: 'status', 'aria-live': 'polite' },
+      });
       body.append(status);
       const resultsWrap = el('div', { className: 'sql-query-results', attrs: { tabindex: '0' } });
       body.append(resultsWrap);
@@ -109,7 +112,9 @@ export class SqlQueryDialogs {
 
         const parts: string[] = [];
         if (result.truncated) {
-          parts.push(t('dialog.sqlQuery.status.truncated', { shown: result.rows.length, matched: result.matchedRows }));
+          parts.push(
+            t('dialog.sqlQuery.status.truncated', { shown: result.rows.length, matched: result.matchedRows }),
+          );
         } else {
           parts.push(t('dialog.sqlQuery.status.success', { rows: result.rows.length }));
         }

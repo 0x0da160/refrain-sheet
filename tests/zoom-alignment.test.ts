@@ -6,7 +6,7 @@
  * inline --grid-row-height variable that the cell line box tracks, so text
  * stays centered at 50–200% for any sheet font and for wrapped/multiline rows.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { setSheetFont, SHEET_FONTS } from '../src/app/sheet-font';

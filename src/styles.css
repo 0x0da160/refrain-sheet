@@ -1545,6 +1545,71 @@ table.diag-table th {
   margin: 3px 0;
 }
 
+/* ---------- SQL query panel (Data > Run SQL Query…) ---------- */
+
+.sql-query-dialog .form-row {
+  align-items: flex-start;
+}
+
+.sql-query-input {
+  flex: 1;
+  font-family: var(--font-sheet);
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  resize: vertical;
+  min-height: 90px;
+}
+
+.sql-query-help {
+  margin-bottom: 10px;
+}
+
+.sql-query-help summary {
+  cursor: pointer;
+  color: var(--text-dim);
+}
+
+.sql-query-help .help-code {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-sheet);
+  background: var(--panel);
+  border-radius: 3px;
+  padding: 4px 6px;
+  overflow-wrap: break-word;
+}
+
+.sql-query-run-row {
+  justify-content: flex-end;
+}
+
+.sql-query-status {
+  min-height: 1.4em;
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+
+.sql-query-status[role='alert'] {
+  color: var(--danger);
+}
+
+.sql-query-results {
+  overflow: auto;
+  max-height: 260px;
+}
+
+.sql-query-results:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+table.sql-query-table th,
+table.sql-query-table td {
+  white-space: nowrap;
+}
+
 /* ---------- Drop overlay ---------- */
 
 .drop-overlay {

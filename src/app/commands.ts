@@ -34,12 +34,25 @@ import { FilterCommands } from './commands/filter';
 import { FormatCommands } from './commands/format';
 import { SortCommands } from './commands/sort';
 import { WorksheetCommands } from './commands/worksheets';
+import { SqlCommands, type SqlSource, type SqlRunOutcome } from './commands/sql';
 import { PasteFillCommands, type FlashFillPreview } from './commands/paste-fill';
 import { RangeOpsCommands, type ReplaceAllReport } from './commands/range-ops';
 import { LARGE_OP_CELLS } from './commands/shared';
 
 export { LARGE_OP_CELLS };
-export type { FlashFillPreview, ReplaceAllReport };
+export type { FlashFillPreview, ReplaceAllReport, SqlSource, SqlRunOutcome };
+
+/**
+ * Everything the SQL query dialog needs. `sources` is the fixed, pre-computed
+ * list of pickable data sources; `runQuery` is a live callback (like
+ * `UiPort.promptSheetName`'s `validate`) so the dialog can run the same query
+ * against different sources, or edit and re-run it, without a round trip
+ * through `Commands.run` for every keystroke.
+ */
+export interface SqlQueryDialogInput {
+  sources: SqlSource[];
+  runQuery: (sourceId: string, query: string) => SqlRunOutcome;
+}
 
 /**
  * Why a CSV document needs converting to an RSF spreadsheet document.
@@ -238,6 +251,8 @@ export interface UiPort {
   showAbout(section?: 'about' | 'shortcuts'): void;
   /** Open the offline formula & function help panel. */
   showFormulaHelp(): void;
+  /** Open the local, read-only SQL query panel (see `src/core/sql-engine.ts`). */
+  showSqlQuery(input: SqlQueryDialogInput): Promise<void>;
   /**
    * Confirm a workbook-wide Replace All before anything is mutated. Returns
    * false to cancel, which must leave every worksheet untouched.
@@ -355,6 +370,7 @@ export type CommandId =
   | 'sheet.displayLanguage'
   | 'sheet.exportCsv'
   | 'sheet.exportXlsx'
+  | 'data.runSqlQuery'
   // Worksheets inside the active RSF workbook (distinct from the application
   // document tabs, whose commands are the `tab.*` ids below).
   | 'worksheet.add'
@@ -437,6 +453,7 @@ export class Commands {
     );
     this.rangeOps = new RangeOpsCommands(state, ui);
     this.format = new FormatCommands(state, ui);
+    this.sql = new SqlCommands();
   }
 
   /** File I/O, save/export, and CSV↔RSF conversion — see `FileIoCommands`. */
@@ -460,6 +477,9 @@ export class Commands {
   /** Cell/range visual formatting (bold/italic/underline, colors, borders) — see `FormatCommands`. */
   private readonly format: FormatCommands;
 
+  /** Local, read-only SQL analysis over one worksheet/CSV table — see `SqlCommands`. */
+  private readonly sql: SqlCommands;
+
   /** True when the command currently makes sense (drives menu-item enabled state). */
   isEnabled(id: CommandId): boolean {
     const tab = this.state.activeTab;
@@ -470,6 +490,7 @@ export class Commands {
       case 'search.replace':
       case 'search.findNext':
       case 'search.findPrev':
+      case 'data.runSqlQuery':
         return tab !== null;
       case 'file.saveOptions':
         // CSV: encoding/EOL/BOM options. RSF: the compression selector.
@@ -800,6 +821,9 @@ export class Commands {
       case 'sheet.exportXlsx':
         if (tab) await this.exportXlsx(tab);
         return;
+      case 'data.runSqlQuery':
+        if (tab) await this.showSqlQuery(tab);
+        return;
       case 'view.wrap':
         this.state.setWrapCells(!this.state.wrapCells);
         return;
@@ -972,6 +996,17 @@ export class Commands {
    */
   async exportXlsx(tab: Tab): Promise<boolean> {
     return this.fileIo.exportXlsx(tab);
+  }
+
+  /**
+   * Data > Run SQL Query…: open the local, read-only SQL query panel. See
+   * `src/core/sql-engine.ts` for the query engine and its documented scope.
+   */
+  private async showSqlQuery(tab: Tab): Promise<void> {
+    return this.ui.showSqlQuery({
+      sources: this.sql.listSources(tab),
+      runQuery: (sourceId, query) => this.sql.runQuery(tab, sourceId, query),
+    });
   }
 
   async closeTab(tab: Tab): Promise<void> {

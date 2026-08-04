@@ -608,7 +608,11 @@ const STYLE_FLAG_UNDERLINE = 1 << 2;
 const STYLE_COLOR_FLAG_BASE = 3;
 
 function hexToRgb(hex: string): [number, number, number] {
-  return [parseInt(hex.slice(1, 3), 16) || 0, parseInt(hex.slice(3, 5), 16) || 0, parseInt(hex.slice(5, 7), 16) || 0];
+  return [
+    parseInt(hex.slice(1, 3), 16) || 0,
+    parseInt(hex.slice(3, 5), 16) || 0,
+    parseInt(hex.slice(5, 7), 16) || 0,
+  ];
 }
 
 function rgbToHex(r: number, g: number, b: number): string {
@@ -624,7 +628,12 @@ function rgbToHex(r: number, g: number, b: number): string {
  */
 function encodeStyleBlock(styles: Array<[number, number, CellStyle]> | undefined): number[] {
   const list = styles ?? [];
-  const bytes: number[] = [list.length & 0xff, (list.length >>> 8) & 0xff, (list.length >>> 16) & 0xff, (list.length >>> 24) & 0xff];
+  const bytes: number[] = [
+    list.length & 0xff,
+    (list.length >>> 8) & 0xff,
+    (list.length >>> 16) & 0xff,
+    (list.length >>> 24) & 0xff,
+  ];
   for (const [row, col, style] of list) {
     bytes.push(row & 0xff, (row >>> 8) & 0xff, (row >>> 16) & 0xff, (row >>> 24) & 0xff);
     bytes.push(col & 0xff, (col >>> 8) & 0xff, (col >>> 16) & 0xff, (col >>> 24) & 0xff);
@@ -711,8 +720,7 @@ function encodeBody(data: RsfData): Uint8Array {
   // `decodeBody` reads for that version unconditionally.
   const hasStyles = (data.styles?.length ?? 0) > 0;
   const hasDisplayLanguage =
-    hasStyles ||
-    (data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE);
+    hasStyles || (data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE);
   const displayLanguageBytes = hasDisplayLanguage
     ? enc.encode((data.displayLanguage ?? DEFAULT_DISPLAY_LANGUAGE).slice(0, MAX_META_LENGTH))
     : null;
@@ -1379,8 +1387,7 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
   // as the single-sheet body above.
   const hasStyles = data.sheets.some((sheet) => (sheet.styles?.length ?? 0) > 0);
   const hasDisplayLanguage =
-    hasStyles ||
-    (data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE);
+    hasStyles || (data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE);
   const hasTimezone =
     hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
   bytes.push(hasStyles ? 4 : hasDisplayLanguage ? 3 : hasTimezone ? 2 : 1);

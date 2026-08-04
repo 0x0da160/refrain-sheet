@@ -130,6 +130,18 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
       if (key === 'd' && !event.shiftKey) {
         return 'edit.fillDown';
       }
+      // Bold/Italic/Underline: the conventional word-processor accelerators.
+      // Unlike Ctrl+Shift+B (the browser's bookmarks-bar toggle), plain
+      // Ctrl+B/I/U are not browser-reserved, so they are safe to own here.
+      if (!event.shiftKey && key === 'b') {
+        return 'format.bold';
+      }
+      if (!event.shiftKey && key === 'i') {
+        return 'format.italic';
+      }
+      if (!event.shiftKey && key === 'u') {
+        return 'format.underline';
+      }
     }
     return null;
   }
@@ -180,6 +192,9 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Ctrl+V / Cmd+V', descKey: 'shortcut.paste' },
   { keys: 'Ctrl+A / Cmd+A', descKey: 'shortcut.selectAll' },
   { keys: 'Ctrl+D / Cmd+D', descKey: 'shortcut.fillDown' },
+  { keys: 'Ctrl+B / Cmd+B', descKey: 'shortcut.bold' },
+  { keys: 'Ctrl+I / Cmd+I', descKey: 'shortcut.italic' },
+  { keys: 'Ctrl+U / Cmd+U', descKey: 'shortcut.underline' },
   { keys: 'Ctrl+Shift+F / Cmd+Shift+F', descKey: 'shortcut.find' },
   { keys: 'Ctrl+Shift+H / Cmd+Shift+H', descKey: 'shortcut.replace' },
   { keys: 'Ctrl+Shift+. / Cmd+Shift+.', descKey: 'shortcut.zoomIn' },

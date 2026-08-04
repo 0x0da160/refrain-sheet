@@ -139,11 +139,12 @@ export class FormatCommands {
 
   /**
    * Whether the selection is currently "on" for a boolean property — true
-   * only when every visible cell in it already has the property set, which
-   * is what decides whether the next toggle turns it on or off everywhere
-   * (the same "uniform selection" rule spreadsheets use for Bold/Italic).
+   * only when every visible cell in it already has the property set (the
+   * same "uniform selection" rule spreadsheets use for Bold/Italic/
+   * Underline). Drives both the next toggle's direction and the menu's
+   * checked state.
    */
-  private toggleProperty(tab: Tab, key: 'bold' | 'italic' | 'underline', label: string): boolean {
+  isActive(tab: Tab, key: 'bold' | 'italic' | 'underline'): boolean {
     const doc = tab.doc;
     if (doc.kind !== 'rsf') {
       return false;
@@ -153,8 +154,11 @@ export class FormatCommands {
       return false;
     }
     const hidden = this.state.hiddenRows(tab);
-    const allSet = rangeCells(range, hidden).every(({ row, col }) => doc.getStyle(row, col)?.[key]);
-    return this.applyToSelection(tab, { [key]: !allSet }, label);
+    return rangeCells(range, hidden).every(({ row, col }) => doc.getStyle(row, col)?.[key]);
+  }
+
+  private toggleProperty(tab: Tab, key: 'bold' | 'italic' | 'underline', label: string): boolean {
+    return this.applyToSelection(tab, { [key]: !this.isActive(tab, key) }, label);
   }
 
   private applyToSelection(tab: Tab, patch: CellStylePatch, label: string): boolean {

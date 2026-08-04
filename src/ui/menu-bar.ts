@@ -185,6 +185,8 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.format.backgroundColor', command: 'format.backgroundColor' },
         { labelKey: 'menu.format.borders', command: 'format.borders' },
         'separator',
+        { labelKey: 'menu.format.numberFormat', command: 'format.numberFormat' },
+        'separator',
         { labelKey: 'menu.format.clear', command: 'format.clear' },
       ],
     },

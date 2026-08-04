@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from '../core/byte-csv-parser';
-import type { BorderSide } from '../core/cell-style';
+import type { BorderSide, NumberFormat } from '../core/cell-style';
 import type { CellRange } from '../core/clipboard';
 import { type CsvExportOptions } from '../core/csv-export';
 import { type EncodingId } from '../core/encoding';

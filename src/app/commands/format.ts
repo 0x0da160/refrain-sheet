@@ -39,14 +39,15 @@ const CLEAR_PATCH: CellStylePatch = {
   borderRight: null,
   borderBottom: null,
   borderLeft: null,
+  numberFormat: null,
 };
 
 /**
  * Cell-/range-level visual formatting for RSF worksheets: bold, italic,
- * underline, text color, background color, and per-side borders. Extracted
- * from `Commands` as a cohesive slice (the pattern `RangeOpsCommands`
- * established) — `Commands` still exposes the same public methods,
- * delegating to an instance of this class.
+ * underline, text color, background color, per-side borders, and a numeric
+ * display format. Extracted from `Commands` as a cohesive slice (the pattern
+ * `RangeOpsCommands` established) — `Commands` still exposes the same public
+ * methods, delegating to an instance of this class.
  *
  * Every change applies to the current selection as one atomic, undoable
  * `styles` history operation (see `src/core/history.ts`). Styling is purely
@@ -130,6 +131,25 @@ export class FormatCommands {
       return false;
     }
     return this.applyToSelection(tab, result.sides, 'history.setBorders');
+  }
+
+  /** Open the Number Format dialog (preselected from the top-left selected cell) and apply the choice. */
+  async promptNumberFormat(tab: Tab): Promise<boolean> {
+    const range = this.state.selectedRange(tab);
+    const doc = tab.doc;
+    if (!range || doc.kind !== 'rsf') {
+      return false;
+    }
+    const current = doc.getStyle(range.top, range.left)?.numberFormat ?? null;
+    const result = await this.ui.chooseNumberFormat(current);
+    if (!result || tab.doc !== doc) {
+      return false;
+    }
+    return this.applyToSelection(
+      tab,
+      { numberFormat: result.action === 'apply' ? result.format : null },
+      'history.setNumberFormat',
+    );
   }
 
   /** Remove every style property from the selection (values are untouched). */

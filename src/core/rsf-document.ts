@@ -22,6 +22,7 @@ import {
   type SpillMap,
 } from './spill';
 import type { ValueGrid } from './formula-value';
+import { formatCellNumber } from './cell-number-format';
 import type { CellStyle } from './cell-style';
 import type { SheetFilter } from './filter';
 import type { SheetSort } from './sort';
@@ -837,15 +838,28 @@ export class RsfDocument {
     return this.activeSheet.getValue(row, col);
   }
 
-  /** The computed display value (formula results, error codes, or the literal). */
+  /**
+   * The computed display value (formula results, error codes, or the
+   * literal), rendered through the cell's `numberFormat` when it has one and
+   * the result is a number — see `cell-number-format.ts`. Every other value
+   * kind, and cells with no number format, render exactly as `formatValue`
+   * always has.
+   */
   getDisplayValue(row: number, col: number): string {
-    return formatValue(this.evaluateCell(row, col));
+    return this.displayText(this.evaluateCell(row, col), this.activeSheet.getStyle(row, col));
   }
 
-  /** The computed display value of a cell on a specific worksheet. */
+  /** The computed display value of a cell on a specific worksheet. See {@link getDisplayValue}. */
   getSheetDisplayValue(sheetId: string, row: number, col: number): string {
     const sheet = this.sheetById(sheetId);
-    return sheet ? formatValue(this.evaluateInSheet(sheet, row, col)) : '';
+    return sheet ? this.displayText(this.evaluateInSheet(sheet, row, col), sheet.getStyle(row, col)) : '';
+  }
+
+  private displayText(value: FormulaValue, style: CellStyle | null): string {
+    if (value.type === 'number' && style?.numberFormat) {
+      return formatCellNumber(value.value, style.numberFormat);
+    }
+    return formatValue(value);
   }
 
   isFormulaCell(row: number, col: number): boolean {

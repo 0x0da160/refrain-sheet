@@ -501,6 +501,18 @@ export class Commands {
       case 'sheet.filter':
       case 'sheet.sort':
         return tab?.selection != null;
+      // Formatting is RSF-only, like sort/filter above, but (unlike them)
+      // there is no dialog to run and explain the required conversion from —
+      // toggling Bold on a CSV tab would just silently do nothing — so it is
+      // disabled outright instead.
+      case 'format.bold':
+      case 'format.italic':
+      case 'format.underline':
+      case 'format.textColor':
+      case 'format.backgroundColor':
+      case 'format.borders':
+      case 'format.clear':
+        return tab !== null && tab.doc.kind === 'rsf' && tab.selection != null;
       // The async Clipboard API's image write has inconsistent browser
       // support (including on file://), so the item is hidden/disabled
       // outright there rather than failing at run time.
@@ -703,6 +715,27 @@ export class Commands {
         return;
       case 'sheet.sortClear':
         if (tab) this.clearSort(tab);
+        return;
+      case 'format.bold':
+        if (tab) this.toggleBold(tab);
+        return;
+      case 'format.italic':
+        if (tab) this.toggleItalic(tab);
+        return;
+      case 'format.underline':
+        if (tab) this.toggleUnderline(tab);
+        return;
+      case 'format.textColor':
+        if (tab) await this.promptTextColor(tab);
+        return;
+      case 'format.backgroundColor':
+        if (tab) await this.promptBackgroundColor(tab);
+        return;
+      case 'format.borders':
+        if (tab) await this.promptBorders(tab);
+        return;
+      case 'format.clear':
+        if (tab) this.clearFormatting(tab);
         return;
       case 'sheet.recalculate':
         // Drops every cached result and advances the clock the volatile
@@ -1210,5 +1243,10 @@ export class Commands {
   /** Remove every style property from the selection. See `FormatCommands.clearFormatting`. */
   clearFormatting(tab: Tab): boolean {
     return this.format.clearFormatting(tab);
+  }
+
+  /** Whether Bold/Italic/Underline is "on" for the whole selection. See `FormatCommands.isActive`. */
+  isFormatActive(tab: Tab, key: 'bold' | 'italic' | 'underline'): boolean {
+    return this.format.isActive(tab, key);
   }
 }

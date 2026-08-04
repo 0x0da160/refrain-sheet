@@ -64,7 +64,9 @@ export class FormatDialogs {
   chooseBorders(current: Partial<Record<BorderSide, string>>): Promise<BordersDialogResult | null> {
     return openDialog<BordersDialogResult | null>(t('dialog.borders.title'), null, (body, buttons, close) => {
       const colorId = 'format-borders-color';
-      const initialColor = BORDER_SIDES.map((side) => current[side]).find((c): c is string => c !== undefined);
+      const initialColor = BORDER_SIDES.map((side) => current[side]).find(
+        (c): c is string => c !== undefined,
+      );
       const colorInput = el('input', {
         attrs: { type: 'color', id: colorId, value: initialColor ?? DEFAULT_COLOR },
       }) as HTMLInputElement;

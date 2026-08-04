@@ -818,7 +818,12 @@ export class AppState {
       }
       const changes = direction === 'after' ? op.changes : [...op.changes].reverse();
       for (const change of changes) {
-        tab.doc.setCellStyleOn(op.sheetId, change.row, change.col, direction === 'before' ? change.before : change.after);
+        tab.doc.setCellStyleOn(
+          op.sheetId,
+          change.row,
+          change.col,
+          direction === 'before' ? change.before : change.after,
+        );
       }
       return;
     }

@@ -976,6 +976,19 @@ button {
   font-weight: 600;
 }
 
+.format-borders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.format-borders-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .filter-condition-row {
   display: flex;
   gap: 6px;
@@ -1114,6 +1127,23 @@ button {
 
 .vcell.cell-error::after {
   border-top-color: var(--danger);
+}
+
+/* Cell/range formatting (Format menu, RSF only). Placed after `.formula` and
+   `.cell-error` above so a user's explicit Bold/Italic on a formula or error
+   cell always wins over their built-in styling. Text/background color and
+   borders are per-cell inline styles instead (see `Grid.paintCellStyle`), so
+   any `#rrggbb` value works without a matching rule here. */
+.vcell.cell-bold {
+  font-weight: 700;
+}
+
+.vcell.cell-italic {
+  font-style: italic;
+}
+
+.vcell.cell-underline {
+  text-decoration: underline;
 }
 
 .vcell.void {

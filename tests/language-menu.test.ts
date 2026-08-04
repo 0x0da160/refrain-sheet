@@ -18,6 +18,7 @@ function checks(): MenuChecks {
     theme: () => 'system',
     zoom: () => 100,
     editHints: () => true,
+    formatActive: () => false,
   };
 }
 

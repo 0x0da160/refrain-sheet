@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import type { Tab } from '../app/app-state';
 import type {
+  BordersDialogResult,
+  ColorDialogResult,
   ConvertReason,
   FilterDialogInput,
   FilterDialogResult,
@@ -12,6 +14,7 @@ import type {
 } from '../app/commands';
 import { t, type LocaleId } from '../app/i18n';
 import type { DelimiterId } from '../core/byte-csv-parser';
+import type { BorderSide } from '../core/cell-style';
 import type { CsvExportOptions } from '../core/csv-export';
 import type { EncodingId } from '../core/encoding';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
@@ -19,6 +22,7 @@ import type { ValidationSummary } from '../core/validation';
 import { el } from './dom';
 import { AppSettingsDialogs } from './dialogs/app-settings';
 import { FileIoDialogs } from './dialogs/file-io';
+import { FormatDialogs } from './dialogs/format';
 import { SheetOpsDialogs } from './dialogs/sheet-ops';
 import { dialogButton, openDialog } from './dialogs/shared';
 
@@ -26,6 +30,7 @@ export class Dialogs {
   private readonly appSettings = new AppSettingsDialogs();
   private readonly fileIo = new FileIoDialogs();
   private readonly sheetOps = new SheetOpsDialogs();
+  private readonly format = new FormatDialogs();
 
   confirmValidation(name: string, summary: ValidationSummary): Promise<boolean> {
     return openDialog(t('dialog.validation.title'), false, (body, buttons, close) => {
@@ -253,6 +258,21 @@ export class Dialogs {
   /** See `SheetOpsDialogs.confirmReplaceAllWorkbook` for the full behavior contract. */
   confirmReplaceAllWorkbook(input: WorkbookReplaceConfirmInput): Promise<boolean> {
     return this.sheetOps.confirmReplaceAllWorkbook(input);
+  }
+
+  /** See `FormatDialogs.chooseTextColor` for the full behavior contract. */
+  chooseTextColor(current: string | null): Promise<ColorDialogResult | null> {
+    return this.format.chooseTextColor(current);
+  }
+
+  /** See `FormatDialogs.chooseBackgroundColor` for the full behavior contract. */
+  chooseBackgroundColor(current: string | null): Promise<ColorDialogResult | null> {
+    return this.format.chooseBackgroundColor(current);
+  }
+
+  /** See `FormatDialogs.chooseBorders` for the full behavior contract. */
+  chooseBorders(current: Partial<Record<BorderSide, string>>): Promise<BordersDialogResult | null> {
+    return this.format.chooseBorders(current);
   }
 
   /**

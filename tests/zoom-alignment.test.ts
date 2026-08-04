@@ -50,6 +50,9 @@ function stubUi(): UiPort {
     chooseSettings: async () => null,
     chooseTimezone: async () => null,
     chooseDisplayLanguage: async () => null,
+    chooseTextColor: async () => null,
+    chooseBackgroundColor: async () => null,
+    chooseBorders: async () => null,
     setBusy: () => undefined,
   };
 }

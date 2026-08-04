@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from '../core/byte-csv-parser';
-import type { BorderSide } from '../core/cell-style';
+import type { BorderSide, NumberFormat } from '../core/cell-style';
 import type { CellRange } from '../core/clipboard';
 import { type CsvExportOptions } from '../core/csv-export';
 import { type EncodingId } from '../core/encoding';
@@ -136,6 +136,9 @@ export type BordersDialogResult = {
   action: 'apply';
   sides: Partial<Record<BorderSide, string | null>>;
 };
+
+/** What the Number Format dialog resolved to (null = cancelled, nothing changes). */
+export type NumberFormatDialogResult = { action: 'apply'; format: NumberFormat } | { action: 'clear' };
 
 /**
  * The UI surface the command layer talks to. Menu items, context menus,
@@ -285,6 +288,14 @@ export interface UiPort {
    */
   chooseBorders(current: Partial<Record<BorderSide, string>>): Promise<BordersDialogResult | null>;
   /**
+   * The Number Format dialog: kind (number/percent/currency), decimal places,
+   * thousands separator, and (for currency) a symbol, preselected from
+   * `current` (null when the selection has none, or is mixed). Resolves with
+   * the chosen format, `'clear'` to remove it, or null when cancelled
+   * (nothing changes).
+   */
+  chooseNumberFormat(current: NumberFormat | null): Promise<NumberFormatDialogResult | null>;
+  /**
    * Show or hide the busy/loading indicator. `label` is already-localized
    * text describing the current operation; `null` hides the indicator.
    * `progress` is a real completion percentage (0-100) when the caller has
@@ -337,6 +348,7 @@ export type CommandId =
   | 'format.textColor'
   | 'format.backgroundColor'
   | 'format.borders'
+  | 'format.numberFormat'
   | 'format.clear'
   | 'sheet.recalculate'
   | 'sheet.timezone'
@@ -512,6 +524,7 @@ export class Commands {
       case 'format.textColor':
       case 'format.backgroundColor':
       case 'format.borders':
+      case 'format.numberFormat':
       case 'format.clear':
         return tab !== null && tab.doc.kind === 'rsf' && tab.selection != null;
       // The async Clipboard API's image write has inconsistent browser
@@ -734,6 +747,9 @@ export class Commands {
         return;
       case 'format.borders':
         if (tab) await this.promptBorders(tab);
+        return;
+      case 'format.numberFormat':
+        if (tab) await this.promptNumberFormat(tab);
         return;
       case 'format.clear':
         if (tab) this.clearFormatting(tab);
@@ -1242,6 +1258,11 @@ export class Commands {
   /** Open the Borders dialog and apply the choice. See `FormatCommands.promptBorders`. */
   async promptBorders(tab: Tab): Promise<boolean> {
     return this.format.promptBorders(tab);
+  }
+
+  /** Open the Number Format dialog and apply the choice. See `FormatCommands.promptNumberFormat`. */
+  async promptNumberFormat(tab: Tab): Promise<boolean> {
+    return this.format.promptNumberFormat(tab);
   }
 
   /** Remove every style property from the selection. See `FormatCommands.clearFormatting`. */

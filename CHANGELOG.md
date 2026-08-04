@@ -25,6 +25,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- **Format > Number Format…** applies a numeric display format (Number,
+  Percent, or Currency, with configurable decimal places, an optional
+  thousands separator, and a currency symbol) to the selected cell or range
+  on RSF spreadsheets. Like other cell formatting, it is purely
+  presentational (it never affects the cell's value, formula results,
+  sort/filter, or CSV export), is undoable, and is saved in the `.rsf` file.
+  ([#214](https://github.com/0x0da160/refrain-sheet/issues/214))
 - A new **Format** menu applies cell/range visual formatting on RSF
   spreadsheets: Bold, Italic, Underline (also Ctrl+B / Ctrl+I / Ctrl+U),
   Text Color…, Background Color…, Borders…, and Clear Formatting.

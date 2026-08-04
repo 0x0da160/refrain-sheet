@@ -50,7 +50,7 @@ const FEATURES = {
     'UTF-8 / Shift_JIS / CP932 / EUC-JP の自動判定と、文字コードを指定した開き直し',
     '保存時に文字コード・BOM・改行コードを個別に指定',
     '壊れたCSVを修復せず、行・列つきの診断を提示して開く',
-    'RSFスプレッドシート（55関数・複数シート・XLSXエクスポート）',
+    'RSFスプレッドシート（55関数・複数シート・フィルタ／並べ替え・セル書式設定・XLSXエクスポート）',
     '完全オフライン動作。実行時のネットワーク通信ゼロ',
   ],
   en: [
@@ -59,7 +59,7 @@ const FEATURES = {
     'Automatic detection of UTF-8, Shift_JIS, CP932 and EUC-JP, plus reopen with a chosen encoding',
     'Choose character encoding, BOM and line endings independently when saving',
     'Opens malformed CSV without repairing it, with row/column diagnostics',
-    'RSF spreadsheet mode with 55 functions, multiple sheets and XLSX export',
+    'RSF spreadsheet mode with 55 functions, multiple sheets, filtering/sorting, cell formatting and XLSX export',
     'Runs fully offline with zero network requests at runtime',
   ],
 };

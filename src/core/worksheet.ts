@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { cellStylesEqual, type CellStyle } from './cell-style';
 import type { SheetFilter } from './filter';
 import { isFormula, parseFormula, type ParseResult } from './formula';
 import type { SheetSort } from './sort';
@@ -101,6 +102,15 @@ export class Worksheet {
     colWidths: [],
     wrap: undefined,
   };
+
+  /**
+   * Sparse cell-level visual formatting (bold/italic/underline, colors,
+   * borders — see {@link CellStyle}), keyed row-major so row insert/delete
+   * (the common structural edit) only needs to touch the outer map. Purely
+   * presentational: it never affects a cell's value, formula evaluation, sort
+   * or filter, or CSV export.
+   */
+  private styles: Map<number, Map<number, CellStyle>> = new Map();
 
   private readonly formulaCache = new Map<string, CompiledFormula>();
   /**
@@ -235,6 +245,101 @@ export class Worksheet {
     return out;
   }
 
+  // ----- Cell styles -----
+
+  /** The style of one cell, or `null` when it carries none. */
+  getStyle(row: number, col: number): CellStyle | null {
+    return this.styles.get(row)?.get(col) ?? null;
+  }
+
+  /** Set (or clear, with `null`) one cell's style. Returns true when it changed. */
+  setStyle(row: number, col: number, style: CellStyle | null): boolean {
+    if (!this.contains(row, col)) {
+      return false;
+    }
+    const current = this.getStyle(row, col);
+    if (cellStylesEqual(current, style)) {
+      return false;
+    }
+    if (style === null) {
+      const rowStyles = this.styles.get(row);
+      rowStyles?.delete(col);
+      if (rowStyles && rowStyles.size === 0) {
+        this.styles.delete(row);
+      }
+    } else {
+      let rowStyles = this.styles.get(row);
+      if (!rowStyles) {
+        rowStyles = new Map();
+        this.styles.set(row, rowStyles);
+      }
+      rowStyles.set(col, style);
+    }
+    return true;
+  }
+
+  /** Every styled cell as [row, col, style] triples (sparse). */
+  collectStyles(): Array<[number, number, CellStyle]> {
+    const out: Array<[number, number, CellStyle]> = [];
+    for (const [row, rowStyles] of this.styles) {
+      for (const [col, style] of rowStyles) {
+        out.push([row, col, style]);
+      }
+    }
+    return out;
+  }
+
+  get styledCellCount(): number {
+    let n = 0;
+    for (const rowStyles of this.styles.values()) {
+      n += rowStyles.size;
+    }
+    return n;
+  }
+
+  /**
+   * Reindex every styled cell's row after a row insert/delete, so styles
+   * follow the data they were applied to. Rows removed by a delete lose their
+   * styles along with their values (undoing the delete restores cell values
+   * via the history entry's row data, but not their styles — the same
+   * trade-off already accepted for the sheet filter and sort, which are also
+   * dropped rather than threaded through structural-edit undo).
+   */
+  private shiftStyleRows(mapRow: (row: number) => number | null): void {
+    if (this.styles.size === 0) {
+      return;
+    }
+    const next: Map<number, Map<number, CellStyle>> = new Map();
+    for (const [row, rowStyles] of this.styles) {
+      const mapped = mapRow(row);
+      if (mapped !== null) {
+        next.set(mapped, rowStyles);
+      }
+    }
+    this.styles = next;
+  }
+
+  /** Reindex every styled cell's column after a column insert/delete. */
+  private shiftStyleCols(mapCol: (col: number) => number | null): void {
+    if (this.styles.size === 0) {
+      return;
+    }
+    const next: Map<number, Map<number, CellStyle>> = new Map();
+    for (const [row, rowStyles] of this.styles) {
+      const nextRow: Map<number, CellStyle> = new Map();
+      for (const [col, style] of rowStyles) {
+        const mapped = mapCol(col);
+        if (mapped !== null) {
+          nextRow.set(mapped, style);
+        }
+      }
+      if (nextRow.size > 0) {
+        next.set(row, nextRow);
+      }
+    }
+    this.styles = next;
+  }
+
   /** True when any cell in the worksheet holds a value (used for delete confirmation). */
   hasAnyContent(): boolean {
     for (const row of this.data) {
@@ -276,6 +381,7 @@ export class Worksheet {
     });
     this.data.splice(at, 0, ...prepared);
     this.formulaPerRow?.splice(at, 0, ...prepared.map((row) => this.countRowFormulas(row)));
+    this.shiftStyleRows((row) => (row >= at ? row + prepared.length : row));
     this.revision += 1;
     // The sort's stored range would otherwise silently drift against the
     // shifted rows; since sort is session-only view state (not undo-tracked),
@@ -283,7 +389,7 @@ export class Worksheet {
     this.sort = null;
   }
 
-  /** Remove rows and return their data (for undo). */
+  /** Remove rows and return their data (for undo; their cell styles are not preserved). */
   deleteRows(index: number, count: number): string[][] {
     const removed = this.data.splice(index, count);
     this.formulaPerRow?.splice(index, count);
@@ -291,6 +397,7 @@ export class Worksheet {
       this.data.push(new Array<string>(this.cols).fill(''));
       this.formulaPerRow?.push(0);
     }
+    this.shiftStyleRows((row) => (row < index ? row : row < index + count ? null : row - count));
     this.revision += 1;
     this.sort = null;
     return removed;
@@ -306,12 +413,13 @@ export class Worksheet {
         this.formulaPerRow[r] += this.countRowFormulas(inserts);
       }
     }
+    this.shiftStyleCols((col) => (col >= at ? col + count : col));
     this.cols += count;
     this.revision += 1;
     this.sort = null;
   }
 
-  /** Remove columns and return their data as column-major arrays (for undo). */
+  /** Remove columns and return their data as column-major arrays (for undo; their cell styles are not preserved). */
   deleteCols(index: number, count: number): string[][] {
     const removed: string[][] = Array.from({ length: count }, () => []);
     for (let r = 0; r < this.data.length; r++) {
@@ -323,6 +431,7 @@ export class Worksheet {
         removed[c].push(cut[c] ?? '');
       }
     }
+    this.shiftStyleCols((col) => (col < index ? col : col < index + count ? null : col - count));
     this.cols -= count;
     if (this.cols === 0) {
       this.cols = 1;
@@ -386,7 +495,8 @@ export class Worksheet {
    * A deep copy under a new identifier and name. Cell inputs are copied
    * verbatim — including formulas, whose worksheet-qualified references keep
    * pointing at the worksheets they named (the documented duplication policy;
-   * see docs/rsf-format.md) — along with the filter and display settings.
+   * see docs/rsf-format.md) — along with the filter, display settings, and
+   * every cell's style.
    */
   clone(id: string, name: string): Worksheet {
     const copy = new Worksheet(
@@ -399,6 +509,7 @@ export class Worksheet {
     copy.displayZoom = this.displayZoom;
     copy.displayColWidths = this.displayColWidths.slice();
     copy.displayWrap = this.displayWrap;
+    copy.styles = new Map([...this.styles].map(([row, rowStyles]) => [row, new Map(rowStyles)]));
     return copy;
   }
 
@@ -418,11 +529,15 @@ export class Worksheet {
     return copy;
   }
 
-  /** Copy one row into a shell produced by {@link cloneShell}. */
+  /** Copy one row (including its cells' styles) into a shell produced by {@link cloneShell}. */
   copyRowInto(row: number, target: Worksheet): void {
     const source = this.data[row];
     if (source) {
       target.data[row] = source.slice();
+    }
+    const rowStyles = this.styles.get(row);
+    if (rowStyles && rowStyles.size > 0) {
+      target.styles.set(row, new Map(rowStyles));
     }
   }
 }

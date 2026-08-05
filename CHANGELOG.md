@@ -25,6 +25,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- A new **Data > Compare / Diff…** dialog compares the active tab against
+  another already-open tab by one or more key columns you pick, and
+  classifies every row as added, modified, deleted, unchanged, or a key
+  issue (blank or duplicate key) — with changed rows shown first and
+  changed cells highlighted. It never writes back to either source
+  document, works fully offline with no new dependency (see
+  `docs/csv-diff-review-proposal.md`), and can export the shown rows as a
+  diff CSV. ([#255](https://github.com/0x0da160/refrain-sheet/issues/255))
 - The marketing landing page (refrain-sheet.com) now shows a cookie-consent
   banner and, only if a visitor clicks "Accept", loads Google Analytics to
   measure page visits; declining or ignoring the banner loads nothing, and

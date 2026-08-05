@@ -2017,13 +2017,16 @@ table.sql-query-table td {
 
   /* ----- Prevent unwanted zoom on focus-in -----
      Mobile browsers zoom the page to a focused text control whose computed
-     font-size is under ~16px. Every real text/number/search input and select
-     in a dialog, plus the find bar's search field, gets the 16px floor here;
-     nothing outside this breakpoint changes, so desktop density is untouched. */
+     font-size is under ~16px. Every real text/number/search input, select,
+     and textarea (e.g. the SQL query editor, the data-validation list-values
+     field) in a dialog, plus the find bar's search field, gets the 16px floor
+     here; nothing outside this breakpoint changes, so desktop density is
+     untouched. */
   .dialog-body input[type='text'],
   .dialog-body input[type='number'],
   .dialog-body input[type='search'],
-  .dialog-body select {
+  .dialog-body select,
+  .dialog-body textarea {
     font-size: 16px;
   }
 

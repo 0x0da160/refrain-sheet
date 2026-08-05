@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import {
+  checkSqlSyntax,
+  formatSqlQuery,
   runSqlQuery,
+  suggestSqlCompletions,
   SqlQueryError,
+  SQL_FUNCTIONS,
+  SQL_KEYWORDS,
   SQL_MAX_QUERY_LENGTH,
   SQL_MAX_RESULT_ROWS,
   type SqlTable,
@@ -285,5 +290,90 @@ describe('sql-engine: header edge cases', () => {
   it('resolves column names case-insensitively', () => {
     const r = run('SELECT DEPARTMENT FROM data WHERE Amount > 60');
     expect(r.rows).toHaveLength(2);
+  });
+});
+
+describe('sql-engine: checkSqlSyntax (live editor check)', () => {
+  it('returns null for a structurally valid query', () => {
+    expect(checkSqlSyntax('SELECT * FROM data WHERE amount > 10')).toBeNull();
+  });
+
+  it('does not perform schema/semantic checks (only structural syntax)', () => {
+    // Unknown columns and aggregate rules require a table and are only
+    // caught by runSqlQuery, not by the cheap live check.
+    expect(checkSqlSyntax('SELECT nonexistent FROM data')).toBeNull();
+  });
+
+  it('returns the same SqlQueryError a failing run would produce', () => {
+    const err = checkSqlSyntax('DELETE FROM data');
+    expect(err).not.toBeNull();
+    expect(err?.code).toBe('unsupportedStatement');
+  });
+
+  it('reports an unterminated string', () => {
+    const err = checkSqlSyntax("SELECT * FROM data WHERE name = 'abc");
+    expect(err?.code).toBe('unterminatedString');
+  });
+});
+
+describe('sql-engine: formatSqlQuery (auto-format)', () => {
+  it('uppercases keywords and breaks clauses onto separate lines', () => {
+    expect(formatSqlQuery('select * from data where amount > 10')).toBe(
+      'SELECT *\nFROM data\nWHERE amount > 10',
+    );
+  });
+
+  it('breaks multiple SELECT items onto indented lines and uppercases function names', () => {
+    const formatted = formatSqlQuery(
+      'select department, count(*) as n from data group by department order by n desc limit 10',
+    );
+    expect(formatted).toBe(
+      'SELECT department,\n  COUNT(*) AS n\nFROM data\nGROUP BY department\nORDER BY n DESC\nLIMIT 10',
+    );
+  });
+
+  it('never changes the meaning of a query it can format (re-parses to the same result)', () => {
+    const query = 'select department, sum(amount) as total from data where amount > 0 group by department';
+    const before = run(query);
+    const after = run(formatSqlQuery(query));
+    expect(after).toEqual(before);
+  });
+
+  it('returns the input unchanged when it does not tokenize', () => {
+    const broken = "SELECT * FROM data WHERE name = 'abc";
+    expect(formatSqlQuery(broken)).toBe(broken);
+  });
+});
+
+describe('sql-engine: suggestSqlCompletions (editor suggestions)', () => {
+  const columns = ['department', 'amount'];
+
+  it('suggests matching column names by prefix', () => {
+    const query = 'SELECT dep';
+    const suggestions = suggestSqlCompletions(query, query.length, columns);
+    expect(suggestions).toEqual([{ text: 'department', kind: 'column' }]);
+  });
+
+  it('suggests matching keywords by prefix', () => {
+    const query = 'SELECT * FROM data WHERE amount > 1 AN';
+    const suggestions = suggestSqlCompletions(query, query.length, []);
+    expect(suggestions).toContainEqual({ text: 'AND', kind: 'keyword' });
+  });
+
+  it('returns nothing for an empty prefix', () => {
+    const query = 'SELECT * FROM data ';
+    expect(suggestSqlCompletions(query, query.length, columns)).toEqual([]);
+  });
+
+  it('returns nothing while the cursor is inside an unterminated string literal', () => {
+    const query = "SELECT * FROM data WHERE department = 'abc";
+    expect(suggestSqlCompletions(query, query.length, columns)).toEqual([]);
+  });
+
+  it('exposes the keyword and function lists used to build suggestions', () => {
+    expect(SQL_KEYWORDS).toContain('SELECT');
+    expect(SQL_KEYWORDS).toContain('WHERE');
+    expect(SQL_FUNCTIONS).toContain('COUNT');
+    expect(SQL_FUNCTIONS).toContain('LOWER');
   });
 });

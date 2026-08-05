@@ -31,6 +31,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
   without opening the Format menu. Like the rest of cell formatting, it is
   RSF-only — disabled (not hidden) on a plain CSV tab.
   ([#240](https://github.com/0x0da160/refrain-sheet/issues/240))
+- The **Data > Run SQL Query…** dialog now offers a **Format** button that
+  auto-formats the query (keyword casing, one line per SELECT item and
+  clause), a live syntax-check message as you type, and prefix-match
+  suggestions for keywords, functions, and the source's column names. It
+  also keeps a local run history (reload or delete a past query) and lets
+  you save/load named queries — both stored only in this browser's local
+  storage, never in the exported CSV or RSF file.
+  ([#239](https://github.com/0x0da160/refrain-sheet/issues/239))
 - A new **Data > Data Validation…** dialog restricts which values a cell in
   the selected range accepts — a fixed list of choices (shown as a
   keyboard-accessible dropdown while editing a covered cell) or a numeric

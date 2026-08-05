@@ -29,7 +29,8 @@
     "release": "node scripts/release.mjs"
   },
   "dependencies": {
-    "encoding-japanese": "^2.2.0"
+    "encoding-japanese": "^2.2.0",
+    "lucide": "1.28.0"
   },
   "devDependencies": {
     "@types/encoding-japanese": "^2.2.1",

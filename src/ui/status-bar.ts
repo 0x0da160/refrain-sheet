@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { TriangleAlert } from 'lucide';
 import type { AppState, Tab } from '../app/app-state';
 import { t } from '../app/i18n';
 import { APP_VERSION_DISPLAY } from '../app/version';
@@ -12,6 +13,7 @@ import {
   type StatsRange,
 } from '../core/stats';
 import { el, clearChildren } from './dom';
+import { createIcon } from './icon';
 
 /**
  * Selections up to this many cells compute their statistics synchronously
@@ -138,11 +140,10 @@ export class StatusBar {
     );
 
     if (doc.diagnostics.length > 0) {
-      const problems = el('button', {
-        className: 'status-problems',
-        text: t('status.problems', { n: doc.diagnostics.length }),
-        attrs: { type: 'button' },
-      });
+      const problems = el('button', { className: 'status-problems', attrs: { type: 'button' } }, [
+        createIcon(TriangleAlert, 'status-problems-icon', 12),
+        el('span', { text: t('status.problems', { n: doc.diagnostics.length }) }),
+      ]);
       problems.addEventListener('click', this.onShowProblems);
       this.element.append(problems);
     }

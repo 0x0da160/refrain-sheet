@@ -80,6 +80,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
   now always visible in a single row that scrolls horizontally, matching how
   the document tab strip and worksheet strip already behave on mobile.
   ([#246](https://github.com/0x0da160/refrain-sheet/issues/246))
+- Several previously text-only or hand-drawn controls now show a small icon
+  from the [Lucide](https://lucide.dev/) icon set: the checkmark on a checked
+  menu item, the tab and worksheet close/add buttons, Find bar's
+  Previous/Next/Close buttons, the Welcome screen's Open/New actions, and the
+  status bar's problem-count button. Every icon is purely decorative (an
+  adjacent label or `aria-label` already names the control) and bundled
+  locally at build time like the rest of the app — no icon font or CDN is
+  involved. ([#248](https://github.com/0x0da160/refrain-sheet/issues/248))
 - **Format > Borders…** now lets you choose a border's line style (Solid,
   Dashed, Dotted, or Double) and width (Thin, Medium, or Thick), not just its
   color, and where two adjacent cells each set a border on their shared edge,

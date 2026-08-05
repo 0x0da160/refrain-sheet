@@ -7,6 +7,19 @@ APIs, no CDNs, no remote fonts, no telemetry. This document describes the threat
 model, the dependency and lockfile policy, the CI permission model, the release
 security controls, and what is expected of local developers.
 
+### Scope of the no-network guarantee
+
+This applies to the CSV/spreadsheet editor itself — the `dist/` build served
+at app.refrain-sheet.com, and the offline release ZIPs — which continues to
+make zero network connections of any kind at runtime, enforced by `npm run
+check:dist` and its `connect-src 'none'` CSP. It does not extend to the
+separate marketing landing page (`src/landing/`, built by `npm run
+build:landing`, served at refrain-sheet.com), which is static informational
+content, not the editor. The landing page may load Google Analytics
+(`gtag.js`), and only after the visitor explicitly accepts a cookie-consent
+banner — declining or ignoring the banner loads nothing. See
+`src/landing/consent.js`.
+
 ## Threat model
 
 The assets we protect and the boundaries we treat as untrusted:

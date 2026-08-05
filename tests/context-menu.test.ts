@@ -125,6 +125,70 @@ describe('ContextMenu', () => {
   });
 });
 
+describe('ContextMenu toolbar (#240)', () => {
+  it('renders a toolbar row above the item list, reflecting checked/disabled state', () => {
+    ContextMenu.open([{ label: 'Copy', onSelect: vi.fn() }], 10, 10, {
+      toolbar: [
+        { icon: 'B', label: 'Bold', checked: true, onSelect: vi.fn() },
+        { icon: 'I', label: 'Italic', disabled: true, onSelect: vi.fn() },
+      ],
+    });
+    const buttons = document.querySelectorAll<HTMLButtonElement>('.context-menu-toolbar .toolbar-item');
+    expect(buttons.length).toBe(2);
+    expect(buttons[0].getAttribute('aria-label')).toBe('Bold');
+    expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
+    expect(buttons[0].classList.contains('active')).toBe(true);
+    expect(buttons[1].disabled).toBe(true);
+    // A separator sits between the toolbar and the item list below it.
+    expect(document.querySelector('.context-menu > .menu-separator')).not.toBeNull();
+  });
+
+  it('omits the separator when the toolbar has no items below it', () => {
+    ContextMenu.open([], 10, 10, { toolbar: [{ icon: 'B', label: 'Bold', onSelect: vi.fn() }] });
+    expect(document.querySelector('.context-menu > .menu-separator')).toBeNull();
+  });
+
+  it('focuses the first enabled toolbar button on open, skipping the list', () => {
+    ContextMenu.open([{ label: 'Copy', onSelect: vi.fn() }], 10, 10, {
+      toolbar: [{ icon: 'B', label: 'Bold', onSelect: vi.fn() }],
+    });
+    expect(document.activeElement).toBe(document.querySelector('.toolbar-item'));
+  });
+
+  it('runs onSelect and closes the menu when a toolbar button is clicked', () => {
+    const onSelect = vi.fn();
+    ContextMenu.open([{ label: 'Copy', onSelect: vi.fn() }], 10, 10, {
+      toolbar: [{ icon: 'B', label: 'Bold', onSelect }],
+    });
+    (document.querySelector('.toolbar-item') as HTMLButtonElement).click();
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.context-menu')).toBeNull();
+  });
+
+  it('moves focus between toolbar buttons with ArrowRight/ArrowLeft and closes on Escape', () => {
+    ContextMenu.open([{ label: 'Copy', onSelect: vi.fn() }], 10, 10, {
+      toolbar: [
+        { icon: 'B', label: 'Bold', onSelect: vi.fn() },
+        { icon: 'I', label: 'Italic', onSelect: vi.fn() },
+      ],
+    });
+    const buttons = document.querySelectorAll<HTMLButtonElement>('.toolbar-item');
+    buttons[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(document.activeElement).toBe(buttons[1]);
+    document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(document.querySelector('.context-menu')).toBeNull();
+  });
+
+  it('moves focus from the toolbar into the item list on ArrowDown', () => {
+    ContextMenu.open([{ label: 'Copy', onSelect: vi.fn() }], 10, 10, {
+      toolbar: [{ icon: 'B', label: 'Bold', onSelect: vi.fn() }],
+    });
+    const toolbarButton = document.querySelector('.toolbar-item') as HTMLButtonElement;
+    toolbarButton.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(document.activeElement).toBe(document.querySelector('.menu-item'));
+  });
+});
+
 describe('View menu Spreadsheet Zoom submenu', () => {
   const checks = (): MenuChecks => ({
     wrap: () => false,

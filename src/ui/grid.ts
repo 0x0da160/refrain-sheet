@@ -17,7 +17,7 @@ import type { RsfDocument } from '../core/rsf-document';
 import { forEachIndexSliced, yieldToBrowser } from '../core/scheduler';
 import type { SheetSort } from '../core/sort';
 import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../core/text-wrap';
-import { ContextMenu, type ContextMenuEntry } from './context-menu';
+import { ContextMenu, type ContextMenuEntry, type ContextMenuToolbarItem } from './context-menu';
 import { el, clearChildren } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 import { beginsTextEntry, isComposingKey } from './ime';
@@ -402,6 +402,44 @@ const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string } | 'sepa
   'separator',
   { command: 'sheet.autoFitCols', labelKey: 'menu.sheet.autoFitCols' },
 ];
+
+/**
+ * Quick-access formatting toolbar shown above the right-click context menu
+ * (#240): Bold/Italic/Underline plus the color and Borders dialogs, reusing
+ * the same `format.*` commands the menu bar's Format menu already dispatches.
+ * Buttons are disabled (never hidden) exactly when their command is, matching
+ * the app's existing convention for RSF-only commands on a plain CSV tab.
+ */
+function formatToolbarItems(commands: Commands, tab: Tab): ContextMenuToolbarItem[] {
+  const toggle = (
+    command: CommandId,
+    icon: string,
+    className: string,
+    labelKey: string,
+    key: 'bold' | 'italic' | 'underline',
+  ): ContextMenuToolbarItem => ({
+    icon,
+    label: t(labelKey),
+    className,
+    checked: commands.isFormatActive(tab, key),
+    disabled: !commands.isEnabled(command),
+    onSelect: () => void commands.run(command),
+  });
+  const action = (command: CommandId, icon: string, labelKey: string): ContextMenuToolbarItem => ({
+    icon,
+    label: t(labelKey),
+    disabled: !commands.isEnabled(command),
+    onSelect: () => void commands.run(command),
+  });
+  return [
+    toggle('format.bold', 'B', 'icon-bold', 'menu.format.bold', 'bold'),
+    toggle('format.italic', 'I', 'icon-italic', 'menu.format.italic', 'italic'),
+    toggle('format.underline', 'U', 'icon-underline', 'menu.format.underline', 'underline'),
+    action('format.textColor', 'A', 'menu.format.textColor'),
+    action('format.backgroundColor', '▨', 'menu.format.backgroundColor'),
+    action('format.borders', '▦', 'menu.format.borders'),
+  ];
+}
 
 /**
  * Virtualized CSV/RSF grid. Only the visible rows and columns (plus a small
@@ -2996,10 +3034,10 @@ export class Grid {
         this.state.setSelection(tab, cell, null);
       }
     }
-    this.openContextMenu(event.clientX, event.clientY);
+    this.openContextMenu(tab, event.clientX, event.clientY);
   }
 
-  private openContextMenu(x: number, y: number): void {
+  private openContextMenu(tab: Tab, x: number, y: number): void {
     this.closeContextMenu();
     const entries: ContextMenuEntry[] = CONTEXT_MENU_ITEMS.map((item) =>
       item === 'separator'
@@ -3010,7 +3048,10 @@ export class Grid {
             onSelect: () => void this.commands.run(item.command),
           },
     );
-    this.contextMenu = ContextMenu.open(entries, x, y, { onClose: () => (this.contextMenu = null) });
+    this.contextMenu = ContextMenu.open(entries, x, y, {
+      onClose: () => (this.contextMenu = null),
+      toolbar: formatToolbarItems(this.commands, tab),
+    });
   }
 
   private closeContextMenu(): void {

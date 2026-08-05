@@ -1782,6 +1782,108 @@ table.sql-query-table td {
   margin-bottom: 4px;
 }
 
+/* ---------- Compare / Diff panel (Data > Compare / Diff…) ---------- */
+
+.diff-dialog .form-row {
+  align-items: flex-start;
+}
+
+.diff-column-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 10px;
+}
+
+.diff-column-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.diff-compare-columns {
+  margin-bottom: 10px;
+}
+
+.diff-compare-columns summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.diff-normalize-options {
+  display: flex;
+  gap: 14px;
+  margin: 0 0 10px;
+}
+
+.diff-run-row {
+  justify-content: flex-end;
+}
+
+.diff-status {
+  min-height: 1.4em;
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+
+.diff-status[role='alert'] {
+  color: var(--danger);
+}
+
+.diff-results {
+  overflow: auto;
+  max-height: 320px;
+}
+
+.diff-results:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+table.diff-table th,
+table.diff-table td {
+  white-space: nowrap;
+}
+
+.diff-cell-changed {
+  font-weight: 600;
+}
+
+.diff-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.diff-badge-unchanged {
+  color: var(--text-dim);
+  background: var(--panel);
+}
+
+.diff-badge-modified {
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.diff-badge-added {
+  color: var(--accent-contrast);
+  background: var(--success);
+}
+
+.diff-badge-deleted {
+  color: var(--accent-contrast);
+  background: var(--danger);
+}
+
+.diff-badge-key-invalid {
+  color: var(--text);
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-border);
+}
+
 /* ---------- Drop overlay ---------- */
 
 .drop-overlay {

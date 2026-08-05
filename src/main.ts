@@ -88,6 +88,7 @@ function bootstrap(): void {
     showAbout: (section) => void dialogs.showAbout(section),
     showFormulaHelp: () => void dialogs.showFormulaHelp(),
     showSqlQuery: (input) => dialogs.showSqlQuery(input),
+    showDiff: (input) => dialogs.showDiff(input),
     chooseSettings: (current) => dialogs.chooseSettings(current),
     chooseTimezone: (current) => dialogs.chooseTimezone(current),
     chooseDisplayLanguage: (current) => dialogs.chooseDisplayLanguage(current),

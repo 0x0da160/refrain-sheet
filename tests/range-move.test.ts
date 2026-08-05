@@ -45,6 +45,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     showAbout: vi.fn(),
     showFormulaHelp: vi.fn(),
     showSqlQuery: vi.fn(async () => undefined),
+    showDiff: vi.fn(async () => undefined),
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
     chooseDisplayLanguage: vi.fn(async () => null),

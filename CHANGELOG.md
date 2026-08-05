@@ -25,6 +25,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- Right-clicking a cell, row, or column header now shows a small formatting
+  toolbar (Bold, Italic, Underline, Text Color, Background Color, Borders)
+  above the existing right-click menu, so common cell formatting is reachable
+  without opening the Format menu. Like the rest of cell formatting, it is
+  RSF-only — disabled (not hidden) on a plain CSV tab.
+  ([#240](https://github.com/0x0da160/refrain-sheet/issues/240))
 - The **Data > Run SQL Query…** dialog now offers a **Format** button that
   auto-formats the query (keyword casing, one line per SELECT item and
   clause), a live syntax-check message as you type, and prefix-match

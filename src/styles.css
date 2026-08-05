@@ -1929,10 +1929,23 @@ table.sql-query-table td {
     overflow-x: auto;
   }
 
+  /* `.menu-row` scrolls its overflow instead of wrapping, but that only works
+     if its children keep their natural width: `overflow-x: auto` makes the
+     flex items' automatic minimum width resolve to 0 instead of their
+     min-content size, so without `flex-shrink: 0` they'd compress and wrap
+     their label text onto multiple lines rather than scroll. */
+  .menu {
+    flex-shrink: 0;
+  }
+
   .menu > button,
   .menu-item {
     padding: 12px 14px;
     min-height: 44px;
+  }
+
+  .menu > button {
+    white-space: nowrap;
   }
 
   .tab {

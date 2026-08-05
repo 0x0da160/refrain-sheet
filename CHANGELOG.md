@@ -116,6 +116,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
   and whitespace stripped), shrinking it by about 22% for a slightly faster
   first paint. ([#219](https://github.com/0x0da160/refrain-sheet/issues/219))
 
+### Fixed
+
+- On narrow (≤700px) mobile viewports, focusing the **Data > Run SQL Query…**
+  editor or the **Data > Data Validation…** list-values field no longer
+  triggers iOS Safari's automatic zoom; both textareas now get the same
+  16px minimum font size that other dialog fields already had.
+  ([#247](https://github.com/0x0da160/refrain-sheet/issues/247))
+
 ### Removed
 
 - The on-device "AI Assistant" feature (side panel, menu entry, in-browser

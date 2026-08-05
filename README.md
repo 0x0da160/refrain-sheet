@@ -1808,7 +1808,11 @@ The deployed URL is also recorded on the run's `github-pages` environment.
 - The application makes **no network connections at runtime**: no CDN,
   external scripts/styles/fonts/images, APIs, analytics, or telemetry. The
   CSP sets `default-src 'none'` and `connect-src 'none'` (no `http:`/`https:`
-  source is ever allowed).
+  source is ever allowed). This guarantee covers the CSV editor itself
+  (`dist/`, app.refrain-sheet.com); the separate marketing landing page
+  (`src/landing/`, refrain-sheet.com, built by `npm run build:landing`) is
+  static informational content and may load consent-gated Google Analytics —
+  see [`docs/security.md`](docs/security.md#scope-of-the-no-network-guarantee).
 - The repository and build output contain no secrets or credentials.
 
 ### Supply-chain security

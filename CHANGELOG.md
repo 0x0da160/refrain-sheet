@@ -25,6 +25,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- The marketing landing page (refrain-sheet.com) now shows a cookie-consent
+  banner and, only if a visitor clicks "Accept", loads Google Analytics to
+  measure page visits; declining or ignoring the banner loads nothing, and
+  the choice can be changed anytime from "Cookie settings" in the footer.
+  This applies to the landing page only — the CSV editor app itself
+  (app.refrain-sheet.com) is unaffected and continues to make no network
+  connections at runtime. ([#254](https://github.com/0x0da160/refrain-sheet/issues/254))
 - Right-clicking a cell, row, or column header now shows a small formatting
   toolbar (Bold, Italic, Underline, Text Color, Background Color, Borders)
   above the existing right-click menu, so common cell formatting is reachable

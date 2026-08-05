@@ -359,18 +359,24 @@ describe('FormatCommands via Commands (RSF worksheets)', () => {
     expect(doc.getStyle(0, 0)?.backgroundColor).toBe('#abcdef');
   });
 
-  it('promptBorders sets checked sides and clears unchecked ones', async () => {
+  it('promptBorders sets checked sides (with the chosen style/width) and clears unchecked ones', async () => {
     const ui = stubUi({
       chooseBorders: vi.fn(async () => ({
         action: 'apply' as const,
         sides: { borderTop: '#000000', borderBottom: null },
+        lineStyle: 'dashed' as const,
+        width: 'thick' as const,
       })),
     });
     const { commands, tab, doc, state } = sheet([['a']], ui);
     state.setSelection(tab, { row: 0, col: 0 }, null);
     doc.setCellStyleOn(undefined, 0, 0, { borderBottom: '#ffffff' });
     expect(await commands.promptBorders(tab)).toBe(true);
-    expect(doc.getStyle(0, 0)).toEqual({ borderTop: '#000000' });
+    expect(doc.getStyle(0, 0)).toEqual({
+      borderTop: '#000000',
+      borderTopStyle: 'dashed',
+      borderTopWidth: 'thick',
+    });
   });
 
   it('clearFormatting removes every style property without touching cell values', () => {

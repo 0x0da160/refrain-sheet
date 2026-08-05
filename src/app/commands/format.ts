@@ -2,6 +2,8 @@
 import {
   applyCellStylePatch,
   BORDER_SIDES,
+  BORDER_STYLE_KEY,
+  BORDER_WIDTH_KEY,
   cellStylesEqual,
   type BorderSide,
   type CellStylePatch,
@@ -121,16 +123,27 @@ export class FormatCommands {
     }
     const style = doc.getStyle(range.top, range.left);
     const current: Partial<Record<BorderSide, string>> = {};
+    let currentLineStyle = null;
+    let currentWidth = null;
     for (const side of BORDER_SIDES) {
       if (style?.[side] !== undefined) {
         current[side] = style[side];
+        currentLineStyle ??= style[BORDER_STYLE_KEY[side]] ?? null;
+        currentWidth ??= style[BORDER_WIDTH_KEY[side]] ?? null;
       }
     }
-    const result = await this.ui.chooseBorders(current);
+    const result = await this.ui.chooseBorders(current, currentLineStyle, currentWidth);
     if (!result || tab.doc !== doc) {
       return false;
     }
-    return this.applyToSelection(tab, result.sides, 'history.setBorders');
+    const patch: CellStylePatch = { ...result.sides };
+    for (const side of BORDER_SIDES) {
+      if (result.sides[side] !== undefined && result.sides[side] !== null) {
+        patch[BORDER_STYLE_KEY[side]] = result.lineStyle;
+        patch[BORDER_WIDTH_KEY[side]] = result.width;
+      }
+    }
+    return this.applyToSelection(tab, patch, 'history.setBorders');
   }
 
   /** Open the Number Format dialog (preselected from the top-left selected cell) and apply the choice. */

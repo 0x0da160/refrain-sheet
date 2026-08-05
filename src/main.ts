@@ -93,7 +93,8 @@ function bootstrap(): void {
     chooseDisplayLanguage: (current) => dialogs.chooseDisplayLanguage(current),
     chooseTextColor: (current) => dialogs.chooseTextColor(current),
     chooseBackgroundColor: (current) => dialogs.chooseBackgroundColor(current),
-    chooseBorders: (current) => dialogs.chooseBorders(current),
+    chooseBorders: (current, currentLineStyle, currentWidth) =>
+      dialogs.chooseBorders(current, currentLineStyle, currentWidth),
     chooseNumberFormat: (current) => dialogs.chooseNumberFormat(current),
     setBusy: (label, progress) => {
       // An operation is starting: a context menu built against the pre-operation

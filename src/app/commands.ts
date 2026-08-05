@@ -54,6 +54,8 @@ export type { FlashFillPreview, ReplaceAllReport, SqlSource, SqlRunOutcome };
 export interface SqlQueryDialogInput {
   sources: SqlSource[];
   runQuery: (sourceId: string, query: string) => SqlRunOutcome;
+  /** Column names for a source, for the query editor's input suggestions. */
+  columns: (sourceId: string) => string[];
 }
 
 /**
@@ -1038,6 +1040,7 @@ export class Commands {
     return this.ui.showSqlQuery({
       sources: this.sql.listSources(tab),
       runQuery: (sourceId, query) => this.sql.runQuery(tab, sourceId, query),
+      columns: (sourceId) => this.sql.listColumns(tab, sourceId),
     });
   }
 

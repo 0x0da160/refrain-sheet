@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
+import { FilePlus, FolderOpen } from 'lucide';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { createAppIcon } from './app-icon';
 import { el, clearChildren } from './dom';
+import { createIcon } from './icon';
 
 /**
  * The initial screen: shown on first launch and restored whenever the last
@@ -30,17 +32,15 @@ export class WelcomeScreen {
 
   private render(): void {
     clearChildren(this.element);
-    const open = el('button', {
-      className: 'welcome-action primary',
-      attrs: { type: 'button' },
-      text: t('welcome.open'),
-    });
+    const open = el('button', { className: 'welcome-action primary', attrs: { type: 'button' } }, [
+      createIcon(FolderOpen, 'welcome-action-icon', 18),
+      el('span', { text: t('welcome.open') }),
+    ]);
     open.addEventListener('click', () => void this.commands.run('file.open'));
-    const create = el('button', {
-      className: 'welcome-action',
-      attrs: { type: 'button' },
-      text: t('welcome.new'),
-    });
+    const create = el('button', { className: 'welcome-action', attrs: { type: 'button' } }, [
+      createIcon(FilePlus, 'welcome-action-icon', 18),
+      el('span', { text: t('welcome.new') }),
+    ]);
     create.addEventListener('click', () => void this.commands.run('file.new'));
     this.element.append(
       // Decorative: the welcome title states the product name, so the icon is

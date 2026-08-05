@@ -294,6 +294,11 @@ button {
 
 .menu-item .check {
   width: 1em;
+  display: flex;
+}
+
+.menu-item .check-icon {
+  color: var(--accent);
 }
 
 .menu-separator {
@@ -425,6 +430,8 @@ button {
 }
 
 .sheet-add {
+  display: flex;
+  align-items: center;
   border: 1px solid var(--border);
   border-top: none;
   border-radius: 0 0 5px 5px;
@@ -460,12 +467,14 @@ button {
 }
 
 .tab .tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   background: none;
   border-radius: 3px;
-  padding: 0 5px;
-  font-size: 13px;
-  line-height: 1.3;
+  padding: 3px;
+  color: inherit;
 }
 
 .tab .tab-close:hover {
@@ -505,10 +514,17 @@ button {
 }
 
 .find-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: 3px;
   padding: 3px 8px;
+}
+
+.find-btn-icon {
+  flex: none;
 }
 
 .find-bar button:disabled {
@@ -1319,6 +1335,9 @@ button {
 }
 
 .status-bar button.status-problems {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: none;
   background: none;
   color: var(--danger);
@@ -1326,6 +1345,11 @@ button {
   text-decoration: underline;
   padding: 0;
   cursor: pointer;
+}
+
+.status-problems-icon {
+  flex: none;
+  text-decoration: none;
 }
 
 /* ---------- Dialogs ---------- */
@@ -2197,6 +2221,9 @@ table.sql-query-table td {
 }
 
 .welcome-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   border: 1px solid var(--accent);
   background: var(--surface);
   color: var(--accent);
@@ -2204,6 +2231,10 @@ table.sql-query-table td {
   padding: 9px 18px;
   font-size: 14px;
   cursor: pointer;
+}
+
+.welcome-action-icon {
+  flex: none;
 }
 
 .welcome-action.primary {

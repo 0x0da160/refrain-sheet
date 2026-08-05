@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
+import { X } from 'lucide';
 import type { AppState, Tab } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
+import { createIcon } from './icon';
 
 /** Context-menu actions for a tab (all shared with the View menu commands). */
 const TAB_MENU_ITEMS: Array<{ command: CommandId; labelKey: string }> = [
@@ -77,11 +79,14 @@ export class TabBar {
         el('span', { className: 'tab-label', text: tab.name }),
       ],
     );
-    const close = el('button', {
-      className: 'tab-close',
-      text: '×',
-      attrs: { type: 'button', 'aria-label': `${t('tab.close')}: ${tab.name}` },
-    });
+    const close = el(
+      'button',
+      {
+        className: 'tab-close',
+        attrs: { type: 'button', 'aria-label': `${t('tab.close')}: ${tab.name}` },
+      },
+      [createIcon(X, 'tab-close-icon', 14)],
+    );
     close.addEventListener('click', (event) => {
       event.stopPropagation();
       this.state.activateTab(tab.id);

@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
+import { Plus } from 'lucide';
 import type { AppState } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
+import { createIcon } from './icon';
 
 /**
  * Context-menu actions for a worksheet. Every one is also a command in the
@@ -107,11 +109,14 @@ export class SheetBar {
     for (const sheet of doc.sheets) {
       this.strip.append(this.buildSheetTab(sheet.id, sheet.name, sheet.id === doc.activeSheetId));
     }
-    const add = el('button', {
-      className: 'sheet-add',
-      text: '+',
-      attrs: { type: 'button', 'aria-label': t('sheets.add'), title: t('sheets.add') },
-    });
+    const add = el(
+      'button',
+      {
+        className: 'sheet-add',
+        attrs: { type: 'button', 'aria-label': t('sheets.add'), title: t('sheets.add') },
+      },
+      [createIcon(Plus, 'sheet-add-icon', 14)],
+    );
     add.disabled = !this.commands.isEnabled('worksheet.add');
     add.addEventListener('click', () => void this.commands.run('worksheet.add'));
     this.strip.append(add);

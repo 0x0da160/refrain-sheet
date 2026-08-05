@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { Check } from 'lucide';
 import type { CommandId, Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { SHEET_ZOOM_LEVELS } from '../app/settings';
@@ -6,6 +7,7 @@ import { SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../app/sheet-f
 import { THEMES, themeLabelKey, type ThemeChoice } from '../app/theme';
 import { createAppIcon } from './app-icon';
 import { el, clearChildren } from './dom';
+import { createIcon } from './icon';
 import { positionPopup, type AnchorRect } from './popup';
 
 export interface MenuItemDef {
@@ -475,11 +477,11 @@ export class MenuBar {
           },
         },
         [
-          el('span', {
-            className: 'check',
-            text: checked ? '✓' : '',
-            attrs: { 'aria-hidden': 'true' },
-          }),
+          el(
+            'span',
+            { className: 'check', attrs: { 'aria-hidden': 'true' } },
+            checked ? [createIcon(Check, 'check-icon', 14)] : [],
+          ),
           el('span', { className: 'label', text: label }),
           el('span', { className: 'shortcut', text: item.shortcut ?? '' }),
         ],

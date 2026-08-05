@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { ChevronDown, ChevronUp, X, type IconNode } from 'lucide';
 import type { AppState } from '../app/app-state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -13,6 +14,7 @@ import {
 } from '../core/search';
 import { el } from './dom';
 import type { Grid } from './grid';
+import { createIcon } from './icon';
 
 /**
  * Find & Replace bar. Normal and regex search with match counts updated as you
@@ -86,17 +88,20 @@ export class FindBar {
       this.labels.set(id, { node, key });
       return node;
     };
-    const button = (key: string, onClick: () => void): HTMLButtonElement => {
-      const node = el('button', { attrs: { type: 'button' } }, [label(key, `btn-${key}`)]);
+    const button = (key: string, onClick: () => void, icon?: IconNode): HTMLButtonElement => {
+      const children = icon
+        ? [createIcon(icon, 'find-btn-icon', 14), label(key, `btn-${key}`)]
+        : [label(key, `btn-${key}`)];
+      const node = el('button', { attrs: { type: 'button' } }, children);
       node.addEventListener('click', onClick);
       return node;
     };
 
-    const prevBtn = button('find.prev', () => this.next(-1));
-    const nextBtn = button('find.next', () => this.next(1));
+    const prevBtn = button('find.prev', () => this.next(-1), ChevronUp);
+    const nextBtn = button('find.next', () => this.next(1), ChevronDown);
     const replaceBtn = button('find.replaceOne', () => this.replaceCurrent());
     const replaceAllBtn = button('find.replaceAll', () => void this.replaceAll());
-    const closeBtn = button('find.close', () => this.close());
+    const closeBtn = button('find.close', () => this.close(), X);
 
     this.replaceRow = [
       el('label', {}, [label('find.replace', 'lbl-replace'), this.replaceInput]),

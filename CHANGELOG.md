@@ -75,14 +75,19 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- On narrow (mobile-width) layouts, the top-level menu bar (File / Edit / …)
+  no longer collapses behind a hamburger toggle button; the menu names are
+  now always visible in a single row that scrolls horizontally, matching how
+  the document tab strip and worksheet strip already behave on mobile.
+  ([#246](https://github.com/0x0da160/refrain-sheet/issues/246))
 - Several previously text-only or hand-drawn controls now show a small icon
-  from the [Lucide](https://lucide.dev/) icon set: the mobile menu toggle,
-  the checkmark on a checked menu item, the tab and worksheet close/add
-  buttons, Find bar's Previous/Next/Close buttons, the Welcome screen's
-  Open/New actions, and the status bar's problem-count button. Every icon is
-  purely decorative (an adjacent label or `aria-label` already names the
-  control) and bundled locally at build time like the rest of the app — no
-  icon font or CDN is involved. ([#248](https://github.com/0x0da160/refrain-sheet/issues/248))
+  from the [Lucide](https://lucide.dev/) icon set: the checkmark on a checked
+  menu item, the tab and worksheet close/add buttons, Find bar's
+  Previous/Next/Close buttons, the Welcome screen's Open/New actions, and the
+  status bar's problem-count button. Every icon is purely decorative (an
+  adjacent label or `aria-label` already names the control) and bundled
+  locally at build time like the rest of the app — no icon font or CDN is
+  involved. ([#248](https://github.com/0x0da160/refrain-sheet/issues/248))
 - **Format > Borders…** now lets you choose a border's line style (Solid,
   Dashed, Dotted, or Double) and width (Thin, Medium, or Thick), not just its
   color, and where two adjacent cells each set a border on their shared edge,
@@ -118,6 +123,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 - The landing page's stylesheet is now minified during the build (comments
   and whitespace stripped), shrinking it by about 22% for a slightly faster
   first paint. ([#219](https://github.com/0x0da160/refrain-sheet/issues/219))
+
+### Fixed
+
+- On narrow (≤700px) mobile viewports, focusing the **Data > Run SQL Query…**
+  editor or the **Data > Data Validation…** list-values field no longer
+  triggers iOS Safari's automatic zoom; both textareas now get the same
+  16px minimum font size that other dialog fields already had.
+  ([#247](https://github.com/0x0da160/refrain-sheet/issues/247))
 
 ### Removed
 

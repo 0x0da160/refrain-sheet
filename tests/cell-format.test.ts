@@ -12,13 +12,15 @@ import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import {
   applyCellStylePatch,
+  borderSideValue,
   cellStylesEqual,
   isEmptyCellStyle,
   isHexColor,
   normalizeHexColor,
+  resolveSharedBorder,
   type CellStyle,
 } from '../src/core/cell-style';
-import { decodeRsf, encodeRsf, type RsfData } from '../src/core/rsf-codec';
+import { decodeRsf, encodeRsf, RSF_BODY_VERSION, type RsfData } from '../src/core/rsf-codec';
 import { RsfDocument } from '../src/core/rsf-document';
 import { Worksheet } from '../src/core/worksheet';
 import { doc as csvDoc } from './helpers';
@@ -136,6 +138,52 @@ describe('CellStyle core', () => {
     const style = applyCellStylePatch(null, { bold: true });
     expect(applyCellStylePatch(style, { bold: false })).toBeNull();
     expect(applyCellStylePatch(null, {})).toBeNull();
+  });
+
+  it("applyCellStylePatch drops a side's style/width when its color is cleared, and picks up a supplied style/width when set", () => {
+    const withBorder = applyCellStylePatch(null, {
+      borderTop: '#000000',
+      borderTopStyle: 'dashed',
+      borderTopWidth: 'thick',
+    });
+    expect(withBorder).toEqual({ borderTop: '#000000', borderTopStyle: 'dashed', borderTopWidth: 'thick' });
+    const cleared = applyCellStylePatch(withBorder, { borderTop: null });
+    expect(cleared).toBeNull();
+  });
+
+  it('borderSideValue defaults an unset line style/width to solid/thin, and is null when the side has no color', () => {
+    expect(borderSideValue(null, 'borderTop')).toBeNull();
+    expect(borderSideValue({ borderTop: '#000000' }, 'borderTop')).toEqual({
+      color: '#000000',
+      lineStyle: 'solid',
+      width: 'thin',
+    });
+    expect(
+      borderSideValue(
+        { borderTop: '#000000', borderTopStyle: 'dotted', borderTopWidth: 'medium' },
+        'borderTop',
+      ),
+    ).toEqual({ color: '#000000', lineStyle: 'dotted', width: 'medium' });
+  });
+
+  it('resolveSharedBorder picks the wider side, then the higher-precedence style, then own on a full tie', () => {
+    const thin = { color: '#111111', lineStyle: 'solid' as const, width: 'thin' as const };
+    const thick = { color: '#222222', lineStyle: 'solid' as const, width: 'thick' as const };
+    expect(resolveSharedBorder(thin, thick)).toBe(thick);
+    expect(resolveSharedBorder(thick, thin)).toBe(thick);
+
+    const dotted = { color: '#333333', lineStyle: 'dotted' as const, width: 'thin' as const };
+    const solid = { color: '#444444', lineStyle: 'solid' as const, width: 'thin' as const };
+    expect(resolveSharedBorder(dotted, solid)).toBe(solid);
+    expect(resolveSharedBorder(solid, dotted)).toBe(solid);
+
+    const own = { color: '#555555', lineStyle: 'solid' as const, width: 'thin' as const };
+    const neighbor = { color: '#666666', lineStyle: 'solid' as const, width: 'thin' as const };
+    expect(resolveSharedBorder(own, neighbor)).toBe(own);
+
+    expect(resolveSharedBorder(null, neighbor)).toBe(neighbor);
+    expect(resolveSharedBorder(own, null)).toBe(own);
+    expect(resolveSharedBorder(null, null)).toBeNull();
   });
 });
 
@@ -275,6 +323,63 @@ describe('RSF codec: cell-style block (body version 8)', () => {
     const decoded = decodeRsf(bytes.subarray(0, bytes.length - 1));
     expect(decoded.ok).toBe(false);
     if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
+  });
+});
+
+describe('RSF codec: border line style and width (body version 10)', () => {
+  const base: RsfData = {
+    name: 'Sheet1',
+    delimiter: ',',
+    rowCount: 4,
+    columnCount: 4,
+    cells: [[0, 0, 'x']],
+  };
+
+  it('round-trips a non-default border line style and width', () => {
+    const withStyles: RsfData = {
+      ...base,
+      styles: [
+        [
+          0,
+          0,
+          {
+            borderTop: '#0000ff',
+            borderTopStyle: 'dashed',
+            borderTopWidth: 'thick',
+            borderRight: '#111111',
+            borderRightStyle: 'double',
+            borderRightWidth: 'medium',
+          },
+        ],
+      ],
+    };
+    const decoded = decodeRsf(encodeRsf(withStyles));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.styles).toEqual(withStyles.styles);
+  });
+
+  it('a border left at the default solid/thin style encodes identically whether or not that default is written explicitly', () => {
+    const implicit: RsfData = { ...base, styles: [[0, 0, { borderTop: '#0000ff' }]] };
+    const explicit: RsfData = {
+      ...base,
+      styles: [[0, 0, { borderTop: '#0000ff', borderTopStyle: 'solid', borderTopWidth: 'thin' }]],
+    };
+    expect(encodeRsf(explicit)).toEqual(encodeRsf(implicit));
+    const decoded = decodeRsf(encodeRsf(explicit));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.styles).toEqual(implicit.styles);
+  });
+
+  it('RSF_BODY_VERSION is 10, so a version-9 file (no border style/width bytes) still decodes unchanged', () => {
+    expect(RSF_BODY_VERSION).toBe(10);
+    // A color-only border never triggers the version-10 upgrade (see the
+    // identical-bytes assertion above), so every pre-existing version-9 .rsf
+    // file — which by definition carries no line-style/width byte — decodes
+    // through the same `bodyVersion >= 10` guard that skips reading one.
+    const colorOnly: RsfData = { ...base, styles: [[0, 0, { borderTop: '#0000ff' }]] };
+    const decoded = decodeRsf(encodeRsf(colorOnly));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.styles).toEqual(colorOnly.styles);
   });
 });
 

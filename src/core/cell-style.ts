@@ -143,7 +143,10 @@ export interface BorderSideValue {
  * {@link DEFAULT_BORDER_LINE_STYLE}/{@link DEFAULT_BORDER_WIDTH} — every
  * border stored before this feature existed reads back identically.
  */
-export function borderSideValue(style: CellStyle | null | undefined, side: BorderSide): BorderSideValue | null {
+export function borderSideValue(
+  style: CellStyle | null | undefined,
+  side: BorderSide,
+): BorderSideValue | null {
   const color = style?.[side];
   if (color === undefined) {
     return null;
@@ -231,7 +234,8 @@ export function cellStylesEqual(a: CellStyle | null, b: CellStyle | null): boole
     an.borderBottom === bn.borderBottom &&
     an.borderLeft === bn.borderLeft &&
     BORDER_SIDES.every(
-      (side) => an[BORDER_STYLE_KEY[side]] === bn[BORDER_STYLE_KEY[side]] &&
+      (side) =>
+        an[BORDER_STYLE_KEY[side]] === bn[BORDER_STYLE_KEY[side]] &&
         an[BORDER_WIDTH_KEY[side]] === bn[BORDER_WIDTH_KEY[side]],
     ) &&
     numberFormatsEqual(an.numberFormat, bn.numberFormat)

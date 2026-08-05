@@ -3,7 +3,12 @@ import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import { LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { getEditHints, nextZoomLevel } from '../app/settings';
-import { BORDER_WIDTH_PX, borderSideValue, resolveSharedBorder, type BorderSideValue } from '../core/cell-style';
+import {
+  BORDER_WIDTH_PX,
+  borderSideValue,
+  resolveSharedBorder,
+  type BorderSideValue,
+} from '../core/cell-style';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
 import { ColOffsetIndex } from '../core/col-offset-index';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
@@ -1798,8 +1803,14 @@ export class Grid {
     const right = col + 1 < doc.columnCount ? doc.getStyle(row, col + 1) : null;
     const top = row === 0 ? borderSideValue(style, 'borderTop') : null;
     const left = col === 0 ? borderSideValue(style, 'borderLeft') : null;
-    const bottom = resolveSharedBorder(borderSideValue(style, 'borderBottom'), borderSideValue(below, 'borderTop'));
-    const rightSide = resolveSharedBorder(borderSideValue(style, 'borderRight'), borderSideValue(right, 'borderLeft'));
+    const bottom = resolveSharedBorder(
+      borderSideValue(style, 'borderBottom'),
+      borderSideValue(below, 'borderTop'),
+    );
+    const rightSide = resolveSharedBorder(
+      borderSideValue(style, 'borderRight'),
+      borderSideValue(right, 'borderLeft'),
+    );
     cell.style.borderTop = cssBorder(top);
     cell.style.borderLeft = cssBorder(left);
     cell.style.borderBottom = cssBorder(bottom);

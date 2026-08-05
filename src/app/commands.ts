@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from '../core/byte-csv-parser';
-import type { BorderSide, NumberFormat } from '../core/cell-style';
+import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../core/cell-style';
 import type { CellRange } from '../core/clipboard';
 import { type CsvExportOptions } from '../core/csv-export';
 import { type EncodingId } from '../core/encoding';
@@ -166,6 +166,9 @@ export type ColorDialogResult = { action: 'apply'; color: string } | { action: '
 export type BordersDialogResult = {
   action: 'apply';
   sides: Partial<Record<BorderSide, string | null>>;
+  /** Line style/width applied to every side being set (checked) by this apply. */
+  lineStyle: BorderLineStyle;
+  width: BorderWidth;
 };
 
 /** What the Number Format dialog resolved to (null = cancelled, nothing changes). */
@@ -323,10 +326,16 @@ export interface UiPort {
   chooseBackgroundColor(current: string | null): Promise<ColorDialogResult | null>;
   /**
    * The Borders dialog: which of the four sides carry a border (from
-   * `current`) and their shared color. Resolves with every side's next state
-   * (a color to set it, `null` to clear it), or null when cancelled.
+   * `current`) and their shared color, line style, and width. Resolves with
+   * every side's next state (a color to set it, `null` to clear it) plus the
+   * chosen line style/width to apply to every side being set, or null when
+   * cancelled.
    */
-  chooseBorders(current: Partial<Record<BorderSide, string>>): Promise<BordersDialogResult | null>;
+  chooseBorders(
+    current: Partial<Record<BorderSide, string>>,
+    currentLineStyle: BorderLineStyle | null,
+    currentWidth: BorderWidth | null,
+  ): Promise<BordersDialogResult | null>;
   /**
    * The Number Format dialog: kind (number/percent/currency), decimal places,
    * thousands separator, and (for currency) a symbol, preselected from

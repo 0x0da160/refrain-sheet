@@ -3,11 +3,17 @@ import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import { LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { getEditHints, nextZoomLevel } from '../app/settings';
-import type { CellStyle } from '../core/cell-style';
+import {
+  BORDER_WIDTH_PX,
+  borderSideValue,
+  resolveSharedBorder,
+  type BorderSideValue,
+} from '../core/cell-style';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
 import { ColOffsetIndex } from '../core/col-offset-index';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import { RowHeightIndex } from '../core/row-height-index';
+import type { RsfDocument } from '../core/rsf-document';
 import { forEachIndexSliced, yieldToBrowser } from '../core/scheduler';
 import type { SheetSort } from '../core/sort';
 import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../core/text-wrap';
@@ -16,6 +22,11 @@ import { el, clearChildren } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 import { beginsTextEntry, isComposingKey } from './ime';
 import { ValidationPicker } from './validation-picker';
+
+/** Render a resolved border side as a CSS `border-*` shorthand value (`''` when unset). */
+function cssBorder(border: BorderSideValue | null): string {
+  return border ? `${BORDER_WIDTH_PX[border.width]}px ${border.lineStyle} ${border.color}` : '';
+}
 
 /** Fixed row/column metrics for virtualization (px). ROW_HEIGHT must stay in
  * sync with the `--grid-row-height` CSS variable (see styles.css), which the
@@ -1761,7 +1772,7 @@ export class Grid {
       } else if (cell.title !== '') {
         cell.removeAttribute('title');
       }
-      this.paintCellStyle(cell, doc.getStyle(row, col));
+      this.paintCellStyle(cell, doc, row, col);
     }
   }
 
@@ -1772,17 +1783,38 @@ export class Grid {
    * grid appearance (the default border/background from `.vcell` in
    * `src/styles.css`), so this is safe to call on a reused, previously
    * styled cell element.
+   *
+   * A border shared with a neighbor is painted exactly once, as a single
+   * line, instead of each cell drawing its own side: this cell paints its
+   * bottom/right edges as the merge of its own borderBottom/Right with the
+   * neighbor below/right's borderTop/Left ({@link resolveSharedBorder}), and
+   * never paints its top/left edges except at the grid's own top/left
+   * boundary (row/col 0) — the cell above/to the left already painted that
+   * shared edge as its own (merged) bottom/right.
    */
-  private paintCellStyle(cell: HTMLElement, style: CellStyle | null): void {
+  private paintCellStyle(cell: HTMLElement, doc: RsfDocument, row: number, col: number): void {
+    const style = doc.getStyle(row, col);
     cell.classList.toggle('cell-bold', !!style?.bold);
     cell.classList.toggle('cell-italic', !!style?.italic);
     cell.classList.toggle('cell-underline', !!style?.underline);
     cell.style.color = style?.textColor ?? '';
     cell.style.backgroundColor = style?.backgroundColor ?? '';
-    cell.style.borderTop = style?.borderTop ? `1px solid ${style.borderTop}` : '';
-    cell.style.borderRight = style?.borderRight ? `1px solid ${style.borderRight}` : '';
-    cell.style.borderBottom = style?.borderBottom ? `1px solid ${style.borderBottom}` : '';
-    cell.style.borderLeft = style?.borderLeft ? `1px solid ${style.borderLeft}` : '';
+    const below = row + 1 < doc.rowCount ? doc.getStyle(row + 1, col) : null;
+    const right = col + 1 < doc.columnCount ? doc.getStyle(row, col + 1) : null;
+    const top = row === 0 ? borderSideValue(style, 'borderTop') : null;
+    const left = col === 0 ? borderSideValue(style, 'borderLeft') : null;
+    const bottom = resolveSharedBorder(
+      borderSideValue(style, 'borderBottom'),
+      borderSideValue(below, 'borderTop'),
+    );
+    const rightSide = resolveSharedBorder(
+      borderSideValue(style, 'borderRight'),
+      borderSideValue(right, 'borderLeft'),
+    );
+    cell.style.borderTop = cssBorder(top);
+    cell.style.borderLeft = cssBorder(left);
+    cell.style.borderBottom = cssBorder(bottom);
+    cell.style.borderRight = cssBorder(rightSide);
   }
 
   /** Repaint the currently rendered cells in place (values/classes only). */

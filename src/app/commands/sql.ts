@@ -67,6 +67,16 @@ export class SqlCommands {
     return { headers, rows };
   }
 
+  /**
+   * Column names for a source, for the query editor's input suggestions.
+   * Purely a UX aid — {@link runQuery} still validates real column names
+   * against the engine's own header-deduplication rules when the query runs.
+   */
+  listColumns(tab: Tab, sourceId: string): string[] {
+    const headers = this.readTable(tab, sourceId).headers;
+    return Array.from(new Set(headers.map((h) => h.trim()).filter((h) => h !== '')));
+  }
+
   /** Read the picked source and run the query, catching a rejected/failed query rather than throwing. */
   runQuery(tab: Tab, sourceId: string, query: string): SqlRunOutcome {
     try {

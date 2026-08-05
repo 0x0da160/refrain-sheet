@@ -1193,6 +1193,195 @@ function describeExpr(expr: Expr): string {
   }
 }
 
+// ----- Editor support: syntax check, auto-formatting, and suggestions -----
+
+/** All grammar keywords (case-insensitive), for auto-formatting and suggestions. */
+export const SQL_KEYWORDS: readonly string[] = [
+  'SELECT',
+  'FROM',
+  'WHERE',
+  'GROUP',
+  'BY',
+  'ORDER',
+  'LIMIT',
+  'AS',
+  'AND',
+  'OR',
+  'NOT',
+  'BETWEEN',
+  'IN',
+  'LIKE',
+  'IS',
+  'NULL',
+  'ASC',
+  'DESC',
+  'TRUE',
+  'FALSE',
+];
+
+/** All supported function names (aggregate + scalar), for auto-formatting and suggestions. */
+export const SQL_FUNCTIONS: readonly string[] = [...AGGREGATE_FUNCTIONS, ...SCALAR_FUNCTIONS].sort();
+
+const FORMAT_KEYWORD_SET = new Set(SQL_KEYWORDS);
+const FORMAT_FUNCTION_SET = new Set(SQL_FUNCTIONS);
+/** Clause keywords that start a new top-level line when formatting. */
+const CLAUSE_START_KEYWORDS = new Set(['FROM', 'WHERE', 'GROUP', 'ORDER', 'LIMIT']);
+
+/**
+ * Structural syntax check only (tokenize + parse) — cheap enough to run on
+ * every keystroke for live feedback in the editor. This does not bind the
+ * query against a table, so it cannot catch semantic errors like an unknown
+ * column or an ungrouped aggregate; {@link runSqlQuery} still performs the
+ * full check when the query is actually run.
+ */
+export function checkSqlSyntax(query: string): SqlQueryError | null {
+  try {
+    parse(query);
+    return null;
+  } catch (e) {
+    if (e instanceof SqlQueryError) return e;
+    throw e;
+  }
+}
+
+function formatTokenText(t: Token): string {
+  switch (t.type) {
+    case 'string':
+      return `'${t.text.replace(/'/g, "''")}'`;
+    case 'qident':
+      return `"${t.text.replace(/"/g, '""')}"`;
+    default:
+      return t.text;
+  }
+}
+
+/**
+ * Best-effort auto-formatter: normalizes keyword/function casing and
+ * whitespace, and breaks the query onto one line per SELECT item plus one
+ * line per top-level clause (FROM/WHERE/GROUP BY/ORDER BY/LIMIT). Whitespace
+ * is never significant to this grammar, so any spacing choice here is purely
+ * cosmetic and always re-parses identically to the input. `--` line
+ * comments are discarded by the tokenizer and so are dropped by formatting.
+ * Returns the input unchanged when it does not even tokenize (reformatting
+ * text with e.g. an unterminated string would be misleading).
+ */
+export function formatSqlQuery(query: string): string {
+  let tokens: Token[];
+  try {
+    tokens = tokenize(query);
+  } catch {
+    return query;
+  }
+  const real = tokens.filter((t) => t.type !== 'eof');
+  if (real.length === 0) return query;
+
+  const INDENT = '  ';
+  const lines: string[] = [];
+  let line = '';
+  let depth = 0;
+  let inSelectList = true;
+  let prev: Token | null = null;
+  let atLineStart = true;
+
+  const newLine = (prefix: string): void => {
+    if (line !== '') lines.push(line);
+    line = prefix;
+    atLineStart = true;
+  };
+
+  for (let i = 0; i < real.length; i++) {
+    const t = real[i];
+    const next = real[i + 1];
+    const isKeyword = FORMAT_KEYWORD_SET.has(t.upper);
+    const isFunctionCall = t.type === 'ident' && FORMAT_FUNCTION_SET.has(t.upper) && next?.text === '(';
+    const text = isKeyword || isFunctionCall ? t.upper : formatTokenText(t);
+
+    if (depth === 0 && t.type === 'ident' && CLAUSE_START_KEYWORDS.has(t.upper)) {
+      newLine(text);
+      atLineStart = false;
+      inSelectList = false;
+      prev = t;
+      continue;
+    }
+    if (depth === 0 && inSelectList && t.type === 'punct' && t.text === ',') {
+      line += ',';
+      newLine(INDENT);
+      prev = t;
+      continue;
+    }
+
+    const noSpace =
+      atLineStart ||
+      (prev !== null && prev.type === 'punct' && prev.text === '(') ||
+      (t.type === 'punct' && [',', ')', ';'].includes(t.text)) ||
+      (t.type === 'punct' &&
+        t.text === '(' &&
+        prev !== null &&
+        prev.type === 'ident' &&
+        FORMAT_FUNCTION_SET.has(prev.upper));
+    line += (noSpace ? '' : ' ') + text;
+    atLineStart = false;
+
+    if (t.type === 'punct' && t.text === '(') depth++;
+    if (t.type === 'punct' && t.text === ')') depth = Math.max(0, depth - 1);
+    prev = t;
+  }
+  if (line !== '') lines.push(line);
+  return lines.join('\n');
+}
+
+/** One suggested completion for the SQL editor. */
+export interface SqlSuggestion {
+  /** Text to display and insert (keywords/functions are uppercase; columns match the source header text). */
+  text: string;
+  kind: 'keyword' | 'function' | 'column';
+}
+
+/** Maximum suggestions returned for one cursor position. */
+const SQL_MAX_SUGGESTIONS = 20;
+
+/**
+ * Prefix-match completions (case-insensitive) for the identifier immediately
+ * before `cursorOffset`, drawn from SQL keywords, supported function names,
+ * and `columnNames`. Returns nothing for an empty prefix, or when the text
+ * before the cursor does not even tokenize on its own (e.g. the cursor is
+ * inside an unterminated string or quoted identifier — completing there
+ * would insert into the literal rather than the query).
+ */
+export function suggestSqlCompletions(
+  query: string,
+  cursorOffset: number,
+  columnNames: string[],
+): SqlSuggestion[] {
+  const before = query.slice(0, Math.max(0, Math.min(cursorOffset, query.length)));
+  const match = /[A-Za-z0-9_]+$/.exec(before);
+  if (!match) return [];
+  try {
+    tokenize(before);
+  } catch {
+    return [];
+  }
+  const upperPrefix = match[0].toUpperCase();
+
+  const candidates: SqlSuggestion[] = [
+    ...SQL_KEYWORDS.map((text): SqlSuggestion => ({ text, kind: 'keyword' })),
+    ...SQL_FUNCTIONS.map((text): SqlSuggestion => ({ text, kind: 'function' })),
+    ...Array.from(new Set(columnNames.map((c) => c.trim()).filter((c) => c !== ''))).map(
+      (text): SqlSuggestion => ({ text, kind: 'column' }),
+    ),
+  ];
+  const seen = new Set<string>();
+  const matches: SqlSuggestion[] = [];
+  for (const c of candidates) {
+    const key = c.text.toUpperCase();
+    if (key === upperPrefix || !key.startsWith(upperPrefix) || seen.has(key)) continue;
+    seen.add(key);
+    matches.push(c);
+    if (matches.length >= SQL_MAX_SUGGESTIONS) break;
+  }
+  return matches;
+}
+
 // ----- Public entry point -----
 
 export function runSqlQuery(query: string, table: SqlTable): SqlQueryResult {

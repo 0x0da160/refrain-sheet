@@ -61,6 +61,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- **Format > Borders…** now lets you choose a border's line style (Solid,
+  Dashed, Dotted, or Double) and width (Thin, Medium, or Thick), not just its
+  color, and where two adjacent cells each set a border on their shared edge,
+  the grid now paints it once as a single line instead of two lines side by
+  side. The new style/width is saved in the `.rsf` file like border color
+  already was; files saved with only color-and-default-style borders are
+  unaffected and remain readable by older releases.
+  ([#241](https://github.com/0x0da160/refrain-sheet/issues/241))
 - The landing page's spreadsheet section now has its own navigation link and
   is reorganized into six feature cards (formulas, workbooks, filter & sort,
   cell formatting, export, and the no-`eval` formula engine), adding the

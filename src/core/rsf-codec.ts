@@ -882,7 +882,10 @@ function encodeBody(data: RsfData): Uint8Array {
   const hasBorderStyle = (data.styles ?? []).some(([, , style]) =>
     BORDER_SIDES.some((side) => {
       const value = borderSideValue(style, side);
-      return value !== null && (value.lineStyle !== DEFAULT_BORDER_LINE_STYLE || value.width !== DEFAULT_BORDER_WIDTH);
+      return (
+        value !== null &&
+        (value.lineStyle !== DEFAULT_BORDER_LINE_STYLE || value.width !== DEFAULT_BORDER_WIDTH)
+      );
     }),
   );
   const hasNumberFormats = (data.styles ?? []).some(([, , style]) => style.numberFormat !== undefined);
@@ -954,19 +957,19 @@ function encodeBody(data: RsfData): Uint8Array {
       ? 9
       : hasStyles
         ? 8
-      : hasDisplayLanguage
-        ? 7
-        : hasTimezone
-          ? 6
-          : wrapSet
-            ? 5
-            : hasFilterSection
-              ? 4
-              : hasDisplay
-                ? 3
-                : hasMeta
-                  ? 2
-                  : 1;
+        : hasDisplayLanguage
+          ? 7
+          : hasTimezone
+            ? 6
+            : wrapSet
+              ? 5
+              : hasFilterSection
+                ? 4
+                : hasDisplay
+                  ? 3
+                  : hasMeta
+                    ? 2
+                    : 1;
   out[off++] = data.delimiter.charCodeAt(0);
   if (hasMeta) {
     view.setUint16(off, appName!.length, true);
@@ -1569,7 +1572,8 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
       BORDER_SIDES.some((side) => {
         const value = borderSideValue(style, side);
         return (
-          value !== null && (value.lineStyle !== DEFAULT_BORDER_LINE_STYLE || value.width !== DEFAULT_BORDER_WIDTH)
+          value !== null &&
+          (value.lineStyle !== DEFAULT_BORDER_LINE_STYLE || value.width !== DEFAULT_BORDER_WIDTH)
         );
       }),
     ),
@@ -1583,7 +1587,9 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
     hasStyles || (data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE);
   const hasTimezone =
     hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
-  bytes.push(hasBorderStyle ? 6 : hasNumberFormats ? 5 : hasStyles ? 4 : hasDisplayLanguage ? 3 : hasTimezone ? 2 : 1);
+  bytes.push(
+    hasBorderStyle ? 6 : hasNumberFormats ? 5 : hasStyles ? 4 : hasDisplayLanguage ? 3 : hasTimezone ? 2 : 1,
+  );
   bytes.push(data.delimiter.charCodeAt(0));
   pushString(bytes, enc, data.appName ?? '', MAX_META_LENGTH);
   pushString(bytes, enc, data.appVersion ?? '', MAX_META_LENGTH);

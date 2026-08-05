@@ -1248,6 +1248,58 @@ button {
   white-space: nowrap;
 }
 
+/* Quick-access formatting row above the item list (#240). Plain glyph icons —
+   B/I/U plus two geometric-shape glyphs — match the app's existing convention
+   of Unicode chrome glyphs (▼, ☰, ✓) rather than an icon font or emoji. */
+.context-menu-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+}
+
+.toolbar-item {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  border-radius: 3px;
+  cursor: default;
+  font-size: 13px;
+  color: inherit;
+}
+
+.toolbar-item:hover:not(:disabled),
+.toolbar-item:focus-visible {
+  background: var(--accent-soft);
+  outline: none;
+}
+
+.toolbar-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.toolbar-item:disabled {
+  color: var(--text-muted);
+}
+
+.toolbar-item.icon-bold {
+  font-weight: 700;
+}
+
+.toolbar-item.icon-italic {
+  font-style: italic;
+}
+
+.toolbar-item.icon-underline {
+  text-decoration: underline;
+}
+
 /* ---------- Status bar ---------- */
 
 .status-bar {

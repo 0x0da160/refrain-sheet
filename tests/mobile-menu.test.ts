@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 /**
- * The mobile hamburger toggle (`.menu-bar-toggle`) added in front of the
- * top-level menu row (`.menu-row`). CSS gates its visibility on viewport
- * width, which jsdom does not evaluate, so these tests cover the DOM/state
- * contract instead: the toggle exists, flips `aria-expanded` and the
- * `mobile-open` class, is reachable via a localized accessible name, and a
- * command selection collapses it again.
+ * At the mobile breakpoint (`@media (max-width: 700px)` in `src/styles.css`)
+ * the top-level menu row (`.menu-row`) now scrolls horizontally instead of
+ * collapsing behind a hamburger toggle — see #246. CSS gates the scrolling
+ * itself on viewport width, which jsdom does not evaluate, so these tests
+ * cover the DOM/state contract instead: the row and every top-level menu
+ * button are always present (never hidden behind a toggle that has to be
+ * tapped first), and there is no leftover hamburger toggle markup or state.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
-import { getLocale, setLocale, t } from '../src/app/i18n';
+import { t } from '../src/app/i18n';
 import { MenuBar, type MenuChecks } from '../src/ui/menu-bar';
 
 function stubUi(): UiPort {
@@ -79,56 +80,35 @@ function buildBar(): MenuBar {
   return bar;
 }
 
-describe('mobile hamburger menu toggle', () => {
-  it('renders a toggle button with a localized accessible name, collapsed by default', () => {
-    setLocale('en');
+describe('mobile menu bar (horizontally scrolling, no hamburger toggle)', () => {
+  it('renders the top-level menu row directly, with no toggle button or collapsed state', () => {
     const bar = buildBar();
-    const toggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle');
-    expect(toggle).not.toBeNull();
-    expect(toggle!.getAttribute('aria-label')).toBe(t('menu.mobileToggle'));
-    expect(toggle!.getAttribute('aria-expanded')).toBe('false');
+    expect(bar.element.querySelector('.menu-bar-toggle')).toBeNull();
     expect(bar.element.classList.contains('mobile-open')).toBe(false);
-    // Decorative glyph: the accessible name comes from aria-label, not the
-    // visible character, so it must not double-announce.
-    const glyph = toggle!.querySelector('.menu-bar-toggle-icon');
-    expect(glyph?.getAttribute('aria-hidden')).toBe('true');
+    const row = bar.element.querySelector('.menu-row');
+    expect(row).not.toBeNull();
+    expect(row!.getAttribute('hidden')).toBeNull();
   });
 
-  it('localizes the accessible name', () => {
-    const locale = getLocale();
-    try {
-      setLocale('ja');
-      const bar = buildBar();
-      const toggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!;
-      expect(toggle.getAttribute('aria-label')).toBe('メニュー');
-    } finally {
-      setLocale(locale);
-    }
-  });
-
-  it('reveals the menu row and flips aria-expanded when tapped', () => {
+  it('exposes every top-level menu name in the row without any prior interaction', () => {
     const bar = buildBar();
-    const toggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!;
-    toggle.click();
-    expect(bar.element.classList.contains('mobile-open')).toBe(true);
-    const reopenedToggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!;
-    expect(reopenedToggle.getAttribute('aria-expanded')).toBe('true');
+    const labels = Array.from(
+      bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
+    ).map((b) => b.textContent);
+    expect(labels).toEqual([
+      t('menu.file'),
+      t('menu.edit'),
+      t('menu.search'),
+      t('menu.sheet'),
+      t('menu.format'),
+      t('menu.data'),
+      t('menu.view'),
+      t('menu.help'),
+    ]);
   });
 
-  it('collapses again on a second tap', () => {
+  it('opens a top-level menu directly from the row, with no toggle to tap first', () => {
     const bar = buildBar();
-    let toggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!;
-    toggle.click();
-    toggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!;
-    toggle.click();
-    expect(bar.element.classList.contains('mobile-open')).toBe(false);
-    const finalToggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!;
-    expect(finalToggle.getAttribute('aria-expanded')).toBe('false');
-  });
-
-  it('still opens a top-level menu from the revealed row, unchanged from desktop', () => {
-    const bar = buildBar();
-    bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!.click();
     const fileButton = Array.from(
       bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
     ).find((b) => b.textContent === t('menu.file'))!;
@@ -136,9 +116,8 @@ describe('mobile hamburger menu toggle', () => {
     expect(bar.element.querySelector('.menu-list')).not.toBeNull();
   });
 
-  it('collapses the hamburger row after a command is selected', () => {
+  it('closes the open dropdown after a command is selected, and the row stays visible', () => {
     const bar = buildBar();
-    bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!.click();
     const fileButton = Array.from(
       bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
     ).find((b) => b.textContent === t('menu.file'))!;
@@ -147,7 +126,7 @@ describe('mobile hamburger menu toggle', () => {
       (b) => b.textContent?.includes(t('menu.file.new')),
     )!;
     newSpreadsheet.click();
-    expect(bar.element.classList.contains('mobile-open')).toBe(false);
-    expect(bar.element.querySelector('.menu-bar-toggle')!.getAttribute('aria-expanded')).toBe('false');
+    expect(bar.element.querySelector('.menu-list')).toBeNull();
+    expect(bar.element.querySelector('.menu-row')).not.toBeNull();
   });
 });

@@ -2,13 +2,19 @@
 import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult } from '../../app/commands';
 import { t } from '../../app/i18n';
 import {
+  BORDER_LINE_STYLES,
   BORDER_SIDES,
+  BORDER_WIDTHS,
+  DEFAULT_BORDER_LINE_STYLE,
+  DEFAULT_BORDER_WIDTH,
   isHexColor,
   MAX_CURRENCY_SYMBOL_LENGTH,
   MAX_NUMBER_FORMAT_DECIMALS,
   normalizeNumberFormat,
   NUMBER_FORMAT_KINDS,
+  type BorderLineStyle,
   type BorderSide,
+  type BorderWidth,
   type NumberFormat,
   type NumberFormatKind,
 } from '../../core/cell-style';
@@ -22,6 +28,19 @@ const BORDER_SIDE_LABEL_KEY: Record<BorderSide, string> = {
   borderRight: 'dialog.borders.right',
   borderBottom: 'dialog.borders.bottom',
   borderLeft: 'dialog.borders.left',
+};
+
+const BORDER_LINE_STYLE_LABEL_KEY: Record<BorderLineStyle, string> = {
+  solid: 'dialog.borders.lineStyle.solid',
+  dashed: 'dialog.borders.lineStyle.dashed',
+  dotted: 'dialog.borders.lineStyle.dotted',
+  double: 'dialog.borders.lineStyle.double',
+};
+
+const BORDER_WIDTH_LABEL_KEY: Record<BorderWidth, string> = {
+  thin: 'dialog.borders.width.thin',
+  medium: 'dialog.borders.width.medium',
+  thick: 'dialog.borders.width.thick',
 };
 
 const NUMBER_FORMAT_KIND_LABEL_KEY: Record<NumberFormatKind, string> = {
@@ -70,22 +89,47 @@ export class FormatDialogs {
   }
 
   /**
-   * Choose which of the four sides carry a border and their shared color.
-   * `current` reflects the selection's existing borders (the side is
-   * preselected when it already has a color; the color input starts at the
-   * first one found, or black). Applying sets every checked side to the
-   * chosen color and clears every unchecked one; resolves null when
-   * cancelled, leaving every border untouched.
+   * Choose which of the four sides carry a border, and their shared color,
+   * line style, and width. `current`/`currentLineStyle`/`currentWidth`
+   * reflect the selection's existing borders (a side is preselected when it
+   * already has a color; the color/style/width inputs start at the first
+   * side found, or the defaults). Applying sets every checked side to the
+   * chosen color/style/width and clears every unchecked one; resolves null
+   * when cancelled, leaving every border untouched.
    */
-  chooseBorders(current: Partial<Record<BorderSide, string>>): Promise<BordersDialogResult | null> {
+  chooseBorders(
+    current: Partial<Record<BorderSide, string>>,
+    currentLineStyle: BorderLineStyle | null,
+    currentWidth: BorderWidth | null,
+  ): Promise<BordersDialogResult | null> {
     return openDialog<BordersDialogResult | null>(t('dialog.borders.title'), null, (body, buttons, close) => {
       const colorId = 'format-borders-color';
+      const lineStyleId = 'format-borders-line-style';
+      const widthId = 'format-borders-width';
       const initialColor = BORDER_SIDES.map((side) => current[side]).find(
         (c): c is string => c !== undefined,
       );
       const colorInput = el('input', {
         attrs: { type: 'color', id: colorId, value: initialColor ?? DEFAULT_COLOR },
       }) as HTMLInputElement;
+      const lineStyleSelect = el('select', { attrs: { id: lineStyleId } }) as HTMLSelectElement;
+      for (const lineStyle of BORDER_LINE_STYLES) {
+        const option = el('option', {
+          text: t(BORDER_LINE_STYLE_LABEL_KEY[lineStyle]),
+          attrs: { value: lineStyle },
+        }) as HTMLOptionElement;
+        option.selected = lineStyle === (currentLineStyle ?? DEFAULT_BORDER_LINE_STYLE);
+        lineStyleSelect.append(option);
+      }
+      const widthSelect = el('select', { attrs: { id: widthId } }) as HTMLSelectElement;
+      for (const width of BORDER_WIDTHS) {
+        const option = el('option', {
+          text: t(BORDER_WIDTH_LABEL_KEY[width]),
+          attrs: { value: width },
+        }) as HTMLOptionElement;
+        option.selected = width === (currentWidth ?? DEFAULT_BORDER_WIDTH);
+        widthSelect.append(option);
+      }
       const checkboxes = new Map<BorderSide, HTMLInputElement>();
       const list = el('div', { className: 'format-borders-list' });
       BORDER_SIDES.forEach((side, i) => {
@@ -106,6 +150,10 @@ export class FormatDialogs {
         list,
         el('label', { text: t('dialog.borders.color'), attrs: { for: colorId } }),
         colorInput,
+        el('label', { text: t('dialog.borders.style'), attrs: { for: lineStyleId } }),
+        lineStyleSelect,
+        el('label', { text: t('dialog.borders.width'), attrs: { for: widthId } }),
+        widthSelect,
       );
       buttons.append(
         dialogButton(t('dialog.borders.cancel'), false, false, () => close(null)),
@@ -115,7 +163,12 @@ export class FormatDialogs {
           for (const [side, checkbox] of checkboxes) {
             sides[side] = checkbox.checked ? color : null;
           }
-          close({ action: 'apply', sides });
+          close({
+            action: 'apply',
+            sides,
+            lineStyle: lineStyleSelect.value as BorderLineStyle,
+            width: widthSelect.value as BorderWidth,
+          });
         }),
       );
     });

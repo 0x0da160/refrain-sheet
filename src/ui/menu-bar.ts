@@ -197,6 +197,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
       labelKey: 'menu.data',
       items: [
         { labelKey: 'menu.data.runQuery', command: 'data.runSqlQuery' },
+        { labelKey: 'menu.data.compareDiff', command: 'data.compareDiff' },
         'separator',
         { labelKey: 'menu.data.validation', command: 'data.validation' },
       ],

@@ -189,43 +189,44 @@ nothing else keys off the identifier.
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
 Version selection on write is minimal so older readers keep working where
-possible: body **version 9** is written only when at least one cell carries a
-number format; **version 8** when at least one cell carries a style;
-**version 7** when the workbook display language is not English;
+possible: body **version 10** is written only when at least one border side
+carries a non-default line style or width; **version 9** when at least one
+cell carries a number format; **version 8** when at least one cell carries a
+style; **version 7** when the workbook display language is not English;
 **version 6** when the workbook timezone is not `UTC`; **version 5** when
 wrap-long-rows is stored; **version 4** when a sheet filter is present;
 **version 3** when display settings are present; **version 2** when only the
 creating/updating application metadata is present; **version 1** otherwise.
-Versions 1–9 are all accepted on read; an older reader rejects a body version
-it does not know with a localized "unsupported version" message rather than
-misparsing it.
+Versions 1–10 are all accepted on read; an older reader rejects a body
+version it does not know with a localized "unsupported version" message
+rather than misparsing it.
 
-| Size | Field                                                                                            |
-| ---- | ------------------------------------------------------------------------------------------------ |
-| 1    | Body version — `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                    |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                      |
-| 2    | _(v2+)_ Application-name length, `u16`                                                           |
-| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`                                           |
-| 2    | _(v2+)_ Application-version length, `u16`                                                        |
-| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`                                                |
-| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)                                      |
-| 4    | _(v3+)_ Column-width entry count `W`, `u32`                                                      |
-| …    | _(v3+)_ `W` column-width entries (see below)                                                     |
-| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)                                          |
-| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)                                       |
-| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)                                        |
-| 2    | _(v6 only)_ IANA timezone-name length, `u16`                                                     |
-| …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`                                        |
-| 2    | _(v7 only)_ Display-language length, `u16`                                                       |
-| …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`                                            |
-| 2    | Sheet-name length `N`, `u16`                                                                     |
-| `N`  | Sheet name (UTF-8)                                                                               |
-| 4    | Row count, `u32`                                                                                 |
-| 4    | Column count, `u32`                                                                              |
-| 4    | Cell count `C`, `u32`                                                                            |
-| …    | `C` cell records                                                                                 |
-| 4    | _(v8+)_ Styled-cell count `Y`, `u32`                                                             |
-| …    | _(v8+)_ `Y` style records, each with a _(v9 only)_ number-format sub-record appended (see below) |
+| Size | Field                                                                                                                            |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Body version — `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                                              |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                                                      |
+| 2    | _(v2+)_ Application-name length, `u16`                                                                                           |
+| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`                                                                           |
+| 2    | _(v2+)_ Application-version length, `u16`                                                                                        |
+| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`                                                                                |
+| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)                                                                      |
+| 4    | _(v3+)_ Column-width entry count `W`, `u32`                                                                                      |
+| …    | _(v3+)_ `W` column-width entries (see below)                                                                                     |
+| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)                                                                          |
+| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)                                                                       |
+| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)                                                                        |
+| 2    | _(v6 only)_ IANA timezone-name length, `u16`                                                                                     |
+| …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`                                                                        |
+| 2    | _(v7 only)_ Display-language length, `u16`                                                                                       |
+| …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`                                                                            |
+| 2    | Sheet-name length `N`, `u16`                                                                                                     |
+| `N`  | Sheet name (UTF-8)                                                                                                               |
+| 4    | Row count, `u32`                                                                                                                 |
+| 4    | Column count, `u32`                                                                                                              |
+| 4    | Cell count `C`, `u32`                                                                                                            |
+| …    | `C` cell records                                                                                                                 |
+| 4    | _(v8+)_ Styled-cell count `Y`, `u32`                                                                                             |
+| …    | _(v8+)_ `Y` style records, each with a _(v10 only)_ per-border-style byte and a _(v9 only)_ number-format sub-record (see below) |
 
 ### Display settings (body version 3)
 

@@ -1,9 +1,18 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from './byte-csv-parser';
 import {
+  BORDER_SIDES,
+  BORDER_STYLE_KEY,
+  BORDER_WIDTH_KEY,
+  borderSideValue,
   COLOR_KEYS,
+  DEFAULT_BORDER_LINE_STYLE,
+  DEFAULT_BORDER_WIDTH,
   MAX_CURRENCY_SYMBOL_LENGTH,
   MAX_NUMBER_FORMAT_DECIMALS,
+  type BorderLineStyle,
+  type BorderSide,
+  type BorderWidth,
   type CellStyle,
   type NumberFormat,
   type NumberFormatKind,
@@ -82,10 +91,11 @@ export {
  * the display-settings block; version 4 adds the sheet-filter block; version 6
  * adds the workbook timezone; version 7 adds the workbook display language;
  * version 8 adds the cell-style block; version 9 adds a per-style number
- * format. Older versions are still accepted on read:
+ * format; version 10 adds a per-border-side line style and width. Older
+ * versions are still accepted on read:
  *
  * ```
- * 0    1     body version (1–9 readable; lowest sufficient version written)
+ * 0    1     body version (1–10 readable; lowest sufficient version written)
  * 1    1     delimiter byte (',' ';' or TAB)
  * --- body versions 2+ ---
  * 2    2     application-name length (u16)
@@ -117,8 +127,10 @@ export {
  * --- body version 8+ ---
  * …    4     styled-cell count (u32)
  * …    per style: row (u32), col (u32), style flags (u16), then one 3-byte
- *             RGB triple per flag bit set, then (version 9+ only) a number
- *             format sub-record (see `docs/rsf-format.md`)
+ *             RGB triple per flag bit set — for a border-side flag, followed
+ *             (version 10+ only) by one line-style+width byte — then
+ *             (version 9+ only) a number format sub-record (see
+ *             `docs/rsf-format.md`)
  * ```
  */
 export const RSF_MAGIC = new Uint8Array([0x52, 0x53, 0x46, 0x31]); // "RSF1"
@@ -131,17 +143,19 @@ export const RSF_LEGACY_MAGIC = new Uint8Array([0x52, 0x43, 0x53, 0x56]); // "RC
 export const RSF_LEGACY_CONTAINER_VERSION = 2;
 /**
  * Highest body version this release reads and writes. Version selection on
- * write is minimal: 9 when at least one cell carries a number format, else 8
- * when at least one cell carries a style, else 7 when the workbook display
- * language is not English, else 6 when the workbook timezone is not UTC, else
- * 5 when wrap-long-rows is stored, else 4 when a sheet filter is present,
- * else 3 when display settings are present, else 2 when application metadata
- * is present, else 1 — so documents without the newer data stay readable by
- * older releases. Versions 1–9 are all accepted on read; an older reader
- * rejects a version it does not know with `bad-version` (a localized
- * "unsupported version" message) rather than misparsing it.
+ * write is minimal: 10 when at least one border side carries a non-default
+ * line style or width, else 9 when at least one cell carries a number
+ * format, else 8 when at least one cell carries a style, else 7 when the
+ * workbook display language is not English, else 6 when the workbook
+ * timezone is not UTC, else 5 when wrap-long-rows is stored, else 4 when a
+ * sheet filter is present, else 3 when display settings are present, else 2
+ * when application metadata is present, else 1 — so documents without the
+ * newer data stay readable by older releases. Versions 1–10 are all accepted
+ * on read; an older reader rejects a version it does not know with
+ * `bad-version` (a localized "unsupported version" message) rather than
+ * misparsing it.
  */
-export const RSF_BODY_VERSION = 9;
+export const RSF_BODY_VERSION = 10;
 
 // ----- Display-settings bounds (body version 3) -----------------------------
 // Persisted display state is validated and clamped on load so a malformed or
@@ -189,15 +203,17 @@ export const MAX_RSF_BODY_BYTES = 512 * 1024 * 1024;
 export const RSF_CONTAINER_VERSION_WORKBOOK = 4;
 
 /**
- * Highest workbook body version this release reads and writes. Version 5
- * adds a per-style number format (written only when at least one styled cell
- * in the workbook carries one); version 4 adds a per-worksheet cell-style
- * block (written only when at least one cell in the workbook carries a
- * style); version 3 adds the workbook display language (written only when it
- * is not English); version 2 adds the workbook timezone (written only when it
- * is not UTC); version 1 is the original layout.
+ * Highest workbook body version this release reads and writes. Version 6
+ * adds a per-border-side line style and width (written only when at least
+ * one border side in the workbook uses a non-default one); version 5 adds a
+ * per-style number format (written only when at least one styled cell in the
+ * workbook carries one); version 4 adds a per-worksheet cell-style block
+ * (written only when at least one cell in the workbook carries a style);
+ * version 3 adds the workbook display language (written only when it is not
+ * English); version 2 adds the workbook timezone (written only when it is
+ * not UTC); version 1 is the original layout.
  */
-export const RSF_WORKBOOK_BODY_VERSION = 5;
+export const RSF_WORKBOOK_BODY_VERSION = 6;
 
 /**
  * Bounds for workbook payloads. A malformed or hostile container can never
@@ -608,13 +624,34 @@ function encodeFilterBlock(filter: SheetFilter | undefined): Uint8Array {
 // One bit per boolean/color property, in the fixed order COLOR_KEYS iterates
 // (textColor, backgroundColor, then the four border sides). A present color
 // is stored as three RGB bytes right after the flags, in that same order —
-// there is no separate width/style choice; every border is a thin solid line.
+// for a border-side color, body version 10+ (workbook 6+) additionally
+// stores one line-style+width byte right after that RGB triple (see below).
 
 const STYLE_FLAG_BOLD = 1 << 0;
 const STYLE_FLAG_ITALIC = 1 << 1;
 const STYLE_FLAG_UNDERLINE = 1 << 2;
 /** Bit index of the first color flag (`textColor`); subsequent `COLOR_KEYS` follow at +1 each. */
 const STYLE_COLOR_FLAG_BASE = 3;
+
+const BORDER_SIDE_SET: ReadonlySet<string> = new Set(BORDER_SIDES);
+
+// ----- Border line-style+width byte (body version 10 / workbook body version 6) --
+// One byte per "on" border side, written immediately after that side's RGB
+// triple, only when the body is written at version 10+. Bits 0-1: width
+// index (0 thin, 1 medium, 2 thick — 3 is unused/invalid); bits 2-3: line
+// style index (0 solid, 1 dashed, 2 dotted, 3 double). Additive to the
+// version-8 border encoding, so a version-9-or-lower reader never sees this
+// byte and a version-10 file with only default-style borders keeps writing
+// the lowest sufficient (pre-10) body version — see `encodeBody`.
+const BORDER_WIDTH_BYTE: Record<BorderWidth, number> = { thin: 0, medium: 1, thick: 2 };
+const BORDER_WIDTH_FROM_BYTE: Record<number, BorderWidth> = { 0: 'thin', 1: 'medium', 2: 'thick' };
+const BORDER_LINE_STYLE_BYTE: Record<BorderLineStyle, number> = { solid: 0, dashed: 1, dotted: 2, double: 3 };
+const BORDER_LINE_STYLE_FROM_BYTE: Record<number, BorderLineStyle> = {
+  0: 'solid',
+  1: 'dashed',
+  2: 'dotted',
+  3: 'double',
+};
 
 // ----- Number-format sub-record (body version 9 / workbook body version 5) --
 // Appended to every style record, right after its color bytes, only when the
@@ -654,14 +691,17 @@ function rgbToHex(r: number, g: number, b: number): string {
  * Encode the body-version-8+ / workbook-version-4+ style block: a `u32`
  * count followed by that many records. Zero is a perfectly ordinary "no
  * styled cells" encoding (like the cell-record count), so — unlike the
- * filter block — no separate presence flag is needed. `withNumberFormat`
- * appends the version-9 (workbook version-5) number-format sub-record to
- * every record; the caller passes it only when the body is actually being
- * written at that version (see {@link STYLE_NUMBER_FORMAT_KIND_BYTE}).
+ * filter block — no separate presence flag is needed. `withBorderStyle`
+ * appends the version-10 (workbook version-6) line-style+width byte after
+ * every border side's RGB triple; `withNumberFormat` appends the version-9
+ * (workbook version-5) number-format sub-record to every record. The caller
+ * passes each only when the body is actually being written at that version
+ * (see {@link BORDER_WIDTH_BYTE}, {@link STYLE_NUMBER_FORMAT_KIND_BYTE}).
  */
 function encodeStyleBlock(
   styles: Array<[number, number, CellStyle]> | undefined,
   withNumberFormat: boolean,
+  withBorderStyle: boolean,
 ): number[] {
   const list = styles ?? [];
   const bytes: number[] = [
@@ -688,6 +728,12 @@ function encodeStyleBlock(
       const color = style[key];
       if (color !== undefined) {
         bytes.push(...hexToRgb(color));
+        if (withBorderStyle && BORDER_SIDE_SET.has(key)) {
+          const side = key as BorderSide;
+          const lineStyle = style[BORDER_STYLE_KEY[side]] ?? DEFAULT_BORDER_LINE_STYLE;
+          const width = style[BORDER_WIDTH_KEY[side]] ?? DEFAULT_BORDER_WIDTH;
+          bytes.push(BORDER_WIDTH_BYTE[width] | (BORDER_LINE_STYLE_BYTE[lineStyle] << 2));
+        }
       }
     }
     if (withNumberFormat) {
@@ -711,15 +757,18 @@ function encodeStyleBlock(
  * Read the style block. Row/column indices are validated against the sheet's
  * (already-known) dimensions exactly like cell records — out of range is
  * `bad-shape`, and a count above what the grid could possibly hold is
- * `too-large`, matching the cell-record checks in `decodeBody`. `withNumberFormat`
- * reads the version-9 (workbook version-5) number-format sub-record from
- * every record — see {@link STYLE_NUMBER_FORMAT_KIND_BYTE}.
+ * `too-large`, matching the cell-record checks in `decodeBody`.
+ * `withBorderStyle` reads the version-10 (workbook version-6) line-style+width
+ * byte after every border side's RGB triple — see {@link BORDER_WIDTH_BYTE}.
+ * `withNumberFormat` reads the version-9 (workbook version-5) number-format
+ * sub-record from every record — see {@link STYLE_NUMBER_FORMAT_KIND_BYTE}.
  */
 function readStyleBlock(
   rd: BodyReader,
   rowCount: number,
   columnCount: number,
   withNumberFormat: boolean,
+  withBorderStyle: boolean,
 ): { ok: true; styles: Array<[number, number, CellStyle]> } | { ok: false; error: RsfDecodeError } {
   if (!rd.need(4)) {
     return { ok: false, error: 'bad-shape' };
@@ -748,7 +797,24 @@ function readStyleBlock(
         if (!rd.need(3)) {
           return { ok: false, error: 'bad-shape' };
         }
-        style[COLOR_KEYS[k]] = rgbToHex(rd.u8(), rd.u8(), rd.u8());
+        const key = COLOR_KEYS[k];
+        style[key] = rgbToHex(rd.u8(), rd.u8(), rd.u8());
+        if (withBorderStyle && BORDER_SIDE_SET.has(key)) {
+          if (!rd.need(1)) {
+            return { ok: false, error: 'bad-shape' };
+          }
+          const side = key as BorderSide;
+          const byte = rd.u8();
+          const width = BORDER_WIDTH_FROM_BYTE[byte & 0x3];
+          const lineStyle = BORDER_LINE_STYLE_FROM_BYTE[(byte >> 2) & 0x3];
+          // Width has only 3 valid encodings in 2 bits (see the layout note
+          // above) — the 4th is a shape a real writer never emits.
+          if (width === undefined) {
+            return { ok: false, error: 'bad-shape' };
+          }
+          style[BORDER_WIDTH_KEY[side]] = width;
+          style[BORDER_STYLE_KEY[side]] = lineStyle;
+        }
       }
     }
     if (withNumberFormat) {
@@ -798,21 +864,33 @@ function readStyleBlock(
 function encodeBody(data: RsfData): Uint8Array {
   const enc = new TextEncoder();
   const name = enc.encode(data.name.slice(0, MAX_META_LENGTH));
-  // Version selection is minimal: any cell with a number format needs version
-  // 9, any styled cell needs version 8, a non-default display language needs
-  // version 7, a non-UTC timezone needs version 6, stored wrap needs version
-  // 5, a filter needs version 4, display settings alone need version 3,
-  // metadata alone needs version 2, otherwise the legacy version-1 body is
-  // written. A newer section implies every older one, so the layout stays a
-  // strict prefix chain — each `has*` below is OR'd with every section above
-  // it (number formats force styles, styles force display language, display
-  // language forces timezone, timezone forces flags, flags force filter,
-  // filter forces display, display forces meta) so a body picking a high
-  // version always physically contains every lower section's bytes, even
-  // when that section's own data is empty/default, matching what
+  // Version selection is minimal: any border side with a non-default line
+  // style or width needs version 10, any cell with a number format needs
+  // version 9, any styled cell needs version 8, a non-default display
+  // language needs version 7, a non-UTC timezone needs version 6, stored
+  // wrap needs version 5, a filter needs version 4, display settings alone
+  // need version 3, metadata alone needs version 2, otherwise the legacy
+  // version-1 body is written. A newer section implies every older one, so
+  // the layout stays a strict prefix chain — each `has*` below is OR'd with
+  // every section above it (border style forces the number-format
+  // sub-record, number formats force styles, styles force display language,
+  // display language forces timezone, timezone forces flags, flags force
+  // filter, filter forces display, display forces meta) so a body picking a
+  // high version always physically contains every lower section's bytes,
+  // even when that section's own data is empty/default, matching what
   // `decodeBody` reads for that version unconditionally.
+  const hasBorderStyle = (data.styles ?? []).some(([, , style]) =>
+    BORDER_SIDES.some((side) => {
+      const value = borderSideValue(style, side);
+      return (
+        value !== null &&
+        (value.lineStyle !== DEFAULT_BORDER_LINE_STYLE || value.width !== DEFAULT_BORDER_WIDTH)
+      );
+    }),
+  );
   const hasNumberFormats = (data.styles ?? []).some(([, , style]) => style.numberFormat !== undefined);
-  const hasStyles = hasNumberFormats || (data.styles?.length ?? 0) > 0;
+  const hasNumberFormatSection = hasBorderStyle || hasNumberFormats;
+  const hasStyles = hasNumberFormatSection || (data.styles?.length ?? 0) > 0;
   const hasDisplayLanguage =
     hasStyles || (data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE);
   const displayLanguageBytes = hasDisplayLanguage
@@ -852,7 +930,7 @@ function encodeBody(data: RsfData): Uint8Array {
   const filterSize = filterBlock ? filterBlock.length : 0;
   const timezoneSize = hasTimezone ? 2 + timezoneBytes!.length : 0;
   const displayLanguageSize = hasDisplayLanguage ? 2 + displayLanguageBytes!.length : 0;
-  const styleBytes = hasStyles ? encodeStyleBlock(data.styles, hasNumberFormats) : null;
+  const styleBytes = hasStyles ? encodeStyleBlock(data.styles, hasNumberFormatSection, hasBorderStyle) : null;
   const styleSize = styleBytes ? styleBytes.length : 0;
   const total =
     1 +
@@ -873,23 +951,25 @@ function encodeBody(data: RsfData): Uint8Array {
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = hasNumberFormats
-    ? 9
-    : hasStyles
-      ? 8
-      : hasDisplayLanguage
-        ? 7
-        : hasTimezone
-          ? 6
-          : wrapSet
-            ? 5
-            : hasFilterSection
-              ? 4
-              : hasDisplay
-                ? 3
-                : hasMeta
-                  ? 2
-                  : 1;
+  out[off++] = hasBorderStyle
+    ? 10
+    : hasNumberFormats
+      ? 9
+      : hasStyles
+        ? 8
+        : hasDisplayLanguage
+          ? 7
+          : hasTimezone
+            ? 6
+            : wrapSet
+              ? 5
+              : hasFilterSection
+                ? 4
+                : hasDisplay
+                  ? 3
+                  : hasMeta
+                    ? 2
+                    : 1;
   out[off++] = data.delimiter.charCodeAt(0);
   if (hasMeta) {
     view.setUint16(off, appName!.length, true);
@@ -1141,12 +1221,13 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
   }
   // Version-8 cell-style block, validated against the same known dimensions
   // exactly like the cell records just above; version 9 adds a per-style
-  // number format, read from the same records.
+  // number format; version 10 adds a per-border-side line style and width —
+  // both read from the same records.
   let styles: Array<[number, number, CellStyle]> | undefined;
   if (bodyVersion >= 8) {
     const rd = new BodyReader(body, dec);
     rd.off = off;
-    const block = readStyleBlock(rd, rowCount, columnCount, bodyVersion >= 9);
+    const block = readStyleBlock(rd, rowCount, columnCount, bodyVersion >= 9, bodyVersion >= 10);
     if (!block.ok) {
       return { ok: false, error: block.error };
     }
@@ -1460,7 +1541,9 @@ function pushString(bytes: number[], enc: TextEncoder, value: string, max: numbe
 }
 
 /**
- * Encode the workbook body (container version 4). Body version 5 adds a
+ * Encode the workbook body (container version 4). Body version 6 adds a
+ * per-border-side line style and width, written only when at least one
+ * border side in the workbook uses a non-default one; body version 5 adds a
  * per-style number format, written only when at least one styled cell in the
  * workbook carries one; body version 4 adds a per-worksheet cell-style
  * block, written (for every worksheet) only when at least one cell in the
@@ -1482,17 +1565,31 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
       bytes.push(b);
     }
   };
-  // Number formats force the style-block version too — same prefix-chain
-  // rule as the single-sheet body above.
+  // Border style/number formats force the style-block version too — same
+  // prefix-chain rule as the single-sheet body above.
+  const hasBorderStyle = data.sheets.some((sheet) =>
+    (sheet.styles ?? []).some(([, , style]) =>
+      BORDER_SIDES.some((side) => {
+        const value = borderSideValue(style, side);
+        return (
+          value !== null &&
+          (value.lineStyle !== DEFAULT_BORDER_LINE_STYLE || value.width !== DEFAULT_BORDER_WIDTH)
+        );
+      }),
+    ),
+  );
   const hasNumberFormats = data.sheets.some((sheet) =>
     (sheet.styles ?? []).some(([, , style]) => style.numberFormat !== undefined),
   );
-  const hasStyles = hasNumberFormats || data.sheets.some((sheet) => (sheet.styles?.length ?? 0) > 0);
+  const hasNumberFormatSection = hasBorderStyle || hasNumberFormats;
+  const hasStyles = hasNumberFormatSection || data.sheets.some((sheet) => (sheet.styles?.length ?? 0) > 0);
   const hasDisplayLanguage =
     hasStyles || (data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE);
   const hasTimezone =
     hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
-  bytes.push(hasNumberFormats ? 5 : hasStyles ? 4 : hasDisplayLanguage ? 3 : hasTimezone ? 2 : 1);
+  bytes.push(
+    hasBorderStyle ? 6 : hasNumberFormats ? 5 : hasStyles ? 4 : hasDisplayLanguage ? 3 : hasTimezone ? 2 : 1,
+  );
   bytes.push(data.delimiter.charCodeAt(0));
   pushString(bytes, enc, data.appName ?? '', MAX_META_LENGTH);
   pushString(bytes, enc, data.appVersion ?? '', MAX_META_LENGTH);
@@ -1530,7 +1627,7 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
       bytes.push(b);
     }
     if (hasStyles) {
-      for (const b of encodeStyleBlock(sheet.styles, hasNumberFormats)) {
+      for (const b of encodeStyleBlock(sheet.styles, hasNumberFormatSection, hasBorderStyle)) {
         bytes.push(b);
       }
     }
@@ -1670,10 +1767,11 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
     }
     // Version-4 per-worksheet cell-style block, validated against this
     // worksheet's dimensions exactly like its cell records above; version 5
-    // adds a per-style number format, read from the same records.
+    // adds a per-style number format; version 6 adds a per-border-side line
+    // style and width — both read from the same records.
     let styles: Array<[number, number, CellStyle]> | undefined;
     if (version >= 4) {
-      const styleBlock = readStyleBlock(rd, rowCount, columnCount, version >= 5);
+      const styleBlock = readStyleBlock(rd, rowCount, columnCount, version >= 5, version >= 6);
       if (!styleBlock.ok) {
         return { ok: false, error: styleBlock.error };
       }

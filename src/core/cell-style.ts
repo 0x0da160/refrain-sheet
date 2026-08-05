@@ -9,8 +9,11 @@
  * {@link isEmptyCellStyle}).
  *
  * Colors are `#rrggbb` hex strings (no alpha). A border side is "on" exactly
- * when its color string is present; there is no separate width/style choice —
- * every border is a thin solid line in the given color.
+ * when its color string is present. Its line style ({@link BorderLineStyle})
+ * and width ({@link BorderWidth}) are stored separately and only meaningful
+ * while the side is on; when absent they default to {@link DEFAULT_BORDER_LINE_STYLE}
+ * and {@link DEFAULT_BORDER_WIDTH} (see {@link borderSideValue}), which keeps
+ * every border set before this feature existed rendering exactly as before.
  */
 export interface CellStyle {
   bold?: boolean;
@@ -22,6 +25,14 @@ export interface CellStyle {
   borderRight?: string;
   borderBottom?: string;
   borderLeft?: string;
+  borderTopStyle?: BorderLineStyle;
+  borderRightStyle?: BorderLineStyle;
+  borderBottomStyle?: BorderLineStyle;
+  borderLeftStyle?: BorderLineStyle;
+  borderTopWidth?: BorderWidth;
+  borderRightWidth?: BorderWidth;
+  borderBottomWidth?: BorderWidth;
+  borderLeftWidth?: BorderWidth;
   numberFormat?: NumberFormat;
 }
 
@@ -85,6 +96,98 @@ export type BorderSide = (typeof BORDER_SIDES)[number];
 export const COLOR_KEYS = ['textColor', 'backgroundColor', ...BORDER_SIDES] as const;
 export type ColorKey = (typeof COLOR_KEYS)[number];
 
+/** A border side's line style — the native CSS `border-style` keywords this app supports. */
+export type BorderLineStyle = 'solid' | 'dashed' | 'dotted' | 'double';
+export const BORDER_LINE_STYLES: readonly BorderLineStyle[] = ['solid', 'dashed', 'dotted', 'double'];
+export const DEFAULT_BORDER_LINE_STYLE: BorderLineStyle = 'solid';
+/** Line-style precedence used to resolve two overlapping borders on a tied width — higher wins. */
+const BORDER_LINE_STYLE_PRECEDENCE: Record<BorderLineStyle, number> = {
+  solid: 3,
+  double: 2,
+  dashed: 1,
+  dotted: 0,
+};
+
+/** A border side's thickness. */
+export type BorderWidth = 'thin' | 'medium' | 'thick';
+export const BORDER_WIDTHS: readonly BorderWidth[] = ['thin', 'medium', 'thick'];
+export const DEFAULT_BORDER_WIDTH: BorderWidth = 'thin';
+/** Pixel width painted for each {@link BorderWidth}, also used to compare thickness on merge. */
+export const BORDER_WIDTH_PX: Record<BorderWidth, number> = { thin: 1, medium: 2, thick: 3 };
+
+/** The `CellStyle` key holding a side's line style, e.g. `borderTop` → `borderTopStyle`. */
+export const BORDER_STYLE_KEY: Record<BorderSide, `${BorderSide}Style`> = {
+  borderTop: 'borderTopStyle',
+  borderRight: 'borderRightStyle',
+  borderBottom: 'borderBottomStyle',
+  borderLeft: 'borderLeftStyle',
+};
+/** The `CellStyle` key holding a side's width, e.g. `borderTop` → `borderTopWidth`. */
+export const BORDER_WIDTH_KEY: Record<BorderSide, `${BorderSide}Width`> = {
+  borderTop: 'borderTopWidth',
+  borderRight: 'borderRightWidth',
+  borderBottom: 'borderBottomWidth',
+  borderLeft: 'borderLeftWidth',
+};
+
+/** A fully resolved border side: the color plus its effective line style and width. */
+export interface BorderSideValue {
+  color: string;
+  lineStyle: BorderLineStyle;
+  width: BorderWidth;
+}
+
+/**
+ * Read one side of `style` as a {@link BorderSideValue}, or `null` when that
+ * side has no color (i.e. is "off"). An absent line style/width defaults to
+ * {@link DEFAULT_BORDER_LINE_STYLE}/{@link DEFAULT_BORDER_WIDTH} — every
+ * border stored before this feature existed reads back identically.
+ */
+export function borderSideValue(
+  style: CellStyle | null | undefined,
+  side: BorderSide,
+): BorderSideValue | null {
+  const color = style?.[side];
+  if (color === undefined) {
+    return null;
+  }
+  return {
+    color,
+    lineStyle: style?.[BORDER_STYLE_KEY[side]] ?? DEFAULT_BORDER_LINE_STYLE,
+    width: style?.[BORDER_WIDTH_KEY[side]] ?? DEFAULT_BORDER_WIDTH,
+  };
+}
+
+/**
+ * Resolve which single border should be painted on an edge shared by two
+ * adjacent cells, given each cell's own value for that edge (`null` when a
+ * cell has no border set on that side). Mirrors CSS `border-collapse`: the
+ * wider border wins; on a width tie, line-style precedence (solid > double >
+ * dashed > dotted) decides; on a further tie `own` wins, so a shared edge
+ * between two identically-styled borders deterministically keeps the
+ * top/left cell's value when the caller passes that cell's border as `own`.
+ * Returns `null` only when neither side has a border. Render-only: never
+ * changes either cell's stored style.
+ */
+export function resolveSharedBorder(
+  own: BorderSideValue | null,
+  neighbor: BorderSideValue | null,
+): BorderSideValue | null {
+  if (!own) {
+    return neighbor;
+  }
+  if (!neighbor) {
+    return own;
+  }
+  if (BORDER_WIDTH_PX[neighbor.width] !== BORDER_WIDTH_PX[own.width]) {
+    return BORDER_WIDTH_PX[neighbor.width] > BORDER_WIDTH_PX[own.width] ? neighbor : own;
+  }
+  if (BORDER_LINE_STYLE_PRECEDENCE[neighbor.lineStyle] > BORDER_LINE_STYLE_PRECEDENCE[own.lineStyle]) {
+    return neighbor;
+  }
+  return own;
+}
+
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
 /** True for a well-formed `#rrggbb` color string. */
@@ -130,6 +233,11 @@ export function cellStylesEqual(a: CellStyle | null, b: CellStyle | null): boole
     an.borderRight === bn.borderRight &&
     an.borderBottom === bn.borderBottom &&
     an.borderLeft === bn.borderLeft &&
+    BORDER_SIDES.every(
+      (side) =>
+        an[BORDER_STYLE_KEY[side]] === bn[BORDER_STYLE_KEY[side]] &&
+        an[BORDER_WIDTH_KEY[side]] === bn[BORDER_WIDTH_KEY[side]],
+    ) &&
     numberFormatsEqual(an.numberFormat, bn.numberFormat)
   );
 }
@@ -150,6 +258,16 @@ export interface CellStylePatch {
   borderRight?: string | null;
   borderBottom?: string | null;
   borderLeft?: string | null;
+  /** Leaves the side's line style untouched unless its color is set (or already set) in the same patch. */
+  borderTopStyle?: BorderLineStyle;
+  borderRightStyle?: BorderLineStyle;
+  borderBottomStyle?: BorderLineStyle;
+  borderLeftStyle?: BorderLineStyle;
+  /** Leaves the side's width untouched unless its color is set (or already set) in the same patch. */
+  borderTopWidth?: BorderWidth;
+  borderRightWidth?: BorderWidth;
+  borderBottomWidth?: BorderWidth;
+  borderLeftWidth?: BorderWidth;
   /** `null` clears the number format ("General"); an object replaces it whole (never merged). */
   numberFormat?: NumberFormat | null;
 }
@@ -179,6 +297,24 @@ export function applyCellStylePatch(style: CellStyle | null, patch: CellStylePat
       delete next[key];
     } else {
       next[key] = value;
+    }
+  }
+  // A cleared border side (color set to null) also drops its line style/width
+  // — they are meaningless without a color — while a side left untouched or
+  // just turned on picks up whatever style/width the patch supplies.
+  for (const side of BORDER_SIDES) {
+    const styleKey = BORDER_STYLE_KEY[side];
+    const widthKey = BORDER_WIDTH_KEY[side];
+    if (patch[side] === null) {
+      delete next[styleKey];
+      delete next[widthKey];
+      continue;
+    }
+    if (patch[styleKey] !== undefined) {
+      next[styleKey] = patch[styleKey];
+    }
+    if (patch[widthKey] !== undefined) {
+      next[widthKey] = patch[widthKey];
     }
   }
   if (patch.numberFormat !== undefined) {

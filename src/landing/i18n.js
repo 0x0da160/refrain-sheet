@@ -101,7 +101,8 @@ export const I18N = {
     'f4.li2': '複数ワークシート、シート間参照、絶対／相対参照、循環参照の検出',
     'f4.li3': 'フィルタと最大8階層の複数キー並べ替え。表示順が変わるだけで、データや数式は書き換わりません',
     'f4.li4': '数式エンジンは自作パーサ。eval も new Function も使いません',
-    'f4.li5': '太字・斜体・下線・文字色・背景色・罫線。セルの値や数式には影響せず、Undoでき、.rsf に保存されます',
+    'f4.li5':
+      '太字・斜体・下線・文字色・背景色・罫線。セルの値や数式には影響せず、Undoでき、.rsf に保存されます',
     'f4.li6': 'オートフィット、選択範囲の統計、CSV / XLSX エクスポート',
 
     'theme.eyebrow': 'DETAILS',
@@ -191,6 +192,9 @@ export const I18N = {
     'faq.q6': 'セルの書式設定（太字・色・罫線など）はCSVのバイトを変えますか？',
     'faq.a6':
       '変えません。書式設定はRSFスプレッドシート専用の見た目だけの機能で、セルの値・数式の結果・並べ替えやフィルタの動作・CSVエクスポートのいずれも変更しません。プレーンCSVのままでは書式設定自体を使えません。',
+    'faq.q7': 'この紹介ページ自体にアナリティクスは入っていますか？',
+    'faq.a7':
+      'この紹介ページ（refrain-sheet.com）のみ、訪問数を把握するために Google Analytics を使う場合があります。読み込まれるのは、ページ下部の同意バナーで「同意する」を選んだ場合のみで、フッターの「Cookie設定」からいつでも選び直せます。CSVを編集するアプリ本体（app.refrain-sheet.com）はこの紹介ページとは別に配信されており、実行時のネットワーク通信は今後も一切行いません。',
 
     'cta.h2': 'まずは手元のCSVを、1つ開いてみてください。',
     'cta.p': 'インストール不要。数秒で、保存しても差分が出ないことを確認できます。',
@@ -202,7 +206,13 @@ export const I18N = {
     'footer.l2': 'GitHub',
     'footer.l3': 'リリース',
     'footer.l4': 'ドキュメント',
+    'footer.privacy': 'Cookie設定',
     'footer.note': 'MIT License · Refrain Sheet 公式の紹介ページです',
+
+    'consent.text':
+      'このページ（refrain-sheet.com）は、訪問状況の把握のために Google Analytics を利用します。同意した場合のみ読み込まれ、いつでも取り消せます。CSVを編集するアプリ本体（app.refrain-sheet.com）は引き続き通信を一切行いません。',
+    'consent.decline': '同意しない',
+    'consent.accept': '同意する',
   },
 
   en: {
@@ -398,6 +408,9 @@ export const I18N = {
     'faq.q6': 'Does cell formatting (bold, color, borders) change the CSV bytes?',
     'faq.a6':
       "No. Formatting is a purely visual, RSF-only feature — it never changes a cell's value, formula results, sort/filter behavior, or CSV export. Plain CSV documents cannot use formatting at all.",
+    'faq.q7': 'Does this introduction page itself use analytics?',
+    'faq.a7':
+      'Only this introduction page (refrain-sheet.com) may use Google Analytics, to measure visits. It loads only if you choose "Accept" in the consent banner at the bottom of the page, and you can change that choice anytime from "Cookie settings" in the footer. The app itself (app.refrain-sheet.com), where you edit CSVs, is served separately and continues to make no network connections at runtime.',
 
     'cta.h2': 'Open one of your own CSVs.',
     'cta.p': 'No install. In a few seconds you can confirm that saving produces no diff at all.',
@@ -409,6 +422,12 @@ export const I18N = {
     'footer.l2': 'GitHub',
     'footer.l3': 'Releases',
     'footer.l4': 'Docs',
+    'footer.privacy': 'Cookie settings',
     'footer.note': 'MIT License · The official introduction page for Refrain Sheet',
+
+    'consent.text':
+      'This page (refrain-sheet.com) uses Google Analytics to measure visits. It only loads if you accept, and you can withdraw that choice at any time. The app itself (app.refrain-sheet.com), where you edit CSVs, continues to make no network connections at all.',
+    'consent.decline': 'Decline',
+    'consent.accept': 'Accept',
   },
 };

@@ -123,7 +123,10 @@
                 height="666"
                 sizes="(min-width: 1220px) 1180px, calc(100vw - 2.5rem)"
                 src="assets/refrain-sheet-shift-jis-csv-editor.webp"
-                srcset="assets/refrain-sheet-shift-jis-csv-editor-800w.webp 800w, assets/refrain-sheet-shift-jis-csv-editor.webp 1600w"
+                srcset="
+                  assets/refrain-sheet-shift-jis-csv-editor-800w.webp  800w,
+                  assets/refrain-sheet-shift-jis-csv-editor.webp      1600w
+                "
                 width="1600"
               />
             </div>
@@ -244,7 +247,10 @@
                   loading="lazy"
                   sizes="(min-width: 900px) 50vw, calc(100vw - 2.5rem)"
                   src="assets/refrain-sheet-save-with-options-dialog.webp"
-                  srcset="assets/refrain-sheet-save-with-options-dialog-750w.webp 750w, assets/refrain-sheet-save-with-options-dialog.webp 1500w"
+                  srcset="
+                    assets/refrain-sheet-save-with-options-dialog-750w.webp  750w,
+                    assets/refrain-sheet-save-with-options-dialog.webp      1500w
+                  "
                   width="1500"
                 />
               </div>
@@ -271,7 +277,10 @@
                   loading="lazy"
                   sizes="(min-width: 900px) 50vw, calc(100vw - 2.5rem)"
                   src="assets/refrain-sheet-csv-validation-dialog.webp"
-                  srcset="assets/refrain-sheet-csv-validation-dialog-750w.webp 750w, assets/refrain-sheet-csv-validation-dialog.webp 1500w"
+                  srcset="
+                    assets/refrain-sheet-csv-validation-dialog-750w.webp  750w,
+                    assets/refrain-sheet-csv-validation-dialog.webp      1500w
+                  "
                   width="1500"
                 />
               </div>
@@ -305,7 +314,10 @@
                   loading="lazy"
                   sizes="(min-width: 900px) 50vw, calc(100vw - 2.5rem)"
                   src="assets/refrain-sheet-file-menu.webp"
-                  srcset="assets/refrain-sheet-file-menu-800w.webp 800w, assets/refrain-sheet-file-menu.webp 1600w"
+                  srcset="
+                    assets/refrain-sheet-file-menu-800w.webp  800w,
+                    assets/refrain-sheet-file-menu.webp      1600w
+                  "
                   width="1600"
                 />
               </div>
@@ -338,7 +350,9 @@
             </div>
             <div class="card">
               <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">FILTER &amp; SORT</h3>
-              <p data-i18n="f4.li3">フィルタと最大8階層の複数キー並べ替え。表示順が変わるだけで、データや数式は書き換わりません</p>
+              <p data-i18n="f4.li3">
+                フィルタと最大8階層の複数キー並べ替え。表示順が変わるだけで、データや数式は書き換わりません
+              </p>
             </div>
             <div class="card">
               <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">FORMATTING</h3>
@@ -374,7 +388,10 @@
                 loading="lazy"
                 sizes="(min-width: 1220px) 1180px, calc(100vw - 2.5rem)"
                 src="assets/refrain-sheet-dark-theme-english-ui.webp"
-                srcset="assets/refrain-sheet-dark-theme-english-ui-800w.webp 800w, assets/refrain-sheet-dark-theme-english-ui.webp 1600w"
+                srcset="
+                  assets/refrain-sheet-dark-theme-english-ui-800w.webp  800w,
+                  assets/refrain-sheet-dark-theme-english-ui.webp      1600w
+                "
                 width="1600"
               />
             </div>
@@ -621,6 +638,13 @@
                 変えません。書式設定はRSFスプレッドシート専用の見た目だけの機能で、セルの値・数式の結果・並べ替えやフィルタの動作・CSVエクスポートのいずれも変更しません。プレーンCSVのままでは書式設定自体を使えません。
               </p>
             </details>
+            <details class="qa">
+              <summary data-i18n="faq.q7">この紹介ページ自体にアナリティクスは入っていますか？</summary>
+              <p data-i18n="faq.a7">
+                この紹介ページ（refrain-sheet.com）のみ、訪問数を把握するために Google Analytics
+                を使う場合があります。読み込まれるのは、ページ下部の同意バナーで「同意する」を選んだ場合のみで、フッターの「Cookie設定」からいつでも選び直せます。CSVを編集するアプリ本体（app.refrain-sheet.com）はこの紹介ページとは別に配信されており、実行時のネットワーク通信は今後も一切行いません。
+              </p>
+            </details>
           </div>
         </div>
       </section>
@@ -661,11 +685,7 @@
           <div data-i18n="footer.tagline">ローカルで動く、書式保持CSV・スプレッドシートエディタ</div>
         </div>
         <div class="footer-links">
-          <a
-            data-i18n="footer.l1"
-            href="https://app.refrain-sheet.com/"
-            rel="noopener"
-            target="_blank"
+          <a data-i18n="footer.l1" href="https://app.refrain-sheet.com/" rel="noopener" target="_blank"
             >Webアプリ</a
           >
           <a
@@ -689,11 +709,40 @@
             target="_blank"
             >ドキュメント</a
           >
+          <button data-i18n="footer.privacy" id="cookie-settings-link" type="button">Cookie設定</button>
         </div>
         <div data-i18n="footer.note">MIT License · Refrain Sheet 公式の紹介ページです</div>
       </div>
     </footer>
 
+    <div class="cookie-consent" hidden id="cookie-consent" role="region">
+      <div class="cookie-consent-inner">
+        <p class="cookie-consent-text" data-i18n="consent.text">
+          このページ（refrain-sheet.com）は、訪問状況の把握のために Google Analytics
+          を利用します。同意した場合のみ読み込まれ、いつでも取り消せます。CSVを編集するアプリ本体（app.refrain-sheet.com）は引き続き通信を一切行いません。
+        </p>
+        <div class="cookie-consent-actions">
+          <button
+            class="btn btn-ghost"
+            data-consent-action="decline"
+            data-i18n="consent.decline"
+            type="button"
+          >
+            同意しない
+          </button>
+          <button
+            class="btn btn-primary"
+            data-consent-action="accept"
+            data-i18n="consent.accept"
+            type="button"
+          >
+            同意する
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script src="main.js"></script>
+    <script src="consent.js"></script>
   </body>
 </html>

@@ -33,7 +33,7 @@ const landingDir = join(root, 'landing');
 
 // styles.css is minified on the way out (see minify-css.mjs); the rest are
 // copied verbatim.
-const STATIC_ASSETS = ['main.js', 'favicon.svg', 'assets'];
+const STATIC_ASSETS = ['main.js', 'consent.js', 'favicon.svg', 'assets'];
 
 const rawSite = process.argv[2];
 const SITE = rawSite ? rawSite.replace(/\/+$/, '') + '/' : undefined;

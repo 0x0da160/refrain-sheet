@@ -201,24 +201,6 @@ button {
   color: var(--text-dim);
 }
 
-/* Hidden here; the mobile breakpoint below shows it in place of the
-   always-visible row it toggles (see .menu-row). */
-.menu-bar-toggle {
-  display: none;
-  border: none;
-  background: none;
-  padding: 6px 10px;
-  border-radius: 3px;
-  cursor: default;
-  font-size: 16px;
-  line-height: 1;
-}
-
-.menu-bar-toggle:hover,
-.menu-bar-toggle[aria-expanded='true'] {
-  background: var(--accent-soft);
-}
-
 .menu-row {
   display: flex;
   align-items: center;
@@ -1933,49 +1915,18 @@ table.sql-query-table td {
 }
 
 /* ---------- Mobile layout (phones and small tablets) ----------
-   The tab strip and worksheet strip are flex rows whose buttons don't shrink
-   below their own content width by default; below this width they can
-   together be wider than the viewport, which pushes the outer page into an
-   unwanted horizontal scrollbar. Everything here is gated behind this query
-   so desktop-width layout is unchanged: those strips scroll within
-   themselves instead, and their tap targets grow for touch.
-
-   The menu bar instead collapses its row of top-level menu names (File /
-   Edit / …) behind a hamburger toggle button, rather than scrolling
-   horizontally: .menu-row is hidden until MenuBar (src/ui/menu-bar.ts) adds
-   the `mobile-open` class in response to a tap on `.menu-bar-toggle`, then
-   the row is revealed as a full-width vertical stack below the bar. */
+   The tab strip, worksheet strip, and menu bar's row of top-level menu names
+   (File / Edit / …) are all flex rows whose buttons don't shrink below their
+   own content width by default; below this width they can together be wider
+   than the viewport, which pushes the outer page into an unwanted horizontal
+   scrollbar. Everything here is gated behind this query so desktop-width
+   layout is unchanged: those rows scroll within themselves instead, and
+   their tap targets grow for touch. */
 @media (max-width: 700px) {
-  .menu-bar {
-    flex-wrap: wrap;
-  }
-
-  /* Grown toward the common ~44x44px minimum touch-target size; it was
-     previously sized like a desktop toolbar icon, too small to reliably tap. */
-  .menu-bar-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-left: auto;
-    min-width: 44px;
-    min-height: 44px;
-    font-size: 20px;
-  }
-
   .menu-row {
-    display: none;
-    flex-basis: 100%;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .menu-bar.mobile-open .menu-row {
-    display: flex;
-  }
-
-  .menu-row .menu > button {
-    width: 100%;
-    text-align: left;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
   }
 
   .menu > button,

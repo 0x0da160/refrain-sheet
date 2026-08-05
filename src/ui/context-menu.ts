@@ -35,9 +35,35 @@ export interface ContextMenuItem {
 
 export type ContextMenuEntry = ContextMenuItem | 'separator';
 
+/**
+ * A single icon button in the optional toolbar row (see {@link ContextMenuOptions.toolbar}).
+ * Used for quick-access actions — e.g. Bold/Italic/Underline/colors/Borders on
+ * the grid's right-click menu (#240) — that read better as a compact row of
+ * icon buttons than as more text entries in the list below them.
+ */
+export interface ContextMenuToolbarItem {
+  /** A short glyph rendered via textContent — never HTML or an icon font. */
+  icon: string;
+  /** Already-localized accessible name, also used as the tooltip. */
+  label: string;
+  /** Extra class for glyph-specific presentation (e.g. bold weight). */
+  className?: string;
+  /** Renders as a pressed toggle button when set; omitted for a plain action. */
+  checked?: boolean;
+  disabled?: boolean;
+  /** Invoked after the menu closes. */
+  onSelect: () => void;
+}
+
 export interface ContextMenuOptions {
   /** Called after the menu closes, for whatever reason. */
   onClose?: () => void;
+  /**
+   * An optional row of icon buttons rendered above the item list (and above a
+   * separator, when the list is non-empty). Never shown on a submenu — only
+   * the top-level menu.
+   */
+  toolbar?: ContextMenuToolbarItem[];
 }
 
 /** Every open context menu, so application events can dismiss them all. */
@@ -71,7 +97,7 @@ export class ContextMenu {
     this.onClose = options.onClose;
     const active = document.activeElement;
     this.restoreFocus = active instanceof HTMLElement ? active : null;
-    this.element = this.buildList(entries);
+    this.element = this.buildList(entries, options.toolbar);
     document.body.append(this.element);
     this.reposition();
 
@@ -158,12 +184,24 @@ export class ContextMenu {
   }
 
   private focusFirst(): void {
+    const toolbar = this.element.querySelector<HTMLElement>(':scope > .context-menu-toolbar');
+    const firstToolbarButton = toolbar ? enabledToolbarItems(toolbar)[0] : undefined;
+    if (firstToolbarButton) {
+      firstToolbarButton.focus();
+      return;
+    }
     const items = enabledItems(this.element);
     items[0]?.focus();
   }
 
-  private buildList(entries: ContextMenuEntry[]): HTMLElement {
+  private buildList(entries: ContextMenuEntry[], toolbar?: ContextMenuToolbarItem[]): HTMLElement {
     const list = el('div', { className: 'context-menu', attrs: { role: 'menu' } });
+    if (toolbar?.length) {
+      list.append(this.buildToolbar(toolbar));
+      if (entries.length > 0) {
+        list.append(el('hr', { className: 'menu-separator' }));
+      }
+    }
     for (const entry of entries) {
       if (entry === 'separator') {
         list.append(el('hr', { className: 'menu-separator' }));
@@ -204,6 +242,74 @@ export class ContextMenu {
       list.append(button);
     }
     return list;
+  }
+
+  private buildToolbar(items: ContextMenuToolbarItem[]): HTMLElement {
+    const row = el('div', { className: 'context-menu-toolbar', attrs: { role: 'toolbar' } });
+    for (const item of items) {
+      const button = el('button', {
+        className: item.className ? `toolbar-item ${item.className}` : 'toolbar-item',
+        text: item.icon,
+        attrs: {
+          type: 'button',
+          title: item.label,
+          'aria-label': item.label,
+          ...(item.checked === undefined ? {} : { 'aria-pressed': String(item.checked) }),
+        },
+      });
+      button.disabled = item.disabled === true;
+      button.classList.toggle('active', item.checked === true);
+      button.addEventListener('click', () => {
+        const run = item.onSelect;
+        this.close();
+        run();
+      });
+      button.addEventListener('keydown', (event) => this.onToolbarKeyDown(event, row, button));
+      row.append(button);
+    }
+    return row;
+  }
+
+  private onToolbarKeyDown(event: KeyboardEvent, row: HTMLElement, button: HTMLButtonElement): void {
+    const items = enabledToolbarItems(row);
+    const index = items.indexOf(button);
+    const focusAt = (next: number): void => {
+      items[(next + items.length) % items.length]?.focus();
+    };
+    switch (event.key) {
+      case 'ArrowRight':
+        event.preventDefault();
+        focusAt(index + 1);
+        return;
+      case 'ArrowLeft':
+        event.preventDefault();
+        focusAt(index - 1);
+        return;
+      case 'Home':
+        event.preventDefault();
+        focusAt(0);
+        return;
+      case 'End':
+        event.preventDefault();
+        focusAt(items.length - 1);
+        return;
+      case 'ArrowDown':
+        // Move from the toolbar row down into the item list below it.
+        event.preventDefault();
+        enabledItems(this.element)[0]?.focus();
+        return;
+      case 'Escape':
+        event.preventDefault();
+        this.close();
+        return;
+      case 'Tab':
+        // Never let focus escape into the page behind an open menu.
+        event.preventDefault();
+        this.close();
+        return;
+      default:
+        return;
+    }
   }
 
   private onItemKeyDown(
@@ -297,6 +403,12 @@ export class ContextMenu {
 
 function enabledItems(list: HTMLElement): HTMLButtonElement[] {
   return Array.from(list.querySelectorAll<HTMLButtonElement>(':scope > .menu-item')).filter(
+    (item) => !item.disabled,
+  );
+}
+
+function enabledToolbarItems(row: HTMLElement): HTMLButtonElement[] {
+  return Array.from(row.querySelectorAll<HTMLButtonElement>(':scope > .toolbar-item')).filter(
     (item) => !item.disabled,
   );
 }

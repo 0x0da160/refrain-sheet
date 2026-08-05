@@ -2,9 +2,10 @@
 import type { DelimiterId } from '../core/byte-csv-parser';
 import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../core/cell-style';
 import type { CellRange } from '../core/clipboard';
-import { type CsvExportOptions } from '../core/csv-export';
+import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport, type CsvExportOptions } from '../core/csv-export';
 import { type EncodingId } from '../core/encoding';
 import { type CellValidation, type ValidationRule } from '../core/data-validation';
+import { type DiffOptions, type DiffResult } from '../core/diff-engine';
 import { type ColumnFilter } from '../core/filter';
 import { isFormula } from '../core/formula';
 import { RsfDocument } from '../core/rsf-document';
@@ -18,7 +19,7 @@ import {
 } from '../core/serializer';
 import { type ValidationSummary } from '../core/validation';
 import { AppState, type Selection, type SelectionKind, type Tab } from './app-state';
-import { pickFiles, type OpenedFile } from './file-access';
+import { pickFiles, saveBytesAs, type OpenedFile } from './file-access';
 import { setLocale, t, type LocaleId } from './i18n';
 import {
   DEFAULT_SHEET_ZOOM,
@@ -37,12 +38,13 @@ import { FormatCommands } from './commands/format';
 import { SortCommands } from './commands/sort';
 import { WorksheetCommands } from './commands/worksheets';
 import { SqlCommands, type SqlSource, type SqlRunOutcome } from './commands/sql';
+import { DiffCommands, type DiffTabOption, type DiffRunOutcome } from './commands/diff';
 import { PasteFillCommands, type FlashFillPreview } from './commands/paste-fill';
 import { RangeOpsCommands, type ReplaceAllReport } from './commands/range-ops';
 import { LARGE_OP_CELLS } from './commands/shared';
 
 export { LARGE_OP_CELLS };
-export type { FlashFillPreview, ReplaceAllReport, SqlSource, SqlRunOutcome };
+export type { FlashFillPreview, ReplaceAllReport, SqlSource, SqlRunOutcome, DiffTabOption, DiffRunOutcome };
 
 /**
  * Everything the SQL query dialog needs. `sources` is the fixed, pre-computed
@@ -56,6 +58,24 @@ export interface SqlQueryDialogInput {
   runQuery: (sourceId: string, query: string) => SqlRunOutcome;
   /** Column names for a source, for the query editor's input suggestions. */
   columns: (sourceId: string) => string[];
+}
+
+/**
+ * Everything the two-tab compare dialog needs. `currentTabName` is always the
+ * active tab (fixed for the dialog's lifetime); `tabs` lists every other open
+ * tab, pickable as the baseline ("before") side — see `src/core/diff-engine.ts`
+ * and `src/app/commands/diff.ts` for the engine and adapter.
+ */
+export interface DiffDialogInput {
+  currentTabName: string;
+  /** Column names for the active (current) tab, for the key/compare pickers. */
+  currentColumns: string[];
+  tabs: DiffTabOption[];
+  /** Column names for a candidate baseline tab, by id. */
+  columnsForTab: (tabId: string) => string[];
+  runDiff: (baselineTabId: string, options: DiffOptions) => DiffRunOutcome;
+  /** Export the shown diff rows as a CSV file. Returns false if the user cancels the save. */
+  exportCsv: (result: DiffResult) => Promise<boolean>;
 }
 
 /**
@@ -281,6 +301,8 @@ export interface UiPort {
   showFormulaHelp(): void;
   /** Open the local, read-only SQL query panel (see `src/core/sql-engine.ts`). */
   showSqlQuery(input: SqlQueryDialogInput): Promise<void>;
+  /** Open the local, read-only two-tab compare panel (see `src/core/diff-engine.ts`). */
+  showDiff(input: DiffDialogInput): Promise<void>;
   /**
    * Confirm a workbook-wide Replace All before anything is mutated. Returns
    * false to cancel, which must leave every worksheet untouched.
@@ -405,6 +427,7 @@ export type CommandId =
   | 'sheet.exportCsv'
   | 'sheet.exportXlsx'
   | 'data.runSqlQuery'
+  | 'data.compareDiff'
   | 'data.validation'
   // Worksheets inside the active RSF workbook (distinct from the application
   // document tabs, whose commands are the `tab.*` ids below).
@@ -490,6 +513,7 @@ export class Commands {
     this.rangeOps = new RangeOpsCommands(state, ui);
     this.format = new FormatCommands(state, ui);
     this.sql = new SqlCommands();
+    this.diff = new DiffCommands();
   }
 
   /** File I/O, save/export, and CSV↔RSF conversion — see `FileIoCommands`. */
@@ -519,6 +543,9 @@ export class Commands {
   /** Local, read-only SQL analysis over one worksheet/CSV table — see `SqlCommands`. */
   private readonly sql: SqlCommands;
 
+  /** Local, read-only two-tab compare — see `DiffCommands`. */
+  private readonly diff: DiffCommands;
+
   /** True when the command currently makes sense (drives menu-item enabled state). */
   isEnabled(id: CommandId): boolean {
     const tab = this.state.activeTab;
@@ -531,6 +558,9 @@ export class Commands {
       case 'search.findPrev':
       case 'data.runSqlQuery':
         return tab !== null;
+      case 'data.compareDiff':
+        // A second open tab is required to pick a baseline against.
+        return tab !== null && this.state.tabs.length >= 2;
       case 'file.saveOptions':
         // CSV: encoding/EOL/BOM options. RSF: the compression selector.
         return tab !== null;
@@ -864,6 +894,9 @@ export class Commands {
       case 'data.runSqlQuery':
         if (tab) await this.showSqlQuery(tab);
         return;
+      case 'data.compareDiff':
+        if (tab) await this.showDiff(tab);
+        return;
       case 'data.validation':
         if (tab) await this.validationDialog(tab);
         return;
@@ -1051,6 +1084,53 @@ export class Commands {
       runQuery: (sourceId, query) => this.sql.runQuery(tab, sourceId, query),
       columns: (sourceId) => this.sql.listColumns(tab, sourceId),
     });
+  }
+
+  /**
+   * Data > Compare / Diff…: open the local, read-only two-tab compare panel.
+   * See `src/core/diff-engine.ts` for the engine and its documented scope.
+   */
+  private async showDiff(tab: Tab): Promise<void> {
+    return this.ui.showDiff({
+      currentTabName: tab.name,
+      currentColumns: this.diff.listColumns(tab),
+      tabs: this.diff.listComparableTabs(this.state, tab),
+      columnsForTab: (tabId) => {
+        const other = this.state.tabs.find((t) => t.id === tabId);
+        return other ? this.diff.listColumns(other) : [];
+      },
+      runDiff: (baselineTabId, options) => {
+        // The dialog is modal, so the tab list cannot change while it is open.
+        const baselineTab = this.state.tabs.find((t) => t.id === baselineTabId)!;
+        return this.diff.runDiff(baselineTab, tab, options);
+      },
+      exportCsv: (result) => this.exportDiffCsv(tab, result),
+    });
+  }
+
+  /** Export the shown diff rows as a plain UTF-8 CSV download (never the source documents). */
+  private async exportDiffCsv(tab: Tab, result: DiffResult): Promise<boolean> {
+    const rows = this.diff.buildDiffCsvRows(result);
+    const encoded = encodeCsvExport(rows, ',', DEFAULT_CSV_EXPORT_OPTIONS);
+    if (!encoded.ok) {
+      return false; // unreachable for UTF-8, kept for type-safety with encodeCsvExport's signature
+    }
+    const base = tab.name.replace(/\.(rsf|rcsv|csv)$/i, '');
+    try {
+      await saveBytesAs(this.dom, `${base}-diff.csv`, encoded.bytes, 'csv');
+      return true;
+    } catch (err) {
+      // A cancelled save picker (AbortError) is a silent no-op, matching every
+      // other save/export flow's contract; anything else is reported.
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return false;
+      }
+      this.ui.notify(
+        t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
+        'error',
+      );
+      return false;
+    }
   }
 
   async closeTab(tab: Tab): Promise<void> {

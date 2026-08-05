@@ -6,6 +6,7 @@ import type {
   ConvertReason,
   DataValidationDialogInput,
   DataValidationDialogResult,
+  DiffDialogInput,
   FilterDialogInput,
   FilterDialogResult,
   FlashFillPreview,
@@ -29,6 +30,7 @@ import { FileIoDialogs } from './dialogs/file-io';
 import { FormatDialogs } from './dialogs/format';
 import { SheetOpsDialogs } from './dialogs/sheet-ops';
 import { SqlQueryDialogs } from './dialogs/sql';
+import { DiffDialogs } from './dialogs/diff';
 import { dialogButton, openDialog } from './dialogs/shared';
 
 export class Dialogs {
@@ -37,6 +39,7 @@ export class Dialogs {
   private readonly sheetOps = new SheetOpsDialogs();
   private readonly format = new FormatDialogs();
   private readonly sqlQuery = new SqlQueryDialogs();
+  private readonly diff = new DiffDialogs();
 
   confirmValidation(name: string, summary: ValidationSummary): Promise<boolean> {
     return openDialog(t('dialog.validation.title'), false, (body, buttons, close) => {
@@ -348,6 +351,11 @@ export class Dialogs {
   /** See `SqlQueryDialogs.showSqlQuery` for the full behavior contract. */
   showSqlQuery(input: SqlQueryDialogInput): Promise<void> {
     return this.sqlQuery.showSqlQuery(input);
+  }
+
+  /** See `DiffDialogs.showDiff` for the full behavior contract. */
+  showDiff(input: DiffDialogInput): Promise<void> {
+    return this.diff.showDiff(input);
   }
 }
 

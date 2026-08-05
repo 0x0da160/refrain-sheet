@@ -38,6 +38,7 @@ const noopUi: UiPort = {
   showAbout: () => undefined,
   showFormulaHelp: () => undefined,
   showSqlQuery: vi.fn(async () => undefined),
+  showDiff: vi.fn(async () => undefined),
   chooseSettings: async () => null,
   chooseTimezone: async () => null,
   chooseDisplayLanguage: async () => null,

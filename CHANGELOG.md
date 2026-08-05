@@ -78,7 +78,9 @@ release-time half (retitling `Unreleased`) is still done by hand.
 - On narrow (mobile-width) layouts, the top-level menu bar (File / Edit / …)
   no longer collapses behind a hamburger toggle button; the menu names are
   now always visible in a single row that scrolls horizontally, matching how
-  the document tab strip and worksheet strip already behave on mobile.
+  the document tab strip and worksheet strip already behave on mobile. The
+  menu names also no longer wrap onto multiple lines as the row narrows —
+  each name keeps its full width and the row scrolls instead.
   ([#246](https://github.com/0x0da160/refrain-sheet/issues/246))
 - **Format > Borders…** now lets you choose a border's line style (Solid,
   Dashed, Dotted, or Double) and width (Thin, Medium, or Thick), not just its

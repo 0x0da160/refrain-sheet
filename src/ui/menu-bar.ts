@@ -327,14 +327,6 @@ export class MenuBar {
   private openSubmenuKey: string | null = null;
   /** The mounted submenu list (in `document.body`, so it is never clipped). */
   private submenuEl: HTMLElement | null = null;
-  /**
-   * Whether the collapsed top-level menu list is revealed. Only reachable
-   * through the hamburger toggle button, which CSS shows in place of the
-   * always-visible desktop row below the existing mobile breakpoint
-   * (`@media (max-width: 700px)` in `src/styles.css`); on desktop this stays
-   * `false` and the row is always shown, so behavior there is unchanged.
-   */
-  private mobileMenuOpen = false;
 
   constructor(
     private readonly commands: Commands,
@@ -349,10 +341,9 @@ export class MenuBar {
       if (insideBar || insideSubmenu) {
         return;
       }
-      if (this.openIndex !== null || this.mobileMenuOpen) {
+      if (this.openIndex !== null) {
         this.openIndex = null;
         this.openSubmenuKey = null;
-        this.mobileMenuOpen = false;
         this.render();
       }
     });
@@ -373,10 +364,6 @@ export class MenuBar {
     this.submenuEl?.remove();
     this.submenuEl = null;
     clearChildren(this.element);
-    // CSS keys off this class below the existing mobile breakpoint to reveal
-    // the menu row that the hamburger toggle otherwise collapses; on desktop
-    // the class is inert and the row stays always-visible.
-    this.element.classList.toggle('mobile-open', this.mobileMenuOpen);
     // Decorative: the adjacent product name conveys the brand, so the icon is
     // hidden from assistive technology. Explicit width/height reserve space so
     // it never shifts layout or stretches; the SVG stays crisp at any DPI and
@@ -385,31 +372,6 @@ export class MenuBar {
       createAppIcon('app-icon', 20),
       el('span', { className: 'app-name', text: t('app.title') }),
     );
-    // Hidden on desktop by CSS; shown only at the existing mobile breakpoint
-    // in place of the row it toggles, so the menu names don't have to be
-    // horizontally scrolled to be reached on a narrow viewport.
-    const toggle = el(
-      'button',
-      {
-        className: 'menu-bar-toggle',
-        attrs: {
-          type: 'button',
-          'aria-haspopup': 'true',
-          'aria-expanded': this.mobileMenuOpen ? 'true' : 'false',
-          'aria-label': t('menu.mobileToggle'),
-        },
-      },
-      [el('span', { className: 'menu-bar-toggle-icon', text: '☰', attrs: { 'aria-hidden': 'true' } })],
-    );
-    toggle.addEventListener('click', () => {
-      this.mobileMenuOpen = !this.mobileMenuOpen;
-      if (!this.mobileMenuOpen) {
-        this.openIndex = null;
-        this.openSubmenuKey = null;
-      }
-      this.render();
-    });
-    this.element.append(toggle);
     const row = el('div', { className: 'menu-row' });
     this.menus.forEach((menu, index) => {
       const wrapper = el('div', { className: 'menu' });
@@ -524,10 +486,6 @@ export class MenuBar {
       );
       button.disabled = !this.commands.isEnabled(command);
       button.addEventListener('click', () => {
-        // Running a command is the end of a menu interaction: also collapse
-        // the mobile hamburger row, not just the dropdown, mirroring how a
-        // desktop click elsewhere would leave no menu open.
-        this.mobileMenuOpen = false;
         this.closeMenu();
         void this.commands.run(command);
       });

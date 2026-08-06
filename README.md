@@ -520,11 +520,45 @@ range accepts — a fixed list of choices (the spreadsheet-standard
   the document dirty. Row/column insertion or deletion drops every rule on
   the worksheet outright, exactly like an active sort.
 
+### Conditional formatting (RSF)
+
+**Format > Conditional Formatting…** colors the selected range's cells
+automatically from their computed value, rather than a color you choose
+directly.
+
+- **RSF only.** Like Filter, Sort, and Data Validation, conditional
+  formatting is a spreadsheet feature; on a plain CSV document the app
+  explains that it requires converting to RSF and changes nothing.
+- **Three rule kinds.** A **cell value** rule colors every cell that
+  satisfies a comparison (greater than, less than, between, equal to, or
+  text contains) against a value you enter; a **duplicate values** rule
+  colors every value that appears more than once in the range; a **color
+  scale** rule shades the background along a two-color gradient by where
+  each numeric value falls between the range's minimum and maximum. Cell
+  value and duplicate rules paint a background and/or text color you pick;
+  a color scale always paints the background.
+- **Purely presentational**, exactly like Cell formatting below: it never
+  changes a cell's value, formula results, sort/filter behavior, or
+  CSV/XLSX export — only how the cell displays. When both a conditional
+  rule and manual cell formatting apply to the same cell, the conditional
+  rule's color wins.
+- **Several rules at once**, each covering its own range; applying a rule to
+  a range that already has one replaces it, and when ranges overlap the most
+  recently applied rule that actually matches a given cell wins. Up to 64
+  rules per worksheet.
+- **Session-only, never saved.** Like Sort and Data Validation, a rule is
+  view state — it is **not** written to the RSF container, is **not**
+  undoable, and never marks the document dirty. Row/column insertion or
+  deletion drops every rule on the worksheet outright, exactly like an
+  active sort or validation rule.
+
 ### Cell formatting (RSF)
 
 The **Format** menu applies visual formatting to the selected cell or range:
 **Bold**, **Italic**, **Underline**, **Text Color…**, **Background Color…**,
-**Borders…**, **Number Format…**, and **Clear Formatting**.
+**Borders…**, **Number Format…**, and **Clear Formatting**. (Conditional
+Formatting, also on the Format menu, is covered separately above — unlike
+these, it is session-only and not saved to the file.)
 
 - **RSF only.** Like Filter and Sort, formatting is a spreadsheet feature; it
   is disabled outright on a plain CSV document.

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { conditionalFormatRangesEqual, type CellConditionalFormat } from '../../core/conditional-format';
 import { findValidation, validationRangesEqual, type CellValidation } from '../../core/data-validation';
 import { computeHiddenRows, filtersEqual, type SheetFilter } from '../../core/filter';
 import {
@@ -246,6 +247,55 @@ export class WorksheetsState {
       return null;
     }
     return findValidation(doc.activeSheet.validations, row, col);
+  }
+
+  /**
+   * Apply (add or replace) a conditional-formatting rule for its exact range.
+   * Session-only view state, not an undoable history entry and never saved
+   * to the container — see {@link Worksheet.conditionalFormats}.
+   */
+  setConditionalFormat(tab: Tab, format: CellConditionalFormat): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return false;
+    }
+    const sheet = doc.activeSheet;
+    const next = sheet.conditionalFormats.filter((cf) => !conditionalFormatRangesEqual(cf, format));
+    next.push(format);
+    sheet.conditionalFormats = next;
+    this.state.emit('doc');
+    return true;
+  }
+
+  /** Clear the conditional-formatting rule covering exactly `range`, if one exists. */
+  clearConditionalFormat(
+    tab: Tab,
+    range: Pick<CellConditionalFormat, 'top' | 'left' | 'bottom' | 'right'>,
+  ): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return false;
+    }
+    const sheet = doc.activeSheet;
+    const next = sheet.conditionalFormats.filter((cf) => !conditionalFormatRangesEqual(cf, range));
+    if (next.length === sheet.conditionalFormats.length) {
+      return false;
+    }
+    sheet.conditionalFormats = next;
+    this.state.emit('doc');
+    return true;
+  }
+
+  /** The rule covering exactly `range` on the active worksheet, or null. */
+  conditionalFormatForRange(
+    tab: Tab,
+    range: Pick<CellConditionalFormat, 'top' | 'left' | 'bottom' | 'right'>,
+  ): CellConditionalFormat | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return null;
+    }
+    return doc.activeSheet.conditionalFormats.find((cf) => conditionalFormatRangesEqual(cf, range)) ?? null;
   }
 
   /**

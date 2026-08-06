@@ -195,6 +195,8 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.format.numberFormat', command: 'format.numberFormat' },
         'separator',
+        { labelKey: 'menu.format.conditionalFormatting', command: 'format.conditionalFormatting' },
+        'separator',
         { labelKey: 'menu.format.clear', command: 'format.clear' },
       ],
     },

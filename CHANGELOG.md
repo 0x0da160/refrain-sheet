@@ -25,6 +25,15 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- A new **Format > Conditional Formatting…** dialog colors a range's cells
+  automatically from their computed value: highlight values that satisfy a
+  comparison (greater/less than, between, equal to, or text contains),
+  highlight duplicate values, or shade a range with a two-color scale by
+  relative magnitude. Like data validation, a rule applies to a session-only
+  view — it is never saved to the file, never affects the underlying value,
+  formula results, or CSV/XLSX export, and (like other cell formatting) is
+  RSF-only, with a message explaining the required conversion on a plain CSV
+  tab. ([#234](https://github.com/0x0da160/refrain-sheet/issues/234))
 - On narrow (mobile-width) viewports, the top-level menu bar (File / Edit /
   Search / …) is now reached through a menu icon in the top-right of the
   logo row instead of a horizontally scrolling strip: tapping it expands the

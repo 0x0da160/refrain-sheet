@@ -45,6 +45,7 @@
   "menu.help.formula": "数式・関数ヘルプ",
   "menu.help.shortcuts": "キーボードショートカット",
   "menu.help.about": "このアプリについて",
+  "menu.toggle": "メニュー",
   "tab.close": "タブを閉じる",
   "tab.dirty": "未保存の変更",
   "tabs.label": "開いているファイル",

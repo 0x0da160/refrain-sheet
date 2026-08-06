@@ -75,8 +75,7 @@ import { DEFAULT_DISPLAY_LANGUAGE, isValidDisplayLanguage, type DisplayLanguageI
  */
 /** Cached per-rule statistics — see `RsfDocument.conditionalFormatStats`. */
 type ConditionalFormatRuleStats =
-  | { kind: 'duplicate'; keys: Set<string> }
-  | { kind: 'colorScale'; min: number; max: number };
+  { kind: 'duplicate'; keys: Set<string> } | { kind: 'colorScale'; min: number; max: number };
 
 export const RSF_EXTENSION = '.rsf';
 /** Legacy extension read as an import; migrated documents are saved as `.rsf`. */
@@ -1070,7 +1069,10 @@ export class RsfDocument {
   }
 
   /** The [min, max] of the numbers within a `colorScale` rule's range, cached per {@link conditionalFormatStats}. */
-  private colorScaleRangeFor(sheet: Worksheet, cf: CellConditionalFormat): { min: number; max: number } | null {
+  private colorScaleRangeFor(
+    sheet: Worksheet,
+    cf: CellConditionalFormat,
+  ): { min: number; max: number } | null {
     const cached = this.conditionalFormatStats.get(cf);
     if (cached && cached.revision === this.revision && cached.stats.kind === 'colorScale') {
       return cached.stats;

@@ -194,8 +194,7 @@ export interface ConditionalFormatDialogInput {
 
 /** What the conditional-formatting dialog resolved to (null = cancelled, nothing changes). */
 export type ConditionalFormatDialogResult =
-  | { action: 'apply'; rule: ConditionalFormatRule }
-  | { action: 'clear' };
+  { action: 'apply'; rule: ConditionalFormatRule } | { action: 'clear' };
 
 /** What the Text/Background Color dialog resolved to (null = cancelled, nothing changes). */
 export type ColorDialogResult = { action: 'apply'; color: string } | { action: 'clear' };

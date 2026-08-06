@@ -25,6 +25,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- A new **Data > Cell Comment…** dialog (also on the right-click menu) lets
+  you attach a short free-text note to the active cell, independent of its
+  value — the noted cell shows a small corner marker, and hovering it shows
+  the note. Comments never affect a cell's value, formula results, sort,
+  filter, or CSV export. Like Sort and Data Validation, a comment is
+  RSF-only, session-only view state: not saved to the `.rsf` container and
+  not undoable. ([#235](https://github.com/0x0da160/refrain-sheet/issues/235))
 - A new **Data > Compare / Diff…** dialog compares the active tab against
   another already-open tab by one or more key columns you pick, and
   classifies every row as added, modified, deleted, unchanged, or a key

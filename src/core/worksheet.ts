@@ -123,6 +123,16 @@ export class Worksheet {
    */
   private styles: Map<number, Map<number, CellStyle>> = new Map();
 
+  /**
+   * Sparse cell-level annotations (see {@link ../cell-comment}), keyed
+   * row-major like `styles`. Session-only view state — like `validations`,
+   * it is **not** persisted in the RSF container and never reaches the
+   * codec — but reindexed on row/column insert/delete the same way `styles`
+   * is, rather than dropped outright, so a comment keeps following the cell
+   * it was attached to for the rest of the session.
+   */
+  private comments: Map<number, Map<number, string>> = new Map();
+
   private readonly formulaCache = new Map<string, CompiledFormula>();
   /**
    * Per-row count of formula cells, kept in parallel with `data`. Built lazily
@@ -351,6 +361,94 @@ export class Worksheet {
     this.styles = next;
   }
 
+  // ----- Cell comments (session-only; see cell-comment.ts) -----
+
+  /** The comment on one cell, or `null` when it carries none. */
+  getComment(row: number, col: number): string | null {
+    return this.comments.get(row)?.get(col) ?? null;
+  }
+
+  /** Set (or clear, with `null`) one cell's comment. Returns true when it changed. */
+  setComment(row: number, col: number, text: string | null): boolean {
+    if (!this.contains(row, col)) {
+      return false;
+    }
+    const current = this.getComment(row, col);
+    if (current === text) {
+      return false;
+    }
+    if (text === null) {
+      const rowComments = this.comments.get(row);
+      rowComments?.delete(col);
+      if (rowComments && rowComments.size === 0) {
+        this.comments.delete(row);
+      }
+    } else {
+      let rowComments = this.comments.get(row);
+      if (!rowComments) {
+        rowComments = new Map();
+        this.comments.set(row, rowComments);
+      }
+      rowComments.set(col, text);
+    }
+    return true;
+  }
+
+  get commentedCellCount(): number {
+    let n = 0;
+    for (const rowComments of this.comments.values()) {
+      n += rowComments.size;
+    }
+    return n;
+  }
+
+  /** Every commented cell as [row, col, text] triples (sparse). */
+  collectComments(): Array<[number, number, string]> {
+    const out: Array<[number, number, string]> = [];
+    for (const [row, rowComments] of this.comments) {
+      for (const [col, text] of rowComments) {
+        out.push([row, col, text]);
+      }
+    }
+    return out;
+  }
+
+  /** Reindex every commented cell's row after a row insert/delete. */
+  private shiftCommentRows(mapRow: (row: number) => number | null): void {
+    if (this.comments.size === 0) {
+      return;
+    }
+    const next: Map<number, Map<number, string>> = new Map();
+    for (const [row, rowComments] of this.comments) {
+      const mapped = mapRow(row);
+      if (mapped !== null) {
+        next.set(mapped, rowComments);
+      }
+    }
+    this.comments = next;
+  }
+
+  /** Reindex every commented cell's column after a column insert/delete. */
+  private shiftCommentCols(mapCol: (col: number) => number | null): void {
+    if (this.comments.size === 0) {
+      return;
+    }
+    const next: Map<number, Map<number, string>> = new Map();
+    for (const [row, rowComments] of this.comments) {
+      const nextRow: Map<number, string> = new Map();
+      for (const [col, text] of rowComments) {
+        const mapped = mapCol(col);
+        if (mapped !== null) {
+          nextRow.set(mapped, text);
+        }
+      }
+      if (nextRow.size > 0) {
+        next.set(row, nextRow);
+      }
+    }
+    this.comments = next;
+  }
+
   /** True when any cell in the worksheet holds a value (used for delete confirmation). */
   hasAnyContent(): boolean {
     for (const row of this.data) {
@@ -393,6 +491,7 @@ export class Worksheet {
     this.data.splice(at, 0, ...prepared);
     this.formulaPerRow?.splice(at, 0, ...prepared.map((row) => this.countRowFormulas(row)));
     this.shiftStyleRows((row) => (row >= at ? row + prepared.length : row));
+    this.shiftCommentRows((row) => (row >= at ? row + prepared.length : row));
     this.revision += 1;
     // The sort's stored range would otherwise silently drift against the
     // shifted rows; since sort is session-only view state (not undo-tracked),
@@ -410,6 +509,7 @@ export class Worksheet {
       this.formulaPerRow?.push(0);
     }
     this.shiftStyleRows((row) => (row < index ? row : row < index + count ? null : row - count));
+    this.shiftCommentRows((row) => (row < index ? row : row < index + count ? null : row - count));
     this.revision += 1;
     this.sort = null;
     this.validations = [];
@@ -427,6 +527,7 @@ export class Worksheet {
       }
     }
     this.shiftStyleCols((col) => (col >= at ? col + count : col));
+    this.shiftCommentCols((col) => (col >= at ? col + count : col));
     this.cols += count;
     this.revision += 1;
     this.sort = null;
@@ -446,6 +547,7 @@ export class Worksheet {
       }
     }
     this.shiftStyleCols((col) => (col < index ? col : col < index + count ? null : col - count));
+    this.shiftCommentCols((col) => (col < index ? col : col < index + count ? null : col - count));
     this.cols -= count;
     if (this.cols === 0) {
       this.cols = 1;
@@ -525,6 +627,7 @@ export class Worksheet {
     copy.displayColWidths = this.displayColWidths.slice();
     copy.displayWrap = this.displayWrap;
     copy.styles = new Map([...this.styles].map(([row, rowStyles]) => [row, new Map(rowStyles)]));
+    copy.comments = new Map([...this.comments].map(([row, rowComments]) => [row, new Map(rowComments)]));
     return copy;
   }
 
@@ -553,6 +656,10 @@ export class Worksheet {
     const rowStyles = this.styles.get(row);
     if (rowStyles && rowStyles.size > 0) {
       target.styles.set(row, new Map(rowStyles));
+    }
+    const rowComments = this.comments.get(row);
+    if (rowComments && rowComments.size > 0) {
+      target.comments.set(row, new Map(rowComments));
     }
   }
 }

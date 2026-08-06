@@ -31,6 +31,7 @@ import {
 } from './settings';
 import { setSheetFont, type SheetFontId } from './sheet-font';
 import { setTheme, type ThemeChoice } from './theme';
+import { CommentCommands } from './commands/comment';
 import { ValidationCommands } from './commands/data-validation';
 import { FileIoCommands } from './commands/file-io';
 import { FilterCommands } from './commands/filter';
@@ -179,6 +180,17 @@ export interface DataValidationDialogInput {
 /** What the data-validation dialog resolved to (null = cancelled, nothing changes). */
 export type DataValidationDialogResult = { action: 'apply'; rule: ValidationRule } | { action: 'clear' };
 
+/** Everything the cell-comment dialog needs to edit the active cell's comment. */
+export interface CellCommentDialogInput {
+  /** Human-readable A1 label of the target cell, e.g. "B3". */
+  cellLabel: string;
+  /** The comment already on this cell, or null when adding a new one. */
+  existing: string | null;
+}
+
+/** What the cell-comment dialog resolved to (null = cancelled, nothing changes). */
+export type CellCommentDialogResult = { action: 'apply'; text: string } | { action: 'clear' };
+
 /** What the Text/Background Color dialog resolved to (null = cancelled, nothing changes). */
 export type ColorDialogResult = { action: 'apply'; color: string } | { action: 'clear' };
 
@@ -257,6 +269,12 @@ export interface UiPort {
    * changes).
    */
   chooseDataValidation(input: DataValidationDialogInput): Promise<DataValidationDialogResult | null>;
+  /**
+   * The accessible cell-comment dialog for the active cell: a free-text note
+   * independent of the cell's value. Resolves with the chosen action, or
+   * null when cancelled (nothing changes).
+   */
+  chooseCellComment(input: CellCommentDialogInput): Promise<CellCommentDialogResult | null>;
   /**
    * Ask for a worksheet name when adding, renaming, or duplicating. `validate`
    * returns an already-localized error message for an unacceptable name (empty,
@@ -429,6 +447,7 @@ export type CommandId =
   | 'data.runSqlQuery'
   | 'data.compareDiff'
   | 'data.validation'
+  | 'data.comment'
   // Worksheets inside the active RSF workbook (distinct from the application
   // document tabs, whose commands are the `tab.*` ids below).
   | 'worksheet.add'
@@ -503,6 +522,7 @@ export class Commands {
     this.filter = new FilterCommands(state, ui);
     this.sort = new SortCommands(state, ui);
     this.validation = new ValidationCommands(state, ui);
+    this.comment = new CommentCommands(state, ui);
     this.worksheets = new WorksheetCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.pasteFill = new PasteFillCommands(
       state,
@@ -527,6 +547,9 @@ export class Commands {
 
   /** Data-validation dialog flow and apply/clear — see `ValidationCommands`. */
   private readonly validation: ValidationCommands;
+
+  /** Cell-comment dialog flow and apply/clear — see `CommentCommands`. */
+  private readonly comment: CommentCommands;
 
   /** Worksheet lifecycle and row/column structural commands — see `WorksheetCommands`. */
   private readonly worksheets: WorksheetCommands;
@@ -604,6 +627,7 @@ export class Commands {
       case 'sheet.filter':
       case 'sheet.sort':
       case 'data.validation':
+      case 'data.comment':
         return tab?.selection != null;
       // Formatting is RSF-only, like sort/filter above, but (unlike them)
       // there is no dialog to run and explain the required conversion from —
@@ -899,6 +923,9 @@ export class Commands {
         return;
       case 'data.validation':
         if (tab) await this.validationDialog(tab);
+        return;
+      case 'data.comment':
+        if (tab) await this.commentDialog(tab);
         return;
       case 'view.wrap':
         this.state.setWrapCells(!this.state.wrapCells);
@@ -1363,6 +1390,22 @@ export class Commands {
    */
   async validationDialog(tab: Tab): Promise<boolean> {
     return this.validation.validationDialog(tab);
+  }
+
+  // ----- Cell comments (RSF spreadsheet documents only; view-only, unsaved) -----
+
+  /** The comment on one cell of the active worksheet, or null. See `CommentCommands.commentAt`. */
+  commentAt(tab: Tab, row: number, col: number): string | null {
+    return this.comment.commentAt(tab, row, col);
+  }
+
+  /**
+   * Data > Cell Comment…: open the dialog for the active cell and apply the
+   * result. See `CommentCommands.commentDialog` for the full behavior
+   * contract.
+   */
+  async commentDialog(tab: Tab): Promise<boolean> {
+    return this.comment.commentDialog(tab);
   }
 
   /** Clear every cell in the selected range as one undoable operation. See

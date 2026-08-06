@@ -2,6 +2,8 @@
 import type { Tab } from '../app/app-state';
 import type {
   BordersDialogResult,
+  CellCommentDialogInput,
+  CellCommentDialogResult,
   ColorDialogResult,
   ConvertReason,
   DataValidationDialogInput,
@@ -234,6 +236,11 @@ export class Dialogs {
   /** See `SheetOpsDialogs.chooseDataValidation` for the full behavior contract. */
   chooseDataValidation(input: DataValidationDialogInput): Promise<DataValidationDialogResult | null> {
     return this.sheetOps.chooseDataValidation(input);
+  }
+
+  /** See `SheetOpsDialogs.chooseCellComment` for the full behavior contract. */
+  chooseCellComment(input: CellCommentDialogInput): Promise<CellCommentDialogResult | null> {
+    return this.sheetOps.chooseCellComment(input);
   }
 
   /** See `SheetOpsDialogs.chooseInsertShift` for the full behavior contract. */

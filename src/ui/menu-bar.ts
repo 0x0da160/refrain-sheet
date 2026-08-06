@@ -200,6 +200,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.data.compareDiff', command: 'data.compareDiff' },
         'separator',
         { labelKey: 'menu.data.validation', command: 'data.validation' },
+        { labelKey: 'menu.data.comment', command: 'data.comment' },
       ],
     },
     {

@@ -252,6 +252,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseFilter: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
+    chooseConditionalFormat: vi.fn(async () => null),
     promptSheetName: vi.fn(async () => null),
     confirmDeleteSheet: vi.fn(async () => true),
     chooseExportSheet: vi.fn(async () => null),

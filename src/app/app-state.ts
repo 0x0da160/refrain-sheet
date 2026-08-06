@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { normalizeRange, type CellRange } from '../core/clipboard';
+import type { CellConditionalFormat } from '../core/conditional-format';
 import { checkValidationValue, findValidation, type CellValidation } from '../core/data-validation';
 import { filtersEqual, type SheetFilter } from '../core/filter';
 import { cellLabel } from '../core/formula';
@@ -788,6 +789,33 @@ export class AppState {
   /** The rule applying to one cell on the active worksheet, or null. */
   validationAt(tab: Tab, row: number, col: number): CellValidation | null {
     return this.worksheetsState.validationAt(tab, row, col);
+  }
+
+  // ----- Conditional formatting (RSF spreadsheet documents only; view-only, unsaved) -----
+
+  /**
+   * Apply (add or replace) a conditional-formatting rule. Session-only view
+   * state, not an undoable history entry and never saved to the container —
+   * see {@link Worksheet.conditionalFormats}.
+   */
+  setConditionalFormat(tab: Tab, format: CellConditionalFormat): boolean {
+    return this.worksheetsState.setConditionalFormat(tab, format);
+  }
+
+  /** Clear the conditional-formatting rule covering exactly `range`, if one exists. */
+  clearConditionalFormat(
+    tab: Tab,
+    range: Pick<CellConditionalFormat, 'top' | 'left' | 'bottom' | 'right'>,
+  ): boolean {
+    return this.worksheetsState.clearConditionalFormat(tab, range);
+  }
+
+  /** The rule covering exactly `range` on the active worksheet, or null. */
+  conditionalFormatForRange(
+    tab: Tab,
+    range: Pick<CellConditionalFormat, 'top' | 'left' | 'bottom' | 'right'>,
+  ): CellConditionalFormat | null {
+    return this.worksheetsState.conditionalFormatForRange(tab, range);
   }
 
   // ----- Worksheets (RSF workbooks only) -----

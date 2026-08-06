@@ -1829,14 +1829,21 @@ export class Grid {
    * never paints its top/left edges except at the grid's own top/left
    * boundary (row/col 0) — the cell above/to the left already painted that
    * shared edge as its own (merged) bottom/right.
+   *
+   * A matching conditional-formatting rule (Format > Conditional
+   * Formatting…, `conditional-format.ts`) overrides the cell's own
+   * background/text color — the same "computed appearance wins" precedence
+   * every mainstream spreadsheet uses — but never its bold/italic/underline
+   * or borders, which conditional formatting cannot set.
    */
   private paintCellStyle(cell: HTMLElement, doc: RsfDocument, row: number, col: number): void {
     const style = doc.getStyle(row, col);
+    const conditional = doc.getConditionalFormatStyle(row, col);
     cell.classList.toggle('cell-bold', !!style?.bold);
     cell.classList.toggle('cell-italic', !!style?.italic);
     cell.classList.toggle('cell-underline', !!style?.underline);
-    cell.style.color = style?.textColor ?? '';
-    cell.style.backgroundColor = style?.backgroundColor ?? '';
+    cell.style.color = conditional?.textColor ?? style?.textColor ?? '';
+    cell.style.backgroundColor = conditional?.backgroundColor ?? style?.backgroundColor ?? '';
     const below = row + 1 < doc.rowCount ? doc.getStyle(row + 1, col) : null;
     const right = col + 1 < doc.columnCount ? doc.getStyle(row, col + 1) : null;
     const top = row === 0 ? borderSideValue(style, 'borderTop') : null;

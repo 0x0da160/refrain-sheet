@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { cellStylesEqual, type CellStyle } from './cell-style';
+import type { CellConditionalFormat } from './conditional-format';
 import type { CellValidation } from './data-validation';
 import type { SheetFilter } from './filter';
 import { isFormula, parseFormula, type ParseResult } from './formula';
@@ -87,6 +88,17 @@ export class Worksheet {
    * changes underneath it, exactly like a sort's stored range.
    */
   validations: CellValidation[] = [];
+
+  /**
+   * Conditional-formatting rules that color a cell's background/text from its
+   * computed value (a comparison, duplicate highlighting, or a color scale) —
+   * session-only view state, like `validations`: it is **not** persisted in
+   * the RSF container and never reaches the codec. Applying, editing, or
+   * clearing a rule never touches cell data, and dropped (not shifted)
+   * whenever the worksheet's row/column structure changes underneath it,
+   * exactly like a validation rule's stored range.
+   */
+  conditionalFormats: CellConditionalFormat[] = [];
 
   /**
    * Persisted display settings for this worksheet (zoom percent, overridden
@@ -399,6 +411,7 @@ export class Worksheet {
     // it is simply dropped rather than bundled into the structural entry.
     this.sort = null;
     this.validations = [];
+    this.conditionalFormats = [];
   }
 
   /** Remove rows and return their data (for undo; their cell styles are not preserved). */
@@ -413,6 +426,7 @@ export class Worksheet {
     this.revision += 1;
     this.sort = null;
     this.validations = [];
+    this.conditionalFormats = [];
     return removed;
   }
 
@@ -431,6 +445,7 @@ export class Worksheet {
     this.revision += 1;
     this.sort = null;
     this.validations = [];
+    this.conditionalFormats = [];
   }
 
   /** Remove columns and return their data as column-major arrays (for undo; their cell styles are not preserved). */
@@ -456,6 +471,7 @@ export class Worksheet {
     this.revision += 1;
     this.sort = null;
     this.validations = [];
+    this.conditionalFormats = [];
     return removed;
   }
 

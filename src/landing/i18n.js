@@ -44,8 +44,8 @@ export const I18N = {
     'stat2.v': '実行時のネットワーク通信。CDNもテレメトリもありません',
     'stat3.k': '55 functions',
     'stat3.v': 'RSFスプレッドシートで使える関数（XLOOKUP・FILTER ほか）',
-    'stat4.k': '1 dependency',
-    'stat4.v': '本番依存パッケージは1つだけ（推移的依存ゼロ）',
+    'stat4.k': '2 dependencies',
+    'stat4.v': '本番依存パッケージは2つだけ（推移的依存ゼロ）',
 
     'why.eyebrow': 'THE PROBLEM',
     'why.h2': '「開いて保存しただけ」で壊れるCSV。',
@@ -104,6 +104,12 @@ export const I18N = {
     'f4.li5':
       '太字・斜体・下線・文字色・背景色・罫線。セルの値や数式には影響せず、Undoでき、.rsf に保存されます',
     'f4.li6': 'オートフィット、選択範囲の統計、CSV / XLSX エクスポート',
+    'f4.li7': 'データ入力規則：選択範囲を値のリストまたは数値範囲に制限し、違反する入力を理由付きで拒否',
+    'f4.li8': '条件付き書式：比較・重複・2色スケールでセルの背景色を値に応じて自動着色',
+    'f4.li9': '数値の書式設定：数値・パーセント・通貨の表示形式を、小数桁数や桁区切りとともに指定',
+    'f4.li10': 'SQLクエリの実行：ワークシートに対してローカルで動く読み取り専用のSELECTクエリを実行',
+    'f4.li11': '比較／差分：開いている2つのタブをキー列で比較し、追加・変更・削除・キー不整合を行ごとに判定',
+    'f4.li12': 'セルコメント：セルの値とは独立した短いメモを添付。ホバーで内容を表示',
 
     'theme.eyebrow': 'DETAILS',
     'theme.h2': '英語UIとダークテーマも、標準装備。',
@@ -160,7 +166,7 @@ export const I18N = {
       'セル内容はHTMLとして解釈されず、innerHTML・eval・new Function・マクロは一切使用しません。数式は専用エンジンで評価されます。',
     'sec.c3h': 'サプライチェーン対策',
     'sec.c3p':
-      '本番依存は1パッケージのみ、lockfile固定、install スクリプト無効化。リリースにはSHA-256・SBOM・ビルド来歴の署名が付きます。',
+      '本番依存は2パッケージのみ（推移的依存ゼロ）、lockfile固定、install スクリプト無効化。リリースにはSHA-256・SBOM・ビルド来歴の署名が付きます。',
 
     'start.eyebrow': 'GET STARTED',
     'start.h2': '3ステップで使いはじめる。',
@@ -256,7 +262,7 @@ export const I18N = {
     'stat2.v': 'at runtime. No CDN, no analytics, no telemetry',
     'stat3.k': '55 functions',
     'stat3.v': 'in RSF spreadsheets, including XLOOKUP, SUMIFS and FILTER',
-    'stat4.k': '1 dependency',
+    'stat4.k': '2 dependencies',
     'stat4.v': 'in production, with zero transitive dependencies',
 
     'why.eyebrow': 'THE PROBLEM',
@@ -319,6 +325,17 @@ export const I18N = {
     'f4.li5':
       "Bold, italic, underline, text/background color and borders. Never touches a cell's value or formula results, is undoable, and is saved in the .rsf file",
     'f4.li6': 'Auto-fit, selection statistics, CSV and XLSX export',
+    'f4.li7':
+      'Data Validation: restrict a range to a list or a numeric range, refusing violating edits with a reason',
+    'f4.li8':
+      'Conditional Formatting: auto-colors cells by comparison, duplicate values, or a two-color scale',
+    'f4.li9':
+      'Number Format: Number, Percent, or Currency display, with decimal places and a thousands separator',
+    'f4.li10':
+      'SQL Query: a local, read-only SELECT query against the worksheet, with autocomplete and saved queries',
+    'f4.li11':
+      'Compare / Diff: compares two open tabs by key column, classifying every row as added, modified, deleted or unchanged',
+    'f4.li12': 'Cell Comment: attaches a short note to a cell, independent of its value',
 
     'theme.eyebrow': 'DETAILS',
     'theme.h2': 'English UI and dark theme, built in.',
@@ -376,7 +393,7 @@ export const I18N = {
       'Cell content is never interpreted as HTML; there is no innerHTML, eval, new Function or macro anywhere. Formulas run in a sandboxed engine.',
     'sec.c3h': 'Supply chain discipline',
     'sec.c3p':
-      'One production dependency, enforced lockfiles, install scripts disabled, and releases shipped with SHA-256 checksums, an SBOM and signed build provenance.',
+      'Two production dependencies with zero transitive dependencies, enforced lockfiles, install scripts disabled, and releases shipped with SHA-256 checksums, an SBOM and signed build provenance.',
 
     'start.eyebrow': 'GET STARTED',
     'start.h2': 'Three steps.',

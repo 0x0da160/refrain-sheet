@@ -35,6 +35,7 @@ const noopUi: UiPort = {
   confirmReplaceAllWorkbook: async () => true,
   confirmRangeMoveOverwrite: async () => true,
   promptMoveTarget: async () => null,
+  promptGoToCell: async () => null,
   confirm: async () => true,
   showMessage: async () => undefined,
   notify: () => undefined,

@@ -3,6 +3,8 @@ import type { Tab } from '../app/app-state';
 import type {
   BordersDialogResult,
   ColorDialogResult,
+  ConditionalFormatDialogInput,
+  ConditionalFormatDialogResult,
   ConvertReason,
   DataValidationDialogInput,
   DataValidationDialogResult,
@@ -296,6 +298,11 @@ export class Dialogs {
   /** See `FormatDialogs.chooseNumberFormat` for the full behavior contract. */
   chooseNumberFormat(current: NumberFormat | null): Promise<NumberFormatDialogResult | null> {
     return this.format.chooseNumberFormat(current);
+  }
+
+  /** See `FormatDialogs.chooseConditionalFormat` for the full behavior contract. */
+  chooseConditionalFormat(input: ConditionalFormatDialogInput): Promise<ConditionalFormatDialogResult | null> {
+    return this.format.chooseConditionalFormat(input);
   }
 
   /**

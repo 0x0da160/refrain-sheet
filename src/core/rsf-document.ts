@@ -24,6 +24,15 @@ import {
 import type { ValueGrid } from './formula-value';
 import { formatCellNumber } from './cell-number-format';
 import type { CellStyle } from './cell-style';
+import {
+  colorScaleColor,
+  colorScaleRange,
+  duplicateKey,
+  findDuplicateKeys,
+  matchesCellValueRule,
+  type CellConditionalFormat,
+  type ConditionalFormatStyle,
+} from './conditional-format';
 import type { CellValidation } from './data-validation';
 import type { SheetFilter } from './filter';
 import type { SheetSort } from './sort';
@@ -64,6 +73,11 @@ import { DEFAULT_DISPLAY_LANGUAGE, isValidDisplayLanguage, type DisplayLanguageI
  * Existing single-sheet `.rsf` files — and legacy `.rcsv` files — load as
  * one-worksheet workbooks.
  */
+/** Cached per-rule statistics — see `RsfDocument.conditionalFormatStats`. */
+type ConditionalFormatRuleStats =
+  | { kind: 'duplicate'; keys: Set<string> }
+  | { kind: 'colorScale'; min: number; max: number };
+
 export const RSF_EXTENSION = '.rsf';
 /** Legacy extension read as an import; migrated documents are saved as `.rsf`. */
 export const RSF_LEGACY_EXTENSION = '.rcsv';
@@ -200,6 +214,20 @@ export class RsfDocument {
    * makes the build terminate.
    */
   private buildingSpill = false;
+
+  /**
+   * Per-rule cached statistics for `colorScale`/`duplicate` conditional-format
+   * rules (the range's numeric min/max, or its set of duplicate keys), keyed
+   * by the rule object itself and the workbook `revision` at computation
+   * time. Recomputed lazily on first use after any value-changing mutation —
+   * a style-only or filter-only change bumps `revision` too, so it costs one
+   * harmless extra recompute rather than risking a stale stat. Never
+   * persisted, like the rules themselves.
+   */
+  private conditionalFormatStats = new WeakMap<
+    CellConditionalFormat,
+    { revision: number; stats: ConditionalFormatRuleStats }
+  >();
 
   /**
    * The clock every volatile function (`TODAY`, `NOW`) in this workbook reads,
@@ -968,6 +996,101 @@ export class RsfDocument {
       // have changed, so recalculation would be pure waste.
       this.revision += 1;
     }
+  }
+
+  // ----- Conditional formatting (session-only view state; never persisted) -----
+
+  /** The active worksheet's conditional-formatting rules, in application order. */
+  get conditionalFormats(): readonly CellConditionalFormat[] {
+    return this.activeSheet.conditionalFormats;
+  }
+
+  /**
+   * The background/text color a conditional-formatting rule paints on one
+   * cell of the active worksheet, from its *computed* value (a formula
+   * cell's result, not its source text), or null when no rule applies.
+   * Rules are checked from most- to least-recently applied, skipping any
+   * rule that covers the cell but whose condition does not actually match
+   * it — the first (most recent) actual match wins, mirroring
+   * `findValidation`'s "last rule wins" precedence.
+   */
+  getConditionalFormatStyle(row: number, col: number): ConditionalFormatStyle | null {
+    const sheet = this.activeSheet;
+    const rules = sheet.conditionalFormats;
+    for (let i = rules.length - 1; i >= 0; i--) {
+      const cf = rules[i];
+      if (row < cf.top || row > cf.bottom || col < cf.left || col > cf.right) {
+        continue;
+      }
+      const style = this.evaluateConditionalFormat(sheet, cf, row, col);
+      if (style) {
+        return style;
+      }
+    }
+    return null;
+  }
+
+  private evaluateConditionalFormat(
+    sheet: Worksheet,
+    cf: CellConditionalFormat,
+    row: number,
+    col: number,
+  ): ConditionalFormatStyle | null {
+    const value = this.evaluateInSheet(sheet, row, col);
+    const rule = cf.rule;
+    if (rule.kind === 'cellValue') {
+      return matchesCellValueRule(rule, value) ? rule.style : null;
+    }
+    if (rule.kind === 'duplicate') {
+      const key = duplicateKey(value);
+      return key !== null && this.duplicateKeysFor(sheet, cf).has(key) ? rule.style : null;
+    }
+    if (value.type !== 'number') {
+      return null;
+    }
+    const range = this.colorScaleRangeFor(sheet, cf);
+    return range ? { backgroundColor: colorScaleColor(rule, value.value, range) } : null;
+  }
+
+  /** The set of duplicate keys within a `duplicate` rule's range, cached per {@link conditionalFormatStats}. */
+  private duplicateKeysFor(sheet: Worksheet, cf: CellConditionalFormat): Set<string> {
+    const cached = this.conditionalFormatStats.get(cf);
+    if (cached && cached.revision === this.revision && cached.stats.kind === 'duplicate') {
+      return cached.stats.keys;
+    }
+    const keys: Array<string | null> = [];
+    for (let r = cf.top; r <= cf.bottom; r++) {
+      for (let c = cf.left; c <= cf.right; c++) {
+        keys.push(duplicateKey(this.evaluateInSheet(sheet, r, c)));
+      }
+    }
+    const stats: ConditionalFormatRuleStats = { kind: 'duplicate', keys: findDuplicateKeys(keys) };
+    this.conditionalFormatStats.set(cf, { revision: this.revision, stats });
+    return stats.keys;
+  }
+
+  /** The [min, max] of the numbers within a `colorScale` rule's range, cached per {@link conditionalFormatStats}. */
+  private colorScaleRangeFor(sheet: Worksheet, cf: CellConditionalFormat): { min: number; max: number } | null {
+    const cached = this.conditionalFormatStats.get(cf);
+    if (cached && cached.revision === this.revision && cached.stats.kind === 'colorScale') {
+      return cached.stats;
+    }
+    const values: number[] = [];
+    for (let r = cf.top; r <= cf.bottom; r++) {
+      for (let c = cf.left; c <= cf.right; c++) {
+        const value = this.evaluateInSheet(sheet, r, c);
+        if (value.type === 'number') {
+          values.push(value.value);
+        }
+      }
+    }
+    const range = colorScaleRange(values);
+    if (!range) {
+      return null;
+    }
+    const stats: ConditionalFormatRuleStats = { kind: 'colorScale', ...range };
+    this.conditionalFormatStats.set(cf, { revision: this.revision, stats });
+    return range;
   }
 
   // ----- Sort state (session-only view state; never persisted) -----

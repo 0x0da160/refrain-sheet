@@ -984,6 +984,13 @@ export class RsfDocument {
     return this.activeSheet.validations;
   }
 
+  // ----- Cell comments (session-only view state; never persisted) -----
+
+  /** The active worksheet's comment for one cell, or `null` when it carries none. */
+  getComment(row: number, col: number): string | null {
+    return this.activeSheet.getComment(row, col);
+  }
+
   // ----- Mutators (called through the atomic operation layer) -----
 
   private resolveSheet(sheetId: string | undefined): Worksheet {

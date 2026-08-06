@@ -787,6 +787,22 @@ button {
   justify-content: flex-end;
 }
 
+/* A small corner marker on cells carrying a comment (#235): a CSS triangle
+   drawn with borders, so it needs no image asset and never affects layout —
+   `.vcell` is already `position: relative` (see above). */
+.vcell.cell-comment::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 6px 6px 0 0;
+  border-color: var(--warning) transparent transparent transparent;
+  pointer-events: none;
+}
+
 .vspacer {
   flex: none;
   border: none;

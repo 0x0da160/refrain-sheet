@@ -151,6 +151,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
 - The landing page's stylesheet is now minified during the build (comments
   and whitespace stripped), shrinking it by about 22% for a slightly faster
   first paint. ([#219](https://github.com/0x0da160/refrain-sheet/issues/219))
+- The landing page's hero screenshot and the CSV-validation-dialog feature
+  screenshot now have an additional, smaller `srcset` variant (400w), so
+  narrow (mobile) viewports are no longer served the 800w/750w image when
+  the picture is displayed well under that width — roughly 39 KiB less
+  transfer on a mobile viewport of the Japanese page.
+  ([#269](https://github.com/0x0da160/refrain-sheet/issues/269))
 
 ### Fixed
 

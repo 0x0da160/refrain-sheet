@@ -8,7 +8,7 @@ import { type ConditionalFormatRule } from '../core/conditional-format';
 import { type CellValidation, type ValidationRule } from '../core/data-validation';
 import { type DiffOptions, type DiffResult } from '../core/diff-engine';
 import { type ColumnFilter } from '../core/filter';
-import { isFormula } from '../core/formula';
+import { cellLabel, columnLabel, isFormula, parseRef } from '../core/formula';
 import { RsfDocument } from '../core/rsf-document';
 import { type SortKey } from '../core/sort';
 import type { CompiledQuery, SearchScope } from '../core/search';
@@ -32,6 +32,7 @@ import {
 } from './settings';
 import { setSheetFont, type SheetFontId } from './sheet-font';
 import { setTheme, type ThemeChoice } from './theme';
+import { CommentCommands } from './commands/comment';
 import { ConditionalFormatCommands } from './commands/conditional-format';
 import { ValidationCommands } from './commands/data-validation';
 import { FileIoCommands } from './commands/file-io';
@@ -196,6 +197,17 @@ export interface ConditionalFormatDialogInput {
 export type ConditionalFormatDialogResult =
   { action: 'apply'; rule: ConditionalFormatRule } | { action: 'clear' };
 
+/** Everything the cell-comment dialog needs to edit the active cell's comment. */
+export interface CellCommentDialogInput {
+  /** Human-readable A1 label of the target cell, e.g. "B3". */
+  cellLabel: string;
+  /** The comment already on this cell, or null when adding a new one. */
+  existing: string | null;
+}
+
+/** What the cell-comment dialog resolved to (null = cancelled, nothing changes). */
+export type CellCommentDialogResult = { action: 'apply'; text: string } | { action: 'clear' };
+
 /** What the Text/Background Color dialog resolved to (null = cancelled, nothing changes). */
 export type ColorDialogResult = { action: 'apply'; color: string } | { action: 'clear' };
 
@@ -282,6 +294,12 @@ export interface UiPort {
    */
   chooseConditionalFormat(input: ConditionalFormatDialogInput): Promise<ConditionalFormatDialogResult | null>;
   /**
+   * The accessible cell-comment dialog for the active cell: a free-text note
+   * independent of the cell's value. Resolves with the chosen action, or
+   * null when cancelled (nothing changes).
+   */
+  chooseCellComment(input: CellCommentDialogInput): Promise<CellCommentDialogResult | null>;
+  /**
    * Ask for a worksheet name when adding, renaming, or duplicating. `validate`
    * returns an already-localized error message for an unacceptable name (empty,
    * too long, duplicate, or containing a character the formula/file syntax
@@ -348,6 +366,14 @@ export interface UiPort {
     suggestion: string,
     validate: (text: string) => string | null,
   ): Promise<string | null>;
+  /**
+   * "Go to Cell…": ask for a cell reference (e.g. "B12") to jump the
+   * selection to. `suggestion` seeds the field with the current cell;
+   * `validate` returns a localized error for an unusable entry, or null
+   * when it is acceptable. Resolves with the entered text, or null when
+   * cancelled.
+   */
+  promptGoToCell(suggestion: string, validate: (text: string) => string | null): Promise<string | null>;
   /** Edit local settings; returns the chosen maximum file size in bytes, or null when cancelled. */
   chooseSettings(currentMaxFileSize: number): Promise<number | null>;
   /**
@@ -425,6 +451,7 @@ export type CommandId =
   | 'search.replace'
   | 'search.findNext'
   | 'search.findPrev'
+  | 'search.goToCell'
   | 'sheet.convert'
   | 'sheet.insertRowAbove'
   | 'sheet.insertRowBelow'
@@ -454,6 +481,7 @@ export type CommandId =
   | 'data.runSqlQuery'
   | 'data.compareDiff'
   | 'data.validation'
+  | 'data.comment'
   // Worksheets inside the active RSF workbook (distinct from the application
   // document tabs, whose commands are the `tab.*` ids below).
   | 'worksheet.add'
@@ -517,6 +545,8 @@ export class Commands {
   gridActions: {
     /** Auto-fit every column intersecting the current selection. */
     autoFitSelectedColumns: () => Promise<void>;
+    /** Select a cell and scroll it into view ("Go to Cell…"). */
+    goToCell: (row: number, col: number) => void;
   } | null = null;
 
   constructor(
@@ -529,6 +559,7 @@ export class Commands {
     this.sort = new SortCommands(state, ui);
     this.validation = new ValidationCommands(state, ui);
     this.conditionalFormat = new ConditionalFormatCommands(state, ui);
+    this.comment = new CommentCommands(state, ui);
     this.worksheets = new WorksheetCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.pasteFill = new PasteFillCommands(
       state,
@@ -556,6 +587,9 @@ export class Commands {
 
   /** Conditional-formatting dialog flow and apply/clear — see `ConditionalFormatCommands`. */
   private readonly conditionalFormat: ConditionalFormatCommands;
+
+  /** Cell-comment dialog flow and apply/clear — see `CommentCommands`. */
+  private readonly comment: CommentCommands;
 
   /** Worksheet lifecycle and row/column structural commands — see `WorksheetCommands`. */
   private readonly worksheets: WorksheetCommands;
@@ -585,6 +619,7 @@ export class Commands {
       case 'search.replace':
       case 'search.findNext':
       case 'search.findPrev':
+      case 'search.goToCell':
       case 'data.runSqlQuery':
         return tab !== null;
       case 'data.compareDiff':
@@ -634,6 +669,7 @@ export class Commands {
       case 'sheet.sort':
       case 'data.validation':
       case 'format.conditionalFormatting':
+      case 'data.comment':
         return tab?.selection != null;
       // Formatting is RSF-only, like sort/filter above, but (unlike them)
       // there is no dialog to run and explain the required conversion from —
@@ -825,6 +861,9 @@ export class Commands {
       case 'search.findPrev':
         this.ui.findNext(-1);
         return;
+      case 'search.goToCell':
+        if (tab) await this.promptAndGoToCell(tab);
+        return;
       case 'sheet.convert':
         if (tab) await this.convertCommand(tab);
         return;
@@ -932,6 +971,9 @@ export class Commands {
         return;
       case 'data.validation':
         if (tab) await this.validationDialog(tab);
+        return;
+      case 'data.comment':
+        if (tab) await this.commentDialog(tab);
         return;
       case 'view.wrap':
         this.state.setWrapCells(!this.state.wrapCells);
@@ -1409,6 +1451,22 @@ export class Commands {
     return this.conditionalFormat.conditionalFormatDialog(tab);
   }
 
+  // ----- Cell comments (RSF spreadsheet documents only; view-only, unsaved) -----
+
+  /** The comment on one cell of the active worksheet, or null. See `CommentCommands.commentAt`. */
+  commentAt(tab: Tab, row: number, col: number): string | null {
+    return this.comment.commentAt(tab, row, col);
+  }
+
+  /**
+   * Data > Cell Comment…: open the dialog for the active cell and apply the
+   * result. See `CommentCommands.commentDialog` for the full behavior
+   * contract.
+   */
+  async commentDialog(tab: Tab): Promise<boolean> {
+    return this.comment.commentDialog(tab);
+  }
+
   /** Clear every cell in the selected range as one undoable operation. See
    *  `RangeOpsCommands.clearRange` for the full behavior contract. */
   clearRange(tab: Tab): boolean {
@@ -1423,6 +1481,41 @@ export class Commands {
    */
   async promptAndMoveRange(tab: Tab): Promise<boolean> {
     return this.rangeOps.promptAndMoveRange(tab);
+  }
+
+  /**
+   * "Go to Cell…": jump the selection straight to any cell reference (e.g.
+   * "B12"), the keyboard/menu equivalent of Excel's Name Box or Ctrl+G.
+   * Unlike Move Selected Cells, this only moves the selection — it works on
+   * CSV tabs too, and nothing is written to the document, so it needs no
+   * history entry.
+   */
+  private async promptAndGoToCell(tab: Tab): Promise<void> {
+    const doc = tab.doc;
+    const validate = (text: string): string | null => {
+      const at = parseRef(text.trim());
+      if (!at) {
+        return t('goToCell.error.invalid');
+      }
+      if (at.row >= doc.rowCount || at.col >= doc.columnCount) {
+        return t('goToCell.error.outOfBounds', {
+          rows: doc.rowCount,
+          cols: columnLabel(doc.columnCount - 1),
+        });
+      }
+      return null;
+    };
+    const current = this.state.selectedRange(tab);
+    const suggestion = current ? cellLabel(current.top, current.left) : 'A1';
+    const answer = await this.ui.promptGoToCell(suggestion, validate);
+    if (answer === null) {
+      return;
+    }
+    const at = parseRef(answer.trim());
+    if (!at || validate(answer) !== null || tab.doc !== doc) {
+      return;
+    }
+    this.gridActions?.goToCell(at.row, at.col);
   }
 
   /**

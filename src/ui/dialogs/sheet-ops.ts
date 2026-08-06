@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type {
+  CellCommentDialogInput,
+  CellCommentDialogResult,
   DataValidationDialogInput,
   DataValidationDialogResult,
   FilterDialogInput,
@@ -10,6 +12,7 @@ import type {
   WorkbookReplaceConfirmInput,
 } from '../../app/commands';
 import { t } from '../../app/i18n';
+import { MAX_COMMENT_LENGTH } from '../../core/cell-comment';
 import { MAX_VALIDATION_LIST_VALUES, type ValidationRule } from '../../core/data-validation';
 import {
   FILTER_NUMBER_OPS,
@@ -590,6 +593,52 @@ export class SheetOpsDialogs {
     );
   }
 
+  /**
+   * The accessible cell-comment dialog for the active cell: a single free-text
+   * note, capped at {@link MAX_COMMENT_LENGTH}. Mirrors `chooseDataValidation`'s
+   * Apply/Clear/Cancel layout: a Clear button appears only when the cell
+   * already carries a comment. Resolves with the chosen action, or null when
+   * cancelled (nothing changes).
+   */
+  chooseCellComment(input: CellCommentDialogInput): Promise<CellCommentDialogResult | null> {
+    return openDialog<CellCommentDialogResult | null>(
+      t('dialog.cellComment.title'),
+      null,
+      (body, buttons, close) => {
+        body.append(el('p', { text: t('dialog.cellComment.cell', { cell: input.cellLabel }) }));
+
+        const textArea = el('textarea', {
+          className: 'cell-comment-text',
+          attrs: {
+            rows: '6',
+            maxlength: String(MAX_COMMENT_LENGTH),
+            'aria-label': t('dialog.cellComment.label'),
+            'data-autofocus': 'true',
+          },
+        }) as HTMLTextAreaElement;
+        textArea.value = input.existing ?? '';
+        body.append(
+          el('div', { className: 'form-row' }, [
+            el('label', { text: t('dialog.cellComment.label') }),
+            textArea,
+          ]),
+        );
+
+        buttons.append(dialogButton(t('dialog.cellComment.cancel'), false, true, () => close(null)));
+        if (input.existing !== null) {
+          buttons.append(
+            dialogButton(t('dialog.cellComment.clear'), false, false, () => close({ action: 'clear' })),
+          );
+        }
+        buttons.append(
+          dialogButton(t('dialog.cellComment.apply'), true, false, () =>
+            close({ action: 'apply', text: textArea.value }),
+          ),
+        );
+      },
+    );
+  }
+
   /** Choose the shift direction for Insert Copied Cells… (null cancels). */
   chooseInsertShift(rows: number, cols: number): Promise<'right' | 'down' | null> {
     return openDialog<'right' | 'down' | null>(
@@ -790,6 +839,61 @@ export class SheetOpsDialogs {
       );
       buttons.append(
         dialogButton(t('dialog.moveRange.cancel'), false, true, () => close(null)),
+        ok,
+      );
+      refresh();
+    });
+  }
+
+  /**
+   * "Go to Cell…": ask for a cell reference to jump the selection to.
+   * Validation runs on every keystroke and is shown in a live region; OK
+   * stays disabled while the entry is unusable. Enter confirms and Escape
+   * cancels, and neither fires while an IME composition is in progress.
+   */
+  promptGoToCell(suggestion: string, validate: (text: string) => string | null): Promise<string | null> {
+    return openDialog<string | null>(t('dialog.goToCell.title'), null, (body, buttons, close) => {
+      const inputId = 'go-to-cell-input';
+      const input = el('input', {
+        className: 'move-target-input',
+        attrs: { type: 'text', id: inputId, 'data-autofocus': 'true', autocomplete: 'off' },
+      }) as HTMLInputElement;
+      input.value = suggestion;
+      const error = el('p', {
+        className: 'dialog-error',
+        attrs: { role: 'status', 'aria-live': 'polite' },
+      });
+      const ok = dialogButton(t('dialog.goToCell.ok'), true, false, () => close(input.value.trim()));
+      const refresh = (): void => {
+        const message = validate(input.value);
+        error.textContent = message ?? '';
+        ok.disabled = message !== null;
+        input.setAttribute('aria-invalid', message === null ? 'false' : 'true');
+      };
+      let composing = false;
+      input.addEventListener('compositionstart', () => (composing = true));
+      input.addEventListener('compositionend', () => {
+        composing = false;
+        refresh();
+      });
+      input.addEventListener('input', () => {
+        if (!composing) refresh();
+      });
+      input.addEventListener('keydown', (event) => {
+        // Never act on Enter that is only ending an IME composition.
+        if (event.key === 'Enter' && !composing && !event.isComposing && !ok.disabled) {
+          event.preventDefault();
+          close(input.value.trim());
+        }
+      });
+      body.append(
+        el('label', { attrs: { for: inputId }, text: t('dialog.goToCell.label') }),
+        input,
+        error,
+        el('p', { className: 'dialog-note', text: t('dialog.goToCell.hint') }),
+      );
+      buttons.append(
+        dialogButton(t('dialog.goToCell.cancel'), false, true, () => close(null)),
         ok,
       );
       refresh();

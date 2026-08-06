@@ -818,6 +818,27 @@ export class AppState {
     return this.worksheetsState.conditionalFormatForRange(tab, range);
   }
 
+  // ----- Cell comments (RSF spreadsheet documents only; view-only, unsaved) -----
+
+  /**
+   * Set (add or replace) one cell's comment. Session-only view state, not an
+   * undoable history entry and never saved to the container — see
+   * `src/core/cell-comment.ts`.
+   */
+  setComment(tab: Tab, row: number, col: number, text: string): boolean {
+    return this.worksheetsState.setComment(tab, row, col, text);
+  }
+
+  /** Clear one cell's comment, if it has one. */
+  clearComment(tab: Tab, row: number, col: number): boolean {
+    return this.worksheetsState.clearComment(tab, row, col);
+  }
+
+  /** The comment on one cell of the active worksheet, or null. */
+  commentAt(tab: Tab, row: number, col: number): string | null {
+    return this.worksheetsState.commentAt(tab, row, col);
+  }
+
   // ----- Worksheets (RSF workbooks only) -----
   //
   // These are thin delegating wrappers over `WorksheetsState` — see

@@ -253,12 +253,14 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
+    chooseCellComment: vi.fn(async () => null),
     promptSheetName: vi.fn(async () => null),
     confirmDeleteSheet: vi.fn(async () => true),
     chooseExportSheet: vi.fn(async () => null),
     confirmReplaceAllWorkbook: vi.fn(async () => true),
     confirmRangeMoveOverwrite: vi.fn(async () => true),
     promptMoveTarget: vi.fn(async () => null),
+    promptGoToCell: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
     showMessage: vi.fn(async () => undefined),
     notify: vi.fn(),
@@ -285,7 +287,10 @@ function gridSetup(csv: string) {
   const state = new AppState();
   const commands = new Commands(state, stubUi(), document);
   const grid = new Grid(state, commands);
-  commands.gridActions = { autoFitSelectedColumns: () => grid.autoFitSelectedColumns() };
+  commands.gridActions = {
+    autoFitSelectedColumns: () => grid.autoFitSelectedColumns(),
+    goToCell: (row, col) => grid.reveal(row, col),
+  };
   Object.defineProperty(grid.element, 'clientHeight', { value: 520, configurable: true });
   Object.defineProperty(grid.element, 'clientWidth', { value: 900, configurable: true });
   document.body.append(grid.element);

@@ -2,6 +2,8 @@
 import type { Tab } from '../app/app-state';
 import type {
   BordersDialogResult,
+  CellCommentDialogInput,
+  CellCommentDialogResult,
   ColorDialogResult,
   ConditionalFormatDialogInput,
   ConditionalFormatDialogResult,
@@ -238,6 +240,11 @@ export class Dialogs {
     return this.sheetOps.chooseDataValidation(input);
   }
 
+  /** See `SheetOpsDialogs.chooseCellComment` for the full behavior contract. */
+  chooseCellComment(input: CellCommentDialogInput): Promise<CellCommentDialogResult | null> {
+    return this.sheetOps.chooseCellComment(input);
+  }
+
   /** See `SheetOpsDialogs.chooseInsertShift` for the full behavior contract. */
   chooseInsertShift(rows: number, cols: number): Promise<'right' | 'down' | null> {
     return this.sheetOps.chooseInsertShift(rows, cols);
@@ -269,6 +276,11 @@ export class Dialogs {
     validate: (text: string) => string | null,
   ): Promise<string | null> {
     return this.sheetOps.promptMoveTarget(source, suggestion, validate);
+  }
+
+  /** See `SheetOpsDialogs.promptGoToCell` for the full behavior contract. */
+  promptGoToCell(suggestion: string, validate: (text: string) => string | null): Promise<string | null> {
+    return this.sheetOps.promptGoToCell(suggestion, validate);
   }
 
   /** See `SheetOpsDialogs.confirmReplaceAllWorkbook` for the full behavior contract. */

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type {
+  CellCommentDialogInput,
+  CellCommentDialogResult,
   DataValidationDialogInput,
   DataValidationDialogResult,
   FilterDialogInput,
@@ -10,6 +12,7 @@ import type {
   WorkbookReplaceConfirmInput,
 } from '../../app/commands';
 import { t } from '../../app/i18n';
+import { MAX_COMMENT_LENGTH } from '../../core/cell-comment';
 import { MAX_VALIDATION_LIST_VALUES, type ValidationRule } from '../../core/data-validation';
 import {
   FILTER_NUMBER_OPS,
@@ -586,6 +589,52 @@ export class SheetOpsDialogs {
           );
         }
         buttons.append(applyBtn);
+      },
+    );
+  }
+
+  /**
+   * The accessible cell-comment dialog for the active cell: a single free-text
+   * note, capped at {@link MAX_COMMENT_LENGTH}. Mirrors `chooseDataValidation`'s
+   * Apply/Clear/Cancel layout: a Clear button appears only when the cell
+   * already carries a comment. Resolves with the chosen action, or null when
+   * cancelled (nothing changes).
+   */
+  chooseCellComment(input: CellCommentDialogInput): Promise<CellCommentDialogResult | null> {
+    return openDialog<CellCommentDialogResult | null>(
+      t('dialog.cellComment.title'),
+      null,
+      (body, buttons, close) => {
+        body.append(el('p', { text: t('dialog.cellComment.cell', { cell: input.cellLabel }) }));
+
+        const textArea = el('textarea', {
+          className: 'cell-comment-text',
+          attrs: {
+            rows: '6',
+            maxlength: String(MAX_COMMENT_LENGTH),
+            'aria-label': t('dialog.cellComment.label'),
+            'data-autofocus': 'true',
+          },
+        }) as HTMLTextAreaElement;
+        textArea.value = input.existing ?? '';
+        body.append(
+          el('div', { className: 'form-row' }, [
+            el('label', { text: t('dialog.cellComment.label') }),
+            textArea,
+          ]),
+        );
+
+        buttons.append(dialogButton(t('dialog.cellComment.cancel'), false, true, () => close(null)));
+        if (input.existing !== null) {
+          buttons.append(
+            dialogButton(t('dialog.cellComment.clear'), false, false, () => close({ action: 'clear' })),
+          );
+        }
+        buttons.append(
+          dialogButton(t('dialog.cellComment.apply'), true, false, () =>
+            close({ action: 'apply', text: textArea.value }),
+          ),
+        );
       },
     );
   }

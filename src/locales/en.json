@@ -45,6 +45,7 @@
   "menu.help.formula": "Formula and Function Help",
   "menu.help.shortcuts": "Keyboard Shortcuts",
   "menu.help.about": "About",
+  "menu.toggle": "Menu",
   "tab.close": "Close tab",
   "tab.dirty": "Unsaved changes",
   "tabs.label": "Open files",

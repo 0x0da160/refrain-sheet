@@ -7,7 +7,7 @@ import { type EncodingId } from '../core/encoding';
 import { type CellValidation, type ValidationRule } from '../core/data-validation';
 import { type DiffOptions, type DiffResult } from '../core/diff-engine';
 import { type ColumnFilter } from '../core/filter';
-import { isFormula } from '../core/formula';
+import { cellLabel, columnLabel, isFormula, parseRef } from '../core/formula';
 import { RsfDocument } from '../core/rsf-document';
 import { type SortKey } from '../core/sort';
 import type { CompiledQuery, SearchScope } from '../core/search';
@@ -324,6 +324,14 @@ export interface UiPort {
     suggestion: string,
     validate: (text: string) => string | null,
   ): Promise<string | null>;
+  /**
+   * "Go to Cell…": ask for a cell reference (e.g. "B12") to jump the
+   * selection to. `suggestion` seeds the field with the current cell;
+   * `validate` returns a localized error for an unusable entry, or null
+   * when it is acceptable. Resolves with the entered text, or null when
+   * cancelled.
+   */
+  promptGoToCell(suggestion: string, validate: (text: string) => string | null): Promise<string | null>;
   /** Edit local settings; returns the chosen maximum file size in bytes, or null when cancelled. */
   chooseSettings(currentMaxFileSize: number): Promise<number | null>;
   /**
@@ -401,6 +409,7 @@ export type CommandId =
   | 'search.replace'
   | 'search.findNext'
   | 'search.findPrev'
+  | 'search.goToCell'
   | 'sheet.convert'
   | 'sheet.insertRowAbove'
   | 'sheet.insertRowBelow'
@@ -492,6 +501,8 @@ export class Commands {
   gridActions: {
     /** Auto-fit every column intersecting the current selection. */
     autoFitSelectedColumns: () => Promise<void>;
+    /** Select a cell and scroll it into view ("Go to Cell…"). */
+    goToCell: (row: number, col: number) => void;
   } | null = null;
 
   constructor(
@@ -556,6 +567,7 @@ export class Commands {
       case 'search.replace':
       case 'search.findNext':
       case 'search.findPrev':
+      case 'search.goToCell':
       case 'data.runSqlQuery':
         return tab !== null;
       case 'data.compareDiff':
@@ -794,6 +806,9 @@ export class Commands {
         return;
       case 'search.findPrev':
         this.ui.findNext(-1);
+        return;
+      case 'search.goToCell':
+        if (tab) await this.promptAndGoToCell(tab);
         return;
       case 'sheet.convert':
         if (tab) await this.convertCommand(tab);
@@ -1379,6 +1394,41 @@ export class Commands {
    */
   async promptAndMoveRange(tab: Tab): Promise<boolean> {
     return this.rangeOps.promptAndMoveRange(tab);
+  }
+
+  /**
+   * "Go to Cell…": jump the selection straight to any cell reference (e.g.
+   * "B12"), the keyboard/menu equivalent of Excel's Name Box or Ctrl+G.
+   * Unlike Move Selected Cells, this only moves the selection — it works on
+   * CSV tabs too, and nothing is written to the document, so it needs no
+   * history entry.
+   */
+  private async promptAndGoToCell(tab: Tab): Promise<void> {
+    const doc = tab.doc;
+    const validate = (text: string): string | null => {
+      const at = parseRef(text.trim());
+      if (!at) {
+        return t('goToCell.error.invalid');
+      }
+      if (at.row >= doc.rowCount || at.col >= doc.columnCount) {
+        return t('goToCell.error.outOfBounds', {
+          rows: doc.rowCount,
+          cols: columnLabel(doc.columnCount - 1),
+        });
+      }
+      return null;
+    };
+    const current = this.state.selectedRange(tab);
+    const suggestion = current ? cellLabel(current.top, current.left) : 'A1';
+    const answer = await this.ui.promptGoToCell(suggestion, validate);
+    if (answer === null) {
+      return;
+    }
+    const at = parseRef(answer.trim());
+    if (!at || validate(answer) !== null || tab.doc !== doc) {
+      return;
+    }
+    this.gridActions?.goToCell(at.row, at.col);
   }
 
   /**

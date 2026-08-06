@@ -51,6 +51,7 @@ const FEATURES = {
     '保存時に文字コード・BOM・改行コードを個別に指定',
     '壊れたCSVを修復せず、行・列つきの診断を提示して開く',
     'RSFスプレッドシート（55関数・複数シート・フィルタ／並べ替え・セル書式設定・XLSXエクスポート）',
+    'データ入力規則・条件付き書式・数値の書式設定・SQLクエリの実行・比較／差分・セルコメント',
     '完全オフライン動作。実行時のネットワーク通信ゼロ',
   ],
   en: [
@@ -60,6 +61,7 @@ const FEATURES = {
     'Choose character encoding, BOM and line endings independently when saving',
     'Opens malformed CSV without repairing it, with row/column diagnostics',
     'RSF spreadsheet mode with 55 functions, multiple sheets, filtering/sorting, cell formatting and XLSX export',
+    'Data validation, conditional formatting, number formatting, SQL queries, tab comparison/diff and cell comments',
     'Runs fully offline with zero network requests at runtime',
   ],
 };

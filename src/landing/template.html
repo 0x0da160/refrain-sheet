@@ -154,8 +154,8 @@
             <div class="v" data-i18n="stat3.v">RSFスプレッドシートで使える関数（XLOOKUP・FILTER ほか）</div>
           </div>
           <div class="stat">
-            <div class="k" data-i18n="stat4.k">1 dependency</div>
-            <div class="v" data-i18n="stat4.v">本番依存パッケージは1つだけ（推移的依存ゼロ）</div>
+            <div class="k" data-i18n="stat4.k">2 dependencies</div>
+            <div class="v" data-i18n="stat4.v">本番依存パッケージは2つだけ（推移的依存ゼロ）</div>
           </div>
         </div>
       </section>
@@ -371,6 +371,40 @@
               <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">NO EVAL</h3>
               <p data-i18n="f4.li4">数式エンジンは自作パーサ。eval も new Function も使いません</p>
             </div>
+            <div class="card">
+              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">DATA VALIDATION</h3>
+              <p data-i18n="f4.li7">
+                データ入力規則：選択範囲を値のリストまたは数値範囲に制限し、違反する入力を理由付きで拒否
+              </p>
+            </div>
+            <div class="card">
+              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">CONDITIONAL FORMATTING</h3>
+              <p data-i18n="f4.li8">
+                条件付き書式：比較・重複・2色スケールでセルの背景色を値に応じて自動着色
+              </p>
+            </div>
+            <div class="card">
+              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">NUMBER FORMAT</h3>
+              <p data-i18n="f4.li9">
+                数値の書式設定：数値・パーセント・通貨の表示形式を、小数桁数や桁区切りとともに指定
+              </p>
+            </div>
+            <div class="card">
+              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">SQL QUERY</h3>
+              <p data-i18n="f4.li10">
+                SQLクエリの実行：ワークシートに対してローカルで動く読み取り専用のSELECTクエリを実行
+              </p>
+            </div>
+            <div class="card">
+              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">COMPARE / DIFF</h3>
+              <p data-i18n="f4.li11">
+                比較／差分：開いている2つのタブをキー列で比較し、追加・変更・削除・キー不整合を行ごとに判定
+              </p>
+            </div>
+            <div class="card">
+              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">CELL COMMENT</h3>
+              <p data-i18n="f4.li12">セルコメント：セルの値とは独立した短いメモを添付。ホバーで内容を表示</p>
+            </div>
           </div>
           <div class="section-head reveal" style="margin-top: var(--space-24); margin-bottom: var(--space-8)">
             <p class="eyebrow" data-i18n="theme.eyebrow">DETAILS</p>
@@ -540,7 +574,7 @@
               </div>
               <h3 data-i18n="sec.c3h">サプライチェーン対策</h3>
               <p data-i18n="sec.c3p">
-                本番依存は1パッケージのみ、lockfile固定、install
+                本番依存は2パッケージのみ（推移的依存ゼロ）、lockfile固定、install
                 スクリプト無効化。リリースにはSHA-256・SBOM・ビルド来歴の署名が付きます。
               </p>
             </div>

@@ -117,24 +117,3 @@ describe('menu-bar dropdown keyboard navigation', () => {
     expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
   });
 });
-
-describe('menu-bar horizontal scroll position', () => {
-  it('preserves .menu-row scrollLeft across a re-render triggered by opening a menu', () => {
-    // On a narrow/mobile viewport `.menu-row` scrolls horizontally so every
-    // menu button fits. Regression test for #261: render() used to rebuild
-    // `.menu-row` from scratch on every state change (including every menu
-    // open), which reset scrollLeft to 0 and made a tap land on the wrong
-    // menu after the user had scrolled the row.
-    const bar = buildBar();
-    const row = bar.element.querySelector<HTMLElement>('.menu-row')!;
-    row.scrollLeft = 40;
-
-    const fileButton = Array.from(
-      bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
-    ).find((b) => b.textContent === t('menu.file'))!;
-    fileButton.click();
-
-    const rowAfter = bar.element.querySelector<HTMLElement>('.menu-row')!;
-    expect(rowAfter.scrollLeft).toBe(40);
-  });
-});

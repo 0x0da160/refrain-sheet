@@ -4,6 +4,7 @@ import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../
 import type { CellRange } from '../core/clipboard';
 import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport, type CsvExportOptions } from '../core/csv-export';
 import { type EncodingId } from '../core/encoding';
+import { type ConditionalFormatRule } from '../core/conditional-format';
 import { type CellValidation, type ValidationRule } from '../core/data-validation';
 import { type DiffOptions, type DiffResult } from '../core/diff-engine';
 import { type ColumnFilter } from '../core/filter';
@@ -32,6 +33,7 @@ import {
 import { setSheetFont, type SheetFontId } from './sheet-font';
 import { setTheme, type ThemeChoice } from './theme';
 import { CommentCommands } from './commands/comment';
+import { ConditionalFormatCommands } from './commands/conditional-format';
 import { ValidationCommands } from './commands/data-validation';
 import { FileIoCommands } from './commands/file-io';
 import { FilterCommands } from './commands/filter';
@@ -180,6 +182,21 @@ export interface DataValidationDialogInput {
 /** What the data-validation dialog resolved to (null = cancelled, nothing changes). */
 export type DataValidationDialogResult = { action: 'apply'; rule: ValidationRule } | { action: 'clear' };
 
+/**
+ * Everything the conditional-formatting dialog needs to edit the selected
+ * range's rule — mirrors `DataValidationDialogInput`.
+ */
+export interface ConditionalFormatDialogInput {
+  /** Human-readable A1 range the rule would apply to, e.g. "A1:A20". */
+  rangeLabel: string;
+  /** The rule already covering this exact range, or null when creating one. */
+  existing: ConditionalFormatRule | null;
+}
+
+/** What the conditional-formatting dialog resolved to (null = cancelled, nothing changes). */
+export type ConditionalFormatDialogResult =
+  { action: 'apply'; rule: ConditionalFormatRule } | { action: 'clear' };
+
 /** Everything the cell-comment dialog needs to edit the active cell's comment. */
 export interface CellCommentDialogInput {
   /** Human-readable A1 label of the target cell, e.g. "B3". */
@@ -269,6 +286,13 @@ export interface UiPort {
    * changes).
    */
   chooseDataValidation(input: DataValidationDialogInput): Promise<DataValidationDialogResult | null>;
+  /**
+   * The accessible conditional-formatting dialog for the selected range: a
+   * rule kind (a value comparison, duplicate highlighting, or a two-color
+   * scale) and its parameters. Resolves with the chosen action, or null when
+   * cancelled (nothing changes).
+   */
+  chooseConditionalFormat(input: ConditionalFormatDialogInput): Promise<ConditionalFormatDialogResult | null>;
   /**
    * The accessible cell-comment dialog for the active cell: a free-text note
    * independent of the cell's value. Resolves with the chosen action, or
@@ -447,6 +471,7 @@ export type CommandId =
   | 'format.backgroundColor'
   | 'format.borders'
   | 'format.numberFormat'
+  | 'format.conditionalFormatting'
   | 'format.clear'
   | 'sheet.recalculate'
   | 'sheet.timezone'
@@ -533,6 +558,7 @@ export class Commands {
     this.filter = new FilterCommands(state, ui);
     this.sort = new SortCommands(state, ui);
     this.validation = new ValidationCommands(state, ui);
+    this.conditionalFormat = new ConditionalFormatCommands(state, ui);
     this.comment = new CommentCommands(state, ui);
     this.worksheets = new WorksheetCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.pasteFill = new PasteFillCommands(
@@ -558,6 +584,9 @@ export class Commands {
 
   /** Data-validation dialog flow and apply/clear — see `ValidationCommands`. */
   private readonly validation: ValidationCommands;
+
+  /** Conditional-formatting dialog flow and apply/clear — see `ConditionalFormatCommands`. */
+  private readonly conditionalFormat: ConditionalFormatCommands;
 
   /** Cell-comment dialog flow and apply/clear — see `CommentCommands`. */
   private readonly comment: CommentCommands;
@@ -639,6 +668,7 @@ export class Commands {
       case 'sheet.filter':
       case 'sheet.sort':
       case 'data.validation':
+      case 'format.conditionalFormatting':
       case 'data.comment':
         return tab?.selection != null;
       // Formatting is RSF-only, like sort/filter above, but (unlike them)
@@ -880,6 +910,9 @@ export class Commands {
         return;
       case 'format.numberFormat':
         if (tab) await this.promptNumberFormat(tab);
+        return;
+      case 'format.conditionalFormatting':
+        if (tab) await this.conditionalFormatDialog(tab);
         return;
       case 'format.clear':
         if (tab) this.clearFormatting(tab);
@@ -1405,6 +1438,17 @@ export class Commands {
    */
   async validationDialog(tab: Tab): Promise<boolean> {
     return this.validation.validationDialog(tab);
+  }
+
+  // ----- Conditional formatting (RSF spreadsheet documents only; view-only, unsaved) -----
+
+  /**
+   * Format > Conditional Formatting…: open the dialog for the selected range
+   * and apply the result. See `ConditionalFormatCommands.conditionalFormatDialog`
+   * for the full behavior contract.
+   */
+  async conditionalFormatDialog(tab: Tab): Promise<boolean> {
+    return this.conditionalFormat.conditionalFormatDialog(tab);
   }
 
   // ----- Cell comments (RSF spreadsheet documents only; view-only, unsaved) -----

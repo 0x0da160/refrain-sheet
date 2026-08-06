@@ -37,6 +37,7 @@ function stubUi(): UiPort {
     chooseFilter: async () => null,
     chooseSort: async () => null,
     chooseDataValidation: async () => null,
+    chooseConditionalFormat: async () => null,
     chooseCellComment: async () => null,
     promptSheetName: async () => null,
     confirmDeleteSheet: async () => true,

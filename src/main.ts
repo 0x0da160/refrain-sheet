@@ -73,6 +73,7 @@ function bootstrap(): void {
     chooseFilter: (input) => dialogs.chooseFilter(input),
     chooseSort: (input) => dialogs.chooseSort(input),
     chooseDataValidation: (input) => dialogs.chooseDataValidation(input),
+    chooseConditionalFormat: (input) => dialogs.chooseConditionalFormat(input),
     chooseCellComment: (input) => dialogs.chooseCellComment(input),
     promptSheetName: (mode, current, validate) => dialogs.promptSheetName(mode, current, validate),
     confirmDeleteSheet: (name, references) => dialogs.confirmDeleteSheet(name, references),

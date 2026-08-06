@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: MIT
-import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult } from '../../app/commands';
+import type {
+  BordersDialogResult,
+  ColorDialogResult,
+  ConditionalFormatDialogInput,
+  ConditionalFormatDialogResult,
+  NumberFormatDialogResult,
+} from '../../app/commands';
 import { t } from '../../app/i18n';
 import {
   BORDER_LINE_STYLES,
@@ -18,10 +24,100 @@ import {
   type NumberFormat,
   type NumberFormatKind,
 } from '../../core/cell-style';
+import type {
+  CellValueOperator,
+  ConditionalFormatRule,
+  ConditionalFormatStyle,
+} from '../../core/conditional-format';
 import { el } from '../dom';
 import { dialogButton, openDialog } from './shared';
 
 const DEFAULT_COLOR = '#000000';
+
+const CF_DEFAULT_BACKGROUND = '#ffc7ce';
+const CF_DEFAULT_SCALE_MIN_COLOR = '#ffffff';
+const CF_DEFAULT_SCALE_MAX_COLOR = '#63be7b';
+
+const CF_OPERATORS: readonly CellValueOperator[] = [
+  'greaterThan',
+  'lessThan',
+  'between',
+  'equal',
+  'textContains',
+];
+const CF_OPERATOR_LABEL_KEY: Record<CellValueOperator, string> = {
+  greaterThan: 'dialog.conditionalFormat.operator.greaterThan',
+  lessThan: 'dialog.conditionalFormat.operator.lessThan',
+  between: 'dialog.conditionalFormat.operator.between',
+  equal: 'dialog.conditionalFormat.operator.equal',
+  textContains: 'dialog.conditionalFormat.operator.textContains',
+};
+
+/**
+ * The optional background/text color pair every conditional-format rule
+ * style carries: a checkbox enables each color independently, mirroring the
+ * Borders dialog's per-side checkbox pattern. `onChange` re-runs the
+ * caller's live-validation refresh (a style with neither color enabled is
+ * incomplete).
+ */
+function styleFields(
+  idPrefix: string,
+  initial: ConditionalFormatStyle,
+  onChange: () => void,
+): { row: HTMLElement; read: () => ConditionalFormatStyle } {
+  const bgCheckbox = el('input', {
+    attrs: { type: 'checkbox', id: `${idPrefix}-bg-enable` },
+  }) as HTMLInputElement;
+  bgCheckbox.checked = initial.backgroundColor !== undefined;
+  const bgInput = el('input', {
+    attrs: {
+      type: 'color',
+      id: `${idPrefix}-bg-color`,
+      value: initial.backgroundColor ?? CF_DEFAULT_BACKGROUND,
+    },
+  }) as HTMLInputElement;
+  const textCheckbox = el('input', {
+    attrs: { type: 'checkbox', id: `${idPrefix}-text-enable` },
+  }) as HTMLInputElement;
+  textCheckbox.checked = initial.textColor !== undefined;
+  const textInput = el('input', {
+    attrs: { type: 'color', id: `${idPrefix}-text-color`, value: initial.textColor ?? DEFAULT_COLOR },
+  }) as HTMLInputElement;
+  for (const control of [bgCheckbox, bgInput, textCheckbox, textInput]) {
+    control.addEventListener('change', onChange);
+  }
+  const row = el('div', { className: 'format-borders-list' }, [
+    el('div', { className: 'format-borders-row' }, [
+      bgCheckbox,
+      el('label', {
+        text: t('dialog.conditionalFormat.backgroundColor'),
+        attrs: { for: `${idPrefix}-bg-enable` },
+      }),
+      bgInput,
+    ]),
+    el('div', { className: 'format-borders-row' }, [
+      textCheckbox,
+      el('label', {
+        text: t('dialog.conditionalFormat.textColor'),
+        attrs: { for: `${idPrefix}-text-enable` },
+      }),
+      textInput,
+    ]),
+  ]);
+  return {
+    row,
+    read: () => {
+      const style: ConditionalFormatStyle = {};
+      if (bgCheckbox.checked) {
+        style.backgroundColor = bgInput.value.toLowerCase();
+      }
+      if (textCheckbox.checked) {
+        style.textColor = textInput.value.toLowerCase();
+      }
+      return style;
+    },
+  };
+}
 
 const BORDER_SIDE_LABEL_KEY: Record<BorderSide, string> = {
   borderTop: 'dialog.borders.top',
@@ -260,6 +356,202 @@ export class FormatDialogs {
               }),
             });
           }),
+        );
+      },
+    );
+  }
+
+  /**
+   * The accessible conditional-formatting dialog for the selected range: a
+   * rule kind (a value comparison, duplicate highlighting, or a two-color
+   * scale) and its parameters. Mirrors `SheetOpsDialogs.chooseDataValidation`'s
+   * live-validation pattern: the Apply button stays disabled, with an inline
+   * explanation, until the current fields describe a usable rule. Resolves
+   * with the chosen action, or null when cancelled (nothing changes).
+   */
+  chooseConditionalFormat(
+    input: ConditionalFormatDialogInput,
+  ): Promise<ConditionalFormatDialogResult | null> {
+    return openDialog<ConditionalFormatDialogResult | null>(
+      t('dialog.conditionalFormat.title'),
+      null,
+      (body, buttons, close) => {
+        body.append(el('p', { text: t('dialog.conditionalFormat.range', { range: input.rangeLabel }) }));
+
+        const kindCellValue = el('input', {
+          attrs: { type: 'radio', name: 'cf-kind', id: 'cf-kind-cellvalue', 'data-autofocus': 'true' },
+        }) as HTMLInputElement;
+        const kindDuplicate = el('input', {
+          attrs: { type: 'radio', name: 'cf-kind', id: 'cf-kind-duplicate' },
+        }) as HTMLInputElement;
+        const kindColorScale = el('input', {
+          attrs: { type: 'radio', name: 'cf-kind', id: 'cf-kind-colorscale' },
+        }) as HTMLInputElement;
+        const initialKind = input.existing?.kind ?? 'cellValue';
+        kindCellValue.checked = initialKind === 'cellValue';
+        kindDuplicate.checked = initialKind === 'duplicate';
+        kindColorScale.checked = initialKind === 'colorScale';
+        body.append(
+          el('div', { className: 'form-row' }, [
+            el('label', { attrs: { for: 'cf-kind-cellvalue' } }, [
+              kindCellValue,
+              el('span', { text: t('dialog.conditionalFormat.kindCellValue') }),
+            ]),
+            el('label', { attrs: { for: 'cf-kind-duplicate' } }, [
+              kindDuplicate,
+              el('span', { text: t('dialog.conditionalFormat.kindDuplicate') }),
+            ]),
+            el('label', { attrs: { for: 'cf-kind-colorscale' } }, [
+              kindColorScale,
+              el('span', { text: t('dialog.conditionalFormat.kindColorScale') }),
+            ]),
+          ]),
+        );
+
+        // ----- Cell value section -----
+        const existingCellValue = input.existing?.kind === 'cellValue' ? input.existing : null;
+        const operatorSelect = el('select', { attrs: { id: 'cf-operator' } }) as HTMLSelectElement;
+        for (const op of CF_OPERATORS) {
+          const option = el('option', {
+            text: t(CF_OPERATOR_LABEL_KEY[op]),
+            attrs: { value: op },
+          }) as HTMLOptionElement;
+          option.selected = op === (existingCellValue?.operator ?? 'greaterThan');
+          operatorSelect.append(option);
+        }
+        const value1Input = el('input', {
+          attrs: { type: 'text', id: 'cf-value1' },
+        }) as HTMLInputElement;
+        value1Input.value = existingCellValue?.value1 ?? '';
+        const value2Input = el('input', {
+          attrs: { type: 'text', id: 'cf-value2' },
+        }) as HTMLInputElement;
+        value2Input.value = existingCellValue?.value2 ?? '';
+        const value2Row = el('div', { className: 'form-row' }, [
+          el('label', { text: t('dialog.conditionalFormat.value2'), attrs: { for: 'cf-value2' } }),
+          value2Input,
+        ]);
+        const cellValueStyle = styleFields(
+          'cf-cellvalue',
+          existingCellValue?.style ?? { backgroundColor: CF_DEFAULT_BACKGROUND },
+          refresh,
+        );
+        const cellValueSection = el('div', { className: 'form-row' }, [
+          el('label', { text: t('dialog.conditionalFormat.operator'), attrs: { for: 'cf-operator' } }),
+          operatorSelect,
+          el('label', { text: t('dialog.conditionalFormat.value1'), attrs: { for: 'cf-value1' } }),
+          value1Input,
+          value2Row,
+          cellValueStyle.row,
+        ]);
+        body.append(cellValueSection);
+
+        // ----- Duplicate values section -----
+        const existingDuplicateStyle =
+          input.existing?.kind === 'duplicate'
+            ? input.existing.style
+            : { backgroundColor: CF_DEFAULT_BACKGROUND };
+        const duplicateStyle = styleFields('cf-duplicate', existingDuplicateStyle, refresh);
+        const duplicateSection = el('div', { className: 'form-row' }, [duplicateStyle.row]);
+        body.append(duplicateSection);
+
+        // ----- Color scale section -----
+        const existingColorScale = input.existing?.kind === 'colorScale' ? input.existing : null;
+        const minColorInput = el('input', {
+          attrs: {
+            type: 'color',
+            id: 'cf-min-color',
+            value: existingColorScale?.minColor ?? CF_DEFAULT_SCALE_MIN_COLOR,
+          },
+        }) as HTMLInputElement;
+        const maxColorInput = el('input', {
+          attrs: {
+            type: 'color',
+            id: 'cf-max-color',
+            value: existingColorScale?.maxColor ?? CF_DEFAULT_SCALE_MAX_COLOR,
+          },
+        }) as HTMLInputElement;
+        const colorScaleSection = el('div', { className: 'form-row' }, [
+          el('label', { text: t('dialog.conditionalFormat.minColor'), attrs: { for: 'cf-min-color' } }),
+          minColorInput,
+          el('label', { text: t('dialog.conditionalFormat.maxColor'), attrs: { for: 'cf-max-color' } }),
+          maxColorInput,
+        ]);
+        body.append(colorScaleSection);
+
+        const error = el('p', {
+          className: 'dialog-error',
+          attrs: { role: 'status', 'aria-live': 'polite' },
+        });
+        body.append(error);
+
+        const buildRule = (): ConditionalFormatRule | null => {
+          if (kindCellValue.checked) {
+            const style = cellValueStyle.read();
+            if (style.backgroundColor === undefined && style.textColor === undefined) {
+              return null;
+            }
+            const operator = operatorSelect.value as CellValueOperator;
+            if (operator === 'textContains') {
+              return value1Input.value.trim() === ''
+                ? null
+                : { kind: 'cellValue', operator, value1: value1Input.value, style };
+            }
+            if (!Number.isFinite(Number(value1Input.value))) {
+              return null;
+            }
+            if (operator === 'between' && !Number.isFinite(Number(value2Input.value))) {
+              return null;
+            }
+            return {
+              kind: 'cellValue',
+              operator,
+              value1: value1Input.value,
+              ...(operator === 'between' ? { value2: value2Input.value } : {}),
+              style,
+            };
+          }
+          if (kindDuplicate.checked) {
+            const style = duplicateStyle.read();
+            return style.backgroundColor === undefined && style.textColor === undefined
+              ? null
+              : { kind: 'duplicate', style };
+          }
+          return {
+            kind: 'colorScale',
+            minColor: minColorInput.value.toLowerCase(),
+            maxColor: maxColorInput.value.toLowerCase(),
+          };
+        };
+
+        const applyBtn = dialogButton(t('dialog.conditionalFormat.apply'), true, false, () => {
+          const rule = buildRule();
+          if (rule) {
+            close({ action: 'apply', rule });
+          }
+        });
+
+        function refresh(): void {
+          cellValueSection.hidden = !kindCellValue.checked;
+          duplicateSection.hidden = !kindDuplicate.checked;
+          colorScaleSection.hidden = !kindColorScale.checked;
+          value2Row.hidden = operatorSelect.value !== 'between';
+          const rule = buildRule();
+          error.textContent = rule ? '' : t('dialog.conditionalFormat.incomplete');
+          applyBtn.disabled = rule === null;
+        }
+        kindCellValue.addEventListener('change', refresh);
+        kindDuplicate.addEventListener('change', refresh);
+        kindColorScale.addEventListener('change', refresh);
+        operatorSelect.addEventListener('change', refresh);
+        value1Input.addEventListener('input', refresh);
+        value2Input.addEventListener('input', refresh);
+        refresh();
+
+        buttons.append(
+          dialogButton(t('dialog.conditionalFormat.cancel'), false, false, () => close(null)),
+          dialogButton(t('dialog.conditionalFormat.clear'), false, false, () => close({ action: 'clear' })),
+          applyBtn,
         );
       },
     );

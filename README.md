@@ -309,6 +309,17 @@ font, and the configured file-size limit live outside the tab lifecycle).
   worksheets by a stable id, so a rename, reorder, or deletion after a search
   can never send you to the wrong place.
 
+### Go to Cell
+
+**Search > Go to Cell…** jumps the selection straight to any cell reference
+you type (e.g. `B12`), like Excel's Name Box or Ctrl+G. The field is seeded
+with the current cell, validates on every keystroke, and Enter confirms. It
+works on both CSV and RSF tabs — it only moves the selection, so nothing is
+written to the document. No default keyboard shortcut is bound: the
+conventional Ctrl+G is reserved by some browsers for "Find Again", so the
+command stays reachable only from the menu (see
+[Keyboard shortcuts](#keyboard-shortcuts)).
+
 ### Tabs
 
 - Multiple files open as tabs; a newly opened file always becomes active.

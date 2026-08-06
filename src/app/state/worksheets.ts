@@ -298,6 +298,46 @@ export class WorksheetsState {
     return doc.activeSheet.conditionalFormats.find((cf) => conditionalFormatRangesEqual(cf, range)) ?? null;
   }
 
+  /**
+   * Set (add or replace) one cell's comment on the active worksheet.
+   * Session-only view state, like {@link setValidation} — a direct mutation,
+   * not an undoable history entry, and not persisted in the saved container
+   * (see `src/core/cell-comment.ts`).
+   */
+  setComment(tab: Tab, row: number, col: number, text: string): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return false;
+    }
+    const applied = doc.activeSheet.setComment(row, col, text);
+    if (applied) {
+      this.state.emit('doc');
+    }
+    return applied;
+  }
+
+  /** Clear one cell's comment on the active worksheet, if it has one. */
+  clearComment(tab: Tab, row: number, col: number): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return false;
+    }
+    const applied = doc.activeSheet.setComment(row, col, null);
+    if (applied) {
+      this.state.emit('doc');
+    }
+    return applied;
+  }
+
+  /** The comment on one cell of the active worksheet, or null. */
+  commentAt(tab: Tab, row: number, col: number): string | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return null;
+    }
+    return doc.activeSheet.getComment(row, col);
+  }
+
   /** The active tab's workbook, or null when it is not an RSF document. */
   activeWorkbook(): RsfDocument | null {
     const tab = this.state.activeTab;

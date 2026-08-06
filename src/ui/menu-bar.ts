@@ -105,6 +105,11 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.search.findNext', command: 'search.findNext' },
         { labelKey: 'menu.search.findPrev', command: 'search.findPrev' },
+        'separator',
+        // No shortcut by design: the conventional Ctrl+G is Firefox's "Find
+        // Again" and Ctrl+Shift+G its "Find Previous", so both are reserved.
+        // The command stays keyboard-accessible through the menu.
+        { labelKey: 'menu.search.goToCell', command: 'search.goToCell' },
       ],
     },
     {
@@ -202,6 +207,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.data.compareDiff', command: 'data.compareDiff' },
         'separator',
         { labelKey: 'menu.data.validation', command: 'data.validation' },
+        { labelKey: 'menu.data.comment', command: 'data.comment' },
       ],
     },
     {

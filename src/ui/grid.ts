@@ -389,6 +389,8 @@ const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string } | 'sepa
   { command: 'edit.moveRange', labelKey: 'menu.edit.moveRange' },
   { command: 'edit.revertCell', labelKey: 'menu.edit.revertCell' },
   'separator',
+  { command: 'data.comment', labelKey: 'menu.data.comment' },
+  'separator',
   { command: 'sheet.filter', labelKey: 'menu.sheet.filter' },
   { command: 'sheet.filterClear', labelKey: 'menu.sheet.filterClear' },
   'separator',
@@ -1804,9 +1806,19 @@ export class Grid {
       cell.classList.toggle('formula', formula);
       const isError = formula && doc.evaluateCell(row, col).type === 'error';
       cell.classList.toggle('cell-error', isError);
+      const comment = doc.getComment(row, col);
+      cell.classList.toggle('cell-comment', comment !== null);
+      // Tooltip shows the underlying formula expression and/or the comment
+      // text, whichever apply; cleared when neither does.
+      const titleParts: string[] = [];
       if (formula) {
-        // Tooltip shows the underlying formula expression.
-        cell.title = doc.getValue(row, col);
+        titleParts.push(doc.getValue(row, col));
+      }
+      if (comment !== null) {
+        titleParts.push(comment);
+      }
+      if (titleParts.length > 0) {
+        cell.title = titleParts.join('\n');
       } else if (cell.title !== '') {
         cell.removeAttribute('title');
       }

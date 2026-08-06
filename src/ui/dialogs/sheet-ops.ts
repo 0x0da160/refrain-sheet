@@ -846,6 +846,61 @@ export class SheetOpsDialogs {
   }
 
   /**
+   * "Go to Cell…": ask for a cell reference to jump the selection to.
+   * Validation runs on every keystroke and is shown in a live region; OK
+   * stays disabled while the entry is unusable. Enter confirms and Escape
+   * cancels, and neither fires while an IME composition is in progress.
+   */
+  promptGoToCell(suggestion: string, validate: (text: string) => string | null): Promise<string | null> {
+    return openDialog<string | null>(t('dialog.goToCell.title'), null, (body, buttons, close) => {
+      const inputId = 'go-to-cell-input';
+      const input = el('input', {
+        className: 'move-target-input',
+        attrs: { type: 'text', id: inputId, 'data-autofocus': 'true', autocomplete: 'off' },
+      }) as HTMLInputElement;
+      input.value = suggestion;
+      const error = el('p', {
+        className: 'dialog-error',
+        attrs: { role: 'status', 'aria-live': 'polite' },
+      });
+      const ok = dialogButton(t('dialog.goToCell.ok'), true, false, () => close(input.value.trim()));
+      const refresh = (): void => {
+        const message = validate(input.value);
+        error.textContent = message ?? '';
+        ok.disabled = message !== null;
+        input.setAttribute('aria-invalid', message === null ? 'false' : 'true');
+      };
+      let composing = false;
+      input.addEventListener('compositionstart', () => (composing = true));
+      input.addEventListener('compositionend', () => {
+        composing = false;
+        refresh();
+      });
+      input.addEventListener('input', () => {
+        if (!composing) refresh();
+      });
+      input.addEventListener('keydown', (event) => {
+        // Never act on Enter that is only ending an IME composition.
+        if (event.key === 'Enter' && !composing && !event.isComposing && !ok.disabled) {
+          event.preventDefault();
+          close(input.value.trim());
+        }
+      });
+      body.append(
+        el('label', { attrs: { for: inputId }, text: t('dialog.goToCell.label') }),
+        input,
+        error,
+        el('p', { className: 'dialog-note', text: t('dialog.goToCell.hint') }),
+      );
+      buttons.append(
+        dialogButton(t('dialog.goToCell.cancel'), false, true, () => close(null)),
+        ok,
+      );
+      refresh();
+    });
+  }
+
+  /**
    * Confirm a workbook-wide Replace All. The scope is stated explicitly — a
    * replace that reaches worksheets the user is not looking at must never be
    * a surprise — together with exactly how much it would change. Cancel is the

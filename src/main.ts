@@ -86,6 +86,7 @@ function bootstrap(): void {
     confirmRangeMoveOverwrite: (input) => dialogs.confirmRangeMoveOverwrite(input),
     promptMoveTarget: (source, suggestion, validate) =>
       dialogs.promptMoveTarget(source, suggestion, validate),
+    promptGoToCell: (suggestion, validate) => dialogs.promptGoToCell(suggestion, validate),
     showAbout: (section) => void dialogs.showAbout(section),
     showFormulaHelp: () => void dialogs.showFormulaHelp(),
     showSqlQuery: (input) => dialogs.showSqlQuery(input),
@@ -125,6 +126,7 @@ function bootstrap(): void {
   };
   commands.gridActions = {
     autoFitSelectedColumns: () => grid.autoFitSelectedColumns(),
+    goToCell: (row, col) => grid.reveal(row, col),
   };
   const menuBar = new MenuBar(commands, {
     wrap: () => state.wrapCells,

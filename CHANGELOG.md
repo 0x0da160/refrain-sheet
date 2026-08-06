@@ -25,6 +25,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- A new **Search > Go to Cell…** command jumps the selection straight to any
+  cell reference you type (e.g. `B12`), like Excel's Name Box or Ctrl+G. It
+  works on both CSV and RSF tabs, since it only moves the selection.
+  ([#236](https://github.com/0x0da160/refrain-sheet/issues/236))
 - A new **Data > Cell Comment…** dialog (also on the right-click menu) lets
   you attach a short free-text note to the active cell, independent of its
   value — the noted cell shows a small corner marker, and hovering it shows

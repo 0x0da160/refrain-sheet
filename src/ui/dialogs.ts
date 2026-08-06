@@ -276,6 +276,11 @@ export class Dialogs {
     return this.sheetOps.promptMoveTarget(source, suggestion, validate);
   }
 
+  /** See `SheetOpsDialogs.promptGoToCell` for the full behavior contract. */
+  promptGoToCell(suggestion: string, validate: (text: string) => string | null): Promise<string | null> {
+    return this.sheetOps.promptGoToCell(suggestion, validate);
+  }
+
   /** See `SheetOpsDialogs.confirmReplaceAllWorkbook` for the full behavior contract. */
   confirmReplaceAllWorkbook(input: WorkbookReplaceConfirmInput): Promise<boolean> {
     return this.sheetOps.confirmReplaceAllWorkbook(input);

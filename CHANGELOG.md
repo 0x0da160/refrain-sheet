@@ -30,6 +30,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
   logo row instead of a horizontally scrolling strip: tapping it expands the
   menu names on their own row below the logo, wrapping instead of scrolling.
   ([#267](https://github.com/0x0da160/refrain-sheet/issues/267))
+- A new **Search > Go to Cell…** command jumps the selection straight to any
+  cell reference you type (e.g. `B12`), like Excel's Name Box or Ctrl+G. It
+  works on both CSV and RSF tabs, since it only moves the selection.
+  ([#236](https://github.com/0x0da160/refrain-sheet/issues/236))
 - A new **Data > Cell Comment…** dialog (also on the right-click menu) lets
   you attach a short free-text note to the active cell, independent of its
   value — the noted cell shows a small corner marker, and hovering it shows

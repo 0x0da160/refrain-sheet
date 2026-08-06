@@ -201,6 +201,25 @@ button {
   color: var(--text-dim);
 }
 
+/* Hidden on desktop width (see the mobile layout section below), where
+   `.menu-row` always stays inline beside the logo instead. */
+.menu-bar-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  border: none;
+  background: none;
+  padding: 6px;
+  border-radius: 3px;
+  color: inherit;
+}
+
+.menu-bar-toggle:hover,
+.menu-bar-toggle[aria-expanded='true'] {
+  background: var(--accent-soft);
+}
+
 .menu-row {
   display: flex;
   align-items: center;
@@ -2057,25 +2076,47 @@ table.diff-table td {
 }
 
 /* ---------- Mobile layout (phones and small tablets) ----------
-   The tab strip, worksheet strip, and menu bar's row of top-level menu names
-   (File / Edit / …) are all flex rows whose buttons don't shrink below their
-   own content width by default; below this width they can together be wider
-   than the viewport, which pushes the outer page into an unwanted horizontal
-   scrollbar. Everything here is gated behind this query so desktop-width
-   layout is unchanged: those rows scroll within themselves instead, and
-   their tap targets grow for touch. */
+   The tab strip and worksheet strip are flex rows whose buttons don't shrink
+   below their own content width by default; below this width they can
+   together be wider than the viewport, which pushes the outer page into an
+   unwanted horizontal scrollbar. Everything here is gated behind this query
+   so desktop-width layout is unchanged: those rows scroll within themselves
+   instead, and their tap targets grow for touch.
+
+   The menu bar's row of top-level menu names (File / Edit / …) instead
+   collapses behind `.menu-bar-toggle` and, once expanded, wraps onto its own
+   full-width row below the logo row rather than scrolling — see
+   `MenuBar.render` in menu-bar.ts. It used to scroll horizontally like the
+   rows above, but that let iOS Safari's inertial-scroll + synthetic-click-at
+   -original-touch-point behavior open a different item than the one tapped
+   (#267); wrapping instead of scrolling removes that interaction entirely. */
 @media (max-width: 700px) {
-  .menu-row {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow-x: auto;
+  .menu-bar {
+    flex-wrap: wrap;
   }
 
-  /* `.menu-row` scrolls its overflow instead of wrapping, but that only works
-     if its children keep their natural width: `overflow-x: auto` makes the
-     flex items' automatic minimum width resolve to 0 instead of their
-     min-content size, so without `flex-shrink: 0` they'd compress and wrap
-     their label text onto multiple lines rather than scroll. */
+  .menu-bar-toggle {
+    display: flex;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .menu-row {
+    display: none;
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .menu-row.open {
+    display: flex;
+  }
+
+  /* `.menu-row` wraps instead of scrolling, but that only works if its
+     children keep their natural width: without `flex-shrink: 0` they'd
+     compress and wrap their own label text onto multiple lines instead of
+     the row wrapping between them. */
   .menu {
     flex-shrink: 0;
   }

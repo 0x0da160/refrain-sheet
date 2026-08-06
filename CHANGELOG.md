@@ -25,6 +25,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- On narrow (mobile-width) viewports, the top-level menu bar (File / Edit /
+  Search / …) is now reached through a menu icon in the top-right of the
+  logo row instead of a horizontally scrolling strip: tapping it expands the
+  menu names on their own row below the logo, wrapping instead of scrolling.
+  ([#267](https://github.com/0x0da160/refrain-sheet/issues/267))
 - A new **Search > Go to Cell…** command jumps the selection straight to any
   cell reference you type (e.g. `B12`), like Excel's Name Box or Ctrl+G. It
   works on both CSV and RSF tabs, since it only moves the selection.
@@ -160,6 +165,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- On iOS Safari, tapping a top-level menu bar button (File / Edit / Search /
+  …) after horizontally scrolling the menu row could open a different menu
+  than the one tapped. The mobile menu row no longer scrolls horizontally
+  (see the Added entry above), which removes the interaction that caused
+  this. ([#267](https://github.com/0x0da160/refrain-sheet/issues/267))
 - On narrow (mobile-width) viewports, tapping a top-level menu bar button
   (File / Edit / Search / …) no longer resets the menu bar's horizontal
   scroll position, which used to be able to land the tap on a different

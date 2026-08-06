@@ -366,6 +366,12 @@ export class MenuBar {
     // before the list that owns it is rebuilt.
     this.submenuEl?.remove();
     this.submenuEl = null;
+    // `.menu-row` is rebuilt from scratch below (a fresh element always
+    // starts at scrollLeft 0), so its horizontal scroll position — the only
+    // way a narrow/mobile viewport reaches menus past the fold — must be
+    // captured and reapplied, or every render (e.g. every tap that opens a
+    // menu) would snap the row back to the start.
+    const previousScrollLeft = this.element.querySelector<HTMLElement>('.menu-row')?.scrollLeft ?? 0;
     clearChildren(this.element);
     // Decorative: the adjacent product name conveys the brand, so the icon is
     // hidden from assistive technology. Explicit width/height reserve space so
@@ -416,6 +422,9 @@ export class MenuBar {
       row.append(wrapper);
     });
     this.element.append(row);
+    // Must be set after `row` is attached: a detached element's scrollWidth
+    // is always 0, so scrollLeft would clamp to 0 and the fix would no-op.
+    row.scrollLeft = previousScrollLeft;
     if (this.openIndex !== null) {
       this.placePopups();
     }

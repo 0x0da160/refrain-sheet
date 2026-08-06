@@ -143,6 +143,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- On narrow (mobile-width) viewports, tapping a top-level menu bar button
+  (File / Edit / Search / …) no longer resets the menu bar's horizontal
+  scroll position, which used to be able to land the tap on a different
+  menu than the one intended.
+  ([#261](https://github.com/0x0da160/refrain-sheet/issues/261))
 - On narrow (≤700px) mobile viewports, focusing the **Data > Run SQL Query…**
   editor or the **Data > Data Validation…** list-values field no longer
   triggers iOS Safari's automatic zoom; both textareas now get the same

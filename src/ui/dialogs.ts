@@ -301,7 +301,9 @@ export class Dialogs {
   }
 
   /** See `FormatDialogs.chooseConditionalFormat` for the full behavior contract. */
-  chooseConditionalFormat(input: ConditionalFormatDialogInput): Promise<ConditionalFormatDialogResult | null> {
+  chooseConditionalFormat(
+    input: ConditionalFormatDialogInput,
+  ): Promise<ConditionalFormatDialogResult | null> {
     return this.format.chooseConditionalFormat(input);
   }
 

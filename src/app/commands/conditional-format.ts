@@ -70,7 +70,11 @@ export class ConditionalFormatCommands {
       return applied;
     }
 
-    const candidate = validateConditionalFormat({ ...range, rule: result.rule }, doc.rowCount, doc.columnCount);
+    const candidate = validateConditionalFormat(
+      { ...range, rule: result.rule },
+      doc.rowCount,
+      doc.columnCount,
+    );
     if (!candidate) {
       await this.ui.showMessage(t('dialog.conditionalFormat.title'), t('dialog.conditionalFormat.invalid'));
       return false;

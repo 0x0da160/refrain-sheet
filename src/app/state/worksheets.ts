@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: MIT
-import {
-  conditionalFormatRangesEqual,
-  type CellConditionalFormat,
-} from '../../core/conditional-format';
+import { conditionalFormatRangesEqual, type CellConditionalFormat } from '../../core/conditional-format';
 import { findValidation, validationRangesEqual, type CellValidation } from '../../core/data-validation';
 import { computeHiddenRows, filtersEqual, type SheetFilter } from '../../core/filter';
 import {

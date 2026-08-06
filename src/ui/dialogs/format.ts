@@ -38,7 +38,13 @@ const CF_DEFAULT_BACKGROUND = '#ffc7ce';
 const CF_DEFAULT_SCALE_MIN_COLOR = '#ffffff';
 const CF_DEFAULT_SCALE_MAX_COLOR = '#63be7b';
 
-const CF_OPERATORS: readonly CellValueOperator[] = ['greaterThan', 'lessThan', 'between', 'equal', 'textContains'];
+const CF_OPERATORS: readonly CellValueOperator[] = [
+  'greaterThan',
+  'lessThan',
+  'between',
+  'equal',
+  'textContains',
+];
 const CF_OPERATOR_LABEL_KEY: Record<CellValueOperator, string> = {
   greaterThan: 'dialog.conditionalFormat.operator.greaterThan',
   lessThan: 'dialog.conditionalFormat.operator.lessThan',
@@ -64,7 +70,11 @@ function styleFields(
   }) as HTMLInputElement;
   bgCheckbox.checked = initial.backgroundColor !== undefined;
   const bgInput = el('input', {
-    attrs: { type: 'color', id: `${idPrefix}-bg-color`, value: initial.backgroundColor ?? CF_DEFAULT_BACKGROUND },
+    attrs: {
+      type: 'color',
+      id: `${idPrefix}-bg-color`,
+      value: initial.backgroundColor ?? CF_DEFAULT_BACKGROUND,
+    },
   }) as HTMLInputElement;
   const textCheckbox = el('input', {
     attrs: { type: 'checkbox', id: `${idPrefix}-text-enable` },
@@ -79,12 +89,18 @@ function styleFields(
   const row = el('div', { className: 'format-borders-list' }, [
     el('div', { className: 'format-borders-row' }, [
       bgCheckbox,
-      el('label', { text: t('dialog.conditionalFormat.backgroundColor'), attrs: { for: `${idPrefix}-bg-enable` } }),
+      el('label', {
+        text: t('dialog.conditionalFormat.backgroundColor'),
+        attrs: { for: `${idPrefix}-bg-enable` },
+      }),
       bgInput,
     ]),
     el('div', { className: 'format-borders-row' }, [
       textCheckbox,
-      el('label', { text: t('dialog.conditionalFormat.textColor'), attrs: { for: `${idPrefix}-text-enable` } }),
+      el('label', {
+        text: t('dialog.conditionalFormat.textColor'),
+        attrs: { for: `${idPrefix}-text-enable` },
+      }),
       textInput,
     ]),
   ]);
@@ -353,7 +369,9 @@ export class FormatDialogs {
    * explanation, until the current fields describe a usable rule. Resolves
    * with the chosen action, or null when cancelled (nothing changes).
    */
-  chooseConditionalFormat(input: ConditionalFormatDialogInput): Promise<ConditionalFormatDialogResult | null> {
+  chooseConditionalFormat(
+    input: ConditionalFormatDialogInput,
+  ): Promise<ConditionalFormatDialogResult | null> {
     return openDialog<ConditionalFormatDialogResult | null>(
       t('dialog.conditionalFormat.title'),
       null,
@@ -430,7 +448,9 @@ export class FormatDialogs {
 
         // ----- Duplicate values section -----
         const existingDuplicateStyle =
-          input.existing?.kind === 'duplicate' ? input.existing.style : { backgroundColor: CF_DEFAULT_BACKGROUND };
+          input.existing?.kind === 'duplicate'
+            ? input.existing.style
+            : { backgroundColor: CF_DEFAULT_BACKGROUND };
         const duplicateStyle = styleFields('cf-duplicate', existingDuplicateStyle, refresh);
         const duplicateSection = el('div', { className: 'form-row' }, [duplicateStyle.row]);
         body.append(duplicateSection);

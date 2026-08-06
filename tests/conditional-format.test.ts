@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MIT
+// @vitest-environment jsdom
 /**
  * Conditional formatting: the pure rule core (structural validation,
- * cell-value/duplicate/color-scale matching, color interpolation). The
- * command-level dialog flow is covered in `conditional-format-command.test.ts`,
- * mirroring the `data-validation.ts` / `data-validation.test.ts` split.
+ * cell-value/duplicate/color-scale matching, color interpolation) and the
+ * command-level flow — dialog apply/clear, CSV-mode restriction, the rule
+ * cap, and non-undoable/non-dirty session-only behavior. Mirrors
+ * `data-validation.test.ts`.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { AppState } from '../src/app/app-state';
+import { Commands, type ConditionalFormatDialogResult, type UiPort } from '../src/app/commands';
 import {
   colorScaleColor,
   colorScaleRange,
@@ -15,11 +19,75 @@ import {
   interpolateHexColor,
   matchesCellValueRule,
   validateConditionalFormat,
+  MAX_CONDITIONAL_FORMAT_RULES,
   type CellConditionalFormat,
   type CellValueRule,
   type ColorScaleRule,
 } from '../src/core/conditional-format';
 import type { FormulaValue } from '../src/core/formula-value';
+import { RsfDocument } from '../src/core/rsf-document';
+import { doc as csvDoc } from './helpers';
+
+function stubUi(overrides: Partial<UiPort> = {}): UiPort {
+  return {
+    confirmValidation: vi.fn(async () => true),
+    confirmUnsaved: vi.fn(async () => 'discard' as const),
+    chooseSaveOptions: vi.fn(async () => null),
+    confirmUnrepresentable: vi.fn(async () => false),
+    notifyNcr: vi.fn(async () => undefined),
+    confirmUndecodableEdit: vi.fn(async () => true),
+    chooseReopen: vi.fn(async () => null),
+    confirmConvert: vi.fn(async () => true),
+    explainRsfSave: vi.fn(async () => true),
+    chooseRsfSave: vi.fn(async () => 2),
+    chooseExportCsv: vi.fn(async () => null),
+    confirmExportXlsx: vi.fn(async () => true),
+    chooseInsertShift: vi.fn(async () => 'down' as const),
+    confirmFlashFill: vi.fn(async () => true),
+    chooseFilter: vi.fn(async () => null),
+    chooseSort: vi.fn(async () => null),
+    chooseDataValidation: vi.fn(async () => null),
+    chooseConditionalFormat: vi.fn(async () => null),
+    promptSheetName: vi.fn(async () => null),
+    confirmDeleteSheet: vi.fn(async () => true),
+    chooseExportSheet: vi.fn(async () => null),
+    confirmReplaceAllWorkbook: vi.fn(async () => true),
+    confirmRangeMoveOverwrite: vi.fn(async () => true),
+    promptMoveTarget: vi.fn(async () => null),
+    confirm: vi.fn(async () => true),
+    showMessage: vi.fn(async () => undefined),
+    notify: vi.fn(),
+    openFindBar: vi.fn(),
+    findNext: vi.fn(),
+    showAbout: vi.fn(),
+    showFormulaHelp: vi.fn(),
+    showSqlQuery: vi.fn(async () => undefined),
+    showDiff: vi.fn(async () => undefined),
+    chooseSettings: vi.fn(async () => null),
+    chooseTimezone: vi.fn(async () => null),
+    chooseDisplayLanguage: vi.fn(async () => null),
+    chooseTextColor: vi.fn(async () => null),
+    chooseBackgroundColor: vi.fn(async () => null),
+    chooseBorders: vi.fn(async () => null),
+    chooseNumberFormat: vi.fn(async () => null),
+    setBusy: vi.fn(),
+    ...overrides,
+  };
+}
+
+function sheet(values: string[][], ui: UiPort = stubUi()) {
+  const state = new AppState();
+  const commands = new Commands(state, ui, document);
+  const doc = RsfDocument.empty('t.rsf', values.length, values[0].length);
+  for (let r = 0; r < values.length; r++) {
+    for (let c = 0; c < values[r].length; c++) {
+      doc.setCell(r, c, values[r][c]);
+    }
+  }
+  doc.markSaved();
+  const tab = state.addTab('t.rsf', doc, null);
+  return { state, commands, tab, doc, ui };
+}
 
 const num = (value: number): FormulaValue => ({ type: 'number', value });
 const str = (value: string): FormulaValue => ({ type: 'string', value });
@@ -183,9 +251,7 @@ describe('validateConditionalFormat', () => {
   });
 
   it('rejects a rule whose style carries neither color, or an invalid hex color', () => {
-    expect(
-      validateConditionalFormat({ ...base, rule: { kind: 'duplicate', style: {} } }, 4, 4),
-    ).toBeNull();
+    expect(validateConditionalFormat({ ...base, rule: { kind: 'duplicate', style: {} } }, 4, 4)).toBeNull();
     expect(
       validateConditionalFormat(
         { ...base, rule: { kind: 'duplicate', style: { backgroundColor: 'red' } } },
@@ -203,5 +269,191 @@ describe('validateConditionalFormat', () => {
         4,
       ),
     ).toBeNull();
+  });
+});
+
+describe('conditional format command flow', () => {
+  it('applies via the dialog route to the selected range, reports it, and colors matching cells', async () => {
+    const applied: ConditionalFormatDialogResult = {
+      action: 'apply',
+      rule: {
+        kind: 'cellValue',
+        operator: 'greaterThan',
+        value1: '10',
+        style: { backgroundColor: '#ff0000' },
+      },
+    };
+    const ui = stubUi({ chooseConditionalFormat: vi.fn(async () => applied) });
+    const { state, commands, tab, doc } = sheet(
+      [
+        ['5', '20'],
+        ['', ''],
+      ],
+      ui,
+    );
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 1 });
+    const ok = await commands.conditionalFormatDialog(tab);
+    expect(ok).toBe(true);
+    expect(ui.chooseConditionalFormat).toHaveBeenCalled();
+    expect(doc.conditionalFormats).toHaveLength(1);
+    expect(ui.notify).toHaveBeenCalled();
+    expect(doc.getConditionalFormatStyle(0, 0)).toBeNull(); // 5 does not satisfy > 10
+    expect(doc.getConditionalFormatStyle(0, 1)).toEqual({ backgroundColor: '#ff0000' }); // 20 does
+    expect(doc.getConditionalFormatStyle(1, 0)).toBeNull(); // outside the applied range
+  });
+
+  it('CSV documents refuse to open the dialog with a localized explanation', async () => {
+    const ui = stubUi();
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+    const tab = state.addTab('t.csv', csvDoc('a,b\n1,2\n'), null);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    const result = await commands.conditionalFormatDialog(tab);
+    expect(result).toBe(false);
+    expect(ui.showMessage).toHaveBeenCalled();
+    expect(ui.chooseConditionalFormat).not.toHaveBeenCalled();
+  });
+
+  it('clearing removes exactly the rule covering the exact range and notifies', async () => {
+    const { state, tab, doc } = sheet([['1', '2']]);
+    const format: CellConditionalFormat = {
+      top: 0,
+      left: 0,
+      bottom: 0,
+      right: 0,
+      rule: { kind: 'duplicate', style: { backgroundColor: '#ff0000' } },
+    };
+    expect(state.setConditionalFormat(tab, format)).toBe(true);
+    expect(doc.conditionalFormats).toHaveLength(1);
+    const cleared: ConditionalFormatDialogResult = { action: 'clear' };
+    const ui = stubUi({ chooseConditionalFormat: vi.fn(async () => cleared) });
+    const commands = new Commands(state, ui, document);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    const ok = await commands.conditionalFormatDialog(tab);
+    expect(ok).toBe(true);
+    expect(doc.conditionalFormats).toHaveLength(0);
+    expect(ui.notify).toHaveBeenCalled();
+  });
+
+  it('refuses an out-of-bounds or otherwise invalid rule with a localized message, applying nothing', async () => {
+    const badRule: ConditionalFormatDialogResult = {
+      action: 'apply',
+      rule: { kind: 'duplicate', style: {} }, // neither color set: invalid
+    };
+    const ui = stubUi({ chooseConditionalFormat: vi.fn(async () => badRule) });
+    const { state, tab, doc } = sheet([['']], ui);
+    const commands = new Commands(state, ui, document);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    const ok = await commands.conditionalFormatDialog(tab);
+    expect(ok).toBe(false);
+    expect(ui.showMessage).toHaveBeenCalled();
+    expect(doc.conditionalFormats).toHaveLength(0);
+  });
+
+  it('refuses to add a rule beyond MAX_CONDITIONAL_FORMAT_RULES for a new range, but still allows replacing an existing one', async () => {
+    const { state, tab, doc } = sheet(Array.from({ length: MAX_CONDITIONAL_FORMAT_RULES + 1 }, () => ['']));
+    for (let i = 0; i < MAX_CONDITIONAL_FORMAT_RULES; i++) {
+      expect(
+        state.setConditionalFormat(tab, {
+          top: i,
+          left: 0,
+          bottom: i,
+          right: 0,
+          rule: { kind: 'duplicate', style: { backgroundColor: '#ff0000' } },
+        }),
+      ).toBe(true);
+    }
+    expect(doc.conditionalFormats).toHaveLength(MAX_CONDITIONAL_FORMAT_RULES);
+
+    const newRule: ConditionalFormatDialogResult = {
+      action: 'apply',
+      rule: { kind: 'duplicate', style: { backgroundColor: '#00ff00' } },
+    };
+    const ui = stubUi({ chooseConditionalFormat: vi.fn(async () => newRule) });
+    const commands = new Commands(state, ui, document);
+    // A brand-new range beyond the cap is refused.
+    state.setSelection(tab, { row: MAX_CONDITIONAL_FORMAT_RULES, col: 0 }, null);
+    expect(await commands.conditionalFormatDialog(tab)).toBe(false);
+    expect(ui.showMessage).toHaveBeenCalled();
+    expect(doc.conditionalFormats).toHaveLength(MAX_CONDITIONAL_FORMAT_RULES);
+
+    // Replacing the rule on an already-covered exact range is still allowed.
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    expect(await commands.conditionalFormatDialog(tab)).toBe(true);
+    expect(doc.conditionalFormats).toHaveLength(MAX_CONDITIONAL_FORMAT_RULES);
+  });
+
+  it('structural row/column edits drop every active conditional-formatting rule', () => {
+    const { state, tab, doc } = sheet([['1'], ['2']]);
+    const format: CellConditionalFormat = {
+      top: 0,
+      left: 0,
+      bottom: 1,
+      right: 0,
+      rule: { kind: 'duplicate', style: { backgroundColor: '#ff0000' } },
+    };
+    expect(state.setConditionalFormat(tab, format)).toBe(true);
+    expect(state.insertRows(tab, 0, 1)).toBe(true);
+    expect(doc.conditionalFormats).toHaveLength(0);
+  });
+
+  it('is session-only view state: not undoable, does not mark the document dirty, and never changes cell values', () => {
+    const { state, tab, doc } = sheet([['5']]);
+    expect(doc.isDirty).toBe(false);
+    const format: CellConditionalFormat = {
+      top: 0,
+      left: 0,
+      bottom: 0,
+      right: 0,
+      rule: {
+        kind: 'cellValue',
+        operator: 'greaterThan',
+        value1: '1',
+        style: { backgroundColor: '#ff0000' },
+      },
+    };
+    expect(state.setConditionalFormat(tab, format)).toBe(true);
+    expect(doc.isDirty).toBe(false);
+    expect(tab.history.canUndo).toBe(false);
+    state.undo(tab); // no-op: nothing to undo
+    expect(doc.conditionalFormats).toHaveLength(1); // survives, since it was never history-tracked
+    expect(doc.getValue(0, 0)).toBe('5'); // the cell's value is untouched
+  });
+
+  it('several rules can be active at once, each covering its own range, and only the last-applied overlap wins', () => {
+    const { state, tab, doc } = sheet([['5'], ['5']]);
+    expect(
+      state.setConditionalFormat(tab, {
+        top: 0,
+        left: 0,
+        bottom: 1,
+        right: 0,
+        rule: {
+          kind: 'cellValue',
+          operator: 'greaterThan',
+          value1: '1',
+          style: { backgroundColor: '#ff0000' },
+        },
+      }),
+    ).toBe(true);
+    expect(
+      state.setConditionalFormat(tab, {
+        top: 0,
+        left: 0,
+        bottom: 0,
+        right: 0,
+        rule: {
+          kind: 'cellValue',
+          operator: 'greaterThan',
+          value1: '1',
+          style: { backgroundColor: '#00ff00' },
+        },
+      }),
+    ).toBe(true);
+    expect(doc.conditionalFormats).toHaveLength(2);
+    // Row 0 is covered by both; the more recently applied rule wins.
+    expect(doc.getConditionalFormatStyle(0, 0)).toEqual({ backgroundColor: '#00ff00' });
+    // Row 1 is covered only by the first rule.
+    expect(doc.getConditionalFormatStyle(1, 0)).toEqual({ backgroundColor: '#ff0000' });
   });
 });

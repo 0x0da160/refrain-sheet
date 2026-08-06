@@ -146,6 +146,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
   both languages) was refreshed to mention them too, and a new FAQ entry
   clarifies that cell formatting never changes CSV bytes.
   ([#224](https://github.com/0x0da160/refrain-sheet/issues/224))
+- The landing page's spreadsheet section now lists six more capabilities that
+  had shipped since the last refresh — Data Validation, Conditional
+  Formatting, Number Format, SQL Query, Compare / Diff, and Cell Comment —
+  as new feature cards, and the structured-data feature list was updated to
+  match. The "1 dependency" stat and its mention in the security section were
+  also corrected to "2 dependencies" (still zero transitive dependencies),
+  reflecting the `lucide` icon package added earlier in this changelog.
+  ([#273](https://github.com/0x0da160/refrain-sheet/issues/273))
 - The app icon, the app favicon, and the marketing site favicon now share one
   brand mark (a rounded frame with a grid divider and a small flourish). The
   favicon also follows the OS/browser dark-mode preference.

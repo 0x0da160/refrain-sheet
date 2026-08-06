@@ -2,12 +2,18 @@
 // @vitest-environment jsdom
 /**
  * At the mobile breakpoint (`@media (max-width: 700px)` in `src/styles.css`)
- * the top-level menu row (`.menu-row`) now scrolls horizontally instead of
- * collapsing behind a hamburger toggle — see #246. CSS gates the scrolling
- * itself on viewport width, which jsdom does not evaluate, so these tests
- * cover the DOM/state contract instead: the row and every top-level menu
- * button are always present (never hidden behind a toggle that has to be
- * tapped first), and there is no leftover hamburger toggle markup or state.
+ * the top-level menu row (`.menu-row`) now collapses behind a hamburger
+ * toggle (`.menu-bar-toggle`) and, once expanded, wraps onto its own
+ * full-width row below the logo row instead of scrolling horizontally beside
+ * it — see #267, which supersedes the "no toggle, horizontal scroll instead"
+ * decision from #246. The old horizontal-scroll strip combined with iOS
+ * Safari dispatching a synthetic click at the finger's original touch
+ * coordinates after inertial scroll, so a tap could open a different item
+ * than the one touched; removing the scroll interaction removes that failure
+ * mode entirely. CSS gates the collapse/expand itself on viewport width,
+ * which jsdom does not evaluate, so these tests cover the DOM/state contract
+ * instead: the toggle's `aria-expanded` and `.menu-row`'s `open` class always
+ * agree, regardless of viewport.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
@@ -84,18 +90,18 @@ function buildBar(): MenuBar {
   return bar;
 }
 
-describe('mobile menu bar (horizontally scrolling, no hamburger toggle)', () => {
-  it('renders the top-level menu row directly, with no toggle button or collapsed state', () => {
+describe('mobile menu bar (hamburger toggle, expands below the logo row)', () => {
+  it('starts with the row collapsed behind a toggle whose aria-expanded is false', () => {
     const bar = buildBar();
-    expect(bar.element.querySelector('.menu-bar-toggle')).toBeNull();
-    expect(bar.element.classList.contains('mobile-open')).toBe(false);
-    const row = bar.element.querySelector('.menu-row');
-    expect(row).not.toBeNull();
-    expect(row!.getAttribute('hidden')).toBeNull();
+    const toggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle');
+    expect(toggle).not.toBeNull();
+    expect(toggle!.getAttribute('aria-expanded')).toBe('false');
+    expect(bar.element.querySelector('.menu-row')!.classList.contains('open')).toBe(false);
   });
 
-  it('exposes every top-level menu name in the row without any prior interaction', () => {
+  it('exposes every top-level menu name in the row once the toggle is expanded', () => {
     const bar = buildBar();
+    bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!.click();
     const labels = Array.from(
       bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
     ).map((b) => b.textContent);
@@ -111,8 +117,19 @@ describe('mobile menu bar (horizontally scrolling, no hamburger toggle)', () => 
     ]);
   });
 
-  it('opens a top-level menu directly from the row, with no toggle to tap first', () => {
+  it('flips the toggle back to collapsed when clicked a second time', () => {
     const bar = buildBar();
+    const toggle = () => bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!;
+    toggle().click();
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
+    toggle().click();
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+    expect(bar.element.querySelector('.menu-row')!.classList.contains('open')).toBe(false);
+  });
+
+  it('opens a top-level menu from the expanded row', () => {
+    const bar = buildBar();
+    bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!.click();
     const fileButton = Array.from(
       bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
     ).find((b) => b.textContent === t('menu.file'))!;
@@ -120,8 +137,9 @@ describe('mobile menu bar (horizontally scrolling, no hamburger toggle)', () => 
     expect(bar.element.querySelector('.menu-list')).not.toBeNull();
   });
 
-  it('closes the open dropdown after a command is selected, and the row stays visible', () => {
+  it('collapses the row again once a command is selected', () => {
     const bar = buildBar();
+    bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!.click();
     const fileButton = Array.from(
       bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
     ).find((b) => b.textContent === t('menu.file'))!;
@@ -131,6 +149,8 @@ describe('mobile menu bar (horizontally scrolling, no hamburger toggle)', () => 
     )!;
     newSpreadsheet.click();
     expect(bar.element.querySelector('.menu-list')).toBeNull();
-    expect(bar.element.querySelector('.menu-row')).not.toBeNull();
+    const toggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(bar.element.querySelector('.menu-row')!.classList.contains('open')).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { Check } from 'lucide';
+import { Check, Menu } from 'lucide';
 import type { CommandId, Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { SHEET_ZOOM_LEVELS } from '../app/settings';
@@ -338,6 +338,12 @@ export class MenuBar {
   private openSubmenuKey: string | null = null;
   /** The mounted submenu list (in `document.body`, so it is never clipped). */
   private submenuEl: HTMLElement | null = null;
+  /**
+   * Mobile only: whether `.menu-row` (File / Edit / …) is expanded below the
+   * logo row. Toggled by `.menu-bar-toggle`, ignored by desktop-width CSS
+   * where the row stays inline as before.
+   */
+  private mobileMenuOpen = false;
 
   constructor(
     private readonly commands: Commands,
@@ -352,9 +358,10 @@ export class MenuBar {
       if (insideBar || insideSubmenu) {
         return;
       }
-      if (this.openIndex !== null) {
+      if (this.openIndex !== null || this.mobileMenuOpen) {
         this.openIndex = null;
         this.openSubmenuKey = null;
+        this.mobileMenuOpen = false;
         this.render();
       }
     });
@@ -374,12 +381,6 @@ export class MenuBar {
     // before the list that owns it is rebuilt.
     this.submenuEl?.remove();
     this.submenuEl = null;
-    // `.menu-row` is rebuilt from scratch below (a fresh element always
-    // starts at scrollLeft 0), so its horizontal scroll position — the only
-    // way a narrow/mobile viewport reaches menus past the fold — must be
-    // captured and reapplied, or every render (e.g. every tap that opens a
-    // menu) would snap the row back to the start.
-    const previousScrollLeft = this.element.querySelector<HTMLElement>('.menu-row')?.scrollLeft ?? 0;
     clearChildren(this.element);
     // Decorative: the adjacent product name conveys the brand, so the icon is
     // hidden from assistive technology. Explicit width/height reserve space so
@@ -389,7 +390,36 @@ export class MenuBar {
       createAppIcon('app-icon', 20),
       el('span', { className: 'app-name', text: t('app.title') }),
     );
-    const row = el('div', { className: 'menu-row' });
+    // Mobile only (hidden by desktop-width CSS): expands `.menu-row` below
+    // this logo row instead of it scrolling horizontally beside the logo.
+    // The old horizontal-scroll strip combined with iOS Safari dispatching a
+    // synthetic click at the finger's original touch coordinates after
+    // inertial scroll, so a tap could open a different item than the one
+    // touched (#267); replacing the scroll interaction removes that failure
+    // mode entirely rather than trying to compensate for it.
+    const toggle = el(
+      'button',
+      {
+        className: 'menu-bar-toggle',
+        attrs: {
+          type: 'button',
+          'aria-expanded': this.mobileMenuOpen ? 'true' : 'false',
+          'aria-controls': 'menu-bar-row',
+          'aria-label': t('menu.toggle'),
+          title: t('menu.toggle'),
+        },
+      },
+      [createIcon(Menu, 'menu-bar-toggle-icon', 18)],
+    );
+    toggle.addEventListener('click', () => {
+      this.mobileMenuOpen = !this.mobileMenuOpen;
+      this.render();
+    });
+    this.element.append(toggle);
+    const row = el('div', {
+      className: this.mobileMenuOpen ? 'menu-row open' : 'menu-row',
+      attrs: { id: 'menu-bar-row' },
+    });
     this.menus.forEach((menu, index) => {
       const wrapper = el('div', { className: 'menu' });
       const label = menu.labelKey.includes('.') ? t(menu.labelKey) : menu.labelKey;
@@ -430,9 +460,6 @@ export class MenuBar {
       row.append(wrapper);
     });
     this.element.append(row);
-    // Must be set after `row` is attached: a detached element's scrollWidth
-    // is always 0, so scrollLeft would clamp to 0 and the fix would no-op.
-    row.scrollLeft = previousScrollLeft;
     if (this.openIndex !== null) {
       this.placePopups();
     }
@@ -506,6 +533,9 @@ export class MenuBar {
       );
       button.disabled = !this.commands.isEnabled(command);
       button.addEventListener('click', () => {
+        // Also collapses the mobile expand-below-logo panel: on desktop-width
+        // CSS this is a no-op, since the row stays inline there regardless.
+        this.mobileMenuOpen = false;
         this.closeMenu();
         void this.commands.run(command);
       });

@@ -34,6 +34,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
   formula results, or CSV/XLSX export, and (like other cell formatting) is
   RSF-only, with a message explaining the required conversion on a plain CSV
   tab. ([#234](https://github.com/0x0da160/refrain-sheet/issues/234))
+- On narrow (mobile-width) viewports, the top-level menu bar (File / Edit /
+  Search / …) is now reached through a menu icon in the top-right of the
+  logo row instead of a horizontally scrolling strip: tapping it expands the
+  menu names on their own row below the logo, wrapping instead of scrolling.
+  ([#267](https://github.com/0x0da160/refrain-sheet/issues/267))
 - A new **Search > Go to Cell…** command jumps the selection straight to any
   cell reference you type (e.g. `B12`), like Excel's Name Box or Ctrl+G. It
   works on both CSV and RSF tabs, since it only moves the selection.
@@ -160,9 +165,20 @@ release-time half (retitling `Unreleased`) is still done by hand.
 - The landing page's stylesheet is now minified during the build (comments
   and whitespace stripped), shrinking it by about 22% for a slightly faster
   first paint. ([#219](https://github.com/0x0da160/refrain-sheet/issues/219))
+- The landing page's hero screenshot and the CSV-validation-dialog feature
+  screenshot now have an additional, smaller `srcset` variant (400w), so
+  narrow (mobile) viewports are no longer served the 800w/750w image when
+  the picture is displayed well under that width — roughly 39 KiB less
+  transfer on a mobile viewport of the Japanese page.
+  ([#269](https://github.com/0x0da160/refrain-sheet/issues/269))
 
 ### Fixed
 
+- On iOS Safari, tapping a top-level menu bar button (File / Edit / Search /
+  …) after horizontally scrolling the menu row could open a different menu
+  than the one tapped. The mobile menu row no longer scrolls horizontally
+  (see the Added entry above), which removes the interaction that caused
+  this. ([#267](https://github.com/0x0da160/refrain-sheet/issues/267))
 - On narrow (mobile-width) viewports, tapping a top-level menu bar button
   (File / Edit / Search / …) no longer resets the menu bar's horizontal
   scroll position, which used to be able to land the tap on a different

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import {
+  initSqlEngine,
   runSqlQuery,
   SqlQueryError,
   SQL_MAX_SOURCE_ROWS,
@@ -77,16 +78,24 @@ export class SqlCommands {
     return Array.from(new Set(headers.map((h) => h.trim()).filter((h) => h !== '')));
   }
 
-  /** Read the picked source and run the query, catching a rejected/failed query rather than throwing. */
-  runQuery(tab: Tab, sourceId: string, query: string): SqlRunOutcome {
+  /**
+   * Read the picked source and run the query against the embedded SQLite
+   * engine, catching a rejected/failed query rather than throwing. Awaits
+   * {@link initSqlEngine} first (normally already resolved — it starts in
+   * the background at startup, see `src/main.ts`); a failure to initialize
+   * surfaces through the same outcome shape as a rejected query.
+   */
+  async runQuery(tab: Tab, sourceId: string, query: string): Promise<SqlRunOutcome> {
     try {
+      await initSqlEngine();
       const table = this.readTable(tab, sourceId);
       return { ok: true, result: runSqlQuery(query, table) };
     } catch (e) {
       if (e instanceof SqlQueryError) {
         return { ok: false, error: e };
       }
-      throw e;
+      const message = e instanceof Error ? e.message : String(e);
+      return { ok: false, error: new SqlQueryError('engineUnavailable', message, { message }) };
     }
   }
 }

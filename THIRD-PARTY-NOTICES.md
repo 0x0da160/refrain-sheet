@@ -41,6 +41,48 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## sql.js (and SQLite)
+
+- Version: 1.14.1
+- Author: sql.js authors
+- Source: https://github.com/sql-js/sql.js
+- Purpose: the execution engine behind **Data > Run SQL Query…**
+  (`src/core/sql-engine.ts`) — SQLite compiled to WebAssembly. The compiled
+  `sql-wasm.wasm` binary is Base64-embedded into the build output at build
+  time (`scripts/embed-sqljs.mjs` → `src/wasm-gen/sqljs-wasm-payload.ts`) and
+  instantiated locally from those decoded bytes only (sql.js's `wasmBinary`
+  option); `locateFile()` is never set, so no `.wasm` asset is fetched over
+  the network and `file://` usage keeps working. No network access is
+  involved.
+- License: MIT (the sql.js project itself). sql.js statically links SQLite,
+  which is dedicated to the public domain (no license text required, but see
+  https://www.sqlite.org/copyright.html).
+
+```text
+MIT license
+===========
+
+Copyright (c) 2017 sql.js authors (see https://github.com/sql-js/sql.js/blob/master/AUTHORS)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## lucide
 
 - Version: 1.28.0

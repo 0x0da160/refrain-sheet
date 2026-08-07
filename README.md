@@ -1866,10 +1866,12 @@ The full threat model, dependency policy, lockfile policy, CI permission model,
 release controls, and local-developer expectations are documented in
 [docs/security.md](docs/security.md). In brief:
 
-- **Minimal dependencies.** The production runtime has a single dependency
-  (`encoding-japanese`, for Shift_JIS/EUC-JP encoding) with **zero transitive
-  dependencies**; everything else is dev-only tooling. Rust crates are few and
-  exactly pinned (`=x.y.z`).
+- **Minimal dependencies.** The production runtime has three dependencies —
+  `encoding-japanese` (Shift_JIS/EUC-JP encoding), `lucide` (bundled UI
+  icons), and `sql.js` (the SQLite/WebAssembly engine behind Data > Run SQL
+  Query…, its `.wasm` binary embedded as Base64 at build time) — each with
+  **zero transitive dependencies**; everything else is dev-only tooling. Rust
+  crates are few and exactly pinned (`=x.y.z`).
 - **Lockfiles enforced.** `package-lock.json` and `wasm/Cargo.lock` are
   committed; CI, Docker, and release instructions use `npm ci` (never
   `npm install`), which installs strictly from the lockfile.

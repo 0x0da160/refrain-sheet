@@ -87,13 +87,17 @@ release-time half (retitling `Unreleased`) is still done by hand.
   rule is RSF-only, session-only view state — not saved to the `.rsf`
   container and not undoable. ([#215](https://github.com/0x0da160/refrain-sheet/issues/215))
 - A new **Data > Run SQL Query…** dialog runs a local, read-only SQL query
-  (a single `SELECT`, with `WHERE`/`GROUP BY`/`ORDER BY`/`LIMIT` and common
-  comparison, aggregate, and scalar functions) against the active worksheet
-  or the open CSV, and shows the result in a keyboard-navigable table. It
-  never writes back to the source document, never runs anything but
-  `SELECT`, and works fully offline — there is no new dependency; the query
-  engine is a small local implementation (see `docs/architecture.md` "The
-  SQL query engine"). ([#228](https://github.com/0x0da160/refrain-sheet/issues/228))
+  (a single `SELECT`, with `WHERE`/`GROUP BY`/`ORDER BY`/`LIMIT`, joins,
+  subqueries, and SQLite's comparison, aggregate, and scalar functions)
+  against the active worksheet or the open CSV, and shows the result in a
+  keyboard-navigable table. It never writes back to the source document and
+  never runs anything but `SELECT`; the query is executed locally by
+  [sql.js](https://github.com/sql-js/sql.js) (SQLite compiled to
+  WebAssembly), embedded as Base64 at build time so the app keeps working
+  fully offline from a single `file://` document with zero runtime network
+  access (see `docs/architecture.md` "The SQL query engine").
+  ([#228](https://github.com/0x0da160/refrain-sheet/issues/228),
+  [#277](https://github.com/0x0da160/refrain-sheet/issues/277))
 - **Format > Number Format…** applies a numeric display format (Number,
   Percent, or Currency, with configurable decimal places, an optional
   thousands separator, and a currency symbol) to the selected cell or range

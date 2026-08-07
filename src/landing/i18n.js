@@ -44,8 +44,8 @@ export const I18N = {
     'stat2.v': '実行時のネットワーク通信。CDNもテレメトリもありません',
     'stat3.k': '55 functions',
     'stat3.v': 'RSFスプレッドシートで使える関数（XLOOKUP・FILTER ほか）',
-    'stat4.k': '2 dependencies',
-    'stat4.v': '本番依存パッケージは2つだけ（推移的依存ゼロ）',
+    'stat4.k': '3 dependencies',
+    'stat4.v': '本番依存パッケージは3つだけ（推移的依存ゼロ）',
 
     'why.eyebrow': 'THE PROBLEM',
     'why.h2': '「開いて保存しただけ」で壊れるCSV。',
@@ -166,7 +166,7 @@ export const I18N = {
       'セル内容はHTMLとして解釈されず、innerHTML・eval・new Function・マクロは一切使用しません。数式は専用エンジンで評価されます。',
     'sec.c3h': 'サプライチェーン対策',
     'sec.c3p':
-      '本番依存は2パッケージのみ（推移的依存ゼロ）、lockfile固定、install スクリプト無効化。リリースにはSHA-256・SBOM・ビルド来歴の署名が付きます。',
+      '本番依存は3パッケージのみ（推移的依存ゼロ）、lockfile固定、install スクリプト無効化。リリースにはSHA-256・SBOM・ビルド来歴の署名が付きます。',
 
     'start.eyebrow': 'GET STARTED',
     'start.h2': '3ステップで使いはじめる。',
@@ -262,7 +262,7 @@ export const I18N = {
     'stat2.v': 'at runtime. No CDN, no analytics, no telemetry',
     'stat3.k': '55 functions',
     'stat3.v': 'in RSF spreadsheets, including XLOOKUP, SUMIFS and FILTER',
-    'stat4.k': '2 dependencies',
+    'stat4.k': '3 dependencies',
     'stat4.v': 'in production, with zero transitive dependencies',
 
     'why.eyebrow': 'THE PROBLEM',
@@ -393,7 +393,7 @@ export const I18N = {
       'Cell content is never interpreted as HTML; there is no innerHTML, eval, new Function or macro anywhere. Formulas run in a sandboxed engine.',
     'sec.c3h': 'Supply chain discipline',
     'sec.c3p':
-      'Two production dependencies with zero transitive dependencies, enforced lockfiles, install scripts disabled, and releases shipped with SHA-256 checksums, an SBOM and signed build provenance.',
+      'Three production dependencies with zero transitive dependencies, enforced lockfiles, install scripts disabled, and releases shipped with SHA-256 checksums, an SBOM and signed build provenance.',
 
     'start.eyebrow': 'GET STARTED',
     'start.h2': 'Three steps.',

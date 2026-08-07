@@ -88,9 +88,14 @@ convenience: there is no runtime channel to exfiltrate a user's file contents.
 
 - **Keep the count minimal.** Do not add a dependency for convenience. Prefer a
   platform/browser API or a small local implementation. The production runtime
-  has one dependency: `encoding-japanese` (Shift_JIS / EUC-JP encoding, which
-  the browser's `TextEncoder` cannot produce; **zero transitive
-  dependencies**). Everything else is dev-only build/test tooling.
+  has two dependencies, both **zero transitive dependencies**:
+  `encoding-japanese` (Shift_JIS / EUC-JP encoding, which the browser's
+  `TextEncoder` cannot produce) and `sql.js` (SQLite compiled to WebAssembly,
+  the execution engine behind Data > Run SQL Query… — see
+  `docs/architecture.md` "The SQL query engine"; its `.wasm` binary is
+  embedded as Base64 at build time, the same pattern used for the Rust
+  performance core, so it never breaks the offline/`file://` guarantee).
+  Everything else is dev-only build/test tooling.
 - **Audit before adding.** New dependencies are reviewed for necessity,
   maintenance status, permission surface (install scripts, network access), and
   transitive footprint. Abandoned, over-permissive, or avoidable packages are

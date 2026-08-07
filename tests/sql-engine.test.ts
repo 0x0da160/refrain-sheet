@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
   checkSqlSyntax,
   formatSqlQuery,
+  initSqlEngine,
   runSqlQuery,
   suggestSqlCompletions,
   SqlQueryError,
@@ -12,6 +13,10 @@ import {
   SQL_MAX_RESULT_ROWS,
   type SqlTable,
 } from '../src/core/sql-engine';
+
+beforeAll(async () => {
+  await initSqlEngine();
+});
 
 const salesTable: SqlTable = {
   headers: ['department', 'order_date', 'amount'],
@@ -43,20 +48,22 @@ describe('sql-engine: basic SELECT', () => {
     const r = run('SELECT * FROM data');
     expect(r.columns).toEqual(['department', 'order_date', 'amount']);
     expect(r.rows).toHaveLength(5);
-    expect(r.rows[0]).toEqual(['Sales', '2026-01-05', '100']);
+    // amount is a canonical numeric spelling, so it round-trips through
+    // SQLite as a real number, not text — see toBindValue in sql-engine.ts.
+    expect(r.rows[0]).toEqual(['Sales', '2026-01-05', 100]);
   });
 
   it('projects specific columns with aliases', () => {
     const r = run('SELECT department AS dept, amount FROM data');
     expect(r.columns).toEqual(['dept', 'amount']);
-    expect(r.rows[0]).toEqual(['Sales', '100']);
+    expect(r.rows[0]).toEqual(['Sales', 100]);
   });
 
   it('supports quoted identifiers for headers with spaces', () => {
     const t: SqlTable = { headers: ['Order Date', 'Amount'], rows: [['2026-01-01', '10']] };
     const r = run('SELECT "Order Date", "Amount" FROM data', t);
     expect(r.columns).toEqual(['Order Date', 'Amount']);
-    expect(r.rows[0]).toEqual(['2026-01-01', '10']);
+    expect(r.rows[0]).toEqual(['2026-01-01', 10]);
   });
 
   it('a plain column projection preserves the original cell text verbatim (no silent numeric coercion, e.g. leading zeros)', () => {
@@ -74,12 +81,12 @@ describe('sql-engine: WHERE', () => {
 
   it('filters with numeric comparisons', () => {
     const r = run('SELECT amount FROM data WHERE amount > 60');
-    expect(r.rows.map((row) => row[0])).toEqual(['100', '75']);
+    expect(r.rows.map((row) => row[0])).toEqual([100, 75]);
   });
 
   it('supports AND / OR / NOT', () => {
     const r = run("SELECT amount FROM data WHERE department = 'Sales' AND amount > 30");
-    expect(r.rows.map((row) => row[0])).toEqual(['100', '50']);
+    expect(r.rows.map((row) => row[0])).toEqual([100, 50]);
     const r2 = run("SELECT amount FROM data WHERE NOT department = 'Sales'");
     expect(r2.rows).toHaveLength(2);
   });
@@ -93,7 +100,7 @@ describe('sql-engine: WHERE', () => {
 
   it('supports BETWEEN', () => {
     const r = run('SELECT amount FROM data WHERE amount BETWEEN 40 AND 80');
-    expect(r.rows.map((row) => row[0])).toEqual(['50', '75']);
+    expect(r.rows.map((row) => row[0])).toEqual([50, 75]);
   });
 
   it('supports IN', () => {
@@ -146,41 +153,52 @@ describe('sql-engine: GROUP BY and aggregates (issue example)', () => {
     expect(r.rows).toEqual([[0]]);
   });
 
-  it('rejects a non-aggregated, non-grouped column in the select list', () => {
-    const err = errorOf('SELECT department, amount, COUNT(*) FROM data GROUP BY department');
-    expect(err.code).toBe('columnNotGrouped');
-    expect(err.params.name).toBe('amount');
+  it('allows a non-aggregated, non-grouped column in the select list (SQLite bare-column extension)', () => {
+    // Unlike the old hand-written engine, real SQLite does not require every
+    // non-aggregated select-list column to appear in GROUP BY — it picks an
+    // arbitrary row's value from within each group, same as SELECT * below.
+    const r = run('SELECT department, amount, COUNT(*) FROM data GROUP BY department');
+    expect(r.columns).toEqual(['department', 'amount', 'COUNT(*)']);
+    expect(r.rows).toHaveLength(2);
   });
 
-  it('rejects SELECT * combined with GROUP BY', () => {
-    expect(errorOf('SELECT * FROM data GROUP BY department').code).toBe('notAggregated');
+  it('allows SELECT * combined with GROUP BY (SQLite bare-column extension)', () => {
+    const r = run('SELECT * FROM data GROUP BY department');
+    expect(r.rows).toHaveLength(2);
   });
 
   it('rejects nested aggregates', () => {
-    expect(errorOf('SELECT SUM(COUNT(amount)) FROM data').code).toBe('nestedAggregate');
+    const err = errorOf('SELECT SUM(COUNT(amount)) FROM data');
+    expect(err.code).toBe('sqliteError');
+    expect(err.message).toContain('misuse of aggregate');
   });
 
   it('rejects aggregates in WHERE', () => {
-    expect(errorOf('SELECT department FROM data WHERE COUNT(*) > 1').code).toBe('aggregateInWhere');
+    const err = errorOf('SELECT department FROM data WHERE COUNT(*) > 1');
+    expect(err.code).toBe('sqliteError');
+    expect(err.message).toContain('misuse of aggregate');
   });
 });
 
 describe('sql-engine: ORDER BY / LIMIT', () => {
   it('orders by a column name, ascending by default', () => {
     const r = run('SELECT amount FROM data ORDER BY amount');
-    expect(r.rows.map((row) => row[0])).toEqual(['', '25', '50', '75', '100']);
+    expect(r.rows.map((row) => row[0])).toEqual(['', 25, 50, 75, 100]);
   });
 
   it('orders DESC and by position', () => {
     const r = run('SELECT department, amount FROM data ORDER BY 2 DESC');
-    expect(r.rows.map((row) => row[1])).toEqual(['100', '75', '50', '25', '']);
+    expect(r.rows.map((row) => row[1])).toEqual([100, 75, 50, 25, '']);
   });
 
-  it('applies LIMIT and reports truncation', () => {
+  it("applies the query's own LIMIT without reporting it as truncation", () => {
+    // matchedRows/truncated describe SQL_MAX_RESULT_ROWS cutting off rows the
+    // query itself would have returned — a query's own LIMIT is not that: the
+    // user asked for exactly these 2 rows, so nothing was "cut off".
     const r = run('SELECT amount FROM data ORDER BY amount DESC LIMIT 2');
-    expect(r.rows.map((row) => row[0])).toEqual(['100', '75']);
-    expect(r.matchedRows).toBe(5);
-    expect(r.truncated).toBe(true);
+    expect(r.rows.map((row) => row[0])).toEqual([100, 75]);
+    expect(r.matchedRows).toBe(2);
+    expect(r.truncated).toBe(false);
   });
 
   it('caps results at SQL_MAX_RESULT_ROWS even without LIMIT', () => {
@@ -235,11 +253,14 @@ describe('sql-engine: rejected as a syntax error (only SELECT is implemented)', 
   }
 
   it('rejects a query naming any table other than the fixed "data" placeholder', () => {
-    expect(errorOf('SELECT * FROM sales_csv').code).toBe('expectedTable');
+    const err = errorOf('SELECT * FROM sales_csv');
+    expect(err.code).toBe('sqliteError');
+    expect(err.message).toContain('no such table');
   });
 
-  it('reports a location for a syntax error', () => {
-    const err = errorOf('SELECT FROM data');
+  it('reports a location for a query rejected by the read-only/single-statement gate', () => {
+    // Only the gate's own checks (not SQLite's own parser) carry an offset.
+    const err = errorOf('DELETE FROM data');
     expect(err.location).not.toBeNull();
   });
 });
@@ -254,19 +275,26 @@ describe('sql-engine: bounds', () => {
     expect(errorOf(huge).code).toBe('tooLong');
   });
 
-  it('rejects deeply nested expressions', () => {
-    const deep = `SELECT ${'('.repeat(200)}1${')'.repeat(200)} FROM data`;
-    expect(errorOf(deep).code).toBe('tooDeep');
+  it('rejects a query with more tokens than SQL_MAX_TOKENS before it ever reaches SQLite', () => {
+    // Deep parenthesis nesting alone is within real SQLite's own limits (see
+    // the "no such table" test above for what an actual SQLite error looks
+    // like) — this exercises the tokenizer's own independent bound instead.
+    // Stays well under SQL_MAX_QUERY_LENGTH so "tooManyTokens" is the error
+    // actually hit, not "tooLong".
+    const huge = `SELECT ${'1+'.repeat(1050)}1 FROM data`;
+    expect(errorOf(huge).code).toBe('tooManyTokens');
   });
 
   it('rejects an unknown column with a helpful error', () => {
     const err = errorOf('SELECT nonexistent FROM data');
-    expect(err.code).toBe('unknownColumn');
-    expect(err.params.name).toBe('nonexistent');
+    expect(err.code).toBe('sqliteError');
+    expect(err.message).toContain('no such column: nonexistent');
   });
 
   it('rejects an unknown function', () => {
-    expect(errorOf('SELECT NOTAFUNCTION(amount) FROM data').code).toBe('unknownFunction');
+    const err = errorOf('SELECT NOTAFUNCTION(amount) FROM data');
+    expect(err.code).toBe('sqliteError');
+    expect(err.message).toContain('no such function: NOTAFUNCTION');
   });
 
   it('caps the number of source rows scanned and reports truncation', () => {

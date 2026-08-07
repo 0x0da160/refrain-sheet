@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { SqlQueryDialogInput } from '../../app/commands';
+import type { SqlQueryDialogInput, SqlRunOutcome } from '../../app/commands';
 import { getLocale, t } from '../../app/i18n';
 import {
   addSqlHistoryEntry,
@@ -370,11 +370,18 @@ export class SqlQueryDialogs {
       });
 
       // ----- Run -----
-      const runQuery = (): void => {
+      const runQuery = async (): Promise<void> => {
         resultsWrap.replaceChildren();
         const query = queryText.value;
         const sourceId = sourceSelect.value;
-        const outcome = input.runQuery(sourceId, query);
+        runButton.disabled = true;
+        setStatus(t('dialog.sqlQuery.status.running'), false);
+        let outcome: SqlRunOutcome;
+        try {
+          outcome = await input.runQuery(sourceId, query);
+        } finally {
+          runButton.disabled = false;
+        }
         if (query.trim() !== '') {
           const [latest] = getSqlHistory();
           if (!latest || latest.query !== query || latest.sourceId !== sourceId) {

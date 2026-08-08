@@ -119,6 +119,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- A worksheet tab's hover tooltip now hints that double-click or F2 renames
+  it (e.g. "Sheet2 — double-click or F2 to rename") instead of repeating the
+  visible sheet name, since the right-click context menu was previously the
+  only way to discover that action.
+  ([#303](https://github.com/0x0da160/refrain-sheet/issues/303))
 - The right-click context menu on the grid now shows the same keyboard
   shortcut hints (e.g. Ctrl+C, Ctrl+V, Ctrl+A) as the matching Edit menu
   entries, so shortcuts are discoverable from either surface.

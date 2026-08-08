@@ -25,6 +25,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The Conditional Formatting dialog's numeric "Cell value" conditions
+  (Greater than, Less than, Between, etc.) now keep "Apply Rule" disabled
+  and show the existing "incomplete" notice when the Value field is left
+  blank or whitespace-only, instead of silently applying a rule compared
+  against `0`. ([#339](https://github.com/0x0da160/refrain-sheet/issues/339))
 - The Data Validation dialog's list rule now shows a notice when more than
   500 allowed values are entered and only the first 500 are kept, instead of
   silently dropping the rest with no indication. The Filter dialog now flags

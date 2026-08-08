@@ -501,10 +501,13 @@ export class FormatDialogs {
                 ? null
                 : { kind: 'cellValue', operator, value1: value1Input.value, style };
             }
-            if (!Number.isFinite(Number(value1Input.value))) {
+            if (value1Input.value.trim() === '' || !Number.isFinite(Number(value1Input.value))) {
               return null;
             }
-            if (operator === 'between' && !Number.isFinite(Number(value2Input.value))) {
+            if (
+              operator === 'between' &&
+              (value2Input.value.trim() === '' || !Number.isFinite(Number(value2Input.value)))
+            ) {
               return null;
             }
             return {

@@ -890,6 +890,26 @@ button {
   cursor: not-allowed;
 }
 
+/* Touch/pen input reports a "coarse" pointer. The resize/fill/move handles
+   above are drag targets that must actually be grabbable by a finger, so
+   this enlarges their hit area via an invisible `::before` padded region —
+   the handle's own visual size and position are untouched — and makes the
+   otherwise hover-only resize handle discoverable without a mouse (#290). */
+@media (pointer: coarse) {
+  .col-resize-handle::before,
+  .fill-handle::before,
+  .move-handle::before {
+    content: '';
+    position: absolute;
+    inset: -14px;
+  }
+
+  .col-resize-handle {
+    background: var(--accent);
+    opacity: 0.35;
+  }
+}
+
 .vcell.move-source {
   outline: 1px dashed var(--text-dim);
   outline-offset: -1px;

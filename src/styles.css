@@ -1534,6 +1534,11 @@ dialog::backdrop {
   color: var(--accent-contrast);
 }
 
+.dialog-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .dialog-buttons button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;

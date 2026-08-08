@@ -633,6 +633,7 @@
   "menu.format.numberFormat": "Number Format…",
   "menu.format.conditionalFormatting": "Conditional Formatting…",
   "menu.format.clear": "Clear Formatting",
+  "menu.format.csvOnlyTooltip": "Formatting is a spreadsheet feature that a byte-preserving CSV document has no way to store. Convert the document to an RSF spreadsheet first (Sheet > Convert to Spreadsheet (RSF)…), then format.",
   "menu.data.runQuery": "Run SQL Query…",
   "menu.data.compareDiff": "Compare / Diff…",
   "menu.data.validation": "Data Validation…",

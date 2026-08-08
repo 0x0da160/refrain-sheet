@@ -299,8 +299,13 @@ export class FindBar {
     return sheet !== undefined && sheet !== null && sheet.contains(match.row, match.col);
   }
 
-  /** Move to the next/previous matching cell, wrapping across worksheets. */
-  next(direction: 1 | -1): void {
+  /**
+   * Move to the next/previous matching cell, wrapping across worksheets.
+   * `notice` prefixes the status line when the caller needs to explain *why*
+   * navigation happened (e.g. Replace was pressed off a match) — this keeps
+   * that case visibly distinct from an ordinary Next/Previous move.
+   */
+  next(direction: 1 | -1, notice = ''): void {
     if (!this.isOpen) {
       this.open(false);
       return;
@@ -340,7 +345,7 @@ export class FindBar {
       this.state.setActiveSheet(tab, match.sheetId);
     }
     this.grid.reveal(match.row, match.col);
-    this.renderCount(this.positionSuffix(match, wrapped));
+    this.renderCount(notice + this.positionSuffix(match, wrapped));
   }
 
   /** " — 3 of 12 on Sheet2" / " (wrapped to the first match)". */
@@ -371,7 +376,10 @@ export class FindBar {
         (m) => m.row === sel.row && m.col === sel.col && (m.sheetId === '' || m.sheetId === activeId),
       );
     if (!sel || !onMatch) {
-      this.next(1);
+      // Nothing to replace here: say so explicitly rather than moving the
+      // selection exactly as a successful replace would, which reads as a
+      // silent no-op edit.
+      this.next(1, t('find.notOnMatch'));
       return;
     }
     const replaced = replaceAllInValue(tab.doc.getValue(sel.row, sel.col), query, this.replaceInput.value);

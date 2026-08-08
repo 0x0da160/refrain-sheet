@@ -106,12 +106,14 @@ describe('grid rendering', () => {
     expect(td.textContent).toBe('changed');
   });
 
-  it('marks malformed fields', () => {
+  it('marks malformed fields and explains the problem in a tooltip', () => {
     const { state, grid } = setup();
     state.addTab('a.csv', doc('a,"x"junk\n'), null);
     grid.refresh();
     const td = grid.element.querySelector('[data-row="0"][data-col="1"]')!;
     expect(td.classList.contains('malformed')).toBe(true);
+    expect(td.getAttribute('title')).toBeTruthy();
+    expect(td.getAttribute('title')).not.toBe('x');
   });
 
   it('shows an empty-state message when no file is open', () => {

@@ -48,6 +48,14 @@ describe('structural validation diagnostics', () => {
     expect(validateDocument(doc('a,b\n" x ",y\nc,"d""e"\n')).diagnostics).toEqual([]);
   });
 
+  it('looks up the diagnostics for one 0-based field position', () => {
+    const document = doc('a,"x"junk,c\n');
+    expect(document.getFieldDiagnostics(0, 1)).toEqual([
+      expect.objectContaining({ row: 1, column: 2, type: 'text-after-quote' }),
+    ]);
+    expect(document.getFieldDiagnostics(0, 0)).toEqual([]);
+  });
+
   it('caps the diagnostics shown in the dialog', () => {
     const rows = ['a,b'];
     for (let i = 0; i < VALIDATION_DISPLAY_LIMIT + 50; i++) {

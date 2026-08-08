@@ -98,6 +98,15 @@ export interface Tab {
    * state that never touches the file's bytes.
    */
   wrapCells: boolean;
+  /**
+   * The column where an uninterrupted "type → Tab → type → Tab → … → Enter"
+   * entry pass began, so Enter can return to it instead of merely moving one
+   * row down from wherever the last Tab landed (matching Excel/Sheets/Calc).
+   * Null when no such pass is in progress. Set on the first Tab of a pass;
+   * cleared by `setSelection` on any selection change that is not part of
+   * that pass (a click, an arrow key, opening a menu, and so on).
+   */
+  tabEntryCol: number | null;
 }
 
 /**
@@ -183,6 +192,7 @@ export class AppState {
       colWidths: stored ? stored.displayColWidths.slice() : [],
       zoom: clampSheetZoom(stored?.displayZoom ?? getSheetZoom()),
       wrapCells: stored?.displayWrap ?? getWrapCells(),
+      tabEntryCol: null,
     };
     this.tabs.push(tab);
     this.activeTabId = tab.id;
@@ -275,17 +285,25 @@ export class AppState {
    * Set the active cell. `anchor` extends/keeps a rectangular selection:
    * null collapses the range to the active cell. `kind` records whether the
    * selection is a cell/range, a whole-row, or a whole-column selection (for
-   * rendering only); it defaults to a cell/range selection.
+   * rendering only); it defaults to a cell/range selection. `preserveTabEntryCol`
+   * keeps the tab's remembered Tab-then-Enter start column intact — set only by
+   * the grid's Tab/Enter handling itself; every other caller (a click, an arrow
+   * key, opening a menu, and so on) leaves it at the default `false`, which
+   * clears that tracked column.
    */
   setSelection(
     tab: Tab,
     selection: Selection | null,
     anchor: Selection | null = null,
     kind: SelectionKind = 'cell',
+    preserveTabEntryCol = false,
   ): void {
     tab.selection = selection;
     tab.anchor = selection ? anchor : null;
     tab.selectionKind = selection ? kind : 'cell';
+    if (!preserveTabEntryCol) {
+      tab.tabEntryCol = null;
+    }
     this.emit('selection');
   }
 

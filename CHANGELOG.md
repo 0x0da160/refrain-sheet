@@ -25,6 +25,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- Creating, opening, or switching to a document now puts the keyboard focus
+  in the grid immediately, so typing or navigating with the arrow keys works
+  right away. Previously, right after "New RSF Spreadsheet" (or opening a
+  file), the keyboard focus stayed on `<body>` and every keystroke was
+  silently dropped until the grid was clicked once.
+  ([#282](https://github.com/0x0da160/refrain-sheet/issues/282))
 - The SQL Query dialog's default query, `SELECT * FROM data`, and column
   enumeration now read only a worksheet's used range instead of its fully
   allocated grid (e.g. 100 rows × 26 columns for a new sheet), so a first run

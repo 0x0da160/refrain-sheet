@@ -385,6 +385,139 @@ describe('lookup and reference', () => {
     doc.setCell(0, 0, '=XLOOKUP("key",Data!A1:A5,Data!B1:B5)');
     expect(at(doc, 'A1')).toBe('99');
   });
+
+  /**
+   * VLOOKUP/MATCH/XLOOKUP's exact-match path is served by a cached index
+   * (`findExactIndexed` in `formula-functions.ts`) once more than one formula
+   * cell searches the same range within a revision — the fix for the
+   * "VLOOKUP table shared by 2,000 formula cells" cost in
+   * `bench/perf.bench.ts`. These cases exercise that cache directly: many
+   * formula cells reading the *same* range, so the second and later reads hit
+   * the index rather than `findExact`'s linear scan, and must still agree
+   * with it exactly.
+   */
+  describe('exact-match index cache (shared-range VLOOKUP/MATCH/XLOOKUP)', () => {
+    /** rows: 0 "ann"/1, 1 "bob"/2, 2 "BOB"/3 (case dup of row 1), 3 "cid"/4, 4 ""/5, 5 blank/6 */
+    function dupTable(doc: RsfDocument): void {
+      const keys = ['ann', 'bob', 'BOB', 'cid', '', ''];
+      for (let r = 0; r < keys.length; r++) {
+        if (keys[r] !== '' || r === 4) {
+          doc.setCell(r, 0, keys[r]);
+        } // row 5's A cell is left entirely unset (truly empty, not "")
+        doc.setCell(r, 1, String(r + 1));
+      }
+    }
+
+    it('many VLOOKUP cells against the same table all agree with a fresh, unshared lookup', () => {
+      const doc = RsfDocument.empty('t.rsf', 20, 5);
+      dupTable(doc);
+      // A case-insensitive needle must resolve to the *first* scan match (row
+      // 1, "bob"), never row 2's later "BOB" — the index must preserve
+      // findExact's first-match-wins order, not just its first-inserted key.
+      doc.setCell(10, 2, '=VLOOKUP("BOB",$A$1:$B$6,2,FALSE)');
+      doc.setCell(11, 2, '=VLOOKUP("bob",$A$1:$B$6,2,FALSE)');
+      doc.setCell(12, 2, '=VLOOKUP("cid",$A$1:$B$6,2,FALSE)');
+      doc.setCell(13, 2, '=VLOOKUP("zoe",$A$1:$B$6,2,FALSE)'); // absent
+      doc.setCell(14, 2, '=VLOOKUP("",$A$1:$B$6,2,FALSE)'); // blank needle
+      expect(at(doc, 'C11')).toBe('2');
+      expect(at(doc, 'C12')).toBe('2');
+      expect(at(doc, 'C13')).toBe('4');
+      expect(at(doc, 'C14')).toBe('#N/A');
+      // Blank needle matches the *first* blank row (row 4, "" — row 5's
+      // truly-empty cell is blank too, but comes later in scan order).
+      expect(at(doc, 'C15')).toBe('5');
+    });
+
+    it('MATCH and XLOOKUP against the same table agree with VLOOKUP', () => {
+      const doc = RsfDocument.empty('t.rsf', 20, 5);
+      dupTable(doc);
+      doc.setCell(10, 2, '=VLOOKUP("bob",$A$1:$B$6,2,FALSE)');
+      doc.setCell(11, 2, '=MATCH("bob",$A$1:$A$6,0)');
+      doc.setCell(12, 2, '=XLOOKUP("bob",$A$1:$A$6,$B$1:$B$6)');
+      // XLOOKUP's reverse search must still return the *last* case-fold
+      // match (row 2, "BOB"), even though the shared index groups both rows
+      // under one bucket — this is the reverse-vs-forward split the index
+      // must keep.
+      doc.setCell(13, 2, '=XLOOKUP("bob",$A$1:$A$6,$B$1:$B$6,,0,-1)');
+      expect(at(doc, 'C11')).toBe('2');
+      expect(at(doc, 'C12')).toBe('2');
+      expect(at(doc, 'C13')).toBe('2');
+      expect(at(doc, 'C14')).toBe('3');
+    });
+
+    it('a wildcard needle against a shared range still gets a real scan, not the index', () => {
+      const doc = RsfDocument.empty('t.rsf', 20, 5);
+      dupTable(doc);
+      doc.setCell(10, 2, '=VLOOKUP("bob",$A$1:$B$6,2,FALSE)'); // populates the index first
+      doc.setCell(11, 2, '=VLOOKUP("b*",$A$1:$B$6,2,FALSE)'); // wildcard: must still find row 1
+      doc.setCell(12, 2, '=MATCH("?id",$A$1:$A$6,0)');
+      expect(at(doc, 'C11')).toBe('2');
+      expect(at(doc, 'C12')).toBe('2');
+      expect(at(doc, 'C13')).toBe('4');
+    });
+
+    it('a mutation invalidates the cached index instead of returning a stale match', () => {
+      const doc = RsfDocument.empty('t.rsf', 20, 5);
+      dupTable(doc);
+      doc.setCell(10, 2, '=VLOOKUP("cid",$A$1:$B$6,2,FALSE)');
+      expect(at(doc, 'C11')).toBe('4'); // builds and caches the index
+      doc.setCell(3, 0, 'zzz'); // row 3 ("cid") renamed away
+      expect(at(doc, 'C11')).toBe('#N/A'); // must re-scan, not reuse the stale index
+      doc.setCell(3, 0, 'cid'); // restore, and add a formula that reads the range again
+      doc.setCell(15, 2, '=VLOOKUP("cid",$A$1:$B$6,2,FALSE)');
+      expect(at(doc, 'C11')).toBe('4');
+      expect(at(doc, 'C16')).toBe('4');
+    });
+
+    it('agrees with a brute-force scan over a large table with many duplicate keys', () => {
+      // Deterministic (no Math.random(), matching bench/perf.bench.ts's
+      // convention): keys cycle through a small alphabet so most values
+      // repeat many times, exercising first/last-match selection at scale.
+      const rows = 600;
+      const alphabet = ['alpha', 'Beta', 'GAMMA', 'delta', 'epsilon'];
+      const doc = RsfDocument.empty('t.rsf', rows + 20, 5);
+      const keys: string[] = [];
+      for (let r = 0; r < rows; r++) {
+        const key = alphabet[r % alphabet.length];
+        keys.push(key);
+        doc.setCell(r, 0, key);
+        doc.setCell(r, 1, String(r));
+      }
+      const range = `$A$1:$B$${rows}`;
+      let formulaRow = rows + 1;
+      const forwardCells: Array<{ row: number; needle: string }> = [];
+      const reverseCells: Array<{ row: number; needle: string }> = [];
+      for (const needle of ['alpha', 'BETA', 'gamma', 'DELTA', 'Epsilon', 'missing']) {
+        forwardCells.push({ row: formulaRow, needle });
+        doc.setCell(formulaRow, 2, `=VLOOKUP("${needle}",${range},2,FALSE)`);
+        formulaRow += 1;
+        reverseCells.push({ row: formulaRow, needle });
+        doc.setCell(formulaRow, 2, `=XLOOKUP("${needle}",$A$1:$A$${rows},$B$1:$B$${rows},,0,-1)`);
+        formulaRow += 1;
+      }
+      const foldedFirst = (needle: string): number => {
+        const target = needle.toLowerCase();
+        return keys.findIndex((k) => k.toLowerCase() === target);
+      };
+      const foldedLast = (needle: string): number => {
+        const target = needle.toLowerCase();
+        for (let i = keys.length - 1; i >= 0; i--) {
+          if (keys[i].toLowerCase() === target) {
+            return i;
+          }
+        }
+        return -1;
+      };
+      for (const { row, needle } of forwardCells) {
+        const expected = foldedFirst(needle);
+        expect(at(doc, `C${row + 1}`)).toBe(expected < 0 ? '#N/A' : String(expected));
+      }
+      for (const { row, needle } of reverseCells) {
+        const expected = foldedLast(needle);
+        expect(at(doc, `C${row + 1}`)).toBe(expected < 0 ? '#N/A' : String(expected));
+      }
+    });
+  });
 });
 
 describe('statistics', () => {

@@ -342,12 +342,18 @@ export class Dialogs {
     return this.appSettings.chooseDisplayLanguage(current);
   }
 
+  /**
+   * All current callers confirm a destructive or hard-to-reverse action
+   * (row/column delete, opening a non-CSV file), so Cancel is autofocused —
+   * matching `confirmDeleteSheet` and friends — so data is never lost to a
+   * reflexive Enter press.
+   */
   confirm(title: string, message: string, okLabel: string, cancelLabel: string): Promise<boolean> {
     return openDialog(title, false, (body, buttons, close) => {
       body.append(el('p', { text: message }));
       buttons.append(
-        dialogButton(cancelLabel, false, false, () => close(false)),
-        dialogButton(okLabel, true, true, () => close(true)),
+        dialogButton(cancelLabel, false, true, () => close(false)),
+        dialogButton(okLabel, true, false, () => close(true)),
       );
     });
   }

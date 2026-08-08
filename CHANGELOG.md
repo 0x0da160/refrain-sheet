@@ -242,6 +242,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
   navigating a horizontally scrolled sheet announces a header aligned with
   the data cell's actual column, instead of the header's raw DOM position.
   ([#289](https://github.com/0x0da160/refrain-sheet/issues/289))
+- The busy indicator's progress bar no longer stays stuck in its
+  indeterminate (spinning) state during large Duplicate Worksheet, Filter,
+  Flash Fill, Paste, Insert Copied Rows/Columns, and Replace All operations
+  even though the label text already showed an exact percentage; it now
+  shows the same determinate progress bar as CSV export and column
+  auto-fit already did. ([#301](https://github.com/0x0da160/refrain-sheet/issues/301))
 
 ### Removed
 

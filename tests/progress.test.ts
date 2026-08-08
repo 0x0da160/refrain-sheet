@@ -9,7 +9,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
-import { Commands, LARGE_OP_CELLS, type UiPort } from '../src/app/commands';
+import { Commands, LARGE_OP_CELLS, type FilterDialogResult, type UiPort } from '../src/app/commands';
 import { t } from '../src/app/i18n';
 import { DEFAULT_CSV_EXPORT_OPTIONS } from '../src/core/csv-export';
 import { RsfDocument } from '../src/core/rsf-document';
@@ -214,5 +214,77 @@ describe('progress percentages never reach 100% early', () => {
     for (const p of percents) {
       expect(p).toBeLessThan(100);
     }
+    expect(progressValues(ui)).toEqual(percents);
+  });
+
+  it('Replace All across the whole workbook reports determinate progress', async () => {
+    const ui = stubUi();
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+    const rows = 6_000; // above the scheduler's per-slice cap, so a mid-scan yield occurs
+    const rsf = RsfDocument.empty('big.rsf', rows, 2);
+    for (let r = 0; r < rows; r += 1) {
+      rsf.setCell(r, 0, `r${r}`);
+    }
+    rsf.markSaved();
+    state.addTab('big.rsf', rsf, null);
+    const query = compileQuery({ text: 'r49', matchCase: true, regex: false });
+    const { count } = await commands.replaceAll(query, 'z49', 'workbook');
+    expect(count).toBeGreaterThan(0);
+    const percents = percentValues(busyLabels(ui));
+    expect(percents.length).toBeGreaterThan(0);
+    expect(progressValues(ui)).toEqual(percents);
+  });
+});
+
+describe('Filter and worksheet-duplication progress', () => {
+  it('the distinct-value scan and the hidden-row evaluation both report determinate progress for a large range', async () => {
+    const applied: FilterDialogResult = {
+      action: 'apply',
+      headerRow: true,
+      column: {
+        col: 1,
+        join: 'and',
+        conditions: [{ kind: 'text', op: 'contains', value: '' }],
+        values: null,
+      },
+    };
+    const ui = stubUi({ chooseFilter: vi.fn(async () => applied) });
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+    const rows = 21_000; // filter progress is gated on row count alone, above LARGE_OP_CELLS
+    const rsf = RsfDocument.empty('big.rsf', rows, 2);
+    rsf.setCell(0, 0, 'name');
+    rsf.setCell(0, 1, 'qty');
+    for (let r = 1; r < rows; r += 250) {
+      rsf.setCell(r, 1, String(r % 20));
+    }
+    rsf.markSaved();
+    const tab = state.addTab('big.rsf', rsf, null);
+    state.setSelection(tab, { row: 0, col: 1 }, { row: rows - 1, col: 1 });
+    expect(await commands.filterDialog(tab)).toBe(true);
+    const percents = percentValues(busyLabels(ui));
+    expect(percents.length).toBeGreaterThan(0);
+    // Both the value-collection scan and the hidden-row evaluation pass a
+    // determinate progress value alongside their percentage label.
+    expect(progressValues(ui)).toEqual(percents);
+  });
+
+  it('duplicating a large worksheet reports determinate progress', async () => {
+    const ui = stubUi({ promptSheetName: vi.fn(async () => 'Copy') });
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+    const rows = 5_000;
+    const rsf = RsfDocument.empty('big.rsf', rows, 6); // 30,000 cells > LARGE_OP_CELLS
+    for (let r = 0; r < rows; r += 7) {
+      rsf.setCell(r, 2, `value ${r}`);
+    }
+    rsf.markSaved();
+    state.addTab('big.rsf', rsf, null);
+    await commands.run('worksheet.duplicate');
+    expect(rsf.sheetCount).toBe(2);
+    const percents = percentValues(busyLabels(ui));
+    expect(percents.length).toBeGreaterThan(0);
+    expect(progressValues(ui)).toEqual(percents);
   });
 });

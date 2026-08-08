@@ -283,13 +283,23 @@ describe('Insert Copied Cells…', () => {
   it('a large paste runs behind the loading indicator', async () => {
     const ui = stubUi();
     const { state, commands, tab } = rcsvSetup([['']], ui);
-    const matrix = Array.from({ length: 300 }, () => new Array<string>(100).fill('v'));
+    // 5,000 rows is also above the scheduler's per-slice cap (4,096), so the
+    // sliced scan actually yields at least once and reports progress.
+    const matrix = Array.from({ length: 5_000 }, () => new Array<string>(5).fill('v'));
     state.setSelection(tab, { row: 0, col: 0 }, null);
     expect(await commands.applyPaste(tab, matrix, null)).toBe(true);
-    const busyCalls = (ui.setBusy as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
-    expect(busyCalls.some((label) => typeof label === 'string')).toBe(true);
-    expect(tab.doc.rowCount).toBe(300);
-    expect(tab.doc.columnCount).toBe(100);
+    const busyCalls = (ui.setBusy as ReturnType<typeof vi.fn>).mock.calls;
+    const labels = busyCalls.map((c) => c[0]);
+    expect(labels.some((label) => typeof label === 'string')).toBe(true);
+    const percentLabels = labels.filter((l): l is string => typeof l === 'string' && /\((\d+)%\)/.test(l));
+    expect(percentLabels.length).toBeGreaterThan(0);
+    // Every percentage-bearing label also carries a determinate progress
+    // value alongside it, so the bar itself is never stuck indeterminate.
+    const progressValues = busyCalls.map((c) => c[1]).filter((p): p is number => typeof p === 'number');
+    const labelPcts = percentLabels.map((l) => Number(/\((\d+)%\)/.exec(l)![1]));
+    expect(progressValues).toEqual(labelPcts);
+    expect(tab.doc.rowCount).toBe(5_000);
+    expect(tab.doc.columnCount).toBe(5);
   });
 });
 
@@ -442,13 +452,20 @@ describe('Insert Copied Rows / Insert Copied Columns', () => {
     withCopied(commands, matrix, { row: 0, col: 0 });
     state.setSelection(tab, { row: 0, col: 0 }, null);
     expect(await commands.insertCopiedAxis(tab, 'rows')).toBe(true);
-    const busyCalls = (ui.setBusy as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0] as string | null);
-    const percentLabels = busyCalls.filter((l) => typeof l === 'string' && /\(\d+%\)/.test(l));
+    const rawCalls = (ui.setBusy as ReturnType<typeof vi.fn>).mock.calls;
+    const busyCalls = rawCalls.map((c) => c[0] as string | null);
+    const percentLabels = busyCalls.filter((l): l is string => typeof l === 'string' && /\(\d+%\)/.test(l));
     expect(percentLabels.length).toBeGreaterThan(0);
     // 100% never appears while work remains.
     for (const label of percentLabels) {
-      expect(Number(/\((\d+)%\)/.exec(label as string)![1])).toBeLessThan(100);
+      expect(Number(/\((\d+)%\)/.exec(label)![1])).toBeLessThan(100);
     }
+    // Every percentage-bearing label also carries a determinate progress
+    // value, so the progress bar is never stuck indeterminate while the
+    // label text ticks through an exact percentage.
+    const progressValues = rawCalls.map((c) => c[1]).filter((p): p is number => typeof p === 'number');
+    const labelPcts = percentLabels.map((l) => Number(/\((\d+)%\)/.exec(l)![1]));
+    expect(progressValues).toEqual(labelPcts);
     expect(busyCalls[busyCalls.length - 1]).toBeNull();
     expect(tab.doc.rowCount).toBe(301);
     state.undo(tab);

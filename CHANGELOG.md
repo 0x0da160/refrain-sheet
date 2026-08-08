@@ -119,6 +119,16 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The **Sheet**, **Edit**, and **View** menus, which had grown long as
+  features were added, are reorganized into grouped submenus: **Sheet** now
+  opens with **Worksheet**, **Rows & Columns**, and **Filter & Sort**
+  submenus instead of a flat list of ~20 worksheet/row/column/filter/sort
+  commands; **Edit** groups the three "insert copied" commands (Cells, Rows,
+  Columns) under a new **Insert Copied** submenu; and **View** turns
+  **Spreadsheet Font**, **Theme**, and tab movement (Move Tab Left/Right/…)
+  into submenus alongside the existing **Spreadsheet Zoom** submenu. Every
+  command keeps its existing shortcut, name, and behavior — only its menu
+  location changed. ([#280](https://github.com/0x0da160/refrain-sheet/issues/280))
 - On narrow (mobile-width) layouts, the top-level menu bar (File / Edit / …)
   no longer collapses behind a hamburger toggle button; the menu names are
   now always visible in a single row that scrolls horizontally, matching how

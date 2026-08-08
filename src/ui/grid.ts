@@ -2416,10 +2416,10 @@ export class Grid {
    * the user is told so.
    */
   /**
-   * Sheet > Auto-Fit Column Width: fit every column intersecting the current
-   * selection (whole-column selections, Select All, or any cell range). Each
-   * column is measured independently, so columns can shrink and grow on
-   * their own.
+   * Sheet > Rows & Columns > Auto-Fit Column Width: fit every column
+   * intersecting the current selection (whole-column selections, Select All,
+   * or any cell range). Each column is measured independently, so columns
+   * can shrink and grow on their own.
    */
   async autoFitSelectedColumns(): Promise<void> {
     const tab = this.state.activeTab;

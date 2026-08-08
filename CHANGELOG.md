@@ -193,6 +193,17 @@ release-time half (retitling `Unreleased`) is still done by hand.
   the picture is displayed well under that width — roughly 39 KiB less
   transfer on a mobile viewport of the Japanese page.
   ([#269](https://github.com/0x0da160/refrain-sheet/issues/269))
+- `VLOOKUP`, `MATCH`, and `XLOOKUP`'s exact-match lookup (the common,
+  non-approximate, non-wildcard case) is now backed by a cached index instead
+  of re-scanning the lookup range for every formula cell: a worksheet with
+  many formulas that all search the same range (a table copied down a
+  column, a shared lookup key) now recalculates dramatically faster —
+  measured at roughly 30× on a 2,000-formula/50,000-row benchmark
+  (`npm run bench`, "VLOOKUP table shared by 2,000 formula cells"). Results
+  are unchanged: approximate lookups and wildcard searches (`*`, `?`, `~`)
+  still use the previous linear scan, and every edit still invalidates the
+  cache immediately, so a formula never sees a stale match.
+  ([#281](https://github.com/0x0da160/refrain-sheet/issues/281))
 
 ### Fixed
 

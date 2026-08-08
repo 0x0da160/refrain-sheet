@@ -12,6 +12,7 @@ import {
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
 import { ColOffsetIndex } from '../core/col-offset-index';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
+import type { LosslessDocument } from '../core/lossless-document';
 import { RowHeightIndex } from '../core/row-height-index';
 import type { RsfDocument } from '../core/rsf-document';
 import { forEachIndexSliced, yieldToBrowser } from '../core/scheduler';
@@ -1819,6 +1820,9 @@ export class Grid {
       if (edited) {
         // Safe text-only tooltip showing the original value.
         cell.title = doc.getOriginalValue(row, col);
+      } else if (field?.malformed) {
+        // Safe text-only tooltip explaining the structural parsing problem.
+        cell.title = this.malformedFieldTooltip(doc, row, col);
       } else if (cell.title !== '') {
         cell.removeAttribute('title');
       }
@@ -1845,6 +1849,20 @@ export class Grid {
       }
       this.paintCellStyle(cell, doc, row, col);
     }
+  }
+
+  /** Human-readable explanation of a malformed field's structural problem(s). */
+  private malformedFieldTooltip(doc: LosslessDocument, row: number, col: number): string {
+    const diags = doc.getFieldDiagnostics(row, col);
+    if (diags.length === 0) {
+      return '';
+    }
+    return diags
+      .map(
+        (d) =>
+          `${t(`diag.${d.type}`)}: ${t(`diagDesc.${d.type}`, { expected: d.expected ?? 0, actual: d.actual ?? 0 })}`,
+      )
+      .join('\n');
   }
 
   /**

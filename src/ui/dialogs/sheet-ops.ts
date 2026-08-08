@@ -104,7 +104,12 @@ export class SheetOpsDialogs {
         const conditionsHost = el('div', { className: 'filter-conditions' });
         body.append(conditionsHost);
 
-        type Row = { op: HTMLSelectElement; value: HTMLInputElement; value2: HTMLInputElement };
+        type Row = {
+          op: HTMLSelectElement;
+          value: HTMLInputElement;
+          value2: HTMLInputElement;
+          touched: boolean;
+        };
         const rows: Row[] = [];
         const allOps: Array<{ value: string; label: string }> = [
           ...FILTER_TEXT_OPS.map((op) => ({ value: op, label: t(`filter.op.${op}`) })),
@@ -112,6 +117,28 @@ export class SheetOpsDialogs {
         ];
         const isNumberOp = (op: string): boolean => (FILTER_NUMBER_OPS as readonly string[]).includes(op);
         const noValueOp = (op: string): boolean => op === 'blank' || op === 'notBlank';
+        // An untouched, freshly-added row is silently ignored (not an
+        // error) when left blank — that is how "no condition on this row" is
+        // expressed. Once the user has interacted with it (changed the
+        // operator or typed a value), an incomplete value becomes a real
+        // error rather than being dropped without feedback (see #296). A row
+        // that started from an already-saved condition begins touched, so
+        // editing it into an incomplete state is flagged immediately too.
+        const rowIncomplete = (row: Row): boolean => {
+          const op = row.op.value;
+          if (noValueOp(op)) {
+            return false;
+          }
+          if (isNumberOp(op)) {
+            const trimmed = row.value.value.trim();
+            return trimmed === '' || !Number.isFinite(Number(trimmed));
+          }
+          return row.value.value === '';
+        };
+        // Reassigned once `refresh` (validation/error display) is defined
+        // below, after the value/values sections exist; row listeners call it
+        // through this closure so field wiring can stay top-to-bottom.
+        let refresh: () => void = () => {};
 
         const makeRow = (cond?: FilterCondition): Row => {
           const op = el('select', {
@@ -137,15 +164,28 @@ export class SheetOpsDialogs {
               }
             }
           }
+          const row: Row = { op, value, value2, touched: cond !== undefined };
           const sync = (): void => {
             value.hidden = noValueOp(op.value);
             value2.hidden = op.value !== 'numBetween';
           };
-          op.addEventListener('change', sync);
+          op.addEventListener('change', () => {
+            row.touched = true;
+            sync();
+            refresh();
+          });
+          value.addEventListener('input', () => {
+            row.touched = true;
+            refresh();
+          });
+          value2.addEventListener('input', () => {
+            row.touched = true;
+            refresh();
+          });
           sync();
-          const row = el('div', { className: 'filter-condition-row' }, [op, value, value2]);
-          conditionsHost.append(row);
-          return { op, value, value2 };
+          const wrap = el('div', { className: 'filter-condition-row' }, [op, value, value2]);
+          conditionsHost.append(wrap);
+          return row;
         };
 
         for (const cond of input.existing?.conditions ?? []) {
@@ -164,6 +204,7 @@ export class SheetOpsDialogs {
             rows.push(makeRow());
           }
           addBtn.disabled = rows.length >= MAX_FILTER_CONDITIONS;
+          refresh();
         });
         addBtn.disabled = rows.length >= MAX_FILTER_CONDITIONS;
         body.append(addBtn);
@@ -272,12 +313,14 @@ export class SheetOpsDialogs {
             const op = row.op.value;
             if (noValueOp(op)) {
               conditions.push({ kind: 'text', op: op as FilterTextOp, value: '' });
+            } else if (rowIncomplete(row)) {
+              continue; // untouched and blank: not an error, just unused
             } else if (isNumberOp(op)) {
-              const n = Number(row.value.value.trim());
-              if (row.value.value.trim() === '' || !Number.isFinite(n)) {
-                continue; // skip an incomplete numeric condition
-              }
-              const cond: FilterCondition = { kind: 'number', op: op as FilterNumberOp, value: n };
+              const cond: FilterCondition = {
+                kind: 'number',
+                op: op as FilterNumberOp,
+                value: Number(row.value.value.trim()),
+              };
               if (op === 'numBetween') {
                 const n2 = Number(row.value2.value.trim());
                 if (Number.isFinite(n2)) {
@@ -286,9 +329,6 @@ export class SheetOpsDialogs {
               }
               conditions.push(cond);
             } else {
-              if (row.value.value === '') {
-                continue; // skip an empty text condition
-              }
               conditions.push({ kind: 'text', op: op as FilterTextOp, value: row.value.value });
             }
           }
@@ -304,6 +344,22 @@ export class SheetOpsDialogs {
           };
         };
 
+        const error = el('p', {
+          className: 'dialog-error',
+          attrs: { role: 'status', 'aria-live': 'polite' },
+        });
+        body.append(error);
+
+        const applyBtn = dialogButton(t('dialog.filter.apply'), true, false, () =>
+          close({ action: 'apply', headerRow: headerCheck.checked, column: buildColumn() }),
+        );
+        refresh = (): void => {
+          const hasIncomplete = rows.some((row) => row.touched && rowIncomplete(row));
+          error.textContent = hasIncomplete ? t('dialog.filter.conditionIncomplete') : '';
+          applyBtn.disabled = hasIncomplete;
+        };
+        refresh();
+
         // ----- Buttons -----
         buttons.append(dialogButton(t('dialog.filter.cancel'), false, true, () => close(null)));
         if (input.existing) {
@@ -318,11 +374,7 @@ export class SheetOpsDialogs {
             dialogButton(t('dialog.filter.clearAll'), false, false, () => close({ action: 'clearAll' })),
           );
         }
-        buttons.append(
-          dialogButton(t('dialog.filter.apply'), true, false, () =>
-            close({ action: 'apply', headerRow: headerCheck.checked, column: buildColumn() }),
-          ),
-        );
+        buttons.append(applyBtn);
       },
     );
   }
@@ -496,10 +548,12 @@ export class SheetOpsDialogs {
         if (input.existing?.kind === 'list') {
           listValues.value = input.existing.values.join('\n');
         }
+        const listTruncatedNote = el('p', { className: 'dialog-note' });
         const listSection = el('div', { className: 'form-row' }, [
           el('label', { text: t('dialog.dataValidation.listValues') }),
           listValues,
           el('p', { className: 'dialog-note', text: t('dialog.dataValidation.listHint') }),
+          listTruncatedNote,
         ]);
         body.append(listSection);
 
@@ -531,22 +585,30 @@ export class SheetOpsDialogs {
         });
         body.append(error);
 
+        // Set by buildRule() as a side effect, read by refresh() right after —
+        // avoids parsing the textarea twice per keystroke just to learn
+        // whether the list was cut off.
+        let listTruncated = false;
+
         const buildRule = (): ValidationRule | null => {
           if (kindList.checked) {
             const seen = new Set<string>();
             const values: string[] = [];
+            let distinctCount = 0;
             for (const raw of listValues.value.split('\n')) {
               const v = raw.trim();
               if (v !== '' && !seen.has(v)) {
                 seen.add(v);
-                values.push(v);
-              }
-              if (values.length >= MAX_VALIDATION_LIST_VALUES) {
-                break;
+                distinctCount++;
+                if (values.length < MAX_VALIDATION_LIST_VALUES) {
+                  values.push(v);
+                }
               }
             }
+            listTruncated = distinctCount > MAX_VALIDATION_LIST_VALUES;
             return values.length > 0 ? { kind: 'list', values } : null;
           }
+          listTruncated = false;
           const min = minInput.value.trim() === '' ? null : Number(minInput.value);
           const max = maxInput.value.trim() === '' ? null : Number(maxInput.value);
           if (min === null && max === null) {
@@ -574,6 +636,9 @@ export class SheetOpsDialogs {
           const rule = buildRule();
           error.textContent = rule ? '' : t('dialog.dataValidation.incomplete');
           applyBtn.disabled = rule === null;
+          listTruncatedNote.textContent = listTruncated
+            ? t('dialog.dataValidation.listTruncated', { n: MAX_VALIDATION_LIST_VALUES })
+            : '';
         };
         kindList.addEventListener('change', refresh);
         kindNumber.addEventListener('change', refresh);

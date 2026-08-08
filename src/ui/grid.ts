@@ -2978,7 +2978,12 @@ export class Grid {
     const clampedRow = Math.max(0, Math.min(tab.doc.rowCount - 1, row));
     const fieldCount = tab.doc.fieldCount(clampedRow);
     const clampedCol = Math.max(0, Math.min(Math.max(0, fieldCount - 1), col));
-    this.state.setSelection(tab, { row: clampedRow, col: clampedCol }, null);
+    // Re-selecting the cell that is already active happens as a side effect of
+    // opening the editor on it (typing, F2, IME start) mid Tab-entry pass —
+    // that must not clear the remembered start column. An actual jump to a
+    // different cell (a click, double-click, or `reveal`) does.
+    const sameCell = tab.selection?.row === clampedRow && tab.selection?.col === clampedCol;
+    this.state.setSelection(tab, { row: clampedRow, col: clampedCol }, null, 'cell', sameCell);
     if (scroll) {
       this.scrollCellIntoView(tab, clampedRow, clampedCol);
     }
@@ -3057,18 +3062,38 @@ export class Grid {
     return this.docRowOf(tab, slot);
   }
 
-  private moveSelection(tab: Tab, dRow: number, dCol: number, extend: boolean): void {
+  /**
+   * `entryTracking` drives the Tab-then-Enter "return to start column"
+   * convention (Excel/Sheets/Calc): `'tab'` remembers `tab.tabEntryCol` as the
+   * column this call started from (only if a pass is not already in
+   * progress); `'enter'` moves to that remembered column instead of `dCol`
+   * when one is tracked. Both preserve the tracked column across the call.
+   * The default, `'reset'`, is every other kind of move (arrows, PageUp/Down,
+   * Home/End) and always clears it — those are exactly the moves that should
+   * interrupt a Tab-entry pass.
+   */
+  private moveSelection(
+    tab: Tab,
+    dRow: number,
+    dCol: number,
+    extend: boolean,
+    entryTracking: 'tab' | 'enter' | 'reset' = 'reset',
+  ): void {
     const sel = tab.selection ?? { row: 0, col: 0 };
     const row = dRow === 0 ? sel.row : this.stepVisibleRow(tab, sel.row, dRow);
-    let col = sel.col + dCol;
+    let col = entryTracking === 'enter' && tab.tabEntryCol !== null ? tab.tabEntryCol : sel.col + dCol;
     const fieldCount = tab.doc.fieldCount(row);
     if (col >= fieldCount) col = fieldCount - 1;
     if (col < 0) col = 0;
     this.commitEditor();
+    const preserveTabEntryCol = entryTracking !== 'reset';
     if (extend) {
-      this.state.setSelection(tab, { row, col }, tab.anchor ?? sel);
+      this.state.setSelection(tab, { row, col }, tab.anchor ?? sel, 'cell', preserveTabEntryCol);
     } else {
-      this.state.setSelection(tab, { row, col }, null);
+      this.state.setSelection(tab, { row, col }, null, 'cell', preserveTabEntryCol);
+    }
+    if (entryTracking === 'tab' && tab.tabEntryCol === null) {
+      tab.tabEntryCol = sel.col;
     }
     this.scrollCellIntoView(tab, row, col);
     this.focusGrid();
@@ -3209,14 +3234,14 @@ export class Grid {
       event.stopPropagation();
       this.commitEditor();
       if (tab) {
-        this.moveSelection(tab, event.shiftKey ? -1 : 1, 0, false);
+        this.moveSelection(tab, event.shiftKey ? -1 : 1, 0, false, 'enter');
       }
     } else if (event.key === 'Tab') {
       event.preventDefault();
       event.stopPropagation();
       this.commitEditor();
       if (tab) {
-        this.moveSelection(tab, 0, event.shiftKey ? -1 : 1, false);
+        this.moveSelection(tab, 0, event.shiftKey ? -1 : 1, false, 'tab');
       }
     } else if (event.key === 'Escape') {
       event.preventDefault();
@@ -3417,7 +3442,7 @@ export class Grid {
         return;
       case 'Enter':
         event.preventDefault();
-        this.moveSelection(tab, 1, 0, false);
+        this.moveSelection(tab, 1, 0, false, 'enter');
         return;
       case 'F2':
         event.preventDefault();

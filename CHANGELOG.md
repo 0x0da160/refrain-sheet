@@ -25,6 +25,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The grid's right-click formatting toolbar now uses distinct icons for
+  Background Color and Borders, instead of two nearly identical hatch-square
+  glyphs (`▨`/`▦`) that were easy to mis-click at toolbar size.
+  ([#294](https://github.com/0x0da160/refrain-sheet/issues/294))
 - The status bar's "Sum" stat for a multi-cell selection no longer shows a
   misleading "Sum 0" when the selection has no numeric cells — it now hides
   alongside Average/Min/Max in that case, instead of only those three doing

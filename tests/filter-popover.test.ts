@@ -146,4 +146,154 @@ describe('the column-filter popover', () => {
     popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await promise;
   });
+
+  // See #296: an incomplete condition used to be silently dropped from the
+  // applied filter with no feedback anywhere in the dialog.
+  describe('an incomplete condition', () => {
+    it('leaves Apply enabled and shows no error while the default row is untouched', async () => {
+      const dialogs = new Dialogs();
+      const promise = dialogs.chooseFilter(filterInput());
+      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+
+      const applyBtn = popoverButton(popover, t('dialog.filter.apply'));
+      expect(applyBtn.disabled).toBe(false);
+      expect(popover.querySelector('.dialog-error')?.textContent).toBe('');
+
+      applyBtn.click();
+      const result = await promise;
+      expect(result).toMatchObject({ action: 'apply', column: null });
+    });
+
+    it('disables Apply and shows an error once a numeric condition is touched but left blank', async () => {
+      const dialogs = new Dialogs();
+      const promise = dialogs.chooseFilter(filterInput());
+      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+
+      const opSelect = popover.querySelector<HTMLSelectElement>(
+        `[aria-label="${t('dialog.filter.condition')}"]`,
+      )!;
+      opSelect.value = 'numGreater';
+      opSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+      const applyBtn = popoverButton(popover, t('dialog.filter.apply'));
+      expect(applyBtn.disabled).toBe(true);
+      expect(popover.querySelector('.dialog-error')?.textContent).toBe(
+        t('dialog.filter.conditionIncomplete'),
+      );
+
+      const valueInput = popover.querySelector<HTMLInputElement>(
+        `[aria-label="${t('dialog.filter.value')}"]`,
+      )!;
+      valueInput.value = '5';
+      valueInput.dispatchEvent(new Event('input', { bubbles: true }));
+      expect(applyBtn.disabled).toBe(false);
+      expect(popover.querySelector('.dialog-error')?.textContent).toBe('');
+
+      applyBtn.click();
+      const result = await promise;
+      expect(result).toMatchObject({
+        action: 'apply',
+        column: { conditions: [{ kind: 'number', op: 'numGreater', value: 5 }] },
+      });
+    });
+
+    it('disables Apply once a numeric condition is touched with a non-numeric value', async () => {
+      const dialogs = new Dialogs();
+      const promise = dialogs.chooseFilter(filterInput());
+      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+
+      const opSelect = popover.querySelector<HTMLSelectElement>(
+        `[aria-label="${t('dialog.filter.condition')}"]`,
+      )!;
+      opSelect.value = 'numGreater';
+      opSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      const valueInput = popover.querySelector<HTMLInputElement>(
+        `[aria-label="${t('dialog.filter.value')}"]`,
+      )!;
+      valueInput.value = 'not a number';
+      valueInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+      const applyBtn = popoverButton(popover, t('dialog.filter.apply'));
+      expect(applyBtn.disabled).toBe(true);
+      expect(popover.querySelector('.dialog-error')?.textContent).toBe(
+        t('dialog.filter.conditionIncomplete'),
+      );
+
+      popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await promise;
+    });
+
+    it('disables Apply once a text condition is touched but left blank', async () => {
+      const dialogs = new Dialogs();
+      const promise = dialogs.chooseFilter(filterInput());
+      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+
+      const opSelect = popover.querySelector<HTMLSelectElement>(
+        `[aria-label="${t('dialog.filter.condition')}"]`,
+      )!;
+      opSelect.value = 'equals';
+      opSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+      const applyBtn = popoverButton(popover, t('dialog.filter.apply'));
+      expect(applyBtn.disabled).toBe(true);
+      expect(popover.querySelector('.dialog-error')?.textContent).toBe(
+        t('dialog.filter.conditionIncomplete'),
+      );
+
+      popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await promise;
+    });
+
+    it('does not require a value for the no-value blank/notBlank operators', async () => {
+      const dialogs = new Dialogs();
+      const promise = dialogs.chooseFilter(filterInput());
+      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+
+      const opSelect = popover.querySelector<HTMLSelectElement>(
+        `[aria-label="${t('dialog.filter.condition')}"]`,
+      )!;
+      opSelect.value = 'notBlank';
+      opSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+      const applyBtn = popoverButton(popover, t('dialog.filter.apply'));
+      expect(applyBtn.disabled).toBe(false);
+      expect(popover.querySelector('.dialog-error')?.textContent).toBe('');
+
+      applyBtn.click();
+      const result = await promise;
+      expect(result).toMatchObject({
+        action: 'apply',
+        column: { conditions: [{ kind: 'text', op: 'notBlank', value: '' }] },
+      });
+    });
+
+    it('flags an existing condition edited into a blank value', async () => {
+      const dialogs = new Dialogs();
+      const input = filterInput({
+        existing: {
+          col: 1,
+          join: 'and',
+          conditions: [{ kind: 'number', op: 'numGreater', value: 5 }],
+          values: null,
+        },
+      });
+      const promise = dialogs.chooseFilter(input);
+      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+
+      const valueInput = popover.querySelector<HTMLInputElement>(
+        `[aria-label="${t('dialog.filter.value')}"]`,
+      )!;
+      valueInput.value = '';
+      valueInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+      const applyBtn = popoverButton(popover, t('dialog.filter.apply'));
+      expect(applyBtn.disabled).toBe(true);
+      expect(popover.querySelector('.dialog-error')?.textContent).toBe(
+        t('dialog.filter.conditionIncomplete'),
+      );
+
+      popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await promise;
+    });
+  });
 });

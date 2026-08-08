@@ -14,7 +14,7 @@ import { forEachIndexSliced } from '../../core/scheduler';
 import { AppState, type Selection, type Tab } from '../app-state';
 import { t } from '../i18n';
 import type { ConvertReason, UiPort } from '../commands';
-import { LARGE_OP_CELLS, pct, withBusy } from './shared';
+import { LARGE_OP_CELLS, nextPaint, pct, withBusy } from './shared';
 
 /** Everything the Flash Fill preview dialog shows before anything is applied. */
 export interface FlashFillPreview {
@@ -174,6 +174,7 @@ export class PasteFillCommands {
                 total: totalCells.toLocaleString('en-US'),
                 pct: pct(done, total),
               }),
+              pct(done, total),
             ),
           shouldStop: () => tab.doc !== doc,
         },
@@ -462,36 +463,43 @@ export class PasteFillCommands {
     const deltaCol = origin ? at.col - origin.col : 0;
     const totalCells = height * width;
     const shifted: string[][] = new Array<string[]>(height);
-    const completed = await withBusy(
-      this.ui,
-      t(labelKey, { done: 0, total: totalCells.toLocaleString('en-US'), pct: 0 }),
-      () =>
-        forEachIndexSliced(
-          height,
-          (i) => {
-            const out = matrix[i].slice();
-            if (origin && (deltaRow !== 0 || deltaCol !== 0)) {
-              for (let j = 0; j < out.length; j++) {
-                if (isFormula(out[j])) {
-                  out[j] = shiftFormulaRefs(out[j], deltaRow, deltaCol);
-                }
+    // The initial label already carries an honest 0%, so (unlike withBusy's
+    // other callers, whose initial label has no percentage yet) it is shown
+    // with a determinate progress value from the start rather than a
+    // momentary indeterminate spinner.
+    this.ui.setBusy(t(labelKey, { done: 0, total: totalCells.toLocaleString('en-US'), pct: 0 }), 0);
+    await nextPaint();
+    let completed: boolean;
+    try {
+      completed = await forEachIndexSliced(
+        height,
+        (i) => {
+          const out = matrix[i].slice();
+          if (origin && (deltaRow !== 0 || deltaCol !== 0)) {
+            for (let j = 0; j < out.length; j++) {
+              if (isFormula(out[j])) {
+                out[j] = shiftFormulaRefs(out[j], deltaRow, deltaCol);
               }
             }
-            shifted[i] = out;
-          },
-          {
-            onProgress: (done, total) =>
-              this.ui.setBusy(
-                t(labelKey, {
-                  done: (done * width).toLocaleString('en-US'),
-                  total: totalCells.toLocaleString('en-US'),
-                  pct: pct(done, total),
-                }),
-              ),
-            shouldStop: () => tab.doc !== doc,
-          },
-        ),
-    );
+          }
+          shifted[i] = out;
+        },
+        {
+          onProgress: (done, total) =>
+            this.ui.setBusy(
+              t(labelKey, {
+                done: (done * width).toLocaleString('en-US'),
+                total: totalCells.toLocaleString('en-US'),
+                pct: pct(done, total),
+              }),
+              pct(done, total),
+            ),
+          shouldStop: () => tab.doc !== doc,
+        },
+      );
+    } finally {
+      this.ui.setBusy(null);
+    }
     if (!completed || tab.doc !== doc) {
       return null;
     }
@@ -782,7 +790,7 @@ export class PasteFillCommands {
     if (rowCount > LARGE_OP_CELLS) {
       const completed = await withBusy(this.ui, label, () =>
         forEachIndexSliced(rowCount, scanRow, {
-          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`),
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`, pct(done, total)),
           shouldStop: () => tab.doc !== doc || conflict !== null,
         }),
       );

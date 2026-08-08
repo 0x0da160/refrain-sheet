@@ -932,6 +932,18 @@ consider a PR for auto-merge **only if all** of the following hold:
 Until every one of those is designed, reviewed, and turned on by a human, merges and
 releases remain manual.
 
+## Future autonomous research & scheduled runs (proposed, NOT enabled)
+
+Everything in this document triggers from a human-filed Issue, a comment, a PR
+event, or a manual `workflow_dispatch`. No workflow uses a `schedule:` (cron)
+trigger, and none performs external market/competitor research. A proposal for
+introducing that in small, independently-approvable phases — including a
+static run-count/cooldown fallback for when no live Claude usage-quota signal
+is available — is recorded in
+[`docs/continuous-improvement-plan.md`](continuous-improvement-plan.md). Like
+the auto-merge criteria above, nothing there is implemented or scheduled by
+that document; each phase needs its own Issue and explicit approval.
+
 ## Safely testing the loop with one low-risk Issue
 
 1. Complete the Human setup above (App, secret, SHA-pin, labels, branch protection).

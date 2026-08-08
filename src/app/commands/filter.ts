@@ -131,7 +131,7 @@ export class FilterCommands {
       const label = t('loading.filterValues');
       const completed = await withBusy(this.ui, label, () =>
         forEachIndexSliced(scanRows, collectRow, {
-          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`),
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`, pct(done, total)),
           shouldStop: () => tab.doc !== doc,
         }),
       );
@@ -211,7 +211,7 @@ export class FilterCommands {
       const label = t('loading.filtering');
       const completed = await withBusy(this.ui, label, () =>
         forEachIndexSliced(rows, evaluateRow, {
-          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`),
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`, pct(done, total)),
           shouldStop: () => tab.doc !== doc,
         }),
       );

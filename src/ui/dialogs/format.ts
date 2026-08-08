@@ -30,7 +30,7 @@ import type {
   ConditionalFormatStyle,
 } from '../../core/conditional-format';
 import { el } from '../dom';
-import { dialogButton, openDialog } from './shared';
+import { dialogButton, openDialog, submitOnEnter } from './shared';
 
 const DEFAULT_COLOR = '#000000';
 
@@ -341,21 +341,25 @@ export class FormatDialogs {
           el('label', { text: t('dialog.numberFormat.currencySymbol'), attrs: { for: symbolId } }),
           symbolInput,
         );
+        const submit = (): void => {
+          const decimals = Number.parseInt(decimalsInput.value, 10);
+          close({
+            action: 'apply',
+            format: normalizeNumberFormat({
+              kind: kindSelect.value as NumberFormatKind,
+              decimals: Number.isFinite(decimals) ? decimals : 0,
+              thousands: thousandsInput.checked,
+              currencySymbol: symbolInput.value,
+            }),
+          });
+        };
+        submitOnEnter(decimalsInput, submit);
+        submitOnEnter(symbolInput, submit);
+
         buttons.append(
           dialogButton(t('dialog.numberFormat.cancel'), false, false, () => close(null)),
           dialogButton(t('dialog.numberFormat.clear'), false, false, () => close({ action: 'clear' })),
-          dialogButton(t('dialog.numberFormat.apply'), true, false, () => {
-            const decimals = Number.parseInt(decimalsInput.value, 10);
-            close({
-              action: 'apply',
-              format: normalizeNumberFormat({
-                kind: kindSelect.value as NumberFormatKind,
-                decimals: Number.isFinite(decimals) ? decimals : 0,
-                thousands: thousandsInput.checked,
-                currencySymbol: symbolInput.value,
-              }),
-            });
-          }),
+          dialogButton(t('dialog.numberFormat.apply'), true, false, submit),
         );
       },
     );
@@ -524,12 +528,15 @@ export class FormatDialogs {
           };
         };
 
-        const applyBtn = dialogButton(t('dialog.conditionalFormat.apply'), true, false, () => {
+        const submit = (): void => {
           const rule = buildRule();
           if (rule) {
             close({ action: 'apply', rule });
           }
-        });
+        };
+        const applyBtn = dialogButton(t('dialog.conditionalFormat.apply'), true, false, submit);
+        submitOnEnter(value1Input, submit);
+        submitOnEnter(value2Input, submit);
 
         function refresh(): void {
           cellValueSection.hidden = !kindCellValue.checked;

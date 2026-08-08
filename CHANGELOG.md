@@ -119,6 +119,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The right-click context menu on the grid now shows the same keyboard
+  shortcut hints (e.g. Ctrl+C, Ctrl+V, Ctrl+A) as the matching Edit menu
+  entries, so shortcuts are discoverable from either surface.
+  ([#292](https://github.com/0x0da160/refrain-sheet/issues/292))
 - Dragging past the visible edge of the grid now auto-scrolls the viewport
   toward the pointer until it re-enters the grid, for all four drag
   gestures that previously just stopped updating at the edge: range
@@ -217,6 +221,19 @@ release-time half (retitling `Unreleased`) is still done by hand.
   and indistinguishably from a successful replace. The status line now says
   the selection was not on a match and nothing was changed.
   ([#300](https://github.com/0x0da160/refrain-sheet/issues/300))
+- Pressing Enter now confirms the **Format > Number Format…** dialog (from
+  the decimals or currency symbol field), the **Format > Conditional
+  Formatting…** dialog (from a comparison value field), and the **Settings**
+  dialog (from the max file size field) — matching the Enter-to-confirm
+  behavior the rename/move/go-to-cell dialogs already had, so Enter now
+  behaves consistently across every single-line dialog input.
+  ([#297](https://github.com/0x0da160/refrain-sheet/issues/297))
+- Starting a cell edit with a double-click or F2 no longer selects the
+  entire cell value. Double-click now places the caret at the clicked
+  position; F2 places it at the end of the text. Typing to replace a cell's
+  value (starting to type without double-clicking or pressing F2 first)
+  still opens an empty editor, unchanged.
+  ([#286](https://github.com/0x0da160/refrain-sheet/issues/286))
 - On iOS Safari, tapping a top-level menu bar button (File / Edit / Search /
   …) after horizontally scrolling the menu row could open a different menu
   than the one tapped. The mobile menu row no longer scrolls horizontally
@@ -232,6 +249,17 @@ release-time half (retitling `Unreleased`) is still done by hand.
   triggers iOS Safari's automatic zoom; both textareas now get the same
   16px minimum font size that other dialog fields already had.
   ([#247](https://github.com/0x0da160/refrain-sheet/issues/247))
+- Column-header and row-header cells now report `aria-colindex` using the
+  same virtualization-aware offset as data cells, so a screen reader
+  navigating a horizontally scrolled sheet announces a header aligned with
+  the data cell's actual column, instead of the header's raw DOM position.
+  ([#289](https://github.com/0x0da160/refrain-sheet/issues/289))
+- The busy indicator's progress bar no longer stays stuck in its
+  indeterminate (spinning) state during large Duplicate Worksheet, Filter,
+  Flash Fill, Paste, Insert Copied Rows/Columns, and Replace All operations
+  even though the label text already showed an exact percentage; it now
+  shows the same determinate progress bar as CSV export and column
+  auto-fit already did. ([#301](https://github.com/0x0da160/refrain-sheet/issues/301))
 
 ### Removed
 

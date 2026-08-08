@@ -239,7 +239,7 @@ export class RangeOpsCommands {
           }
         },
         {
-          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`),
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`, pct(done, total)),
           // The document was replaced or the tab closed while yielding: abort
           // without touching anything.
           shouldStop: () => tab.doc !== doc,
@@ -327,6 +327,7 @@ export class RangeOpsCommands {
               `${label} (${pct(done, count)}%) — ${t('find.scopeProgress', {
                 sheet: doc.locateFlatRow(Math.min(done, count - 1))?.sheet.name ?? '',
               })}`,
+              pct(done, count),
             ),
           shouldStop: () => tab.doc !== doc || !sheetsUnchanged(doc, sheetIds),
         },

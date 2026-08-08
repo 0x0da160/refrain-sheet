@@ -1369,6 +1369,13 @@ button {
   gap: 2px 14px;
 }
 
+.status-bar .status-selection {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 14px;
+}
+
 .status-bar button.status-problems {
   display: inline-flex;
   align-items: center;

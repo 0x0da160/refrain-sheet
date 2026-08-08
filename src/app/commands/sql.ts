@@ -43,8 +43,10 @@ export class SqlCommands {
     const cap = SQL_MAX_SOURCE_ROWS + 1;
     if (doc.kind === 'rsf') {
       const sheet = doc.sheetById(sourceId) ?? doc.activeSheet;
-      const columnCount = sheet.columnCount;
-      const totalRows = sheet.rowCount;
+      // A worksheet's rowCount/columnCount is its fully allocated grid (e.g.
+      // 100x26 for a new sheet), not its content — trim to the used range so
+      // `SELECT * FROM data` doesn't return a wall of blank rows/columns.
+      const { rows: totalRows, cols: columnCount } = sheet.usedExtent();
       const readRow = (r: number): string[] =>
         Array.from({ length: columnCount }, (_, c) => doc.getSheetDisplayValue(sheet.id, r, c));
       const headers = totalRows > 0 ? readRow(0) : [];

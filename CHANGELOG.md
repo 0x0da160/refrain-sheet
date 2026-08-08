@@ -25,6 +25,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The SQL Query dialog's default query, `SELECT * FROM data`, and column
+  enumeration now read only a worksheet's used range instead of its fully
+  allocated grid (e.g. 100 rows × 26 columns for a new sheet), so a first run
+  against a small sheet no longer returns dozens of entirely blank rows and
+  columns. ([#345](https://github.com/0x0da160/refrain-sheet/issues/345))
 - The Conditional Formatting dialog's numeric "Cell value" conditions
   (Greater than, Less than, Between, etc.) now keep "Apply Rule" disabled
   and show the existing "incomplete" notice when the Value field is left

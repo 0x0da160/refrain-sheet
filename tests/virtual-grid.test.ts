@@ -419,6 +419,49 @@ describe('selection and keyboard interaction', () => {
   });
 });
 
+describe('auto-focus on document activation (#282)', () => {
+  // A document becoming active (created, opened, or switched to) with focus
+  // sitting on the inert default means the user has no way to type without
+  // first clicking a cell; see grid.ts `refresh()`.
+  it('focuses the grid keyboard sink when a document becomes active with nothing else focused', () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    const state = new AppState();
+    const commands = new Commands(state, noopUi, document);
+    const grid = new Grid(state, commands);
+    document.body.append(grid.element);
+    expect(document.activeElement).toBe(document.body);
+
+    state.addTab('big.csv', doc(bigCsv(5)), null);
+    grid.refresh();
+
+    expect(document.activeElement).toBeInstanceOf(HTMLTextAreaElement);
+    expect((document.activeElement as HTMLElement).classList.contains('grid-sink')).toBe(true);
+    grid.element.remove();
+  });
+
+  it('leaves an already-focused control alone', () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    const state = new AppState();
+    const commands = new Commands(state, noopUi, document);
+    const grid = new Grid(state, commands);
+    document.body.append(grid.element);
+    const input = document.createElement('input');
+    document.body.append(input);
+    input.focus();
+
+    state.addTab('big.csv', doc(bigCsv(5)), null);
+    grid.refresh();
+
+    expect(document.activeElement).toBe(input);
+    input.remove();
+    grid.element.remove();
+  });
+});
+
 describe('cell edit caret placement (#286)', () => {
   it('F2 opens the editor with the caret at the end of the text, not the whole value selected', () => {
     const { state, grid, tab } = setup(bigCsv(10));

@@ -981,6 +981,15 @@ export class Grid {
       this.element.scrollTop = 0;
       this.element.scrollLeft = 0;
       this.lastDoc = tab.doc;
+      // A document just became active (created, opened, switched to, or
+      // replaced in place) with nothing else deliberately focused — typing
+      // would otherwise silently go nowhere until the user first clicks a
+      // cell. Only claim the keyboard when focus is sitting on the inert
+      // default (<body>); a dialog, the formula bar, or any other control
+      // the user is already in keeps its focus untouched.
+      if (document.activeElement === document.body) {
+        this.focusGrid();
+      }
     }
     // Only rebuild the rendered window when a layout input changed (document
     // identity, dimensions, row height, sticky mode, locale). A plain cell

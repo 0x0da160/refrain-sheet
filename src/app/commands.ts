@@ -437,6 +437,7 @@ export type CommandId =
   | 'edit.redo'
   | 'edit.copy'
   | 'edit.copyAsImage'
+  | 'edit.copyScreenshot'
   | 'edit.paste'
   | 'edit.insertCopiedCells'
   | 'edit.insertCopiedRows'
@@ -534,6 +535,8 @@ export class Commands {
     copy: () => Promise<void>;
     /** Render the selection to a PNG and write it to the system clipboard. */
     copyAsImage: () => Promise<void>;
+    /** Render the selection's actual on-screen appearance to a PNG and write it to the system clipboard. */
+    copyScreenshot: () => Promise<void>;
     paste: () => Promise<void>;
     /** The most recently copied range (internal clipboard, else parsed system text). */
     getCopied: () => Promise<{ matrix: string[][]; origin: Selection | null } | null>;
@@ -688,6 +691,7 @@ export class Commands {
       // support (including on file://), so the item is hidden/disabled
       // outright there rather than failing at run time.
       case 'edit.copyAsImage':
+      case 'edit.copyScreenshot':
         return (
           tab?.selection != null &&
           typeof ClipboardItem !== 'undefined' &&
@@ -845,6 +849,9 @@ export class Commands {
         return;
       case 'edit.copyAsImage':
         await this.clipboardActions?.copyAsImage();
+        return;
+      case 'edit.copyScreenshot':
+        await this.clipboardActions?.copyScreenshot();
         return;
       case 'edit.paste':
         await this.clipboardActions?.paste();

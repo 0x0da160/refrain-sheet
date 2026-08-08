@@ -209,6 +209,7 @@
   "find.position": " — {index} / {total}",
   "find.positionSheet": " — {index} / {total}（「{sheet}」）",
   "find.wrapped": "（先頭に戻りました）",
+  "find.notOnMatch": "（一致箇所にいないため、置換せずに次の一致箇所へ移動しました）",
   "find.replacedAllWorkbook": "{sheets} 枚のワークシートの {cells} セルで {count} 件を置換しました",
   "find.replaceSkipped": "（{n} セルをスキップ：処理中に変更されました）",
   "find.replaceCancelled": "すべて置換をキャンセルしました。何も変更されていません。",

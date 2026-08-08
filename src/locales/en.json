@@ -209,6 +209,7 @@
   "find.position": " — {index} of {total}",
   "find.positionSheet": " — {index} of {total} on “{sheet}”",
   "find.wrapped": " (wrapped around)",
+  "find.notOnMatch": " (not on a match — moved to next match without replacing)",
   "find.replacedAllWorkbook": "Replaced {count} occurrences in {cells} cells across {sheets} worksheets",
   "find.replaceSkipped": " ({n} cells skipped: they changed during the operation)",
   "find.replaceCancelled": "Replace All cancelled. Nothing was changed.",

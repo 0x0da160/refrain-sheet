@@ -227,6 +227,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
   triggers iOS Safari's automatic zoom; both textareas now get the same
   16px minimum font size that other dialog fields already had.
   ([#247](https://github.com/0x0da160/refrain-sheet/issues/247))
+- Column-header and row-header cells now report `aria-colindex` using the
+  same virtualization-aware offset as data cells, so a screen reader
+  navigating a horizontally scrolled sheet announces a header aligned with
+  the data cell's actual column, instead of the header's raw DOM position.
+  ([#289](https://github.com/0x0da160/refrain-sheet/issues/289))
 
 ### Removed
 

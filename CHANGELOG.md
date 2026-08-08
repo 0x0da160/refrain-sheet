@@ -33,6 +33,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
   misleading "Sum 0" when the selection has no numeric cells — it now hides
   alongside Average/Min/Max in that case, instead of only those three doing
   so. ([#299](https://github.com/0x0da160/refrain-sheet/issues/299))
+- The Delete Rows / Delete Columns confirmation and the "open a non-CSV file"
+  prompt now default focus to Cancel instead of the affirmative button, so a
+  reflexive Enter press no longer deletes data or opens an unintended file.
+  The "unrepresentable characters" save warning also now matches its sibling
+  "undecodable characters" edit warning, instead of the two dialogs using
+  opposite button placement and focus for the same kind of risk.
+  ([#295](https://github.com/0x0da160/refrain-sheet/issues/295))
 
 ### Changed
 

@@ -164,6 +164,18 @@ describe('ContextMenu toolbar (#240)', () => {
     expect(document.querySelector('.context-menu > .menu-separator')).not.toBeNull();
   });
 
+  it('shows disabledReason as the tooltip when disabled, falling back to label otherwise', () => {
+    ContextMenu.open([{ label: 'Copy', onSelect: vi.fn() }], 10, 10, {
+      toolbar: [
+        { icon: 'B', label: 'Bold', disabled: true, disabledReason: 'Needs RSF', onSelect: vi.fn() },
+        { icon: 'I', label: 'Italic', onSelect: vi.fn() },
+      ],
+    });
+    const buttons = document.querySelectorAll<HTMLButtonElement>('.context-menu-toolbar .toolbar-item');
+    expect(buttons[0].title).toBe('Needs RSF');
+    expect(buttons[1].title).toBe('Italic');
+  });
+
   it('omits the separator when the toolbar has no items below it', () => {
     ContextMenu.open([], 10, 10, { toolbar: [{ icon: 'B', label: 'Bold', onSelect: vi.fn() }] });
     expect(document.querySelector('.context-menu > .menu-separator')).toBeNull();

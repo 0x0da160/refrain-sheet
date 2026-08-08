@@ -426,12 +426,14 @@ function formatToolbarItems(commands: Commands, tab: Tab): ContextMenuToolbarIte
     className,
     checked: commands.isFormatActive(tab, key),
     disabled: !commands.isEnabled(command),
+    disabledReason: commands.disabledReason(command),
     onSelect: () => void commands.run(command),
   });
   const action = (command: CommandId, icon: string, labelKey: string): ContextMenuToolbarItem => ({
     icon,
     label: t(labelKey),
     disabled: !commands.isEnabled(command),
+    disabledReason: commands.disabledReason(command),
     onSelect: () => void commands.run(command),
   });
   return [

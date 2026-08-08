@@ -10,6 +10,7 @@ import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { t } from '../src/app/i18n';
 import { MenuBar, type MenuChecks } from '../src/ui/menu-bar';
+import { doc as csvDoc } from './helpers';
 
 function stubUi(): UiPort {
   return {
@@ -115,5 +116,39 @@ describe('menu-bar dropdown keyboard navigation', () => {
     document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
     expect(document.activeElement?.textContent).toContain(t('menu.file.open'));
     expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe('menu-bar disabled-item tooltips (#293)', () => {
+  it('shows the RSF-only explanation as a tooltip on the disabled Format menu items on a CSV tab', () => {
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    state.addTab('t.csv', csvDoc('a,b\n'), null);
+    const bar = new MenuBar(commands, menuChecks());
+    document.body.append(bar.element);
+    const formatButton = Array.from(
+      bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
+    ).find((b) => b.textContent === t('menu.format'))!;
+    formatButton.click();
+
+    const boldItem = Array.from(bar.element.querySelectorAll<HTMLButtonElement>('.menu-item')).find((b) =>
+      b.textContent?.includes(t('menu.format.bold')),
+    )!;
+    expect(boldItem.disabled).toBe(true);
+    expect(boldItem.title).toBe(t('menu.format.csvOnlyTooltip'));
+  });
+
+  it('leaves no tooltip on an enabled item', () => {
+    const bar = buildBar();
+    const fileButton = Array.from(
+      bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
+    ).find((b) => b.textContent === t('menu.file'))!;
+    fileButton.click();
+
+    const newItem = Array.from(bar.element.querySelectorAll<HTMLButtonElement>('.menu-item')).find((b) =>
+      b.textContent?.includes(t('menu.file.new')),
+    )!;
+    expect(newItem.disabled).toBe(false);
+    expect(newItem.title).toBe('');
   });
 });

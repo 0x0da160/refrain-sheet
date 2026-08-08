@@ -10,6 +10,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
+import { t } from '../src/app/i18n';
 import {
   applyCellStylePatch,
   borderSideValue,
@@ -434,6 +435,34 @@ describe('FormatCommands via Commands (RSF worksheets)', () => {
     state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 1 });
     expect(commands.isEnabled('format.bold')).toBe(false);
     expect(commands.toggleBold(tab)).toBe(false);
+  });
+
+  it('disabledReason explains the RSF-only restriction on a CSV tab, and is null once enabled', () => {
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    const tab = state.addTab('t.csv', csvDoc('a,b\n'), null);
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 1 });
+    for (const id of [
+      'format.bold',
+      'format.italic',
+      'format.underline',
+      'format.textColor',
+      'format.backgroundColor',
+      'format.borders',
+      'format.numberFormat',
+      'format.clear',
+    ] as const) {
+      expect(commands.disabledReason(id)).toBe(t('menu.format.csvOnlyTooltip'));
+    }
+    // Unrelated to formatting: no reason to explain, since it isn't disabled.
+    expect(commands.disabledReason('edit.copy')).toBeNull();
+  });
+
+  it('disabledReason is null once the same command is enabled', () => {
+    const { commands, tab, state } = sheet([['a', 'b']]);
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 1 });
+    expect(commands.isEnabled('format.bold')).toBe(true);
+    expect(commands.disabledReason('format.bold')).toBeNull();
   });
 
   it('promptTextColor applies the chosen color and Clear Color removes it', async () => {

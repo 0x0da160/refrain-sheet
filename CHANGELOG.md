@@ -221,6 +221,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The document tab strip (open files, at the top) now supports the same
+  keyboard navigation as the worksheet strip (sheets inside a workbook, at
+  the bottom): ArrowLeft/ArrowRight/Home/End move focus and switch the
+  active tab, and Alt+ArrowLeft/ArrowRight/Home/End reorder the active tab
+  without a pointer — a keyboard/touch-reachable equivalent of the existing
+  drag-and-drop reordering, matching the worksheet strip's existing
+  behavior. ([#302](https://github.com/0x0da160/refrain-sheet/issues/302))
 - Find & Replace: clicking **Replace** while the selection is not on a
   recorded match no longer moves the selection to the next match silently
   and indistinguishably from a successful replace. The status line now says

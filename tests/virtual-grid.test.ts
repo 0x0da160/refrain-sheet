@@ -127,6 +127,18 @@ describe('virtualized rendering', () => {
     expect(labels.slice(0, 4)).toEqual(['A', 'B', 'C', 'D']);
   });
 
+  it('aligns header aria-colindex with data cells after horizontal scroll', () => {
+    const { grid } = setup(bigCsv(20, 300));
+    grid.element.scrollLeft = 250 * COL_WIDTH;
+    grid.refresh();
+    const dataCell = grid.element.querySelector<HTMLElement>('.vgrid-rows [data-row="0"][data-col]')!;
+    const col = Number(dataCell.dataset.col);
+    const headerCell = grid.element.querySelector<HTMLElement>(`.vgrid-header [data-colhead="${col}"]`)!;
+    expect(headerCell.getAttribute('aria-colindex')).toBe(dataCell.getAttribute('aria-colindex'));
+    const rowHeadCell = grid.element.querySelector<HTMLElement>('.vgrid-rows [data-rowhead="0"]')!;
+    expect(rowHeadCell.getAttribute('aria-colindex')).toBe('1');
+  });
+
   it('reveals a far-away cell for find navigation', () => {
     const { state, grid, tab } = setup(bigCsv(100_000));
     grid.reveal(99_999, 2);

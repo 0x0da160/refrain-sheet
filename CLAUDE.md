@@ -37,6 +37,7 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | Build the landing site       | `npm run build:landing` (add `-- https://refrain-sheet.com/` for the production URL) |
 | Self-contained dist check    | `npm run check:dist`                                                                 |
 | Version consistency          | `npm run check:versions`                                                             |
+| Headless-browser UI check    | `npm run ui:check` (requires `dist/`; visually confirms the built app loads)         |
 | Changelog gate (PR CI only)  | `npm run check:changelog`                                                            |
 | Production dependency audit  | `npm run audit:ci`                                                                   |
 

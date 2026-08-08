@@ -1504,6 +1504,7 @@ npm run format         # prettier --write
 npm run format:check   # prettier --check
 npm run check:versions # package.json ⇄ package-lock.json consistency
 npm run check:dist     # assert dist/ is self-contained (embedded WASM, no network)
+npm run ui:check       # load dist/ in headless Chromium, fail on render/console errors
 npm run audit:ci       # production-dependency vulnerability gate
 npm run release -- patch   # one-command release (see "Cutting a release")
 ```
@@ -1511,6 +1512,11 @@ npm run release -- patch   # one-command release (see "Cutting a release")
 The committed `.npmrc` sets `ignore-scripts=true`, so `npm ci` alone already
 skips dependency lifecycle scripts; the explicit flag above documents the
 intent for environments without the repo `.npmrc`.
+
+`npm run ui:check` needs Chromium's browser binary, which `--ignore-scripts`
+deliberately does not fetch automatically; the Docker image (below) already
+has it, but a local (non-Docker) run needs a one-time
+`npx playwright install --with-deps chromium` first.
 
 ### Docker
 
@@ -1523,6 +1529,7 @@ docker compose run --rm app npm run format:check
 docker compose run --rm app npm run lint
 docker compose run --rm app npm run test
 docker compose run --rm app npm run build   # writes dist/ to the host
+docker compose run --rm app npm run ui:check  # headless Chromium is preinstalled in the image
 docker compose up dev                       # dev server on http://localhost:5173
 ```
 

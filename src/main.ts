@@ -9,6 +9,7 @@ import { applySheetFont, getSheetFont } from './app/sheet-font';
 import { resolveShortcut } from './app/shortcuts';
 import { applyTheme, getTheme } from './app/theme';
 import { initCsvEngine } from './core/csv-engine';
+import { initSqlEngine } from './core/sql-engine';
 import { validateDocument } from './core/validation';
 import { initAppIcons } from './ui/app-icon';
 import { closeAllContextMenus } from './ui/context-menu';
@@ -43,6 +44,12 @@ function bootstrap(): void {
   // promise before parsing/compressing, so the fast engine is still used for
   // the first opened file.
   void initCsvEngine();
+
+  // Same idea for the embedded sql.js (SQLite/WASM) engine behind Data > Run
+  // SQL Query…: start loading it now so it is normally already ready by the
+  // time a user opens the dialog (see src/app/commands/sql.ts, which awaits
+  // this same promise before running a query).
+  void initSqlEngine();
 
   const state = new AppState();
   const dialogs = new Dialogs();

@@ -473,6 +473,31 @@ export class Worksheet {
     return false;
   }
 
+  /**
+   * One past the last row/column holding a non-empty raw value anywhere in
+   * the worksheet — `{ rows: 0, cols: 0 }` for a worksheet with no content at
+   * all. Distinct from {@link rowCount}/{@link columnCount}, which report the
+   * fully allocated grid (e.g. a new worksheet is 100x26 regardless of how
+   * much of it has ever been written to). Used to trim reads — SQL queries,
+   * the diff tool — to real content instead of blank padding. Checked against
+   * the raw input rather than the computed display value, so it never needs a
+   * formula evaluation pass just to find the boundary.
+   */
+  usedExtent(): { rows: number; cols: number } {
+    let maxRow = -1;
+    let maxCol = -1;
+    for (let r = 0; r < this.data.length; r++) {
+      const row = this.data[r];
+      for (let c = 0; c < this.cols; c++) {
+        if (row[c] !== '') {
+          if (r > maxRow) maxRow = r;
+          if (c > maxCol) maxCol = c;
+        }
+      }
+    }
+    return { rows: maxRow + 1, cols: maxCol + 1 };
+  }
+
   // ----- Mutators (driven by the workbook, which invalidates evaluation) -----
 
   /** Returns true when the write actually changed the cell. */

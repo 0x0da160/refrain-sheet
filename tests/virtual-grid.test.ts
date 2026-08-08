@@ -127,6 +127,18 @@ describe('virtualized rendering', () => {
     expect(labels.slice(0, 4)).toEqual(['A', 'B', 'C', 'D']);
   });
 
+  it('aligns header aria-colindex with data cells after horizontal scroll', () => {
+    const { grid } = setup(bigCsv(20, 300));
+    grid.element.scrollLeft = 250 * COL_WIDTH;
+    grid.refresh();
+    const dataCell = grid.element.querySelector<HTMLElement>('.vgrid-rows [data-row="0"][data-col]')!;
+    const col = Number(dataCell.dataset.col);
+    const headerCell = grid.element.querySelector<HTMLElement>(`.vgrid-header [data-colhead="${col}"]`)!;
+    expect(headerCell.getAttribute('aria-colindex')).toBe(dataCell.getAttribute('aria-colindex'));
+    const rowHeadCell = grid.element.querySelector<HTMLElement>('.vgrid-rows [data-rowhead="0"]')!;
+    expect(rowHeadCell.getAttribute('aria-colindex')).toBe('1');
+  });
+
   it('reveals a far-away cell for find navigation', () => {
     const { state, grid, tab } = setup(bigCsv(100_000));
     grid.reveal(99_999, 2);
@@ -391,6 +403,48 @@ describe('selection and keyboard interaction', () => {
     expect(cellEl(grid, 1, 1).classList.contains('in-range')).toBe(true);
     expect(cellEl(grid, 2, 2).classList.contains('selected')).toBe(true);
     expect(cellEl(grid, 0, 0).classList.contains('in-range')).toBe(false);
+  });
+});
+
+describe('cell edit caret placement (#286)', () => {
+  it('F2 opens the editor with the caret at the end of the text, not the whole value selected', () => {
+    const { state, grid, tab } = setup(bigCsv(10));
+    state.setSelection(tab, { row: 2, col: 2 });
+    grid.element.focus();
+    grid.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'F2', bubbles: true, cancelable: true }));
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    expect(input).not.toBeNull();
+    expect(input.value).toBe('r2c2');
+    expect([input.selectionStart, input.selectionEnd]).toEqual([input.value.length, input.value.length]);
+  });
+
+  it('double-click opens the editor without selecting the whole value', () => {
+    const { grid, tab } = setup(bigCsv(10));
+    const cell = grid.element.querySelector<HTMLElement>('[data-row="2"][data-col="2"]')!;
+    cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, button: 0 }));
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    expect(input).not.toBeNull();
+    expect(input.value).toBe('r2c2');
+    // jsdom implements neither caretPositionFromPoint nor caretRangeFromPoint,
+    // so the click offset cannot be resolved here; the important assertion is
+    // that the fallback never selects the whole value (the bug being fixed).
+    expect(input.selectionStart).toBe(input.selectionEnd);
+    void tab;
+  });
+
+  it('openEditor(..., caretOffset) places the caret at the given offset', () => {
+    const { grid, tab } = setup(bigCsv(10));
+    grid.openEditor(tab, 2, 2, null, 2);
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    expect(input.value).toBe('r2c2');
+    expect([input.selectionStart, input.selectionEnd]).toEqual([2, 2]);
+  });
+
+  it('openEditor(..., caretOffset) clamps an out-of-range offset to the text length', () => {
+    const { grid, tab } = setup(bigCsv(10));
+    grid.openEditor(tab, 2, 2, null, 999);
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    expect([input.selectionStart, input.selectionEnd]).toEqual([input.value.length, input.value.length]);
   });
 });
 

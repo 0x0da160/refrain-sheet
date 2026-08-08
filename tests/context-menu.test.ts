@@ -117,6 +117,27 @@ describe('ContextMenu', () => {
     expect(submenus[0].textContent).toContain('Nested');
   });
 
+  it('renders a shortcut hint next to an item that has one, and an empty one otherwise', () => {
+    ContextMenu.open(
+      [
+        { label: 'Copy', shortcut: 'Ctrl+C', onSelect: vi.fn() },
+        { label: 'Copy as image', onSelect: vi.fn() },
+      ],
+      10,
+      10,
+    );
+    const shortcuts = document.querySelectorAll('.context-menu .menu-item .shortcut');
+    expect(shortcuts[0].textContent).toBe('Ctrl+C');
+    expect(shortcuts[1].textContent).toBe('');
+  });
+
+  it('renders a submenu arrow instead of a shortcut span for a submenu parent', () => {
+    ContextMenu.open([{ label: 'More', submenu: [{ label: 'Nested', onSelect: vi.fn() }] }], 10, 10);
+    const parent = document.querySelector('.context-menu .menu-item') as HTMLButtonElement;
+    expect(parent.querySelector('.shortcut')).toBeNull();
+    expect(parent.querySelector('.submenu-arrow')).not.toBeNull();
+  });
+
   it('closeAllContextMenus dismisses every open menu', () => {
     ContextMenu.open([{ label: 'A' }], 10, 10);
     expect(document.querySelector('.context-menu')).not.toBeNull();

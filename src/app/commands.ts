@@ -1288,15 +1288,15 @@ export class Commands {
   }
 
   /**
-   * Edit > Insert Copied Cells…. See `PasteFillCommands.insertCopiedCells`
-   * for the full behavior contract.
+   * Edit > Insert Copied > Insert Copied Cells…. See
+   * `PasteFillCommands.insertCopiedCells` for the full behavior contract.
    */
   async insertCopiedCells(tab: Tab): Promise<boolean> {
     return this.pasteFill.insertCopiedCells(tab);
   }
 
   /**
-   * Edit > Insert Copied Rows / Insert Copied Columns. See
+   * Edit > Insert Copied > Insert Copied Rows / Insert Copied Columns. See
    * `PasteFillCommands.insertCopiedAxis` for the full behavior contract.
    */
   async insertCopiedAxis(tab: Tab, axis: 'rows' | 'cols'): Promise<boolean> {
@@ -1390,16 +1390,16 @@ export class Commands {
   }
 
   /**
-   * Sheet > Filter… (also the column-header filter buttons and the context
-   * menu): open the filter dialog and apply the result as one atomic,
-   * undoable operation. See `FilterCommands.filterDialog` for the full
-   * behavior contract.
+   * Sheet > Filter & Sort > Filter… (also the column-header filter buttons
+   * and the context menu): open the filter dialog and apply the result as
+   * one atomic, undoable operation. See `FilterCommands.filterDialog` for
+   * the full behavior contract.
    */
   async filterDialog(tab: Tab, targetCol?: number): Promise<boolean> {
     return this.filter.filterDialog(tab, targetCol);
   }
 
-  /** Sheet > Clear All Filters: every row becomes visible again (undoable). See `FilterCommands.clearAllFilters`. */
+  /** Sheet > Filter & Sort > Clear All Filters: every row becomes visible again (undoable). See `FilterCommands.clearAllFilters`. */
   clearAllFilters(tab: Tab): boolean {
     return this.filter.clearAllFilters(tab);
   }
@@ -1412,14 +1412,14 @@ export class Commands {
   }
 
   /**
-   * Sheet > Sort…: open the sort dialog and apply the result. See
-   * `SortCommands.sortDialog` for the full behavior contract.
+   * Sheet > Filter & Sort > Sort…: open the sort dialog and apply the
+   * result. See `SortCommands.sortDialog` for the full behavior contract.
    */
   async sortDialog(tab: Tab): Promise<boolean> {
     return this.sort.sortDialog(tab);
   }
 
-  /** Sheet > Clear Sort: rows return to document order. See `SortCommands.clearSort`. */
+  /** Sheet > Filter & Sort > Clear Sort: rows return to document order. See `SortCommands.clearSort`. */
   clearSort(tab: Tab): boolean {
     return this.sort.clearSort(tab);
   }

@@ -79,9 +79,19 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // Ctrl+A is owned only while the grid itself has focus (never inside
         // text fields or the rest of the page — the browser keeps it there).
         { labelKey: 'menu.edit.selectAll', command: 'edit.selectAll', shortcut: 'Ctrl+A' },
-        { labelKey: 'menu.edit.insertCopiedCells', command: 'edit.insertCopiedCells' },
-        { labelKey: 'menu.edit.insertCopiedRows', command: 'edit.insertCopiedRows' },
-        { labelKey: 'menu.edit.insertCopiedCols', command: 'edit.insertCopiedCols' },
+        'separator',
+        // The three "insert copied X" commands share one submenu: they are a
+        // single family (insert a prior copy as cells, whole rows, or whole
+        // columns) and grouping them keeps the top-level Edit menu shorter,
+        // matching the View > Spreadsheet Zoom precedent below.
+        {
+          labelKey: 'menu.edit.insertCopied',
+          submenu: [
+            { labelKey: 'menu.edit.insertCopiedCells', command: 'edit.insertCopiedCells' },
+            { labelKey: 'menu.edit.insertCopiedRows', command: 'edit.insertCopiedRows' },
+            { labelKey: 'menu.edit.insertCopiedCols', command: 'edit.insertCopiedCols' },
+          ],
+        },
         { labelKey: 'menu.edit.fillDown', command: 'edit.fillDown', shortcut: 'Ctrl+D' },
         // No keyboard shortcut by design: Ctrl+E (the conventional Flash Fill
         // key) is a browser-reserved address-bar shortcut. The command stays
@@ -115,44 +125,14 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
     {
       labelKey: 'menu.sheet',
       items: [
-        // Worksheets inside the active RSF workbook. These are the same
-        // commands the worksheet tab strip and its context menu dispatch, so
-        // every one is reachable without a pointer.
-        { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add' },
-        { labelKey: 'menu.sheet.renameSheet', command: 'worksheet.rename' },
-        { labelKey: 'menu.sheet.duplicateSheet', command: 'worksheet.duplicate' },
-        { labelKey: 'menu.sheet.deleteSheet', command: 'worksheet.delete' },
-        'separator',
-        { labelKey: 'menu.sheet.nextSheet', command: 'worksheet.next', shortcut: 'F7' },
-        { labelKey: 'menu.sheet.prevSheet', command: 'worksheet.prev', shortcut: 'Shift+F7' },
-        { labelKey: 'menu.sheet.moveSheetFirst', command: 'worksheet.moveFirst' },
-        { labelKey: 'menu.sheet.moveSheetLeft', command: 'worksheet.moveLeft' },
-        { labelKey: 'menu.sheet.moveSheetRight', command: 'worksheet.moveRight' },
-        { labelKey: 'menu.sheet.moveSheetLast', command: 'worksheet.moveLast' },
-        'separator',
-        { labelKey: 'menu.sheet.insertRowAbove', command: 'sheet.insertRowAbove' },
-        { labelKey: 'menu.sheet.insertRowBelow', command: 'sheet.insertRowBelow' },
-        { labelKey: 'menu.sheet.deleteRows', command: 'sheet.deleteRows' },
-        'separator',
-        { labelKey: 'menu.sheet.insertColLeft', command: 'sheet.insertColLeft' },
-        { labelKey: 'menu.sheet.insertColRight', command: 'sheet.insertColRight' },
-        { labelKey: 'menu.sheet.deleteCols', command: 'sheet.deleteCols' },
-        'separator',
-        { labelKey: 'menu.sheet.autoFitCols', command: 'sheet.autoFitCols' },
-        'separator',
-        // Filtering is RSF-only; running the command on a CSV tab explains
-        // the required conversion. No shortcut by design (no browser-safe
-        // conventional key exists); menu, context menu, and the header
-        // filter buttons all dispatch this same command.
-        { labelKey: 'menu.sheet.filter', command: 'sheet.filter' },
-        { labelKey: 'menu.sheet.filterClear', command: 'sheet.filterClear' },
-        'separator',
-        // Sorting is RSF-only and view-only: it never reorders, deletes, or
-        // rewrites cell data (see docs/architecture.md), so it combines
-        // cleanly with an active filter. No shortcut by design, same as
-        // Filter above.
-        { labelKey: 'menu.sheet.sort', command: 'sheet.sort' },
-        { labelKey: 'menu.sheet.sortClear', command: 'sheet.sortClear' },
+        // The Sheet menu grew to roughly 25 flat entries as worksheet
+        // management, row/column editing, and filter/sort were all added
+        // over time. Each related family now lives in its own submenu (same
+        // pattern as View > Spreadsheet Zoom below), so the top-level menu
+        // stays scannable.
+        { labelKey: 'menu.sheet.worksheet', submenu: worksheetItems() },
+        { labelKey: 'menu.sheet.rowsAndColumns', submenu: rowsAndColumnsItems() },
+        { labelKey: 'menu.sheet.filterSort', submenu: filterSortItems() },
         'separator',
         // The only way a volatile formula (TODAY, NOW) updates without an
         // edit: there is deliberately no background recalculation timer.
@@ -226,25 +206,20 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         },
         { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
         'separator',
-        // Spreadsheet zoom lives in its own submenu: the presets plus Zoom
-        // In/Out/Reset are eleven entries that made the View menu longer than
-        // a small viewport could show. They dispatch the identical shared
-        // commands as the shortcuts and Ctrl/Cmd + wheel.
+        // Spreadsheet zoom, Spreadsheet Font, and Theme each live in their own
+        // submenu: grouping every choice family this way (rather than a
+        // heading followed by its options inline) keeps the top-level View
+        // menu to one line per family instead of growing with every added
+        // choice. They dispatch the identical shared commands as the
+        // shortcuts and Ctrl/Cmd + wheel.
         { labelKey: 'menu.view.zoom', submenu: zoomItems(checks) },
-        'separator',
-        { labelKey: 'menu.view.sheetFont', heading: true },
-        ...sheetFontItems(checks),
-        'separator',
-        { labelKey: 'menu.view.theme', heading: true },
-        ...themeItems(checks),
+        { labelKey: 'menu.view.sheetFont', submenu: sheetFontItems(checks) },
+        { labelKey: 'menu.view.theme', submenu: themeItems(checks) },
         'separator',
         // Tab movement stays menu/context-menu driven: every remaining
         // Ctrl/Alt+arrow-style accelerator conflicts with browser or OS tab
         // and history shortcuts, so no shortcut is assigned by design.
-        { labelKey: 'menu.view.moveTabLeft', command: 'tab.moveLeft' },
-        { labelKey: 'menu.view.moveTabRight', command: 'tab.moveRight' },
-        { labelKey: 'menu.view.moveTabFirst', command: 'tab.moveFirst' },
-        { labelKey: 'menu.view.moveTabLast', command: 'tab.moveLast' },
+        { labelKey: 'menu.view.moveTab', submenu: moveTabItems() },
         'separator',
         // Language lives under View (no top-level Language menu). Switching
         // is immediate, persisted locally, and initialized from the browser
@@ -314,6 +289,76 @@ function themeItems(checks: MenuChecks): MenuItemDef[] {
     command: theme2command[id],
     checked: () => checks.theme() === id,
   }));
+}
+
+/**
+ * Tab movement (View > Move Tab): reordering the open-file tab strip itself,
+ * distinct from worksheet reordering inside a workbook (Sheet > Worksheet).
+ */
+function moveTabItems(): Array<MenuItemDef | 'separator'> {
+  return [
+    { labelKey: 'menu.view.moveTabFirst', command: 'tab.moveFirst' },
+    { labelKey: 'menu.view.moveTabLeft', command: 'tab.moveLeft' },
+    { labelKey: 'menu.view.moveTabRight', command: 'tab.moveRight' },
+    { labelKey: 'menu.view.moveTabLast', command: 'tab.moveLast' },
+  ];
+}
+
+/**
+ * Worksheet add/rename/duplicate/delete/reorder inside the active RSF
+ * workbook (Sheet > Worksheet). These are the same commands the worksheet
+ * tab strip and its context menu dispatch, so every one is reachable
+ * without a pointer.
+ */
+function worksheetItems(): Array<MenuItemDef | 'separator'> {
+  return [
+    { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add' },
+    { labelKey: 'menu.sheet.renameSheet', command: 'worksheet.rename' },
+    { labelKey: 'menu.sheet.duplicateSheet', command: 'worksheet.duplicate' },
+    { labelKey: 'menu.sheet.deleteSheet', command: 'worksheet.delete' },
+    'separator',
+    { labelKey: 'menu.sheet.nextSheet', command: 'worksheet.next', shortcut: 'F7' },
+    { labelKey: 'menu.sheet.prevSheet', command: 'worksheet.prev', shortcut: 'Shift+F7' },
+    'separator',
+    { labelKey: 'menu.sheet.moveSheetFirst', command: 'worksheet.moveFirst' },
+    { labelKey: 'menu.sheet.moveSheetLeft', command: 'worksheet.moveLeft' },
+    { labelKey: 'menu.sheet.moveSheetRight', command: 'worksheet.moveRight' },
+    { labelKey: 'menu.sheet.moveSheetLast', command: 'worksheet.moveLast' },
+  ];
+}
+
+/** Row and column insert/delete/auto-fit (Sheet > Rows & Columns). */
+function rowsAndColumnsItems(): Array<MenuItemDef | 'separator'> {
+  return [
+    { labelKey: 'menu.sheet.insertRowAbove', command: 'sheet.insertRowAbove' },
+    { labelKey: 'menu.sheet.insertRowBelow', command: 'sheet.insertRowBelow' },
+    { labelKey: 'menu.sheet.deleteRows', command: 'sheet.deleteRows' },
+    'separator',
+    { labelKey: 'menu.sheet.insertColLeft', command: 'sheet.insertColLeft' },
+    { labelKey: 'menu.sheet.insertColRight', command: 'sheet.insertColRight' },
+    { labelKey: 'menu.sheet.deleteCols', command: 'sheet.deleteCols' },
+    'separator',
+    { labelKey: 'menu.sheet.autoFitCols', command: 'sheet.autoFitCols' },
+  ];
+}
+
+/**
+ * Filtering and sorting (Sheet > Filter & Sort), both RSF-only view
+ * operations: running either on a CSV tab explains the required conversion,
+ * and sort never reorders, deletes, or rewrites cell data (see
+ * docs/architecture.md), so it combines cleanly with an active filter. No
+ * shortcuts by design: no browser-safe conventional key exists for either,
+ * and the menu, context menu, and (for Filter) the header filter buttons all
+ * dispatch these same commands.
+ */
+function filterSortItems(): Array<MenuItemDef | 'separator'> {
+  return [
+    { labelKey: 'menu.sheet.filter', command: 'sheet.filter' },
+    { labelKey: 'menu.sheet.filterClear', command: 'sheet.filterClear' },
+    'separator',
+    { labelKey: 'menu.sheet.sort', command: 'sheet.sort' },
+    { labelKey: 'menu.sheet.sortClear', command: 'sheet.sortClear' },
+  ];
 }
 
 /**

@@ -564,6 +564,101 @@ function comparableKinds(a: FormulaValue, b: FormulaValue): boolean {
   return fam(a) === fam(b);
 }
 
+/**
+ * True when `needle` would take `findExact`'s wildcard path (a string
+ * containing `*`, `?`, or `~`). VLOOKUP and MATCH always search with
+ * `wildcards: true`, but a needle without those characters is an ordinary
+ * exact match under the hood (see `findExact`'s `pattern`/`literal` split) —
+ * `findExactIndexed` below only handles that ordinary case; a genuine
+ * wildcard search still needs `findExact`'s linear scan.
+ */
+function isWildcardNeedle(needle: FormulaValue): boolean {
+  return needle.type === 'string' && compileWildcard(needle.value) !== null;
+}
+
+/**
+ * Cached exact-match index for VLOOKUP/MATCH/XLOOKUP's non-wildcard search
+ * path, keyed by the shared, per-revision {@link ValueGrid} that
+ * `rangeGridCaches` in `formula.ts` already hands out for a given range
+ * within one evaluation pass. Building the index costs one pass over the
+ * lookup column; every subsequent formula cell that searches the *same*
+ * range then does an O(1)-average map lookup instead of its own O(n) linear
+ * scan. A `WeakMap` keyed on the grid drops the index for free once a
+ * mutation retires that grid (a fresh grid is built per revision — see
+ * `RsfDocument`'s `touch`/`recalculate`), so no explicit invalidation is
+ * needed. This is what fixes the "VLOOKUP table shared by 2,000 formula
+ * cells" cost measured in `bench/perf.bench.ts`.
+ */
+const exactIndexCache = new WeakMap<ValueGrid, Map<string, Map<string, number[]>>>();
+
+/**
+ * The cached index for one (grid, selector) pair, building it on first use.
+ * `selector` distinguishes the different vectors a grid can be searched
+ * along (e.g. VLOOKUP's first column vs. a MATCH/XLOOKUP vector), since one
+ * grid object can back more than one kind of search. Indices are grouped by
+ * {@link equalityKey} — the same equivalence classes `valuesEqual` uses
+ * elsewhere (UNIQUE, MODE.SNGL) — so a bucket holds every position, in scan
+ * order, that a linear `valuesEqual` scan would call a match; entries with no
+ * key (errors) are skipped, matching `valuesEqual`'s "error never matches"
+ * rule.
+ */
+function exactIndexFor(
+  grid: ValueGrid,
+  selector: string,
+  count: number,
+  at: (i: number) => FormulaValue,
+): Map<string, number[]> {
+  let bySelector = exactIndexCache.get(grid);
+  if (!bySelector) {
+    bySelector = new Map();
+    exactIndexCache.set(grid, bySelector);
+  }
+  let index = bySelector.get(selector);
+  if (!index) {
+    index = new Map();
+    for (let i = 0; i < count; i++) {
+      const key = equalityKey(at(i));
+      if (key === null) {
+        continue;
+      }
+      const bucket = index.get(key);
+      if (bucket) {
+        bucket.push(i);
+      } else {
+        index.set(key, [i]);
+      }
+    }
+    bySelector.set(selector, index);
+  }
+  return index;
+}
+
+/**
+ * Indexed equivalent of `findExact(hay, needle, false, reverse)`: forward
+ * returns the first match, `reverse` the last — exactly `findExact`'s
+ * contract, just without rescanning `hay` on every call. Only valid for a
+ * non-wildcard needle; callers must route a wildcard needle to `findExact`
+ * instead (see `isWildcardNeedle`).
+ */
+function findExactIndexed(
+  grid: ValueGrid,
+  selector: string,
+  count: number,
+  at: (i: number) => FormulaValue,
+  needle: FormulaValue,
+  reverse: boolean,
+): number {
+  const key = equalityKey(needle);
+  if (key === null) {
+    return -1;
+  }
+  const bucket = exactIndexFor(grid, selector, count, at).get(key);
+  if (!bucket || bucket.length === 0) {
+    return -1;
+  }
+  return reverse ? bucket[bucket.length - 1] : bucket[0];
+}
+
 // ---------------------------------------------------------------------------
 // Statistics helpers
 // ---------------------------------------------------------------------------
@@ -1103,7 +1198,20 @@ def({
     if (along !== vector.values.length) {
       return VALUE_ERR;
     }
-    const index = findExact(vector.values, needle, matchMode === 2, searchMode === -1);
+    // Wildcard mode still needs `findExact`'s linear scan; the plain exact
+    // mode (0) never compiles a wildcard pattern, so it always qualifies for
+    // the cached index (see `findExactIndexed`).
+    const index =
+      matchMode === 2
+        ? findExact(vector.values, needle, true, searchMode === -1)
+        : findExactIndexed(
+            lookupGrid.grid,
+            vector.vertical ? 'xlookup:col0' : 'xlookup:row0',
+            vector.values.length,
+            (i) => vector.values[i],
+            needle,
+            searchMode === -1,
+          );
     if (index < 0) {
       return args.length > 3 && !args[3].isOmitted() ? args[3].value() : NA_ERR;
     }
@@ -1147,13 +1255,30 @@ def({
       return approximateArg.error;
     }
     const approximate = approximateArg.b;
-    const firstColumn: FormulaValue[] = [];
-    for (let r = 0; r < table.grid.rows; r++) {
-      firstColumn.push(table.grid.cells[r][0]);
+    // The exact, non-wildcard case (the common one — approximate defaults to
+    // true, but FALSE range_lookup is the idiomatic exact-match call) never
+    // needs the `firstColumn` copy at all: the cached index reads
+    // `table.grid` directly, so a table shared by many VLOOKUP cells builds
+    // its index once instead of paying an O(rows) copy *and* scan per cell.
+    let index: number;
+    if (approximate || isWildcardNeedle(needle)) {
+      const firstColumn: FormulaValue[] = [];
+      for (let r = 0; r < table.grid.rows; r++) {
+        firstColumn.push(table.grid.cells[r][0]);
+      }
+      index = approximate
+        ? findApproximate(firstColumn, needle, 1)
+        : findExact(firstColumn, needle, true, false);
+    } else {
+      index = findExactIndexed(
+        table.grid,
+        'vlookup:col0',
+        table.grid.rows,
+        (r) => table.grid.cells[r][0],
+        needle,
+        false,
+      );
     }
-    const index = approximate
-      ? findApproximate(firstColumn, needle, 1)
-      : findExact(firstColumn, needle, true, false);
     return index < 0 ? NA_ERR : table.grid.cells[index][col - 1];
   },
 });
@@ -1187,9 +1312,18 @@ def({
       return VALUE_ERR;
     }
     const index =
-      matchType === 0
-        ? findExact(vector.values, needle, true, false)
-        : findApproximate(vector.values, needle, matchType === 1 ? 1 : -1);
+      matchType !== 0
+        ? findApproximate(vector.values, needle, matchType === 1 ? 1 : -1)
+        : isWildcardNeedle(needle)
+          ? findExact(vector.values, needle, true, false)
+          : findExactIndexed(
+              g.grid,
+              vector.vertical ? 'match:col0' : 'match:row0',
+              vector.values.length,
+              (i) => vector.values[i],
+              needle,
+              false,
+            );
     return index < 0 ? NA_ERR : numberValue(index + 1);
   },
 });

@@ -170,8 +170,8 @@ export class StatusBar {
 
   /**
    * Append the active-cell reference and, when more than one cell is selected,
-   * the selection statistics (count, non-empty, numeric, sum, and — when any
-   * numeric cell is present — average/min/max).
+   * the selection statistics (count, non-empty, numeric, and — when any
+   * numeric cell is present — sum/average/min/max).
    *
    * These live inside their own `role="status"` region, separate from the
    * rest of the status bar: the surrounding document metadata (encoding,
@@ -263,8 +263,12 @@ export class StatusBar {
       el('span', { className: 'sel-stat', text: t('status.sel.count', { n: stats.count }) }),
       el('span', { className: 'sel-stat', text: t('status.sel.nonEmpty', { n: stats.nonEmpty }) }),
       el('span', { className: 'sel-stat', text: t('status.sel.numeric', { n: stats.numeric }) }),
-      el('span', { className: 'sel-stat', text: t('status.sel.sum', { v: formatStat(stats.sum) }) }),
     ];
+    if (stats.numeric > 0) {
+      spans.push(
+        el('span', { className: 'sel-stat', text: t('status.sel.sum', { v: formatStat(stats.sum) }) }),
+      );
+    }
     if (stats.numeric > 0 && stats.average !== null && stats.min !== null && stats.max !== null) {
       spans.push(
         el('span', { className: 'sel-stat', text: t('status.sel.avg', { v: formatStat(stats.average) }) }),

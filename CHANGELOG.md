@@ -29,6 +29,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
   Background Color and Borders, instead of two nearly identical hatch-square
   glyphs (`▨`/`▦`) that were easy to mis-click at toolbar size.
   ([#294](https://github.com/0x0da160/refrain-sheet/issues/294))
+- The status bar's "Sum" stat for a multi-cell selection no longer shows a
+  misleading "Sum 0" when the selection has no numeric cells — it now hides
+  alongside Average/Min/Max in that case, instead of only those three doing
+  so. ([#299](https://github.com/0x0da160/refrain-sheet/issues/299))
 
 ### Changed
 
@@ -38,6 +42,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
   greyed out on a plain CSV tab, instead of giving no reason. The same
   tooltip now appears on the equivalent quick-access formatting toolbar in
   the right-click menu. ([#293](https://github.com/0x0da160/refrain-sheet/issues/293))
+
+### Fixed
+
+- Closing a modal dialog (Format Cells, Sort, Data Validation, Settings, SQL,
+  Diff, and every other menu-driven dialog) now returns keyboard focus to
+  whatever was focused before it opened, instead of dropping focus to the
+  top of the page. ([#298](https://github.com/0x0da160/refrain-sheet/issues/298))
 
 ### Added
 

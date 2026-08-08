@@ -1596,18 +1596,18 @@ the normal review flow. Nothing outside the markers is ever machine-written.
 
 | Language   |   Files |     Blank |    Comment |       Code |
 | ---------- | ------: | --------: | ---------: | ---------: |
-| TypeScript |     200 |     3,989 |      9,065 |     44,718 |
-| JSON       |       6 |         0 |          0 |      5,477 |
-| Markdown   |      16 |       924 |          4 |      5,044 |
+| TypeScript |     209 |     4,242 |      9,458 |     46,926 |
+| JSON       |       6 |         0 |          0 |      5,497 |
+| Markdown   |      17 |       949 |          4 |      5,344 |
 | YAML       |      16 |       275 |        781 |      2,744 |
-| CSS        |       2 |       373 |        246 |      2,714 |
+| CSS        |       2 |       377 |        251 |      2,736 |
 | JavaScript |      15 |       246 |        418 |      1,803 |
 | Rust       |       4 |       112 |        180 |        883 |
 | HTML       |       2 |         3 |         14 |        790 |
 | Dockerfile |       1 |         7 |         15 |         20 |
 | TOML       |       1 |         4 |         19 |         20 |
 | SVG        |       3 |         0 |          0 |         18 |
-| **Total**  | **266** | **5,933** | **10,742** | **64,231** |
+| **Total**  | **276** | **6,215** | **11,140** | **66,781** |
 
 <!-- code-stats:end -->
 

@@ -103,6 +103,61 @@ describe('Enter submits single-line dialog inputs', () => {
     await promise;
   });
 
+  it('keeps Apply disabled for a blank or whitespace-only numeric value (issue #339)', async () => {
+    const promise = new Dialogs().chooseConditionalFormat({ rangeLabel: 'A1:A10', existing: null });
+    const dialog = document.querySelector('dialog')!;
+    const value1 = dialog.querySelector<HTMLInputElement>('#cf-value1')!;
+    const applyBtn = dialog.querySelector<HTMLButtonElement>('.dialog-buttons button.primary')!;
+
+    // Freshly opened with the default "greater than" operator and a blank value.
+    expect(applyBtn.disabled).toBe(true);
+
+    value1.value = '   ';
+    value1.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(applyBtn.disabled).toBe(true);
+
+    value1.value = '10';
+    value1.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(applyBtn.disabled).toBe(false);
+
+    applyBtn.click();
+    const result = await promise;
+    expect(result).toMatchObject({
+      action: 'apply',
+      rule: { kind: 'cellValue', operator: 'greaterThan', value1: '10' },
+    });
+  });
+
+  it('keeps Apply disabled for a "between" rule with a blank second value', async () => {
+    const promise = new Dialogs().chooseConditionalFormat({ rangeLabel: 'A1:A10', existing: null });
+    const dialog = document.querySelector('dialog')!;
+    const operator = dialog.querySelector<HTMLSelectElement>('#cf-operator')!;
+    const value1 = dialog.querySelector<HTMLInputElement>('#cf-value1')!;
+    const value2 = dialog.querySelector<HTMLInputElement>('#cf-value2')!;
+    const applyBtn = dialog.querySelector<HTMLButtonElement>('.dialog-buttons button.primary')!;
+
+    operator.value = 'between';
+    operator.dispatchEvent(new Event('change', { bubbles: true }));
+    value1.value = '1';
+    value1.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(applyBtn.disabled).toBe(true); // value2 still blank
+
+    value2.value = '  ';
+    value2.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(applyBtn.disabled).toBe(true);
+
+    value2.value = '10';
+    value2.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(applyBtn.disabled).toBe(false);
+
+    applyBtn.click();
+    const result = await promise;
+    expect(result).toMatchObject({
+      action: 'apply',
+      rule: { kind: 'cellValue', operator: 'between', value1: '1', value2: '10' },
+    });
+  });
+
   it('submits the Settings dialog from the max file size input', async () => {
     const promise = new Dialogs().chooseSettings(64 * 1024 * 1024);
     const dialog = document.querySelector('dialog')!;

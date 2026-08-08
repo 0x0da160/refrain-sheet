@@ -1923,6 +1923,54 @@ export class Grid {
   }
 
   /**
+   * Character offset within a rendered cell's text nearest a viewport point,
+   * for seeding the editor's caret at the double-clicked position. Uses
+   * whichever caret-hit-testing API the document exposes (the standards-track
+   * `caretPositionFromPoint`, or the older `caretRangeFromPoint`); returns
+   * null where neither is available (e.g. jsdom in tests) or the point misses
+   * the cell's own text, so callers fall back to a sane default. The cell's
+   * text is always a single text node (`paintCell` sets `textContent`
+   * directly), so the returned offset is already the offset within the raw
+   * cell value.
+   */
+  private caretOffsetFromPoint(cell: HTMLElement, clientX: number, clientY: number): number | null {
+    const doc = cell.ownerDocument;
+    let node: Node | null = null;
+    let offset = 0;
+    if (typeof doc.caretPositionFromPoint === 'function') {
+      const pos = doc.caretPositionFromPoint(clientX, clientY);
+      if (!pos) {
+        return null;
+      }
+      node = pos.offsetNode;
+      offset = pos.offset;
+    } else if (typeof doc.caretRangeFromPoint === 'function') {
+      const range = doc.caretRangeFromPoint(clientX, clientY);
+      if (!range) {
+        return null;
+      }
+      node = range.startContainer;
+      offset = range.startOffset;
+    } else {
+      return null;
+    }
+    if (node?.nodeType === Node.TEXT_NODE) {
+      // The cell's text is always exactly one text node, so this offset is
+      // already the character offset within the cell's raw value.
+      return cell.contains(node) ? offset : null;
+    }
+    if (node === cell) {
+      // The hit landed on the cell element itself (e.g. past the end of a
+      // short value, or an empty cell), not inside its text node. `offset`
+      // here is a child index (0 or 1, since the cell has at most one text
+      // child) rather than a character count: 0 means "before the text", any
+      // other value means "after it".
+      return offset > 0 ? (cell.textContent?.length ?? 0) : 0;
+    }
+    return null;
+  }
+
+  /**
    * Hit-test by viewport coordinates instead of an event target. Used by
    * auto-scroll, where a nudge moves the grid's content under a pointer that
    * hasn't itself moved, so there is no fresh event target to read.
@@ -2344,7 +2392,9 @@ export class Grid {
     }
     const cell = this.cellFromEvent(event);
     if (cell) {
-      this.openEditor(tab, cell.row, cell.col, null);
+      const cellEl = this.cellAt(cell.row, cell.col);
+      const caretOffset = cellEl ? this.caretOffsetFromPoint(cellEl, event.clientX, event.clientY) : null;
+      this.openEditor(tab, cell.row, cell.col, null, caretOffset ?? undefined);
     }
   }
 
@@ -2821,14 +2871,16 @@ export class Grid {
   /**
    * Open the inline cell editor by promoting the permanent sink textarea in
    * place. `initial === null` edits the current value (the raw formula
-   * expression for formula cells) with the text selected; `initial === ''`
-   * opens an **empty** editor for type-to-edit — the sink already has focus
-   * and may already be receiving the initiating keystroke or IME composition,
-   * so its value, caret, and focus are deliberately left untouched (touching
-   * them would abort the composition). Any other `initial` seeds the editor.
-   * The editor is a `<textarea>`, so it holds multi-line values (Alt+Enter).
+   * expression for formula cells); the caret lands at `caretOffset` when
+   * given (double-click: the clicked position) or at the end of the text
+   * otherwise (F2: a common convention). `initial === ''` opens an **empty**
+   * editor for type-to-edit — the sink already has focus and may already be
+   * receiving the initiating keystroke or IME composition, so its value,
+   * caret, and focus are deliberately left untouched (touching them would
+   * abort the composition). Any other `initial` seeds the editor. The editor
+   * is a `<textarea>`, so it holds multi-line values (Alt+Enter).
    */
-  openEditor(tab: Tab, row: number, col: number, initial: string | null): void {
+  openEditor(tab: Tab, row: number, col: number, initial: string | null, caretOffset?: number): void {
     this.commitEditor();
     if (row < 0 || row >= tab.doc.rowCount || col >= tab.doc.fieldCount(row)) {
       return;
@@ -2881,7 +2933,14 @@ export class Grid {
     this.editor = { row, col, input, autocomplete, ref, prevRefTarget, updateRefs, picker, pickerValues };
     input.focus({ preventScroll: true });
     if (initial === null) {
-      input.select();
+      // Never select-all here: that would silently replace the whole cell on
+      // the next keystroke. Land the caret at the click position when known,
+      // otherwise at the end of the text.
+      const pos =
+        caretOffset === undefined
+          ? input.value.length
+          : Math.max(0, Math.min(caretOffset, input.value.length));
+      input.setSelectionRange(pos, pos);
     } else if (!this.composing && initial !== '') {
       input.setSelectionRange(input.value.length, input.value.length);
     }

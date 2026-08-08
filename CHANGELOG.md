@@ -212,6 +212,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- Starting a cell edit with a double-click or F2 no longer selects the
+  entire cell value. Double-click now places the caret at the clicked
+  position; F2 places it at the end of the text. Typing to replace a cell's
+  value (starting to type without double-clicking or pressing F2 first)
+  still opens an empty editor, unchanged.
+  ([#286](https://github.com/0x0da160/refrain-sheet/issues/286))
 - On iOS Safari, tapping a top-level menu bar button (File / Edit / Search /
   …) after horizontally scrolling the menu row could open a different menu
   than the one tapped. The mobile menu row no longer scrolls horizontally

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { Grid3x3, PaintBucket } from 'lucide';
 import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import { LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
@@ -429,7 +430,11 @@ function formatToolbarItems(commands: Commands, tab: Tab): ContextMenuToolbarIte
     disabledReason: commands.disabledReason(command),
     onSelect: () => void commands.run(command),
   });
-  const action = (command: CommandId, icon: string, labelKey: string): ContextMenuToolbarItem => ({
+  const action = (
+    command: CommandId,
+    icon: ContextMenuToolbarItem['icon'],
+    labelKey: string,
+  ): ContextMenuToolbarItem => ({
     icon,
     label: t(labelKey),
     disabled: !commands.isEnabled(command),
@@ -441,8 +446,10 @@ function formatToolbarItems(commands: Commands, tab: Tab): ContextMenuToolbarIte
     toggle('format.italic', 'I', 'icon-italic', 'menu.format.italic', 'italic'),
     toggle('format.underline', 'U', 'icon-underline', 'menu.format.underline', 'underline'),
     action('format.textColor', 'A', 'menu.format.textColor'),
-    action('format.backgroundColor', '▨', 'menu.format.backgroundColor'),
-    action('format.borders', '▦', 'menu.format.borders'),
+    // Distinct Lucide icons (#294) — the previous `▨`/`▦` hatch glyphs were
+    // nearly indistinguishable at toolbar size.
+    action('format.backgroundColor', PaintBucket, 'menu.format.backgroundColor'),
+    action('format.borders', Grid3x3, 'menu.format.borders'),
   ];
 }
 

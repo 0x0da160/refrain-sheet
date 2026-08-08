@@ -36,9 +36,10 @@ export class FilterCommands {
   }
 
   /**
-   * Sheet > Filter… (also the column-header filter buttons and the context
-   * menu): open the filter dialog for `targetCol` (default: the active
-   * cell's column) and apply the result as one atomic, undoable operation.
+   * Sheet > Filter & Sort > Filter… (also the column-header filter buttons
+   * and the context menu): open the filter dialog for `targetCol` (default:
+   * the active cell's column) and apply the result as one atomic, undoable
+   * operation.
    *
    * RSF-only: on a plain CSV document a localized message explains that
    * filtering requires the explicit conversion to RSF, and nothing changes.
@@ -232,7 +233,7 @@ export class FilterCommands {
     return applied;
   }
 
-  /** Sheet > Clear All Filters: every row becomes visible again (undoable). */
+  /** Sheet > Filter & Sort > Clear All Filters: every row becomes visible again (undoable). */
   clearAllFilters(tab: Tab): boolean {
     const applied = this.state.setFilter(tab, null);
     if (applied) {

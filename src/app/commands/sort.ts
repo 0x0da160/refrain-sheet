@@ -33,8 +33,8 @@ export class SortCommands {
   }
 
   /**
-   * Sheet > Sort… : open the sort dialog and apply the result as one
-   * (non-undoable) view-state change.
+   * Sheet > Filter & Sort > Sort… : open the sort dialog and apply the
+   * result as one (non-undoable) view-state change.
    *
    * RSF-only: on a plain CSV document a localized message explains that
    * sorting requires the explicit conversion to RSF, and nothing changes.
@@ -156,7 +156,7 @@ export class SortCommands {
     return applied;
   }
 
-  /** Sheet > Clear Sort: rows return to document order (not undoable). */
+  /** Sheet > Filter & Sort > Clear Sort: rows return to document order (not undoable). */
   clearSort(tab: Tab): boolean {
     const applied = this.state.setSort(tab, null);
     if (applied) {

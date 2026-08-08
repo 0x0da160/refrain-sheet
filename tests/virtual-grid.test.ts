@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
+import { RsfDocument } from '../src/core/rsf-document';
 import { Grid, OVERSCAN_ROWS, ROW_HEIGHT, COL_WIDTH, MIN_COL_WIDTH, ROW_HEAD_WIDTH } from '../src/ui/grid';
 import { doc } from './helpers';
 
@@ -75,6 +76,18 @@ function setup(csv: string) {
   Object.defineProperty(grid.element, 'clientWidth', { value: VIEW_WIDTH, configurable: true });
   document.body.append(grid.element);
   const tab = state.addTab('big.csv', doc(csv), null);
+  grid.refresh();
+  return { state, commands, grid, tab };
+}
+
+function setupRsf(rsf: RsfDocument) {
+  const state = new AppState();
+  const commands = new Commands(state, noopUi, document);
+  const grid = new Grid(state, commands);
+  Object.defineProperty(grid.element, 'clientHeight', { value: VIEW_HEIGHT, configurable: true });
+  Object.defineProperty(grid.element, 'clientWidth', { value: VIEW_WIDTH, configurable: true });
+  document.body.append(grid.element);
+  const tab = state.addTab('book.rsf', rsf, null);
   grid.refresh();
   return { state, commands, grid, tab };
 }
@@ -520,5 +533,70 @@ describe('column resizing', () => {
     // A stale cache would keep reporting the 100%-zoom total.
     expect(canvasWidth(grid)).toBeGreaterThan(before);
     expect(canvasWidth(grid)).toBe(Math.round(ROW_HEAD_WIDTH * 1.5) + Math.round(COL_WIDTH * 1.5) * 3);
+  });
+});
+
+describe('Escape cancels in-progress drags (#288)', () => {
+  function mouse(el: Element, type: string, init: MouseEventInit = {}): void {
+    el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ...init }));
+  }
+  function escape(): void {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  }
+
+  it('cancels a fill-handle drag without applying the fill', () => {
+    const { commands, grid, tab } = setup(bigCsv(10, 3));
+    mouse(cellEl(grid, 0, 0), 'mousedown');
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    const handle = grid.element.querySelector<HTMLElement>('[data-fillhandle]');
+    expect(handle).not.toBeNull();
+    mouse(handle!, 'mousedown');
+    mouse(cellEl(grid, 3, 0), 'mousemove');
+    expect(grid.element.querySelectorAll('.fill-target').length).toBeGreaterThan(0);
+
+    const applyFill = vi.spyOn(commands, 'applyFill');
+    escape();
+    expect(grid.element.querySelectorAll('.fill-target').length).toBe(0);
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    expect(applyFill).not.toHaveBeenCalled();
+    void tab;
+  });
+
+  it('cancels a column-resize drag, restoring the original width', () => {
+    const { grid, tab } = setup(bigCsv(10, 3));
+    const handle = grid.element.querySelector<HTMLElement>('[data-colresize="0"]');
+    expect(handle).not.toBeNull();
+    mouse(handle!, 'mousedown', { clientX: 200 });
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 260 }));
+    expect(tab.colWidths[0]).toBe(COL_WIDTH + 60);
+
+    escape();
+    expect(tab.colWidths[0]).toBe(COL_WIDTH);
+    expect(parseInt(cellEl(grid, 0, 0).style.width, 10)).toBe(COL_WIDTH);
+
+    // A trailing mousemove/mouseup from the same physical drag has no effect.
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 300 }));
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    expect(tab.colWidths[0]).toBe(COL_WIDTH);
+  });
+
+  it('cancels a range-move drag without moving cells', () => {
+    const rsf = RsfDocument.empty('book', 10, 4, 'Sheet1');
+    rsf.setCell(0, 0, 'x');
+    const { commands, grid, tab } = setupRsf(rsf);
+    mouse(cellEl(grid, 0, 0), 'mousedown');
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    const handle = grid.element.querySelector<HTMLElement>('[data-movehandle]');
+    expect(handle).not.toBeNull();
+    mouse(handle!, 'mousedown');
+    mouse(cellEl(grid, 2, 2), 'mousemove');
+    expect(grid.element.classList.contains('moving-range')).toBe(true);
+
+    const moveRange = vi.spyOn(commands, 'moveRange');
+    escape();
+    expect(grid.element.classList.contains('moving-range')).toBe(false);
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    expect(moveRange).not.toHaveBeenCalled();
+    expect(tab.doc.getDisplayValue(0, 0)).toBe('x');
   });
 });

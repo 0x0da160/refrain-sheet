@@ -64,6 +64,31 @@ export function openDialog<T>(title: string, fallback: T, build: DialogBuilder<T
   });
 }
 
+/**
+ * Makes Enter submit a single-line dialog input, mirroring how a native
+ * `<form>` treats Enter in a text/number field. Ignored while an IME
+ * composition is in progress — `compositionstart`/`compositionend` are
+ * tracked explicitly because `isComposing` is not set on the keydown that
+ * commits a candidate in every browser — so committing a Japanese candidate
+ * with Enter never submits the dialog by accident.
+ */
+export function submitOnEnter(input: HTMLElement, submit: () => void): void {
+  let composing = false;
+  input.addEventListener('compositionstart', () => {
+    composing = true;
+  });
+  input.addEventListener('compositionend', () => {
+    composing = false;
+  });
+  input.addEventListener('keydown', (event) => {
+    const keyboardEvent = event as KeyboardEvent;
+    if (keyboardEvent.key === 'Enter' && !composing && !keyboardEvent.isComposing) {
+      event.preventDefault();
+      submit();
+    }
+  });
+}
+
 export function dialogButton(
   label: string,
   primary: boolean,

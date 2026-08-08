@@ -212,6 +212,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- Pressing Enter now confirms the **Format > Number Format…** dialog (from
+  the decimals or currency symbol field), the **Format > Conditional
+  Formatting…** dialog (from a comparison value field), and the **Settings**
+  dialog (from the max file size field) — matching the Enter-to-confirm
+  behavior the rename/move/go-to-cell dialogs already had, so Enter now
+  behaves consistently across every single-line dialog input.
+  ([#297](https://github.com/0x0da160/refrain-sheet/issues/297))
 - On iOS Safari, tapping a top-level menu bar button (File / Edit / Search /
   …) after horizontally scrolling the menu row could open a different menu
   than the one tapped. The mobile menu row no longer scrolls horizontally

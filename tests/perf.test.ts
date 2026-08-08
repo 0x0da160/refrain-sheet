@@ -192,7 +192,13 @@ describe('sliced Replace All', () => {
   it('yields between slices, reports progress, and stays atomic for undo', async () => {
     const rows = 9_000; // above SLICE_MAX_INDICES, so at least one yield occurs
     const busyLabels: Array<string | null> = [];
-    const ui = stubUi({ setBusy: (label) => busyLabels.push(label) });
+    const busyProgress: number[] = [];
+    const ui = stubUi({
+      setBusy: (label, progress) => {
+        busyLabels.push(label);
+        if (typeof progress === 'number') busyProgress.push(progress);
+      },
+    });
     const state = new AppState();
     const commands = new Commands(state, ui, document);
     const tab = state.addTab('big.csv', doc(bigCsv(rows, 2)), null);
@@ -200,8 +206,14 @@ describe('sliced Replace All', () => {
     const result = await commands.replaceAll(query, 'X');
     expect(result.count).toBeGreaterThan(0);
     // Progress labels were reported while scanning (percentage suffix).
-    expect(busyLabels.some((l) => typeof l === 'string' && /\(\d+%\)/.test(l))).toBe(true);
+    const percentLabels = busyLabels.filter((l): l is string => typeof l === 'string' && /\(\d+%\)/.test(l));
+    expect(percentLabels.length).toBeGreaterThan(0);
     expect(busyLabels[busyLabels.length - 1]).toBeNull();
+    // Every percentage-bearing label also carries a determinate progress
+    // value, so the progress bar never stays indeterminate while the text
+    // ticks through an exact percentage.
+    const labelPcts = percentLabels.map((l) => Number(/\((\d+)%\)/.exec(l)![1]));
+    expect(busyProgress).toEqual(labelPcts);
     // One undo restores everything: the mutation was a single atomic entry.
     expect(tab.doc.getValue(0, 1)).toBe('X');
     state.undo(tab);

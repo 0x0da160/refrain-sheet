@@ -6,6 +6,7 @@
 #   docker compose run --rm app npm run build:wasm   # Rust -> WASM -> embedded payload
 #   docker compose run --rm app npm run test
 #   docker compose run --rm app npm run build
+#   docker compose run --rm app npm run ui:check     # headless-browser UI check
 
 FROM node:22-bookworm-slim
 
@@ -36,6 +37,13 @@ WORKDIR /app
 # project's toolchain needs none. A committed .npmrc also enforces this.
 COPY package.json package-lock.json* .npmrc* ./
 RUN if [ -f package-lock.json ]; then npm ci --ignore-scripts; fi
+
+# Headless Chromium for `npm run ui:check` (scripts/ui-check.mjs), used to
+# visually verify UI changes. Fetched with an explicit RUN step rather than
+# an npm postinstall/lifecycle script (which --ignore-scripts always blocks)
+# so the browser binary download stays outside npm's supply-chain surface,
+# mirroring the Rust toolchain install above.
+RUN npx --no-install playwright install --with-deps chromium
 
 COPY . .
 

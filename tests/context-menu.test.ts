@@ -6,6 +6,7 @@
  * keyboard navigation and dismissal, submenu open/flip, and the View-menu
  * Spreadsheet Zoom submenu wiring.
  */
+import { Grid3x3, PaintBucket } from 'lucide';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { positionPopup } from '../src/ui/popup';
 import { ContextMenu, closeAllContextMenus } from '../src/ui/context-menu';
@@ -162,6 +163,25 @@ describe('ContextMenu toolbar (#240)', () => {
     expect(buttons[1].disabled).toBe(true);
     // A separator sits between the toolbar and the item list below it.
     expect(document.querySelector('.context-menu > .menu-separator')).not.toBeNull();
+  });
+
+  it('renders a Lucide IconNode toolbar item as an SVG, distinct per icon (#294)', () => {
+    ContextMenu.open([{ label: 'Copy', onSelect: vi.fn() }], 10, 10, {
+      toolbar: [
+        { icon: PaintBucket, label: 'Background color', onSelect: vi.fn() },
+        { icon: Grid3x3, label: 'Borders', onSelect: vi.fn() },
+      ],
+    });
+    const buttons = document.querySelectorAll<HTMLButtonElement>('.context-menu-toolbar .toolbar-item');
+    expect(buttons.length).toBe(2);
+    for (const button of buttons) {
+      expect(button.textContent).toBe('');
+      const svg = button.querySelector('svg.toolbar-item-icon');
+      expect(svg).not.toBeNull();
+      expect(svg?.getAttribute('aria-hidden')).toBe('true');
+    }
+    // The two icons must render visibly different markup, not the same glyph twice.
+    expect(buttons[0].innerHTML).not.toBe(buttons[1].innerHTML);
   });
 
   it('shows disabledReason as the tooltip when disabled, falling back to label otherwise', () => {

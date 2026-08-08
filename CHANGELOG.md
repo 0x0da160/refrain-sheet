@@ -23,6 +23,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Fixed
+
+- The status bar's "Sum" stat for a multi-cell selection no longer shows a
+  misleading "Sum 0" when the selection has no numeric cells — it now hides
+  alongside Average/Min/Max in that case, instead of only those three doing
+  so. ([#299](https://github.com/0x0da160/refrain-sheet/issues/299))
+
 ### Changed
 
 - The Format menu's items (Bold, Italic, Underline, Text Color, Background

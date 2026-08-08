@@ -23,6 +23,15 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Changed
+
+- The Format menu's items (Bold, Italic, Underline, Text Color, Background
+  Color, Borders, Number Format, Clear Formatting) now show a tooltip
+  explaining that formatting requires an RSF spreadsheet while they are
+  greyed out on a plain CSV tab, instead of giving no reason. The same
+  tooltip now appears on the equivalent quick-access formatting toolbar in
+  the right-click menu. ([#293](https://github.com/0x0da160/refrain-sheet/issues/293))
+
 ### Added
 
 - The grid's drag gestures — range selection, column resize, the fill

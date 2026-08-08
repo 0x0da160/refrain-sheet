@@ -633,6 +633,7 @@
   "menu.format.numberFormat": "数値の書式…",
   "menu.format.conditionalFormatting": "条件付き書式…",
   "menu.format.clear": "書式をクリア",
+  "menu.format.csvOnlyTooltip": "書式設定はスプレッドシート機能で、バイト保持型のCSVドキュメントには保存できません。まずドキュメントをRSFスプレッドシートに変換し（シート > スプレッドシート(RSF)に変換…）、その後書式を設定してください。",
   "menu.data.runQuery": "SQLクエリを実行…",
   "menu.data.compareDiff": "比較 / 差分…",
   "menu.data.validation": "データの入力規則…",

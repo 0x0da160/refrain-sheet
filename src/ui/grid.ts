@@ -454,6 +454,15 @@ function formatToolbarItems(commands: Commands, tab: Tab): ContextMenuToolbarIte
 const AUTO_SCROLL_EDGE_PX = 24;
 const AUTO_SCROLL_MAX_STEP_PX = 28;
 const AUTO_SCROLL_INTERVAL_MS = 50;
+/**
+ * Touch/pen press-and-hold duration that arms a drag (cell-range selection or
+ * a row/column header drag) — a quick tap stays a tap, handled by the
+ * browser's own synthetic click, same as before touch support existed.
+ */
+const LONG_PRESS_MS = 400;
+/** Movement past this distance during the long-press window reads as the
+ * start of a scroll, not a drag, and cancels the pending long-press. */
+const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 
 /**
  * Virtualized CSV/RSF grid. Only the visible rows and columns (plus a small
@@ -546,6 +555,13 @@ export class Grid {
   private headerDrag: { axis: 'row' | 'col'; anchor: number; last: number } | null = null;
   /** Active pointer reference entry into a formula editor, if any. */
   private refDrag: { anchor: { row: number; col: number } } | null = null;
+  /** Pending touch/pen long-press-to-drag timer (cell/header drags only — the
+   * fill/move/resize handles start dragging immediately on touch, same as a
+   * mouse press, since they already opt out of native panning in CSS). */
+  private longPressTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Origin of a pending long-press: used to detect cancel-by-movement and to
+   * replay the original press once the hold is confirmed. */
+  private longPressOrigin: { event: PointerEvent; x: number; y: number } | null = null;
   /**
    * Active range-move drag, if any. `origin` is the cell under the pointer when
    * the drag began (so the destination tracks the pointer without snapping to a
@@ -647,15 +663,15 @@ export class Grid {
     // is over, so this alone drives auto-scroll for a drag whose pointer has
     // left the grid entirely, not just one still inside `this.element`.
     document.addEventListener('mousemove', (event) => this.trackAutoScroll(event));
-    document.addEventListener('mouseup', () => {
-      this.dragging = false;
-      this.headerDrag = null;
-      this.endResize();
-      this.endFill();
-      this.endRefDrag();
-      this.endMove();
-      this.stopAutoScroll();
-    });
+    document.addEventListener('mouseup', () => this.endActiveDrags());
+    // Touch/pen equivalents of the mouse drag wiring above (#290). A real
+    // mouse also dispatches pointer events, so every handler below bails out
+    // on `pointerType === 'mouse'` and leaves that input to the mouse
+    // listeners already registered.
+    this.element.addEventListener('pointerdown', (event) => this.onPointerDown(event));
+    this.element.addEventListener('pointermove', (event) => this.onPointerMove(event));
+    this.element.addEventListener('pointerup', (event) => this.onPointerEnd(event));
+    this.element.addEventListener('pointercancel', (event) => this.onPointerEnd(event));
     // Escape cancels an in-progress range-move, fill-handle, or column-resize
     // drag (rolling back safely, since nothing has been committed) before it
     // can reach the commit on mouseup.
@@ -2013,6 +2029,19 @@ export class Grid {
 
   // ----- Mouse -----
 
+  /** Ends every in-progress drag (resize/fill/move/header/ref/selection), committing
+   * whichever one was active — shared by the document `mouseup` and touch `pointerup`/
+   * `pointercancel` listeners. */
+  private endActiveDrags(): void {
+    this.dragging = false;
+    this.headerDrag = null;
+    this.endResize();
+    this.endFill();
+    this.endRefDrag();
+    this.endMove();
+    this.stopAutoScroll();
+  }
+
   private onMouseDown(event: MouseEvent): void {
     const tab = this.state.activeTab;
     if (!tab || event.button !== 0) {
@@ -2262,6 +2291,122 @@ export class Grid {
       return; // no movement
     }
     this.applyDragSelection({ tab, cell });
+  }
+
+  // ----- Touch / pen (#290) -----
+  //
+  // The fill/resize/move handles begin dragging on the very first touch,
+  // exactly like a mouse press — each already opts out of native panning via
+  // `touch-action: none` in styles.css, so there is no scroll to conflict
+  // with. A touch that starts anywhere else (a cell, or a row/column header)
+  // could equally be the start of a scroll, so it only arms a drag after a
+  // brief press-and-hold with no real movement; a quick tap is left alone
+  // and keeps working exactly as before, through the browser's own
+  // synthetic mousedown/click for that touch.
+
+  private onPointerDown(event: PointerEvent): void {
+    if (event.pointerType === 'mouse') {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    const onHandle = !!target?.closest('[data-colresize], [data-movehandle], [data-fillhandle]');
+    if (onHandle) {
+      this.onMouseDown(event);
+      if (this.resizing || this.movingRange || this.filling) {
+        this.capturePointer(event.pointerId);
+      }
+      return;
+    }
+    this.armLongPressDrag(event);
+  }
+
+  private onPointerMove(event: PointerEvent): void {
+    if (event.pointerType === 'mouse') {
+      return;
+    }
+    const origin = this.longPressOrigin;
+    if (origin) {
+      if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > LONG_PRESS_MOVE_TOLERANCE_PX) {
+        // Real movement before the hold completes reads as a scroll, not a
+        // drag — cancel the pending long-press and leave the touch to the
+        // browser's native panning.
+        this.clearLongPress();
+      }
+      return;
+    }
+    if (
+      !this.resizing &&
+      !this.movingRange &&
+      !this.filling &&
+      !this.dragging &&
+      !this.headerDrag &&
+      !this.refDrag
+    ) {
+      return;
+    }
+    // A drag is confirmed and moving: block the native scroll/pan this touch
+    // would otherwise start, and drive the drag through the same code the
+    // mouse path uses.
+    event.preventDefault();
+    this.onResizeMove(event);
+    this.trackAutoScroll(event);
+    this.onMouseMove(event);
+  }
+
+  private onPointerEnd(event: PointerEvent): void {
+    if (event.pointerType === 'mouse') {
+      return;
+    }
+    this.clearLongPress();
+    this.releasePointerIfCaptured(event.pointerId);
+    this.endActiveDrags();
+  }
+
+  /** Arms a drag-selection/header-drag after a press-and-hold with no real movement. */
+  private armLongPressDrag(event: PointerEvent): void {
+    this.clearLongPress();
+    this.longPressOrigin = { event, x: event.clientX, y: event.clientY };
+    this.longPressTimer = setTimeout(() => {
+      this.longPressTimer = null;
+      const origin = this.longPressOrigin;
+      this.longPressOrigin = null;
+      if (!origin) {
+        return;
+      }
+      this.onMouseDown(origin.event);
+      if (this.dragging || this.headerDrag || this.refDrag) {
+        this.capturePointer(origin.event.pointerId);
+      }
+    }, LONG_PRESS_MS);
+  }
+
+  private clearLongPress(): void {
+    if (this.longPressTimer !== null) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    }
+    this.longPressOrigin = null;
+  }
+
+  /** Pointer capture keeps a touch drag's move/up events targeted at the grid even
+   * once the finger moves outside its bounds. jsdom (tests) implements neither
+   * method, hence the feature checks. */
+  private capturePointer(pointerId: number): void {
+    if (typeof this.element.setPointerCapture === 'function') {
+      this.element.setPointerCapture(pointerId);
+    }
+  }
+
+  private releasePointerIfCaptured(pointerId: number): void {
+    if (
+      typeof this.element.hasPointerCapture !== 'function' ||
+      typeof this.element.releasePointerCapture !== 'function'
+    ) {
+      return;
+    }
+    if (this.element.hasPointerCapture(pointerId)) {
+      this.element.releasePointerCapture(pointerId);
+    }
   }
 
   // ----- Auto-scroll (drag past the grid edge) -----

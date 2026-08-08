@@ -316,11 +316,12 @@ export class PasteFillCommands {
   }
 
   /**
-   * Edit > Insert Copied Cells…: insert the most recently copied range at the
-   * selection, shifting existing cells right (whole columns) or down (whole
-   * rows). Structural insertion is a spreadsheet operation, so a plain CSV
-   * document requires the explicit RSF conversion first (the confirmation
-   * dialog explains why); declining leaves the document untouched.
+   * Edit > Insert Copied > Insert Copied Cells…: insert the most recently
+   * copied range at the selection, shifting existing cells right (whole
+   * columns) or down (whole rows). Structural insertion is a spreadsheet
+   * operation, so a plain CSV document requires the explicit RSF conversion
+   * first (the confirmation dialog explains why); declining leaves the
+   * document untouched.
    */
   async insertCopiedCells(tab: Tab): Promise<boolean> {
     if (!tab.selection) {
@@ -363,12 +364,12 @@ export class PasteFillCommands {
   }
 
   /**
-   * Edit > Insert Copied Rows / Insert Copied Columns. The documented,
-   * user-visible rule (also stated by the completion notification): copied
-   * rows are inserted as whole rows **above** the selection's top row; copied
-   * columns are inserted as whole columns **to the left of** the selection's
-   * left column. Copied cells keep their source columns (rows) when the copy
-   * origin is known — i.e. for in-app copies; a system-clipboard range of
+   * Edit > Insert Copied > Insert Copied Rows / Insert Copied Columns. The
+   * documented, user-visible rule (also stated by the completion
+   * notification): copied rows are inserted as whole rows **above** the
+   * selection's top row; copied columns are inserted as whole columns **to
+   * the left of** the selection's left column. Copied cells keep their
+   * source columns (rows) when the copy origin is known — i.e. for in-app copies; a system-clipboard range of
    * unknown origin starts at column A (row 1). Existing rows/columns shift
    * without data loss; formula references adjust exactly like Insert
    * Rows/Columns, and relative references inside the inserted formulas shift

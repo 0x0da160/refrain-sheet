@@ -119,6 +119,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The right-click context menu on the grid now shows the same keyboard
+  shortcut hints (e.g. Ctrl+C, Ctrl+V, Ctrl+A) as the matching Edit menu
+  entries, so shortcuts are discoverable from either surface.
+  ([#292](https://github.com/0x0da160/refrain-sheet/issues/292))
 - Dragging past the visible edge of the grid now auto-scrolls the viewport
   toward the pointer until it re-enters the grid, for all four drag
   gestures that previously just stopped updating at the edge: range

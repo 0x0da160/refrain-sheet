@@ -41,6 +41,7 @@ export function openDialog<T>(title: string, fallback: T, build: DialogBuilder<T
     const buttons = el('div', { className: 'dialog-buttons' });
     dialog.append(heading, body, buttons);
 
+    const restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     let settled = false;
     const finish = (value: T) => {
       if (settled) {
@@ -51,6 +52,9 @@ export function openDialog<T>(title: string, fallback: T, build: DialogBuilder<T
         dialog.close();
       }
       dialog.remove();
+      if (restoreFocus && restoreFocus.isConnected) {
+        restoreFocus.focus();
+      }
       resolve(value);
     };
     // Escape triggers 'cancel'; some environments never fire 'close', so the

@@ -97,12 +97,7 @@ export class TabBar {
     });
     tabEl.append(close);
     tabEl.addEventListener('click', () => this.state.activateTab(tab.id));
-    tabEl.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        this.state.activateTab(tab.id);
-      }
-    });
+    tabEl.addEventListener('keydown', (event) => this.onKeyDown(event, tab.id));
 
     // ----- Drag-and-drop reordering -----
     tabEl.addEventListener('dragstart', (event) => {
@@ -151,6 +146,69 @@ export class TabBar {
       this.openContextMenu(event.clientX, event.clientY);
     });
     return tabEl;
+  }
+
+  /**
+   * Roving-tabindex keyboard model: arrows move between document tabs (and
+   * activate), Home/End jump to the ends, and Alt+arrows reorder — a
+   * complete pointer-free equivalent of the drag-and-drop above. Mirrors
+   * `SheetBar.onKeyDown` so the two adjacent tablists behave the same way.
+   */
+  private onKeyDown(event: KeyboardEvent, id: string): void {
+    const index = this.state.tabIndex(id);
+    const last = this.state.tabs.length - 1;
+    const go = (target: number): void => {
+      event.preventDefault();
+      const next = this.state.tabs[Math.max(0, Math.min(last, target))];
+      if (next) {
+        this.state.activateTab(next.id);
+        this.focusActive();
+      }
+    };
+    if (event.altKey) {
+      // Alt + arrow / Home / End reorders without a pointer.
+      const command: CommandId | null =
+        event.key === 'ArrowLeft'
+          ? 'tab.moveLeft'
+          : event.key === 'ArrowRight'
+            ? 'tab.moveRight'
+            : event.key === 'Home'
+              ? 'tab.moveFirst'
+              : event.key === 'End'
+                ? 'tab.moveLast'
+                : null;
+      if (command) {
+        event.preventDefault();
+        void this.commands.run(command).then(() => this.focusActive());
+      }
+      return;
+    }
+    switch (event.key) {
+      case 'ArrowLeft':
+        go(index - 1);
+        return;
+      case 'ArrowRight':
+        go(index + 1);
+        return;
+      case 'Home':
+        go(0);
+        return;
+      case 'End':
+        go(last);
+        return;
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        this.state.activateTab(id);
+        return;
+      default:
+        return;
+    }
+  }
+
+  /** Return keyboard focus to the active document tab after an action. */
+  focusActive(): void {
+    this.element.querySelector<HTMLElement>('.tab[aria-selected="true"]')?.focus();
   }
 
   /** True when the pointer sits in the left half of the target tab. */

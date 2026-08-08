@@ -119,6 +119,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- A worksheet tab's hover tooltip now hints that double-click or F2 renames
+  it (e.g. "Sheet2 — double-click or F2 to rename") instead of repeating the
+  visible sheet name, since the right-click context menu was previously the
+  only way to discover that action.
+  ([#303](https://github.com/0x0da160/refrain-sheet/issues/303))
 - The right-click context menu on the grid now shows the same keyboard
   shortcut hints (e.g. Ctrl+C, Ctrl+V, Ctrl+A) as the matching Edit menu
   entries, so shortcuts are discoverable from either surface.
@@ -222,6 +227,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
   applied whatever fill destination or column width was under the pointer,
   so an accidental fill or resize could only be corrected afterward with
   Undo. ([#288](https://github.com/0x0da160/refrain-sheet/issues/288))
+- The document tab strip (open files, at the top) now supports the same
+  keyboard navigation as the worksheet strip (sheets inside a workbook, at
+  the bottom): ArrowLeft/ArrowRight/Home/End move focus and switch the
+  active tab, and Alt+ArrowLeft/ArrowRight/Home/End reorder the active tab
+  without a pointer — a keyboard/touch-reachable equivalent of the existing
+  drag-and-drop reordering, matching the worksheet strip's existing
+  behavior. ([#302](https://github.com/0x0da160/refrain-sheet/issues/302))
 - Find & Replace: clicking **Replace** while the selection is not on a
   recorded match no longer moves the selection to the next match silently
   and indistinguishably from a successful replace. The status line now says
@@ -272,6 +284,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
   the cell is edited. Previously this explanation was only available for
   cells that had also been edited, or in the one-time dialog shown when the
   file was opened. ([#287](https://github.com/0x0da160/refrain-sheet/issues/287))
+- The status bar's screen-reader live region (`role="status"`) is now scoped
+  to the selected-cell reference and selection statistics only, instead of
+  the whole status bar. Moving the selection (arrow keys, clicking a cell)
+  used to re-announce unrelated document metadata — encoding, delimiter,
+  file size, filter/sort state — every time; now only the part that actually
+  changed is announced.
+  ([#304](https://github.com/0x0da160/refrain-sheet/issues/304))
 
 ### Removed
 

@@ -65,6 +65,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- A new **Edit > Copy Screenshot** command (also on the right-click menu)
+  copies the selected range to the clipboard as a PNG that matches its
+  actual on-screen appearance — the active color theme, the current sheet
+  font and zoom level, and any per-cell bold/italic/underline, text/
+  background color, and border (including conditional formatting) —
+  alongside the existing **Copy as Image**, which stays a plain,
+  theme-independent table by design.
+  ([#331](https://github.com/0x0da160/refrain-sheet/issues/331))
 - The grid's drag gestures — range selection, column resize, the fill
   handle, and the range-move handle — now work with touch and pen input, not
   just a mouse. Dragging the resize/fill/move handles works immediately on

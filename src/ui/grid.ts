@@ -382,6 +382,7 @@ export function formulaRefsExceedViewport(
 const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string; shortcut?: string } | 'separator'> = [
   { command: 'edit.copy', labelKey: 'menu.edit.copy', shortcut: 'Ctrl+C' },
   { command: 'edit.copyAsImage', labelKey: 'menu.edit.copyAsImage' },
+  { command: 'edit.copyScreenshot', labelKey: 'menu.edit.copyScreenshot' },
   { command: 'edit.paste', labelKey: 'menu.edit.paste', shortcut: 'Ctrl+V' },
   { command: 'edit.selectAll', labelKey: 'menu.edit.selectAll', shortcut: 'Ctrl+A' },
   { command: 'edit.insertCopiedCells', labelKey: 'menu.edit.insertCopiedCells' },

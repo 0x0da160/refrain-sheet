@@ -75,6 +75,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.edit.copy', command: 'edit.copy', shortcut: 'Ctrl+C' },
         { labelKey: 'menu.edit.copyAsImage', command: 'edit.copyAsImage' },
+        { labelKey: 'menu.edit.copyScreenshot', command: 'edit.copyScreenshot' },
         { labelKey: 'menu.edit.paste', command: 'edit.paste', shortcut: 'Ctrl+V' },
         // Ctrl+A is owned only while the grid itself has focus (never inside
         // text fields or the rest of the page — the browser keeps it there).

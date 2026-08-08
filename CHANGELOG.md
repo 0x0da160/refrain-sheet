@@ -216,6 +216,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- Find & Replace: clicking **Replace** while the selection is not on a
+  recorded match no longer moves the selection to the next match silently
+  and indistinguishably from a successful replace. The status line now says
+  the selection was not on a match and nothing was changed.
+  ([#300](https://github.com/0x0da160/refrain-sheet/issues/300))
 - Pressing Enter now confirms the **Format > Number Format…** dialog (from
   the decimals or currency symbol field), the **Format > Conditional
   Formatting…** dialog (from a comparison value field), and the **Settings**

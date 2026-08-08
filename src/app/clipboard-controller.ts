@@ -4,6 +4,7 @@ import type { AppState, Selection, SelectionKind } from './app-state';
 import type { Commands } from './commands';
 import { renderRangeToPng } from './image-export';
 import { t } from './i18n';
+import { asVisualDisplaySource, onScreenGeometry, renderStyledRangeToPng } from './screenshot-export';
 
 /**
  * Copy/paste for cell ranges.
@@ -170,6 +171,47 @@ export class ClipboardController {
     try {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       this.notify(t('notify.copiedImage'), 'info');
+    } catch {
+      this.notify(t('notify.clipboardBlocked'), 'warn');
+    }
+  }
+
+  /**
+   * Menu "Copy Screenshot": renders the selected range to a PNG that
+   * reproduces its actual on-screen appearance — theme colors, the current
+   * sheet font/zoom, and any per-cell bold/italic/underline, text/background
+   * color, and border (see `screenshot-export.ts`) — and writes it to the
+   * system clipboard, unlike `copyImageAsPng`'s deliberately plain table.
+   */
+  async copyScreenshotAsPng(): Promise<void> {
+    const tab = this.state.activeTab;
+    if (!tab) {
+      return;
+    }
+    const range = this.state.selectedRange(tab);
+    if (!range) {
+      return;
+    }
+    if (typeof ClipboardItem === 'undefined' || typeof navigator.clipboard?.write !== 'function') {
+      this.notify(t('notify.copyImageUnsupported'), 'warn');
+      return;
+    }
+    const { colWidths, rowHeight } = onScreenGeometry(tab, range);
+    const blob = await renderStyledRangeToPng(
+      this.dom,
+      asVisualDisplaySource(tab.doc),
+      range,
+      this.state.hiddenRows(tab),
+      colWidths,
+      rowHeight,
+    );
+    if (blob === null) {
+      this.notify(t('notify.clipboardBlocked'), 'warn');
+      return;
+    }
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      this.notify(t('notify.copiedScreenshot'), 'info');
     } catch {
       this.notify(t('notify.clipboardBlocked'), 'warn');
     }

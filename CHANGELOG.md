@@ -260,6 +260,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
   even though the label text already showed an exact percentage; it now
   shows the same determinate progress bar as CSV export and column
   auto-fit already did. ([#301](https://github.com/0x0da160/refrain-sheet/issues/301))
+- A malformed CSV field (red wavy underline: unclosed quote, text after a
+  closing quote, or a stray quote in an unquoted field) now shows a text
+  tooltip explaining the specific parsing problem when hovered, even before
+  the cell is edited. Previously this explanation was only available for
+  cells that had also been edited, or in the one-time dialog shown when the
+  file was opened. ([#287](https://github.com/0x0da160/refrain-sheet/issues/287))
 
 ### Removed
 

@@ -57,6 +57,7 @@ export class LosslessDocument {
   private readonly edits = new Map<string, string>();
   private readonly fieldCache = new Map<number, FieldNode>();
   private diagnosticsCache: Diagnostic[] | null = null;
+  private diagnosticsByField: Map<string, Diagnostic[]> | null = null;
   private undecodableCache: boolean | null = null;
 
   constructor(bytes: Uint8Array, interpretation: DocumentInterpretation) {
@@ -135,6 +136,24 @@ export class LosslessDocument {
   /** Number of structural diagnostics without materializing them. */
   get diagnosticCount(): number {
     return this.index.diagnostics.length / 5;
+  }
+
+  /** Structural diagnostics attached to one field (row/col are 0-based). */
+  getFieldDiagnostics(row: number, col: number): Diagnostic[] {
+    if (!this.diagnosticsByField) {
+      const map = new Map<string, Diagnostic[]>();
+      for (const d of this.diagnostics) {
+        const key = `${d.row - 1},${d.column - 1}`;
+        const list = map.get(key);
+        if (list) {
+          list.push(d);
+        } else {
+          map.set(key, [d]);
+        }
+      }
+      this.diagnosticsByField = map;
+    }
+    return this.diagnosticsByField.get(`${row},${col}`) ?? [];
   }
 
   /**

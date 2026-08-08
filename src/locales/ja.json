@@ -55,6 +55,7 @@
   "sheets.add": "ワークシートを追加",
   "sheets.csvOnly": "CSVは1シートのみ",
   "sheets.csvOnlyTitle": "CSVファイルは1つのシートしか保持できません。複数のワークシートを使うには Refrain Sheet (RSF) ブックに変換してください。",
+  "sheets.tabTitle": "{name} — ダブルクリックまたはF2でリネーム",
   "sheet.defaultName": "シート{n}",
   "sheet.copyName": "{name} (コピー)",
   "sheet.error.empty": "ワークシート名を入力してください。",

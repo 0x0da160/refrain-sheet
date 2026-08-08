@@ -3,6 +3,16 @@
 **Status: proposal only. No workflow, permission, secret, or notification
 channel is added by this document. Nothing here is enabled.**
 
+**Follow-up Issues filed (2026-08-08), one per phase below, at the
+maintainer's request (`計画に沿ってサブイシュー化して` on #313):**
+[#315](https://github.com/0x0da160/refrain-sheet/issues/315) (Phase 2),
+[#316](https://github.com/0x0da160/refrain-sheet/issues/316) (Phase 3),
+[#317](https://github.com/0x0da160/refrain-sheet/issues/317) (Phase 4),
+[#318](https://github.com/0x0da160/refrain-sheet/issues/318) (Phase 5),
+[#319](https://github.com/0x0da160/refrain-sheet/issues/319) (Phase 6). Each
+still needs its own `agent:ready` and, for Phases 2–4, explicit maintainer
+sign-off before implementation — filing the Issue is not approval.
+
 [Issue #313](https://github.com/0x0da160/refrain-sheet/issues/313) asked for an
 autonomous product-development operation: periodic market/competitor/user
 research with recorded evidence, prioritized and specified improvement
@@ -93,7 +103,8 @@ written.
 
 1. **This document (current PR).** Audit + plan only. No workflow,
    permission, secret, or schedule trigger changes.
-2. **Research-only, read-only, manually-triggered workflow.** A new
+2. **Research-only, read-only, manually-triggered workflow.** Filed as
+   [#315](https://github.com/0x0da160/refrain-sheet/issues/315). A new
    `workflow_dispatch`-only workflow (no `schedule:` trigger yet, so it never
    runs unattended) that asks Claude to research a specific, narrow question
    (e.g. "competing offline CSV/spreadsheet editors: what have they shipped
@@ -105,14 +116,18 @@ written.
    demonstrates the "research → recorded evidence → proposal" loop end to
    end while keeping a human as the one who presses the button and the one
    who triages the result.
-3. **Scheduling.** Only after Phase 2 has run successfully a few times by
+3. **Scheduling.** Filed as
+   [#316](https://github.com/0x0da160/refrain-sheet/issues/316). Only after
+   Phase 2 has run successfully a few times by
    hand: add a `schedule:` (cron) trigger to the same workflow, at a
    deliberately low frequency (e.g. weekly). This is the first change that
    needs explicit sign-off on running without a human dispatching it, and
    should ship with an easy kill switch (disable the workflow, or remove the
    `schedule:` block) documented the same way `agent-operations.md` §
    Rollback documents pausing the Issue-implementation loop.
-4. **Run-count / cooldown limits.** Before or alongside Phase 3: since no
+4. **Run-count / cooldown limits.** Filed as
+   [#317](https://github.com/0x0da160/refrain-sheet/issues/317). Before or
+   alongside Phase 3: since no
    tool in this loop today can read a live Claude token quota or
    next-replenishment time (this plan does not assume one exists), gate the
    scheduled workflow with explicit, static circuit breakers analogous to
@@ -121,12 +136,15 @@ written.
    disables further scheduled runs until a human re-enables them, mirroring
    the existing "two consecutive turn-limited runs → `agent:blocked`" rule
    in `agent-operations.md`.
-5. **Notification for research output.** Reuse the existing `@mention`
+5. **Notification for research output.** Filed as
+   [#318](https://github.com/0x0da160/refrain-sheet/issues/318). Reuse the
+   existing `@mention`
    comment mechanism (`agent-operations.md` § Mobile notifications) on the
    Issue Phase 2 creates, rather than building any new channel — this avoids
    the secrets/webhook/third-party-service risk the original Issue itself
    flagged as something to avoid.
-6. **Autonomous implementation of research-sourced proposals.** Only after
+6. **Autonomous implementation of research-sourced proposals.** Filed as
+   [#319](https://github.com/0x0da160/refrain-sheet/issues/319). Only after
    Phases 2–5 are live and trusted: allow a research-sourced Issue to be
    treated exactly like any other Issue in the existing loop — a human still
    applies `agent:ready`; nothing here proposes to skip that gate. This

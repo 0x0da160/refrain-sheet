@@ -139,7 +139,7 @@ export class SheetBar {
           'data-sheet-id': id,
           tabindex: active ? '0' : '-1',
           'aria-selected': active ? 'true' : 'false',
-          title: name,
+          title: t('sheets.tabTitle', { name }),
         },
       },
       [el('span', { className: 'sheet-label', text: name })],

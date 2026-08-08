@@ -121,6 +121,13 @@ describe('accessibility semantics', () => {
     expect(list.filter((el) => el.getAttribute('tabindex') === '-1')).toHaveLength(2);
   });
 
+  it('hints that the tab can be renamed by double-click or F2', () => {
+    const { bar } = setup(['Sheet1', 'Second']);
+    const list = tabs(bar);
+    expect(list[0].getAttribute('title')).toBe(t('sheets.tabTitle', { name: 'Sheet1' }));
+    expect(list[1].getAttribute('title')).toBe(t('sheets.tabTitle', { name: 'Second' }));
+  });
+
   it('offers an Add control with a localized accessible name', () => {
     const { bar } = setup();
     const add = bar.element.querySelector<HTMLButtonElement>('.sheet-add')!;

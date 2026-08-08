@@ -444,6 +444,17 @@ function formatToolbarItems(commands: Commands, tab: Tab): ContextMenuToolbarIte
 }
 
 /**
+ * Auto-scroll tuning for drags that should nudge the viewport when the
+ * pointer nears the grid's edge (range selection, fill handle, column
+ * resize, range move): how close to the edge (px) triggers a nudge, the
+ * largest single nudge (px), and how often nudges repeat (ms) while the
+ * pointer holds at the edge.
+ */
+const AUTO_SCROLL_EDGE_PX = 24;
+const AUTO_SCROLL_MAX_STEP_PX = 28;
+const AUTO_SCROLL_INTERVAL_MS = 50;
+
+/**
  * Virtualized CSV/RSF grid. Only the visible rows and columns (plus a small
  * overscan region) exist in the DOM, so files with hundreds of thousands of
  * rows never materialize millions of cells. The column header row is always
@@ -547,6 +558,10 @@ export class Grid {
     delta: { row: number; col: number };
     valid: boolean;
   } | null = null;
+  /** Timer driving auto-scroll while an active drag's pointer sits at/beyond the grid edge. */
+  private autoScrollTimer: ReturnType<typeof setInterval> | null = null;
+  /** Scroll direction/speed and the pointer position it was computed from. */
+  private autoScrollState: { dx: number; dy: number; clientX: number; clientY: number } | null = null;
   /** Ranges referenced by the formula currently being edited (highlighted). */
   private formulaRefs: FormulaRefRange[] = [];
   /** Floating note shown when a referenced range extends beyond the viewport. */
@@ -627,6 +642,10 @@ export class Grid {
     this.element.addEventListener('dblclick', (event) => this.onDoubleClick(event));
     this.element.addEventListener('contextmenu', (event) => this.onContextMenu(event));
     document.addEventListener('mousemove', (event) => this.onResizeMove(event));
+    // Mousemove bubbles to document regardless of which element the pointer
+    // is over, so this alone drives auto-scroll for a drag whose pointer has
+    // left the grid entirely, not just one still inside `this.element`.
+    document.addEventListener('mousemove', (event) => this.trackAutoScroll(event));
     document.addEventListener('mouseup', () => {
       this.dragging = false;
       this.headerDrag = null;
@@ -634,6 +653,7 @@ export class Grid {
       this.endFill();
       this.endRefDrag();
       this.endMove();
+      this.stopAutoScroll();
     });
     // Escape cancels an in-progress range-move drag (rolling back safely, since
     // nothing has been committed) before it can reach the commit on mouseup.
@@ -1902,6 +1922,18 @@ export class Grid {
     return this.canvas.querySelector<HTMLElement>(`[data-row="${row}"][data-col="${col}"]`);
   }
 
+  /**
+   * Hit-test by viewport coordinates instead of an event target. Used by
+   * auto-scroll, where a nudge moves the grid's content under a pointer that
+   * hasn't itself moved, so there is no fresh event target to read.
+   */
+  private cellFromPoint(clientX: number, clientY: number): { row: number; col: number } | null {
+    const target =
+      typeof document.elementFromPoint === 'function' ? document.elementFromPoint(clientX, clientY) : null;
+    const cell = (target as HTMLElement | null)?.closest<HTMLElement>('[data-row][data-col]');
+    return cell ? { row: Number(cell.dataset.row), col: Number(cell.dataset.col) } : null;
+  }
+
   // ----- Mouse -----
 
   private onMouseDown(event: MouseEvent): void {
@@ -2153,6 +2185,129 @@ export class Grid {
       return; // no movement
     }
     this.applyDragSelection({ tab, cell });
+  }
+
+  // ----- Auto-scroll (drag past the grid edge) -----
+
+  /** Whether a drag that should auto-scroll the viewport on approaching an edge is active. */
+  private hasEdgeScrollableDrag(): boolean {
+    return this.dragging || this.filling !== null || this.movingRange !== null || this.resizing !== null;
+  }
+
+  /**
+   * Scroll direction/speed implied by a pointer position relative to the
+   * grid's edges, or null when the pointer isn't close enough to nudge the
+   * viewport. A zero-size rect means the grid isn't laid out (hidden, or an
+   * environment without real geometry, e.g. an unmocked jsdom test) and
+   * never nudges.
+   */
+  private edgeScrollDirection(clientX: number, clientY: number): { dx: number; dy: number } | null {
+    const rect = this.element.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      return null;
+    }
+    const step = (depth: number): number => Math.min(AUTO_SCROLL_MAX_STEP_PX, Math.max(4, Math.round(depth)));
+    let dx = 0;
+    if (clientX < rect.left + AUTO_SCROLL_EDGE_PX) {
+      dx = -step(rect.left + AUTO_SCROLL_EDGE_PX - clientX);
+    } else if (clientX > rect.right - AUTO_SCROLL_EDGE_PX) {
+      dx = step(clientX - (rect.right - AUTO_SCROLL_EDGE_PX));
+    }
+    let dy = 0;
+    if (clientY < rect.top + AUTO_SCROLL_EDGE_PX) {
+      dy = -step(rect.top + AUTO_SCROLL_EDGE_PX - clientY);
+    } else if (clientY > rect.bottom - AUTO_SCROLL_EDGE_PX) {
+      dy = step(clientY - (rect.bottom - AUTO_SCROLL_EDGE_PX));
+    }
+    return dx === 0 && dy === 0 ? null : { dx, dy };
+  }
+
+  /**
+   * Runs on every document-level mousemove: starts, updates, or stops the
+   * auto-scroll timer depending on whether an edge-scrollable drag is active
+   * and how close its pointer is to the grid's edge.
+   */
+  private trackAutoScroll(event: MouseEvent): void {
+    if (!this.hasEdgeScrollableDrag()) {
+      this.stopAutoScroll();
+      return;
+    }
+    const dir = this.edgeScrollDirection(event.clientX, event.clientY);
+    if (!dir) {
+      this.stopAutoScroll();
+      return;
+    }
+    this.autoScrollState = { ...dir, clientX: event.clientX, clientY: event.clientY };
+    if (this.autoScrollTimer === null) {
+      this.autoScrollTimer = setInterval(() => this.tickAutoScroll(), AUTO_SCROLL_INTERVAL_MS);
+    }
+  }
+
+  private stopAutoScroll(): void {
+    if (this.autoScrollTimer !== null) {
+      clearInterval(this.autoScrollTimer);
+      this.autoScrollTimer = null;
+    }
+    this.autoScrollState = null;
+  }
+
+  /**
+   * One auto-scroll nudge: move the viewport, re-render so the DOM reflects
+   * the new window, then feed the pointer's now-different cell back into
+   * whichever drag is active — the same update `onMouseMove` would have made
+   * had the pointer actually moved onto that cell.
+   */
+  private tickAutoScroll(): void {
+    const tab = this.state.activeTab;
+    const state = this.autoScrollState;
+    if (!tab || !state || !this.hasEdgeScrollableDrag()) {
+      this.stopAutoScroll();
+      return;
+    }
+    const before = { top: this.element.scrollTop, left: this.element.scrollLeft };
+    this.element.scrollTop = Math.max(0, this.element.scrollTop + state.dy);
+    this.element.scrollLeft = Math.max(0, this.element.scrollLeft + state.dx);
+    if (this.element.scrollTop === before.top && this.element.scrollLeft === before.left) {
+      return; // already at the scroll limit in every direction being nudged
+    }
+    this.render(tab);
+    this.continueDragAt(tab, state.clientX, state.clientY);
+  }
+
+  /**
+   * Re-applies the active drag's update for the cell now under
+   * `(clientX, clientY)` — used after an auto-scroll nudge moves the grid
+   * content under a pointer that hasn't itself moved.
+   */
+  private continueDragAt(tab: Tab, clientX: number, clientY: number): void {
+    if (this.resizing) {
+      this.applyResize({
+        tab,
+        col: this.resizing.col,
+        width: this.resizing.startWidth + (clientX - this.resizing.startX),
+      });
+      return;
+    }
+    const cell = this.cellFromPoint(clientX, clientY);
+    if (!cell) {
+      return;
+    }
+    if (this.movingRange) {
+      this.movingRange.delta = {
+        row: cell.row - this.movingRange.origin.row,
+        col: cell.col - this.movingRange.origin.col,
+      };
+      this.updateMovePreview(tab);
+      return;
+    }
+    if (this.filling) {
+      this.filling.target = cell;
+      this.applyFillPreview(null);
+      return;
+    }
+    if (this.dragging && tab.selection) {
+      this.applyDragSelection({ tab, cell });
+    }
   }
 
   private onDoubleClick(event: MouseEvent): void {

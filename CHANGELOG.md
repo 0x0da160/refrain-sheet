@@ -119,6 +119,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- Dragging past the visible edge of the grid now auto-scrolls the viewport
+  toward the pointer until it re-enters the grid, for all four drag
+  gestures that previously just stopped updating at the edge: range
+  selection, the fill handle, column resize, and range-move.
+  ([#285](https://github.com/0x0da160/refrain-sheet/issues/285))
 - The **Sheet**, **Edit**, and **View** menus, which had grown long as
   features were added, are reorganized into grouped submenus: **Sheet** now
   opens with **Worksheet**, **Rows & Columns**, and **Filter & Sort**

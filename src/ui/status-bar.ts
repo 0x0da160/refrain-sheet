@@ -48,7 +48,7 @@ export class StatusBar {
     private readonly state: AppState,
     private readonly onShowProblems: () => void,
   ) {
-    this.element = el('div', { className: 'status-bar', attrs: { role: 'status' } });
+    this.element = el('div', { className: 'status-bar' });
     this.render();
   }
 
@@ -172,12 +172,20 @@ export class StatusBar {
    * Append the active-cell reference and, when more than one cell is selected,
    * the selection statistics (count, non-empty, numeric, sum, and — when any
    * numeric cell is present — average/min/max).
+   *
+   * These live inside their own `role="status"` region, separate from the
+   * rest of the status bar: the surrounding document metadata (encoding,
+   * delimiter, filter/sort state, etc.) does not change on every cell
+   * navigation, so it must not sit inside the live region a screen reader
+   * re-announces on each `render()`.
    */
   private appendSelection(tab: Tab): void {
     if (!tab.selection) {
       return;
     }
-    this.element.append(this.selectionLabel(tab.selection.row, tab.selection.col));
+    const region = el('span', { className: 'status-selection', attrs: { role: 'status' } });
+    region.append(this.selectionLabel(tab.selection.row, tab.selection.col));
+    this.element.append(region);
 
     const range = this.state.selectedRange(tab);
     if (!range) {
@@ -197,7 +205,7 @@ export class StatusBar {
     if (area <= SYNC_STATS_CELL_LIMIT) {
       const stats = computeSelectionStats(range, readDisplay, (r) => doc.fieldCount(r), isHidden);
       for (const span of this.statsSpans(stats)) {
-        this.element.append(span);
+        region.append(span);
       }
       return;
     }
@@ -207,7 +215,7 @@ export class StatusBar {
     const host = el('span', { className: 'sel-stats' }, [
       el('span', { className: 'sel-stat calculating', text: t('status.sel.calculating') }),
     ]);
-    this.element.append(host);
+    region.append(host);
     void this.computeStatsDeferred(this.statsToken, tab, range, readDisplay, host);
   }
 

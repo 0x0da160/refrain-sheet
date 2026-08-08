@@ -122,6 +122,53 @@ describe('tab movement commands', () => {
   });
 });
 
+describe('TabBar keyboard model', () => {
+  const press = (el: HTMLElement, key: string, init: KeyboardEventInit = {}): void => {
+    el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }));
+  };
+
+  function tabEls(bar: TabBar): HTMLElement[] {
+    return Array.from(bar.element.querySelectorAll<HTMLElement>('.tab'));
+  }
+
+  it('moves between document tabs with arrows and Home/End', () => {
+    const { state, bar } = setup();
+    press(tabEls(bar)[0], 'ArrowRight');
+    expect(state.activeTab!.name).toBe('b.csv');
+    press(tabEls(bar)[state.tabIndex(state.activeTabId!)], 'End');
+    expect(state.activeTab!.name).toBe('c.csv');
+    press(tabEls(bar)[state.tabIndex(state.activeTabId!)], 'Home');
+    expect(state.activeTab!.name).toBe('a.csv');
+    press(tabEls(bar)[0], 'ArrowLeft'); // already first: stays
+    expect(state.activeTab!.name).toBe('a.csv');
+  });
+
+  it('reorders without a pointer using Alt+arrows and Alt+Home/End', async () => {
+    const { state, bar } = setup();
+    // Activate c.csv, then move it left and to the first position.
+    press(tabEls(bar)[0], 'End');
+    expect(state.activeTab!.name).toBe('c.csv');
+    press(tabEls(bar)[2], 'ArrowLeft', { altKey: true });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(tabNames(state)).toEqual(['a.csv', 'c.csv', 'b.csv']);
+    press(tabEls(bar)[1], 'Home', { altKey: true });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(tabNames(state)).toEqual(['c.csv', 'a.csv', 'b.csv']);
+    // The moved tab stays the active one.
+    expect(state.activeTab!.name).toBe('c.csv');
+  });
+
+  it('activates with Enter and Space', () => {
+    const { state, bar } = setup();
+    press(tabEls(bar)[1], 'Enter');
+    expect(state.activeTab!.name).toBe('b.csv');
+    press(tabEls(bar)[0], ' ');
+    expect(state.activeTab!.name).toBe('a.csv');
+  });
+});
+
 describe('TabBar drag-and-drop reordering', () => {
   function tabEl(bar: TabBar, name: string): HTMLElement {
     for (const el of bar.element.querySelectorAll<HTMLElement>('.tab')) {

@@ -377,6 +377,7 @@ export class WorksheetsState {
     tab.zoom = clampSheetZoom(view.zoom ?? sheet.displayZoom ?? getSheetZoom());
     tab.colWidths = view.colWidths.length > 0 ? view.colWidths.slice() : sheet.displayColWidths.slice();
     tab.wrapCells = view.wrap ?? sheet.displayWrap ?? getWrapCells();
+    tab.tabEntryCol = null;
     this.state.clampSelection(tab);
   }
 

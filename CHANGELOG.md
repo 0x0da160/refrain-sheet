@@ -60,6 +60,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
   with a "not-allowed" cursor, instead of looking identical to an enabled
   button — including the primary (accent-colored) button style, in both
   themes. ([#338](https://github.com/0x0da160/refrain-sheet/issues/338))
+- Pressing Enter after typing across a row with Tab now returns the selection
+  to the column where that row's typing began, instead of moving one row down
+  from wherever the last Tab landed — matching Excel/Sheets/Calc and fixing a
+  "staircase" of misaligned data when entering rows via Tab then Enter. Plain
+  Enter with no preceding Tab is unchanged.
+  ([#344](https://github.com/0x0da160/refrain-sheet/issues/344))
 
 ### Changed
 

@@ -20,7 +20,9 @@
  * {@link closeAllContextMenus}) — a menu can therefore never act on state that
  * has moved on beneath it.
  */
+import type { IconNode } from 'lucide';
 import { el } from './dom';
+import { createIcon } from './icon';
 import { positionPopup, type AnchorRect } from './popup';
 
 export interface ContextMenuItem {
@@ -44,8 +46,14 @@ export type ContextMenuEntry = ContextMenuItem | 'separator';
  * icon buttons than as more text entries in the list below them.
  */
 export interface ContextMenuToolbarItem {
-  /** A short glyph rendered via textContent — never HTML or an icon font. */
-  icon: string;
+  /**
+   * Either a short glyph rendered via textContent (never HTML or an icon
+   * font) — used for the letter-styled Bold/Italic/Underline/text-color
+   * buttons — or a Lucide `IconNode`, rendered as an inline SVG the same way
+   * as every other icon in the app (see {@link createIcon}), used where a
+   * single character can't distinguish the action (#294).
+   */
+  icon: string | IconNode;
   /** Already-localized accessible name, also used as the tooltip. */
   label: string;
   /** Extra class for glyph-specific presentation (e.g. bold weight). */
@@ -251,16 +259,21 @@ export class ContextMenu {
   private buildToolbar(items: ContextMenuToolbarItem[]): HTMLElement {
     const row = el('div', { className: 'context-menu-toolbar', attrs: { role: 'toolbar' } });
     for (const item of items) {
-      const button = el('button', {
-        className: item.className ? `toolbar-item ${item.className}` : 'toolbar-item',
-        text: item.icon,
-        attrs: {
-          type: 'button',
-          title: (item.disabled && item.disabledReason) || item.label,
-          'aria-label': item.label,
-          ...(item.checked === undefined ? {} : { 'aria-pressed': String(item.checked) }),
+      const { icon } = item;
+      const button = el(
+        'button',
+        {
+          className: item.className ? `toolbar-item ${item.className}` : 'toolbar-item',
+          text: typeof icon === 'string' ? icon : undefined,
+          attrs: {
+            type: 'button',
+            title: (item.disabled && item.disabledReason) || item.label,
+            'aria-label': item.label,
+            ...(item.checked === undefined ? {} : { 'aria-pressed': String(item.checked) }),
+          },
         },
-      });
+        typeof icon === 'string' ? [] : [createIcon(icon, 'toolbar-item-icon')],
+      );
       button.disabled = item.disabled === true;
       button.classList.toggle('active', item.checked === true);
       button.addEventListener('click', () => {

@@ -23,6 +23,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Fixed
+
+- The grid's right-click formatting toolbar now uses distinct icons for
+  Background Color and Borders, instead of two nearly identical hatch-square
+  glyphs (`▨`/`▦`) that were easy to mis-click at toolbar size.
+  ([#294](https://github.com/0x0da160/refrain-sheet/issues/294))
+
 ### Changed
 
 - The Format menu's items (Bold, Italic, Underline, Text Color, Background

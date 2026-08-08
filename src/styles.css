@@ -1353,6 +1353,10 @@ button {
   text-decoration: underline;
 }
 
+.toolbar-item-icon {
+  flex: none;
+}
+
 /* ---------- Status bar ---------- */
 
 .status-bar {

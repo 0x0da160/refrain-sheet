@@ -1616,6 +1616,7 @@ export class Grid {
       attrs: {
         role: 'columnheader',
         'data-colhead': String(c),
+        'aria-colindex': String(c + 2),
         title: pinned ? t('grid.stickyColTitle') : t('grid.colTitle', { letter: columnLabel(c), n: c + 1 }),
       },
     });
@@ -1760,7 +1761,7 @@ export class Grid {
     const head = el('div', {
       className: `vcell vrowhead${pinned ? ' pinned' : ''}`,
       text: pinned ? `📌 ${row + 1}` : String(row + 1),
-      attrs: { role: 'rowheader', 'data-rowhead': String(row) },
+      attrs: { role: 'rowheader', 'data-rowhead': String(row), 'aria-colindex': '1' },
     });
     if (pinned) {
       head.setAttribute('title', t('grid.stickyRowTitle'));

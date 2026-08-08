@@ -39,6 +39,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
   tooltip now appears on the equivalent quick-access formatting toolbar in
   the right-click menu. ([#293](https://github.com/0x0da160/refrain-sheet/issues/293))
 
+### Fixed
+
+- Closing a modal dialog (Format Cells, Sort, Data Validation, Settings, SQL,
+  Diff, and every other menu-driven dialog) now returns keyboard focus to
+  whatever was focused before it opened, instead of dropping focus to the
+  top of the page. ([#298](https://github.com/0x0da160/refrain-sheet/issues/298))
+
 ### Added
 
 - The grid's drag gestures — range selection, column resize, the fill

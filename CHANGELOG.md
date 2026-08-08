@@ -25,6 +25,16 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- The grid's drag gestures — range selection, column resize, the fill
+  handle, and the range-move handle — now work with touch and pen input, not
+  just a mouse. Dragging the resize/fill/move handles works immediately on
+  touch, same as with a mouse; dragging to extend a cell-range selection or a
+  row/column header selection needs a brief press-and-hold first, so a quick
+  tap and ordinary scrolling keep working unchanged. The resize handle and
+  the fill/move handles also have a larger (invisible) touch target on
+  touch/pen input, and the resize handle is now faintly visible without
+  hovering so it can be found without a mouse.
+  ([#290](https://github.com/0x0da160/refrain-sheet/issues/290))
 - A new **Format > Conditional Formatting…** dialog colors a range's cells
   automatically from their computed value: highlight values that satisfy a
   comparison (greater/less than, between, equal to, or text contains),

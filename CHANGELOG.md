@@ -216,6 +216,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- Pressing Escape now cancels an in-progress fill-handle drag or
+  column-resize drag without applying it, matching the existing Escape
+  behavior for a range-move drag. Previously, releasing the mouse always
+  applied whatever fill destination or column width was under the pointer,
+  so an accidental fill or resize could only be corrected afterward with
+  Undo. ([#288](https://github.com/0x0da160/refrain-sheet/issues/288))
 - Find & Replace: clicking **Replace** while the selection is not on a
   recorded match no longer moves the selection to the next match silently
   and indistinguishably from a successful replace. The status line now says

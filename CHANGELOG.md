@@ -25,6 +25,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The Data Validation dialog's list rule now shows a notice when more than
+  500 allowed values are entered and only the first 500 are kept, instead of
+  silently dropping the rest with no indication. The Filter dialog now flags
+  a condition with a missing or invalid value inline and disables Apply until
+  it is fixed or reset, instead of silently dropping that condition from the
+  applied filter. ([#296](https://github.com/0x0da160/refrain-sheet/issues/296))
 - The grid's right-click formatting toolbar now uses distinct icons for
   Background Color and Borders, instead of two nearly identical hatch-square
   glyphs (`▨`/`▦`) that were easy to mis-click at toolbar size.

@@ -266,6 +266,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
   the cell is edited. Previously this explanation was only available for
   cells that had also been edited, or in the one-time dialog shown when the
   file was opened. ([#287](https://github.com/0x0da160/refrain-sheet/issues/287))
+- The status bar's screen-reader live region (`role="status"`) is now scoped
+  to the selected-cell reference and selection statistics only, instead of
+  the whole status bar. Moving the selection (arrow keys, clicking a cell)
+  used to re-announce unrelated document metadata — encoding, delimiter,
+  file size, filter/sort state — every time; now only the part that actually
+  changed is announced.
+  ([#304](https://github.com/0x0da160/refrain-sheet/issues/304))
 
 ### Removed
 

@@ -318,9 +318,11 @@ describe('Flash Fill command flow', () => {
 
   it('large blocks run the sliced scan with progress and honor cancellation', async () => {
     const busyLabels: string[] = [];
+    const busyProgress: number[] = [];
     const ui = stubUi({
-      setBusy: vi.fn((label: string | null) => {
+      setBusy: vi.fn((label: string | null, progress?: number | null) => {
         if (label) busyLabels.push(label);
+        if (typeof progress === 'number') busyProgress.push(progress);
       }),
       confirmFlashFill: vi.fn(async () => true),
       chooseFilter: vi.fn(async () => null),
@@ -351,6 +353,9 @@ describe('Flash Fill command flow', () => {
       .map(Number);
     expect(pcts.length).toBeGreaterThan(0);
     expect(pcts.every((p) => p < 100)).toBe(true);
+    // The determinate progress bar value matches the percentage in the label
+    // text — not just the label, so the bar itself is never stuck indeterminate.
+    expect(busyProgress).toEqual(pcts);
   });
 
   it('a document swap during the sliced scan aborts without changes', async () => {

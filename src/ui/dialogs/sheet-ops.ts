@@ -27,7 +27,7 @@ import { MAX_SHEET_NAME_LENGTH } from '../../core/formula';
 import { MAX_SHEET_SORT_KEYS, type SortKey } from '../../core/sort';
 import { el } from '../dom';
 import type { AnchorRect } from '../popup';
-import { dialogButton, openDialog, openPopover } from './shared';
+import { dialogButton, openDialog, openPopover, submitOnEnter } from './shared';
 
 /**
  * Sheet/range/filter dialogs: the column-filter popover, insert-shift
@@ -722,12 +722,7 @@ export class SheetOpsDialogs {
           refresh();
         }
       });
-      input.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' && !composing && !event.isComposing) {
-          event.preventDefault();
-          submit();
-        }
-      });
+      submitOnEnter(input, submit);
       refresh();
       buttons.append(
         dialogButton(t('dialog.sheetName.cancel'), false, false, () => close(null)),
@@ -807,7 +802,12 @@ export class SheetOpsDialogs {
         className: 'dialog-error',
         attrs: { role: 'status', 'aria-live': 'polite' },
       });
-      const ok = dialogButton(t('dialog.moveRange.ok'), true, false, () => close(input.value.trim()));
+      const submit = (): void => {
+        if (!ok.disabled) {
+          close(input.value.trim());
+        }
+      };
+      const ok = dialogButton(t('dialog.moveRange.ok'), true, false, submit);
       const refresh = (): void => {
         const message = validate(input.value);
         error.textContent = message ?? '';
@@ -823,13 +823,7 @@ export class SheetOpsDialogs {
       input.addEventListener('input', () => {
         if (!composing) refresh();
       });
-      input.addEventListener('keydown', (event) => {
-        // Never act on Enter that is only ending an IME composition.
-        if (event.key === 'Enter' && !composing && !event.isComposing && !ok.disabled) {
-          event.preventDefault();
-          close(input.value.trim());
-        }
-      });
+      submitOnEnter(input, submit);
       body.append(
         el('p', { text: t('dialog.moveRange.message', { source }) }),
         el('label', { attrs: { for: inputId }, text: t('dialog.moveRange.label') }),
@@ -863,7 +857,12 @@ export class SheetOpsDialogs {
         className: 'dialog-error',
         attrs: { role: 'status', 'aria-live': 'polite' },
       });
-      const ok = dialogButton(t('dialog.goToCell.ok'), true, false, () => close(input.value.trim()));
+      const submit = (): void => {
+        if (!ok.disabled) {
+          close(input.value.trim());
+        }
+      };
+      const ok = dialogButton(t('dialog.goToCell.ok'), true, false, submit);
       const refresh = (): void => {
         const message = validate(input.value);
         error.textContent = message ?? '';
@@ -879,13 +878,7 @@ export class SheetOpsDialogs {
       input.addEventListener('input', () => {
         if (!composing) refresh();
       });
-      input.addEventListener('keydown', (event) => {
-        // Never act on Enter that is only ending an IME composition.
-        if (event.key === 'Enter' && !composing && !event.isComposing && !ok.disabled) {
-          event.preventDefault();
-          close(input.value.trim());
-        }
-      });
+      submitOnEnter(input, submit);
       body.append(
         el('label', { attrs: { for: inputId }, text: t('dialog.goToCell.label') }),
         input,

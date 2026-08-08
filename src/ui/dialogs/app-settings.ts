@@ -12,7 +12,7 @@ import {
 import { listTimeZones } from '../../core/timezone';
 import { APP_VERSION_DISPLAY } from '../../app/version';
 import { el } from '../dom';
-import { dialogButton, externalLink, openDialog } from './shared';
+import { dialogButton, externalLink, openDialog, submitOnEnter } from './shared';
 
 /** Canonical external links (also listed at the top of README.md). */
 const SITE_URL = 'https://app.refrain-sheet.com/';
@@ -87,16 +87,19 @@ export class AppSettingsDialogs {
         el('p', { className: 'dialog-note', text: t('dialog.settings.local') }),
       );
 
+      const submit = (): void => {
+        const mib = Number(input.value);
+        if (!Number.isFinite(mib) || mib <= 0) {
+          close(null);
+          return;
+        }
+        close(clampMaxFileSize(miBToBytes(mib)));
+      };
+      submitOnEnter(input, submit);
+
       buttons.append(
         dialogButton(t('dialog.settings.cancel'), false, false, () => close(null)),
-        dialogButton(t('dialog.settings.save'), true, false, () => {
-          const mib = Number(input.value);
-          if (!Number.isFinite(mib) || mib <= 0) {
-            close(null);
-            return;
-          }
-          close(clampMaxFileSize(miBToBytes(mib)));
-        }),
+        dialogButton(t('dialog.settings.save'), true, false, submit),
       );
     });
   }

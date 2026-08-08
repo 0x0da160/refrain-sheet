@@ -216,6 +216,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- Pressing Enter now confirms the **Format > Number Format…** dialog (from
+  the decimals or currency symbol field), the **Format > Conditional
+  Formatting…** dialog (from a comparison value field), and the **Settings**
+  dialog (from the max file size field) — matching the Enter-to-confirm
+  behavior the rename/move/go-to-cell dialogs already had, so Enter now
+  behaves consistently across every single-line dialog input.
+  ([#297](https://github.com/0x0da160/refrain-sheet/issues/297))
 - Starting a cell edit with a double-click or F2 no longer selects the
   entire cell value. Double-click now places the caret at the clicked
   position; F2 places it at the end of the text. Typing to replace a cell's

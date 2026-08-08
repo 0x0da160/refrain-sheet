@@ -46,6 +46,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
   "undecodable characters" edit warning, instead of the two dialogs using
   opposite button placement and focus for the same kind of risk.
   ([#295](https://github.com/0x0da160/refrain-sheet/issues/295))
+- Disabled dialog buttons (Apply Rule, OK, Save, Run, etc.) now render dimmed
+  with a "not-allowed" cursor, instead of looking identical to an enabled
+  button — including the primary (accent-colored) button style, in both
+  themes. ([#338](https://github.com/0x0da160/refrain-sheet/issues/338))
 
 ### Changed
 

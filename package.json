@@ -13,6 +13,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "build:wasm": "wasm-pack build wasm --release --target web --no-pack --out-dir pkg && node scripts/embed-wasm.mjs",
+    "build:sqljs": "node scripts/embed-sqljs.mjs",
     "build:landing": "node scripts/build-landing.mjs",
     "check:dist": "node scripts/check-dist.mjs",
     "preview": "vite preview",
@@ -30,10 +31,12 @@
   },
   "dependencies": {
     "encoding-japanese": "^2.2.0",
-    "lucide": "1.28.0"
+    "lucide": "1.28.0",
+    "sql.js": "1.14.1"
   },
   "devDependencies": {
     "@types/encoding-japanese": "^2.2.1",
+    "@types/sql.js": "1.4.11",
     "eslint": "^9.17.0",
     "eslint-config-prettier": "^10.0.1",
     "fast-check": "^3.23.2",

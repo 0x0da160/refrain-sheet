@@ -58,7 +58,7 @@ export type { FlashFillPreview, ReplaceAllReport, SqlSource, SqlRunOutcome, Diff
  */
 export interface SqlQueryDialogInput {
   sources: SqlSource[];
-  runQuery: (sourceId: string, query: string) => SqlRunOutcome;
+  runQuery: (sourceId: string, query: string) => Promise<SqlRunOutcome>;
   /** Column names for a source, for the query editor's input suggestions. */
   columns: (sourceId: string) => string[];
 }

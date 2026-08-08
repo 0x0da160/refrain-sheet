@@ -26,6 +26,8 @@ import { positionPopup, type AnchorRect } from './popup';
 export interface ContextMenuItem {
   /** Already-localized label text (rendered via textContent, never as HTML). */
   label: string;
+  /** Same shortcut string shown for this command in the menu bar, if any. */
+  shortcut?: string;
   disabled?: boolean;
   /** Invoked after the menu closes. Omitted for a pure submenu parent. */
   onSelect?: () => void;
@@ -222,7 +224,7 @@ export class ContextMenu {
           el('span', { className: 'label', text: entry.label }),
           ...(hasSubmenu
             ? [el('span', { className: 'submenu-arrow', attrs: { 'aria-hidden': 'true' } })]
-            : []),
+            : [el('span', { className: 'shortcut', text: entry.shortcut ?? '' })]),
         ],
       );
       button.disabled = entry.disabled === true;

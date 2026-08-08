@@ -122,7 +122,7 @@ export class WorksheetCommands {
           return null;
         }
         const completed = await forEachIndexSliced(source.rowCount, (r) => source.copyRowInto(r, shell), {
-          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`),
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`, pct(done, total)),
           shouldStop: () => tab.doc !== doc,
         });
         // An abandoned copy is simply discarded: nothing was inserted.

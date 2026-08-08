@@ -53,6 +53,8 @@ export interface ContextMenuToolbarItem {
   /** Renders as a pressed toggle button when set; omitted for a plain action. */
   checked?: boolean;
   disabled?: boolean;
+  /** Tooltip shown instead of `label` while disabled, when the reason isn't obvious. */
+  disabledReason?: string | null;
   /** Invoked after the menu closes. */
   onSelect: () => void;
 }
@@ -254,7 +256,7 @@ export class ContextMenu {
         text: item.icon,
         attrs: {
           type: 'button',
-          title: item.label,
+          title: (item.disabled && item.disabledReason) || item.label,
           'aria-label': item.label,
           ...(item.checked === undefined ? {} : { 'aria-pressed': String(item.checked) }),
         },

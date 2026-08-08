@@ -784,6 +784,33 @@ export class Commands {
     }
   }
 
+  /**
+   * A localized explanation for why `id` is currently disabled, or null when
+   * it is enabled or the reason is already self-evident from context (no
+   * selection, no open tab). Surfaced as a tooltip so a genuinely non-obvious
+   * disable rule — Format is RSF-only, with no dialog of its own to explain
+   * that like Filter/Sort have — is not silent. See `isEnabled`.
+   */
+  disabledReason(id: CommandId): string | null {
+    if (this.isEnabled(id)) {
+      return null;
+    }
+    const tab = this.state.activeTab;
+    switch (id) {
+      case 'format.bold':
+      case 'format.italic':
+      case 'format.underline':
+      case 'format.textColor':
+      case 'format.backgroundColor':
+      case 'format.borders':
+      case 'format.numberFormat':
+      case 'format.clear':
+        return tab !== null && tab.doc.kind !== 'rsf' ? t('menu.format.csvOnlyTooltip') : null;
+      default:
+        return null;
+    }
+  }
+
   async run(id: CommandId): Promise<void> {
     const tab = this.state.activeTab;
     switch (id) {

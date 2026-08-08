@@ -577,6 +577,10 @@ export class MenuBar {
         ],
       );
       button.disabled = !this.commands.isEnabled(command);
+      const disabledReason = button.disabled ? this.commands.disabledReason(command) : null;
+      if (disabledReason) {
+        button.title = disabledReason;
+      }
       button.addEventListener('click', () => {
         // Also collapses the mobile expand-below-logo panel: on desktop-width
         // CSS this is a no-op, since the row stays inline there regardless.

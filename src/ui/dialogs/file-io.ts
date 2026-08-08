@@ -93,6 +93,7 @@ export class FileIoDialogs {
     });
   }
 
+  /** Cancel is autofocused, not primary-styled — matches `confirmUndecodableEdit`'s convention for the same kind of fidelity-loss risk. */
   confirmUnrepresentable(encodingLabel: string, cells: UnrepresentableCell[]): Promise<boolean> {
     return openDialog(t('dialog.unrepresentable.title'), false, (body, buttons, close) => {
       body.append(el('p', { text: t('dialog.unrepresentable.message', { encoding: encodingLabel }) }));
@@ -105,8 +106,8 @@ export class FileIoDialogs {
         }),
       );
       buttons.append(
-        dialogButton(t('dialog.unrepresentable.cancel'), true, true, () => close(false)),
-        dialogButton(t('dialog.unrepresentable.continueNcr'), false, false, () => close(true)),
+        dialogButton(t('dialog.unrepresentable.cancel'), false, true, () => close(false)),
+        dialogButton(t('dialog.unrepresentable.continueNcr'), true, false, () => close(true)),
       );
     });
   }

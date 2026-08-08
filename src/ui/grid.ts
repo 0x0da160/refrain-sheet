@@ -656,11 +656,21 @@ export class Grid {
       this.endMove();
       this.stopAutoScroll();
     });
-    // Escape cancels an in-progress range-move drag (rolling back safely, since
-    // nothing has been committed) before it can reach the commit on mouseup.
+    // Escape cancels an in-progress range-move, fill-handle, or column-resize
+    // drag (rolling back safely, since nothing has been committed) before it
+    // can reach the commit on mouseup.
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && this.movingRange) {
+      if (event.key !== 'Escape') {
+        return;
+      }
+      if (this.movingRange) {
         this.cancelMove();
+      }
+      if (this.filling) {
+        this.cancelFill();
+      }
+      if (this.resizing) {
+        this.cancelResize();
       }
     });
     // Escape / outside interaction / resize / scroll dismissal is owned by
@@ -2441,7 +2451,7 @@ export class Grid {
   /** Frame-coalesced column-width application (a resize re-lays-out the window). */
   private readonly applyResize = frameCoalesced<{ tab: Tab; col: number; width: number }>(
     ({ tab, col, width }) => {
-      if (this.state.activeTab !== tab) {
+      if (!this.resizing || this.state.activeTab !== tab) {
         return;
       }
       this.setColWidth(tab, col, width);
@@ -2462,6 +2472,19 @@ export class Grid {
 
   private endResize(): void {
     this.resizing = null;
+  }
+
+  /** Abort a column-resize drag, restoring the width it started at. */
+  private cancelResize(): void {
+    const drag = this.resizing;
+    if (!drag) {
+      return;
+    }
+    this.resizing = null;
+    const tab = this.state.activeTab;
+    if (tab) {
+      this.setColWidth(tab, drag.col, drag.startWidth);
+    }
   }
 
   // ----- Fill handle -----
@@ -2619,6 +2642,17 @@ export class Grid {
     }
     if (dest && tab && tab.doc === this.lastDoc) {
       void this.commands.applyFill(tab, source, dest);
+    }
+  }
+
+  /** Abort a fill-handle drag without committing anything. */
+  private cancelFill(): void {
+    if (!this.filling) {
+      return;
+    }
+    this.filling = null;
+    for (const cell of this.canvas.querySelectorAll('.fill-target')) {
+      cell.classList.remove('fill-target');
     }
   }
 

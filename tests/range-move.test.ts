@@ -207,16 +207,29 @@ describe('range-move command flow', () => {
     expect(tab.doc.getValue(0, 0)).toBe('');
   });
 
-  it('refuses to move a range in a plain CSV document', async () => {
+  it('offers the explicit RSF conversion in a plain CSV document, then continues into the move prompt', async () => {
     const state = new AppState();
-    const message = vi.fn(async () => undefined);
-    const commands = new Commands(state, stubUi({ showMessage: message }), document);
+    const confirmConvert = vi.fn(async () => true);
+    const commands = new Commands(state, stubUi({ confirmConvert }), document);
+    const csv = await import('./helpers');
+    const tab = state.addTab('a.csv', csv.doc('a,b\n1,2\n'), null);
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 1 });
+    await commands.promptAndMoveRange(tab);
+    expect(confirmConvert).toHaveBeenCalledWith('move', 'a.csv');
+    expect(tab.doc.kind).toBe('rsf');
+  });
+
+  it('declining the CSV -> RSF conversion offer leaves the document unchanged', async () => {
+    const state = new AppState();
+    const confirmConvert = vi.fn(async () => false);
+    const commands = new Commands(state, stubUi({ confirmConvert }), document);
     const csv = await import('./helpers');
     const tab = state.addTab('a.csv', csv.doc('a,b\n1,2\n'), null);
     state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 1 });
     const ok = await commands.promptAndMoveRange(tab);
     expect(ok).toBe(false);
-    expect(message).toHaveBeenCalled();
+    expect(confirmConvert).toHaveBeenCalledWith('move', 'a.csv');
+    expect(tab.doc.kind).toBe('csv');
   });
 
   it('drives the keyboard-equivalent Move Selected Cells… command', async () => {

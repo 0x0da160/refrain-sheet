@@ -387,16 +387,29 @@ describe('filter command flow', () => {
     expect(state.isRowHidden(tab, 2)).toBe(true);
   });
 
-  it('CSV documents refuse to filter with a localized explanation', async () => {
-    const ui = stubUi();
+  it('CSV documents offer the explicit RSF conversion, then continue into the filter dialog', async () => {
+    const ui = stubUi({ confirmConvert: vi.fn(async () => true) });
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+    const tab = state.addTab('t.csv', csvDoc('a,b\n1,2\n'), null);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.filterDialog(tab);
+    expect(ui.confirmConvert).toHaveBeenCalledWith('filter', 't.csv');
+    expect(ui.chooseFilter).toHaveBeenCalled();
+    expect(tab.doc.kind).toBe('rsf');
+  });
+
+  it('declining the CSV -> RSF conversion offer leaves the document unchanged', async () => {
+    const ui = stubUi({ confirmConvert: vi.fn(async () => false) });
     const state = new AppState();
     const commands = new Commands(state, ui, document);
     const tab = state.addTab('t.csv', csvDoc('a,b\n1,2\n'), null);
     state.setSelection(tab, { row: 0, col: 0 }, null);
     const result = await commands.filterDialog(tab);
     expect(result).toBe(false);
-    expect(ui.showMessage).toHaveBeenCalled();
+    expect(ui.confirmConvert).toHaveBeenCalledWith('filter', 't.csv');
     expect(ui.chooseFilter).not.toHaveBeenCalled();
+    expect(tab.doc.kind).toBe('csv');
   });
 
   it('clear-all makes every row visible again (undoable)', () => {

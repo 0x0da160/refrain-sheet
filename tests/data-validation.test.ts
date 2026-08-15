@@ -216,16 +216,29 @@ describe('data validation command flow', () => {
     expect(commands.validationAt(tab, 1, 1)).toBeNull(); // outside the applied range
   });
 
-  it('CSV documents refuse to open the dialog with a localized explanation', async () => {
-    const ui = stubUi();
+  it('CSV documents offer the explicit RSF conversion, then continue into the dialog', async () => {
+    const ui = stubUi({ confirmConvert: vi.fn(async () => true) });
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+    const tab = state.addTab('t.csv', csvDoc('a,b\n1,2\n'), null);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.validationDialog(tab);
+    expect(ui.confirmConvert).toHaveBeenCalledWith('validation', 't.csv');
+    expect(ui.chooseDataValidation).toHaveBeenCalled();
+    expect(tab.doc.kind).toBe('rsf');
+  });
+
+  it('declining the CSV -> RSF conversion offer leaves the document unchanged', async () => {
+    const ui = stubUi({ confirmConvert: vi.fn(async () => false) });
     const state = new AppState();
     const commands = new Commands(state, ui, document);
     const tab = state.addTab('t.csv', csvDoc('a,b\n1,2\n'), null);
     state.setSelection(tab, { row: 0, col: 0 }, null);
     const result = await commands.validationDialog(tab);
     expect(result).toBe(false);
-    expect(ui.showMessage).toHaveBeenCalled();
+    expect(ui.confirmConvert).toHaveBeenCalledWith('validation', 't.csv');
     expect(ui.chooseDataValidation).not.toHaveBeenCalled();
+    expect(tab.doc.kind).toBe('csv');
   });
 
   it('clearing removes exactly the rule covering the exact range and notifies', async () => {

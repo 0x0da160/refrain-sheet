@@ -23,6 +23,17 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Changed
+
+- Filter, Sort, Data Validation, Conditional Formatting, Cell Comment, and
+  Move Range now offer a **Convert to RSF** button directly in the same
+  conversion-explanation dialog on a plain CSV tab, instead of only
+  explaining that the operation requires an RSF spreadsheet and leaving the
+  conversion command to be found elsewhere. Declining still leaves the
+  document unchanged; accepting converts the tab and continues straight into
+  the original dialog, matching the existing Flash Fill / large-paste
+  pattern. ([#352](https://github.com/0x0da160/refrain-sheet/issues/352))
+
 ### Fixed
 
 - Creating, opening, or switching to a document now puts the keyboard focus

@@ -6,9 +6,10 @@ import {
   type CellValidation,
 } from '../../core/data-validation';
 import { cellLabel } from '../../core/formula';
+import type { RsfDocument } from '../../core/rsf-document';
 import { AppState, type Tab } from '../app-state';
 import { t } from '../i18n';
-import type { DataValidationDialogInput, UiPort } from '../commands';
+import type { ConvertReason, DataValidationDialogInput, UiPort } from '../commands';
 
 /**
  * Data-validation commands for RSF spreadsheet documents: the dialog flow
@@ -31,6 +32,7 @@ export class ValidationCommands {
   constructor(
     private readonly state: AppState,
     private readonly ui: UiPort,
+    private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 
   /** The rule applying to one cell on the active worksheet, or null. */
@@ -42,9 +44,10 @@ export class ValidationCommands {
    * Data > Data Validation…: open the dialog for the selected range and
    * apply the result as one (non-undoable) view-state change.
    *
-   * RSF-only: on a plain CSV document a localized message explains that
-   * data validation requires the explicit conversion to RSF, and nothing
-   * changes. The range is the current selection (1x1 when nothing is
+   * RSF-only: on a plain CSV document the explicit-conversion dialog explains
+   * that data validation requires converting to RSF and offers to do so
+   * right there (`ensureRsf`, same pattern as paste/fill); declining leaves
+   * the document unchanged. The range is the current selection (1x1 when nothing is
    * dragged out); when a rule already covers that exact range, the dialog
    * preloads it for editing and offers a Clear button.
    */
@@ -52,11 +55,10 @@ export class ValidationCommands {
     if (!tab.selection) {
       return false;
     }
-    if (tab.doc.kind !== 'rsf') {
-      await this.ui.showMessage(t('dialog.dataValidation.title'), t('dialog.dataValidation.csvOnly'));
+    const doc = await this.ensureRsf(tab, 'validation');
+    if (!doc) {
       return false;
     }
-    const doc = tab.doc;
     const range = this.state.selectedRange(tab);
     if (!range) {
       return false;

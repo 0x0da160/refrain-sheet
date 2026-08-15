@@ -345,16 +345,29 @@ describe('sort command flow', () => {
     expect(ui.notify).toHaveBeenCalled();
   });
 
-  it('CSV documents refuse to sort with a localized explanation', async () => {
-    const ui = stubUi();
+  it('CSV documents offer the explicit RSF conversion, then continue into the sort dialog', async () => {
+    const ui = stubUi({ confirmConvert: vi.fn(async () => true) });
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+    const tab = state.addTab('t.csv', csvDoc('a,b\n1,2\n'), null);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.sortDialog(tab);
+    expect(ui.confirmConvert).toHaveBeenCalledWith('sort', 't.csv');
+    expect(ui.chooseSort).toHaveBeenCalled();
+    expect(tab.doc.kind).toBe('rsf');
+  });
+
+  it('declining the CSV -> RSF conversion offer leaves the document unchanged', async () => {
+    const ui = stubUi({ confirmConvert: vi.fn(async () => false) });
     const state = new AppState();
     const commands = new Commands(state, ui, document);
     const tab = state.addTab('t.csv', csvDoc('a,b\n1,2\n'), null);
     state.setSelection(tab, { row: 0, col: 0 }, null);
     const result = await commands.sortDialog(tab);
     expect(result).toBe(false);
-    expect(ui.showMessage).toHaveBeenCalled();
+    expect(ui.confirmConvert).toHaveBeenCalledWith('sort', 't.csv');
     expect(ui.chooseSort).not.toHaveBeenCalled();
+    expect(tab.doc.kind).toBe('csv');
   });
 
   it('clearSort restores document order (notified) and clears state.sortOrder', () => {

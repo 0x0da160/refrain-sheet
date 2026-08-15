@@ -8,10 +8,11 @@ import {
   type SheetFilter,
 } from '../../core/filter';
 import { cellLabel, columnLabel } from '../../core/formula';
+import type { RsfDocument } from '../../core/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
 import { AppState, type Tab } from '../app-state';
 import { t } from '../i18n';
-import type { FilterDialogInput, UiPort } from '../commands';
+import type { ConvertReason, FilterDialogInput, UiPort } from '../commands';
 import { LARGE_OP_CELLS, pct, withBusy } from './shared';
 
 /**
@@ -28,6 +29,7 @@ export class FilterCommands {
   constructor(
     private readonly state: AppState,
     private readonly ui: UiPort,
+    private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 
   /** The active filter's hidden-row set for a tab (null when unfiltered). */
@@ -41,9 +43,10 @@ export class FilterCommands {
    * the active cell's column) and apply the result as one atomic, undoable
    * operation.
    *
-   * RSF-only: on a plain CSV document a localized message explains that
-   * filtering requires the explicit conversion to RSF, and nothing changes.
-   * The filter range is the existing filter's range when one is active;
+   * RSF-only: on a plain CSV document the explicit-conversion dialog explains
+   * that filtering requires converting to RSF and offers to do so right
+   * there (`ensureRsf`, same pattern as paste/fill); declining leaves the
+   * document unchanged. The filter range is the existing filter's range when one is active;
    * otherwise the selected rectangle (when more than one cell is selected)
    * or the detected contiguous data block around the active cell, with the
    * first row treated as a header by default — the dialog shows this
@@ -56,11 +59,10 @@ export class FilterCommands {
     if (!tab.selection) {
       return false;
     }
-    if (tab.doc.kind !== 'rsf') {
-      await this.ui.showMessage(t('dialog.filter.title'), t('dialog.filter.csvOnly'));
+    const doc = await this.ensureRsf(tab, 'filter');
+    if (!doc) {
       return false;
     }
-    const doc = tab.doc;
     const existing = doc.filter;
 
     // The filtered rectangle. An active filter fixes it (clear all filters

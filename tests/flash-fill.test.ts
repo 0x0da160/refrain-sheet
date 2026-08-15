@@ -287,14 +287,25 @@ describe('Flash Fill command flow', () => {
     expect(ui.confirmFlashFill).not.toHaveBeenCalled();
   });
 
-  it('is restricted to RSF: CSV mode shows a localized explanation', async () => {
-    const ui = stubUi();
+  it('CSV documents offer the explicit RSF conversion, then continue into flash fill', async () => {
+    const ui = stubUi({ confirmConvert: vi.fn(async () => true) });
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+    const tab = state.addTab('a.csv', csvDoc('x,y\n1,2\n'), null);
+    state.setSelection(tab, { row: 0, col: 1 }, null);
+    await commands.flashFill(tab);
+    expect(ui.confirmConvert).toHaveBeenCalledWith('fill', 'a.csv');
+    expect(tab.doc.kind).toBe('rsf');
+  });
+
+  it('declining the CSV -> RSF conversion offer leaves the document unchanged', async () => {
+    const ui = stubUi({ confirmConvert: vi.fn(async () => false) });
     const state = new AppState();
     const commands = new Commands(state, ui, document);
     const tab = state.addTab('a.csv', csvDoc('x,y\n1,2\n'), null);
     state.setSelection(tab, { row: 0, col: 1 }, null);
     expect(await commands.flashFill(tab)).toBe(false);
-    expect(ui.showMessage).toHaveBeenCalledOnce();
+    expect(ui.confirmConvert).toHaveBeenCalledWith('fill', 'a.csv');
     expect(ui.confirmFlashFill).not.toHaveBeenCalled();
     expect(tab.doc.kind).toBe('csv');
     expect(tab.doc.isDirty).toBe(false);

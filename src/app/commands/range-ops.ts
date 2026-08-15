@@ -8,7 +8,7 @@ import { forEachIndexSliced, yieldToBrowser } from '../../core/scheduler';
 import { replaceAllInValue, type CompiledQuery, type SearchScope } from '../../core/search';
 import { AppState, type Tab } from '../app-state';
 import { t } from '../i18n';
-import type { UiPort } from '../commands';
+import type { ConvertReason, UiPort } from '../commands';
 import { LARGE_OP_CELLS, pct, withBusy } from './shared';
 
 /** What a Replace All actually did, for the find bar's status line. */
@@ -38,6 +38,7 @@ export class RangeOpsCommands {
   constructor(
     private readonly state: AppState,
     private readonly ui: UiPort,
+    private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 
   /** Clear every cell in the selected range as one undoable operation.
@@ -80,18 +81,22 @@ export class RangeOpsCommands {
    * worksheet bounds, then runs exactly the same move the drag gesture does —
    * including the overwrite confirmation — so nothing about the feature depends
    * on a pointer.
+   *
+   * RSF-only: on a plain CSV document the explicit-conversion dialog explains
+   * that moving cells requires converting to RSF and offers to do so right
+   * there (`ensureRsf`, same pattern as paste/fill); declining leaves the
+   * document unchanged. The drag gesture (`moveRange` below) instead uses a
+   * transient notification, since it has no dialog of its own to run from.
    */
   async promptAndMoveRange(tab: Tab): Promise<boolean> {
     const range = this.state.selectedRange(tab);
     if (!range) {
       return false;
     }
-    if (tab.doc.kind !== 'rsf') {
-      // Structural editing a byte-preserving CSV cannot represent.
-      await this.ui.showMessage(t('dialog.moveRange.title'), t('move.csvOnly'));
+    const doc = await this.ensureRsf(tab, 'move');
+    if (!doc) {
       return false;
     }
-    const doc = tab.doc;
     const height = range.bottom - range.top + 1;
     const width = range.right - range.left + 1;
     const validate = (text: string): string | null => {

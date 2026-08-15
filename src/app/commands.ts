@@ -87,7 +87,18 @@ export interface DiffDialogInput {
  * tab); the others are implicit conversions triggered by an edit that a
  * byte-preserving CSV cannot represent (they convert the current tab in place).
  */
-export type ConvertReason = 'formula' | 'paste' | 'structure' | 'fill' | 'command';
+export type ConvertReason =
+  | 'formula'
+  | 'paste'
+  | 'structure'
+  | 'fill'
+  | 'command'
+  | 'filter'
+  | 'sort'
+  | 'validation'
+  | 'conditionalFormat'
+  | 'comment'
+  | 'move';
 
 /** The summary shown before a range move replaces existing destination cells. */
 export interface RangeMoveConfirmInput {
@@ -558,11 +569,13 @@ export class Commands {
     private readonly dom: Document,
   ) {
     this.fileIo = new FileIoCommands(state, ui, dom);
-    this.filter = new FilterCommands(state, ui);
-    this.sort = new SortCommands(state, ui);
-    this.validation = new ValidationCommands(state, ui);
-    this.conditionalFormat = new ConditionalFormatCommands(state, ui);
-    this.comment = new CommentCommands(state, ui);
+    this.filter = new FilterCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
+    this.sort = new SortCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
+    this.validation = new ValidationCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
+    this.conditionalFormat = new ConditionalFormatCommands(state, ui, (tab, reason) =>
+      this.ensureRsf(tab, reason),
+    );
+    this.comment = new CommentCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.worksheets = new WorksheetCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.pasteFill = new PasteFillCommands(
       state,
@@ -570,7 +583,7 @@ export class Commands {
       (tab, reason) => this.ensureRsf(tab, reason),
       () => this.clipboardActions?.getCopied() ?? Promise.resolve(null),
     );
-    this.rangeOps = new RangeOpsCommands(state, ui);
+    this.rangeOps = new RangeOpsCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.format = new FormatCommands(state, ui);
     this.sql = new SqlCommands();
     this.diff = new DiffCommands();
@@ -662,7 +675,7 @@ export class Commands {
         return tab !== null && tab.history.canRedo;
       // Flash Fill, Move Range, and Filter stay clickable on a CSV tab:
       // running one explains that the operation needs an RSF spreadsheet
-      // document.
+      // document and offers to convert right there (see `ensureRsf`).
       case 'edit.copy':
       case 'edit.paste':
       case 'edit.fillDown':

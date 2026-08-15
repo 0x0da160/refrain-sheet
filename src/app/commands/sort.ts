@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 import { computeSortOrder, validateSort, MAX_SHEET_SORT_ROWS, type SheetSort } from '../../core/sort';
 import { cellLabel, columnLabel } from '../../core/formula';
+import type { RsfDocument } from '../../core/rsf-document';
 import { AppState, type Tab } from '../app-state';
 import { t } from '../i18n';
-import type { SortDialogInput, UiPort } from '../commands';
+import type { ConvertReason, SortDialogInput, UiPort } from '../commands';
 import { LARGE_OP_CELLS, withBusyIfLarge } from './shared';
 
 /**
@@ -25,6 +26,7 @@ export class SortCommands {
   constructor(
     private readonly state: AppState,
     private readonly ui: UiPort,
+    private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 
   /** The active tab's sort display order, or null when unsorted. */
@@ -36,9 +38,10 @@ export class SortCommands {
    * Sheet > Filter & Sort > Sort… : open the sort dialog and apply the
    * result as one (non-undoable) view-state change.
    *
-   * RSF-only: on a plain CSV document a localized message explains that
-   * sorting requires the explicit conversion to RSF, and nothing changes.
-   * The sort range is the existing sort's range when one is active;
+   * RSF-only: on a plain CSV document the explicit-conversion dialog explains
+   * that sorting requires converting to RSF and offers to do so right there
+   * (`ensureRsf`, same pattern as paste/fill); declining leaves the document
+   * unchanged. The sort range is the existing sort's range when one is active;
    * otherwise the selected rectangle (when more than one cell is selected)
    * or the detected contiguous data block around the active cell — the same
    * range-detection rule `FilterCommands.filterDialog` uses — with the first
@@ -48,11 +51,10 @@ export class SortCommands {
     if (!tab.selection) {
       return false;
     }
-    if (tab.doc.kind !== 'rsf') {
-      await this.ui.showMessage(t('dialog.sort.title'), t('dialog.sort.csvOnly'));
+    const doc = await this.ensureRsf(tab, 'sort');
+    if (!doc) {
       return false;
     }
-    const doc = tab.doc;
     const existing = doc.sort;
 
     let top: number;

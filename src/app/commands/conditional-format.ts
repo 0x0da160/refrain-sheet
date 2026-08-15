@@ -5,9 +5,10 @@ import {
   MAX_CONDITIONAL_FORMAT_RULES,
 } from '../../core/conditional-format';
 import { cellLabel } from '../../core/formula';
+import type { RsfDocument } from '../../core/rsf-document';
 import { AppState, type Tab } from '../app-state';
 import { t } from '../i18n';
-import type { ConditionalFormatDialogInput, UiPort } from '../commands';
+import type { ConditionalFormatDialogInput, ConvertReason, UiPort } from '../commands';
 
 /**
  * Conditional-formatting commands for RSF spreadsheet documents: the dialog
@@ -27,15 +28,17 @@ export class ConditionalFormatCommands {
   constructor(
     private readonly state: AppState,
     private readonly ui: UiPort,
+    private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 
   /**
    * Format > Conditional Formatting…: open the dialog for the selected range
    * and apply the result as one (non-undoable) view-state change.
    *
-   * RSF-only: on a plain CSV document a localized message explains that
-   * conditional formatting requires the explicit conversion to RSF, and
-   * nothing changes. The range is the current selection (1x1 when nothing is
+   * RSF-only: on a plain CSV document the explicit-conversion dialog explains
+   * that conditional formatting requires converting to RSF and offers to do
+   * so right there (`ensureRsf`, same pattern as paste/fill); declining
+   * leaves the document unchanged. The range is the current selection (1x1 when nothing is
    * dragged out); when a rule already covers that exact range, the dialog
    * preloads it for editing and offers a Clear button.
    */
@@ -43,11 +46,10 @@ export class ConditionalFormatCommands {
     if (!tab.selection) {
       return false;
     }
-    if (tab.doc.kind !== 'rsf') {
-      await this.ui.showMessage(t('dialog.conditionalFormat.title'), t('dialog.conditionalFormat.csvOnly'));
+    const doc = await this.ensureRsf(tab, 'conditionalFormat');
+    if (!doc) {
       return false;
     }
-    const doc = tab.doc;
     const range = this.state.selectedRange(tab);
     if (!range) {
       return false;

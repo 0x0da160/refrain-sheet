@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 import { normalizeCommentText } from '../../core/cell-comment';
 import { cellLabel } from '../../core/formula';
+import type { RsfDocument } from '../../core/rsf-document';
 import { AppState, type Tab } from '../app-state';
 import { t } from '../i18n';
-import type { CellCommentDialogInput, UiPort } from '../commands';
+import type { CellCommentDialogInput, ConvertReason, UiPort } from '../commands';
 
 /**
  * Cell-comment commands for RSF spreadsheet documents: the dialog flow for
@@ -23,6 +24,7 @@ export class CommentCommands {
   constructor(
     private readonly state: AppState,
     private readonly ui: UiPort,
+    private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 
   /** The comment on one cell of the active worksheet, or null. */
@@ -34,9 +36,10 @@ export class CommentCommands {
    * Insert/Edit Comment: open the dialog for the active cell and apply the
    * result as one (non-undoable) view-state change.
    *
-   * RSF-only: on a plain CSV document a localized message explains that
-   * cell comments require the explicit conversion to RSF, and nothing
-   * changes. The target is the active cell (`tab.selection`), matching
+   * RSF-only: on a plain CSV document the explicit-conversion dialog explains
+   * that cell comments require converting to RSF and offers to do so right
+   * there (`ensureRsf`, same pattern as paste/fill); declining leaves the
+   * document unchanged. The target is the active cell (`tab.selection`), matching
    * every mainstream spreadsheet's single-cell comment model even when a
    * larger range is selected.
    */
@@ -45,11 +48,10 @@ export class CommentCommands {
     if (!cell) {
       return false;
     }
-    if (tab.doc.kind !== 'rsf') {
-      await this.ui.showMessage(t('dialog.cellComment.title'), t('dialog.cellComment.csvOnly'));
+    const doc = await this.ensureRsf(tab, 'comment');
+    if (!doc) {
       return false;
     }
-    const doc = tab.doc;
     const existing = doc.getComment(cell.row, cell.col);
 
     const input: CellCommentDialogInput = {

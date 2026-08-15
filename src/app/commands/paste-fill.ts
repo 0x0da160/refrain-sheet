@@ -661,25 +661,26 @@ export class PasteFillCommands {
    * Flash Fill: infer a deterministic text transformation of nearby source
    * columns from the examples the user already typed into the target column,
    * preview it, and — only after explicit confirmation — apply it as one
-   * atomic, undoable operation. RSF-only: on a plain CSV document a localized
-   * message explains that structural multi-cell operations require the
-   * explicit conversion to RSF, and nothing is changed. The candidate
-   * agreement scan runs in cooperative time slices with honest progress for
-   * large blocks; cancellation (preview rejection, tab/document change while
-   * yielding, no reliable pattern) always leaves the document untouched.
-   * Non-empty target cells below the examples are never overwritten silently:
-   * any overwrite is counted, called out in the preview, and requires the
-   * same explicit confirmation.
+   * atomic, undoable operation. RSF-only: on a plain CSV document the
+   * explicit-conversion dialog explains that structural multi-cell
+   * operations require converting to RSF and offers to do so right there
+   * (`ensureRsf`, reason `'fill'`, same as Fill Down/Fill Range below);
+   * declining leaves the document unchanged. The candidate agreement scan
+   * runs in cooperative time slices with honest progress for large blocks;
+   * cancellation (preview rejection, tab/document change while yielding, no
+   * reliable pattern) always leaves the document untouched. Non-empty target
+   * cells below the examples are never overwritten silently: any overwrite
+   * is counted, called out in the preview, and requires the same explicit
+   * confirmation.
    */
   async flashFill(tab: Tab): Promise<boolean> {
     if (!tab.selection) {
       return false;
     }
-    if (tab.doc.kind !== 'rsf') {
-      await this.ui.showMessage(t('dialog.flashFill.title'), t('dialog.flashFill.csvOnly'));
+    const doc = await this.ensureRsf(tab, 'fill');
+    if (!doc) {
       return false;
     }
-    const doc = tab.doc;
     const targetCol = tab.selection.col;
     const cols = doc.columnCount;
 

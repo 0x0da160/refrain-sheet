@@ -36,6 +36,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The landing page's Japanese text no longer forces proportional
+  (narrowed) character spacing via `font-feature-settings: 'palt' 1`,
+  which rendered noticeably over-tight on Windows/Chrome (fine on
+  iOS/Safari). Japanese text now uses normal character spacing; the
+  English page was unaffected. ([#355](https://github.com/0x0da160/refrain-sheet/issues/355))
 - Creating, opening, or switching to a document now puts the keyboard focus
   in the grid immediately, so typing or navigating with the arrow keys works
   right away. Previously, right after "New RSF Spreadsheet" (or opening a

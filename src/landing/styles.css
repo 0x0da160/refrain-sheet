@@ -73,11 +73,9 @@ body {
   font-size: var(--text-base);
   line-height: 1.75;
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: 'palt' 1;
 }
 html[lang='en'] body {
   font-family: var(--font-body);
-  font-feature-settings: normal;
 }
 
 img {

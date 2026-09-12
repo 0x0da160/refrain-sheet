@@ -129,6 +129,7 @@ function bootstrap(): void {
     copy: () => clipboard.copyViaApi(),
     copyAsImage: () => clipboard.copyImageAsPng(),
     copyScreenshot: () => clipboard.copyScreenshotAsPng(),
+    copyAsMarkdown: () => clipboard.copyMarkdownTable(),
     paste: () => clipboard.pasteViaApi(),
     getCopied: () => clipboard.getCopied(),
     copiedKind: () => clipboard.copiedKind(),

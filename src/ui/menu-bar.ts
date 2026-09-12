@@ -42,6 +42,8 @@ export interface MenuChecks {
   zoom: () => number;
   /** Whether editing-help tooltips are enabled. */
   editHints: () => boolean;
+  /** Whether the right-side cell comments panel is open. */
+  commentsPanel: () => boolean;
   /** Whether Bold/Italic/Underline is "on" for the whole current selection. */
   formatActive: (key: 'bold' | 'italic' | 'underline') => boolean;
 }
@@ -207,6 +209,11 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           checked: checks.stickyFirstColumn,
         },
         { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
+        {
+          labelKey: 'menu.view.commentsPanel',
+          command: 'view.commentsPanel',
+          checked: checks.commentsPanel,
+        },
         'separator',
         // Spreadsheet zoom, Spreadsheet Font, and Theme each live in their own
         // submenu: grouping every choice family this way (rather than a

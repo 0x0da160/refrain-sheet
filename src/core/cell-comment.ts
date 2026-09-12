@@ -12,6 +12,8 @@
  * Everything here is pure and DOM-free.
  */
 
+import type { Worksheet } from './worksheet';
+
 /** Maximum length (UTF-16 code units) of one cell's comment text. */
 export const MAX_COMMENT_LENGTH = 2000;
 
@@ -27,4 +29,30 @@ export function normalizeCommentText(raw: string): string | null {
     return null;
   }
   return trimmed.length > MAX_COMMENT_LENGTH ? trimmed.slice(0, MAX_COMMENT_LENGTH) : trimmed;
+}
+
+/** One commented cell, tagged with the worksheet it lives on. */
+export interface CommentEntry {
+  row: number;
+  col: number;
+  text: string;
+  sheetId: string;
+  sheetName: string;
+}
+
+/** Every comment on one worksheet, in row-major order. */
+export function collectSheetComments(sheet: Worksheet): CommentEntry[] {
+  return sheet
+    .collectComments()
+    .map(([row, col, text]) => ({ row, col, text, sheetId: sheet.id, sheetName: sheet.name }))
+    .sort((a, b) => a.row - b.row || a.col - b.col);
+}
+
+/** Every comment across every worksheet of a workbook, in workbook order. */
+export function collectWorkbookComments(sheets: readonly Worksheet[]): CommentEntry[] {
+  const out: CommentEntry[] = [];
+  for (const sheet of sheets) {
+    out.push(...collectSheetComments(sheet));
+  }
+  return out;
 }

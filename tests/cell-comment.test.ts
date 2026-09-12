@@ -10,7 +10,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type CellCommentDialogResult, type UiPort } from '../src/app/commands';
-import { MAX_COMMENT_LENGTH, normalizeCommentText } from '../src/core/cell-comment';
+import {
+  collectSheetComments,
+  collectWorkbookComments,
+  MAX_COMMENT_LENGTH,
+  normalizeCommentText,
+} from '../src/core/cell-comment';
 import { decodeRsf, encodeRsf, type RsfData } from '../src/core/rsf-codec';
 import { RsfDocument } from '../src/core/rsf-document';
 import { Worksheet } from '../src/core/worksheet';
@@ -94,6 +99,42 @@ describe('normalizeCommentText', () => {
     const normalized = normalizeCommentText(long);
     expect(normalized).not.toBeNull();
     expect(normalized?.length).toBe(MAX_COMMENT_LENGTH);
+  });
+});
+
+describe('collectSheetComments / collectWorkbookComments', () => {
+  it('returns one sheet’s comments sorted row-major, tagged with that sheet', () => {
+    const ws = Worksheet.empty('s1', 'Sheet1', 4, 4);
+    ws.setComment(2, 0, 'second row');
+    ws.setComment(0, 3, 'first row');
+    ws.setComment(0, 1, 'also first row, earlier column');
+
+    const entries = collectSheetComments(ws);
+
+    expect(entries).toEqual([
+      { row: 0, col: 1, text: 'also first row, earlier column', sheetId: 's1', sheetName: 'Sheet1' },
+      { row: 0, col: 3, text: 'first row', sheetId: 's1', sheetName: 'Sheet1' },
+      { row: 2, col: 0, text: 'second row', sheetId: 's1', sheetName: 'Sheet1' },
+    ]);
+  });
+
+  it('returns an empty array for a sheet with no comments', () => {
+    expect(collectSheetComments(Worksheet.empty('s1', 'Sheet1'))).toEqual([]);
+  });
+
+  it('collects across every worksheet in workbook order', () => {
+    const sheet1 = Worksheet.empty('s1', 'Sheet1', 2, 2);
+    sheet1.setComment(0, 0, 'on sheet 1');
+    const sheet2 = Worksheet.empty('s2', 'Sheet2', 2, 2);
+    sheet2.setComment(1, 1, 'on sheet 2');
+    const sheet3 = Worksheet.empty('s3', 'Sheet3', 2, 2); // no comments
+
+    const entries = collectWorkbookComments([sheet1, sheet2, sheet3]);
+
+    expect(entries).toEqual([
+      { row: 0, col: 0, text: 'on sheet 1', sheetId: 's1', sheetName: 'Sheet1' },
+      { row: 1, col: 1, text: 'on sheet 2', sheetId: 's2', sheetName: 'Sheet2' },
+    ]);
   });
 });
 

@@ -510,6 +510,7 @@ export type CommandId =
   | 'view.wrap'
   | 'view.stickyFirstRow'
   | 'view.stickyFirstColumn'
+  | 'view.commentsPanel'
   | 'view.zoom.in'
   | 'view.zoom.out'
   | 'view.zoom.50'
@@ -565,6 +566,12 @@ export class Commands {
     autoFitSelectedColumns: () => Promise<void>;
     /** Select a cell and scroll it into view ("Go to Cell…"). */
     goToCell: (row: number, col: number) => void;
+  } | null = null;
+
+  /** Set by main.ts so the View menu can show/hide the comments panel. */
+  panelActions: {
+    /** Show/hide the right-side cell comments panel. */
+    toggleComments: () => void;
   } | null = null;
 
   constructor(
@@ -1038,6 +1045,12 @@ export class Commands {
         return;
       case 'view.stickyFirstColumn':
         this.state.setStickyFirstColumn(!this.state.stickyFirstColumn);
+        return;
+      case 'view.commentsPanel':
+        this.panelActions?.toggleComments();
+        // Pure UI-visibility toggle (like view.editHints above): re-emit so
+        // the View menu checkbox reflects the new open/closed state.
+        this.state.emit('view');
         return;
       case 'view.zoom.50':
       case 'view.zoom.75':

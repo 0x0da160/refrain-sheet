@@ -45,6 +45,7 @@ describe('theme preference', () => {
   it('validates theme choices', () => {
     expect(isThemeChoice('dark')).toBe(true);
     expect(isThemeChoice('system')).toBe(true);
+    expect(isThemeChoice('hybrid')).toBe(true);
     expect(isThemeChoice('sepia')).toBe(false);
     expect(isThemeChoice(null)).toBe(false);
   });
@@ -54,6 +55,22 @@ describe('theme preference', () => {
     expect(resolveTheme('system')).toBe('dark');
     expect(resolveTheme('light')).toBe('light');
     expect(resolveTheme('dark')).toBe('dark');
+  });
+
+  it('resolves hybrid through prefers-color-scheme, same as system (#363)', () => {
+    setSystemDark(false);
+    expect(resolveTheme('hybrid')).toBe('light');
+    setSystemDark(true);
+    expect(resolveTheme('hybrid')).toBe('dark');
+  });
+
+  it('tags the root with the active choice so CSS can scope the hybrid grid override', () => {
+    setSystemDark(true);
+    applyTheme('hybrid');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(document.documentElement.getAttribute('data-theme-choice')).toBe('hybrid');
+    applyTheme('light');
+    expect(document.documentElement.getAttribute('data-theme-choice')).toBe('light');
   });
 
   it('applies an explicit choice to the document root regardless of the system', () => {

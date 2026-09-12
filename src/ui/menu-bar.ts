@@ -279,12 +279,13 @@ function sheetFontItems(checks: MenuChecks): MenuItemDef[] {
   }));
 }
 
-/** The three color-theme choices as checkable menu items (View > Theme). */
+/** The four color-theme choices as checkable menu items (View > Theme). */
 function themeItems(checks: MenuChecks): MenuItemDef[] {
   const theme2command: Record<ThemeChoice, CommandId> = {
     system: 'view.theme.system',
     light: 'view.theme.light',
     dark: 'view.theme.dark',
+    hybrid: 'view.theme.hybrid',
   };
   return THEMES.map((id) => ({
     labelKey: themeLabelKey(id),

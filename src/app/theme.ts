@@ -13,12 +13,18 @@
  * When the choice is `"system"` the resolved theme follows
  * `prefers-color-scheme`, and a `matchMedia` listener re-applies it live when
  * the OS/browser theme changes. Nothing is ever sent anywhere.
+ *
+ * `"hybrid"` resolves the document root the same way `"system"` does (so the
+ * UI chrome still follows the OS/browser preference), but also tags the root
+ * with `data-theme-choice="hybrid"`; `styles.css` uses that tag to force the
+ * spreadsheet/grid area back to its light colors whenever the resolved theme
+ * is dark, independent of the rest of the UI (#363).
  */
 
-export type ThemeChoice = 'system' | 'light' | 'dark';
+export type ThemeChoice = 'system' | 'light' | 'dark' | 'hybrid';
 
 /** All choices, in menu order. */
-export const THEMES: readonly ThemeChoice[] = ['system', 'light', 'dark'];
+export const THEMES: readonly ThemeChoice[] = ['system', 'light', 'dark', 'hybrid'];
 
 /** New users follow the operating-system / browser preference. */
 export const DEFAULT_THEME: ThemeChoice = 'system';
@@ -64,9 +70,13 @@ function darkMedia(): MediaQueryList | null {
     : null;
 }
 
-/** Resolve a choice to a concrete theme; `"system"` follows `prefers-color-scheme`. */
+/**
+ * Resolve a choice to a concrete theme for the document root; `"system"` and
+ * `"hybrid"` both follow `prefers-color-scheme` (hybrid's grid-stays-light
+ * behavior is a CSS override on top of this, not a different root theme).
+ */
 export function resolveTheme(choice: ThemeChoice): 'light' | 'dark' {
-  if (choice === 'system') {
+  if (choice === 'system' || choice === 'hybrid') {
     return darkMedia()?.matches ? 'dark' : 'light';
   }
   return choice;
@@ -103,6 +113,9 @@ function applyResolved(): void {
   const root = globalThis.document?.documentElement;
   if (root) {
     root.setAttribute('data-theme', resolved);
+    // Lets styles.css scope the hybrid grid-stays-light override to exactly
+    // the active choice, without affecting "system" (#363).
+    root.setAttribute('data-theme-choice', currentChoice);
     // Hint native form controls / scrollbars to match, alongside the CSS tokens.
     root.style.setProperty('color-scheme', resolved);
   }

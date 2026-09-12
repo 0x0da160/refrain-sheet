@@ -40,7 +40,7 @@ export default tseslint.config(
     // Node build/verification scripts run outside the browser.
     files: ['scripts/**/*.mjs'],
     languageOptions: {
-      globals: { console: 'readonly', process: 'readonly', fetch: 'readonly' },
+      globals: { console: 'readonly', process: 'readonly', fetch: 'readonly', Buffer: 'readonly' },
     },
   },
 );

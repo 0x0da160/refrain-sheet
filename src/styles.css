@@ -128,6 +128,65 @@
   color-scheme: dark;
 }
 
+/* ---------- Hybrid theme (#363) ----------
+   "hybrid" resolves the document root the same way "system" does (UI chrome
+   follows the OS/browser preference — see src/app/theme.ts), but the
+   spreadsheet/grid area must always stay light. When the root resolves dark
+   under the "hybrid" choice, re-declare every color token the grid reads back
+   to its light-theme value (the same values as the base :root block above),
+   scoped to `.grid-container` so custom-property inheritance overrides the
+   dark block for cells, row/column headers, and everything nested inside the
+   grid, without touching the surrounding UI chrome. */
+:root[data-theme='dark'][data-theme-choice='hybrid'] .grid-container {
+  --bg: #f4f4f6;
+  --panel: #ececef;
+  --panel-hover: #e2e2e6;
+  --panel-active: #d0d0d6;
+  --border: #c6c6cc;
+  --border-subtle: #e6e6ea;
+  --text: #1c1c22;
+  --text-dim: #5a5a66;
+  --text-muted: #8a8a95;
+  --surface: #ffffff;
+  --field-bg: #ffffff;
+  --cell-bg: #ffffff;
+  --grid-line: #e3e3e8;
+  --row-alt: #f8f8fa;
+  --selected-row: #eaf1fb;
+  --sticky-bg: #fdf6df;
+  --info-soft: #fbfbe8;
+  --accent: #2456a6;
+  --accent-soft: #d6e2f5;
+  --accent-contrast: #ffffff;
+  --accent-contrast-dim: #e5edff;
+  --range-fill: rgba(37, 99, 235, 0.14);
+  --edited: #fff3c4;
+  --edited-border: #e0b400;
+  --danger: #b3261e;
+  --warning: #d97706;
+  --warning-soft: #fff6e0;
+  --warning-border: #e0c470;
+  --success: #16a34a;
+  --formula-text: #14532d;
+  --formula-marker: #2f855a;
+  --void-a: #fafafa;
+  --void-b: #f1f1f4;
+  --find-highlight: rgba(36, 86, 166, 0.18);
+  --scrim: rgba(20, 20, 28, 0.35);
+  --scrim-light: rgba(255, 255, 255, 0.55);
+  --tooltip-bg: #2b2b33;
+  --tooltip-text: #ffffff;
+  --toast-warn-bg: #7a5b00;
+  --toast-error-bg: #8f1d17;
+  --shadow: rgba(0, 0, 0, 0.15);
+  --shadow-strong: rgba(0, 0, 0, 0.3);
+  --fref-1: #2563eb;
+  --fref-2: #16a34a;
+  --fref-3: #d97706;
+  --fref-4: #9333ea;
+  color-scheme: light;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -678,6 +737,13 @@ button {
   flex: 1;
   overflow: auto;
   background: var(--cell-bg);
+  /* `color` is inherited from `body` as a *computed* value, not a live
+     reference to `--text` — re-declaring it here re-anchors inheritance to
+     whatever `--text` cascades to at this element, so the hybrid-theme
+     override above (which only redeclares custom properties, not `color`
+     itself) actually reaches plain cell text instead of leaving it at body's
+     dark-mode color. */
+  color: var(--text);
   position: relative;
   outline-offset: -2px;
 }

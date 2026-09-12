@@ -110,6 +110,8 @@ export const I18N = {
     'f4.li10': 'SQLクエリの実行：ワークシートに対してローカルで動く読み取り専用のSELECTクエリを実行',
     'f4.li11': '比較／差分：開いている2つのタブをキー列で比較し、追加・変更・削除・キー不整合を行ごとに判定',
     'f4.li12': 'セルコメント：セルの値とは独立した短いメモを添付。ホバーで内容を表示',
+    'f4.li13':
+      'コメントパネル：ワークシート単位・ワークブック単位で全コメントを一覧表示。クリックでそのセルへジャンプ',
 
     'theme.eyebrow': 'DETAILS',
     'theme.h2': '英語UIとダークテーマも、標準装備。',
@@ -336,6 +338,8 @@ export const I18N = {
     'f4.li11':
       'Compare / Diff: compares two open tabs by key column, classifying every row as added, modified, deleted or unchanged',
     'f4.li12': 'Cell Comment: attaches a short note to a cell, independent of its value',
+    'f4.li13':
+      'Comments Panel: lists every comment for the current worksheet or the whole workbook, click an entry to jump to its cell',
 
     'theme.eyebrow': 'DETAILS',
     'theme.h2': 'English UI and dark theme, built in.',

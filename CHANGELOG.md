@@ -38,6 +38,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
   worksheet and the whole workbook; clicking an entry selects and reveals its
   cell, switching worksheets first if needed.
   ([#375](https://github.com/0x0da160/refrain-sheet/issues/375))
+- The landing page's spreadsheet section now lists the Comments Panel as a
+  feature card (both languages), and its five marketing screenshots were
+  recaptured from the current UI. A new `npm run capture:landing-screenshots`
+  command (`scripts/capture-landing-screenshots.mjs`) drives the built app in
+  headless Chromium to regenerate those screenshots — the master `.webp` plus
+  every responsive srcset size `template.html` references — on demand instead
+  of by hand.
+  ([#379](https://github.com/0x0da160/refrain-sheet/issues/379))
 
 ## [0.7.19] - 2026-09-12
 

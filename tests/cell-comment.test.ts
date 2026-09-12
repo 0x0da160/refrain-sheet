@@ -2,14 +2,16 @@
 // @vitest-environment jsdom
 /**
  * Cell comments: the pure normalization helper, `Worksheet` storage and
- * structural-edit reindexing, and the command-level flow — dialog
- * apply/clear, CSV-mode restriction, and non-undoable/non-dirty session-only
- * behavior. Mirrors `data-validation.test.ts`.
+ * structural-edit reindexing, the command-level flow — dialog apply/clear,
+ * CSV-mode restriction, and undoable/dirty-marking persisted behavior — and
+ * the RSF codec's cell-comment block (body version 11). Mirrors
+ * `cell-format.test.ts`.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type CellCommentDialogResult, type UiPort } from '../src/app/commands';
 import { MAX_COMMENT_LENGTH, normalizeCommentText } from '../src/core/cell-comment';
+import { decodeRsf, encodeRsf, type RsfData } from '../src/core/rsf-codec';
 import { RsfDocument } from '../src/core/rsf-document';
 import { Worksheet } from '../src/core/worksheet';
 import { doc as csvDoc } from './helpers';
@@ -187,13 +189,13 @@ describe('cell comment command flow', () => {
   });
 
   it('applying blank/whitespace-only text clears the comment instead of storing it', async () => {
-    const { state, tab, doc } = sheet([['']]);
-    expect(state.setComment(tab, 0, 0, 'note')).toBe(true);
+    const { state, commands, tab, doc } = sheet([['']]);
+    expect(commands.setComment(tab, 0, 0, 'note')).toBe(true);
     const blank: CellCommentDialogResult = { action: 'apply', text: '   ' };
     const ui = stubUi({ chooseCellComment: vi.fn(async () => blank) });
-    const commands = new Commands(state, ui, document);
+    const dialogCommands = new Commands(state, ui, document);
     state.setSelection(tab, { row: 0, col: 0 }, null);
-    const ok = await commands.commentDialog(tab);
+    const ok = await dialogCommands.commentDialog(tab);
     expect(ok).toBe(true);
     expect(doc.getComment(0, 0)).toBeNull();
   });
@@ -224,43 +226,110 @@ describe('cell comment command flow', () => {
   });
 
   it('clearing removes the comment on the active cell and notifies', async () => {
-    const { state, tab, doc } = sheet([['']]);
-    expect(state.setComment(tab, 0, 0, 'note')).toBe(true);
+    const { state, commands, tab, doc } = sheet([['']]);
+    expect(commands.setComment(tab, 0, 0, 'note')).toBe(true);
     const cleared: CellCommentDialogResult = { action: 'clear' };
     const ui = stubUi({ chooseCellComment: vi.fn(async () => cleared) });
-    const commands = new Commands(state, ui, document);
+    const dialogCommands = new Commands(state, ui, document);
     state.setSelection(tab, { row: 0, col: 0 }, null);
-    const ok = await commands.commentDialog(tab);
+    const ok = await dialogCommands.commentDialog(tab);
     expect(ok).toBe(true);
     expect(doc.getComment(0, 0)).toBeNull();
     expect(ui.notify).toHaveBeenCalled();
   });
 
   it('cancelling the dialog (null result) leaves the comment untouched', async () => {
-    const { state, tab, doc } = sheet([['']]);
-    expect(state.setComment(tab, 0, 0, 'note')).toBe(true);
+    const { state, commands, tab, doc } = sheet([['']]);
+    expect(commands.setComment(tab, 0, 0, 'note')).toBe(true);
     const ui = stubUi({ chooseCellComment: vi.fn(async () => null) });
-    const commands = new Commands(state, ui, document);
+    const dialogCommands = new Commands(state, ui, document);
     state.setSelection(tab, { row: 0, col: 0 }, null);
-    const ok = await commands.commentDialog(tab);
+    const ok = await dialogCommands.commentDialog(tab);
     expect(ok).toBe(false);
     expect(doc.getComment(0, 0)).toBe('note');
   });
 
-  it('is session-only view state: not undoable and does not mark the document dirty', () => {
-    const { state, tab, doc } = sheet([['']]);
+  it('is persisted, undoable state: setting marks the document dirty and pushes a history entry', () => {
+    const { tab, commands, doc } = sheet([['']]);
     expect(doc.isDirty).toBe(false);
-    expect(state.setComment(tab, 0, 0, 'note')).toBe(true);
-    expect(doc.isDirty).toBe(false);
-    expect(tab.history.canUndo).toBe(false);
-    state.undo(tab); // no-op: nothing to undo
-    expect(doc.getComment(0, 0)).toBe('note'); // survives, since it was never history-tracked
+    expect(commands.setComment(tab, 0, 0, 'note')).toBe(true);
+    expect(doc.isDirty).toBe(true);
+    expect(tab.history.canUndo).toBe(true);
+  });
+
+  it('undo/redo restore the comment on either side of the change', () => {
+    const { state, commands, tab, doc } = sheet([['']]);
+    expect(commands.setComment(tab, 0, 0, 'note')).toBe(true);
+    state.undo(tab);
+    expect(doc.getComment(0, 0)).toBeNull();
+    state.redo(tab);
+    expect(doc.getComment(0, 0)).toBe('note');
+  });
+
+  it('setting an unchanged comment (or clearing an absent one) is a no-op, not a history entry', () => {
+    const { commands, tab, doc } = sheet([['']]);
+    expect(commands.setComment(tab, 0, 0, null)).toBe(false);
+    expect(commands.setComment(tab, 0, 0, 'note')).toBe(true);
+    expect(commands.setComment(tab, 0, 0, 'note')).toBe(false);
+    expect(doc.getComment(0, 0)).toBe('note');
   });
 
   it('never affects the cell value, formula evaluation, or CSV export path', () => {
-    const { state, tab, doc } = sheet([['42']]);
-    expect(state.setComment(tab, 0, 0, 'a note')).toBe(true);
+    const { commands, tab, doc } = sheet([['42']]);
+    expect(commands.setComment(tab, 0, 0, 'a note')).toBe(true);
     expect(doc.getValue(0, 0)).toBe('42');
     expect(doc.getDisplayValue(0, 0)).toBe('42');
+  });
+});
+
+describe('RSF codec: cell-comment block (body version 11)', () => {
+  const base: RsfData = {
+    name: 'Sheet1',
+    delimiter: ',',
+    rowCount: 4,
+    columnCount: 4,
+    cells: [[0, 0, 'x']],
+  };
+
+  it('round-trips commented cells', () => {
+    const withComments: RsfData = {
+      ...base,
+      comments: [
+        [0, 0, 'first note'],
+        [2, 3, 'second note'],
+      ],
+    };
+    const bytes = encodeRsf(withComments);
+    const decoded = decodeRsf(bytes);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.comments).toEqual(withComments.comments);
+  });
+
+  it('omits the comment block, staying on a lower body version, when no cell is commented', () => {
+    const decoded = decodeRsf(encodeRsf(base));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.comments).toBeUndefined();
+  });
+
+  it('an empty comment array behaves like no comments at all', () => {
+    const decoded = decodeRsf(encodeRsf({ ...base, comments: [] }));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.comments).toBeUndefined();
+  });
+
+  it('rejects a comment referencing a row or column outside the sheet as bad-shape', () => {
+    const bad: RsfData = { ...base, comments: [[99, 99, 'note']] };
+    const decoded = decodeRsf(encodeRsf(bad));
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
+  });
+
+  it('rejects a comment block truncated mid-record as bad-shape', () => {
+    const withComments: RsfData = { ...base, comments: [[0, 0, 'note']] };
+    const bytes = encodeRsf(withComments);
+    const decoded = decodeRsf(bytes.subarray(0, bytes.length - 1));
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
   });
 });

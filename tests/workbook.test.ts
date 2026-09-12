@@ -551,6 +551,22 @@ describe('workbook container', () => {
     expect(back.getSheetDisplayValue(back.sheets[1].id, 5, 1)).toBe('a');
   });
 
+  it('round-trips per-worksheet cell comments (body version 11)', () => {
+    const workbook = RsfDocument.empty('b.rsf', 4, 3, 'First');
+    const second = workbook.createWorksheet('Second', 3, 2);
+    workbook.insertSheetAt(1, second);
+    workbook.setCommentOn(undefined, 0, 0, 'on First');
+    workbook.setCommentOn(second.id, 1, 1, 'on Second');
+
+    const reloaded = RsfDocument.fromBytes(workbook.toBytes(), 'b.rsf');
+    expect(reloaded.ok).toBe(true);
+    if (!reloaded.ok) return;
+    const back = reloaded.doc;
+    expect(back.getCommentOn(back.sheets[0].id, 0, 0)).toBe('on First');
+    expect(back.getCommentOn(back.sheets[1].id, 1, 1)).toBe('on Second');
+    expect(back.getCommentOn(back.sheets[0].id, 1, 1)).toBeNull();
+  });
+
   it('restores the saved active worksheet, falling back to the first when unknown', () => {
     const workbook = RsfDocument.empty('b.rsf', 2, 2, 'A');
     workbook.insertSheetAt(1, workbook.createWorksheet('B', 2, 2));

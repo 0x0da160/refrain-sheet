@@ -137,11 +137,10 @@ export class Worksheet {
 
   /**
    * Sparse cell-level annotations (see {@link ../cell-comment}), keyed
-   * row-major like `styles`. Session-only view state — like `validations`,
-   * it is **not** persisted in the RSF container and never reaches the
-   * codec — but reindexed on row/column insert/delete the same way `styles`
-   * is, rather than dropped outright, so a comment keeps following the cell
-   * it was attached to for the rest of the session.
+   * row-major like `styles`. Persisted in the RSF container (body version
+   * 11+, see `src/core/rsf-codec.ts`) and reindexed on row/column
+   * insert/delete the same way `styles` is, so a comment keeps following the
+   * cell it was attached to.
    */
   private comments: Map<number, Map<number, string>> = new Map();
 
@@ -373,7 +372,7 @@ export class Worksheet {
     this.styles = next;
   }
 
-  // ----- Cell comments (session-only; see cell-comment.ts) -----
+  // ----- Cell comments (see cell-comment.ts) -----
 
   /** The comment on one cell, or `null` when it carries none. */
   getComment(row: number, col: number): string | null {

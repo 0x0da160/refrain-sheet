@@ -1507,11 +1507,16 @@ export class Commands {
     return this.conditionalFormat.conditionalFormatDialog(tab);
   }
 
-  // ----- Cell comments (RSF spreadsheet documents only; view-only, unsaved) -----
+  // ----- Cell comments (RSF spreadsheet documents only) -----
 
   /** The comment on one cell of the active worksheet, or null. See `CommentCommands.commentAt`. */
   commentAt(tab: Tab, row: number, col: number): string | null {
     return this.comment.commentAt(tab, row, col);
+  }
+
+  /** Set (or clear, with `null`) one cell's comment, undoably. See `CommentCommands.setComment`. */
+  setComment(tab: Tab, row: number, col: number, text: string | null): boolean {
+    return this.comment.setComment(tab, row, col, text);
   }
 
   /**

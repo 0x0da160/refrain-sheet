@@ -189,21 +189,22 @@ nothing else keys off the identifier.
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
 Version selection on write is minimal so older readers keep working where
-possible: body **version 10** is written only when at least one border side
-carries a non-default line style or width; **version 9** when at least one
-cell carries a number format; **version 8** when at least one cell carries a
+possible: body **version 11** is written only when at least one cell carries
+a comment; **version 10** when at least one border side carries a
+non-default line style or width; **version 9** when at least one cell
+carries a number format; **version 8** when at least one cell carries a
 style; **version 7** when the workbook display language is not English;
 **version 6** when the workbook timezone is not `UTC`; **version 5** when
 wrap-long-rows is stored; **version 4** when a sheet filter is present;
 **version 3** when display settings are present; **version 2** when only the
 creating/updating application metadata is present; **version 1** otherwise.
-Versions 1–10 are all accepted on read; an older reader rejects a body
+Versions 1–11 are all accepted on read; an older reader rejects a body
 version it does not know with a localized "unsupported version" message
 rather than misparsing it.
 
 | Size | Field                                                                                                                            |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Body version — `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                                              |
+| 1    | Body version — `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                                        |
 | 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                                                      |
 | 2    | _(v2+)_ Application-name length, `u16`                                                                                           |
 | …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`                                                                           |
@@ -227,6 +228,8 @@ rather than misparsing it.
 | …    | `C` cell records                                                                                                                 |
 | 4    | _(v8+)_ Styled-cell count `Y`, `u32`                                                                                             |
 | …    | _(v8+)_ `Y` style records, each with a _(v10 only)_ per-border-style byte and a _(v9 only)_ number-format sub-record (see below) |
+| 4    | _(v11+)_ Commented-cell count `Z`, `u32`                                                                                         |
+| …    | _(v11+)_ `Z` comment records (see below)                                                                                         |
 
 ### Display settings (body version 3)
 
@@ -494,6 +497,44 @@ Changing a cell's number format is a document change (it is part of the
 saved file), so it is undoable and marks the document dirty, exactly like the
 other cell-style properties. Plain CSV files never carry number formats —
 this requires converting to RSF.
+
+### Cell comments (body version 11)
+
+Body version 11 adds **cell comments**: a short free-text annotation attached
+to one cell, independent of its value (**Data > Cell Comment…**, see
+[`src/core/cell-comment.ts`](../src/core/cell-comment.ts)). Like cell styles
+it is purely an annotation — plain UTF-8 text, no expressions, macros,
+external URLs, or code of any kind — and it never affects a cell's value,
+formula evaluation, sort, filter, or CSV export. It is written only when at
+least one cell in the sheet carries a comment, so a document with no
+comments stays on the lowest sufficient body version.
+
+The comment block is a `u32` commented-cell count `Z` followed by `Z`
+**comment records**:
+
+| Size | Field                             |
+| ---- | ---------------------------------- |
+| 4    | Row index, `u32`                   |
+| 4    | Column index, `u32`                |
+| 4    | Comment-text byte length `L`, `u32` |
+| `L`  | Comment text (UTF-8)                |
+
+Row/column indices are validated against the sheet's already-known
+dimensions exactly like cell and style records above — out of range is
+`bad-shape`; a count above what the grid could possibly hold, or a single
+comment's declared length above a generous byte ceiling
+(`MAX_RSF_COMMENT_BYTES`, three bytes per UTF-16 code unit of the editor's
+own `MAX_COMMENT_LENGTH` cap), is `too-large`. A structurally truncated
+comment block is `bad-shape`, exactly like any other malformed container
+region.
+
+Setting or clearing a comment **is** a document change (it is part of the
+saved file), so it is undoable and marks the document dirty. Row and column
+insertion/deletion reindex commented cells along with the data they were
+applied to; a deleted row or column's comments are dropped along with its
+data (the same trade-off already accepted for cell styles, the sheet filter,
+and sort). Plain CSV files never carry cell comments — this requires
+converting to RSF.
 
 ### Bounds (validated on load)
 

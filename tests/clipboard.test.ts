@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import {
+  looksLikeMarkdownTable,
   normalizeRange,
   parseClipboardText,
+  parseMarkdownTable,
+  parsePastedText,
   rangeContains,
+  rangeToMarkdownTable,
   rangeToMatrix,
   rangeToTsv,
 } from '../src/core/clipboard';
@@ -97,5 +101,66 @@ describe('clipboard text parsing', () => {
 
   it('returns an empty matrix for empty text', () => {
     expect(parseClipboardText('')).toEqual([]);
+  });
+});
+
+describe('Markdown table copy output', () => {
+  it('produces a GFM table with the first row as the header', () => {
+    const d = doc('a,b,c\n1,2,3\n');
+    const md = rangeToMarkdownTable(d, { top: 0, left: 0, bottom: 1, right: 2 });
+    expect(md).toBe('| a | b | c |\n| --- | --- | --- |\n| 1 | 2 | 3 |');
+  });
+
+  it('escapes pipes and collapses newlines in cells', () => {
+    const d = doc('"a|b","c\nd"\n');
+    const md = rangeToMarkdownTable(d, { top: 0, left: 0, bottom: 0, right: 1 });
+    expect(md).toBe('| a\\|b | c d |\n| --- | --- |');
+  });
+
+  it('returns an empty string when there are no rows to copy', () => {
+    const d = doc('a,b\n');
+    expect(rangeToMarkdownTable(d, { top: 0, left: 0, bottom: 0, right: 1 }, [])).toBe('');
+  });
+});
+
+describe('Markdown table detection and parsing', () => {
+  it('recognizes a piped header followed by a --- separator row', () => {
+    expect(looksLikeMarkdownTable('| a | b |\n| --- | --- |\n| 1 | 2 |')).toBe(true);
+    expect(looksLikeMarkdownTable('| a | b |\n|:---|---:|\n| 1 | 2 |')).toBe(true);
+  });
+
+  it('rejects plain tab-separated text', () => {
+    expect(looksLikeMarkdownTable('a\tb\n1\t2')).toBe(false);
+    expect(looksLikeMarkdownTable('| a | b |')).toBe(false);
+  });
+
+  it('parses a Markdown table into a rectangular matrix, dropping the separator row', () => {
+    expect(parseMarkdownTable('| a | b |\n| --- | --- |\n| 1 | 2 |')).toEqual([
+      ['a', 'b'],
+      ['1', '2'],
+    ]);
+  });
+
+  it('unescapes escaped pipes within cells', () => {
+    expect(parseMarkdownTable('| a\\|b | c |\n| --- | --- |\n| 1 | 2 |')).toEqual([
+      ['a|b', 'c'],
+      ['1', '2'],
+    ]);
+  });
+
+  it('round-trips a copied Markdown table back into a matrix via parsePastedText', () => {
+    const d = doc('a,b\n1,2\n');
+    const md = rangeToMarkdownTable(d, { top: 0, left: 0, bottom: 1, right: 1 });
+    expect(parsePastedText(md)).toEqual([
+      ['a', 'b'],
+      ['1', '2'],
+    ]);
+  });
+
+  it('falls back to tab-separated parsing for non-Markdown text', () => {
+    expect(parsePastedText('a\tb\n1\t2')).toEqual([
+      ['a', 'b'],
+      ['1', '2'],
+    ]);
   });
 });

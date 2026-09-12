@@ -449,6 +449,7 @@ export type CommandId =
   | 'edit.copy'
   | 'edit.copyAsImage'
   | 'edit.copyScreenshot'
+  | 'edit.copyAsMarkdown'
   | 'edit.paste'
   | 'edit.insertCopiedCells'
   | 'edit.insertCopiedRows'
@@ -548,6 +549,8 @@ export class Commands {
     copyAsImage: () => Promise<void>;
     /** Render the selection's actual on-screen appearance to a PNG and write it to the system clipboard. */
     copyScreenshot: () => Promise<void>;
+    /** Write the selection to the system clipboard as a GitHub-Flavored Markdown table. */
+    copyAsMarkdown: () => Promise<void>;
     paste: () => Promise<void>;
     /** The most recently copied range (internal clipboard, else parsed system text). */
     getCopied: () => Promise<{ matrix: string[][]; origin: Selection | null } | null>;
@@ -677,6 +680,7 @@ export class Commands {
       // running one explains that the operation needs an RSF spreadsheet
       // document and offers to convert right there (see `ensureRsf`).
       case 'edit.copy':
+      case 'edit.copyAsMarkdown':
       case 'edit.paste':
       case 'edit.fillDown':
       case 'edit.flashFill':
@@ -865,6 +869,9 @@ export class Commands {
         return;
       case 'edit.copyScreenshot':
         await this.clipboardActions?.copyScreenshot();
+        return;
+      case 'edit.copyAsMarkdown':
+        await this.clipboardActions?.copyAsMarkdown();
         return;
       case 'edit.paste':
         await this.clipboardActions?.paste();

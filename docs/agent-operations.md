@@ -687,7 +687,7 @@ Every automated action is reversible and traceable to an Issue or PR:
 - **Max concurrency:** `concurrency` groups key implementation to one run per Issue.
 - **Turn caps:** each agent invocation passes `--max-turns` to bound model work
   (prepare-spec 25, review 25, close-loop 15). Two caps are tunable without editing
-  YAML, via optional Actions **variables**: implementation defaults to `120`
+  YAML, via optional Actions **variables**: implementation defaults to `500`
   (`AGENT_MAX_TURNS`) and triage to `40` (`TRIAGE_MAX_TURNS`). Set them higher for
   larger features, lower to cap cost. An implementation run that exhausts its cap
   does **not** lose its work and does **not** land on `agent:blocked` — see

@@ -2,17 +2,19 @@
 /**
  * Renders a cell range to a PNG blob reproducing each cell's actual
  * on-screen appearance: the active color theme's default cell
- * background/text color, the current sheet font and zoom level, and any
- * per-cell bold/italic/underline, text/background color, and border a user
- * has applied (including conditional formatting). Used by both the "Copy as
- * Image" and "Copy Screenshot" menu commands
- * (`ClipboardController.copyImageAsPng` / `copyScreenshotAsPng`). Column
- * widths and row height mirror the grid's own on-screen sizing
+ * background/text color, the current sheet font and zoom level, whether
+ * cells are wrapping (`view.wrap`), and any per-cell bold/italic/underline,
+ * text/background color, and border a user has applied (including
+ * conditional formatting). Used by the "Copy Image" menu command
+ * (`ClipboardController.copyScreenshotAsPng`). Column widths and the base
+ * (single-line) row height mirror the grid's own on-screen sizing
  * (`onScreenGeometry`) rather than auto-fitting to content, so the captured
- * image matches what was visible; overflowing text is ellipsis-truncated the
- * same way the live grid clips it. Because this is a synthetic re-render
- * rather than a literal DOM/canvas capture, transient state like the
- * selection highlight is never reproduced.
+ * image matches what was visible; when wrapping is off, overflowing text is
+ * ellipsis-truncated the same way the live grid clips it; when it is on, a
+ * row grows exactly like `Grid.computeRowHeight` does, and the wrapped text
+ * itself is painted line by line (`core/text-wrap.ts`). Because this is a
+ * synthetic re-render rather than a literal DOM/canvas capture, transient
+ * state like the selection highlight is never reproduced.
  *
  * Border line style (solid/dashed/dotted/double) is not reproduced — every
  * border is painted solid at its configured color and width — since canvas
@@ -25,13 +27,24 @@ import { BORDER_WIDTH_PX, type BorderSideValue } from '../core/cell-style';
 import {
   layoutStyledRangeForImage,
   type CellVisualStyle,
+  type StyledImageLayout,
   type VisualDisplaySource,
 } from '../core/screenshot-layout';
+import { countVisualLines, rowHeightForLines, wrapVisualLines } from '../core/text-wrap';
 import type { EditorDocument, Tab } from './app-state';
 
-/** Kept in sync with `COL_WIDTH`/`ROW_HEIGHT` in `ui/grid.ts` (the default, unzoomed metrics). */
+/**
+ * Kept in sync with `COL_WIDTH`/`ROW_HEIGHT`/`WRAP_LINE_HEIGHT`/
+ * `WRAP_VERTICAL_PAD`/`MAX_WRAP_LINES` in `ui/grid.ts` (the default,
+ * unzoomed metrics — this module scales them by the same zoom ratio the grid
+ * uses, derived from the already-scaled `rowHeight` `onScreenGeometry`
+ * returns).
+ */
 const DEFAULT_COL_WIDTH = 132;
 const DEFAULT_ROW_HEIGHT = 26;
+const WRAP_LINE_HEIGHT = 18;
+const WRAP_VERTICAL_PAD = 8;
+const MAX_WRAP_LINES = 12;
 const CELL_PADDING_X = 8;
 const FALLBACK_FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", sans-serif';
 const FALLBACK_FONT_SIZE = '13px';
@@ -138,6 +151,25 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number):
   return lo === 0 ? '' : text.slice(0, lo) + ellipsis;
 }
 
+/** Underlines one already-painted line of text at `textY`, matching its measured width. */
+function underlineLine(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  color: string,
+  textX: number,
+  textY: number,
+  maxWidth: number,
+): void {
+  const textWidth = Math.min(ctx.measureText(text).width, maxWidth);
+  const underlineY = Math.round(textY + 6);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(textX, underlineY);
+  ctx.lineTo(textX + textWidth, underlineY);
+  ctx.stroke();
+}
+
 function paintCellText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -147,6 +179,7 @@ function paintCellText(
   y: number,
   w: number,
   h: number,
+  wrapLineHeight: number | null,
 ): void {
   if (text === '') {
     return;
@@ -159,18 +192,30 @@ function paintCellText(
   const color = style.textColor ?? appearance.textColor;
   ctx.fillStyle = color;
   const textX = x + CELL_PADDING_X;
-  const textY = y + h / 2 + 1;
-  const fitted = fitText(ctx, text, w - CELL_PADDING_X * 2);
-  ctx.fillText(fitted, textX, textY);
-  if (style.underline) {
-    const textWidth = Math.min(ctx.measureText(fitted).width, w - CELL_PADDING_X * 2);
-    const underlineY = Math.round(textY + h * 0.22);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(textX, underlineY);
-    ctx.lineTo(textX + textWidth, underlineY);
-    ctx.stroke();
+  const contentWidth = w - CELL_PADDING_X * 2;
+  if (wrapLineHeight === null) {
+    // Wrapping is off: single line, ellipsis-truncated exactly like the live
+    // grid clips an overflowing cell.
+    const textY = y + h / 2 + 1;
+    const fitted = fitText(ctx, text, contentWidth);
+    ctx.fillText(fitted, textX, textY);
+    if (style.underline) {
+      underlineLine(ctx, fitted, color, textX, textY, contentWidth);
+    }
+    ctx.restore();
+    return;
+  }
+  // Wrapping is on: paint every visual line the live grid's `white-space:
+  // pre-wrap` would render, top-aligned within the (already grown) row.
+  const measure = (t: string): number => ctx.measureText(t).width;
+  const lines = wrapVisualLines(text, measure, contentWidth, MAX_WRAP_LINES);
+  let lineY = y + WRAP_VERTICAL_PAD / 2 + wrapLineHeight / 2 + 1;
+  for (const line of lines) {
+    ctx.fillText(line, textX, lineY);
+    if (style.underline) {
+      underlineLine(ctx, line, color, textX, lineY, contentWidth);
+    }
+    lineY += wrapLineHeight;
   }
   ctx.restore();
 }
@@ -218,6 +263,53 @@ function paintCellBorders(
 }
 
 /**
+ * Per-row pixel heights for `layout`, growing exactly like
+ * `Grid.computeRowHeight` when `wrapCells` is on: the tallest of a row's
+ * cells' wrapped line counts (measured under each cell's own font, via
+ * `ctx`), capped at `MAX_WRAP_LINES`. Returns the uniform base height for
+ * every row when wrapping is off.
+ */
+function computeRowHeights(
+  ctx: CanvasRenderingContext2D,
+  layout: StyledImageLayout,
+  appearance: GridAppearance,
+  wrapCells: boolean,
+): number[] {
+  if (!wrapCells) {
+    return layout.matrix.map(() => layout.rowHeight);
+  }
+  const zoom = layout.rowHeight / DEFAULT_ROW_HEIGHT;
+  const lineHeight = Math.round(WRAP_LINE_HEIGHT * zoom);
+  const verticalChrome = Math.round(WRAP_VERTICAL_PAD * zoom);
+  return layout.matrix.map((row, r) => {
+    let maxLines = 1;
+    for (let c = 0; c < row.length; c++) {
+      ctx.font = cellFont(appearance, layout.styles[r][c]);
+      const contentWidth = layout.colWidths[c] - CELL_PADDING_X * 2;
+      const lines = countVisualLines(row[c], (t) => ctx.measureText(t).width, contentWidth, MAX_WRAP_LINES);
+      if (lines > maxLines) {
+        maxLines = lines;
+      }
+      if (maxLines >= MAX_WRAP_LINES) {
+        break;
+      }
+    }
+    return rowHeightForLines(maxLines, layout.rowHeight, lineHeight, verticalChrome);
+  });
+}
+
+/** Cumulative pixel offset of each entry in `sizes` (offsets[0] === 0). */
+function offsetsOf(sizes: number[]): number[] {
+  const offsets: number[] = [];
+  let acc = 0;
+  for (const size of sizes) {
+    offsets.push(acc);
+    acc += size;
+  }
+  return offsets;
+}
+
+/**
  * Returns null when the Canvas 2D context is unavailable, or the range has no
  * visible rows (every row hidden by an active filter).
  */
@@ -228,6 +320,7 @@ export async function renderStyledRangeToPng(
   hidden: ReadonlySet<number> | null,
   colWidths: number[],
   rowHeight: number,
+  wrapCells: boolean,
 ): Promise<Blob | null> {
   const layout = layoutStyledRangeForImage(source, range, hidden, colWidths, rowHeight);
   if (layout.matrix.length === 0) {
@@ -235,8 +328,19 @@ export async function renderStyledRangeToPng(
   }
   const appearance = sampleGridAppearance(doc);
 
+  // A throwaway canvas measures wrapped line counts before the real row
+  // heights (and therefore the painting canvas's final size) are known.
+  const measureCtx = doc.createElement('canvas').getContext('2d');
+  if (!measureCtx) {
+    return null;
+  }
+  const rowHeights = computeRowHeights(measureCtx, layout, appearance, wrapCells);
+  const wrapLineHeight = wrapCells
+    ? Math.round(WRAP_LINE_HEIGHT * (layout.rowHeight / DEFAULT_ROW_HEIGHT))
+    : null;
+
   const width = layout.colWidths.reduce((sum, w) => sum + w, 0);
-  const height = layout.matrix.length * layout.rowHeight;
+  const height = rowHeights.reduce((sum, h) => sum + h, 0);
   const scale = doc.defaultView?.devicePixelRatio ?? 1;
 
   const canvas = doc.createElement('canvas');
@@ -251,27 +355,21 @@ export async function renderStyledRangeToPng(
   ctx.fillRect(0, 0, width, height);
   ctx.textBaseline = 'middle';
 
-  const xOffsets: number[] = [];
-  let acc = 0;
-  for (const w of layout.colWidths) {
-    xOffsets.push(acc);
-    acc += w;
-  }
+  const xOffsets = offsetsOf(layout.colWidths);
+  const yOffsets = offsetsOf(rowHeights);
 
   // Three passes (background, text, borders) so a later cell's background
   // fill never overwrites an earlier cell's shared-edge border stroke.
   for (let r = 0; r < layout.matrix.length; r++) {
-    const y = r * layout.rowHeight;
     for (let c = 0; c < layout.colWidths.length; c++) {
       const bg = layout.styles[r][c].backgroundColor;
       if (bg) {
         ctx.fillStyle = bg;
-        ctx.fillRect(xOffsets[c], y, layout.colWidths[c], layout.rowHeight);
+        ctx.fillRect(xOffsets[c], yOffsets[r], layout.colWidths[c], rowHeights[r]);
       }
     }
   }
   for (let r = 0; r < layout.matrix.length; r++) {
-    const y = r * layout.rowHeight;
     for (let c = 0; c < layout.colWidths.length; c++) {
       paintCellText(
         ctx,
@@ -279,23 +377,23 @@ export async function renderStyledRangeToPng(
         layout.styles[r][c],
         appearance,
         xOffsets[c],
-        y,
+        yOffsets[r],
         layout.colWidths[c],
-        layout.rowHeight,
+        rowHeights[r],
+        wrapLineHeight,
       );
     }
   }
   for (let r = 0; r < layout.matrix.length; r++) {
-    const y = r * layout.rowHeight;
     for (let c = 0; c < layout.colWidths.length; c++) {
       paintCellBorders(
         ctx,
         layout.styles[r][c],
         appearance.gridLine,
         xOffsets[c],
-        y,
+        yOffsets[r],
         layout.colWidths[c],
-        layout.rowHeight,
+        rowHeights[r],
       );
     }
   }

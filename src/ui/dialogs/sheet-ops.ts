@@ -26,8 +26,7 @@ import {
 import { MAX_SHEET_NAME_LENGTH } from '../../core/formula';
 import { MAX_SHEET_SORT_KEYS, type SortKey } from '../../core/sort';
 import { el } from '../dom';
-import type { AnchorRect } from '../popup';
-import { dialogButton, openDialog, openPopover, submitOnEnter } from './shared';
+import { dialogButton, openDialog, openSidePanel, submitOnEnter } from './shared';
 
 /**
  * Sheet/range/filter dialogs: the column-filter popover, insert-shift
@@ -50,12 +49,7 @@ export class SheetOpsDialogs {
    * or null (cancel).
    */
   chooseFilter(input: FilterDialogInput): Promise<FilterDialogResult | null> {
-    const getAnchor = (): AnchorRect | null => {
-      const header = document.querySelector<HTMLElement>(`[data-colhead="${input.col}"]`);
-      return header ? header.getBoundingClientRect() : null;
-    };
-    return openPopover<FilterDialogResult | null>(
-      getAnchor,
+    return openSidePanel<FilterDialogResult | null>(
       t('dialog.filter.title'),
       null,
       (body, buttons, close) => {
@@ -388,7 +382,7 @@ export class SheetOpsDialogs {
    * Resolves with the chosen action or null (cancel).
    */
   chooseSort(input: SortDialogInput): Promise<SortDialogResult | null> {
-    return openDialog<SortDialogResult | null>(t('dialog.sort.title'), null, (body, buttons, close) => {
+    return openSidePanel<SortDialogResult | null>(t('dialog.sort.title'), null, (body, buttons, close) => {
       body.append(el('p', { text: t('dialog.sort.range', { range: input.rangeLabel }) }));
 
       const headerCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
@@ -513,7 +507,7 @@ export class SheetOpsDialogs {
    * cancelled (nothing changes).
    */
   chooseDataValidation(input: DataValidationDialogInput): Promise<DataValidationDialogResult | null> {
-    return openDialog<DataValidationDialogResult | null>(
+    return openSidePanel<DataValidationDialogResult | null>(
       t('dialog.dataValidation.title'),
       null,
       (body, buttons, close) => {

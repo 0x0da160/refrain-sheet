@@ -41,12 +41,13 @@ describe('Enter submits single-line dialog inputs', () => {
   afterEach(() => {
     setLocale(locale);
     document.querySelectorAll('dialog').forEach((d) => d.remove());
+    document.querySelectorAll('.side-panel').forEach((d) => d.remove());
   });
 
   it('submits the Number Format dialog from the decimals input', async () => {
     const promise = new Dialogs().chooseNumberFormat(null);
-    const dialog = document.querySelector('dialog')!;
-    const decimals = dialog.querySelector<HTMLInputElement>('#format-number-decimals')!;
+    const panel = document.querySelector('.side-panel')!;
+    const decimals = panel.querySelector<HTMLInputElement>('#format-number-decimals')!;
     decimals.value = '3';
     decimals.dispatchEvent(new Event('input', { bubbles: true }));
 
@@ -54,16 +55,16 @@ describe('Enter submits single-line dialog inputs', () => {
 
     const result = await promise;
     expect(result).toMatchObject({ action: 'apply', format: { kind: 'number', decimals: 3 } });
-    expect(document.querySelector('dialog')).toBeNull();
+    expect(document.querySelector('.side-panel')).toBeNull();
   });
 
   it('submits the Number Format dialog from the currency symbol input', async () => {
     const promise = new Dialogs().chooseNumberFormat(null);
-    const dialog = document.querySelector('dialog')!;
-    const kind = dialog.querySelector<HTMLSelectElement>('#format-number-kind')!;
+    const panel = document.querySelector('.side-panel')!;
+    const kind = panel.querySelector<HTMLSelectElement>('#format-number-kind')!;
     kind.value = 'currency';
     kind.dispatchEvent(new Event('change', { bubbles: true }));
-    const symbol = dialog.querySelector<HTMLInputElement>('#format-number-symbol')!;
+    const symbol = panel.querySelector<HTMLInputElement>('#format-number-symbol')!;
     symbol.value = '€';
     symbol.dispatchEvent(new Event('input', { bubbles: true }));
 
@@ -75,8 +76,8 @@ describe('Enter submits single-line dialog inputs', () => {
 
   it('submits the Conditional Format dialog from the value input', async () => {
     const promise = new Dialogs().chooseConditionalFormat({ rangeLabel: 'A1:A10', existing: null });
-    const dialog = document.querySelector('dialog')!;
-    const value1 = dialog.querySelector<HTMLInputElement>('#cf-value1')!;
+    const panel = document.querySelector('.side-panel')!;
+    const value1 = panel.querySelector<HTMLInputElement>('#cf-value1')!;
     value1.value = '10';
     value1.dispatchEvent(new Event('input', { bubbles: true }));
 
@@ -91,23 +92,23 @@ describe('Enter submits single-line dialog inputs', () => {
 
   it('does not submit the Conditional Format dialog on Enter while incomplete', async () => {
     const promise = new Dialogs().chooseConditionalFormat({ rangeLabel: 'A1:A10', existing: null });
-    const dialog = document.querySelector('dialog')!;
-    const value1 = dialog.querySelector<HTMLInputElement>('#cf-value1')!;
+    const panel = document.querySelector('.side-panel')!;
+    const value1 = panel.querySelector<HTMLInputElement>('#cf-value1')!;
     value1.value = 'not-a-number';
     value1.dispatchEvent(new Event('input', { bubbles: true }));
 
     enter(value1);
-    expect(document.querySelector('dialog')).not.toBeNull();
+    expect(document.querySelector('.side-panel')).not.toBeNull();
 
-    dialog.querySelector<HTMLButtonElement>('.dialog-buttons button')!.click();
+    panel.querySelector<HTMLButtonElement>('.dialog-buttons button')!.click();
     await promise;
   });
 
   it('keeps Apply disabled for a blank or whitespace-only numeric value (issue #339)', async () => {
     const promise = new Dialogs().chooseConditionalFormat({ rangeLabel: 'A1:A10', existing: null });
-    const dialog = document.querySelector('dialog')!;
-    const value1 = dialog.querySelector<HTMLInputElement>('#cf-value1')!;
-    const applyBtn = dialog.querySelector<HTMLButtonElement>('.dialog-buttons button.primary')!;
+    const panel = document.querySelector('.side-panel')!;
+    const value1 = panel.querySelector<HTMLInputElement>('#cf-value1')!;
+    const applyBtn = panel.querySelector<HTMLButtonElement>('.dialog-buttons button.primary')!;
 
     // Freshly opened with the default "greater than" operator and a blank value.
     expect(applyBtn.disabled).toBe(true);
@@ -130,11 +131,11 @@ describe('Enter submits single-line dialog inputs', () => {
 
   it('keeps Apply disabled for a "between" rule with a blank second value', async () => {
     const promise = new Dialogs().chooseConditionalFormat({ rangeLabel: 'A1:A10', existing: null });
-    const dialog = document.querySelector('dialog')!;
-    const operator = dialog.querySelector<HTMLSelectElement>('#cf-operator')!;
-    const value1 = dialog.querySelector<HTMLInputElement>('#cf-value1')!;
-    const value2 = dialog.querySelector<HTMLInputElement>('#cf-value2')!;
-    const applyBtn = dialog.querySelector<HTMLButtonElement>('.dialog-buttons button.primary')!;
+    const panel = document.querySelector('.side-panel')!;
+    const operator = panel.querySelector<HTMLSelectElement>('#cf-operator')!;
+    const value1 = panel.querySelector<HTMLInputElement>('#cf-value1')!;
+    const value2 = panel.querySelector<HTMLInputElement>('#cf-value2')!;
+    const applyBtn = panel.querySelector<HTMLButtonElement>('.dialog-buttons button.primary')!;
 
     operator.value = 'between';
     operator.dispatchEvent(new Event('change', { bubbles: true }));

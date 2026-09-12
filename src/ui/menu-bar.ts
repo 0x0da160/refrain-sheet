@@ -1,5 +1,72 @@
 // SPDX-License-Identifier: MIT
-import { Check, Menu } from 'lucide';
+import {
+  ArrowDown,
+  ArrowDownAZ,
+  ArrowDownToLine,
+  ArrowLeft,
+  ArrowLeftRight,
+  ArrowRight,
+  ArrowUp,
+  ArrowUpDown,
+  Check,
+  CheckSquare,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Clock,
+  ClipboardList,
+  ClipboardPaste,
+  Columns,
+  Contrast,
+  Copy,
+  CopyPlus,
+  Database,
+  Eraser,
+  FileCode,
+  FilePlus,
+  FileSpreadsheet,
+  FileText,
+  Filter,
+  FilterX,
+  FolderOpen,
+  FunctionSquare,
+  Globe,
+  GitCompare,
+  Hash,
+  History,
+  Image,
+  Info,
+  Keyboard,
+  Layers,
+  ListFilter,
+  Locate,
+  Menu,
+  MessageSquare,
+  Move,
+  PaintBucket,
+  Palette,
+  Pencil,
+  Plus,
+  Redo2,
+  RefreshCw,
+  Replace,
+  RotateCcw,
+  Ruler,
+  Save,
+  Search,
+  Settings,
+  Sparkles,
+  Table,
+  TextSelect,
+  Trash2,
+  Type as TypeIcon,
+  type IconNode,
+  Undo2,
+  Wand2,
+  X,
+  ZoomIn,
+} from 'lucide';
 import type { CommandId, Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { SHEET_ZOOM_LEVELS } from '../app/settings';
@@ -19,6 +86,12 @@ export interface MenuItemDef {
   /** Render as a non-interactive group heading instead of a command item. */
   heading?: boolean;
   /**
+   * A decorative leading icon (see `ICON_BY_COMMAND` for plain command
+   * items — this is only needed to give a *submenu-parent* entry an icon,
+   * since those have no `command` to key off of).
+   */
+  icon?: IconNode;
+  /**
    * Nested items. An entry with a submenu opens a second list beside itself
    * instead of running a command, keeping a long menu (View) short enough to
    * fit any viewport. The nested items are ordinary definitions dispatching
@@ -26,6 +99,85 @@ export interface MenuItemDef {
    */
   submenu?: Array<MenuItemDef | 'separator'>;
 }
+
+/**
+ * Leading icons for plain (non-checkable) command items, filling the same
+ * reserved left-hand column the checkmark uses for toggle/radio items (#393)
+ * — the two are mutually exclusive per item, so no extra width is added.
+ * Checkable items (Bold/Italic/Underline, wrap, zoom levels, theme, etc.)
+ * intentionally have no entry here: their checkmark already communicates
+ * state in that same slot. Not every command has an obvious icon; those are
+ * simply omitted; the slot stays empty, exactly as it was before.
+ */
+const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
+  'file.new': FilePlus,
+  'file.open': FolderOpen,
+  'file.reopen': RotateCcw,
+  'sheet.convert': FileCode,
+  'file.save': Save,
+  'file.saveOptions': Settings,
+  'sheet.exportCsv': FileText,
+  'sheet.exportXlsx': FileSpreadsheet,
+  'app.settings': Settings,
+  'file.closeTab': X,
+  'edit.undo': Undo2,
+  'edit.redo': Redo2,
+  'edit.copy': Copy,
+  'edit.copyScreenshot': Image,
+  'edit.copyAsMarkdown': FileCode,
+  'edit.paste': ClipboardPaste,
+  'edit.selectAll': TextSelect,
+  'edit.insertCopiedCells': ClipboardList,
+  'edit.insertCopiedRows': Table,
+  'edit.insertCopiedCols': Columns,
+  'edit.fillDown': ArrowDownToLine,
+  'edit.flashFill': Wand2,
+  'edit.moveRange': Move,
+  'edit.revertCell': RotateCcw,
+  'edit.revertAll': History,
+  'search.find': Search,
+  'search.replace': Replace,
+  'search.findNext': ChevronRight,
+  'search.findPrev': ChevronLeft,
+  'search.goToCell': Locate,
+  'sheet.recalculate': RefreshCw,
+  'sheet.timezone': Clock,
+  'sheet.displayLanguage': Globe,
+  'worksheet.add': Plus,
+  'worksheet.rename': Pencil,
+  'worksheet.duplicate': CopyPlus,
+  'worksheet.delete': Trash2,
+  'worksheet.next': ChevronRight,
+  'worksheet.prev': ChevronLeft,
+  'worksheet.moveFirst': ChevronsLeft,
+  'worksheet.moveLeft': ArrowLeft,
+  'worksheet.moveRight': ArrowRight,
+  'worksheet.moveLast': ChevronsRight,
+  'sheet.insertRowAbove': ArrowUp,
+  'sheet.insertRowBelow': ArrowDown,
+  'sheet.deleteRows': Trash2,
+  'sheet.insertColLeft': ArrowLeft,
+  'sheet.insertColRight': ArrowRight,
+  'sheet.deleteCols': Trash2,
+  'sheet.autoFitCols': Ruler,
+  'sheet.filter': Filter,
+  'sheet.filterClear': FilterX,
+  'sheet.sort': ArrowDownAZ,
+  'sheet.sortClear': ArrowUpDown,
+  'format.textColor': Palette,
+  'format.backgroundColor': PaintBucket,
+  'format.borders': Table,
+  'format.numberFormat': Hash,
+  'format.conditionalFormatting': Sparkles,
+  'format.clear': Eraser,
+  'data.runSqlQuery': Database,
+  'data.compareDiff': GitCompare,
+  'data.validation': CheckSquare,
+  'data.comment': MessageSquare,
+  'help.formula': FunctionSquare,
+  'help.shortcuts': Keyboard,
+  'help.about': Info,
+};
 
 export interface MenuDef {
   labelKey: string;
@@ -76,7 +228,6 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.edit.redo', command: 'edit.redo', shortcut: 'Ctrl+Y' },
         'separator',
         { labelKey: 'menu.edit.copy', command: 'edit.copy', shortcut: 'Ctrl+C' },
-        { labelKey: 'menu.edit.copyAsImage', command: 'edit.copyAsImage' },
         { labelKey: 'menu.edit.copyScreenshot', command: 'edit.copyScreenshot' },
         { labelKey: 'menu.edit.copyAsMarkdown', command: 'edit.copyAsMarkdown' },
         { labelKey: 'menu.edit.paste', command: 'edit.paste', shortcut: 'Ctrl+V' },
@@ -90,6 +241,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // matching the View > Spreadsheet Zoom precedent below.
         {
           labelKey: 'menu.edit.insertCopied',
+          icon: ClipboardList,
           submenu: [
             { labelKey: 'menu.edit.insertCopiedCells', command: 'edit.insertCopiedCells' },
             { labelKey: 'menu.edit.insertCopiedRows', command: 'edit.insertCopiedRows' },
@@ -134,18 +286,15 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // over time. Each related family now lives in its own submenu (same
         // pattern as View > Spreadsheet Zoom below), so the top-level menu
         // stays scannable.
-        { labelKey: 'menu.sheet.worksheet', submenu: worksheetItems() },
-        { labelKey: 'menu.sheet.rowsAndColumns', submenu: rowsAndColumnsItems() },
-        { labelKey: 'menu.sheet.filterSort', submenu: filterSortItems() },
+        { labelKey: 'menu.sheet.worksheet', icon: Layers, submenu: worksheetItems() },
+        { labelKey: 'menu.sheet.rowsAndColumns', icon: Table, submenu: rowsAndColumnsItems() },
+        { labelKey: 'menu.sheet.filterSort', icon: ListFilter, submenu: filterSortItems() },
         'separator',
         // The only way a volatile formula (TODAY, NOW) updates without an
         // edit: there is deliberately no background recalculation timer.
         { labelKey: 'menu.sheet.recalculate', command: 'sheet.recalculate' },
         { labelKey: 'menu.sheet.timezone', command: 'sheet.timezone' },
         { labelKey: 'menu.sheet.displayLanguage', command: 'sheet.displayLanguage' },
-        'separator',
-        { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
-        { labelKey: 'menu.sheet.exportXlsx', command: 'sheet.exportXlsx' },
       ],
     },
     {
@@ -221,14 +370,14 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // menu to one line per family instead of growing with every added
         // choice. They dispatch the identical shared commands as the
         // shortcuts and Ctrl/Cmd + wheel.
-        { labelKey: 'menu.view.zoom', submenu: zoomItems(checks) },
-        { labelKey: 'menu.view.sheetFont', submenu: sheetFontItems(checks) },
-        { labelKey: 'menu.view.theme', submenu: themeItems(checks) },
+        { labelKey: 'menu.view.zoom', icon: ZoomIn, submenu: zoomItems(checks) },
+        { labelKey: 'menu.view.sheetFont', icon: TypeIcon, submenu: sheetFontItems(checks) },
+        { labelKey: 'menu.view.theme', icon: Contrast, submenu: themeItems(checks) },
         'separator',
         // Tab movement stays menu/context-menu driven: every remaining
         // Ctrl/Alt+arrow-style accelerator conflicts with browser or OS tab
         // and history shortcuts, so no shortcut is assigned by design.
-        { labelKey: 'menu.view.moveTab', submenu: moveTabItems() },
+        { labelKey: 'menu.view.moveTab', icon: ArrowLeftRight, submenu: moveTabItems() },
         'separator',
         // Language lives under View (no top-level Language menu). Switching
         // is immediate, persisted locally, and initialized from the browser
@@ -566,6 +715,10 @@ export class MenuBar {
       }
       const command = item.command;
       const checked = item.checked ? item.checked() : null;
+      // A checkable item's checkmark and a plain item's decorative icon
+      // share the same reserved left-hand column — never both at once — so
+      // adding icons never widens the menu (#393).
+      const icon = checked === null ? (item.icon ?? ICON_BY_COMMAND[command]) : undefined;
       const button = el(
         'button',
         {
@@ -580,7 +733,7 @@ export class MenuBar {
           el(
             'span',
             { className: 'check', attrs: { 'aria-hidden': 'true' } },
-            checked ? [createIcon(Check, 'check-icon', 14)] : [],
+            checked ? [createIcon(Check, 'check-icon', 14)] : icon ? [createIcon(icon, 'item-icon', 14)] : [],
           ),
           el('span', { className: 'label', text: label }),
           el('span', { className: 'shortcut', text: item.shortcut ?? '' }),
@@ -633,7 +786,11 @@ export class MenuBar {
         },
       },
       [
-        el('span', { className: 'check', text: '', attrs: { 'aria-hidden': 'true' } }),
+        el(
+          'span',
+          { className: 'check', attrs: { 'aria-hidden': 'true' } },
+          item.icon ? [createIcon(item.icon, 'item-icon', 14)] : [],
+        ),
         el('span', { className: 'label', text: label }),
         el('span', { className: 'submenu-arrow', attrs: { 'aria-hidden': 'true' } }),
       ],

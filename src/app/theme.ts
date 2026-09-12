@@ -26,8 +26,8 @@ export type ThemeChoice = 'system' | 'light' | 'dark' | 'hybrid';
 /** All choices, in menu order. */
 export const THEMES: readonly ThemeChoice[] = ['system', 'light', 'dark', 'hybrid'];
 
-/** New users follow the operating-system / browser preference. */
-export const DEFAULT_THEME: ThemeChoice = 'system';
+/** New users get the hybrid theme: UI chrome follows the OS/browser preference, grid stays light (#393). */
+export const DEFAULT_THEME: ThemeChoice = 'hybrid';
 
 const STORAGE_KEY = 'refrain-csv-html.theme';
 

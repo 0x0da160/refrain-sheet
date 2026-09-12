@@ -65,9 +65,29 @@ release-time half (retitling `Unreleased`) is still done by hand.
   by dragging its inner edge — mirroring the existing Comments panel, and
   keeping the sheet visible and usable behind it while open.
   ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
+- **File > New CSV** (also on the welcome screen) creates a blank CSV
+  document, alongside the existing **File > New** (blank RSF spreadsheet).
+  ([#396](https://github.com/0x0da160/refrain-sheet/issues/396))
+- The right-click context menu on the grid is now grouped into submenus by
+  feature — **Edit** (screenshot/Markdown copy, insert copied cells/rows/
+  columns, Flash Fill, Move Selected Cells, Revert Cell) and **Rows &
+  Columns** — the same treatment already applied to the top menu bar, instead
+  of one long flat list. Copy, Paste, and Select All stay at the top level as
+  the most common actions.
+  ([#396](https://github.com/0x0da160/refrain-sheet/issues/396))
+- Three more spreadsheet font choices — **Noto Sans JP**, **Meiryo UI**, and
+  **Yu Gothic UI** — join the existing BIZ UD Gothic/MS Gothic/MS UI Gothic
+  under View > Spreadsheet Font.
+  ([#396](https://github.com/0x0da160/refrain-sheet/issues/396))
 
 ### Changed
 
+- The Filter/Sort/Data Validation/Format side panel no longer closes when you
+  click outside it — a stray click on the sheet while adjusting its settings
+  no longer silently discards them — and it now reserves its own space along
+  the docked edge (a genuine split view) instead of floating over the sheet.
+  Escape, window blur, and its own Cancel button still close it.
+  ([#396](https://github.com/0x0da160/refrain-sheet/issues/396))
 - The default color theme for new users is now **Hybrid** (the UI chrome
   follows the OS/browser preference, while the spreadsheet grid stays light)
   instead of System. ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))

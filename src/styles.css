@@ -31,11 +31,17 @@
   --font-ui: 'Yu Gothic UI', 'Yu Gothic', 'Meiryo UI', sans-serif;
 
   /* Selectable spreadsheet fonts (View > Spreadsheet Font). All are local
-     Windows/Office fonts with a monospace fallback chain; nothing is fetched
-     from a CDN or bundled. */
+     Windows/Office fonts; nothing is fetched from a CDN or bundled. The
+     original three are monospace CJK fonts with a matching monospace
+     fallback chain. Noto Sans JP / Meiryo UI / Yu Gothic UI (#396) are
+     proportional UI fonts, so they fall back through their own family and a
+     generic sans-serif instead, matching --font-ui's chain above. */
   --sheet-font-biz-ud: 'BIZ UDゴシック', 'BIZ UDGothic', 'ＭＳ ゴシック', 'MS Gothic', monospace;
   --sheet-font-ms: 'ＭＳ ゴシック', 'MS Gothic', monospace;
   --sheet-font-ms-ui: 'MS UI Gothic', 'ＭＳ ゴシック', 'MS Gothic', monospace;
+  --sheet-font-noto-sans-jp: 'Noto Sans JP', sans-serif;
+  --sheet-font-meiryo-ui: 'Meiryo UI', 'Meiryo', sans-serif;
+  --sheet-font-yu-gothic-ui: 'Yu Gothic UI', 'Yu Gothic', sans-serif;
 
   /* Spreadsheet: cells, column headers, numbers, formulas, editing controls.
      The active choice is applied by overriding this on the document root
@@ -1485,12 +1491,15 @@ button {
    borders are per-cell inline styles instead (see `Grid.paintCellStyle`), so
    any `#rrggbb` value works without a matching rule here.
 
-   The selectable sheet fonts (`--font-sheet`) all fall back to MS Gothic /
-   BIZ UDGothic on systems missing the primary family; those Gothic fallbacks
-   have no true bold glyphs, so browsers synthesize ("faux") bold that reads
-   almost the same weight as regular text (#389). A thin text-stroke widens
-   every glyph outline a little, which reinforces the synthesized weight
-   without depending on which font actually resolved. */
+   The original three selectable sheet fonts (`--font-sheet`) fall back to MS
+   Gothic / BIZ UDGothic on systems missing the primary family; those Gothic
+   fallbacks have no true bold glyphs, so browsers synthesize ("faux") bold
+   that reads almost the same weight as regular text (#389). A thin
+   text-stroke widens every glyph outline a little, which reinforces the
+   synthesized weight without depending on which font actually resolved —
+   harmless on the proportional fonts added in #396 (Noto Sans JP / Meiryo UI
+   / Yu Gothic UI), which do have true bold glyphs, since it only adds a
+   little extra weight on top of an already-bold face. */
 .vcell.cell-bold {
   font-weight: 700;
   -webkit-text-stroke: 0.4px currentColor;

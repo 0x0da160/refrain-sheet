@@ -25,6 +25,7 @@ import {
   Eraser,
   FileCode,
   FilePlus,
+  FilePlus2,
   FileSpreadsheet,
   FileText,
   Filter,
@@ -111,6 +112,7 @@ export interface MenuItemDef {
  */
 const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'file.new': FilePlus,
+  'file.newCsv': FilePlus2,
   'file.open': FolderOpen,
   'file.reopen': RotateCcw,
   'sheet.convert': FileCode,
@@ -206,6 +208,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
       labelKey: 'menu.file',
       items: [
         { labelKey: 'menu.file.new', command: 'file.new', shortcut: 'F4' },
+        { labelKey: 'menu.file.newCsv', command: 'file.newCsv' },
         { labelKey: 'menu.file.open', command: 'file.open', shortcut: 'Ctrl+O' },
         { labelKey: 'menu.file.reopen', command: 'file.reopen' },
         'separator',
@@ -427,6 +430,9 @@ function sheetFontItems(checks: MenuChecks): MenuItemDef[] {
     'biz-ud': 'view.sheetFont.bizUd',
     ms: 'view.sheetFont.ms',
     'ms-ui': 'view.sheetFont.msUi',
+    'noto-sans-jp': 'view.sheetFont.notoSansJp',
+    'meiryo-ui': 'view.sheetFont.meiryoUi',
+    'yu-gothic-ui': 'view.sheetFont.yuGothicUi',
   };
   return SHEET_FONTS.map((id) => ({
     labelKey: sheetFontLabelKey(id),

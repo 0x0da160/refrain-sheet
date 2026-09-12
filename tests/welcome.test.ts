@@ -81,9 +81,10 @@ describe('welcome screen (initial screen)', () => {
     const { welcome } = setup();
     expect(welcome.element.hidden).toBe(false);
     const buttons = welcome.element.querySelectorAll<HTMLButtonElement>('.welcome-action');
-    expect(buttons).toHaveLength(2);
+    expect(buttons).toHaveLength(3);
     expect(buttons[0].textContent).toBe(t('welcome.open'));
     expect(buttons[1].textContent).toBe(t('welcome.new'));
+    expect(buttons[2].textContent).toBe(t('welcome.newCsv'));
     expect(welcome.element.querySelector('.welcome-drop')!.textContent).toBe(t('welcome.drop'));
     expect(welcome.element.querySelector('.welcome-note')!.textContent).toBe(t('welcome.offline'));
   });
@@ -93,6 +94,19 @@ describe('welcome screen (initial screen)', () => {
     welcome.element.querySelectorAll<HTMLButtonElement>('.welcome-action')[1].click();
     expect(state.tabs).toHaveLength(1);
     expect(state.tabs[0].doc.kind).toBe('rsf');
+    expect(welcome.element.hidden).toBe(true);
+  });
+
+  it('the New CSV entry point creates a blank, editable CSV document and hides the screen (#396)', () => {
+    const { state, welcome } = setup();
+    welcome.element.querySelectorAll<HTMLButtonElement>('.welcome-action')[2].click();
+    expect(state.tabs).toHaveLength(1);
+    const tab = state.tabs[0];
+    expect(tab.doc.kind).toBe('csv');
+    expect(tab.name.endsWith('.csv')).toBe(true);
+    // A single blank row/column, not zero rows — otherwise the grid has no
+    // selectable cell to start typing into (see Grid.refresh's empty state).
+    expect(tab.doc.rowCount).toBe(1);
     expect(welcome.element.hidden).toBe(true);
   });
 

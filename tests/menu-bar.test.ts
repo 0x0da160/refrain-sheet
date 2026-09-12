@@ -85,7 +85,8 @@ function buildBar(): MenuBar {
 describe('menu-bar dropdown keyboard navigation', () => {
   it('skips disabled items when cycling with ArrowDown, like context-menu.ts', () => {
     // With no document open, several File-menu commands (e.g. Reopen,
-    // Save) are disabled — only New, Open, and Settings stay enabled.
+    // Save) are disabled — only New, New CSV, Open, and Settings stay
+    // enabled.
     const bar = buildBar();
     const fileButton = Array.from(
       bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
@@ -98,7 +99,13 @@ describe('menu-bar dropdown keyboard navigation', () => {
     expect(newItem.disabled).toBe(false);
     newItem.focus();
 
+    // New CSV sits directly after New, both enabled, so this single step
+    // lands there without skipping anything.
     newItem.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(document.activeElement?.textContent).toContain(t('menu.file.newCsv'));
+    expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
+
+    document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
     // The very next command in menu order (Reopen) is disabled; navigation
     // must land on the next *enabled* item (Open) instead of stopping on it.
     expect(document.activeElement?.textContent).toContain(t('menu.file.open'));

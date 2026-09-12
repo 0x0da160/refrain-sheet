@@ -15,18 +15,27 @@
  * there is no conflict to resolve. (Choosing a font never touches document
  * bytes and never converts a CSV to RSF — it is pure display state.)
  *
- * The three families are all local Windows/Office fonts declared in
- * `styles.css` with a monospace fallback chain. Nothing is fetched from a CDN
- * or bundled, and an unavailable preferred font degrades gracefully to its
- * declared fallbacks.
+ * All six families are local Windows/Office fonts declared in `styles.css`
+ * (the original three — BIZ UD Gothic, MS Gothic, MS UI Gothic — with a
+ * monospace fallback chain; Noto Sans JP, Meiryo UI, and Yu Gothic UI, added
+ * in #396, with a proportional sans-serif fallback chain matching their own
+ * metrics). Nothing is fetched from a CDN or bundled, and an unavailable
+ * preferred font degrades gracefully to its declared fallbacks.
  */
 
-export type SheetFontId = 'biz-ud' | 'ms' | 'ms-ui';
+export type SheetFontId = 'biz-ud' | 'ms' | 'ms-ui' | 'noto-sans-jp' | 'meiryo-ui' | 'yu-gothic-ui';
 
 /** All selectable fonts, in menu order. */
-export const SHEET_FONTS: readonly SheetFontId[] = ['biz-ud', 'ms', 'ms-ui'];
+export const SHEET_FONTS: readonly SheetFontId[] = [
+  'biz-ud',
+  'ms',
+  'ms-ui',
+  'noto-sans-jp',
+  'meiryo-ui',
+  'yu-gothic-ui',
+];
 
-/** BIZ UD Gothic is the default (best CJK legibility of the three). */
+/** BIZ UD Gothic is the default (best CJK legibility of the three original choices). */
 export const DEFAULT_SHEET_FONT: SheetFontId = 'biz-ud';
 
 /** The CSS custom property overridden on the document root. */
@@ -37,6 +46,9 @@ const CSS_VALUE: Record<SheetFontId, string> = {
   'biz-ud': 'var(--sheet-font-biz-ud)',
   ms: 'var(--sheet-font-ms)',
   'ms-ui': 'var(--sheet-font-ms-ui)',
+  'noto-sans-jp': 'var(--sheet-font-noto-sans-jp)',
+  'meiryo-ui': 'var(--sheet-font-meiryo-ui)',
+  'yu-gothic-ui': 'var(--sheet-font-yu-gothic-ui)',
 };
 
 /** The i18n label key for a font id (localized in en/ja catalogs). */

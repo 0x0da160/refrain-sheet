@@ -318,6 +318,39 @@ function applySidePanelPosition(panel: HTMLElement, position: SidePanelPosition,
     panel.style.width = '';
     panel.style.height = `${size}px`;
   }
+  reserveAppEdge(position, size);
+}
+
+/**
+ * Reserves `size` pixels along `position`'s edge of the app shell (`#app`,
+ * a `box-sizing: border-box` flex column filling the viewport — see
+ * `styles.css`) so the docked side panel shares the screen with the sheet as
+ * a genuine split view instead of floating over it and hiding whatever is
+ * underneath (#396). Cleared by `clearAppEdgeReservation` when the panel
+ * closes. A no-op outside a full app shell (e.g. a unit test that never
+ * mounts `#app`).
+ */
+function reserveAppEdge(position: SidePanelPosition, size: number): void {
+  const app = document.getElementById('app');
+  if (!app) {
+    return;
+  }
+  app.style.paddingLeft = position === 'left' ? `${size}px` : '';
+  app.style.paddingRight = position === 'right' ? `${size}px` : '';
+  app.style.paddingTop = position === 'top' ? `${size}px` : '';
+  app.style.paddingBottom = position === 'bottom' ? `${size}px` : '';
+}
+
+/** Releases the space `reserveAppEdge` reserved, once the panel closes. */
+function clearAppEdgeReservation(): void {
+  const app = document.getElementById('app');
+  if (!app) {
+    return;
+  }
+  app.style.paddingLeft = '';
+  app.style.paddingRight = '';
+  app.style.paddingTop = '';
+  app.style.paddingBottom = '';
 }
 
 /**
@@ -327,11 +360,14 @@ function applySidePanelPosition(panel: HTMLElement, position: SidePanelPosition,
  * (top/right/bottom/left, switchable from the header) instead of floating —
  * the same idea as the comments panel (`ui/comments-panel.ts`), generalized
  * to every filter/sort/format/data dialog and made resizable by dragging its
- * inner edge (see `makeEdgeResizable`, `src/ui/drag-resize.ts`). The sheet
- * stays visible and usable beside/below it, like `openPopover`. Dismissal
- * mirrors `openPopover`: Escape, an outside pointer interaction, and window
- * blur all close it (resolving `fallback`), and focus returns to whatever
- * triggered it.
+ * inner edge (see `makeEdgeResizable`, `src/ui/drag-resize.ts`). It reserves
+ * its own space along the docked edge (`reserveAppEdge`) so the sheet is
+ * never covered — a genuine split view, not an overlay (#396). Unlike
+ * `openPopover`, an outside pointer interaction never dismisses it — a
+ * stray click on the sheet while adjusting filter/sort/format/validation
+ * settings must not silently discard them (#396); only Escape, its own
+ * Cancel button, or window blur close it (resolving `fallback`), and focus
+ * returns to whatever triggered it.
  */
 export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilder<T>): Promise<T> {
   return new Promise((resolve) => {
@@ -426,6 +462,7 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
         off();
       }
       panel.remove();
+      clearAppEdgeReservation();
       if (restoreFocus && restoreFocus.isConnected) {
         restoreFocus.focus();
       }
@@ -443,13 +480,6 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
     document.body.append(panel);
     panel.querySelector<HTMLElement>('[data-autofocus]')?.focus();
 
-    const onPointerDown = (event: Event): void => {
-      const target = event.target as Node | null;
-      if (target && panel.contains(target)) {
-        return;
-      }
-      finish(fallback);
-    };
     const onKeyDown = (evt: Event): void => {
       const event = evt as KeyboardEvent;
       if (event.key === 'Escape') {
@@ -474,8 +504,6 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
         first.focus();
       }
     };
-    on(document, 'mousedown', onPointerDown, true);
-    on(document, 'touchstart', onPointerDown, true);
     on(panel, 'keydown', onKeyDown);
     on(window, 'blur', () => finish(fallback));
   });

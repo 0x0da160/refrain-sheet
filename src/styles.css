@@ -1418,6 +1418,10 @@ button {
   text-decoration: none;
 }
 
+.status-bar .status-version {
+  margin-left: auto;
+}
+
 /* ---------- Dialogs ---------- */
 
 dialog {

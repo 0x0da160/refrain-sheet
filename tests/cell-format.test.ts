@@ -375,8 +375,8 @@ describe('RSF codec: border line style and width (body version 10)', () => {
     if (decoded.ok) expect(decoded.data.styles).toEqual(implicit.styles);
   });
 
-  it('RSF_BODY_VERSION is 10, so a version-9 file (no border style/width bytes) still decodes unchanged', () => {
-    expect(RSF_BODY_VERSION).toBe(10);
+  it('RSF_BODY_VERSION is at least 10, so a version-9 file (no border style/width bytes) still decodes unchanged', () => {
+    expect(RSF_BODY_VERSION).toBeGreaterThanOrEqual(10);
     // A color-only border never triggers the version-10 upgrade (see the
     // identical-bytes assertion above), so every pre-existing version-9 .rsf
     // file — which by definition carries no line-style/width byte — decodes

@@ -493,7 +493,7 @@ export class AppState {
   /** Push and apply a prebuilt multi-op entry atomically. */
   pushEntry(tab: Tab, entry: HistoryEntry): boolean {
     const nonEmpty = entry.ops.some((op) => {
-      if (op.type === 'cells' || op.type === 'styles') {
+      if (op.type === 'cells' || op.type === 'styles' || op.type === 'comments') {
         return op.changes.length > 0;
       }
       if (op.type === 'filter') {
@@ -836,21 +836,7 @@ export class AppState {
     return this.worksheetsState.conditionalFormatForRange(tab, range);
   }
 
-  // ----- Cell comments (RSF spreadsheet documents only; view-only, unsaved) -----
-
-  /**
-   * Set (add or replace) one cell's comment. Session-only view state, not an
-   * undoable history entry and never saved to the container — see
-   * `src/core/cell-comment.ts`.
-   */
-  setComment(tab: Tab, row: number, col: number, text: string): boolean {
-    return this.worksheetsState.setComment(tab, row, col, text);
-  }
-
-  /** Clear one cell's comment, if it has one. */
-  clearComment(tab: Tab, row: number, col: number): boolean {
-    return this.worksheetsState.clearComment(tab, row, col);
-  }
+  // ----- Cell comments (RSF spreadsheet documents only) -----
 
   /** The comment on one cell of the active worksheet, or null. */
   commentAt(tab: Tab, row: number, col: number): string | null {
@@ -958,6 +944,21 @@ export class AppState {
       const changes = direction === 'after' ? op.changes : [...op.changes].reverse();
       for (const change of changes) {
         tab.doc.setCellStyleOn(
+          op.sheetId,
+          change.row,
+          change.col,
+          direction === 'before' ? change.before : change.after,
+        );
+      }
+      return;
+    }
+    if (op.type === 'comments') {
+      if (tab.doc.kind !== 'rsf') {
+        return;
+      }
+      const changes = direction === 'after' ? op.changes : [...op.changes].reverse();
+      for (const change of changes) {
+        tab.doc.setCommentOn(
           op.sheetId,
           change.row,
           change.col,

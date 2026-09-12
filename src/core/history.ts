@@ -23,6 +23,14 @@ export interface StyleChange {
   after: CellStyle | null;
 }
 
+/** One cell's comment change inside a history operation (RSF documents only). */
+export interface CommentChange {
+  row: number;
+  col: number;
+  before: string | null;
+  after: string | null;
+}
+
 /**
  * One atomic sub-operation of a history entry. Structural operations
  * (row/column insertion and deletion) and filter-state changes exist only for
@@ -71,6 +79,13 @@ export type Operation =
    * unsaved changes because styles are persisted in the saved container.
    */
   | { type: 'styles'; changes: StyleChange[]; sheetId?: string }
+  /**
+   * A change to one or more cells' comment text. Persisted in the saved
+   * container (body version 11+), so — unlike the styles it's modeled
+   * after — setting or clearing a comment marks the document dirty and is
+   * undoable, exactly like any other document mutation.
+   */
+  | { type: 'comments'; changes: CommentChange[]; sheetId?: string }
   | {
       type: 'rows';
       action: 'insert' | 'delete';
@@ -118,7 +133,7 @@ export function cellsEntry(label: string, changes: CellChange[]): HistoryEntry {
 
 function isEmpty(entry: HistoryEntry): boolean {
   return entry.ops.every((op) => {
-    if (op.type === 'cells' || op.type === 'styles') {
+    if (op.type === 'cells' || op.type === 'styles' || op.type === 'comments') {
       return op.changes.length === 0;
     }
     if (op.type === 'filter' || op.type === 'wrap') {

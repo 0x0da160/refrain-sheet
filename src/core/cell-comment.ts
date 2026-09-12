@@ -4,13 +4,10 @@
  * its value. Purely an annotation — it never affects a cell's value, formula
  * evaluation, sort, filter, or CSV export (see #235).
  *
- * Session-only view state, like `sort.ts` and `data-validation.ts`
- * (`Worksheet.validations`): comments live only in memory, in a worksheet's
- * sparse comment map, and are never persisted in the RSF container, so they
- * do not survive closing and reopening a file. Persisting them durably would
- * need a new RSF body version (see docs/rsf-format.md) — a sensitive,
- * separately reviewed change — so an in-session annotation is the smallest
- * safe increment for the initial feature.
+ * Persisted in the RSF container (body version 11+, see
+ * `src/core/rsf-codec.ts` and `docs/rsf-format.md`): comments live in a
+ * worksheet's sparse comment map (`Worksheet`) and survive closing and
+ * reopening a file, exactly like cell styles.
  *
  * Everything here is pure and DOM-free.
  */

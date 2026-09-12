@@ -32,6 +32,9 @@ release-time half (retitling `Unreleased`) is still done by hand.
   command) now also recognizes Markdown-table-formatted clipboard text and
   fills it into the grid, in addition to the existing tab-separated paste
   format. ([#358](https://github.com/0x0da160/refrain-sheet/issues/358))
+- The app version is now shown at the right edge of the status bar while a
+  document is open, not only on the empty (no-tab) screen and in the About
+  dialog. ([#366](https://github.com/0x0da160/refrain-sheet/issues/366))
 
 ### Changed
 

@@ -59,6 +59,15 @@ release-time half (retitling `Unreleased`) is still done by hand.
   it with a copy first) next to the final call to action. No change to the
   app itself. ([#385](https://github.com/0x0da160/refrain-sheet/issues/385))
 
+### Fixed
+
+- Bold-formatted cells in the grid now look noticeably bolder. On systems
+  where the selected spreadsheet font falls back to MS Gothic / BIZ UDGothic,
+  those fonts have no true bold glyphs, so the browser's synthesized ("faux")
+  bold barely differed from regular weight; bold cells now also get a thin
+  text-stroke outline that reinforces the weight regardless of which font
+  actually resolved. ([#389](https://github.com/0x0da160/refrain-sheet/issues/389))
+
 ## [0.7.19] - 2026-09-12
 
 ### Added

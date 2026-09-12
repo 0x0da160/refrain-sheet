@@ -1430,9 +1430,17 @@ button {
    `.cell-error` above so a user's explicit Bold/Italic on a formula or error
    cell always wins over their built-in styling. Text/background color and
    borders are per-cell inline styles instead (see `Grid.paintCellStyle`), so
-   any `#rrggbb` value works without a matching rule here. */
+   any `#rrggbb` value works without a matching rule here.
+
+   The selectable sheet fonts (`--font-sheet`) all fall back to MS Gothic /
+   BIZ UDGothic on systems missing the primary family; those Gothic fallbacks
+   have no true bold glyphs, so browsers synthesize ("faux") bold that reads
+   almost the same weight as regular text (#389). A thin text-stroke widens
+   every glyph outline a little, which reinforces the synthesized weight
+   without depending on which font actually resolved. */
 .vcell.cell-bold {
   font-weight: 700;
+  -webkit-text-stroke: 0.4px currentColor;
 }
 
 .vcell.cell-italic {

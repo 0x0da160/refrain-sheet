@@ -267,13 +267,15 @@ export class FileIoDialogs {
   }
 
   /**
-   * CSV export options: encoding, line-ending style, and BOM behavior, with
-   * the lossy-conversion explanation. Exporting requires pressing the
-   * explicit Export button (Cancel/Escape resolve null); the BOM control is
-   * disabled — with an explanation — for encodings where a BOM does not
-   * apply. Values are validated against the chosen encoding by the caller.
+   * CSV export options: encoding, delimiter, quoting, line-ending style, and
+   * BOM behavior, with the lossy-conversion explanation. Exporting requires
+   * pressing the explicit Export button (Cancel/Escape resolve null); the
+   * BOM control is disabled — with an explanation — for encodings where a
+   * BOM does not apply. Values are validated against the chosen encoding by
+   * the caller. `currentDelimiter` is the source document's own delimiter,
+   * shown as the "keep" option's effective value.
    */
-  chooseExportCsv(name: string): Promise<CsvExportOptions | null> {
+  chooseExportCsv(name: string, currentDelimiter: DelimiterId): Promise<CsvExportOptions | null> {
     return openDialog<CsvExportOptions | null>(t('dialog.exportCsv.title'), null, (body, buttons, close) => {
       body.append(el('p', { text: t('dialog.exportCsv.message', { name }) }));
       body.append(el('p', { className: 'dialog-warning', text: t('dialog.exportCsv.warning') }));
@@ -300,6 +302,21 @@ export class FileIoDialogs {
         { value: 'omit', label: t('dialog.saveOptions.bom.remove') },
         { value: 'include', label: t('dialog.saveOptions.bom.add') },
       ]);
+      const delimiterLabels: Record<DelimiterId, string> = {
+        ',': t('status.delimiter.comma'),
+        ';': t('status.delimiter.semicolon'),
+        '\t': t('status.delimiter.tab'),
+      };
+      const delimiter = makeSelect(t('dialog.exportCsv.delimiter'), [
+        { value: 'keep', label: `${t('dialog.saveOptions.keep')} (${delimiterLabels[currentDelimiter]})` },
+        { value: ',', label: t('status.delimiter.comma') },
+        { value: ';', label: t('status.delimiter.semicolon') },
+        { value: '\t', label: t('status.delimiter.tab') },
+      ]);
+      const quoteStyle = makeSelect(t('dialog.exportCsv.quoteStyle'), [
+        { value: 'minimal', label: t('dialog.exportCsv.quoteStyle.minimal') },
+        { value: 'always', label: t('dialog.exportCsv.quoteStyle.always') },
+      ]);
       const lineEnding = makeSelect(t('dialog.exportCsv.lineEnding'), [
         { value: 'crlf', label: 'CRLF (\\r\\n)' },
         { value: 'lf', label: 'LF (\\n)' },
@@ -315,7 +332,7 @@ export class FileIoDialogs {
       encoding.select.addEventListener('change', updateBom);
       updateBom();
 
-      body.append(encoding.row, bom.row, bomNote, lineEnding.row);
+      body.append(encoding.row, bom.row, bomNote, delimiter.row, quoteStyle.row, lineEnding.row);
       body.append(el('p', { className: 'dialog-note', text: t('dialog.saveOptions.injectionWarning') }));
 
       buttons.append(
@@ -325,6 +342,8 @@ export class FileIoDialogs {
             encoding: encoding.select.value as EncodingId,
             bom: !bom.select.disabled && bom.select.value === 'include',
             lineEnding: lineEnding.select.value as CsvLineEnding,
+            delimiter: delimiter.select.value as CsvExportOptions['delimiter'],
+            quoteStyle: quoteStyle.select.value as CsvExportOptions['quoteStyle'],
           }),
         ),
       );

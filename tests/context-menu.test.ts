@@ -251,6 +251,7 @@ describe('View menu Spreadsheet Zoom submenu', () => {
     theme: () => 'system',
     zoom: () => 100,
     editHints: () => true,
+    commentsPanel: () => false,
     formatActive: () => false,
   });
 

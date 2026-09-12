@@ -12,6 +12,7 @@ import { initCsvEngine } from './core/csv-engine';
 import { initSqlEngine } from './core/sql-engine';
 import { validateDocument } from './core/validation';
 import { initAppIcons } from './ui/app-icon';
+import { CommentsPanel } from './ui/comments-panel';
 import { closeAllContextMenus } from './ui/context-menu';
 import { Dialogs, Toasts } from './ui/dialogs';
 import { el } from './ui/dom';
@@ -138,6 +139,12 @@ function bootstrap(): void {
     autoFitSelectedColumns: () => grid.autoFitSelectedColumns(),
     goToCell: (row, col) => grid.reveal(row, col),
   };
+  // The right-side cell comments list, docked beside the grid — see
+  // src/ui/comments-panel.ts.
+  const commentsPanel = new CommentsPanel(state, grid);
+  commands.panelActions = {
+    toggleComments: () => commentsPanel.toggle(),
+  };
   const menuBar = new MenuBar(commands, {
     wrap: () => state.wrapCells,
     stickyFirstRow: () => state.stickyFirstRow,
@@ -146,6 +153,7 @@ function bootstrap(): void {
     theme: () => getTheme(),
     zoom: () => state.activeTab?.zoom ?? getSheetZoom(),
     editHints: () => getEditHints(),
+    commentsPanel: () => commentsPanel.isOpen,
     formatActive: (key) => {
       const tab = state.activeTab;
       return tab !== null && commands.isFormatActive(tab, key);
@@ -177,13 +185,16 @@ function bootstrap(): void {
   if (!app) {
     return;
   }
+  // The grid and the comments panel sit side by side; every other surface
+  // stacks full-width above and below this row.
+  const mainRow = el('div', { className: 'main-row' }, [grid.element, commentsPanel.element]);
   app.append(
     menuBar.element,
     tabBar.element,
     findBar.element,
     formulaBar.element,
     welcome.element,
-    grid.element,
+    mainRow,
     sheetBar.element,
     statusBar.element,
   );
@@ -207,6 +218,7 @@ function bootstrap(): void {
     grid.refresh();
     formulaBar.refresh(selectionChanged);
     statusBar.render();
+    commentsPanel.render();
   };
 
   state.subscribe((event) => {
@@ -237,6 +249,7 @@ function bootstrap(): void {
         formulaBar.refresh(true);
         statusBar.render();
         findBar.refresh();
+        commentsPanel.render();
         return;
       case 'doc':
         tabBar.render();
@@ -245,6 +258,7 @@ function bootstrap(): void {
         formulaBar.refresh(false);
         statusBar.render();
         findBar.refresh();
+        commentsPanel.render();
         return;
       case 'selection':
         grid.refreshSelection();
@@ -252,10 +266,13 @@ function bootstrap(): void {
         statusBar.render();
         return;
       case 'view':
-        // Wrap and sticky-first-row both change grid metrics.
+        // Wrap and sticky-first-row both change grid metrics. The comments
+        // panel's own open/closed state (toggled via the View menu) also
+        // flows through this event, like editHints above.
         app.classList.toggle('wrap-cells', state.wrapCells);
         menuBar.render();
         grid.refresh();
+        commentsPanel.render();
         return;
     }
   });
@@ -276,6 +293,7 @@ function bootstrap(): void {
     document.documentElement.lang = getLocale();
     refreshAll(false);
     findBar.refresh();
+    commentsPanel.refresh();
     dropMessage.textContent = t('drop.hint');
   });
 

@@ -7,7 +7,13 @@ import { encodeCsvExport, type CsvExportOptions } from '../src/core/csv-export';
 import { decodeBytes } from '../src/core/encoding';
 import { RsfDocument } from '../src/core/rsf-document';
 
-const UTF8_LF: CsvExportOptions = { encoding: 'utf-8', bom: false, lineEnding: 'lf' };
+const UTF8_LF: CsvExportOptions = {
+  encoding: 'utf-8',
+  bom: false,
+  lineEnding: 'lf',
+  delimiter: 'keep',
+  quoteStyle: 'minimal',
+};
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   return {
@@ -124,7 +130,7 @@ describe('encodeCsvExport (pure)', () => {
   });
 
   it('ignores the BOM flag for non-UTF-8 encodings', () => {
-    const result = encodeCsvExport([['abc']], ',', { encoding: 'shift_jis', bom: true, lineEnding: 'lf' });
+    const result = encodeCsvExport([['abc']], ',', { ...UTF8_LF, encoding: 'shift_jis', bom: true });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect([...result.bytes.slice(0, 3)]).not.toEqual([0xef, 0xbb, 0xbf]);
@@ -146,7 +152,7 @@ describe('encodeCsvExport (pure)', () => {
         ['ĝ', 'fine'],
       ],
       ',',
-      { encoding: 'shift_jis', bom: false, lineEnding: 'lf' },
+      { ...UTF8_LF, encoding: 'shift_jis' },
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -158,12 +164,7 @@ describe('encodeCsvExport (pure)', () => {
   });
 
   it('with explicit consent replaces unrepresentable characters with NCRs and reports counts', () => {
-    const result = encodeCsvExport(
-      [['a😀b']],
-      ',',
-      { encoding: 'shift_jis', bom: false, lineEnding: 'lf' },
-      true,
-    );
+    const result = encodeCsvExport([['a😀b']], ',', { ...UTF8_LF, encoding: 'shift_jis' }, true);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.ncrReplacements).toEqual([{ row: 0, col: 0, count: 1 }]);
@@ -173,13 +174,31 @@ describe('encodeCsvExport (pure)', () => {
 
   it('exports Shift_JIS bytes for representable Japanese text', () => {
     const result = encodeCsvExport([['日本語']], ',', {
+      ...UTF8_LF,
       encoding: 'shift_jis',
-      bom: false,
       lineEnding: 'crlf',
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(decodeBytes(result.bytes, 'shift_jis')).toBe('日本語\r\n');
+    }
+  });
+
+  it('keeps the document delimiter by default and overrides it when requested', () => {
+    const kept = encodeCsvExport([['a', 'b']], ';', UTF8_LF);
+    const overridden = encodeCsvExport([['a', 'b']], ';', { ...UTF8_LF, delimiter: '\t' });
+    expect(kept.ok && overridden.ok).toBe(true);
+    if (kept.ok && overridden.ok) {
+      expect(decodeBytes(kept.bytes, 'utf-8')).toBe('a;b\n');
+      expect(decodeBytes(overridden.bytes, 'utf-8')).toBe('a\tb\n');
+    }
+  });
+
+  it('quotes every field when quoteStyle is "always"', () => {
+    const result = encodeCsvExport([['a', 'b']], ',', { ...UTF8_LF, quoteStyle: 'always' });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(decodeBytes(result.bytes, 'utf-8')).toBe('"a","b"\n');
     }
   });
 });
@@ -197,7 +216,7 @@ describe('exportCsv command flow', () => {
 
   it('exports formulas as calculated display values with the chosen line ending', async () => {
     const ui = stubUi({
-      chooseExportCsv: vi.fn(async () => ({ encoding: 'utf-8', bom: false, lineEnding: 'crlf' }) as const),
+      chooseExportCsv: vi.fn(async () => ({ ...UTF8_LF, lineEnding: 'crlf' }) as const),
     });
     const dl = interceptDownload();
     const { commands, tab, doc } = rcsvSetup(
@@ -216,7 +235,7 @@ describe('exportCsv command flow', () => {
 
   it('cancels by default when the encoding cannot represent some characters', async () => {
     const ui = stubUi({
-      chooseExportCsv: vi.fn(async () => ({ encoding: 'shift_jis', bom: false, lineEnding: 'lf' }) as const),
+      chooseExportCsv: vi.fn(async () => ({ ...UTF8_LF, encoding: 'shift_jis' }) as const),
       confirmUnrepresentable: vi.fn(async () => false),
     });
     const dl = interceptDownload();
@@ -234,7 +253,7 @@ describe('exportCsv command flow', () => {
 
   it('continues with NCR replacement only after explicit confirmation, then reports it', async () => {
     const ui = stubUi({
-      chooseExportCsv: vi.fn(async () => ({ encoding: 'shift_jis', bom: false, lineEnding: 'lf' }) as const),
+      chooseExportCsv: vi.fn(async () => ({ ...UTF8_LF, encoding: 'shift_jis' }) as const),
       confirmUnrepresentable: vi.fn(async () => true),
     });
     const dl = interceptDownload();
@@ -244,6 +263,27 @@ describe('exportCsv command flow', () => {
     expect(ui.notifyNcr).toHaveBeenCalledTimes(1);
     // The replacement happened only in the export, never in the document.
     expect(doc.getValue(0, 0)).toBe('a😀');
+  });
+
+  it('passes the document delimiter to the options dialog and honors an overridden delimiter', async () => {
+    const ui = stubUi({
+      chooseExportCsv: vi.fn(async () => ({ ...UTF8_LF, delimiter: ';' }) as const),
+    });
+    const dl = interceptDownload();
+    const { commands, tab, doc } = rcsvSetup([['1', '2']], ui);
+    expect(await commands.exportCsv(tab)).toBe(true);
+    expect(ui.chooseExportCsv).toHaveBeenCalledWith(tab.name, doc.delimiter);
+    expect(await dl.text()).toBe('1;2\n');
+  });
+
+  it('quotes every field when the dialog resolves quoteStyle "always"', async () => {
+    const ui = stubUi({
+      chooseExportCsv: vi.fn(async () => ({ ...UTF8_LF, quoteStyle: 'always' }) as const),
+    });
+    const dl = interceptDownload();
+    const { commands, tab } = rcsvSetup([['1', '2']], ui);
+    expect(await commands.exportCsv(tab)).toBe(true);
+    expect(await dl.text()).toBe('"1","2"\n');
   });
 
   it('exports a small sheet with no loading-indicator flicker', async () => {

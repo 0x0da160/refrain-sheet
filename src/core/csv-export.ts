@@ -25,17 +25,25 @@ import type { NcrCellReport, UnrepresentableCell } from './serializer';
 
 export type CsvLineEnding = 'crlf' | 'lf' | 'cr';
 
+/** `minimal` quotes a field only when the delimiter, quotes, or line breaks require it (RFC 4180 common practice); `always` quotes every field. */
+export type CsvQuoteStyle = 'minimal' | 'always';
+
 export interface CsvExportOptions {
   encoding: EncodingId;
   /** Prepend a UTF-8 BOM. Only applicable to UTF-8; ignored for other encodings. */
   bom: boolean;
   lineEnding: CsvLineEnding;
+  /** `keep` uses the source document's own delimiter; otherwise overrides it. */
+  delimiter: 'keep' | DelimiterId;
+  quoteStyle: CsvQuoteStyle;
 }
 
 export const DEFAULT_CSV_EXPORT_OPTIONS: CsvExportOptions = {
   encoding: 'utf-8',
   bom: false,
   lineEnding: 'lf',
+  delimiter: 'keep',
+  quoteStyle: 'minimal',
 };
 
 export const LINE_ENDING_TEXT: Record<CsvLineEnding, string> = {
@@ -89,28 +97,36 @@ export function scanCsvExportRow(
   scan.rows.push(out);
 }
 
-/** Quote a field only when the delimiter, quotes, or line breaks require it. */
-function csvField(text: string, delimiter: DelimiterId): string {
-  if (text.includes(delimiter) || text.includes('"') || text.includes('\r') || text.includes('\n')) {
+/** Quote a field per `quoteStyle`: always, or only when the delimiter, quotes, or line breaks require it. */
+function csvField(text: string, delimiter: DelimiterId, quoteStyle: CsvQuoteStyle): string {
+  const needsQuoting =
+    quoteStyle === 'always' ||
+    text.includes(delimiter) ||
+    text.includes('"') ||
+    text.includes('\r') ||
+    text.includes('\n');
+  if (needsQuoting) {
     return `"${text.replace(/"/g, '""')}"`;
   }
   return text;
 }
 
 /**
- * Join scanned rows into CSV text and encode it. The selected line ending
+ * Join scanned rows into CSV text and encode it. `documentDelimiter` is used
+ * unless `options.delimiter` overrides it. The selected line ending
  * terminates every record (including the last); the BOM is applied exactly
  * as requested and only for UTF-8.
  */
 export function buildCsvExportBytes(
   rows: string[][],
-  delimiter: DelimiterId,
+  documentDelimiter: DelimiterId,
   options: CsvExportOptions,
 ): Uint8Array {
+  const delimiter = options.delimiter === 'keep' ? documentDelimiter : options.delimiter;
   const eol = LINE_ENDING_TEXT[options.lineEnding];
   const parts: string[] = [];
   for (const row of rows) {
-    parts.push(row.map((v) => csvField(v, delimiter)).join(delimiter));
+    parts.push(row.map((v) => csvField(v, delimiter, options.quoteStyle)).join(delimiter));
     parts.push(eol);
   }
   const body = encodeText(parts.join(''), options.encoding);

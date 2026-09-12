@@ -566,7 +566,7 @@ export class FileIoCommands {
     if (!sheet) {
       return false;
     }
-    const options = await this.ui.chooseExportCsv(tab.name);
+    const options = await this.ui.chooseExportCsv(tab.name, doc.delimiter);
     if (!options || tab.doc !== doc) {
       return false;
     }

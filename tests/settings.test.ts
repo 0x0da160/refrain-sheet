@@ -37,6 +37,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
       encoding: 'utf-8' as const,
       bom: false,
       lineEnding: 'lf' as const,
+      delimiter: 'keep' as const,
+      quoteStyle: 'minimal' as const,
     })),
     confirmExportXlsx: vi.fn(async () => true),
     chooseInsertShift: vi.fn(async () => null),

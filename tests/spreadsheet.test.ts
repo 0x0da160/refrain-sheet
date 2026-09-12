@@ -25,6 +25,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
       encoding: 'utf-8' as const,
       bom: false,
       lineEnding: 'lf' as const,
+      delimiter: 'keep' as const,
+      quoteStyle: 'minimal' as const,
     })),
     confirmExportXlsx: vi.fn(async () => true),
     chooseInsertShift: vi.fn(async () => null),
@@ -393,7 +395,7 @@ describe('saving and exporting RSF', () => {
     const { commands, tab } = await converted('1,2\n', ui);
     const ok = await commands.exportCsv(tab);
     expect(ok).toBe(false);
-    expect(ui.chooseExportCsv).toHaveBeenCalledWith('data.rsf');
+    expect(ui.chooseExportCsv).toHaveBeenCalledWith('data.rsf', ',');
   });
 
   it('confirmed CSV export downloads calculated values', async () => {

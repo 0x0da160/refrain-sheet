@@ -907,7 +907,12 @@ function encodeCommentBlock(comments: Array<[number, number, string]> | undefine
     bytes.push(row & 0xff, (row >>> 8) & 0xff, (row >>> 16) & 0xff, (row >>> 24) & 0xff);
     bytes.push(col & 0xff, (col >>> 8) & 0xff, (col >>> 16) & 0xff, (col >>> 24) & 0xff);
     const value = enc.encode(text.slice(0, MAX_COMMENT_LENGTH));
-    bytes.push(value.length & 0xff, (value.length >>> 8) & 0xff, (value.length >>> 16) & 0xff, (value.length >>> 24) & 0xff);
+    bytes.push(
+      value.length & 0xff,
+      (value.length >>> 8) & 0xff,
+      (value.length >>> 16) & 0xff,
+      (value.length >>> 24) & 0xff,
+    );
     bytes.push(...value);
   }
   return bytes;

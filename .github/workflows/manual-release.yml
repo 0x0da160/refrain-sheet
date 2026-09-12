@@ -134,12 +134,12 @@ jobs:
           printf '::notice::Newest merged pull request: %s\n' "$(printf '%s\n' "$recent" | head -n1)"
 
       - name: Checkout the production branch (full history and tags)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -418,12 +418,12 @@ jobs:
       tag: ${{ steps.run.outputs.tag }}
     steps:
       - name: Checkout the production branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -484,7 +484,7 @@ jobs:
     permissions:
       contents: read # only to fetch scripts/release-summary.mjs
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           sparse-checkout: scripts/release-summary.mjs
           sparse-checkout-cone-mode: false

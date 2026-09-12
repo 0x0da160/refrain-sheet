@@ -79,11 +79,11 @@ jobs:
       # Always check out the exact tag being released. On a tag push that is what
       # checkout would do by default; when called, the caller's ref would otherwise
       # be used, so naming it here is what keeps both paths building the same tree.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.tag || github.ref_name }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm

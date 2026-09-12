@@ -82,6 +82,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The **Comments panel** and the **SQL Query** dialog now use the same
+  dockable, resizable side panel as Filter/Sort/Format — pick top, right,
+  bottom, or left from the header, and resize by dragging its inner edge —
+  instead of their own separate layouts. A panel docked to the top or bottom
+  now sits below the menu bar / above the status bar instead of covering
+  them. ([#399](https://github.com/0x0da160/refrain-sheet/issues/399))
 - The Filter/Sort/Data Validation/Format side panel no longer closes when you
   click outside it — a stray click on the sheet while adjusting its settings
   no longer silently discards them — and it now reserves its own space along
@@ -112,6 +118,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The right-click context menu no longer closes a submenu while you're
+  moving the pointer toward it: crossing a sibling item on a diagonal path
+  into an open submenu (or hovering one of the submenu's own items) used to
+  dismiss it before you could click anything inside. Closing a sibling's
+  submenu is now a "triangle safe zone" test (the same technique used by
+  Amazon's mega-menu) — it only closes when the pointer is actually heading
+  away from the open submenu.
+  ([#399](https://github.com/0x0da160/refrain-sheet/issues/399))
 - Bold-formatted cells in the grid now look noticeably bolder. On systems
   where the selected spreadsheet font falls back to MS Gothic / BIZ UDGothic,
   those fonts have no true bold glyphs, so the browser's synthesized ("faux")

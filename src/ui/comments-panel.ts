@@ -4,6 +4,12 @@ import type { AppState } from '../app/app-state';
 import { t } from '../app/i18n';
 import { collectSheetComments, collectWorkbookComments, type CommentEntry } from '../core/cell-comment';
 import { cellLabel } from '../core/formula';
+import {
+  applySidePanelPosition,
+  buildSidePanelDock,
+  clearAppEdgeReservation,
+  currentSidePanelPlacement,
+} from './dialogs/shared';
 import { clearChildren, el } from './dom';
 import type { Grid } from './grid';
 import { createIcon } from './icon';
@@ -11,13 +17,21 @@ import { createIcon } from './icon';
 type CommentScope = 'sheet' | 'workbook';
 
 /**
- * Right-side panel listing cell comments, with a scope toggle between the
- * active worksheet and the whole workbook (see #375, the UI half of #364 —
- * persistence itself shipped in #371). Clicking an entry selects and reveals
- * its cell, switching worksheets first if the entry belongs to a different
- * one; like `FindBar.next()`'s cross-sheet navigation and `Grid.reveal()`
- * itself, this is a view change only — not a document mutation — so it is
- * never pushed onto the undo history.
+ * Cell comments list, with a scope toggle between the active worksheet and
+ * the whole workbook (see #375, the UI half of #364 — persistence itself
+ * shipped in #371). A dockable, resizable side panel — the same
+ * `.side-panel` chrome/positioning as the Filter/Sort/Format/SQL Query
+ * panels (`openSidePanel`, `src/ui/dialogs/shared.ts`) — rather than a
+ * separate always-right-hand-side surface, so every dockable panel in the
+ * app behaves and remembers its dock side/size identically (#399). Unlike
+ * those transient panels it is created once and toggled open/closed rather
+ * than resolved and torn down.
+ *
+ * Clicking an entry selects and reveals its cell, switching worksheets first
+ * if the entry belongs to a different one; like `FindBar.next()`'s
+ * cross-sheet navigation and `Grid.reveal()` itself, this is a view change
+ * only — not a document mutation — so it is never pushed onto the undo
+ * history.
  *
  * Comments only exist on RSF workbooks (see `cell-comment.ts`): a plain CSV
  * tab shows an explanation instead of a list, mirroring `FindBar`'s
@@ -63,19 +77,17 @@ export class CommentsPanel {
     this.messageEl = el('p', { className: 'comments-empty' });
     this.listEl = el('ul', { className: 'comments-list' });
 
-    this.element = el(
-      'div',
-      {
-        className: 'comments-panel',
-        attrs: { role: 'complementary', 'aria-label': t('panel.comments.title') },
-      },
-      [
-        el('div', { className: 'comments-panel-header' }, [this.titleEl, this.closeBtn]),
-        scopeLabel,
-        this.messageEl,
-        this.listEl,
-      ],
-    );
+    this.element = el('div', {
+      className: 'side-panel comments-panel',
+      attrs: { role: 'complementary', 'aria-label': t('panel.comments.title') },
+    });
+    const { positionSwitcher, resizeHandle } = buildSidePanelDock(this.element);
+    const heading = el('div', { className: 'dialog-title side-panel-title' }, [
+      this.titleEl,
+      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, this.closeBtn]),
+    ]);
+    const body = el('div', { className: 'dialog-body' }, [scopeLabel, this.messageEl, this.listEl]);
+    this.element.append(heading, body, resizeHandle);
     this.element.hidden = true;
   }
 
@@ -93,11 +105,17 @@ export class CommentsPanel {
 
   open(): void {
     this.element.hidden = false;
+    // Applied on open rather than at construction time (the panel starts
+    // hidden): reserving app-edge space for a closed panel would shrink the
+    // sheet even while nothing is shown (#399).
+    const { position, size } = currentSidePanelPlacement();
+    applySidePanelPosition(this.element, position, size);
     this.render();
   }
 
   close(): void {
     this.element.hidden = true;
+    clearAppEdgeReservation();
   }
 
   /** The effective scope (never `workbook` for a plain CSV document). */

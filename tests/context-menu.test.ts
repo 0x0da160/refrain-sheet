@@ -139,6 +139,104 @@ describe('ContextMenu', () => {
     expect(parent.querySelector('.submenu-arrow')).not.toBeNull();
   });
 
+  it('hovering a leaf item inside an open submenu does not close that submenu', () => {
+    ContextMenu.open(
+      [
+        {
+          label: 'More',
+          submenu: [
+            { label: 'Nested one', onSelect: vi.fn() },
+            { label: 'Nested two', onSelect: vi.fn() },
+          ],
+        },
+      ],
+      10,
+      10,
+    );
+    const parent = document.querySelector('.context-menu .menu-item') as HTMLButtonElement;
+    parent.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    expect(document.querySelectorAll('.context-menu.submenu')).toHaveLength(1);
+
+    const nested = Array.from(document.querySelectorAll('.context-menu.submenu .menu-item')).find(
+      (item) => item.textContent === 'Nested one',
+    ) as HTMLButtonElement;
+    nested.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 5, clientY: 5 }));
+    expect(document.querySelectorAll('.context-menu.submenu')).toHaveLength(1);
+  });
+
+  it('does not close a submenu while the pointer is heading diagonally toward it through a sibling', () => {
+    ContextMenu.open(
+      [
+        { label: 'More', submenu: [{ label: 'Nested', onSelect: vi.fn() }] },
+        { label: 'Sibling', onSelect: vi.fn() },
+      ],
+      10,
+      10,
+    );
+    const parent = Array.from(document.querySelectorAll('.menu-item')).find(
+      (item) => item.textContent === 'More',
+    ) as HTMLButtonElement;
+    parent.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    const submenu = document.querySelector('.context-menu.submenu') as HTMLElement;
+    vi.spyOn(submenu, 'getBoundingClientRect').mockReturnValue({
+      left: 200,
+      top: 0,
+      right: 300,
+      bottom: 100,
+      width: 100,
+      height: 100,
+      x: 200,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    const sibling = Array.from(document.querySelectorAll('.menu-item')).find(
+      (item) => item.textContent === 'Sibling',
+    ) as HTMLButtonElement;
+    // The pointer's recent path (50,20) → (100,40) heads toward the
+    // submenu's near-left edge, so crossing "Sibling" on the way must not
+    // dismiss it (#399).
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 50, clientY: 20 }));
+    sibling.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 100, clientY: 40 }));
+    expect(document.querySelectorAll('.context-menu.submenu')).toHaveLength(1);
+  });
+
+  it('closes a submenu when a sibling is hovered while heading away from it', () => {
+    ContextMenu.open(
+      [
+        { label: 'More', submenu: [{ label: 'Nested', onSelect: vi.fn() }] },
+        { label: 'Sibling', onSelect: vi.fn() },
+      ],
+      10,
+      10,
+    );
+    const parent = Array.from(document.querySelectorAll('.menu-item')).find(
+      (item) => item.textContent === 'More',
+    ) as HTMLButtonElement;
+    parent.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+    const submenu = document.querySelector('.context-menu.submenu') as HTMLElement;
+    vi.spyOn(submenu, 'getBoundingClientRect').mockReturnValue({
+      left: 200,
+      top: 0,
+      right: 300,
+      bottom: 100,
+      width: 100,
+      height: 100,
+      x: 200,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect);
+
+    const sibling = Array.from(document.querySelectorAll('.menu-item')).find(
+      (item) => item.textContent === 'Sibling',
+    ) as HTMLButtonElement;
+    // The pointer's recent path (20,20) → (10,40) heads down-and-left, away
+    // from the submenu, so this hover legitimately closes it.
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: 20, clientY: 20 }));
+    sibling.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: 10, clientY: 40 }));
+    expect(document.querySelectorAll('.context-menu.submenu')).toHaveLength(0);
+  });
+
   it('closeAllContextMenus dismisses every open menu', () => {
     ContextMenu.open([{ label: 'A' }], 10, 10);
     expect(document.querySelector('.context-menu')).not.toBeNull();

@@ -99,6 +99,10 @@ export class ContextMenu {
   private closed = false;
   private readonly onClose: (() => void) | undefined;
   private readonly listeners: Array<() => void> = [];
+  /** Most recent pointer position, tracked so a submenu-closing hover check
+   * can tell whether the pointer is still heading toward the open submenu
+   * (see {@link onSiblingHover}). */
+  private lastPointer: Point | null = null;
 
   private constructor(
     entries: ContextMenuEntry[],
@@ -137,6 +141,14 @@ export class ContextMenu {
     this.on(document, 'mousedown', onPointerDown, true);
     this.on(document, 'touchstart', onPointerDown, true);
     this.on(document, 'scroll', onScroll, true);
+    // Tracked for the triangle safe-zone test in `onSiblingHover`: it needs
+    // the pointer's most recent position *before* the mouseenter that
+    // triggered the check, to tell whether the pointer is travelling toward
+    // the open submenu rather than merely instantaneously over it.
+    this.on(document, 'mousemove', (event) => {
+      const { clientX, clientY } = event as MouseEvent;
+      this.lastPointer = { x: clientX, y: clientY };
+    });
     this.on(window, 'resize', onResize);
     this.on(window, 'blur', () => this.close());
     if (globalThis.visualViewport) {
@@ -243,7 +255,7 @@ export class ContextMenu {
         button.addEventListener('click', open);
         button.addEventListener('mouseenter', open);
       } else {
-        button.addEventListener('mouseenter', () => this.closeSubmenu());
+        button.addEventListener('mouseenter', (event) => this.onSiblingHover(event as MouseEvent, list));
         button.addEventListener('click', () => {
           const run = entry.onSelect;
           this.close();
@@ -395,6 +407,49 @@ export class ContextMenu {
     }
   }
 
+  /**
+   * Hovering an item with no submenu of its own normally closes whichever
+   * submenu is currently open *from this same list* — e.g. moving from "B"
+   * (which has a submenu) to sibling "A" closes B's submenu. But `buildList`
+   * wires this same handler for every plain item at every depth, so it also
+   * fires when the pointer enters a plain item *inside* an already-open
+   * submenu; `list` there is the submenu's own element, not the list that
+   * opened it, so the guard below leaves that submenu alone (previously it
+   * closed itself the instant the pointer reached any of its own items).
+   * For a genuine same-list sibling, the close is additionally deferred
+   * while the pointer is still heading toward the submenu's bounding box —
+   * a triangle "safe zone" test, the same technique behind Amazon's
+   * mega-menu — so crossing sibling rows on a diagonal path toward an open
+   * submenu no longer dismisses it before the pointer arrives (#399).
+   */
+  private onSiblingHover(event: MouseEvent, list: HTMLElement): void {
+    if (!this.submenu || this.submenu.parent.parentElement !== list) {
+      return;
+    }
+    if (this.pointerHeadingTowardSubmenu(event)) {
+      return;
+    }
+    this.closeSubmenu();
+  }
+
+  /**
+   * True while the pointer's short recent path still points into the open
+   * submenu's bounding box: the triangle formed by the pointer's previous
+   * position and the submenu's two corners on the side nearest the pointer.
+   * Falls back to treating the pointer as heading toward the submenu when no
+   * prior position is known yet (the first move after the menu opens).
+   */
+  private pointerHeadingTowardSubmenu(event: MouseEvent): boolean {
+    if (!this.submenu) {
+      return false;
+    }
+    const point: Point = { x: event.clientX, y: event.clientY };
+    const origin = this.lastPointer ?? point;
+    const rect = this.submenu.element.getBoundingClientRect();
+    const nearX = rect.left >= point.x ? rect.left : rect.right;
+    return pointInTriangle(point, origin, { x: nearX, y: rect.top }, { x: nearX, y: rect.bottom });
+  }
+
   private openSubmenu(parent: HTMLElement, entries: ContextMenuEntry[]): void {
     if (this.submenu?.parent === parent) {
       return;
@@ -433,4 +488,24 @@ function enabledToolbarItems(row: HTMLElement): HTMLButtonElement[] {
 function rectOf(node: HTMLElement): AnchorRect {
   const r = node.getBoundingClientRect();
   return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+/** Twice the signed area of triangle (a, b, c); its sign gives which side `a` is on. */
+function triangleSign(a: Point, b: Point, c: Point): number {
+  return (a.x - c.x) * (b.y - c.y) - (b.x - c.x) * (a.y - c.y);
+}
+
+/** Standard barycentric-sign point-in-triangle test (inclusive of the edges). */
+function pointInTriangle(p: Point, a: Point, b: Point, c: Point): boolean {
+  const d1 = triangleSign(p, a, b);
+  const d2 = triangleSign(p, b, c);
+  const d3 = triangleSign(p, c, a);
+  const hasNegative = d1 < 0 || d2 < 0 || d3 < 0;
+  const hasPositive = d1 > 0 || d2 > 0 || d3 > 0;
+  return !(hasNegative && hasPositive);
 }

@@ -296,19 +296,48 @@ const SIDE_PANEL_VIEWPORT_MARGIN = 160;
 let sidePanelPosition: SidePanelPosition = 'right';
 let sidePanelSize = DEFAULT_SIDE_PANEL_SIZE;
 
+/** The dock side/size any *new* dockable side panel should open at. */
+export function currentSidePanelPlacement(): { position: SidePanelPosition; size: number } {
+  return { position: sidePanelPosition, size: sidePanelSize };
+}
+
 function sidePanelAxis(position: SidePanelPosition): EdgeResizeAxis {
   return position === 'left' || position === 'right' ? 'horizontal' : 'vertical';
 }
 
-/** Docks `panel` to `position` at `size` pixels (width for left/right, height for top/bottom). */
-function applySidePanelPosition(panel: HTMLElement, position: SidePanelPosition, size: number): void {
+/** The live height of the menu bar (always visible, even in welcome mode). */
+function menuBarHeight(): number {
+  return document.querySelector('.menu-bar')?.getBoundingClientRect().height ?? 0;
+}
+
+/** The live height of the status bar (always visible, even in welcome mode). */
+function statusBarHeight(): number {
+  return document.querySelector('.status-bar')?.getBoundingClientRect().height ?? 0;
+}
+
+/**
+ * Docks `panel` to `position` at `size` pixels (width for left/right, height
+ * for top/bottom). A top-docked panel is inset below the menu bar and a
+ * bottom-docked one above the status bar — both always-visible chrome the
+ * panel must never cover — measured live so it tracks their actual height
+ * (e.g. the menu bar collapsing to a toggle button on a narrow viewport)
+ * rather than a guessed constant (#399). Left/right-docked panels still span
+ * the full viewport height, unchanged.
+ */
+export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPosition, size: number): void {
   panel.dataset.sidePanelPosition = position;
   // The two edges perpendicular to the dock side always span the full
   // viewport (e.g. left/right docked panels are always full height); the
   // edge opposite the dock side is left unset so the panel's size comes from
   // its explicit width/height below, not from being pinned on both sides.
-  panel.style.top = position === 'left' || position === 'right' || position === 'top' ? '0px' : '';
-  panel.style.bottom = position === 'left' || position === 'right' || position === 'bottom' ? '0px' : '';
+  panel.style.top =
+    position === 'left' || position === 'right' ? '0px' : position === 'top' ? `${menuBarHeight()}px` : '';
+  panel.style.bottom =
+    position === 'left' || position === 'right'
+      ? '0px'
+      : position === 'bottom'
+        ? `${statusBarHeight()}px`
+        : '';
   panel.style.left = position === 'top' || position === 'bottom' || position === 'left' ? '0px' : '';
   panel.style.right = position === 'top' || position === 'bottom' || position === 'right' ? '0px' : '';
   if (sidePanelAxis(position) === 'horizontal') {
@@ -322,35 +351,117 @@ function applySidePanelPosition(panel: HTMLElement, position: SidePanelPosition,
 }
 
 /**
- * Reserves `size` pixels along `position`'s edge of the app shell (`#app`,
- * a `box-sizing: border-box` flex column filling the viewport — see
- * `styles.css`) so the docked side panel shares the screen with the sheet as
- * a genuine split view instead of floating over it and hiding whatever is
- * underneath (#396). Cleared by `clearAppEdgeReservation` when the panel
- * closes. A no-op outside a full app shell (e.g. a unit test that never
- * mounts `#app`).
+ * Reserves `size` pixels along `position`'s edge so the docked side panel
+ * shares the screen with the sheet as a genuine split view instead of
+ * floating over it and hiding whatever is underneath (#396). A left/right
+ * reservation pads `#app` itself (`box-sizing: border-box`, filling the
+ * viewport — see `styles.css`), narrowing the menu bar and status bar along
+ * with everything else, exactly as before. A top/bottom reservation instead
+ * pads `#app-body` — the flex column between the menu bar and the status bar
+ * — so those two bars stay put at the true viewport edges and only the
+ * document chrome between them (tab strip, formula bar, the sheet) makes
+ * room (#399). Cleared by `clearAppEdgeReservation` when the panel closes.
+ * A no-op outside a full app shell (e.g. a unit test that never mounts it).
  */
 function reserveAppEdge(position: SidePanelPosition, size: number): void {
   const app = document.getElementById('app');
-  if (!app) {
-    return;
+  if (app) {
+    app.style.paddingLeft = position === 'left' ? `${size}px` : '';
+    app.style.paddingRight = position === 'right' ? `${size}px` : '';
   }
-  app.style.paddingLeft = position === 'left' ? `${size}px` : '';
-  app.style.paddingRight = position === 'right' ? `${size}px` : '';
-  app.style.paddingTop = position === 'top' ? `${size}px` : '';
-  app.style.paddingBottom = position === 'bottom' ? `${size}px` : '';
+  const appBody = document.getElementById('app-body');
+  if (appBody) {
+    appBody.style.paddingTop = position === 'top' ? `${size}px` : '';
+    appBody.style.paddingBottom = position === 'bottom' ? `${size}px` : '';
+  }
 }
 
 /** Releases the space `reserveAppEdge` reserved, once the panel closes. */
-function clearAppEdgeReservation(): void {
+export function clearAppEdgeReservation(): void {
   const app = document.getElementById('app');
-  if (!app) {
-    return;
+  if (app) {
+    app.style.paddingLeft = '';
+    app.style.paddingRight = '';
   }
-  app.style.paddingLeft = '';
-  app.style.paddingRight = '';
-  app.style.paddingTop = '';
-  app.style.paddingBottom = '';
+  const appBody = document.getElementById('app-body');
+  if (appBody) {
+    appBody.style.paddingTop = '';
+    appBody.style.paddingBottom = '';
+  }
+}
+
+/**
+ * Builds the header position switcher and the inner-edge resize handle
+ * shared by every dockable side panel — the transient filter/sort/format/SQL
+ * panels below (`openSidePanel`) and the persistent comments panel
+ * (`ui/comments-panel.ts`) alike — so they all dock and resize identically
+ * and remember the same position/size across one another (#399). `panel`
+ * must already be a `.side-panel` element; its position is (re)applied here
+ * on every switch and resize, but not at build time — a caller that starts
+ * out hidden (the comments panel) must call {@link applySidePanelPosition}
+ * itself once it actually becomes visible, so a closed panel never reserves
+ * app-edge space it isn't showing.
+ */
+export function buildSidePanelDock(panel: HTMLElement): {
+  positionSwitcher: HTMLElement;
+  resizeHandle: HTMLElement;
+} {
+  // Position/cursor for the resize handle come purely from the `.side-panel`
+  // element's `data-side-panel-position` attribute (see the CSS), so no
+  // per-position class juggling is needed here beyond re-applying it.
+  const grip = el('div', {
+    className: 'side-panel-resize-handle',
+    attrs: { 'aria-hidden': 'true', title: t('dialog.resizeHandle') },
+  });
+
+  const positionButtons = SIDE_PANEL_POSITIONS.map((position) => {
+    const label = t(`dialog.sidePanel.position.${position}`);
+    const button = el('button', {
+      className: 'side-panel-position-btn',
+      attrs: { type: 'button', 'aria-pressed': String(position === sidePanelPosition), title: label },
+    });
+    button.append(createIcon(SIDE_PANEL_POSITION_ICON[position], 'side-panel-position-icon', 14));
+    button.addEventListener('click', () => {
+      sidePanelPosition = position;
+      applySidePanelPosition(panel, sidePanelPosition, sidePanelSize);
+      for (const other of positionButtons) {
+        other.button.setAttribute('aria-pressed', String(other.position === position));
+      }
+    });
+    return { position, button };
+  });
+  const positionSwitcher = el(
+    'div',
+    {
+      className: 'side-panel-positions',
+      attrs: { role: 'group', 'aria-label': t('dialog.sidePanel.position') },
+    },
+    positionButtons.map((p) => p.button),
+  );
+
+  makeEdgeResizable(
+    grip,
+    () => sidePanelAxis(sidePanelPosition),
+    () => (sidePanelPosition === 'left' || sidePanelPosition === 'top' ? 1 : -1),
+    () => {
+      const rect = panel.getBoundingClientRect();
+      return sidePanelAxis(sidePanelPosition) === 'horizontal' ? rect.width : rect.height;
+    },
+    MIN_SIDE_PANEL_SIZE,
+    () => {
+      const vp = visualViewportRect();
+      return (
+        (sidePanelAxis(sidePanelPosition) === 'horizontal' ? vp.width : vp.height) -
+        SIDE_PANEL_VIEWPORT_MARGIN
+      );
+    },
+    (size) => {
+      sidePanelSize = size;
+      applySidePanelPosition(panel, sidePanelPosition, size);
+    },
+  );
+
+  return { positionSwitcher, resizeHandle: grip };
 }
 
 /**
@@ -359,15 +470,15 @@ function clearAppEdgeReservation(): void {
  * `.dialog-buttons` structure/CSS), but anchored to an edge of the viewport
  * (top/right/bottom/left, switchable from the header) instead of floating —
  * the same idea as the comments panel (`ui/comments-panel.ts`), generalized
- * to every filter/sort/format/data dialog and made resizable by dragging its
- * inner edge (see `makeEdgeResizable`, `src/ui/drag-resize.ts`). It reserves
- * its own space along the docked edge (`reserveAppEdge`) so the sheet is
- * never covered — a genuine split view, not an overlay (#396). Unlike
- * `openPopover`, an outside pointer interaction never dismisses it — a
- * stray click on the sheet while adjusting filter/sort/format/validation
- * settings must not silently discard them (#396); only Escape, its own
- * Cancel button, or window blur close it (resolving `fallback`), and focus
- * returns to whatever triggered it.
+ * to every filter/sort/format/SQL/data dialog and made resizable by dragging
+ * its inner edge (see `buildSidePanelDock` above). It reserves its own space
+ * along the docked edge (`reserveAppEdge`) so the sheet is never covered — a
+ * genuine split view, not an overlay (#396). Unlike `openPopover`, an
+ * outside pointer interaction never dismisses it — a stray click on the
+ * sheet while adjusting filter/sort/format/validation settings must not
+ * silently discard them (#396); only Escape, its own Cancel button, or
+ * window blur close it (resolving `fallback`), and focus returns to
+ * whatever triggered it.
  */
 export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilder<T>): Promise<T> {
   return new Promise((resolve) => {
@@ -376,39 +487,7 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
       attrs: { role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'side-panel-title' },
     });
     applySidePanelPosition(panel, sidePanelPosition, sidePanelSize);
-
-    // Position/cursor for the resize handle come purely from the `.side-panel`
-    // element's `data-side-panel-position` attribute (see the CSS), so no
-    // per-position class juggling is needed here beyond re-applying it.
-    const grip = el('div', {
-      className: 'side-panel-resize-handle',
-      attrs: { 'aria-hidden': 'true', title: t('dialog.resizeHandle') },
-    });
-
-    const positionButtons = SIDE_PANEL_POSITIONS.map((position) => {
-      const label = t(`dialog.sidePanel.position.${position}`);
-      const button = el('button', {
-        className: 'side-panel-position-btn',
-        attrs: { type: 'button', 'aria-pressed': String(position === sidePanelPosition), title: label },
-      });
-      button.append(createIcon(SIDE_PANEL_POSITION_ICON[position], 'side-panel-position-icon', 14));
-      button.addEventListener('click', () => {
-        sidePanelPosition = position;
-        applySidePanelPosition(panel, sidePanelPosition, sidePanelSize);
-        for (const other of positionButtons) {
-          other.button.setAttribute('aria-pressed', String(other.position === position));
-        }
-      });
-      return { position, button };
-    });
-    const positionSwitcher = el(
-      'div',
-      {
-        className: 'side-panel-positions',
-        attrs: { role: 'group', 'aria-label': t('dialog.sidePanel.position') },
-      },
-      positionButtons.map((p) => p.button),
-    );
+    const { positionSwitcher, resizeHandle: grip } = buildSidePanelDock(panel);
 
     const heading = el('div', { className: 'dialog-title side-panel-title' }, [
       el('span', { text: title, attrs: { id: 'side-panel-title' } }),
@@ -417,28 +496,6 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
     const body = el('div', { className: 'dialog-body' });
     const buttons = el('div', { className: 'dialog-buttons' });
     panel.append(heading, body, buttons, grip);
-
-    makeEdgeResizable(
-      grip,
-      () => sidePanelAxis(sidePanelPosition),
-      () => (sidePanelPosition === 'left' || sidePanelPosition === 'top' ? 1 : -1),
-      () => {
-        const rect = panel.getBoundingClientRect();
-        return sidePanelAxis(sidePanelPosition) === 'horizontal' ? rect.width : rect.height;
-      },
-      MIN_SIDE_PANEL_SIZE,
-      () => {
-        const vp = visualViewportRect();
-        return (
-          (sidePanelAxis(sidePanelPosition) === 'horizontal' ? vp.width : vp.height) -
-          SIDE_PANEL_VIEWPORT_MARGIN
-        );
-      },
-      (size) => {
-        sidePanelSize = size;
-        applySidePanelPosition(panel, sidePanelPosition, size);
-      },
-    );
 
     const restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const listeners: Array<() => void> = [];

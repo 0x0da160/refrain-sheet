@@ -265,10 +265,12 @@ export interface UiPort {
   ): Promise<number | null>;
   /**
    * The CSV export options dialog: explains the lossy conversion and lets the
-   * user choose encoding, line endings, and BOM behavior. Resolving with
-   * options *is* the explicit confirmation; null cancels the export.
+   * user choose encoding, delimiter, quoting, line endings, and BOM
+   * behavior. `currentDelimiter` is the source document's own delimiter,
+   * shown as the "keep" choice's effective value. Resolving with options
+   * *is* the explicit confirmation; null cancels the export.
    */
-  chooseExportCsv(name: string): Promise<CsvExportOptions | null>;
+  chooseExportCsv(name: string, currentDelimiter: DelimiterId): Promise<CsvExportOptions | null>;
   /** Choose the shift direction for Insert Copied Cells… (null cancels). */
   chooseInsertShift(rows: number, cols: number): Promise<'right' | 'down' | null>;
   /**

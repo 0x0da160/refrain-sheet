@@ -33,6 +33,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- **File > Export as CSV…** now lets you choose a **delimiter** (keep the
+  workbook's own delimiter, or override with comma / semicolon / tab) and a
+  **quoting** style (quote only when needed, the default, or always quote
+  every field), alongside the existing encoding/BOM/line-ending options.
+  ([#388](https://github.com/0x0da160/refrain-sheet/issues/388))
 - A **Comments panel** (View > Comments Panel), docked to the right of the
   grid, lists every cell comment with a scope toggle between the current
   worksheet and the whole workbook; clicking an entry selects and reveals its

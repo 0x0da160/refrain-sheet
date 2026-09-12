@@ -156,8 +156,8 @@ export class Dialogs {
   }
 
   /** See `FileIoDialogs.chooseExportCsv` for the full behavior contract. */
-  chooseExportCsv(name: string): Promise<CsvExportOptions | null> {
-    return this.fileIo.chooseExportCsv(name);
+  chooseExportCsv(name: string, currentDelimiter: DelimiterId): Promise<CsvExportOptions | null> {
+    return this.fileIo.chooseExportCsv(name, currentDelimiter);
   }
 
   /** Explain and confirm the lossy XLSX export. See `FileIoDialogs.confirmExportXlsx`. */

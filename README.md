@@ -894,6 +894,10 @@ confirmation — nothing is written until you press **Export CSV**:
 - **BOM:** include or omit. A byte order mark applies only to UTF-8 (choose
   UTF-8 + include for "UTF-8 with BOM"); the control is disabled — with an
   explanation — for the other encodings.
+- **Delimiter:** keep the workbook's own delimiter (the default), or override
+  it with comma, semicolon, or tab.
+- **Quoting:** quote a field only when the delimiter, a quote character, or a
+  line break requires it (the default), or always quote every field.
 - **Line endings:** CRLF, LF, or CR, applied exactly to every record.
 
 The dialog states clearly that CSV export is a **lossy conversion**: formulas

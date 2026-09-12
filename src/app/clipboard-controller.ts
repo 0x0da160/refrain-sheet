@@ -8,7 +8,6 @@ import {
 } from '../core/clipboard';
 import type { AppState, Selection, SelectionKind } from './app-state';
 import type { Commands } from './commands';
-import { renderRangeToPng } from './image-export';
 import { t } from './i18n';
 import { asVisualDisplaySource, onScreenGeometry, renderStyledRangeToPng } from './screenshot-export';
 
@@ -179,36 +178,14 @@ export class ClipboardController {
   }
 
   /**
-   * Menu "Copy as image": renders the selected range to a PNG (as a plain
-   * table image — see `image-export.ts`) and writes it to the system
-   * clipboard. The async Clipboard API's image write has inconsistent
-   * browser support, including on `file://`, so this feature-detects first
-   * and reports a warning rather than throwing when it is unavailable.
+   * Menu "Copy as image": renders the selected range to a PNG that reproduces
+   * its actual on-screen appearance (see `screenshot-export.ts`) and writes
+   * it to the system clipboard. Shares its rendering with `copyScreenshotAsPng`
+   * — both commands now produce the same screen-accurate image; only the
+   * notification text differs.
    */
   async copyImageAsPng(): Promise<void> {
-    const tab = this.state.activeTab;
-    if (!tab) {
-      return;
-    }
-    const range = this.state.selectedRange(tab);
-    if (!range) {
-      return;
-    }
-    if (typeof ClipboardItem === 'undefined' || typeof navigator.clipboard?.write !== 'function') {
-      this.notify(t('notify.copyImageUnsupported'), 'warn');
-      return;
-    }
-    const blob = await renderRangeToPng(this.dom, tab.doc, range, this.state.hiddenRows(tab));
-    if (blob === null) {
-      this.notify(t('notify.clipboardBlocked'), 'warn');
-      return;
-    }
-    try {
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      this.notify(t('notify.copiedImage'), 'info');
-    } catch {
-      this.notify(t('notify.clipboardBlocked'), 'warn');
-    }
+    await this.copyRangeImageToClipboard('notify.copiedImage');
   }
 
   /**
@@ -216,9 +193,23 @@ export class ClipboardController {
    * reproduces its actual on-screen appearance — theme colors, the current
    * sheet font/zoom, and any per-cell bold/italic/underline, text/background
    * color, and border (see `screenshot-export.ts`) — and writes it to the
-   * system clipboard, unlike `copyImageAsPng`'s deliberately plain table.
+   * system clipboard.
    */
   async copyScreenshotAsPng(): Promise<void> {
+    await this.copyRangeImageToClipboard('notify.copiedScreenshot');
+  }
+
+  /**
+   * Shared by `copyImageAsPng` and `copyScreenshotAsPng`: both render the
+   * selection to a screen-accurate PNG and write it to the system clipboard,
+   * differing only in the success notification. The async Clipboard API's
+   * image write has inconsistent browser support, including on `file://`, so
+   * this feature-detects first and reports a warning rather than throwing
+   * when it is unavailable.
+   */
+  private async copyRangeImageToClipboard(
+    successKey: 'notify.copiedImage' | 'notify.copiedScreenshot',
+  ): Promise<void> {
     const tab = this.state.activeTab;
     if (!tab) {
       return;
@@ -246,7 +237,7 @@ export class ClipboardController {
     }
     try {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      this.notify(t('notify.copiedScreenshot'), 'info');
+      this.notify(t(successKey), 'info');
     } catch {
       this.notify(t('notify.clipboardBlocked'), 'warn');
     }

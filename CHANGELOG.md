@@ -35,6 +35,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- **Copy as Image** now renders the copied PNG using the sheet's actual
+  on-screen appearance — the active theme's colors, the current font and
+  zoom level, and per-cell bold/italic/underline, text/background color,
+  border, and conditional formatting — the same rendering **Copy
+  Screenshot** already used, instead of a plain white-background table with
+  a fixed font. Selection highlighting is still never included in either
+  command's output. ([#362](https://github.com/0x0da160/refrain-sheet/issues/362))
 - Filter, Sort, Data Validation, Conditional Formatting, Cell Comment, and
   Move Range now offer a **Convert to RSF** button directly in the same
   conversion-explanation dialog on a plain CSV tab, instead of only

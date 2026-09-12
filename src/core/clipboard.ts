@@ -92,6 +92,105 @@ export function rangeToMatrix(doc: ReadableDocument, range: CellRange, rows?: re
 }
 
 /**
+ * Build a GitHub-Flavored Markdown table from a range (display values): the
+ * range's first row becomes the header, followed by the `---` separator row
+ * GFM requires, then the remaining rows. Cell newlines are collapsed to
+ * spaces and `|` is escaped, since GFM table cells cannot contain literal
+ * pipes or line breaks. `rows` limits the copy to specific document rows
+ * (see {@link rangeToTsv}).
+ */
+export function rangeToMarkdownTable(
+  doc: ReadableDocument,
+  range: CellRange,
+  rows?: readonly number[],
+): string {
+  const rowList = rows ?? copyRows(range, null);
+  if (rowList.length === 0) {
+    return '';
+  }
+  const escapeCell = (text: string): string => text.replace(/\r\n|\r|\n/g, ' ').replace(/\|/g, '\\|');
+  const readRow = (r: number): string[] => {
+    const cells: string[] = [];
+    for (let c = range.left; c <= range.right; c++) {
+      cells.push(escapeCell(doc.getDisplayValue(r, c)));
+    }
+    return cells;
+  };
+  const toLine = (cells: string[]): string => `| ${cells.join(' | ')} |`;
+  const width = range.right - range.left + 1;
+  const lines = [toLine(readRow(rowList[0])), toLine(new Array(width).fill('---') as string[])];
+  for (let i = 1; i < rowList.length; i++) {
+    lines.push(toLine(readRow(rowList[i])));
+  }
+  return lines.join('\n');
+}
+
+/** Split one Markdown table row into trimmed cells, unescaping `\|`. Leading/trailing `|` are optional. */
+function splitMarkdownRow(line: string): string[] {
+  let trimmed = line.trim();
+  if (trimmed.startsWith('|')) {
+    trimmed = trimmed.slice(1);
+  }
+  if (trimmed.endsWith('|') && !trimmed.endsWith('\\|')) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  const cells: string[] = [];
+  let cell = '';
+  for (let i = 0; i < trimmed.length; i++) {
+    if (trimmed[i] === '\\' && trimmed[i + 1] === '|') {
+      cell += '|';
+      i += 1;
+      continue;
+    }
+    if (trimmed[i] === '|') {
+      cells.push(cell.trim());
+      cell = '';
+      continue;
+    }
+    cell += trimmed[i];
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+
+/** True for a GFM header-separator row: cells of only `-`, optionally with alignment colons. */
+function isMarkdownSeparatorRow(line: string): boolean {
+  if (!line.includes('|') && !line.includes('-')) {
+    return false;
+  }
+  const cells = splitMarkdownRow(line);
+  return cells.length > 0 && cells.every((cell) => /^:?-+:?$/.test(cell));
+}
+
+/**
+ * True when `text` looks like a GitHub-Flavored Markdown table: a piped
+ * header line followed by a `---`-style separator line. Used to distinguish
+ * pasted Markdown tables from the tab-separated format `parseClipboardText`
+ * otherwise expects.
+ */
+export function looksLikeMarkdownTable(text: string): boolean {
+  const lines = text.split(/\r\n|\r|\n/).filter((line) => line.trim() !== '');
+  return lines.length >= 2 && lines[0].includes('|') && isMarkdownSeparatorRow(lines[1]);
+}
+
+/**
+ * Parse a GitHub-Flavored Markdown table into a rectangular matrix (the
+ * separator row is dropped). Only call this after {@link looksLikeMarkdownTable}
+ * confirms the shape.
+ */
+export function parseMarkdownTable(text: string): string[][] {
+  const lines = text.split(/\r\n|\r|\n/).filter((line) => line.trim() !== '');
+  const rows = lines.filter((_, i) => i !== 1).map(splitMarkdownRow);
+  const width = rows.reduce((w, r) => Math.max(w, r.length), 0);
+  for (const r of rows) {
+    while (r.length < width) {
+      r.push('');
+    }
+  }
+  return rows;
+}
+
+/**
  * Parse clipboard text into a rectangular matrix: rows split on CRLF/LF/CR,
  * cells split on tabs. Quoted cells (produced by spreadsheet software for
  * multi-line content) are unquoted. A single trailing empty line — which
@@ -179,4 +278,13 @@ export function parseClipboardText(text: string): string[][] {
     }
   }
   return rows;
+}
+
+/**
+ * Parse pasted clipboard text into a rectangular matrix, auto-detecting a
+ * Markdown table (see {@link looksLikeMarkdownTable}) and otherwise falling
+ * back to the tab-separated format ({@link parseClipboardText}).
+ */
+export function parsePastedText(text: string): string[][] {
+  return looksLikeMarkdownTable(text) ? parseMarkdownTable(text) : parseClipboardText(text);
 }

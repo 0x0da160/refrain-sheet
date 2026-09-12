@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: MIT
-import { copyRows, parseClipboardText, rangeToMatrix, rangeToTsv } from '../core/clipboard';
+import {
+  copyRows,
+  parsePastedText,
+  rangeToMarkdownTable,
+  rangeToMatrix,
+  rangeToTsv,
+} from '../core/clipboard';
 import type { AppState, Selection, SelectionKind } from './app-state';
 import type { Commands } from './commands';
 import { renderRangeToPng } from './image-export';
@@ -102,7 +108,7 @@ export class ClipboardController {
       await this.commands.applyPaste(tab, this.internal.matrix, this.internal.origin);
       return;
     }
-    const matrix = parseClipboardText(text);
+    const matrix = parsePastedText(text);
     await this.commands.applyPaste(tab, matrix, null);
   }
 
@@ -122,7 +128,7 @@ export class ClipboardController {
       return { matrix: this.internal.matrix, origin: this.internal.origin };
     }
     if (text !== null && text !== '') {
-      const matrix = parseClipboardText(text);
+      const matrix = parsePastedText(text);
       return matrix.length > 0 ? { matrix, origin: null } : null;
     }
     return null;
@@ -139,6 +145,35 @@ export class ClipboardController {
       this.notify(t('notify.copied'), 'info');
     } catch {
       // The internal clipboard still works for in-app paste.
+      this.notify(t('notify.clipboardBlocked'), 'warn');
+    }
+  }
+
+  /**
+   * Menu "Copy as Markdown Table": writes the selected range to the system
+   * clipboard as a GitHub-Flavored Markdown table (the range's first row
+   * becomes the header). Text only — unlike `copyImageAsPng`/
+   * `copyScreenshotAsPng`, no image is produced — so this does not need the
+   * image-write Clipboard API and works wherever `copyViaApi` does.
+   */
+  async copyMarkdownTable(): Promise<void> {
+    const tab = this.state.activeTab;
+    if (!tab) {
+      return;
+    }
+    const range = this.state.selectedRange(tab);
+    if (!range) {
+      return;
+    }
+    const rows = copyRows(range, this.state.hiddenRows(tab));
+    if (rows.length === 0) {
+      return;
+    }
+    const text = rangeToMarkdownTable(tab.doc, range, rows);
+    try {
+      await navigator.clipboard.writeText(text);
+      this.notify(t('notify.copiedMarkdown'), 'info');
+    } catch {
       this.notify(t('notify.clipboardBlocked'), 'warn');
     }
   }

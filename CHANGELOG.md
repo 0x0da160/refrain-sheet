@@ -23,6 +23,16 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Added
+
+- **Copy as Markdown Table**, alongside the existing Copy as Image / Copy
+  Screenshot actions in the Edit menu and cell context menu: copies the
+  selected range to the clipboard as a GitHub-Flavored Markdown table (the
+  range's first row becomes the header). Pasting (Ctrl+V or the Paste menu
+  command) now also recognizes Markdown-table-formatted clipboard text and
+  fills it into the grid, in addition to the existing tab-separated paste
+  format. ([#358](https://github.com/0x0da160/refrain-sheet/issues/358))
+
 ### Changed
 
 - Filter, Sort, Data Validation, Conditional Formatting, Cell Comment, and

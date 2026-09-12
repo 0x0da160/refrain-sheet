@@ -512,10 +512,10 @@ comments stays on the lowest sufficient body version.
 The comment block is a `u32` commented-cell count `Z` followed by `Z`
 **comment records**:
 
-| Size | Field                             |
-| ---- | ---------------------------------- |
-| 4    | Row index, `u32`                   |
-| 4    | Column index, `u32`                |
+| Size | Field                               |
+| ---- | ----------------------------------- |
+| 4    | Row index, `u32`                    |
+| 4    | Column index, `u32`                 |
 | 4    | Comment-text byte length `L`, `u32` |
 | `L`  | Comment text (UTF-8)                |
 

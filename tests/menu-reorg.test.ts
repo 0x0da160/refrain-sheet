@@ -46,12 +46,17 @@ describe('Sheet menu reorganization', () => {
     expect(topLevel.find((i) => i.labelKey === 'menu.sheet.filterSort')?.submenu).toBeDefined();
     // Commands that stayed at the top level (not grouped into a submenu).
     expect(topLevel.some((i) => i.command === 'sheet.recalculate')).toBe(true);
-    expect(topLevel.some((i) => i.command === 'sheet.exportCsv')).toBe(true);
-    expect(topLevel.some((i) => i.command === 'sheet.exportXlsx')).toBe(true);
     // No longer directly on the top-level Sheet menu.
     expect(topLevel.some((i) => i.command === 'worksheet.add')).toBe(false);
     expect(topLevel.some((i) => i.command === 'sheet.insertRowAbove')).toBe(false);
     expect(topLevel.some((i) => i.command === 'sheet.filter')).toBe(false);
+    // The Sheet menu's own Export CSV/XLSX entries were removed as an exact
+    // duplicate of the File menu's (#393); they still exist there.
+    expect(topLevel.some((i) => i.command === 'sheet.exportCsv')).toBe(false);
+    expect(topLevel.some((i) => i.command === 'sheet.exportXlsx')).toBe(false);
+    const file = menu('menu.file');
+    expect(items(file).some((i) => i.command === 'sheet.exportCsv')).toBe(true);
+    expect(items(file).some((i) => i.command === 'sheet.exportXlsx')).toBe(true);
   });
 
   it('keeps every worksheet command reachable inside the Worksheet submenu', () => {

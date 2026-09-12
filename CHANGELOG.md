@@ -51,8 +51,34 @@ release-time half (retitling `Unreleased`) is still done by hand.
   every responsive srcset size `template.html` references — on demand instead
   of by hand.
   ([#379](https://github.com/0x0da160/refrain-sheet/issues/379))
+- Menu items across File/Edit/Search/Sheet/Format/Data/Help now show a small
+  leading icon (reusing the same left-hand space a checkable item's checkmark
+  already occupied, so nothing widens), making the menus easier to scan at a
+  glance. The Borders dialog gained an **All** checkbox alongside Top/Right/
+  Bottom/Left, and those four are now arranged in a spatial cross layout that
+  matches their actual position on a cell instead of a plain vertical list.
+  ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
+- The Filter, Sort, Data Validation, and Format (colors/borders/number format/
+  conditional formatting) dialogs are now a single **dockable, resizable side
+  panel** instead of separate popups: it can be docked to the top, right,
+  bottom, or left edge of the window from buttons in its header, and resized
+  by dragging its inner edge — mirroring the existing Comments panel, and
+  keeping the sheet visible and usable behind it while open.
+  ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
 
 ### Changed
+
+- The default color theme for new users is now **Hybrid** (the UI chrome
+  follows the OS/browser preference, while the spreadsheet grid stays light)
+  instead of System. ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
+- Edit menu: **Copy as Image** was removed (it was an exact duplicate of
+  **Copy Screenshot**, both producing the same screen-accurate image); the
+  remaining command is relabeled **Copy Image**.
+  ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
+- The Sheet menu's own **Export as CSV…** / **Export as XLSX…** entries were
+  removed as an exact duplicate of the File menu's; both formats are still
+  exported from the File menu.
+  ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
 
 - The marketing landing page (refrain-sheet.com) reworks its copy and layout
   for first-time visitors: a shorter hero promise with a one-line "who this
@@ -72,6 +98,16 @@ release-time half (retitling `Unreleased`) is still done by hand.
   bold barely differed from regular weight; bold cells now also get a thin
   text-stroke outline that reinforces the weight regardless of which font
   actually resolved. ([#389](https://github.com/0x0da160/refrain-sheet/issues/389))
+- **Copy Image** now reflects **Wrap Text** (View > Wrap Text): a wrapped
+  cell's row grows in the captured image exactly as it does on screen, with
+  the text painted on multiple lines, instead of always being ellipsis-
+  truncated to a single line.
+  ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
+- Popup dialogs (Sort, Format, Go to Cell, etc.) no longer leave dead space
+  below their content — or detach their footer from the bottom of the
+  window — when resized; the body now grows/shrinks to fill the available
+  space and scrolls if the content still doesn't fit.
+  ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
 
 ## [0.7.19] - 2026-09-12
 

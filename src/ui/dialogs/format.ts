@@ -30,7 +30,7 @@ import type {
   ConditionalFormatStyle,
 } from '../../core/conditional-format';
 import { el } from '../dom';
-import { dialogButton, openDialog, submitOnEnter } from './shared';
+import { dialogButton, openSidePanel, submitOnEnter } from './shared';
 
 const DEFAULT_COLOR = '#000000';
 
@@ -160,7 +160,7 @@ export class FormatDialogs {
    * when cancelled.
    */
   private chooseColor(title: string, current: string | null): Promise<ColorDialogResult | null> {
-    return openDialog<ColorDialogResult | null>(title, null, (body, buttons, close) => {
+    return openSidePanel<ColorDialogResult | null>(title, null, (body, buttons, close) => {
       const inputId = 'format-color-input';
       const input = el('input', {
         attrs: { type: 'color', id: inputId, value: current ?? DEFAULT_COLOR, 'data-autofocus': 'true' },
@@ -198,76 +198,113 @@ export class FormatDialogs {
     currentLineStyle: BorderLineStyle | null,
     currentWidth: BorderWidth | null,
   ): Promise<BordersDialogResult | null> {
-    return openDialog<BordersDialogResult | null>(t('dialog.borders.title'), null, (body, buttons, close) => {
-      const colorId = 'format-borders-color';
-      const lineStyleId = 'format-borders-line-style';
-      const widthId = 'format-borders-width';
-      const initialColor = BORDER_SIDES.map((side) => current[side]).find(
-        (c): c is string => c !== undefined,
-      );
-      const colorInput = el('input', {
-        attrs: { type: 'color', id: colorId, value: initialColor ?? DEFAULT_COLOR },
-      }) as HTMLInputElement;
-      const lineStyleSelect = el('select', { attrs: { id: lineStyleId } }) as HTMLSelectElement;
-      for (const lineStyle of BORDER_LINE_STYLES) {
-        const option = el('option', {
-          text: t(BORDER_LINE_STYLE_LABEL_KEY[lineStyle]),
-          attrs: { value: lineStyle },
-        }) as HTMLOptionElement;
-        option.selected = lineStyle === (currentLineStyle ?? DEFAULT_BORDER_LINE_STYLE);
-        lineStyleSelect.append(option);
-      }
-      const widthSelect = el('select', { attrs: { id: widthId } }) as HTMLSelectElement;
-      for (const width of BORDER_WIDTHS) {
-        const option = el('option', {
-          text: t(BORDER_WIDTH_LABEL_KEY[width]),
-          attrs: { value: width },
-        }) as HTMLOptionElement;
-        option.selected = width === (currentWidth ?? DEFAULT_BORDER_WIDTH);
-        widthSelect.append(option);
-      }
-      const checkboxes = new Map<BorderSide, HTMLInputElement>();
-      const list = el('div', { className: 'format-borders-list' });
-      BORDER_SIDES.forEach((side, i) => {
-        const checkboxId = `format-border-${side}`;
-        const checkbox = el('input', {
-          attrs: { type: 'checkbox', id: checkboxId, ...(i === 0 ? { 'data-autofocus': 'true' } : {}) },
+    return openSidePanel<BordersDialogResult | null>(
+      t('dialog.borders.title'),
+      null,
+      (body, buttons, close) => {
+        const colorId = 'format-borders-color';
+        const lineStyleId = 'format-borders-line-style';
+        const widthId = 'format-borders-width';
+        const initialColor = BORDER_SIDES.map((side) => current[side]).find(
+          (c): c is string => c !== undefined,
+        );
+        const colorInput = el('input', {
+          attrs: { type: 'color', id: colorId, value: initialColor ?? DEFAULT_COLOR },
         }) as HTMLInputElement;
-        checkbox.checked = current[side] !== undefined;
-        checkboxes.set(side, checkbox);
-        list.append(
-          el('div', { className: 'format-borders-row' }, [
-            checkbox,
-            el('label', { text: t(BORDER_SIDE_LABEL_KEY[side]), attrs: { for: checkboxId } }),
+        const lineStyleSelect = el('select', { attrs: { id: lineStyleId } }) as HTMLSelectElement;
+        for (const lineStyle of BORDER_LINE_STYLES) {
+          const option = el('option', {
+            text: t(BORDER_LINE_STYLE_LABEL_KEY[lineStyle]),
+            attrs: { value: lineStyle },
+          }) as HTMLOptionElement;
+          option.selected = lineStyle === (currentLineStyle ?? DEFAULT_BORDER_LINE_STYLE);
+          lineStyleSelect.append(option);
+        }
+        const widthSelect = el('select', { attrs: { id: widthId } }) as HTMLSelectElement;
+        for (const width of BORDER_WIDTHS) {
+          const option = el('option', {
+            text: t(BORDER_WIDTH_LABEL_KEY[width]),
+            attrs: { value: width },
+          }) as HTMLOptionElement;
+          option.selected = width === (currentWidth ?? DEFAULT_BORDER_WIDTH);
+          widthSelect.append(option);
+        }
+        // A spatial cross layout (top/left/right/bottom checkboxes arranged in
+        // the same positions as the edges they control, "All" in the center)
+        // plus an "All" toggle that checks/unchecks every side at once and
+        // stays in sync when the individual checkboxes are (#393).
+        const SIDE_POSITION_CLASS: Record<BorderSide, string> = {
+          borderTop: 'format-borders-top',
+          borderRight: 'format-borders-right',
+          borderBottom: 'format-borders-bottom',
+          borderLeft: 'format-borders-left',
+        };
+        const checkboxes = new Map<BorderSide, HTMLInputElement>();
+        const allCheckboxId = 'format-border-all';
+        const allCheckbox = el('input', {
+          attrs: { type: 'checkbox', id: allCheckboxId, 'data-autofocus': 'true' },
+        }) as HTMLInputElement;
+        const grid = el('div', { className: 'format-borders-cross' });
+        BORDER_SIDES.forEach((side) => {
+          const checkboxId = `format-border-${side}`;
+          const checkbox = el('input', {
+            attrs: { type: 'checkbox', id: checkboxId },
+          }) as HTMLInputElement;
+          checkbox.checked = current[side] !== undefined;
+          checkboxes.set(side, checkbox);
+          checkbox.addEventListener('change', syncAllCheckbox);
+          grid.append(
+            el('div', { className: `format-borders-cell ${SIDE_POSITION_CLASS[side]}` }, [
+              checkbox,
+              el('label', { text: t(BORDER_SIDE_LABEL_KEY[side]), attrs: { for: checkboxId } }),
+            ]),
+          );
+        });
+        grid.append(
+          el('div', { className: 'format-borders-cell format-borders-all' }, [
+            allCheckbox,
+            el('label', { text: t('dialog.borders.all'), attrs: { for: allCheckboxId } }),
           ]),
         );
-      });
-      body.append(
-        list,
-        el('label', { text: t('dialog.borders.color'), attrs: { for: colorId } }),
-        colorInput,
-        el('label', { text: t('dialog.borders.style'), attrs: { for: lineStyleId } }),
-        lineStyleSelect,
-        el('label', { text: t('dialog.borders.width'), attrs: { for: widthId } }),
-        widthSelect,
-      );
-      buttons.append(
-        dialogButton(t('dialog.borders.cancel'), false, false, () => close(null)),
-        dialogButton(t('dialog.borders.apply'), true, false, () => {
-          const color = isHexColor(colorInput.value) ? colorInput.value.toLowerCase() : DEFAULT_COLOR;
-          const sides: Partial<Record<BorderSide, string | null>> = {};
-          for (const [side, checkbox] of checkboxes) {
-            sides[side] = checkbox.checked ? color : null;
+        function syncAllCheckbox(): void {
+          const checkedCount = [...checkboxes.values()].filter((cb) => cb.checked).length;
+          allCheckbox.checked = checkedCount === checkboxes.size;
+          allCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.size;
+        }
+        allCheckbox.addEventListener('change', () => {
+          allCheckbox.indeterminate = false;
+          for (const checkbox of checkboxes.values()) {
+            checkbox.checked = allCheckbox.checked;
           }
-          close({
-            action: 'apply',
-            sides,
-            lineStyle: lineStyleSelect.value as BorderLineStyle,
-            width: widthSelect.value as BorderWidth,
-          });
-        }),
-      );
-    });
+        });
+        syncAllCheckbox();
+        body.append(
+          grid,
+          el('label', { text: t('dialog.borders.color'), attrs: { for: colorId } }),
+          colorInput,
+          el('label', { text: t('dialog.borders.style'), attrs: { for: lineStyleId } }),
+          lineStyleSelect,
+          el('label', { text: t('dialog.borders.width'), attrs: { for: widthId } }),
+          widthSelect,
+        );
+        buttons.append(
+          dialogButton(t('dialog.borders.cancel'), false, false, () => close(null)),
+          dialogButton(t('dialog.borders.apply'), true, false, () => {
+            const color = isHexColor(colorInput.value) ? colorInput.value.toLowerCase() : DEFAULT_COLOR;
+            const sides: Partial<Record<BorderSide, string | null>> = {};
+            for (const [side, checkbox] of checkboxes) {
+              sides[side] = checkbox.checked ? color : null;
+            }
+            close({
+              action: 'apply',
+              sides,
+              lineStyle: lineStyleSelect.value as BorderLineStyle,
+              width: widthSelect.value as BorderWidth,
+            });
+          }),
+        );
+      },
+    );
   }
 
   /**
@@ -279,7 +316,7 @@ export class FormatDialogs {
    * leaving the format untouched.
    */
   chooseNumberFormat(current: NumberFormat | null): Promise<NumberFormatDialogResult | null> {
-    return openDialog<NumberFormatDialogResult | null>(
+    return openSidePanel<NumberFormatDialogResult | null>(
       t('dialog.numberFormat.title'),
       null,
       (body, buttons, close) => {
@@ -376,7 +413,7 @@ export class FormatDialogs {
   chooseConditionalFormat(
     input: ConditionalFormatDialogInput,
   ): Promise<ConditionalFormatDialogResult | null> {
-    return openDialog<ConditionalFormatDialogResult | null>(
+    return openSidePanel<ConditionalFormatDialogResult | null>(
       t('dialog.conditionalFormat.title'),
       null,
       (body, buttons, close) => {

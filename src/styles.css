@@ -405,6 +405,13 @@ button {
   color: var(--accent);
 }
 
+/* A plain command item's decorative leading icon (#393) — shares the
+   .check column's reserved width but stays visually subdued (text-dim)
+   rather than the checkmark's accent color, since it never indicates state. */
+.menu-item .item-icon {
+  color: var(--text-dim);
+}
+
 .menu-separator {
   border: none;
   border-top: 1px solid var(--border);
@@ -1286,6 +1293,52 @@ button {
   gap: 8px;
 }
 
+/* Spatial cross layout for the Borders dialog's side checkboxes (#393): each
+   one sits in the same position as the edge it controls, with "All" in the
+   center, so the mapping to top/right/bottom/left is visually obvious rather
+   than an arbitrary vertical list. */
+.format-borders-cross {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  grid-template-rows: repeat(3, auto);
+  justify-items: center;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 4px 0 14px;
+}
+
+.format-borders-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.format-borders-top {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.format-borders-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.format-borders-all {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.format-borders-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.format-borders-bottom {
+  grid-column: 2;
+  grid-row: 3;
+}
+
 .filter-condition-row {
   display: flex;
   gap: 6px;
@@ -1659,7 +1712,13 @@ button {
 
 /* ---------- Dialogs ---------- */
 
+/* A flex column so a resized dialog grows/shrinks its body only, keeping the
+   header and footer pinned in place instead of leaving dead space below a
+   viewport-capped body (#393): the body is the only flexible child
+   (flex: 1, min-height: 0), and overflowing content scrolls within it. */
 dialog {
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 10px 32px var(--shadow-strong);
@@ -1684,10 +1743,13 @@ dialog::backdrop {
   position: fixed;
   top: 0;
   left: 0;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 10px 32px var(--shadow-strong);
   max-width: min(420px, calc(100vw - 8px));
+  max-height: 86vh;
   overflow: hidden;
   font-size: 13px;
   background: var(--surface);
@@ -1699,6 +1761,7 @@ dialog::backdrop {
    (see makeDraggable, src/ui/drag-resize.ts); user-select/touch-action keep
    the drag gesture from selecting the title text or scrolling the page. */
 .dialog-title {
+  flex: none;
   cursor: move;
   user-select: none;
   touch-action: none;
@@ -1710,9 +1773,10 @@ dialog::backdrop {
 }
 
 .dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 14px 18px;
   overflow: auto;
-  max-height: 55vh;
 }
 
 .dialog-body p {
@@ -1759,6 +1823,7 @@ dialog::backdrop {
 }
 
 .dialog-buttons {
+  flex: none;
   display: flex;
   justify-content: flex-end;
   gap: 8px;
@@ -1817,6 +1882,123 @@ dialog::backdrop {
     content: '';
     position: absolute;
     inset: -14px;
+  }
+}
+
+/* Dockable, resizable side panel (openSidePanel, src/ui/dialogs/shared.ts):
+   filter/sort/format/data dialogs anchored to a viewport edge instead of
+   floating, generalizing the comments panel's docked look (#393). Reuses
+   .dialog-title/.dialog-body/.dialog-buttons for a consistent look with the
+   dialogs it replaces; the flex column + .dialog-body's flex:1/min-height:0
+   (see above) are what let it grow/shrink cleanly when resized. */
+.side-panel {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 32px var(--shadow-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  overflow: hidden;
+  z-index: 100;
+}
+
+.side-panel-title {
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.side-panel-positions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+.side-panel-position-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.side-panel-position-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.side-panel-position-btn[aria-pressed='true'] {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.side-panel-position-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* One edge-anchored resize handle (not a corner grip like
+   .dialog-resize-handle): it sits on whichever edge is not docked to the
+   viewport — the opposite edge from the current `data-side-panel-position` —
+   and its cursor/axis follow that same attribute. */
+.side-panel-resize-handle {
+  position: absolute;
+  touch-action: none;
+  z-index: 1;
+}
+
+.side-panel[data-side-panel-position='left'] .side-panel-resize-handle {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.side-panel[data-side-panel-position='right'] .side-panel-resize-handle {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.side-panel[data-side-panel-position='top'] .side-panel-resize-handle {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.side-panel[data-side-panel-position='bottom'] .side-panel-resize-handle {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.side-panel-resize-handle:hover {
+  background: var(--accent);
+  opacity: 0.45;
+}
+
+@media (pointer: coarse) {
+  .side-panel-resize-handle::before {
+    content: '';
+    position: absolute;
+    inset: -10px;
   }
 }
 

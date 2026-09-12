@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { countVisualLines, rowHeightForLines } from '../src/core/text-wrap';
+import { countVisualLines, rowHeightForLines, wrapVisualLines } from '../src/core/text-wrap';
 
 /** Fixed-width measurer: every character is 10px wide (deterministic). */
 const measure = (text: string): number => text.length * 10;
@@ -48,6 +48,38 @@ describe('countVisualLines', () => {
   it('does not wrap when the box is unusably narrow or wrapping is disabled', () => {
     expect(countVisualLines('hello world', measure, 0, 12)).toBe(1);
     expect(countVisualLines('hello world', measure, 100, 1)).toBe(1);
+  });
+});
+
+describe('wrapVisualLines', () => {
+  it('returns the whole value as one line when it fits', () => {
+    expect(wrapVisualLines('hello', measure, 100, 12)).toEqual(['hello']);
+  });
+
+  it('splits at whitespace, matching countVisualLines', () => {
+    // "hello world foo" = 150px in a 100px box: "hello"(50) fits alone, then
+    // "world"(50)+" "+"foo"(30) = 90px fits on the next line.
+    const lines = wrapVisualLines('hello world foo', measure, 100, 12);
+    expect(lines).toEqual(['hello', 'world foo']);
+    expect(lines.length).toBe(countVisualLines('hello world foo', measure, 100, 12));
+  });
+
+  it('starts a new line at every explicit newline', () => {
+    expect(wrapVisualLines('a\nb', measure, 100, 12)).toEqual(['a', 'b']);
+  });
+
+  it('breaks a single unbroken word wider than the box', () => {
+    expect(wrapVisualLines('aaaaaaaaaaaa', measure, 100, 12)).toEqual(['aaaaaaaaaa', 'aa']);
+  });
+
+  it('caps at maxLines, mirroring countVisualLines', () => {
+    const lines = wrapVisualLines('a\nb\nc\nd\ne\nf', measure, 100, 3);
+    expect(lines.length).toBe(3);
+  });
+
+  it('does not wrap when the box is unusably narrow or wrapping is disabled', () => {
+    expect(wrapVisualLines('hello world', measure, 0, 12)).toEqual(['hello world']);
+    expect(wrapVisualLines('hello world', measure, 100, 1)).toEqual(['hello world']);
   });
 });
 

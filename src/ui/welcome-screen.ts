@@ -19,7 +19,10 @@ export class WelcomeScreen {
   readonly element: HTMLElement;
 
   constructor(private readonly commands: Commands) {
-    this.element = el('div', { className: 'welcome-screen' });
+    this.element = el('div', {
+      className:
+        'welcome-screen flex flex-1 flex-col items-center justify-center gap-3 overflow-auto bg-surface p-10 text-center',
+    });
     this.element.hidden = true;
     this.render();
   }
@@ -32,26 +35,38 @@ export class WelcomeScreen {
 
   private render(): void {
     clearChildren(this.element);
-    const open = el('button', { className: 'welcome-action primary', attrs: { type: 'button' } }, [
-      createIcon(FolderOpen, 'welcome-action-icon', 18),
-      el('span', { text: t('welcome.open') }),
-    ]);
+    const actionClasses =
+      'welcome-action inline-flex items-center gap-2 rounded-[5px] border border-accent px-[18px] py-[9px] text-[14px] cursor-pointer hover:bg-accent-soft hover:text-accent';
+    const open = el(
+      'button',
+      { className: `${actionClasses} primary bg-accent text-accent-contrast`, attrs: { type: 'button' } },
+      [createIcon(FolderOpen, 'flex-none', 18), el('span', { text: t('welcome.open') })],
+    );
     open.addEventListener('click', () => void this.commands.run('file.open'));
-    const create = el('button', { className: 'welcome-action', attrs: { type: 'button' } }, [
-      createIcon(FilePlus, 'welcome-action-icon', 18),
-      el('span', { text: t('welcome.new') }),
-    ]);
+    const create = el(
+      'button',
+      { className: `${actionClasses} bg-surface text-accent`, attrs: { type: 'button' } },
+      [createIcon(FilePlus, 'flex-none', 18), el('span', { text: t('welcome.new') })],
+    );
     create.addEventListener('click', () => void this.commands.run('file.new'));
     this.element.append(
       // Decorative: the welcome title states the product name, so the icon is
-      // hidden from assistive technology. Sized in CSS; vector SVG stays crisp
-      // at any display density, and it follows the light/dark theme.
-      createAppIcon('welcome-icon', 72),
-      el('h1', { className: 'welcome-title', text: t('app.title') }),
-      el('p', { className: 'welcome-subtitle', text: t('app.subtitle') }),
-      el('div', { className: 'welcome-actions' }, [open, create]),
-      el('p', { className: 'welcome-drop', text: t('welcome.drop') }),
-      el('p', { className: 'welcome-note', text: t('welcome.offline') }),
+      // hidden from assistive technology. Sized via width/height attributes;
+      // vector SVG stays crisp at any display density, and it follows the
+      // light/dark theme.
+      createAppIcon('welcome-icon block flex-none rounded-2xl', 72),
+      el('h1', { className: 'm-0 text-[22px]', text: t('app.title') }),
+      el('p', { className: 'm-0 text-dim', text: t('app.subtitle') }),
+      el('div', { className: 'mt-[10px] mb-[2px] flex flex-wrap justify-center gap-[10px]' }, [open, create]),
+      el('p', {
+        className:
+          'welcome-drop mt-[6px] rounded-lg border-2 border-dashed border-line px-[26px] py-[14px] text-dim',
+        text: t('welcome.drop'),
+      }),
+      el('p', {
+        className: 'welcome-note m-0 max-w-[560px] text-[12px] leading-[1.6] text-dim',
+        text: t('welcome.offline'),
+      }),
     );
   }
 }

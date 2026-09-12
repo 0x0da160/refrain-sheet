@@ -39,6 +39,7 @@ import {
 } from './csv-engine';
 import { DEFAULT_TIMEZONE } from './timezone';
 import { DEFAULT_DISPLAY_LANGUAGE } from './display-language';
+import { MAX_COMMENT_LENGTH } from './cell-comment';
 
 export {
   RSF_COMPRESSION_STORE,
@@ -91,11 +92,11 @@ export {
  * the display-settings block; version 4 adds the sheet-filter block; version 6
  * adds the workbook timezone; version 7 adds the workbook display language;
  * version 8 adds the cell-style block; version 9 adds a per-style number
- * format; version 10 adds a per-border-side line style and width. Older
- * versions are still accepted on read:
+ * format; version 10 adds a per-border-side line style and width; version 11
+ * adds the cell-comment block. Older versions are still accepted on read:
  *
  * ```
- * 0    1     body version (1–10 readable; lowest sufficient version written)
+ * 0    1     body version (1–11 readable; lowest sufficient version written)
  * 1    1     delimiter byte (',' ';' or TAB)
  * --- body versions 2+ ---
  * 2    2     application-name length (u16)
@@ -131,6 +132,9 @@ export {
  *             (version 10+ only) by one line-style+width byte — then
  *             (version 9+ only) a number format sub-record (see
  *             `docs/rsf-format.md`)
+ * --- body version 11+ ---
+ * …    4     commented-cell count (u32)
+ * …    per comment: row (u32), col (u32), text length (u32), text bytes
  * ```
  */
 export const RSF_MAGIC = new Uint8Array([0x52, 0x53, 0x46, 0x31]); // "RSF1"
@@ -143,19 +147,19 @@ export const RSF_LEGACY_MAGIC = new Uint8Array([0x52, 0x43, 0x53, 0x56]); // "RC
 export const RSF_LEGACY_CONTAINER_VERSION = 2;
 /**
  * Highest body version this release reads and writes. Version selection on
- * write is minimal: 10 when at least one border side carries a non-default
- * line style or width, else 9 when at least one cell carries a number
- * format, else 8 when at least one cell carries a style, else 7 when the
- * workbook display language is not English, else 6 when the workbook
- * timezone is not UTC, else 5 when wrap-long-rows is stored, else 4 when a
- * sheet filter is present, else 3 when display settings are present, else 2
- * when application metadata is present, else 1 — so documents without the
- * newer data stay readable by older releases. Versions 1–10 are all accepted
- * on read; an older reader rejects a version it does not know with
- * `bad-version` (a localized "unsupported version" message) rather than
- * misparsing it.
+ * write is minimal: 11 when at least one cell carries a comment, else 10
+ * when at least one border side carries a non-default line style or width,
+ * else 9 when at least one cell carries a number format, else 8 when at
+ * least one cell carries a style, else 7 when the workbook display language
+ * is not English, else 6 when the workbook timezone is not UTC, else 5 when
+ * wrap-long-rows is stored, else 4 when a sheet filter is present, else 3
+ * when display settings are present, else 2 when application metadata is
+ * present, else 1 — so documents without the newer data stay readable by
+ * older releases. Versions 1–11 are all accepted on read; an older reader
+ * rejects a version it does not know with `bad-version` (a localized
+ * "unsupported version" message) rather than misparsing it.
  */
-export const RSF_BODY_VERSION = 10;
+export const RSF_BODY_VERSION = 11;
 
 // ----- Display-settings bounds (body version 3) -----------------------------
 // Persisted display state is validated and clamped on load so a malformed or
@@ -184,6 +188,14 @@ export const MAX_RSF_ROWS = 2_000_000;
 export const MAX_RSF_COLS = 16_384;
 export const MAX_RSF_CELLS = 20_000_000;
 export const MAX_RSF_CELL_LENGTH = 1_000_000;
+/**
+ * Maximum stored length (UTF-8 bytes) of one cell's comment text. Comment
+ * text is already capped at {@link MAX_COMMENT_LENGTH} UTF-16 code units on
+ * write (`normalizeCommentText`); this is a generous byte-level ceiling (3
+ * bytes per unit covers every UTF-8 encoding of a UTF-16 code unit) enforced
+ * on read too, so a crafted container cannot claim an unbounded comment.
+ */
+export const MAX_RSF_COMMENT_BYTES = MAX_COMMENT_LENGTH * 3;
 /** Decompression-bomb ceiling for the uncompressed body (512 MiB). */
 export const MAX_RSF_BODY_BYTES = 512 * 1024 * 1024;
 
@@ -203,17 +215,19 @@ export const MAX_RSF_BODY_BYTES = 512 * 1024 * 1024;
 export const RSF_CONTAINER_VERSION_WORKBOOK = 4;
 
 /**
- * Highest workbook body version this release reads and writes. Version 6
- * adds a per-border-side line style and width (written only when at least
- * one border side in the workbook uses a non-default one); version 5 adds a
- * per-style number format (written only when at least one styled cell in the
- * workbook carries one); version 4 adds a per-worksheet cell-style block
- * (written only when at least one cell in the workbook carries a style);
- * version 3 adds the workbook display language (written only when it is not
- * English); version 2 adds the workbook timezone (written only when it is
- * not UTC); version 1 is the original layout.
+ * Highest workbook body version this release reads and writes. Version 7
+ * adds a per-worksheet cell-comment block (written only when at least one
+ * cell in the workbook carries a comment); version 6 adds a per-border-side
+ * line style and width (written only when at least one border side in the
+ * workbook uses a non-default one); version 5 adds a per-style number format
+ * (written only when at least one styled cell in the workbook carries one);
+ * version 4 adds a per-worksheet cell-style block (written only when at
+ * least one cell in the workbook carries a style); version 3 adds the
+ * workbook display language (written only when it is not English); version 2
+ * adds the workbook timezone (written only when it is not UTC); version 1 is
+ * the original layout.
  */
-export const RSF_WORKBOOK_BODY_VERSION = 6;
+export const RSF_WORKBOOK_BODY_VERSION = 7;
 
 /**
  * Bounds for workbook payloads. A malformed or hostile container can never
@@ -303,6 +317,17 @@ export interface RsfData {
    * dimensions exactly like cell records (out of range is `bad-shape`).
    */
   styles?: Array<[number, number, CellStyle]>;
+  /**
+   * Cell-level annotations (body version 11): a short free-text note
+   * attached to a cell, independent of its value (see
+   * `src/core/cell-comment.ts`). Purely an annotation — it never affects a
+   * cell's value, formula evaluation, sort, filter, or CSV export. When
+   * present on encode the body is written in version 11; on decode this is
+   * populated only for version-11 bodies. Row/column indices are validated
+   * against the sheet's dimensions exactly like cell records (out of range
+   * is `bad-shape`).
+   */
+  comments?: Array<[number, number, string]>;
 }
 
 /**
@@ -325,6 +350,8 @@ export interface RsfWorksheetData {
   filterDropped?: boolean;
   /** Per-worksheet cell styles (workbook body version 4+); see {@link RsfData.styles}. */
   styles?: Array<[number, number, CellStyle]>;
+  /** Per-worksheet cell comments (workbook body version 7+); see {@link RsfData.comments}. */
+  comments?: Array<[number, number, string]>;
 }
 
 /**
@@ -861,24 +888,96 @@ function readStyleBlock(
   return { ok: true, styles };
 }
 
+/**
+ * Encode the body-version-11+ / workbook-version-7+ comment block: a `u32`
+ * count followed by that many `[row, col, text]` records. Zero is a
+ * perfectly ordinary "no commented cells" encoding, matching the style
+ * block's own zero-count convention — no separate presence flag is needed.
+ */
+function encodeCommentBlock(comments: Array<[number, number, string]> | undefined): number[] {
+  const list = comments ?? [];
+  const enc = new TextEncoder();
+  const bytes: number[] = [
+    list.length & 0xff,
+    (list.length >>> 8) & 0xff,
+    (list.length >>> 16) & 0xff,
+    (list.length >>> 24) & 0xff,
+  ];
+  for (const [row, col, text] of list) {
+    bytes.push(row & 0xff, (row >>> 8) & 0xff, (row >>> 16) & 0xff, (row >>> 24) & 0xff);
+    bytes.push(col & 0xff, (col >>> 8) & 0xff, (col >>> 16) & 0xff, (col >>> 24) & 0xff);
+    const value = enc.encode(text.slice(0, MAX_COMMENT_LENGTH));
+    bytes.push(value.length & 0xff, (value.length >>> 8) & 0xff, (value.length >>> 16) & 0xff, (value.length >>> 24) & 0xff);
+    bytes.push(...value);
+  }
+  return bytes;
+}
+
+/**
+ * Read the comment block. Row/column indices are validated against the
+ * sheet's (already-known) dimensions exactly like cell and style records —
+ * out of range is `bad-shape`, a count above what the grid could possibly
+ * hold is `too-large`, and a single comment's declared byte length above
+ * {@link MAX_RSF_COMMENT_BYTES} is `too-large` too.
+ */
+function readCommentBlock(
+  rd: BodyReader,
+  rowCount: number,
+  columnCount: number,
+): { ok: true; comments: Array<[number, number, string]> } | { ok: false; error: RsfDecodeError } {
+  if (!rd.need(4)) {
+    return { ok: false, error: 'bad-shape' };
+  }
+  const count = rd.u32();
+  if (count > rowCount * columnCount) {
+    return { ok: false, error: 'too-large' };
+  }
+  const dec = new TextDecoder('utf-8', { fatal: true });
+  const comments: Array<[number, number, string]> = [];
+  for (let i = 0; i < count; i++) {
+    if (!rd.need(4 + 4 + 4)) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    const row = rd.u32();
+    const col = rd.u32();
+    const textLen = rd.u32();
+    if (row >= rowCount || col >= columnCount || textLen > MAX_RSF_COMMENT_BYTES || !rd.need(textLen)) {
+      return textLen > MAX_RSF_COMMENT_BYTES
+        ? { ok: false, error: 'too-large' }
+        : { ok: false, error: 'bad-shape' };
+    }
+    let text: string;
+    try {
+      text = dec.decode(rd.body.subarray(rd.off, rd.off + textLen));
+    } catch {
+      return { ok: false, error: 'bad-shape' };
+    }
+    rd.off += textLen;
+    comments.push([row, col, text]);
+  }
+  return { ok: true, comments };
+}
+
 function encodeBody(data: RsfData): Uint8Array {
   const enc = new TextEncoder();
   const name = enc.encode(data.name.slice(0, MAX_META_LENGTH));
-  // Version selection is minimal: any border side with a non-default line
-  // style or width needs version 10, any cell with a number format needs
-  // version 9, any styled cell needs version 8, a non-default display
-  // language needs version 7, a non-UTC timezone needs version 6, stored
-  // wrap needs version 5, a filter needs version 4, display settings alone
-  // need version 3, metadata alone needs version 2, otherwise the legacy
-  // version-1 body is written. A newer section implies every older one, so
-  // the layout stays a strict prefix chain — each `has*` below is OR'd with
-  // every section above it (border style forces the number-format
-  // sub-record, number formats force styles, styles force display language,
-  // display language forces timezone, timezone forces flags, flags force
-  // filter, filter forces display, display forces meta) so a body picking a
-  // high version always physically contains every lower section's bytes,
-  // even when that section's own data is empty/default, matching what
-  // `decodeBody` reads for that version unconditionally.
+  // Version selection is minimal: any commented cell needs version 11, any
+  // border side with a non-default line style or width needs version 10, any
+  // cell with a number format needs version 9, any styled cell needs version
+  // 8, a non-default display language needs version 7, a non-UTC timezone
+  // needs version 6, stored wrap needs version 5, a filter needs version 4,
+  // display settings alone need version 3, metadata alone needs version 2,
+  // otherwise the legacy version-1 body is written. A newer section implies
+  // every older one, so the layout stays a strict prefix chain — each `has*`
+  // below is OR'd with every section above it (comments force the style
+  // section, border style forces the number-format sub-record, number
+  // formats force styles, styles force display language, display language
+  // forces timezone, timezone forces flags, flags force filter, filter forces
+  // display, display forces meta) so a body picking a high version always
+  // physically contains every lower section's bytes, even when that
+  // section's own data is empty/default, matching what `decodeBody` reads
+  // for that version unconditionally.
+  const hasComments = (data.comments?.length ?? 0) > 0;
   const hasBorderStyle = (data.styles ?? []).some(([, , style]) =>
     BORDER_SIDES.some((side) => {
       const value = borderSideValue(style, side);
@@ -890,7 +989,7 @@ function encodeBody(data: RsfData): Uint8Array {
   );
   const hasNumberFormats = (data.styles ?? []).some(([, , style]) => style.numberFormat !== undefined);
   const hasNumberFormatSection = hasBorderStyle || hasNumberFormats;
-  const hasStyles = hasNumberFormatSection || (data.styles?.length ?? 0) > 0;
+  const hasStyles = hasNumberFormatSection || (data.styles?.length ?? 0) > 0 || hasComments;
   const hasDisplayLanguage =
     hasStyles || (data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE);
   const displayLanguageBytes = hasDisplayLanguage
@@ -932,6 +1031,8 @@ function encodeBody(data: RsfData): Uint8Array {
   const displayLanguageSize = hasDisplayLanguage ? 2 + displayLanguageBytes!.length : 0;
   const styleBytes = hasStyles ? encodeStyleBlock(data.styles, hasNumberFormatSection, hasBorderStyle) : null;
   const styleSize = styleBytes ? styleBytes.length : 0;
+  const commentBytes = hasComments ? encodeCommentBlock(data.comments) : null;
+  const commentSize = commentBytes ? commentBytes.length : 0;
   const total =
     1 +
     1 +
@@ -947,29 +1048,32 @@ function encodeBody(data: RsfData): Uint8Array {
     4 +
     4 +
     cellsSize +
-    styleSize;
+    styleSize +
+    commentSize;
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = hasBorderStyle
-    ? 10
-    : hasNumberFormats
-      ? 9
-      : hasStyles
-        ? 8
-        : hasDisplayLanguage
-          ? 7
-          : hasTimezone
-            ? 6
-            : wrapSet
-              ? 5
-              : hasFilterSection
-                ? 4
-                : hasDisplay
-                  ? 3
-                  : hasMeta
-                    ? 2
-                    : 1;
+  out[off++] = hasComments
+    ? 11
+    : hasBorderStyle
+      ? 10
+      : hasNumberFormats
+        ? 9
+        : hasStyles
+          ? 8
+          : hasDisplayLanguage
+            ? 7
+            : hasTimezone
+              ? 6
+              : wrapSet
+                ? 5
+                : hasFilterSection
+                  ? 4
+                  : hasDisplay
+                    ? 3
+                    : hasMeta
+                      ? 2
+                      : 1;
   out[off++] = data.delimiter.charCodeAt(0);
   if (hasMeta) {
     view.setUint16(off, appName!.length, true);
@@ -1042,6 +1146,10 @@ function encodeBody(data: RsfData): Uint8Array {
   if (styleBytes) {
     out.set(styleBytes, off);
     off += styleBytes.length;
+  }
+  if (commentBytes) {
+    out.set(commentBytes, off);
+    off += commentBytes.length;
   }
   return out;
 }
@@ -1234,12 +1342,28 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     off = rd.off;
     styles = block.styles;
   }
+  // Version-11 cell-comment block, validated against the same known
+  // dimensions exactly like the cell and style records above.
+  let comments: Array<[number, number, string]> | undefined;
+  if (bodyVersion >= 11) {
+    const rd = new BodyReader(body, dec);
+    rd.off = off;
+    const block = readCommentBlock(rd, rowCount, columnCount);
+    if (!block.ok) {
+      return { ok: false, error: block.error };
+    }
+    off = rd.off;
+    comments = block.comments;
+  }
   if (off !== body.length) {
     return { ok: false, error: 'bad-shape' };
   }
   const data: RsfData = { name, delimiter, rowCount, columnCount, cells };
   if (styles !== undefined) {
     data.styles = styles;
+  }
+  if (comments !== undefined) {
+    data.comments = comments;
   }
   if (appName !== undefined) {
     data.appName = appName;
@@ -1565,8 +1689,9 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
       bytes.push(b);
     }
   };
-  // Border style/number formats force the style-block version too — same
-  // prefix-chain rule as the single-sheet body above.
+  // Comments/border style/number formats force the style-block version too —
+  // same prefix-chain rule as the single-sheet body above.
+  const hasComments = data.sheets.some((sheet) => (sheet.comments?.length ?? 0) > 0);
   const hasBorderStyle = data.sheets.some((sheet) =>
     (sheet.styles ?? []).some(([, , style]) =>
       BORDER_SIDES.some((side) => {
@@ -1582,13 +1707,26 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
     (sheet.styles ?? []).some(([, , style]) => style.numberFormat !== undefined),
   );
   const hasNumberFormatSection = hasBorderStyle || hasNumberFormats;
-  const hasStyles = hasNumberFormatSection || data.sheets.some((sheet) => (sheet.styles?.length ?? 0) > 0);
+  const hasStyles =
+    hasNumberFormatSection || data.sheets.some((sheet) => (sheet.styles?.length ?? 0) > 0) || hasComments;
   const hasDisplayLanguage =
     hasStyles || (data.displayLanguage !== undefined && data.displayLanguage !== DEFAULT_DISPLAY_LANGUAGE);
   const hasTimezone =
     hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
   bytes.push(
-    hasBorderStyle ? 6 : hasNumberFormats ? 5 : hasStyles ? 4 : hasDisplayLanguage ? 3 : hasTimezone ? 2 : 1,
+    hasComments
+      ? 7
+      : hasBorderStyle
+        ? 6
+        : hasNumberFormats
+          ? 5
+          : hasStyles
+            ? 4
+            : hasDisplayLanguage
+              ? 3
+              : hasTimezone
+                ? 2
+                : 1,
   );
   bytes.push(data.delimiter.charCodeAt(0));
   pushString(bytes, enc, data.appName ?? '', MAX_META_LENGTH);
@@ -1628,6 +1766,11 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
     }
     if (hasStyles) {
       for (const b of encodeStyleBlock(sheet.styles, hasNumberFormatSection, hasBorderStyle)) {
+        bytes.push(b);
+      }
+    }
+    if (hasComments) {
+      for (const b of encodeCommentBlock(sheet.comments)) {
         bytes.push(b);
       }
     }
@@ -1704,6 +1847,7 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
   // many worksheets.
   let totalCells = 0;
   let totalStyles = 0;
+  let totalComments = 0;
   for (let s = 0; s < sheetCount; s++) {
     const id = rd.str();
     const name = rd.str();
@@ -1781,6 +1925,20 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
       }
       styles = styleBlock.styles;
     }
+    // Version-7 per-worksheet cell-comment block, validated against this
+    // worksheet's dimensions exactly like its cell and style records above.
+    let comments: Array<[number, number, string]> | undefined;
+    if (version >= 7) {
+      const commentBlock = readCommentBlock(rd, rowCount, columnCount);
+      if (!commentBlock.ok) {
+        return { ok: false, error: commentBlock.error };
+      }
+      totalComments += commentBlock.comments.length;
+      if (totalComments > MAX_RSF_CELLS) {
+        return { ok: false, error: 'too-large' };
+      }
+      comments = commentBlock.comments;
+    }
     const sheet: RsfWorksheetData = { id, name, rowCount, columnCount, cells };
     if (display) {
       sheet.display = display;
@@ -1798,6 +1956,9 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
     }
     if (styles !== undefined && styles.length > 0) {
       sheet.styles = styles;
+    }
+    if (comments !== undefined && comments.length > 0) {
+      sheet.comments = comments;
     }
     sheets.push(sheet);
   }
@@ -1877,6 +2038,9 @@ export function encodeRsfWorkbook(
     if (only.styles) {
       single.styles = only.styles;
     }
+    if (only.comments) {
+      single.comments = only.comments;
+    }
     return encodeRsf(single, method);
   }
   return encodeRsfContainer(RSF_CONTAINER_VERSION_WORKBOOK, method, encodeWorkbookBody(data));
@@ -1921,6 +2085,9 @@ export function decodeRsfWorkbook(bytes: Uint8Array): RsfWorkbookDecodeResult {
     }
     if (single.data.styles) {
       sheet.styles = single.data.styles;
+    }
+    if (single.data.comments) {
+      sheet.comments = single.data.comments;
     }
     const data: RsfWorkbookData = {
       delimiter: single.data.delimiter,

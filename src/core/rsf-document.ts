@@ -438,6 +438,9 @@ export class RsfDocument {
     for (const [r, c, style] of entry.styles ?? []) {
       sheet.setStyle(r, c, style);
     }
+    for (const [r, c, text] of entry.comments ?? []) {
+      sheet.setComment(r, c, text);
+    }
     return sheet;
   }
 
@@ -829,6 +832,10 @@ export class RsfDocument {
       if (styles.length > 0) {
         entry.styles = styles;
       }
+      const comments = sheet.collectComments();
+      if (comments.length > 0) {
+        entry.comments = comments;
+      }
       return entry;
     });
     const payload: RsfWorkbookData = {
@@ -1109,11 +1116,31 @@ export class RsfDocument {
     return this.activeSheet.validations;
   }
 
-  // ----- Cell comments (session-only view state; never persisted) -----
+  // ----- Cell comments -----
 
   /** The active worksheet's comment for one cell, or `null` when it carries none. */
   getComment(row: number, col: number): string | null {
     return this.activeSheet.getComment(row, col);
+  }
+
+  /** A specific worksheet's comment for one cell (undo/redo, cross-sheet). */
+  getCommentOn(sheetId: string | undefined, row: number, col: number): string | null {
+    return this.resolveSheet(sheetId).getComment(row, col);
+  }
+
+  /**
+   * Set one worksheet's cell comment (called by the history layer, so
+   * setting and clearing a comment are ordinary undoable operations). Cell
+   * data, formula results, and the evaluation cache are untouched — a
+   * comment is purely an annotation — but the workbook is marked as having
+   * unsaved changes because comments are persisted in the saved container.
+   */
+  setCommentOn(sheetId: string | undefined, row: number, col: number, text: string | null): void {
+    if (this.resolveSheet(sheetId).setComment(row, col, text)) {
+      // Bump the revision without invalidating the memo: no cell value can
+      // have changed, so recalculation would be pure waste.
+      this.revision += 1;
+    }
   }
 
   // ----- Mutators (called through the atomic operation layer) -----

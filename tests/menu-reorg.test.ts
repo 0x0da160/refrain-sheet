@@ -145,6 +145,14 @@ describe('View menu reorganization', () => {
     expect(system?.checked?.()).toBe(true);
   });
 
+  it('offers the hybrid theme choice alongside system/light/dark (#363)', () => {
+    const themeSub = submenuOf(menu('menu.view'), 'menu.view.theme');
+    const hybrid = themeSub.find((i) => i.command === 'view.theme.hybrid');
+    expect(hybrid).toBeDefined();
+    expect(hybrid?.labelKey).toBe('theme.hybrid');
+    expect(hybrid?.checked?.()).toBe(false);
+  });
+
   it('keeps every tab-movement command reachable inside the Move Tab submenu', () => {
     const moveTab = submenuOf(menu('menu.view'), 'menu.view.moveTab');
     expect(moveTab.map((i) => i.command)).toEqual([

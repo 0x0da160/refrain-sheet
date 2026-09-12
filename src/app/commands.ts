@@ -528,6 +528,7 @@ export type CommandId =
   | 'view.theme.system'
   | 'view.theme.light'
   | 'view.theme.dark'
+  | 'view.theme.hybrid'
   | 'app.settings'
   | 'help.formula'
   | 'help.shortcuts'
@@ -1080,7 +1081,8 @@ export class Commands {
       }
       case 'view.theme.system':
       case 'view.theme.light':
-      case 'view.theme.dark': {
+      case 'view.theme.dark':
+      case 'view.theme.hybrid': {
         setTheme(id.slice('view.theme.'.length) as ThemeChoice);
         // Applying the theme is pure CSS (data-theme attribute); re-emit so the
         // menu checkmark refreshes. Document bytes are never touched.

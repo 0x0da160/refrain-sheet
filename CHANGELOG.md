@@ -32,6 +32,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
   command) now also recognizes Markdown-table-formatted clipboard text and
   fills it into the grid, in addition to the existing tab-separated paste
   format. ([#358](https://github.com/0x0da160/refrain-sheet/issues/358))
+- **Hybrid theme**, a new choice in View > Theme alongside System default /
+  Light / Dark: the surrounding UI still follows the OS/browser color-scheme
+  preference, but the spreadsheet/grid area always stays light, even when the
+  rest of the UI resolves to dark. Existing users and new installs keep
+  following System default unless they pick Hybrid themselves.
+  ([#363](https://github.com/0x0da160/refrain-sheet/issues/363))
 
 ### Changed
 

@@ -108,7 +108,7 @@ jobs:
       SELECTED_CLAUDE_MODEL: ${{ inputs.model || vars.CLAUDE_MODEL }}
     steps:
       - name: Checkout (skills + repo context, read-only)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Fail fast on a missing/invalid selection, before any Claude Code step runs.
       # Reads only the non-secret variable; never touches a credential value.

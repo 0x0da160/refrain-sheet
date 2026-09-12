@@ -71,14 +71,14 @@ jobs:
       SELECTED_CLAUDE_MODEL: ${{ inputs.model || vars.CLAUDE_MODEL }}
     steps:
       - name: Checkout PR head (read-only review)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       # Available so the reviewer can independently run the verification suite.
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm

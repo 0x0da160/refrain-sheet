@@ -36,11 +36,11 @@ jobs:
     steps:
       # Depth 2 so the changelog gate can see the merge commit's first parent
       # (the base branch tip) and derive the pull request's own diff from it.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 2
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm

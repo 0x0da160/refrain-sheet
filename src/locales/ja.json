@@ -380,6 +380,8 @@
   "shortcut.cancelEdit": "編集をキャンセル",
   "dialog.close": "閉じる",
   "dialog.ok": "OK",
+  "dialog.dragHandle": "ドラッグしてウィンドウを移動",
+  "dialog.resizeHandle": "ドラッグしてウィンドウのサイズを変更",
   "drop.hint": "CSVファイルをドロップして開く — 各ファイルは別のタブで開きます",
   "notify.savedOverwrite": "保存しました: 元のファイルを直接上書きしました。",
   "notify.savedDownload": "ダウンロードとして「{name}」を保存しました。保存先はブラウザが管理します。元のファイルは上書きされていません。",

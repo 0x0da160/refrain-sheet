@@ -1484,6 +1484,10 @@ button {
   text-decoration: none;
 }
 
+.status-bar .status-version {
+  margin-left: auto;
+}
+
 /* ---------- Dialogs ---------- */
 
 dialog {
@@ -1493,6 +1497,7 @@ dialog {
   padding: 0;
   max-width: min(680px, 92vw);
   max-height: 86vh;
+  overflow: hidden;
   font-size: 13px;
   background: var(--surface);
   color: var(--text);
@@ -1514,13 +1519,20 @@ dialog::backdrop {
   border-radius: 6px;
   box-shadow: 0 10px 32px var(--shadow-strong);
   max-width: min(420px, calc(100vw - 8px));
+  overflow: hidden;
   font-size: 13px;
   background: var(--surface);
   color: var(--text);
   z-index: 100;
 }
 
+/* Every dialog/popover heading is also a drag handle for repositioning it
+   (see makeDraggable, src/ui/drag-resize.ts); user-select/touch-action keep
+   the drag gesture from selecting the title text or scrolling the page. */
 .dialog-title {
+  cursor: move;
+  user-select: none;
+  touch-action: none;
   margin: 0;
   padding: 12px 18px;
   font-size: 14px;
@@ -1608,6 +1620,35 @@ dialog::backdrop {
 .dialog-buttons button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+/* Bottom-right corner grip for resizing a dialog/popover (see makeResizable,
+   src/ui/drag-resize.ts), styled after the grid's .col-resize-handle etc. */
+.dialog-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 1;
+}
+
+.dialog-resize-handle:hover {
+  background: var(--accent);
+  opacity: 0.45;
+}
+
+/* Enlarges the otherwise-tiny grip's hit area for touch/pen input without
+   changing its visual size, mirroring the coarse-pointer rule for
+   .col-resize-handle/.fill-handle/.move-handle below. */
+@media (pointer: coarse) {
+  .dialog-resize-handle::before {
+    content: '';
+    position: absolute;
+    inset: -14px;
+  }
 }
 
 table.diag-table {

@@ -380,6 +380,8 @@
   "shortcut.cancelEdit": "Cancel edit",
   "dialog.close": "Close",
   "dialog.ok": "OK",
+  "dialog.dragHandle": "Drag to move this window",
+  "dialog.resizeHandle": "Drag to resize this window",
   "drop.hint": "Drop CSV files to open them — each file opens in its own tab",
   "notify.savedOverwrite": "Saved: the original file was overwritten in place.",
   "notify.savedDownload": "Saved as a download \"{name}\". The browser chooses the download location; the original file was NOT overwritten.",

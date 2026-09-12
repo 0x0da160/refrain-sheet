@@ -2,13 +2,14 @@
 // @vitest-environment jsdom
 /**
  * The column-filter side panel (`Dialogs.chooseFilter`): a non-modal,
- * dockable/resizable surface (not a native `<dialog>`/backdrop) with
- * Escape/outside-click dismissal and manual focus handling, plus
- * select-all/deselect-all for the distinct-value list acting on the
- * currently search-narrowed values, like the individual checkboxes. See
- * issue #121 (the original anchored popover) and #393 (converted to the
+ * dockable/resizable surface (not a native `<dialog>`/backdrop) with Escape
+ * dismissal (an outside click never closes it — see #396) and manual focus
+ * handling, plus select-all/deselect-all for the distinct-value list acting
+ * on the currently search-narrowed values, like the individual checkboxes.
+ * See issue #121 (the original anchored popover), #393 (converted to the
  * shared dockable side panel, `openSidePanel`, alongside Sort/Data
- * Validation/Format).
+ * Validation/Format), and #396 (split view instead of an overlay, no
+ * outside-click dismissal).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FilterDialogInput } from '../src/app/commands';
@@ -70,14 +71,40 @@ describe('the column-filter side panel', () => {
     expect(document.querySelector('.side-panel')).toBeNull();
   });
 
-  it('closes and resolves null (cancel) on an outside pointer interaction', async () => {
+  it('stays open on an outside pointer interaction — only Escape/Cancel dismiss it (#396)', async () => {
     const dialogs = new Dialogs();
     const promise = dialogs.chooseFilter(filterInput());
-    expect(document.querySelector('.side-panel')).not.toBeNull();
+    const panel = document.querySelector<HTMLElement>('.side-panel');
+    expect(panel).not.toBeNull();
 
     document.body.dispatchEvent(new Event('mousedown', { bubbles: true }));
+    expect(document.querySelector('.side-panel')).not.toBeNull();
+
+    panel!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(await promise).toBeNull();
     expect(document.querySelector('.side-panel')).toBeNull();
+  });
+
+  it('reserves space in the app shell instead of overlaying it (split view, #396)', async () => {
+    const app = document.createElement('div');
+    app.id = 'app';
+    document.body.append(app);
+    const dialogs = new Dialogs();
+    const promise = dialogs.chooseFilter(filterInput());
+    const panel = document.querySelector<HTMLElement>('.side-panel')!;
+    const position = panel.dataset.sidePanelPosition as 'top' | 'right' | 'bottom' | 'left';
+    const paddingProp = {
+      top: 'paddingTop',
+      right: 'paddingRight',
+      bottom: 'paddingBottom',
+      left: 'paddingLeft',
+    }[position] as 'paddingTop' | 'paddingRight' | 'paddingBottom' | 'paddingLeft';
+    expect(app.style[paddingProp]).not.toBe('');
+
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await promise;
+    expect(app.style[paddingProp]).toBe('');
+    app.remove();
   });
 
   it('selects all narrows to the current search term, not the full value list', async () => {

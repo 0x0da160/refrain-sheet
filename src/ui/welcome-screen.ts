@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { FilePlus, FolderOpen } from 'lucide';
+import { FilePlus, FilePlus2, FolderOpen } from 'lucide';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { createAppIcon } from './app-icon';
@@ -49,6 +49,12 @@ export class WelcomeScreen {
       [createIcon(FilePlus, 'flex-none', 18), el('span', { text: t('welcome.new') })],
     );
     create.addEventListener('click', () => void this.commands.run('file.new'));
+    const createCsv = el(
+      'button',
+      { className: `${actionClasses} bg-surface text-accent`, attrs: { type: 'button' } },
+      [createIcon(FilePlus2, 'flex-none', 18), el('span', { text: t('welcome.newCsv') })],
+    );
+    createCsv.addEventListener('click', () => void this.commands.run('file.newCsv'));
     this.element.append(
       // Decorative: the welcome title states the product name, so the icon is
       // hidden from assistive technology. Sized via width/height attributes;
@@ -57,7 +63,11 @@ export class WelcomeScreen {
       createAppIcon('welcome-icon block flex-none rounded-2xl', 72),
       el('h1', { className: 'm-0 text-[22px]', text: t('app.title') }),
       el('p', { className: 'm-0 text-dim', text: t('app.subtitle') }),
-      el('div', { className: 'mt-[10px] mb-[2px] flex flex-wrap justify-center gap-[10px]' }, [open, create]),
+      el('div', { className: 'mt-[10px] mb-[2px] flex flex-wrap justify-center gap-[10px]' }, [
+        open,
+        create,
+        createCsv,
+      ]),
       el('p', {
         className:
           'welcome-drop mt-[6px] rounded-lg border-2 border-dashed border-line px-[26px] py-[14px] text-dim',

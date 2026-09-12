@@ -45,9 +45,24 @@ describe('sheet-font preference', () => {
     );
   });
 
-  it('recognizes exactly the three supported ids', () => {
-    expect([...SHEET_FONTS]).toEqual(['biz-ud', 'ms', 'ms-ui']);
+  it('recognizes exactly the six supported ids', () => {
+    expect([...SHEET_FONTS]).toEqual(['biz-ud', 'ms', 'ms-ui', 'noto-sans-jp', 'meiryo-ui', 'yu-gothic-ui']);
     expect(SHEET_FONTS.every(isSheetFontId)).toBe(true);
     expect(isSheetFontId('other')).toBe(false);
+  });
+
+  it('applies the three fonts added in #396 as their own --font-sheet overrides', () => {
+    applySheetFont('noto-sans-jp');
+    expect(document.documentElement.style.getPropertyValue(SHEET_FONT_PROPERTY)).toBe(
+      'var(--sheet-font-noto-sans-jp)',
+    );
+    applySheetFont('meiryo-ui');
+    expect(document.documentElement.style.getPropertyValue(SHEET_FONT_PROPERTY)).toBe(
+      'var(--sheet-font-meiryo-ui)',
+    );
+    applySheetFont('yu-gothic-ui');
+    expect(document.documentElement.style.getPropertyValue(SHEET_FONT_PROPERTY)).toBe(
+      'var(--sheet-font-yu-gothic-ui)',
+    );
   });
 });

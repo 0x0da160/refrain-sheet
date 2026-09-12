@@ -379,33 +379,64 @@ export function formulaRefsExceedViewport(
   return false;
 }
 
-const CONTEXT_MENU_ITEMS: Array<{ command: CommandId; labelKey: string; shortcut?: string } | 'separator'> = [
+interface ContextMenuCommandDef {
+  command: CommandId;
+  labelKey: string;
+  shortcut?: string;
+}
+
+interface ContextMenuGroupDef {
+  labelKey: string;
+  submenu: Array<ContextMenuCommandDef | 'separator'>;
+}
+
+/**
+ * The cell/header right-click menu. Copy, Paste, and Select All stay at the
+ * top level as the three highest-frequency actions; every less-common family
+ * is grouped into a submenu, the same "long flat menu → submenus by feature
+ * group" treatment already applied to the top menu bar's Sheet/Edit/View
+ * menus (see `menu-bar.ts`'s `rowsAndColumnsItems`/`sheetFontItems` and
+ * #280) — reusing their exact group labels (`menu.edit`,
+ * `menu.sheet.rowsAndColumns`) so the grouping reads the same way in both
+ * places (#396).
+ */
+const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupDef | 'separator'> = [
   { command: 'edit.copy', labelKey: 'menu.edit.copy', shortcut: 'Ctrl+C' },
-  { command: 'edit.copyScreenshot', labelKey: 'menu.edit.copyScreenshot' },
-  { command: 'edit.copyAsMarkdown', labelKey: 'menu.edit.copyAsMarkdown' },
   { command: 'edit.paste', labelKey: 'menu.edit.paste', shortcut: 'Ctrl+V' },
   { command: 'edit.selectAll', labelKey: 'menu.edit.selectAll', shortcut: 'Ctrl+A' },
-  { command: 'edit.insertCopiedCells', labelKey: 'menu.edit.insertCopiedCells' },
-  { command: 'edit.insertCopiedRows', labelKey: 'menu.edit.insertCopiedRows' },
-  { command: 'edit.insertCopiedCols', labelKey: 'menu.edit.insertCopiedCols' },
-  { command: 'edit.flashFill', labelKey: 'menu.edit.flashFill' },
-  { command: 'edit.moveRange', labelKey: 'menu.edit.moveRange' },
-  { command: 'edit.revertCell', labelKey: 'menu.edit.revertCell' },
   'separator',
+  {
+    labelKey: 'menu.edit',
+    submenu: [
+      { command: 'edit.copyScreenshot', labelKey: 'menu.edit.copyScreenshot' },
+      { command: 'edit.copyAsMarkdown', labelKey: 'menu.edit.copyAsMarkdown' },
+      { command: 'edit.insertCopiedCells', labelKey: 'menu.edit.insertCopiedCells' },
+      { command: 'edit.insertCopiedRows', labelKey: 'menu.edit.insertCopiedRows' },
+      { command: 'edit.insertCopiedCols', labelKey: 'menu.edit.insertCopiedCols' },
+      { command: 'edit.flashFill', labelKey: 'menu.edit.flashFill' },
+      { command: 'edit.moveRange', labelKey: 'menu.edit.moveRange' },
+      { command: 'edit.revertCell', labelKey: 'menu.edit.revertCell' },
+    ],
+  },
   { command: 'data.comment', labelKey: 'menu.data.comment' },
   'separator',
   { command: 'sheet.filter', labelKey: 'menu.sheet.filter' },
   { command: 'sheet.filterClear', labelKey: 'menu.sheet.filterClear' },
   'separator',
-  { command: 'sheet.insertRowAbove', labelKey: 'menu.sheet.insertRowAbove' },
-  { command: 'sheet.insertRowBelow', labelKey: 'menu.sheet.insertRowBelow' },
-  { command: 'sheet.deleteRows', labelKey: 'menu.sheet.deleteRows' },
-  'separator',
-  { command: 'sheet.insertColLeft', labelKey: 'menu.sheet.insertColLeft' },
-  { command: 'sheet.insertColRight', labelKey: 'menu.sheet.insertColRight' },
-  { command: 'sheet.deleteCols', labelKey: 'menu.sheet.deleteCols' },
-  'separator',
-  { command: 'sheet.autoFitCols', labelKey: 'menu.sheet.autoFitCols' },
+  {
+    labelKey: 'menu.sheet.rowsAndColumns',
+    submenu: [
+      { command: 'sheet.insertRowAbove', labelKey: 'menu.sheet.insertRowAbove' },
+      { command: 'sheet.insertRowBelow', labelKey: 'menu.sheet.insertRowBelow' },
+      { command: 'sheet.deleteRows', labelKey: 'menu.sheet.deleteRows' },
+      'separator',
+      { command: 'sheet.insertColLeft', labelKey: 'menu.sheet.insertColLeft' },
+      { command: 'sheet.insertColRight', labelKey: 'menu.sheet.insertColRight' },
+      { command: 'sheet.deleteCols', labelKey: 'menu.sheet.deleteCols' },
+      'separator',
+      { command: 'sheet.autoFitCols', labelKey: 'menu.sheet.autoFitCols' },
+    ],
+  },
 ];
 
 /**
@@ -3512,18 +3543,29 @@ export class Grid {
     this.openContextMenu(tab, event.clientX, event.clientY);
   }
 
+  private buildContextEntry(
+    item: ContextMenuCommandDef | ContextMenuGroupDef | 'separator',
+  ): ContextMenuEntry {
+    if (item === 'separator') {
+      return 'separator';
+    }
+    if ('submenu' in item) {
+      return {
+        label: t(item.labelKey),
+        submenu: item.submenu.map((sub) => this.buildContextEntry(sub)),
+      };
+    }
+    return {
+      label: t(item.labelKey),
+      shortcut: item.shortcut,
+      disabled: !this.commands.isEnabled(item.command),
+      onSelect: () => void this.commands.run(item.command),
+    };
+  }
+
   private openContextMenu(tab: Tab, x: number, y: number): void {
     this.closeContextMenu();
-    const entries: ContextMenuEntry[] = CONTEXT_MENU_ITEMS.map((item) =>
-      item === 'separator'
-        ? 'separator'
-        : {
-            label: t(item.labelKey),
-            shortcut: item.shortcut,
-            disabled: !this.commands.isEnabled(item.command),
-            onSelect: () => void this.commands.run(item.command),
-          },
-    );
+    const entries: ContextMenuEntry[] = CONTEXT_MENU_ITEMS.map((item) => this.buildContextEntry(item));
     this.contextMenu = ContextMenu.open(entries, x, y, {
       onClose: () => (this.contextMenu = null),
       toolbar: formatToolbarItems(this.commands, tab),

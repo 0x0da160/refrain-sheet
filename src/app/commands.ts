@@ -441,6 +441,7 @@ export interface UiPort {
 
 export type CommandId =
   | 'file.new'
+  | 'file.newCsv'
   | 'file.open'
   | 'file.reopen'
   | 'file.save'
@@ -527,6 +528,9 @@ export type CommandId =
   | 'view.sheetFont.bizUd'
   | 'view.sheetFont.ms'
   | 'view.sheetFont.msUi'
+  | 'view.sheetFont.notoSansJp'
+  | 'view.sheetFont.meiryoUi'
+  | 'view.sheetFont.yuGothicUi'
   | 'view.theme.system'
   | 'view.theme.light'
   | 'view.theme.dark'
@@ -844,6 +848,9 @@ export class Commands {
       case 'file.new':
         this.newDocument();
         return;
+      case 'file.newCsv':
+        this.newCsvDocument();
+        return;
       case 'file.open': {
         const files = await pickFiles(this.dom, getMaxFileSize());
         await this.openFiles(files, { confirmNonCsv: false });
@@ -1075,11 +1082,17 @@ export class Commands {
         return;
       case 'view.sheetFont.bizUd':
       case 'view.sheetFont.ms':
-      case 'view.sheetFont.msUi': {
+      case 'view.sheetFont.msUi':
+      case 'view.sheetFont.notoSansJp':
+      case 'view.sheetFont.meiryoUi':
+      case 'view.sheetFont.yuGothicUi': {
         const fonts: Record<typeof id, SheetFontId> = {
           'view.sheetFont.bizUd': 'biz-ud',
           'view.sheetFont.ms': 'ms',
           'view.sheetFont.msUi': 'ms-ui',
+          'view.sheetFont.notoSansJp': 'noto-sans-jp',
+          'view.sheetFont.meiryoUi': 'meiryo-ui',
+          'view.sheetFont.yuGothicUi': 'yu-gothic-ui',
         };
         setSheetFont(fonts[id]);
         // Applying the font is pure CSS; re-emit so the menu checkmark and the
@@ -1290,6 +1303,16 @@ export class Commands {
    */
   newDocument(): Tab {
     return this.fileIo.newDocument();
+  }
+
+  /**
+   * File > New CSV: create a blank, byte-preserving CSV document in a new
+   * active tab (#396) — the CSV counterpart of `newDocument`'s blank RSF
+   * spreadsheet. See `FileIoCommands.newCsvDocument` for the full behavior
+   * contract.
+   */
+  newCsvDocument(): Tab {
+    return this.fileIo.newCsvDocument();
   }
 
   /**

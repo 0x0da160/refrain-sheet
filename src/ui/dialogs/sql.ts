@@ -20,7 +20,7 @@ import {
   type SqlQueryResult,
 } from '../../core/sql-engine';
 import { el } from '../dom';
-import { dialogButton, openDialog } from './shared';
+import { dialogButton, openSidePanel } from './shared';
 
 /** Formats a stored timestamp for display, in the app's current UI language. */
 function formatWhen(ms: number): string {
@@ -45,7 +45,9 @@ function insertSuggestion(textarea: HTMLTextAreaElement, text: string): void {
  * active workbook, or the open CSV), write a read-only SQL query, run it,
  * and view the result in an accessible, keyboard-navigable table. Nothing
  * here mutates the source document — see `src/core/sql-engine.ts` for the
- * query engine and its documented scope/limits.
+ * query engine and its documented scope/limits. Docked like Filter/Sort/
+ * Format (`openSidePanel`) rather than a centered modal, so the sheet stays
+ * visible and usable while a query runs (#399).
  *
  * The editor also offers auto-formatting, live (structural-only) syntax
  * checking, and prefix-match suggestions for keywords/functions/columns,
@@ -55,7 +57,7 @@ function insertSuggestion(textarea: HTMLTextAreaElement, text: string): void {
  */
 export class SqlQueryDialogs {
   showSqlQuery(input: SqlQueryDialogInput): Promise<void> {
-    return openDialog<void>(t('dialog.sqlQuery.title'), undefined, (body, buttons, close) => {
+    return openSidePanel<void>(t('dialog.sqlQuery.title'), undefined, (body, buttons, close) => {
       body.classList.add('sql-query-dialog');
       body.append(el('p', { text: t('dialog.sqlQuery.intro') }));
 

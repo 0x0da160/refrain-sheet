@@ -258,6 +258,18 @@ body {
   touch-action: manipulation;
 }
 
+/* Everything except the menu bar and status bar (both direct `#app`
+   children, always at the true viewport top/bottom edges). A docked side
+   panel reserves top/bottom space by padding this element instead of `#app`
+   itself, so the menu bar and status bar never move or get covered — see
+   `reserveAppEdge`, `src/ui/dialogs/shared.ts` (#399). */
+.app-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 button {
   font: inherit;
   color: inherit;
@@ -770,7 +782,7 @@ button {
 /* Editing guidance is tooltip/ARIA-only (View > Editing Help Tooltips);
    the formula bar shows no persistent instruction text. */
 
-/* ---------- Main row: grid + comments panel side by side ---------- */
+/* ---------- Main row: the grid ---------- */
 
 .main-row {
   flex: 1;
@@ -779,29 +791,19 @@ button {
   overflow: hidden;
 }
 
-/* ---------- Comments panel ---------- */
-
-.comments-panel {
-  flex: none;
-  width: 260px;
-  display: flex;
-  flex-direction: column;
-  border-left: 1px solid var(--border);
-  background: var(--panel);
-  overflow-y: auto;
-}
+/* ---------- Comments panel ----------
+   A dockable `.side-panel` (see below) like Filter/Sort/Format/SQL Query,
+   rather than a fixed always-right layout sibling of the grid (#399); this
+   rule only overrides its `.dialog-body` padding back to zero so the
+   scope-label/empty-message/list below keep their own original spacing
+   instead of also getting `.dialog-body`'s outer padding. */
 
 .comments-panel[hidden] {
   display: none;
 }
 
-.comments-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
+.comments-panel .dialog-body {
+  padding: 0;
 }
 
 .comments-panel-title {
@@ -1895,11 +1897,12 @@ dialog::backdrop {
 }
 
 /* Dockable, resizable side panel (openSidePanel, src/ui/dialogs/shared.ts):
-   filter/sort/format/data dialogs anchored to a viewport edge instead of
-   floating, generalizing the comments panel's docked look (#393). Reuses
-   .dialog-title/.dialog-body/.dialog-buttons for a consistent look with the
-   dialogs it replaces; the flex column + .dialog-body's flex:1/min-height:0
-   (see above) are what let it grow/shrink cleanly when resized. */
+   filter/sort/format/SQL query dialogs anchored to a viewport edge instead
+   of floating (#393), and the persistent comments panel alongside them
+   (#399). Reuses .dialog-title/.dialog-body/.dialog-buttons for a
+   consistent look with the dialogs it replaces; the flex column +
+   .dialog-body's flex:1/min-height:0 (see above) are what let it grow/shrink
+   cleanly when resized. */
 .side-panel {
   position: fixed;
   display: flex;
@@ -1919,6 +1922,15 @@ dialog::backdrop {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+/* Groups the position switcher with a panel-specific header action (e.g. the
+   comments panel's close button) so `.side-panel-title`'s space-between
+   keeps the title on one side and this whole cluster on the other. */
+.side-panel-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .side-panel-positions {
@@ -2861,7 +2873,8 @@ table.diff-table td {
 #app.welcome-mode .tab-bar,
 #app.welcome-mode .formula-bar,
 #app.welcome-mode .find-bar,
-#app.welcome-mode .main-row {
+#app.welcome-mode .main-row,
+#app.welcome-mode .comments-panel {
   display: none;
 }
 

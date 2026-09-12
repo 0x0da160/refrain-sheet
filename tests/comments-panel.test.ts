@@ -8,6 +8,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
+import { t } from '../src/app/i18n';
 import { RsfDocument } from '../src/core/rsf-document';
 import { CommentsPanel } from '../src/ui/comments-panel';
 import { Grid } from '../src/ui/grid';
@@ -178,5 +179,45 @@ describe('CommentsPanel', () => {
     expect(panel.isOpen).toBe(true);
     panel.toggle();
     expect(panel.isOpen).toBe(false);
+  });
+
+  describe('dockable side panel chrome (#399)', () => {
+    it('is a dockable, resizable side panel like Filter/Sort/Format/SQL Query', () => {
+      const { panel } = setupWorkbook();
+      expect(panel.element.classList.contains('side-panel')).toBe(true);
+      // Four dock-position buttons (top/right/bottom/left) plus a resize handle.
+      const positions = ['top', 'right', 'bottom', 'left'] as const;
+      for (const position of positions) {
+        expect(
+          panel.element.querySelector(`[title="${t(`dialog.sidePanel.position.${position}`)}"]`),
+        ).not.toBeNull();
+      }
+      expect(panel.element.querySelector('.side-panel-resize-handle')).not.toBeNull();
+    });
+
+    it('reserves app-edge space only while open, and releases it on close', () => {
+      const { panel } = setupWorkbook();
+      const app = document.createElement('div');
+      app.id = 'app';
+      const appBody = document.createElement('div');
+      appBody.id = 'app-body';
+      app.append(appBody);
+      document.body.append(app);
+
+      panel.open();
+      // Force a known dock side, independent of whatever a previous test in
+      // this run left the shared (session-remembered) position at.
+      panel.element
+        .querySelector<HTMLButtonElement>(`[title="${t('dialog.sidePanel.position.right')}"]`)!
+        .click();
+      expect(app.style.paddingRight).not.toBe('');
+
+      panel.close();
+      expect(app.style.paddingRight).toBe('');
+
+      // Reopening re-applies whatever dock side/size was last chosen.
+      panel.open();
+      expect(app.style.paddingRight).not.toBe('');
+    });
   });
 });

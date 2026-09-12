@@ -138,8 +138,8 @@ function bootstrap(): void {
     autoFitSelectedColumns: () => grid.autoFitSelectedColumns(),
     goToCell: (row, col) => grid.reveal(row, col),
   };
-  // The right-side cell comments list, docked beside the grid — see
-  // src/ui/comments-panel.ts.
+  // The cell comments list: a dockable side panel like Filter/Sort/Format —
+  // see src/ui/comments-panel.ts.
   const commentsPanel = new CommentsPanel(state, grid);
   commands.panelActions = {
     toggleComments: () => commentsPanel.toggle(),
@@ -184,19 +184,23 @@ function bootstrap(): void {
   if (!app) {
     return;
   }
-  // The grid and the comments panel sit side by side; every other surface
-  // stacks full-width above and below this row.
-  const mainRow = el('div', { className: 'main-row' }, [grid.element, commentsPanel.element]);
-  app.append(
-    menuBar.element,
+  const mainRow = el('div', { className: 'main-row' }, [grid.element]);
+  // Everything except the always-visible menu bar and status bar lives in
+  // `#app-body`: a docked side panel (the comments panel here, or Filter/
+  // Sort/Format/SQL Query via `openSidePanel`) reserves space by padding
+  // this element rather than `#app` itself, so a top/bottom-docked panel
+  // insets below the menu bar / above the status bar instead of covering
+  // them (see `applySidePanelPosition`, `src/ui/dialogs/shared.ts`, #399).
+  const appBody = el('div', { className: 'app-body', attrs: { id: 'app-body' } }, [
     tabBar.element,
     findBar.element,
     formulaBar.element,
     welcome.element,
     mainRow,
     sheetBar.element,
-    statusBar.element,
-  );
+    commentsPanel.element,
+  ]);
+  app.append(menuBar.element, appBody, statusBar.element);
 
   const dropMessage = el('div', { className: 'drop-message' });
   const dropOverlay = el('div', { className: 'drop-overlay', attrs: { 'aria-hidden': 'true' } }, [

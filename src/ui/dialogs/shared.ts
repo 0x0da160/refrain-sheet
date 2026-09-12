@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { el } from '../dom';
+import { makeDraggable, makeResizable } from '../drag-resize';
 import { positionPopup, visualViewportRect, type AnchorRect } from '../popup';
+import { t } from '../../app/i18n';
 
 /**
  * A safe external hyperlink. The href/text are fixed constants (never CSV or
@@ -30,16 +32,40 @@ export function cellList(cells: Array<{ row: number; col: number }>, extra?: (i:
 export type DialogBuilder<T> = (body: HTMLElement, buttons: HTMLElement, close: (value: T) => void) => void;
 
 /**
+ * A corner grip appended to a dialog/popover so it can be resized (see
+ * `makeResizable`, `src/ui/drag-resize.ts`). `aria-hidden` plus a `title`
+ * tooltip mirrors the grid's pointer-only resize/fill/move handles
+ * (`.col-resize-handle` etc. in `src/ui/grid.ts`): a mouse/touch affordance
+ * with no keyboard equivalent, so it is not exposed to assistive tech.
+ */
+function resizeGrip(): HTMLDivElement {
+  return el('div', {
+    className: 'dialog-resize-handle',
+    attrs: { 'aria-hidden': 'true', title: t('dialog.resizeHandle') },
+  });
+}
+
+/**
  * Modal dialogs built on the native <dialog> element, which provides the
  * focus trap and Escape handling. All content is added via textContent.
+ * The heading doubles as a drag handle and a corner grip makes it resizable
+ * (`makeDraggable`/`makeResizable`); both are pointer-only and leave the
+ * dialog centered until the user first grabs one of them.
  */
 export function openDialog<T>(title: string, fallback: T, build: DialogBuilder<T>): Promise<T> {
   return new Promise((resolve) => {
     const dialog = el('dialog', { attrs: { 'aria-labelledby': 'dialog-title' } });
-    const heading = el('h2', { className: 'dialog-title', text: title, attrs: { id: 'dialog-title' } });
+    const heading = el('h2', {
+      className: 'dialog-title',
+      text: title,
+      attrs: { id: 'dialog-title', title: t('dialog.dragHandle') },
+    });
     const body = el('div', { className: 'dialog-body' });
     const buttons = el('div', { className: 'dialog-buttons' });
-    dialog.append(heading, body, buttons);
+    const grip = resizeGrip();
+    dialog.append(heading, body, buttons, grip);
+    makeDraggable(dialog, heading);
+    makeResizable(dialog, grip);
 
     const restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     let settled = false;
@@ -123,7 +149,10 @@ export function dialogButton(
  * and window blur all close it, and focus returns to whatever triggered it.
  * A manual Tab/Shift+Tab handler keeps focus cycling within the popover
  * since, unlike `<dialog>` opened with `showModal()`, a plain positioned
- * element has no native focus trap.
+ * element has no native focus trap. The heading doubles as a drag handle
+ * and a corner grip makes it resizable (`makeDraggable`/`makeResizable`);
+ * once the user has grabbed either, `reposition` stops re-anchoring it to
+ * `getAnchor()` so a scroll or window resize does not snap it back.
  */
 export function openPopover<T>(
   getAnchor: () => AnchorRect | null,
@@ -139,11 +168,14 @@ export function openPopover<T>(
     const heading = el('h2', {
       className: 'dialog-title',
       text: title,
-      attrs: { id: 'filter-popover-title' },
+      attrs: { id: 'filter-popover-title', title: t('dialog.dragHandle') },
     });
     const body = el('div', { className: 'dialog-body' });
     const buttons = el('div', { className: 'dialog-buttons' });
-    popover.append(heading, body, buttons);
+    const grip = resizeGrip();
+    popover.append(heading, body, buttons, grip);
+    makeDraggable(popover, heading);
+    makeResizable(popover, grip);
 
     const restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const listeners: Array<() => void> = [];
@@ -174,6 +206,9 @@ export function openPopover<T>(
     };
 
     const reposition = (): void => {
+      if (popover.dataset.dragResized === 'true') {
+        return; // the user has manually moved/resized it; don't snap it back.
+      }
       const anchor = getAnchor();
       if (anchor) {
         positionPopup(popover, { kind: 'below', rect: anchor });

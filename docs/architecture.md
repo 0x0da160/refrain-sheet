@@ -46,6 +46,16 @@ below it, never above):
   rendered text metrics, so `Commands` exposes a narrow `gridActions` port
   that the grid implements. The command still owns the flow; the grid only
   supplies DOM-dependent measurement.
+- **Styling stays hand-written CSS (`src/styles.css`), plus Tailwind utility
+  classes for non-grid surfaces** (menus, dialogs, panels, the welcome
+  screen). `styles.css` imports only `tailwindcss/theme.css` and
+  `tailwindcss/utilities.css` — never the Preflight base layer — so Tailwind
+  contributes utility classes without resetting any element's default
+  styling. The `@theme` block bridges a subset of the semantic color tokens
+  below (e.g. `--accent`, `--surface`) so Tailwind classes such as `bg-accent`
+  keep following the light/dark theme. The grid (`src/ui/grid.ts`) is
+  intentionally left out of this migration to keep its rendering path
+  unaffected; no framework (React, Vue, etc.) is used anywhere.
 
 ### Inside the formula engine
 

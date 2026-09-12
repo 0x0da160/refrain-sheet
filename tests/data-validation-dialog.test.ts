@@ -54,25 +54,25 @@ describe('the data-validation dialog list rule', () => {
 
   afterEach(() => {
     setLocale(locale);
-    document.querySelectorAll('dialog').forEach((n) => n.remove());
+    document.querySelectorAll('.side-panel').forEach((n) => n.remove());
   });
 
   it('shows no truncation note and applies every value when within the cap', async () => {
     const dialogs = new Dialogs();
     const promise = dialogs.chooseDataValidation(dataValidationInput());
-    const dialog = document.querySelector<HTMLElement>('dialog')!;
+    const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
-    const listValues = dialog.querySelector<HTMLTextAreaElement>('textarea')!;
+    const listValues = panel.querySelector<HTMLTextAreaElement>('textarea')!;
     listValues.value = 'a\nb\nc';
     listValues.dispatchEvent(new Event('input', { bubbles: true }));
 
-    expect(dialog.querySelector('.dialog-error')?.textContent).toBe('');
-    const noteTexts = Array.from(dialog.querySelectorAll('.dialog-note')).map((n) => n.textContent);
+    expect(panel.querySelector('.dialog-error')?.textContent).toBe('');
+    const noteTexts = Array.from(panel.querySelectorAll('.dialog-note')).map((n) => n.textContent);
     expect(noteTexts).not.toContain(
       t('dialog.dataValidation.listTruncated', { n: MAX_VALIDATION_LIST_VALUES }),
     );
 
-    dialogButton(dialog, t('dialog.dataValidation.apply')).click();
+    dialogButton(panel, t('dialog.dataValidation.apply')).click();
     const result = await promise;
     expect(result).toMatchObject({ action: 'apply', rule: { kind: 'list', values: ['a', 'b', 'c'] } });
   });
@@ -80,20 +80,20 @@ describe('the data-validation dialog list rule', () => {
   it('shows a truncation note and keeps only the first values when the cap is exceeded', async () => {
     const dialogs = new Dialogs();
     const promise = dialogs.chooseDataValidation(dataValidationInput());
-    const dialog = document.querySelector<HTMLElement>('dialog')!;
+    const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
     const values = Array.from({ length: MAX_VALIDATION_LIST_VALUES + 100 }, (_, i) => `v${i}`);
-    const listValues = dialog.querySelector<HTMLTextAreaElement>('textarea')!;
+    const listValues = panel.querySelector<HTMLTextAreaElement>('textarea')!;
     listValues.value = values.join('\n');
     listValues.dispatchEvent(new Event('input', { bubbles: true }));
 
     const expectedNote = t('dialog.dataValidation.listTruncated', { n: MAX_VALIDATION_LIST_VALUES });
-    const noteTexts = Array.from(dialog.querySelectorAll('.dialog-note')).map((n) => n.textContent);
+    const noteTexts = Array.from(panel.querySelectorAll('.dialog-note')).map((n) => n.textContent);
     expect(noteTexts).toContain(expectedNote);
     // Apply is not blocked by truncation itself — only the missing-rule case is.
-    expect(dialogButton(dialog, t('dialog.dataValidation.apply')).disabled).toBe(false);
+    expect(dialogButton(panel, t('dialog.dataValidation.apply')).disabled).toBe(false);
 
-    dialogButton(dialog, t('dialog.dataValidation.apply')).click();
+    dialogButton(panel, t('dialog.dataValidation.apply')).click();
     const result = await promise;
     expect(result).toMatchObject({ action: 'apply' });
     if (result?.action === 'apply' && result.rule.kind === 'list') {
@@ -108,24 +108,24 @@ describe('the data-validation dialog list rule', () => {
   it('clears the truncation note again once the list is trimmed back under the cap', async () => {
     const dialogs = new Dialogs();
     const promise = dialogs.chooseDataValidation(dataValidationInput());
-    const dialog = document.querySelector<HTMLElement>('dialog')!;
+    const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
     const values = Array.from({ length: MAX_VALIDATION_LIST_VALUES + 5 }, (_, i) => `v${i}`);
-    const listValues = dialog.querySelector<HTMLTextAreaElement>('textarea')!;
+    const listValues = panel.querySelector<HTMLTextAreaElement>('textarea')!;
     listValues.value = values.join('\n');
     listValues.dispatchEvent(new Event('input', { bubbles: true }));
     const expectedNote = t('dialog.dataValidation.listTruncated', { n: MAX_VALIDATION_LIST_VALUES });
-    expect(Array.from(dialog.querySelectorAll('.dialog-note')).map((n) => n.textContent)).toContain(
+    expect(Array.from(panel.querySelectorAll('.dialog-note')).map((n) => n.textContent)).toContain(
       expectedNote,
     );
 
     listValues.value = 'a\nb';
     listValues.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(Array.from(dialog.querySelectorAll('.dialog-note')).map((n) => n.textContent)).not.toContain(
+    expect(Array.from(panel.querySelectorAll('.dialog-note')).map((n) => n.textContent)).not.toContain(
       expectedNote,
     );
 
-    dialog.dispatchEvent(new Event('cancel'));
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await promise;
   });
 });

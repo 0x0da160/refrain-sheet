@@ -174,3 +174,68 @@ export function makeResizable(container: HTMLElement, handle: HTMLElement): void
     event.preventDefault();
   });
 }
+
+export type EdgeResizeAxis = 'horizontal' | 'vertical';
+
+/**
+ * Drag `handle` (a single edge, not a corner) to resize `container` along one
+ * axis — used by the docked, edge-anchored side panel (`openSidePanel`,
+ * `src/ui/dialogs/shared.ts`) instead of the floating windows above, which is
+ * why this reports a size through `onResize` rather than writing
+ * `width`/`height` styles itself: the caller (re)applies the panel's CSS for
+ * whichever edge is currently docked. `axis`/`sign` are re-invoked on every
+ * pointer move (not cached at drag start) so switching the dock position
+ * mid-drag — which cannot happen through the UI today, but might if that
+ * changes — would still resize sensibly.`sign` returns `1` when dragging away
+ * from the anchored edge grows the panel (e.g. a left-docked panel's handle
+ * on its right edge) and `-1` when dragging toward it does (e.g. a
+ * right-docked panel's handle on its left edge).
+ */
+export function makeEdgeResizable(
+  handle: HTMLElement,
+  axis: () => EdgeResizeAxis,
+  sign: () => 1 | -1,
+  startSize: () => number,
+  minSize: number,
+  maxSize: () => number,
+  onResize: (size: number) => void,
+): void {
+  let pointerId: number | null = null;
+  let startCoord = 0;
+  let baseSize = 0;
+
+  const coordOf = (event: PointerEvent): number => (axis() === 'horizontal' ? event.clientX : event.clientY);
+
+  const onPointerMove = (event: PointerEvent): void => {
+    if (event.pointerId !== pointerId) {
+      return;
+    }
+    const delta = (coordOf(event) - startCoord) * sign();
+    onResize(clamp(baseSize + delta, minSize, Math.max(minSize, maxSize())));
+  };
+
+  const endResize = (event: PointerEvent): void => {
+    if (event.pointerId !== pointerId) {
+      return;
+    }
+    releaseIfCaptured(handle, pointerId);
+    pointerId = null;
+    handle.removeEventListener('pointermove', onPointerMove);
+    handle.removeEventListener('pointerup', endResize);
+    handle.removeEventListener('pointercancel', endResize);
+  };
+
+  handle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+    pointerId = event.pointerId;
+    startCoord = coordOf(event);
+    baseSize = startSize();
+    capture(handle, pointerId);
+    handle.addEventListener('pointermove', onPointerMove);
+    handle.addEventListener('pointerup', endResize);
+    handle.addEventListener('pointercancel', endResize);
+    event.preventDefault();
+  });
+}

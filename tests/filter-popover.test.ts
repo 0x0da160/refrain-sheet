@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 /**
- * The column-filter popover (`Dialogs.chooseFilter`): a non-modal, anchored
- * surface (not a native `<dialog>`/backdrop) with Escape/outside-click
- * dismissal and manual focus handling, plus select-all/deselect-all for the
- * distinct-value list acting on the currently search-narrowed values rather
- * than the column's full value set. See issue #121.
+ * The column-filter side panel (`Dialogs.chooseFilter`): a non-modal,
+ * dockable/resizable surface (not a native `<dialog>`/backdrop) with
+ * Escape/outside-click dismissal and manual focus handling, plus
+ * select-all/deselect-all for the distinct-value list acting on the
+ * currently search-narrowed values, like the individual checkboxes. See
+ * issue #121 (the original anchored popover) and #393 (converted to the
+ * shared dockable side panel, `openSidePanel`, alongside Sort/Data
+ * Validation/Format).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FilterDialogInput } from '../src/app/commands';
@@ -36,7 +39,7 @@ function popoverButton(popover: HTMLElement, label: string): HTMLButtonElement {
   return button;
 }
 
-describe('the column-filter popover', () => {
+describe('the column-filter side panel', () => {
   const locale = getLocale();
 
   beforeEach(() => {
@@ -49,32 +52,32 @@ describe('the column-filter popover', () => {
 
   afterEach(() => {
     setLocale(locale);
-    document.querySelectorAll('.filter-popover').forEach((n) => n.remove());
+    document.querySelectorAll('.side-panel').forEach((n) => n.remove());
   });
 
   it('is a plain positioned element, not a native modal <dialog>', async () => {
     const dialogs = new Dialogs();
     const promise = dialogs.chooseFilter(filterInput());
-    const popover = document.querySelector<HTMLElement>('.filter-popover');
-    expect(popover).not.toBeNull();
-    expect(popover!.tagName).toBe('DIV');
-    expect(popover!.getAttribute('role')).toBe('dialog');
-    expect(popover!.getAttribute('aria-modal')).toBe('false');
+    const panel = document.querySelector<HTMLElement>('.side-panel');
+    expect(panel).not.toBeNull();
+    expect(panel!.tagName).toBe('DIV');
+    expect(panel!.getAttribute('role')).toBe('dialog');
+    expect(panel!.getAttribute('aria-modal')).toBe('false');
     expect(document.querySelector('dialog')).toBeNull();
 
-    popover!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    panel!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(await promise).toBeNull();
-    expect(document.querySelector('.filter-popover')).toBeNull();
+    expect(document.querySelector('.side-panel')).toBeNull();
   });
 
   it('closes and resolves null (cancel) on an outside pointer interaction', async () => {
     const dialogs = new Dialogs();
     const promise = dialogs.chooseFilter(filterInput());
-    expect(document.querySelector('.filter-popover')).not.toBeNull();
+    expect(document.querySelector('.side-panel')).not.toBeNull();
 
     document.body.dispatchEvent(new Event('mousedown', { bubbles: true }));
     expect(await promise).toBeNull();
-    expect(document.querySelector('.filter-popover')).toBeNull();
+    expect(document.querySelector('.side-panel')).toBeNull();
   });
 
   it('selects all narrows to the current search term, not the full value list', async () => {
@@ -83,14 +86,14 @@ describe('the column-filter popover', () => {
     // unchecked (allValues off, nothing pre-selected).
     const input = filterInput({ existing: { col: 1, join: 'and', conditions: [], values: [] } });
     const promise = dialogs.chooseFilter(input);
-    const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+    const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
-    const search = popover.querySelector<HTMLInputElement>('input[type="search"]')!;
+    const search = panel.querySelector<HTMLInputElement>('input[type="search"]')!;
     search.value = 'a'; // matches apple, banana; not cherry
     search.dispatchEvent(new Event('input', { bubbles: true }));
 
-    popoverButton(popover, t('dialog.filter.selectAllValues')).click();
-    popoverButton(popover, t('dialog.filter.apply')).click();
+    popoverButton(panel, t('dialog.filter.selectAllValues')).click();
+    popoverButton(panel, t('dialog.filter.apply')).click();
 
     const result = await promise;
     expect(result).toMatchObject({ action: 'apply', column: { values: ['apple', 'banana'] } });
@@ -104,46 +107,36 @@ describe('the column-filter popover', () => {
       existing: { col: 1, join: 'and', conditions: [], values: ['apple', 'banana', 'cherry'] },
     });
     const promise = dialogs.chooseFilter(input);
-    const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+    const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
-    const search = popover.querySelector<HTMLInputElement>('input[type="search"]')!;
+    const search = panel.querySelector<HTMLInputElement>('input[type="search"]')!;
     search.value = 'a'; // matches apple, banana; not cherry
     search.dispatchEvent(new Event('input', { bubbles: true }));
 
-    popoverButton(popover, t('dialog.filter.deselectAllValues')).click();
-    popoverButton(popover, t('dialog.filter.apply')).click();
+    popoverButton(panel, t('dialog.filter.deselectAllValues')).click();
+    popoverButton(panel, t('dialog.filter.apply')).click();
 
     const result = await promise;
     expect(result).toMatchObject({ action: 'apply', column: { values: ['cherry'] } });
   });
 
-  it('anchors below the triggering column header when it is currently rendered', async () => {
-    const header = document.createElement('div');
-    header.setAttribute('data-colhead', '1');
-    header.getBoundingClientRect = () =>
-      ({ left: 300, top: 40, right: 360, bottom: 60, width: 60, height: 20 }) as DOMRect;
-    document.body.append(header);
-
+  it('docks to the right by default and can be switched to top/bottom/left', async () => {
     const dialogs = new Dialogs();
-    const promise = dialogs.chooseFilter(filterInput({ col: 1 }));
-    const popover = document.querySelector<HTMLElement>('.filter-popover')!;
-    expect(popover.style.left).toBe('300px');
-    expect(popover.style.top).toBe('60px');
+    const promise = dialogs.chooseFilter(filterInput());
+    const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
-    popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await promise;
-  });
+    // Whichever side a previous test left it docked to is a deliberate,
+    // session-remembered choice (see openSidePanel in
+    // src/ui/dialogs/shared.ts) — assert against the current position
+    // rather than assuming 'right', then exercise every switch button.
+    for (const position of ['top', 'right', 'bottom', 'left'] as const) {
+      panel
+        .querySelector<HTMLButtonElement>(`[title="${t(`dialog.sidePanel.position.${position}`)}"]`)!
+        .click();
+      expect(panel.dataset.sidePanelPosition).toBe(position);
+    }
 
-  it('falls back to a centered position when the column header is not currently rendered', async () => {
-    const dialogs = new Dialogs();
-    // No element with data-colhead="1" exists (e.g. scrolled out of the
-    // virtualized grid window), so there is nothing to anchor to.
-    const promise = dialogs.chooseFilter(filterInput({ col: 1 }));
-    const popover = document.querySelector<HTMLElement>('.filter-popover')!;
-    expect(popover.style.left).toBe('500px'); // 1000 / 2
-    expect(popover.style.top).toBe('267px'); // round(800 / 3)
-
-    popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await promise;
   });
 
@@ -153,11 +146,11 @@ describe('the column-filter popover', () => {
     it('leaves Apply enabled and shows no error while the default row is untouched', async () => {
       const dialogs = new Dialogs();
       const promise = dialogs.chooseFilter(filterInput());
-      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+      const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
-      const applyBtn = popoverButton(popover, t('dialog.filter.apply'));
+      const applyBtn = popoverButton(panel, t('dialog.filter.apply'));
       expect(applyBtn.disabled).toBe(false);
-      expect(popover.querySelector('.dialog-error')?.textContent).toBe('');
+      expect(panel.querySelector('.dialog-error')?.textContent).toBe('');
 
       applyBtn.click();
       const result = await promise;
@@ -167,27 +160,23 @@ describe('the column-filter popover', () => {
     it('disables Apply and shows an error once a numeric condition is touched but left blank', async () => {
       const dialogs = new Dialogs();
       const promise = dialogs.chooseFilter(filterInput());
-      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+      const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
-      const opSelect = popover.querySelector<HTMLSelectElement>(
+      const opSelect = panel.querySelector<HTMLSelectElement>(
         `[aria-label="${t('dialog.filter.condition')}"]`,
       )!;
       opSelect.value = 'numGreater';
       opSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
-      const applyBtn = popoverButton(popover, t('dialog.filter.apply'));
+      const applyBtn = popoverButton(panel, t('dialog.filter.apply'));
       expect(applyBtn.disabled).toBe(true);
-      expect(popover.querySelector('.dialog-error')?.textContent).toBe(
-        t('dialog.filter.conditionIncomplete'),
-      );
+      expect(panel.querySelector('.dialog-error')?.textContent).toBe(t('dialog.filter.conditionIncomplete'));
 
-      const valueInput = popover.querySelector<HTMLInputElement>(
-        `[aria-label="${t('dialog.filter.value')}"]`,
-      )!;
+      const valueInput = panel.querySelector<HTMLInputElement>(`[aria-label="${t('dialog.filter.value')}"]`)!;
       valueInput.value = '5';
       valueInput.dispatchEvent(new Event('input', { bubbles: true }));
       expect(applyBtn.disabled).toBe(false);
-      expect(popover.querySelector('.dialog-error')?.textContent).toBe('');
+      expect(panel.querySelector('.dialog-error')?.textContent).toBe('');
 
       applyBtn.click();
       const result = await promise;
@@ -200,64 +189,58 @@ describe('the column-filter popover', () => {
     it('disables Apply once a numeric condition is touched with a non-numeric value', async () => {
       const dialogs = new Dialogs();
       const promise = dialogs.chooseFilter(filterInput());
-      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+      const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
-      const opSelect = popover.querySelector<HTMLSelectElement>(
+      const opSelect = panel.querySelector<HTMLSelectElement>(
         `[aria-label="${t('dialog.filter.condition')}"]`,
       )!;
       opSelect.value = 'numGreater';
       opSelect.dispatchEvent(new Event('change', { bubbles: true }));
-      const valueInput = popover.querySelector<HTMLInputElement>(
-        `[aria-label="${t('dialog.filter.value')}"]`,
-      )!;
+      const valueInput = panel.querySelector<HTMLInputElement>(`[aria-label="${t('dialog.filter.value')}"]`)!;
       valueInput.value = 'not a number';
       valueInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-      const applyBtn = popoverButton(popover, t('dialog.filter.apply'));
+      const applyBtn = popoverButton(panel, t('dialog.filter.apply'));
       expect(applyBtn.disabled).toBe(true);
-      expect(popover.querySelector('.dialog-error')?.textContent).toBe(
-        t('dialog.filter.conditionIncomplete'),
-      );
+      expect(panel.querySelector('.dialog-error')?.textContent).toBe(t('dialog.filter.conditionIncomplete'));
 
-      popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await promise;
     });
 
     it('disables Apply once a text condition is touched but left blank', async () => {
       const dialogs = new Dialogs();
       const promise = dialogs.chooseFilter(filterInput());
-      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+      const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
-      const opSelect = popover.querySelector<HTMLSelectElement>(
+      const opSelect = panel.querySelector<HTMLSelectElement>(
         `[aria-label="${t('dialog.filter.condition')}"]`,
       )!;
       opSelect.value = 'equals';
       opSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
-      const applyBtn = popoverButton(popover, t('dialog.filter.apply'));
+      const applyBtn = popoverButton(panel, t('dialog.filter.apply'));
       expect(applyBtn.disabled).toBe(true);
-      expect(popover.querySelector('.dialog-error')?.textContent).toBe(
-        t('dialog.filter.conditionIncomplete'),
-      );
+      expect(panel.querySelector('.dialog-error')?.textContent).toBe(t('dialog.filter.conditionIncomplete'));
 
-      popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await promise;
     });
 
     it('does not require a value for the no-value blank/notBlank operators', async () => {
       const dialogs = new Dialogs();
       const promise = dialogs.chooseFilter(filterInput());
-      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+      const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
-      const opSelect = popover.querySelector<HTMLSelectElement>(
+      const opSelect = panel.querySelector<HTMLSelectElement>(
         `[aria-label="${t('dialog.filter.condition')}"]`,
       )!;
       opSelect.value = 'notBlank';
       opSelect.dispatchEvent(new Event('change', { bubbles: true }));
 
-      const applyBtn = popoverButton(popover, t('dialog.filter.apply'));
+      const applyBtn = popoverButton(panel, t('dialog.filter.apply'));
       expect(applyBtn.disabled).toBe(false);
-      expect(popover.querySelector('.dialog-error')?.textContent).toBe('');
+      expect(panel.querySelector('.dialog-error')?.textContent).toBe('');
 
       applyBtn.click();
       const result = await promise;
@@ -278,21 +261,17 @@ describe('the column-filter popover', () => {
         },
       });
       const promise = dialogs.chooseFilter(input);
-      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
+      const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
-      const valueInput = popover.querySelector<HTMLInputElement>(
-        `[aria-label="${t('dialog.filter.value')}"]`,
-      )!;
+      const valueInput = panel.querySelector<HTMLInputElement>(`[aria-label="${t('dialog.filter.value')}"]`)!;
       valueInput.value = '';
       valueInput.dispatchEvent(new Event('input', { bubbles: true }));
 
-      const applyBtn = popoverButton(popover, t('dialog.filter.apply'));
+      const applyBtn = popoverButton(panel, t('dialog.filter.apply'));
       expect(applyBtn.disabled).toBe(true);
-      expect(popover.querySelector('.dialog-error')?.textContent).toBe(
-        t('dialog.filter.conditionIncomplete'),
-      );
+      expect(panel.querySelector('.dialog-error')?.textContent).toBe(t('dialog.filter.conditionIncomplete'));
 
-      popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await promise;
     });
   });

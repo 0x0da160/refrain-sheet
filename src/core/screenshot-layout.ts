@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 /**
  * DOM-independent layout for rendering a cell range as a screen-accurate
- * image (used by both `ClipboardController.copyImageAsPng` and
- * `copyScreenshotAsPng`) that reflects each cell's actual resolved
+ * image (used by `ClipboardController.copyScreenshotAsPng`) that reflects
+ * each cell's actual resolved
  * appearance on screen — bold/italic/underline, text and background color
  * (conditional formatting overriding a cell's own style, matching
  * `Grid.paintCell`'s precedence), and borders (matching

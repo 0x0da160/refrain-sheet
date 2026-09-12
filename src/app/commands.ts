@@ -449,7 +449,6 @@ export type CommandId =
   | 'edit.undo'
   | 'edit.redo'
   | 'edit.copy'
-  | 'edit.copyAsImage'
   | 'edit.copyScreenshot'
   | 'edit.copyAsMarkdown'
   | 'edit.paste'
@@ -549,8 +548,6 @@ export class Commands {
   /** Set by main.ts so menu Copy/Paste can go through the clipboard controller. */
   clipboardActions: {
     copy: () => Promise<void>;
-    /** Render the selection to a PNG and write it to the system clipboard. */
-    copyAsImage: () => Promise<void>;
     /** Render the selection's actual on-screen appearance to a PNG and write it to the system clipboard. */
     copyScreenshot: () => Promise<void>;
     /** Write the selection to the system clipboard as a GitHub-Flavored Markdown table. */
@@ -717,7 +714,6 @@ export class Commands {
       // The async Clipboard API's image write has inconsistent browser
       // support (including on file://), so the item is hidden/disabled
       // outright there rather than failing at run time.
-      case 'edit.copyAsImage':
       case 'edit.copyScreenshot':
         return (
           tab?.selection != null &&
@@ -873,9 +869,6 @@ export class Commands {
         return;
       case 'edit.copy':
         await this.clipboardActions?.copy();
-        return;
-      case 'edit.copyAsImage':
-        await this.clipboardActions?.copyAsImage();
         return;
       case 'edit.copyScreenshot':
         await this.clipboardActions?.copyScreenshot();

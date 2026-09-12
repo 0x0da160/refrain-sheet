@@ -128,7 +128,6 @@ function bootstrap(): void {
   );
   commands.clipboardActions = {
     copy: () => clipboard.copyViaApi(),
-    copyAsImage: () => clipboard.copyImageAsPng(),
     copyScreenshot: () => clipboard.copyScreenshotAsPng(),
     copyAsMarkdown: () => clipboard.copyMarkdownTable(),
     paste: () => clipboard.pasteViaApi(),

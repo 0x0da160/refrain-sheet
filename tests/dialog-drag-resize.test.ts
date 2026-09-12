@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 /**
- * Drag-to-move and drag-to-resize for the shared dialog/popover windows
- * (`src/ui/drag-resize.ts`, wired in `src/ui/dialogs/shared.ts`) — see
- * issue #361. Covers both `openDialog` (the modal `<dialog>` used by Sort,
- * Go to Cell, etc.) and `openPopover` (the anchored, non-modal filter
- * popover), since the issue names both as "popup windows" to make
- * draggable/resizable.
+ * Drag-to-move and drag-to-resize for the shared dialog windows
+ * (`src/ui/drag-resize.ts`, wired in `src/ui/dialogs/shared.ts`) — see issue
+ * #361. Covers `openDialog` (the modal `<dialog>` used by Go to Cell, etc.)
+ * and, since #393 converted Filter/Sort/Format/Data Validation from
+ * `openDialog`/`openPopover` to the dockable `openSidePanel`, the side
+ * panel's single-axis edge resize and position switching too.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FilterDialogInput } from '../src/app/commands';
-import { getLocale, setLocale } from '../src/app/i18n';
+import { getLocale, setLocale, t } from '../src/app/i18n';
 import { Dialogs } from '../src/ui/dialogs';
 
 function filterInput(overrides: Partial<FilterDialogInput> = {}): FilterDialogInput {
@@ -145,52 +145,57 @@ describe('dialog/popover drag-to-move and drag-to-resize', () => {
     });
   });
 
-  describe('the anchored filter popover (openPopover)', () => {
-    it('moves when the title bar is dragged', async () => {
+  describe('the dockable filter side panel (openSidePanel)', () => {
+    it('resizes along its docked axis when the inner edge handle is dragged', async () => {
       const dialogs = new Dialogs();
       const promise = dialogs.chooseFilter(filterInput());
-      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
-      const heading = popover.querySelector<HTMLElement>('.dialog-title')!;
-      stubRect(popover, { left: 500, top: 267, width: 300, height: 200 });
+      const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
-      heading.dispatchEvent(pointerEvent('pointerdown', { clientX: 520, clientY: 280 }));
-      heading.dispatchEvent(pointerEvent('pointermove', { clientX: 470, clientY: 330 }));
-      heading.dispatchEvent(pointerEvent('pointerup', { clientX: 470, clientY: 330 }));
+      // Force a known dock side, independent of whatever a previous test in
+      // this run left the shared (session-remembered) position at.
+      panel.querySelector<HTMLButtonElement>(`[title="${t('dialog.sidePanel.position.right')}"]`)!.click();
+      expect(panel.dataset.sidePanelPosition).toBe('right');
+      stubRect(panel, { left: 700, top: 0, width: 300, height: 800 });
 
-      expect(popover.style.left).toBe('450px'); // 500 - 50
-      expect(popover.style.top).toBe('317px'); // 267 + 50
+      const grip = panel.querySelector<HTMLElement>('.side-panel-resize-handle')!;
+      // Right-docked: dragging the (left-edge) handle further left grows it.
+      grip.dispatchEvent(pointerEvent('pointerdown', { clientX: 700, clientY: 400 }));
+      grip.dispatchEvent(pointerEvent('pointermove', { clientX: 650, clientY: 400 }));
+      grip.dispatchEvent(pointerEvent('pointerup', { clientX: 650, clientY: 400 }));
+      expect(panel.style.width).toBe('350px'); // 300 + (700 - 650)
 
-      popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      // Growing past the viewport margin stops at the cap, not a larger size.
+      stubRect(panel, { left: 700, top: 0, width: 350, height: 800 });
+      grip.dispatchEvent(pointerEvent('pointerdown', { clientX: 650, clientY: 400 }));
+      grip.dispatchEvent(pointerEvent('pointermove', { clientX: -1000, clientY: 400 }));
+      grip.dispatchEvent(pointerEvent('pointerup', { clientX: -1000, clientY: 400 }));
+      expect(panel.style.width).toBe('840px'); // innerWidth (1000) - the 160px margin
+
+      panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await promise;
     });
 
-    it('stops following the anchor (no snap-back) once manually moved', async () => {
-      const header = document.createElement('div');
-      header.setAttribute('data-colhead', '1');
-      header.getBoundingClientRect = () =>
-        ({ left: 300, top: 40, right: 360, bottom: 60, width: 60, height: 20 }) as DOMRect;
-      document.body.append(header);
-
+    it('switches dock position from the header buttons, updating the panel and its resize axis', async () => {
       const dialogs = new Dialogs();
-      const promise = dialogs.chooseFilter(filterInput({ col: 1 }));
-      const popover = document.querySelector<HTMLElement>('.filter-popover')!;
-      expect(popover.style.left).toBe('300px'); // anchored below the header
+      const promise = dialogs.chooseFilter(filterInput());
+      const panel = document.querySelector<HTMLElement>('.side-panel')!;
 
-      const heading = popover.querySelector<HTMLElement>('.dialog-title')!;
-      stubRect(popover, { left: 300, top: 60, width: 300, height: 200 });
-      heading.dispatchEvent(pointerEvent('pointerdown', { clientX: 310, clientY: 70 }));
-      heading.dispatchEvent(pointerEvent('pointermove', { clientX: 410, clientY: 170 }));
-      heading.dispatchEvent(pointerEvent('pointerup', { clientX: 410, clientY: 170 }));
-      expect(popover.style.left).toBe('400px');
-      expect(popover.style.top).toBe('160px');
+      panel.querySelector<HTMLButtonElement>(`[title="${t('dialog.sidePanel.position.top')}"]`)!.click();
+      expect(panel.dataset.sidePanelPosition).toBe('top');
+      expect(panel.style.top).toBe('0px');
+      expect(panel.style.left).toBe('0px');
+      expect(panel.style.right).toBe('0px');
+      expect(panel.style.bottom).toBe('');
 
-      // A window resize would normally re-run positionPopup and reset the
-      // element back next to the (still-rendered) header; it must not.
-      window.dispatchEvent(new Event('resize'));
-      expect(popover.style.left).toBe('400px');
-      expect(popover.style.top).toBe('160px');
+      stubRect(panel, { left: 0, top: 0, width: 1000, height: 300 });
+      const grip = panel.querySelector<HTMLElement>('.side-panel-resize-handle')!;
+      // Top-docked: dragging the (bottom-edge) handle further down grows it.
+      grip.dispatchEvent(pointerEvent('pointerdown', { clientX: 500, clientY: 300 }));
+      grip.dispatchEvent(pointerEvent('pointermove', { clientX: 500, clientY: 340 }));
+      grip.dispatchEvent(pointerEvent('pointerup', { clientX: 500, clientY: 340 }));
+      expect(panel.style.height).toBe('340px'); // 300 + (340 - 300)
 
-      popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await promise;
     });
   });

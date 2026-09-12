@@ -31,6 +31,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Added
+
+- A **Comments panel** (View > Comments Panel), docked to the right of the
+  grid, lists every cell comment with a scope toggle between the current
+  worksheet and the whole workbook; clicking an entry selects and reveals its
+  cell, switching worksheets first if needed.
+  ([#375](https://github.com/0x0da160/refrain-sheet/issues/375))
+
 ## [0.7.19] - 2026-09-12
 
 ### Added

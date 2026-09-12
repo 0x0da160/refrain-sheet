@@ -58,7 +58,7 @@ export class StatusBar {
     clearChildren(this.element);
     const tab = this.state.activeTab;
     if (!tab) {
-      this.element.append(el('span', { text: t('dialog.about.version', { version: APP_VERSION_DISPLAY }) }));
+      this.appendVersion();
       return;
     }
     const doc = tab.doc;
@@ -107,6 +107,7 @@ export class StatusBar {
         this.element.append(el('span', { text: t('status.unsaved') }));
       }
       this.appendSelection(tab);
+      this.appendVersion();
       return;
     }
 
@@ -166,6 +167,17 @@ export class StatusBar {
     );
 
     this.appendSelection(tab);
+    this.appendVersion();
+  }
+
+  /** Append the app version, right-aligned as the last segment of the status bar. */
+  private appendVersion(): void {
+    this.element.append(
+      el('span', {
+        className: 'status-version',
+        text: t('dialog.about.version', { version: APP_VERSION_DISPLAY }),
+      }),
+    );
   }
 
   /**

@@ -38,6 +38,16 @@ release-time half (retitling `Unreleased`) is still done by hand.
   rest of the UI resolves to dark. Existing users and new installs keep
   following System default unless they pick Hybrid themselves.
   ([#363](https://github.com/0x0da160/refrain-sheet/issues/363))
+- The app version is now shown at the right edge of the status bar while a
+  document is open, not only on the empty (no-tab) screen and in the About
+  dialog. ([#366](https://github.com/0x0da160/refrain-sheet/issues/366))
+- Every popup-style dialog — modal dialogs (e.g. Sort, Go to Cell, Format,
+  Settings, SQL Query) and the anchored Filter popover alike — can now be
+  dragged by its title bar to reposition it, and resized from a handle in
+  its bottom-right corner, both clamped so the window always stays at least
+  partly on screen. The Filter popover stops re-following its column header
+  on scroll/resize once moved or resized by hand, so it no longer snaps back.
+  ([#361](https://github.com/0x0da160/refrain-sheet/issues/361))
 
 ### Changed
 

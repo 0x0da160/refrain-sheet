@@ -78,6 +78,7 @@ function menuChecks(): MenuChecks {
     theme: () => 'system',
     zoom: () => 100,
     editHints: () => true,
+    commentsPanel: () => false,
     formatActive: () => false,
   };
 }

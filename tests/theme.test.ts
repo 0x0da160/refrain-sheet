@@ -37,9 +37,9 @@ beforeEach(() => {
 });
 
 describe('theme preference', () => {
-  it('defaults new users to the system choice', () => {
-    expect(DEFAULT_THEME).toBe('system');
-    expect(getTheme()).toBe('system');
+  it('defaults new users to the hybrid choice (#393)', () => {
+    expect(DEFAULT_THEME).toBe('hybrid');
+    expect(getTheme()).toBe('hybrid');
   });
 
   it('validates theme choices', () => {

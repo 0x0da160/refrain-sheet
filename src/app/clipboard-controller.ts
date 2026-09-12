@@ -151,9 +151,9 @@ export class ClipboardController {
   /**
    * Menu "Copy as Markdown Table": writes the selected range to the system
    * clipboard as a GitHub-Flavored Markdown table (the range's first row
-   * becomes the header). Text only — unlike `copyImageAsPng`/
-   * `copyScreenshotAsPng`, no image is produced — so this does not need the
-   * image-write Clipboard API and works wherever `copyViaApi` does.
+   * becomes the header). Text only — unlike `copyScreenshotAsPng`, no image
+   * is produced — so this does not need the image-write Clipboard API and
+   * works wherever `copyViaApi` does.
    */
   async copyMarkdownTable(): Promise<void> {
     const tab = this.state.activeTab;
@@ -178,38 +178,23 @@ export class ClipboardController {
   }
 
   /**
-   * Menu "Copy as image": renders the selected range to a PNG that reproduces
-   * its actual on-screen appearance (see `screenshot-export.ts`) and writes
-   * it to the system clipboard. Shares its rendering with `copyScreenshotAsPng`
-   * — both commands now produce the same screen-accurate image; only the
-   * notification text differs.
-   */
-  async copyImageAsPng(): Promise<void> {
-    await this.copyRangeImageToClipboard('notify.copiedImage');
-  }
-
-  /**
-   * Menu "Copy Screenshot": renders the selected range to a PNG that
-   * reproduces its actual on-screen appearance — theme colors, the current
-   * sheet font/zoom, and any per-cell bold/italic/underline, text/background
-   * color, and border (see `screenshot-export.ts`) — and writes it to the
-   * system clipboard.
+   * Menu "Copy Image": renders the selected range to a PNG that reproduces
+   * its actual on-screen appearance — theme colors, the current sheet
+   * font/zoom, wrap-text line breaks, and any per-cell bold/italic/underline,
+   * text/background color, and border (see `screenshot-export.ts`) — and
+   * writes it to the system clipboard.
    */
   async copyScreenshotAsPng(): Promise<void> {
-    await this.copyRangeImageToClipboard('notify.copiedScreenshot');
+    await this.copyRangeImageToClipboard();
   }
 
   /**
-   * Shared by `copyImageAsPng` and `copyScreenshotAsPng`: both render the
-   * selection to a screen-accurate PNG and write it to the system clipboard,
-   * differing only in the success notification. The async Clipboard API's
-   * image write has inconsistent browser support, including on `file://`, so
-   * this feature-detects first and reports a warning rather than throwing
-   * when it is unavailable.
+   * Renders the selection to a screen-accurate PNG and writes it to the
+   * system clipboard. The async Clipboard API's image write has inconsistent
+   * browser support, including on `file://`, so this feature-detects first
+   * and reports a warning rather than throwing when it is unavailable.
    */
-  private async copyRangeImageToClipboard(
-    successKey: 'notify.copiedImage' | 'notify.copiedScreenshot',
-  ): Promise<void> {
+  private async copyRangeImageToClipboard(): Promise<void> {
     const tab = this.state.activeTab;
     if (!tab) {
       return;
@@ -230,6 +215,7 @@ export class ClipboardController {
       this.state.hiddenRows(tab),
       colWidths,
       rowHeight,
+      tab.wrapCells,
     );
     if (blob === null) {
       this.notify(t('notify.clipboardBlocked'), 'warn');
@@ -237,7 +223,7 @@ export class ClipboardController {
     }
     try {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-      this.notify(t(successKey), 'info');
+      this.notify(t('notify.copiedScreenshot'), 'info');
     } catch {
       this.notify(t('notify.clipboardBlocked'), 'warn');
     }

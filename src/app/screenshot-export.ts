@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: MIT
 /**
- * Renders a cell range to a PNG blob for the "Copy Screenshot" command
- * (`ClipboardController.copyScreenshotAsPng`), reproducing each cell's
- * actual on-screen appearance: the active color theme's default cell
+ * Renders a cell range to a PNG blob reproducing each cell's actual
+ * on-screen appearance: the active color theme's default cell
  * background/text color, the current sheet font and zoom level, and any
  * per-cell bold/italic/underline, text/background color, and border a user
- * has applied (including conditional formatting) — unlike `image-export.ts`,
- * whose "Copy as Image" is deliberately a plain, theme-independent table
- * (see that file's comment). Column widths and row height mirror the grid's
- * own on-screen sizing (`onScreenGeometry`) rather than auto-fitting to
- * content, so the captured image matches what was visible; overflowing text
- * is ellipsis-truncated the same way the live grid clips it.
+ * has applied (including conditional formatting). Used by both the "Copy as
+ * Image" and "Copy Screenshot" menu commands
+ * (`ClipboardController.copyImageAsPng` / `copyScreenshotAsPng`). Column
+ * widths and row height mirror the grid's own on-screen sizing
+ * (`onScreenGeometry`) rather than auto-fitting to content, so the captured
+ * image matches what was visible; overflowing text is ellipsis-truncated the
+ * same way the live grid clips it. Because this is a synthetic re-render
+ * rather than a literal DOM/canvas capture, transient state like the
+ * selection highlight is never reproduced.
  *
  * Border line style (solid/dashed/dotted/double) is not reproduced — every
  * border is painted solid at its configured color and width — since canvas
  * has no native equivalent and pixel-exact dash patterns are not the point
  * of this feature. `doc` is injected (never the global `document`), matching
- * `image-export.ts` and `file-access.ts`.
+ * `file-access.ts`.
  */
 import type { CellRange } from '../core/clipboard';
 import { BORDER_WIDTH_PX, type BorderSideValue } from '../core/cell-style';

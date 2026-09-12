@@ -47,6 +47,18 @@ release-time half (retitling `Unreleased`) is still done by hand.
   of by hand.
   ([#379](https://github.com/0x0da160/refrain-sheet/issues/379))
 
+### Changed
+
+- The marketing landing page (refrain-sheet.com) reworks its copy and layout
+  for first-time visitors: a shorter hero promise with a one-line "who this
+  is for", a new "Use cases" section right after the problem statement, the
+  top stats band trimmed to the three numbers that matter most (bytes
+  changed, fields changed, network requests — with the function/dependency
+  counts still shown further down, in the spreadsheet and security
+  sections), and a short reassurance line (no sign-up, nothing uploaded, try
+  it with a copy first) next to the final call to action. No change to the
+  app itself. ([#385](https://github.com/0x0da160/refrain-sheet/issues/385))
+
 ## [0.7.19] - 2026-09-12
 
 ### Added

@@ -81,7 +81,10 @@
               <p class="h1-sub" data-i18n="hero.sub">Shift_JIS対応・ブラウザ完結の書式保持CSVエディタ</p>
               <p class="lede" data-i18n="hero.lede">
                 Refrain Sheet
-                は、ブラウザだけで動く書式保持CSV・スプレッドシートエディタです。編集するのはセルの値だけ。区切り文字、引用符、前後の空白、改行コード、文字コード、BOM、デコードできないバイト、そして壊れたCSVの領域まで、そのまま残します。
+                は、ブラウザだけで動く書式保持CSV・スプレッドシートエディタです。編集するのはセルの値だけ。文字コード、引用符、改行コード、BOMなど、それ以外のバイトはそのまま残します。
+              </p>
+              <p class="hero-note" data-i18n="hero.forwhom">
+                対象：基幹システム・会計・受発注・ECから出力したCSVを、壊さずに直したい方へ。
               </p>
               <div class="hero-actions">
                 <a
@@ -90,7 +93,7 @@
                   href="https://app.refrain-sheet.com/"
                   rel="noopener"
                   target="_blank"
-                  >ブラウザで開く（インストール不要）</a
+                  >CSVを開いて試す（インストール不要）</a
                 >
                 <a
                   class="btn btn-ghost btn-lg"
@@ -136,27 +139,6 @@
               の売上台帳を開いたところ。編集したセルだけが黄色く色づき、ステータスバーが文字コード・区切り文字・改行コードを常に表示します。
             </figcaption>
           </figure>
-        </div>
-      </section>
-      <!-- STATS -->
-      <section class="stats">
-        <div class="wrap stats-grid">
-          <div class="stat">
-            <div class="k" data-i18n="stat1.k">0 bytes</div>
-            <div class="v" data-i18n="stat1.v">無編集保存での差分。元のバイト列をそのまま書き戻します</div>
-          </div>
-          <div class="stat">
-            <div class="k" data-i18n="stat2.k">0 requests</div>
-            <div class="v" data-i18n="stat2.v">実行時のネットワーク通信。CDNもテレメトリもありません</div>
-          </div>
-          <div class="stat">
-            <div class="k" data-i18n="stat3.k">55 functions</div>
-            <div class="v" data-i18n="stat3.v">RSFスプレッドシートで使える関数（XLOOKUP・FILTER ほか）</div>
-          </div>
-          <div class="stat">
-            <div class="k" data-i18n="stat4.k">3 dependencies</div>
-            <div class="v" data-i18n="stat4.v">本番依存パッケージは3つだけ（推移的依存ゼロ）</div>
-          </div>
         </div>
       </section>
       <!-- PRINCIPLE -->
@@ -209,6 +191,65 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+      <!-- USE CASES -->
+      <section id="usecases" style="background: var(--surface); border-block: 1px solid var(--line)">
+        <div class="wrap">
+          <div class="section-head reveal">
+            <p class="eyebrow" data-i18n="use.eyebrow">USE CASES</p>
+            <h2 data-i18n="use.h2">こんなときに使えます。</h2>
+            <p class="lede" data-i18n="use.lede">
+              実務で繰り返し起きる、CSVがらみの困りごとに向けて作っています。
+            </p>
+          </div>
+          <div class="cards reveal">
+            <div class="card">
+              <h3 data-i18n="use.c1h">基幹システムのCSVを一部だけ直す</h3>
+              <p data-i18n="use.c1p">
+                商品名・備考・ステータスといった一部の列だけを書き換え、それ以外は一切触りません。
+              </p>
+            </div>
+            <div class="card">
+              <h3 data-i18n="use.c2h">取引先指定の形式を保ったまま返却</h3>
+              <p data-i18n="use.c2p">改行コードや引用符を変えずに、指定されたCSV形式のまま出力します。</p>
+            </div>
+            <div class="card">
+              <h3 data-i18n="use.c3h">先頭ゼロ・日付・長い番号を守る</h3>
+              <p data-i18n="use.c3p">
+                ほかのソフトなら勝手に変換されがちな値も、文字列としてそのまま保持します。
+              </p>
+            </div>
+            <div class="card">
+              <h3 data-i18n="use.c4h">壊れたCSVを、直さずにまず確認</h3>
+              <p data-i18n="use.c4p">
+                自動修復はせず、問題のある行・列を提示してから、開くかどうかを判断できます。
+              </p>
+            </div>
+            <div class="card">
+              <h3 data-i18n="use.c5h">機密データをアップロードしない</h3>
+              <p data-i18n="use.c5p">顧客・受注データなどをブラウザ内だけで処理し、どこにも送信しません。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- STATS -->
+      <section class="stats">
+        <div class="wrap stats-grid">
+          <div class="stat">
+            <div class="k" data-i18n="stat1.k">0 bytes</div>
+            <div class="v" data-i18n="stat1.v">無編集保存での差分。元のバイト列をそのまま書き戻します</div>
+          </div>
+          <div class="stat">
+            <div class="k" data-i18n="stat2.k">1 field</div>
+            <div class="v" data-i18n="stat2.v">
+              1セル編集時に再シリアライズされる範囲。ほかのバイトは動きません
+            </div>
+          </div>
+          <div class="stat">
+            <div class="k" data-i18n="stat3.k">0 requests</div>
+            <div class="v" data-i18n="stat3.v">実行時のネットワーク通信。CDNもテレメトリもありません</div>
           </div>
         </div>
       </section>
@@ -715,6 +756,11 @@
                 target="_blank"
                 >GitHubで見る</a
               >
+            </div>
+            <div class="badge-row" style="justify-content: center">
+              <span class="badge" data-i18n="cta.badge1">登録不要</span>
+              <span class="badge" data-i18n="cta.badge2">アップロード不要</span>
+              <span class="badge" data-i18n="cta.badge3">コピーしたCSVでまず試せます</span>
             </div>
           </div>
         </div>

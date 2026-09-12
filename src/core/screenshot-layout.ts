@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 /**
- * DOM-independent layout for rendering a cell range as a "screenshot" image
- * (`ClipboardController.copyScreenshotAsPng`) that reflects each cell's
- * actual resolved appearance on screen — bold/italic/underline, text and
- * background color (conditional formatting overriding a cell's own style,
- * matching `Grid.paintCell`'s precedence), and borders (matching
- * `resolveSharedBorder`'s shared-edge resolution) — unlike
- * `layoutRangeForImage`, which deliberately renders a plain, style-free
- * table (see `image-layout.ts`). Column widths and row height are supplied
- * by the caller (the on-screen, zoom-scaled values) rather than computed
- * here.
+ * DOM-independent layout for rendering a cell range as a screen-accurate
+ * image (used by both `ClipboardController.copyImageAsPng` and
+ * `copyScreenshotAsPng`) that reflects each cell's actual resolved
+ * appearance on screen — bold/italic/underline, text and background color
+ * (conditional formatting overriding a cell's own style, matching
+ * `Grid.paintCell`'s precedence), and borders (matching
+ * `resolveSharedBorder`'s shared-edge resolution). Column widths and row
+ * height are supplied by the caller (the on-screen, zoom-scaled values)
+ * rather than computed here.
  */
 import { copyRows, type CellRange } from './clipboard';
 import { borderSideValue, resolveSharedBorder, type BorderSideValue, type CellStyle } from './cell-style';

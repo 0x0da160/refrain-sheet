@@ -12,10 +12,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:hosted": "tsc --noEmit && vite build --mode hosted",
     "build:wasm": "wasm-pack build wasm --release --target web --no-pack --out-dir pkg && node scripts/embed-wasm.mjs",
     "build:sqljs": "node scripts/embed-sqljs.mjs",
     "build:landing": "node scripts/build-landing.mjs",
     "check:dist": "node scripts/check-dist.mjs",
+    "check:dist:hosted": "node scripts/check-dist.mjs --dir dist-hosted --mode hosted",
     "ui:check": "node scripts/ui-check.mjs",
     "capture:landing-screenshots": "node scripts/capture-landing-screenshots.mjs",
     "preview": "vite preview",

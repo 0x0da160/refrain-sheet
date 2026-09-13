@@ -126,6 +126,17 @@ jobs:
       - name: Validate self-contained distribution
         run: npm run check:dist
 
+      # The hosted artifact deployed to Pages is built from the same sources
+      # and differs only in its Content-Security-Policy (scripts/csp.mjs). Both
+      # artifacts are built and validated before either is published, so the
+      # offline dist/ that goes into the release ZIP can never inherit a
+      # hosted-only CSP relaxation. See docs/security.md.
+      - name: Build (hosted)
+        run: npm run build:hosted
+
+      - name: Validate hosted distribution
+        run: npm run check:dist:hosted
+
       - name: Audit production dependencies
         run: npm run audit:ci
 
@@ -141,15 +152,16 @@ jobs:
             "refrain-sheet-${VERSION}.sbom.cdx.json"
           echo "SBOM bytes: $(wc -c < "refrain-sheet-${VERSION}.sbom.cdx.json")"
 
-      # The site is fully static and self-contained (embedded WASM, relative
-      # asset paths, no network) so the same dist/ that works from file:// also
-      # works when served from https://<owner>.github.io/<repository>/. Only
-      # upload it as the Pages artifact AFTER every check and the build above
-      # have succeeded, so a broken build never reaches Pages.
+      # Pages gets the hosted artifact; the release ZIP below gets the offline
+      # one. Both are fully static and self-contained (embedded WASM, relative
+      # asset paths), so dist-hosted/ works served from
+      # https://<owner>.github.io/<repository>/ just as dist/ works from
+      # file://. Only upload AFTER every check and both builds above have
+      # succeeded, so a broken build never reaches Pages.
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: dist-hosted
 
       - name: Package release ZIP
         id: package

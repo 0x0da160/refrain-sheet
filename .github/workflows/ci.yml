@@ -80,6 +80,18 @@ jobs:
       - name: Validate self-contained distribution
         run: npm run check:dist
 
+      # The hosted artifact (app.refrain-sheet.com) is built from the same
+      # sources and differs only in its Content-Security-Policy, which
+      # scripts/csp.mjs emits per mode. The two policies are byte-identical
+      # today; building and validating both here is what stops a future
+      # hosted-only relaxation from ever reaching the offline dist/ that ships
+      # in the release ZIP. See docs/security.md.
+      - name: Build (hosted)
+        run: npm run build:hosted
+
+      - name: Validate hosted distribution
+        run: npm run check:dist:hosted
+
       # Vulnerability gate. Network-dependent (queries the advisory DB), so it
       # is one of several gates, never the only one — the lockfile-integrity
       # install, version-consistency, and clean-tree checks do not need the

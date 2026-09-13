@@ -9,11 +9,12 @@ security controls, and what is expected of local developers.
 
 ### Scope of the no-network guarantee
 
-This applies to the CSV/spreadsheet editor itself — the `dist/` build served
-at app.refrain-sheet.com, and the offline release ZIPs — which continues to
-make zero network connections of any kind at runtime, enforced by `npm run
-check:dist` and its `connect-src 'none'` CSP. It does not extend to the
-separate marketing landing page (`src/landing/`, built by `npm run
+This applies to the CSV/spreadsheet editor itself — the hosted build served at
+app.refrain-sheet.com, and the offline build shipped in the release ZIPs —
+which continues to make zero network connections of any kind at runtime,
+enforced by `npm run check:dist` / `npm run check:dist:hosted` and their
+`connect-src 'none'` CSP. It does not extend to the separate marketing landing
+page (`src/landing/`, built by `npm run
 build:landing`, served at refrain-sheet.com), which is static informational
 content, not the editor. The landing page may load Google Analytics
 (`gtag.js`), and only after the visitor explicitly accepts a cookie-consent
@@ -37,10 +38,11 @@ against; it does not itself change any runtime behavior.
   network connections of any kind. `npm run check:dist`'s `connect-src
 'none'` assertion continues to apply, unchanged, to the artifact shipped in
   release ZIPs.
-- **Policy only — not yet implemented.** This entry records approval of the
-  _direction_, not a design. No cloud-sync code exists in this repository.
-  Adding this section does not, by itself, alter `dist/`'s network behavior,
-  `check:dist`, or the CSP.
+- **Still not implemented.** No cloud-sync code exists in this repository, and
+  no CSP has been relaxed. What exists is only the build split described below,
+  which is what makes a hosted-only relaxation possible without touching the
+  offline artifact.
+
 - **Implementation needs its own approval.** A concrete implementation
   (provider selection, OAuth/consent flow, credential handling, a CSP relaxed
   only for the hosted build's cloud-sync code path, and the corresponding
@@ -49,6 +51,33 @@ against; it does not itself change any runtime behavior.
   create, and needs full human security review before merge, since it touches
   auth, secrets, and user file content leaving the device — all categories
   `CLAUDE.md` requires escalating.
+
+### The hosted / offline build split
+
+The two artifacts are built separately so that a hosted-only CSP relaxation can
+never reach the offline build or the release ZIP:
+
+| Build                  | Output         | Ships as                                  |
+| ---------------------- | -------------- | ----------------------------------------- |
+| `npm run build`        | `dist/`        | the `file://` build and the release ZIP   |
+| `npm run build:hosted` | `dist-hosted/` | the GitHub Pages deploy (the hosted site) |
+
+- `scripts/csp.mjs` is the **single source of truth** for the policy. It emits
+  one CSP per build mode, so the two cannot silently drift; `vite.config.ts`
+  substitutes the result into `index.html`'s `__CSP__` placeholder.
+- The hosted build's extra permissions live in one exported constant,
+  `HOSTED_ALLOWLIST`. It is **empty**, so `dist-hosted/`'s CSP is byte-identical
+  to `dist/`'s today. Granting the hosted build an origin means editing that one
+  list — a visible, reviewable change, never an incidental side effect.
+- `npm run check:dist` validates `dist/` in `offline` mode and
+  `npm run check:dist:hosted` validates `dist-hosted/` in `hosted` mode. Both
+  assert the built CSP matches `scripts/csp.mjs` byte-for-byte. Offline mode
+  additionally requires `connect-src 'none'` and no `http:`/`https:` source
+  anywhere; hosted mode rejects any origin absent from `HOSTED_ALLOWLIST`, and
+  rejects a bare `http:`/`https:` scheme source in either case.
+- `.github/workflows/ci.yml` builds and validates both artifacts on every
+  change. `.github/workflows/release.yml` does the same before publishing, then
+  deploys `dist-hosted/` to Pages and packages `dist/` into the release ZIP.
 
 ## Threat model
 

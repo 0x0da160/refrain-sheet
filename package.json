@@ -11,6 +11,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:hosted": "vite --mode hosted",
     "build": "tsc --noEmit && vite build",
     "build:hosted": "tsc --noEmit && vite build --mode hosted",
     "build:wasm": "wasm-pack build wasm --release --target web --no-pack --out-dir pkg && node scripts/embed-wasm.mjs",

@@ -351,6 +351,7 @@ describe('View menu Spreadsheet Zoom submenu', () => {
     editHints: () => true,
     commentsPanel: () => false,
     formatActive: () => false,
+    driveAvailable: () => false,
   });
 
   it('nests every zoom control under a Spreadsheet Zoom submenu', () => {

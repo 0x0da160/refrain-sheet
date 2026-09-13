@@ -72,6 +72,7 @@ function bootstrap(): void {
     confirmValidation: (name, summary) => dialogs.confirmValidation(name, summary),
     confirmUnsaved: (names) => dialogs.confirmUnsaved(names),
     chooseSaveOptions: (tab, note) => dialogs.chooseSaveOptions(tab, note),
+    promptDriveName: (suggested) => dialogs.promptDriveName(suggested),
     confirmUnrepresentable: (encoding, cells) => dialogs.confirmUnrepresentable(encoding, cells),
     notifyNcr: (reports) => dialogs.notifyNcr(reports),
     confirmUndecodableEdit: (cells) => dialogs.confirmUndecodableEdit(cells),
@@ -162,6 +163,7 @@ function bootstrap(): void {
       const tab = state.activeTab;
       return tab !== null && commands.isFormatActive(tab, key);
     },
+    driveAvailable: () => commands.driveAvailable(),
   });
   const tabBar = new TabBar(state, commands);
   // The worksheet strip of the active RSF workbook, rendered below the grid —

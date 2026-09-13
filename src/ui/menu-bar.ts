@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 import {
   ArrowDown,
+  Cloud,
+  CloudDownload,
+  CloudUpload,
+  LogOut,
   ArrowDownAZ,
   ArrowDownToLine,
   ArrowLeft,
@@ -114,6 +118,10 @@ const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'file.new': FilePlus,
   'file.newCsv': FilePlus2,
   'file.open': FolderOpen,
+  'drive.open': CloudDownload,
+  'drive.save': CloudUpload,
+  'drive.saveAs': CloudUpload,
+  'drive.signOut': LogOut,
   'file.reopen': RotateCcw,
   'sheet.convert': FileCode,
   'file.save': Save,
@@ -200,6 +208,34 @@ export interface MenuChecks {
   commentsPanel: () => boolean;
   /** Whether Bold/Italic/Underline is "on" for the whole current selection. */
   formatActive: (key: 'bold' | 'italic' | 'underline') => boolean;
+  /**
+   * Whether Google Drive sync exists in this build. False for the offline
+   * build, which omits the whole Drive submenu rather than showing it disabled
+   * — there is nothing the user could do to enable it there.
+   */
+  driveAvailable: () => boolean;
+}
+
+/**
+ * The Google Drive section of the File menu, present only in a build that has
+ * Drive sync. Every entry is user-initiated; opening the menu contacts nothing.
+ */
+function driveMenuItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
+  if (!checks.driveAvailable()) return [];
+  return [
+    'separator',
+    {
+      labelKey: 'menu.file.drive',
+      icon: Cloud,
+      submenu: [
+        { labelKey: 'menu.file.drive.open', command: 'drive.open' },
+        { labelKey: 'menu.file.drive.save', command: 'drive.save' },
+        { labelKey: 'menu.file.drive.saveAs', command: 'drive.saveAs' },
+        'separator',
+        { labelKey: 'menu.file.drive.signOut', command: 'drive.signOut' },
+      ],
+    },
+  ];
 }
 
 export function defaultMenus(checks: MenuChecks): MenuDef[] {
@@ -218,6 +254,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.file.saveOptions', command: 'file.saveOptions', shortcut: 'Ctrl+Shift+S' },
         { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
         { labelKey: 'menu.sheet.exportXlsx', command: 'sheet.exportXlsx' },
+        ...driveMenuItems(checks),
         'separator',
         { labelKey: 'menu.file.settings', command: 'app.settings' },
         'separator',

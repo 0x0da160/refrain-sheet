@@ -26,6 +26,7 @@ function stubUi(): UiPort {
     confirmValidation: vi.fn(async () => true),
     confirmUnsaved: vi.fn(async () => 'discard' as const),
     chooseSaveOptions: vi.fn(async () => null),
+    promptDriveName: async () => null,
     confirmUnrepresentable: vi.fn(async () => false),
     notifyNcr: vi.fn(async () => undefined),
     confirmUndecodableEdit: vi.fn(async () => true),
@@ -80,6 +81,7 @@ function menuChecks(): MenuChecks {
     editHints: () => true,
     commentsPanel: () => false,
     formatActive: () => false,
+    driveAvailable: () => false,
   };
 }
 

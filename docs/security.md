@@ -21,14 +21,12 @@ content, not the editor. The landing page may load Google Analytics
 banner — declining or ignoring the banner loads nothing. See
 `src/landing/consent.js`.
 
-### Planned exception: opt-in cloud storage sync (hosted build only)
+### Exception: opt-in Google Drive sync (hosted build only)
 
-The maintainer has approved, in principle, a narrow exception to the
-guarantee above (see issue #413): the hosted build at app.refrain-sheet.com
-may in the future offer an **opt-in** cloud storage sync feature (e.g.
-save/open against a third-party provider). This section records the approved
-scope of that exception so a future implementation has a policy to build
-against; it does not itself change any runtime behavior.
+The maintainer approved a narrow exception to the guarantee above (issues #413
+and #416): the hosted build at app.refrain-sheet.com offers **opt-in** Google
+Drive sync. This section records the approved scope of that exception and how
+the implementation stays inside it.
 
 - **Opt-in, off by default.** No cloud-sync network request may occur unless
   a user has explicitly enabled the feature; the editor's default behavior —
@@ -38,19 +36,34 @@ against; it does not itself change any runtime behavior.
   network connections of any kind. `npm run check:dist`'s `connect-src
 'none'` assertion continues to apply, unchanged, to the artifact shipped in
   release ZIPs.
-- **Still not implemented.** No cloud-sync code exists in this repository, and
-  no CSP has been relaxed. What exists is only the build split described below,
-  which is what makes a hosted-only relaxation possible without touching the
-  offline artifact.
+- **Nothing loads until the user asks.** Google's scripts are fetched lazily,
+  on the first Drive command. A session that never opens the Drive menu makes
+  zero network requests, so the default behaviour is unchanged.
 
-- **Implementation needs its own approval.** A concrete implementation
-  (provider selection, OAuth/consent flow, credential handling, a CSP relaxed
-  only for the hosted build's cloud-sync code path, and the corresponding
-  `check:dist` update) must be scoped as its own Issue. It requires a
-  human-provisioned OAuth client / API credentials that automation cannot
-  create, and needs full human security review before merge, since it touches
-  auth, secrets, and user file content leaving the device — all categories
-  `CLAUDE.md` requires escalating.
+#### How Drive sync is scoped
+
+- **`drive.file` only.** The app may touch files it created itself, or files
+  the user handed it through the Google Picker — never the rest of the user's
+  Drive. It cannot list, share, or delete anything. This is a _non-sensitive_
+  scope, so publishing the app needs only basic OAuth verification.
+- **No stored credential.** Sign-in uses the Google Identity Services _token_
+  model: an access token only, roughly one hour, with **no refresh token and no
+  offline access requested**. The token lives in a module-local variable and is
+  gone on reload — never `localStorage`, a cookie, or IndexedDB. A stolen
+  browser profile therefore yields no Google credential.
+- **The client id is a public identifier, not a secret.** It is delivered as
+  the `GOOGLE_OAUTH_CLIENT_ID` repository _variable_ (never
+  `secrets.*`), injected at build time, and reaches the hosted build only.
+  `npm run check:dist` fails if the offline bundle ever contains one.
+- **The CSP grants origins, never keywords.** The hosted policy names the
+  specific Google origins the Picker and Drive API need. It deliberately does
+  **not** grant `style-src 'unsafe-inline'`, even though Google's `api.js`
+  injects inline styles: the Picker's chrome may render imperfectly rather than
+  the app weakening its policy on speculation. `tests/csp.test.ts` fails if any
+  `'unsafe-*'` keyword appears.
+- **Same encoders as a local save.** An upload reuses the ordinary save path,
+  so a document round-tripped through Drive keeps the same bytes a local save
+  would have written. CSV fidelity is not weakened by the network path.
 
 ### The hosted / offline build split
 
@@ -66,9 +79,10 @@ never reach the offline build or the release ZIP:
   one CSP per build mode, so the two cannot silently drift; `vite.config.ts`
   substitutes the result into `index.html`'s `__CSP__` placeholder.
 - The hosted build's extra permissions live in one exported constant,
-  `HOSTED_ALLOWLIST`. It is **empty**, so `dist-hosted/`'s CSP is byte-identical
-  to `dist/`'s today. Granting the hosted build an origin means editing that one
-  list — a visible, reviewable change, never an incidental side effect.
+  `HOSTED_ALLOWLIST` — currently the Google origins Drive sync needs. Granting
+  the hosted build anything more means editing that one list: a visible,
+  reviewable change, never an incidental side effect. Nothing in it can affect
+  the offline policy, which `tests/csp.test.ts` pins byte-for-byte.
 - `npm run check:dist` validates `dist/` in `offline` mode and
   `npm run check:dist:hosted` validates `dist-hosted/` in `hosted` mode. Both
   assert the built CSP matches `scripts/csp.mjs` byte-for-byte. Offline mode

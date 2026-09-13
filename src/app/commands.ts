@@ -36,6 +36,8 @@ import { CommentCommands } from './commands/comment';
 import { ConditionalFormatCommands } from './commands/conditional-format';
 import { ValidationCommands } from './commands/data-validation';
 import { FileIoCommands } from './commands/file-io';
+import { DriveIoCommands } from './commands/drive-io';
+import { isSignedIn as driveIsSignedIn } from './drive/auth';
 import { FilterCommands } from './commands/filter';
 import { FormatCommands } from './commands/format';
 import { SortCommands } from './commands/sort';
@@ -244,6 +246,11 @@ export interface UiPort {
   confirmValidation(name: string, summary: ValidationSummary): Promise<boolean>;
   confirmUnsaved(names: string[]): Promise<'save' | 'discard' | 'cancel'>;
   chooseSaveOptions(tab: Tab, downloadNote: string | null): Promise<SaveOptions | null>;
+  /**
+   * Ask for the filename to create in Google Drive, preselected with
+   * `suggested`. Resolves with the chosen name, or null when cancelled.
+   */
+  promptDriveName(suggested: string): Promise<string | null>;
   confirmUnrepresentable(encodingLabel: string, cells: UnrepresentableCell[]): Promise<boolean>;
   notifyNcr(reports: NcrCellReport[]): Promise<void>;
   confirmUndecodableEdit(cells: Array<{ row: number; col: number }>): Promise<boolean>;
@@ -447,6 +454,10 @@ export type CommandId =
   | 'file.save'
   | 'file.saveOptions'
   | 'file.closeTab'
+  | 'drive.open'
+  | 'drive.save'
+  | 'drive.saveAs'
+  | 'drive.signOut'
   | 'edit.undo'
   | 'edit.redo'
   | 'edit.copy'
@@ -583,6 +594,7 @@ export class Commands {
     private readonly dom: Document,
   ) {
     this.fileIo = new FileIoCommands(state, ui, dom);
+    this.driveIo = new DriveIoCommands(state, ui, this.fileIo);
     this.filter = new FilterCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.sort = new SortCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.validation = new ValidationCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
@@ -605,6 +617,22 @@ export class Commands {
 
   /** File I/O, save/export, and CSV↔RSF conversion — see `FileIoCommands`. */
   private readonly fileIo: FileIoCommands;
+
+  /** Google Drive sync — see `DriveIoCommands`. Inert in the offline build. */
+  private readonly driveIo: DriveIoCommands;
+
+  /**
+   * Whether Google Drive sync exists in this build at all. False for the
+   * offline build, which hides every Drive entry point.
+   */
+  driveAvailable(): boolean {
+    return this.driveIo.available();
+  }
+
+  /** Whether a Google access token is currently held (drives the menu label). */
+  driveSignedIn(): boolean {
+    return driveIsSignedIn();
+  }
 
   /** Filter dialog flow, apply/clear, and hidden-row queries — see `FilterCommands`. */
   private readonly filter: FilterCommands;
@@ -658,6 +686,13 @@ export class Commands {
       case 'file.saveOptions':
         // CSV: encoding/EOL/BOM options. RSF: the compression selector.
         return tab !== null;
+      case 'drive.open':
+        return this.driveIo.available();
+      case 'drive.save':
+      case 'drive.saveAs':
+        return this.driveIo.available() && tab !== null;
+      case 'drive.signOut':
+        return this.driveIo.available() && driveIsSignedIn();
       case 'file.reopen':
       case 'sheet.convert':
         return tab !== null && tab.doc.kind === 'csv';
@@ -867,6 +902,18 @@ export class Commands {
         return;
       case 'file.closeTab':
         if (tab) await this.closeTab(tab);
+        return;
+      case 'drive.open':
+        await this.driveIo.open();
+        return;
+      case 'drive.save':
+        if (tab) await this.driveIo.save(tab);
+        return;
+      case 'drive.saveAs':
+        if (tab) await this.driveIo.saveAs(tab);
+        return;
+      case 'drive.signOut':
+        this.driveIo.signOut();
         return;
       case 'edit.undo':
         if (tab) this.state.undo(tab);

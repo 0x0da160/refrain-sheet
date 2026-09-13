@@ -11,6 +11,7 @@ const noopUi: UiPort = {
   confirmValidation: async () => true,
   confirmUnsaved: async () => 'discard',
   chooseSaveOptions: async () => null,
+  promptDriveName: async () => null,
   confirmUnrepresentable: async () => false,
   notifyNcr: async () => undefined,
   confirmUndecodableEdit: async () => true,

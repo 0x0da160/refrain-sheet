@@ -26,8 +26,20 @@ export default defineConfig(({ mode }) => {
   const buildMode = assertBuildMode(mode === 'hosted' ? 'hosted' : 'offline');
   const csp = buildCsp(buildMode);
 
+  // Google Drive credentials reach the bundle only in the hosted build. The
+  // offline build is hardcoded to empty strings whatever the environment
+  // holds, so the release ZIP can never carry a credential or a code path that
+  // would reach the network; scripts/check-dist.mjs asserts that mechanically.
+  // These are public identifiers delivered as repository *variables*, never
+  // secrets — see docs/security.md.
+  const hostedEnv = (name: string) => JSON.stringify(buildMode === 'hosted' ? (process.env[name] ?? '') : '');
+
   return {
     base: './',
+    define: {
+      __DRIVE_CLIENT_ID__: hostedEnv('VITE_GOOGLE_OAUTH_CLIENT_ID'),
+      __DRIVE_API_KEY__: hostedEnv('VITE_GOOGLE_DRIVE_API_KEY'),
+    },
     build: {
       outDir: buildMode === 'hosted' ? 'dist-hosted' : 'dist',
       target: 'es2020',

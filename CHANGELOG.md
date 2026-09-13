@@ -33,6 +33,16 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- **File > Google Drive** opens, saves, and overwrites spreadsheets in Google
+  Drive, on the hosted app at app.refrain-sheet.com. **Open from Drive…** picks
+  a file through Google's own file picker; **Save to Drive** overwrites the file
+  a document came from, and **Save to Drive as…** creates a new one. Large files
+  upload in resumable chunks. Nothing contacts Google until you use one of these
+  menu items, the app is only ever granted access to files you pick or it
+  created, and it asks for a short-lived access token that is never stored — so
+  signing out, or simply reloading, leaves it with nothing. The downloadable
+  offline build has no Drive support at all and continues to make zero network
+  requests. ([#416](https://github.com/0x0da160/refrain-sheet/issues/416))
 - On a touchscreen, pressing and holding a cell or a row/column header (with
   no dragging) now opens the same right-click context menu a mouse gets,
   giving touch input a way to reach menu-only actions like Insert Row/Column

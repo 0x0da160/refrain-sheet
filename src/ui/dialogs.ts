@@ -110,6 +110,11 @@ export class Dialogs {
     );
   }
 
+  /** See `FileIoDialogs.promptDriveName` for the full behavior contract. */
+  promptDriveName(suggested: string): Promise<string | null> {
+    return this.fileIo.promptDriveName(suggested);
+  }
+
   /** See `FileIoDialogs.chooseSaveOptions` for the full behavior contract. */
   chooseSaveOptions(tab: Tab, downloadNote: string | null): Promise<SaveOptions | null> {
     return this.fileIo.chooseSaveOptions(tab, downloadNote);

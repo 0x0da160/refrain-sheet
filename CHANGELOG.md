@@ -31,6 +31,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Fixed
+
+- The **Open from Drive…** file picker rendered with broken layout. Google's
+  picker styles its own dialog inline, which the hosted app's
+  Content-Security-Policy was blocking. The hosted build now permits inline
+  styles; the downloadable offline build is unaffected and its policy is
+  unchanged. ([#425](https://github.com/0x0da160/refrain-sheet/issues/425))
+
 ### Added
 
 - **File > Google Drive** opens, saves, and overwrites spreadsheets in Google

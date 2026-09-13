@@ -26,7 +26,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { allowedOrigins, assertBuildMode, buildCsp } from './csp.mjs';
+import { allowedKeywords, allowedOrigins, assertBuildMode, buildCsp } from './csp.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -189,6 +189,23 @@ if (mode === 'offline') {
   } else {
     ok(`CSP names only allowlisted origins (${allowed.size} allowed, ${named.length} used)`);
   }
+  // Keyword grants are the dangerous kind of relaxation, so they are checked
+  // separately from origins: any 'unsafe-*' the policy uses must be declared in
+  // HOSTED_KEYWORD_GRANTS. ('wasm-unsafe-eval' is part of the base policy and
+  // does not match this pattern.)
+  const declared = new Set(allowedKeywords(mode));
+  const usedKeywords = [...new Set(csp.match(/'unsafe-[a-z-]+'/g) ?? [])];
+  const undeclared = usedKeywords.filter((keyword) => !declared.has(keyword));
+  if (undeclared.length > 0) {
+    fail(
+      `index.html CSP uses keyword(s) absent from HOSTED_KEYWORD_GRANTS in scripts/csp.mjs: ${undeclared.join(', ')}`,
+    );
+  } else if (usedKeywords.length > 0) {
+    ok(`CSP uses only declared keyword grants (${usedKeywords.join(', ')})`);
+  } else {
+    ok('CSP uses no unsafe-* keyword grant');
+  }
+
   // A bare `https:` source would permit every origin — never acceptable, even
   // in the hosted build. Origins must always be spelled out.
   if (/(?:connect|worker|script)-src[^;]*\bhttps?:(?!\/\/)/.test(csp)) {

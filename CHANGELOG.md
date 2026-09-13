@@ -118,6 +118,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- On iOS Safari, the page no longer stays visually shifted upward after the
+  on-screen keyboard closes while a bottom-docked panel (Comments, or the
+  Filter/Sort/Format/SQL Query side panel) is open.
+  ([#402](https://github.com/0x0da160/refrain-sheet/issues/402))
 - The right-click context menu no longer closes a submenu while you're
   moving the pointer toward it: crossing a sibling item on a diagonal path
   into an open submenu (or hovering one of the submenu's own items) used to

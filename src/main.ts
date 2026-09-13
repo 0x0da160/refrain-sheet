@@ -21,6 +21,7 @@ import { FormulaBar } from './ui/formula-bar';
 import { Grid } from './ui/grid';
 import { LoadingOverlay } from './ui/loading-overlay';
 import { MenuBar } from './ui/menu-bar';
+import { installKeyboardViewportFix } from './ui/popup';
 import { SheetBar } from './ui/sheet-bar';
 import { StatusBar } from './ui/status-bar';
 import { TabBar } from './ui/tab-bar';
@@ -37,6 +38,10 @@ function bootstrap(): void {
   // Keep every product-identity icon on the theme's variant, including live
   // `prefers-color-scheme` changes while the choice is "system".
   initAppIcons();
+  // Works around an iOS Safari bug where the page stays visually shifted
+  // upward after the on-screen keyboard closes (#402) — see
+  // `installKeyboardViewportFix` for why.
+  installKeyboardViewportFix();
 
   // Start instantiating the embedded WASM CSV core in the background (decoded
   // locally from Base64 — never fetched; falls back to the identical JS engine

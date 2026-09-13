@@ -74,6 +74,29 @@ export function visualViewportRect(): ViewportRect {
   return { left: 0, top: 0, width, height };
 }
 
+/**
+ * Works around a WebKit bug where the page can stay scrolled after the iOS
+ * on-screen keyboard closes, most visible with a bottom-docked side panel
+ * (`position: fixed`, anchored via `bottom` — see `applySidePanelPosition`,
+ * `src/ui/dialogs/shared.ts`): WebKit pins fixed elements to the *visual*
+ * viewport while the keyboard is open, and does not always restore that
+ * viewport's offset back to zero once it closes, leaving the whole page
+ * looking shifted upward even though `body { overflow: hidden }` (see
+ * `styles.css`) means the document itself was never meant to scroll (#402).
+ * Resyncing the scroll position on every `visualViewport` resize/scroll
+ * (fired when the keyboard opens *and* when it closes) nudges WebKit to
+ * recompute it; it is a harmless no-op anywhere the offset is already zero,
+ * including non-WebKit browsers and desktop, and a no-op entirely in
+ * environments without `visualViewport` (e.g. a unit test).
+ */
+export function installKeyboardViewportFix(): void {
+  const vv = globalThis.visualViewport;
+  if (!vv) return;
+  const resync = () => globalThis.scrollTo(0, 0);
+  vv.addEventListener('resize', resync);
+  vv.addEventListener('scroll', resync);
+}
+
 /** Measured size of a mounted element, tolerating layout-free environments. */
 function measure(node: HTMLElement): { width: number; height: number } {
   const rect = node.getBoundingClientRect();

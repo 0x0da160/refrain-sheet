@@ -62,6 +62,90 @@ Deliberate non-optimizations, and why:
   directly in a browser, no server required" invariant (`README.md`). See
   Issue #54 (round-2 audit, Candidate 4) for the analysis that ruled this out.
 
+## Further WASM-offload candidates (surveyed, Issue #408)
+
+A follow-up sweep of `src/core/` and `src/app/` for CPU-heavy JavaScript paths
+not yet backed by `wasm/src/*.rs`, done in response to a request to look for
+more opportunities. None of the areas below were adopted; each is recorded so
+the same ground isn't re-covered blind in a future pass. The two mechanisms
+already in `wasm/src/ops.rs` (`aggregate` for selection statistics,
+`count_literal` for long literal search) remain the only general-purpose data
+primitives moved into the Rust core; everything below stayed in JavaScript for
+a documented reason.
+
+- **Column/range sort** (`src/core/sort.ts`, `computeSortOrder`). The
+  comparator calls back into JavaScript once per key per comparison via an
+  injected `get(row, col)` closure that reads the live document/formula-value
+  model — there is no flat buffer to hand across the WASM boundary without
+  first materializing every cell's displayed text for the whole sort range,
+  which would cost more than the sort itself. A closure-per-comparison
+  boundary crossing is strictly worse than doing the comparison in JS. (The
+  `SORT()` spill formula, which already benchmarks at ~68 ms for 25,000 rows —
+  see the measured-results table above — uses the same strategy.)
+- **Filter row matching** (`src/core/filter.ts`, `computeHiddenRows`). A
+  linear scan doing plain `includes`/`startsWith`/`===`/`Number()` comparisons
+  per cell — no regex. Like `statsAggregate` (see the note below the measured
+  results table), the cost is dominated by `Number()` parsing and string
+  comparisons V8 already optimizes well, not by anything a Rust loop would
+  meaningfully speed up; offloading it would hit the same
+  `get(row, col)`-closure-per-cell problem as sort, at a larger call count.
+- **`SUMIFS`/`COUNTIFS`/wildcard criteria matching**
+  (`src/core/formula-functions.ts` `scanCriteria`,
+  `src/core/formula-criteria.ts` `matchWildcard`). The measured cost
+  (~166–244 ms per 100,000 cells; see the measured-results table above) is the
+  closest thing to a real candidate found in this survey, but the values being
+  compared are `FormulaValue`s (a discriminated union with error-propagation
+  semantics produced by the formula evaluator, not raw bytes), so only the
+  numeric/text comparison core could move to Rust while type dispatch and
+  error handling stayed in JS — splitting one function's logic across two
+  languages, which risks the comparison-semantics drifting out of sync the
+  same way a WASM formula evaluator would (see `docs/architecture.md` on why
+  formula evaluation itself stays JS-only). Unlike the `VLOOKUP`/`XLOOKUP`
+  shared-range case (which amortizes a JS-side cached index across many
+  formula cells reading the same range), each `SUMIFS`/`COUNTIFS` call
+  recomputes over its own criteria range, so there is no equivalent caching
+  win available either. **Revisit only if profiling shows a specific
+  `SUMIFS`/`COUNTIFS`-heavy sheet exceeding its responsiveness budget** — the
+  same bar the "No Web Workers (yet)" decision above uses.
+- **CSV/XLSX export quoting and escaping** (`src/core/csv-export.ts`,
+  `src/core/xlsx-export.ts`). Per-field `includes`/`replace`/XML-escaping
+  work; no benchmark in this repo suggests it is a bottleneck, and the actual
+  byte-heavy step for `.rsf` (DEFLATE + CRC-32) is already WASM. One low-risk,
+  performance-orthogonal cleanup surfaced here: `xlsx-export.ts` hand-rolls
+  its own JS CRC-32 table for the ZIP container instead of reusing the CRC-32
+  export the WASM compression module already exposes for `.rsf`
+  (`wasm/src/compress.rs`, called via `rsf-codec.ts`). That's a code-reuse
+  opportunity, not a measured performance gain — worth a small separate Issue
+  if pursued, not part of this survey's scope.
+- **XLSX import XML parsing** (`src/core/xlsx-import.ts`,
+  `parseWorksheetCells`). Already reuses the project's WASM DEFLATE/CRC-32 for
+  the byte-heavy decompression step (`readZipEntryBytes`, `codec.crc32`); the
+  remaining work is regex-based XML text extraction, which needs to stay
+  lenient JS regex logic rather than a rigid byte-level Rust parser.
+- **Diff review** (`src/core/diff-engine.ts`). Hash-map/string-key based row
+  matching (`Map` lookups, not a sequence-alignment algorithm), amortized
+  `O(baselineRows + currentRows)`. JS's native `Map` and string hashing are
+  already efficient at this, and the path only runs on-demand (diff review),
+  not continuously.
+- **Flash Fill** (`src/core/flash-fill.ts`). Inference runs only over the
+  user-typed examples (tiny); applying an inferred pattern to the rest of a
+  column is a handful of `String.prototype` calls per row per candidate,
+  already time-sliced for large blocks. Too branchy/heterogeneous (four
+  distinct op kinds) to benefit from a tight Rust loop.
+- **Column autofit and text wrapping** (`src/ui/grid.ts`,
+  `src/core/text-wrap.ts`). Autofit samples at most 1,000 rows per column
+  regardless of sheet size, and both paths are dominated by canvas
+  `measureText`, which needs the browser's font-shaping engine and cannot
+  move to WASM at all; the wrapping-position bookkeeping around it is cheap
+  arithmetic over an already-short string, not a meaningful cost on its own.
+- **SQL view** (`src/core/sql-engine.ts`). Already WASM-accelerated, just via
+  a different module than this project's own Rust core: query execution runs
+  entirely inside the embedded sql.js (SQLite-compiled-to-WASM) engine. The
+  remaining JS (a hand-written tokenizer used only for the read-only/
+  single-statement safety gate, and a per-row bind-value scan) is either
+  security-critical logic that should stay simple and auditable, or a cheap
+  single pass — nothing left to offload.
+
 ## Reproducing the measurements
 
 ```sh

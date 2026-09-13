@@ -237,3 +237,49 @@ describe('touch/pointer drag support (#290)', () => {
     expect(state.selectedRange(tab)).toEqual({ top: 0, left: 0, bottom: 0, right: 0 });
   });
 });
+
+describe('long-press opens the context menu on touch, a right-click equivalent (#406)', () => {
+  it('opens the context menu once a press-and-hold completes and lifts with no movement', () => {
+    const { grid } = setupCsv(10, 3);
+    touchDown(cellEl(grid, 1, 1));
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    expect(document.querySelector('.context-menu')).toBeNull();
+    touchUp(grid.element);
+    expect(document.querySelector('.context-menu')).not.toBeNull();
+  });
+
+  it('does not open the context menu on a quick tap (hold never completes)', () => {
+    const { grid } = setupCsv(10, 3);
+    touchDown(cellEl(grid, 1, 1));
+    vi.advanceTimersByTime(LONG_PRESS_MS - 50);
+    touchUp(grid.element);
+    expect(document.querySelector('.context-menu')).toBeNull();
+  });
+
+  it('does not open the context menu once the completed hold turns into a drag', () => {
+    const { grid } = setupCsv(10, 3);
+    touchDown(cellEl(grid, 0, 0));
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    touchMove(cellEl(grid, 2, 0));
+    touchUp(grid.element);
+    expect(document.querySelector('.context-menu')).toBeNull();
+  });
+
+  it('does not open the context menu when the gesture is cancelled instead of lifted', () => {
+    const { grid } = setupCsv(10, 3);
+    touchDown(cellEl(grid, 1, 1));
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    cellEl(grid, 1, 1).dispatchEvent(pointerEvent('pointercancel'));
+    expect(document.querySelector('.context-menu')).toBeNull();
+  });
+
+  it('opens the context menu for a completed hold on a row header, same as right-click', () => {
+    const { grid } = setupCsv(10, 3);
+    const rowHead = grid.element.querySelector<HTMLElement>('[data-rowhead="0"]');
+    expect(rowHead).not.toBeNull();
+    touchDown(rowHead!);
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    touchUp(grid.element);
+    expect(document.querySelector('.context-menu')).not.toBeNull();
+  });
+});

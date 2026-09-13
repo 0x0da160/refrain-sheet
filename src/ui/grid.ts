@@ -603,6 +603,12 @@ export class Grid {
   /** Origin of a pending long-press: used to detect cancel-by-movement and to
    * replay the original press once the hold is confirmed. */
   private longPressOrigin: { event: PointerEvent; x: number; y: number } | null = null;
+  /** A completed long-press that has not yet turned into a drag — a mouse has
+   * a right-click for the context menu, but touch has no equivalent input, so
+   * a stationary press-and-hold (#406) opens it instead once the finger
+   * lifts. Any real movement during the hold cancels this back to `null` and
+   * leaves the gesture to the existing drag handling above. */
+  private longPressMenuTarget: PointerEvent | null = null;
   /**
    * Active range-move drag, if any. `origin` is the cell under the pointer when
    * the drag began (so the destination tracks the pointer without snapping to a
@@ -2394,6 +2400,10 @@ export class Grid {
     ) {
       return;
     }
+    // Reaching here means a drag is actively being driven, so the completed
+    // long-press turned into a drag rather than a stationary hold — the
+    // pending context-menu-on-release no longer applies.
+    this.longPressMenuTarget = null;
     // A drag is confirmed and moving: block the native scroll/pan this touch
     // would otherwise start, and drive the drag through the same code the
     // mouse path uses.
@@ -2408,13 +2418,23 @@ export class Grid {
       return;
     }
     this.clearLongPress();
+    const menuTarget = this.longPressMenuTarget;
+    this.longPressMenuTarget = null;
     this.releasePointerIfCaptured(event.pointerId);
     this.endActiveDrags();
+    // The hold completed and lifted without ever turning into a drag: treat
+    // it as the touch equivalent of a right-click. `pointercancel` (the OS
+    // taking the gesture away, e.g. for a scroll or an interruption) does not
+    // count as a completed press, so the menu only opens on a real lift.
+    if (menuTarget && event.type === 'pointerup') {
+      this.onContextMenu(menuTarget);
+    }
   }
 
   /** Arms a drag-selection/header-drag after a press-and-hold with no real movement. */
   private armLongPressDrag(event: PointerEvent): void {
     this.clearLongPress();
+    this.longPressMenuTarget = null;
     this.longPressOrigin = { event, x: event.clientX, y: event.clientY };
     this.longPressTimer = setTimeout(() => {
       this.longPressTimer = null;
@@ -2427,6 +2447,10 @@ export class Grid {
       if (this.dragging || this.headerDrag || this.refDrag) {
         this.capturePointer(origin.event.pointerId);
       }
+      // The hold just fired and nothing has moved yet: this is a candidate
+      // for the context menu once the finger lifts (onPointerMove clears it
+      // again the moment real movement turns this into an actual drag).
+      this.longPressMenuTarget = origin.event;
     }, LONG_PRESS_MS);
   }
 

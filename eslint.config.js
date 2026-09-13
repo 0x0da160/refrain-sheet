@@ -15,6 +15,7 @@ export default tseslint.config(
   {
     ignores: [
       'dist/',
+      'dist-hosted/',
       'node_modules/',
       'coverage/',
       'src/wasm-gen/',

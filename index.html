@@ -2,10 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self' file: 'wasm-unsafe-eval'; style-src 'self' file:; img-src 'self' file: data:; font-src 'self' file:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
-    />
+    <!-- The policy is generated per build mode from scripts/csp.mjs — the
+         single source of truth for both the offline and the hosted build — and
+         substituted here by vite.config.ts. The two modes emit a byte-identical
+         policy today; see docs/security.md. -->
+    <meta http-equiv="Content-Security-Policy" content="__CSP__" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
     <!-- SVG favicon copied verbatim from public/ to the dist root. The

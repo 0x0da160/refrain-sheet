@@ -64,8 +64,10 @@ describe('release + Pages workflow permissions and jobs', () => {
     }
     expect(buildAt).toBeGreaterThan(Math.max(formatAt, lintAt, testAt));
     expect(uploadAt).toBeGreaterThan(buildAt);
-    // The artifact is the production dist/ directory.
-    expect(release).toMatch(/uses:\s*actions\/upload-pages-artifact@v\d+\s*\n\s*with:\s*\n\s*path:\s*dist/);
+    // Pages gets the hosted artifact, never the offline one (docs/security.md).
+    expect(release).toMatch(
+      /uses:\s*actions\/upload-pages-artifact@v\d+\s*\n\s*with:\s*\n\s*path:\s*dist-hosted\s*$/m,
+    );
   });
 
   it('deploys via a job that depends on the release job and uses the Pages actions', () => {
@@ -109,6 +111,36 @@ describe('CI workflow never deploys', () => {
     expect(ci).toContain('npm run audit:ci');
     // A clean-tree assertion guards against drifting lockfiles / stray output.
     expect(ci).toContain('git status --porcelain');
+  });
+});
+
+describe('hosted / offline build split', () => {
+  it('release validates both artifacts before publishing either', () => {
+    const releaseJob = release.slice(0, release.indexOf('deploy-pages:'));
+    expect(releaseJob).toContain('npm run build:hosted');
+    expect(releaseJob).toContain('npm run check:dist:hosted');
+    const uploadAt = releaseJob.indexOf('actions/upload-pages-artifact');
+    const zipAt = releaseJob.indexOf('Package release ZIP');
+    expect(uploadAt).toBeGreaterThan(-1);
+    expect(zipAt).toBeGreaterThan(-1);
+    for (const check of ['npm run check:dist\n', 'npm run check:dist:hosted']) {
+      const at = releaseJob.indexOf(check);
+      expect(at, `${check.trim()} must run before publishing`).toBeGreaterThan(-1);
+      expect(at).toBeLessThan(uploadAt);
+      expect(at).toBeLessThan(zipAt);
+    }
+  });
+
+  it('packages the release ZIP from the offline dist/, never the hosted build', () => {
+    expect(release).toContain('cp -r dist/* "stage/${STAGE}/"');
+    expect(release).not.toContain('cp -r dist-hosted/*');
+  });
+
+  it('CI builds and validates both artifacts', () => {
+    expect(ci).toContain('npm run build:hosted');
+    expect(ci).toContain('npm run check:dist:hosted');
+    // The offline validation must still run in its own right.
+    expect(ci).toMatch(/npm run check:dist\s*$/m);
   });
 });
 

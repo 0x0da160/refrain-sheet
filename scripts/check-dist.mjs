@@ -1,22 +1,55 @@
 // SPDX-License-Identifier: MIT
 // Build validation for the embedded-WASM distribution.
 //
-// Asserts that dist/ is self-contained for file:// usage, for both embedded
-// WASM binaries — the Rust performance core (refrain_csv_core) and the
-// sql.js (SQLite) engine behind Data > Run SQL Query…:
+// Asserts that the built artifact is self-contained, for both embedded WASM
+// binaries — the Rust performance core (refrain_csv_core) and the sql.js
+// (SQLite) engine behind Data > Run SQL Query…:
 //   1. no .wasm file is shipped or referenced — the WASM binaries must be
 //      embedded in the JS bundle as Base64,
 //   2. each embedded payload and its local instantiation path are present,
 //   3. no URL-based WASM fallback survived into the bundle,
-//   4. the CSP allows WebAssembly ('wasm-unsafe-eval') but no real network
-//      origin (no 'http:'/'https:' in connect-src, worker-src, or script-src).
+//   4. the CSP matches scripts/csp.mjs byte-for-byte for the build mode, allows
+//      WebAssembly ('wasm-unsafe-eval'), and names no origin beyond what that
+//      file permits for the mode.
+//
+// Usage:
+//   node scripts/check-dist.mjs [--dir <path>] [--mode offline|hosted]
+//
+// The defaults (dist/, offline) are the historical behaviour, so a bare
+// `npm run check:dist` still validates the offline artifact exactly as before.
+// In offline mode the no-network guarantee is absolute: connect-src must be
+// 'none' and no http:/https: source may appear anywhere. In hosted mode every
+// origin the policy names must appear in scripts/csp.mjs's HOSTED_ALLOWLIST,
+// which is empty today — so the two modes currently assert the same thing.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { allowedOrigins, assertBuildMode, buildCsp } from './csp.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const dist = join(root, 'dist');
+
+function readOption(flag, fallback) {
+  const at = process.argv.indexOf(flag);
+  if (at === -1) return fallback;
+  const value = process.argv[at + 1];
+  if (!value || value.startsWith('--')) {
+    console.error(`check-dist: FAIL: ${flag} requires a value`);
+    process.exit(1);
+  }
+  return value;
+}
+
+const targetDir = readOption('--dir', 'dist');
+const dist = isAbsolute(targetDir) ? targetDir : join(root, targetDir);
+
+let mode;
+try {
+  mode = assertBuildMode(readOption('--mode', 'offline'));
+} catch (error) {
+  console.error(`check-dist: FAIL: ${error.message}`);
+  process.exit(1);
+}
 
 let failures = 0;
 const fail = (msg) => {
@@ -43,9 +76,9 @@ const files = walk(dist);
 // 1. No .wasm asset may ship with the distribution.
 const wasmFiles = files.filter((f) => f.endsWith('.wasm'));
 if (wasmFiles.length > 0) {
-  fail(`found .wasm files in dist/: ${wasmFiles.join(', ')} — the binary must be embedded`);
+  fail(`found .wasm files in ${targetDir}: ${wasmFiles.join(', ')} — the binary must be embedded`);
 } else {
-  ok('no separate .wasm asset in dist/');
+  ok(`no separate .wasm asset in ${targetDir}`);
 }
 
 // Checks 2 and 3 below are about the two embedded WASM binaries, both bundled
@@ -102,27 +135,71 @@ if (!/initSqlJs\(\{\s*wasmBinary:/.test(sqlEngineSource)) {
   ok('sql.js is instantiated only from the embedded wasmBinary (no locateFile fallback)');
 }
 
-// 4. index.html: CSP must allow WebAssembly locally and forbid connections.
+// 4. index.html: the CSP must be exactly what scripts/csp.mjs defines for this
+// build mode, so the two modes can never silently drift apart.
 const indexHtml = readFileSync(join(dist, 'index.html'), 'utf8');
-if (!indexHtml.includes('wasm-unsafe-eval')) {
+if (indexHtml.includes('__CSP__')) {
+  fail('index.html still contains the __CSP__ placeholder — the build injected no policy');
+}
+const cspMatch = /content="([^"]*)"/.exec(indexHtml);
+const csp = cspMatch?.[1] ?? '';
+const expectedCsp = buildCsp(mode);
+if (csp !== expectedCsp) {
+  fail(
+    `index.html CSP does not match scripts/csp.mjs for mode "${mode}"\n` +
+      `    expected: ${expectedCsp}\n` +
+      `    actual:   ${csp}`,
+  );
+} else {
+  ok(`CSP matches scripts/csp.mjs byte-for-byte (mode: ${mode})`);
+}
+
+if (!csp.includes('wasm-unsafe-eval')) {
   fail("index.html CSP is missing 'wasm-unsafe-eval' (WebAssembly would be blocked)");
 } else {
   ok("CSP allows local WebAssembly compilation ('wasm-unsafe-eval')");
 }
-// `connect-src` must forbid every real network origin.
-const cspMatch = /content="([^"]*)"/.exec(indexHtml);
-const csp = cspMatch?.[1] ?? '';
-const connectSrcMatch = /connect-src\s+([^;]+);/.exec(csp);
-const connectSrc = connectSrcMatch?.[1]?.trim();
-if (connectSrc !== "'none'") {
-  fail(`index.html CSP's connect-src is "${connectSrc ?? '(missing)'}", expected "'none'"`);
+
+const connectSrc = /connect-src\s+([^;]+);/.exec(csp)?.[1]?.trim();
+if (mode === 'offline') {
+  // The offline artifact — file:// and the release ZIP — must keep making zero
+  // network connections of any kind. This pair of assertions is the mechanical
+  // form of that guarantee and must never be relaxed (docs/security.md).
+  if (connectSrc !== "'none'") {
+    fail(`index.html CSP's connect-src is "${connectSrc ?? '(missing)'}", expected "'none'"`);
+  } else {
+    ok(`CSP forbids real network connections (connect-src ${connectSrc})`);
+  }
+  if (/(?:connect|worker|script)-src[^;]*\bhttps?:/.test(csp)) {
+    fail('index.html CSP names an http:/https: source — the offline guarantee requires none');
+  } else {
+    ok('CSP names no http:/https: source anywhere');
+  }
 } else {
-  ok(`CSP forbids real network connections (connect-src ${connectSrc})`);
-}
-if (/(?:connect|worker|script)-src[^;]*\bhttps?:/.test(csp)) {
-  fail('index.html CSP names an http:/https: source — the offline guarantee requires none');
-} else {
-  ok('CSP names no http:/https: source anywhere');
+  // The hosted artifact may name origins, but only ones scripts/csp.mjs lists.
+  // Widening that list is therefore a visible, reviewable edit to one file.
+  const allowed = new Set(allowedOrigins(mode));
+  const named = [...csp.matchAll(/\bhttps?:\/\/[^\s;]+/g)].map((m) => m[0]);
+  const unexpected = named.filter((origin) => !allowed.has(origin));
+  if (unexpected.length > 0) {
+    fail(
+      `index.html CSP names origin(s) absent from HOSTED_ALLOWLIST in scripts/csp.mjs: ${unexpected.join(', ')}`,
+    );
+  } else {
+    ok(`CSP names only allowlisted origins (${allowed.size} allowed, ${named.length} used)`);
+  }
+  // A bare `https:` source would permit every origin — never acceptable, even
+  // in the hosted build. Origins must always be spelled out.
+  if (/(?:connect|worker|script)-src[^;]*\bhttps?:(?!\/\/)/.test(csp)) {
+    fail('index.html CSP names a bare http:/https: scheme source — origins must be explicit');
+  } else {
+    ok('CSP names no bare http:/https: scheme source');
+  }
+  if (allowed.size === 0 && connectSrc !== "'none'") {
+    fail(
+      `HOSTED_ALLOWLIST is empty, so connect-src must still be "'none'" — found "${connectSrc ?? '(missing)'}"`,
+    );
+  }
 }
 if (/<script[^>]*type="module"/.test(indexHtml)) {
   fail('index.html still uses a module script (breaks file:// in Chromium)');
@@ -131,7 +208,9 @@ if (/<script[^>]*type="module"/.test(indexHtml)) {
 }
 
 if (failures > 0) {
-  console.error(`check-dist: ${failures} failure(s)`);
+  console.error(`check-dist: ${failures} failure(s) in ${targetDir} (mode: ${mode})`);
   process.exit(1);
 }
-console.warn('check-dist: distribution is self-contained (embedded WASM, no external fetches)');
+console.warn(
+  `check-dist: ${targetDir} is self-contained (embedded WASM, mode: ${mode}, CSP matches scripts/csp.mjs)`,
+);

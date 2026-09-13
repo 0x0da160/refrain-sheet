@@ -5,7 +5,14 @@
 // origins that were explicitly added to HOSTED_ALLOWLIST.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { allowedOrigins, buildCsp, BUILD_MODES, HOSTED_ALLOWLIST } from '../scripts/csp.mjs';
+import {
+  allowedKeywords,
+  allowedOrigins,
+  buildCsp,
+  BUILD_MODES,
+  HOSTED_ALLOWLIST,
+  HOSTED_KEYWORD_GRANTS,
+} from '../scripts/csp.mjs';
 
 // The exact policy that shipped before the split existed. This string moving
 // means the offline artifact's permissions changed — never an incidental edit.
@@ -21,6 +28,11 @@ describe('offline CSP', () => {
     const csp = buildCsp('offline');
     expect(csp).toContain("connect-src 'none'");
     expect(csp).not.toMatch(/https?:/);
+  });
+
+  it('never gains the hosted build’s inline-style grant', () => {
+    expect(buildCsp('offline')).not.toContain("'unsafe-inline'");
+    expect(allowedKeywords('offline')).toEqual([]);
   });
 
   it('still permits local WebAssembly compilation', () => {
@@ -49,15 +61,34 @@ describe('hosted CSP', () => {
     }
   });
 
-  it('never weakens a directive with a keyword instead of an origin', () => {
-    // Origins are reviewable; 'unsafe-inline' / 'unsafe-eval' are not. The
-    // Picker may want inline styles — that relaxation must be a deliberate,
-    // separate decision, never something an origin edit drags in.
+  it('uses no keyword grant beyond the ones explicitly declared', () => {
+    // Origins are reviewable; keyword grants are not, so they live in their own
+    // list and nothing may introduce one without editing it. Today that list
+    // holds exactly one entry, required by the Google Picker (#416).
     const hosted = buildCsp('hosted');
-    expect(hosted).not.toContain("'unsafe-inline'");
+    const declared = new Set(allowedKeywords('hosted'));
+    expect([...declared]).toEqual(["'unsafe-inline'"]);
+    for (const keyword of hosted.match(/'unsafe-[a-z-]+'/g) ?? []) {
+      expect(declared, `${keyword} is not declared`).toContain(keyword);
+    }
+    // Script execution is never relaxed, whatever styling needs.
     expect(hosted).not.toContain("'unsafe-eval'");
     // 'wasm-unsafe-eval' is the pre-existing WebAssembly grant, not a widening.
     expect(hosted).toContain("'wasm-unsafe-eval'");
+  });
+
+  it('confines the inline-style grant to style-src', () => {
+    expect(Object.keys(HOSTED_KEYWORD_GRANTS)).toEqual(['style-src']);
+    const styleSrc = /style-src ([^;]+)/.exec(buildCsp('hosted'))![1];
+    expect(styleSrc).toContain("'unsafe-inline'");
+    // No other directive may pick it up.
+    const others = buildCsp('hosted').replace(/style-src [^;]+/, '');
+    expect(others).not.toContain("'unsafe-inline'");
+  });
+
+  it('keeps the keyword grant out of the origin allowlist', () => {
+    // Mixing the two would let a keyword ride in under an "origin" review.
+    expect(allowedOrigins('hosted')).not.toContain("'unsafe-inline'");
   });
 
   it('adds frame-src for the Picker iframe, which the offline policy never gains', () => {

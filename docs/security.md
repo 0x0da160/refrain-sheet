@@ -55,12 +55,22 @@ the implementation stays inside it.
   the `GOOGLE_OAUTH_CLIENT_ID` repository _variable_ (never
   `secrets.*`), injected at build time, and reaches the hosted build only.
   `npm run check:dist` fails if the offline bundle ever contains one.
-- **The CSP grants origins, never keywords.** The hosted policy names the
-  specific Google origins the Picker and Drive API need. It deliberately does
-  **not** grant `style-src 'unsafe-inline'`, even though Google's `api.js`
-  injects inline styles: the Picker's chrome may render imperfectly rather than
-  the app weakening its policy on speculation. `tests/csp.test.ts` fails if any
-  `'unsafe-*'` keyword appears.
+- **Origins and keyword grants are separated.** The hosted policy names the
+  specific Google origins the Picker and Drive API need, in `HOSTED_ALLOWLIST`.
+  Keyword grants live in a second list, `HOSTED_KEYWORD_GRANTS`, because they
+  are categorically more dangerous — an origin permits one host, a keyword
+  applies to every source in its directive. `scripts/check-dist.mjs` rejects any
+  `'unsafe-*'` the built policy uses that is not declared there, so one cannot
+  be introduced without editing that list.
+- **`style-src 'unsafe-inline'` is granted, to the hosted build only.** Google's
+  `api.js` styles the picker dialog with inline style attributes and injected
+  `<style>` elements in the parent page. #416 deliberately shipped without this
+  grant first; a real browser test then showed the picker chrome renders broken,
+  so it rests on evidence rather than caution. There is no nonce or hash
+  alternative, since Google's script generates the markup at runtime. It grants
+  no script capability: cell values are still rendered as text and never as
+  HTML, and there is no `eval` / `new Function` anywhere. `'unsafe-eval'` is
+  never granted, and the offline build never sees any of this.
 - **Same encoders as a local save.** An upload reuses the ordinary save path,
   so a document round-tripped through Drive keeps the same bytes a local save
   would have written. CSV fidelity is not weakened by the network path.

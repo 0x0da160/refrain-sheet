@@ -14,6 +14,7 @@
 //
 // Usage:
 //   node scripts/check-dist.mjs [--dir <path>] [--mode offline|hosted]
+//                               [--expect-credential]
 //
 // The defaults (dist/, offline) are the historical behaviour, so a bare
 // `npm run check:dist` still validates the offline artifact exactly as before.
@@ -21,7 +22,9 @@
 // 'none' and no http:/https: source may appear anywhere, and the bundle must
 // carry no Google OAuth client id. In hosted mode every origin the policy names
 // must appear in scripts/csp.mjs's HOSTED_ALLOWLIST, and a bare http:/https:
-// scheme source is rejected in either mode.
+// scheme source is rejected in either mode. --expect-credential additionally
+// requires a hosted bundle to CARRY the client id, so a release can never ship
+// a build with Drive sync silently compiled out.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
@@ -40,6 +43,11 @@ function readOption(flag, fallback) {
   }
   return value;
 }
+
+// Release builds pass --expect-credential so a hosted artifact that silently
+// compiled Drive sync out (an unset GOOGLE_OAUTH_CLIENT_ID variable) fails the
+// release instead of shipping a build whose Drive menu never appears.
+const expectCredential = process.argv.includes('--expect-credential');
 
 const targetDir = readOption('--dir', 'dist');
 const dist = isAbsolute(targetDir) ? targetDir : join(root, targetDir);
@@ -223,12 +231,25 @@ if (mode === 'offline') {
 // injected only in the hosted build (vite.config.ts), so finding one here
 // would mean the offline release ZIP had shipped a credential and a live code
 // path with it. This is the mechanical form of that guarantee — see #416.
+const credential = /[A-Za-z0-9-_.]+\.apps\.googleusercontent\.com/.exec(bundle)?.[0];
 if (mode === 'offline') {
-  const credential = /[A-Za-z0-9-_.]+\.apps\.googleusercontent\.com/.exec(bundle)?.[0];
   if (credential) {
     fail('the offline bundle contains a Google OAuth client id — it must only ever reach the hosted build');
   } else {
     ok('offline bundle carries no Google OAuth client id');
+  }
+} else if (expectCredential) {
+  // The inverse guarantee, asserted on the release path only: a hosted build
+  // with no credential compiles Drive sync out entirely — `driveConfigured()`
+  // is false, every command is disabled, and the File > Google Drive submenu
+  // is never rendered. That failure is invisible in the artifact, so it has to
+  // be caught here rather than by someone noticing the menu is missing.
+  if (!credential) {
+    fail(
+      'the hosted bundle carries no Google OAuth client id — set the GOOGLE_OAUTH_CLIENT_ID repository variable, or Drive sync ships silently disabled',
+    );
+  } else {
+    ok('hosted bundle carries a Google OAuth client id (Drive sync is enabled)');
   }
 }
 

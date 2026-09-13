@@ -86,7 +86,13 @@ jobs:
       # today; building and validating both here is what stops a future
       # hosted-only relaxation from ever reaching the offline dist/ that ships
       # in the release ZIP. See docs/security.md.
+      # Mirrors the release build. A pull request from a fork sees an empty
+      # variable and simply builds without Drive sync, which must also work —
+      # only the release path requires the credential to be present.
       - name: Build (hosted)
+        env:
+          VITE_GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+          VITE_GOOGLE_DRIVE_API_KEY: ${{ vars.GOOGLE_DRIVE_API_KEY }}
         run: npm run build:hosted
 
       - name: Validate hosted distribution

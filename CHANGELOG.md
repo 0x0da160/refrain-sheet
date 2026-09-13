@@ -38,6 +38,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
   Content-Security-Policy was blocking. The hosted build now permits inline
   styles; the downloadable offline build is unaffected and its policy is
   unchanged. ([#425](https://github.com/0x0da160/refrain-sheet/issues/425))
+- The **File > Google Drive** menu did not appear on app.refrain-sheet.com in
+  v0.7.26. The release build was produced without the Google OAuth client id,
+  which compiles Drive sync out entirely, so the feature shipped invisible. The
+  release now injects the credential and refuses to publish a hosted build that
+  is missing it. ([#416](https://github.com/0x0da160/refrain-sheet/issues/416))
 
 ### Added
 

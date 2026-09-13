@@ -131,11 +131,19 @@ jobs:
       # artifacts are built and validated before either is published, so the
       # offline dist/ that goes into the release ZIP can never inherit a
       # hosted-only CSP relaxation. See docs/security.md.
+      # The OAuth client id is a public identifier delivered as a repository
+      # *variable*, never a secret (docs/security.md). Without it the hosted
+      # build compiles Drive sync out entirely and the menu never appears, so
+      # --expect-credential below fails the release rather than shipping a
+      # silently featureless build.
       - name: Build (hosted)
+        env:
+          VITE_GOOGLE_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_OAUTH_CLIENT_ID }}
+          VITE_GOOGLE_DRIVE_API_KEY: ${{ vars.GOOGLE_DRIVE_API_KEY }}
         run: npm run build:hosted
 
       - name: Validate hosted distribution
-        run: npm run check:dist:hosted
+        run: npm run check:dist:hosted -- --expect-credential
 
       - name: Audit production dependencies
         run: npm run audit:ci

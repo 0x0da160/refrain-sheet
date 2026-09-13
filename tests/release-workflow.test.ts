@@ -136,6 +136,20 @@ describe('hosted / offline build split', () => {
     expect(release).not.toContain('cp -r dist-hosted/*');
   });
 
+  it('injects the OAuth client id into the hosted build, and requires it on release', () => {
+    // Without the variable the hosted build compiles Drive sync out and the
+    // menu silently disappears — exactly the regression this guards.
+    for (const wf of [release, ci]) {
+      expect(wf).toMatch(/VITE_GOOGLE_OAUTH_CLIENT_ID:\s*\$\{\{\s*vars\.GOOGLE_OAUTH_CLIENT_ID\s*\}\}/);
+    }
+    // It is a public identifier: a repository variable, never a secret.
+    expect(release).not.toContain('secrets.GOOGLE_OAUTH_CLIENT_ID');
+    // Only the release path insists the credential actually made it in; a fork
+    // pull request has no variables and must still build.
+    expect(release).toContain('npm run check:dist:hosted -- --expect-credential');
+    expect(ci).not.toContain('--expect-credential');
+  });
+
   it('CI builds and validates both artifacts', () => {
     expect(ci).toContain('npm run build:hosted');
     expect(ci).toContain('npm run check:dist:hosted');

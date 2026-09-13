@@ -31,6 +31,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Fixed
+
+- The **File > Google Drive** menu did not appear on app.refrain-sheet.com in
+  v0.7.26. The release build was produced without the Google OAuth client id,
+  which compiles Drive sync out entirely, so the feature shipped invisible. The
+  release now injects the credential and refuses to publish a hosted build that
+  is missing it. ([#416](https://github.com/0x0da160/refrain-sheet/issues/416))
+
 ### Added
 
 - **File > Google Drive** opens, saves, and overwrites spreadsheets in Google

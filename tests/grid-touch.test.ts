@@ -21,6 +21,7 @@ function stubUi(): UiPort {
     confirmValidation: vi.fn(async () => true),
     confirmUnsaved: vi.fn(async () => 'discard' as const),
     chooseSaveOptions: vi.fn(async () => null),
+    promptDriveName: async () => null,
     confirmUnrepresentable: vi.fn(async () => false),
     notifyNcr: asyncNoop,
     confirmUndecodableEdit: vi.fn(async () => true),

@@ -8,7 +8,7 @@ import type { EncodingId } from '../../core/encoding';
 import { rsfMethodKey } from '../../core/rsf-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/serializer';
 import { el } from '../dom';
-import { cellList, dialogButton, openDialog } from './shared';
+import { cellList, dialogButton, openDialog, submitOnEnter } from './shared';
 
 /**
  * File I/O and CSV/RSF conversion dialogs: save options, encoding/delimiter
@@ -19,6 +19,56 @@ import { cellList, dialogButton, openDialog } from './shared';
  * an instance of this class.
  */
 export class FileIoDialogs {
+  /**
+   * Ask for the filename to create in Google Drive, preselected with the
+   * document's current name. Enter confirms and Escape cancels — both ignored
+   * while an IME composition is in progress, so committing a Japanese
+   * candidate with Enter never submits the dialog by accident. A blank name is
+   * refused rather than silently creating an unnamed file in the user's Drive.
+   */
+  promptDriveName(suggested: string): Promise<string | null> {
+    return openDialog<string | null>(t('dialog.driveName.title'), null, (body, buttons, close) => {
+      const inputId = 'drive-name-input';
+      const input = el('input', {
+        className: 'sheet-name-input',
+        attrs: { type: 'text', id: inputId, 'data-autofocus': 'true' },
+      }) as HTMLInputElement;
+      input.value = suggested;
+      body.append(
+        el('label', { text: t('dialog.driveName.label'), attrs: { for: inputId } }),
+        input,
+        el('p', { className: 'dialog-note', text: t('dialog.driveName.note') }),
+      );
+
+      const okButton = dialogButton(t('dialog.driveName.ok'), true, false, () => submit());
+      const refresh = (): boolean => {
+        const ok = input.value.trim().length > 0;
+        okButton.disabled = !ok;
+        return ok;
+      };
+      const submit = (): void => {
+        if (refresh()) close(input.value.trim());
+      };
+      let composing = false;
+      input.addEventListener('compositionstart', () => {
+        composing = true;
+      });
+      input.addEventListener('compositionend', () => {
+        composing = false;
+        refresh();
+      });
+      input.addEventListener('input', () => {
+        if (!composing) refresh();
+      });
+      submitOnEnter(input, submit);
+      refresh();
+      buttons.append(
+        dialogButton(t('dialog.driveName.cancel'), false, false, () => close(null)),
+        okButton,
+      );
+    });
+  }
+
   chooseSaveOptions(tab: Tab, downloadNote: string | null): Promise<SaveOptions | null> {
     const doc = tab.doc;
     if (doc.kind !== 'csv') {

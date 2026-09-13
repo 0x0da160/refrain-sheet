@@ -11,24 +11,47 @@
 //            artifact the approved opt-in cloud-sync exception in
 //            `docs/security.md` applies to.
 //
-// HOSTED_ALLOWLIST is EMPTY today, so both modes currently produce a
-// byte-identical policy. That is the point: the split mechanism lands with no
-// change in behaviour and no increase in attack surface. Widening the
-// allowlist is a separate, deliberate, reviewable edit to this one file —
-// `scripts/check-dist.mjs` fails on any origin that is not listed here.
+// The offline policy is fixed and is asserted byte-for-byte by tests/csp.test.ts:
+// nothing in HOSTED_ALLOWLIST can move it. Every extra permission the hosted
+// build has lives in that one constant, so widening it is always a deliberate,
+// reviewable edit to a single place — `scripts/check-dist.mjs` fails the build
+// on any origin the built policy names that is not listed here.
 
 /** @typedef {'offline' | 'hosted'} BuildMode */
 
 /** @type {readonly BuildMode[]} */
 export const BUILD_MODES = ['offline', 'hosted'];
 
-// Origins the hosted build may load code from or connect to. Empty by design.
-// Adding an entry here relaxes the hosted CSP and nothing else — the offline
-// artifact never consults this list.
+// Origins the hosted build may load code from, frame, or connect to. Every
+// entry here relaxes the hosted CSP and nothing else — the offline artifact
+// never consults this list, so widening it cannot affect the release ZIP.
+//
+// These are the origins Google Drive sync needs (issue #416):
+//   apis.google.com        the gapi loader that hosts the Google Picker
+//   accounts.google.com    Google Identity Services: the token client and its
+//                          consent popup (script, frame, and token endpoint)
+//   www/content.googleapis.com  the Drive REST API and Picker's own backend
+//   docs.google.com        the iframe the Picker itself renders in
+//   *.googleusercontent.com, ssl/www.gstatic.com  Picker thumbnails and icons
+//
+// Deliberately NOT granted: 'unsafe-inline' for style-src. Google's api.js
+// injects inline styles, so the Picker's chrome may render imperfectly without
+// it; that is the accepted trade-off until a real browser test proves the
+// relaxation is actually required.
+//
+// A directive named here that is absent from DIRECTIVES below (frame-src) is
+// emitted for the hosted build only, so the offline policy keeps inheriting
+// default-src 'none' for it.
 /** @type {Record<string, string[]>} */
 export const HOSTED_ALLOWLIST = {
-  'script-src': [],
-  'connect-src': [],
+  'script-src': ['https://apis.google.com', 'https://accounts.google.com'],
+  'connect-src': [
+    'https://www.googleapis.com',
+    'https://content.googleapis.com',
+    'https://accounts.google.com',
+  ],
+  'frame-src': ['https://docs.google.com', 'https://content.googleapis.com', 'https://accounts.google.com'],
+  'img-src': ['https://*.googleusercontent.com', 'https://ssl.gstatic.com', 'https://www.gstatic.com'],
 };
 
 // The policy itself, in emission order. Keep this ordering stable: the offline
@@ -88,12 +111,25 @@ export function allowedOrigins(mode) {
  */
 export function buildCsp(mode) {
   const buildMode = assertBuildMode(mode);
-  return DIRECTIVES.map(([directive, sources]) => {
+  const emitted = DIRECTIVES.map(([directive, sources]) => {
     const extra = extraSources(buildMode, directive);
     if (extra.length === 0) return `${directive} ${sources.join(' ')}`;
     // "'none'" is only meaningful on its own: granting an origin means the
     // keyword has to go, or the whole directive is invalid.
     const base = sources.filter((source) => source !== "'none'");
     return `${directive} ${[...base, ...extra].join(' ')}`;
-  }).join('; ');
+  });
+
+  // A directive the allowlist names but DIRECTIVES does not (frame-src) exists
+  // only in the hosted policy. The offline policy keeps inheriting
+  // default-src 'none' for it, which is exactly the stricter behaviour.
+  if (buildMode === 'hosted') {
+    const base = new Set(DIRECTIVES.map(([directive]) => directive));
+    for (const [directive, sources] of Object.entries(HOSTED_ALLOWLIST)) {
+      if (base.has(directive) || sources.length === 0) continue;
+      emitted.push(`${directive} ${sources.join(' ')}`);
+    }
+  }
+
+  return emitted.join('; ');
 }

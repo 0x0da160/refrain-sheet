@@ -76,6 +76,13 @@ export interface Tab {
   /** The "must be saved as .rsf" explanation was already shown for this tab. */
   rsfSaveExplained: boolean;
   /**
+   * The Google Drive file this tab is associated with, set when the document
+   * was opened from Drive or saved to it. Lets a later save overwrite the same
+   * file instead of creating a duplicate. Null for any tab that has never
+   * touched Drive — which is every tab in the offline build.
+   */
+  drive: { fileId: string; name: string } | null;
+  /**
    * Per-column pixel widths for this open document during the session,
    * expressed at 100% zoom. A missing or zero entry means the default width.
    * Stored on the tab so resizing a plain CSV never mutates its bytes; RSF
@@ -189,6 +196,7 @@ export class AppState {
       anchor: null,
       selectionKind: 'cell',
       rsfSaveExplained: false,
+      drive: null,
       colWidths: stored ? stored.displayColWidths.slice() : [],
       zoom: clampSheetZoom(stored?.displayZoom ?? getSheetZoom()),
       wrapCells: stored?.displayWrap ?? getWrapCells(),

@@ -20,6 +20,36 @@ content, not the editor. The landing page may load Google Analytics
 banner — declining or ignoring the banner loads nothing. See
 `src/landing/consent.js`.
 
+### Planned exception: opt-in cloud storage sync (hosted build only)
+
+The maintainer has approved, in principle, a narrow exception to the
+guarantee above (see issue #413): the hosted build at app.refrain-sheet.com
+may in the future offer an **opt-in** cloud storage sync feature (e.g.
+save/open against a third-party provider). This section records the approved
+scope of that exception so a future implementation has a policy to build
+against; it does not itself change any runtime behavior.
+
+- **Opt-in, off by default.** No cloud-sync network request may occur unless
+  a user has explicitly enabled the feature; the editor's default behavior —
+  zero network connections at runtime — is unchanged.
+- **Hosted build only.** The offline `file://` build and the downloadable
+  release ZIP are **not** covered by this exception and must keep making zero
+  network connections of any kind. `npm run check:dist`'s `connect-src
+'none'` assertion continues to apply, unchanged, to the artifact shipped in
+  release ZIPs.
+- **Policy only — not yet implemented.** This entry records approval of the
+  _direction_, not a design. No cloud-sync code exists in this repository.
+  Adding this section does not, by itself, alter `dist/`'s network behavior,
+  `check:dist`, or the CSP.
+- **Implementation needs its own approval.** A concrete implementation
+  (provider selection, OAuth/consent flow, credential handling, a CSP relaxed
+  only for the hosted build's cloud-sync code path, and the corresponding
+  `check:dist` update) must be scoped as its own Issue. It requires a
+  human-provisioned OAuth client / API credentials that automation cannot
+  create, and needs full human security review before merge, since it touches
+  auth, secrets, and user file content leaving the device — all categories
+  `CLAUDE.md` requires escalating.
+
 ## Threat model
 
 The assets we protect and the boundaries we treat as untrusted:

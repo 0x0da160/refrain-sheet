@@ -33,6 +33,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- On a touchscreen, pressing and holding a cell or a row/column header (with
+  no dragging) now opens the same right-click context menu a mouse gets,
+  giving touch input a way to reach menu-only actions like Insert Row/Column
+  or Delete Row/Column. ([#406](https://github.com/0x0da160/refrain-sheet/issues/406))
 - **File > Export as CSV…** now lets you choose a **delimiter** (keep the
   workbook's own delimiter, or override with comma / semicolon / tab) and a
   **quoting** style (quote only when needed, the default, or always quote

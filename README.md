@@ -1609,7 +1609,7 @@ the normal review flow. Nothing outside the markers is ever machine-written.
 | ---------- | ------: | --------: | ---------: | ---------: |
 | TypeScript |     220 |     4,571 |     10,106 |     50,241 |
 | JSON       |       6 |         0 |          0 |      6,927 |
-| Markdown   |      17 |     1,053 |          4 |      5,766 |
+| Markdown   |      17 |     1,056 |          4 |      5,793 |
 | CSS        |       2 |       418 |        338 |      3,010 |
 | YAML       |      16 |       275 |        781 |      2,744 |
 | JavaScript |      17 |       275 |        476 |      2,019 |
@@ -1618,7 +1618,7 @@ the normal review flow. Nothing outside the markers is ever machine-written.
 | Dockerfile |       1 |         8 |         21 |         21 |
 | TOML       |       1 |         4 |         19 |         20 |
 | SVG        |       3 |         0 |          0 |         18 |
-| **Total**  | **289** | **6,719** | **11,940** | **72,490** |
+| **Total**  | **289** | **6,722** | **11,940** | **72,517** |
 
 <!-- code-stats:end -->
 

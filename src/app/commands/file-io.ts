@@ -467,9 +467,23 @@ export class FileIoCommands {
    * (createWritable → write → close); a download never reports an overwrite.
    */
   private async encodeAndWriteRsf(tab: Tab, handle: FileSystemFileHandle | null): Promise<boolean> {
+    const bytes = await this.encodeRsfBytes(tab);
+    if (bytes === null) {
+      return false;
+    }
+    return this.writeRsfBytes(tab, bytes, handle);
+  }
+
+  /**
+   * Serialize + compress the RSF document behind the busy indicator and return
+   * the finished bytes, or null when the encode was cancelled (the tab changed
+   * while yielding). Split out of {@link encodeAndWriteRsf} so a destination
+   * that is not a file handle — a Drive upload — can reuse the same encode.
+   */
+  private async encodeRsfBytes(tab: Tab): Promise<Uint8Array | null> {
     const doc = tab.doc;
     if (doc.kind !== 'rsf') {
-      return false;
+      return null;
     }
     // Record the tab's live view state (zoom, overridden column widths) so
     // the container persists it; presentational only, never dirties the doc.
@@ -508,9 +522,15 @@ export class FileIoCommands {
         return doc.toBytesFromSheetCells(perSheet);
       },
     );
-    if (bytes === null) {
-      return false;
-    }
+    return bytes;
+  }
+
+  /** Write already-encoded RSF bytes to an acquired handle (or download them). */
+  private async writeRsfBytes(
+    tab: Tab,
+    bytes: Uint8Array,
+    handle: FileSystemFileHandle | null,
+  ): Promise<boolean> {
     // The handle was already acquired inside the gesture; `saveBytes`
     // overwrites through it or, with no handle, produces a download.
     const written = await this.runSaveStep(() => saveBytes(this.dom, tab.name, bytes, handle));
@@ -534,6 +554,37 @@ export class FileIoCommands {
     this.state.markTabSaved(tab);
     this.state.emit('tabs');
     return true;
+  }
+
+  /**
+   * Encode the tab for upload to an external destination (Google Drive),
+   * returning the bytes and the MIME type to send. Uses exactly the same
+   * encoders as a local save — an RSF document keeps its container, a CSV
+   * document keeps its original encoding, delimiter, and quoting — so a
+   * round-trip through Drive preserves the same bytes a local save would
+   * produce. Returns null when the user declined an unrepresentable-character
+   * prompt or the encode was cancelled.
+   */
+  async encodeForUpload(tab: Tab): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
+    if (tab.doc.kind === 'rsf') {
+      const bytes = await this.encodeRsfBytes(tab);
+      return bytes === null ? null : { bytes, mimeType: 'application/octet-stream' };
+    }
+    let result = serializeDocument(tab.doc, KEEP_SAVE_OPTIONS, false);
+    if (!result.ok) {
+      const proceed = await this.ui.confirmUnrepresentable(
+        t(`encoding.${tab.doc.encoding}`),
+        result.unrepresentable,
+      );
+      if (!proceed) {
+        return null;
+      }
+      result = serializeDocument(tab.doc, KEEP_SAVE_OPTIONS, true);
+      if (!result.ok) {
+        return null;
+      }
+    }
+    return { bytes: result.bytes, mimeType: 'text/csv' };
   }
 
   /**

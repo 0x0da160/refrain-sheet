@@ -33,25 +33,61 @@ describe('offline CSP', () => {
 });
 
 describe('hosted CSP', () => {
-  it('grants no origin today, so it is identical to the offline policy', () => {
-    expect(Object.values(HOSTED_ALLOWLIST).flat()).toEqual([]);
-    expect(buildCsp('hosted')).toBe(buildCsp('offline'));
-    expect(allowedOrigins('hosted')).toEqual([]);
+  it('grants only Google origins, and only ones on the allowlist', () => {
+    const hosted = buildCsp('hosted');
+    const allowed = allowedOrigins('hosted');
+    expect(allowed.length).toBeGreaterThan(0);
+    for (const origin of allowed) {
+      expect(origin, `${origin} must be a Google origin`).toMatch(
+        /^https:\/\/([a-z*.]+\.)?(google|googleapis|googleusercontent|gstatic)\.com$/,
+      );
+    }
+    // Every origin the policy names must come from the allowlist — the same
+    // invariant scripts/check-dist.mjs enforces against the built artifact.
+    for (const origin of hosted.match(/https:\/\/[^\s;]+/g) ?? []) {
+      expect(allowed, `${origin} is not allowlisted`).toContain(origin);
+    }
+  });
+
+  it('never weakens a directive with a keyword instead of an origin', () => {
+    // Origins are reviewable; 'unsafe-inline' / 'unsafe-eval' are not. The
+    // Picker may want inline styles — that relaxation must be a deliberate,
+    // separate decision, never something an origin edit drags in.
+    const hosted = buildCsp('hosted');
+    expect(hosted).not.toContain("'unsafe-inline'");
+    expect(hosted).not.toContain("'unsafe-eval'");
+    // 'wasm-unsafe-eval' is the pre-existing WebAssembly grant, not a widening.
+    expect(hosted).toContain("'wasm-unsafe-eval'");
+  });
+
+  it('adds frame-src for the Picker iframe, which the offline policy never gains', () => {
+    expect(buildCsp('hosted')).toContain('frame-src https://docs.google.com');
+    // Offline keeps inheriting default-src 'none' for frames.
+    expect(buildCsp('offline')).not.toContain('frame-src');
+  });
+
+  it('leaves the offline policy untouched despite a populated allowlist', () => {
+    expect(Object.values(HOSTED_ALLOWLIST).flat().length).toBeGreaterThan(0);
+    expect(buildCsp('offline')).toBe(OFFLINE_CSP);
+    expect(allowedOrigins('offline')).toEqual([]);
   });
 
   it("replaces 'none' when a directive gains an origin, and leaves offline untouched", () => {
     // Simulates a future widening. The assertion that matters is the last one:
     // relaxing the hosted policy must not move the offline policy at all.
-    const original = [...HOSTED_ALLOWLIST['connect-src']];
+    // object-src still carries the bare 'none' keyword, so it shows the
+    // replacement clearly. Simulates a future widening without shipping one.
+    expect(HOSTED_ALLOWLIST['object-src']).toBeUndefined();
     try {
-      HOSTED_ALLOWLIST['connect-src'].push('https://example.test');
+      HOSTED_ALLOWLIST['object-src'] = ['https://example.test'];
       const hosted = buildCsp('hosted');
-      expect(hosted).toContain('connect-src https://example.test');
-      expect(hosted).not.toContain("connect-src 'none'");
+      expect(hosted).toContain('object-src https://example.test');
+      expect(hosted).not.toContain("object-src 'none'");
+      // The assertion that matters: relaxing the hosted policy must not move
+      // the offline policy by a single byte.
       expect(buildCsp('offline')).toBe(OFFLINE_CSP);
     } finally {
-      HOSTED_ALLOWLIST['connect-src'].length = 0;
-      HOSTED_ALLOWLIST['connect-src'].push(...original);
+      delete HOSTED_ALLOWLIST['object-src'];
     }
   });
 });

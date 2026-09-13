@@ -18,9 +18,10 @@
 // The defaults (dist/, offline) are the historical behaviour, so a bare
 // `npm run check:dist` still validates the offline artifact exactly as before.
 // In offline mode the no-network guarantee is absolute: connect-src must be
-// 'none' and no http:/https: source may appear anywhere. In hosted mode every
-// origin the policy names must appear in scripts/csp.mjs's HOSTED_ALLOWLIST,
-// which is empty today — so the two modes currently assert the same thing.
+// 'none' and no http:/https: source may appear anywhere, and the bundle must
+// carry no Google OAuth client id. In hosted mode every origin the policy names
+// must appear in scripts/csp.mjs's HOSTED_ALLOWLIST, and a bare http:/https:
+// scheme source is rejected in either mode.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname, isAbsolute } from 'node:path';
@@ -201,6 +202,19 @@ if (mode === 'offline') {
     );
   }
 }
+// 5. The offline artifact must carry no Google credential. The client id is
+// injected only in the hosted build (vite.config.ts), so finding one here
+// would mean the offline release ZIP had shipped a credential and a live code
+// path with it. This is the mechanical form of that guarantee — see #416.
+if (mode === 'offline') {
+  const credential = /[A-Za-z0-9-_.]+\.apps\.googleusercontent\.com/.exec(bundle)?.[0];
+  if (credential) {
+    fail('the offline bundle contains a Google OAuth client id — it must only ever reach the hosted build');
+  } else {
+    ok('offline bundle carries no Google OAuth client id');
+  }
+}
+
 if (/<script[^>]*type="module"/.test(indexHtml)) {
   fail('index.html still uses a module script (breaks file:// in Chromium)');
 } else {

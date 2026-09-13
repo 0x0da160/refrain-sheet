@@ -21,6 +21,7 @@ function checks(): MenuChecks {
     editHints: () => true,
     commentsPanel: () => false,
     formatActive: () => false,
+    driveAvailable: () => false,
   };
 }
 

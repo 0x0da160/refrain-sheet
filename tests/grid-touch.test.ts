@@ -75,6 +75,7 @@ function stubUi(): UiPort {
 const VIEW_HEIGHT = 520;
 const VIEW_WIDTH = 900;
 const LONG_PRESS_MS = 400;
+const DOUBLE_TAP_MS = 300;
 
 function bigCsv(rows: number, cols: number): string {
   const lines: string[] = [];
@@ -283,5 +284,58 @@ describe('long-press opens the context menu on touch, a right-click equivalent (
     vi.advanceTimersByTime(LONG_PRESS_MS);
     touchUp(grid.element);
     expect(document.querySelector('.context-menu')).not.toBeNull();
+  });
+});
+
+describe('double-tap opens the inline editor on touch (#458)', () => {
+  it('opens the editor when a second quick tap lands on the same cell within the window', () => {
+    const { grid } = setupCsv(10, 3);
+    const cell = cellEl(grid, 1, 1);
+    touchDown(cell);
+    touchUp(cell);
+    vi.advanceTimersByTime(DOUBLE_TAP_MS - 50);
+    touchDown(cell);
+    touchUp(cell);
+    expect(grid.element.querySelector('.cell-editor')).not.toBeNull();
+  });
+
+  it('does not open the editor when the second tap lands on a different cell', () => {
+    const { grid } = setupCsv(10, 3);
+    touchDown(cellEl(grid, 1, 1));
+    touchUp(cellEl(grid, 1, 1));
+    vi.advanceTimersByTime(DOUBLE_TAP_MS - 50);
+    touchDown(cellEl(grid, 2, 1));
+    touchUp(cellEl(grid, 2, 1));
+    expect(grid.element.querySelector('.cell-editor')).toBeNull();
+  });
+
+  it('does not open the editor when the second tap arrives after the double-tap window', () => {
+    const { grid } = setupCsv(10, 3);
+    const cell = cellEl(grid, 1, 1);
+    touchDown(cell);
+    touchUp(cell);
+    vi.advanceTimersByTime(DOUBLE_TAP_MS + 50);
+    touchDown(cell);
+    touchUp(cell);
+    expect(grid.element.querySelector('.cell-editor')).toBeNull();
+  });
+
+  it('does not treat a completed press-and-hold release as the first tap of a pair', () => {
+    const { grid } = setupCsv(10, 3);
+    const cell = cellEl(grid, 1, 1);
+    touchDown(cell);
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    touchUp(cell);
+    vi.advanceTimersByTime(DOUBLE_TAP_MS - 50);
+    touchDown(cell);
+    touchUp(cell);
+    expect(grid.element.querySelector('.cell-editor')).toBeNull();
+  });
+
+  it('leaves mouse double-clicks unaffected (existing dblclick path still opens the editor)', () => {
+    const { grid } = setupCsv(10, 3);
+    const cell = cellEl(grid, 1, 1);
+    cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+    expect(grid.element.querySelector('.cell-editor')).not.toBeNull();
   });
 });

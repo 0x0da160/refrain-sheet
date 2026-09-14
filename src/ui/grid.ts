@@ -504,6 +504,15 @@ const LONG_PRESS_MS = 400;
 /** Movement past this distance during the long-press window reads as the
  * start of a scroll, not a drag, and cancels the pending long-press. */
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+/**
+ * Touch/pen double-tap detection window: a second quick tap landing on the
+ * same cell within this many ms of the first opens the inline editor, the
+ * touch equivalent of a desktop double-click. Mobile browsers do not
+ * reliably synthesize a `dblclick` DOM event from two taps on a plain
+ * (non-form, non-anchor) element, so this is detected explicitly rather than
+ * relying on `dblclick` for touch input.
+ */
+const DOUBLE_TAP_MS = 300;
 
 /**
  * Virtualized CSV/RSF grid. Only the visible rows and columns (plus a small
@@ -609,6 +618,17 @@ export class Grid {
    * lifts. Any real movement during the hold cancels this back to `null` and
    * leaves the gesture to the existing drag handling above. */
   private longPressMenuTarget: PointerEvent | null = null;
+  /** A completed quick tap awaiting a possible second tap to complete a
+   * touch double-tap-to-edit gesture (see `DOUBLE_TAP_MS`); cleared once the
+   * window elapses with no matching second tap, or consumed immediately when
+   * one lands on the same cell within the movement tolerance. */
+  private pendingTap: {
+    row: number;
+    col: number;
+    x: number;
+    y: number;
+    timer: ReturnType<typeof setTimeout>;
+  } | null = null;
   /**
    * Active range-move drag, if any. `origin` is the cell under the pointer when
    * the drag began (so the destination tracks the pointer without snapping to a
@@ -2417,6 +2437,11 @@ export class Grid {
     if (event.pointerType === 'mouse') {
       return;
     }
+    // A quick tap is one that lifts before the long-press timer fires (and
+    // without enough movement to have cancelled it already) — the same
+    // gesture the browser's own synthetic click already treats as a plain
+    // tap-to-select, and the only kind eligible to pair into a double-tap.
+    const wasQuickTap = this.longPressOrigin !== null && this.longPressTimer !== null;
     this.clearLongPress();
     const menuTarget = this.longPressMenuTarget;
     this.longPressMenuTarget = null;
@@ -2428,7 +2453,56 @@ export class Grid {
     // count as a completed press, so the menu only opens on a real lift.
     if (menuTarget && event.type === 'pointerup') {
       this.onContextMenu(menuTarget);
+      return;
     }
+    if (wasQuickTap && event.type === 'pointerup') {
+      this.handleQuickTap(event);
+    }
+  }
+
+  /**
+   * Pairs successive quick taps into a double-tap that opens the inline
+   * editor, mirroring `onDoubleClick` — see `DOUBLE_TAP_MS`. The first tap of
+   * a pair only arms a pending-tap window; the second, landing on the same
+   * cell within that window and the long-press move tolerance, opens the
+   * editor with the caret placed under the tap, then clears the pending
+   * state so a third tap doesn't retrigger it.
+   */
+  private handleQuickTap(event: PointerEvent): void {
+    const tab = this.state.activeTab;
+    if (!tab) {
+      return;
+    }
+    const cell = this.cellFromEvent(event);
+    if (!cell) {
+      return;
+    }
+    const pending = this.pendingTap;
+    if (
+      pending &&
+      pending.row === cell.row &&
+      pending.col === cell.col &&
+      Math.hypot(event.clientX - pending.x, event.clientY - pending.y) <= LONG_PRESS_MOVE_TOLERANCE_PX
+    ) {
+      clearTimeout(pending.timer);
+      this.pendingTap = null;
+      const cellEl = this.cellAt(cell.row, cell.col);
+      const caretOffset = cellEl ? this.caretOffsetFromPoint(cellEl, event.clientX, event.clientY) : null;
+      this.openEditor(tab, cell.row, cell.col, null, caretOffset ?? undefined);
+      return;
+    }
+    if (pending) {
+      clearTimeout(pending.timer);
+    }
+    this.pendingTap = {
+      row: cell.row,
+      col: cell.col,
+      x: event.clientX,
+      y: event.clientY,
+      timer: setTimeout(() => {
+        this.pendingTap = null;
+      }, DOUBLE_TAP_MS),
+    };
   }
 
   /** Arms a drag-selection/header-drag after a press-and-hold with no real movement. */

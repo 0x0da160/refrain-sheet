@@ -31,6 +31,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Fixed
+
+- Double-tapping a cell on a touch device now opens it for editing and
+  brings up the on-screen keyboard, matching what double-clicking already
+  does with a mouse.
+  ([#458](https://github.com/0x0da160/refrain-sheet/issues/458))
+
 ### Changed
 
 - Opening a plain CSV file no longer shows a "CSV holds one sheet" note in

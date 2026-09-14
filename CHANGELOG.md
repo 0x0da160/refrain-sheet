@@ -54,6 +54,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The **File** menu listed **Markdown Editor…** twice. The duplicate entry (and
+  its extra separator) is gone, so the menu reads correctly again and keyboard
+  navigation no longer stops on the repeated item.
+  ([#433](https://github.com/0x0da160/refrain-sheet/issues/433))
 - The Japanese welcome-screen button for creating a new RSF spreadsheet read
   "新しい RSF スプレッドシート", inconsistent with the equivalent File menu and
   keyboard-shortcut labels ("新規スプレッドシート") and with the spacing used

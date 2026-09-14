@@ -259,8 +259,6 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.file.markdownEditor', command: 'file.markdownEditor' },
         'separator',
-        { labelKey: 'menu.file.markdownEditor', command: 'file.markdownEditor' },
-        'separator',
         { labelKey: 'menu.sheet.convert', command: 'sheet.convert' },
         'separator',
         { labelKey: 'menu.file.save', command: 'file.save', shortcut: 'Ctrl+S' },

@@ -33,6 +33,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- Opening a plain CSV file no longer shows a "CSV holds one sheet" note in
+  the worksheet strip; a single-sheet CSV simply shows no worksheet tabs.
+  The "add row" / "add column" icon buttons now render immediately after
+  the grid, ahead of the worksheet tabs, instead of trailing after them.
+  ([#456](https://github.com/0x0da160/refrain-sheet/issues/456))
 - The landing page's Features section now introduces the Google Drive
   integration, the read-only Protect Document mode, and the standalone
   Markdown editor, which previously had no marketing copy. Its five

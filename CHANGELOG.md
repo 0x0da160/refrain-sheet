@@ -31,6 +31,15 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Changed
+
+- The landing page's Features section now introduces the Google Drive
+  integration, the read-only Protect Document mode, and the standalone
+  Markdown editor, which previously had no marketing copy. Its five
+  marketing screenshots were also recaptured: the demo browser window is
+  narrower so the sample sheet fills the frame instead of leaving a wide
+  empty margin to its right. ([#449](https://github.com/0x0da160/refrain-sheet/issues/449))
+
 ## [0.7.29] - 2026-09-14
 
 ### Added

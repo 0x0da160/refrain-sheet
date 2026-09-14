@@ -31,6 +31,15 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Added
+
+- The hosted landing site (refrain-sheet.com) now has Privacy Policy and
+  Terms of Service pages, linked from the footer in both languages. They
+  describe the introduction page's opt-in Google Analytics and the hosted
+  app's Google Drive integration (`drive.file` scope, in-memory-only access
+  token, no Refrain Sheet backend); the downloadable offline build is
+  unaffected. ([#431](https://github.com/0x0da160/refrain-sheet/issues/431))
+
 ### Fixed
 
 - The Japanese welcome-screen button for creating a new RSF spreadsheet read

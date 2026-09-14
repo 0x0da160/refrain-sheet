@@ -11,6 +11,17 @@ import { encodeRsf, RSF_LEGACY_CONTAINER_VERSION, RSF_LEGACY_MAGIC } from '../sr
 import { buildXlsxExport, type XlsxSheetInput } from '../src/core/xlsx-export';
 import { asCsv, enc, utf8 } from './helpers';
 
+// Simulates a hosted build with Drive sync configured and a cached access
+// token, without going through the real Google Identity Services sign-in.
+vi.mock('../src/app/drive/config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/app/drive/config')>();
+  return { ...actual, driveConfigured: () => true };
+});
+vi.mock('../src/app/drive/auth', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/app/drive/auth')>();
+  return { ...actual, getAccessToken: vi.fn(async () => 'test-token') };
+});
+
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   return {
     confirmValidation: vi.fn(async () => true),
@@ -192,6 +203,45 @@ describe('saving', () => {
     const ok = await commands.save(state.activeTab!, KEEP);
     expect(ok).toBe(true);
     expect(URL.createObjectURL).toHaveBeenCalledOnce();
+  });
+
+  it('overwrites the associated Drive file instead of saving locally (issue #429)', async () => {
+    const fake = fakeHandle();
+    URL.createObjectURL = vi.fn(() => 'blob:fake');
+    URL.revokeObjectURL = vi.fn();
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'), fake.handle)], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    tab.drive = { fileId: 'drive-file-1', name: 'a.csv' };
+    state.editCell(tab, 0, 0, 'X');
+
+    const calls: Array<{ url: string; method?: string }> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: RequestInit) => {
+        calls.push({ url, method: init.method });
+        return new Response(JSON.stringify({ id: 'drive-file-1', name: 'a.csv' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    try {
+      const ok = await commands.save(tab, KEEP);
+
+      expect(ok).toBe(true);
+      expect(calls).toHaveLength(1);
+      expect(calls[0].method).toBe('PATCH');
+      expect(calls[0].url).toContain('/drive-file-1');
+      // Neither the local file-system handle nor a browser download fired.
+      expect(fake.written()).toBeNull();
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
+      expect(tab.doc.isDirty).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('cancels the save when characters are unrepresentable and the user declines', async () => {

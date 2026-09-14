@@ -16,6 +16,7 @@ import { AppState, type Tab } from '../app-state';
 import { getMaxFileSize } from '../settings';
 import { t } from '../i18n';
 import type { UiPort } from '../commands';
+import { LosslessDocument } from '../../core/lossless-document';
 import { DriveAuthCancelled, DriveAuthError, forgetToken, getAccessToken, signOut } from '../drive/auth';
 import {
   DriveApiError,
@@ -114,29 +115,32 @@ export class DriveIoCommands {
 
   /**
    * Overwrite the Drive file this tab came from. Falls through to
-   * {@link saveAs} when the tab has no Drive association yet.
+   * {@link saveAs} when the tab has no Drive association yet. Returns true
+   * when the file was actually saved.
    */
-  async save(tab: Tab): Promise<void> {
-    if (!this.available()) return;
+  async save(tab: Tab): Promise<boolean> {
+    if (!this.available()) return false;
     if (!tab.drive) {
-      await this.saveAs(tab);
-      return;
+      return this.saveAs(tab);
     }
-    await this.upload(tab, { fileId: tab.drive.fileId, name: tab.drive.name });
+    return this.upload(tab, { fileId: tab.drive.fileId, name: tab.drive.name });
   }
 
-  /** Create a new Drive file from this tab, asking for the name first. */
-  async saveAs(tab: Tab): Promise<void> {
-    if (!this.available()) return;
+  /**
+   * Create a new Drive file from this tab, asking for the name first.
+   * Returns true when the file was actually saved.
+   */
+  async saveAs(tab: Tab): Promise<boolean> {
+    if (!this.available()) return false;
     const name = await this.ui.promptDriveName(tab.drive?.name ?? tab.name);
-    if (name === null) return;
-    await this.upload(tab, { name });
+    if (name === null) return false;
+    return this.upload(tab, { name });
   }
 
-  private async upload(tab: Tab, target: { fileId?: string; name: string }): Promise<void> {
+  private async upload(tab: Tab, target: { fileId?: string; name: string }): Promise<boolean> {
     try {
       const encoded = await this.fileIo.encodeForUpload(tab);
-      if (!encoded) return;
+      if (!encoded) return false;
 
       const meta: DriveFileMeta = await withBusy(
         this.ui,
@@ -161,10 +165,23 @@ export class DriveIoCommands {
       );
 
       tab.drive = { fileId: meta.id, name: meta.name };
+      // The uploaded bytes become the new baseline, exactly as a local save
+      // would, so the tab stops reporting unsaved changes.
+      if (tab.doc.kind === 'csv') {
+        const baseline = LosslessDocument.fromBytes(encoded.bytes, {
+          encoding: tab.doc.encoding,
+          delimiter: tab.doc.delimiter,
+        });
+        this.state.setBaseline(tab, baseline);
+      } else {
+        this.state.markTabSaved(tab);
+      }
       this.state.emit('tabs');
       this.ui.notify(t('notify.drive.saved', { name: meta.name }), 'info');
+      return true;
     } catch (err) {
       this.report(err);
+      return false;
     }
   }
 

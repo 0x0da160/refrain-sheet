@@ -1247,13 +1247,22 @@ export class Commands {
   }
 
   /**
-   * Save a tab. CSV: a normal save (all options "keep") with no edits writes
+   * Save a tab. A tab associated with a Google Drive file (see `Tab.drive`)
+   * overwrites that same Drive file instead, so Ctrl+S / File > Save keeps
+   * updating the file the user opened or saved from Drive rather than
+   * falling back to a local save. Any Drive failure is reported by
+   * `DriveIoCommands` itself and does not fall back to a local save.
+   *
+   * Otherwise: CSV: a normal save (all options "keep") with no edits writes
    * the originally loaded bytes verbatim; with edits, only edited field
    * ranges are reserialized. RSF: the document is saved in the versioned
    * .rsf JSON format (never silently into the original .csv).
    * Returns true when the file was actually saved.
    */
   async save(tab: Tab, options: SaveOptions): Promise<boolean> {
+    if (tab.drive && this.driveIo.available()) {
+      return this.driveIo.save(tab);
+    }
     return this.fileIo.save(tab, options);
   }
 

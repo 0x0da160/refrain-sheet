@@ -48,6 +48,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
   which compiles Drive sync out entirely, so the feature shipped invisible. The
   release now injects the credential and refuses to publish a hosted build that
   is missing it. ([#416](https://github.com/0x0da160/refrain-sheet/issues/416))
+- Ctrl+S / Cmd+S (and **File > Save**) on a tab opened from or previously saved
+  to Google Drive always fell back to a local save/download instead of
+  overwriting that same Drive file. It now saves back to Drive, matching
+  **Drive > Save**. ([#429](https://github.com/0x0da160/refrain-sheet/issues/429))
 
 ### Added
 

@@ -451,6 +451,7 @@ export type CommandId =
   | 'file.newCsv'
   | 'file.open'
   | 'file.reopen'
+  | 'file.toggleProtect'
   | 'file.save'
   | 'file.saveOptions'
   | 'file.closeTab'
@@ -673,6 +674,7 @@ export class Commands {
     switch (id) {
       case 'file.save':
       case 'file.closeTab':
+      case 'file.toggleProtect':
       case 'search.find':
       case 'search.replace':
       case 'search.findNext':
@@ -893,6 +895,9 @@ export class Commands {
       }
       case 'file.reopen':
         if (tab) await this.reopen(tab);
+        return;
+      case 'file.toggleProtect':
+        if (tab) this.state.setReadOnly(tab, !tab.readOnly);
         return;
       case 'file.save':
         if (tab) await this.save(tab, KEEP_SAVE_OPTIONS);

@@ -173,7 +173,7 @@ export class FileIoCommands {
       }
     }
 
-    this.state.addTab(file.name, doc, file.handle);
+    this.state.addTab(file.name, doc, file.handle, true);
   }
 
   private async openRsfFile(file: OpenedFile): Promise<void> {
@@ -207,7 +207,7 @@ export class FileIoCommands {
     // The original `.rcsv` on disk is never modified.
     const isLegacy = file.name.toLowerCase().endsWith(RSF_LEGACY_EXTENSION);
     const name = isLegacy ? `${file.name.slice(0, -RSF_LEGACY_EXTENSION.length)}${RSF_EXTENSION}` : file.name;
-    const tab = this.state.addTab(name, result.doc, isLegacy ? null : file.handle);
+    const tab = this.state.addTab(name, result.doc, isLegacy ? null : file.handle, true);
     tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
     if (result.doc.filterDropped) {
       // The container carried filter metadata that failed validation; it was
@@ -255,7 +255,7 @@ export class FileIoCommands {
     const name = `${file.name.slice(0, -XLSX_EXTENSION.length)}${RSF_EXTENSION}`;
     const doc = RsfDocument.fromSheetValues(name, result.sheets, getLocale());
     doc.markUnsaved();
-    const tab = this.state.addTab(name, doc, null);
+    const tab = this.state.addTab(name, doc, null, true);
     tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
     this.ui.notify(t('notify.xlsxImported', { name }), 'info');
   }
@@ -807,6 +807,10 @@ export class FileIoCommands {
   async ensureRsf(tab: Tab, reason: ConvertReason): Promise<RsfDocument | null> {
     if (tab.doc.kind === 'rsf') {
       return tab.doc;
+    }
+    if (tab.readOnly) {
+      this.ui.notify(t('notify.readOnlyProtected'), 'info');
+      return null;
     }
     const ok = await this.ui.confirmConvert(reason, tab.name);
     if (!ok) {

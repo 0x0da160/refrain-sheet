@@ -82,6 +82,7 @@ function menuChecks(): MenuChecks {
     commentsPanel: () => false,
     formatActive: () => false,
     driveAvailable: () => false,
+    protectedDoc: () => false,
   };
 }
 

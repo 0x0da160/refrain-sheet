@@ -164,6 +164,7 @@ function bootstrap(): void {
       return tab !== null && commands.isFormatActive(tab, key);
     },
     driveAvailable: () => commands.driveAvailable(),
+    protectedDoc: () => state.activeTab?.readOnly ?? false,
   });
   const tabBar = new TabBar(state, commands);
   // The worksheet strip of the active RSF workbook, rendered below the grid —
@@ -180,12 +181,16 @@ function bootstrap(): void {
   };
   // The formula bar pushes live formula-reference highlights into the grid.
   const formulaBar = new FormulaBar(state, commands, moveSelectionDown, (refs) => grid.setFormulaRefs(refs));
-  const statusBar = new StatusBar(state, () => {
-    const tab = state.activeTab;
-    if (tab && tab.doc.kind === 'csv' && tab.doc.diagnostics.length > 0) {
-      void dialogs.confirmValidation(tab.name, validateDocument(tab.doc));
-    }
-  });
+  const statusBar = new StatusBar(
+    state,
+    () => {
+      const tab = state.activeTab;
+      if (tab && tab.doc.kind === 'csv' && tab.doc.diagnostics.length > 0) {
+        void dialogs.confirmValidation(tab.name, validateDocument(tab.doc));
+      }
+    },
+    () => void commands.run('file.toggleProtect'),
+  );
 
   const app = document.getElementById('app');
   if (!app) {

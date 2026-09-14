@@ -164,6 +164,18 @@ describe('opening files', () => {
     expect(ui.confirm).toHaveBeenCalledOnce();
     expect(state.tabs.length).toBe(0);
   });
+
+  it('defaults an opened file to read-only protection (issue #443)', async () => {
+    const { state, commands } = setup();
+    await commands.openFiles([opened('a.csv', utf8('x,y\n'))], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    expect(tab.readOnly).toBe(true);
+    expect(state.editCell(tab, 0, 0, 'z')).toBe(false);
+    expect(tab.doc.isDirty).toBe(false);
+    // The status bar / File menu toggle unlocks it explicitly.
+    state.setReadOnly(tab, false);
+    expect(state.editCell(tab, 0, 0, 'z')).toBe(true);
+  });
 });
 
 describe('saving', () => {
@@ -172,6 +184,7 @@ describe('saving', () => {
     const { state, commands } = setup();
     await commands.openFiles([opened('a.csv', utf8('a,b\n'), fake.handle)], { confirmNonCsv: false });
     const tab = state.activeTab!;
+    state.setReadOnly(tab, false);
     state.editCell(tab, 0, 0, 'X');
     const ok = await commands.save(tab, KEEP);
     expect(ok).toBe(true);
@@ -214,6 +227,7 @@ describe('saving', () => {
     await commands.openFiles([opened('a.csv', utf8('a,b\n'), fake.handle)], { confirmNonCsv: false });
     const tab = state.activeTab!;
     tab.drive = { fileId: 'drive-file-1', name: 'a.csv' };
+    state.setReadOnly(tab, false);
     state.editCell(tab, 0, 0, 'X');
 
     const calls: Array<{ url: string; method?: string }> = [];
@@ -254,6 +268,7 @@ describe('saving', () => {
     });
     expect(asCsv(state.activeTab!.doc).encoding).toBe('shift_jis');
     const tab = state.activeTab!;
+    state.setReadOnly(tab, false);
     state.editCell(tab, 0, 1, '😀');
     const ok = await commands.save(tab, KEEP);
     expect(ok).toBe(false);
@@ -269,6 +284,7 @@ describe('saving', () => {
       confirmNonCsv: false,
     });
     const tab = state.activeTab!;
+    state.setReadOnly(tab, false);
     state.editCell(tab, 0, 1, '😀');
     const ok = await commands.save(tab, KEEP);
     expect(ok).toBe(true);
@@ -283,6 +299,7 @@ describe('saving', () => {
     const bytes = new Uint8Array([...utf8('a,'), 0xff, ...utf8('\n')]);
     await commands.openFiles([opened('a.csv', bytes, fake.handle)], { confirmNonCsv: false });
     const tab = state.activeTab!;
+    state.setReadOnly(tab, false);
     // Reinterpret as UTF-8 so the 0xff byte is undecodable.
     state.setBaseline(tab, asCsv(tab.doc).reinterpret({ encoding: 'utf-8' }));
     state.editCell(tab, 0, 1, 'clean');
@@ -298,6 +315,7 @@ describe('closing tabs', () => {
     const ui = stubUi({ confirmUnsaved: vi.fn(async () => 'cancel' as const) });
     const { state, commands } = setup(ui);
     await commands.openFiles([opened('a.csv', utf8('a\n'))], { confirmNonCsv: false });
+    state.setReadOnly(state.activeTab!, false);
     state.editCell(state.activeTab!, 0, 0, 'X');
     await commands.closeTab(state.activeTab!);
     expect(state.tabs.length).toBe(1);
@@ -307,6 +325,7 @@ describe('closing tabs', () => {
     const ui = stubUi({ confirmUnsaved: vi.fn(async () => 'discard' as const) });
     const { state, commands } = setup(ui);
     await commands.openFiles([opened('a.csv', utf8('a\n'))], { confirmNonCsv: false });
+    state.setReadOnly(state.activeTab!, false);
     state.editCell(state.activeTab!, 0, 0, 'X');
     await commands.closeTab(state.activeTab!);
     expect(state.tabs.length).toBe(0);
@@ -317,6 +336,7 @@ describe('closing tabs', () => {
     const ui = stubUi({ confirmUnsaved: vi.fn(async () => 'save' as const) });
     const { state, commands } = setup(ui);
     await commands.openFiles([opened('a.csv', utf8('a\n'), fake.handle)], { confirmNonCsv: false });
+    state.setReadOnly(state.activeTab!, false);
     state.editCell(state.activeTab!, 0, 0, 'X');
     await commands.closeTab(state.activeTab!);
     expect(state.tabs.length).toBe(0);
@@ -349,6 +369,10 @@ describe('new document', () => {
     // The original CSV tab is untouched (undo-safe).
     expect(csvTab.doc.kind).toBe('csv');
     expect(csvTab.doc.isDirty).toBe(false);
+    // A newly created blank document starts editable, unlike the opened
+    // existing file above (issue #443).
+    expect(csvTab.readOnly).toBe(true);
+    expect(tab.readOnly).toBe(false);
   });
 
   it('gives successive new documents distinct default names', async () => {
@@ -365,6 +389,7 @@ describe('convert to RSF command', () => {
     const { state, commands } = setup(ui);
     await commands.openFiles([opened('data.csv', utf8('a,b\n1,2\n'))], { confirmNonCsv: false });
     const csvTab = state.activeTab!;
+    state.setReadOnly(csvTab, false);
     // An unsaved edit must be carried into the conversion (current state).
     state.editCell(csvTab, 0, 0, 'X');
     await commands.run('sheet.convert');
@@ -402,6 +427,31 @@ describe('convert to RSF command', () => {
     expect(commands.isEnabled('sheet.convert')).toBe(false); // already RSF
     await commands.openFiles([opened('c.csv', utf8('a,b\n'))], { confirmNonCsv: false });
     expect(commands.isEnabled('sheet.convert')).toBe(true);
+  });
+});
+
+describe('read-only protection (issue #443)', () => {
+  it('ensureRsf refuses the implicit CSV -> RSF conversion on a protected tab, without asking', async () => {
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    expect(tab.readOnly).toBe(true);
+    const result = await commands.ensureRsf(tab, 'formula');
+    expect(result).toBeNull();
+    expect(ui.confirmConvert).not.toHaveBeenCalled();
+    expect(tab.doc.kind).toBe('csv');
+  });
+
+  it('file.toggleProtect flips the active tab and back', async () => {
+    const { state, commands } = setup();
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    expect(tab.readOnly).toBe(true);
+    await commands.run('file.toggleProtect');
+    expect(tab.readOnly).toBe(false);
+    await commands.run('file.toggleProtect');
+    expect(tab.readOnly).toBe(true);
   });
 });
 
@@ -559,6 +609,7 @@ describe('replace all', () => {
     const { state, commands } = setup();
     await commands.openFiles([opened('a.csv', utf8('cat,catalog\ndog,cat\n'))], { confirmNonCsv: false });
     const tab = state.activeTab!;
+    state.setReadOnly(tab, false);
     const query = compileQuery({ text: 'cat', matchCase: false, regex: false });
     const result = await commands.replaceAll(query, 'cow');
     expect(result).toMatchObject({ count: 3, cells: 3 });
@@ -571,6 +622,7 @@ describe('replace all', () => {
   it('supports regex capture replacement across cells', async () => {
     const { state, commands } = setup();
     await commands.openFiles([opened('a.csv', utf8('2026-07-16,2025-01-02\n'))], { confirmNonCsv: false });
+    state.setReadOnly(state.activeTab!, false);
     const query = compileQuery({ text: '(\\d{4})-(\\d{2})-(\\d{2})', matchCase: false, regex: true });
     await commands.replaceAll(query, '$3/$2/$1');
     expect(state.activeTab!.doc.getValue(0, 0)).toBe('16/07/2026');

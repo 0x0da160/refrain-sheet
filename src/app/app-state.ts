@@ -114,6 +114,18 @@ export interface Tab {
    * that pass (a click, an arrow key, opening a menu, and so on).
    */
   tabEntryCol: number | null;
+  /**
+   * Read-only protection: while true, every mutating command that would
+   * touch document content, structure, or the undo history is refused (see
+   * `AppState.refuseReadOnlyWrite`). Defaults to true whenever an existing
+   * file is opened, and false for a newly created blank document; the user
+   * toggles it explicitly afterward (File > Protect Document, or the status
+   * bar control) and the choice is session-only — never persisted to the
+   * saved file, and reset to the default the next time the file is opened.
+   * Purely a UI guard, not a security boundary: it protects against
+   * accidental edits, not a hostile actor.
+   */
+  readOnly: boolean;
 }
 
 /**
@@ -182,7 +194,18 @@ export class AppState {
     return this.tabs.find((t) => t.id === this.activeTabId) ?? null;
   }
 
-  addTab(name: string, doc: EditorDocument, handle: FileSystemFileHandle | null): Tab {
+  /**
+   * `startsReadOnly` is true for every "open an existing file" entry point
+   * (File > Open, drag-and-drop, Google Drive open, the legacy `.rcsv` and
+   * `.xlsx` import paths) and false for a newly created blank document or one
+   * derived in memory (e.g. the explicit `Convert to RSF…` copy) — see `Tab.readOnly`.
+   */
+  addTab(
+    name: string,
+    doc: EditorDocument,
+    handle: FileSystemFileHandle | null,
+    startsReadOnly = false,
+  ): Tab {
     // Display precedence: an RSF document's stored settings win; anything the
     // document does not carry falls back to the application-level preference.
     const stored = doc.kind === 'rsf' ? doc : null;
@@ -201,6 +224,7 @@ export class AppState {
       zoom: clampSheetZoom(stored?.displayZoom ?? getSheetZoom()),
       wrapCells: stored?.displayWrap ?? getWrapCells(),
       tabEntryCol: null,
+      readOnly: startsReadOnly,
     };
     this.tabs.push(tab);
     this.activeTabId = tab.id;
@@ -385,6 +409,33 @@ export class AppState {
   }
 
   /**
+   * Toggle a tab's read-only protection (File > Protect Document, or the
+   * status bar control). Purely a session-only UI guard — see `Tab.readOnly`.
+   */
+  setReadOnly(tab: Tab, readOnly: boolean): void {
+    if (tab.readOnly === readOnly) {
+      return;
+    }
+    tab.readOnly = readOnly;
+    this.emit('tabs');
+  }
+
+  /**
+   * Refuse a write to a read-only-protected tab, announcing why. Checked
+   * first in every mutating entry point (`editCell`, `bulkEdit`, `pushEntry`,
+   * and — before it even touches the document — `FileIoCommands.ensureRsf`),
+   * so a protected tab can be neither edited nor silently converted to RSF.
+   * Returns true when the caller must stop.
+   */
+  private refuseReadOnlyWrite(tab: Tab): boolean {
+    if (!tab.readOnly) {
+      return false;
+    }
+    this.announce?.(t('notify.readOnlyProtected'));
+    return true;
+  }
+
+  /**
    * Refuse a write that would land inside an active sort's range, announcing
    * why. Editing a sorted range is disabled — rather than translated cell by
    * cell — so a sort can never turn "edit what I see" into a silent write to
@@ -431,6 +482,9 @@ export class AppState {
 
   /** Set one cell's value as a single undoable operation. */
   editCell(tab: Tab, row: number, col: number, value: string, label = 'history.editCell'): boolean {
+    if (this.refuseReadOnlyWrite(tab)) {
+      return false;
+    }
     if (tab.doc.kind === 'csv') {
       const field = tab.doc.getField(row, col);
       if (!field) {
@@ -481,6 +535,7 @@ export class AppState {
       return false;
     }
     if (
+      this.refuseReadOnlyWrite(tab) ||
       this.refuseSpillWrite(tab, effective) ||
       this.refuseSortedWrite(tab, effective) ||
       this.refuseInvalidWrite(tab, effective)
@@ -516,6 +571,9 @@ export class AppState {
       return op.count > 0;
     });
     if (!nonEmpty) {
+      return false;
+    }
+    if (this.refuseReadOnlyWrite(tab)) {
       return false;
     }
     // Structural operations (row/column insert and delete) move a spill's

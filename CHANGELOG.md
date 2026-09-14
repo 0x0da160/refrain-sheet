@@ -33,6 +33,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- Opening an existing file now defaults to a protected, read-only mode, so a
+  file can't be edited by accident. A new status bar control (and a
+  **File > Protect Document** menu toggle) unlocks it for editing and can
+  re-apply protection afterward; the setting is per-tab and session-only,
+  never saved with the file. Newly created blank documents (File > New /
+  New CSV) still start editable, unchanged.
+  ([#443](https://github.com/0x0da160/refrain-sheet/issues/443))
 - The hosted landing site (refrain-sheet.com) now has Privacy Policy and
   Terms of Service pages, linked from the footer in both languages. They
   describe the introduction page's opt-in Google Analytics and the hosted

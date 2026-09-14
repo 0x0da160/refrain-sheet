@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { TriangleAlert } from 'lucide';
+import { Lock, LockOpen, TriangleAlert } from 'lucide';
 import type { AppState, Tab } from '../app/app-state';
 import { t } from '../app/i18n';
 import { APP_VERSION_DISPLAY } from '../app/version';
@@ -47,6 +47,7 @@ export class StatusBar {
   constructor(
     private readonly state: AppState,
     private readonly onShowProblems: () => void,
+    private readonly onToggleProtect: () => void,
   ) {
     this.element = el('div', { className: 'status-bar' });
     this.render();
@@ -65,6 +66,7 @@ export class StatusBar {
 
     if (doc.kind === 'rsf') {
       this.element.append(el('span', { className: 'doc-kind', text: t('status.doc.rsf') }));
+      this.appendProtection(tab);
       this.element.append(
         el('span', { text: t('status.gridSize', { rows: doc.rowCount, cols: doc.columnCount }) }),
       );
@@ -112,6 +114,7 @@ export class StatusBar {
     }
 
     this.element.append(el('span', { className: 'doc-kind', text: t('status.doc.csv') }));
+    this.appendProtection(tab);
     const encodingLabel = t(`encoding.${doc.encoding}`);
     const bomLabel =
       doc.encoding === 'utf-8' ? `, ${doc.bomLength > 0 ? t('status.bom.yes') : t('status.bom.no')}` : '';
@@ -168,6 +171,39 @@ export class StatusBar {
 
     this.appendSelection(tab);
     this.appendVersion();
+  }
+
+  /**
+   * Append the read-only protection indicator and toggle. Locked: a static
+   * "Protected" badge plus an "Edit" button that unlocks. Unlocked: a
+   * "Protect" button that re-locks — mirrors the File > Protect Document
+   * menu toggle (`file.toggleProtect`), see `AppState.setReadOnly`.
+   */
+  private appendProtection(tab: Tab): void {
+    if (tab.readOnly) {
+      this.element.append(
+        el('span', { className: 'status-protected', attrs: { title: t('status.protectedTitle') } }, [
+          createIcon(Lock, 'status-protected-icon', 12),
+          el('span', { text: t('status.protected') }),
+        ]),
+      );
+    }
+    const button = el(
+      'button',
+      {
+        className: 'status-protect-toggle',
+        attrs: {
+          type: 'button',
+          title: t(tab.readOnly ? 'status.protect.editTitle' : 'status.protect.protectTitle'),
+        },
+      },
+      [
+        createIcon(tab.readOnly ? LockOpen : Lock, 'status-protect-toggle-icon', 12),
+        el('span', { text: t(tab.readOnly ? 'status.protect.edit' : 'status.protect.protect') }),
+      ],
+    );
+    button.addEventListener('click', this.onToggleProtect);
+    this.element.append(button);
   }
 
   /** Append the app version, right-aligned as the last segment of the status bar. */

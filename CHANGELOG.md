@@ -33,6 +33,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The Japanese welcome-screen button for creating a new RSF spreadsheet read
+  "新しい RSF スプレッドシート", inconsistent with the equivalent File menu and
+  keyboard-shortcut labels ("新規スプレッドシート") and with the spacing used
+  everywhere else the app refers to an "RSFスプレッドシート". It now reads
+  "新規RSFスプレッドシート". ([#430](https://github.com/0x0da160/refrain-sheet/issues/430))
 - The **Open from Drive…** file picker rendered with broken layout. Google's
   picker styles its own dialog inline, which the hosted app's
   Content-Security-Policy was blocking. The hosted build now permits inline

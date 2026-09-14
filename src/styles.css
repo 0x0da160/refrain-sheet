@@ -521,7 +521,8 @@ button {
   gap: 2px;
   padding: 3px 6px;
   overflow-x: auto;
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .sheet-tab {
@@ -591,6 +592,42 @@ button {
   padding: 3px 8px;
   opacity: 0.7;
   font-size: 0.9em;
+}
+
+/* "+" affordances to append a row/column at the end of the sheet (#441).
+   Shown for CSV and RSF documents alike, so they sit outside the worksheet
+   strip proper and never scroll along with the worksheet tabs. */
+.sheet-grid-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 6px;
+  flex: none;
+  border-left: 1px solid var(--border);
+}
+
+.sheet-grid-add {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 5px 5px;
+  background: var(--panel-hover);
+  color: inherit;
+  padding: 3px 10px;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.sheet-grid-add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sheet-grid-add:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .sheet-name-input {
@@ -2473,6 +2510,74 @@ table.diff-table td {
   border: 1px solid var(--warning-border);
 }
 
+/* ---------- Markdown editor (File > Markdown Editor…, #433) ---------- */
+
+.markdown-editor-toolbar {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.markdown-editor-panes {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.markdown-editor-pane {
+  flex: 1 1 50%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-editor-source {
+  flex: 1;
+  min-height: 320px;
+  font-family: var(--font-sheet);
+  font-size: 13px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  resize: vertical;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.markdown-editor-preview {
+  flex: 1;
+  min-height: 320px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: auto;
+  background: var(--panel);
+  line-height: 1.5;
+}
+
+.markdown-editor-preview > :first-child {
+  margin-top: 0;
+}
+
+.markdown-editor-preview pre {
+  background: var(--surface);
+  border-radius: 3px;
+  padding: 8px;
+  overflow: auto;
+}
+
+.markdown-editor-preview code {
+  font-family: var(--font-sheet);
+  font-size: 0.9em;
+}
+
+.markdown-editor-preview blockquote {
+  margin: 0 0 10px;
+  padding-left: 10px;
+  border-left: 3px solid var(--border);
+  color: var(--text-dim);
+}
+
 /* ---------- Drop overlay ---------- */
 
 .drop-overlay {
@@ -2696,7 +2801,8 @@ table.diff-table td {
   }
 
   .sheet-tab,
-  .sheet-add {
+  .sheet-add,
+  .sheet-grid-add {
     padding: 11px 12px;
     min-height: 40px;
   }

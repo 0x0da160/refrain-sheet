@@ -295,4 +295,30 @@ export class WorksheetCommands {
       }
     }
   }
+
+  /**
+   * Append one row or column at the very end of the sheet. Unlike
+   * {@link runSheetOp}'s insert commands, this needs no selection — it backs
+   * the always-visible "+" affordance next to the grid (#441), so a fresh,
+   * empty document is never stuck at a single row/column with no selection
+   * to insert relative to.
+   */
+  async appendAxis(tab: Tab, axis: 'row' | 'col'): Promise<void> {
+    const doc = await this.ensureRsf(tab, 'structure');
+    if (!doc) {
+      return;
+    }
+    const hadFilter = doc.filter !== null;
+    const hadSort = doc.sort !== null;
+    const applied =
+      axis === 'row'
+        ? this.state.insertRows(tab, doc.rowCount, 1)
+        : this.state.insertCols(tab, doc.columnCount, 1);
+    if (applied && hadFilter && doc.filter === null) {
+      this.ui.notify(t('notify.filterClearedByStructure'), 'info');
+    }
+    if (applied && hadSort && doc.sort === null) {
+      this.ui.notify(t('notify.sortClearedByStructure'), 'info');
+    }
+  }
 }

@@ -53,6 +53,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     showFormulaHelp: vi.fn(),
     showSqlQuery: vi.fn(async () => undefined),
     showDiff: vi.fn(async () => undefined),
+    showMarkdownEditor: vi.fn(async () => undefined),
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
     chooseDisplayLanguage: vi.fn(async () => null),
@@ -134,6 +135,17 @@ describe('accessibility semantics', () => {
     const add = bar.element.querySelector<HTMLButtonElement>('.sheet-add')!;
     expect(add.getAttribute('aria-label')).toBe(t('sheets.add'));
     expect(add.disabled).toBe(false);
+  });
+
+  it('offers Add row / Add column controls with localized accessible names (#441)', () => {
+    const { bar } = setup();
+    const [addRow, addColumn] = Array.from(
+      bar.element.querySelectorAll<HTMLButtonElement>('.sheet-grid-add'),
+    );
+    expect(addRow.getAttribute('aria-label')).toBe(t('grid.addRow'));
+    expect(addColumn.getAttribute('aria-label')).toBe(t('grid.addColumn'));
+    expect(addRow.disabled).toBe(false);
+    expect(addColumn.disabled).toBe(false);
   });
 
   it('announces worksheet switches through a live region', () => {
@@ -218,6 +230,18 @@ describe('plain CSV documents', () => {
     expect(note.getAttribute('title')).toBe(t('sheets.csvOnlyTitle'));
     // The CSV strip is not a tablist — there are no worksheets to list.
     expect(bar.element.querySelector('.sheet-strip')!.getAttribute('role')).toBeNull();
+  });
+
+  it('still offers Add row / Add column so a fresh single-cell CSV can grow (#441)', () => {
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    state.addTab('data.csv', csvDoc('a\n'), null);
+    const bar = new SheetBar(state, commands);
+    document.body.append(bar.element);
+    bar.render(true);
+    const buttons = Array.from(bar.element.querySelectorAll<HTMLButtonElement>('.sheet-grid-add'));
+    expect(buttons).toHaveLength(2);
+    expect(buttons.every((b) => !b.disabled)).toBe(true);
   });
 
   it('hides itself entirely when no document is open', () => {

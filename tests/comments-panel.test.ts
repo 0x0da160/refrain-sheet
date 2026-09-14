@@ -51,6 +51,7 @@ const noopUi: UiPort = {
   showFormulaHelp: () => undefined,
   showSqlQuery: async () => undefined,
   showDiff: async () => undefined,
+  showMarkdownEditor: async () => undefined,
   chooseSettings: async () => null,
   chooseTimezone: async () => null,
   chooseDisplayLanguage: async () => null,

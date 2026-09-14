@@ -20,7 +20,7 @@ import {
 } from '../core/serializer';
 import { type ValidationSummary } from '../core/validation';
 import { AppState, type Selection, type SelectionKind, type Tab } from './app-state';
-import { pickFiles, saveBytesAs, type OpenedFile } from './file-access';
+import { pickFiles, saveBytesAs, type OpenedFile, type SaveOutcome } from './file-access';
 import { setLocale, t, type LocaleId } from './i18n';
 import {
   DEFAULT_SHEET_ZOOM,
@@ -44,12 +44,21 @@ import { SortCommands } from './commands/sort';
 import { WorksheetCommands } from './commands/worksheets';
 import { SqlCommands, type SqlSource, type SqlRunOutcome } from './commands/sql';
 import { DiffCommands, type DiffTabOption, type DiffRunOutcome } from './commands/diff';
+import { MarkdownEditorCommands, type MarkdownEditorOpenResult } from './commands/markdown-editor';
 import { PasteFillCommands, type FlashFillPreview } from './commands/paste-fill';
 import { RangeOpsCommands, type ReplaceAllReport } from './commands/range-ops';
 import { LARGE_OP_CELLS } from './commands/shared';
 
 export { LARGE_OP_CELLS };
-export type { FlashFillPreview, ReplaceAllReport, SqlSource, SqlRunOutcome, DiffTabOption, DiffRunOutcome };
+export type {
+  FlashFillPreview,
+  ReplaceAllReport,
+  SqlSource,
+  SqlRunOutcome,
+  DiffTabOption,
+  DiffRunOutcome,
+  MarkdownEditorOpenResult,
+};
 
 /**
  * Everything the SQL query dialog needs. `sources` is the fixed, pre-computed
@@ -81,6 +90,28 @@ export interface DiffDialogInput {
   runDiff: (baselineTabId: string, options: DiffOptions) => DiffRunOutcome;
   /** Export the shown diff rows as a CSV file. Returns false if the user cancels the save. */
   exportCsv: (result: DiffResult) => Promise<boolean>;
+}
+
+/**
+ * Everything the standalone Markdown editor (#433) needs. This tool never
+ * touches `AppState`/`Tab` — it reads/writes a plain UTF-8 text file
+ * directly through `MarkdownEditorCommands`, mirroring how the SQL and Diff
+ * panels wrap `file-access.ts` without creating a document.
+ */
+export interface MarkdownEditorDialogInput {
+  /** Suggested filename for a brand-new, not-yet-saved document. */
+  initialName: string;
+  /** Open a Markdown file from disk; resolves null when the user cancels (or the file was too large). */
+  open: () => Promise<MarkdownEditorOpenResult | null>;
+  /**
+   * Save `text` to `name`, reusing `handle` when possible (falls back to a
+   * download). Resolves null when the user cancels the save picker or the
+   * save fails (already reported via `notify`); the dialog's state is left
+   * untouched in that case.
+   */
+  save: (name: string, text: string, handle: FileSystemFileHandle | null) => Promise<SaveOutcome | null>;
+  /** Always shows the "Save As" picker. See {@link save} for the cancel/error contract. */
+  saveAs: (name: string, text: string) => Promise<SaveOutcome | null>;
 }
 
 /**
@@ -365,6 +396,8 @@ export interface UiPort {
   showSqlQuery(input: SqlQueryDialogInput): Promise<void>;
   /** Open the local, read-only two-tab compare panel (see `src/core/diff-engine.ts`). */
   showDiff(input: DiffDialogInput): Promise<void>;
+  /** Open the standalone Markdown editor with real-time preview (#433). */
+  showMarkdownEditor(input: MarkdownEditorDialogInput): Promise<void>;
   /**
    * Confirm a workbook-wide Replace All before anything is mutated. Returns
    * false to cancel, which must leave every worksheet untouched.
@@ -454,6 +487,7 @@ export type CommandId =
   | 'file.toggleProtect'
   | 'file.save'
   | 'file.saveOptions'
+  | 'file.markdownEditor'
   | 'file.closeTab'
   | 'drive.open'
   | 'drive.save'
@@ -486,6 +520,8 @@ export type CommandId =
   | 'sheet.insertColLeft'
   | 'sheet.insertColRight'
   | 'sheet.deleteCols'
+  | 'sheet.addRow'
+  | 'sheet.addColumn'
   | 'sheet.autoFitCols'
   | 'sheet.filter'
   | 'sheet.filterClear'
@@ -614,6 +650,7 @@ export class Commands {
     this.format = new FormatCommands(state, ui);
     this.sql = new SqlCommands();
     this.diff = new DiffCommands();
+    this.markdownEditor = new MarkdownEditorCommands();
   }
 
   /** File I/O, save/export, and CSV↔RSF conversion — see `FileIoCommands`. */
@@ -668,6 +705,9 @@ export class Commands {
   /** Local, read-only two-tab compare — see `DiffCommands`. */
   private readonly diff: DiffCommands;
 
+  /** Standalone Markdown editor file I/O (#433) — see `MarkdownEditorCommands`. */
+  private readonly markdownEditor: MarkdownEditorCommands;
+
   /** True when the command currently makes sense (drives menu-item enabled state). */
   isEnabled(id: CommandId): boolean {
     const tab = this.state.activeTab;
@@ -716,6 +756,11 @@ export class Commands {
       case 'sheet.insertColRight':
       case 'sheet.deleteCols':
         return tab !== null && tab.selection !== null && tab.selectionKind !== 'row';
+      // Appends at the very end of the sheet, so — unlike the selection-relative
+      // insert commands above — no selection is required to run it.
+      case 'sheet.addRow':
+      case 'sheet.addColumn':
+        return tab !== null;
       case 'sheet.autoFitCols':
         return tab !== null && tab.selection !== null;
       case 'edit.selectAll':
@@ -905,6 +950,9 @@ export class Commands {
       case 'file.saveOptions':
         if (tab) await this.saveWithOptions(tab);
         return;
+      case 'file.markdownEditor':
+        await this.showMarkdownEditor();
+        return;
       case 'file.closeTab':
         if (tab) await this.closeTab(tab);
         return;
@@ -990,6 +1038,12 @@ export class Commands {
       case 'sheet.insertColRight':
       case 'sheet.deleteCols':
         if (tab) await this.runSheetOp(tab, id);
+        return;
+      case 'sheet.addRow':
+        if (tab) await this.appendAxis(tab, 'row');
+        return;
+      case 'sheet.addColumn':
+        if (tab) await this.appendAxis(tab, 'col');
         return;
       case 'sheet.autoFitCols':
         await this.gridActions?.autoFitSelectedColumns();
@@ -1346,6 +1400,80 @@ export class Commands {
     }
   }
 
+  /**
+   * File > Markdown Editor…: open the standalone Markdown editor with
+   * real-time preview (#433). Reads/writes a plain UTF-8 text file directly
+   * — never an `AppState` document/tab — via `MarkdownEditorCommands`, the
+   * same non-mutating-tool shape as `showSqlQuery`/`showDiff` above.
+   */
+  private async showMarkdownEditor(): Promise<void> {
+    return this.ui.showMarkdownEditor({
+      initialName: `${t('untitled.new')}.md`,
+      open: async () => {
+        const result = await this.markdownEditor.open(this.dom);
+        if (result?.tooLarge) {
+          await this.ui.showMessage(
+            t('dialog.tooLarge.title'),
+            t('dialog.tooLarge.message', {
+              name: result.tooLarge.name,
+              size: Math.ceil(result.tooLarge.size / (1024 * 1024)),
+              limit: Math.round(getMaxFileSize() / (1024 * 1024)),
+            }),
+          );
+          return null;
+        }
+        return result;
+      },
+      save: (name, text, handle) => this.saveMarkdown(name, text, handle),
+      saveAs: (name, text) => this.saveMarkdownAs(name, text),
+    });
+  }
+
+  /**
+   * Save the Markdown editor's text, reporting the outcome the same way
+   * every other save flow does. Resolves null when the user cancels a save
+   * picker (AbortError) so the dialog can leave its state untouched; any
+   * other failure is reported via `notify.saveFailed`, matching
+   * `exportDiffCsv`'s contract above.
+   */
+  private async saveMarkdown(
+    name: string,
+    text: string,
+    handle: FileSystemFileHandle | null,
+  ): Promise<SaveOutcome | null> {
+    return this.runMarkdownSave(name, () => this.markdownEditor.save(this.dom, name, text, handle));
+  }
+
+  /** "Save As…" for the Markdown editor. See {@link saveMarkdown} for the cancel/error contract. */
+  private async saveMarkdownAs(name: string, text: string): Promise<SaveOutcome | null> {
+    return this.runMarkdownSave(name, () => this.markdownEditor.saveAs(this.dom, name, text));
+  }
+
+  private async runMarkdownSave(name: string, run: () => Promise<SaveOutcome>): Promise<SaveOutcome | null> {
+    try {
+      const outcome = await run();
+      this.notifySaveOutcome(outcome, name);
+      return outcome;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return null;
+      }
+      this.ui.notify(
+        t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
+        'error',
+      );
+      return null;
+    }
+  }
+
+  private notifySaveOutcome(outcome: SaveOutcome, name: string): void {
+    if (outcome.mode === 'overwrite') {
+      this.ui.notify(t('notify.savedOverwrite'), 'info');
+    } else {
+      this.ui.notify(t('notify.savedDownload', { name: outcome.downloadName ?? name }), 'info');
+    }
+  }
+
   async closeTab(tab: Tab): Promise<void> {
     return this.fileIo.closeTab(tab);
   }
@@ -1425,6 +1553,10 @@ export class Commands {
 
   private async runSheetOp(tab: Tab, id: CommandId): Promise<void> {
     return this.worksheets.runSheetOp(tab, id);
+  }
+
+  private async appendAxis(tab: Tab, axis: 'row' | 'col'): Promise<void> {
+    return this.worksheets.appendAxis(tab, axis);
   }
 
   /**

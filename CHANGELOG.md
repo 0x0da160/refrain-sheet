@@ -40,6 +40,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
   never saved with the file. Newly created blank documents (File > New /
   New CSV) still start editable, unchanged.
   ([#443](https://github.com/0x0da160/refrain-sheet/issues/443))
+- A new CSV starts as a single 1×1 cell with no obvious way to grow it. Two
+  "+" buttons next to the worksheet strip below the grid now add a row or a
+  column at the end of the sheet with one click, for CSV and RSF documents
+  alike — no selection required.
+  ([#441](https://github.com/0x0da160/refrain-sheet/issues/441))
 - The hosted landing site (refrain-sheet.com) now has Privacy Policy and
   Terms of Service pages, linked from the footer in both languages. They
   describe the introduction page's opt-in Google Analytics and the hosted
@@ -71,6 +76,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- A new **File > Markdown Editor…** opens a standalone Markdown editor with a
+  real-time rendered preview alongside the source text, independent of any
+  open CSV/spreadsheet tab. It can open an existing `.md` file from disk and
+  save the edited text back (overwriting the original file when the browser
+  allows it, or as a download otherwise).
+  ([#433](https://github.com/0x0da160/refrain-sheet/issues/433))
 - Each open tab now shows a small icon marking whether that file is local or
   came from Google Drive, so you can tell the two apart at a glance when
   several files are open at once. Hover a tab to see the same distinction

@@ -55,6 +55,7 @@ function stubUi(): UiPort {
     showFormulaHelp: noop,
     showSqlQuery: vi.fn(async () => undefined),
     showDiff: vi.fn(async () => undefined),
+    showMarkdownEditor: vi.fn(async () => undefined),
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
     chooseDisplayLanguage: vi.fn(async () => null),

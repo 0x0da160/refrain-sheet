@@ -77,6 +77,8 @@
   "menu.toggle": "メニュー",
   "tab.close": "タブを閉じる",
   "tab.dirty": "未保存の変更",
+  "tab.source.local": "ローカルファイル",
+  "tab.source.drive": "Google ドライブのファイル",
   "tabs.label": "開いているファイル",
   "sheets.label": "このブック内のワークシート",
   "sheets.add": "ワークシートを追加",

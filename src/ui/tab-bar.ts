@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { X } from 'lucide';
+import { Cloud, HardDrive, X } from 'lucide';
 import type { AppState, Tab } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -57,6 +57,11 @@ export class TabBar {
   private buildTab(tab: Tab): HTMLElement {
     const active = tab.id === this.state.activeTabId;
     const dirty = tab.doc.isDirty;
+    const sourceLabel = t(tab.drive ? 'tab.source.drive' : 'tab.source.local');
+    const titleParts = [tab.name, sourceLabel];
+    if (dirty) {
+      titleParts.push(t('tab.dirty'));
+    }
     const tabEl = el(
       'div',
       {
@@ -67,10 +72,13 @@ export class TabBar {
           'data-tab-id': tab.id,
           tabindex: active ? '0' : '-1',
           'aria-selected': active ? 'true' : 'false',
-          title: dirty ? `${tab.name} — ${t('tab.dirty')}` : tab.name,
+          title: titleParts.join(' — '),
         },
       },
       [
+        el('span', { className: 'tab-source', attrs: { 'aria-label': sourceLabel } }, [
+          createIcon(tab.drive ? Cloud : HardDrive, 'tab-source-icon', 14),
+        ]),
         el('span', {
           className: 'dirty-mark',
           text: dirty ? '● ' : '',

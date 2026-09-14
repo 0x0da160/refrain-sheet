@@ -45,8 +45,8 @@
 
   /* Spreadsheet: cells, column headers, numbers, formulas, editing controls.
      The active choice is applied by overriding this on the document root
-     (see src/app/sheet-font.ts); BIZ UD Gothic is the default. */
-  --font-sheet: var(--sheet-font-biz-ud);
+     (see src/app/sheet-font.ts); Noto Sans JP is the default. */
+  --font-sheet: var(--sheet-font-noto-sans-jp);
 
   /* ---------- Semantic color tokens (light theme = default) ----------
      Every surface reads its colors from these tokens; the dark theme below
@@ -486,6 +486,15 @@ button {
 .tab .dirty-mark {
   color: var(--accent);
   font-weight: 700;
+}
+
+.tab .tab-source {
+  display: flex;
+  flex: none;
+}
+
+.tab .tab-source-icon {
+  color: var(--text-muted);
 }
 
 /* ----- Worksheet strip (worksheets inside the active RSF workbook) -----

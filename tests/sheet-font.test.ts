@@ -17,9 +17,9 @@ beforeEach(() => {
 });
 
 describe('sheet-font preference', () => {
-  it('defaults to BIZ UD Gothic', () => {
-    expect(DEFAULT_SHEET_FONT).toBe('biz-ud');
-    expect(getSheetFont()).toBe('biz-ud');
+  it('defaults to Noto Sans JP', () => {
+    expect(DEFAULT_SHEET_FONT).toBe('noto-sans-jp');
+    expect(getSheetFont()).toBe('noto-sans-jp');
   });
 
   it('persists and reports a chosen font', () => {
@@ -30,8 +30,8 @@ describe('sheet-font preference', () => {
 
   it('falls back to the default for corrupt/invalid stored values', () => {
     localStorage.setItem('refrain-csv-html.sheetFont', 'comic-sans');
-    expect(getSheetFont()).toBe('biz-ud');
-    expect(setSheetFont('nope' as never)).toBe('biz-ud');
+    expect(getSheetFont()).toBe('noto-sans-jp');
+    expect(setSheetFont('nope' as never)).toBe('noto-sans-jp');
   });
 
   it('applies the choice as a --font-sheet override on the document root', () => {

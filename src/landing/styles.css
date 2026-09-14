@@ -143,6 +143,26 @@ p {
   gap: var(--space-4);
 }
 
+/* ---------- legal pages (privacy / terms) ---------- */
+.legal .wrap {
+  max-width: 72ch;
+  display: grid;
+  gap: var(--space-4);
+}
+.legal h1 {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+}
+.legal h2 {
+  margin-top: var(--space-6);
+}
+.legal p {
+  color: var(--ink-2);
+}
+.legal-link {
+  margin-top: calc(var(--space-4) * -1);
+}
+
 /* ---------- header ---------- */
 .site-header {
   position: sticky;

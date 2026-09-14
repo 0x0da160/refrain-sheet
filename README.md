@@ -683,12 +683,16 @@ fallbacks keep the UI usable when the preferred families are absent.
 **View > Spreadsheet Font** chooses one font family for the whole spreadsheet UI
 (grid, headers, numeric and formula values, formula bar, inline editor, and
 selection overlays). Choosing a font updates a single document-level CSS
-variable (`--font-sheet`); the current choice is shown with a checkmark. Three
-local Windows/Office families are offered, each with a monospace fallback chain:
+variable (`--font-sheet`); the current choice is shown with a checkmark. Six
+local Windows/Office families are offered, each with its own fallback chain
+(monospace for the first three, sans-serif for the rest):
 
-- **BIZ UD Gothic** / **BIZ UDゴシック** (`--sheet-font-biz-ud`) — the default.
+- **BIZ UD Gothic** / **BIZ UDゴシック** (`--sheet-font-biz-ud`).
 - **MS Gothic** / **ＭＳ ゴシック** (`--sheet-font-ms`).
 - **MS UI Gothic** (`--sheet-font-ms-ui`).
+- **Noto Sans JP** (`--sheet-font-noto-sans-jp`) — the default.
+- **Meiryo UI** (`--sheet-font-meiryo-ui`).
+- **Yu Gothic UI** (`--sheet-font-yu-gothic-ui`).
 
 There is no per-cell font selection in this version. The choice is an
 **application-level preference** stored in `localStorage`; RSF documents do not
@@ -696,8 +700,8 @@ carry a per-document sheet-font override, so the application preference always
 applies and there is no document-vs-application precedence conflict to resolve.
 Changing the sheet font is pure display state: it never alters plain CSV bytes
 and never converts a CSV to RSF. When a preferred font is not installed, the
-declared fallbacks (and finally `monospace`) are used. No font is fetched from a
-CDN/remote URL or bundled.
+declared fallbacks (finally `monospace` or `sans-serif`, matching the family)
+are used. No font is fetched from a CDN/remote URL or bundled.
 
 #### Theme (light / dark)
 

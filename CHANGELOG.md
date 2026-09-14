@@ -31,6 +31,15 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Added
+
+- The hosted landing site (refrain-sheet.com) now has Privacy Policy and
+  Terms of Service pages, linked from the footer in both languages. They
+  describe the introduction page's opt-in Google Analytics and the hosted
+  app's Google Drive integration (`drive.file` scope, in-memory-only access
+  token, no Refrain Sheet backend); the downloadable offline build is
+  unaffected. ([#431](https://github.com/0x0da160/refrain-sheet/issues/431))
+
 ### Fixed
 
 - The Japanese welcome-screen button for creating a new RSF spreadsheet read
@@ -48,6 +57,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
   which compiles Drive sync out entirely, so the feature shipped invisible. The
   release now injects the credential and refuses to publish a hosted build that
   is missing it. ([#416](https://github.com/0x0da160/refrain-sheet/issues/416))
+- Ctrl+S / Cmd+S (and **File > Save**) on a tab opened from or previously saved
+  to Google Drive always fell back to a local save/download instead of
+  overwriting that same Drive file. It now saves back to Drive, matching
+  **Drive > Save**. ([#429](https://github.com/0x0da160/refrain-sheet/issues/429))
 
 ### Added
 
@@ -57,6 +70,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
   save the edited text back (overwriting the original file when the browser
   allows it, or as a download otherwise).
   ([#433](https://github.com/0x0da160/refrain-sheet/issues/433))
+- Each open tab now shows a small icon marking whether that file is local or
+  came from Google Drive, so you can tell the two apart at a glance when
+  several files are open at once. Hover a tab to see the same distinction
+  spelled out in its tooltip. ([#432](https://github.com/0x0da160/refrain-sheet/issues/432))
 - **File > Google Drive** opens, saves, and overwrites spreadsheets in Google
   Drive, on the hosted app at app.refrain-sheet.com. **Open from Drive…** picks
   a file through Google's own file picker; **Save to Drive** overwrites the file
@@ -120,6 +137,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The default **Spreadsheet Font** (View > Spreadsheet Font) for new/
+  unconfigured installs is now **Noto Sans JP** instead of **BIZ UD Gothic**.
+  Anyone who already picked a font keeps that choice; only new installs
+  and installs that never changed the setting notice the difference.
+  ([#438](https://github.com/0x0da160/refrain-sheet/issues/438))
 - The **Comments panel** and the **SQL Query** dialog now use the same
   dockable, resizable side panel as Filter/Sort/Format — pick top, right,
   bottom, or left from the header, and resize by dragging its inner edge —

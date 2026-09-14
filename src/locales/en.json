@@ -77,6 +77,8 @@
   "menu.toggle": "Menu",
   "tab.close": "Close tab",
   "tab.dirty": "Unsaved changes",
+  "tab.source.local": "Local file",
+  "tab.source.drive": "Google Drive file",
   "tabs.label": "Open files",
   "sheets.label": "Worksheets in this workbook",
   "sheets.add": "Add worksheet",

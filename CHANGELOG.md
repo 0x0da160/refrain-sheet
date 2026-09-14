@@ -44,6 +44,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
   marketing screenshots were also recaptured: the demo browser window is
   narrower so the sample sheet fills the frame instead of leaving a wide
   empty margin to its right. ([#449](https://github.com/0x0da160/refrain-sheet/issues/449))
+- The active document tab in the top tab strip now shows a blue underline,
+  matching the active worksheet tab below the grid, so it's easier to tell
+  at a glance which open file is active.
+  ([#457](https://github.com/0x0da160/refrain-sheet/issues/457))
 
 ## [0.7.29] - 2026-09-14
 

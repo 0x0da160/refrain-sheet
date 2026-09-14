@@ -50,6 +50,7 @@ function stubUi(): UiPort {
     showFormulaHelp: vi.fn(),
     showSqlQuery: vi.fn(async () => undefined),
     showDiff: vi.fn(async () => undefined),
+    showMarkdownEditor: vi.fn(async () => undefined),
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
     chooseDisplayLanguage: vi.fn(async () => null),
@@ -87,8 +88,8 @@ function buildBar(): MenuBar {
 describe('menu-bar dropdown keyboard navigation', () => {
   it('skips disabled items when cycling with ArrowDown, like context-menu.ts', () => {
     // With no document open, several File-menu commands (e.g. Reopen,
-    // Save) are disabled — only New, New CSV, Open, and Settings stay
-    // enabled.
+    // Save) are disabled — only New, New CSV, Open, Markdown Editor (#433,
+    // which needs no open document), and Settings stay enabled.
     const bar = buildBar();
     const fileButton = Array.from(
       bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
@@ -113,18 +114,26 @@ describe('menu-bar dropdown keyboard navigation', () => {
     expect(document.activeElement?.textContent).toContain(t('menu.file.open'));
     expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
 
-    // A run of several disabled commands follows Open (Reopen, Convert, Save,
-    // Save Options, Export CSV, Export XLSX — all disabled with no document
-    // open): one more ArrowDown must skip all of them in a single press and
-    // land on the next enabled item (Settings), never stopping on any of them.
+    // Reopen (the only disabled command directly after Open) must be
+    // skipped in a single press, landing on the next enabled item —
+    // Markdown Editor, which needs no open document/tab (#433).
+    document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(document.activeElement?.textContent).toContain(t('menu.file.markdownEditor'));
+    expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
+
+    // A run of several disabled commands follows Markdown Editor (Convert,
+    // Save, Save Options, Export CSV, Export XLSX — all disabled with no
+    // document open): one more ArrowDown must skip all of them in a single
+    // press and land on the next enabled item (Settings), never stopping on
+    // any of them.
     document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
     expect(document.activeElement?.textContent).toContain(t('menu.file.settings'));
     expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
 
     // Cycling back up from Settings must likewise skip that whole run and
-    // return to Open, not stop on any disabled item along the way.
+    // return to Markdown Editor, not stop on any disabled item along the way.
     document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
-    expect(document.activeElement?.textContent).toContain(t('menu.file.open'));
+    expect(document.activeElement?.textContent).toContain(t('menu.file.markdownEditor'));
     expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
   });
 });

@@ -2434,6 +2434,74 @@ table.diff-table td {
   border: 1px solid var(--warning-border);
 }
 
+/* ---------- Markdown editor (File > Markdown Editor…, #433) ---------- */
+
+.markdown-editor-toolbar {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.markdown-editor-panes {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.markdown-editor-pane {
+  flex: 1 1 50%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-editor-source {
+  flex: 1;
+  min-height: 320px;
+  font-family: var(--font-sheet);
+  font-size: 13px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  resize: vertical;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.markdown-editor-preview {
+  flex: 1;
+  min-height: 320px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: auto;
+  background: var(--panel);
+  line-height: 1.5;
+}
+
+.markdown-editor-preview > :first-child {
+  margin-top: 0;
+}
+
+.markdown-editor-preview pre {
+  background: var(--surface);
+  border-radius: 3px;
+  padding: 8px;
+  overflow: auto;
+}
+
+.markdown-editor-preview code {
+  font-family: var(--font-sheet);
+  font-size: 0.9em;
+}
+
+.markdown-editor-preview blockquote {
+  margin: 0 0 10px;
+  padding-left: 10px;
+  border-left: 3px solid var(--border);
+  color: var(--text-dim);
+}
+
 /* ---------- Drop overlay ---------- */
 
 .drop-overlay {

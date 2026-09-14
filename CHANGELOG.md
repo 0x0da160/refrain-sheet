@@ -51,6 +51,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- A new **File > Markdown Editor…** opens a standalone Markdown editor with a
+  real-time rendered preview alongside the source text, independent of any
+  open CSV/spreadsheet tab. It can open an existing `.md` file from disk and
+  save the edited text back (overwriting the original file when the browser
+  allows it, or as a download otherwise).
+  ([#433](https://github.com/0x0da160/refrain-sheet/issues/433))
 - **File > Google Drive** opens, saves, and overwrites spreadsheets in Google
   Drive, on the hosted app at app.refrain-sheet.com. **Open from Drive…** picks
   a file through Google's own file picker; **Save to Drive** overwrites the file

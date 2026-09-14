@@ -55,6 +55,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- Each open tab now shows a small icon marking whether that file is local or
+  came from Google Drive, so you can tell the two apart at a glance when
+  several files are open at once. Hover a tab to see the same distinction
+  spelled out in its tooltip. ([#432](https://github.com/0x0da160/refrain-sheet/issues/432))
 - **File > Google Drive** opens, saves, and overwrites spreadsheets in Google
   Drive, on the hosted app at app.refrain-sheet.com. **Open from Drive…** picks
   a file through Google's own file picker; **Save to Drive** overwrites the file

@@ -148,6 +148,13 @@ describe('accessibility semantics', () => {
     expect(addColumn.disabled).toBe(false);
   });
 
+  it('places the grid actions before the worksheet strip, right after the grid above (#456)', () => {
+    const { bar } = setup();
+    const gridActions = bar.element.querySelector('.sheet-grid-actions')!;
+    const strip = bar.element.querySelector('.sheet-strip')!;
+    expect(gridActions.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('announces worksheet switches through a live region', () => {
     const { state, bar, tab, doc } = setup(['Sheet1', 'Second']);
     const live = bar.element.querySelector('[aria-live="polite"]')!;
@@ -217,7 +224,7 @@ describe('keyboard model', () => {
 });
 
 describe('plain CSV documents', () => {
-  it('explains that worksheets need an RSF workbook instead of showing tabs', () => {
+  it('shows no worksheet tabs or explanatory note for a plain CSV document (#456)', () => {
     const state = new AppState();
     const commands = new Commands(state, stubUi(), document);
     state.addTab('data.csv', csvDoc('a,b\n1,2\n'), null);
@@ -225,9 +232,8 @@ describe('plain CSV documents', () => {
     document.body.append(bar.element);
     bar.render(true);
     expect(tabs(bar)).toHaveLength(0);
-    const note = bar.element.querySelector('.sheet-note')!;
-    expect(note.textContent).toBe(t('sheets.csvOnly'));
-    expect(note.getAttribute('title')).toBe(t('sheets.csvOnlyTitle'));
+    expect(bar.element.querySelector('.sheet-note')).toBeNull();
+    expect(bar.element.querySelector('.sheet-strip')!.textContent).toBe('');
     // The CSV strip is not a tablist — there are no worksheets to list.
     expect(bar.element.querySelector('.sheet-strip')!.getAttribute('role')).toBeNull();
   });

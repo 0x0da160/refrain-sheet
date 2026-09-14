@@ -38,8 +38,7 @@ const SHEET_MENU_ITEMS: Array<{ command: CommandId; labelKey: string; separatorB
  * the Sheet menu, and the keyboard, so nothing depends on a pointer.
  *
  * A plain CSV document is a single-sheet, byte-preserving document, so the
- * strip renders one disabled, explanatory chip instead of worksheet tabs
- * rather than disappearing without a reason.
+ * strip simply renders no tabs for it — there is nothing to switch between.
  */
 export class SheetBar {
   readonly element: HTMLElement;
@@ -50,7 +49,9 @@ export class SheetBar {
    * Always-visible "+" affordances that append one row/column at the end of
    * the sheet (#441) — unlike the worksheet strip itself, these are shown for
    * plain CSV documents too, so a freshly opened single-cell CSV always has a
-   * one-click way to grow the grid.
+   * one-click way to grow the grid. Rendered first (#456), immediately after
+   * the grid above, so the icons read as continuing the grid's own rows and
+   * columns rather than trailing after the worksheet tabs.
    */
   private readonly gridActions: HTMLElement;
   private dragId: string | null = null;
@@ -74,7 +75,7 @@ export class SheetBar {
     });
     this.strip = el('div', { className: 'sheet-strip', attrs: { role: 'tablist' } });
     this.gridActions = el('div', { className: 'sheet-grid-actions' });
-    this.element.append(this.liveRegion, this.strip, this.gridActions);
+    this.element.append(this.liveRegion, this.gridActions, this.strip);
     this.element.addEventListener('dragend', () => this.clearDragState());
     this.render();
   }
@@ -104,15 +105,10 @@ export class SheetBar {
     this.buildGridActions();
 
     if (doc.kind !== 'rsf') {
-      // Plain CSV: one disabled chip explaining that worksheets need RSF.
+      // Plain CSV: no worksheet tabs (it is a single-sheet document) and
+      // nothing else to render here — the grid actions above already cover
+      // this document.
       this.strip.removeAttribute('role');
-      this.strip.append(
-        el('span', {
-          className: 'sheet-note',
-          text: t('sheets.csvOnly'),
-          attrs: { title: t('sheets.csvOnlyTitle') },
-        }),
-      );
       return;
     }
     this.strip.setAttribute('role', 'tablist');

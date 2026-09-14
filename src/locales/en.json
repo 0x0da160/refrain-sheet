@@ -83,8 +83,6 @@
   "tabs.label": "Open files",
   "sheets.label": "Worksheets in this workbook",
   "sheets.add": "Add worksheet",
-  "sheets.csvOnly": "CSV holds one sheet",
-  "sheets.csvOnlyTitle": "A CSV file holds a single sheet. Convert it to a Refrain Sheet (RSF) workbook to use multiple worksheets.",
   "sheets.tabTitle": "{name} — double-click or F2 to rename",
   "sheet.defaultName": "Sheet{n}",
   "sheet.copyName": "{name} (copy)",

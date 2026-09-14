@@ -587,23 +587,18 @@ button {
   cursor: default;
 }
 
-/* Plain CSV documents: an explanation in place of worksheet tabs. */
-.sheet-note {
-  padding: 3px 8px;
-  opacity: 0.7;
-  font-size: 0.9em;
-}
-
 /* "+" affordances to append a row/column at the end of the sheet (#441).
    Shown for CSV and RSF documents alike, so they sit outside the worksheet
-   strip proper and never scroll along with the worksheet tabs. */
+   strip proper and never scroll along with the worksheet tabs. Rendered
+   before the strip (#456) so they read as continuing the grid immediately
+   above, rather than trailing after the worksheet tabs. */
 .sheet-grid-actions {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 3px 6px;
   flex: none;
-  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
 }
 
 .sheet-grid-add {

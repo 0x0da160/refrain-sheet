@@ -131,6 +131,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The default **Spreadsheet Font** (View > Spreadsheet Font) for new/
+  unconfigured installs is now **Noto Sans JP** instead of **BIZ UD Gothic**.
+  Anyone who already picked a font keeps that choice; only new installs
+  and installs that never changed the setting notice the difference.
+  ([#438](https://github.com/0x0da160/refrain-sheet/issues/438))
 - The **Comments panel** and the **SQL Query** dialog now use the same
   dockable, resizable side panel as Filter/Sort/Format — pick top, right,
   bottom, or left from the header, and resize by dragging its inner edge —

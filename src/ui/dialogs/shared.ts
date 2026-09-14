@@ -291,14 +291,36 @@ const SIDE_PANEL_VIEWPORT_MARGIN = 160;
 /**
  * Remembered across calls (but not across page loads) so opening the Filter
  * dialog, then Sort, then Borders all reuse whichever dock side/size the user
- * last chose, instead of resetting every time (#393).
+ * last chose, instead of resetting every time (#393). `sidePanelPosition`
+ * only takes effect once the user has explicitly picked a side via the
+ * header switcher (`sidePanelPositionExplicit`); until then, the effective
+ * position is computed live from the viewport by
+ * {@link effectiveSidePanelPosition} so a smartphone held in portrait
+ * defaults to a bottom dock instead of the desktop-oriented right dock
+ * (#459).
  */
 let sidePanelPosition: SidePanelPosition = 'right';
+let sidePanelPositionExplicit = false;
 let sidePanelSize = DEFAULT_SIDE_PANEL_SIZE;
+
+/**
+ * Smartphone-in-portrait viewports default to a bottom dock — there's little
+ * usable width for a left/right split — while every other viewport keeps the
+ * pre-existing right-docked default (#459).
+ */
+function effectiveSidePanelPosition(): SidePanelPosition {
+  if (sidePanelPositionExplicit) {
+    return sidePanelPosition;
+  }
+  const isMobilePortrait =
+    typeof globalThis.matchMedia === 'function' &&
+    globalThis.matchMedia('(max-width: 700px) and (orientation: portrait)').matches;
+  return isMobilePortrait ? 'bottom' : 'right';
+}
 
 /** The dock side/size any *new* dockable side panel should open at. */
 export function currentSidePanelPlacement(): { position: SidePanelPosition; size: number } {
-  return { position: sidePanelPosition, size: sidePanelSize };
+  return { position: effectiveSidePanelPosition(), size: sidePanelSize };
 }
 
 function sidePanelAxis(position: SidePanelPosition): EdgeResizeAxis {
@@ -418,11 +440,16 @@ export function buildSidePanelDock(panel: HTMLElement): {
     const label = t(`dialog.sidePanel.position.${position}`);
     const button = el('button', {
       className: 'side-panel-position-btn',
-      attrs: { type: 'button', 'aria-pressed': String(position === sidePanelPosition), title: label },
+      attrs: {
+        type: 'button',
+        'aria-pressed': String(position === effectiveSidePanelPosition()),
+        title: label,
+      },
     });
     button.append(createIcon(SIDE_PANEL_POSITION_ICON[position], 'side-panel-position-icon', 14));
     button.addEventListener('click', () => {
       sidePanelPosition = position;
+      sidePanelPositionExplicit = true;
       applySidePanelPosition(panel, sidePanelPosition, sidePanelSize);
       for (const other of positionButtons) {
         other.button.setAttribute('aria-pressed', String(other.position === position));
@@ -441,23 +468,23 @@ export function buildSidePanelDock(panel: HTMLElement): {
 
   makeEdgeResizable(
     grip,
-    () => sidePanelAxis(sidePanelPosition),
-    () => (sidePanelPosition === 'left' || sidePanelPosition === 'top' ? 1 : -1),
+    () => sidePanelAxis(effectiveSidePanelPosition()),
+    () => (effectiveSidePanelPosition() === 'left' || effectiveSidePanelPosition() === 'top' ? 1 : -1),
     () => {
       const rect = panel.getBoundingClientRect();
-      return sidePanelAxis(sidePanelPosition) === 'horizontal' ? rect.width : rect.height;
+      return sidePanelAxis(effectiveSidePanelPosition()) === 'horizontal' ? rect.width : rect.height;
     },
     MIN_SIDE_PANEL_SIZE,
     () => {
       const vp = visualViewportRect();
       return (
-        (sidePanelAxis(sidePanelPosition) === 'horizontal' ? vp.width : vp.height) -
+        (sidePanelAxis(effectiveSidePanelPosition()) === 'horizontal' ? vp.width : vp.height) -
         SIDE_PANEL_VIEWPORT_MARGIN
       );
     },
     (size) => {
       sidePanelSize = size;
-      applySidePanelPosition(panel, sidePanelPosition, size);
+      applySidePanelPosition(panel, effectiveSidePanelPosition(), size);
     },
   );
 
@@ -486,7 +513,7 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
       className: 'side-panel',
       attrs: { role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'side-panel-title' },
     });
-    applySidePanelPosition(panel, sidePanelPosition, sidePanelSize);
+    applySidePanelPosition(panel, effectiveSidePanelPosition(), sidePanelSize);
     const { positionSwitcher, resizeHandle: grip } = buildSidePanelDock(panel);
 
     const heading = el('div', { className: 'dialog-title side-panel-title' }, [

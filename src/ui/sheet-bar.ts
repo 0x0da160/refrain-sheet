@@ -46,6 +46,13 @@ export class SheetBar {
   /** Announces reorder / activation results to assistive technologies. */
   private readonly liveRegion: HTMLElement;
   private readonly strip: HTMLElement;
+  /**
+   * Always-visible "+" affordances that append one row/column at the end of
+   * the sheet (#441) — unlike the worksheet strip itself, these are shown for
+   * plain CSV documents too, so a freshly opened single-cell CSV always has a
+   * one-click way to grow the grid.
+   */
+  private readonly gridActions: HTMLElement;
   private dragId: string | null = null;
   private contextMenu: ContextMenu | null = null;
   /**
@@ -66,7 +73,8 @@ export class SheetBar {
       attrs: { 'aria-live': 'polite', role: 'status' },
     });
     this.strip = el('div', { className: 'sheet-strip', attrs: { role: 'tablist' } });
-    this.element.append(this.liveRegion, this.strip);
+    this.gridActions = el('div', { className: 'sheet-grid-actions' });
+    this.element.append(this.liveRegion, this.strip, this.gridActions);
     this.element.addEventListener('dragend', () => this.clearDragState());
     this.render();
   }
@@ -91,7 +99,9 @@ export class SheetBar {
     this.renderedKey = key;
     this.closeContextMenu();
     clearChildren(this.strip);
+    clearChildren(this.gridActions);
     this.strip.setAttribute('aria-label', t('sheets.label'));
+    this.buildGridActions();
 
     if (doc.kind !== 'rsf') {
       // Plain CSV: one disabled chip explaining that worksheets need RSF.
@@ -126,6 +136,31 @@ export class SheetBar {
     if (activeTab && typeof activeTab.scrollIntoView === 'function') {
       activeTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
+  }
+
+  /** Build the "add row" / "add column" buttons shared by CSV and RSF documents. */
+  private buildGridActions(): void {
+    const addRow = el(
+      'button',
+      {
+        className: 'sheet-grid-add',
+        attrs: { type: 'button', 'aria-label': t('grid.addRow'), title: t('grid.addRow') },
+      },
+      [createIcon(Plus, 'sheet-grid-add-icon', 14)],
+    );
+    addRow.disabled = !this.commands.isEnabled('sheet.addRow');
+    addRow.addEventListener('click', () => void this.commands.run('sheet.addRow'));
+    const addColumn = el(
+      'button',
+      {
+        className: 'sheet-grid-add',
+        attrs: { type: 'button', 'aria-label': t('grid.addColumn'), title: t('grid.addColumn') },
+      },
+      [createIcon(Plus, 'sheet-grid-add-icon', 14)],
+    );
+    addColumn.disabled = !this.commands.isEnabled('sheet.addColumn');
+    addColumn.addEventListener('click', () => void this.commands.run('sheet.addColumn'));
+    this.gridActions.append(addRow, addColumn);
   }
 
   private buildSheetTab(id: string, name: string, active: boolean): HTMLElement {

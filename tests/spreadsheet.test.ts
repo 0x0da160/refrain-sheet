@@ -357,6 +357,35 @@ describe('row and column operations', () => {
     expect(commands.isEnabled('sheet.insertRowAbove')).toBe(true);
     expect(commands.isEnabled('sheet.insertColLeft')).toBe(true);
   });
+
+  it('appends a row at the end of the sheet with no selection required (#441)', async () => {
+    const ui = stubUi();
+    const { state, commands, tab } = setup('a\n', ui);
+    tab.selection = null;
+    expect(state.selectedRange(tab)).toBeNull();
+    expect(commands.isEnabled('sheet.addRow')).toBe(true);
+    await commands.run('sheet.addRow');
+    expect(ui.confirmConvert).toHaveBeenCalledWith('structure', 'data.csv');
+    expect(tab.doc.kind).toBe('rsf');
+    expect(tab.doc.rowCount).toBe(2);
+    expect(tab.doc.columnCount).toBe(1);
+  });
+
+  it('appends a column at the end of the sheet with no selection required (#441)', async () => {
+    const { state, commands, tab } = await converted('a,b\nc,d\n');
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 1, col: 1 }, 'row');
+    expect(commands.isEnabled('sheet.addColumn')).toBe(true);
+    await commands.run('sheet.addColumn');
+    expect(tab.doc.columnCount).toBe(3);
+    expect(tab.doc.getValue(0, 2)).toBe('');
+  });
+
+  it('add-row/add-column are disabled only when no tab is open', () => {
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    expect(commands.isEnabled('sheet.addRow')).toBe(false);
+    expect(commands.isEnabled('sheet.addColumn')).toBe(false);
+  });
 });
 
 describe('saving and exporting RSF', () => {

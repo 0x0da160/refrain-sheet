@@ -33,6 +33,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- A new CSV starts as a single 1×1 cell with no obvious way to grow it. Two
+  "+" buttons next to the worksheet strip below the grid now add a row or a
+  column at the end of the sheet with one click, for CSV and RSF documents
+  alike — no selection required.
+  ([#441](https://github.com/0x0da160/refrain-sheet/issues/441))
 - The hosted landing site (refrain-sheet.com) now has Privacy Policy and
   Terms of Service pages, linked from the footer in both languages. They
   describe the introduction page's opt-in Google Analytics and the hosted

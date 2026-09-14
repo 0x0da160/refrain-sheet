@@ -60,6 +60,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
   tighter spacing, margins, and font sizes, so more of the app fits without
   scrolling. Existing touch-target sizes and the input auto-zoom prevention
   are unchanged. ([#462](https://github.com/0x0da160/refrain-sheet/issues/462))
+- The dockable side panel (Filter/Sort/Format/SQL Query/Compare-Diff, and the
+  comments panel) now defaults to docking at the bottom of the screen instead
+  of the right when opened on a smartphone held in portrait orientation, where
+  there's little usable width for a side dock. Manually picking a side still
+  overrides this for the rest of the session, exactly as before.
+  ([#459](https://github.com/0x0da160/refrain-sheet/issues/459))
 
 ## [0.7.29] - 2026-09-14
 

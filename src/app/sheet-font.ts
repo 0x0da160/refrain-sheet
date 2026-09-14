@@ -35,8 +35,8 @@ export const SHEET_FONTS: readonly SheetFontId[] = [
   'yu-gothic-ui',
 ];
 
-/** BIZ UD Gothic is the default (best CJK legibility of the three original choices). */
-export const DEFAULT_SHEET_FONT: SheetFontId = 'biz-ud';
+/** Noto Sans JP is the default (proportional, widely-installed CJK font). */
+export const DEFAULT_SHEET_FONT: SheetFontId = 'noto-sans-jp';
 
 /** The CSS custom property overridden on the document root. */
 export const SHEET_FONT_PROPERTY = '--font-sheet';

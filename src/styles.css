@@ -1763,6 +1763,36 @@ button {
   text-decoration: none;
 }
 
+.status-bar .status-protected {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.status-protected-icon {
+  flex: none;
+}
+
+.status-bar button.status-protect-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font-weight: 600;
+  text-decoration: underline;
+  padding: 0;
+  cursor: pointer;
+}
+
+.status-protect-toggle-icon {
+  flex: none;
+  text-decoration: none;
+}
+
 .status-bar .status-version {
   margin-left: auto;
 }

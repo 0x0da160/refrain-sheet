@@ -162,7 +162,11 @@ describe('Edit > Select All Cells', () => {
   it('shows a pending "Calculating…" state for whole-sheet selection statistics', async () => {
     const state = new AppState();
     const commands = new Commands(state, stubUi(), document);
-    const statusBar = new StatusBar(state, () => undefined);
+    const statusBar = new StatusBar(
+      state,
+      () => undefined,
+      () => undefined,
+    );
     const rows = 10_000;
     const csv = Array.from({ length: rows }, () => '1,2,3').join('\n') + '\n';
     state.addTab('big.csv', doc(csv), null);

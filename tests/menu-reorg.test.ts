@@ -21,6 +21,7 @@ function checks(): MenuChecks {
     commentsPanel: () => false,
     formatActive: () => false,
     driveAvailable: () => false,
+    protectedDoc: () => false,
   };
 }
 

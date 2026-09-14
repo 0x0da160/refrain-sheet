@@ -210,6 +210,8 @@ export interface MenuChecks {
   commentsPanel: () => boolean;
   /** Whether Bold/Italic/Underline is "on" for the whole current selection. */
   formatActive: (key: 'bold' | 'italic' | 'underline') => boolean;
+  /** Whether the active tab is read-only protected (see `Tab.readOnly`). */
+  protectedDoc: () => boolean;
   /**
    * Whether Google Drive sync exists in this build. False for the offline
    * build, which omits the whole Drive submenu rather than showing it disabled
@@ -249,6 +251,13 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.file.newCsv', command: 'file.newCsv' },
         { labelKey: 'menu.file.open', command: 'file.open', shortcut: 'Ctrl+O' },
         { labelKey: 'menu.file.reopen', command: 'file.reopen' },
+        {
+          labelKey: 'menu.file.protect',
+          command: 'file.toggleProtect',
+          checked: checks.protectedDoc,
+        },
+        'separator',
+        { labelKey: 'menu.file.markdownEditor', command: 'file.markdownEditor' },
         'separator',
         { labelKey: 'menu.file.markdownEditor', command: 'file.markdownEditor' },
         'separator',

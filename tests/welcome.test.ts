@@ -167,7 +167,11 @@ describe('welcome screen (initial screen)', () => {
 
   it('document-specific UI state is cleared when the last tab closes', async () => {
     const { state, commands } = setup();
-    const statusBar = new StatusBar(state, () => undefined);
+    const statusBar = new StatusBar(
+      state,
+      () => undefined,
+      () => undefined,
+    );
     const formulaBar = new FormulaBar(state, commands, () => undefined);
     state.subscribe(() => {
       statusBar.render();

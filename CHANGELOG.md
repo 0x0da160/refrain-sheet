@@ -33,6 +33,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- Opening an existing file now defaults to a protected, read-only mode, so a
+  file can't be edited by accident. A new status bar control (and a
+  **File > Protect Document** menu toggle) unlocks it for editing and can
+  re-apply protection afterward; the setting is per-tab and session-only,
+  never saved with the file. Newly created blank documents (File > New /
+  New CSV) still start editable, unchanged.
+  ([#443](https://github.com/0x0da160/refrain-sheet/issues/443))
 - A new CSV starts as a single 1×1 cell with no obvious way to grow it. Two
   "+" buttons next to the worksheet strip below the grid now add a row or a
   column at the end of the sheet with one click, for CSV and RSF documents

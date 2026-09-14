@@ -141,7 +141,11 @@ describe('deferred selection statistics', () => {
   it('small selections compute statistics synchronously', () => {
     const state = new AppState();
     const tab = state.addTab('a.csv', doc('1,2\n3,4\n'), null);
-    const statusBar = new StatusBar(state, () => undefined);
+    const statusBar = new StatusBar(
+      state,
+      () => undefined,
+      () => undefined,
+    );
     state.setSelection(tab, { row: 1, col: 1 }, { row: 0, col: 0 });
     statusBar.render();
     expect(statusBar.element.textContent).toContain('10'); // sum 1+2+3+4
@@ -152,7 +156,11 @@ describe('deferred selection statistics', () => {
     const rows = 30_000;
     const state = new AppState();
     const tab = state.addTab('big.csv', doc(bigCsv(rows, 1)), null);
-    const statusBar = new StatusBar(state, () => undefined);
+    const statusBar = new StatusBar(
+      state,
+      () => undefined,
+      () => undefined,
+    );
     document.body.append(statusBar.element); // a detached bar abandons its scan
     state.setSelection(tab, { row: rows - 1, col: 0 }, { row: 0, col: 0 });
     expect(rows).toBeGreaterThan(SYNC_STATS_CELL_LIMIT);
@@ -178,7 +186,11 @@ describe('deferred selection statistics', () => {
     const rows = 30_000;
     const state = new AppState();
     const tab = state.addTab('big.csv', doc(bigCsv(rows, 1)), null);
-    const statusBar = new StatusBar(state, () => undefined);
+    const statusBar = new StatusBar(
+      state,
+      () => undefined,
+      () => undefined,
+    );
     state.setSelection(tab, { row: rows - 1, col: 0 }, { row: 0, col: 0 });
     statusBar.render();
     // Before the debounce elapses, shrink the selection to a tiny range.

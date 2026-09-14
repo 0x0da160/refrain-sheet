@@ -135,7 +135,11 @@ describe('status bar', () => {
   it('shows encoding, delimiter, line endings, and size', () => {
     const state = new AppState();
     state.addTab('a.csv', doc('a,b\r\n1,2\r\n'), null);
-    const statusBar = new StatusBar(state, () => undefined);
+    const statusBar = new StatusBar(
+      state,
+      () => undefined,
+      () => undefined,
+    );
     statusBar.render();
     const text = statusBar.element.textContent ?? '';
     expect(text).toContain('UTF-8');

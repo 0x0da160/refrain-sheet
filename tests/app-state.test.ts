@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import { AppState } from '../src/app/app-state';
+import { t } from '../src/app/i18n';
+import { RsfDocument } from '../src/core/rsf-document';
 import { doc, utf8 } from './helpers';
 
 describe('tabs', () => {
@@ -70,5 +72,59 @@ describe('dirty state', () => {
     expect(tab.doc.isDirty).toBe(true);
     state.editCell(tab, 0, 0, 'a'); // typing the original value back
     expect(tab.doc.isDirty).toBe(false);
+  });
+});
+
+describe('read-only protection', () => {
+  it('defaults to unprotected unless addTab is told otherwise', () => {
+    const state = new AppState();
+    expect(state.addTab('a.csv', doc('a\n'), null).readOnly).toBe(false);
+    expect(state.addTab('b.csv', doc('b\n'), null, true).readOnly).toBe(true);
+  });
+
+  it('refuses editCell, bulkEdit, and pushEntry on a protected CSV tab, announcing why', () => {
+    const state = new AppState();
+    const tab = state.addTab('a.csv', doc('a,b\n'), null, true);
+    const announced: string[] = [];
+    state.announce = (message) => announced.push(message);
+
+    expect(state.editCell(tab, 0, 0, 'x')).toBe(false);
+    expect(tab.doc.isDirty).toBe(false);
+    expect(state.bulkEdit(tab, [{ row: 0, col: 0, before: null, after: 'x' }], 'history.editCell')).toBe(
+      false,
+    );
+    expect(tab.doc.isDirty).toBe(false);
+    expect(announced).toEqual([t('notify.readOnlyProtected'), t('notify.readOnlyProtected')]);
+  });
+
+  it('refuses structural and worksheet-lifecycle operations on a protected RSF tab', () => {
+    const state = new AppState();
+    const tab = state.addTab('a.rsf', RsfDocument.blank('a.rsf', 5, 3, 'Sheet1'), null, true);
+    expect(state.insertRows(tab, 0, 1)).toBe(false);
+    expect(state.addSheet(tab, 'Sheet2')).toBeNull();
+    expect(tab.doc.rowCount).toBe(5);
+  });
+
+  it('toggling read-only off allows edits again, and back on refuses them again', () => {
+    const state = new AppState();
+    const tab = state.addTab('a.csv', doc('a,b\n'), null, true);
+    expect(state.editCell(tab, 0, 0, 'x')).toBe(false);
+    state.setReadOnly(tab, false);
+    expect(tab.readOnly).toBe(false);
+    expect(state.editCell(tab, 0, 0, 'x')).toBe(true);
+    expect(tab.doc.isDirty).toBe(true);
+    state.setReadOnly(tab, true);
+    expect(state.editCell(tab, 0, 1, 'y')).toBe(false);
+  });
+
+  it('emits a tabs event when toggled, but not when set to its current value', () => {
+    const state = new AppState();
+    const tab = state.addTab('a.csv', doc('a\n'), null, true);
+    const events: string[] = [];
+    state.subscribe((e) => events.push(e));
+    state.setReadOnly(tab, true); // no-op: already protected
+    expect(events).toEqual([]);
+    state.setReadOnly(tab, false);
+    expect(events).toEqual(['tabs']);
   });
 });

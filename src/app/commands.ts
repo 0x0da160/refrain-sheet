@@ -519,6 +519,8 @@ export type CommandId =
   | 'sheet.insertColLeft'
   | 'sheet.insertColRight'
   | 'sheet.deleteCols'
+  | 'sheet.addRow'
+  | 'sheet.addColumn'
   | 'sheet.autoFitCols'
   | 'sheet.filter'
   | 'sheet.filterClear'
@@ -752,6 +754,11 @@ export class Commands {
       case 'sheet.insertColRight':
       case 'sheet.deleteCols':
         return tab !== null && tab.selection !== null && tab.selectionKind !== 'row';
+      // Appends at the very end of the sheet, so — unlike the selection-relative
+      // insert commands above — no selection is required to run it.
+      case 'sheet.addRow':
+      case 'sheet.addColumn':
+        return tab !== null;
       case 'sheet.autoFitCols':
         return tab !== null && tab.selection !== null;
       case 'edit.selectAll':
@@ -1026,6 +1033,12 @@ export class Commands {
       case 'sheet.insertColRight':
       case 'sheet.deleteCols':
         if (tab) await this.runSheetOp(tab, id);
+        return;
+      case 'sheet.addRow':
+        if (tab) await this.appendAxis(tab, 'row');
+        return;
+      case 'sheet.addColumn':
+        if (tab) await this.appendAxis(tab, 'col');
         return;
       case 'sheet.autoFitCols':
         await this.gridActions?.autoFitSelectedColumns();
@@ -1535,6 +1548,10 @@ export class Commands {
 
   private async runSheetOp(tab: Tab, id: CommandId): Promise<void> {
     return this.worksheets.runSheetOp(tab, id);
+  }
+
+  private async appendAxis(tab: Tab, axis: 'row' | 'col'): Promise<void> {
+    return this.worksheets.appendAxis(tab, axis);
   }
 
   /**

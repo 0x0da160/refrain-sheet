@@ -521,7 +521,8 @@ button {
   gap: 2px;
   padding: 3px 6px;
   overflow-x: auto;
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .sheet-tab {
@@ -591,6 +592,42 @@ button {
   padding: 3px 8px;
   opacity: 0.7;
   font-size: 0.9em;
+}
+
+/* "+" affordances to append a row/column at the end of the sheet (#441).
+   Shown for CSV and RSF documents alike, so they sit outside the worksheet
+   strip proper and never scroll along with the worksheet tabs. */
+.sheet-grid-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 6px;
+  flex: none;
+  border-left: 1px solid var(--border);
+}
+
+.sheet-grid-add {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 5px 5px;
+  background: var(--panel-hover);
+  color: inherit;
+  padding: 3px 10px;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.sheet-grid-add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sheet-grid-add:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .sheet-name-input {
@@ -2734,7 +2771,8 @@ table.diff-table td {
   }
 
   .sheet-tab,
-  .sheet-add {
+  .sheet-add,
+  .sheet-grid-add {
     padding: 11px 12px;
     min-height: 40px;
   }

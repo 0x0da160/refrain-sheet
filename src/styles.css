@@ -475,6 +475,7 @@ button {
 .tab[aria-selected='true'] {
   background: var(--surface);
   font-weight: 600;
+  border-bottom: 2px solid var(--accent);
 }
 
 .tab .tab-label {

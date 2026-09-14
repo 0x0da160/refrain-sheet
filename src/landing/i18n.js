@@ -107,6 +107,16 @@ export const I18N = {
     'f3.li3': 'Alt+Enter でセル内改行、複数行の値もCSV・RSF・コピペを往復',
     'f3.cap': 'ファイルメニュー。ショートカットは補助であり、すべてメニューから実行できます。',
 
+    'f5.h3': 'Googleドライブと直接やり取り',
+    'f5.p':
+      'ホスト版アプリでは、Googleドライブのファイルをそのまま開いて上書き保存できます。アクセス範囲は開いた・作成したファイルだけに限定され（drive.fileスコープ）、アクセストークンはブラウザのメモリ上にのみ保持されます。',
+    'f6.h3': '誤編集を防ぐ保護モード',
+    'f6.p':
+      '既存ファイルを開くと既定で読み取り専用になり、ステータスバーのアイコンか File > ドキュメントを保護で編集を解除できます。設定はタブごと・セッション限りで、ファイルには保存されません。',
+    'f7.h3': '独立したMarkdownエディタ',
+    'f7.p':
+      'File > Markdownエディタ… で、プレビュー付きの編集画面を開けます。CSV・スプレッドシートのタブとは独立して動作し、既存の .md ファイルを開いて上書き保存できます。',
+
     'f4.h3': 'スプレッドシートが必要なときは RSF',
     'f4.p':
       '数式・行列の挿入・メタデータはプレーンCSVでは表現できません。だから別形式（.rsf）に明示的に変換したときだけ有効になります。元の .csv は指一本触れません。',
@@ -407,6 +417,16 @@ export const I18N = {
     'f3.li3':
       'Alt+Enter inserts a line break; multi-line values round-trip through CSV, RSF and the clipboard',
     'f3.cap': 'The File menu. Shortcuts are accelerators only — nothing depends on them.',
+
+    'f5.h3': 'Work with Google Drive directly',
+    'f5.p':
+      'The hosted app can open and overwrite files stored in Google Drive. Access is limited to files opened or created through this feature (the drive.file scope), and the access token lives only in browser memory.',
+    'f6.h3': 'A protect mode that stops accidental edits',
+    'f6.p':
+      'Opening an existing file defaults to read-only; a status bar control or File > Protect Document unlocks it. The setting is per-tab, session-only, and never saved with the file.',
+    'f7.h3': 'A standalone Markdown editor',
+    'f7.p':
+      'File > Markdown Editor… opens a real-time preview editor independent of any open CSV/spreadsheet tab, and can open and save an existing .md file.',
 
     'f4.h3': "When you need a spreadsheet, there's RSF",
     'f4.p':

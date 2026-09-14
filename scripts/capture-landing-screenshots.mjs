@@ -100,8 +100,10 @@ async function newPage(browser, { locale, theme }) {
   // deviceScaleFactor 2 captures at retina pixel density, matching the
   // resolution of the screenshots this replaces (their masters were already
   // roughly 2x their CSS-pixel content) and giving the resized srcset
-  // variants real detail to downscale from instead of upscaling.
-  const context = await browser.newContext({ viewport: { width: 1600, height: 760 }, deviceScaleFactor: 2 });
+  // variants real detail to downscale from instead of upscaling. The width
+  // is kept just wide enough for the 5-column sales ledger fixture so the
+  // grid fills the frame instead of leaving a wide empty margin to its right.
+  const context = await browser.newContext({ viewport: { width: 900, height: 760 }, deviceScaleFactor: 2 });
   const page = await context.newPage();
   // Force the <input type="file"> fallback (see src/app/file-access.ts): the
   // File System Access API's showOpenFilePicker() has no headless UI to
@@ -146,6 +148,11 @@ async function openCleanFile(page, name, bytes) {
 }
 
 async function editRemarkCell(page) {
+  // Opening an existing file now defaults to read-only protection (see
+  // status-bar.ts); unlock it via the status bar's Edit toggle first, or the
+  // demo edit below is silently rejected.
+  await page.locator('.status-protect-toggle').click();
+
   // Column 4 ("備考"/remarks) of the B-2002 row (row index 2 — row 0 is the
   // header) — empty in the fixture, so editing it demonstrates the "only the
   // touched cell turns yellow" claim, matching the B-2002 example already

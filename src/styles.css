@@ -488,6 +488,15 @@ button {
   font-weight: 700;
 }
 
+.tab .tab-source {
+  display: flex;
+  flex: none;
+}
+
+.tab .tab-source-icon {
+  color: var(--text-muted);
+}
+
 /* ----- Worksheet strip (worksheets inside the active RSF workbook) -----
    Deliberately styled apart from the document tab strip above the grid: these
    tabs sit below the grid, are shorter, and round at the bottom, so the two

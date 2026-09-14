@@ -41,7 +41,15 @@ const SITE = rawSite ? rawSite.replace(/\/+$/, '') + '/' : undefined;
 const APP = 'https://app.refrain-sheet.com/';
 const REPO = 'https://github.com/0x0da160/refrain-sheet';
 const OG_IMG = 'assets/refrain-sheet-og-image.png';
-const PAGES = { ja: 'index.html', en: 'en/index.html' };
+
+// Each entry is a standalone template file rendered once per language. Only
+// `index` gets the full SEO treatment (structured data, pretty root URLs);
+// `privacy` and `terms` are simple flat-file pages served alongside it.
+const PAGE_FILES = {
+  index: { template: 'template.html', ja: 'index.html', en: 'en/index.html' },
+  privacy: { template: 'privacy.html', ja: 'privacy.html', en: 'en/privacy.html' },
+  terms: { template: 'terms.html', ja: 'terms.html', en: 'en/terms.html' },
+};
 
 const FEATURES = {
   ja: [
@@ -84,10 +92,20 @@ function appendTag(doc, head, tagName, attrs) {
   head.appendChild(el);
 }
 
-function build(lang) {
+/** Canonical URL for a page in a given language, or undefined without a SITE. */
+function pageUrl(pageId, lang) {
+  if (!SITE) return undefined;
+  if (pageId === 'index') return SITE + (lang === 'ja' ? '' : 'en/');
+  return SITE + PAGE_FILES[pageId][lang];
+}
+
+function build(pageId, lang) {
+  const page = PAGE_FILES[pageId];
+  const outRelPath = page[lang];
   const d = I18N[lang];
-  const depth = (PAGES[lang].match(/\//g) ?? []).length;
-  const template = readFileSync(join(srcDir, 'template.html'), 'utf8');
+  const metaKey = pageId === 'index' ? '' : `${pageId}.`;
+  const depth = (outRelPath.match(/\//g) ?? []).length;
+  const template = readFileSync(join(srcDir, page.template), 'utf8');
   const dom = new JSDOM(template);
   const doc = dom.window.document;
   doc.documentElement.setAttribute('lang', lang);
@@ -105,7 +123,14 @@ function build(lang) {
   }
 
   // ---------- language switcher ----------
-  const hrefs = { ja: { ja: './', en: 'en/' }, en: { ja: '../', en: './' } }[lang];
+  // `index` uses pretty directory URLs (its output already sits at the site
+  // root / en/); other pages are flat files, so the switcher links directly
+  // to the sibling file rather than to that page's own homepage.
+  const otherLang = lang === 'ja' ? 'en' : 'ja';
+  const hrefs =
+    pageId === 'index'
+      ? { ja: { ja: './', en: 'en/' }, en: { ja: '../', en: './' } }[lang]
+      : { [lang]: './', [otherLang]: lang === 'ja' ? page.en : '../' + page.ja };
   for (const a of doc.querySelectorAll('.lang a')) {
     const code = a.getAttribute('data-lang');
     a.setAttribute('href', hrefs[code]);
@@ -143,8 +168,12 @@ function build(lang) {
   const head = doc.head;
   for (const el of head.querySelectorAll('[data-seo="1"]')) el.remove();
 
-  doc.querySelector('title').textContent = d['meta.title'];
-  head.querySelector('meta[name="description"]').setAttribute('content', d['meta.desc']);
+  const metaTitle = d[`${metaKey}meta.title`];
+  const metaDesc = d[`${metaKey}meta.desc`];
+  if (metaTitle === undefined) throw new Error(`missing key: ${metaKey}meta.title`);
+  if (metaDesc === undefined) throw new Error(`missing key: ${metaKey}meta.desc`);
+  doc.querySelector('title').textContent = metaTitle;
+  head.querySelector('meta[name="description"]').setAttribute('content', metaDesc);
 
   appendTag(doc, head, 'meta', {
     name: 'robots',
@@ -154,19 +183,34 @@ function build(lang) {
   appendTag(doc, head, 'meta', { name: 'theme-color', content: '#1f7a4a', 'data-seo': '1' });
   appendTag(doc, head, 'meta', { name: 'author', content: '0x0da160', 'data-seo': '1' });
 
-  if (SITE) {
-    const pageUrl = SITE + (lang === 'ja' ? '' : 'en/');
-    appendTag(doc, head, 'link', { rel: 'canonical', href: pageUrl, 'data-seo': '1' });
-    appendTag(doc, head, 'link', { rel: 'alternate', hreflang: 'ja', href: SITE, 'data-seo': '1' });
-    appendTag(doc, head, 'link', { rel: 'alternate', hreflang: 'en', href: SITE + 'en/', 'data-seo': '1' });
-    appendTag(doc, head, 'link', { rel: 'alternate', hreflang: 'x-default', href: SITE, 'data-seo': '1' });
-    appendTag(doc, head, 'meta', { property: 'og:url', content: pageUrl, 'data-seo': '1' });
+  const url = pageUrl(pageId, lang);
+  if (url) {
+    appendTag(doc, head, 'link', { rel: 'canonical', href: url, 'data-seo': '1' });
+    appendTag(doc, head, 'link', {
+      rel: 'alternate',
+      hreflang: 'ja',
+      href: pageUrl(pageId, 'ja'),
+      'data-seo': '1',
+    });
+    appendTag(doc, head, 'link', {
+      rel: 'alternate',
+      hreflang: 'en',
+      href: pageUrl(pageId, 'en'),
+      'data-seo': '1',
+    });
+    appendTag(doc, head, 'link', {
+      rel: 'alternate',
+      hreflang: 'x-default',
+      href: pageUrl(pageId, 'ja'),
+      'data-seo': '1',
+    });
+    appendTag(doc, head, 'meta', { property: 'og:url', content: url, 'data-seo': '1' });
   }
 
   appendTag(doc, head, 'meta', { property: 'og:type', content: 'website', 'data-seo': '1' });
   appendTag(doc, head, 'meta', { property: 'og:site_name', content: 'Refrain Sheet', 'data-seo': '1' });
-  appendTag(doc, head, 'meta', { property: 'og:title', content: d['meta.title'], 'data-seo': '1' });
-  appendTag(doc, head, 'meta', { property: 'og:description', content: d['meta.desc'], 'data-seo': '1' });
+  appendTag(doc, head, 'meta', { property: 'og:title', content: metaTitle, 'data-seo': '1' });
+  appendTag(doc, head, 'meta', { property: 'og:description', content: metaDesc, 'data-seo': '1' });
   appendTag(doc, head, 'meta', { property: 'og:image', content: absOrRel(OG_IMG, depth), 'data-seo': '1' });
   appendTag(doc, head, 'meta', { property: 'og:image:width', content: '1200', 'data-seo': '1' });
   appendTag(doc, head, 'meta', { property: 'og:image:height', content: '630', 'data-seo': '1' });
@@ -178,8 +222,8 @@ function build(lang) {
     'data-seo': '1',
   });
   appendTag(doc, head, 'meta', { name: 'twitter:card', content: 'summary_large_image', 'data-seo': '1' });
-  appendTag(doc, head, 'meta', { name: 'twitter:title', content: d['meta.title'], 'data-seo': '1' });
-  appendTag(doc, head, 'meta', { name: 'twitter:description', content: d['meta.desc'], 'data-seo': '1' });
+  appendTag(doc, head, 'meta', { name: 'twitter:title', content: metaTitle, 'data-seo': '1' });
+  appendTag(doc, head, 'meta', { name: 'twitter:description', content: metaDesc, 'data-seo': '1' });
   appendTag(doc, head, 'meta', {
     name: 'twitter:image',
     content: absOrRel(OG_IMG, depth),
@@ -188,49 +232,53 @@ function build(lang) {
   appendTag(doc, head, 'meta', { name: 'twitter:image:alt', content: OG_ALT[lang], 'data-seo': '1' });
 
   // ---------- structured data ----------
-  const app = {
-    '@context': 'https://schema.org',
-    '@type': ['SoftwareApplication', 'WebApplication'],
-    name: 'Refrain Sheet',
-    applicationCategory: 'BusinessApplication',
-    applicationSubCategory: 'CSV editor',
-    operatingSystem: 'Web browser (Chromium, Firefox, Safari)',
-    browserRequirements:
-      'Requires JavaScript. File System Access API needed for in-place overwrite (Chromium).',
-    description: d['meta.desc'],
-    url: APP,
-    installUrl: APP,
-    downloadUrl: REPO + '/releases/',
-    sameAs: [REPO],
-    license: 'https://opensource.org/licenses/MIT',
-    isAccessibleForFree: true,
-    inLanguage: ['ja', 'en'],
-    offers: { '@type': 'Offer', price: '0', priceCurrency: 'JPY' },
-    author: { '@type': 'Person', name: '0x0da160', url: 'https://github.com/0x0da160' },
-    featureList: FEATURES[lang],
-    screenshot: {
-      '@type': 'ImageObject',
-      contentUrl: absOrRel('assets/refrain-sheet-shift-jis-csv-editor.webp', depth),
-      caption: d['hero.alt'],
-    },
-    image: absOrRel(OG_IMG, depth),
-  };
-  const graph = [app];
-  if (SITE) {
-    graph.push({
+  // Only the app homepage carries SoftwareApplication/WebSite structured
+  // data; privacy/terms are plain content pages with nothing to describe.
+  if (pageId === 'index') {
+    const app = {
       '@context': 'https://schema.org',
-      '@type': 'WebSite',
+      '@type': ['SoftwareApplication', 'WebApplication'],
       name: 'Refrain Sheet',
-      url: SITE,
-      inLanguage: lang,
-    });
-  }
-  for (const obj of graph) {
-    const s = doc.createElement('script');
-    s.setAttribute('data-seo', '1');
-    s.setAttribute('type', 'application/ld+json');
-    s.textContent = JSON.stringify(obj, null, 2);
-    head.appendChild(s);
+      applicationCategory: 'BusinessApplication',
+      applicationSubCategory: 'CSV editor',
+      operatingSystem: 'Web browser (Chromium, Firefox, Safari)',
+      browserRequirements:
+        'Requires JavaScript. File System Access API needed for in-place overwrite (Chromium).',
+      description: metaDesc,
+      url: APP,
+      installUrl: APP,
+      downloadUrl: REPO + '/releases/',
+      sameAs: [REPO],
+      license: 'https://opensource.org/licenses/MIT',
+      isAccessibleForFree: true,
+      inLanguage: ['ja', 'en'],
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'JPY' },
+      author: { '@type': 'Person', name: '0x0da160', url: 'https://github.com/0x0da160' },
+      featureList: FEATURES[lang],
+      screenshot: {
+        '@type': 'ImageObject',
+        contentUrl: absOrRel('assets/refrain-sheet-shift-jis-csv-editor.webp', depth),
+        caption: d['hero.alt'],
+      },
+      image: absOrRel(OG_IMG, depth),
+    };
+    const graph = [app];
+    if (SITE) {
+      graph.push({
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'Refrain Sheet',
+        url: SITE,
+        inLanguage: lang,
+      });
+    }
+    for (const obj of graph) {
+      const s = doc.createElement('script');
+      s.setAttribute('data-seo', '1');
+      s.setAttribute('type', 'application/ld+json');
+      s.textContent = JSON.stringify(obj, null, 2);
+      head.appendChild(s);
+    }
   }
 
   // jsdom's document-level serialization drops the whitespace between the
@@ -244,7 +292,7 @@ function build(lang) {
       '<!-- SPDX-License-Identifier: MIT -->\n<!doctype html>\n\n',
     );
 
-  const out = join(landingDir, PAGES[lang]);
+  const out = join(landingDir, outRelPath);
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, html, 'utf8');
   return out;
@@ -262,8 +310,10 @@ function copyStaticAssets() {
 function main() {
   copyStaticAssets();
 
-  for (const lang of Object.keys(PAGES)) {
-    console.warn('built', build(lang));
+  for (const pageId of Object.keys(PAGE_FILES)) {
+    for (const lang of ['ja', 'en']) {
+      console.warn('built', build(pageId, lang));
+    }
   }
 
   let robots = 'User-agent: *\nAllow: /\n';
@@ -272,18 +322,17 @@ function main() {
 
   const sitemapPath = join(landingDir, 'sitemap.xml');
   if (SITE) {
-    const urls = Object.keys(PAGES).map((lang) => {
-      const loc = SITE + (lang === 'ja' ? '' : 'en/');
-      const altLangs = ['ja', 'en'];
-      let alts = altLangs
-        .map(
-          (l) =>
-            `\n    <xhtml:link rel="alternate" hreflang="${l}" href="${SITE}${l === 'ja' ? '' : 'en/'}"/>`,
-        )
-        .join('');
-      alts += `\n    <xhtml:link rel="alternate" hreflang="x-default" href="${SITE}"/>`;
-      return `  <url>\n    <loc>${loc}</loc>${alts}\n  </url>`;
-    });
+    const urls = Object.keys(PAGE_FILES).flatMap((pageId) =>
+      ['ja', 'en'].map((lang) => {
+        const loc = pageUrl(pageId, lang);
+        const altLangs = ['ja', 'en'];
+        let alts = altLangs
+          .map((l) => `\n    <xhtml:link rel="alternate" hreflang="${l}" href="${pageUrl(pageId, l)}"/>`)
+          .join('');
+        alts += `\n    <xhtml:link rel="alternate" hreflang="x-default" href="${pageUrl(pageId, 'ja')}"/>`;
+        return `  <url>\n    <loc>${loc}</loc>${alts}\n  </url>`;
+      }),
+    );
     writeFileSync(
       sitemapPath,
       '<?xml version="1.0" encoding="UTF-8"?>\n' +

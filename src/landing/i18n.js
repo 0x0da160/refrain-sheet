@@ -231,12 +231,74 @@ export const I18N = {
     'footer.l3': 'リリース',
     'footer.l4': 'ドキュメント',
     'footer.privacy': 'Cookie設定',
+    'footer.privacyPolicy': 'プライバシーポリシー',
+    'footer.terms': '利用規約',
     'footer.note': 'MIT License · Refrain Sheet 公式の紹介ページです',
 
     'consent.text':
       'このページ（refrain-sheet.com）は、訪問状況の把握のために Google Analytics を利用します。同意した場合のみ読み込まれ、いつでも取り消せます。CSVを編集するアプリ本体（app.refrain-sheet.com）は引き続き通信を一切行いません。',
     'consent.decline': '同意しない',
     'consent.accept': '同意する',
+
+    'privacy.meta.title': 'プライバシーポリシー | Refrain Sheet',
+    'privacy.meta.desc':
+      'Refrain Sheetの紹介ページ（refrain-sheet.com）とホスト版アプリ（app.refrain-sheet.com）における、アクセス解析やGoogleドライブ連携などの情報の取り扱いについて説明します。',
+    'privacy.h1': 'プライバシーポリシー',
+    'privacy.intro.p':
+      '本ページは、Refrain Sheetの紹介ページ（refrain-sheet.com）およびホスト版アプリ（app.refrain-sheet.com）における情報の取り扱いについて説明します。ダウンロードして使う配布版（ブラウザ上で完全オフライン動作する版）は、いかなるネットワーク通信も行わないため、本ポリシーの対象外です。',
+    'privacy.analytics.h2': '紹介ページのアクセス解析',
+    'privacy.analytics.p1':
+      '紹介ページ（refrain-sheet.com）は、訪問状況を把握するためにGoogle Analyticsを利用する場合があります。読み込まれるのは、ページ下部の同意バナーで「同意する」を選んだ場合のみで、同意しない限りスクリプトは一切読み込まれません。同意はいつでもフッターの「Cookie設定」から変更できます。',
+    'privacy.analytics.p2':
+      '収集されうる情報は、閲覧したページ、参照元、おおよその地域、デバイスやブラウザの種類など、Google Analyticsが標準で取得する情報です。氏名やメールアドレスなど、個人を特定できる情報を本サイトが意図的に収集することはありません。',
+    'privacy.analytics.googleLink': 'Google プライバシーポリシー',
+    'privacy.drive.h2': 'ホスト版アプリとGoogleドライブ連携',
+    'privacy.drive.p1':
+      'ホスト版アプリ（app.refrain-sheet.com）では、「Googleドライブから開く」または「Googleドライブに保存」を選んだ場合のみ、Google Identity Servicesを通じてGoogleへのサインインを求めます。要求する権限（スコープ）は drive.file のみで、この機能を通じて開いた、または新規作成したファイルに限定されます。ドライブ内のそれ以外のファイルにはアクセスできません。',
+    'privacy.drive.p2':
+      '取得したアクセストークンはブラウザのメモリ上にのみ保持され、ページの再読み込みやタブを閉じると失われます。localStorage・Cookie・IndexedDBなど、永続する場所には保存しません。',
+    'privacy.drive.p3':
+      'ファイルの内容はブラウザとGoogleドライブの間で直接やり取りされ、Refrain Sheetが運営するサーバーを経由しません。Refrain Sheetにはサーバー側のバックエンドが存在しません。',
+    'privacy.drive.googleLink': 'Google プライバシーポリシー',
+    'privacy.app.h2': 'CSVエディタ本体の通信',
+    'privacy.app.p':
+      'Googleドライブ連携を使わない限り、CSVを開く・編集する・保存するといった操作は、いかなるネットワーク通信も発生させません。ファイルはすべてブラウザの中だけで処理され、外部に送信されることはありません。',
+    'privacy.storage.h2': 'Cookieとローカルストレージ',
+    'privacy.storage.p':
+      '紹介ページの同意設定（Analyticsに同意したかどうか）は、お使いのブラウザのlocalStorageに保存されます。ブラウザの設定からいつでも削除できます。',
+    'privacy.changes.h2': '本ポリシーの変更',
+    'privacy.changes.p':
+      '機能の追加や法令の変更に応じて、本ポリシーを更新することがあります。重要な変更がある場合は、このページの内容を更新してお知らせします。',
+    'privacy.contact.h2': 'お問い合わせ',
+    'privacy.contact.p':
+      'プライバシーに関するご質問やご要望は、以下のGitHub Issuesからお寄せください。開発者: 0x0da160。',
+    'privacy.contact.link': 'GitHub Issues',
+
+    'terms.meta.title': '利用規約 | Refrain Sheet',
+    'terms.meta.desc': 'Refrain Sheetの紹介ページおよびホスト版アプリのご利用にあたっての条件を説明します。',
+    'terms.h1': '利用規約',
+    'terms.intro.p':
+      '本規約は、Refrain Sheetの紹介ページ（refrain-sheet.com）およびホスト版アプリ（app.refrain-sheet.com、以下「本サービス」）のご利用条件を定めるものです。本サービスをご利用いただくことで、本規約に同意したものとみなします。',
+    'terms.license.h2': 'ライセンス',
+    'terms.license.p':
+      'Refrain Sheetのソースコードは MIT License のもとで公開されています。ダウンロードして使う配布版を含め、ソースコードの取り扱いはMIT Licenseに従います。',
+    'terms.license.link': 'MIT License（LICENSEファイル）',
+    'terms.asis.h2': '「現状有姿」での提供',
+    'terms.asis.p':
+      '本サービスは「現状有姿（AS IS）」で提供され、商品性・特定目的への適合性を含め、明示または黙示を問わずいかなる保証も行いません。本サービスの利用により生じたいかなる損害についても、開発者は責任を負いません。重要なCSVファイルなどのデータは、編集の前に必ずバックアップを取ってください。',
+    'terms.prohibited.h2': '禁止事項',
+    'terms.prohibited.p':
+      '本サービスに対して、法令に違反する行為、本サービスや関連インフラへ過度な負荷をかける行為、脆弱性を悪用する行為、その他本サービスの通常の提供を妨げる行為を行わないでください。',
+    'terms.third.h2': '第三者サービス',
+    'terms.third.p':
+      '本サービスは、紹介ページでのGoogle Analytics（同意時のみ）、ホスト版アプリでのGoogleドライブ連携など、第三者のサービスを利用する場合があります。これらの利用には、各サービス提供者自身の利用規約・プライバシーポリシーが別途適用されます。',
+    'terms.changes.h2': '規約の変更',
+    'terms.changes.p':
+      '本規約は、機能の追加や法令の変更に応じて、予告なく変更されることがあります。変更後も本サービスの利用を継続した場合、変更後の規約に同意したものとみなします。',
+    'terms.governing.h2': '準拠法・お問い合わせ',
+    'terms.governing.p':
+      '本規約は特定の国の法律や裁判管轄を指定せず、MIT Licenseと同様に簡易な内容としています。本サービスに関するご質問やご意見は、以下のGitHub Issuesからお寄せください。開発者: 0x0da160。',
+    'terms.governing.link': 'GitHub Issues',
   },
 
   en: {
@@ -477,11 +539,73 @@ export const I18N = {
     'footer.l3': 'Releases',
     'footer.l4': 'Docs',
     'footer.privacy': 'Cookie settings',
+    'footer.privacyPolicy': 'Privacy Policy',
+    'footer.terms': 'Terms of Service',
     'footer.note': 'MIT License · The official introduction page for Refrain Sheet',
 
     'consent.text':
       'This page (refrain-sheet.com) uses Google Analytics to measure visits. It only loads if you accept, and you can withdraw that choice at any time. The app itself (app.refrain-sheet.com), where you edit CSVs, continues to make no network connections at all.',
     'consent.decline': 'Decline',
     'consent.accept': 'Accept',
+
+    'privacy.meta.title': 'Privacy Policy | Refrain Sheet',
+    'privacy.meta.desc':
+      "How Refrain Sheet's introduction page (refrain-sheet.com) and hosted app (app.refrain-sheet.com) handle data, including analytics and the Google Drive integration.",
+    'privacy.h1': 'Privacy Policy',
+    'privacy.intro.p':
+      "This page explains how information is handled on Refrain Sheet's introduction page (refrain-sheet.com) and hosted app (app.refrain-sheet.com). The downloadable build, which runs fully offline in the browser, makes no network requests at all and is not covered by this policy.",
+    'privacy.analytics.h2': 'Analytics on the introduction page',
+    'privacy.analytics.p1':
+      'The introduction page (refrain-sheet.com) may use Google Analytics to understand visits. It loads only if you choose "Accept" in the consent banner at the bottom of the page; the script never loads otherwise. You can change that choice anytime from "Cookie settings" in the footer.',
+    'privacy.analytics.p2':
+      'The information that may be collected is whatever Google Analytics collects by default — pages viewed, referrer, approximate location, and device/browser type. This site does not intentionally collect personally identifying information such as your name or email address.',
+    'privacy.analytics.googleLink': 'Google Privacy Policy',
+    'privacy.drive.h2': 'The hosted app and the Google Drive integration',
+    'privacy.drive.p1':
+      'The hosted app (app.refrain-sheet.com) asks you to sign in to Google, via Google Identity Services, only when you choose "Open from Drive" or "Save to Drive". The requested permission (scope) is drive.file only, limited to files you opened or created through this feature — it cannot access any other file in your Drive.',
+    'privacy.drive.p2':
+      "The access token is kept only in the browser's memory and is gone on reload or when the tab is closed. It is never written to localStorage, cookies, or IndexedDB.",
+    'privacy.drive.p3':
+      'File contents pass directly between your browser and Google Drive; they never pass through a server operated by Refrain Sheet, because Refrain Sheet has no server-side backend.',
+    'privacy.drive.googleLink': 'Google Privacy Policy',
+    'privacy.app.h2': 'The CSV editor itself',
+    'privacy.app.p':
+      'Unless you use the Google Drive integration, opening, editing, and saving a CSV makes no network requests at all. Files are processed entirely inside your browser and are never sent anywhere.',
+    'privacy.storage.h2': 'Cookies and local storage',
+    'privacy.storage.p':
+      "Your analytics consent choice on the introduction page is stored in your browser's localStorage. You can delete it at any time from your browser's settings.",
+    'privacy.changes.h2': 'Changes to this policy',
+    'privacy.changes.p':
+      'This policy may be updated as features change or as required by law. Material changes will be reflected on this page.',
+    'privacy.contact.h2': 'Contact',
+    'privacy.contact.p':
+      'For privacy questions or requests, please reach out via the GitHub Issues linked below. Developer: 0x0da160.',
+    'privacy.contact.link': 'GitHub Issues',
+
+    'terms.meta.title': 'Terms of Service | Refrain Sheet',
+    'terms.meta.desc': "The terms for using Refrain Sheet's introduction page and hosted app.",
+    'terms.h1': 'Terms of Service',
+    'terms.intro.p':
+      'These Terms govern your use of Refrain Sheet\'s introduction page (refrain-sheet.com) and hosted app (app.refrain-sheet.com, together "the Service"). By using the Service, you agree to these Terms.',
+    'terms.license.h2': 'License',
+    'terms.license.p':
+      "Refrain Sheet's source code is published under the MIT License. That license governs the source code, including the downloadable build.",
+    'terms.license.link': 'MIT License (LICENSE file)',
+    'terms.asis.h2': 'Provided "as is"',
+    'terms.asis.p':
+      'The Service is provided "AS IS", without warranty of any kind, express or implied, including merchantability or fitness for a particular purpose. The developer is not liable for any damages arising from your use of the Service. Always back up important data, such as CSV files, before editing.',
+    'terms.prohibited.h2': 'Prohibited use',
+    'terms.prohibited.p':
+      "Do not use the Service to violate any law, to place undue load on the Service or its infrastructure, to exploit a vulnerability, or to otherwise interfere with the Service's normal operation.",
+    'terms.third.h2': 'Third-party services',
+    'terms.third.p':
+      "The Service may use third-party services, such as Google Analytics on the introduction page (only with consent) and the Google Drive integration in the hosted app. Use of those services is separately governed by each provider's own terms and privacy policy.",
+    'terms.changes.h2': 'Changes to these Terms',
+    'terms.changes.p':
+      'These Terms may change without notice as features change or as required by law. Continuing to use the Service after a change means you accept the revised Terms.',
+    'terms.governing.h2': 'Governing law and contact',
+    'terms.governing.p':
+      'These Terms do not name a specific governing law or jurisdiction, kept informal in the same spirit as the MIT License. For questions or feedback about the Service, please reach out via the GitHub Issues linked below. Developer: 0x0da160.',
+    'terms.governing.link': 'GitHub Issues',
   },
 };

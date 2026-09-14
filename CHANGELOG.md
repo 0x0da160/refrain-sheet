@@ -38,16 +38,6 @@ release-time half (retitling `Unreleased`) is still done by hand.
   keyboard-shortcut labels ("新規スプレッドシート") and with the spacing used
   everywhere else the app refers to an "RSFスプレッドシート". It now reads
   "新規RSFスプレッドシート". ([#430](https://github.com/0x0da160/refrain-sheet/issues/430))
-- The **Open from Drive…** file picker rendered with broken layout. Google's
-  picker styles its own dialog inline, which the hosted app's
-  Content-Security-Policy was blocking. The hosted build now permits inline
-  styles; the downloadable offline build is unaffected and its policy is
-  unchanged. ([#425](https://github.com/0x0da160/refrain-sheet/issues/425))
-- The **File > Google Drive** menu did not appear on app.refrain-sheet.com in
-  v0.7.26. The release build was produced without the Google OAuth client id,
-  which compiles Drive sync out entirely, so the feature shipped invisible. The
-  release now injects the credential and refuses to publish a hosted build that
-  is missing it. ([#416](https://github.com/0x0da160/refrain-sheet/issues/416))
 - Ctrl+S / Cmd+S (and **File > Save**) on a tab opened from or previously saved
   to Google Drive always fell back to a local save/download instead of
   overwriting that same Drive file. It now saves back to Drive, matching
@@ -59,6 +49,31 @@ release-time half (retitling `Unreleased`) is still done by hand.
   came from Google Drive, so you can tell the two apart at a glance when
   several files are open at once. Hover a tab to see the same distinction
   spelled out in its tooltip. ([#432](https://github.com/0x0da160/refrain-sheet/issues/432))
+
+## [0.7.28] - 2026-09-13
+
+### Fixed
+
+- The **Open from Drive…** file picker rendered with broken layout. Google's
+  picker styles its own dialog inline, which the hosted app's
+  Content-Security-Policy was blocking. The hosted build now permits inline
+  styles; the downloadable offline build is unaffected and its policy is
+  unchanged. ([#425](https://github.com/0x0da160/refrain-sheet/issues/425))
+
+## [0.7.27] - 2026-09-13
+
+### Fixed
+
+- The **File > Google Drive** menu did not appear on app.refrain-sheet.com in
+  v0.7.26. The release build was produced without the Google OAuth client id,
+  which compiles Drive sync out entirely, so the feature shipped invisible. The
+  release now injects the credential and refuses to publish a hosted build that
+  is missing it. ([#416](https://github.com/0x0da160/refrain-sheet/issues/416))
+
+## [0.7.26] - 2026-09-13
+
+### Added
+
 - **File > Google Drive** opens, saves, and overwrites spreadsheets in Google
   Drive, on the hosted app at app.refrain-sheet.com. **Open from Drive…** picks
   a file through Google's own file picker; **Save to Drive** overwrites the file
@@ -73,38 +88,40 @@ release-time half (retitling `Unreleased`) is still done by hand.
   no dragging) now opens the same right-click context menu a mouse gets,
   giving touch input a way to reach menu-only actions like Insert Row/Column
   or Delete Row/Column. ([#406](https://github.com/0x0da160/refrain-sheet/issues/406))
-- **File > Export as CSV…** now lets you choose a **delimiter** (keep the
-  workbook's own delimiter, or override with comma / semicolon / tab) and a
-  **quoting** style (quote only when needed, the default, or always quote
-  every field), alongside the existing encoding/BOM/line-ending options.
-  ([#388](https://github.com/0x0da160/refrain-sheet/issues/388))
-- A **Comments panel** (View > Comments Panel), docked to the right of the
-  grid, lists every cell comment with a scope toggle between the current
-  worksheet and the whole workbook; clicking an entry selects and reveals its
-  cell, switching worksheets first if needed.
-  ([#375](https://github.com/0x0da160/refrain-sheet/issues/375))
-- The landing page's spreadsheet section now lists the Comments Panel as a
-  feature card (both languages), and its five marketing screenshots were
-  recaptured from the current UI. A new `npm run capture:landing-screenshots`
-  command (`scripts/capture-landing-screenshots.mjs`) drives the built app in
-  headless Chromium to regenerate those screenshots — the master `.webp` plus
-  every responsive srcset size `template.html` references — on demand instead
-  of by hand.
-  ([#379](https://github.com/0x0da160/refrain-sheet/issues/379))
-- Menu items across File/Edit/Search/Sheet/Format/Data/Help now show a small
-  leading icon (reusing the same left-hand space a checkable item's checkmark
-  already occupied, so nothing widens), making the menus easier to scan at a
-  glance. The Borders dialog gained an **All** checkbox alongside Top/Right/
-  Bottom/Left, and those four are now arranged in a spatial cross layout that
-  matches their actual position on a cell instead of a plain vertical list.
-  ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
-- The Filter, Sort, Data Validation, and Format (colors/borders/number format/
-  conditional formatting) dialogs are now a single **dockable, resizable side
-  panel** instead of separate popups: it can be docked to the top, right,
-  bottom, or left edge of the window from buttons in its header, and resized
-  by dragging its inner edge — mirroring the existing Comments panel, and
-  keeping the sheet visible and usable behind it while open.
-  ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
+
+### Fixed
+
+- On iOS Safari, the page no longer stays visually shifted upward after the
+  on-screen keyboard closes while a bottom-docked panel (Comments, or the
+  Filter/Sort/Format/SQL Query side panel) is open.
+  ([#402](https://github.com/0x0da160/refrain-sheet/issues/402))
+
+## [0.7.25] - 2026-09-13
+
+### Changed
+
+- The **Comments panel** and the **SQL Query** dialog now use the same
+  dockable, resizable side panel as Filter/Sort/Format — pick top, right,
+  bottom, or left from the header, and resize by dragging its inner edge —
+  instead of their own separate layouts. A panel docked to the top or bottom
+  now sits below the menu bar / above the status bar instead of covering
+  them. ([#399](https://github.com/0x0da160/refrain-sheet/issues/399))
+
+### Fixed
+
+- The right-click context menu no longer closes a submenu while you're
+  moving the pointer toward it: crossing a sibling item on a diagonal path
+  into an open submenu (or hovering one of the submenu's own items) used to
+  dismiss it before you could click anything inside. Closing a sibling's
+  submenu is now a "triangle safe zone" test (the same technique used by
+  Amazon's mega-menu) — it only closes when the pointer is actually heading
+  away from the open submenu.
+  ([#399](https://github.com/0x0da160/refrain-sheet/issues/399))
+
+## [0.7.24] - 2026-09-12
+
+### Added
+
 - **File > New CSV** (also on the welcome screen) creates a blank CSV
   document, alongside the existing **File > New** (blank RSF spreadsheet).
   ([#396](https://github.com/0x0da160/refrain-sheet/issues/396))
@@ -122,18 +139,34 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
-- The **Comments panel** and the **SQL Query** dialog now use the same
-  dockable, resizable side panel as Filter/Sort/Format — pick top, right,
-  bottom, or left from the header, and resize by dragging its inner edge —
-  instead of their own separate layouts. A panel docked to the top or bottom
-  now sits below the menu bar / above the status bar instead of covering
-  them. ([#399](https://github.com/0x0da160/refrain-sheet/issues/399))
 - The Filter/Sort/Data Validation/Format side panel no longer closes when you
   click outside it — a stray click on the sheet while adjusting its settings
   no longer silently discards them — and it now reserves its own space along
   the docked edge (a genuine split view) instead of floating over the sheet.
   Escape, window blur, and its own Cancel button still close it.
   ([#396](https://github.com/0x0da160/refrain-sheet/issues/396))
+
+## [0.7.23] - 2026-09-12
+
+### Added
+
+- Menu items across File/Edit/Search/Sheet/Format/Data/Help now show a small
+  leading icon (reusing the same left-hand space a checkable item's checkmark
+  already occupied, so nothing widens), making the menus easier to scan at a
+  glance. The Borders dialog gained an **All** checkbox alongside Top/Right/
+  Bottom/Left, and those four are now arranged in a spatial cross layout that
+  matches their actual position on a cell instead of a plain vertical list.
+  ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
+- The Filter, Sort, Data Validation, and Format (colors/borders/number format/
+  conditional formatting) dialogs are now a single **dockable, resizable side
+  panel** instead of separate popups: it can be docked to the top, right,
+  bottom, or left edge of the window from buttons in its header, and resized
+  by dragging its inner edge — mirroring the existing Comments panel, and
+  keeping the sheet visible and usable behind it while open.
+  ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
+
+### Changed
+
 - The default color theme for new users is now **Hybrid** (the UI chrome
   follows the OS/browser preference, while the spreadsheet grid stays light)
   instead of System. ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
@@ -146,36 +179,8 @@ release-time half (retitling `Unreleased`) is still done by hand.
   exported from the File menu.
   ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
 
-- The marketing landing page (refrain-sheet.com) reworks its copy and layout
-  for first-time visitors: a shorter hero promise with a one-line "who this
-  is for", a new "Use cases" section right after the problem statement, the
-  top stats band trimmed to the three numbers that matter most (bytes
-  changed, fields changed, network requests — with the function/dependency
-  counts still shown further down, in the spreadsheet and security
-  sections), and a short reassurance line (no sign-up, nothing uploaded, try
-  it with a copy first) next to the final call to action. No change to the
-  app itself. ([#385](https://github.com/0x0da160/refrain-sheet/issues/385))
-
 ### Fixed
 
-- On iOS Safari, the page no longer stays visually shifted upward after the
-  on-screen keyboard closes while a bottom-docked panel (Comments, or the
-  Filter/Sort/Format/SQL Query side panel) is open.
-  ([#402](https://github.com/0x0da160/refrain-sheet/issues/402))
-- The right-click context menu no longer closes a submenu while you're
-  moving the pointer toward it: crossing a sibling item on a diagonal path
-  into an open submenu (or hovering one of the submenu's own items) used to
-  dismiss it before you could click anything inside. Closing a sibling's
-  submenu is now a "triangle safe zone" test (the same technique used by
-  Amazon's mega-menu) — it only closes when the pointer is actually heading
-  away from the open submenu.
-  ([#399](https://github.com/0x0da160/refrain-sheet/issues/399))
-- Bold-formatted cells in the grid now look noticeably bolder. On systems
-  where the selected spreadsheet font falls back to MS Gothic / BIZ UDGothic,
-  those fonts have no true bold glyphs, so the browser's synthesized ("faux")
-  bold barely differed from regular weight; bold cells now also get a thin
-  text-stroke outline that reinforces the weight regardless of which font
-  actually resolved. ([#389](https://github.com/0x0da160/refrain-sheet/issues/389))
 - **Copy Image** now reflects **Wrap Text** (View > Wrap Text): a wrapped
   cell's row grows in the captured image exactly as it does on screen, with
   the text painted on multiple lines, instead of always being ellipsis-
@@ -186,6 +191,60 @@ release-time half (retitling `Unreleased`) is still done by hand.
   window — when resized; the body now grows/shrinks to fill the available
   space and scrolls if the content still doesn't fit.
   ([#393](https://github.com/0x0da160/refrain-sheet/issues/393))
+
+## [0.7.22] - 2026-09-12
+
+### Added
+
+- **File > Export as CSV…** now lets you choose a **delimiter** (keep the
+  workbook's own delimiter, or override with comma / semicolon / tab) and a
+  **quoting** style (quote only when needed, the default, or always quote
+  every field), alongside the existing encoding/BOM/line-ending options.
+  ([#388](https://github.com/0x0da160/refrain-sheet/issues/388))
+
+### Fixed
+
+- Bold-formatted cells in the grid now look noticeably bolder. On systems
+  where the selected spreadsheet font falls back to MS Gothic / BIZ UDGothic,
+  those fonts have no true bold glyphs, so the browser's synthesized ("faux")
+  bold barely differed from regular weight; bold cells now also get a thin
+  text-stroke outline that reinforces the weight regardless of which font
+  actually resolved. ([#389](https://github.com/0x0da160/refrain-sheet/issues/389))
+
+## [0.7.21] - 2026-09-12
+
+### Added
+
+- The landing page's spreadsheet section now lists the Comments Panel as a
+  feature card (both languages), and its five marketing screenshots were
+  recaptured from the current UI. A new `npm run capture:landing-screenshots`
+  command (`scripts/capture-landing-screenshots.mjs`) drives the built app in
+  headless Chromium to regenerate those screenshots — the master `.webp` plus
+  every responsive srcset size `template.html` references — on demand instead
+  of by hand.
+  ([#379](https://github.com/0x0da160/refrain-sheet/issues/379))
+
+### Changed
+
+- The marketing landing page (refrain-sheet.com) reworks its copy and layout
+  for first-time visitors: a shorter hero promise with a one-line "who this
+  is for", a new "Use cases" section right after the problem statement, the
+  top stats band trimmed to the three numbers that matter most (bytes
+  changed, fields changed, network requests — with the function/dependency
+  counts still shown further down, in the spreadsheet and security
+  sections), and a short reassurance line (no sign-up, nothing uploaded, try
+  it with a copy first) next to the final call to action. No change to the
+  app itself. ([#385](https://github.com/0x0da160/refrain-sheet/issues/385))
+
+## [0.7.20] - 2026-09-12
+
+### Added
+
+- A **Comments panel** (View > Comments Panel), docked to the right of the
+  grid, lists every cell comment with a scope toggle between the current
+  worksheet and the whole workbook; clicking an entry selects and reveals its
+  cell, switching worksheets first if needed.
+  ([#375](https://github.com/0x0da160/refrain-sheet/issues/375))
 
 ## [0.7.19] - 2026-09-12
 

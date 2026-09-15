@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
+import { t } from '../src/app/i18n';
 import { RsfDocument } from '../src/core/rsf-document';
 import { Grid, OVERSCAN_ROWS, ROW_HEIGHT, COL_WIDTH, MIN_COL_WIDTH, ROW_HEAD_WIDTH } from '../src/ui/grid';
 import { doc } from './helpers';
@@ -649,5 +650,72 @@ describe('Escape cancels in-progress drags (#288)', () => {
     document.dispatchEvent(new MouseEvent('mouseup'));
     expect(moveRange).not.toHaveBeenCalled();
     expect(tab.doc.getDisplayValue(0, 0)).toBe('x');
+  });
+});
+
+describe('add row / add column buttons anchored to the grid edges (#467)', () => {
+  it('offers Add row / Add column controls with localized accessible names, sitting on the grid itself', () => {
+    const { grid } = setup(bigCsv(5, 3));
+    const addRow = grid.element.querySelector<HTMLButtonElement>('.sheet-grid-add-row')!;
+    const addColumn = grid.element.querySelector<HTMLButtonElement>('.sheet-grid-add-col')!;
+    expect(addRow.getAttribute('aria-label')).toBe(t('grid.addRow'));
+    expect(addColumn.getAttribute('aria-label')).toBe(t('grid.addColumn'));
+    expect(addRow.disabled).toBe(false);
+    expect(addColumn.disabled).toBe(false);
+    // Both live inside the scrollable canvas, not the surrounding chrome.
+    expect(grid.element.querySelector('.vgrid-canvas')!.contains(addRow)).toBe(true);
+    expect(grid.element.querySelector('.vgrid-canvas')!.contains(addColumn)).toBe(true);
+  });
+
+  it('anchors add-row below the last row and add-column right of the last column', () => {
+    const { grid } = setup(bigCsv(5, 3));
+    const canvas = grid.element.querySelector<HTMLElement>('.vgrid-canvas')!;
+    const rowAnchor = grid.element.querySelector<HTMLElement>('.vgrid-add-row-anchor')!;
+    const colAnchor = grid.element.querySelector<HTMLElement>('.vgrid-add-col-anchor')!;
+    expect(rowAnchor.hidden).toBe(false);
+    expect(colAnchor.hidden).toBe(false);
+    // The anchors sit exactly at the content's own bottom/right edge, i.e.
+    // the true last-row / last-column boundary, not a fixed viewport corner.
+    expect(rowAnchor.style.top).toBe(canvas.style.height);
+    expect(colAnchor.style.left).toBe(canvas.style.width);
+  });
+
+  it('repositions the anchors to the new bottom/right edge after a row/column is appended', async () => {
+    const { grid, commands } = setup(bigCsv(5, 3));
+    const canvas = grid.element.querySelector<HTMLElement>('.vgrid-canvas')!;
+    const rowAnchor = grid.element.querySelector<HTMLElement>('.vgrid-add-row-anchor')!;
+    const colAnchor = grid.element.querySelector<HTMLElement>('.vgrid-add-col-anchor')!;
+    const rowTopBefore = rowAnchor.style.top;
+    const colLeftBefore = colAnchor.style.left;
+
+    await commands.run('sheet.addRow');
+    grid.refresh();
+    expect(rowAnchor.style.top).not.toBe(rowTopBefore);
+    expect(rowAnchor.style.top).toBe(canvas.style.height);
+
+    await commands.run('sheet.addColumn');
+    grid.refresh();
+    expect(colAnchor.style.left).not.toBe(colLeftBefore);
+    expect(colAnchor.style.left).toBe(canvas.style.width);
+  });
+
+  it('runs sheet.addRow / sheet.addColumn when clicked', () => {
+    const { grid, commands } = setup(bigCsv(5, 3));
+    const run = vi.spyOn(commands, 'run');
+    grid.element.querySelector<HTMLButtonElement>('.sheet-grid-add-row')!.click();
+    expect(run).toHaveBeenCalledWith('sheet.addRow');
+    grid.element.querySelector<HTMLButtonElement>('.sheet-grid-add-col')!.click();
+    expect(run).toHaveBeenCalledWith('sheet.addColumn');
+  });
+
+  it('hides both buttons when no document is open', () => {
+    const state = new AppState();
+    const commands = new Commands(state, noopUi, document);
+    const grid = new Grid(state, commands);
+    grid.refresh();
+    const rowAnchor = grid.element.querySelector<HTMLElement>('.vgrid-add-row-anchor')!;
+    const colAnchor = grid.element.querySelector<HTMLElement>('.vgrid-add-col-anchor')!;
+    expect(rowAnchor.hidden).toBe(true);
+    expect(colAnchor.hidden).toBe(true);
   });
 });

@@ -2772,6 +2772,20 @@ table.diff-table td {
    -original-touch-point behavior open a different item than the one tapped
    (#267); wrapping instead of scrolling removes that interaction entirely.
 
+   `#app` also switches from a plain flex column to a small grid: `.app-body`
+   keeps the flexible top row, and `.menu-bar` / `.status-bar` (both direct
+   `#app` children) become two columns of one `auto`-height bottom row
+   instead of two separate rows, so the menu toggle sits within thumb reach
+   and shares its row with the status bar rather than costing its own strip
+   (#470). Expanding `.menu-row` grows `.menu-bar` to the full row width —
+   `.mobile-menu-open` is a class `MenuBar.render` toggles on `.menu-bar`
+   itself for exactly this, since plain CSS has no other way to react, on a
+   *sibling*, to a class several levels down in `.menu-bar`'s own subtree —
+   and hides `.status-bar` for that row's duration via the sibling selector
+   below, rather than squeezing the expanded menu into the narrow collapsed
+   column or overlaying it on the grid, matching the push-in-place behavior
+   `#267` already established (just relocated to the bottom edge).
+
    Spacing/margins/font-sizes below are trimmed to the necessary minimum for
    a narrow viewport (#462), but every `min-height`/`min-width` tap-target
    floor (44px/40px/36px) and the 16px input-zoom floor further below are
@@ -2779,9 +2793,37 @@ table.diff-table td {
    padding, so tightening padding here does not shrink the actual tap
    target. */
 @media (max-width: 700px) {
+  #app {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: 1fr auto;
+  }
+
+  .app-body {
+    grid-row: 1;
+    grid-column: 1 / -1;
+  }
+
   .menu-bar {
+    grid-row: 2;
+    grid-column: 1;
+    border-bottom: none;
+    border-top: 1px solid var(--border);
     padding: 0 2px;
     flex-wrap: wrap;
+  }
+
+  .status-bar {
+    grid-row: 2;
+    grid-column: 2;
+  }
+
+  .menu-bar.mobile-menu-open {
+    grid-column: 1 / -1;
+  }
+
+  .menu-bar.mobile-menu-open ~ .status-bar {
+    display: none;
   }
 
   .menu-bar .app-name {

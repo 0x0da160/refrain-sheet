@@ -132,6 +132,21 @@ describe('mobile menu bar (hamburger toggle, expands below the logo row)', () =>
     expect(bar.element.querySelector('.menu-row')!.classList.contains('open')).toBe(false);
   });
 
+  it('toggles a mobile-menu-open class on the bar itself, in step with the row', () => {
+    // At the mobile breakpoint, `.menu-bar` shares a row with `.status-bar`
+    // (#470); this class is what the media query keys off of to grow
+    // `.menu-bar` to the full row width and hide `.status-bar` while the row
+    // is expanded, since CSS otherwise has no way to react, on a sibling, to
+    // a class several levels down in `.menu-bar`'s own subtree.
+    const bar = buildBar();
+    const toggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!;
+    expect(bar.element.classList.contains('mobile-menu-open')).toBe(false);
+    toggle.click();
+    expect(bar.element.classList.contains('mobile-menu-open')).toBe(true);
+    toggle.click();
+    expect(bar.element.classList.contains('mobile-menu-open')).toBe(false);
+  });
+
   it('opens a top-level menu from the expanded row', () => {
     const bar = buildBar();
     bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!.click();

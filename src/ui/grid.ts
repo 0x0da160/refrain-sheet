@@ -630,9 +630,11 @@ export class Grid {
   /** A completed long-press that has not yet turned into a drag — a mouse has
    * a right-click for the context menu, but touch has no equivalent input, so
    * a stationary press-and-hold (#406) opens it instead once the finger
-   * lifts. Any real movement during the hold cancels this back to `null` and
-   * leaves the gesture to the existing drag handling above. */
-  private longPressMenuTarget: PointerEvent | null = null;
+   * lifts. `x`/`y` are the press origin, used to tell a held finger's own
+   * sensor jitter apart from real movement (#475) — only movement past the
+   * tolerance cancels this back to `null` and leaves the gesture to the
+   * existing drag handling above. */
+  private longPressMenuTarget: { event: PointerEvent; x: number; y: number } | null = null;
   /** A completed quick tap awaiting a possible second tap to complete a
    * touch double-tap-to-edit gesture (see `DOUBLE_TAP_MS`); cleared once the
    * window elapses with no matching second tap, or consumed immediately when
@@ -2510,10 +2512,21 @@ export class Grid {
     ) {
       return;
     }
-    // Reaching here means a drag is actively being driven, so the completed
-    // long-press turned into a drag rather than a stationary hold — the
-    // pending context-menu-on-release no longer applies.
-    this.longPressMenuTarget = null;
+    if (this.longPressMenuTarget) {
+      const menuOrigin = this.longPressMenuTarget;
+      if (
+        Math.hypot(event.clientX - menuOrigin.x, event.clientY - menuOrigin.y) <= LONG_PRESS_MOVE_TOLERANCE_PX
+      ) {
+        // A held finger keeps reporting small jitter even while stationary —
+        // only movement past the tolerance means the completed hold turned
+        // into a drag (#475); a jittery `pointermove` here is not that.
+        return;
+      }
+      // Real movement past the tolerance: the completed long-press turned
+      // into a drag rather than a stationary hold — the pending
+      // context-menu-on-release no longer applies.
+      this.longPressMenuTarget = null;
+    }
     // A drag is confirmed and moving: block the native scroll/pan this touch
     // would otherwise start, and drive the drag through the same code the
     // mouse path uses.
@@ -2542,7 +2555,7 @@ export class Grid {
     // taking the gesture away, e.g. for a scroll or an interruption) does not
     // count as a completed press, so the menu only opens on a real lift.
     if (menuTarget && event.type === 'pointerup') {
-      this.onContextMenu(menuTarget);
+      this.onContextMenu(menuTarget.event);
       return;
     }
     if (wasQuickTap && event.type === 'pointerup') {
@@ -2614,7 +2627,7 @@ export class Grid {
       // The hold just fired and nothing has moved yet: this is a candidate
       // for the context menu once the finger lifts (onPointerMove clears it
       // again the moment real movement turns this into an actual drag).
-      this.longPressMenuTarget = origin.event;
+      this.longPressMenuTarget = { event: origin.event, x: origin.x, y: origin.y };
     }, LONG_PRESS_MS);
   }
 

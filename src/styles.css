@@ -2816,6 +2816,15 @@ table.diff-table td {
     min-height: 40px;
   }
 
+  /* The 40px tap-target floor above already sets the tabs' own height;
+     `.sheet-strip`/`.sheet-grid-actions` desktop padding (3px top/bottom)
+     only adds surrounding chrome on top of that floor, so it's trimmed
+     here without touching the floor itself (#468). */
+  .sheet-strip,
+  .sheet-grid-actions {
+    padding: 1px 6px;
+  }
+
   .dialog-title {
     padding: 10px 14px;
     font-size: 13px;

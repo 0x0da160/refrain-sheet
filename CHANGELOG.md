@@ -66,6 +66,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
   there's little usable width for a side dock. Manually picking a side still
   overrides this for the rest of the session, exactly as before.
   ([#459](https://github.com/0x0da160/refrain-sheet/issues/459))
+- On narrow (phone-width) screens, the worksheet tab strip below the grid is
+  slightly shorter, reclaiming a few pixels of vertical space for the sheet.
+  Existing 40px touch-target sizes for the worksheet tabs and their "add"
+  buttons are unchanged.
+  ([#468](https://github.com/0x0da160/refrain-sheet/issues/468))
 
 ## [0.7.29] - 2026-09-14
 

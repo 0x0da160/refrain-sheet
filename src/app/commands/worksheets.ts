@@ -213,13 +213,19 @@ export class WorksheetCommands {
     this.state.setActiveSheet(tab, next.id);
   }
 
-  /** Row/column structural commands, driven by the selected range. */
+  /**
+   * Row/column structural commands, driven by the selected range. A still-
+   * unsaved CSV tab created by `File > New CSV` (`tab.neverSaved`) edits its
+   * CSV document directly, skipping the RSF conversion prompt entirely —
+   * there is no on-disk byte layout to protect yet (#479). Every other CSV
+   * tab still goes through `ensureRsf`, which asks first.
+   */
   async runSheetOp(tab: Tab, id: CommandId): Promise<void> {
     const range = this.state.selectedRange(tab);
     if (!range) {
       return;
     }
-    const doc = await this.ensureRsf(tab, 'structure');
+    const doc = tab.doc.kind === 'csv' && tab.neverSaved ? tab.doc : await this.ensureRsf(tab, 'structure');
     if (!doc) {
       return;
     }
@@ -231,14 +237,14 @@ export class WorksheetCommands {
     // behavior; Undo restores structure and filter together). The user is
     // told when that happened. An active sort is dropped the same way (see
     // `Worksheet.insertRows` etc.) but, being session-only view state, is not
-    // restored by undo.
-    const hadFilter = doc.filter !== null;
-    const hadSort = doc.sort !== null;
+    // restored by undo. Neither exists on a plain CSV document.
+    const hadFilter = doc.kind === 'rsf' && doc.filter !== null;
+    const hadSort = doc.kind === 'rsf' && doc.sort !== null;
     const done = (applied: boolean): void => {
-      if (applied && hadFilter && doc.filter === null) {
+      if (applied && hadFilter && doc.kind === 'rsf' && doc.filter === null) {
         this.ui.notify(t('notify.filterClearedByStructure'), 'info');
       }
-      if (applied && hadSort && doc.sort === null) {
+      if (applied && hadSort && doc.kind === 'rsf' && doc.sort === null) {
         this.ui.notify(t('notify.sortClearedByStructure'), 'info');
       }
     };
@@ -304,20 +310,20 @@ export class WorksheetCommands {
    * to insert relative to.
    */
   async appendAxis(tab: Tab, axis: 'row' | 'col'): Promise<void> {
-    const doc = await this.ensureRsf(tab, 'structure');
+    const doc = tab.doc.kind === 'csv' && tab.neverSaved ? tab.doc : await this.ensureRsf(tab, 'structure');
     if (!doc) {
       return;
     }
-    const hadFilter = doc.filter !== null;
-    const hadSort = doc.sort !== null;
+    const hadFilter = doc.kind === 'rsf' && doc.filter !== null;
+    const hadSort = doc.kind === 'rsf' && doc.sort !== null;
     const applied =
       axis === 'row'
         ? this.state.insertRows(tab, doc.rowCount, 1)
         : this.state.insertCols(tab, doc.columnCount, 1);
-    if (applied && hadFilter && doc.filter === null) {
+    if (applied && hadFilter && doc.kind === 'rsf' && doc.filter === null) {
       this.ui.notify(t('notify.filterClearedByStructure'), 'info');
     }
-    if (applied && hadSort && doc.sort === null) {
+    if (applied && hadSort && doc.kind === 'rsf' && doc.sort === null) {
       this.ui.notify(t('notify.sortClearedByStructure'), 'info');
     }
   }

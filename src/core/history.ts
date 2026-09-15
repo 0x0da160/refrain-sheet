@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { CellStyle } from './cell-style';
 import type { SheetFilter } from './filter';
+import type { LosslessDocument } from './lossless-document';
 import type { Worksheet } from './worksheet';
 
 /**
@@ -55,13 +56,19 @@ export type SheetOperation =
   | { action: 'move'; sheetId: string; from: number; to: number };
 
 /**
- * One atomic sub-operation of a history entry. Structural operations
- * (row/column insertion and deletion), filter-state changes, and worksheet
- * lifecycle changes exist only for RSF spreadsheet documents; `data` carries
- * the affected row/column contents so deletion is undoable. Column data is
- * column-major. A `filter` operation swaps a worksheet's whole filter state
- * (never cell values), so applying and clearing filters undo/redo exactly like
- * any other document operation.
+ * One atomic sub-operation of a history entry. The `rows`/`cols`/`filter`/
+ * `sheets` structural operations exist only for RSF spreadsheet documents;
+ * `data` carries the affected row/column contents so deletion is undoable.
+ * Column data is column-major. A `filter` operation swaps a worksheet's whole
+ * filter state (never cell values), so applying and clearing filters undo/redo
+ * exactly like any other document operation.
+ *
+ * `csvStructure` is the one structural operation that exists for plain CSV
+ * documents: row/column insert and delete on a still-unsaved, freshly created
+ * CSV tab (`Tab.neverSaved`), which has no on-disk byte layout to protect. It
+ * swaps the whole document object rather than editing it in place — cheaper
+ * than replaying edits, and consistent with `sheets`' `add`/`remove`, which
+ * also carry a live document object for undo/redo to swap back in.
  *
  * `sheetId` scopes a cell/structural/filter operation to one worksheet of the
  * workbook. It lets a single entry carry changes across several worksheets —
@@ -103,6 +110,8 @@ export type Operation =
       sheetId?: string;
     }
   | { type: 'filter'; before: SheetFilter | null; after: SheetFilter | null; sheetId?: string }
+  /** Whole-document swap for a structural edit on a still-unsaved new CSV (see above). */
+  | { type: 'csvStructure'; before: LosslessDocument; after: LosslessDocument }
   /**
    * A change to the "wrap long rows" display setting, carried inside the entry
    * of the edit that caused it (an edit committing a line break turns wrapping
@@ -139,8 +148,8 @@ function isEmpty(entry: HistoryEntry): boolean {
     if (op.type === 'filter' || op.type === 'wrap') {
       return op.before === op.after;
     }
-    if (op.type === 'sheets') {
-      // A worksheet lifecycle change is always a real change.
+    if (op.type === 'sheets' || op.type === 'csvStructure') {
+      // A worksheet lifecycle change or a CSV structural swap is always a real change.
       return false;
     }
     return op.count === 0;

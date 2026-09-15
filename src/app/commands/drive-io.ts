@@ -166,7 +166,10 @@ export class DriveIoCommands {
 
       tab.drive = { fileId: meta.id, name: meta.name };
       // The uploaded bytes become the new baseline, exactly as a local save
-      // would, so the tab stops reporting unsaved changes.
+      // would, so the tab stops reporting unsaved changes. Also ends the
+      // "brand-new, never-saved CSV" structural-edit exception (#479), same
+      // as a local save.
+      tab.neverSaved = false;
       if (tab.doc.kind === 'csv') {
         const baseline = LosslessDocument.fromBytes(encoded.bytes, {
           encoding: tab.doc.encoding,

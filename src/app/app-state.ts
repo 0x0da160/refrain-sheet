@@ -126,6 +126,16 @@ export interface Tab {
    * accidental edits, not a hostile actor.
    */
   readOnly: boolean;
+  /**
+   * True only for a CSV tab created by `File > New CSV` (`FileIoCommands.newCsvDocument`)
+   * that has never been saved (to disk or Drive) since. There is no on-disk
+   * byte layout to protect yet, so structural edits (row/column insert and
+   * delete) are allowed directly on the CSV document as an exception to the
+   * usual "convert to RSF first" rule (#479) — see the `csvStructure` history
+   * operation. Set back to `false` by the first successful save, after which
+   * the normal explicit-conversion requirement applies again.
+   */
+  neverSaved: boolean;
 }
 
 /**
@@ -225,6 +235,7 @@ export class AppState {
       wrapCells: stored?.displayWrap ?? getWrapCells(),
       tabEntryCol: null,
       readOnly: startsReadOnly,
+      neverSaved: false,
     };
     this.tabs.push(tab);
     this.activeTabId = tab.id;
@@ -565,7 +576,7 @@ export class AppState {
       if (op.type === 'wrap') {
         return op.before !== op.after;
       }
-      if (op.type === 'sheets') {
+      if (op.type === 'sheets' || op.type === 'csvStructure') {
         return true;
       }
       return op.count > 0;
@@ -1037,6 +1048,10 @@ export class AppState {
       // Presentational: applies to plain CSV tabs too (as local view state),
       // and never marks anything dirty.
       this.structuralOps.applyWrap(tab, direction === 'after' ? op.after : op.before, op.sheetId);
+      return;
+    }
+    if (op.type === 'csvStructure') {
+      tab.doc = direction === 'after' ? op.after : op.before;
       return;
     }
     const doc = tab.doc;

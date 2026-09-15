@@ -389,6 +389,129 @@ describe('row and column operations', () => {
   });
 });
 
+describe('structural edits on a brand-new, unsaved CSV (#479)', () => {
+  it('inserts rows directly, without an RSF conversion prompt', async () => {
+    const ui = stubUi();
+    const { state, commands, tab } = setup('a,b\nc,d\n', ui);
+    tab.neverSaved = true;
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.run('sheet.insertRowBelow');
+    expect(ui.confirmConvert).not.toHaveBeenCalled();
+    expect(tab.doc.kind).toBe('csv');
+    expect(tab.name).toBe('data.csv');
+    expect(tab.doc.rowCount).toBe(3);
+    expect(tab.doc.getValue(0, 0)).toBe('a');
+    expect(tab.doc.getValue(1, 0)).toBe('');
+    expect(tab.doc.getValue(2, 0)).toBe('c');
+  });
+
+  it('deletes rows directly; undo restores the exact prior document, including a pending unsaved edit', async () => {
+    const ui = stubUi();
+    const { state, commands, tab } = setup('a,b\nc,d\ne,f\n', ui);
+    tab.neverSaved = true;
+    state.editCell(tab, 0, 1, 'edited');
+    state.setSelection(tab, { row: 1, col: 0 }, null);
+    await commands.run('sheet.deleteRows');
+    expect(ui.confirmConvert).not.toHaveBeenCalled();
+    expect(tab.doc.kind).toBe('csv');
+    expect(tab.doc.rowCount).toBe(2);
+    expect(tab.doc.getValue(0, 1)).toBe('edited');
+    expect(tab.doc.getValue(1, 0)).toBe('e');
+
+    state.undo(tab);
+    expect(tab.doc.kind).toBe('csv');
+    expect(tab.doc.rowCount).toBe(3);
+    expect(tab.doc.getValue(0, 1)).toBe('edited'); // the pending edit survives undo
+    expect(tab.doc.getValue(1, 0)).toBe('c');
+
+    state.redo(tab);
+    expect(tab.doc.rowCount).toBe(2);
+    expect(tab.doc.getValue(1, 0)).toBe('e');
+  });
+
+  it('inserts and deletes columns directly', async () => {
+    const ui = stubUi();
+    const { state, commands, tab } = setup('a,b\nc,d\n', ui);
+    tab.neverSaved = true;
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.run('sheet.insertColRight');
+    expect(ui.confirmConvert).not.toHaveBeenCalled();
+    expect(tab.doc.columnCount).toBe(3);
+    expect(tab.doc.getValue(0, 1)).toBe('');
+    expect(tab.doc.getValue(0, 2)).toBe('b');
+
+    state.setSelection(tab, { row: 0, col: 1 }, null);
+    await commands.run('sheet.deleteCols');
+    expect(tab.doc.columnCount).toBe(2);
+    expect(tab.doc.getValue(0, 1)).toBe('b');
+  });
+
+  it('the "+" append affordance also works directly (#441, #479)', async () => {
+    const ui = stubUi();
+    const { commands, tab } = setup('a\n', ui);
+    tab.neverSaved = true;
+    tab.selection = null;
+    await commands.run('sheet.addRow');
+    expect(ui.confirmConvert).not.toHaveBeenCalled();
+    expect(tab.doc.kind).toBe('csv');
+    expect(tab.doc.rowCount).toBe(2);
+    await commands.run('sheet.addColumn');
+    expect(tab.doc.columnCount).toBe(2);
+    expect(ui.confirmConvert).not.toHaveBeenCalled();
+  });
+
+  it('produces well-formed re-encoded CSV bytes after a structural edit', async () => {
+    const ui = stubUi();
+    const { state, commands, tab } = setup('a,b\nc,d\n', ui);
+    tab.neverSaved = true;
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.run('sheet.insertRowAbove');
+    const result = serializeDocument(asCsv(tab.doc));
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(new TextDecoder().decode(result.bytes)).toBe(',\na,b\nc,d\n');
+    }
+  });
+
+  it('a CSV tab that is not "never saved" is unaffected: it still requires explicit conversion', async () => {
+    const ui = stubUi({ confirmConvert: vi.fn(async () => false) });
+    const { state, commands, tab } = setup('a,b\n', ui);
+    expect(tab.neverSaved).toBe(false);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.run('sheet.insertRowBelow');
+    expect(ui.confirmConvert).toHaveBeenCalledWith('structure', 'data.csv');
+    expect(tab.doc.kind).toBe('csv');
+    expect(tab.doc.rowCount).toBe(1);
+  });
+
+  it('a real save ends the exception: further structural edits require conversion again', async () => {
+    const ui = stubUi();
+    const { state, commands } = setup('a\n', ui);
+    const tab = commands.newCsvDocument();
+    expect(tab.neverSaved).toBe(true);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.run('sheet.addRow');
+    expect(tab.doc.kind).toBe('csv');
+    expect(tab.doc.rowCount).toBe(2);
+
+    URL.createObjectURL = vi.fn(() => 'blob:fake') as unknown as typeof URL.createObjectURL;
+    URL.revokeObjectURL = vi.fn();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function () {});
+    const ok = await commands.save(tab, { encoding: 'keep', bom: 'keep', lineEnding: 'keep' });
+    clickSpy.mockRestore();
+    expect(ok).toBe(true);
+    expect(tab.neverSaved).toBe(false);
+
+    // Captured before the next run: the default `confirmConvert` stub accepts
+    // and converts to RSF (renaming the tab), so `tab.name` would otherwise
+    // race the very assertion checking what name it was converted from.
+    const savedName = tab.name;
+    (ui.confirmConvert as ReturnType<typeof vi.fn>).mockClear();
+    await commands.run('sheet.addRow');
+    expect(ui.confirmConvert).toHaveBeenCalledWith('structure', savedName);
+  });
+});
+
 describe('saving and exporting RSF', () => {
   function interceptDownloads(): void {
     URL.createObjectURL = vi.fn(() => 'blob:fake') as unknown as typeof URL.createObjectURL;

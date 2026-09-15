@@ -75,6 +75,37 @@ describe('dirty state', () => {
   });
 });
 
+describe('CSV structural edits require "never saved" (#479)', () => {
+  it('insertRows/deleteRows/insertCols/deleteCols refuse a CSV tab that is not marked never-saved', () => {
+    const state = new AppState();
+    const tab = state.addTab('a.csv', doc('a,b\nc,d\n'), null);
+    expect(tab.neverSaved).toBe(false);
+    expect(state.insertRows(tab, 0, 1)).toBe(false);
+    expect(state.deleteRows(tab, 0, 1)).toBe(false);
+    expect(state.insertCols(tab, 0, 1)).toBe(false);
+    expect(state.deleteCols(tab, 0, 1)).toBe(false);
+    expect(tab.doc.kind).toBe('csv');
+    expect(tab.doc.rowCount).toBe(2);
+    expect(tab.doc.columnCount).toBe(2);
+  });
+
+  it('insertRows/deleteRows/insertCols/deleteCols work directly on a never-saved CSV tab', () => {
+    const state = new AppState();
+    const tab = state.addTab('a.csv', doc('a,b\nc,d\n'), null);
+    tab.neverSaved = true;
+    expect(state.insertRows(tab, 0, 1)).toBe(true);
+    expect(tab.doc.kind).toBe('csv');
+    expect(tab.doc.rowCount).toBe(3);
+    expect(state.insertCols(tab, 0, 1)).toBe(true);
+    expect(tab.doc.columnCount).toBe(3);
+    expect(state.deleteCols(tab, 0, 1)).toBe(true);
+    expect(tab.doc.columnCount).toBe(2);
+    expect(state.deleteRows(tab, 0, 1)).toBe(true);
+    expect(tab.doc.rowCount).toBe(2);
+    expect(tab.doc.getValue(0, 0)).toBe('a');
+  });
+});
+
 describe('read-only protection', () => {
   it('defaults to unprotected unless addTab is told otherwise', () => {
     const state = new AppState();

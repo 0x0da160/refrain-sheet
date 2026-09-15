@@ -156,6 +156,7 @@ const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'sheet.timezone': Clock,
   'sheet.displayLanguage': Globe,
   'worksheet.add': Plus,
+  'worksheet.addMarkdown': FilePenLine,
   'worksheet.rename': Pencil,
   'worksheet.duplicate': CopyPlus,
   'worksheet.delete': Trash2,
@@ -526,6 +527,7 @@ function moveTabItems(): Array<MenuItemDef | 'separator'> {
 function worksheetItems(): Array<MenuItemDef | 'separator'> {
   return [
     { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add' },
+    { labelKey: 'menu.sheet.addMarkdownSheet', command: 'worksheet.addMarkdown' },
     { labelKey: 'menu.sheet.renameSheet', command: 'worksheet.rename' },
     { labelKey: 'menu.sheet.duplicateSheet', command: 'worksheet.duplicate' },
     { labelKey: 'menu.sheet.deleteSheet', command: 'worksheet.delete' },

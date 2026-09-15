@@ -189,8 +189,9 @@ nothing else keys off the identifier.
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
 Version selection on write is minimal so older readers keep working where
-possible: body **version 11** is written only when at least one cell carries
-a comment; **version 10** when at least one border side carries a
+possible: body **version 12** is written when the worksheet is a Markdown
+sheet (see "Worksheet kind" below); **version 11** when at least one cell
+carries a comment; **version 10** when at least one border side carries a
 non-default line style or width; **version 9** when at least one cell
 carries a number format; **version 8** when at least one cell carries a
 style; **version 7** when the workbook display language is not English;
@@ -198,13 +199,13 @@ style; **version 7** when the workbook display language is not English;
 wrap-long-rows is stored; **version 4** when a sheet filter is present;
 **version 3** when display settings are present; **version 2** when only the
 creating/updating application metadata is present; **version 1** otherwise.
-Versions 1–11 are all accepted on read; an older reader rejects a body
+Versions 1–12 are all accepted on read; an older reader rejects a body
 version it does not know with a localized "unsupported version" message
 rather than misparsing it.
 
 | Size | Field                                                                                                                            |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Body version — `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                                        |
+| 1    | Body version — `12`, `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                                  |
 | 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                                                      |
 | 2    | _(v2+)_ Application-name length, `u16`                                                                                           |
 | …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`                                                                           |
@@ -220,6 +221,7 @@ rather than misparsing it.
 | …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`                                                                        |
 | 2    | _(v7 only)_ Display-language length, `u16`                                                                                       |
 | …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`                                                                            |
+| 1    | _(v12 only)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown — see below)                                                       |
 | 2    | Sheet-name length `N`, `u16`                                                                                                     |
 | `N`  | Sheet name (UTF-8)                                                                                                               |
 | 4    | Row count, `u32`                                                                                                                 |
@@ -536,6 +538,50 @@ data (the same trade-off already accepted for cell styles, the sheet filter,
 and sort). Plain CSV files never carry cell comments — this requires
 converting to RSF.
 
+### Worksheet kind (body version 12)
+
+Body version 12 adds a **worksheet kind** byte: `0` (grid, the default and
+every worksheet before this field existed) or `1` (markdown — a worksheet
+whose entire content is one Markdown document, edited by a docked
+source/preview surface in the spreadsheet area instead of the grid; see
+**Sheet > Add Markdown Sheet**, [`src/core/worksheet.ts`](../src/core/worksheet.ts)'s
+`WorksheetKind`, and [`src/core/markdown.ts`](../src/core/markdown.ts) for the
+parser). It is written only when the worksheet is a markdown sheet, so a
+grid worksheet (every worksheet before this field existed) stays on the
+lowest sufficient body version. A byte outside `0`/`1` is a shape a real
+writer never emits and is rejected as `bad-shape` rather than guessed at,
+the same reject-don't-guess treatment as the number-format kind byte above.
+
+A markdown worksheet's document text is **not** a new storage shape: it is
+the raw UTF-8 input of the worksheet's one and only cell, `(0, 0)`, using
+the ordinary cell-record encoding above — no other field changes meaning. A
+markdown worksheet is therefore required to be exactly **1 row × 1 column**
+with **at most one cell record**; any other declared shape is `bad-shape`.
+This is what lets editing a markdown sheet's text reuse the exact same
+atomic, undoable cell-edit path (`HistoryEntry`) a grid cell edit uses, and
+what lets an all-grid workbook's compatibility be completely unaffected by
+this feature. A markdown worksheet never carries a filter, cell styles,
+comments, or a sort in practice (the UI never exposes those on it, since the
+grid is not shown for it), and its cell is never evaluated as a formula
+regardless of what it starts with (see `Worksheet.isFormulaCell`) — but the
+container does not special-case or forbid those sections structurally, so a
+hand-edited or future-version file that does carry one still round-trips
+without corrupting the container. A markdown worksheet is **excluded from
+CSV export** (CSV has no analog for a whole-sheet document) and its cell
+remains an ordinary, cross-sheet-referenceable cell to the formula engine
+(`OtherSheet!A1` reads a markdown sheet's raw source as a text value) —
+unlike, say, a filter, no coercion or blocking is applied at the worksheet
+level for a plain cell read.
+
+Unlike the reversible degrade some prior sections describe, a workbook
+using a markdown worksheet writes container-level body version 12 (or
+workbook body version 8 — see below), which an older release rejects
+outright with the standard "unsupported version" message, exactly like every
+other body-version bump in this file: **compatibility is preserved by never
+raising the version for a workbook that has no markdown worksheet** (the
+same minimal-version-write policy applied to every feature above), not by
+making a version-12 file still openable by an older release.
+
 ### Bounds (validated on load)
 
 | Limit                 | Value        |
@@ -556,11 +602,15 @@ Written only when the workbook holds **two or more** worksheets. All strings
 are UTF-8 and length-prefixed with a `u16`; all integers are little-endian.
 
 Workbook body version selection is minimal, like the single-sheet body:
-**version 5** is written only when at least one styled cell in any worksheet
+**version 8** is written when at least one worksheet in the workbook is a
+markdown sheet (see "Worksheet kind (body version 12)" above); **version 7**
+when at least one cell in any worksheet carries a comment; **version 6**
+when at least one border side in any worksheet carries a non-default line
+style or width; **version 5** when at least one styled cell in any worksheet
 carries a number format; **version 4** when at least one cell in any
 worksheet carries a style; **version 3** when the workbook display language
 is not `en`; **version 2** when the workbook timezone is not `UTC`;
-**version 1** otherwise. All five versions are accepted on read.
+**version 1** otherwise. All eight versions are accepted on read.
 
 | Size | Field                                                              |
 | ---- | ------------------------------------------------------------------ |
@@ -591,30 +641,39 @@ a strict prefix chain.
 
 Each worksheet record:
 
-| Size | Field                                                                                      |
-| ---- | ------------------------------------------------------------------------------------------ |
-| 2+…  | Worksheet identifier (UTF-8, `u16` length; must be non-empty)                              |
-| 2+…  | Worksheet display name (UTF-8, `u16` length)                                               |
-| 4    | Row count, `u32`                                                                           |
-| 4    | Column count, `u32`                                                                        |
-| 4    | Cell count `C`, `u32`                                                                      |
-| …    | `C` cell records: row `u32`, column `u32`, length `u32`, bytes                             |
-| 1    | Display flags, `u8` (bit 0: zoom; bit 1: widths; bit 2: wrap)                              |
-| 2    | _(bit 0)_ Zoom percent, `u16`                                                              |
-| 4    | _(bit 1)_ Column-width entry count `W`, `u32`                                              |
-| …    | _(bit 1)_ `W` entries: column `u32`, width px at 100% zoom `u16`                           |
-| 1    | Filter flags, `u8` (bit 0: a filter block follows)                                         |
-| …    | _(bit 0)_ Filter block — identical layout to the single-sheet one                          |
-| 4    | _(v4+)_ Styled-cell count `Y`, `u32`                                                       |
-| …    | _(v4+)_ `Y` style records — identical layout to the                                        |
-|      | single-sheet [cell-styles block](#cell-styles-body-version-8),                             |
-|      | each with a _(v5 only)_ [number-format sub-record](#number-format-body-version-9) appended |
+| Size | Field                                                                       |
+| ---- | --------------------------------------------------------------------------- |
+| 2+…  | Worksheet identifier (UTF-8, `u16` length; must be non-empty)               |
+| 2+…  | Worksheet display name (UTF-8, `u16` length)                                |
+| 4    | Row count, `u32`                                                            |
+| 4    | Column count, `u32`                                                         |
+| 4    | Cell count `C`, `u32`                                                       |
+| …    | `C` cell records: row `u32`, column `u32`, length `u32`, bytes              |
+| 1    | Display flags, `u8` (bit 0: zoom; bit 1: widths; bit 2: wrap)               |
+| 2    | _(bit 0)_ Zoom percent, `u16`                                               |
+| 4    | _(bit 1)_ Column-width entry count `W`, `u32`                               |
+| …    | _(bit 1)_ `W` entries: column `u32`, width px at 100% zoom `u16`            |
+| 1    | Filter flags, `u8` (bit 0: a filter block follows)                          |
+| …    | _(bit 0)_ Filter block — identical layout to the single-sheet one           |
+| 4    | _(v4+)_ Styled-cell count `Y`, `u32`                                        |
+| …    | _(v4+)_ `Y` style records — identical layout to the                         |
+|      | single-sheet [cell-styles block](#cell-styles-body-version-8), each with a  |
+|      | _(v5 only)_ [number-format sub-record](#number-format-body-version-9) and a |
+|      | _(v6 only)_ per-border-side line-style+width byte appended                  |
+| 4    | _(v7+)_ Commented-cell count `Z`, `u32`                                     |
+| …    | _(v7+)_ `Z` comment records — identical layout to the single-sheet          |
+|      | [cell-comments block](#cell-comments-body-version-11)                       |
+| 1    | _(v8+)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown — see              |
+|      | [Worksheet kind](#worksheet-kind-body-version-12))                          |
 
 Cells are stored **sparsely**: only non-empty cells are written. When body
 version 4 or higher is written, every worksheet record carries its own style
-block (even a worksheet with no styled cells writes a zero count), exactly
-the way every other version-gated section in this container is written
-unconditionally once its version is selected.
+block (even a worksheet with no styled cells writes a zero count); when body
+version 7 or higher is written, every worksheet record likewise carries its
+own comment block; when body version 8 or higher is written, every worksheet
+record carries the trailing kind byte — exactly the way every other
+version-gated section in this container is written unconditionally once its
+version is selected.
 
 ### Workbook bounds
 
@@ -892,7 +951,14 @@ above); each is written only when at least one cell carries a style, for the
 same reason. The single-sheet body was then bumped to version 9, and the
 workbook body to version 5, to carry a per-cell number format (see "Number
 format (body version 9)" above); each is written only when at least one cell
-carries a number format, for the same reason. Future changes bump the
-container version (framing changes) or the relevant body version (encoding
-changes); readers reject versions they do not understand rather than
-guessing.
+carries a number format, for the same reason. The single-sheet body was
+later bumped to version 12, and the workbook body to version 8, to carry a
+per-worksheet kind (see "Worksheet kind (body version 12)" above); each is
+written only when at least one worksheet is a markdown sheet, for the same
+reason — unlike every prior bump, this one is a wholly different kind of
+worksheet content (a Markdown document rather than a grid) rather than an
+additional property of the grid, but it stores that content as an ordinary
+cell so the container's cell-storage shape does not change. Future changes
+bump the container version (framing changes) or the relevant body version
+(encoding changes); readers reject versions they do not understand rather
+than guessing.

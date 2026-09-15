@@ -33,6 +33,16 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- Markdown can now be added as a worksheet inside a spreadsheet workbook
+  (**Sheet > Add Markdown Sheet**, or the "+" button's context menu on the
+  worksheet strip): its source/preview editor is docked directly in the
+  spreadsheet area in place of the grid while that worksheet is active. This
+  is a new RSF container capability (`.rsf` body version 12 / workbook body
+  version 8) — existing files and workbooks that don't use it are
+  unaffected, and Markdown worksheets are excluded from CSV export (CSV has
+  no analog for a whole-sheet document). This is separate from the existing
+  standalone **File > Markdown Editor…**, which is unchanged.
+  ([#481](https://github.com/0x0da160/refrain-sheet/issues/481))
 - A brand-new CSV document (`File > New CSV`) can now have rows and columns
   inserted, deleted, or appended directly, without first converting it to an
   RSF spreadsheet — as long as it hasn't been saved yet. Once it's saved, the

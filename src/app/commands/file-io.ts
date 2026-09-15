@@ -608,12 +608,19 @@ export class FileIoCommands {
     // CSV holds exactly one worksheet. A multi-worksheet workbook therefore
     // requires an explicit choice — the export never silently takes the active
     // worksheet — and the dialog states that only that worksheet is written and
-    // that formulas become their calculated values.
-    let sheetId = doc.activeSheetId;
-    if (doc.sheetCount > 1) {
+    // that formulas become their calculated values. A Markdown worksheet has no
+    // CSV analog (there is no grid to write), so it is excluded from the choice
+    // entirely, exactly like the sheet limit above.
+    const exportable = doc.sheets.filter((s) => s.kind !== 'markdown');
+    if (exportable.length === 0) {
+      this.ui.notify(t('notify.noExportableSheet'), 'warn');
+      return false;
+    }
+    let sheetId = exportable.some((s) => s.id === doc.activeSheetId) ? doc.activeSheetId : exportable[0].id;
+    if (exportable.length > 1) {
       const chosen = await this.ui.chooseExportSheet(
-        doc.sheets.map((s) => ({ id: s.id, name: s.name })),
-        doc.activeSheetId,
+        exportable.map((s) => ({ id: s.id, name: s.name })),
+        sheetId,
       );
       if (chosen === null || tab.doc !== doc) {
         return false;

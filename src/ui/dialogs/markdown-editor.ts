@@ -1,65 +1,10 @@
 // SPDX-License-Identifier: MIT
 import type { MarkdownEditorDialogInput } from '../../app/commands';
 import { t } from '../../app/i18n';
-import { parseMarkdown, type MarkdownBlock, type MarkdownInline } from '../../core/markdown';
+import { parseMarkdown } from '../../core/markdown';
 import { el } from '../dom';
+import { renderMarkdownBlocks } from '../markdown-render';
 import { dialogButton, openSidePanel } from './shared';
-
-const HEADING_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const;
-
-function renderInline(nodes: MarkdownInline[]): Array<Node | string> {
-  const out: Array<Node | string> = [];
-  for (const node of nodes) {
-    switch (node.type) {
-      case 'text':
-        out.push(document.createTextNode(node.text));
-        break;
-      case 'break':
-        out.push(el('br'));
-        break;
-      case 'strong':
-        out.push(el('strong', {}, renderInline(node.children)));
-        break;
-      case 'em':
-        out.push(el('em', {}, renderInline(node.children)));
-        break;
-      case 'code':
-        out.push(el('code', { text: node.text }));
-        break;
-      case 'link':
-        out.push(
-          el(
-            'a',
-            { attrs: { href: node.href, target: '_blank', rel: 'noopener noreferrer' } },
-            renderInline(node.children),
-          ),
-        );
-        break;
-    }
-  }
-  return out;
-}
-
-function renderBlock(block: MarkdownBlock): Node {
-  switch (block.type) {
-    case 'heading':
-      return el(HEADING_TAGS[block.level - 1], {}, renderInline(block.children));
-    case 'paragraph':
-      return el('p', {}, renderInline(block.children));
-    case 'blockquote':
-      return el('blockquote', {}, block.children.map(renderBlock));
-    case 'hr':
-      return el('hr');
-    case 'codeBlock':
-      return el('pre', {}, [el('code', { text: block.text })]);
-    case 'list':
-      return el(
-        block.ordered ? 'ol' : 'ul',
-        {},
-        block.items.map((item) => el('li', {}, renderInline(item))),
-      );
-  }
-}
 
 /**
  * The standalone Markdown editor (#433): a raw-text source pane and a
@@ -130,7 +75,7 @@ export class MarkdownEditorDialogs {
       body.append(panes);
 
       const renderPreview = (): void => {
-        preview.replaceChildren(...parseMarkdown(textarea.value).map(renderBlock));
+        preview.replaceChildren(...renderMarkdownBlocks(parseMarkdown(textarea.value)));
       };
       textarea.addEventListener('input', renderPreview);
       renderPreview();

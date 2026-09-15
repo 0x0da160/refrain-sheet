@@ -482,6 +482,39 @@ describe('CSV export from a workbook', () => {
     expect(chooseExportSheet).not.toHaveBeenCalled();
   });
 
+  it('refuses to export when the workbook is a single Markdown sheet', async () => {
+    const notify = vi.fn();
+    const ui = stubUi({ notify });
+    const { state, commands, tab, doc } = setup(ui);
+    // Replace the sole worksheet with a markdown one (delete requires a
+    // second sheet to exist first, since a workbook always keeps one).
+    state.addMarkdownSheet(tab, 'Notes');
+    state.deleteSheet(tab, doc.sheets[0].id);
+    expect(doc.sheetCount).toBe(1);
+    expect(doc.activeSheet.kind).toBe('markdown');
+    expect(await commands.exportCsv(tab)).toBe(false);
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
+  });
+
+  it('excludes Markdown sheets from the export choice', async () => {
+    const chooseExportSheet = vi.fn(async () => null);
+    const ui = stubUi({ chooseExportSheet });
+    const { state, commands, tab, doc } = setup(ui);
+    state.addSheet(tab, 'Second');
+    state.addMarkdownSheet(tab, 'Notes');
+    // Adding a worksheet activates it, so the active sheet is now the
+    // non-exportable "Notes" — the choice falls back to the first
+    // exportable worksheet rather than offering the active one.
+    await commands.exportCsv(tab);
+    expect(chooseExportSheet).toHaveBeenCalledWith(
+      [
+        { id: doc.sheets[0].id, name: 'Sheet1' },
+        { id: doc.sheets[1].id, name: 'Second' },
+      ],
+      doc.sheets[0].id,
+    );
+  });
+
   it('exports the chosen worksheet, not the active one', () => {
     const { state, tab, doc } = setup();
     doc.setCell(0, 0, 'from-first');
@@ -653,6 +686,35 @@ describe('workbook container', () => {
     if (decoded.ok) expect(decoded.data.displayLanguage).toBeUndefined();
   });
 
+  it('round-trips a markdown worksheet through the workbook body (version 8)', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 2, columnCount: 2, cells: [] },
+        { id: 'b', name: 'Notes', rowCount: 1, columnCount: 1, cells: [[0, 0, '# Hello']], kind: 'markdown' },
+      ],
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.sheets[0].kind).toBeUndefined();
+    expect(decoded.data.sheets[1].kind).toBe('markdown');
+    expect(decoded.data.sheets[1].cells).toEqual([[0, 0, '# Hello']]);
+  });
+
+  it('rejects a markdown worksheet with any shape other than 1x1', () => {
+    const bytes = encodeRsfWorkbook({
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [], kind: 'markdown' },
+        { id: 'b', name: 'B', rowCount: 2, columnCount: 1, cells: [], kind: 'markdown' },
+      ],
+    });
+    const decoded = decodeRsfWorkbook(bytes);
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
+  });
+
   it('loads a legacy single-sheet container as a one-worksheet workbook', () => {
     const bytes = encodeRsf({
       name: 'Legacy',
@@ -758,5 +820,77 @@ describe('workbook container', () => {
     if (!reloaded.ok) return;
     expect(reloaded.doc.sheets[0].name).toBe('<script>x</script>');
     expect(reloaded.doc.getValue(0, 0)).toBe('<script>window.x=1</script>');
+  });
+});
+
+describe('Markdown worksheets', () => {
+  it('creates a 1x1 worksheet whose document text is cell A1', () => {
+    const workbook = RsfDocument.empty('b.rsf', 8, 4, 'Sheet1');
+    const notes = workbook.createMarkdownWorksheet('Notes');
+    expect(notes.kind).toBe('markdown');
+    expect(notes.rowCount).toBe(1);
+    expect(notes.columnCount).toBe(1);
+    expect(notes.markdownText).toBe('');
+    workbook.insertSheetAt(1, notes);
+    workbook.setCellOn(notes.id, 0, 0, '# Title\n\nSome *text*.');
+    expect(workbook.sheetById(notes.id)!.markdownText).toBe('# Title\n\nSome *text*.');
+  });
+
+  it('round-trips through the workbook container, kind and all', () => {
+    const workbook = RsfDocument.empty('b.rsf', 8, 4, 'Sheet1');
+    const notes = workbook.createMarkdownWorksheet('Notes');
+    workbook.insertSheetAt(1, notes);
+    workbook.setCellOn(notes.id, 0, 0, '# Hello, world');
+    const reloaded = RsfDocument.fromBytes(workbook.toBytes(), 'b.rsf');
+    expect(reloaded.ok).toBe(true);
+    if (!reloaded.ok) return;
+    expect(reloaded.doc.sheets[0].kind).toBe('grid');
+    const restored = reloaded.doc.sheets[1];
+    expect(restored.kind).toBe('markdown');
+    expect(restored.markdownText).toBe('# Hello, world');
+  });
+
+  it('round-trips through the single-sheet container when it is the only worksheet', () => {
+    const workbook = RsfDocument.empty('b.rsf', 1, 1, 'Notes');
+    const onlySheet = workbook.sheets[0];
+    const notes = workbook.createMarkdownWorksheet('Notes');
+    workbook.insertSheetAt(1, notes);
+    workbook.removeSheet(onlySheet.id);
+    workbook.setCellOn(notes.id, 0, 0, 'plain text');
+    expect(workbook.sheetCount).toBe(1);
+    const bytes = workbook.toBytes();
+    expect(bytes[4]).toBe(RSF_CONTAINER_VERSION); // still the single-sheet container
+    const reloaded = RsfDocument.fromBytes(bytes, 'b.rsf');
+    expect(reloaded.ok).toBe(true);
+    if (!reloaded.ok) return;
+    expect(reloaded.doc.sheets[0].kind).toBe('markdown');
+    expect(reloaded.doc.sheets[0].markdownText).toBe('plain text');
+  });
+
+  it('never treats its document text as a formula, however it starts', () => {
+    const workbook = RsfDocument.empty('b.rsf', 8, 4, 'Sheet1');
+    const notes = workbook.createMarkdownWorksheet('Notes');
+    workbook.insertSheetAt(1, notes);
+    workbook.setCellOn(notes.id, 0, 0, '=1+1');
+    const sheet = workbook.sheetById(notes.id)!;
+    expect(sheet.isFormulaCell(0, 0)).toBe(false);
+    expect(sheet.countFormulaCells()).toBe(0);
+    expect(sheet.listFormulaCells()).toEqual([]);
+  });
+
+  it('the command layer adds a Markdown worksheet via a prompted, undoable operation', async () => {
+    const promptSheetName = vi.fn(async () => 'Notes');
+    const ui = stubUi({ promptSheetName });
+    const { state, commands, tab, doc } = setup(ui);
+    expect(commands.isEnabled('worksheet.addMarkdown')).toBe(true);
+    await commands.run('worksheet.addMarkdown');
+    expect(doc.sheetCount).toBe(2);
+    expect(doc.activeSheet.name).toBe('Notes');
+    expect(doc.activeSheet.kind).toBe('markdown');
+    state.undo(tab);
+    expect(doc.sheetCount).toBe(1);
+    state.redo(tab);
+    expect(doc.sheetCount).toBe(2);
+    expect(doc.sheets[1].kind).toBe('markdown');
   });
 });

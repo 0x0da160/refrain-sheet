@@ -548,6 +548,7 @@ export type CommandId =
   // Worksheets inside the active RSF workbook (distinct from the application
   // document tabs, whose commands are the `tab.*` ids below).
   | 'worksheet.add'
+  | 'worksheet.addMarkdown'
   | 'worksheet.rename'
   | 'worksheet.duplicate'
   | 'worksheet.delete'
@@ -864,6 +865,7 @@ export class Commands {
       // Worksheet commands need an RSF workbook: plain CSV is a single-sheet,
       // byte-preserving document (the UI explains that instead of hiding them).
       case 'worksheet.add':
+      case 'worksheet.addMarkdown':
       case 'worksheet.rename':
       case 'worksheet.duplicate':
         return tab !== null && tab.doc.kind === 'rsf';
@@ -1231,6 +1233,9 @@ export class Commands {
       case 'worksheet.add':
         if (tab) await this.addWorksheet(tab);
         return;
+      case 'worksheet.addMarkdown':
+        if (tab) await this.addMarkdownWorksheet(tab);
+        return;
       case 'worksheet.rename':
         if (tab) await this.renameWorksheet(tab);
         return;
@@ -1529,6 +1534,10 @@ export class Commands {
 
   private async addWorksheet(tab: Tab): Promise<void> {
     return this.worksheets.addWorksheet(tab);
+  }
+
+  private async addMarkdownWorksheet(tab: Tab): Promise<void> {
+    return this.worksheets.addMarkdownWorksheet(tab);
   }
 
   private async renameWorksheet(tab: Tab): Promise<void> {

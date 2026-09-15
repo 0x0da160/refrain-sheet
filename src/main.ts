@@ -20,6 +20,7 @@ import { FindBar } from './ui/find-bar';
 import { FormulaBar } from './ui/formula-bar';
 import { Grid } from './ui/grid';
 import { LoadingOverlay } from './ui/loading-overlay';
+import { MarkdownSheetView } from './ui/markdown-sheet';
 import { MenuBar } from './ui/menu-bar';
 import { installKeyboardViewportFix } from './ui/popup';
 import { SheetBar } from './ui/sheet-bar';
@@ -127,6 +128,14 @@ function bootstrap(): void {
 
   const commands = new Commands(state, ui, document);
   const grid = new Grid(state, commands);
+  // The docked source/preview surface shown in place of the grid while a
+  // Markdown worksheet is active (see `Worksheet.kind`) — a second surface
+  // in the same spreadsheet area, not a replacement for the grid.
+  const markdownSheetView = new MarkdownSheetView(state, commands);
+  const refreshMarkdownSheetView = (): void => {
+    markdownSheetView.refresh();
+    grid.element.hidden = markdownSheetView.active;
+  };
   const clipboard = new ClipboardController(
     state,
     commands,
@@ -197,7 +206,7 @@ function bootstrap(): void {
   if (!app) {
     return;
   }
-  const mainRow = el('div', { className: 'main-row' }, [grid.element]);
+  const mainRow = el('div', { className: 'main-row' }, [grid.element, markdownSheetView.element]);
   // Everything except the always-visible menu bar and status bar lives in
   // `#app-body`: a docked side panel (the comments panel here, or Filter/
   // Sort/Format/SQL Query via `openSidePanel`) reserves space by padding
@@ -236,6 +245,7 @@ function bootstrap(): void {
     menuBar.render();
     tabBar.render();
     sheetBar.render(true);
+    refreshMarkdownSheetView();
     grid.refresh();
     formulaBar.refresh(selectionChanged);
     statusBar.render();
@@ -266,6 +276,7 @@ function bootstrap(): void {
         grid.cancelEditing();
         menuBar.render();
         sheetBar.render();
+        refreshMarkdownSheetView();
         grid.refresh();
         formulaBar.refresh(true);
         statusBar.render();
@@ -275,6 +286,7 @@ function bootstrap(): void {
       case 'doc':
         tabBar.render();
         sheetBar.render();
+        refreshMarkdownSheetView();
         grid.refresh();
         formulaBar.refresh(false);
         statusBar.render();
@@ -420,6 +432,11 @@ function bootstrap(): void {
   // Browsers do not allow custom dialogs during unload; the standard
   // leave-page confirmation is used when any tab has unsaved changes.
   window.addEventListener('beforeunload', (event) => {
+    // A pending debounced Markdown-sheet edit (see `MarkdownSheetView`) has
+    // not yet marked its document dirty — flush it first so an edit made in
+    // the last moment before closing is never silently lost nor missed by
+    // the dirty check below.
+    markdownSheetView.flushCommit();
     if (state.tabs.some((tab) => tab.doc.isDirty)) {
       event.preventDefault();
       event.returnValue = '';

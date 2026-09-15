@@ -137,24 +137,6 @@ describe('accessibility semantics', () => {
     expect(add.disabled).toBe(false);
   });
 
-  it('offers Add row / Add column controls with localized accessible names (#441)', () => {
-    const { bar } = setup();
-    const [addRow, addColumn] = Array.from(
-      bar.element.querySelectorAll<HTMLButtonElement>('.sheet-grid-add'),
-    );
-    expect(addRow.getAttribute('aria-label')).toBe(t('grid.addRow'));
-    expect(addColumn.getAttribute('aria-label')).toBe(t('grid.addColumn'));
-    expect(addRow.disabled).toBe(false);
-    expect(addColumn.disabled).toBe(false);
-  });
-
-  it('places the grid actions before the worksheet strip, right after the grid above (#456)', () => {
-    const { bar } = setup();
-    const gridActions = bar.element.querySelector('.sheet-grid-actions')!;
-    const strip = bar.element.querySelector('.sheet-strip')!;
-    expect(gridActions.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
   it('announces worksheet switches through a live region', () => {
     const { state, bar, tab, doc } = setup(['Sheet1', 'Second']);
     const live = bar.element.querySelector('[aria-live="polite"]')!;
@@ -236,18 +218,6 @@ describe('plain CSV documents', () => {
     expect(bar.element.querySelector('.sheet-strip')!.textContent).toBe('');
     // The CSV strip is not a tablist — there are no worksheets to list.
     expect(bar.element.querySelector('.sheet-strip')!.getAttribute('role')).toBeNull();
-  });
-
-  it('still offers Add row / Add column so a fresh single-cell CSV can grow (#441)', () => {
-    const state = new AppState();
-    const commands = new Commands(state, stubUi(), document);
-    state.addTab('data.csv', csvDoc('a\n'), null);
-    const bar = new SheetBar(state, commands);
-    document.body.append(bar.element);
-    bar.render(true);
-    const buttons = Array.from(bar.element.querySelectorAll<HTMLButtonElement>('.sheet-grid-add'));
-    expect(buttons).toHaveLength(2);
-    expect(buttons.every((b) => !b.disabled)).toBe(true);
   });
 
   it('hides itself entirely when no document is open', () => {

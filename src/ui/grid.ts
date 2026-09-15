@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { Grid3x3, PaintBucket } from 'lucide';
+import { Grid3x3, PaintBucket, Plus } from 'lucide';
 import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import { LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
@@ -23,6 +23,7 @@ import { ContextMenu, type ContextMenuEntry, type ContextMenuToolbarItem } from 
 import { el, clearChildren } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 import { beginsTextEntry, isComposingKey } from './ime';
+import { createIcon } from './icon';
 import { ValidationPicker } from './validation-picker';
 
 /** Render a resolved border side as a CSS `border-*` shorthand value (`''` when unset). */
@@ -529,6 +530,20 @@ export class Grid {
   private readonly stickyEl: HTMLElement;
   private readonly rowsLayer: HTMLElement;
   private readonly emptyEl: HTMLElement;
+  /**
+   * "Add row" / "add column" icon buttons (#441, moved onto the grid's own
+   * edges in #467). Each lives inside an anchor strip absolutely positioned
+   * at the true bottom/right edge of the document content within `canvas`,
+   * so it scrolls and re-zooms with the grid exactly like a header does; the
+   * button itself is CSS-sticky along the perpendicular axis (`left: 0` /
+   * `top: 0`, relative to the scrolling `element`) so it stays aligned under
+   * the row-number column / right of the column-header row while scrolled,
+   * without any JS repositioning on scroll.
+   */
+  private readonly addRowAnchor: HTMLElement;
+  private readonly addRowButton: HTMLButtonElement;
+  private readonly addColAnchor: HTMLElement;
+  private readonly addColButton: HTMLButtonElement;
 
   private lastDoc: unknown = null;
   private window: RenderWindow | null = null;
@@ -670,6 +685,26 @@ export class Grid {
     this.stickyEl = el('div', { className: 'vgrid-stickyrow', attrs: { role: 'row' } });
     this.rowsLayer = el('div', { className: 'vgrid-rows' });
     this.emptyEl = el('div', { className: 'grid-empty' });
+    this.addRowButton = el(
+      'button',
+      {
+        className: 'sheet-grid-add sheet-grid-add-row',
+        attrs: { type: 'button', 'aria-label': t('grid.addRow'), title: t('grid.addRow') },
+      },
+      [createIcon(Plus, 'sheet-grid-add-icon', 14)],
+    );
+    this.addRowButton.addEventListener('click', () => void this.commands.run('sheet.addRow'));
+    this.addRowAnchor = el('div', { className: 'vgrid-add-row-anchor' }, [this.addRowButton]);
+    this.addColButton = el(
+      'button',
+      {
+        className: 'sheet-grid-add sheet-grid-add-col',
+        attrs: { type: 'button', 'aria-label': t('grid.addColumn'), title: t('grid.addColumn') },
+      },
+      [createIcon(Plus, 'sheet-grid-add-icon', 14)],
+    );
+    this.addColButton.addEventListener('click', () => void this.commands.run('sheet.addColumn'));
+    this.addColAnchor = el('div', { className: 'vgrid-add-col-anchor' }, [this.addColButton]);
     // Hidden probe carrying the real cell font/box metrics (same `.vcell`
     // styling the grid renders with) so wrap measurement never depends on a
     // materialized cell being present.
@@ -702,7 +737,15 @@ export class Grid {
       className: 'visually-hidden',
       attrs: { role: 'status', 'aria-live': 'polite' },
     });
-    this.canvas.append(this.headerEl, this.stickyEl, this.rowsLayer, this.measureCell, this.sink);
+    this.canvas.append(
+      this.headerEl,
+      this.stickyEl,
+      this.rowsLayer,
+      this.addRowAnchor,
+      this.addColAnchor,
+      this.measureCell,
+      this.sink,
+    );
     this.element.append(this.canvas, this.editorHint, this.zoomLive);
 
     // Scroll never calls preventDefault, so the listener is passive (the
@@ -1009,6 +1052,22 @@ export class Grid {
     return this.headW(tab) + this.totalColsWidth(tab);
   }
 
+  /**
+   * Position the "add row" / "add column" anchors at the true bottom/right
+   * edge of the document content (#467) and sync their enabled state. Their
+   * perpendicular axis (horizontal for add-row, vertical for add-column) is
+   * handled entirely by CSS `position: sticky`, so only the axis that tracks
+   * document size — not scroll position — needs updating here.
+   */
+  private positionGridAddButtons(totalW: number, totalH: number): void {
+    this.addRowAnchor.hidden = false;
+    this.addColAnchor.hidden = false;
+    this.addRowAnchor.style.top = `${totalH}px`;
+    this.addColAnchor.style.left = `${totalW}px`;
+    this.addRowButton.disabled = !this.commands.isEnabled('sheet.addRow');
+    this.addColButton.disabled = !this.commands.isEnabled('sheet.addColumn');
+  }
+
   // ----- Rendering -----
 
   refresh(): void {
@@ -1025,6 +1084,8 @@ export class Grid {
       clearChildren(this.rowsLayer);
       this.canvas.style.width = '';
       this.canvas.style.height = '';
+      this.addRowAnchor.hidden = true;
+      this.addColAnchor.hidden = true;
       this.emptyEl.textContent = t('grid.empty');
       if (!this.emptyEl.parentElement) {
         this.element.append(this.emptyEl);
@@ -1432,6 +1493,7 @@ export class Grid {
     }
     this.canvas.style.width = `${totalW}px`;
     this.canvas.style.height = `${this.overlayHeight(tab) + layerHeight}px`;
+    this.positionGridAddButtons(totalW, this.overlayHeight(tab) + layerHeight);
     this.element.setAttribute('aria-rowcount', String(doc.rowCount + 1));
     this.element.setAttribute('aria-colcount', String(doc.columnCount + 1));
 
@@ -1688,6 +1750,7 @@ export class Grid {
     const layerHeight = idx.rangeHeight(this.scrollRowBase(tab), tab.doc.rowCount);
     this.canvas.style.height = `${this.overlayHeight(tab) + layerHeight}px`;
     this.rowsLayer.style.height = `${layerHeight}px`;
+    this.addRowAnchor.style.top = `${this.overlayHeight(tab) + layerHeight}px`;
   }
 
   /**

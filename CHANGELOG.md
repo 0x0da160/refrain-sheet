@@ -40,6 +40,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The "add row" / "add column" icon buttons no longer sit in a small toolbar
+  below the grid; they now sit directly on the grid's own edge — "add row"
+  below the last row number, "add column" to the right of the last column
+  number — and scroll and zoom together with the sheet.
+  ([#467](https://github.com/0x0da160/refrain-sheet/issues/467))
 - Opening a plain CSV file no longer shows a "CSV holds one sheet" note in
   the worksheet strip; a single-sheet CSV simply shows no worksheet tabs.
   The "add row" / "add column" icon buttons now render immediately after

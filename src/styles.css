@@ -588,44 +588,6 @@ button {
   cursor: default;
 }
 
-/* "+" affordances to append a row/column at the end of the sheet (#441).
-   Shown for CSV and RSF documents alike, so they sit outside the worksheet
-   strip proper and never scroll along with the worksheet tabs. Rendered
-   before the strip (#456) so they read as continuing the grid immediately
-   above, rather than trailing after the worksheet tabs. */
-.sheet-grid-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px 6px;
-  flex: none;
-  border-right: 1px solid var(--border);
-}
-
-.sheet-grid-add {
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-top: none;
-  border-radius: 0 0 5px 5px;
-  background: var(--panel-hover);
-  color: inherit;
-  padding: 3px 10px;
-  cursor: pointer;
-  font: inherit;
-  line-height: 1;
-}
-
-.sheet-grid-add:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.sheet-grid-add:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
 .sheet-name-input {
   width: 100%;
   box-sizing: border-box;
@@ -1010,6 +972,70 @@ button {
   position: absolute;
   left: 0;
   display: flex;
+}
+
+/* "+" affordances to append a row/column at the end of the sheet (#441),
+   anchored to the grid's own last-row / last-column edge (#467) so they read
+   as an extension of the row/column headers rather than a separate toolbar.
+   Each lives inside an anchor strip absolutely positioned (by grid.ts) at the
+   true bottom/right edge of the document content within `.vgrid-canvas`, so
+   it scrolls and re-zooms with the grid like a header does. The button
+   itself is sticky along the perpendicular axis, so it stays aligned under
+   the row-number column / right of the column-header row while scrolled —
+   the same technique `.vcell.vrowhead` and `.vgrid-header` already use. */
+.vgrid-add-row-anchor,
+.vgrid-add-col-anchor {
+  position: absolute;
+  pointer-events: none;
+}
+
+.vgrid-add-row-anchor {
+  left: 0;
+  width: 100%;
+}
+
+.vgrid-add-col-anchor {
+  top: 0;
+  height: 100%;
+}
+
+.sheet-grid-add {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  background: var(--panel-hover);
+  color: inherit;
+  padding: 3px 10px;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  pointer-events: auto;
+}
+
+.sheet-grid-add-row {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  border-top: none;
+  border-radius: 0 0 5px 5px;
+}
+
+.sheet-grid-add-col {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  border-left: none;
+  border-radius: 0 5px 5px 0;
+}
+
+.sheet-grid-add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sheet-grid-add:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 /* Cell typography model: every row is exactly --grid-row-height tall (kept in

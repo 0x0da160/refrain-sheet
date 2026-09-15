@@ -206,13 +206,24 @@ export class StatusBar {
     this.element.append(button);
   }
 
-  /** Append the app version, right-aligned as the last segment of the status bar. */
+  /**
+   * Append the app version, right-aligned as the last segment of the status
+   * bar. Two variants are rendered together — the full localized "Version
+   * v1.2.3" text and a bare "v1.2.3" — and CSS picks one per breakpoint
+   * (`.status-version-full`/`.status-version-short` in styles.css): mobile
+   * shows only the short form to save space (#478), desktop only the full
+   * one. Rendering both (rather than swapping text at render time) keeps
+   * this independent of viewport width, which this module never reads.
+   */
   private appendVersion(): void {
     this.element.append(
-      el('span', {
-        className: 'status-version',
-        text: t('dialog.about.version', { version: APP_VERSION_DISPLAY }),
-      }),
+      el('span', { className: 'status-version' }, [
+        el('span', {
+          className: 'status-version-full',
+          text: t('dialog.about.version', { version: APP_VERSION_DISPLAY }),
+        }),
+        el('span', { className: 'status-version-short', text: APP_VERSION_DISPLAY }),
+      ]),
     );
   }
 

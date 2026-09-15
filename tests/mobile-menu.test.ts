@@ -14,6 +14,10 @@
  * which jsdom does not evaluate, so these tests cover the DOM/state contract
  * instead: the toggle's `aria-expanded` and `.menu-row`'s `open` class always
  * agree, regardless of viewport.
+ *
+ * The toggle (`bar.toggleElement`) is a separate top-level element from
+ * `bar.element` — a real `#app` sibling, not a descendant — so the mobile
+ * grid can place it in its own trailing column past the status bar (#478).
  */
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
@@ -91,22 +95,22 @@ function buildBar(): MenuBar {
   const state = new AppState();
   const commands = new Commands(state, stubUi(), document);
   const bar = new MenuBar(commands, menuChecks());
-  document.body.append(bar.element);
+  // Mirrors `main.ts`: `toggleElement` mounts as a sibling of `element`, not
+  // inside it.
+  document.body.append(bar.element, bar.toggleElement);
   return bar;
 }
 
 describe('mobile menu bar (hamburger toggle, expands below the logo row)', () => {
   it('starts with the row collapsed behind a toggle whose aria-expanded is false', () => {
     const bar = buildBar();
-    const toggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle');
-    expect(toggle).not.toBeNull();
-    expect(toggle!.getAttribute('aria-expanded')).toBe('false');
+    expect(bar.toggleElement.getAttribute('aria-expanded')).toBe('false');
     expect(bar.element.querySelector('.menu-row')!.classList.contains('open')).toBe(false);
   });
 
   it('exposes every top-level menu name in the row once the toggle is expanded', () => {
     const bar = buildBar();
-    bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!.click();
+    bar.toggleElement.click();
     const labels = Array.from(
       bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
     ).map((b) => b.textContent);
@@ -124,32 +128,30 @@ describe('mobile menu bar (hamburger toggle, expands below the logo row)', () =>
 
   it('flips the toggle back to collapsed when clicked a second time', () => {
     const bar = buildBar();
-    const toggle = () => bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!;
-    toggle().click();
-    expect(toggle().getAttribute('aria-expanded')).toBe('true');
-    toggle().click();
-    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+    bar.toggleElement.click();
+    expect(bar.toggleElement.getAttribute('aria-expanded')).toBe('true');
+    bar.toggleElement.click();
+    expect(bar.toggleElement.getAttribute('aria-expanded')).toBe('false');
     expect(bar.element.querySelector('.menu-row')!.classList.contains('open')).toBe(false);
   });
 
   it('toggles a mobile-menu-open class on the bar itself, in step with the row', () => {
     // At the mobile breakpoint, `.menu-bar` shares a row with `.status-bar`
     // (#470); this class is what the media query keys off of to grow
-    // `.menu-bar` to the full row width and hide `.status-bar` while the row
-    // is expanded, since CSS otherwise has no way to react, on a sibling, to
-    // a class several levels down in `.menu-bar`'s own subtree.
+    // `.menu-bar` and hide `.status-bar` while the row is expanded, since CSS
+    // otherwise has no way to react, on a sibling, to a class several levels
+    // down in `.menu-bar`'s own subtree.
     const bar = buildBar();
-    const toggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!;
     expect(bar.element.classList.contains('mobile-menu-open')).toBe(false);
-    toggle.click();
+    bar.toggleElement.click();
     expect(bar.element.classList.contains('mobile-menu-open')).toBe(true);
-    toggle.click();
+    bar.toggleElement.click();
     expect(bar.element.classList.contains('mobile-menu-open')).toBe(false);
   });
 
   it('opens a top-level menu from the expanded row', () => {
     const bar = buildBar();
-    bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!.click();
+    bar.toggleElement.click();
     const fileButton = Array.from(
       bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
     ).find((b) => b.textContent === t('menu.file'))!;
@@ -159,7 +161,7 @@ describe('mobile menu bar (hamburger toggle, expands below the logo row)', () =>
 
   it('collapses the row again once a command is selected', () => {
     const bar = buildBar();
-    bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!.click();
+    bar.toggleElement.click();
     const fileButton = Array.from(
       bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'),
     ).find((b) => b.textContent === t('menu.file'))!;
@@ -169,8 +171,21 @@ describe('mobile menu bar (hamburger toggle, expands below the logo row)', () =>
     )!;
     newSpreadsheet.click();
     expect(bar.element.querySelector('.menu-list')).toBeNull();
-    const toggle = bar.element.querySelector<HTMLButtonElement>('.menu-bar-toggle')!;
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(bar.toggleElement.getAttribute('aria-expanded')).toBe('false');
     expect(bar.element.querySelector('.menu-row')!.classList.contains('open')).toBe(false);
+  });
+
+  it('closing via outside mousedown does not get immediately reopened by the toggle click (#478)', () => {
+    // `toggleElement` now lives outside `element` in the DOM, so the
+    // document-level "click outside closes the menu" listener must treat it
+    // as part of the bar — otherwise a mousedown on the toggle while open
+    // would close it first, and the toggle's own click handler firing right
+    // after would immediately reopen it.
+    const bar = buildBar();
+    bar.toggleElement.click();
+    expect(bar.toggleElement.getAttribute('aria-expanded')).toBe('true');
+    bar.toggleElement.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    bar.toggleElement.click();
+    expect(bar.toggleElement.getAttribute('aria-expanded')).toBe('false');
   });
 });

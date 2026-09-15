@@ -213,7 +213,12 @@ function bootstrap(): void {
     sheetBar.element,
     commentsPanel.element,
   ]);
-  app.append(menuBar.element, appBody, statusBar.element);
+  // `menuBar.toggleElement` is a separate top-level element from
+  // `menuBar.element` (mobile only) so the narrow-viewport grid can place it
+  // in its own trailing column, past the status bar — see the mobile layout
+  // comment in styles.css and `MenuBar.toggleElement` (#478). Desktop-width
+  // CSS keeps it `display: none` regardless of DOM position.
+  app.append(menuBar.element, appBody, statusBar.element, menuBar.toggleElement);
 
   const dropMessage = el('div', { className: 'drop-message' });
   const dropOverlay = el('div', { className: 'drop-overlay', attrs: { 'aria-hidden': 'true' } }, [

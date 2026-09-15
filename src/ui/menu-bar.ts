@@ -590,6 +590,17 @@ function filterSortItems(): Array<MenuItemDef | 'separator'> {
  */
 export class MenuBar {
   readonly element: HTMLElement;
+  /**
+   * Mobile only (hidden by desktop-width CSS): the hamburger button that
+   * expands `.menu-row` below the logo row. A separate top-level element
+   * from `.element` — rather than a child of it, as it used to be — purely
+   * so the mobile grid (`@media (max-width: 700px)` in styles.css) can place
+   * it in its own trailing column, past the status bar, in a three-column
+   * `[app icon | status bar | hamburger]` layout (#478). The caller mounts
+   * it as a sibling of `.element` and `StatusBar.element`; `MenuBar` still
+   * owns all of its state and behavior.
+   */
+  readonly toggleElement: HTMLButtonElement;
   private menus: MenuDef[];
   private openIndex: number | null = null;
   /** `labelKey` of the item whose submenu is open in the current menu. */
@@ -609,9 +620,32 @@ export class MenuBar {
   ) {
     this.menus = defaultMenus(checks);
     this.element = el('div', { className: 'menu-bar', attrs: { role: 'menubar' } });
+    // Mobile only (hidden by desktop-width CSS): expands `.menu-row` below
+    // the logo row instead of it scrolling horizontally beside the logo. The
+    // old horizontal-scroll strip combined with iOS Safari dispatching a
+    // synthetic click at the finger's original touch coordinates after
+    // inertial scroll, so a tap could open a different item than the one
+    // touched (#267); replacing the scroll interaction removes that failure
+    // mode entirely rather than trying to compensate for it. Built once
+    // (rather than rebuilt every `render()`, like the rest of the bar) so
+    // moving it to its own grid column (#478) doesn't cost a detach/reattach
+    // on every open/close; only its `aria-expanded`/label attributes below
+    // need to track state or locale changes.
+    this.toggleElement = el(
+      'button',
+      {
+        className: 'menu-bar-toggle',
+        attrs: { type: 'button', 'aria-controls': 'menu-bar-row' },
+      },
+      [createIcon(Menu, 'menu-bar-toggle-icon', 18)],
+    );
+    this.toggleElement.addEventListener('click', () => {
+      this.mobileMenuOpen = !this.mobileMenuOpen;
+      this.render();
+    });
     document.addEventListener('mousedown', (event) => {
       const target = event.target as Node | null;
-      const insideBar = this.element.contains(target);
+      const insideBar = this.element.contains(target) || this.toggleElement.contains(target);
       const insideSubmenu = Boolean(this.submenuEl && target && this.submenuEl.contains(target));
       if (insideBar || insideSubmenu) {
         return;
@@ -653,32 +687,12 @@ export class MenuBar {
       createAppIcon('app-icon', 20),
       el('span', { className: 'app-name', text: t('app.title') }),
     );
-    // Mobile only (hidden by desktop-width CSS): expands `.menu-row` below
-    // this logo row instead of it scrolling horizontally beside the logo.
-    // The old horizontal-scroll strip combined with iOS Safari dispatching a
-    // synthetic click at the finger's original touch coordinates after
-    // inertial scroll, so a tap could open a different item than the one
-    // touched (#267); replacing the scroll interaction removes that failure
-    // mode entirely rather than trying to compensate for it.
-    const toggle = el(
-      'button',
-      {
-        className: 'menu-bar-toggle',
-        attrs: {
-          type: 'button',
-          'aria-expanded': this.mobileMenuOpen ? 'true' : 'false',
-          'aria-controls': 'menu-bar-row',
-          'aria-label': t('menu.toggle'),
-          title: t('menu.toggle'),
-        },
-      },
-      [createIcon(Menu, 'menu-bar-toggle-icon', 18)],
-    );
-    toggle.addEventListener('click', () => {
-      this.mobileMenuOpen = !this.mobileMenuOpen;
-      this.render();
-    });
-    this.element.append(toggle);
+    // `toggleElement` is a persistent sibling element (built once in the
+    // constructor, see there for why), so only its state/locale-dependent
+    // attributes are refreshed here.
+    this.toggleElement.setAttribute('aria-expanded', this.mobileMenuOpen ? 'true' : 'false');
+    this.toggleElement.setAttribute('aria-label', t('menu.toggle'));
+    this.toggleElement.title = t('menu.toggle');
     const row = el('div', {
       className: this.mobileMenuOpen ? 'menu-row open' : 'menu-row',
       attrs: { id: 'menu-bar-row' },

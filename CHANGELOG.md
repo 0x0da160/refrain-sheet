@@ -37,6 +37,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
   brings up the on-screen keyboard, matching what double-clicking already
   does with a mouse.
   ([#458](https://github.com/0x0da160/refrain-sheet/issues/458))
+- A single tap on a cell (or a row/column header) on a touch device no
+  longer pops up the on-screen keyboard by itself; the keyboard now only
+  appears once editing actually starts, e.g. via double-tap.
+  ([#469](https://github.com/0x0da160/refrain-sheet/issues/469))
 
 ### Changed
 

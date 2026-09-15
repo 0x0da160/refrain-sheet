@@ -339,3 +339,71 @@ describe('double-tap opens the inline editor on touch (#458)', () => {
     expect(grid.element.querySelector('.cell-editor')).not.toBeNull();
   });
 });
+
+describe('a touch tap-to-select does not pop the on-screen keyboard (#469)', () => {
+  /** Spies on the sink's `.focus()` calls, recording whether it was marked
+   * `readOnly` — the standard technique for moving DOM focus without
+   * triggering a mobile on-screen keyboard — at the moment each call fired. */
+  function spyOnSinkFocus(sink: HTMLTextAreaElement): {
+    readOnlyAtEachFocus: boolean[];
+    restore: () => void;
+  } {
+    const readOnlyAtEachFocus: boolean[] = [];
+    const focusSpy = vi.spyOn(HTMLTextAreaElement.prototype, 'focus').mockImplementation(function (
+      this: HTMLTextAreaElement,
+    ) {
+      if (this === sink) {
+        readOnlyAtEachFocus.push(this.readOnly);
+      }
+    });
+    return { readOnlyAtEachFocus, restore: () => focusSpy.mockRestore() };
+  }
+
+  it('focuses the sink read-only for a touch tap-to-select, then restores it', () => {
+    const { grid } = setupCsv(10, 3);
+    const sink = grid.element.querySelector<HTMLTextAreaElement>('textarea.grid-sink')!;
+    const { readOnlyAtEachFocus, restore } = spyOnSinkFocus(sink);
+    const cell = cellEl(grid, 1, 1);
+    touchDown(cell);
+    touchUp(cell);
+    // The browser's own synthetic mousedown/click compatibility events (not
+    // reproduced by the `touchDown`/`touchUp` helpers above, which only
+    // dispatch pointer events) are what actually drive plain tap-to-select —
+    // see `onMouseDown` and the comment at the top of this file's "Touch /
+    // pen" section in grid.ts.
+    cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+    expect(readOnlyAtEachFocus).toEqual([true]);
+    expect(sink.readOnly).toBe(false);
+    restore();
+  });
+
+  it('focuses the sink normally (not read-only) for a mouse click', () => {
+    const { grid } = setupCsv(10, 3);
+    const sink = grid.element.querySelector<HTMLTextAreaElement>('textarea.grid-sink')!;
+    const { readOnlyAtEachFocus, restore } = spyOnSinkFocus(sink);
+    const cell = cellEl(grid, 1, 1);
+    cell.dispatchEvent(pointerEvent('pointerdown', { pointerType: 'mouse' }));
+    cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+    expect(readOnlyAtEachFocus).toEqual([false]);
+    restore();
+  });
+
+  it('still shows the keyboard once a double-tap actually opens the editor', () => {
+    const { grid } = setupCsv(10, 3);
+    const sink = grid.element.querySelector<HTMLTextAreaElement>('textarea.grid-sink')!;
+    const { readOnlyAtEachFocus, restore } = spyOnSinkFocus(sink);
+    const cell = cellEl(grid, 1, 1);
+    touchDown(cell);
+    touchUp(cell);
+    vi.advanceTimersByTime(DOUBLE_TAP_MS - 50);
+    touchDown(cell);
+    touchUp(cell);
+    expect(grid.element.querySelector('.cell-editor')).not.toBeNull();
+    // The tap-to-select focus this double-tap started with was suppressed,
+    // but the final focus call — the one that actually opens the editor —
+    // was not, so the on-screen keyboard appears exactly when editing starts.
+    expect(readOnlyAtEachFocus.length).toBeGreaterThan(0);
+    expect(readOnlyAtEachFocus[readOnlyAtEachFocus.length - 1]).toBe(false);
+    restore();
+  });
+});

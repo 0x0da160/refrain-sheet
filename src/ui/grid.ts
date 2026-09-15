@@ -650,6 +650,12 @@ export class Grid {
   private formulaRefs: FormulaRefRange[] = [];
   /** Floating note shown when a referenced range extends beyond the viewport. */
   private readonly refIndicator: HTMLElement;
+  /** `pointerType` of the most recent pointer gesture the grid handled,
+   * updated in `onPointerDown` (see #469). Defaults to `'mouse'` so desktop,
+   * programmatic, and keyboard-only focus paths are unaffected; `focusGrid()`
+   * reads it to tell a plain touch/pen tap-to-select (which must not pop the
+   * on-screen keyboard) apart from an actual mouse click. */
+  private lastPointerType: string = 'mouse';
 
   constructor(
     private readonly state: AppState,
@@ -799,9 +805,26 @@ export class Grid {
     this.sink.addEventListener('blur', () => this.commitEditor());
   }
 
-  /** Focus the grid's keyboard target (the hidden IME-capturing sink). */
+  /**
+   * Focus the grid's keyboard target (the hidden IME-capturing sink). A plain
+   * touch/pen tap only selects a cell — it must not pop the on-screen
+   * keyboard (#469) — so DOM focus still moves (scroll-into-view, IME
+   * readiness, and any attached physical keyboard keep working exactly as
+   * before), but the virtual keyboard is suppressed for that one focus call
+   * by briefly making the sink read-only around it, the standard technique
+   * for focusing an input without triggering a mobile on-screen keyboard.
+   * `openEditor`'s own direct `.focus()` call when editing actually starts
+   * (double-tap, Enter, F2, the formula bar, …) is untouched, so the
+   * keyboard still appears exactly then.
+   */
   focusGrid(): void {
+    if (this.lastPointerType === 'mouse') {
+      this.sink.focus({ preventScroll: true });
+      return;
+    }
+    this.sink.readOnly = true;
     this.sink.focus({ preventScroll: true });
+    this.sink.readOnly = false;
   }
 
   /** Promote the focused sink into an empty cell editor for type-to-edit. */
@@ -2381,6 +2404,10 @@ export class Grid {
   // synthetic mousedown/click for that touch.
 
   private onPointerDown(event: PointerEvent): void {
+    // Pointer events fire before their mouse-compatibility counterparts, so
+    // this always lands before the `focusGrid()` call the resulting
+    // mousedown/click triggers — see `lastPointerType`.
+    this.lastPointerType = event.pointerType;
     if (event.pointerType === 'mouse') {
       return;
     }

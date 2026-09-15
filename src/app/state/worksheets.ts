@@ -407,6 +407,36 @@ export class WorksheetsState {
   }
 
   /**
+   * Add a new worksheet holding one empty Markdown document after the active
+   * one, as one atomic, undoable operation, and activate it. `name` must
+   * already be validated and unique (see the command layer). Otherwise
+   * identical to {@link addSheet} — a markdown worksheet's lifecycle (undo,
+   * rename, duplicate, delete, reorder) is the same `sheets` operation every
+   * other worksheet uses; only its content model differs (see
+   * `Worksheet.kind`).
+   */
+  addMarkdownSheet(tab: Tab, name: string): Worksheet | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || doc.sheetCount >= MAX_WORKSHEETS) {
+      return null;
+    }
+    const sheet = doc.createMarkdownWorksheet(name);
+    const index = doc.sheetIndex(doc.activeSheetId) + 1;
+    // The view is saved before the entry runs, because applying it activates
+    // the new worksheet and would otherwise capture the wrong sheet's view.
+    this.saveSheetView(tab, doc);
+    const applied = this.state.pushEntry(tab, {
+      label: 'history.addMarkdownSheet',
+      ops: [{ type: 'sheets', op: { action: 'add', sheet, index } }],
+    });
+    if (!applied) {
+      return null;
+    }
+    this.state.emit('sheets');
+    return sheet;
+  }
+
+  /**
    * Duplicate a worksheet (deep copy, inserted immediately after the source)
    * as one atomic, undoable operation, and activate the copy. Formulas are
    * copied verbatim: worksheet-qualified references keep pointing at the

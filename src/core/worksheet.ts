@@ -12,6 +12,17 @@ export interface CompiledFormula {
   parsed: ParseResult;
 }
 
+/**
+ * What a worksheet's content *is*. `grid` is every worksheet before this
+ * field existed and remains the default. `markdown` holds one Markdown
+ * document as its sole content (its raw source lives in cell A1 — see
+ * {@link Worksheet.markdown}) and is rendered by a docked source/preview
+ * surface in the spreadsheet area instead of the grid (see
+ * `src/ui/markdown-sheet.ts`); it never carries formulas, styles, a filter,
+ * or a sort, and is excluded from CSV export (CSV has no analog for it).
+ */
+export type WorksheetKind = 'grid' | 'markdown';
+
 /** Where the selection sits and how it was made (see AppState.SelectionKind). */
 export interface WorksheetPoint {
   row: number;
@@ -53,6 +64,8 @@ export class Worksheet {
   readonly id: string;
   /** Mutable display name (unique per workbook, case-insensitively). */
   name: string;
+  /** What this worksheet's content is (see {@link WorksheetKind}); fixed at creation. */
+  readonly kind: WorksheetKind;
 
   private data: string[][];
   private cols: number;
@@ -153,21 +166,38 @@ export class Worksheet {
   private formulaPerRow: number[] | null = null;
   private formulaCountCache: { revision: number; count: number } | null = null;
 
-  constructor(id: string, name: string, data: string[][], columnCount: number) {
+  constructor(id: string, name: string, data: string[][], columnCount: number, kind: WorksheetKind = 'grid') {
     this.id = id;
     this.name = name;
     this.data = data;
     this.cols = Math.max(1, columnCount);
+    this.kind = kind;
   }
 
   /** An empty worksheet of the given size (at least 1x1). */
-  static empty(id: string, name: string, rows = 1, cols = 1): Worksheet {
+  static empty(id: string, name: string, rows = 1, cols = 1, kind: WorksheetKind = 'grid'): Worksheet {
     const columnCount = Math.max(1, cols);
     const data: string[][] = [];
     for (let r = 0; r < Math.max(1, rows); r++) {
       data.push(new Array<string>(columnCount).fill(''));
     }
-    return new Worksheet(id, name, data, columnCount);
+    return new Worksheet(id, name, data, columnCount, kind);
+  }
+
+  /**
+   * A worksheet holding one Markdown document as its sole content (see
+   * {@link WorksheetKind}). Always exactly 1x1: the whole document lives as
+   * plain text in cell A1, so editing it is an ordinary `setCell(0, 0, …)`
+   * mutation — the same atomic, undoable history entry a grid cell edit uses
+   * — and reading it back is {@link markdownText}.
+   */
+  static markdown(id: string, name: string, text: string): Worksheet {
+    return new Worksheet(id, name, [[text]], 1, 'markdown');
+  }
+
+  /** The document's Markdown source (cell A1). Meaningful only when `kind === 'markdown'`. */
+  get markdownText(): string {
+    return this.getValue(0, 0);
   }
 
   /** A worksheet from prebuilt row-major values, padding each row to `columnCount`. */
@@ -213,8 +243,9 @@ export class Worksheet {
     return row >= 0 && row < this.data.length && col >= 0 && col < this.cols;
   }
 
+  /** A markdown worksheet's cell A1 is its document text, never a formula, no matter what it starts with. */
   isFormulaCell(row: number, col: number): boolean {
-    return isFormula(this.getValue(row, col));
+    return this.kind !== 'markdown' && isFormula(this.getValue(row, col));
   }
 
   /**
@@ -234,6 +265,11 @@ export class Worksheet {
   // ----- Formula index -----
 
   private countRowFormulas(row: string[]): number {
+    // A markdown worksheet's cell A1 is document text, never a formula (see
+    // isFormulaCell) — never tokenize its (potentially large) content as one.
+    if (this.kind === 'markdown') {
+      return 0;
+    }
     let n = 0;
     for (let c = 0; c < row.length; c++) {
       if (isFormula(row[c])) n += 1;
@@ -661,6 +697,7 @@ export class Worksheet {
       name,
       this.data.map((row) => row.slice()),
       this.cols,
+      this.kind,
     );
     copy.filter = this.filter;
     copy.displayZoom = this.displayZoom;
@@ -679,7 +716,7 @@ export class Worksheet {
    * the workbook is left exactly as it was.
    */
   cloneShell(id: string, name: string): Worksheet {
-    const copy = Worksheet.empty(id, name, this.data.length, this.cols);
+    const copy = Worksheet.empty(id, name, this.data.length, this.cols, this.kind);
     copy.filter = this.filter;
     copy.displayZoom = this.displayZoom;
     copy.displayColWidths = this.displayColWidths.slice();

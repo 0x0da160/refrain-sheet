@@ -320,6 +320,11 @@ export class SheetBar {
         disabled: !this.commands.isEnabled('worksheet.add'),
         onSelect: () => void this.commands.run('worksheet.add'),
       },
+      {
+        label: t('menu.sheet.addMarkdownSheet'),
+        disabled: !this.commands.isEnabled('worksheet.addMarkdown'),
+        onSelect: () => void this.commands.run('worksheet.addMarkdown'),
+      },
     ];
     for (const item of SHEET_MENU_ITEMS) {
       if (item.separatorBefore) {

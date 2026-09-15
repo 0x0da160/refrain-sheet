@@ -131,6 +131,34 @@ describe('binary container codec (JS store engine)', () => {
     if (enImplicit.ok) expect(enImplicit.data.displayLanguage).toBeUndefined();
   });
 
+  it('round-trips a markdown worksheet (body version 12)', () => {
+    const markdown: RsfData = {
+      name: 'Notes',
+      delimiter: ',',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [[0, 0, '# Hello']],
+      kind: 'markdown',
+    };
+    const decoded = decodeRsf(encodeRsf(markdown));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.kind).toBe('markdown');
+    expect(decoded.data.cells).toEqual([[0, 0, '# Hello']]);
+  });
+
+  it('omits the kind field for an ordinary grid worksheet, staying on the lowest sufficient body version', () => {
+    const decoded = decodeRsf(encodeRsf(sample));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.kind).toBeUndefined();
+  });
+
+  it('rejects a markdown worksheet with any shape other than 1x1', () => {
+    const decoded = decodeRsf(encodeRsf({ ...sample, kind: 'markdown' }));
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
+  });
+
   it('rejects a truncated payload', () => {
     const bytes = encodeRsf(sample);
     const decoded = decodeRsf(bytes.subarray(0, bytes.length - 2));

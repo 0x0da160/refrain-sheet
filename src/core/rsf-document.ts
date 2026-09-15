@@ -423,7 +423,7 @@ export class RsfDocument {
     for (const [r, c, input] of entry.cells) {
       rows[r][c] = input;
     }
-    const sheet = new Worksheet(entry.id, entry.name, rows, entry.columnCount);
+    const sheet = new Worksheet(entry.id, entry.name, rows, entry.columnCount, entry.kind ?? 'grid');
     if (entry.display) {
       sheet.displayZoom = entry.display.zoom;
       for (const [col, width] of entry.display.colWidths ?? []) {
@@ -535,6 +535,11 @@ export class RsfDocument {
   createWorksheet(name: string, rows?: number, cols?: number): Worksheet {
     const active = this.activeSheet;
     return Worksheet.empty(this.mintSheetId(), name, rows ?? active.rowCount, cols ?? active.columnCount);
+  }
+
+  /** Build (but do not insert) a new worksheet holding one empty Markdown document. */
+  createMarkdownWorksheet(name: string): Worksheet {
+    return Worksheet.markdown(this.mintSheetId(), name, '');
   }
 
   /** Build (but do not insert) a deep copy of a worksheet under a new name. */
@@ -818,6 +823,9 @@ export class RsfDocument {
         columnCount: sheet.columnCount,
         cells: perSheet[index] ?? sheet.collectCells(),
       };
+      if (sheet.kind !== 'grid') {
+        entry.kind = sheet.kind;
+      }
       if (sheet.displayZoom !== undefined || colWidths.length > 0 || sheet.displayWrap === true) {
         entry.display = {
           ...(sheet.displayZoom !== undefined ? { zoom: sheet.displayZoom } : {}),

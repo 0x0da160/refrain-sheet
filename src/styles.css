@@ -2607,6 +2607,28 @@ table.diff-table td {
   color: var(--text-dim);
 }
 
+/* ---------- Markdown worksheet (docked in the spreadsheet area) ----------
+   Same source/preview panes as the standalone editor above (shared CSS
+   classes), but filling the `.main-row` the grid normally occupies instead
+   of a fixed dialog height — see `Worksheet.kind`, `ui/markdown-sheet.ts`. */
+
+.markdown-sheet-view {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 12px;
+  background: var(--cell-bg);
+}
+
+.markdown-sheet-view[hidden] {
+  display: none;
+}
+
+.markdown-sheet-view .markdown-editor-source,
+.markdown-sheet-view .markdown-editor-preview {
+  min-height: 0;
+}
+
 /* ---------- Drop overlay ---------- */
 
 .drop-overlay {

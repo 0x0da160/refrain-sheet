@@ -183,8 +183,13 @@ describe('welcome screen (initial screen)', () => {
     // Document-specific info is present while the tab is open.
     expect(statusBar.element.textContent).toContain(t('status.encoding'));
     await commands.closeTab(tab);
-    // No encoding/selection/dirty info remains; only the app version.
-    expect(statusBar.element.textContent).toBe(t('dialog.about.version', { version: APP_VERSION_DISPLAY }));
+    // No encoding/selection/dirty info remains; only the app version — both
+    // the full ("Version v1.2.3") and short ("v1.2.3") variants are always
+    // in the DOM, CSS picks one per breakpoint (#478).
+    expect(statusBar.element.querySelector('.status-version-full')!.textContent).toBe(
+      t('dialog.about.version', { version: APP_VERSION_DISPLAY }),
+    );
+    expect(statusBar.element.querySelector('.status-version-short')!.textContent).toBe(APP_VERSION_DISPLAY);
     const textarea = formulaBar.element.querySelector('textarea')!;
     expect(textarea.value).toBe('');
     expect(textarea.disabled).toBe(true);

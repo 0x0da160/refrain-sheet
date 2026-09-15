@@ -49,6 +49,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- On a phone-width screen, the bottom row is now a three-column layout — app
+  icon, status bar, then the menu toggle at the far edge — with the "Refrain
+  Sheet" name hidden (icon only) to save space, the status bar's version
+  text shortened to just e.g. "v0.7.31", and the expanded menu now scrolls
+  instead of overflowing the screen on a short viewport.
+  ([#478](https://github.com/0x0da160/refrain-sheet/issues/478))
 - On a phone-width screen, the menu icon and its menu now sit at the bottom
   of the screen, sharing a row with the status bar instead of their own row
   at the top — easier to reach with a thumb and one row shorter.

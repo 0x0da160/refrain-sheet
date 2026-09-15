@@ -44,6 +44,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- On a phone-width screen, the menu icon and its menu now sit at the bottom
+  of the screen, sharing a row with the status bar instead of their own row
+  at the top — easier to reach with a thumb and one row shorter.
+  ([#470](https://github.com/0x0da160/refrain-sheet/issues/470))
 - The "add row" / "add column" icon buttons no longer sit in a small toolbar
   below the grid; they now sit directly on the grid's own edge — "add row"
   below the last row number, "add column" to the right of the last column

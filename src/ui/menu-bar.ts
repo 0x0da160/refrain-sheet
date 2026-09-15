@@ -640,6 +640,11 @@ export class MenuBar {
     this.submenuEl?.remove();
     this.submenuEl = null;
     clearChildren(this.element);
+    // Mobile only: lets the mobile layout (`@media (max-width: 700px)` in
+    // styles.css) grow `.menu-bar` to the full width of its shared row with
+    // `.status-bar` and hide that row's sibling while the row expands, via a
+    // plain CSS sibling selector — desktop-width CSS never reads this class.
+    this.element.classList.toggle('mobile-menu-open', this.mobileMenuOpen);
     // Decorative: the adjacent product name conveys the brand, so the icon is
     // hidden from assistive technology. Explicit width/height reserve space so
     // it never shifts layout or stretches; the SVG stays crisp at any DPI and

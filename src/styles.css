@@ -456,7 +456,7 @@ button {
   padding: 4px 6px 0;
   gap: 2px;
   overflow-x: auto;
-  min-height: 30px;
+  min-height: 28px;
 }
 
 .tab {

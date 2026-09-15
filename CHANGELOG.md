@@ -46,6 +46,9 @@ release-time half (retitling `Unreleased`) is still done by hand.
   jitter no longer got misread as the start of a drag and silently
   cancelled the menu.
   ([#475](https://github.com/0x0da160/refrain-sheet/issues/475))
+- The workbook tab bar above the grid is now the same height as the sheet
+  tab bar below it, so the two tab strips line up visually.
+  ([#480](https://github.com/0x0da160/refrain-sheet/issues/480))
 
 ### Changed
 

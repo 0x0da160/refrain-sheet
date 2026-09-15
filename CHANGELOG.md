@@ -41,6 +41,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
   longer pops up the on-screen keyboard by itself; the keyboard now only
   appears once editing actually starts, e.g. via double-tap.
   ([#469](https://github.com/0x0da160/refrain-sheet/issues/469))
+- Long-pressing a cell or row/column header on a touch device to open the
+  context menu works reliably again; a held finger's own small position
+  jitter no longer got misread as the start of a drag and silently
+  cancelled the menu.
+  ([#475](https://github.com/0x0da160/refrain-sheet/issues/475))
 
 ### Changed
 

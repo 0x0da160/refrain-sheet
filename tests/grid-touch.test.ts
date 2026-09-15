@@ -211,9 +211,9 @@ describe('touch/pointer drag support (#290)', () => {
 
   it('extends a cell-range selection by touch once the press-and-hold completes', () => {
     const { state, grid, tab } = setupCsv(10, 3);
-    touchDown(cellEl(grid, 0, 0));
+    touchDown(cellEl(grid, 0, 0), { clientX: 0, clientY: 0 });
     vi.advanceTimersByTime(LONG_PRESS_MS);
-    touchMove(cellEl(grid, 2, 0));
+    touchMove(cellEl(grid, 2, 0), { clientX: 0, clientY: 52 });
     touchUp(grid.element);
     const range = state.selectedRange(tab);
     expect(range).toEqual({ top: 0, left: 0, bottom: 2, right: 0 });
@@ -261,11 +261,24 @@ describe('long-press opens the context menu on touch, a right-click equivalent (
 
   it('does not open the context menu once the completed hold turns into a drag', () => {
     const { grid } = setupCsv(10, 3);
-    touchDown(cellEl(grid, 0, 0));
+    touchDown(cellEl(grid, 0, 0), { clientX: 0, clientY: 0 });
     vi.advanceTimersByTime(LONG_PRESS_MS);
-    touchMove(cellEl(grid, 2, 0));
+    touchMove(cellEl(grid, 2, 0), { clientX: 0, clientY: 52 });
     touchUp(grid.element);
     expect(document.querySelector('.context-menu')).toBeNull();
+  });
+
+  it("keeps the pending context menu through a held finger's small pointermove jitter (#475)", () => {
+    // Real touch input keeps reporting tiny coordinate jitter even while a
+    // finger is held still; a completed hold must not read that jitter as
+    // the start of a drag and cancel the pending context menu.
+    const { grid } = setupCsv(10, 3);
+    touchDown(cellEl(grid, 1, 1), { clientX: 100, clientY: 100 });
+    vi.advanceTimersByTime(LONG_PRESS_MS);
+    touchMove(cellEl(grid, 1, 1), { clientX: 103, clientY: 101 });
+    expect(document.querySelector('.context-menu')).toBeNull();
+    touchUp(grid.element);
+    expect(document.querySelector('.context-menu')).not.toBeNull();
   });
 
   it('does not open the context menu when the gesture is cancelled instead of lifted', () => {

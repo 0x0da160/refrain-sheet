@@ -31,6 +31,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Added
+
+- A brand-new CSV document (`File > New CSV`) can now have rows and columns
+  inserted, deleted, or appended directly, without first converting it to an
+  RSF spreadsheet — as long as it hasn't been saved yet. Once it's saved, the
+  usual "convert to RSF first" requirement applies again, the same as for any
+  other CSV file. ([#479](https://github.com/0x0da160/refrain-sheet/issues/479))
+
 ### Fixed
 
 - Double-tapping a cell on a touch device now opens it for editing and

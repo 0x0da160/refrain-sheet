@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
+import { encodeCsvExport } from '../../core/csv-export';
 import { adjustFormulaForAxis, isFormula, sheetNameKey, shiftFormulaRefs } from '../../core/formula';
 import type { CellChange, HistoryEntry, Operation } from '../../core/history';
+import { LosslessDocument } from '../../core/lossless-document';
 import { RsfDocument, RSF_EXTENSION } from '../../core/rsf-document';
 import {
   AppState,
@@ -25,6 +27,12 @@ import { safeStorageSet } from '../storage';
  * instance of this class. A few of these methods (`applyWrap`,
  * `appendAutoWrap`) are also called back into by `AppState` itself, from the
  * cell-edit and undo/redo paths that stay there.
+ *
+ * `insertRows`/`deleteRows`/`insertCols`/`deleteCols` additionally accept a
+ * still-unsaved, freshly created CSV document (`Tab.neverSaved`) — see
+ * `csvStructural` (#479). That path never touches the RSF machinery: it
+ * rebuilds the whole CSV document from its current values, since there is no
+ * on-disk byte layout to protect yet.
  */
 export class StructuralOpsState {
   constructor(private readonly state: AppState) {}
@@ -36,6 +44,15 @@ export class StructuralOpsState {
    */
   insertRows(tab: Tab, index: number, count: number): boolean {
     const doc = tab.doc;
+    if (doc.kind === 'csv') {
+      if (!tab.neverSaved || count < 1) {
+        return false;
+      }
+      const rows = this.csvMatrix(doc);
+      const blankRow = (): string[] => Array.from({ length: doc.columnCount }, () => '');
+      rows.splice(index, 0, ...Array.from({ length: count }, blankRow));
+      return this.pushCsvStructure(tab, doc, rows, 'history.insertRows');
+    }
     if (doc.kind !== 'rsf' || count < 1) {
       return false;
     }
@@ -64,6 +81,20 @@ export class StructuralOpsState {
   /** Delete rows (never all of them). Referencing formulas get #REF! or clamped ranges. */
   deleteRows(tab: Tab, index: number, count: number): boolean {
     const doc = tab.doc;
+    if (doc.kind === 'csv') {
+      if (
+        !tab.neverSaved ||
+        count < 1 ||
+        index < 0 ||
+        index + count > doc.rowCount ||
+        count >= doc.rowCount // the last remaining rows cannot be deleted
+      ) {
+        return false;
+      }
+      const rows = this.csvMatrix(doc);
+      rows.splice(index, count);
+      return this.pushCsvStructure(tab, doc, rows, 'history.deleteRows');
+    }
     if (doc.kind !== 'rsf' || count < 1 || index < 0 || index + count > doc.rowCount) {
       return false;
     }
@@ -95,6 +126,16 @@ export class StructuralOpsState {
 
   insertCols(tab: Tab, index: number, count: number): boolean {
     const doc = tab.doc;
+    if (doc.kind === 'csv') {
+      if (!tab.neverSaved || count < 1) {
+        return false;
+      }
+      const rows = this.csvMatrix(doc);
+      for (const row of rows) {
+        row.splice(index, 0, ...Array.from({ length: count }, () => ''));
+      }
+      return this.pushCsvStructure(tab, doc, rows, 'history.insertCols');
+    }
     if (doc.kind !== 'rsf' || count < 1) {
       return false;
     }
@@ -122,6 +163,22 @@ export class StructuralOpsState {
 
   deleteCols(tab: Tab, index: number, count: number): boolean {
     const doc = tab.doc;
+    if (doc.kind === 'csv') {
+      if (
+        !tab.neverSaved ||
+        count < 1 ||
+        index < 0 ||
+        index + count > doc.columnCount ||
+        count >= doc.columnCount
+      ) {
+        return false;
+      }
+      const rows = this.csvMatrix(doc);
+      for (const row of rows) {
+        row.splice(index, count);
+      }
+      return this.pushCsvStructure(tab, doc, rows, 'history.deleteCols');
+    }
     if (doc.kind !== 'rsf' || count < 1 || index < 0 || index + count > doc.columnCount) {
       return false;
     }
@@ -259,6 +316,45 @@ export class StructuralOpsState {
       }
     }
     return false;
+  }
+
+  /** The full current values of a CSV document as a row-major matrix, rectangular at `columnCount`. */
+  private csvMatrix(doc: LosslessDocument): string[][] {
+    const rows: string[][] = [];
+    for (let r = 0; r < doc.rowCount; r++) {
+      const row: string[] = [];
+      for (let c = 0; c < doc.columnCount; c++) {
+        row.push(doc.getValue(r, c));
+      }
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  /**
+   * Re-encode `rows` as CSV bytes (the document's own delimiter/encoding/BOM,
+   * `\n` line endings — matching how `newCsvDocument` seeds a blank CSV) and
+   * push the whole-document swap as one undoable `csvStructure` entry. The
+   * blank cells a structural edit introduces are always representable, so the
+   * encode cannot fail in practice; a failure just aborts the edit rather than
+   * committing something unrepresentable.
+   */
+  private pushCsvStructure(tab: Tab, before: LosslessDocument, rows: string[][], label: string): boolean {
+    const result = encodeCsvExport(rows, before.delimiter, {
+      encoding: before.encoding,
+      bom: before.hasBom,
+      lineEnding: 'lf',
+      delimiter: 'keep',
+      quoteStyle: 'minimal',
+    });
+    if (!result.ok) {
+      return false;
+    }
+    const after = LosslessDocument.fromBytes(result.bytes, {
+      encoding: before.encoding,
+      delimiter: before.delimiter,
+    });
+    return this.state.pushEntry(tab, { label, ops: [{ type: 'csvStructure', before, after }] });
   }
 
   /**

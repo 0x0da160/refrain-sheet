@@ -393,6 +393,10 @@ export class FileIoCommands {
       return false;
     }
     const outcome = written.value;
+    // A real save (however it landed) ends the "brand-new, never-saved CSV"
+    // exception (#479): further structural edits go through the normal
+    // explicit RSF conversion again.
+    tab.neverSaved = false;
 
     if (outcome.fellBack) {
       this.ui.notify(t('notify.permissionDenied'), 'warn');
@@ -921,7 +925,12 @@ export class FileIoCommands {
     const suffix = this.newCsvDocCount > 1 ? `-${this.newCsvDocCount}` : '';
     const name = `${t('untitled.new')}${suffix}${CSV_EXTENSION}`;
     const doc = LosslessDocument.fromBytes(new TextEncoder().encode('\n'));
-    return this.state.addTab(name, doc, null);
+    const tab = this.state.addTab(name, doc, null);
+    // Until the first save there is no on-disk byte layout to protect, so
+    // row/column structural edits are allowed directly on this CSV document
+    // (#479) — see `Tab.neverSaved` and `StructuralOpsState`.
+    tab.neverSaved = true;
+    return tab;
   }
 
   /**

@@ -9,6 +9,13 @@ import { el } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 import { isComposingKey } from './ime';
 
+/** The raw text currently being typed for a cell, before it is committed. */
+export interface FormulaLivePreview {
+  row: number;
+  col: number;
+  value: string;
+}
+
 /**
  * Formula bar for the selected cell. Shows and edits the raw cell input —
  * for formula cells this is the underlying formula expression, while the
@@ -40,6 +47,9 @@ export class FormulaBar implements FormulaRefTarget {
     private readonly moveDown: () => void,
     /** Receives the referenced ranges to highlight in the grid ([] clears). */
     private readonly onRefsChange: (refs: FormulaRefRange[]) => void = () => undefined,
+    /** Receives the in-progress raw text for the grid to render live while
+     * typing, ahead of the commit on blur/Enter/Escape (null clears it). */
+    private readonly onLiveValueChange: (preview: FormulaLivePreview | null) => void = () => undefined,
   ) {
     this.refEl = el('div', { className: 'cell-ref', attrs: { 'aria-hidden': 'true' } });
     this.textarea = el('textarea', {
@@ -82,6 +92,7 @@ export class FormulaBar implements FormulaRefTarget {
         this.autocomplete.update();
       }
       this.updateRefs();
+      this.updateLivePreview();
     });
     this.textarea.addEventListener('click', () => this.autocomplete.update());
     this.textarea.addEventListener('blur', () => {
@@ -110,6 +121,14 @@ export class FormulaBar implements FormulaRefTarget {
   private clearRefs(): void {
     this.refsDescEl.textContent = '';
     this.onRefsChange([]);
+  }
+
+  /** Push the in-progress raw text for the selected cell to the grid. */
+  private updateLivePreview(): void {
+    const tab = this.state.activeTab;
+    if (!tab || !tab.selection) return;
+    const { row, col } = tab.selection;
+    this.onLiveValueChange({ row, col, value: this.textarea.value });
   }
 
   // ----- FormulaRefTarget: pointer-entered references from the grid -----
@@ -159,6 +178,9 @@ export class FormulaBar implements FormulaRefTarget {
   }
 
   private commit(): void {
+    // The value is about to be written to the document (or already matches
+    // it), so the live preview override is no longer needed either way.
+    this.onLiveValueChange(null);
     const tab = this.state.activeTab;
     if (!tab || !tab.selection) return;
     const { row, col } = tab.selection;

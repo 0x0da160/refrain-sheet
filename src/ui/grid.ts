@@ -22,6 +22,7 @@ import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../core/t
 import { ContextMenu, type ContextMenuEntry, type ContextMenuToolbarItem } from './context-menu';
 import { el, clearChildren } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
+import type { FormulaLivePreview } from './formula-bar';
 import { beginsTextEntry, isComposingKey } from './ime';
 import { createIcon } from './icon';
 import { ValidationPicker } from './validation-picker';
@@ -665,6 +666,9 @@ export class Grid {
   private autoScrollState: { dx: number; dy: number; clientX: number; clientY: number } | null = null;
   /** Ranges referenced by the formula currently being edited (highlighted). */
   private formulaRefs: FormulaRefRange[] = [];
+  /** In-progress raw text from the formula bar, rendered in place of the
+   * active cell's committed value until it is committed or cleared. */
+  private formulaLivePreview: FormulaLivePreview | null = null;
   /** Floating note shown when a referenced range extends beyond the viewport. */
   private readonly refIndicator: HTMLElement;
   /** `pointerType` of the most recent pointer gesture the grid handled,
@@ -867,6 +871,15 @@ export class Grid {
       this.sink.focus({ preventScroll: true });
       return;
     }
+    this.focusSinkSilently();
+  }
+
+  /** Focus the sink without ever popping the mobile on-screen keyboard —
+   * the standard technique of briefly marking the target read-only around
+   * the focus call. Used for focus claims that are never themselves an
+   * explicit edit-entry gesture (a touch tap-to-select, or a document
+   * becoming active with nothing else focused), regardless of device. */
+  private focusSinkSilently(): void {
     this.sink.readOnly = true;
     this.sink.focus({ preventScroll: true });
     this.sink.readOnly = false;
@@ -1129,9 +1142,14 @@ export class Grid {
       // would otherwise silently go nowhere until the user first clicks a
       // cell. Only claim the keyboard when focus is sitting on the inert
       // default (<body>); a dialog, the formula bar, or any other control
-      // the user is already in keeps its focus untouched.
+      // the user is already in keeps its focus untouched. This is never an
+      // explicit edit-entry gesture, so it always claims focus through the
+      // keyboard-safe path — `focusGrid()`'s mouse/touch branch would
+      // otherwise wrongly treat this as a mouse interaction (its default
+      // before any pointer event has reached this grid instance) and pop
+      // the on-screen keyboard right after a fresh workbook appears.
       if (document.activeElement === document.body) {
-        this.focusGrid();
+        this.focusSinkSilently();
       }
     }
     // Only rebuild the rendered window when a layout input changed (document
@@ -1901,6 +1919,27 @@ export class Grid {
     this.refreshFormulaRefs();
   }
 
+  /**
+   * Render the formula bar's in-progress raw text on the active cell,
+   * ahead of the actual commit — mirrors how the grid's own inline editor
+   * already shows uncommitted text live. Pass `null` to restore the cell's
+   * committed value. Only repaints the previous and new preview cells (not
+   * a full window repaint), and never touches a cell under an open inline
+   * editor, which already renders its own live text.
+   */
+  setFormulaLivePreview(preview: FormulaLivePreview | null): void {
+    const prev = this.formulaLivePreview;
+    this.formulaLivePreview = preview;
+    const tab = this.state.activeTab;
+    if (!tab) return;
+    for (const p of [prev, preview]) {
+      if (!p) continue;
+      if (this.editor && this.editor.row === p.row && this.editor.col === p.col) continue;
+      const cell = this.canvas.querySelector<HTMLElement>(`[data-row="${p.row}"][data-col="${p.col}"]`);
+      if (cell) this.paintCell(tab, cell, p.row, p.col);
+    }
+  }
+
   private refreshFormulaRefs(): void {
     const tab = this.state.activeTab;
     const usable = tab !== null && tab.doc === this.lastDoc;
@@ -1998,7 +2037,9 @@ export class Grid {
 
   private paintCell(tab: Tab, cell: HTMLElement, row: number, col: number): void {
     const doc = tab.doc;
-    const value = doc.getDisplayValue(row, col);
+    const preview = this.formulaLivePreview;
+    const value =
+      preview && preview.row === row && preview.col === col ? preview.value : doc.getDisplayValue(row, col);
     if (cell.textContent !== value) {
       cell.textContent = value;
     }

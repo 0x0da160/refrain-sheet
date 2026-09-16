@@ -28,10 +28,14 @@ export class MarkdownSheetView {
   readonly element: HTMLElement;
   private readonly textarea: HTMLTextAreaElement;
   private readonly preview: HTMLElement;
+  private readonly previewPane: HTMLElement;
+  private readonly previewToggle: HTMLButtonElement;
 
   /** The (tab, sheetId) the textarea currently reflects, so a pending debounced edit commits to the right place. */
   private bound: { tab: Tab; sheetId: string } | null = null;
   private commitTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Whether the preview pane is shown; toggled by `previewToggle`, not persisted across reloads. */
+  private previewVisible = true;
 
   constructor(
     private readonly state: AppState,
@@ -43,7 +47,11 @@ export class MarkdownSheetView {
       attrs: { for: 'markdown-sheet-source' },
     });
     this.textarea = el('textarea', {
-      className: 'markdown-sheet-source',
+      // `markdown-editor-source` is the shared style (flex sizing, font,
+      // border) with the standalone Markdown editor's source pane — without
+      // it this textarea keeps its intrinsic browser-default size instead of
+      // filling its pane (#486).
+      className: 'markdown-sheet-source markdown-editor-source',
       attrs: { id: 'markdown-sheet-source', spellcheck: 'false' },
     }) as HTMLTextAreaElement;
     const sourcePane = el('div', { className: 'markdown-editor-pane' }, [sourceLabel, this.textarea]);
@@ -53,13 +61,17 @@ export class MarkdownSheetView {
       className: 'markdown-editor-preview',
       attrs: { 'aria-live': 'polite' },
     });
-    const previewPane = el('div', { className: 'markdown-editor-pane' }, [previewLabel, this.preview]);
+    this.previewPane = el('div', { className: 'markdown-editor-pane' }, [previewLabel, this.preview]);
 
-    this.element = el('div', { className: 'markdown-sheet-view markdown-editor-panes' }, [
-      sourcePane,
-      previewPane,
-    ]);
+    this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
+    this.previewToggle.addEventListener('click', () => this.setPreviewVisible(!this.previewVisible));
+    const toolbar = el('div', { className: 'markdown-editor-toolbar' }, [this.previewToggle]);
+
+    const panes = el('div', { className: 'markdown-editor-panes' }, [sourcePane, this.previewPane]);
+
+    this.element = el('div', { className: 'markdown-sheet-view' }, [toolbar, panes]);
     this.element.hidden = true;
+    this.updatePreviewToggle();
 
     this.textarea.addEventListener('input', () => {
       this.renderPreview();
@@ -80,6 +92,20 @@ export class MarkdownSheetView {
         this.flushCommit();
       }
     });
+  }
+
+  /** Show/hide the preview pane, letting the source pane fill the freed space (#486). */
+  private setPreviewVisible(visible: boolean): void {
+    this.previewVisible = visible;
+    this.previewPane.hidden = !visible;
+    this.updatePreviewToggle();
+  }
+
+  private updatePreviewToggle(): void {
+    this.previewToggle.textContent = this.previewVisible
+      ? t('dialog.markdownEditor.hidePreview')
+      : t('dialog.markdownEditor.showPreview');
+    this.previewToggle.setAttribute('aria-pressed', String(this.previewVisible));
   }
 
   /** True when the active worksheet is a Markdown sheet — the caller hides the grid exactly when this is true. */

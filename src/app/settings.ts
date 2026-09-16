@@ -180,6 +180,29 @@ export function setEditHints(enabled: boolean): void {
   safeStorageSet(EDIT_HINTS_KEY, enabled ? '1' : '0');
 }
 
+// ---------------------------------------------------------------------------
+// Auto-fit column width on open
+// ---------------------------------------------------------------------------
+
+const AUTO_FIT_ON_OPEN_KEY = 'refrain-csv-html.autoFitOnOpen';
+
+/**
+ * Whether opening a file auto-fits every column to its content. **Default:
+ * enabled.** Applies only when the opened document carries no column-width
+ * metadata of its own (a plain CSV/TSV/XLSX import, or an RSF worksheet that
+ * was never explicitly resized) — an RSF worksheet's own stored widths
+ * always win, matching {@link getWrapCells} and the app zoom preference.
+ * Stored only locally; never written into any document.
+ */
+export function getAutoFitOnOpen(): boolean {
+  return safeStorageGet(AUTO_FIT_ON_OPEN_KEY) !== '0';
+}
+
+/** Persist the auto-fit-on-open preference locally. */
+export function setAutoFitOnOpen(enabled: boolean): void {
+  safeStorageSet(AUTO_FIT_ON_OPEN_KEY, enabled ? '1' : '0');
+}
+
 /** Bytes -> whole MiB (rounded), for display and number inputs. */
 export function bytesToMiB(bytes: number): number {
   return Math.round(bytes / MIB);

@@ -68,6 +68,7 @@ function gridSetup(ui: UiPort) {
   const grid = new Grid(state, commands);
   commands.gridActions = {
     autoFitSelectedColumns: () => grid.autoFitSelectedColumns(),
+    autoFitAllColumns: (tab) => grid.autoFitAllColumns(tab),
     goToCell: (row, col) => grid.reveal(row, col),
   };
   Object.defineProperty(grid.element, 'clientHeight', { value: 520, configurable: true });

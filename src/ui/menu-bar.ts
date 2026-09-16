@@ -206,6 +206,8 @@ export interface MenuChecks {
   zoom: () => number;
   /** Whether editing-help tooltips are enabled. */
   editHints: () => boolean;
+  /** Whether opening a file auto-fits every column to its content. */
+  autoFitOnOpen: () => boolean;
   /** Whether the right-side cell comments panel is open. */
   commentsPanel: () => boolean;
   /** Whether Bold/Italic/Underline is "on" for the whole current selection. */
@@ -407,6 +409,11 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           checked: checks.stickyFirstColumn,
         },
         { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
+        {
+          labelKey: 'menu.view.autoFitOnOpen',
+          command: 'view.autoFitOnOpen',
+          checked: checks.autoFitOnOpen,
+        },
         {
           labelKey: 'menu.view.commentsPanel',
           command: 'view.commentsPanel',

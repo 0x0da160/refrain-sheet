@@ -29,9 +29,14 @@ import { buildXlsxExport, type XlsxSheetInput } from '../../core/xlsx-export';
 import { AppState, defaultSheetName, type Tab } from '../app-state';
 import { readFileObject, requestSaveHandle, saveBytes, saveBytesAs, type OpenedFile } from '../file-access';
 import { getLocale, t } from '../i18n';
-import { getMaxFileSize } from '../settings';
+import { getAutoFitOnOpen, getMaxFileSize } from '../settings';
 import type { ConvertReason, UiPort } from '../commands';
 import { LARGE_OP_CELLS, LARGE_OPEN_BYTES, nextPaint, pct, withBusy, withBusyIfLarge } from './shared';
+
+/** The subset of `Commands.gridActions` file I/O needs to auto-fit a newly opened tab. */
+interface GridAutoFitPort {
+  autoFitAllColumns(tab: Tab): Promise<void>;
+}
 
 const CSV_EXTENSION = '.csv';
 const CSV_LIKE_EXTENSIONS = [CSV_EXTENSION, '.tsv', '.txt', RSF_EXTENSION, RSF_LEGACY_EXTENSION];
@@ -53,7 +58,22 @@ export class FileIoCommands {
     private readonly state: AppState,
     private readonly ui: UiPort,
     private readonly dom: Document,
+    private readonly gridActions: () => GridAutoFitPort | null,
   ) {}
+
+  /**
+   * Auto-fit every column of a freshly opened tab, when the "auto-fit on
+   * open" preference is enabled. Skipped when the tab already carries
+   * column-width metadata (an RSF worksheet resized and saved by the user) —
+   * an explicit prior choice always wins over the app default, matching
+   * `getWrapCells` and the app zoom preference.
+   */
+  private async autoFitOnOpen(tab: Tab): Promise<void> {
+    if (!getAutoFitOnOpen() || tab.colWidths.length > 0) {
+      return;
+    }
+    await this.gridActions()?.autoFitAllColumns(tab);
+  }
 
   /** Open picked or dropped files. Every entry point (menu, shortcut, drop) funnels through here. */
   async openFiles(files: OpenedFile[], opts: { confirmNonCsv: boolean }): Promise<void> {
@@ -173,7 +193,8 @@ export class FileIoCommands {
       }
     }
 
-    this.state.addTab(file.name, doc, file.handle, true);
+    const tab = this.state.addTab(file.name, doc, file.handle, true);
+    await this.autoFitOnOpen(tab);
   }
 
   private async openRsfFile(file: OpenedFile): Promise<void> {
@@ -219,6 +240,7 @@ export class FileIoCommands {
       this.state.emit('doc');
       this.ui.notify(t('notify.rsfMigrated', { name }), 'info');
     }
+    await this.autoFitOnOpen(tab);
   }
 
   /**
@@ -258,6 +280,7 @@ export class FileIoCommands {
     const tab = this.state.addTab(name, doc, null, true);
     tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
     this.ui.notify(t('notify.xlsxImported', { name }), 'info');
+    await this.autoFitOnOpen(tab);
   }
 
   private async findExistingTab(file: OpenedFile): Promise<Tab | null> {

@@ -3134,6 +3134,23 @@ export class Grid {
   }
 
   /**
+   * Auto-fit every column of `tab`, regardless of selection — used by the
+   * "auto-fit on open" preference (see `getAutoFitOnOpen`) right after a file
+   * finishes loading.
+   */
+  async autoFitAllColumns(tab: Tab): Promise<void> {
+    const count = tab.doc.columnCount;
+    if (count <= 0) {
+      return;
+    }
+    const cols: number[] = [];
+    for (let c = 0; c < count; c++) {
+      cols.push(c);
+    }
+    await this.autoFitColumns(tab, cols);
+  }
+
+  /**
    * Auto-fit the given columns using the measured-displayed-width algorithm
    * (see {@link planAutoFit}) with each column's own header and values. Large
    * jobs (many columns × many sampled rows) run column-by-column with yields

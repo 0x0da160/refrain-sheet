@@ -33,6 +33,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- Opening a file now auto-fits every column to its content by default,
+  matching what double-clicking a column border's resize handle already did
+  per-column. This is skipped for an RSF worksheet that already has its own
+  saved column widths, so an explicit prior resize is never overwritten. The
+  new **View > Auto-Fit Columns on Open** menu toggle turns it off; the
+  preference is local-only and never affects saved file bytes.
+  ([#513](https://github.com/0x0da160/refrain-sheet/issues/513))
 - Markdown can now be added as a worksheet inside a spreadsheet workbook
   (**Sheet > Add Markdown Sheet**, or the "+" button's context menu on the
   worksheet strip): its source/preview editor is docked directly in the

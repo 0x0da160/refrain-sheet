@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
+import { getAutoFitOnOpen, setAutoFitOnOpen } from '../src/app/settings';
+import { RsfDocument } from '../src/core/rsf-document';
 import {
   autoFitWidth,
   planAutoFit,
@@ -290,6 +292,7 @@ function gridSetup(csv: string) {
   const grid = new Grid(state, commands);
   commands.gridActions = {
     autoFitSelectedColumns: () => grid.autoFitSelectedColumns(),
+    autoFitAllColumns: (tab) => grid.autoFitAllColumns(tab),
     goToCell: (row, col) => grid.reveal(row, col),
   };
   Object.defineProperty(grid.element, 'clientHeight', { value: 520, configurable: true });
@@ -345,5 +348,72 @@ describe('auto-fit for all selected columns (grid integration)', () => {
     await commands.run('sheet.autoFitCols');
     expect(tab.doc.isDirty).toBe(false);
     expect(tab.history.canUndo).toBe(false);
+  });
+});
+
+/** Same wiring as `gridSetup`, but without a tab — `commands.openFiles` adds one. */
+function openSetup() {
+  document.body.textContent = '';
+  const state = new AppState();
+  const commands = new Commands(state, stubUi(), document);
+  const grid = new Grid(state, commands);
+  commands.gridActions = {
+    autoFitSelectedColumns: () => grid.autoFitSelectedColumns(),
+    autoFitAllColumns: (tab) => grid.autoFitAllColumns(tab),
+    goToCell: (row, col) => grid.reveal(row, col),
+  };
+  Object.defineProperty(grid.element, 'clientHeight', { value: 520, configurable: true });
+  Object.defineProperty(grid.element, 'clientWidth', { value: 900, configurable: true });
+  document.body.append(grid.element);
+  return { state, commands, grid };
+}
+
+describe('auto-fit on open (settings + file-open integration)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('defaults to enabled and fits every column of a freshly opened CSV file', async () => {
+    const { state, commands } = openSetup();
+    expect(getAutoFitOnOpen()).toBe(true);
+    const bytes = new TextEncoder().encode('a,b,c\nd,e,f\n');
+    await commands.openFiles([{ name: 'x.csv', bytes, handle: null, size: bytes.length }], {
+      confirmNonCsv: false,
+    });
+    const tab = state.activeTab!;
+    expect(tab.colWidths[0]).toBe(MIN_COL_WIDTH);
+    expect(tab.colWidths[1]).toBe(MIN_COL_WIDTH);
+    expect(tab.colWidths[2]).toBe(MIN_COL_WIDTH);
+  });
+
+  it('does nothing when the preference is turned off', async () => {
+    setAutoFitOnOpen(false);
+    const { state, commands } = openSetup();
+    const bytes = new TextEncoder().encode('a,b,c\nd,e,f\n');
+    await commands.openFiles([{ name: 'x.csv', bytes, handle: null, size: bytes.length }], {
+      confirmNonCsv: false,
+    });
+    expect(state.activeTab!.colWidths).toEqual([]);
+  });
+
+  it('never overrides an RSF worksheet that already has saved column widths', async () => {
+    const saved = RsfDocument.empty('saved.rsf', 2, 3);
+    saved.setCell(0, 0, 'a');
+    saved.setDisplaySettings(100, [40, 50, 60]);
+    const bytes = saved.toBytes();
+    const { state, commands } = openSetup();
+    await commands.openFiles([{ name: 'saved.rsf', bytes, handle: null, size: bytes.length }], {
+      confirmNonCsv: false,
+    });
+    expect(state.activeTab!.colWidths).toEqual([40, 50, 60]);
+  });
+
+  it('the View > Auto-Fit Columns on Open command toggles the preference', async () => {
+    const { commands } = openSetup();
+    expect(getAutoFitOnOpen()).toBe(true);
+    await commands.run('view.autoFitOnOpen');
+    expect(getAutoFitOnOpen()).toBe(false);
+    await commands.run('view.autoFitOnOpen');
+    expect(getAutoFitOnOpen()).toBe(true);
   });
 });

@@ -119,6 +119,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
   source editor. The preview toggle button now opens/closes this panel; the
   source editor fills the full width when it's closed.
   ([#502](https://github.com/0x0da160/refrain-sheet/issues/502))
+- The SQL Query panel no longer shows its explanatory text (what it does,
+  and what SQL is supported) inline at all times; it's now tucked behind a
+  help icon button next to the query editor that shows/hides it on demand.
+  ([#509](https://github.com/0x0da160/refrain-sheet/issues/509))
 - On a phone-width screen, the formula bar (cell reference + edit field) now
   sits below the grid, directly above the worksheet-tab strip, instead of
   above the grid — easier to reach with a thumb. Typing in the formula bar

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { CircleHelp } from 'lucide';
 import type { SqlQueryDialogInput, SqlRunOutcome } from '../../app/commands';
 import { getLocale, t } from '../../app/i18n';
 import {
@@ -20,6 +21,7 @@ import {
   type SqlQueryResult,
 } from '../../core/sql-engine';
 import { el } from '../dom';
+import { createIcon } from '../icon';
 import { dialogButton, openSidePanel } from './shared';
 
 /** Formats a stored timestamp for display, in the app's current UI language. */
@@ -59,7 +61,43 @@ export class SqlQueryDialogs {
   showSqlQuery(input: SqlQueryDialogInput): Promise<void> {
     return openSidePanel<void>(t('dialog.sqlQuery.title'), undefined, (body, buttons, close) => {
       body.classList.add('sql-query-dialog');
-      body.append(el('p', { text: t('dialog.sqlQuery.intro') }));
+
+      // ----- Help (hidden until the help icon is pressed) -----
+      const helpPanel = el(
+        'div',
+        {
+          className: 'sql-query-help-panel',
+          attrs: { id: 'sql-query-help-panel' },
+        },
+        [
+          el('p', { text: t('dialog.sqlQuery.intro') }),
+          el('p', { className: 'sql-query-help-title', text: t('dialog.sqlQuery.help.summary') }),
+          el('p', { text: t('dialog.sqlQuery.help.body') }),
+          el('p', { className: 'help-examples' }, [
+            el('code', {
+              className: 'help-code',
+              text: 'SELECT department, COUNT(*) AS n, SUM(amount) AS total FROM data WHERE amount > 0 GROUP BY department ORDER BY total DESC LIMIT 100',
+            }),
+          ]),
+        ],
+      );
+      helpPanel.hidden = true;
+      const helpToggle = el('button', {
+        className: 'sql-query-help-toggle',
+        attrs: {
+          type: 'button',
+          'aria-expanded': 'false',
+          'aria-controls': 'sql-query-help-panel',
+          'aria-label': t('dialog.sqlQuery.help.toggle'),
+          title: t('dialog.sqlQuery.help.toggle'),
+        },
+      });
+      helpToggle.append(createIcon(CircleHelp, 'sql-query-help-icon', 16));
+      helpToggle.addEventListener('click', () => {
+        helpPanel.hidden = !helpPanel.hidden;
+        helpToggle.setAttribute('aria-expanded', String(!helpPanel.hidden));
+      });
+      body.append(el('div', { className: 'sql-query-help-row' }, [helpToggle]), helpPanel);
 
       // ----- Data source picker -----
       const sourceLabel = el('label', {
@@ -149,18 +187,6 @@ export class SqlQueryDialogs {
       queryText.addEventListener('click', refreshSuggestions);
       queryText.addEventListener('keyup', refreshSuggestions);
       sourceSelect.addEventListener('change', refreshSuggestions);
-
-      const help = el('details', { className: 'sql-query-help' }, [
-        el('summary', { text: t('dialog.sqlQuery.help.summary') }),
-        el('p', { text: t('dialog.sqlQuery.help.body') }),
-        el('p', { className: 'help-examples' }, [
-          el('code', {
-            className: 'help-code',
-            text: 'SELECT department, COUNT(*) AS n, SUM(amount) AS total FROM data WHERE amount > 0 GROUP BY department ORDER BY total DESC LIMIT 100',
-          }),
-        ]),
-      ]);
-      body.append(help);
 
       // ----- Format / Run buttons (neither closes the dialog) -----
       const runRow = el('div', { className: 'form-row sql-query-run-row' });

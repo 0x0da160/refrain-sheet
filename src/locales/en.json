@@ -875,6 +875,7 @@
   "notify.sheetLimit": "A workbook can hold at most {max} worksheets.",
   "notify.cannotDeleteLastSheet": "A workbook must keep at least one worksheet.",
   "dialog.sqlQuery.title": "SQL Query",
+  "dialog.sqlQuery.help.toggle": "Help",
   "dialog.sqlQuery.intro": "Run a read-only SQL query against one worksheet or the open CSV. Nothing here changes the source data — this only reads it.",
   "dialog.sqlQuery.source": "Data source",
   "dialog.sqlQuery.query": "SQL query",

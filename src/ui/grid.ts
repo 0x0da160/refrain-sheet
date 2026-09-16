@@ -3359,6 +3359,17 @@ export class Grid {
     if (row < 0 || row >= tab.doc.rowCount || col >= tab.doc.fieldCount(row)) {
       return;
     }
+    // A double-tap's first tap already focused the sink through `focusGrid()`'s
+    // read-only suppression (#469) — on real touch devices, calling `.focus()`
+    // again below on an element that's already the active one is a no-op that
+    // never re-shows the on-screen keyboard; only a genuine blur -> focus
+    // transition does. Force that transition here, but only when `initial` is
+    // not `''`: an empty-string open is the type-to-edit path, where the sink
+    // is deliberately already focused and mid-keystroke/IME-composition, and
+    // blurring it here would abort that composition (#487).
+    if (initial !== '' && this.lastPointerType !== 'mouse' && document.activeElement === this.sink) {
+      this.sink.blur();
+    }
     this.select(tab, row, col, true);
     const cell = this.cellAt(row, col);
     if (!cell) {

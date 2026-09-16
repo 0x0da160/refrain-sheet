@@ -83,6 +83,8 @@
   "sheets.label": "Worksheets in this workbook",
   "sheets.add": "Add worksheet",
   "sheets.tabTitle": "{name} — double-click or F2 to rename",
+  "sheets.kind.grid": "Grid sheet",
+  "sheets.kind.markdown": "Markdown sheet",
   "sheet.defaultName": "Sheet{n}",
   "sheet.defaultMarkdownName": "Notes{n}",
   "sheet.copyName": "{name} (copy)",

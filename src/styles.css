@@ -545,6 +545,16 @@ button {
   border-bottom: 2px solid var(--accent);
 }
 
+.sheet-tab .sheet-kind {
+  display: flex;
+  flex: none;
+  margin-right: 5px;
+}
+
+.sheet-tab .sheet-kind-icon {
+  color: var(--text-muted);
+}
+
 .sheet-tab .sheet-label {
   overflow: hidden;
   text-overflow: ellipsis;

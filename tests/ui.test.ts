@@ -219,6 +219,58 @@ describe('formula bar autocomplete and pointer references', () => {
   });
 });
 
+describe('formula bar live preview on the grid', () => {
+  function liveSetup() {
+    const { state, commands, grid } = setup();
+    const tab = state.addTab('sheet.csv', doc('a,b,c\n1,2,3\n4,5,6\n'), null);
+    state.convertToRsf(tab);
+    const bar = new FormulaBar(
+      state,
+      commands,
+      () => undefined,
+      () => undefined,
+      (preview) => grid.setFormulaLivePreview(preview),
+    );
+    document.body.append(bar.element);
+    // Mirrors main.ts's `state.subscribe`: a committed 'doc' change repaints
+    // the grid with the real value (see the `'doc'` case there).
+    state.subscribe((e) => (e === 'selection' ? grid.refreshSelection() : grid.refresh()));
+    grid.refresh();
+    const textarea = bar.element.querySelector('textarea')!;
+    const cell = grid.element.querySelector<HTMLElement>('[data-row="0"][data-col="0"]')!;
+    return { state, grid, tab, bar, textarea, cell };
+  }
+
+  it('shows the in-progress raw text on the active cell as the user types, without committing it', () => {
+    const { tab, textarea, cell } = liveSetup();
+    textarea.value = 'typing…';
+    textarea.dispatchEvent(new Event('input'));
+    expect(cell.textContent).toBe('typing…');
+    // Nothing is written to the document until commit.
+    expect(tab.doc.getValue(0, 0)).toBe('a');
+  });
+
+  it('commits and restores the real value on Enter, clearing the preview override', () => {
+    const { tab, textarea, cell } = liveSetup();
+    textarea.value = 'done';
+    textarea.dispatchEvent(new Event('input'));
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    expect(tab.doc.getValue(0, 0)).toBe('done');
+    expect(cell.textContent).toBe('done');
+  });
+
+  it('restores the committed value on blur without touching the document when unchanged', () => {
+    const { tab, textarea, cell } = liveSetup();
+    textarea.value = 'draft';
+    textarea.dispatchEvent(new Event('input'));
+    expect(cell.textContent).toBe('draft');
+    textarea.value = 'a';
+    textarea.dispatchEvent(new Event('blur'));
+    expect(tab.doc.getValue(0, 0)).toBe('a');
+    expect(cell.textContent).toBe('a');
+  });
+});
+
 describe('inline cell editor autocomplete and references', () => {
   function editorSetup() {
     const { state, commands, grid } = setup();

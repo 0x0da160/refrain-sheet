@@ -22,6 +22,7 @@ import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../core/t
 import { ContextMenu, type ContextMenuEntry, type ContextMenuToolbarItem } from './context-menu';
 import { el, clearChildren } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
+import type { FormulaLivePreview } from './formula-bar';
 import { beginsTextEntry, isComposingKey } from './ime';
 import { createIcon } from './icon';
 import { ValidationPicker } from './validation-picker';
@@ -665,6 +666,9 @@ export class Grid {
   private autoScrollState: { dx: number; dy: number; clientX: number; clientY: number } | null = null;
   /** Ranges referenced by the formula currently being edited (highlighted). */
   private formulaRefs: FormulaRefRange[] = [];
+  /** In-progress raw text from the formula bar, rendered in place of the
+   * active cell's committed value until it is committed or cleared. */
+  private formulaLivePreview: FormulaLivePreview | null = null;
   /** Floating note shown when a referenced range extends beyond the viewport. */
   private readonly refIndicator: HTMLElement;
   /** `pointerType` of the most recent pointer gesture the grid handled,
@@ -1901,6 +1905,27 @@ export class Grid {
     this.refreshFormulaRefs();
   }
 
+  /**
+   * Render the formula bar's in-progress raw text on the active cell,
+   * ahead of the actual commit — mirrors how the grid's own inline editor
+   * already shows uncommitted text live. Pass `null` to restore the cell's
+   * committed value. Only repaints the previous and new preview cells (not
+   * a full window repaint), and never touches a cell under an open inline
+   * editor, which already renders its own live text.
+   */
+  setFormulaLivePreview(preview: FormulaLivePreview | null): void {
+    const prev = this.formulaLivePreview;
+    this.formulaLivePreview = preview;
+    const tab = this.state.activeTab;
+    if (!tab) return;
+    for (const p of [prev, preview]) {
+      if (!p) continue;
+      if (this.editor && this.editor.row === p.row && this.editor.col === p.col) continue;
+      const cell = this.canvas.querySelector<HTMLElement>(`[data-row="${p.row}"][data-col="${p.col}"]`);
+      if (cell) this.paintCell(tab, cell, p.row, p.col);
+    }
+  }
+
   private refreshFormulaRefs(): void {
     const tab = this.state.activeTab;
     const usable = tab !== null && tab.doc === this.lastDoc;
@@ -1998,7 +2023,9 @@ export class Grid {
 
   private paintCell(tab: Tab, cell: HTMLElement, row: number, col: number): void {
     const doc = tab.doc;
-    const value = doc.getDisplayValue(row, col);
+    const preview = this.formulaLivePreview;
+    const value =
+      preview && preview.row === row && preview.col === col ? preview.value : doc.getDisplayValue(row, col);
     if (cell.textContent !== value) {
       cell.textContent = value;
     }

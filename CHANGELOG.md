@@ -88,6 +88,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- On a phone-width screen, the formula bar (cell reference + edit field) now
+  sits below the grid, directly above the worksheet-tab strip, instead of
+  above the grid — easier to reach with a thumb. Typing in the formula bar
+  now also shows the in-progress text live on the selected cell in the grid,
+  matching how typing directly into a cell already looked; nothing is written
+  to the document until the edit is committed (Enter, Tab, clicking elsewhere,
+  or Escape to revert), exactly as before. Desktop layout is unchanged.
+  ([#495](https://github.com/0x0da160/refrain-sheet/issues/495))
 - The small orange corner marker shown on cells that have a comment is now
   mirrored left-right: it still sits in the same top-right corner, but its
   diagonal edge now points the other way.

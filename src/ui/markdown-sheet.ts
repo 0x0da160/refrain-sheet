@@ -1,21 +1,37 @@
 // SPDX-License-Identifier: MIT
+import { X } from 'lucide';
 import type { AppState, Tab } from '../app/app-state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { parseMarkdown } from '../core/markdown';
+import {
+  applySidePanelPosition,
+  buildSidePanelDock,
+  clearAppEdgeReservation,
+  currentSidePanelPlacement,
+} from './dialogs/shared';
 import { el } from './dom';
+import { createIcon } from './icon';
 import { renderMarkdownBlocks } from './markdown-render';
 
 /** How long to wait after the last keystroke before committing an undoable edit. */
 const COMMIT_DEBOUNCE_MS = 600;
 
 /**
- * The docked source/preview surface for a Markdown worksheet (see
- * `Worksheet.kind`), hosted in the spreadsheet area in place of the grid
- * while such a worksheet is active — the Issue's explicit request, as
- * opposed to the standalone side-panel Markdown editor (#433,
- * `dialogs/markdown-editor.ts`), which this reuses the safe AST renderer
- * from (`markdown-render.ts`) but is otherwise unrelated.
+ * The docked source surface for a Markdown worksheet (see `Worksheet.kind`),
+ * hosted in the spreadsheet area in place of the grid while such a worksheet
+ * is active, as opposed to the standalone side-panel Markdown editor (#433,
+ * `dialogs/markdown-editor.ts`), which this reuses the safe AST renderer from
+ * (`markdown-render.ts`) but is otherwise unrelated.
+ *
+ * The rendered preview (`panelElement`) is a separate, persistent dockable
+ * `.side-panel` — the same `buildSidePanelDock`/`applySidePanelPosition`/
+ * `currentSidePanelPlacement` machinery the Filter/Sort/Format/SQL Query
+ * panels and the comments panel use (`src/ui/dialogs/shared.ts`,
+ * `ui/comments-panel.ts`) — toggled by `previewToggle`, rather than a fixed
+ * inline split, per the Issue's request to dock the preview like the Filter
+ * panel. The caller must append `panelElement` into the app shell alongside
+ * `element` (see `main.ts`), not inside it.
  *
  * The document's Markdown source lives in cell (0, 0) of the worksheet (see
  * `Worksheet.markdown`), so editing it is an ordinary `commitCellEdit` — the
@@ -26,15 +42,15 @@ const COMMIT_DEBOUNCE_MS = 600;
  */
 export class MarkdownSheetView {
   readonly element: HTMLElement;
+  readonly panelElement: HTMLElement;
   private readonly textarea: HTMLTextAreaElement;
   private readonly preview: HTMLElement;
-  private readonly previewPane: HTMLElement;
   private readonly previewToggle: HTMLButtonElement;
 
   /** The (tab, sheetId) the textarea currently reflects, so a pending debounced edit commits to the right place. */
   private bound: { tab: Tab; sheetId: string } | null = null;
   private commitTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Whether the preview pane is shown; toggled by `previewToggle`, not persisted across reloads. */
+  /** Whether the preview panel should be open while this view is active; toggled by `previewToggle`, not persisted across reloads. */
   private previewVisible = true;
 
   constructor(
@@ -56,21 +72,43 @@ export class MarkdownSheetView {
     }) as HTMLTextAreaElement;
     const sourcePane = el('div', { className: 'markdown-editor-pane' }, [sourceLabel, this.textarea]);
 
-    const previewLabel = el('div', { className: 'form-label', text: t('dialog.markdownEditor.preview') });
-    this.preview = el('div', {
-      className: 'markdown-editor-preview',
-      attrs: { 'aria-live': 'polite' },
-    });
-    this.previewPane = el('div', { className: 'markdown-editor-pane' }, [previewLabel, this.preview]);
-
     this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
     this.previewToggle.addEventListener('click', () => this.setPreviewVisible(!this.previewVisible));
     const toolbar = el('div', { className: 'markdown-editor-toolbar' }, [this.previewToggle]);
 
-    const panes = el('div', { className: 'markdown-editor-panes' }, [sourcePane, this.previewPane]);
+    const panes = el('div', { className: 'markdown-editor-panes' }, [sourcePane]);
 
     this.element = el('div', { className: 'markdown-sheet-view' }, [toolbar, panes]);
     this.element.hidden = true;
+
+    // The preview's own dockable panel — built exactly like `CommentsPanel`
+    // (persistent, created once, toggled open/closed) rather than a
+    // transient `openSidePanel` call, since it must stay open and live-update
+    // while the user keeps typing in the source textarea above.
+    const previewTitle = el('span', { text: t('dialog.markdownEditor.preview') });
+    this.preview = el('div', {
+      className: 'markdown-editor-preview',
+      attrs: { 'aria-live': 'polite' },
+    });
+    this.panelElement = el('div', {
+      className: 'side-panel markdown-preview-panel',
+      attrs: { role: 'complementary', 'aria-label': t('dialog.markdownEditor.preview') },
+    });
+    const { positionSwitcher, resizeHandle } = buildSidePanelDock(this.panelElement);
+    const closeBtn = el('button', {
+      className: 'markdown-preview-panel-close',
+      attrs: { type: 'button', 'aria-label': t('dialog.markdownEditor.hidePreview') },
+    });
+    closeBtn.append(createIcon(X, 'markdown-preview-panel-close-icon', 14));
+    closeBtn.addEventListener('click', () => this.setPreviewVisible(false));
+    const heading = el('div', { className: 'dialog-title side-panel-title' }, [
+      previewTitle,
+      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, closeBtn]),
+    ]);
+    const body = el('div', { className: 'dialog-body' }, [this.preview]);
+    this.panelElement.append(heading, body, resizeHandle);
+    this.panelElement.hidden = true;
+
     this.updatePreviewToggle();
 
     this.textarea.addEventListener('input', () => {
@@ -94,11 +132,30 @@ export class MarkdownSheetView {
     });
   }
 
-  /** Show/hide the preview pane, letting the source pane fill the freed space (#486). */
+  /** Open/close the preview panel; toggled by `previewToggle` and its own close button. */
   private setPreviewVisible(visible: boolean): void {
     this.previewVisible = visible;
-    this.previewPane.hidden = !visible;
+    this.updatePanelVisibility();
     this.updatePreviewToggle();
+  }
+
+  /** Reconciles the panel's actual open/closed state with `previewVisible && active`. */
+  private updatePanelVisibility(): void {
+    const shouldShow = this.previewVisible && this.active;
+    if (shouldShow === !this.panelElement.hidden) {
+      return;
+    }
+    if (shouldShow) {
+      this.panelElement.hidden = false;
+      // Applied on open rather than at construction time (mirrors
+      // `CommentsPanel.open()`): reserving app-edge space for a closed panel
+      // would shrink the sheet even while nothing is shown (#399).
+      const { position, size } = currentSidePanelPlacement();
+      applySidePanelPosition(this.panelElement, position, size);
+    } else {
+      this.panelElement.hidden = true;
+      clearAppEdgeReservation();
+    }
   }
 
   private updatePreviewToggle(): void {
@@ -121,6 +178,7 @@ export class MarkdownSheetView {
       this.flushCommit();
       this.bound = null;
       this.element.hidden = true;
+      this.updatePanelVisibility();
       return;
     }
     const doc = tab.doc;
@@ -136,6 +194,7 @@ export class MarkdownSheetView {
     }
     this.textarea.readOnly = tab.readOnly;
     this.element.hidden = false;
+    this.updatePanelVisibility();
   }
 
   /** Commit any pending debounced edit right now (blur, worksheet switch, tab close, before save). */

@@ -228,6 +228,7 @@ function bootstrap(): void {
     mainRow,
     sheetBar.element,
     commentsPanel.element,
+    markdownSheetView.panelElement,
   ]);
   // `menuBar.toggleElement` is a separate top-level element from
   // `menuBar.element` (mobile only) so the narrow-viewport grid can place it

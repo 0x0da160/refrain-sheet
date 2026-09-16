@@ -12,7 +12,7 @@ import {
   type SearchScope,
   type SheetCellMatch,
 } from '../core/search';
-import { el } from './dom';
+import { el, focusWithoutKeyboard } from './dom';
 import type { Grid } from './grid';
 import { createIcon } from './icon';
 
@@ -154,7 +154,7 @@ export class FindBar {
     for (const node of this.replaceRow) {
       node.hidden = !replaceMode;
     }
-    this.findInput.focus();
+    focusWithoutKeyboard(this.findInput);
     this.findInput.select();
     this.scheduleRecompute();
   }

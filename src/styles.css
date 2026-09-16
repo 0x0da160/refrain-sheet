@@ -2882,6 +2882,14 @@ table.diff-table td {
     display: none;
   }
 
+  /* The icon is purely decorative (`alt=""` + `aria-hidden="true"`, see
+     app-icon.ts), so hiding it while the mobile menu is open is a plain
+     `display: none` rather than the accessible-tree-preserving technique
+     `.app-name` below needs (#489). */
+  .menu-bar.mobile-menu-open .app-icon {
+    display: none;
+  }
+
   /* The app name is visually hidden rather than removed: `app.title` stays
      in the accessibility tree for assistive tech even though only the icon
      is shown to sighted mobile users (#478). Mirrors `.visually-hidden`

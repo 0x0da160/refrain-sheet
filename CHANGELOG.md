@@ -76,6 +76,9 @@ release-time half (retitling `Unreleased`) is still done by hand.
   text shortened to just e.g. "v0.7.31", and the expanded menu now scrolls
   instead of overflowing the screen on a short viewport.
   ([#478](https://github.com/0x0da160/refrain-sheet/issues/478))
+- On a phone-width screen, the app icon now also disappears while the
+  hamburger menu is open, freeing up the space it used to take in that row.
+  ([#489](https://github.com/0x0da160/refrain-sheet/issues/489))
 - On a phone-width screen, the menu icon and its menu now sit at the bottom
   of the screen, sharing a row with the status bar instead of their own row
   at the top — easier to reach with a thumb and one row shorter.

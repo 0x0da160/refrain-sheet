@@ -85,6 +85,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
   keyboard again; the first tap of the pair could leave the keyboard
   suppressed even once the second tap opened the cell for editing.
   ([#487](https://github.com/0x0da160/refrain-sheet/issues/487))
+- On a touch device, the on-screen keyboard no longer pops up unprompted
+  right after a new workbook or worksheet appears, and no longer pops back
+  up when a single tap dismisses a cell's long-press context menu; it now
+  appears only when editing actually starts (double-tap, Enter/F2, the
+  formula bar).
+  ([#496](https://github.com/0x0da160/refrain-sheet/issues/496))
 
 ### Changed
 

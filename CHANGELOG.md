@@ -81,6 +81,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 - The workbook tab bar above the grid is now the same height as the sheet
   tab bar below it, so the two tab strips line up visually.
   ([#480](https://github.com/0x0da160/refrain-sheet/issues/480))
+- Double-tapping a cell on a touch device reliably brings up the on-screen
+  keyboard again; the first tap of the pair could leave the keyboard
+  suppressed even once the second tap opened the cell for editing.
+  ([#487](https://github.com/0x0da160/refrain-sheet/issues/487))
 
 ### Changed
 

@@ -419,4 +419,46 @@ describe('a touch tap-to-select does not pop the on-screen keyboard (#469)', () 
     expect(readOnlyAtEachFocus[readOnlyAtEachFocus.length - 1]).toBe(false);
     restore();
   });
+
+  it('re-shows the keyboard on a real double-tap, where the first tap already focused the sink (#487)', () => {
+    // `touchDown`/`touchUp` only dispatch pointer events; a real touch also
+    // drives the browser's own synthetic mousedown for each tap (see the
+    // comment on the test above), which is what actually focuses the sink
+    // read-only after tap one. Reproducing both taps' synthetic mousedown is
+    // what exposes the regression: without it, the sink never becomes
+    // `document.activeElement` before the second tap opens the editor, so the
+    // second tap's `.focus()` call looks like a no-op fix either way.
+    const { grid } = setupCsv(10, 3);
+    const sink = grid.element.querySelector<HTMLTextAreaElement>('textarea.grid-sink')!;
+    const calls: string[] = [];
+    const focusSpy = vi.spyOn(HTMLTextAreaElement.prototype, 'focus').mockImplementation(function (
+      this: HTMLTextAreaElement,
+      ...args: Parameters<HTMLElement['focus']>
+    ) {
+      if (this === sink) calls.push(`focus:${this.readOnly}`);
+      HTMLElement.prototype.focus.apply(this, args);
+    });
+    const blurSpy = vi.spyOn(HTMLTextAreaElement.prototype, 'blur').mockImplementation(function (
+      this: HTMLTextAreaElement,
+    ) {
+      if (this === sink) calls.push('blur');
+      HTMLElement.prototype.blur.call(this);
+    });
+    const cell = cellEl(grid, 1, 1);
+    touchDown(cell);
+    touchUp(cell);
+    cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
+    expect(document.activeElement).toBe(sink);
+    vi.advanceTimersByTime(DOUBLE_TAP_MS - 50);
+    touchDown(cell);
+    touchUp(cell);
+    expect(grid.element.querySelector('.cell-editor')).not.toBeNull();
+    expect(document.activeElement).toBe(sink);
+    // Read-only focus (tap one, suppressed) -> blur -> normal focus (tap two,
+    // opens the editor): the blur forces a real focus transition, which is
+    // what actually re-shows the on-screen keyboard on a real device.
+    expect(calls).toEqual(['focus:true', 'blur', 'focus:false']);
+    focusSpy.mockRestore();
+    blurSpy.mockRestore();
+  });
 });

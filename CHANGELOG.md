@@ -33,6 +33,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- Opening a file now auto-fits every column to its content by default,
+  matching what double-clicking a column border's resize handle already did
+  per-column. This is skipped for an RSF worksheet that already has its own
+  saved column widths, so an explicit prior resize is never overwritten. The
+  new **View > Auto-Fit Columns on Open** menu toggle turns it off; the
+  preference is local-only and never affects saved file bytes.
+  ([#513](https://github.com/0x0da160/refrain-sheet/issues/513))
 - Individual worksheets can now be locked against editing (**Sheet >
   Worksheet > Lock Sheet**, or a worksheet tab's context menu): a locked
   worksheet's cells and structure can't be changed until it's unlocked

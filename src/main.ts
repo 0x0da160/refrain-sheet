@@ -4,7 +4,7 @@ import { AppState } from './app/app-state';
 import { ClipboardController } from './app/clipboard-controller';
 import { Commands, type UiPort } from './app/commands';
 import { getLocale, initLocale, onLocaleChange, t } from './app/i18n';
-import { getEditHints, getSheetZoom } from './app/settings';
+import { getAutoFitOnOpen, getEditHints, getSheetZoom } from './app/settings';
 import { applySheetFont, getSheetFont } from './app/sheet-font';
 import { resolveShortcut } from './app/shortcuts';
 import { applyTheme, getTheme } from './app/theme';
@@ -151,6 +151,7 @@ function bootstrap(): void {
   };
   commands.gridActions = {
     autoFitSelectedColumns: () => grid.autoFitSelectedColumns(),
+    autoFitAllColumns: (tab) => grid.autoFitAllColumns(tab),
     goToCell: (row, col) => grid.reveal(row, col),
   };
   // The cell comments list: a dockable side panel like Filter/Sort/Format —
@@ -167,6 +168,7 @@ function bootstrap(): void {
     theme: () => getTheme(),
     zoom: () => state.activeTab?.zoom ?? getSheetZoom(),
     editHints: () => getEditHints(),
+    autoFitOnOpen: () => getAutoFitOnOpen(),
     commentsPanel: () => commentsPanel.isOpen,
     formatActive: (key) => {
       const tab = state.activeTab;

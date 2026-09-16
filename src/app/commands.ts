@@ -24,9 +24,11 @@ import { pickFiles, saveBytesAs, type OpenedFile } from './file-access';
 import { setLocale, t, type LocaleId } from './i18n';
 import {
   DEFAULT_SHEET_ZOOM,
+  getAutoFitOnOpen,
   getEditHints,
   getMaxFileSize,
   nextZoomLevel,
+  setAutoFitOnOpen,
   setEditHints,
   setMaxFileSize,
 } from './settings';
@@ -541,6 +543,7 @@ export type CommandId =
   | 'view.zoom.200'
   | 'view.zoom.reset'
   | 'view.editHints'
+  | 'view.autoFitOnOpen'
   | 'view.sheetFont.bizUd'
   | 'view.sheetFont.ms'
   | 'view.sheetFont.msUi'
@@ -583,6 +586,8 @@ export class Commands {
   gridActions: {
     /** Auto-fit every column intersecting the current selection. */
     autoFitSelectedColumns: () => Promise<void>;
+    /** Auto-fit every column of `tab` — used for the "auto-fit on open" preference. */
+    autoFitAllColumns: (tab: Tab) => Promise<void>;
     /** Select a cell and scroll it into view ("Go to Cell…"). */
     goToCell: (row: number, col: number) => void;
   } | null = null;
@@ -598,7 +603,7 @@ export class Commands {
     private readonly ui: UiPort,
     private readonly dom: Document,
   ) {
-    this.fileIo = new FileIoCommands(state, ui, dom);
+    this.fileIo = new FileIoCommands(state, ui, dom, () => this.gridActions);
     this.driveIo = new DriveIoCommands(state, ui, this.fileIo);
     this.filter = new FilterCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.sort = new SortCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
@@ -1147,6 +1152,13 @@ export class Commands {
       case 'view.editHints':
         setEditHints(!getEditHints());
         // Pure preference toggle; re-emit so menus and editors refresh.
+        this.state.emit('view');
+        return;
+      case 'view.autoFitOnOpen':
+        setAutoFitOnOpen(!getAutoFitOnOpen());
+        // Pure preference toggle (like view.editHints above); it only takes
+        // effect on the next file open, but re-emit so the menu checkbox
+        // reflects the new state immediately.
         this.state.emit('view');
         return;
       case 'view.sheetFont.bizUd':

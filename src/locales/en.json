@@ -49,6 +49,7 @@
   "menu.search.goToCell": "Go to Cell…",
   "menu.view.wrap": "Wrap Long Cell Text",
   "menu.view.editHints": "Editing Help Tooltips",
+  "menu.view.autoFitOnOpen": "Auto-Fit Columns on Open",
   "menu.view.commentsPanel": "Comments Panel",
   "menu.view.zoom": "Spreadsheet Zoom",
   "menu.view.zoomIn": "Zoom In",

@@ -49,6 +49,7 @@
   "menu.search.goToCell": "セルに移動…",
   "menu.view.wrap": "長いセルを折り返す",
   "menu.view.editHints": "編集ヘルプのツールチップ",
+  "menu.view.autoFitOnOpen": "開いた時に列幅を自動調整",
   "menu.view.commentsPanel": "コメントパネル",
   "menu.view.zoom": "スプレッドシートのズーム",
   "menu.view.zoomIn": "ズームイン",

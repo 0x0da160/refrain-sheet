@@ -33,6 +33,16 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- JSON files can now be opened and exported, alongside the existing CSV/RSF
+  and XLSX support. **File > Open** accepts a `.json` file containing a
+  top-level array of flat (non-nested) objects — one array element per row,
+  columns as the union of every object's keys — and imports it into a new
+  `.rsf` spreadsheet tab, the same lossy "import → new tab" pattern already
+  used for `.xlsx`. **File > Export as JSON…** writes the active worksheet's
+  calculated values back out as a JSON array of objects, using the first row
+  as field names; a multi-worksheet workbook is asked which worksheet to
+  export, exactly like **Export as CSV…**.
+  ([#516](https://github.com/0x0da160/refrain-sheet/issues/516))
 - Opening a file now auto-fits every column to its content by default,
   matching what double-clicking a column border's resize handle already did
   per-column. This is skipped for an RSF worksheet that already has its own

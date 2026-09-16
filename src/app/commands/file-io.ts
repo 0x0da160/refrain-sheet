@@ -26,6 +26,8 @@ import {
 import { validateDocument } from '../../core/validation';
 import { parseXlsxWorkbook, type XlsxImportError } from '../../core/xlsx-import';
 import { buildXlsxExport, type XlsxSheetInput } from '../../core/xlsx-export';
+import { parseJsonWorkbook, type JsonImportError } from '../../core/json-import';
+import { buildJsonExport } from '../../core/json-export';
 import { AppState, defaultSheetName, type Tab } from '../app-state';
 import { readFileObject, requestSaveHandle, saveBytes, saveBytesAs, type OpenedFile } from '../file-access';
 import { getLocale, t } from '../i18n';
@@ -41,6 +43,7 @@ interface GridAutoFitPort {
 const CSV_EXTENSION = '.csv';
 const CSV_LIKE_EXTENSIONS = [CSV_EXTENSION, '.tsv', '.txt', RSF_EXTENSION, RSF_LEGACY_EXTENSION];
 const XLSX_EXTENSION = '.xlsx';
+const JSON_EXTENSION = '.json';
 
 /**
  * File I/O and CSV/RSF conversion: opening, saving, exporting, closing tabs,
@@ -122,6 +125,11 @@ export class FileIoCommands {
 
     if (lowerName.endsWith(XLSX_EXTENSION)) {
       await this.openXlsxFile(file);
+      return;
+    }
+
+    if (lowerName.endsWith(JSON_EXTENSION)) {
+      await this.openJsonFile(file);
       return;
     }
 
@@ -280,6 +288,49 @@ export class FileIoCommands {
     const tab = this.state.addTab(name, doc, null, true);
     tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
     this.ui.notify(t('notify.xlsxImported', { name }), 'info');
+    await this.autoFitOnOpen(tab);
+  }
+
+  /**
+   * Import a `.json` file: always a new `.rsf` tab, never a matching handle,
+   * for the same reason as `.xlsx` above — a `.json` file is never the save
+   * target for the resulting document. Only a top-level array of flat
+   * (non-nested) objects is supported (see `parseJsonWorkbook`); columns are
+   * the union of every object's keys, in first-seen order.
+   */
+  private async openJsonFile(file: OpenedFile): Promise<void> {
+    const result = await withBusyIfLarge(
+      file.size > LARGE_OPEN_BYTES,
+      this.ui,
+      t('loading.opening', { name: file.name }),
+      () => parseJsonWorkbook(file.bytes),
+    );
+    if (!result.ok) {
+      const reasonKey: Record<JsonImportError, string> = {
+        'invalid-json': 'dialog.jsonInvalid.invalidJson',
+        'not-an-array': 'dialog.jsonInvalid.notAnArray',
+        'empty-array': 'dialog.jsonInvalid.emptyArray',
+        'not-flat-object': 'dialog.jsonInvalid.notFlatObject',
+      };
+      await this.ui.showMessage(
+        t('dialog.jsonInvalid.title'),
+        t('dialog.jsonInvalid.message', { name: file.name, reason: t(reasonKey[result.error]) }),
+      );
+      return;
+    }
+    const name = `${file.name.slice(0, -JSON_EXTENSION.length)}${RSF_EXTENSION}`;
+    const doc = RsfDocument.fromValues(
+      name,
+      ',',
+      result.rows,
+      result.columnCount,
+      defaultSheetName(),
+      getLocale(),
+    );
+    doc.markUnsaved();
+    const tab = this.state.addTab(name, doc, null, true);
+    tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
+    this.ui.notify(t('notify.jsonImported', { name }), 'info');
     await this.autoFitOnOpen(tab);
   }
 
@@ -813,6 +864,104 @@ export class FileIoCommands {
       outcome.mode === 'overwrite'
         ? t('notify.exportedXlsx', { name })
         : t('notify.exportedXlsxDownload', { name: outcome.downloadName ?? name }),
+      'info',
+    );
+    return true;
+  }
+
+  /**
+   * Explicit, confirmed lossy JSON export. Unlike XLSX (which natively holds
+   * every worksheet), a plain JSON document has no worksheet concept, so —
+   * like CSV export — an RSF workbook with more than one worksheet requires
+   * an explicit choice (`chooseExportSheet`) rather than exporting every
+   * worksheet. The chosen worksheet's first row supplies the JSON object
+   * field names; every following row becomes one record (see
+   * `buildJsonExport`). Cells carry only their calculated/display values.
+   * Nothing in this flow ever mutates the source document or marks it saved.
+   */
+  async exportJson(tab: Tab): Promise<boolean> {
+    const doc = tab.doc;
+    let rowCount: number;
+    let columnCount: number;
+    let getValue: (r: number, c: number) => string;
+    let base: string;
+
+    if (doc.kind === 'rsf') {
+      const exportable = doc.sheets.filter((s) => s.kind !== 'markdown');
+      if (exportable.length === 0) {
+        this.ui.notify(t('notify.noExportableSheet'), 'warn');
+        return false;
+      }
+      let sheetId = exportable.some((s) => s.id === doc.activeSheetId) ? doc.activeSheetId : exportable[0].id;
+      if (exportable.length > 1) {
+        const chosen = await this.ui.chooseExportSheet(
+          exportable.map((s) => ({ id: s.id, name: s.name })),
+          sheetId,
+        );
+        if (chosen === null || tab.doc !== doc) {
+          return false;
+        }
+        sheetId = chosen;
+      }
+      const sheet = doc.sheetById(sheetId);
+      if (!sheet) {
+        return false;
+      }
+      rowCount = sheet.rowCount;
+      columnCount = sheet.columnCount;
+      getValue = (r, c) => doc.getSheetDisplayValue(sheetId, r, c);
+      base = tab.name.replace(/\.(rsf|rcsv)$/i, '') + (doc.sheetCount > 1 ? `-${sheet.name}` : '');
+    } else {
+      rowCount = doc.rowCount;
+      columnCount = doc.columnCount;
+      getValue = (r, c) => doc.getDisplayValue(r, c);
+      base = tab.name.replace(/\.(rsf|rcsv|csv|tsv|txt)$/i, '');
+    }
+
+    const confirmed = await this.ui.confirmExportJson(tab.name);
+    if (!confirmed || tab.doc !== doc) {
+      return false;
+    }
+
+    const name = `${base}.json`;
+    const label = t('loading.exporting', { name });
+    const large = rowCount * columnCount > LARGE_OP_CELLS;
+
+    // Sliced, read-only scan of the chosen worksheet's displayed (calculated)
+    // values. Aborts — producing nothing — if the tab's document changes.
+    const scanRows = async (): Promise<string[][] | null> => {
+      const rows: string[][] = [];
+      const completed = await forEachIndexSliced(
+        rowCount,
+        (r) => {
+          const values: string[] = [];
+          for (let c = 0; c < columnCount; c++) {
+            values.push(getValue(r, c));
+          }
+          rows.push(values);
+        },
+        {
+          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`, pct(done, total)),
+          shouldStop: () => tab.doc !== doc,
+        },
+      );
+      return completed && tab.doc === doc ? rows : null;
+    };
+
+    const rows = await withBusyIfLarge(large, this.ui, label, scanRows);
+    if (!rows) {
+      return false;
+    }
+    const bytes = await withBusyIfLarge(large, this.ui, label, () => buildJsonExport(rows));
+    const written = await this.runSaveStep(() => saveBytesAs(this.dom, name, bytes, 'json'));
+    if (!written.ok) {
+      return false;
+    }
+    const outcome = written.value;
+    this.ui.notify(
+      outcome.mode === 'overwrite'
+        ? t('notify.exportedJson', { name })
+        : t('notify.exportedJsonDownload', { name: outcome.downloadName ?? name }),
       'info',
     );
     return true;

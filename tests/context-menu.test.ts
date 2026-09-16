@@ -392,6 +392,7 @@ describe('View menu Spreadsheet Zoom submenu', () => {
     formatActive: () => false,
     driveAvailable: () => false,
     protectedDoc: () => false,
+    sheetLocked: () => false,
   });
 
   it('nests every zoom control under a Spreadsheet Zoom submenu', () => {

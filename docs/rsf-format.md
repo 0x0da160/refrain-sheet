@@ -189,7 +189,8 @@ nothing else keys off the identifier.
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
 Version selection on write is minimal so older readers keep working where
-possible: body **version 12** is written when the worksheet is a Markdown
+possible: body **version 13** is written when the worksheet is locked (see
+"Worksheet locked" below); **version 12** when the worksheet is a Markdown
 sheet (see "Worksheet kind" below); **version 11** when at least one cell
 carries a comment; **version 10** when at least one border side carries a
 non-default line style or width; **version 9** when at least one cell
@@ -199,13 +200,13 @@ style; **version 7** when the workbook display language is not English;
 wrap-long-rows is stored; **version 4** when a sheet filter is present;
 **version 3** when display settings are present; **version 2** when only the
 creating/updating application metadata is present; **version 1** otherwise.
-Versions 1–12 are all accepted on read; an older reader rejects a body
+Versions 1–13 are all accepted on read; an older reader rejects a body
 version it does not know with a localized "unsupported version" message
 rather than misparsing it.
 
 | Size | Field                                                                                                                            |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Body version — `12`, `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                                  |
+| 1    | Body version — `13`, `12`, `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                            |
 | 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                                                      |
 | 2    | _(v2+)_ Application-name length, `u16`                                                                                           |
 | …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`                                                                           |
@@ -221,7 +222,8 @@ rather than misparsing it.
 | …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`                                                                        |
 | 2    | _(v7 only)_ Display-language length, `u16`                                                                                       |
 | …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`                                                                            |
-| 1    | _(v12 only)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown — see below)                                                       |
+| 1    | _(v12+)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown — see below)                                                           |
+| 1    | _(v13 only)_ Worksheet locked, `u8` (`0` = unlocked, `1` = locked — see below)                                                   |
 | 2    | Sheet-name length `N`, `u16`                                                                                                     |
 | `N`  | Sheet name (UTF-8)                                                                                                               |
 | 4    | Row count, `u32`                                                                                                                 |
@@ -582,6 +584,37 @@ raising the version for a workbook that has no markdown worksheet** (the
 same minimal-version-write policy applied to every feature above), not by
 making a version-12 file still openable by an older release.
 
+### Worksheet locked (body version 13)
+
+Body version 13 adds a **worksheet locked** byte: `0` (unlocked, the default
+and every worksheet before this field existed) or `1` (locked — see **Sheet >
+Worksheet > Lock Sheet**, or a worksheet tab's context menu). It is written
+only when the worksheet is locked, so an unlocked worksheet (every worksheet
+before this field existed) stays on the lowest sufficient body version. A
+byte outside `0`/`1` is a shape a real writer never emits and is rejected as
+`bad-shape` rather than guessed at, the same reject-don't-guess treatment as
+the worksheet-kind byte above.
+
+A worksheet's lock is a plain, non-cryptographic protection flag — there is
+no password, and it carries no key material of any kind. Locking a worksheet
+blocks that worksheet's own cell edits and structural changes (see
+[`src/app/app-state.ts`](../src/app/app-state.ts)'s `refuseLockedSheetWrite`,
+the same mutation-gating mechanism `Tab.readOnly`'s whole-document protection
+uses, but scoped to one worksheet instead of the whole file); every other
+worksheet in the workbook stays editable, and toggling the lock is not itself
+undoable (like activating a worksheet, but — unlike it — persisted in the
+saved container). It has no effect on cell data, formula evaluation, sorting,
+filtering, or CSV export: a locked worksheet's values round-trip exactly like
+an unlocked one, and CSV export drops the flag the same way it drops every
+other RSF-only presentational or protective setting.
+
+Like the worksheet-kind byte, a workbook with a locked worksheet writes
+container-level body version 13 (or workbook body version 9 — see below),
+which an older release rejects outright with the standard "unsupported
+version" message: **compatibility is preserved by never raising the version
+for a workbook with no locked worksheet**, not by making a version-13 file
+still openable by an older release.
+
 ### Bounds (validated on load)
 
 | Limit                 | Value        |
@@ -602,30 +635,32 @@ Written only when the workbook holds **two or more** worksheets. All strings
 are UTF-8 and length-prefixed with a `u16`; all integers are little-endian.
 
 Workbook body version selection is minimal, like the single-sheet body:
-**version 8** is written when at least one worksheet in the workbook is a
-markdown sheet (see "Worksheet kind (body version 12)" above); **version 7**
-when at least one cell in any worksheet carries a comment; **version 6**
-when at least one border side in any worksheet carries a non-default line
-style or width; **version 5** when at least one styled cell in any worksheet
-carries a number format; **version 4** when at least one cell in any
-worksheet carries a style; **version 3** when the workbook display language
-is not `en`; **version 2** when the workbook timezone is not `UTC`;
-**version 1** otherwise. All eight versions are accepted on read.
+**version 9** is written when at least one worksheet in the workbook is
+locked (see "Worksheet locked (body version 13)" above); **version 8** when
+at least one worksheet in the workbook is a markdown sheet (see "Worksheet
+kind (body version 12)" above); **version 7** when at least one cell in any
+worksheet carries a comment; **version 6** when at least one border side in
+any worksheet carries a non-default line style or width; **version 5** when
+at least one styled cell in any worksheet carries a number format;
+**version 4** when at least one cell in any worksheet carries a style;
+**version 3** when the workbook display language is not `en`; **version 2**
+when the workbook timezone is not `UTC`; **version 1** otherwise. All nine
+versions are accepted on read.
 
-| Size | Field                                                              |
-| ---- | ------------------------------------------------------------------ |
-| 1    | Workbook body version — `5`, `4`, `3`, `2`, or `1` (see selection) |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)        |
-| 2+…  | Application name (UTF-8, `u16` length; may be empty)               |
-| 2+…  | Application version (UTF-8, `u16` length; may be empty)            |
-| 8    | Creation timestamp, `f64` ms since epoch (`0` = not stored)        |
-| 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)     |
-| 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)            |
-| 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty)    |
-| 2+…  | _(v2+)_ Workbook timezone, IANA name (UTF-8, `u16` length)         |
-| 2+…  | _(v3 only)_ Workbook display language (UTF-8, `u16` length)        |
-| 2    | Worksheet count `S`, `u16`                                         |
-| …    | `S` worksheet records (below)                                      |
+| Size | Field                                                                                  |
+| ---- | -------------------------------------------------------------------------------------- |
+| 1    | Workbook body version — `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                            |
+| 2+…  | Application name (UTF-8, `u16` length; may be empty)                                   |
+| 2+…  | Application version (UTF-8, `u16` length; may be empty)                                |
+| 8    | Creation timestamp, `f64` ms since epoch (`0` = not stored)                            |
+| 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)                         |
+| 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)                                |
+| 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty)                        |
+| 2+…  | _(v2+)_ Workbook timezone, IANA name (UTF-8, `u16` length)                             |
+| 2+…  | _(v3 only)_ Workbook display language (UTF-8, `u16` length)                            |
+| 2    | Worksheet count `S`, `u16`                                                             |
+| …    | `S` worksheet records (below)                                                          |
 
 The workbook timezone follows the same rules as the single-sheet body version
 6 field above: written only when non-`UTC`, and an absent or unresolvable
@@ -665,15 +700,18 @@ Each worksheet record:
 |      | [cell-comments block](#cell-comments-body-version-11)                       |
 | 1    | _(v8+)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown — see              |
 |      | [Worksheet kind](#worksheet-kind-body-version-12))                          |
+| 1    | _(v9+)_ Worksheet locked, `u8` (`0` = unlocked, `1` = locked — see          |
+|      | [Worksheet locked](#worksheet-locked-body-version-13))                      |
 
 Cells are stored **sparsely**: only non-empty cells are written. When body
 version 4 or higher is written, every worksheet record carries its own style
 block (even a worksheet with no styled cells writes a zero count); when body
 version 7 or higher is written, every worksheet record likewise carries its
 own comment block; when body version 8 or higher is written, every worksheet
-record carries the trailing kind byte — exactly the way every other
-version-gated section in this container is written unconditionally once its
-version is selected.
+record carries the trailing kind byte; when body version 9 or higher is
+written, every worksheet record likewise carries the trailing locked byte
+after it — exactly the way every other version-gated section in this
+container is written unconditionally once its version is selected.
 
 ### Workbook bounds
 
@@ -958,7 +996,12 @@ written only when at least one worksheet is a markdown sheet, for the same
 reason — unlike every prior bump, this one is a wholly different kind of
 worksheet content (a Markdown document rather than a grid) rather than an
 additional property of the grid, but it stores that content as an ordinary
-cell so the container's cell-storage shape does not change. Future changes
-bump the container version (framing changes) or the relevant body version
-(encoding changes); readers reject versions they do not understand rather
-than guessing.
+cell so the container's cell-storage shape does not change. The single-sheet
+body was later bumped to version 13, and the workbook body to version 9, to
+carry a per-worksheet lock (see "Worksheet locked (body version 13)" above);
+each is written only when at least one worksheet is locked, for the same
+reason — like the timezone and display language, this is a protective/
+presentational flag with no effect on cell data, formula evaluation, sorting,
+filtering, or CSV export. Future changes bump the container version (framing
+changes) or the relevant body version (encoding changes); readers reject
+versions they do not understand rather than guessing.

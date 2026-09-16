@@ -159,6 +159,42 @@ describe('binary container codec (JS store engine)', () => {
     if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
   });
 
+  it('round-trips a locked worksheet (body version 13)', () => {
+    const locked: RsfData = { ...sample, locked: true };
+    const decoded = decodeRsf(encodeRsf(locked));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.locked).toBe(true);
+    expect(decoded.data.cells).toEqual(sample.cells);
+  });
+
+  it('omits the locked field for an unlocked worksheet, staying on the lowest sufficient body version', () => {
+    const decoded = decodeRsf(encodeRsf(sample));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.locked).toBeUndefined();
+
+    const explicit = decodeRsf(encodeRsf({ ...sample, locked: false }));
+    expect(explicit.ok).toBe(true);
+    if (explicit.ok) expect(explicit.data.locked).toBeUndefined();
+  });
+
+  it('carries a lock alongside a markdown kind (both forced to body version 13)', () => {
+    const both: RsfData = {
+      name: 'Notes',
+      delimiter: ',',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [[0, 0, '# Hello']],
+      kind: 'markdown',
+      locked: true,
+    };
+    const decoded = decodeRsf(encodeRsf(both));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.kind).toBe('markdown');
+    expect(decoded.data.locked).toBe(true);
+  });
+
   it('rejects a truncated payload', () => {
     const bytes = encodeRsf(sample);
     const decoded = decodeRsf(bytes.subarray(0, bytes.length - 2));

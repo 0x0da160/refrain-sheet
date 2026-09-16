@@ -447,6 +447,29 @@ export class AppState {
   }
 
   /**
+   * Refuse a write to a locked worksheet, announcing why. A worksheet's lock
+   * (Sheet ▸ Lock Sheet, or its tab context menu) blocks edits to that
+   * worksheet only — every other worksheet in the workbook stays editable.
+   * Checked in every mutating entry point that can target a single worksheet
+   * (`editCell`, `bulkEdit`, and, per operation, `pushEntry`), exactly like
+   * {@link refuseReadOnlyWrite}'s whole-tab protection. `sheetId` defaults to
+   * the active worksheet, matching how an absent `Operation.sheetId` is
+   * documented to apply to it. Returns true when the caller must stop.
+   */
+  private refuseLockedSheetWrite(tab: Tab, sheetId?: string): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return false;
+    }
+    const sheet = doc.sheetById(sheetId ?? doc.activeSheetId);
+    if (!sheet?.locked) {
+      return false;
+    }
+    this.announce?.(t('notify.sheetLocked'));
+    return true;
+  }
+
+  /**
    * Refuse a write that would land inside an active sort's range, announcing
    * why. Editing a sorted range is disabled — rather than translated cell by
    * cell — so a sort can never turn "edit what I see" into a silent write to
@@ -493,7 +516,7 @@ export class AppState {
 
   /** Set one cell's value as a single undoable operation. */
   editCell(tab: Tab, row: number, col: number, value: string, label = 'history.editCell'): boolean {
-    if (this.refuseReadOnlyWrite(tab)) {
+    if (this.refuseReadOnlyWrite(tab) || this.refuseLockedSheetWrite(tab)) {
       return false;
     }
     if (tab.doc.kind === 'csv') {
@@ -547,6 +570,7 @@ export class AppState {
     }
     if (
       this.refuseReadOnlyWrite(tab) ||
+      this.refuseLockedSheetWrite(tab) ||
       this.refuseSpillWrite(tab, effective) ||
       this.refuseSortedWrite(tab, effective) ||
       this.refuseInvalidWrite(tab, effective)
@@ -586,6 +610,21 @@ export class AppState {
     }
     if (this.refuseReadOnlyWrite(tab)) {
       return false;
+    }
+    // A worksheet's lock blocks its own cell/structural/filter/wrap changes,
+    // checked per operation (`op.sheetId`, defaulting to the active
+    // worksheet) so an entry that also touches other, unlocked worksheets —
+    // e.g. renaming a worksheet rewrites formulas across the whole workbook —
+    // is not refused wholesale. `sheets` (worksheet lifecycle: add/remove/
+    // rename/move) and `csvStructure` act on the workbook or a plain CSV
+    // document rather than one worksheet's content, so they are exempt.
+    for (const op of entry.ops) {
+      if (op.type === 'sheets' || op.type === 'csvStructure') {
+        continue;
+      }
+      if (this.refuseLockedSheetWrite(tab, op.sheetId)) {
+        return false;
+      }
     }
     // Structural operations (row/column insert and delete) move a spill's
     // anchor rather than writing into it, so only the cell writes are checked.
@@ -990,6 +1029,11 @@ export class AppState {
   /** Move a worksheet to a new position as one atomic, undoable operation. */
   moveSheet(tab: Tab, sheetId: string, toIndex: number): boolean {
     return this.worksheetsState.moveSheet(tab, sheetId, toIndex);
+  }
+
+  /** Toggle a worksheet's lock; see `WorksheetsState.setSheetLocked`. */
+  setSheetLocked(tab: Tab, sheetId: string, locked: boolean): boolean {
+    return this.worksheetsState.setSheetLocked(tab, sheetId, locked);
   }
 
   /**

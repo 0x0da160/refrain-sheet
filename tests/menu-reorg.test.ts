@@ -23,6 +23,7 @@ function checks(): MenuChecks {
     formatActive: () => false,
     driveAvailable: () => false,
     protectedDoc: () => false,
+    sheetLocked: () => false,
   };
 }
 

@@ -555,6 +555,16 @@ button {
   color: var(--text-muted);
 }
 
+.sheet-tab .sheet-lock {
+  display: flex;
+  flex: none;
+  margin-right: 5px;
+}
+
+.sheet-tab .sheet-lock-icon {
+  color: var(--text-muted);
+}
+
 .sheet-tab .sheet-label {
   overflow: hidden;
   text-overflow: ellipsis;

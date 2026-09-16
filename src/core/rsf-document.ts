@@ -435,6 +435,7 @@ export class RsfDocument {
     }
     sheet.filter = entry.filter ?? null;
     sheet.filterDropped = entry.filterDropped === true;
+    sheet.locked = entry.locked === true;
     for (const [r, c, style] of entry.styles ?? []) {
       sheet.setStyle(r, c, style);
     }
@@ -836,6 +837,9 @@ export class RsfDocument {
       if (sheet.filter !== null) {
         entry.filter = sheet.filter;
       }
+      if (sheet.locked) {
+        entry.locked = true;
+      }
       const styles = sheet.collectStyles();
       if (styles.length > 0) {
         entry.styles = styles;
@@ -983,6 +987,28 @@ export class RsfDocument {
 
   setFilterState(filter: SheetFilter | null): void {
     this.setFilterStateOn(undefined, filter);
+  }
+
+  // ----- Worksheet lock -----
+
+  /**
+   * Set a worksheet's lock state (Sheet ▸ Lock Sheet, or its tab context
+   * menu). A plain, non-cryptographic protection flag — no password — that
+   * blocks that worksheet's own cell edits and structural changes; every
+   * other worksheet in the workbook stays editable. Cell data, formula
+   * results, and the evaluation cache are untouched, but the workbook is
+   * marked as having unsaved changes because the flag is persisted in the
+   * saved container, exactly like {@link setFilterStateOn}.
+   */
+  setLockedOn(sheetId: string | undefined, locked: boolean): void {
+    const sheet = this.resolveSheet(sheetId);
+    if (sheet.locked === locked) {
+      return;
+    }
+    sheet.locked = locked;
+    // Bump the revision without invalidating the memo: no cell value can have
+    // changed, so recalculation would be pure waste.
+    this.revision += 1;
   }
 
   // ----- Cell styles -----

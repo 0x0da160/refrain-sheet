@@ -526,6 +526,7 @@ export type CommandId =
   | 'worksheet.moveLast'
   | 'worksheet.next'
   | 'worksheet.prev'
+  | 'worksheet.toggleLock'
   | 'view.wrap'
   | 'view.stickyFirstRow'
   | 'view.stickyFirstColumn'
@@ -835,6 +836,7 @@ export class Commands {
       case 'worksheet.addMarkdown':
       case 'worksheet.rename':
       case 'worksheet.duplicate':
+      case 'worksheet.toggleLock':
         return tab !== null && tab.doc.kind === 'rsf';
       case 'worksheet.delete':
         // A workbook always keeps at least one worksheet.
@@ -1225,6 +1227,11 @@ export class Commands {
       case 'worksheet.next':
       case 'worksheet.prev':
         if (tab) this.cycleWorksheet(tab, id === 'worksheet.next' ? 1 : -1);
+        return;
+      case 'worksheet.toggleLock':
+        if (tab && tab.doc.kind === 'rsf') {
+          this.state.setSheetLocked(tab, tab.doc.activeSheetId, !tab.doc.activeSheet.locked);
+        }
         return;
       case 'tab.next':
         this.state.cycleTab(1);

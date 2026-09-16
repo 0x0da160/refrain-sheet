@@ -61,7 +61,8 @@ export class WorksheetCommands {
     if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
       return;
     }
-    const suggested = doc.uniqueSheetName(t('sheet.defaultName', { n: doc.sheetCount + 1 }));
+    const gridCount = doc.sheets.filter((s) => s.kind !== 'markdown').length;
+    const suggested = doc.uniqueSheetName(t('sheet.defaultName', { n: gridCount + 1 }));
     const name = await this.ui.promptSheetName('add', suggested, (candidate) =>
       this.validateSheetName(doc, candidate),
     );
@@ -85,7 +86,8 @@ export class WorksheetCommands {
     if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
       return;
     }
-    const suggested = doc.uniqueSheetName(t('sheet.defaultMarkdownName', { n: doc.sheetCount + 1 }));
+    const markdownCount = doc.sheets.filter((s) => s.kind === 'markdown').length;
+    const suggested = doc.uniqueSheetName(t('sheet.defaultMarkdownName', { n: markdownCount + 1 }));
     const name = await this.ui.promptSheetName('add', suggested, (candidate) =>
       this.validateSheetName(doc, candidate),
     );

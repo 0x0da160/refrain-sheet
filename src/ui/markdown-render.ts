@@ -1,8 +1,28 @@
 // SPDX-License-Identifier: MIT
-import { type MarkdownBlock, type MarkdownInline } from '../core/markdown';
+import { type MarkdownBlock, type MarkdownInline, type MarkdownTableAlign } from '../core/markdown';
+import { tokenizeCode } from '../core/syntax-highlight';
 import { el } from './dom';
 
 const HEADING_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const;
+
+const TABLE_ALIGN_CLASS: Record<Exclude<MarkdownTableAlign, null>, string> = {
+  left: 'md-align-left',
+  center: 'md-align-center',
+  right: 'md-align-right',
+};
+
+function tableCellClass(align: MarkdownTableAlign): string {
+  return align === null ? '' : TABLE_ALIGN_CLASS[align];
+}
+
+/** Render a fenced code block's text as DOM nodes, one `<span class="tok-*">` per highlighted token. */
+function renderCode(text: string, lang: string | null): Array<Node | string> {
+  return tokenizeCode(text, lang).map((token) =>
+    token.type === 'text'
+      ? document.createTextNode(token.text)
+      : el('span', { className: `tok-${token.type}`, text: token.text }),
+  );
+}
 
 /**
  * Render a parsed Markdown AST (`src/core/markdown.ts`) as DOM nodes via
@@ -58,13 +78,38 @@ function renderBlock(block: MarkdownBlock): Node {
     case 'hr':
       return el('hr');
     case 'codeBlock':
-      return el('pre', {}, [el('code', { text: block.text })]);
+      return el('pre', {}, [el('code', {}, renderCode(block.text, block.lang))]);
     case 'list':
       return el(
         block.ordered ? 'ol' : 'ul',
         {},
         block.items.map((item) => el('li', {}, renderInline(item))),
       );
+    case 'table':
+      return el('table', {}, [
+        el('thead', {}, [
+          el(
+            'tr',
+            {},
+            block.header.map((cell, index) =>
+              el('th', { className: tableCellClass(block.align[index] ?? null) }, renderInline(cell)),
+            ),
+          ),
+        ]),
+        el(
+          'tbody',
+          {},
+          block.rows.map((row) =>
+            el(
+              'tr',
+              {},
+              row.map((cell, index) =>
+                el('td', { className: tableCellClass(block.align[index] ?? null) }, renderInline(cell)),
+              ),
+            ),
+          ),
+        ),
+      ]);
   }
 }
 

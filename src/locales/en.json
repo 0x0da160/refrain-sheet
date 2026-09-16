@@ -954,6 +954,8 @@
   "dialog.markdownEditor.saveAs": "Save As…",
   "dialog.markdownEditor.source": "Markdown source",
   "dialog.markdownEditor.preview": "Preview",
+  "dialog.markdownEditor.hidePreview": "Hide preview",
+  "dialog.markdownEditor.showPreview": "Show preview",
   "dialog.markdownEditor.close": "Close",
   "shortcut.copy": "Copy selected range (tab-separated)",
   "shortcut.paste": "Paste at the active cell",

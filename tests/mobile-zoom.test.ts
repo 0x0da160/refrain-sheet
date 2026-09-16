@@ -21,4 +21,11 @@ describe('mobile focus-zoom prevention', () => {
     expect(match![0]).toMatch(/\.dialog-body textarea/);
     expect(match![1]).toMatch(/font-size:\s*16px/);
   });
+
+  it('floors the docked Markdown worksheet source textarea to 16px too (#486), same rule as the dialogs', () => {
+    const match = /\.dialog-body input\[type='text'\][^{]*\{([^}]*)\}/.exec(css);
+    expect(match).not.toBeNull();
+    expect(match![0]).toMatch(/\.markdown-sheet-view \.markdown-editor-source/);
+    expect(match![1]).toMatch(/font-size:\s*16px/);
+  });
 });

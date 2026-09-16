@@ -197,6 +197,65 @@ describe('parseMarkdown', () => {
     expect(parseMarkdown('a\r\nb')).toEqual(parseMarkdown('a\nb'));
     expect(parseMarkdown('a\rb')).toEqual(parseMarkdown('a\nb'));
   });
+
+  it('parses a GFM table with default (unspecified) alignment', () => {
+    expect(parseMarkdown('| A | B |\n| --- | --- |\n| 1 | 2 |')).toEqual([
+      {
+        type: 'table',
+        align: [null, null],
+        header: [[text('A')], [text('B')]],
+        rows: [[[text('1')], [text('2')]]],
+      },
+    ]);
+  });
+
+  it('parses per-column alignment from delimiter-row colons', () => {
+    const blocks = parseMarkdown('| L | C | R |\n| :-- | :-: | --: |\n| a | b | c |');
+    expect(blocks).toEqual([
+      {
+        type: 'table',
+        align: ['left', 'center', 'right'],
+        header: [[text('L')], [text('C')], [text('R')]],
+        rows: [[[text('a')], [text('b')], [text('c')]]],
+      },
+    ]);
+  });
+
+  it('parses inline styles inside table cells', () => {
+    expect(parseMarkdown('| A |\n| --- |\n| **bold** |')).toEqual([
+      {
+        type: 'table',
+        align: [null],
+        header: [[text('A')]],
+        rows: [[[{ type: 'strong', children: [text('bold')] }]]],
+      },
+    ]);
+  });
+
+  it('supports a leading/trailing-pipe-free row and an escaped pipe inside a cell', () => {
+    expect(parseMarkdown('A | B\n--- | ---\n1 | 2\\|3')).toEqual([
+      {
+        type: 'table',
+        align: [null, null],
+        header: [[text('A')], [text('B')]],
+        rows: [[[text('1')], [text('2|3')]]],
+      },
+    ]);
+  });
+
+  it('ends a table at the first blank line or non-table-row line', () => {
+    const blocks = parseMarkdown('| A |\n| --- |\n| 1 |\n\nnot a table row');
+    expect(blocks).toEqual([
+      { type: 'table', align: [null], header: [[text('A')]], rows: [[[text('1')]]] },
+      { type: 'paragraph', children: [text('not a table row')] },
+    ]);
+  });
+
+  it('does not treat a paragraph line containing "|" as a table without a valid delimiter row after it', () => {
+    expect(parseMarkdown('a | b\nnot a delimiter row')).toEqual([
+      { type: 'paragraph', children: [text('a | b'), { type: 'break' }, text('not a delimiter row')] },
+    ]);
+  });
 });
 
 describe('isSafeMarkdownUrl', () => {

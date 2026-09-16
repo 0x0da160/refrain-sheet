@@ -48,9 +48,23 @@ release-time half (retitling `Unreleased`) is still done by hand.
   RSF spreadsheet — as long as it hasn't been saved yet. Once it's saved, the
   usual "convert to RSF first" requirement applies again, the same as for any
   other CSV file. ([#479](https://github.com/0x0da160/refrain-sheet/issues/479))
+- The Markdown preview (both the docked Markdown worksheet and the
+  standalone **File > Markdown Editor…**) now renders GFM-style tables
+  (including per-column left/center/right alignment) and syntax-highlighted
+  fenced code blocks for a number of common languages (JavaScript/TypeScript,
+  Python, JSON, CSS, HTML, Bash, SQL, YAML, Rust, Go); an unrecognized
+  language still renders as plain, unhighlighted code, as before. The docked
+  Markdown worksheet also gained a toolbar button to hide/show the preview
+  pane, letting the source textarea use the full width while it's hidden.
+  ([#486](https://github.com/0x0da160/refrain-sheet/issues/486))
 
 ### Fixed
 
+- The docked Markdown worksheet's source textarea now actually fills its
+  pane instead of sitting at its small browser-default size, and no longer
+  triggers a page zoom when it gains focus on a phone; on a narrow screen the
+  source/preview panes now stack vertically instead of being squeezed
+  side by side. ([#486](https://github.com/0x0da160/refrain-sheet/issues/486))
 - Double-tapping a cell on a touch device now opens it for editing and
   brings up the on-screen keyboard, matching what double-clicking already
   does with a mouse.

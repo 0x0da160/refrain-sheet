@@ -11,12 +11,17 @@
  * displayed text: safety comes from never building an HTML string, not from
  * escaping one, and this module does not need to escape anything itself.
  *
- * This is deliberately not a full CommonMark/GFM implementation: no tables,
- * no nested emphasis (`**a *b* c**`), no images, no footnotes, no setext
- * (`===`/`---` underline) headings. A single newline inside a paragraph is
- * treated as a line break rather than requiring a blank line or GFM's
- * two-trailing-spaces rule, which better matches a live-preview text area
- * where a user expects the preview to track what they typed line by line.
+ * This is deliberately not a full CommonMark/GFM implementation: no nested
+ * emphasis (`**a *b* c**`), no images, no footnotes, no setext (`===`/`---`
+ * underline) headings. A single newline inside a paragraph is treated as a
+ * line break rather than requiring a blank line or GFM's two-trailing-spaces
+ * rule, which better matches a live-preview text area where a user expects
+ * the preview to track what they typed line by line. GFM-style pipe tables
+ * are supported (#486) since they are common in real-world Markdown notes
+ * and have an unambiguous line-oriented grammar that fits this parser's
+ * design; fenced code blocks additionally get client-side syntax
+ * highlighting at render time (`src/core/syntax-highlight.ts`), not here —
+ * this module only ever produces plain block/inline AST nodes.
  */
 
 export type MarkdownInline =
@@ -27,13 +32,21 @@ export type MarkdownInline =
   | { type: 'link'; href: string; children: MarkdownInline[] }
   | { type: 'break' };
 
+export type MarkdownTableAlign = 'left' | 'center' | 'right' | null;
+
 export type MarkdownBlock =
   | { type: 'heading'; level: 1 | 2 | 3 | 4 | 5 | 6; children: MarkdownInline[] }
   | { type: 'paragraph'; children: MarkdownInline[] }
   | { type: 'blockquote'; children: MarkdownBlock[] }
   | { type: 'list'; ordered: boolean; items: MarkdownInline[][] }
   | { type: 'codeBlock'; text: string; lang: string | null }
-  | { type: 'hr' };
+  | { type: 'hr' }
+  | {
+      type: 'table';
+      align: MarkdownTableAlign[];
+      header: MarkdownInline[][];
+      rows: MarkdownInline[][][];
+    };
 
 const HEADING_RE = /^(#{1,6})\s+(.*)$/;
 const FENCE_OPEN_RE = /^(`{3,}|~{3,})\s*(\S*)\s*$/;
@@ -41,6 +54,9 @@ const HR_RE = /^ {0,3}([-*_])(?: *\1){2,}\s*$/;
 const BLOCKQUOTE_RE = /^ {0,3}>/;
 const BLOCKQUOTE_STRIP_RE = /^ {0,3}> ?/;
 const LIST_ITEM_RE = /^ {0,3}([-*+]|\d+[.)])\s+(.*)$/;
+/** A GFM table delimiter row, e.g. `| --- | :-: | --: |` (alignment colons optional on either side). */
+const TABLE_DELIMITER_ROW_RE = /^ {0,3}\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
+const TABLE_DELIMITER_CELL_RE = /^:?-+:?$/;
 
 /** Schemes a rendered link's `href` may use; anything else degrades to literal text. */
 const SAFE_URL_SCHEME_RE = /^https?:|^mailto:/i;
@@ -118,6 +134,22 @@ function parseBlocks(lines: string[]): MarkdownBlock[] {
       continue;
     }
 
+    if (line.includes('|') && i + 1 < lines.length && TABLE_DELIMITER_ROW_RE.test(lines[i + 1])) {
+      const delimiterCells = splitTableRow(lines[i + 1]);
+      if (delimiterCells.length > 0 && delimiterCells.every((cell) => TABLE_DELIMITER_CELL_RE.test(cell))) {
+        const header = splitTableRow(line).map((cell) => parseInline(cell));
+        const align = delimiterCells.map(tableCellAlign);
+        i += 2;
+        const rows: MarkdownInline[][][] = [];
+        while (i < lines.length && lines[i].trim() !== '' && lines[i].includes('|')) {
+          rows.push(splitTableRow(lines[i]).map((cell) => parseInline(cell)));
+          i++;
+        }
+        blocks.push({ type: 'table', align, header, rows });
+        continue;
+      }
+    }
+
     const firstItemMatch = LIST_ITEM_RE.exec(line);
     if (firstItemMatch) {
       const ordered = /^\d/.test(firstItemMatch[1]);
@@ -150,6 +182,42 @@ function parseBlocks(lines: string[]): MarkdownBlock[] {
     blocks.push({ type: 'paragraph', children: parseInlineLines(paraLines) });
   }
   return blocks;
+}
+
+/** Split a table row on unescaped `|`, trimming a leading/trailing delimiter and each cell's whitespace. */
+function splitTableRow(line: string): string[] {
+  let trimmed = line.trim();
+  if (trimmed.startsWith('|')) {
+    trimmed = trimmed.slice(1);
+  }
+  if (trimmed.endsWith('|') && !trimmed.endsWith('\\|')) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  const cells: string[] = [];
+  let current = '';
+  for (let i = 0; i < trimmed.length; i++) {
+    if (trimmed[i] === '\\' && trimmed[i + 1] === '|') {
+      current += '|';
+      i++;
+    } else if (trimmed[i] === '|') {
+      cells.push(current.trim());
+      current = '';
+    } else {
+      current += trimmed[i];
+    }
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
+/** Alignment implied by a table delimiter cell's colons, e.g. `:-:` → `center`. */
+function tableCellAlign(cell: string): MarkdownTableAlign {
+  const left = cell.startsWith(':');
+  const right = cell.endsWith(':');
+  if (left && right) return 'center';
+  if (right) return 'right';
+  if (left) return 'left';
+  return null;
 }
 
 function parseInlineLines(lines: string[]): MarkdownInline[] {

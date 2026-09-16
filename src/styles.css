@@ -2607,6 +2607,64 @@ table.diff-table td {
   color: var(--text-dim);
 }
 
+/* GFM-style tables (#486) — `src/core/markdown.ts`'s table block, rendered
+   via `renderMarkdownBlocks`. Alignment classes come from the delimiter
+   row's colons (`:---`/`:---:`/`---:`); a plain `---` cell (no colons) is
+   unaligned and gets no class at all, relying on `th`/`td`'s own default
+   `text-align: left` below — `.md-align-left` only matters for a cell
+   explicitly marked `:---`, kept distinct so the AST/render layer never has
+   to special-case "no alignment" vs "explicitly left". */
+.markdown-editor-preview table {
+  border-collapse: collapse;
+  margin: 0 0 10px;
+}
+
+.markdown-editor-preview th,
+.markdown-editor-preview td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.markdown-editor-preview th {
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.markdown-editor-preview .md-align-left {
+  text-align: left;
+}
+
+.markdown-editor-preview .md-align-center {
+  text-align: center;
+}
+
+.markdown-editor-preview .md-align-right {
+  text-align: right;
+}
+
+/* Fenced-code-block syntax highlighting (#486) — token classes come from
+   `src/core/syntax-highlight.ts`'s `CodeToken.type`, rendered by
+   `renderMarkdownBlocks`. Colors reuse existing semantic tokens rather than
+   introducing new ones, so both themes (`:root[data-theme='dark']`) stay in
+   sync automatically. */
+.markdown-editor-preview .tok-keyword {
+  color: var(--accent);
+}
+
+.markdown-editor-preview .tok-string {
+  color: var(--success);
+}
+
+.markdown-editor-preview .tok-comment {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.markdown-editor-preview .tok-number {
+  color: var(--warning);
+}
+
 /* ---------- Markdown worksheet (docked in the spreadsheet area) ----------
    Same source/preview panes as the standalone editor above (shared CSS
    classes), but filling the `.main-row` the grid normally occupies instead
@@ -2615,6 +2673,8 @@ table.diff-table td {
 .markdown-sheet-view {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   padding: 12px;
   background: var(--cell-bg);
@@ -2624,9 +2684,31 @@ table.diff-table td {
   display: none;
 }
 
+.markdown-sheet-view .markdown-editor-toolbar {
+  flex: none;
+}
+
+/* The toolbar row's panes fill the remaining height below it (#486); the
+   dialog's own `.markdown-editor-panes` has no such ancestor, so this stays
+   scoped to the docked worksheet. */
+.markdown-sheet-view .markdown-editor-panes {
+  flex: 1;
+  min-height: 0;
+}
+
 .markdown-sheet-view .markdown-editor-source,
 .markdown-sheet-view .markdown-editor-preview {
   min-height: 0;
+}
+
+/* Hiding the preview pane (preview toggle, #486) leaves the source pane as
+   the only flex item in `.markdown-editor-panes`, so its `flex-grow: 1`
+   (from `.markdown-editor-pane`) fills the freed width on its own — no
+   extra override needed beyond overriding `[hidden]`'s default `display:
+   none` against `.markdown-editor-pane`'s own `display: flex` (same
+   specificity, source order would otherwise let the class rule win). */
+.markdown-editor-pane[hidden] {
+  display: none;
 }
 
 /* ---------- Drop overlay ---------- */
@@ -3064,12 +3146,16 @@ table.diff-table td {
      and textarea (e.g. the SQL query editor, the data-validation list-values
      field) in a dialog, plus the find bar's search field, gets the 16px floor
      here; nothing outside this breakpoint changes, so desktop density is
-     untouched. */
+     untouched. The docked Markdown worksheet's source textarea
+     (`.markdown-sheet-view`, #486) isn't inside a dialog, so it needs its own
+     entry — the standalone Markdown editor's textarea is already covered via
+     `.dialog-body textarea` above. */
   .dialog-body input[type='text'],
   .dialog-body input[type='number'],
   .dialog-body input[type='search'],
   .dialog-body select,
-  .dialog-body textarea {
+  .dialog-body textarea,
+  .markdown-sheet-view .markdown-editor-source {
     font-size: 16px;
   }
 
@@ -3090,6 +3176,21 @@ table.diff-table td {
 
   .vgrid-canvas .grid-sink.cell-editor {
     font-size: max(16px, calc(12px * var(--sheet-zoom, 1)));
+  }
+
+  /* ----- Markdown source/preview panes -----
+     The fixed 50/50 side-by-side split (`.markdown-editor-panes`) squeezes
+     both the source textarea and the preview into a narrow column on a
+     phone; stack them instead so the one currently in focus (typically the
+     source, while the preview toggle — `ui/markdown-sheet.ts` — can hide the
+     other pane entirely) gets the full viewport width (#486). */
+  .markdown-editor-panes {
+    flex-direction: column;
+  }
+
+  .markdown-editor-source,
+  .markdown-editor-preview {
+    min-height: 160px;
   }
 
   /* ----- Fit narrow dialogs -----

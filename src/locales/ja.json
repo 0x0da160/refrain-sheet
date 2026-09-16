@@ -954,6 +954,8 @@
   "dialog.markdownEditor.saveAs": "名前を付けて保存…",
   "dialog.markdownEditor.source": "Markdownソース",
   "dialog.markdownEditor.preview": "プレビュー",
+  "dialog.markdownEditor.hidePreview": "プレビューを隠す",
+  "dialog.markdownEditor.showPreview": "プレビューを表示",
   "dialog.markdownEditor.close": "閉じる",
   "shortcut.copy": "選択範囲をコピー（タブ区切り）",
   "shortcut.paste": "アクティブセルに貼り付け",

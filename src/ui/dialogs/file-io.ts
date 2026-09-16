@@ -12,7 +12,7 @@ import { cellList, dialogButton, openDialog, submitOnEnter } from './shared';
 
 /**
  * File I/O and CSV/RSF conversion dialogs: save options, encoding/delimiter
- * reopen, RSF/CSV/XLSX save and export, and the NCR/unrepresentable-character
+ * reopen, RSF/CSV/XLSX/JSON save and export, and the NCR/unrepresentable-character
  * warnings that accompany them. Extracted from `Dialogs` as a cohesive slice
  * (see issue #133, mirroring `FileIoCommands` in `src/app/commands/file-io.ts`)
  * — `Dialogs` still implements the same `UiPort` dialog surface, delegating to
@@ -409,6 +409,19 @@ export class FileIoDialogs {
       buttons.append(
         dialogButton(t('dialog.exportXlsx.cancel'), false, false, () => close(false)),
         dialogButton(t('dialog.exportXlsx.ok'), true, true, () => close(true)),
+      );
+    });
+  }
+
+  /** Explain and confirm the lossy JSON export: calculated values only, one worksheet (see `chooseExportSheet`). */
+  confirmExportJson(name: string): Promise<boolean> {
+    return openDialog(t('dialog.exportJson.title'), false, (body, buttons, close) => {
+      body.append(el('p', { text: t('dialog.exportJson.message', { name }) }));
+      body.append(el('p', { className: 'dialog-warning', text: t('dialog.exportJson.warning') }));
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.exportJson.notPreserved') }));
+      buttons.append(
+        dialogButton(t('dialog.exportJson.cancel'), false, false, () => close(false)),
+        dialogButton(t('dialog.exportJson.ok'), true, true, () => close(true)),
       );
     });
   }

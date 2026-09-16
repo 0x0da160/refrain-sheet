@@ -170,6 +170,11 @@ export class Dialogs {
     return this.fileIo.confirmExportXlsx(name);
   }
 
+  /** Explain and confirm the lossy JSON export. See `FileIoDialogs.confirmExportJson`. */
+  confirmExportJson(name: string): Promise<boolean> {
+    return this.fileIo.confirmExportJson(name);
+  }
+
   /**
    * The Flash Fill preview: the inferred operation, the affected range, the
    * change/overwrite counts, and a bounded before/after sample table. The

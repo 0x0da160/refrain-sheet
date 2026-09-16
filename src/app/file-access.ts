@@ -81,9 +81,10 @@ export async function pickFiles(doc: Document, maxSize: number): Promise<OpenedF
     input.multiple = true;
     // `.rsf` is the current spreadsheet format; `.rcsv` is the legacy name,
     // still accepted so existing files open (then re-save as `.rsf`). `.xlsx`
-    // imports as a new `.rsf` tab (see `Commands.openXlsxFile`).
+    // and `.json` both import as a new `.rsf` tab (see `Commands.openXlsxFile`,
+    // `Commands.openJsonFile`).
     input.accept =
-      '.csv,.tsv,.txt,.rsf,.rcsv,.xlsx,text/csv,text/tab-separated-values,text/plain,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      '.csv,.tsv,.txt,.rsf,.rcsv,.xlsx,.json,text/csv,text/tab-separated-values,text/plain,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     input.style.display = 'none';
     input.addEventListener('change', () => {
       const files = Array.from(input.files ?? []);
@@ -166,6 +167,12 @@ const SAVE_PICKER_TYPES = {
       accept: {
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       },
+    },
+  ],
+  json: [
+    {
+      description: 'JSON',
+      accept: { 'application/json': ['.json'] },
     },
   ],
 } as const;

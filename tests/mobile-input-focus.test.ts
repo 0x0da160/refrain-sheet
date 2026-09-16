@@ -129,6 +129,7 @@ const noopUi: UiPort = {
     quoteStyle: 'minimal' as const,
   }),
   confirmExportXlsx: vi.fn(async () => true),
+  confirmExportJson: vi.fn(async () => true),
   chooseInsertShift: async () => null,
   confirmFlashFill: async () => false,
   chooseFilter: async () => null,

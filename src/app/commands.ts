@@ -354,6 +354,12 @@ export interface UiPort {
    * proceed; false cancels and leaves the document untouched.
    */
   confirmExportXlsx(name: string): Promise<boolean>;
+  /**
+   * Explain and confirm the lossy JSON export: calculated values only, one
+   * worksheet (see `chooseExportSheet`). Resolving true is the explicit
+   * confirmation to proceed; false cancels and leaves the document untouched.
+   */
+  confirmExportJson(name: string): Promise<boolean>;
   confirm(title: string, message: string, okLabel: string, cancelLabel: string): Promise<boolean>;
   showMessage(title: string, message: string): Promise<void>;
   notify(text: string, kind: 'info' | 'warn' | 'error'): void;
@@ -509,6 +515,7 @@ export type CommandId =
   | 'sheet.displayLanguage'
   | 'sheet.exportCsv'
   | 'sheet.exportXlsx'
+  | 'sheet.exportJson'
   | 'data.runSqlQuery'
   | 'data.compareDiff'
   | 'data.validation'
@@ -710,8 +717,9 @@ export class Commands {
       case 'sheet.exportCsv':
         return tab !== null && tab.doc.kind === 'rsf';
       // Unlike CSV (already the format for a CSV-kind tab), no tab kind is
-      // already an .xlsx file, so both kinds can export to it.
+      // already an .xlsx or .json file, so both kinds can export to either.
       case 'sheet.exportXlsx':
+      case 'sheet.exportJson':
         return tab !== null;
       // Row insert/delete is meaningless while a whole-column selection is
       // active: there is no well-defined row to insert/delete around.
@@ -1101,6 +1109,9 @@ export class Commands {
       case 'sheet.exportXlsx':
         if (tab) await this.exportXlsx(tab);
         return;
+      case 'sheet.exportJson':
+        if (tab) await this.exportJson(tab);
+        return;
       case 'data.runSqlQuery':
         if (tab) await this.showSqlQuery(tab);
         return;
@@ -1322,6 +1333,14 @@ export class Commands {
    */
   async exportXlsx(tab: Tab): Promise<boolean> {
     return this.fileIo.exportXlsx(tab);
+  }
+
+  /**
+   * Explicit, confirmed lossy JSON export. See `FileIoCommands.exportJson`
+   * for the full behavior contract.
+   */
+  async exportJson(tab: Tab): Promise<boolean> {
+    return this.fileIo.exportJson(tab);
   }
 
   /**

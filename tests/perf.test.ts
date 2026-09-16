@@ -37,6 +37,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
       quoteStyle: 'minimal' as const,
     })),
     confirmExportXlsx: vi.fn(async () => true),
+    confirmExportJson: vi.fn(async () => true),
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),

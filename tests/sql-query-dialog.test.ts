@@ -58,6 +58,29 @@ describe('SqlQueryDialogs.showSqlQuery', () => {
     expect(document.querySelector('.side-panel')).toBeNull();
   });
 
+  it('hides the explanatory text until the help icon is pressed', async () => {
+    const dialogs = new SqlQueryDialogs();
+    const promise = dialogs.showSqlQuery(sqlInput());
+    const panel = document.querySelector('.side-panel')!;
+
+    const helpPanel = panel.querySelector('.sql-query-help-panel') as HTMLElement;
+    const helpToggle = panel.querySelector('.sql-query-help-toggle') as HTMLButtonElement;
+    expect(helpPanel.hidden).toBe(true);
+    expect(helpToggle.getAttribute('aria-expanded')).toBe('false');
+
+    helpToggle.click();
+    expect(helpPanel.hidden).toBe(false);
+    expect(helpToggle.getAttribute('aria-expanded')).toBe('true');
+    expect(helpPanel.textContent).toContain('read-only SQL query');
+
+    helpToggle.click();
+    expect(helpPanel.hidden).toBe(true);
+    expect(helpToggle.getAttribute('aria-expanded')).toBe('false');
+
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await promise;
+  });
+
   it('still runs a query and renders results from within the docked panel', async () => {
     const dialogs = new SqlQueryDialogs();
     const promise = dialogs.showSqlQuery(sqlInput());

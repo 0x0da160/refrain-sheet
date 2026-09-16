@@ -875,6 +875,7 @@
   "notify.sheetLimit": "1つのブックに保持できるワークシートは最大 {max} 個です。",
   "notify.cannotDeleteLastSheet": "ブックには少なくとも1つのワークシートが必要です。",
   "dialog.sqlQuery.title": "SQLクエリ",
+  "dialog.sqlQuery.help.toggle": "ヘルプ",
   "dialog.sqlQuery.intro": "1つのワークシートまたは開いているCSVに対して、読み取り専用のSQLクエリを実行します。元のデータは変更されません — 読み取るだけです。",
   "dialog.sqlQuery.source": "データソース",
   "dialog.sqlQuery.query": "SQLクエリ",

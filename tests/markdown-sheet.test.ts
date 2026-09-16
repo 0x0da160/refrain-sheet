@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 /**
- * The docked Markdown worksheet view (`MarkdownSheetView`, #486): the
+ * The docked Markdown worksheet view (`MarkdownSheetView`, #486, #502): the
  * source textarea filling its pane (not a cramped default-sized box), and
- * the preview-visibility toggle.
+ * the preview toggle, which opens/closes the preview's dockable
+ * `panelElement` side panel.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { AppState } from '../src/app/app-state';
+import { AppState, type Tab } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { RsfDocument } from '../src/core/rsf-document';
+import type { Worksheet } from '../src/core/worksheet';
 import { MarkdownSheetView } from '../src/ui/markdown-sheet';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
@@ -63,17 +65,23 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
 }
 
 /** An app state with one open workbook tab whose active worksheet is a Markdown worksheet. */
-function setup(): { view: MarkdownSheetView } {
+function setup(): {
+  view: MarkdownSheetView;
+  state: AppState;
+  tab: Tab;
+  workbook: RsfDocument;
+  notes: Worksheet;
+} {
   const state = new AppState();
   const commands = new Commands(state, stubUi(), document);
   const workbook = RsfDocument.empty('book.rsf', 8, 4, 'Sheet1');
   const notes = workbook.createMarkdownWorksheet('Notes');
   workbook.insertSheetAt(1, notes);
   workbook.setActiveSheetId(notes.id);
-  state.addTab('book.rsf', workbook, null);
+  const tab = state.addTab('book.rsf', workbook, null);
   const view = new MarkdownSheetView(state, commands);
   view.refresh();
-  return { view };
+  return { view, state, tab, workbook, notes };
 }
 
 describe('MarkdownSheetView', () => {
@@ -83,24 +91,32 @@ describe('MarkdownSheetView', () => {
     expect(textarea.classList.contains('markdown-editor-source')).toBe(true);
   });
 
-  it('shows the preview pane by default', () => {
+  it('opens the preview panel by default', () => {
     const { view } = setup();
-    const previewPane = view.element.querySelectorAll('.markdown-editor-pane')[1] as HTMLElement;
-    expect(previewPane.hidden).toBe(false);
+    expect(view.panelElement.hidden).toBe(false);
   });
 
-  it('hides the preview pane when the toggle button is clicked, and shows it again on a second click', () => {
+  it('closes the preview panel when the toggle button is clicked, and reopens it on a second click', () => {
     const { view } = setup();
     const toggle = view.element.querySelector('.markdown-editor-toolbar button') as HTMLButtonElement;
-    const previewPane = view.element.querySelectorAll('.markdown-editor-pane')[1] as HTMLElement;
 
     toggle.click();
-    expect(previewPane.hidden).toBe(true);
+    expect(view.panelElement.hidden).toBe(true);
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
 
     toggle.click();
-    expect(previewPane.hidden).toBe(false);
+    expect(view.panelElement.hidden).toBe(false);
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('closes the preview panel when its own close button is clicked', () => {
+    const { view } = setup();
+    const closeBtn = view.panelElement.querySelector('.markdown-preview-panel-close') as HTMLButtonElement;
+
+    closeBtn.click();
+    expect(view.panelElement.hidden).toBe(true);
+    const toggle = view.element.querySelector('.markdown-editor-toolbar button') as HTMLButtonElement;
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('renders the preview as rich Markdown (e.g. a table), reflecting the source', () => {
@@ -109,8 +125,30 @@ describe('MarkdownSheetView', () => {
     textarea.value = '| A | B |\n| --- | --- |\n| 1 | 2 |';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
-    const preview = view.element.querySelector('.markdown-editor-preview')!;
+    const preview = view.panelElement.querySelector('.markdown-editor-preview')!;
     expect(preview.querySelector('table')).not.toBeNull();
     expect(preview.querySelector('th')?.textContent).toBe('A');
+  });
+
+  it('hides the preview panel when the active worksheet is no longer a Markdown sheet', () => {
+    const { view, state, tab, workbook } = setup();
+    expect(view.panelElement.hidden).toBe(false);
+
+    state.setActiveSheet(tab, workbook.sheets[0].id);
+    view.refresh();
+
+    expect(view.panelElement.hidden).toBe(true);
+  });
+
+  it('reopens the preview panel on returning to a Markdown sheet if it was left open', () => {
+    const { view, state, tab, workbook, notes } = setup();
+
+    state.setActiveSheet(tab, workbook.sheets[0].id);
+    view.refresh();
+    expect(view.panelElement.hidden).toBe(true);
+
+    state.setActiveSheet(tab, notes.id);
+    view.refresh();
+    expect(view.panelElement.hidden).toBe(false);
   });
 });

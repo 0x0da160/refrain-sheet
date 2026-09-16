@@ -60,6 +60,9 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The docked Markdown worksheet's preview no longer gets clipped by long
+  content; it now scrolls internally instead.
+  ([#502](https://github.com/0x0da160/refrain-sheet/issues/502))
 - The docked Markdown worksheet's source textarea now actually fills its
   pane instead of sitting at its small browser-default size, and no longer
   triggers a page zoom when it gains focus on a phone; on a narrow screen the
@@ -100,6 +103,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The docked Markdown worksheet's rendered preview is now a dockable,
+  resizable side panel — the same panel style as Filter/Sort/Format/SQL
+  Query and the comments panel — instead of a fixed inline split with the
+  source editor. The preview toggle button now opens/closes this panel; the
+  source editor fills the full width when it's closed.
+  ([#502](https://github.com/0x0da160/refrain-sheet/issues/502))
 - On a phone-width screen, the formula bar (cell reference + edit field) now
   sits below the grid, directly above the worksheet-tab strip, instead of
   above the grid — easier to reach with a thumb. Typing in the formula bar

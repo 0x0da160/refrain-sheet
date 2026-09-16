@@ -2556,6 +2556,12 @@ table.diff-table td {
 .markdown-editor-pane {
   flex: 1 1 50%;
   min-width: 0;
+  /* Without this, a flex column item defaults to `min-height: auto`, which
+     blocks it from shrinking below its content size — so a long preview
+     grows the whole pane (and past it, its `overflow: hidden` ancestor)
+     instead of letting `.markdown-editor-preview`'s own `overflow: auto`
+     scroll internally (#502). */
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -2666,9 +2672,11 @@ table.diff-table td {
 }
 
 /* ---------- Markdown worksheet (docked in the spreadsheet area) ----------
-   Same source/preview panes as the standalone editor above (shared CSS
-   classes), but filling the `.main-row` the grid normally occupies instead
-   of a fixed dialog height — see `Worksheet.kind`, `ui/markdown-sheet.ts`. */
+   Same source pane as the standalone editor above (shared CSS classes), but
+   filling the `.main-row` the grid normally occupies instead of a fixed
+   dialog height — see `Worksheet.kind`, `ui/markdown-sheet.ts`. Its rendered
+   preview is not here: it docks separately as `.markdown-preview-panel`
+   below (#502). */
 
 .markdown-sheet-view {
   flex: 1;
@@ -2688,7 +2696,7 @@ table.diff-table td {
   flex: none;
 }
 
-/* The toolbar row's panes fill the remaining height below it (#486); the
+/* The toolbar row's pane fills the remaining height below it (#486); the
    dialog's own `.markdown-editor-panes` has no such ancestor, so this stays
    scoped to the docked worksheet. */
 .markdown-sheet-view .markdown-editor-panes {
@@ -2696,19 +2704,47 @@ table.diff-table td {
   min-height: 0;
 }
 
-.markdown-sheet-view .markdown-editor-source,
-.markdown-sheet-view .markdown-editor-preview {
+.markdown-sheet-view .markdown-editor-source {
   min-height: 0;
 }
 
-/* Hiding the preview pane (preview toggle, #486) leaves the source pane as
-   the only flex item in `.markdown-editor-panes`, so its `flex-grow: 1`
-   (from `.markdown-editor-pane`) fills the freed width on its own — no
-   extra override needed beyond overriding `[hidden]`'s default `display:
-   none` against `.markdown-editor-pane`'s own `display: flex` (same
-   specificity, source order would otherwise let the class rule win). */
-.markdown-editor-pane[hidden] {
+/* ---------- Markdown worksheet preview panel (#502) ----------
+   The docked worksheet's rendered preview, as a persistent dockable
+   `.side-panel` — same chrome/positioning as the comments panel
+   (`ui/comments-panel.ts`) — toggled open/closed by `MarkdownSheetView`'s
+   preview toggle button and its own close button, rather than the fixed
+   inline split view this replaced. */
+.markdown-preview-panel[hidden] {
   display: none;
+}
+
+.markdown-preview-panel-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 4px;
+}
+
+.markdown-preview-panel-close:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.markdown-preview-panel-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* `.dialog-body` (see above) is already the bounded, scrollable ancestor —
+   same as the comments panel's list — so the preview itself just needs to
+   stop imposing its own `min-height: 320px` floor, which would otherwise
+   force the panel wider/taller than its docked size on a small viewport. */
+.markdown-preview-panel .markdown-editor-preview {
+  min-height: 0;
 }
 
 /* ---------- Drop overlay ---------- */
@@ -3208,11 +3244,13 @@ table.diff-table td {
   }
 
   /* ----- Markdown source/preview panes -----
-     The fixed 50/50 side-by-side split (`.markdown-editor-panes`) squeezes
-     both the source textarea and the preview into a narrow column on a
-     phone; stack them instead so the one currently in focus (typically the
-     source, while the preview toggle — `ui/markdown-sheet.ts` — can hide the
-     other pane entirely) gets the full viewport width (#486). */
+     The standalone Markdown editor dialog's fixed 50/50 side-by-side split
+     (`.markdown-editor-panes`) squeezes both the source textarea and the
+     preview into a narrow column on a phone; stack them instead so each gets
+     the full viewport width (#486). The docked worksheet's own
+     `.markdown-editor-panes` (`ui/markdown-sheet.ts`) has only the source
+     pane now that its preview docks separately as `.markdown-preview-panel`
+     (#502), so this rule is a no-op there. */
   .markdown-editor-panes {
     flex-direction: column;
   }

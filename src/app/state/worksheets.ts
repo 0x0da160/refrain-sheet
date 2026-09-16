@@ -381,6 +381,30 @@ export class WorksheetsState {
   }
 
   /**
+   * Toggle a worksheet's lock (Sheet ▸ Lock Sheet, or its tab context menu).
+   * A plain, non-cryptographic protection flag — no password — that blocks
+   * that worksheet's own cell edits and structural changes (see
+   * `AppState`'s `refuseLockedSheetWrite`); every other worksheet in the
+   * workbook stays editable. Like {@link setActiveSheet}, this is a direct
+   * action, not undoable — but unlike it, the flag is persisted in the saved
+   * container, so toggling it marks the workbook as having unsaved changes
+   * (see `RsfDocument.setLockedOn`).
+   */
+  setSheetLocked(tab: Tab, sheetId: string, locked: boolean): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return false;
+    }
+    const sheet = doc.sheetById(sheetId);
+    if (!sheet || sheet.locked === locked) {
+      return false;
+    }
+    doc.setLockedOn(sheetId, locked);
+    this.state.emit('sheets');
+    return true;
+  }
+
+  /**
    * Add a new empty worksheet after the active one, as one atomic, undoable
    * operation, and activate it. `name` must already be validated and unique
    * (see the command layer).

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { PanelBottom, PanelLeft, PanelRight, PanelTop } from 'lucide';
-import { el } from '../dom';
+import { el, focusWithoutKeyboard } from '../dom';
 import { makeDraggable, makeEdgeResizable, makeResizable, type EdgeResizeAxis } from '../drag-resize';
 import { createIcon } from '../icon';
 import { positionPopup, visualViewportRect, type AnchorRect } from '../popup';
@@ -92,7 +92,10 @@ export function openDialog<T>(title: string, fallback: T, build: DialogBuilder<T
     build(body, buttons, finish);
     document.body.append(dialog);
     dialog.showModal();
-    dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    const autofocusTarget = dialog.querySelector<HTMLElement>('[data-autofocus]');
+    if (autofocusTarget) {
+      focusWithoutKeyboard(autofocusTarget);
+    }
   });
 }
 
@@ -230,7 +233,10 @@ export function openPopover<T>(
     build(body, buttons, finish);
     document.body.append(popover);
     reposition();
-    popover.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    const autofocusTarget = popover.querySelector<HTMLElement>('[data-autofocus]');
+    if (autofocusTarget) {
+      focusWithoutKeyboard(autofocusTarget);
+    }
 
     const onPointerDown = (event: Event): void => {
       const target = event.target as Node | null;
@@ -562,7 +568,10 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
 
     build(body, buttons, finish);
     document.body.append(panel);
-    panel.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    const autofocusTarget = panel.querySelector<HTMLElement>('[data-autofocus]');
+    if (autofocusTarget) {
+      focusWithoutKeyboard(autofocusTarget);
+    }
 
     const onKeyDown = (evt: Event): void => {
       const event = evt as KeyboardEvent;

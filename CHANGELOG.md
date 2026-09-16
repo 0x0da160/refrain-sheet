@@ -85,6 +85,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
   keyboard again; the first tap of the pair could leave the keyboard
   suppressed even once the second tap opened the cell for editing.
   ([#487](https://github.com/0x0da160/refrain-sheet/issues/487))
+- On a touch device, opening a dialog, popover, or docked panel (Filter,
+  Sort, Format, SQL Query, rename, and every other text field that
+  autofocuses when its dialog opens), or opening the Find/Replace bar, no
+  longer pops up the on-screen keyboard by itself; the keyboard now only
+  appears once the user actually taps the field.
+  ([#497](https://github.com/0x0da160/refrain-sheet/issues/497))
 
 ### Changed
 

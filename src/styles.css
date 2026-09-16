@@ -2940,6 +2940,27 @@ table.diff-table td {
     grid-column: 1 / -1;
   }
 
+  /* On a narrow viewport the formula bar (cell reference + edit field) moves
+     from above the grid to below it, directly above the worksheet-tab strip
+     (#495) — thumb reach while typing matters more here than the desktop
+     convention of a formula bar above the grid. `.tab-bar`/`.find-bar`/
+     `.welcome-screen`/`.main-row` keep their default `order: 0`, so they
+     stay in DOM order ahead of these two explicitly reordered rows; only
+     `.formula-bar` and `.sheet-bar` need values, placing the bar between
+     the grid and the sheet tabs. The border moves from the bar's bottom
+     edge to its top edge so it still separates the bar from the grid above
+     it — `.sheet-bar`'s own `border-top` already separates it from the
+     sheet-tab strip below. */
+  .formula-bar {
+    order: 1;
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .sheet-bar {
+    order: 2;
+  }
+
   .menu-bar {
     grid-row: 2;
     grid-column: 1;

@@ -189,8 +189,15 @@ function bootstrap(): void {
     const col = Math.min(tab.selection.col, Math.max(0, (tab.doc.fieldCount(row) || 1) - 1));
     grid.reveal(row, col);
   };
-  // The formula bar pushes live formula-reference highlights into the grid.
-  const formulaBar = new FormulaBar(state, commands, moveSelectionDown, (refs) => grid.setFormulaRefs(refs));
+  // The formula bar pushes live formula-reference highlights, and the
+  // in-progress raw text of the cell being typed, into the grid.
+  const formulaBar = new FormulaBar(
+    state,
+    commands,
+    moveSelectionDown,
+    (refs) => grid.setFormulaRefs(refs),
+    (preview) => grid.setFormulaLivePreview(preview),
+  );
   const statusBar = new StatusBar(
     state,
     () => {

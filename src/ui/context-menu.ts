@@ -201,8 +201,22 @@ export class ContextMenu {
     }
     this.listeners.length = 0;
     // Return focus where it came from so keyboard users are never stranded.
-    if (this.restoreFocus && this.restoreFocus.isConnected) {
-      this.restoreFocus.focus();
+    // Closing a menu — by an outside tap, Escape, or picking a command — is
+    // never itself an explicit edit-entry gesture, even when the menu
+    // happened to open from a focused text input (e.g. the grid's touch
+    // keyboard-sink, see `Grid.focusGrid`). For text inputs, restore focus
+    // the same read-only-around-the-focus-call way that sink uses, so a
+    // dismissed menu never pops the mobile on-screen keyboard back up.
+    const restoreFocus = this.restoreFocus;
+    if (restoreFocus && restoreFocus.isConnected) {
+      if (restoreFocus instanceof HTMLInputElement || restoreFocus instanceof HTMLTextAreaElement) {
+        const wasReadOnly = restoreFocus.readOnly;
+        restoreFocus.readOnly = true;
+        restoreFocus.focus();
+        restoreFocus.readOnly = wasReadOnly;
+      } else {
+        restoreFocus.focus();
+      }
     }
     this.onClose?.();
   }

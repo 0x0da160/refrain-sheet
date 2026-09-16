@@ -245,6 +245,44 @@ describe('ContextMenu', () => {
   });
 });
 
+describe('closing restores focus without popping the mobile on-screen keyboard (#496)', () => {
+  it('restores focus to a text input read-only, then leaves it writable again', () => {
+    const input = document.createElement('textarea');
+    document.body.append(input);
+    input.focus();
+    expect(document.activeElement).toBe(input);
+    const readOnlyAtFocus: boolean[] = [];
+    const focusSpy = vi.spyOn(HTMLTextAreaElement.prototype, 'focus').mockImplementation(function (
+      this: HTMLTextAreaElement,
+    ) {
+      readOnlyAtFocus.push(this.readOnly);
+    });
+    // Opening the menu moves focus to its first item, same as a real
+    // long-press-to-context-menu flow on the grid's touch keyboard sink.
+    ContextMenu.open([{ label: 'Copy', onSelect: vi.fn() }], 10, 10);
+    // An outside tap (or Escape, or picking a command) is never itself an
+    // explicit edit-entry gesture, so restoring focus to the input it came
+    // from must not be a plain, un-suppressed `.focus()` call — that would
+    // pop the on-screen keyboard on a touch device even though the user
+    // only tapped to dismiss the menu (#496).
+    closeAllContextMenus();
+    expect(readOnlyAtFocus).toEqual([true]);
+    expect(input.readOnly).toBe(false);
+    focusSpy.mockRestore();
+  });
+
+  it('restores focus to a non-input element normally', () => {
+    const button = document.createElement('button');
+    document.body.append(button);
+    button.focus();
+    const focusSpy = vi.spyOn(HTMLButtonElement.prototype, 'focus');
+    ContextMenu.open([{ label: 'Copy', onSelect: vi.fn() }], 10, 10);
+    closeAllContextMenus();
+    expect(focusSpy).toHaveBeenCalled();
+    focusSpy.mockRestore();
+  });
+});
+
 describe('ContextMenu toolbar (#240)', () => {
   it('renders a toolbar row above the item list, reflecting checked/disabled state', () => {
     ContextMenu.open([{ label: 'Copy', onSelect: vi.fn() }], 10, 10, {

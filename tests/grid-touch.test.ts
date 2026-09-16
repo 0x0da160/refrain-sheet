@@ -462,3 +462,34 @@ describe('a touch tap-to-select does not pop the on-screen keyboard (#469)', () 
     blurSpy.mockRestore();
   });
 });
+
+describe('a new document claiming focus does not pop the on-screen keyboard (#496)', () => {
+  it('focuses the sink read-only when a document first becomes active, even though this grid instance has never seen a touch event', () => {
+    // `lastPointerType` (used by `focusGrid()` to tell touch from mouse)
+    // defaults to 'mouse' until a real pointer event reaches this Grid
+    // instance. A brand-new workbook's first render claims keyboard focus
+    // before the user has touched the grid at all, so that default must
+    // never be read as "this is a mouse user" and skip the keyboard-safe
+    // read-only-focus technique.
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    const grid = new Grid(state, commands);
+    Object.defineProperty(grid.element, 'clientHeight', { value: VIEW_HEIGHT, configurable: true });
+    Object.defineProperty(grid.element, 'clientWidth', { value: VIEW_WIDTH, configurable: true });
+    document.body.append(grid.element);
+    const sink = grid.element.querySelector<HTMLTextAreaElement>('textarea.grid-sink')!;
+    expect(document.activeElement).toBe(document.body);
+    const readOnlyAtEachFocus: boolean[] = [];
+    const focusSpy = vi.spyOn(HTMLTextAreaElement.prototype, 'focus').mockImplementation(function (
+      this: HTMLTextAreaElement,
+    ) {
+      if (this === sink) readOnlyAtEachFocus.push(this.readOnly);
+    });
+    const tab = state.addTab('new.csv', doc(bigCsv(5, 3)), null);
+    grid.refresh();
+    expect(readOnlyAtEachFocus).toEqual([true]);
+    expect(sink.readOnly).toBe(false);
+    focusSpy.mockRestore();
+    void tab;
+  });
+});

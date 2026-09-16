@@ -871,6 +871,15 @@ export class Grid {
       this.sink.focus({ preventScroll: true });
       return;
     }
+    this.focusSinkSilently();
+  }
+
+  /** Focus the sink without ever popping the mobile on-screen keyboard —
+   * the standard technique of briefly marking the target read-only around
+   * the focus call. Used for focus claims that are never themselves an
+   * explicit edit-entry gesture (a touch tap-to-select, or a document
+   * becoming active with nothing else focused), regardless of device. */
+  private focusSinkSilently(): void {
     this.sink.readOnly = true;
     this.sink.focus({ preventScroll: true });
     this.sink.readOnly = false;
@@ -1133,9 +1142,14 @@ export class Grid {
       // would otherwise silently go nowhere until the user first clicks a
       // cell. Only claim the keyboard when focus is sitting on the inert
       // default (<body>); a dialog, the formula bar, or any other control
-      // the user is already in keeps its focus untouched.
+      // the user is already in keeps its focus untouched. This is never an
+      // explicit edit-entry gesture, so it always claims focus through the
+      // keyboard-safe path — `focusGrid()`'s mouse/touch branch would
+      // otherwise wrongly treat this as a mouse interaction (its default
+      // before any pointer event has reached this grid instance) and pop
+      // the on-screen keyboard right after a fresh workbook appears.
       if (document.activeElement === document.body) {
-        this.focusGrid();
+        this.focusSinkSilently();
       }
     }
     // Only rebuild the rendered window when a layout input changed (document

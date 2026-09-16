@@ -88,6 +88,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The small orange corner marker shown on cells that have a comment is now
+  mirrored left-right: it still sits in the same top-right corner, but its
+  diagonal edge now points the other way.
+  ([#488](https://github.com/0x0da160/refrain-sheet/issues/488))
 - On a phone-width screen, the bottom row is now a three-column layout — app
   icon, status bar, then the menu toggle at the far edge — with the "Refrain
   Sheet" name hidden (icon only) to save space, the status bar's version

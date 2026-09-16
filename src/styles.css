@@ -1127,7 +1127,7 @@ button {
   width: 0;
   height: 0;
   border-style: solid;
-  border-width: 6px 6px 0 0;
+  border-width: 6px 0 0 6px;
   border-color: var(--warning) transparent transparent transparent;
   pointer-events: none;
 }

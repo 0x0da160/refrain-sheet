@@ -93,11 +93,12 @@ export {
  * adds the workbook timezone; version 7 adds the workbook display language;
  * version 8 adds the cell-style block; version 9 adds a per-style number
  * format; version 10 adds a per-border-side line style and width; version 11
- * adds the cell-comment block; version 12 adds the worksheet-kind byte. Older
- * versions are still accepted on read:
+ * adds the cell-comment block; version 12 adds the worksheet-kind byte;
+ * version 13 adds the worksheet-locked byte. Older versions are still
+ * accepted on read:
  *
  * ```
- * 0    1     body version (1–12 readable; lowest sufficient version written)
+ * 0    1     body version (1–13 readable; lowest sufficient version written)
  * 1    1     delimiter byte (',' ';' or TAB)
  * --- body versions 2+ ---
  * 2    2     application-name length (u16)
@@ -121,6 +122,8 @@ export {
  * …    …     display-language id ("en" or "ja")
  * --- body version 12+ ---
  * …    1     worksheet kind (0 = grid, 1 = markdown; written only when markdown)
+ * --- body version 13+ ---
+ * …    1     worksheet locked (0 = unlocked, 1 = locked; written only when locked)
  * --- all versions ---
  * …    2     sheet-name length (u16)
  * …    …     sheet name
@@ -150,21 +153,22 @@ export const RSF_LEGACY_MAGIC = new Uint8Array([0x52, 0x43, 0x53, 0x56]); // "RC
 export const RSF_LEGACY_CONTAINER_VERSION = 2;
 /**
  * Highest body version this release reads and writes. Version selection on
- * write is minimal: 12 when the worksheet is a markdown sheet (see
- * {@link WorksheetKind} in `worksheet.ts`), else 11 when at least one cell
- * carries a comment, else 10 when at least one border side carries a
- * non-default line style or width, else 9 when at least one cell carries a
- * number format, else 8 when at least one cell carries a style, else 7 when
- * the workbook display language is not English, else 6 when the workbook
- * timezone is not UTC, else 5 when wrap-long-rows is stored, else 4 when a
- * sheet filter is present, else 3 when display settings are present, else 2
- * when application metadata is present, else 1 — so documents without the
- * newer data stay readable by older releases. Versions 1–12 are all accepted
- * on read; an older reader rejects a version it does not know with
+ * write is minimal: 13 when the worksheet is locked (see {@link
+ * Worksheet.locked} in `worksheet.ts`), else 12 when the worksheet is a
+ * markdown sheet (see {@link WorksheetKind} in `worksheet.ts`), else 11 when
+ * at least one cell carries a comment, else 10 when at least one border side
+ * carries a non-default line style or width, else 9 when at least one cell
+ * carries a number format, else 8 when at least one cell carries a style,
+ * else 7 when the workbook display language is not English, else 6 when the
+ * workbook timezone is not UTC, else 5 when wrap-long-rows is stored, else 4
+ * when a sheet filter is present, else 3 when display settings are present,
+ * else 2 when application metadata is present, else 1 — so documents without
+ * the newer data stay readable by older releases. Versions 1–13 are all
+ * accepted on read; an older reader rejects a version it does not know with
  * `bad-version` (a localized "unsupported version" message) rather than
  * misparsing it.
  */
-export const RSF_BODY_VERSION = 12;
+export const RSF_BODY_VERSION = 13;
 
 // ----- Display-settings bounds (body version 3) -----------------------------
 // Persisted display state is validated and clamped on load so a malformed or
@@ -220,8 +224,11 @@ export const MAX_RSF_BODY_BYTES = 512 * 1024 * 1024;
 export const RSF_CONTAINER_VERSION_WORKBOOK = 4;
 
 /**
- * Highest workbook body version this release reads and writes. Version 8
- * appends one worksheet-kind byte (0 = grid, 1 = markdown; see
+ * Highest workbook body version this release reads and writes. Version 9
+ * appends one worksheet-locked byte (0 = unlocked, 1 = locked; see {@link
+ * Worksheet.locked} in `worksheet.ts`) to the end of every worksheet record,
+ * written only when at least one worksheet in the workbook is locked; version
+ * 8 appends one worksheet-kind byte (0 = grid, 1 = markdown; see
  * {@link WorksheetKind} in `worksheet.ts`) to the end of every worksheet
  * record, written only when at least one worksheet in the workbook is a
  * markdown sheet; version 7 adds a per-worksheet cell-comment block (written
@@ -235,7 +242,7 @@ export const RSF_CONTAINER_VERSION_WORKBOOK = 4;
  * English); version 2 adds the workbook timezone (written only when it is not
  * UTC); version 1 is the original layout.
  */
-export const RSF_WORKBOOK_BODY_VERSION = 8;
+export const RSF_WORKBOOK_BODY_VERSION = 9;
 
 /**
  * Bounds for workbook payloads. A malformed or hostile container can never
@@ -352,6 +359,15 @@ export interface RsfData {
    * is `bad-shape`).
    */
   comments?: Array<[number, number, string]>;
+  /**
+   * Whether this worksheet is locked against editing (body version 13). A
+   * plain, non-cryptographic protection flag — no password, and no effect on
+   * cell data, formula evaluation, or export. Absent (or `false`) is the
+   * default and keeps the body at its otherwise-minimal version; `true`
+   * forces version 13 to be written. On decode this is `false` for every
+   * body version below 13.
+   */
+  locked?: boolean;
 }
 
 /**
@@ -378,6 +394,8 @@ export interface RsfWorksheetData {
   styles?: Array<[number, number, CellStyle]>;
   /** Per-worksheet cell comments (workbook body version 7+); see {@link RsfData.comments}. */
   comments?: Array<[number, number, string]>;
+  /** Whether this worksheet is locked (workbook body version 9+); see {@link RsfData.locked}. */
+  locked?: boolean;
 }
 
 /**
@@ -1008,32 +1026,40 @@ function readCommentBlock(
 function encodeBody(data: RsfData): Uint8Array {
   const enc = new TextEncoder();
   const name = enc.encode(data.name.slice(0, MAX_META_LENGTH));
-  // Version selection is minimal: a markdown worksheet needs version 12, else
-  // any commented cell needs version 11, any border side with a non-default
-  // line style or width needs version 10, any cell with a number format needs
-  // version 9, any styled cell needs version 8, a non-default display
-  // language needs version 7, a non-UTC timezone needs version 6, stored wrap
-  // needs version 5, a filter needs version 4, display settings alone need
-  // version 3, metadata alone needs version 2, otherwise the legacy version-1
-  // body is written. A newer section implies every older one, so the layout
-  // stays a strict prefix chain — each `has*` below is OR'd with every
-  // section above it (a markdown worksheet forces the comment section, which
-  // forces the style section, which forces the number-format sub-record
-  // inclusion flag, and cascades down through display language, timezone,
-  // flags, filter, display, to meta) so a body picking a high version always
-  // physically contains every lower section's bytes, even when that
-  // section's own data is empty/default (a markdown worksheet has none of
-  // it — see `Worksheet.kind`), matching what `decodeBody` reads for that
-  // version unconditionally.
+  // Version selection is minimal: a locked worksheet needs version 13, else a
+  // markdown worksheet needs version 12, else any commented cell needs
+  // version 11, any border side with a non-default line style or width needs
+  // version 10, any cell with a number format needs version 9, any styled
+  // cell needs version 8, a non-default display language needs version 7, a
+  // non-UTC timezone needs version 6, stored wrap needs version 5, a filter
+  // needs version 4, display settings alone need version 3, metadata alone
+  // needs version 2, otherwise the legacy version-1 body is written. A newer
+  // section implies every older one, so the layout stays a strict prefix
+  // chain — each `has*` below is OR'd with every section above it (a locked
+  // worksheet forces the kind section, which forces the comment section,
+  // which forces the style section, which forces the number-format
+  // sub-record inclusion flag, and cascades down through display language,
+  // timezone, flags, filter, display, to meta) so a body picking a high
+  // version always physically contains every lower section's bytes, even
+  // when that section's own data is empty/default (a locked worksheet is not
+  // necessarily a markdown one — see `Worksheet.locked`), matching what
+  // `decodeBody` reads for that version unconditionally.
+  const hasLocked = data.locked === true;
   const isMarkdown = data.kind === 'markdown';
-  // A markdown worksheet forces every lower section's block to be physically
-  // written (even empty/default) the same way every other higher section
-  // forces the ones below it — `decodeBody` reads the comment block, style
-  // block, display-language, timezone, flags, filter, and meta sections
-  // unconditionally once `bodyVersion >= 11/8/7/6/5/4/2` respectively, and
-  // version 12 (markdown) is `>=` all of those. Chaining through `hasComments`
-  // (the top of the existing cascade) propagates down to `hasMeta` below.
-  const hasComments = isMarkdown || (data.comments?.length ?? 0) > 0;
+  // Physical presence of the worksheet-kind byte: forced by a lock exactly
+  // like every other lower section is forced by something above it, even
+  // when the worksheet itself is a plain grid (`isMarkdown` stays `false` —
+  // it names the byte's *value*, not its presence).
+  const hasKindSection = hasLocked || isMarkdown;
+  // A markdown worksheet (or a locked one, via `hasKindSection`) forces every
+  // lower section's block to be physically written (even empty/default) the
+  // same way every other higher section forces the ones below it —
+  // `decodeBody` reads the comment block, style block, display-language,
+  // timezone, flags, filter, and meta sections unconditionally once
+  // `bodyVersion >= 11/8/7/6/5/4/2` respectively, and versions 12/13 are `>=`
+  // all of those. Chaining through `hasComments` (the top of the existing
+  // cascade) propagates down to `hasMeta` below.
+  const hasComments = hasKindSection || (data.comments?.length ?? 0) > 0;
   const hasBorderStyle = (data.styles ?? []).some(([, , style]) =>
     BORDER_SIDES.some((side) => {
       const value = borderSideValue(style, side);
@@ -1089,7 +1115,8 @@ function encodeBody(data: RsfData): Uint8Array {
   const styleSize = styleBytes ? styleBytes.length : 0;
   const commentBytes = hasComments ? encodeCommentBlock(data.comments) : null;
   const commentSize = commentBytes ? commentBytes.length : 0;
-  const kindSize = isMarkdown ? 1 : 0;
+  const kindSize = hasKindSection ? 1 : 0;
+  const lockedSize = hasLocked ? 1 : 0;
   const total =
     1 +
     1 +
@@ -1100,6 +1127,7 @@ function encodeBody(data: RsfData): Uint8Array {
     timezoneSize +
     displayLanguageSize +
     kindSize +
+    lockedSize +
     2 +
     name.length +
     4 +
@@ -1111,29 +1139,31 @@ function encodeBody(data: RsfData): Uint8Array {
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = isMarkdown
-    ? 12
-    : hasComments
-      ? 11
-      : hasBorderStyle
-        ? 10
-        : hasNumberFormats
-          ? 9
-          : hasStyles
-            ? 8
-            : hasDisplayLanguage
-              ? 7
-              : hasTimezone
-                ? 6
-                : wrapSet
-                  ? 5
-                  : hasFilterSection
-                    ? 4
-                    : hasDisplay
-                      ? 3
-                      : hasMeta
-                        ? 2
-                        : 1;
+  out[off++] = hasLocked
+    ? 13
+    : isMarkdown
+      ? 12
+      : hasComments
+        ? 11
+        : hasBorderStyle
+          ? 10
+          : hasNumberFormats
+            ? 9
+            : hasStyles
+              ? 8
+              : hasDisplayLanguage
+                ? 7
+                : hasTimezone
+                  ? 6
+                  : wrapSet
+                    ? 5
+                    : hasFilterSection
+                      ? 4
+                      : hasDisplay
+                        ? 3
+                        : hasMeta
+                          ? 2
+                          : 1;
   out[off++] = data.delimiter.charCodeAt(0);
   if (hasMeta) {
     view.setUint16(off, appName!.length, true);
@@ -1189,11 +1219,19 @@ function encodeBody(data: RsfData): Uint8Array {
     out.set(displayLanguageBytes!, off);
     off += displayLanguageBytes!.length;
   }
-  if (isMarkdown) {
-    // Version-12 worksheet kind. Written only for a markdown worksheet, so a
-    // grid worksheet (every worksheet before this field existed) stays a
-    // version-11-or-lower body.
-    out[off++] = WORKSHEET_KIND_BYTE.markdown;
+  if (hasKindSection) {
+    // Version-12+ worksheet kind. Written whenever the chosen version is 12
+    // or above (even a version-13 body picked solely for its lock still
+    // carries this byte, with the grid value) — see the "prefix chain" note
+    // above; a grid worksheet (every worksheet before this field existed)
+    // stays a version-11-or-lower body unless it is locked.
+    out[off++] = WORKSHEET_KIND_BYTE[isMarkdown ? 'markdown' : 'grid'];
+  }
+  if (hasLocked) {
+    // Version-13 worksheet lock. Written only when locked, so an unlocked
+    // worksheet (every worksheet before this field existed) stays a
+    // version-12-or-lower body.
+    out[off++] = 1;
   }
   view.setUint16(off, name.length, true);
   off += 2;
@@ -1360,6 +1398,20 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     }
     kind = resolved;
   }
+  // Version-13 worksheet lock. A byte outside the two defined values is a
+  // shape a real writer never emits, so it is rejected as `bad-shape` rather
+  // than guessed at, matching the kind byte just above.
+  let locked = false;
+  if (bodyVersion >= 13) {
+    if (!need(1)) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    const rawLocked = body[off++];
+    if (rawLocked !== 0 && rawLocked !== 1) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    locked = rawLocked === 1;
+  }
   const name = readString();
   if (name === null) {
     return { ok: false, error: 'bad-shape' };
@@ -1447,6 +1499,9 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
   const data: RsfData = { name, delimiter, rowCount, columnCount, cells };
   if (kind !== 'grid') {
     data.kind = kind;
+  }
+  if (locked) {
+    data.locked = true;
   }
   if (styles !== undefined) {
     data.styles = styles;
@@ -1781,13 +1836,15 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
       bytes.push(b);
     }
   };
-  // A markdown worksheet needs body version 8 (see `WORKSHEET_KIND_BYTE`
-  // above), which — like every other version bump here — must physically
-  // carry every lower section too, so it is chained into `hasComments`
-  // (>= 7) the same way the single-sheet body's `encodeBody` chains it in.
-  // Comments/border style/number formats force the style-block version too —
-  // same prefix-chain rule as the single-sheet body above.
-  const hasMarkdown = data.sheets.some((sheet) => sheet.kind === 'markdown');
+  // A locked worksheet needs body version 9, which — like every other version
+  // bump here — must physically carry every lower section too, so it is
+  // chained into `hasMarkdown` (>= 8) the same way a markdown worksheet
+  // chains into `hasComments` (>= 7) the same way the single-sheet body's
+  // `encodeBody` chains it in. Comments/border style/number formats force the
+  // style-block version too — same prefix-chain rule as the single-sheet body
+  // above.
+  const hasLocked = data.sheets.some((sheet) => sheet.locked === true);
+  const hasMarkdown = hasLocked || data.sheets.some((sheet) => sheet.kind === 'markdown');
   const hasComments = hasMarkdown || data.sheets.some((sheet) => (sheet.comments?.length ?? 0) > 0);
   const hasBorderStyle = data.sheets.some((sheet) =>
     (sheet.styles ?? []).some(([, , style]) =>
@@ -1811,21 +1868,23 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
   const hasTimezone =
     hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
   bytes.push(
-    hasMarkdown
-      ? 8
-      : hasComments
-        ? 7
-        : hasBorderStyle
-          ? 6
-          : hasNumberFormats
-            ? 5
-            : hasStyles
-              ? 4
-              : hasDisplayLanguage
-                ? 3
-                : hasTimezone
-                  ? 2
-                  : 1,
+    hasLocked
+      ? 9
+      : hasMarkdown
+        ? 8
+        : hasComments
+          ? 7
+          : hasBorderStyle
+            ? 6
+            : hasNumberFormats
+              ? 5
+              : hasStyles
+                ? 4
+                : hasDisplayLanguage
+                  ? 3
+                  : hasTimezone
+                    ? 2
+                    : 1,
   );
   bytes.push(data.delimiter.charCodeAt(0));
   pushString(bytes, enc, data.appName ?? '', MAX_META_LENGTH);
@@ -1874,12 +1933,19 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
       }
     }
     if (hasMarkdown) {
-      // Version-8 worksheet kind, appended after every other section of the
+      // Version-8+ worksheet kind, appended after every other section of the
       // record so every existing field position is unchanged — the same
       // additive-at-the-tail approach used for the per-style number-format
-      // sub-record. Written for every worksheet once version 8 is selected,
-      // exactly like the style/comment blocks above.
+      // sub-record. Written for every worksheet once version 8 is selected
+      // (including by a lock alone, via `hasMarkdown`'s chaining), exactly
+      // like the style/comment blocks above.
       bytes.push(WORKSHEET_KIND_BYTE[sheet.kind ?? 'grid']);
+    }
+    if (hasLocked) {
+      // Version-9 worksheet lock, appended after the kind byte for the same
+      // additive-at-the-tail reason. Written for every worksheet once version
+      // 9 is selected, with each worksheet's own locked state.
+      bytes.push(sheet.locked === true ? 1 : 0);
     }
   }
   return Uint8Array.from(bytes);
@@ -2061,6 +2127,21 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
       }
       kind = resolved;
     }
+    // Version-9 worksheet lock, appended after the kind byte (see
+    // `encodeWorkbookBody`). A byte outside the two defined values is a shape
+    // a real writer never emits, rejected rather than guessed at, matching
+    // the single-sheet body's own lock byte.
+    let locked = false;
+    if (version >= 9) {
+      if (!rd.need(1)) {
+        return { ok: false, error: 'bad-shape' };
+      }
+      const rawLocked = rd.u8();
+      if (rawLocked !== 0 && rawLocked !== 1) {
+        return { ok: false, error: 'bad-shape' };
+      }
+      locked = rawLocked === 1;
+    }
     // A markdown worksheet's document text is stored as an ordinary cell
     // (0, 0) — a real writer never emits any other shape for one.
     if (kind === 'markdown' && !isValidMarkdownShape(rowCount, columnCount, cellCount)) {
@@ -2069,6 +2150,9 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
     const sheet: RsfWorksheetData = { id, name, rowCount, columnCount, cells };
     if (kind !== 'grid') {
       sheet.kind = kind;
+    }
+    if (locked) {
+      sheet.locked = true;
     }
     if (display) {
       sheet.display = display;
@@ -2150,6 +2234,9 @@ export function encodeRsfWorkbook(
     if (only.kind !== undefined) {
       single.kind = only.kind;
     }
+    if (only.locked) {
+      single.locked = true;
+    }
     if (data.appName !== undefined) {
       single.appName = data.appName;
     }
@@ -2209,6 +2296,9 @@ export function decodeRsfWorkbook(bytes: Uint8Array): RsfWorkbookDecodeResult {
     };
     if (single.data.kind !== undefined) {
       sheet.kind = single.data.kind;
+    }
+    if (single.data.locked) {
+      sheet.locked = true;
     }
     if (single.data.display) {
       sheet.display = single.data.display;

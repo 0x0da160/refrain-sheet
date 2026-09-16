@@ -212,6 +212,8 @@ export interface MenuChecks {
   formatActive: (key: 'bold' | 'italic' | 'underline') => boolean;
   /** Whether the active tab is read-only protected (see `Tab.readOnly`). */
   protectedDoc: () => boolean;
+  /** Whether the active worksheet is locked (see `Worksheet.locked`). */
+  sheetLocked: () => boolean;
   /**
    * Whether Google Drive sync exists in this build. False for the offline
    * build, which omits the whole Drive submenu rather than showing it disabled
@@ -335,7 +337,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // over time. Each related family now lives in its own submenu (same
         // pattern as View > Spreadsheet Zoom below), so the top-level menu
         // stays scannable.
-        { labelKey: 'menu.sheet.worksheet', icon: Layers, submenu: worksheetItems() },
+        { labelKey: 'menu.sheet.worksheet', icon: Layers, submenu: worksheetItems(checks) },
         { labelKey: 'menu.sheet.rowsAndColumns', icon: Table, submenu: rowsAndColumnsItems() },
         { labelKey: 'menu.sheet.filterSort', icon: ListFilter, submenu: filterSortItems() },
         'separator',
@@ -521,13 +523,19 @@ function moveTabItems(): Array<MenuItemDef | 'separator'> {
  * tab strip and its context menu dispatch, so every one is reachable
  * without a pointer.
  */
-function worksheetItems(): Array<MenuItemDef | 'separator'> {
+function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
   return [
     { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add' },
     { labelKey: 'menu.sheet.addMarkdownSheet', command: 'worksheet.addMarkdown' },
     { labelKey: 'menu.sheet.renameSheet', command: 'worksheet.rename' },
     { labelKey: 'menu.sheet.duplicateSheet', command: 'worksheet.duplicate' },
     { labelKey: 'menu.sheet.deleteSheet', command: 'worksheet.delete' },
+    'separator',
+    {
+      labelKey: 'menu.sheet.lockSheet',
+      command: 'worksheet.toggleLock',
+      checked: checks.sheetLocked,
+    },
     'separator',
     { labelKey: 'menu.sheet.nextSheet', command: 'worksheet.next', shortcut: 'F7' },
     { labelKey: 'menu.sheet.prevSheet', command: 'worksheet.prev', shortcut: 'Shift+F7' },

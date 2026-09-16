@@ -33,6 +33,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- Individual worksheets can now be locked against editing (**Sheet >
+  Worksheet > Lock Sheet**, or a worksheet tab's context menu): a locked
+  worksheet's cells and structure can't be changed until it's unlocked
+  again, while every other worksheet in the workbook stays editable. It's a
+  plain protection toggle — no password — and is saved with the file (`.rsf`
+  body version 13 / workbook body version 9); existing files and workbooks
+  that don't use it are unaffected.
+  ([#508](https://github.com/0x0da160/refrain-sheet/issues/508))
 - Markdown can now be added as a worksheet inside a spreadsheet workbook
   (**Sheet > Add Markdown Sheet**, or the "+" button's context menu on the
   worksheet strip): its source/preview editor is docked directly in the

@@ -174,6 +174,10 @@ function bootstrap(): void {
     },
     driveAvailable: () => commands.driveAvailable(),
     protectedDoc: () => state.activeTab?.readOnly ?? false,
+    sheetLocked: () => {
+      const doc = state.activeTab?.doc;
+      return doc !== undefined && doc.kind === 'rsf' && doc.activeSheet.locked;
+    },
   });
   const tabBar = new TabBar(state, commands);
   // The worksheet strip of the active RSF workbook, rendered below the grid —

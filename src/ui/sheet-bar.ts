@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { FileText, Plus, Table } from 'lucide';
+import { FileText, Lock, Plus, Table } from 'lucide';
 import type { AppState } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -17,6 +17,7 @@ const SHEET_MENU_ITEMS: Array<{ command: CommandId; labelKey: string; separatorB
   { command: 'worksheet.rename', labelKey: 'menu.sheet.renameSheet' },
   { command: 'worksheet.duplicate', labelKey: 'menu.sheet.duplicateSheet' },
   { command: 'worksheet.delete', labelKey: 'menu.sheet.deleteSheet' },
+  { command: 'worksheet.toggleLock', labelKey: 'menu.sheet.lockSheet', separatorBefore: true },
   { command: 'worksheet.moveFirst', labelKey: 'menu.sheet.moveSheetFirst', separatorBefore: true },
   { command: 'worksheet.moveLeft', labelKey: 'menu.sheet.moveSheetLeft' },
   { command: 'worksheet.moveRight', labelKey: 'menu.sheet.moveSheetRight' },
@@ -83,7 +84,7 @@ export class SheetBar {
     this.element.hidden = false;
     const key =
       doc.kind === 'rsf'
-        ? `rsf|${doc.activeSheetId}|${doc.sheets.map((s) => `${s.id}:${s.name}`).join('')}`
+        ? `rsf|${doc.activeSheetId}|${doc.sheets.map((s) => `${s.id}:${s.name}:${s.locked ? 1 : 0}`).join('')}`
         : 'csv';
     if (!force && key === this.renderedKey) {
       return;
@@ -101,7 +102,9 @@ export class SheetBar {
     }
     this.strip.setAttribute('role', 'tablist');
     for (const sheet of doc.sheets) {
-      this.strip.append(this.buildSheetTab(sheet.id, sheet.name, sheet.kind, sheet.id === doc.activeSheetId));
+      this.strip.append(
+        this.buildSheetTab(sheet.id, sheet.name, sheet.kind, sheet.locked, sheet.id === doc.activeSheetId),
+      );
     }
     const add = el(
       'button',
@@ -122,7 +125,13 @@ export class SheetBar {
     }
   }
 
-  private buildSheetTab(id: string, name: string, kind: WorksheetKind, active: boolean): HTMLElement {
+  private buildSheetTab(
+    id: string,
+    name: string,
+    kind: WorksheetKind,
+    locked: boolean,
+    active: boolean,
+  ): HTMLElement {
     const kindLabel = t(kind === 'markdown' ? 'sheets.kind.markdown' : 'sheets.kind.grid');
     const tabEl = el(
       'div',
@@ -141,6 +150,13 @@ export class SheetBar {
         el('span', { className: 'sheet-kind', attrs: { 'aria-label': kindLabel } }, [
           createIcon(kind === 'markdown' ? FileText : Table, 'sheet-kind-icon', 14),
         ]),
+        ...(locked
+          ? [
+              el('span', { className: 'sheet-lock', attrs: { 'aria-label': t('sheets.locked') } }, [
+                createIcon(Lock, 'sheet-lock-icon', 12),
+              ]),
+            ]
+          : []),
         el('span', { className: 'sheet-label', text: name }),
       ],
     );
@@ -333,6 +349,7 @@ export class SheetBar {
         onSelect: () => void this.commands.run('worksheet.addMarkdown'),
       },
     ];
+    const activeSheet = this.state.activeWorkbook()?.activeSheet;
     for (const item of SHEET_MENU_ITEMS) {
       if (item.separatorBefore) {
         entries.push('separator');
@@ -340,6 +357,7 @@ export class SheetBar {
       entries.push({
         label: t(item.labelKey),
         disabled: !this.commands.isEnabled(item.command),
+        ...(item.command === 'worksheet.toggleLock' ? { checked: activeSheet?.locked === true } : {}),
         onSelect: () => void this.commands.run(item.command).then(() => this.focusActive()),
       });
     }

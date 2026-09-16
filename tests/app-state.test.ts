@@ -159,3 +159,94 @@ describe('read-only protection', () => {
     expect(events).toEqual(['tabs']);
   });
 });
+
+describe('worksheet lock', () => {
+  it('defaults to unlocked', () => {
+    const workbook = RsfDocument.blank('a.rsf', 5, 3, 'Sheet1');
+    expect(workbook.activeSheet.locked).toBe(false);
+  });
+
+  it('refuses editCell, bulkEdit, and pushEntry on a locked worksheet, announcing why', () => {
+    const state = new AppState();
+    const workbook = RsfDocument.blank('a.rsf', 5, 3, 'Sheet1');
+    const tab = state.addTab('a.rsf', workbook, null);
+    expect(state.setSheetLocked(tab, workbook.activeSheetId, true)).toBe(true);
+    const announced: string[] = [];
+    state.announce = (message) => announced.push(message);
+
+    expect(state.editCell(tab, 0, 0, 'x')).toBe(false);
+    expect(state.bulkEdit(tab, [{ row: 0, col: 0, before: null, after: 'x' }], 'history.editCell')).toBe(
+      false,
+    );
+    expect(state.insertRows(tab, 0, 1)).toBe(false);
+    expect(workbook.rowCount).toBe(5);
+    expect(announced).toEqual([t('notify.sheetLocked'), t('notify.sheetLocked'), t('notify.sheetLocked')]);
+  });
+
+  it('locking one worksheet leaves every other worksheet in the workbook editable', () => {
+    const state = new AppState();
+    const workbook = RsfDocument.blank('a.rsf', 5, 3, 'Sheet1');
+    const other = workbook.createWorksheet('Sheet2', 5, 3);
+    workbook.insertSheetAt(1, other);
+    const tab = state.addTab('a.rsf', workbook, null);
+    state.setSheetLocked(tab, workbook.activeSheetId, true);
+
+    state.setActiveSheet(tab, other.id);
+    expect(state.editCell(tab, 0, 0, 'x')).toBe(true);
+    expect(workbook.sheetById(other.id)!.getValue(0, 0)).toBe('x');
+  });
+
+  it('toggling the lock off allows edits again, and back on refuses them again', () => {
+    const state = new AppState();
+    const workbook = RsfDocument.blank('a.rsf', 5, 3, 'Sheet1');
+    const tab = state.addTab('a.rsf', workbook, null);
+    const sheetId = workbook.activeSheetId;
+    state.setSheetLocked(tab, sheetId, true);
+    expect(state.editCell(tab, 0, 0, 'x')).toBe(false);
+
+    state.setSheetLocked(tab, sheetId, false);
+    expect(state.editCell(tab, 0, 0, 'x')).toBe(true);
+    expect(workbook.isDirty).toBe(true);
+
+    state.setSheetLocked(tab, sheetId, true);
+    expect(state.editCell(tab, 0, 1, 'y')).toBe(false);
+  });
+
+  it('marks the workbook dirty and emits a sheets event, but not when set to its current value', () => {
+    const state = new AppState();
+    const workbook = RsfDocument.blank('a.rsf', 5, 3, 'Sheet1');
+    workbook.markSaved();
+    const tab = state.addTab('a.rsf', workbook, null);
+    const sheetId = workbook.activeSheetId;
+    const events: string[] = [];
+    state.subscribe((e) => events.push(e));
+
+    expect(state.setSheetLocked(tab, sheetId, false)).toBe(false); // no-op: already unlocked
+    expect(events).toEqual([]);
+    expect(workbook.isDirty).toBe(false);
+
+    expect(state.setSheetLocked(tab, sheetId, true)).toBe(true);
+    expect(events).toEqual(['sheets']);
+    expect(workbook.isDirty).toBe(true);
+  });
+
+  it('is not itself undoable, unlike an ordinary cell edit', () => {
+    const state = new AppState();
+    const workbook = RsfDocument.blank('a.rsf', 5, 3, 'Sheet1');
+    const tab = state.addTab('a.rsf', workbook, null);
+    state.setSheetLocked(tab, workbook.activeSheetId, true);
+    expect(state.undo(tab)).toBeNull();
+  });
+
+  it('round-trips through save and load', () => {
+    const workbook = RsfDocument.empty('a.rsf', 5, 3, 'Sheet1');
+    const second = workbook.createWorksheet('Sheet2', 2, 2);
+    workbook.insertSheetAt(1, second);
+    workbook.setLockedOn(second.id, true);
+    const reloaded = RsfDocument.fromBytes(workbook.toBytes(), 'a.rsf');
+    expect(reloaded.ok).toBe(true);
+    if (!reloaded.ok) return;
+    expect(reloaded.doc.sheets[0].locked).toBe(false);
+    expect(reloaded.doc.sheets[1].locked).toBe(true);
+  });
+});

@@ -129,6 +129,16 @@ export class Worksheet {
    */
   displayWrap: boolean | undefined;
 
+  /**
+   * Whether this worksheet is locked against editing (Sheet ▸ Lock Sheet, or
+   * its tab context menu). A plain, non-cryptographic protection flag — no
+   * password — that blocks this worksheet's own cell edits and structural
+   * changes (see `AppState`'s `refuseLockedSheetWrite`); every other
+   * worksheet in the workbook stays editable. Persisted in the RSF container
+   * (body version 13+, see `src/core/rsf-codec.ts`).
+   */
+  locked = false;
+
   /** Session-only view state, restored when this worksheet becomes active. */
   readonly view: WorksheetView = {
     selection: null,
@@ -688,8 +698,8 @@ export class Worksheet {
    * A deep copy under a new identifier and name. Cell inputs are copied
    * verbatim — including formulas, whose worksheet-qualified references keep
    * pointing at the worksheets they named (the documented duplication policy;
-   * see docs/rsf-format.md) — along with the filter, display settings, and
-   * every cell's style.
+   * see docs/rsf-format.md) — along with the filter, display settings, lock
+   * state, and every cell's style.
    */
   clone(id: string, name: string): Worksheet {
     const copy = new Worksheet(
@@ -703,6 +713,7 @@ export class Worksheet {
     copy.displayZoom = this.displayZoom;
     copy.displayColWidths = this.displayColWidths.slice();
     copy.displayWrap = this.displayWrap;
+    copy.locked = this.locked;
     copy.styles = new Map([...this.styles].map(([row, rowStyles]) => [row, new Map(rowStyles)]));
     copy.comments = new Map([...this.comments].map(([row, rowComments]) => [row, new Map(rowComments)]));
     return copy;
@@ -721,6 +732,7 @@ export class Worksheet {
     copy.displayZoom = this.displayZoom;
     copy.displayColWidths = this.displayColWidths.slice();
     copy.displayWrap = this.displayWrap;
+    copy.locked = this.locked;
     return copy;
   }
 

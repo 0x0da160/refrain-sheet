@@ -714,6 +714,44 @@ describe('workbook container', () => {
     if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
   });
 
+  it('round-trips a locked worksheet through the workbook body (version 9)', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 2, columnCount: 2, cells: [] },
+        { id: 'b', name: 'B', rowCount: 1, columnCount: 1, cells: [], locked: true },
+      ],
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.sheets[0].locked).toBeUndefined();
+    expect(decoded.data.sheets[1].locked).toBe(true);
+  });
+
+  it('carries a lock alongside a markdown kind through the workbook body', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 2, columnCount: 2, cells: [] },
+        {
+          id: 'b',
+          name: 'Notes',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [[0, 0, '# Hello']],
+          kind: 'markdown',
+          locked: true,
+        },
+      ],
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.sheets[1].kind).toBe('markdown');
+    expect(decoded.data.sheets[1].locked).toBe(true);
+  });
+
   it('loads a legacy single-sheet container as a one-worksheet workbook', () => {
     const bytes = encodeRsf({
       name: 'Legacy',
@@ -911,5 +949,23 @@ describe('Markdown worksheets', () => {
     state.redo(tab);
     expect(doc.sheetCount).toBe(2);
     expect(doc.sheets[1].kind).toBe('markdown');
+  });
+});
+
+describe('worksheet.toggleLock command', () => {
+  it('toggles the active worksheet’s lock', async () => {
+    const { commands, doc } = setup();
+    expect(commands.isEnabled('worksheet.toggleLock')).toBe(true);
+    await commands.run('worksheet.toggleLock');
+    expect(doc.activeSheet.locked).toBe(true);
+    await commands.run('worksheet.toggleLock');
+    expect(doc.activeSheet.locked).toBe(false);
+  });
+
+  it('is disabled without an RSF workbook', async () => {
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    state.addTab('a.csv', csvDoc('a,b\n'), null);
+    expect(commands.isEnabled('worksheet.toggleLock')).toBe(false);
   });
 });

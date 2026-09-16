@@ -106,7 +106,6 @@ function bootstrap(): void {
     showAbout: (section) => void dialogs.showAbout(section),
     showFormulaHelp: () => void dialogs.showFormulaHelp(),
     showSqlQuery: (input) => dialogs.showSqlQuery(input),
-    showMarkdownEditor: (input) => dialogs.showMarkdownEditor(input),
     showDiff: (input) => dialogs.showDiff(input),
     chooseSettings: (current) => dialogs.chooseSettings(current),
     chooseTimezone: (current) => dialogs.chooseTimezone(current),

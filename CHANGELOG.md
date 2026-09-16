@@ -40,28 +40,34 @@ release-time half (retitling `Unreleased`) is still done by hand.
   is a new RSF container capability (`.rsf` body version 12 / workbook body
   version 8) — existing files and workbooks that don't use it are
   unaffected, and Markdown worksheets are excluded from CSV export (CSV has
-  no analog for a whole-sheet document). This is separate from the existing
-  standalone **File > Markdown Editor…**, which is unchanged.
+  no analog for a whole-sheet document).
   ([#481](https://github.com/0x0da160/refrain-sheet/issues/481))
 - A brand-new CSV document (`File > New CSV`) can now have rows and columns
   inserted, deleted, or appended directly, without first converting it to an
   RSF spreadsheet — as long as it hasn't been saved yet. Once it's saved, the
   usual "convert to RSF first" requirement applies again, the same as for any
   other CSV file. ([#479](https://github.com/0x0da160/refrain-sheet/issues/479))
-- The Markdown preview (both the docked Markdown worksheet and the
-  standalone **File > Markdown Editor…**) now renders GFM-style tables
-  (including per-column left/center/right alignment) and syntax-highlighted
-  fenced code blocks for a number of common languages (JavaScript/TypeScript,
-  Python, JSON, CSS, HTML, Bash, SQL, YAML, Rust, Go); an unrecognized
-  language still renders as plain, unhighlighted code, as before. The docked
-  Markdown worksheet also gained a toolbar button to hide/show the preview
-  pane, letting the source textarea use the full width while it's hidden.
+- The Markdown preview in the docked Markdown worksheet now renders
+  GFM-style tables (including per-column left/center/right alignment) and
+  syntax-highlighted fenced code blocks for a number of common languages
+  (JavaScript/TypeScript, Python, JSON, CSS, HTML, Bash, SQL, YAML, Rust,
+  Go); an unrecognized language still renders as plain, unhighlighted code,
+  as before. The docked Markdown worksheet also gained a toolbar button to
+  hide/show the preview pane, letting the source textarea use the full
+  width while it's hidden.
   ([#486](https://github.com/0x0da160/refrain-sheet/issues/486))
-
 - Each worksheet tab in the worksheet strip now shows a small icon indicating
   whether it's a regular grid sheet or a Markdown sheet, so the two are
   distinguishable at a glance without adding any extra text next to the
   sheet name. ([#506](https://github.com/0x0da160/refrain-sheet/issues/506))
+
+### Removed
+
+- The standalone **File > Markdown Editor…** side panel has been removed.
+  It edited a plain `.md` file independently of any open CSV/spreadsheet
+  tab; the in-workbook Markdown worksheet (**Sheet > Add Markdown Sheet**,
+  added above) covers the same editing/preview need without a separate
+  tool. ([#505](https://github.com/0x0da160/refrain-sheet/issues/505))
 
 ### Fixed
 

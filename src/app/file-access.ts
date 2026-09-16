@@ -168,12 +168,6 @@ const SAVE_PICKER_TYPES = {
       },
     },
   ],
-  markdown: [
-    {
-      description: 'Markdown',
-      accept: { 'text/markdown': ['.md', '.markdown'] },
-    },
-  ],
 } as const;
 
 /**
@@ -233,51 +227,4 @@ export async function saveBytesAs(
   }
   triggerDownload(doc, name, bytes);
   return { mode: 'download', downloadName: name, fellBack: false };
-}
-
-/**
- * Ask the user to pick a single Markdown file, for the standalone Markdown
- * editor (#433). Mirrors {@link pickFiles} (File System Access API with a
- * hidden-`<input>` fallback) but scoped to one file with a Markdown-specific
- * type filter, since the editor works on one document at a time.
- */
-export async function pickMarkdownFile(doc: Document, maxSize: number): Promise<OpenedFile | null> {
-  const picker = (globalThis as FilePickerCapableWindow).showOpenFilePicker;
-  if (typeof picker === 'function') {
-    let handles: FileSystemFileHandle[];
-    try {
-      handles = await picker.call(globalThis, { multiple: false, types: SAVE_PICKER_TYPES.markdown });
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') {
-        return null;
-      }
-      throw err;
-    }
-    const handle = handles[0];
-    if (!handle) {
-      return null;
-    }
-    return readFileObject(await handle.getFile(), handle, maxSize);
-  }
-  return new Promise((resolve, reject) => {
-    const input = doc.createElement('input');
-    input.type = 'file';
-    input.accept = '.md,.markdown,.txt,text/markdown,text/plain';
-    input.style.display = 'none';
-    input.addEventListener('change', () => {
-      const file = input.files?.[0] ?? null;
-      input.remove();
-      if (!file) {
-        resolve(null);
-        return;
-      }
-      readFileObject(file, null, maxSize).then(resolve, reject);
-    });
-    input.addEventListener('cancel', () => {
-      input.remove();
-      resolve(null);
-    });
-    doc.body.appendChild(input);
-    input.click();
-  });
 }

@@ -2583,7 +2583,8 @@ table.diff-table td {
   border: 1px solid var(--warning-border);
 }
 
-/* ---------- Markdown editor (File > Markdown Editor…, #433) ---------- */
+/* ---------- Markdown source/preview panes (shared by the Markdown
+   worksheet's docked source view and preview panel, #433/#502) ---------- */
 
 .markdown-editor-toolbar {
   display: flex;
@@ -2716,11 +2717,10 @@ table.diff-table td {
 }
 
 /* ---------- Markdown worksheet (docked in the spreadsheet area) ----------
-   Same source pane as the standalone editor above (shared CSS classes), but
-   filling the `.main-row` the grid normally occupies instead of a fixed
-   dialog height — see `Worksheet.kind`, `ui/markdown-sheet.ts`. Its rendered
-   preview is not here: it docks separately as `.markdown-preview-panel`
-   below (#502). */
+   Uses the shared source-pane classes above, but fills the `.main-row` the
+   grid normally occupies instead of a fixed dialog height — see
+   `Worksheet.kind`, `ui/markdown-sheet.ts`. Its rendered preview is not
+   here: it docks separately as `.markdown-preview-panel` below (#502). */
 
 .markdown-sheet-view {
   flex: 1;

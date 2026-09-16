@@ -14,7 +14,6 @@ import type {
   FilterDialogInput,
   FilterDialogResult,
   FlashFillPreview,
-  MarkdownEditorDialogInput,
   NumberFormatDialogResult,
   RangeMoveConfirmInput,
   SortDialogInput,
@@ -36,7 +35,6 @@ import { FormatDialogs } from './dialogs/format';
 import { SheetOpsDialogs } from './dialogs/sheet-ops';
 import { SqlQueryDialogs } from './dialogs/sql';
 import { DiffDialogs } from './dialogs/diff';
-import { MarkdownEditorDialogs } from './dialogs/markdown-editor';
 import { dialogButton, openDialog } from './dialogs/shared';
 
 export class Dialogs {
@@ -46,7 +44,6 @@ export class Dialogs {
   private readonly format = new FormatDialogs();
   private readonly sqlQuery = new SqlQueryDialogs();
   private readonly diff = new DiffDialogs();
-  private readonly markdownEditor = new MarkdownEditorDialogs();
 
   confirmValidation(name: string, summary: ValidationSummary): Promise<boolean> {
     return openDialog(t('dialog.validation.title'), false, (body, buttons, close) => {
@@ -386,11 +383,6 @@ export class Dialogs {
   /** See `SqlQueryDialogs.showSqlQuery` for the full behavior contract. */
   showSqlQuery(input: SqlQueryDialogInput): Promise<void> {
     return this.sqlQuery.showSqlQuery(input);
-  }
-
-  /** See `MarkdownEditorDialogs.showMarkdownEditor` for the full behavior contract. */
-  showMarkdownEditor(input: MarkdownEditorDialogInput): Promise<void> {
-    return this.markdownEditor.showMarkdownEditor(input);
   }
 
   /** See `DiffDialogs.showDiff` for the full behavior contract. */

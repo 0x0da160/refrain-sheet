@@ -84,6 +84,8 @@
   "sheets.label": "このブック内のワークシート",
   "sheets.add": "ワークシートを追加",
   "sheets.tabTitle": "{name} — ダブルクリックまたはF2でリネーム",
+  "sheets.kind.grid": "グリッドシート",
+  "sheets.kind.markdown": "Markdownシート",
   "sheet.defaultName": "シート{n}",
   "sheet.defaultMarkdownName": "メモ{n}",
   "sheet.copyName": "{name} (コピー)",

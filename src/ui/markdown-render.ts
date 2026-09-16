@@ -29,10 +29,8 @@ function renderCode(text: string, lang: string | null): Array<Node | string> {
  * `el()`/`textContent` — never as an HTML string — so arbitrary Markdown
  * source (including an embedded `<script>` or other HTML-looking text) can
  * only ever render as literal displayed text, the same guarantee every other
- * surface in this app gives untrusted content (`src/ui/dom.ts`). Shared by
- * the standalone Markdown editor (`dialogs/markdown-editor.ts`, #433) and the
- * in-workbook Markdown worksheet (`markdown-sheet.ts`) so this safety-critical
- * rendering logic exists exactly once.
+ * surface in this app gives untrusted content (`src/ui/dom.ts`). Used by the
+ * in-workbook Markdown worksheet (`markdown-sheet.ts`, #433).
  */
 function renderInline(nodes: MarkdownInline[]): Array<Node | string> {
   const out: Array<Node | string> = [];

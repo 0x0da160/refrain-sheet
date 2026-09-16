@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 /**
- * A hand-written, dependency-free Markdown parser for the standalone
- * Markdown editor (#433). It parses a scoped subset — headings, paragraphs,
- * bold/italic, inline code, fenced code blocks, links, unordered/ordered
- * lists, blockquotes, horizontal rules — into a typed AST, never an HTML
- * string. `src/ui/dialogs/markdown-editor.ts` renders that AST into DOM
- * nodes via `el()`/`textContent` (see `src/ui/dom.ts`), the same convention
- * every other surface in this app uses to render untrusted content, so
- * injected `<script>`/HTML in the source can only ever appear as literal
- * displayed text: safety comes from never building an HTML string, not from
- * escaping one, and this module does not need to escape anything itself.
+ * A hand-written, dependency-free Markdown parser for the in-workbook
+ * Markdown worksheet (#433, `src/ui/markdown-sheet.ts`). It parses a scoped
+ * subset — headings, paragraphs, bold/italic, inline code, fenced code
+ * blocks, links, unordered/ordered lists, blockquotes, horizontal rules —
+ * into a typed AST, never an HTML string. `src/ui/markdown-render.ts`
+ * renders that AST into DOM nodes via `el()`/`textContent` (see
+ * `src/ui/dom.ts`), the same convention every other surface in this app
+ * uses to render untrusted content, so injected `<script>`/HTML in the
+ * source can only ever appear as literal displayed text: safety comes from
+ * never building an HTML string, not from escaping one, and this module
+ * does not need to escape anything itself.
  *
  * This is deliberately not a full CommonMark/GFM implementation: no nested
  * emphasis (`**a *b* c**`), no images, no footnotes, no setext (`===`/`---`

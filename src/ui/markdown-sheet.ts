@@ -20,9 +20,8 @@ const COMMIT_DEBOUNCE_MS = 600;
 /**
  * The docked source surface for a Markdown worksheet (see `Worksheet.kind`),
  * hosted in the spreadsheet area in place of the grid while such a worksheet
- * is active, as opposed to the standalone side-panel Markdown editor (#433,
- * `dialogs/markdown-editor.ts`), which this reuses the safe AST renderer from
- * (`markdown-render.ts`) but is otherwise unrelated.
+ * is active. Renders its preview via the safe AST renderer in
+ * `markdown-render.ts` (#433/#502).
  *
  * The rendered preview (`panelElement`) is a separate, persistent dockable
  * `.side-panel` — the same `buildSidePanelDock`/`applySidePanelPosition`/
@@ -64,9 +63,9 @@ export class MarkdownSheetView {
     });
     this.textarea = el('textarea', {
       // `markdown-editor-source` is the shared style (flex sizing, font,
-      // border) with the standalone Markdown editor's source pane — without
-      // it this textarea keeps its intrinsic browser-default size instead of
-      // filling its pane (#486).
+      // border) for the Markdown source pane — without it this textarea
+      // keeps its intrinsic browser-default size instead of filling its
+      // pane (#486).
       className: 'markdown-sheet-source markdown-editor-source',
       attrs: { id: 'markdown-sheet-source', spellcheck: 'false' },
     }) as HTMLTextAreaElement;

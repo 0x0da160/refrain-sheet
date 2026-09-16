@@ -198,13 +198,11 @@ lives in cell A1, so editing it reuses the ordinary cell-edit `HistoryEntry`
 path) and is rendered by a docked source/preview surface
 (`src/ui/markdown-sheet.ts`) in the spreadsheet area instead of the grid
 while it is active — a second surface hosted alongside `src/ui/grid.ts`
-in `main.ts`'s `.main-row`, not a replacement for it. This is distinct from
-the standalone **File > Markdown Editor…** (#433,
-`src/ui/dialogs/markdown-editor.ts`), which edits a plain file and never
-touches `AppState`; the two share only the safe AST renderer
-(`src/ui/markdown-render.ts`) and the parser (`src/core/markdown.ts`). A
-markdown worksheet is excluded from CSV export (CSV has no analog for it)
-and never evaluated as a formula, however its text starts.
+in `main.ts`'s `.main-row`, not a replacement for it. It uses the safe AST
+renderer (`src/ui/markdown-render.ts`) and the parser
+(`src/core/markdown.ts`). A markdown worksheet is excluded from CSV export
+(CSV has no analog for it) and never evaluated as a formula, however its
+text starts.
 
 ## Floating surfaces (menus, context menus, submenus)
 

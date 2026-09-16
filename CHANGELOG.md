@@ -60,6 +60,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- Adding a Markdown worksheet now suggests "Notes1" as the default name for
+  the first one, instead of continuing the regular worksheet numbering
+  (e.g. "Notes2" right after "Sheet1"); regular worksheets still suggest
+  "Sheet2", "Sheet3", … independently of how many Markdown worksheets exist.
+  ([#503](https://github.com/0x0da160/refrain-sheet/issues/503))
 - The docked Markdown worksheet's preview no longer gets clipped by long
   content; it now scrolls internally instead.
   ([#502](https://github.com/0x0da160/refrain-sheet/issues/502))

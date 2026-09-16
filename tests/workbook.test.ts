@@ -878,6 +878,26 @@ describe('Markdown worksheets', () => {
     expect(sheet.listFormulaCells()).toEqual([]);
   });
 
+  it('numbers the suggested Markdown name by Markdown sheets alone, not the workbook total', async () => {
+    let suggested = '';
+    const ui = stubUi({
+      promptSheetName: vi.fn(async (_mode, current: string) => {
+        suggested = current;
+        return current;
+      }),
+    });
+    const { commands, doc } = setup(ui);
+    await commands.run('worksheet.addMarkdown');
+    expect(suggested).toBe('Notes1');
+    expect(doc.sheets[1].name).toBe('Notes1');
+
+    await commands.run('worksheet.addMarkdown');
+    expect(suggested).toBe('Notes2');
+
+    await commands.run('worksheet.add');
+    expect(suggested).toBe('Sheet2');
+  });
+
   it('the command layer adds a Markdown worksheet via a prompted, undoable operation', async () => {
     const promptSheetName = vi.fn(async () => 'Notes');
     const ui = stubUi({ promptSheetName });

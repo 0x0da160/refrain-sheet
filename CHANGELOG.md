@@ -58,6 +58,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
   pane, letting the source textarea use the full width while it's hidden.
   ([#486](https://github.com/0x0da160/refrain-sheet/issues/486))
 
+- Each worksheet tab in the worksheet strip now shows a small icon indicating
+  whether it's a regular grid sheet or a Markdown sheet, so the two are
+  distinguishable at a glance without adding any extra text next to the
+  sheet name. ([#506](https://github.com/0x0da160/refrain-sheet/issues/506))
+
 ### Fixed
 
 - Adding a Markdown worksheet now suggests "Notes1" as the default name for

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-import { Plus } from 'lucide';
+import { FileText, Plus, Table } from 'lucide';
 import type { AppState } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
+import type { WorksheetKind } from '../core/worksheet';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 import { createIcon } from './icon';
@@ -100,7 +101,7 @@ export class SheetBar {
     }
     this.strip.setAttribute('role', 'tablist');
     for (const sheet of doc.sheets) {
-      this.strip.append(this.buildSheetTab(sheet.id, sheet.name, sheet.id === doc.activeSheetId));
+      this.strip.append(this.buildSheetTab(sheet.id, sheet.name, sheet.kind, sheet.id === doc.activeSheetId));
     }
     const add = el(
       'button',
@@ -121,7 +122,8 @@ export class SheetBar {
     }
   }
 
-  private buildSheetTab(id: string, name: string, active: boolean): HTMLElement {
+  private buildSheetTab(id: string, name: string, kind: WorksheetKind, active: boolean): HTMLElement {
+    const kindLabel = t(kind === 'markdown' ? 'sheets.kind.markdown' : 'sheets.kind.grid');
     const tabEl = el(
       'div',
       {
@@ -135,7 +137,12 @@ export class SheetBar {
           title: t('sheets.tabTitle', { name }),
         },
       },
-      [el('span', { className: 'sheet-label', text: name })],
+      [
+        el('span', { className: 'sheet-kind', attrs: { 'aria-label': kindLabel } }, [
+          createIcon(kind === 'markdown' ? FileText : Table, 'sheet-kind-icon', 14),
+        ]),
+        el('span', { className: 'sheet-label', text: name }),
+      ],
     );
     tabEl.addEventListener('click', () => this.activate(id));
     tabEl.addEventListener('dblclick', () => {

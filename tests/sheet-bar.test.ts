@@ -130,6 +130,21 @@ describe('accessibility semantics', () => {
     expect(list[1].getAttribute('title')).toBe(t('sheets.tabTitle', { name: 'Second' }));
   });
 
+  it('marks each tab with a localized, icon-only worksheet-kind indicator (#506)', () => {
+    const { state, bar, tab } = setup(['Sheet1']);
+    state.addMarkdownSheet(tab, 'Notes');
+    bar.render(true);
+    const list = tabs(bar);
+    expect(list).toHaveLength(2);
+    const kindLabel = (el: HTMLElement): string | null =>
+      el.querySelector('.sheet-kind')?.getAttribute('aria-label') ?? null;
+    expect(kindLabel(list[0])).toBe(t('sheets.kind.grid'));
+    expect(kindLabel(list[1])).toBe(t('sheets.kind.markdown'));
+    // Icon-only: no extra visible text is added next to the sheet name.
+    expect(list[0].textContent).toBe('Sheet1');
+    expect(list[1].textContent).toBe('Notes');
+  });
+
   it('offers an Add control with a localized accessible name', () => {
     const { bar } = setup();
     const add = bar.element.querySelector<HTMLButtonElement>('.sheet-add')!;

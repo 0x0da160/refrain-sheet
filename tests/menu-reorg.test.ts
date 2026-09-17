@@ -5,6 +5,14 @@
  * new top-level shape and confirms every original command is still reachable
  * — nested one level deeper, but with the exact same `command` id, so no
  * caller (shortcuts, context menu, tests) needs to change.
+ *
+ * The File, Edit, and Format menus got the same treatment in #518: File in
+ * particular had grown to ~14 flat entries (the "long" menu the issue named
+ * explicitly), so its export variants and per-document actions (reopen,
+ * protect, convert) were grouped into Export/Document submenus, mirroring
+ * the Sheet/View precedent above. Edit and Format each had one small,
+ * clearly-related family (alternate copy formats; revert actions; color and
+ * border formatting) pulled into their own submenu for the same reason.
  */
 import { describe, expect, it } from 'vitest';
 import { defaultMenus, type MenuChecks, type MenuDef, type MenuItemDef } from '../src/ui/menu-bar';
@@ -55,12 +63,14 @@ describe('Sheet menu reorganization', () => {
     expect(topLevel.some((i) => i.command === 'sheet.insertRowAbove')).toBe(false);
     expect(topLevel.some((i) => i.command === 'sheet.filter')).toBe(false);
     // The Sheet menu's own Export CSV/XLSX entries were removed as an exact
-    // duplicate of the File menu's (#393); they still exist there.
+    // duplicate of the File menu's (#393); they still exist there, now
+    // nested inside File > Export (#518 — see the File menu describe block
+    // below for the full Export submenu assertion).
     expect(topLevel.some((i) => i.command === 'sheet.exportCsv')).toBe(false);
     expect(topLevel.some((i) => i.command === 'sheet.exportXlsx')).toBe(false);
-    const file = menu('menu.file');
-    expect(items(file).some((i) => i.command === 'sheet.exportCsv')).toBe(true);
-    expect(items(file).some((i) => i.command === 'sheet.exportXlsx')).toBe(true);
+    const fileExport = submenuOf(menu('menu.file'), 'menu.file.export');
+    expect(fileExport.some((i) => i.command === 'sheet.exportCsv')).toBe(true);
+    expect(fileExport.some((i) => i.command === 'sheet.exportXlsx')).toBe(true);
   });
 
   it('keeps every worksheet command reachable inside the Worksheet submenu', () => {
@@ -126,6 +136,81 @@ describe('Edit menu reorganization', () => {
     // Unrelated Edit commands are unaffected.
     expect(topLevel.some((i) => i.command === 'edit.undo')).toBe(true);
     expect(topLevel.some((i) => i.command === 'edit.fillDown')).toBe(true);
+  });
+
+  it('groups the alternate copy formats into a Copy As submenu, leaving Copy itself at the top level (#518)', () => {
+    const copyAs = submenuOf(menu('menu.edit'), 'menu.edit.copyAs');
+    expect(copyAs.map((i) => i.command)).toEqual(['edit.copyScreenshot', 'edit.copyAsMarkdown']);
+    const topLevel = items(menu('menu.edit'));
+    expect(topLevel.some((i) => i.command === 'edit.copy')).toBe(true);
+    expect(topLevel.some((i) => i.command === 'edit.copyScreenshot')).toBe(false);
+  });
+
+  it('groups Revert Cell and Revert All into a Revert submenu (#518)', () => {
+    const revert = submenuOf(menu('menu.edit'), 'menu.edit.revert');
+    expect(revert.map((i) => i.command)).toEqual(['edit.revertCell', 'edit.revertAll']);
+    expect(items(menu('menu.edit')).some((i) => i.command === 'edit.revertCell')).toBe(false);
+  });
+});
+
+describe('File menu reorganization (#518)', () => {
+  it('keeps New, New CSV, Open, and Save at the top level and groups the rest into submenus', () => {
+    const file = menu('menu.file');
+    const topLevel = items(file);
+    for (const command of ['file.new', 'file.newCsv', 'file.open', 'file.save']) {
+      expect(topLevel.some((i) => i.command === command)).toBe(true);
+    }
+    expect(topLevel.find((i) => i.labelKey === 'menu.file.export')?.submenu).toBeDefined();
+    expect(topLevel.find((i) => i.labelKey === 'menu.file.document')?.submenu).toBeDefined();
+    // No longer directly on the top-level File menu.
+    expect(topLevel.some((i) => i.command === 'file.reopen')).toBe(false);
+    expect(topLevel.some((i) => i.command === 'file.toggleProtect')).toBe(false);
+    expect(topLevel.some((i) => i.command === 'sheet.convert')).toBe(false);
+    expect(topLevel.some((i) => i.command === 'file.saveOptions')).toBe(false);
+    expect(topLevel.some((i) => i.command === 'sheet.exportCsv')).toBe(false);
+    // Settings and Close Tab remain top-level, single-item actions.
+    expect(topLevel.some((i) => i.command === 'app.settings')).toBe(true);
+    expect(topLevel.some((i) => i.command === 'file.closeTab')).toBe(true);
+  });
+
+  it('keeps every export command reachable inside the Export submenu', () => {
+    const exportSub = submenuOf(menu('menu.file'), 'menu.file.export');
+    expect(exportSub.map((i) => i.command)).toEqual([
+      'file.saveOptions',
+      'sheet.exportCsv',
+      'sheet.exportXlsx',
+      'sheet.exportJson',
+    ]);
+  });
+
+  it('keeps every per-document command reachable inside the Document submenu', () => {
+    const documentSub = submenuOf(menu('menu.file'), 'menu.file.document');
+    expect(documentSub.map((i) => i.command)).toEqual(['file.reopen', 'file.toggleProtect', 'sheet.convert']);
+  });
+
+  it('keeps the Google Drive submenu when Drive sync is available', () => {
+    const drive = defaultMenus({ ...checks(), driveAvailable: () => true }).find(
+      (m) => m.labelKey === 'menu.file',
+    );
+    const topLevel = items(drive!);
+    expect(topLevel.find((i) => i.labelKey === 'menu.file.drive')?.submenu).toBeDefined();
+  });
+});
+
+describe('Format menu reorganization (#518)', () => {
+  it('groups Text Color, Background Color, and Borders into a Color & Borders submenu', () => {
+    const colorAndBorders = submenuOf(menu('menu.format'), 'menu.format.colorAndBorders');
+    expect(colorAndBorders.map((i) => i.command)).toEqual([
+      'format.textColor',
+      'format.backgroundColor',
+      'format.borders',
+    ]);
+    const topLevel = items(menu('menu.format'));
+    expect(topLevel.some((i) => i.command === 'format.textColor')).toBe(false);
+    // Bold/Italic/Underline (the most frequently used Format commands) and
+    // the other single-item entries are unaffected.
+    expect(topLevel.some((i) => i.command === 'format.bold')).toBe(true);
+    expect(topLevel.some((i) => i.command === 'format.numberFormat')).toBe(true);
   });
 });
 

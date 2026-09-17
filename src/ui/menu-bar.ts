@@ -18,6 +18,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ClipboardCopy,
   Clock,
   ClipboardList,
   ClipboardPaste,
@@ -28,6 +29,8 @@ import {
   Database,
   Eraser,
   FileCode,
+  FileCog,
+  FileDown,
   FileJson,
   FilePenLine,
   FilePlus,
@@ -64,6 +67,7 @@ import {
   Search,
   Settings,
   Sparkles,
+  SwatchBook,
   Table,
   TextSelect,
   Trash2,
@@ -253,23 +257,19 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
     {
       labelKey: 'menu.file',
       items: [
+        // The File menu grew to roughly 14 flat entries as export formats,
+        // Drive sync, and per-document actions were all added over time —
+        // the item this issue's own report named as "long" (#518). The most
+        // frequent actions (New/Open/Save) stay at the top level per that
+        // report's own UX caveat; everything else now follows the same
+        // family-submenu convention as Sheet/View below.
         { labelKey: 'menu.file.new', command: 'file.new', shortcut: 'F4' },
         { labelKey: 'menu.file.newCsv', command: 'file.newCsv' },
         { labelKey: 'menu.file.open', command: 'file.open', shortcut: 'Ctrl+O' },
-        { labelKey: 'menu.file.reopen', command: 'file.reopen' },
-        {
-          labelKey: 'menu.file.protect',
-          command: 'file.toggleProtect',
-          checked: checks.protectedDoc,
-        },
-        'separator',
-        { labelKey: 'menu.sheet.convert', command: 'sheet.convert' },
-        'separator',
         { labelKey: 'menu.file.save', command: 'file.save', shortcut: 'Ctrl+S' },
-        { labelKey: 'menu.file.saveOptions', command: 'file.saveOptions', shortcut: 'Ctrl+Shift+S' },
-        { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
-        { labelKey: 'menu.sheet.exportXlsx', command: 'sheet.exportXlsx' },
-        { labelKey: 'menu.sheet.exportJson', command: 'sheet.exportJson' },
+        'separator',
+        { labelKey: 'menu.file.export', icon: FileDown, submenu: exportItems() },
+        { labelKey: 'menu.file.document', icon: FileCog, submenu: documentItems(checks) },
         ...driveMenuItems(checks),
         'separator',
         { labelKey: 'menu.file.settings', command: 'app.settings' },
@@ -284,8 +284,10 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.edit.redo', command: 'edit.redo', shortcut: 'Ctrl+Y' },
         'separator',
         { labelKey: 'menu.edit.copy', command: 'edit.copy', shortcut: 'Ctrl+C' },
-        { labelKey: 'menu.edit.copyScreenshot', command: 'edit.copyScreenshot' },
-        { labelKey: 'menu.edit.copyAsMarkdown', command: 'edit.copyAsMarkdown' },
+        // Copy Image and Copy as Markdown Table are alternate copy formats,
+        // not the everyday Copy — grouped into their own submenu, the same
+        // way Insert Copied's three variants are below (#518).
+        { labelKey: 'menu.edit.copyAs', icon: ClipboardCopy, submenu: copyAsItems() },
         { labelKey: 'menu.edit.paste', command: 'edit.paste', shortcut: 'Ctrl+V' },
         // Ctrl+A is owned only while the grid itself has focus (never inside
         // text fields or the rest of the page — the browser keeps it there).
@@ -315,8 +317,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // target-entry dialog rather than acting in place.
         { labelKey: 'menu.edit.moveRange', command: 'edit.moveRange' },
         'separator',
-        { labelKey: 'menu.edit.revertCell', command: 'edit.revertCell' },
-        { labelKey: 'menu.edit.revertAll', command: 'edit.revertAll' },
+        { labelKey: 'menu.edit.revert', icon: History, submenu: revertItems() },
       ],
     },
     {
@@ -378,10 +379,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           checked: () => checks.formatActive('underline'),
         },
         'separator',
-        { labelKey: 'menu.format.textColor', command: 'format.textColor' },
-        { labelKey: 'menu.format.backgroundColor', command: 'format.backgroundColor' },
-        { labelKey: 'menu.format.borders', command: 'format.borders' },
-        'separator',
+        { labelKey: 'menu.format.colorAndBorders', icon: SwatchBook, submenu: colorAndBordersItems() },
         { labelKey: 'menu.format.numberFormat', command: 'format.numberFormat' },
         'separator',
         { labelKey: 'menu.format.conditionalFormatting', command: 'format.conditionalFormatting' },
@@ -588,6 +586,63 @@ function filterSortItems(): Array<MenuItemDef | 'separator'> {
     'separator',
     { labelKey: 'menu.sheet.sort', command: 'sheet.sort' },
     { labelKey: 'menu.sheet.sortClear', command: 'sheet.sortClear' },
+  ];
+}
+
+/**
+ * Writing the document out in a different format (File > Export): choosing
+ * options for the current format, or converting to one of the other
+ * supported file types. Distinct from Sheet > Convert to Spreadsheet (RSF),
+ * which changes the *document's* underlying kind rather than writing a copy.
+ */
+function exportItems(): MenuItemDef[] {
+  return [
+    { labelKey: 'menu.file.saveOptions', command: 'file.saveOptions', shortcut: 'Ctrl+Shift+S' },
+    { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
+    { labelKey: 'menu.sheet.exportXlsx', command: 'sheet.exportXlsx' },
+    { labelKey: 'menu.sheet.exportJson', command: 'sheet.exportJson' },
+  ];
+}
+
+/**
+ * Per-document actions that are not everyday file I/O (File > Document):
+ * reopening with a different encoding, toggling read-only protection, and
+ * converting a CSV tab to an RSF spreadsheet.
+ */
+function documentItems(checks: MenuChecks): MenuItemDef[] {
+  return [
+    { labelKey: 'menu.file.reopen', command: 'file.reopen' },
+    {
+      labelKey: 'menu.file.protect',
+      command: 'file.toggleProtect',
+      checked: checks.protectedDoc,
+    },
+    { labelKey: 'menu.sheet.convert', command: 'sheet.convert' },
+  ];
+}
+
+/** Alternate copy formats (Edit > Copy As), distinct from the everyday Copy. */
+function copyAsItems(): MenuItemDef[] {
+  return [
+    { labelKey: 'menu.edit.copyScreenshot', command: 'edit.copyScreenshot' },
+    { labelKey: 'menu.edit.copyAsMarkdown', command: 'edit.copyAsMarkdown' },
+  ];
+}
+
+/** Discarding edits back to the original value (Edit > Revert), one cell or the whole document. */
+function revertItems(): MenuItemDef[] {
+  return [
+    { labelKey: 'menu.edit.revertCell', command: 'edit.revertCell' },
+    { labelKey: 'menu.edit.revertAll', command: 'edit.revertAll' },
+  ];
+}
+
+/** Cell/range color and border formatting (Format > Color & Borders), RSF-only like the rest of Format. */
+function colorAndBordersItems(): MenuItemDef[] {
+  return [
+    { labelKey: 'menu.format.textColor', command: 'format.textColor' },
+    { labelKey: 'menu.format.backgroundColor', command: 'format.backgroundColor' },
+    { labelKey: 'menu.format.borders', command: 'format.borders' },
   ];
 }
 

@@ -33,6 +33,17 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- Spreadsheet documents can now keep a version (snapshot) history: every
+  successful save records a snapshot of the file's content inside the `.rsf`
+  container itself (`.rsf` body version 14 / workbook body version 10),
+  compressed together with the rest of the file using whichever method the
+  file already saves with, so there's no separate history file and no extra
+  compression pass to configure. It's on by default per file, up to 20
+  snapshots are kept (the oldest is dropped once a save would exceed that),
+  and it can be turned off or cleared from **Sheet > File Version
+  History…** / **Sheet > Clear Version History**. Existing files and
+  workbooks that don't use it are unaffected.
+  ([#526](https://github.com/0x0da160/refrain-sheet/issues/526))
 - JSON files can now be opened and exported, alongside the existing CSV/RSF
   and XLSX support. **File > Open** accepts a `.json` file containing a
   top-level array of flat (non-nested) objects — one array element per row,

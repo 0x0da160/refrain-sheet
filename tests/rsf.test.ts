@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { decodeRsf, encodeRsf, RSF_MAGIC } from '../src/core/rsf-codec';
+import { decodeRsf, encodeRsf, MAX_RSF_HISTORY_SNAPSHOTS, RSF_MAGIC } from '../src/core/rsf-codec';
 import { NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../src/core/rsf-document';
 import { APP_NAME, APP_VERSION } from '../src/app/version';
 import { doc } from './helpers';
@@ -205,6 +205,105 @@ describe('versioned binary serialization', () => {
     expect(reloaded.ok).toBe(true);
     if (!reloaded.ok) return;
     expect(reloaded.doc.getValue(0, 0)).toBe('<script>window.x=1</script>');
+  });
+});
+
+describe('version history (snapshots)', () => {
+  it('defaults to enabled with no snapshots for a new document', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    expect(sheet.historyEnabled).toBe(true);
+    expect(sheet.history).toEqual([]);
+  });
+
+  it('appends one snapshot per successful save while enabled', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.toBytes();
+    expect(sheet.history.length).toBe(1);
+    sheet.setCell(0, 0, 'w');
+    sheet.toBytes();
+    expect(sheet.history.length).toBe(2);
+  });
+
+  it('caps retained snapshots at the documented maximum, dropping the oldest first', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    for (let i = 0; i < MAX_RSF_HISTORY_SNAPSHOTS + 3; i++) {
+      sheet.setCell(0, 0, `v${i}`);
+      sheet.toBytes();
+    }
+    expect(sheet.history.length).toBe(MAX_RSF_HISTORY_SNAPSHOTS);
+  });
+
+  it('stops recording new snapshots once disabled, but keeps the ones already recorded', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.toBytes();
+    expect(sheet.history.length).toBe(1);
+    sheet.setHistoryEnabled(false);
+    sheet.setCell(0, 0, 'w');
+    sheet.toBytes();
+    expect(sheet.history.length).toBe(1);
+    expect(sheet.historyEnabled).toBe(false);
+  });
+
+  it('clearHistory discards every recorded snapshot without touching enabled state', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.toBytes();
+    sheet.toBytes();
+    expect(sheet.history.length).toBe(2);
+    sheet.clearHistory();
+    expect(sheet.history).toEqual([]);
+    expect(sheet.historyEnabled).toBe(true);
+  });
+
+  it('setHistoryEnabled and clearHistory mark the document dirty without changing cell values', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.toBytes();
+    sheet.markSaved();
+    expect(sheet.isDirty).toBe(false);
+
+    sheet.setHistoryEnabled(false);
+    expect(sheet.isDirty).toBe(true);
+    expect(sheet.getValue(0, 0)).toBe('v');
+    sheet.markSaved();
+
+    sheet.clearHistory();
+    expect(sheet.isDirty).toBe(true);
+    expect(sheet.getValue(0, 0)).toBe('v');
+  });
+
+  it('a no-op enabled/disabled toggle does not mark the document dirty', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    expect(sheet.isDirty).toBe(false);
+    sheet.setHistoryEnabled(true); // already enabled
+    expect(sheet.isDirty).toBe(false);
+  });
+
+  it('round-trips historyEnabled and recorded snapshots through save/load', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.toBytes();
+    sheet.setCell(0, 0, 'w');
+    const bytes = sheet.toBytes();
+    const reloaded = RsfDocument.fromBytes(bytes, 'again.rcsv');
+    expect(reloaded.ok).toBe(true);
+    if (!reloaded.ok) return;
+    expect(reloaded.doc.historyEnabled).toBe(true);
+    expect(reloaded.doc.history.length).toBe(2);
+  });
+
+  it('a snapshot never nests another snapshot list inside itself', () => {
+    // Each snapshot is an opaque encoding of the content alone (see
+    // `encodeRsfBody`), so repeated saves grow the snapshot count linearly,
+    // not each individual snapshot's own byte length.
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.toBytes();
+    const firstSnapshotSize = sheet.history[0].bytes.length;
+    for (let i = 0; i < 5; i++) {
+      sheet.setCell(0, 0, `v${i}`);
+      sheet.toBytes();
+    }
+    for (const snapshot of sheet.history) {
+      // A small, roughly constant size — not compounding with each save.
+      expect(snapshot.bytes.length).toBeLessThan(firstSnapshotSize * 4);
+    }
   });
 });
 

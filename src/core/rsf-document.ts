@@ -38,9 +38,12 @@ import type { SheetFilter } from './filter';
 import type { SheetSort } from './sort';
 import {
   decodeRsfWorkbook,
+  encodeRsfBody,
   encodeRsfWorkbook,
+  MAX_RSF_HISTORY_SNAPSHOTS,
   MAX_RSF_SHEETS,
   type RsfDecodeError,
+  type RsfHistorySnapshot,
   type RsfWorkbookData,
   type RsfWorksheetData,
 } from './rsf-codec';
@@ -175,6 +178,23 @@ export class RsfDocument {
    * Save dialog when the user picks a different one.
    */
   private compressionMethod: number | undefined;
+
+  /**
+   * Whether version history is recorded for this document (Sheet ▸ File
+   * Version History…), a per-file setting. Defaults to `true` for every new
+   * workbook and every file saved before this setting existed. See
+   * {@link setHistoryEnabled}.
+   */
+  private historyEnabledFlag = true;
+
+  /**
+   * Past snapshots of this document's content, oldest first, capped at
+   * {@link MAX_RSF_HISTORY_SNAPSHOTS}. Loaded from the file on open; a new
+   * snapshot of the content being saved is appended on every successful save
+   * while {@link historyEnabledFlag} is true (see
+   * {@link toBytesFromSheetCells}).
+   */
+  private historyList: RsfHistorySnapshot[] = [];
 
   /**
    * True when this workbook was read from a single-worksheet container
@@ -400,6 +420,8 @@ export class RsfDocument {
     const doc = new RsfDocument(name, data.delimiter, sheets, data.docId, timezone, displayLanguage);
     doc.compressionMethod = data.compression;
     doc.loadedAsSingleSheet = data.legacySingleSheet === true;
+    doc.historyEnabledFlag = data.historyEnabled ?? true;
+    doc.historyList = data.history ?? [];
     if (data.createdAt !== undefined) {
       doc.createdAt = data.createdAt;
     }
@@ -634,6 +656,54 @@ export class RsfDocument {
     this.compressionMethod = method;
   }
 
+  /**
+   * Whether version history is recorded for this document (Sheet ▸ File
+   * Version History…), a per-file setting defaulting to `true`.
+   */
+  get historyEnabled(): boolean {
+    return this.historyEnabledFlag;
+  }
+
+  /**
+   * This document's past snapshots (oldest first), for a version-history UI.
+   * Each entry's `bytes` are opaque — nothing in this release decodes or
+   * restores from them; the list exists so it can be inspected and cleared.
+   */
+  get history(): readonly RsfHistorySnapshot[] {
+    return this.historyList;
+  }
+
+  /**
+   * Turn version history on or off for this file. Disabling stops recording
+   * new snapshots on future saves; it does not clear snapshots already
+   * recorded (see {@link clearHistory} for that). Like {@link setLockedOn},
+   * this is persisted in the saved container, so it marks the document dirty
+   * without invalidating the evaluation memo (no cell value can have
+   * changed).
+   */
+  setHistoryEnabled(enabled: boolean): void {
+    if (enabled === this.historyEnabledFlag) {
+      return;
+    }
+    this.historyEnabledFlag = enabled;
+    this.revision += 1;
+  }
+
+  /**
+   * Discard every recorded snapshot for this file (the "Clear History"
+   * action of Sheet ▸ File Version History…). Does not change whether future
+   * saves record new snapshots (see {@link setHistoryEnabled}). Persisted in
+   * the saved container, so — like {@link setHistoryEnabled} — it marks the
+   * document dirty without invalidating the evaluation memo.
+   */
+  clearHistory(): void {
+    if (this.historyList.length === 0) {
+      return;
+    }
+    this.historyList = [];
+    this.revision += 1;
+  }
+
   /** The workbook's stored IANA timezone, read by `TODAY()`/`NOW()` (Sheet > Timezone…). */
   get timezone(): string {
     return this.timezoneId;
@@ -850,7 +920,7 @@ export class RsfDocument {
       }
       return entry;
     });
-    const payload: RsfWorkbookData = {
+    const content: RsfWorkbookData = {
       delimiter: this.delimiter,
       // Record the creating/updating application (single source of truth).
       appName: APP_NAME,
@@ -862,6 +932,23 @@ export class RsfDocument {
       timezone: this.timezoneId,
       displayLanguage: this.displayLanguageId,
       sheets,
+    };
+    // Version history (Sheet ▸ File Version History…): while enabled, every
+    // successful save appends one snapshot of the content being saved —
+    // `content` has no `historyEnabled`/`history` of its own, so its raw body
+    // encoding is exactly this save's document state with no history nested
+    // inside it (see `encodeRsfBody`). The oldest snapshot is dropped once
+    // this would exceed the retained cap. Disabling history stops recording
+    // new snapshots but never clears ones already recorded (`clearHistory`
+    // does that explicitly).
+    if (this.historyEnabledFlag) {
+      const snapshot: RsfHistorySnapshot = { timestamp: this.updatedAt, bytes: encodeRsfBody(content) };
+      this.historyList = [...this.historyList, snapshot].slice(-MAX_RSF_HISTORY_SNAPSHOTS);
+    }
+    const payload: RsfWorkbookData = {
+      ...content,
+      historyEnabled: this.historyEnabledFlag,
+      history: this.historyList,
     };
     return encodeRsfWorkbook(payload, this.compressionMethod);
   }

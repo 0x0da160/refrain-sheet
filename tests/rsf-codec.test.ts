@@ -13,12 +13,14 @@ import {
   decodeRsf,
   encodeRsf,
   isRsfMethod,
+  MAX_RSF_HISTORY_SNAPSHOTS,
   RSF_CONTAINER_VERSION,
   RSF_LEGACY_CONTAINER_VERSION,
   RSF_LEGACY_MAGIC,
   RSF_MAGIC,
   RsfEncodeError,
   type RsfData,
+  type RsfHistorySnapshot,
 } from '../src/core/rsf-codec';
 import { RsfDocument, RSF_EXTENSION } from '../src/core/rsf-document';
 
@@ -193,6 +195,81 @@ describe('binary container codec (JS store engine)', () => {
     if (!decoded.ok) return;
     expect(decoded.data.kind).toBe('markdown');
     expect(decoded.data.locked).toBe(true);
+  });
+
+  it('round-trips version history with snapshots (body version 14)', () => {
+    const history: RsfHistorySnapshot[] = [
+      { timestamp: 1000, bytes: new Uint8Array([1, 2, 3]) },
+      { timestamp: 2000, bytes: new Uint8Array([4, 5, 6, 7]) },
+    ];
+    const withHistory: RsfData = { ...sample, history };
+    const decoded = decodeRsf(encodeRsf(withHistory));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.historyEnabled).toBeUndefined(); // absent means enabled (the default)
+    expect(decoded.data.history).toEqual(history);
+    expect(decoded.data.cells).toEqual(sample.cells);
+  });
+
+  it('round-trips version history disabled with no snapshots (body version 14)', () => {
+    const decoded = decodeRsf(encodeRsf({ ...sample, historyEnabled: false }));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.historyEnabled).toBe(false);
+    expect(decoded.data.history).toBeUndefined();
+  });
+
+  it('omits the history section when enabled (the default) with no snapshots, staying on the lowest sufficient body version', () => {
+    const decoded = decodeRsf(encodeRsf(sample));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.historyEnabled).toBeUndefined();
+    expect(decoded.data.history).toBeUndefined();
+
+    const explicit = decodeRsf(encodeRsf({ ...sample, historyEnabled: true, history: [] }));
+    expect(explicit.ok).toBe(true);
+    if (explicit.ok) {
+      expect(explicit.data.historyEnabled).toBeUndefined();
+      expect(explicit.data.history).toBeUndefined();
+    }
+  });
+
+  it('carries history alongside a lock (both forced to body version 14)', () => {
+    const both: RsfData = {
+      ...sample,
+      locked: true,
+      history: [{ timestamp: 42, bytes: new Uint8Array([9]) }],
+    };
+    const decoded = decodeRsf(encodeRsf(both));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.locked).toBe(true);
+    expect(decoded.data.history).toEqual(both.history);
+  });
+
+  it('rejects a snapshot count above the retained cap as too-large', () => {
+    // A writer never emits more than MAX_RSF_HISTORY_SNAPSHOTS (RsfDocument
+    // caps it before saving), so this stands in for a hand-edited/hostile
+    // file: the encoder happily writes what it's given, and the reader must
+    // reject the excess rather than allocate for it.
+    const tooMany: RsfHistorySnapshot[] = Array.from({ length: MAX_RSF_HISTORY_SNAPSHOTS + 1 }, (_, i) => ({
+      timestamp: i,
+      bytes: new Uint8Array(0),
+    }));
+    const decoded = decodeRsf(encodeRsf({ ...sample, history: tooMany }));
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) expect(decoded.error).toBe('too-large');
+  });
+
+  it('rejects a truncated history block as bad-shape', () => {
+    const withHistory: RsfData = {
+      ...sample,
+      history: [{ timestamp: 1, bytes: new Uint8Array([1, 2, 3, 4, 5]) }],
+    };
+    const bytes = encodeRsf(withHistory);
+    const decoded = decodeRsf(bytes.subarray(0, bytes.length - 3));
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
   });
 
   it('rejects a truncated payload', () => {

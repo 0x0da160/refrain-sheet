@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { driveConfigured } from '../../app/drive/config';
-import { t, type LocaleId } from '../../app/i18n';
+import { getLocale, t, type LocaleId } from '../../app/i18n';
 import { SHORTCUT_DOCS } from '../../app/shortcuts';
 import { FUNCTION_INFOS, type FunctionCategory } from '../../core/formula';
 import {
@@ -14,6 +14,11 @@ import { listTimeZones } from '../../core/timezone';
 import { APP_VERSION_DISPLAY } from '../../app/version';
 import { el } from '../dom';
 import { dialogButton, externalLink, openDialog, submitOnEnter } from './shared';
+
+/** Formats a stored timestamp for display, in the app's current UI language. */
+function formatWhen(ms: number): string {
+  return new Date(ms).toLocaleString(getLocale() === 'ja' ? 'ja-JP' : 'en-US');
+}
 
 /** Canonical external links (also listed at the top of README.md). */
 const SITE_URL = 'https://app.refrain-sheet.com/';
@@ -162,6 +167,47 @@ export class AppSettingsDialogs {
       buttons.append(
         dialogButton(t('dialog.displayLanguage.cancel'), false, false, () => close(null)),
         dialogButton(t('dialog.displayLanguage.ok'), true, false, () => close(select.value as LocaleId)),
+      );
+    });
+  }
+
+  /**
+   * The Sheet ▸ File Version History… dialog: a single checkbox controlling
+   * whether this file records a snapshot on every successful save, with the
+   * current snapshot count (and, when there is one, the newest snapshot's
+   * timestamp) shown for context. Resolves with the chosen enabled state, or
+   * null when cancelled — the caller treats "unchanged" and "cancelled" the
+   * same way. This dialog never deletes anything; clearing recorded
+   * snapshots is the separate, explicitly confirmed `sheet.clearVersionHistory`.
+   */
+  chooseVersionHistoryEnabled(
+    current: boolean,
+    snapshotCount: number,
+    newestTimestamp: number | null,
+  ): Promise<boolean | null> {
+    return openDialog<boolean | null>(t('dialog.versionHistory.title'), null, (body, buttons, close) => {
+      const checkboxId = 'version-history-enabled';
+      const checkbox = el('input', {
+        attrs: { type: 'checkbox', id: checkboxId, 'data-autofocus': 'true' },
+      }) as HTMLInputElement;
+      checkbox.checked = current;
+      body.append(
+        el('div', { className: 'form-row' }, [
+          checkbox,
+          el('label', { text: t('dialog.versionHistory.label'), attrs: { for: checkboxId } }),
+        ]),
+        el('p', { className: 'dialog-note', text: t('dialog.versionHistory.note') }),
+        el('p', {
+          className: 'dialog-note',
+          text:
+            snapshotCount > 0 && newestTimestamp !== null
+              ? t('dialog.versionHistory.count', { n: snapshotCount, when: formatWhen(newestTimestamp) })
+              : t('dialog.versionHistory.countNone'),
+        }),
+      );
+      buttons.append(
+        dialogButton(t('dialog.versionHistory.cancel'), false, false, () => close(null)),
+        dialogButton(t('dialog.versionHistory.ok'), true, false, () => close(checkbox.checked)),
       );
     });
   }

@@ -417,6 +417,18 @@ export interface UiPort {
    */
   chooseDisplayLanguage(current: LocaleId): Promise<LocaleId | null>;
   /**
+   * The Sheet ▸ File Version History… dialog: whether this file records a
+   * snapshot on every successful save, with `snapshotCount`/`newestTimestamp`
+   * (ms since epoch, or null when there are none yet) shown for context.
+   * Resolves with the chosen enabled state, or null when cancelled (nothing
+   * changes). Never deletes anything — clearing is `sheet.clearVersionHistory`.
+   */
+  chooseVersionHistoryEnabled(
+    current: boolean,
+    snapshotCount: number,
+    newestTimestamp: number | null,
+  ): Promise<boolean | null>;
+  /**
    * The Text Color dialog: a color picker preselected from `current` (null
    * when the selection has none, or is mixed). Resolves with the chosen
    * color, `'clear'` to remove it, or null when cancelled (nothing changes).
@@ -513,6 +525,8 @@ export type CommandId =
   | 'sheet.recalculate'
   | 'sheet.timezone'
   | 'sheet.displayLanguage'
+  | 'sheet.versionHistory'
+  | 'sheet.clearVersionHistory'
   | 'sheet.exportCsv'
   | 'sheet.exportXlsx'
   | 'sheet.exportJson'
@@ -816,6 +830,12 @@ export class Commands {
         // The display language only affects TEXT()'s ddd/dddd tokens, which
         // only a spreadsheet document evaluates.
         return tab !== null && tab.doc.kind === 'rsf';
+      case 'sheet.versionHistory':
+        // Version history is an RSF-only, per-file setting; a plain CSV has
+        // no container to record snapshots in.
+        return tab !== null && tab.doc.kind === 'rsf';
+      case 'sheet.clearVersionHistory':
+        return tab !== null && tab.doc.kind === 'rsf' && tab.doc.history.length > 0;
       case 'edit.revertCell':
         return (
           tab?.selection != null &&
@@ -1100,6 +1120,43 @@ export class Commands {
               t('notify.displayLanguageChanged', { language: t(`language.${tab.doc.displayLanguage}`) }),
               'info',
             );
+          }
+        }
+        return;
+      case 'sheet.versionHistory':
+        if (tab && tab.doc.kind === 'rsf') {
+          const history = tab.doc.history;
+          const newest = history.length > 0 ? history[history.length - 1].timestamp : null;
+          const chosen = await this.ui.chooseVersionHistoryEnabled(
+            tab.doc.historyEnabled,
+            history.length,
+            newest,
+          );
+          // Like the lock flag, this is persisted in the saved container but
+          // changes no cell input, so `setHistoryEnabled` marks the document
+          // dirty without touching the evaluation memo.
+          if (chosen !== null && chosen !== tab.doc.historyEnabled) {
+            tab.doc.setHistoryEnabled(chosen);
+            this.state.emit('doc');
+            this.ui.notify(
+              t(chosen ? 'notify.versionHistoryEnabled' : 'notify.versionHistoryDisabled'),
+              'info',
+            );
+          }
+        }
+        return;
+      case 'sheet.clearVersionHistory':
+        if (tab && tab.doc.kind === 'rsf' && tab.doc.history.length > 0) {
+          const ok = await this.ui.confirm(
+            t('dialog.clearVersionHistory.title'),
+            t('dialog.clearVersionHistory.message', { n: tab.doc.history.length }),
+            t('dialog.delete.ok'),
+            t('dialog.delete.cancel'),
+          );
+          if (ok) {
+            tab.doc.clearHistory();
+            this.state.emit('doc');
+            this.ui.notify(t('notify.versionHistoryCleared'), 'info');
           }
         }
         return;

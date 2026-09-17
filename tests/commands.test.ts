@@ -70,6 +70,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
     chooseDisplayLanguage: vi.fn(async () => null),
+    chooseVersionHistoryEnabled: vi.fn(async () => null),
     chooseTextColor: vi.fn(async () => null),
     chooseBackgroundColor: vi.fn(async () => null),
     chooseBorders: vi.fn(async () => null),
@@ -522,6 +523,76 @@ describe('sheet display language command', () => {
     const before = tab.doc.displayLanguage;
     await commands.run('sheet.displayLanguage');
     expect(tab.doc.displayLanguage).toBe(before);
+    expect(ui.notify).not.toHaveBeenCalled();
+  });
+});
+
+describe('sheet version history commands', () => {
+  it('is enabled only for an RSF (spreadsheet) tab', async () => {
+    const { commands } = setup();
+    await commands.run('file.new');
+    expect(commands.isEnabled('sheet.versionHistory')).toBe(true);
+    await commands.openFiles([opened('c.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    expect(commands.isEnabled('sheet.versionHistory')).toBe(false);
+  });
+
+  it('clearVersionHistory is enabled only once a snapshot has been recorded', async () => {
+    const { state, commands } = setup();
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    expect(commands.isEnabled('sheet.clearVersionHistory')).toBe(false);
+    tab.doc.toBytes();
+    expect(commands.isEnabled('sheet.clearVersionHistory')).toBe(true);
+  });
+
+  it('applies the chosen enabled state and notifies', async () => {
+    const ui = stubUi({ chooseVersionHistoryEnabled: vi.fn(async () => false) });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    expect(tab.doc.historyEnabled).toBe(true);
+    await commands.run('sheet.versionHistory');
+    expect(ui.chooseVersionHistoryEnabled).toHaveBeenCalledWith(true, 0, null);
+    expect(tab.doc.historyEnabled).toBe(false);
+    expect(ui.notify).toHaveBeenCalledWith(expect.any(String), 'info');
+  });
+
+  it('cancelling the version history dialog changes nothing and does not notify', async () => {
+    const ui = stubUi({ chooseVersionHistoryEnabled: vi.fn(async () => null) });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    await commands.run('sheet.versionHistory');
+    expect(tab.doc.historyEnabled).toBe(true);
+    expect(ui.notify).not.toHaveBeenCalled();
+  });
+
+  it('confirming clearVersionHistory discards every recorded snapshot', async () => {
+    const ui = stubUi({ confirm: vi.fn(async () => true) });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    tab.doc.toBytes();
+    expect(tab.doc.history.length).toBe(1);
+    await commands.run('sheet.clearVersionHistory');
+    expect(ui.confirm).toHaveBeenCalled();
+    expect(tab.doc.history).toEqual([]);
+    expect(ui.notify).toHaveBeenCalledWith(expect.any(String), 'info');
+  });
+
+  it('declining the clearVersionHistory confirmation keeps recorded snapshots', async () => {
+    const ui = stubUi({ confirm: vi.fn(async () => false) });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    tab.doc.toBytes();
+    await commands.run('sheet.clearVersionHistory');
+    expect(tab.doc.history.length).toBe(1);
     expect(ui.notify).not.toHaveBeenCalled();
   });
 });

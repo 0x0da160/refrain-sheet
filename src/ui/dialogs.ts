@@ -352,6 +352,15 @@ export class Dialogs {
     return this.appSettings.chooseDisplayLanguage(current);
   }
 
+  /** See `AppSettingsDialogs.chooseVersionHistoryEnabled` for the full behavior contract. */
+  chooseVersionHistoryEnabled(
+    current: boolean,
+    snapshotCount: number,
+    newestTimestamp: number | null,
+  ): Promise<boolean | null> {
+    return this.appSettings.chooseVersionHistoryEnabled(current, snapshotCount, newestTimestamp);
+  }
+
   /**
    * All current callers confirm a destructive or hard-to-reverse action
    * (row/column delete, opening a non-CSV file), so Cancel is autofocused —

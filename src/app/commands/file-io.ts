@@ -31,7 +31,7 @@ import { buildJsonExport } from '../../core/json-export';
 import { AppState, defaultSheetName, type Tab } from '../app-state';
 import { readFileObject, requestSaveHandle, saveBytes, saveBytesAs, type OpenedFile } from '../file-access';
 import { getLocale, t } from '../i18n';
-import { getAutoFitOnOpen, getMaxFileSize } from '../settings';
+import { getAutoFitOnOpen, getMaxFileSize, getSuppressHistoryCapWarning } from '../settings';
 import type { ConvertReason, UiPort } from '../commands';
 import { LARGE_OP_CELLS, LARGE_OPEN_BYTES, nextPaint, pct, withBusy, withBusyIfLarge } from './shared';
 
@@ -562,6 +562,20 @@ export class FileIoCommands {
     const doc = tab.doc;
     if (doc.kind !== 'rsf') {
       return null;
+    }
+    // Warn before the save actually happens when it will drop the oldest
+    // recorded version-history snapshot (the retained cap has been reached)
+    // — the one-time "don't show again" preference lives in `app/settings.ts`
+    // (browser-local, never written into the file). Declining aborts the
+    // save entirely, exactly like cancelling the destination picker above.
+    if (doc.willDropOldestOnNextSave && !getSuppressHistoryCapWarning()) {
+      const max = doc.effectiveHistoryMax;
+      if (max !== null) {
+        const proceed = await this.ui.confirmHistoryCapExceeded(tab.name, max);
+        if (!proceed) {
+          return null;
+        }
+      }
     }
     // Record the tab's live view state (zoom, overridden column widths) so
     // the container persists it; presentational only, never dirties the doc.

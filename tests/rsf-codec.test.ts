@@ -286,6 +286,42 @@ describe('binary container codec (JS store engine)', () => {
     expect(decoded.data.history).toEqual(both.history);
   });
 
+  it('round-trips a numeric retained-snapshot cap override', () => {
+    const withOverride: RsfData = { ...sample, historyMaxOverride: 5 };
+    const decoded = decodeRsf(encodeRsf(withOverride));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.historyMaxOverride).toBe(5);
+  });
+
+  it('round-trips an unlimited (null) retained-snapshot cap override', () => {
+    const unlimited: RsfData = { ...sample, historyMaxOverride: null };
+    const decoded = decodeRsf(encodeRsf(unlimited));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.historyMaxOverride).toBeNull();
+  });
+
+  it('omits the cap-override field when no override is set', () => {
+    const decoded = decodeRsf(
+      encodeRsf({ ...sample, history: [{ timestamp: 1, bytes: new Uint8Array(0) }] }),
+    );
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.historyMaxOverride).toBeUndefined();
+  });
+
+  it('rejects a decoded numeric cap override outside [1, MAX_RSF_HISTORY_SNAPSHOTS] as bad-shape', () => {
+    // A writer (RsfDocument.setHistoryMaxOverride) never produces 0 or a
+    // value above the ceiling — it clamps before saving — so this stands in
+    // for a hand-edited/hostile file: the encoder happily writes what it's
+    // given, and the reader must reject the out-of-range value.
+    expect(decodeRsf(encodeRsf({ ...sample, historyMaxOverride: 1 })).ok).toBe(true); // sanity: 1 is valid
+    const zero = decodeRsf(encodeRsf({ ...sample, historyMaxOverride: 0 }));
+    expect(zero.ok).toBe(false);
+    if (!zero.ok) expect(zero.error).toBe('bad-shape');
+    const tooLarge = decodeRsf(encodeRsf({ ...sample, historyMaxOverride: MAX_RSF_HISTORY_SNAPSHOTS + 1 }));
+    expect(tooLarge.ok).toBe(false);
+    if (!tooLarge.ok) expect(tooLarge.error).toBe('bad-shape');
+  });
+
   it('rejects a snapshot count above the retained cap as too-large', () => {
     // A writer never emits more than MAX_RSF_HISTORY_SNAPSHOTS (RsfDocument
     // caps it before saving), so this stands in for a hand-edited/hostile

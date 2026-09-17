@@ -203,6 +203,29 @@ export function setAutoFitOnOpen(enabled: boolean): void {
   safeStorageSet(AUTO_FIT_ON_OPEN_KEY, enabled ? '1' : '0');
 }
 
+// ---------------------------------------------------------------------------
+// Version-history retained-snapshot cap warning
+// ---------------------------------------------------------------------------
+
+const SUPPRESS_HISTORY_CAP_WARNING_KEY = 'refrain-csv-html.suppressHistoryCapWarning';
+
+/**
+ * Whether the pre-save warning that a save will drop the oldest recorded
+ * version-history snapshot (Sheet ▸ File Version History…) is suppressed.
+ * **Default: off** (the warning shows) — the user opts out via the warning
+ * dialog's own "don't show again" checkbox. This is a browser-local
+ * preference, not part of any file's saved bytes: it applies to every file
+ * this browser saves, not just the one that first triggered the warning.
+ */
+export function getSuppressHistoryCapWarning(): boolean {
+  return safeStorageGet(SUPPRESS_HISTORY_CAP_WARNING_KEY) === '1';
+}
+
+/** Persist the suppress-history-cap-warning preference locally. */
+export function setSuppressHistoryCapWarning(suppress: boolean): void {
+  safeStorageSet(SUPPRESS_HISTORY_CAP_WARNING_KEY, suppress ? '1' : '0');
+}
+
 /** Bytes -> whole MiB (rounded), for display and number inputs. */
 export function bytesToMiB(bytes: number): number {
   return Math.round(bytes / MIB);

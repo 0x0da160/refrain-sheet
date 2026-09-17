@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { VersionHistoryChoice } from '../../app/commands';
 import { driveConfigured } from '../../app/drive/config';
 import { getLocale, t, type LocaleId } from '../../app/i18n';
 import { SHORTCUT_DOCS } from '../../app/shortcuts';
@@ -10,6 +11,11 @@ import {
   MIN_MAX_FILE_SIZE,
   MAX_MAX_FILE_SIZE,
 } from '../../app/settings';
+import {
+  DEFAULT_HISTORY_SNAPSHOT_LIMIT,
+  MAX_RSF_HISTORY_SNAPSHOTS,
+  type RsfHistorySnapshot,
+} from '../../core/rsf-codec';
 import { listTimeZones } from '../../core/timezone';
 import { APP_VERSION_DISPLAY } from '../../app/version';
 import { el } from '../dom';
@@ -172,44 +178,140 @@ export class AppSettingsDialogs {
   }
 
   /**
-   * The Sheet ▸ File Version History… dialog: a single checkbox controlling
-   * whether this file records a snapshot on every successful save, with the
-   * current snapshot count (and, when there is one, the newest snapshot's
-   * timestamp) shown for context. Resolves with the chosen enabled state, or
-   * null when cancelled — the caller treats "unchanged" and "cancelled" the
-   * same way. This dialog never deletes anything; clearing recorded
-   * snapshots is the separate, explicitly confirmed `sheet.clearVersionHistory`.
+   * The Sheet ▸ File Version History… dialog: a checkbox controlling whether
+   * this file records a snapshot on every successful save, the per-file
+   * retained-snapshot cap (default / a custom number / unlimited), and the
+   * recorded snapshots themselves (newest first) each with a Restore action.
+   * Clicking Restore closes the dialog immediately with `{ kind: 'restore' }`
+   * — the caller confirms and performs the actual restore, since it is a
+   * separate, more consequential decision than the enabled/cap settings this
+   * dialog's own OK button saves. Cancel (or Escape) resolves null, treated
+   * the same as "nothing changed" by the caller. This dialog never deletes
+   * anything; clearing recorded snapshots is the separate, explicitly
+   * confirmed `sheet.clearVersionHistory`.
    */
-  chooseVersionHistoryEnabled(
+  chooseVersionHistory(
     current: boolean,
-    snapshotCount: number,
-    newestTimestamp: number | null,
-  ): Promise<boolean | null> {
-    return openDialog<boolean | null>(t('dialog.versionHistory.title'), null, (body, buttons, close) => {
-      const checkboxId = 'version-history-enabled';
-      const checkbox = el('input', {
-        attrs: { type: 'checkbox', id: checkboxId, 'data-autofocus': 'true' },
-      }) as HTMLInputElement;
-      checkbox.checked = current;
-      body.append(
-        el('div', { className: 'form-row' }, [
-          checkbox,
-          el('label', { text: t('dialog.versionHistory.label'), attrs: { for: checkboxId } }),
-        ]),
-        el('p', { className: 'dialog-note', text: t('dialog.versionHistory.note') }),
-        el('p', {
-          className: 'dialog-note',
-          text:
-            snapshotCount > 0 && newestTimestamp !== null
-              ? t('dialog.versionHistory.count', { n: snapshotCount, when: formatWhen(newestTimestamp) })
-              : t('dialog.versionHistory.countNone'),
-        }),
-      );
-      buttons.append(
-        dialogButton(t('dialog.versionHistory.cancel'), false, false, () => close(null)),
-        dialogButton(t('dialog.versionHistory.ok'), true, false, () => close(checkbox.checked)),
-      );
-    });
+    maxOverride: number | null | undefined,
+    history: readonly RsfHistorySnapshot[],
+  ): Promise<VersionHistoryChoice | null> {
+    return openDialog<VersionHistoryChoice | null>(
+      t('dialog.versionHistory.title'),
+      null,
+      (body, buttons, close) => {
+        const checkboxId = 'version-history-enabled';
+        const checkbox = el('input', {
+          attrs: { type: 'checkbox', id: checkboxId, 'data-autofocus': 'true' },
+        }) as HTMLInputElement;
+        checkbox.checked = current;
+        body.append(
+          el('div', { className: 'form-row' }, [
+            checkbox,
+            el('label', { text: t('dialog.versionHistory.label'), attrs: { for: checkboxId } }),
+          ]),
+          el('p', { className: 'dialog-note', text: t('dialog.versionHistory.note') }),
+        );
+
+        // Retained-snapshot cap: default / an explicit number / unlimited.
+        const maxGroupName = 'version-history-max-mode';
+        const mode: 'default' | 'custom' | 'unlimited' =
+          maxOverride === undefined ? 'default' : maxOverride === null ? 'unlimited' : 'custom';
+        const radio = (value: typeof mode): HTMLInputElement =>
+          el('input', {
+            attrs: { type: 'radio', name: maxGroupName, id: `${maxGroupName}-${value}`, value },
+          }) as HTMLInputElement;
+        const defaultRadio = radio('default');
+        const customRadio = radio('custom');
+        const unlimitedRadio = radio('unlimited');
+        defaultRadio.checked = mode === 'default';
+        customRadio.checked = mode === 'custom';
+        unlimitedRadio.checked = mode === 'unlimited';
+        const customInput = el('input', {
+          className: 'version-history-max-input',
+          attrs: {
+            type: 'number',
+            min: '1',
+            max: String(MAX_RSF_HISTORY_SNAPSHOTS),
+            step: '1',
+          },
+        }) as HTMLInputElement;
+        customInput.value = String(
+          typeof maxOverride === 'number' ? maxOverride : DEFAULT_HISTORY_SNAPSHOT_LIMIT,
+        );
+        const refreshCustomInput = (): void => {
+          customInput.disabled = !customRadio.checked;
+        };
+        refreshCustomInput();
+        for (const r of [defaultRadio, customRadio, unlimitedRadio]) {
+          r.addEventListener('change', refreshCustomInput);
+        }
+        body.append(
+          el('div', { className: 'form-row' }, [
+            defaultRadio,
+            el('label', {
+              text: t('dialog.versionHistory.maxDefault', { n: DEFAULT_HISTORY_SNAPSHOT_LIMIT }),
+              attrs: { for: defaultRadio.id },
+            }),
+          ]),
+          el('div', { className: 'form-row' }, [
+            customRadio,
+            el('label', { text: t('dialog.versionHistory.maxCustom'), attrs: { for: customRadio.id } }),
+            customInput,
+          ]),
+          el('div', { className: 'form-row' }, [
+            unlimitedRadio,
+            el('label', { text: t('dialog.versionHistory.maxUnlimited'), attrs: { for: unlimitedRadio.id } }),
+          ]),
+        );
+
+        if (history.length === 0) {
+          body.append(el('p', { className: 'dialog-note', text: t('dialog.versionHistory.countNone') }));
+        } else {
+          body.append(
+            el('p', {
+              className: 'dialog-note',
+              text: t('dialog.versionHistory.count', { n: history.length }),
+            }),
+          );
+          const list = el('ul', { className: 'version-history-list' });
+          // Newest first for display; `index` still refers to the caller's
+          // oldest-first `history` array, which is what `restoreFromSnapshot`
+          // and the caller's confirmation expect.
+          for (let index = history.length - 1; index >= 0; index--) {
+            const snapshot = history[index];
+            const restoreButton = dialogButton(t('dialog.versionHistory.restore'), false, false, () =>
+              close({ kind: 'restore', index }),
+            );
+            list.append(
+              el('li', { className: 'version-history-entry' }, [
+                el('span', { text: formatWhen(snapshot.timestamp) }),
+                restoreButton,
+              ]),
+            );
+          }
+          body.append(list);
+        }
+
+        const readMaxOverride = (): number | null | undefined => {
+          if (unlimitedRadio.checked) {
+            return null;
+          }
+          if (customRadio.checked) {
+            const parsed = Math.round(Number(customInput.value));
+            return Number.isFinite(parsed)
+              ? Math.max(1, Math.min(MAX_RSF_HISTORY_SNAPSHOTS, parsed))
+              : DEFAULT_HISTORY_SNAPSHOT_LIMIT;
+          }
+          return undefined;
+        };
+        buttons.append(
+          dialogButton(t('dialog.versionHistory.cancel'), false, false, () => close(null)),
+          dialogButton(t('dialog.versionHistory.ok'), true, false, () =>
+            close({ kind: 'save', enabled: checkbox.checked, maxOverride: readMaxOverride() }),
+          ),
+        );
+      },
+    );
   }
 
   /**

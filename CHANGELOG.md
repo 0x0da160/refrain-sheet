@@ -45,6 +45,18 @@ release-time half (retitling `Unreleased`) is still done by hand.
   plain-text file editing and a dedicated YAML worksheet kind are tracked as
   follow-up work.
   ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
+- A spreadsheet's version history can now be restored from and configured
+  further, via **Sheet > File Version History…**: every recorded snapshot is
+  listed with a **Restore** action (with a confirmation, since it replaces
+  the file's current content and is not itself undoable), and the
+  retained-snapshot limit — 20 by default, unchanged — can now be raised to a
+  custom number or set to unlimited on a per-file basis. When a save would
+  exceed the limit, a confirmation shows before the save happens (with a
+  "don't show this warning again" option, saved locally in the browser); it
+  never blocks a save when the limit is unlimited. Saved in the `.rsf`
+  container (body version 16 / workbook body version 12); existing files and
+  workbooks that don't use a custom limit are unaffected.
+  ([#530](https://github.com/0x0da160/refrain-sheet/issues/530))
 - Spreadsheet documents can now keep a version (snapshot) history: every
   successful save records a snapshot of the file's content inside the `.rsf`
   container itself (`.rsf` body version 14 / workbook body version 10),

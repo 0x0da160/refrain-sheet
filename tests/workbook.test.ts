@@ -65,7 +65,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
     chooseDisplayLanguage: vi.fn(async () => null),
-    chooseVersionHistoryEnabled: vi.fn(async () => null),
+    chooseVersionHistory: vi.fn(async () => null),
+    confirmHistoryCapExceeded: vi.fn(async () => true),
     chooseTextColor: vi.fn(async () => null),
     chooseBackgroundColor: vi.fn(async () => null),
     chooseBorders: vi.fn(async () => null),
@@ -923,6 +924,33 @@ describe('workbook container', () => {
     if (!reloaded.ok) return;
     expect(reloaded.doc.sheets[0].name).toBe('<script>x</script>');
     expect(reloaded.doc.getValue(0, 0)).toBe('<script>window.x=1</script>');
+  });
+});
+
+describe('version history across the single-sheet/workbook shape change', () => {
+  it('records and restores snapshots taken while the workbook held two worksheets', () => {
+    const workbook = RsfDocument.empty('b.rsf', 2, 2, 'First');
+    workbook.insertSheetAt(1, workbook.createWorksheet('Second', 2, 2));
+    workbook.setCell(0, 0, 'v1');
+    workbook.toBytes(); // snapshot 0, recorded as a workbook-shaped body (2 sheets)
+    workbook.setCell(0, 0, 'v2');
+    expect(workbook.restoreFromSnapshot(0)).toBe(true);
+    expect(workbook.getValue(0, 0)).toBe('v1');
+    expect(workbook.sheetCount).toBe(2);
+    expect(workbook.sheets[1].name).toBe('Second');
+  });
+
+  it('restores a snapshot recorded when the workbook held one worksheet, even after a second was added since', () => {
+    const workbook = RsfDocument.empty('b.rsf', 2, 2, 'First');
+    workbook.setCell(0, 0, 'solo');
+    workbook.toBytes(); // snapshot 0, recorded as a single-sheet-shaped body (1 sheet)
+    workbook.insertSheetAt(1, workbook.createWorksheet('Second', 2, 2));
+    workbook.setCell(0, 0, 'changed');
+
+    expect(workbook.restoreFromSnapshot(0)).toBe(true);
+    // The snapshot only ever held one worksheet, so restoring drops "Second".
+    expect(workbook.sheetCount).toBe(1);
+    expect(workbook.getValue(0, 0)).toBe('solo');
   });
 });
 

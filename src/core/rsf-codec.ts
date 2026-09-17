@@ -96,8 +96,10 @@ export {
  * adds the cell-comment block; version 12 adds the worksheet-kind byte;
  * version 13 adds the worksheet-locked byte; version 14 adds the version
  * history block; version 15 allows the worksheet-kind byte to also hold
- * `json` (2), rejected as `bad-shape` below that version. Older versions are
- * still accepted on read:
+ * `json` (2), rejected as `bad-shape` below that version; version 16 adds a
+ * per-file retained-snapshot cap override (a `u32` right after the history
+ * flags byte) to the history block. Older versions are still accepted on
+ * read:
  *
  * ```
  * 0    1     body version (1–15 readable; lowest sufficient version written)
@@ -128,7 +130,12 @@ export {
  * --- body version 13+ ---
  * …    1     worksheet locked (0 = unlocked, 1 = locked; written only when locked)
  * --- body version 14+ ---
- * …    1     history flags (bit 0: version history enabled)
+ * …    1     history flags (bit 0: version history enabled; bit 1: retained-
+ *            snapshot cap is unlimited — body version 16+ only, always 0 below it)
+ * --- body version 16+ ---
+ * …    4     retained-snapshot cap override (u32; ignored when bit 1 above is
+ *            set, written as 0 in that case)
+ * --- body version 14+ ---
  * …    4     snapshot count (u32)
  * …    per snapshot: timestamp f64 (ms since epoch), byte length (u32), opaque bytes
  * --- all versions ---
@@ -160,24 +167,25 @@ export const RSF_LEGACY_MAGIC = new Uint8Array([0x52, 0x43, 0x53, 0x56]); // "RC
 export const RSF_LEGACY_CONTAINER_VERSION = 2;
 /**
  * Highest body version this release reads and writes. Version selection on
- * write is minimal: 15 when the worksheet is a json sheet (see
- * {@link WorksheetKind} in `worksheet.ts`), else 14 when version history is
- * disabled or holds at least one snapshot (see {@link RsfData.history}),
- * else 13 when the worksheet is locked (see {@link Worksheet.locked} in
- * `worksheet.ts`), else 12 when the worksheet is a markdown sheet, else 11
- * when at least one cell carries a comment, else 10 when at least one border
- * side carries a non-default line style or width, else 9 when at least one
- * cell carries a number format, else 8 when at least one cell carries a
- * style, else 7 when the workbook display language is not English, else 6
- * when the workbook timezone is not UTC, else 5 when wrap-long-rows is
- * stored, else 4 when a sheet filter is present, else 3 when display
- * settings are present, else 2 when application metadata is present, else 1
- * — so documents without the newer data stay readable by older releases.
- * Versions 1–15 are all accepted on read; an older reader rejects a version
- * it does not know with `bad-version` (a localized "unsupported version"
- * message) rather than misparsing it.
+ * write is minimal: 16 when this file overrides its retained-snapshot cap
+ * (see {@link RsfData.historyMaxOverride}), else 15 when the worksheet is a
+ * json sheet (see {@link WorksheetKind} in `worksheet.ts`), else 14 when
+ * version history is disabled or holds at least one snapshot (see
+ * {@link RsfData.history}), else 13 when the worksheet is locked (see
+ * {@link Worksheet.locked} in `worksheet.ts`), else 12 when the worksheet is
+ * a markdown sheet, else 11 when at least one cell carries a comment, else 10
+ * when at least one border side carries a non-default line style or width,
+ * else 9 when at least one cell carries a number format, else 8 when at
+ * least one cell carries a style, else 7 when the workbook display language
+ * is not English, else 6 when the workbook timezone is not UTC, else 5 when
+ * wrap-long-rows is stored, else 4 when a sheet filter is present, else 3
+ * when display settings are present, else 2 when application metadata is
+ * present, else 1 — so documents without the newer data stay readable by
+ * older releases. Versions 1–16 are all accepted on read; an older reader
+ * rejects a version it does not know with `bad-version` (a localized
+ * "unsupported version" message) rather than misparsing it.
  */
-export const RSF_BODY_VERSION = 15;
+export const RSF_BODY_VERSION = 16;
 
 // ----- Display-settings bounds (body version 3) -----------------------------
 // Persisted display state is validated and clamped on load so a malformed or
@@ -217,13 +225,23 @@ export const MAX_RSF_COMMENT_BYTES = MAX_COMMENT_LENGTH * 3;
 /** Decompression-bomb ceiling for the uncompressed body (512 MiB). */
 export const MAX_RSF_BODY_BYTES = 512 * 1024 * 1024;
 /**
- * Maximum number of snapshots retained in a document's version history (body
- * version 14 / workbook body version 10; see {@link RsfData.history}). Bounds
- * how much a repeatedly-saved document can grow from history alone — once a
- * save would exceed this count, the oldest snapshot is dropped first. A
- * snapshot count above this on read is `too-large`.
+ * Default number of snapshots a document retains in its version history (body
+ * version 14 / workbook body version 10; see {@link RsfData.history}) when the
+ * file carries no cap override of its own (see
+ * {@link RsfData.historyMaxOverride}). Every document saved before the
+ * per-file override existed effectively uses this default.
  */
-export const MAX_RSF_HISTORY_SNAPSHOTS = 20;
+export const DEFAULT_HISTORY_SNAPSHOT_LIMIT = 20;
+/**
+ * Absolute technical ceiling on retained snapshots, regardless of the
+ * per-file cap (including an explicit "unlimited" choice — see
+ * {@link RsfData.historyMaxOverride}). Each snapshot is a full copy of the
+ * document, so an unbounded cap could otherwise grow a repeatedly-saved file
+ * without limit; this keeps worst-case file size and decode cost bounded. A
+ * snapshot count above this on read, or a per-file override above it, is
+ * `too-large` / `bad-shape` respectively.
+ */
+export const MAX_RSF_HISTORY_SNAPSHOTS = 500;
 
 // ----- Workbook container (container version 4) ------------------------------
 
@@ -241,9 +259,11 @@ export const MAX_RSF_HISTORY_SNAPSHOTS = 20;
 export const RSF_CONTAINER_VERSION_WORKBOOK = 4;
 
 /**
- * Highest workbook body version this release reads and writes. Version 11 is
- * written whenever at least one worksheet in the workbook is a json sheet
- * (see {@link WorksheetKind} in `worksheet.ts`) — the per-worksheet
+ * Highest workbook body version this release reads and writes. Version 12 is
+ * written whenever this workbook overrides its retained-snapshot cap (see
+ * {@link RsfWorkbookData.historyMaxOverride}); version 11 is written whenever
+ * at least one worksheet in the workbook is a json sheet (see
+ * {@link WorksheetKind} in `worksheet.ts`) — the per-worksheet
  * worksheet-kind byte (see version 8 below) is only legal to hold `json` (2)
  * from this version; version 10 adds the workbook-level version-history
  * block (history flags plus a snapshot count and records — see
@@ -265,7 +285,7 @@ export const RSF_CONTAINER_VERSION_WORKBOOK = 4;
  * is not English); version 2 adds the workbook timezone (written only when it
  * is not UTC); version 1 is the original layout.
  */
-export const RSF_WORKBOOK_BODY_VERSION = 11;
+export const RSF_WORKBOOK_BODY_VERSION = 12;
 
 /**
  * Bounds for workbook payloads. A malformed or hostile container can never
@@ -422,12 +442,24 @@ export interface RsfData {
   historyEnabled?: boolean;
   /**
    * Past snapshots of this document's content (body version 14), oldest
-   * first, capped at {@link MAX_RSF_HISTORY_SNAPSHOTS} by the writer (the
-   * oldest is dropped once a save would exceed it). On decode this is
-   * populated only for version-14+ bodies whose block holds at least one
-   * snapshot; a count above the cap is `too-large`.
+   * first, capped at {@link effectiveHistoryMax} by the writer (the oldest is
+   * dropped once a save would exceed it). On decode this is populated only
+   * for version-14+ bodies whose block holds at least one snapshot; a count
+   * above {@link MAX_RSF_HISTORY_SNAPSHOTS} is `too-large`.
    */
   history?: RsfHistorySnapshot[];
+  /**
+   * This file's override of the retained-snapshot cap (body version 16),
+   * a per-file setting (see `RsfDocument.setHistoryMaxOverride`). `undefined`
+   * (absent) means "use the default" ({@link DEFAULT_HISTORY_SNAPSHOT_LIMIT})
+   * — every file saved before this setting existed; `null` means "unlimited"
+   * (still bounded by the hard ceiling {@link MAX_RSF_HISTORY_SNAPSHOTS}); a
+   * number is an explicit cap, validated into `[1, MAX_RSF_HISTORY_SNAPSHOTS]`
+   * on decode (`bad-shape` outside that range). Written only when present, so
+   * a document left on the default stays on the lowest sufficient body
+   * version. On decode this is `undefined` for every body version below 16.
+   */
+  historyMaxOverride?: number | null;
 }
 
 /**
@@ -513,6 +545,12 @@ export interface RsfWorkbookData {
    * oldest first; see {@link RsfData.history}.
    */
   history?: RsfHistorySnapshot[];
+  /**
+   * This workbook's override of the retained-snapshot cap (workbook body
+   * version 12+); see {@link RsfData.historyMaxOverride}. Absent means the
+   * default ({@link DEFAULT_HISTORY_SNAPSHOT_LIMIT}).
+   */
+  historyMaxOverride?: number | null;
 }
 
 export type RsfWorkbookDecodeResult =
@@ -1099,29 +1137,39 @@ function readCommentBlock(
 
 /**
  * Encode the body-version-14+ / workbook-version-10+ history block: a
- * one-byte flags field (bit 0: version history enabled) followed by a `u32`
- * snapshot count and that many `[timestamp f64, byte length u32, bytes]`
- * records, oldest first. Always physically present once the chosen version
- * reaches the threshold — even a document with history disabled and no
- * snapshots yet still writes the (empty) block, matching every other
- * version-gated section in this format. Snapshot bytes are written verbatim
- * (never truncated here) — capping the retained count to
- * {@link MAX_RSF_HISTORY_SNAPSHOTS} is the writer's (`RsfDocument`)
- * responsibility, exactly like every other write-side bound in this codec.
+ * one-byte flags field (bit 0: version history enabled; bit 1: the
+ * retained-snapshot cap override is unlimited) optionally followed by the
+ * body-version-16+ / workbook-version-12+ cap override (`u32`, present only
+ * when `maxOverride !== undefined`, ignored/written as 0 when bit 1 is set),
+ * then a `u32` snapshot count and that many
+ * `[timestamp f64, byte length u32, bytes]` records, oldest first. Always
+ * physically present once the chosen version reaches the threshold — even a
+ * document with history disabled and no snapshots yet still writes the
+ * (empty) block, matching every other version-gated section in this format.
+ * Snapshot bytes are written verbatim (never truncated here) — capping the
+ * retained count is the writer's (`RsfDocument`) responsibility, exactly like
+ * every other write-side bound in this codec.
  */
 function encodeHistoryBlock(
   enabled: boolean | undefined,
   history: RsfHistorySnapshot[] | undefined,
+  maxOverride: number | null | undefined,
 ): Uint8Array {
   const list = history ?? [];
-  let total = 1 + 4;
+  const hasMaxOverride = maxOverride !== undefined;
+  const unlimited = maxOverride === null;
+  let total = 1 + (hasMaxOverride ? 4 : 0) + 4;
   for (const snap of list) {
     total += 8 + 4 + snap.bytes.length;
   }
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = enabled === false ? 0 : 1;
+  out[off++] = (enabled === false ? 0 : 1) | (hasMaxOverride && unlimited ? 2 : 0);
+  if (hasMaxOverride) {
+    view.setUint32(off, unlimited ? 0 : (maxOverride as number), true);
+    off += 4;
+  }
   view.setUint32(off, list.length, true);
   off += 4;
   for (const snap of list) {
@@ -1136,21 +1184,44 @@ function encodeHistoryBlock(
 }
 
 /**
- * Read the history block. A snapshot count above
- * {@link MAX_RSF_HISTORY_SNAPSHOTS}, or a single snapshot's declared byte
- * length above {@link MAX_RSF_BODY_BYTES} (a snapshot is itself a body, so it
- * can never legitimately exceed the same ceiling), is `too-large`; structural
- * truncation is `bad-shape`, matching every other block in this codec.
- * Snapshot bytes are carried opaquely — bounds-checked but not decoded here,
- * since nothing in this release reads their contents.
+ * Read the history block. `hasMaxOverride` selects the body-version-16+ /
+ * workbook-version-12+ shape (with the cap-override field); older versions
+ * read the version-14/15 shape and always resolve `maxOverride` to
+ * `undefined` ("use the default"). A snapshot count above, or a decoded
+ * numeric cap override outside `[1, MAX_RSF_HISTORY_SNAPSHOTS]`, is
+ * `bad-shape`/`too-large`; a single snapshot's declared byte length above
+ * {@link MAX_RSF_BODY_BYTES} (a snapshot is itself a body, so it can never
+ * legitimately exceed the same ceiling) is `too-large`; structural truncation
+ * is `bad-shape`, matching every other block in this codec. Snapshot bytes
+ * are carried opaquely — bounds-checked but not decoded here.
  */
 function readHistoryBlock(
   rd: BodyReader,
-): { ok: true; enabled: boolean; history: RsfHistorySnapshot[] } | { ok: false; error: RsfDecodeError } {
-  if (!rd.need(1 + 4)) {
+  hasMaxOverride: boolean,
+):
+  | { ok: true; enabled: boolean; maxOverride: number | null | undefined; history: RsfHistorySnapshot[] }
+  | { ok: false; error: RsfDecodeError } {
+  if (!rd.need(1)) {
     return { ok: false, error: 'bad-shape' };
   }
   const flags = rd.u8();
+  let maxOverride: number | null | undefined;
+  if (hasMaxOverride) {
+    if (!rd.need(4)) {
+      return { ok: false, error: 'bad-shape' };
+    }
+    const rawMax = rd.u32();
+    if ((flags & 2) === 2) {
+      maxOverride = null;
+    } else if (rawMax < 1 || rawMax > MAX_RSF_HISTORY_SNAPSHOTS) {
+      return { ok: false, error: 'bad-shape' };
+    } else {
+      maxOverride = rawMax;
+    }
+  }
+  if (!rd.need(4)) {
+    return { ok: false, error: 'bad-shape' };
+  }
   const count = rd.u32();
   if (count > MAX_RSF_HISTORY_SNAPSHOTS) {
     return { ok: false, error: 'too-large' };
@@ -1171,15 +1242,16 @@ function readHistoryBlock(
     rd.off += length;
     history.push({ timestamp, bytes });
   }
-  return { ok: true, enabled: (flags & 1) === 1, history };
+  return { ok: true, enabled: (flags & 1) === 1, maxOverride, history };
 }
 
 function encodeBody(data: RsfData): Uint8Array {
   const enc = new TextEncoder();
   const name = enc.encode(data.name.slice(0, MAX_META_LENGTH));
-  // Version selection is minimal: a json worksheet needs version 15, else
-  // history disabled or non-empty needs version 14, else a locked worksheet
-  // needs version 13, else a markdown worksheet needs version 12, else any
+  // Version selection is minimal: a retained-snapshot cap override needs
+  // version 16, else a json worksheet needs version 15, else history
+  // disabled or non-empty needs version 14, else a locked worksheet needs
+  // version 13, else a markdown worksheet needs version 12, else any
   // commented cell needs version 11, any border side with a non-default line
   // style or width needs version 10, any cell with a number format needs
   // version 9, any styled cell needs version 8, a non-default display
@@ -1188,18 +1260,20 @@ function encodeBody(data: RsfData): Uint8Array {
   // need version 3, metadata alone needs version 2, otherwise the legacy
   // version-1 body is written. A newer section implies every older one, so
   // the layout stays a strict prefix chain — each `has*` below is OR'd with
-  // every section above it (a json worksheet forces the history section,
-  // which forces the lock section, which forces the kind section, which
-  // forces the comment section, which forces the style section, which forces
-  // the number-format sub-record inclusion flag, and cascades down through
-  // display language, timezone, flags, filter, display, to meta) so a body
-  // picking a high version always physically contains every lower section's
-  // bytes, even when that section's own data is empty/default (a document
-  // with history disabled is not necessarily locked — see
-  // `RsfDocument.setHistoryEnabled`), matching what `decodeBody` reads for
-  // that version unconditionally.
+  // every section above it (a cap override forces the history section same
+  // as a json worksheet does, which forces the lock section, which forces
+  // the kind section, which forces the comment section, which forces the
+  // style section, which forces the number-format sub-record inclusion flag,
+  // and cascades down through display language, timezone, flags, filter,
+  // display, to meta) so a body picking a high version always physically
+  // contains every lower section's bytes, even when that section's own data
+  // is empty/default (a document with history disabled is not necessarily
+  // locked — see `RsfDocument.setHistoryEnabled`), matching what `decodeBody`
+  // reads for that version unconditionally.
+  const hasMaxOverride = data.historyMaxOverride !== undefined;
   const isJson = data.kind === 'json';
-  const hasHistorySection = isJson || data.historyEnabled === false || (data.history?.length ?? 0) > 0;
+  const hasHistorySection =
+    hasMaxOverride || isJson || data.historyEnabled === false || (data.history?.length ?? 0) > 0;
   const hasLocked = hasHistorySection || data.locked === true;
   const isMarkdown = data.kind === 'markdown';
   // Physical presence of the worksheet-kind byte: forced by a lock exactly
@@ -1273,7 +1347,9 @@ function encodeBody(data: RsfData): Uint8Array {
   const commentSize = commentBytes ? commentBytes.length : 0;
   const kindSize = hasKindSection ? 1 : 0;
   const lockedSize = hasLocked ? 1 : 0;
-  const historyBytes = hasHistorySection ? encodeHistoryBlock(data.historyEnabled, data.history) : null;
+  const historyBytes = hasHistorySection
+    ? encodeHistoryBlock(data.historyEnabled, data.history, data.historyMaxOverride)
+    : null;
   const historySize = historyBytes ? historyBytes.length : 0;
   const total =
     1 +
@@ -1298,35 +1374,37 @@ function encodeBody(data: RsfData): Uint8Array {
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = isJson
-    ? 15
-    : hasHistorySection
-      ? 14
-      : hasLocked
-        ? 13
-        : isMarkdown
-          ? 12
-          : hasComments
-            ? 11
-            : hasBorderStyle
-              ? 10
-              : hasNumberFormats
-                ? 9
-                : hasStyles
-                  ? 8
-                  : hasDisplayLanguage
-                    ? 7
-                    : hasTimezone
-                      ? 6
-                      : wrapSet
-                        ? 5
-                        : hasFilterSection
-                          ? 4
-                          : hasDisplay
-                            ? 3
-                            : hasMeta
-                              ? 2
-                              : 1;
+  out[off++] = hasMaxOverride
+    ? 16
+    : isJson
+      ? 15
+      : hasHistorySection
+        ? 14
+        : hasLocked
+          ? 13
+          : isMarkdown
+            ? 12
+            : hasComments
+              ? 11
+              : hasBorderStyle
+                ? 10
+                : hasNumberFormats
+                  ? 9
+                  : hasStyles
+                    ? 8
+                    : hasDisplayLanguage
+                      ? 7
+                      : hasTimezone
+                        ? 6
+                        : wrapSet
+                          ? 5
+                          : hasFilterSection
+                            ? 4
+                            : hasDisplay
+                              ? 3
+                              : hasMeta
+                                ? 2
+                                : 1;
   out[off++] = data.delimiter.charCodeAt(0);
   if (hasMeta) {
     view.setUint16(off, appName!.length, true);
@@ -1584,20 +1662,23 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     }
     locked = rawLocked === 1;
   }
-  // Version-14 history block (see `readHistoryBlock`). Read via a temporary
-  // `BodyReader` sharing this function's own `off`, the same technique used
-  // for the filter/style/comment blocks above.
+  // Version-14 history block (see `readHistoryBlock`); version 16 adds the
+  // retained-snapshot cap override. Read via a temporary `BodyReader` sharing
+  // this function's own `off`, the same technique used for the
+  // filter/style/comment blocks above.
   let historyEnabled = true;
+  let historyMaxOverride: number | null | undefined;
   let history: RsfHistorySnapshot[] = [];
   if (bodyVersion >= 14) {
     const rd = new BodyReader(body, dec);
     rd.off = off;
-    const block = readHistoryBlock(rd);
+    const block = readHistoryBlock(rd, bodyVersion >= 16);
     if (!block.ok) {
       return { ok: false, error: block.error };
     }
     off = rd.off;
     historyEnabled = block.enabled;
+    historyMaxOverride = block.maxOverride;
     history = block.history;
   }
   const name = readString();
@@ -1697,6 +1778,9 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
   }
   if (history.length > 0) {
     data.history = history;
+  }
+  if (historyMaxOverride !== undefined) {
+    data.historyMaxOverride = historyMaxOverride;
   }
   if (styles !== undefined) {
     data.styles = styles;
@@ -2042,8 +2126,10 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
   // `hasComments` (>= 7) the same way the single-sheet body's `encodeBody`
   // chains it in. Comments/border style/number formats force the style-block
   // version too — same prefix-chain rule as the single-sheet body above.
+  const hasMaxOverride = data.historyMaxOverride !== undefined;
   const hasJson = data.sheets.some((sheet) => sheet.kind === 'json');
-  const hasHistorySection = hasJson || data.historyEnabled === false || (data.history?.length ?? 0) > 0;
+  const hasHistorySection =
+    hasMaxOverride || hasJson || data.historyEnabled === false || (data.history?.length ?? 0) > 0;
   const hasLocked = hasHistorySection || data.sheets.some((sheet) => sheet.locked === true);
   const hasMarkdown = hasLocked || data.sheets.some((sheet) => sheet.kind === 'markdown');
   const hasComments = hasMarkdown || data.sheets.some((sheet) => (sheet.comments?.length ?? 0) > 0);
@@ -2069,27 +2155,29 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
   const hasTimezone =
     hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
   bytes.push(
-    hasJson
-      ? 11
-      : hasHistorySection
-        ? 10
-        : hasLocked
-          ? 9
-          : hasMarkdown
-            ? 8
-            : hasComments
-              ? 7
-              : hasBorderStyle
-                ? 6
-                : hasNumberFormats
-                  ? 5
-                  : hasStyles
-                    ? 4
-                    : hasDisplayLanguage
-                      ? 3
-                      : hasTimezone
-                        ? 2
-                        : 1,
+    hasMaxOverride
+      ? 12
+      : hasJson
+        ? 11
+        : hasHistorySection
+          ? 10
+          : hasLocked
+            ? 9
+            : hasMarkdown
+              ? 8
+              : hasComments
+                ? 7
+                : hasBorderStyle
+                  ? 6
+                  : hasNumberFormats
+                    ? 5
+                    : hasStyles
+                      ? 4
+                      : hasDisplayLanguage
+                        ? 3
+                        : hasTimezone
+                          ? 2
+                          : 1,
   );
   bytes.push(data.delimiter.charCodeAt(0));
   pushString(bytes, enc, data.appName ?? '', MAX_META_LENGTH);
@@ -2110,7 +2198,7 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
     // (enabled) default with no saves recorded yet stays a version-9-or-lower
     // body — same placement and reasoning as the single-sheet body's own
     // version-14 block (see `encodeBody`).
-    for (const b of encodeHistoryBlock(data.historyEnabled, data.history)) {
+    for (const b of encodeHistoryBlock(data.historyEnabled, data.history, data.historyMaxOverride)) {
       bytes.push(b);
     }
   }
@@ -2220,15 +2308,17 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
     displayLanguage = lang;
   }
   // Version-10 workbook-level history block (see `readHistoryBlock` and
-  // `encodeWorkbookBody`).
+  // `encodeWorkbookBody`); version 12 adds the retained-snapshot cap override.
   let historyEnabled = true;
+  let historyMaxOverride: number | null | undefined;
   let history: RsfHistorySnapshot[] = [];
   if (version >= 10) {
-    const block = readHistoryBlock(rd);
+    const block = readHistoryBlock(rd, version >= 12);
     if (!block.ok) {
       return { ok: false, error: block.error };
     }
     historyEnabled = block.enabled;
+    historyMaxOverride = block.maxOverride;
     history = block.history;
   }
   if (!rd.need(2)) {
@@ -2436,6 +2526,9 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
   if (history.length > 0) {
     data.history = history;
   }
+  if (historyMaxOverride !== undefined) {
+    data.historyMaxOverride = historyMaxOverride;
+  }
   // An active-worksheet identifier that names no worksheet falls back to the
   // first one rather than leaving the workbook without an active worksheet.
   if (activeSheetId !== '' && seenIds.has(activeSheetId)) {
@@ -2485,6 +2578,9 @@ function workbookToSingleSheetData(data: RsfWorkbookData): RsfData {
   if (data.history !== undefined) {
     single.history = data.history;
   }
+  if (data.historyMaxOverride !== undefined) {
+    single.historyMaxOverride = data.historyMaxOverride;
+  }
   if (only.display) {
     single.display = only.display;
   }
@@ -2533,6 +2629,83 @@ export function encodeRsfBody(data: RsfWorkbookData): Uint8Array {
     return encodeBody(workbookToSingleSheetData(data));
   }
   return encodeWorkbookBody(data);
+}
+
+/**
+ * Convert a decoded single-sheet body into the flat workbook shape — the
+ * inverse of {@link workbookToSingleSheetData}. Used by
+ * {@link decodeRsfHistorySnapshot} to give a restored snapshot the same
+ * one-worksheet workbook model every other decode path produces; carries only
+ * content (no `historyEnabled`/`history`/`compression`, irrelevant to a
+ * snapshot's own past content).
+ */
+function singleToWorkbookData(data: RsfData): RsfWorkbookData {
+  const sheet: RsfWorksheetData = {
+    id: 's1',
+    name: data.name,
+    rowCount: data.rowCount,
+    columnCount: data.columnCount,
+    cells: data.cells,
+  };
+  if (data.kind !== undefined) {
+    sheet.kind = data.kind;
+  }
+  if (data.locked) {
+    sheet.locked = true;
+  }
+  if (data.display) {
+    sheet.display = data.display;
+  }
+  if (data.filter) {
+    sheet.filter = data.filter;
+  }
+  if (data.filterDropped) {
+    sheet.filterDropped = true;
+  }
+  if (data.styles) {
+    sheet.styles = data.styles;
+  }
+  if (data.comments) {
+    sheet.comments = data.comments;
+  }
+  const workbook: RsfWorkbookData = { delimiter: data.delimiter, sheets: [sheet], activeSheetId: sheet.id };
+  if (data.appName !== undefined) {
+    workbook.appName = data.appName;
+  }
+  if (data.appVersion !== undefined) {
+    workbook.appVersion = data.appVersion;
+  }
+  if (data.timezone !== undefined) {
+    workbook.timezone = data.timezone;
+  }
+  if (data.displayLanguage !== undefined) {
+    workbook.displayLanguage = data.displayLanguage;
+  }
+  return workbook;
+}
+
+/**
+ * Decode one version-history snapshot's opaque body bytes back into a
+ * workbook model, for the "restore" action of Sheet ▸ File Version History….
+ * A snapshot's `bytes` are produced by {@link encodeRsfBody}, which picks the
+ * single-sheet or workbook body shape based on how many worksheets the
+ * document held *at that save* — information not recorded alongside the
+ * bytes themselves (see {@link RsfHistorySnapshot}), so this tries the
+ * single-sheet decoder first (the overwhelmingly common case) and falls back
+ * to the workbook decoder. Both decoders fully validate their shape,
+ * including an exact-length final check, so bytes written in one shape do
+ * not parse successfully as the other in practice.
+ */
+export function decodeRsfHistorySnapshot(snapshot: RsfHistorySnapshot): RsfWorkbookDecodeResult {
+  const single = decodeBody(snapshot.bytes);
+  if (single.ok) {
+    return { ok: true, data: singleToWorkbookData(single.data) };
+  }
+  const workbook = decodeWorkbookBody(snapshot.bytes);
+  if (workbook.ok) {
+    return workbook;
+  }
+  return single;
 }
 
 /**
@@ -2610,6 +2783,9 @@ export function decodeRsfWorkbook(bytes: Uint8Array): RsfWorkbookDecodeResult {
     }
     if (single.data.history !== undefined) {
       data.history = single.data.history;
+    }
+    if (single.data.historyMaxOverride !== undefined) {
+      data.historyMaxOverride = single.data.historyMaxOverride;
     }
     return { ok: true, data };
   }

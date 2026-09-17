@@ -19,6 +19,7 @@ import type {
   SortDialogInput,
   SortDialogResult,
   SqlQueryDialogInput,
+  VersionHistoryChoice,
   WorkbookReplaceConfirmInput,
 } from '../app/commands';
 import { t, type LocaleId } from '../app/i18n';
@@ -26,6 +27,7 @@ import type { DelimiterId } from '../core/byte-csv-parser';
 import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../core/cell-style';
 import type { CsvExportOptions } from '../core/csv-export';
 import type { EncodingId } from '../core/encoding';
+import type { RsfHistorySnapshot } from '../core/rsf-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
 import type { ValidationSummary } from '../core/validation';
 import { el } from './dom';
@@ -352,13 +354,18 @@ export class Dialogs {
     return this.appSettings.chooseDisplayLanguage(current);
   }
 
-  /** See `AppSettingsDialogs.chooseVersionHistoryEnabled` for the full behavior contract. */
-  chooseVersionHistoryEnabled(
+  /** See `AppSettingsDialogs.chooseVersionHistory` for the full behavior contract. */
+  chooseVersionHistory(
     current: boolean,
-    snapshotCount: number,
-    newestTimestamp: number | null,
-  ): Promise<boolean | null> {
-    return this.appSettings.chooseVersionHistoryEnabled(current, snapshotCount, newestTimestamp);
+    maxOverride: number | null | undefined,
+    history: readonly RsfHistorySnapshot[],
+  ): Promise<VersionHistoryChoice | null> {
+    return this.appSettings.chooseVersionHistory(current, maxOverride, history);
+  }
+
+  /** See `FileIoDialogs.confirmHistoryCapExceeded` for the full behavior contract. */
+  confirmHistoryCapExceeded(name: string, max: number): Promise<boolean> {
+    return this.fileIo.confirmHistoryCapExceeded(name, max);
   }
 
   /**

@@ -19,9 +19,10 @@ import {
   type UnrepresentableCell,
 } from '../core/serializer';
 import { type ValidationSummary } from '../core/validation';
+import type { RsfHistorySnapshot } from '../core/rsf-codec';
 import { AppState, type Selection, type SelectionKind, type Tab } from './app-state';
 import { pickFiles, saveBytesAs, type OpenedFile } from './file-access';
-import { setLocale, t, type LocaleId } from './i18n';
+import { getLocale, setLocale, t, type LocaleId } from './i18n';
 import {
   DEFAULT_SHEET_ZOOM,
   getAutoFitOnOpen,
@@ -103,6 +104,15 @@ export type ConvertReason =
   | 'conditionalFormat'
   | 'comment'
   | 'move';
+
+/**
+ * Resolution of the Sheet ▸ File Version History… dialog (see
+ * `UiPort.chooseVersionHistory`): either the enabled/cap settings were
+ * confirmed, or a specific snapshot's Restore action was chosen.
+ */
+export type VersionHistoryChoice =
+  | { kind: 'save'; enabled: boolean; maxOverride: number | null | undefined }
+  | { kind: 'restore'; index: number };
 
 /** The summary shown before a range move replaces existing destination cells. */
 export interface RangeMoveConfirmInput {
@@ -418,16 +428,29 @@ export interface UiPort {
   chooseDisplayLanguage(current: LocaleId): Promise<LocaleId | null>;
   /**
    * The Sheet ▸ File Version History… dialog: whether this file records a
-   * snapshot on every successful save, with `snapshotCount`/`newestTimestamp`
-   * (ms since epoch, or null when there are none yet) shown for context.
-   * Resolves with the chosen enabled state, or null when cancelled (nothing
+   * snapshot on every successful save, the per-file retained-snapshot cap
+   * override (`maxOverride`: `undefined` = default, `null` = unlimited, or an
+   * explicit number), and the recorded snapshots themselves (oldest first) so
+   * one can be restored. Resolves `{ kind: 'save', ... }` when the enabled
+   * checkbox / cap setting is confirmed, `{ kind: 'restore', index }` when a
+   * snapshot's Restore action is chosen, or null when cancelled (nothing
    * changes). Never deletes anything — clearing is `sheet.clearVersionHistory`.
    */
-  chooseVersionHistoryEnabled(
+  chooseVersionHistory(
     current: boolean,
-    snapshotCount: number,
-    newestTimestamp: number | null,
-  ): Promise<boolean | null>;
+    maxOverride: number | null | undefined,
+    history: readonly RsfHistorySnapshot[],
+  ): Promise<VersionHistoryChoice | null>;
+  /**
+   * Warn that saving now will drop the oldest recorded version-history
+   * snapshot because this file's retained-snapshot cap (`max`) has been
+   * reached (Sheet ▸ File Version History…), shown before the save happens.
+   * Carries a "don't show again" checkbox (default off) whose choice is
+   * persisted locally (`app/settings.ts`'s `setSuppressHistoryCapWarning`),
+   * never written into the file. Resolves true to proceed with the save,
+   * false to cancel it.
+   */
+  confirmHistoryCapExceeded(name: string, max: number): Promise<boolean>;
   /**
    * The Text Color dialog: a color picker preselected from `current` (null
    * when the selection has none, or is mixed). Resolves with the chosen
@@ -1127,24 +1150,73 @@ export class Commands {
         return;
       case 'sheet.versionHistory':
         if (tab && tab.doc.kind === 'rsf') {
-          const history = tab.doc.history;
-          const newest = history.length > 0 ? history[history.length - 1].timestamp : null;
-          const chosen = await this.ui.chooseVersionHistoryEnabled(
-            tab.doc.historyEnabled,
-            history.length,
-            newest,
+          const doc = tab.doc;
+          const choice = await this.ui.chooseVersionHistory(
+            doc.historyEnabled,
+            doc.historyMaxOverride,
+            doc.history,
           );
-          // Like the lock flag, this is persisted in the saved container but
-          // changes no cell input, so `setHistoryEnabled` marks the document
-          // dirty without touching the evaluation memo.
-          if (chosen !== null && chosen !== tab.doc.historyEnabled) {
-            tab.doc.setHistoryEnabled(chosen);
-            this.state.emit('doc');
-            this.ui.notify(
-              t(chosen ? 'notify.versionHistoryEnabled' : 'notify.versionHistoryDisabled'),
-              'info',
-            );
+          if (!choice) {
+            return;
           }
+          if (choice.kind === 'restore') {
+            const snapshot = doc.history[choice.index];
+            if (!snapshot) {
+              return;
+            }
+            const when = new Date(snapshot.timestamp).toLocaleString(
+              getLocale() === 'ja' ? 'ja-JP' : 'en-US',
+            );
+            const ok = await this.ui.confirm(
+              t('dialog.restoreVersion.title'),
+              t('dialog.restoreVersion.message', { when }),
+              t('dialog.restoreVersion.ok'),
+              t('dialog.restoreVersion.cancel'),
+            );
+            if (!ok) {
+              return;
+            }
+            // A restore is a deliberate revert, not an edit: it is not itself
+            // undoable, and the tab's existing undo/redo entries describe
+            // edits to the content this call just replaced, so they are
+            // cleared rather than left to (mis)apply against the restored
+            // content.
+            if (doc.restoreFromSnapshot(choice.index)) {
+              tab.history.clear();
+              this.state.emit('doc');
+              this.state.emit('tabs');
+              this.ui.notify(t('notify.versionRestored'), 'info');
+            } else {
+              this.ui.notify(t('notify.versionRestoreFailed'), 'error');
+            }
+            return;
+          }
+          // choice.kind === 'save'
+          const enabledChanged = choice.enabled !== doc.historyEnabled;
+          const maxChanged = choice.maxOverride !== doc.historyMaxOverride;
+          if (!enabledChanged && !maxChanged) {
+            return;
+          }
+          // Like the lock flag, these are persisted in the saved container but
+          // change no cell input, so they mark the document dirty without
+          // touching the evaluation memo.
+          if (enabledChanged) {
+            doc.setHistoryEnabled(choice.enabled);
+          }
+          if (maxChanged) {
+            doc.setHistoryMaxOverride(choice.maxOverride);
+          }
+          this.state.emit('doc');
+          this.ui.notify(
+            t(
+              enabledChanged
+                ? choice.enabled
+                  ? 'notify.versionHistoryEnabled'
+                  : 'notify.versionHistoryDisabled'
+                : 'notify.versionHistoryMaxUpdated',
+            ),
+            'info',
+          );
         }
         return;
       case 'sheet.clearVersionHistory':

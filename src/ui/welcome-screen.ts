@@ -10,10 +10,11 @@ import { createIcon } from './icon';
  * The initial screen: shown on first launch and restored whenever the last
  * document tab is closed, so the application never sits on an empty tab strip
  * or a blank grid. It offers the primary entry points — open a file, create a
- * new RSF spreadsheet, drag & drop — plus short offline / local-file usage
- * guidance. Application-level preferences (language, sheet font, file-size
- * limit) live outside the tab lifecycle and are unaffected; the screen simply
- * re-renders in the active locale.
+ * new RSF spreadsheet, drag & drop. The fuller app description (what it does,
+ * offline/network behavior) lives in Help ▸ About, not here. Application-level
+ * preferences (language, sheet font, file-size limit) live outside the tab
+ * lifecycle and are unaffected; the screen simply re-renders in the active
+ * locale.
  */
 export class WelcomeScreen {
   readonly element: HTMLElement;
@@ -72,10 +73,6 @@ export class WelcomeScreen {
         className:
           'welcome-drop mt-[6px] rounded-lg border-2 border-dashed border-line px-[26px] py-[14px] text-dim',
         text: t('welcome.drop'),
-      }),
-      el('p', {
-        className: 'welcome-note m-0 max-w-[560px] text-[12px] leading-[1.6] text-dim',
-        text: t('welcome.offline'),
       }),
     );
   }

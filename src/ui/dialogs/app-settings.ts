@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { driveConfigured } from '../../app/drive/config';
 import { t, type LocaleId } from '../../app/i18n';
 import { SHORTCUT_DOCS } from '../../app/shortcuts';
 import { FUNCTION_INFOS, type FunctionCategory } from '../../core/formula';
@@ -183,7 +184,9 @@ export class AppSettingsDialogs {
         }),
       );
       body.append(el('p', { text: t('dialog.about.tagline') }));
-      body.append(el('p', { text: t('dialog.about.body') }));
+      body.append(
+        el('p', { text: driveConfigured() ? t('dialog.about.bodyHosted') : t('dialog.about.body') }),
+      );
       body.append(el('h3', { text: t('dialog.about.links') }));
       body.append(
         el('ul', { className: 'about-links' }, [

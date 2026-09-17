@@ -150,6 +150,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The home (welcome) screen no longer states that the app "runs fully
+  offline" and that "no data ever leaves this page" — that claim only holds
+  for the downloadable offline HTML build, not the hosted web app at
+  `app.refrain-sheet.com`, which offers opt-in Google Drive sync. That
+  description now lives in **Help > About**, where the hosted build shows
+  wording about the optional Drive sync instead; the offline build's About
+  text is unchanged.
+  ([#520](https://github.com/0x0da160/refrain-sheet/issues/520))
 - The File, Edit, and Format menus were reorganized: the File menu (which had
   grown to roughly 14 flat entries) now keeps New, New CSV, Open, and Save at
   the top level and moves everything else into a **File > Export** submenu

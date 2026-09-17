@@ -141,6 +141,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
   appears only when editing actually starts (double-tap, Enter/F2, the
   formula bar).
   ([#496](https://github.com/0x0da160/refrain-sheet/issues/496))
+- On a mobile device, typing in the bottom formula bar no longer causes a
+  brief layout shift or scroll on every keystroke; the on-screen keyboard's
+  predictive-text suggestion bar changing height as you type was triggering
+  an unrelated scroll-position resync meant only for a different bug
+  (the page staying shifted after the keyboard closes, #402).
+  ([#519](https://github.com/0x0da160/refrain-sheet/issues/519))
 
 ### Changed
 
@@ -152,6 +158,18 @@ release-time half (retitling `Unreleased`) is still done by hand.
   wording about the optional Drive sync instead; the offline build's About
   text is unchanged.
   ([#520](https://github.com/0x0da160/refrain-sheet/issues/520))
+- The File, Edit, and Format menus were reorganized: the File menu (which had
+  grown to roughly 14 flat entries) now keeps New, New CSV, Open, and Save at
+  the top level and moves everything else into a **File > Export** submenu
+  (Save with Options…, Export as CSV/XLSX/JSON…) and a **File > Document**
+  submenu (Reopen with Encoding…, Protect Document, Convert to Spreadsheet
+  (RSF)…); Edit gained **Copy As** (Copy Image, Copy as Markdown Table) and
+  **Revert** (Revert Cell to Original, Revert All Edits) submenus; Format
+  gained a **Color & Borders** submenu (Text Color, Background Color,
+  Borders). This follows the same submenu-grouping pattern already used by
+  the Sheet and View menus; every command keeps its existing keyboard
+  shortcut and is reachable in the same number of clicks plus one.
+  ([#518](https://github.com/0x0da160/refrain-sheet/issues/518))
 - The docked Markdown worksheet's rendered preview is now a dockable,
   resizable side panel — the same panel style as Filter/Sort/Format/SQL
   Query and the comments panel — instead of a fixed inline split with the

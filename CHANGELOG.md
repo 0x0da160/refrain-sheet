@@ -141,6 +141,12 @@ release-time half (retitling `Unreleased`) is still done by hand.
   appears only when editing actually starts (double-tap, Enter/F2, the
   formula bar).
   ([#496](https://github.com/0x0da160/refrain-sheet/issues/496))
+- On a mobile device, typing in the bottom formula bar no longer causes a
+  brief layout shift or scroll on every keystroke; the on-screen keyboard's
+  predictive-text suggestion bar changing height as you type was triggering
+  an unrelated scroll-position resync meant only for a different bug
+  (the page staying shifted after the keyboard closes, #402).
+  ([#519](https://github.com/0x0da160/refrain-sheet/issues/519))
 
 ### Changed
 

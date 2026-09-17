@@ -79,7 +79,7 @@ beforeEach(() => {
 });
 
 describe('welcome screen (initial screen)', () => {
-  it('is shown on first launch with localized entry points and offline guidance', () => {
+  it('is shown on first launch with localized entry points', () => {
     const { welcome } = setup();
     expect(welcome.element.hidden).toBe(false);
     const buttons = welcome.element.querySelectorAll<HTMLButtonElement>('.welcome-action');
@@ -88,7 +88,8 @@ describe('welcome screen (initial screen)', () => {
     expect(buttons[1].textContent).toBe(t('welcome.new'));
     expect(buttons[2].textContent).toBe(t('welcome.newCsv'));
     expect(welcome.element.querySelector('.welcome-drop')!.textContent).toBe(t('welcome.drop'));
-    expect(welcome.element.querySelector('.welcome-note')!.textContent).toBe(t('welcome.offline'));
+    // The offline/network-behavior description moved to Help ▸ About (#520).
+    expect(welcome.element.querySelector('.welcome-note')).toBeNull();
   });
 
   it('the New Spreadsheet entry point creates a document and hides the screen', () => {

@@ -190,8 +190,9 @@ Conversion between the two is **always explicit and confirmed** (never
 silent), and CSV → RSF is documented as lossy with respect to the original
 byte layout.
 
-A worksheet also has a **kind** (`Worksheet.kind`, `'grid'` or `'markdown'`,
-persisted as of RSF body version 12 / workbook body version 8 — see
+A worksheet also has a **kind** (`Worksheet.kind`, `'grid'`, `'markdown'`, or
+`'json'`, persisted as of RSF body version 12 / workbook body version 8 —
+`json` requires body version 15 / workbook body version 11 — see
 [rsf-format.md](rsf-format.md#worksheet-kind-body-version-12)): a `markdown`
 worksheet holds one Markdown document as its sole content (its raw source
 lives in cell A1, so editing it reuses the ordinary cell-edit `HistoryEntry`
@@ -200,9 +201,28 @@ path) and is rendered by a docked source/preview surface
 while it is active — a second surface hosted alongside `src/ui/grid.ts`
 in `main.ts`'s `.main-row`, not a replacement for it. It uses the safe AST
 renderer (`src/ui/markdown-render.ts`) and the parser
-(`src/core/markdown.ts`). A markdown worksheet is excluded from CSV export
-(CSV has no analog for it) and never evaluated as a formula, however its
-text starts.
+(`src/core/markdown.ts`). A `json` worksheet is the same shape (raw source in
+cell A1, docked source/preview surface, `src/ui/json-sheet.ts`) holding one
+JSON document instead: its preview is a syntax-highlighted `<pre>` block
+(`src/core/syntax-highlight.ts`'s `tokenizeCode`, the same tokenizer the
+Markdown preview's fenced code blocks use) rather than a rendered document,
+and its toolbar adds an explicit, button-triggered "Format" (pretty-print)
+action — never automatic, never run on save (issue #529) — that leaves
+invalid JSON untouched and reports the parse error instead of guessing.
+Neither a markdown nor a json worksheet is ever evaluated as a formula,
+however its text starts, and both are excluded from CSV export (CSV has no
+analog for a whole-sheet document).
+
+JSON/YAML/plain-text files can also be opened and edited **standalone**,
+outside an RSF container, the same way CSV is today (see
+[rsf-format.md](rsf-format.md#worksheet-kind-body-version-12) and `.txt`'s
+existing byte-preserving `LosslessDocument` handling in
+`src/app/commands/file-io.ts`'s `openFile()`); that standalone path, and a
+dedicated `'yaml'` worksheet kind, are tracked as follow-up work (see
+issue #529's discussion) rather than delivered in the same change as the
+`json` worksheet kind above, since each is independently reviewable and
+YAML editing needs a bundled parser/serializer dependency decision of its
+own.
 
 ## Floating surfaces (menus, context menus, submenus)
 

@@ -461,6 +461,30 @@ export class WorksheetsState {
   }
 
   /**
+   * Add a new worksheet holding one empty JSON document after the active
+   * one, as one atomic, undoable operation, and activate it. Identical to
+   * {@link addMarkdownSheet} except for what the new worksheet contains.
+   */
+  addJsonSheet(tab: Tab, name: string): Worksheet | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || doc.sheetCount >= MAX_WORKSHEETS) {
+      return null;
+    }
+    const sheet = doc.createJsonWorksheet(name);
+    const index = doc.sheetIndex(doc.activeSheetId) + 1;
+    this.saveSheetView(tab, doc);
+    const applied = this.state.pushEntry(tab, {
+      label: 'history.addJsonSheet',
+      ops: [{ type: 'sheets', op: { action: 'add', sheet, index } }],
+    });
+    if (!applied) {
+      return null;
+    }
+    this.state.emit('sheets');
+    return sheet;
+  }
+
+  /**
    * Duplicate a worksheet (deep copy, inserted immediately after the source)
    * as one atomic, undoable operation, and activate the copy. Formulas are
    * copied verbatim: worksheet-qualified references keep pointing at the

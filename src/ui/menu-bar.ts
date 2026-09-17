@@ -164,6 +164,7 @@ const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'sheet.clearVersionHistory': Trash2,
   'worksheet.add': Plus,
   'worksheet.addMarkdown': FilePenLine,
+  'worksheet.addJson': FileJson,
   'worksheet.rename': Pencil,
   'worksheet.duplicate': CopyPlus,
   'worksheet.delete': Trash2,
@@ -539,6 +540,7 @@ function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
   return [
     { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add' },
     { labelKey: 'menu.sheet.addMarkdownSheet', command: 'worksheet.addMarkdown' },
+    { labelKey: 'menu.sheet.addJsonSheet', command: 'worksheet.addJson' },
     { labelKey: 'menu.sheet.renameSheet', command: 'worksheet.rename' },
     { labelKey: 'menu.sheet.duplicateSheet', command: 'worksheet.duplicate' },
     { labelKey: 'menu.sheet.deleteSheet', command: 'worksheet.delete' },

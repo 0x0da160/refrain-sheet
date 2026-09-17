@@ -197,6 +197,45 @@ describe('binary container codec (JS store engine)', () => {
     expect(decoded.data.locked).toBe(true);
   });
 
+  it('round-trips a json worksheet (body version 15)', () => {
+    const json: RsfData = {
+      name: 'Data',
+      delimiter: ',',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [[0, 0, '{"a":1}']],
+      kind: 'json',
+    };
+    const decoded = decodeRsf(encodeRsf(json));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.kind).toBe('json');
+    expect(decoded.data.cells).toEqual([[0, 0, '{"a":1}']]);
+  });
+
+  it('rejects a json worksheet with any shape other than 1x1', () => {
+    const decoded = decodeRsf(encodeRsf({ ...sample, kind: 'json' }));
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
+  });
+
+  it('carries a lock alongside a json kind (both forced to body version 15)', () => {
+    const both: RsfData = {
+      name: 'Data',
+      delimiter: ',',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [[0, 0, '[]']],
+      kind: 'json',
+      locked: true,
+    };
+    const decoded = decodeRsf(encodeRsf(both));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.kind).toBe('json');
+    expect(decoded.data.locked).toBe(true);
+  });
+
   it('round-trips version history with snapshots (body version 14)', () => {
     const history: RsfHistorySnapshot[] = [
       { timestamp: 1000, bytes: new Uint8Array([1, 2, 3]) },

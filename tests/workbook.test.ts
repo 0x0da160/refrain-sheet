@@ -497,6 +497,18 @@ describe('CSV export from a workbook', () => {
     expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
   });
 
+  it('refuses to export when the workbook is a single JSON sheet', async () => {
+    const notify = vi.fn();
+    const ui = stubUi({ notify });
+    const { state, commands, tab, doc } = setup(ui);
+    state.addJsonSheet(tab, 'Data');
+    state.deleteSheet(tab, doc.sheets[0].id);
+    expect(doc.sheetCount).toBe(1);
+    expect(doc.activeSheet.kind).toBe('json');
+    expect(await commands.exportCsv(tab)).toBe(false);
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
+  });
+
   it('excludes Markdown sheets from the export choice', async () => {
     const chooseExportSheet = vi.fn(async () => null);
     const ui = stubUi({ chooseExportSheet });
@@ -751,6 +763,58 @@ describe('workbook container', () => {
     expect(decoded.ok).toBe(true);
     if (!decoded.ok) return;
     expect(decoded.data.sheets[1].kind).toBe('markdown');
+    expect(decoded.data.sheets[1].locked).toBe(true);
+  });
+
+  it('round-trips a json worksheet through the workbook body (version 11)', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 2, columnCount: 2, cells: [] },
+        { id: 'b', name: 'Data', rowCount: 1, columnCount: 1, cells: [[0, 0, '{"a":1}']], kind: 'json' },
+      ],
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.sheets[0].kind).toBeUndefined();
+    expect(decoded.data.sheets[1].kind).toBe('json');
+    expect(decoded.data.sheets[1].cells).toEqual([[0, 0, '{"a":1}']]);
+  });
+
+  it('rejects a json worksheet with any shape other than 1x1', () => {
+    const bytes = encodeRsfWorkbook({
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [], kind: 'json' },
+        { id: 'b', name: 'B', rowCount: 2, columnCount: 1, cells: [], kind: 'json' },
+      ],
+    });
+    const decoded = decodeRsfWorkbook(bytes);
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
+  });
+
+  it('carries a lock alongside a json kind through the workbook body', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 2, columnCount: 2, cells: [] },
+        {
+          id: 'b',
+          name: 'Data',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [[0, 0, '[]']],
+          kind: 'json',
+          locked: true,
+        },
+      ],
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.sheets[1].kind).toBe('json');
     expect(decoded.data.sheets[1].locked).toBe(true);
   });
 

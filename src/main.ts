@@ -19,6 +19,7 @@ import { el } from './ui/dom';
 import { FindBar } from './ui/find-bar';
 import { FormulaBar } from './ui/formula-bar';
 import { Grid } from './ui/grid';
+import { JsonSheetView } from './ui/json-sheet';
 import { LoadingOverlay } from './ui/loading-overlay';
 import { MarkdownSheetView } from './ui/markdown-sheet';
 import { MenuBar } from './ui/menu-bar';
@@ -134,9 +135,14 @@ function bootstrap(): void {
   // Markdown worksheet is active (see `Worksheet.kind`) — a second surface
   // in the same spreadsheet area, not a replacement for the grid.
   const markdownSheetView = new MarkdownSheetView(state, commands);
-  const refreshMarkdownSheetView = (): void => {
+  // The docked source/preview surface shown in place of the grid while a
+  // JSON worksheet is active (see `Worksheet.kind`) — same pattern as
+  // `markdownSheetView`, a sibling surface rather than a replacement.
+  const jsonSheetView = new JsonSheetView(state, commands);
+  const refreshSourceSheetViews = (): void => {
     markdownSheetView.refresh();
-    grid.element.hidden = markdownSheetView.active;
+    jsonSheetView.refresh();
+    grid.element.hidden = markdownSheetView.active || jsonSheetView.active;
   };
   const clipboard = new ClipboardController(
     state,
@@ -221,7 +227,11 @@ function bootstrap(): void {
   if (!app) {
     return;
   }
-  const mainRow = el('div', { className: 'main-row' }, [grid.element, markdownSheetView.element]);
+  const mainRow = el('div', { className: 'main-row' }, [
+    grid.element,
+    markdownSheetView.element,
+    jsonSheetView.element,
+  ]);
   // Everything except the always-visible menu bar and status bar lives in
   // `#app-body`: a docked side panel (the comments panel here, or Filter/
   // Sort/Format/SQL Query via `openSidePanel`) reserves space by padding
@@ -237,6 +247,7 @@ function bootstrap(): void {
     sheetBar.element,
     commentsPanel.element,
     markdownSheetView.panelElement,
+    jsonSheetView.panelElement,
   ]);
   // `menuBar.toggleElement` is a separate top-level element from
   // `menuBar.element` (mobile only) so the narrow-viewport grid can place it
@@ -261,7 +272,7 @@ function bootstrap(): void {
     menuBar.render();
     tabBar.render();
     sheetBar.render(true);
-    refreshMarkdownSheetView();
+    refreshSourceSheetViews();
     grid.refresh();
     formulaBar.refresh(selectionChanged);
     statusBar.render();
@@ -292,7 +303,7 @@ function bootstrap(): void {
         grid.cancelEditing();
         menuBar.render();
         sheetBar.render();
-        refreshMarkdownSheetView();
+        refreshSourceSheetViews();
         grid.refresh();
         formulaBar.refresh(true);
         statusBar.render();
@@ -302,7 +313,7 @@ function bootstrap(): void {
       case 'doc':
         tabBar.render();
         sheetBar.render();
-        refreshMarkdownSheetView();
+        refreshSourceSheetViews();
         grid.refresh();
         formulaBar.refresh(false);
         statusBar.render();
@@ -448,11 +459,12 @@ function bootstrap(): void {
   // Browsers do not allow custom dialogs during unload; the standard
   // leave-page confirmation is used when any tab has unsaved changes.
   window.addEventListener('beforeunload', (event) => {
-    // A pending debounced Markdown-sheet edit (see `MarkdownSheetView`) has
-    // not yet marked its document dirty — flush it first so an edit made in
-    // the last moment before closing is never silently lost nor missed by
-    // the dirty check below.
+    // A pending debounced Markdown/JSON-sheet edit (see `MarkdownSheetView`/
+    // `JsonSheetView`) has not yet marked its document dirty — flush it
+    // first so an edit made in the last moment before closing is never
+    // silently lost nor missed by the dirty check below.
     markdownSheetView.flushCommit();
+    jsonSheetView.flushCommit();
     if (state.tabs.some((tab) => tab.doc.isDirty)) {
       event.preventDefault();
       event.returnValue = '';

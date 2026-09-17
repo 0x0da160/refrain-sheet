@@ -565,6 +565,11 @@ export class RsfDocument {
     return Worksheet.markdown(this.mintSheetId(), name, '');
   }
 
+  /** Build (but do not insert) a new worksheet holding one empty JSON document. */
+  createJsonWorksheet(name: string): Worksheet {
+    return Worksheet.json(this.mintSheetId(), name, '');
+  }
+
   /** Build (but do not insert) a deep copy of a worksheet under a new name. */
   duplicateWorksheet(id: string, name: string): Worksheet | null {
     const source = this.sheetById(id);

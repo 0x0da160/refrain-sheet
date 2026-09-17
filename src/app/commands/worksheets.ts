@@ -61,7 +61,7 @@ export class WorksheetCommands {
     if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
       return;
     }
-    const gridCount = doc.sheets.filter((s) => s.kind !== 'markdown').length;
+    const gridCount = doc.sheets.filter((s) => s.kind === 'grid').length;
     const suggested = doc.uniqueSheetName(t('sheet.defaultName', { n: gridCount + 1 }));
     const name = await this.ui.promptSheetName('add', suggested, (candidate) =>
       this.validateSheetName(doc, candidate),
@@ -95,6 +95,30 @@ export class WorksheetCommands {
       return;
     }
     const sheet = this.state.addMarkdownSheet(tab, name.trim());
+    if (sheet) {
+      this.ui.notify(t('notify.sheetAdded', { name: sheet.name }), 'info');
+    }
+  }
+
+  /**
+   * Add a new worksheet holding one empty JSON document after the active
+   * one and activate it. Identical to {@link addMarkdownWorksheet} except
+   * for what the new worksheet contains.
+   */
+  async addJsonWorksheet(tab: Tab): Promise<void> {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
+      return;
+    }
+    const jsonCount = doc.sheets.filter((s) => s.kind === 'json').length;
+    const suggested = doc.uniqueSheetName(t('sheet.defaultJsonName', { n: jsonCount + 1 }));
+    const name = await this.ui.promptSheetName('add', suggested, (candidate) =>
+      this.validateSheetName(doc, candidate),
+    );
+    if (name === null || tab.doc !== doc) {
+      return;
+    }
+    const sheet = this.state.addJsonSheet(tab, name.trim());
     if (sheet) {
       this.ui.notify(t('notify.sheetAdded', { name: sheet.name }), 'info');
     }

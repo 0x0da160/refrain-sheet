@@ -18,10 +18,14 @@ export interface CompiledFormula {
  * document as its sole content (its raw source lives in cell A1 — see
  * {@link Worksheet.markdown}) and is rendered by a docked source/preview
  * surface in the spreadsheet area instead of the grid (see
- * `src/ui/markdown-sheet.ts`); it never carries formulas, styles, a filter,
- * or a sort, and is excluded from CSV export (CSV has no analog for it).
+ * `src/ui/markdown-sheet.ts`); `json` is the same shape (raw source in cell
+ * A1, docked source/preview surface — see `src/ui/json-sheet.ts`) holding one
+ * JSON document instead, with a syntax-highlighted preview and an explicit
+ * "Format" (pretty-print) action. Neither `markdown` nor `json` ever carries
+ * formulas, styles, a filter, or a sort, and both are excluded from CSV
+ * export (CSV has no analog for a whole-sheet document).
  */
-export type WorksheetKind = 'grid' | 'markdown';
+export type WorksheetKind = 'grid' | 'markdown' | 'json';
 
 /** Where the selection sits and how it was made (see AppState.SelectionKind). */
 export interface WorksheetPoint {
@@ -210,6 +214,21 @@ export class Worksheet {
     return this.getValue(0, 0);
   }
 
+  /**
+   * A worksheet holding one JSON document as its sole content (see
+   * {@link WorksheetKind}). Always exactly 1x1, the same shape and
+   * atomic/undoable edit path as {@link markdown}; reading it back is
+   * {@link jsonText}.
+   */
+  static json(id: string, name: string, text: string): Worksheet {
+    return new Worksheet(id, name, [[text]], 1, 'json');
+  }
+
+  /** The document's JSON source (cell A1). Meaningful only when `kind === 'json'`. */
+  get jsonText(): string {
+    return this.getValue(0, 0);
+  }
+
   /** A worksheet from prebuilt row-major values, padding each row to `columnCount`. */
   static fromValues(id: string, name: string, rows: string[][], columnCount: number): Worksheet {
     const cols = Math.max(1, columnCount);
@@ -253,9 +272,9 @@ export class Worksheet {
     return row >= 0 && row < this.data.length && col >= 0 && col < this.cols;
   }
 
-  /** A markdown worksheet's cell A1 is its document text, never a formula, no matter what it starts with. */
+  /** A markdown/json worksheet's cell A1 is its document text, never a formula, no matter what it starts with. */
   isFormulaCell(row: number, col: number): boolean {
-    return this.kind !== 'markdown' && isFormula(this.getValue(row, col));
+    return this.kind === 'grid' && isFormula(this.getValue(row, col));
   }
 
   /**
@@ -275,9 +294,9 @@ export class Worksheet {
   // ----- Formula index -----
 
   private countRowFormulas(row: string[]): number {
-    // A markdown worksheet's cell A1 is document text, never a formula (see
-    // isFormulaCell) — never tokenize its (potentially large) content as one.
-    if (this.kind === 'markdown') {
+    // A markdown/json worksheet's cell A1 is document text, never a formula
+    // (see isFormulaCell) — never tokenize its (potentially large) content as one.
+    if (this.kind !== 'grid') {
       return 0;
     }
     let n = 0;

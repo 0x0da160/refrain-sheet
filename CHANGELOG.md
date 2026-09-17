@@ -33,6 +33,18 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- A worksheet can now hold a JSON document as its first-class content,
+  alongside the existing Markdown worksheet: **Sheet > Add JSON Sheet**
+  creates one, edited in a docked source view with a syntax-highlighted
+  preview (toggle via the preview button) and an explicit, button-triggered
+  **Format** action that pretty-prints valid JSON in place — never
+  automatically and never on save. Invalid JSON is left untouched and its
+  parse error is reported instead of guessing at a fix. Saved in the `.rsf`
+  container (body version 15 / workbook body version 11); existing files and
+  workbooks that don't use it are unaffected. Standalone (non-RSF) JSON/YAML/
+  plain-text file editing and a dedicated YAML worksheet kind are tracked as
+  follow-up work.
+  ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
 - Spreadsheet documents can now keep a version (snapshot) history: every
   successful save records a snapshot of the file's content inside the `.rsf`
   container itself (`.rsf` body version 14 / workbook body version 10),

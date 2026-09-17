@@ -538,6 +538,7 @@ export type CommandId =
   // document tabs, whose commands are the `tab.*` ids below).
   | 'worksheet.add'
   | 'worksheet.addMarkdown'
+  | 'worksheet.addJson'
   | 'worksheet.rename'
   | 'worksheet.duplicate'
   | 'worksheet.delete'
@@ -862,6 +863,7 @@ export class Commands {
       // byte-preserving document (the UI explains that instead of hiding them).
       case 'worksheet.add':
       case 'worksheet.addMarkdown':
+      case 'worksheet.addJson':
       case 'worksheet.rename':
       case 'worksheet.duplicate':
       case 'worksheet.toggleLock':
@@ -1277,6 +1279,9 @@ export class Commands {
       case 'worksheet.addMarkdown':
         if (tab) await this.addMarkdownWorksheet(tab);
         return;
+      case 'worksheet.addJson':
+        if (tab) await this.addJsonWorksheet(tab);
+        return;
       case 'worksheet.rename':
         if (tab) await this.renameWorksheet(tab);
         return;
@@ -1518,6 +1523,10 @@ export class Commands {
 
   private async addMarkdownWorksheet(tab: Tab): Promise<void> {
     return this.worksheets.addMarkdownWorksheet(tab);
+  }
+
+  private async addJsonWorksheet(tab: Tab): Promise<void> {
+    return this.worksheets.addJsonWorksheet(tab);
   }
 
   private async renameWorksheet(tab: Tab): Promise<void> {

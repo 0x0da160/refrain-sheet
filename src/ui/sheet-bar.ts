@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { FileText, Lock, Plus, Table } from 'lucide';
+import { FileJson, FileText, Lock, Plus, Table } from 'lucide';
 import type { AppState } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -132,7 +132,13 @@ export class SheetBar {
     locked: boolean,
     active: boolean,
   ): HTMLElement {
-    const kindLabel = t(kind === 'markdown' ? 'sheets.kind.markdown' : 'sheets.kind.grid');
+    const kindLabel = t(
+      kind === 'markdown'
+        ? 'sheets.kind.markdown'
+        : kind === 'json'
+          ? 'sheets.kind.json'
+          : 'sheets.kind.grid',
+    );
     const tabEl = el(
       'div',
       {
@@ -148,7 +154,11 @@ export class SheetBar {
       },
       [
         el('span', { className: 'sheet-kind', attrs: { 'aria-label': kindLabel } }, [
-          createIcon(kind === 'markdown' ? FileText : Table, 'sheet-kind-icon', 14),
+          createIcon(
+            kind === 'markdown' ? FileText : kind === 'json' ? FileJson : Table,
+            'sheet-kind-icon',
+            14,
+          ),
         ]),
         ...(locked
           ? [
@@ -347,6 +357,11 @@ export class SheetBar {
         label: t('menu.sheet.addMarkdownSheet'),
         disabled: !this.commands.isEnabled('worksheet.addMarkdown'),
         onSelect: () => void this.commands.run('worksheet.addMarkdown'),
+      },
+      {
+        label: t('menu.sheet.addJsonSheet'),
+        disabled: !this.commands.isEnabled('worksheet.addJson'),
+        onSelect: () => void this.commands.run('worksheet.addJson'),
       },
     ];
     const activeSheet = this.state.activeWorkbook()?.activeSheet;

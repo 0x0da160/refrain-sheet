@@ -189,25 +189,27 @@ nothing else keys off the identifier.
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
 Version selection on write is minimal so older readers keep working where
-possible: body **version 14** is written when version history is disabled or
-holds at least one snapshot (see "Version history" below); **version 13**
-when the worksheet is locked (see "Worksheet locked" below); **version 12**
-when the worksheet is a Markdown sheet (see "Worksheet kind" below);
-**version 11** when at least one cell carries a comment; **version 10** when
-at least one border side carries a non-default line style or width;
-**version 9** when at least one cell carries a number format; **version 8**
-when at least one cell carries a style; **version 7** when the workbook
-display language is not English; **version 6** when the workbook timezone is
-not `UTC`; **version 5** when wrap-long-rows is stored; **version 4** when a
-sheet filter is present; **version 3** when display settings are present;
-**version 2** when only the creating/updating application metadata is
-present; **version 1** otherwise. Versions 1–14 are all accepted on read; an
-older reader rejects a body version it does not know with a localized
-"unsupported version" message rather than misparsing it.
+possible: body **version 15** is written when the worksheet is a json sheet
+(see "Worksheet kind: json" below); **version 14** is written when version
+history is disabled or holds at least one snapshot (see "Version history"
+below); **version 13** when the worksheet is locked (see "Worksheet locked"
+below); **version 12** when the worksheet is a Markdown sheet (see
+"Worksheet kind" below); **version 11** when at least one cell carries a
+comment; **version 10** when at least one border side carries a non-default
+line style or width; **version 9** when at least one cell carries a number
+format; **version 8** when at least one cell carries a style; **version 7**
+when the workbook display language is not English; **version 6** when the
+workbook timezone is not `UTC`; **version 5** when wrap-long-rows is stored;
+**version 4** when a sheet filter is present; **version 3** when display
+settings are present; **version 2** when only the creating/updating
+application metadata is present; **version 1** otherwise. Versions 1–15 are
+all accepted on read; an older reader rejects a body version it does not
+know with a localized "unsupported version" message rather than misparsing
+it.
 
 | Size | Field                                                                                                                            |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Body version — `14`, `13`, `12`, `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                      |
+| 1    | Body version — `15`, `14`, `13`, `12`, `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                |
 | 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                                                      |
 | 2    | _(v2+)_ Application-name length, `u16`                                                                                           |
 | …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`                                                                           |
@@ -223,7 +225,7 @@ older reader rejects a body version it does not know with a localized
 | …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`                                                                        |
 | 2    | _(v7 only)_ Display-language length, `u16`                                                                                       |
 | …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`                                                                            |
-| 1    | _(v12+)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown — see below)                                                           |
+| 1    | _(v12+)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown, `2` = json — `2` legal only from v15 — see below)                     |
 | 1    | _(v13+)_ Worksheet locked, `u8` (`0` = unlocked, `1` = locked — see below)                                                       |
 | 1    | _(v14+)_ History flags, `u8` (bit 0: version history enabled — see below)                                                        |
 | 4    | _(v14+)_ Snapshot count `H`, `u32`                                                                                               |
@@ -706,6 +708,48 @@ history is on by default, a file saved by a release that has this feature
 will, in practice, almost always be a version-14 (or workbook version-10)
 file after its first save.
 
+### Worksheet kind: json (body version 15)
+
+Body version 15 allows the worksheet-kind byte (see "Worksheet kind" above)
+to hold a third value, `2` (json — a worksheet whose entire content is one
+JSON document, edited by a docked source/preview surface with a
+syntax-highlighted preview and an explicit "Format" pretty-print action,
+in place of the grid; see **Sheet > Add JSON Sheet**,
+[`src/core/worksheet.ts`](../src/core/worksheet.ts)'s `WorksheetKind`, and
+[`src/ui/json-sheet.ts`](../src/ui/json-sheet.ts)). It does not add a new
+byte to the layout — the worksheet-kind byte is already written from body
+version 12 — it only widens which values are legal for that existing byte,
+and only from this version: a `2` byte in a body version 12–14 file is a
+shape a real writer of this release never emits (exactly like a `2` byte
+would have been rejected before this feature existed at all), so it is
+still rejected as `bad-shape` there, not misread as json. This is the same
+reject-don't-guess treatment applied everywhere else in this format, just
+gating a byte _value_ by version instead of gating the byte's _presence_.
+
+A json worksheet's document text is stored exactly like a markdown
+worksheet's: the raw UTF-8 input of the worksheet's one and only cell,
+`(0, 0)`, using the ordinary cell-record encoding, required to be exactly
+**1 row × 1 column** with **at most one cell record** — any other declared
+shape is `bad-shape`. It reuses the same atomic, undoable cell-edit path a
+grid cell edit uses, is never evaluated as a formula regardless of what it
+starts with, is excluded from CSV export (CSV has no analog for it), and
+its cell remains an ordinary, cross-sheet-referenceable cell to the formula
+engine — all identical to the markdown worksheet's documented behavior
+above, just for JSON content instead of Markdown.
+
+A workbook using a json worksheet writes container-level body version 15
+(or workbook body version 11 — see below), which an older release rejects
+outright with the standard "unsupported version" message: **compatibility
+is preserved by never raising the version for a workbook that has no json
+worksheet** — the same minimal-version-write policy every feature in this
+file follows, not by making a version-15 file still openable by an older
+release.
+
+Standalone (non-RSF-container) editing of JSON/YAML/plain-text files, and a
+dedicated `yaml` worksheet kind, are tracked as follow-up work rather than
+covered by this section — see issue #529's discussion for why they were
+scoped out of the same change.
+
 ### Bounds (validated on load)
 
 | Limit                 | Value        |
@@ -726,36 +770,40 @@ Written only when the workbook holds **two or more** worksheets. All strings
 are UTF-8 and length-prefixed with a `u16`; all integers are little-endian.
 
 Workbook body version selection is minimal, like the single-sheet body:
+**version 11** is written when at least one worksheet in the workbook is a
+json sheet (see "Worksheet kind: json (body version 15)" above — the
+worksheet-kind byte, below, is only legal to hold json from this version);
 **version 10** is written when version history is disabled or holds at least
 one snapshot (see "Version history (body version 14)" above); **version 9**
 when at least one worksheet in the workbook is locked (see "Worksheet locked
 (body version 13)" above); **version 8** when at least one worksheet in the
-workbook is a markdown sheet (see "Worksheet kind (body version 12)" above);
-**version 7** when at least one cell in any worksheet carries a comment;
-**version 6** when at least one border side in any worksheet carries a
-non-default line style or width; **version 5** when at least one styled cell
-in any worksheet carries a number format; **version 4** when at least one
-cell in any worksheet carries a style; **version 3** when the workbook
-display language is not `en`; **version 2** when the workbook timezone is not
-`UTC`; **version 1** otherwise. All ten versions are accepted on read.
+workbook is a markdown or json sheet (see "Worksheet kind (body version 12)"
+above); **version 7** when at least one cell in any worksheet carries a
+comment; **version 6** when at least one border side in any worksheet
+carries a non-default line style or width; **version 5** when at least one
+styled cell in any worksheet carries a number format; **version 4** when at
+least one cell in any worksheet carries a style; **version 3** when the
+workbook display language is not `en`; **version 2** when the workbook
+timezone is not `UTC`; **version 1** otherwise. All eleven versions are
+accepted on read.
 
-| Size | Field                                                                                        |
-| ---- | -------------------------------------------------------------------------------------------- |
-| 1    | Workbook body version — `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                  |
-| 2+…  | Application name (UTF-8, `u16` length; may be empty)                                         |
-| 2+…  | Application version (UTF-8, `u16` length; may be empty)                                      |
-| 8    | Creation timestamp, `f64` ms since epoch (`0` = not stored)                                  |
-| 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)                               |
-| 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)                                      |
-| 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty)                              |
-| 2+…  | _(v2+)_ Workbook timezone, IANA name (UTF-8, `u16` length)                                   |
-| 2+…  | _(v3 only)_ Workbook display language (UTF-8, `u16` length)                                  |
-| 1    | _(v10+)_ History flags, `u8` (bit 0: version history enabled)                                |
-| 4    | _(v10+)_ Snapshot count `H`, `u32`                                                           |
-| …    | _(v10+)_ `H` snapshot records — identical layout to the single-sheet history block's own     |
-| 2    | Worksheet count `S`, `u16`                                                                   |
-| …    | `S` worksheet records (below)                                                                |
+| Size | Field                                                                                              |
+| ---- | -------------------------------------------------------------------------------------------------- |
+| 1    | Workbook body version — `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                        |
+| 2+…  | Application name (UTF-8, `u16` length; may be empty)                                               |
+| 2+…  | Application version (UTF-8, `u16` length; may be empty)                                            |
+| 8    | Creation timestamp, `f64` ms since epoch (`0` = not stored)                                        |
+| 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)                                     |
+| 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)                                            |
+| 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty)                                    |
+| 2+…  | _(v2+)_ Workbook timezone, IANA name (UTF-8, `u16` length)                                         |
+| 2+…  | _(v3 only)_ Workbook display language (UTF-8, `u16` length)                                        |
+| 1    | _(v10+)_ History flags, `u8` (bit 0: version history enabled)                                      |
+| 4    | _(v10+)_ Snapshot count `H`, `u32`                                                                 |
+| …    | _(v10+)_ `H` snapshot records — identical layout to the single-sheet history block's own           |
+| 2    | Worksheet count `S`, `u16`                                                                         |
+| …    | `S` worksheet records (below)                                                                      |
 
 The workbook timezone follows the same rules as the single-sheet body version
 6 field above: written only when non-`UTC`, and an absent or unresolvable
@@ -795,8 +843,9 @@ Each worksheet record:
 | 4    | _(v7+)_ Commented-cell count `Z`, `u32`                                     |
 | …    | _(v7+)_ `Z` comment records — identical layout to the single-sheet          |
 |      | [cell-comments block](#cell-comments-body-version-11)                       |
-| 1    | _(v8+)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown — see              |
-|      | [Worksheet kind](#worksheet-kind-body-version-12))                          |
+| 1    | _(v8+)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown, `2` = json — `2`  |
+|      | legal only from v11 — see [Worksheet kind](#worksheet-kind-body-version-12) |
+|      | and [Worksheet kind: json](#worksheet-kind-json-body-version-15))           |
 | 1    | _(v9+)_ Worksheet locked, `u8` (`0` = unlocked, `1` = locked — see          |
 |      | [Worksheet locked](#worksheet-locked-body-version-13))                      |
 
@@ -1106,6 +1155,14 @@ only when history is disabled or holds at least one snapshot — unlike every
 prior bump, history is on by default, so in practice almost every file saved
 by a release with this feature reaches this version after its first save,
 rather than staying on a lower one the way an opt-in feature like locking
-does. Future changes bump the container version (framing changes) or the
-relevant body version (encoding changes); readers reject versions they do not
-understand rather than guessing.
+does. The single-sheet body was later bumped to version 15, and the
+workbook body to version 11, to let the existing per-worksheet-kind byte
+also hold `json` (see "Worksheet kind: json (body version 15)" above); each
+is written only when at least one worksheet is a json sheet, for the same
+reason as the markdown bump above — this one adds no new byte to the
+layout (the kind byte already exists from version 12), it only widens which
+values are legal for that byte, gated by version so an older reader still
+gets "unsupported version" rather than misreading a json worksheet as some
+other shape. Future changes bump the container version (framing changes) or
+the relevant body version (encoding changes); readers reject versions they
+do not understand rather than guessing.

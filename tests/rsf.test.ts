@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { decodeRsf, encodeRsf, MAX_RSF_HISTORY_SNAPSHOTS, RSF_MAGIC } from '../src/core/rsf-codec';
+import {
+  decodeRsf,
+  DEFAULT_HISTORY_SNAPSHOT_LIMIT,
+  encodeRsf,
+  MAX_RSF_HISTORY_SNAPSHOTS,
+  RSF_MAGIC,
+} from '../src/core/rsf-codec';
 import { NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../src/core/rsf-document';
 import { APP_NAME, APP_VERSION } from '../src/app/version';
 import { doc } from './helpers';
@@ -224,13 +230,13 @@ describe('version history (snapshots)', () => {
     expect(sheet.history.length).toBe(2);
   });
 
-  it('caps retained snapshots at the documented maximum, dropping the oldest first', () => {
+  it('caps retained snapshots at the default limit, dropping the oldest first', () => {
     const sheet = rcsvFromCells([[0, 0, 'v']]);
-    for (let i = 0; i < MAX_RSF_HISTORY_SNAPSHOTS + 3; i++) {
+    for (let i = 0; i < DEFAULT_HISTORY_SNAPSHOT_LIMIT + 3; i++) {
       sheet.setCell(0, 0, `v${i}`);
       sheet.toBytes();
     }
-    expect(sheet.history.length).toBe(MAX_RSF_HISTORY_SNAPSHOTS);
+    expect(sheet.history.length).toBe(DEFAULT_HISTORY_SNAPSHOT_LIMIT);
   });
 
   it('stops recording new snapshots once disabled, but keeps the ones already recorded', () => {
@@ -304,6 +310,106 @@ describe('version history (snapshots)', () => {
       // A small, roughly constant size — not compounding with each save.
       expect(snapshot.bytes.length).toBeLessThan(firstSnapshotSize * 4);
     }
+  });
+
+  it('defaults the retained-snapshot cap override to undefined (use the default)', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    expect(sheet.historyMaxOverride).toBeUndefined();
+    expect(sheet.effectiveHistoryMax).toBe(DEFAULT_HISTORY_SNAPSHOT_LIMIT);
+    expect(sheet.willDropOldestOnNextSave).toBe(false);
+  });
+
+  it('setHistoryMaxOverride lowers the retained cap and clamps into range', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.setHistoryMaxOverride(2);
+    expect(sheet.effectiveHistoryMax).toBe(2);
+    for (let i = 0; i < 5; i++) {
+      sheet.setCell(0, 0, `v${i}`);
+      sheet.toBytes();
+    }
+    expect(sheet.history.length).toBe(2);
+
+    // Clamped into [1, MAX_RSF_HISTORY_SNAPSHOTS] rather than accepting an
+    // out-of-range value verbatim.
+    sheet.setHistoryMaxOverride(0);
+    expect(sheet.effectiveHistoryMax).toBe(1);
+    sheet.setHistoryMaxOverride(MAX_RSF_HISTORY_SNAPSHOTS + 100);
+    expect(sheet.effectiveHistoryMax).toBe(MAX_RSF_HISTORY_SNAPSHOTS);
+  });
+
+  it('setHistoryMaxOverride(null) is unlimited, still bounded by the hard ceiling', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.setHistoryMaxOverride(null);
+    expect(sheet.effectiveHistoryMax).toBeNull();
+    for (let i = 0; i < DEFAULT_HISTORY_SNAPSHOT_LIMIT + 3; i++) {
+      sheet.setCell(0, 0, `v${i}`);
+      sheet.toBytes();
+    }
+    // Past the default limit, since it is unlimited...
+    expect(sheet.history.length).toBe(DEFAULT_HISTORY_SNAPSHOT_LIMIT + 3);
+    // ...but a save never drops anything while unlimited, so no warning.
+    expect(sheet.willDropOldestOnNextSave).toBe(false);
+  });
+
+  it('willDropOldestOnNextSave is true only once a finite cap is reached', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.setHistoryMaxOverride(2);
+    expect(sheet.willDropOldestOnNextSave).toBe(false);
+    sheet.toBytes();
+    expect(sheet.willDropOldestOnNextSave).toBe(false);
+    sheet.setCell(0, 0, 'w');
+    sheet.toBytes();
+    // At the cap: the *next* save would drop the oldest.
+    expect(sheet.history.length).toBe(2);
+    expect(sheet.willDropOldestOnNextSave).toBe(true);
+  });
+
+  it('round-trips a numeric and an unlimited retained-snapshot cap override', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.setHistoryMaxOverride(5);
+    const bytes = sheet.toBytes();
+    const reloaded = RsfDocument.fromBytes(bytes, 'again.rcsv');
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.doc.historyMaxOverride).toBe(5);
+
+    const unlimited = rcsvFromCells([[0, 0, 'v']]);
+    unlimited.setHistoryMaxOverride(null);
+    const unlimitedBytes = unlimited.toBytes();
+    const reloadedUnlimited = RsfDocument.fromBytes(unlimitedBytes, 'again.rcsv');
+    expect(reloadedUnlimited.ok).toBe(true);
+    if (reloadedUnlimited.ok) expect(reloadedUnlimited.doc.historyMaxOverride).toBeNull();
+  });
+
+  it('a file saved without an override reads back as undefined (the default)', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.toBytes();
+    const reloaded = RsfDocument.fromBytes(sheet.toBytes(), 'again.rcsv');
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.doc.historyMaxOverride).toBeUndefined();
+  });
+
+  it('restoreFromSnapshot replaces content with a past snapshot and is not itself dirty-tracked as an undo entry', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v1']]);
+    sheet.toBytes(); // snapshot 0: v1
+    sheet.setCell(0, 0, 'v2');
+    sheet.toBytes(); // snapshot 1: v2
+    sheet.setCell(0, 0, 'v3');
+    expect(sheet.getValue(0, 0)).toBe('v3');
+
+    const restored = sheet.restoreFromSnapshot(0);
+    expect(restored).toBe(true);
+    expect(sheet.getValue(0, 0)).toBe('v1');
+    expect(sheet.isDirty).toBe(true);
+    // Restoring is a content replacement, not a history-list mutation: the
+    // snapshots recorded so far are untouched.
+    expect(sheet.history.length).toBe(2);
+  });
+
+  it('restoreFromSnapshot returns false for an out-of-range index without changing anything', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v1']]);
+    sheet.toBytes();
+    expect(sheet.restoreFromSnapshot(5)).toBe(false);
+    expect(sheet.getValue(0, 0)).toBe('v1');
   });
 });
 

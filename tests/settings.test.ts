@@ -13,6 +13,8 @@ import {
   setMaxFileSize,
   bytesToMiB,
   miBToBytes,
+  getSuppressHistoryCapWarning,
+  setSuppressHistoryCapWarning,
 } from '../src/app/settings';
 
 const MIB = 1024 * 1024;
@@ -69,7 +71,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
     chooseDisplayLanguage: vi.fn(async () => null),
-    chooseVersionHistoryEnabled: vi.fn(async () => null),
+    chooseVersionHistory: vi.fn(async () => null),
+    confirmHistoryCapExceeded: vi.fn(async () => true),
     chooseTextColor: vi.fn(async () => null),
     chooseBackgroundColor: vi.fn(async () => null),
     chooseBorders: vi.fn(async () => null),
@@ -111,6 +114,19 @@ describe('settings: file-size limit', () => {
   it('converts between bytes and MiB', () => {
     expect(bytesToMiB(512 * MIB)).toBe(512);
     expect(miBToBytes(512)).toBe(512 * MIB);
+  });
+});
+
+describe('settings: suppress history cap warning', () => {
+  it('defaults to off (the warning shows)', () => {
+    expect(getSuppressHistoryCapWarning()).toBe(false);
+  });
+
+  it('persists the suppressed choice locally and reads it back', () => {
+    setSuppressHistoryCapWarning(true);
+    expect(getSuppressHistoryCapWarning()).toBe(true);
+    setSuppressHistoryCapWarning(false);
+    expect(getSuppressHistoryCapWarning()).toBe(false);
   });
 });
 

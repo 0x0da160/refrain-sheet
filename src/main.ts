@@ -112,8 +112,9 @@ function bootstrap(): void {
     chooseSettings: (current) => dialogs.chooseSettings(current),
     chooseTimezone: (current) => dialogs.chooseTimezone(current),
     chooseDisplayLanguage: (current) => dialogs.chooseDisplayLanguage(current),
-    chooseVersionHistoryEnabled: (current, snapshotCount, newestTimestamp) =>
-      dialogs.chooseVersionHistoryEnabled(current, snapshotCount, newestTimestamp),
+    chooseVersionHistory: (current, maxOverride, history) =>
+      dialogs.chooseVersionHistory(current, maxOverride, history),
+    confirmHistoryCapExceeded: (name, max) => dialogs.confirmHistoryCapExceeded(name, max),
     chooseTextColor: (current) => dialogs.chooseTextColor(current),
     chooseBackgroundColor: (current) => dialogs.chooseBackgroundColor(current),
     chooseBorders: (current, currentLineStyle, currentWidth) =>

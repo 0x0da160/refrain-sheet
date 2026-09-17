@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import type { LocaleId } from '../src/app/i18n';
 import type { OpenedFile } from '../src/app/file-access';
+import { setSuppressHistoryCapWarning } from '../src/app/settings';
 import { compileQuery } from '../src/core/search';
 import { decodeBytes } from '../src/core/encoding';
 import { encodeRsf, RSF_LEGACY_CONTAINER_VERSION, RSF_LEGACY_MAGIC } from '../src/core/rsf-codec';
@@ -70,7 +71,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
     chooseDisplayLanguage: vi.fn(async () => null),
-    chooseVersionHistoryEnabled: vi.fn(async () => null),
+    chooseVersionHistory: vi.fn(async () => null),
+    confirmHistoryCapExceeded: vi.fn(async () => true),
     chooseTextColor: vi.fn(async () => null),
     chooseBackgroundColor: vi.fn(async () => null),
     chooseBorders: vi.fn(async () => null),
@@ -547,26 +549,87 @@ describe('sheet version history commands', () => {
   });
 
   it('applies the chosen enabled state and notifies', async () => {
-    const ui = stubUi({ chooseVersionHistoryEnabled: vi.fn(async () => false) });
+    const ui = stubUi({
+      chooseVersionHistory: vi.fn(async () => ({
+        kind: 'save' as const,
+        enabled: false,
+        maxOverride: undefined,
+      })),
+    });
     const { state, commands } = setup(ui);
     await commands.run('file.new');
     const tab = state.activeTab!;
     if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
     expect(tab.doc.historyEnabled).toBe(true);
     await commands.run('sheet.versionHistory');
-    expect(ui.chooseVersionHistoryEnabled).toHaveBeenCalledWith(true, 0, null);
+    expect(ui.chooseVersionHistory).toHaveBeenCalledWith(true, undefined, []);
     expect(tab.doc.historyEnabled).toBe(false);
     expect(ui.notify).toHaveBeenCalledWith(expect.any(String), 'info');
   });
 
+  it('applies a chosen retained-snapshot cap override and notifies distinctly from enabled/disabled', async () => {
+    const ui = stubUi({
+      chooseVersionHistory: vi.fn(async () => ({ kind: 'save' as const, enabled: true, maxOverride: 5 })),
+    });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    await commands.run('sheet.versionHistory');
+    expect(tab.doc.historyMaxOverride).toBe(5);
+    expect(ui.notify).toHaveBeenCalledWith(expect.any(String), 'info');
+  });
+
   it('cancelling the version history dialog changes nothing and does not notify', async () => {
-    const ui = stubUi({ chooseVersionHistoryEnabled: vi.fn(async () => null) });
+    const ui = stubUi({ chooseVersionHistory: vi.fn(async () => null) });
     const { state, commands } = setup(ui);
     await commands.run('file.new');
     const tab = state.activeTab!;
     if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
     await commands.run('sheet.versionHistory');
     expect(tab.doc.historyEnabled).toBe(true);
+    expect(ui.notify).not.toHaveBeenCalled();
+  });
+
+  it('restoring a snapshot asks for confirmation and, once confirmed, replaces content and clears undo/redo', async () => {
+    const ui = stubUi({
+      chooseVersionHistory: vi.fn(async () => ({ kind: 'restore' as const, index: 0 })),
+      confirm: vi.fn(async () => true),
+    });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    tab.doc.setCell(0, 0, 'v1');
+    tab.doc.toBytes(); // snapshot 0
+    tab.doc.setCell(0, 0, 'v2');
+    tab.history.push({
+      label: 'edit',
+      ops: [{ type: 'cells', changes: [{ row: 0, col: 0, before: 'v1', after: 'v2' }] }],
+    });
+    expect(tab.history.canUndo).toBe(true);
+
+    await commands.run('sheet.versionHistory');
+    expect(ui.confirm).toHaveBeenCalled();
+    expect(tab.doc.getValue(0, 0)).toBe('v1');
+    expect(tab.history.canUndo).toBe(false);
+    expect(ui.notify).toHaveBeenCalledWith(expect.any(String), 'info');
+  });
+
+  it('declining the restore confirmation changes nothing', async () => {
+    const ui = stubUi({
+      chooseVersionHistory: vi.fn(async () => ({ kind: 'restore' as const, index: 0 })),
+      confirm: vi.fn(async () => false),
+    });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    tab.doc.setCell(0, 0, 'v1');
+    tab.doc.toBytes();
+    tab.doc.setCell(0, 0, 'v2');
+    await commands.run('sheet.versionHistory');
+    expect(tab.doc.getValue(0, 0)).toBe('v2');
     expect(ui.notify).not.toHaveBeenCalled();
   });
 
@@ -594,6 +657,83 @@ describe('sheet version history commands', () => {
     await commands.run('sheet.clearVersionHistory');
     expect(tab.doc.history.length).toBe(1);
     expect(ui.notify).not.toHaveBeenCalled();
+  });
+});
+
+describe('pre-save retained-snapshot cap warning', () => {
+  beforeEach(() => {
+    setSuppressHistoryCapWarning(false);
+  });
+
+  it('warns before saving when the save would drop the oldest snapshot, and cancelling aborts the save', async () => {
+    const fake = fakeHandle();
+    const ui = stubUi({ confirmHistoryCapExceeded: vi.fn(async () => false) });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    tab.handle = fake.handle;
+    tab.doc.setHistoryMaxOverride(1);
+    tab.doc.toBytes(); // fills the cap (1 snapshot)
+    expect(tab.doc.willDropOldestOnNextSave).toBe(true);
+
+    const ok = await commands.save(tab, KEEP);
+    expect(ok).toBe(false);
+    expect(ui.confirmHistoryCapExceeded).toHaveBeenCalledWith(tab.name, 1);
+    expect(fake.written()).toBeNull();
+  });
+
+  it('proceeds with the save once the warning is confirmed', async () => {
+    const fake = fakeHandle();
+    const ui = stubUi({ confirmHistoryCapExceeded: vi.fn(async () => true) });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    tab.handle = fake.handle;
+    tab.doc.setHistoryMaxOverride(1);
+    tab.doc.toBytes();
+    expect(tab.doc.willDropOldestOnNextSave).toBe(true);
+
+    const ok = await commands.save(tab, KEEP);
+    expect(ok).toBe(true);
+    expect(ui.confirmHistoryCapExceeded).toHaveBeenCalled();
+    expect(fake.written()).not.toBeNull();
+  });
+
+  it('skips the warning once suppressed, without ever asking', async () => {
+    setSuppressHistoryCapWarning(true);
+    const fake = fakeHandle();
+    const ui = stubUi({ confirmHistoryCapExceeded: vi.fn(async () => false) });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    tab.handle = fake.handle;
+    tab.doc.setHistoryMaxOverride(1);
+    tab.doc.toBytes();
+    expect(tab.doc.willDropOldestOnNextSave).toBe(true);
+
+    const ok = await commands.save(tab, KEEP);
+    expect(ok).toBe(true);
+    expect(ui.confirmHistoryCapExceeded).not.toHaveBeenCalled();
+  });
+
+  it('never warns when the retained-snapshot cap is unlimited', async () => {
+    const fake = fakeHandle();
+    const ui = stubUi({ confirmHistoryCapExceeded: vi.fn(async () => false) });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    if (tab.doc.kind !== 'rsf') throw new Error('expected an RSF document');
+    tab.handle = fake.handle;
+    tab.doc.setHistoryMaxOverride(null);
+    tab.doc.toBytes();
+    expect(tab.doc.willDropOldestOnNextSave).toBe(false);
+
+    const ok = await commands.save(tab, KEEP);
+    expect(ok).toBe(true);
+    expect(ui.confirmHistoryCapExceeded).not.toHaveBeenCalled();
   });
 });
 

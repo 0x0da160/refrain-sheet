@@ -37,7 +37,9 @@ import type { CellValidation } from './data-validation';
 import type { SheetFilter } from './filter';
 import type { SheetSort } from './sort';
 import {
+  decodeRsfHistorySnapshot,
   decodeRsfWorkbook,
+  DEFAULT_HISTORY_SNAPSHOT_LIMIT,
   encodeRsfBody,
   encodeRsfWorkbook,
   MAX_RSF_HISTORY_SNAPSHOTS,
@@ -195,6 +197,17 @@ export class RsfDocument {
    * {@link toBytesFromSheetCells}).
    */
   private historyList: RsfHistorySnapshot[] = [];
+
+  /**
+   * Per-file override of the retained-snapshot cap (Sheet ▸ File Version
+   * History…). `undefined` uses the default ({@link DEFAULT_HISTORY_SNAPSHOT_LIMIT}
+   * — every new workbook and every file saved before this setting existed);
+   * `null` means "unlimited" (still bounded by the hard technical ceiling
+   * {@link MAX_RSF_HISTORY_SNAPSHOTS} to keep worst-case file growth and
+   * decode cost bounded); a number is an explicit cap. See
+   * {@link setHistoryMaxOverride} and {@link effectiveHistoryMax}.
+   */
+  private historyMaxOverrideValue: number | null | undefined;
 
   /**
    * True when this workbook was read from a single-worksheet container
@@ -422,6 +435,7 @@ export class RsfDocument {
     doc.loadedAsSingleSheet = data.legacySingleSheet === true;
     doc.historyEnabledFlag = data.historyEnabled ?? true;
     doc.historyList = data.history ?? [];
+    doc.historyMaxOverrideValue = data.historyMaxOverride;
     if (data.createdAt !== undefined) {
       doc.createdAt = data.createdAt;
     }
@@ -671,8 +685,9 @@ export class RsfDocument {
 
   /**
    * This document's past snapshots (oldest first), for a version-history UI.
-   * Each entry's `bytes` are opaque — nothing in this release decodes or
-   * restores from them; the list exists so it can be inspected and cleared.
+   * Each entry's `bytes` are opaque to callers — inspect a snapshot's
+   * timestamp here, and restore its content with {@link restoreFromSnapshot}
+   * (by index into this same list) rather than decoding `bytes` directly.
    */
   get history(): readonly RsfHistorySnapshot[] {
     return this.historyList;
@@ -707,6 +722,107 @@ export class RsfDocument {
     }
     this.historyList = [];
     this.revision += 1;
+  }
+
+  /**
+   * This file's override of the retained-snapshot cap (Sheet ▸ File Version
+   * History…): `undefined` uses the default, `null` means unlimited, or an
+   * explicit number. See {@link effectiveHistoryMax} for the value actually
+   * enforced. Change it with {@link setHistoryMaxOverride}.
+   */
+  get historyMaxOverride(): number | null | undefined {
+    return this.historyMaxOverrideValue;
+  }
+
+  /**
+   * The retained-snapshot cap the next save actually enforces: the per-file
+   * override, or {@link DEFAULT_HISTORY_SNAPSHOT_LIMIT} when none is set.
+   * `null` means unlimited (still bounded by the hard technical ceiling
+   * {@link MAX_RSF_HISTORY_SNAPSHOTS}).
+   */
+  get effectiveHistoryMax(): number | null {
+    return this.historyMaxOverrideValue === undefined
+      ? DEFAULT_HISTORY_SNAPSHOT_LIMIT
+      : this.historyMaxOverrideValue;
+  }
+
+  /**
+   * True when the next successful save will drop the oldest recorded
+   * snapshot to stay within the retained cap — the trigger for the pre-save
+   * confirmation (see `FileIoCommands.encodeRsfBytes`). Always false when
+   * history is off or the per-file cap is unlimited, since neither ever
+   * drops a snapshot on its own.
+   */
+  get willDropOldestOnNextSave(): boolean {
+    if (!this.historyEnabledFlag) {
+      return false;
+    }
+    const max = this.effectiveHistoryMax;
+    return max !== null && this.historyList.length >= max;
+  }
+
+  /**
+   * Change this file's retained-snapshot cap override. `undefined` reverts
+   * to the default, `null` sets it to unlimited, and a finite number is
+   * clamped into `[1, MAX_RSF_HISTORY_SNAPSHOTS]`. Like {@link setHistoryEnabled},
+   * this is persisted in the saved container but changes no cell input, so
+   * it marks the document dirty without invalidating the evaluation memo.
+   */
+  setHistoryMaxOverride(value: number | null | undefined): void {
+    const normalized =
+      value === undefined || value === null
+        ? value
+        : Math.max(1, Math.min(MAX_RSF_HISTORY_SNAPSHOTS, Math.round(value)));
+    if (normalized === this.historyMaxOverrideValue) {
+      return;
+    }
+    this.historyMaxOverrideValue = normalized;
+    this.revision += 1;
+  }
+
+  /**
+   * Replace this workbook's structural and cell content with a past snapshot
+   * (Sheet ▸ File Version History…'s "Restore" action). This file's own
+   * settings — history retention (enabled state, cap override), compression
+   * method, and `docId` — are kept as they are now, not reverted to what they
+   * were at snapshot time; only content (worksheets, cells, styles, comments,
+   * filters, locks, delimiter, timezone, display language) is replaced.
+   *
+   * Not wired into the undo/redo stack: like reopening a file with different
+   * encoding options, this is a deliberate, explicitly confirmed revert
+   * rather than an editing operation, and the caller clears the tab's
+   * undo/redo history (see `Commands`'s `sheet.versionHistory` handling)
+   * since its entries describe edits to content this call just replaced.
+   * Returns false without changing anything when `index` is out of range or
+   * the snapshot's bytes fail to decode.
+   */
+  restoreFromSnapshot(index: number): boolean {
+    const snapshot = this.historyList[index];
+    if (!snapshot) {
+      return false;
+    }
+    const decoded = decodeRsfHistorySnapshot(snapshot);
+    if (!decoded.ok) {
+      return false;
+    }
+    const data = decoded.data;
+    const sheets = data.sheets.map((entry) => RsfDocument.buildWorksheet(entry));
+    if (sheets.length === 0) {
+      return false;
+    }
+    this.sheetList = sheets;
+    const active = data.activeSheetId && sheets.find((s) => s.id === data.activeSheetId);
+    this.activeId = active ? active.id : sheets[0].id;
+    this.nextSheetSeq = sheets.length + 1;
+    this.delimiter = data.delimiter;
+    if (data.timezone !== undefined && isValidTimeZone(data.timezone)) {
+      this.timezoneId = data.timezone;
+    }
+    if (data.displayLanguage !== undefined && isValidDisplayLanguage(data.displayLanguage)) {
+      this.displayLanguageId = data.displayLanguage;
+    }
+    this.touch();
+    return true;
   }
 
   /** The workbook's stored IANA timezone, read by `TODAY()`/`NOW()` (Sheet > Timezone…). */
@@ -943,17 +1059,21 @@ export class RsfDocument {
     // `content` has no `historyEnabled`/`history` of its own, so its raw body
     // encoding is exactly this save's document state with no history nested
     // inside it (see `encodeRsfBody`). The oldest snapshot is dropped once
-    // this would exceed the retained cap. Disabling history stops recording
-    // new snapshots but never clears ones already recorded (`clearHistory`
-    // does that explicitly).
+    // this would exceed the retained cap (the per-file override, or the
+    // default — see `effectiveHistoryMax`; "unlimited" still falls back to
+    // the hard technical ceiling `MAX_RSF_HISTORY_SNAPSHOTS`). Disabling
+    // history stops recording new snapshots but never clears ones already
+    // recorded (`clearHistory` does that explicitly).
     if (this.historyEnabledFlag) {
       const snapshot: RsfHistorySnapshot = { timestamp: this.updatedAt, bytes: encodeRsfBody(content) };
-      this.historyList = [...this.historyList, snapshot].slice(-MAX_RSF_HISTORY_SNAPSHOTS);
+      const limit = this.effectiveHistoryMax ?? MAX_RSF_HISTORY_SNAPSHOTS;
+      this.historyList = [...this.historyList, snapshot].slice(-limit);
     }
     const payload: RsfWorkbookData = {
       ...content,
       historyEnabled: this.historyEnabledFlag,
       history: this.historyList,
+      historyMaxOverride: this.historyMaxOverrideValue,
     };
     return encodeRsfWorkbook(payload, this.compressionMethod);
   }

@@ -6,6 +6,7 @@ import type { DelimiterId } from '../../core/byte-csv-parser';
 import type { CsvExportOptions, CsvLineEnding } from '../../core/csv-export';
 import type { EncodingId } from '../../core/encoding';
 import { rsfMethodKey } from '../../core/rsf-codec';
+import { setSuppressHistoryCapWarning } from '../../app/settings';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/serializer';
 import { el } from '../dom';
 import { cellList, dialogButton, openDialog, submitOnEnter } from './shared';
@@ -260,6 +261,41 @@ export class FileIoDialogs {
       buttons.append(
         dialogButton(t('dialog.rsfSave.cancel'), false, false, () => close(false)),
         dialogButton(t('dialog.rsfSave.ok'), true, true, () => close(true)),
+      );
+    });
+  }
+
+  /**
+   * Warn, before a save actually happens, that saving now will drop the
+   * oldest recorded version-history snapshot because this file's
+   * retained-snapshot cap (`max`) has been reached. The "don't show again"
+   * checkbox defaults off; when checked and the save is confirmed, the
+   * suppression is persisted locally so future saves (of any file, in this
+   * browser) skip the warning until re-enabled from Sheet ▸ File Version
+   * History…'s own settings are changed again — it is a browser preference,
+   * never written into the file.
+   */
+  confirmHistoryCapExceeded(name: string, max: number): Promise<boolean> {
+    return openDialog(t('dialog.historyCapExceeded.title'), false, (body, buttons, close) => {
+      body.append(el('p', { text: t('dialog.historyCapExceeded.message', { name, max }) }));
+      const checkboxId = 'history-cap-exceeded-suppress';
+      const checkbox = el('input', {
+        attrs: { type: 'checkbox', id: checkboxId },
+      }) as HTMLInputElement;
+      body.append(
+        el('div', { className: 'form-row' }, [
+          checkbox,
+          el('label', { text: t('dialog.historyCapExceeded.suppress'), attrs: { for: checkboxId } }),
+        ]),
+      );
+      buttons.append(
+        dialogButton(t('dialog.historyCapExceeded.cancel'), false, true, () => close(false)),
+        dialogButton(t('dialog.historyCapExceeded.ok'), true, false, () => {
+          if (checkbox.checked) {
+            setSuppressHistoryCapWarning(true);
+          }
+          close(true);
+        }),
       );
     });
   }

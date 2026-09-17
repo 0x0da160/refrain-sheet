@@ -70,6 +70,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseSettings: vi.fn(async () => null),
     chooseTimezone: vi.fn(async () => null),
     chooseDisplayLanguage: vi.fn(async () => null),
+    chooseVersionHistoryEnabled: vi.fn(async () => null),
     chooseTextColor: vi.fn(async () => null),
     chooseBackgroundColor: vi.fn(async () => null),
     chooseBorders: vi.fn(async () => null),

@@ -55,6 +55,7 @@ const noopUi: UiPort = {
   chooseSettings: async () => null,
   chooseTimezone: async () => null,
   chooseDisplayLanguage: async () => null,
+  chooseVersionHistoryEnabled: async () => null,
   chooseTextColor: async () => null,
   chooseBackgroundColor: async () => null,
   chooseBorders: async () => null,

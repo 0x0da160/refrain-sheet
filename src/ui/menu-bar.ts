@@ -160,6 +160,8 @@ const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'sheet.recalculate': RefreshCw,
   'sheet.timezone': Clock,
   'sheet.displayLanguage': Globe,
+  'sheet.versionHistory': History,
+  'sheet.clearVersionHistory': Trash2,
   'worksheet.add': Plus,
   'worksheet.addMarkdown': FilePenLine,
   'worksheet.rename': Pencil,
@@ -352,6 +354,8 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.sheet.recalculate', command: 'sheet.recalculate' },
         { labelKey: 'menu.sheet.timezone', command: 'sheet.timezone' },
         { labelKey: 'menu.sheet.displayLanguage', command: 'sheet.displayLanguage' },
+        { labelKey: 'menu.sheet.versionHistory', command: 'sheet.versionHistory' },
+        { labelKey: 'menu.sheet.clearVersionHistory', command: 'sheet.clearVersionHistory' },
       ],
     },
     {

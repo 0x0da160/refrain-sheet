@@ -189,24 +189,25 @@ nothing else keys off the identifier.
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
 Version selection on write is minimal so older readers keep working where
-possible: body **version 13** is written when the worksheet is locked (see
-"Worksheet locked" below); **version 12** when the worksheet is a Markdown
-sheet (see "Worksheet kind" below); **version 11** when at least one cell
-carries a comment; **version 10** when at least one border side carries a
-non-default line style or width; **version 9** when at least one cell
-carries a number format; **version 8** when at least one cell carries a
-style; **version 7** when the workbook display language is not English;
-**version 6** when the workbook timezone is not `UTC`; **version 5** when
-wrap-long-rows is stored; **version 4** when a sheet filter is present;
-**version 3** when display settings are present; **version 2** when only the
-creating/updating application metadata is present; **version 1** otherwise.
-Versions 1–13 are all accepted on read; an older reader rejects a body
-version it does not know with a localized "unsupported version" message
-rather than misparsing it.
+possible: body **version 14** is written when version history is disabled or
+holds at least one snapshot (see "Version history" below); **version 13**
+when the worksheet is locked (see "Worksheet locked" below); **version 12**
+when the worksheet is a Markdown sheet (see "Worksheet kind" below);
+**version 11** when at least one cell carries a comment; **version 10** when
+at least one border side carries a non-default line style or width;
+**version 9** when at least one cell carries a number format; **version 8**
+when at least one cell carries a style; **version 7** when the workbook
+display language is not English; **version 6** when the workbook timezone is
+not `UTC`; **version 5** when wrap-long-rows is stored; **version 4** when a
+sheet filter is present; **version 3** when display settings are present;
+**version 2** when only the creating/updating application metadata is
+present; **version 1** otherwise. Versions 1–14 are all accepted on read; an
+older reader rejects a body version it does not know with a localized
+"unsupported version" message rather than misparsing it.
 
 | Size | Field                                                                                                                            |
 | ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Body version — `13`, `12`, `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                            |
+| 1    | Body version — `14`, `13`, `12`, `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                      |
 | 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                                                      |
 | 2    | _(v2+)_ Application-name length, `u16`                                                                                           |
 | …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`                                                                           |
@@ -223,7 +224,10 @@ rather than misparsing it.
 | 2    | _(v7 only)_ Display-language length, `u16`                                                                                       |
 | …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`                                                                            |
 | 1    | _(v12+)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown — see below)                                                           |
-| 1    | _(v13 only)_ Worksheet locked, `u8` (`0` = unlocked, `1` = locked — see below)                                                   |
+| 1    | _(v13+)_ Worksheet locked, `u8` (`0` = unlocked, `1` = locked — see below)                                                       |
+| 1    | _(v14+)_ History flags, `u8` (bit 0: version history enabled — see below)                                                        |
+| 4    | _(v14+)_ Snapshot count `H`, `u32`                                                                                               |
+| …    | _(v14+)_ `H` snapshot records (see below)                                                                                        |
 | 2    | Sheet-name length `N`, `u16`                                                                                                     |
 | `N`  | Sheet name (UTF-8)                                                                                                               |
 | 4    | Row count, `u32`                                                                                                                 |
@@ -615,6 +619,93 @@ version" message: **compatibility is preserved by never raising the version
 for a workbook with no locked worksheet**, not by making a version-13 file
 still openable by an older release.
 
+### Version history (body version 14)
+
+Body version 14 adds **version (snapshot) history**: a per-file, on-by-default
+setting (**Sheet > File Version History…**) that records a snapshot of the
+file's content every time it saves successfully, so past states survive after
+save and reload. Unlike a version 3 body's display settings, this **is**
+part of the saved file, but like the RSF body itself it stores no executable
+content — a snapshot is exactly the same inert cell/style/formula data the
+live document itself stores, nothing more.
+
+The history block is:
+
+| Size | Field                                                |
+| ---- | ---------------------------------------------------- |
+| 1    | History flags, `u8` (bit 0: version history enabled) |
+| 4    | Snapshot count `H`, `u32`                            |
+| …    | `H` snapshot records, oldest first (see below)       |
+
+Each **snapshot record** is:
+
+| Size | Field                               |
+| ---- | ----------------------------------- |
+| 8    | Timestamp, `f64` ms since epoch     |
+| 4    | Snapshot byte length `L`, `u32`     |
+| `L`  | Snapshot bytes (opaque — see below) |
+
+A snapshot's bytes are an **opaque, headerless body encoding** — the same
+shape this section's own container body has, produced by encoding the file's
+content (cells, styles, filter, display settings, and so on) with no history
+section of its own. Because a snapshot never carries a nested history list,
+history cannot grow recursively: taking a snapshot costs one body encoding,
+not one that grows with every prior save. Nothing in this release decodes a
+snapshot's contents — the block exists so it can be inspected (a count and
+timestamps) and cleared; a future release that adds "restore this version"
+would be the first reader of a snapshot's bytes, decoding them with the same
+body decoder this section describes.
+
+Both the flags byte and the count are always written once version 14 is
+selected — even a file with history disabled and no snapshots yet still
+writes the (empty) block, the same "physically present once selected"
+treatment as every other version-gated section above. The history section is
+written (forcing body version 14) whenever version history is **disabled**
+(the non-default choice) **or** at least one snapshot is recorded; a file
+left on the default (enabled, no saves recorded yet — impossible for any file
+that has ever been saved with this feature present, but true for the
+in-memory state of a brand-new, never-saved document) stays on the lowest
+sufficient body version.
+
+Retention is bounded: at most **20** snapshots are kept per file
+(`MAX_RSF_HISTORY_SNAPSHOTS`); once a save would exceed that, the oldest
+snapshot is dropped first. This is a write-time policy enforced by
+`RsfDocument`, not the codec itself — the codec encodes whatever history
+array it is given, exactly like it does for styles, comments, or a filter — so
+a reader still enforces the same cap independently: a stored snapshot count
+above it is `too-large`, and a single snapshot's declared byte length above
+the decompression ceiling (`MAX_RSF_BODY_BYTES`, 512 MiB — a snapshot is
+itself a body, so it can never legitimately exceed the same bound) is
+`too-large` too.
+
+Snapshots are stored **inside the same compressed body** as the file's
+current content, not compressed independently. This lets the file's chosen
+compression method (Zstandard by default — see "Compression methods" above)
+exploit the redundancy between a snapshot and the live content it was taken
+from, which — for the common case of many similar successive saves —
+compresses substantially better than compressing each snapshot on its own
+would, and needs no separate compression configuration for history at all.
+
+Turning version history off (**Sheet > File Version History…**, unchecking
+the toggle) stops recording _new_ snapshots but never deletes the ones
+already recorded — clearing them is the separate, explicitly confirmed
+**Sheet > Clear Version History** action. Both changes are persisted in the
+saved container, so — like the worksheet lock flag — they mark the document
+as having unsaved changes, but alter no cell input, so neither is pushed onto
+the undo/redo history and neither invalidates the evaluation memo. Plain CSV
+files never carry version history — it requires converting to RSF, exactly
+like every other RSF-only capability in this document.
+
+Like the worksheet-kind and worksheet-locked bytes, a file using version
+history writes container-level body version 14 (or workbook body version
+10 — see below), which an older release rejects outright with the standard
+"unsupported version" message: **compatibility is preserved by never raising
+the version for a file with history disabled and no recorded snapshots**, not
+by making a version-14 file still openable by an older release. Because
+history is on by default, a file saved by a release that has this feature
+will, in practice, almost always be a version-14 (or workbook version-10)
+file after its first save.
+
 ### Bounds (validated on load)
 
 | Limit                 | Value        |
@@ -635,32 +726,36 @@ Written only when the workbook holds **two or more** worksheets. All strings
 are UTF-8 and length-prefixed with a `u16`; all integers are little-endian.
 
 Workbook body version selection is minimal, like the single-sheet body:
-**version 9** is written when at least one worksheet in the workbook is
-locked (see "Worksheet locked (body version 13)" above); **version 8** when
-at least one worksheet in the workbook is a markdown sheet (see "Worksheet
-kind (body version 12)" above); **version 7** when at least one cell in any
-worksheet carries a comment; **version 6** when at least one border side in
-any worksheet carries a non-default line style or width; **version 5** when
-at least one styled cell in any worksheet carries a number format;
-**version 4** when at least one cell in any worksheet carries a style;
-**version 3** when the workbook display language is not `en`; **version 2**
-when the workbook timezone is not `UTC`; **version 1** otherwise. All nine
-versions are accepted on read.
+**version 10** is written when version history is disabled or holds at least
+one snapshot (see "Version history (body version 14)" above); **version 9**
+when at least one worksheet in the workbook is locked (see "Worksheet locked
+(body version 13)" above); **version 8** when at least one worksheet in the
+workbook is a markdown sheet (see "Worksheet kind (body version 12)" above);
+**version 7** when at least one cell in any worksheet carries a comment;
+**version 6** when at least one border side in any worksheet carries a
+non-default line style or width; **version 5** when at least one styled cell
+in any worksheet carries a number format; **version 4** when at least one
+cell in any worksheet carries a style; **version 3** when the workbook
+display language is not `en`; **version 2** when the workbook timezone is not
+`UTC`; **version 1** otherwise. All ten versions are accepted on read.
 
-| Size | Field                                                                                  |
-| ---- | -------------------------------------------------------------------------------------- |
-| 1    | Workbook body version — `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                            |
-| 2+…  | Application name (UTF-8, `u16` length; may be empty)                                   |
-| 2+…  | Application version (UTF-8, `u16` length; may be empty)                                |
-| 8    | Creation timestamp, `f64` ms since epoch (`0` = not stored)                            |
-| 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)                         |
-| 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)                                |
-| 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty)                        |
-| 2+…  | _(v2+)_ Workbook timezone, IANA name (UTF-8, `u16` length)                             |
-| 2+…  | _(v3 only)_ Workbook display language (UTF-8, `u16` length)                            |
-| 2    | Worksheet count `S`, `u16`                                                             |
-| …    | `S` worksheet records (below)                                                          |
+| Size | Field                                                                                        |
+| ---- | -------------------------------------------------------------------------------------------- |
+| 1    | Workbook body version — `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                  |
+| 2+…  | Application name (UTF-8, `u16` length; may be empty)                                         |
+| 2+…  | Application version (UTF-8, `u16` length; may be empty)                                      |
+| 8    | Creation timestamp, `f64` ms since epoch (`0` = not stored)                                  |
+| 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)                               |
+| 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)                                      |
+| 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty)                              |
+| 2+…  | _(v2+)_ Workbook timezone, IANA name (UTF-8, `u16` length)                                   |
+| 2+…  | _(v3 only)_ Workbook display language (UTF-8, `u16` length)                                  |
+| 1    | _(v10+)_ History flags, `u8` (bit 0: version history enabled)                                |
+| 4    | _(v10+)_ Snapshot count `H`, `u32`                                                           |
+| …    | _(v10+)_ `H` snapshot records — identical layout to the single-sheet history block's own     |
+| 2    | Worksheet count `S`, `u16`                                                                   |
+| …    | `S` worksheet records (below)                                                                |
 
 The workbook timezone follows the same rules as the single-sheet body version
 6 field above: written only when non-`UTC`, and an absent or unresolvable
@@ -671,8 +766,10 @@ value falls back to `en` on load rather than rejecting the file. Like the
 timezone, a display-language section forces the timezone section to be
 written too (even a workbook on the default `UTC` timezone), and a cell-style
 section forces the display-language (and so timezone) sections too, and a
-number-format section forces the cell-style section too, so the layout stays
-a strict prefix chain.
+number-format section forces the cell-style section too, and (further down
+the per-worksheet chain — see below) a worksheet lock forces the cell-style
+section too, and a non-default history section forces the worksheet-lock
+section too, so the layout stays a strict prefix chain.
 
 Each worksheet record:
 
@@ -1002,6 +1099,13 @@ carry a per-worksheet lock (see "Worksheet locked (body version 13)" above);
 each is written only when at least one worksheet is locked, for the same
 reason — like the timezone and display language, this is a protective/
 presentational flag with no effect on cell data, formula evaluation, sorting,
-filtering, or CSV export. Future changes bump the container version (framing
-changes) or the relevant body version (encoding changes); readers reject
-versions they do not understand rather than guessing.
+filtering, or CSV export. The single-sheet body was later bumped to version
+14, and the workbook body to version 10, to carry per-file version (snapshot)
+history (see "Version history (body version 14)" above); each is written
+only when history is disabled or holds at least one snapshot — unlike every
+prior bump, history is on by default, so in practice almost every file saved
+by a release with this feature reaches this version after its first save,
+rather than staying on a lower one the way an opt-in feature like locking
+does. Future changes bump the container version (framing changes) or the
+relevant body version (encoding changes); readers reject versions they do not
+understand rather than guessing.

@@ -1372,6 +1372,25 @@ silently. The status bar shows the method the next save will write. Switching
 methods rewrites the container but never changes cell values, formulas,
 structure, or metadata.
 
+#### Version history
+
+Every successful save can record a **snapshot** of the file's content inside
+the `.rsf` container itself, so past states survive after save and reload —
+unlike [Undo / Redo](#undo--redo), whose history is in-memory only and clears
+on save. It's a per-file setting, **on by default**, controlled from **Sheet
+→ File Version History…**; up to 20 snapshots are kept, oldest dropped first,
+and **Sheet → Clear Version History** deletes every recorded snapshot for the
+current file (with a confirmation, since it can't be undone). Snapshots are
+stored alongside the rest of the file's content and compressed together with
+it using whichever method the file already saves with (see "Compression"
+above), so there is no separate history file, no extra compression pass to
+configure, and — because save-to-save content is usually very similar —
+noticeably better compression than storing each snapshot on its own would
+give. Turning history off stops recording _new_ snapshots but keeps the ones
+already saved. A snapshot holds the same kind of inert cell/style/formula
+data the live document itself stores — never code, macros, or anything
+executable.
+
 ## Performance and responsiveness
 
 Perceived responsiveness is treated as a feature: the goal is immediate

@@ -83,16 +83,27 @@ export function visualViewportRect(): ViewportRect {
  * viewport's offset back to zero once it closes, leaving the whole page
  * looking shifted upward even though `body { overflow: hidden }` (see
  * `styles.css`) means the document itself was never meant to scroll (#402).
- * Resyncing the scroll position on every `visualViewport` resize/scroll
- * (fired when the keyboard opens *and* when it closes) nudges WebKit to
- * recompute it; it is a harmless no-op anywhere the offset is already zero,
- * including non-WebKit browsers and desktop, and a no-op entirely in
- * environments without `visualViewport` (e.g. a unit test).
+ * Resyncing the scroll position on `visualViewport` resize/scroll (fired when
+ * the keyboard opens *and* when it closes) nudges WebKit to recompute it.
+ *
+ * The resync only runs `scrollTo` when the page is actually away from (0, 0):
+ * `visualViewport` also fires `resize` for reasons unrelated to the #402 bug
+ * — e.g. a mobile keyboard's predictive-text suggestion bar changing height
+ * on every keystroke as the candidate words change — and calling `scrollTo`
+ * unconditionally on each of those was itself causing a brief layout jitter
+ * while typing (#519). Skipping the call when there is nothing to correct
+ * keeps it a true no-op there, while still firing for the real post-keyboard
+ * shift this exists to fix. It is also a no-op entirely in environments
+ * without `visualViewport` (e.g. a unit test).
  */
 export function installKeyboardViewportFix(): void {
   const vv = globalThis.visualViewport;
   if (!vv) return;
-  const resync = () => globalThis.scrollTo(0, 0);
+  const resync = () => {
+    if (globalThis.scrollX !== 0 || globalThis.scrollY !== 0) {
+      globalThis.scrollTo(0, 0);
+    }
+  };
   vv.addEventListener('resize', resync);
   vv.addEventListener('scroll', resync);
 }

@@ -357,14 +357,28 @@ function statusBarHeight(): number {
   return document.querySelector('.status-bar')?.getBoundingClientRect().height ?? 0;
 }
 
+/** The live height of the document/book tab strip (0 when hidden, e.g. the
+ * welcome screen or a unit test that never mounts it). */
+function tabBarHeight(): number {
+  return document.querySelector('.tab-bar')?.getBoundingClientRect().height ?? 0;
+}
+
+/** The live height of the worksheet tab strip (0 when hidden, e.g. a plain
+ * CSV document, which has no worksheet strip, or the welcome screen). */
+function sheetBarHeight(): number {
+  const bar = document.querySelector<HTMLElement>('.sheet-bar');
+  return bar && !bar.hidden ? bar.getBoundingClientRect().height : 0;
+}
+
 /**
  * Docks `panel` to `position` at `size` pixels (width for left/right, height
- * for top/bottom). A top-docked panel is inset below the menu bar and a
- * bottom-docked one above the status bar — both always-visible chrome the
- * panel must never cover — measured live so it tracks their actual height
- * (e.g. the menu bar collapsing to a toggle button on a narrow viewport)
- * rather than a guessed constant (#399). Left/right-docked panels still span
- * the full viewport height, unchanged.
+ * for top/bottom). A top-docked panel is inset below the menu bar *and* the
+ * book tab strip, and a bottom-docked one above the status bar *and* the
+ * worksheet tab strip — chrome the panel must never cover — measured live so
+ * it tracks their actual height (e.g. the menu bar collapsing to a toggle
+ * button on a narrow viewport, or either tab strip being hidden) rather than
+ * a guessed constant (#399/#541). Left/right-docked panels still span the
+ * full viewport height, unchanged.
  */
 export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPosition, size: number): void {
   panel.dataset.sidePanelPosition = position;
@@ -373,12 +387,16 @@ export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPo
   // edge opposite the dock side is left unset so the panel's size comes from
   // its explicit width/height below, not from being pinned on both sides.
   panel.style.top =
-    position === 'left' || position === 'right' ? '0px' : position === 'top' ? `${menuBarHeight()}px` : '';
+    position === 'left' || position === 'right'
+      ? '0px'
+      : position === 'top'
+        ? `${menuBarHeight() + tabBarHeight()}px`
+        : '';
   panel.style.bottom =
     position === 'left' || position === 'right'
       ? '0px'
       : position === 'bottom'
-        ? `${statusBarHeight()}px`
+        ? `${statusBarHeight() + sheetBarHeight()}px`
         : '';
   panel.style.left = position === 'top' || position === 'bottom' || position === 'left' ? '0px' : '';
   panel.style.right = position === 'top' || position === 'bottom' || position === 'right' ? '0px' : '';
@@ -399,11 +417,12 @@ export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPo
  * reservation pads `#app` itself (`box-sizing: border-box`, filling the
  * viewport — see `styles.css`), narrowing the menu bar and status bar along
  * with everything else, exactly as before. A top/bottom reservation instead
- * pads `#app-body` — the flex column between the menu bar and the status bar
- * — so those two bars stay put at the true viewport edges and only the
- * document chrome between them (tab strip, formula bar, the sheet) makes
- * room (#399). Cleared by `clearAppEdgeReservation` when the panel closes.
- * A no-op outside a full app shell (e.g. a unit test that never mounts it).
+ * pads `#app-content` — the flex column between the two tab strips (book
+ * tabs above, worksheet tabs below) — so a top dock lands below the book tab
+ * strip and a bottom dock lands above the worksheet tab strip, rather than
+ * covering either one (#399/#541). Cleared by `clearAppEdgeReservation` when
+ * the panel closes. A no-op outside a full app shell (e.g. a unit test that
+ * never mounts it).
  */
 function reserveAppEdge(position: SidePanelPosition, size: number): void {
   const app = document.getElementById('app');
@@ -411,10 +430,10 @@ function reserveAppEdge(position: SidePanelPosition, size: number): void {
     app.style.paddingLeft = position === 'left' ? `${size}px` : '';
     app.style.paddingRight = position === 'right' ? `${size}px` : '';
   }
-  const appBody = document.getElementById('app-body');
-  if (appBody) {
-    appBody.style.paddingTop = position === 'top' ? `${size}px` : '';
-    appBody.style.paddingBottom = position === 'bottom' ? `${size}px` : '';
+  const appContent = document.getElementById('app-content');
+  if (appContent) {
+    appContent.style.paddingTop = position === 'top' ? `${size}px` : '';
+    appContent.style.paddingBottom = position === 'bottom' ? `${size}px` : '';
   }
 }
 
@@ -425,10 +444,10 @@ export function clearAppEdgeReservation(): void {
     app.style.paddingLeft = '';
     app.style.paddingRight = '';
   }
-  const appBody = document.getElementById('app-body');
-  if (appBody) {
-    appBody.style.paddingTop = '';
-    appBody.style.paddingBottom = '';
+  const appContent = document.getElementById('app-content');
+  if (appContent) {
+    appContent.style.paddingTop = '';
+    appContent.style.paddingBottom = '';
   }
 }
 

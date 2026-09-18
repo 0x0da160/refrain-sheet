@@ -233,18 +233,21 @@ function bootstrap(): void {
     markdownSheetView.element,
     jsonSheetView.element,
   ]);
-  // Everything except the always-visible menu bar and status bar lives in
-  // `#app-body`: a docked side panel (the comments panel here, or Filter/
-  // Sort/Format/SQL Query via `openSidePanel`) reserves space by padding
-  // this element rather than `#app` itself, so a top/bottom-docked panel
-  // insets below the menu bar / above the status bar instead of covering
-  // them (see `applySidePanelPosition`, `src/ui/dialogs/shared.ts`, #399).
-  const appBody = el('div', { className: 'app-body', attrs: { id: 'app-body' } }, [
-    tabBar.element,
+  // Everything between the two tab strips (find bar, formula bar, welcome
+  // screen, the sheet itself) lives in `#app-content`: a top/bottom-docked
+  // side panel reserves space by padding this element rather than
+  // `#app-body`, so it insets below the book tab strip and above the
+  // worksheet tab strip instead of covering either of them (see
+  // `applySidePanelPosition`, `src/ui/dialogs/shared.ts`, #399/#541).
+  const appContent = el('div', { className: 'app-content', attrs: { id: 'app-content' } }, [
     findBar.element,
     formulaBar.element,
     welcome.element,
     mainRow,
+  ]);
+  const appBody = el('div', { className: 'app-body', attrs: { id: 'app-body' } }, [
+    tabBar.element,
+    appContent,
     sheetBar.element,
     commentsPanel.element,
     markdownSheetView.panelElement,

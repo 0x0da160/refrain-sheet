@@ -150,6 +150,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- A top-docked side panel now sits below the document/book tab strip
+  (previously it sat above it, directly under the menu bar), and a
+  bottom-docked one now sits above the worksheet tab strip (previously below
+  it) — a docked panel no longer covers either tab strip.
 - The dockable side panel's position-switcher icons are now ordered left,
   top, bottom, right (previously top, right, bottom, left).
 - The dockable side panel no longer casts a drop shadow along its border; a

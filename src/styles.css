@@ -273,11 +273,21 @@ body {
 }
 
 /* Everything except the menu bar and status bar (both direct `#app`
-   children, always at the true viewport top/bottom edges). A docked side
-   panel reserves top/bottom space by padding this element instead of `#app`
-   itself, so the menu bar and status bar never move or get covered — see
-   `reserveAppEdge`, `src/ui/dialogs/shared.ts` (#399). */
+   children, always at the true viewport top/bottom edges): the book tab
+   strip, `.app-content`, and the worksheet tab strip, stacked vertically. */
 .app-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Everything between the two tab strips (find bar, formula bar, welcome
+   screen, the sheet itself). A top/bottom-docked side panel reserves space
+   by padding this element instead of `.app-body`, so it insets below the
+   book tab strip / above the worksheet tab strip instead of covering either
+   one — see `reserveAppEdge`, `src/ui/dialogs/shared.ts` (#399/#541). */
+.app-content {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -3195,22 +3205,20 @@ table.diff-table td {
   /* On a narrow viewport the formula bar (cell reference + edit field) moves
      from above the grid to below it, directly above the worksheet-tab strip
      (#495) — thumb reach while typing matters more here than the desktop
-     convention of a formula bar above the grid. `.tab-bar`/`.find-bar`/
-     `.welcome-screen`/`.main-row` keep their default `order: 0`, so they
-     stay in DOM order ahead of these two explicitly reordered rows; only
-     `.formula-bar` and `.sheet-bar` need values, placing the bar between
-     the grid and the sheet tabs. The border moves from the bar's bottom
-     edge to its top edge so it still separates the bar from the grid above
-     it — `.sheet-bar`'s own `border-top` already separates it from the
-     sheet-tab strip below. */
+     convention of a formula bar above the grid. `.formula-bar` lives inside
+     `.app-content` alongside `.find-bar`/`.welcome-screen`/`.main-row`
+     (which keep their default `order: 0`), so bumping only its own order
+     moves it after the grid *within that container* — and because
+     `.app-content` is itself immediately followed by `.sheet-bar` in
+     `.app-body`'s own DOM order (#399/#541 — see `src/main.ts`), the two
+     rows stay adjacent without `.sheet-bar` needing an order of its own. The
+     border moves from the bar's bottom edge to its top edge so it still
+     separates the bar from the grid above it — `.sheet-bar`'s own
+     `border-top` already separates it from the sheet-tab strip below. */
   .formula-bar {
     order: 1;
     border-bottom: none;
     border-top: 1px solid var(--border);
-  }
-
-  .sheet-bar {
-    order: 2;
   }
 
   .menu-bar {

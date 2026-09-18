@@ -48,61 +48,75 @@
      (see src/app/sheet-font.ts); Noto Sans JP is the default. */
   --font-sheet: var(--sheet-font-noto-sans-jp);
 
+  /* ---------- Oklab-based color system ----------
+     Every semantic token below is authored as oklch(L C H[ / alpha]) — the
+     cylindrical form of the perceptually-uniform Oklab space — instead of
+     hand-picked hex, so lightness and chroma steps stay comparable across
+     tokens and between the light/dark themes below. `--hue-neutral` and
+     `--hue-accent` are the two hue families shared across many tokens (grays
+     and blues respectively); they live here, once, because both themes agree
+     on them almost exactly, and every other block inherits them unless it
+     says otherwise. Distinct semantic hues (danger, warning, success, the
+     formula/reference colors) keep their own literal hue, since unifying
+     those would change what they mean, not just how they're written. */
+  --hue-neutral: 286;
+  --hue-accent: 260;
+
   /* ---------- Semantic color tokens (light theme = default) ----------
      Every surface reads its colors from these tokens; the dark theme below
      overrides the same names. Selection, errors, dirty state, and warnings are
      always paired with a non-color cue (outline pattern, marker glyph, bold,
      wavy underline) so they never rely on color alone. */
-  --bg: #f4f4f6;
-  --panel: #ececef;
-  --panel-hover: #e2e2e6;
-  --panel-active: #d0d0d6;
-  --border: #c6c6cc;
-  --border-subtle: #e6e6ea;
-  --text: #1c1c22;
-  --text-dim: #5a5a66;
-  --text-muted: #8a8a95;
-  --surface: #ffffff;
-  --field-bg: #ffffff;
-  --cell-bg: #ffffff;
-  --grid-line: #e3e3e8;
-  --row-alt: #f8f8fa;
-  --selected-row: #eaf1fb;
-  --sticky-bg: #fdf6df;
-  --info-soft: #fbfbe8;
-  --accent: #2456a6;
-  --accent-soft: #d6e2f5;
-  --accent-contrast: #ffffff;
-  --accent-contrast-dim: #e5edff;
-  --range-fill: rgba(37, 99, 235, 0.14);
-  --edited: #fff3c4;
-  --edited-border: #e0b400;
-  --danger: #b3261e;
-  --warning: #d97706;
-  --warning-soft: #fff6e0;
-  --warning-border: #e0c470;
-  --success: #16a34a;
-  --formula-text: #14532d;
-  --formula-marker: #2f855a;
-  --void-a: #fafafa;
-  --void-b: #f1f1f4;
-  --find-highlight: rgba(36, 86, 166, 0.18);
-  --scrim: rgba(20, 20, 28, 0.35);
-  --scrim-light: rgba(255, 255, 255, 0.55);
-  --tooltip-bg: #2b2b33;
-  --tooltip-text: #ffffff;
+  --bg: oklch(96.8% 0.003 var(--hue-neutral));
+  --panel: oklch(94.4% 0.004 var(--hue-neutral));
+  --panel-hover: oklch(91.4% 0.005 var(--hue-neutral));
+  --panel-active: oklch(85.9% 0.008 var(--hue-neutral));
+  --border: oklch(82.8% 0.008 var(--hue-neutral));
+  --border-subtle: oklch(92.6% 0.005 var(--hue-neutral));
+  --text: oklch(22.9% 0.012 var(--hue-neutral));
+  --text-dim: oklch(47.2% 0.019 var(--hue-neutral));
+  --text-muted: oklch(63.7% 0.016 var(--hue-neutral));
+  --surface: oklch(100% 0 var(--hue-neutral));
+  --field-bg: oklch(100% 0 var(--hue-neutral));
+  --cell-bg: oklch(100% 0 var(--hue-neutral));
+  --grid-line: oklch(91.7% 0.007 var(--hue-neutral));
+  --row-alt: oklch(98% 0.003 var(--hue-neutral));
+  --selected-row: oklch(95.6% 0.015 var(--hue-accent));
+  --sticky-bg: oklch(97.3% 0.031 92.9);
+  --info-soft: oklch(98.3% 0.025 106.8);
+  --accent: oklch(46.5% 0.14 var(--hue-accent));
+  --accent-soft: oklch(91% 0.029 var(--hue-accent));
+  --accent-contrast: oklch(100% 0 var(--hue-accent));
+  --accent-contrast-dim: oklch(94.5% 0.026 var(--hue-accent));
+  --range-fill: oklch(54.6% 0.215 var(--hue-accent) / 0.14);
+  --edited: oklch(96.2% 0.062 95.4);
+  --edited-border: oklch(78.7% 0.161 91);
+  --danger: oklch(50.1% 0.178 28.7);
+  --warning: oklch(66.6% 0.157 58.3);
+  --warning-soft: oklch(97.4% 0.03 88.4);
+  --warning-border: oklch(82.7% 0.109 91.5);
+  --success: oklch(62.7% 0.17 149.2);
+  --formula-text: oklch(39.3% 0.09 152.5);
+  --formula-marker: oklch(55.3% 0.107 158);
+  --void-a: oklch(98.5% 0 var(--hue-neutral));
+  --void-b: oklch(95.9% 0.004 var(--hue-neutral));
+  --find-highlight: oklch(46.5% 0.14 var(--hue-accent) / 0.18);
+  --scrim: oklch(19.5% 0.016 var(--hue-neutral) / 0.35);
+  --scrim-light: oklch(100% 0 var(--hue-neutral) / 0.55);
+  --tooltip-bg: oklch(29.2% 0.014 var(--hue-neutral));
+  --tooltip-text: oklch(100% 0 var(--hue-neutral));
   /* Toasts stay dark chips in both themes so their light text always reads;
      the warn/error variants carry their own dark backgrounds. */
-  --toast-warn-bg: #7a5b00;
-  --toast-error-bg: #8f1d17;
-  --shadow: rgba(0, 0, 0, 0.15);
-  --shadow-strong: rgba(0, 0, 0, 0.3);
+  --toast-warn-bg: oklch(49% 0.1 85.4);
+  --toast-error-bg: oklch(42.6% 0.15 28.5);
+  --shadow: oklch(0% 0 0 / 0.15);
+  --shadow-strong: oklch(0% 0 0 / 0.3);
   /* Four visually distinct formula-reference colors (always paired with a
      distinct border pattern: solid / dashed / dotted / double). */
-  --fref-1: #2563eb;
-  --fref-2: #16a34a;
-  --fref-3: #d97706;
-  --fref-4: #9333ea;
+  --fref-1: oklch(54.6% 0.215 var(--hue-accent));
+  --fref-2: oklch(62.7% 0.17 149.2);
+  --fref-3: oklch(66.6% 0.157 58.3);
+  --fref-4: oklch(55.8% 0.252 302.3);
   color-scheme: light;
 }
 
@@ -111,52 +125,52 @@
    src/app/theme.ts, which resolves the "system" choice via prefers-color-scheme
    and updates live on OS theme changes). */
 :root[data-theme='dark'] {
-  --bg: #17171b;
-  --panel: #24242b;
-  --panel-hover: #32323b;
-  --panel-active: #3d3d47;
-  --border: #3a3a43;
-  --border-subtle: #2c2c33;
-  --text: #e7e7ec;
-  --text-dim: #a6a6b3;
-  --text-muted: #74747f;
-  --surface: #212128;
-  --field-bg: #1b1b21;
-  --cell-bg: #1c1c22;
-  --grid-line: #33333b;
-  --row-alt: #202027;
-  --selected-row: #1f2c44;
-  --sticky-bg: #2f2a1a;
-  --info-soft: #24240f;
-  --accent: #5b8fe0;
-  --accent-soft: #26364f;
-  --accent-contrast: #0f141d;
-  --accent-contrast-dim: #0f141d;
-  --range-fill: rgba(91, 143, 224, 0.22);
-  --edited: #45391a;
-  --edited-border: #cfa93a;
-  --danger: #f2726a;
-  --warning: #f0a83a;
-  --warning-soft: #382c12;
-  --warning-border: #6a5520;
-  --success: #4ade80;
-  --formula-text: #86e0ac;
-  --formula-marker: #4ade80;
-  --void-a: #23232a;
-  --void-b: #1a1a20;
-  --find-highlight: rgba(120, 160, 230, 0.3);
-  --scrim: rgba(0, 0, 0, 0.55);
-  --scrim-light: rgba(0, 0, 0, 0.45);
-  --tooltip-bg: #3a3a45;
-  --tooltip-text: #f2f2f6;
-  --toast-warn-bg: #6a5214;
-  --toast-error-bg: #7c241d;
-  --shadow: rgba(0, 0, 0, 0.5);
-  --shadow-strong: rgba(0, 0, 0, 0.72);
-  --fref-1: #6ea8ff;
-  --fref-2: #4ade80;
-  --fref-3: #fbbf24;
-  --fref-4: #c084fc;
+  --bg: oklch(20.6% 0.008 var(--hue-neutral));
+  --panel: oklch(26.3% 0.013 var(--hue-neutral));
+  --panel-hover: oklch(32.1% 0.016 var(--hue-neutral));
+  --panel-active: oklch(36.4% 0.017 var(--hue-neutral));
+  --border: oklch(35.2% 0.015 var(--hue-neutral));
+  --border-subtle: oklch(29.6% 0.013 var(--hue-neutral));
+  --text: oklch(92.9% 0.007 var(--hue-neutral));
+  --text-dim: oklch(72.9% 0.019 var(--hue-neutral));
+  --text-muted: oklch(56.3% 0.017 var(--hue-neutral));
+  --surface: oklch(25.1% 0.013 var(--hue-neutral));
+  --field-bg: oklch(22.5% 0.012 var(--hue-neutral));
+  --cell-bg: oklch(22.9% 0.012 var(--hue-neutral));
+  --grid-line: oklch(32.4% 0.014 var(--hue-neutral));
+  --row-alt: oklch(24.7% 0.013 var(--hue-neutral));
+  --selected-row: oklch(29.4% 0.048 var(--hue-accent));
+  --sticky-bg: oklch(28.6% 0.028 92.8);
+  --info-soft: oklch(25.4% 0.035 108.7);
+  --accent: oklch(65% 0.134 var(--hue-accent));
+  --accent-soft: oklch(33.1% 0.049 var(--hue-accent));
+  --accent-contrast: oklch(19.1% 0.02 var(--hue-accent));
+  --accent-contrast-dim: oklch(19.1% 0.02 var(--hue-accent));
+  --range-fill: oklch(65% 0.134 var(--hue-accent) / 0.22);
+  --edited: oklch(35% 0.05 88.6);
+  --edited-border: oklch(75% 0.132 89.4);
+  --danger: oklch(70.2% 0.159 25.6);
+  --warning: oklch(78.3% 0.146 73.4);
+  --warning-soft: oklch(30% 0.044 84.8);
+  --warning-border: oklch(46% 0.076 87.2);
+  --success: oklch(80% 0.182 151.7);
+  --formula-text: oklch(83.6% 0.114 157.4);
+  --formula-marker: oklch(80% 0.182 151.7);
+  --void-a: oklch(25.9% 0.013 var(--hue-neutral));
+  --void-b: oklch(22% 0.012 var(--hue-neutral));
+  --find-highlight: oklch(70.5% 0.112 var(--hue-accent) / 0.3);
+  --scrim: oklch(0% 0 0 / 0.55);
+  --scrim-light: oklch(0% 0 0 / 0.45);
+  --tooltip-bg: oklch(35.3% 0.019 var(--hue-neutral));
+  --tooltip-text: oklch(96.2% 0.005 var(--hue-neutral));
+  --toast-warn-bg: oklch(45.2% 0.083 86.3);
+  --toast-error-bg: oklch(39.8% 0.123 28.4);
+  --shadow: oklch(0% 0 0 / 0.5);
+  --shadow-strong: oklch(0% 0 0 / 0.72);
+  --fref-1: oklch(72.9% 0.141 var(--hue-accent));
+  --fref-2: oklch(80% 0.182 151.7);
+  --fref-3: oklch(83.7% 0.164 84.4);
+  --fref-4: oklch(72.2% 0.177 305.5);
   color-scheme: dark;
 }
 
@@ -170,52 +184,52 @@
    dark block for cells, row/column headers, and everything nested inside the
    grid, without touching the surrounding UI chrome. */
 :root[data-theme='dark'][data-theme-choice='hybrid'] .grid-container {
-  --bg: #f4f4f6;
-  --panel: #ececef;
-  --panel-hover: #e2e2e6;
-  --panel-active: #d0d0d6;
-  --border: #c6c6cc;
-  --border-subtle: #e6e6ea;
-  --text: #1c1c22;
-  --text-dim: #5a5a66;
-  --text-muted: #8a8a95;
-  --surface: #ffffff;
-  --field-bg: #ffffff;
-  --cell-bg: #ffffff;
-  --grid-line: #e3e3e8;
-  --row-alt: #f8f8fa;
-  --selected-row: #eaf1fb;
-  --sticky-bg: #fdf6df;
-  --info-soft: #fbfbe8;
-  --accent: #2456a6;
-  --accent-soft: #d6e2f5;
-  --accent-contrast: #ffffff;
-  --accent-contrast-dim: #e5edff;
-  --range-fill: rgba(37, 99, 235, 0.14);
-  --edited: #fff3c4;
-  --edited-border: #e0b400;
-  --danger: #b3261e;
-  --warning: #d97706;
-  --warning-soft: #fff6e0;
-  --warning-border: #e0c470;
-  --success: #16a34a;
-  --formula-text: #14532d;
-  --formula-marker: #2f855a;
-  --void-a: #fafafa;
-  --void-b: #f1f1f4;
-  --find-highlight: rgba(36, 86, 166, 0.18);
-  --scrim: rgba(20, 20, 28, 0.35);
-  --scrim-light: rgba(255, 255, 255, 0.55);
-  --tooltip-bg: #2b2b33;
-  --tooltip-text: #ffffff;
-  --toast-warn-bg: #7a5b00;
-  --toast-error-bg: #8f1d17;
-  --shadow: rgba(0, 0, 0, 0.15);
-  --shadow-strong: rgba(0, 0, 0, 0.3);
-  --fref-1: #2563eb;
-  --fref-2: #16a34a;
-  --fref-3: #d97706;
-  --fref-4: #9333ea;
+  --bg: oklch(96.8% 0.003 var(--hue-neutral));
+  --panel: oklch(94.4% 0.004 var(--hue-neutral));
+  --panel-hover: oklch(91.4% 0.005 var(--hue-neutral));
+  --panel-active: oklch(85.9% 0.008 var(--hue-neutral));
+  --border: oklch(82.8% 0.008 var(--hue-neutral));
+  --border-subtle: oklch(92.6% 0.005 var(--hue-neutral));
+  --text: oklch(22.9% 0.012 var(--hue-neutral));
+  --text-dim: oklch(47.2% 0.019 var(--hue-neutral));
+  --text-muted: oklch(63.7% 0.016 var(--hue-neutral));
+  --surface: oklch(100% 0 var(--hue-neutral));
+  --field-bg: oklch(100% 0 var(--hue-neutral));
+  --cell-bg: oklch(100% 0 var(--hue-neutral));
+  --grid-line: oklch(91.7% 0.007 var(--hue-neutral));
+  --row-alt: oklch(98% 0.003 var(--hue-neutral));
+  --selected-row: oklch(95.6% 0.015 var(--hue-accent));
+  --sticky-bg: oklch(97.3% 0.031 92.9);
+  --info-soft: oklch(98.3% 0.025 106.8);
+  --accent: oklch(46.5% 0.14 var(--hue-accent));
+  --accent-soft: oklch(91% 0.029 var(--hue-accent));
+  --accent-contrast: oklch(100% 0 var(--hue-accent));
+  --accent-contrast-dim: oklch(94.5% 0.026 var(--hue-accent));
+  --range-fill: oklch(54.6% 0.215 var(--hue-accent) / 0.14);
+  --edited: oklch(96.2% 0.062 95.4);
+  --edited-border: oklch(78.7% 0.161 91);
+  --danger: oklch(50.1% 0.178 28.7);
+  --warning: oklch(66.6% 0.157 58.3);
+  --warning-soft: oklch(97.4% 0.03 88.4);
+  --warning-border: oklch(82.7% 0.109 91.5);
+  --success: oklch(62.7% 0.17 149.2);
+  --formula-text: oklch(39.3% 0.09 152.5);
+  --formula-marker: oklch(55.3% 0.107 158);
+  --void-a: oklch(98.5% 0 var(--hue-neutral));
+  --void-b: oklch(95.9% 0.004 var(--hue-neutral));
+  --find-highlight: oklch(46.5% 0.14 var(--hue-accent) / 0.18);
+  --scrim: oklch(19.5% 0.016 var(--hue-neutral) / 0.35);
+  --scrim-light: oklch(100% 0 var(--hue-neutral) / 0.55);
+  --tooltip-bg: oklch(29.2% 0.014 var(--hue-neutral));
+  --tooltip-text: oklch(100% 0 var(--hue-neutral));
+  --toast-warn-bg: oklch(49% 0.1 85.4);
+  --toast-error-bg: oklch(42.6% 0.15 28.5);
+  --shadow: oklch(0% 0 0 / 0.15);
+  --shadow-strong: oklch(0% 0 0 / 0.3);
+  --fref-1: oklch(54.6% 0.215 var(--hue-accent));
+  --fref-2: oklch(62.7% 0.17 149.2);
+  --fref-3: oklch(66.6% 0.157 58.3);
+  --fref-4: oklch(55.8% 0.252 302.3);
   color-scheme: light;
 }
 

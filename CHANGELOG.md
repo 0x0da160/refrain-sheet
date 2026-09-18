@@ -197,6 +197,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The light, dark, and hybrid color themes are now authored in the Oklab
+  color space (as CSS `oklch()` values) instead of hand-picked hex, so
+  lightness and chroma steps are consistent across tokens and between
+  themes; the neutral (gray) and accent (blue) tokens share one hue each per
+  theme. Colors are visually unchanged — this only changes how the same
+  palette is expressed internally.
+  ([#535](https://github.com/0x0da160/refrain-sheet/issues/535))
 - The home (welcome) screen no longer states that the app "runs fully
   offline" and that "no data ever leaves this page" — that claim only holds
   for the downloadable offline HTML build, not the hosted web app at

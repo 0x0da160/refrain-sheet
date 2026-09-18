@@ -617,6 +617,9 @@ export class Grid {
   private resizing: { col: number; startX: number; startWidth: number } | null = null;
   /** Active fill-handle drag, if any. */
   private filling: { source: CellRange; target: { row: number; col: number } } | null = null;
+  /** The range currently outlined as a copy source (see `setCopySource`), or
+   * null when nothing is being highlighted. */
+  private copySource: CellRange | null = null;
   /** Active whole-row / whole-column header drag, if any. */
   private headerDrag: { axis: 'row' | 'col'; anchor: number; last: number } | null = null;
   /** Active pointer reference entry into a formula editor, if any. */
@@ -810,6 +813,11 @@ export class Grid {
       if (this.resizing) {
         this.cancelResize();
       }
+      // Dismiss the copy-source outline, matching the conventional
+      // spreadsheet Escape behavior (it only clears the visual marker; the
+      // clipboard's own text/matrix — and its ability to still be pasted —
+      // is untouched).
+      this.setCopySource(null);
     });
     // Escape / outside interaction / resize / scroll dismissal is owned by
     // `ContextMenu` itself, so every context menu in the application behaves
@@ -1266,6 +1274,7 @@ export class Grid {
     }
     this.placeFillHandle(tab, range);
     this.placeMoveHandle(tab, range);
+    this.placeCopySourceOutline();
     this.positionSink();
   }
 
@@ -1311,6 +1320,56 @@ export class Grid {
       attrs: { 'data-fillhandle': 'true', 'aria-hidden': 'true', title: t('grid.fillTitle') },
     });
     cell.append(handle);
+  }
+
+  /**
+   * Set (or clear, with `null`) the range to outline as a copy source — an
+   * animated "marching ants" border so the origin of an in-progress copy
+   * stays visible while the user picks where to paste it. Purely a view
+   * concern (`main.ts` drives it from `ClipboardController`), not part of
+   * `Tab`/`AppState`: it never affects selection, is never persisted, and is
+   * cleared independently of the selection itself.
+   */
+  setCopySource(range: CellRange | null): void {
+    if (this.copySource === range) {
+      return;
+    }
+    this.copySource = range;
+    this.placeCopySourceOutline();
+  }
+
+  /**
+   * Position a single overlay `div` over the copy-source range's rendered
+   * pixel rect, the same way `placeMoveHandle`/`placeFillHandle` above
+   * anchor to one corner cell — except this one must span the *whole*
+   * rectangle, not just a corner, so it is measured from both corner cells'
+   * `getBoundingClientRect()` relative to the canvas's own, the same
+   * technique `placeSinkOverCell` uses. Like those handles, a corner that has
+   * scrolled out of the rendered window simply means no overlay this frame —
+   * it reappears once the range scrolls back into view.
+   */
+  private placeCopySourceOutline(): void {
+    for (const old of this.canvas.querySelectorAll('.copy-source-outline')) {
+      old.remove();
+    }
+    const range = this.copySource;
+    if (!range) {
+      return;
+    }
+    const topLeft = this.cellAt(range.top, range.left);
+    const bottomRight = this.cellAt(range.bottom, range.right);
+    if (!topLeft || !bottomRight) {
+      return; // a corner is scrolled out of view
+    }
+    const origin = this.canvas.getBoundingClientRect();
+    const tl = topLeft.getBoundingClientRect();
+    const br = bottomRight.getBoundingClientRect();
+    const outline = el('div', { className: 'copy-source-outline', attrs: { 'aria-hidden': 'true' } });
+    outline.style.left = `${tl.left - origin.left}px`;
+    outline.style.top = `${tl.top - origin.top}px`;
+    outline.style.width = `${br.right - tl.left}px`;
+    outline.style.height = `${br.bottom - tl.top}px`;
+    this.canvas.append(outline);
   }
 
   /**

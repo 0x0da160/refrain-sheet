@@ -2,6 +2,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
+import { ClipboardController } from '../src/app/clipboard-controller';
 import { Commands, type UiPort } from '../src/app/commands';
 import { t } from '../src/app/i18n';
 import { RsfDocument } from '../src/core/rsf-document';
@@ -719,5 +720,60 @@ describe('add row / add column buttons anchored to the grid edges (#467)', () =>
     const colAnchor = grid.element.querySelector<HTMLElement>('.vgrid-add-col-anchor')!;
     expect(rowAnchor.hidden).toBe(true);
     expect(colAnchor.hidden).toBe(true);
+  });
+});
+
+describe('copy-source outline (animated marching-ants border)', () => {
+  it('places exactly one overlay spanning the copied range, when both corner cells are rendered', () => {
+    const { grid } = setup(bigCsv(10, 5));
+    // Both corners are within the virtualized window, so the overlay must
+    // be created rather than skipped (contrast the "scrolled out of view"
+    // case below).
+    cellEl(grid, 1, 1);
+    cellEl(grid, 2, 2);
+    grid.setCopySource({ top: 1, left: 1, bottom: 2, right: 2 });
+    const outlines = grid.element.querySelectorAll<HTMLElement>('.copy-source-outline');
+    expect(outlines.length).toBe(1);
+    // jsdom lays out no real geometry (every rect is zero-sized), so only
+    // that a pixel position was actually written is asserted here; the
+    // real on-screen placement is a visual/manual concern.
+    expect(outlines[0].style.left).toMatch(/px$/);
+    expect(outlines[0].style.top).toMatch(/px$/);
+  });
+
+  it('removes the overlay when the copy source is cleared', () => {
+    const { grid } = setup(bigCsv(10, 5));
+    grid.setCopySource({ top: 0, left: 0, bottom: 1, right: 1 });
+    expect(grid.element.querySelectorAll('.copy-source-outline').length).toBe(1);
+    grid.setCopySource(null);
+    expect(grid.element.querySelectorAll('.copy-source-outline').length).toBe(0);
+  });
+
+  it('re-places the overlay on every selection refresh (e.g. across scrolling)', () => {
+    const { grid } = setup(bigCsv(10, 5));
+    grid.setCopySource({ top: 0, left: 0, bottom: 0, right: 0 });
+    expect(grid.element.querySelectorAll('.copy-source-outline').length).toBe(1);
+    grid.refreshSelection();
+    // Still exactly one — refreshSelection must not accumulate duplicates.
+    expect(grid.element.querySelectorAll('.copy-source-outline').length).toBe(1);
+  });
+
+  it('renders no overlay when a corner of the range has scrolled out of view', () => {
+    const { grid } = setup(bigCsv(100_000, 5));
+    // Row 99,999 is far outside the virtualized window.
+    grid.setCopySource({ top: 0, left: 0, bottom: 99_999, right: 0 });
+    expect(grid.element.querySelectorAll('.copy-source-outline').length).toBe(0);
+  });
+
+  it('is driven end-to-end by ClipboardController.copyText/clearCopySource', () => {
+    const { grid, state, commands } = setup(bigCsv(5, 3));
+    const clipboard = new ClipboardController(state, commands, vi.fn(), document, (range) =>
+      grid.setCopySource(range),
+    );
+    state.setSelection(state.activeTab!, { row: 0, col: 0 }, { row: 1, col: 1 });
+    clipboard.copyText();
+    expect(grid.element.querySelectorAll('.copy-source-outline').length).toBe(1);
+    clipboard.clearCopySource();
+    expect(grid.element.querySelectorAll('.copy-source-outline').length).toBe(0);
   });
 });

@@ -143,6 +143,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- Copying a cell range now draws an animated "marching ants" border around
+  it, so the source of an in-progress copy stays visible while picking where
+  to paste. It clears on paste, on Escape, and when switching documents or
+  worksheets.
 - Every dockable side panel (Filter, Sort, Format, SQL Query, comments, the
   Markdown/JSON preview) now has a maximize button next to its position
   switcher, expanding it to the largest size it could be manually resized to

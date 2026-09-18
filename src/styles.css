@@ -1244,6 +1244,53 @@ button {
   touch-action: none;
 }
 
+/* An animated "marching ants" border over a copied range (see
+   `Grid.setCopySource`/`placeCopySourceOutline`), so the copy source stays
+   visible while picking where to paste. Four independently animated
+   dashed edges (rather than a single `outline`, which cannot animate its
+   own dash pattern) built from repeating linear gradients, one pair per
+   axis so each edge's dashes scroll along that edge. */
+.copy-source-outline {
+  position: absolute;
+  /* So the forced-colors fallback's `border` below doesn't grow the box
+     past the exact pixel rect `placeCopySourceOutline` measured. */
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 8; /* above .fill-handle/.move-handle (7) */
+  background:
+    linear-gradient(90deg, var(--accent) 50%, transparent 0) repeat-x,
+    linear-gradient(90deg, var(--accent) 50%, transparent 0) repeat-x,
+    linear-gradient(180deg, var(--accent) 50%, transparent 0) repeat-y,
+    linear-gradient(180deg, var(--accent) 50%, transparent 0) repeat-y;
+  background-size:
+    8px 2px,
+    8px 2px,
+    2px 8px,
+    2px 8px;
+  background-position:
+    0 0,
+    0 100%,
+    0 0,
+    100% 0;
+  animation: copy-source-march 0.5s linear infinite;
+}
+
+@keyframes copy-source-march {
+  to {
+    background-position:
+      8px 0,
+      -8px 100%,
+      0 -8px,
+      100% 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy-source-outline {
+    animation: none;
+  }
+}
+
 /* While dragging, the whole grid shows the move cursor; an invalid drop shows
    not-allowed. The invalid state is also conveyed by a distinct outline
    (below), never by color alone. */
@@ -3129,6 +3176,15 @@ table.diff-table td {
   .vcell.anchor,
   :focus-visible {
     outline-color: Highlight;
+  }
+
+  /* The animated gradient-based copy-source outline is unreliable under a
+     forced system palette; fall back to a plain, non-animated dashed
+     border in the system's highlight color instead. */
+  .copy-source-outline {
+    background: none;
+    animation: none;
+    border: 2px dashed Highlight;
   }
 }
 

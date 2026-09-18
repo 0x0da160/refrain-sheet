@@ -150,6 +150,7 @@ function bootstrap(): void {
     commands,
     (text, kind) => toasts.notify(text, kind),
     document,
+    (range) => grid.setCopySource(range),
   );
   commands.clipboardActions = {
     copy: () => clipboard.copyViaApi(),
@@ -294,7 +295,10 @@ function bootstrap(): void {
       case 'tabs':
       case 'active':
         // A different document is showing: an editor opened on the previous
-        // one must never commit into this one.
+        // one must never commit into this one. The copy-source outline
+        // (see clipboard.ts's `onCopySourceChange`) is likewise scoped to a
+        // single document, so it is cleared rather than carried over.
+        clipboard.clearCopySource();
         grid.cancelEditing();
         refreshAll(true);
         findBar.refresh();
@@ -303,7 +307,9 @@ function bootstrap(): void {
         // A different worksheet of the same workbook: drop any in-progress
         // inline edit (and with it the IME composition, autocomplete popup,
         // and formula-reference highlights) before repainting, so nothing from
-        // the previous worksheet survives the switch.
+        // the previous worksheet survives the switch. Same reasoning for the
+        // copy-source outline as the 'tabs'/'active' case above.
+        clipboard.clearCopySource();
         grid.cancelEditing();
         menuBar.render();
         sheetBar.render();
@@ -315,6 +321,11 @@ function bootstrap(): void {
         commentsPanel.render();
         return;
       case 'doc':
+        // Any mutation of the active document (an edit, undo/redo, a
+        // structural change) can move or invalidate what the copy-source
+        // outline was pointing at, so it is cleared here too rather than
+        // trying to track how a given mutation might have shifted it.
+        clipboard.clearCopySource();
         tabBar.render();
         sheetBar.render();
         refreshSourceSheetViews();

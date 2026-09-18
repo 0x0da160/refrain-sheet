@@ -324,3 +324,31 @@ describe('drag-and-drop reordering', () => {
     expect(doc.sheets.map((s) => s.name)).toEqual(['A', 'B']);
   });
 });
+
+describe('worksheet tab context menu — Lock/Unlock wording and checkmark (#541)', () => {
+  function openMenu(bar: SheetBar): HTMLElement {
+    tabs(bar)[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    return document.querySelector('.context-menu')!;
+  }
+
+  it('shows "Lock Sheet" with no checkmark while unlocked', () => {
+    const { bar } = setup(['A']);
+    const menu = openMenu(bar);
+    const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('.menu-item'));
+    const lockItem = items.find((b) => b.textContent?.includes(t('menu.sheet.lockSheet')))!;
+    expect(lockItem).toBeTruthy();
+    expect(lockItem.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('shows "Unlock Sheet" with a checkmark once locked', async () => {
+    const { bar, commands, doc } = setup(['A']);
+    await commands.run('worksheet.toggleLock');
+    expect(doc.sheets[0].locked).toBe(true);
+    const menu = openMenu(bar);
+    const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('.menu-item'));
+    const unlockItem = items.find((b) => b.textContent?.includes(t('menu.sheet.unlockSheet')))!;
+    expect(unlockItem).toBeTruthy();
+    expect(unlockItem.getAttribute('aria-checked')).toBe('true');
+    expect(unlockItem.querySelector('.check-icon')).not.toBeNull();
+  });
+});

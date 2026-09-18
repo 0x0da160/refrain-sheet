@@ -168,6 +168,21 @@ release-time half (retitling `Unreleased`) is still done by hand.
   shadow that always fell downward only ever looked right for a top-docked
   panel.
 
+### Changed
+
+- Book and worksheet protection now use distinct, unambiguous wording
+  throughout: **File > Document > Protect Book** / **Unprotect Book** (was
+  "Protect Document") for the whole workbook, and **Sheet > Worksheet >
+  Lock Sheet** / **Unlock Sheet** for one worksheet — each menu item's label
+  now flips between the two states instead of relying on its checkmark
+  alone. The worksheet tab's right-click menu shows the same wording, a
+  matching lock/unlock icon, and — fixing a real gap — now actually shows its
+  checkmark for the lock state, which a type mismatch had silently dropped.
+- Attempting to edit a protected book or a locked worksheet (through any
+  menu, context menu, or the Markdown/JSON editors) now opens a warning
+  dialog explaining what is protected/locked and offering to unlock it,
+  instead of a passive toast notification that was easy to miss.
+
 ### Fixed
 
 - The formula bar (the cell-reference box and its input field) is now hidden

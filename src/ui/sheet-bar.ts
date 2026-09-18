@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { FileJson, FileText, Lock, Plus, Table } from 'lucide';
+import { FileJson, FileText, Lock, LockOpen, Plus, Table } from 'lucide';
 import type { AppState } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -375,14 +375,21 @@ export class SheetBar {
       },
     ];
     const activeSheet = this.state.activeWorkbook()?.activeSheet;
+    const locked = activeSheet?.locked === true;
     for (const item of SHEET_MENU_ITEMS) {
       if (item.separatorBefore) {
         entries.push('separator');
       }
+      const isLockItem = item.command === 'worksheet.toggleLock';
       entries.push({
-        label: t(item.labelKey),
+        // The lock item's label itself says Lock/Unlock (not just its
+        // checkmark), and carries a matching icon — a checkable item's
+        // checkmark and icon share one column, so `icon` here is only ever
+        // seen if this stops being checkable.
+        label: isLockItem ? t(locked ? 'menu.sheet.unlockSheet' : 'menu.sheet.lockSheet') : t(item.labelKey),
+        icon: isLockItem ? (locked ? LockOpen : Lock) : undefined,
         disabled: !this.commands.isEnabled(item.command),
-        ...(item.command === 'worksheet.toggleLock' ? { checked: activeSheet?.locked === true } : {}),
+        ...(isLockItem ? { checked: locked } : {}),
         onSelect: () => void this.commands.run(item.command).then(() => this.focusActive()),
       });
     }

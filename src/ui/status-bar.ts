@@ -176,7 +176,7 @@ export class StatusBar {
   /**
    * Append the read-only protection indicator and toggle. Locked: a static
    * "Protected" badge plus an "Edit" button that unlocks. Unlocked: a
-   * "Protect" button that re-locks — mirrors the File > Protect Document
+   * "Protect" button that re-locks — mirrors the File > Protect Book
    * menu toggle (`file.toggleProtect`), see `AppState.setReadOnly`.
    */
   private appendProtection(tab: Tab): void {

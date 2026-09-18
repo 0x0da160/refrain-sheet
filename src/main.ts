@@ -3,6 +3,7 @@ import './styles.css';
 import { AppState } from './app/app-state';
 import { ClipboardController } from './app/clipboard-controller';
 import { Commands, type UiPort } from './app/commands';
+import { warnProtectedAndOfferUnlock } from './app/commands/shared';
 import { getLocale, initLocale, onLocaleChange, t } from './app/i18n';
 import { getAutoFitOnOpen, getEditHints, getSheetZoom } from './app/settings';
 import { applySheetFont, getSheetFont } from './app/sheet-font';
@@ -128,6 +129,25 @@ function bootstrap(): void {
       }
       loadingOverlay.set(label, progress);
     },
+  };
+
+  // A refused edit against a protected book or a locked worksheet
+  // (`AppState.refuseReadOnlyWrite`/`refuseLockedSheetWrite`) interrupts the
+  // attempt with a blocking warning dialog offering to unlock, rather than a
+  // passive toast — this covers every entry point uniformly, including the
+  // Markdown/JSON worksheet textareas, since it is wired at the AppState
+  // layer those already go through. `warningOpen` collapses a burst of
+  // blocked attempts (e.g. held-key typing into a locked cell) into a single
+  // dialog instead of stacking one per keystroke.
+  let warningOpen = false;
+  state.warnBlocked = (tab, scope) => {
+    if (warningOpen) {
+      return;
+    }
+    warningOpen = true;
+    void warnProtectedAndOfferUnlock(ui, state, tab, scope).finally(() => {
+      warningOpen = false;
+    });
   };
 
   const commands = new Commands(state, ui, document);

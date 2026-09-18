@@ -39,6 +39,7 @@ import {
   LARGE_OPEN_BYTES,
   nextPaint,
   pct,
+  warnProtectedAndOfferUnlock,
   withBusy,
   withBusyIfLarge,
 } from './shared';
@@ -1014,7 +1015,7 @@ export class FileIoCommands {
       return tab.doc;
     }
     if (tab.readOnly) {
-      this.ui.notify(t('notify.readOnlyProtected'), 'info');
+      await warnProtectedAndOfferUnlock(this.ui, this.state, tab, 'book');
       return null;
     }
     const ok = await this.ui.confirmConvert(reason, tab.name);

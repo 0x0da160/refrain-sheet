@@ -33,6 +33,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- **Sheet > File Version History…** now has a **Preview** action next to
+  each snapshot's **Restore** button, opening a read-only table of that
+  snapshot's content so it can be checked before committing to Restore
+  (which replaces the file's current content and cannot be undone). Bounded
+  to the first 200 rows and 50 columns of a sheet's used range for very
+  large sheets; nothing about Restore itself changed.
+  ([#533](https://github.com/0x0da160/refrain-sheet/issues/533))
 - A worksheet can now hold a JSON document as its first-class content,
   alongside the existing Markdown worksheet: **Sheet > Add JSON Sheet**
   creates one, edited in a docked source view with a syntax-highlighted

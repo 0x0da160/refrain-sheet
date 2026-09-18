@@ -227,5 +227,28 @@ describe('dialog/popover drag-to-move and drag-to-resize', () => {
       panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await promise;
     });
+
+    it('maximizes and restores from the header toggle', async () => {
+      const dialogs = new Dialogs();
+      const promise = dialogs.chooseFilter(filterInput());
+      const panel = document.querySelector<HTMLElement>('.side-panel')!;
+      panel.querySelector<HTMLButtonElement>(`[title="${t('dialog.sidePanel.position.right')}"]`)!.click();
+      stubRect(panel, { left: 700, top: 0, width: 300, height: 800 });
+
+      const maximize = panel.querySelector<HTMLButtonElement>('.side-panel-maximize-btn')!;
+      expect(maximize.getAttribute('aria-pressed')).toBe('false');
+      const widthBeforeMaximize = panel.style.width;
+      maximize.click();
+      expect(maximize.getAttribute('aria-pressed')).toBe('true');
+      // innerWidth (1000) - the 160px reserved-viewport margin.
+      expect(panel.style.width).toBe('840px');
+
+      maximize.click();
+      expect(maximize.getAttribute('aria-pressed')).toBe('false');
+      expect(panel.style.width).toBe(widthBeforeMaximize); // back to its remembered size
+
+      panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await promise;
+    });
   });
 });

@@ -373,11 +373,17 @@ button {
   border-radius: 4px;
   box-shadow: 0 4px 14px var(--shadow);
   padding: 4px 0;
-  z-index: 50;
+  /* Above every docked/floating surface it can open over (context menus and
+     the dockable side panels are both 100, the filter popover is 100) so a
+     menu-bar drop-down is never clipped by a panel docked at the edge it
+     opens toward. Still below the transient full-screen overlays
+     (.drop-overlay/.loading-overlay/.toasts) and below a native <dialog>,
+     which lives in the CSS top layer regardless of z-index. */
+  z-index: 150;
 }
 
 .menu-list.submenu {
-  z-index: 60;
+  z-index: 160;
 }
 
 /* Submenu affordance. The glyph is decorative (aria-hidden); the parent item
@@ -782,7 +788,9 @@ button {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 60;
+  /* Above the dockable side panels (100) so the cell editor's completion
+     list is never clipped by a panel docked at the edge it opens toward. */
+  z-index: 120;
 }
 
 .formula-autocomplete[hidden] {
@@ -2047,7 +2055,11 @@ dialog::backdrop {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  box-shadow: 0 10px 32px var(--shadow-strong);
+  /* No box-shadow: unlike a floating dialog, a docked panel sits flush
+     against a viewport edge, so a shadow (which was always cast downward,
+     regardless of dock side) only ever looked right for a top dock and wrong
+     for the other three. The 1px border is enough to separate it from the
+     sheet. */
   background: var(--surface);
   color: var(--text);
   font-size: 13px;
@@ -2103,6 +2115,38 @@ dialog::backdrop {
 }
 
 .side-panel-position-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Same look as a position-switcher button, sitting in the top-right action
+   cluster of the panel header alongside it (and the close button, where one
+   exists). */
+.side-panel-maximize-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.side-panel-maximize-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.side-panel-maximize-btn[aria-pressed='true'] {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.side-panel-maximize-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }

@@ -465,6 +465,8 @@
   "dialog.sidePanel.position.right": "右に固定",
   "dialog.sidePanel.position.bottom": "下に固定",
   "dialog.sidePanel.position.left": "左に固定",
+  "dialog.sidePanel.maximize": "パネルを最大化",
+  "dialog.sidePanel.restore": "パネルサイズを元に戻す",
   "drop.hint": "CSVファイルをドロップして開く — 各ファイルは別のタブで開きます",
   "notify.savedOverwrite": "保存しました: 元のファイルを直接上書きしました。",
   "notify.savedDownload": "ダウンロードとして「{name}」を保存しました。保存先はブラウザが管理します。元のファイルは上書きされていません。",

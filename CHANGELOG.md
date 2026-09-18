@@ -141,8 +141,27 @@ release-time half (retitling `Unreleased`) is still done by hand.
   added above) covers the same editing/preview need without a separate
   tool. ([#505](https://github.com/0x0da160/refrain-sheet/issues/505))
 
+### Added
+
+- Every dockable side panel (Filter, Sort, Format, SQL Query, comments, the
+  Markdown/JSON preview) now has a maximize button next to its position
+  switcher, expanding it to the largest size it could be manually resized to
+  and back.
+
+### Changed
+
+- The dockable side panel's position-switcher icons are now ordered left,
+  top, bottom, right (previously top, right, bottom, left).
+- The dockable side panel no longer casts a drop shadow along its border; a
+  shadow that always fell downward only ever looked right for a top-docked
+  panel.
+
 ### Fixed
 
+- Menu-bar drop-downs (and the formula bar's cell-reference autocomplete
+  popup) now always draw above docked side panels (Filter, Sort, Format, SQL
+  Query, comments, the Markdown/JSON preview) instead of being clipped
+  underneath one docked at the edge the menu opens toward.
 - Dragging a worksheet tab or a document tab to reorder it no longer
   occasionally leaves the pointer unresponsive until Escape is pressed; the
   reorder is now applied right after the drag finishes instead of while it is

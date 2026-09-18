@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-import { PanelBottom, PanelLeft, PanelRight, PanelTop } from 'lucide';
-import { el, focusWithoutKeyboard } from '../dom';
+import { Maximize2, Minimize2, PanelBottom, PanelLeft, PanelRight, PanelTop } from 'lucide';
+import { clearChildren, el, focusWithoutKeyboard } from '../dom';
 import { makeDraggable, makeEdgeResizable, makeResizable, type EdgeResizeAxis } from '../drag-resize';
 import { createIcon } from '../icon';
 import { positionPopup, visualViewportRect, type AnchorRect } from '../popup';
@@ -283,7 +283,7 @@ export function openPopover<T>(
 
 export type SidePanelPosition = 'top' | 'right' | 'bottom' | 'left';
 
-const SIDE_PANEL_POSITIONS: readonly SidePanelPosition[] = ['top', 'right', 'bottom', 'left'];
+const SIDE_PANEL_POSITIONS: readonly SidePanelPosition[] = ['left', 'top', 'bottom', 'right'];
 const SIDE_PANEL_POSITION_ICON: Record<SidePanelPosition, typeof PanelTop> = {
   top: PanelTop,
   right: PanelRight,
@@ -308,6 +308,10 @@ const SIDE_PANEL_VIEWPORT_MARGIN = 160;
 let sidePanelPosition: SidePanelPosition = 'right';
 let sidePanelPositionExplicit = false;
 let sidePanelSize = DEFAULT_SIDE_PANEL_SIZE;
+/** Whether the last-opened side panel was left maximized; shared the same
+ * way `sidePanelPosition`/`sidePanelSize` are, so opening the next panel
+ * (Filter, then Sort, …) keeps whichever the user last chose. */
+let sidePanelMaximized = false;
 
 /**
  * Smartphone-in-portrait viewports default to a bottom dock — there's little
@@ -326,11 +330,21 @@ function effectiveSidePanelPosition(): SidePanelPosition {
 
 /** The dock side/size any *new* dockable side panel should open at. */
 export function currentSidePanelPlacement(): { position: SidePanelPosition; size: number } {
-  return { position: effectiveSidePanelPosition(), size: sidePanelSize };
+  const position = effectiveSidePanelPosition();
+  return { position, size: sidePanelMaximized ? sidePanelMaxExtent(position) : sidePanelSize };
 }
 
 function sidePanelAxis(position: SidePanelPosition): EdgeResizeAxis {
   return position === 'left' || position === 'right' ? 'horizontal' : 'vertical';
+}
+
+/** The largest a side panel is ever allowed to grow to along its docked
+ * axis — the same cap the edge-resize handle enforces (`SIDE_PANEL_VIEWPORT_MARGIN`
+ * left over so the sheet behind it is never fully hidden) — used both by the
+ * resize handle and by the maximize toggle below. */
+function sidePanelMaxExtent(position: SidePanelPosition): number {
+  const vp = visualViewportRect();
+  return (sidePanelAxis(position) === 'horizontal' ? vp.width : vp.height) - SIDE_PANEL_VIEWPORT_MARGIN;
 }
 
 /** The live height of the menu bar (always visible, even in welcome mode). */
@@ -433,6 +447,7 @@ export function clearAppEdgeReservation(): void {
 export function buildSidePanelDock(panel: HTMLElement): {
   positionSwitcher: HTMLElement;
   resizeHandle: HTMLElement;
+  maximizeToggle: HTMLElement;
 } {
   // Position/cursor for the resize handle come purely from the `.side-panel`
   // element's `data-side-panel-position` attribute (see the CSS), so no
@@ -441,6 +456,10 @@ export function buildSidePanelDock(panel: HTMLElement): {
     className: 'side-panel-resize-handle',
     attrs: { 'aria-hidden': 'true', title: t('dialog.resizeHandle') },
   });
+
+  /** The size to apply for the current dock side, honoring maximize. */
+  const currentSize = (position: SidePanelPosition): number =>
+    sidePanelMaximized ? sidePanelMaxExtent(position) : sidePanelSize;
 
   const positionButtons = SIDE_PANEL_POSITIONS.map((position) => {
     const label = t(`dialog.sidePanel.position.${position}`);
@@ -456,7 +475,7 @@ export function buildSidePanelDock(panel: HTMLElement): {
     button.addEventListener('click', () => {
       sidePanelPosition = position;
       sidePanelPositionExplicit = true;
-      applySidePanelPosition(panel, sidePanelPosition, sidePanelSize);
+      applySidePanelPosition(panel, sidePanelPosition, currentSize(sidePanelPosition));
       for (const other of positionButtons) {
         other.button.setAttribute('aria-pressed', String(other.position === position));
       }
@@ -472,6 +491,29 @@ export function buildSidePanelDock(panel: HTMLElement): {
     positionButtons.map((p) => p.button),
   );
 
+  const maximizeToggle = el('button', {
+    className: 'side-panel-maximize-btn',
+    attrs: { type: 'button' },
+  });
+  const refreshMaximizeToggle = (): void => {
+    clearChildren(maximizeToggle);
+    maximizeToggle.append(
+      createIcon(sidePanelMaximized ? Minimize2 : Maximize2, 'side-panel-maximize-icon', 14),
+    );
+    maximizeToggle.setAttribute('aria-pressed', String(sidePanelMaximized));
+    maximizeToggle.setAttribute(
+      'title',
+      t(sidePanelMaximized ? 'dialog.sidePanel.restore' : 'dialog.sidePanel.maximize'),
+    );
+  };
+  refreshMaximizeToggle();
+  maximizeToggle.addEventListener('click', () => {
+    sidePanelMaximized = !sidePanelMaximized;
+    const position = effectiveSidePanelPosition();
+    applySidePanelPosition(panel, position, currentSize(position));
+    refreshMaximizeToggle();
+  });
+
   makeEdgeResizable(
     grip,
     () => sidePanelAxis(effectiveSidePanelPosition()),
@@ -481,20 +523,18 @@ export function buildSidePanelDock(panel: HTMLElement): {
       return sidePanelAxis(effectiveSidePanelPosition()) === 'horizontal' ? rect.width : rect.height;
     },
     MIN_SIDE_PANEL_SIZE,
-    () => {
-      const vp = visualViewportRect();
-      return (
-        (sidePanelAxis(effectiveSidePanelPosition()) === 'horizontal' ? vp.width : vp.height) -
-        SIDE_PANEL_VIEWPORT_MARGIN
-      );
-    },
+    () => sidePanelMaxExtent(effectiveSidePanelPosition()),
     (size) => {
+      // A manual resize abandons maximize — the panel is now whatever size
+      // the user just dragged it to, not necessarily the maximum.
+      sidePanelMaximized = false;
       sidePanelSize = size;
       applySidePanelPosition(panel, effectiveSidePanelPosition(), size);
+      refreshMaximizeToggle();
     },
   );
 
-  return { positionSwitcher, resizeHandle: grip };
+  return { positionSwitcher, resizeHandle: grip, maximizeToggle };
 }
 
 /**
@@ -519,12 +559,13 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
       className: 'side-panel',
       attrs: { role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'side-panel-title' },
     });
-    applySidePanelPosition(panel, effectiveSidePanelPosition(), sidePanelSize);
-    const { positionSwitcher, resizeHandle: grip } = buildSidePanelDock(panel);
+    const initialPlacement = currentSidePanelPlacement();
+    applySidePanelPosition(panel, initialPlacement.position, initialPlacement.size);
+    const { positionSwitcher, resizeHandle: grip, maximizeToggle } = buildSidePanelDock(panel);
 
     const heading = el('div', { className: 'dialog-title side-panel-title' }, [
       el('span', { text: title, attrs: { id: 'side-panel-title' } }),
-      positionSwitcher,
+      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, maximizeToggle]),
     ]);
     const body = el('div', { className: 'dialog-body' });
     const buttons = el('div', { className: 'dialog-buttons' });

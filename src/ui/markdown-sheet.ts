@@ -93,7 +93,7 @@ export class MarkdownSheetView {
       className: 'side-panel markdown-preview-panel',
       attrs: { role: 'complementary', 'aria-label': t('dialog.markdownEditor.preview') },
     });
-    const { positionSwitcher, resizeHandle } = buildSidePanelDock(this.panelElement);
+    const { positionSwitcher, resizeHandle, maximizeToggle } = buildSidePanelDock(this.panelElement);
     const closeBtn = el('button', {
       className: 'markdown-preview-panel-close',
       attrs: { type: 'button', 'aria-label': t('dialog.markdownEditor.hidePreview') },
@@ -102,7 +102,7 @@ export class MarkdownSheetView {
     closeBtn.addEventListener('click', () => this.setPreviewVisible(false));
     const heading = el('div', { className: 'dialog-title side-panel-title' }, [
       previewTitle,
-      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, closeBtn]),
+      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, maximizeToggle, closeBtn]),
     ]);
     const body = el('div', { className: 'dialog-body' }, [this.preview]);
     this.panelElement.append(heading, body, resizeHandle);

@@ -81,10 +81,10 @@ export class CommentsPanel {
       className: 'side-panel comments-panel',
       attrs: { role: 'complementary', 'aria-label': t('panel.comments.title') },
     });
-    const { positionSwitcher, resizeHandle } = buildSidePanelDock(this.element);
+    const { positionSwitcher, resizeHandle, maximizeToggle } = buildSidePanelDock(this.element);
     const heading = el('div', { className: 'dialog-title side-panel-title' }, [
       this.titleEl,
-      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, this.closeBtn]),
+      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, maximizeToggle, this.closeBtn]),
     ]);
     const body = el('div', { className: 'dialog-body' }, [scopeLabel, this.messageEl, this.listEl]);
     this.element.append(heading, body, resizeHandle);

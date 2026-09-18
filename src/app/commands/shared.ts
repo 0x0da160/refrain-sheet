@@ -1,5 +1,19 @@
 // SPDX-License-Identifier: MIT
+import type { Tab } from '../app-state';
 import type { UiPort } from '../commands';
+
+/**
+ * Whether `tab`'s active sheet is a grid — the only kind column widths mean
+ * anything for. True for every plain CSV document (which has no other
+ * kind), and for an RSF worksheet whose own `kind` is `'grid'`; false for a
+ * Markdown/JSON (and future YAML/plain-text) worksheet, which is a single
+ * whole-document cell with no columns to fit. Used to gate column auto-fit
+ * (`Commands.isEnabled('sheet.autoFitCols')`, `autoFitOnOpen`, the grid's
+ * own context menu and double-click-to-fit).
+ */
+export function isGridSurface(tab: Tab): boolean {
+  return tab.doc.kind === 'csv' || tab.doc.activeSheet.kind === 'grid';
+}
 
 /**
  * Cell-count threshold above which an operation counts as "large": its

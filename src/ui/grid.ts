@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { Grid3x3, PaintBucket, Plus } from 'lucide';
 import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
-import { LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
+import { isGridSurface, LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { getEditHints, nextZoomLevel } from '../app/settings';
 import {
@@ -2890,7 +2890,7 @@ export class Grid {
     }
     const target = event.target as HTMLElement | null;
     const resizeHandle = target?.closest<HTMLElement>('[data-colresize]');
-    if (resizeHandle) {
+    if (resizeHandle && isGridSurface(tab)) {
       event.preventDefault();
       const col = Number(resizeHandle.dataset.colresize);
       // When whole columns are selected (column headers / Shift+Click / drag,

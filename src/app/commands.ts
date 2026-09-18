@@ -49,9 +49,9 @@ import { SqlCommands, type SqlSource, type SqlRunOutcome } from './commands/sql'
 import { DiffCommands, type DiffTabOption, type DiffRunOutcome } from './commands/diff';
 import { PasteFillCommands, type FlashFillPreview } from './commands/paste-fill';
 import { RangeOpsCommands, type ReplaceAllReport } from './commands/range-ops';
-import { LARGE_OP_CELLS } from './commands/shared';
+import { isGridSurface, LARGE_OP_CELLS } from './commands/shared';
 
-export { LARGE_OP_CELLS };
+export { isGridSurface, LARGE_OP_CELLS };
 export type { FlashFillPreview, ReplaceAllReport, SqlSource, SqlRunOutcome, DiffTabOption, DiffRunOutcome };
 
 /**
@@ -777,7 +777,7 @@ export class Commands {
       case 'sheet.addColumn':
         return tab !== null;
       case 'sheet.autoFitCols':
-        return tab !== null && tab.selection !== null;
+        return tab !== null && tab.selection !== null && isGridSurface(tab);
       case 'edit.selectAll':
         return tab !== null;
       case 'edit.undo':

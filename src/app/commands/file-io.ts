@@ -33,7 +33,15 @@ import { readFileObject, requestSaveHandle, saveBytes, saveBytesAs, type OpenedF
 import { getLocale, t } from '../i18n';
 import { getAutoFitOnOpen, getMaxFileSize, getSuppressHistoryCapWarning } from '../settings';
 import type { ConvertReason, UiPort } from '../commands';
-import { LARGE_OP_CELLS, LARGE_OPEN_BYTES, nextPaint, pct, withBusy, withBusyIfLarge } from './shared';
+import {
+  isGridSurface,
+  LARGE_OP_CELLS,
+  LARGE_OPEN_BYTES,
+  nextPaint,
+  pct,
+  withBusy,
+  withBusyIfLarge,
+} from './shared';
 
 /** The subset of `Commands.gridActions` file I/O needs to auto-fit a newly opened tab. */
 interface GridAutoFitPort {
@@ -72,7 +80,7 @@ export class FileIoCommands {
    * `getWrapCells` and the app zoom preference.
    */
   private async autoFitOnOpen(tab: Tab): Promise<void> {
-    if (!getAutoFitOnOpen() || tab.colWidths.length > 0) {
+    if (!getAutoFitOnOpen() || tab.colWidths.length > 0 || !isGridSurface(tab)) {
       return;
     }
     await this.gridActions()?.autoFitAllColumns(tab);

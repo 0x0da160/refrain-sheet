@@ -170,6 +170,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- Column auto-fit (Sheet > Rows & Columns > Auto-Fit Column Width, the
+  column-boundary double-click, and auto-fit on open) is now correctly
+  disabled on a Markdown or JSON worksheet, which has no columns to fit; it
+  previously stayed enabled and quietly ran against the hidden grid behind
+  those worksheets' docked editor.
 - The toast shown after setting a cell comment no longer incorrectly claims
   it "is not saved with the file and not undoable" — comments have been
   saved with the file and undoable since #371; only the toast text was

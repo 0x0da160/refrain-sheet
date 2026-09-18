@@ -354,6 +354,63 @@ describe('auto-fit for all selected columns (grid integration)', () => {
   });
 });
 
+describe('auto-fit is limited to grid surfaces', () => {
+  function rsfGridSetup() {
+    document.body.textContent = '';
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    const grid = new Grid(state, commands);
+    commands.gridActions = {
+      autoFitSelectedColumns: () => grid.autoFitSelectedColumns(),
+      autoFitAllColumns: (t) => grid.autoFitAllColumns(t),
+      goToCell: (row, col) => grid.reveal(row, col),
+    };
+    Object.defineProperty(grid.element, 'clientHeight', { value: 520, configurable: true });
+    Object.defineProperty(grid.element, 'clientWidth', { value: 900, configurable: true });
+    document.body.append(grid.element);
+    const workbook = RsfDocument.empty('book.rsf', 3, 3, 'Sheet1');
+    const tab = state.addTab('book.rsf', workbook, null);
+    grid.refresh();
+    return { state, commands, grid, tab, workbook };
+  }
+
+  it('stays enabled on a grid worksheet of an RSF workbook', () => {
+    const { state, commands, tab } = rsfGridSetup();
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    expect(commands.isEnabled('sheet.autoFitCols')).toBe(true);
+  });
+
+  it('is disabled once the active worksheet is switched to a Markdown sheet', () => {
+    const { state, commands, tab, workbook } = rsfGridSetup();
+    const sheet = state.addMarkdownSheet(tab, 'Notes')!;
+    state.setActiveSheet(tab, sheet.id);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    expect(workbook.activeSheet.kind).toBe('markdown');
+    expect(commands.isEnabled('sheet.autoFitCols')).toBe(false);
+  });
+
+  it('is disabled once the active worksheet is switched to a JSON sheet', () => {
+    const { state, commands, tab, workbook } = rsfGridSetup();
+    const sheet = state.addJsonSheet(tab, 'Data')!;
+    state.setActiveSheet(tab, sheet.id);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    expect(workbook.activeSheet.kind).toBe('json');
+    expect(commands.isEnabled('sheet.autoFitCols')).toBe(false);
+  });
+
+  it('double-clicking the column-resize handle on a JSON worksheet does nothing (defense in depth — main.ts also hides the grid entirely for this kind)', async () => {
+    const { state, grid, tab } = rsfGridSetup();
+    const sheet = state.addJsonSheet(tab, 'Data')!;
+    state.setActiveSheet(tab, sheet.id);
+    grid.refresh();
+    const handle = grid.element.querySelector<HTMLElement>('[data-colresize]');
+    expect(handle).not.toBeNull(); // the single (A1) column still renders a handle
+    handle!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, button: 0 }));
+    await Promise.resolve();
+    expect(tab.colWidths.length).toBe(0); // no auto-fit applied
+  });
+});
+
 /** Same wiring as `gridSetup`, but without a tab — `commands.openFiles` adds one. */
 function openSetup() {
   document.body.textContent = '';

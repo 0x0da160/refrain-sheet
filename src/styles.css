@@ -742,6 +742,14 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
+/* `.formula-bar`'s own `display: flex` above would otherwise win over the
+   UA stylesheet's `[hidden] { display: none }` (equal specificity, but an
+   author rule always beats a user-agent one) — set on a Markdown/JSON
+   worksheet, see `refreshSourceSheetViews`, `src/main.ts`. */
+.formula-bar[hidden] {
+  display: none;
+}
+
 .formula-bar .cell-ref {
   min-width: 90px;
   display: flex;

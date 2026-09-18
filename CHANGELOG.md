@@ -170,6 +170,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The formula bar (the cell-reference box and its input field) is now hidden
+  on a Markdown or JSON worksheet, which has no cell addressing of its own;
+  it previously showed "A1" and put the worksheet's entire document text
+  into the formula bar, and editing there would silently overwrite the whole
+  document.
 - Column auto-fit (Sheet > Rows & Columns > Auto-Fit Column Width, the
   column-boundary double-click, and auto-fit on open) is now correctly
   disabled on a Markdown or JSON worksheet, which has no columns to fit; it

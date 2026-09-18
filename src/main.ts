@@ -143,7 +143,14 @@ function bootstrap(): void {
   const refreshSourceSheetViews = (): void => {
     markdownSheetView.refresh();
     jsonSheetView.refresh();
-    grid.element.hidden = markdownSheetView.active || jsonSheetView.active;
+    const sourceActive = markdownSheetView.active || jsonSheetView.active;
+    grid.element.hidden = sourceActive;
+    // The formula bar's name box and input field only mean anything for a
+    // grid (row/column cell addressing); a Markdown/JSON worksheet is a
+    // single whole-document cell, so showing it there put the entire
+    // document's raw text into the formula bar under the label "A1" and let
+    // editing there silently overwrite the whole document.
+    formulaBar.element.hidden = sourceActive;
   };
   const clipboard = new ClipboardController(
     state,

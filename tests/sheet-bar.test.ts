@@ -278,3 +278,49 @@ describe('separation from the application document tabs', () => {
     expect(tabs(bar)[0]).not.toBe(before);
   });
 });
+
+describe('drag-and-drop reordering', () => {
+  function tabEl(bar: SheetBar, name: string): HTMLElement {
+    for (const el of bar.element.querySelectorAll<HTMLElement>('.sheet-tab')) {
+      if (el.querySelector('.sheet-label')?.textContent === name) {
+        return el;
+      }
+    }
+    throw new Error(`sheet tab ${name} not rendered`);
+  }
+
+  it('reorders on drop, applied after the drag session rather than synchronously (#541)', async () => {
+    const { doc, bar } = setup(['A', 'B', 'C']);
+    const source = tabEl(bar, 'A');
+    const target = tabEl(bar, 'C');
+    source.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    target.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true }));
+    target.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    // The move is deferred a microtask past 'drop': a re-render that
+    // detaches the dragged node while the browser's own drag session is
+    // still live is what left the pointer stuck (the reported "hang up").
+    // Immediately after 'drop' the order must therefore be unchanged...
+    expect(doc.sheets.map((s) => s.name)).toEqual(['A', 'B', 'C']);
+    await Promise.resolve();
+    // ...and applied once the microtask runs.
+    expect(doc.sheets.map((s) => s.name)).toEqual(['B', 'C', 'A']);
+  });
+
+  it('clears drag state once the browser fires dragend on the tab itself, even without a drop', () => {
+    const { bar } = setup(['A', 'B']);
+    const source = tabEl(bar, 'A');
+    source.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    expect(source.classList.contains('dragging')).toBe(true);
+    source.dispatchEvent(new Event('dragend', { bubbles: true }));
+    expect(source.classList.contains('dragging')).toBe(false);
+  });
+
+  it('dropping a sheet tab onto itself changes nothing', async () => {
+    const { doc, bar } = setup(['A', 'B']);
+    const source = tabEl(bar, 'A');
+    source.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    source.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    expect(doc.sheets.map((s) => s.name)).toEqual(['A', 'B']);
+  });
+});

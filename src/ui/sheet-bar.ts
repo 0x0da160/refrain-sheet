@@ -215,8 +215,18 @@ export class SheetBar {
       const dragged = this.dragId;
       const before = this.dropsBefore(event, tabEl);
       this.clearDragState();
-      this.moveNextTo(dragged, id, before);
+      // Deferred a tick: `moveNextTo` triggers a `sheets`/`doc` state event,
+      // which rebuilds this whole strip (`render()`'s `clearChildren`) and
+      // detaches the very node the browser registered as this drag's source.
+      // Doing that synchronously, while the native drag-and-drop session is
+      // still live, leaves the browser holding a drag it can never finish
+      // tearing down (its `dragend` never reaches a detached node) — observed
+      // as the pointer becoming unresponsive until Escape is pressed.
+      // Applying the move after the current task lets the browser finish its
+      // own drop/dragend handling first.
+      queueMicrotask(() => this.moveNextTo(dragged, id, before));
     });
+    tabEl.addEventListener('dragend', () => this.clearDragState());
     return tabEl;
   }
 

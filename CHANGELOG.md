@@ -143,6 +143,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- Dragging a worksheet tab or a document tab to reorder it no longer
+  occasionally leaves the pointer unresponsive until Escape is pressed; the
+  reorder is now applied right after the drag finishes instead of while it is
+  still in progress.
 - Dragging a dialog by its title bar no longer occasionally makes it snap to
   the full width of the window on the first frame of the drag (a dialog
   holding a wide table or a long line of text could momentarily lose its own

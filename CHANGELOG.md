@@ -150,6 +150,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The active document/book tab's accent-colored highlight now shows on its
+  top edge instead of its bottom edge, matching the worksheet tab strip's own
+  active indicator, which sits on the edge each strip opens toward (the book
+  tab strip is above the grid; the worksheet tab strip is below it).
 - A top-docked side panel now sits below the document/book tab strip
   (previously it sat above it, directly under the menu bar), and a
   bottom-docked one now sits above the worksheet tab strip (previously below

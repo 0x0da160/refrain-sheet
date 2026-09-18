@@ -101,6 +101,35 @@ describe('dialog/popover drag-to-move and drag-to-resize', () => {
       await promise;
     });
 
+    it('locks the measured width/height before clearing max-width/max-height, so dragging cannot widen it (#541)', async () => {
+      const promise = new Dialogs().promptGoToCell('A1', () => null);
+      const dialog = document.querySelector('dialog')!;
+      const heading = dialog.querySelector<HTMLElement>('.dialog-title')!;
+      stubRect(dialog, { left: 300, top: 200, width: 400, height: 150 });
+
+      heading.dispatchEvent(pointerEvent('pointerdown', { clientX: 320, clientY: 210 }));
+
+      // The very first frame of the drag must already have pinned the box's
+      // width/height — never `max-width: none` with no explicit width, which
+      // lets a native <dialog> (UA `width: fit-content`) re-shrink-to-fit to
+      // its max-content size (e.g. a wide table) and blow out to the viewport
+      // edge.
+      expect(dialog.style.width).toBe('400px');
+      expect(dialog.style.height).toBe('150px');
+      expect(dialog.style.maxWidth).toBe('none');
+      expect(dialog.style.maxHeight).toBe('none');
+
+      heading.dispatchEvent(pointerEvent('pointermove', { clientX: 370, clientY: 260 }));
+      heading.dispatchEvent(pointerEvent('pointerup', { clientX: 370, clientY: 260 }));
+
+      // A move never touches width/height.
+      expect(dialog.style.width).toBe('400px');
+      expect(dialog.style.height).toBe('150px');
+
+      dialog.querySelector<HTMLButtonElement>('.dialog-buttons button')!.click();
+      await promise;
+    });
+
     it('clamps the dragged position so the dialog cannot leave the viewport', async () => {
       const promise = new Dialogs().promptGoToCell('A1', () => null);
       const dialog = document.querySelector('dialog')!;

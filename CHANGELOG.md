@@ -143,6 +143,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- Dragging a dialog by its title bar no longer occasionally makes it snap to
+  the full width of the window on the first frame of the drag (a dialog
+  holding a wide table or a long line of text could momentarily lose its own
+  width limit before the drag repositioned it).
 - Adding a Markdown worksheet now suggests "Notes1" as the default name for
   the first one, instead of continuing the regular worksheet numbering
   (e.g. "Notes2" right after "Sheet1"); regular worksheets still suggest

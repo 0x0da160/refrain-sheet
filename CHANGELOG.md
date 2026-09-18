@@ -33,6 +33,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Added
 
+- Toast notifications (the small pop-up messages in the corner of the
+  screen) can now be dismissed by clicking a close button on them, instead
+  of only disappearing after 7 seconds. On a narrow (phone-sized) screen,
+  toasts now appear near the top of the screen instead of the bottom.
+  ([#534](https://github.com/0x0da160/refrain-sheet/issues/534))
 - **Sheet > File Version History…** now has a **Preview** action next to
   each snapshot's **Restore** button, opening a read-only table of that
   snapshot's content so it can be checked before committing to Restore

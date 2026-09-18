@@ -491,7 +491,7 @@
   "notify.validationCleared": "Data-validation rule cleared for this range.",
   "notify.conditionalFormatApplied": "Conditional-formatting rule applied. Not saved with the file and not undoable; use Format > Conditional Formatting… to change or clear it.",
   "notify.conditionalFormatCleared": "Conditional-formatting rule cleared for this range.",
-  "notify.commentApplied": "Comment saved. Not saved with the file and not undoable; use Data > Cell Comment… to change or clear it.",
+  "notify.commentApplied": "Comment saved. Saved with the file and undoable (Ctrl+Z); use Data > Cell Comment… to change or clear it.",
   "notify.commentCleared": "Comment cleared for this cell.",
   "panel.comments.title": "Comments",
   "panel.comments.close": "Close comments panel",

@@ -170,6 +170,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The toast shown after setting a cell comment no longer incorrectly claims
+  it "is not saved with the file and not undoable" — comments have been
+  saved with the file and undoable since #371; only the toast text was
+  stale.
 - Menu-bar drop-downs (and the formula bar's cell-reference autocomplete
   popup) now always draw above docked side panels (Filter, Sort, Format, SQL
   Query, comments, the Markdown/JSON preview) instead of being clipped

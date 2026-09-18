@@ -491,7 +491,7 @@
   "notify.validationCleared": "この範囲のデータの入力規則を解除しました。",
   "notify.conditionalFormatApplied": "条件付き書式の規則を適用しました。ファイルには保存されず、元に戻すこともできません。変更・解除するには「書式 > 条件付き書式…」を使ってください。",
   "notify.conditionalFormatCleared": "この範囲の条件付き書式の規則を解除しました。",
-  "notify.commentApplied": "コメントを保存しました。ファイルには保存されず、元に戻すこともできません。変更・解除するには「データ > セルコメント…」を使ってください。",
+  "notify.commentApplied": "コメントを保存しました。ファイルに保存され、元に戻す（Ctrl+Z）ことができます。変更・解除するには「データ > セルコメント…」を使ってください。",
   "notify.commentCleared": "このセルのコメントを解除しました。",
   "panel.comments.title": "コメント",
   "panel.comments.close": "コメントパネルを閉じる",

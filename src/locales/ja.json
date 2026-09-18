@@ -79,6 +79,7 @@
   "menu.help.about": "このアプリについて",
   "menu.toggle": "メニュー",
   "tab.close": "タブを閉じる",
+  "toast.close": "通知を閉じる",
   "tab.dirty": "未保存の変更",
   "tab.source.local": "ローカルファイル",
   "tab.source.drive": "Google ドライブのファイル",

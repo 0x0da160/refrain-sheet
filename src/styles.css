@@ -2987,13 +2987,37 @@ table.diff-table td {
 }
 
 .toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   background: var(--tooltip-bg);
   color: var(--tooltip-text);
   border-radius: 6px;
   padding: 10px 14px;
   box-shadow: 0 6px 18px var(--shadow-strong);
   line-height: 1.45;
+}
+
+.toast-message {
+  flex: 1;
   overflow-wrap: anywhere;
+}
+
+.toast-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: none;
+  color: inherit;
+  border-radius: 3px;
+  padding: 3px;
+  opacity: 0.75;
+}
+
+.toast-close:hover {
+  opacity: 1;
+  background: rgb(255 255 255 / 15%);
 }
 
 .toast.warn {
@@ -3416,6 +3440,14 @@ table.diff-table td {
   .sort-key-row select {
     min-width: 0;
     max-width: 100%;
+  }
+
+  /* Toasts default to the bottom-right corner, but on a phone that's where
+     the thumb rests and where the on-screen keyboard first appears; move
+     them to the top instead so they stay visible and out of the way (#534). */
+  .toasts {
+    top: 38px;
+    bottom: auto;
   }
 }
 

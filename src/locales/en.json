@@ -79,6 +79,7 @@
   "menu.help.about": "About",
   "menu.toggle": "Menu",
   "tab.close": "Close tab",
+  "toast.close": "Dismiss notification",
   "tab.dirty": "Unsaved changes",
   "tab.source.local": "Local file",
   "tab.source.drive": "Google Drive file",

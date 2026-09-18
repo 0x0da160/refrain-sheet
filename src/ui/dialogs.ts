@@ -22,6 +22,7 @@ import type {
   VersionHistoryChoice,
   WorkbookReplaceConfirmInput,
 } from '../app/commands';
+import { X } from 'lucide';
 import { t, type LocaleId } from '../app/i18n';
 import type { DelimiterId } from '../core/byte-csv-parser';
 import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../core/cell-style';
@@ -31,6 +32,7 @@ import type { RsfHistorySnapshot } from '../core/rsf-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
 import type { ValidationSummary } from '../core/validation';
 import { el } from './dom';
+import { createIcon } from './icon';
 import { AppSettingsDialogs } from './dialogs/app-settings';
 import { FileIoDialogs } from './dialogs/file-io';
 import { FormatDialogs } from './dialogs/format';
@@ -423,10 +425,20 @@ export class Toasts {
   notify(text: string, kind: 'info' | 'warn' | 'error'): void {
     const toast = el('div', {
       className: kind === 'info' ? 'toast' : `toast ${kind}`,
-      text,
       attrs: { role: kind === 'error' ? 'alert' : 'status' },
     });
+    const message = el('span', { className: 'toast-message', text });
+    const closeBtn = el('button', {
+      className: 'toast-close',
+      attrs: { type: 'button', 'aria-label': t('toast.close') },
+    });
+    closeBtn.append(createIcon(X, 'toast-close-icon', 14));
+    const timer = setTimeout(() => toast.remove(), 7000);
+    closeBtn.addEventListener('click', () => {
+      clearTimeout(timer);
+      toast.remove();
+    });
+    toast.append(message, closeBtn);
     this.element.append(toast);
-    setTimeout(() => toast.remove(), 7000);
   }
 }

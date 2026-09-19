@@ -54,8 +54,7 @@ release-time half (retitling `Unreleased`) is still done by hand.
   parse error is reported instead of guessing at a fix. Saved in the `.rsf`
   container (body version 15 / workbook body version 11); existing files and
   workbooks that don't use it are unaffected. Standalone (non-RSF) JSON/YAML/
-  plain-text file editing and a dedicated YAML worksheet kind are tracked as
-  follow-up work.
+  plain-text file editing is tracked as follow-up work.
   ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
 - A spreadsheet's version history can now be restored from and configured
   further, via **Sheet > File Version History…**: every recorded snapshot is
@@ -151,6 +150,18 @@ release-time half (retitling `Unreleased`) is still done by hand.
   Markdown/JSON preview) now has a maximize button next to its position
   switcher, expanding it to the largest size it could be manually resized to
   and back.
+- A worksheet can now hold a YAML document as its first-class content,
+  alongside the existing Markdown and JSON worksheets: **Sheet > Add YAML
+  Sheet** creates one, edited in a docked source view with a
+  syntax-highlighted preview and an explicit, button-triggered **Format**
+  action that pretty-prints valid YAML in place — never automatically and
+  never on save. Invalid YAML is left untouched and its parse error is
+  reported instead of guessing at a fix. A plain, unstructured text
+  worksheet is also available (**Sheet > Add Text Sheet**), with the same
+  docked source editor but no preview panel or Format action. Both are saved
+  in the `.rsf` container (body version 16 / workbook body version 12);
+  existing files and workbooks that don't use either are unaffected.
+  ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
 
 ### Changed
 

@@ -147,6 +147,19 @@ describe('accessibility semantics', () => {
     expect(list[1].textContent).toBe('Notes');
   });
 
+  it('marks YAML and plain-text worksheets with their own localized kind indicator (#557)', () => {
+    const { state, bar, tab } = setup(['Sheet1']);
+    state.addYamlSheet(tab, 'Config');
+    state.addTextSheet(tab, 'Text');
+    bar.render(true);
+    const list = tabs(bar);
+    expect(list).toHaveLength(3);
+    const kindLabel = (el: HTMLElement): string | null =>
+      el.querySelector('.sheet-kind')?.getAttribute('aria-label') ?? null;
+    expect(kindLabel(list[1])).toBe(t('sheets.kind.yaml'));
+    expect(kindLabel(list[2])).toBe(t('sheets.kind.text'));
+  });
+
   it('offers an Add control with a localized accessible name', () => {
     const { bar } = setup();
     const add = bar.element.querySelector<HTMLButtonElement>('.sheet-add')!;

@@ -1018,6 +1018,24 @@ export class AppState {
   }
 
   /**
+   * Add a new worksheet holding one empty YAML document after the active
+   * one, as one atomic, undoable operation, and activate it. `name` must
+   * already be validated and unique (see the command layer).
+   */
+  addYamlSheet(tab: Tab, name: string): Worksheet | null {
+    return this.worksheetsState.addYamlSheet(tab, name);
+  }
+
+  /**
+   * Add a new worksheet holding one empty plain-text document after the
+   * active one, as one atomic, undoable operation, and activate it. `name`
+   * must already be validated and unique (see the command layer).
+   */
+  addTextSheet(tab: Tab, name: string): Worksheet | null {
+    return this.worksheetsState.addTextSheet(tab, name);
+  }
+
+  /**
    * Duplicate a worksheet (deep copy, inserted immediately after the source)
    * as one atomic, undoable operation, and activate the copy. Formulas are
    * copied verbatim: worksheet-qualified references keep pointing at the

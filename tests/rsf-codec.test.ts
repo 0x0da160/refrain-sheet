@@ -213,6 +213,30 @@ describe('binary container codec (JS store engine)', () => {
     expect(decoded.data.cells).toEqual([[0, 0, '{"a":1}']]);
   });
 
+  it('does not mark an unlocked json/yaml/text worksheet as locked just because its kind forces a higher body version', () => {
+    // Regression test: a json/yaml/text kind forces the same higher body
+    // version tier a lock would (both feed `hasHistorySection`/`hasLocked`
+    // in the minimal-version-write cascade — see `encodeBody`), which
+    // previously caused the locked byte to be written unconditionally as 1
+    // whenever it was merely *physically present*, rather than reflecting
+    // the worksheet's actual (unlocked) state.
+    for (const kind of ['json', 'yaml', 'text'] as const) {
+      const data: RsfData = {
+        name: 'Notes',
+        delimiter: ',',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [[0, 0, 'x']],
+        kind,
+      };
+      const decoded = decodeRsf(encodeRsf(data));
+      expect(decoded.ok).toBe(true);
+      if (!decoded.ok) continue;
+      expect(decoded.data.kind).toBe(kind);
+      expect(decoded.data.locked).toBeUndefined();
+    }
+  });
+
   it('rejects a json worksheet with any shape other than 1x1', () => {
     const decoded = decodeRsf(encodeRsf({ ...sample, kind: 'json' }));
     expect(decoded.ok).toBe(false);
@@ -235,6 +259,48 @@ describe('binary container codec (JS store engine)', () => {
     expect(decoded.data.kind).toBe('json');
     expect(decoded.data.locked).toBe(true);
   });
+
+  it.each(['yaml', 'text'] as const)('round-trips a %s worksheet (body version 16)', (kind) => {
+    const data: RsfData = {
+      name: 'Notes',
+      delimiter: ',',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [[0, 0, kind === 'yaml' ? 'a: 1\nb: 2\n' : 'plain text content']],
+      kind,
+    };
+    const decoded = decodeRsf(encodeRsf(data));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.kind).toBe(kind);
+    expect(decoded.data.cells).toEqual(data.cells);
+  });
+
+  it.each(['yaml', 'text'] as const)('rejects a %s worksheet with any shape other than 1x1', (kind) => {
+    const decoded = decodeRsf(encodeRsf({ ...sample, kind }));
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
+  });
+
+  it.each(['yaml', 'text'] as const)(
+    'carries a lock alongside a %s kind (both forced to body version 16)',
+    (kind) => {
+      const both: RsfData = {
+        name: 'Notes',
+        delimiter: ',',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [[0, 0, 'x']],
+        kind,
+        locked: true,
+      };
+      const decoded = decodeRsf(encodeRsf(both));
+      expect(decoded.ok).toBe(true);
+      if (!decoded.ok) return;
+      expect(decoded.data.kind).toBe(kind);
+      expect(decoded.data.locked).toBe(true);
+    },
+  );
 
   it('round-trips version history with snapshots (body version 14)', () => {
     const history: RsfHistorySnapshot[] = [

@@ -124,6 +124,54 @@ export class WorksheetCommands {
     }
   }
 
+  /**
+   * Add a new worksheet holding one empty YAML document after the active
+   * one and activate it. Identical to {@link addMarkdownWorksheet} except
+   * for what the new worksheet contains.
+   */
+  async addYamlWorksheet(tab: Tab): Promise<void> {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
+      return;
+    }
+    const yamlCount = doc.sheets.filter((s) => s.kind === 'yaml').length;
+    const suggested = doc.uniqueSheetName(t('sheet.defaultYamlName', { n: yamlCount + 1 }));
+    const name = await this.ui.promptSheetName('add', suggested, (candidate) =>
+      this.validateSheetName(doc, candidate),
+    );
+    if (name === null || tab.doc !== doc) {
+      return;
+    }
+    const sheet = this.state.addYamlSheet(tab, name.trim());
+    if (sheet) {
+      this.ui.notify(t('notify.sheetAdded', { name: sheet.name }), 'info');
+    }
+  }
+
+  /**
+   * Add a new worksheet holding one empty plain-text document after the
+   * active one and activate it. Identical to {@link addMarkdownWorksheet}
+   * except for what the new worksheet contains.
+   */
+  async addTextWorksheet(tab: Tab): Promise<void> {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
+      return;
+    }
+    const textCount = doc.sheets.filter((s) => s.kind === 'text').length;
+    const suggested = doc.uniqueSheetName(t('sheet.defaultTextName', { n: textCount + 1 }));
+    const name = await this.ui.promptSheetName('add', suggested, (candidate) =>
+      this.validateSheetName(doc, candidate),
+    );
+    if (name === null || tab.doc !== doc) {
+      return;
+    }
+    const sheet = this.state.addTextSheet(tab, name.trim());
+    if (sheet) {
+      this.ui.notify(t('notify.sheetAdded', { name: sheet.name }), 'info');
+    }
+  }
+
   /** Rename the active worksheet, updating cross-sheet formulas workbook-wide. */
   async renameWorksheet(tab: Tab): Promise<void> {
     const doc = tab.doc;

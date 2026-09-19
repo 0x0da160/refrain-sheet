@@ -510,6 +510,30 @@ describe('CSV export from a workbook', () => {
     expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
   });
 
+  it('refuses to export when the workbook is a single YAML sheet', async () => {
+    const notify = vi.fn();
+    const ui = stubUi({ notify });
+    const { state, commands, tab, doc } = setup(ui);
+    state.addYamlSheet(tab, 'Config');
+    state.deleteSheet(tab, doc.sheets[0].id);
+    expect(doc.sheetCount).toBe(1);
+    expect(doc.activeSheet.kind).toBe('yaml');
+    expect(await commands.exportCsv(tab)).toBe(false);
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
+  });
+
+  it('refuses to export when the workbook is a single plain-text sheet', async () => {
+    const notify = vi.fn();
+    const ui = stubUi({ notify });
+    const { state, commands, tab, doc } = setup(ui);
+    state.addTextSheet(tab, 'Notes');
+    state.deleteSheet(tab, doc.sheets[0].id);
+    expect(doc.sheetCount).toBe(1);
+    expect(doc.activeSheet.kind).toBe('text');
+    expect(await commands.exportCsv(tab)).toBe(false);
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
+  });
+
   it('excludes Markdown sheets from the export choice', async () => {
     const chooseExportSheet = vi.fn(async () => null);
     const ui = stubUi({ chooseExportSheet });
@@ -818,6 +842,64 @@ describe('workbook container', () => {
     expect(decoded.data.sheets[1].kind).toBe('json');
     expect(decoded.data.sheets[1].locked).toBe(true);
   });
+
+  it.each(['yaml', 'text'] as const)(
+    'round-trips a %s worksheet through the workbook body (version 12)',
+    (kind) => {
+      const data: RsfWorkbookData = {
+        delimiter: ',',
+        sheets: [
+          { id: 'a', name: 'A', rowCount: 2, columnCount: 2, cells: [] },
+          { id: 'b', name: 'Notes', rowCount: 1, columnCount: 1, cells: [[0, 0, 'x: 1']], kind },
+        ],
+      };
+      const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+      expect(decoded.ok).toBe(true);
+      if (!decoded.ok) return;
+      expect(decoded.data.sheets[0].kind).toBeUndefined();
+      expect(decoded.data.sheets[1].kind).toBe(kind);
+      expect(decoded.data.sheets[1].cells).toEqual([[0, 0, 'x: 1']]);
+    },
+  );
+
+  it.each(['yaml', 'text'] as const)('rejects a %s worksheet with any shape other than 1x1', (kind) => {
+    const bytes = encodeRsfWorkbook({
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [], kind },
+        { id: 'b', name: 'B', rowCount: 2, columnCount: 1, cells: [], kind },
+      ],
+    });
+    const decoded = decodeRsfWorkbook(bytes);
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
+  });
+
+  it.each(['yaml', 'text'] as const)(
+    'carries a lock alongside a %s kind through the workbook body',
+    (kind) => {
+      const data: RsfWorkbookData = {
+        delimiter: ',',
+        sheets: [
+          { id: 'a', name: 'A', rowCount: 2, columnCount: 2, cells: [] },
+          {
+            id: 'b',
+            name: 'Notes',
+            rowCount: 1,
+            columnCount: 1,
+            cells: [[0, 0, 'x']],
+            kind,
+            locked: true,
+          },
+        ],
+      };
+      const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+      expect(decoded.ok).toBe(true);
+      if (!decoded.ok) return;
+      expect(decoded.data.sheets[1].kind).toBe(kind);
+      expect(decoded.data.sheets[1].locked).toBe(true);
+    },
+  );
 
   it('loads a legacy single-sheet container as a one-worksheet workbook', () => {
     const bytes = encodeRsf({

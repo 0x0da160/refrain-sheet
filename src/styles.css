@@ -3007,6 +3007,66 @@ table.diff-table td {
   min-height: 0;
 }
 
+/* ---------- YAML worksheet (docked in the spreadsheet area) ----------
+   Reuses every shared source/preview-pane class above (#557), identical to
+   the JSON worksheet — the preview panel itself reuses `.json-preview-panel`
+   too, since it is chrome-identical. See `Worksheet.kind`, `ui/yaml-sheet.ts`. */
+
+.yaml-sheet-view {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px;
+  background: var(--cell-bg);
+}
+
+.yaml-sheet-view[hidden] {
+  display: none;
+}
+
+.yaml-sheet-view .markdown-editor-toolbar {
+  flex: none;
+}
+
+.yaml-sheet-view .markdown-editor-panes {
+  flex: 1;
+  min-height: 0;
+}
+
+.yaml-sheet-view .markdown-editor-source {
+  min-height: 0;
+}
+
+/* ---------- Plain-text worksheet (docked in the spreadsheet area) ----------
+   Reuses the shared source-pane classes above (#557), but has no preview
+   panel or toolbar at all — unstructured text has nothing to render beyond
+   its own source. See `Worksheet.kind`, `ui/text-sheet.ts`. */
+
+.text-sheet-view {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px;
+  background: var(--cell-bg);
+}
+
+.text-sheet-view[hidden] {
+  display: none;
+}
+
+.text-sheet-view .markdown-editor-panes {
+  flex: 1;
+  min-height: 0;
+}
+
+.text-sheet-view .markdown-editor-source {
+  min-height: 0;
+}
+
 /* ---------- Drop overlay ---------- */
 
 .drop-overlay {
@@ -3505,15 +3565,18 @@ table.diff-table td {
      untouched. The docked Markdown worksheet's source textarea
      (`.markdown-sheet-view`, #486) isn't inside a dialog, so it needs its own
      entry — the standalone Markdown editor's textarea is already covered via
-     `.dialog-body textarea` above. The docked JSON worksheet's source
-     textarea (`.json-sheet-view`, #529) shares the same need. */
+     `.dialog-body textarea` above. The docked JSON, YAML, and plain-text
+     worksheets' source textareas (`.json-sheet-view`/`.yaml-sheet-view`/
+     `.text-sheet-view`, #529/#557) share the same need. */
   .dialog-body input[type='text'],
   .dialog-body input[type='number'],
   .dialog-body input[type='search'],
   .dialog-body select,
   .dialog-body textarea,
   .markdown-sheet-view .markdown-editor-source,
-  .json-sheet-view .markdown-editor-source {
+  .json-sheet-view .markdown-editor-source,
+  .yaml-sheet-view .markdown-editor-source,
+  .text-sheet-view .markdown-editor-source {
     font-size: 16px;
   }
 

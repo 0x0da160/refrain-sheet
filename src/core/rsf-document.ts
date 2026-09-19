@@ -584,6 +584,16 @@ export class RsfDocument {
     return Worksheet.json(this.mintSheetId(), name, '');
   }
 
+  /** Build (but do not insert) a new worksheet holding one empty YAML document. */
+  createYamlWorksheet(name: string): Worksheet {
+    return Worksheet.yaml(this.mintSheetId(), name, '');
+  }
+
+  /** Build (but do not insert) a new worksheet holding one empty plain-text document. */
+  createTextWorksheet(name: string): Worksheet {
+    return Worksheet.text(this.mintSheetId(), name, '');
+  }
+
   /** Build (but do not insert) a deep copy of a worksheet under a new name. */
   duplicateWorksheet(id: string, name: string): Worksheet | null {
     const source = this.sheetById(id);

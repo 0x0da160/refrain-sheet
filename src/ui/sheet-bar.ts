@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { FileJson, FileText, Lock, LockOpen, Plus, Table } from 'lucide';
+import { FileCode, FileJson, FileText, FileType, Lock, LockOpen, Plus, Table, type IconNode } from 'lucide';
 import type { AppState } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -13,6 +13,24 @@ import { createIcon } from './icon';
  * shared command layer (and reachable from the Sheet menu and the keyboard),
  * so no business logic is duplicated across entry points.
  */
+/** Localized kind label per worksheet kind, shown as the tab's icon tooltip. */
+const SHEET_KIND_LABEL_KEY: Record<WorksheetKind, string> = {
+  grid: 'sheets.kind.grid',
+  markdown: 'sheets.kind.markdown',
+  json: 'sheets.kind.json',
+  yaml: 'sheets.kind.yaml',
+  text: 'sheets.kind.text',
+};
+
+/** Tab icon per worksheet kind. */
+const SHEET_KIND_ICON: Record<WorksheetKind, IconNode> = {
+  grid: Table,
+  markdown: FileText,
+  json: FileJson,
+  yaml: FileCode,
+  text: FileType,
+};
+
 const SHEET_MENU_ITEMS: Array<{ command: CommandId; labelKey: string; separatorBefore?: boolean }> = [
   { command: 'worksheet.rename', labelKey: 'menu.sheet.renameSheet' },
   { command: 'worksheet.duplicate', labelKey: 'menu.sheet.duplicateSheet' },
@@ -132,13 +150,7 @@ export class SheetBar {
     locked: boolean,
     active: boolean,
   ): HTMLElement {
-    const kindLabel = t(
-      kind === 'markdown'
-        ? 'sheets.kind.markdown'
-        : kind === 'json'
-          ? 'sheets.kind.json'
-          : 'sheets.kind.grid',
-    );
+    const kindLabel = t(SHEET_KIND_LABEL_KEY[kind]);
     const tabEl = el(
       'div',
       {
@@ -154,11 +166,7 @@ export class SheetBar {
       },
       [
         el('span', { className: 'sheet-kind', attrs: { 'aria-label': kindLabel } }, [
-          createIcon(
-            kind === 'markdown' ? FileText : kind === 'json' ? FileJson : Table,
-            'sheet-kind-icon',
-            14,
-          ),
+          createIcon(SHEET_KIND_ICON[kind], 'sheet-kind-icon', 14),
         ]),
         ...(locked
           ? [
@@ -372,6 +380,16 @@ export class SheetBar {
         label: t('menu.sheet.addJsonSheet'),
         disabled: !this.commands.isEnabled('worksheet.addJson'),
         onSelect: () => void this.commands.run('worksheet.addJson'),
+      },
+      {
+        label: t('menu.sheet.addYamlSheet'),
+        disabled: !this.commands.isEnabled('worksheet.addYaml'),
+        onSelect: () => void this.commands.run('worksheet.addYaml'),
+      },
+      {
+        label: t('menu.sheet.addTextSheet'),
+        disabled: !this.commands.isEnabled('worksheet.addText'),
+        onSelect: () => void this.commands.run('worksheet.addText'),
       },
     ];
     const activeSheet = this.state.activeWorkbook()?.activeSheet;

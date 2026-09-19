@@ -37,7 +37,8 @@
   "dependencies": {
     "encoding-japanese": "^2.2.0",
     "lucide": "1.28.0",
-    "sql.js": "1.14.1"
+    "sql.js": "1.14.1",
+    "yaml": "2.9.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",

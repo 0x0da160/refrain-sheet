@@ -562,6 +562,8 @@ export type CommandId =
   | 'worksheet.add'
   | 'worksheet.addMarkdown'
   | 'worksheet.addJson'
+  | 'worksheet.addYaml'
+  | 'worksheet.addText'
   | 'worksheet.rename'
   | 'worksheet.duplicate'
   | 'worksheet.delete'
@@ -887,6 +889,8 @@ export class Commands {
       case 'worksheet.add':
       case 'worksheet.addMarkdown':
       case 'worksheet.addJson':
+      case 'worksheet.addYaml':
+      case 'worksheet.addText':
       case 'worksheet.rename':
       case 'worksheet.duplicate':
       case 'worksheet.toggleLock':
@@ -1354,6 +1358,12 @@ export class Commands {
       case 'worksheet.addJson':
         if (tab) await this.addJsonWorksheet(tab);
         return;
+      case 'worksheet.addYaml':
+        if (tab) await this.addYamlWorksheet(tab);
+        return;
+      case 'worksheet.addText':
+        if (tab) await this.addTextWorksheet(tab);
+        return;
       case 'worksheet.rename':
         if (tab) await this.renameWorksheet(tab);
         return;
@@ -1599,6 +1609,14 @@ export class Commands {
 
   private async addJsonWorksheet(tab: Tab): Promise<void> {
     return this.worksheets.addJsonWorksheet(tab);
+  }
+
+  private async addYamlWorksheet(tab: Tab): Promise<void> {
+    return this.worksheets.addYamlWorksheet(tab);
+  }
+
+  private async addTextWorksheet(tab: Tab): Promise<void> {
+    return this.worksheets.addTextWorksheet(tab);
   }
 
   private async renameWorksheet(tab: Tab): Promise<void> {

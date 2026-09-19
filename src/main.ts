@@ -28,7 +28,9 @@ import { installKeyboardViewportFix } from './ui/popup';
 import { SheetBar } from './ui/sheet-bar';
 import { StatusBar } from './ui/status-bar';
 import { TabBar } from './ui/tab-bar';
+import { TextSheetView } from './ui/text-sheet';
 import { WelcomeScreen } from './ui/welcome-screen';
+import { YamlSheetView } from './ui/yaml-sheet';
 
 function bootstrap(): void {
   initLocale();
@@ -160,14 +162,22 @@ function bootstrap(): void {
   // JSON worksheet is active (see `Worksheet.kind`) — same pattern as
   // `markdownSheetView`, a sibling surface rather than a replacement.
   const jsonSheetView = new JsonSheetView(state, commands);
+  // Same pattern again for a YAML worksheet.
+  const yamlSheetView = new YamlSheetView(state, commands);
+  // A plain-text worksheet's surface — the same source-textarea pattern but
+  // with no preview panel or Format action (see `TextSheetView`).
+  const textSheetView = new TextSheetView(state, commands);
   const refreshSourceSheetViews = (): void => {
     markdownSheetView.refresh();
     jsonSheetView.refresh();
-    const sourceActive = markdownSheetView.active || jsonSheetView.active;
+    yamlSheetView.refresh();
+    textSheetView.refresh();
+    const sourceActive =
+      markdownSheetView.active || jsonSheetView.active || yamlSheetView.active || textSheetView.active;
     grid.element.hidden = sourceActive;
     // The formula bar's name box and input field only mean anything for a
-    // grid (row/column cell addressing); a Markdown/JSON worksheet is a
-    // single whole-document cell, so showing it there put the entire
+    // grid (row/column cell addressing); a Markdown/JSON/YAML/text worksheet
+    // is a single whole-document cell, so showing it there put the entire
     // document's raw text into the formula bar under the label "A1" and let
     // editing there silently overwrite the whole document.
     formulaBar.element.hidden = sourceActive;
@@ -260,6 +270,8 @@ function bootstrap(): void {
     grid.element,
     markdownSheetView.element,
     jsonSheetView.element,
+    yamlSheetView.element,
+    textSheetView.element,
   ]);
   // Everything between the two tab strips (find bar, formula bar, welcome
   // screen, the sheet itself) lives in `#app-content`: a top/bottom-docked
@@ -280,6 +292,7 @@ function bootstrap(): void {
     commentsPanel.element,
     markdownSheetView.panelElement,
     jsonSheetView.panelElement,
+    yamlSheetView.panelElement,
   ]);
   // `menuBar.toggleElement` is a separate top-level element from
   // `menuBar.element` (mobile only) so the narrow-viewport grid can place it
@@ -501,12 +514,15 @@ function bootstrap(): void {
   // Browsers do not allow custom dialogs during unload; the standard
   // leave-page confirmation is used when any tab has unsaved changes.
   window.addEventListener('beforeunload', (event) => {
-    // A pending debounced Markdown/JSON-sheet edit (see `MarkdownSheetView`/
-    // `JsonSheetView`) has not yet marked its document dirty — flush it
-    // first so an edit made in the last moment before closing is never
-    // silently lost nor missed by the dirty check below.
+    // A pending debounced Markdown/JSON/YAML/text-sheet edit (see
+    // `MarkdownSheetView`/`JsonSheetView`/`YamlSheetView`/`TextSheetView`)
+    // has not yet marked its document dirty — flush it first so an edit made
+    // in the last moment before closing is never silently lost nor missed by
+    // the dirty check below.
     markdownSheetView.flushCommit();
     jsonSheetView.flushCommit();
+    yamlSheetView.flushCommit();
+    textSheetView.flushCommit();
     if (state.tabs.some((tab) => tab.doc.isDirty)) {
       event.preventDefault();
       event.returnValue = '';

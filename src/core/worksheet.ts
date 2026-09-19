@@ -21,11 +21,16 @@ export interface CompiledFormula {
  * `src/ui/markdown-sheet.ts`); `json` is the same shape (raw source in cell
  * A1, docked source/preview surface — see `src/ui/json-sheet.ts`) holding one
  * JSON document instead, with a syntax-highlighted preview and an explicit
- * "Format" (pretty-print) action. Neither `markdown` nor `json` ever carries
- * formulas, styles, a filter, or a sort, and both are excluded from CSV
- * export (CSV has no analog for a whole-sheet document).
+ * "Format" (pretty-print) action; `yaml` is the same shape again (see
+ * `src/ui/yaml-sheet.ts`), reusing the same syntax-highlighted-preview +
+ * Format pattern; `text` is the same shape holding unstructured plain text,
+ * with no preview panel at all (see `src/ui/text-sheet.ts`) since there is
+ * nothing to render beyond the source itself. None of `markdown`/`json`/
+ * `yaml`/`text` ever carries formulas, styles, a filter, or a sort, and all
+ * four are excluded from CSV export (CSV has no analog for a whole-sheet
+ * document).
  */
-export type WorksheetKind = 'grid' | 'markdown' | 'json';
+export type WorksheetKind = 'grid' | 'markdown' | 'json' | 'yaml' | 'text';
 
 /** Where the selection sits and how it was made (see AppState.SelectionKind). */
 export interface WorksheetPoint {
@@ -226,6 +231,36 @@ export class Worksheet {
 
   /** The document's JSON source (cell A1). Meaningful only when `kind === 'json'`. */
   get jsonText(): string {
+    return this.getValue(0, 0);
+  }
+
+  /**
+   * A worksheet holding one YAML document as its sole content (see
+   * {@link WorksheetKind}). Always exactly 1x1, the same shape and
+   * atomic/undoable edit path as {@link markdown}/{@link json}; reading it
+   * back is {@link yamlText}.
+   */
+  static yaml(id: string, name: string, text: string): Worksheet {
+    return new Worksheet(id, name, [[text]], 1, 'yaml');
+  }
+
+  /** The document's YAML source (cell A1). Meaningful only when `kind === 'yaml'`. */
+  get yamlText(): string {
+    return this.getValue(0, 0);
+  }
+
+  /**
+   * A worksheet holding one plain-text document as its sole content (see
+   * {@link WorksheetKind}). Always exactly 1x1, the same shape and
+   * atomic/undoable edit path as {@link markdown}/{@link json}/{@link yaml};
+   * reading it back is {@link plainText}.
+   */
+  static text(id: string, name: string, text: string): Worksheet {
+    return new Worksheet(id, name, [[text]], 1, 'text');
+  }
+
+  /** The document's plain-text content (cell A1). Meaningful only when `kind === 'text'`. */
+  get plainText(): string {
     return this.getValue(0, 0);
   }
 

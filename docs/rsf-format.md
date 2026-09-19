@@ -189,59 +189,64 @@ nothing else keys off the identifier.
 The body is a compact binary encoding of one sheet. All strings are UTF-8.
 
 Version selection on write is minimal so older readers keep working where
-possible: body **version 16** is written when the file overrides its
+possible: body **version 17** is written when the file overrides its
 retained-snapshot cap (see "Version history: retained-snapshot cap override"
-below); **version 15** when the worksheet is a json sheet (see "Worksheet
-kind: json" below); **version 14** when version history is disabled or
-holds at least one snapshot (see "Version history" below); **version 13**
-when the worksheet is locked (see "Worksheet locked" below); **version 12**
-when the worksheet is a Markdown sheet (see "Worksheet kind" below);
-**version 11** when at least one cell carries a comment; **version 10** when
-at least one border side carries a non-default line style or width;
-**version 9** when at least one cell carries a number format; **version 8**
-when at least one cell carries a style; **version 7** when the workbook
-display language is not English; **version 6** when the workbook timezone is
-not `UTC`; **version 5** when wrap-long-rows is stored; **version 4** when a
-sheet filter is present; **version 3** when display settings are present;
-**version 2** when only the creating/updating application metadata is
-present; **version 1** otherwise. Versions 1–16 are all accepted on read; an
-older reader rejects a body version it does not know with a localized
-"unsupported version" message rather than misparsing it.
+below) — kept as the single topmost version deliberately, since the
+override field's physical presence must stay tied 1:1 to whether an
+override was actually requested (there is no representable "field present
+but no override" encoding); **version 16** when the worksheet is a yaml or
+text sheet (see "Worksheet kind: yaml and text" below); **version 15** when
+the worksheet is a json sheet (see "Worksheet kind: json" below); **version
+14** when version history is disabled or holds at least one snapshot (see
+"Version history" below); **version 13** when the worksheet is locked (see
+"Worksheet locked" below); **version 12** when the worksheet is a Markdown
+sheet (see "Worksheet kind" below); **version 11** when at least one cell
+carries a comment; **version 10** when at least one border side carries a
+non-default line style or width; **version 9** when at least one cell
+carries a number format; **version 8** when at least one cell carries a
+style; **version 7** when the workbook display language is not English;
+**version 6** when the workbook timezone is not `UTC`; **version 5** when
+wrap-long-rows is stored; **version 4** when a sheet filter is present;
+**version 3** when display settings are present; **version 2** when only
+the creating/updating application metadata is present; **version 1**
+otherwise. Versions 1–17 are all accepted on read; an older reader rejects a
+body version it does not know with a localized "unsupported version"
+message rather than misparsing it.
 
-| Size | Field                                                                                                                            |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Body version — `16`, `15`, `14`, `13`, `12`, `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)          |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                                                      |
-| 2    | _(v2+)_ Application-name length, `u16`                                                                                           |
-| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`                                                                           |
-| 2    | _(v2+)_ Application-version length, `u16`                                                                                        |
-| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`                                                                                |
-| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)                                                                      |
-| 4    | _(v3+)_ Column-width entry count `W`, `u32`                                                                                      |
-| …    | _(v3+)_ `W` column-width entries (see below)                                                                                     |
-| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)                                                                          |
-| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)                                                                       |
-| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)                                                                        |
-| 2    | _(v6 only)_ IANA timezone-name length, `u16`                                                                                     |
-| …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`                                                                        |
-| 2    | _(v7 only)_ Display-language length, `u16`                                                                                       |
-| …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`                                                                            |
-| 1    | _(v12+)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown, `2` = json — `2` legal only from v15 — see below)                     |
-| 1    | _(v13+)_ Worksheet locked, `u8` (`0` = unlocked, `1` = locked — see below)                                                       |
-| 1    | _(v14+)_ History flags, `u8` (bit 0: version history enabled; bit 1: retained-snapshot cap is unlimited — v16+ only — see below) |
-| 4    | _(v16+)_ Retained-snapshot cap override, `u32` (ignored, written `0`, when bit 1 above is set — see below)                       |
-| 4    | _(v14+)_ Snapshot count `H`, `u32`                                                                                               |
-| …    | _(v14+)_ `H` snapshot records (see below)                                                                                        |
-| 2    | Sheet-name length `N`, `u16`                                                                                                     |
-| `N`  | Sheet name (UTF-8)                                                                                                               |
-| 4    | Row count, `u32`                                                                                                                 |
-| 4    | Column count, `u32`                                                                                                              |
-| 4    | Cell count `C`, `u32`                                                                                                            |
-| …    | `C` cell records                                                                                                                 |
-| 4    | _(v8+)_ Styled-cell count `Y`, `u32`                                                                                             |
-| …    | _(v8+)_ `Y` style records, each with a _(v10 only)_ per-border-style byte and a _(v9 only)_ number-format sub-record (see below) |
-| 4    | _(v11+)_ Commented-cell count `Z`, `u32`                                                                                         |
-| …    | _(v11+)_ `Z` comment records (see below)                                                                                         |
+| Size | Field                                                                                                                                                       |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Body version — `17`, `16`, `15`, `14`, `13`, `12`, `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection)                               |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                                                                                 |
+| 2    | _(v2+)_ Application-name length, `u16`                                                                                                                      |
+| …    | _(v2+)_ Application name (UTF-8), e.g. `Refrain Sheet`                                                                                                      |
+| 2    | _(v2+)_ Application-version length, `u16`                                                                                                                   |
+| …    | _(v2+)_ Application version (UTF-8), e.g. `0.2.7`                                                                                                           |
+| 2    | _(v3+)_ Spreadsheet zoom percent, `u16` (`0` = none stored)                                                                                                 |
+| 4    | _(v3+)_ Column-width entry count `W`, `u32`                                                                                                                 |
+| …    | _(v3+)_ `W` column-width entries (see below)                                                                                                                |
+| 1    | _(v5 only)_ Display flags, `u8` (bit 0: wrap long rows)                                                                                                     |
+| 1    | _(v4+)_ Filter flags, `u8` (bit 0: a filter block follows)                                                                                                  |
+| …    | _(v4+)_ Filter block (only when bit 0 is set — see below)                                                                                                   |
+| 2    | _(v6 only)_ IANA timezone-name length, `u16`                                                                                                                |
+| …    | _(v6 only)_ IANA timezone name (UTF-8), e.g. `Asia/Tokyo`                                                                                                   |
+| 2    | _(v7 only)_ Display-language length, `u16`                                                                                                                  |
+| …    | _(v7 only)_ Display-language id (UTF-8): `en` or `ja`                                                                                                       |
+| 1    | _(v12+)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown, `2` = json, `3` = yaml, `4` = text — `2` legal only from v15, `3`/`4` only from v16 — see below) |
+| 1    | _(v13+)_ Worksheet locked, `u8` (`0` = unlocked, `1` = locked — see below)                                                                                  |
+| 1    | _(v14+)_ History flags, `u8` (bit 0: version history enabled; bit 1: retained-snapshot cap is unlimited — v17+ only — see below)                            |
+| 4    | _(v17+)_ Retained-snapshot cap override, `u32` (ignored, written `0`, when bit 1 above is set — see below)                                                  |
+| 4    | _(v14+)_ Snapshot count `H`, `u32`                                                                                                                          |
+| …    | _(v14+)_ `H` snapshot records (see below)                                                                                                                   |
+| 2    | Sheet-name length `N`, `u16`                                                                                                                                |
+| `N`  | Sheet name (UTF-8)                                                                                                                                          |
+| 4    | Row count, `u32`                                                                                                                                            |
+| 4    | Column count, `u32`                                                                                                                                         |
+| 4    | Cell count `C`, `u32`                                                                                                                                       |
+| …    | `C` cell records                                                                                                                                            |
+| 4    | _(v8+)_ Styled-cell count `Y`, `u32`                                                                                                                        |
+| …    | _(v8+)_ `Y` style records, each with a _(v10 only)_ per-border-style byte and a _(v9 only)_ number-format sub-record (see below)                            |
+| 4    | _(v11+)_ Commented-cell count `Z`, `u32`                                                                                                                    |
+| …    | _(v11+)_ `Z` comment records (see below)                                                                                                                    |
 
 ### Display settings (body version 3)
 
@@ -633,7 +638,7 @@ part of the saved file, but like the RSF body itself it stores no executable
 content — a snapshot is exactly the same inert cell/style/formula data the
 live document itself stores, nothing more.
 
-The history block (body versions 14–15; body version 16 extends it — see
+The history block (body versions 14–16; body version 17 extends it — see
 "Version history: retained-snapshot cap override" below) is:
 
 | Size | Field                                                |
@@ -754,14 +759,52 @@ worksheet** — the same minimal-version-write policy every feature in this
 file follows, not by making a version-15 file still openable by an older
 release.
 
-Standalone (non-RSF-container) editing of JSON/YAML/plain-text files, and a
-dedicated `yaml` worksheet kind, are tracked as follow-up work rather than
-covered by this section — see issue #529's discussion for why they were
-scoped out of the same change.
+Standalone (non-RSF-container) editing of JSON/YAML/plain-text files remains
+tracked as follow-up work — see issue #529's discussion — independent of the
+in-workbook `yaml`/`text` worksheet kinds below.
 
-### Version history: retained-snapshot cap override (body version 16)
+### Worksheet kind: yaml and text (body version 16)
 
-Body version 16 extends the version-history block (see "Version history"
+Body version 16 allows the worksheet-kind byte (see "Worksheet kind" above)
+to hold a fourth or fifth value: `3` (yaml — a worksheet whose entire
+content is one YAML document, edited the same way a json worksheet is, with
+a syntax-highlighted preview and an explicit "Format" pretty-print action
+powered by the `yaml` package — see **Sheet > Add YAML Sheet**,
+[`src/core/worksheet.ts`](../src/core/worksheet.ts)'s `WorksheetKind`, and
+[`src/ui/yaml-sheet.ts`](../src/ui/yaml-sheet.ts)) or `4` (text — a
+worksheet holding unstructured plain text, with no preview panel and no
+Format action, since there is nothing to render or pretty-print beyond the
+source itself — see **Sheet > Add Text Sheet** and
+[`src/ui/text-sheet.ts`](../src/ui/text-sheet.ts)). Like `json` before it,
+this does not add a new byte to the layout — the worksheet-kind byte is
+already written from body version 12 — it only widens which values are
+legal for that existing byte, and only from this version: a `3` or `4` byte
+in a body version 12–15 file is a shape a real writer of this release never
+emits, so it is rejected as `bad-shape` there, not misread as yaml/text. The
+same reject-don't-guess treatment applies as for `json` at body version 15.
+
+A yaml or text worksheet's document text is stored exactly like a markdown
+or json worksheet's: the raw UTF-8 input of the worksheet's one and only
+cell, `(0, 0)`, using the ordinary cell-record encoding, required to be
+exactly **1 row × 1 column** with **at most one cell record** — any other
+declared shape is `bad-shape`. Both reuse the same atomic, undoable
+cell-edit path a grid cell edit uses, are never evaluated as a formula
+regardless of what they start with, are excluded from CSV export, and their
+cell remains an ordinary, cross-sheet-referenceable cell to the formula
+engine — all identical to the markdown and json worksheets' documented
+behavior above, just for YAML or unstructured text content instead.
+
+A workbook using a yaml or text worksheet writes container-level body
+version 16 (or workbook body version 12 — see below), which an older
+release rejects outright with the standard "unsupported version" message:
+**compatibility is preserved by never raising the version for a workbook
+that has no yaml or text worksheet** — the same minimal-version-write
+policy every feature in this file follows, not by making a version-16 file
+still openable by an older release.
+
+### Version history: retained-snapshot cap override (body version 17)
+
+Body version 17 extends the version-history block (see "Version history"
 above) with a per-file override of the retained-snapshot cap, set from
 **Sheet > File Version History…**: the default (20) can be raised to a
 custom number or set to unlimited. Bit 1 of the history flags byte is added
@@ -777,21 +820,26 @@ unlimited", and one `u32` field is inserted right after the flags byte:
 
 The cap-override field is validated on read into `[1, MAX_RSF_HISTORY_SNAPSHOTS]`
 (`bad-shape` outside that range) whenever bit 1 is clear; bit 1 set means
-"unlimited" and the field's value is ignored. Absent (a body version below 16) means "use the default" — every file saved before this setting existed.
+"unlimited" and the field's value is ignored. Absent (a body version below 17) means "use the default" — every file saved before this setting existed.
 "Unlimited" is still bounded in practice by the absolute ceiling
 `MAX_RSF_HISTORY_SNAPSHOTS` (500), which every writer and reader enforces
 regardless of a file's own cap, keeping worst-case file growth and decode
 cost bounded even for a file that opted out of a numeric limit.
 
-This section is written (forcing body version 16) only when a file actually
+This section is written (forcing body version 17) only when a file actually
 carries a cap override — the default (20, unset) keeps the file on the
-lowest sufficient body version (14 or 15), exactly like every other
-version-gated section in this format. A file using this feature writes
-container-level body version 16 (or workbook body version 12 — see below),
-which an older release rejects outright with the standard "unsupported
-version" message: compatibility is preserved by never raising the version
-for a file that has not set an override, not by making a version-16 file
-still openable by an older release.
+lowest sufficient body version (14, 15, or 16), exactly like every other
+version-gated section in this format. This tier is kept as the single
+topmost version deliberately, above `yaml`/`text` (16): the cap-override
+field's physical presence must stay tied 1:1 to whether an override was
+actually requested — there is no representable "field present but no
+override" encoding — so no other, unrelated feature's version bump may sit
+above it. A file using this feature writes container-level body version 17
+(or workbook body version 13 — see below), which an older release rejects
+outright with the standard "unsupported version" message: compatibility is
+preserved by never raising the version for a file that has not set an
+override, not by making a version-17 file still openable by an older
+release.
 
 **Sheet > File Version History…** also lists every recorded snapshot with a
 Restore action, which replaces the file's current worksheets/cells/styles
@@ -822,43 +870,47 @@ Written only when the workbook holds **two or more** worksheets. All strings
 are UTF-8 and length-prefixed with a `u16`; all integers are little-endian.
 
 Workbook body version selection is minimal, like the single-sheet body:
-**version 12** is written when the workbook overrides its retained-snapshot
-cap (see "Version history: retained-snapshot cap override (body version 16)"
-above); **version 11** when at least one worksheet in the workbook is a
-json sheet (see "Worksheet kind: json (body version 15)" above — the
-worksheet-kind byte, below, is only legal to hold json from this version);
-**version 10** is written when version history is disabled or holds at least
-one snapshot (see "Version history (body version 14)" above); **version 9**
-when at least one worksheet in the workbook is locked (see "Worksheet locked
-(body version 13)" above); **version 8** when at least one worksheet in the
-workbook is a markdown or json sheet (see "Worksheet kind (body version 12)"
-above); **version 7** when at least one cell in any worksheet carries a
-comment; **version 6** when at least one border side in any worksheet
-carries a non-default line style or width; **version 5** when at least one
-styled cell in any worksheet carries a number format; **version 4** when at
-least one cell in any worksheet carries a style; **version 3** when the
-workbook display language is not `en`; **version 2** when the workbook
-timezone is not `UTC`; **version 1** otherwise. All twelve versions are
-accepted on read.
+**version 13** is written when the workbook overrides its retained-snapshot
+cap (see "Version history: retained-snapshot cap override (body version 17)"
+above) — kept as the single topmost version deliberately, for the same
+presence-invariant reason the single-sheet body keeps it topmost; **version
+12** when at least one worksheet in the workbook is a yaml or text sheet
+(see "Worksheet kind: yaml and text (body version 16)" above); **version
+11** when at least one worksheet in the workbook is a json sheet (see
+"Worksheet kind: json (body version 15)" above — the worksheet-kind byte,
+below, is only legal to hold json from this version, and yaml/text only
+from version 12); **version 10** is written when version history is
+disabled or holds at least one snapshot (see "Version history (body version
+14)" above); **version 9** when at least one worksheet in the workbook is
+locked (see "Worksheet locked (body version 13)" above); **version 8** when
+at least one worksheet in the workbook is a markdown or json sheet (see
+"Worksheet kind (body version 12)" above); **version 7** when at least one
+cell in any worksheet carries a comment; **version 6** when at least one
+border side in any worksheet carries a non-default line style or width;
+**version 5** when at least one styled cell in any worksheet carries a
+number format; **version 4** when at least one cell in any worksheet
+carries a style; **version 3** when the workbook display language is not
+`en`; **version 2** when the workbook timezone is not `UTC`; **version 1**
+otherwise. All thirteen versions are accepted on read.
 
-| Size | Field                                                                                                    |
-| ---- | -------------------------------------------------------------------------------------------------------- |
-| 1    | Workbook body version — `12`, `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
-| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                              |
-| 2+…  | Application name (UTF-8, `u16` length; may be empty)                                                     |
-| 2+…  | Application version (UTF-8, `u16` length; may be empty)                                                  |
-| 8    | Creation timestamp, `f64` ms since epoch (`0` = not stored)                                              |
-| 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)                                           |
-| 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)                                                  |
-| 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty)                                          |
-| 2+…  | _(v2+)_ Workbook timezone, IANA name (UTF-8, `u16` length)                                               |
-| 2+…  | _(v3 only)_ Workbook display language (UTF-8, `u16` length)                                              |
-| 1    | _(v10+)_ History flags, `u8` (bit 0: version history enabled; bit 1: cap override unlimited — v12+ only) |
-| 4    | _(v12+)_ Retained-snapshot cap override, `u32` (ignored, written `0`, when bit 1 above is set)           |
-| 4    | _(v10+)_ Snapshot count `H`, `u32`                                                                       |
-| …    | _(v10+)_ `H` snapshot records — identical layout to the single-sheet history block's own                 |
-| 2    | Worksheet count `S`, `u16`                                                                               |
-| …    | `S` worksheet records (below)                                                                            |
+| Size | Field                                                                                                          |
+| ---- | -------------------------------------------------------------------------------------------------------------- |
+| 1    | Workbook body version — `13`, `12`, `11`, `10`, `9`, `8`, `7`, `6`, `5`, `4`, `3`, `2`, or `1` (see selection) |
+| 1    | Delimiter byte: `,` (`0x2C`), `;` (`0x3B`), or TAB (`0x09`)                                                    |
+| 2+…  | Application name (UTF-8, `u16` length; may be empty)                                                           |
+| 2+…  | Application version (UTF-8, `u16` length; may be empty)                                                        |
+| 8    | Creation timestamp, `f64` ms since epoch (`0` = not stored)                                                    |
+| 8    | Last-update timestamp, `f64` ms since epoch (`0` = not stored)                                                 |
+| 2+…  | Workbook identifier (UTF-8, `u16` length; may be empty)                                                        |
+| 2+…  | Active worksheet identifier (UTF-8, `u16` length; may be empty)                                                |
+| 2+…  | _(v2+)_ Workbook timezone, IANA name (UTF-8, `u16` length)                                                     |
+| 2+…  | _(v3 only)_ Workbook display language (UTF-8, `u16` length)                                                    |
+| 1    | _(v10+)_ History flags, `u8` (bit 0: version history enabled; bit 1: cap override unlimited — v13+ only)       |
+| 4    | _(v13+)_ Retained-snapshot cap override, `u32` (ignored, written `0`, when bit 1 above is set)                 |
+| 4    | _(v10+)_ Snapshot count `H`, `u32`                                                                             |
+| …    | _(v10+)_ `H` snapshot records — identical layout to the single-sheet history block's own                       |
+| 2    | Worksheet count `S`, `u16`                                                                                     |
+| …    | `S` worksheet records (below)                                                                                  |
 
 The workbook timezone follows the same rules as the single-sheet body version
 6 field above: written only when non-`UTC`, and an absent or unresolvable
@@ -876,33 +928,35 @@ section too, so the layout stays a strict prefix chain.
 
 Each worksheet record:
 
-| Size | Field                                                                       |
-| ---- | --------------------------------------------------------------------------- |
-| 2+…  | Worksheet identifier (UTF-8, `u16` length; must be non-empty)               |
-| 2+…  | Worksheet display name (UTF-8, `u16` length)                                |
-| 4    | Row count, `u32`                                                            |
-| 4    | Column count, `u32`                                                         |
-| 4    | Cell count `C`, `u32`                                                       |
-| …    | `C` cell records: row `u32`, column `u32`, length `u32`, bytes              |
-| 1    | Display flags, `u8` (bit 0: zoom; bit 1: widths; bit 2: wrap)               |
-| 2    | _(bit 0)_ Zoom percent, `u16`                                               |
-| 4    | _(bit 1)_ Column-width entry count `W`, `u32`                               |
-| …    | _(bit 1)_ `W` entries: column `u32`, width px at 100% zoom `u16`            |
-| 1    | Filter flags, `u8` (bit 0: a filter block follows)                          |
-| …    | _(bit 0)_ Filter block — identical layout to the single-sheet one           |
-| 4    | _(v4+)_ Styled-cell count `Y`, `u32`                                        |
-| …    | _(v4+)_ `Y` style records — identical layout to the                         |
-|      | single-sheet [cell-styles block](#cell-styles-body-version-8), each with a  |
-|      | _(v5 only)_ [number-format sub-record](#number-format-body-version-9) and a |
-|      | _(v6 only)_ per-border-side line-style+width byte appended                  |
-| 4    | _(v7+)_ Commented-cell count `Z`, `u32`                                     |
-| …    | _(v7+)_ `Z` comment records — identical layout to the single-sheet          |
-|      | [cell-comments block](#cell-comments-body-version-11)                       |
-| 1    | _(v8+)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown, `2` = json — `2`  |
-|      | legal only from v11 — see [Worksheet kind](#worksheet-kind-body-version-12) |
-|      | and [Worksheet kind: json](#worksheet-kind-json-body-version-15))           |
-| 1    | _(v9+)_ Worksheet locked, `u8` (`0` = unlocked, `1` = locked — see          |
-|      | [Worksheet locked](#worksheet-locked-body-version-13))                      |
+| Size | Field                                                                           |
+| ---- | ------------------------------------------------------------------------------- |
+| 2+…  | Worksheet identifier (UTF-8, `u16` length; must be non-empty)                   |
+| 2+…  | Worksheet display name (UTF-8, `u16` length)                                    |
+| 4    | Row count, `u32`                                                                |
+| 4    | Column count, `u32`                                                             |
+| 4    | Cell count `C`, `u32`                                                           |
+| …    | `C` cell records: row `u32`, column `u32`, length `u32`, bytes                  |
+| 1    | Display flags, `u8` (bit 0: zoom; bit 1: widths; bit 2: wrap)                   |
+| 2    | _(bit 0)_ Zoom percent, `u16`                                                   |
+| 4    | _(bit 1)_ Column-width entry count `W`, `u32`                                   |
+| …    | _(bit 1)_ `W` entries: column `u32`, width px at 100% zoom `u16`                |
+| 1    | Filter flags, `u8` (bit 0: a filter block follows)                              |
+| …    | _(bit 0)_ Filter block — identical layout to the single-sheet one               |
+| 4    | _(v4+)_ Styled-cell count `Y`, `u32`                                            |
+| …    | _(v4+)_ `Y` style records — identical layout to the                             |
+|      | single-sheet [cell-styles block](#cell-styles-body-version-8), each with a      |
+|      | _(v5 only)_ [number-format sub-record](#number-format-body-version-9) and a     |
+|      | _(v6 only)_ per-border-side line-style+width byte appended                      |
+| 4    | _(v7+)_ Commented-cell count `Z`, `u32`                                         |
+| …    | _(v7+)_ `Z` comment records — identical layout to the single-sheet              |
+|      | [cell-comments block](#cell-comments-body-version-11)                           |
+| 1    | _(v8+)_ Worksheet kind, `u8` (`0` = grid, `1` = markdown, `2` = json,           |
+|      | `3` = yaml, `4` = text — `2` legal only from v11, `3`/`4` only from v12 —       |
+|      | see [Worksheet kind](#worksheet-kind-body-version-12),                          |
+|      | [Worksheet kind: json](#worksheet-kind-json-body-version-15), and               |
+|      | [Worksheet kind: yaml and text](#worksheet-kind-yaml-and-text-body-version-16)) |
+| 1    | _(v9+)_ Worksheet locked, `u8` (`0` = unlocked, `1` = locked — see              |
+|      | [Worksheet locked](#worksheet-locked-body-version-13))                          |
 
 Cells are stored **sparsely**: only non-empty cells are written. When body
 version 4 or higher is written, every worksheet record carries its own style
@@ -1219,11 +1273,22 @@ layout (the kind byte already exists from version 12), it only widens which
 values are legal for that byte, gated by version so an older reader still
 gets "unsupported version" rather than misreading a json worksheet as some
 other shape. The single-sheet body was later bumped to version 16, and the
-workbook body to version 12, to carry a per-file override of the
-retained-snapshot cap (see "Version history: retained-snapshot cap override
-(body version 16)" above); each is written only when a file actually sets
-an override, so a file left on the default (20, unset) stays on a lower
-version exactly like an opt-in feature such as locking. Future changes bump
-the container version (framing changes) or the relevant body version
-(encoding changes); readers reject versions they do not understand rather
-than guessing.
+workbook body to version 12, to let the same per-worksheet-kind byte also
+hold `yaml` and `text` (see "Worksheet kind: yaml and text (body version
+16)" above); each is written only when at least one worksheet is a yaml or
+text sheet, for the same reason as the json bump above — again no new byte,
+only a further widening of which values are legal for the existing byte.
+The single-sheet body was later bumped to version 17, and the workbook body
+to version 13, to carry a per-file override of the retained-snapshot cap
+(see "Version history: retained-snapshot cap override (body version 17)"
+above); each is written only when a file actually sets an override, so a
+file left on the default (20, unset) stays on a lower version exactly like
+an opt-in feature such as locking. This tier is kept as the single topmost
+version deliberately, above the yaml/text widening, because the override
+field's physical presence must stay tied 1:1 to whether an override was
+actually requested — there is no representable "field present but no
+override" encoding, so it cannot share a version with an unrelated,
+independently-triggered feature the way the kind-byte widenings share
+theirs. Future changes bump the container version (framing changes) or the
+relevant body version (encoding changes); readers reject versions they do
+not understand rather than guessing.

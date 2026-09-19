@@ -364,6 +364,7 @@
   "dialog.sheetName.title.add": "Add Worksheet",
   "dialog.sheetName.title.rename": "Rename Worksheet",
   "dialog.sheetName.title.duplicate": "Duplicate Worksheet",
+  "dialog.sheetName.kind": "Worksheet type",
   "dialog.sheetName.label": "Worksheet name",
   "dialog.sheetName.rules": "Up to 100 characters. Names are unique within the workbook (ignoring case) and cannot contain : \\ / ? * [ ].",
   "dialog.sheetName.ok": "OK",

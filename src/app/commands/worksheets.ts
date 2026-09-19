@@ -2,7 +2,7 @@
 import { isValidSheetName, MAX_SHEET_NAME_LENGTH } from '../../core/formula';
 import { MAX_WORKSHEETS, RsfDocument } from '../../core/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
-import type { Worksheet } from '../../core/worksheet';
+import type { Worksheet, WorksheetKind } from '../../core/worksheet';
 import { AppState, type Tab } from '../app-state';
 import { t } from '../i18n';
 import type { CommandId, ConvertReason, UiPort } from '../commands';
@@ -55,21 +55,69 @@ export class WorksheetCommands {
     return false;
   }
 
-  /** Add a new empty worksheet after the active one and activate it. */
+  /**
+   * The default suggested name for a new worksheet of `kind`, counting only
+   * existing worksheets of that same kind (so "Sheet3" doesn't collide with
+   * two Markdown sheets already named "Notes1"/"Notes2") and de-duplicated
+   * workbook-wide via `uniqueSheetName`.
+   */
+  private suggestNameForKind(doc: RsfDocument, kind: WorksheetKind): string {
+    const n = doc.sheets.filter((s) => s.kind === kind).length + 1;
+    const key =
+      kind === 'markdown'
+        ? 'sheet.defaultMarkdownName'
+        : kind === 'json'
+          ? 'sheet.defaultJsonName'
+          : kind === 'yaml'
+            ? 'sheet.defaultYamlName'
+            : kind === 'text'
+              ? 'sheet.defaultTextName'
+              : 'sheet.defaultName';
+    return doc.uniqueSheetName(t(key, { n }));
+  }
+
+  /** Add a new worksheet of `kind`, mirroring each kind-specific `add*Sheet` method on `AppState`. */
+  private addSheetOfKind(tab: Tab, kind: WorksheetKind, name: string): Worksheet | null {
+    switch (kind) {
+      case 'markdown':
+        return this.state.addMarkdownSheet(tab, name);
+      case 'json':
+        return this.state.addJsonSheet(tab, name);
+      case 'yaml':
+        return this.state.addYamlSheet(tab, name);
+      case 'text':
+        return this.state.addTextSheet(tab, name);
+      case 'grid':
+        return this.state.addSheet(tab, name);
+    }
+  }
+
+  /**
+   * Add a new worksheet after the active one and activate it. The dialog
+   * lets the user pick the worksheet's kind (grid/Markdown/JSON/YAML/text),
+   * defaulting to grid and re-suggesting the name as the kind changes (see
+   * `SheetOpsDialogs.promptSheetName`) — the individual `addMarkdownWorksheet`/
+   * `addJsonWorksheet`/`addYamlWorksheet`/`addTextWorksheet` methods below
+   * remain the direct, single-kind entry points from the menu bar and
+   * worksheet-tab context menu.
+   */
   async addWorksheet(tab: Tab): Promise<void> {
     const doc = tab.doc;
     if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
       return;
     }
-    const gridCount = doc.sheets.filter((s) => s.kind === 'grid').length;
-    const suggested = doc.uniqueSheetName(t('sheet.defaultName', { n: gridCount + 1 }));
-    const name = await this.ui.promptSheetName('add', suggested, (candidate) =>
-      this.validateSheetName(doc, candidate),
+    const initialKind: WorksheetKind = 'grid';
+    const suggested = this.suggestNameForKind(doc, initialKind);
+    const result = await this.ui.promptSheetName(
+      'add',
+      suggested,
+      (candidate) => this.validateSheetName(doc, candidate),
+      { initialKind, suggestName: (kind) => this.suggestNameForKind(doc, kind) },
     );
-    if (name === null || tab.doc !== doc) {
+    if (result === null || tab.doc !== doc) {
       return;
     }
-    const sheet = this.state.addSheet(tab, name.trim());
+    const sheet = this.addSheetOfKind(tab, result.kind, result.name.trim());
     if (sheet) {
       this.ui.notify(t('notify.sheetAdded', { name: sheet.name }), 'info');
     }
@@ -82,22 +130,7 @@ export class WorksheetCommands {
    * `docs/rsf-format.md`'s "Worksheet kind" section.
    */
   async addMarkdownWorksheet(tab: Tab): Promise<void> {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
-      return;
-    }
-    const markdownCount = doc.sheets.filter((s) => s.kind === 'markdown').length;
-    const suggested = doc.uniqueSheetName(t('sheet.defaultMarkdownName', { n: markdownCount + 1 }));
-    const name = await this.ui.promptSheetName('add', suggested, (candidate) =>
-      this.validateSheetName(doc, candidate),
-    );
-    if (name === null || tab.doc !== doc) {
-      return;
-    }
-    const sheet = this.state.addMarkdownSheet(tab, name.trim());
-    if (sheet) {
-      this.ui.notify(t('notify.sheetAdded', { name: sheet.name }), 'info');
-    }
+    return this.addSingleKindWorksheet(tab, 'markdown');
   }
 
   /**
@@ -106,22 +139,7 @@ export class WorksheetCommands {
    * for what the new worksheet contains.
    */
   async addJsonWorksheet(tab: Tab): Promise<void> {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
-      return;
-    }
-    const jsonCount = doc.sheets.filter((s) => s.kind === 'json').length;
-    const suggested = doc.uniqueSheetName(t('sheet.defaultJsonName', { n: jsonCount + 1 }));
-    const name = await this.ui.promptSheetName('add', suggested, (candidate) =>
-      this.validateSheetName(doc, candidate),
-    );
-    if (name === null || tab.doc !== doc) {
-      return;
-    }
-    const sheet = this.state.addJsonSheet(tab, name.trim());
-    if (sheet) {
-      this.ui.notify(t('notify.sheetAdded', { name: sheet.name }), 'info');
-    }
+    return this.addSingleKindWorksheet(tab, 'json');
   }
 
   /**
@@ -130,22 +148,7 @@ export class WorksheetCommands {
    * for what the new worksheet contains.
    */
   async addYamlWorksheet(tab: Tab): Promise<void> {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
-      return;
-    }
-    const yamlCount = doc.sheets.filter((s) => s.kind === 'yaml').length;
-    const suggested = doc.uniqueSheetName(t('sheet.defaultYamlName', { n: yamlCount + 1 }));
-    const name = await this.ui.promptSheetName('add', suggested, (candidate) =>
-      this.validateSheetName(doc, candidate),
-    );
-    if (name === null || tab.doc !== doc) {
-      return;
-    }
-    const sheet = this.state.addYamlSheet(tab, name.trim());
-    if (sheet) {
-      this.ui.notify(t('notify.sheetAdded', { name: sheet.name }), 'info');
-    }
+    return this.addSingleKindWorksheet(tab, 'yaml');
   }
 
   /**
@@ -154,19 +157,29 @@ export class WorksheetCommands {
    * except for what the new worksheet contains.
    */
   async addTextWorksheet(tab: Tab): Promise<void> {
+    return this.addSingleKindWorksheet(tab, 'text');
+  }
+
+  /**
+   * Shared body of `addMarkdownWorksheet`/`addJsonWorksheet`/
+   * `addYamlWorksheet`/`addTextWorksheet` — each is a fixed-kind shortcut
+   * that skips the kind picker `addWorksheet` (the generic `worksheet.add`
+   * command) shows, since the kind is already implied by which command was
+   * invoked.
+   */
+  private async addSingleKindWorksheet(tab: Tab, kind: Exclude<WorksheetKind, 'grid'>): Promise<void> {
     const doc = tab.doc;
     if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
       return;
     }
-    const textCount = doc.sheets.filter((s) => s.kind === 'text').length;
-    const suggested = doc.uniqueSheetName(t('sheet.defaultTextName', { n: textCount + 1 }));
-    const name = await this.ui.promptSheetName('add', suggested, (candidate) =>
+    const suggested = this.suggestNameForKind(doc, kind);
+    const result = await this.ui.promptSheetName('add', suggested, (candidate) =>
       this.validateSheetName(doc, candidate),
     );
-    if (name === null || tab.doc !== doc) {
+    if (result === null || tab.doc !== doc) {
       return;
     }
-    const sheet = this.state.addTextSheet(tab, name.trim());
+    const sheet = this.addSheetOfKind(tab, kind, result.name.trim());
     if (sheet) {
       this.ui.notify(t('notify.sheetAdded', { name: sheet.name }), 'info');
     }
@@ -180,14 +193,15 @@ export class WorksheetCommands {
     }
     const sheet = doc.activeSheet;
     const before = sheet.name;
-    const name = await this.ui.promptSheetName('rename', before, (candidate) =>
+    const result = await this.ui.promptSheetName('rename', before, (candidate) =>
       this.validateSheetName(doc, candidate, sheet.id),
     );
-    if (name === null || tab.doc !== doc) {
+    if (result === null || tab.doc !== doc) {
       return;
     }
-    if (this.state.renameSheet(tab, sheet.id, name.trim())) {
-      this.ui.notify(t('notify.sheetRenamed', { before, after: name.trim() }), 'info');
+    const after = result.name.trim();
+    if (this.state.renameSheet(tab, sheet.id, after)) {
+      this.ui.notify(t('notify.sheetRenamed', { before, after }), 'info');
     }
   }
 
@@ -204,13 +218,13 @@ export class WorksheetCommands {
     }
     const source = doc.activeSheet;
     const suggested = doc.uniqueSheetName(t('sheet.copyName', { name: source.name }));
-    const name = await this.ui.promptSheetName('duplicate', suggested, (candidate) =>
+    const result = await this.ui.promptSheetName('duplicate', suggested, (candidate) =>
       this.validateSheetName(doc, candidate),
     );
-    if (name === null || tab.doc !== doc) {
+    if (result === null || tab.doc !== doc) {
       return;
     }
-    const finalName = name.trim();
+    const finalName = result.name.trim();
     let prebuilt: Worksheet | undefined;
     if (source.rowCount * source.columnCount > LARGE_OP_CELLS) {
       const label = t('loading.duplicatingSheet', { name: source.name });

@@ -25,8 +25,24 @@ import {
 } from '../../core/filter';
 import { MAX_SHEET_NAME_LENGTH } from '../../core/formula';
 import { MAX_SHEET_SORT_KEYS, type SortKey } from '../../core/sort';
+import type { WorksheetKind } from '../../core/worksheet';
 import { el } from '../dom';
+import { createIcon } from '../icon';
+import { FileCode, FileJson, FileText, FileType, Table, type IconNode } from 'lucide';
 import { dialogButton, openDialog, openSidePanel, submitOnEnter } from './shared';
+
+/**
+ * Worksheet-kind picker options for `promptSheetName`'s `mode === 'add'`
+ * radio group — same icon set as the worksheet tab strip (`ui/sheet-bar.ts`)
+ * so a worksheet's kind reads the same wherever it appears.
+ */
+const WORKSHEET_KIND_OPTIONS: ReadonlyArray<{ kind: WorksheetKind; labelKey: string; icon: IconNode }> = [
+  { kind: 'grid', labelKey: 'sheets.kind.grid', icon: Table },
+  { kind: 'markdown', labelKey: 'sheets.kind.markdown', icon: FileText },
+  { kind: 'json', labelKey: 'sheets.kind.json', icon: FileJson },
+  { kind: 'yaml', labelKey: 'sheets.kind.yaml', icon: FileCode },
+  { kind: 'text', labelKey: 'sheets.kind.text', icon: FileType },
+];
 
 /**
  * Sheet/range/filter dialogs: the column-filter popover, insert-shift
@@ -716,78 +732,147 @@ export class SheetOpsDialogs {
   }
 
   /**
-   * Ask for a worksheet name (add / rename / duplicate). Validation runs as
-   * the user types and again on submit, reporting the problem inline through a
-   * live region rather than silently refusing, and the confirm button stays
-   * disabled while the name is unacceptable. Enter confirms and Escape cancels
-   * — both ignored while an IME composition is in progress, so committing a
+   * Ask for a worksheet name (add / rename / duplicate), and — for
+   * `mode === 'add'` only, when `kindOptions` is supplied — a worksheet-kind
+   * picker rendered above the name field. Validation runs as the user types
+   * and again on submit, reporting the problem inline through a live region
+   * rather than silently refusing, and the confirm button stays disabled
+   * while the name is unacceptable. Enter confirms and Escape cancels — both
+   * ignored while an IME composition is in progress, so committing a
    * Japanese candidate with Enter never submits the dialog by accident.
+   *
+   * Switching the kind picker re-suggests the name via
+   * `kindOptions.suggestName(kind)`, but only until the user types something
+   * of their own — tracked by a simple "has the user touched the name field"
+   * flag, so a deliberate custom name is never overwritten by a later kind
+   * change.
    */
   promptSheetName(
     mode: 'add' | 'rename' | 'duplicate',
     current: string,
     validate: (name: string) => string | null,
-  ): Promise<string | null> {
-    return openDialog<string | null>(t(`dialog.sheetName.title.${mode}`), null, (body, buttons, close) => {
-      const inputId = 'sheet-name-input';
-      const errorId = 'sheet-name-error';
-      const input = el('input', {
-        className: 'sheet-name-input',
-        attrs: {
-          type: 'text',
-          id: inputId,
-          value: current,
-          maxlength: String(MAX_SHEET_NAME_LENGTH),
-          'aria-describedby': errorId,
-          'data-autofocus': 'true',
-        },
-      }) as HTMLInputElement;
-      input.value = current;
-      const error = el('p', {
-        className: 'dialog-error',
-        attrs: { id: errorId, role: 'status', 'aria-live': 'polite' },
-      });
-      body.append(
-        el('label', { text: t('dialog.sheetName.label'), attrs: { for: inputId } }),
-        input,
-        el('p', { className: 'dialog-note', text: t('dialog.sheetName.rules') }),
-        error,
-      );
+    kindOptions?: { initialKind: WorksheetKind; suggestName: (kind: WorksheetKind) => string },
+  ): Promise<{ name: string; kind: WorksheetKind } | null> {
+    return openDialog<{ name: string; kind: WorksheetKind } | null>(
+      t(`dialog.sheetName.title.${mode}`),
+      null,
+      (body, buttons, close) => {
+        let selectedKind: WorksheetKind = kindOptions?.initialKind ?? 'grid';
+        let nameTouchedByUser = false;
 
-      const okButton = dialogButton(t('dialog.sheetName.ok'), true, false, () => submit());
-      const refresh = (): boolean => {
-        const message = validate(input.value);
-        error.textContent = message ?? '';
-        okButton.disabled = message !== null;
-        return message === null;
-      };
-      const submit = (): void => {
-        if (refresh()) {
-          close(input.value.trim());
+        const inputId = 'sheet-name-input';
+        const errorId = 'sheet-name-error';
+        const input = el('input', {
+          className: 'sheet-name-input',
+          attrs: {
+            type: 'text',
+            id: inputId,
+            value: current,
+            maxlength: String(MAX_SHEET_NAME_LENGTH),
+            'aria-describedby': errorId,
+            'data-autofocus': 'true',
+          },
+        }) as HTMLInputElement;
+        input.value = current;
+        const error = el('p', {
+          className: 'dialog-error',
+          attrs: { id: errorId, role: 'status', 'aria-live': 'polite' },
+        });
+
+        const okButton = dialogButton(t('dialog.sheetName.ok'), true, false, () => submit());
+        const refresh = (): boolean => {
+          const message = validate(input.value);
+          error.textContent = message ?? '';
+          okButton.disabled = message !== null;
+          return message === null;
+        };
+        const submit = (): void => {
+          if (refresh()) {
+            close({ name: input.value.trim(), kind: selectedKind });
+          }
+        };
+
+        if (mode === 'add' && kindOptions) {
+          const groupName = 'sheet-kind-picker';
+          const labels: HTMLElement[] = [];
+          const updateSelectedClass = (): void => {
+            for (const label of labels) {
+              label.classList.toggle('selected', label.dataset.kind === selectedKind);
+            }
+          };
+          const radios = WORKSHEET_KIND_OPTIONS.map(({ kind, labelKey, icon }) => {
+            const radioId = `${groupName}-${kind}`;
+            const radio = el('input', {
+              attrs: { type: 'radio', name: groupName, id: radioId, value: kind },
+            }) as HTMLInputElement;
+            radio.checked = kind === selectedKind;
+            radio.addEventListener('change', () => {
+              if (!radio.checked) {
+                return;
+              }
+              selectedKind = kind;
+              updateSelectedClass();
+              if (!nameTouchedByUser) {
+                input.value = kindOptions.suggestName(kind);
+                refresh();
+              }
+            });
+            const label = el(
+              'label',
+              {
+                className: 'sheet-kind-picker-option',
+                attrs: { for: radioId, 'data-kind': kind },
+              },
+              [radio, createIcon(icon, 'sheet-kind-picker-icon', 16), el('span', { text: t(labelKey) })],
+            );
+            labels.push(label);
+            return label;
+          });
+          updateSelectedClass();
+          body.append(
+            el(
+              'div',
+              {
+                className: 'form-row sheet-kind-picker',
+                attrs: { role: 'radiogroup', 'aria-label': t('dialog.sheetName.kind') },
+              },
+              radios,
+            ),
+          );
         }
-      };
-      // Composition state is tracked explicitly: `isComposing` is not set on
-      // the keydown that commits a candidate in every browser.
-      let composing = false;
-      input.addEventListener('compositionstart', () => {
-        composing = true;
-      });
-      input.addEventListener('compositionend', () => {
-        composing = false;
-        refresh();
-      });
-      input.addEventListener('input', () => {
-        if (!composing) {
+
+        body.append(
+          el('label', { text: t('dialog.sheetName.label'), attrs: { for: inputId } }),
+          input,
+          el('p', { className: 'dialog-note', text: t('dialog.sheetName.rules') }),
+          error,
+        );
+
+        // Composition state is tracked explicitly: `isComposing` is not set on
+        // the keydown that commits a candidate in every browser.
+        let composing = false;
+        input.addEventListener('compositionstart', () => {
+          composing = true;
+        });
+        input.addEventListener('compositionend', () => {
+          composing = false;
+          nameTouchedByUser = true;
           refresh();
-        }
-      });
-      submitOnEnter(input, submit);
-      refresh();
-      buttons.append(
-        dialogButton(t('dialog.sheetName.cancel'), false, false, () => close(null)),
-        okButton,
-      );
-    });
+        });
+        input.addEventListener('input', () => {
+          nameTouchedByUser = true;
+          if (!composing) {
+            refresh();
+          }
+        });
+        submitOnEnter(input, submit);
+        refresh();
+        buttons.append(
+          dialogButton(t('dialog.sheetName.cancel'), false, false, () => close(null)),
+          okButton,
+        );
+      },
+    );
   }
 
   /**

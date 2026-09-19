@@ -275,7 +275,7 @@ describe('Filter and worksheet-duplication progress', () => {
   });
 
   it('duplicating a large worksheet reports determinate progress', async () => {
-    const ui = stubUi({ promptSheetName: vi.fn(async () => 'Copy') });
+    const ui = stubUi({ promptSheetName: vi.fn(async () => ({ name: 'Copy', kind: 'grid' as const })) });
     const state = new AppState();
     const commands = new Commands(state, ui, document);
     const rows = 5_000;

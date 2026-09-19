@@ -364,6 +364,7 @@
   "dialog.sheetName.title.add": "ワークシートの追加",
   "dialog.sheetName.title.rename": "ワークシート名の変更",
   "dialog.sheetName.title.duplicate": "ワークシートの複製",
+  "dialog.sheetName.kind": "ワークシートの種類",
   "dialog.sheetName.label": "ワークシート名",
   "dialog.sheetName.rules": "100文字以内。ブック内で一意である必要があり (大文字小文字は区別しません)、: \\ / ? * [ ] は使用できません。",
   "dialog.sheetName.ok": "OK",

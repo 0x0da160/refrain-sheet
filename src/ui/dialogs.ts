@@ -31,6 +31,7 @@ import type { EncodingId } from '../core/encoding';
 import type { RsfHistorySnapshot } from '../core/rsf-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
 import type { ValidationSummary } from '../core/validation';
+import type { WorksheetKind } from '../core/worksheet';
 import { el } from './dom';
 import { createIcon } from './icon';
 import { AppSettingsDialogs } from './dialogs/app-settings';
@@ -269,8 +270,9 @@ export class Dialogs {
     mode: 'add' | 'rename' | 'duplicate',
     current: string,
     validate: (name: string) => string | null,
-  ): Promise<string | null> {
-    return this.sheetOps.promptSheetName(mode, current, validate);
+    kindOptions?: { initialKind: WorksheetKind; suggestName: (kind: WorksheetKind) => string },
+  ): Promise<{ name: string; kind: WorksheetKind } | null> {
+    return this.sheetOps.promptSheetName(mode, current, validate, kindOptions);
   }
 
   /** See `SheetOpsDialogs.confirmDeleteSheet` for the full behavior contract. */

@@ -355,7 +355,7 @@ describe('worksheet commands', () => {
         for (const candidate of ['', '   ', 'a'.repeat(101), 'bad/name', 'Sheet1', 'Fine']) {
           seen.push(`${candidate}:${validate(candidate) === null ? 'ok' : 'error'}`);
         }
-        return 'Fine';
+        return { name: 'Fine', kind: 'grid' as const };
       }),
     });
     const { commands, doc } = setup(ui);
@@ -376,7 +376,7 @@ describe('worksheet commands', () => {
     const ui = stubUi({
       promptSheetName: vi.fn(async (_mode, current: string) => {
         suggested = current;
-        return '  Trimmed  ';
+        return { name: '  Trimmed  ', kind: 'grid' as const };
       }),
     });
     const { commands, doc } = setup(ui);
@@ -390,6 +390,36 @@ describe('worksheet commands', () => {
     const { commands, doc } = setup(ui);
     await commands.run('worksheet.add');
     expect(doc.sheetCount).toBe(1);
+  });
+
+  it('passes a kind picker defaulting to grid, and creates whichever kind the dialog resolves (#557)', async () => {
+    const promptSheetName = vi.fn(async (_mode, _current, _validate, kindOptions) => {
+      expect(kindOptions).toEqual({ initialKind: 'grid', suggestName: expect.any(Function) });
+      return { name: 'Config1', kind: 'yaml' as const };
+    });
+    const ui = stubUi({ promptSheetName });
+    const { commands, doc } = setup(ui);
+    await commands.run('worksheet.add');
+    expect(doc.sheets[1].name).toBe('Config1');
+    expect(doc.sheets[1].kind).toBe('yaml');
+  });
+
+  it("the kind picker's suggestName callback matches each kind's own default-name numbering", async () => {
+    let suggestName!: (kind: string) => string;
+    const ui = stubUi({
+      promptSheetName: vi.fn(async (_mode, _current, _validate, kindOptions) => {
+        suggestName = kindOptions.suggestName;
+        return null;
+      }),
+    });
+    const { state, commands, tab } = setup(ui);
+    state.addYamlSheet(tab, 'Config1');
+    await commands.run('worksheet.add');
+    expect(suggestName('grid')).toBe('Sheet2');
+    expect(suggestName('markdown')).toBe('Notes1');
+    expect(suggestName('json')).toBe('Data1');
+    expect(suggestName('yaml')).toBe('Config2');
+    expect(suggestName('text')).toBe('Text1');
   });
 
   it('confirms deletion of a worksheet with content and reports broken references', async () => {
@@ -1096,7 +1126,7 @@ describe('Markdown worksheets', () => {
     const ui = stubUi({
       promptSheetName: vi.fn(async (_mode, current: string) => {
         suggested = current;
-        return current;
+        return { name: current, kind: 'grid' as const };
       }),
     });
     const { commands, doc } = setup(ui);
@@ -1112,7 +1142,7 @@ describe('Markdown worksheets', () => {
   });
 
   it('the command layer adds a Markdown worksheet via a prompted, undoable operation', async () => {
-    const promptSheetName = vi.fn(async () => 'Notes');
+    const promptSheetName = vi.fn(async () => ({ name: 'Notes', kind: 'grid' as const }));
     const ui = stubUi({ promptSheetName });
     const { state, commands, tab, doc } = setup(ui);
     expect(commands.isEnabled('worksheet.addMarkdown')).toBe(true);

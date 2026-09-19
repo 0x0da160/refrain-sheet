@@ -162,6 +162,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
   in the `.rsf` container (body version 16 / workbook body version 12);
   existing files and workbooks that don't use either are unaffected.
   ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
+- The **Add Worksheet** dialog (Sheet > Worksheet > Add Worksheet, or the
+  worksheet strip's "+" button) now lets you pick the new worksheet's type
+  — grid, Markdown, JSON, YAML, or plain text — instead of only offering a
+  grid sheet; picking a type re-suggests the name field's default (e.g.
+  "Notes1" for Markdown) unless a name has already been typed. The
+  dedicated **Add Markdown/JSON/YAML/Text Sheet** menu and context-menu
+  entries are unchanged.
+  ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
 
 ### Changed
 

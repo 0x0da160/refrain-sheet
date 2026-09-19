@@ -225,7 +225,7 @@ describe('keyboard model', () => {
   });
 
   it('F2 starts a rename through the shared command', async () => {
-    const promptSheetName = vi.fn(async () => 'Renamed');
+    const promptSheetName = vi.fn(async () => ({ name: 'Renamed', kind: 'grid' as const }));
     const { bar, doc } = setup(['A'], stubUi({ promptSheetName }));
     press(tabs(bar)[0], 'F2');
     await Promise.resolve();

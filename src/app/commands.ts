@@ -20,6 +20,7 @@ import {
 } from '../core/serializer';
 import { type ValidationSummary } from '../core/validation';
 import type { RsfHistorySnapshot } from '../core/rsf-codec';
+import type { WorksheetKind } from '../core/worksheet';
 import { AppState, type Selection, type SelectionKind, type Tab } from './app-state';
 import { pickFiles, saveBytesAs, type OpenedFile } from './file-access';
 import { getLocale, setLocale, t, type LocaleId } from './i18n';
@@ -337,13 +338,23 @@ export interface UiPort {
    * too long, duplicate, or containing a character the formula/file syntax
    * reserves) or null when it is acceptable, so the dialog can report the
    * problem inline instead of silently refusing. Resolves with the trimmed
-   * name, or null when cancelled.
+   * name (and, for `mode === 'add'`, the chosen kind), or null when cancelled.
+   *
+   * `kindOptions` is supplied only for `mode === 'add'`: it renders a
+   * worksheet-kind picker (grid/Markdown/JSON/YAML/text) alongside the name
+   * field, defaulting to `kindOptions.initialKind`. Changing the picker calls
+   * `suggestName(kind)` to refill the name field with that kind's default
+   * name — but only while the user has not yet typed a name of their own, so
+   * an intentional custom name is never clobbered by switching kinds.
+   * `rename`/`duplicate` omit it; the resolved `kind` is meaningless there
+   * and callers ignore it.
    */
   promptSheetName(
     mode: 'add' | 'rename' | 'duplicate',
     current: string,
     validate: (name: string) => string | null,
-  ): Promise<string | null>;
+    kindOptions?: { initialKind: WorksheetKind; suggestName: (kind: WorksheetKind) => string },
+  ): Promise<{ name: string; kind: WorksheetKind } | null>;
   /**
    * Confirm deleting a worksheet that holds content, a filter, or non-default
    * display settings. `referenceCount` is how many formulas elsewhere in the

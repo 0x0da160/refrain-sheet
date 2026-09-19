@@ -646,6 +646,45 @@ button {
   box-sizing: border-box;
 }
 
+/* The worksheet-kind picker in the Add-worksheet dialog (#557) — a radio
+   group of icon+label options, one per `WorksheetKind`. Overrides
+   `.form-row`'s `min-width: 130px` on its first child, which is meant for a
+   leading field label, not one of several equal options here. */
+.sheet-kind-picker {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sheet-kind-picker label:first-child {
+  min-width: 0;
+}
+
+.sheet-kind-picker-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.sheet-kind-picker-option.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.sheet-kind-picker-option input[type='radio'] {
+  /* The radio input itself is visually hidden — the pill's border/background
+     already shows selection state, matching the checked look — but it stays
+     in the DOM and keyboard/screen-reader operable. */
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
 .dialog-error {
   color: var(--danger, #c0392b);
   min-height: 1.2em;

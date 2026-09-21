@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 /**
- * Sheet ▸ File Version History…'s "Preview" action (#533): each snapshot
- * entry gets a read-only preview next to Restore, so a user can confirm a
- * snapshot's content before committing to the (irreversible) restore.
+ * Sheet ▸ File Version History…'s "Preview" action (#533), redesigned by
+ * #536 into a full-screen, read-only book UI hosting the real `Grid` and
+ * `SheetBar` against the snapshot's decoded content, rather than a bounded
+ * plain-HTML table of raw cell inputs.
  */
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -58,6 +59,16 @@ function clickPreviewButton(): void {
   button.click();
 }
 
+function previewDialog(): HTMLElement {
+  const dialog = document.querySelector<HTMLElement>('.version-preview-dialog');
+  expect(dialog, 'the version-preview dialog should be open').not.toBeNull();
+  return dialog!;
+}
+
+function cellText(dialog: HTMLElement, row: number, col: number): string | null {
+  return dialog.querySelector(`[data-row="${row}"][data-col="${col}"]`)?.textContent ?? null;
+}
+
 describe('Version history: Preview action', () => {
   it('adds a Preview action alongside Restore for each entry', async () => {
     const { Dialogs } = await import('../src/ui/dialogs');
@@ -69,7 +80,7 @@ describe('Version history: Preview action', () => {
     expect(labels).toEqual([t('dialog.versionHistory.preview'), t('dialog.versionHistory.restore')]);
   });
 
-  it('shows the snapshot content read-only, without closing the version-history dialog', async () => {
+  it('opens a full-screen, read-only book UI showing the snapshot content, without closing the version-history dialog underneath', async () => {
     const { Dialogs } = await import('../src/ui/dialogs');
     void new Dialogs().chooseVersionHistory(true, undefined, [
       snapshotWith([
@@ -82,20 +93,33 @@ describe('Version history: Preview action', () => {
 
     const dialogs = document.querySelectorAll('dialog');
     expect(dialogs.length).toBe(2);
-    const preview = dialogs[1];
+    const preview = previewDialog();
 
-    const colHeaders = Array.from(preview.querySelectorAll('thead th')).map((th) => th.textContent);
-    expect(colHeaders).toEqual(['', 'A', 'B', 'C']);
-    const rowHeaders = Array.from(preview.querySelectorAll('tbody th')).map((th) => th.textContent);
-    expect(rowHeaders).toEqual(['1', '2']);
-    const cellTexts = Array.from(preview.querySelectorAll('tbody td')).map((td) => td.textContent);
-    expect(cellTexts).toEqual(['hello', '', '', '', '', '42']);
+    expect(preview.querySelector('.grid-container')).not.toBeNull();
+    expect(preview.querySelector('.sheet-bar')).not.toBeNull();
+    expect(cellText(preview, 0, 0)).toBe('hello');
+    expect(cellText(preview, 1, 2)).toBe('42');
+    expect(preview.querySelector('#version-preview-title')?.textContent).toMatch(/^Preview: /);
 
-    // Restore is unaffected: the original dialog is still open underneath.
+    // The version-history dialog underneath is unaffected.
     expect(dialogs[0].hasAttribute('open')).toBe(true);
   });
 
-  it('labels each worksheet by name when a snapshot has more than one', async () => {
+  it('is not bounded to any row/column cap — a far-away cell renders, unlike the old table preview', async () => {
+    const { Dialogs } = await import('../src/ui/dialogs');
+    void new Dialogs().chooseVersionHistory(true, undefined, [snapshotWith([[250, 20, 'far']])]);
+
+    clickPreviewButton();
+
+    const preview = previewDialog();
+    // Not literally rendered off-screen (the grid virtualizes), but nothing
+    // in this path truncates the *document* to 200 rows / 50 columns the
+    // way the old plain-table preview did — the worksheet itself carries the
+    // full 1000x26 size from the snapshot.
+    expect(preview.querySelector('.grid-container')).not.toBeNull();
+  });
+
+  it('shows a worksheet-switcher tab per sheet, and switching tabs shows that sheet’s content', async () => {
     const { Dialogs } = await import('../src/ui/dialogs');
     void new Dialogs().chooseVersionHistory(true, undefined, [
       snapshotWithSheets([
@@ -106,9 +130,13 @@ describe('Version history: Preview action', () => {
 
     clickPreviewButton();
 
-    const preview = document.querySelectorAll('dialog')[1];
-    const headings = Array.from(preview.querySelectorAll('.dialog-body h3')).map((h) => h.textContent);
-    expect(headings).toEqual(['Costs', 'Revenue']);
+    const preview = previewDialog();
+    const tabs = Array.from(preview.querySelectorAll('.sheet-tab'));
+    expect(tabs.map((el) => el.textContent?.trim())).toEqual(['Costs', 'Revenue']);
+    expect(cellText(preview, 0, 0)).toBe('a');
+
+    (tabs[1] as HTMLElement).click();
+    expect(cellText(preview, 0, 0)).toBe('b');
   });
 
   it('reports a decode failure for bytes that are not a valid snapshot', async () => {
@@ -118,32 +146,45 @@ describe('Version history: Preview action', () => {
 
     clickPreviewButton();
 
-    const preview = document.querySelectorAll('dialog')[1];
-    expect(preview.textContent).toContain(t('dialog.versionHistoryPreview.decodeFailed'));
+    expect(document.querySelector('.version-preview-dialog')).toBeNull();
+    const dialogs = document.querySelectorAll('dialog');
+    const errorDialog = dialogs[dialogs.length - 1];
+    expect(errorDialog.textContent).toContain(t('dialog.versionHistoryPreview.decodeFailed'));
   });
 
-  it('reports an empty sheet without rendering a table', async () => {
+  it('closes and tears down its resources when the close button is clicked', async () => {
     const { Dialogs } = await import('../src/ui/dialogs');
-    void new Dialogs().chooseVersionHistory(true, undefined, [snapshotWith([])]);
+    void new Dialogs().chooseVersionHistory(true, undefined, [snapshotWith([[0, 0, 'hello']])]);
 
     clickPreviewButton();
+    expect(document.querySelector('.version-preview-dialog')).not.toBeNull();
 
-    const preview = document.querySelectorAll('dialog')[1];
-    expect(preview.textContent).toContain(t('dialog.versionHistoryPreview.emptySheet'));
-    expect(preview.querySelector('table')).toBeNull();
+    const closeBtn = document.querySelector<HTMLButtonElement>(
+      '.version-preview-dialog .markdown-preview-panel-close',
+    )!;
+    closeBtn.click();
+
+    expect(document.querySelector('.version-preview-dialog')).toBeNull();
   });
 
-  it('bounds the table to the preview cap and notes the truncation', async () => {
+  it('can be reopened after being closed, without leaking state across opens', async () => {
     const { Dialogs } = await import('../src/ui/dialogs');
-    void new Dialogs().chooseVersionHistory(true, undefined, [snapshotWith([[250, 0, 'far']])]);
+    void new Dialogs().chooseVersionHistory(true, undefined, [
+      snapshotWith([[0, 0, 'first']]),
+      snapshotWith([[0, 0, 'second']]),
+    ]);
 
-    clickPreviewButton();
+    const buttons = () => Array.from(document.querySelectorAll('.version-history-entry-actions button'));
+    // Newest snapshot listed first (see the version-history dialog's own
+    // newest-first display order).
+    (buttons()[0] as HTMLButtonElement).click();
+    expect(cellText(previewDialog(), 0, 0)).toBe('second');
+    document
+      .querySelector<HTMLButtonElement>('.version-preview-dialog .markdown-preview-panel-close')!
+      .click();
+    expect(document.querySelector('.version-preview-dialog')).toBeNull();
 
-    const preview = document.querySelectorAll('dialog')[1];
-    const rowHeaders = preview.querySelectorAll('tbody tr');
-    expect(rowHeaders.length).toBe(200);
-    expect(preview.textContent).toContain(
-      t('dialog.versionHistoryPreview.truncated', { rows: 200, cols: 1 }),
-    );
+    (buttons()[2] as HTMLButtonElement).click();
+    expect(cellText(previewDialog(), 0, 0)).toBe('first');
   });
 });

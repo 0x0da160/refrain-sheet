@@ -432,7 +432,18 @@ export class RsfDocument {
     if (!decoded.ok) {
       return { ok: false, error: decoded.error };
     }
-    const data = decoded.data;
+    return { ok: true, doc: RsfDocument.fromWorkbookData(decoded.data, name) };
+  }
+
+  /**
+   * Materialize a document from already-decoded workbook data — the tail of
+   * `fromBytes` (everything after `decodeRsfWorkbook` succeeds), extracted so
+   * a second caller can build a document from data that didn't come from a
+   * file's own bytes. Used by the version-history preview
+   * (`src/ui/dialogs/version-preview.ts`), which decodes a retained snapshot
+   * via `decodeRsfHistorySnapshot` rather than opening a file.
+   */
+  static fromWorkbookData(data: RsfWorkbookData, name: string): RsfDocument {
     const sheets = data.sheets.map((entry) => RsfDocument.buildWorksheet(entry));
     const timezone =
       data.timezone !== undefined && isValidTimeZone(data.timezone) ? data.timezone : DEFAULT_TIMEZONE;
@@ -458,7 +469,7 @@ export class RsfDocument {
     const active = data.activeSheetId && sheets.find((s) => s.id === data.activeSheetId);
     doc.activeId = active ? active.id : sheets[0].id;
     doc.nextSheetSeq = sheets.length + 1;
-    return { ok: true, doc };
+    return doc;
   }
 
   /** Materialize one decoded worksheet record (already validated by the codec). */

@@ -680,6 +680,8 @@ export class Grid {
    * reads it to tell a plain touch/pen tap-to-select (which must not pop the
    * on-screen keyboard) apart from an actual mouse click. */
   private lastPointerType: string = 'mouse';
+  /** The resize-tracking observer created below, kept so `dispose()` can disconnect it. */
+  private resizeObserver: ResizeObserver | null = null;
 
   constructor(
     private readonly state: AppState,
@@ -771,7 +773,8 @@ export class Grid {
     // the grid instead of a plain window 'resize' listener. jsdom (tests) has
     // no ResizeObserver, so this is a no-op there.
     if (typeof ResizeObserver !== 'undefined') {
-      new ResizeObserver(() => this.onResize()).observe(this.element);
+      this.resizeObserver = new ResizeObserver(() => this.onResize());
+      this.resizeObserver.observe(this.element);
     }
     // Ctrl/Cmd + mouse wheel zooms the spreadsheet (grid area only). The
     // listener must be non-passive because the recognized gesture — and only
@@ -3743,6 +3746,21 @@ export class Grid {
       this.editor === null &&
       (document.activeElement === this.element || document.activeElement === this.sink)
     );
+  }
+
+  /**
+   * Tear down this instance's own external resources: the resize observer
+   * and the `refIndicator` live region, which is appended directly to
+   * `document.body` rather than into `this.element`. The app's single
+   * long-lived `Grid` (constructed once in `main.ts`) never calls this — it
+   * lives for the whole session — but a second, short-lived instance (the
+   * read-only version-history preview, `src/ui/dialogs/version-preview.ts`)
+   * must call it on close so a series of opens doesn't accumulate observers
+   * and orphaned DOM nodes.
+   */
+  dispose(): void {
+    this.resizeObserver?.disconnect();
+    this.refIndicator.remove();
   }
 
   // ----- Keyboard -----

@@ -3,7 +3,7 @@ import type { VersionHistoryChoice } from '../../app/commands';
 import { driveConfigured } from '../../app/drive/config';
 import { getLocale, t, type LocaleId } from '../../app/i18n';
 import { SHORTCUT_DOCS } from '../../app/shortcuts';
-import { columnLabel, FUNCTION_INFOS, type FunctionCategory } from '../../core/formula';
+import { FUNCTION_INFOS, type FunctionCategory } from '../../core/formula';
 import {
   bytesToMiB,
   miBToBytes,
@@ -12,16 +12,15 @@ import {
   MAX_MAX_FILE_SIZE,
 } from '../../app/settings';
 import {
-  decodeRsfHistorySnapshot,
   DEFAULT_HISTORY_SNAPSHOT_LIMIT,
   MAX_RSF_HISTORY_SNAPSHOTS,
   type RsfHistorySnapshot,
-  type RsfWorksheetData,
 } from '../../core/rsf-codec';
 import { listTimeZones } from '../../core/timezone';
 import { APP_VERSION_DISPLAY } from '../../app/version';
 import { el } from '../dom';
 import { dialogButton, externalLink, openDialog, submitOnEnter } from './shared';
+import { openVersionHistoryPreview } from './version-preview';
 
 /** Formats a stored timestamp for display, in the app's current UI language. */
 function formatWhen(ms: number): string {
@@ -31,73 +30,6 @@ function formatWhen(ms: number): string {
 /** Canonical external links (also listed at the top of README.md). */
 const SITE_URL = 'https://app.refrain-sheet.com/';
 const RELEASES_URL = 'https://github.com/0x0da160/refrain-sheet/releases/';
-
-/**
- * Bounds for the version-history snapshot preview table (below): a plain,
- * non-virtualized table mirroring `DiffDialogs`/the SQL query results table,
- * so a snapshot's used range — which can be far smaller than its stored
- * `rowCount`/`columnCount` — is rendered directly without a truncation cap
- * being reached for all but unusually large sheets.
- */
-const VERSION_HISTORY_PREVIEW_MAX_ROWS = 200;
-const VERSION_HISTORY_PREVIEW_MAX_COLS = 50;
-
-/**
- * Renders one decoded worksheet's non-empty cell inputs (raw formula/text,
- * not evaluated values — this is a read-only look at stored content, not a
- * live recalculation) as a plain HTML table bounded to its used range, for
- * the version-history preview below.
- */
-function renderVersionHistorySheetTable(sheet: RsfWorksheetData): HTMLElement {
-  if (sheet.cells.length === 0) {
-    return el('p', { className: 'dialog-note', text: t('dialog.versionHistoryPreview.emptySheet') });
-  }
-  let maxRow = 0;
-  let maxCol = 0;
-  for (const [row, col] of sheet.cells) {
-    if (row > maxRow) maxRow = row;
-    if (col > maxCol) maxCol = col;
-  }
-  const rows = Math.min(maxRow + 1, VERSION_HISTORY_PREVIEW_MAX_ROWS);
-  const cols = Math.min(maxCol + 1, VERSION_HISTORY_PREVIEW_MAX_COLS);
-  const grid: string[][] = Array.from({ length: rows }, () => new Array<string>(cols).fill(''));
-  for (const [row, col, input] of sheet.cells) {
-    if (row < rows && col < cols) {
-      grid[row][col] = input;
-    }
-  }
-
-  const wrap = el('div', { className: 'version-history-preview-table-wrap' });
-  const headRow = el('tr', {}, [
-    el('th', { attrs: { scope: 'col' } }),
-    ...Array.from({ length: cols }, (_, col) =>
-      el('th', { text: columnLabel(col), attrs: { scope: 'col' } }),
-    ),
-  ]);
-  const tbody = el('tbody');
-  for (let row = 0; row < rows; row++) {
-    tbody.append(
-      el('tr', {}, [
-        el('th', { text: String(row + 1), attrs: { scope: 'row' } }),
-        ...grid[row].map((value) => el('td', { text: value })),
-      ]),
-    );
-  }
-  const table = el('table', { className: 'diag-table version-history-preview-table' }, [
-    el('thead', {}, [headRow]),
-    tbody,
-  ]);
-  wrap.append(table);
-  if (maxRow + 1 > rows || maxCol + 1 > cols) {
-    wrap.append(
-      el('p', {
-        className: 'dialog-note',
-        text: t('dialog.versionHistoryPreview.truncated', { rows, cols }),
-      }),
-    );
-  }
-  return wrap;
-}
 
 /** Display order and heading for each function-help category. */
 const FUNCTION_CATEGORY_ORDER: readonly FunctionCategory[] = [
@@ -348,9 +280,9 @@ export class AppSettingsDialogs {
           // and the caller's confirmation expect.
           for (let index = history.length - 1; index >= 0; index--) {
             const snapshot = history[index];
-            const previewButton = dialogButton(t('dialog.versionHistory.preview'), false, false, () => {
-              void this.previewVersionSnapshot(snapshot);
-            });
+            const previewButton = dialogButton(t('dialog.versionHistory.preview'), false, false, () =>
+              this.previewVersionSnapshot(snapshot),
+            );
             const restoreButton = dialogButton(t('dialog.versionHistory.restore'), false, false, () =>
               close({ kind: 'restore', index }),
             );
@@ -391,34 +323,12 @@ export class AppSettingsDialogs {
    * button: decodes that snapshot's stored bytes and shows its worksheets
    * read-only, so the user can confirm it is the right one before
    * committing to Restore. Purely informational — it never touches the
-   * live document — so it stacks its own dialog on top of the version-
-   * history one rather than closing it.
+   * live document — so it opens on top of the version-history dialog
+   * rather than closing it (see `openVersionHistoryPreview`, which builds
+   * the actual full-screen, read-only book UI).
    */
-  private previewVersionSnapshot(snapshot: RsfHistorySnapshot): Promise<void> {
-    return openDialog<void>(
-      t('dialog.versionHistoryPreview.title', { when: formatWhen(snapshot.timestamp) }),
-      undefined,
-      (body, buttons, close) => {
-        const decoded = decodeRsfHistorySnapshot(snapshot);
-        if (!decoded.ok) {
-          body.append(
-            el('p', { className: 'dialog-note', text: t('dialog.versionHistoryPreview.decodeFailed') }),
-          );
-        } else if (decoded.data.sheets.length === 0) {
-          body.append(
-            el('p', { className: 'dialog-note', text: t('dialog.versionHistoryPreview.emptySheet') }),
-          );
-        } else {
-          for (const sheet of decoded.data.sheets) {
-            if (decoded.data.sheets.length > 1) {
-              body.append(el('h3', { text: sheet.name }));
-            }
-            body.append(renderVersionHistorySheetTable(sheet));
-          }
-        }
-        buttons.append(dialogButton(t('dialog.close'), true, true, () => close(undefined)));
-      },
-    );
+  private previewVersionSnapshot(snapshot: RsfHistorySnapshot): void {
+    openVersionHistoryPreview(snapshot, formatWhen(snapshot.timestamp));
   }
 
   /**

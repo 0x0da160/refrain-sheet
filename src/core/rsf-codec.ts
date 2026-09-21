@@ -500,6 +500,22 @@ export interface RsfData {
    * version. On decode this is `undefined` for every body version below 16.
    */
   historyMaxOverride?: number | null;
+  /**
+   * Whether the JSON/YAML worksheet editors auto-format their source on
+   * commit for this file (see `RsfDocument.setAutoFormatSource`), a per-file
+   * setting defaulting to `false` (never automatic unless explicitly turned
+   * on — see issue #529's "never automatic" decision, which is about the
+   * default, not a ban on ever offering it). Unlike `historyMaxOverride`,
+   * this flag has no pre-existing shipped meaning to preserve, so its
+   * presence is read unconditionally from bit 3 of the history flags byte
+   * (see `readHistoryBlock`) rather than needing any version-based special
+   * case — it forces body version 17 (the same tier a yaml/text worksheet
+   * kind selects; see {@link RsfData.kind}), written only when `true`, so a
+   * document left on the default (off) stays on the lowest sufficient body
+   * version. On decode this is `false` for every body version below 14 (no
+   * history block at all) and reflects the bit for 14 and above.
+   */
+  autoFormatSource?: boolean;
 }
 
 /**
@@ -595,6 +611,12 @@ export interface RsfWorkbookData {
    * ({@link DEFAULT_HISTORY_SNAPSHOT_LIMIT}).
    */
   historyMaxOverride?: number | null;
+  /**
+   * Whether the JSON/YAML worksheet editors auto-format their source on
+   * commit for this workbook (workbook body version 13+); see
+   * {@link RsfData.autoFormatSource}. Absent means the default (`false`).
+   */
+  autoFormatSource?: boolean;
 }
 
 export type RsfWorkbookDecodeResult =
@@ -1197,27 +1219,31 @@ function readCommentBlock(
  * Encode the body-version-14+ / workbook-version-10+ history block: a
  * one-byte flags field — bit 0: version history enabled; bit 1: the
  * retained-snapshot cap override is unlimited (meaningful only when bit 2 is
- * set); bit 2: the cap-override `u32` field below is physically present —
- * optionally followed by that field (`u32`, present exactly when
- * `maxOverride !== undefined`; ignored/written as 0 when bit 1 is also set),
- * then a `u32` snapshot count and that many
- * `[timestamp f64, byte length u32, bytes]` records, oldest first. Always
- * physically present once the chosen version reaches the threshold — even a
- * document with history disabled and no snapshots yet still writes the
- * (empty) block, matching every other version-gated section in this format.
- * Snapshot bytes are written verbatim (never truncated here) — capping the
- * retained count is the writer's (`RsfDocument`) responsibility, exactly like
- * every other write-side bound in this codec.
+ * set); bit 2: the cap-override `u32` field below is physically present; bit
+ * 3: the JSON/YAML editors auto-format their source on commit for this file
+ * (see {@link RsfData.autoFormatSource}) — optionally followed by the
+ * cap-override field (`u32`, present exactly when `maxOverride !==
+ * undefined`; ignored/written as 0 when bit 1 is also set), then a `u32`
+ * snapshot count and that many `[timestamp f64, byte length u32, bytes]`
+ * records, oldest first. Always physically present once the chosen version
+ * reaches the threshold — even a document with history disabled and no
+ * snapshots yet still writes the (empty) block, matching every other
+ * version-gated section in this format. Snapshot bytes are written verbatim
+ * (never truncated here) — capping the retained count is the writer's
+ * (`RsfDocument`) responsibility, exactly like every other write-side bound
+ * in this codec.
  *
- * Bit 2 always reflects real, current-write reality (`maxOverride !==
- * undefined`), regardless of which body version the container ends up at —
- * see `readHistoryBlock` for why the *reader* additionally needs a
- * version-based override for one specific, historical version number.
+ * Bits 2 and 3 always reflect real, current-write reality (`maxOverride !==
+ * undefined`, `autoFormatSource === true`), regardless of which body version
+ * the container ends up at — see `readHistoryBlock` for why the *reader*
+ * additionally needs a version-based override for bit 2 alone (bit 3 has no
+ * such history and is always read from the bit directly).
  */
 function encodeHistoryBlock(
   enabled: boolean | undefined,
   history: RsfHistorySnapshot[] | undefined,
   maxOverride: number | null | undefined,
+  autoFormatSource: boolean | undefined,
 ): Uint8Array {
   const list = history ?? [];
   const hasMaxOverride = maxOverride !== undefined;
@@ -1229,7 +1255,11 @@ function encodeHistoryBlock(
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = (enabled === false ? 0 : 1) | (hasMaxOverride && unlimited ? 2 : 0) | (hasMaxOverride ? 4 : 0);
+  out[off++] =
+    (enabled === false ? 0 : 1) |
+    (hasMaxOverride && unlimited ? 2 : 0) |
+    (hasMaxOverride ? 4 : 0) |
+    (autoFormatSource === true ? 8 : 0);
   if (hasMaxOverride) {
     view.setUint32(off, unlimited ? 0 : (maxOverride as number), true);
     off += 4;
@@ -1280,13 +1310,20 @@ function readHistoryBlock(
   rd: BodyReader,
   legacyMaxOverridePresent: boolean,
 ):
-  | { ok: true; enabled: boolean; maxOverride: number | null | undefined; history: RsfHistorySnapshot[] }
+  | {
+      ok: true;
+      enabled: boolean;
+      maxOverride: number | null | undefined;
+      autoFormatSource: boolean;
+      history: RsfHistorySnapshot[];
+    }
   | { ok: false; error: RsfDecodeError } {
   if (!rd.need(1)) {
     return { ok: false, error: 'bad-shape' };
   }
   const flags = rd.u8();
   const hasMaxOverride = legacyMaxOverridePresent || (flags & 4) === 4;
+  const autoFormatSource = (flags & 8) === 8;
   let maxOverride: number | null | undefined;
   if (hasMaxOverride) {
     if (!rd.need(4)) {
@@ -1324,7 +1361,7 @@ function readHistoryBlock(
     rd.off += length;
     history.push({ timestamp, bytes });
   }
-  return { ok: true, enabled: (flags & 1) === 1, maxOverride, history };
+  return { ok: true, enabled: (flags & 1) === 1, maxOverride, autoFormatSource, history };
 }
 
 function encodeBody(data: RsfData): Uint8Array {
@@ -1372,8 +1409,13 @@ function encodeBody(data: RsfData): Uint8Array {
   // reasoning). `hasHistorySection` below stays a plain OR of both triggers,
   // since either one calls for the same block to be physically written; only
   // the version *number* and the override field's read-side presence check
-  // need this extra care.
+  // need this extra care. The JSON/YAML auto-format-on-commit flag
+  // (`hasAutoFormatSource`) shares the same top tier as yaml/text — it has no
+  // pre-existing shipped meaning to preserve, so it needs none of the
+  // legacy-version care the cap override does, and simply joins the same OR
+  // chain as another trigger for version 17.
   const hasMaxOverride = data.historyMaxOverride !== undefined;
+  const hasAutoFormatSource = data.autoFormatSource === true;
   const isJson = data.kind === 'json';
   const isYaml = data.kind === 'yaml';
   const isText = data.kind === 'text';
@@ -1381,6 +1423,7 @@ function encodeBody(data: RsfData): Uint8Array {
   const hasHistorySection =
     hasMaxOverride ||
     hasYamlOrText ||
+    hasAutoFormatSource ||
     isJson ||
     data.historyEnabled === false ||
     (data.history?.length ?? 0) > 0;
@@ -1459,7 +1502,7 @@ function encodeBody(data: RsfData): Uint8Array {
   const kindSize = hasKindSection ? 1 : 0;
   const lockedSize = hasLocked ? 1 : 0;
   const historyBytes = hasHistorySection
-    ? encodeHistoryBlock(data.historyEnabled, data.history, data.historyMaxOverride)
+    ? encodeHistoryBlock(data.historyEnabled, data.history, data.historyMaxOverride, data.autoFormatSource)
     : null;
   const historySize = historyBytes ? historyBytes.length : 0;
   const total =
@@ -1485,39 +1528,40 @@ function encodeBody(data: RsfData): Uint8Array {
   const out = new Uint8Array(total);
   const view = new DataView(out.buffer);
   let off = 0;
-  out[off++] = hasYamlOrText
-    ? 17
-    : hasMaxOverride
-      ? 16
-      : isJson
-        ? 15
-        : hasHistorySection
-          ? 14
-          : hasLocked
-            ? 13
-            : isMarkdown
-              ? 12
-              : hasComments
-                ? 11
-                : hasBorderStyle
-                  ? 10
-                  : hasNumberFormats
-                    ? 9
-                    : hasStyles
-                      ? 8
-                      : hasDisplayLanguage
-                        ? 7
-                        : hasTimezone
-                          ? 6
-                          : wrapSet
-                            ? 5
-                            : hasFilterSection
-                              ? 4
-                              : hasDisplay
-                                ? 3
-                                : hasMeta
-                                  ? 2
-                                  : 1;
+  out[off++] =
+    hasYamlOrText || hasAutoFormatSource
+      ? 17
+      : hasMaxOverride
+        ? 16
+        : isJson
+          ? 15
+          : hasHistorySection
+            ? 14
+            : hasLocked
+              ? 13
+              : isMarkdown
+                ? 12
+                : hasComments
+                  ? 11
+                  : hasBorderStyle
+                    ? 10
+                    : hasNumberFormats
+                      ? 9
+                      : hasStyles
+                        ? 8
+                        : hasDisplayLanguage
+                          ? 7
+                          : hasTimezone
+                            ? 6
+                            : wrapSet
+                              ? 5
+                              : hasFilterSection
+                                ? 4
+                                : hasDisplay
+                                  ? 3
+                                  : hasMeta
+                                    ? 2
+                                    : 1;
   out[off++] = data.delimiter.charCodeAt(0);
   if (hasMeta) {
     view.setUint16(off, appName!.length, true);
@@ -1801,6 +1845,7 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
   // technique used for the filter/style/comment blocks above.
   let historyEnabled = true;
   let historyMaxOverride: number | null | undefined;
+  let autoFormatSource = false;
   let history: RsfHistorySnapshot[] = [];
   if (bodyVersion >= 14) {
     const rd = new BodyReader(body, dec);
@@ -1812,6 +1857,7 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
     off = rd.off;
     historyEnabled = block.enabled;
     historyMaxOverride = block.maxOverride;
+    autoFormatSource = block.autoFormatSource;
     history = block.history;
   }
   const name = readString();
@@ -1914,6 +1960,9 @@ function decodeBody(body: Uint8Array): RsfDecodeResult {
   }
   if (historyMaxOverride !== undefined) {
     data.historyMaxOverride = historyMaxOverride;
+  }
+  if (autoFormatSource) {
+    data.autoFormatSource = true;
   }
   if (styles !== undefined) {
     data.styles = styles;
@@ -2271,11 +2320,13 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
   // override field's read-side presence check needs a self-describing bit
   // above version 12, not a version-threshold check.
   const hasMaxOverride = data.historyMaxOverride !== undefined;
+  const hasAutoFormatSource = data.autoFormatSource === true;
   const hasJson = data.sheets.some((sheet) => sheet.kind === 'json');
   const hasYamlOrText = data.sheets.some((sheet) => sheet.kind === 'yaml' || sheet.kind === 'text');
   const hasHistorySection =
     hasMaxOverride ||
     hasYamlOrText ||
+    hasAutoFormatSource ||
     hasJson ||
     data.historyEnabled === false ||
     (data.history?.length ?? 0) > 0;
@@ -2304,7 +2355,7 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
   const hasTimezone =
     hasDisplayLanguage || (data.timezone !== undefined && data.timezone !== DEFAULT_TIMEZONE);
   bytes.push(
-    hasYamlOrText
+    hasYamlOrText || hasAutoFormatSource
       ? 13
       : hasMaxOverride
         ? 12
@@ -2349,7 +2400,12 @@ function encodeWorkbookBody(data: RsfWorkbookData): Uint8Array {
     // (enabled) default with no saves recorded yet stays a version-9-or-lower
     // body — same placement and reasoning as the single-sheet body's own
     // version-14 block (see `encodeBody`).
-    for (const b of encodeHistoryBlock(data.historyEnabled, data.history, data.historyMaxOverride)) {
+    for (const b of encodeHistoryBlock(
+      data.historyEnabled,
+      data.history,
+      data.historyMaxOverride,
+      data.autoFormatSource,
+    )) {
       bytes.push(b);
     }
   }
@@ -2468,6 +2524,7 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
   // for that exact, historically fixed version, never widened to `>= 12`.
   let historyEnabled = true;
   let historyMaxOverride: number | null | undefined;
+  let autoFormatSource = false;
   let history: RsfHistorySnapshot[] = [];
   if (version >= 10) {
     const block = readHistoryBlock(rd, version === 12);
@@ -2476,6 +2533,7 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
     }
     historyEnabled = block.enabled;
     historyMaxOverride = block.maxOverride;
+    autoFormatSource = block.autoFormatSource;
     history = block.history;
   }
   if (!rd.need(2)) {
@@ -2691,6 +2749,9 @@ function decodeWorkbookBody(body: Uint8Array): RsfWorkbookDecodeResult {
   if (historyMaxOverride !== undefined) {
     data.historyMaxOverride = historyMaxOverride;
   }
+  if (autoFormatSource) {
+    data.autoFormatSource = true;
+  }
   // An active-worksheet identifier that names no worksheet falls back to the
   // first one rather than leaving the workbook without an active worksheet.
   if (activeSheetId !== '' && seenIds.has(activeSheetId)) {
@@ -2742,6 +2803,9 @@ function workbookToSingleSheetData(data: RsfWorkbookData): RsfData {
   }
   if (data.historyMaxOverride !== undefined) {
     single.historyMaxOverride = data.historyMaxOverride;
+  }
+  if (data.autoFormatSource !== undefined) {
+    single.autoFormatSource = data.autoFormatSource;
   }
   if (only.display) {
     single.display = only.display;
@@ -2948,6 +3012,9 @@ export function decodeRsfWorkbook(bytes: Uint8Array): RsfWorkbookDecodeResult {
     }
     if (single.data.historyMaxOverride !== undefined) {
       data.historyMaxOverride = single.data.historyMaxOverride;
+    }
+    if (single.data.autoFormatSource) {
+      data.autoFormatSource = true;
     }
     return { ok: true, data };
   }

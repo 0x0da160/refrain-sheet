@@ -113,15 +113,59 @@ describe('YamlSheetView', () => {
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('renders the preview as syntax-highlighted tokens, reflecting the source', () => {
+  it('renders the preview as syntax-highlighted tokens, reflecting the source', async () => {
     const { view } = setup();
     const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
     textarea.value = '# a comment\na: 1';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
+    // The preview render is debounced and rAF-coalesced (see `editor-preview-perf.ts`)
+    // rather than synchronous with the input event.
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
     const preview = view.panelElement.querySelector('.markdown-editor-preview')!;
     expect(preview.querySelector('pre code')).not.toBeNull();
     expect(preview.querySelector('.tok-comment')?.textContent).toBe('# a comment');
+  });
+
+  it('skips syntax highlighting and shows a notice for a very large document', async () => {
+    const { view } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    // Well past LARGE_PREVIEW_SOURCE_LENGTH (256 KB).
+    textarea.value = Array.from({ length: 40_000 }, (_, i) => `key${i}: value`).join('\n');
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const preview = view.panelElement.querySelector('.markdown-editor-preview')!;
+    expect(preview.querySelector('pre code')).toBeNull();
+    expect(preview.textContent).toContain('too large');
+  });
+
+  it('keeps the source textarea and preview pane scroll positions in sync', () => {
+    const { view } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    const preview = view.panelElement.querySelector('.markdown-editor-preview') as HTMLElement;
+
+    Object.defineProperty(textarea, 'scrollHeight', { value: 1000, configurable: true });
+    Object.defineProperty(textarea, 'clientHeight', { value: 100, configurable: true });
+    Object.defineProperty(textarea, 'scrollTop', { value: 450, configurable: true });
+    Object.defineProperty(preview, 'scrollHeight', { value: 500, configurable: true });
+    Object.defineProperty(preview, 'clientHeight', { value: 50, configurable: true });
+    let previewScrollTop = 0;
+    Object.defineProperty(preview, 'scrollTop', {
+      get: () => previewScrollTop,
+      set: (v: number) => {
+        previewScrollTop = v;
+      },
+      configurable: true,
+    });
+
+    textarea.dispatchEvent(new Event('scroll'));
+
+    // textarea is at (450 - 0) / (1000 - 100) = 50% scrolled; preview should
+    // land at 50% of its own (500 - 50) scrollable range.
+    expect(previewScrollTop).toBe(225);
   });
 
   it('hides the preview panel when the active worksheet is no longer a YAML sheet', () => {
@@ -197,5 +241,81 @@ describe('YamlSheetView', () => {
 
     expect(textarea.value).toBe('');
     expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe('');
+  });
+
+  it('the auto-format-on-commit checkbox is unchecked by default', () => {
+    const { view } = setup();
+    const checkbox = view.element.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(checkbox.checked).toBe(false);
+  });
+
+  it('checking the auto-format-on-commit checkbox turns on autoFormatSource for the file', () => {
+    const { view, workbook } = setup();
+    const checkbox = view.element.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change'));
+    expect(workbook.autoFormatSource).toBe(true);
+
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event('change'));
+    expect(workbook.autoFormatSource).toBe(false);
+  });
+
+  it('auto-formats valid YAML on commit (blur) once the checkbox is checked', () => {
+    const { view, tab, workbook } = setup();
+    workbook.setAutoFormatSource(true);
+    view.refresh();
+    const checkbox = view.element.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(checkbox.checked).toBe(true);
+
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = 'a: 1\nb: [1, 2]\n';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('blur'));
+
+    expect(textarea.value).toBe('a: 1\nb:\n  - 1\n  - 2\n');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe(textarea.value);
+  });
+
+  it('leaves invalid YAML untouched on commit but still commits it, even with auto-format checked', () => {
+    const notify = vi.fn();
+    const { view, tab, workbook } = setup(stubUi({ notify }));
+    workbook.setAutoFormatSource(true);
+    view.refresh();
+
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = 'a: [1, 2\n';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('blur'));
+
+    expect(textarea.value).toBe('a: [1, 2\n');
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'error');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe('a: [1, 2\n');
+  });
+
+  it('never writes a literal "null" for an empty document on commit, even with auto-format checked', () => {
+    const { view, tab, workbook } = setup();
+    workbook.setAutoFormatSource(true);
+    view.refresh();
+
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = '  ';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('blur'));
+
+    expect(textarea.value).toBe('  ');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe('  ');
+  });
+
+  it('does not auto-format on commit when the checkbox is off (the default)', () => {
+    const { view, tab } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = 'a: 1\nb: [1, 2]\n';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('blur'));
+
+    expect(textarea.value).toBe('a: 1\nb: [1, 2]\n');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe('a: 1\nb: [1, 2]\n');
   });
 });

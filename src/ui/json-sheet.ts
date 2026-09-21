@@ -10,6 +10,7 @@ import {
   currentSidePanelPlacement,
 } from './dialogs/shared';
 import { el } from './dom';
+import { CoalescedRenderer, isLargePreviewSource, syncScroll } from './editor-preview-perf';
 import { createIcon } from './icon';
 import { X } from 'lucide';
 
@@ -33,9 +34,21 @@ function renderJsonPreview(text: string): Array<Node | string> {
  * in cell (0, 0) — but the preview is a single syntax-highlighted `<pre>`
  * block (`src/core/syntax-highlight.ts`'s `tokenizeCode`) rather than a
  * rendered document, and the toolbar adds an explicit "Format" action that
- * pretty-prints valid JSON in place (never automatically, and never on
- * save — see issue #529) and leaves invalid JSON untouched, reporting the
- * parse error via `Commands.notify` instead.
+ * pretty-prints valid JSON in place (never on save by itself — see issue
+ * #529) and leaves invalid JSON untouched, reporting the parse error via
+ * `Commands.notify` instead. A per-file "auto-format on commit" checkbox
+ * (`RsfDocument.autoFormatSource`, default off) applies the same
+ * pretty-print automatically each time an edit commits — still never
+ * mid-keystroke, and still never guessing at invalid input, matching
+ * `tryFormatJson`'s rule for both the button and the checkbox.
+ *
+ * The preview re-render itself is debounced and rAF-coalesced (a
+ * `CoalescedRenderer`, see `editor-preview-perf.ts`) rather than run
+ * synchronously on every `input` event, and skips tokenization above a size
+ * threshold (`isLargePreviewSource`) in favor of a plain notice — highlighting
+ * a very large document is not worth the main-thread stall. The source
+ * textarea and the preview pane also keep their scroll positions in sync
+ * proportionally in both directions (`syncScroll`).
  *
  * The caller must append `panelElement` into the app shell alongside
  * `element` (see `main.ts`), not inside it.
@@ -47,6 +60,9 @@ export class JsonSheetView {
   private readonly preview: HTMLElement;
   private readonly previewToggle: HTMLButtonElement;
   private readonly formatButton: HTMLButtonElement;
+  private readonly autoFormatCheckbox: HTMLInputElement;
+  /** Coalesces the preview re-render triggered by every `input` event (see `editor-preview-perf.ts`). */
+  private readonly previewRenderer = new CoalescedRenderer(() => this.renderPreview());
 
   /** The (tab, sheetId) the textarea currently reflects, so a pending debounced edit commits to the right place. */
   private bound: { tab: Tab; sheetId: string } | null = null;
@@ -80,9 +96,19 @@ export class JsonSheetView {
       text: t('dialog.jsonEditor.format'),
     }) as HTMLButtonElement;
     this.formatButton.addEventListener('click', () => this.format());
+    this.autoFormatCheckbox = el('input', {
+      attrs: { type: 'checkbox', id: 'json-sheet-auto-format' },
+    }) as HTMLInputElement;
+    this.autoFormatCheckbox.addEventListener('change', () => this.setAutoFormatSource());
+    const autoFormatLabel = el(
+      'label',
+      { className: 'markdown-editor-toolbar-checkbox', attrs: { for: 'json-sheet-auto-format' } },
+      [this.autoFormatCheckbox, el('span', { text: t('dialog.jsonEditor.autoFormat') })],
+    );
     const toolbar = el('div', { className: 'markdown-editor-toolbar' }, [
       this.previewToggle,
       this.formatButton,
+      autoFormatLabel,
     ]);
 
     const panes = el('div', { className: 'markdown-editor-panes' }, [sourcePane]);
@@ -119,9 +145,12 @@ export class JsonSheetView {
     this.panelElement.hidden = true;
 
     this.updatePreviewToggle();
+    // Proportional two-way scroll sync between the source and its preview
+    // (#557) — see `editor-preview-perf.ts`'s `syncScroll`.
+    syncScroll(this.textarea, this.preview);
 
     this.textarea.addEventListener('input', () => {
-      this.renderPreview();
+      this.previewRenderer.schedule();
       this.scheduleCommit();
     });
     this.textarea.addEventListener('blur', () => this.flushCommit());
@@ -194,16 +223,47 @@ export class JsonSheetView {
     }
     this.textarea.readOnly = tab.readOnly;
     this.formatButton.disabled = tab.readOnly;
+    this.autoFormatCheckbox.checked = doc.autoFormatSource;
+    this.autoFormatCheckbox.disabled = tab.readOnly;
     this.element.hidden = false;
     this.updatePanelVisibility();
   }
 
-  /** Commit any pending debounced edit right now (blur, worksheet switch, tab close, before save). */
+  /**
+   * Toggle this file's auto-format-on-commit setting (default off; see
+   * `RsfDocument.setAutoFormatSource`). A per-file setting persisted in the
+   * saved container, not itself an undoable cell edit — like the version
+   * history toggles it sits alongside, it marks the document dirty without
+   * touching the evaluation memo.
+   */
+  private setAutoFormatSource(): void {
+    if (!this.bound) {
+      return;
+    }
+    const { tab } = this.bound;
+    if (tab.doc.kind !== 'rsf') {
+      return;
+    }
+    tab.doc.setAutoFormatSource(this.autoFormatCheckbox.checked);
+    this.state.emit('doc');
+  }
+
+  /**
+   * Commit any pending debounced edit right now (blur, worksheet switch, tab
+   * close, before save). When auto-format-on-commit is on for this file, the
+   * source is reformatted in place first — best-effort: invalid JSON is left
+   * exactly as typed and its parse error reported (see `tryFormatJson`), but
+   * the edit itself is never blocked on that, so the raw text still commits.
+   */
   flushCommit(): void {
     if (this.commitTimer !== null) {
       clearTimeout(this.commitTimer);
       this.commitTimer = null;
     }
+    // Any preview render still coalescing from the last few keystrokes is
+    // moot the instant we commit — cancel it rather than let it redundantly
+    // repaint moments later.
+    this.previewRenderer.cancel();
     if (!this.bound) {
       return;
     }
@@ -212,9 +272,13 @@ export class JsonSheetView {
       return;
     }
     const sheet = tab.doc.activeSheet;
-    if (sheet.jsonText !== this.textarea.value) {
-      void this.commands.commitCellEdit(tab, 0, 0, this.textarea.value);
+    if (sheet.jsonText === this.textarea.value) {
+      return;
     }
+    if (tab.doc.autoFormatSource) {
+      this.tryFormatJson();
+    }
+    void this.commands.commitCellEdit(tab, 0, 0, this.textarea.value);
   }
 
   private scheduleCommit(): void {
@@ -227,20 +291,36 @@ export class JsonSheetView {
     }, COMMIT_DEBOUNCE_MS);
   }
 
+  /**
+   * Paint the preview immediately. Above `LARGE_PREVIEW_SOURCE_LENGTH`,
+   * skips tokenization entirely and shows a plain explanation instead —
+   * syntax-highlighting a document that large is not worth the main-thread
+   * stall, and the reason is stated rather than left mysterious (#557). This
+   * always runs synchronously; per-keystroke calls go through
+   * `previewRenderer.schedule()` instead (see the constructor's `input`
+   * listener), which coalesces bursts down to this one.
+   */
   private renderPreview(): void {
-    this.preview.replaceChildren(el('pre', {}, [el('code', {}, renderJsonPreview(this.textarea.value))]));
+    const text = this.textarea.value;
+    if (isLargePreviewSource(text)) {
+      this.preview.replaceChildren(
+        el('p', { className: 'dialog-note', text: t('dialog.jsonEditor.previewTooLarge') }),
+      );
+      return;
+    }
+    this.preview.replaceChildren(el('pre', {}, [el('code', {}, renderJsonPreview(text))]));
   }
 
   /**
-   * Explicit, button-triggered pretty-print (issue #529) — never automatic
-   * and never run on save. Invalid JSON is left completely untouched; the
-   * parse error is reported via `Commands.notify` rather than blocking or
-   * guessing at a fix.
+   * Try to pretty-print the textarea's current JSON in place, updating the
+   * preview when the text actually changes. Returns whether the text parsed
+   * as valid JSON (regardless of whether reformatting changed anything) —
+   * invalid JSON is left completely untouched and its parse error reported
+   * via `Commands.notify` rather than guessed at. Shared by the explicit
+   * Format button and auto-format-on-commit (see `flushCommit`), so both
+   * apply the identical "never guess at invalid input" rule (issue #529).
    */
-  private format(): void {
-    if (!this.bound || this.textarea.readOnly) {
-      return;
-    }
+  private tryFormatJson(): boolean {
     let parsed: unknown;
     try {
       parsed = JSON.parse(this.textarea.value);
@@ -249,14 +329,29 @@ export class JsonSheetView {
         t('dialog.jsonEditor.invalidJson', { error: error instanceof Error ? error.message : String(error) }),
         'error',
       );
-      return;
+      return false;
     }
     const formatted = JSON.stringify(parsed, null, 2);
-    if (formatted === this.textarea.value) {
+    if (formatted !== this.textarea.value) {
+      this.textarea.value = formatted;
+      this.renderPreview();
+    }
+    return true;
+  }
+
+  /**
+   * Explicit, button-triggered pretty-print (issue #529) — never run on
+   * save by itself; only actually commits when the reformat changed
+   * something (pressing Format on already-formatted JSON is a no-op, not a
+   * spurious dirty mark).
+   */
+  private format(): void {
+    if (!this.bound || this.textarea.readOnly) {
       return;
     }
-    this.textarea.value = formatted;
-    this.renderPreview();
-    this.flushCommit();
+    const before = this.textarea.value;
+    if (this.tryFormatJson() && this.textarea.value !== before) {
+      this.flushCommit();
+    }
   }
 }

@@ -2802,8 +2802,22 @@ table.diff-table td {
 
 .markdown-editor-toolbar {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin: 0 0 10px;
+}
+
+/* The JSON/YAML editors' auto-format-on-commit checkbox (#557):  pushed to
+   the toolbar's trailing edge, away from the preview-toggle/Format buttons,
+   since it is a persistent per-file setting rather than a one-off action. */
+.markdown-editor-toolbar-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 0.9em;
+  cursor: pointer;
 }
 
 .markdown-editor-panes {

@@ -1004,6 +1004,56 @@ describe('workbook container', () => {
     expect(decoded.data.historyMaxOverride).toBe(5);
   });
 
+  it('round-trips autoFormatSource through a single-worksheet workbook (the legacy single-sheet container fallback path)', () => {
+    // Regression coverage: `decodeRsfWorkbook`'s single-sheet fallback (for
+    // a workbook holding exactly one worksheet, saved as the older
+    // single-sheet container) has its own hand-written field-by-field copy
+    // from the decoded `RsfData` into the returned `RsfWorkbookData` —
+    // separate from `singleToWorkbookData`/`workbookToSingleSheetData` — and
+    // it initially missed `autoFormatSource` (caught by the equivalent
+    // `RsfDocument`-level test in `tests/rsf.test.ts`), silently dropping the
+    // setting on every load of a single-worksheet file.
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [{ id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] }],
+      autoFormatSource: true,
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.autoFormatSource).toBe(true);
+  });
+
+  it('round-trips autoFormatSource through the workbook body (version 13, the same tier as yaml/text)', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] },
+        { id: 'b', name: 'B', rowCount: 1, columnCount: 1, cells: [] },
+      ],
+      autoFormatSource: true,
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.autoFormatSource).toBe(true);
+  });
+
+  it('combines autoFormatSource with a retained-snapshot cap override at the shared top version (13)', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] },
+        { id: 'b', name: 'B', rowCount: 1, columnCount: 1, cells: [] },
+      ],
+      autoFormatSource: true,
+      historyMaxOverride: 9,
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.autoFormatSource).toBe(true);
+    expect(decoded.data.historyMaxOverride).toBe(9);
+  });
+
   it('loads a legacy single-sheet container as a one-worksheet workbook', () => {
     const bytes = encodeRsf({
       name: 'Legacy',

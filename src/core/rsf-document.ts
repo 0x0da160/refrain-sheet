@@ -210,6 +210,16 @@ export class RsfDocument {
   private historyMaxOverrideValue: number | null | undefined;
 
   /**
+   * Whether the JSON/YAML worksheet editors auto-format their source on
+   * commit for this file (the auto-format checkbox in their toolbars), a
+   * per-file setting defaulting to `false`. Never automatic unless
+   * explicitly turned on — see issue #529's "never automatic" decision,
+   * which is about the default, not a ban on ever offering it. See
+   * {@link setAutoFormatSource}.
+   */
+  private autoFormatSourceFlag = false;
+
+  /**
    * True when this workbook was read from a single-worksheet container
    * (version 3, or a legacy `.rcsv`). Purely informational: the workbook is
    * saved back in the single-sheet container while it still holds one
@@ -436,6 +446,7 @@ export class RsfDocument {
     doc.historyEnabledFlag = data.historyEnabled ?? true;
     doc.historyList = data.history ?? [];
     doc.historyMaxOverrideValue = data.historyMaxOverride;
+    doc.autoFormatSourceFlag = data.autoFormatSource ?? false;
     if (data.createdAt !== undefined) {
       doc.createdAt = data.createdAt;
     }
@@ -791,12 +802,36 @@ export class RsfDocument {
   }
 
   /**
+   * Whether the JSON/YAML worksheet editors auto-format their source on
+   * commit for this file, a per-file setting defaulting to `false`. See
+   * {@link setAutoFormatSource}.
+   */
+  get autoFormatSource(): boolean {
+    return this.autoFormatSourceFlag;
+  }
+
+  /**
+   * Turn auto-format-on-commit on or off for this file's JSON/YAML worksheet
+   * editors. Like {@link setHistoryEnabled}, this is persisted in the saved
+   * container but changes no cell input, so it marks the document dirty
+   * without invalidating the evaluation memo.
+   */
+  setAutoFormatSource(enabled: boolean): void {
+    if (enabled === this.autoFormatSourceFlag) {
+      return;
+    }
+    this.autoFormatSourceFlag = enabled;
+    this.revision += 1;
+  }
+
+  /**
    * Replace this workbook's structural and cell content with a past snapshot
    * (Sheet ▸ File Version History…'s "Restore" action). This file's own
-   * settings — history retention (enabled state, cap override), compression
-   * method, and `docId` — are kept as they are now, not reverted to what they
-   * were at snapshot time; only content (worksheets, cells, styles, comments,
-   * filters, locks, delimiter, timezone, display language) is replaced.
+   * settings — history retention (enabled state, cap override),
+   * auto-format-on-commit, compression method, and `docId` — are kept as
+   * they are now, not reverted to what they were at snapshot time; only
+   * content (worksheets, cells, styles, comments, filters, locks, delimiter,
+   * timezone, display language) is replaced.
    *
    * Not wired into the undo/redo stack: like reopening a file with different
    * encoding options, this is a deliberate, explicitly confirmed revert
@@ -1084,6 +1119,7 @@ export class RsfDocument {
       historyEnabled: this.historyEnabledFlag,
       history: this.historyList,
       historyMaxOverride: this.historyMaxOverrideValue,
+      autoFormatSource: this.autoFormatSourceFlag,
     };
     return encodeRsfWorkbook(payload, this.compressionMethod);
   }

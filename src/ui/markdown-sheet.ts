@@ -11,6 +11,7 @@ import {
   currentSidePanelPlacement,
 } from './dialogs/shared';
 import { el } from './dom';
+import { syncScroll } from './editor-preview-perf';
 import { createIcon } from './icon';
 import { renderMarkdownBlocks } from './markdown-render';
 
@@ -38,6 +39,12 @@ const COMMIT_DEBOUNCE_MS = 600;
  * so a burst of keystrokes becomes one history entry rather than one per
  * keystroke, and always flushed immediately on blur or before this view
  * hands off to a different worksheet/tab.
+ *
+ * The source textarea and the preview pane keep their scroll positions in
+ * sync proportionally in both directions (`syncScroll`, see
+ * `editor-preview-perf.ts`) — unlike the JSON/YAML source views, the preview
+ * render itself is not coalesced/size-gated here, since re-parsing Markdown
+ * on every keystroke has not shown the same cost.
  */
 export class MarkdownSheetView {
   readonly element: HTMLElement;
@@ -109,6 +116,7 @@ export class MarkdownSheetView {
     this.panelElement.hidden = true;
 
     this.updatePreviewToggle();
+    syncScroll(this.textarea, this.preview);
 
     this.textarea.addEventListener('input', () => {
       this.renderPreview();

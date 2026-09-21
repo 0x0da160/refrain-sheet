@@ -470,6 +470,31 @@ describe('binary container codec (JS store engine)', () => {
     if (decoded.ok) expect(decoded.data.historyMaxOverride).toBeUndefined();
   });
 
+  it('round-trips autoFormatSource (body version 17, the same tier as yaml/text)', () => {
+    const withAutoFormat: RsfData = { ...sample, autoFormatSource: true };
+    const decoded = decodeRsf(encodeRsf(withAutoFormat));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.autoFormatSource).toBe(true);
+  });
+
+  it('omits autoFormatSource (reads back false) when never set', () => {
+    const decoded = decodeRsf(encodeRsf(sample));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.autoFormatSource).toBeUndefined();
+  });
+
+  it('combines autoFormatSource with a retained-snapshot cap override at the shared top version (17)', () => {
+    // Exercises all three history-flags bits together: enabled, cap-override
+    // present, and auto-format-source, none of which should interfere with
+    // the others.
+    const both: RsfData = { ...sample, autoFormatSource: true, historyMaxOverride: 9 };
+    const decoded = decodeRsf(encodeRsf(both));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.autoFormatSource).toBe(true);
+    expect(decoded.data.historyMaxOverride).toBe(9);
+  });
+
   it('rejects a decoded numeric cap override outside [1, MAX_RSF_HISTORY_SNAPSHOTS] as bad-shape', () => {
     // A writer (RsfDocument.setHistoryMaxOverride) never produces 0 or a
     // value above the ceiling — it clamps before saving — so this stands in

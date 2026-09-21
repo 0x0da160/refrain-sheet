@@ -170,6 +170,17 @@ release-time half (retitling `Unreleased`) is still done by hand.
   dedicated **Add Markdown/JSON/YAML/Text Sheet** menu and context-menu
   entries are unchanged.
   ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
+- The docked JSON and YAML worksheet editors now have an "Auto-format on
+  commit" checkbox next to the explicit **Format** button, off by default and
+  saved per file. When on, the same pretty-print the Format button performs
+  runs automatically each time an edit commits (not on every keystroke);
+  invalid input is still left untouched with its parse error reported,
+  exactly as the Format button already does. Saved in the `.rsf` container
+  by reusing the existing history-settings flags (body version 17 / workbook
+  body version 13, the same tier YAML/plain-text and the retained-snapshot
+  cap override already share); existing files and workbooks that don't turn
+  it on are unaffected.
+  ([#557](https://github.com/0x0da160/refrain-sheet/issues/557))
 
 ### Changed
 
@@ -201,6 +212,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
   menu, context menu, or the Markdown/JSON editors) now opens a warning
   dialog explaining what is protected/locked and offering to unlock it,
   instead of a passive toast notification that was easy to miss.
+- The docked JSON and YAML worksheet editors' preview panes now re-render at
+  most once per short idle pause (coalesced onto the next animation frame)
+  instead of on every single keystroke, and skip syntax highlighting in
+  favor of plain text above roughly 256 KB of source — both cut down on
+  typing lag in a large document. The Markdown, JSON, and YAML source
+  textareas also keep their scroll position in sync with their preview pane
+  proportionally in both directions, which none of the three did before.
+  ([#557](https://github.com/0x0da160/refrain-sheet/issues/557))
 
 ### Fixed
 

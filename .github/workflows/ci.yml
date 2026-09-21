@@ -71,6 +71,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Verifies the Oklch-authored color system's actual declared tokens
+      # (src/styles.css) meet WCAG AA contrast for every text/background pair
+      # that composes in the UI, in every theme — see scripts/check-contrast.mjs.
+      - name: Contrast check
+        run: npm run check:contrast
+
       - name: Test
         run: npm run test
 

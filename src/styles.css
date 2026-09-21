@@ -7,7 +7,22 @@
    also touch every hand-written rule below, including the grid's. Tailwind's
    classes read the same semantic tokens defined below via the @theme bridge,
    so light/dark theming and the offline, single-CSS-file build are
-   unchanged. */
+   unchanged.
+
+   The explicit layer order below matters: without it, a plain (unlayered)
+   hand-written rule always beats a layered one regardless of selector
+   specificity, per the CSS Cascade Layers spec — so the `button { color:
+   inherit; }` reset a few lines down (a minimal hand-rolled stand-in for the
+   Preflight this file deliberately skips) would otherwise silently defeat
+   every Tailwind `text-*` utility applied to a `<button>`, no matter how
+   specific. Declaring it in `@layer base` places it *below* `utilities` in
+   the cascade, exactly like Tailwind's own Preflight is designed to sit —
+   base element resets that utilities are meant to override — while it still
+   fully wins whenever no utility overrides it (#557; this was quietly
+   breaking the welcome screen's own primary/secondary buttons' text color
+   the whole time, on any accent hue, not just this recolor). */
+@layer theme, base, utilities;
+
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
@@ -59,8 +74,8 @@
      says otherwise. Distinct semantic hues (danger, warning, success, the
      formula/reference colors) keep their own literal hue, since unifying
      those would change what they mean, not just how they're written. */
-  --hue-neutral: 286;
-  --hue-accent: 260;
+  --hue-neutral: 215;
+  --hue-accent: 170;
 
   /* ---------- Semantic color tokens (light theme = default) ----------
      Every surface reads its colors from these tokens; the dark theme below
@@ -81,26 +96,26 @@
   --cell-bg: oklch(100% 0 var(--hue-neutral));
   --grid-line: oklch(91.7% 0.007 var(--hue-neutral));
   --row-alt: oklch(98% 0.003 var(--hue-neutral));
-  --selected-row: oklch(95.6% 0.015 var(--hue-accent));
+  --selected-row: oklch(95.6% 0.013 var(--hue-accent));
   --sticky-bg: oklch(97.3% 0.031 92.9);
   --info-soft: oklch(98.3% 0.025 106.8);
-  --accent: oklch(46.5% 0.14 var(--hue-accent));
-  --accent-soft: oklch(91% 0.029 var(--hue-accent));
+  --accent: oklch(46.5% 0.078 var(--hue-accent));
+  --accent-soft: oklch(91% 0.028 var(--hue-accent));
   --accent-contrast: oklch(100% 0 var(--hue-accent));
-  --accent-contrast-dim: oklch(94.5% 0.026 var(--hue-accent));
-  --range-fill: oklch(54.6% 0.215 var(--hue-accent) / 0.14);
+  --accent-contrast-dim: oklch(94.5% 0.016 var(--hue-accent));
+  --range-fill: oklch(54.6% 0.092 var(--hue-accent) / 0.14);
   --edited: oklch(96.2% 0.062 95.4);
   --edited-border: oklch(78.7% 0.161 91);
   --danger: oklch(50.1% 0.178 28.7);
   --warning: oklch(66.6% 0.157 58.3);
   --warning-soft: oklch(97.4% 0.03 88.4);
   --warning-border: oklch(82.7% 0.109 91.5);
-  --success: oklch(62.7% 0.17 149.2);
-  --formula-text: oklch(39.3% 0.09 152.5);
-  --formula-marker: oklch(55.3% 0.107 158);
+  --success: oklch(55% 0.145 135);
+  --formula-text: oklch(39.3% 0.11 138);
+  --formula-marker: oklch(55.3% 0.161 144);
   --void-a: oklch(98.5% 0 var(--hue-neutral));
   --void-b: oklch(95.9% 0.004 var(--hue-neutral));
-  --find-highlight: oklch(46.5% 0.14 var(--hue-accent) / 0.18);
+  --find-highlight: oklch(46.5% 0.078 var(--hue-accent) / 0.18);
   --scrim: oklch(19.5% 0.016 var(--hue-neutral) / 0.35);
   --scrim-light: oklch(100% 0 var(--hue-neutral) / 0.55);
   --tooltip-bg: oklch(29.2% 0.014 var(--hue-neutral));
@@ -113,8 +128,8 @@
   --shadow-strong: oklch(0% 0 0 / 0.3);
   /* Four visually distinct formula-reference colors (always paired with a
      distinct border pattern: solid / dashed / dotted / double). */
-  --fref-1: oklch(54.6% 0.215 var(--hue-accent));
-  --fref-2: oklch(62.7% 0.17 149.2);
+  --fref-1: oklch(54.6% 0.092 var(--hue-accent));
+  --fref-2: oklch(55% 0.145 135);
   --fref-3: oklch(66.6% 0.157 58.3);
   --fref-4: oklch(55.8% 0.252 302.3);
   color-scheme: light;
@@ -139,26 +154,26 @@
   --cell-bg: oklch(22.9% 0.012 var(--hue-neutral));
   --grid-line: oklch(32.4% 0.014 var(--hue-neutral));
   --row-alt: oklch(24.7% 0.013 var(--hue-neutral));
-  --selected-row: oklch(29.4% 0.048 var(--hue-accent));
+  --selected-row: oklch(29.4% 0.012 var(--hue-accent));
   --sticky-bg: oklch(28.6% 0.028 92.8);
   --info-soft: oklch(25.4% 0.035 108.7);
-  --accent: oklch(65% 0.134 var(--hue-accent));
-  --accent-soft: oklch(33.1% 0.049 var(--hue-accent));
-  --accent-contrast: oklch(19.1% 0.02 var(--hue-accent));
-  --accent-contrast-dim: oklch(19.1% 0.02 var(--hue-accent));
-  --range-fill: oklch(65% 0.134 var(--hue-accent) / 0.22);
+  --accent: oklch(70% 0.118 var(--hue-accent));
+  --accent-soft: oklch(33.1% 0.013 var(--hue-accent));
+  --accent-contrast: oklch(19.1% 0.004 var(--hue-accent));
+  --accent-contrast-dim: oklch(19.1% 0.004 var(--hue-accent));
+  --range-fill: oklch(70% 0.118 var(--hue-accent) / 0.22);
   --edited: oklch(35% 0.05 88.6);
   --edited-border: oklch(75% 0.132 89.4);
   --danger: oklch(70.2% 0.159 25.6);
   --warning: oklch(78.3% 0.146 73.4);
   --warning-soft: oklch(30% 0.044 84.8);
   --warning-border: oklch(46% 0.076 87.2);
-  --success: oklch(80% 0.182 151.7);
-  --formula-text: oklch(83.6% 0.114 157.4);
-  --formula-marker: oklch(80% 0.182 151.7);
+  --success: oklch(80% 0.21 135);
+  --formula-text: oklch(83.6% 0.233 138);
+  --formula-marker: oklch(80% 0.21 135);
   --void-a: oklch(25.9% 0.013 var(--hue-neutral));
   --void-b: oklch(22% 0.012 var(--hue-neutral));
-  --find-highlight: oklch(70.5% 0.112 var(--hue-accent) / 0.3);
+  --find-highlight: oklch(70.5% 0.119 var(--hue-accent) / 0.3);
   --scrim: oklch(0% 0 0 / 0.55);
   --scrim-light: oklch(0% 0 0 / 0.45);
   --tooltip-bg: oklch(35.3% 0.019 var(--hue-neutral));
@@ -167,8 +182,8 @@
   --toast-error-bg: oklch(39.8% 0.123 28.4);
   --shadow: oklch(0% 0 0 / 0.5);
   --shadow-strong: oklch(0% 0 0 / 0.72);
-  --fref-1: oklch(72.9% 0.141 var(--hue-accent));
-  --fref-2: oklch(80% 0.182 151.7);
+  --fref-1: oklch(72.9% 0.123 var(--hue-accent));
+  --fref-2: oklch(80% 0.21 135);
   --fref-3: oklch(83.7% 0.164 84.4);
   --fref-4: oklch(72.2% 0.177 305.5);
   color-scheme: dark;
@@ -198,26 +213,26 @@
   --cell-bg: oklch(100% 0 var(--hue-neutral));
   --grid-line: oklch(91.7% 0.007 var(--hue-neutral));
   --row-alt: oklch(98% 0.003 var(--hue-neutral));
-  --selected-row: oklch(95.6% 0.015 var(--hue-accent));
+  --selected-row: oklch(95.6% 0.013 var(--hue-accent));
   --sticky-bg: oklch(97.3% 0.031 92.9);
   --info-soft: oklch(98.3% 0.025 106.8);
-  --accent: oklch(46.5% 0.14 var(--hue-accent));
-  --accent-soft: oklch(91% 0.029 var(--hue-accent));
+  --accent: oklch(46.5% 0.078 var(--hue-accent));
+  --accent-soft: oklch(91% 0.028 var(--hue-accent));
   --accent-contrast: oklch(100% 0 var(--hue-accent));
-  --accent-contrast-dim: oklch(94.5% 0.026 var(--hue-accent));
-  --range-fill: oklch(54.6% 0.215 var(--hue-accent) / 0.14);
+  --accent-contrast-dim: oklch(94.5% 0.016 var(--hue-accent));
+  --range-fill: oklch(54.6% 0.092 var(--hue-accent) / 0.14);
   --edited: oklch(96.2% 0.062 95.4);
   --edited-border: oklch(78.7% 0.161 91);
   --danger: oklch(50.1% 0.178 28.7);
   --warning: oklch(66.6% 0.157 58.3);
   --warning-soft: oklch(97.4% 0.03 88.4);
   --warning-border: oklch(82.7% 0.109 91.5);
-  --success: oklch(62.7% 0.17 149.2);
-  --formula-text: oklch(39.3% 0.09 152.5);
-  --formula-marker: oklch(55.3% 0.107 158);
+  --success: oklch(55% 0.145 135);
+  --formula-text: oklch(39.3% 0.11 138);
+  --formula-marker: oklch(55.3% 0.161 144);
   --void-a: oklch(98.5% 0 var(--hue-neutral));
   --void-b: oklch(95.9% 0.004 var(--hue-neutral));
-  --find-highlight: oklch(46.5% 0.14 var(--hue-accent) / 0.18);
+  --find-highlight: oklch(46.5% 0.078 var(--hue-accent) / 0.18);
   --scrim: oklch(19.5% 0.016 var(--hue-neutral) / 0.35);
   --scrim-light: oklch(100% 0 var(--hue-neutral) / 0.55);
   --tooltip-bg: oklch(29.2% 0.014 var(--hue-neutral));
@@ -226,8 +241,8 @@
   --toast-error-bg: oklch(42.6% 0.15 28.5);
   --shadow: oklch(0% 0 0 / 0.15);
   --shadow-strong: oklch(0% 0 0 / 0.3);
-  --fref-1: oklch(54.6% 0.215 var(--hue-accent));
-  --fref-2: oklch(62.7% 0.17 149.2);
+  --fref-1: oklch(54.6% 0.092 var(--hue-accent));
+  --fref-2: oklch(55% 0.145 135);
   --fref-3: oklch(66.6% 0.157 58.3);
   --fref-4: oklch(55.8% 0.252 302.3);
   color-scheme: light;
@@ -294,9 +309,11 @@ body {
   min-height: 0;
 }
 
-button {
-  font: inherit;
-  color: inherit;
+@layer base {
+  button {
+    font: inherit;
+    color: inherit;
+  }
 }
 
 /* ---------- Menu bar ---------- */

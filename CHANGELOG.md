@@ -423,6 +423,37 @@ release-time half (retitling `Unreleased`) is still done by hand.
   buttons are unchanged.
   ([#468](https://github.com/0x0da160/refrain-sheet/issues/468))
 
+### Changed
+
+- The accent color throughout the app (buttons, links, the selected-cell
+  outline, range-fill and find highlights, and one of the four
+  formula-reference colors) is now a teal/green instead of the previous
+  blue-violet, and the neutral gray used for panels/borders/text was retuned
+  to sit alongside it. The green "success"/formula-evaluation color family
+  was also rotated further from the new accent so the two stay visually
+  distinct. Every text-on-background color pairing that composes in the app
+  (body text, buttons, links, warning banners, error/success text) was
+  re-verified — not just assumed unchanged — against WCAG AA (4.5:1) in the
+  light, dark, and hybrid themes; a new `scripts/check-contrast.mjs` does
+  this from the actual declared color values on every future change, wired
+  into CI.
+  ([#535](https://github.com/0x0da160/refrain-sheet/issues/535),
+  [#557](https://github.com/0x0da160/refrain-sheet/issues/557))
+
+### Fixed
+
+- The welcome screen's primary "Open CSV / RSF File…" button (and its two
+  secondary buttons) rendered with the wrong text color in every theme — a
+  plain `button { color: inherit }` base style was silently overriding their
+  intended accent-colored text, because it sat outside any CSS cascade
+  layer while the color coming from a Tailwind utility class sat inside one,
+  and an unlayered rule always wins over a layered one regardless of
+  selector specificity. This was the actual root cause of the low-contrast
+  home-screen button reported for the light theme; it affected every theme
+  identically. The button text now correctly uses the accent-contrast color
+  it was always meant to.
+  ([#535](https://github.com/0x0da160/refrain-sheet/issues/535))
+
 ## [0.7.29] - 2026-09-14
 
 ### Added

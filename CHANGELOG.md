@@ -225,6 +225,25 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- Typing into a cell on a phone (iOS Safari in particular) no longer causes a
+  visible layout shift on every keystroke, and the cell editor no longer
+  occasionally closes itself mid-edit. The predictive-text suggestion bar
+  above the on-screen keyboard resizes the visible viewport as its candidate
+  words change width — as often as once per keystroke — which the grid was
+  treating as a real layout change: it re-rendered and, if the visible row
+  window happened to shift by even one row, committed (closed) the open
+  editor. A pure height-only change while a cell is being edited is now
+  recognized and skipped instead. Five separate places that each reacted
+  independently to that same resize event (context menus, the formula
+  autocomplete popup, the menu bar, and dialog popovers, alongside an
+  existing fix in this area) now share one coalesced check instead of each
+  redoing their own measurement on every event. Cell text also grows to the
+  same minimum size the cell editor already used below 700px-wide viewports,
+  so opening a cell for editing no longer visibly resizes it — a deliberate,
+  slightly larger mobile type scale as the trade-off for that consistency.
+  ([#402](https://github.com/0x0da160/refrain-sheet/issues/402),
+  [#519](https://github.com/0x0da160/refrain-sheet/issues/519),
+  [#557](https://github.com/0x0da160/refrain-sheet/issues/557))
 - The formula bar (the cell-reference box and its input field) is now hidden
   on a Markdown or JSON worksheet, which has no cell addressing of its own;
   it previously showed "A1" and put the worksheet's entire document text

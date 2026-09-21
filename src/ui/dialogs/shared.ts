@@ -3,7 +3,7 @@ import { Maximize2, Minimize2, PanelBottom, PanelLeft, PanelRight, PanelTop } fr
 import { clearChildren, el, focusWithoutKeyboard } from '../dom';
 import { makeDraggable, makeEdgeResizable, makeResizable, type EdgeResizeAxis } from '../drag-resize';
 import { createIcon } from '../icon';
-import { positionPopup, visualViewportRect, type AnchorRect } from '../popup';
+import { onViewportResize, positionPopup, visualViewportRect, type AnchorRect } from '../popup';
 import { t } from '../../app/i18n';
 
 /**
@@ -275,9 +275,10 @@ export function openPopover<T>(
     on(window, 'resize', reposition);
     on(window, 'blur', () => finish(fallback));
     on(document, 'scroll', reposition, true);
-    if (globalThis.visualViewport) {
-      on(globalThis.visualViewport, 'resize', reposition);
-    }
+    // Coalesced across every subscriber onto one shared rAF tick — see
+    // `onViewportResize` — rather than this popover doing its own
+    // independent measure/write on every `visualViewport` resize event.
+    listeners.push(onViewportResize(reposition));
   });
 }
 

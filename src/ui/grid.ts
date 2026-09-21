@@ -682,6 +682,12 @@ export class Grid {
   private lastPointerType: string = 'mouse';
   /** The resize-tracking observer created below, kept so `dispose()` can disconnect it. */
   private resizeObserver: ResizeObserver | null = null;
+  /**
+   * `this.element`'s `contentRect.width` as of the last `onResize` call, so a
+   * later call can tell a real layout change apart from a pure height change
+   * (see `onResize`). `null` before the first observation.
+   */
+  private lastResizeWidth: number | null = null;
 
   constructor(
     private readonly state: AppState,
@@ -773,7 +779,7 @@ export class Grid {
     // the grid instead of a plain window 'resize' listener. jsdom (tests) has
     // no ResizeObserver, so this is a no-op there.
     if (typeof ResizeObserver !== 'undefined') {
-      this.resizeObserver = new ResizeObserver(() => this.onResize());
+      this.resizeObserver = new ResizeObserver((entries) => this.onResize(entries));
       this.resizeObserver.observe(this.element);
     }
     // Ctrl/Cmd + mouse wheel zooms the spreadsheet (grid area only). The
@@ -1452,7 +1458,36 @@ export class Grid {
     });
   }
 
-  private onResize(): void {
+  /**
+   * `entries` (from the `ResizeObserver` above) lets a *pure height* change
+   * be told apart from a real layout shift. On iOS Safari, the predictive-
+   * text bar above the on-screen keyboard resizes the visual viewport — and
+   * therefore `#app`'s `100dvh` height, cascading down to this element's
+   * `clientHeight` — as its candidates change, i.e. on every keystroke
+   * (#402/#519). Left unfiltered, that reaches `render()`, which commits
+   * (closes) an open cell editor the instant the row window shifts by even
+   * one row — so typing could close the very editor being typed into.
+   *
+   * While an editor is open, a resize whose width matches the last observed
+   * width is treated as exactly that kind of height-only jitter: skipped
+   * entirely rather than re-rendered, with the sink just re-placed so it
+   * keeps tracking the cell. A real resize (the width actually changed, or
+   * no editor is open) still re-renders as before. jsdom (tests) provides no
+   * `ResizeObserverEntry`, so `entries` is undefined there and this always
+   * falls through to a normal render.
+   */
+  private onResize(entries?: readonly ResizeObserverEntry[]): void {
+    const width = entries?.[0]?.contentRect.width;
+    if (this.editor !== null && width !== undefined && width === this.lastResizeWidth) {
+      const cell = this.cellAt(this.editor.row, this.editor.col);
+      if (cell) {
+        this.placeSinkOverCell(cell);
+      }
+      return;
+    }
+    if (width !== undefined) {
+      this.lastResizeWidth = width;
+    }
     if (this.resizeScheduled) {
       return;
     }

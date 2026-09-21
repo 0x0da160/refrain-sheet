@@ -8,13 +8,27 @@
  * so frequent, unrelated `visualViewport` events (e.g. a mobile keyboard's
  * predictive-text bar changing height per keystroke, #519) don't force a
  * scroll when there is nothing to correct.
+ *
+ * Also covers `onViewportResize` (#557), the shared coalescing helper the
+ * fix above is itself now built on: several unrelated modules each need to
+ * react to a `visualViewport` resize, and on iOS Safari that event fires on
+ * every keystroke (the predictive-text bar's width changing as candidates
+ * change) — coalescing every subscriber's reaction onto one shared
+ * `requestAnimationFrame` tick per event burst, instead of each one
+ * measuring/writing independently on every event, cuts that fan-out down to
+ * one pass per keystroke.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installKeyboardViewportFix } from '../src/ui/popup';
+import { installKeyboardViewportFix, onViewportResize } from '../src/ui/popup';
 
 /** A minimal stand-in for `window.visualViewport` in jsdom, which has none. */
 function fakeVisualViewport(): EventTarget {
   return new EventTarget();
+}
+
+/** Waits past one coalesced `onViewportResize` tick (debounce + rAF/setTimeout fallback). */
+function nextViewportResizeTick(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 50));
 }
 
 describe('installKeyboardViewportFix', () => {
@@ -29,13 +43,16 @@ describe('installKeyboardViewportFix', () => {
     vi.unstubAllGlobals();
   });
 
-  it('resyncs the scroll position when the visual viewport resizes while the page is shifted (keyboard close, #402)', () => {
+  it('resyncs the scroll position when the visual viewport resizes while the page is shifted (keyboard close, #402)', async () => {
     const vv = fakeVisualViewport();
     vi.stubGlobal('visualViewport', vv);
     vi.stubGlobal('scrollY', 120);
     installKeyboardViewportFix();
 
     vv.dispatchEvent(new Event('resize'));
+    // The resize reaction is now coalesced onto a shared rAF tick (see
+    // `onViewportResize`) rather than running synchronously off the event.
+    await nextViewportResizeTick();
 
     expect(scrollTo).toHaveBeenCalledWith(0, 0);
   });
@@ -46,18 +63,21 @@ describe('installKeyboardViewportFix', () => {
     vi.stubGlobal('scrollX', 40);
     installKeyboardViewportFix();
 
+    // 'scroll' is a different event from the coalesced 'resize' above and
+    // still runs its listener synchronously.
     vv.dispatchEvent(new Event('scroll'));
 
     expect(scrollTo).toHaveBeenCalledWith(0, 0);
   });
 
-  it('does not scroll when the page is already at (0, 0) (e.g. per-keystroke visualViewport churn, #519)', () => {
+  it('does not scroll when the page is already at (0, 0) (e.g. per-keystroke visualViewport churn, #519)', async () => {
     const vv = fakeVisualViewport();
     vi.stubGlobal('visualViewport', vv);
     installKeyboardViewportFix();
 
     vv.dispatchEvent(new Event('resize'));
     vv.dispatchEvent(new Event('scroll'));
+    await nextViewportResizeTick();
 
     expect(scrollTo).not.toHaveBeenCalled();
   });
@@ -66,5 +86,90 @@ describe('installKeyboardViewportFix', () => {
     vi.stubGlobal('visualViewport', undefined);
     expect(() => installKeyboardViewportFix()).not.toThrow();
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+});
+
+describe('onViewportResize', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('is a no-op — never subscribes, and returns a no-op unsubscribe — without a visualViewport', () => {
+    vi.stubGlobal('visualViewport', undefined);
+    const fn = vi.fn();
+    const off = onViewportResize(fn);
+    expect(() => off()).not.toThrow();
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('coalesces a burst of resize events into a single notification per tick', async () => {
+    const vv = fakeVisualViewport();
+    vi.stubGlobal('visualViewport', vv);
+    const fn = vi.fn();
+    onViewportResize(fn);
+
+    vv.dispatchEvent(new Event('resize'));
+    vv.dispatchEvent(new Event('resize'));
+    vv.dispatchEvent(new Event('resize'));
+    await nextViewportResizeTick();
+
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('notifies every current subscriber from the same shared tick', async () => {
+    const vv = fakeVisualViewport();
+    vi.stubGlobal('visualViewport', vv);
+    const a = vi.fn();
+    const b = vi.fn();
+    onViewportResize(a);
+    onViewportResize(b);
+
+    vv.dispatchEvent(new Event('resize'));
+    await nextViewportResizeTick();
+
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(b).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops notifying once unsubscribed', async () => {
+    const vv = fakeVisualViewport();
+    vi.stubGlobal('visualViewport', vv);
+    const fn = vi.fn();
+    const off = onViewportResize(fn);
+    off();
+
+    vv.dispatchEvent(new Event('resize'));
+    await nextViewportResizeTick();
+
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('re-attaches when a different visualViewport object is subscribed against later', async () => {
+    // Regression test for the identity-tracking design itself: a naive
+    // "attach once" flag would silently stop working the moment
+    // `globalThis.visualViewport` becomes a different object, which is
+    // exactly what happens across tests in this file (a fresh fake per
+    // test) and is also possible in principle in a real page.
+    const first = fakeVisualViewport();
+    vi.stubGlobal('visualViewport', first);
+    const fnFirst = vi.fn();
+    const offFirst = onViewportResize(fnFirst);
+    first.dispatchEvent(new Event('resize'));
+    await nextViewportResizeTick();
+    expect(fnFirst).toHaveBeenCalledTimes(1);
+    // Unsubscribe before switching viewports so the second dispatch below
+    // only exercises whether the *new* subscriber actually receives it —
+    // an accumulated but still-subscribed `fnFirst` would also be notified
+    // by the second dispatch (every subscriber shares one listener set),
+    // which is correct production behavior but would muddy this assertion.
+    offFirst();
+
+    const second = fakeVisualViewport();
+    vi.stubGlobal('visualViewport', second);
+    const fnSecond = vi.fn();
+    onViewportResize(fnSecond);
+    second.dispatchEvent(new Event('resize'));
+    await nextViewportResizeTick();
+    expect(fnSecond).toHaveBeenCalledTimes(1);
   });
 });

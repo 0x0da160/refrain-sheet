@@ -87,7 +87,7 @@ import { THEMES, themeLabelKey, type ThemeChoice } from '../app/theme';
 import { createAppIcon } from './app-icon';
 import { el, clearChildren } from './dom';
 import { createIcon } from './icon';
-import { positionPopup, type AnchorRect } from './popup';
+import { onViewportResize, positionPopup, type AnchorRect } from './popup';
 
 export interface MenuItemDef {
   /**
@@ -763,7 +763,13 @@ export class MenuBar {
       }
     };
     window.addEventListener('resize', replace);
-    globalThis.visualViewport?.addEventListener('resize', replace);
+    // Coalesced across every subscriber onto one shared rAF tick — see
+    // `onViewportResize` — rather than the menu bar doing its own
+    // independent measure/write on every `visualViewport` resize event.
+    // `MenuBar` is a session-lived singleton with no teardown path, same as
+    // the plain `window` listener just above, so the returned unsubscribe
+    // is intentionally left unused.
+    onViewportResize(replace);
     this.render();
   }
 

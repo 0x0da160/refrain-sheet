@@ -24,7 +24,7 @@ import { Check } from 'lucide';
 import type { IconNode } from 'lucide';
 import { el } from './dom';
 import { createIcon } from './icon';
-import { positionPopup, type AnchorRect } from './popup';
+import { onViewportResize, positionPopup, type AnchorRect } from './popup';
 
 export interface ContextMenuItem {
   /** Already-localized label text (rendered via textContent, never as HTML). */
@@ -166,9 +166,10 @@ export class ContextMenu {
     });
     this.on(window, 'resize', onResize);
     this.on(window, 'blur', () => this.close());
-    if (globalThis.visualViewport) {
-      this.on(globalThis.visualViewport, 'resize', onResize);
-    }
+    // Coalesced across every subscriber onto one shared rAF tick — see
+    // `onViewportResize` — rather than this menu doing its own independent
+    // measure/write on every `visualViewport` resize event.
+    this.listeners.push(onViewportResize(onResize));
     openMenus.add(this);
   }
 

@@ -3674,6 +3674,18 @@ table.diff-table td {
     font-size: max(16px, calc(12px * var(--sheet-zoom, 1)));
   }
 
+  /* Resting cells get the same 16px floor as the promoted editor above
+     (#402/#519): `placeSinkOverCell` (src/ui/grid.ts) sizes the editor's box
+     from the *resting cell's own* rendered rect, so if only the editor were
+     floored, that box would be measured against the smaller unfloored cell
+     font and then rendered with the larger floored editor font — a visible
+     size jump the instant a cell is opened for editing. Flooring `.vcell`
+     too keeps cell and editor consistently sized, at the cost of a larger
+     mobile type scale for the grid generally under this width. */
+  .vcell {
+    font-size: max(16px, calc(12px * var(--sheet-zoom, 1)));
+  }
+
   /* ----- Markdown source/preview panes -----
      The standalone Markdown editor dialog's fixed 50/50 side-by-side split
      (`.markdown-editor-panes`) squeezes both the source textarea and the

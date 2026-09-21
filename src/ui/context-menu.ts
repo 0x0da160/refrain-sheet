@@ -20,10 +20,11 @@
  * {@link closeAllContextMenus}) — a menu can therefore never act on state that
  * has moved on beneath it.
  */
+import { Check } from 'lucide';
 import type { IconNode } from 'lucide';
 import { el } from './dom';
 import { createIcon } from './icon';
-import { positionPopup, type AnchorRect } from './popup';
+import { onViewportResize, positionPopup, type AnchorRect } from './popup';
 
 export interface ContextMenuItem {
   /** Already-localized label text (rendered via textContent, never as HTML). */
@@ -31,6 +32,20 @@ export interface ContextMenuItem {
   /** Same shortcut string shown for this command in the menu bar, if any. */
   shortcut?: string;
   disabled?: boolean;
+  /**
+   * When set (not `undefined`), renders as a checkable item
+   * (`role="menuitemcheckbox"`, `aria-checked`) with a checkmark in place of
+   * `icon` when true — the same model `MenuBar`'s own items use, so a
+   * command's checked state (e.g. a worksheet's lock) shows identically in
+   * both surfaces. Omit entirely for a plain, non-checkable item.
+   */
+  checked?: boolean;
+  /**
+   * A decorative leading icon, shown in the same reserved column as the
+   * checkmark above (mutually exclusive with it, never both). Ignored for a
+   * submenu-parent entry, which uses its own arrow glyph instead.
+   */
+  icon?: IconNode;
   /** Invoked after the menu closes. Omitted for a pure submenu parent. */
   onSelect?: () => void;
   /** Nested items; renders this entry as a submenu parent. */
@@ -151,9 +166,10 @@ export class ContextMenu {
     });
     this.on(window, 'resize', onResize);
     this.on(window, 'blur', () => this.close());
-    if (globalThis.visualViewport) {
-      this.on(globalThis.visualViewport, 'resize', onResize);
-    }
+    // Coalesced across every subscriber onto one shared rAF tick — see
+    // `onViewportResize` — rather than this menu doing its own independent
+    // measure/write on every `visualViewport` resize event.
+    this.listeners.push(onViewportResize(onResize));
     openMenus.add(this);
   }
 
@@ -246,17 +262,36 @@ export class ContextMenu {
         continue;
       }
       const hasSubmenu = (entry.submenu?.length ?? 0) > 0;
+      // A checkable item's checkmark and a plain item's decorative icon
+      // share one reserved left-hand column — never both at once — mirroring
+      // MenuBar.buildList exactly, so an item that appears in both surfaces
+      // (e.g. a worksheet's lock state) looks the same in each.
+      const checked = hasSubmenu ? undefined : entry.checked;
       const button = el(
         'button',
         {
           className: hasSubmenu ? 'menu-item has-submenu' : 'menu-item',
           attrs: {
             type: 'button',
-            role: 'menuitem',
+            role: checked === undefined ? 'menuitem' : 'menuitemcheckbox',
+            ...(checked === undefined ? {} : { 'aria-checked': String(checked) }),
             ...(hasSubmenu ? { 'aria-haspopup': 'menu', 'aria-expanded': 'false' } : {}),
           },
         },
         [
+          ...(hasSubmenu
+            ? []
+            : [
+                el(
+                  'span',
+                  { className: 'check', attrs: { 'aria-hidden': 'true' } },
+                  checked
+                    ? [createIcon(Check, 'check-icon', 14)]
+                    : entry.icon
+                      ? [createIcon(entry.icon, 'item-icon', 14)]
+                      : [],
+                ),
+              ]),
           el('span', { className: 'label', text: entry.label }),
           ...(hasSubmenu
             ? [el('span', { className: 'submenu-arrow', attrs: { 'aria-hidden': 'true' } })]

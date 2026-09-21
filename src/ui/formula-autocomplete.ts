@@ -2,7 +2,7 @@
 import { t } from '../app/i18n';
 import { functionCompletions, type FunctionInfo } from '../core/formula';
 import { el } from './dom';
-import { positionPopup } from './popup';
+import { onViewportResize, positionPopup } from './popup';
 
 /** A text field that can hold a formula: the formula bar or an inline cell editor. */
 export type FormulaField = HTMLInputElement | HTMLTextAreaElement;
@@ -52,11 +52,14 @@ export class FormulaAutocomplete {
       // viewport whenever the field it floats over could have moved.
       const reposition = (): void => this.reposition();
       window.addEventListener('resize', reposition);
-      globalThis.visualViewport?.addEventListener('resize', reposition);
+      // Coalesced across every subscriber onto one shared rAF tick — see
+      // `onViewportResize` — rather than this popup doing its own
+      // independent measure/write on every `visualViewport` resize event.
+      const offViewportResize = onViewportResize(reposition);
       document.addEventListener('scroll', reposition, true);
       this.offListeners.push(() => {
         window.removeEventListener('resize', reposition);
-        globalThis.visualViewport?.removeEventListener('resize', reposition);
+        offViewportResize();
         document.removeEventListener('scroll', reposition, true);
       });
     }

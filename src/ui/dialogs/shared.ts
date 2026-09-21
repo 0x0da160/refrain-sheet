@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-import { PanelBottom, PanelLeft, PanelRight, PanelTop } from 'lucide';
-import { el, focusWithoutKeyboard } from '../dom';
+import { Maximize2, Minimize2, PanelBottom, PanelLeft, PanelRight, PanelTop } from 'lucide';
+import { clearChildren, el, focusWithoutKeyboard } from '../dom';
 import { makeDraggable, makeEdgeResizable, makeResizable, type EdgeResizeAxis } from '../drag-resize';
 import { createIcon } from '../icon';
-import { positionPopup, visualViewportRect, type AnchorRect } from '../popup';
+import { onViewportResize, positionPopup, visualViewportRect, type AnchorRect } from '../popup';
 import { t } from '../../app/i18n';
 
 /**
@@ -275,15 +275,16 @@ export function openPopover<T>(
     on(window, 'resize', reposition);
     on(window, 'blur', () => finish(fallback));
     on(document, 'scroll', reposition, true);
-    if (globalThis.visualViewport) {
-      on(globalThis.visualViewport, 'resize', reposition);
-    }
+    // Coalesced across every subscriber onto one shared rAF tick — see
+    // `onViewportResize` — rather than this popover doing its own
+    // independent measure/write on every `visualViewport` resize event.
+    listeners.push(onViewportResize(reposition));
   });
 }
 
 export type SidePanelPosition = 'top' | 'right' | 'bottom' | 'left';
 
-const SIDE_PANEL_POSITIONS: readonly SidePanelPosition[] = ['top', 'right', 'bottom', 'left'];
+const SIDE_PANEL_POSITIONS: readonly SidePanelPosition[] = ['left', 'top', 'bottom', 'right'];
 const SIDE_PANEL_POSITION_ICON: Record<SidePanelPosition, typeof PanelTop> = {
   top: PanelTop,
   right: PanelRight,
@@ -308,6 +309,10 @@ const SIDE_PANEL_VIEWPORT_MARGIN = 160;
 let sidePanelPosition: SidePanelPosition = 'right';
 let sidePanelPositionExplicit = false;
 let sidePanelSize = DEFAULT_SIDE_PANEL_SIZE;
+/** Whether the last-opened side panel was left maximized; shared the same
+ * way `sidePanelPosition`/`sidePanelSize` are, so opening the next panel
+ * (Filter, then Sort, …) keeps whichever the user last chose. */
+let sidePanelMaximized = false;
 
 /**
  * Smartphone-in-portrait viewports default to a bottom dock — there's little
@@ -326,11 +331,21 @@ function effectiveSidePanelPosition(): SidePanelPosition {
 
 /** The dock side/size any *new* dockable side panel should open at. */
 export function currentSidePanelPlacement(): { position: SidePanelPosition; size: number } {
-  return { position: effectiveSidePanelPosition(), size: sidePanelSize };
+  const position = effectiveSidePanelPosition();
+  return { position, size: sidePanelMaximized ? sidePanelMaxExtent(position) : sidePanelSize };
 }
 
 function sidePanelAxis(position: SidePanelPosition): EdgeResizeAxis {
   return position === 'left' || position === 'right' ? 'horizontal' : 'vertical';
+}
+
+/** The largest a side panel is ever allowed to grow to along its docked
+ * axis — the same cap the edge-resize handle enforces (`SIDE_PANEL_VIEWPORT_MARGIN`
+ * left over so the sheet behind it is never fully hidden) — used both by the
+ * resize handle and by the maximize toggle below. */
+function sidePanelMaxExtent(position: SidePanelPosition): number {
+  const vp = visualViewportRect();
+  return (sidePanelAxis(position) === 'horizontal' ? vp.width : vp.height) - SIDE_PANEL_VIEWPORT_MARGIN;
 }
 
 /** The live height of the menu bar (always visible, even in welcome mode). */
@@ -343,14 +358,28 @@ function statusBarHeight(): number {
   return document.querySelector('.status-bar')?.getBoundingClientRect().height ?? 0;
 }
 
+/** The live height of the document/book tab strip (0 when hidden, e.g. the
+ * welcome screen or a unit test that never mounts it). */
+function tabBarHeight(): number {
+  return document.querySelector('.tab-bar')?.getBoundingClientRect().height ?? 0;
+}
+
+/** The live height of the worksheet tab strip (0 when hidden, e.g. a plain
+ * CSV document, which has no worksheet strip, or the welcome screen). */
+function sheetBarHeight(): number {
+  const bar = document.querySelector<HTMLElement>('.sheet-bar');
+  return bar && !bar.hidden ? bar.getBoundingClientRect().height : 0;
+}
+
 /**
  * Docks `panel` to `position` at `size` pixels (width for left/right, height
- * for top/bottom). A top-docked panel is inset below the menu bar and a
- * bottom-docked one above the status bar — both always-visible chrome the
- * panel must never cover — measured live so it tracks their actual height
- * (e.g. the menu bar collapsing to a toggle button on a narrow viewport)
- * rather than a guessed constant (#399). Left/right-docked panels still span
- * the full viewport height, unchanged.
+ * for top/bottom). A top-docked panel is inset below the menu bar *and* the
+ * book tab strip, and a bottom-docked one above the status bar *and* the
+ * worksheet tab strip — chrome the panel must never cover — measured live so
+ * it tracks their actual height (e.g. the menu bar collapsing to a toggle
+ * button on a narrow viewport, or either tab strip being hidden) rather than
+ * a guessed constant (#399/#541). Left/right-docked panels still span the
+ * full viewport height, unchanged.
  */
 export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPosition, size: number): void {
   panel.dataset.sidePanelPosition = position;
@@ -359,12 +388,16 @@ export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPo
   // edge opposite the dock side is left unset so the panel's size comes from
   // its explicit width/height below, not from being pinned on both sides.
   panel.style.top =
-    position === 'left' || position === 'right' ? '0px' : position === 'top' ? `${menuBarHeight()}px` : '';
+    position === 'left' || position === 'right'
+      ? '0px'
+      : position === 'top'
+        ? `${menuBarHeight() + tabBarHeight()}px`
+        : '';
   panel.style.bottom =
     position === 'left' || position === 'right'
       ? '0px'
       : position === 'bottom'
-        ? `${statusBarHeight()}px`
+        ? `${statusBarHeight() + sheetBarHeight()}px`
         : '';
   panel.style.left = position === 'top' || position === 'bottom' || position === 'left' ? '0px' : '';
   panel.style.right = position === 'top' || position === 'bottom' || position === 'right' ? '0px' : '';
@@ -385,11 +418,12 @@ export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPo
  * reservation pads `#app` itself (`box-sizing: border-box`, filling the
  * viewport — see `styles.css`), narrowing the menu bar and status bar along
  * with everything else, exactly as before. A top/bottom reservation instead
- * pads `#app-body` — the flex column between the menu bar and the status bar
- * — so those two bars stay put at the true viewport edges and only the
- * document chrome between them (tab strip, formula bar, the sheet) makes
- * room (#399). Cleared by `clearAppEdgeReservation` when the panel closes.
- * A no-op outside a full app shell (e.g. a unit test that never mounts it).
+ * pads `#app-content` — the flex column between the two tab strips (book
+ * tabs above, worksheet tabs below) — so a top dock lands below the book tab
+ * strip and a bottom dock lands above the worksheet tab strip, rather than
+ * covering either one (#399/#541). Cleared by `clearAppEdgeReservation` when
+ * the panel closes. A no-op outside a full app shell (e.g. a unit test that
+ * never mounts it).
  */
 function reserveAppEdge(position: SidePanelPosition, size: number): void {
   const app = document.getElementById('app');
@@ -397,10 +431,10 @@ function reserveAppEdge(position: SidePanelPosition, size: number): void {
     app.style.paddingLeft = position === 'left' ? `${size}px` : '';
     app.style.paddingRight = position === 'right' ? `${size}px` : '';
   }
-  const appBody = document.getElementById('app-body');
-  if (appBody) {
-    appBody.style.paddingTop = position === 'top' ? `${size}px` : '';
-    appBody.style.paddingBottom = position === 'bottom' ? `${size}px` : '';
+  const appContent = document.getElementById('app-content');
+  if (appContent) {
+    appContent.style.paddingTop = position === 'top' ? `${size}px` : '';
+    appContent.style.paddingBottom = position === 'bottom' ? `${size}px` : '';
   }
 }
 
@@ -411,10 +445,10 @@ export function clearAppEdgeReservation(): void {
     app.style.paddingLeft = '';
     app.style.paddingRight = '';
   }
-  const appBody = document.getElementById('app-body');
-  if (appBody) {
-    appBody.style.paddingTop = '';
-    appBody.style.paddingBottom = '';
+  const appContent = document.getElementById('app-content');
+  if (appContent) {
+    appContent.style.paddingTop = '';
+    appContent.style.paddingBottom = '';
   }
 }
 
@@ -433,6 +467,7 @@ export function clearAppEdgeReservation(): void {
 export function buildSidePanelDock(panel: HTMLElement): {
   positionSwitcher: HTMLElement;
   resizeHandle: HTMLElement;
+  maximizeToggle: HTMLElement;
 } {
   // Position/cursor for the resize handle come purely from the `.side-panel`
   // element's `data-side-panel-position` attribute (see the CSS), so no
@@ -441,6 +476,10 @@ export function buildSidePanelDock(panel: HTMLElement): {
     className: 'side-panel-resize-handle',
     attrs: { 'aria-hidden': 'true', title: t('dialog.resizeHandle') },
   });
+
+  /** The size to apply for the current dock side, honoring maximize. */
+  const currentSize = (position: SidePanelPosition): number =>
+    sidePanelMaximized ? sidePanelMaxExtent(position) : sidePanelSize;
 
   const positionButtons = SIDE_PANEL_POSITIONS.map((position) => {
     const label = t(`dialog.sidePanel.position.${position}`);
@@ -456,7 +495,7 @@ export function buildSidePanelDock(panel: HTMLElement): {
     button.addEventListener('click', () => {
       sidePanelPosition = position;
       sidePanelPositionExplicit = true;
-      applySidePanelPosition(panel, sidePanelPosition, sidePanelSize);
+      applySidePanelPosition(panel, sidePanelPosition, currentSize(sidePanelPosition));
       for (const other of positionButtons) {
         other.button.setAttribute('aria-pressed', String(other.position === position));
       }
@@ -472,6 +511,29 @@ export function buildSidePanelDock(panel: HTMLElement): {
     positionButtons.map((p) => p.button),
   );
 
+  const maximizeToggle = el('button', {
+    className: 'side-panel-maximize-btn',
+    attrs: { type: 'button' },
+  });
+  const refreshMaximizeToggle = (): void => {
+    clearChildren(maximizeToggle);
+    maximizeToggle.append(
+      createIcon(sidePanelMaximized ? Minimize2 : Maximize2, 'side-panel-maximize-icon', 14),
+    );
+    maximizeToggle.setAttribute('aria-pressed', String(sidePanelMaximized));
+    maximizeToggle.setAttribute(
+      'title',
+      t(sidePanelMaximized ? 'dialog.sidePanel.restore' : 'dialog.sidePanel.maximize'),
+    );
+  };
+  refreshMaximizeToggle();
+  maximizeToggle.addEventListener('click', () => {
+    sidePanelMaximized = !sidePanelMaximized;
+    const position = effectiveSidePanelPosition();
+    applySidePanelPosition(panel, position, currentSize(position));
+    refreshMaximizeToggle();
+  });
+
   makeEdgeResizable(
     grip,
     () => sidePanelAxis(effectiveSidePanelPosition()),
@@ -481,20 +543,18 @@ export function buildSidePanelDock(panel: HTMLElement): {
       return sidePanelAxis(effectiveSidePanelPosition()) === 'horizontal' ? rect.width : rect.height;
     },
     MIN_SIDE_PANEL_SIZE,
-    () => {
-      const vp = visualViewportRect();
-      return (
-        (sidePanelAxis(effectiveSidePanelPosition()) === 'horizontal' ? vp.width : vp.height) -
-        SIDE_PANEL_VIEWPORT_MARGIN
-      );
-    },
+    () => sidePanelMaxExtent(effectiveSidePanelPosition()),
     (size) => {
+      // A manual resize abandons maximize — the panel is now whatever size
+      // the user just dragged it to, not necessarily the maximum.
+      sidePanelMaximized = false;
       sidePanelSize = size;
       applySidePanelPosition(panel, effectiveSidePanelPosition(), size);
+      refreshMaximizeToggle();
     },
   );
 
-  return { positionSwitcher, resizeHandle: grip };
+  return { positionSwitcher, resizeHandle: grip, maximizeToggle };
 }
 
 /**
@@ -519,12 +579,13 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
       className: 'side-panel',
       attrs: { role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'side-panel-title' },
     });
-    applySidePanelPosition(panel, effectiveSidePanelPosition(), sidePanelSize);
-    const { positionSwitcher, resizeHandle: grip } = buildSidePanelDock(panel);
+    const initialPlacement = currentSidePanelPlacement();
+    applySidePanelPosition(panel, initialPlacement.position, initialPlacement.size);
+    const { positionSwitcher, resizeHandle: grip, maximizeToggle } = buildSidePanelDock(panel);
 
     const heading = el('div', { className: 'dialog-title side-panel-title' }, [
       el('span', { text: title, attrs: { id: 'side-panel-title' } }),
-      positionSwitcher,
+      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, maximizeToggle]),
     ]);
     const body = el('div', { className: 'dialog-body' });
     const buttons = el('div', { className: 'dialog-buttons' });

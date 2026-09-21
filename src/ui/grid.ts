@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { Grid3x3, PaintBucket, Plus } from 'lucide';
 import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
-import { LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
+import { isGridSurface, LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { getEditHints, nextZoomLevel } from '../app/settings';
 import {
@@ -617,6 +617,9 @@ export class Grid {
   private resizing: { col: number; startX: number; startWidth: number } | null = null;
   /** Active fill-handle drag, if any. */
   private filling: { source: CellRange; target: { row: number; col: number } } | null = null;
+  /** The range currently outlined as a copy source (see `setCopySource`), or
+   * null when nothing is being highlighted. */
+  private copySource: CellRange | null = null;
   /** Active whole-row / whole-column header drag, if any. */
   private headerDrag: { axis: 'row' | 'col'; anchor: number; last: number } | null = null;
   /** Active pointer reference entry into a formula editor, if any. */
@@ -677,6 +680,14 @@ export class Grid {
    * reads it to tell a plain touch/pen tap-to-select (which must not pop the
    * on-screen keyboard) apart from an actual mouse click. */
   private lastPointerType: string = 'mouse';
+  /** The resize-tracking observer created below, kept so `dispose()` can disconnect it. */
+  private resizeObserver: ResizeObserver | null = null;
+  /**
+   * `this.element`'s `contentRect.width` as of the last `onResize` call, so a
+   * later call can tell a real layout change apart from a pure height change
+   * (see `onResize`). `null` before the first observation.
+   */
+  private lastResizeWidth: number | null = null;
 
   constructor(
     private readonly state: AppState,
@@ -768,7 +779,8 @@ export class Grid {
     // the grid instead of a plain window 'resize' listener. jsdom (tests) has
     // no ResizeObserver, so this is a no-op there.
     if (typeof ResizeObserver !== 'undefined') {
-      new ResizeObserver(() => this.onResize()).observe(this.element);
+      this.resizeObserver = new ResizeObserver((entries) => this.onResize(entries));
+      this.resizeObserver.observe(this.element);
     }
     // Ctrl/Cmd + mouse wheel zooms the spreadsheet (grid area only). The
     // listener must be non-passive because the recognized gesture — and only
@@ -810,6 +822,11 @@ export class Grid {
       if (this.resizing) {
         this.cancelResize();
       }
+      // Dismiss the copy-source outline, matching the conventional
+      // spreadsheet Escape behavior (it only clears the visual marker; the
+      // clipboard's own text/matrix — and its ability to still be pasted —
+      // is untouched).
+      this.setCopySource(null);
     });
     // Escape / outside interaction / resize / scroll dismissal is owned by
     // `ContextMenu` itself, so every context menu in the application behaves
@@ -1266,6 +1283,7 @@ export class Grid {
     }
     this.placeFillHandle(tab, range);
     this.placeMoveHandle(tab, range);
+    this.placeCopySourceOutline();
     this.positionSink();
   }
 
@@ -1311,6 +1329,56 @@ export class Grid {
       attrs: { 'data-fillhandle': 'true', 'aria-hidden': 'true', title: t('grid.fillTitle') },
     });
     cell.append(handle);
+  }
+
+  /**
+   * Set (or clear, with `null`) the range to outline as a copy source — an
+   * animated "marching ants" border so the origin of an in-progress copy
+   * stays visible while the user picks where to paste it. Purely a view
+   * concern (`main.ts` drives it from `ClipboardController`), not part of
+   * `Tab`/`AppState`: it never affects selection, is never persisted, and is
+   * cleared independently of the selection itself.
+   */
+  setCopySource(range: CellRange | null): void {
+    if (this.copySource === range) {
+      return;
+    }
+    this.copySource = range;
+    this.placeCopySourceOutline();
+  }
+
+  /**
+   * Position a single overlay `div` over the copy-source range's rendered
+   * pixel rect, the same way `placeMoveHandle`/`placeFillHandle` above
+   * anchor to one corner cell — except this one must span the *whole*
+   * rectangle, not just a corner, so it is measured from both corner cells'
+   * `getBoundingClientRect()` relative to the canvas's own, the same
+   * technique `placeSinkOverCell` uses. Like those handles, a corner that has
+   * scrolled out of the rendered window simply means no overlay this frame —
+   * it reappears once the range scrolls back into view.
+   */
+  private placeCopySourceOutline(): void {
+    for (const old of this.canvas.querySelectorAll('.copy-source-outline')) {
+      old.remove();
+    }
+    const range = this.copySource;
+    if (!range) {
+      return;
+    }
+    const topLeft = this.cellAt(range.top, range.left);
+    const bottomRight = this.cellAt(range.bottom, range.right);
+    if (!topLeft || !bottomRight) {
+      return; // a corner is scrolled out of view
+    }
+    const origin = this.canvas.getBoundingClientRect();
+    const tl = topLeft.getBoundingClientRect();
+    const br = bottomRight.getBoundingClientRect();
+    const outline = el('div', { className: 'copy-source-outline', attrs: { 'aria-hidden': 'true' } });
+    outline.style.left = `${tl.left - origin.left}px`;
+    outline.style.top = `${tl.top - origin.top}px`;
+    outline.style.width = `${br.right - tl.left}px`;
+    outline.style.height = `${br.bottom - tl.top}px`;
+    this.canvas.append(outline);
   }
 
   /**
@@ -1390,7 +1458,36 @@ export class Grid {
     });
   }
 
-  private onResize(): void {
+  /**
+   * `entries` (from the `ResizeObserver` above) lets a *pure height* change
+   * be told apart from a real layout shift. On iOS Safari, the predictive-
+   * text bar above the on-screen keyboard resizes the visual viewport — and
+   * therefore `#app`'s `100dvh` height, cascading down to this element's
+   * `clientHeight` — as its candidates change, i.e. on every keystroke
+   * (#402/#519). Left unfiltered, that reaches `render()`, which commits
+   * (closes) an open cell editor the instant the row window shifts by even
+   * one row — so typing could close the very editor being typed into.
+   *
+   * While an editor is open, a resize whose width matches the last observed
+   * width is treated as exactly that kind of height-only jitter: skipped
+   * entirely rather than re-rendered, with the sink just re-placed so it
+   * keeps tracking the cell. A real resize (the width actually changed, or
+   * no editor is open) still re-renders as before. jsdom (tests) provides no
+   * `ResizeObserverEntry`, so `entries` is undefined there and this always
+   * falls through to a normal render.
+   */
+  private onResize(entries?: readonly ResizeObserverEntry[]): void {
+    const width = entries?.[0]?.contentRect.width;
+    if (this.editor !== null && width !== undefined && width === this.lastResizeWidth) {
+      const cell = this.cellAt(this.editor.row, this.editor.col);
+      if (cell) {
+        this.placeSinkOverCell(cell);
+      }
+      return;
+    }
+    if (width !== undefined) {
+      this.lastResizeWidth = width;
+    }
     if (this.resizeScheduled) {
       return;
     }
@@ -2831,7 +2928,7 @@ export class Grid {
     }
     const target = event.target as HTMLElement | null;
     const resizeHandle = target?.closest<HTMLElement>('[data-colresize]');
-    if (resizeHandle) {
+    if (resizeHandle && isGridSurface(tab)) {
       event.preventDefault();
       const col = Number(resizeHandle.dataset.colresize);
       // When whole columns are selected (column headers / Shift+Click / drag,
@@ -3684,6 +3781,21 @@ export class Grid {
       this.editor === null &&
       (document.activeElement === this.element || document.activeElement === this.sink)
     );
+  }
+
+  /**
+   * Tear down this instance's own external resources: the resize observer
+   * and the `refIndicator` live region, which is appended directly to
+   * `document.body` rather than into `this.element`. The app's single
+   * long-lived `Grid` (constructed once in `main.ts`) never calls this — it
+   * lives for the whole session — but a second, short-lived instance (the
+   * read-only version-history preview, `src/ui/dialogs/version-preview.ts`)
+   * must call it on close so a series of opens doesn't accumulate observers
+   * and orphaned DOM nodes.
+   */
+  dispose(): void {
+    this.resizeObserver?.disconnect();
+    this.refIndicator.remove();
   }
 
   // ----- Keyboard -----

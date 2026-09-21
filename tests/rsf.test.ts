@@ -388,6 +388,43 @@ describe('version history (snapshots)', () => {
     if (reloaded.ok) expect(reloaded.doc.historyMaxOverride).toBeUndefined();
   });
 
+  it('autoFormatSource defaults to false', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    expect(sheet.autoFormatSource).toBe(false);
+  });
+
+  it('setAutoFormatSource marks the document dirty without changing cell values', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.toBytes();
+    sheet.markSaved();
+    expect(sheet.isDirty).toBe(false);
+    sheet.setAutoFormatSource(true);
+    expect(sheet.isDirty).toBe(true);
+    expect(sheet.getValue(0, 0)).toBe('v');
+  });
+
+  it('a no-op autoFormatSource toggle does not mark the document dirty', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    expect(sheet.isDirty).toBe(false);
+    sheet.setAutoFormatSource(false); // already the default
+    expect(sheet.isDirty).toBe(false);
+  });
+
+  it('round-trips autoFormatSource through save/load', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.setAutoFormatSource(true);
+    const bytes = sheet.toBytes();
+    const reloaded = RsfDocument.fromBytes(bytes, 'again.rcsv');
+    expect(reloaded.ok).toBe(true);
+    if (reloaded.ok) expect(reloaded.doc.autoFormatSource).toBe(true);
+
+    const off = rcsvFromCells([[0, 0, 'v']]);
+    const offBytes = off.toBytes();
+    const reloadedOff = RsfDocument.fromBytes(offBytes, 'again.rcsv');
+    expect(reloadedOff.ok).toBe(true);
+    if (reloadedOff.ok) expect(reloadedOff.doc.autoFormatSource).toBe(false);
+  });
+
   it('restoreFromSnapshot replaces content with a past snapshot and is not itself dirty-tracked as an undo entry', () => {
     const sheet = rcsvFromCells([[0, 0, 'v1']]);
     sheet.toBytes(); // snapshot 0: v1
@@ -410,6 +447,19 @@ describe('version history (snapshots)', () => {
     sheet.toBytes();
     expect(sheet.restoreFromSnapshot(5)).toBe(false);
     expect(sheet.getValue(0, 0)).toBe('v1');
+  });
+
+  it("restoreFromSnapshot keeps this file's own settings — history retention, cap override, and auto-format — as they are now", () => {
+    const sheet = rcsvFromCells([[0, 0, 'v1']]);
+    sheet.toBytes(); // snapshot 0, taken before any of these settings are changed
+    sheet.setHistoryMaxOverride(5);
+    sheet.setAutoFormatSource(true);
+    sheet.setCell(0, 0, 'v2');
+
+    sheet.restoreFromSnapshot(0);
+    expect(sheet.getValue(0, 0)).toBe('v1');
+    expect(sheet.historyMaxOverride).toBe(5);
+    expect(sheet.autoFormatSource).toBe(true);
   });
 });
 

@@ -20,6 +20,7 @@ import {
 } from '../core/serializer';
 import { type ValidationSummary } from '../core/validation';
 import type { RsfHistorySnapshot } from '../core/rsf-codec';
+import type { WorksheetKind } from '../core/worksheet';
 import { AppState, type Selection, type SelectionKind, type Tab } from './app-state';
 import { pickFiles, saveBytesAs, type OpenedFile } from './file-access';
 import { getLocale, setLocale, t, type LocaleId } from './i18n';
@@ -49,9 +50,9 @@ import { SqlCommands, type SqlSource, type SqlRunOutcome } from './commands/sql'
 import { DiffCommands, type DiffTabOption, type DiffRunOutcome } from './commands/diff';
 import { PasteFillCommands, type FlashFillPreview } from './commands/paste-fill';
 import { RangeOpsCommands, type ReplaceAllReport } from './commands/range-ops';
-import { LARGE_OP_CELLS } from './commands/shared';
+import { isGridSurface, LARGE_OP_CELLS } from './commands/shared';
 
-export { LARGE_OP_CELLS };
+export { isGridSurface, LARGE_OP_CELLS };
 export type { FlashFillPreview, ReplaceAllReport, SqlSource, SqlRunOutcome, DiffTabOption, DiffRunOutcome };
 
 /**
@@ -337,13 +338,23 @@ export interface UiPort {
    * too long, duplicate, or containing a character the formula/file syntax
    * reserves) or null when it is acceptable, so the dialog can report the
    * problem inline instead of silently refusing. Resolves with the trimmed
-   * name, or null when cancelled.
+   * name (and, for `mode === 'add'`, the chosen kind), or null when cancelled.
+   *
+   * `kindOptions` is supplied only for `mode === 'add'`: it renders a
+   * worksheet-kind picker (grid/Markdown/JSON/YAML/text) alongside the name
+   * field, defaulting to `kindOptions.initialKind`. Changing the picker calls
+   * `suggestName(kind)` to refill the name field with that kind's default
+   * name — but only while the user has not yet typed a name of their own, so
+   * an intentional custom name is never clobbered by switching kinds.
+   * `rename`/`duplicate` omit it; the resolved `kind` is meaningless there
+   * and callers ignore it.
    */
   promptSheetName(
     mode: 'add' | 'rename' | 'duplicate',
     current: string,
     validate: (name: string) => string | null,
-  ): Promise<string | null>;
+    kindOptions?: { initialKind: WorksheetKind; suggestName: (kind: WorksheetKind) => string },
+  ): Promise<{ name: string; kind: WorksheetKind } | null>;
   /**
    * Confirm deleting a worksheet that holds content, a filter, or non-default
    * display settings. `referenceCount` is how many formulas elsewhere in the
@@ -562,6 +573,8 @@ export type CommandId =
   | 'worksheet.add'
   | 'worksheet.addMarkdown'
   | 'worksheet.addJson'
+  | 'worksheet.addYaml'
+  | 'worksheet.addText'
   | 'worksheet.rename'
   | 'worksheet.duplicate'
   | 'worksheet.delete'
@@ -777,7 +790,7 @@ export class Commands {
       case 'sheet.addColumn':
         return tab !== null;
       case 'sheet.autoFitCols':
-        return tab !== null && tab.selection !== null;
+        return tab !== null && tab.selection !== null && isGridSurface(tab);
       case 'edit.selectAll':
         return tab !== null;
       case 'edit.undo':
@@ -887,6 +900,8 @@ export class Commands {
       case 'worksheet.add':
       case 'worksheet.addMarkdown':
       case 'worksheet.addJson':
+      case 'worksheet.addYaml':
+      case 'worksheet.addText':
       case 'worksheet.rename':
       case 'worksheet.duplicate':
       case 'worksheet.toggleLock':
@@ -1354,6 +1369,12 @@ export class Commands {
       case 'worksheet.addJson':
         if (tab) await this.addJsonWorksheet(tab);
         return;
+      case 'worksheet.addYaml':
+        if (tab) await this.addYamlWorksheet(tab);
+        return;
+      case 'worksheet.addText':
+        if (tab) await this.addTextWorksheet(tab);
+        return;
       case 'worksheet.rename':
         if (tab) await this.renameWorksheet(tab);
         return;
@@ -1599,6 +1620,14 @@ export class Commands {
 
   private async addJsonWorksheet(tab: Tab): Promise<void> {
     return this.worksheets.addJsonWorksheet(tab);
+  }
+
+  private async addYamlWorksheet(tab: Tab): Promise<void> {
+    return this.worksheets.addYamlWorksheet(tab);
+  }
+
+  private async addTextWorksheet(tab: Tab): Promise<void> {
+    return this.worksheets.addTextWorksheet(tab);
   }
 
   private async renameWorksheet(tab: Tab): Promise<void> {

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { AppState } from '../src/app/app-state';
-import { t } from '../src/app/i18n';
+import { AppState, type Tab } from '../src/app/app-state';
 import { RsfDocument } from '../src/core/rsf-document';
 import { doc, utf8 } from './helpers';
 
@@ -113,11 +112,11 @@ describe('read-only protection', () => {
     expect(state.addTab('b.csv', doc('b\n'), null, true).readOnly).toBe(true);
   });
 
-  it('refuses editCell, bulkEdit, and pushEntry on a protected CSV tab, announcing why', () => {
+  it('refuses editCell, bulkEdit, and pushEntry on a protected CSV tab, warning why', () => {
     const state = new AppState();
     const tab = state.addTab('a.csv', doc('a,b\n'), null, true);
-    const announced: string[] = [];
-    state.announce = (message) => announced.push(message);
+    const warnings: Array<{ tab: Tab; scope: 'book' | 'sheet' }> = [];
+    state.warnBlocked = (blockedTab, scope) => warnings.push({ tab: blockedTab, scope });
 
     expect(state.editCell(tab, 0, 0, 'x')).toBe(false);
     expect(tab.doc.isDirty).toBe(false);
@@ -125,7 +124,10 @@ describe('read-only protection', () => {
       false,
     );
     expect(tab.doc.isDirty).toBe(false);
-    expect(announced).toEqual([t('notify.readOnlyProtected'), t('notify.readOnlyProtected')]);
+    expect(warnings).toEqual([
+      { tab, scope: 'book' },
+      { tab, scope: 'book' },
+    ]);
   });
 
   it('refuses structural and worksheet-lifecycle operations on a protected RSF tab', () => {
@@ -166,13 +168,13 @@ describe('worksheet lock', () => {
     expect(workbook.activeSheet.locked).toBe(false);
   });
 
-  it('refuses editCell, bulkEdit, and pushEntry on a locked worksheet, announcing why', () => {
+  it('refuses editCell, bulkEdit, and pushEntry on a locked worksheet, warning why', () => {
     const state = new AppState();
     const workbook = RsfDocument.blank('a.rsf', 5, 3, 'Sheet1');
     const tab = state.addTab('a.rsf', workbook, null);
     expect(state.setSheetLocked(tab, workbook.activeSheetId, true)).toBe(true);
-    const announced: string[] = [];
-    state.announce = (message) => announced.push(message);
+    const warnings: Array<{ tab: Tab; scope: 'book' | 'sheet' }> = [];
+    state.warnBlocked = (blockedTab, scope) => warnings.push({ tab: blockedTab, scope });
 
     expect(state.editCell(tab, 0, 0, 'x')).toBe(false);
     expect(state.bulkEdit(tab, [{ row: 0, col: 0, before: null, after: 'x' }], 'history.editCell')).toBe(
@@ -180,7 +182,11 @@ describe('worksheet lock', () => {
     );
     expect(state.insertRows(tab, 0, 1)).toBe(false);
     expect(workbook.rowCount).toBe(5);
-    expect(announced).toEqual([t('notify.sheetLocked'), t('notify.sheetLocked'), t('notify.sheetLocked')]);
+    expect(warnings).toEqual([
+      { tab, scope: 'sheet' },
+      { tab, scope: 'sheet' },
+      { tab, scope: 'sheet' },
+    ]);
   });
 
   it('locking one worksheet leaves every other worksheet in the workbook editable', () => {

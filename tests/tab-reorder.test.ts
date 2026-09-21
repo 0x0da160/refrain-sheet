@@ -190,7 +190,7 @@ describe('TabBar drag-and-drop reordering', () => {
     }
   });
 
-  it('shows a drop indicator during dragover and reorders on drop', () => {
+  it('shows a drop indicator during dragover and reorders on drop', async () => {
     const { state, bar } = setup();
     const source = tabEl(bar, 'a.csv');
     const target = tabEl(bar, 'c.csv');
@@ -201,17 +201,22 @@ describe('TabBar drag-and-drop reordering', () => {
     // Drop-position indicator (before/after) is shown on the target.
     expect(target.classList.contains('drop-before') || target.classList.contains('drop-after')).toBe(true);
     target.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    // The reorder is applied a microtask after 'drop' (see sheet-bar's #541
+    // hang fix, mirrored here) so the browser's own drag session — still
+    // live at this point — is never left holding a detached source node.
+    await Promise.resolve();
     // Zero-width jsdom rects resolve as "after the target".
     expect(tabNames(state)).toEqual(['b.csv', 'c.csv', 'a.csv']);
   });
 
-  it('announces the drag move through the live region', () => {
+  it('announces the drag move through the live region', async () => {
     const { bar } = setup();
     const source = tabEl(bar, 'a.csv');
     const target = tabEl(bar, 'b.csv');
     source.dispatchEvent(new Event('dragstart', { bubbles: true }));
     target.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true }));
     target.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
     const live = bar.element.querySelector('[aria-live="polite"]')!;
     expect(live.textContent).toContain('a.csv');
   });
@@ -224,7 +229,16 @@ describe('TabBar drag-and-drop reordering', () => {
     expect(tabNames(state)).toEqual(['a.csv', 'b.csv', 'c.csv']);
   });
 
-  it('keeps dirty state, selection, and undo history across drag reordering', () => {
+  it('clears drag state once the browser fires dragend, even without a drop', () => {
+    const { bar } = setup();
+    const source = tabEl(bar, 'a.csv');
+    source.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    expect(source.classList.contains('dragging')).toBe(true);
+    source.dispatchEvent(new Event('dragend', { bubbles: true }));
+    expect(source.classList.contains('dragging')).toBe(false);
+  });
+
+  it('keeps dirty state, selection, and undo history across drag reordering', async () => {
     const { state, bar } = setup();
     const first = state.tabs[0];
     state.editCell(first, 0, 0, 'changed');
@@ -234,6 +248,7 @@ describe('TabBar drag-and-drop reordering', () => {
     source.dispatchEvent(new Event('dragstart', { bubbles: true }));
     target.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true }));
     target.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
     const moved = state.tabs.find((t) => t.name === 'a.csv')!;
     expect(moved).toBe(first);
     expect(moved.doc.isDirty).toBe(true);

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { parse as parseYaml, stringify as stringifyYaml, YAMLParseError } from 'yaml';
 import type { AppState, Tab } from '../app/app-state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -17,9 +18,9 @@ import { X } from 'lucide';
 /** How long to wait after the last keystroke before committing an undoable edit. */
 const COMMIT_DEBOUNCE_MS = 600;
 
-/** Render JSON source text as DOM nodes, one `<span class="tok-*">` per highlighted token. */
-function renderJsonPreview(text: string): Array<Node | string> {
-  return tokenizeCode(text, 'json').map((token) =>
+/** Render YAML source text as DOM nodes, one `<span class="tok-*">` per highlighted token. */
+function renderYamlPreview(text: string): Array<Node | string> {
+  return tokenizeCode(text, 'yaml').map((token) =>
     token.type === 'text'
       ? document.createTextNode(token.text)
       : el('span', { className: `tok-${token.type}`, text: token.text }),
@@ -27,20 +28,18 @@ function renderJsonPreview(text: string): Array<Node | string> {
 }
 
 /**
- * The docked source surface for a JSON worksheet (see `Worksheet.kind`),
+ * The docked source surface for a YAML worksheet (see `Worksheet.kind`),
  * hosted in the spreadsheet area in place of the grid while such a worksheet
- * is active. Mirrors `MarkdownSheetView` (#481/#502) — a docked, dockable
- * preview panel plus a debounced, undoable source textarea whose text lives
- * in cell (0, 0) — but the preview is a single syntax-highlighted `<pre>`
- * block (`src/core/syntax-highlight.ts`'s `tokenizeCode`) rather than a
- * rendered document, and the toolbar adds an explicit "Format" action that
- * pretty-prints valid JSON in place (never on save by itself — see issue
- * #529) and leaves invalid JSON untouched, reporting the parse error via
- * `Commands.notify` instead. A per-file "auto-format on commit" checkbox
- * (`RsfDocument.autoFormatSource`, default off) applies the same
- * pretty-print automatically each time an edit commits — still never
- * mid-keystroke, and still never guessing at invalid input, matching
- * `tryFormatJson`'s rule for both the button and the checkbox.
+ * is active. Mirrors `JsonSheetView` exactly — same docked, dockable preview
+ * panel, same debounced/undoable source textarea whose text lives in cell
+ * (0, 0), same explicit "Format" action (never on save by itself — see
+ * issue #529) and the same per-file "auto-format on commit" checkbox
+ * (`RsfDocument.autoFormatSource`, default off, applying the same
+ * pretty-print automatically each time an edit commits — see
+ * `tryFormatYaml`) — but parses/pretty-prints via the `yaml` package instead
+ * of `JSON.parse`/`JSON.stringify` (see `docs/security.md` § Dependency
+ * policy for why this one dependency was added), and highlights with the
+ * `yaml` language spec (`src/core/syntax-highlight.ts`) instead of `json`.
  *
  * The preview re-render itself is debounced and rAF-coalesced (a
  * `CoalescedRenderer`, see `editor-preview-perf.ts`) rather than run
@@ -53,7 +52,7 @@ function renderJsonPreview(text: string): Array<Node | string> {
  * The caller must append `panelElement` into the app shell alongside
  * `element` (see `main.ts`), not inside it.
  */
-export class JsonSheetView {
+export class YamlSheetView {
   readonly element: HTMLElement;
   readonly panelElement: HTMLElement;
   private readonly textarea: HTMLTextAreaElement;
@@ -76,34 +75,32 @@ export class JsonSheetView {
   ) {
     const sourceLabel = el('label', {
       className: 'form-label',
-      text: t('dialog.jsonEditor.source'),
-      attrs: { for: 'json-sheet-source' },
+      text: t('dialog.yamlEditor.source'),
+      attrs: { for: 'yaml-sheet-source' },
     });
     this.textarea = el('textarea', {
-      // Shares the Markdown source pane's style (flex sizing, font, border) —
-      // see `markdown-sheet.ts` for why the class is required rather than
-      // relying on the textarea's intrinsic default size.
-      className: 'json-sheet-source markdown-editor-source',
-      attrs: { id: 'json-sheet-source', spellcheck: 'false' },
+      // Shares the JSON/Markdown source pane's style — see `json-sheet.ts`.
+      className: 'yaml-sheet-source markdown-editor-source',
+      attrs: { id: 'yaml-sheet-source', spellcheck: 'false' },
     }) as HTMLTextAreaElement;
     const sourcePane = el('div', { className: 'markdown-editor-pane' }, [sourceLabel, this.textarea]);
 
     this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
     this.previewToggle.addEventListener('click', () => this.setPreviewVisible(!this.previewVisible));
     this.formatButton = el('button', {
-      className: 'json-sheet-format',
+      className: 'yaml-sheet-format',
       attrs: { type: 'button' },
-      text: t('dialog.jsonEditor.format'),
+      text: t('dialog.yamlEditor.format'),
     }) as HTMLButtonElement;
     this.formatButton.addEventListener('click', () => this.format());
     this.autoFormatCheckbox = el('input', {
-      attrs: { type: 'checkbox', id: 'json-sheet-auto-format' },
+      attrs: { type: 'checkbox', id: 'yaml-sheet-auto-format' },
     }) as HTMLInputElement;
     this.autoFormatCheckbox.addEventListener('change', () => this.setAutoFormatSource());
     const autoFormatLabel = el(
       'label',
-      { className: 'markdown-editor-toolbar-checkbox', attrs: { for: 'json-sheet-auto-format' } },
-      [this.autoFormatCheckbox, el('span', { text: t('dialog.jsonEditor.autoFormat') })],
+      { className: 'markdown-editor-toolbar-checkbox', attrs: { for: 'yaml-sheet-auto-format' } },
+      [this.autoFormatCheckbox, el('span', { text: t('dialog.yamlEditor.autoFormat') })],
     );
     const toolbar = el('div', { className: 'markdown-editor-toolbar' }, [
       this.previewToggle,
@@ -113,26 +110,22 @@ export class JsonSheetView {
 
     const panes = el('div', { className: 'markdown-editor-panes' }, [sourcePane]);
 
-    this.element = el('div', { className: 'json-sheet-view' }, [toolbar, panes]);
+    this.element = el('div', { className: 'yaml-sheet-view' }, [toolbar, panes]);
     this.element.hidden = true;
 
-    // The preview's own dockable panel — same `buildSidePanelDock` machinery
-    // the Markdown worksheet's preview and the Filter/Sort/Comments panels
-    // use — rather than a transient `openSidePanel` call, since it stays
-    // open and live-updates while the user keeps typing above.
-    const previewTitle = el('span', { text: t('dialog.jsonEditor.preview') });
+    const previewTitle = el('span', { text: t('dialog.yamlEditor.preview') });
     this.preview = el('div', {
       className: 'markdown-editor-preview',
       attrs: { 'aria-live': 'polite' },
     });
     this.panelElement = el('div', {
       className: 'side-panel json-preview-panel',
-      attrs: { role: 'complementary', 'aria-label': t('dialog.jsonEditor.preview') },
+      attrs: { role: 'complementary', 'aria-label': t('dialog.yamlEditor.preview') },
     });
     const { positionSwitcher, resizeHandle, maximizeToggle } = buildSidePanelDock(this.panelElement);
     const closeBtn = el('button', {
       className: 'markdown-preview-panel-close',
-      attrs: { type: 'button', 'aria-label': t('dialog.jsonEditor.hidePreview') },
+      attrs: { type: 'button', 'aria-label': t('dialog.yamlEditor.hidePreview') },
     });
     closeBtn.append(createIcon(X, 'markdown-preview-panel-close-icon', 14));
     closeBtn.addEventListener('click', () => this.setPreviewVisible(false));
@@ -145,8 +138,6 @@ export class JsonSheetView {
     this.panelElement.hidden = true;
 
     this.updatePreviewToggle();
-    // Proportional two-way scroll sync between the source and its preview
-    // (#557) — see `editor-preview-perf.ts`'s `syncScroll`.
     syncScroll(this.textarea, this.preview);
 
     this.textarea.addEventListener('input', () => {
@@ -189,21 +180,21 @@ export class JsonSheetView {
 
   private updatePreviewToggle(): void {
     this.previewToggle.textContent = this.previewVisible
-      ? t('dialog.jsonEditor.hidePreview')
-      : t('dialog.jsonEditor.showPreview');
+      ? t('dialog.yamlEditor.hidePreview')
+      : t('dialog.yamlEditor.showPreview');
     this.previewToggle.setAttribute('aria-pressed', String(this.previewVisible));
   }
 
-  /** True when the active worksheet is a JSON sheet — the caller hides the grid exactly when this is true. */
+  /** True when the active worksheet is a YAML sheet — the caller hides the grid exactly when this is true. */
   get active(): boolean {
     const tab = this.state.activeTab;
-    return tab !== null && tab.doc.kind === 'rsf' && tab.doc.activeSheet.kind === 'json';
+    return tab !== null && tab.doc.kind === 'rsf' && tab.doc.activeSheet.kind === 'yaml';
   }
 
   /** Show/hide and (re)populate from the active tab/worksheet. Call on every `tabs`/`active`/`sheets`/`doc` event. */
   refresh(): void {
     const tab = this.state.activeTab;
-    if (tab === null || tab.doc.kind !== 'rsf' || tab.doc.activeSheet.kind !== 'json') {
+    if (tab === null || tab.doc.kind !== 'rsf' || tab.doc.activeSheet.kind !== 'yaml') {
       this.flushCommit();
       this.bound = null;
       this.element.hidden = true;
@@ -218,7 +209,7 @@ export class JsonSheetView {
       // previous binding owed it before loading this one's text.
       this.flushCommit();
       this.bound = { tab, sheetId: sheet.id };
-      this.textarea.value = sheet.jsonText;
+      this.textarea.value = sheet.yamlText;
       this.renderPreview();
     }
     this.textarea.readOnly = tab.readOnly;
@@ -251,18 +242,15 @@ export class JsonSheetView {
   /**
    * Commit any pending debounced edit right now (blur, worksheet switch, tab
    * close, before save). When auto-format-on-commit is on for this file, the
-   * source is reformatted in place first — best-effort: invalid JSON is left
-   * exactly as typed and its parse error reported (see `tryFormatJson`), but
-   * the edit itself is never blocked on that, so the raw text still commits.
+   * source is reformatted in place first — best-effort: invalid (or empty)
+   * YAML is left exactly as typed (see `tryFormatYaml`), but the edit itself
+   * is never blocked on that, so the raw text still commits.
    */
   flushCommit(): void {
     if (this.commitTimer !== null) {
       clearTimeout(this.commitTimer);
       this.commitTimer = null;
     }
-    // Any preview render still coalescing from the last few keystrokes is
-    // moot the instant we commit — cancel it rather than let it redundantly
-    // repaint moments later.
     this.previewRenderer.cancel();
     if (!this.bound) {
       return;
@@ -272,11 +260,11 @@ export class JsonSheetView {
       return;
     }
     const sheet = tab.doc.activeSheet;
-    if (sheet.jsonText === this.textarea.value) {
+    if (sheet.yamlText === this.textarea.value) {
       return;
     }
     if (tab.doc.autoFormatSource) {
-      this.tryFormatJson();
+      this.tryFormatYaml();
     }
     void this.commands.commitCellEdit(tab, 0, 0, this.textarea.value);
   }
@@ -291,47 +279,46 @@ export class JsonSheetView {
     }, COMMIT_DEBOUNCE_MS);
   }
 
-  /**
-   * Paint the preview immediately. Above `LARGE_PREVIEW_SOURCE_LENGTH`,
-   * skips tokenization entirely and shows a plain explanation instead —
-   * syntax-highlighting a document that large is not worth the main-thread
-   * stall, and the reason is stated rather than left mysterious (#557). This
-   * always runs synchronously; per-keystroke calls go through
-   * `previewRenderer.schedule()` instead (see the constructor's `input`
-   * listener), which coalesces bursts down to this one.
-   */
   private renderPreview(): void {
     const text = this.textarea.value;
     if (isLargePreviewSource(text)) {
       this.preview.replaceChildren(
-        el('p', { className: 'dialog-note', text: t('dialog.jsonEditor.previewTooLarge') }),
+        el('p', { className: 'dialog-note', text: t('dialog.yamlEditor.previewTooLarge') }),
       );
       return;
     }
-    this.preview.replaceChildren(el('pre', {}, [el('code', {}, renderJsonPreview(text))]));
+    this.preview.replaceChildren(el('pre', {}, [el('code', {}, renderYamlPreview(text))]));
   }
 
   /**
-   * Try to pretty-print the textarea's current JSON in place, updating the
-   * preview when the text actually changes. Returns whether the text parsed
-   * as valid JSON (regardless of whether reformatting changed anything) —
-   * invalid JSON is left completely untouched and its parse error reported
-   * via `Commands.notify` rather than guessed at. Shared by the explicit
-   * Format button and auto-format-on-commit (see `flushCommit`), so both
-   * apply the identical "never guess at invalid input" rule (issue #529).
+   * Try to pretty-print the textarea's current YAML in place, updating the
+   * preview when the text actually changes. Returns whether the text
+   * parsed as valid, formattable YAML (an empty document counts as
+   * "nothing to do", not an error — it parses to `null`, but there is
+   * nothing useful to pretty-print, so a blank sheet stays blank instead of
+   * gaining a literal "null"). Invalid YAML is left completely untouched
+   * and its parse error reported via `Commands.notify` rather than guessed
+   * at. Shared by the explicit Format button and auto-format-on-commit (see
+   * `flushCommit`), so both apply the identical rule (issue #529, extended
+   * by #557 to YAML).
    */
-  private tryFormatJson(): boolean {
+  private tryFormatYaml(): boolean {
+    if (this.textarea.value.trim() === '') {
+      return true;
+    }
     let parsed: unknown;
     try {
-      parsed = JSON.parse(this.textarea.value);
+      parsed = parseYaml(this.textarea.value);
     } catch (error) {
       this.commands.notify(
-        t('dialog.jsonEditor.invalidJson', { error: error instanceof Error ? error.message : String(error) }),
+        t('dialog.yamlEditor.invalidYaml', {
+          error: error instanceof YAMLParseError ? error.message : String(error),
+        }),
         'error',
       );
       return false;
     }
-    const formatted = JSON.stringify(parsed, null, 2);
+    const formatted = stringifyYaml(parsed);
     if (formatted !== this.textarea.value) {
       this.textarea.value = formatted;
       this.renderPreview();
@@ -340,17 +327,16 @@ export class JsonSheetView {
   }
 
   /**
-   * Explicit, button-triggered pretty-print (issue #529) — never run on
-   * save by itself; only actually commits when the reformat changed
-   * something (pressing Format on already-formatted JSON is a no-op, not a
-   * spurious dirty mark).
+   * Explicit, button-triggered pretty-print (issue #529, extended by #557 to
+   * YAML) — never run on save by itself; only actually commits when the
+   * reformat changed something.
    */
   private format(): void {
     if (!this.bound || this.textarea.readOnly) {
       return;
     }
     const before = this.textarea.value;
-    if (this.tryFormatJson() && this.textarea.value !== before) {
+    if (this.tryFormatYaml() && this.textarea.value !== before) {
       this.flushCommit();
     }
   }

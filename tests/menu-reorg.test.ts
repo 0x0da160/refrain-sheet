@@ -92,6 +92,22 @@ describe('Sheet menu reorganization', () => {
     );
   });
 
+  it('flips the Lock Sheet item label between its two states, distinct from book-protect wording', () => {
+    const resolve = (item: MenuItemDef): string =>
+      typeof item.labelKey === 'function' ? item.labelKey() : item.labelKey;
+
+    const unlocked = submenuOf(menu('menu.sheet'), 'menu.sheet.worksheet').find(
+      (i) => i.command === 'worksheet.toggleLock',
+    )!;
+    expect(resolve(unlocked)).toBe('menu.sheet.lockSheet');
+
+    const locked = submenuOf(
+      defaultMenus({ ...checks(), sheetLocked: () => true }).find((m) => m.labelKey === 'menu.sheet')!,
+      'menu.sheet.worksheet',
+    ).find((i) => i.command === 'worksheet.toggleLock')!;
+    expect(resolve(locked)).toBe('menu.sheet.unlockSheet');
+  });
+
   it('keeps every row/column command reachable inside the Rows & Columns submenu', () => {
     const rowsAndColumns = submenuOf(menu('menu.sheet'), 'menu.sheet.rowsAndColumns');
     const commands = rowsAndColumns.map((i) => i.command);
@@ -186,6 +202,22 @@ describe('File menu reorganization (#518)', () => {
   it('keeps every per-document command reachable inside the Document submenu', () => {
     const documentSub = submenuOf(menu('menu.file'), 'menu.file.document');
     expect(documentSub.map((i) => i.command)).toEqual(['file.reopen', 'file.toggleProtect', 'sheet.convert']);
+  });
+
+  it('flips the Protect Book item label between its two states, distinct from worksheet-lock wording', () => {
+    const resolve = (item: MenuItemDef): string =>
+      typeof item.labelKey === 'function' ? item.labelKey() : item.labelKey;
+
+    const unprotected = submenuOf(menu('menu.file'), 'menu.file.document').find(
+      (i) => i.command === 'file.toggleProtect',
+    )!;
+    expect(resolve(unprotected)).toBe('menu.file.protectBook');
+
+    const protectedItem = submenuOf(
+      defaultMenus({ ...checks(), protectedDoc: () => true }).find((m) => m.labelKey === 'menu.file')!,
+      'menu.file.document',
+    ).find((i) => i.command === 'file.toggleProtect')!;
+    expect(resolve(protectedItem)).toBe('menu.file.unprotectBook');
   });
 
   it('keeps the Google Drive submenu when Drive sync is available', () => {

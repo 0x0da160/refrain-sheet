@@ -1,5 +1,71 @@
 // SPDX-License-Identifier: MIT
+import type { AppState, Tab } from '../app-state';
 import type { UiPort } from '../commands';
+import { t } from '../i18n';
+
+/**
+ * Whether `tab`'s active sheet is a grid — the only kind column widths mean
+ * anything for. True for every plain CSV document (which has no other
+ * kind), and for an RSF worksheet whose own `kind` is `'grid'`; false for a
+ * Markdown/JSON (and future YAML/plain-text) worksheet, which is a single
+ * whole-document cell with no columns to fit. Used to gate column auto-fit
+ * (`Commands.isEnabled('sheet.autoFitCols')`, `autoFitOnOpen`, the grid's
+ * own context menu and double-click-to-fit).
+ */
+export function isGridSurface(tab: Tab): boolean {
+  return tab.doc.kind === 'csv' || tab.doc.activeSheet.kind === 'grid';
+}
+
+/**
+ * A blocked mutation's scope: `'book'` for `Tab.readOnly` (the whole
+ * document is protected), `'sheet'` for one RSF worksheet's `locked` flag.
+ */
+export type ProtectedScope = 'book' | 'sheet';
+
+/**
+ * Shows a blocking warning dialog explaining that `tab` (or its active
+ * worksheet, for `scope: 'sheet'`) is protected/locked, and offers to
+ * unlock it. Interrupts the attempted edit either way — unlocking here
+ * never retries whatever action was blocked, so the user tries again once
+ * it is unlocked; that keeps this one small, reusable primitive rather than
+ * threading "replay the original mutation" through every call site.
+ *
+ * Two callers: `AppState`'s own `refuseReadOnlyWrite`/`refuseLockedSheetWrite`
+ * guards (wired through `AppState.warnBlocked`, since `AppState` holds no
+ * `UiPort` of its own — this is what turns *every* blocked entry point,
+ * including the Markdown/JSON worksheet textareas, into a warning dialog
+ * instead of a passive toast) and `FileIoCommands.ensureRsf`'s own
+ * protected-document guard, which already has direct `UiPort`/`AppState`
+ * access and calls this the same way.
+ */
+export async function warnProtectedAndOfferUnlock(
+  ui: UiPort,
+  state: AppState,
+  tab: Tab,
+  scope: ProtectedScope,
+): Promise<void> {
+  const doc = tab.doc;
+  const sheetName = doc.kind === 'rsf' ? doc.activeSheet.name : '';
+  const title = scope === 'book' ? t('dialog.warnProtected.bookTitle') : t('dialog.warnProtected.sheetTitle');
+  const message =
+    scope === 'book'
+      ? t('dialog.warnProtected.bookMessage', { name: tab.name })
+      : t('dialog.warnProtected.sheetMessage', { name: sheetName });
+  const unlock = await ui.confirm(
+    title,
+    message,
+    t('dialog.warnProtected.unlock'),
+    t('dialog.warnProtected.cancel'),
+  );
+  if (!unlock) {
+    return;
+  }
+  if (scope === 'book') {
+    state.setReadOnly(tab, false);
+  } else if (doc.kind === 'rsf') {
+    state.setSheetLocked(tab, doc.activeSheetId, false);
+  }
+}
 
 /**
  * Cell-count threshold above which an operation counts as "large": its

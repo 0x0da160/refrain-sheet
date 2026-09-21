@@ -147,6 +147,19 @@ describe('accessibility semantics', () => {
     expect(list[1].textContent).toBe('Notes');
   });
 
+  it('marks YAML and plain-text worksheets with their own localized kind indicator (#557)', () => {
+    const { state, bar, tab } = setup(['Sheet1']);
+    state.addYamlSheet(tab, 'Config');
+    state.addTextSheet(tab, 'Text');
+    bar.render(true);
+    const list = tabs(bar);
+    expect(list).toHaveLength(3);
+    const kindLabel = (el: HTMLElement): string | null =>
+      el.querySelector('.sheet-kind')?.getAttribute('aria-label') ?? null;
+    expect(kindLabel(list[1])).toBe(t('sheets.kind.yaml'));
+    expect(kindLabel(list[2])).toBe(t('sheets.kind.text'));
+  });
+
   it('offers an Add control with a localized accessible name', () => {
     const { bar } = setup();
     const add = bar.element.querySelector<HTMLButtonElement>('.sheet-add')!;
@@ -212,7 +225,7 @@ describe('keyboard model', () => {
   });
 
   it('F2 starts a rename through the shared command', async () => {
-    const promptSheetName = vi.fn(async () => 'Renamed');
+    const promptSheetName = vi.fn(async () => ({ name: 'Renamed', kind: 'grid' as const }));
     const { bar, doc } = setup(['A'], stubUi({ promptSheetName }));
     press(tabs(bar)[0], 'F2');
     await Promise.resolve();
@@ -276,5 +289,79 @@ describe('separation from the application document tabs', () => {
     doc.setActiveSheetId(doc.sheets[1].id);
     bar.render();
     expect(tabs(bar)[0]).not.toBe(before);
+  });
+});
+
+describe('drag-and-drop reordering', () => {
+  function tabEl(bar: SheetBar, name: string): HTMLElement {
+    for (const el of bar.element.querySelectorAll<HTMLElement>('.sheet-tab')) {
+      if (el.querySelector('.sheet-label')?.textContent === name) {
+        return el;
+      }
+    }
+    throw new Error(`sheet tab ${name} not rendered`);
+  }
+
+  it('reorders on drop, applied after the drag session rather than synchronously (#541)', async () => {
+    const { doc, bar } = setup(['A', 'B', 'C']);
+    const source = tabEl(bar, 'A');
+    const target = tabEl(bar, 'C');
+    source.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    target.dispatchEvent(new Event('dragover', { bubbles: true, cancelable: true }));
+    target.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    // The move is deferred a microtask past 'drop': a re-render that
+    // detaches the dragged node while the browser's own drag session is
+    // still live is what left the pointer stuck (the reported "hang up").
+    // Immediately after 'drop' the order must therefore be unchanged...
+    expect(doc.sheets.map((s) => s.name)).toEqual(['A', 'B', 'C']);
+    await Promise.resolve();
+    // ...and applied once the microtask runs.
+    expect(doc.sheets.map((s) => s.name)).toEqual(['B', 'C', 'A']);
+  });
+
+  it('clears drag state once the browser fires dragend on the tab itself, even without a drop', () => {
+    const { bar } = setup(['A', 'B']);
+    const source = tabEl(bar, 'A');
+    source.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    expect(source.classList.contains('dragging')).toBe(true);
+    source.dispatchEvent(new Event('dragend', { bubbles: true }));
+    expect(source.classList.contains('dragging')).toBe(false);
+  });
+
+  it('dropping a sheet tab onto itself changes nothing', async () => {
+    const { doc, bar } = setup(['A', 'B']);
+    const source = tabEl(bar, 'A');
+    source.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    source.dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    expect(doc.sheets.map((s) => s.name)).toEqual(['A', 'B']);
+  });
+});
+
+describe('worksheet tab context menu — Lock/Unlock wording and checkmark (#541)', () => {
+  function openMenu(bar: SheetBar): HTMLElement {
+    tabs(bar)[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    return document.querySelector('.context-menu')!;
+  }
+
+  it('shows "Lock Sheet" with no checkmark while unlocked', () => {
+    const { bar } = setup(['A']);
+    const menu = openMenu(bar);
+    const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('.menu-item'));
+    const lockItem = items.find((b) => b.textContent?.includes(t('menu.sheet.lockSheet')))!;
+    expect(lockItem).toBeTruthy();
+    expect(lockItem.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('shows "Unlock Sheet" with a checkmark once locked', async () => {
+    const { bar, commands, doc } = setup(['A']);
+    await commands.run('worksheet.toggleLock');
+    expect(doc.sheets[0].locked).toBe(true);
+    const menu = openMenu(bar);
+    const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('.menu-item'));
+    const unlockItem = items.find((b) => b.textContent?.includes(t('menu.sheet.unlockSheet')))!;
+    expect(unlockItem).toBeTruthy();
+    expect(unlockItem.getAttribute('aria-checked')).toBe('true');
+    expect(unlockItem.querySelector('.check-icon')).not.toBeNull();
   });
 });

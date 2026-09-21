@@ -104,8 +104,72 @@ export function installKeyboardViewportFix(): void {
       globalThis.scrollTo(0, 0);
     }
   };
-  vv.addEventListener('resize', resync);
+  onViewportResize(resync);
   vv.addEventListener('scroll', resync);
+}
+
+/** Subscribers waiting for the next coalesced `visualViewport` resize tick (see `onViewportResize`). */
+const viewportResizeListeners = new Set<() => void>();
+let viewportResizeFrame: ReturnType<typeof requestAnimationFrame> | ReturnType<typeof setTimeout> | null =
+  null;
+/** The `VisualViewport` the shared listener is currently attached to, so a different object (a real
+ * viewport replaced by another, or a fresh one stubbed in a test) gets re-attached rather than ignored. */
+let attachedViewport: VisualViewport | null = null;
+
+function flushViewportResize(): void {
+  viewportResizeFrame = null;
+  for (const fn of viewportResizeListeners) {
+    fn();
+  }
+}
+
+function scheduleViewportResizeFlush(): void {
+  if (viewportResizeFrame !== null) {
+    return;
+  }
+  const schedule =
+    typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (fn: () => void) => setTimeout(fn, 16);
+  viewportResizeFrame = schedule(flushViewportResize);
+}
+
+/**
+ * Subscribe to `visualViewport`'s `'resize'` event, coalesced onto a single
+ * shared `requestAnimationFrame` tick per event burst instead of firing once
+ * per subscriber per event. Several unrelated modules (context menus, the
+ * formula autocomplete popup, the menu bar, dialog popovers, and this
+ * module's own `installKeyboardViewportFix`) each need to reposition or
+ * resync on a `visualViewport` resize; on iOS Safari the predictive-text bar
+ * above the on-screen keyboard fires this event on **every keystroke** as
+ * its candidate words change width (#402/#519), so five independent
+ * listeners each doing their own measure/write turned every keystroke into
+ * five synchronous layout passes. Coalescing them onto one shared tick cuts
+ * that to one pass per keystroke, and gives every subscriber's reaction the
+ * same, single measurement instead of five that could each see slightly
+ * different intermediate layout state.
+ *
+ * Returns an unsubscribe function. A no-op subscription (and a no-op
+ * unsubscribe) when there is no `visualViewport` at all (e.g. a unit test
+ * or a non-WebKit browser). Re-attaches the underlying listener whenever
+ * `globalThis.visualViewport` itself is a different object than the one
+ * last attached to — in a real browser tab this identity never changes, but
+ * a test that stubs a fresh `visualViewport` per test relies on this to get
+ * a working listener each time rather than only on the first call.
+ */
+export function onViewportResize(fn: () => void): () => void {
+  const vv = globalThis.visualViewport;
+  if (!vv) {
+    return () => {};
+  }
+  if (vv !== attachedViewport) {
+    attachedViewport = vv;
+    vv.addEventListener('resize', scheduleViewportResizeFlush);
+  }
+  viewportResizeListeners.add(fn);
+  return () => {
+    viewportResizeListeners.delete(fn);
+  };
 }
 
 /** Measured size of a mounted element, tolerating layout-free environments. */

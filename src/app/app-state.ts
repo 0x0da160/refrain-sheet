@@ -167,6 +167,18 @@ export class AppState {
    * never block editing. Null outside the browser (unit tests).
    */
   announce: ((message: string) => void) | null = null;
+  /**
+   * Told about every refused mutation attempt against a protected book or a
+   * locked worksheet (see `refuseReadOnlyWrite`/`refuseLockedSheetWrite`
+   * below), so a blocking warning dialog can interrupt the attempt and offer
+   * to unlock — rather than the silent/toast-only refusal a plain
+   * `announce` would give, since unblocking editing needs an explicit
+   * decision, not just a notice. Null outside the browser (unit tests),
+   * exactly like `announce`; `Commands`-layer callers with their own
+   * `UiPort` access (e.g. `FileIoCommands.ensureRsf`) call
+   * `warnProtectedAndOfferUnlock` directly instead of going through this.
+   */
+  warnBlocked: ((tab: Tab, scope: 'book' | 'sheet') => void) | null = null;
   /** Keep the first record row pinned below the header while scrolling. */
   stickyFirstRow: boolean;
   /** Keep the first data column pinned beside the row headers while scrolling. */
@@ -442,7 +454,7 @@ export class AppState {
     if (!tab.readOnly) {
       return false;
     }
-    this.announce?.(t('notify.readOnlyProtected'));
+    this.warnBlocked?.(tab, 'book');
     return true;
   }
 
@@ -465,7 +477,7 @@ export class AppState {
     if (!sheet?.locked) {
       return false;
     }
-    this.announce?.(t('notify.sheetLocked'));
+    this.warnBlocked?.(tab, 'sheet');
     return true;
   }
 
@@ -1003,6 +1015,24 @@ export class AppState {
    */
   addJsonSheet(tab: Tab, name: string): Worksheet | null {
     return this.worksheetsState.addJsonSheet(tab, name);
+  }
+
+  /**
+   * Add a new worksheet holding one empty YAML document after the active
+   * one, as one atomic, undoable operation, and activate it. `name` must
+   * already be validated and unique (see the command layer).
+   */
+  addYamlSheet(tab: Tab, name: string): Worksheet | null {
+    return this.worksheetsState.addYamlSheet(tab, name);
+  }
+
+  /**
+   * Add a new worksheet holding one empty plain-text document after the
+   * active one, as one atomic, undoable operation, and activate it. `name`
+   * must already be validated and unique (see the command layer).
+   */
+  addTextSheet(tab: Tab, name: string): Worksheet | null {
+    return this.worksheetsState.addTextSheet(tab, name);
   }
 
   /**

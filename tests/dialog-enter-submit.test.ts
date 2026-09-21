@@ -181,7 +181,7 @@ describe('Enter submits single-line dialog inputs', () => {
 
     enter(input);
 
-    expect(await promise).toBe('Renamed');
+    expect(await promise).toEqual({ name: 'Renamed', kind: 'grid' });
   });
 
   it('still submits the Go to Cell prompt on Enter after sharing the helper', async () => {

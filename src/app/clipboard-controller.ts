@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { CellRange } from '../core/clipboard';
 import {
   copyRows,
   parsePastedText,
@@ -28,12 +29,25 @@ import { asVisualDisplaySource, onScreenGeometry, renderStyledRangeToPng } from 
 export class ClipboardController {
   private internal: { text: string; matrix: string[][]; origin: Selection; kind: SelectionKind } | null =
     null;
+  /**
+   * The full range most recently copied, kept separately from `internal`
+   * (which drives paste) purely to drive the grid's animated copy-source
+   * outline: `clearCopySource` can drop the visual marker (after a paste, or
+   * a document/worksheet/selection change) without losing the ability to
+   * still paste the copied text/matrix from the system clipboard.
+   */
+  private copySourceRange: CellRange | null = null;
 
   constructor(
     private readonly state: AppState,
     private readonly commands: Commands,
     private readonly notify: (text: string, kind: 'info' | 'warn' | 'error') => void,
     private readonly dom: Document,
+    /** Told about every change to the copy-source range (see
+     * {@link copiedRange}), so the grid's animated outline can stay in sync
+     * without polling. Optional so existing tests that only exercise
+     * copy/paste text/matrix behavior don't need a grid to construct one. */
+    private readonly onCopySourceChange: (range: CellRange | null) => void = () => {},
   ) {}
 
   /**
@@ -62,6 +76,8 @@ export class ClipboardController {
       origin: { row: range.top, col: range.left },
       kind: tab.selectionKind,
     };
+    this.copySourceRange = range;
+    this.onCopySourceChange(range);
     return text;
   }
 
@@ -73,6 +89,31 @@ export class ClipboardController {
    */
   copiedKind(): SelectionKind | null {
     return this.internal?.kind ?? null;
+  }
+
+  /**
+   * The full range most recently copied, for the grid's animated copy-source
+   * outline — null once nothing has been copied, or after `clearCopySource`.
+   * Synchronous, like {@link copiedKind}.
+   */
+  copiedRange(): CellRange | null {
+    return this.copySourceRange;
+  }
+
+  /**
+   * Clears the remembered copy-source range so the grid's animated outline
+   * disappears — called after a paste, and whenever the active document,
+   * worksheet, or selection changes in a way that makes the old highlighted
+   * range meaningless (see `main.ts`). `internal`'s text/matrix/kind are
+   * untouched, so in-app paste from the system clipboard still works; only
+   * the *visual* marker is cleared.
+   */
+  clearCopySource(): void {
+    if (this.copySourceRange === null) {
+      return;
+    }
+    this.copySourceRange = null;
+    this.onCopySourceChange(null);
   }
 
   /** Ctrl+C / Cmd+C: write TSV into the clipboard event. */
@@ -105,10 +146,12 @@ export class ClipboardController {
     }
     if (this.internal && this.internal.text === text) {
       await this.commands.applyPaste(tab, this.internal.matrix, this.internal.origin);
+      this.clearCopySource();
       return;
     }
     const matrix = parsePastedText(text);
     await this.commands.applyPaste(tab, matrix, null);
+    this.clearCopySource();
   }
 
   /**
@@ -247,6 +290,7 @@ export class ClipboardController {
     }
     if (this.internal) {
       await this.commands.applyPaste(tab, this.internal.matrix, this.internal.origin);
+      this.clearCopySource();
       return;
     }
     this.notify(t('notify.pasteBlocked'), 'warn');

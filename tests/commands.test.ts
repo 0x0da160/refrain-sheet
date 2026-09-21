@@ -3,7 +3,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
-import type { LocaleId } from '../src/app/i18n';
+import { t, type LocaleId } from '../src/app/i18n';
 import type { OpenedFile } from '../src/app/file-access';
 import { setSuppressHistoryCapWarning } from '../src/app/settings';
 import { compileQuery } from '../src/core/search';
@@ -435,7 +435,7 @@ describe('convert to RSF command', () => {
 });
 
 describe('read-only protection (issue #443)', () => {
-  it('ensureRsf refuses the implicit CSV -> RSF conversion on a protected tab, without asking', async () => {
+  it('ensureRsf refuses the implicit CSV -> RSF conversion on a protected tab, without asking to convert', async () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
     await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
@@ -445,6 +445,39 @@ describe('read-only protection (issue #443)', () => {
     expect(result).toBeNull();
     expect(ui.confirmConvert).not.toHaveBeenCalled();
     expect(tab.doc.kind).toBe('csv');
+  });
+
+  it('ensureRsf warns that the book is protected and offers to unlock it (#541)', async () => {
+    const ui = stubUi({ confirm: vi.fn(async () => false) });
+    const { state, commands } = setup(ui);
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+
+    const result = await commands.ensureRsf(tab, 'formula');
+    expect(result).toBeNull();
+    expect(ui.confirm).toHaveBeenCalledTimes(1);
+    expect(ui.confirm).toHaveBeenCalledWith(
+      t('dialog.warnProtected.bookTitle'),
+      t('dialog.warnProtected.bookMessage', { name: tab.name }),
+      t('dialog.warnProtected.unlock'),
+      t('dialog.warnProtected.cancel'),
+    );
+    // Declining the offer leaves the tab exactly as protected as before.
+    expect(tab.readOnly).toBe(true);
+    expect(tab.doc.kind).toBe('csv');
+  });
+
+  it('ensureRsf unlocks the book when the warning is accepted, but still does not itself convert', async () => {
+    const ui = stubUi({ confirm: vi.fn(async () => true) });
+    const { state, commands } = setup(ui);
+    await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+
+    const result = await commands.ensureRsf(tab, 'formula');
+    expect(result).toBeNull();
+    expect(tab.readOnly).toBe(false);
+    expect(tab.doc.kind).toBe('csv'); // the original ensureRsf call is not retried
+    expect(ui.confirmConvert).not.toHaveBeenCalled();
   });
 
   it('file.toggleProtect flips the active tab and back', async () => {

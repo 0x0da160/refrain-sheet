@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 /**
- * The docked JSON worksheet view (`JsonSheetView`, #529): the source
+ * The docked YAML worksheet view (`YamlSheetView`, #557): the source
  * textarea filling its pane, the preview toggle (mirroring
- * `MarkdownSheetView`), the syntax-highlighted read-only preview, and the
- * explicit, button-triggered Format action.
+ * `JsonSheetView`/`MarkdownSheetView`), the syntax-highlighted read-only
+ * preview, and the explicit, button-triggered Format action — backed by the
+ * `yaml` package instead of `JSON.parse`/`JSON.stringify`.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { RsfDocument } from '../src/core/rsf-document';
 import type { Worksheet } from '../src/core/worksheet';
-import { JsonSheetView } from '../src/ui/json-sheet';
+import { YamlSheetView } from '../src/ui/yaml-sheet';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   return {
@@ -66,9 +67,9 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   };
 }
 
-/** An app state with one open workbook tab whose active worksheet is a JSON worksheet. */
+/** An app state with one open workbook tab whose active worksheet is a YAML worksheet. */
 function setup(ui: UiPort = stubUi()): {
-  view: JsonSheetView;
+  view: YamlSheetView;
   state: AppState;
   tab: Tab;
   workbook: RsfDocument;
@@ -78,16 +79,16 @@ function setup(ui: UiPort = stubUi()): {
   const state = new AppState();
   const commands = new Commands(state, ui, document);
   const workbook = RsfDocument.empty('book.rsf', 8, 4, 'Sheet1');
-  const data = workbook.createJsonWorksheet('Data');
+  const data = workbook.createYamlWorksheet('Config');
   workbook.insertSheetAt(1, data);
   workbook.setActiveSheetId(data.id);
   const tab = state.addTab('book.rsf', workbook, null);
-  const view = new JsonSheetView(state, commands);
+  const view = new YamlSheetView(state, commands);
   view.refresh();
   return { view, state, tab, workbook, data, ui };
 }
 
-describe('JsonSheetView', () => {
+describe('YamlSheetView', () => {
   it('gives the source textarea the shared flex-sizing style class, not just its own id-scoped class', () => {
     const { view } = setup();
     const textarea = view.element.querySelector('textarea')!;
@@ -115,7 +116,7 @@ describe('JsonSheetView', () => {
   it('renders the preview as syntax-highlighted tokens, reflecting the source', async () => {
     const { view } = setup();
     const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
-    textarea.value = '{"a": true}';
+    textarea.value = '# a comment\na: 1';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
     // The preview render is debounced and rAF-coalesced (see `editor-preview-perf.ts`)
@@ -124,14 +125,14 @@ describe('JsonSheetView', () => {
 
     const preview = view.panelElement.querySelector('.markdown-editor-preview')!;
     expect(preview.querySelector('pre code')).not.toBeNull();
-    expect(preview.querySelector('.tok-keyword')?.textContent).toBe('true');
+    expect(preview.querySelector('.tok-comment')?.textContent).toBe('# a comment');
   });
 
   it('skips syntax highlighting and shows a notice for a very large document', async () => {
     const { view } = setup();
     const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
     // Well past LARGE_PREVIEW_SOURCE_LENGTH (256 KB).
-    textarea.value = `[${'"x",'.repeat(80_000)}"end"]`;
+    textarea.value = Array.from({ length: 40_000 }, (_, i) => `key${i}: value`).join('\n');
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
     await new Promise((resolve) => setTimeout(resolve, 200));
@@ -167,7 +168,7 @@ describe('JsonSheetView', () => {
     expect(previewScrollTop).toBe(225);
   });
 
-  it('hides the preview panel when the active worksheet is no longer a JSON sheet', () => {
+  it('hides the preview panel when the active worksheet is no longer a YAML sheet', () => {
     const { view, state, tab, workbook } = setup();
     expect(view.panelElement.hidden).toBe(false);
 
@@ -177,7 +178,7 @@ describe('JsonSheetView', () => {
     expect(view.panelElement.hidden).toBe(true);
   });
 
-  it('reopens the preview panel on returning to a JSON sheet if it was left open', () => {
+  it('reopens the preview panel on returning to a YAML sheet if it was left open', () => {
     const { view, state, tab, workbook, data } = setup();
 
     state.setActiveSheet(tab, workbook.sheets[0].id);
@@ -189,32 +190,57 @@ describe('JsonSheetView', () => {
     expect(view.panelElement.hidden).toBe(false);
   });
 
-  it('pretty-prints valid JSON in place when Format is clicked, as an undoable edit', () => {
+  it('pretty-prints valid YAML in place when Format is clicked, as an undoable edit', () => {
     const { view, tab } = setup();
     const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
-    textarea.value = '{"a":1,"b":[1,2]}';
+    textarea.value = 'a: 1\nb: [1, 2]\n';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
-    const formatBtn = view.element.querySelector('.json-sheet-format') as HTMLButtonElement;
+    const formatBtn = view.element.querySelector('.yaml-sheet-format') as HTMLButtonElement;
     formatBtn.click();
 
-    expect(textarea.value).toBe(JSON.stringify({ a: 1, b: [1, 2] }, null, 2));
-    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.jsonText : '').toBe(textarea.value);
+    expect(textarea.value).toBe('a: 1\nb:\n  - 1\n  - 2\n');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe(textarea.value);
   });
 
-  it('leaves invalid JSON untouched and reports the parse error via notify, without touching the document', () => {
+  it('reformats non-canonical YAML into the canonical style', () => {
+    const { view, tab } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = '{a: 1, b: 2}';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+    const formatBtn = view.element.querySelector('.yaml-sheet-format') as HTMLButtonElement;
+    formatBtn.click();
+
+    expect(textarea.value).toBe('a: 1\nb: 2\n');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe(textarea.value);
+  });
+
+  it('leaves invalid YAML untouched and reports the parse error via notify, without touching the document', () => {
     const notify = vi.fn();
     const { view, tab } = setup(stubUi({ notify }));
     const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
-    textarea.value = '{not valid json';
+    textarea.value = 'a: [1, 2\n';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
-    const formatBtn = view.element.querySelector('.json-sheet-format') as HTMLButtonElement;
+    const formatBtn = view.element.querySelector('.yaml-sheet-format') as HTMLButtonElement;
     formatBtn.click();
 
-    expect(textarea.value).toBe('{not valid json');
+    expect(textarea.value).toBe('a: [1, 2\n');
     expect(notify).toHaveBeenCalledWith(expect.any(String), 'error');
-    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.jsonText : '').toBe('');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe('');
+  });
+
+  it('leaves an empty document alone when Format is clicked, rather than writing out a literal "null"', () => {
+    const { view, tab } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    expect(textarea.value).toBe('');
+
+    const formatBtn = view.element.querySelector('.yaml-sheet-format') as HTMLButtonElement;
+    formatBtn.click();
+
+    expect(textarea.value).toBe('');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe('');
   });
 
   it('the auto-format-on-commit checkbox is unchecked by default', () => {
@@ -236,7 +262,7 @@ describe('JsonSheetView', () => {
     expect(workbook.autoFormatSource).toBe(false);
   });
 
-  it('auto-formats valid JSON on commit (blur) once the checkbox is checked', () => {
+  it('auto-formats valid YAML on commit (blur) once the checkbox is checked', () => {
     const { view, tab, workbook } = setup();
     workbook.setAutoFormatSource(true);
     view.refresh();
@@ -244,40 +270,52 @@ describe('JsonSheetView', () => {
     expect(checkbox.checked).toBe(true);
 
     const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
-    textarea.value = '{"a":1,"b":[1,2]}';
+    textarea.value = 'a: 1\nb: [1, 2]\n';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     textarea.dispatchEvent(new Event('blur'));
 
-    expect(textarea.value).toBe(JSON.stringify({ a: 1, b: [1, 2] }, null, 2));
-    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.jsonText : '').toBe(textarea.value);
+    expect(textarea.value).toBe('a: 1\nb:\n  - 1\n  - 2\n');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe(textarea.value);
   });
 
-  it('leaves invalid JSON untouched on commit but still commits it, even with auto-format checked', () => {
+  it('leaves invalid YAML untouched on commit but still commits it, even with auto-format checked', () => {
     const notify = vi.fn();
     const { view, tab, workbook } = setup(stubUi({ notify }));
     workbook.setAutoFormatSource(true);
     view.refresh();
 
     const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
-    textarea.value = '{not valid json';
+    textarea.value = 'a: [1, 2\n';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     textarea.dispatchEvent(new Event('blur'));
 
-    expect(textarea.value).toBe('{not valid json');
+    expect(textarea.value).toBe('a: [1, 2\n');
     expect(notify).toHaveBeenCalledWith(expect.any(String), 'error');
-    // The edit is never blocked on a failed auto-format: the raw, invalid
-    // text still commits.
-    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.jsonText : '').toBe('{not valid json');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe('a: [1, 2\n');
+  });
+
+  it('never writes a literal "null" for an empty document on commit, even with auto-format checked', () => {
+    const { view, tab, workbook } = setup();
+    workbook.setAutoFormatSource(true);
+    view.refresh();
+
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = '  ';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('blur'));
+
+    expect(textarea.value).toBe('  ');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe('  ');
   });
 
   it('does not auto-format on commit when the checkbox is off (the default)', () => {
     const { view, tab } = setup();
     const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
-    textarea.value = '{"a":1,"b":[1,2]}';
+    textarea.value = 'a: 1\nb: [1, 2]\n';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     textarea.dispatchEvent(new Event('blur'));
 
-    expect(textarea.value).toBe('{"a":1,"b":[1,2]}');
-    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.jsonText : '').toBe('{"a":1,"b":[1,2]}');
+    expect(textarea.value).toBe('a: 1\nb: [1, 2]\n');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe('a: 1\nb: [1, 2]\n');
   });
 });

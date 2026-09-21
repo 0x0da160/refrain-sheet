@@ -101,6 +101,35 @@ describe('dialog/popover drag-to-move and drag-to-resize', () => {
       await promise;
     });
 
+    it('locks the measured width/height before clearing max-width/max-height, so dragging cannot widen it (#541)', async () => {
+      const promise = new Dialogs().promptGoToCell('A1', () => null);
+      const dialog = document.querySelector('dialog')!;
+      const heading = dialog.querySelector<HTMLElement>('.dialog-title')!;
+      stubRect(dialog, { left: 300, top: 200, width: 400, height: 150 });
+
+      heading.dispatchEvent(pointerEvent('pointerdown', { clientX: 320, clientY: 210 }));
+
+      // The very first frame of the drag must already have pinned the box's
+      // width/height — never `max-width: none` with no explicit width, which
+      // lets a native <dialog> (UA `width: fit-content`) re-shrink-to-fit to
+      // its max-content size (e.g. a wide table) and blow out to the viewport
+      // edge.
+      expect(dialog.style.width).toBe('400px');
+      expect(dialog.style.height).toBe('150px');
+      expect(dialog.style.maxWidth).toBe('none');
+      expect(dialog.style.maxHeight).toBe('none');
+
+      heading.dispatchEvent(pointerEvent('pointermove', { clientX: 370, clientY: 260 }));
+      heading.dispatchEvent(pointerEvent('pointerup', { clientX: 370, clientY: 260 }));
+
+      // A move never touches width/height.
+      expect(dialog.style.width).toBe('400px');
+      expect(dialog.style.height).toBe('150px');
+
+      dialog.querySelector<HTMLButtonElement>('.dialog-buttons button')!.click();
+      await promise;
+    });
+
     it('clamps the dragged position so the dialog cannot leave the viewport', async () => {
       const promise = new Dialogs().promptGoToCell('A1', () => null);
       const dialog = document.querySelector('dialog')!;
@@ -194,6 +223,29 @@ describe('dialog/popover drag-to-move and drag-to-resize', () => {
       grip.dispatchEvent(pointerEvent('pointermove', { clientX: 500, clientY: 340 }));
       grip.dispatchEvent(pointerEvent('pointerup', { clientX: 500, clientY: 340 }));
       expect(panel.style.height).toBe('340px'); // 300 + (340 - 300)
+
+      panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await promise;
+    });
+
+    it('maximizes and restores from the header toggle', async () => {
+      const dialogs = new Dialogs();
+      const promise = dialogs.chooseFilter(filterInput());
+      const panel = document.querySelector<HTMLElement>('.side-panel')!;
+      panel.querySelector<HTMLButtonElement>(`[title="${t('dialog.sidePanel.position.right')}"]`)!.click();
+      stubRect(panel, { left: 700, top: 0, width: 300, height: 800 });
+
+      const maximize = panel.querySelector<HTMLButtonElement>('.side-panel-maximize-btn')!;
+      expect(maximize.getAttribute('aria-pressed')).toBe('false');
+      const widthBeforeMaximize = panel.style.width;
+      maximize.click();
+      expect(maximize.getAttribute('aria-pressed')).toBe('true');
+      // innerWidth (1000) - the 160px reserved-viewport margin.
+      expect(panel.style.width).toBe('840px');
+
+      maximize.click();
+      expect(maximize.getAttribute('aria-pressed')).toBe('false');
+      expect(panel.style.width).toBe(widthBeforeMaximize); // back to its remembered size
 
       panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await promise;

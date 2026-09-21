@@ -37,6 +37,7 @@ import {
   FilePlus2,
   FileSpreadsheet,
   FileText,
+  FileType,
   Filter,
   FilterX,
   FolderOpen,
@@ -86,10 +87,17 @@ import { THEMES, themeLabelKey, type ThemeChoice } from '../app/theme';
 import { createAppIcon } from './app-icon';
 import { el, clearChildren } from './dom';
 import { createIcon } from './icon';
-import { positionPopup, type AnchorRect } from './popup';
+import { onViewportResize, positionPopup, type AnchorRect } from './popup';
 
 export interface MenuItemDef {
-  labelKey: string;
+  /**
+   * Usually a fixed i18n key. Some items' wording depends on live state
+   * (e.g. "Protect Book" flips to "Unprotect Book" once protected) rather
+   * than just their checkmark — those pass a getter instead, evaluated fresh
+   * on every render exactly like `checked` below (this whole tree is built
+   * once, in the constructor, not rebuilt per render).
+   */
+  labelKey: string | (() => string);
   /** Omitted for a non-interactive group heading (see `heading`). */
   command?: CommandId;
   shortcut?: string;
@@ -165,6 +173,8 @@ const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'worksheet.add': Plus,
   'worksheet.addMarkdown': FilePenLine,
   'worksheet.addJson': FileJson,
+  'worksheet.addYaml': FileCode,
+  'worksheet.addText': FileType,
   'worksheet.rename': Pencil,
   'worksheet.duplicate': CopyPlus,
   'worksheet.delete': Trash2,
@@ -541,12 +551,19 @@ function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
     { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add' },
     { labelKey: 'menu.sheet.addMarkdownSheet', command: 'worksheet.addMarkdown' },
     { labelKey: 'menu.sheet.addJsonSheet', command: 'worksheet.addJson' },
+    { labelKey: 'menu.sheet.addYamlSheet', command: 'worksheet.addYaml' },
+    { labelKey: 'menu.sheet.addTextSheet', command: 'worksheet.addText' },
     { labelKey: 'menu.sheet.renameSheet', command: 'worksheet.rename' },
     { labelKey: 'menu.sheet.duplicateSheet', command: 'worksheet.duplicate' },
     { labelKey: 'menu.sheet.deleteSheet', command: 'worksheet.delete' },
     'separator',
     {
-      labelKey: 'menu.sheet.lockSheet',
+      // The label itself carries the Lock/Unlock distinction (not just the
+      // checkmark) so the state reads clearly even where the checkmark
+      // alone might be missed — see the sheet-tab context menu (#541), and
+      // "sheet lock" is worded distinctly from "book protect" below so the
+      // two concepts are never confused with each other.
+      labelKey: () => (checks.sheetLocked() ? 'menu.sheet.unlockSheet' : 'menu.sheet.lockSheet'),
       command: 'worksheet.toggleLock',
       checked: checks.sheetLocked,
     },
@@ -619,7 +636,11 @@ function documentItems(checks: MenuChecks): MenuItemDef[] {
   return [
     { labelKey: 'menu.file.reopen', command: 'file.reopen' },
     {
-      labelKey: 'menu.file.protect',
+      // "Book" (not "Document") to read distinctly from the worksheet-level
+      // "Lock Sheet"/"Unlock Sheet" above — the two are different scopes
+      // (the whole workbook vs. one worksheet) and were easy to conflate
+      // when both used generic wording.
+      labelKey: () => (checks.protectedDoc() ? 'menu.file.unprotectBook' : 'menu.file.protectBook'),
       command: 'file.toggleProtect',
       checked: checks.protectedDoc,
     },
@@ -742,7 +763,13 @@ export class MenuBar {
       }
     };
     window.addEventListener('resize', replace);
-    globalThis.visualViewport?.addEventListener('resize', replace);
+    // Coalesced across every subscriber onto one shared rAF tick — see
+    // `onViewportResize` — rather than the menu bar doing its own
+    // independent measure/write on every `visualViewport` resize event.
+    // `MenuBar` is a session-lived singleton with no teardown path, same as
+    // the plain `window` listener just above, so the returned unsubscribe
+    // is intentionally left unused.
+    onViewportResize(replace);
     this.render();
   }
 
@@ -847,7 +874,8 @@ export class MenuBar {
         list.append(el('hr', { className: 'menu-separator' }));
         continue;
       }
-      const label = item.labelKey.includes('.') ? t(item.labelKey) : item.labelKey;
+      const resolvedLabelKey = typeof item.labelKey === 'function' ? item.labelKey() : item.labelKey;
+      const label = resolvedLabelKey.includes('.') ? t(resolvedLabelKey) : resolvedLabelKey;
       if (item.submenu && item.submenu.length > 0) {
         list.append(this.buildSubmenuParent(item, item.submenu, list, menuIndex, label));
         continue;
@@ -924,7 +952,11 @@ export class MenuBar {
     menuIndex: number,
     label: string,
   ): HTMLButtonElement {
-    const expanded = this.openSubmenuKey === item.labelKey;
+    // Submenu parents always use the plain-string form in practice (only
+    // leaf items need state-dependent wording), but resolve defensively so
+    // the identity key passed to setOpenSubmenu is always a plain string.
+    const key = typeof item.labelKey === 'function' ? item.labelKey() : item.labelKey;
+    const expanded = this.openSubmenuKey === key;
     const button = el(
       'button',
       {
@@ -947,7 +979,7 @@ export class MenuBar {
       ],
     );
     const open = (focusFirst: boolean): void => {
-      this.setOpenSubmenu(item.labelKey, focusFirst);
+      this.setOpenSubmenu(key, focusFirst);
     };
     button.addEventListener('click', () => open(false));
     button.addEventListener('mouseenter', () => open(false));

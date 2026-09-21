@@ -9,6 +9,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
+import { getRsfCodec, RSF_COMPRESSION_STORE } from '../src/core/csv-engine';
 import {
   decodeRsf,
   decodeRsfWorkbook,
@@ -355,7 +356,7 @@ describe('worksheet commands', () => {
         for (const candidate of ['', '   ', 'a'.repeat(101), 'bad/name', 'Sheet1', 'Fine']) {
           seen.push(`${candidate}:${validate(candidate) === null ? 'ok' : 'error'}`);
         }
-        return 'Fine';
+        return { name: 'Fine', kind: 'grid' as const };
       }),
     });
     const { commands, doc } = setup(ui);
@@ -376,7 +377,7 @@ describe('worksheet commands', () => {
     const ui = stubUi({
       promptSheetName: vi.fn(async (_mode, current: string) => {
         suggested = current;
-        return '  Trimmed  ';
+        return { name: '  Trimmed  ', kind: 'grid' as const };
       }),
     });
     const { commands, doc } = setup(ui);
@@ -390,6 +391,36 @@ describe('worksheet commands', () => {
     const { commands, doc } = setup(ui);
     await commands.run('worksheet.add');
     expect(doc.sheetCount).toBe(1);
+  });
+
+  it('passes a kind picker defaulting to grid, and creates whichever kind the dialog resolves (#557)', async () => {
+    const promptSheetName = vi.fn(async (_mode, _current, _validate, kindOptions) => {
+      expect(kindOptions).toEqual({ initialKind: 'grid', suggestName: expect.any(Function) });
+      return { name: 'Config1', kind: 'yaml' as const };
+    });
+    const ui = stubUi({ promptSheetName });
+    const { commands, doc } = setup(ui);
+    await commands.run('worksheet.add');
+    expect(doc.sheets[1].name).toBe('Config1');
+    expect(doc.sheets[1].kind).toBe('yaml');
+  });
+
+  it("the kind picker's suggestName callback matches each kind's own default-name numbering", async () => {
+    let suggestName!: (kind: string) => string;
+    const ui = stubUi({
+      promptSheetName: vi.fn(async (_mode, _current, _validate, kindOptions) => {
+        suggestName = kindOptions.suggestName;
+        return null;
+      }),
+    });
+    const { state, commands, tab } = setup(ui);
+    state.addYamlSheet(tab, 'Config1');
+    await commands.run('worksheet.add');
+    expect(suggestName('grid')).toBe('Sheet2');
+    expect(suggestName('markdown')).toBe('Notes1');
+    expect(suggestName('json')).toBe('Data1');
+    expect(suggestName('yaml')).toBe('Config2');
+    expect(suggestName('text')).toBe('Text1');
   });
 
   it('confirms deletion of a worksheet with content and reports broken references', async () => {
@@ -506,6 +537,30 @@ describe('CSV export from a workbook', () => {
     state.deleteSheet(tab, doc.sheets[0].id);
     expect(doc.sheetCount).toBe(1);
     expect(doc.activeSheet.kind).toBe('json');
+    expect(await commands.exportCsv(tab)).toBe(false);
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
+  });
+
+  it('refuses to export when the workbook is a single YAML sheet', async () => {
+    const notify = vi.fn();
+    const ui = stubUi({ notify });
+    const { state, commands, tab, doc } = setup(ui);
+    state.addYamlSheet(tab, 'Config');
+    state.deleteSheet(tab, doc.sheets[0].id);
+    expect(doc.sheetCount).toBe(1);
+    expect(doc.activeSheet.kind).toBe('yaml');
+    expect(await commands.exportCsv(tab)).toBe(false);
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
+  });
+
+  it('refuses to export when the workbook is a single plain-text sheet', async () => {
+    const notify = vi.fn();
+    const ui = stubUi({ notify });
+    const { state, commands, tab, doc } = setup(ui);
+    state.addTextSheet(tab, 'Notes');
+    state.deleteSheet(tab, doc.sheets[0].id);
+    expect(doc.sheetCount).toBe(1);
+    expect(doc.activeSheet.kind).toBe('text');
     expect(await commands.exportCsv(tab)).toBe(false);
     expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
   });
@@ -819,6 +874,186 @@ describe('workbook container', () => {
     expect(decoded.data.sheets[1].locked).toBe(true);
   });
 
+  it.each(['yaml', 'text'] as const)(
+    'round-trips a %s worksheet through the workbook body (version 13)',
+    (kind) => {
+      const data: RsfWorkbookData = {
+        delimiter: ',',
+        sheets: [
+          { id: 'a', name: 'A', rowCount: 2, columnCount: 2, cells: [] },
+          { id: 'b', name: 'Notes', rowCount: 1, columnCount: 1, cells: [[0, 0, 'x: 1']], kind },
+        ],
+      };
+      const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+      expect(decoded.ok).toBe(true);
+      if (!decoded.ok) return;
+      expect(decoded.data.sheets[0].kind).toBeUndefined();
+      expect(decoded.data.sheets[1].kind).toBe(kind);
+      expect(decoded.data.sheets[1].cells).toEqual([[0, 0, 'x: 1']]);
+    },
+  );
+
+  it.each(['yaml', 'text'] as const)('rejects a %s worksheet with any shape other than 1x1', (kind) => {
+    const bytes = encodeRsfWorkbook({
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [], kind },
+        { id: 'b', name: 'B', rowCount: 2, columnCount: 1, cells: [], kind },
+      ],
+    });
+    const decoded = decodeRsfWorkbook(bytes);
+    expect(decoded.ok).toBe(false);
+    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
+  });
+
+  it.each(['yaml', 'text'] as const)(
+    'carries a lock alongside a %s kind through the workbook body',
+    (kind) => {
+      const data: RsfWorkbookData = {
+        delimiter: ',',
+        sheets: [
+          { id: 'a', name: 'A', rowCount: 2, columnCount: 2, cells: [] },
+          {
+            id: 'b',
+            name: 'Notes',
+            rowCount: 1,
+            columnCount: 1,
+            cells: [[0, 0, 'x']],
+            kind,
+            locked: true,
+          },
+        ],
+      };
+      const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+      expect(decoded.ok).toBe(true);
+      if (!decoded.ok) return;
+      expect(decoded.data.sheets[1].kind).toBe(kind);
+      expect(decoded.data.sheets[1].locked).toBe(true);
+    },
+  );
+
+  // Regression coverage for a real bug caught in review before it shipped:
+  // an earlier draft of the yaml/text worksheet kind gave it workbook body
+  // version 12, sharing that number with the already-released (v0.8.3)
+  // retained-snapshot cap override, which would have broken decoding of
+  // real workbooks saved by that release. Cap override keeps its original
+  // version (12); yaml/text sits above it (13). See the identical
+  // single-sheet regression tests in `tests/rsf-codec.test.ts` for the full
+  // explanation.
+  it.each(['yaml', 'text'] as const)(
+    'combines a %s worksheet with a retained-snapshot cap override at the shared top version (13)',
+    (kind) => {
+      const data: RsfWorkbookData = {
+        delimiter: ',',
+        sheets: [
+          { id: 'a', name: 'A', rowCount: 2, columnCount: 2, cells: [] },
+          { id: 'b', name: 'Notes', rowCount: 1, columnCount: 1, cells: [[0, 0, 'x: 1']], kind },
+        ],
+        historyMaxOverride: 7,
+      };
+      const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+      expect(decoded.ok).toBe(true);
+      if (!decoded.ok) return;
+      expect(decoded.data.sheets[1].kind).toBe(kind);
+      expect(decoded.data.historyMaxOverride).toBe(7);
+    },
+  );
+
+  it('decodes a workbook cap override written the way v0.8.3 actually wrote it: version 12 alone, no presence bit ever set', () => {
+    // Workbook-level equivalent of the single-sheet regression test in
+    // `tests/rsf-codec.test.ts` — see its comment for the full rationale.
+    // Uses `encodeRsf`/`decodeRsf` with STORE compression so the workbook
+    // body sits byte-for-byte in the container (via the two-or-more-sheets
+    // path inside `encodeRsfWorkbook`), and recomputes the container's
+    // CRC-32 after the hand-edit, exactly like the single-sheet version.
+    const HEADER_SIZE = 20; // see the single-sheet regression test's comment
+    const withOverride: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] },
+        { id: 'b', name: 'B', rowCount: 1, columnCount: 1, cells: [] },
+      ],
+      historyMaxOverride: 5,
+    };
+    const bytes = encodeRsfWorkbook(withOverride, RSF_COMPRESSION_STORE);
+    const body = bytes.subarray(HEADER_SIZE);
+    expect(body[0]).toBe(12); // sanity: cap override alone still selects its original version
+
+    // Same distinctive 9-byte needle as the single-sheet test: flags=5
+    // (enabled | hasOverride bit2), override=5 (u32 LE), snapshot count=0.
+    const needle = [5, 5, 0, 0, 0, 0, 0, 0, 0];
+    let flagsOffset = -1;
+    for (let i = 0; i + needle.length <= body.length; i++) {
+      if (needle.every((b, j) => body[i + j] === b)) {
+        flagsOffset = i;
+        break;
+      }
+    }
+    expect(flagsOffset).toBeGreaterThan(0);
+
+    const legacyBytes = bytes.slice();
+    legacyBytes[HEADER_SIZE + flagsOffset] &= ~4;
+    expect(legacyBytes[HEADER_SIZE + flagsOffset]).toBe(1);
+    const legacyBody = legacyBytes.subarray(HEADER_SIZE);
+    const crc = getRsfCodec().crc32(legacyBody);
+    new DataView(legacyBytes.buffer).setUint32(12, crc, true);
+
+    const decoded = decodeRsfWorkbook(legacyBytes);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.historyMaxOverride).toBe(5);
+  });
+
+  it('round-trips autoFormatSource through a single-worksheet workbook (the legacy single-sheet container fallback path)', () => {
+    // Regression coverage: `decodeRsfWorkbook`'s single-sheet fallback (for
+    // a workbook holding exactly one worksheet, saved as the older
+    // single-sheet container) has its own hand-written field-by-field copy
+    // from the decoded `RsfData` into the returned `RsfWorkbookData` —
+    // separate from `singleToWorkbookData`/`workbookToSingleSheetData` — and
+    // it initially missed `autoFormatSource` (caught by the equivalent
+    // `RsfDocument`-level test in `tests/rsf.test.ts`), silently dropping the
+    // setting on every load of a single-worksheet file.
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [{ id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] }],
+      autoFormatSource: true,
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.autoFormatSource).toBe(true);
+  });
+
+  it('round-trips autoFormatSource through the workbook body (version 13, the same tier as yaml/text)', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] },
+        { id: 'b', name: 'B', rowCount: 1, columnCount: 1, cells: [] },
+      ],
+      autoFormatSource: true,
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.autoFormatSource).toBe(true);
+  });
+
+  it('combines autoFormatSource with a retained-snapshot cap override at the shared top version (13)', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] },
+        { id: 'b', name: 'B', rowCount: 1, columnCount: 1, cells: [] },
+      ],
+      autoFormatSource: true,
+      historyMaxOverride: 9,
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.autoFormatSource).toBe(true);
+    expect(decoded.data.historyMaxOverride).toBe(9);
+  });
+
   it('loads a legacy single-sheet container as a one-worksheet workbook', () => {
     const bytes = encodeRsf({
       name: 'Legacy',
@@ -1014,7 +1249,7 @@ describe('Markdown worksheets', () => {
     const ui = stubUi({
       promptSheetName: vi.fn(async (_mode, current: string) => {
         suggested = current;
-        return current;
+        return { name: current, kind: 'grid' as const };
       }),
     });
     const { commands, doc } = setup(ui);
@@ -1030,7 +1265,7 @@ describe('Markdown worksheets', () => {
   });
 
   it('the command layer adds a Markdown worksheet via a prompted, undoable operation', async () => {
-    const promptSheetName = vi.fn(async () => 'Notes');
+    const promptSheetName = vi.fn(async () => ({ name: 'Notes', kind: 'grid' as const }));
     const ui = stubUi({ promptSheetName });
     const { state, commands, tab, doc } = setup(ui);
     expect(commands.isEnabled('worksheet.addMarkdown')).toBe(true);

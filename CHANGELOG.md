@@ -39,12 +39,14 @@ release-time half (retitling `Unreleased`) is still done by hand.
   toasts now appear near the top of the screen instead of the bottom.
   ([#534](https://github.com/0x0da160/refrain-sheet/issues/534))
 - **Sheet > File Version History…** now has a **Preview** action next to
-  each snapshot's **Restore** button, opening a read-only table of that
-  snapshot's content so it can be checked before committing to Restore
-  (which replaces the file's current content and cannot be undone). Bounded
-  to the first 200 rows and 50 columns of a sheet's used range for very
-  large sheets; nothing about Restore itself changed.
-  ([#533](https://github.com/0x0da160/refrain-sheet/issues/533))
+  each snapshot's **Restore** button, opening that snapshot's content
+  full-screen in the same real, virtualized grid and worksheet-tab strip the
+  live app itself uses — evaluated values, every worksheet, no row/column
+  cap — so it can be checked before committing to Restore (which replaces
+  the file's current content and cannot be undone). Read-only throughout;
+  nothing about Restore itself changed.
+  ([#533](https://github.com/0x0da160/refrain-sheet/issues/533),
+  [#557](https://github.com/0x0da160/refrain-sheet/issues/557))
 - A worksheet can now hold a JSON document as its first-class content,
   alongside the existing Markdown worksheet: **Sheet > Add JSON Sheet**
   creates one, edited in a docked source view with a syntax-highlighted
@@ -54,8 +56,7 @@ release-time half (retitling `Unreleased`) is still done by hand.
   parse error is reported instead of guessing at a fix. Saved in the `.rsf`
   container (body version 15 / workbook body version 11); existing files and
   workbooks that don't use it are unaffected. Standalone (non-RSF) JSON/YAML/
-  plain-text file editing and a dedicated YAML worksheet kind are tracked as
-  follow-up work.
+  plain-text file editing is tracked as follow-up work.
   ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
 - A spreadsheet's version history can now be restored from and configured
   further, via **Sheet > File Version History…**: every recorded snapshot is
@@ -141,8 +142,134 @@ release-time half (retitling `Unreleased`) is still done by hand.
   added above) covers the same editing/preview need without a separate
   tool. ([#505](https://github.com/0x0da160/refrain-sheet/issues/505))
 
+### Added
+
+- Copying a cell range now draws an animated "marching ants" border around
+  it, so the source of an in-progress copy stays visible while picking where
+  to paste. It clears on paste, on Escape, and when switching documents or
+  worksheets.
+- Every dockable side panel (Filter, Sort, Format, SQL Query, comments, the
+  Markdown/JSON preview) now has a maximize button next to its position
+  switcher, expanding it to the largest size it could be manually resized to
+  and back.
+- A worksheet can now hold a YAML document as its first-class content,
+  alongside the existing Markdown and JSON worksheets: **Sheet > Add YAML
+  Sheet** creates one, edited in a docked source view with a
+  syntax-highlighted preview and an explicit, button-triggered **Format**
+  action that pretty-prints valid YAML in place — never automatically and
+  never on save. Invalid YAML is left untouched and its parse error is
+  reported instead of guessing at a fix. A plain, unstructured text
+  worksheet is also available (**Sheet > Add Text Sheet**), with the same
+  docked source editor but no preview panel or Format action. Both are saved
+  in the `.rsf` container (body version 17 / workbook body version 13);
+  existing files and workbooks that don't use either are unaffected.
+  ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
+- The **Add Worksheet** dialog (Sheet > Worksheet > Add Worksheet, or the
+  worksheet strip's "+" button) now lets you pick the new worksheet's type
+  — grid, Markdown, JSON, YAML, or plain text — instead of only offering a
+  grid sheet; picking a type re-suggests the name field's default (e.g.
+  "Notes1" for Markdown) unless a name has already been typed. The
+  dedicated **Add Markdown/JSON/YAML/Text Sheet** menu and context-menu
+  entries are unchanged.
+  ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
+- The docked JSON and YAML worksheet editors now have an "Auto-format on
+  commit" checkbox next to the explicit **Format** button, off by default and
+  saved per file. When on, the same pretty-print the Format button performs
+  runs automatically each time an edit commits (not on every keystroke);
+  invalid input is still left untouched with its parse error reported,
+  exactly as the Format button already does. Saved in the `.rsf` container
+  by reusing the existing history-settings flags (body version 17 / workbook
+  body version 13, the same tier YAML/plain-text and the retained-snapshot
+  cap override already share); existing files and workbooks that don't turn
+  it on are unaffected.
+  ([#557](https://github.com/0x0da160/refrain-sheet/issues/557))
+
+### Changed
+
+- The active document/book tab's accent-colored highlight now shows on its
+  top edge instead of its bottom edge, matching the worksheet tab strip's own
+  active indicator, which sits on the edge each strip opens toward (the book
+  tab strip is above the grid; the worksheet tab strip is below it).
+- A top-docked side panel now sits below the document/book tab strip
+  (previously it sat above it, directly under the menu bar), and a
+  bottom-docked one now sits above the worksheet tab strip (previously below
+  it) — a docked panel no longer covers either tab strip.
+- The dockable side panel's position-switcher icons are now ordered left,
+  top, bottom, right (previously top, right, bottom, left).
+- The dockable side panel no longer casts a drop shadow along its border; a
+  shadow that always fell downward only ever looked right for a top-docked
+  panel.
+
+### Changed
+
+- Book and worksheet protection now use distinct, unambiguous wording
+  throughout: **File > Document > Protect Book** / **Unprotect Book** (was
+  "Protect Document") for the whole workbook, and **Sheet > Worksheet >
+  Lock Sheet** / **Unlock Sheet** for one worksheet — each menu item's label
+  now flips between the two states instead of relying on its checkmark
+  alone. The worksheet tab's right-click menu shows the same wording, a
+  matching lock/unlock icon, and — fixing a real gap — now actually shows its
+  checkmark for the lock state, which a type mismatch had silently dropped.
+- Attempting to edit a protected book or a locked worksheet (through any
+  menu, context menu, or the Markdown/JSON editors) now opens a warning
+  dialog explaining what is protected/locked and offering to unlock it,
+  instead of a passive toast notification that was easy to miss.
+- The docked JSON and YAML worksheet editors' preview panes now re-render at
+  most once per short idle pause (coalesced onto the next animation frame)
+  instead of on every single keystroke, and skip syntax highlighting in
+  favor of plain text above roughly 256 KB of source — both cut down on
+  typing lag in a large document. The Markdown, JSON, and YAML source
+  textareas also keep their scroll position in sync with their preview pane
+  proportionally in both directions, which none of the three did before.
+  ([#557](https://github.com/0x0da160/refrain-sheet/issues/557))
+
 ### Fixed
 
+- Typing into a cell on a phone (iOS Safari in particular) no longer causes a
+  visible layout shift on every keystroke, and the cell editor no longer
+  occasionally closes itself mid-edit. The predictive-text suggestion bar
+  above the on-screen keyboard resizes the visible viewport as its candidate
+  words change width — as often as once per keystroke — which the grid was
+  treating as a real layout change: it re-rendered and, if the visible row
+  window happened to shift by even one row, committed (closed) the open
+  editor. A pure height-only change while a cell is being edited is now
+  recognized and skipped instead. Five separate places that each reacted
+  independently to that same resize event (context menus, the formula
+  autocomplete popup, the menu bar, and dialog popovers, alongside an
+  existing fix in this area) now share one coalesced check instead of each
+  redoing their own measurement on every event. Cell text also grows to the
+  same minimum size the cell editor already used below 700px-wide viewports,
+  so opening a cell for editing no longer visibly resizes it — a deliberate,
+  slightly larger mobile type scale as the trade-off for that consistency.
+  ([#402](https://github.com/0x0da160/refrain-sheet/issues/402),
+  [#519](https://github.com/0x0da160/refrain-sheet/issues/519),
+  [#557](https://github.com/0x0da160/refrain-sheet/issues/557))
+- The formula bar (the cell-reference box and its input field) is now hidden
+  on a Markdown or JSON worksheet, which has no cell addressing of its own;
+  it previously showed "A1" and put the worksheet's entire document text
+  into the formula bar, and editing there would silently overwrite the whole
+  document.
+- Column auto-fit (Sheet > Rows & Columns > Auto-Fit Column Width, the
+  column-boundary double-click, and auto-fit on open) is now correctly
+  disabled on a Markdown or JSON worksheet, which has no columns to fit; it
+  previously stayed enabled and quietly ran against the hidden grid behind
+  those worksheets' docked editor.
+- The toast shown after setting a cell comment no longer incorrectly claims
+  it "is not saved with the file and not undoable" — comments have been
+  saved with the file and undoable since #371; only the toast text was
+  stale.
+- Menu-bar drop-downs (and the formula bar's cell-reference autocomplete
+  popup) now always draw above docked side panels (Filter, Sort, Format, SQL
+  Query, comments, the Markdown/JSON preview) instead of being clipped
+  underneath one docked at the edge the menu opens toward.
+- Dragging a worksheet tab or a document tab to reorder it no longer
+  occasionally leaves the pointer unresponsive until Escape is pressed; the
+  reorder is now applied right after the drag finishes instead of while it is
+  still in progress.
+- Dragging a dialog by its title bar no longer occasionally makes it snap to
+  the full width of the window on the first frame of the drag (a dialog
+  holding a wide table or a long line of text could momentarily lose its own
+  width limit before the drag repositioned it).
 - Adding a Markdown worksheet now suggests "Notes1" as the default name for
   the first one, instead of continuing the regular worksheet numbering
   (e.g. "Notes2" right after "Sheet1"); regular worksheets still suggest
@@ -295,6 +422,37 @@ release-time half (retitling `Unreleased`) is still done by hand.
   Existing 40px touch-target sizes for the worksheet tabs and their "add"
   buttons are unchanged.
   ([#468](https://github.com/0x0da160/refrain-sheet/issues/468))
+
+### Changed
+
+- The accent color throughout the app (buttons, links, the selected-cell
+  outline, range-fill and find highlights, and one of the four
+  formula-reference colors) is now a teal/green instead of the previous
+  blue-violet, and the neutral gray used for panels/borders/text was retuned
+  to sit alongside it. The green "success"/formula-evaluation color family
+  was also rotated further from the new accent so the two stay visually
+  distinct. Every text-on-background color pairing that composes in the app
+  (body text, buttons, links, warning banners, error/success text) was
+  re-verified — not just assumed unchanged — against WCAG AA (4.5:1) in the
+  light, dark, and hybrid themes; a new `scripts/check-contrast.mjs` does
+  this from the actual declared color values on every future change, wired
+  into CI.
+  ([#535](https://github.com/0x0da160/refrain-sheet/issues/535),
+  [#557](https://github.com/0x0da160/refrain-sheet/issues/557))
+
+### Fixed
+
+- The welcome screen's primary "Open CSV / RSF File…" button (and its two
+  secondary buttons) rendered with the wrong text color in every theme — a
+  plain `button { color: inherit }` base style was silently overriding their
+  intended accent-colored text, because it sat outside any CSS cascade
+  layer while the color coming from a Tailwind utility class sat inside one,
+  and an unlayered rule always wins over a layered one regardless of
+  selector specificity. This was the actual root cause of the low-contrast
+  home-screen button reported for the light theme; it affected every theme
+  identically. The button text now correctly uses the accent-contrast color
+  it was always meant to.
+  ([#535](https://github.com/0x0da160/refrain-sheet/issues/535))
 
 ## [0.7.29] - 2026-09-14
 

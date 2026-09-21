@@ -132,6 +132,32 @@ describe('MarkdownSheetView', () => {
     expect(preview.querySelector('th')?.textContent).toBe('A');
   });
 
+  it('keeps the source textarea and preview pane scroll positions in sync', () => {
+    const { view } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    const preview = view.panelElement.querySelector('.markdown-editor-preview') as HTMLElement;
+
+    Object.defineProperty(textarea, 'scrollHeight', { value: 1000, configurable: true });
+    Object.defineProperty(textarea, 'clientHeight', { value: 100, configurable: true });
+    Object.defineProperty(textarea, 'scrollTop', { value: 450, configurable: true });
+    Object.defineProperty(preview, 'scrollHeight', { value: 500, configurable: true });
+    Object.defineProperty(preview, 'clientHeight', { value: 50, configurable: true });
+    let previewScrollTop = 0;
+    Object.defineProperty(preview, 'scrollTop', {
+      get: () => previewScrollTop,
+      set: (v: number) => {
+        previewScrollTop = v;
+      },
+      configurable: true,
+    });
+
+    textarea.dispatchEvent(new Event('scroll'));
+
+    // textarea is at (450 - 0) / (1000 - 100) = 50% scrolled; preview should
+    // land at 50% of its own (500 - 50) scrollable range.
+    expect(previewScrollTop).toBe(225);
+  });
+
   it('hides the preview panel when the active worksheet is no longer a Markdown sheet', () => {
     const { view, state, tab, workbook } = setup();
     expect(view.panelElement.hidden).toBe(false);

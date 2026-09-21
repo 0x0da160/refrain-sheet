@@ -139,6 +139,38 @@ describe('ContextMenu', () => {
     expect(parent.querySelector('.submenu-arrow')).not.toBeNull();
   });
 
+  it('renders a checked item as menuitemcheckbox with a checkmark, and an unchecked one with aria-checked=false', () => {
+    ContextMenu.open(
+      [
+        { label: 'Lock Sheet', checked: true, onSelect: vi.fn() },
+        { label: 'Wrap Text', checked: false, onSelect: vi.fn() },
+      ],
+      10,
+      10,
+    );
+    const [locked, wrap] = document.querySelectorAll<HTMLButtonElement>('.context-menu .menu-item');
+    expect(locked.getAttribute('role')).toBe('menuitemcheckbox');
+    expect(locked.getAttribute('aria-checked')).toBe('true');
+    expect(locked.querySelector('.check-icon')).not.toBeNull();
+    expect(wrap.getAttribute('role')).toBe('menuitemcheckbox');
+    expect(wrap.getAttribute('aria-checked')).toBe('false');
+    expect(wrap.querySelector('.check-icon')).toBeNull();
+  });
+
+  it('renders a plain (non-checkable) item as menuitem with no aria-checked', () => {
+    ContextMenu.open([{ label: 'Copy', onSelect: vi.fn() }], 10, 10);
+    const item = document.querySelector<HTMLButtonElement>('.context-menu .menu-item')!;
+    expect(item.getAttribute('role')).toBe('menuitem');
+    expect(item.hasAttribute('aria-checked')).toBe(false);
+  });
+
+  it("renders a plain item's decorative icon in the same reserved column an unchecked checkmark would use", () => {
+    ContextMenu.open([{ label: 'Delete', icon: Grid3x3, onSelect: vi.fn() }], 10, 10);
+    const item = document.querySelector<HTMLButtonElement>('.context-menu .menu-item')!;
+    expect(item.querySelector('.item-icon')).not.toBeNull();
+    expect(item.querySelector('.check-icon')).toBeNull();
+  });
+
   it('hovering a leaf item inside an open submenu does not close that submenu', () => {
     ContextMenu.open(
       [

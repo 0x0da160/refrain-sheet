@@ -57,6 +57,14 @@ function freeze(container: HTMLElement): DOMRect {
   container.style.inset = 'auto';
   container.style.left = `${rect.left}px`;
   container.style.top = `${rect.top}px`;
+  // Lock the measured box *before* clearing the size caps below: a native
+  // <dialog> (and the filter popover) have no explicit width, only
+  // `max-width`/`max-height`, so removing those caps without first pinning a
+  // width/height lets the box re-shrink-to-fit to its max-content size (e.g.
+  // a wide table or long paragraph), which can blow it out to the viewport
+  // edge on the very first drag frame (#541).
+  container.style.width = `${rect.width}px`;
+  container.style.height = `${rect.height}px`;
   container.style.maxWidth = 'none';
   container.style.maxHeight = 'none';
   container.dataset.dragResized = 'true';

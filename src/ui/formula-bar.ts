@@ -190,6 +190,12 @@ export class FormulaBar implements FormulaRefTarget {
   }
 
   refresh(selectionChanged: boolean): void {
+    // Hidden on a Markdown/JSON worksheet (see `refreshSourceSheetViews`,
+    // `src/main.ts`) — never pull that worksheet's whole-document text into
+    // the textarea just because some other event triggered a refresh.
+    if (this.element.hidden) {
+      return;
+    }
     this.textarea.setAttribute('aria-label', t('formulaBar.label'));
     // Tooltip + accessible description follow the editing-help preference.
     if (getEditHints()) {

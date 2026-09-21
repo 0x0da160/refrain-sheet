@@ -7,7 +7,22 @@
    also touch every hand-written rule below, including the grid's. Tailwind's
    classes read the same semantic tokens defined below via the @theme bridge,
    so light/dark theming and the offline, single-CSS-file build are
-   unchanged. */
+   unchanged.
+
+   The explicit layer order below matters: without it, a plain (unlayered)
+   hand-written rule always beats a layered one regardless of selector
+   specificity, per the CSS Cascade Layers spec — so the `button { color:
+   inherit; }` reset a few lines down (a minimal hand-rolled stand-in for the
+   Preflight this file deliberately skips) would otherwise silently defeat
+   every Tailwind `text-*` utility applied to a `<button>`, no matter how
+   specific. Declaring it in `@layer base` places it *below* `utilities` in
+   the cascade, exactly like Tailwind's own Preflight is designed to sit —
+   base element resets that utilities are meant to override — while it still
+   fully wins whenever no utility overrides it (#557; this was quietly
+   breaking the welcome screen's own primary/secondary buttons' text color
+   the whole time, on any accent hue, not just this recolor). */
+@layer theme, base, utilities;
+
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
@@ -59,8 +74,8 @@
      says otherwise. Distinct semantic hues (danger, warning, success, the
      formula/reference colors) keep their own literal hue, since unifying
      those would change what they mean, not just how they're written. */
-  --hue-neutral: 286;
-  --hue-accent: 260;
+  --hue-neutral: 215;
+  --hue-accent: 170;
 
   /* ---------- Semantic color tokens (light theme = default) ----------
      Every surface reads its colors from these tokens; the dark theme below
@@ -81,26 +96,26 @@
   --cell-bg: oklch(100% 0 var(--hue-neutral));
   --grid-line: oklch(91.7% 0.007 var(--hue-neutral));
   --row-alt: oklch(98% 0.003 var(--hue-neutral));
-  --selected-row: oklch(95.6% 0.015 var(--hue-accent));
+  --selected-row: oklch(95.6% 0.013 var(--hue-accent));
   --sticky-bg: oklch(97.3% 0.031 92.9);
   --info-soft: oklch(98.3% 0.025 106.8);
-  --accent: oklch(46.5% 0.14 var(--hue-accent));
-  --accent-soft: oklch(91% 0.029 var(--hue-accent));
+  --accent: oklch(46.5% 0.078 var(--hue-accent));
+  --accent-soft: oklch(91% 0.028 var(--hue-accent));
   --accent-contrast: oklch(100% 0 var(--hue-accent));
-  --accent-contrast-dim: oklch(94.5% 0.026 var(--hue-accent));
-  --range-fill: oklch(54.6% 0.215 var(--hue-accent) / 0.14);
+  --accent-contrast-dim: oklch(94.5% 0.016 var(--hue-accent));
+  --range-fill: oklch(54.6% 0.092 var(--hue-accent) / 0.14);
   --edited: oklch(96.2% 0.062 95.4);
   --edited-border: oklch(78.7% 0.161 91);
   --danger: oklch(50.1% 0.178 28.7);
   --warning: oklch(66.6% 0.157 58.3);
   --warning-soft: oklch(97.4% 0.03 88.4);
   --warning-border: oklch(82.7% 0.109 91.5);
-  --success: oklch(62.7% 0.17 149.2);
-  --formula-text: oklch(39.3% 0.09 152.5);
-  --formula-marker: oklch(55.3% 0.107 158);
+  --success: oklch(55% 0.145 135);
+  --formula-text: oklch(39.3% 0.11 138);
+  --formula-marker: oklch(55.3% 0.161 144);
   --void-a: oklch(98.5% 0 var(--hue-neutral));
   --void-b: oklch(95.9% 0.004 var(--hue-neutral));
-  --find-highlight: oklch(46.5% 0.14 var(--hue-accent) / 0.18);
+  --find-highlight: oklch(46.5% 0.078 var(--hue-accent) / 0.18);
   --scrim: oklch(19.5% 0.016 var(--hue-neutral) / 0.35);
   --scrim-light: oklch(100% 0 var(--hue-neutral) / 0.55);
   --tooltip-bg: oklch(29.2% 0.014 var(--hue-neutral));
@@ -113,8 +128,8 @@
   --shadow-strong: oklch(0% 0 0 / 0.3);
   /* Four visually distinct formula-reference colors (always paired with a
      distinct border pattern: solid / dashed / dotted / double). */
-  --fref-1: oklch(54.6% 0.215 var(--hue-accent));
-  --fref-2: oklch(62.7% 0.17 149.2);
+  --fref-1: oklch(54.6% 0.092 var(--hue-accent));
+  --fref-2: oklch(55% 0.145 135);
   --fref-3: oklch(66.6% 0.157 58.3);
   --fref-4: oklch(55.8% 0.252 302.3);
   color-scheme: light;
@@ -139,26 +154,26 @@
   --cell-bg: oklch(22.9% 0.012 var(--hue-neutral));
   --grid-line: oklch(32.4% 0.014 var(--hue-neutral));
   --row-alt: oklch(24.7% 0.013 var(--hue-neutral));
-  --selected-row: oklch(29.4% 0.048 var(--hue-accent));
+  --selected-row: oklch(29.4% 0.012 var(--hue-accent));
   --sticky-bg: oklch(28.6% 0.028 92.8);
   --info-soft: oklch(25.4% 0.035 108.7);
-  --accent: oklch(65% 0.134 var(--hue-accent));
-  --accent-soft: oklch(33.1% 0.049 var(--hue-accent));
-  --accent-contrast: oklch(19.1% 0.02 var(--hue-accent));
-  --accent-contrast-dim: oklch(19.1% 0.02 var(--hue-accent));
-  --range-fill: oklch(65% 0.134 var(--hue-accent) / 0.22);
+  --accent: oklch(70% 0.118 var(--hue-accent));
+  --accent-soft: oklch(33.1% 0.013 var(--hue-accent));
+  --accent-contrast: oklch(19.1% 0.004 var(--hue-accent));
+  --accent-contrast-dim: oklch(19.1% 0.004 var(--hue-accent));
+  --range-fill: oklch(70% 0.118 var(--hue-accent) / 0.22);
   --edited: oklch(35% 0.05 88.6);
   --edited-border: oklch(75% 0.132 89.4);
   --danger: oklch(70.2% 0.159 25.6);
   --warning: oklch(78.3% 0.146 73.4);
   --warning-soft: oklch(30% 0.044 84.8);
   --warning-border: oklch(46% 0.076 87.2);
-  --success: oklch(80% 0.182 151.7);
-  --formula-text: oklch(83.6% 0.114 157.4);
-  --formula-marker: oklch(80% 0.182 151.7);
+  --success: oklch(80% 0.21 135);
+  --formula-text: oklch(83.6% 0.233 138);
+  --formula-marker: oklch(80% 0.21 135);
   --void-a: oklch(25.9% 0.013 var(--hue-neutral));
   --void-b: oklch(22% 0.012 var(--hue-neutral));
-  --find-highlight: oklch(70.5% 0.112 var(--hue-accent) / 0.3);
+  --find-highlight: oklch(70.5% 0.119 var(--hue-accent) / 0.3);
   --scrim: oklch(0% 0 0 / 0.55);
   --scrim-light: oklch(0% 0 0 / 0.45);
   --tooltip-bg: oklch(35.3% 0.019 var(--hue-neutral));
@@ -167,8 +182,8 @@
   --toast-error-bg: oklch(39.8% 0.123 28.4);
   --shadow: oklch(0% 0 0 / 0.5);
   --shadow-strong: oklch(0% 0 0 / 0.72);
-  --fref-1: oklch(72.9% 0.141 var(--hue-accent));
-  --fref-2: oklch(80% 0.182 151.7);
+  --fref-1: oklch(72.9% 0.123 var(--hue-accent));
+  --fref-2: oklch(80% 0.21 135);
   --fref-3: oklch(83.7% 0.164 84.4);
   --fref-4: oklch(72.2% 0.177 305.5);
   color-scheme: dark;
@@ -198,26 +213,26 @@
   --cell-bg: oklch(100% 0 var(--hue-neutral));
   --grid-line: oklch(91.7% 0.007 var(--hue-neutral));
   --row-alt: oklch(98% 0.003 var(--hue-neutral));
-  --selected-row: oklch(95.6% 0.015 var(--hue-accent));
+  --selected-row: oklch(95.6% 0.013 var(--hue-accent));
   --sticky-bg: oklch(97.3% 0.031 92.9);
   --info-soft: oklch(98.3% 0.025 106.8);
-  --accent: oklch(46.5% 0.14 var(--hue-accent));
-  --accent-soft: oklch(91% 0.029 var(--hue-accent));
+  --accent: oklch(46.5% 0.078 var(--hue-accent));
+  --accent-soft: oklch(91% 0.028 var(--hue-accent));
   --accent-contrast: oklch(100% 0 var(--hue-accent));
-  --accent-contrast-dim: oklch(94.5% 0.026 var(--hue-accent));
-  --range-fill: oklch(54.6% 0.215 var(--hue-accent) / 0.14);
+  --accent-contrast-dim: oklch(94.5% 0.016 var(--hue-accent));
+  --range-fill: oklch(54.6% 0.092 var(--hue-accent) / 0.14);
   --edited: oklch(96.2% 0.062 95.4);
   --edited-border: oklch(78.7% 0.161 91);
   --danger: oklch(50.1% 0.178 28.7);
   --warning: oklch(66.6% 0.157 58.3);
   --warning-soft: oklch(97.4% 0.03 88.4);
   --warning-border: oklch(82.7% 0.109 91.5);
-  --success: oklch(62.7% 0.17 149.2);
-  --formula-text: oklch(39.3% 0.09 152.5);
-  --formula-marker: oklch(55.3% 0.107 158);
+  --success: oklch(55% 0.145 135);
+  --formula-text: oklch(39.3% 0.11 138);
+  --formula-marker: oklch(55.3% 0.161 144);
   --void-a: oklch(98.5% 0 var(--hue-neutral));
   --void-b: oklch(95.9% 0.004 var(--hue-neutral));
-  --find-highlight: oklch(46.5% 0.14 var(--hue-accent) / 0.18);
+  --find-highlight: oklch(46.5% 0.078 var(--hue-accent) / 0.18);
   --scrim: oklch(19.5% 0.016 var(--hue-neutral) / 0.35);
   --scrim-light: oklch(100% 0 var(--hue-neutral) / 0.55);
   --tooltip-bg: oklch(29.2% 0.014 var(--hue-neutral));
@@ -226,8 +241,8 @@
   --toast-error-bg: oklch(42.6% 0.15 28.5);
   --shadow: oklch(0% 0 0 / 0.15);
   --shadow-strong: oklch(0% 0 0 / 0.3);
-  --fref-1: oklch(54.6% 0.215 var(--hue-accent));
-  --fref-2: oklch(62.7% 0.17 149.2);
+  --fref-1: oklch(54.6% 0.092 var(--hue-accent));
+  --fref-2: oklch(55% 0.145 135);
   --fref-3: oklch(66.6% 0.157 58.3);
   --fref-4: oklch(55.8% 0.252 302.3);
   color-scheme: light;
@@ -273,10 +288,8 @@ body {
 }
 
 /* Everything except the menu bar and status bar (both direct `#app`
-   children, always at the true viewport top/bottom edges). A docked side
-   panel reserves top/bottom space by padding this element instead of `#app`
-   itself, so the menu bar and status bar never move or get covered — see
-   `reserveAppEdge`, `src/ui/dialogs/shared.ts` (#399). */
+   children, always at the true viewport top/bottom edges): the book tab
+   strip, `.app-content`, and the worksheet tab strip, stacked vertically. */
 .app-body {
   display: flex;
   flex-direction: column;
@@ -284,9 +297,23 @@ body {
   min-height: 0;
 }
 
-button {
-  font: inherit;
-  color: inherit;
+/* Everything between the two tab strips (find bar, formula bar, welcome
+   screen, the sheet itself). A top/bottom-docked side panel reserves space
+   by padding this element instead of `.app-body`, so it insets below the
+   book tab strip / above the worksheet tab strip instead of covering either
+   one — see `reserveAppEdge`, `src/ui/dialogs/shared.ts` (#399/#541). */
+.app-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+@layer base {
+  button {
+    font: inherit;
+    color: inherit;
+  }
 }
 
 /* ---------- Menu bar ---------- */
@@ -373,11 +400,17 @@ button {
   border-radius: 4px;
   box-shadow: 0 4px 14px var(--shadow);
   padding: 4px 0;
-  z-index: 50;
+  /* Above every docked/floating surface it can open over (context menus and
+     the dockable side panels are both 100, the filter popover is 100) so a
+     menu-bar drop-down is never clipped by a panel docked at the edge it
+     opens toward. Still below the transient full-screen overlays
+     (.drop-overlay/.loading-overlay/.toasts) and below a native <dialog>,
+     which lives in the CSS top layer regardless of z-index. */
+  z-index: 150;
 }
 
 .menu-list.submenu {
-  z-index: 60;
+  z-index: 160;
 }
 
 /* Submenu affordance. The glyph is decorative (aria-hidden); the parent item
@@ -489,7 +522,10 @@ button {
 .tab[aria-selected='true'] {
   background: var(--surface);
   font-weight: 600;
-  border-bottom: 2px solid var(--accent);
+  /* The book tab strip sits above the grid (bottom-open, top-rounded — see
+     `.tab` above), so its active indicator belongs on the top edge, the
+     mirror image of `.sheet-tab.active`'s bottom edge below the grid. */
+  border-top: 2px solid var(--accent);
 }
 
 .tab .tab-label {
@@ -627,6 +663,45 @@ button {
   box-sizing: border-box;
 }
 
+/* The worksheet-kind picker in the Add-worksheet dialog (#557) — a radio
+   group of icon+label options, one per `WorksheetKind`. Overrides
+   `.form-row`'s `min-width: 130px` on its first child, which is meant for a
+   leading field label, not one of several equal options here. */
+.sheet-kind-picker {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sheet-kind-picker label:first-child {
+  min-width: 0;
+}
+
+.sheet-kind-picker-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.sheet-kind-picker-option.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.sheet-kind-picker-option input[type='radio'] {
+  /* The radio input itself is visually hidden — the pill's border/background
+     already shows selection state, matching the checked look — but it stays
+     in the DOM and keyboard/screen-reader operable. */
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
 .dialog-error {
   color: var(--danger, #c0392b);
   min-height: 1.2em;
@@ -723,6 +798,14 @@ button {
   border-bottom: 1px solid var(--border);
 }
 
+/* `.formula-bar`'s own `display: flex` above would otherwise win over the
+   UA stylesheet's `[hidden] { display: none }` (equal specificity, but an
+   author rule always beats a user-agent one) — set on a Markdown/JSON
+   worksheet, see `refreshSourceSheetViews`, `src/main.ts`. */
+.formula-bar[hidden] {
+  display: none;
+}
+
 .formula-bar .cell-ref {
   min-width: 90px;
   display: flex;
@@ -782,7 +865,9 @@ button {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 60;
+  /* Above the dockable side panels (100) so the cell editor's completion
+     list is never clipped by a panel docked at the edge it opens toward. */
+  z-index: 120;
 }
 
 .formula-autocomplete[hidden] {
@@ -1221,6 +1306,53 @@ button {
   cursor: move;
   z-index: 7;
   touch-action: none;
+}
+
+/* An animated "marching ants" border over a copied range (see
+   `Grid.setCopySource`/`placeCopySourceOutline`), so the copy source stays
+   visible while picking where to paste. Four independently animated
+   dashed edges (rather than a single `outline`, which cannot animate its
+   own dash pattern) built from repeating linear gradients, one pair per
+   axis so each edge's dashes scroll along that edge. */
+.copy-source-outline {
+  position: absolute;
+  /* So the forced-colors fallback's `border` below doesn't grow the box
+     past the exact pixel rect `placeCopySourceOutline` measured. */
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 8; /* above .fill-handle/.move-handle (7) */
+  background:
+    linear-gradient(90deg, var(--accent) 50%, transparent 0) repeat-x,
+    linear-gradient(90deg, var(--accent) 50%, transparent 0) repeat-x,
+    linear-gradient(180deg, var(--accent) 50%, transparent 0) repeat-y,
+    linear-gradient(180deg, var(--accent) 50%, transparent 0) repeat-y;
+  background-size:
+    8px 2px,
+    8px 2px,
+    2px 8px,
+    2px 8px;
+  background-position:
+    0 0,
+    0 100%,
+    0 0,
+    100% 0;
+  animation: copy-source-march 0.5s linear infinite;
+}
+
+@keyframes copy-source-march {
+  to {
+    background-position:
+      8px 0,
+      -8px 100%,
+      0 -8px,
+      100% 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy-source-outline {
+    animation: none;
+  }
 }
 
 /* While dragging, the whole grid shows the move cursor; an invalid drop shows
@@ -2047,7 +2179,11 @@ dialog::backdrop {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  box-shadow: 0 10px 32px var(--shadow-strong);
+  /* No box-shadow: unlike a floating dialog, a docked panel sits flush
+     against a viewport edge, so a shadow (which was always cast downward,
+     regardless of dock side) only ever looked right for a top dock and wrong
+     for the other three. The 1px border is enough to separate it from the
+     sheet. */
   background: var(--surface);
   color: var(--text);
   font-size: 13px;
@@ -2103,6 +2239,38 @@ dialog::backdrop {
 }
 
 .side-panel-position-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Same look as a position-switcher button, sitting in the top-right action
+   cluster of the panel header alongside it (and the close button, where one
+   exists). */
+.side-panel-maximize-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.side-panel-maximize-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.side-panel-maximize-btn[aria-pressed='true'] {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.side-panel-maximize-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -2236,15 +2404,37 @@ table.diag-table th {
   gap: 6px;
 }
 
-.version-history-preview-table-wrap {
-  overflow: auto;
-  max-height: 320px;
-  margin-bottom: 10px;
+/* ---------- Version-history preview (full-screen, read-only book) ---------- */
+
+/* Overrides the generic `dialog` sizing rule above (max-width: min(680px,
+   92vw); max-height: 86vh) with a true full-viewport size — this dialog
+   hosts a real `Grid`/`SheetBar`, not a bounded body of prose or a small
+   form, so it needs the whole screen rather than an auto-sized box. */
+.version-preview-dialog {
+  width: 100vw;
+  height: 100dvh;
+  max-width: 100vw;
+  max-height: 100dvh;
+  margin: 0;
+  border: none;
+  border-radius: 0;
 }
 
-table.version-history-preview-table th,
-table.version-history-preview-table td {
-  white-space: nowrap;
+.version-preview-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  /* Unlike a draggable dialog heading, this one fills the whole top edge of
+     a full-screen view — dragging it would have nothing to do. */
+  cursor: default;
+}
+
+.version-preview-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .shortcut-table {
@@ -2651,8 +2841,22 @@ table.diff-table td {
 
 .markdown-editor-toolbar {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin: 0 0 10px;
+}
+
+/* The JSON/YAML editors' auto-format-on-commit checkbox (#557):  pushed to
+   the toolbar's trailing edge, away from the preview-toggle/Format buttons,
+   since it is a persistent per-file setting rather than a one-off action. */
+.markdown-editor-toolbar-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 0.9em;
+  cursor: pointer;
 }
 
 .markdown-editor-panes {
@@ -2895,6 +3099,66 @@ table.diff-table td {
   min-height: 0;
 }
 
+/* ---------- YAML worksheet (docked in the spreadsheet area) ----------
+   Reuses every shared source/preview-pane class above (#557), identical to
+   the JSON worksheet — the preview panel itself reuses `.json-preview-panel`
+   too, since it is chrome-identical. See `Worksheet.kind`, `ui/yaml-sheet.ts`. */
+
+.yaml-sheet-view {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px;
+  background: var(--cell-bg);
+}
+
+.yaml-sheet-view[hidden] {
+  display: none;
+}
+
+.yaml-sheet-view .markdown-editor-toolbar {
+  flex: none;
+}
+
+.yaml-sheet-view .markdown-editor-panes {
+  flex: 1;
+  min-height: 0;
+}
+
+.yaml-sheet-view .markdown-editor-source {
+  min-height: 0;
+}
+
+/* ---------- Plain-text worksheet (docked in the spreadsheet area) ----------
+   Reuses the shared source-pane classes above (#557), but has no preview
+   panel or toolbar at all — unstructured text has nothing to render beyond
+   its own source. See `Worksheet.kind`, `ui/text-sheet.ts`. */
+
+.text-sheet-view {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px;
+  background: var(--cell-bg);
+}
+
+.text-sheet-view[hidden] {
+  display: none;
+}
+
+.text-sheet-view .markdown-editor-panes {
+  flex: 1;
+  min-height: 0;
+}
+
+.text-sheet-view .markdown-editor-source {
+  min-height: 0;
+}
+
 /* ---------- Drop overlay ---------- */
 
 .drop-overlay {
@@ -3073,6 +3337,15 @@ table.diff-table td {
   :focus-visible {
     outline-color: Highlight;
   }
+
+  /* The animated gradient-based copy-source outline is unreliable under a
+     forced system palette; fall back to a plain, non-animated dashed
+     border in the system's highlight color instead. */
+  .copy-source-outline {
+    background: none;
+    animation: none;
+    border: 2px dashed Highlight;
+  }
 }
 
 /* ---------- Mobile layout (phones and small tablets) ----------
@@ -3151,22 +3424,20 @@ table.diff-table td {
   /* On a narrow viewport the formula bar (cell reference + edit field) moves
      from above the grid to below it, directly above the worksheet-tab strip
      (#495) — thumb reach while typing matters more here than the desktop
-     convention of a formula bar above the grid. `.tab-bar`/`.find-bar`/
-     `.welcome-screen`/`.main-row` keep their default `order: 0`, so they
-     stay in DOM order ahead of these two explicitly reordered rows; only
-     `.formula-bar` and `.sheet-bar` need values, placing the bar between
-     the grid and the sheet tabs. The border moves from the bar's bottom
-     edge to its top edge so it still separates the bar from the grid above
-     it — `.sheet-bar`'s own `border-top` already separates it from the
-     sheet-tab strip below. */
+     convention of a formula bar above the grid. `.formula-bar` lives inside
+     `.app-content` alongside `.find-bar`/`.welcome-screen`/`.main-row`
+     (which keep their default `order: 0`), so bumping only its own order
+     moves it after the grid *within that container* — and because
+     `.app-content` is itself immediately followed by `.sheet-bar` in
+     `.app-body`'s own DOM order (#399/#541 — see `src/main.ts`), the two
+     rows stay adjacent without `.sheet-bar` needing an order of its own. The
+     border moves from the bar's bottom edge to its top edge so it still
+     separates the bar from the grid above it — `.sheet-bar`'s own
+     `border-top` already separates it from the sheet-tab strip below. */
   .formula-bar {
     order: 1;
     border-bottom: none;
     border-top: 1px solid var(--border);
-  }
-
-  .sheet-bar {
-    order: 2;
   }
 
   .menu-bar {
@@ -3386,15 +3657,18 @@ table.diff-table td {
      untouched. The docked Markdown worksheet's source textarea
      (`.markdown-sheet-view`, #486) isn't inside a dialog, so it needs its own
      entry — the standalone Markdown editor's textarea is already covered via
-     `.dialog-body textarea` above. The docked JSON worksheet's source
-     textarea (`.json-sheet-view`, #529) shares the same need. */
+     `.dialog-body textarea` above. The docked JSON, YAML, and plain-text
+     worksheets' source textareas (`.json-sheet-view`/`.yaml-sheet-view`/
+     `.text-sheet-view`, #529/#557) share the same need. */
   .dialog-body input[type='text'],
   .dialog-body input[type='number'],
   .dialog-body input[type='search'],
   .dialog-body select,
   .dialog-body textarea,
   .markdown-sheet-view .markdown-editor-source,
-  .json-sheet-view .markdown-editor-source {
+  .json-sheet-view .markdown-editor-source,
+  .yaml-sheet-view .markdown-editor-source,
+  .text-sheet-view .markdown-editor-source {
     font-size: 16px;
   }
 
@@ -3414,6 +3688,18 @@ table.diff-table td {
   }
 
   .vgrid-canvas .grid-sink.cell-editor {
+    font-size: max(16px, calc(12px * var(--sheet-zoom, 1)));
+  }
+
+  /* Resting cells get the same 16px floor as the promoted editor above
+     (#402/#519): `placeSinkOverCell` (src/ui/grid.ts) sizes the editor's box
+     from the *resting cell's own* rendered rect, so if only the editor were
+     floored, that box would be measured against the smaller unfloored cell
+     font and then rendered with the larger floored editor font — a visible
+     size jump the instant a cell is opened for editing. Flooring `.vcell`
+     too keeps cell and editor consistently sized, at the cost of a larger
+     mobile type scale for the grid generally under this width. */
+  .vcell {
     font-size: max(16px, calc(12px * var(--sheet-zoom, 1)));
   }
 

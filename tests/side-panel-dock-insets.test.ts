@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 /**
- * The docked side panel's top/bottom inset and space reservation (#399): a
- * top-docked panel sits below the menu bar and a bottom-docked one above the
- * status bar — both always-visible chrome — instead of covering them, and
- * the split-view space it reserves is scoped so the menu bar/status bar
- * never move. Left/right docking is unaffected (unchanged since #396).
+ * The docked side panel's top/bottom inset and space reservation (#399,
+ * #541): a top-docked panel sits below the menu bar *and* the book tab
+ * strip, and a bottom-docked one sits above the status bar *and* the
+ * worksheet tab strip — all always-visible chrome — instead of covering any
+ * of it, and the split-view space it reserves is scoped to `#app-content` so
+ * neither tab strip (nor the menu bar/status bar) ever moves. Left/right
+ * docking is unaffected (unchanged since #396).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FilterDialogInput } from '../src/app/commands';
@@ -43,12 +45,16 @@ function stubHeight(el: HTMLElement, height: number): void {
     }) as DOMRect;
 }
 
-/** Mounts the same `#app > (menu bar, #app-body, status bar)` shape main.ts builds. */
+/** Mounts the same `#app > (menu bar, #app-body > (tab bar, #app-content,
+ * sheet bar), status bar)` shape main.ts builds. */
 function mountAppShell(): {
   app: HTMLElement;
   appBody: HTMLElement;
+  appContent: HTMLElement;
   menuBar: HTMLElement;
   statusBar: HTMLElement;
+  tabBar: HTMLElement;
+  sheetBar: HTMLElement;
 } {
   const app = document.createElement('div');
   app.id = 'app';
@@ -58,12 +64,22 @@ function mountAppShell(): {
   const appBody = document.createElement('div');
   appBody.id = 'app-body';
   appBody.className = 'app-body';
+  const tabBar = document.createElement('div');
+  tabBar.className = 'tab-bar';
+  stubHeight(tabBar, 32);
+  const appContent = document.createElement('div');
+  appContent.id = 'app-content';
+  appContent.className = 'app-content';
+  const sheetBar = document.createElement('div');
+  sheetBar.className = 'sheet-bar';
+  stubHeight(sheetBar, 28);
   const statusBar = document.createElement('div');
   statusBar.className = 'status-bar';
   stubHeight(statusBar, 24);
+  appBody.append(tabBar, appContent, sheetBar);
   app.append(menuBar, appBody, statusBar);
   document.body.append(app);
-  return { app, appBody, menuBar, statusBar };
+  return { app, appBody, appContent, menuBar, statusBar, tabBar, sheetBar };
 }
 
 function dockAt(panel: HTMLElement, position: 'top' | 'right' | 'bottom' | 'left'): void {
@@ -85,40 +101,54 @@ describe('side panel dock insets and app-edge reservation', () => {
     document.body.innerHTML = '';
   });
 
-  it('insets a top-docked panel below the menu bar, reserving space on #app-body only', async () => {
-    const { app, appBody } = mountAppShell();
+  it('insets a top-docked panel below the menu bar and the book tab strip, reserving space on #app-content only', async () => {
+    const { app, appBody, appContent } = mountAppShell();
     const promise = new Dialogs().chooseFilter(filterInput());
     const panel = document.querySelector<HTMLElement>('.side-panel')!;
     dockAt(panel, 'top');
 
-    expect(panel.style.top).toBe('40px');
+    expect(panel.style.top).toBe('72px'); // 40px menu bar + 32px tab bar
     expect(panel.style.left).toBe('0px');
     expect(panel.style.right).toBe('0px');
-    expect(appBody.style.paddingTop).not.toBe('');
+    expect(appContent.style.paddingTop).not.toBe('');
+    expect(appBody.style.paddingTop).toBe('');
     expect(app.style.paddingTop).toBe('');
 
     panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await promise;
     // Closing releases the reservation.
-    expect(appBody.style.paddingTop).toBe('');
+    expect(appContent.style.paddingTop).toBe('');
   });
 
-  it('insets a bottom-docked panel above the status bar, reserving space on #app-body only', async () => {
-    const { app, appBody } = mountAppShell();
+  it('insets a bottom-docked panel above the status bar and the worksheet tab strip, reserving space on #app-content only', async () => {
+    const { app, appContent } = mountAppShell();
     const promise = new Dialogs().chooseFilter(filterInput());
     const panel = document.querySelector<HTMLElement>('.side-panel')!;
     dockAt(panel, 'bottom');
 
-    expect(panel.style.bottom).toBe('24px');
-    expect(appBody.style.paddingBottom).not.toBe('');
+    expect(panel.style.bottom).toBe('52px'); // 24px status bar + 28px sheet bar
+    expect(appContent.style.paddingBottom).not.toBe('');
     expect(app.style.paddingBottom).toBe('');
 
     panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await promise;
   });
 
+  it('a hidden worksheet tab strip (e.g. a plain CSV document) contributes no bottom inset', async () => {
+    const { sheetBar } = mountAppShell();
+    sheetBar.hidden = true;
+    const promise = new Dialogs().chooseFilter(filterInput());
+    const panel = document.querySelector<HTMLElement>('.side-panel')!;
+    dockAt(panel, 'bottom');
+
+    expect(panel.style.bottom).toBe('24px'); // status bar only
+
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await promise;
+  });
+
   it('left/right docking is unaffected: full height, reservation stays on #app', async () => {
-    const { app, appBody } = mountAppShell();
+    const { app, appBody, appContent } = mountAppShell();
     const promise = new Dialogs().chooseFilter(filterInput());
     const panel = document.querySelector<HTMLElement>('.side-panel')!;
     dockAt(panel, 'right');
@@ -127,7 +157,8 @@ describe('side panel dock insets and app-edge reservation', () => {
     expect(panel.style.bottom).toBe('0px');
     expect(app.style.paddingRight).not.toBe('');
     expect(appBody.style.paddingTop).toBe('');
-    expect(appBody.style.paddingBottom).toBe('');
+    expect(appContent.style.paddingTop).toBe('');
+    expect(appContent.style.paddingBottom).toBe('');
 
     dockAt(panel, 'left');
     expect(app.style.paddingLeft).not.toBe('');
@@ -137,7 +168,7 @@ describe('side panel dock insets and app-edge reservation', () => {
     await promise;
   });
 
-  it('falls back to no inset when the menu bar/status bar are not mounted (e.g. a unit test)', async () => {
+  it('falls back to no inset when no chrome is mounted (e.g. a unit test)', async () => {
     // No mountAppShell() here — mirrors dialog-drag-resize.test.ts's plain jsdom body.
     const promise = new Dialogs().chooseFilter(filterInput());
     const panel = document.querySelector<HTMLElement>('.side-panel')!;

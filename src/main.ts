@@ -3,6 +3,7 @@ import './styles.css';
 import { AppState } from './app/app-state';
 import { ClipboardController } from './app/clipboard-controller';
 import { Commands, type UiPort } from './app/commands';
+import { warnProtectedAndOfferUnlock } from './app/commands/shared';
 import { getLocale, initLocale, onLocaleChange, t } from './app/i18n';
 import { getAutoFitOnOpen, getEditHints, getSheetZoom } from './app/settings';
 import { applySheetFont, getSheetFont } from './app/sheet-font';
@@ -27,7 +28,9 @@ import { installKeyboardViewportFix } from './ui/popup';
 import { SheetBar } from './ui/sheet-bar';
 import { StatusBar } from './ui/status-bar';
 import { TabBar } from './ui/tab-bar';
+import { TextSheetView } from './ui/text-sheet';
 import { WelcomeScreen } from './ui/welcome-screen';
+import { YamlSheetView } from './ui/yaml-sheet';
 
 function bootstrap(): void {
   initLocale();
@@ -130,6 +133,25 @@ function bootstrap(): void {
     },
   };
 
+  // A refused edit against a protected book or a locked worksheet
+  // (`AppState.refuseReadOnlyWrite`/`refuseLockedSheetWrite`) interrupts the
+  // attempt with a blocking warning dialog offering to unlock, rather than a
+  // passive toast — this covers every entry point uniformly, including the
+  // Markdown/JSON worksheet textareas, since it is wired at the AppState
+  // layer those already go through. `warningOpen` collapses a burst of
+  // blocked attempts (e.g. held-key typing into a locked cell) into a single
+  // dialog instead of stacking one per keystroke.
+  let warningOpen = false;
+  state.warnBlocked = (tab, scope) => {
+    if (warningOpen) {
+      return;
+    }
+    warningOpen = true;
+    void warnProtectedAndOfferUnlock(ui, state, tab, scope).finally(() => {
+      warningOpen = false;
+    });
+  };
+
   const commands = new Commands(state, ui, document);
   const grid = new Grid(state, commands);
   // The docked source/preview surface shown in place of the grid while a
@@ -140,16 +162,32 @@ function bootstrap(): void {
   // JSON worksheet is active (see `Worksheet.kind`) — same pattern as
   // `markdownSheetView`, a sibling surface rather than a replacement.
   const jsonSheetView = new JsonSheetView(state, commands);
+  // Same pattern again for a YAML worksheet.
+  const yamlSheetView = new YamlSheetView(state, commands);
+  // A plain-text worksheet's surface — the same source-textarea pattern but
+  // with no preview panel or Format action (see `TextSheetView`).
+  const textSheetView = new TextSheetView(state, commands);
   const refreshSourceSheetViews = (): void => {
     markdownSheetView.refresh();
     jsonSheetView.refresh();
-    grid.element.hidden = markdownSheetView.active || jsonSheetView.active;
+    yamlSheetView.refresh();
+    textSheetView.refresh();
+    const sourceActive =
+      markdownSheetView.active || jsonSheetView.active || yamlSheetView.active || textSheetView.active;
+    grid.element.hidden = sourceActive;
+    // The formula bar's name box and input field only mean anything for a
+    // grid (row/column cell addressing); a Markdown/JSON/YAML/text worksheet
+    // is a single whole-document cell, so showing it there put the entire
+    // document's raw text into the formula bar under the label "A1" and let
+    // editing there silently overwrite the whole document.
+    formulaBar.element.hidden = sourceActive;
   };
   const clipboard = new ClipboardController(
     state,
     commands,
     (text, kind) => toasts.notify(text, kind),
     document,
+    (range) => grid.setCopySource(range),
   );
   commands.clipboardActions = {
     copy: () => clipboard.copyViaApi(),
@@ -232,23 +270,29 @@ function bootstrap(): void {
     grid.element,
     markdownSheetView.element,
     jsonSheetView.element,
+    yamlSheetView.element,
+    textSheetView.element,
   ]);
-  // Everything except the always-visible menu bar and status bar lives in
-  // `#app-body`: a docked side panel (the comments panel here, or Filter/
-  // Sort/Format/SQL Query via `openSidePanel`) reserves space by padding
-  // this element rather than `#app` itself, so a top/bottom-docked panel
-  // insets below the menu bar / above the status bar instead of covering
-  // them (see `applySidePanelPosition`, `src/ui/dialogs/shared.ts`, #399).
-  const appBody = el('div', { className: 'app-body', attrs: { id: 'app-body' } }, [
-    tabBar.element,
+  // Everything between the two tab strips (find bar, formula bar, welcome
+  // screen, the sheet itself) lives in `#app-content`: a top/bottom-docked
+  // side panel reserves space by padding this element rather than
+  // `#app-body`, so it insets below the book tab strip and above the
+  // worksheet tab strip instead of covering either of them (see
+  // `applySidePanelPosition`, `src/ui/dialogs/shared.ts`, #399/#541).
+  const appContent = el('div', { className: 'app-content', attrs: { id: 'app-content' } }, [
     findBar.element,
     formulaBar.element,
     welcome.element,
     mainRow,
+  ]);
+  const appBody = el('div', { className: 'app-body', attrs: { id: 'app-body' } }, [
+    tabBar.element,
+    appContent,
     sheetBar.element,
     commentsPanel.element,
     markdownSheetView.panelElement,
     jsonSheetView.panelElement,
+    yamlSheetView.panelElement,
   ]);
   // `menuBar.toggleElement` is a separate top-level element from
   // `menuBar.element` (mobile only) so the narrow-viewport grid can place it
@@ -291,7 +335,10 @@ function bootstrap(): void {
       case 'tabs':
       case 'active':
         // A different document is showing: an editor opened on the previous
-        // one must never commit into this one.
+        // one must never commit into this one. The copy-source outline
+        // (see clipboard.ts's `onCopySourceChange`) is likewise scoped to a
+        // single document, so it is cleared rather than carried over.
+        clipboard.clearCopySource();
         grid.cancelEditing();
         refreshAll(true);
         findBar.refresh();
@@ -300,7 +347,9 @@ function bootstrap(): void {
         // A different worksheet of the same workbook: drop any in-progress
         // inline edit (and with it the IME composition, autocomplete popup,
         // and formula-reference highlights) before repainting, so nothing from
-        // the previous worksheet survives the switch.
+        // the previous worksheet survives the switch. Same reasoning for the
+        // copy-source outline as the 'tabs'/'active' case above.
+        clipboard.clearCopySource();
         grid.cancelEditing();
         menuBar.render();
         sheetBar.render();
@@ -312,6 +361,11 @@ function bootstrap(): void {
         commentsPanel.render();
         return;
       case 'doc':
+        // Any mutation of the active document (an edit, undo/redo, a
+        // structural change) can move or invalidate what the copy-source
+        // outline was pointing at, so it is cleared here too rather than
+        // trying to track how a given mutation might have shifted it.
+        clipboard.clearCopySource();
         tabBar.render();
         sheetBar.render();
         refreshSourceSheetViews();
@@ -460,12 +514,15 @@ function bootstrap(): void {
   // Browsers do not allow custom dialogs during unload; the standard
   // leave-page confirmation is used when any tab has unsaved changes.
   window.addEventListener('beforeunload', (event) => {
-    // A pending debounced Markdown/JSON-sheet edit (see `MarkdownSheetView`/
-    // `JsonSheetView`) has not yet marked its document dirty — flush it
-    // first so an edit made in the last moment before closing is never
-    // silently lost nor missed by the dirty check below.
+    // A pending debounced Markdown/JSON/YAML/text-sheet edit (see
+    // `MarkdownSheetView`/`JsonSheetView`/`YamlSheetView`/`TextSheetView`)
+    // has not yet marked its document dirty — flush it first so an edit made
+    // in the last moment before closing is never silently lost nor missed by
+    // the dirty check below.
     markdownSheetView.flushCommit();
     jsonSheetView.flushCommit();
+    yamlSheetView.flushCommit();
+    textSheetView.flushCommit();
     if (state.tabs.some((tab) => tab.doc.isDirty)) {
       event.preventDefault();
       event.returnValue = '';

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { FileJson, FileText, Lock, Plus, Table } from 'lucide';
+import { FileCode, FileJson, FileText, FileType, Lock, LockOpen, Plus, Table, type IconNode } from 'lucide';
 import type { AppState } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -13,6 +13,24 @@ import { createIcon } from './icon';
  * shared command layer (and reachable from the Sheet menu and the keyboard),
  * so no business logic is duplicated across entry points.
  */
+/** Localized kind label per worksheet kind, shown as the tab's icon tooltip. */
+const SHEET_KIND_LABEL_KEY: Record<WorksheetKind, string> = {
+  grid: 'sheets.kind.grid',
+  markdown: 'sheets.kind.markdown',
+  json: 'sheets.kind.json',
+  yaml: 'sheets.kind.yaml',
+  text: 'sheets.kind.text',
+};
+
+/** Tab icon per worksheet kind. */
+const SHEET_KIND_ICON: Record<WorksheetKind, IconNode> = {
+  grid: Table,
+  markdown: FileText,
+  json: FileJson,
+  yaml: FileCode,
+  text: FileType,
+};
+
 const SHEET_MENU_ITEMS: Array<{ command: CommandId; labelKey: string; separatorBefore?: boolean }> = [
   { command: 'worksheet.rename', labelKey: 'menu.sheet.renameSheet' },
   { command: 'worksheet.duplicate', labelKey: 'menu.sheet.duplicateSheet' },
@@ -132,13 +150,7 @@ export class SheetBar {
     locked: boolean,
     active: boolean,
   ): HTMLElement {
-    const kindLabel = t(
-      kind === 'markdown'
-        ? 'sheets.kind.markdown'
-        : kind === 'json'
-          ? 'sheets.kind.json'
-          : 'sheets.kind.grid',
-    );
+    const kindLabel = t(SHEET_KIND_LABEL_KEY[kind]);
     const tabEl = el(
       'div',
       {
@@ -154,11 +166,7 @@ export class SheetBar {
       },
       [
         el('span', { className: 'sheet-kind', attrs: { 'aria-label': kindLabel } }, [
-          createIcon(
-            kind === 'markdown' ? FileText : kind === 'json' ? FileJson : Table,
-            'sheet-kind-icon',
-            14,
-          ),
+          createIcon(SHEET_KIND_ICON[kind], 'sheet-kind-icon', 14),
         ]),
         ...(locked
           ? [
@@ -215,8 +223,18 @@ export class SheetBar {
       const dragged = this.dragId;
       const before = this.dropsBefore(event, tabEl);
       this.clearDragState();
-      this.moveNextTo(dragged, id, before);
+      // Deferred a tick: `moveNextTo` triggers a `sheets`/`doc` state event,
+      // which rebuilds this whole strip (`render()`'s `clearChildren`) and
+      // detaches the very node the browser registered as this drag's source.
+      // Doing that synchronously, while the native drag-and-drop session is
+      // still live, leaves the browser holding a drag it can never finish
+      // tearing down (its `dragend` never reaches a detached node) — observed
+      // as the pointer becoming unresponsive until Escape is pressed.
+      // Applying the move after the current task lets the browser finish its
+      // own drop/dragend handling first.
+      queueMicrotask(() => this.moveNextTo(dragged, id, before));
     });
+    tabEl.addEventListener('dragend', () => this.clearDragState());
     return tabEl;
   }
 
@@ -363,16 +381,33 @@ export class SheetBar {
         disabled: !this.commands.isEnabled('worksheet.addJson'),
         onSelect: () => void this.commands.run('worksheet.addJson'),
       },
+      {
+        label: t('menu.sheet.addYamlSheet'),
+        disabled: !this.commands.isEnabled('worksheet.addYaml'),
+        onSelect: () => void this.commands.run('worksheet.addYaml'),
+      },
+      {
+        label: t('menu.sheet.addTextSheet'),
+        disabled: !this.commands.isEnabled('worksheet.addText'),
+        onSelect: () => void this.commands.run('worksheet.addText'),
+      },
     ];
     const activeSheet = this.state.activeWorkbook()?.activeSheet;
+    const locked = activeSheet?.locked === true;
     for (const item of SHEET_MENU_ITEMS) {
       if (item.separatorBefore) {
         entries.push('separator');
       }
+      const isLockItem = item.command === 'worksheet.toggleLock';
       entries.push({
-        label: t(item.labelKey),
+        // The lock item's label itself says Lock/Unlock (not just its
+        // checkmark), and carries a matching icon — a checkable item's
+        // checkmark and icon share one column, so `icon` here is only ever
+        // seen if this stops being checkable.
+        label: isLockItem ? t(locked ? 'menu.sheet.unlockSheet' : 'menu.sheet.lockSheet') : t(item.labelKey),
+        icon: isLockItem ? (locked ? LockOpen : Lock) : undefined,
         disabled: !this.commands.isEnabled(item.command),
-        ...(item.command === 'worksheet.toggleLock' ? { checked: activeSheet?.locked === true } : {}),
+        ...(isLockItem ? { checked: locked } : {}),
         onSelect: () => void this.commands.run(item.command).then(() => this.focusActive()),
       });
     }

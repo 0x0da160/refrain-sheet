@@ -193,7 +193,7 @@ byte layout.
 A worksheet also has a **kind** (`Worksheet.kind`, `'grid'`, `'markdown'`,
 `'json'`, `'yaml'`, or `'text'`, persisted as of RSF body version 12 /
 workbook body version 8 — `json` requires body version 15 / workbook body
-version 11; `yaml`/`text` require body version 16 / workbook body version 12
+version 11; `yaml`/`text` require body version 17 / workbook body version 13
 — see [rsf-format.md](rsf-format.md#worksheet-kind-body-version-12)): a
 `markdown` worksheet holds one Markdown document as its sole content (its raw
 source lives in cell A1, so editing it reuses the ordinary cell-edit

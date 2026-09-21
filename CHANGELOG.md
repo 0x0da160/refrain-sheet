@@ -159,7 +159,7 @@ release-time half (retitling `Unreleased`) is still done by hand.
   reported instead of guessing at a fix. A plain, unstructured text
   worksheet is also available (**Sheet > Add Text Sheet**), with the same
   docked source editor but no preview panel or Format action. Both are saved
-  in the `.rsf` container (body version 16 / workbook body version 12);
+  in the `.rsf` container (body version 17 / workbook body version 13);
   existing files and workbooks that don't use either are unaffected.
   ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
 - The **Add Worksheet** dialog (Sheet > Worksheet > Add Worksheet, or the

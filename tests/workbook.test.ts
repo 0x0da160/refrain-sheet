@@ -9,6 +9,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
+import { getRsfCodec, RSF_COMPRESSION_STORE } from '../src/core/csv-engine';
 import {
   decodeRsf,
   decodeRsfWorkbook,
@@ -874,7 +875,7 @@ describe('workbook container', () => {
   });
 
   it.each(['yaml', 'text'] as const)(
-    'round-trips a %s worksheet through the workbook body (version 12)',
+    'round-trips a %s worksheet through the workbook body (version 13)',
     (kind) => {
       const data: RsfWorkbookData = {
         delimiter: ',',
@@ -930,6 +931,78 @@ describe('workbook container', () => {
       expect(decoded.data.sheets[1].locked).toBe(true);
     },
   );
+
+  // Regression coverage for a real bug caught in review before it shipped:
+  // an earlier draft of the yaml/text worksheet kind gave it workbook body
+  // version 12, sharing that number with the already-released (v0.8.3)
+  // retained-snapshot cap override, which would have broken decoding of
+  // real workbooks saved by that release. Cap override keeps its original
+  // version (12); yaml/text sits above it (13). See the identical
+  // single-sheet regression tests in `tests/rsf-codec.test.ts` for the full
+  // explanation.
+  it.each(['yaml', 'text'] as const)(
+    'combines a %s worksheet with a retained-snapshot cap override at the shared top version (13)',
+    (kind) => {
+      const data: RsfWorkbookData = {
+        delimiter: ',',
+        sheets: [
+          { id: 'a', name: 'A', rowCount: 2, columnCount: 2, cells: [] },
+          { id: 'b', name: 'Notes', rowCount: 1, columnCount: 1, cells: [[0, 0, 'x: 1']], kind },
+        ],
+        historyMaxOverride: 7,
+      };
+      const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+      expect(decoded.ok).toBe(true);
+      if (!decoded.ok) return;
+      expect(decoded.data.sheets[1].kind).toBe(kind);
+      expect(decoded.data.historyMaxOverride).toBe(7);
+    },
+  );
+
+  it('decodes a workbook cap override written the way v0.8.3 actually wrote it: version 12 alone, no presence bit ever set', () => {
+    // Workbook-level equivalent of the single-sheet regression test in
+    // `tests/rsf-codec.test.ts` — see its comment for the full rationale.
+    // Uses `encodeRsf`/`decodeRsf` with STORE compression so the workbook
+    // body sits byte-for-byte in the container (via the two-or-more-sheets
+    // path inside `encodeRsfWorkbook`), and recomputes the container's
+    // CRC-32 after the hand-edit, exactly like the single-sheet version.
+    const HEADER_SIZE = 20; // see the single-sheet regression test's comment
+    const withOverride: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] },
+        { id: 'b', name: 'B', rowCount: 1, columnCount: 1, cells: [] },
+      ],
+      historyMaxOverride: 5,
+    };
+    const bytes = encodeRsfWorkbook(withOverride, RSF_COMPRESSION_STORE);
+    const body = bytes.subarray(HEADER_SIZE);
+    expect(body[0]).toBe(12); // sanity: cap override alone still selects its original version
+
+    // Same distinctive 9-byte needle as the single-sheet test: flags=5
+    // (enabled | hasOverride bit2), override=5 (u32 LE), snapshot count=0.
+    const needle = [5, 5, 0, 0, 0, 0, 0, 0, 0];
+    let flagsOffset = -1;
+    for (let i = 0; i + needle.length <= body.length; i++) {
+      if (needle.every((b, j) => body[i + j] === b)) {
+        flagsOffset = i;
+        break;
+      }
+    }
+    expect(flagsOffset).toBeGreaterThan(0);
+
+    const legacyBytes = bytes.slice();
+    legacyBytes[HEADER_SIZE + flagsOffset] &= ~4;
+    expect(legacyBytes[HEADER_SIZE + flagsOffset]).toBe(1);
+    const legacyBody = legacyBytes.subarray(HEADER_SIZE);
+    const crc = getRsfCodec().crc32(legacyBody);
+    new DataView(legacyBytes.buffer).setUint32(12, crc, true);
+
+    const decoded = decodeRsfWorkbook(legacyBytes);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.data.historyMaxOverride).toBe(5);
+  });
 
   it('loads a legacy single-sheet container as a one-worksheet workbook', () => {
     const bytes = encodeRsf({

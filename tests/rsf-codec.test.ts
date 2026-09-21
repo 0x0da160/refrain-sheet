@@ -260,7 +260,7 @@ describe('binary container codec (JS store engine)', () => {
     expect(decoded.data.locked).toBe(true);
   });
 
-  it.each(['yaml', 'text'] as const)('round-trips a %s worksheet (body version 16)', (kind) => {
+  it.each(['yaml', 'text'] as const)('round-trips a %s worksheet (body version 17)', (kind) => {
     const data: RsfData = {
       name: 'Notes',
       delimiter: ',',
@@ -283,7 +283,7 @@ describe('binary container codec (JS store engine)', () => {
   });
 
   it.each(['yaml', 'text'] as const)(
-    'carries a lock alongside a %s kind (both forced to body version 16)',
+    'carries a lock alongside a %s kind (both forced to body version 17)',
     (kind) => {
       const both: RsfData = {
         name: 'Notes',
@@ -301,6 +301,102 @@ describe('binary container codec (JS store engine)', () => {
       expect(decoded.data.locked).toBe(true);
     },
   );
+
+  // Regression coverage for a real bug caught in review before it shipped:
+  // an earlier draft of the yaml/text worksheet kind gave it body version
+  // 16, sharing that number with the already-released (v0.8.3)
+  // retained-snapshot cap override, which would have broken decoding of
+  // real files saved by that release. Cap override keeps its original
+  // version (16/12); yaml/text sits above it (17/13). These two
+  // tests are the coverage gap that let that bug through: no existing test
+  // combined the two features, and none simulated bytes an *already-shipped*
+  // release actually wrote (every other round-trip test only exercises this
+  // release's own encoder).
+  it.each(['yaml', 'text'] as const)(
+    'combines a %s worksheet with a retained-snapshot cap override at the shared top version (17)',
+    (kind) => {
+      const data: RsfData = {
+        name: 'Notes',
+        delimiter: ',',
+        rowCount: 1,
+        columnCount: 1,
+        cells: [[0, 0, 'content']],
+        kind,
+        historyMaxOverride: 7,
+      };
+      const decoded = decodeRsf(encodeRsf(data));
+      expect(decoded.ok).toBe(true);
+      if (!decoded.ok) return;
+      expect(decoded.data.kind).toBe(kind);
+      expect(decoded.data.historyMaxOverride).toBe(7);
+    },
+  );
+
+  it('decodes a cap override written the way v0.8.3 actually wrote it: version 16 alone, no presence bit ever set', () => {
+    // v0.8.3's own `encodeHistoryBlock` never had a "cap-override field
+    // present" bit (see `readHistoryBlock`'s doc comment) — presence was
+    // implied purely by reaching body version 16, which was safe only
+    // because cap override was the sole feature able to select that version
+    // at the time. The *current* encoder now also stamps that presence bit
+    // (bit 2) — harmlessly redundant for a version-16 body, since
+    // `legacyMaxOverridePresent` (bodyVersion === 16) already forces
+    // presence regardless of the bit — but a real v0.8.3 file has the
+    // override bytes with that bit left unset. This test builds exactly
+    // that shape through the real, public `decodeRsf` container entry point
+    // (not a raw-body helper, so nothing about container framing or CRC is
+    // skipped): encode with STORE compression so the body sits byte-for-byte
+    // in the container with no transform to account for, locate the one
+    // 9-byte sequence the history block's flags/override/snapshot-count
+    // fields must produce for this minimal input, clear bit 2 to simulate
+    // the older release's bytes, and recompute the CRC-32 the container
+    // checks on decode (real old bytes have a CRC that matches their own
+    // content; a hand-edited copy needs the same to reach the code path
+    // this test targets instead of failing earlier on a checksum mismatch).
+    // The container header's fixed size (magic 4 + container version 1 +
+    // method 1 + reserved 1 + codec profile 1 + body length u32 + CRC-32 u32
+    // + payload length u32 = 20 bytes — see `docs/rsf-format.md`'s container
+    // layout table). Not exported from the codec (it's a private constant
+    // there); hardcoded here since it's a stable, documented format detail.
+    const HEADER_SIZE = 20;
+    const withOverride: RsfData = {
+      name: 'Sheet1',
+      delimiter: ',',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [],
+      historyMaxOverride: 5,
+    };
+    const bytes = encodeRsf(withOverride, RSF_COMPRESSION_STORE);
+    const body = bytes.subarray(HEADER_SIZE);
+    expect(body[0]).toBe(16); // sanity: cap override alone still selects its original version
+
+    // flags=5 (enabled=1 | hasOverride bit2=4), override=5 (u32 LE), then a
+    // 0 (u32 LE) snapshot count — distinctive enough not to collide with the
+    // ASCII sheet name ("Sheet1") or any other section of this minimal body.
+    const needle = [5, 5, 0, 0, 0, 0, 0, 0, 0];
+    let flagsOffset = -1;
+    for (let i = 0; i + needle.length <= body.length; i++) {
+      if (needle.every((b, j) => body[i + j] === b)) {
+        flagsOffset = i;
+        break;
+      }
+    }
+    expect(flagsOffset).toBeGreaterThan(0);
+
+    const legacyBytes = bytes.slice();
+    legacyBytes[HEADER_SIZE + flagsOffset] &= ~4; // clear the bit v0.8.3 never wrote
+    expect(legacyBytes[HEADER_SIZE + flagsOffset]).toBe(1); // enabled, no "override present" bit
+    const legacyBody = legacyBytes.subarray(HEADER_SIZE);
+    const crc = getRsfCodec().crc32(legacyBody);
+    new DataView(legacyBytes.buffer).setUint32(12, crc, true); // container CRC-32 offset
+
+    const decoded = decodeRsf(legacyBytes);
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    // The whole point: version 16 alone must still mean "override present"
+    // even with the presence bit cleared, exactly as a real v0.8.3 file has it.
+    expect(decoded.data.historyMaxOverride).toBe(5);
+  });
 
   it('round-trips version history with snapshots (body version 14)', () => {
     const history: RsfHistorySnapshot[] = [

@@ -20,9 +20,11 @@ change.
   formula engine's internal structure, and cross-cutting invariants.
 - [Operations](operations/index.md) — security threat model and
   supply-chain controls, and performance principles and measurements.
+- [Formats](formats/index.md) — the `.rsf` binary container specification:
+  framing, body grammar (single-sheet and workbook), cross-sheet formulas,
+  the value model, dynamic arrays, and versioning/compatibility.
 
 This bundle is a work in progress: `docs/architecture.md`, `docs/security.md`,
-and `docs/performance.md` have been migrated into the domains above (each old
-file is left in place, unedited, as the pre-migration source — see
-`knowledge/log.md`). `docs/rsf-format.md` remains the source of record and is
-not yet migrated.
+`docs/performance.md`, and `docs/rsf-format.md` have all been migrated into
+the domains above (each old file is left in place, unedited, as the
+pre-migration source — see `knowledge/log.md`).

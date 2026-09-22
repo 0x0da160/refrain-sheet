@@ -3,7 +3,7 @@ type: architecture-concept
 title: Formula engine dependency rules
 description: The formula engine's internal, acyclic module graph, its two governing rules, and why there is no WASM formula evaluator or worker.
 sources:
-  - resource: ../../docs/architecture.md
+  - resource: docs/architecture.md (migrated content; file removed after migration — see knowledge/log.md)
   - resource: ../../src/core/formula-value.ts
   - resource: ../../src/core/formula-functions.ts
   - resource: ../../src/core/formula.ts
@@ -70,4 +70,5 @@ evaluated). The same reasoning applies to moving evaluation into a worker:
 the engine has no worker infrastructure, and the existing cooperative
 time-slicer (`scheduler.ts`) is the established pattern for keeping long
 _scans_ responsive. If profiling later shows a real bottleneck,
-`docs/performance.md` records the measurements to argue from.
+[performance-measurements.md](../operations/performance-measurements.md)
+records the measurements to argue from.

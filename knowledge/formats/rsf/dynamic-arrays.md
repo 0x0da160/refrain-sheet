@@ -3,7 +3,7 @@ type: format-concept
 title: RSF dynamic arrays (spill)
 description: Why nothing derived is ever stored on disk, spill placement rules, and the formula-evaluation bounds that keep a hostile file from hanging the tab.
 sources:
-  - resource: ../../../docs/rsf-format.md
+  - resource: docs/rsf-format.md (migrated content; file removed after migration — see knowledge/log.md)
   - resource: ../../../src/core/spill.ts
 status: stable
 generated:

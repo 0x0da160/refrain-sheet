@@ -752,7 +752,7 @@ export class Worksheet {
    * A deep copy under a new identifier and name. Cell inputs are copied
    * verbatim — including formulas, whose worksheet-qualified references keep
    * pointing at the worksheets they named (the documented duplication policy;
-   * see docs/rsf-format.md) — along with the filter, display settings, lock
+   * see knowledge/formats/rsf/index.md) — along with the filter, display settings, lock
    * state, and every cell's style.
    */
   clone(id: string, name: string): Worksheet {

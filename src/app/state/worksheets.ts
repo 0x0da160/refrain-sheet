@@ -538,7 +538,7 @@ export class WorksheetsState {
    * as one atomic, undoable operation, and activate the copy. Formulas are
    * copied verbatim: worksheet-qualified references keep pointing at the
    * worksheets they name, and unqualified references stay relative to the copy
-   * (the documented, tested policy — see docs/rsf-format.md).
+   * (the documented, tested policy — see knowledge/formats/rsf/index.md).
    */
   duplicateSheet(tab: Tab, sourceId: string, name: string, prebuilt?: Worksheet): Worksheet | null {
     const doc = tab.doc;

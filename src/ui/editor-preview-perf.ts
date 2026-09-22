@@ -14,7 +14,7 @@
  *
  * None of this reaches for `src/core/scheduler.ts`'s cooperative slicer:
  * that contract is for read-only scan phases of document operations (see
- * `docs/architecture.md` § Long-running operations), not for repaint
+ * `knowledge/architecture/index.md` § Long-running operations), not for repaint
  * coalescing — a different problem with a different fix (debounce + rAF,
  * not time-sliced iteration).
  */

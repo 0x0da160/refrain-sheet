@@ -61,7 +61,7 @@ export interface CsvEngine {
  * Compression methods recorded in the binary `.rsf` container header. All
  * three real codecs are pure-Rust and build for `wasm32-unknown-unknown` with
  * no C toolchain: DEFLATE (miniz_oxide), Zstandard (ruzstd), LZ4 Frame
- * (lz4_flex). See `docs/rsf-format.md`.
+ * (lz4_flex). See `knowledge/formats/rsf/index.md`.
  */
 export const RSF_COMPRESSION_STORE = 0x00;
 export const RSF_COMPRESSION_DEFLATE = 0x01;

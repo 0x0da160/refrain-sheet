@@ -40,21 +40,21 @@ program.
 ## Audit: what already exists
 
 The single-Issue loop this repository already runs (documented in full in
-[`agent-operations.md`](agent-operations.md)) covers most of the
+[`knowledge/agent-loop/index.md`](../knowledge/agent-loop/index.md)) covers most of the
 _mechanics_ the Issue asks for, just scoped to one human-filed Issue at a
 time rather than a self-starting research loop:
 
-| Requested capability                       | Current state                                                                                                                                                                                                                                                                                                                                                               |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Issue/PR classification and prioritization | `issue-triage.yml` classifies and labels every new Issue (`agent-operations.md` § Workflows). Improvement proposals would need to arrive _as Issues_ to enter this.                                                                                                                                                                                                         |
-| Specification with recorded rationale      | `prepare-issue-spec.yml` posts an `agent-spec:v1` Work Brief per Issue (repository evidence, implementation decision, assumptions, risk) — see `agent-operations.md` § Autonomous execution policy.                                                                                                                                                                         |
-| Small, verified, autonomous implementation | `implement-issue.yml` implements, tests, and opens a Draft/real PR; it never merges (`agent-operations.md` § Lifecycle). This already matches "high-value, low-risk, small, Draft PR, no merge" for anything scoped as one Issue.                                                                                                                                           |
-| Independent review                         | `review-pr.yml` reviews the diff against acceptance criteria before a human merges.                                                                                                                                                                                                                                                                                         |
-| Human approval gate reachable from a phone | `agent-operations.md` § Smartphone-first operation and § Mobile notifications: every human-decision point (`agent:needs-spec`, `agent:blocked`, `agent:continuation-needed`, a verified PR) posts one bilingual comment that `@mention`s the repository owner, which GitHub Mobile turns into a push notification — no webhook, no third-party push service, no new secret. |
-| Budget / circuit breakers                  | `agent-operations.md` § Budget and circuit breakers: per-workflow `timeout-minutes`, per-Issue `concurrency`, tunable `--max-turns` caps (`AGENT_MAX_TURNS`, `TRIAGE_MAX_TURNS`), and an automatic escalation to `agent:blocked` after two consecutive turn-limited runs. These bound **one implementation run**, not a recurring schedule.                                 |
-| Merge / release / deploy stay human-only   | `agent-operations.md` confirms no workflow holds merge rights and post-merge auto-release is intentionally not implemented (see [`release-automation-gap.md`](release-automation-gap.md)); Pages deploys only from the tag-triggered `release.yml`.                                                                                                                         |
-| Branch protection                          | `agent-operations.md` recommends a ruleset on `main` (no direct pushes, required PR + status checks + human approval), but its own § Release automation notes `main` **currently has no branch protection configured** — this is a live gap, unrelated to this Issue, that a repository admin should close directly in GitHub Settings; no workflow file can create it.     |
-| Labels                                     | Two lifecycle/risk label sets already exist and are documented: [`.github/labels.yml`](../.github/labels.yml) (`agent:*`, `risk:*`, `type:*`), last updated 2026-07-26.                                                                                                                                                                                                     |
+| Requested capability                       | Current state                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Issue/PR classification and prioritization | `issue-triage.yml` classifies and labels every new Issue (`knowledge/agent-loop/lifecycle.md`). Improvement proposals would need to arrive _as Issues_ to enter this.                                                                                                                                                                                                                         |
+| Specification with recorded rationale      | `prepare-issue-spec.yml` posts an `agent-spec:v1` Work Brief per Issue (repository evidence, implementation decision, assumptions, risk) — see `knowledge/agent-loop/autonomous-execution-policy.md`.                                                                                                                                                                                         |
+| Small, verified, autonomous implementation | `implement-issue.yml` implements, tests, and opens a Draft/real PR; it never merges (`knowledge/agent-loop/lifecycle.md`). This already matches "high-value, low-risk, small, Draft PR, no merge" for anything scoped as one Issue.                                                                                                                                                           |
+| Independent review                         | `review-pr.yml` reviews the diff against acceptance criteria before a human merges.                                                                                                                                                                                                                                                                                                           |
+| Human approval gate reachable from a phone | `knowledge/agent-loop/smartphone-operation.md` and `knowledge/agent-loop/notifications.md`: every human-decision point (`agent:needs-spec`, `agent:blocked`, `agent:continuation-needed`, a verified PR) posts one bilingual comment that `@mention`s the repository owner, which GitHub Mobile turns into a push notification — no webhook, no third-party push service, no new secret.      |
+| Budget / circuit breakers                  | `knowledge/agent-loop/budget-rollback-and-release.md`: per-workflow `timeout-minutes`, per-Issue `concurrency`, tunable `--max-turns` caps (`AGENT_MAX_TURNS`, `TRIAGE_MAX_TURNS`), and an automatic escalation to `agent:blocked` after two consecutive turn-limited runs. These bound **one implementation run**, not a recurring schedule.                                                 |
+| Merge / release / deploy stay human-only   | `knowledge/agent-loop/budget-rollback-and-release.md` confirms no workflow holds merge rights and post-merge auto-release is intentionally not implemented (see [`release-automation-gap.md`](release-automation-gap.md)); Pages deploys only from the tag-triggered `release.yml`.                                                                                                           |
+| Branch protection                          | `knowledge/agent-loop/configuration-and-permissions.md` recommends a ruleset on `main` (no direct pushes, required PR + status checks + human approval), but the same concept notes `main` **currently has no branch protection configured** — this is a live gap, unrelated to this Issue, that a repository admin should close directly in GitHub Settings; no workflow file can create it. |
+| Labels                                     | Two lifecycle/risk label sets already exist and are documented: [`.github/labels.yml`](../.github/labels.yml) (`agent:*`, `risk:*`, `type:*`), last updated 2026-07-26.                                                                                                                                                                                                                       |
 
 What does **not** exist today, and is genuinely new relative to the current
 loop:
@@ -75,8 +75,8 @@ loop:
 4. **This repository's open-PR count and branch-protection settings could
    not be re-verified live from this run**: reading `pull_request`s and
    calling the GitHub REST API directly are both outside this workflow's
-   tool allowlist while it holds `pull-requests: write` (`agent-operations.md`
-   § Budget and circuit breakers — "denies ... raw `gh api` wherever the job
+   tool allowlist while it holds `pull-requests: write`
+   (`knowledge/agent-loop/budget-rollback-and-release.md` — "denies ... raw `gh api` wherever the job
    holds `pull-requests: write`, so an approval cannot be submitted through
    the API"). This is a known, intentional limitation of the implementation
    workflow, not a gap in this plan; a maintainer or the triage workflow
@@ -123,8 +123,9 @@ written.
    deliberately low frequency (e.g. weekly). This is the first change that
    needs explicit sign-off on running without a human dispatching it, and
    should ship with an easy kill switch (disable the workflow, or remove the
-   `schedule:` block) documented the same way `agent-operations.md` §
-   Rollback documents pausing the Issue-implementation loop.
+   `schedule:` block) documented the same way
+   `knowledge/agent-loop/budget-rollback-and-release.md` documents pausing
+   the Issue-implementation loop.
 4. **Run-count / cooldown limits.** Filed as
    [#317](https://github.com/0x0da160/refrain-sheet/issues/317). Before or
    alongside Phase 3: since no
@@ -135,11 +136,11 @@ written.
    per week, and a rule that N consecutive failed/empty research runs
    disables further scheduled runs until a human re-enables them, mirroring
    the existing "two consecutive turn-limited runs → `agent:blocked`" rule
-   in `agent-operations.md`.
+   in `knowledge/agent-loop/budget-rollback-and-release.md`.
 5. **Notification for research output.** Filed as
    [#318](https://github.com/0x0da160/refrain-sheet/issues/318). Reuse the
    existing `@mention`
-   comment mechanism (`agent-operations.md` § Mobile notifications) on the
+   comment mechanism (`knowledge/agent-loop/notifications.md`) on the
    Issue Phase 2 creates, rather than building any new channel — this avoids
    the secrets/webhook/third-party-service risk the original Issue itself
    flagged as something to avoid.

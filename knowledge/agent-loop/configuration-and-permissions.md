@@ -1,13 +1,13 @@
 ---
 type: agent-loop-concept
 title: Configuration and permissions
-description: Claude authentication method selection, model selection and its allowlist, the minimum-permissions table, one-time human repository setup, and branch protection.
+description: Claude authentication method selection, model selection and its allowlist, the minimum-permissions table, one-time human repository setup (including the one-time label-creation commands), branch protection, and a walkthrough for safely testing the loop on one low-risk Issue.
 sources:
-  - resource: ../../docs/agent-operations.md
+  - resource: docs/agent-operations.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
-  at: 2026-09-22T13:25:00Z
+  at: 2026-09-22T15:30:00Z
 ---
 
 # Configuration and permissions
@@ -161,12 +161,36 @@ These cannot be automated safely and must be done by a repository admin.
    them in a comment while they are missing. (No workflow gates on a
    `type:*` label, precisely so a missing one cannot deadlock the loop,
    but the labels are still how humans filter the backlog.) Verify with
-   `gh label list` after creating them; the exact `gh label create`
-   commands are in `docs/agent-operations.md` and `.github/labels.yml`.
+   `gh label list` after running the block below.
+
+   The one-time commands (colors/descriptions from
+   [`.github/labels.yml`](../../.github/labels.yml)):
+
+   ```bash
+   gh label create "agent:triage"         -c 0e8a16 -d "Needs automated classification or clarification"
+   gh label create "agent:needs-spec"     -c fbca04 -d "Acceptance criteria, constraints, or risk info insufficient"
+   gh label create "agent:ready"          -c 1d76db -d "Human-approved for autonomous implementation (HUMANS ONLY)"
+   gh label create "agent:working"        -c 5319e7 -d "Implementation workflow currently operating"
+   gh label create "agent:continuation-needed" -c c5def5 -d "Turn budget reached; work preserved, re-run to continue"
+   gh label create "agent:review"         -c d93f0b -d "PR exists; needs independent review or CI"
+   gh label create "agent:blocked"        -c b60205 -d "Cannot safely continue without human input"
+   gh label create "agent:done"           -c 0e8a16 -d "Completed after human-approved merge + verification"
+   gh label create "risk:low"             -c c2e0c6 -d "Low-risk change"
+   gh label create "risk:medium"          -c fef2c0 -d "Moderate risk"
+   gh label create "risk:high"            -c e99695 -d "High risk; explicit human approval required"
+   gh label create "risk:security"        -c b60205 -d "Touches auth/secrets/crypto/security controls"
+   gh label create "risk:data"            -c b60205 -d "Touches personal/sensitive data or destructive ops"
+   gh label create "risk:infra"           -c b60205 -d "Touches infra/networking/deploy/permissions"
+   gh label create "risk:breaking-change" -c d93f0b -d "Public API or format breaking change"
+   gh label create "type:bug"             -c d73a4a -d "A defect in existing behavior"
+   gh label create "type:feature"         -c a2eeef -d "A new capability or improvement"
+   gh label create "type:chore"           -c ededed -d "Maintenance: refactor, docs, tests, tooling"
+   ```
+
 5. **Branch protection / ruleset** on `main` — see
    [Branch protection](#branch-protection) below.
 6. **CODEOWNERS** — optional, recommended for high-risk directories
-   (`wasm/`, `.github/`, `docs/security.md`, `src/core/rsf-*`).
+   (`wasm/`, `.github/`, `knowledge/operations/`, `src/core/rsf-*`).
 7. **Actions default permissions & PR creation** — Settings → Actions →
    General → Workflow permissions: set the repository default to **Read
    repository contents** (the per-workflow `permissions:` blocks opt into
@@ -201,8 +225,24 @@ These controls are the real guarantee that automation cannot merge; the
 workflows also self-restrict, but branch protection is the enforcement
 boundary.
 
-> As of this migration, `docs/agent-operations.md` records that `main`
-> currently has **no branch protection configured** in this repository,
-> contrary to the setup this section describes. Whether `main` should be
-> protected is a human decision — see
+> As of this migration, `main` currently has **no branch protection
+> configured** in this repository, contrary to the setup this section
+> describes. Whether `main` should be protected is a human decision — see
 > [Roadmap — not enabled](roadmap-not-enabled.md).
+
+## Safely testing the loop with one low-risk Issue
+
+1. Complete the Human setup above (App, secret, SHA-pin, labels, branch
+   protection).
+2. Open a `type:chore` Issue with a tiny, low-risk, well-specified change
+   (for example: "Fix a typo in `README.md` section X", with acceptance
+   criterion "the word 'teh' becomes 'the'; no other changes; all checks
+   pass").
+3. Confirm `issue-triage.yml` runs and labels it (expect `risk:low`; not
+   `agent:ready`).
+4. As a human, verify the spec, then apply `agent:ready`.
+5. Watch `implement-issue.yml`: it adds `agent:working`, opens
+   `agent/issue-<n>-...`, and a PR, then sets `agent:review`.
+6. Review `review-pr.yml` findings and the `close-loop.yml` status comment.
+7. As a human, review and merge the PR yourself. Optionally apply
+   `agent:done`.

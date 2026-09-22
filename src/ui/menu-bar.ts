@@ -597,7 +597,7 @@ function rowsAndColumnsItems(): Array<MenuItemDef | 'separator'> {
  * Filtering and sorting (Sheet > Filter & Sort), both RSF-only view
  * operations: running either on a CSV tab explains the required conversion,
  * and sort never reorders, deletes, or rewrites cell data (see
- * docs/architecture.md), so it combines cleanly with an active filter. No
+ * knowledge/architecture/index.md), so it combines cleanly with an active filter. No
  * shortcuts by design: no browser-safe conventional key exists for either,
  * and the menu, context menu, and (for Filter) the header filter buttons all
  * dispatch these same commands.

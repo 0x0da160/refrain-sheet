@@ -4,7 +4,7 @@
 
 > **Update (2026-07-26).** A **manual** release path now exists —
 > [`manual-release.yml`](../.github/workflows/manual-release.yml), documented in
-> [`agent-operations.md`](agent-operations.md#manual-release-recovery). A maintainer
+> [`knowledge/agent-loop/budget-rollback-and-release.md`](../knowledge/agent-loop/budget-rollback-and-release.md#manual-release-recovery). A maintainer
 > picks the merged PR and the bump type in the Actions UI, and the workflow calls
 > `release.yml` directly. That resolves Blocker 1 (no tag-push trigger is involved),
 > Blocker 2 (the human chooses the bump), and Blocker 4 (`actions/checkout` with
@@ -146,8 +146,8 @@ publishing step whose failure mode has no documented recovery.
 
 ### Blocker 6 — branch-protection documentation does not match reality
 
-`docs/agent-operations.md` states that direct pushes to `main` are blocked by
-branch protection as defense in depth. In fact `main` currently has **no branch
+`knowledge/agent-loop/configuration-and-permissions.md` states that direct
+pushes to `main` are blocked by branch protection as defense in depth. In fact `main` currently has **no branch
 protection configured at all** (the protection API returns 404). An automation
 that pushes a version commit to `main` would therefore succeed today only because
 a control the documentation claims exists is absent. That is not authorization,
@@ -185,8 +185,9 @@ documents specify.
 
 ## How this is surfaced
 
-- [`docs/agent-operations.md`](agent-operations.md) records that post-merge release
-  automation is intentionally disabled and links here.
+- [`knowledge/agent-loop/budget-rollback-and-release.md`](../knowledge/agent-loop/budget-rollback-and-release.md)
+  records that post-merge release automation is intentionally disabled and
+  links here.
 - No `release-after-merge.yml` exists, so no merge can trigger a release.
 - The tag-driven path is untouched. `manual-release.yml` adds a second **human-
   initiated** entry point to the same `release.yml` implementation; neither is

@@ -173,7 +173,7 @@ const connectSrc = /connect-src\s+([^;]+);/.exec(csp)?.[1]?.trim();
 if (mode === 'offline') {
   // The offline artifact — file:// and the release ZIP — must keep making zero
   // network connections of any kind. This pair of assertions is the mechanical
-  // form of that guarantee and must never be relaxed (docs/security.md).
+  // form of that guarantee and must never be relaxed (knowledge/operations/security-threat-model.md).
   if (connectSrc !== "'none'") {
     fail(`index.html CSP's connect-src is "${connectSrc ?? '(missing)'}", expected "'none'"`);
   } else {

@@ -55,7 +55,7 @@ export {
  * the sheet. The header records the uncompressed body length and a CRC-32
  * checksum so corruption is detected, and decompression is bounded by the
  * stored length so a crafted payload cannot exhaust memory. See
- * `docs/rsf-format.md`.
+ * `knowledge/formats/rsf/index.md`.
  *
  * Container layout (little-endian):
  *
@@ -128,7 +128,7 @@ export {
  * …    1     display flags (bit 0: wrap long rows)
  * --- body version 4+ ---
  * …    1     filter flags (bit 0: a filter is present)
- * …    …     filter block (only when present — see `docs/rsf-format.md`)
+ * …    …     filter block (only when present — see `knowledge/formats/rsf/index.md`)
  * --- body version 6+ ---
  * …    2     IANA timezone-name length (u16; written only when non-UTC)
  * …    …     IANA timezone name
@@ -165,7 +165,7 @@ export {
  *             RGB triple per flag bit set — for a border-side flag, followed
  *             (version 10+ only) by one line-style+width byte — then
  *             (version 9+ only) a number format sub-record (see
- *             `docs/rsf-format.md`)
+ *             `knowledge/formats/rsf/index.md`)
  * --- body version 11+ ---
  * …    4     commented-cell count (u32)
  * …    per comment: row (u32), col (u32), text length (u32), text bytes

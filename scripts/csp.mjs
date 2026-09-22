@@ -5,11 +5,11 @@
 //
 //   offline  dist/ — opened directly via file:// and shipped in the release
 //            ZIP. Makes zero network connections of any kind. This is the
-//            artifact `docs/security.md`'s no-network guarantee covers, and it
+//            artifact `knowledge/operations/security-threat-model.md`'s no-network guarantee covers, and it
 //            is deliberately unaffected by anything below.
 //   hosted   dist-hosted/ — served at app.refrain-sheet.com. This is the only
 //            artifact the approved opt-in cloud-sync exception in
-//            `docs/security.md` applies to.
+//            `knowledge/operations/security-threat-model.md` applies to.
 //
 // The offline policy is fixed and is asserted byte-for-byte by tests/csp.test.ts:
 // nothing in HOSTED_ALLOWLIST can move it. Every extra permission the hosted

@@ -36,12 +36,12 @@
  * reading by its own **stored, per-workbook** timezone offset before calling
  * these functions, so "today" means the current date *in the workbook's own
  * timezone* rather than always UTC. Because that timezone is saved in the
- * file (see `docs/rsf-format.md`), a `.rsf` file still computes the same
+ * file (see `knowledge/formats/rsf/index.md`), a `.rsf` file still computes the same
  * `TODAY()`/`NOW()` wherever it is opened — the timezone travels with the
  * workbook instead of being read from the opening machine. A file saved
  * before this setting existed has no stored timezone and defaults to UTC on
  * load, preserving its original behavior exactly. Display and localization
- * are a separate concern and are documented in `docs/rsf-format.md`.
+ * are a separate concern and are documented in `knowledge/formats/rsf/index.md`.
  *
  * ## Volatility
  *

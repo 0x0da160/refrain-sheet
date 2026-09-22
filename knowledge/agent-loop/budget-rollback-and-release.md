@@ -3,7 +3,7 @@ type: agent-loop-concept
 title: Budget, rollback, and release
 description: Turn caps and circuit breakers, how to pause or roll back the loop, manual release recovery from a phone, and why the release process is a deliberate human act with no post-merge automation.
 sources:
-  - resource: ../../docs/agent-operations.md
+  - resource: docs/agent-operations.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5

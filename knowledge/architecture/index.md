@@ -2,8 +2,9 @@
 
 Engineering map of Refrain Sheet: the layers, the direction dependencies are
 allowed to flow, how data moves through the app, and the invariants every
-change must preserve. Migrated from `docs/architecture.md`; see that file
-for content not yet split into concepts here.
+change must preserve. Migrated from the former `docs/architecture.md`,
+now removed — see [`knowledge/log.md`](../log.md) for the migration
+history.
 
 - [System overview](system-overview.md) — the four layers, command flow,
   document/workbook data flow, the WASM boundary, the SQL engine, and

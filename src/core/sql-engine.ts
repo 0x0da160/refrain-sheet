@@ -2,7 +2,7 @@
 /**
  * Local, read-only SQL analysis over one worksheet/CSV table at a time,
  * executed by sql.js (SQLite compiled to WebAssembly) — see
- * docs/architecture.md "The SQL query engine" for why this replaced an
+ * knowledge/architecture/index.md "The SQL query engine" for why this replaced an
  * earlier hand-written interpreter, and THIRD-PARTY-NOTICES.md for the
  * sql.js/SQLite license text.
  *
@@ -34,13 +34,13 @@
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js';
 import { SQLJS_WASM_BASE64 } from '../wasm-gen/sqljs-wasm-payload';
 
-// ----- Bounds (documented; mirrors the formula engine's bounds table in docs/security.md) -----
+// ----- Bounds (documented; mirrors the formula engine's bounds table in knowledge/operations/security-threat-model.md) -----
 
 /** Maximum query text length, in UTF-16 code units. */
 export const SQL_MAX_QUERY_LENGTH = 4096;
 /** Maximum number of tokens the gate's tokenizer will scan before rejecting the query. */
 const SQL_MAX_TOKENS = 2000;
-/** Maximum source rows loaded from the picked table into SQLite (see docs/performance.md). */
+/** Maximum source rows loaded from the picked table into SQLite (see knowledge/operations/performance-principles.md). */
 export const SQL_MAX_SOURCE_ROWS = 200_000;
 /** Maximum result rows ever returned, regardless of the query's own LIMIT. */
 export const SQL_MAX_RESULT_ROWS = 1000;
@@ -253,7 +253,7 @@ function tokenize(src: string): Token[] {
  * (so `--`/`/* *\/` comments and string/quoted-identifier contents can never
  * hide or fake a keyword), then checks only the token stream. `WITH`,
  * `EXPLAIN`, and `PRAGMA` are deliberately not accepted in this first
- * iteration — see docs/architecture.md — because safely proving a `WITH`
+ * iteration — see knowledge/architecture/index.md — because safely proving a `WITH`
  * clause's final statement is a `SELECT` (SQLite allows `WITH ... INSERT/
  * UPDATE/DELETE`) needs real grammar-level parsing; a single leading `SELECT`
  * can never smuggle a DDL/DML statement, so it is the one shape this gate can
@@ -356,7 +356,7 @@ function quoteIdent(name: string): string {
 
 // ----- Editor support: auto-formatting and suggestions -----
 
-/** All grammar keywords (case-insensitive) this UI actively suggests. Not exhaustive of SQLite's full dialect — see the follow-up note in docs/architecture.md. */
+/** All grammar keywords (case-insensitive) this UI actively suggests. Not exhaustive of SQLite's full dialect — see the follow-up note in knowledge/architecture/index.md. */
 export const SQL_KEYWORDS: readonly string[] = [
   'SELECT',
   'FROM',
@@ -609,7 +609,7 @@ function toSqliteError(e: unknown): SqlQueryError {
  * conservative: it never silently reformats a value the way it would be
  * displayed (leading zeros, trailing zeros, padding, exponent form are all
  * preserved verbatim), at the cost of not numerically comparing/sorting a
- * handful of unusual numeric-looking spellings — see docs/architecture.md.
+ * handful of unusual numeric-looking spellings — see knowledge/architecture/index.md.
  */
 function canonicalNumericValue(text: string): number | null {
   if (text === '') return null;

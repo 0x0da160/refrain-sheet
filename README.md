@@ -402,7 +402,8 @@ commands whether or not the submenu is open.
   document's stored value takes precedence. The most recently chosen zoom is
   also kept as a local application preference and applies to documents that
   store none (including plain CSV files, which never carry display settings
-  in their bytes). See [docs/rsf-format.md](docs/rsf-format.md) for the
+  in their bytes). See
+  [knowledge/formats/rsf/index.md](knowledge/formats/rsf/index.md) for the
   format, bounds, and validation rules.
 - **Shortcuts and mouse wheel.** Step through the presets with **Zoom In**
   (**Ctrl+Shift+.**) and **Zoom Out** (**Ctrl+Shift+,**), or **Reset**
@@ -455,7 +456,7 @@ preserved, and formula calculations always use the normal sheet model.
   and restored — fully validated — on reopen. Malformed or unsupported filter
   metadata is ignored with a localized warning rather than corrupting or
   rejecting the document, and older readers safely reject a version-4 body.
-  See [docs/rsf-format.md](docs/rsf-format.md).
+  See [knowledge/formats/rsf/index.md](knowledge/formats/rsf/index.md).
 
 ### Sorting (RSF)
 
@@ -805,7 +806,8 @@ a versioned, compressed binary container (not a JSON document and not a CSV
 file); it is **not** a byte-identical representation of an imported CSV.
 Converting a CSV is always explicit and never touches the original `.csv` on
 disk — plain CSV files keep the byte-preserving, minimal-diff guarantees until
-you convert them. See [`docs/rsf-format.md`](docs/rsf-format.md) for the
+you convert them. See
+[`knowledge/formats/rsf/index.md`](knowledge/formats/rsf/index.md) for the
 container specification.
 
 ### Workbooks and worksheets
@@ -1336,7 +1338,8 @@ enforces a decompression ceiling so a crafted file cannot exhaust memory.
 Alongside the sheet, the container carries small **non-executable display
 metadata** — the spreadsheet zoom and overridden column widths — which is
 validated and clamped on load and restored when the document reopens. The
-full specification is in [docs/rsf-format.md](docs/rsf-format.md).
+full specification is in
+[knowledge/formats/rsf/index.md](knowledge/formats/rsf/index.md).
 
 > **Legacy `.rcsv` files.** This format was previously named _Refrain CSV
 > Format (RCSV)_ with the `.rcsv` extension and magic `RCSV`. Existing `.rcsv`
@@ -1474,7 +1477,7 @@ compression method, million-cell selection statistics, Replace-All scans,
 structural edits with formula-reference rewriting, large bulk-edit applies,
 and formula dependency chains). Results for the current revision, the
 reference environment, and manual browser-profiling steps are documented in
-[docs/performance.md](docs/performance.md). Responsiveness
+[knowledge/operations/performance-measurements.md](knowledge/operations/performance-measurements.md). Responsiveness
 _structure_ (bounded DOM, in-place repaint, deferred statistics, sliced scans,
 prompt busy feedback) is locked in by deterministic tests
 (`tests/perf.test.ts`, `tests/virtual-grid.test.ts`).
@@ -1525,7 +1528,7 @@ npm run dev            # Vite dev server (development only; the product itself n
 npm run build          # type-check + production build into dist/
 npm run test           # vitest (unit, property-based/fuzz, jsdom UI tests)
 npm run test:rust      # cargo test (Rust/WASM core)
-npm run bench          # performance benchmarks (see docs/performance.md)
+npm run bench          # performance benchmarks (see knowledge/operations/performance-measurements.md)
 npm run lint           # eslint
 npm run format         # prettier --write
 npm run format:check   # prettier --check
@@ -1569,7 +1572,7 @@ with dependencies flowing inward only, and every user command dispatching
 through the single typed command layer. The full engineering map (layer
 diagram, command/data flow, the WASM boundary, long-running-operation rules,
 and the invariants every change must preserve) is documented in
-[docs/architecture.md](docs/architecture.md).
+[knowledge/architecture/index.md](knowledge/architecture/index.md).
 
 ### Project layout
 
@@ -1597,10 +1600,10 @@ src/
   locales/  en.json, ja.json
 wasm/       Rust crate compiled to WebAssembly (CSV core, DEFLATE + CRC-32,
             stats/search primitives)
-docs/       architecture.md (layers, data flow, invariants),
-            rsf-format.md (binary .rsf container specification),
-            security.md (threat model + supply-chain policy),
-            performance.md (benchmark results + profiling guide)
+knowledge/  the OKF knowledge bundle: architecture (layers, data flow,
+            invariants), formats/rsf (binary .rsf container specification),
+            operations (threat model, supply-chain policy, performance),
+            agent-loop (the GitHub Issue-driven engineering loop)
 bench/      reproducible performance benchmarks (npm run bench)
 tests/      identity, fuzz/property-based, editing, encodings, save options,
             validation, history, search, formulas, cross-sheet formulas,
@@ -1891,14 +1894,14 @@ The deployed URL is also recorded on the run's `github-pages` environment.
   (`dist/`, app.refrain-sheet.com); the separate marketing landing page
   (`src/landing/`, refrain-sheet.com, built by `npm run build:landing`) is
   static informational content and may load consent-gated Google Analytics —
-  see [`docs/security.md`](docs/security.md#scope-of-the-no-network-guarantee).
+  see [`knowledge/operations/security-threat-model.md`](knowledge/operations/security-threat-model.md#scope-of-the-no-network-guarantee).
 - The repository and build output contain no secrets or credentials.
 
 ### Supply-chain security
 
 The full threat model, dependency policy, lockfile policy, CI permission model,
 release controls, and local-developer expectations are documented in
-[docs/security.md](docs/security.md). In brief:
+[knowledge/operations/index.md](knowledge/operations/index.md). In brief:
 
 - **Minimal dependencies.** The production runtime has three dependencies —
   `encoding-japanese` (Shift_JIS/EUC-JP encoding), `lucide` (bundled UI

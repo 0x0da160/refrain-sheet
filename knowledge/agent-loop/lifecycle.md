@@ -3,7 +3,7 @@ type: agent-loop-concept
 title: Agent loop lifecycle
 description: How a human Issue becomes a reviewed, merged, released pull request — the simplified submission model, the full Issue-to-release pipeline, the label state machine, and which steps are automated vs. human.
 sources:
-  - resource: ../../docs/agent-operations.md
+  - resource: docs/agent-operations.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5

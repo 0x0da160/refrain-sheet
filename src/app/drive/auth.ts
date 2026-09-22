@@ -165,10 +165,3 @@ export function signOut(): void {
 export function forgetToken(): void {
   cached = null;
 }
-
-/** Test seam: reset all module state. */
-export function resetAuthStateForTests(): void {
-  cached = null;
-  tokenClient = null;
-  pending = null;
-}

@@ -586,12 +586,6 @@ function requireSqlJs(): SqlJsStatic {
   return sqlJsStatic;
 }
 
-/** Test hook: reset the cached sql.js instance/init promise. */
-export function resetSqlEngineForTests(): void {
-  sqlJsStatic = null;
-  initPromise = null;
-}
-
 function toSqlValue(v: number | string | Uint8Array | null): SqlValue {
   if (v === null) return '';
   if (v instanceof Uint8Array) return bytesToHex(v);

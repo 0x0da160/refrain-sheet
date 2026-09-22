@@ -8,6 +8,13 @@ repository, per `knip.jsonc`. Reproduce it locally with:
 npx knip
 ```
 
+**Update (chore/remove-dead-test-reset-helpers):** the three highest-confidence
+unused exports from the original baseline — `resetAuthStateForTests`,
+`resetPickerStateForTests`, `resetSqlEngineForTests` — were verified dead
+(zero call sites anywhere, including internally) and removed. The counts and
+lists below are updated to match; see "Resolved findings" below for the
+evidence trail kept for future reference.
+
 Findings below are classified S0–S3 per the repository's cleanup-safety
 framework (mechanically safe → requires human review → possible dynamic
 usage → external contract). **Only S0 findings would ever be auto-actionable,
@@ -78,7 +85,39 @@ The one real finding here (`tailwindcss`) was resolved the same way, by
 documenting the actual CSS-`@import` usage mechanism in `ignoreDependencies`
 rather than deleting the dependency or silently suppressing the warning.
 
-### Unused exports — 86 findings — S1, not individually verified
+### Resolved findings
+
+- `resetAuthStateForTests` (was `src/app/drive/auth.ts:170`),
+  `resetPickerStateForTests` (was `src/app/drive/picker.ts:145`), and
+  `resetSqlEngineForTests` (was `src/core/sql-engine.ts:590`) — **removed**.
+  Evidence gathered before deletion, kept here since the reasoning is
+  non-obvious:
+  - `grep` for each name across `tests/` and `src/` found exactly one
+    occurrence each — the definition itself. Not called internally by their
+    own file either.
+  - `tests/drive.test.ts` (the file that would exercise `auth.ts`/
+    `picker.ts`) imports `resetLoadedScriptsForTests` from the sibling
+    `script-loader.ts` — proving the "reset seam for tests" pattern _is_
+    used elsewhere in this same directory — but never imports
+    `resetAuthStateForTests` or `resetPickerStateForTests`. `auth.ts` in
+    particular has no test file at all (its OAuth token flow depends on a
+    browser-only Google Identity Services script). This means the two
+    reset hooks weren't superseded by some other reset mechanism — nothing
+    exercises the module state they'd reset, at all.
+  - `tests/sql-engine.test.ts` calls `initSqlEngine()` once and shares that
+    initialized engine across all 58 tests in the file; Vitest's default
+    per-file module isolation (`vite.config.ts` sets no `pool`/`isolate`
+    override) already gives each _test file_ fresh module state, so
+    `resetSqlEngineForTests`'s per-test-granularity reset was never needed
+    by the existing suite design.
+  - Removing all three and re-running `npx knip` dropped "Unused exports"
+    from 86 to 83 with no other change and no new findings — confirming the
+    removal was isolated and didn't shift usage elsewhere.
+  - Full verification suite (`format:check`, `lint`, `build` incl.
+    `tsc --noEmit`, `check:dist`, `check:versions`, `test` — 134/134 files,
+    2012/2012 tests) passed unchanged after removal.
+
+### Unused exports — 83 findings — S1, not individually verified
 
 Every name below is exported from its file but not imported by any other
 file in the project **including test files** (test files are configured
@@ -91,13 +130,6 @@ Knip's static analysis doesn't fully resolve.
 
 **Spot-checked during this audit (higher-confidence subset):**
 
-- `resetAuthStateForTests` (`src/app/drive/auth.ts:170`),
-  `resetPickerStateForTests` (`src/app/drive/picker.ts:145`), and
-  `resetSqlEngineForTests` (`src/core/sql-engine.ts:590`) — grepped `tests/`
-  and `src/` directly (not just Knip's graph): genuinely called nowhere.
-  Named and shaped like test-reset hooks that were never wired into a test.
-  **Best S1 candidate for a future `safe-delete` PR**, pending confirmation
-  they're not intentionally-reserved test scaffolding.
 - The 16 re-exports in `src/core/formula.ts` (`booleanValue`,
   `coerceToBoolean`, `coerceToNumber`, `coerceToText`, `compareValues`,
   `ERROR_CODES`, `flattenGrid`, `makeGrid`, `MAX_RANGE_CELLS`, `numberValue`,
@@ -145,13 +177,17 @@ resolved values, not intent, so this reads as a false positive unless a
 maintainer confirms the two limits were meant to be the same constant all
 along.
 
-## What this PR does and does not do
+## History
 
-- Adds `knip` as a pinned `devDependency` and `knip.jsonc`.
-- Adds this report.
-- **Deletes nothing.** No export, file, or dependency named above is removed
-  here.
-- Establishes the reproducible baseline that a future `cleanup-audit` /
-  `safe-delete` skill (see `CLAUDE.md`'s cleanup-safety framework) and
-  Phase 3 PRs will diff against, so new dead code is caught going forward
-  without re-litigating everything already listed here.
+- **Baseline PR** (`chore/knip-baseline`): added `knip` as a pinned
+  `devDependency`, `knip.jsonc`, and this report. Deleted nothing — every
+  finding above was left in place, pending individual verification.
+- **`chore/remove-dead-test-reset-helpers`:** verified and removed the
+  three highest-confidence findings (see "Resolved findings" above). Still
+  deletes nothing else — the remaining 83 unused exports and 27 unused
+  types are unchanged and still not individually verified.
+
+This file will keep getting updated in place as future `safe-delete` PRs
+verify and act on more of the remaining findings, rather than each PR
+creating a new report — so it always reflects the current, real baseline
+a fresh `npx knip` run would reproduce.

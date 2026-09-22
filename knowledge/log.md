@@ -136,6 +136,8 @@ second stale line: `README.md`'s own "Limitations" section still says
 the detailed Filtering (RSF) / Sorting (RSF) sections earlier in the same
 document.
 
+## 2026-09-22 (later)
+
 **`references/` domain added.** A single reserved index,
 `references/index.md`, not a multi-concept domain — there was not enough
 distinct material to justify a split. It curates pointers rather than
@@ -151,3 +153,44 @@ left out: `sql.js`, already covered as a dependency in
 spec the project implements or follows; and routine GitHub/tooling config
 (`.github/labels.yml`, `.github/ISSUE_TEMPLATE/`, `knip.jsonc`) that isn't
 itself reference material.
+
+**`decisions/` domain added — small, after an audit that mostly said
+"already covered."** Five candidate decisions were investigated against
+the standing bar of "only decisions that would otherwise be rediscovered
+repeatedly, grounded in code/tests/an authoritative source, no filler":
+
+- **No WASM formula evaluator / no formula worker** —
+  `architecture/dependency-rules.md`'s own "Why no Rust/WASM formula
+  evaluator, and no formula worker" section is already a self-contained
+  decision record (what was considered, why rejected, where to look if
+  profiling changes the answer). Adding a `decisions/` file would only
+  restate it under a different `type:`. **Skipped, duplicate.**
+- **WASM/JS boundary scope** —
+  `operations/performance-principles.md`'s "Deliberate non-optimizations"
+  and "WASM-offload candidates surveyed, not adopted (Issue #408)"
+  sections already give per-candidate rationale in more detail than a
+  general framework could add without restating them. **Skipped,
+  duplicate.**
+- **RSF versioning/compatibility policy** —
+  `formats/rsf/compatibility.md` and `formats/rsf/overview.md` already
+  state the "reject-don't-guess" and "keep the common case maximally
+  compatible" rationale inline, and the bump-only-when-triggering-data
+  pattern is documented, not just observed. **Skipped, duplicate.**
+- **sql.js over a hand-written SQL parser** — the replacement and its
+  reason (joins/subqueries/real SQL functions while staying local) are
+  already recorded in `CHANGELOG.md`'s 0.7.11 entry and
+  `architecture/system-overview.md`'s SQL engine section in enough detail
+  that a decision record would add little. **Skipped, duplicate.**
+- **No UI framework** — genuinely not stated as a decision anywhere;
+  `architecture/module-boundaries.md` only records the fact in passing.
+  Grounded instead by combining two real, separately-documented policies —
+  `operations/security-supply-chain.md`'s general dependency-minimalism
+  policy, and the grid's hand-rolled `LayoutSignature`-gated repaint path
+  in `src/ui/grid.ts` (the same reason `module-boundaries.md` gives for
+  excluding the grid from the Tailwind migration) — since neither doc
+  states the UI-framework question directly. **Added** as
+  `decisions/no-ui-framework.md`.
+
+`decisions/index.md` is a reserved index with no frontmatter, matching the
+other domain indexes, and explicitly says most rationale already lives
+inline in the other domains rather than here.

@@ -1,0 +1,52 @@
+{
+  "name": "Refrain Sheet Design System",
+  "version": "1.0.0",
+  "released": "2026-09-22",
+  "targets": {
+    "primary": "Windows 11 / Chrome",
+    "supported": [
+      "iOS Safari",
+      "Android Chrome",
+      "macOS Safari",
+      "Firefox"
+    ]
+  },
+  "fonts": {
+    "webfonts": 0,
+    "ui": "\"BIZ UDPGothic\", \"Yu Gothic UI\", \"Hiragino Sans\", \"Noto Sans JP\", system-ui, sans-serif",
+    "data": "\"BIZ UDGothic\", \"SFMono-Regular\", Consolas, \"Courier New\", monospace",
+    "available_weights": [
+      400,
+      700
+    ]
+  },
+  "color": {
+    "space": "Oklab (OKLCH)",
+    "delivery": "sRGB hex",
+    "themes": [
+      "light",
+      "dark",
+      "hybrid"
+    ]
+  },
+  "density": [
+    "compact",
+    "comfortable",
+    "spacious"
+  ],
+  "accessibility": {
+    "standard": "WCAG 2.2 AA",
+    "contrast_checks": 78,
+    "contrast_pass": 78
+  },
+  "files": {
+    "tokens.css": 18171,
+    "base.css": 3471,
+    "components.css": 16662,
+    "refrain-sheet.css": 38392,
+    "logo/": 38791,
+    "icons/": 38936,
+    "docs/design-system.html": 84290,
+    "docs/brand-guidelines.html": 100172
+  }
+}

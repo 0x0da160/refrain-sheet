@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Refrain Sheet — Brand Guidelines v2.0</title>
+<link rel="icon" href="../icons/favicon.svg">
+<style>
+/*! Refrain Sheet Design System — tokens  v1.0.0  (2026-09-22)
+ *
+ *  色は Oklab（極座標 OKLCH）で設計し、sRGB 16進で納品する。
+ *  生成元: tools/palette.py（色） + tools/ds.py（それ以外）。直接編集しない。
+ *
+ *  単位の規則（sizing-units）:
+ *    rem — 文字に属する値。フォントサイズ、行送り、文字まわりの余白、コントロール高
+ *    px  — 画面に属する値。境界線、影、角丸
+ *    em  — メディアクエリ。利用者の既定フォントサイズを尊重するため
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ---------- fonts (ゼロダウンロード。OS標準のみ) ---------- */
+  --font-ui: "BIZ UDPGothic", "Yu Gothic UI", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-data: "BIZ UDGothic", "SFMono-Regular", Consolas, "Courier New", monospace;
+  --font-feature-data: "zero" 1;   /* スラッシュ付きゼロ。BIZ UD / Yu Gothic UI で実在を確認 */
+
+
+  /* ---------- type scale (base 16px, ratio 1.2) ---------- */
+  --text-xs: 0.875rem;                        /* 14px  step −1 (clamped from 13.3px) — メタデータ・補助・バッジ */
+  --text-body: 1rem;                          /* 16px  step 0 — 本文、UIラベル、ボタン、セルの既定 */
+  --text-lead: 1.1875rem;                     /* 19px  step +1 — リード文 */
+  --text-h3: 1.4375rem;                       /* 23px  step +2 */
+  --text-h2: 1.75rem;                         /* 28px  step +3 */
+  --text-h1: 2.0625rem;                       /* 33px  step +4 */
+  --text-display: 2.5rem;                     /* 40px  step +5 — ドキュメント見出しのみ */
+
+  --leading-tight: 1.25;                      /* 見出し（大きいほど詰める） */
+  --leading-ui: 1.4;                          /* UIラベル、ボタン、セル */
+  --leading-body: 1.75;                       /* 本文。和文は欧文より行送りを多く取る */
+  --weight-regular: 400;                      /* 既定 */
+  --weight-bold: 700;                         /* 強調・見出し。400と700の2段しかない（下記参照） */
+  --tracking-normal: 0;                       /* 本文・和文。字間は触らない */
+  --tracking-caps: 0.04em;                    /* 欧文の全大文字ラベルのみ。上限 */
+
+  /* ---------- spacing (base 4px) ---------- */
+  --space-1: 0.25rem;                         /* 4px */
+  --space-2: 0.5rem;                          /* 8px */
+  --space-3: 0.75rem;                         /* 12px */
+  --space-4: 1rem;                            /* 16px */
+  --space-5: 1.25rem;                         /* 20px */
+  --space-6: 1.5rem;                          /* 24px */
+  --space-8: 2rem;                            /* 32px */
+  --space-10: 2.5rem;                         /* 40px */
+  --space-12: 3rem;                           /* 48px */
+  --space-16: 4rem;                           /* 64px */
+
+  /* ---------- shape ---------- */
+  --radius-cell: 0;                           /* データグリッドのセル・行・列ヘッダ */
+  --radius-xs: 2px;                           /* セル内チップ、ステータスドット枠 */
+  --radius-sm: 4px;                           /* ウェル、インセット領域 */
+  --radius-md: 6px;                           /* ボタン、入力、セレクト、トグル（コントロール基準） */
+  --radius-lg: 10px;                          /* カード、パネル */
+  --radius-xl: 14px;                          /* モーダル、ドロワー、ポップオーバー */
+  --radius-full: 999px;                       /* ピル、アバター、ステータスドット */
+  --border-thin: 1px;                         /* 既定。入力・カード・区切り */
+  --border-thick: 4px;                        /* 選択中インジケータ、強調帯 */
+
+  /* ---------- controls ---------- */
+  --control-h-sm: 2rem;                       /* 32px  compact */
+  --control-h-md: 2.25rem;                    /* 36px  comfortable（既定） */
+  --control-h-lg: 2.75rem;                    /* 44px  spacious / タッチ */
+  --control-px: 0.75rem;                      /* 12px  左右パディング */
+  --control-gap: 0.5rem;                      /* 8px   アイコンとラベルの間 */
+  --control-slot: 1.25rem;                    /* 20px  アイコン・アバター等のスロット高 */
+
+  /* ---------- motion ---------- */
+  --duration-instant: 80ms;                   /* 押下 */
+  --duration-fast: 120ms;                     /* ホバー・色変化 */
+  --duration-base: 200ms;                     /* 開閉・スライド */
+  --duration-slow: 320ms;                     /* ドロワー */
+  --ease-out: cubic-bezier(.2, 0, 0, 1);      /* 既定 */
+  --ease-in-out: cubic-bezier(.4, 0, .2, 1);  /* 往復するもの */
+  --focus-width: 2px;                         
+  --focus-offset: 2px;                        
+
+  /* ---------- layers ---------- */
+  --z-base: 0;                                /* 本文 */
+  --z-sticky: 100;                            /* 固定ヘッダ・列ヘッダ */
+  --z-dropdown: 200;                          /* メニュー・ポップオーバー */
+  --z-drawer: 300;                            /* ドロワー */
+  --z-modal: 400;                             /* モーダル */
+  --z-toast: 500;                             /* トースト */
+  --z-tooltip: 600;                           /* ツールチップ */
+
+  /* ---------- breakpoints (参照用。@media には直接書く) ---------- */
+  --bp-sm: 30em;                              /* 480px  端末最小 */
+  --bp-md: 48em;                              /* 768px  タブレット */
+  --bp-lg: 64em;                              /* 1024px デスクトップ */
+  --bp-xl: 90em;                              /* 1440px 上限 */
+  --layout-max: 90rem;                        /* 1440px 本文領域の上限 */
+
+  /* ---------- colour primitives ---------- */
+  --brand-green: #147F43;                     
+  --brand-paper: #F4F4EB;                     
+  --brand-mist: #DAECD8;                      
+  --brand-leaf: #8BC191;                      
+  --brand-ink: #141A22;                       
+  --brand-muted: #5B6468;                     
+  --brand-line: #D8DED7;                      
+
+  --green-50: #EEF9EC;                        /* oklch 97.0% 0.021 141 */
+  --green-100: #DAECD8;                       /* oklch 92.4% 0.033 142  ブランド基準値 */
+  --green-200: #B3D5B3;                       /* oklch 83.9% 0.059 145 */
+  --green-300: #8BC191;                       /* oklch 76.0% 0.088 147  ブランド基準値 */
+  --green-400: #5DA56C;                       /* oklch 66.0% 0.112 149 */
+  --green-500: #3D9156;                       /* oklch 58.9% 0.121 151 */
+  --green-600: #147F43;                       /* oklch 52.5% 0.130 152  ブランド基準値 */
+  --green-700: #006335;                       /* oklch 43.9% 0.110 154 */
+  --green-800: #004A29;                       /* oklch 36.0% 0.087 156 */
+  --green-900: #002F1B;                       /* oklch 26.9% 0.062 159 */
+
+  --paper-0: #FFFFFF;                         /* oklch 100.0% 0.000 90 */
+  --paper-50: #F4F4EB;                        /* oklch 96.5% 0.012 107  ブランド基準値 */
+  --paper-100: #EDEDE4;                       /* oklch 94.4% 0.012 107 */
+  --paper-200: #DDDDD4;                       /* oklch 89.5% 0.012 107 */
+  --paper-300: #CBCBC3;                       /* oklch 84.0% 0.011 107 */
+  --paper-400: #B2B2AA;                       /* oklch 76.1% 0.011 107 */
+
+  --ink-200: #999FA7;                         /* oklch 70.0% 0.014 256 */
+  --ink-300: #81878F;                         /* oklch 62.1% 0.014 256 */
+  --ink-350: #6F757D;                         /* oklch 56.0% 0.014 256 */
+  --ink-400: #5C636D;                         /* oklch 49.7% 0.018 257 */
+  --ink-500: #474E57;                         /* oklch 42.1% 0.018 255 */
+  --ink-600: #323941;                         /* oklch 34.1% 0.017 252 */
+  --ink-700: #232932;                         /* oklch 27.9% 0.019 258 */
+  --ink-800: #1B2129;                         /* oklch 24.5% 0.018 256 */
+  --ink-900: #141A22;                         /* oklch 21.5% 0.018 256  ブランド基準値 */
+  --ink-950: #0B1118;                         /* oklch 17.5% 0.017 253 */
+  --ink-1000: #04080E;                        /* oklch 13.2% 0.016 252 */
+
+  --amber-100: #F6E5CE;                       /* oklch 92.9% 0.036 76 */
+  --amber-300: #D6B890;                       /* oklch 79.9% 0.064 75 */
+  --amber-500: #B99056;                       /* oklch 67.9% 0.090 75 */
+  --amber-600: #A6762A;                       /* oklch 60.1% 0.108 75 */
+  --amber-700: #865900;                       /* oklch 50.1% 0.106 75 */
+  --amber-900: #472D00;                       /* oklch 32.1% 0.068 75 */
+
+  --red-100: #FFDDD9;                         /* oklch 92.5% 0.038 26 */
+  --red-300: #E49C93;                         /* oklch 76.1% 0.088 27 */
+  --red-500: #C5675D;                         /* oklch 62.1% 0.122 27 */
+  --red-600: #B44B43;                         /* oklch 54.9% 0.138 27 */
+  --red-700: #9E2321;                         /* oklch 46.0% 0.160 27 */
+  --red-900: #5D0004;                         /* oklch 30.1% 0.123 27 */
+
+  --blue-100: #D8EAFF;                        /* oklch 93.0% 0.034 252 */
+  --blue-300: #95BBE7;                        /* oklch 78.0% 0.075 252 */
+  --blue-500: #4F89C9;                        /* oklch 61.9% 0.115 252 */
+  --blue-600: #2D74BC;                        /* oklch 55.1% 0.132 252 */
+  --blue-700: #0059A1;                        /* oklch 46.1% 0.137 252 */
+  --blue-900: #002E59;                        /* oklch 30.0% 0.090 252 */
+
+}
+
+/* light — シェルもシートも紙側 */
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --chrome-bg: #F4F4EB;
+  --chrome-surface: #FFFFFF;
+  --chrome-raised: #FFFFFF;
+  --chrome-sunken: #EDEDE4;
+  --chrome-border: #DDDDD4;
+  --chrome-border-strong: #CBCBC3;
+  --border-control: #81878F;
+  --chrome-text: #141A22;
+  --chrome-text-muted: #474E57;
+  --chrome-text-subtle: #5C636D;
+  --accent: #147F43;
+  --accent-hover: #006335;
+  --accent-active: #004A29;
+  --accent-contrast: #FFFFFF;
+  --accent-subtle: #EEF9EC;
+  --accent-subtle-text: #004A29;
+  --accent-text: #006335;
+  --focus-ring: #147F43;
+  --danger: #B44B43;
+  --danger-hover: #9E2321;
+  --danger-contrast: #FFFFFF;
+  --danger-text: #9E2321;
+  --warning: #865900;
+  --warning-text: #472D00;
+  --success: #147F43;
+  --info: #2D74BC;
+  --link: #006335;
+  --link-visited: #002F1B;
+  --canvas-bg: #FFFFFF;
+  --canvas-header-bg: #F4F4EB;
+  --canvas-grid: #DDDDD4;
+  --canvas-grid-strong: #CBCBC3;
+  --canvas-text: #141A22;
+  --canvas-text-muted: #474E57;
+  --canvas-selection: #EEF9EC;
+  --canvas-selection-border: #147F43;
+  --canvas-row-alt: #F4F4EB;
+  --state-added: #DAECD8;
+  --state-added-text: #004A29;
+  --state-modified: #F6E5CE;
+  --state-modified-text: #472D00;
+  --state-removed: #FFDDD9;
+  --state-removed-text: #5D0004;
+  --state-info: #D8EAFF;
+  --state-info-text: #002E59;
+  --shadow-xs: 0 1px 2px rgba(4, 8, 14, .06);
+  --shadow-sm: 0 1px 3px rgba(4, 8, 14, .10), 0 1px 2px rgba(4, 8, 14, .06);
+  --shadow-md: 0 4px 6px rgba(4, 8, 14, .08), 0 2px 4px rgba(4, 8, 14, .06);
+  --shadow-lg: 0 10px 15px rgba(4, 8, 14, .08), 0 4px 6px rgba(4, 8, 14, .05);
+  --overlay: rgba(4, 8, 14, .45);
+  --skeleton-base: var(--paper-200);
+  --skeleton-shine: var(--paper-100);
+}
+
+/* dark — シェルもシートもインク側 */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --chrome-bg: #141A22;
+  --chrome-surface: #1B2129;
+  --chrome-raised: #232932;
+  --chrome-sunken: #0B1118;
+  --chrome-border: #323941;
+  --chrome-border-strong: #474E57;
+  --border-control: #6F757D;
+  --chrome-text: #F4F4EB;
+  --chrome-text-muted: #81878F;
+  --chrome-text-subtle: #6F757D;
+  --accent: #8BC191;
+  --accent-hover: #B3D5B3;
+  --accent-active: #DAECD8;
+  --accent-contrast: #141A22;
+  --accent-subtle: #002F1B;
+  --accent-subtle-text: #B3D5B3;
+  --accent-text: #8BC191;
+  --focus-ring: #8BC191;
+  --danger: #E49C93;
+  --danger-hover: #FFDDD9;
+  --danger-contrast: #141A22;
+  --danger-text: #E49C93;
+  --warning: #D6B890;
+  --warning-text: #D6B890;
+  --success: #8BC191;
+  --info: #95BBE7;
+  --link: #8BC191;
+  --link-visited: #B3D5B3;
+  --canvas-bg: #0B1118;
+  --canvas-header-bg: #141A22;
+  --canvas-grid: #232932;
+  --canvas-grid-strong: #323941;
+  --canvas-text: #F4F4EB;
+  --canvas-text-muted: #81878F;
+  --canvas-selection: #002F1B;
+  --canvas-selection-border: #8BC191;
+  --canvas-row-alt: #141A22;
+  --state-added: #002F1B;
+  --state-added-text: #B3D5B3;
+  --state-modified: #472D00;
+  --state-modified-text: #D6B890;
+  --state-removed: #5D0004;
+  --state-removed-text: #E49C93;
+  --state-info: #002E59;
+  --state-info-text: #95BBE7;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, .30);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .40), 0 1px 2px rgba(0, 0, 0, .30);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, .45), 0 2px 4px rgba(0, 0, 0, .30);
+  --shadow-lg: 0 12px 20px rgba(0, 0, 0, .50), 0 4px 8px rgba(0, 0, 0, .35);
+  --overlay: rgba(4, 8, 14, .65);
+  --skeleton-base: var(--ink-800);
+  --skeleton-shine: var(--ink-700);
+}
+
+/* hybrid — シェルはインク側、シートは紙側 */
+[data-theme="hybrid"] {
+  color-scheme: dark;
+  --chrome-bg: #141A22;
+  --chrome-surface: #1B2129;
+  --chrome-raised: #232932;
+  --chrome-sunken: #0B1118;
+  --chrome-border: #323941;
+  --chrome-border-strong: #474E57;
+  --border-control: #6F757D;
+  --chrome-text: #F4F4EB;
+  --chrome-text-muted: #81878F;
+  --chrome-text-subtle: #6F757D;
+  --accent: #8BC191;
+  --accent-hover: #B3D5B3;
+  --accent-active: #DAECD8;
+  --accent-contrast: #141A22;
+  --accent-subtle: #002F1B;
+  --accent-subtle-text: #B3D5B3;
+  --accent-text: #8BC191;
+  --focus-ring: #8BC191;
+  --danger: #E49C93;
+  --danger-hover: #FFDDD9;
+  --danger-contrast: #141A22;
+  --danger-text: #E49C93;
+  --warning: #D6B890;
+  --warning-text: #D6B890;
+  --success: #8BC191;
+  --info: #95BBE7;
+  --link: #8BC191;
+  --link-visited: #B3D5B3;
+  --canvas-bg: #FFFFFF;
+  --canvas-header-bg: #F4F4EB;
+  --canvas-grid: #DDDDD4;
+  --canvas-grid-strong: #CBCBC3;
+  --canvas-text: #141A22;
+  --canvas-text-muted: #474E57;
+  --canvas-selection: #EEF9EC;
+  --canvas-selection-border: #147F43;
+  --canvas-row-alt: #F4F4EB;
+  --state-added: #DAECD8;
+  --state-added-text: #004A29;
+  --state-modified: #F6E5CE;
+  --state-modified-text: #472D00;
+  --state-removed: #FFDDD9;
+  --state-removed-text: #5D0004;
+  --state-info: #D8EAFF;
+  --state-info-text: #002E59;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, .30);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .40), 0 1px 2px rgba(0, 0, 0, .30);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, .45), 0 2px 4px rgba(0, 0, 0, .30);
+  --shadow-lg: 0 12px 20px rgba(0, 0, 0, .50), 0 4px 8px rgba(0, 0, 0, .35);
+  --overlay: rgba(4, 8, 14, .65);
+  --skeleton-base: var(--ink-800);
+  --skeleton-shine: var(--ink-700);
+}
+
+/* OS設定に追随。明示的な data-theme が最優先。 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --chrome-bg: #141A22;
+    --chrome-surface: #1B2129;
+    --chrome-raised: #232932;
+    --chrome-sunken: #0B1118;
+    --chrome-border: #323941;
+    --chrome-border-strong: #474E57;
+    --border-control: #6F757D;
+    --chrome-text: #F4F4EB;
+    --chrome-text-muted: #81878F;
+    --chrome-text-subtle: #6F757D;
+    --accent: #8BC191;
+    --accent-hover: #B3D5B3;
+    --accent-active: #DAECD8;
+    --accent-contrast: #141A22;
+    --accent-subtle: #002F1B;
+    --accent-subtle-text: #B3D5B3;
+    --accent-text: #8BC191;
+    --focus-ring: #8BC191;
+    --danger: #E49C93;
+    --danger-hover: #FFDDD9;
+    --danger-contrast: #141A22;
+    --danger-text: #E49C93;
+    --warning: #D6B890;
+    --warning-text: #D6B890;
+    --success: #8BC191;
+    --info: #95BBE7;
+    --link: #8BC191;
+    --link-visited: #B3D5B3;
+    --canvas-bg: #0B1118;
+    --canvas-header-bg: #141A22;
+    --canvas-grid: #232932;
+    --canvas-grid-strong: #323941;
+    --canvas-text: #F4F4EB;
+    --canvas-text-muted: #81878F;
+    --canvas-selection: #002F1B;
+    --canvas-selection-border: #8BC191;
+    --canvas-row-alt: #141A22;
+    --state-added: #002F1B;
+    --state-added-text: #B3D5B3;
+    --state-modified: #472D00;
+    --state-modified-text: #D6B890;
+    --state-removed: #5D0004;
+    --state-removed-text: #E49C93;
+    --state-info: #002E59;
+    --state-info-text: #95BBE7;
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, .30);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, .40), 0 1px 2px rgba(0, 0, 0, .30);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, .45), 0 2px 4px rgba(0, 0, 0, .30);
+    --shadow-lg: 0 12px 20px rgba(0, 0, 0, .50), 0 4px 8px rgba(0, 0, 0, .35);
+    --overlay: rgba(4, 8, 14, .65);
+    --skeleton-base: var(--ink-800);
+    --skeleton-shine: var(--ink-700);
+  }
+}
+
+/* ---------- density ---------- */
+/* 既定は comfortable。密度が変えるのは高さと余白だけで、文字サイズは動かさない。 */
+/* 各密度は :root[data-density=...] (0,2,0) で書く。素の :root (0,1,0) と
+   同じ詳細度だと、記述順だけで既定値が密度指定を上書きしてしまうため。 */
+:root {
+  --control-h: var(--control-h-md);
+  --row-h: 2.125rem;
+  --cell-px: var(--space-3);
+  --stack-gap: var(--space-3);
+}
+:root[data-density="compact"], [data-density="compact"] {
+  --control-h: var(--control-h-sm);
+  --row-h: 1.75rem;
+  --cell-px: var(--space-2);
+  --stack-gap: var(--space-2);
+}
+:root[data-density="comfortable"], [data-density="comfortable"] {
+  --control-h: var(--control-h-md);
+  --row-h: 2.125rem;
+  --cell-px: var(--space-3);
+  --stack-gap: var(--space-3);
+}
+:root[data-density="spacious"], [data-density="spacious"] {
+  --control-h: var(--control-h-lg);
+  --row-h: 2.75rem;
+  --cell-px: var(--space-4);
+  --stack-gap: var(--space-4);
+}
+
+/* 指先は細かく狙えない。粗いポインタでは密度指定に関わらず44pxを下回らせない。 */
+@media (pointer: coarse) {
+  :root, :root[data-density], [data-density] {
+    --control-h: var(--control-h-lg);
+    --row-h: 2.75rem;
+  }
+}
+
+* { box-sizing: border-box; }
+html { background: var(--chrome-bg); color: var(--chrome-text); }
+body { margin: 0; font-family: var(--font-ui); font-size: var(--text-md);
+  line-height: var(--leading-relaxed); -webkit-font-smoothing: antialiased; }
+.wrap { width: min(1180px, calc(100% - 40px)); margin: auto; }
+header { background: var(--ink-900); color: var(--paper-50); padding: 64px 0 44px; }
+header .wrap > svg { display: block; margin-bottom: 26px; }
+h1, h2, h3, h4 { line-height: var(--leading-tight); letter-spacing: var(--tracking-heading); }
+h1 { font-size: var(--text-4xl); margin: 0 0 10px; }
+h2 { font-size: var(--text-3xl); margin: 0 0 6px; }
+h3 { font-size: var(--text-xl); margin: 34px 0 10px; }
+h4 { font-size: var(--text-sm); margin: 0 0 8px; color: var(--chrome-text-muted);
+  font-weight: var(--weight-medium); }
+.eyebrow { margin: 0 0 12px; font: var(--weight-semibold) var(--text-2xs)/1.2 var(--font-data);
+  letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--green-300); }
+.lede { max-width: 62ch; color: var(--ink-200); font-size: var(--text-lg); margin: 14px 0 0; }
+nav { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 30px; font-size: var(--text-sm); }
+nav a { color: var(--green-200); text-decoration: none; }
+nav a:hover { text-decoration: underline; }
+section { padding: 60px 0; border-bottom: 1px solid var(--chrome-border); }
+p { max-width: 74ch; }
+code { font-family: var(--font-data); font-size: .92em; }
+.note { margin: 18px 0 0; padding: 14px 16px; border-left: 3px solid var(--accent);
+  background: var(--accent-subtle); color: var(--accent-subtle-text);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: var(--text-sm); max-width: 74ch; }
+table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: var(--text-sm); }
+th, td { padding: 9px 12px; text-align: left; vertical-align: middle;
+  border-bottom: 1px solid var(--chrome-border); }
+thead th { background: var(--chrome-sunken); font-weight: var(--weight-semibold);
+  font-size: var(--text-xs); }
+tbody th { font-weight: var(--weight-regular); }
+tr.grp th { background: var(--chrome-sunken); font-weight: var(--weight-semibold); }
+.dot { display: inline-block; width: 12px; height: 12px; border-radius: var(--radius-xs);
+  border: 1px solid var(--chrome-border); vertical-align: -2px; margin-right: 7px; }
+.ok { color: var(--green-700); font-family: var(--font-data); }
+.ng { color: var(--red-700); font-weight: var(--weight-bold); font-family: var(--font-data); }
+.floor { color: var(--chrome-text-subtle); font-family: var(--font-data); }
+.ramp { margin: 0 0 22px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sw { width: 108px; font-size: var(--text-2xs); font-family: var(--font-data); }
+.chip { height: 54px; border-radius: var(--radius-sm); display: flex; align-items: flex-start;
+  justify-content: space-between; padding: 6px 8px; font-weight: var(--weight-semibold);
+  border: 1px solid var(--chrome-border); }
+.chip .pin { font-size: 9px; font-weight: var(--weight-regular); opacity: .8; }
+.sw code { display: block; margin-top: 4px; }
+.sw small { color: var(--chrome-text-subtle); font-size: 10px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 22px; }
+.card { padding: 20px; border: 1px solid var(--chrome-border); border-radius: var(--radius-lg);
+  background: var(--chrome-surface); }
+.stage { display: grid; place-items: center; padding: 30px; border-radius: var(--radius-lg);
+  background: var(--chrome-sunken); }
+.icons { display: flex; gap: 22px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+.icons figure { margin: 0; text-align: center; color: var(--chrome-text); }
+.icons figcaption { font: var(--text-2xs)/1.4 var(--font-data); color: var(--chrome-text-subtle);
+  margin-top: 6px; }
+.rdemo { width: 46px; height: 28px; background: var(--accent); }
+.switch { display: flex; gap: 6px; margin: 0 0 18px; }
+.switch button { font: var(--weight-medium) var(--text-sm)/1 var(--font-ui); padding: 9px 14px;
+  border-radius: var(--radius-md); border: 1px solid var(--border-control);
+  background: var(--chrome-surface); color: var(--chrome-text); cursor: pointer; }
+.switch button[aria-pressed="true"] { background: var(--accent); color: var(--accent-contrast);
+  border-color: var(--accent); }
+.switch button:focus-visible { outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset); }
+.docswitch { margin: 26px 0 0; }
+.docswitch button { background: transparent; color: var(--paper-50);
+  border-color: var(--ink-500); }
+.docswitch button[aria-pressed="true"] { background: var(--green-300); color: var(--ink-900);
+  border-color: var(--green-300); }
+.mockwrap { margin: 0 0 22px; }
+.mockwrap figcaption { font: var(--text-xs)/1.4 var(--font-data);
+  color: var(--chrome-text-muted); margin-bottom: 7px; }
+.app .meta { color: var(--chrome-text-subtle); font-size: var(--text-xs); }
+/* ---- the UI mock ---- */
+.app { border: 1px solid var(--chrome-border); border-radius: var(--radius-lg); overflow: hidden;
+  background: var(--chrome-bg); color: var(--chrome-text); font-size: var(--text-sm); }
+.app .bar { display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  background: var(--chrome-surface); border-bottom: 1px solid var(--chrome-border); }
+.app .bar .sp { flex: 1; }
+.app .btn { font: var(--weight-medium) var(--text-xs)/1 var(--font-ui); padding: 7px 11px;
+  border-radius: var(--radius-md); border: 1px solid var(--border-control);
+  background: transparent; color: var(--chrome-text); }
+.app .btn.pri { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+.app .input { padding: 6px 9px; border-radius: var(--radius-md);
+  border: 1px solid var(--border-control); background: var(--chrome-sunken);
+  color: var(--chrome-text-muted); font-size: var(--text-xs); min-width: 150px; }
+.app .body { display: grid; grid-template-columns: 148px 1fr; min-height: 232px; }
+.app .side { padding: 10px; border-right: 1px solid var(--chrome-border);
+  background: var(--chrome-bg); font-size: var(--text-xs); }
+.app .side div { padding: 6px 8px; border-radius: var(--radius-sm); color: var(--chrome-text-muted); }
+.app .side div.on { background: var(--accent-subtle); color: var(--accent-subtle-text);
+  font-weight: var(--weight-medium); }
+.app .sheet { background: var(--canvas-bg); color: var(--canvas-text); }
+.app table.grid { border-collapse: collapse; width: 100%; margin: 0;
+  font-family: var(--font-data); font-feature-settings: var(--numeric-data);
+  font-variant-numeric: tabular-nums slashed-zero; font-size: var(--text-xs); }
+.app .grid th, .app .grid td { border: 1px solid var(--canvas-grid); border-radius: var(--radius-cell);
+  padding: 5px 9px; }
+.app .grid thead th { background: var(--canvas-header-bg); color: var(--canvas-text-muted);
+  border-bottom-color: var(--canvas-grid-strong); font-weight: var(--weight-medium); }
+.app .grid tbody tr:nth-child(even) td { background: var(--canvas-row-alt); }
+/* 状態はゼブラ縞より強い。縞と同じ詳細度で、あとに置いて勝たせる。 */
+.app .grid tbody tr td.sel { background: var(--canvas-selection);
+  outline: 2px solid var(--canvas-selection-border); outline-offset: -2px; }
+.app .grid tbody tr td.add { background: var(--state-added); color: var(--state-added-text); }
+.app .grid tbody tr td.mod { background: var(--state-modified); color: var(--state-modified-text); }
+.app .grid tbody tr td.del { background: var(--state-removed); color: var(--state-removed-text);
+  text-decoration: line-through; }
+footer { padding: 30px 0 60px; color: var(--chrome-text-subtle); font-size: var(--text-sm); }
+pre { margin: 16px 0 0; padding: 16px 18px; border-radius: var(--radius-lg);
+  background: var(--ink-900); color: var(--paper-50); font-size: var(--text-xs);
+  line-height: 1.6; overflow: auto; }
+@media (max-width: 760px) { .app .body { grid-template-columns: 1fr; } section { padding: 42px 0; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <p class="eyebrow">Brand Guidelines · v2.0 · 2026-09-22</p>
+    <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Refrain Sheet"
+     viewBox="0 0 573.37 120" width="260" height="54">
+  <title>Refrain Sheet</title>
+  <path fill="#147F43" d="M77.05 0c15.034 0 22.551 0 28.293 2.926a26.844 26.844 0 0 1 11.731 11.731c2.926 5.742 2.926 13.259 2.926 28.293L120 77.05c0 15.034 0 22.551 -2.926 28.293a26.844 26.844 0 0 1 -11.731 11.731c-5.742 2.926 -13.259 2.926 -28.293 2.926L42.95 120c-15.034 0 -22.551 0 -28.293 -2.926a26.844 26.844 0 0 1 -11.731 -11.731c-2.926 -5.742 -2.926 -13.259 -2.926 -28.293L0 42.95c0 -15.034 0 -22.551 2.926 -28.293a26.844 26.844 0 0 1 11.731 -11.731c5.742 -2.926 13.259 -2.926 28.293 -2.926Z"/>
+  <path fill="#F4F4EB" d="M40.781 24.844L60 24.844L60 60L24.844 60L24.844 40.781C24.844 31.979 31.979 24.844 40.781 24.844Z"/>
+  <path fill="#DAECD8" d="M60 24.844L79.219 24.844C88.021 24.844 95.156 31.979 95.156 40.781L95.156 60L60 60L60 24.844Z"/>
+  <path fill="#DAECD8" d="M24.844 60L60 60L60 95.156L40.781 95.156C31.979 95.156 24.844 88.021 24.844 79.219L24.844 60Z"/>
+  <path fill="#8BC191" d="M60 60L95.156 60L95.156 95.156L60 95.156L60 60Z"/>
+  <path fill="#F4F4EB" d="M150 87L150 33L171.61 33Q177.69 33 182.12 35.16Q186.56 37.32 188.97 41.29Q191.37 45.26 191.37 50.71Q191.37 56.06 188.84 59.98Q186.31 63.89 181.73 66.01Q177.15 68.13 170.94 68.13L156.68 68.13L156.68 59.16L170.93 59.16Q173.88 59.16 176.01 58.11Q178.15 57.07 179.31 55.17Q180.46 53.27 180.46 50.71Q180.46 48.12 179.3 46.24Q178.13 44.37 176 43.33Q173.87 42.28 170.9 42.28L161.14 42.28L161.14 87ZM180.6 87L168.26 62.6L179.98 62.6L192.57 87ZM212.01 87.87Q206.21 87.87 201.9 85.31Q197.59 82.74 195.23 78.22Q192.86 73.7 192.86 67.9Q192.86 62.04 195.26 57.52Q197.67 53 201.9 50.43Q206.14 47.86 211.65 47.86Q215.87 47.86 219.32 49.3Q222.77 50.74 225.27 53.39Q227.77 56.04 229.12 59.67Q230.47 63.3 230.47 67.68L230.47 70.56L196.67 70.56L196.67 63.74L225.33 63.74L220.51 65.36Q220.51 62.46 219.45 60.36Q218.4 58.26 216.47 57.12Q214.54 55.99 211.86 55.99Q209.22 55.99 207.29 57.12Q205.36 58.26 204.31 60.36Q203.25 62.46 203.25 65.36L203.25 70.02Q203.25 72.97 204.31 75.19Q205.38 77.42 207.41 78.64Q209.45 79.86 212.32 79.86Q214.41 79.86 216.03 79.25Q217.66 78.65 218.75 77.55Q219.85 76.45 220.33 74.98L230.1 74.98Q229.39 78.78 226.85 81.68Q224.31 84.58 220.47 86.22Q216.64 87.87 212.01 87.87ZM255.93 48.73L255.93 57.11L230.5 57.11L230.5 48.73ZM237.43 87L237.43 43.75Q237.43 40.18 238.82 37.8Q240.21 35.41 242.98 34.2Q245.74 33 249.86 33Q251.77 33 253.51 33Q255.25 33 255.93 33L255.93 41.38Q255.47 41.38 254.28 41.38Q253.1 41.38 252.28 41.38Q250 41.38 249.05 42.34Q248.09 43.29 248.09 45.56L248.09 87ZM258.89 87L258.89 48.73L269.18 48.73L269.18 55.25L269.29 55.25Q270.34 51.79 272.58 50.12Q274.83 48.46 278.61 48.46Q279.56 48.46 280.35 48.5Q281.13 48.53 281.77 48.56L281.77 57.66Q281.19 57.61 279.87 57.53Q278.54 57.46 277.18 57.46Q274.99 57.46 273.26 58.45Q271.53 59.45 270.54 61.41Q269.55 63.37 269.55 66.26L269.55 87ZM295.18 87.64Q291.36 87.64 288.39 86.38Q285.42 85.11 283.71 82.56Q282 80.02 282 76.22Q282 72.96 283.2 70.81Q284.4 68.65 286.48 67.34Q288.56 66.02 291.26 65.34Q293.97 64.65 296.95 64.37Q300.45 64.02 302.52 63.69Q304.6 63.37 305.5 62.75Q306.4 62.13 306.4 60.9L306.4 60.66Q306.4 59.24 305.64 58.17Q304.89 57.09 303.5 56.48Q302.1 55.87 300.15 55.87Q298.17 55.87 296.67 56.49Q295.17 57.11 294.3 58.23Q293.42 59.36 293.28 60.85L283.23 60.85Q283.49 56.88 285.58 53.99Q287.67 51.1 291.44 49.52Q295.2 47.93 300.46 47.93Q304.38 47.93 307.45 48.83Q310.52 49.72 312.64 51.42Q314.76 53.13 315.86 55.55Q316.95 57.98 316.95 61.05L316.95 87L306.51 87L306.51 81.6L306.37 81.6Q305.37 83.47 303.87 84.83Q302.37 86.18 300.25 86.91Q298.12 87.64 295.18 87.64ZM298.13 80.23Q300.7 80.23 302.58 79.28Q304.46 78.34 305.47 76.71Q306.47 75.08 306.47 73.01L306.47 69.17Q306.01 69.42 305.25 69.65Q304.48 69.88 303.47 70.09Q302.46 70.3 301.26 70.5Q300.07 70.71 298.77 70.91Q296.96 71.18 295.47 71.78Q293.98 72.38 293.1 73.38Q292.22 74.39 292.22 75.91Q292.22 77.26 292.96 78.23Q293.69 79.21 295.02 79.72Q296.35 80.23 298.13 80.23ZM323.72 87L323.72 48.73L334.38 48.73L334.38 87ZM329.03 43.92Q326.39 43.92 324.66 42.3Q322.93 40.67 322.93 38.22Q322.93 35.77 324.66 34.16Q326.39 32.54 329.02 32.54Q331.67 32.54 333.4 34.16Q335.14 35.77 335.14 38.23Q335.14 40.68 333.4 42.3Q331.66 43.92 329.03 43.92ZM352.49 65.74L352.49 87L341.83 87L341.83 48.73L352.33 48.73L352.33 58.69L350.51 58.69Q352.34 53.61 355.7 50.77Q359.06 47.93 364.28 47.93Q368.37 47.93 371.38 49.69Q374.39 51.45 376.05 54.82Q377.71 58.19 377.71 63.03L377.71 87L367.05 87L367.05 64.99Q367.05 61.14 365.22 59.14Q363.38 57.14 360 57.14Q357.8 57.14 356.11 58.05Q354.41 58.96 353.45 60.86Q352.49 62.76 352.49 65.74Z"/>
+  <path fill="#8BC191" d="M411.95 87.87Q405.49 87.87 400.81 85.65Q396.14 83.43 393.61 79.31Q391.07 75.2 391.07 69.5L399.1 69.5Q399.12 73.04 400.65 75.59Q402.18 78.15 405.06 79.5Q407.95 80.86 411.98 80.86Q415.65 80.86 418.36 79.8Q421.07 78.74 422.59 76.79Q424.11 74.85 424.11 72.22Q424.11 70.14 423.08 68.59Q422.04 67.05 419.77 65.89Q417.51 64.74 413.75 63.86L407.82 62.46Q399.64 60.53 395.89 57.02Q392.15 53.5 392.15 47.9Q392.15 43.14 394.53 39.6Q396.92 36.06 401.26 34.09Q405.61 32.13 411.39 32.13Q417.21 32.13 421.49 34.2Q425.77 36.26 428.15 40.08Q430.54 43.89 430.69 49.16L422.91 49.16Q422.62 44.49 419.5 41.83Q416.39 39.17 411.27 39.17Q408.04 39.17 405.53 40.23Q403.02 41.29 401.59 43.17Q400.16 45.05 400.16 47.5Q400.16 49.46 401.2 50.9Q402.24 52.34 404.51 53.44Q406.78 54.54 410.5 55.43L416.3 56.83Q420.38 57.78 423.36 59.16Q426.34 60.53 428.28 62.36Q430.23 64.19 431.19 66.53Q432.14 68.88 432.14 71.78Q432.14 76.63 429.64 80.25Q427.15 83.88 422.62 85.88Q418.08 87.87 411.95 87.87ZM445.13 64.98L445.13 87L437.47 87L437.47 33L445.13 33L445.13 58.24L443.21 58.24Q445.08 53.09 448.44 50.53Q451.79 47.98 456.55 47.98Q460.5 47.98 463.63 49.69Q466.76 51.4 468.58 54.77Q470.4 58.14 470.4 63.16L470.4 87L462.74 87L462.74 64.1Q462.74 59.51 460.55 57.16Q458.35 54.82 454.35 54.82Q451.76 54.82 449.67 55.87Q447.58 56.92 446.36 59.16Q445.13 61.4 445.13 64.98ZM494.04 87.87Q488.36 87.87 484.28 85.3Q480.2 82.73 478.01 78.22Q475.82 73.7 475.82 67.92Q475.82 62.08 478.1 57.55Q480.37 53.03 484.39 50.45Q488.41 47.86 493.63 47.86Q497.7 47.86 500.99 49.3Q504.27 50.75 506.62 53.42Q508.98 56.1 510.24 59.76Q511.5 63.42 511.5 67.85L511.5 69.95L479.26 69.95L479.26 64.15L507.49 64.15L504.12 65.92Q504.12 62.34 502.84 59.72Q501.56 57.1 499.23 55.67Q496.89 54.24 493.7 54.24Q490.55 54.24 488.23 55.67Q485.9 57.1 484.62 59.72Q483.34 62.34 483.34 65.92L483.34 69.21Q483.34 72.83 484.6 75.6Q485.86 78.37 488.28 79.93Q490.7 81.48 494.14 81.48Q496.65 81.48 498.57 80.71Q500.49 79.94 501.76 78.56Q503.03 77.18 503.58 75.36L510.94 75.36Q510.22 79.06 507.86 81.88Q505.49 84.69 501.93 86.28Q498.36 87.87 494.04 87.87ZM532.87 87.87Q527.19 87.87 523.11 85.3Q519.02 82.73 516.83 78.22Q514.64 73.7 514.64 67.92Q514.64 62.08 516.92 57.55Q519.2 53.03 523.22 50.45Q527.24 47.86 532.46 47.86Q536.52 47.86 539.81 49.3Q543.1 50.75 545.45 53.42Q547.81 56.1 549.07 59.76Q550.33 63.42 550.33 67.85L550.33 69.95L518.09 69.95L518.09 64.15L546.32 64.15L542.95 65.92Q542.95 62.34 541.67 59.72Q540.39 57.1 538.06 55.67Q535.72 54.24 532.53 54.24Q529.38 54.24 527.06 55.67Q524.73 57.1 523.45 59.72Q522.17 62.34 522.17 65.92L522.17 69.21Q522.17 72.83 523.43 75.6Q524.69 78.37 527.11 79.93Q529.52 81.48 532.97 81.48Q535.48 81.48 537.4 80.71Q539.32 79.94 540.59 78.56Q541.86 77.18 542.41 75.36L549.77 75.36Q549.05 79.06 546.68 81.88Q544.31 84.69 540.75 86.28Q537.19 87.87 532.87 87.87ZM573.37 48.73L573.37 55.05L551.18 55.05L551.18 48.73ZM557.93 38.29L565.59 38.29L565.59 76.87Q565.59 78.99 566.47 79.84Q567.34 80.68 569.63 80.68Q570.49 80.68 571.55 80.68Q572.61 80.68 573.37 80.68L573.37 87Q572.42 87 571.09 87Q569.76 87 568.55 87Q563.15 87 560.54 84.74Q557.93 82.48 557.93 77.87Z"/>
+</svg>
+    <h1>保持する構造。静かな差異。</h1>
+    <p class="lede">CSVを壊さずに扱う、ローカルファーストの書式保持CSV・スプレッドシートエディタ
+    「Refrain Sheet」の視覚言語。形・色・文字・アイコンの規定と、そのまま使える実装トークンです。</p>
+    <div class="switch docswitch" role="group" aria-label="この文書の表示テーマ">
+      <button type="button" data-set="light" aria-pressed="true">light</button>
+      <button type="button" data-set="dark" aria-pressed="false">dark</button>
+      <button type="button" data-set="hybrid" aria-pressed="false">hybrid</button>
+    </div>
+    <nav aria-label="目次">
+      <a href="#scope">適用範囲</a><a href="#shape">形の言語</a><a href="#logo">ロゴタイプ</a>
+      <a href="#color">カラーシステム</a><a href="#themes">テーマ</a><a href="#contrast">コントラスト</a>
+      <a href="#type">タイポグラフィ</a><a href="#icons">アイコノグラフィ</a>
+      <a href="#appicon">アプリアイコン</a><a href="#impl">実装</a>
+    </nav>
+  </div>
+</header>
+<main>
+
+<section id="scope">
+  <div class="wrap">
+    <p class="eyebrow">Scope</p>
+    <h2>この規定の適用範囲</h2>
+    <div class="cols" style="margin-top:20px">
+      <div class="card"><h3 style="margin-top:0">対象</h3>
+        <p>画面上のプロダクトUI（デスクトップアプリ・Web）、アプリアイコン、Webサイト、
+        製品内のドキュメント。色はsRGB前提、言語は日本語を第一に、英数字が混在する前提で設計しています。</p></div>
+      <div class="card"><h3 style="margin-top:0">対象外</h3>
+        <p>印刷物・特色・CMYK出力。紙で成立する淡い色や罫線は画面では別の値になります。
+        印刷が必要になった時点で、この規定に印刷向けの節を足してください。</p></div>
+      <div class="card"><h3 style="margin-top:0">v1.0 との関係</h3>
+        <p>アイコンの幾何とブランド4色は v1.0 から<strong>変更していません</strong>。v1.0 のCSSにあった
+        <code>--line: #D8DED7</code> と <code>--muted: #5B6468</code> は、スケールを滑らかにするため
+        <code>--paper-200</code> / <code>--ink-400</code> に寄せています（いずれも明度差1%未満）。</p></div>
+    </div>
+    <p class="note">規定は証拠であって法ではありません。画面で再現できる制約（コントラスト・可読性・
+    ライセンス・描画）が規定と衝突した場合は、制約が優先です。その差分は「逸脱」ではなく
+    「規定の不足」として、この文書に戻してください。</p>
+  </div>
+</section>
+
+<section id="shape">
+  <div class="wrap">
+    <p class="eyebrow">Shape Language</p>
+    <h2>形の言語</h2>
+    <p>角の丸みは、文章を読む前にユーザーへ届く最初のメッセージです。Refrain Sheet の形は
+    アイコンがすでに答えを持っています──<strong>外側はやわらかく、データは直角</strong>。</p>
+    <div class="cols" style="margin-top:22px">
+      <div class="stage"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="132" height="132"
+     role="img" aria-label="Refrain Sheet app icon">
+  <title>Refrain Sheet app icon</title>
+  <path fill="#147F43" d="M657.49 0c128.291 0 192.436 0 241.436 24.967a229.069 229.069 0 0 1 100.107 100.107c24.967 49.001 24.967 113.146 24.967 241.436L1024 657.49c0 128.291 0 192.436 -24.967 241.436a229.069 229.069 0 0 1 -100.107 100.107c-49.001 24.967 -113.146 24.967 -241.436 24.967L366.51 1024c-128.291 0 -192.436 0 -241.436 -24.967a229.069 229.069 0 0 1 -100.107 -100.107c-24.967 -49.001 -24.967 -113.146 -24.967 -241.436L0 366.51c0 -128.291 0 -192.436 24.967 -241.436a229.069 229.069 0 0 1 100.107 -100.107c49.001 -24.967 113.146 -24.967 241.436 -24.967Z"/>
+  <path fill="#F4F4EB" d="M348 212L512 212L512 512L212 512L212 348C212 272.887 272.887 212 348 212Z"/>
+  <path fill="#DAECD8" d="M512 212L676 212C751.113 212 812 272.887 812 348L812 512L512 512L512 212Z"/>
+  <path fill="#DAECD8" d="M212 512L512 512L512 812L348 812C272.887 812 212 751.113 212 676L212 512Z"/>
+  <path fill="#8BC191" d="M512 512L812 512L812 812L512 812L512 512Z"/>
+</svg></div>
+      <div class="card">
+        <h3 style="margin-top:0">アイコンが決めている3つのこと</h3>
+        <ul>
+          <li><strong>外周は連続角丸（22.37%）</strong> — 親しみやすく、道具として落ち着いた印象。
+          シェル（ボタン・カード・モーダル）はこの系統を受け継ぎ、6〜14pxの穏やかな丸みにする。</li>
+          <li><strong>内側の3つのセルは丸く、右下だけ直角</strong> — データそのものは角を持つ。
+          グリッドのセル・行・列ヘッダは <code>--radius-cell: 0</code>。ここを丸めない。</li>
+          <li><strong>面で読ませる</strong> — 線や影ではなく、色面と余白で構造を示す。
+          境界線は最小限、影は浮かせる必要があるものだけ。</li>
+        </ul>
+      </div>
+    </div>
+    <h3>角丸トークン</h3>
+    <table>
+      <thead><tr><th>トークン</th><th>値</th><th>用途</th><th>見え</th></tr></thead>
+      <tbody><tr><th><code>--radius-radius-cell</code></th><td><code>0</code></td><td>データグリッドのセル・行・列ヘッダ</td><td><div class="rdemo" style="border-radius:0"></div></td></tr>
+<tr><th><code>--radius-radius-xs</code></th><td><code>2px</code></td><td>セル内チップ、ステータスドット枠</td><td><div class="rdemo" style="border-radius:2px"></div></td></tr>
+<tr><th><code>--radius-radius-sm</code></th><td><code>4px</code></td><td>ウェル、インセット領域</td><td><div class="rdemo" style="border-radius:4px"></div></td></tr>
+<tr><th><code>--radius-radius-md</code></th><td><code>6px</code></td><td>ボタン、入力、セレクト、トグル（コントロール基準）</td><td><div class="rdemo" style="border-radius:6px"></div></td></tr>
+<tr><th><code>--radius-radius-lg</code></th><td><code>10px</code></td><td>カード、パネル</td><td><div class="rdemo" style="border-radius:10px"></div></td></tr>
+<tr><th><code>--radius-radius-xl</code></th><td><code>14px</code></td><td>モーダル、ドロワー、ポップオーバー</td><td><div class="rdemo" style="border-radius:14px"></div></td></tr>
+<tr><th><code>--radius-radius-full</code></th><td><code>999px</code></td><td>ピル、アバター、ステータスドット</td><td><div class="rdemo" style="border-radius:999px"></div></td></tr></tbody>
+    </table>
+    <p class="note">大きい面ほど同じ半径は「角ばって」見えます。モーダル14px＞カード10px＞ボタン6px
+    という差は、見た目の丸みを揃えるための調整です。逆にウェル（沈んだ背景領域）は
+    4px に留め、中身より容器が目立たないようにします。</p>
+    <p class="note">アプリアイコンの外周だけは<strong>連続角丸（squircle）</strong>です。UIの
+    <code>border-radius</code> は通常の円弧で成立するよう設計しており、対応ブラウザでは
+    <code>corner-shape: squircle</code> により自動的に連続角丸へ昇格します（未対応でも破綻しません）。</p>
+  </div>
+</section>
+
+<section id="logo">
+  <div class="wrap">
+    <p class="eyebrow">Logotype</p>
+    <h2>ロゴタイプ</h2>
+    <div class="stage" style="margin-top:20px;background:var(--paper-50)"><svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Refrain Sheet"
+     viewBox="0 0 573.37 120" width="300" height="63">
+  <title>Refrain Sheet</title>
+  <path fill="#147F43" d="M77.05 0c15.034 0 22.551 0 28.293 2.926a26.844 26.844 0 0 1 11.731 11.731c2.926 5.742 2.926 13.259 2.926 28.293L120 77.05c0 15.034 0 22.551 -2.926 28.293a26.844 26.844 0 0 1 -11.731 11.731c-5.742 2.926 -13.259 2.926 -28.293 2.926L42.95 120c-15.034 0 -22.551 0 -28.293 -2.926a26.844 26.844 0 0 1 -11.731 -11.731c-2.926 -5.742 -2.926 -13.259 -2.926 -28.293L0 42.95c0 -15.034 0 -22.551 2.926 -28.293a26.844 26.844 0 0 1 11.731 -11.731c5.742 -2.926 13.259 -2.926 28.293 -2.926Z"/>
+  <path fill="#F4F4EB" d="M40.781 24.844L60 24.844L60 60L24.844 60L24.844 40.781C24.844 31.979 31.979 24.844 40.781 24.844Z"/>
+  <path fill="#DAECD8" d="M60 24.844L79.219 24.844C88.021 24.844 95.156 31.979 95.156 40.781L95.156 60L60 60L60 24.844Z"/>
+  <path fill="#DAECD8" d="M24.844 60L60 60L60 95.156L40.781 95.156C31.979 95.156 24.844 88.021 24.844 79.219L24.844 60Z"/>
+  <path fill="#8BC191" d="M60 60L95.156 60L95.156 95.156L60 95.156L60 60Z"/>
+  <path fill="#141A22" d="M150 87L150 33L171.61 33Q177.69 33 182.12 35.16Q186.56 37.32 188.97 41.29Q191.37 45.26 191.37 50.71Q191.37 56.06 188.84 59.98Q186.31 63.89 181.73 66.01Q177.15 68.13 170.94 68.13L156.68 68.13L156.68 59.16L170.93 59.16Q173.88 59.16 176.01 58.11Q178.15 57.07 179.31 55.17Q180.46 53.27 180.46 50.71Q180.46 48.12 179.3 46.24Q178.13 44.37 176 43.33Q173.87 42.28 170.9 42.28L161.14 42.28L161.14 87ZM180.6 87L168.26 62.6L179.98 62.6L192.57 87ZM212.01 87.87Q206.21 87.87 201.9 85.31Q197.59 82.74 195.23 78.22Q192.86 73.7 192.86 67.9Q192.86 62.04 195.26 57.52Q197.67 53 201.9 50.43Q206.14 47.86 211.65 47.86Q215.87 47.86 219.32 49.3Q222.77 50.74 225.27 53.39Q227.77 56.04 229.12 59.67Q230.47 63.3 230.47 67.68L230.47 70.56L196.67 70.56L196.67 63.74L225.33 63.74L220.51 65.36Q220.51 62.46 219.45 60.36Q218.4 58.26 216.47 57.12Q214.54 55.99 211.86 55.99Q209.22 55.99 207.29 57.12Q205.36 58.26 204.31 60.36Q203.25 62.46 203.25 65.36L203.25 70.02Q203.25 72.97 204.31 75.19Q205.38 77.42 207.41 78.64Q209.45 79.86 212.32 79.86Q214.41 79.86 216.03 79.25Q217.66 78.65 218.75 77.55Q219.85 76.45 220.33 74.98L230.1 74.98Q229.39 78.78 226.85 81.68Q224.31 84.58 220.47 86.22Q216.64 87.87 212.01 87.87ZM255.93 48.73L255.93 57.11L230.5 57.11L230.5 48.73ZM237.43 87L237.43 43.75Q237.43 40.18 238.82 37.8Q240.21 35.41 242.98 34.2Q245.74 33 249.86 33Q251.77 33 253.51 33Q255.25 33 255.93 33L255.93 41.38Q255.47 41.38 254.28 41.38Q253.1 41.38 252.28 41.38Q250 41.38 249.05 42.34Q248.09 43.29 248.09 45.56L248.09 87ZM258.89 87L258.89 48.73L269.18 48.73L269.18 55.25L269.29 55.25Q270.34 51.79 272.58 50.12Q274.83 48.46 278.61 48.46Q279.56 48.46 280.35 48.5Q281.13 48.53 281.77 48.56L281.77 57.66Q281.19 57.61 279.87 57.53Q278.54 57.46 277.18 57.46Q274.99 57.46 273.26 58.45Q271.53 59.45 270.54 61.41Q269.55 63.37 269.55 66.26L269.55 87ZM295.18 87.64Q291.36 87.64 288.39 86.38Q285.42 85.11 283.71 82.56Q282 80.02 282 76.22Q282 72.96 283.2 70.81Q284.4 68.65 286.48 67.34Q288.56 66.02 291.26 65.34Q293.97 64.65 296.95 64.37Q300.45 64.02 302.52 63.69Q304.6 63.37 305.5 62.75Q306.4 62.13 306.4 60.9L306.4 60.66Q306.4 59.24 305.64 58.17Q304.89 57.09 303.5 56.48Q302.1 55.87 300.15 55.87Q298.17 55.87 296.67 56.49Q295.17 57.11 294.3 58.23Q293.42 59.36 293.28 60.85L283.23 60.85Q283.49 56.88 285.58 53.99Q287.67 51.1 291.44 49.52Q295.2 47.93 300.46 47.93Q304.38 47.93 307.45 48.83Q310.52 49.72 312.64 51.42Q314.76 53.13 315.86 55.55Q316.95 57.98 316.95 61.05L316.95 87L306.51 87L306.51 81.6L306.37 81.6Q305.37 83.47 303.87 84.83Q302.37 86.18 300.25 86.91Q298.12 87.64 295.18 87.64ZM298.13 80.23Q300.7 80.23 302.58 79.28Q304.46 78.34 305.47 76.71Q306.47 75.08 306.47 73.01L306.47 69.17Q306.01 69.42 305.25 69.65Q304.48 69.88 303.47 70.09Q302.46 70.3 301.26 70.5Q300.07 70.71 298.77 70.91Q296.96 71.18 295.47 71.78Q293.98 72.38 293.1 73.38Q292.22 74.39 292.22 75.91Q292.22 77.26 292.96 78.23Q293.69 79.21 295.02 79.72Q296.35 80.23 298.13 80.23ZM323.72 87L323.72 48.73L334.38 48.73L334.38 87ZM329.03 43.92Q326.39 43.92 324.66 42.3Q322.93 40.67 322.93 38.22Q322.93 35.77 324.66 34.16Q326.39 32.54 329.02 32.54Q331.67 32.54 333.4 34.16Q335.14 35.77 335.14 38.23Q335.14 40.68 333.4 42.3Q331.66 43.92 329.03 43.92ZM352.49 65.74L352.49 87L341.83 87L341.83 48.73L352.33 48.73L352.33 58.69L350.51 58.69Q352.34 53.61 355.7 50.77Q359.06 47.93 364.28 47.93Q368.37 47.93 371.38 49.69Q374.39 51.45 376.05 54.82Q377.71 58.19 377.71 63.03L377.71 87L367.05 87L367.05 64.99Q367.05 61.14 365.22 59.14Q363.38 57.14 360 57.14Q357.8 57.14 356.11 58.05Q354.41 58.96 353.45 60.86Q352.49 62.76 352.49 65.74Z"/>
+  <path fill="#147F43" d="M411.95 87.87Q405.49 87.87 400.81 85.65Q396.14 83.43 393.61 79.31Q391.07 75.2 391.07 69.5L399.1 69.5Q399.12 73.04 400.65 75.59Q402.18 78.15 405.06 79.5Q407.95 80.86 411.98 80.86Q415.65 80.86 418.36 79.8Q421.07 78.74 422.59 76.79Q424.11 74.85 424.11 72.22Q424.11 70.14 423.08 68.59Q422.04 67.05 419.77 65.89Q417.51 64.74 413.75 63.86L407.82 62.46Q399.64 60.53 395.89 57.02Q392.15 53.5 392.15 47.9Q392.15 43.14 394.53 39.6Q396.92 36.06 401.26 34.09Q405.61 32.13 411.39 32.13Q417.21 32.13 421.49 34.2Q425.77 36.26 428.15 40.08Q430.54 43.89 430.69 49.16L422.91 49.16Q422.62 44.49 419.5 41.83Q416.39 39.17 411.27 39.17Q408.04 39.17 405.53 40.23Q403.02 41.29 401.59 43.17Q400.16 45.05 400.16 47.5Q400.16 49.46 401.2 50.9Q402.24 52.34 404.51 53.44Q406.78 54.54 410.5 55.43L416.3 56.83Q420.38 57.78 423.36 59.16Q426.34 60.53 428.28 62.36Q430.23 64.19 431.19 66.53Q432.14 68.88 432.14 71.78Q432.14 76.63 429.64 80.25Q427.15 83.88 422.62 85.88Q418.08 87.87 411.95 87.87ZM445.13 64.98L445.13 87L437.47 87L437.47 33L445.13 33L445.13 58.24L443.21 58.24Q445.08 53.09 448.44 50.53Q451.79 47.98 456.55 47.98Q460.5 47.98 463.63 49.69Q466.76 51.4 468.58 54.77Q470.4 58.14 470.4 63.16L470.4 87L462.74 87L462.74 64.1Q462.74 59.51 460.55 57.16Q458.35 54.82 454.35 54.82Q451.76 54.82 449.67 55.87Q447.58 56.92 446.36 59.16Q445.13 61.4 445.13 64.98ZM494.04 87.87Q488.36 87.87 484.28 85.3Q480.2 82.73 478.01 78.22Q475.82 73.7 475.82 67.92Q475.82 62.08 478.1 57.55Q480.37 53.03 484.39 50.45Q488.41 47.86 493.63 47.86Q497.7 47.86 500.99 49.3Q504.27 50.75 506.62 53.42Q508.98 56.1 510.24 59.76Q511.5 63.42 511.5 67.85L511.5 69.95L479.26 69.95L479.26 64.15L507.49 64.15L504.12 65.92Q504.12 62.34 502.84 59.72Q501.56 57.1 499.23 55.67Q496.89 54.24 493.7 54.24Q490.55 54.24 488.23 55.67Q485.9 57.1 484.62 59.72Q483.34 62.34 483.34 65.92L483.34 69.21Q483.34 72.83 484.6 75.6Q485.86 78.37 488.28 79.93Q490.7 81.48 494.14 81.48Q496.65 81.48 498.57 80.71Q500.49 79.94 501.76 78.56Q503.03 77.18 503.58 75.36L510.94 75.36Q510.22 79.06 507.86 81.88Q505.49 84.69 501.93 86.28Q498.36 87.87 494.04 87.87ZM532.87 87.87Q527.19 87.87 523.11 85.3Q519.02 82.73 516.83 78.22Q514.64 73.7 514.64 67.92Q514.64 62.08 516.92 57.55Q519.2 53.03 523.22 50.45Q527.24 47.86 532.46 47.86Q536.52 47.86 539.81 49.3Q543.1 50.75 545.45 53.42Q547.81 56.1 549.07 59.76Q550.33 63.42 550.33 67.85L550.33 69.95L518.09 69.95L518.09 64.15L546.32 64.15L542.95 65.92Q542.95 62.34 541.67 59.72Q540.39 57.1 538.06 55.67Q535.72 54.24 532.53 54.24Q529.38 54.24 527.06 55.67Q524.73 57.1 523.45 59.72Q522.17 62.34 522.17 65.92L522.17 69.21Q522.17 72.83 523.43 75.6Q524.69 78.37 527.11 79.93Q529.52 81.48 532.97 81.48Q535.48 81.48 537.4 80.71Q539.32 79.94 540.59 78.56Q541.86 77.18 542.41 75.36L549.77 75.36Q549.05 79.06 546.68 81.88Q544.31 84.69 540.75 86.28Q537.19 87.87 532.87 87.87ZM573.37 48.73L573.37 55.05L551.18 55.05L551.18 48.73ZM557.93 38.29L565.59 38.29L565.59 76.87Q565.59 78.99 566.47 79.84Q567.34 80.68 569.63 80.68Q570.49 80.68 571.55 80.68Q572.61 80.68 573.37 80.68L573.37 87Q572.42 87 571.09 87Q569.76 87 568.55 87Q563.15 87 560.54 84.74Q557.93 82.48 557.93 77.87Z"/>
+</svg></div>
+    <div class="cols" style="margin-top:22px">
+      <div class="card"><h3 style="margin-top:0">構成</h3>
+        <p>Inter（<code>opsz 32</code>）の Bold 700 ＋ Medium 500。全体トラッキング −0.0223em に
+        光学的な字詰め補正を加え、アウトライン化して固定しています。<strong>ライブテキストで
+        組み直さないでください</strong>。</p></div>
+      <div class="card"><h3 style="margin-top:0">アイソレーション / 最小サイズ</h3>
+        <p>四方にアイコン辺長の1/4以上の余白。横組みロックアップは高さ24px（印刷8mm）まで。
+        それ以下ではアイコン単体を使います。</p></div>
+      <div class="card"><h3 style="margin-top:0">背景別</h3>
+        <p>淡色 → 標準形。Ink など濃色 → reverse。Dominant green の上では
+        アイコンの地が背景に溶けるため、ロックアップではなく
+        <code>refrain-sheet-wordmark-mono.svg</code> を Paper 色で使います。</p></div>
+    </div>
+    <p class="note">詳細な寸法・字詰めテーブル・禁止事項は <code>logo/SPEC.md</code> を参照してください。</p>
+  </div>
+</section>
+
+<section id="color">
+  <div class="wrap">
+    <p class="eyebrow">Colour System</p>
+    <h2>カラーシステム</h2>
+    <p>色は <strong>Oklab</strong>（極座標表記の OKLCH）で設計し、納品値は互換性のため sRGB 16進で書き出します。
+    Oklab を使う理由は、明度（L）がそのまま知覚上の明るさに対応するため、
+    <em>同じLなら同じ重さに見える</em>というスケール設計ができるからです。</p>
+    <div class="cols" style="margin-top:22px">
+      <div class="card"><h3 style="margin-top:0">紙とインク、2つの中間色</h3>
+        <p>中間色を1本のグレースケールにまとめず、<strong>Paper（暖色・H106.6）</strong>と
+        <strong>Ink（寒色・H255.7）</strong>の二極に分けています。製品が扱うものが
+        「紙とその上の記録」だからで、ライトテーマでは紙が面・インクが文字、
+        ダークテーマではその関係が反転します。</p></div>
+      <div class="card"><h3 style="margin-top:0">緑の色相パスはブランドが決めている</h3>
+        <p>Mist(H142.5) → Leaf(H147.5) → Preserve(H152.3)。明るいほど黄側に寄るこの軌跡は
+        既存の4色がすでに持っていたもので、スケール全体を
+        <code>H = 152.3 − 0.2456 × (L − 52.5)</code> として延長しました。
+        ブランド3色はスケール上に<strong>値そのまま</strong>で乗っています。</p></div>
+      <div class="card"><h3 style="margin-top:0">彩度は sRGB へ収める</h3>
+        <p>各ステップは目標彩度で生成し、sRGB外に出る場合はL と H を保ったまま
+        彩度だけを二分探索で落としています。色相が転ばないので、
+        暗いステップでも「同じ緑」に見えます。</p></div>
+    </div>
+    <h3>ブランドアンカー</h3>
+    <table>
+      <thead><tr><th>トークン</th><th>HEX</th><th>Oklab</th><th>役割</th></tr></thead>
+      <tbody>
+        <tr><th><code>--brand-green</code></th><td><span class="dot" style="background:#147F43"></span><code>#147F43</code></td><td><code>oklab(52.5% -0.115 +0.061)</code></td><td>保全のドミナント面。アイコンの地、ライトテーマのアクセント。</td></tr>
+        <tr><th><code>--brand-paper</code></th><td><span class="dot" style="background:#F4F4EB"></span><code>#F4F4EB</code></td><td><code>oklab(96.5% -0.003 +0.011)</code></td><td>紙。ライトテーマのシェル背景、ダークテーマの文字色。</td></tr>
+        <tr><th><code>--brand-mist</code></th><td><span class="dot" style="background:#DAECD8"></span><code>#DAECD8</code></td><td><code>oklab(92.4% -0.026 +0.020)</code></td><td>控えめな構造。<code>--green-100</code>。</td></tr>
+        <tr><th><code>--brand-leaf</code></th><td><span class="dot" style="background:#8BC191"></span><code>#8BC191</code></td><td><code>oklab(76.0% -0.075 +0.048)</code></td><td>濃淡のアクセント。<code>--green-300</code>、ダークテーマのアクセント。</td></tr>
+        <tr><th><code>--brand-ink</code></th><td><span class="dot" style="background:#141A22"></span><code>#141A22</code></td><td><code>oklab(21.5% -0.005 -0.018)</code></td><td>記録。文字色、ダークテーマのシェル背景。</td></tr>
+      </tbody>
+    </table>
+    <h3>スケール</h3>
+    <div class="ramp"><h4>--green-*</h4><div class="chips"><div class="sw"><div class="chip" style="background:#EEF9EC;color:#141A22">50</div><code>#EEF9EC</code><small>oklch(97.0% 0.021 140.9)</small></div><div class="sw"><div class="chip" style="background:#DAECD8;color:#141A22">100<b class="pin">brand</b></div><code>#DAECD8</code><small>oklch(92.4% 0.033 142.5)</small></div><div class="sw"><div class="chip" style="background:#B3D5B3;color:#141A22">200</div><code>#B3D5B3</code><small>oklch(83.9% 0.059 145.0)</small></div><div class="sw"><div class="chip" style="background:#8BC191;color:#141A22">300<b class="pin">brand</b></div><code>#8BC191</code><small>oklch(76.0% 0.088 147.5)</small></div><div class="sw"><div class="chip" style="background:#5DA56C;color:#141A22">400</div><code>#5DA56C</code><small>oklch(66.0% 0.112 149.3)</small></div><div class="sw"><div class="chip" style="background:#3D9156;color:#F4F4EB">500</div><code>#3D9156</code><small>oklch(58.9% 0.121 150.8)</small></div><div class="sw"><div class="chip" style="background:#147F43;color:#F4F4EB">600<b class="pin">brand</b></div><code>#147F43</code><small>oklch(52.5% 0.130 152.3)</small></div><div class="sw"><div class="chip" style="background:#006335;color:#F4F4EB">700</div><code>#006335</code><small>oklch(43.9% 0.110 154.4)</small></div><div class="sw"><div class="chip" style="background:#004A29;color:#F4F4EB">800</div><code>#004A29</code><small>oklch(36.0% 0.087 156.2)</small></div><div class="sw"><div class="chip" style="background:#002F1B;color:#F4F4EB">900</div><code>#002F1B</code><small>oklch(26.9% 0.062 159.3)</small></div></div></div><div class="ramp"><h4>--paper-*</h4><div class="chips"><div class="sw"><div class="chip" style="background:#FFFFFF;color:#141A22">0</div><code>#FFFFFF</code><small>oklch(100.0% 0.000 89.9)</small></div><div class="sw"><div class="chip" style="background:#F4F4EB;color:#141A22">50<b class="pin">brand</b></div><code>#F4F4EB</code><small>oklch(96.5% 0.012 106.6)</small></div><div class="sw"><div class="chip" style="background:#EDEDE4;color:#141A22">100</div><code>#EDEDE4</code><small>oklch(94.4% 0.012 106.6)</small></div><div class="sw"><div class="chip" style="background:#DDDDD4;color:#141A22">200</div><code>#DDDDD4</code><small>oklch(89.5% 0.012 106.6)</small></div><div class="sw"><div class="chip" style="background:#CBCBC3;color:#141A22">300</div><code>#CBCBC3</code><small>oklch(84.0% 0.011 106.6)</small></div><div class="sw"><div class="chip" style="background:#B2B2AA;color:#141A22">400</div><code>#B2B2AA</code><small>oklch(76.1% 0.011 106.7)</small></div></div></div><div class="ramp"><h4>--ink-*</h4><div class="chips"><div class="sw"><div class="chip" style="background:#999FA7;color:#141A22">200</div><code>#999FA7</code><small>oklch(70.0% 0.014 255.5)</small></div><div class="sw"><div class="chip" style="background:#81878F;color:#141A22">300</div><code>#81878F</code><small>oklch(62.1% 0.014 255.5)</small></div><div class="sw"><div class="chip" style="background:#6F757D;color:#F4F4EB">350</div><code>#6F757D</code><small>oklch(56.0% 0.014 255.6)</small></div><div class="sw"><div class="chip" style="background:#5C636D;color:#F4F4EB">400</div><code>#5C636D</code><small>oklch(49.7% 0.018 257.2)</small></div><div class="sw"><div class="chip" style="background:#474E57;color:#F4F4EB">500</div><code>#474E57</code><small>oklch(42.1% 0.018 254.7)</small></div><div class="sw"><div class="chip" style="background:#323941;color:#F4F4EB">600</div><code>#323941</code><small>oklch(34.1% 0.017 251.8)</small></div><div class="sw"><div class="chip" style="background:#232932;color:#F4F4EB">700</div><code>#232932</code><small>oklch(27.9% 0.019 258.4)</small></div><div class="sw"><div class="chip" style="background:#1B2129;color:#F4F4EB">800</div><code>#1B2129</code><small>oklch(24.5% 0.018 255.7)</small></div><div class="sw"><div class="chip" style="background:#141A22;color:#F4F4EB">900<b class="pin">brand</b></div><code>#141A22</code><small>oklch(21.5% 0.018 255.7)</small></div><div class="sw"><div class="chip" style="background:#0B1118;color:#F4F4EB">950</div><code>#0B1118</code><small>oklch(17.5% 0.017 252.6)</small></div><div class="sw"><div class="chip" style="background:#04080E;color:#F4F4EB">1000</div><code>#04080E</code><small>oklch(13.2% 0.016 251.8)</small></div></div></div><div class="ramp"><h4>--amber-*</h4><div class="chips"><div class="sw"><div class="chip" style="background:#F6E5CE;color:#141A22">100</div><code>#F6E5CE</code><small>oklch(92.9% 0.036 75.5)</small></div><div class="sw"><div class="chip" style="background:#D6B890;color:#141A22">300</div><code>#D6B890</code><small>oklch(79.9% 0.064 74.6)</small></div><div class="sw"><div class="chip" style="background:#B99056;color:#141A22">500</div><code>#B99056</code><small>oklch(67.9% 0.090 74.9)</small></div><div class="sw"><div class="chip" style="background:#A6762A;color:#141A22">600</div><code>#A6762A</code><small>oklch(60.1% 0.108 75.0)</small></div><div class="sw"><div class="chip" style="background:#865900;color:#F4F4EB">700</div><code>#865900</code><small>oklch(50.1% 0.106 74.9)</small></div><div class="sw"><div class="chip" style="background:#472D00;color:#F4F4EB">900</div><code>#472D00</code><small>oklch(32.1% 0.068 74.7)</small></div></div></div><div class="ramp"><h4>--red-*</h4><div class="chips"><div class="sw"><div class="chip" style="background:#FFDDD9;color:#141A22">100</div><code>#FFDDD9</code><small>oklch(92.5% 0.038 25.8)</small></div><div class="sw"><div class="chip" style="background:#E49C93;color:#141A22">300</div><code>#E49C93</code><small>oklch(76.1% 0.088 27.2)</small></div><div class="sw"><div class="chip" style="background:#C5675D;color:#141A22">500</div><code>#C5675D</code><small>oklch(62.1% 0.122 27.4)</small></div><div class="sw"><div class="chip" style="background:#B44B43;color:#F4F4EB">600</div><code>#B44B43</code><small>oklch(54.9% 0.138 26.9)</small></div><div class="sw"><div class="chip" style="background:#9E2321;color:#F4F4EB">700</div><code>#9E2321</code><small>oklch(46.0% 0.160 26.9)</small></div><div class="sw"><div class="chip" style="background:#5D0004;color:#F4F4EB">900</div><code>#5D0004</code><small>oklch(30.1% 0.123 27.3)</small></div></div></div><div class="ramp"><h4>--blue-*</h4><div class="chips"><div class="sw"><div class="chip" style="background:#D8EAFF;color:#141A22">100</div><code>#D8EAFF</code><small>oklch(93.0% 0.034 252.3)</small></div><div class="sw"><div class="chip" style="background:#95BBE7;color:#141A22">300</div><code>#95BBE7</code><small>oklch(78.0% 0.075 252.4)</small></div><div class="sw"><div class="chip" style="background:#4F89C9;color:#141A22">500</div><code>#4F89C9</code><small>oklch(61.9% 0.115 252.2)</small></div><div class="sw"><div class="chip" style="background:#2D74BC;color:#F4F4EB">600</div><code>#2D74BC</code><small>oklch(55.1% 0.132 251.8)</small></div><div class="sw"><div class="chip" style="background:#0059A1;color:#F4F4EB">700</div><code>#0059A1</code><small>oklch(46.1% 0.137 251.7)</small></div><div class="sw"><div class="chip" style="background:#002E59;color:#F4F4EB">900</div><code>#002E59</code><small>oklch(30.0% 0.090 252.2)</small></div></div></div>
+  </div>
+</section>
+
+<section id="themes">
+  <div class="wrap">
+    <p class="eyebrow">Themes</p>
+    <h2>3つのテーマ</h2>
+    <p>トークンは<strong>シェル（chrome：アプリの外枠）</strong>と
+    <strong>キャンバス（canvas：データのシート）</strong>の2系統に分かれています。
+    テーマはこの2つの極性の組み合わせにすぎません。</p>
+    <table>
+      <thead><tr><th>テーマ</th><th>シェル</th><th>シート</th><th>想定</th></tr></thead>
+      <tbody>
+        <tr><th>light</th><td>紙側</td><td>紙側</td><td>既定。明るい環境、印刷に近い見え方でデータを確認する。</td></tr>
+        <tr><th>dark</th><td>インク側</td><td>インク側</td><td>暗所での長時間作業。画面全体の発光量を落とす。</td></tr>
+        <tr><th>hybrid</th><td>インク側</td><td><strong>紙側</strong></td><td>暗所でもデータは紙として読みたい場合。
+        周辺光を抑えつつ、シートの見えを印刷・共有時と一致させる。</td></tr>
+      </tbody>
+    </table>
+    <h3>プレビュー</h3>
+    <p>同じマークアップ・同じトークンで、3テーマを並べたものです。</p>
+    
+    <figure class="mockwrap">
+      <figcaption>light — シェルもシートも紙側</figcaption>
+      <div class="app" data-theme="light">
+        <div class="bar">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>
+          <strong style="font-weight:var(--weight-semibold)">売上_2026Q1.csv</strong>
+          <span class="meta">UTF-8 · CRLF · 書式保持</span>
+          <span class="sp"></span>
+          <span class="input">検索 (Ctrl+F)</span>
+          <button class="btn">取り消し</button>
+          <button class="btn pri">保存</button>
+        </div>
+        <div class="body">
+          <div class="side">
+            <div class="on">Sheet1</div><div>Sheet2</div><div>差分</div><div>検証ログ</div>
+          </div>
+          <div class="sheet">
+            <table class="grid">
+              <thead><tr><th style="width:38px"></th><th>A 商品</th><th>B 数量</th>
+                <th>C 単価</th><th>D 金額</th></tr></thead>
+              <tbody>
+                <tr><th>1</th><td>保存用インク</td><td>120</td><td>1,080</td><td>129,600</td></tr>
+                <tr><th>2</th><td class="sel">再生紙 A4</td><td>1,000</td><td>0,990</td><td>990,000</td></tr>
+                <tr><th>3</th><td>封筒 長形3号</td><td class="mod">480</td><td>32</td><td class="mod">15,360</td></tr>
+                <tr><th>4</th><td class="add">見出しラベル</td><td class="add">60</td><td class="add">210</td><td class="add">12,600</td></tr>
+                <tr><th>5</th><td class="del">旧品番 X-02</td><td class="del">15</td><td class="del">800</td><td class="del">12,000</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </figure>
+    <figure class="mockwrap">
+      <figcaption>dark — シェルもシートもインク側</figcaption>
+      <div class="app" data-theme="dark">
+        <div class="bar">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>
+          <strong style="font-weight:var(--weight-semibold)">売上_2026Q1.csv</strong>
+          <span class="meta">UTF-8 · CRLF · 書式保持</span>
+          <span class="sp"></span>
+          <span class="input">検索 (Ctrl+F)</span>
+          <button class="btn">取り消し</button>
+          <button class="btn pri">保存</button>
+        </div>
+        <div class="body">
+          <div class="side">
+            <div class="on">Sheet1</div><div>Sheet2</div><div>差分</div><div>検証ログ</div>
+          </div>
+          <div class="sheet">
+            <table class="grid">
+              <thead><tr><th style="width:38px"></th><th>A 商品</th><th>B 数量</th>
+                <th>C 単価</th><th>D 金額</th></tr></thead>
+              <tbody>
+                <tr><th>1</th><td>保存用インク</td><td>120</td><td>1,080</td><td>129,600</td></tr>
+                <tr><th>2</th><td class="sel">再生紙 A4</td><td>1,000</td><td>0,990</td><td>990,000</td></tr>
+                <tr><th>3</th><td>封筒 長形3号</td><td class="mod">480</td><td>32</td><td class="mod">15,360</td></tr>
+                <tr><th>4</th><td class="add">見出しラベル</td><td class="add">60</td><td class="add">210</td><td class="add">12,600</td></tr>
+                <tr><th>5</th><td class="del">旧品番 X-02</td><td class="del">15</td><td class="del">800</td><td class="del">12,000</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </figure>
+    <figure class="mockwrap">
+      <figcaption>hybrid — シェルはインク側、シートは紙側</figcaption>
+      <div class="app" data-theme="hybrid">
+        <div class="bar">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>
+          <strong style="font-weight:var(--weight-semibold)">売上_2026Q1.csv</strong>
+          <span class="meta">UTF-8 · CRLF · 書式保持</span>
+          <span class="sp"></span>
+          <span class="input">検索 (Ctrl+F)</span>
+          <button class="btn">取り消し</button>
+          <button class="btn pri">保存</button>
+        </div>
+        <div class="body">
+          <div class="side">
+            <div class="on">Sheet1</div><div>Sheet2</div><div>差分</div><div>検証ログ</div>
+          </div>
+          <div class="sheet">
+            <table class="grid">
+              <thead><tr><th style="width:38px"></th><th>A 商品</th><th>B 数量</th>
+                <th>C 単価</th><th>D 金額</th></tr></thead>
+              <tbody>
+                <tr><th>1</th><td>保存用インク</td><td>120</td><td>1,080</td><td>129,600</td></tr>
+                <tr><th>2</th><td class="sel">再生紙 A4</td><td>1,000</td><td>0,990</td><td>990,000</td></tr>
+                <tr><th>3</th><td>封筒 長形3号</td><td class="mod">480</td><td>32</td><td class="mod">15,360</td></tr>
+                <tr><th>4</th><td class="add">見出しラベル</td><td class="add">60</td><td class="add">210</td><td class="add">12,600</td></tr>
+                <tr><th>5</th><td class="del">旧品番 X-02</td><td class="del">15</td><td class="del">800</td><td class="del">12,000</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </figure>
+    <p class="note">hybrid ではシェルだけが暗くなり、シートは紙のまま保たれます。
+    セルの角は全テーマで直角、シェルの部品は丸められている点にも注目してください。</p>
+    <h3>トークン一覧</h3>
+    <table>
+      <thead><tr><th style="width:260px">トークン</th><th>light</th><th>dark</th><th>hybrid</th></tr></thead>
+      <tbody><tr class="grp"><th colspan="4">シェル（アプリの外枠）</th></tr>
+<tr><th><code>--chrome-bg</code></th><td><span class="dot" style="background:#F4F4EB"></span><code>#F4F4EB</code></td><td><span class="dot" style="background:#141A22"></span><code>#141A22</code></td><td><span class="dot" style="background:#141A22"></span><code>#141A22</code></td></tr>
+<tr><th><code>--chrome-surface</code></th><td><span class="dot" style="background:#FFFFFF"></span><code>#FFFFFF</code></td><td><span class="dot" style="background:#1B2129"></span><code>#1B2129</code></td><td><span class="dot" style="background:#1B2129"></span><code>#1B2129</code></td></tr>
+<tr><th><code>--chrome-raised</code></th><td><span class="dot" style="background:#FFFFFF"></span><code>#FFFFFF</code></td><td><span class="dot" style="background:#232932"></span><code>#232932</code></td><td><span class="dot" style="background:#232932"></span><code>#232932</code></td></tr>
+<tr><th><code>--chrome-sunken</code></th><td><span class="dot" style="background:#EDEDE4"></span><code>#EDEDE4</code></td><td><span class="dot" style="background:#0B1118"></span><code>#0B1118</code></td><td><span class="dot" style="background:#0B1118"></span><code>#0B1118</code></td></tr>
+<tr><th><code>--chrome-border</code></th><td><span class="dot" style="background:#DDDDD4"></span><code>#DDDDD4</code></td><td><span class="dot" style="background:#323941"></span><code>#323941</code></td><td><span class="dot" style="background:#323941"></span><code>#323941</code></td></tr>
+<tr><th><code>--chrome-border-strong</code></th><td><span class="dot" style="background:#CBCBC3"></span><code>#CBCBC3</code></td><td><span class="dot" style="background:#474E57"></span><code>#474E57</code></td><td><span class="dot" style="background:#474E57"></span><code>#474E57</code></td></tr>
+<tr><th><code>--border-control</code></th><td><span class="dot" style="background:#81878F"></span><code>#81878F</code></td><td><span class="dot" style="background:#6F757D"></span><code>#6F757D</code></td><td><span class="dot" style="background:#6F757D"></span><code>#6F757D</code></td></tr>
+<tr><th><code>--chrome-text</code></th><td><span class="dot" style="background:#141A22"></span><code>#141A22</code></td><td><span class="dot" style="background:#F4F4EB"></span><code>#F4F4EB</code></td><td><span class="dot" style="background:#F4F4EB"></span><code>#F4F4EB</code></td></tr>
+<tr><th><code>--chrome-text-muted</code></th><td><span class="dot" style="background:#474E57"></span><code>#474E57</code></td><td><span class="dot" style="background:#81878F"></span><code>#81878F</code></td><td><span class="dot" style="background:#81878F"></span><code>#81878F</code></td></tr>
+<tr><th><code>--chrome-text-subtle</code></th><td><span class="dot" style="background:#5C636D"></span><code>#5C636D</code></td><td><span class="dot" style="background:#6F757D"></span><code>#6F757D</code></td><td><span class="dot" style="background:#6F757D"></span><code>#6F757D</code></td></tr>
+<tr class="grp"><th colspan="4">アクセント</th></tr>
+<tr><th><code>--accent</code></th><td><span class="dot" style="background:#147F43"></span><code>#147F43</code></td><td><span class="dot" style="background:#8BC191"></span><code>#8BC191</code></td><td><span class="dot" style="background:#8BC191"></span><code>#8BC191</code></td></tr>
+<tr><th><code>--accent-hover</code></th><td><span class="dot" style="background:#006335"></span><code>#006335</code></td><td><span class="dot" style="background:#B3D5B3"></span><code>#B3D5B3</code></td><td><span class="dot" style="background:#B3D5B3"></span><code>#B3D5B3</code></td></tr>
+<tr><th><code>--accent-active</code></th><td><span class="dot" style="background:#004A29"></span><code>#004A29</code></td><td><span class="dot" style="background:#DAECD8"></span><code>#DAECD8</code></td><td><span class="dot" style="background:#DAECD8"></span><code>#DAECD8</code></td></tr>
+<tr><th><code>--accent-contrast</code></th><td><span class="dot" style="background:#FFFFFF"></span><code>#FFFFFF</code></td><td><span class="dot" style="background:#141A22"></span><code>#141A22</code></td><td><span class="dot" style="background:#141A22"></span><code>#141A22</code></td></tr>
+<tr><th><code>--accent-subtle</code></th><td><span class="dot" style="background:#EEF9EC"></span><code>#EEF9EC</code></td><td><span class="dot" style="background:#002F1B"></span><code>#002F1B</code></td><td><span class="dot" style="background:#002F1B"></span><code>#002F1B</code></td></tr>
+<tr><th><code>--accent-subtle-text</code></th><td><span class="dot" style="background:#004A29"></span><code>#004A29</code></td><td><span class="dot" style="background:#B3D5B3"></span><code>#B3D5B3</code></td><td><span class="dot" style="background:#B3D5B3"></span><code>#B3D5B3</code></td></tr>
+<tr><th><code>--accent-text</code></th><td><span class="dot" style="background:#006335"></span><code>#006335</code></td><td><span class="dot" style="background:#8BC191"></span><code>#8BC191</code></td><td><span class="dot" style="background:#8BC191"></span><code>#8BC191</code></td></tr>
+<tr><th><code>--focus-ring</code></th><td><span class="dot" style="background:#147F43"></span><code>#147F43</code></td><td><span class="dot" style="background:#8BC191"></span><code>#8BC191</code></td><td><span class="dot" style="background:#8BC191"></span><code>#8BC191</code></td></tr>
+<tr class="grp"><th colspan="4">キャンバス（シート）</th></tr>
+<tr><th><code>--canvas-bg</code></th><td><span class="dot" style="background:#FFFFFF"></span><code>#FFFFFF</code></td><td><span class="dot" style="background:#0B1118"></span><code>#0B1118</code></td><td><span class="dot" style="background:#FFFFFF"></span><code>#FFFFFF</code></td></tr>
+<tr><th><code>--canvas-header-bg</code></th><td><span class="dot" style="background:#F4F4EB"></span><code>#F4F4EB</code></td><td><span class="dot" style="background:#141A22"></span><code>#141A22</code></td><td><span class="dot" style="background:#F4F4EB"></span><code>#F4F4EB</code></td></tr>
+<tr><th><code>--canvas-row-alt</code></th><td><span class="dot" style="background:#F4F4EB"></span><code>#F4F4EB</code></td><td><span class="dot" style="background:#141A22"></span><code>#141A22</code></td><td><span class="dot" style="background:#F4F4EB"></span><code>#F4F4EB</code></td></tr>
+<tr><th><code>--canvas-grid</code></th><td><span class="dot" style="background:#DDDDD4"></span><code>#DDDDD4</code></td><td><span class="dot" style="background:#232932"></span><code>#232932</code></td><td><span class="dot" style="background:#DDDDD4"></span><code>#DDDDD4</code></td></tr>
+<tr><th><code>--canvas-grid-strong</code></th><td><span class="dot" style="background:#CBCBC3"></span><code>#CBCBC3</code></td><td><span class="dot" style="background:#323941"></span><code>#323941</code></td><td><span class="dot" style="background:#CBCBC3"></span><code>#CBCBC3</code></td></tr>
+<tr><th><code>--canvas-text</code></th><td><span class="dot" style="background:#141A22"></span><code>#141A22</code></td><td><span class="dot" style="background:#F4F4EB"></span><code>#F4F4EB</code></td><td><span class="dot" style="background:#141A22"></span><code>#141A22</code></td></tr>
+<tr><th><code>--canvas-text-muted</code></th><td><span class="dot" style="background:#474E57"></span><code>#474E57</code></td><td><span class="dot" style="background:#81878F"></span><code>#81878F</code></td><td><span class="dot" style="background:#474E57"></span><code>#474E57</code></td></tr>
+<tr><th><code>--canvas-selection</code></th><td><span class="dot" style="background:#EEF9EC"></span><code>#EEF9EC</code></td><td><span class="dot" style="background:#002F1B"></span><code>#002F1B</code></td><td><span class="dot" style="background:#EEF9EC"></span><code>#EEF9EC</code></td></tr>
+<tr><th><code>--canvas-selection-border</code></th><td><span class="dot" style="background:#147F43"></span><code>#147F43</code></td><td><span class="dot" style="background:#8BC191"></span><code>#8BC191</code></td><td><span class="dot" style="background:#147F43"></span><code>#147F43</code></td></tr>
+<tr class="grp"><th colspan="4">データの状態</th></tr>
+<tr><th><code>--state-added</code></th><td><span class="dot" style="background:#DAECD8"></span><code>#DAECD8</code></td><td><span class="dot" style="background:#002F1B"></span><code>#002F1B</code></td><td><span class="dot" style="background:#DAECD8"></span><code>#DAECD8</code></td></tr>
+<tr><th><code>--state-added-text</code></th><td><span class="dot" style="background:#004A29"></span><code>#004A29</code></td><td><span class="dot" style="background:#B3D5B3"></span><code>#B3D5B3</code></td><td><span class="dot" style="background:#004A29"></span><code>#004A29</code></td></tr>
+<tr><th><code>--state-modified</code></th><td><span class="dot" style="background:#F6E5CE"></span><code>#F6E5CE</code></td><td><span class="dot" style="background:#472D00"></span><code>#472D00</code></td><td><span class="dot" style="background:#F6E5CE"></span><code>#F6E5CE</code></td></tr>
+<tr><th><code>--state-modified-text</code></th><td><span class="dot" style="background:#472D00"></span><code>#472D00</code></td><td><span class="dot" style="background:#D6B890"></span><code>#D6B890</code></td><td><span class="dot" style="background:#472D00"></span><code>#472D00</code></td></tr>
+<tr><th><code>--state-removed</code></th><td><span class="dot" style="background:#FFDDD9"></span><code>#FFDDD9</code></td><td><span class="dot" style="background:#5D0004"></span><code>#5D0004</code></td><td><span class="dot" style="background:#FFDDD9"></span><code>#FFDDD9</code></td></tr>
+<tr><th><code>--state-removed-text</code></th><td><span class="dot" style="background:#5D0004"></span><code>#5D0004</code></td><td><span class="dot" style="background:#E49C93"></span><code>#E49C93</code></td><td><span class="dot" style="background:#5D0004"></span><code>#5D0004</code></td></tr>
+<tr><th><code>--state-info</code></th><td><span class="dot" style="background:#D8EAFF"></span><code>#D8EAFF</code></td><td><span class="dot" style="background:#002E59"></span><code>#002E59</code></td><td><span class="dot" style="background:#D8EAFF"></span><code>#D8EAFF</code></td></tr>
+<tr><th><code>--state-info-text</code></th><td><span class="dot" style="background:#002E59"></span><code>#002E59</code></td><td><span class="dot" style="background:#95BBE7"></span><code>#95BBE7</code></td><td><span class="dot" style="background:#002E59"></span><code>#002E59</code></td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<section id="contrast">
+  <div class="wrap">
+    <p class="eyebrow">Accessibility</p>
+    <h2>コントラスト監査</h2>
+    <p>全テーマの主要な組み合わせを WCAG 2.1 のコントラスト比で検証しています
+    （本文 4.5:1、UI部品・大きな文字 3:1）。この表は <code>tools/palette.py</code> が
+    パレットから自動生成しており、基準を割る値が出た時点でビルドで気づける状態にしています。</p>
+    <table>
+      <thead><tr><th>用途</th><th>前景 / 背景</th><th>下限</th><th>light</th><th>dark</th><th>hybrid</th></tr></thead>
+      <tbody><tr><th>本文（シェル）</th><td><code>chrome-text</code> / <code>chrome-bg</code></td><td class="floor">4.5</td><td class="ok">15.81</td><td class="ok">15.81</td><td class="ok">15.81</td></tr>
+<tr><th>副次テキスト（シェル）</th><td><code>chrome-text-muted</code> / <code>chrome-bg</code></td><td class="floor">4.5</td><td class="ok">7.61</td><td class="ok">4.83</td><td class="ok">4.83</td></tr>
+<tr><th>補助テキスト（シェル）</th><td><code>chrome-text-subtle</code> / <code>chrome-bg</code></td><td class="floor">3.0</td><td class="ok">5.49</td><td class="ok">3.76</td><td class="ok">3.76</td></tr>
+<tr><th>パネル上の本文</th><td><code>chrome-text</code> / <code>chrome-surface</code></td><td class="floor">4.5</td><td class="ok">17.49</td><td class="ok">14.65</td><td class="ok">14.65</td></tr>
+<tr><th>区切り線</th><td><code>chrome-border</code> / <code>chrome-bg</code></td><td class="floor">1.18</td><td class="ok">1.24</td><td class="ok">1.50</td><td class="ok">1.50</td></tr>
+<tr><th>フォーム部品の輪郭</th><td><code>border-control</code> / <code>chrome-bg</code></td><td class="floor">3.0</td><td class="ok">3.28</td><td class="ok">3.76</td><td class="ok">3.76</td></tr>
+<tr><th>フォーム部品の輪郭（パネル上）</th><td><code>border-control</code> / <code>chrome-surface</code></td><td class="floor">3.0</td><td class="ok">3.62</td><td class="ok">3.48</td><td class="ok">3.48</td></tr>
+<tr><th>アクセント上の文字</th><td><code>accent-contrast</code> / <code>accent</code></td><td class="floor">4.5</td><td class="ok">5.06</td><td class="ok">8.44</td><td class="ok">8.44</td></tr>
+<tr><th>アクセント文字（小サイズ）</th><td><code>accent-text</code> / <code>chrome-bg</code></td><td class="floor">4.5</td><td class="ok">6.69</td><td class="ok">8.44</td><td class="ok">8.44</td></tr>
+<tr><th>アクセント（面・アイコン）</th><td><code>accent</code> / <code>chrome-bg</code></td><td class="floor">3.0</td><td class="ok">4.58</td><td class="ok">8.44</td><td class="ok">8.44</td></tr>
+<tr><th>薄アクセント上の文字</th><td><code>accent-subtle-text</code> / <code>accent-subtle</code></td><td class="floor">4.5</td><td class="ok">9.64</td><td class="ok">9.20</td><td class="ok">9.20</td></tr>
+<tr><th>セル文字</th><td><code>canvas-text</code> / <code>canvas-bg</code></td><td class="floor">4.5</td><td class="ok">17.49</td><td class="ok">17.14</td><td class="ok">17.49</td></tr>
+<tr><th>セル副次文字</th><td><code>canvas-text-muted</code> / <code>canvas-bg</code></td><td class="floor">4.5</td><td class="ok">8.42</td><td class="ok">5.23</td><td class="ok">8.42</td></tr>
+<tr><th>罫線</th><td><code>canvas-grid</code> / <code>canvas-bg</code></td><td class="floor">1.2</td><td class="ok">1.37</td><td class="ok">1.30</td><td class="ok">1.37</td></tr>
+<tr><th>選択枠</th><td><code>canvas-selection-border</code> / <code>canvas-bg</code></td><td class="floor">3.0</td><td class="ok">5.06</td><td class="ok">9.15</td><td class="ok">5.06</td></tr>
+<tr><th>追加セルの文字</th><td><code>state-added-text</code> / <code>state-added</code></td><td class="floor">4.5</td><td class="ok">8.44</td><td class="ok">9.20</td><td class="ok">8.44</td></tr>
+<tr><th>変更セルの文字</th><td><code>state-modified-text</code> / <code>state-modified</code></td><td class="floor">4.5</td><td class="ok">10.36</td><td class="ok">6.77</td><td class="ok">10.36</td></tr>
+<tr><th>削除セルの文字</th><td><code>state-removed-text</code> / <code>state-removed</code></td><td class="floor">4.5</td><td class="ok">11.31</td><td class="ok">6.46</td><td class="ok">11.31</td></tr>
+<tr><th>情報セルの文字</th><td><code>state-info-text</code> / <code>state-info</code></td><td class="floor">4.5</td><td class="ok">11.16</td><td class="ok">6.87</td><td class="ok">11.16</td></tr>
+<tr><th>危険ボタンの文字</th><td><code>danger-contrast</code> / <code>danger</code></td><td class="floor">4.5</td><td class="ok">5.21</td><td class="ok">7.89</td><td class="ok">7.89</td></tr>
+<tr><th>危険テキスト</th><td><code>danger-text</code> / <code>chrome-bg</code></td><td class="floor">4.5</td><td class="ok">6.99</td><td class="ok">7.89</td><td class="ok">7.89</td></tr>
+<tr><th>危険（面・アイコン）</th><td><code>danger</code> / <code>chrome-bg</code></td><td class="floor">3.0</td><td class="ok">4.71</td><td class="ok">7.89</td><td class="ok">7.89</td></tr>
+<tr><th>警告（面・アイコン）</th><td><code>warning</code> / <code>chrome-bg</code></td><td class="floor">3.0</td><td class="ok">5.52</td><td class="ok">9.26</td><td class="ok">9.26</td></tr>
+<tr><th>情報（面・アイコン）</th><td><code>info</code> / <code>chrome-bg</code></td><td class="floor">3.0</td><td class="ok">4.38</td><td class="ok">8.78</td><td class="ok">8.78</td></tr>
+<tr><th>リンク</th><td><code>link</code> / <code>chrome-bg</code></td><td class="floor">4.5</td><td class="ok">6.69</td><td class="ok">8.44</td><td class="ok">8.44</td></tr>
+<tr><th>訪問済みリンク</th><td><code>link-visited</code> / <code>chrome-bg</code></td><td class="floor">4.5</td><td class="ok">13.35</td><td class="ok">10.90</td><td class="ok">10.90</td></tr></tbody>
+    </table>
+    <p class="note"><code>--ink-350</code> はこの監査のためだけに存在するステップです。
+    ダーク系テーマでフォーム部品の輪郭を 3:1 以上にできる最も暗い値で、
+    WCAG 1.4.11（非テキストコントラスト）を満たすために追加しました。<br>
+    区切り線（<code>--chrome-border</code>）は情報を伝えないため下限を設けていません。
+    入力欄など<strong>部品の境界そのものが部品の存在を示す</strong>場合は、
+    必ず <code>--border-control</code> を使ってください。</p>
+  </div>
+</section>
+
+<section id="type">
+  <div class="wrap">
+    <p class="eyebrow">Typography</p>
+    <h2>タイポグラフィ</h2>
+    <div class="cols" style="margin-top:20px">
+      <div class="card"><h3 style="margin-top:0">Inter — UI とブランド</h3>
+        <p>ヒューマニスト寄りのニュートラルなサンセリフ。暖かさと実務的な読みやすさが、
+        やわらかい角丸のシェルと矛盾しません。日本語は
+        <code>"Hiragino Sans", "Yu Gothic UI"</code> にフォールバックします。</p>
+        <p style="font-size:26px;letter-spacing:var(--tracking-heading);margin:14px 0 0">
+        Refrain Sheet — 書式を保持する</p></div>
+      <div class="card"><h3 style="margin-top:0">等幅 — データの役割だけ</h3>
+        <p>セル、数値、パス、差分、ログ。<strong>本文には使いません</strong>。
+        書体を3つに増やさないため、等幅はシステムフォントスタックで賄います。</p>
+        <p class="rs-data" style="font-size:20px;margin:14px 0 0">0 O 1 l I 8 B 1,234,567</p>
+        <p style="font-size:var(--text-xs);color:var(--chrome-text-muted);margin-top:6px">
+        <code>tabular-nums</code> ＋ <code>slashed-zero</code> を常時有効化。
+        桁が揃い、0 と O を取り違えません。</p></div>
+    </div>
+    <h3>スケールと役割</h3>
+    <table>
+      <thead><tr><th>役割</th><th>サイズ</th><th>ウェイト</th><th>トラッキング</th><th>行送り</th></tr></thead>
+      <tbody>
+        <tr><th>ページ見出し</th><td>28–36px</td><td>700</td><td>−0.015em</td><td>1.25</td></tr>
+        <tr><th>セクション見出し</th><td>18–22px</td><td>600</td><td>−0.015em</td><td>1.25</td></tr>
+        <tr><th>本文</th><td>14–16px</td><td>400</td><td>0</td><td>1.5–1.7</td></tr>
+        <tr><th>UIラベル・ボタン</th><td>13–14px</td><td>500</td><td>0</td><td>1.25</td></tr>
+        <tr><th>セル・数値（等幅）</th><td>12–13px</td><td>400</td><td>0</td><td>1.5</td></tr>
+        <tr><th>補助・キャプション</th><td>11–12px</td><td>400</td><td>0</td><td>1.5</td></tr>
+        <tr><th>オーバーライン（大文字）</th><td>11–12px</td><td>600</td><td>+0.08em</td><td>1.2</td></tr>
+      </tbody>
+    </table>
+    <p class="note">大文字だけを並べる場合は必ずトラッキングを +0.08em 程度広げます。
+    小文字の本文にトラッキングをかけてはいけません。ロゴタイプの −0.0223em は
+    ディスプレイサイズ専用の値で、UIテキストには使いません。</p>
+  </div>
+</section>
+
+<section id="icons">
+  <div class="wrap">
+    <p class="eyebrow">Iconography</p>
+    <h2>アイコノグラフィ</h2>
+    <div class="cols" style="margin-top:20px">
+      <div class="card"><h3 style="margin-top:0">仕様</h3>
+        <ul>
+          <li>ライブラリは <strong>Lucide</strong> 一本（MIT）。混在させない。</li>
+          <li>24pxグリッド、ストローク <strong>1.5px</strong>、端・接合は <strong>round</strong>。</li>
+          <li>表示サイズ 16 / 20 / 24px。ストローク幅はサイズによらず 1.5px を保つ。</li>
+          <li>塗り（filled）はステータスドットなど、小さく確実に読ませたい場合だけ。</li>
+          <li>色は <code>currentColor</code>。テーマ切替に自動で追従させる。</li>
+        </ul></div>
+      <div class="card"><h3 style="margin-top:0">使いどころ</h3>
+        <p>アイコンは<strong>語を読み飛ばすため</strong>にあります。ナビゲーション、状態、行の種別など
+        走査が得になる場所にだけ置き、ラベルごとに飾りで付けません。</p>
+        <p>設定＝歯車、検索＝虫眼鏡、削除＝ごみ箱、通知＝ベル。<strong>解決済みの概念に
+        独自の絵を発明しない</strong>こと。判読のコストだけが増えます。</p></div>
+    </div>
+    <div class="icons"><figure><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/></svg><figcaption>search</figcaption></figure><figure><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg><figcaption>table</figcaption></figure><figure><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 8.9 19.3a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.7 8.9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><figcaption>settings</figcaption></figure><figure><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg><figcaption>save</figcaption></figure><figure><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 2.1-9.4L3 7"/></svg><figcaption>undo</figcaption></figure><figure><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg><figcaption>trash</figcaption></figure></div>
+    <p class="note">1.5px という選択は、ブランドの「精密さ」と「やわらかさ」の中間です。
+    2pxでは道具として強すぎ、1pxでは高精細でない画面で消えます。
+    線の端を round にすることで、外周の連続角丸と同じ調子が保たれます。</p>
+  </div>
+</section>
+
+<section id="appicon">
+  <div class="wrap">
+    <p class="eyebrow">App Icon</p>
+    <h2>アプリアイコン</h2>
+    <p>マスターは 1024px の正方形・角丸なし。OS が最終マスクを適用します。
+    プラットフォームごとの差分は<strong>デザインの変更ではなくマスク幾何への対応</strong>です。</p>
+    <div class="cols" style="margin-top:22px">
+      <div class="card" style="text-align:center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="132" height="132"
+     role="img" aria-label="Refrain Sheet app icon">
+  <title>Refrain Sheet app icon</title>
+  <path fill="#147F43" d="M0 0L1024 0L1024 1024L0 1024Z"/>
+  <path fill="#F4F4EB" d="M348 212L512 212L512 512L212 512L212 348C212 272.887 272.887 212 348 212Z"/>
+  <path fill="#DAECD8" d="M512 212L676 212C751.113 212 812 272.887 812 348L812 512L512 512L512 212Z"/>
+  <path fill="#DAECD8" d="M212 512L512 512L512 812L348 812C272.887 812 212 751.113 212 676L212 512Z"/>
+  <path fill="#8BC191" d="M512 512L812 512L812 812L512 812L512 512Z"/>
+</svg>
+        <h4 style="margin-top:12px">マスター 1024 / iOS</h4>
+        <p style="font-size:var(--text-xs);margin:0">角丸なし・透過なし。ブロックは 58.6%。</p></div>
+      <div class="card" style="text-align:center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="132" height="132"
+     role="img" aria-label="Refrain Sheet app icon">
+  <title>Refrain Sheet app icon</title>
+  <path fill="#147F43" d="M657.49 0c128.291 0 192.436 0 241.436 24.967a229.069 229.069 0 0 1 100.107 100.107c24.967 49.001 24.967 113.146 24.967 241.436L1024 657.49c0 128.291 0 192.436 -24.967 241.436a229.069 229.069 0 0 1 -100.107 100.107c-49.001 24.967 -113.146 24.967 -241.436 24.967L366.51 1024c-128.291 0 -192.436 0 -241.436 -24.967a229.069 229.069 0 0 1 -100.107 -100.107c-24.967 -49.001 -24.967 -113.146 -24.967 -241.436L0 366.51c0 -128.291 0 -192.436 24.967 -241.436a229.069 229.069 0 0 1 100.107 -100.107c49.001 -24.967 113.146 -24.967 241.436 -24.967Z"/>
+  <path fill="#F4F4EB" d="M348 212L512 212L512 512L212 512L212 348C212 272.887 272.887 212 348 212Z"/>
+  <path fill="#DAECD8" d="M512 212L676 212C751.113 212 812 272.887 812 348L812 512L512 512L512 212Z"/>
+  <path fill="#DAECD8" d="M212 512L512 512L512 812L348 812C272.887 812 212 751.113 212 676L212 512Z"/>
+  <path fill="#8BC191" d="M512 512L812 512L812 812L512 812L512 512Z"/>
+</svg>
+        <h4 style="margin-top:12px">Web / favicon</h4>
+        <p style="font-size:var(--text-xs);margin:0">連続角丸 22.37%（スムージング 0.6）。</p></div>
+      <div class="card" style="text-align:center">
+        <div style="display:grid;place-items:center;height:132px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432" width="96" height="96"
+     role="img" aria-label="Refrain Sheet">
+  <title>Refrain Sheet</title>
+  <path fill="#141A22" d="M166.788 126L210.6 126L210.6 210.6L126 210.6L126 166.788C126 144.261 144.261 126 166.788 126ZM221.4 126L265.212 126C287.739 126 306 144.261 306 166.788L306 210.6L221.4 210.6L221.4 126ZM126 221.4L210.6 221.4L210.6 306L166.788 306C144.261 306 126 287.739 126 265.212L126 221.4ZM221.4 221.4L306 221.4L306 306L221.4 306L221.4 221.4Z"/>
+</svg></div>
+        <h4 style="margin-top:12px">Android モノクロ</h4>
+        <p style="font-size:var(--text-xs);margin:0">色が使えないため、セルは抜きで示す。OSが再着色。</p></div>
+    </div>
+    <h3>サイズと安全域</h3>
+    <table>
+      <thead><tr><th>用途</th><th>ファイル</th><th>仕様</th></tr></thead>
+      <tbody>
+        <tr><th>iOS / App Store</th><td><code>app-icon-1024.svg</code> / <code>.png</code></td>
+          <td>1024 正方形、角丸なし、透過なし。Icon Composer / Xcode に渡す。</td></tr>
+        <tr><th>macOS</th><td>同上</td><td>同じマスターから書き出す。独自の影・ハイライトを足さない。</td></tr>
+        <tr><th>Web favicon</th><td><code>favicon.svg</code> ＋ 16/32/48 PNG</td>
+          <td>連続角丸。16pxでも右下セルの濃淡で「セル構造」が読める。</td></tr>
+        <tr><th>PWA (any)</th><td><code>icon-192.png</code> / <code>icon-512.png</code></td><td>角丸プレート。</td></tr>
+        <tr><th>PWA (maskable)</th><td><code>maskable-512.png</code></td>
+          <td>マークを 93% に縮小。中央80%の円で切られても欠けない。</td></tr>
+        <tr><th>Android アダプティブ</th><td><code>android/ic_launcher_*.svg</code></td>
+          <td>108dp。前景のブロックは 45dp ＝ 直角の角が 66dp 安全円の内側に収まる最大値。</td></tr>
+        <tr><th>Android テーマアイコン</th><td><code>ic_launcher_monochrome.svg</code></td>
+          <td>単色。セル境界は 6% の抜きで表現する（この層のみの例外）。</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Android の前景がiOSより小さく見えるのは意図です。円形マスクを想定した
+    安全域（直径66dp）に、右下セルの<strong>直角の頂点</strong>まで収める必要があるためで、
+    比率を変えたわけではありません。ブランドの差異を担う角を欠けさせないことを優先しています。</p>
+  </div>
+</section>
+
+<section id="impl">
+  <div class="wrap">
+    <p class="eyebrow">Implementation</p>
+    <h2>実装</h2>
+    <p><code>brand/tokens.css</code> を読み込み、<code>data-theme</code> を切り替えるだけです。
+    OS設定に追随させる場合は属性を付けなければ <code>prefers-color-scheme</code> が効きます。</p>
+    <pre>&lt;link rel="stylesheet" href="/brand/tokens.css"&gt;
+&lt;link rel="icon" href="/icons/favicon.svg"&gt;
+&lt;link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png"&gt;
+&lt;link rel="manifest" href="/icons/site.webmanifest"&gt;
+
+&lt;html data-theme="hybrid"&gt;   &lt;!-- light | dark | hybrid、未指定ならOS設定 --&gt;
+
+.toolbar {
+  background: var(--chrome-surface);
+  border-bottom: 1px solid var(--chrome-border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.grid td {
+  background: var(--canvas-bg);
+  border: 1px solid var(--canvas-grid);
+  border-radius: var(--radius-cell);   /* データは直角 */
+}
+.grid td[data-state="modified"] {
+  background: var(--state-modified);
+  color: var(--state-modified-text);
+}</pre>
+    <p class="note">色は <code>tools/palette.py</code> が単一の出典です。
+    <code>tokens.css</code>・この文書・コントラスト監査表はすべてそこから生成されるため、
+    値を直接書き換えると次のビルドで戻ります。変更は palette.py に入れてください。</p>
+  </div>
+</section>
+</main>
+<footer><div class="wrap">Refrain Sheet Brand Guidelines · v2.0 · 2026-09-22 ·
+  色は Oklab で設計し sRGB で納品 · コントラスト監査 78/78 合格</div></footer>
+<script>
+document.querySelectorAll('.docswitch button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.docswitch button').forEach(o =>
+    o.setAttribute('aria-pressed', String(o === b)));
+  document.documentElement.setAttribute('data-theme', b.dataset.set);
+}));
+</script>
+</body>
+</html>

@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="ja" data-theme="light" data-density="comfortable">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Refrain Sheet Design System v1.0.0</title>
+<meta name="description" content="Refrain Sheet のデザインシステム。トークン、コンポーネント、テーマ、アクセシビリティ基準と実装方法。">
+<link rel="icon" href="../icons/favicon.svg">
+<link rel="stylesheet" href="../css/refrain-sheet.css">
+<style>
+  /* ドキュメント固有のレイアウトのみ。値はすべてトークン参照。 */
+  body { background: var(--chrome-bg); }
+  .wrap { width: min(var(--layout-max), calc(100% - var(--space-8))); margin-inline: auto; }
+  .doc-head { background: var(--ink-900); color: var(--paper-50);
+    padding-block: var(--space-12) var(--space-8); }
+  .doc-head h1 { font-size: var(--text-display); margin-block: var(--space-4) var(--space-2); }
+  .doc-head p { color: var(--ink-200); max-width: 38em; }
+  .eyebrow { font-family: var(--font-data); font-size: var(--text-xs);
+    letter-spacing: var(--tracking-caps); color: var(--green-300); margin: 0; }
+  nav.toc { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5);
+    margin-block-start: var(--space-6); font-size: var(--text-xs); }
+  nav.toc a { color: var(--green-200); }
+  section { padding-block: var(--space-12);
+    border-block-end: var(--border-thin) solid var(--chrome-border); }
+  section > .wrap > h2 { margin-block-end: var(--space-2); }
+  h3 { margin-block: var(--space-8) var(--space-3); }
+  h4 { font-size: var(--text-body); margin-block: 0 var(--space-2);
+        color: var(--chrome-text-muted); }
+  table { width: 100%; border-collapse: collapse; margin-block: var(--space-4);
+    font-size: var(--text-xs); }
+  th, td { text-align: start; padding: var(--space-2) var(--space-3);
+    border-block-end: var(--border-thin) solid var(--chrome-border); vertical-align: middle; }
+  thead th { background: var(--chrome-sunken); }
+  tbody th { font-weight: var(--weight-regular); }
+  tr.grp th { background: var(--chrome-sunken); font-weight: var(--weight-bold); }
+  td.num, th.num { font-family: var(--font-data); }
+  .ok { font-family: var(--font-data); color: var(--accent-text); }
+  .ng { font-family: var(--font-data); color: var(--danger-text); font-weight: var(--weight-bold); }
+  .dot { display: inline-block; width: .75em; height: .75em; border-radius: var(--radius-xs);
+    border: var(--border-thin) solid var(--chrome-border); margin-inline-end: var(--space-2);
+    vertical-align: -.1em; }
+  .cols { display: grid; gap: var(--space-4);
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); }
+  .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .sw { inline-size: 7rem; font-family: var(--font-data); font-size: var(--text-xs); }
+  .sw__chip { block-size: 3rem; border-radius: var(--radius-sm);
+    border: var(--border-thin) solid var(--chrome-border); }
+  .sw small { display: block; color: var(--chrome-text-muted); font-size: .75em; }
+  .ramp { margin-block-end: var(--space-5); }
+  .demo { padding: var(--space-4); border: var(--border-thin) solid var(--chrome-border);
+    border-radius: var(--radius-lg); background: var(--chrome-surface);
+    display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+  .demo--stack { display: block; }
+  .demo-app { block-size: 19rem; border: var(--border-thin) solid var(--chrome-border);
+    border-radius: var(--radius-lg); overflow: hidden; margin-block-end: var(--space-4); }
+  .demo-app .rs-sheet-scroll { block-size: 100%; }
+  pre { background: var(--ink-900); color: var(--paper-50); padding: var(--space-4);
+    border-radius: var(--radius-lg); overflow-x: auto; font-size: var(--text-xs);
+    font-family: var(--font-data); line-height: var(--leading-ui); }
+  .note { border-inline-start: var(--border-thick) solid var(--accent);
+    background: var(--accent-subtle); color: var(--accent-subtle-text);
+    padding: var(--space-3) var(--space-4); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: var(--text-xs); max-width: 60em; margin-block: var(--space-4); }
+  .switch { display: flex; gap: var(--space-2); margin-block-start: var(--space-6); }
+  .switch .rs-control { border-color: var(--ink-500); color: var(--paper-50); }
+  .switch .rs-control[aria-pressed="true"] { background: var(--green-300);
+    color: var(--ink-900); border-color: var(--green-300); }
+  footer.doc-foot { padding-block: var(--space-8) var(--space-12);
+    color: var(--chrome-text-muted); font-size: var(--text-xs); }
+  @media (max-width: 48em) { section { padding-block: var(--space-8); }
+    .demo-app { block-size: 24rem; } }
+</style>
+</head>
+<body>
+<a class="rs-skip-link" href="#main">本文へスキップ</a>
+
+<header class="doc-head">
+  <div class="wrap">
+    <p class="eyebrow">DESIGN SYSTEM · v1.0.0 · 2026-09-22</p>
+    <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Refrain Sheet"
+     viewBox="0 0 573.37 120" width="238" height="50">
+  <title>Refrain Sheet</title>
+  <path fill="#147F43" d="M77.05 0c15.034 0 22.551 0 28.293 2.926a26.844 26.844 0 0 1 11.731 11.731c2.926 5.742 2.926 13.259 2.926 28.293L120 77.05c0 15.034 0 22.551 -2.926 28.293a26.844 26.844 0 0 1 -11.731 11.731c-5.742 2.926 -13.259 2.926 -28.293 2.926L42.95 120c-15.034 0 -22.551 0 -28.293 -2.926a26.844 26.844 0 0 1 -11.731 -11.731c-2.926 -5.742 -2.926 -13.259 -2.926 -28.293L0 42.95c0 -15.034 0 -22.551 2.926 -28.293a26.844 26.844 0 0 1 11.731 -11.731c5.742 -2.926 13.259 -2.926 28.293 -2.926Z"/>
+  <path fill="#F4F4EB" d="M40.781 24.844L60 24.844L60 60L24.844 60L24.844 40.781C24.844 31.979 31.979 24.844 40.781 24.844Z"/>
+  <path fill="#DAECD8" d="M60 24.844L79.219 24.844C88.021 24.844 95.156 31.979 95.156 40.781L95.156 60L60 60L60 24.844Z"/>
+  <path fill="#DAECD8" d="M24.844 60L60 60L60 95.156L40.781 95.156C31.979 95.156 24.844 88.021 24.844 79.219L24.844 60Z"/>
+  <path fill="#8BC191" d="M60 60L95.156 60L95.156 95.156L60 95.156L60 60Z"/>
+  <path fill="#F4F4EB" d="M150 87L150 33L171.61 33Q177.69 33 182.12 35.16Q186.56 37.32 188.97 41.29Q191.37 45.26 191.37 50.71Q191.37 56.06 188.84 59.98Q186.31 63.89 181.73 66.01Q177.15 68.13 170.94 68.13L156.68 68.13L156.68 59.16L170.93 59.16Q173.88 59.16 176.01 58.11Q178.15 57.07 179.31 55.17Q180.46 53.27 180.46 50.71Q180.46 48.12 179.3 46.24Q178.13 44.37 176 43.33Q173.87 42.28 170.9 42.28L161.14 42.28L161.14 87ZM180.6 87L168.26 62.6L179.98 62.6L192.57 87ZM212.01 87.87Q206.21 87.87 201.9 85.31Q197.59 82.74 195.23 78.22Q192.86 73.7 192.86 67.9Q192.86 62.04 195.26 57.52Q197.67 53 201.9 50.43Q206.14 47.86 211.65 47.86Q215.87 47.86 219.32 49.3Q222.77 50.74 225.27 53.39Q227.77 56.04 229.12 59.67Q230.47 63.3 230.47 67.68L230.47 70.56L196.67 70.56L196.67 63.74L225.33 63.74L220.51 65.36Q220.51 62.46 219.45 60.36Q218.4 58.26 216.47 57.12Q214.54 55.99 211.86 55.99Q209.22 55.99 207.29 57.12Q205.36 58.26 204.31 60.36Q203.25 62.46 203.25 65.36L203.25 70.02Q203.25 72.97 204.31 75.19Q205.38 77.42 207.41 78.64Q209.45 79.86 212.32 79.86Q214.41 79.86 216.03 79.25Q217.66 78.65 218.75 77.55Q219.85 76.45 220.33 74.98L230.1 74.98Q229.39 78.78 226.85 81.68Q224.31 84.58 220.47 86.22Q216.64 87.87 212.01 87.87ZM255.93 48.73L255.93 57.11L230.5 57.11L230.5 48.73ZM237.43 87L237.43 43.75Q237.43 40.18 238.82 37.8Q240.21 35.41 242.98 34.2Q245.74 33 249.86 33Q251.77 33 253.51 33Q255.25 33 255.93 33L255.93 41.38Q255.47 41.38 254.28 41.38Q253.1 41.38 252.28 41.38Q250 41.38 249.05 42.34Q248.09 43.29 248.09 45.56L248.09 87ZM258.89 87L258.89 48.73L269.18 48.73L269.18 55.25L269.29 55.25Q270.34 51.79 272.58 50.12Q274.83 48.46 278.61 48.46Q279.56 48.46 280.35 48.5Q281.13 48.53 281.77 48.56L281.77 57.66Q281.19 57.61 279.87 57.53Q278.54 57.46 277.18 57.46Q274.99 57.46 273.26 58.45Q271.53 59.45 270.54 61.41Q269.55 63.37 269.55 66.26L269.55 87ZM295.18 87.64Q291.36 87.64 288.39 86.38Q285.42 85.11 283.71 82.56Q282 80.02 282 76.22Q282 72.96 283.2 70.81Q284.4 68.65 286.48 67.34Q288.56 66.02 291.26 65.34Q293.97 64.65 296.95 64.37Q300.45 64.02 302.52 63.69Q304.6 63.37 305.5 62.75Q306.4 62.13 306.4 60.9L306.4 60.66Q306.4 59.24 305.64 58.17Q304.89 57.09 303.5 56.48Q302.1 55.87 300.15 55.87Q298.17 55.87 296.67 56.49Q295.17 57.11 294.3 58.23Q293.42 59.36 293.28 60.85L283.23 60.85Q283.49 56.88 285.58 53.99Q287.67 51.1 291.44 49.52Q295.2 47.93 300.46 47.93Q304.38 47.93 307.45 48.83Q310.52 49.72 312.64 51.42Q314.76 53.13 315.86 55.55Q316.95 57.98 316.95 61.05L316.95 87L306.51 87L306.51 81.6L306.37 81.6Q305.37 83.47 303.87 84.83Q302.37 86.18 300.25 86.91Q298.12 87.64 295.18 87.64ZM298.13 80.23Q300.7 80.23 302.58 79.28Q304.46 78.34 305.47 76.71Q306.47 75.08 306.47 73.01L306.47 69.17Q306.01 69.42 305.25 69.65Q304.48 69.88 303.47 70.09Q302.46 70.3 301.26 70.5Q300.07 70.71 298.77 70.91Q296.96 71.18 295.47 71.78Q293.98 72.38 293.1 73.38Q292.22 74.39 292.22 75.91Q292.22 77.26 292.96 78.23Q293.69 79.21 295.02 79.72Q296.35 80.23 298.13 80.23ZM323.72 87L323.72 48.73L334.38 48.73L334.38 87ZM329.03 43.92Q326.39 43.92 324.66 42.3Q322.93 40.67 322.93 38.22Q322.93 35.77 324.66 34.16Q326.39 32.54 329.02 32.54Q331.67 32.54 333.4 34.16Q335.14 35.77 335.14 38.23Q335.14 40.68 333.4 42.3Q331.66 43.92 329.03 43.92ZM352.49 65.74L352.49 87L341.83 87L341.83 48.73L352.33 48.73L352.33 58.69L350.51 58.69Q352.34 53.61 355.7 50.77Q359.06 47.93 364.28 47.93Q368.37 47.93 371.38 49.69Q374.39 51.45 376.05 54.82Q377.71 58.19 377.71 63.03L377.71 87L367.05 87L367.05 64.99Q367.05 61.14 365.22 59.14Q363.38 57.14 360 57.14Q357.8 57.14 356.11 58.05Q354.41 58.96 353.45 60.86Q352.49 62.76 352.49 65.74Z"/>
+  <path fill="#8BC191" d="M411.95 87.87Q405.49 87.87 400.81 85.65Q396.14 83.43 393.61 79.31Q391.07 75.2 391.07 69.5L399.1 69.5Q399.12 73.04 400.65 75.59Q402.18 78.15 405.06 79.5Q407.95 80.86 411.98 80.86Q415.65 80.86 418.36 79.8Q421.07 78.74 422.59 76.79Q424.11 74.85 424.11 72.22Q424.11 70.14 423.08 68.59Q422.04 67.05 419.77 65.89Q417.51 64.74 413.75 63.86L407.82 62.46Q399.64 60.53 395.89 57.02Q392.15 53.5 392.15 47.9Q392.15 43.14 394.53 39.6Q396.92 36.06 401.26 34.09Q405.61 32.13 411.39 32.13Q417.21 32.13 421.49 34.2Q425.77 36.26 428.15 40.08Q430.54 43.89 430.69 49.16L422.91 49.16Q422.62 44.49 419.5 41.83Q416.39 39.17 411.27 39.17Q408.04 39.17 405.53 40.23Q403.02 41.29 401.59 43.17Q400.16 45.05 400.16 47.5Q400.16 49.46 401.2 50.9Q402.24 52.34 404.51 53.44Q406.78 54.54 410.5 55.43L416.3 56.83Q420.38 57.78 423.36 59.16Q426.34 60.53 428.28 62.36Q430.23 64.19 431.19 66.53Q432.14 68.88 432.14 71.78Q432.14 76.63 429.64 80.25Q427.15 83.88 422.62 85.88Q418.08 87.87 411.95 87.87ZM445.13 64.98L445.13 87L437.47 87L437.47 33L445.13 33L445.13 58.24L443.21 58.24Q445.08 53.09 448.44 50.53Q451.79 47.98 456.55 47.98Q460.5 47.98 463.63 49.69Q466.76 51.4 468.58 54.77Q470.4 58.14 470.4 63.16L470.4 87L462.74 87L462.74 64.1Q462.74 59.51 460.55 57.16Q458.35 54.82 454.35 54.82Q451.76 54.82 449.67 55.87Q447.58 56.92 446.36 59.16Q445.13 61.4 445.13 64.98ZM494.04 87.87Q488.36 87.87 484.28 85.3Q480.2 82.73 478.01 78.22Q475.82 73.7 475.82 67.92Q475.82 62.08 478.1 57.55Q480.37 53.03 484.39 50.45Q488.41 47.86 493.63 47.86Q497.7 47.86 500.99 49.3Q504.27 50.75 506.62 53.42Q508.98 56.1 510.24 59.76Q511.5 63.42 511.5 67.85L511.5 69.95L479.26 69.95L479.26 64.15L507.49 64.15L504.12 65.92Q504.12 62.34 502.84 59.72Q501.56 57.1 499.23 55.67Q496.89 54.24 493.7 54.24Q490.55 54.24 488.23 55.67Q485.9 57.1 484.62 59.72Q483.34 62.34 483.34 65.92L483.34 69.21Q483.34 72.83 484.6 75.6Q485.86 78.37 488.28 79.93Q490.7 81.48 494.14 81.48Q496.65 81.48 498.57 80.71Q500.49 79.94 501.76 78.56Q503.03 77.18 503.58 75.36L510.94 75.36Q510.22 79.06 507.86 81.88Q505.49 84.69 501.93 86.28Q498.36 87.87 494.04 87.87ZM532.87 87.87Q527.19 87.87 523.11 85.3Q519.02 82.73 516.83 78.22Q514.64 73.7 514.64 67.92Q514.64 62.08 516.92 57.55Q519.2 53.03 523.22 50.45Q527.24 47.86 532.46 47.86Q536.52 47.86 539.81 49.3Q543.1 50.75 545.45 53.42Q547.81 56.1 549.07 59.76Q550.33 63.42 550.33 67.85L550.33 69.95L518.09 69.95L518.09 64.15L546.32 64.15L542.95 65.92Q542.95 62.34 541.67 59.72Q540.39 57.1 538.06 55.67Q535.72 54.24 532.53 54.24Q529.38 54.24 527.06 55.67Q524.73 57.1 523.45 59.72Q522.17 62.34 522.17 65.92L522.17 69.21Q522.17 72.83 523.43 75.6Q524.69 78.37 527.11 79.93Q529.52 81.48 532.97 81.48Q535.48 81.48 537.4 80.71Q539.32 79.94 540.59 78.56Q541.86 77.18 542.41 75.36L549.77 75.36Q549.05 79.06 546.68 81.88Q544.31 84.69 540.75 86.28Q537.19 87.87 532.87 87.87ZM573.37 48.73L573.37 55.05L551.18 55.05L551.18 48.73ZM557.93 38.29L565.59 38.29L565.59 76.87Q565.59 78.99 566.47 79.84Q567.34 80.68 569.63 80.68Q570.49 80.68 571.55 80.68Q572.61 80.68 573.37 80.68L573.37 87Q572.42 87 571.09 87Q569.76 87 568.55 87Q563.15 87 560.54 84.74Q557.93 82.48 557.93 77.87Z"/>
+</svg>
+    <h1>Refrain Sheet<br>Design System</h1>
+    <p>ブラウザ上で動く書式保持CSVエディタのための、トークン・コンポーネント・
+    アクセシビリティ基準の一式。ブランドガイドラインを唯一の出典として生成しています。</p>
+    <div class="switch" role="group" aria-label="この文書の表示テーマ">
+      <button type="button" class="rs-control" data-set="light" aria-pressed="true">light</button>
+      <button type="button" class="rs-control" data-set="dark" aria-pressed="false">dark</button>
+      <button type="button" class="rs-control" data-set="hybrid" aria-pressed="false">hybrid</button>
+    </div>
+    <nav class="toc" aria-label="目次">
+      <a href="#method">作り方</a><a href="#platform">対象環境</a><a href="#shape">形</a>
+      <a href="#color">色</a><a href="#type">文字</a><a href="#space">余白と密度</a>
+      <a href="#surface">面</a><a href="#components">部品</a><a href="#layout">レイアウト</a>
+      <a href="#a11y">アクセシビリティ</a><a href="#perf">性能</a><a href="#impl">実装</a>
+      <a href="#governance">運用</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<section id="method"><div class="wrap">
+  <h2>作り方</h2>
+  <p class="rs-measure">dembrandt の6ステージを順に通しています。実行したステージと、
+  省いたステージとその理由を明示します。</p>
+  <table><thead><tr><th>ステージ</th><th>名称</th><th>状態</th><th>参照した規範と結論</th></tr></thead>
+    <tbody><tr><th>Stage 1</th><td>Brand Foundation</td><td><span class="rs-tag rs-tag--added">実行</span></td><td><small>brand-visual-language / algorithmic-color-palette / color-mode-and-theme</small><br>形の言語はアイコンから読み取り済み。色は Oklab スケールへ拡張し、3テーマを確定。</td></tr><tr><th>Stage 2</th><td>Design Tokens & Scales</td><td><span class="rs-tag rs-tag--added">実行</span></td><td><small>modular-scale-typography / sizing-units / elevation-and-depth / button-states / component-family-consistency / status-colors-and-errors / surface-separation</small><br>型の下限14px、単位規則（rem/px/em）、コントロール共通クラス、面の分離戦略を確定。</td></tr><tr><th>Stage 3</th><td>Layout & Structure</td><td><span class="rs-tag rs-tag--added">実行</span></td><td><small>responsive-paradigms / ui-density / scroll-areas</small><br>アプリシェル、密度3段、2軸スクロールの唯一の例外を定義。</td></tr><tr><th>Stage 4</th><td>Components & Interaction</td><td><span class="rs-tag rs-tag--added">実行</span></td><td><small>app-shell / operational-expert-tool-ui / data-display-and-selection / form-design / modal-and-overlay-patterns / notifications-and-recovery</small><br>熟練者向けの密度と常時可視の状態表示、オーバーレイ階層、復旧経路を規定。</td></tr><tr><th>Stage 5</th><td>UX Polish</td><td><span class="rs-tag rs-tag--modified">部分</span></td><td><small>（notifications-and-recovery のローディング節のみ参照）</small><br>モーション署名とスケルトンは定義。マイクロインタラクションと物語的な演出は本システムの対象外（業務ツールとして静かであることを優先）。</td></tr><tr><th>Stage 6</th><td>Accessibility & Technical Gate</td><td><span class="rs-tag rs-tag--added">実行</span></td><td><small>wcag-accessibility / semantic-html-and-seo / performance-and-web-vitals</small><br>WCAG 2.2 AA を出荷条件に設定。Windows ハイコントラストと入力方式の分岐を追加。</td></tr></tbody></table>
+  <div class="note">規範は証拠であって法ではありません。画面で再現できる制約
+  （フォントに存在しないウェイト、OSの描画、コントラスト）が規範と衝突した場合は制約が優先です。
+  本書で規範から外した箇所は、すべてその理由を併記しています。</div>
+</div></section>
+
+<section id="platform"><div class="wrap">
+  <h2>対象環境</h2>
+  <div class="cols">
+    <div class="rs-panel"><h4>主対象</h4>
+      <p>Windows 11 / Chrome（最新2バージョン）。デスクトップの業務利用が中心で、
+      1日中開かれることを前提にしています。</p></div>
+    <div class="rs-panel"><h4>対応</h4>
+      <p>iOS Safari / Android Chrome、macOS Safari・Chrome、Firefox。
+      モバイルは閲覧と軽い修正を想定し、一括操作などは折りたたみます。</p></div>
+    <div class="rs-panel"><h4>前提</h4>
+      <p>Webフォントは<strong>1つも読み込みません</strong>。UIはOS標準フォントのみで成立します。
+      ロゴタイプはアウトライン化済みSVGのため、フォント環境に依存しません。</p></div>
+  </div>
+</div></section>
+
+<section id="shape"><div class="wrap">
+  <h2>形の言語</h2>
+  <p class="rs-measure">アイコンがすでに答えを持っています。<strong>外側はやわらかく、データは直角</strong>。
+  シェルの部品は6〜14pxの穏やかな丸みを持ち、グリッドのセルは角を持ちません。</p>
+  <table><thead><tr><th>トークン</th><th>値</th><th>用途</th></tr></thead><tbody><tr><th><code>--radius-cell</code></th><td>0</td><td>データグリッドのセル・行・列ヘッダ</td></tr><tr><th><code>--radius-xs</code></th><td>2px</td><td>セル内チップ、ステータスドット枠</td></tr><tr><th><code>--radius-sm</code></th><td>4px</td><td>ウェル、インセット領域</td></tr><tr><th><code>--radius-md</code></th><td>6px</td><td>ボタン、入力、セレクト、トグル（コントロール基準）</td></tr><tr><th><code>--radius-lg</code></th><td>10px</td><td>カード、パネル</td></tr><tr><th><code>--radius-xl</code></th><td>14px</td><td>モーダル、ドロワー、ポップオーバー</td></tr><tr><th><code>--radius-full</code></th><td>999px</td><td>ピル、アバター、ステータスドット</td></tr></tbody></table>
+  <div class="note">入れ子の角は同心にします。外側の半径 = 内側の半径 + その間の余白。
+  <code>border-radius: calc(var(--radius-md) + var(--space-4))</code> のように
+  <code>calc()</code> で導き、数値を焼き付けません。<br>
+  境界線の太さは <code>--border-thin</code> と <code>--border-thick</code> の2段だけです。
+  1,2,3,4px と刻みません。</div>
+</div></section>
+
+<section id="color"><div class="wrap">
+  <h2>色</h2>
+  <p class="rs-measure">Oklab（極座標 OKLCH）で設計し、sRGB 16進で納品します。中間色は
+  <strong>Paper（暖色）</strong>と<strong>Ink（寒色）</strong>の二極。テーマはこの2極の組み合わせです。
+  詳細な設計根拠はブランドガイドラインを参照してください。</p>
+  <h3>スケール</h3>
+  <div class="ramp"><h4>--green-*</h4><div class="chips"><div class="sw"><div class="sw__chip" style="background:#EEF9EC" data-literal-ok></div><code>50</code><small>#EEF9EC</small><small>oklch(97.0% 0.021 140.9)</small></div><div class="sw"><div class="sw__chip" style="background:#DAECD8" data-literal-ok></div><code>100</code><small>#DAECD8</small><small>oklch(92.4% 0.033 142.5)</small></div><div class="sw"><div class="sw__chip" style="background:#B3D5B3" data-literal-ok></div><code>200</code><small>#B3D5B3</small><small>oklch(83.9% 0.059 145.0)</small></div><div class="sw"><div class="sw__chip" style="background:#8BC191" data-literal-ok></div><code>300</code><small>#8BC191</small><small>oklch(76.0% 0.088 147.5)</small></div><div class="sw"><div class="sw__chip" style="background:#5DA56C" data-literal-ok></div><code>400</code><small>#5DA56C</small><small>oklch(66.0% 0.112 149.3)</small></div><div class="sw"><div class="sw__chip" style="background:#3D9156" data-literal-ok></div><code>500</code><small>#3D9156</small><small>oklch(58.9% 0.121 150.8)</small></div><div class="sw"><div class="sw__chip" style="background:#147F43" data-literal-ok></div><code>600</code><small>#147F43</small><small>oklch(52.5% 0.130 152.3)</small></div><div class="sw"><div class="sw__chip" style="background:#006335" data-literal-ok></div><code>700</code><small>#006335</small><small>oklch(43.9% 0.110 154.4)</small></div><div class="sw"><div class="sw__chip" style="background:#004A29" data-literal-ok></div><code>800</code><small>#004A29</small><small>oklch(36.0% 0.087 156.2)</small></div><div class="sw"><div class="sw__chip" style="background:#002F1B" data-literal-ok></div><code>900</code><small>#002F1B</small><small>oklch(26.9% 0.062 159.3)</small></div></div></div><div class="ramp"><h4>--paper-*</h4><div class="chips"><div class="sw"><div class="sw__chip" style="background:#FFFFFF" data-literal-ok></div><code>0</code><small>#FFFFFF</small><small>oklch(100.0% 0.000 89.9)</small></div><div class="sw"><div class="sw__chip" style="background:#F4F4EB" data-literal-ok></div><code>50</code><small>#F4F4EB</small><small>oklch(96.5% 0.012 106.6)</small></div><div class="sw"><div class="sw__chip" style="background:#EDEDE4" data-literal-ok></div><code>100</code><small>#EDEDE4</small><small>oklch(94.4% 0.012 106.6)</small></div><div class="sw"><div class="sw__chip" style="background:#DDDDD4" data-literal-ok></div><code>200</code><small>#DDDDD4</small><small>oklch(89.5% 0.012 106.6)</small></div><div class="sw"><div class="sw__chip" style="background:#CBCBC3" data-literal-ok></div><code>300</code><small>#CBCBC3</small><small>oklch(84.0% 0.011 106.6)</small></div><div class="sw"><div class="sw__chip" style="background:#B2B2AA" data-literal-ok></div><code>400</code><small>#B2B2AA</small><small>oklch(76.1% 0.011 106.7)</small></div></div></div><div class="ramp"><h4>--ink-*</h4><div class="chips"><div class="sw"><div class="sw__chip" style="background:#999FA7" data-literal-ok></div><code>200</code><small>#999FA7</small><small>oklch(70.0% 0.014 255.5)</small></div><div class="sw"><div class="sw__chip" style="background:#81878F" data-literal-ok></div><code>300</code><small>#81878F</small><small>oklch(62.1% 0.014 255.5)</small></div><div class="sw"><div class="sw__chip" style="background:#6F757D" data-literal-ok></div><code>350</code><small>#6F757D</small><small>oklch(56.0% 0.014 255.6)</small></div><div class="sw"><div class="sw__chip" style="background:#5C636D" data-literal-ok></div><code>400</code><small>#5C636D</small><small>oklch(49.7% 0.018 257.2)</small></div><div class="sw"><div class="sw__chip" style="background:#474E57" data-literal-ok></div><code>500</code><small>#474E57</small><small>oklch(42.1% 0.018 254.7)</small></div><div class="sw"><div class="sw__chip" style="background:#323941" data-literal-ok></div><code>600</code><small>#323941</small><small>oklch(34.1% 0.017 251.8)</small></div><div class="sw"><div class="sw__chip" style="background:#232932" data-literal-ok></div><code>700</code><small>#232932</small><small>oklch(27.9% 0.019 258.4)</small></div><div class="sw"><div class="sw__chip" style="background:#1B2129" data-literal-ok></div><code>800</code><small>#1B2129</small><small>oklch(24.5% 0.018 255.7)</small></div><div class="sw"><div class="sw__chip" style="background:#141A22" data-literal-ok></div><code>900</code><small>#141A22</small><small>oklch(21.5% 0.018 255.7)</small></div><div class="sw"><div class="sw__chip" style="background:#0B1118" data-literal-ok></div><code>950</code><small>#0B1118</small><small>oklch(17.5% 0.017 252.6)</small></div><div class="sw"><div class="sw__chip" style="background:#04080E" data-literal-ok></div><code>1000</code><small>#04080E</small><small>oklch(13.2% 0.016 251.8)</small></div></div></div><div class="ramp"><h4>--amber-*</h4><div class="chips"><div class="sw"><div class="sw__chip" style="background:#F6E5CE" data-literal-ok></div><code>100</code><small>#F6E5CE</small><small>oklch(92.9% 0.036 75.5)</small></div><div class="sw"><div class="sw__chip" style="background:#D6B890" data-literal-ok></div><code>300</code><small>#D6B890</small><small>oklch(79.9% 0.064 74.6)</small></div><div class="sw"><div class="sw__chip" style="background:#B99056" data-literal-ok></div><code>500</code><small>#B99056</small><small>oklch(67.9% 0.090 74.9)</small></div><div class="sw"><div class="sw__chip" style="background:#A6762A" data-literal-ok></div><code>600</code><small>#A6762A</small><small>oklch(60.1% 0.108 75.0)</small></div><div class="sw"><div class="sw__chip" style="background:#865900" data-literal-ok></div><code>700</code><small>#865900</small><small>oklch(50.1% 0.106 74.9)</small></div><div class="sw"><div class="sw__chip" style="background:#472D00" data-literal-ok></div><code>900</code><small>#472D00</small><small>oklch(32.1% 0.068 74.7)</small></div></div></div><div class="ramp"><h4>--red-*</h4><div class="chips"><div class="sw"><div class="sw__chip" style="background:#FFDDD9" data-literal-ok></div><code>100</code><small>#FFDDD9</small><small>oklch(92.5% 0.038 25.8)</small></div><div class="sw"><div class="sw__chip" style="background:#E49C93" data-literal-ok></div><code>300</code><small>#E49C93</small><small>oklch(76.1% 0.088 27.2)</small></div><div class="sw"><div class="sw__chip" style="background:#C5675D" data-literal-ok></div><code>500</code><small>#C5675D</small><small>oklch(62.1% 0.122 27.4)</small></div><div class="sw"><div class="sw__chip" style="background:#B44B43" data-literal-ok></div><code>600</code><small>#B44B43</small><small>oklch(54.9% 0.138 26.9)</small></div><div class="sw"><div class="sw__chip" style="background:#9E2321" data-literal-ok></div><code>700</code><small>#9E2321</small><small>oklch(46.0% 0.160 26.9)</small></div><div class="sw"><div class="sw__chip" style="background:#5D0004" data-literal-ok></div><code>900</code><small>#5D0004</small><small>oklch(30.1% 0.123 27.3)</small></div></div></div><div class="ramp"><h4>--blue-*</h4><div class="chips"><div class="sw"><div class="sw__chip" style="background:#D8EAFF" data-literal-ok></div><code>100</code><small>#D8EAFF</small><small>oklch(93.0% 0.034 252.3)</small></div><div class="sw"><div class="sw__chip" style="background:#95BBE7" data-literal-ok></div><code>300</code><small>#95BBE7</small><small>oklch(78.0% 0.075 252.4)</small></div><div class="sw"><div class="sw__chip" style="background:#4F89C9" data-literal-ok></div><code>500</code><small>#4F89C9</small><small>oklch(61.9% 0.115 252.2)</small></div><div class="sw"><div class="sw__chip" style="background:#2D74BC" data-literal-ok></div><code>600</code><small>#2D74BC</small><small>oklch(55.1% 0.132 251.8)</small></div><div class="sw"><div class="sw__chip" style="background:#0059A1" data-literal-ok></div><code>700</code><small>#0059A1</small><small>oklch(46.1% 0.137 251.7)</small></div><div class="sw"><div class="sw__chip" style="background:#002E59" data-literal-ok></div><code>900</code><small>#002E59</small><small>oklch(30.0% 0.090 252.2)</small></div></div></div>
+  <h3>テーマ別トークン</h3>
+  <table><thead><tr><th>トークン</th><th>light</th><th>dark</th><th>hybrid</th></tr></thead><tbody><tr class="grp"><th colspan="4">シェル</th></tr><tr><th><code>--chrome-bg</code></th><td><span class="dot" style="background:#F4F4EB" data-literal-ok></span><code>#F4F4EB</code></td><td><span class="dot" style="background:#141A22" data-literal-ok></span><code>#141A22</code></td><td><span class="dot" style="background:#141A22" data-literal-ok></span><code>#141A22</code></td></tr><tr><th><code>--chrome-surface</code></th><td><span class="dot" style="background:#FFFFFF" data-literal-ok></span><code>#FFFFFF</code></td><td><span class="dot" style="background:#1B2129" data-literal-ok></span><code>#1B2129</code></td><td><span class="dot" style="background:#1B2129" data-literal-ok></span><code>#1B2129</code></td></tr><tr><th><code>--chrome-raised</code></th><td><span class="dot" style="background:#FFFFFF" data-literal-ok></span><code>#FFFFFF</code></td><td><span class="dot" style="background:#232932" data-literal-ok></span><code>#232932</code></td><td><span class="dot" style="background:#232932" data-literal-ok></span><code>#232932</code></td></tr><tr><th><code>--chrome-sunken</code></th><td><span class="dot" style="background:#EDEDE4" data-literal-ok></span><code>#EDEDE4</code></td><td><span class="dot" style="background:#0B1118" data-literal-ok></span><code>#0B1118</code></td><td><span class="dot" style="background:#0B1118" data-literal-ok></span><code>#0B1118</code></td></tr><tr><th><code>--chrome-border</code></th><td><span class="dot" style="background:#DDDDD4" data-literal-ok></span><code>#DDDDD4</code></td><td><span class="dot" style="background:#323941" data-literal-ok></span><code>#323941</code></td><td><span class="dot" style="background:#323941" data-literal-ok></span><code>#323941</code></td></tr><tr><th><code>--border-control</code></th><td><span class="dot" style="background:#81878F" data-literal-ok></span><code>#81878F</code></td><td><span class="dot" style="background:#6F757D" data-literal-ok></span><code>#6F757D</code></td><td><span class="dot" style="background:#6F757D" data-literal-ok></span><code>#6F757D</code></td></tr><tr><th><code>--chrome-text</code></th><td><span class="dot" style="background:#141A22" data-literal-ok></span><code>#141A22</code></td><td><span class="dot" style="background:#F4F4EB" data-literal-ok></span><code>#F4F4EB</code></td><td><span class="dot" style="background:#F4F4EB" data-literal-ok></span><code>#F4F4EB</code></td></tr><tr><th><code>--chrome-text-muted</code></th><td><span class="dot" style="background:#474E57" data-literal-ok></span><code>#474E57</code></td><td><span class="dot" style="background:#81878F" data-literal-ok></span><code>#81878F</code></td><td><span class="dot" style="background:#81878F" data-literal-ok></span><code>#81878F</code></td></tr><tr><th><code>--chrome-text-subtle</code></th><td><span class="dot" style="background:#5C636D" data-literal-ok></span><code>#5C636D</code></td><td><span class="dot" style="background:#6F757D" data-literal-ok></span><code>#6F757D</code></td><td><span class="dot" style="background:#6F757D" data-literal-ok></span><code>#6F757D</code></td></tr><tr class="grp"><th colspan="4">アクセント</th></tr><tr><th><code>--accent</code></th><td><span class="dot" style="background:#147F43" data-literal-ok></span><code>#147F43</code></td><td><span class="dot" style="background:#8BC191" data-literal-ok></span><code>#8BC191</code></td><td><span class="dot" style="background:#8BC191" data-literal-ok></span><code>#8BC191</code></td></tr><tr><th><code>--accent-hover</code></th><td><span class="dot" style="background:#006335" data-literal-ok></span><code>#006335</code></td><td><span class="dot" style="background:#B3D5B3" data-literal-ok></span><code>#B3D5B3</code></td><td><span class="dot" style="background:#B3D5B3" data-literal-ok></span><code>#B3D5B3</code></td></tr><tr><th><code>--accent-active</code></th><td><span class="dot" style="background:#004A29" data-literal-ok></span><code>#004A29</code></td><td><span class="dot" style="background:#DAECD8" data-literal-ok></span><code>#DAECD8</code></td><td><span class="dot" style="background:#DAECD8" data-literal-ok></span><code>#DAECD8</code></td></tr><tr><th><code>--accent-contrast</code></th><td><span class="dot" style="background:#FFFFFF" data-literal-ok></span><code>#FFFFFF</code></td><td><span class="dot" style="background:#141A22" data-literal-ok></span><code>#141A22</code></td><td><span class="dot" style="background:#141A22" data-literal-ok></span><code>#141A22</code></td></tr><tr><th><code>--accent-subtle</code></th><td><span class="dot" style="background:#EEF9EC" data-literal-ok></span><code>#EEF9EC</code></td><td><span class="dot" style="background:#002F1B" data-literal-ok></span><code>#002F1B</code></td><td><span class="dot" style="background:#002F1B" data-literal-ok></span><code>#002F1B</code></td></tr><tr><th><code>--accent-subtle-text</code></th><td><span class="dot" style="background:#004A29" data-literal-ok></span><code>#004A29</code></td><td><span class="dot" style="background:#B3D5B3" data-literal-ok></span><code>#B3D5B3</code></td><td><span class="dot" style="background:#B3D5B3" data-literal-ok></span><code>#B3D5B3</code></td></tr><tr><th><code>--accent-text</code></th><td><span class="dot" style="background:#006335" data-literal-ok></span><code>#006335</code></td><td><span class="dot" style="background:#8BC191" data-literal-ok></span><code>#8BC191</code></td><td><span class="dot" style="background:#8BC191" data-literal-ok></span><code>#8BC191</code></td></tr><tr><th><code>--focus-ring</code></th><td><span class="dot" style="background:#147F43" data-literal-ok></span><code>#147F43</code></td><td><span class="dot" style="background:#8BC191" data-literal-ok></span><code>#8BC191</code></td><td><span class="dot" style="background:#8BC191" data-literal-ok></span><code>#8BC191</code></td></tr><tr class="grp"><th colspan="4">意味色</th></tr><tr><th><code>--danger</code></th><td><span class="dot" style="background:#B44B43" data-literal-ok></span><code>#B44B43</code></td><td><span class="dot" style="background:#E49C93" data-literal-ok></span><code>#E49C93</code></td><td><span class="dot" style="background:#E49C93" data-literal-ok></span><code>#E49C93</code></td></tr><tr><th><code>--danger-hover</code></th><td><span class="dot" style="background:#9E2321" data-literal-ok></span><code>#9E2321</code></td><td><span class="dot" style="background:#FFDDD9" data-literal-ok></span><code>#FFDDD9</code></td><td><span class="dot" style="background:#FFDDD9" data-literal-ok></span><code>#FFDDD9</code></td></tr><tr><th><code>--danger-contrast</code></th><td><span class="dot" style="background:#FFFFFF" data-literal-ok></span><code>#FFFFFF</code></td><td><span class="dot" style="background:#141A22" data-literal-ok></span><code>#141A22</code></td><td><span class="dot" style="background:#141A22" data-literal-ok></span><code>#141A22</code></td></tr><tr><th><code>--danger-text</code></th><td><span class="dot" style="background:#9E2321" data-literal-ok></span><code>#9E2321</code></td><td><span class="dot" style="background:#E49C93" data-literal-ok></span><code>#E49C93</code></td><td><span class="dot" style="background:#E49C93" data-literal-ok></span><code>#E49C93</code></td></tr><tr><th><code>--warning</code></th><td><span class="dot" style="background:#865900" data-literal-ok></span><code>#865900</code></td><td><span class="dot" style="background:#D6B890" data-literal-ok></span><code>#D6B890</code></td><td><span class="dot" style="background:#D6B890" data-literal-ok></span><code>#D6B890</code></td></tr><tr><th><code>--success</code></th><td><span class="dot" style="background:#147F43" data-literal-ok></span><code>#147F43</code></td><td><span class="dot" style="background:#8BC191" data-literal-ok></span><code>#8BC191</code></td><td><span class="dot" style="background:#8BC191" data-literal-ok></span><code>#8BC191</code></td></tr><tr><th><code>--info</code></th><td><span class="dot" style="background:#2D74BC" data-literal-ok></span><code>#2D74BC</code></td><td><span class="dot" style="background:#95BBE7" data-literal-ok></span><code>#95BBE7</code></td><td><span class="dot" style="background:#95BBE7" data-literal-ok></span><code>#95BBE7</code></td></tr><tr><th><code>--link</code></th><td><span class="dot" style="background:#006335" data-literal-ok></span><code>#006335</code></td><td><span class="dot" style="background:#8BC191" data-literal-ok></span><code>#8BC191</code></td><td><span class="dot" style="background:#8BC191" data-literal-ok></span><code>#8BC191</code></td></tr><tr><th><code>--link-visited</code></th><td><span class="dot" style="background:#002F1B" data-literal-ok></span><code>#002F1B</code></td><td><span class="dot" style="background:#B3D5B3" data-literal-ok></span><code>#B3D5B3</code></td><td><span class="dot" style="background:#B3D5B3" data-literal-ok></span><code>#B3D5B3</code></td></tr><tr class="grp"><th colspan="4">キャンバス</th></tr><tr><th><code>--canvas-bg</code></th><td><span class="dot" style="background:#FFFFFF" data-literal-ok></span><code>#FFFFFF</code></td><td><span class="dot" style="background:#0B1118" data-literal-ok></span><code>#0B1118</code></td><td><span class="dot" style="background:#FFFFFF" data-literal-ok></span><code>#FFFFFF</code></td></tr><tr><th><code>--canvas-header-bg</code></th><td><span class="dot" style="background:#F4F4EB" data-literal-ok></span><code>#F4F4EB</code></td><td><span class="dot" style="background:#141A22" data-literal-ok></span><code>#141A22</code></td><td><span class="dot" style="background:#F4F4EB" data-literal-ok></span><code>#F4F4EB</code></td></tr><tr><th><code>--canvas-row-alt</code></th><td><span class="dot" style="background:#F4F4EB" data-literal-ok></span><code>#F4F4EB</code></td><td><span class="dot" style="background:#141A22" data-literal-ok></span><code>#141A22</code></td><td><span class="dot" style="background:#F4F4EB" data-literal-ok></span><code>#F4F4EB</code></td></tr><tr><th><code>--canvas-grid</code></th><td><span class="dot" style="background:#DDDDD4" data-literal-ok></span><code>#DDDDD4</code></td><td><span class="dot" style="background:#232932" data-literal-ok></span><code>#232932</code></td><td><span class="dot" style="background:#DDDDD4" data-literal-ok></span><code>#DDDDD4</code></td></tr><tr><th><code>--canvas-grid-strong</code></th><td><span class="dot" style="background:#CBCBC3" data-literal-ok></span><code>#CBCBC3</code></td><td><span class="dot" style="background:#323941" data-literal-ok></span><code>#323941</code></td><td><span class="dot" style="background:#CBCBC3" data-literal-ok></span><code>#CBCBC3</code></td></tr><tr><th><code>--canvas-text</code></th><td><span class="dot" style="background:#141A22" data-literal-ok></span><code>#141A22</code></td><td><span class="dot" style="background:#F4F4EB" data-literal-ok></span><code>#F4F4EB</code></td><td><span class="dot" style="background:#141A22" data-literal-ok></span><code>#141A22</code></td></tr><tr><th><code>--canvas-text-muted</code></th><td><span class="dot" style="background:#474E57" data-literal-ok></span><code>#474E57</code></td><td><span class="dot" style="background:#81878F" data-literal-ok></span><code>#81878F</code></td><td><span class="dot" style="background:#474E57" data-literal-ok></span><code>#474E57</code></td></tr><tr><th><code>--canvas-selection</code></th><td><span class="dot" style="background:#EEF9EC" data-literal-ok></span><code>#EEF9EC</code></td><td><span class="dot" style="background:#002F1B" data-literal-ok></span><code>#002F1B</code></td><td><span class="dot" style="background:#EEF9EC" data-literal-ok></span><code>#EEF9EC</code></td></tr><tr><th><code>--canvas-selection-border</code></th><td><span class="dot" style="background:#147F43" data-literal-ok></span><code>#147F43</code></td><td><span class="dot" style="background:#8BC191" data-literal-ok></span><code>#8BC191</code></td><td><span class="dot" style="background:#147F43" data-literal-ok></span><code>#147F43</code></td></tr><tr class="grp"><th colspan="4">データの状態</th></tr><tr><th><code>--state-added</code></th><td><span class="dot" style="background:#DAECD8" data-literal-ok></span><code>#DAECD8</code></td><td><span class="dot" style="background:#002F1B" data-literal-ok></span><code>#002F1B</code></td><td><span class="dot" style="background:#DAECD8" data-literal-ok></span><code>#DAECD8</code></td></tr><tr><th><code>--state-added-text</code></th><td><span class="dot" style="background:#004A29" data-literal-ok></span><code>#004A29</code></td><td><span class="dot" style="background:#B3D5B3" data-literal-ok></span><code>#B3D5B3</code></td><td><span class="dot" style="background:#004A29" data-literal-ok></span><code>#004A29</code></td></tr><tr><th><code>--state-modified</code></th><td><span class="dot" style="background:#F6E5CE" data-literal-ok></span><code>#F6E5CE</code></td><td><span class="dot" style="background:#472D00" data-literal-ok></span><code>#472D00</code></td><td><span class="dot" style="background:#F6E5CE" data-literal-ok></span><code>#F6E5CE</code></td></tr><tr><th><code>--state-modified-text</code></th><td><span class="dot" style="background:#472D00" data-literal-ok></span><code>#472D00</code></td><td><span class="dot" style="background:#D6B890" data-literal-ok></span><code>#D6B890</code></td><td><span class="dot" style="background:#472D00" data-literal-ok></span><code>#472D00</code></td></tr><tr><th><code>--state-removed</code></th><td><span class="dot" style="background:#FFDDD9" data-literal-ok></span><code>#FFDDD9</code></td><td><span class="dot" style="background:#5D0004" data-literal-ok></span><code>#5D0004</code></td><td><span class="dot" style="background:#FFDDD9" data-literal-ok></span><code>#FFDDD9</code></td></tr><tr><th><code>--state-removed-text</code></th><td><span class="dot" style="background:#5D0004" data-literal-ok></span><code>#5D0004</code></td><td><span class="dot" style="background:#E49C93" data-literal-ok></span><code>#E49C93</code></td><td><span class="dot" style="background:#5D0004" data-literal-ok></span><code>#5D0004</code></td></tr><tr><th><code>--state-info</code></th><td><span class="dot" style="background:#D8EAFF" data-literal-ok></span><code>#D8EAFF</code></td><td><span class="dot" style="background:#002E59" data-literal-ok></span><code>#002E59</code></td><td><span class="dot" style="background:#D8EAFF" data-literal-ok></span><code>#D8EAFF</code></td></tr><tr><th><code>--state-info-text</code></th><td><span class="dot" style="background:#002E59" data-literal-ok></span><code>#002E59</code></td><td><span class="dot" style="background:#95BBE7" data-literal-ok></span><code>#95BBE7</code></td><td><span class="dot" style="background:#002E59" data-literal-ok></span><code>#002E59</code></td></tr></tbody></table>
+  <h3>コントラスト監査</h3>
+  <p class="rs-measure">本文 4.5:1、UI部品・大きな文字 3:1。表は <code>tools/palette.py</code> が
+  パレットから自動生成し、基準を割るとビルドが失敗します。</p>
+  <table><thead><tr><th>用途</th><th>前景 / 背景</th><th>下限</th><th>light</th><th>dark</th><th>hybrid</th></tr></thead><tbody><tr><th>本文（シェル）</th><td><code>chrome-text</code> / <code>chrome-bg</code></td><td class="num">4.5</td><td class="ok">15.81</td><td class="ok">15.81</td><td class="ok">15.81</td></tr><tr><th>副次テキスト（シェル）</th><td><code>chrome-text-muted</code> / <code>chrome-bg</code></td><td class="num">4.5</td><td class="ok">7.61</td><td class="ok">4.83</td><td class="ok">4.83</td></tr><tr><th>補助テキスト（シェル）</th><td><code>chrome-text-subtle</code> / <code>chrome-bg</code></td><td class="num">3.0</td><td class="ok">5.49</td><td class="ok">3.76</td><td class="ok">3.76</td></tr><tr><th>パネル上の本文</th><td><code>chrome-text</code> / <code>chrome-surface</code></td><td class="num">4.5</td><td class="ok">17.49</td><td class="ok">14.65</td><td class="ok">14.65</td></tr><tr><th>区切り線</th><td><code>chrome-border</code> / <code>chrome-bg</code></td><td class="num">1.18</td><td class="ok">1.24</td><td class="ok">1.50</td><td class="ok">1.50</td></tr><tr><th>フォーム部品の輪郭</th><td><code>border-control</code> / <code>chrome-bg</code></td><td class="num">3.0</td><td class="ok">3.28</td><td class="ok">3.76</td><td class="ok">3.76</td></tr><tr><th>フォーム部品の輪郭（パネル上）</th><td><code>border-control</code> / <code>chrome-surface</code></td><td class="num">3.0</td><td class="ok">3.62</td><td class="ok">3.48</td><td class="ok">3.48</td></tr><tr><th>アクセント上の文字</th><td><code>accent-contrast</code> / <code>accent</code></td><td class="num">4.5</td><td class="ok">5.06</td><td class="ok">8.44</td><td class="ok">8.44</td></tr><tr><th>アクセント文字（小サイズ）</th><td><code>accent-text</code> / <code>chrome-bg</code></td><td class="num">4.5</td><td class="ok">6.69</td><td class="ok">8.44</td><td class="ok">8.44</td></tr><tr><th>アクセント（面・アイコン）</th><td><code>accent</code> / <code>chrome-bg</code></td><td class="num">3.0</td><td class="ok">4.58</td><td class="ok">8.44</td><td class="ok">8.44</td></tr><tr><th>薄アクセント上の文字</th><td><code>accent-subtle-text</code> / <code>accent-subtle</code></td><td class="num">4.5</td><td class="ok">9.64</td><td class="ok">9.20</td><td class="ok">9.20</td></tr><tr><th>セル文字</th><td><code>canvas-text</code> / <code>canvas-bg</code></td><td class="num">4.5</td><td class="ok">17.49</td><td class="ok">17.14</td><td class="ok">17.49</td></tr><tr><th>セル副次文字</th><td><code>canvas-text-muted</code> / <code>canvas-bg</code></td><td class="num">4.5</td><td class="ok">8.42</td><td class="ok">5.23</td><td class="ok">8.42</td></tr><tr><th>罫線</th><td><code>canvas-grid</code> / <code>canvas-bg</code></td><td class="num">1.2</td><td class="ok">1.37</td><td class="ok">1.30</td><td class="ok">1.37</td></tr><tr><th>選択枠</th><td><code>canvas-selection-border</code> / <code>canvas-bg</code></td><td class="num">3.0</td><td class="ok">5.06</td><td class="ok">9.15</td><td class="ok">5.06</td></tr><tr><th>追加セルの文字</th><td><code>state-added-text</code> / <code>state-added</code></td><td class="num">4.5</td><td class="ok">8.44</td><td class="ok">9.20</td><td class="ok">8.44</td></tr><tr><th>変更セルの文字</th><td><code>state-modified-text</code> / <code>state-modified</code></td><td class="num">4.5</td><td class="ok">10.36</td><td class="ok">6.77</td><td class="ok">10.36</td></tr><tr><th>削除セルの文字</th><td><code>state-removed-text</code> / <code>state-removed</code></td><td class="num">4.5</td><td class="ok">11.31</td><td class="ok">6.46</td><td class="ok">11.31</td></tr><tr><th>情報セルの文字</th><td><code>state-info-text</code> / <code>state-info</code></td><td class="num">4.5</td><td class="ok">11.16</td><td class="ok">6.87</td><td class="ok">11.16</td></tr><tr><th>危険ボタンの文字</th><td><code>danger-contrast</code> / <code>danger</code></td><td class="num">4.5</td><td class="ok">5.21</td><td class="ok">7.89</td><td class="ok">7.89</td></tr><tr><th>危険テキスト</th><td><code>danger-text</code> / <code>chrome-bg</code></td><td class="num">4.5</td><td class="ok">6.99</td><td class="ok">7.89</td><td class="ok">7.89</td></tr><tr><th>危険（面・アイコン）</th><td><code>danger</code> / <code>chrome-bg</code></td><td class="num">3.0</td><td class="ok">4.71</td><td class="ok">7.89</td><td class="ok">7.89</td></tr><tr><th>警告（面・アイコン）</th><td><code>warning</code> / <code>chrome-bg</code></td><td class="num">3.0</td><td class="ok">5.52</td><td class="ok">9.26</td><td class="ok">9.26</td></tr><tr><th>情報（面・アイコン）</th><td><code>info</code> / <code>chrome-bg</code></td><td class="num">3.0</td><td class="ok">4.38</td><td class="ok">8.78</td><td class="ok">8.78</td></tr><tr><th>リンク</th><td><code>link</code> / <code>chrome-bg</code></td><td class="num">4.5</td><td class="ok">6.69</td><td class="ok">8.44</td><td class="ok">8.44</td></tr><tr><th>訪問済みリンク</th><td><code>link-visited</code> / <code>chrome-bg</code></td><td class="num">4.5</td><td class="ok">13.35</td><td class="ok">10.90</td><td class="ok">10.90</td></tr></tbody></table>
+  <div class="note"><strong>緑が2つの意味を持たないこと。</strong>
+  ブランド緑は「保全」を意味し、操作部品（アクセント）はシェル側だけ、
+  「追加・正常」はキャンバス側だけで使います。トークンが
+  <code>--accent-*</code> と <code>--state-*</code> に分かれているため、
+  2つの意味が同じ画面領域に同居しません。</div>
+</div></section>
+
+<section id="type"><div class="wrap">
+  <h2>文字</h2>
+  <h3>フォント（OS標準のみ・実機検証済み）</h3>
+  <p class="rs-measure">Windows 11 に実際に入っているフォントファイルを調べた結果です。
+  設計はこの制約に従っています。</p>
+  <table><thead><tr><th>フォント</th><th>利用可能ウェイト</th><th class="num">tnum</th>
+    <th class="num">palt</th><th class="num">zero</th><th>備考</th></tr></thead>
+    <tbody><tr><th><code>BIZ UDPGothic</code></th><td>400 / 700 のみ</td><td class='num'>×</td><td class='num'>×</td><td class='num'>○</td><td>UI既定。Windows 10 1809 以降に標準搭載。UD設計で小サイズに強い</td></tr><tr><th><code>BIZ UDGothic</code></th><td>400 / 700 のみ</td><td class='num'>×</td><td class='num'>×</td><td class='num'>○</td><td>データ既定。英数=1024/2048（半角固定）、かな漢字=2048（全角固定）</td></tr><tr><th><code>Yu Gothic UI</code></th><td>300/350/400/600/700<br>（別ファミリ名）</td><td class='num'>×</td><td class='num'>○</td><td class='num'>○</td><td>第2候補。600は別ファミリ名のため font-weight では届かない</td></tr><tr><th><code>Hiragino Sans</code></th><td>—</td><td class='num'>—</td><td class='num'>—</td><td class='num'>—</td><td>macOS / iOS 用フォールバック</td></tr><tr><th><code>Noto Sans JP</code></th><td>—</td><td class='num'>—</td><td class='num'>—</td><td class='num'>—</td><td>Android 用フォールバック</td></tr></tbody></table>
+  <pre>--font-ui:   "BIZ UDPGothic", "Yu Gothic UI", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif
+--font-data: "BIZ UDGothic", "SFMono-Regular", Consolas, "Courier New", monospace</pre>
+  <div class="note"><strong>ウェイトは400と700の2段しかありません。</strong>
+  BIZ UD系に500・600は存在せず、<code>font-weight: 500</code> は400に落ちます
+  （Yu Gothic UI の Semibold は別ファミリ名なので font-weight では届きません）。
+  したがって本システムは中間ウェイトを一切使わず、
+  <strong>階層は「サイズ・色・余白」で作ります</strong>。
+  「補助テキストは最低500ウェイト」という一般則はこの環境では実現できないため、
+  代わりに<strong>色のコントラストで担保</strong>しています
+  （<code>--chrome-text-muted</code> は本文の下限4.5:1を満たす値に固定）。</div>
+  <div class="note"><strong>数字を揃えるには等幅フォントを使うこと。</strong>
+  BIZ UDPGothic に <code>tnum</code> は存在しないため、
+  <code>font-variant-numeric: tabular-nums</code> は無効です。桁を揃える必要がある数値は
+  <code>.rs-data</code>（BIZ UDGothic）を使ってください。BIZ UDGothic は英数が半角固定・
+  かな漢字が全角固定なので、<strong>和文を含む列でも桁が揃います</strong>。
+  <code>zero</code>（スラッシュ付きゼロ）は3書体とも実在するため常時有効にしています。</div>
+  <h3>スケール</h3>
+  <p class="rs-measure">base 16px、比率1.2。下限は14pxで、step −1（13.3px）は14pxに切り上げています。
+  本文・UIラベル・ボタン・セルはすべて16px。14pxはメタデータ・補助・バッジ専用です。</p>
+  <table><thead><tr><th>トークン</th><th>値</th><th>用途</th></tr></thead><tbody><tr><th><code>--text-xs</code></th><td>0.875rem <small>(14px)</small></td><td>step −1 (clamped from 13.3px) — メタデータ・補助・バッジ</td></tr><tr><th><code>--text-body</code></th><td>1rem <small>(16px)</small></td><td>step 0 — 本文、UIラベル、ボタン、セルの既定</td></tr><tr><th><code>--text-lead</code></th><td>1.1875rem <small>(19px)</small></td><td>step +1 — リード文</td></tr><tr><th><code>--text-h3</code></th><td>1.4375rem <small>(23px)</small></td><td>step +2</td></tr><tr><th><code>--text-h2</code></th><td>1.75rem <small>(28px)</small></td><td>step +3</td></tr><tr><th><code>--text-h1</code></th><td>2.0625rem <small>(33px)</small></td><td>step +4</td></tr><tr><th><code>--text-display</code></th><td>2.5rem <small>(40px)</small></td><td>step +5 — ドキュメント見出しのみ</td></tr></tbody></table>
+  <table><thead><tr><th>トークン</th><th>値</th><th>用途</th></tr></thead><tbody><tr><th><code>--leading-tight</code></th><td>1.25</td><td>見出し（大きいほど詰める）</td></tr><tr><th><code>--leading-ui</code></th><td>1.4</td><td>UIラベル、ボタン、セル</td></tr><tr><th><code>--leading-body</code></th><td>1.75</td><td>本文。和文は欧文より行送りを多く取る</td></tr><tr><th><code>--weight-regular</code></th><td>400</td><td>既定</td></tr><tr><th><code>--weight-bold</code></th><td>700</td><td>強調・見出し。400と700の2段しかない（下記参照）</td></tr><tr><th><code>--tracking-normal</code></th><td>0</td><td>本文・和文。字間は触らない</td></tr><tr><th><code>--tracking-caps</code></th><td>0.04em</td><td>欧文の全大文字ラベルのみ。上限</td></tr></tbody></table>
+  <div class="note"><strong>和文の行長と行送り。</strong>欧文の「45〜75字」をそのまま使うと
+  和文では長すぎます。本文は全角35〜45字（<code>.rs-measure</code> = 42em）を上限とし、
+  行送りは1.75。和文は字間を触りません（<code>--tracking-normal: 0</code>）。
+  <code>--tracking-caps</code> は欧文の全大文字ラベルにだけ、上限0.04emで使います。</div>
+  <div class="note">見出しは H1〜H3 まで。H4が必要になったらページを分ける合図です。
+  1つの画面で使うサイズは4段まで（見出し・本文・ラベル・メタデータ）。</div>
+  <div class="note"><strong>Windowsのパスは円記号で表示されます。</strong>
+  和文フォントは U+005C（バックスラッシュ）を ¥ の字形で描きます。
+  <code class="rs-code">C:\data\sales.csv</code> のように見えるのは不具合ではなく、
+  JIS由来の正しい挙動です。文字コード上は U+005C のままなので、
+  コピー＆ペーストや保存には影響しません。バックスラッシュとして見せる必要がある場面
+  （正規表現やエスケープの解説）では、和文を含まない欧文等幅にフォールバックさせてください。</div>
+</div></section>
+
+<section id="space"><div class="wrap">
+  <h2>余白と密度</h2>
+  <table><thead><tr><th>トークン</th><th>値</th><th></th></tr></thead><tbody><tr><th><code>--space-1</code></th><td>0.25rem <small>(4px)</small></td><td></td></tr><tr><th><code>--space-2</code></th><td>0.5rem <small>(8px)</small></td><td></td></tr><tr><th><code>--space-3</code></th><td>0.75rem <small>(12px)</small></td><td></td></tr><tr><th><code>--space-4</code></th><td>1rem <small>(16px)</small></td><td></td></tr><tr><th><code>--space-5</code></th><td>1.25rem <small>(20px)</small></td><td></td></tr><tr><th><code>--space-6</code></th><td>1.5rem <small>(24px)</small></td><td></td></tr><tr><th><code>--space-8</code></th><td>2rem <small>(32px)</small></td><td></td></tr><tr><th><code>--space-10</code></th><td>2.5rem <small>(40px)</small></td><td></td></tr><tr><th><code>--space-12</code></th><td>3rem <small>(48px)</small></td><td></td></tr><tr><th><code>--space-16</code></th><td>4rem <small>(64px)</small></td><td></td></tr></tbody></table>
+  <h3>コントロール</h3>
+  <table><thead><tr><th>トークン</th><th>値</th><th>用途</th></tr></thead><tbody><tr><th><code>--control-h-sm</code></th><td>2rem</td><td>32px  compact</td></tr><tr><th><code>--control-h-md</code></th><td>2.25rem</td><td>36px  comfortable（既定）</td></tr><tr><th><code>--control-h-lg</code></th><td>2.75rem</td><td>44px  spacious / タッチ</td></tr><tr><th><code>--control-px</code></th><td>0.75rem</td><td>12px  左右パディング</td></tr><tr><th><code>--control-gap</code></th><td>0.5rem</td><td>8px   アイコンとラベルの間</td></tr><tr><th><code>--control-slot</code></th><td>1.25rem</td><td>20px  アイコン・アバター等のスロット高</td></tr></tbody></table>
+  <h3>密度</h3>
+  <p class="rs-measure">密度が変えるのは<strong>高さと余白だけ</strong>で、文字サイズは動かしません。
+  熟練者向けに compact を用意しますが、読みにくくして詰めることはしません。</p>
+  <table><thead><tr><th>密度</th><th class="num">コントロール高</th><th class="num">行高</th>
+    <th>想定</th></tr></thead><tbody>
+    <tr><th><code>compact</code></th><td class="num">32px</td><td class="num">28px</td>
+      <td>マウス操作のデスクトップ。1画面に多くの行を出す</td></tr>
+    <tr><th><code>comfortable</code></th><td class="num">36px</td><td class="num">34px</td>
+      <td>既定</td></tr>
+    <tr><th><code>spacious</code></th><td class="num">44px</td><td class="num">44px</td>
+      <td>タッチ、または視認性を優先する場合</td></tr>
+  </tbody></table>
+  <div class="note">指先は細かく狙えません。<code>@media (pointer: coarse)</code> では
+  密度の指定に関わらず44pxを下回らせない上書きが入ります。密度トグルはタッチ端末では
+  見た目が変わらないことがありますが、これは意図した動作です。</div>
+</div></section>
+
+<section id="surface"><div class="wrap">
+  <h2>面の分け方</h2>
+  <p class="rs-measure">面を背景から切り離す方法は3つしかありません。
+  <strong>1つの面には1つだけ</strong>使います。3つ重ねた面が「うるさい」UIの最大の原因です。</p>
+  <table><thead><tr><th>手段</th><th>読ませるもの</th><th>使う場所</th><th>クラス</th></tr></thead>
+    <tbody>
+      <tr><th>境界線</th><td>面の終わり</td><td>パネル、カード、表、フォーム</td>
+        <td><code>.rs-panel</code> <code>.rs-card</code></td></tr>
+      <tr><th>エレベーション</th><td>面の高さ</td><td>モーダル、ドロワー、ポップオーバー</td>
+        <td><code>.rs-raised</code></td></tr>
+      <tr><th>地色</th><td>面の所属</td><td>ウェル、サイドバー、交互行</td>
+        <td><code>.rs-well</code></td></tr>
+    </tbody></table>
+  <div class="note">明色テーマの浮いた面だけは「境界線＋影」の併用が正解です
+  （影だけでは白地に沈むため）。このとき地色はページ色から1段以内に留めます。<br>
+  <strong>不透明度は状態です。</strong>無効・読み込み中・ドラッグ中だけに使い、
+  色を薄くする目的では使いません。薄い色は必ず解決済みのトークンとして定義します。</div>
+</div></section>
+
+<section id="components"><div class="wrap">
+  <h2>部品</h2>
+  <h3>コントロール共通</h3>
+  <p class="rs-measure">1行に並ぶものはすべて <code>.rs-control</code> を使います。
+  高さ・余白・字サイズ・角丸・状態はこのクラスだけが持ち、派生クラスが変えてよいのは色だけです。
+  高さは <code>min-height</code> で<strong>明示</strong>し、パディングからの積み上げにしません。</p>
+  <div class="demo">
+    <button type="button" class="rs-control rs-btn--primary"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>保存</button>
+    <button type="button" class="rs-control rs-btn--secondary">キャンセル</button>
+    <button type="button" class="rs-control rs-btn--ghost"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 2.1-9.4L3 7"/></svg>取り消し</button>
+    <button type="button" class="rs-control rs-btn--danger"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>削除</button>
+    <button type="button" class="rs-control rs-btn--primary" disabled>無効</button>
+    <button type="button" class="rs-control rs-btn--primary" data-loading>保存中…</button>
+    <span class="rs-group">
+      <button type="button" class="rs-control rs-btn--secondary" aria-pressed="true">表</button>
+      <button type="button" class="rs-control rs-btn--secondary" aria-pressed="false">差分</button>
+      <button type="button" class="rs-control rs-btn--secondary" aria-pressed="false">ログ</button>
+    </span>
+  </div>
+  <table><thead><tr><th>状態</th><th>きっかけ</th><th>見え方</th></tr></thead><tbody>
+    <tr><th>rest</th><td>既定</td><td>基準色、<code>cursor: pointer</code></td></tr>
+    <tr><th>hover</th><td>マウスオーバー</td><td>1段濃い色。<code>@media (hover: hover)</code> 内のみ</td></tr>
+    <tr><th>active</th><td>押下</td><td>さらに濃く、<code>scale(.97)</code></td></tr>
+    <tr><th>focus</th><td>キーボード</td><td><code>:focus-visible</code> のアウトライン。塗りは変えない</td></tr>
+    <tr><th>disabled</th><td>不可</td><td>不透明度0.4、<code>cursor: not-allowed</code></td></tr>
+    <tr><th>loading</th><td>非同期処理中</td><td>不透明度0.7、操作不可。<strong>カーソルは変えない</strong></td></tr>
+  </tbody></table>
+
+  <h3>フォーム</h3>
+  <p class="rs-measure">ラベル（必須）、ヘルパー（何を入れるか）、プレースホルダ（書式の例）、
+  検証（正しいか）の4層。プレースホルダをラベル代わりに使いません。</p>
+  <div class="demo demo--stack">
+    <div class="rs-field" style="max-width:24rem">
+      <label class="rs-label" for="d1">区切り文字</label>
+      <input class="rs-input" id="d1" type="text" value="," aria-describedby="d1h">
+      <p class="rs-helper" id="d1h">読み込み時に検出した値です。変更すると再解析します。</p>
+    </div>
+    <div class="rs-field" style="max-width:24rem">
+      <label class="rs-label" for="d2">出力ファイル名
+        <span class="rs-label__optional">任意</span></label>
+      <input class="rs-input" id="d2" type="text" placeholder="売上_2026Q1_修正.csv"
+             aria-describedby="d2e" aria-invalid="true">
+      <p class="rs-error" id="d2e" role="alert">同名のファイルがすでに存在します。</p>
+    </div>
+  </div>
+
+  <h3>チップ</h3>
+  <p class="rs-measure">意味ごとに別のクラスです。汎用 Badge は作りません。
+  <strong>読み取り専用なのでホバーもポインタも持ちません</strong>——これがボタンとの決定的な差です。</p>
+  <div class="demo">
+    <span class="rs-tag">UTF-8</span>
+    <span class="rs-tag rs-tag--added">追加 12</span>
+    <span class="rs-tag rs-tag--modified">変更 3</span>
+    <span class="rs-tag rs-tag--removed">削除 1</span>
+    <code class="rs-code">C:\data\sales.csv</code>
+    <kbd class="rs-kbd">Ctrl</kbd><kbd class="rs-kbd">S</kbd>
+    <span class="rs-metric">1,240 行</span>
+  </div>
+
+  <h3>データシート</h3>
+  <p class="rs-measure">セルは直角。列ヘッダは上に、行ヘッダは左に固定されます。
+  状態色は交互行より強く、選択は枠と地色の両方で示します。</p>
+  <div class="demo demo--stack" style="padding:0"><div class="rs-sheet-scroll">
+      <table class="rs-sheet">
+        <thead><tr><th scope="col"><span class="rs-visually-hidden">行番号</span></th>
+          <th scope="col">A 商品</th><th scope="col">B 数量</th>
+          <th scope="col">C 単価</th><th scope="col">D 金額</th></tr></thead>
+        <tbody><tr><th>1</th><td>保存用インク</td><td>120</td><td>1,080</td><td>129,600</td></tr><tr><th>2</th><td aria-selected="true">再生紙 A4</td><td>1,000</td><td>0,990</td><td>990,000</td></tr><tr><th>3</th><td data-state="modified">封筒 長形3号</td><td data-state="modified">480</td><td data-state="modified">32</td><td data-state="modified">15,360</td></tr><tr><th>4</th><td data-state="added">見出しラベル</td><td data-state="added">60</td><td data-state="added">210</td><td data-state="added">12,600</td></tr><tr><th>5</th><td data-state="removed">旧品番 X-02</td><td data-state="removed">15</td><td data-state="removed">800</td><td data-state="removed">12,000</td></tr></tbody>
+      </table></div></div>
+
+  <h3>通知</h3>
+  <div class="demo demo--stack">
+    <div class="rs-banner" role="status">
+      <span>読み込み時の書式（引用符・改行コード）を保持しています。</span></div>
+    <div class="rs-banner rs-banner--warning" role="status" style="margin-block-start:var(--space-3)">
+      <span>3列で型が混在しています。</span>
+      <button type="button" class="rs-control rs-btn--secondary">確認する</button></div>
+    <div class="rs-banner rs-banner--danger" role="alert" style="margin-block-start:var(--space-3)">
+      <span>保存できませんでした。書き込み権限を確認してください。</span>
+      <button type="button" class="rs-control rs-btn--secondary">再試行</button></div>
+    <div style="margin-block-start:var(--space-4)">
+      <div class="rs-skeleton" style="block-size:var(--space-4);inline-size:60%"></div>
+      <div class="rs-skeleton" style="block-size:var(--space-4);inline-size:40%;
+        margin-block-start:var(--space-2)"></div>
+    </div>
+  </div>
+  <div class="note">エラーには必ず<strong>先に進む道</strong>を付けます。再試行、取り消し、
+  ローカル保存のいずれか。成功トーストは4〜6秒で消し、エラーは消しません。
+  同時に2つ以上のトーストを出しません。</div>
+
+  <h3>オーバーレイ</h3>
+  <table><thead><tr><th>種類</th><th>背後を止める</th><th>用途</th><th>Escで閉じる</th></tr></thead>
+    <tbody>
+      <tr><th>ツールチップ</th><td>しない</td><td>1〜2行の説明、ショートカット</td><td>—</td></tr>
+      <tr><th>ポップオーバー</th><td>しない</td><td>絞り込み、書式の選択</td><td>する</td></tr>
+      <tr><th>ドロワー</th><td>薄暗くする</td><td>列の詳細、検証ログ</td><td>する</td></tr>
+      <tr><th>モーダル</th><td>止める</td><td>破壊的操作の確認</td><td><strong>しない</strong></td></tr>
+      <tr><th>ボトムシート</th><td>薄暗くする</td><td>モバイルでのモーダル代替</td><td>する</td></tr>
+    </tbody></table>
+  <div class="note">破壊的な確認では Esc と背景クリックを<strong>無効にします</strong>。
+  対象と結果を名指しし（「Sheet1 の 240 行を削除しますか？ 元に戻せません」）、
+  ボタンは「削除する」と動詞で書きます。「OK」とは書きません。</div>
+</div></section>
+
+<section id="layout"><div class="wrap">
+  <h2>レイアウト</h2>
+  <p class="rs-measure">シェル（上部バー・サイドバー・状態バー）は画面が変わっても動きません。
+  その内側だけがアプリケーションです。状態バーは常時表示ですが、異常時以外は色を持ちません。</p>
+  <div class="rs-app demo-app" data-theme="light">
+  <header class="rs-topbar">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>
+    <strong>売上_2026Q1.csv</strong>
+    <span class="rs-tag">UTF-8</span><span class="rs-tag">CRLF</span>
+    <span class="rs-topbar__spacer"></span>
+    <button type="button" class="rs-control rs-btn--ghost"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 2.1-9.4L3 7"/></svg>取り消し</button>
+    <button type="button" class="rs-control rs-btn--primary"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>保存</button>
+  </header>
+  <div class="rs-body">
+    <nav class="rs-sidebar" aria-label="シート">
+      <a class="rs-sidebar__item" href="#" aria-current="page">Sheet1</a>
+      <a class="rs-sidebar__item" href="#">Sheet2</a>
+      <a class="rs-sidebar__item" href="#">差分</a>
+      <a class="rs-sidebar__item" href="#">検証ログ</a>
+    </nav>
+    <main class="rs-main"><div class="rs-sheet-scroll">
+      <table class="rs-sheet">
+        <thead><tr><th scope="col"><span class="rs-visually-hidden">行番号</span></th>
+          <th scope="col">A 商品</th><th scope="col">B 数量</th>
+          <th scope="col">C 単価</th><th scope="col">D 金額</th></tr></thead>
+        <tbody><tr><th>1</th><td>保存用インク</td><td>120</td><td>1,080</td><td>129,600</td></tr><tr><th>2</th><td aria-selected="true">再生紙 A4</td><td>1,000</td><td>0,990</td><td>990,000</td></tr><tr><th>3</th><td data-state="modified">封筒 長形3号</td><td data-state="modified">480</td><td data-state="modified">32</td><td data-state="modified">15,360</td></tr><tr><th>4</th><td data-state="added">見出しラベル</td><td data-state="added">60</td><td data-state="added">210</td><td data-state="added">12,600</td></tr><tr><th>5</th><td data-state="removed">旧品番 X-02</td><td data-state="removed">15</td><td data-state="removed">800</td><td data-state="removed">12,000</td></tr></tbody>
+      </table></div></main>
+  </div>
+  <footer class="rs-statusbar">
+    <span>ローカル · 同期なし</span><span>5行 × 4列</span>
+    <span>選択 1セル</span><span>最終保存 14:22</span>
+  </footer>
+</div>
+  <div class="rs-app demo-app" data-theme="hybrid">
+  <header class="rs-topbar">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10"/></svg>
+    <strong>売上_2026Q1.csv</strong>
+    <span class="rs-tag">UTF-8</span><span class="rs-tag">CRLF</span>
+    <span class="rs-topbar__spacer"></span>
+    <button type="button" class="rs-control rs-btn--ghost"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 2.1-9.4L3 7"/></svg>取り消し</button>
+    <button type="button" class="rs-control rs-btn--primary"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>保存</button>
+  </header>
+  <div class="rs-body">
+    <nav class="rs-sidebar" aria-label="シート">
+      <a class="rs-sidebar__item" href="#" aria-current="page">Sheet1</a>
+      <a class="rs-sidebar__item" href="#">Sheet2</a>
+      <a class="rs-sidebar__item" href="#">差分</a>
+      <a class="rs-sidebar__item" href="#">検証ログ</a>
+    </nav>
+    <main class="rs-main"><div class="rs-sheet-scroll">
+      <table class="rs-sheet">
+        <thead><tr><th scope="col"><span class="rs-visually-hidden">行番号</span></th>
+          <th scope="col">A 商品</th><th scope="col">B 数量</th>
+          <th scope="col">C 単価</th><th scope="col">D 金額</th></tr></thead>
+        <tbody><tr><th>1</th><td>保存用インク</td><td>120</td><td>1,080</td><td>129,600</td></tr><tr><th>2</th><td aria-selected="true">再生紙 A4</td><td>1,000</td><td>0,990</td><td>990,000</td></tr><tr><th>3</th><td data-state="modified">封筒 長形3号</td><td data-state="modified">480</td><td data-state="modified">32</td><td data-state="modified">15,360</td></tr><tr><th>4</th><td data-state="added">見出しラベル</td><td data-state="added">60</td><td data-state="added">210</td><td data-state="added">12,600</td></tr><tr><th>5</th><td data-state="removed">旧品番 X-02</td><td data-state="removed">15</td><td data-state="removed">800</td><td data-state="removed">12,000</td></tr></tbody>
+      </table></div></main>
+  </div>
+  <footer class="rs-statusbar">
+    <span>ローカル · 同期なし</span><span>5行 × 4列</span>
+    <span>選択 1セル</span><span>最終保存 14:22</span>
+  </footer>
+</div>
+  <h3>ブレークポイント</h3>
+  <table><thead><tr><th>トークン</th><th>値</th><th>用途</th></tr></thead><tbody><tr><th><code>--bp-sm</code></th><td>30em</td><td>480px  端末最小</td></tr><tr><th><code>--bp-md</code></th><td>48em</td><td>768px  タブレット</td></tr><tr><th><code>--bp-lg</code></th><td>64em</td><td>1024px デスクトップ</td></tr><tr><th><code>--bp-xl</code></th><td>90em</td><td>1440px 上限</td></tr></tbody></table>
+  <p class="rs-measure">メディアクエリは <code>em</code> で書きます。利用者が既定フォントサイズを
+  大きくしている場合、その実効サイズに見合うレイアウトが出ます（px指定では出ません）。</p>
+  <table><thead><tr><th>要素</th><th>デスクトップ</th><th>モバイル（&lt; 48em）</th></tr></thead>
+    <tbody>
+      <tr><th>サイドバー</th><td>常時表示</td><td>ドロワー（同じ領域の中で畳む）</td></tr>
+      <tr><th>主要操作</th><td>上部バー右</td><td>下端バー（親指が届く）</td></tr>
+      <tr><th>一括操作</th><td>選択時にツールバー</td><td>折りたたみ</td></tr>
+      <tr><th>モーダル</th><td>中央</td><td>ボトムシート</td></tr>
+      <tr><th>状態バー</th><td>表示</td><td>非表示（下端バーに場所を譲る）</td></tr>
+    </tbody></table>
+  <div class="note"><strong>2軸スクロールを許すのはシートだけです。</strong>
+  内側のスクロール領域は原則作らず、ページ自体をスクロールさせます。
+  ただし表計算のグリッドは縦横どちらにも伸びるため、
+  <code>.rs-sheet-scroll</code> を唯一の例外として認め、
+  代わりに<strong>ページ自体はスクロールさせません</strong>
+  （<code>.rs-app</code> は <code>100dvh</code> に固定）。
+  これにより画面内のスクロール領域は常に1つです。</div>
+</div></section>
+
+<section id="a11y"><div class="wrap">
+  <h2>アクセシビリティ</h2>
+  <p class="rs-measure">WCAG 2.2 レベルAA を出荷条件にします。これは満たせなかったら出さない、
+  という意味の条件です。</p>
+  <div class="cols">
+    <div class="rs-panel"><h4>知覚できる</h4>
+      <p>本文4.5:1／UI部品3:1（監査 78/78 合格）。
+      色だけで情報を伝えません——差分セルは色に加えて記号と打ち消し線を持ちます。</p></div>
+    <div class="rs-panel"><h4>操作できる</h4>
+      <p>全操作がキーボードで到達可能。フォーカスリングは消しません。
+      タッチ操作領域は44px以上。「本文へスキップ」を最初のフォーカス対象に置きます。</p></div>
+    <div class="rs-panel"><h4>理解できる</h4>
+      <p><code>&lt;html lang="ja"&gt;</code>。全入力に可視ラベル。
+      エラーは <code>aria-describedby</code> で入力と結び付け、文章で理由を述べます。</p></div>
+    <div class="rs-panel"><h4>堅牢である</h4>
+      <p>ネイティブ要素を使い、ARIAは足りない所だけ。
+      動的更新は <code>role="status"</code>／<code>role="alert"</code> で読み上げます。</p></div>
+  </div>
+  <h3>Windows 固有</h3>
+  <table><thead><tr><th>項目</th><th>対応</th></tr></thead><tbody>
+    <tr><th>ハイコントラストモード</th>
+      <td><code>@media (forced-colors: active)</code> で境界線を明示し、
+      フォーカスは <code>Highlight</code> を使用。差分セルだけは
+      <code>forced-color-adjust: none</code> で色を保持（色が情報そのものであるため）</td></tr>
+    <tr><th>文字サイズ200%</th>
+      <td>全コントロール高を <code>rem</code> で定義。ラベルがはみ出さないことを確認</td></tr>
+    <tr><th>スクロールバー</th>
+      <td><code>scrollbar-gutter: stable</code>。出現時の横ずれを防ぐ</td></tr>
+    <tr><th>アニメーション</th>
+      <td><code>prefers-reduced-motion</code> で1msに短縮</td></tr>
+  </tbody></table>
+</div></section>
+
+<section id="perf"><div class="wrap">
+  <h2>性能</h2>
+  <table><thead><tr><th>指標</th><th class="num">目標</th><th>本システムでの担保</th></tr></thead>
+    <tbody>
+      <tr><th>LCP</th><td class="num">≤ 2.5s</td>
+        <td>Webフォント0件。CSSは約37KB1ファイル</td></tr>
+      <tr><th>CLS</th><td class="num">≤ 0.1</td>
+        <td>フォント差し替えが起きない（OS標準のみ）。
+        コントロール高とスケルトンで領域を先に確保</td></tr>
+      <tr><th>INP</th><td class="num">≤ 200ms</td>
+        <td>状態変化はCSSのみ。<code>transform</code> と色以外をアニメーションしない</td></tr>
+      <tr><th>Lighthouse a11y</th><td class="num">100</td><td>出荷条件</td></tr>
+    </tbody></table>
+  <div class="note">OS標準フォントだけを使う判断は、ブランドの都合ではなく性能と可用性の判断でもあります。
+  ダウンロードもFOUTもCLSも発生せず、オフラインでも同じ見た目になります——
+  ローカルファーストの製品として筋が通ります。</div>
+</div></section>
+
+<section id="impl"><div class="wrap">
+  <h2>実装</h2>
+  <pre>&lt;!doctype html&gt;
+&lt;html lang="ja" data-theme="hybrid" data-density="compact"&gt;
+&lt;link rel="stylesheet" href="/css/refrain-sheet.css"&gt;
+&lt;link rel="icon" href="/icons/favicon.svg"&gt;
+&lt;link rel="manifest" href="/icons/site.webmanifest"&gt;
+
+&lt;!-- data-theme:   light | dark | hybrid   未指定ならOS設定に追随 --&gt;
+&lt;!-- data-density: compact | comfortable | spacious --&gt;
+
+&lt;button type="button" class="rs-control rs-btn--primary"&gt;保存&lt;/button&gt;
+&lt;td data-state="modified"&gt;15,360&lt;/td&gt;</pre>
+  <h3>ファイル</h3>
+  <table><thead><tr><th>ファイル</th><th>内容</th></tr></thead><tbody>
+    <tr><th><code>css/tokens.css</code></th><td>プリミティブ、意味トークン、3テーマ、密度</td></tr>
+    <tr><th><code>css/base.css</code></th><td>リセット、文字の基準、フォーカス、ハイコントラスト</td></tr>
+    <tr><th><code>css/components.css</code></th><td>コントロール、フォーム、チップ、シート、シェル、オーバーレイ</td></tr>
+    <tr><th><code>css/refrain-sheet.css</code></th><td>上記3つを結合したもの。通常はこれ1つを読み込む</td></tr>
+  </tbody></table>
+  <h3>モーションと階層</h3>
+  <table><thead><tr><th>トークン</th><th>値</th><th>用途</th></tr></thead><tbody><tr><th><code>--duration-instant</code></th><td>80ms</td><td>押下</td></tr><tr><th><code>--duration-fast</code></th><td>120ms</td><td>ホバー・色変化</td></tr><tr><th><code>--duration-base</code></th><td>200ms</td><td>開閉・スライド</td></tr><tr><th><code>--duration-slow</code></th><td>320ms</td><td>ドロワー</td></tr><tr><th><code>--ease-out</code></th><td>cubic-bezier(.2, 0, 0, 1)</td><td>既定</td></tr><tr><th><code>--ease-in-out</code></th><td>cubic-bezier(.4, 0, .2, 1)</td><td>往復するもの</td></tr></tbody></table>
+  <table><thead><tr><th>トークン</th><th>値</th><th>用途</th></tr></thead><tbody><tr><th><code>--z-base</code></th><td>0</td><td>本文</td></tr><tr><th><code>--z-sticky</code></th><td>100</td><td>固定ヘッダ・列ヘッダ</td></tr><tr><th><code>--z-dropdown</code></th><td>200</td><td>メニュー・ポップオーバー</td></tr><tr><th><code>--z-drawer</code></th><td>300</td><td>ドロワー</td></tr><tr><th><code>--z-modal</code></th><td>400</td><td>モーダル</td></tr><tr><th><code>--z-toast</code></th><td>500</td><td>トースト</td></tr><tr><th><code>--z-tooltip</code></th><td>600</td><td>ツールチップ</td></tr></tbody></table>
+</div></section>
+
+<section id="governance"><div class="wrap">
+  <h2>運用</h2>
+  <h3>色のリテラルを書かない</h3>
+  <p class="rs-measure">トークンの現在値とたまたま一致する生の色は、<strong>テーマに追随できない形で
+  書かれたそのトークン</strong>です。明色テーマで見ると単に間違っているのではなく、
+  沈んでいるべき面が浮いて見えるなど関係が反転します。しかもトークン監査では原理的に見つかりません。
+  だから規律ではなく機械で止めます。</p>
+  <pre>python tools/lint_tokens.py        # tokens.css 以外のリテラル色を検出。予算は0件</pre>
+  <h3>バージョニング</h3>
+  <p class="rs-measure">成果物は <code>dist/&lt;semver&gt;/</code> に出力します。
+  トークンの削除・改名、既定値の変更はメジャー。トークンやコンポーネントの追加はマイナー。
+  値の微調整と文書修正はパッチ。</p>
+  <h3>変更の入れ方</h3>
+  <table><thead><tr><th>変えたいもの</th><th>編集する場所</th></tr></thead><tbody>
+    <tr><th>色</th><td><code>tools/palette.py</code></td></tr>
+    <tr><th>文字・余白・角丸・密度・モーション</th><td><code>tools/ds.py</code></td></tr>
+    <tr><th>コンポーネントCSS</th><td><code>tools/ds_css.py</code></td></tr>
+    <tr><th>ロゴの寸法・字詰め</th><td><code>tools/logo.py</code></td></tr>
+  </tbody></table>
+  <div class="note">同じ見た目が独立に2〜3箇所で現れたら、それはもう偶然ではありません。
+  名前を付けてトークンか共通クラスに昇格させます。4つ目の手書きコピーより安く済みます。<br>
+  逆に、使われていないコンポーネントは維持せずに削ります。共有システムは刈り込まないと壊れます。</div>
+</div></section>
+
+</main>
+<footer class="doc-foot"><div class="wrap">
+  Refrain Sheet Design System · v1.0.0 · 2026-09-22 ·
+  色は Oklab 設計 / sRGB 納品 · コントラスト監査 78/78 合格 ·
+  Webフォント 0件
+</div></footer>
+
+<script>
+document.querySelectorAll('.switch button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    document.querySelectorAll('.switch button').forEach(function (o) {
+      o.setAttribute('aria-pressed', String(o === b));
+    });
+    document.documentElement.setAttribute('data-theme', b.dataset.set);
+  });
+});
+</script>
+</body>
+</html>

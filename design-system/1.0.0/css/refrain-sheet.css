@@ -1,0 +1,863 @@
+/*! Refrain Sheet Design System v1.0.0 (2026-09-22) — tokens + base + components */
+/*! Refrain Sheet Design System — tokens  v1.0.0  (2026-09-22)
+ *
+ *  色は Oklab（極座標 OKLCH）で設計し、sRGB 16進で納品する。
+ *  生成元: tools/palette.py（色） + tools/ds.py（それ以外）。直接編集しない。
+ *
+ *  単位の規則（sizing-units）:
+ *    rem — 文字に属する値。フォントサイズ、行送り、文字まわりの余白、コントロール高
+ *    px  — 画面に属する値。境界線、影、角丸
+ *    em  — メディアクエリ。利用者の既定フォントサイズを尊重するため
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ---------- fonts (ゼロダウンロード。OS標準のみ) ---------- */
+  --font-ui: "BIZ UDPGothic", "Yu Gothic UI", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
+  --font-data: "BIZ UDGothic", "SFMono-Regular", Consolas, "Courier New", monospace;
+  --font-feature-data: "zero" 1;   /* スラッシュ付きゼロ。BIZ UD / Yu Gothic UI で実在を確認 */
+
+
+  /* ---------- type scale (base 16px, ratio 1.2) ---------- */
+  --text-xs: 0.875rem;                        /* 14px  step −1 (clamped from 13.3px) — メタデータ・補助・バッジ */
+  --text-body: 1rem;                          /* 16px  step 0 — 本文、UIラベル、ボタン、セルの既定 */
+  --text-lead: 1.1875rem;                     /* 19px  step +1 — リード文 */
+  --text-h3: 1.4375rem;                       /* 23px  step +2 */
+  --text-h2: 1.75rem;                         /* 28px  step +3 */
+  --text-h1: 2.0625rem;                       /* 33px  step +4 */
+  --text-display: 2.5rem;                     /* 40px  step +5 — ドキュメント見出しのみ */
+
+  --leading-tight: 1.25;                      /* 見出し（大きいほど詰める） */
+  --leading-ui: 1.4;                          /* UIラベル、ボタン、セル */
+  --leading-body: 1.75;                       /* 本文。和文は欧文より行送りを多く取る */
+  --weight-regular: 400;                      /* 既定 */
+  --weight-bold: 700;                         /* 強調・見出し。400と700の2段しかない（下記参照） */
+  --tracking-normal: 0;                       /* 本文・和文。字間は触らない */
+  --tracking-caps: 0.04em;                    /* 欧文の全大文字ラベルのみ。上限 */
+
+  /* ---------- spacing (base 4px) ---------- */
+  --space-1: 0.25rem;                         /* 4px */
+  --space-2: 0.5rem;                          /* 8px */
+  --space-3: 0.75rem;                         /* 12px */
+  --space-4: 1rem;                            /* 16px */
+  --space-5: 1.25rem;                         /* 20px */
+  --space-6: 1.5rem;                          /* 24px */
+  --space-8: 2rem;                            /* 32px */
+  --space-10: 2.5rem;                         /* 40px */
+  --space-12: 3rem;                           /* 48px */
+  --space-16: 4rem;                           /* 64px */
+
+  /* ---------- shape ---------- */
+  --radius-cell: 0;                           /* データグリッドのセル・行・列ヘッダ */
+  --radius-xs: 2px;                           /* セル内チップ、ステータスドット枠 */
+  --radius-sm: 4px;                           /* ウェル、インセット領域 */
+  --radius-md: 6px;                           /* ボタン、入力、セレクト、トグル（コントロール基準） */
+  --radius-lg: 10px;                          /* カード、パネル */
+  --radius-xl: 14px;                          /* モーダル、ドロワー、ポップオーバー */
+  --radius-full: 999px;                       /* ピル、アバター、ステータスドット */
+  --border-thin: 1px;                         /* 既定。入力・カード・区切り */
+  --border-thick: 4px;                        /* 選択中インジケータ、強調帯 */
+
+  /* ---------- controls ---------- */
+  --control-h-sm: 2rem;                       /* 32px  compact */
+  --control-h-md: 2.25rem;                    /* 36px  comfortable（既定） */
+  --control-h-lg: 2.75rem;                    /* 44px  spacious / タッチ */
+  --control-px: 0.75rem;                      /* 12px  左右パディング */
+  --control-gap: 0.5rem;                      /* 8px   アイコンとラベルの間 */
+  --control-slot: 1.25rem;                    /* 20px  アイコン・アバター等のスロット高 */
+
+  /* ---------- motion ---------- */
+  --duration-instant: 80ms;                   /* 押下 */
+  --duration-fast: 120ms;                     /* ホバー・色変化 */
+  --duration-base: 200ms;                     /* 開閉・スライド */
+  --duration-slow: 320ms;                     /* ドロワー */
+  --ease-out: cubic-bezier(.2, 0, 0, 1);      /* 既定 */
+  --ease-in-out: cubic-bezier(.4, 0, .2, 1);  /* 往復するもの */
+  --focus-width: 2px;                         
+  --focus-offset: 2px;                        
+
+  /* ---------- layers ---------- */
+  --z-base: 0;                                /* 本文 */
+  --z-sticky: 100;                            /* 固定ヘッダ・列ヘッダ */
+  --z-dropdown: 200;                          /* メニュー・ポップオーバー */
+  --z-drawer: 300;                            /* ドロワー */
+  --z-modal: 400;                             /* モーダル */
+  --z-toast: 500;                             /* トースト */
+  --z-tooltip: 600;                           /* ツールチップ */
+
+  /* ---------- breakpoints (参照用。@media には直接書く) ---------- */
+  --bp-sm: 30em;                              /* 480px  端末最小 */
+  --bp-md: 48em;                              /* 768px  タブレット */
+  --bp-lg: 64em;                              /* 1024px デスクトップ */
+  --bp-xl: 90em;                              /* 1440px 上限 */
+  --layout-max: 90rem;                        /* 1440px 本文領域の上限 */
+
+  /* ---------- colour primitives ---------- */
+  --brand-green: #147F43;                     
+  --brand-paper: #F4F4EB;                     
+  --brand-mist: #DAECD8;                      
+  --brand-leaf: #8BC191;                      
+  --brand-ink: #141A22;                       
+  --brand-muted: #5B6468;                     
+  --brand-line: #D8DED7;                      
+
+  --green-50: #EEF9EC;                        /* oklch 97.0% 0.021 141 */
+  --green-100: #DAECD8;                       /* oklch 92.4% 0.033 142  ブランド基準値 */
+  --green-200: #B3D5B3;                       /* oklch 83.9% 0.059 145 */
+  --green-300: #8BC191;                       /* oklch 76.0% 0.088 147  ブランド基準値 */
+  --green-400: #5DA56C;                       /* oklch 66.0% 0.112 149 */
+  --green-500: #3D9156;                       /* oklch 58.9% 0.121 151 */
+  --green-600: #147F43;                       /* oklch 52.5% 0.130 152  ブランド基準値 */
+  --green-700: #006335;                       /* oklch 43.9% 0.110 154 */
+  --green-800: #004A29;                       /* oklch 36.0% 0.087 156 */
+  --green-900: #002F1B;                       /* oklch 26.9% 0.062 159 */
+
+  --paper-0: #FFFFFF;                         /* oklch 100.0% 0.000 90 */
+  --paper-50: #F4F4EB;                        /* oklch 96.5% 0.012 107  ブランド基準値 */
+  --paper-100: #EDEDE4;                       /* oklch 94.4% 0.012 107 */
+  --paper-200: #DDDDD4;                       /* oklch 89.5% 0.012 107 */
+  --paper-300: #CBCBC3;                       /* oklch 84.0% 0.011 107 */
+  --paper-400: #B2B2AA;                       /* oklch 76.1% 0.011 107 */
+
+  --ink-200: #999FA7;                         /* oklch 70.0% 0.014 256 */
+  --ink-300: #81878F;                         /* oklch 62.1% 0.014 256 */
+  --ink-350: #6F757D;                         /* oklch 56.0% 0.014 256 */
+  --ink-400: #5C636D;                         /* oklch 49.7% 0.018 257 */
+  --ink-500: #474E57;                         /* oklch 42.1% 0.018 255 */
+  --ink-600: #323941;                         /* oklch 34.1% 0.017 252 */
+  --ink-700: #232932;                         /* oklch 27.9% 0.019 258 */
+  --ink-800: #1B2129;                         /* oklch 24.5% 0.018 256 */
+  --ink-900: #141A22;                         /* oklch 21.5% 0.018 256  ブランド基準値 */
+  --ink-950: #0B1118;                         /* oklch 17.5% 0.017 253 */
+  --ink-1000: #04080E;                        /* oklch 13.2% 0.016 252 */
+
+  --amber-100: #F6E5CE;                       /* oklch 92.9% 0.036 76 */
+  --amber-300: #D6B890;                       /* oklch 79.9% 0.064 75 */
+  --amber-500: #B99056;                       /* oklch 67.9% 0.090 75 */
+  --amber-600: #A6762A;                       /* oklch 60.1% 0.108 75 */
+  --amber-700: #865900;                       /* oklch 50.1% 0.106 75 */
+  --amber-900: #472D00;                       /* oklch 32.1% 0.068 75 */
+
+  --red-100: #FFDDD9;                         /* oklch 92.5% 0.038 26 */
+  --red-300: #E49C93;                         /* oklch 76.1% 0.088 27 */
+  --red-500: #C5675D;                         /* oklch 62.1% 0.122 27 */
+  --red-600: #B44B43;                         /* oklch 54.9% 0.138 27 */
+  --red-700: #9E2321;                         /* oklch 46.0% 0.160 27 */
+  --red-900: #5D0004;                         /* oklch 30.1% 0.123 27 */
+
+  --blue-100: #D8EAFF;                        /* oklch 93.0% 0.034 252 */
+  --blue-300: #95BBE7;                        /* oklch 78.0% 0.075 252 */
+  --blue-500: #4F89C9;                        /* oklch 61.9% 0.115 252 */
+  --blue-600: #2D74BC;                        /* oklch 55.1% 0.132 252 */
+  --blue-700: #0059A1;                        /* oklch 46.1% 0.137 252 */
+  --blue-900: #002E59;                        /* oklch 30.0% 0.090 252 */
+
+}
+
+/* light — シェルもシートも紙側 */
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --chrome-bg: #F4F4EB;
+  --chrome-surface: #FFFFFF;
+  --chrome-raised: #FFFFFF;
+  --chrome-sunken: #EDEDE4;
+  --chrome-border: #DDDDD4;
+  --chrome-border-strong: #CBCBC3;
+  --border-control: #81878F;
+  --chrome-text: #141A22;
+  --chrome-text-muted: #474E57;
+  --chrome-text-subtle: #5C636D;
+  --accent: #147F43;
+  --accent-hover: #006335;
+  --accent-active: #004A29;
+  --accent-contrast: #FFFFFF;
+  --accent-subtle: #EEF9EC;
+  --accent-subtle-text: #004A29;
+  --accent-text: #006335;
+  --focus-ring: #147F43;
+  --danger: #B44B43;
+  --danger-hover: #9E2321;
+  --danger-contrast: #FFFFFF;
+  --danger-text: #9E2321;
+  --warning: #865900;
+  --warning-text: #472D00;
+  --success: #147F43;
+  --info: #2D74BC;
+  --link: #006335;
+  --link-visited: #002F1B;
+  --canvas-bg: #FFFFFF;
+  --canvas-header-bg: #F4F4EB;
+  --canvas-grid: #DDDDD4;
+  --canvas-grid-strong: #CBCBC3;
+  --canvas-text: #141A22;
+  --canvas-text-muted: #474E57;
+  --canvas-selection: #EEF9EC;
+  --canvas-selection-border: #147F43;
+  --canvas-row-alt: #F4F4EB;
+  --state-added: #DAECD8;
+  --state-added-text: #004A29;
+  --state-modified: #F6E5CE;
+  --state-modified-text: #472D00;
+  --state-removed: #FFDDD9;
+  --state-removed-text: #5D0004;
+  --state-info: #D8EAFF;
+  --state-info-text: #002E59;
+  --shadow-xs: 0 1px 2px rgba(4, 8, 14, .06);
+  --shadow-sm: 0 1px 3px rgba(4, 8, 14, .10), 0 1px 2px rgba(4, 8, 14, .06);
+  --shadow-md: 0 4px 6px rgba(4, 8, 14, .08), 0 2px 4px rgba(4, 8, 14, .06);
+  --shadow-lg: 0 10px 15px rgba(4, 8, 14, .08), 0 4px 6px rgba(4, 8, 14, .05);
+  --overlay: rgba(4, 8, 14, .45);
+  --skeleton-base: var(--paper-200);
+  --skeleton-shine: var(--paper-100);
+}
+
+/* dark — シェルもシートもインク側 */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --chrome-bg: #141A22;
+  --chrome-surface: #1B2129;
+  --chrome-raised: #232932;
+  --chrome-sunken: #0B1118;
+  --chrome-border: #323941;
+  --chrome-border-strong: #474E57;
+  --border-control: #6F757D;
+  --chrome-text: #F4F4EB;
+  --chrome-text-muted: #81878F;
+  --chrome-text-subtle: #6F757D;
+  --accent: #8BC191;
+  --accent-hover: #B3D5B3;
+  --accent-active: #DAECD8;
+  --accent-contrast: #141A22;
+  --accent-subtle: #002F1B;
+  --accent-subtle-text: #B3D5B3;
+  --accent-text: #8BC191;
+  --focus-ring: #8BC191;
+  --danger: #E49C93;
+  --danger-hover: #FFDDD9;
+  --danger-contrast: #141A22;
+  --danger-text: #E49C93;
+  --warning: #D6B890;
+  --warning-text: #D6B890;
+  --success: #8BC191;
+  --info: #95BBE7;
+  --link: #8BC191;
+  --link-visited: #B3D5B3;
+  --canvas-bg: #0B1118;
+  --canvas-header-bg: #141A22;
+  --canvas-grid: #232932;
+  --canvas-grid-strong: #323941;
+  --canvas-text: #F4F4EB;
+  --canvas-text-muted: #81878F;
+  --canvas-selection: #002F1B;
+  --canvas-selection-border: #8BC191;
+  --canvas-row-alt: #141A22;
+  --state-added: #002F1B;
+  --state-added-text: #B3D5B3;
+  --state-modified: #472D00;
+  --state-modified-text: #D6B890;
+  --state-removed: #5D0004;
+  --state-removed-text: #E49C93;
+  --state-info: #002E59;
+  --state-info-text: #95BBE7;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, .30);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .40), 0 1px 2px rgba(0, 0, 0, .30);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, .45), 0 2px 4px rgba(0, 0, 0, .30);
+  --shadow-lg: 0 12px 20px rgba(0, 0, 0, .50), 0 4px 8px rgba(0, 0, 0, .35);
+  --overlay: rgba(4, 8, 14, .65);
+  --skeleton-base: var(--ink-800);
+  --skeleton-shine: var(--ink-700);
+}
+
+/* hybrid — シェルはインク側、シートは紙側 */
+[data-theme="hybrid"] {
+  color-scheme: dark;
+  --chrome-bg: #141A22;
+  --chrome-surface: #1B2129;
+  --chrome-raised: #232932;
+  --chrome-sunken: #0B1118;
+  --chrome-border: #323941;
+  --chrome-border-strong: #474E57;
+  --border-control: #6F757D;
+  --chrome-text: #F4F4EB;
+  --chrome-text-muted: #81878F;
+  --chrome-text-subtle: #6F757D;
+  --accent: #8BC191;
+  --accent-hover: #B3D5B3;
+  --accent-active: #DAECD8;
+  --accent-contrast: #141A22;
+  --accent-subtle: #002F1B;
+  --accent-subtle-text: #B3D5B3;
+  --accent-text: #8BC191;
+  --focus-ring: #8BC191;
+  --danger: #E49C93;
+  --danger-hover: #FFDDD9;
+  --danger-contrast: #141A22;
+  --danger-text: #E49C93;
+  --warning: #D6B890;
+  --warning-text: #D6B890;
+  --success: #8BC191;
+  --info: #95BBE7;
+  --link: #8BC191;
+  --link-visited: #B3D5B3;
+  --canvas-bg: #FFFFFF;
+  --canvas-header-bg: #F4F4EB;
+  --canvas-grid: #DDDDD4;
+  --canvas-grid-strong: #CBCBC3;
+  --canvas-text: #141A22;
+  --canvas-text-muted: #474E57;
+  --canvas-selection: #EEF9EC;
+  --canvas-selection-border: #147F43;
+  --canvas-row-alt: #F4F4EB;
+  --state-added: #DAECD8;
+  --state-added-text: #004A29;
+  --state-modified: #F6E5CE;
+  --state-modified-text: #472D00;
+  --state-removed: #FFDDD9;
+  --state-removed-text: #5D0004;
+  --state-info: #D8EAFF;
+  --state-info-text: #002E59;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, .30);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, .40), 0 1px 2px rgba(0, 0, 0, .30);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, .45), 0 2px 4px rgba(0, 0, 0, .30);
+  --shadow-lg: 0 12px 20px rgba(0, 0, 0, .50), 0 4px 8px rgba(0, 0, 0, .35);
+  --overlay: rgba(4, 8, 14, .65);
+  --skeleton-base: var(--ink-800);
+  --skeleton-shine: var(--ink-700);
+}
+
+/* OS設定に追随。明示的な data-theme が最優先。 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --chrome-bg: #141A22;
+    --chrome-surface: #1B2129;
+    --chrome-raised: #232932;
+    --chrome-sunken: #0B1118;
+    --chrome-border: #323941;
+    --chrome-border-strong: #474E57;
+    --border-control: #6F757D;
+    --chrome-text: #F4F4EB;
+    --chrome-text-muted: #81878F;
+    --chrome-text-subtle: #6F757D;
+    --accent: #8BC191;
+    --accent-hover: #B3D5B3;
+    --accent-active: #DAECD8;
+    --accent-contrast: #141A22;
+    --accent-subtle: #002F1B;
+    --accent-subtle-text: #B3D5B3;
+    --accent-text: #8BC191;
+    --focus-ring: #8BC191;
+    --danger: #E49C93;
+    --danger-hover: #FFDDD9;
+    --danger-contrast: #141A22;
+    --danger-text: #E49C93;
+    --warning: #D6B890;
+    --warning-text: #D6B890;
+    --success: #8BC191;
+    --info: #95BBE7;
+    --link: #8BC191;
+    --link-visited: #B3D5B3;
+    --canvas-bg: #0B1118;
+    --canvas-header-bg: #141A22;
+    --canvas-grid: #232932;
+    --canvas-grid-strong: #323941;
+    --canvas-text: #F4F4EB;
+    --canvas-text-muted: #81878F;
+    --canvas-selection: #002F1B;
+    --canvas-selection-border: #8BC191;
+    --canvas-row-alt: #141A22;
+    --state-added: #002F1B;
+    --state-added-text: #B3D5B3;
+    --state-modified: #472D00;
+    --state-modified-text: #D6B890;
+    --state-removed: #5D0004;
+    --state-removed-text: #E49C93;
+    --state-info: #002E59;
+    --state-info-text: #95BBE7;
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, .30);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, .40), 0 1px 2px rgba(0, 0, 0, .30);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, .45), 0 2px 4px rgba(0, 0, 0, .30);
+    --shadow-lg: 0 12px 20px rgba(0, 0, 0, .50), 0 4px 8px rgba(0, 0, 0, .35);
+    --overlay: rgba(4, 8, 14, .65);
+    --skeleton-base: var(--ink-800);
+    --skeleton-shine: var(--ink-700);
+  }
+}
+
+/* ---------- density ---------- */
+/* 既定は comfortable。密度が変えるのは高さと余白だけで、文字サイズは動かさない。 */
+/* 各密度は :root[data-density=...] (0,2,0) で書く。素の :root (0,1,0) と
+   同じ詳細度だと、記述順だけで既定値が密度指定を上書きしてしまうため。 */
+:root {
+  --control-h: var(--control-h-md);
+  --row-h: 2.125rem;
+  --cell-px: var(--space-3);
+  --stack-gap: var(--space-3);
+}
+:root[data-density="compact"], [data-density="compact"] {
+  --control-h: var(--control-h-sm);
+  --row-h: 1.75rem;
+  --cell-px: var(--space-2);
+  --stack-gap: var(--space-2);
+}
+:root[data-density="comfortable"], [data-density="comfortable"] {
+  --control-h: var(--control-h-md);
+  --row-h: 2.125rem;
+  --cell-px: var(--space-3);
+  --stack-gap: var(--space-3);
+}
+:root[data-density="spacious"], [data-density="spacious"] {
+  --control-h: var(--control-h-lg);
+  --row-h: 2.75rem;
+  --cell-px: var(--space-4);
+  --stack-gap: var(--space-4);
+}
+
+/* 指先は細かく狙えない。粗いポインタでは密度指定に関わらず44pxを下回らせない。 */
+@media (pointer: coarse) {
+  :root, :root[data-density], [data-density] {
+    --control-h: var(--control-h-lg);
+    --row-h: 2.75rem;
+  }
+}
+
+/*! Refrain Sheet Design System — base */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* html の font-size は触らない。利用者が設定した既定サイズがそのまま基準になる。 */
+html {
+  background: var(--chrome-bg);
+  color: var(--chrome-text);
+  -webkit-text-size-adjust: 100%;
+  scrollbar-gutter: stable;           /* Windows のスクロールバーによる横ずれを防ぐ */
+  scrollbar-color: var(--chrome-border-strong) transparent;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-normal);
+  font-weight: var(--weight-regular);
+}
+
+/* 和文は欧文よりも行が詰まって見える。見出しは大きいほど行送りを詰める。 */
+h1, h2, h3 { line-height: var(--leading-tight); font-weight: var(--weight-bold); margin: 0; }
+h1 { font-size: var(--text-h1); }
+h2 { font-size: var(--text-h2); }
+h3 { font-size: var(--text-h3); }
+/* h4 以降は用意しない。必要になったらページを分ける合図。 */
+
+h1, h2, h3, figcaption, blockquote, dt { text-wrap: balance; }
+p, li, dd { text-wrap: pretty; }
+
+p { margin: 0 0 var(--space-4); max-width: var(--measure, 42em); }
+
+a { color: var(--accent-text); text-underline-offset: .2em; }
+a:hover { text-decoration-thickness: 2px; }
+
+img, svg, video { max-width: 100%; height: auto; }
+
+::selection { background: var(--canvas-selection); color: var(--canvas-text); }
+
+/* フォーカスリングは取り除かない。1つの定義を全要素で使う。 */
+:focus-visible {
+  outline: var(--focus-width) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* 数字と識別子。BIZ UDGothic は英数が半角固定・和文が全角固定なので、
+   和文を含む列でも桁が揃う。tnum は BIZ UD に存在しないため指定しない。 */
+.rs-data {
+  font-family: var(--font-data);
+  font-feature-settings: var(--font-feature-data);
+  font-variant-numeric: slashed-zero;
+}
+
+.rs-measure { max-width: 42em; }        /* 和文で全角 約38字 */
+
+.rs-visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+.rs-skip-link {
+  position: absolute; left: var(--space-2); top: calc(var(--space-2) * -10);
+  z-index: var(--z-tooltip);
+  padding: var(--space-2) var(--space-4);
+  background: var(--chrome-raised); color: var(--chrome-text);
+  border: var(--border-thin) solid var(--border-control);
+  border-radius: var(--radius-md);
+  transition: top var(--duration-fast) var(--ease-out);
+}
+.rs-skip-link:focus { top: var(--space-2); }
+
+/* Windows のハイコントラストモード。色は OS が差し替えるので、
+   形と境界だけがこちらの責任になる。 */
+@media (forced-colors: active) {
+  .rs-btn, .rs-input, .rs-panel, .rs-card, .rs-sheet td, .rs-sheet th {
+    border: var(--border-thin) solid ButtonBorder;
+  }
+  .rs-btn--primary { background: Highlight; color: HighlightText; }
+  :focus-visible { outline: var(--focus-width) solid Highlight; }
+  .rs-sheet td[data-state] { forced-color-adjust: none; }  /* 差分色は情報なので維持 */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important; scroll-behavior: auto !important;
+  }
+}
+
+/*! Refrain Sheet Design System — components */
+
+/* =========================================================================
+   1. コントロール共通クラス
+   1行に並ぶものは全部これを使う。高さ・余白・字サイズ・角丸・状態はここだけが持つ。
+   派生クラスが変えてよいのは色だけ。
+   ========================================================================= */
+.rs-control {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--control-gap);
+  min-height: var(--control-h);          /* 設定する。padding から算出しない */
+  padding-block: 0;
+  padding-inline: var(--control-px);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-ui);
+  border-width: var(--border-thin);
+  border-style: solid;
+  border-color: transparent;             /* 枠なし派生も枠を持ち続ける（内寸を揃えるため） */
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--chrome-text);
+  cursor: pointer;
+  flex-shrink: 0;                        /* 狭い幅で語中改行させない */
+  white-space: nowrap;
+  transition-property: background-color, border-color, color, transform;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
+}
+.rs-control__slot { height: var(--control-slot); display: inline-flex; align-items: center; }
+.rs-control:active { transform: scale(.97); transition-duration: var(--duration-instant); }
+.rs-control:disabled, .rs-control[aria-disabled="true"] {
+  opacity: .4; cursor: not-allowed; pointer-events: none; transform: none;
+}
+.rs-control[data-loading] { opacity: .7; pointer-events: none; }
+
+/* --- ボタン派生：色だけを変える --------------------------------------- */
+.rs-btn--primary   { background-color: var(--accent); color: var(--accent-contrast);
+                     border-color: var(--accent); }
+.rs-btn--secondary { border-color: var(--border-control); }
+.rs-btn--ghost     { color: var(--chrome-text-muted); }
+.rs-btn--danger    { background-color: var(--danger); color: var(--danger-contrast);
+                     border-color: var(--danger); }
+
+@media (hover: hover) {
+  .rs-btn--primary:hover   { background-color: var(--accent-hover); border-color: var(--accent-hover); }
+  .rs-btn--secondary:hover { background-color: var(--chrome-sunken); }
+  .rs-btn--ghost:hover     { background-color: var(--chrome-sunken); color: var(--chrome-text); }
+  .rs-btn--danger:hover    { background-color: var(--danger-hover); border-color: var(--danger-hover); }
+}
+.rs-btn--primary:active   { background-color: var(--accent-active); border-color: var(--accent-active); }
+.rs-btn--secondary:active { background-color: var(--chrome-border); }
+
+/* --- 連結したコントロール：外側だけが角を持ち、境界は1本に潰す --------- */
+.rs-group { display: inline-flex; }
+.rs-group > .rs-control { border-radius: 0; }
+.rs-group > .rs-control:first-child {
+  border-start-start-radius: var(--radius-md); border-end-start-radius: var(--radius-md);
+}
+.rs-group > .rs-control:last-child {
+  border-start-end-radius: var(--radius-md); border-end-end-radius: var(--radius-md);
+}
+.rs-group > .rs-control + .rs-control { margin-inline-start: calc(var(--border-thin) * -1); }
+.rs-group > .rs-control[aria-pressed="true"] {
+  background-color: var(--accent-subtle); color: var(--accent-subtle-text);
+  border-color: var(--border-control); z-index: 1;
+}
+
+/* =========================================================================
+   2. フォーム
+   ========================================================================= */
+.rs-field { display: flex; flex-direction: column; gap: var(--space-1);
+            margin-block-end: var(--space-4); }
+.rs-label { font-size: var(--text-body); color: var(--chrome-text); }
+.rs-label__optional { font-size: var(--text-xs); color: var(--chrome-text-muted);
+                      margin-inline-start: var(--space-2); }
+
+.rs-input, .rs-select, .rs-textarea {
+  box-sizing: border-box;
+  min-height: var(--control-h);
+  padding-block: var(--space-2);
+  padding-inline: var(--control-px);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-ui);
+  color: var(--chrome-text);
+  background-color: var(--chrome-surface);
+  border-width: var(--border-thin);
+  border-style: solid;
+  border-color: var(--border-control);   /* 部品の存在を示す境界は 3:1 以上 */
+  border-radius: var(--radius-md);
+}
+.rs-textarea { min-height: calc(var(--control-h) * 3); line-height: var(--leading-body); }
+.rs-input::placeholder, .rs-textarea::placeholder { color: var(--chrome-text-subtle); }
+.rs-input[aria-invalid="true"], .rs-select[aria-invalid="true"] { border-color: var(--danger); }
+.rs-input:disabled, .rs-select:disabled, .rs-textarea:disabled {
+  opacity: .4; cursor: not-allowed; background-color: var(--chrome-sunken);
+}
+
+/* 補助テキストは色で読ませる。BIZ UD は 400/700 しかなく、中間ウェイトが使えない。 */
+.rs-helper { font-size: var(--text-xs); color: var(--chrome-text-muted); margin: 0; }
+.rs-error  { font-size: var(--text-xs); color: var(--danger-text); margin: 0;
+             display: flex; align-items: center; gap: var(--space-1); }
+
+.rs-fieldset { border: var(--border-thin) solid var(--chrome-border);
+               border-radius: var(--radius-lg); padding: var(--space-4);
+               margin: 0 0 var(--space-6); }
+.rs-fieldset > legend { padding-inline: var(--space-2); font-weight: var(--weight-bold); }
+
+/* =========================================================================
+   3. チップ類：意味ごとに別クラス。汎用 Badge は作らない。
+      em 基準なので置かれた文脈の文字サイズに追随する。
+   ========================================================================= */
+.rs-tag, .rs-code, .rs-kbd, .rs-metric {
+  display: inline-flex; align-items: center; vertical-align: middle;
+  white-space: nowrap; line-height: 1;
+  font-size: .85em;
+  border-width: var(--border-thin); border-style: solid;
+  border-color: var(--chrome-border);
+  background-color: var(--chrome-sunken);
+  color: var(--chrome-text-muted);
+  /* 読み取り専用。ホバーもポインタも持たせない（ボタンとの決定的な差） */
+}
+.rs-tag { padding: .25em .6em; border-radius: var(--radius-full); color: var(--chrome-text); }
+.rs-code, .rs-kbd, .rs-metric {
+  padding: .2em .5em; border-radius: var(--radius-xs);
+  font-family: var(--font-data); font-feature-settings: var(--font-feature-data);
+}
+.rs-kbd { border-bottom-width: var(--border-thin); box-shadow: var(--shadow-xs); }
+.rs-tag--added    { background-color: var(--state-added);    color: var(--state-added-text); }
+.rs-tag--modified { background-color: var(--state-modified); color: var(--state-modified-text); }
+.rs-tag--removed  { background-color: var(--state-removed);  color: var(--state-removed-text); }
+.rs-tag--info     { background-color: var(--state-info);     color: var(--state-info-text); }
+
+.rs-dot { width: .5em; height: .5em; border-radius: var(--radius-full);
+          display: inline-block; vertical-align: middle; margin-inline-end: var(--space-1); }
+
+/* =========================================================================
+   4. サーフェス：1つの面には1つの分離手段だけを使う
+      パネル/カード = 境界線（地色はページ色から1段以内）
+      ポップオーバー/モーダル = 影（明色テーマでは境界線と併用）
+      ウェル/セクション = 地色
+   ========================================================================= */
+.rs-panel, .rs-card {
+  background-color: var(--chrome-surface);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+/* 入れ子の角は同心。外側 = 内側 + 余白。 */
+.rs-card--nested { border-radius: calc(var(--radius-md) + var(--space-4)); }
+.rs-well {
+  background-color: var(--chrome-sunken);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+.rs-raised {
+  background-color: var(--chrome-raised);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+/* =========================================================================
+   5. データシート
+      唯一 2軸スクロールを許可する領域。ページ自体はスクロールさせない。
+      セルの角は 0（アイコンの直角セルに対応）。
+   ========================================================================= */
+.rs-sheet-scroll {
+  overflow: auto;                        /* この1箇所だけの例外 */
+  overscroll-behavior: contain;
+  background-color: var(--canvas-bg);
+}
+.rs-sheet {
+  border-collapse: separate; border-spacing: 0;
+  font-family: var(--font-data);
+  font-feature-settings: var(--font-feature-data);
+  font-variant-numeric: slashed-zero;
+  font-size: var(--text-body);
+  color: var(--canvas-text);
+  background-color: var(--canvas-bg);
+}
+.rs-sheet th, .rs-sheet td {
+  height: var(--row-h);
+  padding-block: 0;
+  padding-inline: var(--cell-px);
+  border-block-end: var(--border-thin) solid var(--canvas-grid);
+  border-inline-end: var(--border-thin) solid var(--canvas-grid);
+  border-radius: var(--radius-cell);
+  text-align: start;
+  white-space: nowrap;
+}
+.rs-sheet thead th {
+  position: sticky; top: 0; z-index: var(--z-sticky);
+  background-color: var(--canvas-header-bg);
+  color: var(--canvas-text-muted);
+  font-weight: var(--weight-bold);
+  border-block-end-color: var(--canvas-grid-strong);
+}
+.rs-sheet tbody th {                     /* 行ヘッダ：横スクロールしても残る */
+  position: sticky; inset-inline-start: 0; z-index: calc(var(--z-sticky) - 1);
+  background-color: var(--canvas-header-bg);
+  color: var(--canvas-text-muted);
+  font-weight: var(--weight-regular);
+  text-align: end;
+}
+.rs-sheet tbody tr:nth-child(even) td { background-color: var(--canvas-row-alt); }
+
+/* 状態はゼブラ縞より強い。縞と同じ詳細度で、あとに置いて勝たせる。 */
+.rs-sheet tbody tr td[data-state="added"]    { background-color: var(--state-added);
+                                               color: var(--state-added-text); }
+.rs-sheet tbody tr td[data-state="modified"] { background-color: var(--state-modified);
+                                               color: var(--state-modified-text); }
+.rs-sheet tbody tr td[data-state="removed"]  { background-color: var(--state-removed);
+                                               color: var(--state-removed-text);
+                                               text-decoration: line-through; }
+.rs-sheet tbody tr td[aria-selected="true"] {
+  background-color: var(--canvas-selection);
+  outline: var(--focus-width) solid var(--canvas-selection-border);
+  outline-offset: calc(var(--focus-width) * -1);
+}
+
+/* =========================================================================
+   6. アプリシェル
+   ========================================================================= */
+.rs-app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  block-size: 100dvh;
+  background-color: var(--chrome-bg);
+  color: var(--chrome-text);
+}
+.rs-topbar {
+  display: flex; align-items: center; gap: var(--space-3);
+  min-height: var(--control-h-lg);
+  padding-inline: var(--space-3);
+  background-color: var(--chrome-surface);
+  border-block-end: var(--border-thin) solid var(--chrome-border);
+}
+.rs-topbar__spacer { flex: 1; }
+.rs-body { display: grid; grid-template-columns: minmax(10rem, 14rem) 1fr; min-height: 0; }
+.rs-sidebar {
+  padding: var(--space-2);
+  border-inline-end: var(--border-thin) solid var(--chrome-border);
+  overflow-y: auto; overflow-x: hidden;
+}
+.rs-sidebar__item {
+  display: block; padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm); color: var(--chrome-text-muted);
+  text-decoration: none; min-height: var(--control-h);
+}
+.rs-sidebar__item[aria-current] {
+  background-color: var(--accent-subtle); color: var(--accent-subtle-text);
+  font-weight: var(--weight-bold);
+}
+.rs-main { min-width: 0; min-height: 0; display: grid; }
+/* 状態バー：静かな常時表示。異常時以外は色を持たない。 */
+.rs-statusbar {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs); color: var(--chrome-text-muted);
+  background-color: var(--chrome-surface);
+  border-block-start: var(--border-thin) solid var(--chrome-border);
+}
+
+/* モバイル：サイドバーはドロワーへ、主要操作は親指の届く下端へ。 */
+@media (max-width: 48em) {
+  .rs-body { grid-template-columns: 1fr; }
+  .rs-sidebar { display: none; }
+  .rs-sidebar[data-open] {
+    display: block; position: fixed; inset-block: 0; inset-inline-start: 0;
+    inline-size: min(20rem, 85vw); z-index: var(--z-drawer);
+    background-color: var(--chrome-surface); box-shadow: var(--shadow-lg);
+  }
+  .rs-bottombar {
+    position: sticky; inset-block-end: 0; z-index: var(--z-sticky);
+    display: flex; gap: var(--space-2); padding: var(--space-2);
+    background-color: var(--chrome-surface);
+    border-block-start: var(--border-thin) solid var(--chrome-border);
+  }
+  .rs-bottombar > .rs-control { flex: 1; }
+}
+
+/* =========================================================================
+   7. オーバーレイ
+   ========================================================================= */
+.rs-scrim { position: fixed; inset: 0; background-color: var(--overlay);
+            z-index: var(--z-modal); }
+.rs-dialog {
+  inline-size: min(30rem, calc(100vw - var(--space-8)));
+  background-color: var(--chrome-raised); color: var(--chrome-text);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-xl); box-shadow: var(--shadow-lg);
+  padding: 0;
+}
+.rs-dialog__head, .rs-dialog__foot { padding: var(--space-4); }
+.rs-dialog__head { border-block-end: var(--border-thin) solid var(--chrome-border); }
+.rs-dialog__body { padding: var(--space-4); overflow-y: auto; max-block-size: 60vh; }
+.rs-dialog__foot { display: flex; justify-content: flex-end; gap: var(--space-2);
+                   border-block-start: var(--border-thin) solid var(--chrome-border); }
+.rs-drawer {
+  position: fixed; inset-block: 0; inset-inline-end: 0; z-index: var(--z-drawer);
+  inline-size: min(28rem, 100vw);
+  background-color: var(--chrome-raised); box-shadow: var(--shadow-lg);
+  border-inline-start: var(--border-thin) solid var(--chrome-border);
+}
+@media (max-width: 48em) {
+  .rs-dialog { position: fixed; inset-block-end: 0; inset-inline: 0;
+               inline-size: 100vw; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+}
+
+/* =========================================================================
+   8. 通知と読み込み
+   ========================================================================= */
+.rs-toast {
+  position: fixed; inset-block-end: var(--space-4); inset-inline-end: var(--space-4);
+  inline-size: min(26rem, calc(100vw - var(--space-8)));
+  z-index: var(--z-toast);
+  display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--chrome-raised); color: var(--chrome-text);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+}
+.rs-banner {
+  display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  border-inline-start: var(--border-thick) solid var(--accent);
+  background-color: var(--accent-subtle); color: var(--accent-subtle-text);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.rs-banner--warning { border-inline-start-color: var(--warning);
+                      background-color: var(--state-modified); color: var(--state-modified-text); }
+.rs-banner--danger  { border-inline-start-color: var(--danger);
+                      background-color: var(--state-removed); color: var(--state-removed-text); }
+
+.rs-skeleton {
+  background-color: var(--skeleton-base);
+  border-radius: var(--radius-sm);
+  background-image: linear-gradient(90deg, var(--skeleton-base), var(--skeleton-shine), var(--skeleton-base));
+  background-size: 200% 100%;
+  animation: rs-shimmer 1.4s var(--ease-in-out) infinite;
+}
+@keyframes rs-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }

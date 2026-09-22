@@ -1,0 +1,348 @@
+/*! Refrain Sheet Design System — components */
+
+/* =========================================================================
+   1. コントロール共通クラス
+   1行に並ぶものは全部これを使う。高さ・余白・字サイズ・角丸・状態はここだけが持つ。
+   派生クラスが変えてよいのは色だけ。
+   ========================================================================= */
+.rs-control {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--control-gap);
+  min-height: var(--control-h);          /* 設定する。padding から算出しない */
+  padding-block: 0;
+  padding-inline: var(--control-px);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-ui);
+  border-width: var(--border-thin);
+  border-style: solid;
+  border-color: transparent;             /* 枠なし派生も枠を持ち続ける（内寸を揃えるため） */
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--chrome-text);
+  cursor: pointer;
+  flex-shrink: 0;                        /* 狭い幅で語中改行させない */
+  white-space: nowrap;
+  transition-property: background-color, border-color, color, transform;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
+}
+.rs-control__slot { height: var(--control-slot); display: inline-flex; align-items: center; }
+.rs-control:active { transform: scale(.97); transition-duration: var(--duration-instant); }
+.rs-control:disabled, .rs-control[aria-disabled="true"] {
+  opacity: .4; cursor: not-allowed; pointer-events: none; transform: none;
+}
+.rs-control[data-loading] { opacity: .7; pointer-events: none; }
+
+/* --- ボタン派生：色だけを変える --------------------------------------- */
+.rs-btn--primary   { background-color: var(--accent); color: var(--accent-contrast);
+                     border-color: var(--accent); }
+.rs-btn--secondary { border-color: var(--border-control); }
+.rs-btn--ghost     { color: var(--chrome-text-muted); }
+.rs-btn--danger    { background-color: var(--danger); color: var(--danger-contrast);
+                     border-color: var(--danger); }
+
+@media (hover: hover) {
+  .rs-btn--primary:hover   { background-color: var(--accent-hover); border-color: var(--accent-hover); }
+  .rs-btn--secondary:hover { background-color: var(--chrome-sunken); }
+  .rs-btn--ghost:hover     { background-color: var(--chrome-sunken); color: var(--chrome-text); }
+  .rs-btn--danger:hover    { background-color: var(--danger-hover); border-color: var(--danger-hover); }
+}
+.rs-btn--primary:active   { background-color: var(--accent-active); border-color: var(--accent-active); }
+.rs-btn--secondary:active { background-color: var(--chrome-border); }
+
+/* --- 連結したコントロール：外側だけが角を持ち、境界は1本に潰す --------- */
+.rs-group { display: inline-flex; }
+.rs-group > .rs-control { border-radius: 0; }
+.rs-group > .rs-control:first-child {
+  border-start-start-radius: var(--radius-md); border-end-start-radius: var(--radius-md);
+}
+.rs-group > .rs-control:last-child {
+  border-start-end-radius: var(--radius-md); border-end-end-radius: var(--radius-md);
+}
+.rs-group > .rs-control + .rs-control { margin-inline-start: calc(var(--border-thin) * -1); }
+.rs-group > .rs-control[aria-pressed="true"] {
+  background-color: var(--accent-subtle); color: var(--accent-subtle-text);
+  border-color: var(--border-control); z-index: 1;
+}
+
+/* =========================================================================
+   2. フォーム
+   ========================================================================= */
+.rs-field { display: flex; flex-direction: column; gap: var(--space-1);
+            margin-block-end: var(--space-4); }
+.rs-label { font-size: var(--text-body); color: var(--chrome-text); }
+.rs-label__optional { font-size: var(--text-xs); color: var(--chrome-text-muted);
+                      margin-inline-start: var(--space-2); }
+
+.rs-input, .rs-select, .rs-textarea {
+  box-sizing: border-box;
+  min-height: var(--control-h);
+  padding-block: var(--space-2);
+  padding-inline: var(--control-px);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--leading-ui);
+  color: var(--chrome-text);
+  background-color: var(--chrome-surface);
+  border-width: var(--border-thin);
+  border-style: solid;
+  border-color: var(--border-control);   /* 部品の存在を示す境界は 3:1 以上 */
+  border-radius: var(--radius-md);
+}
+.rs-textarea { min-height: calc(var(--control-h) * 3); line-height: var(--leading-body); }
+.rs-input::placeholder, .rs-textarea::placeholder { color: var(--chrome-text-subtle); }
+.rs-input[aria-invalid="true"], .rs-select[aria-invalid="true"] { border-color: var(--danger); }
+.rs-input:disabled, .rs-select:disabled, .rs-textarea:disabled {
+  opacity: .4; cursor: not-allowed; background-color: var(--chrome-sunken);
+}
+
+/* 補助テキストは色で読ませる。BIZ UD は 400/700 しかなく、中間ウェイトが使えない。 */
+.rs-helper { font-size: var(--text-xs); color: var(--chrome-text-muted); margin: 0; }
+.rs-error  { font-size: var(--text-xs); color: var(--danger-text); margin: 0;
+             display: flex; align-items: center; gap: var(--space-1); }
+
+.rs-fieldset { border: var(--border-thin) solid var(--chrome-border);
+               border-radius: var(--radius-lg); padding: var(--space-4);
+               margin: 0 0 var(--space-6); }
+.rs-fieldset > legend { padding-inline: var(--space-2); font-weight: var(--weight-bold); }
+
+/* =========================================================================
+   3. チップ類：意味ごとに別クラス。汎用 Badge は作らない。
+      em 基準なので置かれた文脈の文字サイズに追随する。
+   ========================================================================= */
+.rs-tag, .rs-code, .rs-kbd, .rs-metric {
+  display: inline-flex; align-items: center; vertical-align: middle;
+  white-space: nowrap; line-height: 1;
+  font-size: .85em;
+  border-width: var(--border-thin); border-style: solid;
+  border-color: var(--chrome-border);
+  background-color: var(--chrome-sunken);
+  color: var(--chrome-text-muted);
+  /* 読み取り専用。ホバーもポインタも持たせない（ボタンとの決定的な差） */
+}
+.rs-tag { padding: .25em .6em; border-radius: var(--radius-full); color: var(--chrome-text); }
+.rs-code, .rs-kbd, .rs-metric {
+  padding: .2em .5em; border-radius: var(--radius-xs);
+  font-family: var(--font-data); font-feature-settings: var(--font-feature-data);
+}
+.rs-kbd { border-bottom-width: var(--border-thin); box-shadow: var(--shadow-xs); }
+.rs-tag--added    { background-color: var(--state-added);    color: var(--state-added-text); }
+.rs-tag--modified { background-color: var(--state-modified); color: var(--state-modified-text); }
+.rs-tag--removed  { background-color: var(--state-removed);  color: var(--state-removed-text); }
+.rs-tag--info     { background-color: var(--state-info);     color: var(--state-info-text); }
+
+.rs-dot { width: .5em; height: .5em; border-radius: var(--radius-full);
+          display: inline-block; vertical-align: middle; margin-inline-end: var(--space-1); }
+
+/* =========================================================================
+   4. サーフェス：1つの面には1つの分離手段だけを使う
+      パネル/カード = 境界線（地色はページ色から1段以内）
+      ポップオーバー/モーダル = 影（明色テーマでは境界線と併用）
+      ウェル/セクション = 地色
+   ========================================================================= */
+.rs-panel, .rs-card {
+  background-color: var(--chrome-surface);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+}
+/* 入れ子の角は同心。外側 = 内側 + 余白。 */
+.rs-card--nested { border-radius: calc(var(--radius-md) + var(--space-4)); }
+.rs-well {
+  background-color: var(--chrome-sunken);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+.rs-raised {
+  background-color: var(--chrome-raised);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+/* =========================================================================
+   5. データシート
+      唯一 2軸スクロールを許可する領域。ページ自体はスクロールさせない。
+      セルの角は 0（アイコンの直角セルに対応）。
+   ========================================================================= */
+.rs-sheet-scroll {
+  overflow: auto;                        /* この1箇所だけの例外 */
+  overscroll-behavior: contain;
+  background-color: var(--canvas-bg);
+}
+.rs-sheet {
+  border-collapse: separate; border-spacing: 0;
+  font-family: var(--font-data);
+  font-feature-settings: var(--font-feature-data);
+  font-variant-numeric: slashed-zero;
+  font-size: var(--text-body);
+  color: var(--canvas-text);
+  background-color: var(--canvas-bg);
+}
+.rs-sheet th, .rs-sheet td {
+  height: var(--row-h);
+  padding-block: 0;
+  padding-inline: var(--cell-px);
+  border-block-end: var(--border-thin) solid var(--canvas-grid);
+  border-inline-end: var(--border-thin) solid var(--canvas-grid);
+  border-radius: var(--radius-cell);
+  text-align: start;
+  white-space: nowrap;
+}
+.rs-sheet thead th {
+  position: sticky; top: 0; z-index: var(--z-sticky);
+  background-color: var(--canvas-header-bg);
+  color: var(--canvas-text-muted);
+  font-weight: var(--weight-bold);
+  border-block-end-color: var(--canvas-grid-strong);
+}
+.rs-sheet tbody th {                     /* 行ヘッダ：横スクロールしても残る */
+  position: sticky; inset-inline-start: 0; z-index: calc(var(--z-sticky) - 1);
+  background-color: var(--canvas-header-bg);
+  color: var(--canvas-text-muted);
+  font-weight: var(--weight-regular);
+  text-align: end;
+}
+.rs-sheet tbody tr:nth-child(even) td { background-color: var(--canvas-row-alt); }
+
+/* 状態はゼブラ縞より強い。縞と同じ詳細度で、あとに置いて勝たせる。 */
+.rs-sheet tbody tr td[data-state="added"]    { background-color: var(--state-added);
+                                               color: var(--state-added-text); }
+.rs-sheet tbody tr td[data-state="modified"] { background-color: var(--state-modified);
+                                               color: var(--state-modified-text); }
+.rs-sheet tbody tr td[data-state="removed"]  { background-color: var(--state-removed);
+                                               color: var(--state-removed-text);
+                                               text-decoration: line-through; }
+.rs-sheet tbody tr td[aria-selected="true"] {
+  background-color: var(--canvas-selection);
+  outline: var(--focus-width) solid var(--canvas-selection-border);
+  outline-offset: calc(var(--focus-width) * -1);
+}
+
+/* =========================================================================
+   6. アプリシェル
+   ========================================================================= */
+.rs-app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  block-size: 100dvh;
+  background-color: var(--chrome-bg);
+  color: var(--chrome-text);
+}
+.rs-topbar {
+  display: flex; align-items: center; gap: var(--space-3);
+  min-height: var(--control-h-lg);
+  padding-inline: var(--space-3);
+  background-color: var(--chrome-surface);
+  border-block-end: var(--border-thin) solid var(--chrome-border);
+}
+.rs-topbar__spacer { flex: 1; }
+.rs-body { display: grid; grid-template-columns: minmax(10rem, 14rem) 1fr; min-height: 0; }
+.rs-sidebar {
+  padding: var(--space-2);
+  border-inline-end: var(--border-thin) solid var(--chrome-border);
+  overflow-y: auto; overflow-x: hidden;
+}
+.rs-sidebar__item {
+  display: block; padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm); color: var(--chrome-text-muted);
+  text-decoration: none; min-height: var(--control-h);
+}
+.rs-sidebar__item[aria-current] {
+  background-color: var(--accent-subtle); color: var(--accent-subtle-text);
+  font-weight: var(--weight-bold);
+}
+.rs-main { min-width: 0; min-height: 0; display: grid; }
+/* 状態バー：静かな常時表示。異常時以外は色を持たない。 */
+.rs-statusbar {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs); color: var(--chrome-text-muted);
+  background-color: var(--chrome-surface);
+  border-block-start: var(--border-thin) solid var(--chrome-border);
+}
+
+/* モバイル：サイドバーはドロワーへ、主要操作は親指の届く下端へ。 */
+@media (max-width: 48em) {
+  .rs-body { grid-template-columns: 1fr; }
+  .rs-sidebar { display: none; }
+  .rs-sidebar[data-open] {
+    display: block; position: fixed; inset-block: 0; inset-inline-start: 0;
+    inline-size: min(20rem, 85vw); z-index: var(--z-drawer);
+    background-color: var(--chrome-surface); box-shadow: var(--shadow-lg);
+  }
+  .rs-bottombar {
+    position: sticky; inset-block-end: 0; z-index: var(--z-sticky);
+    display: flex; gap: var(--space-2); padding: var(--space-2);
+    background-color: var(--chrome-surface);
+    border-block-start: var(--border-thin) solid var(--chrome-border);
+  }
+  .rs-bottombar > .rs-control { flex: 1; }
+}
+
+/* =========================================================================
+   7. オーバーレイ
+   ========================================================================= */
+.rs-scrim { position: fixed; inset: 0; background-color: var(--overlay);
+            z-index: var(--z-modal); }
+.rs-dialog {
+  inline-size: min(30rem, calc(100vw - var(--space-8)));
+  background-color: var(--chrome-raised); color: var(--chrome-text);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-xl); box-shadow: var(--shadow-lg);
+  padding: 0;
+}
+.rs-dialog__head, .rs-dialog__foot { padding: var(--space-4); }
+.rs-dialog__head { border-block-end: var(--border-thin) solid var(--chrome-border); }
+.rs-dialog__body { padding: var(--space-4); overflow-y: auto; max-block-size: 60vh; }
+.rs-dialog__foot { display: flex; justify-content: flex-end; gap: var(--space-2);
+                   border-block-start: var(--border-thin) solid var(--chrome-border); }
+.rs-drawer {
+  position: fixed; inset-block: 0; inset-inline-end: 0; z-index: var(--z-drawer);
+  inline-size: min(28rem, 100vw);
+  background-color: var(--chrome-raised); box-shadow: var(--shadow-lg);
+  border-inline-start: var(--border-thin) solid var(--chrome-border);
+}
+@media (max-width: 48em) {
+  .rs-dialog { position: fixed; inset-block-end: 0; inset-inline: 0;
+               inline-size: 100vw; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+}
+
+/* =========================================================================
+   8. 通知と読み込み
+   ========================================================================= */
+.rs-toast {
+  position: fixed; inset-block-end: var(--space-4); inset-inline-end: var(--space-4);
+  inline-size: min(26rem, calc(100vw - var(--space-8)));
+  z-index: var(--z-toast);
+  display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--chrome-raised); color: var(--chrome-text);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+}
+.rs-banner {
+  display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  border-inline-start: var(--border-thick) solid var(--accent);
+  background-color: var(--accent-subtle); color: var(--accent-subtle-text);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.rs-banner--warning { border-inline-start-color: var(--warning);
+                      background-color: var(--state-modified); color: var(--state-modified-text); }
+.rs-banner--danger  { border-inline-start-color: var(--danger);
+                      background-color: var(--state-removed); color: var(--state-removed-text); }
+
+.rs-skeleton {
+  background-color: var(--skeleton-base);
+  border-radius: var(--radius-sm);
+  background-image: linear-gradient(90deg, var(--skeleton-base), var(--skeleton-shine), var(--skeleton-base));
+  background-size: 200% 100%;
+  animation: rs-shimmer 1.4s var(--ease-in-out) infinite;
+}
+@keyframes rs-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }

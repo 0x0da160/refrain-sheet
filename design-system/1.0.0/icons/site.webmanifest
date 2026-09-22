@@ -1,0 +1,35 @@
+{
+  "name": "Refrain Sheet",
+  "short_name": "Refrain",
+  "description": "書式を保持したままCSV・スプレッドシートを編集する、ローカルファーストのエディタ。",
+  "lang": "ja",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F4F4EB",
+  "theme_color": "#147F43",
+  "icons": [
+    {
+      "src": "/icons/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -222,22 +222,6 @@ export function rowMatchesFilter(
 }
 
 /**
- * Compute the hidden data rows of a filter over one row (used by the sliced
- * application scan and the synchronous restore path): returns true when the
- * row must be hidden. Header rows and rows outside the range are never hidden.
- */
-export function rowHiddenByFilter(
-  filter: SheetFilter,
-  row: number,
-  get: (row: number, col: number) => string,
-): boolean {
-  if (row < filterDataTop(filter) || row > filter.bottom) {
-    return false;
-  }
-  return !rowMatchesFilter(filter, row, get);
-}
-
-/**
  * Compute the complete hidden-row set of a filter synchronously. Bounded by
  * the filter range (itself bounded by {@link MAX_FILTER_ROWS}); the command
  * layer uses a time-sliced equivalent with progress for large ranges.

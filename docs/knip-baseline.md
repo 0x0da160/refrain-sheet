@@ -87,6 +87,50 @@ rather than deleting the dependency or silently suppressing the warning.
 
 ### Resolved findings
 
+- `rangeSize` (was `src/core/clipboard.ts:29`), `rowHiddenByFilter` (was
+  `src/core/filter.ts:229`), `ColorKey` (was `src/core/cell-style.ts:97`),
+  and a dead 4-function cluster in `src/core/spill.ts` —
+  `anchorOfDerived`/`derivedValue`/`isDerivedCell`/`isBlockedAnchor` —
+  **removed**. Evidence:
+  - Fresh `grep` across `src/` and `tests/` immediately before deletion
+    (not reused from the original baseline run) found each name used only
+    in its own declaration, except `anchorOfDerived`, which was called
+    solely by `derivedValue` — itself uncalled by anything — so the pair
+    forms one self-contained dead chain.
+  - `openPopover` (was `src/ui/dialogs/shared.ts:162`) — **removed**,
+    with stronger-than-usual evidence: it's still _mentioned_ in doc
+    comments in three other files (`src/ui/drag-resize.ts`,
+    `tests/dialog-focus-restore.test.ts`,
+    `tests/dialog-drag-resize.test.ts`), which is what makes
+    `tests/dialog-drag-resize.test.ts`'s header useful here — it
+    documents that issue #393 migrated `openPopover`'s former callers
+    (Filter/Sort/Format/Data Validation) to the newer `openSidePanel`.
+    This isn't a guess at intent; it's a recorded migration. The three
+    comment mentions were left as historical/design-rationale prose
+    (e.g. `openSidePanel`'s own doc comment contrasts its dismiss
+    behavior with `openPopover`'s) rather than rewritten, since they
+    still accurately describe design lineage even after the code is
+    gone, and rewriting three unrelated files' comments was out of
+    scope for a dead-code removal.
+  - Positive confirmation, not just absence of evidence, for the
+    `spill.ts` cluster: `src/core/rsf-document.ts` (the real spill
+    consumer) implements the identical derived/blocked-cell lookups
+    inline (`spill.derived.get(...)`, `spill.blocked.has(...)`) rather
+    than calling `isDerivedCell`/`isBlockedAnchor` — the real feature
+    works through a separate path, so these were never wired in at all,
+    not a regression risk.
+  - Removing all eight and re-running `npx knip` dropped "Unused
+    exports" by 7 and "Unused exported types" by 1, with no other
+    change and no new findings.
+  - Deleting `openPopover` orphaned three of `src/ui/dialogs/shared.ts`'s
+    own imports (`onViewportResize`, `positionPopup`, `AnchorRect`),
+    caught immediately by `tsc --noEmit` (`noUnusedLocals`) and removed
+    in the same change; `AnchorRect` was confirmed still used elsewhere
+    (`src/ui/menu-bar.ts`, `src/ui/context-menu.ts`) before removing it
+    only from this file's import.
+  - Full verification suite (`format:check`, `lint`, `build` incl.
+    `tsc --noEmit`, `check:dist`, `check:versions`, `test` — 134/134
+    files, 2012/2012 tests) passed unchanged after removal.
 - `resetAuthStateForTests` (was `src/app/drive/auth.ts:170`),
   `resetPickerStateForTests` (was `src/app/drive/picker.ts:145`), and
   `resetSqlEngineForTests` (was `src/core/sql-engine.ts:590`) — **removed**.
@@ -117,7 +161,7 @@ rather than deleting the dependency or silently suppressing the warning.
     `tsc --noEmit`, `check:dist`, `check:versions`, `test` — 134/134 files,
     2012/2012 tests) passed unchanged after removal.
 
-### Unused exports — 83 findings — S1, not individually verified
+### Unused exports — 76 findings
 
 Every name below is exported from its file but not imported by any other
 file in the project **including test files** (test files are configured
@@ -153,7 +197,7 @@ in-progress branch depends on it, check git blame for recency) is exactly
 the scope of a future Phase 3 `safe-delete` PR, done a few at a time with its
 own evidence, not a bulk sweep here.
 
-### Unused exported types — 27 findings — S1, same caveat as above
+### Unused exported types — 26 findings
 
 Same category and same non-verification caveat as unused exports above (a
 type-only export carries zero runtime risk to remove but can still be a

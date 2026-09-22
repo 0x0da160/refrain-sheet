@@ -53,8 +53,8 @@ pointer:
 Auto-fit measures **real rendered pixel widths**, never character counts or
 average-width guesses:
 
-- `CanvasRenderingContext2D.measureText` is configured from the *computed
-  style* of an actual cell — the active sheet font family, size, weight,
+- `CanvasRenderingContext2D.measureText` is configured from the _computed
+  style_ of an actual cell — the active sheet font family, size, weight,
   upright style, and letter spacing (see
   [theming-and-visual-system.md](theming-and-visual-system.md) for the
   spreadsheet-font choice this reads).

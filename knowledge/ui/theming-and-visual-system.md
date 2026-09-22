@@ -144,14 +144,14 @@ rows that actually need more than one visual line** — a row whose cells
 all fit their current column widths keeps the normal single-line height.
 Whether a row wraps is decided from the **rendered display value**,
 measured under the active sheet font and the live column width (a formula
-cell is measured from its *calculated result*, never its source), honoring
+cell is measured from its _calculated result_, never its source), honoring
 explicit newlines (`\n`), normal word-break opportunities, and long
 unbroken text that must break to avoid overflow.
 
 Wrapping also turns **on automatically** the moment a cell edit commits a
 value containing a line break — from Alt+Enter in the inline editor or
 formula bar (see [editing-and-ime.md](editing-and-ime.md)), a pasted
-multiline value, or a formula whose *result* contains a newline. The change
+multiline value, or a formula whose _result_ contains a newline. The change
 is announced politely (never a blocking dialog) and travels in the **same
 undoable step** as the edit that caused it — this bundling is recorded as
 an invariant in

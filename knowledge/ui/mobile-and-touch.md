@@ -58,7 +58,7 @@ finger without treating it as the start of a drag and cancelling the
 pending menu.
 
 **Double-tap opens the inline cell editor**, mirroring `dblclick` on
-desktop: a second quick tap landing on the *same* cell within a 300ms
+desktop: a second quick tap landing on the _same_ cell within a 300ms
 window (in the test suite) opens the editor; a tap on a different cell, a
 tap arriving after the window, or a tap that follows a completed
 press-and-hold (rather than two plain taps) does not.
@@ -132,7 +132,7 @@ that changes layout without touching desktop-width behavior:
   default to docking at the **bottom** instead of the desktop default of
   the right edge, specifically on a narrow, portrait viewport
   (`(max-width: 700px) and (orientation: portrait)`) — there is little
-  usable width for a left/right split there. This is only the *default*:
+  usable width for a left/right split there. This is only the _default_:
   once a user explicitly picks a dock side from the panel's header
   switcher, that explicit choice is remembered for the rest of the session
   regardless of viewport, exactly as on desktop.

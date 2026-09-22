@@ -13,8 +13,8 @@ generated:
 # Tabs and worksheet strip
 
 Refrain Sheet has **two independent tab strips**: the document tab strip
-above the grid (open *files*) and the worksheet strip below the grid (the
-*worksheets inside the active workbook*). This file covers how each strip
+above the grid (open _files_) and the worksheet strip below the grid (the
+_worksheets inside the active workbook_). This file covers how each strip
 is operated; for which data each strip owns and which application-state
 surface backs it, see
 [../architecture/system-overview.md](../architecture/system-overview.md)'s
@@ -50,14 +50,14 @@ that data-ownership distinction is not repeated here.
 The worksheet strip is available from the **Sheet** menu, the strip's own
 context menu (right-click a worksheet tab), and the keyboard:
 
-| Action | How |
-| --- | --- |
-| Switch worksheet | Click a tab, `←` / `→`, `Home` / `End`, or `F7` / `Shift+F7` |
-| Add worksheet | The `+` button, or Sheet > Add Worksheet |
-| Rename worksheet | Double-click a tab, `F2`, or Sheet > Rename Worksheet… |
-| Duplicate worksheet | Sheet > Duplicate Worksheet… |
-| Delete worksheet | Sheet > Delete Worksheet |
-| Reorder worksheet | Drag a tab, `Alt`+`←` / `→`, `Alt`+`Home` / `End`, or the menu |
+| Action              | How                                                            |
+| ------------------- | -------------------------------------------------------------- |
+| Switch worksheet    | Click a tab, `←` / `→`, `Home` / `End`, or `F7` / `Shift+F7`   |
+| Add worksheet       | The `+` button, or Sheet > Add Worksheet                       |
+| Rename worksheet    | Double-click a tab, `F2`, or Sheet > Rename Worksheet…         |
+| Duplicate worksheet | Sheet > Duplicate Worksheet…                                   |
+| Delete worksheet    | Sheet > Delete Worksheet                                       |
+| Reorder worksheet   | Drag a tab, `Alt`+`←` / `→`, `Alt`+`Home` / `End`, or the menu |
 
 Drag-and-drop reordering is a **convenience only** — every reorder has a
 keyboard and menu equivalent (`Alt`+arrows / `Alt`+`Home`/`End`), and the

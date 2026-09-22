@@ -122,7 +122,7 @@ code (this determinism is also recorded as an invariant in
   constant prefixes/suffixes, and simple casing normalization when the
   examples demonstrate it.
 - A transformation is proposed **only** when it reproduces every example
-  exactly *and* every matching candidate agrees on every affected cell.
+  exactly _and_ every matching candidate agrees on every affected cell.
   Ambiguous examples (two patterns that would fill differently) change
   nothing — a localized explanation shows the conflicting outputs and asks
   for one more example instead of guessing.

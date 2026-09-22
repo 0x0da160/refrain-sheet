@@ -19,13 +19,13 @@ Five RSF-only commands — **Filter**, **Sort**, **Data Validation**,
 (Sheet/Format/Data) and a UI shell (the dockable side panel, below), but
 differ sharply in one dimension: **what survives a save**.
 
-| Feature | Saved to `.rsf`? | Undoable? | Marks document dirty? |
-| --- | --- | --- | --- |
-| **Filter** | Yes (container body version 4) | Yes (as one atomic step; clearing it via structural edits is too) | Yes |
-| **Cell Formatting** | Yes | Yes (one atomic history entry per change) | Yes |
-| **Sort** | No — session-only view state | No | No |
-| **Data Validation** | No — session-only view state | No | No |
-| **Conditional Formatting** | No — session-only view state | No | No |
+| Feature                    | Saved to `.rsf`?               | Undoable?                                                         | Marks document dirty? |
+| -------------------------- | ------------------------------ | ----------------------------------------------------------------- | --------------------- |
+| **Filter**                 | Yes (container body version 4) | Yes (as one atomic step; clearing it via structural edits is too) | Yes                   |
+| **Cell Formatting**        | Yes                            | Yes (one atomic history entry per change)                         | Yes                   |
+| **Sort**                   | No — session-only view state   | No                                                                | No                    |
+| **Data Validation**        | No — session-only view state   | No                                                                | No                    |
+| **Conditional Formatting** | No — session-only view state   | No                                                                | No                    |
 
 This split is deliberate and recorded as an invariant in
 [../architecture/invariants.md](../architecture/invariants.md) ("Filter =
@@ -70,7 +70,7 @@ undo/redo are all preserved.
 
 ## Sort
 
-**Sheet > Sort…** reorders how rows *display* by up to **8 compound sort
+**Sheet > Sort…** reorders how rows _display_ by up to **8 compound sort
 levels** (column + ascending/descending) — visually only, exactly like
 Filter's hide-only model, but never persisted. Numbers compare numerically;
 everything else compares by code-point order; blanks always sort last;

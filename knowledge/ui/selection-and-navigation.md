@@ -30,12 +30,12 @@ generated:
 Selection state is rendered as four visually distinct roles, never
 overlapping in meaning:
 
-| Role | Rendering |
-| --- | --- |
-| **Active cell** | solid outline |
-| **Anchor** (opposite corner of the drag) | dashed outline |
-| **Range** | tinted fill |
-| **Whole row/column selection** | the fill above, plus the row/column header is also highlighted |
+| Role                                     | Rendering                                                      |
+| ---------------------------------------- | -------------------------------------------------------------- |
+| **Active cell**                          | solid outline                                                  |
+| **Anchor** (opposite corner of the drag) | dashed outline                                                 |
+| **Range**                                | tinted fill                                                    |
+| **Whole row/column selection**           | the fill above, plus the row/column header is also highlighted |
 
 Selection rendering is virtualization-correct: the selected rectangle is
 tracked in application state, not by DOM presence, so it stays correct when
@@ -65,8 +65,8 @@ other range.
 ### The top-left corner control
 
 The cell at the intersection of the row and column headers is an interactive
-**"Select all cells" button** (localized *Select all cells* / *すべてのセル
-を選択*). Click or tap it — or focus it with the keyboard and press
+**"Select all cells" button** (localized _Select all cells_ / _すべてのセル
+を選択_). Click or tap it — or focus it with the keyboard and press
 **Enter/Space** — to run the same Select All command. While the whole sheet
 is selected the corner reads as pressed (`aria-pressed`), a state kept
 visually distinct from the active cell, an ordinary range, whole-row/

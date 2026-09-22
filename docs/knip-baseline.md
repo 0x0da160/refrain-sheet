@@ -87,6 +87,50 @@ rather than deleting the dependency or silently suppressing the warning.
 
 ### Resolved findings
 
+- `rangeSize` (was `src/core/clipboard.ts:29`), `rowHiddenByFilter` (was
+  `src/core/filter.ts:229`), `ColorKey` (was `src/core/cell-style.ts:97`),
+  and a dead 4-function cluster in `src/core/spill.ts` —
+  `anchorOfDerived`/`derivedValue`/`isDerivedCell`/`isBlockedAnchor` —
+  **removed**. Evidence:
+  - Fresh `grep` across `src/` and `tests/` immediately before deletion
+    (not reused from the original baseline run) found each name used only
+    in its own declaration, except `anchorOfDerived`, which was called
+    solely by `derivedValue` — itself uncalled by anything — so the pair
+    forms one self-contained dead chain.
+  - `openPopover` (was `src/ui/dialogs/shared.ts:162`) — **removed**,
+    with stronger-than-usual evidence: it's still _mentioned_ in doc
+    comments in three other files (`src/ui/drag-resize.ts`,
+    `tests/dialog-focus-restore.test.ts`,
+    `tests/dialog-drag-resize.test.ts`), which is what makes
+    `tests/dialog-drag-resize.test.ts`'s header useful here — it
+    documents that issue #393 migrated `openPopover`'s former callers
+    (Filter/Sort/Format/Data Validation) to the newer `openSidePanel`.
+    This isn't a guess at intent; it's a recorded migration. The three
+    comment mentions were left as historical/design-rationale prose
+    (e.g. `openSidePanel`'s own doc comment contrasts its dismiss
+    behavior with `openPopover`'s) rather than rewritten, since they
+    still accurately describe design lineage even after the code is
+    gone, and rewriting three unrelated files' comments was out of
+    scope for a dead-code removal.
+  - Positive confirmation, not just absence of evidence, for the
+    `spill.ts` cluster: `src/core/rsf-document.ts` (the real spill
+    consumer) implements the identical derived/blocked-cell lookups
+    inline (`spill.derived.get(...)`, `spill.blocked.has(...)`) rather
+    than calling `isDerivedCell`/`isBlockedAnchor` — the real feature
+    works through a separate path, so these were never wired in at all,
+    not a regression risk.
+  - Removing all eight and re-running `npx knip` dropped "Unused
+    exports" by 7 and "Unused exported types" by 1, with no other
+    change and no new findings.
+  - Deleting `openPopover` orphaned three of `src/ui/dialogs/shared.ts`'s
+    own imports (`onViewportResize`, `positionPopup`, `AnchorRect`),
+    caught immediately by `tsc --noEmit` (`noUnusedLocals`) and removed
+    in the same change; `AnchorRect` was confirmed still used elsewhere
+    (`src/ui/menu-bar.ts`, `src/ui/context-menu.ts`) before removing it
+    only from this file's import.
+  - Full verification suite (`format:check`, `lint`, `build` incl.
+    `tsc --noEmit`, `check:dist`, `check:versions`, `test` — 134/134
+    files, 2012/2012 tests) passed unchanged after removal.
 - `resetAuthStateForTests` (was `src/app/drive/auth.ts:170`),
   `resetPickerStateForTests` (was `src/app/drive/picker.ts:145`), and
   `resetSqlEngineForTests` (was `src/core/sql-engine.ts:590`) — **removed**.
@@ -117,7 +161,7 @@ rather than deleting the dependency or silently suppressing the warning.
     `tsc --noEmit`, `check:dist`, `check:versions`, `test` — 134/134 files,
     2012/2012 tests) passed unchanged after removal.
 
-### Unused exports — 53 findings
+### Unused exports — 46 findings
 
 **Important correction from the `chore/tighten-export-surface` pass:** a
 plain reading of "Knip says this export is unused" as "this code is dead"
@@ -169,25 +213,17 @@ remains here, grouped by why it's outstanding:
   origin file instead. **Needs a maintainer call, not a deletion**, since
   removing a barrel export is an API-shape decision, even though nothing
   breaks today.
-- **Confirmed genuinely dead (verified this pass, not yet deleted):**
-  `rangeSize` (`src/core/clipboard.ts`), `rowHiddenByFilter`
-  (`src/core/filter.ts`), and a small dead cluster in `src/core/spill.ts`
-  — `derivedValue` calls `anchorOfDerived` but nothing calls
-  `derivedValue` itself, and `isDerivedCell`/`isBlockedAnchor` are called
-  by nothing at all — plus `openPopover` (`src/ui/dialogs/shared.ts`),
-  whose only other appearance in the file is inside a comment
-  (``Unlike `openPopover`, an ...``), not real code. Left for a
-  dedicated `safe-delete` PR rather than mixed into the mechanical
-  unexport pass above.
+  This pass's own "Confirmed genuinely dead" findings (`rangeSize`,
+  `rowHiddenByFilter`, the `spill.ts` cluster, `openPopover`, `ColorKey`)
+  have since been removed — see "Resolved findings" above.
 
-### Unused exported types — 8 findings
+### Unused exported types — 7 findings
 
-Same categories as above: `ColorKey` (`src/core/cell-style.ts`) is
-confirmed genuinely dead (same list as above); `CriteriaOp`/`WildcardKind`
-(`src/core/formula-criteria.ts`) and `ErrorCode`/`FnContext`/`RefNode`
-(`src/core/formula.ts`) are deferred with the rest of the formula engine;
-`RsfWorksheetKind`/`RsfDisplaySettings` (`src/core/rsf-codec.ts`) are
-deferred with the rest of the RSF codec.
+`CriteriaOp`/`WildcardKind` (`src/core/formula-criteria.ts`) and
+`ErrorCode`/`FnContext`/`RefNode` (`src/core/formula.ts`) are deferred
+with the rest of the formula engine; `RsfWorksheetKind`/
+`RsfDisplaySettings` (`src/core/rsf-codec.ts`) are deferred with the rest
+of the RSF codec.
 
 ### Duplicate exports — 1 finding — needs human judgment, not a bug
 
@@ -228,8 +264,14 @@ along.
   also confirmed 8 findings (`rangeSize`, `rowHiddenByFilter`,
   `src/core/spill.ts`'s `anchorOfDerived`/`derivedValue`/`isDerivedCell`/
   `isBlockedAnchor`, `openPopover`, `ColorKey`) as genuinely dead — zero
-  usage anywhere, including internally — left for a follow-up
-  `safe-delete` PR rather than mixed into this mechanical pass.
+  usage anywhere, including internally.
+- **`chore/remove-dead-spill-clipboard-filter-helpers`:** removed exactly
+  those 8 findings (branched independently off `main`, in parallel with
+  `chore/tighten-export-surface`; this entry records the merge of both).
+  See "Resolved findings" above for the evidence, including the
+  `rsf-document.ts` cross-check that confirms the `spill.ts` cluster was
+  never wired into the real feature, and the recorded issue #393
+  migration that explains `openPopover`.
 
 This file will keep getting updated in place as future `safe-delete` PRs
 verify and act on more of the remaining findings, rather than each PR

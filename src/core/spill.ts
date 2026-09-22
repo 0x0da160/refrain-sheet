@@ -225,35 +225,3 @@ export function buildSpillMap(source: SpillSource): SpillMap {
   }
   return { anchors, derived, blocked };
 }
-
-/** The anchor a derived cell belongs to, or null when the cell is ordinary. */
-export function anchorOfDerived(map: SpillMap, row: number, col: number): SpillAnchor | null {
-  const anchorKey = map.derived.get(cellKey(row, col));
-  return anchorKey === undefined ? null : (map.anchors.get(anchorKey) ?? null);
-}
-
-/**
- * The value a derived cell displays, or null when the cell is not derived.
- * Reading is O(1): the anchor's grid is indexed directly by the offset.
- */
-export function derivedValue(
-  map: SpillMap,
-  row: number,
-  col: number,
-): ValueGrid['cells'][number][number] | null {
-  const anchor = anchorOfDerived(map, row, col);
-  if (!anchor) {
-    return null;
-  }
-  return anchor.grid.cells[row - anchor.row][col - anchor.col];
-}
-
-/** True when the cell is a derived spill cell (not the anchor). */
-export function isDerivedCell(map: SpillMap, row: number, col: number): boolean {
-  return map.derived.has(cellKey(row, col));
-}
-
-/** True when the anchor at this cell could not spill and shows `#SPILL!`. */
-export function isBlockedAnchor(map: SpillMap, row: number, col: number): boolean {
-  return map.blocked.has(cellKey(row, col));
-}

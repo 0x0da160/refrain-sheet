@@ -26,10 +26,6 @@ export function rangeContains(range: CellRange, row: number, col: number): boole
   return row >= range.top && row <= range.bottom && col >= range.left && col <= range.right;
 }
 
-export function rangeSize(range: CellRange): { rows: number; cols: number } {
-  return { rows: range.bottom - range.top + 1, cols: range.right - range.left + 1 };
-}
-
 interface ReadableDocument {
   getDisplayValue(row: number, col: number): string;
   getValue(row: number, col: number): string;

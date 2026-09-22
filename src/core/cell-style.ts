@@ -94,7 +94,6 @@ export type BorderSide = (typeof BORDER_SIDES)[number];
 
 /** Color-valued style properties (the border sides plus text/background). */
 export const COLOR_KEYS = ['textColor', 'backgroundColor', ...BORDER_SIDES] as const;
-export type ColorKey = (typeof COLOR_KEYS)[number];
 
 /** A border side's line style — the native CSS `border-style` keywords this app supports. */
 export type BorderLineStyle = 'solid' | 'dashed' | 'dotted' | 'double';

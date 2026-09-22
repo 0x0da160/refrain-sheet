@@ -31,17 +31,17 @@ shared source of truth for this list, the autocomplete metadata, and the
 evaluator, so documented functions cannot drift from implemented ones — a
 test enforces this.
 
-| Group                       | Functions                                                                                             |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Aggregation                  | `SUM` `AVERAGE` `MIN` `MAX` `COUNT` `COUNTA` `COUNTBLANK`                                                |
-| Conditional aggregation      | `COUNTIF` `COUNTIFS` `SUMIF` `SUMIFS` `AVERAGEIF` `AVERAGEIFS`                                           |
-| Logical and error handling   | `IF` `AND` `OR` `NOT` `IFERROR`                                                                          |
-| Math and rounding            | `ROUND` `ROUNDUP` `ROUNDDOWN` `ABS` `MOD`                                                                |
-| Lookup and reference         | `XLOOKUP` `VLOOKUP` `INDEX` `MATCH`                                                                      |
-| Text                         | `LEFT` `RIGHT` `MID` `LEN` `TRIM` `CONCAT` `TEXTJOIN` `SUBSTITUTE` `REPLACE` `UPPER` `LOWER` `TEXT`     |
-| Date and time                | `TODAY` `NOW` `DATE` `YEAR` `MONTH` `DAY` `DATEDIF`                                                      |
-| Statistics                   | `MEDIAN` `MODE.SNGL` `STDEV.S` `STDEV.P` `RANK.EQ`                                                       |
-| Dynamic arrays                | `FILTER` `UNIQUE` `SORT` `SEQUENCE`                                                                      |
+| Group                      | Functions                                                                                           |
+| -------------------------- | --------------------------------------------------------------------------------------------------- |
+| Aggregation                | `SUM` `AVERAGE` `MIN` `MAX` `COUNT` `COUNTA` `COUNTBLANK`                                           |
+| Conditional aggregation    | `COUNTIF` `COUNTIFS` `SUMIF` `SUMIFS` `AVERAGEIF` `AVERAGEIFS`                                      |
+| Logical and error handling | `IF` `AND` `OR` `NOT` `IFERROR`                                                                     |
+| Math and rounding          | `ROUND` `ROUNDUP` `ROUNDDOWN` `ABS` `MOD`                                                           |
+| Lookup and reference       | `XLOOKUP` `VLOOKUP` `INDEX` `MATCH`                                                                 |
+| Text                       | `LEFT` `RIGHT` `MID` `LEN` `TRIM` `CONCAT` `TEXTJOIN` `SUBSTITUTE` `REPLACE` `UPPER` `LOWER` `TEXT` |
+| Date and time              | `TODAY` `NOW` `DATE` `YEAR` `MONTH` `DAY` `DATEDIF`                                                 |
+| Statistics                 | `MEDIAN` `MODE.SNGL` `STDEV.S` `STDEV.P` `RANK.EQ`                                                  |
+| Dynamic arrays             | `FILTER` `UNIQUE` `SORT` `SEQUENCE`                                                                 |
 
 Dynamic-array functions (`FILTER`, `UNIQUE`, `SORT`, `SEQUENCE`, plus
 `XLOOKUP`/`INDEX`/`IFERROR` when asked for a whole row or column) are

@@ -60,13 +60,13 @@ it.
 Everything is available from the **Sheet** menu, the worksheet strip's
 context menu (right-click a worksheet tab), and the keyboard:
 
-| Action              | How                                                          |
-| ------------------- | ------------------------------------------------------------ |
-| Switch worksheet    | Click a tab, `←` / `→`, `Home` / `End`, or `F7` / `Shift+F7` |
-| Add worksheet       | The `+` button, or Sheet > Add Worksheet                     |
-| Rename worksheet    | Double-click a tab, `F2`, or Sheet > Rename Worksheet…       |
-| Duplicate worksheet | Sheet > Duplicate Worksheet…                                 |
-| Delete worksheet    | Sheet > Delete Worksheet                                     |
+| Action              | How                                                            |
+| ------------------- | -------------------------------------------------------------- |
+| Switch worksheet    | Click a tab, `←` / `→`, `Home` / `End`, or `F7` / `Shift+F7`   |
+| Add worksheet       | The `+` button, or Sheet > Add Worksheet                       |
+| Rename worksheet    | Double-click a tab, `F2`, or Sheet > Rename Worksheet…         |
+| Duplicate worksheet | Sheet > Duplicate Worksheet…                                   |
+| Delete worksheet    | Sheet > Delete Worksheet                                       |
 | Reorder worksheet   | Drag a tab, `Alt`+`←` / `→`, `Alt`+`Home` / `End`, or the menu |
 
 Drag-and-drop reordering is a convenience only — every reorder has a
@@ -105,7 +105,7 @@ Enter to commit a Japanese candidate never submits the dialog).
 Worksheets appear in their own strip below the grid, separate from the
 document tab strip above it:
 
-| Strip                   | Lists                                     | Owner                |
+| Strip                    | Lists                                     | Owner                |
 | ------------------------ | ----------------------------------------- | -------------------- |
 | Document tab strip (top) | open **documents** (files)                | `AppState.tabs`      |
 | Worksheet strip (bottom) | **worksheets** inside the active workbook | `RsfDocument.sheets` |

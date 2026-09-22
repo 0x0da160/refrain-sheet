@@ -40,12 +40,12 @@ grid.
 **All four A1-style forms** are supported, including as range endpoints and
 on whole-column/row spans:
 
-| Form    | Meaning         | Example                       |
-| ------- | --------------- | ------------------------------ |
-| `A1`    | relative        | `A1`, `SUM(A1:A10)`           |
-| `$A$1`  | absolute        | `$A$1`, `SUM($A$1:$A10)`      |
-| `$A1`   | absolute column | `$A1`, `$A:C`                 |
-| `A$1`   | absolute row    | `A$1`, `$1:10`                |
+| Form   | Meaning         | Example                  |
+| ------ | --------------- | ------------------------ |
+| `A1`   | relative        | `A1`, `SUM(A1:A10)`      |
+| `$A$1` | absolute        | `$A$1`, `SUM($A$1:$A10)` |
+| `$A1`  | absolute column | `$A1`, `$A:C`            |
+| `A$1`  | absolute row    | `A$1`, `$1:10`           |
 
 The `$` markers are preserved exactly as written when formulas are
 displayed, stored, and rewritten. Copying, pasting, filling, and Insert

@@ -41,7 +41,7 @@ to a custom number or set to **unlimited**, from **Sheet > File Version
 History…**. When a save would exceed a finite limit, a confirmation shows
 before the save happens (with a "don't show this warning again" option,
 saved locally in the browser); it never blocks a save when the limit is
-unlimited. Turning history off stops recording *new* snapshots but keeps
+unlimited. Turning history off stops recording _new_ snapshots but keeps
 the ones already saved.
 
 ## Restore and Preview

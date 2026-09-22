@@ -28,6 +28,10 @@ change.
   smartphone-first operation, notifications, configuration/permissions,
   budget/rollback/release, and a clearly-marked roadmap of features that
   are designed but **not** enabled.
+- [Domains](domains/index.md) — user-facing spreadsheet/CSV-editor behavior:
+  the preservation guarantee, workbook/worksheet lifecycle, formulas and
+  references, the function and error inventory, dynamic arrays, undo/redo,
+  import/export/conversion, and version history.
 
 This bundle is a work in progress: `docs/architecture.md`, `docs/security.md`,
 `docs/performance.md`, `docs/rsf-format.md`, and `docs/agent-operations.md`

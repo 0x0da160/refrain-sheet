@@ -32,3 +32,28 @@ own earlier version-selection sections do document correctly — the table
 here is built from those authoritative version-selection sections instead
 of the narrative prose, and includes all of them. `docs/rsf-format.md`
 itself was left in place, unedited, same as the other migrated docs.
+
+**`agent-loop/` domain added.** `docs/agent-operations.md` (961 lines)
+migrated into `knowledge/agent-loop/` — **not** a straight port, unlike
+the three domains above. The source document mixes four different kinds
+of content under one flat heading structure: durable policy (what Claude
+may decide on its own, the bilingual-communication contract), an
+operational runbook (how a human runs the loop from a phone), reference
+configuration (workflow permissions, model/auth selection), and a
+roadmap of features that are explicitly documented as **not enabled**
+(auto-merge criteria, scheduled autonomous research). Splitting by kind
+rather than by source heading order produced eight concepts:
+`lifecycle.md`, `autonomous-execution-policy.md`,
+`bilingual-communication.md`, `smartphone-operation.md`,
+`notifications.md`, `configuration-and-permissions.md`,
+`budget-rollback-and-release.md`, and `roadmap-not-enabled.md`. The last
+one carries `status: proposed` rather than `stable` — every other concept
+in this bundle so far has described shipped, current behavior, and this
+is the bundle's first concept that deliberately does not, so its status
+field says so rather than leaving a reader to infer it from the title.
+`configuration-and-permissions.md` also carries forward, without
+resolving, a discrepancy already recorded in the source document itself:
+`main` currently has no branch protection configured, contradicting the
+setup steps the same document describes — flagged for the maintainer,
+not silently fixed or silently dropped. `docs/agent-operations.md` itself
+was left in place, unedited, same as the other migrated docs.

@@ -23,8 +23,13 @@ change.
 - [Formats](formats/index.md) — the `.rsf` binary container specification:
   framing, body grammar (single-sheet and workbook), cross-sheet formulas,
   the value model, dynamic arrays, and versioning/compatibility.
+- [Agent loop](agent-loop/index.md) — the GitHub Issue-driven engineering
+  loop: lifecycle, autonomous execution policy, bilingual communication,
+  smartphone-first operation, notifications, configuration/permissions,
+  budget/rollback/release, and a clearly-marked roadmap of features that
+  are designed but **not** enabled.
 
 This bundle is a work in progress: `docs/architecture.md`, `docs/security.md`,
-`docs/performance.md`, and `docs/rsf-format.md` have all been migrated into
-the domains above (each old file is left in place, unedited, as the
-pre-migration source — see `knowledge/log.md`).
+`docs/performance.md`, `docs/rsf-format.md`, and `docs/agent-operations.md`
+have all been migrated into the domains above (each old file is left in
+place, unedited, as the pre-migration source — see `knowledge/log.md`).

@@ -3,9 +3,10 @@
 # This file is DATA + DOCUMENTATION. No workflow in this repository creates or
 # syncs labels automatically (that would need broader permissions and a
 # third-party action). A human creates these once with the GitHub CLI — see the
-# ready-to-paste commands in docs/agent-operations.md ("Human Setup Required").
+# ready-to-paste commands in knowledge/agent-loop/configuration-and-permissions.md
+# ("Human setup required").
 #
-# State machine (see docs/agent-operations.md):
+# State machine (see knowledge/agent-loop/lifecycle.md):
 #   agent:triage -> [human applies agent:ready]
 #     -> agent:working -> agent:review -> [human merge] -> agent:done
 #   agent:needs-spec is a SIDE BRANCH, not a required stage: it is used only when

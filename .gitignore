@@ -9,7 +9,7 @@ wasm/target/
 wasm/pkg/
 
 # ----- Secrets: never commit credentials or local environment files -----
-# (See docs/security.md. The committed .npmrc holds config only — no tokens.)
+# (See knowledge/operations/security-supply-chain.md. The committed .npmrc holds config only — no tokens.)
 .env
 .env.*
 !.env.example

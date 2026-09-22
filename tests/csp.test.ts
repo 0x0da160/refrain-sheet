@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Guards the hosted/offline CSP split. The offline policy is pinned
 // byte-for-byte because it is the mechanical form of the no-network guarantee
-// in docs/security.md; the hosted policy may only ever differ from it by
+// in knowledge/operations/security-threat-model.md; the hosted policy may only ever differ from it by
 // origins that were explicitly added to HOSTED_ALLOWLIST.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';

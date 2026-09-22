@@ -3,7 +3,7 @@ type: architecture-concept
 title: System overview
 description: The four architectural layers, command flow, document/workbook data flow, the WASM boundary, the SQL engine, and long-running-operation slicing.
 sources:
-  - resource: ../../docs/architecture.md
+  - resource: docs/architecture.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -78,7 +78,8 @@ Two document kinds share one duck-typed editing surface (`EditorDocument`):
   `Worksheet`s (`src/core/worksheet.ts`). Cell inputs are the document;
   formulas evaluate lazily with memoization and full memo invalidation per
   mutation. Saved as the versioned binary `.rsf` container
-  (`src/core/rsf-codec.ts`; spec in `docs/rsf-format.md`); legacy `.rcsv`
+  (`src/core/rsf-codec.ts`; spec in
+  [formats/rsf/index.md](../formats/rsf/index.md)); legacy `.rcsv`
   containers are read and migrated.
 
 ### Workbooks and worksheets
@@ -107,7 +108,9 @@ confirmed** (never silent), and CSV → RSF is documented as lossy with
 respect to the original byte layout.
 
 A worksheet also has a **kind** (`'grid'`, `'markdown'`, `'json'`, `'yaml'`,
-or `'text'` — see `docs/rsf-format.md#worksheet-kind-body-version-12`): a
+or `'text'` — see
+[formats/rsf/grammar-single-sheet-body.md](../formats/rsf/grammar-single-sheet-body.md#worksheet-kind-body-version-12)):
+a
 non-`grid` kind holds one document as its sole content (source lives in cell
 A1) and is rendered by a docked source/preview surface in the spreadsheet
 area instead of the grid while active. None of these kinds is ever evaluated
@@ -147,11 +150,25 @@ below).
 `src/core/sql-engine.ts` provides local, read-only SQL analysis (Data > Run
 SQL Query…), executed by [sql.js](https://github.com/sql-js/sql.js) (SQLite
 compiled to WebAssembly), embedded the same way as the Rust core (Base64,
-`scripts/embed-sqljs.mjs` → `src/wasm-gen/sqljs-wasm-payload.ts`). The engine
-has no dependency on the DOM or the command layer and never mutates its
-input. A query is accepted only when it tokenizes to a single statement
-whose first keyword is `SELECT` — not a keyword blacklist — so mutating
-statements are rejected before SQLite ever sees the query.
+`scripts/embed-sqljs.mjs` → `src/wasm-gen/sqljs-wasm-payload.ts`) and
+instantiated from those decoded bytes via sql.js's `wasmBinary` option —
+`locateFile()` is never set, so the `file://` / `connect-src 'none'` offline
+guarantee holds exactly as it does for the Rust core (`scripts/check-dist.mjs`
+asserts both). The engine has no dependency on the DOM or the command layer
+and never mutates its input: `src/app/commands/sql.ts` adapts a `Tab`'s
+document into the engine's plain `SqlTable` shape (a header row plus string
+rows, capped at `SQL_MAX_SOURCE_ROWS`), loaded into a fresh, ephemeral
+in-memory SQLite database per query (closed immediately after). A query is
+accepted only when it tokenizes to a single statement whose first keyword is
+`SELECT` — not a keyword blacklist (string/quoted-identifier contents and
+comments can never hide or fake a keyword) — so
+`INSERT`/`UPDATE`/`DELETE`/`DROP`/`ATTACH`/`PRAGMA`/a second statement/etc.
+are all rejected before SQLite ever sees the query. There is exactly one
+queryable table per query — the fixed literal `data` in `FROM data` — so a
+worksheet's display name never has to be parsed or escaped as a SQL
+identifier; `WITH` and `EXPLAIN` are deliberately still rejected by the gate
+for this first iteration (see the file's header comment for the exact scope
+and why).
 
 ## Long-running operations
 

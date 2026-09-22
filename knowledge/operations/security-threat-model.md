@@ -3,7 +3,7 @@ type: operations-concept
 title: Security threat model
 description: The offline-by-design guarantee, the Google Drive sync exception's exact scope, the trust-boundary/control table, and how the formula engine treats every input as hostile.
 sources:
-  - resource: ../../docs/security.md
+  - resource: docs/security.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -132,9 +132,10 @@ parser nesting depth (400 units), cells per range argument (2,000,000),
 dynamic-array rows/columns/cells (100,000 / 16,384 / 1,000,000), spill
 anchors per worksheet (512), spilled cells per worksheet (1,000,000), text
 result length (32,767), criteria length (512), criteria pairs (32), and
-sort keys (8) — `docs/rsf-format.md` carries the same table with each
-bound's rationale. Exceeding one produces an ordinary formula error in that
-one cell (`#NUM!`, `#VALUE!`, `#SPILL!`), never a crash or hang.
+sort keys (8) — [formats/rsf/dynamic-arrays.md](../formats/rsf/dynamic-arrays.md)
+carries the same table with each bound's rationale. Exceeding one produces
+an ordinary formula error in that one cell (`#NUM!`, `#VALUE!`, `#SPILL!`),
+never a crash or hang.
 
 Two further correctness controls that happen to matter for safety:
 evaluation is deterministic and host-independent (UTC-only dates,

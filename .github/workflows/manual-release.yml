@@ -27,7 +27,7 @@ name: Manual release recovery
 #
 # NOTE ON `dry_run`: the input defaults to `false`, so the box must be ticked to
 # get a validation-only run. Run it that way first — see
-# docs/agent-operations.md § Manual release recovery.
+# knowledge/agent-loop/budget-rollback-and-release.md § Manual release recovery.
 #
 # NOTE ON `pr_number` and `use_latest_merged_pr`: the release source is ALWAYS one
 # specific merged pull request. That is the authorization and the audit trail, and

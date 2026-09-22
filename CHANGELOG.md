@@ -1002,8 +1002,9 @@ release-time half (retitling `Unreleased`) is still done by hand.
   WebAssembly, embedded as Base64 at build time), adding support for joins,
   subqueries, and SQLite's comparison, aggregate, and scalar functions on
   top of the existing single-`SELECT` dialog — while keeping the query fully
-  local, with zero runtime network access (see `docs/architecture.md` "The
-  SQL query engine"). ([#277](https://github.com/0x0da160/refrain-sheet/issues/277))
+  local, with zero runtime network access (see
+  `knowledge/architecture/system-overview.md` "The SQL query engine").
+  ([#277](https://github.com/0x0da160/refrain-sheet/issues/277))
 
 ## [0.7.10] - 2026-08-06
 

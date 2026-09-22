@@ -3,7 +3,7 @@ type: operations-concept
 title: Performance principles
 description: The responsiveness principles, the "what is optimized where" map, and the deliberate non-optimizations, including the WASM-offload candidates surveyed in Issue #408.
 sources:
-  - resource: ../../docs/performance.md
+  - resource: docs/performance.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -78,9 +78,14 @@ moved into the Rust core.
   into JavaScript once per key per comparison via an injected
   `get(row, col)` closure; materializing every cell's displayed text
   first would cost more than the sort itself.
-- **Filter row matching** (`src/core/filter.ts`) — a linear scan of plain
-  string/number comparisons V8 already optimizes well; would hit the same
-  closure-per-cell problem as sort.
+- **Filter row matching** (`src/core/filter.ts`, `computeHiddenRows`) — a
+  linear scan of plain `includes`/`startsWith`/`===`/`Number()` comparisons
+  per cell, no regex. Like `statsAggregate` (see the note in
+  [performance-measurements.md](performance-measurements.md)), the cost is
+  dominated by `Number()` parsing and string comparisons V8 already
+  optimizes well, not by anything a Rust loop would meaningfully speed up;
+  offloading it would hit the same `get(row, col)`-closure-per-cell problem
+  as sort, at a larger call count.
 - **`SUMIFS`/`COUNTIFS`/wildcard criteria matching**
   (`src/core/formula-functions.ts`, `src/core/formula-criteria.ts`) — the
   closest real candidate (~166–244 ms per 100,000 cells measured), but the

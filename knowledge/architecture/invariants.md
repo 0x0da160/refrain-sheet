@@ -3,7 +3,7 @@ type: architecture-concept
 title: Key invariants
 description: The behavioral guarantees — CSV byte preservation, atomic undo history, RSF container safety, and others — that tests and code review exist to protect.
 sources:
-  - resource: ../../docs/architecture.md
+  - resource: docs/architecture.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -27,7 +27,9 @@ generated:
 - **Presentational state rides with its edit:** enabling "wrap long rows"
   automatically because a committed value contains a line break is a `wrap`
   operation bundled into the **same** `HistoryEntry` as the edit, so one
-  undo restores both the value and the prior wrap state. It never marks a
+  undo restores both the value and the prior wrap state. It is decided from
+  the _displayed_ value (a formula's result, never its source), announced
+  politely, and — for RSF — persisted per worksheet; it never marks a
   document dirty and never touches CSV bytes.
 - **Range move rewrites references, never guesses:** moving a rectangle
   (`src/core/range-move.ts`, RSF-only) plans every cell write and formula
@@ -45,12 +47,13 @@ generated:
   column widths) are presentational only — validated and clamped on load,
   never affect cell data, never mark a document dirty. A structurally
   readable but invalid filter is dropped (never guessed at) with a warning
-  (see `docs/rsf-format.md`).
+  (see [formats/rsf/index.md](../formats/rsf/index.md)).
 - **Filter = hide only, never mutate:** a filter (`src/core/filter.ts`) only
   computes a hidden-row set; it never deletes, reorders, or rewrites cells,
-  and formula evaluation is unaffected. Copy/fill/clear/Flash
-  Fill/selection-stats and keyboard navigation all skip hidden rows
-  consistently.
+  and formula evaluation is unaffected. The virtualized grid collapses
+  hidden rows to zero height in the row-height index — no DOM is
+  materialized for them — and copy/fill/clear/Flash Fill/selection-stats
+  and keyboard navigation all skip hidden rows consistently.
 - **Sort = display order only, never mutate:** a sort (`src/core/sort.ts`)
   only computes a display-order mapping; it never deletes, reorders, or
   rewrites cells. Unlike a filter, a sort is session-only view state — never

@@ -3,7 +3,7 @@
  * A hand-written, dependency-free row-diff engine for comparing two tables
  * shaped like `sql-engine.ts`'s `SqlTable` (a header row plus string rows) —
  * see docs/csv-diff-review-proposal.md for the product background and
- * docs/architecture.md "The SQL query engine" for why this, like the SQL
+ * knowledge/architecture/index.md "The SQL query engine" for why this, like the SQL
  * engine, carries no new dependency (a WASM RDB was evaluated and rejected
  * there for the same CSP/module-loading/dependency-count reasons).
  *
@@ -36,7 +36,7 @@
  * original-case text — normalization only affects what counts as equal.
  *
  * Every bound below is enforced before or during evaluation, mirroring
- * `sql-engine.ts`'s documented bounds table in docs/security.md.
+ * `sql-engine.ts`'s documented bounds table in knowledge/operations/security-threat-model.md.
  */
 import type { SqlTable } from './sql-engine';
 

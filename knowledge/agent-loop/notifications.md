@@ -3,7 +3,7 @@ type: agent-loop-concept
 title: Mobile notifications
 description: The GitHub @mention mechanism that drives GitHub Mobile push notifications, which events mention and which stay quiet, de-duplication via a hidden marker, and the release/Pages notification gap.
 sources:
-  - resource: ../../docs/agent-operations.md
+  - resource: docs/agent-operations.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5

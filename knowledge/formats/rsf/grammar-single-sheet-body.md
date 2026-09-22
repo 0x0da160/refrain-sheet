@@ -3,7 +3,7 @@ type: format-concept
 title: RSF single-sheet body grammar
 description: The container-version-3 body layout — the full 17-version-gated field encoding, one section per feature that raised the version, and the load-time bounds table.
 sources:
-  - resource: ../../../docs/rsf-format.md
+  - resource: docs/rsf-format.md (migrated content; file removed after migration — see knowledge/log.md)
   - resource: ../../../src/core/rsf-codec.ts
 status: stable
 generated:

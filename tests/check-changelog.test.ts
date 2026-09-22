@@ -18,7 +18,9 @@ describe('needsChangelogEntry', () => {
   it('ignores changes outside the application source trees', () => {
     expect(needsChangelogEntry(['tests/formula.test.ts'])).toBe(false);
     expect(needsChangelogEntry(['.github/workflows/ci.yml', 'scripts/release.mjs'])).toBe(false);
-    expect(needsChangelogEntry(['docs/security.md', 'README.md', 'package.json'])).toBe(false);
+    expect(
+      needsChangelogEntry(['knowledge/operations/security-threat-model.md', 'README.md', 'package.json']),
+    ).toBe(false);
   });
 
   it('does not mistake a similarly named path for application source', () => {

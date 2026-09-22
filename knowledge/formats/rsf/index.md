@@ -13,13 +13,14 @@ representation of an imported CSV.
 > bytes, and container version changed; the on-disk structure is otherwise
 > identical — see [compatibility.md](compatibility.md).
 
-Migrated from `docs/rsf-format.md`. The reference implementation lives in
-`src/core/rsf-codec.ts` (framing) and `wasm/src/compress.rs` (compression +
-checksum). **High risk, human-review area:** `CLAUDE.md` calls out the RSF
-codec by name as needing "extra care, full `test:rust`, and human review"
-for any _code_ change — this knowledge domain documents the existing,
-shipped format precisely as `docs/rsf-format.md` and the reference
-implementation define it; it does not propose or imply any format change.
+Migrated from the former `docs/rsf-format.md`, now removed — see
+[`knowledge/log.md`](../../log.md) for the migration history. The reference
+implementation lives in `src/core/rsf-codec.ts` (framing) and
+`wasm/src/compress.rs` (compression + checksum). **High risk, human-review
+area:** `CLAUDE.md` calls out the RSF codec by name as needing "extra care,
+full `test:rust`, and human review" for any _code_ change — this knowledge
+domain documents the existing, shipped format precisely as the reference
+implementation defines it; it does not propose or imply any format change.
 
 - [Overview](overview.md) — design goals, compression methods, container
   header layout, and the workbook/worksheet model.

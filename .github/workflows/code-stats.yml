@@ -7,7 +7,7 @@ name: Code statistics
 # It does NOT commit to `main`. When the numbers change, the workflow pushes a
 # single rolling branch (`chore/code-stats`) and opens — or leaves open — one
 # pull request, so the README change is reviewed like every other change in this
-# repository. `docs/security.md` § "CI permission model" records why: the
+# repository. `knowledge/operations/security-supply-chain.md` § "CI permission model" records why: the
 # invariant is that only the tag-gated `release.yml` writes to the repository
 # without review, and opening a pull request keeps that intact even though this
 # job does hold `contents: write`.
@@ -33,7 +33,7 @@ concurrency:
   group: code-stats
   cancel-in-progress: true
 
-# Action-pinning policy (see docs/security.md): only official GitHub-maintained
+# Action-pinning policy (see knowledge/operations/security-supply-chain.md): only official GitHub-maintained
 # actions/* are used here, pinned to a major version tag. `cloc` is installed
 # from the signed Ubuntu archive rather than through a third-party action, so no
 # new SHA-pinned third-party dependency is introduced.

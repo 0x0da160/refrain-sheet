@@ -25,7 +25,7 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Action-pinning policy (see docs/security.md): only official GitHub-maintained
+# Action-pinning policy (see knowledge/operations/security-supply-chain.md): only official GitHub-maintained
 # actions/* are used here, pinned to a major version tag. Any third-party (non
 # actions/*) action MUST instead be pinned to a full commit SHA. There are
 # currently no third-party actions in this workflow.
@@ -98,7 +98,7 @@ jobs:
       # scripts/csp.mjs emits per mode. The two policies are byte-identical
       # today; building and validating both here is what stops a future
       # hosted-only relaxation from ever reaching the offline dist/ that ships
-      # in the release ZIP. See docs/security.md.
+      # in the release ZIP. See knowledge/operations/security-supply-chain.md.
       # Mirrors the release build. A pull request from a fork sees an empty
       # variable and simply builds without Drive sync, which must also work —
       # only the release path requires the credential to be present.

@@ -1181,7 +1181,7 @@ function evalNode(ast: AstNode, ctx: EvalContext): EvalResult {
  * array in an arithmetic position is `#VALUE!` rather than being broadcast,
  * because element-wise broadcasting would silently turn `=SEQUENCE(3)+1` into
  * a spilling formula and change what an existing workbook computes. This
- * limitation is documented in the help dialog and `docs/rsf-format.md`.
+ * limitation is documented in the help dialog and `knowledge/formats/rsf/index.md`.
  */
 function asScalar(result: EvalResult): FormulaValue | null {
   if (result.kind === 'scalar') {

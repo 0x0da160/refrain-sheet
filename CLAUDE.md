@@ -10,6 +10,18 @@ from a single static HTML file. This file is a contract: follow it exactly.
 - Performance core: Rust compiled to WebAssembly in `wasm/`, embedded as Base64.
 - Tests: Vitest (`tests/`) + Rust unit tests. Lint: ESLint 9. Format: Prettier.
 
+## Durable knowledge
+
+This file stays small and operational on purpose. Deeper domain knowledge —
+architecture invariants, the security threat model, performance principles, the
+full RSF binary format spec, and the GitHub agent loop's design — lives in
+[`knowledge/index.md`](knowledge/index.md), an
+[Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)
+bundle. Read the relevant domain index there first, then open only the concept
+files a task actually needs; do not read the whole bundle for a local change.
+`wasm/` has its own `CLAUDE.md` for Rust-crate-specific conventions this file
+does not duplicate.
+
 ## Toolchain (Docker-first)
 
 The host may have no Node or Rust. Run every command inside the pinned container:

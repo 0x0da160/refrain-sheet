@@ -2,7 +2,7 @@
 import { FilePlus, FilePlus2, FolderOpen } from 'lucide';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
-import { createAppIcon } from './app-icon';
+import { createAppLogotype } from './app-icon';
 import { el, clearChildren } from './dom';
 import { createIcon } from './icon';
 
@@ -57,12 +57,13 @@ export class WelcomeScreen {
     );
     createCsv.addEventListener('click', () => void this.commands.run('file.newCsv'));
     this.element.append(
-      // Decorative: the welcome title states the product name, so the icon is
-      // hidden from assistive technology. Sized via width/height attributes;
-      // vector SVG stays crisp at any display density, and it follows the
-      // light/dark theme.
-      createAppIcon('welcome-icon block flex-none rounded-2xl', 72),
-      el('h1', { className: 'm-0 text-[22px]', text: t('app.title') }),
+      // The design system's fixed icon+wordmark logotype, not the icon and
+      // product name re-set separately: nothing else here states the product
+      // name, so (unlike the small app icon elsewhere) it carries a real
+      // accessible name instead of being decorative. Wrapped in the page's
+      // one <h1> for heading semantics; sized via width/height attributes so
+      // it never shifts layout, and it follows the light/dark theme.
+      el('h1', { className: 'm-0' }, [createAppLogotype('welcome-logotype block', 44)]),
       el('p', { className: 'm-0 text-dim', text: t('app.subtitle') }),
       el('div', { className: 'mt-[10px] mb-[2px] flex flex-wrap justify-center gap-[10px]' }, [
         open,

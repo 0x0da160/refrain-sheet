@@ -44,6 +44,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
   re-verified against WCAG AA (4.5:1) in all three themes, same as the
   previous recolor. The landing page's marketing screenshots were
   regenerated to match.
+- The app's menu bar (at desktop width) and welcome screen, and the landing
+  site's header on every page, now show the design system's fixed
+  icon+wordmark logotype instead of the small icon next to a plain text
+  product name. At the narrow/mobile width where the wider logotype doesn't
+  fit, the menu bar still shows the compact icon alone, as before.
 
 ### Added
 

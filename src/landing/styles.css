@@ -187,7 +187,7 @@ p {
   letter-spacing: -0.01em;
   text-decoration: none;
 }
-.brand svg {
+.brand img {
   flex: none;
 }
 .nav {
@@ -848,13 +848,9 @@ details.qa p {
 
 /* ---------- small screens ---------- */
 @media (max-width: 520px) {
-  .brand span {
-    font-size: 0.95rem;
-    white-space: nowrap;
-  }
-  .brand svg {
-    width: 22px;
+  .brand img {
     height: 22px;
+    width: 105px;
   }
   .header-inner {
     gap: var(--space-3);

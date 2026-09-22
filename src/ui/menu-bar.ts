@@ -84,7 +84,7 @@ import { getLocale, t } from '../app/i18n';
 import { SHEET_ZOOM_LEVELS } from '../app/settings';
 import { SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../app/sheet-font';
 import { THEMES, themeLabelKey, type ThemeChoice } from '../app/theme';
-import { createAppIcon } from './app-icon';
+import { createAppIcon, createAppLogotype } from './app-icon';
 import { el, clearChildren } from './dom';
 import { createIcon } from './icon';
 import { onViewportResize, positionPopup, type AnchorRect } from './popup';
@@ -784,13 +784,18 @@ export class MenuBar {
     // `.status-bar` and hide that row's sibling while the row expands, via a
     // plain CSS sibling selector — desktop-width CSS never reads this class.
     this.element.classList.toggle('mobile-menu-open', this.mobileMenuOpen);
-    // Decorative: the adjacent product name conveys the brand, so the icon is
-    // hidden from assistive technology. Explicit width/height reserve space so
-    // it never shifts layout or stretches; the SVG stays crisp at any DPI and
-    // swaps to the dark-theme variant with the theme.
+    // Two theme-aware brand assets, CSS-toggled by viewport (see styles.css):
+    // the full icon+wordmark logotype at desktop width, and the compact
+    // decorative icon + visually-hidden name at the narrow/mobile width where
+    // there isn't room for the logotype (the name stays in the accessibility
+    // tree even though only the icon is shown to sighted mobile users — see
+    // the mobile media query). Explicit width/height on both reserve space so
+    // neither ever shifts layout or stretches; both stay crisp at any DPI and
+    // swap to the dark-theme variant with the theme.
     this.element.append(
       createAppIcon('app-icon', 20),
       el('span', { className: 'app-name', text: t('app.title') }),
+      createAppLogotype('app-logotype', 22),
     );
     // `toggleElement` is a persistent sibling element (built once in the
     // constructor, see there for why), so only its state/locale-dependent

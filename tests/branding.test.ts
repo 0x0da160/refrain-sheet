@@ -98,7 +98,7 @@ beforeEach(() => {
 });
 
 describe('application icon', () => {
-  it('renders a decorative icon immediately left of the product name in the header', () => {
+  it('renders a decorative mobile-fallback icon immediately left of the product name in the header', () => {
     const state = new AppState();
     const commands = new Commands(state, stubUi(), document);
     const menu = new MenuBar(commands, menuChecks());
@@ -106,6 +106,8 @@ describe('application icon', () => {
     const icon = menu.element.querySelector<HTMLImageElement>('img.app-icon');
     expect(icon).not.toBeNull();
     // Decorative: the adjacent name conveys the brand, so it is hidden from AT.
+    // (Only shown at the narrow/mobile width — see styles.css — where the
+    // full logotype below doesn't fit.)
     expect(icon!.getAttribute('alt')).toBe('');
     expect(icon!.getAttribute('aria-hidden')).toBe('true');
     // A real local asset URL (bundled), never a remote/CDN reference.
@@ -119,16 +121,33 @@ describe('application icon', () => {
     expect(icon!.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('renders a decorative icon on the welcome screen', () => {
+  it('renders the icon+wordmark logotype (the desktop-width header branding) with a real accessible name', () => {
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    const menu = new MenuBar(commands, menuChecks());
+    document.body.append(menu.element);
+    const logotype = menu.element.querySelector<HTMLImageElement>('img.app-logotype');
+    expect(logotype).not.toBeNull();
+    // Unlike the mobile-fallback icon above, nothing else states the product
+    // name at this width, so the logotype itself carries it.
+    expect(logotype!.getAttribute('alt')).toBe(t('app.title'));
+    expect(logotype!.hasAttribute('aria-hidden')).toBe(false);
+    expect(logotype!.getAttribute('src')).toBeTruthy();
+    expect(logotype!.getAttribute('src')).not.toMatch(/^https?:\/\//);
+  });
+
+  it('renders the icon+wordmark logotype on the welcome screen with a real accessible name', () => {
     const state = new AppState();
     const commands = new Commands(state, stubUi(), document);
     const welcome = new WelcomeScreen(commands);
-    const icon = welcome.element.querySelector<HTMLImageElement>('img.welcome-icon');
-    expect(icon).not.toBeNull();
-    expect(icon!.getAttribute('alt')).toBe('');
-    expect(icon!.getAttribute('aria-hidden')).toBe('true');
-    expect(icon!.getAttribute('src')).toBeTruthy();
-    expect(icon!.getAttribute('src')).not.toMatch(/^https?:\/\//);
+    const logotype = welcome.element.querySelector<HTMLImageElement>('img.welcome-logotype');
+    expect(logotype).not.toBeNull();
+    expect(logotype!.getAttribute('alt')).toBe(t('app.title'));
+    expect(logotype!.hasAttribute('aria-hidden')).toBe(false);
+    expect(logotype!.getAttribute('src')).toBeTruthy();
+    expect(logotype!.getAttribute('src')).not.toMatch(/^https?:\/\//);
+    // Heading semantics: it's the welcome screen's one <h1>.
+    expect(welcome.element.querySelector('h1 img.welcome-logotype')).toBe(logotype);
   });
 });
 

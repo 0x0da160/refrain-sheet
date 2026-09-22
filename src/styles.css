@@ -339,20 +339,36 @@ body {
 
 /* Fixed box keeps the badge crisp and prevents any layout shift or stretching
    as the SVG loads; the icon carries its own background so it reads on both
-   light and dark menu bars. */
+   light and dark menu bars. Hidden by default: the desktop-width branding is
+   the full logotype below, not this icon + the plain-text name after it —
+   both switch back on at the narrow/mobile width (see the mobile media
+   query), where there's no room for the wider logotype. */
 .menu-bar .app-icon {
   width: 20px;
   height: 20px;
   flex: none;
   margin-left: 6px;
   border-radius: 4px;
-  display: block;
+  display: none;
 }
 
 .menu-bar .app-name {
   font-weight: 600;
   padding: 4px 10px 4px 6px;
   color: var(--text-dim);
+  display: none;
+}
+
+/* The desktop-width branding: the design system's fixed icon+wordmark
+   artwork (see app-icon.ts), never the icon and `.app-name` re-set
+   separately — those two stay in the DOM only for the narrow/mobile
+   fallback above. */
+.menu-bar .app-logotype {
+  height: 22px;
+  width: auto;
+  flex: none;
+  margin: 0 8px 0 6px;
+  display: block;
 }
 
 /* Hidden on desktop width (see the mobile layout section below), where
@@ -3474,6 +3490,17 @@ table.diff-table td {
     display: none;
   }
 
+  /* At this width the desktop logotype gives way to the compact icon +
+     visually-hidden name (there's no room for the wider logotype) — the
+     inverse of the desktop-width defaults in the non-mobile rules above. */
+  .menu-bar .app-icon {
+    display: block;
+  }
+
+  .menu-bar .app-logotype {
+    display: none;
+  }
+
   /* The icon is purely decorative (`alt=""` + `aria-hidden="true"`, see
      app-icon.ts), so hiding it while the mobile menu is open is a plain
      `display: none` rather than the accessible-tree-preserving technique
@@ -3486,8 +3513,13 @@ table.diff-table td {
      in the accessibility tree for assistive tech even though only the icon
      is shown to sighted mobile users (#478). Mirrors `.visually-hidden`
      further below, inlined here since that's a utility class applied via
-     markup rather than a mixin. */
+     markup rather than a mixin. `display` is re-declared because the
+     desktop-width default above turns this element off entirely (it's
+     redundant there — the logotype alone carries the accessible name), and
+     `display: none` would otherwise also remove it from the accessibility
+     tree this technique exists to keep it in. */
   .menu-bar .app-name {
+    display: block;
     position: absolute;
     width: 1px;
     height: 1px;

@@ -31,6 +31,10 @@ do not read this whole bundle to make a local change.
   the preservation guarantee, workbook/worksheet lifecycle, formulas and
   references, the function and error inventory, dynamic arrays, undo/redo,
   import/export/conversion, and version history.
+- [UI](ui/index.md) — interaction and presentation behavior: editing and
+  IME safety, selection/navigation, copy/paste/fill/Flash Fill, find and
+  replace, column resize/auto-fit, view/formatting/dockable panels, tabs
+  and the worksheet strip, mobile and touch, accessibility, and theming.
 
 `docs/architecture.md`, `docs/security.md`, `docs/performance.md`,
 `docs/rsf-format.md`, and `docs/agent-operations.md` — the pre-migration

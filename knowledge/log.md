@@ -101,3 +101,37 @@ body-version tables defer to `formats/rsf/dynamic-arrays.md` and
 guarantees defer to `architecture/invariants.md`. `domains/index.md` is a
 reserved index with no frontmatter, matching `architecture/index.md`'s
 pattern.
+
+**`ui/` domain added.** A new domain, not a migration of an existing
+`docs/` file — no prior document covered interaction/presentation
+behavior end to end. Ten concepts built primarily from `README.md`'s
+~1960-line product spec: `editing-and-ime.md`, `selection-and-navigation.md`,
+`copy-paste-fill-and-flash-fill.md`, `find-replace-and-goto.md`,
+`column-resize-and-autofit.md`, `view-formatting-and-panels.md`,
+`tabs-and-worksheet-strip.md`, `accessibility.md`, and
+`theming-and-visual-system.md` link out to `architecture/` (command flow,
+module boundaries, invariants) rather than repeating it. Two concepts
+required grounding beyond the README:
+
+- `mobile-and-touch.md` — the README barely mentions touch, so this concept
+  is built directly from `src/styles/mobile-layout.css`, `src/ui/dom.ts`,
+  `src/ui/grid.ts`'s pointer-event handling, and the mobile/touch test
+  suite (`tests/grid-touch.test.ts`, `tests/mobile-input-focus.test.ts`,
+  `tests/mobile-menu.test.ts`, `tests/mobile-zoom.test.ts`,
+  `tests/side-panel-mobile-dock.test.ts`) rather than invented from thin
+  prose; it is deliberately shorter than its siblings for that reason.
+- `theming-and-visual-system.md` — while grounding the "Theme (light /
+  dark)" section, found that `README.md` describes only System default /
+  Light / Dark and says new users start on System default, but
+  `src/app/theme.ts` defines a fourth `'hybrid'` choice that is actually
+  `DEFAULT_THEME`, confirmed by CHANGELOG entries for issues #363 and
+  #393. Documented from the code and CHANGELOG, with the README gap
+  flagged in-file for a maintainer to reconcile, rather than silently
+  fixed or silently dropped — same treatment as the branch-protection
+  discrepancy above.
+
+`view-formatting-and-panels.md` similarly flags, rather than resolves, a
+second stale line: `README.md`'s own "Limitations" section still says
+"Sorting and filtering are not available in this version," contradicting
+the detailed Filtering (RSF) / Sorting (RSF) sections earlier in the same
+document.

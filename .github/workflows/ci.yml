@@ -55,6 +55,13 @@ jobs:
       - name: Version consistency
         run: npm run check:versions
 
+      # Every knowledge/ concept file (see knowledge/index.md) must carry
+      # parseable OKF v0.2 frontmatter with a non-empty `type`; the bundle's
+      # reserved index.md/log.md files must carry none — see
+      # scripts/check-knowledge-frontmatter.mjs.
+      - name: Knowledge bundle frontmatter
+        run: npm run check:knowledge
+
       # CHANGELOG.md stopped being updated for nine releases because nothing
       # asked for it (Issue #178). This fails a pull request that changes
       # application source without a changelog entry; a genuinely internal

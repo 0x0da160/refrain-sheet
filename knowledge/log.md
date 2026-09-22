@@ -135,3 +135,19 @@ second stale line: `README.md`'s own "Limitations" section still says
 "Sorting and filtering are not available in this version," contradicting
 the detailed Filtering (RSF) / Sorting (RSF) sections earlier in the same
 document.
+
+**`references/` domain added.** A single reserved index,
+`references/index.md`, not a multi-concept domain — there was not enough
+distinct material to justify a split. It curates pointers rather than
+prose: internal reference-shaped files (`docs/knip-baseline.md`,
+`docs/release-automation-gap.md`, `docs/continuous-improvement-plan.md`,
+`docs/csv-diff-review-proposal.md`, `CHANGELOG.md`,
+`THIRD-PARTY-NOTICES.md`, and the seven `.claude/skills/*/SKILL.md`
+agent-workflow skills) plus external specs/standards actually cited in the
+codebase (Open Knowledge Format v0.2, Keep a Changelog, Semantic
+Versioning, and Knip — each verified by grep before listing). Deliberately
+left out: `sql.js`, already covered as a dependency in
+`operations/security-supply-chain.md`; `cloc`, a stats tool rather than a
+spec the project implements or follows; and routine GitHub/tooling config
+(`.github/labels.yml`, `.github/ISSUE_TEMPLATE/`, `knip.jsonc`) that isn't
+itself reference material.

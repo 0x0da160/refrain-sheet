@@ -43,13 +43,13 @@ export const WRAP_VERTICAL_PAD = 8;
 /** Hard cap on the visual lines a single row may grow to when wrapping. */
 export const MAX_WRAP_LINES = 12;
 /** Row count above which the off-screen wrap-measure pass shows a busy label. */
-export const WRAP_PASS_BUSY_ROWS = 4000;
+const WRAP_PASS_BUSY_ROWS = 4000;
 export const COL_WIDTH = 132;
 export const MIN_COL_WIDTH = 40;
 export const MAX_COL_WIDTH = 1200;
 export const ROW_HEAD_WIDTH = 64;
 export const OVERSCAN_ROWS = 8;
-export const OVERSCAN_COLS = 3;
+const OVERSCAN_COLS = 3;
 
 interface RenderWindow {
   /**
@@ -224,7 +224,7 @@ export async function planAutoFitColumns(
  * Returns null where no 2D canvas context exists (e.g. jsdom); callers fall
  * back to DOM `scrollWidth` measurement there.
  */
-export function createTextMeasurer(sample: Element): ((text: string) => number) | null {
+function createTextMeasurer(sample: Element): ((text: string) => number) | null {
   if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') {
     return null;
   }

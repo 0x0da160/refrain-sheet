@@ -110,7 +110,7 @@ export function filterDataTop(filter: SheetFilter): number {
  * Mirrors the selection-statistics rule (`Number()` on the trimmed text) so
  * "numeric" means the same thing everywhere.
  */
-export function filterNumericValue(display: string): number | null {
+function filterNumericValue(display: string): number | null {
   const trimmed = display.trim();
   if (trimmed === '') {
     return null;
@@ -120,7 +120,7 @@ export function filterNumericValue(display: string): number | null {
 }
 
 /** Evaluate one condition against a displayed cell value. */
-export function matchCondition(cond: FilterCondition, display: string): boolean {
+function matchCondition(cond: FilterCondition, display: string): boolean {
   if (cond.kind === 'text') {
     switch (cond.op) {
       case 'contains':

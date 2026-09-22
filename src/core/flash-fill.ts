@@ -20,7 +20,7 @@
  */
 
 /** Optional casing normalization applied after extracting the text. */
-export type FlashFillCasing = 'none' | 'upper' | 'lower';
+type FlashFillCasing = 'none' | 'upper' | 'lower';
 
 /** One inferred transformation. Pure data — evaluated, never executed. */
 export type FlashFillOp =
@@ -33,7 +33,7 @@ export type FlashFillOp =
   /** Take a constant number of leading/trailing characters of a column. */
   | { kind: 'affix'; side: 'prefix' | 'suffix'; col: number; length: number; casing: FlashFillCasing };
 
-export type FlashFillPart = { type: 'col'; col: number } | { type: 'lit'; text: string };
+type FlashFillPart = { type: 'col'; col: number } | { type: 'lit'; text: string };
 
 /** Reads a source cell of the current sheet (row-major, raw display text). */
 export type SourceReader = (row: number, col: number) => string;
@@ -44,13 +44,13 @@ export interface FlashFillExample {
 }
 
 /** Separators tried for split candidates, in fixed priority order. */
-export const FLASH_FILL_SEPARATORS = [' ', ',', ';', '-', '_', '/', '.', ':', '@'] as const;
+const FLASH_FILL_SEPARATORS = [' ', ',', ';', '-', '_', '/', '.', ':', '@'] as const;
 
 /** Source columns considered for concatenation candidates (bounds the search). */
-export const FLASH_FILL_MAX_CONCAT_COLS = 6;
+const FLASH_FILL_MAX_CONCAT_COLS = 6;
 
 /** Hard cap on candidates carried into the agreement scan. */
-export const FLASH_FILL_MAX_CANDIDATES = 24;
+const FLASH_FILL_MAX_CANDIDATES = 24;
 
 const CASINGS: readonly FlashFillCasing[] = ['none', 'upper', 'lower'];
 

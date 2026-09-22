@@ -36,9 +36,9 @@ import logotypeDarkUrl from '../assets/logotype-dark.svg';
 import logotypeUrl from '../assets/logotype.svg';
 
 /** Marks an element as a product-identity icon that follows the theme. */
-export const APP_ICON_ATTR = 'data-app-icon';
+const APP_ICON_ATTR = 'data-app-icon';
 /** Marks an element as a product-identity logotype that follows the theme. */
-export const APP_LOGOTYPE_ATTR = 'data-app-logotype';
+const APP_LOGOTYPE_ATTR = 'data-app-logotype';
 
 /** The logotype master's fixed width:height ratio (573.37 × 120). */
 const LOGOTYPE_ASPECT = 573.37 / 120;

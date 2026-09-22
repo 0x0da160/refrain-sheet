@@ -26,7 +26,7 @@ import type { NcrCellReport, UnrepresentableCell } from './serializer';
 export type CsvLineEnding = 'crlf' | 'lf' | 'cr';
 
 /** `minimal` quotes a field only when the delimiter, quotes, or line breaks require it (RFC 4180 common practice); `always` quotes every field. */
-export type CsvQuoteStyle = 'minimal' | 'always';
+type CsvQuoteStyle = 'minimal' | 'always';
 
 export interface CsvExportOptions {
   encoding: EncodingId;
@@ -46,7 +46,7 @@ export const DEFAULT_CSV_EXPORT_OPTIONS: CsvExportOptions = {
   quoteStyle: 'minimal',
 };
 
-export const LINE_ENDING_TEXT: Record<CsvLineEnding, string> = {
+const LINE_ENDING_TEXT: Record<CsvLineEnding, string> = {
   crlf: '\r\n',
   lf: '\n',
   cr: '\r',

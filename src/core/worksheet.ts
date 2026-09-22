@@ -33,7 +33,7 @@ export interface CompiledFormula {
 export type WorksheetKind = 'grid' | 'markdown' | 'json' | 'yaml' | 'text';
 
 /** Where the selection sits and how it was made (see AppState.SelectionKind). */
-export interface WorksheetPoint {
+interface WorksheetPoint {
   row: number;
   col: number;
 }

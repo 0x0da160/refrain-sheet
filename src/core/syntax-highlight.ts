@@ -15,7 +15,7 @@
  * An unrecognized or missing `lang` renders as a single unhighlighted token.
  */
 
-export type CodeTokenType = 'keyword' | 'string' | 'comment' | 'number' | 'text';
+type CodeTokenType = 'keyword' | 'string' | 'comment' | 'number' | 'text';
 
 export interface CodeToken {
   type: CodeTokenType;

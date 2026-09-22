@@ -46,7 +46,7 @@ export interface CellValueRule {
 }
 
 /** Color every value that appears more than once within the rule's range. */
-export interface DuplicateRule {
+interface DuplicateRule {
   kind: 'duplicate';
   style: ConditionalFormatStyle;
 }

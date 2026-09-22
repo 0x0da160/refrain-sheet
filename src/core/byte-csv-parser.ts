@@ -49,7 +49,7 @@ export interface FieldNode {
   malformed: boolean;
 }
 
-export interface LineEndingStats {
+interface LineEndingStats {
   crlf: number;
   lf: number;
   cr: number;
@@ -78,13 +78,13 @@ export interface ParsedIndex {
 
 export const RECORD_STRIDE = 6;
 export const FIELD_STRIDE = 7;
-export const DIAG_STRIDE = 5;
+const DIAG_STRIDE = 5;
 
 export const FLAG_QUOTED = 1;
 export const FLAG_MALFORMED = 2;
 
 /** Numeric diagnostic codes shared with the WASM core. */
-export const DIAG_TYPES: readonly DiagnosticType[] = [
+const DIAG_TYPES: readonly DiagnosticType[] = [
   'unclosed-quote',
   'text-after-quote',
   'bare-quote',

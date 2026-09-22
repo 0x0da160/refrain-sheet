@@ -81,7 +81,7 @@ export class CoalescedRenderer {
  * source document is too large for syntax highlighting to be worth the
  * main-thread stall. Starting point: ~256 KB.
  */
-export const LARGE_PREVIEW_SOURCE_LENGTH = 256 * 1024;
+const LARGE_PREVIEW_SOURCE_LENGTH = 256 * 1024;
 
 /** Whether `text` is large enough that its preview should skip tokenization (see `LARGE_PREVIEW_SOURCE_LENGTH`). */
 export function isLargePreviewSource(text: string): boolean {

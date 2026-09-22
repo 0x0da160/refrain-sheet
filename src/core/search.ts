@@ -21,7 +21,7 @@ export interface SearchQuery {
  * partial results instead of freezing the application.
  */
 export const MAX_PATTERN_LENGTH = 1024;
-export const SEARCH_TIME_BUDGET_MS = 2000;
+const SEARCH_TIME_BUDGET_MS = 2000;
 
 export type CompiledQuery =
   | { ok: true; kind: 'text'; needle: string; matchCase: boolean; needleBytes: Uint8Array }
@@ -34,7 +34,7 @@ export type CompiledQuery =
  * the marshalling cost never dominates. Only the case-sensitive literal path
  * qualifies — case folding and regex stay in JS for Unicode correctness.
  */
-export const LITERAL_WASM_THRESHOLD = 256;
+const LITERAL_WASM_THRESHOLD = 256;
 
 export function compileQuery(query: SearchQuery): CompiledQuery {
   if (query.text.length === 0) {
@@ -98,7 +98,7 @@ export function countMatchesInValue(value: string, query: CompiledQuery): number
   return count;
 }
 
-export interface CellMatch {
+interface CellMatch {
   row: number;
   col: number;
   count: number;

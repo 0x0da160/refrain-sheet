@@ -19,7 +19,7 @@ export function hasUtf8Bom(bytes: Uint8Array): boolean {
   return bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
 }
 
-export function isValidUtf8(bytes: Uint8Array): boolean {
+function isValidUtf8(bytes: Uint8Array): boolean {
   try {
     new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     return true;

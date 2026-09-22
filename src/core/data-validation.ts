@@ -26,13 +26,13 @@ export const MAX_VALIDATION_RULES = 64;
 export const MAX_VALIDATION_LIST_VALUES = 500;
 
 /** Restrict a cell to one of a fixed set of values (the "dropdown" case). */
-export interface ListValidationRule {
+interface ListValidationRule {
   kind: 'list';
   values: string[];
 }
 
 /** Restrict a cell to a numeric value within an optional [min, max] range. */
-export interface NumberValidationRule {
+interface NumberValidationRule {
   kind: 'number';
   min: number | null;
   max: number | null;

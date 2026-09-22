@@ -11,10 +11,10 @@
  */
 
 /** Wall-clock budget per slice (ms) before yielding to the browser. */
-export const SLICE_BUDGET_MS = 12;
+const SLICE_BUDGET_MS = 12;
 
 /** Hard cap of indices per slice, so tests and fast machines still yield deterministically. */
-export const SLICE_MAX_INDICES = 4096;
+const SLICE_MAX_INDICES = 4096;
 
 function now(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();

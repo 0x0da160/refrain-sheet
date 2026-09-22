@@ -22,7 +22,7 @@ export function externalLink(text: string, href: string): HTMLAnchorElement {
   });
 }
 
-export function cellName(row: number, col: number): string {
+function cellName(row: number, col: number): string {
   return `R${row + 1}C${col + 1}`;
 }
 

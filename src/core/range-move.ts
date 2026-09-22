@@ -121,7 +121,7 @@ export interface RangeMovePlan {
  * rewriting a formula that lives on a *different* worksheet, where only
  * `Name!`-qualified references can possibly point at the moved cells.
  */
-export function rewriteForMove(
+function rewriteForMove(
   src: string,
   source: CellRange,
   deltaRow: number,

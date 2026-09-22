@@ -39,7 +39,7 @@ import { SQLJS_WASM_BASE64 } from '../wasm-gen/sqljs-wasm-payload';
 /** Maximum query text length, in UTF-16 code units. */
 export const SQL_MAX_QUERY_LENGTH = 4096;
 /** Maximum number of tokens the gate's tokenizer will scan before rejecting the query. */
-export const SQL_MAX_TOKENS = 2000;
+const SQL_MAX_TOKENS = 2000;
 /** Maximum source rows loaded from the picked table into SQLite (see docs/performance.md). */
 export const SQL_MAX_SOURCE_ROWS = 200_000;
 /** Maximum result rows ever returned, regardless of the query's own LIMIT. */
@@ -54,7 +54,7 @@ export interface SqlTable {
 }
 
 /** A query result cell: a plain string, or a number for a numeric SQLite value. */
-export type SqlValue = string | number;
+type SqlValue = string | number;
 
 export interface SqlQueryResult {
   /** Output column display names, left to right (SQLite's own naming: the expression text, or its alias). */

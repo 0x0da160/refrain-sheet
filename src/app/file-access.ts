@@ -13,7 +13,7 @@ export interface OpenedFile {
   tooLarge?: boolean;
 }
 
-export type SaveMode = 'overwrite' | 'download';
+type SaveMode = 'overwrite' | 'download';
 
 export interface SaveOutcome {
   mode: SaveMode;

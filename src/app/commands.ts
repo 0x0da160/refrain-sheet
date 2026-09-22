@@ -53,7 +53,7 @@ import { RangeOpsCommands, type ReplaceAllReport } from './commands/range-ops';
 import { isGridSurface, LARGE_OP_CELLS } from './commands/shared';
 
 export { isGridSurface, LARGE_OP_CELLS };
-export type { FlashFillPreview, ReplaceAllReport, SqlSource, SqlRunOutcome, DiffTabOption, DiffRunOutcome };
+export type { FlashFillPreview, ReplaceAllReport, SqlRunOutcome };
 
 /**
  * Everything the SQL query dialog needs. `sources` is the fixed, pre-computed

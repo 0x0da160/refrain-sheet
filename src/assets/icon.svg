@@ -1,1 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs><linearGradient id="a" x1="74" x2="440" y1="52" y2="466" gradientUnits="userSpaceOnUse"><stop stop-color="#e6f5c8"/><stop offset="1" stop-color="#b9d98d"/></linearGradient><filter id="b" width="150%" height="160%" x="-25%" y="-25%"><feDropShadow dx="0" dy="16" flood-color="#19351f" flood-opacity=".25" stdDeviation="14"/></filter></defs><rect width="512" height="512" fill="url(#a)" rx="96"/><g filter="url(#b)" fill="none" stroke="#19351f" stroke-width="35.2"><rect x="56" y="56" width="400" height="400" rx="96"/><path d="M56 200h400M200 200v256"/><path stroke-linecap="round" d="M272 408c70.4 0 120-41.6 120-99.2 0-41.6-30.4-68.8-73.6-68.8-40 0-70.4 24-70.4 57.6 0 27.2 19.2 44.8 48 44.8"/></g></svg>
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Refrain Sheet — app icon master, 1024 square, no corner rounding (the OS applies the mask)
+  Geometry scaled from the 1024 master; colours are the brand palette.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"
+     role="img" aria-label="Refrain Sheet app icon">
+  <title>Refrain Sheet app icon</title>
+  <path fill="#147F43" d="M0 0L1024 0L1024 1024L0 1024Z"/>
+  <path fill="#F4F4EB" d="M348 212L512 212L512 512L212 512L212 348C212 272.887 272.887 212 348 212Z"/>
+  <path fill="#DAECD8" d="M512 212L676 212C751.113 212 812 272.887 812 348L812 512L512 512L512 212Z"/>
+  <path fill="#DAECD8" d="M212 512L512 512L512 812L348 812C272.887 812 212 751.113 212 676L212 512Z"/>
+  <path fill="#8BC191" d="M512 512L812 512L812 812L512 812L512 512Z"/>
+</svg>

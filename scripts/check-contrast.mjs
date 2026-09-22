@@ -191,6 +191,7 @@ function main() {
   const hues = {
     'hue-neutral': Number(rootTokens.get('hue-neutral')),
     'hue-accent': Number(rootTokens.get('hue-accent')),
+    'hue-paper': Number(rootTokens.get('hue-paper')),
   };
   if (Number.isNaN(hues['hue-neutral']) || Number.isNaN(hues['hue-accent'])) {
     fail('could not read --hue-neutral / --hue-accent from :root');

@@ -178,6 +178,7 @@ async function main() {
       await page.waitForSelector('.menu-list');
       await writeWebp('file-menu', await page.screenshot());
 
+      await page.getByRole('menuitem', { name: 'エクスポート' }).hover();
       await page.getByRole('menuitem', { name: 'オプションを指定して保存…' }).click();
       const saveDialog = page.getByRole('dialog');
       await saveDialog.waitFor();

@@ -2129,7 +2129,7 @@ for (const entry of DEFS) {
 }
 
 /** Every function definition, sorted by name for stable help/autocomplete output. */
-export const FUNCTION_DEFS: readonly FunctionDef[] = DEFS.slice().sort((a, b) =>
+const FUNCTION_DEFS: readonly FunctionDef[] = DEFS.slice().sort((a, b) =>
   a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
 );
 
@@ -2139,11 +2139,6 @@ export const SUPPORTED_FUNCTIONS: readonly string[] = FUNCTION_DEFS.map((f) => f
 /** Look up a function by its already-upper-cased name. */
 export function lookupFunction(name: string): FunctionDef | null {
   return BY_NAME.get(name) ?? null;
-}
-
-/** True when at least one named function is volatile (recalculates on the clock). */
-export function isVolatileFunction(name: string): boolean {
-  return BY_NAME.get(name)?.volatile === true;
 }
 
 /** The display metadata the help dialog and autocomplete read. */

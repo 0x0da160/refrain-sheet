@@ -51,22 +51,22 @@
  */
 
 /** Milliseconds in one day. */
-export const MS_PER_DAY = 86_400_000;
+const MS_PER_DAY = 86_400_000;
 
 /**
  * Epoch offset in milliseconds: `Date.UTC(1899, 11, 30)`. Serial `n` is
  * `EPOCH_MS + n * MS_PER_DAY`.
  */
-export const EPOCH_MS = Date.UTC(1899, 11, 30);
+const EPOCH_MS = Date.UTC(1899, 11, 30);
 
 /** Smallest representable serial (the epoch itself). */
-export const MIN_SERIAL = 0;
+const MIN_SERIAL = 0;
 
 /** Largest representable serial: 9999-12-31T00:00:00Z. */
 export const MAX_SERIAL = (Date.UTC(9999, 11, 31) - EPOCH_MS) / MS_PER_DAY;
 
 /** Exclusive upper bound including the last day's time-of-day fraction. */
-export const MAX_SERIAL_EXCLUSIVE = MAX_SERIAL + 1;
+const MAX_SERIAL_EXCLUSIVE = MAX_SERIAL + 1;
 
 /** True when a serial is inside the representable range. */
 export function isValidSerial(serial: number): boolean {
@@ -172,7 +172,7 @@ export function remapShortYear(year: number): number | null {
 }
 
 /** Serial for a UTC date-time in milliseconds since the Unix epoch. */
-export function millisToSerial(ms: number): number {
+function millisToSerial(ms: number): number {
   return (ms - EPOCH_MS) / MS_PER_DAY;
 }
 

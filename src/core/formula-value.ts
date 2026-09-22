@@ -8,7 +8,7 @@
  * | Kind      | Written as        | Notes                                        |
  * | --------- | ----------------- | -------------------------------------------- |
  * | blank     | `{type:'empty'}`  | An empty cell, or an omitted optional argument |
- * | number    | `{type:'number'}` | Always a **finite** double (see {@link finiteNumber}) |
+ * | number    | `{type:'number'}` | Always a **finite** double (see {@link numberValue}) |
  * | text      | `{type:'string'}` | A JavaScript string; may hold any Unicode      |
  * | boolean   | `{type:'boolean'}`| `TRUE` / `FALSE`                               |
  * | error     | `{type:'error'}`  | One of {@link ERROR_CODES}                     |
@@ -105,8 +105,8 @@ export type FormulaValue =
   | { type: 'error'; code: ErrorCode };
 
 export const EMPTY_VALUE: FormulaValue = { type: 'empty' };
-export const TRUE_VALUE: FormulaValue = { type: 'boolean', value: true };
-export const FALSE_VALUE: FormulaValue = { type: 'boolean', value: false };
+const TRUE_VALUE: FormulaValue = { type: 'boolean', value: true };
+const FALSE_VALUE: FormulaValue = { type: 'boolean', value: false };
 
 /**
  * A number value. Non-finite results (overflow, `0/0`, `Infinity`) are **not**
@@ -115,11 +115,6 @@ export const FALSE_VALUE: FormulaValue = { type: 'boolean', value: false };
  */
 export function numberValue(value: number): FormulaValue {
   return Number.isFinite(value) ? { type: 'number', value } : { type: 'error', code: '#NUM!' };
-}
-
-/** A number value that is known finite (internal fast path; still validated). */
-export function finiteNumber(value: number): FormulaValue {
-  return numberValue(value);
 }
 
 export function textValue(value: string): FormulaValue {
@@ -132,10 +127,6 @@ export function booleanValue(value: boolean): FormulaValue {
 
 export function errorValue(code: ErrorCode): FormulaValue {
   return { type: 'error', code };
-}
-
-export function isError(value: FormulaValue): value is { type: 'error'; code: ErrorCode } {
-  return value.type === 'error';
 }
 
 /** The first error among the given values, or null when none is an error. */
@@ -178,11 +169,6 @@ export function scalarGrid(value: FormulaValue): ValueGrid {
   return { rows: 1, cols: 1, cells: [[value]] };
 }
 
-/** True when the grid holds exactly one cell. */
-export function isSingleCell(grid: ValueGrid): boolean {
-  return grid.rows === 1 && grid.cols === 1;
-}
-
 /** The grid's cells in row-major order as a flat list. */
 export function flattenGrid(grid: ValueGrid): FormulaValue[] {
   const out: FormulaValue[] = [];
@@ -193,19 +179,6 @@ export function flattenGrid(grid: ValueGrid): FormulaValue[] {
     }
   }
   return out;
-}
-
-/** The first error anywhere in the grid (row-major scan), or null. */
-export function gridError(grid: ValueGrid): FormulaValue | null {
-  for (let r = 0; r < grid.rows; r++) {
-    const row = grid.cells[r];
-    for (let c = 0; c < grid.cols; c++) {
-      if (row[c].type === 'error') {
-        return row[c];
-      }
-    }
-  }
-  return null;
 }
 
 // ---------------------------------------------------------------------------

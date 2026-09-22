@@ -87,6 +87,44 @@ rather than deleting the dependency or silently suppressing the warning.
 
 ### Resolved findings
 
+- **Formula engine core** (`chore/tighten-formula-engine-export-surface`):
+  - Unexported (used internally, redundant `export` keyword removed, no
+    behavior change): `src/core/formula.ts`'s `parseWholeColumn`,
+    `parseWholeRow`, `MAX_HIGHLIGHTED_REFS`, `RefNode`;
+    `src/core/formula-date.ts`'s `MS_PER_DAY`, `EPOCH_MS`, `MIN_SERIAL`,
+    `MAX_SERIAL_EXCLUSIVE`, `millisToSerial`;
+    `src/core/formula-criteria.ts`'s `CriteriaOp`, `WildcardKind`;
+    `src/core/formula-functions.ts`'s `FUNCTION_DEFS`;
+    `src/core/formula-value.ts`'s `TRUE_VALUE`, `FALSE_VALUE`.
+  - Trimmed from `formula.ts`'s barrel re-export only (origin exports in
+    `formula-value.ts`/`formula-functions.ts` left untouched, since
+    real consumers — `formula.ts` itself or another file — still need
+    them): `booleanValue`, `coerceToBoolean`, `coerceToNumber`,
+    `coerceToText`, `compareValues`, `ERROR_CODES`, `flattenGrid`,
+    `makeGrid`, `MAX_RANGE_CELLS`, `numberValue`, `scalarGrid`,
+    `textValue`, `lookupFunction`, `type ErrorCode`, `type FnContext`.
+    See "Unused exports" below for the full reasoning — this replaces
+    this doc's earlier, overly cautious "needs a maintainer call"
+    framing of the whole barrel.
+  - Removed entirely (genuinely dead everywhere, not just via the
+    barrel): `isVolatileFunction` (`src/core/formula-functions.ts` —
+    confirmed via `docs/architecture.md`'s own description of the
+    volatile-function mechanism: the workbook uses a shared clock plus
+    full memo invalidation on every mutation, not a per-function
+    volatility check, so this predicate was never needed), `isSingleCell`,
+    `isError`, `gridError`, and `finiteNumber`
+    (`src/core/formula-value.ts` — a wrapper around `numberValue` with no
+    callers; its one apparent "second usage" was a `{@link finiteNumber}`
+    doc-comment mention, not code, caught by `npm run lint` after
+    unexporting rather than deleting it outright).
+  - `MAX_JOIN_ITEMS` (`src/core/formula-value.ts`) deliberately left
+    untouched — see "Unused exports" below.
+  - Verified: `tsc --noEmit` clean after every change; `npx knip` dropped
+    "Unused exports" from 46 to 16 and "Unused exported types" from 7 to
+    2, with the only remaining findings being the RSF codec (deferred)
+    and `MAX_JOIN_ITEMS` (flagged, not deleted); full suite
+    (`format:check`, `lint`, `build`, `check:dist`, `check:versions`,
+    `test` — 134/134 files, 2012/2012 tests) passed.
 - `rangeSize` (was `src/core/clipboard.ts:29`), `rowHiddenByFilter` (was
   `src/core/filter.ts:229`), `ColorKey` (was `src/core/cell-style.ts:97`),
   and a dead 4-function cluster in `src/core/spill.ts` —
@@ -161,69 +199,70 @@ rather than deleting the dependency or silently suppressing the warning.
     `tsc --noEmit`, `check:dist`, `check:versions`, `test` — 134/134 files,
     2012/2012 tests) passed unchanged after removal.
 
-### Unused exports — 46 findings
+### Unused exports — 16 findings
 
-**Important correction from the `chore/tighten-export-surface` pass:** a
-plain reading of "Knip says this export is unused" as "this code is dead"
-was wrong for most of the original 83. Knip's "unused exports" check is
-about **cross-file** usage only — a name a file exports but only imports
-_itself_ is still reported, even when that file uses it constantly
-internally (a default-parameter fallback, a `{@link}` in a JSDoc comment, a
-sibling function's return type). Checking each candidate's total occurrence
-count within its own file (not just Knip's cross-file graph) is what
-surfaced this, and it turned 30 of the checked findings into "remove the
-redundant `export` keyword" rather than "delete this code" — see the
-`chore/tighten-export-surface` PR for the full per-file verification. What
-remains here, grouped by why it's outstanding:
+**Important correction from the `chore/tighten-export-surface` pass,
+carried forward:** a plain reading of "Knip says this export is unused" as
+"this code is dead" was wrong for most findings. Knip's "unused exports"
+check is about **cross-file** usage only — a name a file exports but only
+imports _itself_ is still reported, even when that file uses it constantly
+internally. Checking each candidate's total occurrence count within its
+own file (not just Knip's cross-file graph) is what surfaced this.
 
-- **Deferred, RSF format (S3 — external persisted-format contract):**
-  every `RSF_*`/`MAX_RSF_*` constant and `RSF_WORKBOOK_BODY_VERSION` in
-  `src/core/rsf-codec.ts`, plus `DEFAULT_SHEET_NAME` in
-  `src/core/rsf-document.ts`. `CLAUDE.md` calls the RSF codec out
-  explicitly as needing "extra care, full `test:rust`, and human review" —
-  even confirming these are used only internally (likely true, given the
-  pattern above) isn't a substitute for that review, so this file is left
-  alone entirely pending a dedicated, human-reviewed pass.
-- **Deferred, formula engine core:** `src/core/formula.ts` (the 16-name
-  barrel — see below — plus its own `parseWholeColumn`, `parseWholeRow`,
-  `MAX_HIGHLIGHTED_REFS`), `src/core/formula-functions.ts`
-  (`FUNCTION_DEFS`, `isVolatileFunction`), `src/core/formula-value.ts`
-  (`TRUE_VALUE`, `FALSE_VALUE`, `finiteNumber`, `isError`, `isSingleCell`,
-  `gridError`, and `MAX_JOIN_ITEMS`), and `src/core/formula-date.ts`
-  (`MS_PER_DAY`, `EPOCH_MS`, `MIN_SERIAL`, `MAX_SERIAL_EXCLUSIVE`,
-  `millisToSerial`). This is the most complex, most heavily tested
-  subsystem in the repo (`docs/architecture.md` § "Inside the formula
-  engine"); left as one coherent future pass rather than splitting
-  "obviously internal-only" from "barrel question" across two PRs and
-  risking a subtle mistake in a file this central. `MAX_JOIN_ITEMS`
-  specifically needs its own note: it's defined as
-  `= MAX_RANGE_CELLS` with the comment "guards string blow-up" for
-  REPT-style growth, but this codebase has no `REPT`-like function (grepped
-  `formula-functions.ts`) — it looks like a guard that was written but
-  never wired to anything, which is worth flagging to a maintainer rather
-  than silently deleted, in case a function was meant to use it and doesn't.
-- **The `formula.ts` barrel itself (16 names, unchanged from the original
-  baseline):** `booleanValue`, `coerceToBoolean`, `coerceToNumber`,
-  `coerceToText`, `compareValues`, `ERROR_CODES`, `flattenGrid`,
-  `makeGrid`, `MAX_RANGE_CELLS`, `numberValue`, `scalarGrid`, `textValue`,
-  `isVolatileFunction`, `lookupFunction`, plus two re-exported types.
-  `formula.ts` re-exports these from `formula-value.ts`/
-  `formula-functions.ts` so consumers could import them from one module;
-  nothing currently does — every real consumer imports directly from the
-  origin file instead. **Needs a maintainer call, not a deletion**, since
-  removing a barrel export is an API-shape decision, even though nothing
-  breaks today.
-  This pass's own "Confirmed genuinely dead" findings (`rangeSize`,
-  `rowHiddenByFilter`, the `spill.ts` cluster, `openPopover`, `ColorKey`)
-  have since been removed — see "Resolved findings" above.
+**Correction to this doc's own earlier framing, from the
+`chore/tighten-formula-engine-export-surface` pass:** the previous version
+of this section called `formula.ts`'s 16-name barrel re-export "unchanged
+… needs a maintainer call, not a deletion." That undersold what a closer
+read shows: `formula.ts` has two _separate_ statements for
+`formula-value.ts`/`formula-functions.ts` — an `import {...}` for its own
+internal use, and a distinct `export {...} from` re-export. Checking every
+barrel name against both formula.ts's own import list and the origin
+files' usage (not just the barrel re-export's cross-file graph) found that
+every one of them is genuinely used somewhere — either internally by
+`formula.ts` itself, or directly by another file bypassing the barrel
+entirely. That makes trimming the redundant re-export line the same
+mechanical, zero-ambiguity fix as everywhere else in this file, not an
+API-shape decision: nothing outside this repository consumes these names
+via `formula.ts` specifically (confirmed by Knip both before and after),
+and their real functionality is untouched. 14 of the 16 barrel names were
+trimmed on that basis. **One finding surfaced by this correction that
+needed extra care:** `finiteNumber` in `formula-value.ts` had exactly one
+other occurrence in its file, but that occurrence was a `{@link
+finiteNumber}` mention in a _module doc comment_, not real code — the same
+false-signal pattern as `openPopover`'s comment mentions in the
+`chore/remove-dead-spill-clipboard-filter-helpers` PR. ESLint's
+`no-unused-vars` (not `tsc --noEmit`, which doesn't flag this class of
+issue) caught it immediately after unexporting rather than deleting, and
+it was removed along with a small doc-comment reword. This is a standing
+reminder that "N occurrences" is a heuristic, not proof — every candidate
+still needs its context read, and `npm run lint` is part of why.
 
-### Unused exported types — 7 findings
+Of the 16 remaining findings, all but one are now **deferred, RSF format
+(S3 — external persisted-format contract):** every `RSF_*`/`MAX_RSF_*`
+constant and `RSF_WORKBOOK_BODY_VERSION` in `src/core/rsf-codec.ts`, plus
+`DEFAULT_SHEET_NAME` in `src/core/rsf-document.ts`. `CLAUDE.md` calls the
+RSF codec out explicitly as needing "extra care, full `test:rust`, and
+human review" — even confirming these are used only internally (likely
+true, given the pattern above) isn't a substitute for that review, so this
+file is left alone entirely pending a dedicated, human-reviewed pass.
 
-`CriteriaOp`/`WildcardKind` (`src/core/formula-criteria.ts`) and
-`ErrorCode`/`FnContext`/`RefNode` (`src/core/formula.ts`) are deferred
-with the rest of the formula engine; `RsfWorksheetKind`/
-`RsfDisplaySettings` (`src/core/rsf-codec.ts`) are deferred with the rest
-of the RSF codec.
+The one exception is **`MAX_JOIN_ITEMS`** (`src/core/formula-value.ts`),
+deliberately left untouched rather than unexported or deleted: it's
+defined as `= MAX_RANGE_CELLS` with the comment "guards string blow-up"
+for REPT-style growth, but this codebase has no `REPT`-like function
+(grepped `formula-functions.ts`) — it looks like a guard that was written
+but never wired to anything. Deleting it would be easy and would not
+break any test, but it might be silently removing a limit some function
+was meant to enforce and doesn't. This needs a maintainer's judgment call,
+not a static-analysis-driven deletion — flagged here for exactly that.
+
+### Unused exported types — 2 findings
+
+`RsfWorksheetKind`/`RsfDisplaySettings` (`src/core/rsf-codec.ts`) are
+deferred with the rest of the RSF codec. `CriteriaOp`/`WildcardKind`
+(`src/core/formula-criteria.ts`) and `ErrorCode`/`FnContext`/`RefNode`
+(`src/core/formula.ts`) were resolved this pass (unexported or trimmed
+from the barrel) — see "Resolved findings" above.
 
 ### Duplicate exports — 1 finding — needs human judgment, not a bug
 
@@ -272,6 +311,22 @@ along.
   `rsf-document.ts` cross-check that confirms the `spill.ts` cluster was
   never wired into the real feature, and the recorded issue #393
   migration that explains `openPopover`.
+- **`chore/tighten-formula-engine-export-surface`:** the fourth pass,
+  covering the formula engine core that the first two passes deliberately
+  deferred. Corrected this doc's own earlier claim that `formula.ts`'s
+  16-name barrel re-export needed a maintainer call as a whole — a closer
+  read (checking formula.ts's own `import` list, not just the barrel's
+  `export … from` line, against each name) showed 14 of the 16 were the
+  same mechanical "redundant re-export, origin still used elsewhere"
+  pattern as everywhere else, and trimmed them. Also surfaced one false
+  signal the occurrence-count heuristic missed — `finiteNumber`'s only
+  "second occurrence" was a doc-comment mention, not code — caught by
+  `npm run lint` (`tsc --noEmit` does not flag this) rather than missed.
+  Left `MAX_JOIN_ITEMS` and the entire RSF codec/`rsf-document.ts`
+  untouched and clearly flagged rather than resolved. With this pass, the
+  baseline's only remaining findings are the RSF codec (deferred per
+  `CLAUDE.md`'s explicit high-risk callout, needs human review) and
+  `MAX_JOIN_ITEMS` (flagged for a maintainer decision).
 
 This file will keep getting updated in place as future `safe-delete` PRs
 verify and act on more of the remaining findings, rather than each PR

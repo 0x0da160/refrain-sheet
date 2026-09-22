@@ -27,6 +27,10 @@ do not read this whole bundle to make a local change.
   smartphone-first operation, notifications, configuration/permissions,
   budget/rollback/release, and a clearly-marked roadmap of features that
   are designed but **not** enabled.
+- [Domains](domains/index.md) — user-facing spreadsheet/CSV-editor behavior:
+  the preservation guarantee, workbook/worksheet lifecycle, formulas and
+  references, the function and error inventory, dynamic arrays, undo/redo,
+  import/export/conversion, and version history.
 - [UI](ui/index.md) — interaction and presentation behavior: editing and
   IME safety, selection/navigation, copy/paste/fill/Flash Fill, find and
   replace, column resize/auto-fit, view/formatting/dockable panels, tabs

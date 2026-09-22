@@ -1,0 +1,413 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Dialogs ---------- */
+
+/* A flex column so a resized dialog grows/shrinks its body only, keeping the
+   header and footer pinned in place instead of leaving dead space below a
+   viewport-capped body (#393): the body is the only flexible child
+   (flex: 1, min-height: 0), and overflowing content scrolls within it. */
+dialog {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 10px 32px var(--shadow-strong);
+  padding: 0;
+  max-width: min(680px, 92vw);
+  max-height: 86vh;
+  overflow: hidden;
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+dialog::backdrop {
+  background: var(--scrim);
+}
+
+/* The column-filter popover (see openPopover in src/ui/dialogs.ts): the same
+   look as a modal dialog, but a plain positioned element placed by
+   src/ui/popup.ts next to the triggering column header instead of behind a
+   centered backdrop, so the sheet stays visible and usable behind it. */
+.filter-popover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 10px 32px var(--shadow-strong);
+  max-width: min(420px, calc(100vw - 8px));
+  max-height: 86vh;
+  overflow: hidden;
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--text);
+  z-index: 100;
+}
+
+/* Every dialog/popover heading is also a drag handle for repositioning it
+   (see makeDraggable, src/ui/drag-resize.ts); user-select/touch-action keep
+   the drag gesture from selecting the title text or scrolling the page. */
+.dialog-title {
+  flex: none;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+  margin: 0;
+  padding: 12px 18px;
+  font-size: 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 14px 18px;
+  overflow: auto;
+}
+
+.dialog-body p {
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.dialog-note {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+/* External links in dialogs (e.g. About). Uses the theme accent so contrast
+   holds in both light and dark; the native anchor keeps it keyboard- and
+   screen-reader-accessible, and focus-visible draws the shared focus ring. */
+.about-links {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+
+.dialog-link {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.dialog-link:hover {
+  text-decoration: none;
+}
+
+.dialog-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.dialog-warning {
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.dialog-buttons {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.dialog-buttons button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 6px 16px;
+}
+
+.dialog-buttons button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.dialog-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dialog-buttons button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Bottom-right corner grip for resizing a dialog/popover (see makeResizable,
+   src/ui/drag-resize.ts), styled after the grid's .col-resize-handle etc. */
+.dialog-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 1;
+}
+
+.dialog-resize-handle:hover {
+  background: var(--accent);
+  opacity: 0.45;
+}
+
+/* Enlarges the otherwise-tiny grip's hit area for touch/pen input without
+   changing its visual size, mirroring the coarse-pointer rule for
+   .col-resize-handle/.fill-handle/.move-handle below. */
+@media (pointer: coarse) {
+  .dialog-resize-handle::before {
+    content: '';
+    position: absolute;
+    inset: -14px;
+  }
+}
+
+/* Dockable, resizable side panel (openSidePanel, src/ui/dialogs/shared.ts):
+   filter/sort/format/SQL query dialogs anchored to a viewport edge instead
+   of floating (#393), and the persistent comments panel alongside them
+   (#399). Reuses .dialog-title/.dialog-body/.dialog-buttons for a
+   consistent look with the dialogs it replaces; the flex column +
+   .dialog-body's flex:1/min-height:0 (see above) are what let it grow/shrink
+   cleanly when resized. */
+.side-panel {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  /* No box-shadow: unlike a floating dialog, a docked panel sits flush
+     against a viewport edge, so a shadow (which was always cast downward,
+     regardless of dock side) only ever looked right for a top dock and wrong
+     for the other three. The 1px border is enough to separate it from the
+     sheet. */
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  overflow: hidden;
+  z-index: 100;
+}
+
+.side-panel-title {
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Groups the position switcher with a panel-specific header action (e.g. the
+   comments panel's close button) so `.side-panel-title`'s space-between
+   keeps the title on one side and this whole cluster on the other. */
+.side-panel-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.side-panel-positions {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+.side-panel-position-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.side-panel-position-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.side-panel-position-btn[aria-pressed='true'] {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.side-panel-position-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Same look as a position-switcher button, sitting in the top-right action
+   cluster of the panel header alongside it (and the close button, where one
+   exists). */
+.side-panel-maximize-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+}
+
+.side-panel-maximize-btn:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.side-panel-maximize-btn[aria-pressed='true'] {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.side-panel-maximize-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* One edge-anchored resize handle (not a corner grip like
+   .dialog-resize-handle): it sits on whichever edge is not docked to the
+   viewport — the opposite edge from the current `data-side-panel-position` —
+   and its cursor/axis follow that same attribute. */
+.side-panel-resize-handle {
+  position: absolute;
+  touch-action: none;
+  z-index: 1;
+}
+
+.side-panel[data-side-panel-position='left'] .side-panel-resize-handle {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.side-panel[data-side-panel-position='right'] .side-panel-resize-handle {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.side-panel[data-side-panel-position='top'] .side-panel-resize-handle {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.side-panel[data-side-panel-position='bottom'] .side-panel-resize-handle {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.side-panel-resize-handle:hover {
+  background: var(--accent);
+  opacity: 0.45;
+}
+
+@media (pointer: coarse) {
+  .side-panel-resize-handle::before {
+    content: '';
+    position: absolute;
+    inset: -10px;
+  }
+}
+
+table.diag-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+table.diag-table th,
+table.diag-table td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+table.diag-table th {
+  background: var(--panel);
+}
+
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.form-row label:first-child {
+  min-width: 130px;
+}
+
+.form-row select {
+  font: inherit;
+  padding: 3px 6px;
+  min-width: 200px;
+}
+
+.form-row input[type='number'] {
+  font: inherit;
+  padding: 3px 6px;
+  width: 8em;
+}
+
+.form-unit {
+  margin-left: 6px;
+  color: var(--text-dim);
+}
+
+.version-history-max-input {
+  font: inherit;
+  padding: 3px 6px;
+  width: 6em;
+}
+
+.version-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.version-history-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.version-history-entry-actions {
+  display: flex;
+  gap: 6px;
+}

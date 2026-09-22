@@ -1,0 +1,49 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Version-history preview (full-screen, read-only book) ---------- */
+
+/* Overrides the generic `dialog` sizing rule above (max-width: min(680px,
+   92vw); max-height: 86vh) with a true full-viewport size — this dialog
+   hosts a real `Grid`/`SheetBar`, not a bounded body of prose or a small
+   form, so it needs the whole screen rather than an auto-sized box. */
+.version-preview-dialog {
+  width: 100vw;
+  height: 100dvh;
+  max-width: 100vw;
+  max-height: 100dvh;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+
+.version-preview-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  /* Unlike a draggable dialog heading, this one fills the whole top edge of
+     a full-screen view — dragging it would have nothing to do. */
+  cursor: default;
+}
+
+.version-preview-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.shortcut-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.shortcut-table td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.shortcut-table td:first-child {
+  font-family: var(--font-sheet);
+  white-space: nowrap;
+}

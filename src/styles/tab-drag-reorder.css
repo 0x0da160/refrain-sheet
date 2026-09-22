@@ -1,0 +1,14 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ----- Tab drag-and-drop reordering ----- */
+.tab.dragging {
+  opacity: 0.5;
+}
+
+.tab.drop-before {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.tab.drop-after {
+  box-shadow: inset -3px 0 0 var(--accent);
+}

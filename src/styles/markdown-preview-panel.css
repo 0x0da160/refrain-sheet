@@ -1,0 +1,40 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Markdown worksheet preview panel (#502) ----------
+   The docked worksheet's rendered preview, as a persistent dockable
+   `.side-panel` — same chrome/positioning as the comments panel
+   (`ui/comments-panel.ts`) — toggled open/closed by `MarkdownSheetView`'s
+   preview toggle button and its own close button, rather than the fixed
+   inline split view this replaced. */
+.markdown-preview-panel[hidden] {
+  display: none;
+}
+
+.markdown-preview-panel-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  border-radius: 4px;
+}
+
+.markdown-preview-panel-close:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.markdown-preview-panel-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* `.dialog-body` (see above) is already the bounded, scrollable ancestor —
+   same as the comments panel's list — so the preview itself just needs to
+   stop imposing its own `min-height: 320px` floor, which would otherwise
+   force the panel wider/taller than its docked size on a small viewport. */
+.markdown-preview-panel .markdown-editor-preview {
+  min-height: 0;
+}

@@ -69,6 +69,21 @@ export function contrastRatio(a, b) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+// ---------- Reading the assembled stylesheet ----------
+
+/**
+ * `src/styles.css` is an ordered loader of `@import './styles/*.css'`
+ * statements (split by section — see its own header comment); this
+ * reconstructs the same concatenated text the browser/build assembles, by
+ * reading the loader's import list rather than hardcoding file names, so it
+ * stays correct if sections are added, removed, or reordered.
+ */
+function readBundledCss() {
+  const loader = readFileSync(join(root, 'src/styles.css'), 'utf8');
+  const imports = [...loader.matchAll(/^@import '\.\/(.+?)';$/gm)].map((m) => m[1]);
+  return imports.map((rel) => readFileSync(join(root, 'src', rel), 'utf8')).join('\n');
+}
+
 // ---------- Extracting the actual declared tokens from styles.css ----------
 
 /**
@@ -186,7 +201,7 @@ const fail = (msg) => {
 const ok = (msg) => console.warn(`check-contrast: ok: ${msg}`);
 
 function main() {
-  const css = readFileSync(join(root, 'src/styles.css'), 'utf8');
+  const css = readBundledCss();
   const rootTokens = extractBlockTokens(css, ':root {');
   const hues = {
     'hue-neutral': Number(rootTokens.get('hue-neutral')),

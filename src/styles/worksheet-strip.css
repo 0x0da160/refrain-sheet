@@ -1,0 +1,176 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ----- Worksheet strip (worksheets inside the active RSF workbook) -----
+   Deliberately styled apart from the document tab strip above the grid: these
+   tabs sit below the grid, are shorter, and round at the bottom, so the two
+   strips never read as the same control. */
+
+.sheet-bar {
+  display: flex;
+  align-items: center;
+  flex: none;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  min-height: 28px;
+}
+
+.sheet-bar[hidden] {
+  display: none;
+}
+
+.sheet-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 3px 6px;
+  overflow-x: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sheet-tab {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 5px 5px;
+  background: var(--panel-hover);
+  padding: 3px 10px;
+  max-width: 200px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.sheet-tab.active {
+  background: var(--surface);
+  font-weight: 600;
+  border-bottom: 2px solid var(--accent);
+}
+
+.sheet-tab .sheet-kind {
+  display: flex;
+  flex: none;
+  margin-right: 5px;
+}
+
+.sheet-tab .sheet-kind-icon {
+  color: var(--text-muted);
+}
+
+.sheet-tab .sheet-lock {
+  display: flex;
+  flex: none;
+  margin-right: 5px;
+}
+
+.sheet-tab .sheet-lock-icon {
+  color: var(--text-muted);
+}
+
+.sheet-tab .sheet-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-tab:focus-visible,
+.sheet-add:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.sheet-tab.dragging {
+  opacity: 0.5;
+}
+
+.sheet-tab.drop-before {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.sheet-tab.drop-after {
+  box-shadow: inset -2px 0 0 var(--accent);
+}
+
+.sheet-add {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 5px 5px;
+  background: var(--panel-hover);
+  color: inherit;
+  padding: 3px 10px;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.sheet-add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sheet-name-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* The worksheet-kind picker in the Add-worksheet dialog (#557) — a radio
+   group of icon+label options, one per `WorksheetKind`. Overrides
+   `.form-row`'s `min-width: 130px` on its first child, which is meant for a
+   leading field label, not one of several equal options here. */
+.sheet-kind-picker {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sheet-kind-picker label:first-child {
+  min-width: 0;
+}
+
+.sheet-kind-picker-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.sheet-kind-picker-option.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.sheet-kind-picker-option input[type='radio'] {
+  /* The radio input itself is visually hidden — the pill's border/background
+     already shows selection state, matching the checked look — but it stays
+     in the DOM and keyboard/screen-reader operable. */
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.dialog-error {
+  color: var(--danger, #c0392b);
+  min-height: 1.2em;
+  margin: 4px 0 0;
+}
+
+.tab .tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  border-radius: 3px;
+  padding: 3px;
+  color: inherit;
+}
+
+.tab .tab-close:hover {
+  background: var(--panel-active);
+}

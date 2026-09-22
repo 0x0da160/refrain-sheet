@@ -1,0 +1,42 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- JSON worksheet (docked in the spreadsheet area) ----------
+   Reuses every shared source/preview-pane class above (#529) — same layout
+   and syntax-highlighting token colors as the Markdown worksheet, just a
+   plain syntax-highlighted `<pre>` instead of a rendered document. See
+   `Worksheet.kind`, `ui/json-sheet.ts`. */
+
+.json-sheet-view {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px;
+  background: var(--cell-bg);
+}
+
+.json-sheet-view[hidden] {
+  display: none;
+}
+
+.json-sheet-view .markdown-editor-toolbar {
+  flex: none;
+}
+
+.json-sheet-view .markdown-editor-panes {
+  flex: 1;
+  min-height: 0;
+}
+
+.json-sheet-view .markdown-editor-source {
+  min-height: 0;
+}
+
+.json-preview-panel[hidden] {
+  display: none;
+}
+
+.json-preview-panel .markdown-editor-preview {
+  min-height: 0;
+}

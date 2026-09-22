@@ -7,12 +7,10 @@
  * including `textarea` (e.g. the SQL query editor, the data-validation
  * list-values field) — to 16px, not just `input`/`select`.
  */
-// `fs` is declared ambiently in tests/node-shims.d.ts (no @types/node needed).
-import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
+import { readBundledCss } from './helpers';
 
-// vitest runs from the project root, so a cwd-relative path is stable.
-const css = readFileSync('src/styles.css', 'utf8');
+const css = readBundledCss();
 
 describe('mobile focus-zoom prevention', () => {
   it('floors every real dialog text control, including textarea, to 16px', () => {

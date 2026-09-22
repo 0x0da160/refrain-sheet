@@ -1,0 +1,119 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Formula bar ---------- */
+
+.formula-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+/* `.formula-bar`'s own `display: flex` above would otherwise win over the
+   UA stylesheet's `[hidden] { display: none }` (equal specificity, but an
+   author rule always beats a user-agent one) — set on a Markdown/JSON
+   worksheet, see `refreshSourceSheetViews`, `src/main.ts`. */
+.formula-bar[hidden] {
+  display: none;
+}
+
+.formula-bar .cell-ref {
+  min-width: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--field-bg);
+  font-family: var(--font-sheet);
+  font-size: 12px;
+}
+
+.formula-bar .formula-field {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+
+.formula-bar textarea {
+  flex: 1;
+  font: inherit;
+  font-family: var(--font-sheet);
+  /* The formula bar zooms with the spreadsheet (it displays cell content). */
+  font-size: calc(13px * var(--sheet-zoom, 1));
+  /* Formulas are shown upright everywhere, never italic. */
+  font-style: normal;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 6px;
+  resize: vertical;
+  min-height: calc(26px * var(--sheet-zoom, 1));
+  height: calc(26px * var(--sheet-zoom, 1));
+  background: var(--field-bg);
+  color: var(--text);
+}
+
+.formula-autocomplete {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 30;
+  margin: 2px 0 0;
+  padding: 2px;
+  list-style: none;
+  min-width: 260px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+/* The inline cell editor's popup floats over the grid (fixed to the viewport,
+   positioned in JS) so a narrow cell never clips it. */
+.formula-autocomplete.floating {
+  position: fixed;
+  top: 0;
+  left: 0;
+  /* Above the dockable side panels (100) so the cell editor's completion
+     list is never clipped by a panel docked at the edge it opens toward. */
+  z-index: 120;
+}
+
+.formula-autocomplete[hidden] {
+  display: none;
+}
+
+.formula-autocomplete .ac-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.formula-autocomplete .ac-item.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.formula-autocomplete .ac-sig {
+  font-family: var(--font-sheet);
+  font-size: 12px;
+}
+
+.formula-autocomplete .ac-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.formula-autocomplete .ac-item.active .ac-desc {
+  color: var(--accent-contrast-dim);
+}
+
+/* Editing guidance is tooltip/ARIA-only (View > Editing Help Tooltips);
+   the formula bar shows no persistent instruction text. */

@@ -1,0 +1,70 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Formula & function help ---------- */
+
+.formula-help .formula-help-search {
+  width: 100%;
+  font: inherit;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.formula-help .help-section {
+  margin-top: 12px;
+}
+
+.formula-help .help-section h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.formula-help .help-code,
+.formula-help .help-fn-table td:first-child code,
+.formula-help .help-fn-table td:last-child code {
+  font-family: var(--font-sheet);
+  font-style: normal;
+  background: var(--panel);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.formula-help .help-examples code {
+  margin-right: 2px;
+}
+
+.formula-help .help-fn-group {
+  margin-top: 10px;
+}
+
+.formula-help .help-fn-group:first-child {
+  margin-top: 0;
+}
+
+.formula-help .help-fn-group h4 {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.formula-help .help-fn-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.formula-help .help-fn-table th,
+.formula-help .help-fn-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: top;
+}
+
+.formula-help .help-errors {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+
+.formula-help .help-errors li {
+  margin: 3px 0;
+}

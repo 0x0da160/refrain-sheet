@@ -1,0 +1,56 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Tabs ---------- */
+
+.tab-bar {
+  display: flex;
+  align-items: flex-end;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 4px 6px 0;
+  gap: 2px;
+  overflow-x: auto;
+  min-height: 28px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  background: var(--panel-hover);
+  padding: 4px 6px 4px 12px;
+  max-width: 240px;
+  cursor: default;
+}
+
+.tab[aria-selected='true'] {
+  background: var(--surface);
+  font-weight: 600;
+  /* The book tab strip sits above the grid (bottom-open, top-rounded — see
+     `.tab` above), so its active indicator belongs on the top edge, the
+     mirror image of `.sheet-tab.active`'s bottom edge below the grid. */
+  border-top: 2px solid var(--accent);
+}
+
+.tab .tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab .dirty-mark {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.tab .tab-source {
+  display: flex;
+  flex: none;
+}
+
+.tab .tab-source-icon {
+  color: var(--text-muted);
+}

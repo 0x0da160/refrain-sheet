@@ -35,6 +35,8 @@ do not read this whole bundle to make a local change.
   IME safety, selection/navigation, copy/paste/fill/Flash Fill, find and
   replace, column resize/auto-fit, view/formatting/dockable panels, tabs
   and the worksheet strip, mobile and touch, accessibility, and theming.
+- [References](references/index.md) — a curated index of internal reference
+  docs and skills, and external specs/standards this repository relies on.
 - [Decisions](decisions/index.md) — a small set of durable decision
   records for choices not already anchored to a domain concept file above,
   starting with why the UI layer uses no framework.

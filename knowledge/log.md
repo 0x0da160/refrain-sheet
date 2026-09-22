@@ -73,3 +73,31 @@ pointed at a `docs/*.md` path, and then deleted `docs/architecture.md`,
 `docs/agent-operations.md`. This bundle is now the sole source for that
 knowledge; `sources:` frontmatter across these concepts keeps citing the
 removed doc paths as historical provenance, not as live links.
+
+**`domains/` domain added.** A new domain, not a migration of an existing
+`docs/*.md` file: `README.md` (the current, exhaustively maintained
+product spec) is the primary source for eight concepts covering
+user-facing spreadsheet/CSV-editor behavior that `architecture/`,
+`operations/`, and `formats/rsf/` don't already own —
+`csv-preservation-guarantee.md`, `workbook-and-worksheet-lifecycle.md`,
+`formulas-and-references.md`, `formula-functions-and-errors.md`,
+`dynamic-arrays-and-spilling.md`, `undo-redo-and-history.md`,
+`import-export-and-conversion.md`, and
+`version-history-and-snapshots.md`. Each claim was cross-checked against
+the relevant `src/core/` module (`lossless-document.ts`/`serializer.ts`/
+`encoding.ts`, `worksheet.ts`/`rsf-document.ts`, `formula.ts` and the
+`formula-*.ts` family, `spill.ts`, `history.ts`, `csv-export.ts`/
+`json-import.ts`/`json-export.ts`/`xlsx-import.ts`/`xlsx-export.ts`)
+rather than transcribed from the README alone; the XLSX import/export and
+version-history Preview behavior predate this repo's `CHANGELOG.md`
+window or were added after the README's original migrated-docs baseline,
+so those two concepts also cite `CHANGELOG.md` entries and the export
+source modules directly. Several concepts deliberately link outward
+instead of duplicating: worksheet kinds and the two tab strips defer to
+`architecture/system-overview.md`'s existing "Workbooks and worksheets"
+section for the code-level model; the spill bounds table and RSF
+body-version tables defer to `formats/rsf/dynamic-arrays.md` and
+`formats/rsf/compatibility.md`; the atomic-history and sort-is-view-state
+guarantees defer to `architecture/invariants.md`. `domains/index.md` is a
+reserved index with no frontmatter, matching `architecture/index.md`'s
+pattern.

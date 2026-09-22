@@ -4,3 +4,6 @@ package-lock.json
 src/wasm-gen/
 wasm/target/
 wasm/pkg/
+# Vendored design-team deliverable (tokens, docs, logos, icons); its
+# formatting comes from the design system's own tooling, not this repo's.
+design-system/

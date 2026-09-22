@@ -31,6 +31,20 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ## [Unreleased]
 
+### Changed
+
+- The app and the landing site now follow the Refrain Sheet Design System
+  v1.0.0: the light/dark/hybrid color themes, the UI font stack, and the
+  app icon/favicon/logo were all retuned to the new brand palette (a
+  slightly cooler green accent, warm "paper" backgrounds distinct from the
+  cooler "ink" borders/text, and an amber tone for dirty-cell/warning
+  states). The app's spreadsheet grid, cell density, and control sizes are
+  unchanged — only color, typography family, and brand artwork moved. Every
+  text-on-background pairing `scripts/check-contrast.mjs` checks was
+  re-verified against WCAG AA (4.5:1) in all three themes, same as the
+  previous recolor. The landing page's marketing screenshots were
+  regenerated to match.
+
 ### Added
 
 - Toast notifications (the small pop-up messages in the corner of the

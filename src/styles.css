@@ -42,8 +42,12 @@
 }
 
 :root {
-  /* General UI: navigation, buttons, dialogs, forms, helper text. */
-  --font-ui: 'Yu Gothic UI', 'Yu Gothic', 'Meiryo UI', sans-serif;
+  /* General UI: navigation, buttons, dialogs, forms, helper text. Matches
+     the Refrain Sheet Design System v1.0.0 font-ui stack (zero webfonts —
+     OS-local families only), extended with 'Meiryo UI' at the end for older
+     Windows installs that lack every earlier family in the chain. */
+  --font-ui:
+    'BIZ UDPGothic', 'Yu Gothic UI', 'Hiragino Sans', 'Noto Sans JP', 'Meiryo UI', system-ui, sans-serif;
 
   /* Selectable spreadsheet fonts (View > Spreadsheet Font). All are local
      Windows/Office fonts; nothing is fetched from a CDN or bundled. The
@@ -67,63 +71,69 @@
      Every semantic token below is authored as oklch(L C H[ / alpha]) — the
      cylindrical form of the perceptually-uniform Oklab space — instead of
      hand-picked hex, so lightness and chroma steps stay comparable across
-     tokens and between the light/dark themes below. `--hue-neutral` and
-     `--hue-accent` are the two hue families shared across many tokens (grays
-     and blues respectively); they live here, once, because both themes agree
-     on them almost exactly, and every other block inherits them unless it
-     says otherwise. Distinct semantic hues (danger, warning, success, the
-     formula/reference colors) keep their own literal hue, since unifying
-     those would change what they mean, not just how they're written. */
-  --hue-neutral: 215;
-  --hue-accent: 170;
+     tokens and between the light/dark themes below. Three hue families are
+     shared across many tokens: `--hue-paper` (warm — backgrounds, the brand's
+     "paper" neutral), `--hue-neutral` (cool — borders and text, the brand's
+     "ink" neutral) and `--hue-accent` (green — the brand's dominant hue);
+     they live here, once, and every other block inherits them unless it says
+     otherwise. Values below are re-derived from the Refrain Sheet Design
+     System v1.0.0 (design-system/1.0.0/css/tokens.css) — see that file's own
+     oklch comments for the exact L/C per palette step. Danger, warning, and
+     the formula/reference colors keep their own literal hue, since unifying
+     those would change what they mean, not just how they're written; the
+     design system defines success as identical to accent in both themes, so
+     `--success` follows `--hue-accent` too. */
+  --hue-paper: 107;
+  --hue-neutral: 256;
+  --hue-accent: 152;
 
   /* ---------- Semantic color tokens (light theme = default) ----------
      Every surface reads its colors from these tokens; the dark theme below
      overrides the same names. Selection, errors, dirty state, and warnings are
      always paired with a non-color cue (outline pattern, marker glyph, bold,
      wavy underline) so they never rely on color alone. */
-  --bg: oklch(96.8% 0.003 var(--hue-neutral));
-  --panel: oklch(94.4% 0.004 var(--hue-neutral));
-  --panel-hover: oklch(91.4% 0.005 var(--hue-neutral));
-  --panel-active: oklch(85.9% 0.008 var(--hue-neutral));
-  --border: oklch(82.8% 0.008 var(--hue-neutral));
-  --border-subtle: oklch(92.6% 0.005 var(--hue-neutral));
-  --text: oklch(22.9% 0.012 var(--hue-neutral));
-  --text-dim: oklch(47.2% 0.019 var(--hue-neutral));
-  --text-muted: oklch(63.7% 0.016 var(--hue-neutral));
-  --surface: oklch(100% 0 var(--hue-neutral));
-  --field-bg: oklch(100% 0 var(--hue-neutral));
-  --cell-bg: oklch(100% 0 var(--hue-neutral));
-  --grid-line: oklch(91.7% 0.007 var(--hue-neutral));
-  --row-alt: oklch(98% 0.003 var(--hue-neutral));
-  --selected-row: oklch(95.6% 0.013 var(--hue-accent));
+  --bg: oklch(96.5% 0.012 var(--hue-paper));
+  --panel: oklch(100% 0 var(--hue-paper));
+  --panel-hover: oklch(94.4% 0.012 var(--hue-paper));
+  --panel-active: oklch(89.5% 0.012 var(--hue-paper));
+  --border: oklch(89.5% 0.012 var(--hue-paper));
+  --border-subtle: oklch(94.4% 0.012 var(--hue-paper));
+  --text: oklch(21.5% 0.018 var(--hue-neutral));
+  --text-dim: oklch(42.1% 0.018 var(--hue-neutral));
+  --text-muted: oklch(49.7% 0.018 var(--hue-neutral));
+  --surface: oklch(100% 0 var(--hue-paper));
+  --field-bg: oklch(100% 0 var(--hue-paper));
+  --cell-bg: oklch(100% 0 var(--hue-paper));
+  --grid-line: oklch(89.5% 0.012 var(--hue-paper));
+  --row-alt: oklch(96.5% 0.012 var(--hue-paper));
+  --selected-row: oklch(97% 0.021 141);
   --sticky-bg: oklch(97.3% 0.031 92.9);
-  --info-soft: oklch(98.3% 0.025 106.8);
-  --accent: oklch(46.5% 0.078 var(--hue-accent));
-  --accent-soft: oklch(91% 0.028 var(--hue-accent));
+  --info-soft: oklch(93% 0.034 252);
+  --accent: oklch(52.5% 0.13 var(--hue-accent));
+  --accent-soft: oklch(97% 0.021 141);
   --accent-contrast: oklch(100% 0 var(--hue-accent));
-  --accent-contrast-dim: oklch(94.5% 0.016 var(--hue-accent));
-  --range-fill: oklch(54.6% 0.092 var(--hue-accent) / 0.14);
-  --edited: oklch(96.2% 0.062 95.4);
-  --edited-border: oklch(78.7% 0.161 91);
-  --danger: oklch(50.1% 0.178 28.7);
-  --warning: oklch(66.6% 0.157 58.3);
-  --warning-soft: oklch(97.4% 0.03 88.4);
-  --warning-border: oklch(82.7% 0.109 91.5);
-  --success: oklch(55% 0.145 135);
+  --accent-contrast-dim: oklch(97% 0.021 141);
+  --range-fill: oklch(52.5% 0.13 var(--hue-accent) / 0.14);
+  --edited: oklch(92.9% 0.036 76);
+  --edited-border: oklch(79.9% 0.064 75);
+  --danger: oklch(54.9% 0.138 27);
+  --warning: oklch(50.1% 0.106 75);
+  --warning-soft: oklch(92.9% 0.036 76);
+  --warning-border: oklch(79.9% 0.064 75);
+  --success: oklch(52.5% 0.13 var(--hue-accent));
   --formula-text: oklch(39.3% 0.11 138);
   --formula-marker: oklch(55.3% 0.161 144);
-  --void-a: oklch(98.5% 0 var(--hue-neutral));
-  --void-b: oklch(95.9% 0.004 var(--hue-neutral));
-  --find-highlight: oklch(46.5% 0.078 var(--hue-accent) / 0.18);
-  --scrim: oklch(19.5% 0.016 var(--hue-neutral) / 0.35);
-  --scrim-light: oklch(100% 0 var(--hue-neutral) / 0.55);
-  --tooltip-bg: oklch(29.2% 0.014 var(--hue-neutral));
-  --tooltip-text: oklch(100% 0 var(--hue-neutral));
+  --void-a: oklch(100% 0 var(--hue-paper));
+  --void-b: oklch(96.5% 0.012 var(--hue-paper));
+  --find-highlight: oklch(52.5% 0.13 var(--hue-accent) / 0.18);
+  --scrim: oklch(21.5% 0.018 var(--hue-neutral) / 0.45);
+  --scrim-light: oklch(100% 0 var(--hue-paper) / 0.55);
+  --tooltip-bg: oklch(27.9% 0.019 var(--hue-neutral));
+  --tooltip-text: oklch(96.5% 0.012 var(--hue-paper));
   /* Toasts stay dark chips in both themes so their light text always reads;
      the warn/error variants carry their own dark backgrounds. */
-  --toast-warn-bg: oklch(49% 0.1 85.4);
-  --toast-error-bg: oklch(42.6% 0.15 28.5);
+  --toast-warn-bg: oklch(50.1% 0.106 75);
+  --toast-error-bg: oklch(46% 0.16 27);
   --shadow: oklch(0% 0 0 / 0.15);
   --shadow-strong: oklch(0% 0 0 / 0.3);
   /* Four visually distinct formula-reference colors (always paired with a
@@ -140,46 +150,46 @@
    src/app/theme.ts, which resolves the "system" choice via prefers-color-scheme
    and updates live on OS theme changes). */
 :root[data-theme='dark'] {
-  --bg: oklch(20.6% 0.008 var(--hue-neutral));
-  --panel: oklch(26.3% 0.013 var(--hue-neutral));
-  --panel-hover: oklch(32.1% 0.016 var(--hue-neutral));
-  --panel-active: oklch(36.4% 0.017 var(--hue-neutral));
-  --border: oklch(35.2% 0.015 var(--hue-neutral));
-  --border-subtle: oklch(29.6% 0.013 var(--hue-neutral));
-  --text: oklch(92.9% 0.007 var(--hue-neutral));
-  --text-dim: oklch(72.9% 0.019 var(--hue-neutral));
-  --text-muted: oklch(56.3% 0.017 var(--hue-neutral));
-  --surface: oklch(25.1% 0.013 var(--hue-neutral));
-  --field-bg: oklch(22.5% 0.012 var(--hue-neutral));
-  --cell-bg: oklch(22.9% 0.012 var(--hue-neutral));
-  --grid-line: oklch(32.4% 0.014 var(--hue-neutral));
-  --row-alt: oklch(24.7% 0.013 var(--hue-neutral));
-  --selected-row: oklch(29.4% 0.012 var(--hue-accent));
+  --bg: oklch(21.5% 0.018 var(--hue-neutral));
+  --panel: oklch(24.5% 0.018 var(--hue-neutral));
+  --panel-hover: oklch(27.9% 0.019 var(--hue-neutral));
+  --panel-active: oklch(34.1% 0.017 var(--hue-neutral));
+  --border: oklch(34.1% 0.017 var(--hue-neutral));
+  --border-subtle: oklch(27.9% 0.019 var(--hue-neutral));
+  --text: oklch(96.5% 0.012 var(--hue-paper));
+  --text-dim: oklch(62.1% 0.014 var(--hue-neutral));
+  --text-muted: oklch(56% 0.014 var(--hue-neutral));
+  --surface: oklch(27.9% 0.019 var(--hue-neutral));
+  --field-bg: oklch(17.5% 0.017 var(--hue-neutral));
+  --cell-bg: oklch(17.5% 0.017 var(--hue-neutral));
+  --grid-line: oklch(27.9% 0.019 var(--hue-neutral));
+  --row-alt: oklch(21.5% 0.018 var(--hue-neutral));
+  --selected-row: oklch(26.9% 0.062 159);
   --sticky-bg: oklch(28.6% 0.028 92.8);
-  --info-soft: oklch(25.4% 0.035 108.7);
-  --accent: oklch(70% 0.118 var(--hue-accent));
-  --accent-soft: oklch(33.1% 0.013 var(--hue-accent));
-  --accent-contrast: oklch(19.1% 0.004 var(--hue-accent));
-  --accent-contrast-dim: oklch(19.1% 0.004 var(--hue-accent));
-  --range-fill: oklch(70% 0.118 var(--hue-accent) / 0.22);
-  --edited: oklch(35% 0.05 88.6);
-  --edited-border: oklch(75% 0.132 89.4);
-  --danger: oklch(70.2% 0.159 25.6);
-  --warning: oklch(78.3% 0.146 73.4);
-  --warning-soft: oklch(30% 0.044 84.8);
-  --warning-border: oklch(46% 0.076 87.2);
-  --success: oklch(80% 0.21 135);
+  --info-soft: oklch(30% 0.09 252);
+  --accent: oklch(76% 0.088 var(--hue-accent));
+  --accent-soft: oklch(26.9% 0.062 var(--hue-accent));
+  --accent-contrast: oklch(21.5% 0.018 var(--hue-neutral));
+  --accent-contrast-dim: oklch(21.5% 0.018 var(--hue-neutral));
+  --range-fill: oklch(76% 0.088 var(--hue-accent) / 0.22);
+  --edited: oklch(32.1% 0.068 75);
+  --edited-border: oklch(79.9% 0.064 75);
+  --danger: oklch(76.1% 0.088 27);
+  --warning: oklch(79.9% 0.064 75);
+  --warning-soft: oklch(32.1% 0.068 75);
+  --warning-border: oklch(50.1% 0.106 75);
+  --success: oklch(76% 0.088 var(--hue-accent));
   --formula-text: oklch(83.6% 0.233 138);
   --formula-marker: oklch(80% 0.21 135);
-  --void-a: oklch(25.9% 0.013 var(--hue-neutral));
-  --void-b: oklch(22% 0.012 var(--hue-neutral));
-  --find-highlight: oklch(70.5% 0.119 var(--hue-accent) / 0.3);
-  --scrim: oklch(0% 0 0 / 0.55);
+  --void-a: oklch(24.5% 0.018 var(--hue-neutral));
+  --void-b: oklch(21.5% 0.018 var(--hue-neutral));
+  --find-highlight: oklch(76% 0.088 var(--hue-accent) / 0.3);
+  --scrim: oklch(0% 0 0 / 0.65);
   --scrim-light: oklch(0% 0 0 / 0.45);
-  --tooltip-bg: oklch(35.3% 0.019 var(--hue-neutral));
-  --tooltip-text: oklch(96.2% 0.005 var(--hue-neutral));
-  --toast-warn-bg: oklch(45.2% 0.083 86.3);
-  --toast-error-bg: oklch(39.8% 0.123 28.4);
+  --tooltip-bg: oklch(34.1% 0.017 var(--hue-neutral));
+  --tooltip-text: oklch(96.5% 0.012 var(--hue-paper));
+  --toast-warn-bg: oklch(50.1% 0.106 75);
+  --toast-error-bg: oklch(46% 0.16 27);
   --shadow: oklch(0% 0 0 / 0.5);
   --shadow-strong: oklch(0% 0 0 / 0.72);
   --fref-1: oklch(72.9% 0.123 var(--hue-accent));
@@ -199,46 +209,46 @@
    dark block for cells, row/column headers, and everything nested inside the
    grid, without touching the surrounding UI chrome. */
 :root[data-theme='dark'][data-theme-choice='hybrid'] .grid-container {
-  --bg: oklch(96.8% 0.003 var(--hue-neutral));
-  --panel: oklch(94.4% 0.004 var(--hue-neutral));
-  --panel-hover: oklch(91.4% 0.005 var(--hue-neutral));
-  --panel-active: oklch(85.9% 0.008 var(--hue-neutral));
-  --border: oklch(82.8% 0.008 var(--hue-neutral));
-  --border-subtle: oklch(92.6% 0.005 var(--hue-neutral));
-  --text: oklch(22.9% 0.012 var(--hue-neutral));
-  --text-dim: oklch(47.2% 0.019 var(--hue-neutral));
-  --text-muted: oklch(63.7% 0.016 var(--hue-neutral));
-  --surface: oklch(100% 0 var(--hue-neutral));
-  --field-bg: oklch(100% 0 var(--hue-neutral));
-  --cell-bg: oklch(100% 0 var(--hue-neutral));
-  --grid-line: oklch(91.7% 0.007 var(--hue-neutral));
-  --row-alt: oklch(98% 0.003 var(--hue-neutral));
-  --selected-row: oklch(95.6% 0.013 var(--hue-accent));
+  --bg: oklch(96.5% 0.012 var(--hue-paper));
+  --panel: oklch(100% 0 var(--hue-paper));
+  --panel-hover: oklch(94.4% 0.012 var(--hue-paper));
+  --panel-active: oklch(89.5% 0.012 var(--hue-paper));
+  --border: oklch(89.5% 0.012 var(--hue-paper));
+  --border-subtle: oklch(94.4% 0.012 var(--hue-paper));
+  --text: oklch(21.5% 0.018 var(--hue-neutral));
+  --text-dim: oklch(42.1% 0.018 var(--hue-neutral));
+  --text-muted: oklch(49.7% 0.018 var(--hue-neutral));
+  --surface: oklch(100% 0 var(--hue-paper));
+  --field-bg: oklch(100% 0 var(--hue-paper));
+  --cell-bg: oklch(100% 0 var(--hue-paper));
+  --grid-line: oklch(89.5% 0.012 var(--hue-paper));
+  --row-alt: oklch(96.5% 0.012 var(--hue-paper));
+  --selected-row: oklch(97% 0.021 141);
   --sticky-bg: oklch(97.3% 0.031 92.9);
-  --info-soft: oklch(98.3% 0.025 106.8);
-  --accent: oklch(46.5% 0.078 var(--hue-accent));
-  --accent-soft: oklch(91% 0.028 var(--hue-accent));
+  --info-soft: oklch(93% 0.034 252);
+  --accent: oklch(52.5% 0.13 var(--hue-accent));
+  --accent-soft: oklch(97% 0.021 141);
   --accent-contrast: oklch(100% 0 var(--hue-accent));
-  --accent-contrast-dim: oklch(94.5% 0.016 var(--hue-accent));
-  --range-fill: oklch(54.6% 0.092 var(--hue-accent) / 0.14);
-  --edited: oklch(96.2% 0.062 95.4);
-  --edited-border: oklch(78.7% 0.161 91);
-  --danger: oklch(50.1% 0.178 28.7);
-  --warning: oklch(66.6% 0.157 58.3);
-  --warning-soft: oklch(97.4% 0.03 88.4);
-  --warning-border: oklch(82.7% 0.109 91.5);
-  --success: oklch(55% 0.145 135);
+  --accent-contrast-dim: oklch(97% 0.021 141);
+  --range-fill: oklch(52.5% 0.13 var(--hue-accent) / 0.14);
+  --edited: oklch(92.9% 0.036 76);
+  --edited-border: oklch(79.9% 0.064 75);
+  --danger: oklch(54.9% 0.138 27);
+  --warning: oklch(50.1% 0.106 75);
+  --warning-soft: oklch(92.9% 0.036 76);
+  --warning-border: oklch(79.9% 0.064 75);
+  --success: oklch(52.5% 0.13 var(--hue-accent));
   --formula-text: oklch(39.3% 0.11 138);
   --formula-marker: oklch(55.3% 0.161 144);
-  --void-a: oklch(98.5% 0 var(--hue-neutral));
-  --void-b: oklch(95.9% 0.004 var(--hue-neutral));
-  --find-highlight: oklch(46.5% 0.078 var(--hue-accent) / 0.18);
-  --scrim: oklch(19.5% 0.016 var(--hue-neutral) / 0.35);
-  --scrim-light: oklch(100% 0 var(--hue-neutral) / 0.55);
-  --tooltip-bg: oklch(29.2% 0.014 var(--hue-neutral));
-  --tooltip-text: oklch(100% 0 var(--hue-neutral));
-  --toast-warn-bg: oklch(49% 0.1 85.4);
-  --toast-error-bg: oklch(42.6% 0.15 28.5);
+  --void-a: oklch(100% 0 var(--hue-paper));
+  --void-b: oklch(96.5% 0.012 var(--hue-paper));
+  --find-highlight: oklch(52.5% 0.13 var(--hue-accent) / 0.18);
+  --scrim: oklch(21.5% 0.018 var(--hue-neutral) / 0.45);
+  --scrim-light: oklch(100% 0 var(--hue-paper) / 0.55);
+  --tooltip-bg: oklch(27.9% 0.019 var(--hue-neutral));
+  --tooltip-text: oklch(96.5% 0.012 var(--hue-paper));
+  --toast-warn-bg: oklch(50.1% 0.106 75);
+  --toast-error-bg: oklch(46% 0.16 27);
   --shadow: oklch(0% 0 0 / 0.15);
   --shadow-strong: oklch(0% 0 0 / 0.3);
   --fref-1: oklch(54.6% 0.092 var(--hue-accent));

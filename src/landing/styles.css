@@ -22,31 +22,32 @@
   --space-20: 5rem;
   --space-24: 6rem;
 
-  /* palette — paper & ink, with a preservation green and a diff amber */
-  --paper: #f7f6f2;
+  /* palette — Refrain Sheet Design System v1.0.0 (paper & ink, with the
+     brand green and a diff amber); see design-system/1.0.0/css/tokens.css */
+  --paper: #f4f4eb;
   --surface: #ffffff;
-  --ink: #16181c;
-  --ink-2: #3d434c;
-  --muted: #6a7079;
-  --line: #e2e0d9;
-  --line-strong: #cfccc2;
-  --green: #1f7a4a;
-  --green-soft: #e7f2ea;
-  --amber: #e3b23c;
-  --amber-soft: #fdf3d8;
-  --night: #14161a;
-  --night-2: #1d2026;
-  --night-line: #2c313a;
-  --night-text: #e7e6e1;
+  --ink: #141a22;
+  --ink-2: #474e57;
+  --muted: #5c636d;
+  --line: #ddddd4;
+  --line-strong: #cbcbc3;
+  --green: #147f43;
+  --green-soft: #eef9ec;
+  --amber: #a6762a;
+  --amber-soft: #f6e5ce;
+  --night: #141a22;
+  --night-2: #1b2129;
+  --night-line: #323941;
+  --night-text: #f4f4eb;
 
   --radius: 10px;
-  --radius-lg: 16px;
-  --shadow: 0 1px 2px rgba(22, 24, 28, 0.05), 0 12px 32px -12px rgba(22, 24, 28, 0.18);
+  --radius-lg: 14px;
+  --shadow: 0 1px 2px rgba(20, 26, 34, 0.05), 0 12px 32px -12px rgba(20, 26, 34, 0.18);
   --maxw: 1180px;
 
-  --font-body: 'Inter', 'Zen Kaku Gothic New', 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
-  --font-jp: 'Zen Kaku Gothic New', 'Inter', 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-body: 'BIZ UDPGothic', 'Yu Gothic UI', 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif;
+  --font-jp: 'BIZ UDPGothic', 'Yu Gothic UI', 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif;
+  --font-mono: 'BIZ UDGothic', 'SFMono-Regular', Consolas, 'Courier New', monospace;
 }
 
 * {
@@ -168,7 +169,7 @@ p {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(247, 246, 242, 0.86);
+  background: rgba(244, 244, 235, 0.86);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
@@ -187,7 +188,6 @@ p {
   text-decoration: none;
 }
 .brand svg {
-  color: var(--green);
   flex: none;
 }
 .nav {
@@ -262,7 +262,7 @@ p {
   color: #fff;
 }
 .btn-primary:hover {
-  background: #196540;
+  background: #006335;
 }
 .btn-ghost {
   border-color: var(--line-strong);
@@ -337,10 +337,10 @@ p {
 .panel-dark .mk {
   display: inline-block;
   width: 1.1em;
-  color: #8b929d;
+  color: #81878f;
 }
 .panel-dark .mk.plus {
-  color: #6fd39a;
+  color: #8bc191;
 }
 .shot-cap {
   font-size: var(--text-xs);
@@ -493,7 +493,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  color: #8b929d;
+  color: #81878f;
   font-size: var(--text-xs);
   margin-bottom: var(--space-4);
   border-bottom: 1px solid var(--night-line);
@@ -503,22 +503,22 @@ p {
   white-space: pre;
 }
 .panel-dark .keep {
-  color: #9aa2ad;
+  color: #999fa7;
 }
 .panel-dark .edit {
-  color: #14161a;
+  color: #141a22;
   background: var(--amber);
   padding: 0 4px;
   border-radius: 3px;
 }
 .panel-dark .ok {
-  color: #6fcf97;
+  color: #8bc191;
 }
 .tag-ok {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #6fcf97;
+  color: #8bc191;
 }
 
 /* ---------- comparison table ---------- */
@@ -546,7 +546,7 @@ table.cmp thead th {
   letter-spacing: 0.04em;
   color: var(--muted);
   font-weight: 600;
-  background: #fbfaf7;
+  background: #ffffff;
   position: sticky;
   top: 0;
 }
@@ -560,7 +560,7 @@ table.cmp tbody th {
 }
 table.cmp td.own {
   background: var(--green-soft);
-  color: #14432c;
+  color: #004a29;
   font-weight: 600;
 }
 table.cmp tr:last-child th,
@@ -619,32 +619,32 @@ table.cmp tr:last-child td {
 }
 .dark .lede,
 .dark p {
-  color: #b9bfc8;
+  color: #999fa7;
 }
 .dark .eyebrow {
-  color: #6fcf97;
+  color: #8bc191;
 }
 .dark .eyebrow::before {
-  background: #6fcf97;
+  background: #8bc191;
 }
 .dark .card {
   background: var(--night-2);
   border-color: var(--night-line);
 }
 .dark .card p {
-  color: #a7aeb8;
+  color: #999fa7;
 }
 .dark .card h3 {
   color: #fff;
 }
 .dark .card .ico {
-  background: rgba(111, 207, 151, 0.12);
-  color: #6fcf97;
+  background: rgba(139, 193, 145, 0.12);
+  color: #8bc191;
 }
 .dark .badge {
   background: transparent;
   border-color: var(--night-line);
-  color: #b9bfc8;
+  color: #999fa7;
 }
 
 /* ---------- steps ---------- */
@@ -677,7 +677,7 @@ table.cmp tr:last-child td {
 code.inline {
   font-family: var(--font-mono);
   font-size: 0.85em;
-  background: #eeece5;
+  background: #edede4;
   border: 1px solid var(--line-strong);
   padding: 1px 6px;
   border-radius: 5px;
@@ -787,7 +787,7 @@ details.qa p {
   margin: 0;
   max-width: 70ch;
   font-size: var(--text-xs);
-  color: #b9bfc8;
+  color: #999fa7;
 }
 .cookie-consent-actions {
   display: flex;
@@ -795,7 +795,7 @@ details.qa p {
   gap: var(--space-3);
 }
 .cookie-consent .btn-ghost {
-  border-color: rgba(231, 230, 225, 0.35);
+  border-color: rgba(244, 244, 235, 0.35);
   background: transparent;
   color: var(--night-text);
 }
@@ -830,7 +830,7 @@ details.qa p {
   border-radius: 4px;
 }
 .dark :focus-visible {
-  outline-color: #6fcf97;
+  outline-color: #8bc191;
 }
 .skip {
   position: absolute;

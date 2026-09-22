@@ -1,5 +1,12 @@
 # Architecture
 
+> **Migrated.** This document's content now also lives, split into focused
+> concepts, in [`knowledge/architecture/`](../knowledge/architecture/index.md)
+> (an
+> [OKF v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)
+> bundle). This file is kept as the original, unedited source; read the
+> `knowledge/` version for the current, actively maintained copy.
+
 This document is the engineering map of Refrain Sheet: the layers, the
 direction dependencies are allowed to flow, how data moves through the app,
 where the WASM boundary sits, and the invariants that every change must

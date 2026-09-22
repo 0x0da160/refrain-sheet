@@ -1,5 +1,12 @@
 # Refrain Sheet Format (RSF) — the `.rsf` binary container
 
+> **Migrated.** This document's content now also lives, split into focused
+> concepts, in [`knowledge/formats/rsf/`](../knowledge/formats/rsf/index.md)
+> (an
+> [OKF v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)
+> bundle). This file is kept as the original, unedited source; read the
+> `knowledge/` version for the current, actively maintained copy.
+
 **Refrain Sheet Format (RSF)** is the dedicated spreadsheet document format used
 by **Refrain Sheet**, saved with the `.rsf` extension. It carries formulas,
 structural editing intent, and per-document metadata that plain CSV cannot

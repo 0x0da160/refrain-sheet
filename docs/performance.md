@@ -1,5 +1,15 @@
 # Performance and responsiveness
 
+> **Migrated.** This document's content now also lives, split into focused
+> concepts, in
+> [`knowledge/operations/performance-principles.md`](../knowledge/operations/performance-principles.md)
+> and
+> [`knowledge/operations/performance-measurements.md`](../knowledge/operations/performance-measurements.md)
+> (part of the
+> [OKF v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)
+> `knowledge/` bundle). This file is kept as the original, unedited source;
+> read the `knowledge/` versions for the current, actively maintained copy.
+
 This document records how Refrain Sheet is tuned for perceived
 responsiveness, how to reproduce the measurements, and the numbers measured
 for the current revision. The README's

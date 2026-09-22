@@ -141,9 +141,4 @@ export async function pickDriveFile(token: string, title: string): Promise<Picke
   });
 }
 
-/** Test seam: forget the cached Picker load. */
-export function resetPickerStateForTests(): void {
-  pickerReady = null;
-}
-
 export const __testing = { appIdFromClientId, PICKER_MIME_TYPES };

@@ -3,7 +3,7 @@ type: format-concept
 title: RSF workbook body grammar
 description: The container-version-4 body layout, written only when a workbook holds two or more worksheets — version selection, field layout, per-worksheet records, and workbook-level bounds.
 sources:
-  - resource: ../../../docs/rsf-format.md
+  - resource: docs/rsf-format.md (migrated content; file removed after migration — see knowledge/log.md)
   - resource: ../../../src/core/rsf-codec.ts
 status: stable
 generated:

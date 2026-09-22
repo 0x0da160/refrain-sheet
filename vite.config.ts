@@ -17,7 +17,7 @@ import { assertBuildMode, buildCsp } from './scripts/csp.mjs';
  *
  * The two policies are byte-identical today. The split exists so that a future
  * hosted-only CSP relaxation for the opt-in cloud sync described in
- * docs/security.md can never reach the offline artifact or the release ZIP.
+ * knowledge/operations/security-threat-model.md can never reach the offline artifact or the release ZIP.
  */
 export default defineConfig(({ mode }) => {
   // Vite's own defaults — 'development' for `vite dev`, 'production' for
@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
   // holds, so the release ZIP can never carry a credential or a code path that
   // would reach the network; scripts/check-dist.mjs asserts that mechanically.
   // These are public identifiers delivered as repository *variables*, never
-  // secrets — see docs/security.md.
+  // secrets — see knowledge/operations/security-supply-chain.md.
   const hostedEnv = (name: string) => JSON.stringify(buildMode === 'hosted' ? (process.env[name] ?? '') : '');
 
   return {

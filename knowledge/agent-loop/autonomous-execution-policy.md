@@ -3,7 +3,7 @@ type: agent-loop-concept
 title: Autonomous execution policy
 description: What a human Issue does and doesn't have to specify, the Work Brief as a living record rather than a gate, and exactly when Claude stops for agent:needs-spec or agent:blocked.
 sources:
-  - resource: ../../docs/agent-operations.md
+  - resource: docs/agent-operations.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5

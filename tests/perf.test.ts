@@ -5,7 +5,7 @@
  * performance work (bounded DOM churn, deferred aggregates, sliced scans,
  * prompt busy feedback) rather than wall-clock timings, so they are
  * deterministic across machines. Throughput itself is measured by
- * `npm run bench` (see docs/performance.md).
+ * `npm run bench` (see knowledge/operations/performance-measurements.md).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';

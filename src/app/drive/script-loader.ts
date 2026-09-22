@@ -5,7 +5,7 @@
 // the hosted build only, and they are loaded lazily — nothing is fetched until
 // the user actually invokes a Drive command. A default session that never
 // touches Drive still makes zero network requests, which is what keeps the
-// opt-in promise in docs/security.md honest.
+// opt-in promise in knowledge/operations/security-threat-model.md honest.
 //
 // The URLs are not caller-supplied: every call site passes one of the two
 // constants in ./config, and the hosted CSP's script-src independently

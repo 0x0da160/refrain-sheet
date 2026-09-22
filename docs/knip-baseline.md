@@ -43,7 +43,7 @@ See `knip.jsonc` inline comments for the authoritative reasoning. Summary:
   `import` in `scripts/build-landing.mjs`.
 - `tailwindcss` is in `ignoreDependencies`: it's used only via CSS
   `@import 'tailwindcss/theme.css'` / `'tailwindcss/utilities.css'` in
-  `src/styles.css` (see `docs/architecture.md`, "Styling stays hand-written
+  `src/styles.css` (see `knowledge/architecture/module-boundaries.md`, "Styling stays hand-written
   CSS"). Knip's `project` globs don't include `*.css`, so it never sees this
   real usage and would otherwise report the package as unused — confirmed by
   reading `src/styles.css:26-27` directly.
@@ -108,7 +108,7 @@ rather than deleting the dependency or silently suppressing the warning.
     framing of the whole barrel.
   - Removed entirely (genuinely dead everywhere, not just via the
     barrel): `isVolatileFunction` (`src/core/formula-functions.ts` —
-    confirmed via `docs/architecture.md`'s own description of the
+    confirmed via `knowledge/architecture/module-boundaries.md`'s own description of the
     volatile-function mechanism: the workbook uses a shared clock plus
     full memo invalidation on every mutation, not a per-function
     volatility check, so this predicate was never needed), `isSingleCell`,

@@ -22,7 +22,7 @@ name: Implement issue
 #   human-authored comment, and the newest `agent-spec:v1` Work Brief (context, not
 #   contract), then implements using repository conventions. A Work Brief is NOT
 #   required to start, and a stale `needs-clarification` brief does not block a run
-#   once a later human comment answers it. See docs/agent-operations.md.
+#   once a later human comment answers it. See knowledge/agent-loop/autonomous-execution-policy.md.
 #
 # CONTINUATION (smartphone-first)
 # - ONE Issue == ONE stable branch `agent/issue-<n>-<slug>` == ONE pull request, for
@@ -71,7 +71,7 @@ name: Implement issue
 #   label/issue mutations are disallowed so the workflow stays the sole authority.
 # - Inert until a human selects CLAUDE_AUTH_METHOD + adds the matching secret.
 # - `anthropics/claude-code-action` is THIRD-PARTY, so it is pinned to a full
-#   commit SHA (docs/security.md pinning policy). The trailing comment on each
+#   commit SHA (knowledge/operations/security-supply-chain.md pinning policy). The trailing comment on each
 #   `uses:` line names the release that SHA is.
 
 on:
@@ -153,7 +153,7 @@ jobs:
       # `agent:needs-spec` after a human had already answered the open question in a
       # plain comment. The agent now reads the full issue plus every human comment and
       # refreshes the brief itself. `agent:ready` remains human-only and is the real
-      # authorization; see docs/agent-operations.md § Autonomous execution policy.
+      # authorization; see knowledge/agent-loop/autonomous-execution-policy.md.
       - name: Gate 2 — confirm human approval is still in force
         id: gate
         run: |
@@ -595,7 +595,7 @@ jobs:
           # Turn-budget exhaustion is an EXECUTION boundary, not a specification
           # failure. The Claude Code CLI reports it as the result subtype
           # `error_max_turns` (the same signature seen when triage exhausted its cap;
-          # see docs/agent-operations.md). Classifying it here is what routes the run
+          # see knowledge/agent-loop/lifecycle.md). Classifying it here is what routes the run
           # to the continuation path instead of `agent:blocked`.
           turn_limit=false
           if [ -f "$RUNNER_TEMP/claude-execution-output.json" ]; then
@@ -1114,7 +1114,7 @@ jobs:
             # still in force, and Gate 2 re-checks it on the re-run.
             gh issue edit "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" \
               --add-label "agent:continuation-needed" \
-              || echo "::warning::Label agent:continuation-needed does not exist yet — create it (see docs/agent-operations.md)."
+              || echo "::warning::Label agent:continuation-needed does not exist yet — create it (see knowledge/agent-loop/configuration-and-permissions.md)."
             # `agent-continuation:v1` is a SEPARATE, older marker: it is what the
             # consecutive-attempt counter above and the agent prompt look for. It stays
             # in the body alongside the notification marker.

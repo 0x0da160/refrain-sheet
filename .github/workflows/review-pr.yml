@@ -16,7 +16,7 @@ name: Review PR
 #   stays human-only, and this job cannot approve, merge, or push.
 # - Inert until a human installs the Claude GitHub App + adds ANTHROPIC_API_KEY.
 # - `anthropics/claude-code-action` is THIRD-PARTY, so it is pinned to a full
-#   commit SHA (docs/security.md pinning policy). The trailing comment on each
+#   commit SHA (knowledge/operations/security-supply-chain.md pinning policy). The trailing comment on each
 #   `uses:` line names the release that SHA is.
 
 on:
@@ -138,7 +138,7 @@ jobs:
           # `github-actions[bot]`. The action's human-actor check rejects that,
           # which is why every review run on a real `agent/issue-*` PR has failed.
           # Allow EXACTLY that one bot: never `'*'`, and no dependency bots.
-          # See docs/agent-operations.md ("Why review-pr.yml allows one bot").
+          # See knowledge/agent-loop/budget-rollback-and-release.md ("Why review-pr.yml allows one bot").
           allowed_bots: github-actions
           # Grant the tools review needs: repo reading plus Bash for `gh` and the
           # verification suite (without an explicit allowlist EVERY tool call is

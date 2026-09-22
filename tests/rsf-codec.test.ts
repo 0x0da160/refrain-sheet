@@ -354,7 +354,7 @@ describe('binary container codec (JS store engine)', () => {
     // this test targets instead of failing earlier on a checksum mismatch).
     // The container header's fixed size (magic 4 + container version 1 +
     // method 1 + reserved 1 + codec profile 1 + body length u32 + CRC-32 u32
-    // + payload length u32 = 20 bytes — see `docs/rsf-format.md`'s container
+    // + payload length u32 = 20 bytes — see `knowledge/formats/rsf/index.md`'s container
     // layout table). Not exported from the codec (it's a private constant
     // there); hardcoded here since it's a stable, documented format detail.
     const HEADER_SIZE = 20;

@@ -3,7 +3,7 @@
 /* Tailwind CSS utility classes only — no Preflight. Importing the utilities
    layer without `tailwindcss/preflight.css` keeps this a pure utility-class
    toolkit for non-spreadsheet UI (menus, dialogs, panels, the welcome
-   screen, per docs/architecture.md) instead of a global reset that would
+   screen, per knowledge/architecture/module-boundaries.md) instead of a global reset that would
    also touch every hand-written rule below, including the grid's. Tailwind's
    classes read the same semantic tokens defined below via the @theme bridge,
    so light/dark theming and the offline, single-CSS-file build are

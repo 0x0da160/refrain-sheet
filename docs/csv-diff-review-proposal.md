@@ -16,12 +16,12 @@ Issue thread):
 
 1. **DuckDB WASM is not integrated here**, and re-introducing a WASM RDB
    dependency was already evaluated and rejected for this app — see
-   [`architecture.md` § "The SQL query engine"](architecture.md#the-sql-query-engine).
+   [`knowledge/architecture/system-overview.md` § "The SQL query engine"](../knowledge/architecture/system-overview.md#the-sql-query-engine).
    The reasons still apply unchanged: those engines' loading model (ES
    modules, dynamic Worker spin-up, multi-MB `.wasm` fetched at runtime)
    conflicts with a classic non-module script, a `connect-src 'none'` CSP, no
    Worker infrastructure, and the "exactly one production dependency" policy
-   in [`security.md` § "Dependency policy"](security.md).
+   in [`knowledge/operations/security-supply-chain.md` § "Dependency policy"](../knowledge/operations/security-supply-chain.md).
 2. **The rest of the spec is a subsystem on the scale of the whole app** — a
    9-table data model, a 12+-type rule engine, a template store, a
    virtualized synchronized dual-pane grid, keyboard navigation, IndexedDB
@@ -56,7 +56,7 @@ scratch:
 
 Neither module talks to the DOM, both are covered by ordinary Vitest unit
 tests, and both stay entirely inside `src/core/`, consistent with the
-layering in `architecture.md`.
+layering in `knowledge/architecture/index.md`.
 
 ## Proposed shape for a first slice
 

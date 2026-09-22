@@ -3,7 +3,7 @@ type: operations-concept
 title: Security supply-chain controls
 description: Dependency policy, lockfile enforcement, npm hardening, CI permission model, Actions pinning, and release security controls.
 sources:
-  - resource: ../../docs/security.md
+  - resource: docs/security.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -71,7 +71,11 @@ The committed `.npmrc` applies to every npm invocation in the repo:
 - **`code-stats.yml`** (pushes to `main` and `workflow_dispatch`) holds
   `contents: write` and `pull-requests: write`, but never writes to `main`
   directly — it pushes a rolling `chore/code-stats` branch (with an
-  explicit `--force-with-lease`) and opens a PR reviewed like any other.
+  explicit `--force-with-lease=<ref>:<sha>`, so the branch is only ever
+  advanced from where this workflow itself left it) and opens a PR reviewed
+  like any other. It runs no repository code: `cloc` comes from the signed
+  Ubuntu archive, and the only script it executes is the committed
+  `scripts/code-stats.mjs`.
 - **`release.yml`** is the only workflow that writes to the repository
   **without review**, and only on a pushed strict-SemVer tag. The
   `release` job holds `contents: write`, `id-token: write`, and
@@ -104,8 +108,8 @@ The tag workflow (`release.yml`) runs only for a strict
 2. runs the full check suite (version consistency, format, lint, test,
    build, `check:dist`, `npm audit`) before producing any artifact,
 3. builds the release ZIP and a **SHA-256** checksum,
-4. generates a **CycloneDX SBOM** (`npm sbom`) and attaches it to the
-   release,
+4. generates a **CycloneDX SBOM** (`npm sbom`, pinned built-in tooling) and
+   attaches it to the release (and bundles it in the ZIP),
 5. produces a signed **SLSA-style build-provenance attestation** via
    `actions/attest-build-provenance` (OIDC, no long-lived secret),
 6. deploys `dist/` to GitHub Pages only after all of the above succeed.

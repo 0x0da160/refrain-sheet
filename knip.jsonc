@@ -45,7 +45,8 @@
   "ignoreDependencies": [
     // Used only via CSS `@import 'tailwindcss/theme.css'` /
     // 'tailwindcss/utilities.css' in src/styles.css (see
-    // docs/architecture.md's "Styling stays hand-written CSS" section).
+    // knowledge/architecture/module-boundaries.md's "Styling stays
+    // hand-written CSS" section).
     // Knip's project globs above don't include *.css, so it never sees
     // this real usage and reports the package as unused.
     "tailwindcss",

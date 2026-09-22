@@ -64,7 +64,7 @@ describe('release + Pages workflow permissions and jobs', () => {
     }
     expect(buildAt).toBeGreaterThan(Math.max(formatAt, lintAt, testAt));
     expect(uploadAt).toBeGreaterThan(buildAt);
-    // Pages gets the hosted artifact, never the offline one (docs/security.md).
+    // Pages gets the hosted artifact, never the offline one (knowledge/operations/security-threat-model.md).
     expect(release).toMatch(
       /uses:\s*actions\/upload-pages-artifact@v\d+\s*\n\s*with:\s*\n\s*path:\s*dist-hosted\s*$/m,
     );

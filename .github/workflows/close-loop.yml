@@ -25,7 +25,7 @@ name: Close loop status
 #   `agent:ready` stays human-only and this job cannot approve, merge, or push.
 # - Least-privilege: read checks/statuses/contents; write only PR/issue comments.
 # - `anthropics/claude-code-action` is THIRD-PARTY, so it is pinned to a full
-#   commit SHA (docs/security.md pinning policy). The trailing comment on each
+#   commit SHA (knowledge/operations/security-supply-chain.md pinning policy). The trailing comment on each
 #   `uses:` line names the release that SHA is.
 
 on:

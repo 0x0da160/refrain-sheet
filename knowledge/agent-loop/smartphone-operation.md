@@ -3,7 +3,7 @@ type: agent-loop-concept
 title: Smartphone-first operation
 description: The eight-step mobile flow, watching and re-running from GitHub Mobile, agent:continuation-needed, how a retry resumes, escalation after repeated turn-limit exhaustion, and the rare cases a desktop is genuinely required.
 sources:
-  - resource: ../../docs/agent-operations.md
+  - resource: docs/agent-operations.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5

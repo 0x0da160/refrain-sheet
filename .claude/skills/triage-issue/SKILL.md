@@ -12,7 +12,7 @@ post at most one triage comment. You never create branches, never edit source, a
 ## Inputs
 
 - Issue number, title, body, current labels, author.
-- Repository context: `CLAUDE.md`, `docs/architecture.md`, `docs/security.md`.
+- Repository context: `CLAUDE.md`, `knowledge/architecture/index.md`, `knowledge/operations/index.md`.
 
 ## Effort budget
 

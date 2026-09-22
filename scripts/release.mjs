@@ -224,7 +224,7 @@ async function main() {
   npmRun('build');
   npmRun('check:dist');
   // Both artifacts must be valid before a release is cut: Pages gets the
-  // hosted build, the release ZIP gets the offline one (docs/security.md).
+  // hosted build, the release ZIP gets the offline one (knowledge/operations/security-threat-model.md).
   npmRun('build:hosted');
   npmRun('check:dist:hosted');
 

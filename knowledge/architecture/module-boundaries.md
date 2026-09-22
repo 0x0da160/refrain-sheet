@@ -3,7 +3,7 @@ type: architecture-concept
 title: Module boundaries
 description: The inward-only dependency rule between UI, app, core, and infrastructure, what each layer may and may not do, and the one known exception.
 sources:
-  - resource: ../../docs/architecture.md
+  - resource: docs/architecture.md (migrated content; file removed after migration — see knowledge/log.md)
   - resource: ../../src/core/rsf-document.ts
   - resource: ../../src/app/version.ts
 status: stable
@@ -39,7 +39,9 @@ The rules that diagram implies:
   screen). The `tokens.css` section imports only `tailwindcss/theme.css` and
   `tailwindcss/utilities.css` — never the Preflight base layer — so Tailwind
   contributes utility classes without resetting any element's default
-  styling. The grid (`src/ui/grid.ts`) is intentionally left out of this
+  styling. The `@theme` block bridges a subset of the semantic color tokens
+  (e.g. `--accent`, `--surface`) so Tailwind classes such as `bg-accent`
+  keep following the light/dark theme. The grid (`src/ui/grid.ts`) is intentionally left out of this
   migration to keep its rendering path unaffected; no framework (React,
   Vue, etc.) is used anywhere.
 

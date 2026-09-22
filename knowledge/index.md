@@ -28,6 +28,10 @@ change.
   smartphone-first operation, notifications, configuration/permissions,
   budget/rollback/release, and a clearly-marked roadmap of features that
   are designed but **not** enabled.
+- [UI](ui/index.md) — interaction and presentation behavior: editing and
+  IME safety, selection/navigation, copy/paste/fill/Flash Fill, find and
+  replace, column resize/auto-fit, view/formatting/dockable panels, tabs
+  and the worksheet strip, mobile and touch, accessibility, and theming.
 
 This bundle is a work in progress: `docs/architecture.md`, `docs/security.md`,
 `docs/performance.md`, `docs/rsf-format.md`, and `docs/agent-operations.md`

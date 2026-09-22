@@ -35,6 +35,9 @@ do not read this whole bundle to make a local change.
   IME safety, selection/navigation, copy/paste/fill/Flash Fill, find and
   replace, column resize/auto-fit, view/formatting/dockable panels, tabs
   and the worksheet strip, mobile and touch, accessibility, and theming.
+- [Decisions](decisions/index.md) — a small set of durable decision
+  records for choices not already anchored to a domain concept file above,
+  starting with why the UI layer uses no framework.
 
 `docs/architecture.md`, `docs/security.md`, `docs/performance.md`,
 `docs/rsf-format.md`, and `docs/agent-operations.md` — the pre-migration

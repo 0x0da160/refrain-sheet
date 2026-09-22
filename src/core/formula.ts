@@ -89,24 +89,11 @@ import {
 } from './formula-functions';
 
 export {
-  booleanValue,
-  coerceToBoolean,
-  coerceToNumber,
-  coerceToText,
-  compareValues,
   EMPTY_VALUE,
-  ERROR_CODES,
   errorValue,
-  flattenGrid,
   formatValue,
   literalToValue,
-  makeGrid,
   MAX_FORMULA_LENGTH,
-  MAX_RANGE_CELLS,
-  numberValue,
-  scalarGrid,
-  textValue,
-  type ErrorCode,
   type FormulaValue,
   type ValueGrid,
 } from './formula-value';
@@ -115,9 +102,6 @@ export {
   FUNCTION_INFOS,
   SUPPORTED_FUNCTIONS,
   VOLATILE_FUNCTIONS,
-  isVolatileFunction,
-  lookupFunction,
-  type FnContext,
   type FunctionCategory,
   type FunctionInfo,
 } from './formula-functions';
@@ -280,7 +264,7 @@ export interface SpanEnd {
 }
 
 /** Parse a bare column label ("A", "$AB") to a 0-based column index, or null. */
-export function parseWholeColumn(text: string): number | null {
+function parseWholeColumn(text: string): number | null {
   return parseWholeColumnEx(text)?.index ?? null;
 }
 
@@ -295,7 +279,7 @@ export function parseWholeColumnEx(text: string): SpanEnd | null {
 }
 
 /** Parse a bare row number ("1", "$10") to a 0-based row index, or null. */
-export function parseWholeRow(text: string): number | null {
+function parseWholeRow(text: string): number | null {
   return parseWholeRowEx(text)?.index ?? null;
 }
 
@@ -544,7 +528,7 @@ function tokenize(src: string): Token[] {
 // Parser
 // ---------------------------------------------------------------------------
 
-export interface RefNode {
+interface RefNode {
   kind: 'ref';
   row: number;
   col: number;
@@ -1780,7 +1764,7 @@ export interface FormulaRefRange {
 }
 
 /** Highlighting caps out so a pathological formula cannot flood the grid. */
-export const MAX_HIGHLIGHTED_REFS = 16;
+const MAX_HIGHLIGHTED_REFS = 16;
 
 const REF_SCAN_PATTERN =
   // string literal | A1[:B2] | A:C | 1:10 — each with optional `$` markers

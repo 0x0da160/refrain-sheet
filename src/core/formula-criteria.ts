@@ -66,7 +66,7 @@ import {
 } from './formula-value';
 
 /** The comparison a criterion performs. */
-export type CriteriaOp = '=' | '<>' | '>' | '>=' | '<' | '<=';
+type CriteriaOp = '=' | '<>' | '>' | '>=' | '<' | '<=';
 
 /**
  * A parsed criterion, ready to test many cells. Parsing happens once per
@@ -229,7 +229,7 @@ function compare(op: CriteriaOp, cmp: number): boolean {
 // ---------------------------------------------------------------------------
 
 /** What one compiled pattern symbol matches. */
-export const enum WildcardKind {
+const enum WildcardKind {
   /** Exactly this code point (already case-folded). */
   Literal = 0,
   /** Any one code point (`?`). */

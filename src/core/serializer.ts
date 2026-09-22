@@ -41,7 +41,7 @@ const LINE_ENDING_BYTES = {
   cr: new Uint8Array([0x0d]),
 } as const;
 
-export function needsQuoting(value: string, delimiter: DelimiterId): boolean {
+function needsQuoting(value: string, delimiter: DelimiterId): boolean {
   return value.includes(delimiter) || value.includes('"') || value.includes('\r') || value.includes('\n');
 }
 

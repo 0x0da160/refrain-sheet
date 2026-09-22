@@ -20,7 +20,7 @@ export function validateDocument(doc: LosslessDocument): ValidationSummary {
   return summarizeDiagnostics(doc.diagnostics);
 }
 
-export function summarizeDiagnostics(diagnostics: Diagnostic[]): ValidationSummary {
+function summarizeDiagnostics(diagnostics: Diagnostic[]): ValidationSummary {
   const counts: Partial<Record<DiagnosticType, number>> = {};
   for (const d of diagnostics) {
     counts[d.type] = (counts[d.type] ?? 0) + 1;

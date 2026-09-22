@@ -22,7 +22,7 @@
 import { getRsfCodec, RSF_COMPRESSION_DEFLATE } from './csv-engine';
 import { parseRef } from './formula';
 
-export interface XlsxImportSheet {
+interface XlsxImportSheet {
   /** Worksheet display name, taken from `xl/workbook.xml`. */
   name: string;
   /** Display values, row-major, dense (padded to `columnCount`). */

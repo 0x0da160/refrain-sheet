@@ -161,52 +161,69 @@ rather than deleting the dependency or silently suppressing the warning.
     `tsc --noEmit`, `check:dist`, `check:versions`, `test` — 134/134 files,
     2012/2012 tests) passed unchanged after removal.
 
-### Unused exports — 76 findings
+### Unused exports — 46 findings
 
-Every name below is exported from its file but not imported by any other
-file in the project **including test files** (test files are configured
-entry points, so a test-only usage already counts as "used" and would not
-appear here). That makes this a meaningfully stronger signal than a plain
-"no other file imports this" grep would be — but it is still not proof of
-dead code: a name can be part of a module's intentional public surface,
-reserved for a near-term follow-up, or reachable through a re-export path
-Knip's static analysis doesn't fully resolve.
+**Important correction from the `chore/tighten-export-surface` pass:** a
+plain reading of "Knip says this export is unused" as "this code is dead"
+was wrong for most of the original 83. Knip's "unused exports" check is
+about **cross-file** usage only — a name a file exports but only imports
+_itself_ is still reported, even when that file uses it constantly
+internally (a default-parameter fallback, a `{@link}` in a JSDoc comment, a
+sibling function's return type). Checking each candidate's total occurrence
+count within its own file (not just Knip's cross-file graph) is what
+surfaced this, and it turned 30 of the checked findings into "remove the
+redundant `export` keyword" rather than "delete this code" — see the
+`chore/tighten-export-surface` PR for the full per-file verification. What
+remains here, grouped by why it's outstanding:
 
-**Spot-checked during this audit (higher-confidence subset):**
+- **Deferred, RSF format (S3 — external persisted-format contract):**
+  every `RSF_*`/`MAX_RSF_*` constant and `RSF_WORKBOOK_BODY_VERSION` in
+  `src/core/rsf-codec.ts`, plus `DEFAULT_SHEET_NAME` in
+  `src/core/rsf-document.ts`. `CLAUDE.md` calls the RSF codec out
+  explicitly as needing "extra care, full `test:rust`, and human review" —
+  even confirming these are used only internally (likely true, given the
+  pattern above) isn't a substitute for that review, so this file is left
+  alone entirely pending a dedicated, human-reviewed pass.
+- **Deferred, formula engine core:** `src/core/formula.ts` (the 16-name
+  barrel — see below — plus its own `parseWholeColumn`, `parseWholeRow`,
+  `MAX_HIGHLIGHTED_REFS`), `src/core/formula-functions.ts`
+  (`FUNCTION_DEFS`, `isVolatileFunction`), `src/core/formula-value.ts`
+  (`TRUE_VALUE`, `FALSE_VALUE`, `finiteNumber`, `isError`, `isSingleCell`,
+  `gridError`, and `MAX_JOIN_ITEMS`), and `src/core/formula-date.ts`
+  (`MS_PER_DAY`, `EPOCH_MS`, `MIN_SERIAL`, `MAX_SERIAL_EXCLUSIVE`,
+  `millisToSerial`). This is the most complex, most heavily tested
+  subsystem in the repo (`docs/architecture.md` § "Inside the formula
+  engine"); left as one coherent future pass rather than splitting
+  "obviously internal-only" from "barrel question" across two PRs and
+  risking a subtle mistake in a file this central. `MAX_JOIN_ITEMS`
+  specifically needs its own note: it's defined as
+  `= MAX_RANGE_CELLS` with the comment "guards string blow-up" for
+  REPT-style growth, but this codebase has no `REPT`-like function (grepped
+  `formula-functions.ts`) — it looks like a guard that was written but
+  never wired to anything, which is worth flagging to a maintainer rather
+  than silently deleted, in case a function was meant to use it and doesn't.
+- **The `formula.ts` barrel itself (16 names, unchanged from the original
+  baseline):** `booleanValue`, `coerceToBoolean`, `coerceToNumber`,
+  `coerceToText`, `compareValues`, `ERROR_CODES`, `flattenGrid`,
+  `makeGrid`, `MAX_RANGE_CELLS`, `numberValue`, `scalarGrid`, `textValue`,
+  `isVolatileFunction`, `lookupFunction`, plus two re-exported types.
+  `formula.ts` re-exports these from `formula-value.ts`/
+  `formula-functions.ts` so consumers could import them from one module;
+  nothing currently does — every real consumer imports directly from the
+  origin file instead. **Needs a maintainer call, not a deletion**, since
+  removing a barrel export is an API-shape decision, even though nothing
+  breaks today.
+  This pass's own "Confirmed genuinely dead" findings (`rangeSize`,
+  `rowHiddenByFilter`, the `spill.ts` cluster, `openPopover`, `ColorKey`)
+  have since been removed — see "Resolved findings" above.
 
-- The 16 re-exports in `src/core/formula.ts` (`booleanValue`,
-  `coerceToBoolean`, `coerceToNumber`, `coerceToText`, `compareValues`,
-  `ERROR_CODES`, `flattenGrid`, `makeGrid`, `MAX_RANGE_CELLS`, `numberValue`,
-  `scalarGrid`, `textValue`, `isVolatileFunction`, `lookupFunction`, plus two
-  re-exported types) are a deliberate barrel: `formula.ts` re-exports names
-  from `formula-value.ts`/`formula-functions.ts` so consumers could import
-  them from one module. **Nothing in the repo currently imports them from
-  `formula.ts` this way** — every real consumer imports directly from
-  `formula-value.ts`/`formula-functions.ts` instead. This may be an
-  intentional façade for future/external use, or a barrel nobody adopted.
-  **Needs a maintainer call, not a deletion**, since removing a barrel export
-  is an API-shape decision (`docs/architecture.md` § "Inside the formula
-  engine"), even though nothing breaks today.
+### Unused exported types — 7 findings
 
-**The remaining ~70 names** (mostly internal `MAX_*`/`*_BUDGET_MS`-style
-tuning constants and small pure helpers across `src/core/` and a few in
-`src/ui/`) are listed in full in the reproducible `npx knip` output and are
-**not individually verified in this report** — that per-item verification
-(confirm no dynamic/`globalThis`/string-based reference, confirm no
-in-progress branch depends on it, check git blame for recency) is exactly
-the scope of a future Phase 3 `safe-delete` PR, done a few at a time with its
-own evidence, not a bulk sweep here.
-
-### Unused exported types — 26 findings
-
-Same category and same non-verification caveat as unused exports above (a
-type-only export carries zero runtime risk to remove but can still be a
-documented public shape other code is meant to implement against — e.g.
-`ListValidationRule`/`NumberValidationRule` in
-`src/core/data-validation.ts` read like the documented shape of the RSF
-data-validation format described in `docs/rsf-format.md`, not dead code).
-Full list in the reproducible `npx knip` output; not individually verified
-here.
+`CriteriaOp`/`WildcardKind` (`src/core/formula-criteria.ts`) and
+`ErrorCode`/`FnContext`/`RefNode` (`src/core/formula.ts`) are deferred
+with the rest of the formula engine; `RsfWorksheetKind`/
+`RsfDisplaySettings` (`src/core/rsf-codec.ts`) are deferred with the rest
+of the RSF codec.
 
 ### Duplicate exports — 1 finding — needs human judgment, not a bug
 
@@ -228,8 +245,33 @@ along.
   finding above was left in place, pending individual verification.
 - **`chore/remove-dead-test-reset-helpers`:** verified and removed the
   three highest-confidence findings (see "Resolved findings" above). Still
-  deletes nothing else — the remaining 83 unused exports and 27 unused
-  types are unchanged and still not individually verified.
+  deletes nothing else.
+- **`chore/tighten-export-surface`:** a second pass over the remaining 86
+  findings surfaced an important correction to how to read this report:
+  checking each candidate's occurrence count within its own file (not just
+  Knip's cross-file graph) showed that the large majority — 30 of the 44
+  value/function exports checked and 12 of the 15 types checked in this
+  pass — are **not dead code at all**. They're used internally within
+  their own file (a default parameter, a JSDoc `{@link}`, a field type, a
+  recursive/sibling call) and only _look_ unused because Knip's "unused
+  exports" check is specifically about cross-file usage: an export nothing
+  outside the file imports is still reported even when the file uses its
+  own export heavily. The correct, verified-safe fix for those 30+12 was
+  removing the redundant `export` keyword (`git log` shows the exact
+  diff), not deleting any code — confirmed safe by `tsc --noEmit` passing
+  clean (a real external usage would have failed the build loudly) and by
+  Knip's own re-run afterward showing zero new findings. The same pass
+  also confirmed 8 findings (`rangeSize`, `rowHiddenByFilter`,
+  `src/core/spill.ts`'s `anchorOfDerived`/`derivedValue`/`isDerivedCell`/
+  `isBlockedAnchor`, `openPopover`, `ColorKey`) as genuinely dead — zero
+  usage anywhere, including internally.
+- **`chore/remove-dead-spill-clipboard-filter-helpers`:** removed exactly
+  those 8 findings (branched independently off `main`, in parallel with
+  `chore/tighten-export-surface`; this entry records the merge of both).
+  See "Resolved findings" above for the evidence, including the
+  `rsf-document.ts` cross-check that confirms the `spill.ts` cluster was
+  never wired into the real feature, and the recorded issue #393
+  migration that explains `openPopover`.
 
 This file will keep getting updated in place as future `safe-delete` PRs
 verify and act on more of the remaining findings, rather than each PR

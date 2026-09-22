@@ -214,8 +214,8 @@ export function getRsfCodec(): RsfCodec {
 
 const DELIMITER_BY_BYTE: Record<number, DelimiterId> = { 0x2c: ',', 0x3b: ';', 0x09: '\t' };
 
-export const PLAN_COPY = 0;
-export const PLAN_PAYLOAD = 1;
+const PLAN_COPY = 0;
+const PLAN_PAYLOAD = 1;
 
 /** JS implementation of serialization planning (mirrors wasm/src/csv.rs). */
 export function planReplacementsJs(

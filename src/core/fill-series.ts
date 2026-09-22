@@ -31,10 +31,10 @@ export interface SeriesSpec {
 }
 
 /** Longest decimal fraction the fixed-point math handles exactly. */
-export const MAX_SERIES_DECIMALS = 10;
+const MAX_SERIES_DECIMALS = 10;
 
 /** Strict numeric parse of a raw cell input for series inference. */
-export function seriesNumber(input: string): number | null {
+function seriesNumber(input: string): number | null {
   const trimmed = input.trim();
   if (trimmed === '') {
     return null;

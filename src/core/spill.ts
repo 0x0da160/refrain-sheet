@@ -63,7 +63,7 @@ import type { ValueGrid } from './formula-value';
 export const MAX_SPILL_ANCHORS = 512;
 
 /** Maximum cells all spills on one worksheet may occupy together. */
-export const MAX_SPILL_CELLS = 1_000_000;
+const MAX_SPILL_CELLS = 1_000_000;
 
 /** A placed spill: the anchor cell, its rectangle, and the values it holds. */
 export interface SpillAnchor {

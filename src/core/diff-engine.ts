@@ -45,7 +45,7 @@ import type { SqlTable } from './sql-engine';
 /** Maximum key columns a caller may pick. */
 export const DIFF_MAX_KEY_COLUMNS = 8;
 /** Maximum rows considered from either source table (mirrors `SQL_MAX_SOURCE_ROWS`). */
-export const DIFF_MAX_SOURCE_ROWS = 200_000;
+const DIFF_MAX_SOURCE_ROWS = 200_000;
 /** Maximum diff rows ever returned; rendered as a plain, non-virtualized table. */
 export const DIFF_MAX_RESULT_ROWS = 5_000;
 
@@ -54,7 +54,7 @@ export const DIFF_MAX_RESULT_ROWS = 5_000;
 export type DiffRowType = 'unchanged' | 'modified' | 'added' | 'deleted' | 'key_invalid';
 
 /** Why a row's key could not be used to match it against the other table. */
-export type DiffInvalidKeyReason = 'blankKey' | 'duplicateKey';
+type DiffInvalidKeyReason = 'blankKey' | 'duplicateKey';
 
 export interface DiffRow {
   type: DiffRowType;
@@ -70,7 +70,7 @@ export interface DiffRow {
   reason?: DiffInvalidKeyReason;
 }
 
-export interface DiffCounts {
+interface DiffCounts {
   unchanged: number;
   modified: number;
   added: number;
@@ -100,7 +100,7 @@ export interface DiffResult {
   truncated: boolean;
 }
 
-export interface DiffNormalizeOptions {
+interface DiffNormalizeOptions {
   /** Trim leading/trailing whitespace before comparing. */
   trim: boolean;
   /** Ignore case before comparing. */

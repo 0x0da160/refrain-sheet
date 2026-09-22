@@ -1,0 +1,103 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Status bar ---------- */
+
+.status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 14px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+  min-height: 24px;
+}
+
+.status-bar .warn {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.status-bar .sel-stat {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Large-selection statistics being computed in the background (time-sliced). */
+.status-bar .sel-stat.calculating {
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.status-bar .sel-stats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+}
+
+.status-bar .status-selection {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 14px;
+}
+
+.status-bar button.status-problems {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  color: var(--danger);
+  font-weight: 600;
+  text-decoration: underline;
+  padding: 0;
+  cursor: pointer;
+}
+
+.status-problems-icon {
+  flex: none;
+  text-decoration: none;
+}
+
+.status-bar .status-protected {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.status-protected-icon {
+  flex: none;
+}
+
+.status-bar button.status-protect-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font-weight: 600;
+  text-decoration: underline;
+  padding: 0;
+  cursor: pointer;
+}
+
+.status-protect-toggle-icon {
+  flex: none;
+  text-decoration: none;
+}
+
+.status-bar .status-version {
+  margin-left: auto;
+}
+
+/* Below `@media (max-width: 700px)` this flips: only `.status-version-short`
+   ("v1.2.3", no "Version " prefix) shows, to save space in the status bar
+   (#478). See `StatusBar.appendVersion`. */
+.status-version-short {
+  display: none;
+}

@@ -1,0 +1,65 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Find bar ---------- */
+
+.find-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: var(--info-soft);
+  border-bottom: 1px solid var(--border);
+}
+
+.find-bar[hidden] {
+  display: none;
+}
+
+.find-bar input[type='text'] {
+  font: inherit;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  width: 200px;
+  background: var(--field-bg);
+  color: var(--text);
+}
+
+.find-bar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.find-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 3px;
+  padding: 3px 8px;
+}
+
+.find-btn-icon {
+  flex: none;
+}
+
+.find-bar button:disabled {
+  color: var(--text-muted);
+}
+
+.find-count {
+  color: var(--text-dim);
+  min-width: 130px;
+}
+
+.find-error {
+  color: var(--danger);
+  width: 100%;
+}
+
+.find-error:empty {
+  display: none;
+}

@@ -1,0 +1,775 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Virtualized grid ---------- */
+
+.grid-container {
+  flex: 1;
+  overflow: auto;
+  background: var(--cell-bg);
+  /* `color` is inherited from `body` as a *computed* value, not a live
+     reference to `--text` — re-declaring it here re-anchors inheritance to
+     whatever `--text` cascades to at this element, so the hybrid-theme
+     override above (which only redeclares custom properties, not `color`
+     itself) actually reaches plain cell text instead of leaving it at body's
+     dark-mode color. */
+  color: var(--text);
+  position: relative;
+  outline-offset: -2px;
+}
+
+.grid-empty {
+  padding: 40px;
+  color: var(--text-dim);
+  font-size: 14px;
+  text-align: center;
+}
+
+.vgrid-canvas {
+  position: relative;
+  font-family: var(--font-sheet);
+  font-size: calc(12px * var(--sheet-zoom, 1));
+}
+
+.vgrid-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+}
+
+.vgrid-stickyrow {
+  position: sticky;
+  z-index: 4;
+  display: flex;
+  /* Distinct from the column header: warm pinned background + strong rule. */
+  border-bottom: 2px solid var(--accent);
+}
+
+.vgrid-stickyrow .vcell {
+  background: var(--sticky-bg);
+}
+
+.vgrid-stickyrow[hidden] {
+  display: none;
+}
+
+.vgrid-rows {
+  position: relative;
+}
+
+.vgrid-row {
+  position: absolute;
+  left: 0;
+  display: flex;
+}
+
+/* "+" affordances to append a row/column at the end of the sheet (#441),
+   anchored to the grid's own last-row / last-column edge (#467) so they read
+   as an extension of the row/column headers rather than a separate toolbar.
+   Each lives inside an anchor strip absolutely positioned (by grid.ts) at the
+   true bottom/right edge of the document content within `.vgrid-canvas`, so
+   it scrolls and re-zooms with the grid like a header does. The button
+   itself is sticky along the perpendicular axis, so it stays aligned under
+   the row-number column / right of the column-header row while scrolled —
+   the same technique `.vcell.vrowhead` and `.vgrid-header` already use. */
+.vgrid-add-row-anchor,
+.vgrid-add-col-anchor {
+  position: absolute;
+  pointer-events: none;
+}
+
+.vgrid-add-row-anchor {
+  left: 0;
+  width: 100%;
+}
+
+.vgrid-add-col-anchor {
+  top: 0;
+  height: 100%;
+}
+
+.sheet-grid-add {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  background: var(--panel-hover);
+  color: inherit;
+  padding: 3px 10px;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  pointer-events: auto;
+}
+
+.sheet-grid-add-row {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  border-top: none;
+  border-radius: 0 0 5px 5px;
+}
+
+.sheet-grid-add-col {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  border-left: none;
+  border-radius: 0 5px 5px 0;
+}
+
+.sheet-grid-add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sheet-grid-add:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Cell typography model: every row is exactly --grid-row-height tall (kept in
+   sync with ROW_HEIGHT in src/ui/grid.ts, which sets the exact zoom-scaled
+   pixel value inline on the grid container). Cells use border-box sizing, no
+   vertical padding, and a line-height equal to the cell's content height —
+   the row height minus the single 1px bottom border (the border is a real
+   device pixel at every zoom, so this is not a zoom-specific offset). A
+   single line of text is then vertically centered by the line box itself —
+   identically in BIZ UD Gothic, MS Gothic, MS UI Gothic, and their fallbacks,
+   and identically at every spreadsheet zoom level — instead of depending on
+   any font's baseline or half-leading metrics.
+
+   The line box is derived from the row-height variable *at the cell*, where
+   the grid's inline zoom override is inherited. Deriving it once at :root (in
+   a separate intermediate variable) would substitute the un-zoomed :root
+   value and freeze the line box at 100% — the defect this model replaces. */
+:root {
+  /* Spreadsheet zoom factor (1 = 100%). Set by the grid from the active
+     tab's zoom; scales only spreadsheet-specific rules below — never the
+     application chrome, and never the browser's own page zoom. */
+  --sheet-zoom: 1;
+  /* Default (single-line) row height. The grid overrides this inline on the
+     grid container with the exact zoom-scaled pixel value so CSS line boxes
+     and JS-computed element heights can never drift apart. */
+  --grid-row-height: 26px;
+  /* Line box of a wrapped cell — kept in sync with WRAP_LINE_HEIGHT (grid.ts). */
+  --grid-wrap-line: 18px;
+}
+
+.vcell {
+  flex: none;
+  border-right: 1px solid var(--grid-line);
+  border-bottom: 1px solid var(--grid-line);
+  padding: 0 calc(8px * var(--sheet-zoom, 1));
+  /* Resolved from the *inherited* (zoom-scaled) row height, so the line box
+     tracks the row height at every zoom level. */
+  line-height: calc(var(--grid-row-height) - 1px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+  background: var(--cell-bg);
+  position: relative;
+}
+
+/* Off-screen probe used only to read the cell font/box metrics for wrap
+   measurement; it never renders content or affects layout. */
+.vgrid-measure {
+  position: absolute;
+  visibility: hidden;
+  top: 0;
+  left: 0;
+  height: 0;
+  border: 0;
+  pointer-events: none;
+}
+
+/* Conditional wrapping: only rows the grid measured as needing more than one
+   visual line get the `wrapped` class (their pixel height comes from the
+   row-height index). Their data cells switch to a multi-line box that stays
+   vertically centered via flex; single-line cells in the same (taller) row are
+   centered too. Rows that fit on one line keep the normal single-line height
+   and the `.vcell` centering box above — so enabling Wrap Long Rows never
+   grows a row whose content already fits. */
+.vgrid-row.wrapped .vcell[data-col] {
+  display: flex;
+  align-items: center;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  text-overflow: clip;
+  line-height: var(--grid-wrap-line);
+}
+
+.vgrid-row.wrapped .vcell.vrowhead {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* A small corner marker on cells carrying a comment (#235): a CSS triangle
+   drawn with borders, so it needs no image asset and never affects layout —
+   `.vcell` is already `position: relative` (see above). */
+.vcell.cell-comment::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 6px 0 0 6px;
+  border-color: var(--warning) transparent transparent transparent;
+  pointer-events: none;
+}
+
+.vspacer {
+  flex: none;
+  border: none;
+  padding: 0;
+}
+
+.col-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 6;
+  touch-action: none;
+}
+
+.col-resize-handle:hover {
+  background: var(--accent);
+  opacity: 0.45;
+}
+
+.fill-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: calc(8px * var(--sheet-zoom, 1));
+  height: calc(8px * var(--sheet-zoom, 1));
+  background: var(--accent);
+  border: 1px solid var(--cell-bg);
+  cursor: crosshair;
+  z-index: 7;
+  touch-action: none;
+}
+
+.vcell.fill-target {
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+}
+
+/* Range-move handle: top-left of the selection on RSF worksheets. A move
+   glyph (aria-hidden; the accessible path is the "Move Selected Cells…"
+   command) distinguishes it from the square fill handle. */
+.move-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(10px * var(--sheet-zoom, 1));
+  height: calc(10px * var(--sheet-zoom, 1));
+  background: var(--accent);
+  border: 1px solid var(--cell-bg);
+  border-radius: 2px;
+  cursor: move;
+  z-index: 7;
+  touch-action: none;
+}
+
+/* An animated "marching ants" border over a copied range (see
+   `Grid.setCopySource`/`placeCopySourceOutline`), so the copy source stays
+   visible while picking where to paste. Four independently animated
+   dashed edges (rather than a single `outline`, which cannot animate its
+   own dash pattern) built from repeating linear gradients, one pair per
+   axis so each edge's dashes scroll along that edge. */
+.copy-source-outline {
+  position: absolute;
+  /* So the forced-colors fallback's `border` below doesn't grow the box
+     past the exact pixel rect `placeCopySourceOutline` measured. */
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 8; /* above .fill-handle/.move-handle (7) */
+  background:
+    linear-gradient(90deg, var(--accent) 50%, transparent 0) repeat-x,
+    linear-gradient(90deg, var(--accent) 50%, transparent 0) repeat-x,
+    linear-gradient(180deg, var(--accent) 50%, transparent 0) repeat-y,
+    linear-gradient(180deg, var(--accent) 50%, transparent 0) repeat-y;
+  background-size:
+    8px 2px,
+    8px 2px,
+    2px 8px,
+    2px 8px;
+  background-position:
+    0 0,
+    0 100%,
+    0 0,
+    100% 0;
+  animation: copy-source-march 0.5s linear infinite;
+}
+
+@keyframes copy-source-march {
+  to {
+    background-position:
+      8px 0,
+      -8px 100%,
+      0 -8px,
+      100% 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy-source-outline {
+    animation: none;
+  }
+}
+
+/* While dragging, the whole grid shows the move cursor; an invalid drop shows
+   not-allowed. The invalid state is also conveyed by a distinct outline
+   (below), never by color alone. */
+.grid-container.moving-range {
+  cursor: move;
+}
+
+.grid-container.moving-range.move-invalid {
+  cursor: not-allowed;
+}
+
+/* Touch/pen input reports a "coarse" pointer. The resize/fill/move handles
+   above are drag targets that must actually be grabbable by a finger, so
+   this enlarges their hit area via an invisible `::before` padded region —
+   the handle's own visual size and position are untouched — and makes the
+   otherwise hover-only resize handle discoverable without a mouse (#290). */
+@media (pointer: coarse) {
+  .col-resize-handle::before,
+  .fill-handle::before,
+  .move-handle::before {
+    content: '';
+    position: absolute;
+    inset: -14px;
+  }
+
+  .col-resize-handle {
+    background: var(--accent);
+    opacity: 0.35;
+  }
+}
+
+.vcell.move-source {
+  outline: 1px dashed var(--text-dim);
+  outline-offset: -1px;
+  opacity: 0.7;
+}
+
+.vcell.move-target {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-soft);
+}
+
+/* Invalid destination: a dashed danger outline plus a crossed pattern, so the
+   state reads without relying on color perception. */
+.vcell.move-target-invalid {
+  outline: 2px dashed var(--danger);
+  outline-offset: -2px;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    var(--danger-soft, rgba(200, 0, 0, 0.12)) 4px,
+    var(--danger-soft, rgba(200, 0, 0, 0.12)) 8px
+  );
+}
+
+.vgrid-row.alt .vcell {
+  background: var(--row-alt);
+}
+
+.vgrid-row.selected-row .vcell,
+.vgrid-stickyrow.selected-row .vcell {
+  background: var(--selected-row);
+}
+
+.vcell.vhead,
+.vcell.vrowhead {
+  background: var(--panel) !important;
+  color: var(--text-dim);
+  font-weight: 600;
+  text-align: center;
+  user-select: none;
+}
+
+.vcell.vrowhead {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  text-align: right;
+}
+
+.vcell.vrowhead.pinned {
+  color: var(--accent);
+}
+
+/* Sticky first column: the pinned column-0 header and its per-row data cells
+   stick to the left, right after the row-header column (see `overlayWidth`
+   in grid.ts, which reserves this space out of the scrollable viewport). The
+   accent right border marks the frozen boundary, mirroring the sticky row's
+   accent bottom border above. Normal cell/alt-row/selection backgrounds are
+   left untouched so selection highlighting still shows through when a
+   selected range includes the frozen column. */
+.vcell.colpin {
+  position: sticky;
+  z-index: 2;
+  border-right: 2px solid var(--accent);
+}
+
+.vcell.vhead.pinned {
+  color: var(--accent);
+}
+
+/* Column-header filter button (shown on every column of an active filter's
+   range). A real <button> so Enter/Space and focus-visible work natively;
+   filled when the column carries criteria. */
+.filter-indicator {
+  position: absolute;
+  top: 50%;
+  right: calc(6px * var(--sheet-zoom, 1));
+  transform: translateY(-50%);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 2px;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: var(--field-bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.filter-indicator:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.filter-indicator.active {
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.filter-indicator:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Filter/sort status chips and dialog sections. */
+.status-filter,
+.status-sort {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.sort-key-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.sort-key-row select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dialog-subhead {
+  margin: 12px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.format-borders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.format-borders-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Spatial cross layout for the Borders dialog's side checkboxes (#393): each
+   one sits in the same position as the edge it controls, with "All" in the
+   center, so the mapping to top/right/bottom/left is visually obvious rather
+   than an arbitrary vertical list. */
+.format-borders-cross {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  grid-template-rows: repeat(3, auto);
+  justify-items: center;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 4px 0 14px;
+}
+
+.format-borders-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.format-borders-top {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.format-borders-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.format-borders-all {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.format-borders-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.format-borders-bottom {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.filter-condition-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.filter-condition-row select {
+  flex: 0 0 auto;
+}
+
+.filter-condition-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.filter-add {
+  margin: 2px 0 4px;
+}
+
+.filter-value-list {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 6px;
+  margin-top: 4px;
+}
+
+.filter-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The top-left corner is an interactive "Select all cells" control (a real
+   <button>, so Enter/Space and focus work natively). Reset the UA button box
+   to the header-cell look and add a pointer affordance. */
+.vcell.vcorner {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+  border-top: 0;
+  border-left: 0;
+  text-align: center;
+  cursor: pointer;
+}
+
+.vcell.vcorner:hover {
+  background: var(--accent-soft) !important;
+  color: var(--accent);
+}
+
+/* Whole-sheet selection: the corner reads as pressed, distinct from the active
+   cell (solid outline), a cell range (soft fill), and whole-row/column
+   selections (their header emphasis via .sel-rows / .sel-cols). */
+.grid-container.sel-all .vcell.vcorner {
+  background: var(--accent) !important;
+  color: var(--accent-contrast);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.vcell.in-range {
+  background: var(--accent-soft);
+}
+
+.vgrid-row.alt .vcell.in-range,
+.vgrid-row.selected-row .vcell.in-range {
+  background: var(--accent-soft);
+}
+
+.vcell.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* The opposite corner of a rectangular selection (distinct from the active
+   cell's solid outline). */
+.vcell.anchor {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+
+/* Row/column headers intersecting the selection. */
+.vcell.vrowhead.hdr-sel,
+.vcell.vhead.hdr-sel {
+  background: var(--accent-soft) !important;
+  color: var(--accent);
+}
+
+/* Whole-row / whole-column selections emphasize their headers further. */
+.grid-container.sel-rows .vcell.vrowhead.hdr-sel,
+.grid-container.sel-cols .vcell.vhead.hdr-sel {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.vcell.edited {
+  background: var(--edited) !important;
+  box-shadow: inset 2px 0 0 var(--edited-border);
+}
+
+.vcell.malformed {
+  text-decoration: underline wavy var(--danger);
+  text-underline-offset: 3px;
+}
+
+/* Formula cells are never italicized (italic hurts CJK legibility and can be
+   confused with the selection/editing state). They are differentiated by a
+   subtle green tint plus a non-italic corner marker in the top-right. */
+.vcell.formula {
+  color: var(--formula-text);
+  font-style: normal;
+}
+
+.vcell.formula::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-top: 5px solid var(--formula-marker);
+  border-left: 5px solid transparent;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+/* Error cells stay clear without relying on color or italic alone: the cell
+   text is the literal error code (e.g. #DIV/0!) and it is bold. */
+.vcell.cell-error {
+  color: var(--danger);
+  font-weight: 700;
+  font-style: normal;
+}
+
+.vcell.cell-error::after {
+  border-top-color: var(--danger);
+}
+
+/* Cell/range formatting (Format menu, RSF only). Placed after `.formula` and
+   `.cell-error` above so a user's explicit Bold/Italic on a formula or error
+   cell always wins over their built-in styling. Text/background color and
+   borders are per-cell inline styles instead (see `Grid.paintCellStyle`), so
+   any `#rrggbb` value works without a matching rule here.
+
+   The original three selectable sheet fonts (`--font-sheet`) fall back to MS
+   Gothic / BIZ UDGothic on systems missing the primary family; those Gothic
+   fallbacks have no true bold glyphs, so browsers synthesize ("faux") bold
+   that reads almost the same weight as regular text (#389). A thin
+   text-stroke widens every glyph outline a little, which reinforces the
+   synthesized weight without depending on which font actually resolved —
+   harmless on the proportional fonts added in #396 (Noto Sans JP / Meiryo UI
+   / Yu Gothic UI), which do have true bold glyphs, since it only adds a
+   little extra weight on top of an already-bold face. */
+.vcell.cell-bold {
+  font-weight: 700;
+  -webkit-text-stroke: 0.4px currentColor;
+}
+
+.vcell.cell-italic {
+  font-style: italic;
+}
+
+.vcell.cell-underline {
+  text-decoration: underline;
+}
+
+.vcell.void {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--void-a),
+    var(--void-a) 6px,
+    var(--void-b) 6px,
+    var(--void-b) 12px
+  );
+}
+
+/* The grid's permanent keyboard target: a visually hidden textarea that keeps
+   focus while the grid is navigated, so IME compositions start inside an
+   editable element (never on the non-editable grid container). It is parked
+   over the selected cell (candidate window placement) and promoted in place —
+   same element, same focus — into .cell-editor when editing begins. */
+.vgrid-canvas .grid-sink {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  border: none;
+  padding: 0;
+  font: inherit;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  opacity: 0;
+  overflow: hidden;
+  resize: none;
+  outline: none;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.vgrid-canvas .grid-sink.cell-editor {
+  border: 2px solid var(--accent);
+  padding: 1px 6px;
+  color: var(--text);
+  caret-color: auto;
+  background: var(--field-bg);
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 4;
+  /* A <textarea> so it holds multi-line values (Alt+Enter). Long/multi-line
+     content wraps and scrolls within the cell box while editing; committing
+     grows the row via Wrap Long Rows. */
+  resize: none;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  line-height: var(--grid-wrap-line);
+}

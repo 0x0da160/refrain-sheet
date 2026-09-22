@@ -1,0 +1,194 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Menu bar ---------- */
+
+.menu-bar {
+  display: flex;
+  align-items: center;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0 4px;
+  user-select: none;
+}
+
+/* Fixed box keeps the badge crisp and prevents any layout shift or stretching
+   as the SVG loads; the icon carries its own background so it reads on both
+   light and dark menu bars. Hidden by default: the desktop-width branding is
+   the full logotype below, not this icon + the plain-text name after it —
+   both switch back on at the narrow/mobile width (see the mobile media
+   query), where there's no room for the wider logotype. */
+.menu-bar .app-icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin-left: 6px;
+  border-radius: 4px;
+  display: none;
+}
+
+.menu-bar .app-name {
+  font-weight: 600;
+  padding: 4px 10px 4px 6px;
+  color: var(--text-dim);
+  display: none;
+}
+
+/* The desktop-width branding: the design system's fixed icon+wordmark
+   artwork (see app-icon.ts), never the icon and `.app-name` re-set
+   separately — those two stay in the DOM only for the narrow/mobile
+   fallback above. */
+.menu-bar .app-logotype {
+  height: 22px;
+  width: auto;
+  flex: none;
+  margin: 0 8px 0 6px;
+  display: block;
+}
+
+/* Hidden on desktop width (see the mobile layout section below), where
+   `.menu-row` always stays inline beside the logo instead. */
+.menu-bar-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  border: none;
+  background: none;
+  padding: 6px;
+  border-radius: 3px;
+  color: inherit;
+}
+
+.menu-bar-toggle:hover,
+.menu-bar-toggle[aria-expanded='true'] {
+  background: var(--accent-soft);
+}
+
+.menu-row {
+  display: flex;
+  align-items: center;
+}
+
+.menu {
+  position: relative;
+}
+
+.menu > button {
+  border: none;
+  background: none;
+  padding: 6px 10px;
+  cursor: default;
+  border-radius: 3px;
+}
+
+.menu > button:hover,
+.menu > button[aria-expanded='true'] {
+  background: var(--accent-soft);
+}
+
+/* Fixed positioning: the exact left/top (and a max-height when the viewport is
+   shorter than the list) are written by the shared viewport-aware placer in
+   src/ui/popup.ts, so a menu near a window edge flips or clamps instead of
+   being clipped. Never rely on the initial 0/0 — it is replaced on open. */
+.menu-list {
+  position: fixed;
+  top: 0;
+  left: 0;
+  min-width: 230px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 14px var(--shadow);
+  padding: 4px 0;
+  /* Above every docked/floating surface it can open over (context menus and
+     the dockable side panels are both 100, the filter popover is 100) so a
+     menu-bar drop-down is never clipped by a panel docked at the edge it
+     opens toward. Still below the transient full-screen overlays
+     (.drop-overlay/.loading-overlay/.toasts) and below a native <dialog>,
+     which lives in the CSS top layer regardless of z-index. */
+  z-index: 150;
+}
+
+.menu-list.submenu {
+  z-index: 160;
+}
+
+/* Submenu affordance. The glyph is decorative (aria-hidden); the parent item
+   carries aria-haspopup/aria-expanded, which is what assistive technology
+   announces. It mirrors with the writing direction, not with the flip, so it
+   always points "further into" the menu chain. */
+.submenu-arrow::after {
+  content: '▸';
+  color: var(--text-dim);
+}
+
+[dir='rtl'] .submenu-arrow::after {
+  content: '◂';
+}
+
+.menu-item.has-submenu[aria-expanded='true'] {
+  background: var(--accent-soft);
+}
+
+.menu-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  padding: 6px 14px;
+  text-align: left;
+  cursor: default;
+}
+
+.menu-item:hover:not(:disabled),
+.menu-item:focus-visible {
+  background: var(--accent-soft);
+  outline: none;
+}
+
+.menu-item:disabled {
+  color: var(--text-muted);
+}
+
+.menu-item .label {
+  flex: 1;
+}
+
+.menu-item .shortcut {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.menu-item .check {
+  width: 1em;
+  display: flex;
+}
+
+.menu-item .check-icon {
+  color: var(--accent);
+}
+
+/* A plain command item's decorative leading icon (#393) — shares the
+   .check column's reserved width but stays visually subdued (text-dim)
+   rather than the checkmark's accent color, since it never indicates state. */
+.menu-item .item-icon {
+  color: var(--text-dim);
+}
+
+.menu-separator {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+}
+
+.menu-heading {
+  padding: 4px 14px 2px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  cursor: default;
+}

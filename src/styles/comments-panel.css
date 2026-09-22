@@ -1,0 +1,117 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Comments panel ----------
+   A dockable `.side-panel` (see below) like Filter/Sort/Format/SQL Query,
+   rather than a fixed always-right layout sibling of the grid (#399); this
+   rule only overrides its `.dialog-body` padding back to zero so the
+   scope-label/empty-message/list below keep their own original spacing
+   instead of also getting `.dialog-body`'s outer padding. */
+
+.comments-panel[hidden] {
+  display: none;
+}
+
+.comments-panel .dialog-body {
+  padding: 0;
+}
+
+.comments-panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.comments-panel-close {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: none;
+  color: inherit;
+  border-radius: 3px;
+  padding: 3px;
+}
+
+.comments-panel-close:hover {
+  background: var(--panel-hover);
+}
+
+.comments-scope-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.comments-scope {
+  flex: 1;
+  font: inherit;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--field-bg);
+  color: var(--text);
+}
+
+.comments-empty {
+  margin: 0;
+  padding: 12px 8px;
+  color: var(--text-dim);
+  font-size: 0.9em;
+}
+
+.comments-empty[hidden] {
+  display: none;
+}
+
+.comments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.comment-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.comment-item:hover,
+.comment-item:focus-visible {
+  background: var(--panel-hover);
+}
+
+.comment-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.comment-item-header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-sheet);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.comment-item-sheet {
+  font-family: inherit;
+  font-weight: 400;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comment-item-text {
+  font-size: 0.9em;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}

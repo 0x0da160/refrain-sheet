@@ -46,9 +46,13 @@ below it, never above):
   rendered text metrics, so `Commands` exposes a narrow `gridActions` port
   that the grid implements. The command still owns the flow; the grid only
   supplies DOM-dependent measurement.
-- **Styling stays hand-written CSS (`src/styles.css`), plus Tailwind utility
+- **Styling stays hand-written CSS, split by section under `src/styles/`**
+  and loaded through `src/styles.css` — an ordered list of
+  `@import './styles/*.css'` statements, one per section; order matters,
+  since a later section can still override an earlier one at equal
+  specificity, exactly as when this was one file — **plus Tailwind utility
   classes for non-grid surfaces** (menus, dialogs, panels, the welcome
-  screen). `styles.css` imports only `tailwindcss/theme.css` and
+  screen). The `tokens.css` section imports only `tailwindcss/theme.css` and
   `tailwindcss/utilities.css` — never the Preflight base layer — so Tailwind
   contributes utility classes without resetting any element's default
   styling. The `@theme` block bridges a subset of the semantic color tokens

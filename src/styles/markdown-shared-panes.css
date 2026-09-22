@@ -1,0 +1,148 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Markdown source/preview panes (shared by the Markdown
+   worksheet's docked source view and preview panel, #433/#502) ---------- */
+
+.markdown-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+/* The JSON/YAML editors' auto-format-on-commit checkbox (#557):  pushed to
+   the toolbar's trailing edge, away from the preview-toggle/Format buttons,
+   since it is a persistent per-file setting rather than a one-off action. */
+.markdown-editor-toolbar-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.markdown-editor-panes {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.markdown-editor-pane {
+  flex: 1 1 50%;
+  min-width: 0;
+  /* Without this, a flex column item defaults to `min-height: auto`, which
+     blocks it from shrinking below its content size — so a long preview
+     grows the whole pane (and past it, its `overflow: hidden` ancestor)
+     instead of letting `.markdown-editor-preview`'s own `overflow: auto`
+     scroll internally (#502). */
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-editor-source {
+  flex: 1;
+  min-height: 320px;
+  font-family: var(--font-sheet);
+  font-size: 13px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  resize: vertical;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.markdown-editor-preview {
+  flex: 1;
+  min-height: 320px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: auto;
+  background: var(--panel);
+  line-height: 1.5;
+}
+
+.markdown-editor-preview > :first-child {
+  margin-top: 0;
+}
+
+.markdown-editor-preview pre {
+  background: var(--surface);
+  border-radius: 3px;
+  padding: 8px;
+  overflow: auto;
+}
+
+.markdown-editor-preview code {
+  font-family: var(--font-sheet);
+  font-size: 0.9em;
+}
+
+.markdown-editor-preview blockquote {
+  margin: 0 0 10px;
+  padding-left: 10px;
+  border-left: 3px solid var(--border);
+  color: var(--text-dim);
+}
+
+/* GFM-style tables (#486) — `src/core/markdown.ts`'s table block, rendered
+   via `renderMarkdownBlocks`. Alignment classes come from the delimiter
+   row's colons (`:---`/`:---:`/`---:`); a plain `---` cell (no colons) is
+   unaligned and gets no class at all, relying on `th`/`td`'s own default
+   `text-align: left` below — `.md-align-left` only matters for a cell
+   explicitly marked `:---`, kept distinct so the AST/render layer never has
+   to special-case "no alignment" vs "explicitly left". */
+.markdown-editor-preview table {
+  border-collapse: collapse;
+  margin: 0 0 10px;
+}
+
+.markdown-editor-preview th,
+.markdown-editor-preview td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.markdown-editor-preview th {
+  background: var(--surface);
+  font-weight: 600;
+}
+
+.markdown-editor-preview .md-align-left {
+  text-align: left;
+}
+
+.markdown-editor-preview .md-align-center {
+  text-align: center;
+}
+
+.markdown-editor-preview .md-align-right {
+  text-align: right;
+}
+
+/* Fenced-code-block syntax highlighting (#486) — token classes come from
+   `src/core/syntax-highlight.ts`'s `CodeToken.type`, rendered by
+   `renderMarkdownBlocks`. Colors reuse existing semantic tokens rather than
+   introducing new ones, so both themes (`:root[data-theme='dark']`) stay in
+   sync automatically. */
+.markdown-editor-preview .tok-keyword {
+  color: var(--accent);
+}
+
+.markdown-editor-preview .tok-string {
+  color: var(--success);
+}
+
+.markdown-editor-preview .tok-comment {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.markdown-editor-preview .tok-number {
+  color: var(--warning);
+}

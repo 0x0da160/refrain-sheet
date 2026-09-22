@@ -7,16 +7,14 @@
  * baseline metrics), and the DOM must apply the row-height geometry the model
  * depends on, for Japanese and Latin content alike.
  */
-// `fs` is declared ambiently in tests/node-shims.d.ts (no @types/node needed).
-import { readFileSync } from 'fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { SHEET_FONTS } from '../src/app/sheet-font';
 import { Grid, ROW_HEIGHT, WRAP_LINE_HEIGHT } from '../src/ui/grid';
-import { doc } from './helpers';
+import { doc, readBundledCss } from './helpers';
 
-const css = readFileSync('src/styles.css', 'utf8');
+const css = readBundledCss();
 
 /** The declaration block for a CSS rule whose selector list starts a line. */
 function ruleBody(selector: string): string {

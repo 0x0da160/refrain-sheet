@@ -1,0 +1,436 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Mobile layout (phones and small tablets) ----------
+   The tab strip and worksheet strip are flex rows whose buttons don't shrink
+   below their own content width by default; below this width they can
+   together be wider than the viewport, which pushes the outer page into an
+   unwanted horizontal scrollbar. Everything here is gated behind this query
+   so desktop-width layout is unchanged: those rows scroll within themselves
+   instead, and their tap targets grow for touch.
+
+   The menu bar's row of top-level menu names (File / Edit / …) instead
+   collapses behind `.menu-bar-toggle` and, once expanded, wraps onto its own
+   full-width row below the logo row rather than scrolling — see
+   `MenuBar.render` in menu-bar.ts. It used to scroll horizontally like the
+   rows above, but that let iOS Safari's inertial-scroll + synthetic-click-at
+   -original-touch-point behavior open a different item than the one tapped
+   (#267); wrapping instead of scrolling removes that interaction entirely.
+
+   `#app` also switches from a plain flex column to a small grid: `.app-body`
+   keeps the flexible top row, and the bottom row splits into three `auto`/
+   `1fr`/`auto` columns — app icon, status bar, then `.menu-bar-toggle` — so
+   the hamburger sits at the far edge within thumb reach while the status
+   bar keeps the middle (#478). `.menu-bar-toggle` is appended to `#app`
+   directly (not nested inside `.menu-bar`, unlike desktop) purely so the
+   grid can place it in its own column past the status bar; `MenuBar` still
+   owns its state and click handling via `MenuBar.toggleElement`. The app
+   name next to the icon is visually hidden rather than removed — `app.title`
+   stays readable to assistive tech even though sighted mobile users only
+   see the icon.
+
+   Expanding `.menu-row` grows `.menu-bar` across the icon and status-bar
+   columns only (`grid-column: 1 / 3`), deliberately stopping short of the
+   toggle's own column — `.mobile-menu-open` is a class `MenuBar.render`
+   toggles on `.menu-bar` itself for exactly this, since plain CSS has no
+   other way to react, on a *sibling*, to a class several levels down in
+   `.menu-bar`'s own subtree — and hides `.status-bar` for that row's
+   duration via the sibling selector below. Leaving the toggle in its own
+   untouched column (rather than the old two-column layout's full-width
+   `1 / -1`) means the expanded menu can never grow underneath or overlap
+   the button that closes it. The expanded `.menu-row` itself still wraps
+   file/edit/…-style top-level items rather than scrolling horizontally —
+   see below — but is capped with a vertical `max-height` + `overflow-y`
+   scroll so a menu taller than the viewport scrolls in place instead of
+   pushing `.app-body` off-screen or overflowing the page (#478).
+
+   The menu bar's row of top-level menu names (File / Edit / …) instead
+   collapses behind `.menu-bar-toggle` and, once expanded, wraps onto its own
+   full-width row below the logo row rather than scrolling horizontally —
+   see `MenuBar.render` in menu-bar.ts. It used to scroll horizontally like
+   the rows above, but that let iOS Safari's inertial-scroll +
+   synthetic-click-at-original-touch-point behavior open a different item
+   than the one tapped (#267); wrapping instead of horizontal scrolling
+   removes that interaction entirely. The vertical scroll added for #478 is
+   a distinct interaction (an over-tall wrapped menu, not a swipe-through
+   strip) but shares the same tap-to-dismiss-momentum code path, so it is
+   worth re-checking against #267 specifically on iOS Safari.
+
+   Spacing/margins/font-sizes below are trimmed to the necessary minimum for
+   a narrow viewport (#462), but every `min-height`/`min-width` tap-target
+   floor (44px/40px/36px) and the 16px input-zoom floor further below are
+   left exactly as-is: those already cap the rendered size regardless of
+   padding, so tightening padding here does not shrink the actual tap
+   target. */
+@media (max-width: 700px) {
+  #app {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: 1fr auto;
+  }
+
+  .app-body {
+    grid-row: 1;
+    grid-column: 1 / -1;
+  }
+
+  /* On a narrow viewport the formula bar (cell reference + edit field) moves
+     from above the grid to below it, directly above the worksheet-tab strip
+     (#495) — thumb reach while typing matters more here than the desktop
+     convention of a formula bar above the grid. `.formula-bar` lives inside
+     `.app-content` alongside `.find-bar`/`.welcome-screen`/`.main-row`
+     (which keep their default `order: 0`), so bumping only its own order
+     moves it after the grid *within that container* — and because
+     `.app-content` is itself immediately followed by `.sheet-bar` in
+     `.app-body`'s own DOM order (#399/#541 — see `src/main.ts`), the two
+     rows stay adjacent without `.sheet-bar` needing an order of its own. The
+     border moves from the bar's bottom edge to its top edge so it still
+     separates the bar from the grid above it — `.sheet-bar`'s own
+     `border-top` already separates it from the sheet-tab strip below. */
+  .formula-bar {
+    order: 1;
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .menu-bar {
+    grid-row: 2;
+    grid-column: 1;
+    border-bottom: none;
+    border-top: 1px solid var(--border);
+    padding: 0 2px;
+    flex-wrap: wrap;
+  }
+
+  .status-bar {
+    grid-row: 2;
+    grid-column: 2;
+  }
+
+  /* Spans the icon and status-bar columns only, deliberately excluding the
+     toggle's own column (#478) — see the comment above. */
+  .menu-bar.mobile-menu-open {
+    grid-column: 1 / 3;
+  }
+
+  .menu-bar.mobile-menu-open ~ .status-bar {
+    display: none;
+  }
+
+  /* At this width the desktop logotype gives way to the compact icon +
+     visually-hidden name (there's no room for the wider logotype) — the
+     inverse of the desktop-width defaults in the non-mobile rules above. */
+  .menu-bar .app-icon {
+    display: block;
+  }
+
+  .menu-bar .app-logotype {
+    display: none;
+  }
+
+  /* The icon is purely decorative (`alt=""` + `aria-hidden="true"`, see
+     app-icon.ts), so hiding it while the mobile menu is open is a plain
+     `display: none` rather than the accessible-tree-preserving technique
+     `.app-name` below needs (#489). */
+  .menu-bar.mobile-menu-open .app-icon {
+    display: none;
+  }
+
+  /* The app name is visually hidden rather than removed: `app.title` stays
+     in the accessibility tree for assistive tech even though only the icon
+     is shown to sighted mobile users (#478). Mirrors `.visually-hidden`
+     further below, inlined here since that's a utility class applied via
+     markup rather than a mixin. `display` is re-declared because the
+     desktop-width default above turns this element off entirely (it's
+     redundant there — the logotype alone carries the accessible name), and
+     `display: none` would otherwise also remove it from the accessibility
+     tree this technique exists to keep it in. */
+  .menu-bar .app-name {
+    display: block;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* A direct `#app` child (not nested in `.menu-bar`, unlike desktop) so the
+     grid can place it in its own trailing column, past the status bar
+     (#478) — see `MenuBar.toggleElement` in menu-bar.ts. `align-self: start`
+     keeps it pinned to the icon row's height instead of stretching down
+     across the expanded menu row below it. */
+  .menu-bar-toggle {
+    display: flex;
+    grid-row: 2;
+    grid-column: 3;
+    align-self: start;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .menu-row {
+    display: none;
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  /* Wraps rather than scrolling horizontally (see the comment above, #267),
+     but a wrapped menu can still be taller than the viewport on a short
+     phone screen; capping the height and scrolling vertically keeps it fully
+     reachable without overflowing the page (#478). */
+  .menu-row.open {
+    display: flex;
+    max-height: calc(100dvh - 96px);
+    overflow-y: auto;
+  }
+
+  /* `.menu-row` wraps instead of scrolling, but that only works if its
+     children keep their natural width: without `flex-shrink: 0` they'd
+     compress and wrap their own label text onto multiple lines instead of
+     the row wrapping between them. */
+  .menu {
+    flex-shrink: 0;
+  }
+
+  .menu > button,
+  .menu-item {
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+
+  .menu > button {
+    white-space: nowrap;
+  }
+
+  .tab {
+    padding: 8px 8px 8px 12px;
+  }
+
+  .tab .tab-close {
+    padding: 8px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .sheet-tab,
+  .sheet-add,
+  .sheet-grid-add {
+    padding: 9px 10px;
+    min-height: 40px;
+  }
+
+  /* The 40px tap-target floor above already sets the tabs' own height;
+     `.sheet-strip`/`.sheet-grid-actions` desktop padding (3px top/bottom)
+     only adds surrounding chrome on top of that floor, so it's trimmed
+     here without touching the floor itself (#468). */
+  .sheet-strip,
+  .sheet-grid-actions {
+    padding: 1px 6px;
+  }
+
+  .dialog-title {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .dialog-body {
+    padding: 10px 14px;
+  }
+
+  .dialog-buttons {
+    padding: 10px 14px;
+  }
+
+  .dialog-buttons button {
+    padding: 8px 14px;
+    min-height: 44px;
+  }
+
+  .find-bar {
+    padding: 4px 6px;
+    gap: 4px;
+  }
+
+  .find-bar button {
+    padding: 6px 10px;
+    min-height: 40px;
+  }
+
+  .welcome-action {
+    padding: 10px 16px;
+    min-height: 44px;
+  }
+
+  /* Chrome surfaces the mobile breakpoint above didn't previously cover:
+     the status bar, the formula bar's cell-ref label, and the context
+     menu's formatting toolbar/its own padding. */
+  .status-bar {
+    padding: 2px 8px;
+    gap: 2px 10px;
+    font-size: 11px;
+    min-height: 22px;
+  }
+
+  .status-bar .sel-stats,
+  .status-bar .status-selection {
+    gap: 2px 10px;
+  }
+
+  /* Shorten the version text to just "v1.2.3" here, opposite the base rule
+     above (#478). */
+  .status-version-full {
+    display: none;
+  }
+
+  .status-version-short {
+    display: inline;
+  }
+
+  .formula-bar {
+    padding: 3px 6px;
+    gap: 4px;
+  }
+
+  .formula-bar .cell-ref {
+    min-width: 72px;
+    font-size: 11px;
+  }
+
+  .toolbar-item {
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+  }
+
+  .context-menu {
+    padding: 2px 0;
+  }
+
+  .context-menu-toolbar {
+    padding: 2px 4px;
+    gap: 1px;
+  }
+
+  /* ----- Prevent unwanted zoom on focus-in -----
+     Mobile browsers zoom the page to a focused text control whose computed
+     font-size is under ~16px. Every real text/number/search input, select,
+     and textarea (e.g. the SQL query editor, the data-validation list-values
+     field) in a dialog, plus the find bar's search field, gets the 16px floor
+     here; nothing outside this breakpoint changes, so desktop density is
+     untouched. The docked Markdown worksheet's source textarea
+     (`.markdown-sheet-view`, #486) isn't inside a dialog, so it needs its own
+     entry — the standalone Markdown editor's textarea is already covered via
+     `.dialog-body textarea` above. The docked JSON, YAML, and plain-text
+     worksheets' source textareas (`.json-sheet-view`/`.yaml-sheet-view`/
+     `.text-sheet-view`, #529/#557) share the same need. */
+  .dialog-body input[type='text'],
+  .dialog-body input[type='number'],
+  .dialog-body input[type='search'],
+  .dialog-body select,
+  .dialog-body textarea,
+  .markdown-sheet-view .markdown-editor-source,
+  .json-sheet-view .markdown-editor-source,
+  .yaml-sheet-view .markdown-editor-source,
+  .text-sheet-view .markdown-editor-source {
+    font-size: 16px;
+  }
+
+  /* The find field also becomes full-width, now that it no longer has to
+     share a row with the rest of the bar at a fixed 200px. */
+  .find-bar input[type='text'] {
+    font-size: 16px;
+    width: 100%;
+  }
+
+  /* The formula bar and the grid's cell editor scale with the spreadsheet
+     zoom level; clamp their minimum to the same 16px so a zoom level under
+     ~130% doesn't reintroduce the focus-zoom, without changing their size at
+     higher zoom levels. */
+  .formula-bar textarea {
+    font-size: max(16px, calc(13px * var(--sheet-zoom, 1)));
+  }
+
+  .vgrid-canvas .grid-sink.cell-editor {
+    font-size: max(16px, calc(12px * var(--sheet-zoom, 1)));
+  }
+
+  /* Resting cells get the same 16px floor as the promoted editor above
+     (#402/#519): `placeSinkOverCell` (src/ui/grid.ts) sizes the editor's box
+     from the *resting cell's own* rendered rect, so if only the editor were
+     floored, that box would be measured against the smaller unfloored cell
+     font and then rendered with the larger floored editor font — a visible
+     size jump the instant a cell is opened for editing. Flooring `.vcell`
+     too keeps cell and editor consistently sized, at the cost of a larger
+     mobile type scale for the grid generally under this width. */
+  .vcell {
+    font-size: max(16px, calc(12px * var(--sheet-zoom, 1)));
+  }
+
+  /* ----- Markdown source/preview panes -----
+     The standalone Markdown editor dialog's fixed 50/50 side-by-side split
+     (`.markdown-editor-panes`) squeezes both the source textarea and the
+     preview into a narrow column on a phone; stack them instead so each gets
+     the full viewport width (#486). The docked worksheet's own
+     `.markdown-editor-panes` (`ui/markdown-sheet.ts`) has only the source
+     pane now that its preview docks separately as `.markdown-preview-panel`
+     (#502), so this rule is a no-op there. */
+  .markdown-editor-panes {
+    flex-direction: column;
+  }
+
+  .markdown-editor-source,
+  .markdown-editor-preview {
+    min-height: 160px;
+  }
+
+  /* ----- Fit narrow dialogs -----
+     These rows assumed desktop-width dialogs (a fixed-width label beside a
+     200px select, or a select beside a free-flowing input); below this width
+     they no longer fit side by side without forcing the dialog to scroll
+     horizontally, so they wrap and the controls take the full row instead. */
+  .form-row {
+    flex-wrap: wrap;
+  }
+
+  .form-row label:first-child {
+    min-width: 100%;
+  }
+
+  .form-row select,
+  .form-row input[type='number'] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .filter-condition-row {
+    flex-wrap: wrap;
+  }
+
+  .filter-condition-row select,
+  .filter-condition-row input {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .sort-key-row {
+    flex-wrap: wrap;
+  }
+
+  .sort-key-row select {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Toasts default to the bottom-right corner, but on a phone that's where
+     the thumb rests and where the on-screen keyboard first appears; move
+     them to the top instead so they stay visible and out of the way (#534). */
+  .toasts {
+    top: 38px;
+    bottom: auto;
+  }
+}

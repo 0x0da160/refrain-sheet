@@ -1,0 +1,27 @@
+/* SPDX-License-Identifier: MIT */
+
+/* Tailwind CSS utility classes only — no Preflight. Importing the utilities
+   layer without `tailwindcss/preflight.css` keeps this a pure utility-class
+   toolkit for non-spreadsheet UI (menus, dialogs, panels, the welcome
+   screen, per docs/architecture.md) instead of a global reset that would
+   also touch every hand-written rule below, including the grid's. Tailwind's
+   classes read the same semantic tokens defined below via the @theme bridge,
+   so light/dark theming and the offline, single-CSS-file build are
+   unchanged.
+
+   The explicit layer order below matters: without it, a plain (unlayered)
+   hand-written rule always beats a layered one regardless of selector
+   specificity, per the CSS Cascade Layers spec — so the `button { color:
+   inherit; }` reset a few lines down (a minimal hand-rolled stand-in for the
+   Preflight this file deliberately skips) would otherwise silently defeat
+   every Tailwind `text-*` utility applied to a `<button>`, no matter how
+   specific. Declaring it in `@layer base` places it *below* `utilities` in
+   the cascade, exactly like Tailwind's own Preflight is designed to sit —
+   base element resets that utilities are meant to override — while it still
+   fully wins whenever no utility overrides it (#557; this was quietly
+   breaking the welcome screen's own primary/secondary buttons' text color
+   the whole time, on any accent hue, not just this recolor). */
+@layer theme, base, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);

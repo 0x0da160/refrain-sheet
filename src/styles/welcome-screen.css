@@ -1,0 +1,22 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ----- Welcome screen (no document open) -----
+   Shown on first launch and again whenever the last tab is closed. While it
+   is visible the document-specific surfaces (tab strip, formula bar, find
+   bar, grid) are hidden entirely, so no empty tab strip or stale document
+   state remains on screen. Layout, color, and spacing are Tailwind utility
+   classes on the elements themselves (src/ui/welcome-screen.ts); the
+   `welcome-*` class names that remain here are hooks for tests and
+   scripts/capture-landing-screenshots.mjs, not styling. */
+.welcome-screen[hidden] {
+  display: none;
+}
+
+/* Hide the document-specific surfaces while the welcome screen is up. */
+#app.welcome-mode .tab-bar,
+#app.welcome-mode .formula-bar,
+#app.welcome-mode .find-bar,
+#app.welcome-mode .main-row,
+#app.welcome-mode .comments-panel {
+  display: none;
+}

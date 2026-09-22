@@ -1,0 +1,82 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Toasts ---------- */
+
+.toasts {
+  position: fixed;
+  right: 14px;
+  bottom: 38px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 300;
+  max-width: 380px;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-text);
+  border-radius: 6px;
+  padding: 10px 14px;
+  box-shadow: 0 6px 18px var(--shadow-strong);
+  line-height: 1.45;
+}
+
+.toast-message {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.toast-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: none;
+  color: inherit;
+  border-radius: 3px;
+  padding: 3px;
+  opacity: 0.75;
+}
+
+.toast-close:hover {
+  opacity: 1;
+  background: rgb(255 255 255 / 15%);
+}
+
+.toast.warn {
+  background: var(--toast-warn-bg);
+}
+
+.toast.error {
+  background: var(--toast-error-bg);
+}
+
+/* Keyboard focus visibility */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Forced-colors / high-contrast: defer to the system palette and keep the
+   selection and focus cues visible via system colors (the non-color cues —
+   outline patterns, marker glyphs, bold error text — carry the meaning). */
+@media (forced-colors: active) {
+  .vcell.selected,
+  .vcell.anchor,
+  :focus-visible {
+    outline-color: Highlight;
+  }
+
+  /* The animated gradient-based copy-source outline is unreliable under a
+     forced system palette; fall back to a plain, non-animated dashed
+     border in the system's highlight color instead. */
+  .copy-source-outline {
+    background: none;
+    animation: none;
+    border: 2px dashed Highlight;
+  }
+}

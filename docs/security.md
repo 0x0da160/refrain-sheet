@@ -1,5 +1,15 @@
 # Security & supply-chain policy
 
+> **Migrated.** This document's content now also lives, split into focused
+> concepts, in
+> [`knowledge/operations/security-threat-model.md`](../knowledge/operations/security-threat-model.md)
+> and
+> [`knowledge/operations/security-supply-chain.md`](../knowledge/operations/security-supply-chain.md)
+> (part of the
+> [OKF v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)
+> `knowledge/` bundle). This file is kept as the original, unedited source;
+> read the `knowledge/` versions for the current, actively maintained copy.
+
 Refrain Sheet is a **local-first, fully offline** CSV / spreadsheet editor. It
 runs from a single static HTML file (or GitHub Pages), executes entirely in the
 browser, and makes **no network requests at runtime** — no analytics, no remote

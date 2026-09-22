@@ -1,5 +1,11 @@
 # Agent operations
 
+> **Migrated.** This document's content now also lives, split into focused
+> concepts, in [`knowledge/agent-loop/`](../knowledge/agent-loop/index.md) (an
+> [OKF v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)
+> bundle). This file is kept as the original, unedited source; read the
+> `knowledge/` version for the current, actively maintained copy.
+
 This document describes the GitHub Issue-driven engineering loop for Refrain Sheet:
 how an Issue becomes a reviewed pull request, which steps are automated, and which
 steps stay under human control. It is the operational companion to `CLAUDE.md`

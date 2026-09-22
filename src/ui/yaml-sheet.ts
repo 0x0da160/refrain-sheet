@@ -37,7 +37,7 @@ function renderYamlPreview(text: string): Array<Node | string> {
  * (`RsfDocument.autoFormatSource`, default off, applying the same
  * pretty-print automatically each time an edit commits — see
  * `tryFormatYaml`) — but parses/pretty-prints via the `yaml` package instead
- * of `JSON.parse`/`JSON.stringify` (see `docs/security.md` § Dependency
+ * of `JSON.parse`/`JSON.stringify` (see `knowledge/operations/security-threat-model.md` § Dependency
  * policy for why this one dependency was added), and highlights with the
  * `yaml` language spec (`src/core/syntax-highlight.ts`) instead of `json`.
  *

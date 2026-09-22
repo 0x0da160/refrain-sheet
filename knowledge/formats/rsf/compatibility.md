@@ -3,7 +3,7 @@ type: format-concept
 title: RSF versioning and compatibility
 description: Lossy CSV→RSF conversion, legacy .rcsv handling, single-sheet-to-workbook migration, mismatched-pair rejection, and the full body-version bump history.
 sources:
-  - resource: ../../../docs/rsf-format.md
+  - resource: docs/rsf-format.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5

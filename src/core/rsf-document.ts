@@ -65,7 +65,7 @@ import { DEFAULT_DISPLAY_LANGUAGE, isValidDisplayLanguage, type DisplayLanguageI
  *
  * The container is a compact binary format (magic bytes, header, CRC-32
  * checksum, compressed body) defined in `rsf-codec.ts` and documented in
- * `docs/rsf-format.md`. It holds pure data — no executable code, macros,
+ * `knowledge/formats/rsf/index.md`. It holds pure data — no executable code, macros,
  * external references, or network URLs — and parsing is strict (magic,
  * version, checksum, shape, and bounds are validated) and never executes
  * anything.

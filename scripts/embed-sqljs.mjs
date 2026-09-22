@@ -12,7 +12,7 @@
 //
 // The sql.js JS runtime itself (dist/sql-wasm.js) is imported directly from
 // the `sql.js` package, like any other npm dependency (see
-// docs/architecture.md "The SQL query engine") — only the WASM binary needs
+// knowledge/architecture/index.md "The SQL query engine") — only the WASM binary needs
 // embedding, and `src/core/sql-engine.ts` always instantiates it from these
 // decoded bytes via the `wasmBinary` config option, never `locateFile()`.
 

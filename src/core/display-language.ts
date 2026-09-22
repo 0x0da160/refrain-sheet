@@ -11,7 +11,7 @@
  *
  * This is intentionally a small, closed set, independent of the
  * application's own UI-chrome locale catalogs (`src/app/i18n.ts`):
- * `src/core/` never imports from `src/app/` (see `docs/architecture.md`), and
+ * `src/core/` never imports from `src/app/` (see `knowledge/architecture/index.md`), and
  * a workbook's formula output must not depend on which UI language happens to
  * be active on the machine that opens it — that is exactly the determinism
  * problem this setting exists to avoid.

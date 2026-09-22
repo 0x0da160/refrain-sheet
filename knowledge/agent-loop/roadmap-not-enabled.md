@@ -1,9 +1,9 @@
 ---
 type: agent-loop-concept
 title: Roadmap — not enabled
-description: Auto-merge criteria and scheduled autonomous research are documented and designed, but deliberately off. This file describes proposals, not current behavior, and needs re-verification against docs/agent-operations.md before being treated as still accurate.
+description: Auto-merge criteria and scheduled autonomous research are documented and designed, but deliberately off. This file describes proposals, not current behavior, and needs re-verification against the actual GitHub Actions workflows in .github/workflows/ before being treated as still accurate.
 sources:
-  - resource: ../../docs/agent-operations.md
+  - resource: docs/agent-operations.md (migrated content; file removed after migration — see knowledge/log.md)
 status: proposed
 generated:
   by: claude-code/claude-sonnet-5

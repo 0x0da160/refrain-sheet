@@ -7,8 +7,10 @@ which steps stay under human control. It is the operational companion to
 [Operations](../operations/index.md) domain (security policy, which
 governs).
 
-Migrated from `docs/agent-operations.md`. Unlike the other three migrated
-docs, this one was **not** a straight port: its ~960 lines mix durable
+Migrated from the former `docs/agent-operations.md`, now removed — see
+[`knowledge/log.md`](../log.md) for the migration history. Unlike the other
+three migrated docs, this one was **not** a straight port: its ~960 lines
+mix durable
 policy (what Claude may decide on its own, the bilingual-communication
 contract), an operational runbook (how a human runs the loop from a
 phone), reference configuration (workflow permissions, model/auth

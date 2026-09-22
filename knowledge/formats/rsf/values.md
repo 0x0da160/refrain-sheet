@@ -3,7 +3,7 @@ type: format-concept
 title: RSF formula value model
 description: Value kinds, the error set, and date-serial semantics (including the workbook-timezone and display-language dependence of TODAY/NOW/TEXT).
 sources:
-  - resource: ../../../docs/rsf-format.md
+  - resource: docs/rsf-format.md (migrated content; file removed after migration — see knowledge/log.md)
   - resource: ../../../src/core/formula-value.ts
   - resource: ../../../src/core/formula-date.ts
 status: stable

@@ -3,7 +3,7 @@ type: operations-concept
 title: Performance measurements
 description: How to reproduce the benchmark suite, and the measured numbers for a specific revision. Time-sensitive — re-run before relying on the numbers for a new decision.
 sources:
-  - resource: ../../docs/performance.md
+  - resource: docs/performance.md (migrated content; file removed after migration — see knowledge/log.md)
   - resource: ../../bench/perf.bench.ts
 status: stable
 stale_after: 2027-03-21T12:02:03Z
@@ -15,9 +15,8 @@ generated:
 # Performance measurements
 
 **These numbers are a snapshot, not a guarantee.** They were pasted from an
-actual `npm run bench` run at migration time (see `docs/performance.md`'s
-own instruction: "do not edit them by hand; re-run the bench instead").
-Treat orders of magnitude and ratios as the meaningful signal, not the
+actual `npm run bench` run — do not edit them by hand; re-run the bench
+instead. Treat orders of magnitude and ratios as the meaningful signal, not the
 exact millisecond figures — re-run the suite before citing a number in a
 new decision, especially once `stale_after` has passed.
 
@@ -100,6 +99,27 @@ they say nothing about paint or interaction latency in a browser.
 Multi-column auto-fit is not benchmarked in Node either — it measures real
 rendered text via canvas `measureText`, which jsdom/Node does not
 implement; its structural behavior is asserted by `tests/autofit.test.ts`.
+
+Note: the WASM and JS `statsAggregate` reductions measure the same (~125 ms)
+on this fixture because the scan cost is dominated by JS-side `Number()`
+parsing, which stays in JS deliberately so its semantics remain the single
+source of truth. The WASM reduction still avoids a JS loop for the final
+sum/min/max pass.
+
+### Before / after (the changes in this tuning pass)
+
+These compare the _structure_ of the work, using the measured costs above:
+
+| Interaction                                                        | Before                                                                                                                             | After                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Selecting / drag-extending a 1,000,000-cell range                  | every `selection` event ran the full ~125 ms statistics scan synchronously (multi-frame stall per mousemove)                       | selection paints immediately; "Calculating…" shown; scan runs in ~8 ms slices in the background and is cancelled by newer selections                                                                                                                                                                                                                                                                                                                                 |
+| Single-cell edit in a large file                                   | the entire visible window (~hundreds of cells) was torn down and rebuilt                                                           | 0 DOM nodes created — existing cells repaint in place (asserted by `tests/perf.test.ts`)                                                                                                                                                                                                                                                                                                                                                                             |
+| Column resize / drag selection / fill preview                      | every mousemove re-rendered synchronously                                                                                          | first event applies immediately, the rest coalesce to ≤ 1 update per frame                                                                                                                                                                                                                                                                                                                                                                                           |
+| Replace All on 200,000×6 cells                                     | one ~86 ms+ blocking task (scan + apply) after the busy indicator painted                                                          | ~12 ms slices with yields and % progress; the apply phase remains one atomic synchronous `bulkEdit`                                                                                                                                                                                                                                                                                                                                                                  |
+| First paint at startup                                             | blocked on Base64-decoding + compiling the embedded WASM engine                                                                    | UI paints immediately; the engine finishes initializing in the background and the first open awaits it                                                                                                                                                                                                                                                                                                                                                               |
+| Formula-cell enumeration (status bar, structural edits)            | every `countFormulaCells`/`listFormulaCells` call scanned all rows × columns (~5.1 ms measured on 600,000 cells)                   | per-row index skips formula-free rows: ~1.3 ms measured on the same sheet (~3.7×), and the gap grows with sheet size while the formula count stays sparse                                                                                                                                                                                                                                                                                                            |
+| CSV field decoding on load/save/convert (every field)              | `decodeBytes`/`decodesCleanly` each constructed a new `TextDecoder` per call — 2 decoders × every field                            | one cached `TextDecoder` per (encoding, fatal) pair, reused for the life of the module; `RsfDocument.fromLossless` on a 200,000×6 CSV dropped from ~872 ms to ~647 ms mean (~26% faster), measured with `npm run bench` on this change's CI runner (not the pinned Docker/Windows reference environment above — re-run `docker compose run --rm app npm run bench` to refresh the pinned figures)                                                                    |
+| `VLOOKUP`/`MATCH`/`XLOOKUP`, same range read by many formula cells | each exact-match call re-scanned the whole lookup column/row linearly, so N formula cells against the same M-row range cost O(N×M) | the lookup column is hashed into a cached index the first time a formula reads it; later cells against the same range are O(1) average — "VLOOKUP table shared by 2,000 formula cells" (`bench/perf.bench.ts`) dropped from ~2,259 ms to ~75 ms mean (~30×), measured with `npm run bench` on this change's CI runner (not the pinned Docker/Windows reference environment above — re-run `docker compose run --rm app npm run bench` to refresh the pinned figures) |
 
 ## Limits and assumptions
 

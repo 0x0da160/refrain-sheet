@@ -3,7 +3,7 @@ type: format-concept
 title: RSF cross-sheet formula references
 description: Reference syntax and what happens to formulas when worksheets are renamed, deleted, duplicated, or restructured.
 sources:
-  - resource: ../../../docs/rsf-format.md
+  - resource: docs/rsf-format.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5

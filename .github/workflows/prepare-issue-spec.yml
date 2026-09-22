@@ -19,7 +19,7 @@ name: Prepare issue spec
 # - `pull_request` is not used here; there is no fork-code execution path.
 # - Inert until a human selects CLAUDE_AUTH_METHOD + adds the matching secret.
 # - `anthropics/claude-code-action` is THIRD-PARTY, so it is pinned to a full
-#   commit SHA (docs/security.md pinning policy). The trailing comment on each
+#   commit SHA (knowledge/operations/security-supply-chain.md pinning policy). The trailing comment on each
 #   `uses:` line names the release that SHA is.
 
 on:

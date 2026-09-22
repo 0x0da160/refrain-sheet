@@ -18,7 +18,7 @@
  * serial scale documented in `formula-date.ts`. That keeps the value model
  * small and makes `=A1+7` (a week later) work without special cases, at the
  * cost of dates displaying as their serial number — see the known-limitations
- * note in `docs/rsf-format.md`.
+ * note in `knowledge/formats/rsf/index.md`.
  *
  * ## Coercion rules (authoritative)
  *
@@ -188,7 +188,7 @@ export function flattenGrid(grid: ValueGrid): FormulaValue[] {
 // Every bound below exists so a formula typed by a user — or arriving inside an
 // untrusted `.rsf` file — cannot hang the tab, exhaust memory, or blow the
 // stack. They are deliberately generous for real spreadsheets and hard for
-// abusive ones. `docs/security.md` documents them as a group.
+// abusive ones. `knowledge/operations/security-threat-model.md` documents them as a group.
 
 /** Longest formula source accepted, in UTF-16 code units. */
 export const MAX_FORMULA_LENGTH = 8192;

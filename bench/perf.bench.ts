@@ -5,13 +5,13 @@
  *
  * Fixtures are generated deterministically in code — no fixture files, no
  * randomness — so runs are comparable across machines and revisions. The
- * numbers themselves depend on the host; docs/performance.md records the
+ * numbers themselves depend on the host; knowledge/operations/performance-measurements.md records the
  * reference environment and the measured results for this revision.
  *
  * These benches run in Node (V8), not a browser. They measure the pure data
  * processing cost; DOM-related responsiveness is covered by tests
  * (tests/perf.test.ts, tests/virtual-grid.test.ts) and by the manual
- * profiling steps documented in docs/performance.md.
+ * profiling steps documented in knowledge/operations/performance-principles.md.
  */
 import { bench, describe } from 'vitest';
 import { AppState } from '../src/app/app-state';

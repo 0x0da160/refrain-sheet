@@ -58,6 +58,22 @@ setup steps the same document describes — flagged for the maintainer,
 not silently fixed or silently dropped. `docs/agent-operations.md` itself
 was left in place, unedited, same as the other migrated docs.
 
+**Transition banners added**, then **legacy docs deleted.** A later change
+added a `> **Migrated.**` banner to the top of each of the five source
+docs, pointing readers at its `knowledge/` replacement. Once the banners
+had been live for a review cycle, a follow-up audit re-verified each
+domain against its source doc, closed the handful of real content gaps it
+found (the SQL-engine specifics and `@theme` bridging sentence in
+`architecture/`, the "Before / after" measurement table and the
+`statsAggregate` note in `operations/`, and the label-creation commands
+and the "safely testing the loop" walkthrough in `agent-loop/` —
+`formats/rsf/` had none), updated every in-repo cross-reference that
+pointed at a `docs/*.md` path, and then deleted `docs/architecture.md`,
+`docs/security.md`, `docs/performance.md`, `docs/rsf-format.md`, and
+`docs/agent-operations.md`. This bundle is now the sole source for that
+knowledge; `sources:` frontmatter across these concepts keeps citing the
+removed doc paths as historical provenance, not as live links.
+
 **`domains/` domain added.** A new domain, not a migration of an existing
 `docs/*.md` file: `README.md` (the current, exhaustively maintained
 product spec) is the primary source for eight concepts covering

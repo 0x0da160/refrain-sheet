@@ -48,7 +48,7 @@ concurrency:
   group: ${{ github.event_name == 'push' && 'production-release' || format('production-release-call-{0}', github.run_id) }}
   cancel-in-progress: false
 
-# Action-pinning policy (see docs/security.md): every action here is an official
+# Action-pinning policy (see knowledge/operations/security-supply-chain.md): every action here is an official
 # GitHub-maintained actions/* pinned to a major version tag; any third-party
 # (non actions/*) action would instead be pinned to a full commit SHA.
 
@@ -130,9 +130,9 @@ jobs:
       # and differs only in its Content-Security-Policy (scripts/csp.mjs). Both
       # artifacts are built and validated before either is published, so the
       # offline dist/ that goes into the release ZIP can never inherit a
-      # hosted-only CSP relaxation. See docs/security.md.
+      # hosted-only CSP relaxation. See knowledge/operations/security-threat-model.md.
       # The OAuth client id is a public identifier delivered as a repository
-      # *variable*, never a secret (docs/security.md). Without it the hosted
+      # *variable*, never a secret (knowledge/operations/security-supply-chain.md). Without it the hosted
       # build compiles Drive sync out entirely and the menu never appears, so
       # --expect-credential below fails the release rather than shipping a
       # silently featureless build.

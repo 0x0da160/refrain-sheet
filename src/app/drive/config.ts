@@ -8,7 +8,7 @@
 //
 // An OAuth client id for a browser app is a public identifier, not a secret —
 // it is delivered through the `GOOGLE_OAUTH_CLIENT_ID` repository *variable*,
-// never a secret. See docs/security.md.
+// never a secret. See knowledge/operations/security-supply-chain.md.
 
 declare const __DRIVE_CLIENT_ID__: string;
 

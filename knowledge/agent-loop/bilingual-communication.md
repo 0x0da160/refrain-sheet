@@ -3,7 +3,7 @@ type: agent-loop-concept
 title: Bilingual agent communication
 description: Every human-facing message the agent writes is English first, Japanese second — what that covers, what stays untranslated, and why it is presentation, not a gate.
 sources:
-  - resource: ../../docs/agent-operations.md
+  - resource: docs/agent-operations.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
   by: claude-code/claude-sonnet-5

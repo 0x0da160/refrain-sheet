@@ -41,7 +41,7 @@ export interface CellStyle {
  * an optional thousands separator, and (for `currency`) a symbol prefix.
  * Purely a display transform of {@link CellStyle} — like every other style
  * property it never changes the cell's underlying value, formula result,
- * sort/filter order, or CSV/XLSX export (see `docs/rsf-format.md`). Applies
+ * sort/filter order, or CSV/XLSX export (see `knowledge/formats/rsf/index.md`). Applies
  * only to number-typed formula results; text, boolean, blank, and error
  * values render exactly as they do today regardless of this setting.
  */

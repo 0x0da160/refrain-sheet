@@ -7,12 +7,11 @@ okf_version: '0.2'
 Durable internal engineering knowledge for Refrain Sheet, in
 [Open Knowledge Format v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md).
 
-This bundle is additive to, not a replacement for, `CLAUDE.md` and the docs
-under `docs/`: `CLAUDE.md` stays the small operational entry point, and
-individual concept files here are what it points into for durable domain
-knowledge. Read the relevant domain index first, then open only the concept
-files a task actually needs — do not read this whole bundle to make a local
-change.
+This bundle is additive to, not a replacement for, `CLAUDE.md`: `CLAUDE.md`
+stays the small operational entry point, and individual concept files here
+are what it points into for durable domain knowledge. Read the relevant
+domain index first, then open only the concept files a task actually needs —
+do not read this whole bundle to make a local change.
 
 ## Domains
 
@@ -33,7 +32,8 @@ change.
   references, the function and error inventory, dynamic arrays, undo/redo,
   import/export/conversion, and version history.
 
-This bundle is a work in progress: `docs/architecture.md`, `docs/security.md`,
-`docs/performance.md`, `docs/rsf-format.md`, and `docs/agent-operations.md`
-have all been migrated into the domains above (each old file is left in
-place, unedited, as the pre-migration source — see `knowledge/log.md`).
+`docs/architecture.md`, `docs/security.md`, `docs/performance.md`,
+`docs/rsf-format.md`, and `docs/agent-operations.md` — the pre-migration
+source for the domains above — have been fully migrated and removed; this
+bundle is now their canonical replacement. See `knowledge/log.md` for the
+migration and removal history.

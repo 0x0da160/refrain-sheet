@@ -3,7 +3,7 @@ type: format-concept
 title: RSF overview
 description: Design goals, compression methods, the container header layout, and the workbook/worksheet model.
 sources:
-  - resource: ../../../docs/rsf-format.md
+  - resource: docs/rsf-format.md (migrated content; file removed after migration — see knowledge/log.md)
   - resource: ../../../src/core/rsf-codec.ts
 status: stable
 generated:

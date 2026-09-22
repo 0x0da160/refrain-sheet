@@ -74,7 +74,7 @@ const DECODER_LABEL: Record<EncodingId, string> = {
  * `TextDecoder` instances are stateless across calls (no `{ stream: true }` is
  * ever used here), so they are safe to reuse. `decodeBytes`/`decodesCleanly`
  * run once per field on document load and save — constructing a fresh
- * decoder per call measurably dominated those paths (see docs/performance.md).
+ * decoder per call measurably dominated those paths (see knowledge/operations/performance-principles.md).
  */
 const decoderCache = new Map<string, TextDecoder>();
 

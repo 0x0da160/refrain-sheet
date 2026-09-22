@@ -80,7 +80,7 @@ export const LARGE_OP_CELLS = 20_000;
  * Byte threshold above which opening a file counts as "large" for busy-overlay
  * purposes. Unlike other gated operations, a file's cell count is unknown
  * until it has been parsed, so its byte size stands in as the upfront signal.
- * Sized from `docs/performance.md`'s own CSV benchmark (~200,000 cells /
+ * Sized from `knowledge/operations/performance-measurements.md`'s own CSV benchmark (~200,000 cells /
  * ~11 MB, roughly 9 bytes/cell) to track {@link LARGE_OP_CELLS} at a
  * comparable scale.
  */

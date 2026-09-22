@@ -8,6 +8,10 @@ coverage/
 wasm/target/
 wasm/pkg/
 
+# Claude Code agent isolation worktrees (local tooling scratch space, not
+# repository content).
+.claude/worktrees/
+
 # ----- Secrets: never commit credentials or local environment files -----
 # (See knowledge/operations/security-supply-chain.md. The committed .npmrc holds config only — no tokens.)
 .env

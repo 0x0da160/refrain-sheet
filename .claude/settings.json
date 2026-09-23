@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(npm ci --ignore-scripts)",
+      "Bash(npm run format:check)",
+      "Bash(npm run format)",
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
+      "Bash(npm run build:hosted)",
+      "Bash(npm run test)",
+      "Bash(npm run test:rust)",
+      "Bash(npm run bench)",
+      "Bash(npm run check:dist)",
+      "Bash(npm run check:dist:hosted)",
+      "Bash(npm run check:versions)",
+      "Bash(npm run check:knowledge)",
+      "Bash(npm run check:knip)",
+      "Bash(npm run check:generated)",
+      "Bash(npm run check:contrast)",
+      "Bash(npm run check:changelog)",
+      "Bash(npm run ui:check)",
+      "Bash(npx vitest run:*)",
+      "Bash(npx knip:*)",
+      "Bash(docker compose run --rm app:*)"
+    ],
+    "deny": [
+      "Bash(npm install:*)",
+      "Bash(npm i:*)",
+      "Bash(npm ci)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push origin main:*)",
+      "Bash(gh pr merge:*)",
+      "Read(./.env)",
+      "Read(./.env.*)"
+    ]
+  }
+}

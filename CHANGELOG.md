@@ -44,6 +44,16 @@ really is internal, rather than inventing an entry to satisfy it.
   are consistent across menus, dialogs, and panels. On a desktop the grid
   shows about one more row.
 - The three buttons on the welcome screen are now the same width.
+- The find bar's Previous, Next, and Close buttons are now icons (hover
+  for their names), so the bar fits on one row even with Replace open.
+- On a phone:
+  - the file tab row is about 12px shorter;
+  - the status bar keeps to one line, with the file details (encoding,
+    delimiter, size, version, and so on) behind a new **Details** button;
+  - the find bar is laid out in tidy rows (search, options, replace)
+    instead of wrapping its labels one character per line;
+  - the opened menu lines its names up in an even grid.
+    With a CSV file open, the grid shows about two more rows than before.
 
 ### Fixed
 

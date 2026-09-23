@@ -799,6 +799,7 @@
   "rsf.method.store.label": "なし（無圧縮）",
   "rsf.method.store.short": "なし",
   "rsf.method.store.desc": "圧縮しません。デバッグ・相互運用・トラブルシューティング用です。",
+  "status.details": "詳細",
   "status.engine": "エンジン: {engine}",
   "status.engineTitle": "CSV解析エンジン。WASMは組み込みRustコア、JSは同一動作のフォールバックです。",
   "dialog.convert.title": "スプレッドシート（RSF）に変換しますか？",

@@ -183,10 +183,17 @@
      but a wrapped menu can still be taller than the viewport on a short
      phone screen; capping the height and scrolling vertically keeps it fully
      reachable without overflowing the page (#478). */
+  /* Laid out as an even grid of four columns (#594) rather than wrapping
+     wherever each name happens to end — still no horizontal scrolling. */
   .menu-row.open {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     max-height: calc(100dvh - 96px);
     overflow-y: auto;
+  }
+
+  .menu-row.open .menu > button {
+    width: 100%;
   }
 
   /* `.menu-row` wraps instead of scrolling, but that only works if its
@@ -207,8 +214,10 @@
     white-space: nowrap;
   }
 
+  /* The close button's 36px tap target sets the tab's height; the tab adds
+     only a thin frame around it (#594), not another 8px above and below. */
   .tab {
-    padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
+    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-5);
   }
 
   .tab .tab-close {
@@ -261,9 +270,69 @@
     min-height: 44px;
   }
 
+  /* Three rows instead of a wrapped jumble (#594): search field with
+     previous/next and close, then replace, then the options with the match
+     count. The field labels and the previous/next text become visually
+     hidden — the placeholder and icons carry them, and the text stays the
+     accessible name. */
   .find-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     padding: var(--space-2) var(--space-3);
     gap: var(--space-2);
+  }
+
+  .find-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+
+  .find-group-find {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .find-bar .find-close {
+    grid-column: 2;
+    grid-row: 1;
+    margin-left: 0;
+  }
+
+  .find-group-replace,
+  .find-group-options,
+  .find-error {
+    grid-column: 1 / -1;
+  }
+
+  .find-group-options {
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
+  }
+
+  .find-group > label:has(> input[type='text']) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .find-field-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .find-bar .find-nav,
+  .find-bar .find-close {
+    min-width: 40px;
+    justify-content: center;
   }
 
   .find-bar button {
@@ -282,8 +351,20 @@
   .status-bar {
     padding: var(--space-1) var(--space-4);
     gap: var(--space-1) var(--space-4);
-    font-size: 11px;
+    font-size: 12px;
     min-height: 22px;
+  }
+
+  /* The file details (encoding, delimiter, size, …) collapse behind a
+     Details button so the bar stays on one line (#594). */
+  .status-bar:not(.details-open) .status-detail {
+    display: none;
+  }
+
+  .status-bar button.status-details-toggle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
   }
 
   .status-bar .sel-stats,

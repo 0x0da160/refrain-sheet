@@ -6,6 +6,7 @@ sources:
   - resource: ../../tests/grid-touch.test.ts
   - resource: ../../tests/mobile-input-focus.test.ts
   - resource: ../../tests/mobile-menu.test.ts
+  - resource: ../../tests/status-bar.test.ts
   - resource: ../../tests/mobile-zoom.test.ts
   - resource: ../../tests/side-panel-mobile-dock.test.ts
   - resource: ../../src/styles/mobile-layout.css
@@ -176,14 +177,29 @@ that changes layout without touching desktop-width behavior:
   a deliberate change from an earlier horizontal-scroll design, because
   iOS Safari's inertial-scroll-then-synthetic-click-at-the-original-touch-
   point behavior could open a different menu item than the one actually
-  tapped. A wrapped menu taller than the viewport scrolls vertically in
-  place instead of pushing the rest of the app off-screen.
+  tapped. The expanded names sit in an even four-column grid rather than
+  wrapping wherever each name ends (#594). A menu taller than the viewport
+  scrolls vertically in place instead of pushing the rest of the app
+  off-screen.
 - **Bottom-row reorganization.** The app shell becomes a small CSS grid at
   this width: the app icon, the status bar, and the menu-bar toggle occupy
   three grid columns in the app's bottom row, so the hamburger stays at the
   far edge within thumb reach while the status bar keeps the middle. The
   app's logotype gives way to just the icon (with the app name kept
   visually hidden but still in the accessibility tree).
+- **A one-line status bar** (#594). The file details — document kind,
+  encoding, delimiter, line endings, size, engine, grid size, compression,
+  formula count, and the version — are marked `.status-detail` and hidden
+  behind a **Details** button (`aria-expanded`), which stays open across
+  re-renders. Protection, problems, unsaved/edit state, filter/sort, and the
+  selection stay visible. Desktop always shows everything and never shows
+  the button.
+- **A three-row find bar** (#594): the search field with icon-only
+  previous/next/close, then the replace row, then the options with the
+  match count. The field labels become visually hidden (placeholders carry
+  them), where they used to wrap one character per line.
+- **A compact document tab row.** The close button's 36px tap target sets
+  a tab's height; the tab adds only a 2px frame around it.
 - **Dockable side panels** (Filter/Sort/Format/SQL Query/Comments/preview —
   see [view-formatting-and-panels.md](view-formatting-and-panels.md))
   default to docking at the **bottom** instead of the desktop default of

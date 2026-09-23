@@ -43,6 +43,12 @@ export class StatusBar {
   readonly element: HTMLElement;
   /** Generation token; bumping it cancels any in-flight background stats scan. */
   private statsToken = 0;
+  /**
+   * Whether the file details (encoding, size, …) are shown on a phone, where
+   * they collapse behind a Details button to keep the bar to one line.
+   * Desktop always shows them. Kept across re-renders.
+   */
+  private detailsOpen = false;
 
   constructor(
     private readonly state: AppState,
@@ -53,10 +59,32 @@ export class StatusBar {
     this.render();
   }
 
+  /** A file detail: always shown on a desktop, behind Details on a phone. */
+  private detail(node: HTMLElement): HTMLElement {
+    node.classList.add('status-detail');
+    return node;
+  }
+
+  /** The phone-only button that shows or hides the file details. */
+  private appendDetailsToggle(): void {
+    const button = el('button', {
+      className: 'status-details-toggle',
+      text: t('status.details'),
+      attrs: { type: 'button', 'aria-expanded': String(this.detailsOpen) },
+    });
+    button.addEventListener('click', () => {
+      this.detailsOpen = !this.detailsOpen;
+      this.element.classList.toggle('details-open', this.detailsOpen);
+      button.setAttribute('aria-expanded', String(this.detailsOpen));
+    });
+    this.element.append(button);
+  }
+
   render(): void {
     // Any rerender invalidates a scan targeting the previous selection/document.
     this.statsToken += 1;
     clearChildren(this.element);
+    this.element.classList.toggle('details-open', this.detailsOpen);
     const tab = this.state.activeTab;
     if (!tab) {
       this.appendVersion();
@@ -65,21 +93,25 @@ export class StatusBar {
     const doc = tab.doc;
 
     if (doc.kind === 'rsf') {
-      this.element.append(el('span', { className: 'doc-kind', text: t('status.doc.rsf') }));
+      this.element.append(this.detail(el('span', { className: 'doc-kind', text: t('status.doc.rsf') })));
       this.appendProtection(tab);
       this.element.append(
-        el('span', { text: t('status.gridSize', { rows: doc.rowCount, cols: doc.columnCount }) }),
+        this.detail(
+          el('span', { text: t('status.gridSize', { rows: doc.rowCount, cols: doc.columnCount }) }),
+        ),
       );
       const method = doc.compression ?? getRsfCodec().defaultMethod();
       this.element.append(
-        el('span', {
-          text: `${t('status.compression')}: ${t(`${rsfMethodKey(method)}.short`)}`,
-          attrs: { title: t('status.compressionTitle') },
-        }),
+        this.detail(
+          el('span', {
+            text: `${t('status.compression')}: ${t(`${rsfMethodKey(method)}.short`)}`,
+            attrs: { title: t('status.compressionTitle') },
+          }),
+        ),
       );
       const formulas = doc.countFormulaCells();
       if (formulas > 0) {
-        this.element.append(el('span', { text: t('status.formulas', { n: formulas }) }));
+        this.element.append(this.detail(el('span', { text: t('status.formulas', { n: formulas }) })));
       }
       // Active filter: visible-row / total-row count over the filtered range.
       if (doc.filter !== null) {
@@ -108,17 +140,20 @@ export class StatusBar {
       if (doc.isDirty) {
         this.element.append(el('span', { text: t('status.unsaved') }));
       }
+      this.appendDetailsToggle();
       this.appendSelection(tab);
       this.appendVersion();
       return;
     }
 
-    this.element.append(el('span', { className: 'doc-kind', text: t('status.doc.csv') }));
+    this.element.append(this.detail(el('span', { className: 'doc-kind', text: t('status.doc.csv') })));
     this.appendProtection(tab);
     const encodingLabel = t(`encoding.${doc.encoding}`);
     const bomLabel =
       doc.encoding === 'utf-8' ? `, ${doc.bomLength > 0 ? t('status.bom.yes') : t('status.bom.no')}` : '';
-    this.element.append(el('span', { text: `${t('status.encoding')}: ${encodingLabel}${bomLabel}` }));
+    this.element.append(
+      this.detail(el('span', { text: `${t('status.encoding')}: ${encodingLabel}${bomLabel}` })),
+    );
 
     const delimiterKey =
       doc.delimiter === ','
@@ -126,7 +161,7 @@ export class StatusBar {
         : doc.delimiter === ';'
           ? 'status.delimiter.semicolon'
           : 'status.delimiter.tab';
-    this.element.append(el('span', { text: `${t('status.delimiter')}: ${t(delimiterKey)}` }));
+    this.element.append(this.detail(el('span', { text: `${t('status.delimiter')}: ${t(delimiterKey)}` })));
 
     const { crlf, lf, cr } = doc.lineEndings;
     const kinds = [crlf > 0, lf > 0, cr > 0].filter(Boolean).length;
@@ -137,10 +172,10 @@ export class StatusBar {
     if (doc.rowCount > 0 && !doc.hasFinalNewline && kinds > 0) {
       leLabel += ` (${t('status.noFinalNewline')})`;
     }
-    this.element.append(el('span', { text: `${t('status.lineEndings')}: ${leLabel}` }));
+    this.element.append(this.detail(el('span', { text: `${t('status.lineEndings')}: ${leLabel}` })));
 
     this.element.append(
-      el('span', { text: t('status.size', { size: doc.bytes.length.toLocaleString('en-US') }) }),
+      this.detail(el('span', { text: t('status.size', { size: doc.bytes.length.toLocaleString('en-US') }) })),
     );
 
     if (doc.diagnostics.length > 0) {
@@ -162,13 +197,16 @@ export class StatusBar {
     }
 
     this.element.append(
-      el('span', {
-        className: 'engine-tag',
-        text: t('status.engine', { engine: doc.engineName.toUpperCase() }),
-        attrs: { title: t('status.engineTitle') },
-      }),
+      this.detail(
+        el('span', {
+          className: 'engine-tag',
+          text: t('status.engine', { engine: doc.engineName.toUpperCase() }),
+          attrs: { title: t('status.engineTitle') },
+        }),
+      ),
     );
 
+    this.appendDetailsToggle();
     this.appendSelection(tab);
     this.appendVersion();
   }
@@ -216,15 +254,16 @@ export class StatusBar {
    * this independent of viewport width, which this module never reads.
    */
   private appendVersion(): void {
-    this.element.append(
-      el('span', { className: 'status-version' }, [
-        el('span', {
-          className: 'status-version-full',
-          text: t('dialog.about.version', { version: APP_VERSION_DISPLAY }),
-        }),
-        el('span', { className: 'status-version-short', text: APP_VERSION_DISPLAY }),
-      ]),
-    );
+    const version = el('span', { className: 'status-version' }, [
+      el('span', {
+        className: 'status-version-full',
+        text: t('dialog.about.version', { version: APP_VERSION_DISPLAY }),
+      }),
+      el('span', { className: 'status-version-short', text: APP_VERSION_DISPLAY }),
+    ]);
+    // With a document open, a phone keeps the version behind Details too;
+    // with none open it is all the bar shows.
+    this.element.append(this.state.activeTab ? this.detail(version) : version);
   }
 
   /**

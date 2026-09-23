@@ -122,3 +122,23 @@ describe('FindBar replaceCurrent', () => {
     expect(status).toContain('not on a match');
   });
 });
+
+describe('FindBar layout groups (#594)', () => {
+  it('groups search, options, and replace, and hides only the replace group in find mode', () => {
+    const { findBar } = setup();
+    findBar.open(false);
+    const replaceGroup = findBar.element.querySelector<HTMLElement>('.find-group-replace')!;
+    expect(replaceGroup.hidden).toBe(true);
+    expect(findBar.element.querySelector<HTMLElement>('.find-group-find')!.hidden).toBe(false);
+    findBar.open(true);
+    expect(replaceGroup.hidden).toBe(false);
+  });
+
+  it('keeps an accessible name and tooltip on the icon-only close button', () => {
+    const { findBar } = setup();
+    const close = findBar.element.querySelector<HTMLButtonElement>('.find-close')!;
+    expect(close.textContent).toBe('Close');
+    expect(close.title).toBe('Close');
+    expect(close.querySelector('.visually-hidden')?.textContent).toBe('Close');
+  });
+});

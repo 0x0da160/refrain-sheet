@@ -787,6 +787,7 @@
   "status.unsaved": "Unsaved changes",
   "status.compression": "Compression",
   "status.compressionTitle": "Compression method used for the .rsf container. Change it in File > Save with Options…",
+  "status.details": "Details",
   "status.engine": "Engine: {engine}",
   "status.engineTitle": "CSV parsing engine: WASM is the embedded Rust core; JS is the fallback with identical behavior.",
   "rsf.method.zstd.label": "Zstandard (Recommended)",

@@ -42,3 +42,44 @@ describe('StatusBar selection stats', () => {
     expect(text).toContain('Sum 6');
   });
 });
+
+describe('StatusBar file details (#594)', () => {
+  it('marks the file details and keeps the Details toggle state across re-renders', () => {
+    const state = new AppState();
+    state.addTab('names.csv', doc('alice\nbob\n'), null);
+    const statusBar = new StatusBar(
+      state,
+      () => undefined,
+      () => undefined,
+    );
+    const details = statusBar.element.querySelectorAll('.status-detail');
+    // Kind, encoding, delimiter, line endings, size, engine, and version.
+    expect(details.length).toBe(7);
+    expect(statusBar.element.querySelector('.status-selection')?.classList.contains('status-detail')).toBe(
+      false,
+    );
+
+    const toggle = statusBar.element.querySelector<HTMLButtonElement>('.status-details-toggle')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    toggle.click();
+    expect(statusBar.element.classList.contains('details-open')).toBe(true);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+
+    statusBar.render();
+    const again = statusBar.element.querySelector('.status-details-toggle')!;
+    expect(statusBar.element.classList.contains('details-open')).toBe(true);
+    expect(again.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('shows the version on its own, not as a detail, when no document is open', () => {
+    const statusBar = new StatusBar(
+      new AppState(),
+      () => undefined,
+      () => undefined,
+    );
+    expect(statusBar.element.querySelector('.status-version')?.classList.contains('status-detail')).toBe(
+      false,
+    );
+    expect(statusBar.element.querySelector('.status-details-toggle')).toBeNull();
+  });
+});

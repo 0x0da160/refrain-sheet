@@ -45,6 +45,44 @@ export default tseslint.config(
     },
   },
   {
+    // Layering (knowledge/architecture/module-boundaries.md): dependencies
+    // flow inward only, ui -> app -> core. Core is DOM-free so it runs
+    // unchanged in Node for tests and benchmarks.
+    files: ['src/core/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/app/**', '**/app', '**/ui/**', '**/ui'],
+              message: 'src/core must not import src/app or src/ui.',
+            },
+          ],
+        },
+      ],
+      'no-restricted-globals': [
+        'error',
+        ...['window', 'document', 'navigator', 'localStorage', 'sessionStorage', 'requestAnimationFrame'].map(
+          (name) => ({ name, message: 'src/core is DOM-free; take the value from the app or UI layer.' }),
+        ),
+      ],
+    },
+  },
+  {
+    files: ['src/app/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['**/ui/**', '**/ui'], message: 'src/app must not import src/ui; add a port instead.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // The landing site (`src/landing/`) is a self-contained static marketing
     // site in plain browser JS, not part of the TypeScript app. `main.js` and
     // `consent.js` load as classic <script> tags; `i18n.js` is an ES module

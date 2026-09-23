@@ -82,7 +82,6 @@ generated:
   never starts in a non-editable element and no printable character is
   ever synthesized from `keydown` (`tests/ime-composition.test.ts`).
 - **Single version source:** `package.json` is the only place the app
-  version is written; `src/app/version.ts` imports it and
-  `scripts/check-versions.mjs` gates drift. See
-  [module-boundaries.md](module-boundaries.md) for the one place this
-  module is imported from `src/core/`.
+  version is written; `src/core/app-identity.ts` imports it (and
+  `src/app/version.ts` derives the display form from that), and
+  `scripts/check-versions.mjs` gates drift.

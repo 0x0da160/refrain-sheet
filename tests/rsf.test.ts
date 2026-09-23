@@ -8,7 +8,7 @@ import {
   RSF_MAGIC,
 } from '../src/core/rsf-codec';
 import { NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../src/core/rsf-document';
-import { APP_NAME, APP_VERSION } from '../src/app/version';
+import { APP_NAME, APP_VERSION } from '../src/core/app-identity';
 import { doc } from './helpers';
 
 function rcsvFromCells(cells: Array<[number, number, string]>, rows = 4, cols = 3): RsfDocument {

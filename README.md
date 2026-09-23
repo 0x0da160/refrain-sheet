@@ -250,7 +250,7 @@ security controls are documented in
 ### Versioning policy
 
 The application version follows **Semantic Versioning** and is defined in
-exactly one place, `package.json`; `src/app/version.ts` imports it, so no
+exactly one place, `package.json`; `src/core/app-identity.ts` imports it, so no
 app-visible string hard-codes a number. `npm run check:versions` fails if
 `package.json` and `package-lock.json` drift apart, and CI runs it on every
 push. The internal Rust/WASM core crate (`wasm/Cargo.toml`) has its own

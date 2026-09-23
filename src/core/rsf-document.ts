@@ -50,7 +50,7 @@ import {
   type RsfWorksheetData,
 } from './rsf-codec';
 import { Worksheet } from './worksheet';
-import { APP_NAME, APP_VERSION } from '../app/version';
+import { APP_NAME, APP_VERSION } from './app-identity';
 import type { LosslessDocument } from './lossless-document';
 import { DEFAULT_TIMEZONE, isValidTimeZone, localTimeZone, timeZoneOffsetMs } from './timezone';
 import { DEFAULT_DISPLAY_LANGUAGE, isValidDisplayLanguage, type DisplayLanguageId } from './display-language';

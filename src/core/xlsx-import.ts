@@ -13,13 +13,12 @@
  * A real `.xlsx` is normally DEFLATE-compressed (Excel, LibreOffice, and
  * Google Sheets never write STORE-only archives, unlike this app's own
  * export), so — unlike the writer — this reader needs an actual ZIP central
- * directory walk and DEFLATE decompression. The DEFLATE step reuses the
- * existing bounded WASM `rsfInflate` export (via `getRsfCodec`), already
- * trusted for `.rsf`'s own compressed container, so no new dependency or new
- * WASM surface is introduced.
+ * directory walk and DEFLATE decompression. The DEFLATE step uses the
+ * existing bounded WASM `rsfInflate` export (via `inflateRaw`), so no new
+ * dependency or new WASM surface is introduced.
  */
 
-import { getRsfCodec, RSF_COMPRESSION_DEFLATE } from './csv-engine';
+import { getRsfCodec, inflateRaw } from './csv-engine';
 import { parseRef } from './formula';
 
 interface XlsxImportSheet {
@@ -142,9 +141,8 @@ function readZipEntryBytes(bytes: Uint8Array, entry: RawZipEntry): Uint8Array | 
   if (entry.method === ZIP_METHOD_STORE) {
     data = entry.compressedSize === entry.uncompressedSize ? payload.slice() : null;
   } else if (entry.method === ZIP_METHOD_DEFLATE) {
-    // Raw ZIP DEFLATE is exactly the container format `getRsfCodec` already
-    // decompresses for `.rsf`; reusing it needs no new WASM export.
-    data = codec.decompress(payload, RSF_COMPRESSION_DEFLATE, entry.uncompressedSize);
+    // Raw ZIP DEFLATE, through the WASM engine's bounded inflater.
+    data = inflateRaw(payload, entry.uncompressedSize);
   } else {
     return null; // e.g. a legacy method this reader does not implement
   }

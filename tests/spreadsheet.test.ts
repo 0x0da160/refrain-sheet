@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { ClipboardController } from '../src/app/clipboard-controller';
-import { RSF_COMPRESSION_LZ4 } from '../src/core/csv-engine';
 import type { RsfDocument } from '../src/core/rsf-document';
 import { serializeDocument } from '../src/core/serializer';
 import { asCsv, doc, utf8 } from './helpers';
@@ -21,7 +20,6 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
-    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => ({
       encoding: 'utf-8' as const,
       bom: false,
@@ -608,35 +606,12 @@ describe('saving and exporting RSF', () => {
     }
   });
 
-  it('reopen/convert are disabled for RSF; save-with-options opens the compression dialog', async () => {
+  it('reopen/convert/save-with-options are disabled for RSF (an .rsf file has no save options)', async () => {
     const { commands } = await converted('a\n');
-    // Save with Options is the RSF compression dialog, so it stays enabled.
-    expect(commands.isEnabled('file.saveOptions')).toBe(true);
+    expect(commands.isEnabled('file.saveOptions')).toBe(false);
     expect(commands.isEnabled('file.reopen')).toBe(false);
     expect(commands.isEnabled('sheet.exportCsv')).toBe(true);
     expect(commands.isEnabled('sheet.convert')).toBe(false);
-  });
-
-  it('the RSF Save dialog applies the chosen compression method', async () => {
-    const ui = stubUi({ chooseRsfSave: vi.fn(async () => RSF_COMPRESSION_LZ4) });
-    const { commands, tab } = await converted('a\n', ui);
-    await commands.run('file.saveOptions');
-    expect(ui.chooseRsfSave).toHaveBeenCalledTimes(1);
-    expect(tab.doc.kind).toBe('rsf');
-    if (tab.doc.kind === 'rsf') {
-      expect(tab.doc.compression).toBe(RSF_COMPRESSION_LZ4);
-    }
-  });
-
-  it('cancelling the RSF Save dialog leaves the method unchanged', async () => {
-    const ui = stubUi({ chooseRsfSave: vi.fn(async () => null) });
-    const { commands, tab } = await converted('a\n', ui);
-    await commands.run('file.saveOptions');
-    expect(ui.chooseRsfSave).toHaveBeenCalledTimes(1);
-    if (tab.doc.kind === 'rsf') {
-      // Never explicitly set → still the codec default (undefined marker).
-      expect(tab.doc.compression).toBeUndefined();
-    }
   });
 
   // ----- File System Access save picker ordering -----

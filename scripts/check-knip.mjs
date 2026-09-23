@@ -22,25 +22,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** `<file>|<issue type>|<name>` — each needs a docs/knip-baseline.md entry. */
 const DEFERRED = new Set([
-  // S3 — RSF persisted-format contract; human review required (CLAUDE.md).
-  ...[
-    'RSF_COMPRESSION_STORE',
-    'RSF_COMPRESSION_DEFLATE',
-    'RSF_COMPRESSION_ZSTD',
-    'RSF_COMPRESSION_LZ4',
-    'RSF_METHODS',
-    'RSF_CODEC_PROFILE',
-    'MAX_RSF_ROWS',
-    'MAX_RSF_COLS',
-    'MAX_RSF_CELLS',
-    'MAX_RSF_CELL_LENGTH',
-    'MAX_RSF_COMMENT_BYTES',
-    'MAX_RSF_BODY_BYTES',
-    'RSF_WORKBOOK_BODY_VERSION',
-    'MAX_RSF_SHEET_NAME_BYTES',
-  ].map((name) => `src/core/rsf-codec.ts|exports|${name}`),
-  'src/core/rsf-codec.ts|types|RsfWorksheetKind',
-  'src/core/rsf-codec.ts|types|RsfDisplaySettings',
+  // S3 — RSF document model; human review required (CLAUDE.md).
   'src/core/rsf-document.ts|exports|DEFAULT_SHEET_NAME',
   // Maintainer decision pending: wire the guard into a join function, or remove it.
   'src/core/formula-value.ts|exports|MAX_JOIN_ITEMS',

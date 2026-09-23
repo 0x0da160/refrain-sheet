@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import {
-  getRsfCodec,
-  initCsvEngine,
-  RSF_COMPRESSION_DEFLATE,
-  setCsvEngineForTesting,
-} from '../src/core/csv-engine';
+import { initCsvEngine, setCsvEngineForTesting } from '../src/core/csv-engine';
+import { rsfDeflate } from '../src/wasm-gen/refrain_csv_core';
 import { parseXlsxWorkbook } from '../src/core/xlsx-import';
 import { buildXlsxExport, type XlsxSheetInput } from '../src/core/xlsx-export';
 
@@ -65,10 +61,8 @@ function storeEntry(name: string, text: string): ZipWriteEntry {
 
 function deflateEntry(name: string, text: string): ZipWriteEntry {
   const data = new TextEncoder().encode(text);
-  const compressed = getRsfCodec().compress(data, RSF_COMPRESSION_DEFLATE);
-  if (!compressed) {
-    throw new Error('DEFLATE compression unavailable in this test run (WASM engine not active)');
-  }
+  // The WASM engine is initialized in beforeAll (DEFLATE needs it).
+  const compressed = rsfDeflate(data);
   return { name, method: 8, compressedData: compressed, crc32: crc32(data), uncompressedSize: data.length };
 }
 

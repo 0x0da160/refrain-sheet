@@ -6,7 +6,6 @@ import type { RecentFileChoice } from '../../app/ui-port';
 import type { DelimiterId } from '../../core/byte-csv-parser';
 import type { CsvExportOptions, CsvLineEnding } from '../../core/csv-export';
 import type { EncodingId } from '../../core/encoding';
-import { rsfMethodKey } from '../../core/rsf-codec';
 import { setSuppressHistoryCapWarning } from '../../app/settings';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/serializer';
 import { el } from '../dom';
@@ -297,58 +296,6 @@ export class FileIoDialogs {
           }
           close(true);
         }),
-      );
-    });
-  }
-
-  /**
-   * The RSF Save dialog: explains the `.rsf` format and lets the user pick a
-   * compression method. `available` lists only the methods the current build
-   * can actually write (Zstandard is recommended and preselected for new
-   * documents; an existing document preselects its own method). Resolves with
-   * the chosen method id, or null on cancel.
-   */
-  chooseRsfSave(
-    name: string,
-    current: number,
-    available: number[],
-    downloadNote: string | null,
-  ): Promise<number | null> {
-    return openDialog<number | null>(t('dialog.rsfSave.title'), null, (body, buttons, close) => {
-      body.append(el('p', { text: t('dialog.rsfSave.message', { name }) }));
-
-      const select = el('select', { attrs: { id: 'rsf-compression' } }) as HTMLSelectElement;
-      for (const method of available) {
-        const option = el('option', {
-          text: t(`${rsfMethodKey(method)}.label`),
-          attrs: { value: String(method) },
-        });
-        if (method === current) {
-          option.selected = true;
-        }
-        select.append(option);
-      }
-      body.append(
-        el('div', { className: 'form-row' }, [
-          el('label', { text: t('dialog.rsfSave.compression'), attrs: { for: 'rsf-compression' } }, [select]),
-        ]),
-      );
-
-      // A live description of the highlighted method (ratio/speed trade-off).
-      const desc = el('p', { className: 'dialog-note', text: t(`${rsfMethodKey(current)}.desc`) });
-      const updateDesc = () => {
-        desc.textContent = t(`${rsfMethodKey(Number(select.value))}.desc`);
-      };
-      select.addEventListener('change', updateDesc);
-      body.append(desc);
-
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.rsfSave.note') }));
-      if (downloadNote) {
-        body.append(el('p', { className: 'dialog-note', text: downloadNote }));
-      }
-      buttons.append(
-        dialogButton(t('dialog.rsfSave.cancel'), false, false, () => close(null)),
-        dialogButton(t('dialog.rsfSave.ok'), true, true, () => close(Number(select.value))),
       );
     });
   }

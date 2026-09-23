@@ -44,6 +44,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- **Breaking:** `.rsf` files use a new format: a JSON document compressed with
+  Zstandard. Unpacking one with any Zstandard tool (`zstd -d book.rsf -o
+book.json`) gives readable text, with one spreadsheet row per line.
+  Files saved by earlier releases (the old binary `.rsf`, and `.rcsv`) no
+  longer open; the app says so. To bring one over, open it in version 0.8.x,
+  export it as CSV or XLSX, and open that file here.
+- `.rsf` files are always compressed with Zstandard, so the compression
+  choice is gone from Save with Options…, which now applies to CSV files
+  only, and the status bar no longer shows a compression method.
 - On a desktop-width window, the file tabs now sit in the menu bar's row,
   to the right of the menus, instead of taking a row of their own; the grid
   gains that row. When the window is too narrow for both (including when a

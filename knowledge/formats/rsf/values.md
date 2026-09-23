@@ -59,7 +59,7 @@ and never propagates — only the engine creates error values.
   every machine regardless of any setting.
 - **`TODAY()` and `NOW()` read the workbook's own stored timezone**, not
   the opening machine's clock (see
-  [grammar-single-sheet-body.md](grammar-single-sheet-body.md#timezone-body-version-6)).
+  the `timezone` key in [json-document.md](json-document.md#workbook-top-level)).
   The workbook shifts the real host-clock instant by its stored IANA
   zone's offset before handing it to the UTC-only formula engine, so
   "today" means the current date in the workbook's own timezone. Because
@@ -68,7 +68,7 @@ and never propagates — only the engine creates error values.
   timezone defaults to `UTC`, its exact original behavior.
 - **`TEXT()`'s `ddd`/`dddd` weekday-name tokens read the workbook's own
   stored display language** (see
-  [grammar-single-sheet-body.md](grammar-single-sheet-body.md#display-language-body-version-7)),
+  the `language` key in [json-document.md](json-document.md#workbook-top-level)),
   not the opening machine's active UI language, for the same reason: the
   same formula renders identical text wherever the file is opened. A file
   with no stored display language, or an unrecognized value, defaults to

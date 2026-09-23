@@ -21,10 +21,11 @@ container itself, so past states survive after save and reload.
 
 ## How snapshots are stored
 
-Snapshots are stored alongside the rest of the file's content and
-compressed together with it using whichever method the file already saves
-with (see [`../formats/rsf/overview.md`](../formats/rsf/overview.md) for
-the codec list — Zstandard, LZ4, DEFLATE, or none). There is no separate
+Snapshots are stored inside the file's JSON, in its `history` section
+(each one a readable copy of the workbook as it was), and compressed
+together with the rest of it with Zstandard (see
+[`../formats/rsf/json-document.md`](../formats/rsf/json-document.md#history)).
+There is no separate
 history file and no extra compression pass to configure, and because
 save-to-save content is usually very similar, this gives noticeably better
 compression than storing each snapshot on its own would. A snapshot holds
@@ -60,14 +61,10 @@ the ones already saved.
 **Sheet > Clear Version History** deletes every recorded snapshot for the
 current file, with a confirmation, since it can't be undone.
 
-## Body versions
+## In the file
 
-Version history was added across a few `.rsf` body-version bumps as the
-feature grew: initial per-file snapshot recording, then a configurable
-retained-snapshot cap (including the unlimited option). The exact
-single-sheet/workbook body-version numbers for each of these bumps, and
-how a reader tells "cap override present" apart from "yaml/text kind
-present" at the version where both became possible, are documented in
-[`../formats/rsf/compatibility.md`](../formats/rsf/compatibility.md) — not
-repeated here. Existing files and workbooks that don't use a custom cap
-are unaffected by the bump that introduced it.
+The `history` section records whether history is on, the per-file cap
+(`limit`, or `null` for unlimited), and the snapshots, oldest first — see
+[`../formats/rsf/json-document.md`](../formats/rsf/json-document.md#history).
+A file left on the defaults (history on, no custom cap, no snapshots yet)
+has no `history` section at all.

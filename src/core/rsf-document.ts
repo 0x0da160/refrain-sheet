@@ -63,27 +63,20 @@ import { DEFAULT_DISPLAY_LANGUAGE, isValidDisplayLanguage, type DisplayLanguageI
  * without breaking the original-file preservation guarantee, so spreadsheet
  * documents are saved as `.rsf` instead.
  *
- * The container is a compact binary format (magic bytes, header, CRC-32
- * checksum, compressed body) defined in `rsf-codec.ts` and documented in
- * `knowledge/formats/rsf/index.md`. It holds pure data — no executable code, macros,
- * external references, or network URLs — and parsing is strict (magic,
- * version, checksum, shape, and bounds are validated) and never executes
- * anything.
- *
- * **Compatibility.** A workbook holding a single worksheet is written in the
- * original single-sheet container (version 3), so files that do not use
- * multi-worksheet features stay readable by older releases; only a workbook
- * with two or more worksheets is written in the workbook container (version 4),
- * which older releases reject safely with an unsupported-version message.
- * Existing single-sheet `.rsf` files — and legacy `.rcsv` files — load as
- * one-worksheet workbooks.
+ * The file is a JSON document compressed with Zstandard, defined in
+ * `rsf-codec.ts` and documented in `knowledge/formats/rsf/index.md`. It holds
+ * pure data — no executable code, macros, external references, or network
+ * URLs — and parsing is strict (identifier, version, checksum, shape, and
+ * bounds are validated) and never executes anything. Files in the binary
+ * format earlier releases wrote (`.rsf` before this format, and `.rcsv`) are
+ * no longer read; they are rejected with a clear message.
  */
 /** Cached per-rule statistics — see `RsfDocument.conditionalFormatStats`. */
 type ConditionalFormatRuleStats =
   { kind: 'duplicate'; keys: Set<string> } | { kind: 'colorScale'; min: number; max: number };
 
 export const RSF_EXTENSION = '.rsf';
-/** Legacy extension read as an import; migrated documents are saved as `.rsf`. */
+/** The extension earlier releases used; such files are recognized only to explain they no longer open. */
 export const RSF_LEGACY_EXTENSION = '.rcsv';
 
 /**
@@ -104,7 +97,7 @@ export const DEFAULT_SHEET_NAME = 'Sheet1';
 /** Maximum number of worksheets a workbook may hold (mirrors the container bound). */
 export const MAX_WORKSHEETS = MAX_RSF_SHEETS;
 
-/** Failure reasons when loading a `.rsf` (or legacy `.rcsv`) container (see `rsf-codec.ts`). */
+/** Failure reasons when loading a `.rsf` file (see `rsf-codec.ts`). */
 export type RsfParseError = RsfDecodeError;
 
 export type RsfLoadResult = { ok: true; doc: RsfDocument } | { ok: false; error: RsfParseError };
@@ -174,14 +167,6 @@ export class RsfDocument {
   private displayLanguageId: DisplayLanguageId;
 
   /**
-   * Compression method for the next `.rsf` save (an `RSF_COMPRESSION_*` id),
-   * or `undefined` to use the active codec's default (Zstandard). Set from the
-   * container on load so a normal save preserves the file's method, and by the
-   * Save dialog when the user picks a different one.
-   */
-  private compressionMethod: number | undefined;
-
-  /**
    * Whether version history is recorded for this document (Sheet ▸ File
    * Version History…), a per-file setting. Defaults to `true` for every new
    * workbook and every file saved before this setting existed. See
@@ -218,15 +203,6 @@ export class RsfDocument {
    * {@link setAutoFormatSource}.
    */
   private autoFormatSourceFlag = false;
-
-  /**
-   * True when this workbook was read from a single-worksheet container
-   * (version 3, or a legacy `.rcsv`). Purely informational: the workbook is
-   * saved back in the single-sheet container while it still holds one
-   * worksheet, and migrates to the workbook container as soon as a second
-   * worksheet is added.
-   */
-  loadedAsSingleSheet = false;
 
   /**
    * Workbook-wide evaluation memo, keyed by worksheet id + cell. Cleared by
@@ -426,7 +402,7 @@ export class RsfDocument {
     return doc;
   }
 
-  /** Parse and strictly validate binary `.rsf` (or legacy `.rcsv`) bytes. Never executes anything. */
+  /** Parse and strictly validate `.rsf` bytes. Never executes anything. */
   static fromBytes(bytes: Uint8Array, name: string): RsfLoadResult {
     const decoded = decodeRsfWorkbook(bytes);
     if (!decoded.ok) {
@@ -452,8 +428,6 @@ export class RsfDocument {
         ? data.displayLanguage
         : DEFAULT_DISPLAY_LANGUAGE;
     const doc = new RsfDocument(name, data.delimiter, sheets, data.docId, timezone, displayLanguage);
-    doc.compressionMethod = data.compression;
-    doc.loadedAsSingleSheet = data.legacySingleSheet === true;
     doc.historyEnabledFlag = data.historyEnabled ?? true;
     doc.historyList = data.history ?? [];
     doc.historyMaxOverrideValue = data.historyMaxOverride;
@@ -691,21 +665,7 @@ export class RsfDocument {
     return true;
   }
 
-  // ----- Compression / persistence settings -----
-
-  /** The compression method the next save will write (`undefined` → codec default). */
-  get compression(): number | undefined {
-    return this.compressionMethod;
-  }
-
-  /**
-   * Choose the compression method for the next save (from the RSF Save
-   * dialog). Rewriting the container with a different method changes no logical
-   * content, so this does not mark the document dirty on its own.
-   */
-  setCompression(method: number): void {
-    this.compressionMethod = method;
-  }
+  // ----- Persistence settings -----
 
   /**
    * Whether version history is recorded for this document (Sheet ▸ File
@@ -839,7 +799,7 @@ export class RsfDocument {
    * Replace this workbook's structural and cell content with a past snapshot
    * (Sheet ▸ File Version History…'s "Restore" action). This file's own
    * settings — history retention (enabled state, cap override),
-   * auto-format-on-commit, compression method, and `docId` — are kept as
+   * auto-format-on-commit and `docId` — are kept as
    * they are now, not reverted to what they were at snapshot time; only
    * content (worksheets, cells, styles, comments, filters, locks, delimiter,
    * timezone, display language) is replaced.
@@ -891,7 +851,7 @@ export class RsfDocument {
    * against it — the same invalidation {@link recalculate} does, since a
    * timezone change is exactly the kind of thing that moves what `TODAY()`
    * and `NOW()` report. An unresolvable zone name (or the current value) is a
-   * no-op. Like {@link setCompression}, this changes no cell input, so it
+   * no-op. This changes no cell input, so it
    * does not mark the document dirty; the new value is written into the
    * container on the next save.
    */
@@ -980,7 +940,7 @@ export class RsfDocument {
 
   // ----- Serialization -----
 
-  /** Serialize the whole workbook to the versioned binary `.rsf` container. */
+  /** Serialize the whole workbook to a `.rsf` file (Zstandard-compressed JSON). */
   toBytes(): Uint8Array {
     return this.toBytesFromSheetCells(this.sheetList.map((sheet) => sheet.collectCells()));
   }
@@ -1132,7 +1092,7 @@ export class RsfDocument {
       historyMaxOverride: this.historyMaxOverrideValue,
       autoFormatSource: this.autoFormatSourceFlag,
     };
-    return encodeRsfWorkbook(payload, this.compressionMethod);
+    return encodeRsfWorkbook(payload);
   }
 
   // ----- Common document surface (shared with LosslessDocument) -----

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import {
-  decodeRsf,
   DEFAULT_HISTORY_SNAPSHOT_LIMIT,
-  encodeRsf,
   MAX_RSF_HISTORY_SNAPSHOTS,
-  RSF_MAGIC,
+  RSF_FORMAT_VERSION,
 } from '../src/core/rsf-codec';
+import { decodeRsf, encodeRsf, rsfFromTree, rsfTree } from './rsf-single-sheet';
 import { NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../src/core/rsf-document';
 import { APP_NAME, APP_VERSION } from '../src/core/app-identity';
 import { doc } from './helpers';
@@ -135,12 +134,18 @@ describe('formulas in the document', () => {
   });
 });
 
-describe('versioned binary serialization', () => {
-  it('writes the RSF magic bytes and container version', () => {
-    const sheet = rcsvFromCells([[0, 0, 'v']]);
-    const bytes = sheet.toBytes();
-    expect(Array.from(bytes.subarray(0, 4))).toEqual(Array.from(RSF_MAGIC));
-    expect(bytes[4]).toBe(3); // container version (RSF)
+describe('versioned .rsf serialization', () => {
+  it('writes a skippable Zstandard frame with the RSF2 identifier, then a standard Zstandard frame', () => {
+    const bytes = rcsvFromCells([[0, 0, 'v']]).toBytes();
+    // 0x184D2A5A, little-endian: ignored by standard zstd tools.
+    expect(Array.from(bytes.subarray(0, 4))).toEqual([0x5a, 0x2a, 0x4d, 0x18]);
+    expect(new TextDecoder().decode(bytes.subarray(8, 12))).toBe('RSF2');
+    // The Zstandard frame magic 0xFD2FB528 follows the 20-byte header frame.
+    expect(Array.from(bytes.subarray(20, 24))).toEqual([0x28, 0xb5, 0x2f, 0xfd]);
+    const tree = rsfTree(bytes);
+    expect(tree.format).toBe('refrain-sheet');
+    expect(tree.version).toBe(RSF_FORMAT_VERSION);
+    expect(tree.sheets[0].cells).toEqual([['v']]);
   });
 
   it('round-trips values, formulas, structure, and settings', () => {
@@ -183,9 +188,10 @@ describe('versioned binary serialization', () => {
     }
   });
 
-  it('rejects an unsupported container version', () => {
-    const bytes = rcsvFromCells([[0, 0, 'v']]).toBytes();
-    bytes[4] = 99;
+  it('rejects a document version this release does not know', () => {
+    const tree = rsfTree(rcsvFromCells([[0, 0, 'v']]).toBytes());
+    tree.version = 99;
+    const bytes = rsfFromTree(tree);
     const result = RsfDocument.fromBytes(bytes, 'bad.rcsv');
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toBe('bad-version');
@@ -193,7 +199,7 @@ describe('versioned binary serialization', () => {
 
   it('detects corruption through the checksum', () => {
     const bytes = rcsvFromCells([[0, 0, 'value']]).toBytes();
-    // Flip a byte inside the payload (after the 20-byte header).
+    // Flip a byte inside the Zstandard frame (after the 20-byte header).
     bytes[bytes.length - 1] ^= 0xff;
     const result = RsfDocument.fromBytes(bytes, 'bad.rcsv');
     expect(result.ok).toBe(false);
@@ -296,7 +302,7 @@ describe('version history (snapshots)', () => {
   });
 
   it('a snapshot never nests another snapshot list inside itself', () => {
-    // Each snapshot is an opaque encoding of the content alone (see
+    // Each snapshot is the compact JSON of the content alone (see
     // `encodeRsfBody`), so repeated saves grow the snapshot count linearly,
     // not each individual snapshot's own byte length.
     const sheet = rcsvFromCells([[0, 0, 'v']]);

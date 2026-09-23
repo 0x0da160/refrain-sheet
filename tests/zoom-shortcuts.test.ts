@@ -30,7 +30,6 @@ function stubUi(): UiPort {
     chooseReopen: async () => null,
     confirmConvert: async () => true,
     explainRsfSave: async () => true,
-    chooseRsfSave: async () => 2,
     chooseExportCsv: async () => null,
     confirmExportXlsx: async () => true,
     confirmExportJson: async () => true,

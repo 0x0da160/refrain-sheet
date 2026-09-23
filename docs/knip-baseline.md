@@ -34,15 +34,14 @@ catch unused locals, parameters, and imports; Knip adds unused **exports**,
 
 ### S3 — RSF persisted-format contract (human review required)
 
-| File                       | Kind   | Names                                                                                                                                                                                                                                                                                                                 |
-| -------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/core/rsf-codec.ts`    | export | `RSF_COMPRESSION_STORE`, `RSF_COMPRESSION_DEFLATE`, `RSF_COMPRESSION_ZSTD`, `RSF_COMPRESSION_LZ4`, `RSF_METHODS`, `RSF_CODEC_PROFILE`, `MAX_RSF_ROWS`, `MAX_RSF_COLS`, `MAX_RSF_CELLS`, `MAX_RSF_CELL_LENGTH`, `MAX_RSF_COMMENT_BYTES`, `MAX_RSF_BODY_BYTES`, `RSF_WORKBOOK_BODY_VERSION`, `MAX_RSF_SHEET_NAME_BYTES` |
-| `src/core/rsf-codec.ts`    | type   | `RsfWorksheetKind`, `RsfDisplaySettings`                                                                                                                                                                                                                                                                              |
-| `src/core/rsf-document.ts` | export | `DEFAULT_SHEET_NAME`                                                                                                                                                                                                                                                                                                  |
+| File                       | Kind   | Names                |
+| -------------------------- | ------ | -------------------- |
+| `src/core/rsf-document.ts` | export | `DEFAULT_SHEET_NAME` |
 
-These are very likely used internally in their own file (the pattern that
-made most earlier findings S1), but `CLAUDE.md` lists the RSF codec as
-high-risk — "extra care, full `test:rust`, and human review" — so they wait
+The RSF codec's own findings were resolved when the format was redesigned
+(#602): its constants are now module-private. This one is very likely used
+internally in its own file (the pattern that made most earlier findings
+S1), but `CLAUDE.md` lists the RSF document model as high-risk — "extra care, full `test:rust`, and human review" — so it waits
 for a dedicated, human-reviewed pass rather than a static-analysis-driven
 unexport. That pass should run against the frozen `.rsf` corpus in
 `tests/fixtures/rsf/` (`tests/rsf-fixtures.test.ts`).

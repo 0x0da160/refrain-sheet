@@ -33,13 +33,13 @@
 /** Maximum data rows a filter range may cover (keeps evaluation bounded). */
 export const MAX_FILTER_ROWS = 1_000_000;
 /** Maximum columns that may carry criteria in one filter. */
-export const MAX_FILTER_COLUMNS = 64;
+const MAX_FILTER_COLUMNS = 64;
 /** Maximum comparison conditions per column. */
 export const MAX_FILTER_CONDITIONS = 4;
 /** Maximum entries in a column's selected-values list. */
 export const MAX_FILTER_VALUES = 1000;
 /** Maximum length (UTF-16 code units) of any filter comparison string/value. */
-export const MAX_FILTER_STRING = 1024;
+const MAX_FILTER_STRING = 1024;
 
 /** Text comparison operators (case-sensitive, exact string semantics). */
 export const FILTER_TEXT_OPS = [

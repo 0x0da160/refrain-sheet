@@ -8,7 +8,7 @@ import type { OpenedFile } from '../src/app/file-access';
 import { setSuppressHistoryCapWarning } from '../src/app/settings';
 import { compileQuery } from '../src/core/search';
 import { decodeBytes } from '../src/core/encoding';
-import { encodeRsf, RSF_LEGACY_CONTAINER_VERSION, RSF_LEGACY_MAGIC } from '../src/core/rsf-codec';
+import { encodeRsf } from './rsf-single-sheet';
 import { buildXlsxExport, type XlsxSheetInput } from '../src/core/xlsx-export';
 import { asCsv, enc, utf8 } from './helpers';
 
@@ -35,7 +35,6 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
-    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => ({
       encoding: 'utf-8' as const,
       bom: false,
@@ -788,31 +787,17 @@ describe('opening files by format', () => {
     expect(tab.doc.getValue(0, 0)).toBe('hi');
   });
 
-  it('opens a legacy .rcsv file, migrating the tab to .rsf and dropping the handle', async () => {
+  it('refuses a file in the older binary format with a clear message, opening no tab', async () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
-    // A legacy container: current bytes re-stamped with the RCSV magic + v2.
-    const bytes = encodeRsf({
-      name: 'Sheet1',
-      delimiter: ',',
-      rowCount: 2,
-      columnCount: 2,
-      cells: [[0, 0, 'legacy']],
-    });
-    bytes.set(RSF_LEGACY_MAGIC, 0);
-    bytes[4] = RSF_LEGACY_CONTAINER_VERSION;
-    const fake = fakeHandle();
-    await commands.openFiles([opened('old.rcsv', bytes, fake.handle)], { confirmNonCsv: false });
-    const tab = state.activeTab!;
-    expect(tab.doc.kind).toBe('rsf');
-    expect(tab.doc.getValue(0, 0)).toBe('legacy');
-    // Migrated: renamed to .rsf, handle dropped (so Save writes a new file),
-    // marked dirty (the migration is pending on disk).
-    expect(tab.name).toBe('old.rsf');
-    expect(tab.handle).toBeNull();
-    expect(tab.doc.isDirty).toBe(true);
-    const notes = (ui.notify as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]);
-    expect(notes.some((n) => typeof n === 'string' && n.includes('old.rsf'))).toBe(true);
+    // The first bytes of the binary container earlier releases wrote.
+    const bytes = new Uint8Array([0x52, 0x43, 0x53, 0x56, 2, 0, 0, 0, ...new Array(16).fill(0)]);
+    await commands.openFiles([opened('old.rcsv', bytes)], { confirmNonCsv: false });
+    expect(state.tabs).toHaveLength(0);
+    expect(ui.showMessage).toHaveBeenCalledWith(
+      t('dialog.rsfInvalid.title'),
+      t('dialog.rsfInvalid.message', { name: 'old.rcsv', reason: t('dialog.rsfInvalid.legacyFormat') }),
+    );
   });
 
   it('imports a .xlsx workbook as a new .rsf tab (never the .xlsx as a save target)', async () => {

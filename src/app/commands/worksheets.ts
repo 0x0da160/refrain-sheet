@@ -127,7 +127,7 @@ export class WorksheetCommands {
    * Add a new worksheet holding one empty Markdown document after the active
    * one and activate it. Identical to {@link addWorksheet} except for what
    * the new worksheet contains — see `Worksheet.kind` and
-   * `knowledge/formats/rsf/grammar-single-sheet-body.md`'s "Worksheet kind" section.
+   * `knowledge/formats/rsf/overview.md`'s "Worksheet kinds" section.
    */
   async addMarkdownWorksheet(tab: Tab): Promise<void> {
     return this.addSingleKindWorksheet(tab, 'markdown');

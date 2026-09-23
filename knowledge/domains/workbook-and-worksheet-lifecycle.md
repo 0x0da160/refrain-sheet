@@ -48,10 +48,9 @@ automatically or on save; `text` has no preview panel, since there is
 nothing to render beyond the source itself). None of these four kinds ever
 carries formulas, styles, a filter, or a sort, none is ever evaluated as a
 formula, and all four are excluded from CSV export (CSV has no analog for a
-whole-sheet document). The container's binary representation of each kind,
-and the body-version each was added in, is covered by
-[`../formats/rsf/grammar-workbook-body.md`](../formats/rsf/grammar-workbook-body.md)
-and [`../formats/rsf/compatibility.md`](../formats/rsf/compatibility.md) —
+whole-sheet document). How the file stores each kind (as its lines of
+text) is covered by
+[`../formats/rsf/json-document.md`](../formats/rsf/json-document.md) —
 this file only describes what a worksheet kind means to the person editing
 it.
 

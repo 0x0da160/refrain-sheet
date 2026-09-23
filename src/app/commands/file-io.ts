@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { getRsfCodec, initCsvEngine } from '../../core/csv-engine';
+import { initCsvEngine } from '../../core/csv-engine';
 import {
   buildCsvExportBytes,
   newCsvExportScan,
@@ -277,13 +277,14 @@ export class FileIoCommands {
       this.ui,
       t('loading.opening', { name: file.name }),
       async () => {
-        await initCsvEngine(); // reading DEFLATE-compressed containers needs the WASM codec
+        await initCsvEngine(); // reading a compressed Zstandard frame needs the WASM codec
         return RsfDocument.fromBytes(file.bytes, file.name);
       },
     );
     if (!result.ok) {
       const reasonKey: Record<RsfParseError, string> = {
         'bad-magic': 'dialog.rsfInvalid.badMagic',
+        'legacy-format': 'dialog.rsfInvalid.legacyFormat',
         'bad-version': 'dialog.rsfInvalid.badVersion',
         'bad-shape': 'dialog.rsfInvalid.badShape',
         checksum: 'dialog.rsfInvalid.checksum',
@@ -296,23 +297,13 @@ export class FileIoCommands {
       );
       return;
     }
-    // A legacy `.rcsv` file opens as a migration: rename to `.rsf`, drop the
-    // original handle (a `.rcsv` handle must not be overwritten with `.rsf`
-    // bytes), and mark it unsaved so the next Save writes a fresh `.rsf` file.
-    // The original `.rcsv` on disk is never modified.
-    const isLegacy = file.name.toLowerCase().endsWith(RSF_LEGACY_EXTENSION);
-    const name = isLegacy ? `${file.name.slice(0, -RSF_LEGACY_EXTENSION.length)}${RSF_EXTENSION}` : file.name;
-    const tab = this.state.addTab(name, result.doc, isLegacy ? null : file.handle, true);
+    const name = file.name;
+    const tab = this.state.addTab(name, result.doc, file.handle, true);
     tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
     if (result.doc.filterDropped) {
       // The container carried filter metadata that failed validation; it was
       // ignored (never guessed at) and the sheet itself loaded normally.
       this.ui.notify(t('notify.filterDropped', { name }), 'warn');
-    }
-    if (isLegacy) {
-      result.doc.markUnsaved();
-      this.state.emit('doc');
-      this.ui.notify(t('notify.rsfMigrated', { name }), 'info');
     }
     // No auto-fit: an RSF workbook's worksheets keep the widths they were
     // saved with, and fitting them to content gave unintended widths.
@@ -433,11 +424,8 @@ export class FileIoCommands {
     }
   }
 
+  /** File > Save with Options…: CSV only (an `.rsf` file has no options to choose). */
   async saveWithOptions(tab: Tab): Promise<void> {
-    if (tab.doc.kind === 'rsf') {
-      await this.saveRsfWithOptions(tab);
-      return;
-    }
     if (tab.doc.kind !== 'csv') {
       return;
     }
@@ -447,46 +435,6 @@ export class FileIoCommands {
       return;
     }
     await this.save(tab, options);
-  }
-
-  /**
-   * The RSF Save dialog: choose the container's compression method and save.
-   * The active codec's writable methods are offered (Zstandard recommended and
-   * preselected for new documents; an existing document preselects its own
-   * method). A plain Ctrl+S save always reuses the document's current method,
-   * so the method never changes silently — only this dialog changes it.
-   */
-  private async saveRsfWithOptions(tab: Tab): Promise<void> {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
-      return;
-    }
-    // Acquire the destination NOW — synchronously up to the picker call,
-    // before the async engine init, the compression dialog, and the
-    // compression itself — so the browser's user activation (required by
-    // showSaveFilePicker) is still valid. Picker cancelled: no compression
-    // change, no save, no association.
-    const acquired = await this.acquireRsfHandle(tab);
-    if (!acquired.ok) {
-      return;
-    }
-    const handle = acquired.handle;
-    // The codec only reports its real writable methods once the WASM engine is
-    // instantiated; without it, only the uncompressed store method is offered.
-    await initCsvEngine();
-    const codec = getRsfCodec();
-    const available = codec.writableMethods();
-    const current = doc.compression ?? codec.defaultMethod();
-    const willDownload = handle ? null : t('save.downloadNote', { name: tab.name });
-    const method = await this.ui.chooseRsfSave(tab.name, current, available, willDownload);
-    if (method === null) {
-      return;
-    }
-    doc.setCompression(method);
-    // The dialog already committed to saving as .rsf, so the write path below
-    // should not show the one-time explanation again.
-    tab.rsfSaveExplained = true;
-    await this.encodeAndWriteRsf(tab, handle);
   }
 
   /**

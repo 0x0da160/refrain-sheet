@@ -18,7 +18,7 @@ file does not repeat that spec.
 
 ## High risk — extra care required
 
-The root `CLAUDE.md` names this crate and the RSF binary format explicitly
+The root `CLAUDE.md` names this crate and the RSF format explicitly
 under "High-risk changes — escalate, do not autonomously implement." A bug
 here can corrupt a user's saved document or make it unreadable, with no
 in-app way to recover. Before changing anything under `wasm/src/`:
@@ -27,10 +27,10 @@ in-app way to recover. Before changing anything under `wasm/src/`:
   just the JS test suite — the JS tests exercise the WASM boundary but not
   every Rust-level edge case.
 - Preserve exact wire compatibility: an existing `.rsf` file must still open
-  correctly after the change, and the container/body version-gating rules in
+  correctly after the change (the Zstandard decoder reads every file this
+  format version has produced), and the versioning rules in
   [`knowledge/formats/rsf/compatibility.md`](../knowledge/formats/rsf/compatibility.md)
-  must stay intact. A new field or behavior needs a new version number, never
-  a silent reinterpretation of an old one.
+  must stay intact.
 - A change to compression output (even a byte-identical-content, different-
   encoding change) can shift file sizes across the whole benchmark suite —
   re-run `npm run bench` if `npm run test:rust` alone would not catch that.
@@ -38,8 +38,10 @@ in-app way to recover. Before changing anything under `wasm/src/`:
 ## Toolchain notes specific to this crate
 
 - **No C/C++ toolchain.** `wasm32-unknown-unknown` cannot link `cc`-based
-  crates. This is why compression uses `miniz_oxide` / `ruzstd` / `lz4_flex`
-  (pure Rust) instead of `zstd`/`flate2`'s C bindings — do not reach for a
+  crates. This is why compression uses `ruzstd` (`.rsf`) and `miniz_oxide`
+  (DEFLATE, for `.xlsx` import) — pure Rust — instead of `zstd`/`flate2`'s C
+  bindings. `lz4_flex` is still compiled in but no longer used since `.rsf`
+  became Zstandard-only (#602); removing it needs a `build:wasm` rebuild — do not reach for a
   C-backed crate here, even one that looks simpler.
 - **Dependency versions are pinned exactly** (`=x.y.z` in `Cargo.toml`), each
   with an inline comment explaining why (wasm-bindgen CLI version matching,

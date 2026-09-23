@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.8.16] - 2026-09-23
+
 ### Fixed
 
 - On iPhone, double-tapping a cell brings up the on-screen keyboard again,

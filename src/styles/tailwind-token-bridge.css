@@ -16,20 +16,31 @@
 }
 
 :root {
-  /* General UI: navigation, buttons, dialogs, forms, helper text. Matches
-     the Refrain Sheet Design System v1.0.0 font-ui stack (zero webfonts —
-     OS-local families only), extended with 'Meiryo UI' at the end for older
-     Windows installs that lack every earlier family in the chain. */
+  /* General UI: navigation, buttons, dialogs, forms, helper text. Zero
+     webfonts — OS-local families only, proportional first. Windows (the
+     primary target, Chrome/Edge) resolves BIZ UDPGothic; older Windows
+     installs without it fall through the UI-condensed and regular Windows
+     families. macOS/iOS reach Hiragino; Android and Linux reach Noto CJK
+     (by name where the browser exposes it, otherwise via sans-serif). */
   --font-ui:
-    'BIZ UDPGothic', 'Yu Gothic UI', 'Hiragino Sans', 'Noto Sans JP', 'Meiryo UI', system-ui, sans-serif;
+    'BIZ UDPGothic', 'Yu Gothic UI', 'Meiryo UI', 'Meiryo', 'Yu Gothic', 'MS UI Gothic', 'Hiragino Sans',
+    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Noto Sans CJK JP', sans-serif;
 
-  /* Selectable spreadsheet fonts (View > Spreadsheet Font). All are local
-     Windows/Office fonts; nothing is fetched from a CDN or bundled. The
-     original three are monospace CJK fonts with a matching monospace
-     fallback chain. Noto Sans JP / Meiryo UI / Yu Gothic UI (#396) are
-     proportional UI fonts, so they fall back through their own family and a
-     generic sans-serif instead, matching --font-ui's chain above. */
-  --sheet-font-biz-ud: 'BIZ UDゴシック', 'BIZ UDGothic', 'ＭＳ ゴシック', 'MS Gothic', monospace;
+  /* Selectable spreadsheet fonts (View > Spreadsheet Font). Nothing is
+     fetched from a CDN or bundled. BIZ UD Gothic (the default) is a
+     fixed-pitch face: full-width kana/kanji and half-width Latin/digits. Its
+     chain keeps fixed-pitch Windows families first (MS Gothic), then
+     families whose kana/kanji are still full-width but whose Latin is
+     proportional (Meiryo, Yu Gothic, Hiragino, Noto CJK), and ends in
+     sans-serif so macOS/iOS/Android never land on a Latin-only generic
+     monospace face. The UI-condensed families (Meiryo UI / Yu Gothic UI /
+     MS UI Gothic) are left out of it because their kana are narrowed. MS
+     Gothic / MS UI Gothic keep their original monospace fallback. Noto Sans
+     JP / Meiryo UI / Yu Gothic UI (#396) are proportional UI fonts, so they
+     fall back through their own family and a generic sans-serif instead. */
+  --sheet-font-biz-ud:
+    'BIZ UDGothic', 'BIZ UDゴシック', 'MS Gothic', 'ＭＳ ゴシック', 'Meiryo', 'Yu Gothic', 'Hiragino Sans',
+    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Noto Sans CJK JP', sans-serif;
   --sheet-font-ms: 'ＭＳ ゴシック', 'MS Gothic', monospace;
   --sheet-font-ms-ui: 'MS UI Gothic', 'ＭＳ ゴシック', 'MS Gothic', monospace;
   --sheet-font-noto-sans-jp: 'Noto Sans JP', sans-serif;
@@ -38,8 +49,8 @@
 
   /* Spreadsheet: cells, column headers, numbers, formulas, editing controls.
      The active choice is applied by overriding this on the document root
-     (see src/app/sheet-font.ts); Noto Sans JP is the default. */
-  --font-sheet: var(--sheet-font-noto-sans-jp);
+     (see src/app/sheet-font.ts); BIZ UD Gothic is the default. */
+  --font-sheet: var(--sheet-font-biz-ud);
 
   /* ---------- Spacing, corner radius, and bar sizes (#594) ----------
      Every non-grid padding, margin, and gap uses this one scale, and every

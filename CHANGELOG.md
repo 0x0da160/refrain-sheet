@@ -35,6 +35,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- The spreadsheet now uses BIZ UD Gothic by default (View > Spreadsheet
+  Font) instead of Noto Sans JP, and menus, toolbars, and dialogs prefer
+  BIZ UDP Gothic. Both come with Windows 10/11; on macOS and iOS the app
+  falls back to Hiragino, and on Android to the system Japanese font, with
+  no extra fonts to install. A font you already chose is kept.
+- Row numbers use equal-width digits so they line up on every platform.
+
 ## [0.9.0] - 2026-09-23
 
 ### Added

@@ -148,15 +148,30 @@ selection overlays — the **spreadsheet font**.
 
 **View > Spreadsheet Font** chooses one family for the whole spreadsheet UI
 by updating the single `--font-sheet` variable; the current choice is
-shown with a checkmark. Six local Windows/Office families are offered
-(monospace fallback for the first three, sans-serif for the rest):
+shown with a checkmark. Six local families are offered:
 
-- **BIZ UD Gothic** / BIZ UDゴシック
+- **BIZ UD Gothic** / BIZ UDゴシック — the default
 - **MS Gothic** / ＭＳ ゴシック
 - **MS UI Gothic**
-- **Noto Sans JP** — the default
+- **Noto Sans JP**
 - **Meiryo UI**
 - **Yu Gothic UI**
+
+Windows 11 Chrome/Edge is the primary target, so the defaults are the
+Windows-bundled BIZ UD pair: **BIZ UDGothic** (fixed-pitch — full-width
+kana/kanji, half-width Latin and digits) for the grid and **BIZ UDPGothic**
+(proportional) for `--font-ui`. Both chains end in `sans-serif` and include
+Hiragino (macOS/iOS) and Noto CJK (Android/Linux) so other platforms need
+no extra fonts. The grid chain keeps fixed-pitch Windows families first
+(MS Gothic), then families whose kana/kanji stay full-width but whose Latin
+is proportional (Meiryo, Yu Gothic, Hiragino, Noto CJK); the UI-condensed
+families (Meiryo UI, Yu Gothic UI, MS UI Gothic), whose kana are narrowed,
+appear only in the UI chain. Row numbers set
+`font-variant-numeric: tabular-nums` (equal-width digits only — it does not
+make a font fixed-pitch); data cells do not, because auto-fit measures them
+with canvas `measureText`, which cannot apply it. MS Gothic and MS UI Gothic
+keep a `monospace` fallback; the #396 proportional families fall back to
+`sans-serif`.
 
 There is **no per-cell font selection** in this version. The choice is an
 application-level preference stored in `localStorage`; RSF documents carry
@@ -165,7 +180,8 @@ applies with no document-vs-application precedence conflict to resolve.
 Changing the sheet font is pure display state — it never alters CSV bytes
 and never triggers a CSV → RSF conversion. No font is fetched from a CDN or
 bundled; when a preferred family is not installed, the declared local
-fallback chain (finally `monospace` or `sans-serif`) is used, matching the
+fallback chain (finally `sans-serif`, or `monospace` for MS Gothic / MS UI
+Gothic) is used, matching the
 offline-only guarantee in
 [../operations/index.md](../operations/index.md).
 

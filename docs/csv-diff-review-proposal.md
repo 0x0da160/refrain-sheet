@@ -20,7 +20,7 @@ Issue thread):
    The reasons still apply unchanged: those engines' loading model (ES
    modules, dynamic Worker spin-up, multi-MB `.wasm` fetched at runtime)
    conflicts with a classic non-module script, a `connect-src 'none'` CSP, no
-   Worker infrastructure, and the "exactly one production dependency" policy
+   Worker infrastructure, and the "keep the dependency count minimal" policy
    in [`knowledge/operations/security-supply-chain.md` § "Dependency policy"](../knowledge/operations/security-supply-chain.md).
 2. **The rest of the spec is a subsystem on the scale of the whole app** — a
    9-table data model, a 12+-type rule engine, a template store, a

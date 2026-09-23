@@ -8,10 +8,10 @@ import {
   renameSheetInFormula,
 } from '../../core/formula';
 import type { CellChange, HistoryEntry, Operation } from '../../core/history';
-import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../../core/rsf-document';
+import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, type RsfDocument } from '../../core/rsf-document';
 import { computeSortOrder, sortsEqual, type SheetSort } from '../../core/sort';
 import type { Worksheet } from '../../core/worksheet';
-import { AppState, type Tab } from '../app-state';
+import type { AppState, Tab } from '../app-state';
 import { clampSheetZoom, getSheetZoom, getWrapCells } from '../settings';
 
 /**

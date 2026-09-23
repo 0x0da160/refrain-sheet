@@ -24,4 +24,9 @@
 @layer theme, base, utilities;
 
 @import 'tailwindcss/theme.css' layer(theme);
-@import 'tailwindcss/utilities.css' layer(utilities);
+/* Scan only the app's own sources for class names. Tailwind otherwise scans
+   the whole repository — docs, knowledge/, CHANGELOG.md, tests — so editing
+   prose could add or drop utilities in the shipped CSS. */
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+@source '../**/*.ts';
+@source '../../index.html';

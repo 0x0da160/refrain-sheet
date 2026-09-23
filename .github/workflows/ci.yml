@@ -55,11 +55,18 @@ jobs:
       - name: Version consistency
         run: npm run check:versions
 
+      # The committed sql.js payload (src/wasm-gen/sqljs-wasm-payload.ts) must
+      # be the installed sql.js binary. The Rust payload is verified by
+      # rebuilding it in wasm.yml.
+      - name: Generated payload provenance
+        run: npm run check:generated
+
       # Every knowledge/ concept file (see knowledge/index.md) must carry
       # parseable OKF v0.2 frontmatter with a non-empty `type`; the bundle's
-      # reserved index.md/log.md files must carry none — see
+      # reserved index.md/log.md files must carry none; relative links and
+      # backticked repository paths must resolve — see
       # scripts/check-knowledge-frontmatter.mjs.
-      - name: Knowledge bundle frontmatter
+      - name: Knowledge bundle checks
         run: npm run check:knowledge
 
       # CHANGELOG.md stopped being updated for nine releases because nothing
@@ -78,6 +85,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Unused exports/files/dependencies (Knip). Fails on any finding not on
+      # scripts/check-knip.mjs's explicit, human-review-pending DEFERRED list,
+      # and on a deferred entry that has since been resolved — see
+      # docs/knip-baseline.md.
+      - name: Unused code
+        run: npm run check:knip
+
       # Verifies the Oklch-authored color system's actual declared tokens
       # (src/styles.css) meet WCAG AA contrast for every text/background pair
       # that composes in the UI, in every theme — see scripts/check-contrast.mjs.
@@ -92,6 +106,17 @@ jobs:
 
       - name: Validate self-contained distribution
         run: npm run check:dist
+
+      # Open the offline dist/index.html via file:// in headless Chromium, the
+      # way a user does, and fail on a render failure or any console/page error
+      # (scripts/ui-check.mjs). The browser comes from Playwright's own
+      # download, installed by an explicit step like the Dockerfile's, never
+      # by an npm lifecycle script.
+      - name: Install headless Chromium for the UI check
+        run: npx --no-install playwright install --with-deps chromium
+
+      - name: Headless-browser UI check
+        run: npm run ui:check
 
       # The hosted artifact (app.refrain-sheet.com) is built from the same
       # sources and differs only in its Content-Security-Policy, which

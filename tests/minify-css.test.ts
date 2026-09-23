@@ -48,7 +48,7 @@ describe('minifyCss', () => {
   });
 
   it('shrinks the real landing stylesheet by a meaningful margin without dropping any declaration', () => {
-    const original = readFileSync('src/landing/styles.css', 'utf8');
+    const original = readFileSync('site/styles.css', 'utf8');
     const minified = minifyCss(original);
 
     expect(minified.length).toBeLessThan(original.length * 0.85);

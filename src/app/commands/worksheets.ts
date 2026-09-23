@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { isValidSheetName, MAX_SHEET_NAME_LENGTH } from '../../core/formula';
-import { MAX_WORKSHEETS, RsfDocument } from '../../core/rsf-document';
+import { MAX_WORKSHEETS, type RsfDocument } from '../../core/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
 import type { Worksheet, WorksheetKind } from '../../core/worksheet';
-import { AppState, type Tab } from '../app-state';
+import type { AppState, Tab } from '../app-state';
 import { t } from '../i18n';
 import type { CommandId, ConvertReason, UiPort } from '../commands';
 import { LARGE_OP_CELLS, pct, withBusy } from './shared';

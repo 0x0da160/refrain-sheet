@@ -55,11 +55,13 @@ value.
      defer to a human, regardless of how confident the static evidence looks.
 4. **Update `docs/knip-baseline.md`:** config notes (why each `knip.jsonc`
    ignore/entry exists, with the actual usage mechanism — not just "false
-   positive"), the classified findings, and a dated "History" entry
-   summarizing what changed since the last run.
-5. **Re-run `npx knip`** after any code change elsewhere in the repo has
-   landed, to confirm the baseline's counts still match exactly — treat a
-   mismatch as a signal the report is stale, not as noise to ignore.
+   positive"), the classified open findings, and a one-line "Resolved"
+   entry (with the PR) for anything that left the list. Keep it a
+   current-state report; narrative belongs in the PR description.
+5. **Keep the CI gate in step:** `npm run check:knip` fails on any finding
+   not on `scripts/check-knip.mjs`'s `DEFERRED` list, and on a `DEFERRED`
+   entry that is no longer reported. Only an S2/S3 finding classified in the
+   baseline may be added to `DEFERRED` — never add one just to make CI pass.
 
 ## Trust
 
@@ -69,7 +71,6 @@ classify something S0 to make the report look more actionable than it is.
 
 ## Output
 
-An updated `docs/knip-baseline.md` (see its own history section for the
-expected format) plus a one-paragraph summary: total findings by tier, what
+An updated `docs/knip-baseline.md` (keep its existing section layout) plus a one-paragraph summary: total findings by tier, what
 changed since the last run, and which S0 items (if any) are now candidates
 for the `safe-delete` skill.

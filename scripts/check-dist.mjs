@@ -10,7 +10,10 @@
 //   3. no URL-based WASM fallback survived into the bundle,
 //   4. the CSP matches scripts/csp.mjs byte-for-byte for the build mode, allows
 //      WebAssembly ('wasm-unsafe-eval'), and names no origin beyond what that
-//      file permits for the mode.
+//      file permits for the mode,
+//   5./6. the offline bundle carries no Google credential and no Google
+//      endpoint at all (the Drive client is compiled out of it),
+//   7. the JS bundle stays within a size budget.
 //
 // Usage:
 //   node scripts/check-dist.mjs [--dir <path>] [--mode offline|hosted]
@@ -251,6 +254,33 @@ if (mode === 'offline') {
   } else {
     ok('hosted bundle carries a Google OAuth client id (Drive sync is enabled)');
   }
+}
+
+// 6. The offline artifact must not even contain the Google Drive client: it is
+// compiled out through the __OFFLINE_BUILD__ define (src/app/commands.ts), so
+// no Google endpoint may appear in it at all — defence in depth behind the
+// connect-src 'none' CSP above.
+if (mode === 'offline') {
+  const endpoints = [...new Set(bundle.match(/\b(?:[a-z0-9-]+\.)*(?:googleapis\.com|google\.com)\b/g) ?? [])];
+  if (endpoints.length > 0) {
+    fail(
+      `the offline bundle references Google endpoint(s): ${endpoints.join(', ')} — the Drive client must be compiled out`,
+    );
+  } else {
+    ok('offline bundle contains no Google endpoint (Drive client compiled out)');
+  }
+}
+
+// 7. Size budget. The JS bundle embeds both WASM payloads, so growth is easy
+// to miss; a deliberate increase raises this number in the same pull request.
+const MAX_JS_BYTES = 2_500_000;
+const jsBytes = jsFiles.reduce((sum, f) => sum + statSync(f).size, 0);
+if (jsBytes > MAX_JS_BYTES) {
+  fail(
+    `JS bundle is ${jsBytes} bytes, over the ${MAX_JS_BYTES}-byte budget — shrink it or raise MAX_JS_BYTES deliberately`,
+  );
+} else {
+  ok(`JS bundle is ${jsBytes} bytes (budget ${MAX_JS_BYTES})`);
 }
 
 if (/<script[^>]*type="module"/.test(indexHtml)) {

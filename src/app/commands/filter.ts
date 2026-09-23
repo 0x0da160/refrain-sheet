@@ -10,7 +10,7 @@ import {
 import { cellLabel, columnLabel } from '../../core/formula';
 import type { RsfDocument } from '../../core/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
-import { AppState, type Tab } from '../app-state';
+import type { AppState, Tab } from '../app-state';
 import { t } from '../i18n';
 import type { ConvertReason, FilterDialogInput, UiPort } from '../commands';
 import { LARGE_OP_CELLS, pct, withBusy } from './shared';

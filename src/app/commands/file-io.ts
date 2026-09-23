@@ -28,7 +28,8 @@ import { parseXlsxWorkbook, type XlsxImportError } from '../../core/xlsx-import'
 import { buildXlsxExport, type XlsxSheetInput } from '../../core/xlsx-export';
 import { parseJsonWorkbook, type JsonImportError } from '../../core/json-import';
 import { buildJsonExport } from '../../core/json-export';
-import { AppState, defaultSheetName, type Tab } from '../app-state';
+import type { AppState, Tab } from '../app-state';
+import { defaultSheetName } from '../state/defaults';
 import { readFileObject, requestSaveHandle, saveBytes, saveBytesAs, type OpenedFile } from '../file-access';
 import { getLocale, t } from '../i18n';
 import { getAutoFitOnOpen, getMaxFileSize, getSuppressHistoryCapWarning } from '../settings';

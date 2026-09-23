@@ -11,7 +11,7 @@ import { cellLabel, columnLabel, isFormula, shiftFormulaRefs } from '../../core/
 import type { CellChange, HistoryEntry, Operation } from '../../core/history';
 import type { RsfDocument } from '../../core/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
-import { AppState, type Selection, type Tab } from '../app-state';
+import type { AppState, Selection, Tab } from '../app-state';
 import { t } from '../i18n';
 import type { ConvertReason, UiPort } from '../commands';
 import { LARGE_OP_CELLS, nextPaint, pct, withBusy } from './shared';

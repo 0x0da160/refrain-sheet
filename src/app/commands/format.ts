@@ -10,7 +10,7 @@ import {
 } from '../../core/cell-style';
 import type { CellRange } from '../../core/clipboard';
 import type { StyleChange } from '../../core/history';
-import { AppState, type Tab } from '../app-state';
+import type { AppState, Tab } from '../app-state';
 import type { UiPort } from '../commands';
 
 /** Every visible (non-hidden-row) cell of `range`, row-major. */

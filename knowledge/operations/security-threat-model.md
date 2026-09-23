@@ -24,11 +24,11 @@ at app.refrain-sheet.com, and the offline build shipped in the release
 ZIPs — which continues to make zero network connections of any kind at
 runtime, enforced by `npm run check:dist` / `npm run check:dist:hosted` and
 their `connect-src 'none'` CSP. It does not extend to the separate
-marketing landing page (`src/landing/`, built by `npm run build:landing`,
+marketing landing page (`site/`, built by `npm run build:landing`,
 served at refrain-sheet.com), which is static informational content, not
 the editor. The landing page may load Google Analytics (`gtag.js`), and
 only after the visitor explicitly accepts a cookie-consent banner —
-declining or ignoring the banner loads nothing (`src/landing/consent.js`).
+declining or ignoring the banner loads nothing (`site/consent.js`).
 
 ## Exception: opt-in Google Drive sync (hosted build only)
 
@@ -41,7 +41,10 @@ Google Drive sync.
 - **Hosted build only.** The offline `file://` build and the downloadable
   release ZIP are **not** covered and must keep making zero network
   connections of any kind — `npm run check:dist`'s `connect-src 'none'`
-  assertion continues to apply, unchanged.
+  assertion continues to apply, unchanged. The Drive client is not merely
+  disabled there but **compiled out**: `src/app/commands.ts` gates it on the
+  `__OFFLINE_BUILD__` define (`vite.config.ts`), and `check:dist` fails if
+  the offline bundle contains any Google endpoint.
 - **Nothing loads until the user asks.** Google's scripts are fetched
   lazily, on the first Drive command.
 

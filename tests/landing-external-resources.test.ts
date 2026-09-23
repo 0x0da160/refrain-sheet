@@ -7,10 +7,10 @@
 import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
 
-const template = readFileSync('src/landing/template.html', 'utf8');
-const styles = readFileSync('src/landing/styles.css', 'utf8');
-const i18n = readFileSync('src/landing/i18n.js', 'utf8');
-const consent = readFileSync('src/landing/consent.js', 'utf8');
+const template = readFileSync('site/template.html', 'utf8');
+const styles = readFileSync('site/styles.css', 'utf8');
+const i18n = readFileSync('site/i18n.js', 'utf8');
+const consent = readFileSync('site/consent.js', 'utf8');
 
 describe('landing page has no external resource dependency', () => {
   it('does not reference the Google Fonts CDN', () => {
@@ -35,7 +35,7 @@ describe('landing page footer does not claim to be unofficial', () => {
 
 describe('landing page analytics is consent-gated', () => {
   it('never references googletagmanager.com in the static template or styles', () => {
-    // Only src/landing/consent.js may reference it, and only from behind
+    // Only site/consent.js may reference it, and only from behind
     // the consent checks asserted below — the pre-rendered HTML/CSS must
     // never load it unconditionally.
     expect(template).not.toMatch(/googletagmanager\.com/);

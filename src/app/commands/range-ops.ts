@@ -6,7 +6,7 @@ import { moveTarget, planRangeMove, validateMove, type RangeMovePlan } from '../
 import type { RsfDocument } from '../../core/rsf-document';
 import { forEachIndexSliced, yieldToBrowser } from '../../core/scheduler';
 import { replaceAllInValue, type CompiledQuery, type SearchScope } from '../../core/search';
-import { AppState, type Tab } from '../app-state';
+import type { AppState, Tab } from '../app-state';
 import { t } from '../i18n';
 import type { ConvertReason, UiPort } from '../commands';
 import { LARGE_OP_CELLS, pct, withBusy } from './shared';

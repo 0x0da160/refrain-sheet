@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-import { Grid3x3, PaintBucket, Plus } from 'lucide';
+import { Plus } from 'lucide';
 import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
-import { isGridSurface, LARGE_OP_CELLS, type CommandId, type Commands } from '../app/commands';
+import { isGridSurface, LARGE_OP_CELLS, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { getEditHints, nextZoomLevel } from '../app/settings';
 import {
@@ -16,40 +16,76 @@ import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from
 import type { LosslessDocument } from '../core/lossless-document';
 import { RowHeightIndex } from '../core/row-height-index';
 import type { RsfDocument } from '../core/rsf-document';
-import { forEachIndexSliced, yieldToBrowser } from '../core/scheduler';
+import { forEachIndexSliced } from '../core/scheduler';
 import type { SheetSort } from '../core/sort';
 import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../core/text-wrap';
-import { ContextMenu, type ContextMenuEntry, type ContextMenuToolbarItem } from './context-menu';
+import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 import type { FormulaLivePreview } from './formula-bar';
 import { beginsTextEntry, isComposingKey } from './ime';
 import { createIcon } from './icon';
+import {
+  autoFitWidth,
+  planAutoFit,
+  planAutoFitColumns,
+  AUTOFIT_SAMPLE_BUDGET,
+  type AutoFitInput,
+  type AutoFitResult,
+  type MultiAutoFitResult,
+} from './grid/autofit';
+import {
+  CONTEXT_MENU_ITEMS,
+  formatToolbarItems,
+  type ContextMenuCommandDef,
+  type ContextMenuGroupDef,
+} from './grid/context-menu-items';
+import {
+  clampFormulaRefs,
+  matchFormulaRefCell,
+  formulaRefsExceedViewport,
+  type ClampedFormulaRef,
+} from './grid/formula-ref-overlay';
+import {
+  COL_WIDTH,
+  MAX_COL_WIDTH,
+  MAX_WRAP_LINES,
+  MIN_COL_WIDTH,
+  OVERSCAN_COLS,
+  OVERSCAN_ROWS,
+  ROW_HEAD_WIDTH,
+  ROW_HEIGHT,
+  WRAP_LINE_HEIGHT,
+  WRAP_PASS_BUSY_ROWS,
+  WRAP_VERTICAL_PAD,
+} from './grid/geometry';
 import { ValidationPicker } from './validation-picker';
+
+// The grid's pure helpers live in src/ui/grid/; re-exported for existing importers.
+export {
+  autoFitWidth,
+  AUTOFIT_SAMPLE_BUDGET,
+  clampFormulaRefs,
+  COL_WIDTH,
+  formulaRefsExceedViewport,
+  matchFormulaRefCell,
+  MAX_COL_WIDTH,
+  MAX_WRAP_LINES,
+  MIN_COL_WIDTH,
+  OVERSCAN_ROWS,
+  planAutoFit,
+  planAutoFitColumns,
+  ROW_HEAD_WIDTH,
+  ROW_HEIGHT,
+  WRAP_LINE_HEIGHT,
+  WRAP_VERTICAL_PAD,
+};
+export type { AutoFitInput, ClampedFormulaRef };
 
 /** Render a resolved border side as a CSS `border-*` shorthand value (`''` when unset). */
 function cssBorder(border: BorderSideValue | null): string {
   return border ? `${BORDER_WIDTH_PX[border.width]}px ${border.lineStyle} ${border.color}` : '';
 }
-
-/** Fixed row/column metrics for virtualization (px). ROW_HEIGHT must stay in
- * sync with the `--grid-row-height` CSS variable (see styles.css), which the
- * cell typography uses to vertically center single-line text via line-height. */
-export const ROW_HEIGHT = 26;
-/** Line box of a wrapped cell (px). Kept in sync with `--grid-wrap-line`. */
-export const WRAP_LINE_HEIGHT = 18;
-/** Vertical chrome (top+bottom padding) added around a wrapped cell's lines. */
-export const WRAP_VERTICAL_PAD = 8;
-/** Hard cap on the visual lines a single row may grow to when wrapping. */
-export const MAX_WRAP_LINES = 12;
-/** Row count above which the off-screen wrap-measure pass shows a busy label. */
-const WRAP_PASS_BUSY_ROWS = 4000;
-export const COL_WIDTH = 132;
-export const MIN_COL_WIDTH = 40;
-export const MAX_COL_WIDTH = 1200;
-export const ROW_HEAD_WIDTH = 64;
-export const OVERSCAN_ROWS = 8;
-const OVERSCAN_COLS = 3;
 
 interface RenderWindow {
   /**
@@ -77,143 +113,6 @@ interface ColOffsetCache {
    *  required (see `invalidateColOffsets`); this reference check catches the
    *  cases where a new array is assigned instead (e.g. restoring a tab). */
   widths: number[];
-}
-
-/**
- * Compute an auto-fit column width from measured content widths (visible cell
- * widths plus the header), clamped to [min, max]. The result is the width the
- * widest measured content needs — it may be **narrower or wider** than the
- * column's current width, so auto-fit both grows and shrinks. Extracted as a
- * pure function so the grow/shrink/clamp behavior is unit-testable without a
- * DOM (real measurement uses `scrollWidth`).
- */
-export function autoFitWidth(contentWidths: number[], min = MIN_COL_WIDTH, max = MAX_COL_WIDTH): number {
-  let needed = min;
-  for (const w of contentWidths) {
-    if (w > needed) {
-      needed = w;
-    }
-  }
-  return Math.max(min, Math.min(max, needed));
-}
-
-/** Cap of off-screen rows measured per auto-fit (documented sampling budget). */
-export const AUTOFIT_SAMPLE_BUDGET = 1000;
-
-export interface AutoFitInput {
-  rowCount: number;
-  /** Visible header text of the column (always measured). */
-  header: string;
-  /** Displayed cell text (formula cells contribute their calculated values). */
-  getDisplayValue(row: number): string;
-  /** Rows currently materialized in the virtualized grid (measured first). */
-  visibleRows: number[];
-  /** Text width in px under the active sheet font/size/spacing. */
-  measure(text: string): number;
-  /** Non-text horizontal chrome of a cell (padding + borders) in px. */
-  cellChrome: number;
-  /** Non-text horizontal chrome of the header (padding + resize handle) in px. */
-  headerChrome: number;
-  /** Maximum number of off-screen rows to sample (0 disables sampling). */
-  sampleBudget: number;
-  min?: number;
-  max?: number;
-}
-
-export interface AutoFitResult {
-  /** Clamped target width in px. */
-  width: number;
-  /** How many data rows were actually measured. */
-  measuredRows: number;
-  /** True when the width is based on a sample, not every row. */
-  sampled: boolean;
-}
-
-/**
- * Plan an auto-fit width from *measured text widths* of the displayed values
- * (never character counts or average-width guesses). All currently visible
- * rows are measured, plus a deterministic, evenly spaced sample of off-screen
- * rows up to `sampleBudget` — the whole column is never rendered or measured
- * synchronously for large sheets. The result is recomputed from the current
- * content on every call (nothing is cached), so it freely shrinks as well as
- * grows and can never retain a stale historic maximum; font, locale, or
- * content changes are picked up on the next invocation automatically.
- */
-export function planAutoFit(input: AutoFitInput): AutoFitResult {
-  const min = input.min ?? MIN_COL_WIDTH;
-  const max = input.max ?? MAX_COL_WIDTH;
-  let needed = input.measure(input.header) + input.headerChrome;
-  const rows = new Set<number>();
-  for (const r of input.visibleRows) {
-    if (r >= 0 && r < input.rowCount) {
-      rows.add(r);
-    }
-  }
-  if (input.sampleBudget > 0 && rows.size < input.rowCount) {
-    // Deterministic, evenly spaced sample across the whole column so short
-    // and long regions are both represented.
-    const budget = Math.min(input.sampleBudget, input.rowCount);
-    const step = input.rowCount / budget;
-    for (let k = 0; k < budget; k++) {
-      rows.add(Math.min(input.rowCount - 1, Math.floor(k * step)));
-    }
-  }
-  let measuredRows = 0;
-  for (const r of rows) {
-    const w = input.measure(input.getDisplayValue(r)) + input.cellChrome;
-    if (w > needed) {
-      needed = w;
-    }
-    measuredRows += 1;
-  }
-  return {
-    width: Math.max(min, Math.min(max, Math.ceil(needed))),
-    measuredRows,
-    sampled: measuredRows < input.rowCount,
-  };
-}
-
-export interface MultiAutoFitOptions {
-  /** Called between columns of a yielding run (done columns, total columns). */
-  onProgress?: (done: number, total: number) => void;
-  /** Checked after each yield; return true to abandon the remaining columns. */
-  shouldStop?: () => boolean;
-  /** Yield to the browser between columns (used for genuinely large jobs). */
-  yieldBetween?: boolean;
-}
-
-export interface MultiAutoFitResult {
-  /** Per-column plans, keyed by column index (partial when not completed). */
-  plans: Map<number, AutoFitResult>;
-  /** False when `shouldStop` abandoned the run — apply nothing in that case. */
-  completed: boolean;
-}
-
-/**
- * Plan auto-fit widths for several columns. Every column is measured
- * independently with {@link planAutoFit} (its own header, displayed values,
- * and sampling), so each column can shrink or grow on its own. Large jobs
- * yield to the browser between columns and report per-column progress; a
- * cancelled run returns `completed: false` and its partial plans must be
- * discarded, so widths are only ever applied all-or-nothing.
- */
-export async function planAutoFitColumns(
-  cols: number[],
-  makeInput: (col: number) => AutoFitInput,
-  opts: MultiAutoFitOptions = {},
-): Promise<MultiAutoFitResult> {
-  const plans = new Map<number, AutoFitResult>();
-  for (let i = 0; i < cols.length; i++) {
-    if (opts.yieldBetween && i > 0) {
-      opts.onProgress?.(i, cols.length);
-      await yieldToBrowser();
-      if (opts.shouldStop?.()) {
-        return { plans, completed: false };
-      }
-    }
-    plans.set(cols[i], planAutoFit(makeInput(cols[i])));
-  }
-  return { plans, completed: true };
 }
 
 /**
@@ -289,202 +188,6 @@ function frameCoalesced<T>(apply: (arg: T) => void): (arg: T) => void {
       }
     });
   };
-}
-
-/** A formula-reference range clamped to the document bounds and tagged with
- *  its highlight color/border-pattern index (0-3, see the `fref-N` CSS
- *  classes), in cycling order over the original reference list. */
-export interface ClampedFormulaRef {
-  top: number;
-  left: number;
-  bottom: number;
-  right: number;
-  idx: number;
-}
-
-/**
- * Clamp formula-reference ranges to the current document (whole-column/-row
- * references extend to the used grid's edge) and drop any range left empty
- * by clamping, assigning each survivor a highlight index that cycles through
- * four color/border-pattern pairs. Pure so the highlighted-range set is
- * unit-testable without a DOM (real rendering applies these to cells).
- */
-export function clampFormulaRefs(
-  refs: FormulaRefRange[],
-  rowCount: number,
-  colCount: number,
-): ClampedFormulaRef[] {
-  return refs
-    .map((ref, i) => ({
-      top: Math.max(0, ref.top),
-      left: Math.max(0, ref.left),
-      bottom: Math.min(ref.bottom, rowCount - 1),
-      right: Math.min(ref.right, colCount - 1),
-      idx: i % 4,
-    }))
-    .filter((r) => r.top <= r.bottom && r.left <= r.right);
-}
-
-/** Which formula-reference range (if any) a cell falls in, and whether it
- *  sits on that range's top/bottom/left/right edge (for border styling). */
-export interface FormulaRefCellMatch {
-  idx: number;
-  top: boolean;
-  bottom: boolean;
-  left: boolean;
-  right: boolean;
-}
-
-/**
- * Find the first clamped range containing (row, col) and report its edges.
- * Pure so per-cell highlight state is unit-testable without a DOM.
- */
-export function matchFormulaRefCell(
-  row: number,
-  col: number,
-  ranges: ClampedFormulaRef[],
-): FormulaRefCellMatch | null {
-  for (const r of ranges) {
-    if (row >= r.top && row <= r.bottom && col >= r.left && col <= r.right) {
-      return {
-        idx: r.idx,
-        top: row === r.top,
-        bottom: row === r.bottom,
-        left: col === r.left,
-        right: col === r.right,
-      };
-    }
-  }
-  return null;
-}
-
-/**
- * True when at least one clamped range extends beyond the given rendered
- * viewport (first/last materialized row, visible column range) — drives the
- * "reference extends beyond the visible area" status note. Pure so this
- * decision is unit-testable without a DOM.
- */
-export function formulaRefsExceedViewport(
-  ranges: ClampedFormulaRef[],
-  view: { firstRow: number; lastRow: number; colStart: number; colEnd: number },
-): boolean {
-  for (const r of ranges) {
-    if (
-      r.top < view.firstRow ||
-      r.bottom > view.lastRow ||
-      r.left < view.colStart ||
-      r.right > view.colEnd - 1
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
-interface ContextMenuCommandDef {
-  command: CommandId;
-  labelKey: string;
-  shortcut?: string;
-}
-
-interface ContextMenuGroupDef {
-  labelKey: string;
-  submenu: Array<ContextMenuCommandDef | 'separator'>;
-}
-
-/**
- * The cell/header right-click menu. Copy, Paste, and Select All stay at the
- * top level as the three highest-frequency actions; every less-common family
- * is grouped into a submenu, the same "long flat menu → submenus by feature
- * group" treatment already applied to the top menu bar's Sheet/Edit/View
- * menus (see `menu-bar.ts`'s `rowsAndColumnsItems`/`sheetFontItems` and
- * #280) — reusing their exact group labels (`menu.edit`,
- * `menu.sheet.rowsAndColumns`) so the grouping reads the same way in both
- * places (#396).
- */
-const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupDef | 'separator'> = [
-  { command: 'edit.copy', labelKey: 'menu.edit.copy', shortcut: 'Ctrl+C' },
-  { command: 'edit.paste', labelKey: 'menu.edit.paste', shortcut: 'Ctrl+V' },
-  { command: 'edit.selectAll', labelKey: 'menu.edit.selectAll', shortcut: 'Ctrl+A' },
-  'separator',
-  {
-    labelKey: 'menu.edit',
-    submenu: [
-      { command: 'edit.copyScreenshot', labelKey: 'menu.edit.copyScreenshot' },
-      { command: 'edit.copyAsMarkdown', labelKey: 'menu.edit.copyAsMarkdown' },
-      { command: 'edit.insertCopiedCells', labelKey: 'menu.edit.insertCopiedCells' },
-      { command: 'edit.insertCopiedRows', labelKey: 'menu.edit.insertCopiedRows' },
-      { command: 'edit.insertCopiedCols', labelKey: 'menu.edit.insertCopiedCols' },
-      { command: 'edit.flashFill', labelKey: 'menu.edit.flashFill' },
-      { command: 'edit.moveRange', labelKey: 'menu.edit.moveRange' },
-      { command: 'edit.revertCell', labelKey: 'menu.edit.revertCell' },
-    ],
-  },
-  { command: 'data.comment', labelKey: 'menu.data.comment' },
-  'separator',
-  { command: 'sheet.filter', labelKey: 'menu.sheet.filter' },
-  { command: 'sheet.filterClear', labelKey: 'menu.sheet.filterClear' },
-  'separator',
-  {
-    labelKey: 'menu.sheet.rowsAndColumns',
-    submenu: [
-      { command: 'sheet.insertRowAbove', labelKey: 'menu.sheet.insertRowAbove' },
-      { command: 'sheet.insertRowBelow', labelKey: 'menu.sheet.insertRowBelow' },
-      { command: 'sheet.deleteRows', labelKey: 'menu.sheet.deleteRows' },
-      'separator',
-      { command: 'sheet.insertColLeft', labelKey: 'menu.sheet.insertColLeft' },
-      { command: 'sheet.insertColRight', labelKey: 'menu.sheet.insertColRight' },
-      { command: 'sheet.deleteCols', labelKey: 'menu.sheet.deleteCols' },
-      'separator',
-      { command: 'sheet.autoFitCols', labelKey: 'menu.sheet.autoFitCols' },
-    ],
-  },
-];
-
-/**
- * Quick-access formatting toolbar shown above the right-click context menu
- * (#240): Bold/Italic/Underline plus the color and Borders dialogs, reusing
- * the same `format.*` commands the menu bar's Format menu already dispatches.
- * Buttons are disabled (never hidden) exactly when their command is, matching
- * the app's existing convention for RSF-only commands on a plain CSV tab.
- */
-function formatToolbarItems(commands: Commands, tab: Tab): ContextMenuToolbarItem[] {
-  const toggle = (
-    command: CommandId,
-    icon: string,
-    className: string,
-    labelKey: string,
-    key: 'bold' | 'italic' | 'underline',
-  ): ContextMenuToolbarItem => ({
-    icon,
-    label: t(labelKey),
-    className,
-    checked: commands.isFormatActive(tab, key),
-    disabled: !commands.isEnabled(command),
-    disabledReason: commands.disabledReason(command),
-    onSelect: () => void commands.run(command),
-  });
-  const action = (
-    command: CommandId,
-    icon: ContextMenuToolbarItem['icon'],
-    labelKey: string,
-  ): ContextMenuToolbarItem => ({
-    icon,
-    label: t(labelKey),
-    disabled: !commands.isEnabled(command),
-    disabledReason: commands.disabledReason(command),
-    onSelect: () => void commands.run(command),
-  });
-  return [
-    toggle('format.bold', 'B', 'icon-bold', 'menu.format.bold', 'bold'),
-    toggle('format.italic', 'I', 'icon-italic', 'menu.format.italic', 'italic'),
-    toggle('format.underline', 'U', 'icon-underline', 'menu.format.underline', 'underline'),
-    action('format.textColor', 'A', 'menu.format.textColor'),
-    // Distinct Lucide icons (#294) — the previous `▨`/`▦` hatch glyphs were
-    // nearly indistinguishable at toolbar size.
-    action('format.backgroundColor', PaintBucket, 'menu.format.backgroundColor'),
-    action('format.borders', Grid3x3, 'menu.format.borders'),
-  ];
 }
 
 /**

@@ -41,8 +41,6 @@ do not read this whole bundle to make a local change.
   records for choices not already anchored to a domain concept file above,
   starting with why the UI layer uses no framework.
 
-`docs/architecture.md`, `docs/security.md`, `docs/performance.md`,
-`docs/rsf-format.md`, and `docs/agent-operations.md` — the pre-migration
-source for the domains above — have been fully migrated and removed; this
-bundle is now their canonical replacement. See `knowledge/log.md` for the
-migration and removal history.
+This bundle is the canonical home of the former `docs/*.md` architecture,
+security, performance, RSF-format, and agent-operations documents.
+`knowledge/log.md` records its history; you do not need it for a change.

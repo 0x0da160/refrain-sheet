@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { type MarkdownBlock, type MarkdownInline, type MarkdownTableAlign } from '../core/markdown';
+import type { MarkdownBlock, MarkdownInline, MarkdownTableAlign } from '../core/markdown';
 import { tokenizeCode } from '../core/syntax-highlight';
 import { el } from './dom';
 

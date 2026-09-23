@@ -3,7 +3,7 @@ import { normalizeCommentText } from '../../core/cell-comment';
 import { cellLabel } from '../../core/formula';
 import type { CommentChange } from '../../core/history';
 import type { RsfDocument } from '../../core/rsf-document';
-import { AppState, type Tab } from '../app-state';
+import type { AppState, Tab } from '../app-state';
 import { t } from '../i18n';
 import type { CellCommentDialogInput, ConvertReason, UiPort } from '../commands';
 

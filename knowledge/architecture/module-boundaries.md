@@ -1,11 +1,11 @@
 ---
 type: architecture-concept
 title: Module boundaries
-description: The inward-only dependency rule between UI, app, core, and infrastructure, what each layer may and may not do, and the one known exception.
+description: The inward-only dependency rule between UI, app, core, and infrastructure, what each layer may and may not do, and how the rule is enforced.
 sources:
   - resource: docs/architecture.md (migrated content; file removed after migration — see knowledge/log.md)
   - resource: ../../src/core/rsf-document.ts
-  - resource: ../../src/app/version.ts
+  - resource: ../../src/core/app-identity.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -36,7 +36,10 @@ The rules that diagram implies:
   since a later section can still override an earlier one at equal
   specificity, exactly as when this was one file — plus Tailwind utility
   classes for non-grid surfaces (menus, dialogs, panels, the welcome
-  screen). The `tokens.css` section imports only `tailwindcss/theme.css` and
+  screen). Tailwind scans only the app's own sources (`src/**/*.ts` and
+  `index.html`, via `source(none)` + `@source` in `tokens.css`), so editing
+  docs or other prose can never change the shipped CSS. The `tokens.css`
+  section imports only `tailwindcss/theme.css` and
   `tailwindcss/utilities.css` — never the Preflight base layer — so Tailwind
   contributes utility classes without resetting any element's default
   styling. The `@theme` block bridges a subset of the semantic color tokens
@@ -45,19 +48,13 @@ The rules that diagram implies:
   migration to keep its rendering path unaffected; no framework (React,
   Vue, etc.) is used anywhere.
 
-## Known exception (observed, not yet a documented decision)
+## Enforcement
 
-`src/core/rsf-document.ts:53` imports `APP_NAME, APP_VERSION` from
-`src/app/version.ts` to stamp application identity/version into saved
-`.rsf` metadata. Read literally, this is a `core/` → `app/` import, which
-the inward-only rule above forbids.
-
-In practice `src/app/version.ts` has no dependencies of its own beyond
-re-exporting `package.json`'s version string, so this isn't a real
-business-logic layering violation — but it does contradict the rule as
-written, and it was found by grepping actual `import ... from '../app'`
-statements in `src/core/` (the only such import in the tree; verified
-2026-09-22). This is recorded here as an honest discrepancy between
-documentation and code, not resolved: the two reasonable fixes (move
-`version.ts` to `src/core/`, or document this as a sanctioned exception)
-are a maintainer decision, not one this audit makes unilaterally.
+The inward-only rule has no exceptions and is enforced mechanically:
+`eslint.config.js` forbids `src/core/` from importing `src/app/` or
+`src/ui/` (and from using DOM globals), and `src/app/` from importing
+`src/ui/`; `tests/architecture.test.ts` fails on any runtime import cycle
+in `src/`. The application identity that `.rsf` metadata records
+(`APP_NAME`, `APP_VERSION`) lives in `src/core/app-identity.ts` for this
+reason — it was previously imported by `rsf-document.ts` from
+`src/app/version.ts`, the tree's only `core/` → `app/` import.

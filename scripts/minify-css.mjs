@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Dependency-free, lossless-ish CSS minifier for the landing page stylesheet
-// (Issue #219: Lighthouse flagged src/landing/styles.css as ~22% removable
+// (Issue #219: Lighthouse flagged site/styles.css as ~22% removable
 // whitespace/comments once served unminified from landing/).
 //
 // This is intentionally not a general-purpose CSS parser: it strips comments,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { DiffDialogInput } from '../../app/commands';
 import { t } from '../../app/i18n';
-import { type DiffOptions, type DiffResult, type DiffRow, type DiffRowType } from '../../core/diff-engine';
+import type { DiffOptions, DiffResult, DiffRow, DiffRowType } from '../../core/diff-engine';
 import { el } from '../dom';
 import { dialogButton, openDialog } from './shared';
 

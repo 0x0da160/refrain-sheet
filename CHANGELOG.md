@@ -33,6 +33,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The offline build and the release ZIP no longer contain the Google Drive
+  sync code at all. It was already disabled there and never made a network
+  request; now it is compiled out, so the offline app is slightly smaller
+  and holds no Google endpoint addresses.
+
 - The app and the landing site now follow the Refrain Sheet Design System
   v1.0.0: the light/dark/hybrid color themes, the UI font stack, and the
   app icon/favicon/logo were all retuned to the new brand palette (a
@@ -243,6 +248,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
   ([#557](https://github.com/0x0da160/refrain-sheet/issues/557))
 
 ### Fixed
+
+- The release ZIP's `THIRD-PARTY-NOTICES.md` now includes the license
+  notice for the bundled `yaml` library, which the YAML worksheet kind uses;
+  it had been missing.
 
 - Typing into a cell on a phone (iOS Safari in particular) no longer causes a
   visible layout shift on every keystroke, and the cell editor no longer

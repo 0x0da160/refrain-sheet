@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Version-consistency gate.
 //
-// The application version is defined once in package.json (src/app/version.ts
+// The application version is defined once in package.json (src/core/app-identity.ts
 // imports it, so app-visible strings never hard-code a number). This script
 // fails when any *other* version source drifts out of sync:
 //

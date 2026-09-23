@@ -194,3 +194,19 @@ repeatedly, grounded in code/tests/an authoritative source, no filler":
 `decisions/index.md` is a reserved index with no frontmatter, matching the
 other domain indexes, and explicitly says most rationale already lives
 inline in the other domains rather than here.
+
+## 2026-09-23
+
+**Repository structural cleanup.** Corrected the production-dependency
+count (four, including `lucide`) in `operations/security-supply-chain.md`
+and `decisions/no-ui-framework.md`. Resolved the one documented layering
+exception in `architecture/module-boundaries.md` (the app identity moved to
+`src/core/app-identity.ts`) and recorded how the layering rule is now
+enforced. Documented the frozen `.rsf` fixture corpus in
+`formats/rsf/compatibility.md`, that the Drive client is compiled out of the
+offline build in `operations/security-threat-model.md`, and `UiPort`'s new
+home in `architecture/system-overview.md`. Removed the repeated "migrated
+from `docs/…`" notes from the root and domain indexes (history stays here),
+so the files every task reads first carry only navigation.
+`scripts/check-knowledge-frontmatter.mjs` now also checks relative links,
+repository paths, and `stale_after` dates.

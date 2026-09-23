@@ -35,6 +35,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- The `#debug-viewport` diagnostic panel now has a keyboard test: buttons
+  that each try a different way of focusing a text field, to find out which
+  ones bring up the iPhone's on-screen keyboard. The log also records how
+  each tap ends.
+
 ## [0.8.14] - 2026-09-23
 
 ### Fixed

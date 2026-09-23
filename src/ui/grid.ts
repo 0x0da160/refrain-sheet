@@ -225,6 +225,28 @@ const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
  * relying on `dblclick` for touch input.
  */
 const DOUBLE_TAP_MS = 300;
+/**
+ * How far apart (px) the two taps of a double-tap may land, on top of both
+ * hitting the same cell. A finger's second tap routinely lands 10–15px from
+ * the first; the on-device log for #590 shows a 12px pair that the
+ * long-press tolerance (10px) wrongly rejected.
+ */
+const DOUBLE_TAP_SLOP_PX = 30;
+
+/** A new grid sink textarea (see `Grid.sink`), not yet wired or mounted. */
+function createSink(): HTMLTextAreaElement {
+  return el('textarea', {
+    className: 'grid-sink',
+    attrs: {
+      rows: '1',
+      spellcheck: 'false',
+      autocapitalize: 'off',
+      autocomplete: 'off',
+      tabindex: '-1',
+      'aria-label': t('grid.label'),
+    },
+  });
+}
 
 /**
  * Virtualized CSV/RSF grid. Only the visible rows and columns (plus a small
@@ -310,7 +332,7 @@ export class Grid {
    * Romaji sequence composes correctly instead of leaking a literal Latin
    * letter into the cell.
    */
-  private readonly sink: HTMLTextAreaElement;
+  private sink: HTMLTextAreaElement;
   /** Hidden description element backing the inline editor's help tooltip. */
   private readonly editorHint: HTMLElement;
   /** Polite live region announcing spreadsheet-zoom changes to AT. */
@@ -467,17 +489,7 @@ export class Grid {
       className: 'vcell vgrid-measure',
       attrs: { 'aria-hidden': 'true' },
     });
-    this.sink = el('textarea', {
-      className: 'grid-sink',
-      attrs: {
-        rows: '1',
-        spellcheck: 'false',
-        autocapitalize: 'off',
-        autocomplete: 'off',
-        tabindex: '-1',
-        'aria-label': t('grid.label'),
-      },
-    });
+    this.sink = createSink();
     // Visually hidden, ARIA-linked editing guidance for the inline editor
     // (the visible tooltip is the `title` attribute; both follow the
     // editing-help preference and never obscure the cell or caret).
@@ -571,7 +583,12 @@ export class Grid {
     // forwards focus into the sink so keystrokes and IME compositions always
     // target an editable element.
     this.element.addEventListener('focus', () => this.focusGrid());
-    this.sink.addEventListener('compositionstart', () => {
+    this.wireSink(this.sink);
+  }
+
+  /** Attach the sink's IME and editing listeners (see `createSink`, `replaceSink`). */
+  private wireSink(sink: HTMLTextAreaElement): void {
+    sink.addEventListener('compositionstart', () => {
       this.composing = true;
       // A composition that starts while navigating promotes the sink into the
       // cell editor in place (no focus change, no value reset) so the composed
@@ -580,7 +597,7 @@ export class Grid {
         this.beginTypedEdit();
       }
     });
-    this.sink.addEventListener('compositionend', () => {
+    sink.addEventListener('compositionend', () => {
       this.composing = false;
       if (this.editor) {
         // Composition committed text; refresh completions/highlights from it.
@@ -591,7 +608,7 @@ export class Grid {
         this.sink.value = '';
       }
     });
-    this.sink.addEventListener('beforeinput', (event) => {
+    sink.addEventListener('beforeinput', (event) => {
       // Text about to be inserted while no editor is open (an engine that
       // fires neither keydown 229 nor compositionstart first) still promotes
       // the sink before the value changes. Never synthesized from keydown.
@@ -599,10 +616,25 @@ export class Grid {
         this.beginTypedEdit();
       }
     });
-    this.sink.addEventListener('keydown', (event) => this.sinkKeyDown(event));
-    this.sink.addEventListener('input', () => this.sinkInput());
-    this.sink.addEventListener('click', () => this.editor?.autocomplete.update());
-    this.sink.addEventListener('blur', () => this.commitEditor());
+    sink.addEventListener('keydown', (event) => this.sinkKeyDown(event));
+    sink.addEventListener('input', () => this.sinkInput());
+    sink.addEventListener('click', () => this.editor?.autocomplete.update());
+    sink.addEventListener('blur', () => this.commitEditor());
+  }
+
+  /**
+   * Swap in a fresh sink element, focused by the caller. iOS Safari only
+   * brings up the on-screen keyboard for a focus that moves to a *different*
+   * element: blurring and refocusing the sink that a tap-to-select already
+   * focused read-only (#469) never shows it, while focusing another field
+   * from the same `pointerup` does (on-device keyboard probe, #588/#590).
+   */
+  private replaceSink(): void {
+    const old = this.sink;
+    const fresh = createSink();
+    this.wireSink(fresh);
+    this.sink = fresh;
+    old.replaceWith(fresh);
   }
 
   /**
@@ -2473,7 +2505,7 @@ export class Grid {
       pending &&
       pending.row === cell.row &&
       pending.col === cell.col &&
-      Math.hypot(event.clientX - pending.x, event.clientY - pending.y) <= LONG_PRESS_MOVE_TOLERANCE_PX
+      Math.hypot(event.clientX - pending.x, event.clientY - pending.y) <= DOUBLE_TAP_SLOP_PX
     ) {
       clearTimeout(pending.timer);
       this.pendingTap = null;
@@ -3377,15 +3409,14 @@ export class Grid {
       return;
     }
     // A double-tap's first tap already focused the sink through `focusGrid()`'s
-    // read-only suppression (#469) — on real touch devices, calling `.focus()`
-    // again below on an element that's already the active one is a no-op that
-    // never re-shows the on-screen keyboard; only a genuine blur -> focus
-    // transition does. Force that transition here, but only when `initial` is
-    // not `''`: an empty-string open is the type-to-edit path, where the sink
-    // is deliberately already focused and mid-keystroke/IME-composition, and
-    // blurring it here would abort that composition (#487).
+    // read-only suppression (#469). iOS Safari shows no on-screen keyboard
+    // for refocusing that same element, even after a blur (on-device probe,
+    // #588), but does for focus moving to a different one: so swap in a
+    // fresh sink to focus below. Not for `initial === ''`, the type-to-edit
+    // path, where the sink is deliberately already focused and mid-keystroke/
+    // IME-composition (#487).
     if (initial !== '' && this.lastPointerType !== 'mouse' && document.activeElement === this.sink) {
-      this.sink.blur();
+      this.replaceSink();
     }
     this.select(tab, row, col, true);
     const cell = this.cellAt(row, col);

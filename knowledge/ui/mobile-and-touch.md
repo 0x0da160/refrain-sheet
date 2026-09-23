@@ -86,7 +86,13 @@ docked-panel/Find-bar text field:
   for): a touch tap-to-select focuses the sink read-only, so no keyboard
   appears, and a subsequent double-tap that actually opens the cell editor
   focuses it normally (not read-only), so the keyboard appears exactly when
-  editing starts. A brand-new document's first render also claims keyboard
+  editing starts. That focus must go to a _different_ element: iOS Safari
+  shows no keyboard for blurring and refocusing the same, already
+  silently focused textarea (the on-device keyboard probe, #588), so the
+  double-tap swaps in a fresh sink (`Grid.replaceSink`) and focuses it
+  (#590). Two taps pair into a double-tap when both hit the same cell
+  within `DOUBLE_TAP_MS` and `DOUBLE_TAP_SLOP_PX` (30px; a finger's second
+  tap often lands 10-15px away). A brand-new document's first render also claims keyboard
   focus before any touch event has reached that `Grid` instance; the
   pointer-type tracking defaults safely so that first claim is still
   treated as keyboard-safe rather than assumed to be a mouse user.

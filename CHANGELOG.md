@@ -35,6 +35,12 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- On iPhone, double-tapping a cell brings up the on-screen keyboard again,
+  so you can type directly into the cell. A double-tap whose second tap
+  lands a little away from the first is also recognized now.
+
 ## [0.8.15] - 2026-09-23
 
 ### Added

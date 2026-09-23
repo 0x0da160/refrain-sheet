@@ -190,7 +190,7 @@ function effectiveSidePanelPosition(): SidePanelPosition {
 /** The dock side/size any *new* dockable side panel should open at. */
 export function currentSidePanelPlacement(): { position: SidePanelPosition; size: number } {
   const position = effectiveSidePanelPosition();
-  return { position, size: sidePanelMaximized ? sidePanelMaxExtent(position) : sidePanelSize };
+  return { position, size: sidePanelMaximized ? sidePanelMaximizedExtent(position) : sidePanelSize };
 }
 
 function sidePanelAxis(position: SidePanelPosition): EdgeResizeAxis {
@@ -199,11 +199,27 @@ function sidePanelAxis(position: SidePanelPosition): EdgeResizeAxis {
 
 /** The largest a side panel is ever allowed to grow to along its docked
  * axis — the same cap the edge-resize handle enforces (`SIDE_PANEL_VIEWPORT_MARGIN`
- * left over so the sheet behind it is never fully hidden) — used both by the
- * resize handle and by the maximize toggle below. */
+ * left over so the sheet behind it is never fully hidden) — used by the edge
+ * resize handle. */
 function sidePanelMaxExtent(position: SidePanelPosition): number {
   const vp = visualViewportRect();
   return (sidePanelAxis(position) === 'horizontal' ? vp.width : vp.height) - SIDE_PANEL_VIEWPORT_MARGIN;
+}
+
+/**
+ * The size a maximized side panel takes along its docked axis: all of it.
+ * A left/right-docked panel spans the whole viewport width; a top/bottom
+ * one fills everything between the top chrome (menu bar and book tabs) and
+ * the bottom chrome (worksheet strip and status bar), which it never covers.
+ * Unlike {@link sidePanelMaxExtent}, no margin of sheet is left showing —
+ * the restore button brings the sheet back.
+ */
+function sidePanelMaximizedExtent(position: SidePanelPosition): number {
+  const vp = visualViewportRect();
+  if (sidePanelAxis(position) === 'horizontal') {
+    return vp.width;
+  }
+  return Math.max(MIN_SIDE_PANEL_SIZE, vp.height - topChromeInset() - statusBarHeight() - sheetBarHeight());
 }
 
 /** The live height of the status bar (always visible, even in welcome mode). */
@@ -340,7 +356,7 @@ export function buildSidePanelDock(panel: HTMLElement): {
 
   /** The size to apply for the current dock side, honoring maximize. */
   const currentSize = (position: SidePanelPosition): number =>
-    sidePanelMaximized ? sidePanelMaxExtent(position) : sidePanelSize;
+    sidePanelMaximized ? sidePanelMaximizedExtent(position) : sidePanelSize;
 
   const positionButtons = SIDE_PANEL_POSITIONS.map((position) => {
     const label = t(`dialog.sidePanel.position.${position}`);

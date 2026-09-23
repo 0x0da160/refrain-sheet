@@ -154,6 +154,30 @@ describe('copy / paste', () => {
     expect(clip.copyText()).toBe('1\t2\n3\t3');
   });
 
+  it('anchors a paste at the top-left cell of the selected range, not the active cell', async () => {
+    const { state, commands, tab } = setup('a,b,c\nd,e,f\ng,h,i\n');
+    // Drag from C3 back to B2: the active cell is C3, the range B2:C3.
+    state.setSelection(tab, { row: 2, col: 2 }, { row: 1, col: 1 });
+    const applied = await commands.applyPaste(tab, [['X', 'Y', 'Z']], null);
+    expect(applied).toBe(true);
+    expect(tab.doc.getValue(1, 1)).toBe('X');
+    expect(tab.doc.getValue(1, 2)).toBe('Y');
+    expect(tab.doc.getValue(2, 2)).toBe('i');
+  });
+
+  it('pastes a copied blank cell, whose clipboard text is empty, over a value', async () => {
+    const { state, commands, tab } = setup('a,\nc,d\n');
+    state.setSelection(tab, { row: 0, col: 1 }, null);
+    const clip = new ClipboardController(state, commands, () => undefined, document);
+    expect(clip.copyText()).toBe('');
+    state.setSelection(tab, { row: 1, col: 0 }, null);
+    const preventDefault = vi.fn();
+    const event = { clipboardData: { getData: () => '' }, preventDefault } as unknown as ClipboardEvent;
+    expect(clip.handlePasteEvent(event)).toBe(true);
+    expect(preventDefault).toHaveBeenCalled();
+    await vi.waitFor(() => expect(tab.doc.getValue(1, 0)).toBe(''));
+  });
+
   it('pastes TSV into a CSV document within bounds as one undoable operation', async () => {
     const { state, commands, tab } = setup('a,b\nc,d\n');
     state.setSelection(tab, { row: 0, col: 0 }, null);

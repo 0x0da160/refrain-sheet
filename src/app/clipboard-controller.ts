@@ -131,7 +131,16 @@ export class ClipboardController {
   handlePasteEvent(event: ClipboardEvent): boolean {
     const text = event.clipboardData?.getData('text/plain') ?? '';
     if (text === '') {
-      return false;
+      // A copied blank cell puts an empty string on the clipboard; paste it
+      // from the internal clipboard so it clears the destination.
+      const internal = this.internal;
+      const tab = this.state.activeTab;
+      if (internal?.text !== '' || !tab) {
+        return false;
+      }
+      event.preventDefault();
+      void this.commands.applyPaste(tab, internal.matrix, internal.origin).then(() => this.clearCopySource());
+      return true;
     }
     event.preventDefault();
     void this.pasteText(text);

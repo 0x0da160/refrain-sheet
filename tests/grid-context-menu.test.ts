@@ -135,6 +135,22 @@ describe('the grid right-click menu (#396)', () => {
     ]);
   });
 
+  it('shows a leading icon on every item, submenu parents included, like the menu bar', () => {
+    const { state, grid, tab } = grid3x3();
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    openCellContextMenu(grid);
+    const items = Array.from(document.querySelectorAll('.context-menu:not(.submenu) > .menu-item'));
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) {
+      expect(item.querySelector('.check .item-icon'), item.textContent ?? '').not.toBeNull();
+    }
+    openSubmenu(t('menu.sheet.rowsAndColumns'));
+    const subItems = Array.from(document.querySelectorAll('.context-menu.submenu > .menu-item'));
+    for (const item of subItems) {
+      expect(item.querySelector('.check .item-icon'), item.textContent ?? '').not.toBeNull();
+    }
+  });
+
   it('reaches every previously-flat edit command inside the Edit submenu', () => {
     const { state, grid, tab } = grid3x3();
     state.setSelection(tab, { row: 0, col: 0 }, null);

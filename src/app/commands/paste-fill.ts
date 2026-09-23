@@ -88,11 +88,12 @@ export class PasteFillCommands {
 
   /**
    * Paste a rectangular matrix as one atomic, undoable operation, preserving
-   * the copied shape. Normally the paste starts at the active cell. When a
+   * the copied shape. The paste starts at the selected range's top-left cell
+   * (the active cell when only one cell is selected). When a
    * larger destination range is selected and each of its dimensions is an
    * exact multiple of the source's, the source pattern repeats to fill the
    * whole selected destination (documented behavior; otherwise the range is
-   * pasted once at the active cell). For byte-preserving CSV documents the
+   * pasted once at the range's top-left cell). For byte-preserving CSV documents the
    * paste must fit inside the existing cells; pastes that would change the
    * row/column structure require the explicit RSF conversion. `origin` is
    * set for app-internal pastes so relative formula references adjust like a
@@ -104,14 +105,15 @@ export class PasteFillCommands {
     }
     const srcH = matrix.length;
     const srcW = matrix[0].length;
-    // Pattern-repeat: fill a larger selected destination when its dimensions
-    // are exact multiples of the source's. The paste then anchors at the
-    // destination's top-left corner.
+    // A selected range anchors the paste at its top-left corner, wherever
+    // the active cell sits inside it. Pattern-repeat: fill a larger selected
+    // destination when its dimensions are exact multiples of the source's.
     let at = tab.selection;
     let height = srcH;
     let width = srcW;
     const dest = this.state.selectedRange(tab);
     if (dest) {
+      at = { row: dest.top, col: dest.left };
       const destRows = dest.bottom - dest.top + 1;
       const destCols = dest.right - dest.left + 1;
       if (
@@ -121,7 +123,6 @@ export class PasteFillCommands {
         destRows >= srcH &&
         destCols >= srcW
       ) {
-        at = { row: dest.top, col: dest.left };
         height = destRows;
         width = destCols;
       }

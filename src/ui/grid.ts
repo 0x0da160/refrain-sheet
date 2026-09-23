@@ -19,6 +19,7 @@ import type { RsfDocument } from '../core/rsf-document';
 import { forEachIndexSliced } from '../core/scheduler';
 import type { SheetSort } from '../core/sort';
 import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../core/text-wrap';
+import { ICON_BY_COMMAND } from './command-icons';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 import { onKeyboardOpenChange, onKeyboardResize } from './popup';
@@ -1031,11 +1032,17 @@ export class Grid {
         cell.removeAttribute('aria-selected');
       }
     }
+    // The active cell's row is highlighted only while a single cell is
+    // selected; a multi-cell range already shows where the selection is.
+    const multiCell = range !== null && (range.top !== range.bottom || range.left !== range.right);
     const rows = this.canvas.querySelectorAll<HTMLElement>('.vgrid-row, .vgrid-stickyrow');
     for (const rowEl of rows) {
       const row = Number(rowEl.dataset.row);
       const inSelRows = range !== null && kind === 'row' && row >= range.top && row <= range.bottom;
-      rowEl.classList.toggle('selected-row', inSelRows || (active !== null && active.row === row));
+      rowEl.classList.toggle(
+        'selected-row',
+        inSelRows || (!multiCell && active !== null && active.row === row),
+      );
     }
     // Highlight the row/column headers intersecting the selection so whole-row
     // and whole-column selections read clearly even outside the data cells.
@@ -1924,7 +1931,9 @@ export class Grid {
     }
     if (doc.kind === 'csv') {
       const field = doc.getField(row, col);
-      const edited = doc.isEdited(row, col);
+      // A brand-new CSV has no original file to differ from, so its edits
+      // are not highlighted until the first save sets a baseline.
+      const edited = !tab.neverSaved && doc.isEdited(row, col);
       cell.classList.toggle('edited', edited);
       cell.classList.toggle('malformed', field?.malformed ?? false);
       if (edited) {
@@ -3834,11 +3843,13 @@ export class Grid {
     if ('submenu' in item) {
       return {
         label: t(item.labelKey),
+        icon: item.icon,
         submenu: item.submenu.map((sub) => this.buildContextEntry(sub)),
       };
     }
     return {
       label: t(item.labelKey),
+      icon: ICON_BY_COMMAND[item.command],
       shortcut: item.shortcut,
       disabled: !this.commands.isEnabled(item.command),
       onSelect: () => void this.commands.run(item.command),

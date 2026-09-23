@@ -2,10 +2,13 @@
 
 /* ---------- Toasts ---------- */
 
+/* Top-right on every screen size, just below the menu bar: clear of the
+   status bar, the worksheet strip, and (on a phone) the thumb and the
+   on-screen keyboard (#534). */
 .toasts {
   position: fixed;
+  top: 38px;
   right: 14px;
-  bottom: 38px;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);

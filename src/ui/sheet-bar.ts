@@ -4,6 +4,7 @@ import type { AppState } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import type { WorksheetKind } from '../core/worksheet';
+import { ICON_BY_COMMAND } from './command-icons';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 import { createIcon } from './icon';
@@ -370,26 +371,31 @@ export class SheetBar {
     const entries: ContextMenuEntry[] = [
       {
         label: t('menu.sheet.addSheet'),
+        icon: ICON_BY_COMMAND['worksheet.add'],
         disabled: !this.commands.isEnabled('worksheet.add'),
         onSelect: () => void this.commands.run('worksheet.add'),
       },
       {
         label: t('menu.sheet.addMarkdownSheet'),
+        icon: ICON_BY_COMMAND['worksheet.addMarkdown'],
         disabled: !this.commands.isEnabled('worksheet.addMarkdown'),
         onSelect: () => void this.commands.run('worksheet.addMarkdown'),
       },
       {
         label: t('menu.sheet.addJsonSheet'),
+        icon: ICON_BY_COMMAND['worksheet.addJson'],
         disabled: !this.commands.isEnabled('worksheet.addJson'),
         onSelect: () => void this.commands.run('worksheet.addJson'),
       },
       {
         label: t('menu.sheet.addYamlSheet'),
+        icon: ICON_BY_COMMAND['worksheet.addYaml'],
         disabled: !this.commands.isEnabled('worksheet.addYaml'),
         onSelect: () => void this.commands.run('worksheet.addYaml'),
       },
       {
         label: t('menu.sheet.addTextSheet'),
+        icon: ICON_BY_COMMAND['worksheet.addText'],
         disabled: !this.commands.isEnabled('worksheet.addText'),
         onSelect: () => void this.commands.run('worksheet.addText'),
       },
@@ -407,7 +413,7 @@ export class SheetBar {
         // checkmark and icon share one column, so `icon` here is only ever
         // seen if this stops being checkable.
         label: isLockItem ? t(locked ? 'menu.sheet.unlockSheet' : 'menu.sheet.lockSheet') : t(item.labelKey),
-        icon: isLockItem ? (locked ? LockOpen : Lock) : undefined,
+        icon: isLockItem ? (locked ? LockOpen : Lock) : ICON_BY_COMMAND[item.command],
         disabled: !this.commands.isEnabled(item.command),
         ...(isLockItem ? { checked: locked } : {}),
         onSelect: () => void this.commands.run(item.command).then(() => this.focusActive()),

@@ -101,8 +101,8 @@
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 14px var(--shadow);
   padding: var(--space-2) 0;
-  /* Above every docked/floating surface it can open over (context menus and
-     the dockable side panels are both 100, the filter popover is 100) so a
+  /* Above every docked/floating surface it can open over (the dockable side
+     panels and the filter popover are 100; context menus share this layer) so a
      menu-bar drop-down is never clipped by a panel docked at the edge it
      opens toward. Still below the transient full-screen overlays
      (.drop-overlay/.loading-overlay/.toasts) and below a native <dialog>,

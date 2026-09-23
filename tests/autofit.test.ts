@@ -468,6 +468,17 @@ describe('auto-fit on open (settings + file-open integration)', () => {
     expect(state.activeTab!.colWidths).toEqual([40, 50, 60]);
   });
 
+  it('never auto-fits an RSF workbook, even one saved without column widths', async () => {
+    const saved = RsfDocument.empty('plain.rsf', 2, 3);
+    saved.setCell(0, 0, 'a much longer value than the default width');
+    const bytes = saved.toBytes();
+    const { state, commands } = openSetup();
+    await commands.openFiles([{ name: 'plain.rsf', bytes, handle: null, size: bytes.length }], {
+      confirmNonCsv: false,
+    });
+    expect(state.activeTab!.colWidths).toEqual([]);
+  });
+
   it('the View > Auto-Fit Columns on Open command toggles the preference', async () => {
     const { commands } = openSetup();
     expect(getAutoFitOnOpen()).toBe(true);

@@ -18,7 +18,7 @@
   --field-bg: oklch(17.5% 0.017 var(--hue-neutral));
   --cell-bg: oklch(17.5% 0.017 var(--hue-neutral));
   --grid-line: oklch(27.9% 0.019 var(--hue-neutral));
-  --row-alt: oklch(21.5% 0.018 var(--hue-neutral));
+  --row-alt: oklch(19.6% 0.017 var(--hue-neutral));
   --selected-row: oklch(26.9% 0.062 159);
   --sticky-bg: oklch(28.6% 0.028 92.8);
   --info-soft: oklch(30% 0.09 252);

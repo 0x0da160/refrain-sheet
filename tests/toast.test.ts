@@ -3,8 +3,8 @@
  * Toasts previously only disappeared after a 7-second auto-dismiss timeout,
  * with no way to close one early. `Toasts.notify()` now appends a close
  * button that removes the toast immediately and cancels its pending
- * auto-dismiss timer, and shows toasts near the top of the viewport instead
- * of the bottom on narrow (mobile) screens (#534).
+ * auto-dismiss timer. Toasts sit at the top-right of the viewport on every
+ * screen size (#534).
  */
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

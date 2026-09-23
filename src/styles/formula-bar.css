@@ -60,7 +60,8 @@
   position: absolute;
   top: 100%;
   left: 0;
-  z-index: 30;
+  /* Above the dockable side panels (100), like the floating variant below. */
+  z-index: 120;
   margin: var(--space-1) 0 0;
   padding: var(--space-1);
   list-style: none;

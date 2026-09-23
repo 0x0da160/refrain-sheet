@@ -10,6 +10,16 @@ name: Manual release recovery
 #   validate source -> `npm run release -- <type> --yes` -> commit + tag (by that
 #   script) -> call release.yml (GitHub Release + Pages from the exact tag).
 #
+# The release commit also carries the CHANGELOG.md section for the new version
+# (the `[Unreleased]` entries, filed by scripts/changelog.mjs) and the refreshed
+# README.md code statistics (scripts/code-stats.mjs + cloc). Both can be caught
+# up by hand with the `Release docs` workflow.
+#
+# The full check suite runs once, in the validate job's documented dry run. The
+# bump job reuses that result only while `main` is still the commit it ran on
+# (`--checks-passed-at`); if `main` moved in between, it runs the suite again.
+# release.yml verifies the tagged tree once more before publishing.
+#
 # WHAT IT REFUSES:
 # - Any branch, commit SHA, version string, command, or CLI argument supplied
 #   through workflow inputs. The only inputs are a numeric (or empty) PR number, a
@@ -103,6 +113,7 @@ jobs:
       tag: ${{ steps.check.outputs.tag }}
       version: ${{ steps.check.outputs.version }}
       merge_sha: ${{ steps.check.outputs.merge_sha }}
+      checked_sha: ${{ steps.dryrun.outputs.checked_sha }}
       released_in: ${{ steps.check.outputs.released_in }}
       reason_en: ${{ steps.check.outputs.reason_en }}
       reason_ja: ${{ steps.check.outputs.reason_ja }}
@@ -329,6 +340,7 @@ jobs:
       # audit:ci, build, check:dist) and changes nothing. It is the authority on
       # the next version; its plan is compared with the value computed above.
       - name: Documented dry run (validates source, computes the version)
+        id: dryrun
         if: steps.check.outputs.mode == 'release'
         env:
           RELEASE_TYPE: ${{ inputs.release_type }}
@@ -346,6 +358,7 @@ jobs:
             exit 1
           fi
           echo "Release script and eligibility agree on ${EXPECTED_TAG}."
+          echo "checked_sha=$(git rev-parse HEAD)" >>"$GITHUB_OUTPUT"
 
       # Written here (not only in the final job) so a stop, an already-released
       # exit, and a dry run all produce the bilingual block even though no later
@@ -431,11 +444,18 @@ jobs:
       - name: Install dependencies (no lifecycle scripts)
         run: npm ci --ignore-scripts
 
+      # For the README.md code statistics folded into the release commit.
+      - name: Install cloc
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cloc
+
       - name: Run the documented release script
         id: run
         env:
           RELEASE_TYPE: ${{ inputs.release_type }}
           EXPECTED_TAG: ${{ needs.validate.outputs.tag }}
+          CHECKED_SHA: ${{ needs.validate.outputs.checked_sha }}
         run: |
           set -euo pipefail
           case "$RELEASE_TYPE" in
@@ -444,9 +464,17 @@ jobs:
           esac
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # `--yes` only skips the interactive confirmation; every check, the
-          # tag-collision guard, and the never-force-push rule still apply.
-          npm run release -- "$RELEASE_TYPE" --yes
+          # `--yes` only skips the interactive confirmation; the tag-collision
+          # guard and the never-force-push rule still apply. The check suite is
+          # skipped only when this is the exact commit the validate job's dry
+          # run just checked; otherwise it runs in full here.
+          reuse=()
+          if [ -n "$CHECKED_SHA" ] && [ "$(git rev-parse HEAD)" = "$CHECKED_SHA" ]; then
+            reuse=(--checks-passed-at "$CHECKED_SHA")
+          else
+            echo "::notice::main moved since validation; running the full check suite again."
+          fi
+          npm run release -- "$RELEASE_TYPE" --yes "${reuse[@]}"
           tag="v$(node -p "require('./package.json').version")"
           if [ "$tag" != "$EXPECTED_TAG" ]; then
             echo "::error::Produced $tag but validation expected $EXPECTED_TAG."

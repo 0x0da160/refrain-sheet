@@ -11,7 +11,10 @@ import { describe, expect, it } from 'vitest';
 const release = readFileSync('.github/workflows/release.yml', 'utf8');
 const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
 const dependencyReview = readFileSync('.github/workflows/dependency-review.yml', 'utf8');
-const allWorkflows = [release, ci, dependencyReview];
+const manualRelease = readFileSync('.github/workflows/manual-release.yml', 'utf8');
+const releaseDocs = readFileSync('.github/workflows/release-docs.yml', 'utf8');
+const wasm = readFileSync('.github/workflows/wasm.yml', 'utf8');
+const allWorkflows = [release, ci, dependencyReview, manualRelease, releaseDocs, wasm];
 
 describe('release + Pages workflow triggers', () => {
   it('triggers only on version tags — never on branches or pull requests', () => {
@@ -211,5 +214,35 @@ describe('dependency-review workflow', () => {
   it('uses the official dependency-review action and fails on high severity', () => {
     expect(dependencyReview).toContain('actions/dependency-review-action@');
     expect(dependencyReview).toMatch(/fail-on-severity:\s*high/);
+  });
+});
+
+describe('release docs (CHANGELOG.md + code statistics)', () => {
+  it('never runs on push or merge — only by hand', () => {
+    expect(releaseDocs).toMatch(/^on:\s*\n\s*workflow_dispatch:\s*$/m);
+    expect(releaseDocs).not.toMatch(/^\s*(push|pull_request|schedule):/m);
+    expect(releaseDocs).toMatch(/^permissions:\s*\n\s*contents:\s*read\s*$/m);
+    // It proposes a pull request; it never pushes to main.
+    expect(releaseDocs).toContain('chore/release-docs');
+    expect(releaseDocs).not.toMatch(/push[^\n]*\bmain\b/);
+  });
+
+  it('the manual release installs cloc so the release commit carries the code statistics', () => {
+    const bump = manualRelease.slice(manualRelease.indexOf('\n  bump:'));
+    expect(bump).toContain('apt-get install -y --no-install-recommends cloc');
+    expect(bump.indexOf('cloc')).toBeLessThan(bump.indexOf('npm run release --'));
+  });
+
+  it('skips the repeated check suite only for the exact commit the dry run checked', () => {
+    expect(manualRelease).toContain('checked_sha=$(git rev-parse HEAD)');
+    expect(manualRelease).toMatch(/"\$\(git rev-parse HEAD\)" = "\$CHECKED_SHA"/);
+    expect(manualRelease).toContain('--checks-passed-at "$CHECKED_SHA"');
+  });
+});
+
+describe('CI job layout', () => {
+  it('keeps an aggregate `ci` job that requires every other job', () => {
+    expect(ci).toMatch(/^ {2}ci:\s*\n\s*needs:\s*\[checks, test, build\]/m);
+    expect(ci).toMatch(/--shard=\$\{\{ matrix\.shard \}\}\/2/);
   });
 });

@@ -12,6 +12,18 @@ reference configuration, and a roadmap — so that
 [roadmap-not-enabled.md](roadmap-not-enabled.md) (auto-merge, scheduled
 autonomous runs) is never mistaken for current behavior.
 
+> **Status (2026-09-23): the GitHub Actions workflows that drove this loop
+> were removed.** `issue-triage.yml`, `prepare-issue-spec.yml`,
+> `implement-issue.yml`, `review-pr.yml`, and `close-loop.yml` had done no
+> real work since 2026-09-18 — development moved to interactive Claude Code
+> sessions — and `review-pr.yml` / `close-loop.yml` were firing on every pull
+> request only to skip or fail. The pages below remain as the design record
+> and as the process the `.claude/skills/` skills still follow when run by
+> hand; the workflow tables describe the removed automation. Restoring it
+> means reverting that removal from git history, then redoing
+> [the setup](configuration-and-permissions.md#human-setup-required). The
+> release workflows (`manual-release.yml`, `release.yml`) are unaffected.
+>
 > **Nothing in this loop merges code or deploys to production.** Merges,
 > releases, and the `agent:ready` approval are always human actions.
 

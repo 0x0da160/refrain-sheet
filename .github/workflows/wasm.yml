@@ -74,6 +74,19 @@ jobs:
           rustup toolchain install "$channel" --profile minimal --target wasm32-unknown-unknown
           rustc --version
 
+      # Crate downloads and compiled dependencies. Keyed on the pinned
+      # toolchain and the lockfile, so a toolchain or dependency change starts
+      # clean; the byte-for-byte payload comparison below still decides.
+      - name: Cache cargo registry and build output
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            wasm/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', 'wasm/Cargo.lock') }}
+
       - name: Install pinned wasm-pack and wasm-bindgen-cli (checksum-verified)
         run: |
           set -euo pipefail

@@ -100,7 +100,9 @@ the grid instead of scattered literals (#594).
 - **Bars** — the menu bar, document tab row, formula bar, and worksheet
   strip share one outer height, `--bar-height` (32px, border included — the
   app is `box-sizing: border-box` throughout); the status bar uses the
-  smaller `--status-bar-height` (24px). Their left content edges line up at
+  smaller `--status-bar-height` (24px). On a wide window the document tabs
+  share the menu bar's row (see
+  [tabs-and-worksheet-strip.md](tabs-and-worksheet-strip.md)). Their left content edges line up at
   `--space-4`.
 
 The grid's own cell geometry (`src/styles/virtualized-grid.css`) is

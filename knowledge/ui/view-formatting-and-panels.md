@@ -123,8 +123,10 @@ preview all share one **dockable, resizable side panel** shell
 instead of separate popup layouts:
 
 - **Dock position.** Buttons in the panel's header pick top, right,
-  bottom, or left; a top/bottom dock sits below the menu bar / above the
-  status bar rather than covering them, and reserves its own space as a
+  bottom, or left; a top/bottom dock sits below the menu bar and document
+  tabs / above the status bar rather than covering them (a top dock starts
+  exactly where `#app-content` does, so it follows the tabs whether they
+  share the menu bar's row or not — #596), and reserves its own space as a
   genuine split view rather than floating over the sheet.
 - **Resize.** Drag the panel's inner edge to resize it.
 - **Maximize.** A maximize button next to the position switcher expands

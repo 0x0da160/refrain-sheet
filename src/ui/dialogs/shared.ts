@@ -4,6 +4,7 @@ import { clearChildren, el, focusWithoutKeyboard } from '../dom';
 import { makeDraggable, makeEdgeResizable, makeResizable, type EdgeResizeAxis } from '../drag-resize';
 import { createIcon } from '../icon';
 import { visualViewportRect } from '../popup';
+import { updateShellLayout } from '../shell-layout';
 import { t } from '../../app/i18n';
 
 /**
@@ -205,20 +206,21 @@ function sidePanelMaxExtent(position: SidePanelPosition): number {
   return (sidePanelAxis(position) === 'horizontal' ? vp.width : vp.height) - SIDE_PANEL_VIEWPORT_MARGIN;
 }
 
-/** The live height of the menu bar (always visible, even in welcome mode). */
-function menuBarHeight(): number {
-  return document.querySelector('.menu-bar')?.getBoundingClientRect().height ?? 0;
-}
-
 /** The live height of the status bar (always visible, even in welcome mode). */
 function statusBarHeight(): number {
   return document.querySelector('.status-bar')?.getBoundingClientRect().height ?? 0;
 }
 
-/** The live height of the document/book tab strip (0 when hidden, e.g. the
- * welcome screen or a unit test that never mounts it). */
-function tabBarHeight(): number {
-  return document.querySelector('.tab-bar')?.getBoundingClientRect().height ?? 0;
+/**
+ * Where a top-docked panel starts: just below the top chrome — the menu bar
+ * and the book tab strip, whether stacked or sharing one row on a wide
+ * window (#596) — which is exactly where `#app-content` begins. On a phone,
+ * where the menu bar sits at the bottom, that is just below the tab strip.
+ * 0 when no app shell is mounted (e.g. a unit test).
+ */
+function topChromeInset(): number {
+  const content = document.getElementById('app-content');
+  return content ? Math.max(0, content.getBoundingClientRect().top) : 0;
 }
 
 /** The live height of the worksheet tab strip (0 when hidden, e.g. a plain
@@ -231,8 +233,8 @@ function sheetBarHeight(): number {
 /**
  * Docks `panel` to `position` at `size` pixels (width for left/right, height
  * for top/bottom). A top-docked panel is inset below the menu bar *and* the
- * book tab strip, and a bottom-docked one above the status bar *and* the
- * worksheet tab strip — chrome the panel must never cover — measured live so
+ * book tab strip (wherever they sit — see `topChromeInset`), and a
+ * bottom-docked one above the status bar *and* the worksheet tab strip — chrome the panel must never cover — measured live so
  * it tracks their actual height (e.g. the menu bar collapsing to a toggle
  * button on a narrow viewport, or either tab strip being hidden) rather than
  * a guessed constant (#399/#541). Left/right-docked panels still span the
@@ -240,16 +242,18 @@ function sheetBarHeight(): number {
  */
 export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPosition, size: number): void {
   panel.dataset.sidePanelPosition = position;
+  // Reserve (and release the previous dock's) space first: a left/right
+  // reservation narrows the app, which can move the document tabs out of the
+  // menu bar's row or back (#596), so the top inset below must be measured
+  // with the new reservation and the resulting layout.
+  reserveAppEdge(position, size);
+  updateShellLayout();
   // The two edges perpendicular to the dock side always span the full
   // viewport (e.g. left/right docked panels are always full height); the
   // edge opposite the dock side is left unset so the panel's size comes from
   // its explicit width/height below, not from being pinned on both sides.
   panel.style.top =
-    position === 'left' || position === 'right'
-      ? '0px'
-      : position === 'top'
-        ? `${menuBarHeight() + tabBarHeight()}px`
-        : '';
+    position === 'left' || position === 'right' ? '0px' : position === 'top' ? `${topChromeInset()}px` : '';
   panel.style.bottom =
     position === 'left' || position === 'right'
       ? '0px'
@@ -265,7 +269,6 @@ export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPo
     panel.style.width = '';
     panel.style.height = `${size}px`;
   }
-  reserveAppEdge(position, size);
 }
 
 /**
@@ -307,6 +310,7 @@ export function clearAppEdgeReservation(): void {
     appContent.style.paddingTop = '';
     appContent.style.paddingBottom = '';
   }
+  updateShellLayout();
 }
 
 /**

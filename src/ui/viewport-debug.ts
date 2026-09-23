@@ -39,9 +39,7 @@ function sample(): string {
   const r = (n: number | undefined): string => (n === undefined ? '-' : String(Math.round(n * 10) / 10));
   const grid = doc.querySelector('.grid-container');
   const sink = doc.querySelector('.grid-sink');
-  const sinkState = sink
-    ? `${sink.classList.contains('cell-editor') ? 'E' : ''}${sink.classList.contains('keyboard-pending') ? 'P' : ''}`
-    : '';
+  const sinkState = sink?.classList.contains('cell-editor') ? 'E' : '';
   return [
     `vv=${r(vv?.height)}@${r(vv?.offsetTop)}/${r(vv?.pageTop)}x${r(vv?.scale)}`,
     `ih=${globalThis.innerHeight}`,

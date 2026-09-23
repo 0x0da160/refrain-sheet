@@ -197,8 +197,6 @@ function frameCoalesced<T>(apply: (arg: T) => void): (arg: T) => void {
  * area still re-centers the edited cell (the keyboard sliding in).
  */
 const KEYBOARD_SETTLE_MS = 1000;
-/** How long the editor stays parked at the top when no on-screen keyboard opens. */
-const SINK_PARK_FALLBACK_MS = 700;
 /**
  * Auto-scroll tuning for drags that should nudge the viewport when the
  * pointer nears the grid's edge (range selection, fill handle, column
@@ -422,8 +420,6 @@ export class Grid {
    * (`addKeyboardEditField`).
    */
   private readonly keyboardEditFields = new Set<Element>();
-  /** Fallback that un-parks the sink if no keyboard opens (see `parkSinkForKeyboard`). */
-  private sinkParkTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly state: AppState,
@@ -3160,7 +3156,6 @@ export class Grid {
    * (`keyboardResized`). On close, the remembered position is put back.
    */
   keyboardOpenChanged(open: boolean): void {
-    this.unparkSink();
     const tab = this.state.activeTab;
     if (!tab || tab.doc !== this.lastDoc) {
       this.preKeyboardScroll = null;
@@ -3242,45 +3237,6 @@ export class Grid {
     }
     // Horizontal: just make sure the column is in view (renders either way).
     this.scrollCellIntoView(tab, target.row, target.col);
-  }
-
-  /**
-   * On a touch device, just before the focus that brings up the keyboard:
-   * park the (still transparent) editor at the top of the screen. iOS Safari
-   * scrolls the page — with an animation — to reveal a focused field the
-   * keyboard would cover; a field already at the top needs no reveal, so the
-   * page stays still. The editor returns over its cell as soon as the
-   * keyboard has opened (`keyboardOpenChanged`), or after a short fallback
-   * when none opens (e.g. a hardware keyboard).
-   */
-  private parkSinkForKeyboard(): void {
-    this.sink.classList.add('keyboard-pending');
-    if (this.sinkParkTimer !== null) {
-      clearTimeout(this.sinkParkTimer);
-    }
-    this.sinkParkTimer = setTimeout(() => {
-      this.sinkParkTimer = null;
-      if (this.element.ownerDocument.documentElement.dataset.keyboardOpen === undefined) {
-        this.preKeyboardScroll = null;
-      }
-      this.unparkSink();
-    }, SINK_PARK_FALLBACK_MS);
-  }
-
-  /** Undo `parkSinkForKeyboard` (a no-op when not parked). */
-  private unparkSink(): void {
-    if (this.sinkParkTimer !== null) {
-      clearTimeout(this.sinkParkTimer);
-      this.sinkParkTimer = null;
-    }
-    if (!this.sink.classList.contains('keyboard-pending')) {
-      return;
-    }
-    this.sink.classList.remove('keyboard-pending');
-    const cell = this.editor ? this.cellAt(this.editor.row, this.editor.col) : null;
-    if (cell) {
-      this.placeSinkOverCell(cell);
-    }
   }
 
   /** `renderIfUnmoved: false` skips the repaint when the cell was already in view. */
@@ -3406,14 +3362,15 @@ export class Grid {
    */
   openEditor(tab: Tab, row: number, col: number, initial: string | null, caretOffset?: number): void {
     this.commitEditor();
-    // An edit-entry gesture on a touch device (not type-to-edit, where a
-    // keyboard is already delivering text) is about to bring up the keyboard.
-    const keyboardComing =
+    if (
       initial !== '' &&
       this.lastPointerType !== 'mouse' &&
-      document.documentElement.dataset.keyboardOpen === undefined;
-    if (keyboardComing) {
-      // Where the grid was before editing began: restored when the keyboard closes.
+      document.documentElement.dataset.keyboardOpen === undefined
+    ) {
+      // A touch edit-entry gesture (not type-to-edit, where a keyboard is
+      // already delivering text) is about to bring up the on-screen keyboard.
+      // Remember where the grid was before selecting the cell scrolls it:
+      // restored when the keyboard closes (`keyboardOpenChanged`).
       this.preKeyboardScroll = { top: this.element.scrollTop, left: this.element.scrollLeft };
     }
     if (row < 0 || row >= tab.doc.rowCount || col >= tab.doc.fieldCount(row)) {
@@ -3476,9 +3433,6 @@ export class Grid {
     const pickerValues = rule?.rule.kind === 'list' ? rule.rule.values : null;
     const picker = new ValidationPicker(input, document.body);
     this.editor = { row, col, input, autocomplete, ref, prevRefTarget, updateRefs, picker, pickerValues };
-    if (keyboardComing) {
-      this.parkSinkForKeyboard();
-    }
     input.focus({ preventScroll: true });
     if (initial === null) {
       // Never select-all here: that would silently replace the whole cell on
@@ -3622,7 +3576,11 @@ export class Grid {
 
   /** Return the sink to its hidden navigating state (keeps focus untouched). */
   private demoteSink(): void {
-    this.unparkSink();
+    if (this.element.ownerDocument.documentElement.dataset.keyboardOpen === undefined) {
+      // The editor closed without a keyboard ever opening (e.g. a hardware
+      // keyboard): nothing to restore later.
+      this.preKeyboardScroll = null;
+    }
     this.sink.classList.remove('cell-editor');
     this.sink.value = '';
     this.sink.setAttribute('aria-label', t('grid.label'));
@@ -3706,7 +3664,6 @@ export class Grid {
     this.resizeObserver?.disconnect();
     this.offKeyboardOpenChange();
     this.offKeyboardResize();
-    this.unparkSink();
     this.refIndicator.remove();
   }
 

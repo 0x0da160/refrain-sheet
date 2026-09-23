@@ -36,7 +36,10 @@ The rules that diagram implies:
   since a later section can still override an earlier one at equal
   specificity, exactly as when this was one file — plus Tailwind utility
   classes for non-grid surfaces (menus, dialogs, panels, the welcome
-  screen). The `tokens.css` section imports only `tailwindcss/theme.css` and
+  screen). Tailwind scans only the app's own sources (`src/**/*.ts` and
+  `index.html`, via `source(none)` + `@source` in `tokens.css`), so editing
+  docs or other prose can never change the shipped CSS. The `tokens.css`
+  section imports only `tailwindcss/theme.css` and
   `tailwindcss/utilities.css` — never the Preflight base layer — so Tailwind
   contributes utility classes without resetting any element's default
   styling. The `@theme` block bridges a subset of the semantic color tokens

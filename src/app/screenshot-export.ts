@@ -35,17 +35,17 @@ import type { EditorDocument, Tab } from './app-state';
 
 /**
  * Kept in sync with `COL_WIDTH`/`ROW_HEIGHT`/`WRAP_LINE_HEIGHT`/
- * `WRAP_VERTICAL_PAD`/`MAX_WRAP_LINES` in `ui/grid.ts` (the default,
- * unzoomed metrics — this module scales them by the same zoom ratio the grid
+ * `WRAP_VERTICAL_PAD`/`MAX_WRAP_LINES` in `ui/grid.ts` and the `.vcell`
+ * horizontal padding in virtualized-grid.css (the default, unzoomed metrics — this module scales them by the same zoom ratio the grid
  * uses, derived from the already-scaled `rowHeight` `onScreenGeometry`
  * returns).
  */
-const DEFAULT_COL_WIDTH = 132;
-const DEFAULT_ROW_HEIGHT = 26;
+const DEFAULT_COL_WIDTH = 104;
+const DEFAULT_ROW_HEIGHT = 24;
 const WRAP_LINE_HEIGHT = 18;
 const WRAP_VERTICAL_PAD = 8;
 const MAX_WRAP_LINES = 12;
-const CELL_PADDING_X = 8;
+const CELL_PADDING_X = 6;
 const FALLBACK_FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", sans-serif';
 const FALLBACK_FONT_SIZE = '13px';
 const FALLBACK_TEXT_COLOR = '#1a1a1a';

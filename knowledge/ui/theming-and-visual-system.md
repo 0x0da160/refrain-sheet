@@ -189,10 +189,16 @@ offline-only guarantee in
 
 Cell text is **vertically centered** by one explicit typography model, not
 by browser baseline behavior: every grid row is exactly
-`--grid-row-height` (26px, kept in sync with the virtualization constant),
-cells use border-box sizing with horizontal padding only, and the
-single-line `line-height` equals the cell's content height — so the line
-box itself centers the glyphs. Because this depends on the line box rather
+`--grid-row-height` (24px at 100% zoom, kept in sync with the
+virtualization constant; the default column is 104px), cells use
+border-box sizing with their single shared 1px grid line (right and bottom
+border only) inside that box, pad 6px left/right and 3px top/bottom (both
+scaled with the sheet zoom), and the single-line `line-height` equals the
+remaining content height — so the line box itself centers the glyphs. The
+inline cell editor offsets its 2px border against the same padding so
+typed and IME-composed text starts exactly where the cell text is drawn.
+`npm run ui:check` measures all of this in headless Chromium at every zoom
+level (`scripts/ui-check-grid.mjs`). Because this depends on the line box rather
 than any font's baseline or half-leading metrics, it holds identically for
 every offered spreadsheet font and fallback stack, and for Japanese,
 Latin, numeric, formula-result, error, and mixed-script values.

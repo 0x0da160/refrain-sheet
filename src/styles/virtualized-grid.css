@@ -145,10 +145,15 @@
 
 /* Cell typography model: every row is exactly --grid-row-height tall (kept in
    sync with ROW_HEIGHT in src/ui/grid.ts, which sets the exact zoom-scaled
-   pixel value inline on the grid container). Cells use border-box sizing, no
-   vertical padding, and a line-height equal to the cell's content height —
-   the row height minus the single 1px bottom border (the border is a real
-   device pixel at every zoom, so this is not a zoom-specific offset). A
+   pixel value inline on the grid container). Cells use border-box sizing, so
+   a cell's single shared grid line (its own 1px right and bottom border —
+   never a left/top one, so neighbours never double it) sits inside its
+   logical 104 x 24 px box and the column/row pitch never grows past it.
+   Inside that line the cell pads 6px left/right and 3px top/bottom (both
+   scaled with the sheet zoom), and its line-height equals the remaining
+   content height — the row height minus the 1px bottom border (a real device
+   pixel at every zoom, so not a zoom-specific offset) minus the vertical
+   padding. At 100% that is a 91 x 17 px content box. A
    single line of text is then vertically centered by the line box itself —
    identically in BIZ UD Gothic, MS Gothic, MS UI Gothic, and their fallbacks,
    and identically at every spreadsheet zoom level — instead of depending on
@@ -166,7 +171,7 @@
   /* Default (single-line) row height. The grid overrides this inline on the
      grid container with the exact zoom-scaled pixel value so CSS line boxes
      and JS-computed element heights can never drift apart. */
-  --grid-row-height: 26px;
+  --grid-row-height: 24px;
   /* Line box of a wrapped cell — kept in sync with WRAP_LINE_HEIGHT (grid.ts). */
   --grid-wrap-line: 18px;
 }
@@ -175,10 +180,10 @@
   flex: none;
   border-right: 1px solid var(--grid-line);
   border-bottom: 1px solid var(--grid-line);
-  padding: 0 calc(8px * var(--sheet-zoom, 1));
+  padding: calc(3px * var(--sheet-zoom, 1)) calc(6px * var(--sheet-zoom, 1));
   /* Resolved from the *inherited* (zoom-scaled) row height, so the line box
      tracks the row height at every zoom level. */
-  line-height: calc(var(--grid-row-height) - 1px);
+  line-height: calc(var(--grid-row-height) - 1px - 6px * var(--sheet-zoom, 1));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: pre;
@@ -779,7 +784,10 @@
 
 .vgrid-canvas .grid-sink.cell-editor {
   border: 2px solid var(--accent);
-  padding: 1px 6px;
+  /* The editor covers the cell's whole box, so its 2px border stands in for
+     the first 2px of the cell padding: text (and the IME composition) starts
+     exactly where the rendered cell text does, at every zoom level. */
+  padding: max(0px, calc(3px * var(--sheet-zoom, 1) - 2px)) max(0px, calc(6px * var(--sheet-zoom, 1) - 2px));
   color: var(--text);
   caret-color: auto;
   background: var(--field-bg);
@@ -793,5 +801,7 @@
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: break-word;
-  line-height: var(--grid-wrap-line);
+  /* The same line box as a single-line cell, so the first line (and the IME
+     composition on it) sits at the rendered text's exact vertical position. */
+  line-height: calc(var(--grid-row-height) - 1px - 6px * var(--sheet-zoom, 1));
 }

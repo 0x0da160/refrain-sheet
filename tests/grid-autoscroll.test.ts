@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { RsfDocument } from '../src/core/rsf-document';
-import { Grid } from '../src/ui/grid';
+import { Grid, ROW_HEIGHT } from '../src/ui/grid';
 import { doc } from './helpers';
 
 function stubUi(): UiPort {
@@ -335,7 +335,7 @@ describe('the inline cell editor across grid scrolls', () => {
     const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
     input.value = 'draft';
 
-    scrollGridTo(grid, 26 * 300);
+    scrollGridTo(grid, ROW_HEIGHT * 300);
 
     expect(grid.element.querySelector('.cell-editor')).toBeNull();
     expect(tab.doc.getValue(5, 0)).toBe('draft');
@@ -343,7 +343,7 @@ describe('the inline cell editor across grid scrolls', () => {
 });
 
 describe('on-screen keyboard open/close (keyboardOpenChanged)', () => {
-  const ROW = 26;
+  const ROW = ROW_HEIGHT;
 
   function setView(grid: Grid, height: number): void {
     Object.defineProperty(grid.element, 'clientHeight', { value: height, configurable: true });
@@ -361,7 +361,7 @@ describe('on-screen keyboard open/close (keyboardOpenChanged)', () => {
     setView(grid, 260);
     grid.keyboardOpenChanged(true);
 
-    // Row 170's middle at the middle of the 260px grid minus the 26px header.
+    // Row 170's middle at the middle of the 260px grid minus the header row.
     expect(grid.element.scrollTop).toBe(Math.round(170 * ROW + ROW / 2 - (260 - ROW) / 2));
     expect(grid.element.querySelector('.cell-editor')).toBe(input);
     expect(input.value).toBe('draft');
@@ -412,7 +412,7 @@ describe('on-screen keyboard open/close (keyboardOpenChanged)', () => {
 });
 
 describe('touch edit entry around the on-screen keyboard', () => {
-  const ROW = 26;
+  const ROW = ROW_HEIGHT;
 
   function setView(grid: Grid, height: number): void {
     Object.defineProperty(grid.element, 'clientHeight', { value: height, configurable: true });
@@ -422,7 +422,7 @@ describe('touch edit entry around the on-screen keyboard', () => {
     (grid as unknown as { lastPointerType: string }).lastPointerType = 'touch';
   }
 
-  /** Where `centerKeyboardTarget` puts `row` in a grid of `height` px (26px header). */
+  /** Where `centerKeyboardTarget` puts `row` in a grid of `height` px (one header row). */
   function centered(row: number, height: number): number {
     return Math.round(row * ROW + ROW / 2 - (height - ROW) / 2);
   }

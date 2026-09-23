@@ -8,6 +8,11 @@
 // agents also run it on demand to confirm a UI change works in a real
 // browser engine. It is not part of `npm run build`/`test`.
 //
+// Once the app renders, it also runs the grid geometry and visual check
+// (scripts/ui-check-grid.mjs): cell size, grid lines, padding, text
+// placement, editing/IME and hit testing at every spreadsheet zoom level.
+// Set UI_CHECK_SCREENSHOT_DIR to also save a screenshot per zoom level.
+//
 //   npm run build   # dist/ must already exist
 //   npm run ui:check
 
@@ -15,6 +20,7 @@ import { existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
+import { checkGridGeometry } from './ui-check-grid.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const indexHtml = join(root, 'dist', 'index.html');
@@ -28,7 +34,7 @@ const errors = [];
 
 const browser = await chromium.launch();
 try {
-  const page = await browser.newPage();
+  const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   page.on('pageerror', (error) => errors.push(`page error: ${error.message}`));
   page.on('console', (message) => {
     if (message.type() === 'error') {
@@ -38,10 +44,15 @@ try {
 
   await page.goto(pathToFileURL(indexHtml).href);
 
+  let rendered = true;
   try {
     await page.waitForSelector('.menu-bar', { timeout: 10_000 });
   } catch {
+    rendered = false;
     errors.push('the menu bar (.menu-bar) never appeared — the app did not render');
+  }
+  if (rendered) {
+    errors.push(...(await checkGridGeometry(page, { screenshotDir: process.env.UI_CHECK_SCREENSHOT_DIR })));
   }
 } finally {
   await browser.close();

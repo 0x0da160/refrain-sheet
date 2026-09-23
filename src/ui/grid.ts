@@ -416,6 +416,12 @@ export class Grid {
    * the first open notification. 0 when not settling.
    */
   private keyboardSettleUntil = 0;
+  /**
+   * Fields outside the grid that edit the selected cell (the formula bar), so
+   * the keyboard opening for one of them centers that cell too
+   * (`addKeyboardEditField`).
+   */
+  private readonly keyboardEditFields = new Set<Element>();
   /** Fallback that un-parks the sink if no keyboard opens (see `parkSinkForKeyboard`). */
   private sinkParkTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -3145,7 +3151,8 @@ export class Grid {
   /**
    * The on-screen keyboard opened or closed (`onKeyboardOpenChange`, fired
    * after `#app` has been refitted to the visible area). On open, when the
-   * grid holds focus, the cell being edited — or the selected cell, for
+   * grid or a registered edit field (the formula bar, see
+   * `addKeyboardEditField`) holds focus, the cell being edited — or the selected cell, for
    * type-to-edit — is scrolled to the vertical middle of the grid's now
    * shorter scroll area, and the scroll position from before editing started
    * is remembered. For a short while after, any further shrink of the
@@ -3171,7 +3178,7 @@ export class Grid {
       }
       return;
     }
-    if (this.element.ownerDocument.activeElement !== this.sink) {
+    if (!this.keyboardEditsCell()) {
       this.preKeyboardScroll = null;
       return;
     }
@@ -3186,9 +3193,35 @@ export class Grid {
       return;
     }
     const tab = this.state.activeTab;
-    if (tab && tab.doc === this.lastDoc && this.element.ownerDocument.activeElement === this.sink) {
+    if (tab && tab.doc === this.lastDoc && this.keyboardEditsCell()) {
       this.centerKeyboardTarget(tab);
     }
+  }
+
+  /**
+   * Register a field outside the grid that edits the selected cell (the
+   * formula bar): when the on-screen keyboard opens for it, the selected cell
+   * is centered in the shrunken grid just as for the in-cell editor.
+   */
+  addKeyboardEditField(field: Element): void {
+    this.keyboardEditFields.add(field);
+  }
+
+  /** Whether focus is on the in-cell editor or a registered edit field. */
+  private keyboardEditsCell(): boolean {
+    const active = this.element.ownerDocument.activeElement;
+    if (!active) {
+      return false;
+    }
+    if (active === this.sink) {
+      return true;
+    }
+    for (const field of this.keyboardEditFields) {
+      if (field.contains(active)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Scroll the edited (or selected) cell to the vertical middle of the grid's scroll area. */

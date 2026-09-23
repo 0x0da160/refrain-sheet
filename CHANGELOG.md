@@ -35,6 +35,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- On iPhone, editing a cell near the bottom of the screen through the
+  formula bar now scrolls that cell to the middle of the grid above the
+  keyboard instead of leaving it hidden behind it, and puts the grid back
+  where it was when the keyboard closes.
+
 ## [0.8.12] - 2026-09-23
 
 ### Added

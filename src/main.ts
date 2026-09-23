@@ -255,6 +255,9 @@ function bootstrap(): void {
     (refs) => grid.setFormulaRefs(refs),
     (preview) => grid.setFormulaLivePreview(preview),
   );
+  // Editing through the formula bar also centers the selected cell above
+  // the on-screen keyboard (#584).
+  grid.addKeyboardEditField(formulaBar.element);
   const statusBar = new StatusBar(
     state,
     () => {

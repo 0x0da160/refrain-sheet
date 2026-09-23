@@ -39,6 +39,11 @@ really is internal, rather than inventing an entry to satisfy it.
 
 - A CSV file no longer shows an empty band under the grid, where the
   worksheet tabs of a workbook go; the grid uses that space instead.
+- The menu bar, file tabs, formula bar, and worksheet tabs are now all the
+  same height, their left edges line up, and spacing and corner rounding
+  are consistent across menus, dialogs, and panels. On a desktop the grid
+  shows about one more row.
+- The three buttons on the welcome screen are now the same width.
 
 ### Fixed
 

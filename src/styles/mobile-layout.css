@@ -97,7 +97,7 @@
     grid-column: 1;
     border-bottom: none;
     border-top: 1px solid var(--border);
-    padding: 0 2px;
+    padding: 0 var(--space-1);
     flex-wrap: wrap;
   }
 
@@ -199,7 +199,7 @@
 
   .menu > button,
   .menu-item {
-    padding: 10px 12px;
+    padding: var(--space-4) var(--space-5);
     min-height: 44px;
   }
 
@@ -208,11 +208,11 @@
   }
 
   .tab {
-    padding: 8px 8px 8px 12px;
+    padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
   }
 
   .tab .tab-close {
-    padding: 8px;
+    padding: var(--space-4);
     min-width: 36px;
     min-height: 36px;
   }
@@ -220,7 +220,7 @@
   .sheet-tab,
   .sheet-add,
   .sheet-grid-add {
-    padding: 9px 10px;
+    padding: var(--space-4) var(--space-4);
     min-height: 40px;
   }
 
@@ -240,39 +240,39 @@
      here without touching the floor itself (#468). */
   .sheet-strip,
   .sheet-grid-actions {
-    padding: 1px 6px;
+    padding: 1px var(--space-3);
   }
 
   .dialog-title {
-    padding: 10px 14px;
+    padding: var(--space-4) var(--space-5);
     font-size: 13px;
   }
 
   .dialog-body {
-    padding: 10px 14px;
+    padding: var(--space-4) var(--space-5);
   }
 
   .dialog-buttons {
-    padding: 10px 14px;
+    padding: var(--space-4) var(--space-5);
   }
 
   .dialog-buttons button {
-    padding: 8px 14px;
+    padding: var(--space-4) var(--space-5);
     min-height: 44px;
   }
 
   .find-bar {
-    padding: 4px 6px;
-    gap: 4px;
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
   }
 
   .find-bar button {
-    padding: 6px 10px;
+    padding: var(--space-3) var(--space-4);
     min-height: 40px;
   }
 
   .welcome-action {
-    padding: 10px 16px;
+    padding: var(--space-4) var(--space-6);
     min-height: 44px;
   }
 
@@ -280,15 +280,15 @@
      the status bar, the formula bar's cell-ref label, and the context
      menu's formatting toolbar/its own padding. */
   .status-bar {
-    padding: 2px 8px;
-    gap: 2px 10px;
+    padding: var(--space-1) var(--space-4);
+    gap: var(--space-1) var(--space-4);
     font-size: 11px;
     min-height: 22px;
   }
 
   .status-bar .sel-stats,
   .status-bar .status-selection {
-    gap: 2px 10px;
+    gap: var(--space-1) var(--space-4);
   }
 
   /* Shorten the version text to just "v1.2.3" here, opposite the base rule
@@ -302,8 +302,8 @@
   }
 
   .formula-bar {
-    padding: 3px 6px;
-    gap: 4px;
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
   }
 
   .formula-bar .cell-ref {
@@ -318,11 +318,11 @@
   }
 
   .context-menu {
-    padding: 2px 0;
+    padding: var(--space-1) 0;
   }
 
   .context-menu-toolbar {
-    padding: 2px 4px;
+    padding: var(--space-1) var(--space-2);
     gap: 1px;
   }
 

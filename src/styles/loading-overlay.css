@@ -9,7 +9,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: var(--space-6);
   background: var(--scrim-light);
   z-index: 250;
   /* A slow load never traps the pointer beyond the translucent scrim. */
@@ -34,24 +34,24 @@
   height: 8px;
   appearance: none;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
 .loading-overlay .loading-progress::-webkit-progress-bar {
   background: var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .loading-overlay .loading-progress::-webkit-progress-value {
   background: var(--accent);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   transition: width 0.15s ease-out;
 }
 
 .loading-overlay .loading-progress::-moz-progress-bar {
   background: var(--accent);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .loading-overlay .loading-progress[hidden] {
@@ -61,8 +61,8 @@
 .loading-overlay .loading-label {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-6);
   font-size: 14px;
   color: var(--text);
   box-shadow: 0 8px 24px var(--shadow);

@@ -6,6 +6,7 @@ sources:
   - resource: ../../README.md
   - resource: ../../src/app/theme.ts
   - resource: ../../CHANGELOG.md
+  - resource: ../../src/styles/tailwind-token-bridge.css
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -83,6 +84,30 @@ classes for non-grid surfaces, see
 [../architecture/module-boundaries.md](../architecture/module-boundaries.md)'s
 styling-architecture paragraph — that mechanical detail is not repeated
 here.
+
+## Spacing, radius, and bar-height tokens
+
+Layout sizes follow the same rule as colors: one set of custom properties
+on `:root` (`src/styles/tailwind-token-bridge.css`), used everywhere outside
+the grid instead of scattered literals (#594).
+
+- **Spacing** — `--space-1` … `--space-7` (2, 4, 6, 8, 12, 16, 24px). Every
+  non-grid `padding`, `margin`, and `gap` uses this scale; 1px hairline
+  offsets are the only literals left. Tailwind classes read it too, e.g.
+  `gap-(--space-4)`.
+- **Corner radius** — `--radius-sm` (4px: fields, buttons, menu items),
+  `--radius-md` (6px: tabs, cards, dialogs), `--radius-lg` (12px).
+- **Bars** — the menu bar, document tab row, formula bar, and worksheet
+  strip share one outer height, `--bar-height` (32px, border included — the
+  app is `box-sizing: border-box` throughout); the status bar uses the
+  smaller `--status-bar-height` (24px). Their left content edges line up at
+  `--space-4`.
+
+The grid's own cell geometry (`src/styles/virtualized-grid.css`) is
+deliberately outside this scale: `grid.ts` measures cell padding and keeps
+row height in sync with `--grid-row-height`. Touch-target floors in the
+mobile layout (36–44px `min-height`) are also literals, since they are
+accessibility minimums rather than spacing.
 
 ## Spreadsheet font
 

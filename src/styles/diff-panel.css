@@ -9,30 +9,30 @@
 .diff-column-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 14px;
-  margin: 0 0 10px;
+  gap: var(--space-2) var(--space-5);
+  margin: 0 0 var(--space-4);
 }
 
 .diff-column-item {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .diff-compare-columns {
-  margin-bottom: 10px;
+  margin-bottom: var(--space-4);
 }
 
 .diff-compare-columns summary {
   cursor: pointer;
   color: var(--text-dim);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-3);
 }
 
 .diff-normalize-options {
   display: flex;
-  gap: 14px;
-  margin: 0 0 10px;
+  gap: var(--space-5);
+  margin: 0 0 var(--space-4);
 }
 
 .diff-run-row {
@@ -41,7 +41,7 @@
 
 .diff-status {
   min-height: 1.4em;
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-4);
   line-height: 1.4;
 }
 
@@ -70,7 +70,7 @@ table.diff-table td {
 
 .diff-badge {
   display: inline-block;
-  padding: 1px 8px;
+  padding: 1px var(--space-4);
   border-radius: 10px;
   font-size: 12px;
   white-space: nowrap;

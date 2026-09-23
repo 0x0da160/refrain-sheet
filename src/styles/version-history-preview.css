@@ -20,7 +20,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-4);
   /* Unlike a draggable dialog heading, this one fills the whole top edge of
      a full-screen view — dragging it would have nothing to do. */
   cursor: default;
@@ -39,7 +39,7 @@
 }
 
 .shortcut-table td {
-  padding: 3px 8px;
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
 }
 

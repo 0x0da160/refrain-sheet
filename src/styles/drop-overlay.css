@@ -21,8 +21,8 @@
 .drop-overlay .drop-message {
   background: var(--surface);
   border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 18px 30px;
+  border-radius: var(--radius-md);
+  padding: var(--space-6) var(--space-7);
   font-size: 16px;
   color: var(--accent);
   box-shadow: 0 8px 24px var(--shadow-strong);

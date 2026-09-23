@@ -7,21 +7,21 @@
   align-items: flex-end;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
-  padding: 4px 6px 0;
-  gap: 2px;
+  padding: var(--space-2) var(--space-4) 0;
+  gap: var(--space-1);
   overflow-x: auto;
-  min-height: 28px;
+  min-height: var(--bar-height);
 }
 
 .tab {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   border: 1px solid var(--border);
   border-bottom: none;
-  border-radius: 5px 5px 0 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: var(--panel-hover);
-  padding: 4px 6px 4px 12px;
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-5);
   max-width: 240px;
   cursor: default;
 }

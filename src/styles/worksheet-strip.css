@@ -11,7 +11,7 @@
   flex: none;
   background: var(--panel);
   border-top: 1px solid var(--border);
-  min-height: 28px;
+  min-height: var(--bar-height);
 }
 
 .sheet-bar[hidden] {
@@ -21,8 +21,8 @@
 .sheet-strip {
   display: flex;
   align-items: stretch;
-  gap: 2px;
-  padding: 3px 6px;
+  gap: var(--space-1);
+  padding: 0 var(--space-4) var(--space-1);
   overflow-x: auto;
   flex: 1 1 auto;
   min-width: 0;
@@ -33,9 +33,9 @@
   align-items: center;
   border: 1px solid var(--border);
   border-top: none;
-  border-radius: 0 0 5px 5px;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
   background: var(--panel-hover);
-  padding: 3px 10px;
+  padding: var(--space-1) var(--space-4);
   max-width: 200px;
   cursor: default;
   white-space: nowrap;
@@ -50,7 +50,7 @@
 .sheet-tab .sheet-kind {
   display: flex;
   flex: none;
-  margin-right: 5px;
+  margin-right: var(--space-2);
 }
 
 .sheet-tab .sheet-kind-icon {
@@ -60,7 +60,7 @@
 .sheet-tab .sheet-lock {
   display: flex;
   flex: none;
-  margin-right: 5px;
+  margin-right: var(--space-2);
 }
 
 .sheet-tab .sheet-lock-icon {
@@ -96,10 +96,10 @@
   align-items: center;
   border: 1px solid var(--border);
   border-top: none;
-  border-radius: 0 0 5px 5px;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
   background: var(--panel-hover);
   color: inherit;
-  padding: 3px 10px;
+  padding: var(--space-2) var(--space-4);
   cursor: pointer;
   font: inherit;
   line-height: 1;
@@ -121,7 +121,7 @@
    leading field label, not one of several equal options here. */
 .sheet-kind-picker {
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-3);
 }
 
 .sheet-kind-picker label:first-child {
@@ -131,8 +131,8 @@
 .sheet-kind-picker-option {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
   border: 1px solid var(--border);
   border-radius: 999px;
   cursor: pointer;
@@ -157,7 +157,7 @@
 .dialog-error {
   color: var(--danger, #c0392b);
   min-height: 1.2em;
-  margin: 4px 0 0;
+  margin: var(--space-2) 0 0;
 }
 
 .tab .tab-close {
@@ -166,8 +166,10 @@
   justify-content: center;
   border: none;
   background: none;
-  border-radius: 3px;
-  padding: 3px;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1);
+  min-width: 20px;
+  min-height: 20px;
   color: inherit;
 }
 

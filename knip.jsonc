@@ -51,11 +51,6 @@
     // this real usage and reports the package as unused.
     "tailwindcss",
   ],
-  "ignoreBinaries": [
-    // Rust/Cargo toolchain binary used by package.json's build:wasm script
-    // (installed by the Dockerfile), not an npm package — nothing to declare.
-    "wasm-pack",
-  ],
   "vitest": {
     "config": ["vite.config.ts"],
   },

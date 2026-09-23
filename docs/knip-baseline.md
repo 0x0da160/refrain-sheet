@@ -27,8 +27,6 @@ catch unused locals, parameters, and imports; Knip adds unused **exports**,
   `@import 'tailwindcss/theme.css'` / `'tailwindcss/utilities.css'` in
   `src/styles/tokens.css:26-27`, and Knip's `project` globs do not include
   `*.css`.
-- `wasm-pack` is in `ignoreBinaries`: a Cargo binary used by `build:wasm`
-  (installed by the `Dockerfile`), not an npm package.
 - `design-system/`, `dist/`, `dist-hosted/`, `landing/` match no `project`
   glob, so Knip never reads them.
 
@@ -64,7 +62,8 @@ constant. Decide: wire it into the join functions, or remove it.
 ## Resolved (kept for the lessons; details in each PR)
 
 - **Unlisted `@eslint/js`** — declared as a pinned devDependency; **unlisted
-  `wasm-pack`** — moved to `ignoreBinaries` (`308e3a7`).
+  `wasm-pack`** — moved to `ignoreBinaries` (`308e3a7`); no longer needed
+  once `build:wasm` ran it from `scripts/build-wasm.mjs`.
 - **Formula-engine export surface** (`2165c33`) — 14 redundant barrel
   re-exports trimmed from `formula.ts`, internal-only bindings unexported,
   dead helpers removed (`isVolatileFunction`, `isSingleCell`, `isError`,

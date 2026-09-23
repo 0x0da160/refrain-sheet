@@ -371,6 +371,29 @@ describe('on-screen keyboard open/close (keyboardOpenChanged)', () => {
     expect(grid.element.scrollTop).toBe(before);
   });
 
+  it('centers the selected cell when the keyboard opened for a registered edit field (the formula bar)', () => {
+    const { grid, tab } = setupCsv(500, 3);
+    Object.defineProperty(grid.element, 'scrollHeight', { value: ROW * 501, configurable: true });
+    grid.element.scrollTop = ROW * 150;
+    grid.select(tab, 165, 0);
+    const bar = document.createElement('div');
+    const field = document.createElement('textarea');
+    bar.append(field);
+    document.body.append(bar);
+    grid.addKeyboardEditField(bar);
+    field.focus();
+    const before = grid.element.scrollTop;
+
+    setView(grid, 260);
+    grid.keyboardOpenChanged(true);
+    expect(grid.element.scrollTop).toBe(Math.round(165 * ROW + ROW / 2 - (260 - ROW) / 2));
+
+    setView(grid, VIEW_HEIGHT);
+    grid.keyboardOpenChanged(false);
+    expect(grid.element.scrollTop).toBe(before);
+    bar.remove();
+  });
+
   it('leaves the grid alone when the keyboard opened for another field', () => {
     const { grid } = setupCsv(500, 3);
     Object.defineProperty(grid.element, 'scrollHeight', { value: ROW * 501, configurable: true });

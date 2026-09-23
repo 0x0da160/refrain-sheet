@@ -130,7 +130,11 @@ docked-panel/Find-bar text field:
   grid's shortened scroll area (`centeredScrollOffset`,
   `src/ui/grid/center-scroll.ts`); for a second after, each further shrink
   (the keyboard still sliding in) re-centers it (`keyboardResized`). On
-  close the remembered position is restored. The inline
+  close the remembered position is restored. The same happens when the
+  keyboard opens for the formula bar, which sits below the grid on phones
+  and edits the selected cell: `main.ts` registers it with
+  `Grid.addKeyboardEditField` (#584 — the on-device `#debug-viewport` log
+  showed this path had been skipped). The inline
   editor stays open across a grid scroll as long as its cell is still
   rendered (it commits only once the cell leaves the window).
 

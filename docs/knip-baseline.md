@@ -46,7 +46,8 @@ These are very likely used internally in their own file (the pattern that
 made most earlier findings S1), but `CLAUDE.md` lists the RSF codec as
 high-risk — "extra care, full `test:rust`, and human review" — so they wait
 for a dedicated, human-reviewed pass rather than a static-analysis-driven
-unexport.
+unexport. That pass should run against the frozen `.rsf` corpus in
+`tests/fixtures/rsf/` (`tests/rsf-fixtures.test.ts`).
 
 ### S2 — `MAX_JOIN_ITEMS` (maintainer decision)
 

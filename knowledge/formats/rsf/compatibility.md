@@ -117,3 +117,17 @@ explicitly:
   [grammar-single-sheet-body.md](grammar-single-sheet-body.md) and
   [grammar-workbook-body.md](grammar-workbook-body.md), not just at the
   container level.
+
+## Frozen fixture corpus
+
+`tests/fixtures/rsf/` holds committed `.rsf` files — one per single-sheet
+body version 1–17, one per compression method (DEFLATE, Zstandard, LZ4),
+and two version-4 workbook containers — and `tests/rsf-fixtures.test.ts`
+checks each two ways: the committed bytes must still **decode** to the data
+they were written from (the compatibility guarantee; a fixture is never
+rewritten), and the current encoder must still **reproduce** them
+byte-for-byte (output stability, which also pins the embedded WASM codecs).
+A version bump adds a new fixture; it never edits an old one. The corpus
+does not yet cover the legacy RCSV container or pre-v0.8 files written by
+real releases, which the handwritten cases in `tests/rsf-codec.test.ts`
+still synthesize.

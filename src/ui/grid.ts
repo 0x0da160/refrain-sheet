@@ -21,6 +21,8 @@ import type { SheetSort } from '../core/sort';
 import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../core/text-wrap';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
+import { onKeyboardOpenChange } from './popup';
+import { centeredScrollOffset } from './grid/center-scroll';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 import type { FormulaLivePreview } from './formula-bar';
 import { beginsTextEntry, isComposingKey } from './ime';
@@ -391,6 +393,14 @@ export class Grid {
    * (see `onResize`). `null` before the first observation.
    */
   private lastResizeWidth: number | null = null;
+  /**
+   * The grid's scroll position just before an on-screen keyboard opened, put
+   * back when it closes (see `keyboardOpenChanged`). `null` when the keyboard
+   * is closed or its opening did not move the grid.
+   */
+  private preKeyboardScroll: { top: number; left: number } | null = null;
+  /** Unsubscribes `keyboardOpenChanged`; called by `dispose()`. */
+  private readonly offKeyboardOpenChange: () => void;
 
   constructor(
     private readonly state: AppState,
@@ -485,6 +495,7 @@ export class Grid {
       this.resizeObserver = new ResizeObserver((entries) => this.onResize(entries));
       this.resizeObserver.observe(this.element);
     }
+    this.offKeyboardOpenChange = onKeyboardOpenChange((open) => this.keyboardOpenChanged(open));
     // Ctrl/Cmd + mouse wheel zooms the spreadsheet (grid area only). The
     // listener must be non-passive because the recognized gesture — and only
     // that gesture — prevents the browser's page-zoom default; a plain wheel
@@ -3113,6 +3124,51 @@ export class Grid {
     this.select(tab, row, col, true);
   }
 
+  /**
+   * The on-screen keyboard opened or closed (`onKeyboardOpenChange`, fired
+   * after `#app` has been refitted to the visible area). On open, when the
+   * grid holds focus, the cell being edited — or the selected cell, for
+   * type-to-edit — is scrolled to the vertical middle of the now shorter
+   * grid, so it sits clear of both the top edge and the keyboard, and the
+   * previous scroll position is remembered. On close, that position is put
+   * back.
+   */
+  keyboardOpenChanged(open: boolean): void {
+    const tab = this.state.activeTab;
+    if (!tab || tab.doc !== this.lastDoc) {
+      this.preKeyboardScroll = null;
+      return;
+    }
+    if (!open) {
+      const saved = this.preKeyboardScroll;
+      this.preKeyboardScroll = null;
+      if (saved) {
+        this.element.scrollTop = saved.top;
+        this.element.scrollLeft = saved.left;
+        this.render(tab);
+      }
+      return;
+    }
+    if (this.element.ownerDocument.activeElement !== this.sink) {
+      return;
+    }
+    const target = this.editor ?? tab.selection;
+    if (!target) {
+      return;
+    }
+    this.preKeyboardScroll = { top: this.element.scrollTop, left: this.element.scrollLeft };
+    const slot = this.state.sortSlot(tab, target.row);
+    if (!(this.stickyEnabled(tab) && slot === 0)) {
+      const idx = this.heightIndex(tab);
+      const y = idx.offsetOf(slot) - idx.offsetOf(this.scrollRowBase(tab));
+      const viewH = this.element.clientHeight - this.overlayHeight(tab);
+      const maxScroll = this.element.scrollHeight - this.element.clientHeight;
+      this.element.scrollTop = centeredScrollOffset(y, idx.heightOf(slot), viewH, maxScroll);
+    }
+    // Horizontal: just make sure the column is in view (renders either way).
+    this.scrollCellIntoView(tab, target.row, target.col);
+  }
+
   /** `renderIfUnmoved: false` skips the repaint when the cell was already in view. */
   private scrollCellIntoView(tab: Tab, row: number, col: number, renderIfUnmoved = true): void {
     const scrollTop = this.element.scrollTop;
@@ -3520,6 +3576,7 @@ export class Grid {
    */
   dispose(): void {
     this.resizeObserver?.disconnect();
+    this.offKeyboardOpenChange();
     this.refIndicator.remove();
   }
 

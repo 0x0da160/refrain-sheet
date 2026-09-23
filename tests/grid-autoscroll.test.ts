@@ -341,3 +341,49 @@ describe('the inline cell editor across grid scrolls', () => {
     expect(tab.doc.getValue(5, 0)).toBe('draft');
   });
 });
+
+describe('on-screen keyboard open/close (keyboardOpenChanged)', () => {
+  const ROW = 26;
+
+  function setView(grid: Grid, height: number): void {
+    Object.defineProperty(grid.element, 'clientHeight', { value: height, configurable: true });
+  }
+
+  it('centers the edited cell in the shortened grid, keeps editing, and restores the scroll position on close', () => {
+    const { grid, tab } = setupCsv(500, 3);
+    Object.defineProperty(grid.element, 'scrollHeight', { value: ROW * 501, configurable: true });
+    grid.element.scrollTop = ROW * 150;
+    grid.openEditor(tab, 170, 0, null);
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    input.value = 'draft';
+    const before = grid.element.scrollTop;
+
+    setView(grid, 260);
+    grid.keyboardOpenChanged(true);
+
+    // Row 170's middle at the middle of the 260px grid minus the 26px header.
+    expect(grid.element.scrollTop).toBe(Math.round(170 * ROW + ROW / 2 - (260 - ROW) / 2));
+    expect(grid.element.querySelector('.cell-editor')).toBe(input);
+    expect(input.value).toBe('draft');
+
+    setView(grid, VIEW_HEIGHT);
+    grid.keyboardOpenChanged(false);
+    expect(grid.element.scrollTop).toBe(before);
+  });
+
+  it('leaves the grid alone when the keyboard opened for another field', () => {
+    const { grid } = setupCsv(500, 3);
+    Object.defineProperty(grid.element, 'scrollHeight', { value: ROW * 501, configurable: true });
+    grid.element.scrollTop = ROW * 150;
+    const other = document.createElement('input');
+    document.body.append(other);
+    other.focus();
+
+    setView(grid, 260);
+    grid.keyboardOpenChanged(true);
+    expect(grid.element.scrollTop).toBe(ROW * 150);
+
+    grid.keyboardOpenChanged(false);
+    expect(grid.element.scrollTop).toBe(ROW * 150);
+  });
+});

@@ -134,13 +134,15 @@ export function installKeyboardViewportFix(): void {
  * very cell being edited when it sits near the top. Following the visible
  * area keeps the whole app on screen however far the page was pushed, and
  * leaves WebKit nothing below the fold to scroll into view as the user types.
- * The grid then scrolls a low cell into view itself (`Grid.onResize`).
+ * The grid then centers the edited cell itself (`Grid.keyboardOpenChanged`).
  */
 function pinAppToVisualViewport(root: HTMLElement | undefined, vv: VisualViewport): void {
   if (!root) return;
+  const opening = root.dataset.keyboardOpen === undefined;
   root.style.setProperty('--visual-viewport-top', `${vv.offsetTop}px`);
   root.style.setProperty('--visual-viewport-height', `${vv.height}px`);
   root.dataset.keyboardOpen = '';
+  if (opening) notifyKeyboardOpenChange(true);
 }
 
 function unpinApp(root: HTMLElement | undefined): void {
@@ -148,6 +150,28 @@ function unpinApp(root: HTMLElement | undefined): void {
   delete root.dataset.keyboardOpen;
   root.style.removeProperty('--visual-viewport-top');
   root.style.removeProperty('--visual-viewport-height');
+  notifyKeyboardOpenChange(false);
+}
+
+const keyboardOpenListeners = new Set<(open: boolean) => void>();
+
+function notifyKeyboardOpenChange(open: boolean): void {
+  for (const fn of keyboardOpenListeners) {
+    fn(open);
+  }
+}
+
+/**
+ * Subscribe to the on-screen keyboard opening or closing, as detected by
+ * `installKeyboardViewportFix`. Called once per transition, after `#app` has
+ * been fitted to (or released from) the visible area, so a listener that
+ * measures layout sees the new size. Returns an unsubscribe function.
+ */
+export function onKeyboardOpenChange(fn: (open: boolean) => void): () => void {
+  keyboardOpenListeners.add(fn);
+  return () => {
+    keyboardOpenListeners.delete(fn);
+  };
 }
 
 /**

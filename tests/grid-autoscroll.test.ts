@@ -431,7 +431,7 @@ describe('touch edit entry around the on-screen keyboard', () => {
     delete document.documentElement.dataset.keyboardOpen;
   });
 
-  it('parks the editor at the top until the keyboard opens, re-centers while it slides in, and restores the pre-edit scroll on close', () => {
+  it('re-centers the edited cell while the keyboard slides in, and restores the pre-edit scroll on close', () => {
     const { grid, tab } = setupCsv(500, 3);
     Object.defineProperty(grid.element, 'scrollHeight', { value: ROW * 501, configurable: true });
     touchGrid(grid);
@@ -439,13 +439,11 @@ describe('touch edit entry around the on-screen keyboard', () => {
     const beforeEdit = grid.element.scrollTop;
     grid.openEditor(tab, 170, 0, null);
     const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
-    expect(input.classList.contains('keyboard-pending')).toBe(true);
 
     // First notification while the keyboard is still sliding in.
     document.documentElement.dataset.keyboardOpen = '';
     setView(grid, 400);
     grid.keyboardOpenChanged(true);
-    expect(input.classList.contains('keyboard-pending')).toBe(false);
     expect(grid.element.scrollTop).toBe(centered(170, 400));
 
     // Fully open: centered in the final, smaller scroll area.
@@ -467,25 +465,29 @@ describe('touch edit entry around the on-screen keyboard', () => {
     expect(grid.element.scrollTop).toBe(beforeEdit);
   });
 
-  it('un-parks the editor after a short fallback when no keyboard opens (e.g. a hardware keyboard)', () => {
+  it('forgets the pre-edit scroll when the editor closes without a keyboard opening', () => {
+    const { grid, tab } = setupCsv(500, 3);
+    Object.defineProperty(grid.element, 'scrollHeight', { value: ROW * 501, configurable: true });
+    touchGrid(grid);
+    grid.element.scrollTop = ROW * 150;
+    grid.openEditor(tab, 170, 0, null);
+    grid.commitEditor();
+    const afterEdit = grid.element.scrollTop;
+
+    grid.focusGrid();
+    document.documentElement.dataset.keyboardOpen = '';
+    grid.keyboardOpenChanged(true);
+    delete document.documentElement.dataset.keyboardOpen;
+    grid.keyboardOpenChanged(false);
+    expect(grid.element.scrollTop).toBe(afterEdit);
+  });
+
+  it('keeps the touch editor in place over its cell while the keyboard is coming (never parked or hidden)', () => {
     const { grid, tab } = setupCsv(500, 3);
     touchGrid(grid);
     grid.openEditor(tab, 3, 0, null);
     const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
-    expect(input.classList.contains('keyboard-pending')).toBe(true);
-
-    vi.advanceTimersByTime(1000);
-    expect(input.classList.contains('keyboard-pending')).toBe(false);
-    expect(grid.element.querySelector('.cell-editor')).toBe(input);
-  });
-
-  it('never parks for a mouse, or for type-to-edit', () => {
-    const { grid, tab } = setupCsv(500, 3);
-    grid.openEditor(tab, 3, 0, null);
-    expect(grid.element.querySelector('.cell-editor')!.classList.contains('keyboard-pending')).toBe(false);
-
-    touchGrid(grid);
-    grid.openEditor(tab, 4, 0, '');
-    expect(grid.element.querySelector('.cell-editor')!.classList.contains('keyboard-pending')).toBe(false);
+    expect(input.className.split(/\s+/).sort()).toEqual(['cell-editor', 'grid-sink']);
+    expect(document.activeElement).toBe(input);
   });
 });

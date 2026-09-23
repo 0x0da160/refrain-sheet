@@ -123,10 +123,12 @@ docked-panel/Find-bar text field:
   open/close transition is announced through `onKeyboardOpenChange`, and a
   height change while open through `onKeyboardResize`. When a touch
   edit-entry gesture opens the editor, the grid remembers its scroll
-  position and parks the still-transparent editor at the top of the screen
-  (`.keyboard-pending`), so Safari has nothing to scroll into view and does
-  not slide the page. On open, `Grid.keyboardOpenChanged` un-parks it and
-  scrolls the edited (or selected) cell to the vertical middle of the
+  position (forgotten if the editor closes with no keyboard open). The
+  editor must stay in place and visible while it takes focus: parking it
+  transparent at the top of the screen to avoid Safari's reveal scroll
+  (v0.8.11) stopped iOS from showing the keyboard at all, as the on-device
+  `#debug-viewport` log showed, and was removed (#586). On open,
+  `Grid.keyboardOpenChanged` scrolls the edited (or selected) cell to the vertical middle of the
   grid's shortened scroll area (`centeredScrollOffset`,
   `src/ui/grid/center-scroll.ts`); for a second after, each further shrink
   (the keyboard still sliding in) re-centers it (`keyboardResized`). On

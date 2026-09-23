@@ -3,14 +3,14 @@ import type { DelimiterId } from '../core/byte-csv-parser';
 import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../core/cell-style';
 import type { CellRange } from '../core/clipboard';
 import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport, type CsvExportOptions } from '../core/csv-export';
-import { type EncodingId } from '../core/encoding';
-import { type ConditionalFormatRule } from '../core/conditional-format';
-import { type CellValidation, type ValidationRule } from '../core/data-validation';
-import { type DiffOptions, type DiffResult } from '../core/diff-engine';
-import { type ColumnFilter } from '../core/filter';
+import type { EncodingId } from '../core/encoding';
+import type { ConditionalFormatRule } from '../core/conditional-format';
+import type { CellValidation, ValidationRule } from '../core/data-validation';
+import type { DiffOptions, DiffResult } from '../core/diff-engine';
+import type { ColumnFilter } from '../core/filter';
 import { cellLabel, columnLabel, isFormula, parseRef } from '../core/formula';
-import { RsfDocument } from '../core/rsf-document';
-import { type SortKey } from '../core/sort';
+import type { RsfDocument } from '../core/rsf-document';
+import type { SortKey } from '../core/sort';
 import type { CompiledQuery, SearchScope } from '../core/search';
 import {
   KEEP_SAVE_OPTIONS,
@@ -18,10 +18,10 @@ import {
   type SaveOptions,
   type UnrepresentableCell,
 } from '../core/serializer';
-import { type ValidationSummary } from '../core/validation';
+import type { ValidationSummary } from '../core/validation';
 import type { RsfHistorySnapshot } from '../core/rsf-codec';
 import type { WorksheetKind } from '../core/worksheet';
-import { AppState, type Selection, type SelectionKind, type Tab } from './app-state';
+import type { AppState, Selection, SelectionKind, Tab } from './app-state';
 import { pickFiles, saveBytesAs, type OpenedFile } from './file-access';
 import { getLocale, setLocale, t, type LocaleId } from './i18n';
 import {

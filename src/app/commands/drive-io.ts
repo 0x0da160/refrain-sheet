@@ -12,7 +12,7 @@
 // `driveConfigured()` is false, every command is disabled, and none of the
 // Google scripts is ever fetched.
 
-import { AppState, type Tab } from '../app-state';
+import type { AppState, Tab } from '../app-state';
 import { getMaxFileSize } from '../settings';
 import { t } from '../i18n';
 import type { UiPort } from '../commands';

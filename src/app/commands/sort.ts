@@ -2,7 +2,7 @@
 import { computeSortOrder, validateSort, MAX_SHEET_SORT_ROWS, type SheetSort } from '../../core/sort';
 import { cellLabel, columnLabel } from '../../core/formula';
 import type { RsfDocument } from '../../core/rsf-document';
-import { AppState, type Tab } from '../app-state';
+import type { AppState, Tab } from '../app-state';
 import { t } from '../i18n';
 import type { ConvertReason, SortDialogInput, UiPort } from '../commands';
 import { LARGE_OP_CELLS, withBusyIfLarge } from './shared';

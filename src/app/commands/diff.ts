@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { computeDiff, DiffError, type DiffOptions, type DiffResult } from '../../core/diff-engine';
 import type { Tab } from '../app-state';
-import { AppState } from '../app-state';
+import type { AppState } from '../app-state';
 import { SqlCommands } from './sql';
 
 /** One other open tab the active tab could be compared against. */

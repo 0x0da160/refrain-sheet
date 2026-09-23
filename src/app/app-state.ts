@@ -12,23 +12,15 @@ import {
   type SheetOperation,
 } from '../core/history';
 import type { LosslessDocument } from '../core/lossless-document';
-import { RsfDocument } from '../core/rsf-document';
+import type { RsfDocument } from '../core/rsf-document';
 import { sortDataTop, type SheetSort } from '../core/sort';
 import type { Worksheet } from '../core/worksheet';
 import { t } from './i18n';
 import { clampSheetZoom, getSheetZoom, getWrapCells } from './settings';
 import { safeStorageGet } from './storage';
+import { STICKY_COL_KEY, STICKY_KEY } from './state/defaults';
 import { StructuralOpsState } from './state/structural-ops';
 import { WorksheetsState } from './state/worksheets';
-
-/**
- * The localized name of a workbook's first worksheet (`Sheet1` / `シート1`).
- * The core layer defaults to the English name because it must stay free of
- * i18n; every workbook created through the application passes this instead.
- */
-export function defaultSheetName(): string {
-  return t('sheet.defaultName', { n: 1 });
-}
 
 /** Either document kind; the shared surface is duck-typed across both. */
 export type EditorDocument = LosslessDocument | RsfDocument;
@@ -145,9 +137,6 @@ export interface Tab {
  * strip — the two strips are independent surfaces.
  */
 export type StateEventType = 'tabs' | 'active' | 'doc' | 'selection' | 'view' | 'sheets';
-
-export const STICKY_KEY = 'refrain-csv-html.stickyFirstRow';
-export const STICKY_COL_KEY = 'refrain-csv-html.stickyFirstColumn';
 
 let nextTabId = 1;
 

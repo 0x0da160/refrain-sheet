@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type SortDialogResult, type UiPort } from '../src/app/commands';
-import { type ColumnFilter, type SheetFilter } from '../src/core/filter';
+import type { ColumnFilter, SheetFilter } from '../src/core/filter';
 import { RsfDocument } from '../src/core/rsf-document';
 import {
   compareSortValues,

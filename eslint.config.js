@@ -32,6 +32,16 @@ export default tseslint.config(
       'no-new-func': 'error',
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // A type-only import is erased at build time, so marking it keeps the
+      // runtime import graph honest (e.g. AppState <-> src/app/state/* is a
+      // type-only back-reference, not a runtime cycle).
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { prefer: 'type-imports', fixStyle: 'inline-type-imports', disallowTypeAnnotations: false },
+      ],
+      // `import { type A }` with only type specifiers still leaves an empty
+      // runtime import under some emit settings; require `import type { A }`.
+      '@typescript-eslint/no-import-type-side-effects': 'error',
     },
   },
   {

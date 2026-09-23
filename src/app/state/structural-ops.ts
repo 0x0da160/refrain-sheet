@@ -4,15 +4,8 @@ import { adjustFormulaForAxis, isFormula, sheetNameKey, shiftFormulaRefs } from 
 import type { CellChange, HistoryEntry, Operation } from '../../core/history';
 import { LosslessDocument } from '../../core/lossless-document';
 import { RsfDocument, RSF_EXTENSION } from '../../core/rsf-document';
-import {
-  AppState,
-  defaultSheetName,
-  STICKY_COL_KEY,
-  STICKY_KEY,
-  type EditorDocument,
-  type Selection,
-  type Tab,
-} from '../app-state';
+import type { AppState, EditorDocument, Selection, Tab } from '../app-state';
+import { defaultSheetName, STICKY_COL_KEY, STICKY_KEY } from './defaults';
 import { getLocale, t } from '../i18n';
 import { clampSheetZoom, setSheetZoom, setWrapCellsPreference } from '../settings';
 import { safeStorageSet } from '../storage';

@@ -37,6 +37,22 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- Side panels (Filter, Sort, Data Validation, Text/Background Color,
+  Borders, Number Format, Conditional Formatting, SQL Query, Comments, and
+  the Markdown/JSON/YAML previews) now share one title bar: every panel
+  shows an icon before its title and a close (×) button at the top right,
+  next to the dock-side and maximize buttons.
+- Applying in a side panel no longer closes it: Apply and Clear take
+  effect immediately (each one undoable on its own) and the panel stays
+  open, so you can adjust and apply again or select another range and
+  apply there. Close a panel with the **Close** button at the bottom right,
+  the × at the top right, or Escape; the former **Cancel** button is now
+  **Close**, and switching to another window no longer closes a panel.
+- The controls inside side panels are laid out on one consistent grid:
+  labels sit above full-width fields, related fields share a row, and
+  text fields, lists, and buttons are the same height with the same
+  spacing in every panel.
+
 - The landing page (refrain-sheet.com) has been rewritten around fixing a CSV
   before it is re-imported: a new Japanese title, description and headline,
   use cases for accounting, payroll, order and core-system CSVs, a feature

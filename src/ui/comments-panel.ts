@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
-import { MessageSquare, X } from 'lucide';
+import { MessageSquare } from 'lucide';
 import type { AppState } from '../app/app-state';
 import { t } from '../app/i18n';
 import { collectSheetComments, collectWorkbookComments, type CommentEntry } from '../core/cell-comment';
 import { cellLabel } from '../core/formula';
 import {
   applySidePanelPosition,
-  buildSidePanelDock,
+  buildSidePanelChrome,
   releaseSidePanel,
   currentSidePanelPlacement,
+  type SidePanelChrome,
 } from './dialogs/shared';
 import { clearChildren, el } from './dom';
 import type { Grid } from './grid';
-import { createIcon } from './icon';
 
 type CommentScope = 'sheet' | 'workbook';
 
@@ -39,10 +39,9 @@ type CommentScope = 'sheet' | 'workbook';
  */
 export class CommentsPanel {
   readonly element: HTMLElement;
-  private readonly titleEl: HTMLElement;
+  private readonly chrome: SidePanelChrome;
   private readonly scopeLabelEl: HTMLElement;
   private readonly scopeSelect: HTMLSelectElement;
-  private readonly closeBtn: HTMLButtonElement;
   private readonly messageEl: HTMLElement;
   private readonly listEl: HTMLElement;
 
@@ -50,11 +49,6 @@ export class CommentsPanel {
     private readonly state: AppState,
     private readonly grid: Grid,
   ) {
-    this.titleEl = el('span', { className: 'comments-panel-title' }, [
-      createIcon(MessageSquare, 'comments-panel-title-icon', 14),
-      t('panel.comments.title'),
-    ]);
-
     this.scopeSelect = el('select', { className: 'comments-scope' });
     this.scopeSelect.append(
       el('option', { text: t('find.scope.sheet'), attrs: { value: 'sheet' } }),
@@ -67,13 +61,6 @@ export class CommentsPanel {
       this.scopeSelect,
     ]);
 
-    this.closeBtn = el('button', {
-      className: 'comments-panel-close',
-      attrs: { type: 'button', 'aria-label': t('panel.comments.close') },
-    });
-    this.closeBtn.append(createIcon(X, 'comments-panel-close-icon', 14));
-    this.closeBtn.addEventListener('click', () => this.close());
-
     this.messageEl = el('p', { className: 'comments-empty' });
     this.listEl = el('ul', { className: 'comments-list' });
 
@@ -81,13 +68,14 @@ export class CommentsPanel {
       className: 'side-panel comments-panel',
       attrs: { role: 'complementary', 'aria-label': t('panel.comments.title') },
     });
-    const { positionSwitcher, resizeHandle, maximizeToggle } = buildSidePanelDock(this.element);
-    const heading = el('div', { className: 'dialog-title side-panel-title' }, [
-      this.titleEl,
-      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, maximizeToggle, this.closeBtn]),
-    ]);
+    this.chrome = buildSidePanelChrome(this.element, {
+      icon: MessageSquare,
+      title: t('panel.comments.title'),
+      closeLabel: t('panel.comments.close'),
+      onClose: () => this.close(),
+    });
     const body = el('div', { className: 'dialog-body' }, [scopeLabel, this.messageEl, this.listEl]);
-    this.element.append(heading, body, resizeHandle);
+    this.element.append(this.chrome.heading, body, this.chrome.resizeHandle);
     this.element.hidden = true;
   }
 
@@ -127,13 +115,8 @@ export class CommentsPanel {
 
   /** Re-translate labels (locale change) and recompute the list (document change). */
   refresh(): void {
-    this.titleEl.textContent = '';
-    this.titleEl.append(
-      createIcon(MessageSquare, 'comments-panel-title-icon', 14),
-      t('panel.comments.title'),
-    );
+    this.chrome.relabel(t('panel.comments.title'), t('panel.comments.close'));
     this.element.setAttribute('aria-label', t('panel.comments.title'));
-    this.closeBtn.setAttribute('aria-label', t('panel.comments.close'));
     this.scopeLabelEl.textContent = t('find.scope');
     this.scopeSelect.options[0].textContent = t('find.scope.sheet');
     this.scopeSelect.options[1].textContent = t('find.scope.workbook');

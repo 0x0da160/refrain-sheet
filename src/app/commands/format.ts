@@ -11,7 +11,8 @@ import {
 import type { CellRange } from '../../core/clipboard';
 import type { StyleChange } from '../../core/history';
 import type { AppState, Tab } from '../app-state';
-import type { UiPort } from '../commands';
+import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult, UiPort } from '../commands';
+import { applyWhileOpen } from './shared';
 
 /** Every visible (non-hidden-row) cell of `range`, row-major. */
 function rangeCells(
@@ -84,14 +85,15 @@ export class FormatCommands {
       return false;
     }
     const current = doc.getStyle(range.top, range.left)?.textColor ?? null;
-    const result = await this.ui.chooseTextColor(current);
-    if (!result || tab.doc !== doc) {
-      return false;
-    }
-    return this.applyToSelection(
-      tab,
-      { textColor: result.action === 'apply' ? result.color : null },
-      'history.setTextColor',
+    return applyWhileOpen<ColorDialogResult>(
+      (onApply) => this.ui.chooseTextColor(current, onApply),
+      (result) =>
+        this.isStillActive(tab, doc) &&
+        this.applyToSelection(
+          tab,
+          { textColor: result.action === 'apply' ? result.color : null },
+          'history.setTextColor',
+        ),
     );
   }
 
@@ -103,14 +105,15 @@ export class FormatCommands {
       return false;
     }
     const current = doc.getStyle(range.top, range.left)?.backgroundColor ?? null;
-    const result = await this.ui.chooseBackgroundColor(current);
-    if (!result || tab.doc !== doc) {
-      return false;
-    }
-    return this.applyToSelection(
-      tab,
-      { backgroundColor: result.action === 'apply' ? result.color : null },
-      'history.setBackgroundColor',
+    return applyWhileOpen<ColorDialogResult>(
+      (onApply) => this.ui.chooseBackgroundColor(current, onApply),
+      (result) =>
+        this.isStillActive(tab, doc) &&
+        this.applyToSelection(
+          tab,
+          { backgroundColor: result.action === 'apply' ? result.color : null },
+          'history.setBackgroundColor',
+        ),
     );
   }
 
@@ -132,18 +135,22 @@ export class FormatCommands {
         currentWidth ??= style[BORDER_WIDTH_KEY[side]] ?? null;
       }
     }
-    const result = await this.ui.chooseBorders(current, currentLineStyle, currentWidth);
-    if (!result || tab.doc !== doc) {
-      return false;
-    }
-    const patch: CellStylePatch = { ...result.sides };
-    for (const side of BORDER_SIDES) {
-      if (result.sides[side] !== undefined && result.sides[side] !== null) {
-        patch[BORDER_STYLE_KEY[side]] = result.lineStyle;
-        patch[BORDER_WIDTH_KEY[side]] = result.width;
-      }
-    }
-    return this.applyToSelection(tab, patch, 'history.setBorders');
+    return applyWhileOpen<BordersDialogResult>(
+      (onApply) => this.ui.chooseBorders(current, currentLineStyle, currentWidth, onApply),
+      (result) => {
+        if (!this.isStillActive(tab, doc)) {
+          return false;
+        }
+        const patch: CellStylePatch = { ...result.sides };
+        for (const side of BORDER_SIDES) {
+          if (result.sides[side] !== undefined && result.sides[side] !== null) {
+            patch[BORDER_STYLE_KEY[side]] = result.lineStyle;
+            patch[BORDER_WIDTH_KEY[side]] = result.width;
+          }
+        }
+        return this.applyToSelection(tab, patch, 'history.setBorders');
+      },
+    );
   }
 
   /** Open the Number Format dialog (preselected from the top-left selected cell) and apply the choice. */
@@ -154,14 +161,15 @@ export class FormatCommands {
       return false;
     }
     const current = doc.getStyle(range.top, range.left)?.numberFormat ?? null;
-    const result = await this.ui.chooseNumberFormat(current);
-    if (!result || tab.doc !== doc) {
-      return false;
-    }
-    return this.applyToSelection(
-      tab,
-      { numberFormat: result.action === 'apply' ? result.format : null },
-      'history.setNumberFormat',
+    return applyWhileOpen<NumberFormatDialogResult>(
+      (onApply) => this.ui.chooseNumberFormat(current, onApply),
+      (result) =>
+        this.isStillActive(tab, doc) &&
+        this.applyToSelection(
+          tab,
+          { numberFormat: result.action === 'apply' ? result.format : null },
+          'history.setNumberFormat',
+        ),
     );
   }
 
@@ -188,6 +196,16 @@ export class FormatCommands {
     }
     const hidden = this.state.hiddenRows(tab);
     return rangeCells(range, hidden).every(({ row, col }) => doc.getStyle(row, col)?.[key]);
+  }
+
+  /**
+   * Whether a still-open format panel may apply to `tab`: it is still the
+   * active tab and still shows the document the panel was opened for (the
+   * panel stays open across applies, so the user may have switched away).
+   * Each apply then targets whatever range is selected at that moment.
+   */
+  private isStillActive(tab: Tab, doc: Tab['doc']): boolean {
+    return tab.doc === doc && this.state.activeTab === tab;
   }
 
   private toggleProperty(tab: Tab, key: 'bold' | 'italic' | 'underline', label: string): boolean {

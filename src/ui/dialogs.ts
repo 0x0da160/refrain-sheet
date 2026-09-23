@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { Tab } from '../app/app-state';
 import type {
+  ApplyHandler,
   BordersDialogResult,
   CellCommentDialogInput,
   CellCommentDialogResult,
@@ -232,18 +233,27 @@ export class Dialogs {
   }
 
   /** See `SheetOpsDialogs.chooseFilter` for the full behavior contract. */
-  chooseFilter(input: FilterDialogInput): Promise<FilterDialogResult | null> {
-    return this.sheetOps.chooseFilter(input);
+  chooseFilter(
+    input: FilterDialogInput,
+    onApply?: ApplyHandler<FilterDialogResult>,
+  ): Promise<FilterDialogResult | null> {
+    return this.sheetOps.chooseFilter(input, onApply);
   }
 
   /** See `SheetOpsDialogs.chooseSort` for the full behavior contract. */
-  chooseSort(input: SortDialogInput): Promise<SortDialogResult | null> {
-    return this.sheetOps.chooseSort(input);
+  chooseSort(
+    input: SortDialogInput,
+    onApply?: ApplyHandler<SortDialogResult>,
+  ): Promise<SortDialogResult | null> {
+    return this.sheetOps.chooseSort(input, onApply);
   }
 
   /** See `SheetOpsDialogs.chooseDataValidation` for the full behavior contract. */
-  chooseDataValidation(input: DataValidationDialogInput): Promise<DataValidationDialogResult | null> {
-    return this.sheetOps.chooseDataValidation(input);
+  chooseDataValidation(
+    input: DataValidationDialogInput,
+    onApply?: ApplyHandler<DataValidationDialogResult>,
+  ): Promise<DataValidationDialogResult | null> {
+    return this.sheetOps.chooseDataValidation(input, onApply);
   }
 
   /** See `SheetOpsDialogs.chooseCellComment` for the full behavior contract. */
@@ -296,13 +306,19 @@ export class Dialogs {
   }
 
   /** See `FormatDialogs.chooseTextColor` for the full behavior contract. */
-  chooseTextColor(current: string | null): Promise<ColorDialogResult | null> {
-    return this.format.chooseTextColor(current);
+  chooseTextColor(
+    current: string | null,
+    onApply?: ApplyHandler<ColorDialogResult>,
+  ): Promise<ColorDialogResult | null> {
+    return this.format.chooseTextColor(current, onApply);
   }
 
   /** See `FormatDialogs.chooseBackgroundColor` for the full behavior contract. */
-  chooseBackgroundColor(current: string | null): Promise<ColorDialogResult | null> {
-    return this.format.chooseBackgroundColor(current);
+  chooseBackgroundColor(
+    current: string | null,
+    onApply?: ApplyHandler<ColorDialogResult>,
+  ): Promise<ColorDialogResult | null> {
+    return this.format.chooseBackgroundColor(current, onApply);
   }
 
   /** See `FormatDialogs.chooseBorders` for the full behavior contract. */
@@ -310,20 +326,25 @@ export class Dialogs {
     current: Partial<Record<BorderSide, string>>,
     currentLineStyle: BorderLineStyle | null,
     currentWidth: BorderWidth | null,
+    onApply?: ApplyHandler<BordersDialogResult>,
   ): Promise<BordersDialogResult | null> {
-    return this.format.chooseBorders(current, currentLineStyle, currentWidth);
+    return this.format.chooseBorders(current, currentLineStyle, currentWidth, onApply);
   }
 
   /** See `FormatDialogs.chooseNumberFormat` for the full behavior contract. */
-  chooseNumberFormat(current: NumberFormat | null): Promise<NumberFormatDialogResult | null> {
-    return this.format.chooseNumberFormat(current);
+  chooseNumberFormat(
+    current: NumberFormat | null,
+    onApply?: ApplyHandler<NumberFormatDialogResult>,
+  ): Promise<NumberFormatDialogResult | null> {
+    return this.format.chooseNumberFormat(current, onApply);
   }
 
   /** See `FormatDialogs.chooseConditionalFormat` for the full behavior contract. */
   chooseConditionalFormat(
     input: ConditionalFormatDialogInput,
+    onApply?: ApplyHandler<ConditionalFormatDialogResult>,
   ): Promise<ConditionalFormatDialogResult | null> {
-    return this.format.chooseConditionalFormat(input);
+    return this.format.chooseConditionalFormat(input, onApply);
   }
 
   /** See `FileIoDialogs.chooseRecentFile` for the full behavior contract. */

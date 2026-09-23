@@ -139,3 +139,27 @@ export async function withBusyIfLarge<T>(
 ): Promise<T> {
   return large ? withBusy(ui, label, work) : work();
 }
+
+/**
+ * Runs a side panel whose Apply keeps it open: `open` receives the handler
+ * the panel calls for every Apply/Clear the user presses, and each result is
+ * applied immediately, one history entry per press. A result the promise
+ * itself resolves with (a UI that closes on Apply) is applied the same way.
+ * Resolves true when anything was applied before the panel closed.
+ */
+export async function applyWhileOpen<R>(
+  open: (onApply: (result: R) => Promise<boolean>) => Promise<R | null>,
+  apply: (result: R) => boolean | Promise<boolean>,
+): Promise<boolean> {
+  let applied = false;
+  const run = async (result: R): Promise<boolean> => {
+    const ok = await apply(result);
+    applied ||= ok;
+    return ok;
+  };
+  const result = await open(run);
+  if (result) {
+    await run(result);
+  }
+  return applied;
+}

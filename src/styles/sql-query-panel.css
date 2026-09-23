@@ -2,10 +2,6 @@
 
 /* ---------- SQL query panel (Data > Run SQL Query…) ---------- */
 
-.sql-query-dialog .form-row {
-  align-items: flex-start;
-}
-
 .sql-query-input {
   flex: 1;
   font-family: var(--font-sheet);
@@ -15,12 +11,6 @@
   border-radius: var(--radius-sm);
   resize: vertical;
   min-height: 90px;
-}
-
-.sql-query-help-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: var(--space-2);
 }
 
 .sql-query-help-toggle {
@@ -70,10 +60,6 @@
   overflow-wrap: break-word;
 }
 
-.sql-query-run-row {
-  justify-content: flex-end;
-}
-
 .sql-query-status {
   min-height: 1.4em;
   margin: 0 0 var(--space-4);
@@ -87,6 +73,10 @@
 .sql-query-results {
   overflow: auto;
   max-height: 260px;
+}
+
+.sql-query-results:empty {
+  display: none;
 }
 
 .sql-query-results:focus-visible {

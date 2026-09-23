@@ -113,7 +113,7 @@ describe('MarkdownSheetView', () => {
 
   it('closes the preview panel when its own close button is clicked', () => {
     const { view } = setup();
-    const closeBtn = view.panelElement.querySelector('.markdown-preview-panel-close') as HTMLButtonElement;
+    const closeBtn = view.panelElement.querySelector('.side-panel-close-btn') as HTMLButtonElement;
 
     closeBtn.click();
     expect(view.panelElement.hidden).toBe(true);

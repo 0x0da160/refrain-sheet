@@ -100,8 +100,8 @@ describe('Enter submits single-line dialog inputs', () => {
     enter(value1);
     expect(document.querySelector('.side-panel')).not.toBeNull();
 
-    panel.querySelector<HTMLButtonElement>('.dialog-buttons button')!.click();
-    await promise;
+    panel.querySelector<HTMLButtonElement>('.side-panel-footer-close')!.click();
+    expect(await promise).toBeNull();
   });
 
   it('keeps Apply disabled for a blank or whitespace-only numeric value (issue #339)', async () => {

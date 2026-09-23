@@ -503,33 +503,10 @@
 }
 
 .sort-key-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.sort-key-row select {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.dialog-subhead {
-  margin: 12px 0 4px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.format-borders-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 10px;
-}
-
-.format-borders-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 /* Spatial cross layout for the Borders dialog's side checkboxes (#393): each
@@ -538,19 +515,25 @@
    than an arbitrary vertical list. */
 .format-borders-cross {
   display: grid;
-  grid-template-columns: repeat(3, auto);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-rows: repeat(3, auto);
   justify-items: center;
   align-items: center;
-  gap: 4px 12px;
-  margin: 4px 0 14px;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
 }
 
 .format-borders-cell {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   white-space: nowrap;
+}
+
+.format-borders-cell input {
+  accent-color: var(--accent);
 }
 
 .format-borders-top {
@@ -579,38 +562,24 @@
 }
 
 .filter-condition-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.filter-condition-row select {
-  flex: 0 0 auto;
-}
-
-.filter-condition-row input {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.filter-add {
-  margin: 2px 0 4px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-3);
 }
 
 .filter-value-list {
-  max-height: 180px;
+  max-height: 200px;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 4px 6px;
-  margin-top: 4px;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
 }
 
 .filter-value {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 1px 0;
+  gap: var(--space-3);
+  min-height: 24px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -119,8 +119,19 @@ serials). Keyboard shortcuts: **Ctrl+B / Ctrl+I / Ctrl+U**.
 Filter, Sort, Data Validation, Conditional Formatting/Cell Formatting, SQL
 Query, the Comments panel, and the docked Markdown/JSON/YAML worksheet
 preview all share one **dockable, resizable side panel** shell
-(`openSidePanel` / `buildSidePanelDock` in `src/ui/dialogs/shared.ts`)
+(`openSidePanel` / `buildSidePanelChrome` in `src/ui/dialogs/shared.ts`)
 instead of separate popup layouts:
+
+- **One title bar.** `buildSidePanelChrome` builds every panel's header:
+  an icon (the same one its menu item uses; an eye for previews) before
+  the title, then the dock-side buttons, maximize, and a close (×) button,
+  always in that order and size. No panel builds its own header.
+- **One form layout.** `openSidePanel`'s body (`.side-panel-form`) stacks
+  `panelSection`s; each `panelField` puts its label above a full-width
+  control, side-by-side fields share a `.panel-grid`, checkboxes/radios use
+  `panelCheck`, and every text field, select, and in-body button
+  (`.panel-button`) is the same height. Build new panel controls from
+  these helpers rather than ad-hoc rows.
 
 - **Dock position.** Buttons in the panel's header pick top, right,
   bottom, or left; a top/bottom dock sits below the menu bar and document
@@ -151,11 +162,16 @@ instead of separate popup layouts:
   and size are remembered for the next panel opened in the same session
   (an in-memory preference, not written to the document or `localStorage`
   beyond what the theme/font preferences already use).
-- **Dismissal.** Escape, window blur, or the panel's own Cancel/close
-  button closes it; a stray click on the sheet behind it does not (this
-  was a deliberate change from an earlier click-outside-closes behavior,
-  so adjusting settings in the panel is never silently discarded by an
-  accidental click).
+- **Dismissal.** Only the footer's Close button (always the bottom-right
+  button of a transient panel), the header's ×, or Escape closes a panel.
+  Apply and Clear never do: the command passes an `onApply` handler
+  (`ApplyHandler` in `src/app/ui-port.ts`, run through `applyWhileOpen` in
+  `src/app/commands/shared.ts`), so each press applies immediately — one
+  history entry per press, to whatever is selected at that moment — and
+  the panel stays open for further adjustments. Neither a stray click on
+  the sheet behind it nor the window losing focus (a native color picker
+  opening, switching apps) closes it, so adjusting settings in the panel
+  is never silently discarded.
 - On a narrow, portrait mobile viewport the default dock position is
   **bottom** instead of right — see
   [mobile-and-touch.md](mobile-and-touch.md) for the touch/viewport

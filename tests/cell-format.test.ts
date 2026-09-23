@@ -516,6 +516,41 @@ describe('FormatCommands via Commands (RSF worksheets)', () => {
     });
   });
 
+  it('applies each Apply from a still-open Borders panel to the selection at that moment (panel stays open)', async () => {
+    const apply = {
+      action: 'apply' as const,
+      sides: { borderTop: '#000000' },
+      lineStyle: 'solid' as const,
+      width: 'thin' as const,
+    };
+    const ui = stubUi({
+      chooseBorders: vi.fn(async (_current, _style, _width, onApply) => {
+        // The user applies, selects another cell, applies again, then closes.
+        await onApply!(apply);
+        setup.state.setSelection(setup.tab, { row: 1, col: 0 }, null);
+        await onApply!(apply);
+        return null;
+      }),
+    });
+    const setup = sheet([['a'], ['b']], ui);
+    setup.state.setSelection(setup.tab, { row: 0, col: 0 }, null);
+    expect(await setup.commands.promptBorders(setup.tab)).toBe(true);
+    expect(setup.doc.getStyle(0, 0)?.borderTop).toBe('#000000');
+    expect(setup.doc.getStyle(1, 0)?.borderTop).toBe('#000000');
+    // One undoable history entry per Apply.
+    await setup.commands.run('edit.undo');
+    expect(setup.doc.getStyle(1, 0)).toBeNull();
+    expect(setup.doc.getStyle(0, 0)?.borderTop).toBe('#000000');
+  });
+
+  it('a Borders panel closed without applying changes nothing', async () => {
+    const ui = stubUi({ chooseBorders: vi.fn(async () => null) });
+    const { commands, tab, doc, state } = sheet([['a']], ui);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    expect(await commands.promptBorders(tab)).toBe(false);
+    expect(doc.getStyle(0, 0)).toBeNull();
+  });
+
   it('clearFormatting removes every style property without touching cell values', () => {
     const { commands, tab, doc, state } = sheet([['keep-me']]);
     doc.setCellStyleOn(undefined, 0, 0, { bold: true, textColor: '#ff0000', borderTop: '#000000' });

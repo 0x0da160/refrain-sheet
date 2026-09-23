@@ -9,7 +9,13 @@ import { cellLabel } from '../../core/formula';
 import type { RsfDocument } from '../../core/rsf-document';
 import type { AppState, Tab } from '../app-state';
 import { t } from '../i18n';
-import type { ConvertReason, DataValidationDialogInput, UiPort } from '../commands';
+import type {
+  ConvertReason,
+  DataValidationDialogInput,
+  DataValidationDialogResult,
+  UiPort,
+} from '../commands';
+import { applyWhileOpen } from './shared';
 
 /**
  * Data-validation commands for RSF spreadsheet documents: the dialog flow
@@ -69,32 +75,37 @@ export class ValidationCommands {
       rangeLabel: `${cellLabel(range.top, range.left)}:${cellLabel(range.bottom, range.right)}`,
       existing: existing?.rule ?? null,
     };
-    const result = await this.ui.chooseDataValidation(input);
-    if (!result || tab.doc !== doc) {
-      return false; // cancelled (or replaced document): nothing changes
-    }
-    if (result.action === 'clear') {
-      const applied = this.state.clearValidation(tab, range);
-      if (applied) {
-        this.ui.notify(t('notify.validationCleared'), 'info');
-      }
-      return applied;
-    }
+    const sheet = doc.activeSheet;
+    return applyWhileOpen<DataValidationDialogResult>(
+      (onApply) => this.ui.chooseDataValidation(input, onApply),
+      async (result) => {
+        if (tab.doc !== doc || this.state.activeTab !== tab || doc.activeSheet !== sheet) {
+          return false; // replaced document, or the user switched away: nothing changes
+        }
+        if (result.action === 'clear') {
+          const applied = this.state.clearValidation(tab, range);
+          if (applied) {
+            this.ui.notify(t('notify.validationCleared'), 'info');
+          }
+          return applied;
+        }
 
-    const candidate = validateValidation({ ...range, rule: result.rule }, doc.rowCount, doc.columnCount);
-    if (!candidate) {
-      await this.ui.showMessage(t('dialog.dataValidation.title'), t('dialog.dataValidation.invalid'));
-      return false;
-    }
-    const replacingExisting = doc.validations.some((v) => validationRangesEqual(v, range));
-    if (!replacingExisting && doc.validations.length >= MAX_VALIDATION_RULES) {
-      await this.ui.showMessage(t('dialog.dataValidation.title'), t('dialog.dataValidation.tooMany'));
-      return false;
-    }
-    const applied = this.state.setValidation(tab, candidate);
-    if (applied) {
-      this.ui.notify(t('notify.validationApplied'), 'info');
-    }
-    return applied;
+        const candidate = validateValidation({ ...range, rule: result.rule }, doc.rowCount, doc.columnCount);
+        if (!candidate) {
+          await this.ui.showMessage(t('dialog.dataValidation.title'), t('dialog.dataValidation.invalid'));
+          return false;
+        }
+        const replacingExisting = doc.validations.some((v) => validationRangesEqual(v, range));
+        if (!replacingExisting && doc.validations.length >= MAX_VALIDATION_RULES) {
+          await this.ui.showMessage(t('dialog.dataValidation.title'), t('dialog.dataValidation.tooMany'));
+          return false;
+        }
+        const applied = this.state.setValidation(tab, candidate);
+        if (applied) {
+          this.ui.notify(t('notify.validationApplied'), 'info');
+        }
+        return applied;
+      },
+    );
   }
 }

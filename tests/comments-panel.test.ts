@@ -199,6 +199,18 @@ describe('CommentsPanel', () => {
       expect(panel.element.querySelector('.side-panel-resize-handle')).not.toBeNull();
     });
 
+    it('uses the shared title bar: icon, title, and a close button that closes it', () => {
+      const { panel } = setupWorkbook();
+      panel.open();
+      const heading = panel.element.querySelector<HTMLElement>('.side-panel-title')!;
+      expect(heading.querySelector('svg.side-panel-title-icon')).not.toBeNull();
+      expect(heading.querySelector('.side-panel-title-label')?.textContent).toBe(t('panel.comments.title'));
+      const close = heading.querySelector<HTMLButtonElement>('.side-panel-close-btn')!;
+      expect(close.getAttribute('aria-label')).toBe(t('panel.comments.close'));
+      close.click();
+      expect(panel.isOpen).toBe(false);
+    });
+
     it('reserves app-edge space only while open, and releases it on close', () => {
       const { panel } = setupWorkbook();
       const app = document.createElement('div');

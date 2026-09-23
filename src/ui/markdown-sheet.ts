@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: MIT
-import { X } from 'lucide';
 import type { AppState, Tab } from '../app/app-state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { parseMarkdown } from '../core/markdown';
 import {
   applySidePanelPosition,
-  buildSidePanelDock,
+  buildSidePanelChrome,
   releaseSidePanel,
   currentSidePanelPlacement,
 } from './dialogs/shared';
+import { Eye } from 'lucide';
 import { el } from './dom';
 import { syncScroll } from './editor-preview-perf';
-import { createIcon } from './icon';
 import { renderMarkdownBlocks } from './markdown-render';
 
 /** How long to wait after the last keystroke before committing an undoable edit. */
@@ -25,7 +24,7 @@ const COMMIT_DEBOUNCE_MS = 600;
  * `markdown-render.ts` (#433/#502).
  *
  * The rendered preview (`panelElement`) is a separate, persistent dockable
- * `.side-panel` — the same `buildSidePanelDock`/`applySidePanelPosition`/
+ * `.side-panel` — the same `buildSidePanelChrome`/`applySidePanelPosition`/
  * `currentSidePanelPlacement` machinery the Filter/Sort/Format/SQL Query
  * panels and the comments panel use (`src/ui/dialogs/shared.ts`,
  * `ui/comments-panel.ts`) — toggled by `previewToggle`, rather than a fixed
@@ -91,7 +90,6 @@ export class MarkdownSheetView {
     // (persistent, created once, toggled open/closed) rather than a
     // transient `openSidePanel` call, since it must stay open and live-update
     // while the user keeps typing in the source textarea above.
-    const previewTitle = el('span', { text: t('dialog.markdownEditor.preview') });
     this.preview = el('div', {
       className: 'markdown-editor-preview',
       attrs: { 'aria-live': 'polite' },
@@ -100,19 +98,14 @@ export class MarkdownSheetView {
       className: 'side-panel markdown-preview-panel',
       attrs: { role: 'complementary', 'aria-label': t('dialog.markdownEditor.preview') },
     });
-    const { positionSwitcher, resizeHandle, maximizeToggle } = buildSidePanelDock(this.panelElement);
-    const closeBtn = el('button', {
-      className: 'markdown-preview-panel-close',
-      attrs: { type: 'button', 'aria-label': t('dialog.markdownEditor.hidePreview') },
+    const previewChrome = buildSidePanelChrome(this.panelElement, {
+      icon: Eye,
+      title: t('dialog.markdownEditor.preview'),
+      closeLabel: t('dialog.markdownEditor.hidePreview'),
+      onClose: () => this.setPreviewVisible(false),
     });
-    closeBtn.append(createIcon(X, 'markdown-preview-panel-close-icon', 14));
-    closeBtn.addEventListener('click', () => this.setPreviewVisible(false));
-    const heading = el('div', { className: 'dialog-title side-panel-title' }, [
-      previewTitle,
-      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, maximizeToggle, closeBtn]),
-    ]);
     const body = el('div', { className: 'dialog-body' }, [this.preview]);
-    this.panelElement.append(heading, body, resizeHandle);
+    this.panelElement.append(previewChrome.heading, body, previewChrome.resizeHandle);
     this.panelElement.hidden = true;
 
     this.updatePreviewToggle();

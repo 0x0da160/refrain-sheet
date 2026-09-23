@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.8.11] - 2026-09-23
+
 ### Fixed
 
 - On iPhone, a cell near the bottom of the screen is now centered in the

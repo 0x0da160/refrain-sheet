@@ -35,6 +35,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- Typing into a cell in iOS Safari no longer makes the whole page jump up
+  and down on every keystroke after the first. While the on-screen keyboard
+  was open, Safari scrolled the page to keep the cell in view and the app
+  scrolled it straight back each time. The app now waits until the keyboard
+  closes before resetting the page position.
+
 ## [0.8.7] - 2026-09-23
 
 ### Changed

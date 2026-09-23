@@ -19,11 +19,21 @@
  * one pass per keystroke.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installKeyboardViewportFix, onViewportResize } from '../src/ui/popup';
+import { installKeyboardViewportFix, isKeyboardLikelyOpen, onViewportResize } from '../src/ui/popup';
 
 /** A minimal stand-in for `window.visualViewport` in jsdom, which has none. */
 function fakeVisualViewport(): EventTarget {
   return new EventTarget();
+}
+
+/**
+ * A fresh copy of `popup.ts`, so resync listeners installed by earlier tests
+ * (kept in the module's shared subscriber set) cannot react to this test's
+ * events with their own, measurement-free fake viewports.
+ */
+async function freshPopupModule(): Promise<typeof import('../src/ui/popup')> {
+  vi.resetModules();
+  return import('../src/ui/popup');
 }
 
 /** Waits past one coalesced `onViewportResize` tick (debounce + rAF/setTimeout fallback). */
@@ -41,6 +51,7 @@ describe('installKeyboardViewportFix', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('resyncs the scroll position when the visual viewport resizes while the page is shifted (keyboard close, #402)', async () => {
@@ -80,6 +91,37 @@ describe('installKeyboardViewportFix', () => {
     await nextViewportResizeTick();
 
     expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('does not scroll while the on-screen keyboard is open, even with the page shifted (per-keystroke jump)', async () => {
+    // WebKit scrolls the page itself to keep the focused cell editor in view
+    // on each keystroke while the keyboard is up; snapping that back made the
+    // whole page jump up and down as the user typed.
+    const vv = Object.assign(fakeVisualViewport(), { height: 400, scale: 1 });
+    vi.stubGlobal('visualViewport', vv);
+    vi.stubGlobal('scrollY', 120);
+    vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(800);
+    (await freshPopupModule()).installKeyboardViewportFix();
+
+    vv.dispatchEvent(new Event('resize'));
+    vv.dispatchEvent(new Event('scroll'));
+    await nextViewportResizeTick();
+
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('resyncs once the keyboard has closed and the visual viewport is full height again (#402)', async () => {
+    const vv = Object.assign(fakeVisualViewport(), { height: 400, scale: 1 });
+    vi.stubGlobal('visualViewport', vv);
+    vi.stubGlobal('scrollY', 120);
+    vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(800);
+    (await freshPopupModule()).installKeyboardViewportFix();
+
+    vv.height = 800;
+    vv.dispatchEvent(new Event('resize'));
+    await nextViewportResizeTick();
+
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
   });
 
   it('is a no-op without a visualViewport (e.g. a unit test, or a non-WebKit browser)', () => {
@@ -171,5 +213,24 @@ describe('onViewportResize', () => {
     second.dispatchEvent(new Event('resize'));
     await nextViewportResizeTick();
     expect(fnSecond).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('isKeyboardLikelyOpen', () => {
+  it('is true when the visible area is a keyboard-height shorter than the layout viewport', () => {
+    expect(isKeyboardLikelyOpen({ height: 400, scale: 1 }, 800)).toBe(true);
+  });
+
+  it('is false for the few tens of px a browser toolbar moves', () => {
+    expect(isKeyboardLikelyOpen({ height: 740, scale: 1 }, 800)).toBe(false);
+  });
+
+  it('is false when pinch-zoom alone shrinks the visual viewport', () => {
+    expect(isKeyboardLikelyOpen({ height: 400, scale: 2 }, 800)).toBe(false);
+  });
+
+  it('is false without usable measurements (no layout, e.g. jsdom)', () => {
+    expect(isKeyboardLikelyOpen({}, 800)).toBe(false);
+    expect(isKeyboardLikelyOpen({ height: 400, scale: 1 }, 0)).toBe(false);
   });
 });

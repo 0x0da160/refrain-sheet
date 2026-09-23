@@ -13,6 +13,7 @@ sources:
   - resource: ../../src/ui/grid.ts
   - resource: ../../src/ui/popup.ts
   - resource: ../../tests/keyboard-viewport-fix.test.ts
+  - resource: ../../tests/grid-autoscroll.test.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -110,10 +111,14 @@ docked-panel/Find-bar text field:
   (`isKeyboardLikelyOpen`), sets `data-keyboard-open` on the root, and pins
   `#app` to the visual viewport's top and height. While the keyboard is
   open it no longer resets the page scroll, which fought WebKit on every
-  keystroke (#574); it resets it once the keyboard closes (#402). When the
-  app shrinks, the grid scrolls the edited cell back into view, and the
-  inline editor stays open across a grid scroll as long as its cell is
-  still rendered (it commits only once the cell leaves the window).
+  keystroke (#574); it resets it once the keyboard closes (#402). Each
+  open/close transition is announced through `onKeyboardOpenChange`: on
+  open, when the grid has focus, `Grid.keyboardOpenChanged` scrolls the
+  edited (or selected) cell to the vertical middle of the shortened grid
+  (`centeredScrollOffset`, `src/ui/grid/center-scroll.ts`) and remembers
+  the previous scroll position, which it restores on close. The inline
+  editor stays open across a grid scroll as long as its cell is still
+  rendered (it commits only once the cell leaves the window).
 
 ## Phone-width layout adaptations
 

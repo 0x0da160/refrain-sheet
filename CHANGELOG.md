@@ -35,6 +35,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- On iPhone, a cell near the bottom of the screen is no longer hidden behind
+  the keyboard when you start editing it. When the keyboard opens, the grid
+  now scrolls the cell to the middle of the area left above the keyboard, and
+  scrolls back to where it was once the keyboard closes.
+
 ## [0.8.9] - 2026-09-23
 
 ### Fixed

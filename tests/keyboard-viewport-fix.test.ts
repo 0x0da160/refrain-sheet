@@ -151,6 +151,27 @@ describe('installKeyboardViewportFix', () => {
     expect(root.style.getPropertyValue('--visual-viewport-height')).toBe('');
   });
 
+  it('notifies onKeyboardOpenChange once per open and once per close, not on every resize in between', async () => {
+    const vv = Object.assign(fakeVisualViewport(), { height: 400, scale: 1, offsetTop: 0 });
+    vi.stubGlobal('visualViewport', vv);
+    vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(800);
+    const popup = await freshPopupModule();
+    const changes: boolean[] = [];
+    popup.onKeyboardOpenChange((open) => changes.push(open));
+    popup.installKeyboardViewportFix();
+
+    vv.dispatchEvent(new Event('resize'));
+    await nextViewportResizeTick();
+    vv.height = 380; // e.g. the predictive-text bar changing height
+    vv.dispatchEvent(new Event('resize'));
+    await nextViewportResizeTick();
+    vv.height = 800;
+    vv.dispatchEvent(new Event('resize'));
+    await nextViewportResizeTick();
+
+    expect(changes).toEqual([true, false]);
+  });
+
   it('is a no-op without a visualViewport (e.g. a unit test, or a non-WebKit browser)', () => {
     vi.stubGlobal('visualViewport', undefined);
     expect(() => installKeyboardViewportFix()).not.toThrow();

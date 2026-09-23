@@ -175,13 +175,13 @@ src/
   assets/     bundled icon/logotype SVGs
   locales/    en.json, ja.json (identical key sets)
   wasm-gen/   generated: embedded WASM (Base64) + wasm-bindgen glue
-  landing/    the separate static marketing site (npm run build:landing)
 wasm/         Rust crate compiled to WebAssembly (CSV core, compression,
               stats/search primitives); toolchain pinned by rust-toolchain.toml
 tests/        unit, property-based/fuzz, and jsdom UI tests; fixtures/rsf/ is
               the frozen .rsf compatibility corpus
 bench/        reproducible performance benchmarks (npm run bench)
 scripts/      build, embed, release, and verification scripts (npm run …)
+site/         the separate static marketing site, plain JS (npm run build:landing)
 knowledge/    the OKF knowledge bundle (architecture, operations, formats,
               agent-loop, domains, ui, references, decisions)
 docs/         the Knip baseline and proposal/analysis records

@@ -16,7 +16,7 @@ const raw = import.meta.glob(
     '../design-system/1.0.0/icons/*.svg',
     '../design-system/1.0.0/logo/*.svg',
     '../src/assets/*.svg',
-    '../src/landing/favicon.svg',
+    '../site/favicon.svg',
     '../public/favicon.svg',
   ],
   { query: '?raw', import: 'default', eager: true },
@@ -25,7 +25,7 @@ const raw = import.meta.glob(
 const DS = '../design-system/1.0.0';
 const copies: Array<[copy: string, master: string]> = [
   ['../public/favicon.svg', `${DS}/icons/favicon.svg`],
-  ['../src/landing/favicon.svg', `${DS}/icons/favicon.svg`],
+  ['../site/favicon.svg', `${DS}/icons/favicon.svg`],
   ['../src/assets/icon.svg', `${DS}/icons/app-icon-1024.svg`],
   ['../src/assets/icon-dark.svg', `${DS}/icons/app-icon-1024.svg`],
   ['../src/assets/logotype.svg', `${DS}/logo/refrain-sheet-logotype-horizontal.svg`],

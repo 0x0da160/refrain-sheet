@@ -3,8 +3,8 @@
 //
 // Drives the built distribution (dist/index.html) in headless Chromium —
 // same loading path as scripts/ui-check.mjs — through the five UI states the
-// landing page (src/landing/template.html) shows off, and writes each shot
-// into src/landing/assets/ as a master-resolution .webp plus the smaller
+// landing page (site/template.html) shows off, and writes each shot
+// into site/assets/ as a master-resolution .webp plus the smaller
 // responsive srcset variants the template already references. Re-run this
 // whenever the UI changes enough that the existing screenshots look stale;
 // it always overwrites the same file names, so no other file needs editing.
@@ -24,7 +24,7 @@ import Encoding from 'encoding-japanese';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const indexHtml = join(root, 'dist', 'index.html');
-const assetsDir = join(root, 'src', 'landing', 'assets');
+const assetsDir = join(root, 'site', 'assets');
 
 if (!existsSync(indexHtml)) {
   console.error(
@@ -208,7 +208,7 @@ async function main() {
     await browser.close();
   }
   console.warn(
-    'capture-landing-screenshots: done — review the new files under src/landing/assets/ before committing',
+    'capture-landing-screenshots: done — review the new files under site/assets/ before committing',
   );
 }
 

@@ -9,7 +9,7 @@ export default tseslint.config(
   // copy of the project — including its built `dist/` — and fail the run for
   // reasons that have nothing to do with the tree being checked.
   // `landing/` is the gitignored build output of `scripts/build-landing.mjs`;
-  // its sources under `src/landing/` are linted by the block further below.
+  // its sources under `site/` are linted by the block further below.
   {
     ignores: [
       'dist/',
@@ -83,11 +83,11 @@ export default tseslint.config(
     },
   },
   {
-    // The landing site (`src/landing/`) is a self-contained static marketing
+    // The landing site (`site/`) is a self-contained static marketing
     // site in plain browser JS, not part of the TypeScript app. `main.js` and
     // `consent.js` load as classic <script> tags; `i18n.js` is an ES module
     // read only at build time by scripts/build-landing.mjs.
-    files: ['src/landing/**/*.js'],
+    files: ['site/**/*.js'],
     languageOptions: {
       globals: {
         window: 'readonly',
@@ -98,7 +98,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/landing/main.js', 'src/landing/consent.js'],
+    files: ['site/main.js', 'site/consent.js'],
     languageOptions: { sourceType: 'script' },
     // Written in conservative ES5-style JS for older browsers, so a
     // `catch (e)` binding stays even when unused (no optional catch binding).

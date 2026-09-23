@@ -1051,5 +1051,9 @@
   "shortcut.selectAll": "Select all cells (only while the grid has focus)",
   "shortcut.extendSelection": "Extend the selection range",
   "shortcut.jumpToStart": "Jump to the first cell (A1)",
-  "shortcut.jumpToEnd": "Jump to the last used cell"
+  "shortcut.jumpToEnd": "Jump to the last used cell",
+  "viewportDebug.copy": "Copy log",
+  "viewportDebug.clear": "Clear",
+  "viewportDebug.copied": "Copied {count} lines",
+  "viewportDebug.copyFailed": "Copy failed — select the text below"
 }

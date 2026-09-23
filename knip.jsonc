@@ -44,12 +44,17 @@
   ],
   "ignoreDependencies": [
     // Used only via CSS `@import 'tailwindcss/theme.css'` /
-    // 'tailwindcss/utilities.css' in src/styles.css (see
+    // 'tailwindcss/utilities.css' in src/styles/tokens.css (see
     // knowledge/architecture/module-boundaries.md's "Styling stays
     // hand-written CSS" section).
     // Knip's project globs above don't include *.css, so it never sees
     // this real usage and reports the package as unused.
     "tailwindcss",
+  ],
+  "ignoreBinaries": [
+    // Rust/Cargo toolchain binary used by package.json's build:wasm script
+    // (installed by the Dockerfile), not an npm package — nothing to declare.
+    "wasm-pack",
   ],
   "vitest": {
     "config": ["vite.config.ts"],

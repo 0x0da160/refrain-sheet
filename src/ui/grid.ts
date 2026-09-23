@@ -1167,14 +1167,14 @@ export class Grid {
    * text bar above the on-screen keyboard resizes the visual viewport — and
    * therefore `#app`'s `100dvh` height, cascading down to this element's
    * `clientHeight` — as its candidates change, i.e. on every keystroke
-   * (#402/#519). Left unfiltered, that reaches `render()`, which commits
-   * (closes) an open cell editor the instant the row window shifts by even
-   * one row — so typing could close the very editor being typed into.
+   * (#402/#519). Re-rendering the grid on every keystroke for that would be
+   * wasted work.
    *
    * While an editor is open, a resize whose width matches the last observed
-   * width is treated as exactly that kind of height-only jitter: skipped
-   * entirely rather than re-rendered, with the sink just re-placed so it
-   * keeps tracking the cell. A real resize (the width actually changed, or
+   * width is treated as exactly that kind of height-only change: not
+   * re-rendered, with the sink just re-placed so it keeps tracking the cell,
+   * and the grid scrolled only if the edited cell has dropped out of view
+   * (the app shrinking to fit above the keyboard). A real resize (the width actually changed, or
    * no editor is open) still re-renders as before. jsdom (tests) provides no
    * `ResizeObserverEntry`, so `entries` is undefined there and this always
    * falls through to a normal render.
@@ -1185,6 +1185,13 @@ export class Grid {
       const cell = this.cellAt(this.editor.row, this.editor.col);
       if (cell) {
         this.placeSinkOverCell(cell);
+      }
+      // The grid got shorter (e.g. the app now fits above an on-screen
+      // keyboard): scroll the edited cell back into view if it ended up below
+      // the fold. The editor stays open (see `render`).
+      const tab = this.state.activeTab;
+      if (tab) {
+        this.scrollCellIntoView(tab, this.editor.row, this.editor.col, false);
       }
       return;
     }
@@ -1303,10 +1310,6 @@ export class Grid {
       this.refreshFormulaRefs();
       return;
     }
-    if (this.editor) {
-      // The editor's cell may be about to leave the window; commit first.
-      this.commitEditor();
-    }
     this.window = win;
     this.layout = this.layoutSignature(tab);
 
@@ -1392,6 +1395,19 @@ export class Grid {
       rowEl.style.width = `${totalW}px`;
       this.buildRowCells(tab, rowEl, row, win, false);
       this.rowsLayer.append(rowEl);
+    }
+    if (this.editor) {
+      // The sink lives in the canvas, not in the rebuilt rows, so the editor
+      // survives a window change. Keep it open while its cell is still
+      // rendered — e.g. the grid scrolled a few rows to keep it above an
+      // on-screen keyboard — and commit only once the cell has left the
+      // window.
+      const cell = this.cellAt(this.editor.row, this.editor.col);
+      if (cell) {
+        this.placeSinkOverCell(cell);
+      } else {
+        this.commitEditor();
+      }
     }
     this.refreshSelection();
     this.refreshFormulaRefs();
@@ -3097,7 +3113,10 @@ export class Grid {
     this.select(tab, row, col, true);
   }
 
-  private scrollCellIntoView(tab: Tab, row: number, col: number): void {
+  /** `renderIfUnmoved: false` skips the repaint when the cell was already in view. */
+  private scrollCellIntoView(tab: Tab, row: number, col: number, renderIfUnmoved = true): void {
+    const scrollTop = this.element.scrollTop;
+    const scrollLeft = this.element.scrollLeft;
     const idx = this.heightIndex(tab);
     const overlay = this.overlayHeight(tab);
     // The height index is keyed by display slot, not document row.
@@ -3122,6 +3141,9 @@ export class Grid {
       } else if (x + w > this.element.scrollLeft + viewW) {
         this.element.scrollLeft = x + w - viewW;
       }
+    }
+    if (!renderIfUnmoved && this.element.scrollTop === scrollTop && this.element.scrollLeft === scrollLeft) {
+      return;
     }
     const current = this.state.activeTab;
     if (current) {

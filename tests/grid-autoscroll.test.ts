@@ -308,3 +308,36 @@ describe('drag auto-scroll past the grid edge', () => {
     mouseup();
   });
 });
+
+describe('the inline cell editor across grid scrolls', () => {
+  function scrollGridTo(grid: Grid, top: number): void {
+    grid.element.scrollTop = top;
+    grid.element.dispatchEvent(new Event('scroll'));
+    vi.advanceTimersByTime(TICK_MS);
+  }
+
+  it('stays open, with its text, while its cell is still rendered (e.g. scrolled to stay above an on-screen keyboard)', () => {
+    const { grid, tab } = setupCsv(500, 3);
+    grid.openEditor(tab, 5, 0, null);
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    input.value = 'draft';
+
+    scrollGridTo(grid, 80);
+
+    expect(grid.element.querySelector('.cell-editor')).toBe(input);
+    expect(input.value).toBe('draft');
+    expect(tab.doc.getValue(5, 0)).toBe('r5c0');
+  });
+
+  it('commits once its cell has left the rendered window', () => {
+    const { grid, tab } = setupCsv(500, 3);
+    grid.openEditor(tab, 5, 0, null);
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    input.value = 'draft';
+
+    scrollGridTo(grid, 26 * 300);
+
+    expect(grid.element.querySelector('.cell-editor')).toBeNull();
+    expect(tab.doc.getValue(5, 0)).toBe('draft');
+  });
+});

@@ -124,6 +124,33 @@ describe('installKeyboardViewportFix', () => {
     expect(scrollTo).toHaveBeenCalledWith(0, 0);
   });
 
+  it('fits the app to the visible area while the keyboard is open, and releases it once closed (#574 follow-up)', async () => {
+    const vv = Object.assign(fakeVisualViewport(), { height: 400, scale: 1, offsetTop: 250 });
+    vi.stubGlobal('visualViewport', vv);
+    vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(800);
+    (await freshPopupModule()).installKeyboardViewportFix();
+    const root = document.documentElement;
+
+    vv.dispatchEvent(new Event('resize'));
+    await nextViewportResizeTick();
+    expect(root.dataset.keyboardOpen).toBe('');
+    expect(root.style.getPropertyValue('--visual-viewport-top')).toBe('250px');
+    expect(root.style.getPropertyValue('--visual-viewport-height')).toBe('400px');
+
+    // WebKit pushing the page further (a visualViewport scroll) is followed immediately.
+    vv.offsetTop = 300;
+    vv.dispatchEvent(new Event('scroll'));
+    expect(root.style.getPropertyValue('--visual-viewport-top')).toBe('300px');
+
+    vv.height = 800;
+    vv.offsetTop = 0;
+    vv.dispatchEvent(new Event('resize'));
+    await nextViewportResizeTick();
+    expect(root.dataset.keyboardOpen).toBeUndefined();
+    expect(root.style.getPropertyValue('--visual-viewport-top')).toBe('');
+    expect(root.style.getPropertyValue('--visual-viewport-height')).toBe('');
+  });
+
   it('is a no-op without a visualViewport (e.g. a unit test, or a non-WebKit browser)', () => {
     vi.stubGlobal('visualViewport', undefined);
     expect(() => installKeyboardViewportFix()).not.toThrow();

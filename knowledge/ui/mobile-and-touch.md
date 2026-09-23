@@ -11,6 +11,8 @@ sources:
   - resource: ../../src/styles/mobile-layout.css
   - resource: ../../src/ui/dom.ts
   - resource: ../../src/ui/grid.ts
+  - resource: ../../src/ui/popup.ts
+  - resource: ../../tests/keyboard-viewport-fix.test.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -101,6 +103,17 @@ docked-panel/Find-bar text field:
   spreadsheet zoom (see
   [theming-and-visual-system.md](theming-and-visual-system.md) for the
   zoom sizing model this floor sits on top of).
+- **The app fits the visible area while the keyboard is open.** iOS
+  Safari pushes the page up when the keyboard opens, which used to hide
+  the menu bar and top rows, including a cell being edited near the top.
+  `installKeyboardViewportFix` (`src/ui/popup.ts`) detects an open keyboard
+  (`isKeyboardLikelyOpen`), sets `data-keyboard-open` on the root, and pins
+  `#app` to the visual viewport's top and height. While the keyboard is
+  open it no longer resets the page scroll, which fought WebKit on every
+  keystroke (#574); it resets it once the keyboard closes (#402). When the
+  app shrinks, the grid scrolls the edited cell back into view, and the
+  inline editor stays open across a grid scroll as long as its cell is
+  still rendered (it commits only once the cell leaves the window).
 
 ## Phone-width layout adaptations
 

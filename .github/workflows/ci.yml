@@ -78,6 +78,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Unused exports/files/dependencies (Knip). Fails on any finding not on
+      # scripts/check-knip.mjs's explicit, human-review-pending DEFERRED list,
+      # and on a deferred entry that has since been resolved — see
+      # docs/knip-baseline.md.
+      - name: Unused code
+        run: npm run check:knip
+
       # Verifies the Oklch-authored color system's actual declared tokens
       # (src/styles.css) meet WCAG AA contrast for every text/background pair
       # that composes in the UI, in every theme — see scripts/check-contrast.mjs.

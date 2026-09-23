@@ -29,6 +29,51 @@ function describe(node: Element | null): string {
 }
 
 /**
+ * The keyboard probe (#588): each button focuses the test field from a
+ * different event, so the log shows which ones iOS answers with an
+ * on-screen keyboard. `silent+pointerup` mirrors the grid's own sequence:
+ * the field is first focused read-only (no keyboard, as a tap-to-select
+ * does), then blurred and refocused on the second tap's `pointerup`.
+ */
+function buildKeyboardProbe(record: (event: string) => void): HTMLElement {
+  const field = el('textarea', { className: 'viewport-debug-probe-field', attrs: { rows: '1' } });
+  const probe = (
+    name: string,
+    event: 'pointerup' | 'touchend' | 'click',
+    silentFirst = false,
+  ): HTMLElement => {
+    // A plain, non-focusable element, like the grid's cells: a tapped
+    // <button> would take focus itself and hide the result.
+    const button = el('span', { className: 'viewport-debug-button', text: name, attrs: { role: 'button' } });
+    // As the grid does: the tap's synthetic mousedown must not move focus.
+    button.addEventListener('mousedown', (e) => e.preventDefault());
+    if (silentFirst) {
+      button.addEventListener('pointerdown', () => {
+        field.readOnly = true;
+        field.focus({ preventScroll: true });
+        field.readOnly = false;
+      });
+    }
+    button.addEventListener(event, () => {
+      record(`probe:${name}`);
+      if (silentFirst) {
+        field.blur();
+      }
+      field.focus({ preventScroll: true });
+    });
+    return button;
+  };
+  return el('div', { className: 'viewport-debug-actions' }, [
+    el('span', { text: t('viewportDebug.probe') }),
+    probe('pointerup', 'pointerup'),
+    probe('touchend', 'touchend'),
+    probe('click', 'click'),
+    probe('silent+pointerup', 'pointerup', true),
+    field,
+  ]);
+}
+
+/**
  * One line of measurements: the visual viewport, the page, `#app`, the grid
  * scroller, and its editor (the sink). Values are CSS pixels, rounded.
  */
@@ -149,6 +194,19 @@ export function installViewportDebug(): void {
     },
     true,
   );
+  // How each tap ends: a missing `pointerup` (or a `pointercancel`) means the
+  // grid never saw it as a quick tap, so it cannot pair into a double-tap.
+  for (const type of ['pointerup', 'pointercancel', 'click'] as const) {
+    doc.addEventListener(
+      type,
+      (e) => {
+        if (!panel.contains(e.target as Node)) {
+          record(`${type}@${Math.round(e.clientY)}`);
+        }
+      },
+      true,
+    );
+  }
   onKeyboardOpenChange((open) => record(open ? 'kb-open' : 'kb-close'));
   onKeyboardResize(() => record('kb-resize'));
 
@@ -180,5 +238,6 @@ export function installViewportDebug(): void {
     status.textContent = '';
     log('clear', true);
   });
+  panel.insertBefore(buildKeyboardProbe(record), output);
   log('start', true);
 }

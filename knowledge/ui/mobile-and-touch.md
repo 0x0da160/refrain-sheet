@@ -100,7 +100,11 @@ docked-panel/Find-bar text field:
   when the URL hash is `#debug-viewport` (#582). It logs the visual
   viewport, page scroll, `#app`, grid, and editor geometry on each
   viewport/scroll/focus/keyboard event and every frame shortly after, and
-  copies the log. Without the hash it installs nothing.
+  copies the log. Without the hash it installs nothing. It also logs how
+  each tap ends (`pointerup` / `pointercancel` / `click`) and has a
+  keyboard probe (#588): buttons that focus a test field from `pointerup`,
+  `touchend`, `click`, or the grid's own silent-focus-then-refocus
+  sequence, to learn which ones iOS answers with a keyboard.
 - **iOS Safari auto-zoom prevention.** Mobile Safari zooms the page in on
   a focused text control whose computed font size is under ~16px.
   `src/styles/mobile-layout.css` floors every dialog text

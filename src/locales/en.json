@@ -1055,5 +1055,6 @@
   "viewportDebug.copy": "Copy log",
   "viewportDebug.clear": "Clear",
   "viewportDebug.copied": "Copied {count} lines",
-  "viewportDebug.copyFailed": "Copy failed — select the text below"
+  "viewportDebug.copyFailed": "Copy failed — select the text below",
+  "viewportDebug.probe": "Keyboard test:"
 }

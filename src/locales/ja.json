@@ -1055,5 +1055,6 @@
   "viewportDebug.copy": "ログをコピー",
   "viewportDebug.clear": "クリア",
   "viewportDebug.copied": "{count} 行をコピーしました",
-  "viewportDebug.copyFailed": "コピーできませんでした。下のテキストを選択してください"
+  "viewportDebug.copyFailed": "コピーできませんでした。下のテキストを選択してください",
+  "viewportDebug.probe": "キーボード検証:"
 }

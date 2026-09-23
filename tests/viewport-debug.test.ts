@@ -49,4 +49,25 @@ describe('installViewportDebug', () => {
     expect(text).toContain('ae=textarea.grid-sink');
     input.remove();
   });
+
+  it('keyboard probe buttons focus the test field from their event and log it', () => {
+    history.replaceState(null, '', '#debug-viewport');
+    installViewportDebug();
+    const panel = document.querySelector('.viewport-debug')!;
+    const field = panel.querySelector<HTMLTextAreaElement>('.viewport-debug-probe-field')!;
+    const button = (name: string) =>
+      [...panel.querySelectorAll<HTMLElement>('[role="button"]')].find((b) => b.textContent === name)!;
+
+    button('pointerup').dispatchEvent(new Event('pointerup', { bubbles: true }));
+    expect(document.activeElement).toBe(field);
+    expect(panel.querySelector('.viewport-debug-current')?.textContent).toContain(
+      'focusin:textarea.viewport-debug-probe-field',
+    );
+
+    field.blur();
+    button('click').dispatchEvent(new Event('pointerup', { bubbles: true }));
+    expect(document.activeElement).not.toBe(field);
+    button('click').click();
+    expect(document.activeElement).toBe(field);
+  });
 });

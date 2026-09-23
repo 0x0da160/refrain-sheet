@@ -22,6 +22,10 @@
 
 .viewport-debug-current {
   overflow-wrap: anywhere;
+  /* A fixed height, so a new log line never moves the buttons below it
+     between a tap's touch and mouse events. */
+  height: 3.9em;
+  overflow: hidden;
 }
 
 .viewport-debug-actions {
@@ -31,7 +35,12 @@
   margin-top: 2px;
 }
 
+.viewport-debug-actions {
+  flex-wrap: wrap;
+}
+
 .viewport-debug-button,
+.viewport-debug-probe-field,
 .viewport-debug-output {
   pointer-events: auto;
 }
@@ -54,4 +63,12 @@
 
 .viewport-debug-output[hidden] {
   display: none;
+}
+
+/* A visible, ordinary text field for the keyboard probe. 16px keeps iOS
+   Safari from zooming in when it is focused. */
+.viewport-debug-probe-field {
+  width: 6em;
+  font-size: 16px;
+  resize: none;
 }

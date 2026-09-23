@@ -224,6 +224,16 @@
     min-height: 40px;
   }
 
+  /* The add-column button extends the column-header row, so it keeps the
+     header's height and takes its tap-target size from its width instead. */
+  .sheet-grid-add-col {
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    min-width: 44px;
+    justify-content: center;
+  }
+
   /* The 40px tap-target floor above already sets the tabs' own height;
      `.sheet-strip`/`.sheet-grid-actions` desktop padding (3px top/bottom)
      only adds surrounding chrome on top of that floor, so it's trimmed
@@ -399,6 +409,20 @@
 
   .form-row label:first-child {
     min-width: 100%;
+  }
+
+  .form-row > label:has(> select, > input) {
+    flex-wrap: wrap;
+  }
+
+  /* Inside such a label the control starts its own line, below the label
+     text, and shares it with the unit after it (e.g. "512 MiB") instead of
+     pushing the unit onto a line of its own. The basis leaves room for a
+     short unit but not for the label text. */
+  .form-row > label > select,
+  .form-row > label > input[type='number'] {
+    flex: 1 1 calc(100% - 4em);
+    width: auto;
   }
 
   .form-row select,

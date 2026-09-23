@@ -236,18 +236,32 @@ describe('keyboard model', () => {
 });
 
 describe('plain CSV documents', () => {
-  it('shows no worksheet tabs or explanatory note for a plain CSV document (#456)', () => {
+  it('hides the whole strip for a plain CSV document (#456)', () => {
     const state = new AppState();
     const commands = new Commands(state, stubUi(), document);
     state.addTab('data.csv', csvDoc('a,b\n1,2\n'), null);
     const bar = new SheetBar(state, commands);
     document.body.append(bar.element);
     bar.render(true);
+    // No empty band under the grid: the row itself is hidden.
+    expect(bar.element.hidden).toBe(true);
     expect(tabs(bar)).toHaveLength(0);
     expect(bar.element.querySelector('.sheet-note')).toBeNull();
     expect(bar.element.querySelector('.sheet-strip')!.textContent).toBe('');
     // The CSV strip is not a tablist — there are no worksheets to list.
     expect(bar.element.querySelector('.sheet-strip')!.getAttribute('role')).toBeNull();
+  });
+
+  it('comes back when a workbook tab becomes active', () => {
+    const { state, bar, tab } = setup(['A']);
+    const csv = state.addTab('data.csv', csvDoc('a,b\n1,2\n'), null);
+    state.activateTab(csv.id);
+    bar.render();
+    expect(bar.element.hidden).toBe(true);
+    state.activateTab(tab.id);
+    bar.render();
+    expect(bar.element.hidden).toBe(false);
+    expect(tabs(bar)).toHaveLength(1);
   });
 
   it('hides itself entirely when no document is open', () => {

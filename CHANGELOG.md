@@ -35,6 +35,18 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- A CSV file no longer shows an empty band under the grid, where the
+  worksheet tabs of a workbook go; the grid uses that space instead.
+
+### Fixed
+
+- In the Settings dialog, the "maximum file size" label no longer runs into
+  its input box, and on a phone the value and its unit stay on one line.
+- The "+" button that adds a column is now exactly as tall as the column
+  headers beside it, on a phone too.
+
 ## [0.8.17] - 2026-09-23
 
 ### Fixed

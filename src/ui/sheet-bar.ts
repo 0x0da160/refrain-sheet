@@ -58,7 +58,7 @@ const SHEET_MENU_ITEMS: Array<{ command: CommandId; labelKey: string; separatorB
  * the Sheet menu, and the keyboard, so nothing depends on a pointer.
  *
  * A plain CSV document is a single-sheet, byte-preserving document, so the
- * strip simply renders no tabs for it — there is nothing to switch between.
+ * strip is hidden for it — there is nothing to switch between.
  */
 export class SheetBar {
   readonly element: HTMLElement;
@@ -99,7 +99,9 @@ export class SheetBar {
       this.renderedKey = '';
       return;
     }
-    this.element.hidden = false;
+    // A plain CSV document is a single sheet: there is nothing to list, so the
+    // whole row goes away instead of leaving an empty band under the grid.
+    this.element.hidden = doc.kind !== 'rsf';
     const key =
       doc.kind === 'rsf'
         ? `rsf|${doc.activeSheetId}|${doc.sheets.map((s) => `${s.id}:${s.name}:${s.locked ? 1 : 0}`).join('')}`

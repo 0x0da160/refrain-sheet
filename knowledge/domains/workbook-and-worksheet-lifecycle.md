@@ -31,7 +31,7 @@ and a workbook always keeps **at least one** worksheet: the last one cannot
 be deleted.
 
 Plain CSV documents are single-sheet by definition. Their worksheet strip
-shows a short explanation instead of tabs, and the worksheet commands are
+is hidden (#456), and the worksheet commands are
 disabled — converting to RSF is what unlocks multiple worksheets.
 
 ## Worksheet kinds

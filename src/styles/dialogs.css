@@ -367,6 +367,14 @@ table.diag-table th {
   min-width: 130px;
 }
 
+/* A label that wraps its own control (and unit) lays them out in a row with
+   the same gap as the form row, so the text never runs into the control. */
+.form-row > label:has(> select, > input) {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .form-row select {
   font: inherit;
   padding: 3px 6px;
@@ -380,7 +388,6 @@ table.diag-table th {
 }
 
 .form-unit {
-  margin-left: 6px;
   color: var(--text-dim);
 }
 

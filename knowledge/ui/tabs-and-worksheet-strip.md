@@ -77,7 +77,7 @@ see [editing-and-ime.md](editing-and-ime.md) for the general IME-safety
 architecture this reuses).
 
 Plain CSV documents are single-sheet by definition: their worksheet strip
-shows a short explanation instead of tabs, and worksheet commands are
+is hidden, so no empty band sits under the grid (#456), and worksheet commands are
 disabled — converting to RSF is what unlocks multiple worksheets.
 
 ## Close-tab and delete-worksheet confirmation flows

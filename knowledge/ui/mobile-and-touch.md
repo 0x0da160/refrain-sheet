@@ -15,6 +15,7 @@ sources:
   - resource: ../../tests/keyboard-viewport-fix.test.ts
   - resource: ../../tests/grid-autoscroll.test.ts
   - resource: ../../src/ui/viewport-debug.ts
+  - resource: ../../tests/focus-on-tap.test.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -111,6 +112,14 @@ docked-panel/Find-bar text field:
   keyboard probe (#588): buttons that focus a test field from `pointerup`,
   `touchend`, `click`, or the grid's own silent-focus-then-refocus
   sequence, to learn which ones iOS answers with a keyboard.
+- **No reveal scroll for the formula bar.** A text field focused natively
+  by a tap, where the keyboard will cover it, makes iOS Safari scroll the
+  whole page up (animated) before the app re-fits above the keyboard.
+  A field focused from script with `preventScroll` gets the keyboard
+  without that scroll (the grid's editor, per the on-device log).
+  `focusOnTapWithoutRevealScroll` (`src/ui/dom.ts`) therefore takes over a
+  quick tap on the unfocused formula bar on `touchend` (#592). Taps on the
+  focused bar, scrolls, and long-presses stay native.
 - **iOS Safari auto-zoom prevention.** Mobile Safari zooms the page in on
   a focused text control whose computed font size is under ~16px.
   `src/styles/mobile-layout.css` floors every dialog text

@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.8.17] - 2026-09-23
+
 ### Fixed
 
 - On iPhone, tapping the formula bar no longer makes the whole page slide

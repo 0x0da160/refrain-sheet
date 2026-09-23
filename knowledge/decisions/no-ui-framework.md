@@ -20,7 +20,7 @@ generated:
 
 `src/ui/` is hand-written TypeScript over the DOM: no React, Vue, Svelte,
 or any other UI framework or virtual-DOM library is used anywhere in the
-app (confirmed by `package.json`'s dependency list — three zero-transitive
+app (confirmed by `package.json`'s dependency list — four zero-transitive
 production dependencies, none of them a UI framework — and by
 [module-boundaries.md](../architecture/module-boundaries.md), which
 records the fact directly: "no framework (React, Vue, etc.) is used
@@ -41,9 +41,10 @@ single rationale doc:
   states it directly: "Keep the count minimal. Do not add a dependency for
   convenience; prefer a platform/browser API or a small local
   implementation," backed by an audit-before-adding requirement and a
-  runtime dependency list of exactly three packages, chosen individually
+  runtime dependency list of exactly four packages, chosen individually
   for a capability the platform genuinely lacks (`encoding-japanese` for
-  Shift_JIS/EUC-JP, `sql.js` for real SQL semantics, `yaml` because "a
+  Shift_JIS/EUC-JP, `lucide` for tree-shaken icon artwork, `sql.js` for
+  real SQL semantics, `yaml` because "a
   hand-rolled parser was rejected as a correctness/maintenance risk"). A UI
   framework is a convenience dependency by this policy's own test: the DOM
   already gives the app everything a framework would add (rendering,

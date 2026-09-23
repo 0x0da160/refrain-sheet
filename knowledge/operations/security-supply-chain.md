@@ -16,15 +16,18 @@ generated:
 
 - **Keep the count minimal.** Do not add a dependency for convenience;
   prefer a platform/browser API or a small local implementation. The
-  production runtime has three dependencies, all **zero transitive
+  production runtime has four dependencies, all with **zero transitive
   dependencies**: `encoding-japanese` (Shift_JIS/EUC-JP encoding, which
-  `TextEncoder` cannot produce), `sql.js` (SQLite compiled to WebAssembly,
-  behind Data > Run SQL Query… — see
-  [system-overview.md](../architecture/system-overview.md)), and `yaml` (a
-  pure-JavaScript YAML 1.1/1.2 parser/stringifier behind the YAML worksheet
-  kind's auto-format action; a hand-rolled parser was rejected as a
-  correctness/maintenance risk). Everything else is dev-only build/test
-  tooling.
+  `TextEncoder` cannot produce), `lucide` (UI icons; only the individual
+  icon modules actually imported are bundled, nothing is fetched at
+  runtime), `sql.js` (SQLite compiled to WebAssembly, behind Data > Run SQL
+  Query… — see [system-overview.md](../architecture/system-overview.md)),
+  and `yaml` (a pure-JavaScript YAML 1.1/1.2 parser/stringifier behind the
+  YAML worksheet kind's auto-format action; a hand-rolled parser was
+  rejected as a correctness/maintenance risk). Every one of them has a
+  section in `THIRD-PARTY-NOTICES.md` (enforced by
+  `tests/third-party-notices.test.ts`). Everything else is dev-only
+  build/test tooling.
 - **Audit before adding.** New dependencies are reviewed for necessity,
   maintenance status, permission surface (install scripts, network
   access), and transitive footprint.

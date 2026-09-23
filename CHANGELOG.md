@@ -244,6 +244,10 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Fixed
 
+- The release ZIP's `THIRD-PARTY-NOTICES.md` now includes the license
+  notice for the bundled `yaml` library, which the YAML worksheet kind uses;
+  it had been missing.
+
 - Typing into a cell on a phone (iOS Safari in particular) no longer causes a
   visible layout shift on every keystroke, and the cell editor no longer
   occasionally closes itself mid-edit. The predictive-text suggestion bar

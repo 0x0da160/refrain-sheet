@@ -58,7 +58,8 @@ input surface ─▶ resolveShortcut / menu / context menu
    busy UI)     events)              fallback)
 ```
 
-`UiPort` is an interface, not a concrete class: the command layer drives
+`UiPort` (`src/app/ui-port.ts`, together with every dialog's input/result
+types) is an interface, not a concrete class: the command layer drives
 dialogs, notifications, and the busy indicator only through this port, which
 keeps the whole layer unit-testable without a DOM (`tests/commands.test.ts`,
 `tests/progress.test.ts`).

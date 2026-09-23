@@ -8,7 +8,7 @@
 // land a concept file with broken or missing frontmatter and nothing would
 // notice until a reader (human or agent) hit it. This script is the check.
 //
-// Three rules, one per kind of file:
+// Frontmatter rules, one per kind of file:
 //   1. knowledge/index.md (the bundle root, exactly one) — must have
 //      frontmatter with a non-empty `okf_version`.
 //   2. Every other index.md, and every log.md (domain/sub-bundle indexes
@@ -17,12 +17,23 @@
 //   3. Every other knowledge/**/*.md file — a concept file: must start with
 //      frontmatter that parses as YAML and has a non-empty `type`.
 //
+// Plus reference checks on every file except the append-only log.md (which
+// may name files that have since been removed):
+//   4. every relative Markdown link resolves to an existing file,
+//   5. every backticked repository path (`src/…`, `scripts/…`, …) outside the
+//      frontmatter exists,
+//   6. a concept whose `stale_after` date has passed is reported as a GitHub
+//      warning annotation (not a failure — a date alone must not turn an
+//      unrelated pull request red), so the numbers get re-measured.
+//
+// Pass --verbose to list every passing file.
+//
 // Uses the `yaml` package already in package.json's dependencies (the same
 // one src/ui/yaml-sheet.ts uses) rather than a hand-rolled parser or a new
 // dependency.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 
@@ -37,7 +48,40 @@ const fail = (file, msg) => {
   failures += 1;
   console.error(`check-knowledge-frontmatter: FAIL: ${file}: ${msg}`);
 };
-const ok = (file, msg) => console.warn(`check-knowledge-frontmatter: ok: ${file}: ${msg}`);
+const VERBOSE = process.argv.includes('--verbose');
+const ok = (file, msg) => {
+  if (VERBOSE) console.warn(`check-knowledge-frontmatter: ok: ${file}: ${msg}`);
+};
+const warn = (file, msg) => console.warn(`::warning file=${file}::${msg}`);
+
+const REPO_PATH_RE =
+  /`((?:src|scripts|tests|knowledge|docs|wasm|bench|\.github|\.claude)\/[A-Za-z0-9_./-]*[A-Za-z0-9_-]\.[a-z]+)(?::\d+(?:-\d+)?)?`/g;
+const LINK_RE = /\]\(([^)\s]+)\)/g;
+
+function checkReferences(full, label) {
+  const body = readFileSync(full, 'utf8').replace(FRONTMATTER_RE, '');
+  for (const [, target] of body.matchAll(LINK_RE)) {
+    if (/^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith('#')) continue;
+    const path = decodeURI(target.split('#')[0]);
+    if (!existsSync(resolve(dirname(full), path))) fail(label, `broken relative link: ${target}`);
+  }
+  for (const [, path] of body.matchAll(REPO_PATH_RE)) {
+    if (!existsSync(join(root, path))) fail(label, `names a repository path that does not exist: ${path}`);
+  }
+}
+
+function checkStaleAfter(doc, label) {
+  if (doc.stale_after === undefined) return;
+  const when = new Date(doc.stale_after);
+  if (Number.isNaN(when.getTime())) {
+    fail(label, `stale_after is not a date: ${doc.stale_after}`);
+  } else if (when.getTime() < Date.now()) {
+    warn(
+      label,
+      `stale_after (${when.toISOString().slice(0, 10)}) has passed — re-verify this concept and bump the date`,
+    );
+  }
+}
 
 function listMarkdownFiles(dir) {
   const out = [];
@@ -83,6 +127,7 @@ function checkConcept(full, label) {
     fail(label, 'frontmatter `type` is missing or empty');
     return;
   }
+  checkStaleAfter(doc, label);
   ok(label, `type=${doc.type}`);
 }
 
@@ -119,6 +164,7 @@ function main() {
     } else {
       checkConcept(full, label);
     }
+    if (base !== 'log.md') checkReferences(full, label);
   }
 
   if (failures > 0) {

@@ -167,17 +167,27 @@ change must preserve) is documented in
 src/
   core/       lossless CSV document model, RSF workbook/worksheet model +
               binary codec, the formula engine — DOM-independent, unit-tested
-  app/        tabs & app state, the typed command layer, file access,
-              settings, i18n, keyboard-shortcut routing
-  ui/         menu bar, grid, formula bar, dialogs, status bar
+  app/        tabs & app state, the typed command layer (commands.ts) and its
+              UI contract (ui-port.ts), file access, settings, i18n, shortcuts
+  ui/         menu bar, grid (+ grid/ pure helpers), formula bar, dialogs,
+              status bar
+  styles/     hand-written CSS by section, loaded in order by styles.css
+  assets/     bundled icon/logotype SVGs
+  locales/    en.json, ja.json (identical key sets)
   wasm-gen/   generated: embedded WASM (Base64) + wasm-bindgen glue
-  locales/    en.json, ja.json
+  landing/    the separate static marketing site (npm run build:landing)
 wasm/         Rust crate compiled to WebAssembly (CSV core, compression,
-              stats/search primitives)
-knowledge/    the OKF knowledge bundle (architecture, operations, formats,
-              agent-loop, domains, ui)
+              stats/search primitives); toolchain pinned by rust-toolchain.toml
+tests/        unit, property-based/fuzz, and jsdom UI tests; fixtures/rsf/ is
+              the frozen .rsf compatibility corpus
 bench/        reproducible performance benchmarks (npm run bench)
-tests/        unit, property-based/fuzz, and jsdom UI tests
+scripts/      build, embed, release, and verification scripts (npm run …)
+knowledge/    the OKF knowledge bundle (architecture, operations, formats,
+              agent-loop, domains, ui, references, decisions)
+docs/         the Knip baseline and proposal/analysis records
+design-system/  vendored Refrain Sheet Design System deliverable (tokens,
+              logos, icons); the app copies what it ships into src/
+public/       files served as-is at the site root (favicon)
 ```
 
 Menu actions, keyboard shortcuts, context menus, and drag & drop all pass

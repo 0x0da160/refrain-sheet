@@ -17,6 +17,27 @@ The body is a compact binary encoding of one sheet, written inside a
 container-version-3 container (see [overview.md](overview.md)). All
 strings are UTF-8.
 
+**Contents** — read only the section for the version you are changing:
+
+- [Version selection](#version-selection)
+- [Field layout](#field-layout)
+- [Display settings (body version 3)](#display-settings-body-version-3)
+- [Wrap long rows (body version 5)](#wrap-long-rows-body-version-5)
+- [Filter (body version 4)](#filter-body-version-4)
+- [Timezone (body version 6)](#timezone-body-version-6)
+- [Display language (body version 7)](#display-language-body-version-7)
+- [Cell styles (body version 8)](#cell-styles-body-version-8)
+- [Number format (body version 9)](#number-format-body-version-9)
+- [Cell comments (body version 11)](#cell-comments-body-version-11)
+- [Worksheet kind (body version 12)](#worksheet-kind-body-version-12)
+- [Worksheet locked (body version 13)](#worksheet-locked-body-version-13)
+- [Version history (body version 14)](#version-history-body-version-14)
+- [Worksheet kind: json (body version 15)](#worksheet-kind-json-body-version-15)
+- [Version history: retained-snapshot cap override (body version 16)](#version-history-retained-snapshot-cap-override-body-version-16)
+- [Worksheet kind: yaml and text (body version 17)](#worksheet-kind-yaml-and-text-body-version-17)
+- [Auto-format source on commit (body version 17)](#auto-format-source-on-commit-body-version-17)
+- [Bounds (validated on load)](#bounds-validated-on-load)
+
 ## Version selection
 
 Version selection on write is minimal so older readers keep working where

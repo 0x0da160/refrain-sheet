@@ -13,8 +13,7 @@ representation of an imported CSV.
 > bytes, and container version changed; the on-disk structure is otherwise
 > identical — see [compatibility.md](compatibility.md).
 
-Migrated from the former `docs/rsf-format.md`, now removed — see
-[`knowledge/log.md`](../../log.md) for the migration history. The reference
+The reference
 implementation lives in `src/core/rsf-codec.ts` (framing) and
 `wasm/src/compress.rs` (compression + checksum). **High risk, human-review
 area:** `CLAUDE.md` calls out the RSF codec by name as needing "extra care,

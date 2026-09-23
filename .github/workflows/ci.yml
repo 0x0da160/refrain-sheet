@@ -63,9 +63,10 @@ jobs:
 
       # Every knowledge/ concept file (see knowledge/index.md) must carry
       # parseable OKF v0.2 frontmatter with a non-empty `type`; the bundle's
-      # reserved index.md/log.md files must carry none — see
+      # reserved index.md/log.md files must carry none; relative links and
+      # backticked repository paths must resolve — see
       # scripts/check-knowledge-frontmatter.mjs.
-      - name: Knowledge bundle frontmatter
+      - name: Knowledge bundle checks
         run: npm run check:knowledge
 
       # CHANGELOG.md stopped being updated for nine releases because nothing

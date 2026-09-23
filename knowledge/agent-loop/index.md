@@ -7,17 +7,10 @@ which steps stay under human control. It is the operational companion to
 [Operations](../operations/index.md) domain (security policy, which
 governs).
 
-Migrated from the former `docs/agent-operations.md`, now removed — see
-[`knowledge/log.md`](../log.md) for the migration history. Unlike the other
-three migrated docs, this one was **not** a straight port: its ~960 lines
-mix durable
-policy (what Claude may decide on its own, the bilingual-communication
-contract), an operational runbook (how a human runs the loop from a
-phone), reference configuration (workflow permissions, model/auth
-selection), and a roadmap of features that are explicitly **not enabled**
-(auto-merge, scheduled autonomous runs). Splitting by kind, rather than by
-the source's heading order, keeps [roadmap-not-enabled.md](roadmap-not-enabled.md)
-from being mistaken for current behavior.
+The concepts are split by kind — durable policy, an operational runbook,
+reference configuration, and a roadmap — so that
+[roadmap-not-enabled.md](roadmap-not-enabled.md) (auto-merge, scheduled
+autonomous runs) is never mistaken for current behavior.
 
 > **Nothing in this loop merges code or deploys to production.** Merges,
 > releases, and the `agent:ready` approval are always human actions.

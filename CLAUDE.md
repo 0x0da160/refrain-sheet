@@ -52,7 +52,7 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | Headless-browser UI check    | `npm run ui:check` (requires `dist/`; visually confirms the built app loads)         |
 | Changelog gate (PR CI only)  | `npm run check:changelog`                                                            |
 | Production dependency audit  | `npm run audit:ci`                                                                   |
-| Knowledge bundle frontmatter | `npm run check:knowledge`                                                            |
+| Knowledge bundle checks      | `npm run check:knowledge` (frontmatter, links, paths)                                |
 | Unused-code gate (Knip)      | `npm run check:knip`                                                                 |
 | sql.js payload provenance    | `npm run check:generated`                                                            |
 

@@ -1,9 +1,7 @@
 # Operations
 
 Security policy, supply-chain controls, and performance engineering for
-Refrain Sheet. Migrated from the former `docs/security.md` and
-`docs/performance.md`, now removed — see [`knowledge/log.md`](../log.md)
-for the migration history.
+Refrain Sheet.
 
 - [Security threat model](security-threat-model.md) — the offline-by-design
   guarantee, the Google Drive sync exception's exact scope, the trust

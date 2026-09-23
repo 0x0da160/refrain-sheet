@@ -135,6 +135,18 @@ instead of separate popup layouts:
   everything between the top chrome (menu bar, document tabs) and the
   bottom chrome (worksheet strip, status bar). A manual resize still stops
   160px short of the viewport, so dragging never hides the sheet entirely.
+- **Several panels at once (accordion).** Every open side panel — the
+  transient ones (Filter, Sort, Format, SQL Query, …) and the persistent
+  ones (comments, the Markdown/JSON/YAML previews) — shares one dock: the
+  same side and size. With more than one open, only one is expanded; the
+  others collapse to their title bar, stacked in the dock instead of lying
+  on top of each other. Clicking a collapsed title bar (or pressing
+  Enter/Space on it) expands that panel and collapses the rest; a newly
+  opened panel starts expanded, and changing the dock side, size, or
+  maximize state from any panel moves the whole dock. The dock's space
+  stays reserved until the last panel closes (#598). The bookkeeping is
+  `openSidePanels` in `src/ui/dialogs/shared.ts`: a panel joins through
+  `applySidePanelPosition` and leaves through `releaseSidePanel`.
 - **Persistence within a session.** The most recently chosen dock position
   and size are remembered for the next panel opened in the same session
   (an in-memory preference, not written to the document or `localStorage`

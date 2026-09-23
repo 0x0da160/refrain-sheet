@@ -7,7 +7,7 @@ import { parseMarkdown } from '../core/markdown';
 import {
   applySidePanelPosition,
   buildSidePanelDock,
-  clearAppEdgeReservation,
+  releaseSidePanel,
   currentSidePanelPlacement,
 } from './dialogs/shared';
 import { el } from './dom';
@@ -161,7 +161,7 @@ export class MarkdownSheetView {
       applySidePanelPosition(this.panelElement, position, size);
     } else {
       this.panelElement.hidden = true;
-      clearAppEdgeReservation();
+      releaseSidePanel(this.panelElement);
     }
   }
 

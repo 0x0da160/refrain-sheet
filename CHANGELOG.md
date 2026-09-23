@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-23
+
 ### Changed
 
 - Side panels (Filter, Sort, Data Validation, Text/Background Color,

@@ -21,7 +21,7 @@ import type { SheetSort } from '../core/sort';
 import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../core/text-wrap';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
-import { onKeyboardOpenChange } from './popup';
+import { onKeyboardOpenChange, onKeyboardResize } from './popup';
 import { centeredScrollOffset } from './grid/center-scroll';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 import type { FormulaLivePreview } from './formula-bar';
@@ -192,6 +192,13 @@ function frameCoalesced<T>(apply: (arg: T) => void): (arg: T) => void {
   };
 }
 
+/**
+ * How long after an on-screen keyboard opens a further shrink of the visible
+ * area still re-centers the edited cell (the keyboard sliding in).
+ */
+const KEYBOARD_SETTLE_MS = 1000;
+/** How long the editor stays parked at the top when no on-screen keyboard opens. */
+const SINK_PARK_FALLBACK_MS = 700;
 /**
  * Auto-scroll tuning for drags that should nudge the viewport when the
  * pointer nears the grid's edge (range selection, fill handle, column
@@ -401,6 +408,16 @@ export class Grid {
   private preKeyboardScroll: { top: number; left: number } | null = null;
   /** Unsubscribes `keyboardOpenChanged`; called by `dispose()`. */
   private readonly offKeyboardOpenChange: () => void;
+  /** Unsubscribes `keyboardResized`; called by `dispose()`. */
+  private readonly offKeyboardResize: () => void;
+  /**
+   * Until this time (`Date.now()`), a change in the visible area's height
+   * re-centers the edited cell: the keyboard can still be sliding in after
+   * the first open notification. 0 when not settling.
+   */
+  private keyboardSettleUntil = 0;
+  /** Fallback that un-parks the sink if no keyboard opens (see `parkSinkForKeyboard`). */
+  private sinkParkTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly state: AppState,
@@ -496,6 +513,7 @@ export class Grid {
       this.resizeObserver.observe(this.element);
     }
     this.offKeyboardOpenChange = onKeyboardOpenChange((open) => this.keyboardOpenChanged(open));
+    this.offKeyboardResize = onKeyboardResize(() => this.keyboardResized());
     // Ctrl/Cmd + mouse wheel zooms the spreadsheet (grid area only). The
     // listener must be non-passive because the recognized gesture — and only
     // that gesture — prevents the browser's page-zoom default; a plain wheel
@@ -3128,18 +3146,22 @@ export class Grid {
    * The on-screen keyboard opened or closed (`onKeyboardOpenChange`, fired
    * after `#app` has been refitted to the visible area). On open, when the
    * grid holds focus, the cell being edited — or the selected cell, for
-   * type-to-edit — is scrolled to the vertical middle of the now shorter
-   * grid, so it sits clear of both the top edge and the keyboard, and the
-   * previous scroll position is remembered. On close, that position is put
-   * back.
+   * type-to-edit — is scrolled to the vertical middle of the grid's now
+   * shorter scroll area, and the scroll position from before editing started
+   * is remembered. For a short while after, any further shrink of the
+   * visible area (the keyboard still sliding in) re-centers it again
+   * (`keyboardResized`). On close, the remembered position is put back.
    */
   keyboardOpenChanged(open: boolean): void {
+    this.unparkSink();
     const tab = this.state.activeTab;
     if (!tab || tab.doc !== this.lastDoc) {
       this.preKeyboardScroll = null;
+      this.keyboardSettleUntil = 0;
       return;
     }
     if (!open) {
+      this.keyboardSettleUntil = 0;
       const saved = this.preKeyboardScroll;
       this.preKeyboardScroll = null;
       if (saved) {
@@ -3150,23 +3172,82 @@ export class Grid {
       return;
     }
     if (this.element.ownerDocument.activeElement !== this.sink) {
+      this.preKeyboardScroll = null;
       return;
     }
+    this.preKeyboardScroll ??= { top: this.element.scrollTop, left: this.element.scrollLeft };
+    this.keyboardSettleUntil = Date.now() + KEYBOARD_SETTLE_MS;
+    this.centerKeyboardTarget(tab);
+  }
+
+  /** The visible area changed height while the keyboard is open (`onKeyboardResize`). */
+  keyboardResized(): void {
+    if (Date.now() > this.keyboardSettleUntil) {
+      return;
+    }
+    const tab = this.state.activeTab;
+    if (tab && tab.doc === this.lastDoc && this.element.ownerDocument.activeElement === this.sink) {
+      this.centerKeyboardTarget(tab);
+    }
+  }
+
+  /** Scroll the edited (or selected) cell to the vertical middle of the grid's scroll area. */
+  private centerKeyboardTarget(tab: Tab): void {
     const target = this.editor ?? tab.selection;
     if (!target) {
       return;
     }
-    this.preKeyboardScroll = { top: this.element.scrollTop, left: this.element.scrollLeft };
     const slot = this.state.sortSlot(tab, target.row);
     if (!(this.stickyEnabled(tab) && slot === 0)) {
       const idx = this.heightIndex(tab);
       const y = idx.offsetOf(slot) - idx.offsetOf(this.scrollRowBase(tab));
+      // The scroll area is the grid minus the sticky header (and sticky
+      // first row), i.e. exactly the band `scrollCellIntoView` keeps a cell in.
       const viewH = this.element.clientHeight - this.overlayHeight(tab);
       const maxScroll = this.element.scrollHeight - this.element.clientHeight;
       this.element.scrollTop = centeredScrollOffset(y, idx.heightOf(slot), viewH, maxScroll);
     }
     // Horizontal: just make sure the column is in view (renders either way).
     this.scrollCellIntoView(tab, target.row, target.col);
+  }
+
+  /**
+   * On a touch device, just before the focus that brings up the keyboard:
+   * park the (still transparent) editor at the top of the screen. iOS Safari
+   * scrolls the page — with an animation — to reveal a focused field the
+   * keyboard would cover; a field already at the top needs no reveal, so the
+   * page stays still. The editor returns over its cell as soon as the
+   * keyboard has opened (`keyboardOpenChanged`), or after a short fallback
+   * when none opens (e.g. a hardware keyboard).
+   */
+  private parkSinkForKeyboard(): void {
+    this.sink.classList.add('keyboard-pending');
+    if (this.sinkParkTimer !== null) {
+      clearTimeout(this.sinkParkTimer);
+    }
+    this.sinkParkTimer = setTimeout(() => {
+      this.sinkParkTimer = null;
+      if (this.element.ownerDocument.documentElement.dataset.keyboardOpen === undefined) {
+        this.preKeyboardScroll = null;
+      }
+      this.unparkSink();
+    }, SINK_PARK_FALLBACK_MS);
+  }
+
+  /** Undo `parkSinkForKeyboard` (a no-op when not parked). */
+  private unparkSink(): void {
+    if (this.sinkParkTimer !== null) {
+      clearTimeout(this.sinkParkTimer);
+      this.sinkParkTimer = null;
+    }
+    if (!this.sink.classList.contains('keyboard-pending')) {
+      return;
+    }
+    this.sink.classList.remove('keyboard-pending');
+    const cell = this.editor ? this.cellAt(this.editor.row, this.editor.col) : null;
+    if (cell) {
+      this.placeSinkOverCell(cell);
+    }
   }
 
   /** `renderIfUnmoved: false` skips the repaint when the cell was already in view. */
@@ -3292,6 +3373,16 @@ export class Grid {
    */
   openEditor(tab: Tab, row: number, col: number, initial: string | null, caretOffset?: number): void {
     this.commitEditor();
+    // An edit-entry gesture on a touch device (not type-to-edit, where a
+    // keyboard is already delivering text) is about to bring up the keyboard.
+    const keyboardComing =
+      initial !== '' &&
+      this.lastPointerType !== 'mouse' &&
+      document.documentElement.dataset.keyboardOpen === undefined;
+    if (keyboardComing) {
+      // Where the grid was before editing began: restored when the keyboard closes.
+      this.preKeyboardScroll = { top: this.element.scrollTop, left: this.element.scrollLeft };
+    }
     if (row < 0 || row >= tab.doc.rowCount || col >= tab.doc.fieldCount(row)) {
       return;
     }
@@ -3352,6 +3443,9 @@ export class Grid {
     const pickerValues = rule?.rule.kind === 'list' ? rule.rule.values : null;
     const picker = new ValidationPicker(input, document.body);
     this.editor = { row, col, input, autocomplete, ref, prevRefTarget, updateRefs, picker, pickerValues };
+    if (keyboardComing) {
+      this.parkSinkForKeyboard();
+    }
     input.focus({ preventScroll: true });
     if (initial === null) {
       // Never select-all here: that would silently replace the whole cell on
@@ -3495,6 +3589,7 @@ export class Grid {
 
   /** Return the sink to its hidden navigating state (keeps focus untouched). */
   private demoteSink(): void {
+    this.unparkSink();
     this.sink.classList.remove('cell-editor');
     this.sink.value = '';
     this.sink.setAttribute('aria-label', t('grid.label'));
@@ -3577,6 +3672,8 @@ export class Grid {
   dispose(): void {
     this.resizeObserver?.disconnect();
     this.offKeyboardOpenChange();
+    this.offKeyboardResize();
+    this.unparkSink();
     this.refIndicator.remove();
   }
 

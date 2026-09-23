@@ -139,10 +139,17 @@ export function installKeyboardViewportFix(): void {
 function pinAppToVisualViewport(root: HTMLElement | undefined, vv: VisualViewport): void {
   if (!root) return;
   const opening = root.dataset.keyboardOpen === undefined;
+  const heightChanged = root.style.getPropertyValue('--visual-viewport-height') !== `${vv.height}px`;
   root.style.setProperty('--visual-viewport-top', `${vv.offsetTop}px`);
   root.style.setProperty('--visual-viewport-height', `${vv.height}px`);
   root.dataset.keyboardOpen = '';
-  if (opening) notifyKeyboardOpenChange(true);
+  if (opening) {
+    notifyKeyboardOpenChange(true);
+  } else if (heightChanged) {
+    for (const fn of keyboardResizeListeners) {
+      fn();
+    }
+  }
 }
 
 function unpinApp(root: HTMLElement | undefined): void {
@@ -154,6 +161,7 @@ function unpinApp(root: HTMLElement | undefined): void {
 }
 
 const keyboardOpenListeners = new Set<(open: boolean) => void>();
+const keyboardResizeListeners = new Set<() => void>();
 
 function notifyKeyboardOpenChange(open: boolean): void {
   for (const fn of keyboardOpenListeners) {
@@ -171,6 +179,19 @@ export function onKeyboardOpenChange(fn: (open: boolean) => void): () => void {
   keyboardOpenListeners.add(fn);
   return () => {
     keyboardOpenListeners.delete(fn);
+  };
+}
+
+/**
+ * Subscribe to the visible area changing height while the keyboard stays
+ * open: the keyboard still sliding in after the first open notification, or
+ * its suggestion bar appearing. Called after `#app` has been refitted.
+ * Returns an unsubscribe function.
+ */
+export function onKeyboardResize(fn: () => void): () => void {
+  keyboardResizeListeners.add(fn);
+  return () => {
+    keyboardResizeListeners.delete(fn);
   };
 }
 

@@ -172,6 +172,28 @@ describe('installKeyboardViewportFix', () => {
     expect(changes).toEqual([true, false]);
   });
 
+  it('notifies onKeyboardResize when the visible area changes height while the keyboard stays open', async () => {
+    const vv = Object.assign(fakeVisualViewport(), { height: 500, scale: 1, offsetTop: 0 });
+    vi.stubGlobal('visualViewport', vv);
+    vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(800);
+    const popup = await freshPopupModule();
+    const resized = vi.fn();
+    popup.onKeyboardResize(resized);
+    popup.installKeyboardViewportFix();
+
+    vv.dispatchEvent(new Event('resize')); // opens: not a resize notification
+    await nextViewportResizeTick();
+    expect(resized).not.toHaveBeenCalled();
+
+    vv.dispatchEvent(new Event('scroll')); // same height: nothing
+    expect(resized).not.toHaveBeenCalled();
+
+    vv.height = 400; // still sliding in
+    vv.dispatchEvent(new Event('resize'));
+    await nextViewportResizeTick();
+    expect(resized).toHaveBeenCalledTimes(1);
+  });
+
   it('is a no-op without a visualViewport (e.g. a unit test, or a non-WebKit browser)', () => {
     vi.stubGlobal('visualViewport', undefined);
     expect(() => installKeyboardViewportFix()).not.toThrow();

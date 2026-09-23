@@ -773,3 +773,15 @@
   overflow-wrap: break-word;
   line-height: var(--grid-wrap-line);
 }
+
+/* The cell editor parked, transparent, at the top of the screen for the
+   moment between the focus that brings up an on-screen keyboard and the
+   keyboard having opened (`parkSinkForKeyboard`, src/ui/grid.ts), so iOS
+   Safari sees nothing to scroll into view. `!important` because
+   `placeSinkOverCell` positions the sink with inline styles. */
+.vgrid-canvas .grid-sink.keyboard-pending {
+  position: fixed;
+  top: 0 !important;
+  left: 0 !important;
+  opacity: 0;
+}

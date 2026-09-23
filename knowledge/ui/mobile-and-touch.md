@@ -112,11 +112,17 @@ docked-panel/Find-bar text field:
   `#app` to the visual viewport's top and height. While the keyboard is
   open it no longer resets the page scroll, which fought WebKit on every
   keystroke (#574); it resets it once the keyboard closes (#402). Each
-  open/close transition is announced through `onKeyboardOpenChange`: on
-  open, when the grid has focus, `Grid.keyboardOpenChanged` scrolls the
-  edited (or selected) cell to the vertical middle of the shortened grid
-  (`centeredScrollOffset`, `src/ui/grid/center-scroll.ts`) and remembers
-  the previous scroll position, which it restores on close. The inline
+  open/close transition is announced through `onKeyboardOpenChange`, and a
+  height change while open through `onKeyboardResize`. When a touch
+  edit-entry gesture opens the editor, the grid remembers its scroll
+  position and parks the still-transparent editor at the top of the screen
+  (`.keyboard-pending`), so Safari has nothing to scroll into view and does
+  not slide the page. On open, `Grid.keyboardOpenChanged` un-parks it and
+  scrolls the edited (or selected) cell to the vertical middle of the
+  grid's shortened scroll area (`centeredScrollOffset`,
+  `src/ui/grid/center-scroll.ts`); for a second after, each further shrink
+  (the keyboard still sliding in) re-centers it (`keyboardResized`). On
+  close the remembered position is restored. The inline
   editor stays open across a grid scroll as long as its cell is still
   rendered (it commits only once the cell leaves the window).
 

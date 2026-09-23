@@ -35,6 +35,16 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- On iPhone, a cell near the bottom of the screen is now centered in the
+  spreadsheet area left above the keyboard once the keyboard has fully
+  opened, instead of staying hidden behind it. Closing the keyboard scrolls
+  the sheet back to where it was before you started editing.
+- Opening and closing the keyboard to edit a cell on iPhone no longer makes
+  the page slide up and back. Safari no longer scrolls the page to reveal
+  the cell; the sheet itself scrolls the cell into place instead.
+
 ## [0.8.10] - 2026-09-23
 
 ### Fixed

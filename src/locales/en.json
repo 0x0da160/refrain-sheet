@@ -12,6 +12,7 @@
   "menu.file.new": "New Spreadsheet",
   "menu.file.newCsv": "New CSV",
   "menu.file.open": "Open…",
+  "menu.file.openRecent": "Open Recent…",
   "menu.file.reopen": "Reopen with Encoding…",
   "menu.file.protectBook": "Protect Book",
   "menu.file.unprotectBook": "Unprotect Book",
@@ -1057,5 +1058,14 @@
   "viewportDebug.clear": "Clear",
   "viewportDebug.copied": "Copied {count} lines",
   "viewportDebug.copyFailed": "Copy failed — select the text below",
-  "viewportDebug.probe": "Keyboard test:"
+  "viewportDebug.probe": "Keyboard test:",
+  "dialog.recentFiles.title": "Open Recent",
+  "dialog.recentFiles.message": "Pick a file to open again. The browser may ask for permission to read it.",
+  "dialog.recentFiles.clear": "Clear List",
+  "dialog.recentFiles.cancel": "Cancel",
+  "dialog.recentFiles.note": "This list is kept only in this browser. File contents are not stored.",
+  "notify.recentEmpty": "No recently opened files yet. Files you open with File > Open… appear here.",
+  "notify.recentCleared": "Cleared the recent files list.",
+  "notify.recentPermissionDenied": "Could not open “{name}”: the browser did not allow reading it.",
+  "notify.recentMissing": "Could not open “{name}”: it may have been moved or deleted. It was removed from the list."
 }

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 import type { Tab } from '../../app/app-state';
 import type { ConvertReason } from '../../app/commands';
-import { t } from '../../app/i18n';
+import { getLocale, t } from '../../app/i18n';
+import type { RecentFileChoice } from '../../app/ui-port';
 import type { DelimiterId } from '../../core/byte-csv-parser';
 import type { CsvExportOptions, CsvLineEnding } from '../../core/csv-export';
 import type { EncodingId } from '../../core/encoding';
@@ -460,6 +461,51 @@ export class FileIoDialogs {
         dialogButton(t('dialog.exportJson.ok'), true, true, () => close(true)),
       );
     });
+  }
+
+  /**
+   * File > Open Recent…: one button per recently opened file (newest first,
+   * with when it was last opened), plus Clear List and Cancel. File names are
+   * rendered as text, never HTML.
+   */
+  chooseRecentFile(entries: RecentFileChoice[]): Promise<string | 'clear' | null> {
+    return openDialog<string | 'clear' | null>(
+      t('dialog.recentFiles.title'),
+      null,
+      (body, buttons, close) => {
+        const list = el('ul', { className: 'recent-files-list' });
+        entries.forEach((entry, index) => {
+          const button = el(
+            'button',
+            {
+              className: 'recent-file',
+              attrs: { type: 'button', ...(index === 0 ? { 'data-autofocus': 'true' } : {}) },
+            },
+            [
+              el('span', { className: 'recent-file-name', text: entry.name }),
+              el('span', {
+                className: 'recent-file-time',
+                text: new Date(entry.openedAt).toLocaleString(getLocale(), {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                }),
+              }),
+            ],
+          );
+          button.addEventListener('click', () => close(entry.id));
+          list.append(el('li', {}, [button]));
+        });
+        body.append(
+          el('p', { text: t('dialog.recentFiles.message') }),
+          list,
+          el('p', { className: 'dialog-note', text: t('dialog.recentFiles.note') }),
+        );
+        buttons.append(
+          dialogButton(t('dialog.recentFiles.clear'), false, false, () => close('clear')),
+          dialogButton(t('dialog.recentFiles.cancel'), false, false, () => close(null)),
+        );
+      },
+    );
   }
 
   /**

@@ -87,6 +87,7 @@ function bootstrap(): void {
     notifyNcr: (reports) => dialogs.notifyNcr(reports),
     confirmUndecodableEdit: (cells) => dialogs.confirmUndecodableEdit(cells),
     chooseReopen: (tab) => dialogs.chooseReopen(tab),
+    chooseRecentFile: (entries) => dialogs.chooseRecentFile(entries),
     confirmConvert: (reason, name) => dialogs.confirmConvert(reason, name),
     explainRsfSave: (name) => dialogs.explainRsfSave(name),
     chooseRsfSave: (name, current, available, note) => dialogs.chooseRsfSave(name, current, available, note),

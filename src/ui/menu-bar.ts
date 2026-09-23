@@ -127,6 +127,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.file.new', command: 'file.new', shortcut: 'F4' },
         { labelKey: 'menu.file.newCsv', command: 'file.newCsv' },
         { labelKey: 'menu.file.open', command: 'file.open', shortcut: 'Ctrl+O' },
+        { labelKey: 'menu.file.openRecent', command: 'file.openRecent' },
         { labelKey: 'menu.file.save', command: 'file.save', shortcut: 'Ctrl+S' },
         'separator',
         { labelKey: 'menu.file.export', icon: FileDown, submenu: exportItems() },

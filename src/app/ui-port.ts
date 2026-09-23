@@ -81,6 +81,14 @@ export type ConvertReason =
  * `UiPort.chooseVersionHistory`): either the enabled/cap settings were
  * confirmed, or a specific snapshot's Restore action was chosen.
  */
+/** One row of the File > Open Recent… list (see `chooseRecentFile`). */
+export interface RecentFileChoice {
+  id: string;
+  name: string;
+  /** Epoch milliseconds of the last open or save. */
+  openedAt: number;
+}
+
 export type VersionHistoryChoice =
   | { kind: 'save'; enabled: boolean; maxOverride: number | null | undefined }
   | { kind: 'restore'; index: number };
@@ -238,6 +246,12 @@ export interface UiPort {
   notifyNcr(reports: NcrCellReport[]): Promise<void>;
   confirmUndecodableEdit(cells: Array<{ row: number; col: number }>): Promise<boolean>;
   chooseReopen(tab: Tab): Promise<{ encoding: EncodingId; delimiter: DelimiterId } | null>;
+  /**
+   * File > Open Recent…: pick one of the recently opened files (newest
+   * first). Resolves to the chosen entry's id, `'clear'` to forget the whole
+   * list, or null when cancelled.
+   */
+  chooseRecentFile(entries: RecentFileChoice[]): Promise<string | 'clear' | null>;
   /** Explain and confirm the explicit CSV -> RSF conversion. */
   confirmConvert(reason: ConvertReason, name: string): Promise<boolean>;
   /** Explain that a spreadsheet document is saved as .rsf (per-tab, once). */

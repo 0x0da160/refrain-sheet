@@ -3,6 +3,7 @@ type: operations-concept
 title: Security threat model
 description: The offline-by-design guarantee, the Google Drive sync exception's exact scope, the trust-boundary/control table, and how the formula engine treats every input as hostile.
 sources:
+  - resource: ../../src/app/recent-files.ts
   - resource: docs/security.md (migrated content; file removed after migration — see knowledge/log.md)
 status: stable
 generated:
@@ -154,3 +155,17 @@ build if a `.wasm` asset, a network fetch to a real `http:`/`https:`
 origin, or a module `<script>` (which would break `file://`) sneaks in.
 This is a security property, not just a convenience: there is no runtime
 channel to exfiltrate a user's file contents.
+
+### What the app keeps in the browser
+
+Besides preferences in `localStorage` (theme, font, language, size limit,
+and similar), the one thing the app stores is the **recently opened files
+list** behind File > Open Recent… (`src/app/recent-files.ts`, #598). It
+lives in this origin's IndexedDB and holds, per file, only its name, when
+it was last opened or saved, and the File System Access API handle — an
+opaque, browser-managed reference, not a path. File contents are never
+stored, nothing in it is ever sent anywhere, and the list is capped at 10
+entries. A stored handle grants nothing by itself: reopening asks the
+browser for read permission again in each session. Only browsers with the
+File System Access API record anything; the dialog's Clear List button
+empties it.

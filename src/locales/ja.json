@@ -12,6 +12,7 @@
   "menu.file.new": "新規スプレッドシート",
   "menu.file.newCsv": "新規CSV",
   "menu.file.open": "開く…",
+  "menu.file.openRecent": "最近使ったファイル…",
   "menu.file.reopen": "文字コードを指定して開き直す…",
   "menu.file.protectBook": "ブックを保護",
   "menu.file.unprotectBook": "ブックの保護を解除",
@@ -1057,5 +1058,14 @@
   "viewportDebug.clear": "クリア",
   "viewportDebug.copied": "{count} 行をコピーしました",
   "viewportDebug.copyFailed": "コピーできませんでした。下のテキストを選択してください",
-  "viewportDebug.probe": "キーボード検証:"
+  "viewportDebug.probe": "キーボード検証:",
+  "dialog.recentFiles.title": "最近使ったファイル",
+  "dialog.recentFiles.message": "もう一度開くファイルを選んでください。ブラウザーが読み取りの許可を求めることがあります。",
+  "dialog.recentFiles.clear": "一覧を消去",
+  "dialog.recentFiles.cancel": "キャンセル",
+  "dialog.recentFiles.note": "この一覧はこのブラウザーの中だけに保存されます。ファイルの内容は保存しません。",
+  "notify.recentEmpty": "最近開いたファイルはまだありません。「ファイル > 開く…」で開いたファイルがここに表示されます。",
+  "notify.recentCleared": "最近使ったファイルの一覧を消去しました。",
+  "notify.recentPermissionDenied": "「{name}」を開けませんでした。ブラウザーが読み取りを許可しませんでした。",
+  "notify.recentMissing": "「{name}」を開けませんでした。移動または削除された可能性があるため、一覧から外しました。"
 }

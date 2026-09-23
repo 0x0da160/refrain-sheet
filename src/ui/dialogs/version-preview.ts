@@ -33,6 +33,7 @@ function noOpUiPort(): UiPort {
     notifyNcr: async () => undefined,
     confirmUndecodableEdit: async () => false,
     chooseReopen: async () => null,
+    chooseRecentFile: async () => null,
     confirmConvert: async () => false,
     explainRsfSave: async () => false,
     chooseRsfSave: async () => null,

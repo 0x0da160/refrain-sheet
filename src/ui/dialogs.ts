@@ -16,6 +16,7 @@ import type {
   FlashFillPreview,
   NumberFormatDialogResult,
   RangeMoveConfirmInput,
+  RecentFileChoice,
   SortDialogInput,
   SortDialogResult,
   SqlQueryDialogInput,
@@ -333,6 +334,11 @@ export class Dialogs {
     input: ConditionalFormatDialogInput,
   ): Promise<ConditionalFormatDialogResult | null> {
     return this.format.chooseConditionalFormat(input);
+  }
+
+  /** See `FileIoDialogs.chooseRecentFile` for the full behavior contract. */
+  chooseRecentFile(entries: RecentFileChoice[]): Promise<string | 'clear' | null> {
+    return this.fileIo.chooseRecentFile(entries);
   }
 
   /**

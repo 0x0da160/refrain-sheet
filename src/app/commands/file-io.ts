@@ -31,6 +31,13 @@ import { buildJsonExport } from '../../core/json-export';
 import type { AppState, Tab } from '../app-state';
 import { defaultSheetName } from '../state/defaults';
 import { readFileObject, requestSaveHandle, saveBytes, saveBytesAs, type OpenedFile } from '../file-access';
+import {
+  clearRecentFiles,
+  ensureReadPermission,
+  listRecentFiles,
+  recordRecentFile,
+  removeRecentFile,
+} from '../recent-files';
 import { getLocale, t } from '../i18n';
 import { getAutoFitOnOpen, getMaxFileSize, getSuppressHistoryCapWarning } from '../settings';
 import type { ConvertReason, UiPort } from '../commands';
@@ -92,7 +99,56 @@ export class FileIoCommands {
   async openFiles(files: OpenedFile[], opts: { confirmNonCsv: boolean }): Promise<void> {
     for (const file of files) {
       await this.openFile(file, opts);
+      // Only a file opened through the File System Access API can be read
+      // again later, so only those join File > Open Recent (#598).
+      if (file.handle && !file.tooLarge) {
+        await recordRecentFile(file.handle, file.name);
+      }
     }
+  }
+
+  /**
+   * File > Open Recent…: lists the recently opened files and opens the one
+   * picked, asking the browser for read permission again first (a stored
+   * handle loses it when the page reloads). A file that has since been
+   * moved or deleted is reported and dropped from the list. The dialog can
+   * also clear the whole list.
+   */
+  async openRecent(): Promise<void> {
+    const entries = await listRecentFiles();
+    if (entries.length === 0) {
+      this.ui.notify(t('notify.recentEmpty'), 'info');
+      return;
+    }
+    const choice = await this.ui.chooseRecentFile(
+      entries.map((entry) => ({ id: entry.id, name: entry.name, openedAt: entry.openedAt })),
+    );
+    if (choice === null) {
+      return;
+    }
+    if (choice === 'clear') {
+      await clearRecentFiles();
+      this.ui.notify(t('notify.recentCleared'), 'info');
+      return;
+    }
+    const entry = entries.find((e) => e.id === choice);
+    if (!entry) {
+      return;
+    }
+    if (!(await ensureReadPermission(entry.handle))) {
+      this.ui.notify(t('notify.recentPermissionDenied', { name: entry.name }), 'warn');
+      return;
+    }
+    let file: File;
+    try {
+      file = await entry.handle.getFile();
+    } catch {
+      await removeRecentFile(entry.id);
+      this.ui.notify(t('notify.recentMissing', { name: entry.name }), 'warn');
+      return;
+    }
+    const opened = await readFileObject(file, entry.handle, getMaxFileSize());
+    await this.openFiles([opened], { confirmNonCsv: false });
   }
 
   async openDroppedFiles(fileList: File[], handles: Array<FileSystemFileHandle | null>): Promise<void> {
@@ -648,6 +704,9 @@ export class FileIoCommands {
     // cancelled/failed save never mutates the tab's file association.
     if (outcome.handle) {
       tab.handle = outcome.handle;
+      if (outcome.mode === 'overwrite') {
+        await recordRecentFile(outcome.handle, tab.name);
+      }
     }
     if (outcome.mode === 'overwrite') {
       this.ui.notify(t('notify.savedOverwrite'), 'info');

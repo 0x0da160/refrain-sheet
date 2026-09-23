@@ -441,3 +441,42 @@ table.diag-table th {
   display: flex;
   gap: var(--space-3);
 }
+
+/* File > Open Recent…: one full-width button per file, name above time. */
+.recent-files-list {
+  list-style: none;
+  margin: var(--space-4) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.recent-file {
+  display: grid;
+  width: 100%;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--field-bg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.recent-file:hover {
+  background: var(--panel-hover);
+}
+
+.recent-file-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.recent-file-time {
+  color: var(--text-dim);
+  font-size: 12px;
+}

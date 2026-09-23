@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.8.18] - 2026-09-23
+
 ### Changed
 
 - A CSV file no longer shows an empty band under the grid, where the

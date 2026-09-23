@@ -107,6 +107,17 @@ jobs:
       - name: Validate self-contained distribution
         run: npm run check:dist
 
+      # Open the offline dist/index.html via file:// in headless Chromium, the
+      # way a user does, and fail on a render failure or any console/page error
+      # (scripts/ui-check.mjs). The browser comes from Playwright's own
+      # download, installed by an explicit step like the Dockerfile's, never
+      # by an npm lifecycle script.
+      - name: Install headless Chromium for the UI check
+        run: npx --no-install playwright install --with-deps chromium
+
+      - name: Headless-browser UI check
+        run: npm run ui:check
+
       # The hosted artifact (app.refrain-sheet.com) is built from the same
       # sources and differs only in its Content-Security-Policy, which
       # scripts/csp.mjs emits per mode. The two policies are byte-identical

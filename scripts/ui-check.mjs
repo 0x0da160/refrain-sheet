@@ -3,10 +3,10 @@
 //
 // Loads the built distribution (dist/index.html) in headless Chromium the
 // same way a user does — directly via file://, no server — and fails if the
-// app does not render or logs a console/page error. This is a manual/
-// on-demand tool for developers and agents to visually confirm a UI change
-// actually works in a real browser engine; it is not part of `npm run
-// build`/`test` and is not wired into CI.
+// app does not render or logs a console/page error. CI runs it on every pull
+// request after the offline build (.github/workflows/ci.yml); developers and
+// agents also run it on demand to confirm a UI change works in a real
+// browser engine. It is not part of `npm run build`/`test`.
 //
 //   npm run build   # dist/ must already exist
 //   npm run ui:check

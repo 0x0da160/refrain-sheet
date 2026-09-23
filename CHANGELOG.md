@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.8.9] - 2026-09-23
+
 ### Fixed
 
 - On iPhone, opening the keyboard to edit a cell no longer pushes the top of

@@ -29,6 +29,7 @@ import { SheetBar } from './ui/sheet-bar';
 import { StatusBar } from './ui/status-bar';
 import { TabBar } from './ui/tab-bar';
 import { TextSheetView } from './ui/text-sheet';
+import { installViewportDebug } from './ui/viewport-debug';
 import { WelcomeScreen } from './ui/welcome-screen';
 import { YamlSheetView } from './ui/yaml-sheet';
 
@@ -47,6 +48,9 @@ function bootstrap(): void {
   // upward after the on-screen keyboard closes (#402) — see
   // `installKeyboardViewportFix` for why.
   installKeyboardViewportFix();
+  // Opt-in on-device diagnostics for the keyboard/viewport behavior above,
+  // only with the URL hash `#debug-viewport` (#582).
+  installViewportDebug();
 
   // Start instantiating the embedded WASM CSV core in the background (decoded
   // locally from Base64 — never fetched; falls back to the identical JS engine

@@ -35,6 +35,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- Adding `#debug-viewport` to the end of the app's URL now shows a small
+  diagnostic panel. It records how the page, the grid, and the cell editor
+  move while the on-screen keyboard opens and closes, and has a button to
+  copy that log for a bug report. Nothing changes without the hash.
+
 ## [0.8.11] - 2026-09-23
 
 ### Fixed

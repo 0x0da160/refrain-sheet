@@ -14,6 +14,7 @@ sources:
   - resource: ../../src/ui/popup.ts
   - resource: ../../tests/keyboard-viewport-fix.test.ts
   - resource: ../../tests/grid-autoscroll.test.ts
+  - resource: ../../src/ui/viewport-debug.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -93,6 +94,13 @@ docked-panel/Find-bar text field:
   autofocus and the Find/Replace bar's input — opening any of these on a
   touch device does not pop the keyboard, but the Find field's text is
   still selected as usual once focus lands.
+- **On-device keyboard diagnostics.** Emulation does not reproduce how
+  iOS Safari moves the viewport when the keyboard opens, so
+  `installViewportDebug` (`src/ui/viewport-debug.ts`) adds an opt-in panel
+  when the URL hash is `#debug-viewport` (#582). It logs the visual
+  viewport, page scroll, `#app`, grid, and editor geometry on each
+  viewport/scroll/focus/keyboard event and every frame shortly after, and
+  copies the log. Without the hash it installs nothing.
 - **iOS Safari auto-zoom prevention.** Mobile Safari zooms the page in on
   a focused text control whose computed font size is under ~16px.
   `src/styles/mobile-layout.css` floors every dialog text

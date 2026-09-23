@@ -387,3 +387,82 @@ describe('on-screen keyboard open/close (keyboardOpenChanged)', () => {
     expect(grid.element.scrollTop).toBe(ROW * 150);
   });
 });
+
+describe('touch edit entry around the on-screen keyboard', () => {
+  const ROW = 26;
+
+  function setView(grid: Grid, height: number): void {
+    Object.defineProperty(grid.element, 'clientHeight', { value: height, configurable: true });
+  }
+
+  function touchGrid(grid: Grid): void {
+    (grid as unknown as { lastPointerType: string }).lastPointerType = 'touch';
+  }
+
+  /** Where `centerKeyboardTarget` puts `row` in a grid of `height` px (26px header). */
+  function centered(row: number, height: number): number {
+    return Math.round(row * ROW + ROW / 2 - (height - ROW) / 2);
+  }
+
+  afterEach(() => {
+    delete document.documentElement.dataset.keyboardOpen;
+  });
+
+  it('parks the editor at the top until the keyboard opens, re-centers while it slides in, and restores the pre-edit scroll on close', () => {
+    const { grid, tab } = setupCsv(500, 3);
+    Object.defineProperty(grid.element, 'scrollHeight', { value: ROW * 501, configurable: true });
+    touchGrid(grid);
+    grid.element.scrollTop = ROW * 150;
+    const beforeEdit = grid.element.scrollTop;
+    grid.openEditor(tab, 170, 0, null);
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    expect(input.classList.contains('keyboard-pending')).toBe(true);
+
+    // First notification while the keyboard is still sliding in.
+    document.documentElement.dataset.keyboardOpen = '';
+    setView(grid, 400);
+    grid.keyboardOpenChanged(true);
+    expect(input.classList.contains('keyboard-pending')).toBe(false);
+    expect(grid.element.scrollTop).toBe(centered(170, 400));
+
+    // Fully open: centered in the final, smaller scroll area.
+    setView(grid, 260);
+    grid.keyboardResized();
+    expect(grid.element.scrollTop).toBe(centered(170, 260));
+    expect(grid.element.querySelector('.cell-editor')).toBe(input);
+
+    // Much later (e.g. the suggestion bar changing): no more re-centering.
+    vi.advanceTimersByTime(2000);
+    grid.element.scrollTop = ROW * 160;
+    setView(grid, 240);
+    grid.keyboardResized();
+    expect(grid.element.scrollTop).toBe(ROW * 160);
+
+    delete document.documentElement.dataset.keyboardOpen;
+    setView(grid, VIEW_HEIGHT);
+    grid.keyboardOpenChanged(false);
+    expect(grid.element.scrollTop).toBe(beforeEdit);
+  });
+
+  it('un-parks the editor after a short fallback when no keyboard opens (e.g. a hardware keyboard)', () => {
+    const { grid, tab } = setupCsv(500, 3);
+    touchGrid(grid);
+    grid.openEditor(tab, 3, 0, null);
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    expect(input.classList.contains('keyboard-pending')).toBe(true);
+
+    vi.advanceTimersByTime(1000);
+    expect(input.classList.contains('keyboard-pending')).toBe(false);
+    expect(grid.element.querySelector('.cell-editor')).toBe(input);
+  });
+
+  it('never parks for a mouse, or for type-to-edit', () => {
+    const { grid, tab } = setupCsv(500, 3);
+    grid.openEditor(tab, 3, 0, null);
+    expect(grid.element.querySelector('.cell-editor')!.classList.contains('keyboard-pending')).toBe(false);
+
+    touchGrid(grid);
+    grid.openEditor(tab, 4, 0, '');
+    expect(grid.element.querySelector('.cell-editor')!.classList.contains('keyboard-pending')).toBe(false);
+  });
+});

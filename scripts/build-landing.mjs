@@ -59,8 +59,11 @@ const FEATURES = {
     '保存時に文字コード・BOM・改行コードを個別に指定',
     '壊れたCSVを修復せず、行・列つきの診断を提示して開く',
     'RSFスプレッドシート（55関数・複数シート・フィルタ／並べ替え・セル書式設定・XLSXエクスポート）',
+    '値を型推論で変換せず、先頭ゼロ・日付・長い番号を文字列のまま保持',
+    '既存ファイルを既定で読み取り専用で開く保護モード',
     'データ入力規則・条件付き書式・数値の書式設定・SQLクエリの実行・比較／差分・セルコメント・コメントパネル',
-    '完全オフライン動作。実行時のネットワーク通信ゼロ',
+    'CSVの読み込み・編集・保存はブラウザ内で処理（Google Drive連携を使う場合のみGoogleと通信）',
+    'ホスト版アプリでのGoogle Drive連携（drive.fileスコープ）',
   ],
   en: [
     'Byte-identical output when a file is saved without edits',
@@ -69,8 +72,11 @@ const FEATURES = {
     'Choose character encoding, BOM and line endings independently when saving',
     'Opens malformed CSV without repairing it, with row/column diagnostics',
     'RSF spreadsheet mode with 55 functions, multiple sheets, filtering/sorting, cell formatting and XLSX export',
+    'No type inference: leading zeros, dates and long IDs stay as written',
+    'Protect mode that opens existing files read-only by default',
     'Data validation, conditional formatting, number formatting, SQL queries, tab comparison/diff, cell comments and a comments panel',
-    'Runs fully offline with zero network requests at runtime',
+    'CSV files are read, edited and saved inside the browser; the app contacts Google only when you use Google Drive',
+    'Optional Google Drive open/save in the hosted app (drive.file scope)',
   ],
 };
 const OG_ALT = {

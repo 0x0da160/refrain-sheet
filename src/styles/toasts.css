@@ -8,7 +8,7 @@
   bottom: 38px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-4);
   z-index: 300;
   max-width: 380px;
 }
@@ -16,11 +16,11 @@
 .toast {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-4);
   background: var(--tooltip-bg);
   color: var(--tooltip-text);
-  border-radius: 6px;
-  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
   box-shadow: 0 6px 18px var(--shadow-strong);
   line-height: 1.45;
 }
@@ -37,8 +37,8 @@
   border: none;
   background: none;
   color: inherit;
-  border-radius: 3px;
-  padding: 3px;
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
   opacity: 0.75;
 }
 

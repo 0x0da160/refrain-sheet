@@ -41,6 +41,27 @@
      (see src/app/sheet-font.ts); Noto Sans JP is the default. */
   --font-sheet: var(--sheet-font-noto-sans-jp);
 
+  /* ---------- Spacing, corner radius, and bar sizes (#594) ----------
+     Every non-grid padding, margin, and gap uses this one scale, and every
+     corner radius one of the three radii, so controls line up and spacing
+     reads the same across bars, menus, dialogs, and panels. The grid keeps
+     its own cell geometry (virtualized-grid.css), which grid.ts measures. */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 24px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+  /* The menu bar, document tab row, formula bar, and worksheet strip share
+     one outer height (border included — the app is border-box throughout);
+     the status bar is deliberately smaller. */
+  --bar-height: 32px;
+  --status-bar-height: 24px;
+
   /* ---------- Oklab-based color system ----------
      Every semantic token below is authored as oklch(L C H[ / alpha]) — the
      cylindrical form of the perceptually-uniform Oklab space — instead of

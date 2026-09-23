@@ -71,8 +71,8 @@ export class FindBar {
     private readonly commands: Commands,
     private readonly grid: Grid,
   ) {
-    this.findInput = el('input', { attrs: { type: 'text' } });
-    this.replaceInput = el('input', { attrs: { type: 'text' } });
+    this.findInput = el('input', { attrs: { type: 'text', placeholder: t('find.find') } });
+    this.replaceInput = el('input', { attrs: { type: 'text', placeholder: t('find.replace') } });
     this.caseBox = el('input', { attrs: { type: 'checkbox' } });
     this.regexBox = el('input', { attrs: { type: 'checkbox' } });
     this.scopeSelect = el('select', { className: 'find-scope' });
@@ -83,42 +83,61 @@ export class FindBar {
     this.countEl = el('span', { className: 'find-count', attrs: { role: 'status', 'aria-live': 'polite' } });
     this.errorEl = el('span', { className: 'find-error', attrs: { role: 'alert' } });
 
-    const label = (key: string, id: string): HTMLElement => {
-      const node = el('span', { text: t(key) });
+    const label = (key: string, id: string, className = ''): HTMLElement => {
+      const node = el('span', { className, text: t(key) });
       this.labels.set(id, { node, key });
       return node;
     };
-    const button = (key: string, onClick: () => void, icon?: IconNode): HTMLButtonElement => {
+    // `labelClass` hides a button's text visually on some or all widths
+    // (the icon stays); the text remains its accessible name either way.
+    const button = (
+      key: string,
+      onClick: () => void,
+      icon?: IconNode,
+      buttonClass = '',
+      labelClass = '',
+    ): HTMLButtonElement => {
       const children = icon
-        ? [createIcon(icon, 'find-btn-icon', 14), label(key, `btn-${key}`)]
-        : [label(key, `btn-${key}`)];
-      const node = el('button', { attrs: { type: 'button' } }, children);
+        ? [createIcon(icon, 'find-btn-icon', 14), label(key, `btn-${key}`, labelClass)]
+        : [label(key, `btn-${key}`, labelClass)];
+      const node = el(
+        'button',
+        { className: buttonClass, attrs: { type: 'button', title: t(key) } },
+        children,
+      );
       node.addEventListener('click', onClick);
       return node;
     };
 
-    const prevBtn = button('find.prev', () => this.next(-1), ChevronUp);
-    const nextBtn = button('find.next', () => this.next(1), ChevronDown);
+    const prevBtn = button('find.prev', () => this.next(-1), ChevronUp, 'find-nav', 'visually-hidden');
+    const nextBtn = button('find.next', () => this.next(1), ChevronDown, 'find-nav', 'visually-hidden');
     const replaceBtn = button('find.replaceOne', () => this.replaceCurrent());
     const replaceAllBtn = button('find.replaceAll', () => void this.replaceAll());
-    const closeBtn = button('find.close', () => this.close(), X);
+    const closeBtn = button('find.close', () => this.close(), X, 'find-close', 'visually-hidden');
 
-    this.replaceRow = [
-      el('label', {}, [label('find.replace', 'lbl-replace'), this.replaceInput]),
+    // Three groups — search, options, replace — that stack as rows on a
+    // phone and flow as one row on a desktop (`display: contents`).
+    const replaceGroup = el('div', { className: 'find-group find-group-replace' }, [
+      el('label', {}, [label('find.replace', 'lbl-replace', 'find-field-label'), this.replaceInput]),
       replaceBtn,
       replaceAllBtn,
-    ];
+    ]);
+    this.replaceRow = [replaceGroup];
     this.scopeLabel = el('label', {}, [label('find.scope', 'lbl-scope'), this.scopeSelect]);
 
     this.element = el('div', { className: 'find-bar', attrs: { role: 'search' } }, [
-      el('label', {}, [label('find.find', 'lbl-find'), this.findInput]),
-      prevBtn,
-      nextBtn,
-      el('label', {}, [this.caseBox, label('find.matchCase', 'lbl-case')]),
-      el('label', {}, [this.regexBox, label('find.regex', 'lbl-regex')]),
-      this.scopeLabel,
-      ...this.replaceRow,
-      this.countEl,
+      el('div', { className: 'find-group find-group-find' }, [
+        el('label', {}, [label('find.find', 'lbl-find', 'find-field-label'), this.findInput]),
+        prevBtn,
+        nextBtn,
+      ]),
+      el('div', { className: 'find-group find-group-options' }, [
+        el('label', {}, [this.caseBox, label('find.matchCase', 'lbl-case')]),
+        el('label', {}, [this.regexBox, label('find.regex', 'lbl-regex')]),
+        this.scopeLabel,
+        this.countEl,
+      ]),
+      replaceGroup,
       closeBtn,
       this.errorEl,
     ]);
@@ -172,9 +191,14 @@ export class FindBar {
   refresh(): void {
     for (const { node, key } of this.labels.values()) {
       node.textContent = t(key);
+      if (node.parentElement instanceof HTMLButtonElement) {
+        node.parentElement.title = t(key);
+      }
     }
     this.findInput.setAttribute('aria-label', t('find.find'));
     this.replaceInput.setAttribute('aria-label', t('find.replace'));
+    this.findInput.placeholder = t('find.find');
+    this.replaceInput.placeholder = t('find.replace');
     this.scopeSelect.options[0].textContent = t('find.scope.sheet');
     this.scopeSelect.options[1].textContent = t('find.scope.workbook');
     this.updateScopeAvailability();

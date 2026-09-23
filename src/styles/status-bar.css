@@ -6,13 +6,13 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 2px 14px;
+  gap: var(--space-1) var(--space-5);
   background: var(--panel);
   border-top: 1px solid var(--border);
-  padding: 3px 10px;
+  padding: var(--space-1) var(--space-4);
   font-size: 12px;
   color: var(--text-dim);
-  min-height: 24px;
+  min-height: var(--status-bar-height);
 }
 
 .status-bar .warn {
@@ -33,20 +33,20 @@
 .status-bar .sel-stats {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 2px 14px;
+  gap: var(--space-1) var(--space-5);
 }
 
 .status-bar .status-selection {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 2px 14px;
+  gap: var(--space-1) var(--space-5);
 }
 
 .status-bar button.status-problems {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   border: none;
   background: none;
   color: var(--danger);
@@ -64,7 +64,7 @@
 .status-bar .status-protected {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   color: var(--accent);
   font-weight: 600;
 }
@@ -76,11 +76,23 @@
 .status-bar button.status-protect-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   border: none;
   background: none;
   color: var(--text-dim);
   font-weight: 600;
+  text-decoration: underline;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Phone only (mobile-layout.css): shows or hides the file details. */
+.status-bar button.status-details-toggle {
+  display: none;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
   text-decoration: underline;
   padding: 0;
   cursor: pointer;

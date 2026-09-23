@@ -22,7 +22,7 @@ export class WelcomeScreen {
   constructor(private readonly commands: Commands) {
     this.element = el('div', {
       className:
-        'welcome-screen flex flex-1 flex-col items-center justify-center gap-3 overflow-auto bg-surface p-10 text-center',
+        'welcome-screen flex flex-1 flex-col items-center justify-center gap-(--space-5) overflow-auto bg-surface p-10 text-center',
     });
     this.element.hidden = true;
     this.render();
@@ -37,7 +37,7 @@ export class WelcomeScreen {
   private render(): void {
     clearChildren(this.element);
     const actionClasses =
-      'welcome-action inline-flex items-center gap-2 rounded-[5px] border border-accent px-[18px] py-[9px] text-[14px] cursor-pointer hover:bg-accent-soft hover:text-accent';
+      'welcome-action inline-flex items-center justify-center gap-(--space-4) rounded-(--radius-md) border border-accent px-(--space-6) py-(--space-4) text-[14px] cursor-pointer hover:bg-accent-soft hover:text-accent';
     const open = el(
       'button',
       { className: `${actionClasses} primary bg-accent text-accent-contrast`, attrs: { type: 'button' } },
@@ -65,14 +65,16 @@ export class WelcomeScreen {
       // it never shifts layout, and it follows the light/dark theme.
       el('h1', { className: 'm-0' }, [createAppLogotype('welcome-logotype block', 44)]),
       el('p', { className: 'm-0 text-dim', text: t('app.subtitle') }),
-      el('div', { className: 'mt-[10px] mb-[2px] flex flex-wrap justify-center gap-[10px]' }, [
-        open,
-        create,
-        createCsv,
-      ]),
+      // Equal-width buttons: one column on a phone, one row of equal
+      // columns from the `sm` breakpoint up.
+      el(
+        'div',
+        { className: 'mt-(--space-4) mb-(--space-1) grid gap-(--space-4) sm:grid-flow-col sm:auto-cols-fr' },
+        [open, create, createCsv],
+      ),
       el('p', {
         className:
-          'welcome-drop mt-[6px] rounded-lg border-2 border-dashed border-line px-[26px] py-[14px] text-dim',
+          'welcome-drop mt-(--space-3) rounded-(--radius-md) border-2 border-dashed border-line px-(--space-7) py-(--space-5) text-dim',
         text: t('welcome.drop'),
       }),
     );

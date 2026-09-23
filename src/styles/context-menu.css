@@ -10,9 +10,9 @@
   left: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 4px 14px var(--shadow);
-  padding: 4px 0;
+  padding: var(--space-2) 0;
   z-index: 100;
   min-width: 180px;
   /* Never wider than the viewport, so a long localized label cannot push the
@@ -36,8 +36,8 @@
 .context-menu-toolbar {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px 6px;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
 }
 
 .toolbar-item {
@@ -49,7 +49,7 @@
   height: 28px;
   border: none;
   background: none;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   cursor: default;
   font-size: 13px;
   color: inherit;

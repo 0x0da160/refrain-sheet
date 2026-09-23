@@ -35,6 +35,33 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- A CSV file no longer shows an empty band under the grid, where the
+  worksheet tabs of a workbook go; the grid uses that space instead.
+- The menu bar, file tabs, formula bar, and worksheet tabs are now all the
+  same height, their left edges line up, and spacing and corner rounding
+  are consistent across menus, dialogs, and panels. On a desktop the grid
+  shows about one more row.
+- The three buttons on the welcome screen are now the same width.
+- The find bar's Previous, Next, and Close buttons are now icons (hover
+  for their names), so the bar fits on one row even with Replace open.
+- On a phone:
+  - the file tab row is about 12px shorter;
+  - the status bar keeps to one line, with the file details (encoding,
+    delimiter, size, version, and so on) behind a new **Details** button;
+  - the find bar is laid out in tidy rows (search, options, replace)
+    instead of wrapping its labels one character per line;
+  - the opened menu lines its names up in an even grid.
+    With a CSV file open, the grid shows about two more rows than before.
+
+### Fixed
+
+- In the Settings dialog, the "maximum file size" label no longer runs into
+  its input box, and on a phone the value and its unit stay on one line.
+- The "+" button that adds a column is now exactly as tall as the column
+  headers beside it, on a phone too.
+
 ## [0.8.17] - 2026-09-23
 
 ### Fixed

@@ -97,7 +97,7 @@
     grid-column: 1;
     border-bottom: none;
     border-top: 1px solid var(--border);
-    padding: 0 2px;
+    padding: 0 var(--space-1);
     flex-wrap: wrap;
   }
 
@@ -183,10 +183,17 @@
      but a wrapped menu can still be taller than the viewport on a short
      phone screen; capping the height and scrolling vertically keeps it fully
      reachable without overflowing the page (#478). */
+  /* Laid out as an even grid of four columns (#594) rather than wrapping
+     wherever each name happens to end — still no horizontal scrolling. */
   .menu-row.open {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     max-height: calc(100dvh - 96px);
     overflow-y: auto;
+  }
+
+  .menu-row.open .menu > button {
+    width: 100%;
   }
 
   /* `.menu-row` wraps instead of scrolling, but that only works if its
@@ -199,7 +206,7 @@
 
   .menu > button,
   .menu-item {
-    padding: 10px 12px;
+    padding: var(--space-4) var(--space-5);
     min-height: 44px;
   }
 
@@ -207,12 +214,14 @@
     white-space: nowrap;
   }
 
+  /* The close button's 36px tap target sets the tab's height; the tab adds
+     only a thin frame around it (#594), not another 8px above and below. */
   .tab {
-    padding: 8px 8px 8px 12px;
+    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-5);
   }
 
   .tab .tab-close {
-    padding: 8px;
+    padding: var(--space-4);
     min-width: 36px;
     min-height: 36px;
   }
@@ -220,8 +229,18 @@
   .sheet-tab,
   .sheet-add,
   .sheet-grid-add {
-    padding: 9px 10px;
+    padding: var(--space-4) var(--space-4);
     min-height: 40px;
+  }
+
+  /* The add-column button extends the column-header row, so it keeps the
+     header's height and takes its tap-target size from its width instead. */
+  .sheet-grid-add-col {
+    min-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    min-width: 44px;
+    justify-content: center;
   }
 
   /* The 40px tap-target floor above already sets the tabs' own height;
@@ -230,39 +249,99 @@
      here without touching the floor itself (#468). */
   .sheet-strip,
   .sheet-grid-actions {
-    padding: 1px 6px;
+    padding: 1px var(--space-3);
   }
 
   .dialog-title {
-    padding: 10px 14px;
+    padding: var(--space-4) var(--space-5);
     font-size: 13px;
   }
 
   .dialog-body {
-    padding: 10px 14px;
+    padding: var(--space-4) var(--space-5);
   }
 
   .dialog-buttons {
-    padding: 10px 14px;
+    padding: var(--space-4) var(--space-5);
   }
 
   .dialog-buttons button {
-    padding: 8px 14px;
+    padding: var(--space-4) var(--space-5);
     min-height: 44px;
   }
 
+  /* Three rows instead of a wrapped jumble (#594): search field with
+     previous/next and close, then replace, then the options with the match
+     count. The field labels and the previous/next text become visually
+     hidden — the placeholder and icons carry them, and the text stays the
+     accessible name. */
   .find-bar {
-    padding: 4px 6px;
-    gap: 4px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .find-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+  }
+
+  .find-group-find {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .find-bar .find-close {
+    grid-column: 2;
+    grid-row: 1;
+    margin-left: 0;
+  }
+
+  .find-group-replace,
+  .find-group-options,
+  .find-error {
+    grid-column: 1 / -1;
+  }
+
+  .find-group-options {
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
+  }
+
+  .find-group > label:has(> input[type='text']) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .find-field-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .find-bar .find-nav,
+  .find-bar .find-close {
+    min-width: 40px;
+    justify-content: center;
   }
 
   .find-bar button {
-    padding: 6px 10px;
+    padding: var(--space-3) var(--space-4);
     min-height: 40px;
   }
 
   .welcome-action {
-    padding: 10px 16px;
+    padding: var(--space-4) var(--space-6);
     min-height: 44px;
   }
 
@@ -270,15 +349,27 @@
      the status bar, the formula bar's cell-ref label, and the context
      menu's formatting toolbar/its own padding. */
   .status-bar {
-    padding: 2px 8px;
-    gap: 2px 10px;
-    font-size: 11px;
+    padding: var(--space-1) var(--space-4);
+    gap: var(--space-1) var(--space-4);
+    font-size: 12px;
     min-height: 22px;
+  }
+
+  /* The file details (encoding, delimiter, size, …) collapse behind a
+     Details button so the bar stays on one line (#594). */
+  .status-bar:not(.details-open) .status-detail {
+    display: none;
+  }
+
+  .status-bar button.status-details-toggle {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
   }
 
   .status-bar .sel-stats,
   .status-bar .status-selection {
-    gap: 2px 10px;
+    gap: var(--space-1) var(--space-4);
   }
 
   /* Shorten the version text to just "v1.2.3" here, opposite the base rule
@@ -292,8 +383,8 @@
   }
 
   .formula-bar {
-    padding: 3px 6px;
-    gap: 4px;
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
   }
 
   .formula-bar .cell-ref {
@@ -308,11 +399,11 @@
   }
 
   .context-menu {
-    padding: 2px 0;
+    padding: var(--space-1) 0;
   }
 
   .context-menu-toolbar {
-    padding: 2px 4px;
+    padding: var(--space-1) var(--space-2);
     gap: 1px;
   }
 
@@ -399,6 +490,20 @@
 
   .form-row label:first-child {
     min-width: 100%;
+  }
+
+  .form-row > label:has(> select, > input) {
+    flex-wrap: wrap;
+  }
+
+  /* Inside such a label the control starts its own line, below the label
+     text, and shares it with the unit after it (e.g. "512 MiB") instead of
+     pushing the unit onto a line of its own. The basis leaves room for a
+     short unit but not for the label text. */
+  .form-row > label > select,
+  .form-row > label > input[type='number'] {
+    flex: 1 1 calc(100% - 4em);
+    width: auto;
   }
 
   .form-row select,

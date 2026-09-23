@@ -21,7 +21,11 @@ Ctrl+H — those stay reserved for the browser's own find/history (see
 describes). Both commands are also reachable from the Search menu.
 
 Next / Previous navigate with wrap-around; match counts (occurrences and
-matching cells) update live as you type. Search operates on **current cell
+matching cells) update live as you type. Previous, Next, and Close are
+icon buttons whose text stays as their tooltip and accessible name, so the
+whole bar, Replace included, fits on one row of a desktop window (#594);
+on a phone it stacks into search, options, and replace rows (see
+[mobile-and-touch.md](mobile-and-touch.md)). Search operates on **current cell
 values** — i.e. formula results, not formula source text.
 
 ## Match case and regex mode

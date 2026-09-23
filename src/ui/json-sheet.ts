@@ -5,14 +5,13 @@ import { t } from '../app/i18n';
 import { tokenizeCode } from '../core/syntax-highlight';
 import {
   applySidePanelPosition,
-  buildSidePanelDock,
+  buildSidePanelChrome,
   releaseSidePanel,
   currentSidePanelPlacement,
 } from './dialogs/shared';
+import { Eye } from 'lucide';
 import { el } from './dom';
 import { CoalescedRenderer, isLargePreviewSource, syncScroll } from './editor-preview-perf';
-import { createIcon } from './icon';
-import { X } from 'lucide';
 
 /** How long to wait after the last keystroke before committing an undoable edit. */
 const COMMIT_DEBOUNCE_MS = 600;
@@ -116,11 +115,10 @@ export class JsonSheetView {
     this.element = el('div', { className: 'json-sheet-view' }, [toolbar, panes]);
     this.element.hidden = true;
 
-    // The preview's own dockable panel — same `buildSidePanelDock` machinery
+    // The preview's own dockable panel — same `buildSidePanelChrome` machinery
     // the Markdown worksheet's preview and the Filter/Sort/Comments panels
     // use — rather than a transient `openSidePanel` call, since it stays
     // open and live-updates while the user keeps typing above.
-    const previewTitle = el('span', { text: t('dialog.jsonEditor.preview') });
     this.preview = el('div', {
       className: 'markdown-editor-preview',
       attrs: { 'aria-live': 'polite' },
@@ -129,19 +127,14 @@ export class JsonSheetView {
       className: 'side-panel json-preview-panel',
       attrs: { role: 'complementary', 'aria-label': t('dialog.jsonEditor.preview') },
     });
-    const { positionSwitcher, resizeHandle, maximizeToggle } = buildSidePanelDock(this.panelElement);
-    const closeBtn = el('button', {
-      className: 'markdown-preview-panel-close',
-      attrs: { type: 'button', 'aria-label': t('dialog.jsonEditor.hidePreview') },
+    const previewChrome = buildSidePanelChrome(this.panelElement, {
+      icon: Eye,
+      title: t('dialog.jsonEditor.preview'),
+      closeLabel: t('dialog.jsonEditor.hidePreview'),
+      onClose: () => this.setPreviewVisible(false),
     });
-    closeBtn.append(createIcon(X, 'markdown-preview-panel-close-icon', 14));
-    closeBtn.addEventListener('click', () => this.setPreviewVisible(false));
-    const heading = el('div', { className: 'dialog-title side-panel-title' }, [
-      previewTitle,
-      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, maximizeToggle, closeBtn]),
-    ]);
     const body = el('div', { className: 'dialog-body' }, [this.preview]);
-    this.panelElement.append(heading, body, resizeHandle);
+    this.panelElement.append(previewChrome.heading, body, previewChrome.resizeHandle);
     this.panelElement.hidden = true;
 
     this.updatePreviewToggle();

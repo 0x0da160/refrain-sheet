@@ -6,14 +6,13 @@ import { t } from '../app/i18n';
 import { tokenizeCode } from '../core/syntax-highlight';
 import {
   applySidePanelPosition,
-  buildSidePanelDock,
+  buildSidePanelChrome,
   releaseSidePanel,
   currentSidePanelPlacement,
 } from './dialogs/shared';
+import { Eye } from 'lucide';
 import { el } from './dom';
 import { CoalescedRenderer, isLargePreviewSource, syncScroll } from './editor-preview-perf';
-import { createIcon } from './icon';
-import { X } from 'lucide';
 
 /** How long to wait after the last keystroke before committing an undoable edit. */
 const COMMIT_DEBOUNCE_MS = 600;
@@ -113,7 +112,6 @@ export class YamlSheetView {
     this.element = el('div', { className: 'yaml-sheet-view' }, [toolbar, panes]);
     this.element.hidden = true;
 
-    const previewTitle = el('span', { text: t('dialog.yamlEditor.preview') });
     this.preview = el('div', {
       className: 'markdown-editor-preview',
       attrs: { 'aria-live': 'polite' },
@@ -122,19 +120,14 @@ export class YamlSheetView {
       className: 'side-panel json-preview-panel',
       attrs: { role: 'complementary', 'aria-label': t('dialog.yamlEditor.preview') },
     });
-    const { positionSwitcher, resizeHandle, maximizeToggle } = buildSidePanelDock(this.panelElement);
-    const closeBtn = el('button', {
-      className: 'markdown-preview-panel-close',
-      attrs: { type: 'button', 'aria-label': t('dialog.yamlEditor.hidePreview') },
+    const previewChrome = buildSidePanelChrome(this.panelElement, {
+      icon: Eye,
+      title: t('dialog.yamlEditor.preview'),
+      closeLabel: t('dialog.yamlEditor.hidePreview'),
+      onClose: () => this.setPreviewVisible(false),
     });
-    closeBtn.append(createIcon(X, 'markdown-preview-panel-close-icon', 14));
-    closeBtn.addEventListener('click', () => this.setPreviewVisible(false));
-    const heading = el('div', { className: 'dialog-title side-panel-title' }, [
-      previewTitle,
-      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, maximizeToggle, closeBtn]),
-    ]);
     const body = el('div', { className: 'dialog-body' }, [this.preview]);
-    this.panelElement.append(heading, body, resizeHandle);
+    this.panelElement.append(previewChrome.heading, body, previewChrome.resizeHandle);
     this.panelElement.hidden = true;
 
     this.updatePreviewToggle();

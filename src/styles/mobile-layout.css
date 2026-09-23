@@ -511,23 +511,4 @@
     width: 100%;
     min-width: 0;
   }
-
-  .filter-condition-row {
-    flex-wrap: wrap;
-  }
-
-  .filter-condition-row select,
-  .filter-condition-row input {
-    min-width: 0;
-    max-width: 100%;
-  }
-
-  .sort-key-row {
-    flex-wrap: wrap;
-  }
-
-  .sort-key-row select {
-    min-width: 0;
-    max-width: 100%;
-  }
 }

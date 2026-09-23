@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { Maximize2, Minimize2, PanelBottom, PanelLeft, PanelRight, PanelTop } from 'lucide';
+import { Maximize2, Minimize2, PanelBottom, PanelLeft, PanelRight, PanelTop, X, type IconNode } from 'lucide';
 import { clearChildren, el, focusWithoutKeyboard } from '../dom';
 import { makeDraggable, makeEdgeResizable, makeResizable, type EdgeResizeAxis } from '../drag-resize';
 import { createIcon } from '../icon';
@@ -509,18 +509,12 @@ function clearAppEdgeReservation(): void {
 }
 
 /**
- * Builds the header position switcher and the inner-edge resize handle
- * shared by every dockable side panel — the transient filter/sort/format/SQL
- * panels below (`openSidePanel`) and the persistent comments panel
- * (`ui/comments-panel.ts`) alike — so they all dock and resize identically
- * and remember the same position/size across one another (#399). `panel`
- * must already be a `.side-panel` element; its position is (re)applied here
- * on every switch and resize, but not at build time — a caller that starts
- * out hidden (the comments panel) must call {@link applySidePanelPosition}
- * itself once it actually becomes visible, so a closed panel never reserves
- * app-edge space it isn't showing.
+ * Builds the header position switcher, maximize toggle, and inner-edge resize
+ * handle shared by every dockable side panel, so they all dock and resize
+ * identically and remember the same position/size across one another (#399).
+ * Internal to {@link buildSidePanelChrome}, which is what panels use.
  */
-export function buildSidePanelDock(panel: HTMLElement): {
+function buildSidePanelDock(panel: HTMLElement): {
   positionSwitcher: HTMLElement;
   resizeHandle: HTMLElement;
   maximizeToggle: HTMLElement;
@@ -540,14 +534,14 @@ export function buildSidePanelDock(panel: HTMLElement): {
   const positionButtons = SIDE_PANEL_POSITIONS.map((position) => {
     const label = t(`dialog.sidePanel.position.${position}`);
     const button = el('button', {
-      className: 'side-panel-position-btn',
+      className: 'side-panel-header-btn side-panel-position-btn',
       attrs: {
         type: 'button',
         'aria-pressed': String(position === effectiveSidePanelPosition()),
         title: label,
       },
     });
-    button.append(createIcon(SIDE_PANEL_POSITION_ICON[position], 'side-panel-position-icon', 14));
+    button.append(createIcon(SIDE_PANEL_POSITION_ICON[position], 'side-panel-header-icon', 14));
     button.addEventListener('click', () => {
       sidePanelPosition = position;
       sidePanelPositionExplicit = true;
@@ -567,13 +561,13 @@ export function buildSidePanelDock(panel: HTMLElement): {
   );
 
   const maximizeToggle = el('button', {
-    className: 'side-panel-maximize-btn',
+    className: 'side-panel-header-btn side-panel-maximize-btn',
     attrs: { type: 'button' },
   });
   const refreshMaximizeToggle = (): void => {
     clearChildren(maximizeToggle);
     maximizeToggle.append(
-      createIcon(sidePanelMaximized ? Minimize2 : Maximize2, 'side-panel-maximize-icon', 14),
+      createIcon(sidePanelMaximized ? Minimize2 : Maximize2, 'side-panel-header-icon', 14),
     );
     maximizeToggle.setAttribute('aria-pressed', String(sidePanelMaximized));
     maximizeToggle.setAttribute(
@@ -625,65 +619,161 @@ export function buildSidePanelDock(panel: HTMLElement): {
   return { positionSwitcher, resizeHandle: grip, maximizeToggle };
 }
 
+export interface SidePanelChromeOptions {
+  /** The title-bar icon, shown before the title like every other panel's. */
+  icon: IconNode;
+  title: string;
+  /** Accessible name of the header's close (×) button. */
+  closeLabel: string;
+  onClose: () => void;
+}
+
+export interface SidePanelChrome {
+  /** The `.side-panel-title` bar: icon + title, dock/maximize/close buttons. */
+  heading: HTMLElement;
+  /** The inner-edge resize handle; append it last. */
+  resizeHandle: HTMLElement;
+  /** The title text's element id, for `aria-labelledby`. */
+  titleId: string;
+  /** Re-translate the title and close label (locale change). */
+  relabel: (title: string, closeLabel: string) => void;
+}
+
+let sidePanelTitleSeq = 0;
+
 /**
- * A dockable, resizable panel built the same way as `openDialog` (same
- * `DialogBuilder<T>` callback and `.dialog-title`/`.dialog-body`/
- * `.dialog-buttons` structure/CSS), but anchored to an edge of the viewport
- * (top/right/bottom/left, switchable from the header) instead of floating —
- * the same idea as the comments panel (`ui/comments-panel.ts`), generalized
- * to every filter/sort/format/SQL/data dialog and made resizable by dragging
- * its inner edge (see `buildSidePanelDock` above). It reserves its own space
- * along the docked edge (`reserveAppEdge`) so the sheet is never covered — a
- * genuine split view, not an overlay (#396). Unlike `openPopover`, an
- * outside pointer interaction never dismisses it — a stray click on the
- * sheet while adjusting filter/sort/format/validation settings must not
- * silently discard them (#396); only Escape, its own Cancel button, or
- * window blur close it (resolving `fallback`), and focus returns to
- * whatever triggered it.
+ * The one title bar every dockable side panel shares — the transient
+ * Filter/Sort/Format/SQL panels ({@link openSidePanel}) and the persistent
+ * comments and worksheet-preview panels alike — so each has the same icon +
+ * title on the left and the same dock side / maximize / close (×) buttons on
+ * the right, in the same order and size. `panel` must already be a
+ * `.side-panel` element; a caller that starts out hidden must call
+ * {@link applySidePanelPosition} itself once it becomes visible, so a closed
+ * panel never reserves app-edge space it isn't showing.
  */
-export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilder<T>): Promise<T> {
+export function buildSidePanelChrome(panel: HTMLElement, options: SidePanelChromeOptions): SidePanelChrome {
+  const { positionSwitcher, resizeHandle, maximizeToggle } = buildSidePanelDock(panel);
+  const titleId = `side-panel-title-${++sidePanelTitleSeq}`;
+  const label = el('span', { className: 'side-panel-title-label', text: options.title });
+  const title = el('span', { className: 'side-panel-title-text', attrs: { id: titleId } }, [
+    createIcon(options.icon, 'side-panel-title-icon', 16),
+    label,
+  ]);
+  const closeButton = el('button', {
+    className: 'side-panel-header-btn side-panel-close-btn',
+    attrs: { type: 'button', 'aria-label': options.closeLabel, title: options.closeLabel },
+  });
+  closeButton.append(createIcon(X, 'side-panel-header-icon', 14));
+  closeButton.addEventListener('click', options.onClose);
+  const heading = el('div', { className: 'dialog-title side-panel-title' }, [
+    title,
+    el('div', { className: 'side-panel-title-actions' }, [
+      positionSwitcher,
+      maximizeToggle,
+      el('span', { className: 'side-panel-title-divider', attrs: { 'aria-hidden': 'true' } }),
+      closeButton,
+    ]),
+  ]);
+  return {
+    heading,
+    resizeHandle,
+    titleId,
+    relabel: (nextTitle, nextCloseLabel) => {
+      label.textContent = nextTitle;
+      closeButton.setAttribute('aria-label', nextCloseLabel);
+      closeButton.setAttribute('title', nextCloseLabel);
+    },
+  };
+}
+
+/**
+ * Builds a side panel's body and footer. `apply` hands a result to the
+ * caller: with an `onApply` handler the panel stays open (so the user can
+ * adjust and apply again), otherwise it closes and resolves with the value.
+ * Closing is the shared chrome's job (the footer Close button, the header ×,
+ * or Escape), so builders add only their own action buttons.
+ */
+export type SidePanelBuilder<T> = (
+  body: HTMLElement,
+  buttons: HTMLElement,
+  apply: (value: NonNullable<T>) => void,
+) => void;
+
+export interface SidePanelOptions<T> {
+  title: string;
+  icon: IconNode;
+  /** What the promise resolves with when the panel is closed. */
+  fallback: T;
+  /** Applies a result while the panel stays open. */
+  onApply?: (value: NonNullable<T>) => unknown;
+}
+
+/**
+ * A dockable, resizable panel with the same `.dialog-title`/`.dialog-body`/
+ * `.dialog-buttons` structure/CSS as `openDialog`, but anchored to an edge of
+ * the viewport (top/right/bottom/left, switchable from the header) instead
+ * of floating, and made resizable by dragging its inner edge. It reserves its
+ * own space along the docked edge (`reserveAppEdge`) so the sheet is never
+ * covered — a genuine split view, not an overlay (#396).
+ *
+ * The panel stays open until the user closes it: applying never closes it
+ * when the caller passes `onApply`, and neither an outside click nor the
+ * window losing focus (e.g. a native color picker opening) dismisses it —
+ * a stray click on the sheet while adjusting filter/sort/format/validation
+ * settings must not silently discard them (#396). Only the footer's Close
+ * button (always the bottom-right one), the header's ×, or Escape close it,
+ * resolving `fallback`, and focus returns to whatever triggered it.
+ */
+export function openSidePanel<T>(options: SidePanelOptions<T>, build: SidePanelBuilder<T>): Promise<T> {
   return new Promise((resolve) => {
     const panel = el('div', {
       className: 'side-panel',
-      attrs: { role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'side-panel-title' },
+      attrs: { role: 'dialog', 'aria-modal': 'false' },
     });
-    const { positionSwitcher, resizeHandle: grip, maximizeToggle } = buildSidePanelDock(panel);
-
-    const heading = el('div', { className: 'dialog-title side-panel-title' }, [
-      el('span', { text: title, attrs: { id: 'side-panel-title' } }),
-      el('div', { className: 'side-panel-title-actions' }, [positionSwitcher, maximizeToggle]),
-    ]);
-    const body = el('div', { className: 'dialog-body' });
+    const chrome = buildSidePanelChrome(panel, {
+      icon: options.icon,
+      title: options.title,
+      closeLabel: t('dialog.sidePanel.close'),
+      onClose: () => finish(options.fallback),
+    });
+    panel.setAttribute('aria-labelledby', chrome.titleId);
+    const body = el('div', { className: 'dialog-body side-panel-form' });
     const buttons = el('div', { className: 'dialog-buttons' });
-    panel.append(heading, body, buttons, grip);
+    const actions = el('div', { className: 'dialog-buttons-actions' });
+    const closeButton = dialogButton(t('dialog.sidePanel.closeButton'), false, false, () =>
+      finish(options.fallback),
+    );
+    closeButton.classList.add('side-panel-footer-close');
+    buttons.append(actions, closeButton);
+    panel.append(chrome.heading, body, buttons, chrome.resizeHandle);
 
     const restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const listeners: Array<() => void> = [];
-    const on = (
-      target: EventTarget,
-      type: string,
-      handler: EventListenerOrEventListenerObject,
-      capture = false,
-    ) => {
-      target.addEventListener(type, handler, capture);
-      listeners.push(() => target.removeEventListener(type, handler, capture));
-    };
+    let removeKeyListener = (): void => {};
 
     let settled = false;
-    const finish = (value: T): void => {
+    function finish(value: T): void {
       if (settled) {
         return;
       }
       settled = true;
-      for (const off of listeners) {
-        off();
-      }
+      removeKeyListener();
       panel.remove();
       releaseSidePanel(panel);
       if (restoreFocus && restoreFocus.isConnected) {
         restoreFocus.focus();
       }
       resolve(value);
+    }
+
+    const apply = (value: NonNullable<T>): void => {
+      if (settled) {
+        return;
+      }
+      if (options.onApply) {
+        void options.onApply(value);
+      } else {
+        finish(value);
+      }
     };
 
     const focusableItems = (): HTMLElement[] =>
@@ -691,9 +781,13 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
         panel.querySelectorAll<HTMLElement>(
           'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
         ),
-      );
+      ).filter((item) => !item.closest('[hidden]'));
 
-    build(body, buttons, finish);
+    build(body, actions, apply);
+    // Nothing of the panel's own is focused first: the Close button is.
+    if (!panel.querySelector('[data-autofocus]')) {
+      closeButton.dataset.autofocus = 'true';
+    }
     document.body.append(panel);
     // Docked once built, so a stack of open panels can measure its title bar.
     const initialPlacement = currentSidePanelPlacement();
@@ -703,11 +797,10 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
       focusWithoutKeyboard(autofocusTarget);
     }
 
-    const onKeyDown = (evt: Event): void => {
-      const event = evt as KeyboardEvent;
+    const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        finish(fallback);
+        finish(options.fallback);
         return;
       }
       if (event.key !== 'Tab') {
@@ -727,7 +820,45 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
         first.focus();
       }
     };
-    on(panel, 'keydown', onKeyDown);
-    on(window, 'blur', () => finish(fallback));
+    panel.addEventListener('keydown', onKeyDown);
+    removeKeyListener = () => panel.removeEventListener('keydown', onKeyDown);
   });
+}
+
+/**
+ * Lays out one labelled control in a side panel: the label on its own line
+ * above a full-width control, so every field in every panel lines up on the
+ * same left edge and grid instead of flowing inline at whatever width its
+ * text happens to be.
+ */
+export function panelField(label: string, control: HTMLElement, hint?: string): HTMLElement {
+  if (!control.id) {
+    control.id = `panel-field-${++sidePanelTitleSeq}`;
+  }
+  const children: Node[] = [
+    el('label', { className: 'panel-field-label', text: label, attrs: { for: control.id } }),
+    control,
+  ];
+  if (hint) {
+    children.push(el('p', { className: 'dialog-note panel-field-hint', text: hint }));
+  }
+  return el('div', { className: 'panel-field' }, children);
+}
+
+/** A checkbox or radio button with its label beside it, aligned on one row. */
+export function panelCheck(input: HTMLInputElement, label: string): HTMLLabelElement {
+  return el('label', { className: 'panel-check' }, [input, el('span', { text: label })]);
+}
+
+/**
+ * A titled group of fields; consecutive sections are separated by the same
+ * rule and spacing in every panel.
+ */
+export function panelSection(title: string | null, children: Node[]): HTMLElement {
+  const section = el('section', { className: 'panel-section' });
+  if (title) {
+    section.append(el('h3', { className: 'panel-section-title', text: title }));
+  }
+  section.append(...children);
+  return section;
 }

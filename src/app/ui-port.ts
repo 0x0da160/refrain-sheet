@@ -26,6 +26,15 @@ import type { DiffRunOutcome, DiffTabOption } from './commands/diff';
 import type { FlashFillPreview } from './commands/paste-fill';
 
 /**
+ * Applies a side panel's result while the panel stays open — Apply never closes
+ * a panel; only its Close button does). A panel given one calls it for every Apply/Clear the user
+ * presses and resolves its own promise with null only once the user closes
+ * it; a UI that cannot keep a panel open may instead resolve the promise with
+ * the result, which the command then applies exactly as before.
+ */
+export type ApplyHandler<R> = (result: R) => Promise<unknown> | unknown;
+
+/**
  * Everything the SQL query dialog needs. `sources` is the fixed, pre-computed
  * list of pickable data sources; `runQuery` is a live callback (like
  * `UiPort.promptSheetName`'s `validate`) so the dialog can run the same query
@@ -278,27 +287,39 @@ export interface UiPort {
    * the bounded searchable value list, and the header-row setting. Resolves
    * with the chosen action, or null when cancelled (nothing changes).
    */
-  chooseFilter(input: FilterDialogInput): Promise<FilterDialogResult | null>;
+  chooseFilter(
+    input: FilterDialogInput,
+    onApply?: ApplyHandler<FilterDialogResult>,
+  ): Promise<FilterDialogResult | null>;
   /**
    * The accessible sort dialog: compound sort keys (column + direction) and
    * the header-row setting. Resolves with the chosen action, or null when
    * cancelled (nothing changes).
    */
-  chooseSort(input: SortDialogInput): Promise<SortDialogResult | null>;
+  chooseSort(
+    input: SortDialogInput,
+    onApply?: ApplyHandler<SortDialogResult>,
+  ): Promise<SortDialogResult | null>;
   /**
    * The accessible data-validation dialog for the selected range: a rule
    * kind (a fixed list of choices, or a numeric range) and its parameters.
    * Resolves with the chosen action, or null when cancelled (nothing
    * changes).
    */
-  chooseDataValidation(input: DataValidationDialogInput): Promise<DataValidationDialogResult | null>;
+  chooseDataValidation(
+    input: DataValidationDialogInput,
+    onApply?: ApplyHandler<DataValidationDialogResult>,
+  ): Promise<DataValidationDialogResult | null>;
   /**
    * The accessible conditional-formatting dialog for the selected range: a
    * rule kind (a value comparison, duplicate highlighting, or a two-color
    * scale) and its parameters. Resolves with the chosen action, or null when
    * cancelled (nothing changes).
    */
-  chooseConditionalFormat(input: ConditionalFormatDialogInput): Promise<ConditionalFormatDialogResult | null>;
+  chooseConditionalFormat(
+    input: ConditionalFormatDialogInput,
+    onApply?: ApplyHandler<ConditionalFormatDialogResult>,
+  ): Promise<ConditionalFormatDialogResult | null>;
   /**
    * The accessible cell-comment dialog for the active cell: a free-text note
    * independent of the cell's value. Resolves with the chosen action, or
@@ -440,9 +461,15 @@ export interface UiPort {
    * when the selection has none, or is mixed). Resolves with the chosen
    * color, `'clear'` to remove it, or null when cancelled (nothing changes).
    */
-  chooseTextColor(current: string | null): Promise<ColorDialogResult | null>;
+  chooseTextColor(
+    current: string | null,
+    onApply?: ApplyHandler<ColorDialogResult>,
+  ): Promise<ColorDialogResult | null>;
   /** The Background Color dialog — see {@link chooseTextColor}. */
-  chooseBackgroundColor(current: string | null): Promise<ColorDialogResult | null>;
+  chooseBackgroundColor(
+    current: string | null,
+    onApply?: ApplyHandler<ColorDialogResult>,
+  ): Promise<ColorDialogResult | null>;
   /**
    * The Borders dialog: which of the four sides carry a border (from
    * `current`) and their shared color, line style, and width. Resolves with
@@ -454,6 +481,7 @@ export interface UiPort {
     current: Partial<Record<BorderSide, string>>,
     currentLineStyle: BorderLineStyle | null,
     currentWidth: BorderWidth | null,
+    onApply?: ApplyHandler<BordersDialogResult>,
   ): Promise<BordersDialogResult | null>;
   /**
    * The Number Format dialog: kind (number/percent/currency), decimal places,
@@ -462,7 +490,10 @@ export interface UiPort {
    * the chosen format, `'clear'` to remove it, or null when cancelled
    * (nothing changes).
    */
-  chooseNumberFormat(current: NumberFormat | null): Promise<NumberFormatDialogResult | null>;
+  chooseNumberFormat(
+    current: NumberFormat | null,
+    onApply?: ApplyHandler<NumberFormatDialogResult>,
+  ): Promise<NumberFormatDialogResult | null>;
   /**
    * Show or hide the busy/loading indicator. `label` is already-localized
    * text describing the current operation; `null` hides the indicator.

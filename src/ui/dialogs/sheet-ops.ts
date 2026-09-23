@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type {
+  ApplyHandler,
   CellCommentDialogInput,
   CellCommentDialogResult,
   DataValidationDialogInput,
@@ -28,8 +29,27 @@ import { MAX_SHEET_SORT_KEYS, type SortKey } from '../../core/sort';
 import type { WorksheetKind } from '../../core/worksheet';
 import { el } from '../dom';
 import { createIcon } from '../icon';
-import { FileCode, FileJson, FileText, FileType, Table, type IconNode } from 'lucide';
-import { dialogButton, openDialog, openSidePanel, submitOnEnter } from './shared';
+import {
+  ArrowDownAZ,
+  CheckSquare,
+  FileCode,
+  FileJson,
+  FileText,
+  FileType,
+  Filter,
+  Table,
+  Trash2,
+  type IconNode,
+} from 'lucide';
+import {
+  dialogButton,
+  openDialog,
+  openSidePanel,
+  panelCheck,
+  panelField,
+  panelSection,
+  submitOnEnter,
+} from './shared';
 
 /**
  * Worksheet-kind picker options for `promptSheetName`'s `mode === 'add'`
@@ -64,18 +84,21 @@ export class SheetOpsDialogs {
    * checkboxes). All content is text-only. Resolves with the chosen action
    * or null (cancel).
    */
-  chooseFilter(input: FilterDialogInput): Promise<FilterDialogResult | null> {
+  chooseFilter(
+    input: FilterDialogInput,
+    onApply?: ApplyHandler<FilterDialogResult>,
+  ): Promise<FilterDialogResult | null> {
     return openSidePanel<FilterDialogResult | null>(
-      t('dialog.filter.title'),
-      null,
-      (body, buttons, close) => {
-        body.append(
+      { title: t('dialog.filter.title'), icon: Filter, fallback: null, onApply },
+      (body, buttons, apply) => {
+        const intro: Node[] = [
           el('p', {
+            className: 'panel-lead',
             text: t('dialog.filter.range', { range: input.rangeLabel, col: input.colLetter }),
           }),
-        );
+        ];
         if (input.header) {
-          body.append(
+          intro.push(
             el('p', { className: 'dialog-note', text: t('dialog.filter.header', { header: input.header }) }),
           );
         }
@@ -84,18 +107,17 @@ export class SheetOpsDialogs {
         const headerCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
         headerCheck.checked = input.headerRow;
         headerCheck.disabled = input.hasActiveFilter;
-        body.append(
-          el('div', { className: 'form-row' }, [
-            el('label', {}, [headerCheck, el('span', { text: t('dialog.filter.headerRow') })]),
-          ]),
-        );
+        intro.push(panelCheck(headerCheck, t('dialog.filter.headerRow')));
         if (input.hasActiveFilter) {
-          body.append(el('p', { className: 'dialog-note', text: t('dialog.filter.headerLocked') }));
+          intro.push(el('p', { className: 'dialog-note', text: t('dialog.filter.headerLocked') }));
         }
+        body.append(panelSection(null, intro));
 
         // ----- Conditions (AND/OR combined) -----
-        body.append(el('h3', { className: 'dialog-subhead', text: t('dialog.filter.conditions') }));
-        const joinWrap = el('div', { className: 'form-row' });
+        const joinWrap = el('div', {
+          className: 'panel-choices panel-choices-inline',
+          attrs: { role: 'radiogroup' },
+        });
         const joinAnd = el('input', {
           attrs: { type: 'radio', name: 'filter-join' },
         }) as HTMLInputElement;
@@ -106,13 +128,13 @@ export class SheetOpsDialogs {
         joinAnd.checked = existingJoin === 'and';
         joinOr.checked = existingJoin === 'or';
         joinWrap.append(
-          el('label', {}, [joinAnd, el('span', { text: t('dialog.filter.joinAnd') })]),
-          el('label', {}, [joinOr, el('span', { text: t('dialog.filter.joinOr') })]),
+          panelCheck(joinAnd, t('dialog.filter.joinAnd')),
+          panelCheck(joinOr, t('dialog.filter.joinOr')),
         );
-        body.append(joinWrap);
 
-        const conditionsHost = el('div', { className: 'filter-conditions' });
-        body.append(conditionsHost);
+        const conditionsHost = el('div', { className: 'filter-conditions panel-stack' });
+        const conditionsSection = panelSection(t('dialog.filter.conditions'), [joinWrap, conditionsHost]);
+        body.append(conditionsSection);
 
         type Row = {
           op: HTMLSelectElement;
@@ -205,7 +227,7 @@ export class SheetOpsDialogs {
           rows.push(makeRow());
         }
         const addBtn = el('button', {
-          className: 'filter-add',
+          className: 'panel-button',
           text: t('dialog.filter.addCondition'),
           attrs: { type: 'button' },
         });
@@ -217,17 +239,11 @@ export class SheetOpsDialogs {
           refresh();
         });
         addBtn.disabled = rows.length >= MAX_FILTER_CONDITIONS;
-        body.append(addBtn);
+        conditionsSection.append(el('div', { className: 'panel-row' }, [addBtn]));
 
         // ----- Distinct-value selection (searchable, bounded) -----
-        body.append(el('h3', { className: 'dialog-subhead', text: t('dialog.filter.values') }));
         const allValuesCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
         allValuesCheck.checked = input.existing?.values == null;
-        body.append(
-          el('div', { className: 'form-row' }, [
-            el('label', {}, [allValuesCheck, el('span', { text: t('dialog.filter.allValues') })]),
-          ]),
-        );
         const search = el('input', {
           attrs: {
             type: 'search',
@@ -235,23 +251,29 @@ export class SheetOpsDialogs {
             'aria-label': t('dialog.filter.searchValues'),
           },
         }) as HTMLInputElement;
-        body.append(search);
         const selectAllBtn = el('button', {
-          className: 'filter-add',
+          className: 'panel-button',
           text: t('dialog.filter.selectAllValues'),
           attrs: { type: 'button' },
         }) as HTMLButtonElement;
         const deselectAllBtn = el('button', {
-          className: 'filter-add',
+          className: 'panel-button',
           text: t('dialog.filter.deselectAllValues'),
           attrs: { type: 'button' },
         }) as HTMLButtonElement;
-        body.append(el('div', { className: 'form-row' }, [selectAllBtn, deselectAllBtn]));
         const valueList = el('div', { className: 'filter-value-list', attrs: { role: 'group' } });
-        body.append(valueList);
+        const valuesSection = panelSection(t('dialog.filter.values'), [
+          panelCheck(allValuesCheck, t('dialog.filter.allValues')),
+          search,
+          el('div', { className: 'panel-row' }, [selectAllBtn, deselectAllBtn]),
+          valueList,
+        ]);
         if (input.valuesTruncated) {
-          body.append(el('p', { className: 'dialog-note', text: t('dialog.filter.valuesTruncated') }));
+          valuesSection.append(
+            el('p', { className: 'dialog-note', text: t('dialog.filter.valuesTruncated') }),
+          );
         }
+        body.append(valuesSection);
         const checkedValues = new Set<string>(input.existing?.values ?? input.values);
         const VALUE_DISPLAY_CAP = 200;
         // The currently search-narrowed values (not just the ones actually
@@ -309,11 +331,13 @@ export class SheetOpsDialogs {
         renderValues();
 
         body.append(
-          el('p', { className: 'dialog-note', text: t('dialog.filter.combineNote') }),
-          el('p', {
-            className: 'dialog-note',
-            text: t('dialog.filter.crossNote', { n: input.otherColumns }),
-          }),
+          panelSection(null, [
+            el('p', { className: 'dialog-note', text: t('dialog.filter.combineNote') }),
+            el('p', {
+              className: 'dialog-note',
+              text: t('dialog.filter.crossNote', { n: input.otherColumns }),
+            }),
+          ]),
         );
 
         // ----- Build the result from the current inputs -----
@@ -361,7 +385,7 @@ export class SheetOpsDialogs {
         body.append(error);
 
         const applyBtn = dialogButton(t('dialog.filter.apply'), true, false, () =>
-          close({ action: 'apply', headerRow: headerCheck.checked, column: buildColumn() }),
+          apply({ action: 'apply', headerRow: headerCheck.checked, column: buildColumn() }),
         );
         refresh = (): void => {
           const hasIncomplete = rows.some((row) => row.touched && rowIncomplete(row));
@@ -371,17 +395,16 @@ export class SheetOpsDialogs {
         refresh();
 
         // ----- Buttons -----
-        buttons.append(dialogButton(t('dialog.filter.cancel'), false, true, () => close(null)));
         if (input.existing) {
           buttons.append(
             dialogButton(t('dialog.filter.clearColumn'), false, false, () =>
-              close({ action: 'clearColumn' }),
+              apply({ action: 'clearColumn' }),
             ),
           );
         }
         if (input.hasActiveFilter) {
           buttons.append(
-            dialogButton(t('dialog.filter.clearAll'), false, false, () => close({ action: 'clearAll' })),
+            dialogButton(t('dialog.filter.clearAll'), false, false, () => apply({ action: 'clearAll' })),
           );
         }
         buttons.append(applyBtn);
@@ -397,121 +420,131 @@ export class SheetOpsDialogs {
    * up to {@link MAX_SHEET_SORT_KEYS}, always keeping at least one level.
    * Resolves with the chosen action or null (cancel).
    */
-  chooseSort(input: SortDialogInput): Promise<SortDialogResult | null> {
-    return openSidePanel<SortDialogResult | null>(t('dialog.sort.title'), null, (body, buttons, close) => {
-      body.append(el('p', { text: t('dialog.sort.range', { range: input.rangeLabel }) }));
-
-      const headerCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
-      headerCheck.checked = input.headerRow;
-      headerCheck.disabled = input.hasActiveSort;
-      body.append(
-        el('div', { className: 'form-row' }, [
-          el('label', {}, [headerCheck, el('span', { text: t('dialog.sort.headerRow') })]),
-        ]),
-      );
-      if (input.hasActiveSort) {
-        body.append(el('p', { className: 'dialog-note', text: t('dialog.sort.headerLocked') }));
-      }
-
-      body.append(el('h3', { className: 'dialog-subhead', text: t('dialog.sort.keys') }));
-      const keysHost = el('div', { className: 'sort-keys' });
-      body.append(keysHost);
-
-      type Row = { col: HTMLSelectElement; dir: HTMLSelectElement; wrap: HTMLElement };
-      const rows: Row[] = [];
-
-      const addBtn = el('button', {
-        className: 'filter-add',
-        text: t('dialog.sort.addKey'),
-        attrs: { type: 'button' },
-      }) as HTMLButtonElement;
-
-      const refreshRemoveButtons = (): void => {
-        for (const row of rows) {
-          const removeBtn = row.wrap.querySelector<HTMLButtonElement>('.sort-remove');
-          if (removeBtn) {
-            removeBtn.disabled = rows.length <= 1;
-          }
+  chooseSort(
+    input: SortDialogInput,
+    onApply?: ApplyHandler<SortDialogResult>,
+  ): Promise<SortDialogResult | null> {
+    return openSidePanel<SortDialogResult | null>(
+      { title: t('dialog.sort.title'), icon: ArrowDownAZ, fallback: null, onApply },
+      (body, buttons, apply) => {
+        const headerCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+        headerCheck.checked = input.headerRow;
+        headerCheck.disabled = input.hasActiveSort;
+        const intro: Node[] = [
+          el('p', { className: 'panel-lead', text: t('dialog.sort.range', { range: input.rangeLabel }) }),
+          panelCheck(headerCheck, t('dialog.sort.headerRow')),
+        ];
+        if (input.hasActiveSort) {
+          intro.push(el('p', { className: 'dialog-note', text: t('dialog.sort.headerLocked') }));
         }
-      };
+        body.append(panelSection(null, intro));
 
-      const makeRow = (key?: SortKey): void => {
-        const colSelect = el('select', {
-          attrs: { 'aria-label': t('dialog.sort.column') },
-        }) as HTMLSelectElement;
-        for (const column of input.columns) {
-          colSelect.append(
-            el('option', {
-              text: column.header ? `${column.letter} — ${column.header}` : column.letter,
-              attrs: { value: String(column.col) },
-            }),
-          );
-        }
-        const dirSelect = el('select', {
-          attrs: { 'aria-label': t('dialog.sort.direction') },
-        }) as HTMLSelectElement;
-        dirSelect.append(
-          el('option', { text: t('dialog.sort.ascending'), attrs: { value: 'asc' } }),
-          el('option', { text: t('dialog.sort.descending'), attrs: { value: 'desc' } }),
-        );
-        if (key) {
-          colSelect.value = String(key.col);
-          dirSelect.value = key.ascending ? 'asc' : 'desc';
-        }
-        const removeBtn = el('button', {
-          className: 'filter-add sort-remove',
-          text: t('dialog.sort.removeKey'),
-          attrs: { type: 'button', 'aria-label': t('dialog.sort.removeKey') },
+        const keysHost = el('div', { className: 'sort-keys panel-stack' });
+        const keysSection = panelSection(t('dialog.sort.keys'), [keysHost]);
+        body.append(keysSection);
+
+        type Row = { col: HTMLSelectElement; dir: HTMLSelectElement; wrap: HTMLElement };
+        const rows: Row[] = [];
+
+        const addBtn = el('button', {
+          className: 'panel-button',
+          text: t('dialog.sort.addKey'),
+          attrs: { type: 'button' },
         }) as HTMLButtonElement;
-        const wrap = el('div', { className: 'sort-key-row' }, [colSelect, dirSelect, removeBtn]);
-        removeBtn.addEventListener('click', () => {
-          const i = rows.findIndex((r) => r.wrap === wrap);
-          if (i < 0) {
-            return;
+
+        const refreshRemoveButtons = (): void => {
+          for (const row of rows) {
+            const removeBtn = row.wrap.querySelector<HTMLButtonElement>('.sort-remove');
+            if (removeBtn) {
+              removeBtn.disabled = rows.length <= 1;
+            }
           }
-          rows.splice(i, 1);
-          wrap.remove();
-          refreshRemoveButtons();
+        };
+
+        const makeRow = (key?: SortKey): void => {
+          const colSelect = el('select', {
+            attrs: { 'aria-label': t('dialog.sort.column') },
+          }) as HTMLSelectElement;
+          for (const column of input.columns) {
+            colSelect.append(
+              el('option', {
+                text: column.header ? `${column.letter} — ${column.header}` : column.letter,
+                attrs: { value: String(column.col) },
+              }),
+            );
+          }
+          const dirSelect = el('select', {
+            attrs: { 'aria-label': t('dialog.sort.direction') },
+          }) as HTMLSelectElement;
+          dirSelect.append(
+            el('option', { text: t('dialog.sort.ascending'), attrs: { value: 'asc' } }),
+            el('option', { text: t('dialog.sort.descending'), attrs: { value: 'desc' } }),
+          );
+          if (key) {
+            colSelect.value = String(key.col);
+            dirSelect.value = key.ascending ? 'asc' : 'desc';
+          }
+          const removeBtn = el('button', {
+            className: 'panel-button panel-icon-button sort-remove',
+            attrs: {
+              type: 'button',
+              'aria-label': t('dialog.sort.removeKey'),
+              title: t('dialog.sort.removeKey'),
+            },
+          }) as HTMLButtonElement;
+          removeBtn.append(createIcon(Trash2, 'panel-button-icon', 14));
+          const wrap = el('div', { className: 'sort-key-row' }, [colSelect, dirSelect, removeBtn]);
+          removeBtn.addEventListener('click', () => {
+            const i = rows.findIndex((r) => r.wrap === wrap);
+            if (i < 0) {
+              return;
+            }
+            rows.splice(i, 1);
+            wrap.remove();
+            refreshRemoveButtons();
+            addBtn.disabled = rows.length >= MAX_SHEET_SORT_KEYS;
+          });
+          keysHost.append(wrap);
+          rows.push({ col: colSelect, dir: dirSelect, wrap });
+        };
+
+        for (const key of input.existingKeys) {
+          makeRow(key);
+        }
+        if (rows.length === 0) {
+          makeRow();
+        }
+        refreshRemoveButtons();
+
+        addBtn.addEventListener('click', () => {
+          if (rows.length < MAX_SHEET_SORT_KEYS) {
+            makeRow();
+            refreshRemoveButtons();
+          }
           addBtn.disabled = rows.length >= MAX_SHEET_SORT_KEYS;
         });
-        keysHost.append(wrap);
-        rows.push({ col: colSelect, dir: dirSelect, wrap });
-      };
-
-      for (const key of input.existingKeys) {
-        makeRow(key);
-      }
-      if (rows.length === 0) {
-        makeRow();
-      }
-      refreshRemoveButtons();
-
-      addBtn.addEventListener('click', () => {
-        if (rows.length < MAX_SHEET_SORT_KEYS) {
-          makeRow();
-          refreshRemoveButtons();
-        }
         addBtn.disabled = rows.length >= MAX_SHEET_SORT_KEYS;
-      });
-      addBtn.disabled = rows.length >= MAX_SHEET_SORT_KEYS;
-      body.append(addBtn);
+        keysSection.append(
+          el('div', { className: 'panel-row' }, [addBtn]),
+          el('p', { className: 'dialog-note', text: t('dialog.sort.note') }),
+        );
 
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.sort.note') }));
-
-      buttons.append(dialogButton(t('dialog.sort.cancel'), false, true, () => close(null)));
-      if (input.hasActiveSort) {
-        buttons.append(dialogButton(t('dialog.sort.clear'), false, false, () => close({ action: 'clear' })));
-      }
-      buttons.append(
-        dialogButton(t('dialog.sort.apply'), true, false, () => {
-          const keys: SortKey[] = rows.map((row) => ({
-            col: Number(row.col.value),
-            ascending: row.dir.value === 'asc',
-          }));
-          close({ action: 'apply', headerRow: headerCheck.checked, keys });
-        }),
-      );
-    });
+        if (input.hasActiveSort) {
+          buttons.append(
+            dialogButton(t('dialog.sort.clear'), false, false, () => apply({ action: 'clear' })),
+          );
+        }
+        buttons.append(
+          dialogButton(t('dialog.sort.apply'), true, false, () => {
+            const keys: SortKey[] = rows.map((row) => ({
+              col: Number(row.col.value),
+              ascending: row.dir.value === 'asc',
+            }));
+            apply({ action: 'apply', headerRow: headerCheck.checked, keys });
+          }),
+        );
+      },
+    );
   }
 
   /**
@@ -522,12 +555,19 @@ export class SheetOpsDialogs {
    * live-validation pattern. Resolves with the chosen action, or null when
    * cancelled (nothing changes).
    */
-  chooseDataValidation(input: DataValidationDialogInput): Promise<DataValidationDialogResult | null> {
+  chooseDataValidation(
+    input: DataValidationDialogInput,
+    onApply?: ApplyHandler<DataValidationDialogResult>,
+  ): Promise<DataValidationDialogResult | null> {
     return openSidePanel<DataValidationDialogResult | null>(
-      t('dialog.dataValidation.title'),
-      null,
-      (body, buttons, close) => {
-        body.append(el('p', { text: t('dialog.dataValidation.range', { range: input.rangeLabel }) }));
+      { title: t('dialog.dataValidation.title'), icon: CheckSquare, fallback: null, onApply },
+      (body, buttons, apply) => {
+        body.append(
+          el('p', {
+            className: 'panel-lead',
+            text: t('dialog.dataValidation.range', { range: input.rangeLabel }),
+          }),
+        );
 
         const kindList = el('input', {
           attrs: { type: 'radio', name: 'validation-kind', id: 'validation-kind-list' },
@@ -539,14 +579,10 @@ export class SheetOpsDialogs {
         kindList.checked = initialKind === 'list';
         kindNumber.checked = initialKind === 'number';
         body.append(
-          el('div', { className: 'form-row' }, [
-            el('label', { attrs: { for: 'validation-kind-list' } }, [
-              kindList,
-              el('span', { text: t('dialog.dataValidation.kindList') }),
-            ]),
-            el('label', { attrs: { for: 'validation-kind-number' } }, [
-              kindNumber,
-              el('span', { text: t('dialog.dataValidation.kindNumber') }),
+          panelSection(null, [
+            el('div', { className: 'panel-choices', attrs: { role: 'radiogroup' } }, [
+              panelCheck(kindList, t('dialog.dataValidation.kindList')),
+              panelCheck(kindNumber, t('dialog.dataValidation.kindNumber')),
             ]),
           ]),
         );
@@ -559,10 +595,8 @@ export class SheetOpsDialogs {
           listValues.value = input.existing.values.join('\n');
         }
         const listTruncatedNote = el('p', { className: 'dialog-note' });
-        const listSection = el('div', { className: 'form-row' }, [
-          el('label', { text: t('dialog.dataValidation.listValues') }),
-          listValues,
-          el('p', { className: 'dialog-note', text: t('dialog.dataValidation.listHint') }),
+        const listSection = panelSection(null, [
+          panelField(t('dialog.dataValidation.listValues'), listValues, t('dialog.dataValidation.listHint')),
           listTruncatedNote,
         ]);
         body.append(listSection);
@@ -581,11 +615,11 @@ export class SheetOpsDialogs {
             maxInput.value = String(input.existing.max);
           }
         }
-        const numberSection = el('div', { className: 'form-row' }, [
-          el('label', { text: t('dialog.dataValidation.min') }),
-          minInput,
-          el('label', { text: t('dialog.dataValidation.max') }),
-          maxInput,
+        const numberSection = panelSection(null, [
+          el('div', { className: 'panel-grid' }, [
+            panelField(t('dialog.dataValidation.min'), minInput),
+            panelField(t('dialog.dataValidation.max'), maxInput),
+          ]),
         ]);
         body.append(numberSection);
 
@@ -636,7 +670,7 @@ export class SheetOpsDialogs {
         const applyBtn = dialogButton(t('dialog.dataValidation.apply'), true, false, () => {
           const rule = buildRule();
           if (rule) {
-            close({ action: 'apply', rule });
+            apply({ action: 'apply', rule });
           }
         });
 
@@ -657,10 +691,9 @@ export class SheetOpsDialogs {
         maxInput.addEventListener('input', refresh);
         refresh();
 
-        buttons.append(dialogButton(t('dialog.dataValidation.cancel'), false, true, () => close(null)));
         if (input.existing) {
           buttons.append(
-            dialogButton(t('dialog.dataValidation.clear'), false, false, () => close({ action: 'clear' })),
+            dialogButton(t('dialog.dataValidation.clear'), false, false, () => apply({ action: 'clear' })),
           );
         }
         buttons.append(applyBtn);

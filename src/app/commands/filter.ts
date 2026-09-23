@@ -12,8 +12,8 @@ import type { RsfDocument } from '../../core/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
 import type { AppState, Tab } from '../app-state';
 import { t } from '../i18n';
-import type { ConvertReason, FilterDialogInput, UiPort } from '../commands';
-import { LARGE_OP_CELLS, pct, withBusy } from './shared';
+import type { ConvertReason, FilterDialogInput, FilterDialogResult, UiPort } from '../commands';
+import { applyWhileOpen, LARGE_OP_CELLS, pct, withBusy } from './shared';
 
 /**
  * Filtering commands for RSF spreadsheet documents: the hidden-row query,
@@ -159,35 +159,53 @@ export class FilterCommands {
       values,
       valuesTruncated,
     };
-    const result = await this.ui.chooseFilter(input);
-    if (!result || tab.doc !== doc) {
-      return false; // cancelled (or replaced document): nothing changes
-    }
-    if (result.action === 'clearAll') {
-      return this.clearAllFilters(tab);
-    }
-
-    // Build the new filter state from the dialog result.
-    const keptColumns = (existing?.columns ?? []).filter((c) => c.col !== col);
-    const newHeaderRow = result.action === 'apply' ? result.headerRow : headerRow;
-    const newColumn = result.action === 'apply' ? result.column : null;
-    const columns = [...keptColumns, ...(newColumn ? [newColumn] : [])].sort((a, b) => a.col - b.col);
-    if (columns.length === 0) {
-      // No criteria left anywhere: the filter as a whole is cleared.
-      return this.clearAllFilters(tab);
-    }
-    const filter = validateFilter(
-      { top, left, bottom, right, headerRow: newHeaderRow, columns },
-      doc.rowCount,
-      doc.columnCount,
+    const sheet = doc.activeSheet;
+    return applyWhileOpen<FilterDialogResult>(
+      (onApply) => this.ui.chooseFilter(input, onApply),
+      async (result) => {
+        if (tab.doc !== doc || this.state.activeTab !== tab || doc.activeSheet !== sheet) {
+          return false; // replaced document, or the user switched away: nothing changes
+        }
+        if (result.action === 'clearAll') {
+          return this.clearAllFilters(tab);
+        }
+        // Built from the filter as it is now, not as it was when the panel
+        // opened: the panel stays open, so an earlier Apply (or Clear All
+        // Filters) may have changed it since.
+        const current = doc.filter;
+        const range = current ?? { top, left, bottom, right };
+        if (col < range.left || col > range.right) {
+          return false;
+        }
+        const keptColumns = (current?.columns ?? []).filter((c) => c.col !== col);
+        const newHeaderRow = result.action === 'apply' ? result.headerRow : (current?.headerRow ?? headerRow);
+        const newColumn = result.action === 'apply' ? result.column : null;
+        const columns = [...keptColumns, ...(newColumn ? [newColumn] : [])].sort((a, b) => a.col - b.col);
+        if (columns.length === 0) {
+          // No criteria left anywhere: the filter as a whole is cleared.
+          return this.clearAllFilters(tab);
+        }
+        const filter = validateFilter(
+          {
+            top: range.top,
+            left: range.left,
+            bottom: range.bottom,
+            right: range.right,
+            headerRow: newHeaderRow,
+            columns,
+          },
+          doc.rowCount,
+          doc.columnCount,
+        );
+        if (!filter) {
+          // Out-of-bounds criteria (should be prevented by the dialog's own
+          // bounds) are refused rather than partially applied.
+          await this.ui.showMessage(t('dialog.filter.title'), t('dialog.filter.invalid'));
+          return false;
+        }
+        return this.applyFilter(tab, filter);
+      },
     );
-    if (!filter) {
-      // Out-of-bounds criteria (should be prevented by the dialog's own
-      // bounds) are refused rather than partially applied.
-      await this.ui.showMessage(t('dialog.filter.title'), t('dialog.filter.invalid'));
-      return false;
-    }
-    return this.applyFilter(tab, filter);
   }
 
   /**

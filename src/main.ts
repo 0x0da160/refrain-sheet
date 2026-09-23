@@ -95,10 +95,10 @@ function bootstrap(): void {
     confirmExportJson: (name) => dialogs.confirmExportJson(name),
     chooseInsertShift: (rows, cols) => dialogs.chooseInsertShift(rows, cols),
     confirmFlashFill: (preview) => dialogs.confirmFlashFill(preview),
-    chooseFilter: (input) => dialogs.chooseFilter(input),
-    chooseSort: (input) => dialogs.chooseSort(input),
-    chooseDataValidation: (input) => dialogs.chooseDataValidation(input),
-    chooseConditionalFormat: (input) => dialogs.chooseConditionalFormat(input),
+    chooseFilter: (input, onApply) => dialogs.chooseFilter(input, onApply),
+    chooseSort: (input, onApply) => dialogs.chooseSort(input, onApply),
+    chooseDataValidation: (input, onApply) => dialogs.chooseDataValidation(input, onApply),
+    chooseConditionalFormat: (input, onApply) => dialogs.chooseConditionalFormat(input, onApply),
     chooseCellComment: (input) => dialogs.chooseCellComment(input),
     promptSheetName: (mode, current, validate) => dialogs.promptSheetName(mode, current, validate),
     confirmDeleteSheet: (name, references) => dialogs.confirmDeleteSheet(name, references),
@@ -123,11 +123,11 @@ function bootstrap(): void {
     chooseVersionHistory: (current, maxOverride, history) =>
       dialogs.chooseVersionHistory(current, maxOverride, history),
     confirmHistoryCapExceeded: (name, max) => dialogs.confirmHistoryCapExceeded(name, max),
-    chooseTextColor: (current) => dialogs.chooseTextColor(current),
-    chooseBackgroundColor: (current) => dialogs.chooseBackgroundColor(current),
-    chooseBorders: (current, currentLineStyle, currentWidth) =>
-      dialogs.chooseBorders(current, currentLineStyle, currentWidth),
-    chooseNumberFormat: (current) => dialogs.chooseNumberFormat(current),
+    chooseTextColor: (current, onApply) => dialogs.chooseTextColor(current, onApply),
+    chooseBackgroundColor: (current, onApply) => dialogs.chooseBackgroundColor(current, onApply),
+    chooseBorders: (current, currentLineStyle, currentWidth, onApply) =>
+      dialogs.chooseBorders(current, currentLineStyle, currentWidth, onApply),
+    chooseNumberFormat: (current, onApply) => dialogs.chooseNumberFormat(current, onApply),
     setBusy: (label, progress) => {
       // An operation is starting: a context menu built against the pre-operation
       // state must not survive into it.

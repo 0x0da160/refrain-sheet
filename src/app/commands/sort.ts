@@ -4,8 +4,8 @@ import { cellLabel, columnLabel } from '../../core/formula';
 import type { RsfDocument } from '../../core/rsf-document';
 import type { AppState, Tab } from '../app-state';
 import { t } from '../i18n';
-import type { ConvertReason, SortDialogInput, UiPort } from '../commands';
-import { LARGE_OP_CELLS, withBusyIfLarge } from './shared';
+import type { ConvertReason, SortDialogInput, SortDialogResult, UiPort } from '../commands';
+import { applyWhileOpen, LARGE_OP_CELLS, withBusyIfLarge } from './shared';
 
 /**
  * Sorting commands for RSF spreadsheet documents: the sort dialog flow and
@@ -112,24 +112,38 @@ export class SortCommands {
       existingKeys: existing?.keys ?? [],
       hasActiveSort: existing !== null,
     };
-    const result = await this.ui.chooseSort(input);
-    if (!result || tab.doc !== doc) {
-      return false; // cancelled (or replaced document): nothing changes
-    }
-    if (result.action === 'clear') {
-      return this.clearSort(tab);
-    }
-
-    const sort = validateSort(
-      { top, left, bottom, right, headerRow: result.headerRow, keys: result.keys },
-      doc.rowCount,
-      doc.columnCount,
+    const sheet = doc.activeSheet;
+    return applyWhileOpen<SortDialogResult>(
+      (onApply) => this.ui.chooseSort(input, onApply),
+      async (result) => {
+        if (tab.doc !== doc || this.state.activeTab !== tab || doc.activeSheet !== sheet) {
+          return false; // replaced document, or the user switched away: nothing changes
+        }
+        if (result.action === 'clear') {
+          return this.clearSort(tab);
+        }
+        // The range as it is now: an earlier Apply from this still-open panel
+        // may have fixed it, or Clear Sort released it.
+        const range = doc.sort ?? { top, left, bottom, right };
+        const sort = validateSort(
+          {
+            top: range.top,
+            left: range.left,
+            bottom: range.bottom,
+            right: range.right,
+            headerRow: result.headerRow,
+            keys: result.keys,
+          },
+          doc.rowCount,
+          doc.columnCount,
+        );
+        if (!sort) {
+          await this.ui.showMessage(t('dialog.sort.title'), t('dialog.sort.invalid'));
+          return false;
+        }
+        return this.applySort(tab, sort);
+      },
     );
-    if (!sort) {
-      await this.ui.showMessage(t('dialog.sort.title'), t('dialog.sort.invalid'));
-      return false;
-    }
-    return this.applySort(tab, sort);
   }
 
   /**

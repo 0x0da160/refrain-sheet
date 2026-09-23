@@ -35,6 +35,12 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- On iPhone, tapping the formula bar no longer makes the whole page slide
+  up and snap back while the on-screen keyboard opens. The cursor starts at
+  the end of the text; tap again inside the bar to move it.
+
 ## [0.8.16] - 2026-09-23
 
 ### Fixed

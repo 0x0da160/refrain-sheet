@@ -5,7 +5,7 @@ import { t } from '../app/i18n';
 import { getEditHints } from '../app/settings';
 import { extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import { selectionRefLabel } from '../core/selection-label';
-import { el } from './dom';
+import { el, focusOnTapWithoutRevealScroll } from './dom';
 import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
 import { isComposingKey } from './ime';
 
@@ -101,6 +101,9 @@ export class FormulaBar implements FormulaRefTarget {
       this.clearRefs();
     });
     this.textarea.addEventListener('focus', () => this.updateRefs());
+    // On a phone the bar sits below the grid, under where the keyboard opens:
+    // focus it on tap without Safari scrolling the whole page up (#592).
+    focusOnTapWithoutRevealScroll(this.textarea);
 
     this.state.formulaRefTarget = this;
   }

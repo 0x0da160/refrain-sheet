@@ -67,3 +67,59 @@ export function focusWithoutKeyboard(element: HTMLElement): void {
   element.focus();
   element.readOnly = false;
 }
+
+/** A tap that moved farther than this (px) is a scroll or drag, left native. */
+const TAP_MOVE_TOLERANCE_PX = 10;
+/** A touch held longer than this (ms) is a long-press (selection, paste menu), left native. */
+const TAP_MAX_MS = 500;
+
+/**
+ * Focuses `field` on a plain tap without iOS Safari's reveal scroll (#592).
+ * When a tap natively focuses a text field that the on-screen keyboard will
+ * cover (e.g. the formula bar at the bottom of a phone screen), Safari
+ * scrolls the whole page up — animated — to reveal it, and the app then has
+ * to re-fit itself above the keyboard: a visible jolt. A focus made from
+ * script with `preventScroll` gets the keyboard without that scroll (the
+ * grid's own cell editor, focused this way, shows no page scroll in the
+ * on-device `#debug-viewport` log). So a quick tap on the field while it is
+ * not yet focused is taken over: the native focus is cancelled on
+ * `touchend` and the field focused there instead, caret at the end. Taps
+ * on an already focused field (moving the caret), scrolls, and long-presses
+ * stay native.
+ */
+export function focusOnTapWithoutRevealScroll(field: HTMLTextAreaElement | HTMLInputElement): void {
+  let start: { x: number; y: number; time: number } | null = null;
+  // Typed as HTMLElement so the listeners get `TouchEvent` (the input/textarea
+  // union alone resolves to the untyped `addEventListener` overload).
+  const target: HTMLElement = field;
+  target.addEventListener(
+    'touchstart',
+    (event) => {
+      const touch = event.touches[0];
+      start =
+        event.touches.length === 1 && touch && document.activeElement !== field
+          ? { x: touch.clientX, y: touch.clientY, time: Date.now() }
+          : null;
+    },
+    { passive: true },
+  );
+  target.addEventListener('touchend', (event) => {
+    const began = start;
+    start = null;
+    const touch = event.changedTouches[0];
+    if (
+      !began ||
+      !touch ||
+      field.disabled ||
+      document.activeElement === field ||
+      Date.now() - began.time > TAP_MAX_MS ||
+      Math.hypot(touch.clientX - began.x, touch.clientY - began.y) > TAP_MOVE_TOLERANCE_PX
+    ) {
+      return;
+    }
+    event.preventDefault();
+    field.focus({ preventScroll: true });
+    const end = field.value.length;
+    field.setSelectionRange(end, end);
+  });
+}

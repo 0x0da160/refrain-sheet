@@ -35,6 +35,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- File > Open Recent… (also on the welcome screen) lists the last 10 files
+  you opened or saved and opens one again. The list stays in your browser
+  and can be cleared from the same dialog. Chrome and Edge only: other
+  browsers do not let a page reopen a file.
+
 ### Changed
 
 - On a desktop-width window, the file tabs now sit in the menu bar's row,

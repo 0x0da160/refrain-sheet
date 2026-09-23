@@ -8,7 +8,7 @@ import type { RsfDocument } from '../core/rsf-document';
 import type { CompiledQuery, SearchScope } from '../core/search';
 import { KEEP_SAVE_OPTIONS, type SaveOptions } from '../core/serializer';
 import type { AppState, Selection, SelectionKind, Tab } from './app-state';
-import { pickFiles, saveBytesAs, type OpenedFile } from './file-access';
+import { fileSystemAccessAvailable, pickFiles, saveBytesAs, type OpenedFile } from './file-access';
 import { getLocale, setLocale, t, type LocaleId } from './i18n';
 import {
   DEFAULT_SHEET_ZOOM,
@@ -58,6 +58,7 @@ export type CommandId =
   | 'file.new'
   | 'file.newCsv'
   | 'file.open'
+  | 'file.openRecent'
   | 'file.reopen'
   | 'file.toggleProtect'
   | 'file.save'
@@ -309,6 +310,9 @@ export class Commands {
       case 'file.saveOptions':
         // CSV: encoding/EOL/BOM options. RSF: the compression selector.
         return tab !== null;
+      case 'file.openRecent':
+        // Only the File System Access API gives the app a file it can reopen.
+        return fileSystemAccessAvailable();
       case 'drive.open':
         return this.driveAvailable();
       case 'drive.save':
@@ -525,6 +529,9 @@ export class Commands {
         return;
       case 'file.newCsv':
         this.newCsvDocument();
+        return;
+      case 'file.openRecent':
+        await this.fileIo.openRecent();
         return;
       case 'file.open': {
         const files = await pickFiles(this.dom, getMaxFileSize());

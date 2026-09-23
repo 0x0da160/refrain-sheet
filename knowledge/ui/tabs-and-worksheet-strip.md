@@ -4,6 +4,7 @@ title: Tabs and worksheet strip
 description: The interaction model of the two independent tab strips — drag reorder with a drop indicator, keyboard equivalents, roving tabindex, dirty indicators, and the close-tab flow.
 sources:
   - resource: ../../src/ui/shell-layout.ts
+  - resource: ../../src/app/recent-files.ts
   - resource: ../../tests/shell-layout.test.ts
   - resource: ../../README.md
 status: stable
@@ -36,6 +37,14 @@ synchronously. Phones always give the tabs their own row at the top.
 ## Document tabs (above the grid)
 
 - Multiple files open as tabs; a newly opened file always becomes active.
+- **File > Open Recent…** (also a link on the welcome screen) lists the
+  last 10 files opened or saved through the File System Access API, newest
+  first, and opens the one picked after the browser grants read permission
+  again; a file that has been moved or deleted is dropped from the list.
+  Browsers without that API (Safari, Firefox) cannot reopen a file, so the
+  command is disabled there. See
+  [../operations/security-threat-model.md](../operations/security-threat-model.md)
+  for what the list stores.
 - Unsaved tabs show a `●` dirty indicator.
 - **F8** closes the active tab (the menu and the × button always work too).
   Ctrl+W and Ctrl+Tab are intentionally left to the browser, so switching

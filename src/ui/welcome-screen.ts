@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { FilePlus, FilePlus2, FolderOpen } from 'lucide';
+import { FilePlus, FilePlus2, FolderClock, FolderOpen } from 'lucide';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { createAppLogotype } from './app-icon';
@@ -56,6 +56,18 @@ export class WelcomeScreen {
       [createIcon(FilePlus2, 'flex-none', 18), el('span', { text: t('welcome.newCsv') })],
     );
     createCsv.addEventListener('click', () => void this.commands.run('file.newCsv'));
+    // A quieter link to File > Open Recent…, only where the browser can
+    // reopen files at all (the File System Access API).
+    const recent = el(
+      'button',
+      {
+        className:
+          'welcome-recent inline-flex items-center gap-(--space-3) rounded-(--radius-sm) border-0 bg-transparent px-(--space-3) py-(--space-2) text-[13px] text-accent cursor-pointer hover:underline',
+        attrs: { type: 'button' },
+      },
+      [createIcon(FolderClock, 'flex-none', 16), el('span', { text: t('menu.file.openRecent') })],
+    );
+    recent.addEventListener('click', () => void this.commands.run('file.openRecent'));
     this.element.append(
       // The design system's fixed icon+wordmark logotype, not the icon and
       // product name re-set separately: nothing else here states the product
@@ -72,6 +84,7 @@ export class WelcomeScreen {
         { className: 'mt-(--space-4) mb-(--space-1) grid gap-(--space-4) sm:grid-flow-col sm:auto-cols-fr' },
         [open, create, createCsv],
       ),
+      ...(this.commands.isEnabled('file.openRecent') ? [recent] : []),
       el('p', {
         className:
           'welcome-drop mt-(--space-3) rounded-(--radius-md) border-2 border-dashed border-line px-(--space-7) py-(--space-5) text-dim',

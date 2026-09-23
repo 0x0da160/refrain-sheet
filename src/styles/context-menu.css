@@ -13,7 +13,10 @@
   border-radius: var(--radius-sm);
   box-shadow: 0 4px 14px var(--shadow);
   padding: var(--space-2) 0;
-  z-index: 100;
+  /* The same layer as the menu-bar drop-downs (see menu-bar.css): above the
+     dockable side panels (100), so a context menu opened next to a docked
+     panel is never drawn underneath it. */
+  z-index: 150;
   min-width: 180px;
   /* Never wider than the viewport, so a long localized label cannot push the
      menu off-screen in a narrow window. */
@@ -21,7 +24,7 @@
 }
 
 .context-menu.submenu {
-  z-index: 110;
+  z-index: 160;
 }
 
 .context-menu .menu-item .label {

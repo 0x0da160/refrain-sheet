@@ -20,6 +20,14 @@ column narrower or wider** — it is not grow-only, and nothing is cached
 between invocations, so a stale historic maximum can never prevent
 narrowing.
 
+## Auto-fit on open
+
+With **View > Auto-Fit Columns on Open** on (the default), opening a CSV
+file — or an `.xlsx`/`.json` file imported as a new workbook — fits every
+column to its content. An `.rsf` workbook is never auto-fitted on open: its
+worksheets keep the widths they were saved with (or the default width),
+because fitting a designed sheet to its content gave unintended widths.
+
 ## Multi-column auto-fit
 
 Auto-fit applies to **every selected column**, not just the one under the

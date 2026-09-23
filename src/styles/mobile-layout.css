@@ -530,12 +530,4 @@
     min-width: 0;
     max-width: 100%;
   }
-
-  /* Toasts default to the bottom-right corner, but on a phone that's where
-     the thumb rests and where the on-screen keyboard first appears; move
-     them to the top instead so they stay visible and out of the way (#534). */
-  .toasts {
-    top: 38px;
-    bottom: auto;
-  }
 }

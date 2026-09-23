@@ -21,8 +21,11 @@ spreadsheet software. An **internal clipboard** additionally keeps the raw
 inputs and the copy origin, so pasting within the app preserves formulas and
 adjusts their relative references.
 
-**Paste (Ctrl+V)** pastes a rectangular block starting at the active cell,
-preserving its shape.
+**Paste (Ctrl+V)** pastes a rectangular block starting at the top-left
+cell of the selected range (the active cell when a single cell is
+selected), preserving its shape. Blank cells paste too: they clear the
+destination, including a single copied blank cell, whose clipboard text is
+empty and is pasted from the internal clipboard.
 
 - **Pattern repeat.** When a larger destination range is selected and each
   of its dimensions is an exact multiple of the copied block's, the block

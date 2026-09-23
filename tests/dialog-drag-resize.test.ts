@@ -240,8 +240,9 @@ describe('dialog/popover drag-to-move and drag-to-resize', () => {
       const widthBeforeMaximize = panel.style.width;
       maximize.click();
       expect(maximize.getAttribute('aria-pressed')).toBe('true');
-      // innerWidth (1000) - the 160px reserved-viewport margin.
-      expect(panel.style.width).toBe('840px');
+      // Maximized means the whole viewport width (innerWidth 1000), with no
+      // margin of sheet left showing.
+      expect(panel.style.width).toBe('1000px');
 
       maximize.click();
       expect(maximize.getAttribute('aria-pressed')).toBe('false');

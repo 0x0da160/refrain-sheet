@@ -213,8 +213,8 @@ that changes layout without touching desktop-width behavior:
   dialog buttons, and the menu-bar toggle all carry explicit minimum
   height/width floors (36–44px) so padding trims do not shrink the actual
   touch target.
-- Toasts move from the bottom-right (where a phone's thumb rests, and
-  where the on-screen keyboard first appears) to the top of the viewport.
+- Toasts sit at the top-right on every screen size, away from where a
+  phone's thumb rests and where the on-screen keyboard first appears.
 - Narrow dialog rows (label + select, the Filter condition row, the Sort
   key row) wrap onto their own lines instead of forcing horizontal dialog
   scroll, and the standalone Markdown editor's fixed side-by-side

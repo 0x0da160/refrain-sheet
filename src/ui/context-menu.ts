@@ -42,8 +42,8 @@ export interface ContextMenuItem {
   checked?: boolean;
   /**
    * A decorative leading icon, shown in the same reserved column as the
-   * checkmark above (mutually exclusive with it, never both). Ignored for a
-   * submenu-parent entry, which uses its own arrow glyph instead.
+   * checkmark above (mutually exclusive with it, never both). A
+   * submenu-parent entry shows it in that column too, like the menu bar.
    */
   icon?: IconNode;
   /** Invoked after the menu closes. Omitted for a pure submenu parent. */
@@ -279,19 +279,15 @@ export class ContextMenu {
           },
         },
         [
-          ...(hasSubmenu
-            ? []
-            : [
-                el(
-                  'span',
-                  { className: 'check', attrs: { 'aria-hidden': 'true' } },
-                  checked
-                    ? [createIcon(Check, 'check-icon', 14)]
-                    : entry.icon
-                      ? [createIcon(entry.icon, 'item-icon', 14)]
-                      : [],
-                ),
-              ]),
+          el(
+            'span',
+            { className: 'check', attrs: { 'aria-hidden': 'true' } },
+            checked
+              ? [createIcon(Check, 'check-icon', 14)]
+              : entry.icon
+                ? [createIcon(entry.icon, 'item-icon', 14)]
+                : [],
+          ),
           el('span', { className: 'label', text: entry.label }),
           ...(hasSubmenu
             ? [el('span', { className: 'submenu-arrow', attrs: { 'aria-hidden': 'true' } })]

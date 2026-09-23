@@ -258,7 +258,8 @@ export class FileIoCommands {
       this.state.emit('doc');
       this.ui.notify(t('notify.rsfMigrated', { name }), 'info');
     }
-    await this.autoFitOnOpen(tab);
+    // No auto-fit: an RSF workbook's worksheets keep the widths they were
+    // saved with, and fitting them to content gave unintended widths.
   }
 
   /**

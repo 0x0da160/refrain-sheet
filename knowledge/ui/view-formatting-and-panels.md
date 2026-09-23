@@ -130,7 +130,11 @@ instead of separate popup layouts:
   genuine split view rather than floating over the sheet.
 - **Resize.** Drag the panel's inner edge to resize it.
 - **Maximize.** A maximize button next to the position switcher expands
-  the panel to the largest size it could be manually resized to, and back.
+  the panel to take the whole area, and back: a left/right-docked panel
+  spans the full viewport width, and a top/bottom-docked one fills
+  everything between the top chrome (menu bar, document tabs) and the
+  bottom chrome (worksheet strip, status bar). A manual resize still stops
+  160px short of the viewport, so dragging never hides the sheet entirely.
 - **Persistence within a session.** The most recently chosen dock position
   and size are remembered for the next panel opened in the same session
   (an in-memory preference, not written to the document or `localStorage`

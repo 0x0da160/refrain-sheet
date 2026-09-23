@@ -42,12 +42,32 @@ really is internal, rather than inventing an entry to satisfy it.
   gains that row. When the window is too narrow for both (including when a
   side panel is docked to the left or right), the tabs go back to their own
   row.
+- Opening an `.rsf` workbook no longer auto-fits its columns; its sheets
+  keep the widths they were saved with. CSV files are still auto-fitted.
+- Pasting with a range selected now starts at the range's top-left cell,
+  wherever the active cell is inside it.
+- A new CSV file (File > New CSV) no longer highlights its edits as
+  changes, since there is no original file to compare with. Once it has
+  been saved, later edits are highlighted as usual.
+- Notifications now appear at the top-right on a desktop too.
+- The stripes on every other row are fainter.
+- Selecting a range of cells no longer also highlights the active cell's
+  row.
+- Right-click menus now show an icon beside each item, like the menu bar.
 
 ### Fixed
 
 - A side panel docked to the top no longer overlaps the top of the formula
   bar after being moved there from the left or right side of a narrow
   window, and on a phone it now starts right below the file tabs.
+- Copying a blank cell and pasting it now clears the destination cell;
+  before, nothing happened.
+- Maximizing a side panel now makes it take the whole area instead of
+  stopping short and leaving a strip of the sheet showing.
+- The selection's corner handles no longer show on top of the row numbers
+  and column letters when the selection is scrolled under them, and a
+  right-click menu opened next to a docked side panel is no longer drawn
+  underneath it.
 
 ## [0.8.18] - 2026-09-23
 

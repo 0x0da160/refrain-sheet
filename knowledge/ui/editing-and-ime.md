@@ -47,11 +47,16 @@ row-height/wrapping model).
 ## Visual feedback while editing
 
 - Edited cells are tinted yellow; hovering one shows the original value as a
-  plain-text tooltip.
+  plain-text tooltip. A brand-new CSV (File > New CSV) has no original
+  file to differ from, so nothing is tinted until its first save; from
+  then on, edits since the last save are tinted as usual.
 - Right-click a cell for **Revert Cell to Original**; **Edit > Revert All
   Edits** discards every edit in the document as one undoable step.
-- Selected rows stay highlighted while unselected rows keep their
-  alternating (zebra) background.
+- The active cell's row is highlighted while a single cell is selected;
+  a multi-cell range shows no row highlight, since the range fill already
+  shows where the selection is. Whole-row selections stay highlighted.
+  Unselected rows keep their alternating (zebra) background, a faint tint
+  a little above the plain cell background.
 - The inline-editor / formula-bar usage guidance (Enter commits and moves
   down, Alt+Enter inserts a newline, Esc cancels, `=` starts a formula in
   RSF) is not persistent chrome — it is a **tooltip** on both surfaces plus

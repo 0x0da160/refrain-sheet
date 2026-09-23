@@ -7,6 +7,8 @@ sources:
   - resource: ../../src/app/theme.ts
   - resource: ../../CHANGELOG.md
   - resource: ../../src/styles/tailwind-token-bridge.css
+  - resource: ../../src/styles/virtualized-grid.css
+  - resource: ../../src/ui/command-icons.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -110,6 +112,32 @@ deliberately outside this scale: `grid.ts` measures cell padding and keeps
 row height in sync with `--grid-row-height`. Touch-target floors in the
 mobile layout (36–44px `min-height`) are also literals, since they are
 accessibility minimums rather than spacing.
+
+## Stacking order
+
+Inside the grid canvas, rows and cells create no stacking context of their
+own, so every layer competes directly; `virtualized-grid.css` documents the
+order next to `.vgrid-canvas`. Bottom to top: data cells and the sticky
+first column; the selection handles (fill and move); the copy-source
+outline; the inline cell editor; the row numbers; the sticky first row; the
+column-header row. Anything scrolled under the row numbers, the sticky row,
+or the column headers is therefore covered by them — a selection handle
+never shows on top of a header.
+
+Across the app, bottom to top: docked side panels, floating dialogs, and
+the filter popover (100); the formula autocomplete (120); menu-bar
+drop-downs and context menus (150, submenus 160), so a menu opened next to
+a docked panel is never drawn under it; the drag-and-drop overlay (200);
+the loading overlay (250); toasts (300), shown at the top-right on every
+screen size.
+
+## Menu icons
+
+Menu items put a decorative icon in the same left-hand column a checkable
+item uses for its checkmark. `ICON_BY_COMMAND` (`src/ui/command-icons.ts`)
+maps each command to its icon and is shared by the menu bar and every
+context menu (grid, document tabs, worksheet strip), so a command shows the
+same icon everywhere; submenu parents carry their own icon.
 
 ## Spreadsheet font
 

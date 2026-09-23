@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // What the grid's right-click menu offers: the command entries and the
 // quick-format toolbar above them. The grid builds the DOM (see Grid).
-import { Grid3x3, PaintBucket } from 'lucide';
+import { Grid3x3, PaintBucket, PencilLine, Table, type IconNode } from 'lucide';
 import type { Tab } from '../../app/app-state';
 import type { CommandId, Commands } from '../../app/commands';
 import { t } from '../../app/i18n';
@@ -15,6 +15,7 @@ export interface ContextMenuCommandDef {
 
 export interface ContextMenuGroupDef {
   labelKey: string;
+  icon: IconNode;
   submenu: Array<ContextMenuCommandDef | 'separator'>;
 }
 
@@ -35,6 +36,7 @@ export const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupD
   'separator',
   {
     labelKey: 'menu.edit',
+    icon: PencilLine,
     submenu: [
       { command: 'edit.copyScreenshot', labelKey: 'menu.edit.copyScreenshot' },
       { command: 'edit.copyAsMarkdown', labelKey: 'menu.edit.copyAsMarkdown' },
@@ -53,6 +55,7 @@ export const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupD
   'separator',
   {
     labelKey: 'menu.sheet.rowsAndColumns',
+    icon: Table,
     submenu: [
       { command: 'sheet.insertRowAbove', labelKey: 'menu.sheet.insertRowAbove' },
       { command: 'sheet.insertRowBelow', labelKey: 'menu.sheet.insertRowBelow' },

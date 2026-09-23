@@ -30,16 +30,29 @@
   font-size: calc(12px * var(--sheet-zoom, 1));
 }
 
+/* Stacking inside the grid canvas, bottom to top. Rows and cells create no
+   stacking context of their own, so everything below competes directly:
+     1-2  data cells; the sticky first column (.vcell.colpin, 2)
+     3    selection handles (.fill-handle, .move-handle) and the hidden sink
+     4    the copy-source outline
+     5    the inline cell editor
+     6    row numbers (.vcell.vrowhead) and the add-row button
+     7    the sticky first row (.vgrid-stickyrow)
+     8    the column-header row (.vgrid-header) and the add-column button
+   So anything scrolled under the row numbers, the sticky row, or the column
+   headers is covered by them. Inside the header row (its own context): the
+   filter button 3, a column-resize handle 4, the Select All corner 5. */
+
 .vgrid-header {
   position: sticky;
   top: 0;
-  z-index: 5;
+  z-index: 8;
   display: flex;
 }
 
 .vgrid-stickyrow {
   position: sticky;
-  z-index: 4;
+  z-index: 7;
   display: flex;
   /* Distinct from the column header: warm pinned background + strong rule. */
   border-bottom: 2px solid var(--accent);
@@ -104,7 +117,7 @@
 .sheet-grid-add-row {
   position: sticky;
   left: 0;
-  z-index: 3;
+  z-index: 6;
   border-top: none;
   border-radius: 0 0 5px 5px;
 }
@@ -112,7 +125,7 @@
 .sheet-grid-add-col {
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: 8;
   box-sizing: border-box;
   /* Exactly as tall as the column-header row it extends, at every zoom. */
   height: var(--grid-row-height);
@@ -237,7 +250,7 @@
   width: 7px;
   height: 100%;
   cursor: col-resize;
-  z-index: 6;
+  z-index: 4;
   touch-action: none;
 }
 
@@ -255,7 +268,7 @@
   background: var(--accent);
   border: 1px solid var(--cell-bg);
   cursor: crosshair;
-  z-index: 7;
+  z-index: 3;
   touch-action: none;
 }
 
@@ -277,7 +290,7 @@
   border: 1px solid var(--cell-bg);
   border-radius: 2px;
   cursor: move;
-  z-index: 7;
+  z-index: 3;
   touch-action: none;
 }
 
@@ -293,7 +306,7 @@
      past the exact pixel rect `placeCopySourceOutline` measured. */
   box-sizing: border-box;
   pointer-events: none;
-  z-index: 8; /* above .fill-handle/.move-handle (7) */
+  z-index: 4; /* above .fill-handle/.move-handle (3) */
   background:
     linear-gradient(90deg, var(--accent) 50%, transparent 0) repeat-x,
     linear-gradient(90deg, var(--accent) 50%, transparent 0) repeat-x,
@@ -406,7 +419,7 @@
 .vcell.vrowhead {
   position: sticky;
   left: 0;
-  z-index: 2;
+  z-index: 6;
   text-align: right;
 }
 
@@ -598,7 +611,7 @@
 .vcell.vcorner {
   position: sticky;
   left: 0;
-  z-index: 6;
+  z-index: 5;
   border-top: 0;
   border-left: 0;
   text-align: center;
@@ -766,7 +779,7 @@
   background: var(--field-bg);
   opacity: 1;
   pointer-events: auto;
-  z-index: 4;
+  z-index: 5;
   /* A <textarea> so it holds multi-line values (Alt+Enter). Long/multi-line
      content wraps and scrolls within the cell box while editing; committing
      grows the row via Wrap Long Rows. */

@@ -3,6 +3,7 @@ import { Cloud, HardDrive, X } from 'lucide';
 import type { AppState, Tab } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
+import { ICON_BY_COMMAND } from './command-icons';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 import { createIcon } from './icon';
@@ -267,11 +268,13 @@ export class TabBar {
     this.closeContextMenu();
     const entries: ContextMenuEntry[] = TAB_MENU_ITEMS.map((item) => ({
       label: t(item.labelKey),
+      icon: ICON_BY_COMMAND[item.command],
       disabled: !this.commands.isEnabled(item.command),
       onSelect: () => void this.commands.run(item.command),
     }));
     entries.push('separator', {
       label: t('tab.close'),
+      icon: ICON_BY_COMMAND['file.closeTab'],
       onSelect: () => void this.commands.run('file.closeTab'),
     });
     this.contextMenu = ContextMenu.open(entries, x, y, { onClose: () => (this.contextMenu = null) });

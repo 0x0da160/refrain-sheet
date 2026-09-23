@@ -777,3 +777,33 @@ describe('copy-source outline (animated marching-ants border)', () => {
     expect(grid.element.querySelectorAll('.copy-source-outline').length).toBe(0);
   });
 });
+
+describe('selection and change highlights', () => {
+  function rowEl(grid: Grid, row: number): HTMLElement {
+    return grid.element.querySelector<HTMLElement>(`.vgrid-row[data-row="${row}"]`)!;
+  }
+
+  it("highlights the active cell's row only while a single cell is selected", () => {
+    const { state, grid, tab } = setup(bigCsv(10));
+    state.setSelection(tab, { row: 2, col: 1 }, null);
+    grid.refresh();
+    expect(rowEl(grid, 2).classList.contains('selected-row')).toBe(true);
+
+    state.setSelection(tab, { row: 2, col: 1 }, { row: 4, col: 2 });
+    grid.refresh();
+    expect(rowEl(grid, 2).classList.contains('selected-row')).toBe(false);
+    expect(rowEl(grid, 3).classList.contains('selected-row')).toBe(false);
+  });
+
+  it('does not highlight edits in a brand-new CSV until it has been saved once', () => {
+    const { state, grid, tab } = setup('a,b\nc,d\n');
+    tab.neverSaved = true;
+    state.bulkEdit(tab, [{ row: 0, col: 0, before: null, after: 'X' }], 'history.paste');
+    grid.refresh();
+    expect(cellEl(grid, 0, 0).classList.contains('edited')).toBe(false);
+
+    tab.neverSaved = false; // what the first save does
+    grid.refresh();
+    expect(cellEl(grid, 0, 0).classList.contains('edited')).toBe(true);
+  });
+});

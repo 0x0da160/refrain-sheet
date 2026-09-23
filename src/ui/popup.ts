@@ -101,24 +101,53 @@ export function visualViewportRect(): ViewportRect {
  * page to keep the focused field in view, again on each keystroke; snapping
  * that back to (0, 0) every time made the whole page jump up and down as
  * the user typed into a cell, from the second character on, wherever the
- * cell was and with predictive text off. The bug this exists for only shows
- * once the keyboard has *closed*, and closing it fires a `visualViewport`
- * resize with the full height back, so the resync still runs exactly when
- * it is needed.
+ * cell was and with predictive text off (#574). The bug this exists for only
+ * shows once the keyboard has *closed*, and closing it fires a
+ * `visualViewport` resize with the full height back, so the resync still
+ * runs exactly when it is needed. While the keyboard is open the app is
+ * instead fitted to the visible area (`pinAppToVisualViewport`), so the page
+ * WebKit pushed up no longer takes the top of the app off screen.
  */
 export function installKeyboardViewportFix(): void {
   const vv = globalThis.visualViewport;
   if (!vv) return;
   const resync = () => {
-    if (isKeyboardLikelyOpen(vv, globalThis.document?.documentElement?.clientHeight ?? 0)) {
+    const root = globalThis.document?.documentElement;
+    if (isKeyboardLikelyOpen(vv, root?.clientHeight ?? 0)) {
+      pinAppToVisualViewport(root, vv);
       return;
     }
+    unpinApp(root);
     if (globalThis.scrollX !== 0 || globalThis.scrollY !== 0) {
       globalThis.scrollTo(0, 0);
     }
   };
   onViewportResize(resync);
   vv.addEventListener('scroll', resync);
+}
+
+/**
+ * While the keyboard is open, fit `#app` to the visible area instead of the
+ * full layout viewport (`data-keyboard-open` plus two custom properties, see
+ * `#app` in `styles/hybrid-theme.css`). WebKit pushes the page up when the
+ * keyboard opens, far enough to hide the menu bar and the top rows — and the
+ * very cell being edited when it sits near the top. Following the visible
+ * area keeps the whole app on screen however far the page was pushed, and
+ * leaves WebKit nothing below the fold to scroll into view as the user types.
+ * The grid then scrolls a low cell into view itself (`Grid.onResize`).
+ */
+function pinAppToVisualViewport(root: HTMLElement | undefined, vv: VisualViewport): void {
+  if (!root) return;
+  root.style.setProperty('--visual-viewport-top', `${vv.offsetTop}px`);
+  root.style.setProperty('--visual-viewport-height', `${vv.height}px`);
+  root.dataset.keyboardOpen = '';
+}
+
+function unpinApp(root: HTMLElement | undefined): void {
+  if (!root || root.dataset.keyboardOpen === undefined) return;
+  delete root.dataset.keyboardOpen;
+  root.style.removeProperty('--visual-viewport-top');
+  root.style.removeProperty('--visual-viewport-height');
 }
 
 /**

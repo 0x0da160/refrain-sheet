@@ -98,6 +98,18 @@ body {
   touch-action: manipulation;
 }
 
+/* While an on-screen keyboard is open, the app fits the visible area rather
+   than the full viewport, so the top of the app stays on screen when iOS
+   Safari pushes the page up. `installKeyboardViewportFix` (src/ui/popup.ts)
+   sets the attribute and both properties. */
+:root[data-keyboard-open] #app {
+  position: fixed;
+  top: var(--visual-viewport-top, 0px);
+  left: 0;
+  right: 0;
+  height: var(--visual-viewport-height, 100dvh);
+}
+
 /* Everything except the menu bar and status bar (both direct `#app`
    children, always at the true viewport top/bottom edges): the book tab
    strip, `.app-content`, and the worksheet tab strip, stacked vertically. */

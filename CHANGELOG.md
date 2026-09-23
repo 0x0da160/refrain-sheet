@@ -35,6 +35,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- On iPhone, opening the keyboard to edit a cell no longer pushes the top of
+  the app off screen. The app now fits the area above the keyboard, so the
+  menu bar and the cell being edited stay visible, including cells near the
+  top. A cell lower down is scrolled into view above the keyboard.
+- Scrolling the grid a little while editing a cell no longer ends the edit.
+  The edit is committed only once the cell scrolls out of the rendered area.
+
 ## [0.8.8] - 2026-09-23
 
 ### Fixed

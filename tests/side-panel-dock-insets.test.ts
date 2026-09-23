@@ -30,17 +30,17 @@ function filterInput(overrides: Partial<FilterDialogInput> = {}): FilterDialogIn
   };
 }
 
-function stubHeight(el: HTMLElement, height: number): void {
+function stubHeight(el: HTMLElement, height: number, top = 0): void {
   el.getBoundingClientRect = () =>
     ({
       left: 0,
-      top: 0,
+      top,
       right: 0,
-      bottom: height,
+      bottom: top + height,
       width: 0,
       height,
       x: 0,
-      y: 0,
+      y: top,
       toJSON: () => ({}),
     }) as DOMRect;
 }
@@ -66,10 +66,12 @@ function mountAppShell(): {
   appBody.className = 'app-body';
   const tabBar = document.createElement('div');
   tabBar.className = 'tab-bar';
-  stubHeight(tabBar, 32);
+  stubHeight(tabBar, 32, 40);
   const appContent = document.createElement('div');
   appContent.id = 'app-content';
   appContent.className = 'app-content';
+  // Stacked: the tab strip below the 40px menu bar, content below both.
+  stubHeight(appContent, 600, 72);
   const sheetBar = document.createElement('div');
   sheetBar.className = 'sheet-bar';
   stubHeight(sheetBar, 28);
@@ -118,6 +120,20 @@ describe('side panel dock insets and app-edge reservation', () => {
     await promise;
     // Closing releases the reservation.
     expect(appContent.style.paddingTop).toBe('');
+  });
+
+  it('insets a top-docked panel below the shared menu/tab row when the tabs sit beside the menus (#596)', async () => {
+    const { appContent } = mountAppShell();
+    // Wide window: tabs share the 40px menu row, so content starts at 40px.
+    stubHeight(appContent, 632, 40);
+    const promise = new Dialogs().chooseFilter(filterInput());
+    const panel = document.querySelector<HTMLElement>('.side-panel')!;
+    dockAt(panel, 'top');
+
+    expect(panel.style.top).toBe('40px');
+
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await promise;
   });
 
   it('insets a bottom-docked panel above the status bar and the worksheet tab strip, reserving space on #app-content only', async () => {

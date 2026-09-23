@@ -54,3 +54,67 @@
 .tab .tab-source-icon {
   color: var(--text-muted);
 }
+
+/* ----- Document tabs share the menu bar's row when they fit (#596) -----
+   The menu names end well before the right edge, so the book tab strip
+   moves up into that free space instead of taking a 32px row of its own.
+   `updateShellLayout` (src/ui/shell-layout.ts) sets `.tabs-in-menu-row` on
+   `#app` only while at least 240px is left beside the menu names — a narrow
+   window, or one narrowed by a left/right-docked side panel, keeps the tabs
+   on their own row. `#app` becomes a grid and `.app-body` steps aside
+   (`display: contents`) so its children — the tab strip, `#app-content`,
+   the worksheet strip — are placed directly: tab strip beside the menu bar,
+   the rest full width below. A top-docked side panel starts where
+   `#app-content` does, so it follows either arrangement (`topChromeInset`,
+   dialogs/shared.ts). Phones (mobile-layout.css) never use this. */
+.menu > button {
+  white-space: nowrap;
+}
+
+.menu-row {
+  flex: none;
+}
+
+@media (min-width: 701px) {
+  #app.tabs-in-menu-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+
+  #app.tabs-in-menu-row .app-body {
+    display: contents;
+  }
+
+  #app.tabs-in-menu-row .menu-bar {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  #app.tabs-in-menu-row .tab-bar {
+    grid-row: 1;
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  #app.tabs-in-menu-row .app-content {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+
+  #app.tabs-in-menu-row .sheet-bar {
+    grid-row: 3;
+    grid-column: 1 / -1;
+  }
+
+  #app.tabs-in-menu-row .status-bar {
+    grid-row: 4;
+    grid-column: 1 / -1;
+  }
+
+  /* No document open: the tab strip is hidden, so the menu bar takes the
+     whole row. */
+  #app.tabs-in-menu-row.welcome-mode .menu-bar {
+    grid-column: 1 / -1;
+  }
+}

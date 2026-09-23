@@ -35,6 +35,20 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- On a desktop-width window, the file tabs now sit in the menu bar's row,
+  to the right of the menus, instead of taking a row of their own; the grid
+  gains that row. When the window is too narrow for both (including when a
+  side panel is docked to the left or right), the tabs go back to their own
+  row.
+
+### Fixed
+
+- A side panel docked to the top no longer overlaps the top of the formula
+  bar after being moved there from the left or right side of a narrow
+  window, and on a phone it now starts right below the file tabs.
+
 ## [0.8.18] - 2026-09-23
 
 ### Changed

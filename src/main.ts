@@ -26,6 +26,7 @@ import { MarkdownSheetView } from './ui/markdown-sheet';
 import { MenuBar } from './ui/menu-bar';
 import { installKeyboardViewportFix } from './ui/popup';
 import { SheetBar } from './ui/sheet-bar';
+import { installShellLayout } from './ui/shell-layout';
 import { StatusBar } from './ui/status-bar';
 import { TabBar } from './ui/tab-bar';
 import { TextSheetView } from './ui/text-sheet';
@@ -307,6 +308,8 @@ function bootstrap(): void {
   // comment in styles.css and `MenuBar.toggleElement` (#478). Desktop-width
   // CSS keeps it `display: none` regardless of DOM position.
   app.append(menuBar.element, appBody, statusBar.element, menuBar.toggleElement);
+  // Document tabs share the menu bar's row whenever they fit (#596).
+  installShellLayout();
 
   const dropMessage = el('div', { className: 'drop-message' });
   const dropOverlay = el('div', { className: 'drop-overlay', attrs: { 'aria-hidden': 'true' } }, [

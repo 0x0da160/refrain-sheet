@@ -43,6 +43,14 @@ really is internal, rather than inventing an entry to satisfy it.
   falls back to Hiragino, and on Android to the system Japanese font, with
   no extra fonts to install. A font you already chose is kept.
 - Row numbers use equal-width digits so they line up on every platform.
+- Grid cells are more compact by default: a column you have not sized is
+  104 px wide and a row is 24 px tall (at 100% zoom), with 6 px of space left and right and
+  3 px above and below the text. The grid line stays inside that size, so
+  columns and rows keep exactly the same spacing all the way across a large
+  sheet. Text you are typing (including IME conversion) now starts exactly
+  where the cell's text is shown, at every zoom level. Columns sized by
+  auto-fit and widths saved in an `.rsf` file are unchanged, and CSV files
+  are never modified.
 
 ## [0.9.0] - 2026-09-23
 

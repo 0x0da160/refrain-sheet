@@ -160,20 +160,20 @@ describe('zoomed grid rendering', () => {
     const tab = state.addTab('t.rsf', rsfDoc(), null);
     grid.refresh();
     const headerBefore = grid.element.querySelector<HTMLElement>('.vgrid-header')!;
-    expect(headerBefore.style.height).toBe('26px');
+    expect(headerBefore.style.height).toBe('24px');
     const cellBefore = grid.element.querySelector<HTMLElement>('[data-row="0"][data-col="0"]')!;
-    expect(cellBefore.style.width).toBe('132px');
+    expect(cellBefore.style.width).toBe('104px');
 
     state.setTabZoom(tab, 200);
     const header = grid.element.querySelector<HTMLElement>('.vgrid-header')!;
-    expect(header.style.height).toBe('52px');
+    expect(header.style.height).toBe('48px');
     const cell = grid.element.querySelector<HTMLElement>('[data-row="0"][data-col="0"]')!;
-    expect(cell.style.width).toBe('264px');
+    expect(cell.style.width).toBe('208px');
     const row = grid.element.querySelector<HTMLElement>('.vgrid-row')!;
-    expect(row.style.height).toBe('52px');
+    expect(row.style.height).toBe('48px');
     // The zoom factor is published for CSS (fonts, padding, fill handle).
     expect(grid.element.style.getPropertyValue('--sheet-zoom')).toBe('2');
-    expect(grid.element.style.getPropertyValue('--grid-row-height')).toBe('52px');
+    expect(grid.element.style.getPropertyValue('--grid-row-height')).toBe('48px');
   });
 
   it('keeps selection, navigation, and editing working at non-default zoom', () => {

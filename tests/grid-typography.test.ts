@@ -29,19 +29,47 @@ describe('grid typography model (stylesheet)', () => {
     expect(css).toContain(`--grid-row-height: ${ROW_HEIGHT}px`);
   });
 
-  it('cells center single-line text via a zoom-tracking line box, no vertical padding', () => {
+  it('cells pad 6px/3px (zoom-scaled) and center single-line text via a zoom-tracking line box', () => {
     const body = ruleBody('.vcell');
     // The line box is derived from the *inherited* --grid-row-height (the
     // grid sets the zoom-scaled value inline on the container), so it tracks
     // the row height at every zoom level instead of freezing at 100%. This is
     // the fix for text being mis-centered at non-100% zoom: the previous model
     // derived the line box once at :root, using the un-zoomed value.
-    expect(body).toMatch(/line-height:\s*calc\(var\(--grid-row-height\) - 1px\)/);
+    // It fills exactly the content height: row height - 1px grid line - the
+    // 3px + 3px vertical padding (17px at 100%).
+    expect(body).toMatch(
+      /line-height:\s*calc\(var\(--grid-row-height\) - 1px - 6px \* var\(--sheet-zoom, 1\)\)/,
+    );
     // The variable is NOT resolved at :root (which would freeze it at 100%).
     expect(css).not.toContain('--grid-cell-line');
-    // Horizontal padding only (zoom-scaled) — vertical space is owned by the
-    // line box.
-    expect(body).toMatch(/padding:\s*0 calc\(8px \* var\(--sheet-zoom, 1\)\)/);
+    // 3px top/bottom and 6px left/right at 100%, both scaled with the zoom.
+    expect(body).toMatch(
+      /padding:\s*calc\(3px \* var\(--sheet-zoom, 1\)\) calc\(6px \* var\(--sheet-zoom, 1\)\)/,
+    );
+  });
+
+  it('draws a single shared 1px grid line per cell (right + bottom only, inside the box)', () => {
+    const body = ruleBody('.vcell');
+    expect(body).toMatch(/border-right:\s*1px solid var\(--grid-line\)/);
+    expect(body).toMatch(/border-bottom:\s*1px solid var\(--grid-line\)/);
+    // A left/top border would double every line between neighbours.
+    expect(body).not.toMatch(/border-(left|top)\s*:/);
+    expect(body).not.toMatch(/(^|[^-])border\s*:/);
+  });
+
+  it('the cell editor lines its text up with the rendered cell text at every zoom', () => {
+    const body = ruleBody('.vgrid-canvas .grid-sink.cell-editor');
+    // Its 2px border replaces the first 2px of the cell padding …
+    expect(body).toMatch(/border:\s*2px solid/);
+    expect(body).toMatch(
+      /padding:\s*max\(0px, calc\(3px \* var\(--sheet-zoom, 1\) - 2px\)\) max\(0px, calc\(6px \* var\(--sheet-zoom, 1\) - 2px\)\)/,
+    );
+    // … and its line box is the cell's single-line box, so an IME
+    // composition does not jump when it is committed.
+    expect(body).toMatch(
+      /line-height:\s*calc\(var\(--grid-row-height\) - 1px - 6px \* var\(--sheet-zoom, 1\)\)/,
+    );
   });
 
   it('uses border-box sizing everywhere (no baseline-dependent box math)', () => {

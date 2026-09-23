@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-23
+
 ### Added
 
 - File > Open Recent… (also on the welcome screen) lists the last 10 files

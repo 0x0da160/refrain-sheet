@@ -421,6 +421,12 @@
   left: 0;
   z-index: 6;
   text-align: right;
+  /* Row numbers use tabular (equal-width) digit glyphs so they line up on
+     fallback fonts whose default digits are proportional. This only affects
+     digits — it does not make a font fixed-pitch. Data cells do not set it:
+     auto-fit measures them with canvas measureText, which cannot apply
+     font-variant-numeric, so the measured and rendered widths would drift. */
+  font-variant-numeric: tabular-nums;
 }
 
 .vcell.vrowhead.pinned {

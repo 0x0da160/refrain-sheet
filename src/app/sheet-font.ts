@@ -15,11 +15,13 @@
  * there is no conflict to resolve. (Choosing a font never touches document
  * bytes and never converts a CSV to RSF — it is pure display state.)
  *
- * All six families are local Windows/Office fonts declared in `styles.css`
- * (the original three — BIZ UD Gothic, MS Gothic, MS UI Gothic — with a
- * monospace fallback chain; Noto Sans JP, Meiryo UI, and Yu Gothic UI, added
- * in #396, with a proportional sans-serif fallback chain matching their own
- * metrics). Nothing is fetched from a CDN or bundled, and an unavailable
+ * All six families are local fonts declared in
+ * `styles/tailwind-token-bridge.css`: BIZ UD Gothic (the default) with a
+ * cross-platform fallback chain (fixed-pitch Windows families first, then
+ * Hiragino / Noto CJK, ending in sans-serif); MS Gothic and MS UI Gothic with
+ * a monospace fallback chain; Noto Sans JP, Meiryo UI, and Yu Gothic UI,
+ * added in #396, with a proportional sans-serif fallback chain matching their
+ * own metrics. Nothing is fetched from a CDN or bundled, and an unavailable
  * preferred font degrades gracefully to its declared fallbacks.
  */
 
@@ -35,8 +37,12 @@ export const SHEET_FONTS: readonly SheetFontId[] = [
   'yu-gothic-ui',
 ];
 
-/** Noto Sans JP is the default (proportional, widely-installed CJK font). */
-export const DEFAULT_SHEET_FONT: SheetFontId = 'noto-sans-jp';
+/**
+ * BIZ UD Gothic is the default: bundled with Windows 10 (1809+) / 11, the
+ * primary target, and fixed-pitch so kana/kanji and digits line up across
+ * cells. Other platforms reach Hiragino / Noto CJK through its fallback chain.
+ */
+export const DEFAULT_SHEET_FONT: SheetFontId = 'biz-ud';
 
 /** The CSS custom property overridden on the document root. */
 export const SHEET_FONT_PROPERTY = '--font-sheet';

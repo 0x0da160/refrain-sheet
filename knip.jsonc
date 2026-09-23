@@ -51,6 +51,12 @@
     // this real usage and reports the package as unused.
     "tailwindcss",
   ],
+  "ignoreBinaries": [
+    // A system tool, not an npm package: scripts/code-stats.mjs (and
+    // scripts/release.mjs, which calls it) run `cloc`, installed from the
+    // Ubuntu archive by manual-release.yml and release-docs.yml.
+    "cloc",
+  ],
   "vitest": {
     "config": ["vite.config.ts"],
   },

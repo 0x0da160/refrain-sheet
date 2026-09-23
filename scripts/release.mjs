@@ -7,6 +7,7 @@
 //   npm run release -- v1.4.0         # explicit target version
 //   npm run release -- patch --yes    # skip the confirmation prompt (CI)
 //   npm run release -- patch --dry-run
+//   npm run release -- patch --yes --checks-passed-at <sha>   # CI, see below
 //
 // The script, in order:
 //   1. validates the repository state and branch policy,
@@ -16,7 +17,10 @@
 //   4. computes and validates the new SemVer version,
 //   5. synchronizes package.json + package-lock.json (lockfile regenerated
 //      through the approved `npm install --package-lock-only` procedure),
-//   6. stages exactly the intended release files,
+//   6. files the CHANGELOG.md `[Unreleased]` entries under the new version
+//      (scripts/changelog.mjs) and refreshes the README.md code statistics
+//      (scripts/code-stats.mjs, skipped with a warning when `cloc` is not
+//      installed), then stages exactly the intended release files,
 //   7. creates a clearly formatted release commit,
 //   8. creates an annotated strict vMAJOR.MINOR.PATCH tag,
 //   9. pushes the commit and the tag to the configured upstream.
@@ -27,12 +31,19 @@
 // never overwrites or deletes tags, and never bypasses hooks. The GitHub
 // Actions tag workflow remains responsible for building the GitHub Release and
 // deploying Pages once the validated tag is pushed.
+//
+// `--checks-passed-at <sha>` exists only for manual-release.yml, whose validate
+// job has just run this same suite (`--dry-run`) on that exact commit. The
+// suite is skipped only when HEAD is still that commit; otherwise the script
+// stops. The tag-triggered release.yml verifies the result again before
+// anything is published.
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
+import { releaseChangelog } from './changelog.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -74,26 +85,35 @@ function parseArgs(argv) {
   const positionals = [];
   const flags = new Set();
   let remote = 'origin';
+  let checksPassedAt = null;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--yes' || a === '-y') flags.add('yes');
     else if (a === '--dry-run') flags.add('dry-run');
     else if (a === '--remote') remote = argv[++i];
     else if (a.startsWith('--remote=')) remote = a.slice('--remote='.length);
+    else if (a === '--checks-passed-at') checksPassedAt = argv[++i] ?? '';
     else positionals.push(a);
   }
-  return { bump: positionals[0], remote, yes: flags.has('yes'), dryRun: flags.has('dry-run') };
+  return {
+    bump: positionals[0],
+    remote,
+    checksPassedAt,
+    yes: flags.has('yes'),
+    dryRun: flags.has('dry-run'),
+  };
 }
 
 /**
  * `git diff --cached --name-only` lists staged paths alphabetically, so
  * package-lock.json (hyphen sorts before dot) comes before package.json.
- * Validate the staged set independent of order: only package.json and/or
- * package-lock.json may be staged, and package.json must be among them.
+ * Validate the staged set independent of order: only the version files, the
+ * changelog, and the README (code statistics) may be staged, and package.json
+ * must be among them.
  */
 export function isStagedFilesAllowed(staged) {
   const stagedFiles = staged.split('\n').filter(Boolean).sort();
-  const allowed = ['package-lock.json', 'package.json'];
+  const allowed = ['CHANGELOG.md', 'README.md', 'package-lock.json', 'package.json'];
   return (
     stagedFiles.length > 0 &&
     stagedFiles.every((file) => allowed.includes(file)) &&
@@ -130,6 +150,15 @@ function computeVersion(current, bump) {
   }
 }
 
+function hasCloc() {
+  try {
+    execFileSync('cloc', ['--version'], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function confirm(question) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
@@ -141,7 +170,10 @@ async function confirm(question) {
 }
 
 async function main() {
-  const { bump, remote, yes, dryRun } = parseArgs(process.argv.slice(2));
+  const { bump, remote, checksPassedAt, yes, dryRun } = parseArgs(process.argv.slice(2));
+  if (checksPassedAt !== null && !/^[0-9a-f]{40}$/.test(checksPassedAt)) {
+    die('--checks-passed-at needs the full 40-character commit SHA the checks ran on.');
+  }
 
   // ----- 1. Repository state and branch policy -----
   if (git(['rev-parse', '--is-inside-work-tree'], { allowFail: true }) !== 'true') {
@@ -214,19 +246,39 @@ async function main() {
       .join('\n'),
   );
 
+  const changelogDate = new Date().toISOString().slice(0, 10);
+  const changelog = readFileSync(join(root, 'CHANGELOG.md'), 'utf8');
+  let changelogPlan;
+  try {
+    changelogPlan = releaseChangelog(changelog, version, changelogDate)
+      ? `[Unreleased] -> [${version}] - ${changelogDate}`
+      : 'no pending entries (no section)';
+  } catch (err) {
+    die(`CHANGELOG.md cannot be updated: ${err.message}`);
+  }
+  console.warn(`  changelog: ${changelogPlan}`);
+
   // ----- 3. Full required checks BEFORE any mutation -----
-  npmRun('check:versions');
-  npmRun('format:check');
-  npmRun('lint');
-  npmRun('test');
-  npmRun('test:rust');
-  npmRun('audit:ci');
-  npmRun('build');
-  npmRun('check:dist');
-  // Both artifacts must be valid before a release is cut: Pages gets the
-  // hosted build, the release ZIP gets the offline one (knowledge/operations/security-threat-model.md).
-  npmRun('build:hosted');
-  npmRun('check:dist:hosted');
+  if (checksPassedAt !== null) {
+    const head = git(['rev-parse', 'HEAD']);
+    if (head !== checksPassedAt) {
+      die(`--checks-passed-at ${checksPassedAt} is not HEAD (${head}). Run the full checks instead.`);
+    }
+    console.warn(`\nrelease: required checks already passed on ${head.slice(0, 12)}; not repeating them.`);
+  } else {
+    npmRun('check:versions');
+    npmRun('format:check');
+    npmRun('lint');
+    npmRun('test');
+    npmRun('test:rust');
+    npmRun('audit:ci');
+    npmRun('build');
+    npmRun('check:dist');
+    // Both artifacts must be valid before a release is cut: Pages gets the
+    // hosted build, the release ZIP gets the offline one (knowledge/operations/security-threat-model.md).
+    npmRun('build:hosted');
+    npmRun('check:dist:hosted');
+  }
 
   if (dryRun) {
     console.warn('\nrelease: dry run complete — all checks passed. No files were changed.');
@@ -260,8 +312,28 @@ async function main() {
   // Confirm the two version sources now agree before committing.
   npmRun('check:versions', ['--', '--tag', tag]);
 
-  // ----- 6. Stage exactly the intended files -----
-  git(['add', '--', 'package.json', 'package-lock.json']);
+  // ----- 6. Release notes and code statistics, then stage -----
+  const releaseFiles = ['package.json', 'package-lock.json'];
+  const updatedChangelog = releaseChangelog(changelog, version, changelogDate);
+  if (updatedChangelog) {
+    writeFileSync(join(root, 'CHANGELOG.md'), updatedChangelog);
+    releaseFiles.push('CHANGELOG.md');
+    console.warn(`release: filed the [Unreleased] changelog entries under [${version}].`);
+  }
+  if (hasCloc()) {
+    try {
+      execFileSync(process.execPath, [join(root, 'scripts', 'code-stats.mjs')], {
+        cwd: root,
+        stdio: 'inherit',
+      });
+    } catch {
+      die('updating the README.md code statistics failed. Nothing was committed.');
+    }
+    releaseFiles.push('README.md');
+  } else {
+    console.warn('release: note: `cloc` is not installed; README.md code statistics were left as they are.');
+  }
+  git(['add', '--', ...releaseFiles]);
   const staged = git(['diff', '--cached', '--name-only']);
   if (!isStagedFilesAllowed(staged)) {
     die(`unexpected staged files:\n${staged}\nAborting before commit.`);

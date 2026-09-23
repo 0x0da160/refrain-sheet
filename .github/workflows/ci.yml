@@ -30,9 +30,17 @@ concurrency:
 # actions/*) action MUST instead be pinned to a full commit SHA. There are
 # currently no third-party actions in this workflow.
 
+# Three jobs run in parallel instead of one long serial job: the static gates,
+# the unit tests (split into two shards, since they are CPU-bound and the
+# longest step), and the two builds with their distribution and browser
+# checks. Each job pays one cached dependency install, a few seconds, to cut the
+# wall-clock time roughly in half.
+
 jobs:
-  ci:
+  checks:
+    name: Static checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       # Depth 2 so the changelog gate can see the merge commit's first parent
       # (the base branch tip) and derive the pull request's own diff from it.
@@ -98,8 +106,62 @@ jobs:
       - name: Contrast check
         run: npm run check:contrast
 
+      # Vulnerability gate. Network-dependent (queries the advisory DB), so it
+      # is one of several gates, never the only one — the lockfile-integrity
+      # install, version-consistency, and clean-tree checks do not need the
+      # network. Fails the build on a known high/critical advisory in a
+      # production dependency.
+      - name: Audit production dependencies
+        run: npm run audit:ci
+
+  test:
+    name: Test (shard ${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts
+
       - name: Test
-        run: npm run test
+        run: npm run test -- --shard=${{ matrix.shard }}/2
+
+      # Nothing above may leave a tracked file modified: a drifting lockfile, a
+      # generated artifact committed by mistake, or a formatter/codegen side
+      # effect would all show up here and fail the build.
+      - name: Ensure the working tree is clean after install/test
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Tracked files changed during CI:" >&2
+            git status --porcelain >&2
+            git diff >&2
+            exit 1
+          fi
+
+  build:
+    name: Build and browser check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts
 
       - name: Build
         run: npm run build
@@ -136,18 +198,7 @@ jobs:
       - name: Validate hosted distribution
         run: npm run check:dist:hosted
 
-      # Vulnerability gate. Network-dependent (queries the advisory DB), so it
-      # is one of several gates, never the only one — the lockfile-integrity
-      # install, version-consistency, and clean-tree checks do not need the
-      # network. Fails the build on a known high/critical advisory in a
-      # production dependency.
-      - name: Audit production dependencies
-        run: npm run audit:ci
-
-      # Nothing above may leave a tracked file modified: a drifting lockfile, a
-      # generated artifact committed by mistake, or a formatter/codegen side
-      # effect would all show up here and fail the build.
-      - name: Ensure the working tree is clean after install/build/test
+      - name: Ensure the working tree is clean after install/build
         run: |
           if [ -n "$(git status --porcelain)" ]; then
             echo "Tracked files changed during CI:" >&2
@@ -162,3 +213,20 @@ jobs:
           name: refrain-sheet-dist
           path: dist/
           if-no-files-found: error
+
+  # Keeps the single `ci` check name that branch protection and reviewers have
+  # always looked at: it passes only when every job above passed.
+  ci:
+    needs: [checks, test, build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All CI jobs passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          for r in $RESULTS; do
+            [ "$r" = success ] || { echo "::error::A CI job did not succeed ($r)."; exit 1; }
+          done

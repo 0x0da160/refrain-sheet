@@ -1,0 +1,132 @@
+name: Release docs
+
+# Manual catch-up for the two files every release commit refreshes on its own:
+# the CHANGELOG.md release sections and the README.md code statistics.
+# `npm run release` (which the Manual release recovery workflow runs) already
+# updates both inside the release commit, so nothing runs on push or merge any
+# more. Run this by hand only when they have drifted — for example after a
+# release cut without `cloc` installed, or to refresh the numbers between
+# releases.
+#
+#   - CHANGELOG.md: `node scripts/changelog.mjs sync` files the pending
+#     `[Unreleased]` entries under the current package.json version, but only
+#     when that version is already tagged and has no section yet. Entries meant
+#     for the next release are left where they are.
+#   - README.md: `node scripts/code-stats.mjs` recounts the tracked files with
+#     `cloc` and rewrites only the region between the code-stats markers.
+#
+# It does NOT commit to `main`. When either file changes, it pushes the rolling
+# `chore/release-docs` branch and opens (or updates) one pull request, so the
+# change is reviewed like every other change. When nothing changes, it stops
+# before touching git.
+
+on:
+  workflow_dispatch:
+
+# Read-only by default; the one job below widens to exactly what opening a pull
+# request needs, and nothing else.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-docs
+  cancel-in-progress: true
+
+# Action-pinning policy (see knowledge/operations/security-supply-chain.md): only
+# official GitHub-maintained actions/* are used here, pinned to a major version
+# tag. `cloc` comes from the signed Ubuntu archive. Both scripts use Node
+# built-ins only, so no `npm ci` is needed.
+
+jobs:
+  release-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # push the chore/release-docs branch
+      pull-requests: write # open the pull request that carries it
+    steps:
+      # Full history so the release tags (and their dates) are available.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Install cloc
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cloc
+
+      - name: File released changelog entries
+        run: node scripts/changelog.mjs sync
+
+      - name: Recount code statistics
+        run: node scripts/code-stats.mjs
+
+      - name: Detect a change
+        id: diff
+        run: |
+          if git diff --quiet -- CHANGELOG.md README.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo '::notice::CHANGELOG.md and the code statistics are up to date; nothing to propose.'
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update the pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: chore/release-docs
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -C "$BRANCH"
+          git add CHANGELOG.md README.md
+          git commit -m 'chore: update changelog and code statistics'
+
+          # The lease is scoped to a branch only this workflow ever writes and
+          # names the exact remote state it expects (empty = does not exist
+          # yet), so anything a human pushed there is never discarded, and no
+          # protected branch is force-pushed.
+          remote_sha="$(git ls-remote --heads origin "$BRANCH" | awk '{ print $1 }')"
+          git push --force-with-lease="refs/heads/${BRANCH}:${remote_sha}" \
+            origin "HEAD:refs/heads/${BRANCH}"
+
+          existing="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open \
+            --json number --jq '.[0].number // ""')"
+          if [ -n "$existing" ]; then
+            echo "::notice::Updated the existing pull request #${existing}."
+            exit 0
+          fi
+
+          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
+            --title 'chore: update changelog and code statistics' --body "$(cat <<'BODY'
+          ## English
+
+          Opened by a manual run of `.github/workflows/release-docs.yml`.
+          Releases normally update these two files inside the release commit;
+          this catches them up when they have drifted.
+
+          - `CHANGELOG.md`: pending `[Unreleased]` entries filed under the
+            current, already-tagged version (`scripts/changelog.mjs sync`).
+          - `README.md`: the `cloc` table between the code-stats markers
+            (`scripts/code-stats.mjs`). Nothing else in the file is rewritten.
+
+          Changelog: not-needed
+
+          ## 日本語
+
+          `.github/workflows/release-docs.yml` の手動実行で作成されました。
+          通常はリリースコミットの中でこの 2 ファイルが更新されます。この
+          pull request はずれが生じた場合の追従用です。
+
+          - `CHANGELOG.md`: `[Unreleased]` の項目を、タグ付け済みの現在の
+            バージョンの節へ移動しました (`scripts/changelog.mjs sync`)。
+          - `README.md`: code-stats マーカー間の `cloc` 集計表のみを更新しました
+            (`scripts/code-stats.mjs`)。それ以外の箇所は書き換えていません。
+          BODY
+          )"

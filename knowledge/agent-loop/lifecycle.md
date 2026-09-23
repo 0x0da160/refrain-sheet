@@ -108,6 +108,10 @@ Definitions live in `.github/labels.yml`.
 
 ## Workflows
 
+> The Issue-driven workflows below (all but `manual-release.yml`) were
+> removed on 2026-09-23; see [the agent loop index](index.md). The table is
+> kept as the design record.
+
 | Workflow                 | Trigger                                                                         | Permissions                                                                                     | Concurrency                                | Stop condition                                                                                                                                                             |
 | ------------------------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `issue-triage.yml`       | `issues: opened/edited`, dispatch                                               | `contents:read`, `issues:write`                                                                 | per-issue, cancel-in-progress              | Skips issues past triage / bot edits                                                                                                                                       |

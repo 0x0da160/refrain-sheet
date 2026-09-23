@@ -9,27 +9,33 @@ and the project uses [Semantic Versioning](https://semver.org/) (see README
 
 Add an entry under **Unreleased** as part of any pull request that changes
 user-visible behavior (bug fixes, features, performance, or other changes a
-user would notice). When a release is cut with `npm run release`, retitle
-`Unreleased` to the new version and date, and start a fresh `Unreleased`
-section above it. Purely internal changes (CI, tests, refactors, tooling,
-repository-meta issues with no user-visible effect) do not need an entry — and
-because this project cuts a release for nearly every merged pull request, a
-released version that only contained such internal changes simply has no
-section below and is not listed. This file previously went a long time
-without that split ever happening (every change accumulated under
-`Unreleased` across dozens of releases); the entries below were reconstructed
-per-version from the actual merged pull request and tag history so this file
-is no longer stale, but treat it as a best-effort backfill rather than
-something written at release time.
+user would notice). Purely internal changes (CI, tests, refactors, tooling,
+repository-meta issues with no user-visible effect) do not need an entry.
 
-CI enforces the first half of that convention: a pull request that changes
-`src/` or `wasm/src/` fails unless it also changes this file. Because "touched
-`src/`" is only an approximation of "a user would notice", the gate can be
-waived — put `Changelog: not-needed` in the pull request description when the
-change really is internal, rather than inventing an entry to satisfy it. The
-release-time half (retitling `Unreleased`) is still done by hand.
+Releases file those entries automatically: `npm run release` (and therefore
+the **Manual release recovery** workflow, which runs it) moves everything
+under `Unreleased` into a new `## [X.Y.Z] - date` section inside the release
+commit itself, leaving a fresh, empty `Unreleased` above it
+(`scripts/changelog.mjs`). A release that only contained internal changes
+has nothing to file and gets no section. If a release was ever cut without
+that step, run the **Release docs** workflow by hand: it files the pending
+entries under the current, already-tagged version and opens a pull request.
+
+The sections from 0.7.30 to 0.8.7 were cut after the fact, from the
+`Unreleased` section as it stood at each release tag; earlier sections were
+likewise reconstructed from the merged pull request and tag history, so
+treat them as a best-effort backfill rather than something written at
+release time.
+
+CI enforces the per-pull-request half: a pull request that changes `src/` or
+`wasm/src/` fails unless it also changes this file. Because "touched `src/`"
+is only an approximation of "a user would notice", the gate can be waived —
+put `Changelog: not-needed` in the pull request description when the change
+really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
+
+## [0.8.7] - 2026-09-23
 
 ### Changed
 
@@ -37,6 +43,26 @@ release-time half (retitling `Unreleased`) is still done by hand.
   sync code at all. It was already disabled there and never made a network
   request; now it is compiled out, so the offline app is slightly smaller
   and holds no Google endpoint addresses.
+
+### Fixed
+
+- The release ZIP's `THIRD-PARTY-NOTICES.md` now includes the license
+  notice for the bundled `yaml` library, which the YAML worksheet kind uses;
+  it had been missing.
+
+## [0.8.6] - 2026-09-22
+
+### Changed
+
+- The app's menu bar (at desktop width) and welcome screen, and the landing
+  site's header on every page, now show the design system's fixed
+  icon+wordmark logotype instead of the small icon next to a plain text
+  product name. At the narrow/mobile width where the wider logotype doesn't
+  fit, the menu bar still shows the compact icon alone, as before.
+
+## [0.8.5] - 2026-09-22
+
+### Changed
 
 - The app and the landing site now follow the Refrain Sheet Design System
   v1.0.0: the light/dark/hybrid color themes, the UI font stack, and the
@@ -49,122 +75,8 @@ release-time half (retitling `Unreleased`) is still done by hand.
   re-verified against WCAG AA (4.5:1) in all three themes, same as the
   previous recolor. The landing page's marketing screenshots were
   regenerated to match.
-- The app's menu bar (at desktop width) and welcome screen, and the landing
-  site's header on every page, now show the design system's fixed
-  icon+wordmark logotype instead of the small icon next to a plain text
-  product name. At the narrow/mobile width where the wider logotype doesn't
-  fit, the menu bar still shows the compact icon alone, as before.
 
-### Added
-
-- Toast notifications (the small pop-up messages in the corner of the
-  screen) can now be dismissed by clicking a close button on them, instead
-  of only disappearing after 7 seconds. On a narrow (phone-sized) screen,
-  toasts now appear near the top of the screen instead of the bottom.
-  ([#534](https://github.com/0x0da160/refrain-sheet/issues/534))
-- **Sheet > File Version History…** now has a **Preview** action next to
-  each snapshot's **Restore** button, opening that snapshot's content
-  full-screen in the same real, virtualized grid and worksheet-tab strip the
-  live app itself uses — evaluated values, every worksheet, no row/column
-  cap — so it can be checked before committing to Restore (which replaces
-  the file's current content and cannot be undone). Read-only throughout;
-  nothing about Restore itself changed.
-  ([#533](https://github.com/0x0da160/refrain-sheet/issues/533),
-  [#557](https://github.com/0x0da160/refrain-sheet/issues/557))
-- A worksheet can now hold a JSON document as its first-class content,
-  alongside the existing Markdown worksheet: **Sheet > Add JSON Sheet**
-  creates one, edited in a docked source view with a syntax-highlighted
-  preview (toggle via the preview button) and an explicit, button-triggered
-  **Format** action that pretty-prints valid JSON in place — never
-  automatically and never on save. Invalid JSON is left untouched and its
-  parse error is reported instead of guessing at a fix. Saved in the `.rsf`
-  container (body version 15 / workbook body version 11); existing files and
-  workbooks that don't use it are unaffected. Standalone (non-RSF) JSON/YAML/
-  plain-text file editing is tracked as follow-up work.
-  ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
-- A spreadsheet's version history can now be restored from and configured
-  further, via **Sheet > File Version History…**: every recorded snapshot is
-  listed with a **Restore** action (with a confirmation, since it replaces
-  the file's current content and is not itself undoable), and the
-  retained-snapshot limit — 20 by default, unchanged — can now be raised to a
-  custom number or set to unlimited on a per-file basis. When a save would
-  exceed the limit, a confirmation shows before the save happens (with a
-  "don't show this warning again" option, saved locally in the browser); it
-  never blocks a save when the limit is unlimited. Saved in the `.rsf`
-  container (body version 16 / workbook body version 12); existing files and
-  workbooks that don't use a custom limit are unaffected.
-  ([#530](https://github.com/0x0da160/refrain-sheet/issues/530))
-- Spreadsheet documents can now keep a version (snapshot) history: every
-  successful save records a snapshot of the file's content inside the `.rsf`
-  container itself (`.rsf` body version 14 / workbook body version 10),
-  compressed together with the rest of the file using whichever method the
-  file already saves with, so there's no separate history file and no extra
-  compression pass to configure. It's on by default per file, up to 20
-  snapshots are kept (the oldest is dropped once a save would exceed that),
-  and it can be turned off or cleared from **Sheet > File Version
-  History…** / **Sheet > Clear Version History**. Existing files and
-  workbooks that don't use it are unaffected.
-  ([#526](https://github.com/0x0da160/refrain-sheet/issues/526))
-- JSON files can now be opened and exported, alongside the existing CSV/RSF
-  and XLSX support. **File > Open** accepts a `.json` file containing a
-  top-level array of flat (non-nested) objects — one array element per row,
-  columns as the union of every object's keys — and imports it into a new
-  `.rsf` spreadsheet tab, the same lossy "import → new tab" pattern already
-  used for `.xlsx`. **File > Export as JSON…** writes the active worksheet's
-  calculated values back out as a JSON array of objects, using the first row
-  as field names; a multi-worksheet workbook is asked which worksheet to
-  export, exactly like **Export as CSV…**.
-  ([#516](https://github.com/0x0da160/refrain-sheet/issues/516))
-- Opening a file now auto-fits every column to its content by default,
-  matching what double-clicking a column border's resize handle already did
-  per-column. This is skipped for an RSF worksheet that already has its own
-  saved column widths, so an explicit prior resize is never overwritten. The
-  new **View > Auto-Fit Columns on Open** menu toggle turns it off; the
-  preference is local-only and never affects saved file bytes.
-  ([#513](https://github.com/0x0da160/refrain-sheet/issues/513))
-- Individual worksheets can now be locked against editing (**Sheet >
-  Worksheet > Lock Sheet**, or a worksheet tab's context menu): a locked
-  worksheet's cells and structure can't be changed until it's unlocked
-  again, while every other worksheet in the workbook stays editable. It's a
-  plain protection toggle — no password — and is saved with the file (`.rsf`
-  body version 13 / workbook body version 9); existing files and workbooks
-  that don't use it are unaffected.
-  ([#508](https://github.com/0x0da160/refrain-sheet/issues/508))
-- Markdown can now be added as a worksheet inside a spreadsheet workbook
-  (**Sheet > Add Markdown Sheet**, or the "+" button's context menu on the
-  worksheet strip): its source/preview editor is docked directly in the
-  spreadsheet area in place of the grid while that worksheet is active. This
-  is a new RSF container capability (`.rsf` body version 12 / workbook body
-  version 8) — existing files and workbooks that don't use it are
-  unaffected, and Markdown worksheets are excluded from CSV export (CSV has
-  no analog for a whole-sheet document).
-  ([#481](https://github.com/0x0da160/refrain-sheet/issues/481))
-- A brand-new CSV document (`File > New CSV`) can now have rows and columns
-  inserted, deleted, or appended directly, without first converting it to an
-  RSF spreadsheet — as long as it hasn't been saved yet. Once it's saved, the
-  usual "convert to RSF first" requirement applies again, the same as for any
-  other CSV file. ([#479](https://github.com/0x0da160/refrain-sheet/issues/479))
-- The Markdown preview in the docked Markdown worksheet now renders
-  GFM-style tables (including per-column left/center/right alignment) and
-  syntax-highlighted fenced code blocks for a number of common languages
-  (JavaScript/TypeScript, Python, JSON, CSS, HTML, Bash, SQL, YAML, Rust,
-  Go); an unrecognized language still renders as plain, unhighlighted code,
-  as before. The docked Markdown worksheet also gained a toolbar button to
-  hide/show the preview pane, letting the source textarea use the full
-  width while it's hidden.
-  ([#486](https://github.com/0x0da160/refrain-sheet/issues/486))
-- Each worksheet tab in the worksheet strip now shows a small icon indicating
-  whether it's a regular grid sheet or a Markdown sheet, so the two are
-  distinguishable at a glance without adding any extra text next to the
-  sheet name. ([#506](https://github.com/0x0da160/refrain-sheet/issues/506))
-
-### Removed
-
-- The standalone **File > Markdown Editor…** side panel has been removed.
-  It edited a plain `.md` file independently of any open CSV/spreadsheet
-  tab; the in-workbook Markdown worksheet (**Sheet > Add Markdown Sheet**,
-  added above) covers the same editing/preview need without a separate
-  tool. ([#505](https://github.com/0x0da160/refrain-sheet/issues/505))
+## [0.8.4] - 2026-09-21
 
 ### Added
 
@@ -223,9 +135,6 @@ release-time half (retitling `Unreleased`) is still done by hand.
 - The dockable side panel no longer casts a drop shadow along its border; a
   shadow that always fell downward only ever looked right for a top-docked
   panel.
-
-### Changed
-
 - Book and worksheet protection now use distinct, unambiguous wording
   throughout: **File > Document > Protect Book** / **Unprotect Book** (was
   "Protect Document") for the whole workbook, and **Sheet > Worksheet >
@@ -246,12 +155,22 @@ release-time half (retitling `Unreleased`) is still done by hand.
   textareas also keep their scroll position in sync with their preview pane
   proportionally in both directions, which none of the three did before.
   ([#557](https://github.com/0x0da160/refrain-sheet/issues/557))
+- The accent color throughout the app (buttons, links, the selected-cell
+  outline, range-fill and find highlights, and one of the four
+  formula-reference colors) is now a teal/green instead of the previous
+  blue-violet, and the neutral gray used for panels/borders/text was retuned
+  to sit alongside it. The green "success"/formula-evaluation color family
+  was also rotated further from the new accent so the two stay visually
+  distinct. Every text-on-background color pairing that composes in the app
+  (body text, buttons, links, warning banners, error/success text) was
+  re-verified — not just assumed unchanged — against WCAG AA (4.5:1) in the
+  light, dark, and hybrid themes; a new `scripts/check-contrast.mjs` does
+  this from the actual declared color values on every future change, wired
+  into CI.
+  ([#535](https://github.com/0x0da160/refrain-sheet/issues/535),
+  [#557](https://github.com/0x0da160/refrain-sheet/issues/557))
 
 ### Fixed
-
-- The release ZIP's `THIRD-PARTY-NOTICES.md` now includes the license
-  notice for the bundled `yaml` library, which the YAML worksheet kind uses;
-  it had been missing.
 
 - Typing into a cell on a phone (iOS Safari in particular) no longer causes a
   visible layout shift on every keystroke, and the cell editor no longer
@@ -298,57 +217,36 @@ release-time half (retitling `Unreleased`) is still done by hand.
   the full width of the window on the first frame of the drag (a dialog
   holding a wide table or a long line of text could momentarily lose its own
   width limit before the drag repositioned it).
-- Adding a Markdown worksheet now suggests "Notes1" as the default name for
-  the first one, instead of continuing the regular worksheet numbering
-  (e.g. "Notes2" right after "Sheet1"); regular worksheets still suggest
-  "Sheet2", "Sheet3", … independently of how many Markdown worksheets exist.
-  ([#503](https://github.com/0x0da160/refrain-sheet/issues/503))
-- The docked Markdown worksheet's preview no longer gets clipped by long
-  content; it now scrolls internally instead.
-  ([#502](https://github.com/0x0da160/refrain-sheet/issues/502))
-- The docked Markdown worksheet's source textarea now actually fills its
-  pane instead of sitting at its small browser-default size, and no longer
-  triggers a page zoom when it gains focus on a phone; on a narrow screen the
-  source/preview panes now stack vertically instead of being squeezed
-  side by side. ([#486](https://github.com/0x0da160/refrain-sheet/issues/486))
-- Double-tapping a cell on a touch device now opens it for editing and
-  brings up the on-screen keyboard, matching what double-clicking already
-  does with a mouse.
-  ([#458](https://github.com/0x0da160/refrain-sheet/issues/458))
-- A single tap on a cell (or a row/column header) on a touch device no
-  longer pops up the on-screen keyboard by itself; the keyboard now only
-  appears once editing actually starts, e.g. via double-tap.
-  ([#469](https://github.com/0x0da160/refrain-sheet/issues/469))
-- Long-pressing a cell or row/column header on a touch device to open the
-  context menu works reliably again; a held finger's own small position
-  jitter no longer got misread as the start of a drag and silently
-  cancelled the menu.
-  ([#475](https://github.com/0x0da160/refrain-sheet/issues/475))
-- The workbook tab bar above the grid is now the same height as the sheet
-  tab bar below it, so the two tab strips line up visually.
-  ([#480](https://github.com/0x0da160/refrain-sheet/issues/480))
-- Double-tapping a cell on a touch device reliably brings up the on-screen
-  keyboard again; the first tap of the pair could leave the keyboard
-  suppressed even once the second tap opened the cell for editing.
-  ([#487](https://github.com/0x0da160/refrain-sheet/issues/487))
-- On a touch device, opening a dialog, popover, or docked panel (Filter,
-  Sort, Format, SQL Query, rename, and every other text field that
-  autofocuses when its dialog opens), or opening the Find/Replace bar, no
-  longer pops up the on-screen keyboard by itself; the keyboard now only
-  appears once the user actually taps the field.
-  ([#497](https://github.com/0x0da160/refrain-sheet/issues/497))
-- On a touch device, the on-screen keyboard no longer pops up unprompted
-  right after a new workbook or worksheet appears, and no longer pops back
-  up when a single tap dismisses a cell's long-press context menu; it now
-  appears only when editing actually starts (double-tap, Enter/F2, the
-  formula bar).
-  ([#496](https://github.com/0x0da160/refrain-sheet/issues/496))
-- On a mobile device, typing in the bottom formula bar no longer causes a
-  brief layout shift or scroll on every keystroke; the on-screen keyboard's
-  predictive-text suggestion bar changing height as you type was triggering
-  an unrelated scroll-position resync meant only for a different bug
-  (the page staying shifted after the keyboard closes, #402).
-  ([#519](https://github.com/0x0da160/refrain-sheet/issues/519))
+- The welcome screen's primary "Open CSV / RSF File…" button (and its two
+  secondary buttons) rendered with the wrong text color in every theme — a
+  plain `button { color: inherit }` base style was silently overriding their
+  intended accent-colored text, because it sat outside any CSS cascade
+  layer while the color coming from a Tailwind utility class sat inside one,
+  and an unlayered rule always wins over a layered one regardless of
+  selector specificity. This was the actual root cause of the low-contrast
+  home-screen button reported for the light theme; it affected every theme
+  identically. The button text now correctly uses the accent-contrast color
+  it was always meant to.
+  ([#535](https://github.com/0x0da160/refrain-sheet/issues/535))
+
+## [0.8.3] - 2026-09-18
+
+### Added
+
+- Toast notifications (the small pop-up messages in the corner of the
+  screen) can now be dismissed by clicking a close button on them, instead
+  of only disappearing after 7 seconds. On a narrow (phone-sized) screen,
+  toasts now appear near the top of the screen instead of the bottom.
+  ([#534](https://github.com/0x0da160/refrain-sheet/issues/534))
+- **Sheet > File Version History…** now has a **Preview** action next to
+  each snapshot's **Restore** button, opening that snapshot's content
+  full-screen in the same real, virtualized grid and worksheet-tab strip the
+  live app itself uses — evaluated values, every worksheet, no row/column
+  cap — so it can be checked before committing to Restore (which replaces
+  the file's current content and cannot be undone). Read-only throughout;
+  nothing about Restore itself changed.
+  ([#533](https://github.com/0x0da160/refrain-sheet/issues/533),
+  [#557](https://github.com/0x0da160/refrain-sheet/issues/557))
 
 ### Changed
 
@@ -359,6 +257,60 @@ release-time half (retitling `Unreleased`) is still done by hand.
   theme. Colors are visually unchanged — this only changes how the same
   palette is expressed internally.
   ([#535](https://github.com/0x0da160/refrain-sheet/issues/535))
+
+## [0.8.2] - 2026-09-17
+
+### Added
+
+- A spreadsheet's version history can now be restored from and configured
+  further, via **Sheet > File Version History…**: every recorded snapshot is
+  listed with a **Restore** action (with a confirmation, since it replaces
+  the file's current content and is not itself undoable), and the
+  retained-snapshot limit — 20 by default, unchanged — can now be raised to a
+  custom number or set to unlimited on a per-file basis. When a save would
+  exceed the limit, a confirmation shows before the save happens (with a
+  "don't show this warning again" option, saved locally in the browser); it
+  never blocks a save when the limit is unlimited. Saved in the `.rsf`
+  container (body version 16 / workbook body version 12); existing files and
+  workbooks that don't use a custom limit are unaffected.
+  ([#530](https://github.com/0x0da160/refrain-sheet/issues/530))
+
+## [0.8.1] - 2026-09-17
+
+### Added
+
+- A worksheet can now hold a JSON document as its first-class content,
+  alongside the existing Markdown worksheet: **Sheet > Add JSON Sheet**
+  creates one, edited in a docked source view with a syntax-highlighted
+  preview (toggle via the preview button) and an explicit, button-triggered
+  **Format** action that pretty-prints valid JSON in place — never
+  automatically and never on save. Invalid JSON is left untouched and its
+  parse error is reported instead of guessing at a fix. Saved in the `.rsf`
+  container (body version 15 / workbook body version 11); existing files and
+  workbooks that don't use it are unaffected. Standalone (non-RSF) JSON/YAML/
+  plain-text file editing is tracked as follow-up work.
+  ([#529](https://github.com/0x0da160/refrain-sheet/issues/529))
+
+## [0.8.0] - 2026-09-17
+
+### Added
+
+- Spreadsheet documents can now keep a version (snapshot) history: every
+  successful save records a snapshot of the file's content inside the `.rsf`
+  container itself (`.rsf` body version 14 / workbook body version 10),
+  compressed together with the rest of the file using whichever method the
+  file already saves with, so there's no separate history file and no extra
+  compression pass to configure. It's on by default per file, up to 20
+  snapshots are kept (the oldest is dropped once a save would exceed that),
+  and it can be turned off or cleared from **Sheet > File Version
+  History…** / **Sheet > Clear Version History**. Existing files and
+  workbooks that don't use it are unaffected.
+  ([#526](https://github.com/0x0da160/refrain-sheet/issues/526))
+
+## [0.7.37] - 2026-09-17
+
+### Changed
+
 - The home (welcome) screen no longer states that the app "runs fully
   offline" and that "no data ever leaves this page" — that claim only holds
   for the downloadable offline HTML build, not the hosted web app at
@@ -367,6 +319,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
   wording about the optional Drive sync instead; the offline build's About
   text is unchanged.
   ([#520](https://github.com/0x0da160/refrain-sheet/issues/520))
+
+## [0.7.36] - 2026-09-17
+
+### Changed
+
 - The File, Edit, and Format menus were reorganized: the File menu (which had
   grown to roughly 14 flat entries) now keeps New, New CSV, Open, and Save at
   the top level and moves everything else into a **File > Export** submenu
@@ -379,6 +336,66 @@ release-time half (retitling `Unreleased`) is still done by hand.
   the Sheet and View menus; every command keeps its existing keyboard
   shortcut and is reachable in the same number of clicks plus one.
   ([#518](https://github.com/0x0da160/refrain-sheet/issues/518))
+
+### Fixed
+
+- On a mobile device, typing in the bottom formula bar no longer causes a
+  brief layout shift or scroll on every keystroke; the on-screen keyboard's
+  predictive-text suggestion bar changing height as you type was triggering
+  an unrelated scroll-position resync meant only for a different bug
+  (the page staying shifted after the keyboard closes, #402).
+  ([#519](https://github.com/0x0da160/refrain-sheet/issues/519))
+
+## [0.7.35] - 2026-09-16
+
+### Added
+
+- JSON files can now be opened and exported, alongside the existing CSV/RSF
+  and XLSX support. **File > Open** accepts a `.json` file containing a
+  top-level array of flat (non-nested) objects — one array element per row,
+  columns as the union of every object's keys — and imports it into a new
+  `.rsf` spreadsheet tab, the same lossy "import → new tab" pattern already
+  used for `.xlsx`. **File > Export as JSON…** writes the active worksheet's
+  calculated values back out as a JSON array of objects, using the first row
+  as field names; a multi-worksheet workbook is asked which worksheet to
+  export, exactly like **Export as CSV…**.
+  ([#516](https://github.com/0x0da160/refrain-sheet/issues/516))
+- Opening a file now auto-fits every column to its content by default,
+  matching what double-clicking a column border's resize handle already did
+  per-column. This is skipped for an RSF worksheet that already has its own
+  saved column widths, so an explicit prior resize is never overwritten. The
+  new **View > Auto-Fit Columns on Open** menu toggle turns it off; the
+  preference is local-only and never affects saved file bytes.
+  ([#513](https://github.com/0x0da160/refrain-sheet/issues/513))
+- Individual worksheets can now be locked against editing (**Sheet >
+  Worksheet > Lock Sheet**, or a worksheet tab's context menu): a locked
+  worksheet's cells and structure can't be changed until it's unlocked
+  again, while every other worksheet in the workbook stays editable. It's a
+  plain protection toggle — no password — and is saved with the file (`.rsf`
+  body version 13 / workbook body version 9); existing files and workbooks
+  that don't use it are unaffected.
+  ([#508](https://github.com/0x0da160/refrain-sheet/issues/508))
+
+## [0.7.34] - 2026-09-16
+
+### Added
+
+- The Markdown preview in the docked Markdown worksheet now renders
+  GFM-style tables (including per-column left/center/right alignment) and
+  syntax-highlighted fenced code blocks for a number of common languages
+  (JavaScript/TypeScript, Python, JSON, CSS, HTML, Bash, SQL, YAML, Rust,
+  Go); an unrecognized language still renders as plain, unhighlighted code,
+  as before. The docked Markdown worksheet also gained a toolbar button to
+  hide/show the preview pane, letting the source textarea use the full
+  width while it's hidden.
+  ([#486](https://github.com/0x0da160/refrain-sheet/issues/486))
+- Each worksheet tab in the worksheet strip now shows a small icon indicating
+  whether it's a regular grid sheet or a Markdown sheet, so the two are
+  distinguishable at a glance without adding any extra text next to the
+  sheet name. ([#506](https://github.com/0x0da160/refrain-sheet/issues/506))
+
+### Changed
+
 - The docked Markdown worksheet's rendered preview is now a dockable,
   resizable side panel — the same panel style as Filter/Sort/Format/SQL
   Query and the comments panel — instead of a fixed inline split with the
@@ -397,19 +414,100 @@ release-time half (retitling `Unreleased`) is still done by hand.
   to the document until the edit is committed (Enter, Tab, clicking elsewhere,
   or Escape to revert), exactly as before. Desktop layout is unchanged.
   ([#495](https://github.com/0x0da160/refrain-sheet/issues/495))
+
+### Removed
+
+- The standalone **File > Markdown Editor…** side panel has been removed.
+  It edited a plain `.md` file independently of any open CSV/spreadsheet
+  tab; the in-workbook Markdown worksheet (**Sheet > Add Markdown Sheet**,
+  added above) covers the same editing/preview need without a separate
+  tool. ([#505](https://github.com/0x0da160/refrain-sheet/issues/505))
+
+### Fixed
+
+- Adding a Markdown worksheet now suggests "Notes1" as the default name for
+  the first one, instead of continuing the regular worksheet numbering
+  (e.g. "Notes2" right after "Sheet1"); regular worksheets still suggest
+  "Sheet2", "Sheet3", … independently of how many Markdown worksheets exist.
+  ([#503](https://github.com/0x0da160/refrain-sheet/issues/503))
+- The docked Markdown worksheet's preview no longer gets clipped by long
+  content; it now scrolls internally instead.
+  ([#502](https://github.com/0x0da160/refrain-sheet/issues/502))
+- On a touch device, opening a dialog, popover, or docked panel (Filter,
+  Sort, Format, SQL Query, rename, and every other text field that
+  autofocuses when its dialog opens), or opening the Find/Replace bar, no
+  longer pops up the on-screen keyboard by itself; the keyboard now only
+  appears once the user actually taps the field.
+  ([#497](https://github.com/0x0da160/refrain-sheet/issues/497))
+- On a touch device, the on-screen keyboard no longer pops up unprompted
+  right after a new workbook or worksheet appears, and no longer pops back
+  up when a single tap dismisses a cell's long-press context menu; it now
+  appears only when editing actually starts (double-tap, Enter/F2, the
+  formula bar).
+  ([#496](https://github.com/0x0da160/refrain-sheet/issues/496))
+
+## [0.7.33] - 2026-09-16
+
+### Changed
+
 - The small orange corner marker shown on cells that have a comment is now
   mirrored left-right: it still sits in the same top-right corner, but its
   diagonal edge now points the other way.
   ([#488](https://github.com/0x0da160/refrain-sheet/issues/488))
+- On a phone-width screen, the app icon now also disappears while the
+  hamburger menu is open, freeing up the space it used to take in that row.
+  ([#489](https://github.com/0x0da160/refrain-sheet/issues/489))
+
+### Fixed
+
+- The docked Markdown worksheet's source textarea now actually fills its
+  pane instead of sitting at its small browser-default size, and no longer
+  triggers a page zoom when it gains focus on a phone; on a narrow screen the
+  source/preview panes now stack vertically instead of being squeezed
+  side by side. ([#486](https://github.com/0x0da160/refrain-sheet/issues/486))
+- Double-tapping a cell on a touch device reliably brings up the on-screen
+  keyboard again; the first tap of the pair could leave the keyboard
+  suppressed even once the second tap opened the cell for editing.
+  ([#487](https://github.com/0x0da160/refrain-sheet/issues/487))
+
+## [0.7.32] - 2026-09-15
+
+### Added
+
+- Markdown can now be added as a worksheet inside a spreadsheet workbook
+  (**Sheet > Add Markdown Sheet**, or the "+" button's context menu on the
+  worksheet strip): its source/preview editor is docked directly in the
+  spreadsheet area in place of the grid while that worksheet is active. This
+  is a new RSF container capability (`.rsf` body version 12 / workbook body
+  version 8) — existing files and workbooks that don't use it are
+  unaffected, and Markdown worksheets are excluded from CSV export (CSV has
+  no analog for a whole-sheet document).
+  ([#481](https://github.com/0x0da160/refrain-sheet/issues/481))
+- A brand-new CSV document (`File > New CSV`) can now have rows and columns
+  inserted, deleted, or appended directly, without first converting it to an
+  RSF spreadsheet — as long as it hasn't been saved yet. Once it's saved, the
+  usual "convert to RSF first" requirement applies again, the same as for any
+  other CSV file. ([#479](https://github.com/0x0da160/refrain-sheet/issues/479))
+
+### Changed
+
 - On a phone-width screen, the bottom row is now a three-column layout — app
   icon, status bar, then the menu toggle at the far edge — with the "Refrain
   Sheet" name hidden (icon only) to save space, the status bar's version
   text shortened to just e.g. "v0.7.31", and the expanded menu now scrolls
   instead of overflowing the screen on a short viewport.
   ([#478](https://github.com/0x0da160/refrain-sheet/issues/478))
-- On a phone-width screen, the app icon now also disappears while the
-  hamburger menu is open, freeing up the space it used to take in that row.
-  ([#489](https://github.com/0x0da160/refrain-sheet/issues/489))
+
+### Fixed
+
+- The workbook tab bar above the grid is now the same height as the sheet
+  tab bar below it, so the two tab strips line up visually.
+  ([#480](https://github.com/0x0da160/refrain-sheet/issues/480))
+
+## [0.7.31] - 2026-09-15
+
+### Changed
+
 - On a phone-width screen, the menu icon and its menu now sit at the bottom
   of the screen, sharing a row with the status bar instead of their own row
   at the top — easier to reach with a thumb and one row shorter.
@@ -419,6 +517,28 @@ release-time half (retitling `Unreleased`) is still done by hand.
   below the last row number, "add column" to the right of the last column
   number — and scroll and zoom together with the sheet.
   ([#467](https://github.com/0x0da160/refrain-sheet/issues/467))
+- On narrow (phone-width) screens, the worksheet tab strip below the grid is
+  slightly shorter, reclaiming a few pixels of vertical space for the sheet.
+  Existing 40px touch-target sizes for the worksheet tabs and their "add"
+  buttons are unchanged.
+  ([#468](https://github.com/0x0da160/refrain-sheet/issues/468))
+
+### Fixed
+
+- A single tap on a cell (or a row/column header) on a touch device no
+  longer pops up the on-screen keyboard by itself; the keyboard now only
+  appears once editing actually starts, e.g. via double-tap.
+  ([#469](https://github.com/0x0da160/refrain-sheet/issues/469))
+- Long-pressing a cell or row/column header on a touch device to open the
+  context menu works reliably again; a held finger's own small position
+  jitter no longer got misread as the start of a drag and silently
+  cancelled the menu.
+  ([#475](https://github.com/0x0da160/refrain-sheet/issues/475))
+
+## [0.7.30] - 2026-09-14
+
+### Changed
+
 - Opening a plain CSV file no longer shows a "CSV holds one sheet" note in
   the worksheet strip; a single-sheet CSV simply shows no worksheet tabs.
   The "add row" / "add column" icon buttons now render immediately after
@@ -445,42 +565,13 @@ release-time half (retitling `Unreleased`) is still done by hand.
   there's little usable width for a side dock. Manually picking a side still
   overrides this for the rest of the session, exactly as before.
   ([#459](https://github.com/0x0da160/refrain-sheet/issues/459))
-- On narrow (phone-width) screens, the worksheet tab strip below the grid is
-  slightly shorter, reclaiming a few pixels of vertical space for the sheet.
-  Existing 40px touch-target sizes for the worksheet tabs and their "add"
-  buttons are unchanged.
-  ([#468](https://github.com/0x0da160/refrain-sheet/issues/468))
-
-### Changed
-
-- The accent color throughout the app (buttons, links, the selected-cell
-  outline, range-fill and find highlights, and one of the four
-  formula-reference colors) is now a teal/green instead of the previous
-  blue-violet, and the neutral gray used for panels/borders/text was retuned
-  to sit alongside it. The green "success"/formula-evaluation color family
-  was also rotated further from the new accent so the two stay visually
-  distinct. Every text-on-background color pairing that composes in the app
-  (body text, buttons, links, warning banners, error/success text) was
-  re-verified — not just assumed unchanged — against WCAG AA (4.5:1) in the
-  light, dark, and hybrid themes; a new `scripts/check-contrast.mjs` does
-  this from the actual declared color values on every future change, wired
-  into CI.
-  ([#535](https://github.com/0x0da160/refrain-sheet/issues/535),
-  [#557](https://github.com/0x0da160/refrain-sheet/issues/557))
 
 ### Fixed
 
-- The welcome screen's primary "Open CSV / RSF File…" button (and its two
-  secondary buttons) rendered with the wrong text color in every theme — a
-  plain `button { color: inherit }` base style was silently overriding their
-  intended accent-colored text, because it sat outside any CSS cascade
-  layer while the color coming from a Tailwind utility class sat inside one,
-  and an unlayered rule always wins over a layered one regardless of
-  selector specificity. This was the actual root cause of the low-contrast
-  home-screen button reported for the light theme; it affected every theme
-  identically. The button text now correctly uses the accent-contrast color
-  it was always meant to.
-  ([#535](https://github.com/0x0da160/refrain-sheet/issues/535))
+- Double-tapping a cell on a touch device now opens it for editing and
+  brings up the on-screen keyboard, matching what double-clicking already
+  does with a mouse.
+  ([#458](https://github.com/0x0da160/refrain-sheet/issues/458))
 
 ## [0.7.29] - 2026-09-14
 

@@ -66,19 +66,22 @@ The committed `.npmrc` applies to every npm invocation in the repo:
 - **`ci.yml`** (pull requests + pushes to `main`) is entirely read-only.
   Runs install (`--ignore-scripts`), version-consistency, format, lint,
   test, build, `check:dist`, the `npm audit` gate, and a clean-tree
-  assertion. Fork PRs run here with no secrets and no write access.
+  assertion, split across parallel jobs that an aggregate `ci` job gates.
+  Fork PRs run here with no secrets and no write access.
 - **`dependency-review.yml`** runs on `pull_request` and fails a PR that
   introduces a high/critical-severity or disallowed-license dependency.
   Uses `pull_request`, not `pull_request_target`, so untrusted PR code
   never runs with secrets or write access.
-- **`code-stats.yml`** (pushes to `main` and `workflow_dispatch`) holds
+- **`release-docs.yml`** (`workflow_dispatch` only) holds
   `contents: write` and `pull-requests: write`, but never writes to `main`
-  directly — it pushes a rolling `chore/code-stats` branch (with an
+  directly — it pushes a rolling `chore/release-docs` branch (with an
   explicit `--force-with-lease=<ref>:<sha>`, so the branch is only ever
   advanced from where this workflow itself left it) and opens a PR reviewed
-  like any other. It runs no repository code: `cloc` comes from the signed
-  Ubuntu archive, and the only script it executes is the committed
-  `scripts/code-stats.mjs`.
+  like any other. It installs no npm dependencies: `cloc` comes from the
+  signed Ubuntu archive, and the only scripts it executes are the committed
+  `scripts/changelog.mjs` and `scripts/code-stats.mjs`. Releases normally
+  update the same two files inside the release commit (`scripts/release.mjs`),
+  so this is a manual catch-up only.
 - **`release.yml`** is the only workflow that writes to the repository
   **without review**, and only on a pushed strict-SemVer tag. The
   `release` job holds `contents: write`, `id-token: write`, and
@@ -94,12 +97,10 @@ major-version tag (e.g. `actions/checkout@v4`) — an explicit, documented
 exception for first-party actions.
 
 **Any third-party (non-`actions/*`) action MUST be pinned to a full commit
-SHA**, not a mutable tag. `anthropics/claude-code-action` is currently the
-one third-party action in use — 10 call sites across
-`close-loop.yml`/`implement-issue.yml`/`issue-triage.yml`/
-`prepare-issue-spec.yml`/`review-pr.yml` — every one pinned to the same
-full commit SHA, with the release it corresponds to kept visible as a
-trailing comment.
+SHA**, not a mutable tag, with the release it corresponds to kept visible as
+a trailing comment. No third-party action is currently in use: the only one,
+`anthropics/claude-code-action`, left with the Issue-driven agent-loop
+workflows (see [the agent loop index](../agent-loop/index.md)).
 
 ## Release security controls
 

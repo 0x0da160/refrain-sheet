@@ -2,7 +2,8 @@
 // Guards the release script's staged-files safety check. `git diff --cached
 // --name-only` lists staged paths alphabetically, so package-lock.json
 // (hyphen sorts before dot) is reported before package.json — the check
-// must accept either order and still reject any unexpected file.
+// must accept either order and still reject any unexpected file. The release
+// commit may also carry CHANGELOG.md and README.md (code statistics).
 import { describe, expect, it } from 'vitest';
 import { isStagedFilesAllowed } from '../scripts/release.mjs';
 
@@ -14,6 +15,15 @@ describe('isStagedFilesAllowed', () => {
 
   it('accepts package.json alone when the lockfile did not change', () => {
     expect(isStagedFilesAllowed('package.json')).toBe(true);
+  });
+
+  it('accepts the changelog and README code statistics alongside the version files', () => {
+    expect(isStagedFilesAllowed('CHANGELOG.md\nREADME.md\npackage-lock.json\npackage.json')).toBe(true);
+    expect(isStagedFilesAllowed('CHANGELOG.md\npackage.json')).toBe(true);
+  });
+
+  it('rejects the changelog or README without package.json', () => {
+    expect(isStagedFilesAllowed('CHANGELOG.md\nREADME.md')).toBe(false);
   });
 
   it('rejects package-lock.json alone (package.json must always be staged)', () => {

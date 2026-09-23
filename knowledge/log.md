@@ -210,3 +210,11 @@ from `docs/…`" notes from the root and domain indexes (history stays here),
 so the files every task reads first carry only navigation.
 `scripts/check-knowledge-frontmatter.mjs` now also checks relative links,
 repository paths, and `stale_after` dates.
+
+**Workflow cleanup.** Removed the dormant Issue-driven agent-loop workflows
+(`issue-triage`, `prepare-issue-spec`, `implement-issue`, `review-pr`,
+`close-loop`) and `code-stats.yml`; noted the removal in
+`agent-loop/index.md` and `agent-loop/lifecycle.md` and updated the CI
+permission model and pinning policy in `operations/security-supply-chain.md`.
+Release commits now carry the CHANGELOG.md section and README code
+statistics; the manual `release-docs.yml` workflow catches either up.

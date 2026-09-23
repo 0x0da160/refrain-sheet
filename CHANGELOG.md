@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.8.12] - 2026-09-23
+
 ### Added
 
 - Adding `#debug-viewport` to the end of the app's URL now shows a small

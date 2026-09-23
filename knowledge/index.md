@@ -19,9 +19,9 @@ do not read this whole bundle to make a local change.
   formula engine's internal structure, and cross-cutting invariants.
 - [Operations](operations/index.md) — security threat model and
   supply-chain controls, and performance principles and measurements.
-- [Formats](formats/index.md) — the `.rsf` binary container specification:
-  framing, body grammar (single-sheet and workbook), cross-sheet formulas,
-  the value model, dynamic arrays, and versioning/compatibility.
+- [Formats](formats/index.md) — the `.rsf` file specification: the
+  Zstandard container, the JSON document, cross-sheet formulas, the value
+  model, dynamic arrays, and versioning/compatibility.
 - [Agent loop](agent-loop/index.md) — the GitHub Issue-driven engineering
   loop: lifecycle, autonomous execution policy, bilingual communication,
   smartphone-first operation, notifications, configuration/permissions,

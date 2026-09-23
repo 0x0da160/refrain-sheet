@@ -2,9 +2,9 @@
 
 File-format specifications Refrain Sheet reads or writes.
 
-- [RSF](rsf/index.md) — the `.rsf` binary spreadsheet container: design
-  goals, container/body framing, cross-sheet formulas, the value model, and
-  versioning/compatibility.
+- [RSF](rsf/index.md) — the `.rsf` spreadsheet file (Zstandard-compressed
+  JSON): design goals, the container, the JSON document, cross-sheet
+  formulas, the value model, and versioning/compatibility.
 
 Only RSF has a dedicated format specification long enough to warrant its own
 concepts. CSV handling (the byte-preserving `LosslessDocument` model) and the

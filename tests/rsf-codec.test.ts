@@ -1,733 +1,362 @@
 // SPDX-License-Identifier: MIT
+/**
+ * The `.rsf` codec (#602): a skippable Zstandard frame carrying the "RSF2"
+ * identifier, length, and CRC-32, then one standard Zstandard frame holding
+ * the workbook as JSON. Round trips, the defaults the writer leaves out, the
+ * readable JSON layout, strict validation of hand-edited files, container
+ * failures, and both engines (WASM compresses; the JS fallback writes Raw
+ * blocks and cannot read compressed blocks).
+ */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { getRsfCodec, initCsvEngine, setCsvEngineForTesting } from '../src/core/csv-engine';
 import {
-  getRsfCodec,
-  initCsvEngine,
-  RSF_COMPRESSION_DEFLATE,
-  RSF_COMPRESSION_LZ4,
-  RSF_COMPRESSION_STORE,
-  RSF_COMPRESSION_ZSTD,
-  setCsvEngineForTesting,
-} from '../src/core/csv-engine';
-import {
-  decodeRsf,
-  encodeRsf,
-  isRsfMethod,
+  decodeRsfHistorySnapshot,
+  decodeRsfWorkbook,
+  encodeRsfBody,
+  encodeRsfWorkbook,
+  MAX_RSF_BODY_BYTES,
   MAX_RSF_HISTORY_SNAPSHOTS,
-  RSF_CONTAINER_VERSION,
-  RSF_LEGACY_CONTAINER_VERSION,
-  RSF_LEGACY_MAGIC,
-  RSF_MAGIC,
-  RsfEncodeError,
-  type RsfData,
-  type RsfHistorySnapshot,
+  packRsfJsonText,
+  rsfJsonText,
+  unpackRsfJsonText,
+  type RsfWorkbookData,
+  type RsfWorksheetData,
 } from '../src/core/rsf-codec';
-import { RsfDocument, RSF_EXTENSION } from '../src/core/rsf-document';
+import { RsfDocument } from '../src/core/rsf-document';
+import { readSimpleZstdFrame, writeRawZstdFrame } from '../src/core/zstd-frame';
+import { rsfFromTree, rsfTree } from './rsf-single-sheet';
 
-const sample: RsfData = {
+const sheet: RsfWorksheetData = {
+  id: 's1',
   name: 'Sheet1',
-  delimiter: ';',
-  rowCount: 4,
+  rowCount: 3,
   columnCount: 3,
   cells: [
-    [0, 0, 'value'],
-    [1, 2, '=SUM(A1:A2)'],
-    [3, 1, 'multi\nline — ünïcödé'],
+    [0, 0, 'name'],
+    [0, 2, '=A1&"!"'],
+    [2, 1, 'multi\nline'],
   ],
 };
 
-/** Compare a decoded sheet to `sample` ignoring the stamped compression id. */
-function expectSample(data: RsfData): void {
-  const rest = { ...data };
-  delete rest.compression;
-  expect(rest).toEqual(sample);
+const book: RsfWorkbookData = { delimiter: ',', activeSheetId: 's1', sheets: [sheet] };
+
+function decodeTree(tree: unknown) {
+  return decodeRsfWorkbook(rsfFromTree(tree));
 }
 
-describe('binary container codec (JS store engine)', () => {
-  it('round-trips a sheet through the store codec', () => {
-    const bytes = encodeRsf(sample);
-    expect(bytes[5]).toBe(RSF_COMPRESSION_STORE);
-    const decoded = decodeRsf(bytes);
+describe('.rsf codec: round trips', () => {
+  it('round-trips a workbook', () => {
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(book));
     expect(decoded.ok).toBe(true);
     if (!decoded.ok) return;
-    expectSample(decoded.data);
-    // The container's method is reported back so a document can preserve it.
-    expect(decoded.data.compression).toBe(RSF_COMPRESSION_STORE);
+    expect(decoded.data).toMatchObject(book);
   });
 
-  it('only stores under the JS fallback and refuses compressed methods', () => {
-    const codec = getRsfCodec();
-    expect(codec.defaultMethod()).toBe(RSF_COMPRESSION_STORE);
-    expect(codec.writableMethods()).toEqual([RSF_COMPRESSION_STORE]);
-    expect(codec.canWrite(RSF_COMPRESSION_ZSTD)).toBe(false);
-    expect(() => encodeRsf(sample, RSF_COMPRESSION_ZSTD)).toThrow(RsfEncodeError);
+  it('round-trips workbook metadata', () => {
+    const data: RsfWorkbookData = {
+      ...book,
+      appName: 'Refrain Sheet',
+      appVersion: '1.2.3',
+      docId: 'abc',
+      createdAt: 1_700_000_000_000,
+      updatedAt: 1_700_000_360_000,
+      timezone: 'Asia/Tokyo',
+      displayLanguage: 'ja',
+      autoFormatSource: true,
+      historyEnabled: false,
+      historyMaxOverride: null,
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok && decoded.data).toMatchObject(data);
   });
 
-  it('exposes the magic bytes and a 20-byte header', () => {
-    const bytes = encodeRsf({ ...sample, cells: [] });
-    expect(Array.from(bytes.subarray(0, 4))).toEqual(Array.from(RSF_MAGIC));
-  });
-
-  it('round-trips application metadata (body version 2)', () => {
-    const withMeta: RsfData = { ...sample, appName: 'Refrain Sheet', appVersion: '0.1.1' };
-    const decoded = decodeRsf(encodeRsf(withMeta));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.appName).toBe('Refrain Sheet');
-    expect(decoded.data.appVersion).toBe('0.1.1');
-    expect(decoded.data.cells).toEqual(sample.cells);
-  });
-
-  it('omits metadata for a legacy version-1 body', () => {
-    const decoded = decodeRsf(encodeRsf(sample));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.appName).toBeUndefined();
-    expect(decoded.data.appVersion).toBeUndefined();
-  });
-
-  it('round-trips a non-UTC workbook timezone (body version 6)', () => {
-    const withTimezone: RsfData = { ...sample, timezone: 'Asia/Tokyo' };
-    const decoded = decodeRsf(encodeRsf(withTimezone));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.timezone).toBe('Asia/Tokyo');
-    expect(decoded.data.cells).toEqual(sample.cells);
-  });
-
-  it('omits the timezone field for UTC, staying on the lowest sufficient body version', () => {
-    const utcExplicit = decodeRsf(encodeRsf({ ...sample, timezone: 'UTC' }));
-    expect(utcExplicit.ok).toBe(true);
-    if (utcExplicit.ok) expect(utcExplicit.data.timezone).toBeUndefined();
-
-    const utcImplicit = decodeRsf(encodeRsf(sample));
-    expect(utcImplicit.ok).toBe(true);
-    if (utcImplicit.ok) expect(utcImplicit.data.timezone).toBeUndefined();
-  });
-
-  it('round-trips a non-default workbook display language (body version 7)', () => {
-    const withLanguage: RsfData = { ...sample, displayLanguage: 'ja' };
-    const decoded = decodeRsf(encodeRsf(withLanguage));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.displayLanguage).toBe('ja');
-    expect(decoded.data.cells).toEqual(sample.cells);
-  });
-
-  it('carries a non-UTC timezone alongside a non-default display language (both body version 7)', () => {
-    const both: RsfData = { ...sample, timezone: 'Asia/Tokyo', displayLanguage: 'ja' };
-    const decoded = decodeRsf(encodeRsf(both));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.timezone).toBe('Asia/Tokyo');
-    expect(decoded.data.displayLanguage).toBe('ja');
-  });
-
-  it('omits the display-language field for English, staying on the lowest sufficient body version', () => {
-    const enExplicit = decodeRsf(encodeRsf({ ...sample, displayLanguage: 'en' }));
-    expect(enExplicit.ok).toBe(true);
-    if (enExplicit.ok) expect(enExplicit.data.displayLanguage).toBeUndefined();
-
-    const enImplicit = decodeRsf(encodeRsf(sample));
-    expect(enImplicit.ok).toBe(true);
-    if (enImplicit.ok) expect(enImplicit.data.displayLanguage).toBeUndefined();
-  });
-
-  it('round-trips a markdown worksheet (body version 12)', () => {
-    const markdown: RsfData = {
-      name: 'Notes',
+  it.each(['markdown', 'json', 'yaml', 'text'] as const)('round-trips a %s worksheet', (kind) => {
+    const text = '# a\n\nb: [1, 2]\n';
+    const data: RsfWorkbookData = {
       delimiter: ',',
-      rowCount: 1,
-      columnCount: 1,
-      cells: [[0, 0, '# Hello']],
-      kind: 'markdown',
+      sheets: [
+        { id: 'x', name: 'X', kind, rowCount: 1, columnCount: 1, cells: [[0, 0, text]], locked: true },
+      ],
     };
-    const decoded = decodeRsf(encodeRsf(markdown));
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
     expect(decoded.ok).toBe(true);
     if (!decoded.ok) return;
-    expect(decoded.data.kind).toBe('markdown');
-    expect(decoded.data.cells).toEqual([[0, 0, '# Hello']]);
+    expect(decoded.data.sheets[0]).toMatchObject({ kind, cells: [[0, 0, text]], locked: true });
   });
 
-  it('omits the kind field for an ordinary grid worksheet, staying on the lowest sufficient body version', () => {
-    const decoded = decodeRsf(encodeRsf(sample));
-    expect(decoded.ok).toBe(true);
-    if (decoded.ok) expect(decoded.data.kind).toBeUndefined();
-  });
-
-  it('rejects a markdown worksheet with any shape other than 1x1', () => {
-    const decoded = decodeRsf(encodeRsf({ ...sample, kind: 'markdown' }));
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
-  });
-
-  it('round-trips a locked worksheet (body version 13)', () => {
-    const locked: RsfData = { ...sample, locked: true };
-    const decoded = decodeRsf(encodeRsf(locked));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.locked).toBe(true);
-    expect(decoded.data.cells).toEqual(sample.cells);
-  });
-
-  it('omits the locked field for an unlocked worksheet, staying on the lowest sufficient body version', () => {
-    const decoded = decodeRsf(encodeRsf(sample));
-    expect(decoded.ok).toBe(true);
-    if (decoded.ok) expect(decoded.data.locked).toBeUndefined();
-
-    const explicit = decodeRsf(encodeRsf({ ...sample, locked: false }));
-    expect(explicit.ok).toBe(true);
-    if (explicit.ok) expect(explicit.data.locked).toBeUndefined();
-  });
-
-  it('carries a lock alongside a markdown kind (both forced to body version 13)', () => {
-    const both: RsfData = {
-      name: 'Notes',
-      delimiter: ',',
-      rowCount: 1,
-      columnCount: 1,
-      cells: [[0, 0, '# Hello']],
-      kind: 'markdown',
-      locked: true,
-    };
-    const decoded = decodeRsf(encodeRsf(both));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.kind).toBe('markdown');
-    expect(decoded.data.locked).toBe(true);
-  });
-
-  it('round-trips a json worksheet (body version 15)', () => {
-    const json: RsfData = {
-      name: 'Data',
-      delimiter: ',',
-      rowCount: 1,
-      columnCount: 1,
-      cells: [[0, 0, '{"a":1}']],
-      kind: 'json',
-    };
-    const decoded = decodeRsf(encodeRsf(json));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.kind).toBe('json');
-    expect(decoded.data.cells).toEqual([[0, 0, '{"a":1}']]);
-  });
-
-  it('does not mark an unlocked json/yaml/text worksheet as locked just because its kind forces a higher body version', () => {
-    // Regression test: a json/yaml/text kind forces the same higher body
-    // version tier a lock would (both feed `hasHistorySection`/`hasLocked`
-    // in the minimal-version-write cascade — see `encodeBody`), which
-    // previously caused the locked byte to be written unconditionally as 1
-    // whenever it was merely *physically present*, rather than reflecting
-    // the worksheet's actual (unlocked) state.
-    for (const kind of ['json', 'yaml', 'text'] as const) {
-      const data: RsfData = {
-        name: 'Notes',
-        delimiter: ',',
-        rowCount: 1,
-        columnCount: 1,
-        cells: [[0, 0, 'x']],
-        kind,
-      };
-      const decoded = decodeRsf(encodeRsf(data));
-      expect(decoded.ok).toBe(true);
-      if (!decoded.ok) continue;
-      expect(decoded.data.kind).toBe(kind);
-      expect(decoded.data.locked).toBeUndefined();
-    }
-  });
-
-  it('rejects a json worksheet with any shape other than 1x1', () => {
-    const decoded = decodeRsf(encodeRsf({ ...sample, kind: 'json' }));
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
-  });
-
-  it('carries a lock alongside a json kind (both forced to body version 15)', () => {
-    const both: RsfData = {
-      name: 'Data',
-      delimiter: ',',
-      rowCount: 1,
-      columnCount: 1,
-      cells: [[0, 0, '[]']],
-      kind: 'json',
-      locked: true,
-    };
-    const decoded = decodeRsf(encodeRsf(both));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.kind).toBe('json');
-    expect(decoded.data.locked).toBe(true);
-  });
-
-  it.each(['yaml', 'text'] as const)('round-trips a %s worksheet (body version 17)', (kind) => {
-    const data: RsfData = {
-      name: 'Notes',
-      delimiter: ',',
-      rowCount: 1,
-      columnCount: 1,
-      cells: [[0, 0, kind === 'yaml' ? 'a: 1\nb: 2\n' : 'plain text content']],
-      kind,
-    };
-    const decoded = decodeRsf(encodeRsf(data));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.kind).toBe(kind);
-    expect(decoded.data.cells).toEqual(data.cells);
-  });
-
-  it.each(['yaml', 'text'] as const)('rejects a %s worksheet with any shape other than 1x1', (kind) => {
-    const decoded = decodeRsf(encodeRsf({ ...sample, kind }));
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
-  });
-
-  it.each(['yaml', 'text'] as const)(
-    'carries a lock alongside a %s kind (both forced to body version 17)',
-    (kind) => {
-      const both: RsfData = {
-        name: 'Notes',
-        delimiter: ',',
-        rowCount: 1,
-        columnCount: 1,
-        cells: [[0, 0, 'x']],
-        kind,
-        locked: true,
-      };
-      const decoded = decodeRsf(encodeRsf(both));
-      expect(decoded.ok).toBe(true);
-      if (!decoded.ok) return;
-      expect(decoded.data.kind).toBe(kind);
-      expect(decoded.data.locked).toBe(true);
-    },
-  );
-
-  // Regression coverage for a real bug caught in review before it shipped:
-  // an earlier draft of the yaml/text worksheet kind gave it body version
-  // 16, sharing that number with the already-released (v0.8.3)
-  // retained-snapshot cap override, which would have broken decoding of
-  // real files saved by that release. Cap override keeps its original
-  // version (16/12); yaml/text sits above it (17/13). These two
-  // tests are the coverage gap that let that bug through: no existing test
-  // combined the two features, and none simulated bytes an *already-shipped*
-  // release actually wrote (every other round-trip test only exercises this
-  // release's own encoder).
-  it.each(['yaml', 'text'] as const)(
-    'combines a %s worksheet with a retained-snapshot cap override at the shared top version (17)',
-    (kind) => {
-      const data: RsfData = {
-        name: 'Notes',
-        delimiter: ',',
-        rowCount: 1,
-        columnCount: 1,
-        cells: [[0, 0, 'content']],
-        kind,
-        historyMaxOverride: 7,
-      };
-      const decoded = decodeRsf(encodeRsf(data));
-      expect(decoded.ok).toBe(true);
-      if (!decoded.ok) return;
-      expect(decoded.data.kind).toBe(kind);
-      expect(decoded.data.historyMaxOverride).toBe(7);
-    },
-  );
-
-  it('decodes a cap override written the way v0.8.3 actually wrote it: version 16 alone, no presence bit ever set', () => {
-    // v0.8.3's own `encodeHistoryBlock` never had a "cap-override field
-    // present" bit (see `readHistoryBlock`'s doc comment) — presence was
-    // implied purely by reaching body version 16, which was safe only
-    // because cap override was the sole feature able to select that version
-    // at the time. The *current* encoder now also stamps that presence bit
-    // (bit 2) — harmlessly redundant for a version-16 body, since
-    // `legacyMaxOverridePresent` (bodyVersion === 16) already forces
-    // presence regardless of the bit — but a real v0.8.3 file has the
-    // override bytes with that bit left unset. This test builds exactly
-    // that shape through the real, public `decodeRsf` container entry point
-    // (not a raw-body helper, so nothing about container framing or CRC is
-    // skipped): encode with STORE compression so the body sits byte-for-byte
-    // in the container with no transform to account for, locate the one
-    // 9-byte sequence the history block's flags/override/snapshot-count
-    // fields must produce for this minimal input, clear bit 2 to simulate
-    // the older release's bytes, and recompute the CRC-32 the container
-    // checks on decode (real old bytes have a CRC that matches their own
-    // content; a hand-edited copy needs the same to reach the code path
-    // this test targets instead of failing earlier on a checksum mismatch).
-    // The container header's fixed size (magic 4 + container version 1 +
-    // method 1 + reserved 1 + codec profile 1 + body length u32 + CRC-32 u32
-    // + payload length u32 = 20 bytes — see `knowledge/formats/rsf/index.md`'s container
-    // layout table). Not exported from the codec (it's a private constant
-    // there); hardcoded here since it's a stable, documented format detail.
-    const HEADER_SIZE = 20;
-    const withOverride: RsfData = {
-      name: 'Sheet1',
-      delimiter: ',',
-      rowCount: 1,
-      columnCount: 1,
-      cells: [],
-      historyMaxOverride: 5,
-    };
-    const bytes = encodeRsf(withOverride, RSF_COMPRESSION_STORE);
-    const body = bytes.subarray(HEADER_SIZE);
-    expect(body[0]).toBe(16); // sanity: cap override alone still selects its original version
-
-    // flags=5 (enabled=1 | hasOverride bit2=4), override=5 (u32 LE), then a
-    // 0 (u32 LE) snapshot count — distinctive enough not to collide with the
-    // ASCII sheet name ("Sheet1") or any other section of this minimal body.
-    const needle = [5, 5, 0, 0, 0, 0, 0, 0, 0];
-    let flagsOffset = -1;
-    for (let i = 0; i + needle.length <= body.length; i++) {
-      if (needle.every((b, j) => body[i + j] === b)) {
-        flagsOffset = i;
-        break;
-      }
-    }
-    expect(flagsOffset).toBeGreaterThan(0);
-
-    const legacyBytes = bytes.slice();
-    legacyBytes[HEADER_SIZE + flagsOffset] &= ~4; // clear the bit v0.8.3 never wrote
-    expect(legacyBytes[HEADER_SIZE + flagsOffset]).toBe(1); // enabled, no "override present" bit
-    const legacyBody = legacyBytes.subarray(HEADER_SIZE);
-    const crc = getRsfCodec().crc32(legacyBody);
-    new DataView(legacyBytes.buffer).setUint32(12, crc, true); // container CRC-32 offset
-
-    const decoded = decodeRsf(legacyBytes);
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    // The whole point: version 16 alone must still mean "override present"
-    // even with the presence bit cleared, exactly as a real v0.8.3 file has it.
-    expect(decoded.data.historyMaxOverride).toBe(5);
-  });
-
-  it('round-trips version history with snapshots (body version 14)', () => {
-    const history: RsfHistorySnapshot[] = [
-      { timestamp: 1000, bytes: new Uint8Array([1, 2, 3]) },
-      { timestamp: 2000, bytes: new Uint8Array([4, 5, 6, 7]) },
-    ];
-    const withHistory: RsfData = { ...sample, history };
-    const decoded = decodeRsf(encodeRsf(withHistory));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.historyEnabled).toBeUndefined(); // absent means enabled (the default)
-    expect(decoded.data.history).toEqual(history);
-    expect(decoded.data.cells).toEqual(sample.cells);
-  });
-
-  it('round-trips version history disabled with no snapshots (body version 14)', () => {
-    const decoded = decodeRsf(encodeRsf({ ...sample, historyEnabled: false }));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.historyEnabled).toBe(false);
-    expect(decoded.data.history).toBeUndefined();
-  });
-
-  it('omits the history section when enabled (the default) with no snapshots, staying on the lowest sufficient body version', () => {
-    const decoded = decodeRsf(encodeRsf(sample));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.historyEnabled).toBeUndefined();
-    expect(decoded.data.history).toBeUndefined();
-
-    const explicit = decodeRsf(encodeRsf({ ...sample, historyEnabled: true, history: [] }));
-    expect(explicit.ok).toBe(true);
-    if (explicit.ok) {
-      expect(explicit.data.historyEnabled).toBeUndefined();
-      expect(explicit.data.history).toBeUndefined();
-    }
-  });
-
-  it('carries history alongside a lock (both forced to body version 14)', () => {
-    const both: RsfData = {
-      ...sample,
-      locked: true,
-      history: [{ timestamp: 42, bytes: new Uint8Array([9]) }],
-    };
-    const decoded = decodeRsf(encodeRsf(both));
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.locked).toBe(true);
-    expect(decoded.data.history).toEqual(both.history);
-  });
-
-  it('round-trips a numeric retained-snapshot cap override', () => {
-    const withOverride: RsfData = { ...sample, historyMaxOverride: 5 };
-    const decoded = decodeRsf(encodeRsf(withOverride));
-    expect(decoded.ok).toBe(true);
-    if (decoded.ok) expect(decoded.data.historyMaxOverride).toBe(5);
-  });
-
-  it('round-trips an unlimited (null) retained-snapshot cap override', () => {
-    const unlimited: RsfData = { ...sample, historyMaxOverride: null };
-    const decoded = decodeRsf(encodeRsf(unlimited));
-    expect(decoded.ok).toBe(true);
-    if (decoded.ok) expect(decoded.data.historyMaxOverride).toBeNull();
-  });
-
-  it('omits the cap-override field when no override is set', () => {
-    const decoded = decodeRsf(
-      encodeRsf({ ...sample, history: [{ timestamp: 1, bytes: new Uint8Array(0) }] }),
+  it('round-trips version history snapshots, which decode on their own', () => {
+    const snapshot = { timestamp: 1_700_000_000_000, bytes: encodeRsfBody(book) };
+    const decoded = decodeRsfWorkbook(
+      encodeRsfWorkbook({ ...book, history: [snapshot], historyMaxOverride: 3 }),
     );
     expect(decoded.ok).toBe(true);
-    if (decoded.ok) expect(decoded.data.historyMaxOverride).toBeUndefined();
-  });
-
-  it('round-trips autoFormatSource (body version 17, the same tier as yaml/text)', () => {
-    const withAutoFormat: RsfData = { ...sample, autoFormatSource: true };
-    const decoded = decodeRsf(encodeRsf(withAutoFormat));
-    expect(decoded.ok).toBe(true);
-    if (decoded.ok) expect(decoded.data.autoFormatSource).toBe(true);
-  });
-
-  it('omits autoFormatSource (reads back false) when never set', () => {
-    const decoded = decodeRsf(encodeRsf(sample));
-    expect(decoded.ok).toBe(true);
-    if (decoded.ok) expect(decoded.data.autoFormatSource).toBeUndefined();
-  });
-
-  it('combines autoFormatSource with a retained-snapshot cap override at the shared top version (17)', () => {
-    // Exercises all three history-flags bits together: enabled, cap-override
-    // present, and auto-format-source, none of which should interfere with
-    // the others.
-    const both: RsfData = { ...sample, autoFormatSource: true, historyMaxOverride: 9 };
-    const decoded = decodeRsf(encodeRsf(both));
-    expect(decoded.ok).toBe(true);
     if (!decoded.ok) return;
-    expect(decoded.data.autoFormatSource).toBe(true);
-    expect(decoded.data.historyMaxOverride).toBe(9);
+    expect(decoded.data.historyMaxOverride).toBe(3);
+    expect(decoded.data.history).toHaveLength(1);
+    expect(decoded.data.history?.[0].timestamp).toBe(snapshot.timestamp);
+    const restored = decodeRsfHistorySnapshot(decoded.data.history![0]);
+    expect(restored.ok && restored.data.sheets[0].cells).toEqual(sheet.cells);
   });
 
-  it('rejects a decoded numeric cap override outside [1, MAX_RSF_HISTORY_SNAPSHOTS] as bad-shape', () => {
-    // A writer (RsfDocument.setHistoryMaxOverride) never produces 0 or a
-    // value above the ceiling — it clamps before saving — so this stands in
-    // for a hand-edited/hostile file: the encoder happily writes what it's
-    // given, and the reader must reject the out-of-range value.
-    expect(decodeRsf(encodeRsf({ ...sample, historyMaxOverride: 1 })).ok).toBe(true); // sanity: 1 is valid
-    const zero = decodeRsf(encodeRsf({ ...sample, historyMaxOverride: 0 }));
-    expect(zero.ok).toBe(false);
-    if (!zero.ok) expect(zero.error).toBe('bad-shape');
-    const tooLarge = decodeRsf(encodeRsf({ ...sample, historyMaxOverride: MAX_RSF_HISTORY_SNAPSHOTS + 1 }));
-    expect(tooLarge.ok).toBe(false);
-    if (!tooLarge.ok) expect(tooLarge.error).toBe('bad-shape');
-  });
-
-  it('rejects a snapshot count above the retained cap as too-large', () => {
-    // A writer never emits more than MAX_RSF_HISTORY_SNAPSHOTS (RsfDocument
-    // caps it before saving), so this stands in for a hand-edited/hostile
-    // file: the encoder happily writes what it's given, and the reader must
-    // reject the excess rather than allocate for it.
-    const tooMany: RsfHistorySnapshot[] = Array.from({ length: MAX_RSF_HISTORY_SNAPSHOTS + 1 }, (_, i) => ({
-      timestamp: i,
-      bytes: new Uint8Array(0),
-    }));
-    const decoded = decodeRsf(encodeRsf({ ...sample, history: tooMany }));
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('too-large');
-  });
-
-  it('rejects a truncated history block as bad-shape', () => {
-    const withHistory: RsfData = {
-      ...sample,
-      history: [{ timestamp: 1, bytes: new Uint8Array([1, 2, 3, 4, 5]) }],
+  it('keeps hostile-looking text as plain strings', () => {
+    const data: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [{ ...sheet, cells: [[0, 0, '<script>alert(1)</script>']], name: '"},{"x":1' }],
     };
-    const bytes = encodeRsf(withHistory);
-    const decoded = decodeRsf(bytes.subarray(0, bytes.length - 3));
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok && decoded.data.sheets[0]).toMatchObject({
+      name: '"},{"x":1',
+      cells: [[0, 0, '<script>alert(1)</script>']],
+    });
+  });
+});
+
+describe('.rsf codec: readable JSON', () => {
+  it('writes one grid row per line and trims trailing empty cells', () => {
+    const text = rsfJsonText(book);
+    expect(text).toContain('\n        ["name", "", "=A1&\\"!\\""],\n');
+    expect(text).toContain('\n        [],\n');
+    expect(text).toContain('\n        ["", "multi\\nline"]\n');
+    expect(text.endsWith('}\n')).toBe(true);
   });
 
-  it('rejects a truncated payload', () => {
-    const bytes = encodeRsf(sample);
-    const decoded = decodeRsf(bytes.subarray(0, bytes.length - 2));
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
+  it('writes a source worksheet as one line of text per line', () => {
+    const text = rsfJsonText({
+      delimiter: ',',
+      sheets: [
+        { id: 'm', name: 'M', kind: 'markdown', rowCount: 1, columnCount: 1, cells: [[0, 0, '# T\nbody']] },
+      ],
+    });
+    expect(text).toContain('"lines": [\n        "# T",\n        "body"\n      ]');
+  });
+
+  it('leaves the defaults out: UTC, English, history on with no snapshots, grid-only fields', () => {
+    const tree = rsfTree(
+      encodeRsfWorkbook({
+        ...book,
+        timezone: 'UTC',
+        displayLanguage: 'en',
+        historyEnabled: true,
+        history: [],
+      }),
+    );
+    expect(tree.timezone).toBeUndefined();
+    expect(tree.language).toBeUndefined();
+    expect(tree.history).toBeUndefined();
+    expect(tree.sheets[0].locked).toBeUndefined();
+    expect(tree.sheets[0].lines).toBeUndefined();
+  });
+
+  it('keys styles and comments by A1 reference', () => {
+    const tree = rsfTree(
+      encodeRsfWorkbook({
+        ...book,
+        sheets: [{ ...sheet, styles: [[2, 1, { bold: true }]], comments: [[0, 2, 'note']] }],
+      }),
+    );
+    expect(tree.sheets[0].styles).toEqual({ B3: { bold: true } });
+    expect(tree.sheets[0].comments).toEqual({ C1: 'note' });
+  });
+});
+
+describe('.rsf codec: validation of hand-edited files', () => {
+  const tree = () => rsfTree(encodeRsfWorkbook(book));
+
+  it('ignores unknown keys', () => {
+    const t = tree();
+    t.futureFeature = { a: 1 };
+    t.sheets[0].another = true;
+    expect(decodeTree(t).ok).toBe(true);
+  });
+
+  it('rejects a missing or wrong format name as bad-shape', () => {
+    const t = tree();
+    t.format = 'something-else';
+    expect(decodeTree(t)).toEqual({ ok: false, error: 'bad-shape' });
+  });
+
+  it('rejects an unknown document version as bad-version', () => {
+    const t = tree();
+    t.version = 2;
+    expect(decodeTree(t)).toEqual({ ok: false, error: 'bad-version' });
+  });
+
+  it.each([
+    ['a number as a cell', (t: ReturnType<typeof tree>) => (t.sheets[0].cells[0][0] = 5)],
+    ['a row wider than the sheet', (t: ReturnType<typeof tree>) => t.sheets[0].cells[0].push('a', 'b')],
+    ['more rows than the sheet', (t: ReturnType<typeof tree>) => t.sheets[0].cells.push([], [], [])],
+    ['no sheets', (t: ReturnType<typeof tree>) => (t.sheets = [])],
+    ['an unknown worksheet kind', (t: ReturnType<typeof tree>) => (t.sheets[0].kind = 'chart')],
+    [
+      'a style on a cell outside the sheet',
+      (t: ReturnType<typeof tree>) => (t.sheets[0].styles = { Z9: {} }),
+    ],
+    ['a malformed A1 key', (t: ReturnType<typeof tree>) => (t.sheets[0].comments = { a1: 'x' })],
+    [
+      'a color that is not hex',
+      (t: ReturnType<typeof tree>) => (t.sheets[0].styles = { A1: { textColor: 'red' } }),
+    ],
+    ['duplicate worksheet ids', (t: ReturnType<typeof tree>) => t.sheets.push({ ...t.sheets[0], name: 'B' })],
+    ['a non-boolean flag', (t: ReturnType<typeof tree>) => (t.sheets[0].locked = 'yes')],
+    ['a history limit of 0', (t: ReturnType<typeof tree>) => (t.history = { limit: 0 })],
+    [
+      'a snapshot without a time',
+      (t: ReturnType<typeof tree>) => (t.history = { snapshots: [{ workbook: {} }] }),
+    ],
+  ])('rejects %s as bad-shape', (_label, edit) => {
+    const t = tree();
+    edit(t);
+    expect(decodeTree(t)).toEqual({ ok: false, error: 'bad-shape' });
+  });
+
+  it.each([
+    ['a sheet over the row limit', (t: ReturnType<typeof tree>) => (t.sheets[0].rows = 2_000_001)],
+    [
+      'more snapshots than the hard ceiling',
+      (t: ReturnType<typeof tree>) =>
+        (t.history = {
+          snapshots: Array.from({ length: MAX_RSF_HISTORY_SNAPSHOTS + 1 }, () => ({
+            at: '2025-01-01T00:00:00Z',
+            workbook: {},
+          })),
+        }),
+    ],
+  ])('rejects %s as too-large', (_label, edit) => {
+    const t = tree();
+    edit(t);
+    expect(decodeTree(t)).toEqual({ ok: false, error: 'too-large' });
+  });
+
+  it('falls back to the first worksheet when the active one does not exist', () => {
+    const t = tree();
+    t.activeSheet = 'missing';
+    const decoded = decodeTree(t);
+    expect(decoded.ok && decoded.data.activeSheetId).toBe('s1');
+  });
+
+  it('rejects text that is not JSON as bad-shape', () => {
+    expect(decodeRsfWorkbook(packRsfJsonText('{"format": "refrain-sheet",'))).toEqual({
+      ok: false,
+      error: 'bad-shape',
+    });
+  });
+});
+
+describe('.rsf codec: the container', () => {
+  it('rejects non-RSF bytes as bad-magic', () => {
+    for (const bytes of [
+      new Uint8Array(0),
+      new Uint8Array([1, 2, 3]),
+      new Uint8Array(40),
+      writeRawZstdFrame(new Uint8Array(4)),
+    ]) {
+      expect(decodeRsfWorkbook(bytes)).toEqual({ ok: false, error: 'bad-magic' });
+    }
+  });
+
+  it('refuses the binary format of earlier releases as legacy-format', () => {
+    for (const magic of [
+      [0x52, 0x53, 0x46, 0x31],
+      [0x52, 0x43, 0x53, 0x56],
+    ]) {
+      const bytes = new Uint8Array(40);
+      bytes.set(magic, 0);
+      expect(decodeRsfWorkbook(bytes)).toEqual({ ok: false, error: 'legacy-format' });
+    }
   });
 
   it('rejects a checksum mismatch', () => {
-    const bytes = encodeRsf(sample);
-    bytes[bytes.length - 1] ^= 0x01;
-    const decoded = decodeRsf(bytes);
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(['checksum', 'bad-shape']).toContain(decoded.error);
+    const bytes = encodeRsfWorkbook(book);
+    bytes[16] ^= 0xff; // the stored CRC-32
+    expect(decodeRsfWorkbook(bytes)).toEqual({ ok: false, error: 'checksum' });
   });
 
-  it('rejects an oversize declared sheet', () => {
-    const decoded = decodeRsf(
-      encodeRsf({ name: 's', delimiter: ',', rowCount: 100_000_000, columnCount: 100, cells: [] }),
-    );
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('too-large');
+  it('rejects a declared length over the ceiling as too-large, before decompressing anything', () => {
+    const bytes = encodeRsfWorkbook(book);
+    new DataView(bytes.buffer).setUint32(12, MAX_RSF_BODY_BYTES + 1, true);
+    expect(decodeRsfWorkbook(bytes)).toEqual({ ok: false, error: 'too-large' });
   });
 
-  it('rejects an unsupported compression method byte', () => {
-    expect(isRsfMethod(42)).toBe(false);
-    const bytes = encodeRsf(sample);
-    bytes[5] = 42;
-    const decoded = decodeRsf(bytes);
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('unsupported-compression');
+  it('rejects a frame that decompresses to a different length (a bomb or a truncation) as bad-shape', () => {
+    const bytes = encodeRsfWorkbook(book);
+    const view = new DataView(bytes.buffer);
+    view.setUint32(12, view.getUint32(12, true) - 1, true);
+    expect(decodeRsfWorkbook(bytes)).toEqual({ ok: false, error: 'bad-shape' });
+    expect(decodeRsfWorkbook(encodeRsfWorkbook(book).subarray(0, 30))).toEqual({
+      ok: false,
+      error: 'bad-shape',
+    });
   });
 
-  it('rejects an unknown codec profile version', () => {
-    const bytes = encodeRsf(sample);
-    bytes[7] = 1; // a future profile this build cannot decode
-    const decoded = decodeRsf(bytes);
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('unsupported-compression');
-  });
-
-  it('writes the RSF1 magic and container version 3', () => {
-    const bytes = encodeRsf(sample);
-    expect(Array.from(bytes.subarray(0, 4))).toEqual([0x52, 0x53, 0x46, 0x31]);
-    expect(bytes[4]).toBe(RSF_CONTAINER_VERSION);
-    expect(RSF_CONTAINER_VERSION).toBe(3);
+  it('unpackRsfJsonText returns the JSON text, or null for an invalid container', () => {
+    expect(unpackRsfJsonText(encodeRsfWorkbook(book))).toBe(rsfJsonText(book));
+    expect(unpackRsfJsonText(new Uint8Array(3))).toBeNull();
   });
 });
 
-describe('legacy .rcsv (RCSV magic, container v2) backward compatibility', () => {
-  /** Re-stamp a current RSF container as a legacy RCSV one (identical body). */
-  function toLegacy(bytes: Uint8Array): Uint8Array {
-    const legacy = bytes.slice();
-    legacy.set(RSF_LEGACY_MAGIC, 0);
-    legacy[4] = RSF_LEGACY_CONTAINER_VERSION;
-    return legacy;
-  }
-
-  it('reads a legacy RCSV container transparently', () => {
-    const decoded = decodeRsf(toLegacy(encodeRsf(sample)));
-    expect(decoded.ok).toBe(true);
-    if (decoded.ok) expectSample(decoded.data);
+describe('.rsf codec: Raw-block Zstandard frames (JS fallback)', () => {
+  it('splits a large body into 128 KiB Raw blocks and reads it back', () => {
+    const body = new Uint8Array(300_000).map((_, i) => i % 251);
+    const frame = writeRawZstdFrame(body);
+    expect(readSimpleZstdFrame(frame, body.length)).toEqual(body);
+    expect(readSimpleZstdFrame(frame, body.length - 1)).toBeNull();
   });
 
-  it('rejects a legacy magic paired with the new version (mismatched pair)', () => {
-    const bytes = encodeRsf(sample);
-    bytes.set(RSF_LEGACY_MAGIC, 0); // legacy magic but still version 3
-    const decoded = decodeRsf(bytes);
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('bad-version');
-  });
-
-  it('rejects the new magic paired with the legacy version', () => {
-    const bytes = toLegacy(encodeRsf(sample));
-    bytes.set(RSF_MAGIC, 0); // new magic but version 2
-    const decoded = decodeRsf(bytes);
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('bad-version');
-  });
-
-  it('a document loaded from a legacy container re-saves as current RSF', () => {
-    const loaded = RsfDocument.fromBytes(toLegacy(encodeRsf(sample)), `x${RSF_EXTENSION}`);
-    expect(loaded.ok).toBe(true);
-    if (!loaded.ok) return;
-    const resaved = loaded.doc.toBytes();
-    // The re-saved bytes carry the current RSF magic + version, never the legacy pair.
-    expect(Array.from(resaved.subarray(0, 4))).toEqual(Array.from(RSF_MAGIC));
-    expect(resaved[4]).toBe(RSF_CONTAINER_VERSION);
+  it('writes an empty body as a single empty last block', () => {
+    const frame = writeRawZstdFrame(new Uint8Array(0));
+    expect(readSimpleZstdFrame(frame, 0)).toEqual(new Uint8Array(0));
   });
 });
 
-describe('binary container codec (WASM engine: zstd / lz4 / deflate / store)', () => {
+describe('.rsf codec: WASM engine', () => {
   beforeAll(async () => {
     await initCsvEngine();
     setCsvEngineForTesting('wasm');
   });
   afterAll(() => setCsvEngineForTesting('js'));
 
-  const big: RsfData = {
-    name: 'big',
-    delimiter: ',',
-    rowCount: 1000,
-    columnCount: 1,
-    cells: Array.from({ length: 1000 }, (_, r) => [r, 0, 'repeated payload row'] as [number, number, string]),
-  };
+  it('compresses, and still reads what the JS fallback wrote', () => {
+    const big: RsfWorkbookData = {
+      delimiter: ',',
+      sheets: [
+        {
+          ...sheet,
+          rowCount: 500,
+          cells: Array.from({ length: 500 }, (_, r): [number, number, string] => [
+            r,
+            0,
+            `row ${r} repeated text`,
+          ]),
+        },
+      ],
+    };
+    const compressed = encodeRsfWorkbook(big);
+    expect(getRsfCodec().compresses).toBe(true);
+    expect(compressed.length).toBeLessThan(new TextEncoder().encode(rsfJsonText(big)).length / 3);
+    expect(decodeRsfWorkbook(compressed).ok).toBe(true);
 
-  it('defaults new documents to Zstandard and lists all writable methods', () => {
-    const codec = getRsfCodec();
-    expect(codec.defaultMethod()).toBe(RSF_COMPRESSION_ZSTD);
-    expect(codec.writableMethods()).toEqual([
-      RSF_COMPRESSION_ZSTD,
-      RSF_COMPRESSION_LZ4,
-      RSF_COMPRESSION_DEFLATE,
-      RSF_COMPRESSION_STORE,
-    ]);
-    // No explicit method → Zstandard.
-    expect(encodeRsf(sample)[5]).toBe(RSF_COMPRESSION_ZSTD);
-  });
-
-  for (const [name, method] of [
-    ['zstd', RSF_COMPRESSION_ZSTD],
-    ['lz4', RSF_COMPRESSION_LZ4],
-    ['deflate', RSF_COMPRESSION_DEFLATE],
-    ['store', RSF_COMPRESSION_STORE],
-  ] as const) {
-    it(`round-trips through ${name} with the method recorded in the header`, () => {
-      const bytes = encodeRsf(big, method);
-      expect(bytes[5]).toBe(method);
-      expect(bytes[7]).toBe(0); // codec profile
-      if (method !== RSF_COMPRESSION_STORE) {
-        // Highly repetitive content compresses well below the raw body size.
-        expect(bytes.length).toBeLessThan(1000 * 20);
-      }
-      const decoded = decodeRsf(bytes);
-      expect(decoded.ok).toBe(true);
-      if (!decoded.ok) return;
-      expect(decoded.data.compression).toBe(method);
-      expect(decoded.data.cells.length).toBe(1000);
-      expect(decoded.data.cells[999][2]).toBe('repeated payload row');
-    });
-  }
-
-  it('preserves a container’s method across a decode → re-encode', () => {
-    const lz4 = encodeRsf(sample, RSF_COMPRESSION_LZ4);
-    const decoded = decodeRsf(lz4);
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    // Re-encoding with the decoded method reproduces the same method byte.
-    const again = encodeRsf({ ...sample }, decoded.data.compression);
-    expect(again[5]).toBe(RSF_COMPRESSION_LZ4);
-  });
-
-  it('detects compressed-payload corruption', () => {
-    for (const method of [RSF_COMPRESSION_ZSTD, RSF_COMPRESSION_LZ4, RSF_COMPRESSION_DEFLATE]) {
-      // Corrupt the start of the compressed frame (offset 20 = first payload
-      // byte) and a byte mid-payload; either a decode failure or a checksum
-      // mismatch must reject the file (never a silent wrong read).
-      const bytes = encodeRsf(big, method);
-      bytes[20] ^= 0xff;
-      bytes[20 + Math.floor((bytes.length - 20) / 2)] ^= 0xff;
-      const decoded = decodeRsf(bytes);
-      expect(decoded.ok).toBe(false);
-    }
-  });
-
-  it('RsfDocument preserves the loaded method on save; new docs default to Zstd', () => {
-    const original = encodeRsf(sample, RSF_COMPRESSION_LZ4);
-    const loaded = RsfDocument.fromBytes(original, 'x.rcsv');
-    expect(loaded.ok).toBe(true);
-    if (!loaded.ok) return;
-    expect(loaded.doc.compression).toBe(RSF_COMPRESSION_LZ4);
-    expect(loaded.doc.toBytes()[5]).toBe(RSF_COMPRESSION_LZ4); // normal save reuses it
-    loaded.doc.setCompression(RSF_COMPRESSION_ZSTD); // explicit change (Save dialog)
-    expect(loaded.doc.toBytes()[5]).toBe(RSF_COMPRESSION_ZSTD);
-    // A brand-new document defaults to Zstandard.
-    expect(RsfDocument.empty('new.rcsv', 2, 2).toBytes()[5]).toBe(RSF_COMPRESSION_ZSTD);
-  });
-
-  it('a store file written by the JS engine still reads under WASM', () => {
     setCsvEngineForTesting('js');
-    const stored = encodeRsf(sample);
+    const raw = encodeRsfWorkbook(big);
+    const underJs = decodeRsfWorkbook(compressed);
     setCsvEngineForTesting('wasm');
-    const decoded = decodeRsf(stored);
-    expect(decoded.ok).toBe(true);
-    if (decoded.ok) expectSample(decoded.data);
+    expect(underJs).toEqual({ ok: false, error: 'unsupported-compression' });
+    expect(decodeRsfWorkbook(raw).ok).toBe(true);
   });
 
-  it('a compressed container is reported unsupported under the store-only JS fallback', () => {
-    // A zstd file written under WASM cannot be read by the store-only JS
-    // fallback: it lacks the decoder, so the error is "unsupported", not shape.
-    const zstd = encodeRsf(sample, RSF_COMPRESSION_ZSTD);
-    setCsvEngineForTesting('js');
-    const decoded = decodeRsf(zstd);
-    setCsvEngineForTesting('wasm');
+  it('detects a corrupted compressed frame', () => {
+    const bytes = encodeRsfWorkbook(book);
+    // Inside the compressed data (the frame's last 4 bytes are its own
+    // XXH64 checksum, which the container's CRC-32 makes redundant).
+    bytes[Math.floor((20 + bytes.length) / 2)] ^= 0x55;
+    const decoded = decodeRsfWorkbook(bytes);
     expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('unsupported-compression');
+    if (!decoded.ok) expect(['checksum', 'bad-shape']).toContain(decoded.error);
+  });
+
+  it('RsfDocument saves and reopens through the compressed format', () => {
+    const doc = RsfDocument.empty('b.rsf', 3, 3);
+    doc.setCell(1, 1, '=1+2');
+    const reopened = RsfDocument.fromBytes(doc.toBytes(), 'b.rsf');
+    expect(reopened.ok && reopened.doc.getDisplayValue(1, 1)).toBe('3');
   });
 });

@@ -35,7 +35,6 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
-    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => ({
       encoding: 'utf-8' as const,
       bom: false,

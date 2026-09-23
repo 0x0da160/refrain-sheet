@@ -308,8 +308,8 @@ export class Commands {
         // A second open tab is required to pick a baseline against.
         return tab !== null && this.state.tabs.length >= 2;
       case 'file.saveOptions':
-        // CSV: encoding/EOL/BOM options. RSF: the compression selector.
-        return tab !== null;
+        // Encoding/EOL/BOM options; an .rsf file has nothing to choose.
+        return tab !== null && tab.doc.kind === 'csv';
       case 'file.openRecent':
         // Only the File System Access API gives the app a file it can reopen.
         return fileSystemAccessAvailable();

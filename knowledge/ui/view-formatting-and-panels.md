@@ -21,7 +21,7 @@ differ sharply in one dimension: **what survives a save**.
 
 | Feature                    | Saved to `.rsf`?               | Undoable?                                                         | Marks document dirty? |
 | -------------------------- | ------------------------------ | ----------------------------------------------------------------- | --------------------- |
-| **Filter**                 | Yes (container body version 4) | Yes (as one atomic step; clearing it via structural edits is too) | Yes                   |
+| **Filter**                 | Yes (the worksheet's `filter`) | Yes (as one atomic step; clearing it via structural edits is too) | Yes                   |
 | **Cell Formatting**        | Yes                            | Yes (one atomic history entry per change)                         | Yes                   |
 | **Sort**                   | No — session-only view state   | No                                                                | No                    |
 | **Data Validation**        | No — session-only view state   | No                                                                | No                    |

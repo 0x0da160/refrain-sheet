@@ -53,21 +53,21 @@ Desktop on a Windows 11 developer machine. Wall-clock numbers are means
 over 5 iterations and vary with host hardware and load (observed rme up to
 ±30%).
 
-| Scenario (deterministic fixture)                            | Mean                  | Notes                                                             |
-| ----------------------------------------------------------- | --------------------- | ----------------------------------------------------------------- |
-| Parse + index 200,000×6 CSV (~11 MB), WASM engine           | ~391 ms               | 2.3–2.4× faster than the JS fallback (~954 ms)                    |
-| Parse + index 10,000×2 CSV, 500-char values (~10 MB), WASM  | ~66 ms                | long-value documents                                              |
-| Unedited CSV save, 200,000×6 (~11 MB), identity path        | ~212 ms               | dominated by re-parsing the baseline; output bytes verbatim       |
-| 10-cell minimal-diff CSV save, same document (patch path)   | ~226 ms               | only edited field ranges reserialize                              |
-| CSV → RSF conversion, 200,000×6 (value collection)          | ~3.7 s                | time-sliced with % progress in the app                            |
-| Selection statistics, 1,000,000-cell range (full scan)      | ~124–130 ms           | this cost is off the selection-event path                         |
-| Replace-All match scan, 200,000×6 cells                     | ~86–140 ms            | sliced into ~12 ms tasks with % progress                          |
-| `.rsf` encode, 100,000 cells: Zstandard / LZ4 / DEFLATE     | ~494 / ~585 / ~857 ms | behind the busy indicator                                         |
-| `.rsf` decode, 100,000 cells (any method)                   | ~110–130 ms           | validate + decompress, bounded by the header length               |
-| Insert 1 row into 100,000×6 sheet with 1,000 formulas       | ~6–8 ms               | structural op incl. index-assisted formula-reference rewrite scan |
-| `listFormulaCells`, same sheet (indexed walk)               | ~1.2–1.4 ms           | vs ~5.1 ms for the pre-index full-sheet scan                      |
-| Bulk edit apply, 120,000 cells (paste/fill mutation path)   | ~50 ms                | one atomic, singly-undoable `bulkEdit`                            |
-| Formula evaluation, 5,000-cell dependency chain (cold memo) | ~25–35 ms             | lazy + memoized thereafter                                        |
+| Scenario (deterministic fixture)                            | Mean            | Notes                                                             |
+| ----------------------------------------------------------- | --------------- | ----------------------------------------------------------------- |
+| Parse + index 200,000×6 CSV (~11 MB), WASM engine           | ~391 ms         | 2.3–2.4× faster than the JS fallback (~954 ms)                    |
+| Parse + index 10,000×2 CSV, 500-char values (~10 MB), WASM  | ~66 ms          | long-value documents                                              |
+| Unedited CSV save, 200,000×6 (~11 MB), identity path        | ~212 ms         | dominated by re-parsing the baseline; output bytes verbatim       |
+| 10-cell minimal-diff CSV save, same document (patch path)   | ~226 ms         | only edited field ranges reserialize                              |
+| CSV → RSF conversion, 200,000×6 (value collection)          | ~3.7 s          | time-sliced with % progress in the app                            |
+| Selection statistics, 1,000,000-cell range (full scan)      | ~124–130 ms     | this cost is off the selection-event path                         |
+| Replace-All match scan, 200,000×6 cells                     | ~86–140 ms      | sliced into ~12 ms tasks with % progress                          |
+| `.rsf` encode, 100,000 cells: JSON + Zstandard / Raw blocks | ~26–28 / ~23 ms | behind the busy indicator (was ~494 ms, binary + Zstandard, #602) |
+| `.rsf` decode, 100,000 cells: Zstandard / Raw blocks        | ~10 / ~6 ms     | unzstd + `JSON.parse` + validation, bounded by the header length  |
+| Insert 1 row into 100,000×6 sheet with 1,000 formulas       | ~6–8 ms         | structural op incl. index-assisted formula-reference rewrite scan |
+| `listFormulaCells`, same sheet (indexed walk)               | ~1.2–1.4 ms     | vs ~5.1 ms for the pre-index full-sheet scan                      |
+| Bulk edit apply, 120,000 cells (paste/fill mutation path)   | ~50 ms          | one atomic, singly-undoable `bulkEdit`                            |
+| Formula evaluation, 5,000-cell dependency chain (cold memo) | ~25–35 ms       | lazy + memoized thereafter                                        |
 
 ### Formula expansion
 

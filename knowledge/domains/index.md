@@ -3,7 +3,7 @@
 User-facing/product behavior of Refrain Sheet: what a person experiences
 editing a CSV or an RSF spreadsheet, independent of how it is implemented.
 This complements `architecture/` (the code-level model), `formats/rsf/` (the
-`.rsf` binary container spec), and `operations/` (security and performance) —
+`.rsf` file spec), and `operations/` (security and performance) —
 each concept below links out to those instead of repeating them. Migrated
 from `README.md`, cross-checked against `src/core/`; see that file for
 anything not yet split into a concept here.

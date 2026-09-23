@@ -3,25 +3,19 @@
 /**
  * RSF workbooks: the worksheet model, worksheet lifecycle commands and their
  * undo/redo atomicity, per-worksheet independence of data and display state,
- * and the versioned workbook container (including migration from, and
- * continued compatibility with, single-worksheet files).
+ * and the `.rsf` file, which stores one workbook of any number of worksheets.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
-import { getRsfCodec, RSF_COMPRESSION_STORE } from '../src/core/csv-engine';
 import {
-  decodeRsf,
   decodeRsfWorkbook,
-  encodeRsf,
   encodeRsfWorkbook,
   MAX_RSF_SHEETS,
-  RSF_CONTAINER_VERSION,
-  RSF_CONTAINER_VERSION_WORKBOOK,
-  RSF_MAGIC,
   type RsfWorkbookData,
 } from '../src/core/rsf-codec';
 import { MAX_WORKSHEETS, RsfDocument } from '../src/core/rsf-document';
+import { rsfFromTree, rsfTree } from './rsf-single-sheet';
 import { doc as csvDoc } from './helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
@@ -36,7 +30,6 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
-    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => null),
     confirmExportXlsx: vi.fn(async () => true),
     confirmExportJson: vi.fn(async () => true),
@@ -603,32 +596,14 @@ describe('CSV export from a workbook', () => {
 });
 
 describe('workbook container', () => {
-  it('writes a single-worksheet workbook in the version-3 container (old readers still open it)', () => {
+  it('writes one or many worksheets in the same file layout', () => {
     const workbook = RsfDocument.empty('b.rsf', 3, 2, 'Sheet1');
     workbook.setCell(0, 0, 'v');
-    const bytes = workbook.toBytes();
-    expect(Array.from(bytes.subarray(0, 4))).toEqual(Array.from(RSF_MAGIC));
-    expect(bytes[4]).toBe(RSF_CONTAINER_VERSION);
-    // The legacy single-sheet decoder reads it directly.
-    const legacy = decodeRsf(bytes);
-    expect(legacy.ok).toBe(true);
-    if (legacy.ok) {
-      expect(legacy.data.name).toBe('Sheet1');
-    }
-  });
-
-  it('writes a multi-worksheet workbook in the version-4 container', () => {
-    const workbook = RsfDocument.empty('b.rsf', 3, 2, 'Sheet1');
+    const one = decodeRsfWorkbook(workbook.toBytes());
+    expect(one.ok && one.data.sheets.map((sheet) => sheet.name)).toEqual(['Sheet1']);
     workbook.insertSheetAt(1, workbook.createWorksheet('Second', 3, 2));
-    const bytes = workbook.toBytes();
-    expect(bytes[4]).toBe(RSF_CONTAINER_VERSION_WORKBOOK);
-    // Older readers validate the magic/version pair and reject it safely
-    // rather than misparsing a format they do not understand.
-    const old = decodeRsf(bytes);
-    expect(old.ok).toBe(false);
-    if (!old.ok) {
-      expect(old.error).toBe('bad-version');
-    }
+    const two = decodeRsfWorkbook(workbook.toBytes());
+    expect(two.ok && two.data.sheets.map((sheet) => sheet.name)).toEqual(['Sheet1', 'Second']);
   });
 
   it('round-trips worksheets, order, names, active worksheet, and per-sheet state', () => {
@@ -772,17 +747,19 @@ describe('workbook container', () => {
     expect(decoded.data.sheets[1].cells).toEqual([[0, 0, '# Hello']]);
   });
 
-  it('rejects a markdown worksheet with any shape other than 1x1', () => {
-    const bytes = encodeRsfWorkbook({
+  it('stores a source worksheet as its lines of text, and rejects a non-text line', () => {
+    const data: RsfWorkbookData = {
       delimiter: ',',
       sheets: [
-        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [], kind: 'markdown' },
-        { id: 'b', name: 'B', rowCount: 2, columnCount: 1, cells: [], kind: 'markdown' },
+        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [[0, 0, '# T\nbody']], kind: 'markdown' },
       ],
-    });
-    const decoded = decodeRsfWorkbook(bytes);
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
+    };
+    const tree = rsfTree(encodeRsfWorkbook(data));
+    expect(tree.sheets[0].lines).toEqual(['# T', 'body']);
+    expect(tree.sheets[0].cells).toBeUndefined();
+    tree.sheets[0].lines = ['ok', 3];
+    const decoded = decodeRsfWorkbook(rsfFromTree(tree));
+    expect(decoded).toEqual({ ok: false, error: 'bad-shape' });
   });
 
   it('round-trips a locked worksheet through the workbook body (version 9)', () => {
@@ -839,19 +816,6 @@ describe('workbook container', () => {
     expect(decoded.data.sheets[1].cells).toEqual([[0, 0, '{"a":1}']]);
   });
 
-  it('rejects a json worksheet with any shape other than 1x1', () => {
-    const bytes = encodeRsfWorkbook({
-      delimiter: ',',
-      sheets: [
-        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [], kind: 'json' },
-        { id: 'b', name: 'B', rowCount: 2, columnCount: 1, cells: [], kind: 'json' },
-      ],
-    });
-    const decoded = decodeRsfWorkbook(bytes);
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
-  });
-
   it('carries a lock alongside a json kind through the workbook body', () => {
     const data: RsfWorkbookData = {
       delimiter: ',',
@@ -893,19 +857,6 @@ describe('workbook container', () => {
       expect(decoded.data.sheets[1].cells).toEqual([[0, 0, 'x: 1']]);
     },
   );
-
-  it.each(['yaml', 'text'] as const)('rejects a %s worksheet with any shape other than 1x1', (kind) => {
-    const bytes = encodeRsfWorkbook({
-      delimiter: ',',
-      sheets: [
-        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [], kind },
-        { id: 'b', name: 'B', rowCount: 2, columnCount: 1, cells: [], kind },
-      ],
-    });
-    const decoded = decodeRsfWorkbook(bytes);
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
-  });
 
   it.each(['yaml', 'text'] as const)(
     'carries a lock alongside a %s kind through the workbook body',
@@ -960,51 +911,6 @@ describe('workbook container', () => {
     },
   );
 
-  it('decodes a workbook cap override written the way v0.8.3 actually wrote it: version 12 alone, no presence bit ever set', () => {
-    // Workbook-level equivalent of the single-sheet regression test in
-    // `tests/rsf-codec.test.ts` — see its comment for the full rationale.
-    // Uses `encodeRsf`/`decodeRsf` with STORE compression so the workbook
-    // body sits byte-for-byte in the container (via the two-or-more-sheets
-    // path inside `encodeRsfWorkbook`), and recomputes the container's
-    // CRC-32 after the hand-edit, exactly like the single-sheet version.
-    const HEADER_SIZE = 20; // see the single-sheet regression test's comment
-    const withOverride: RsfWorkbookData = {
-      delimiter: ',',
-      sheets: [
-        { id: 'a', name: 'A', rowCount: 1, columnCount: 1, cells: [] },
-        { id: 'b', name: 'B', rowCount: 1, columnCount: 1, cells: [] },
-      ],
-      historyMaxOverride: 5,
-    };
-    const bytes = encodeRsfWorkbook(withOverride, RSF_COMPRESSION_STORE);
-    const body = bytes.subarray(HEADER_SIZE);
-    expect(body[0]).toBe(12); // sanity: cap override alone still selects its original version
-
-    // Same distinctive 9-byte needle as the single-sheet test: flags=5
-    // (enabled | hasOverride bit2), override=5 (u32 LE), snapshot count=0.
-    const needle = [5, 5, 0, 0, 0, 0, 0, 0, 0];
-    let flagsOffset = -1;
-    for (let i = 0; i + needle.length <= body.length; i++) {
-      if (needle.every((b, j) => body[i + j] === b)) {
-        flagsOffset = i;
-        break;
-      }
-    }
-    expect(flagsOffset).toBeGreaterThan(0);
-
-    const legacyBytes = bytes.slice();
-    legacyBytes[HEADER_SIZE + flagsOffset] &= ~4;
-    expect(legacyBytes[HEADER_SIZE + flagsOffset]).toBe(1);
-    const legacyBody = legacyBytes.subarray(HEADER_SIZE);
-    const crc = getRsfCodec().crc32(legacyBody);
-    new DataView(legacyBytes.buffer).setUint32(12, crc, true);
-
-    const decoded = decodeRsfWorkbook(legacyBytes);
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.historyMaxOverride).toBe(5);
-  });
-
   it('round-trips autoFormatSource through a single-worksheet workbook (the legacy single-sheet container fallback path)', () => {
     // Regression coverage: `decodeRsfWorkbook`'s single-sheet fallback (for
     // a workbook holding exactly one worksheet, saved as the older
@@ -1055,27 +961,6 @@ describe('workbook container', () => {
     expect(decoded.data.historyMaxOverride).toBe(9);
   });
 
-  it('loads a legacy single-sheet container as a one-worksheet workbook', () => {
-    const bytes = encodeRsf({
-      name: 'Legacy',
-      delimiter: ';',
-      rowCount: 3,
-      columnCount: 2,
-      cells: [[0, 0, 'x']],
-    });
-    const loaded = RsfDocument.fromBytes(bytes, 'legacy.rsf');
-    expect(loaded.ok).toBe(true);
-    if (!loaded.ok) return;
-    expect(loaded.doc.sheetCount).toBe(1);
-    expect(loaded.doc.sheets[0].name).toBe('Legacy');
-    expect(loaded.doc.delimiter).toBe(';');
-    expect(loaded.doc.loadedAsSingleSheet).toBe(true);
-    // It migrates to the workbook container only once a second worksheet exists.
-    expect(loaded.doc.toBytes()[4]).toBe(RSF_CONTAINER_VERSION);
-    loaded.doc.insertSheetAt(1, loaded.doc.createWorksheet('New', 2, 2));
-    expect(loaded.doc.toBytes()[4]).toBe(RSF_CONTAINER_VERSION_WORKBOOK);
-  });
-
   it('rejects a workbook container with too many worksheets', () => {
     const sheets = Array.from({ length: MAX_RSF_SHEETS + 1 }, (_, i) => ({
       id: `s${i}`,
@@ -1085,12 +970,15 @@ describe('workbook container', () => {
       cells: [] as Array<[number, number, string]>,
     }));
     const decoded = decodeRsfWorkbook(encodeRsfWorkbook({ delimiter: ',', sheets }));
-    // The encoder caps what it writes, so the decoder sees at most the limit;
-    // either way the result must never exceed the bound.
+    // The encoder caps what it writes, so the decoder sees at most the limit.
     expect(decoded.ok).toBe(true);
     if (decoded.ok) {
       expect(decoded.data.sheets.length).toBeLessThanOrEqual(MAX_RSF_SHEETS);
     }
+    // A hand-built file past the limit is refused.
+    const tree = rsfTree(encodeRsfWorkbook({ delimiter: ',', sheets: sheets.slice(0, 1) }));
+    tree.sheets = sheets.map((sheet) => ({ id: sheet.id, name: sheet.name, rows: 1, cols: 1 }));
+    expect(decodeRsfWorkbook(rsfFromTree(tree))).toEqual({ ok: false, error: 'too-large' });
   });
 
   it('rejects duplicate worksheet identifiers', () => {
@@ -1217,7 +1105,7 @@ describe('Markdown worksheets', () => {
     expect(restored.markdownText).toBe('# Hello, world');
   });
 
-  it('round-trips through the single-sheet container when it is the only worksheet', () => {
+  it('round-trips a Markdown worksheet that is the only worksheet', () => {
     const workbook = RsfDocument.empty('b.rsf', 1, 1, 'Notes');
     const onlySheet = workbook.sheets[0];
     const notes = workbook.createMarkdownWorksheet('Notes');
@@ -1226,7 +1114,6 @@ describe('Markdown worksheets', () => {
     workbook.setCellOn(notes.id, 0, 0, 'plain text');
     expect(workbook.sheetCount).toBe(1);
     const bytes = workbook.toBytes();
-    expect(bytes[4]).toBe(RSF_CONTAINER_VERSION); // still the single-sheet container
     const reloaded = RsfDocument.fromBytes(bytes, 'b.rsf');
     expect(reloaded.ok).toBe(true);
     if (!reloaded.ok) return;

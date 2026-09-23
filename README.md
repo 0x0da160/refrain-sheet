@@ -31,7 +31,7 @@ saved `.rsf` files, and the release artifact name.
 ## Detailed knowledge
 
 This README is an entry point, not a reference manual. Durable, detailed
-knowledge — architecture, security, performance, the RSF binary format,
+knowledge — architecture, security, performance, the RSF file format,
 core spreadsheet/CSV domain behavior, and UI/interaction behavior — lives
 in the [`knowledge/`](knowledge/index.md)
 [OKF v0.2](https://github.com/GoogleCloudPlatform/open-knowledge-format/blob/main/SPEC.md)
@@ -41,8 +41,8 @@ bundle:
   direction, the formula engine's structure, and cross-cutting invariants.
 - [Operations](knowledge/operations/index.md) — the security threat model,
   supply-chain controls, and performance principles/measurements.
-- [Formats](knowledge/formats/index.md) — the full `.rsf` binary container
-  specification.
+- [Formats](knowledge/formats/index.md) — the full `.rsf` file
+  specification (Zstandard-compressed JSON).
 - [Domains](knowledge/domains/index.md) — core spreadsheet/CSV-editor
   behavior: the preservation guarantee, workbook/worksheet lifecycle,
   formulas and references, functions and errors, dynamic arrays, undo/
@@ -166,7 +166,7 @@ change must preserve) is documented in
 ```text
 src/
   core/       lossless CSV document model, RSF workbook/worksheet model +
-              binary codec, the formula engine — DOM-independent, unit-tested
+              file codec, the formula engine — DOM-independent, unit-tested
   app/        tabs & app state, the typed command layer (commands.ts) and its
               UI contract (ui-port.ts), file access, settings, i18n, shortcuts
   ui/         menu bar, grid (+ grid/ pure helpers), formula bar, dialogs,
@@ -230,7 +230,7 @@ request. Nothing outside the markers is ever machine-written.
 
 `npm run test` runs the full unit, property-based/fuzz, and jsdom UI test
 suite under `tests/`: byte-identical CSV preservation, the formula engine,
-the RSF binary codec (round-trip, WASM/JS parity), UI behavior (keyboard
+the RSF codec (round-trip, WASM/JS parity), UI behavior (keyboard
 routing, IME safety, selection, drag interactions), and deterministic
 responsiveness-regression tests. See the individual files under `tests/`
 for what each suite covers.

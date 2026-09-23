@@ -27,9 +27,10 @@ the other.
 
 ## What imports
 
-- **CSV / `.rcsv`** open directly as byte-preserving documents (or, for
-  legacy `.rcsv`, migrate to `.rsf` on open — see
-  [`../formats/rsf/compatibility.md`](../formats/rsf/compatibility.md)).
+- **CSV** opens directly as a byte-preserving document. A `.rcsv` file (or
+  an `.rsf` in the binary format of releases up to 0.8.x) is refused with
+  an explanation — see
+  [`../formats/rsf/compatibility.md`](../formats/rsf/compatibility.md).
 - **JSON** (`src/core/json-import.ts`): **File > Open** accepts a `.json`
   file containing a top-level array of flat (non-nested) objects — one
   array element per row, columns as the union of every object's keys in

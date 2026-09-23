@@ -20,8 +20,7 @@ import {
   type ColumnFilter,
   type SheetFilter,
 } from '../src/core/filter';
-import { getRsfCodec, RSF_COMPRESSION_STORE } from '../src/core/csv-engine';
-import { decodeRsf, encodeRsf, type RsfData } from '../src/core/rsf-codec';
+import { decodeRsf, encodeRsf, rsfFromTree, rsfTree, type RsfData } from './rsf-single-sheet';
 import { RsfDocument } from '../src/core/rsf-document';
 import { doc as csvDoc } from './helpers';
 
@@ -37,7 +36,6 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
-    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => null),
     confirmExportXlsx: vi.fn(async () => true),
     confirmExportJson: vi.fn(async () => true),
@@ -229,7 +227,6 @@ describe('filter validation and bounds', () => {
 
 // ----- RSF persistence (body version 4) -----
 
-const HEADER_SIZE = 20;
 const baseData: RsfData = {
   name: 'Sheet1',
   delimiter: ',',
@@ -238,15 +235,7 @@ const baseData: RsfData = {
   cells: [[0, 0, 'x']],
 };
 
-function patchBody(bytes: Uint8Array, mutate: (body: Uint8Array) => void): Uint8Array {
-  const out = bytes.slice();
-  const body = out.subarray(HEADER_SIZE);
-  mutate(body);
-  new DataView(out.buffer).setUint32(12, getRsfCodec().crc32(body), true);
-  return out;
-}
-
-describe('RSF filter persistence (body version 4)', () => {
+describe('RSF filter persistence', () => {
   const filter: SheetFilter = {
     top: 0,
     left: 0,
@@ -266,38 +255,19 @@ describe('RSF filter persistence (body version 4)', () => {
     ],
   };
 
-  it('writes body version 4 only when a filter is present, and round-trips it', () => {
-    const noFilter = encodeRsf(baseData, RSF_COMPRESSION_STORE);
-    expect(noFilter[HEADER_SIZE]).toBe(1);
-    const withFilter = encodeRsf({ ...baseData, filter }, RSF_COMPRESSION_STORE);
-    expect(withFilter[HEADER_SIZE]).toBe(4);
+  it('writes the filter only when present, and round-trips it', () => {
+    expect(rsfTree(encodeRsf(baseData)).sheets[0].filter).toBeUndefined();
+    const withFilter = encodeRsf({ ...baseData, filter });
     const decoded = decodeRsf(withFilter);
     expect(decoded.ok).toBe(true);
     if (!decoded.ok) return;
     expect(decoded.data.filter).toEqual(filter);
   });
 
-  it('a version-4 body without a filter flag decodes with no filter', () => {
-    // Force version 4 by pairing a filter with display settings, then a
-    // filter-less container still has no filter after decode.
-    const bytes = encodeRsf({ ...baseData, display: { zoom: 100 } }, RSF_COMPRESSION_STORE);
-    const decoded = decodeRsf(bytes);
-    expect(decoded.ok).toBe(true);
-    if (decoded.ok) {
-      expect(decoded.data.filter).toBeUndefined();
-    }
-  });
-
   it('ignores a filter whose range is out of bounds (drops it, sheet still loads)', () => {
-    const bytes = encodeRsf({ ...baseData, filter }, RSF_COMPRESSION_STORE);
-    // Body layout with no app metadata + filter: version(1) delim(1)
-    // appNameLen(2=0) appVerLen(2=0) zoom(2) widthCount(4) filterFlag(1)
-    // headerRow(1) top(4) left(4) bottom(4)… so the filter's `bottom` u32 is
-    // at body offset 22. Patch it past the sheet's row count.
-    const broken = patchBody(bytes, (body) => {
-      new DataView(body.buffer, body.byteOffset).setUint32(22, 999_999, true);
-    });
-    const decoded = decodeRsf(broken);
+    const tree = rsfTree(encodeRsf({ ...baseData, filter }));
+    tree.sheets[0].filter.bottom = 999_999;
+    const decoded = decodeRsf(rsfFromTree(tree));
     expect(decoded.ok).toBe(true); // the sheet itself still loads
     if (decoded.ok) {
       expect(decoded.data.filter).toBeUndefined(); // the invalid filter was dropped
@@ -305,20 +275,12 @@ describe('RSF filter persistence (body version 4)', () => {
     }
   });
 
-  it('rejects a structurally truncated filter block as bad-shape', () => {
-    const bytes = encodeRsf({ ...baseData, filter }, RSF_COMPRESSION_STORE);
-    // Truncate the container body by one byte and re-stamp: the filter block
-    // can no longer be read to completion.
-    const out = bytes.slice(0, bytes.length - 1);
-    const body = out.subarray(HEADER_SIZE);
-    new DataView(out.buffer).setUint32(8, body.length, true); // uncompressed len
-    new DataView(out.buffer).setUint32(16, body.length, true); // payload len (store)
-    new DataView(out.buffer).setUint32(12, getRsfCodec().crc32(body), true);
-    const decoded = decodeRsf(out);
-    expect(decoded.ok).toBe(false);
-    if (!decoded.ok) {
-      expect(decoded.error).toBe('bad-shape');
-    }
+  it('drops a filter whose conditions are malformed instead of failing the file', () => {
+    const tree = rsfTree(encodeRsf({ ...baseData, filter }));
+    tree.sheets[0].filter.columns[0].conditions = [null];
+    const decoded = decodeRsf(rsfFromTree(tree));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.data.filterDropped).toBe(true);
   });
 
   it('round-trips the filter through RsfDocument save/load and marks it dirty on change', () => {

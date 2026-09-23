@@ -18,21 +18,9 @@ import {
   numberFormatsEqual,
   type NumberFormat,
 } from '../src/core/cell-style';
-import { getRsfCodec, RSF_COMPRESSION_STORE } from '../src/core/csv-engine';
-import { decodeRsf, encodeRsf, type RsfData } from '../src/core/rsf-codec';
+import { decodeRsf, encodeRsf, rsfFromTree, rsfTree, type RsfData } from './rsf-single-sheet';
 import { RsfDocument } from '../src/core/rsf-document';
 import { doc as csvDoc } from './helpers';
-
-const HEADER_SIZE = 20;
-
-/** Patch a store-method container body byte and re-stamp the CRC. See `rsf-display.test.ts`. */
-function patchBody(bytes: Uint8Array, mutate: (body: Uint8Array) => void): Uint8Array {
-  const out = bytes.slice();
-  const body = out.subarray(HEADER_SIZE);
-  mutate(body);
-  new DataView(out.buffer).setUint32(12, getRsfCodec().crc32(body), true);
-  return out;
-}
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   return {
@@ -46,7 +34,6 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
-    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => null),
     confirmExportXlsx: vi.fn(async () => true),
     confirmExportJson: vi.fn(async () => true),
@@ -207,7 +194,7 @@ describe('RsfDocument display value with a number format', () => {
   });
 });
 
-describe('RSF codec: number-format sub-record (body version 9)', () => {
+describe('RSF codec: number formats', () => {
   const base: RsfData = {
     name: 'Sheet1',
     delimiter: ',',
@@ -239,54 +226,35 @@ describe('RSF codec: number-format sub-record (body version 9)', () => {
     expect(decoded.data.styles).toEqual(withFormats.styles);
   });
 
-  it('stays on body version 8 (no number-format sub-record) when only plain styles are present', () => {
-    const plainStyle: RsfData = { ...base, styles: [[0, 0, { bold: true }]] };
-    const bytesWithFormat = encodeRsf(
-      { ...base, styles: [[0, 0, { numberFormat: { kind: 'number', decimals: 0, thousands: false } }]] },
-      RSF_COMPRESSION_STORE,
-    );
-    const bytesPlain = encodeRsf(plainStyle, RSF_COMPRESSION_STORE);
-    // The body-version byte (right after the 20-byte container header)
-    // differs: plain styles alone don't force the number-format sub-record.
-    expect(bytesWithFormat[HEADER_SIZE]).toBe(9);
-    expect(bytesPlain[HEADER_SIZE]).toBe(8);
-    const decoded = decodeRsf(bytesPlain);
-    expect(decoded.ok).toBe(true);
-    if (decoded.ok) expect(decoded.data.styles).toEqual(plainStyle.styles);
-  });
-
-  it('a body version 8 reader-shaped payload (no formats) still round-trips styles without a numberFormat key', () => {
+  it('styles without a number format round-trip without a numberFormat key', () => {
     const decoded = decodeRsf(encodeRsf({ ...base, styles: [[0, 0, { italic: true }]] }));
     expect(decoded.ok).toBe(true);
     if (decoded.ok) expect(decoded.data.styles?.[0][2].numberFormat).toBeUndefined();
   });
 
-  it('rejects an unknown number-format kind byte as bad-shape rather than guessing the record length', () => {
-    const bytes = encodeRsf(
-      { ...base, styles: [[0, 0, { numberFormat: { kind: 'number', decimals: 0, thousands: false } }]] },
-      RSF_COMPRESSION_STORE,
+  it('rejects an unknown number-format kind as bad-shape rather than guessing', () => {
+    const tree = rsfTree(
+      encodeRsf({
+        ...base,
+        styles: [[0, 0, { numberFormat: { kind: 'number', decimals: 0, thousands: false } }]],
+      }),
     );
-    // The number-format sub-record for this single-style, single-format
-    // record (kind/decimals/thousands, no currency symbol) is the last 3
-    // bytes of the (store-method, so uncompressed) body; the kind byte leads it.
-    const corrupted = patchBody(bytes, (body) => {
-      body[body.length - 3] = 0x7f;
-    });
-    const decoded = decodeRsf(corrupted);
+    tree.sheets[0].styles.A1.numberFormat.kind = 'scientific';
+    const decoded = decodeRsf(rsfFromTree(tree));
     expect(decoded.ok).toBe(false);
     if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
   });
 
-  it('rejects a number-format sub-record truncated mid-currency-symbol as bad-shape', () => {
-    const bytes = encodeRsf({
-      ...base,
-      styles: [
-        [0, 0, { numberFormat: { kind: 'currency', decimals: 2, thousands: false, currencySymbol: '$$' } }],
-      ],
-    });
-    const decoded = decodeRsf(bytes.subarray(0, bytes.length - 1));
+  it('rejects out-of-range decimals as bad-shape', () => {
+    const tree = rsfTree(
+      encodeRsf({
+        ...base,
+        styles: [[0, 0, { numberFormat: { kind: 'number', decimals: 0, thousands: false } }]],
+      }),
+    );
+    tree.sheets[0].styles.A1.numberFormat.decimals = 99;
+    const decoded = decodeRsf(rsfFromTree(tree));
     expect(decoded.ok).toBe(false);
-    if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
   });
 });
 

@@ -93,7 +93,7 @@ export const BORDER_SIDES = ['borderTop', 'borderRight', 'borderBottom', 'border
 export type BorderSide = (typeof BORDER_SIDES)[number];
 
 /** Color-valued style properties (the border sides plus text/background). */
-export const COLOR_KEYS = ['textColor', 'backgroundColor', ...BORDER_SIDES] as const;
+const COLOR_KEYS = ['textColor', 'backgroundColor', ...BORDER_SIDES] as const;
 
 /** A border side's line style — the native CSS `border-style` keywords this app supports. */
 export type BorderLineStyle = 'solid' | 'dashed' | 'dotted' | 'double';

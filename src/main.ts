@@ -90,7 +90,6 @@ function bootstrap(): void {
     chooseRecentFile: (entries) => dialogs.chooseRecentFile(entries),
     confirmConvert: (reason, name) => dialogs.confirmConvert(reason, name),
     explainRsfSave: (name) => dialogs.explainRsfSave(name),
-    chooseRsfSave: (name, current, available, note) => dialogs.chooseRsfSave(name, current, available, note),
     chooseExportCsv: (name, currentDelimiter) => dialogs.chooseExportCsv(name, currentDelimiter),
     confirmExportXlsx: (name) => dialogs.confirmExportXlsx(name),
     confirmExportJson: (name) => dialogs.confirmExportJson(name),

@@ -6,16 +6,14 @@ import initWasm, {
   parseCsv as wasmParseCsv,
   planReplacements as wasmPlanReplacements,
   rsfCrc32 as wasmCrc32,
-  rsfDeflate as wasmDeflate,
   rsfInflate as wasmInflate,
-  rsfLz4 as wasmLz4,
-  rsfUnlz4 as wasmUnlz4,
   rsfUnzstd as wasmUnzstd,
   rsfZstd as wasmZstd,
   sniffDelimiter as wasmSniffDelimiter,
   statsAggregate as wasmStatsAggregate,
 } from '../wasm-gen/refrain_csv_core';
 import { WASM_BASE64 } from '../wasm-gen/wasm-payload';
+import { readSimpleZstdFrame, writeRawZstdFrame } from './zstd-frame';
 
 /**
  * The performance-critical byte-level CSV operations (parsing, structural
@@ -58,51 +56,24 @@ export interface CsvEngine {
 }
 
 /**
- * Compression methods recorded in the binary `.rsf` container header. All
- * three real codecs are pure-Rust and build for `wasm32-unknown-unknown` with
- * no C toolchain: DEFLATE (miniz_oxide), Zstandard (ruzstd), LZ4 Frame
- * (lz4_flex). See `knowledge/formats/rsf/index.md`.
- */
-export const RSF_COMPRESSION_STORE = 0x00;
-export const RSF_COMPRESSION_DEFLATE = 0x01;
-export const RSF_COMPRESSION_ZSTD = 0x02;
-export const RSF_COMPRESSION_LZ4 = 0x03;
-
-/** All defined method ids, ordered most-recommended first (Zstd is default). */
-export const RSF_METHODS: readonly number[] = [
-  RSF_COMPRESSION_ZSTD,
-  RSF_COMPRESSION_LZ4,
-  RSF_COMPRESSION_DEFLATE,
-  RSF_COMPRESSION_STORE,
-];
-
-/**
- * Compression + checksum primitives for the binary `.rsf` container. The
- * WASM-backed codec can encode/decode every method; the JS fallback can only
- * store payloads uncompressed (method 0x00), so a document written under the
- * fallback always round-trips, but reading or writing a compressed container
- * requires the WASM engine. Which methods a build can *write* is reported by
- * {@link RsfCodec.writableMethods} so the Save dialog only ever offers usable
- * codecs (per the RSF compression policy).
+ * Compression + checksum primitives for the `.rsf` container, which is
+ * Zstandard only (see `knowledge/formats/rsf/index.md`). The WASM-backed
+ * codec compresses with `ruzstd` and reads any Zstandard frame. The JS
+ * fallback writes a standard frame of Raw (stored) blocks — uncompressed,
+ * but still a valid `.zst` frame — and reads frames made of Raw/RLE blocks
+ * only, so a compressed file needs the WASM engine.
  */
 export interface RsfCodec {
-  /** True when this build can encode `method`. */
-  canWrite(method: number): boolean;
-  /** Methods this build can encode, most-recommended first. */
-  writableMethods(): number[];
-  /** Preferred method to write: Zstd when available, else DEFLATE, else store. */
-  defaultMethod(): number;
+  /** True when {@link compress} actually shrinks the data (the WASM engine). */
+  readonly compresses: boolean;
+  /** One standard Zstandard frame holding `body`. */
+  compress(body: Uint8Array): Uint8Array;
   /**
-   * Compress `body` with `method`. Returns the payload, or `null` when this
-   * build cannot write `method` (never silently substitutes another codec).
+   * Decode one Zstandard frame to exactly `expectedLen` bytes (bounded by it
+   * as a decompression-bomb guard). Null on corruption or a length mismatch;
+   * `'needs-wasm'` when the JS fallback meets a compressed block.
    */
-  compress(body: Uint8Array, method: number): Uint8Array | null;
-  /**
-   * Decompress `payload` (encoded with `method`) to exactly `expectedLen`
-   * bytes. Bounded by `expectedLen` as a decompression-bomb guard. Returns
-   * null on corruption, length mismatch, or an unsupported method.
-   */
-  decompress(payload: Uint8Array, method: number, expectedLen: number): Uint8Array | null;
+  decompress(frame: Uint8Array, expectedLen: number): Uint8Array | null | 'needs-wasm';
   /** CRC-32 (IEEE) of the uncompressed body. */
   crc32(bytes: Uint8Array): number;
 }
@@ -126,80 +97,25 @@ function crc32Js(bytes: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-/** A stored payload round-trips only when its length matches the header. */
-function storeDecompress(payload: Uint8Array, expectedLen: number): Uint8Array | null {
-  return payload.length === expectedLen ? payload : null;
-}
-
 const jsCodec: RsfCodec = {
-  canWrite(method) {
-    return method === RSF_COMPRESSION_STORE;
+  compresses: false,
+  compress(body) {
+    return writeRawZstdFrame(body);
   },
-  writableMethods() {
-    return [RSF_COMPRESSION_STORE];
-  },
-  defaultMethod() {
-    // The JS fallback cannot run any compressor; storing is the only option.
-    return RSF_COMPRESSION_STORE;
-  },
-  compress(body, method) {
-    return method === RSF_COMPRESSION_STORE ? body : null;
-  },
-  decompress(payload, method, expectedLen) {
-    // Every compressed method requires the WASM engine.
-    return method === RSF_COMPRESSION_STORE ? storeDecompress(payload, expectedLen) : null;
+  decompress(frame, expectedLen) {
+    const out = readSimpleZstdFrame(frame, expectedLen);
+    return out === 'compressed' ? 'needs-wasm' : out;
   },
   crc32: crc32Js,
 };
 
 const wasmCodec: RsfCodec = {
-  canWrite(method) {
-    return (
-      method === RSF_COMPRESSION_STORE ||
-      method === RSF_COMPRESSION_DEFLATE ||
-      method === RSF_COMPRESSION_ZSTD ||
-      method === RSF_COMPRESSION_LZ4
-    );
+  compresses: true,
+  compress(body) {
+    return wasmZstd(body);
   },
-  writableMethods() {
-    // Most-recommended first: Zstd (default), LZ4 (fast), DEFLATE (compatible),
-    // then store (uncompressed).
-    return [RSF_COMPRESSION_ZSTD, RSF_COMPRESSION_LZ4, RSF_COMPRESSION_DEFLATE, RSF_COMPRESSION_STORE];
-  },
-  defaultMethod() {
-    return RSF_COMPRESSION_ZSTD;
-  },
-  compress(body, method) {
-    switch (method) {
-      case RSF_COMPRESSION_STORE:
-        return body;
-      case RSF_COMPRESSION_DEFLATE:
-        return wasmDeflate(body);
-      case RSF_COMPRESSION_ZSTD:
-        return wasmZstd(body);
-      case RSF_COMPRESSION_LZ4:
-        return wasmLz4(body);
-      default:
-        return null;
-    }
-  },
-  decompress(payload, method, expectedLen) {
-    let out: Uint8Array | undefined;
-    switch (method) {
-      case RSF_COMPRESSION_STORE:
-        return storeDecompress(payload, expectedLen);
-      case RSF_COMPRESSION_DEFLATE:
-        out = wasmInflate(payload, expectedLen);
-        break;
-      case RSF_COMPRESSION_ZSTD:
-        out = wasmUnzstd(payload, expectedLen);
-        break;
-      case RSF_COMPRESSION_LZ4:
-        out = wasmUnlz4(payload, expectedLen);
-        break;
-      default:
-        return null;
-    }
+  decompress(frame, expectedLen) {
+    const out = wasmUnzstd(frame, expectedLen);
     return out && out.length === expectedLen ? out : null;
   },
   crc32(bytes) {
@@ -207,9 +123,21 @@ const wasmCodec: RsfCodec = {
   },
 };
 
-/** The active compression codec (WASM when available, else the JS store codec). */
+/** The active `.rsf` codec (WASM when available, else the JS raw-block codec). */
 export function getRsfCodec(): RsfCodec {
   return activeEngine.name === 'wasm' ? wasmCodec : jsCodec;
+}
+
+/**
+ * Raw DEFLATE (RFC 1951) decompression to exactly `expectedLen` bytes, for
+ * reading `.xlsx` ZIP entries. Needs the WASM engine (null without it).
+ */
+export function inflateRaw(payload: Uint8Array, expectedLen: number): Uint8Array | null {
+  if (activeEngine.name !== 'wasm') {
+    return null;
+  }
+  const out = wasmInflate(payload, expectedLen);
+  return out && out.length === expectedLen ? out : null;
 }
 
 const DELIMITER_BY_BYTE: Record<number, DelimiterId> = { 0x2c: ',', 0x3b: ';', 0x09: '\t' };

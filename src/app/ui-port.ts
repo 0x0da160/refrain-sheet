@@ -257,17 +257,6 @@ export interface UiPort {
   /** Explain that a spreadsheet document is saved as .rsf (per-tab, once). */
   explainRsfSave(name: string): Promise<boolean>;
   /**
-   * The RSF Save dialog: pick the container's compression method. `available`
-   * lists only methods writable in the current build; `current` is preselected.
-   * Resolves with the chosen method id, or null when cancelled.
-   */
-  chooseRsfSave(
-    name: string,
-    current: number,
-    available: number[],
-    downloadNote: string | null,
-  ): Promise<number | null>;
-  /**
    * The CSV export options dialog: explains the lossy conversion and lets the
    * user choose encoding, delimiter, quoting, line endings, and BOM
    * behavior. `currentDelimiter` is the source document's own delimiter,

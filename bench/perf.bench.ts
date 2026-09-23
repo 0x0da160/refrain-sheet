@@ -15,17 +15,10 @@
  */
 import { bench, describe } from 'vitest';
 import { AppState } from '../src/app/app-state';
-import {
-  initCsvEngine,
-  setCsvEngineForTesting,
-  RSF_COMPRESSION_DEFLATE,
-  RSF_COMPRESSION_LZ4,
-  RSF_COMPRESSION_STORE,
-  RSF_COMPRESSION_ZSTD,
-} from '../src/core/csv-engine';
+import { initCsvEngine, setCsvEngineForTesting } from '../src/core/csv-engine';
 import type { CellChange } from '../src/core/history';
 import { LosslessDocument } from '../src/core/lossless-document';
-import { encodeRsf, decodeRsf, type RsfData } from '../src/core/rsf-codec';
+import { decodeRsfWorkbook, encodeRsfWorkbook, type RsfWorkbookData } from '../src/core/rsf-codec';
 import { RsfDocument } from '../src/core/rsf-document';
 import { compileQuery, replaceAllInValue } from '../src/core/search';
 import { serializeDocument, KEEP_SAVE_OPTIONS } from '../src/core/serializer';
@@ -153,30 +146,27 @@ describe('RSF container round-trip, 100,000 non-empty cells', () => {
   for (let i = 0; i < 100_000; i++) {
     cells.push([i % 20_000, i % 5, `value-${i % 977}`]);
   }
-  const payload: RsfData = {
-    name: 'Sheet1',
+  const payload: RsfWorkbookData = {
     delimiter: ',',
-    rowCount: 20_000,
-    columnCount: 5,
-    cells,
+    sheets: [{ id: 's1', name: 'Sheet1', rowCount: 20_000, columnCount: 5, cells }],
   };
   bench.skipIf(!wasmAvailable)(
-    'encode (wasm deflate)',
+    'encode (JSON + wasm zstd)',
     () => {
       setCsvEngineForTesting('wasm');
-      encodeRsf(payload);
+      encodeRsfWorkbook(payload);
     },
     OPTS,
   );
   const encodedForDecode = (() => {
     setCsvEngineForTesting(wasmAvailable ? 'wasm' : 'js');
-    return encodeRsf(payload);
+    return encodeRsfWorkbook(payload);
   })();
   bench.skipIf(!wasmAvailable)(
-    'decode (validate + inflate)',
+    'decode (unzstd + JSON parse + validate)',
     () => {
       setCsvEngineForTesting('wasm');
-      const out = decodeRsf(encodedForDecode);
+      const out = decodeRsfWorkbook(encodedForDecode);
       if (!out.ok) throw new Error('decode failed');
     },
     OPTS,
@@ -227,41 +217,40 @@ describe('CSV → RSF conversion, 200,000×6', () => {
   );
 });
 
-// ----- RSF container: every supported compression method -----
+// ----- RSF container: compressed (WASM) vs Raw blocks (JS fallback) -----
 
-describe('RSF encode/decode per compression method, 100,000 cells', () => {
+describe('RSF encode/decode per engine, 100,000 cells', () => {
   const cells: Array<[number, number, string]> = [];
   for (let i = 0; i < 100_000; i++) {
     cells.push([i % 20_000, i % 5, `value-${i % 977}`]);
   }
-  const payload: RsfData = { name: 'Sheet1', delimiter: ',', rowCount: 20_000, columnCount: 5, cells };
-  const methods: Array<[string, number]> = [
-    ['zstd', RSF_COMPRESSION_ZSTD],
-    ['lz4', RSF_COMPRESSION_LZ4],
-    ['deflate', RSF_COMPRESSION_DEFLATE],
-    ['store', RSF_COMPRESSION_STORE],
+  const payload: RsfWorkbookData = {
+    delimiter: ',',
+    sheets: [{ id: 's1', name: 'Sheet1', rowCount: 20_000, columnCount: 5, cells }],
+  };
+  const engines: Array<['wasm' | 'js', string]> = [
+    ['wasm', 'zstd'],
+    ['js', 'raw blocks'],
   ];
-  for (const [label, method] of methods) {
-    bench.skipIf(!wasmAvailable)(
+  for (const [engine, label] of engines) {
+    bench.skipIf(engine === 'wasm' && !wasmAvailable)(
       `encode (${label})`,
       () => {
-        setCsvEngineForTesting('wasm');
-        encodeRsf(payload, method);
+        setCsvEngineForTesting(engine);
+        encodeRsfWorkbook(payload);
       },
       OPTS,
     );
-  }
-  for (const [label, method] of methods) {
     const encoded = (() => {
-      if (!wasmAvailable && method !== RSF_COMPRESSION_STORE) return null;
-      setCsvEngineForTesting(wasmAvailable ? 'wasm' : 'js');
-      return encodeRsf(payload, method);
+      if (engine === 'wasm' && !wasmAvailable) return null;
+      setCsvEngineForTesting(engine);
+      return encodeRsfWorkbook(payload);
     })();
     bench.skipIf(encoded === null)(
       `decode (${label})`,
       () => {
-        setCsvEngineForTesting(wasmAvailable ? 'wasm' : 'js');
-        const out = decodeRsf(encoded as Uint8Array);
+        setCsvEngineForTesting(engine);
+        const out = decodeRsfWorkbook(encoded as Uint8Array);
         if (!out.ok) throw new Error('decode failed');
       },
       OPTS,

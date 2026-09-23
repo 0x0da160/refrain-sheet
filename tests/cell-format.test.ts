@@ -21,7 +21,7 @@ import {
   resolveSharedBorder,
   type CellStyle,
 } from '../src/core/cell-style';
-import { decodeRsf, encodeRsf, RSF_BODY_VERSION, type RsfData } from '../src/core/rsf-codec';
+import { decodeRsf, encodeRsf, type RsfData } from './rsf-single-sheet';
 import { RsfDocument } from '../src/core/rsf-document';
 import { Worksheet } from '../src/core/worksheet';
 import { doc as csvDoc } from './helpers';
@@ -38,7 +38,6 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
-    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => null),
     confirmExportXlsx: vi.fn(async () => true),
     confirmExportJson: vi.fn(async () => true),
@@ -273,7 +272,7 @@ describe('Worksheet cell styles', () => {
   });
 });
 
-describe('RSF codec: cell-style block (body version 8)', () => {
+describe('RSF codec: cell styles', () => {
   const base: RsfData = {
     name: 'Sheet1',
     delimiter: ',',
@@ -308,7 +307,7 @@ describe('RSF codec: cell-style block (body version 8)', () => {
     expect(decoded.data.styles).toEqual(withStyles.styles);
   });
 
-  it('omits the style block, staying on a lower body version, when no cell is styled', () => {
+  it('omits the styles section when no cell is styled', () => {
     const decoded = decodeRsf(encodeRsf(base));
     expect(decoded.ok).toBe(true);
     if (decoded.ok) expect(decoded.data.styles).toBeUndefined();
@@ -327,7 +326,7 @@ describe('RSF codec: cell-style block (body version 8)', () => {
     if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
   });
 
-  it('rejects a style block truncated mid-record as bad-shape', () => {
+  it('rejects a truncated file as bad-shape', () => {
     const withStyles: RsfData = { ...base, styles: [[0, 0, { bold: true }]] };
     const bytes = encodeRsf(withStyles);
     const decoded = decodeRsf(bytes.subarray(0, bytes.length - 1));
@@ -336,7 +335,7 @@ describe('RSF codec: cell-style block (body version 8)', () => {
   });
 });
 
-describe('RSF codec: border line style and width (body version 10)', () => {
+describe('RSF codec: border line style and width', () => {
   const base: RsfData = {
     name: 'Sheet1',
     delimiter: ',',
@@ -380,12 +379,7 @@ describe('RSF codec: border line style and width (body version 10)', () => {
     if (decoded.ok) expect(decoded.data.styles).toEqual(implicit.styles);
   });
 
-  it('RSF_BODY_VERSION is at least 10, so a version-9 file (no border style/width bytes) still decodes unchanged', () => {
-    expect(RSF_BODY_VERSION).toBeGreaterThanOrEqual(10);
-    // A color-only border never triggers the version-10 upgrade (see the
-    // identical-bytes assertion above), so every pre-existing version-9 .rsf
-    // file — which by definition carries no line-style/width byte — decodes
-    // through the same `bodyVersion >= 10` guard that skips reading one.
+  it('reads a border color with no line style or width as the solid/thin default', () => {
     const colorOnly: RsfData = { ...base, styles: [[0, 0, { borderTop: '#0000ff' }]] };
     const decoded = decodeRsf(encodeRsf(colorOnly));
     expect(decoded.ok).toBe(true);

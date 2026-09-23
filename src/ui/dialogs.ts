@@ -156,16 +156,6 @@ export class Dialogs {
     return this.fileIo.explainRsfSave(name);
   }
 
-  /** See `FileIoDialogs.chooseRsfSave` for the full behavior contract. */
-  chooseRsfSave(
-    name: string,
-    current: number,
-    available: number[],
-    downloadNote: string | null,
-  ): Promise<number | null> {
-    return this.fileIo.chooseRsfSave(name, current, available, downloadNote);
-  }
-
   /** See `FileIoDialogs.chooseExportCsv` for the full behavior contract. */
   chooseExportCsv(name: string, currentDelimiter: DelimiterId): Promise<CsvExportOptions | null> {
     return this.fileIo.chooseExportCsv(name, currentDelimiter);

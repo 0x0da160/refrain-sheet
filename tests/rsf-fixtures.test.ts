@@ -4,50 +4,46 @@
  *
  * Every other RSF test builds its bytes with the *current* encoder, so an
  * encoder and decoder that drift together still pass. These fixtures are
- * committed bytes (tests/fixtures/rsf/), one per step of the body-version
- * ladder plus each compression method and the multi-sheet workbook
- * container. Two independent checks run against each:
+ * committed bytes (tests/fixtures/rsf/), checked two ways:
  *
- *  1. **Decode (the compatibility guarantee).** The committed bytes must
- *     still decode to the input they were written from. A fixture is never
- *     rewritten: a file saved by an older release must open forever.
+ *  1. **Decode (the compatibility guarantee).** The committed bytes of the
+ *     current format (`v1/`) must still decode to the input they were
+ *     written from. A fixture is never rewritten: a file saved by a release
+ *     must open in every later release that reads its format version.
  *  2. **Encode (output stability).** Encoding the same input must still
  *     reproduce the fixture byte-for-byte — for the compressed fixtures this
- *     also pins the embedded WASM codecs' output (src/wasm-gen/). An
- *     intentional format change fails here: keep the old fixture (its decode
- *     check stays), mark its `encodes` as `false`, and add a new fixture for
- *     the new output.
+ *     also pins the embedded WASM codec's output (src/wasm-gen/). An
+ *     intentional output change fails here: keep the old fixture (its decode
+ *     check stays), mark its `encodes` as `false`, and add a new fixture.
+ *
+ * The files directly in tests/fixtures/rsf/ are the binary format releases
+ * up to 0.8.x wrote. That format is no longer read (#602); they stay, never
+ * edited, to prove such a file is refused with `legacy-format` rather than
+ * misread.
  *
  * To add a fixture, add a case below and run
  * `RSF_FIXTURES_WRITE=1 npx vitest run tests/rsf-fixtures.test.ts`, which
  * writes only fixture files that do not exist yet — never an existing one.
  * See knowledge/formats/rsf/compatibility.md.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { initCsvEngine, setCsvEngineForTesting, type CsvEngineName } from '../src/core/csv-engine';
 import {
-  initCsvEngine,
-  RSF_COMPRESSION_DEFLATE,
-  RSF_COMPRESSION_LZ4,
-  RSF_COMPRESSION_STORE,
-  RSF_COMPRESSION_ZSTD,
-} from '../src/core/csv-engine';
-import {
-  decodeRsf,
   decodeRsfWorkbook,
-  encodeRsf,
+  encodeRsfBody,
   encodeRsfWorkbook,
-  type RsfData,
   type RsfWorkbookData,
+  type RsfWorksheetData,
 } from '../src/core/rsf-codec';
 
-const FIXTURE_DIR = new URL('./fixtures/rsf/', import.meta.url);
+const LEGACY_DIR = new URL('./fixtures/rsf/', import.meta.url);
+const V1_DIR = new URL('./fixtures/rsf/v1/', import.meta.url);
 const WRITE_MISSING = import.meta.env.RSF_FIXTURES_WRITE === '1';
-const HEADER_SIZE = 20;
 
-const base: RsfData = {
+const grid: RsfWorksheetData = {
+  id: 's1',
   name: 'Sheet1',
-  delimiter: ',',
   rowCount: 4,
   columnCount: 3,
   cells: [
@@ -60,9 +56,9 @@ const base: RsfData = {
   ],
 };
 
-/** A larger, repetitive sheet so the compressed fixtures actually compress. */
-const bulk: RsfData = {
-  ...base,
+/** A larger, repetitive sheet so the compressed fixture actually compresses. */
+const bulk: RsfWorksheetData = {
+  id: 'bulk',
   name: 'Bulk',
   rowCount: 200,
   columnCount: 4,
@@ -75,197 +71,201 @@ const bulk: RsfData = {
   ).flat(),
 };
 
-interface SheetCase {
+interface FixtureCase {
   file: string;
-  data: RsfData;
-  method: number;
-  /** Body version the fixture was written with (store fixtures only). */
-  bodyVersion?: number;
+  data: RsfWorkbookData;
+  /** The engine the fixture is written with: `wasm` compresses, `js` writes Raw blocks. */
+  engine: CsvEngineName;
   /** False once the encoder intentionally stops producing these bytes. */
   encodes: boolean;
 }
 
-const sheetCases: SheetCase[] = [
-  { file: 'v01-cells.rsf', data: base, bodyVersion: 1 },
-  { file: 'v02-meta.rsf', data: { ...base, appName: 'Refrain Sheet', appVersion: '0.8.6' }, bodyVersion: 2 },
+const cases: FixtureCase[] = [
   {
-    file: 'v03-display.rsf',
-    data: { ...base, display: { zoom: 125, colWidths: [[1, 240]] } },
-    bodyVersion: 3,
-  },
-  {
-    file: 'v04-filter.rsf',
-    data: {
-      ...base,
-      filter: {
-        top: 0,
-        left: 0,
-        bottom: 3,
-        right: 2,
-        headerRow: true,
-        columns: [{ col: 0, join: 'and', conditions: [], values: ['1'] }],
-      },
-    },
-    bodyVersion: 4,
-  },
-  { file: 'v05-wrap.rsf', data: { ...base, display: { wrap: true } }, bodyVersion: 5 },
-  { file: 'v06-timezone.rsf', data: { ...base, timezone: 'Asia/Tokyo' }, bodyVersion: 6 },
-  { file: 'v07-display-language.rsf', data: { ...base, displayLanguage: 'ja' }, bodyVersion: 7 },
-  {
-    file: 'v08-styles.rsf',
-    data: {
-      ...base,
-      styles: [[1, 1, { bold: true, italic: true, textColor: '#c0392b', backgroundColor: '#fdf2e9' }]],
-    },
-    bodyVersion: 8,
-  },
-  {
-    file: 'v09-number-format.rsf',
-    data: {
-      ...base,
-      styles: [
-        [1, 0, { numberFormat: { kind: 'currency', decimals: 2, thousands: true, currencySymbol: '¥' } }],
-      ],
-    },
-    bodyVersion: 9,
-  },
-  {
-    file: 'v10-borders.rsf',
-    data: {
-      ...base,
-      styles: [[2, 2, { borderTop: '#000000', borderTopStyle: 'dashed', borderTopWidth: 'thick' }]],
-    },
-    bodyVersion: 10,
-  },
-  { file: 'v11-comments.rsf', data: { ...base, comments: [[1, 1, 'a note — ünïcödé']] }, bodyVersion: 11 },
-  {
-    file: 'v12-markdown.rsf',
-    data: { ...base, kind: 'markdown', rowCount: 1, columnCount: 1, cells: [[0, 0, '# Title\n\nBody']] },
-    bodyVersion: 12,
-  },
-  { file: 'v13-locked.rsf', data: { ...base, locked: true }, bodyVersion: 13 },
-  {
-    file: 'v14-history.rsf',
-    data: { ...base, history: [{ timestamp: 1_758_585_600_000, bytes: new Uint8Array([1, 2, 3, 4, 5]) }] },
-    bodyVersion: 14,
-  },
-  {
-    file: 'v15-json.rsf',
-    data: { ...base, kind: 'json', rowCount: 1, columnCount: 1, cells: [[0, 0, '{"a":[1,2]}']] },
-    bodyVersion: 15,
-  },
-  { file: 'v16-history-cap.rsf', data: { ...base, historyMaxOverride: 7 }, bodyVersion: 16 },
-  {
-    file: 'v17-yaml.rsf',
-    data: { ...base, kind: 'yaml', rowCount: 1, columnCount: 1, cells: [[0, 0, 'a: 1\nb: [2, 3]\n']] },
-    bodyVersion: 17,
-  },
-  { file: 'v17-auto-format.rsf', data: { ...base, autoFormatSource: true }, bodyVersion: 17 },
-  { file: 'method-deflate.rsf', data: bulk, method: RSF_COMPRESSION_DEFLATE },
-  { file: 'method-zstd.rsf', data: bulk, method: RSF_COMPRESSION_ZSTD },
-  { file: 'method-lz4.rsf', data: bulk, method: RSF_COMPRESSION_LZ4 },
-].map((c) => ({ method: RSF_COMPRESSION_STORE, encodes: true, ...c }) as SheetCase);
-
-interface WorkbookCase {
-  file: string;
-  data: RsfWorkbookData;
-  method: number;
-  encodes: boolean;
-}
-
-const workbookCases: WorkbookCase[] = [
-  {
-    file: 'workbook-two-sheets.rsf',
-    method: RSF_COMPRESSION_STORE,
-    encodes: true,
-    data: {
-      delimiter: ',',
-      appName: 'Refrain Sheet',
-      appVersion: '0.8.6',
-      timezone: 'Asia/Tokyo',
-      activeSheetId: 'b',
-      sheets: [
-        {
-          id: 'a',
-          name: 'Data',
-          rowCount: 3,
-          columnCount: 2,
-          cells: [
-            [0, 0, 'x'],
-            [1, 0, '2'],
-          ],
-        },
-        {
-          id: 'b',
-          name: 'Sum',
-          rowCount: 2,
-          columnCount: 2,
-          cells: [[0, 0, '=SUM(Data!A1:A2)']],
-          comments: [[0, 0, 'cross-sheet']],
-        },
-      ],
-    },
-  },
-  {
-    file: 'workbook-zstd.rsf',
-    method: RSF_COMPRESSION_ZSTD,
+    file: 'features.rsf',
+    engine: 'wasm',
     encodes: true,
     data: {
       delimiter: ';',
+      appName: 'Refrain Sheet',
+      appVersion: '0.9.0',
+      docId: 'doc-1',
+      createdAt: 1_758_585_600_000,
+      updatedAt: 1_758_589_200_000,
+      timezone: 'Asia/Tokyo',
+      displayLanguage: 'ja',
+      activeSheetId: 's1',
       sheets: [
-        { id: 'a', name: 'One', rowCount: bulk.rowCount, columnCount: bulk.columnCount, cells: bulk.cells },
-        { id: 'b', name: 'Two', rowCount: 1, columnCount: 1, cells: [[0, 0, 'two']], locked: true },
+        {
+          ...grid,
+          locked: true,
+          display: { zoom: 125, colWidths: [[1, 240]], wrap: true },
+          filter: {
+            top: 0,
+            left: 0,
+            bottom: 3,
+            right: 2,
+            headerRow: true,
+            columns: [
+              {
+                col: 0,
+                join: 'or',
+                conditions: [
+                  { kind: 'text', op: 'contains', value: 'a' },
+                  { kind: 'number', op: 'numBetween', value: 1, value2: 9 },
+                ],
+                values: ['1'],
+              },
+            ],
+          },
+          styles: [
+            [1, 1, { bold: true, italic: true, textColor: '#c0392b', backgroundColor: '#fdf2e9' }],
+            [1, 0, { numberFormat: { kind: 'currency', decimals: 2, thousands: true, currencySymbol: '¥' } }],
+            [2, 2, { borderTop: '#000000', borderTopStyle: 'dashed', borderTopWidth: 'thick' }],
+          ],
+          comments: [[1, 1, 'a note — ünïcödé']],
+        },
       ],
     },
+  },
+  {
+    file: 'source-sheets.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: {
+      delimiter: ',',
+      autoFormatSource: true,
+      activeSheetId: 'md',
+      sheets: [
+        {
+          id: 'md',
+          name: 'Notes',
+          kind: 'markdown',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [[0, 0, '# Title\n\nBody']],
+        },
+        { id: 'js', name: 'Data', kind: 'json', rowCount: 1, columnCount: 1, cells: [[0, 0, '{"a":[1,2]}']] },
+        {
+          id: 'ym',
+          name: 'Config',
+          kind: 'yaml',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [[0, 0, 'a: 1\nb: [2, 3]\n']],
+        },
+        {
+          id: 'tx',
+          name: 'Plain',
+          kind: 'text',
+          rowCount: 1,
+          columnCount: 1,
+          cells: [[0, 0, 'line one\nline two']],
+        },
+      ],
+    },
+  },
+  {
+    file: 'history.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: {
+      delimiter: ',',
+      activeSheetId: 's1',
+      sheets: [grid],
+      historyMaxOverride: 7,
+      history: [
+        {
+          timestamp: 1_758_585_600_000,
+          bytes: encodeRsfBody({
+            delimiter: ',',
+            activeSheetId: 's1',
+            sheets: [{ ...grid, cells: [[0, 0, 'old']] }],
+          }),
+        },
+      ],
+    },
+  },
+  {
+    file: 'bulk-zstd.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: { delimiter: ',', activeSheetId: 'bulk', sheets: [bulk] },
+  },
+  {
+    // What the JavaScript fallback writes: a Zstandard frame of Raw blocks.
+    file: 'raw-blocks.rsf',
+    engine: 'js',
+    encodes: true,
+    data: { delimiter: ',', activeSheetId: 's1', sheets: [grid] },
   },
 ];
 
 function loadFixture(file: string, encode: () => Uint8Array): Uint8Array {
-  const url = new URL(file, FIXTURE_DIR);
+  const url = new URL(file, V1_DIR);
   if (!existsSync(url)) {
-    if (!WRITE_MISSING) throw new Error(`missing fixture ${file} (see this file's header to add one)`);
-    mkdirSync(FIXTURE_DIR, { recursive: true });
+    if (!WRITE_MISSING) throw new Error(`missing fixture v1/${file} (see this file's header to add one)`);
+    mkdirSync(V1_DIR, { recursive: true });
     writeFileSync(url, encode());
   }
   return new Uint8Array(readFileSync(url));
 }
 
-describe('frozen .rsf fixtures', () => {
+function withEngine<T>(engine: CsvEngineName, run: () => T): T {
+  setCsvEngineForTesting(engine);
+  try {
+    return run();
+  } finally {
+    setCsvEngineForTesting('wasm');
+  }
+}
+
+describe('frozen .rsf fixtures (format version 1)', () => {
   beforeAll(async () => {
-    // The compressed methods need the embedded WASM codec engine.
+    // Compressed fixtures need the embedded WASM codec engine.
     await initCsvEngine();
+    setCsvEngineForTesting('wasm');
   });
+  afterAll(() => setCsvEngineForTesting('js'));
 
-  describe.each(sheetCases)('$file', ({ file, data, method, bodyVersion, encodes }) => {
-    const bytes = () => loadFixture(file, () => encodeRsf(data, method));
-
-    it('decodes to the data it was written from', () => {
-      const fixture = bytes();
-      expect(fixture[5]).toBe(method);
-      if (bodyVersion !== undefined) expect(fixture[HEADER_SIZE]).toBe(bodyVersion);
-      const decoded = decodeRsf(fixture);
-      expect(decoded.ok).toBe(true);
-      if (decoded.ok) expect(decoded.data).toMatchObject({ ...data, compression: method });
-    });
-
-    it.runIf(encodes)('is still reproduced byte-for-byte by the encoder', () => {
-      expect(encodeRsf(data, method)).toEqual(bytes());
-    });
-  });
-
-  describe.each(workbookCases)('$file', ({ file, data, method, encodes }) => {
-    const bytes = () => loadFixture(file, () => encodeRsfWorkbook(data, method));
+  describe.each(cases)('$file', ({ file, data, engine, encodes }) => {
+    const bytes = () => loadFixture(file, () => withEngine(engine, () => encodeRsfWorkbook(data)));
 
     it('decodes to the workbook it was written from', () => {
-      const fixture = bytes();
-      expect(fixture[5]).toBe(method);
-      const decoded = decodeRsfWorkbook(fixture);
+      const decoded = decodeRsfWorkbook(bytes());
       expect(decoded.ok).toBe(true);
       if (decoded.ok) expect(decoded.data).toMatchObject(data);
     });
 
     it.runIf(encodes)('is still reproduced byte-for-byte by the encoder', () => {
-      expect(encodeRsfWorkbook(data, method)).toEqual(bytes());
+      expect(withEngine(engine, () => encodeRsfWorkbook(data))).toEqual(bytes());
     });
+  });
+
+  it('reads the Raw-block fixture without the WASM engine too', () => {
+    const decoded = withEngine('js', () => decodeRsfWorkbook(bytes('raw-blocks.rsf')));
+    expect(decoded.ok).toBe(true);
+  });
+
+  it('refuses a compressed fixture without the WASM engine, rather than misreading it', () => {
+    const decoded = withEngine('js', () => decodeRsfWorkbook(bytes('bulk-zstd.rsf')));
+    expect(decoded).toEqual({ ok: false, error: 'unsupported-compression' });
+  });
+});
+
+function bytes(file: string): Uint8Array {
+  return new Uint8Array(readFileSync(new URL(file, V1_DIR)));
+}
+
+describe('frozen binary-format files from releases up to 0.8.x', () => {
+  const legacy = readdirSync(LEGACY_DIR).filter((name) => name.endsWith('.rsf'));
+
+  it('the corpus is still present', () => {
+    expect(legacy.length).toBeGreaterThan(20);
+  });
+
+  it.each(legacy)('%s is refused as legacy-format', (file) => {
+    const decoded = decodeRsfWorkbook(new Uint8Array(readFileSync(new URL(file, LEGACY_DIR))));
+    expect(decoded).toEqual({ ok: false, error: 'legacy-format' });
   });
 });

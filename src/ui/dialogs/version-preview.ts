@@ -36,7 +36,6 @@ function noOpUiPort(): UiPort {
     chooseRecentFile: async () => null,
     confirmConvert: async () => false,
     explainRsfSave: async () => false,
-    chooseRsfSave: async () => null,
     chooseExportCsv: async () => null,
     chooseInsertShift: async () => null,
     confirmFlashFill: async () => false,

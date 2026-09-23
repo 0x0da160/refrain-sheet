@@ -16,7 +16,7 @@ import {
   MAX_COMMENT_LENGTH,
   normalizeCommentText,
 } from '../src/core/cell-comment';
-import { decodeRsf, encodeRsf, type RsfData } from '../src/core/rsf-codec';
+import { decodeRsf, encodeRsf, type RsfData } from './rsf-single-sheet';
 import { RsfDocument } from '../src/core/rsf-document';
 import { Worksheet } from '../src/core/worksheet';
 import { doc as csvDoc } from './helpers';
@@ -33,7 +33,6 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseReopen: vi.fn(async () => null),
     confirmConvert: vi.fn(async () => true),
     explainRsfSave: vi.fn(async () => true),
-    chooseRsfSave: vi.fn(async () => 2),
     chooseExportCsv: vi.fn(async () => null),
     confirmExportXlsx: vi.fn(async () => true),
     confirmExportJson: vi.fn(async () => true),
@@ -328,7 +327,7 @@ describe('cell comment command flow', () => {
   });
 });
 
-describe('RSF codec: cell-comment block (body version 11)', () => {
+describe('RSF codec: cell comments', () => {
   const base: RsfData = {
     name: 'Sheet1',
     delimiter: ',',
@@ -352,7 +351,7 @@ describe('RSF codec: cell-comment block (body version 11)', () => {
     expect(decoded.data.comments).toEqual(withComments.comments);
   });
 
-  it('omits the comment block, staying on a lower body version, when no cell is commented', () => {
+  it('omits the comments section when no cell is commented', () => {
     const decoded = decodeRsf(encodeRsf(base));
     expect(decoded.ok).toBe(true);
     if (decoded.ok) expect(decoded.data.comments).toBeUndefined();
@@ -371,7 +370,7 @@ describe('RSF codec: cell-comment block (body version 11)', () => {
     if (!decoded.ok) expect(decoded.error).toBe('bad-shape');
   });
 
-  it('rejects a comment block truncated mid-record as bad-shape', () => {
+  it('rejects a truncated file as bad-shape', () => {
     const withComments: RsfData = { ...base, comments: [[0, 0, 'note']] };
     const bytes = encodeRsf(withComments);
     const decoded = decodeRsf(bytes.subarray(0, bytes.length - 1));

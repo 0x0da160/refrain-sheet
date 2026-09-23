@@ -3,8 +3,6 @@ import { Lock, LockOpen, TriangleAlert } from 'lucide';
 import type { AppState, Tab } from '../app/app-state';
 import { t } from '../app/i18n';
 import { APP_VERSION_DISPLAY } from '../app/version';
-import { getRsfCodec } from '../core/csv-engine';
-import { rsfMethodKey } from '../core/rsf-codec';
 import { forEachIndexSliced } from '../core/scheduler';
 import {
   computeSelectionStats,
@@ -98,15 +96,6 @@ export class StatusBar {
       this.element.append(
         this.detail(
           el('span', { text: t('status.gridSize', { rows: doc.rowCount, cols: doc.columnCount }) }),
-        ),
-      );
-      const method = doc.compression ?? getRsfCodec().defaultMethod();
-      this.element.append(
-        this.detail(
-          el('span', {
-            text: `${t('status.compression')}: ${t(`${rsfMethodKey(method)}.short`)}`,
-            attrs: { title: t('status.compressionTitle') },
-          }),
         ),
       );
       const formulas = doc.countFormulaCells();

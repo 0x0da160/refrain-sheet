@@ -78,10 +78,10 @@ Two document kinds share one duck-typed editing surface (`EditorDocument`):
 - **`RsfDocument`** (`kind: 'rsf'`) — a **workbook** of one or more
   `Worksheet`s (`src/core/worksheet.ts`). Cell inputs are the document;
   formulas evaluate lazily with memoization and full memo invalidation per
-  mutation. Saved as the versioned binary `.rsf` container
-  (`src/core/rsf-codec.ts`; spec in
-  [formats/rsf/index.md](../formats/rsf/index.md)); legacy `.rcsv`
-  containers are read and migrated.
+  mutation. Saved as a `.rsf` file — a JSON document compressed with
+  Zstandard (`src/core/rsf-codec.ts`; spec in
+  [formats/rsf/index.md](../formats/rsf/index.md)); the binary format of
+  releases up to 0.8.x (and `.rcsv`) is refused with an explanation.
 
 ### Workbooks and worksheets
 
@@ -110,7 +110,7 @@ respect to the original byte layout.
 
 A worksheet also has a **kind** (`'grid'`, `'markdown'`, `'json'`, `'yaml'`,
 or `'text'` — see
-[formats/rsf/grammar-single-sheet-body.md](../formats/rsf/grammar-single-sheet-body.md#worksheet-kind-body-version-12)):
+[formats/rsf/overview.md](../formats/rsf/overview.md#worksheet-kinds)):
 a
 non-`grid` kind holds one document as its sole content (source lives in cell
 A1) and is rendered by a docked source/preview surface in the spreadsheet
@@ -136,8 +136,9 @@ bindings, exposing two narrow interfaces:
 
 - `CsvEngine` — parsing, delimiter sniffing, serialization planning/apply,
   stats reduction, literal counting;
-- `RsfCodec` — compression (Zstandard / LZ4 / DEFLATE / store), bounded
-  decompression, CRC-32.
+- `RsfCodec` — Zstandard compression for `.rsf` (Raw blocks under the
+  JavaScript fallback), bounded decompression, CRC-32; `inflateRaw` —
+  bounded DEFLATE for `.xlsx` import.
 
 The WASM binary is embedded as Base64 and instantiated locally (no fetch —
 this is what keeps `file://` working). A pure-TypeScript fallback with

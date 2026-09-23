@@ -1,23 +1,14 @@
 // SPDX-License-Identifier: MIT
 /**
- * RSF display-settings persistence (body version 3): serialization round
- * trips, version selection, validation/clamping of malformed values,
- * corruption handling, migration from older bodies, and the document-level
- * reopen flow (zoom and column widths restored, precedence over app
- * defaults).
+ * RSF display-settings persistence (a worksheet's `view`): serialization
+ * round trips, validation/clamping of malformed values, and the
+ * document-level reopen flow (zoom and column widths restored, precedence
+ * over app defaults).
  */
 import { describe, expect, it } from 'vitest';
-import { getRsfCodec, RSF_COMPRESSION_STORE } from '../src/core/csv-engine';
-import {
-  decodeRsf,
-  encodeRsf,
-  RSF_COL_WIDTH_MAX,
-  RSF_COL_WIDTH_MIN,
-  RSF_ZOOM_MAX,
-  RSF_ZOOM_MIN,
-  type RsfData,
-} from '../src/core/rsf-codec';
+import { RSF_COL_WIDTH_MAX, RSF_COL_WIDTH_MIN, RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../src/core/rsf-codec';
 import { RsfDocument } from '../src/core/rsf-document';
+import { decodeRsf, encodeRsf, rsfFromTree, rsfTree, type RsfData } from './rsf-single-sheet';
 
 const base: RsfData = {
   name: 'Sheet1',
@@ -27,133 +18,70 @@ const base: RsfData = {
   cells: [[0, 0, 'x']],
 };
 
-const HEADER_SIZE = 20;
-
-/** Patch a store-method container body byte and re-stamp length + CRC. */
-function patchBody(bytes: Uint8Array, mutate: (body: Uint8Array) => void): Uint8Array {
-  const out = bytes.slice();
-  const body = out.subarray(HEADER_SIZE);
-  mutate(body);
-  const view = new DataView(out.buffer);
-  view.setUint32(12, getRsfCodec().crc32(body), true);
-  return out;
+/** Re-encode `data` after editing its stored `view` (as a hand-edited file would). */
+function withView(data: RsfData, edit: (view: Record<string, unknown>) => void): Uint8Array {
+  const tree = rsfTree(encodeRsf(data));
+  edit(tree.sheets[0].view);
+  return rsfFromTree(tree);
 }
 
-describe('codec: display block (body version 3)', () => {
-  it('round-trips zoom and column widths', () => {
-    const bytes = encodeRsf(
-      {
-        ...base,
-        display: {
-          zoom: 150,
-          colWidths: [
-            [0, 200],
-            [2, 88],
-          ],
-        },
+describe('codec: display settings (view)', () => {
+  it('round-trips zoom and column widths, stored with column letters', () => {
+    const data: RsfData = {
+      ...base,
+      display: {
+        zoom: 150,
+        colWidths: [
+          [0, 200],
+          [2, 88],
+        ],
       },
-      RSF_COMPRESSION_STORE,
-    );
-    const decoded = decodeRsf(bytes);
+    };
+    expect(rsfTree(encodeRsf(data)).sheets[0].view).toEqual({ zoom: 150, colWidths: { A: 200, C: 88 } });
+    const decoded = decodeRsf(encodeRsf(data));
     expect(decoded.ok).toBe(true);
     if (!decoded.ok) return;
-    expect(decoded.data.display).toEqual({
-      zoom: 150,
-      colWidths: [
-        [0, 200],
-        [2, 88],
-      ],
-    });
+    expect(decoded.data.display).toEqual(data.display);
   });
 
-  it('writes body version 3 only when display settings exist', () => {
-    const noDisplay = encodeRsf(base, RSF_COMPRESSION_STORE);
-    expect(noDisplay[HEADER_SIZE]).toBe(1); // no meta either -> v1
-    const withMeta = encodeRsf({ ...base, appName: 'App', appVersion: '1.0' }, RSF_COMPRESSION_STORE);
-    expect(withMeta[HEADER_SIZE]).toBe(2);
-    const withDisplay = encodeRsf({ ...base, display: { zoom: 100 } }, RSF_COMPRESSION_STORE);
-    expect(withDisplay[HEADER_SIZE]).toBe(3);
-  });
-
-  it('older bodies (v1/v2) still decode, with no display settings', () => {
-    const v2 = encodeRsf({ ...base, appName: 'App', appVersion: '1.0' }, RSF_COMPRESSION_STORE);
-    const decoded = decodeRsf(v2);
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.display).toBeUndefined();
+  it('leaves the view out when there are no display settings', () => {
+    expect(rsfTree(encodeRsf(base)).sheets[0].view).toBeUndefined();
+    const decoded = decodeRsf(encodeRsf(base));
+    expect(decoded.ok && decoded.data.display).toBeUndefined();
   });
 
   it('clamps an out-of-range stored zoom instead of failing', () => {
-    const bytes = encodeRsf({ ...base, display: { zoom: 150 } }, RSF_COMPRESSION_STORE);
-    // Body layout: version(1) + delimiter(1) + appName len(2)+0 + appVersion
-    // len(2)+0 puts the zoom u16 at body offset 6.
-    const tooBig = patchBody(bytes, (body) => {
-      new DataView(body.buffer, body.byteOffset).setUint16(6, 999, true);
-    });
-    const decodedBig = decodeRsf(tooBig);
-    expect(decodedBig.ok).toBe(true);
-    if (decodedBig.ok) {
-      expect(decodedBig.data.display?.zoom).toBe(RSF_ZOOM_MAX);
-    }
-    const tooSmall = patchBody(bytes, (body) => {
-      new DataView(body.buffer, body.byteOffset).setUint16(6, 10, true);
-    });
-    const decodedSmall = decodeRsf(tooSmall);
-    expect(decodedSmall.ok).toBe(true);
-    if (decodedSmall.ok) {
-      expect(decodedSmall.data.display?.zoom).toBe(RSF_ZOOM_MIN);
-    }
+    const data: RsfData = { ...base, display: { zoom: 150 } };
+    const decodedBig = decodeRsf(withView(data, (view) => (view.zoom = 999)));
+    expect(decodedBig.ok && decodedBig.data.display?.zoom).toBe(RSF_ZOOM_MAX);
+    const decodedSmall = decodeRsf(withView(data, (view) => (view.zoom = 10)));
+    expect(decodedSmall.ok && decodedSmall.data.display?.zoom).toBe(RSF_ZOOM_MIN);
   });
 
-  it('clamps stored widths and drops entries for unknown columns', () => {
-    const bytes = encodeRsf(
-      { ...base, display: { zoom: 100, colWidths: [[1, 100]] } },
-      RSF_COMPRESSION_STORE,
-    );
-    // Width entry: body offset 6 (zoom u16) + 2 + count u32 -> entry at 12:
-    // col u32 at 12, width u16 at 16.
-    const unknownCol = patchBody(bytes, (body) => {
-      new DataView(body.buffer, body.byteOffset).setUint32(12, 99, true);
-    });
-    const decodedUnknown = decodeRsf(unknownCol);
-    expect(decodedUnknown.ok).toBe(true);
-    if (decodedUnknown.ok) {
-      expect(decodedUnknown.data.display?.colWidths).toBeUndefined();
-    }
-    const hugeWidth = patchBody(bytes, (body) => {
-      new DataView(body.buffer, body.byteOffset).setUint16(16, 65_000, true);
-    });
-    const decodedHuge = decodeRsf(hugeWidth);
-    expect(decodedHuge.ok).toBe(true);
-    if (decodedHuge.ok) {
-      expect(decodedHuge.data.display?.colWidths).toEqual([[1, RSF_COL_WIDTH_MAX]]);
-    }
-    const tinyWidth = patchBody(bytes, (body) => {
-      new DataView(body.buffer, body.byteOffset).setUint16(16, 1, true);
-    });
-    const decodedTiny = decodeRsf(tinyWidth);
-    expect(decodedTiny.ok).toBe(true);
-    if (decodedTiny.ok) {
-      expect(decodedTiny.data.display?.colWidths).toEqual([[1, RSF_COL_WIDTH_MIN]]);
-    }
+  it('clamps stored widths and drops entries for columns outside the sheet', () => {
+    const data: RsfData = { ...base, display: { zoom: 100, colWidths: [[1, 100]] } };
+    const unknown = decodeRsf(withView(data, (view) => (view.colWidths = { ZZ: 100 })));
+    expect(unknown.ok && unknown.data.display?.colWidths).toBeUndefined();
+    const huge = decodeRsf(withView(data, (view) => (view.colWidths = { B: 65_000 })));
+    expect(huge.ok && huge.data.display?.colWidths).toEqual([[1, RSF_COL_WIDTH_MAX]]);
+    const tiny = decodeRsf(withView(data, (view) => (view.colWidths = { B: 1 })));
+    expect(tiny.ok && tiny.data.display?.colWidths).toEqual([[1, RSF_COL_WIDTH_MIN]]);
   });
 
-  it('rejects a truncated display block as bad-shape', () => {
-    const bytes = encodeRsf(
-      { ...base, display: { zoom: 100, colWidths: [[1, 100]] } },
-      RSF_COMPRESSION_STORE,
-    );
-    // Claim more width entries than the body holds.
-    const badCount = patchBody(bytes, (body) => {
-      new DataView(body.buffer, body.byteOffset).setUint32(8, 1000, true);
+  it('rejects a malformed view as bad-shape', () => {
+    const data: RsfData = { ...base, display: { zoom: 100 } };
+    expect(decodeRsf(withView(data, (view) => (view.zoom = 'big')))).toEqual({
+      ok: false,
+      error: 'bad-shape',
     });
-    const decoded = decodeRsf(badCount);
-    expect(decoded).toEqual({ ok: false, error: 'bad-shape' });
+    expect(decodeRsf(withView(data, (view) => (view.colWidths = { b1: 100 })))).toEqual({
+      ok: false,
+      error: 'bad-shape',
+    });
   });
 
   it('encode clamps out-of-range inputs defensively', () => {
-    const bytes = encodeRsf({ ...base, display: { zoom: 9999, colWidths: [[0, 5]] } }, RSF_COMPRESSION_STORE);
-    const decoded = decodeRsf(bytes);
+    const decoded = decodeRsf(encodeRsf({ ...base, display: { zoom: 9999, colWidths: [[0, 5]] } }));
     expect(decoded.ok).toBe(true);
     if (!decoded.ok) return;
     expect(decoded.data.display?.zoom).toBe(RSF_ZOOM_MAX);
@@ -196,22 +124,11 @@ describe('document-level persistence and reopen', () => {
   });
 });
 
-describe('codec: wrap-long-rows flag (body version 5)', () => {
-  it('round-trips the wrap flag and writes body version 5 only when set', () => {
-    const bytes = encodeRsf({ ...base, display: { wrap: true } }, RSF_COMPRESSION_STORE);
-    // Body version byte sits immediately after the 20-byte header.
-    expect(bytes[HEADER_SIZE]).toBe(5);
-    const decoded = decodeRsf(bytes);
-    expect(decoded.ok).toBe(true);
-    if (!decoded.ok) return;
-    expect(decoded.data.display?.wrap).toBe(true);
-  });
-
-  it('does not raise the body version when wrap is absent', () => {
-    const bytes = encodeRsf({ ...base, display: { zoom: 125 } }, RSF_COMPRESSION_STORE);
-    expect(bytes[HEADER_SIZE]).toBe(3); // display present, no wrap → version 3
-    const decoded = decodeRsf(bytes);
-    expect(decoded.ok && decoded.data.display?.wrap).toBeFalsy();
+describe('codec: wrap long rows', () => {
+  it('round-trips the wrap flag, and leaves it out when unset', () => {
+    const decoded = decodeRsf(encodeRsf({ ...base, display: { wrap: true } }));
+    expect(decoded.ok && decoded.data.display?.wrap).toBe(true);
+    expect(rsfTree(encodeRsf({ ...base, display: { zoom: 125 } })).sheets[0].view.wrap).toBeUndefined();
   });
 
   it('persists and restores wrap through the document reopen flow', () => {

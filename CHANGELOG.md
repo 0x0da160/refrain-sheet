@@ -35,6 +35,25 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- The landing page (refrain-sheet.com) has been rewritten around fixing a CSV
+  before it is re-imported: a new Japanese title, description and headline,
+  use cases for accounting, payroll, order and core-system CSVs, a feature
+  card for values that are never type-inferred, and two new FAQ entries
+  (leading zeros and long IDs; malformed CSV). The comparison table no longer
+  makes claims about other products' behavior, and the page now
+  distinguishes normal local editing from the hosted app's optional Google
+  Drive integration instead of promising zero network access everywhere.
+
+### Fixed
+
+- The landing page listed three production dependencies; there are four.
+- The landing page still described the standalone **File > Markdown
+  Editor…** removed in 0.7.34 and the old **File > Protect Document** menu
+  path; it now describes Markdown sheets and **File > Document > Unprotect
+  Book**.
+
 ## [0.9.1] - 2026-09-23
 
 ### Changed

@@ -6,9 +6,11 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1" name="viewport" />
     <meta content="#147F43" name="theme-color" />
-    <title data-i18n="meta.title">Refrain Sheet — CSVを壊さない、書式保持のブラウザCSVエディタ</title>
+    <title data-i18n="meta.title">
+      CSVを壊さず編集する無料エディタ｜Shift_JIS・先頭ゼロ・改行コードを保持｜Refrain Sheet
+    </title>
     <meta
-      content="Shift_JIS / CP932・BOM・改行・引用符をバイト単位で保持する、ローカル完結の書式保持CSVエディタ。数式・書式設定はRSFスプレッドシートで。無編集保存は元ファイルとバイト単位で完全一致。インストール不要・通信ゼロ・MIT。"
+      content="Excelで開くと変わる先頭ゼロ、文字コード、日付、引用符、BOM、改行コードを保持してCSVを編集。無編集保存は元ファイルとバイト単位で一致。ブラウザ内でローカル処理、インストール・アカウント登録不要。"
       data-i18n="meta.desc"
       data-i18n-attr="content"
       name="description"
@@ -65,14 +67,16 @@
           <div class="hero-grid">
             <div>
               <p class="eyebrow" data-i18n="hero.eyebrow">LOCAL-FIRST CSV EDITOR</p>
-              <h1 data-i18n="hero.h1">CSVを、勝手に書き換えない。</h1>
-              <p class="h1-sub" data-i18n="hero.sub">Shift_JIS対応・ブラウザ完結の書式保持CSVエディタ</p>
+              <h1 data-i18n="hero.h1">CSVを壊さず編集。先頭ゼロ・文字コード・改行コードをそのまま保つ。</h1>
+              <p class="h1-sub" data-i18n="hero.sub">
+                Shift_JIS / CP932対応。再インポート前のCSVを安全に修正する、ブラウザ完結のCSVエディタ。
+              </p>
               <p class="lede" data-i18n="hero.lede">
-                Refrain Sheet
-                は、ブラウザだけで動く書式保持CSV・スプレッドシートエディタです。編集するのはセルの値だけ。文字コード、引用符、改行コード、BOMなど、それ以外のバイトはそのまま残します。
+                会計・給与・勤怠・受発注・EC・基幹システムから出力したCSVを、Excelの自動変換なしで修正。Refrain
+                Sheet は、変更したフィールド以外のバイトを保持して保存します。
               </p>
               <p class="hero-note" data-i18n="hero.forwhom">
-                対象：基幹システム・会計・受発注・ECから出力したCSVを、壊さずに直したい方へ。
+                取引先指定のCSV、インポート用テンプレート、商品・従業員マスタを「見た目だけでなく、データファイルとして」壊さず直したい方へ。
               </p>
               <div class="hero-actions">
                 <a
@@ -81,7 +85,7 @@
                   href="https://app.refrain-sheet.com/"
                   rel="noopener"
                   target="_blank"
-                  >CSVを開いて試す（インストール不要）</a
+                  >CSVをブラウザで開く（無料・インストール不要）</a
                 >
                 <a
                   class="btn btn-ghost btn-lg"
@@ -89,17 +93,18 @@
                   href="https://github.com/0x0da160/refrain-sheet"
                   rel="noopener"
                   target="_blank"
-                  >GitHub リポジトリ</a
+                  >GitHubで仕様とソースを見る</a
                 >
               </div>
               <p class="hero-note" data-i18n="hero.note">
-                無編集で保存すれば、出力は元ファイルとバイト単位で完全一致。
+                CSVの読み込み・編集・保存はブラウザ内で行われ、アプリ本体がファイルを外部のサーバーへ送信することはありません（Google
+                Drive連携を使う場合を除く）。
               </p>
               <div class="badge-row">
-                <span class="badge" data-i18n="hero.badge1">完全オフライン</span>
-                <span class="badge" data-i18n="hero.badge2">サーバー・アカウント不要</span>
-                <span class="badge" data-i18n="hero.badge3">Shift_JIS / CP932 対応</span>
-                <span class="badge" data-i18n="hero.badge4">MITライセンス</span>
+                <span class="badge" data-i18n="hero.badge1">無編集保存：元ファイルとバイト単位で一致</span>
+                <span class="badge" data-i18n="hero.badge2">CSV編集はローカル処理</span>
+                <span class="badge" data-i18n="hero.badge3">Shift_JIS / CP932対応</span>
+                <span class="badge" data-i18n="hero.badge4">インストール・アカウント不要</span>
               </div>
             </div>
           </div>
@@ -134,29 +139,40 @@
         <div class="wrap">
           <div class="section-head reveal">
             <p class="eyebrow" data-i18n="why.eyebrow">THE PROBLEM</p>
-            <h2 data-i18n="why.h2">「開いて保存しただけ」で壊れるCSV。</h2>
+            <h2 data-i18n="why.h2">CSVは「表」ではなく、次のシステムへ渡すデータです。</h2>
             <p class="lede" data-i18n="why.p">
-              一般的な表計算ソフトでCSVを開くと、文字コードが変わり、引用符が付き外れし、改行コードが統一され、先頭ゼロや日付が別物になります。差分は本来1セルのはずが、ファイル全体に広がる。Refrain
-              Sheet はその逆をやります。
+              表計算ソフトは、値を計算や表示に都合のよい形へ解釈します。そのため、郵便番号・社員番号・商品コード・口座番号の先頭ゼロが落ちる、「1-2」や「2024-01-01」が日付に変わる、16桁以上の番号の下位桁が失われる、文字コード（UTF-8とShift_JIS
+              /
+              CP932）の取り違えで文字化けする、引用符・カンマ・改行・BOM・空欄や「HH:mm」形式の時刻が変わる、といったことが起こり得ます。画面上は同じに見えても、次のシステムへ再インポートしたときのエラーや取り込み違いにつながります。
             </p>
           </div>
           <div class="two-col">
             <div class="reveal">
-              <h3 data-i18n="never.title">通常保存で「絶対にやらないこと」</h3>
+              <h3 data-i18n="never.title">通常保存で勝手に変えないこと</h3>
               <ul class="never">
-                <li><span data-i18n="never.1">改行コードや区切り文字を統一する</span></li>
-                <li><span data-i18n="never.2">ヘッダーのレイアウトを変える</span></li>
-                <li><span data-i18n="never.3">空白を足す・削る</span></li>
-                <li><span data-i18n="never.4">不要な引用符を足す・外す</span></li>
-                <li><span data-i18n="never.5">BOMを足す・外す</span></li>
-                <li><span data-i18n="never.6">壊れたCSVを勝手に修復する</span></li>
-                <li><span data-i18n="never.7">未編集フィールドのデコード不能バイトを置き換える</span></li>
+                <li>
+                  <span data-i18n="never.1"
+                    >改行コード（CRLF / LF）と区切り文字：混在していても統一しません</span
+                  >
+                </li>
+                <li><span data-i18n="never.2">ヘッダー行：レイアウトを整形しません</span></li>
+                <li><span data-i18n="never.3">セル前後の空白：足しも削りもしません</span></li>
+                <li><span data-i18n="never.4">引用符（"）：不要な付け外しをしません</span></li>
+                <li>
+                  <span data-i18n="never.5">BOM（ファイル先頭の文字コード識別子）：付け外ししません</span>
+                </li>
+                <li><span data-i18n="never.6">壊れたCSV：勝手に修復・正規化しません</span></li>
+                <li>
+                  <span data-i18n="never.7"
+                    >未編集フィールドのデコードできないバイト（文字化けして見える部分）：置き換えません</span
+                  >
+                </li>
               </ul>
             </div>
             <div class="reveal">
-              <h3 data-i18n="diff.h3">編集は、そのフィールドのバイト範囲だけ</h3>
+              <h3 data-i18n="diff.h3">直すのは1セル。変えてよいのも、その1セルだけ。</h3>
               <p class="lede" data-i18n="diff.p" style="margin: var(--space-4) 0 var(--space-6)">
-                1セルを書き換えても、再シリアライズされるのはその1フィールドだけ。ほかのバイトは一切動きません。引用されていたフィールドは引用されたまま、必要になったときだけ引用符が付きます。
+                備考だけを修正しても、ほかの列や改行、引用符まで作り直しません。正確には、編集したフィールドのバイト範囲だけを再シリアライズし、未編集部分のバイトはそのまま保持します。引用されていたフィールドは引用されたまま、新しい値に必要なときだけ引用符が付きます。
               </p>
               <div class="panel-dark">
                 <div class="ph">
@@ -187,37 +203,39 @@
         <div class="wrap">
           <div class="section-head reveal">
             <p class="eyebrow" data-i18n="use.eyebrow">USE CASES</p>
-            <h2 data-i18n="use.h2">こんなときに使えます。</h2>
-            <p class="lede" data-i18n="use.lede">
-              実務で繰り返し起きる、CSVがらみの困りごとに向けて作っています。
-            </p>
+            <h2 data-i18n="use.h2">再インポート前のCSVを、安心して直すために。</h2>
+            <p class="lede" data-i18n="use.lede">業務システムの間を行き来するCSVの、よくある修正場面です。</p>
           </div>
           <div class="cards reveal">
             <div class="card">
-              <h3 data-i18n="use.c1h">基幹システムのCSVを一部だけ直す</h3>
+              <h3 data-i18n="use.c1h">会計・税務の仕訳・提出用CSV</h3>
               <p data-i18n="use.c1p">
-                商品名・備考・ステータスといった一部の列だけを書き換え、それ以外は一切触りません。
+                指定された列構成や空欄、科目などのコード、Shift_JISの文字コードを保ったまま、修正した箇所だけを変更します。
               </p>
             </div>
             <div class="card">
-              <h3 data-i18n="use.c2h">取引先指定の形式を保ったまま返却</h3>
-              <p data-i18n="use.c2p">改行コードや引用符を変えずに、指定されたCSV形式のまま出力します。</p>
+              <h3 data-i18n="use.c2h">人事・給与・勤怠の従業員CSV</h3>
+              <p data-i18n="use.c2p">
+                社員番号・郵便番号・口座番号の先頭ゼロや「HH:mm」形式の時刻を、数値や時刻に変換せず文字列のまま扱います。
+              </p>
             </div>
             <div class="card">
-              <h3 data-i18n="use.c3h">先頭ゼロ・日付・長い番号を守る</h3>
+              <h3 data-i18n="use.c3h">受発注・在庫・商品マスタCSV</h3>
               <p data-i18n="use.c3p">
-                ほかのソフトなら勝手に変換されがちな値も、文字列としてそのまま保持します。
+                商品コードやJANコード、備考を直しても、取引先指定の列順・区切り文字・引用ルールはそのまま維持します。
               </p>
             </div>
             <div class="card">
-              <h3 data-i18n="use.c4h">壊れたCSVを、直さずにまず確認</h3>
+              <h3 data-i18n="use.c4h">基幹システムと現場ツールの間のCSV</h3>
               <p data-i18n="use.c4p">
-                自動修復はせず、問題のある行・列を提示してから、開くかどうかを判断できます。
+                API連携の有無にかかわらず残る、CSV受け渡しの小さな修正作業に。直した箇所以外は元のファイルのまま渡せます。
               </p>
             </div>
             <div class="card">
-              <h3 data-i18n="use.c5h">機密データをアップロードしない</h3>
-              <p data-i18n="use.c5p">顧客・受注データなどをブラウザ内だけで処理し、どこにも送信しません。</p>
+              <h3 data-i18n="use.c5h">原因の調査・診断が必要なCSV</h3>
+              <p data-i18n="use.c5p">
+                フィールド数の不一致や閉じていない引用符を、勝手に直さず行・列つきで確認できます。
+              </p>
             </div>
           </div>
         </div>
@@ -237,7 +255,10 @@
           </div>
           <div class="stat">
             <div class="k" data-i18n="stat3.k">0 requests</div>
-            <div class="v" data-i18n="stat3.v">実行時のネットワーク通信。CDNもテレメトリもありません</div>
+            <div class="v" data-i18n="stat3.v">
+              CSVの読み込み・編集・保存で発生する通信。CDNもテレメトリもありません（Google
+              Drive連携の利用時を除く）
+            </div>
           </div>
         </div>
       </section>
@@ -246,20 +267,22 @@
         <div class="wrap">
           <div class="section-head reveal">
             <p class="eyebrow" data-i18n="features.eyebrow">FEATURES</p>
-            <h2 data-i18n="features.h2">日本の現場のCSVに、ちゃんと向き合う。</h2>
+            <h2 data-i18n="features.h2">壊さないために、勝手に推測しない。</h2>
             <p class="lede" data-i18n="features.lede">
-              文字コードの自動判定から、壊れたCSVの診断、IME入力の安全性まで。実務でCSVを触る人が困るところを、ひとつずつ潰しています。
+              「数値に見えるから数値にする」「崩れているから直す」といった推測をせず、ファイルの状態を示して判断をユーザーに委ねます。文字コードの確認から壊れたCSVの診断、日本語入力まで、実務でCSVを扱うときにつまずきやすい点に対応しています。
             </p>
           </div>
           <div class="feature-row reveal">
             <div class="feature-copy">
-              <h3 data-i18n="f1.h3">文字コードと保存オプション</h3>
+              <h3 data-i18n="f1.h3">文字コード・BOM・改行コードを確認して保存</h3>
               <p class="lede" data-i18n="f1.p">
-                UTF-8（BOM有無）、Shift_JIS / CP932、EUC-JP
-                に対応。自動判定に加えて「文字コードを指定して開き直す」もでき、開き直しても元バイトは変化しません。保存時は文字コード・BOM・改行コードを個別に選べます。
+                UTF-8（BOMあり／なし）、Shift_JIS / CP932、EUC-JP
+                に対応。自動判定に加えて文字コードを指定して開き直すこともでき、開き直しても元のバイトは変わりません。保存時は文字コード・BOM・改行コードを個別に選べるので、意図して変えたいときだけ反映できます。
               </p>
               <ul>
-                <li data-i18n="f1.li1">CP932で表現できない文字は既定で保存を中止し、影響セルを報告</li>
+                <li data-i18n="f1.li1">
+                  CP932で表現できない文字があると既定で保存を中止し、影響するセルを知らせる
+                </li>
                 <li data-i18n="f1.li2">改行コードの変換は行終端だけを書き換え、末尾の改行を勝手に足さない</li>
                 <li data-i18n="f1.li3">
                   ステータスバーに文字コード・区切り文字・改行コード・サイズを常時表示
@@ -291,9 +314,9 @@
           </div>
           <div class="feature-row flip reveal">
             <div class="feature-copy">
-              <h3 data-i18n="f2.h3">壊れたCSVも、直さずに開く</h3>
+              <h3 data-i18n="f2.h3">壊れたCSVも、自動修復せずに診断</h3>
               <p class="lede" data-i18n="f2.p">
-                閉じられていない引用符、引用符の後の余分なテキスト、フィールド数の不一致——問題は行・列つきの一覧で提示されます。自動修復も正規化も行いません。「このまま開く」を選べば、不正な領域は編集しない限りバイト単位で保持されます。
+                閉じていない引用符、引用符の後の余分なテキスト、フィールド数の不一致を、行・列つきの一覧で示します。自動修復も正規化も行いません。開くかどうかはユーザーが判断でき、「このまま開く」を選べば、不正な箇所は編集しない限りバイト単位で保持されます。
               </p>
             </div>
             <figure class="shot-wrap" style="margin: 0">
@@ -322,9 +345,9 @@
           </div>
           <div class="feature-row reveal">
             <div class="feature-copy">
-              <h3 data-i18n="f3.h3">メニュー優先のUIと、日本語入力の安全性</h3>
+              <h3 data-i18n="f3.h3">日本語入力と、デスクトップアプリに近い操作</h3>
               <p class="lede" data-i18n="f3.p">
-                デスクトップアプリのようなメニューバーがコマンドの唯一の一覧。すべての操作はキーボードからも届きます。日本語入力は最初の一打鍵から安全で、ローマ字の1文字目が英字として漏れることはありません。
+                メニューバーからすべてのコマンドを実行でき、同じ操作にキーボードからも届きます。日本語入力は最初の1打鍵から扱えるので、ローマ字の1文字目が英字としてセルに入ることはありません。
               </p>
               <ul>
                 <li data-i18n="f3.li1">
@@ -359,24 +382,25 @@
           </div>
           <div class="cards reveal" style="margin-top: var(--space-10)">
             <div class="card">
-              <h3 data-i18n="f5.h3">Googleドライブと直接やり取り</h3>
-              <p data-i18n="f5.p">
-                ホスト版アプリでは、Googleドライブのファイルをそのまま開いて上書き保存できます。アクセス範囲は開いた・作成したファイルだけに限定され（drive.fileスコープ）、アクセストークンはブラウザのメモリ上にのみ保持されます。
+              <h3 data-i18n="f8.h3">先頭ゼロ・日付・長い番号を型推論で変えない</h3>
+              <p data-i18n="f8.p">
+                CSVの値は書かれた文字列のまま扱います。「0123」は「0123」のまま、「2024-01-01」や16桁以上の番号も、数値や日付に変換して書き戻すことはありません。
               </p>
             </div>
             <div class="card">
-              <h3 data-i18n="f6.h3">誤編集を防ぐ保護モード</h3>
+              <h3 data-i18n="f6.h3">読み取り専用から始める保護モード</h3>
               <p data-i18n="f6.p">
-                既存ファイルを開くと既定で読み取り専用になり、ステータスバーのアイコンか File &gt;
-                ドキュメントを保護で編集を解除できます。設定はタブごと・セッション限りで、ファイルには保存されません。
+                既存のファイルは既定で読み取り専用で開きます。編集するときは、ステータスバーのアイコンか
+                ファイル &gt; ドキュメント &gt; ブックの保護を解除
+                で切り替えます。この設定はタブごと・セッション限りで、ファイルには保存されません。
               </p>
             </div>
             <div class="card">
-              <h3 data-i18n="f7.h3">独立したMarkdownエディタ</h3>
+              <h3 data-i18n="f7.h3">ほかにも：Markdownシート</h3>
               <p data-i18n="f7.p">
-                File &gt; Markdownエディタ…
-                で、プレビュー付きの編集画面を開けます。CSV・スプレッドシートのタブとは独立して動作し、既存の
-                .md ファイルを開いて上書き保存できます。
+                RSFのブックに Markdown
+                シートを追加し、ソースとプレビューを並べてメモや手順書を書けます（シート &gt;
+                Markdownシートの追加）。MarkdownシートはCSVエクスポートの対象外です。
               </p>
             </div>
           </div>
@@ -387,10 +411,11 @@
         <div class="wrap">
           <div class="section-head reveal" style="margin-bottom: var(--space-10)">
             <p class="eyebrow">RSF SPREADSHEET</p>
-            <h2 data-i18n="f4.h3">スプレッドシートが必要なときは RSF</h2>
+            <h2 data-i18n="f4.h3">集計・比較・書式が必要なときだけ、RSFへ。</h2>
             <p class="lede" data-i18n="f4.p">
-              数式・行列の挿入・メタデータはプレーンCSVでは表現できません。だから別形式（.rsf）に明示的に変換したときだけ有効になります。元の
-              .csv は指一本触れません。
+              CSVには、数式、複数シート、書式、コメントを完全には表せません。Refrain Sheet
+              は、CSVを無理にスプレッドシート化しません。必要なときだけRSF（.rsf）へ明示的に変換し、CSVの正本とは役割を分けます。変換しても元の
+              .csv は変更されません。
             </p>
           </div>
           <div class="cards reveal">
@@ -468,13 +493,13 @@
             <p class="eyebrow" data-i18n="theme.eyebrow">DETAILS</p>
             <h2 data-i18n="theme.h2">英語UIとダークテーマも、標準装備。</h2>
             <p class="lede" data-i18n="theme.p">
-              日本語と英語はどちらも第一級のUI言語です。テーマはシステム設定に追従し、ライト／ダークを明示指定することもできます。表示の変更がCSVのバイトやRSFのデータを書き換えることは決してありません。
+              日本語と英語はどちらも第一級のUI言語です。テーマはシステム設定に追従し、ライト／ダークを明示指定することもできます。表示の変更がCSVのバイトやRSFのデータを書き換えることはありません。
             </p>
           </div>
           <figure class="reveal" style="margin: 0">
             <div class="shot" style="border-color: var(--night-line)">
               <img
-                alt="英語UI・ダークテーマで同じCSVを開いた画面"
+                alt="英語UI・ダークテーマで同じCSVを開いた Refrain Sheet の画面"
                 data-i18n="theme.alt"
                 data-i18n-attr="alt"
                 decoding="async"
@@ -500,10 +525,10 @@
         <div class="wrap">
           <div class="section-head reveal">
             <p class="eyebrow" data-i18n="cmp.eyebrow">COMPARISON</p>
-            <h2 data-i18n="cmp.h2">一般的な表計算ソフトとの違い。</h2>
+            <h2 data-i18n="cmp.h2">Excelの代わりではなく、CSVの受け渡しを守る道具です。</h2>
             <p class="lede" data-i18n="cmp.lede">
-              Refrain Sheet は Excel
-              の置き換えではありません。「CSVというファイルそのものを壊さずに直す」ための道具です。
+              表計算ソフトは計算・集計・可視化のための道具で、CSVを別のシステムへ渡すときに求められる性質とは目的が異なります。下の表では、Refrain
+              Sheet の挙動と、ほかの製品を選ぶときに確認したい観点を並べています。
             </p>
           </div>
           <div class="table-scroll reveal">
@@ -511,60 +536,64 @@
               <thead>
                 <tr>
                   <th scope="col"><span class="sr"> </span></th>
-                  <th data-i18n="cmp.col1" scope="col">Excel / 一般的な表計算ソフト</th>
-                  <th data-i18n="cmp.col2" scope="col">オンラインCSVエディタ</th>
+                  <th data-i18n="cmp.col1" scope="col">一般的な表計算ソフト</th>
+                  <th data-i18n="cmp.col2" scope="col">CSVエディタ（製品により異なる）</th>
                   <th class="own" data-i18n="cmp.col3" scope="col">Refrain Sheet</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <th data-i18n="cmp.r1" scope="row">無編集で開いて保存</th>
-                  <td data-i18n="cmp.r1a">文字コード・引用符・改行が書き換わることがある</td>
-                  <td data-i18n="cmp.r1b">多くは再シリアライズされる</td>
-                  <td class="own" data-i18n="cmp.r1c">バイト単位で完全一致</td>
+                  <th data-i18n="cmp.r1" scope="row">主な目的</th>
+                  <td data-i18n="cmp.r1a">計算、集計、可視化</td>
+                  <td data-i18n="cmp.r1b">CSVの閲覧・編集</td>
+                  <td class="own" data-i18n="cmp.r1c">CSVをデータファイルとして編集・保存</td>
                 </tr>
                 <tr>
-                  <th data-i18n="cmp.r2" scope="row">1セルだけの編集</th>
-                  <td data-i18n="cmp.r2a">ファイル全体が再出力される</td>
-                  <td data-i18n="cmp.r2b">ファイル全体が再出力される</td>
-                  <td class="own" data-i18n="cmp.r2c">そのフィールドのバイト範囲だけ</td>
+                  <th data-i18n="cmp.r2" scope="row">値の扱い（先頭ゼロ・日付・長い番号）</th>
+                  <td data-i18n="cmp.r2a">表示・計算のため型変換が起こり得る</td>
+                  <td data-i18n="cmp.r2b">製品・設定により異なる</td>
+                  <td class="own" data-i18n="cmp.r2c">値を型推論で書き換えない</td>
                 </tr>
                 <tr>
-                  <th data-i18n="cmp.r3" scope="row">Shift_JIS / CP932</th>
-                  <td data-i18n="cmp.r3a">環境依存。文字化けや自動変換が起きやすい</td>
-                  <td data-i18n="cmp.r3b">非対応のものが多い</td>
-                  <td class="own" data-i18n="cmp.r3c">自動判定＋開き直し＋保存時に選択可</td>
+                  <th data-i18n="cmp.r3" scope="row">無編集で開いて保存</th>
+                  <td data-i18n="cmp.r3a">製品・開き方・設定に依存</td>
+                  <td data-i18n="cmp.r3b">製品・設定により異なる</td>
+                  <td class="own" data-i18n="cmp.r3c">元ファイルとバイト単位で一致</td>
                 </tr>
                 <tr>
-                  <th data-i18n="cmp.r4" scope="row">壊れたCSV</th>
-                  <td data-i18n="cmp.r4a">黙って修復・正規化される</td>
-                  <td data-i18n="cmp.r4b">読み込みエラーになりやすい</td>
-                  <td class="own" data-i18n="cmp.r4c">診断を提示し、保持したまま開く</td>
+                  <th data-i18n="cmp.r4" scope="row">1セルだけの修正</th>
+                  <td data-i18n="cmp.r4a">製品・設定に依存</td>
+                  <td data-i18n="cmp.r4b">製品・設定により異なる</td>
+                  <td class="own" data-i18n="cmp.r4c">編集したフィールド以外のバイトを保持</td>
                 </tr>
                 <tr>
-                  <th data-i18n="cmp.r5" scope="row">先頭ゼロ・日付・長い数値</th>
-                  <td data-i18n="cmp.r5a">型推論で勝手に変換されることがある</td>
-                  <td data-i18n="cmp.r5b">実装により異なる</td>
-                  <td class="own" data-i18n="cmp.r5c">値は文字列として保持。推論による書き換えなし</td>
+                  <th data-i18n="cmp.r5" scope="row">文字コード</th>
+                  <td data-i18n="cmp.r5a">製品・開き方に依存</td>
+                  <td data-i18n="cmp.r5b">製品により異なる</td>
+                  <td class="own" data-i18n="cmp.r5c">
+                    UTF-8・Shift_JIS / CP932・EUC-JPを判定。開き直しと保存時の指定が可能
+                  </td>
                 </tr>
                 <tr>
-                  <th data-i18n="cmp.r6" scope="row">データの送信先</th>
-                  <td data-i18n="cmp.r6a">ローカル（クラウド版はサーバー）</td>
-                  <td data-i18n="cmp.r6b">サーバーへアップロード</td>
-                  <td class="own" data-i18n="cmp.r6c">どこにも送信しない（通信ゼロ）</td>
+                  <th data-i18n="cmp.r6" scope="row">ファイルの処理場所</th>
+                  <td data-i18n="cmp.r6a">製品・利用形態に依存</td>
+                  <td data-i18n="cmp.r6b">製品・利用形態に依存</td>
+                  <td class="own" data-i18n="cmp.r6c">通常のCSV編集はブラウザ内でローカル処理</td>
                 </tr>
                 <tr>
                   <th data-i18n="cmp.r7" scope="row">導入</th>
-                  <td data-i18n="cmp.r7a">ライセンス・インストールが必要</td>
-                  <td data-i18n="cmp.r7b">アカウント登録が必要な場合も</td>
-                  <td class="own" data-i18n="cmp.r7c">HTMLファイル1つ。file:// でも動く</td>
+                  <td data-i18n="cmp.r7a">製品により異なる</td>
+                  <td data-i18n="cmp.r7b">製品により異なる</td>
+                  <td class="own" data-i18n="cmp.r7c">
+                    ブラウザで開くだけ。配布版はHTMLファイル1つで file:// でも動作
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
           <p class="cmp-note" data-i18n="cmp.note">
-            ※ 比較は一般的な利用シーンでの傾向をまとめたものです。Refrain Sheet
-            の挙動はリポジトリのREADMEおよびテストで定義されています。
+            ※ 一般的な表計算ソフト・他のCSVエディタの挙動は、製品・バージョン・設定によって異なります。Refrain
+            Sheet の挙動はリポジトリのREADMEおよびテストで定義されています。
           </p>
         </div>
       </section>
@@ -573,9 +602,10 @@
         <div class="wrap">
           <div class="section-head reveal">
             <p class="eyebrow" data-i18n="sec.eyebrow">SECURITY</p>
-            <h2 data-i18n="sec.h2">外に出ていかない、という設計。</h2>
+            <h2 data-i18n="sec.h2">機密CSVは端末内で。必要なときだけGoogle Driveと直接やり取り。</h2>
             <p class="lede" data-i18n="sec.lede">
-              機密を含むCSVを扱う前提で作られています。実行時のネットワーク接続は一切ありません。
+              CSVの読み込み・編集・保存はブラウザ内で行います。Google
+              Drive連携を使うときだけ、ユーザーの操作に応じてGoogleと通信します。なお、この紹介ページのアクセス解析（同意した場合のみ）は、CSVを扱うアプリ本体とは別のものです。
             </p>
           </div>
           <div class="cards reveal">
@@ -592,10 +622,32 @@
                   <path d="M12 3l8 3.5v5c0 5-3.4 8.6-8 9.5-4.6-.9-8-4.5-8-9.5v-5L12 3z"></path>
                 </svg>
               </div>
-              <h3 data-i18n="sec.c1h">通信ゼロ</h3>
+              <h3 data-i18n="sec.c1h">通常のCSV編集は端末内で完結</h3>
               <p data-i18n="sec.c1p">
-                CSPで default-src 'none' / connect-src 'none'
-                を指定。CDN・外部フォント・API・アナリティクス・テレメトリのいずれもありません。
+                ファイルはブラウザ内で読み込まれ、保存先もお使いの端末です。CDN・外部フォント・アナリティクス・テレメトリはありません。配布版はCSPで
+                connect-src 'none' を指定し、通信そのものをブロックします。
+              </p>
+            </div>
+            <div class="card">
+              <div aria-hidden="true" class="ico">
+                <svg
+                  fill="none"
+                  height="18"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  viewbox="0 0 24 24"
+                  width="18"
+                >
+                  <path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 9.1 4.5 4.5 0 0 0 7 18z"></path>
+                </svg>
+              </div>
+              <h3 data-i18n="f5.h3">Google Drive連携は、使うときだけ</h3>
+              <p data-i18n="f5.p">
+                ホスト版アプリで「ドライブから開く」「ドライブに保存」を選んだときだけ、Googleへのサインインと
+                Google Drive API
+                との通信が発生します。アクセス範囲は開いた・作成したファイルに限られ（drive.file
+                スコープ）、アクセストークンはブラウザのメモリ上にのみ保持されます。ファイルは運営者のサーバーを経由せず、ブラウザとGoogle
+                Driveの間で直接やり取りされます。配布版にはこの機能はありません。
               </p>
             </div>
             <div class="card">
@@ -632,7 +684,7 @@
               </div>
               <h3 data-i18n="sec.c3h">サプライチェーン対策</h3>
               <p data-i18n="sec.c3p">
-                本番依存は3パッケージのみ（推移的依存ゼロ）、lockfile固定、install
+                本番依存は4パッケージのみ（推移的依存ゼロ）、lockfile固定、install
                 スクリプト無効化。リリースにはSHA-256・SBOM・ビルド来歴の署名が付きます。
               </p>
             </div>
@@ -663,7 +715,8 @@
               <div class="n">03</div>
               <h3 data-i18n="start.s3h">オフラインで使う</h3>
               <p data-i18n="start.s3p">
-                リリースZIPを展開し、index.html をダブルクリック。file:// でも完全に動作します。
+                リリースZIPを展開し、index.html をダブルクリック。file://
+                でも動作し、ネットワークに接続しません。
               </p>
             </div>
           </div>
@@ -690,34 +743,47 @@
           </div>
           <div class="faq reveal">
             <details class="qa">
-              <summary data-i18n="faq.q1">アップロードしたデータはどこに送られますか？</summary>
-              <p data-i18n="faq.a1">
-                どこにも送られません。ファイルはブラウザ内で読み込まれ、保存もお使いの端末に対して行われます。実行時のネットワーク接続はCSPレベルで禁止されています。
-              </p>
-            </details>
-            <details class="qa">
               <summary data-i18n="faq.q2">Excelの代わりになりますか？</summary>
               <p data-i18n="faq.a2">
                 目的が違います。Refrain Sheet
-                はCSVを壊さずに直すためのエディタで、数式や行列の挿入が必要なときは明示的に .rsf
-                スプレッドシートへ変換します。Excel互換を保証するものではありません。
+                はCSVを壊さずに直すためのエディタで、Excel互換を保証するものではありません。数式や書式が必要なときは、明示的にRSFスプレッドシートへ変換して使います。
               </p>
             </details>
             <details class="qa">
-              <summary data-i18n="faq.q3">大きなファイルも開けますか？</summary>
-              <p data-i18n="faq.a3">
-                既定の上限は512MiB（設定で16MiB〜2GiBに変更可）で、上限を超えるファイルは読み込む前に拒否されます。表示は仮想化されていますが、数百MB級のファイルは描画・編集が重くなることがあります。
+              <summary data-i18n="faq.q8">先頭ゼロや長い番号は守れますか？</summary>
+              <p data-i18n="faq.a8">
+                はい。値を型推論で変換しないため、「0123」や16桁以上の番号は書かれたとおりの文字列として扱われ、保存時もそのまま書き戻されます。ただし、取り込み先のシステムがその値を受け付けるかどうかは、取り込み先の仕様を事前にご確認ください。
               </p>
             </details>
             <details class="qa">
-              <summary data-i18n="faq.q4">対応していない文字コードはありますか？</summary>
+              <summary data-i18n="faq.q1">データは外部へ送信されますか？</summary>
+              <p data-i18n="faq.a1">
+                通常のCSV編集では送信されません。ファイルはブラウザ内で読み込まれ、保存もお使いの端末に対して行われます。ホスト版アプリでGoogle
+                Drive連携を使ったときだけ、ユーザーの操作に応じてブラウザとGoogle
+                Driveの間で直接ファイルをやり取りします。配布版はCSPでネットワーク接続そのものを禁止しています。
+              </p>
+            </details>
+            <details class="qa">
+              <summary data-i18n="faq.q4">どの文字コードに対応していますか？</summary>
               <p data-i18n="faq.a4">
-                現行リリースでは UTF-16 と ISO-2022-JP
-                に対応していません。該当しそうなファイルは警告が出たうえで、ベストエフォートで開かれます（バイトは変更されません）。
+                UTF-8（BOMあり／なし）、Shift_JIS / CP932、EUC-JP に対応しています。UTF-16 と ISO-2022-JP
+                は現行リリースでは対応しておらず、該当しそうなファイルは警告を表示したうえでベストエフォートで開きます（元のバイトは変更されません）。
               </p>
             </details>
             <details class="qa">
-              <summary data-i18n="faq.q5">オーバーライト保存は必ずできますか？</summary>
+              <summary data-i18n="faq.q3">大きなCSVを開けますか？</summary>
+              <p data-i18n="faq.a3">
+                既定の上限は512MiBで、設定で16MiB〜2GiBに変更できます。上限を超えるファイルは読み込む前に拒否されます。表示は仮想化されていますが、数百MB級のファイルは環境によって描画・編集が重くなることがあります。
+              </p>
+            </details>
+            <details class="qa">
+              <summary data-i18n="faq.q9">壊れたCSVでも編集できますか？</summary>
+              <p data-i18n="faq.a9">
+                開くことはできます。閉じていない引用符やフィールド数の不一致などを行・列つきで示したうえで、自動修復せずに開くかどうかを選べます。不正な箇所は編集しない限りバイト単位で保持されますが、壊れたままのデータを取り込み先のシステムが受け付けるとは限りません。
+              </p>
+            </details>
+            <details class="qa">
+              <summary data-i18n="faq.q5">上書き保存はできますか？</summary>
               <p data-i18n="faq.a5">
                 Chromium系ブラウザでは File System Access API
                 により元ファイルへ直接上書きできます。Firefox・Safari
@@ -725,18 +791,17 @@
               </p>
             </details>
             <details class="qa">
-              <summary data-i18n="faq.q6">
-                セルの書式設定（太字・色・罫線など）はCSVのバイトを変えますか？
-              </summary>
+              <summary data-i18n="faq.q6">CSVを編集したまま、数式や色を付けられますか？</summary>
               <p data-i18n="faq.a6">
-                変えません。書式設定はRSFスプレッドシート専用の見た目だけの機能で、セルの値・数式の結果・並べ替えやフィルタの動作・CSVエクスポートのいずれも変更しません。プレーンCSVのままでは書式設定自体を使えません。
+                CSVのままではできません。数式や書式（太字・色・罫線など）はRSFスプレッドシートの機能で、使うときはRSFへ明示的に変換します。CSVの正本に書式を埋め込むことはなく、書式設定はセルの値・数式の結果・CSVエクスポートを変更しません。
               </p>
             </details>
             <details class="qa">
               <summary data-i18n="faq.q7">この紹介ページ自体にアナリティクスは入っていますか？</summary>
               <p data-i18n="faq.a7">
                 この紹介ページ（refrain-sheet.com）のみ、訪問数を把握するために Google Analytics
-                を使う場合があります。読み込まれるのは、ページ下部の同意バナーで「同意する」を選んだ場合のみで、フッターの「Cookie設定」からいつでも選び直せます。CSVを編集するアプリ本体（app.refrain-sheet.com）はこの紹介ページとは別に配信されており、実行時のネットワーク通信は今後も一切行いません。
+                を使う場合があります。読み込まれるのは、ページ下部の同意バナーで「同意する」を選んだ場合のみで、フッターの「Cookie設定」からいつでも選び直せます。CSVを編集するアプリ本体（app.refrain-sheet.com）はこの紹介ページとは別に配信されており、アクセス解析は含まれません。アプリ本体が通信するのは、Google
+                Drive連携を使う場合だけです。
               </p>
             </details>
           </div>
@@ -746,9 +811,9 @@
       <section style="padding-top: 0">
         <div class="wrap">
           <div class="cta-box reveal">
-            <h2 data-i18n="cta.h2">まずは手元のCSVを、1つ開いてみてください。</h2>
+            <h2 data-i18n="cta.h2">まずは、再インポート前のCSVを1つ開いてみてください。</h2>
             <p class="lede" data-i18n="cta.p">
-              インストール不要。数秒で、保存しても差分が出ないことを確認できます。
+              インストールもアカウント登録も不要です。編集したセルは色付きで表示されるので、どこを直したかを確かめながら、必要なセルだけを修正できます。
             </p>
             <div class="hero-actions" style="justify-content: center; margin-top: var(--space-2)">
               <a
@@ -757,7 +822,7 @@
                 href="https://app.refrain-sheet.com/"
                 rel="noopener"
                 target="_blank"
-                >アプリを開く</a
+                >CSVをブラウザで開く</a
               >
               <a
                 class="btn btn-ghost btn-lg"
@@ -765,7 +830,7 @@
                 href="https://github.com/0x0da160/refrain-sheet"
                 rel="noopener"
                 target="_blank"
-                >GitHubで見る</a
+                >GitHubで仕様とソースを見る</a
               >
             </div>
             <div class="badge-row" style="justify-content: center">
@@ -820,7 +885,7 @@
       <div class="cookie-consent-inner">
         <p class="cookie-consent-text" data-i18n="consent.text">
           このページ（refrain-sheet.com）は、訪問状況の把握のために Google Analytics
-          を利用します。同意した場合のみ読み込まれ、いつでも取り消せます。CSVを編集するアプリ本体（app.refrain-sheet.com）は引き続き通信を一切行いません。
+          を利用します。同意した場合のみ読み込まれ、いつでも取り消せます。CSVを編集するアプリ本体（app.refrain-sheet.com）にアクセス解析は含まれません。
         </p>
         <div class="cookie-consent-actions">
           <button

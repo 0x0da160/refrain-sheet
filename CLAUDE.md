@@ -54,6 +54,7 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | Production dependency audit  | `npm run audit:ci`                                                                   |
 | Knowledge bundle frontmatter | `npm run check:knowledge`                                                            |
 | Unused-code gate (Knip)      | `npm run check:knip`                                                                 |
+| sql.js payload provenance    | `npm run check:generated`                                                            |
 
 Do not invent commands. If a needed command does not exist, stop and say so.
 

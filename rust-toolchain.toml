@@ -1,0 +1,10 @@
+# Pins the Rust toolchain for wasm/ (refrain-csv-core) everywhere rustup is
+# used: local builds, the Docker image, and CI. The embedded WASM payload in
+# src/wasm-gen/ is only byte-reproducible with this exact toolchain (plus
+# wasm-pack 0.13.1 and wasm-bindgen-cli 0.2.100), which .github/workflows/wasm.yml
+# verifies. Keep in sync with the Dockerfile. 1.84.1 is also the newest
+# toolchain ruzstd 0.8.1 is pinned against (see wasm/Cargo.toml).
+[toolchain]
+channel = "1.84.1"
+profile = "minimal"
+targets = ["wasm32-unknown-unknown"]

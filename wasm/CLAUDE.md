@@ -50,6 +50,14 @@ in-app way to recover. Before changing anything under `wasm/src/`:
   to re-embed the Base64 payload into the JS bundle. A `wasm/src/` change
   that isn't followed by `build:wasm` has no effect on the running app —
   `npm run build` alone does not rebuild it.
+- **The build is reproducible, and CI checks it.** With the toolchain pinned
+  in the root `rust-toolchain.toml` (1.84.1), wasm-pack 0.13.1, and
+  wasm-bindgen-cli 0.2.100, `build:wasm` is byte-deterministic.
+  `.github/workflows/wasm.yml` runs `test:rust`, rebuilds, and fails if
+  `src/wasm-gen/` differs from the committed files — so always rebuild with
+  exactly those versions (the Docker image has them) and commit the result.
+  The frozen `.rsf` fixtures (`tests/rsf-fixtures.test.ts`) pin the codecs'
+  compressed output byte-for-byte on the JS side.
 - `wasm-opt` is deliberately disabled in the release profile (see the comment
   in `Cargo.toml`) so the build never needs to download binaryen; don't
   re-enable it to chase a size win without checking why it was turned off.

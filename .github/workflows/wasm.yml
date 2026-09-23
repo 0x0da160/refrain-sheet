@@ -1,0 +1,113 @@
+name: WASM core
+
+# Rust unit tests and a byte-for-byte rebuild of the embedded WASM payload,
+# for any change that could affect them. ci.yml has no Rust toolchain, so
+# before this workflow a pull request touching wasm/ merged without
+# `npm run test:rust` ever running on it.
+#
+# The rebuild step is the provenance check for src/wasm-gen/: with the toolchain
+# pinned by rust-toolchain.toml plus the exact wasm-pack and wasm-bindgen-cli
+# binaries below, `npm run build:wasm` is deterministic, so the committed
+# payload, JS glue, and .d.ts must match a fresh build exactly. A wasm/src
+# change committed without re-running build:wasm (so it never reaches the app),
+# or a payload built with some other toolchain, fails here.
+
+on:
+  pull_request:
+    paths:
+      - 'wasm/**'
+      - 'src/wasm-gen/refrain_csv_core.*'
+      - 'src/wasm-gen/wasm-payload.ts'
+      - 'scripts/embed-wasm.mjs'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/wasm.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'wasm/**'
+      - 'src/wasm-gen/refrain_csv_core.*'
+      - 'src/wasm-gen/wasm-payload.ts'
+      - 'scripts/embed-wasm.mjs'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/wasm.yml'
+  workflow_dispatch:
+
+# Read-only: this workflow never writes to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: wasm-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Action-pinning policy (see knowledge/operations/security-supply-chain.md): only
+# official GitHub-maintained actions/* are used, pinned to a major version tag.
+# The two prebuilt Rust tools are downloaded from their official GitHub
+# releases and verified against the SHA-256 recorded here before use.
+
+env:
+  WASM_PACK_VERSION: v0.13.1
+  WASM_PACK_SHA256: c539d91ccab2591a7e975bcf82c82e1911b03335c80aa83d67ad25ed2ad06539
+  WASM_BINDGEN_VERSION: 0.2.100
+  WASM_BINDGEN_SHA256: 63d6a38deb65bd7023c02bdf382ab66b0d2c0241c8582fd3413b5a808b8aeb5b
+
+jobs:
+  wasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts
+
+      # rustup (preinstalled on the runner) then selects this toolchain for
+      # every cargo call through rust-toolchain.toml.
+      - name: Install the pinned Rust toolchain
+        run: |
+          channel="$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)"
+          rustup toolchain install "$channel" --profile minimal --target wasm32-unknown-unknown
+          rustc --version
+
+      - name: Install pinned wasm-pack and wasm-bindgen-cli (checksum-verified)
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/wasm-tools"
+          mkdir -p "$bin"
+          cd "$RUNNER_TEMP"
+          pack="wasm-pack-${WASM_PACK_VERSION}-x86_64-unknown-linux-musl"
+          curl -sSfLO "https://github.com/rustwasm/wasm-pack/releases/download/${WASM_PACK_VERSION}/${pack}.tar.gz"
+          echo "${WASM_PACK_SHA256}  ${pack}.tar.gz" | sha256sum -c -
+          tar -xzf "${pack}.tar.gz"
+          cp "${pack}/wasm-pack" "$bin/"
+          bindgen="wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl"
+          curl -sSfLO "https://github.com/rustwasm/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/${bindgen}.tar.gz"
+          echo "${WASM_BINDGEN_SHA256}  ${bindgen}.tar.gz" | sha256sum -c -
+          tar -xzf "${bindgen}.tar.gz"
+          cp "${bindgen}/wasm-bindgen" "$bin/"
+          echo "$bin" >>"$GITHUB_PATH"
+
+      - name: Rust tests
+        run: npm run test:rust
+
+      - name: Rebuild the embedded WASM payload
+        run: npm run build:wasm
+
+      - name: The committed payload matches the rebuild
+        run: |
+          if ! git diff --quiet -- src/wasm-gen/; then
+            echo "::error::src/wasm-gen/ differs from a fresh 'npm run build:wasm' with the pinned toolchain. Rebuild it (Docker: 'docker compose run --rm app npm run build:wasm') and commit the result." >&2
+            git diff --stat -- src/wasm-gen/ >&2
+            exit 1
+          fi
+          echo "src/wasm-gen/ is byte-identical to a fresh build."
+
+      # The rebuilt payload drives the JS side too: the frozen .rsf fixtures pin
+      # the codecs' compressed output byte-for-byte.
+      - name: RSF fixtures and WASM engine tests
+        run: npx vitest run tests/rsf-fixtures.test.ts tests/wasm-engine.test.ts tests/rsf-codec.test.ts

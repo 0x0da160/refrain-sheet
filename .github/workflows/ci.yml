@@ -55,6 +55,12 @@ jobs:
       - name: Version consistency
         run: npm run check:versions
 
+      # The committed sql.js payload (src/wasm-gen/sqljs-wasm-payload.ts) must
+      # be the installed sql.js binary. The Rust payload is verified by
+      # rebuilding it in wasm.yml.
+      - name: Generated payload provenance
+        run: npm run check:generated
+
       # Every knowledge/ concept file (see knowledge/index.md) must carry
       # parseable OKF v0.2 frontmatter with a non-empty `type`; the bundle's
       # reserved index.md/log.md files must carry none — see

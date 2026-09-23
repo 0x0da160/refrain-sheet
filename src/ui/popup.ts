@@ -95,17 +95,53 @@ export function visualViewportRect(): ViewportRect {
  * keeps it a true no-op there, while still firing for the real post-keyboard
  * shift this exists to fix. It is also a no-op entirely in environments
  * without `visualViewport` (e.g. a unit test).
+ *
+ * It also stands down while the on-screen keyboard is open
+ * (`isKeyboardLikelyOpen`). With the keyboard up, WebKit itself scrolls the
+ * page to keep the focused field in view, again on each keystroke; snapping
+ * that back to (0, 0) every time made the whole page jump up and down as
+ * the user typed into a cell, from the second character on, wherever the
+ * cell was and with predictive text off. The bug this exists for only shows
+ * once the keyboard has *closed*, and closing it fires a `visualViewport`
+ * resize with the full height back, so the resync still runs exactly when
+ * it is needed.
  */
 export function installKeyboardViewportFix(): void {
   const vv = globalThis.visualViewport;
   if (!vv) return;
   const resync = () => {
+    if (isKeyboardLikelyOpen(vv, globalThis.document?.documentElement?.clientHeight ?? 0)) {
+      return;
+    }
     if (globalThis.scrollX !== 0 || globalThis.scrollY !== 0) {
       globalThis.scrollTo(0, 0);
     }
   };
   onViewportResize(resync);
   vv.addEventListener('scroll', resync);
+}
+
+/**
+ * How much shorter than the layout viewport the visual viewport must be before
+ * it counts as an on-screen keyboard rather than browser-toolbar movement
+ * (a few tens of px). Phone keyboards are well over 200px tall.
+ */
+const KEYBOARD_MIN_HEIGHT = 120;
+
+/**
+ * True when the visible area is shorter than the layout viewport by at least
+ * a keyboard's height, i.e. an on-screen keyboard is covering part of the
+ * page. `height * scale` undoes pinch-zoom, which shrinks the visual viewport
+ * in CSS px without any keyboard. Missing or non-positive measurements (no
+ * layout, e.g. jsdom) count as "not open".
+ */
+export function isKeyboardLikelyOpen(vv: { height?: number; scale?: number }, layoutHeight: number): boolean {
+  const height = vv.height ?? 0;
+  const scale = vv.scale !== undefined && vv.scale > 0 ? vv.scale : 1;
+  if (!(height > 0) || !(layoutHeight > 0)) {
+    return false;
+  }
+  return height * scale < layoutHeight - KEYBOARD_MIN_HEIGHT;
 }
 
 /** Subscribers waiting for the next coalesced `visualViewport` resize tick (see `onViewportResize`). */

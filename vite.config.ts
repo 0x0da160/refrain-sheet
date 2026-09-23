@@ -19,7 +19,7 @@ import { assertBuildMode, buildCsp } from './scripts/csp.mjs';
  * hosted-only CSP relaxation for the opt-in cloud sync described in
  * knowledge/operations/security-threat-model.md can never reach the offline artifact or the release ZIP.
  */
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   // Vite's own defaults — 'development' for `vite dev`, 'production' for
   // `vite build` — both mean the offline policy. Only an explicit
   // `--mode hosted` selects the hosted one.
@@ -37,6 +37,10 @@ export default defineConfig(({ mode }) => {
   return {
     base: './',
     define: {
+      // Lets the offline production build compile the Drive client out
+      // entirely (see src/app/commands.ts). Only `vite build` in offline mode;
+      // dev and Vitest keep it false so the Drive code stays testable.
+      __OFFLINE_BUILD__: JSON.stringify(command === 'build' && buildMode === 'offline'),
       __DRIVE_CLIENT_ID__: hostedEnv('VITE_GOOGLE_OAUTH_CLIENT_ID'),
       __DRIVE_API_KEY__: hostedEnv('VITE_GOOGLE_DRIVE_API_KEY'),
     },

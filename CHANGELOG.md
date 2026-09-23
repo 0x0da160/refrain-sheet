@@ -33,6 +33,11 @@ release-time half (retitling `Unreleased`) is still done by hand.
 
 ### Changed
 
+- The offline build and the release ZIP no longer contain the Google Drive
+  sync code at all. It was already disabled there and never made a network
+  request; now it is compiled out, so the offline app is slightly smaller
+  and holds no Google endpoint addresses.
+
 - The app and the landing site now follow the Refrain Sheet Design System
   v1.0.0: the light/dark/hybrid color themes, the UI font stack, and the
   app icon/favicon/logo were all retuned to the new brand palette (a

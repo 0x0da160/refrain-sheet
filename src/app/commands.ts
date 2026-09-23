@@ -53,6 +53,17 @@ import { RangeOpsCommands, type ReplaceAllReport } from './commands/range-ops';
 import { isGridSurface, LARGE_OP_CELLS } from './commands/shared';
 
 export { isGridSurface, LARGE_OP_CELLS };
+
+/**
+ * `true` only in the offline production build (`vite build`, not `--mode
+ * hosted`), injected by vite.config.ts. Gating the Drive wiring on this
+ * compile-time constant lets the bundler drop the whole Google Drive client
+ * (and every Google endpoint URL) from the offline artifact, instead of
+ * shipping it inert; `scripts/check-dist.mjs` asserts the result. `false` in
+ * dev, tests, and the hosted build, where `driveConfigured()` still decides
+ * at runtime.
+ */
+declare const __OFFLINE_BUILD__: boolean;
 export type { FlashFillPreview, ReplaceAllReport, SqlRunOutcome };
 
 /**
@@ -662,7 +673,7 @@ export class Commands {
     private readonly dom: Document,
   ) {
     this.fileIo = new FileIoCommands(state, ui, dom, () => this.gridActions);
-    this.driveIo = new DriveIoCommands(state, ui, this.fileIo);
+    this.driveIo = __OFFLINE_BUILD__ ? null : new DriveIoCommands(state, ui, this.fileIo);
     this.filter = new FilterCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.sort = new SortCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.validation = new ValidationCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
@@ -686,20 +697,20 @@ export class Commands {
   /** File I/O, save/export, and CSV↔RSF conversion — see `FileIoCommands`. */
   private readonly fileIo: FileIoCommands;
 
-  /** Google Drive sync — see `DriveIoCommands`. Inert in the offline build. */
-  private readonly driveIo: DriveIoCommands;
+  /** Google Drive sync — see `DriveIoCommands`. Compiled out of the offline build. */
+  private readonly driveIo: DriveIoCommands | null;
 
   /**
    * Whether Google Drive sync exists in this build at all. False for the
    * offline build, which hides every Drive entry point.
    */
   driveAvailable(): boolean {
-    return this.driveIo.available();
+    return this.driveIo?.available() ?? false;
   }
 
   /** Whether a Google access token is currently held (drives the menu label). */
   driveSignedIn(): boolean {
-    return driveIsSignedIn();
+    return !__OFFLINE_BUILD__ && driveIsSignedIn();
   }
 
   /** Filter dialog flow, apply/clear, and hidden-row queries — see `FilterCommands`. */
@@ -756,12 +767,12 @@ export class Commands {
         // CSV: encoding/EOL/BOM options. RSF: the compression selector.
         return tab !== null;
       case 'drive.open':
-        return this.driveIo.available();
+        return this.driveAvailable();
       case 'drive.save':
       case 'drive.saveAs':
-        return this.driveIo.available() && tab !== null;
+        return this.driveAvailable() && tab !== null;
       case 'drive.signOut':
-        return this.driveIo.available() && driveIsSignedIn();
+        return this.driveAvailable() && this.driveSignedIn();
       case 'file.reopen':
       case 'sheet.convert':
         return tab !== null && tab.doc.kind === 'csv';
@@ -993,16 +1004,16 @@ export class Commands {
         if (tab) await this.closeTab(tab);
         return;
       case 'drive.open':
-        await this.driveIo.open();
+        await this.driveIo?.open();
         return;
       case 'drive.save':
-        if (tab) await this.driveIo.save(tab);
+        if (tab) await this.driveIo?.save(tab);
         return;
       case 'drive.saveAs':
-        if (tab) await this.driveIo.saveAs(tab);
+        if (tab) await this.driveIo?.saveAs(tab);
         return;
       case 'drive.signOut':
-        this.driveIo.signOut();
+        this.driveIo?.signOut();
         return;
       case 'edit.undo':
         if (tab) this.state.undo(tab);
@@ -1468,7 +1479,7 @@ export class Commands {
    * Returns true when the file was actually saved.
    */
   async save(tab: Tab, options: SaveOptions): Promise<boolean> {
-    if (tab.drive && this.driveIo.available()) {
+    if (tab.drive && this.driveIo?.available()) {
       return this.driveIo.save(tab);
     }
     return this.fileIo.save(tab, options);

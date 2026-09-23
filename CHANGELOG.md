@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.8.13] - 2026-09-23
+
 ### Fixed
 
 - On iPhone, editing a cell near the bottom of the screen through the

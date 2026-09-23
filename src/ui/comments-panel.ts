@@ -7,7 +7,7 @@ import { cellLabel } from '../core/formula';
 import {
   applySidePanelPosition,
   buildSidePanelDock,
-  clearAppEdgeReservation,
+  releaseSidePanel,
   currentSidePanelPlacement,
 } from './dialogs/shared';
 import { clearChildren, el } from './dom';
@@ -115,7 +115,7 @@ export class CommentsPanel {
 
   close(): void {
     this.element.hidden = true;
-    clearAppEdgeReservation();
+    releaseSidePanel(this.element);
   }
 
   /** The effective scope (never `workbook` for a plain CSV document). */

@@ -247,23 +247,48 @@ function sheetBarHeight(): number {
 }
 
 /**
- * Docks `panel` to `position` at `size` pixels (width for left/right, height
- * for top/bottom). A top-docked panel is inset below the menu bar *and* the
- * book tab strip (wherever they sit — see `topChromeInset`), and a
- * bottom-docked one above the status bar *and* the worksheet tab strip — chrome the panel must never cover — measured live so
- * it tracks their actual height (e.g. the menu bar collapsing to a toggle
- * button on a narrow viewport, or either tab strip being hidden) rather than
- * a guessed constant (#399/#541). Left/right-docked panels still span the
- * full viewport height, unchanged.
+ * Every side panel currently shown, in the order it was opened (#598). They
+ * share one dock — the same side and size — and, when more than one is open,
+ * stack there as an accordion: only `expandedSidePanel` shows its body, the
+ * others collapse to their title bar, and clicking (or pressing Enter/Space
+ * on) a collapsed title bar expands that panel instead. A panel joins by
+ * being docked (`applySidePanelPosition`) and leaves through
+ * `releaseSidePanel`; the app-edge space stays reserved until the last one
+ * leaves.
  */
-export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPosition, size: number): void {
+const openSidePanels: HTMLElement[] = [];
+let expandedSidePanel: HTMLElement | null = null;
+/** The dock's current side and size (the size along its docked axis). */
+let dockedPosition: SidePanelPosition = 'right';
+let dockedSize = DEFAULT_SIDE_PANEL_SIZE;
+/** Re-syncs a panel's header controls (position/maximize buttons) with the shared dock state. */
+const headerRefreshers = new WeakMap<HTMLElement, () => void>();
+let relayoutOnResize = false;
+
+/** Drops panels removed from the page without being released (never `keep`, the one being docked or released). */
+function pruneDetachedSidePanels(keep: HTMLElement): void {
+  for (let i = openSidePanels.length - 1; i >= 0; i--) {
+    const panel = openSidePanels[i];
+    if (panel !== keep && !panel.isConnected) {
+      openSidePanels.splice(i, 1);
+      if (expandedSidePanel === panel) {
+        expandedSidePanel = null;
+      }
+    }
+  }
+}
+
+/** The height a collapsed panel keeps: its title bar. */
+function collapsedHeight(panel: HTMLElement): number {
+  const title = panel.querySelector<HTMLElement>(':scope > .side-panel-title');
+  const height = title?.getBoundingClientRect().height ?? 0;
+  // jsdom (and a panel not yet laid out) measures 0; fall back to the shared bar height.
+  return height > 0 ? height + 2 : 34; // + the panel's 1px top and bottom border
+}
+
+/** Places one panel at the dock's edge exactly as a lone panel sits (#399/#541). */
+function placeDocked(panel: HTMLElement, position: SidePanelPosition, size: number): void {
   panel.dataset.sidePanelPosition = position;
-  // Reserve (and release the previous dock's) space first: a left/right
-  // reservation narrows the app, which can move the document tabs out of the
-  // menu bar's row or back (#596), so the top inset below must be measured
-  // with the new reservation and the resulting layout.
-  reserveAppEdge(position, size);
-  updateShellLayout();
   // The two edges perpendicular to the dock side always span the full
   // viewport (e.g. left/right docked panels are always full height); the
   // edge opposite the dock side is left unset so the panel's size comes from
@@ -288,6 +313,160 @@ export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPo
 }
 
 /**
+ * Stacks two or more open panels inside the dock: collapsed title bars plus
+ * the one expanded panel filling the rest, each given an explicit `top` and
+ * `height`. For a top dock the expanded panel comes last and for a bottom
+ * dock first, so its resize handle sits on the dock's free edge; left/right
+ * docks keep the order the panels were opened in.
+ */
+function stackSidePanels(position: SidePanelPosition, size: number): void {
+  const expanded = expandedSidePanel ?? openSidePanels[openSidePanels.length - 1];
+  const collapsed = openSidePanels.filter((p) => p !== expanded);
+  const order =
+    position === 'top'
+      ? [...collapsed, expanded]
+      : position === 'bottom'
+        ? [expanded, ...collapsed]
+        : openSidePanels;
+  const vp = visualViewportRect();
+  const bottomInset = statusBarHeight() + sheetBarHeight();
+  const start =
+    position === 'top' ? topChromeInset() : position === 'bottom' ? vp.height - bottomInset - size : 0;
+  const total = position === 'top' || position === 'bottom' ? size : vp.height;
+  const collapsedTotal = collapsed.reduce((sum, p) => sum + collapsedHeight(p), 0);
+  let y = start;
+  for (const panel of order) {
+    const height = panel === expanded ? Math.max(0, total - collapsedTotal) : collapsedHeight(panel);
+    panel.style.top = `${y}px`;
+    panel.style.bottom = '';
+    panel.style.height = `${height}px`;
+    y += height;
+  }
+}
+
+/** Marks which panels are collapsed and wires their title bars to expand them. */
+function syncAccordionState(): void {
+  const stacked = openSidePanels.length > 1;
+  for (const panel of openSidePanels) {
+    const collapsed = stacked && panel !== expandedSidePanel;
+    panel.classList.toggle('collapsed', collapsed);
+    const title = panel.querySelector<HTMLElement>(':scope > .side-panel-title');
+    if (!title) {
+      continue;
+    }
+    if (stacked) {
+      title.setAttribute('aria-expanded', String(!collapsed));
+      title.tabIndex = collapsed ? 0 : -1;
+    } else {
+      title.removeAttribute('aria-expanded');
+      title.removeAttribute('tabindex');
+    }
+    if (title.dataset.accordion !== 'true') {
+      title.dataset.accordion = 'true';
+      const expand = (): void => {
+        if (panel.classList.contains('collapsed')) {
+          expandSidePanel(panel);
+        }
+      };
+      title.addEventListener('click', (event) => {
+        // The title's own buttons (dock side, maximize, close) keep their jobs.
+        if (!(event.target as Element).closest('.side-panel-title-actions')) {
+          expand();
+        }
+      });
+      title.addEventListener('keydown', (event) => {
+        if (event.target === title && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          expand();
+        }
+      });
+    }
+  }
+}
+
+/** Lays out every open panel in the dock and reserves its space. */
+function layoutSidePanels(position: SidePanelPosition, size: number): void {
+  dockedPosition = position;
+  dockedSize = size;
+  // Reserve (and release the previous dock's) space first: a left/right
+  // reservation narrows the app, which can move the document tabs out of the
+  // menu bar's row or back (#596), so the top inset below must be measured
+  // with the new reservation and the resulting layout.
+  reserveAppEdge(position, size);
+  updateShellLayout();
+  for (const panel of openSidePanels) {
+    placeDocked(panel, position, size);
+  }
+  syncAccordionState();
+  if (openSidePanels.length > 1) {
+    stackSidePanels(position, size);
+  }
+  for (const panel of openSidePanels) {
+    headerRefreshers.get(panel)?.();
+  }
+  if (!relayoutOnResize && typeof window !== 'undefined') {
+    relayoutOnResize = true;
+    // A stack is placed in pixels, so it follows the window's height.
+    window.addEventListener('resize', () => {
+      if (openSidePanels.length > 1) {
+        stackSidePanels(dockedPosition, dockedSize);
+      }
+    });
+  }
+}
+
+/** Expands `panel` within the stack, collapsing the others to their title bars. */
+function expandSidePanel(panel: HTMLElement): void {
+  expandedSidePanel = panel;
+  layoutSidePanels(dockedPosition, dockedSize);
+  panel.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+}
+
+/**
+ * Docks `panel` to `position` at `size` pixels (width for left/right, height
+ * for top/bottom), together with every other open side panel, and expands
+ * it. A top-docked panel is inset below the menu bar *and* the book tab strip
+ * (wherever they sit — see `topChromeInset`), and a bottom-docked one above
+ * the status bar *and* the worksheet tab strip — chrome the panel must never
+ * cover — measured live so it tracks their actual height (e.g. the menu bar
+ * collapsing to a toggle button on a narrow viewport, or either tab strip
+ * being hidden) rather than a guessed constant (#399/#541). Left/right-docked
+ * panels still span the full viewport height. With several panels open they
+ * share the dock as an accordion (see `openSidePanels`, #598).
+ */
+export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPosition, size: number): void {
+  pruneDetachedSidePanels(panel);
+  if (!openSidePanels.includes(panel)) {
+    openSidePanels.push(panel);
+  }
+  expandedSidePanel = panel;
+  layoutSidePanels(position, size);
+}
+
+/**
+ * Takes a closed or hidden panel out of the dock. The last one to leave
+ * releases the app-edge space; otherwise the remaining panels re-stack, the
+ * most recently opened one expanding if `panel` was the expanded one.
+ */
+export function releaseSidePanel(panel: HTMLElement): void {
+  pruneDetachedSidePanels(panel);
+  const index = openSidePanels.indexOf(panel);
+  if (index >= 0) {
+    openSidePanels.splice(index, 1);
+  }
+  panel.classList.remove('collapsed');
+  if (openSidePanels.length === 0) {
+    expandedSidePanel = null;
+    clearAppEdgeReservation();
+    return;
+  }
+  if (expandedSidePanel === panel || expandedSidePanel === null) {
+    expandedSidePanel = openSidePanels[openSidePanels.length - 1];
+  }
+  layoutSidePanels(dockedPosition, dockedSize);
+}
+
+/**
  * Reserves `size` pixels along `position`'s edge so the docked side panel
  * shares the screen with the sheet as a genuine split view instead of
  * floating over it and hiding whatever is underneath (#396). A left/right
@@ -298,7 +477,7 @@ export function applySidePanelPosition(panel: HTMLElement, position: SidePanelPo
  * tabs above, worksheet tabs below) — so a top dock lands below the book tab
  * strip and a bottom dock lands above the worksheet tab strip, rather than
  * covering either one (#399/#541). Cleared by `clearAppEdgeReservation` when
- * the panel closes. A no-op outside a full app shell (e.g. a unit test that
+ * the last side panel closes. A no-op outside a full app shell (e.g. a unit test that
  * never mounts it).
  */
 function reserveAppEdge(position: SidePanelPosition, size: number): void {
@@ -314,8 +493,8 @@ function reserveAppEdge(position: SidePanelPosition, size: number): void {
   }
 }
 
-/** Releases the space `reserveAppEdge` reserved, once the panel closes. */
-export function clearAppEdgeReservation(): void {
+/** Releases the space `reserveAppEdge` reserved, once the last panel closes. */
+function clearAppEdgeReservation(): void {
   const app = document.getElementById('app');
   if (app) {
     app.style.paddingLeft = '';
@@ -372,10 +551,9 @@ export function buildSidePanelDock(panel: HTMLElement): {
     button.addEventListener('click', () => {
       sidePanelPosition = position;
       sidePanelPositionExplicit = true;
+      // Moves the whole dock, every open panel with it; the header refresher
+      // below updates each panel's pressed button.
       applySidePanelPosition(panel, sidePanelPosition, currentSize(sidePanelPosition));
-      for (const other of positionButtons) {
-        other.button.setAttribute('aria-pressed', String(other.position === position));
-      }
     });
     return { position, button };
   });
@@ -404,6 +582,15 @@ export function buildSidePanelDock(panel: HTMLElement): {
     );
   };
   refreshMaximizeToggle();
+  // Every open panel shows the shared dock side and maximize state, so a
+  // change made from one panel's header is reflected in the others'.
+  headerRefreshers.set(panel, () => {
+    const current = effectiveSidePanelPosition();
+    for (const other of positionButtons) {
+      other.button.setAttribute('aria-pressed', String(other.position === current));
+    }
+    refreshMaximizeToggle();
+  });
   maximizeToggle.addEventListener('click', () => {
     sidePanelMaximized = !sidePanelMaximized;
     const position = effectiveSidePanelPosition();
@@ -416,6 +603,10 @@ export function buildSidePanelDock(panel: HTMLElement): {
     () => sidePanelAxis(effectiveSidePanelPosition()),
     () => (effectiveSidePanelPosition() === 'left' || effectiveSidePanelPosition() === 'top' ? 1 : -1),
     () => {
+      // A stacked panel is only part of the dock; resizing sizes the whole dock.
+      if (openSidePanels.length > 1) {
+        return dockedSize;
+      }
       const rect = panel.getBoundingClientRect();
       return sidePanelAxis(effectiveSidePanelPosition()) === 'horizontal' ? rect.width : rect.height;
     },
@@ -456,8 +647,6 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
       className: 'side-panel',
       attrs: { role: 'dialog', 'aria-modal': 'false', 'aria-labelledby': 'side-panel-title' },
     });
-    const initialPlacement = currentSidePanelPlacement();
-    applySidePanelPosition(panel, initialPlacement.position, initialPlacement.size);
     const { positionSwitcher, resizeHandle: grip, maximizeToggle } = buildSidePanelDock(panel);
 
     const heading = el('div', { className: 'dialog-title side-panel-title' }, [
@@ -490,7 +679,7 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
         off();
       }
       panel.remove();
-      clearAppEdgeReservation();
+      releaseSidePanel(panel);
       if (restoreFocus && restoreFocus.isConnected) {
         restoreFocus.focus();
       }
@@ -506,6 +695,9 @@ export function openSidePanel<T>(title: string, fallback: T, build: DialogBuilde
 
     build(body, buttons, finish);
     document.body.append(panel);
+    // Docked once built, so a stack of open panels can measure its title bar.
+    const initialPlacement = currentSidePanelPlacement();
+    applySidePanelPosition(panel, initialPlacement.position, initialPlacement.size);
     const autofocusTarget = panel.querySelector<HTMLElement>('[data-autofocus]');
     if (autofocusTarget) {
       focusWithoutKeyboard(autofocusTarget);

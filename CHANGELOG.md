@@ -54,6 +54,10 @@ really is internal, rather than inventing an entry to satisfy it.
 - Selecting a range of cells no longer also highlights the active cell's
   row.
 - Right-click menus now show an icon beside each item, like the menu bar.
+- Opening a second side panel (for example SQL Query while Number Format
+  is open) no longer lays it on top of the first. The panels share the
+  docked area as an accordion: the others shrink to their title bars, and
+  clicking a title bar switches to that panel.
 
 ### Fixed
 
@@ -68,6 +72,8 @@ really is internal, rather than inventing an entry to satisfy it.
   and column letters when the selection is scrolled under them, and a
   right-click menu opened next to a docked side panel is no longer drawn
   underneath it.
+- Closing one of several open side panels no longer gives the sheet back
+  the space the other panels are still using.
 
 ## [0.8.18] - 2026-09-23
 

@@ -6,7 +6,7 @@ import { tokenizeCode } from '../core/syntax-highlight';
 import {
   applySidePanelPosition,
   buildSidePanelDock,
-  clearAppEdgeReservation,
+  releaseSidePanel,
   currentSidePanelPlacement,
 } from './dialogs/shared';
 import { el } from './dom';
@@ -183,7 +183,7 @@ export class JsonSheetView {
       applySidePanelPosition(this.panelElement, position, size);
     } else {
       this.panelElement.hidden = true;
-      clearAppEdgeReservation();
+      releaseSidePanel(this.panelElement);
     }
   }
 

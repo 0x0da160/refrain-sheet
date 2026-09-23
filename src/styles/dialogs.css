@@ -207,6 +207,29 @@ dialog::backdrop {
   gap: var(--space-4);
 }
 
+/* Several open side panels share the dock as an accordion (#598): all but
+   one collapse to their title bar, which expands that panel when clicked. */
+.side-panel.collapsed > :not(.side-panel-title, .side-panel-resize-handle) {
+  display: none;
+}
+
+.side-panel.collapsed > .side-panel-title {
+  cursor: pointer;
+  border-bottom: none;
+  padding-block: var(--space-2);
+}
+
+.side-panel.collapsed > .side-panel-title:hover {
+  background: var(--panel-hover);
+}
+
+/* In a top/bottom dock a collapsed panel's edge is inside the stack; only
+   the expanded panel's handle sits on the dock's free edge. */
+.side-panel.collapsed[data-side-panel-position='top'] > .side-panel-resize-handle,
+.side-panel.collapsed[data-side-panel-position='bottom'] > .side-panel-resize-handle {
+  display: none;
+}
+
 /* Groups the position switcher with a panel-specific header action (e.g. the
    comments panel's close button) so `.side-panel-title`'s space-between
    keeps the title on one side and this whole cluster on the other. */

@@ -452,6 +452,8 @@ function bootstrap(): void {
         // Select All is only owned while the grid itself is focused (never a
         // text field or the rest of the page — the browser keeps Ctrl+A there).
         inGrid: grid.isNavigating(),
+        findBarOpen: findBar.isOpen,
+        inFindBar: target !== null && findBar.element.contains(target),
       },
     );
     if (!command) {

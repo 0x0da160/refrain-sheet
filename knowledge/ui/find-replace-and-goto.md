@@ -17,11 +17,14 @@ generated:
 **Ctrl+Shift+F / Cmd+Shift+F** opens Find anywhere; **Ctrl+F / Cmd+F**
 also opens it, but only while the grid itself has focus — the grid is
 virtualized, so the browser's own find cannot see rows outside the viewport.
-In text fields, dialogs, and the rest of the page Ctrl+F stays the
-browser's, and F3 always reaches the browser's find (see
+**Ctrl+Shift+H / Cmd+Shift+H** opens Replace anywhere, and **Ctrl+H /
+Cmd+H** does too while the grid has focus. In text fields, dialogs, and the
+rest of the page Ctrl+F and Ctrl+H stay the browser's find and history (see
 [accessibility.md](accessibility.md) and the shortcut-ownership rule it
-describes). **Ctrl+Shift+H / Cmd+Shift+H** opens Replace; Ctrl+H stays the
-browser's history. Both commands are also reachable from the Search menu.
+describes). While the Find bar is open, **F3 / Shift+F3** go to the
+next/previous match from the grid or the bar's fields, as Enter / Shift+Enter
+do in the Find field; with the bar closed, F3 is the browser's find. All of
+these are also reachable from the Search menu.
 
 Next / Previous navigate with wrap-around; match counts (occurrences and
 matching cells) update live as you type. Previous, Next, and Close are
@@ -73,7 +76,8 @@ In workbook scope:
 ## Go to Cell
 
 **Search > Go to Cell…** jumps the selection straight to a typed cell
-reference (e.g. `B12`), like Excel's Name Box or Ctrl+G. See
+reference (e.g. `B12`); **Ctrl+G / Cmd+G** opens it while the grid has
+focus. See
 [selection-and-navigation.md](selection-and-navigation.md) for its full
 behavior — it is covered there alongside the cell-reference box it shares a
 row with, rather than duplicated here.

@@ -35,6 +35,16 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- **More spreadsheet keyboard shortcuts.** While you work in the grid,
+  **Ctrl+H** opens Replace, **Ctrl+G** opens Go to Cell, and **Ctrl+E** runs
+  Flash Fill (Cmd on macOS). While the Find bar is open, **F3 / Shift+F3**
+  go to the next / previous match. **F9** recalculates formulas, and
+  **Ctrl+Alt+PageDown / PageUp** switch worksheets alongside F7 / Shift+F7.
+  Outside the grid these keys keep their browser meaning, and browser zoom,
+  tab switching, and reload are never taken.
+
 ### Changed
 
 - **Ctrl+F / Cmd+F now opens Refrain Sheet's Find while you are working in

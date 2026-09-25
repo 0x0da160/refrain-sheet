@@ -169,10 +169,9 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           ],
         },
         { labelKey: 'menu.edit.fillDown', command: 'edit.fillDown', shortcut: 'Ctrl+D' },
-        // No keyboard shortcut by design: Ctrl+E (the conventional Flash Fill
-        // key) is a browser-reserved address-bar shortcut. The command stays
-        // keyboard-accessible through the menu and context menu.
-        { labelKey: 'menu.edit.flashFill', command: 'edit.flashFill' },
+        // Ctrl+E only while the grid has focus; elsewhere it stays the
+        // browser's search-box key (see app/shortcuts.ts).
+        { labelKey: 'menu.edit.flashFill', command: 'edit.flashFill', shortcut: 'Ctrl+E' },
         // Move Selected Cells is the keyboard-accessible equivalent of dragging
         // the selection border; RSF-only (the command explains the required
         // conversion on a CSV tab). No shortcut by design — it opens a
@@ -188,13 +187,13 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.search.find', command: 'search.find', shortcut: 'Ctrl+Shift+F' },
         { labelKey: 'menu.search.replace', command: 'search.replace', shortcut: 'Ctrl+Shift+H' },
         'separator',
-        { labelKey: 'menu.search.findNext', command: 'search.findNext' },
-        { labelKey: 'menu.search.findPrev', command: 'search.findPrev' },
+        // F3 / Shift+F3 only while the Find bar is open (see app/shortcuts.ts).
+        { labelKey: 'menu.search.findNext', command: 'search.findNext', shortcut: 'F3' },
+        { labelKey: 'menu.search.findPrev', command: 'search.findPrev', shortcut: 'Shift+F3' },
         'separator',
-        // No shortcut by design: the conventional Ctrl+G is Firefox's "Find
-        // Again" and Ctrl+Shift+G its "Find Previous", so both are reserved.
-        // The command stays keyboard-accessible through the menu.
-        { labelKey: 'menu.search.goToCell', command: 'search.goToCell' },
+        // Ctrl+G only while the grid has focus; elsewhere it stays the
+        // browser's find-next (Ctrl+Shift+G, find-previous, is never taken).
+        { labelKey: 'menu.search.goToCell', command: 'search.goToCell', shortcut: 'Ctrl+G' },
       ],
     },
     {
@@ -211,7 +210,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         // The only way a volatile formula (TODAY, NOW) updates without an
         // edit: there is deliberately no background recalculation timer.
-        { labelKey: 'menu.sheet.recalculate', command: 'sheet.recalculate' },
+        { labelKey: 'menu.sheet.recalculate', command: 'sheet.recalculate', shortcut: 'F9' },
         { labelKey: 'menu.sheet.timezone', command: 'sheet.timezone' },
         { labelKey: 'menu.sheet.displayLanguage', command: 'sheet.displayLanguage' },
         { labelKey: 'menu.sheet.versionHistory', command: 'sheet.versionHistory' },

@@ -42,9 +42,13 @@ same operations and notes the question each row raises for Refrain Sheet.
   (§3.1). This comparison summarizes key-to-operation facts; it does not copy
   the vendors' help text, and it must not become a reason to reproduce Excel's
   screens, ribbon, access-key scheme, or wording, or to claim "same keys as
-  Excel" in user-facing text (§3.3, §5). Refrain Sheet's own rule that app
-  shortcuts never override browser keys
-  ([accessibility](../ui/accessibility.md)) outranks any row here.
+  Excel" in user-facing text (§3.3, §5). Refrain Sheet's own key-ownership
+  rule ([accessibility](../ui/accessibility.md): never take tab, window,
+  reload, or zoom keys; take Ctrl+F/H/G/E only while the grid has focus)
+  outranks any row here.
+- **What Refrain Sheet adopted.** The Japanese section "Refrain Sheet
+  での採用状況" lists the current binding, or the reason for none, for the
+  main rows.
 
 The canonical text follows in Japanese.
 
@@ -175,16 +179,17 @@ Excel の検索欄は `Alt + Windows, Q`、ファイル・ホーム・挿入・�
 
 ## Refrain Sheet の方針との関係
 
-- **ブラウザーのキーを奪わない：** Refrain Sheet のアプリショートカットは、
-  ブラウザー・OS・支援技術が使うキー（`Ctrl + W`、`Ctrl + H`、
-  `Ctrl + PageUp`／`PageDown` など）を横取りしない。衝突するコマンドには代替キーを
-  割り当て、すべてのコマンドはメニューからも実行できる
-  （[`src/app/shortcuts.ts`](../../src/app/shortcuts.ts)、
+- **ブラウザーに必要なキーは奪わない：** タブ・ウィンドウ操作（`Ctrl + W`、
+  `Ctrl + T`、`Ctrl + Tab`、`Ctrl + PageUp`／`PageDown`、`Ctrl + 1`〜`9`）、
+  再読み込み、印刷、開発者ツール、そして弱視の利用者が頼る**ズーム**
+  （`Ctrl + +`／`-`／`0`）は横取りしない。すべてのコマンドはメニューからも実行
+  できる（[`src/app/shortcuts.ts`](../../src/app/shortcuts.ts)、
   [accessibility](../ui/accessibility.md)）。この表で他製品がそれらのキーを使って
-  いても、その規則が優先する。唯一の例外は `Ctrl + F` で、グリッドは画面外の行を
-  描画しないためブラウザー検索では見つからないことから、グリッドにフォーカスが
-  あるときだけアプリの検索を開く。入力欄やページの他の場所では `Ctrl + F` は
-  ブラウザーのままで、`F3` は常にブラウザー検索に届く。
+  いても、その規則が優先する。
+- **グリッド限定の表計算キー：** ブラウザーも使うが表計算での意味が期待される
+  キーは、`Ctrl + A` と同じく**グリッドにフォーカスがあるときだけ**アプリが使う。
+  グリッドは画面外の行を描画しないため、ブラウザー検索ではそもそも見つからない。
+  入力欄・ダイアログ・ページの他の場所では、ブラウザーの機能のまま残る。
 - **IME の安全性：** IME の変換中はどのショートカットも発火しない
   （[editing-and-ime](../ui/editing-and-ime.md)）。日本語配列の記号キーを含む行は、
   この前提の上で検討する。
@@ -193,6 +198,33 @@ Excel の検索欄は `Alt + Windows, Q`、ファイル・ホーム・挿入・�
   この資料を根拠に Excel のリボン、アクセスキー体系、画面、説明文を再現しない。
   ヘルプ本文は引用せず、キーと操作の対応だけを設計用に要約している。ユーザー向けの
   ヘルプや紹介文で「Excel と同じキー操作」と表現しない（同 §3.3、§5）。
+
+### Refrain Sheet での採用状況（2026年9月25日）
+
+上の表の主な行について、現在の割り当てと、採用しなかった理由をまとめる。正は
+[`src/app/shortcuts.ts`](../../src/app/shortcuts.ts) とアプリ内の
+**Help > About / Keyboard Shortcuts**。
+
+| 操作                 | Refrain Sheet                                                           | 備考                                                                                 |
+| -------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 検索                 | `Ctrl + F`（グリッド）、`Ctrl + Shift + F`（どこでも）                  | グリッド外の `Ctrl + F` はブラウザー検索                                             |
+| 置換                 | `Ctrl + H`（グリッド）、`Ctrl + Shift + H`（どこでも）                  | グリッド外の `Ctrl + H` はブラウザーの履歴                                           |
+| 次／前を検索         | `F3`／`Shift + F3`（検索バー表示中）、検索欄で `Enter`／`Shift + Enter` | 検索バーが閉じているときの `F3` はブラウザー検索。Excel の `Shift + F4` は採用しない |
+| セル番地へ移動       | `Ctrl + G`（グリッド）                                                  | グリッド外はブラウザーの「次を検索」                                                 |
+| フラッシュフィル     | `Ctrl + E`（グリッド）                                                  | グリッド外はブラウザーの検索欄                                                       |
+| 再計算               | `F9`                                                                    | スプレッドシート文書のみ。全体再計算の別キーは設けない                               |
+| 次／前のシート       | `F7`／`Shift + F7`、`Ctrl + Alt + PageDown`／`PageUp`                   | `Ctrl + PageDown`／`PageUp` はブラウザーのタブ移動のため使えない                     |
+| 太字／斜体／下線     | `Ctrl + B`／`I`／`U`                                                    | 採用済み                                                                             |
+| セル内で改行         | `Alt + Enter`                                                           | 採用済み                                                                             |
+| 列・行の挿入／削除   | なし（メニュー・右クリック）                                            | `Ctrl + +`／`-` はブラウザーのズームで、アクセシビリティ上奪わない                   |
+| 列／行全体を選択     | なし（見出しのクリック）                                                | `Ctrl + Space` は IME 切り替え、`Shift + Space` は入力と衝突しうる                   |
+| セルの書式設定       | なし（メニュー）                                                        | `Ctrl + 1` はブラウザーのタブ移動                                                    |
+| データ領域の端へ移動 | 未実装                                                                  | `Ctrl + 方向キー` は別の機能追加として検討する                                       |
+| 今日の日付／現在時刻 | 未実装                                                                  | 入力コマンド自体がないため、機能追加として別途検討する                               |
+| リボン・アクセスキー | 採用しない                                                              | リボンがなく、Excel 固有の操作体系を再現しない（IP リスク方針）                      |
+
+注意：`F4` は Refrain Sheet では「新規作成」であり、Excel・Calc の参照形式の
+切り替えとは意味が異なる。
 
 ## 検証チェックリスト
 

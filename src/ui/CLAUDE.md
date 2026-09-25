@@ -21,4 +21,8 @@ governs; this adds only what is specific to `src/ui/`.
   `src/styles.css`, using the design tokens; see
   `knowledge/ui/theming-and-visual-system.md`. `npm run check:contrast`
   gates color pairs.
+- **Familiar operation, original expression.** Excel-like operation is
+  fine; Excel's screens, icons, wording, layout, and assets are not. Specify
+  UI changes from the user's goal, never "same as Excel", and escalate the
+  cases listed in `knowledge/decisions/ip-risk-policy.md` §5.
 - For a visible change, also run `npm run ui:check` after `npm run build`.

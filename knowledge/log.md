@@ -218,3 +218,15 @@ repository paths, and `stale_after` dates.
 permission model and pinning policy in `operations/security-supply-chain.md`.
 Release commits now carry the CHANGELOG.md section and README code
 statistics; the manual `release-docs.yml` workflow catches either up.
+
+## 2026-09-25
+
+**IP risk policy added.** A Japanese-language policy on pursuing an
+Excel-familiar feel without reproducing Excel's visual expression, assets,
+branding, or proprietary behavior was edited into
+`decisions/ip-risk-policy.md` (English summary, canonical Japanese text):
+unresolvable citation markers were replaced with a numbered reference list,
+the landing-page reference was pointed at `site/template.html`, and the
+escalation conditions were tied to the root `CLAUDE.md` "High-risk changes"
+rule, which now names third-party IP risk. Linked from `decisions/index.md`,
+the bundle root, `ui/index.md`, and `src/ui/CLAUDE.md`.

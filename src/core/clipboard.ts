@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { CellStyle } from './cell-style';
+import { formatValue, type FormulaValue } from './formula-value';
 
 /** A normalized rectangular cell range (inclusive bounds). */
 export interface CellRange {
@@ -81,6 +83,53 @@ export function rangeToMatrix(doc: ReadableDocument, range: CellRange, rows?: re
     const row: string[] = [];
     for (let c = range.left; c <= range.right; c++) {
       row.push(doc.getValue(r, c));
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+/** A document whose cells can be evaluated (spreadsheet documents). */
+interface EvaluatingDocument extends ReadableDocument {
+  evaluateCell?(row: number, col: number): FormulaValue;
+}
+
+/**
+ * The calculated values of a range, row-major, for Paste Values: formula
+ * cells contribute their results and every cell its unformatted value (a
+ * number format's thousands separators or currency sign are not pasted).
+ * Documents that evaluate nothing (CSV) give their raw inputs. `rows` limits
+ * the copy to specific document rows (see {@link rangeToTsv}).
+ */
+export function rangeToValueMatrix(
+  doc: EvaluatingDocument,
+  range: CellRange,
+  rows?: readonly number[],
+): string[][] {
+  const out: string[][] = [];
+  const rowList = rows ?? copyRows(range, null);
+  for (const r of rowList) {
+    const row: string[] = [];
+    for (let c = range.left; c <= range.right; c++) {
+      row.push(doc.evaluateCell ? formatValue(doc.evaluateCell(r, c)) : doc.getValue(r, c));
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+/** The cell styles of a range, row-major, for Paste Formatting (see {@link rangeToTsv} for `rows`). */
+export function rangeToStyleMatrix(
+  doc: { getStyle(row: number, col: number): CellStyle | null },
+  range: CellRange,
+  rows?: readonly number[],
+): Array<Array<CellStyle | null>> {
+  const out: Array<Array<CellStyle | null>> = [];
+  const rowList = rows ?? copyRows(range, null);
+  for (const r of rowList) {
+    const row: Array<CellStyle | null> = [];
+    for (let c = range.left; c <= range.right; c++) {
+      row.push(doc.getStyle(r, c));
     }
     out.push(row);
   }

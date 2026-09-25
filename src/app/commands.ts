@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { CellStyle } from '../core/cell-style';
 import type { CellRange } from '../core/clipboard';
 import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport } from '../core/csv-export';
 import type { CellValidation } from '../core/data-validation';
@@ -15,12 +16,15 @@ import {
   getAutoFitOnOpen,
   getEditHints,
   getMaxFileSize,
+  getShiftPasteMode,
   nextZoomLevel,
   setAutoFitOnOpen,
   setEditHints,
   setMaxFileSize,
+  setShiftPasteMode,
 } from './settings';
 import { setSheetFont, type SheetFontId } from './sheet-font';
+import { localDateStamp } from './shortcuts';
 import { setTheme, type ThemeChoice } from './theme';
 import { CommentCommands } from './commands/comment';
 import { ConditionalFormatCommands } from './commands/conditional-format';
@@ -75,6 +79,10 @@ export type CommandId =
   | 'edit.copyScreenshot'
   | 'edit.copyAsMarkdown'
   | 'edit.paste'
+  | 'edit.pasteValues'
+  | 'edit.pasteFormats'
+  | 'edit.insertDate'
+  | 'edit.insertTime'
   | 'edit.insertCopiedCells'
   | 'edit.insertCopiedRows'
   | 'edit.insertCopiedCols'
@@ -194,6 +202,10 @@ export class Commands {
     /** Write the selection to the system clipboard as a GitHub-Flavored Markdown table. */
     copyAsMarkdown: () => Promise<void>;
     paste: () => Promise<void>;
+    /** Paste only the copied cells' calculated values (no formulas, no formatting). */
+    pasteValues: () => Promise<void>;
+    /** Paste only the copied cells' formatting (values untouched). */
+    pasteFormats: () => Promise<void>;
     /** The most recently copied range (internal clipboard, else parsed system text). */
     getCopied: () => Promise<{ matrix: string[][]; origin: Selection | null } | null>;
     /** The kind of the most recently copied selection in the internal clipboard, or null. Synchronous, for isEnabled(). */
@@ -367,6 +379,9 @@ export class Commands {
       case 'edit.copy':
       case 'edit.copyAsMarkdown':
       case 'edit.paste':
+      case 'edit.pasteValues':
+      case 'edit.insertDate':
+      case 'edit.insertTime':
       case 'edit.fillDown':
       case 'edit.flashFill':
       case 'edit.moveRange':
@@ -391,6 +406,7 @@ export class Commands {
       case 'format.presetNumber':
       case 'format.presetCurrency':
       case 'format.presetPercent':
+      case 'edit.pasteFormats':
         return tab !== null && tab.doc.kind === 'rsf' && tab.selection != null;
       // The async Clipboard API's image write has inconsistent browser
       // support (including on file://), so the item is hidden/disabled
@@ -527,6 +543,7 @@ export class Commands {
       case 'format.presetNumber':
       case 'format.presetCurrency':
       case 'format.presetPercent':
+      case 'edit.pasteFormats':
         return tab !== null && tab.doc.kind !== 'rsf' ? t('menu.format.csvOnlyTooltip') : null;
       default:
         return null;
@@ -597,6 +614,24 @@ export class Commands {
         return;
       case 'edit.paste':
         await this.clipboardActions?.paste();
+        return;
+      case 'edit.pasteValues':
+        await this.clipboardActions?.pasteValues();
+        return;
+      case 'edit.pasteFormats':
+        await this.clipboardActions?.pasteFormats();
+        return;
+      case 'edit.insertDate':
+      case 'edit.insertTime':
+        if (tab?.selection) {
+          const { row, col } = tab.selection;
+          await this.commitCellEdit(
+            tab,
+            row,
+            col,
+            localDateStamp(id === 'edit.insertDate' ? 'date' : 'time'),
+          );
+        }
         return;
       case 'edit.insertCopiedCells':
         if (tab) await this.insertCopiedCells(tab);
@@ -934,9 +969,15 @@ export class Commands {
         return;
       }
       case 'app.settings': {
-        const chosen = await this.ui.chooseSettings(getMaxFileSize());
+        const chosen = await this.ui.chooseSettings({
+          maxFileSize: getMaxFileSize(),
+          shiftPaste: getShiftPasteMode(),
+        });
         if (chosen !== null) {
-          const applied = setMaxFileSize(chosen);
+          const applied = setMaxFileSize(chosen.maxFileSize);
+          setShiftPasteMode(chosen.shiftPaste);
+          // Menus label Ctrl+Shift+V on whichever command it now runs.
+          this.state.emit('view');
           this.ui.notify(t('notify.settingsSaved', { size: Math.round(applied / (1024 * 1024)) }), 'info');
         }
         return;
@@ -1249,6 +1290,11 @@ export class Commands {
    */
   async applyPaste(tab: Tab, matrix: string[][], origin: Selection | null): Promise<boolean> {
     return this.pasteFill.applyPaste(tab, matrix, origin);
+  }
+
+  /** Paste Formatting. See `FormatCommands.pasteStyles` for the full behavior contract. */
+  pasteStyles(tab: Tab, styles: ReadonlyArray<ReadonlyArray<CellStyle | null>>): boolean {
+    return this.format.pasteStyles(tab, styles);
   }
 
   /**

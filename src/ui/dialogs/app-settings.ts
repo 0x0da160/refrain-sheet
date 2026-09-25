@@ -2,7 +2,7 @@
 import type { VersionHistoryChoice } from '../../app/commands';
 import { driveConfigured } from '../../app/drive/config';
 import { getLocale, t, type LocaleId } from '../../app/i18n';
-import { SHORTCUT_DOCS } from '../../app/shortcuts';
+import { displayShortcutKeys, isMacPlatform, SHORTCUT_GROUPS } from '../../app/shortcuts';
 import { FUNCTION_INFOS, type FunctionCategory } from '../../core/formula';
 import {
   bytesToMiB,
@@ -10,6 +10,7 @@ import {
   clampMaxFileSize,
   MIN_MAX_FILE_SIZE,
   MAX_MAX_FILE_SIZE,
+  type LocalSettings,
 } from '../../app/settings';
 import {
   DEFAULT_HISTORY_SNAPSHOT_LIMIT,
@@ -68,8 +69,8 @@ export class AppSettingsDialogs {
    * Returns the chosen limit in bytes, or null when cancelled. The value is
    * clamped into the supported range before being returned.
    */
-  chooseSettings(currentMaxFileSize: number): Promise<number | null> {
-    return openDialog<number | null>(t('dialog.settings.title'), null, (body, buttons, close) => {
+  chooseSettings(current: LocalSettings): Promise<LocalSettings | null> {
+    return openDialog<LocalSettings | null>(t('dialog.settings.title'), null, (body, buttons, close) => {
       const minMiB = bytesToMiB(MIN_MAX_FILE_SIZE);
       const maxMiB = bytesToMiB(MAX_MAX_FILE_SIZE);
       const input = el('input', {
@@ -82,7 +83,18 @@ export class AppSettingsDialogs {
           'aria-describedby': 'settings-maxsize-help',
         },
       });
-      input.value = String(bytesToMiB(currentMaxFileSize));
+      input.value = String(bytesToMiB(current.maxFileSize));
+
+      const pasteId = 'settings-shift-paste';
+      const pasteSelect = el('select', { attrs: { id: pasteId } }) as HTMLSelectElement;
+      for (const mode of ['formats', 'values'] as const) {
+        const option = el('option', {
+          text: t(`dialog.settings.shiftPaste.${mode}`),
+          attrs: { value: mode },
+        });
+        (option as HTMLOptionElement).selected = mode === current.shiftPaste;
+        pasteSelect.append(option);
+      }
 
       body.append(
         el('div', { className: 'form-row' }, [
@@ -97,6 +109,11 @@ export class AppSettingsDialogs {
           attrs: { id: 'settings-maxsize-help' },
         }),
         el('p', { className: 'dialog-note', text: t('dialog.settings.note') }),
+        el('div', { className: 'form-row' }, [
+          el('label', { text: t('dialog.settings.shiftPaste'), attrs: { for: pasteId } }),
+          pasteSelect,
+        ]),
+        el('p', { className: 'dialog-note', text: t('dialog.settings.shiftPasteNote') }),
         el('p', { className: 'dialog-note', text: t('dialog.settings.local') }),
       );
 
@@ -106,7 +123,10 @@ export class AppSettingsDialogs {
           close(null);
           return;
         }
-        close(clampMaxFileSize(miBToBytes(mib)));
+        close({
+          maxFileSize: clampMaxFileSize(miBToBytes(mib)),
+          shiftPaste: pasteSelect.value === 'values' ? 'values' : 'formats',
+        });
       };
       submitOnEnter(input, submit);
 
@@ -367,11 +387,21 @@ export class AppSettingsDialogs {
   private showShortcuts(): Promise<void> {
     return openDialog<void>(t('dialog.shortcuts.title'), undefined, (body, buttons, close) => {
       body.append(el('p', { className: 'dialog-note', text: t('dialog.shortcuts.note') }));
-      const table = el('table', { className: 'shortcut-table' });
-      for (const { keys, descKey } of SHORTCUT_DOCS) {
-        table.append(el('tr', {}, [el('td', { text: keys }), el('td', { text: t(descKey) })]));
+      // Grouped by task, each key named for this platform (Cmd on macOS).
+      const mac = isMacPlatform();
+      for (const group of SHORTCUT_GROUPS) {
+        body.append(el('h3', { text: t(group.titleKey) }));
+        const table = el('table', { className: 'shortcut-table' });
+        for (const { keys, descKey } of group.items) {
+          table.append(
+            el('tr', {}, [
+              el('td', { text: displayShortcutKeys(keys, mac) }),
+              el('td', { text: t(descKey) }),
+            ]),
+          );
+        }
+        body.append(table);
       }
-      body.append(table);
       body.append(el('h3', { text: t('dialog.shortcuts.appearance') }));
       body.append(el('p', { className: 'dialog-note', text: t('dialog.shortcuts.appearanceNote') }));
       buttons.append(dialogButton(t('dialog.close'), true, true, () => close(undefined)));

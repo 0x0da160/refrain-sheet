@@ -24,6 +24,7 @@ import type { LocaleId } from './i18n';
 import type { SqlRunOutcome, SqlSource } from './commands/sql';
 import type { DiffRunOutcome, DiffTabOption } from './commands/diff';
 import type { FlashFillPreview } from './commands/paste-fill';
+import type { LocalSettings } from './settings';
 
 /**
  * Applies a side panel's result while the panel stays open — Apply never closes
@@ -417,8 +418,8 @@ export interface UiPort {
    * cancelled.
    */
   promptGoToCell(suggestion: string, validate: (text: string) => string | null): Promise<string | null>;
-  /** Edit local settings; returns the chosen maximum file size in bytes, or null when cancelled. */
-  chooseSettings(currentMaxFileSize: number): Promise<number | null>;
+  /** Edit local settings; returns the chosen values, or null when cancelled. */
+  chooseSettings(current: LocalSettings): Promise<LocalSettings | null>;
   /**
    * The workbook Timezone… dialog: pick an IANA zone from every zone the
    * runtime knows, with `current` preselected. Resolves with the chosen zone

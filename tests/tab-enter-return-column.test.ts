@@ -229,3 +229,64 @@ describe('navigation-mode Tab and Shift+Enter (no editor open)', () => {
     expect(tab.selection).toEqual({ row: 1, col: 0 });
   });
 });
+
+describe('Ctrl+Enter, Ctrl+; and PageDown in the grid', () => {
+  it('Ctrl+Enter applies the edit and stays on the cell', () => {
+    const { grid, tab } = setupGrid('a,b\nc,d\n');
+    grid.select(tab, 0, 1);
+    grid.openEditor(tab, 0, 1, '');
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    input.value = 'x';
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }),
+    );
+    expect(tab.doc.getValue(0, 1)).toBe('x');
+    expect(tab.selection).toEqual({ row: 0, col: 1 });
+    expect(grid.element.querySelector('.cell-editor')).toBeNull();
+  });
+
+  it("Ctrl+; enters today's date at the caret while editing", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 25, 13, 45));
+    try {
+      const { grid, tab } = setupGrid('a,b\n');
+      grid.select(tab, 0, 0);
+      grid.openEditor(tab, 0, 0, '');
+      const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+      input.value = 'Due ';
+      input.setSelectionRange(4, 4);
+      const event = new KeyboardEvent('keydown', {
+        key: ';',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      input.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(input.value).toBe('Due 2026-09-25');
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: ':', ctrlKey: true, bubbles: true, cancelable: true }),
+      );
+      expect(input.value).toBe('Due 2026-09-2513:45');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('PageDown moves one screenful of rows', () => {
+    const csv = Array.from({ length: 200 }, (_, i) => `r${i}`).join('\n') + '\n';
+    const { grid, tab } = setupGrid(csv);
+    grid.select(tab, 0, 0);
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true, cancelable: true }),
+    );
+    const moved = tab.selection!.row;
+    // 400px tall grid: more than one row, fewer than the old fixed 20 at default row height.
+    expect(moved).toBeGreaterThan(1);
+    expect(moved).not.toBe(20);
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'PageUp', bubbles: true, cancelable: true }),
+    );
+    expect(tab.selection!.row).toBe(0);
+  });
+});

@@ -37,6 +37,17 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Paste Values and Paste Formatting.** Edit > Paste Special pastes only
+  the copied cells' calculated values, or only their formatting.
+  **Ctrl+Shift+V** (Cmd+Shift+V on macOS) pastes the formatting by default;
+  File > Settings… can switch it to values.
+- **Enter today's date or the current time.** **Ctrl+;** enters today's
+  date and **Ctrl+Shift+;** (Ctrl+: on a Japanese keyboard) the current
+  time, as `2026-09-25` and `13:45`, into the cell or at the cursor while
+  editing. Also under Edit > Enter Date or Time.
+- **Number, currency, and percent formats on the Format menu**, beside
+  their Ctrl+Shift+1 / 4 / 5 keys.
+- **Ctrl+Enter applies an edit and stays on the cell.**
 - **Spreadsheet keyboard shortcuts that act on the sheet.** Ctrl+F opens
   Find, Ctrl+H opens Replace (Cmd+Shift+H on macOS), F3 / Shift+F3 go to the
   next / previous match, Ctrl+G opens Go to Cell, and Ctrl+E runs Flash Fill
@@ -71,6 +82,10 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- **PageUp and PageDown move one screen** instead of a fixed 20 rows.
+- **The keyboard shortcut list is grouped by task** and shows only the keys
+  for your system (Cmd on macOS). It now also lists Ctrl+Enter, Alt+Enter,
+  Delete / Backspace, Home / End, and PageUp / PageDown.
 - **F4, F7, and F8 no longer act outside a formula.** F4 (New), F7 /
   Shift+F7 (next / previous worksheet), and F8 (Close Tab) used keys that
   mean something else in other spreadsheets. New and Close File are on the

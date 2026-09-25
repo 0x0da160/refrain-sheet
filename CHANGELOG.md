@@ -43,8 +43,8 @@ really is internal, rather than inventing an entry to satisfy it.
   (Cmd on macOS). They work wherever focus is and take precedence over the
   browser's own keys; the browser's page find stays in its menu, because it
   could not see rows outside the screen anyway. **F9** recalculates
-  formulas, and **Ctrl+Alt+PageDown / PageUp** switch worksheets alongside
-  F7 / Shift+F7. Browser zoom, tab switching, and reload are never taken.
+  formulas, and **Ctrl+Alt+PageDown / PageUp** switch worksheets. Browser
+  zoom, tab switching, and reload are never taken.
 - **Jump to the edge of the data.** Ctrl+Arrow (Cmd+Arrow on macOS) moves
   to the end of the current block of filled cells, or to the next filled
   cell; add Shift to select up to there.
@@ -52,8 +52,7 @@ really is internal, rather than inventing an entry to satisfy it.
   copy the selected cells and clear them in one undoable step.
 - **F4 switches references while typing a formula.** With the cursor on a
   reference, F4 cycles it through A1, $A$1, A$1, and $A1 (a range such as
-  A1:B10 changes both ends). Outside a formula, F4 still creates a new
-  file.
+  A1:B10 changes both ends).
 - **Number format keys.** Ctrl+Shift+1 applies a number format (2 decimals,
   thousands separator), Ctrl+Shift+4 a currency format (¥ in Japanese, $
   otherwise), and Ctrl+Shift+5 a percent format.
@@ -72,6 +71,11 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- **F4, F7, and F8 no longer act outside a formula.** F4 (New), F7 /
+  Shift+F7 (next / previous worksheet), and F8 (Close Tab) used keys that
+  mean something else in other spreadsheets. New and Close Tab are on the
+  File menu; switch worksheets with Ctrl+Alt+PageDown / PageUp or the
+  worksheet tabs.
 - **Find and Replace is now one side panel.** Find and Replace share a
   dockable, resizable side panel instead of the bar above the sheet, with
   Find Next, Find Previous, Find All, Replace, and Replace All.

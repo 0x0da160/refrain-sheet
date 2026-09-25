@@ -19,8 +19,10 @@
  *   Ctrl+E (Flash Fill). The grid is virtualized, so the browser's own find
  *   cannot see rows outside the viewport anyway; the browser's find stays
  *   reachable from its own menu.
- * - Commands with no conventional unreserved key (New, Close Tab, sheet
- *   switching) use function keys or unreserved Ctrl+Shift combinations; see
+ * - Commands whose conventional key the browser keeps (New, Close Tab)
+ *   have no shortcut rather than an unusual one; sheet switching uses
+ *   Ctrl+Alt+PageDown/PageUp because plain Ctrl+PageDown/PageUp is browser
+ *   tab switching. See
  *   `knowledge/references/spreadsheet-shortcut-comparison.md` for how other
  *   spreadsheets bind them.
  * - Every command is also available from the menus, so keyboard shortcuts are
@@ -210,19 +212,6 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     if (event.key === 'F9') {
       return 'sheet.recalculate';
     }
-    if (event.key === 'F4') {
-      return 'file.new';
-    }
-    if (event.key === 'F8') {
-      return 'file.closeTab';
-    }
-  }
-
-  // Worksheet switching inside the active workbook. F7 / Shift+F7 are used
-  // because the conventional Ctrl+PageUp/PageDown is browser tab switching and
-  // Alt is never part of an application accelerator (see the module note).
-  if (!mod && !event.altKey && !ctx.inTextField && event.key === 'F7') {
-    return event.shiftKey ? 'worksheet.prev' : 'worksheet.next';
   }
 
   // Insert a worksheet: Shift+F11 (plain F11 stays the browser's full screen).
@@ -245,14 +234,12 @@ export interface ShortcutDoc {
  * resolver) but are listed here for completeness.
  */
 export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
-  { keys: 'F4', descKey: 'shortcut.new' },
   { keys: 'F4', descKey: 'shortcut.refToggle' },
   { keys: 'Ctrl+O / Cmd+O', descKey: 'shortcut.open' },
   { keys: 'Ctrl+S / Cmd+S', descKey: 'shortcut.save' },
   { keys: 'Ctrl+Shift+S / Cmd+Shift+S', descKey: 'shortcut.saveOptions' },
-  { keys: 'F8', descKey: 'shortcut.closeTab' },
-  { keys: 'F7, Ctrl+Alt+PageDown', descKey: 'shortcut.nextSheet' },
-  { keys: 'Shift+F7, Ctrl+Alt+PageUp', descKey: 'shortcut.prevSheet' },
+  { keys: 'Ctrl+Alt+PageDown', descKey: 'shortcut.nextSheet' },
+  { keys: 'Ctrl+Alt+PageUp', descKey: 'shortcut.prevSheet' },
   { keys: 'Shift+F11', descKey: 'shortcut.addSheet' },
   { keys: 'Ctrl+Z / Cmd+Z', descKey: 'shortcut.undo' },
   { keys: 'Ctrl+Y, Ctrl+Shift+Z / Cmd+Shift+Z', descKey: 'shortcut.redo' },

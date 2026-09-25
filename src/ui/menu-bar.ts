@@ -128,7 +128,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // frequent actions (New/Open/Save) stay at the top level per that
         // report's own UX caveat; everything else now follows the same
         // family-submenu convention as Sheet/View below.
-        { labelKey: 'menu.file.new', command: 'file.new', shortcut: 'F4' },
+        { labelKey: 'menu.file.new', command: 'file.new' },
         { labelKey: 'menu.file.newCsv', command: 'file.newCsv' },
         { labelKey: 'menu.file.open', command: 'file.open', shortcut: 'Ctrl+O' },
         { labelKey: 'menu.file.openRecent', command: 'file.openRecent' },
@@ -140,7 +140,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.file.settings', command: 'app.settings' },
         'separator',
-        { labelKey: 'menu.file.closeTab', command: 'file.closeTab', shortcut: 'F8' },
+        { labelKey: 'menu.file.closeTab', command: 'file.closeTab' },
       ],
     },
     {
@@ -416,8 +416,8 @@ function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
       checked: checks.sheetLocked,
     },
     'separator',
-    { labelKey: 'menu.sheet.nextSheet', command: 'worksheet.next', shortcut: 'F7' },
-    { labelKey: 'menu.sheet.prevSheet', command: 'worksheet.prev', shortcut: 'Shift+F7' },
+    { labelKey: 'menu.sheet.nextSheet', command: 'worksheet.next', shortcut: 'Ctrl+Alt+PageDown' },
+    { labelKey: 'menu.sheet.prevSheet', command: 'worksheet.prev', shortcut: 'Ctrl+Alt+PageUp' },
     'separator',
     { labelKey: 'menu.sheet.moveSheetFirst', command: 'worksheet.moveFirst' },
     { labelKey: 'menu.sheet.moveSheetLeft', command: 'worksheet.moveLeft' },

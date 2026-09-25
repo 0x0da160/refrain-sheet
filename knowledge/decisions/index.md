@@ -14,3 +14,8 @@ that aren't already anchored to one of those files.
 - [Why no UI framework](no-ui-framework.md) — why the UI layer is
   hand-written TypeScript/DOM rather than React, Vue, or similar, and what
   that decision is actually grounded in.
+- [Familiar operation, original expression — IP risk policy](ip-risk-policy.md)
+  — how the app pursues an Excel-familiar feel without reproducing Excel's
+  visual expression, assets, or branding, the design boundary that follows,
+  and when a UI change must be escalated for IP review (Japan-focused;
+  canonical text in Japanese).

@@ -124,8 +124,10 @@ check:dist` enforces this.
 Mark `agent:blocked` and request human approval for any change touching: auth/authz,
 payments/billing, secrets/crypto/signing, personal or sensitive data, database or
 destructive data operations, infrastructure/networking/IAM/deploy config, branch
-protection or Actions permissions, major dependency upgrades, or public-API breaking
-changes. The RSF binary format and `wasm/` codecs are sensitive — changes there need
+protection or Actions permissions, major dependency upgrades, public-API breaking
+changes, or third-party IP risk — reproducing a specific Excel screen, using Microsoft
+or Excel assets/code, or claims of Excel compatibility or Microsoft affiliation (see
+`knowledge/decisions/ip-risk-policy.md`). The RSF binary format and `wasm/` codecs are sensitive — changes there need
 extra care, full `test:rust`, and human review.
 
 ## Prohibited

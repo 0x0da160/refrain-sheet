@@ -43,3 +43,8 @@ it.
   Light/Dark/Hybrid themes, live `prefers-color-scheme` tracking, the
   spreadsheet font choice, vertical text centering, and conditional
   row-height wrapping.
+
+Any change to how the UI looks or is laid out also falls under the
+[IP risk policy](../decisions/ip-risk-policy.md): familiar operation is
+welcome, but screens, icons, wording, and layout stay original, never a
+reproduction of a specific Excel screen.

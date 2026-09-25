@@ -38,8 +38,9 @@ do not read this whole bundle to make a local change.
 - [References](references/index.md) — a curated index of internal reference
   docs and skills, and external specs/standards this repository relies on.
 - [Decisions](decisions/index.md) — a small set of durable decision
-  records for choices not already anchored to a domain concept file above,
-  starting with why the UI layer uses no framework.
+  records for choices not already anchored to a domain concept file above:
+  why the UI layer uses no framework, and the IP risk policy for an
+  Excel-familiar feel with original expression.
 
 This bundle is the canonical home of the former `docs/*.md` architecture,
 security, performance, RSF-format, and agent-operations documents.

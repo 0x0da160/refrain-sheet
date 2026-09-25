@@ -46,11 +46,11 @@ synchronously. Phones always give the tabs their own row at the top.
   [../operations/security-threat-model.md](../operations/security-threat-model.md)
   for what the list stores.
 - Unsaved tabs show a `●` dirty indicator.
-- Close a tab with its × button or **File > Close Tab**; there is no
+- Close a tab with its × button or **File > Close File**; there is no
   keyboard shortcut, because Ctrl+W and Ctrl+Tab are intentionally left to
   the browser (switching tabs is done by clicking them in the tab bar).
 - **Reorder** by dragging a tab (an accent bar shows the drop position),
-  via **View > Move Tab Left / Right / to Start / to End**, or from a tab's
+  via **View > Move File Tab Left / Right / to Start / to End**, or from a tab's
   right-click context menu. No shortcut is assigned by design: the
   remaining Ctrl/Alt+arrow-style combinations conflict with browser/OS tab
   and history shortcuts, and the commands stay fully keyboard-reachable

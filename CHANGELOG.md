@@ -73,9 +73,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 - **F4, F7, and F8 no longer act outside a formula.** F4 (New), F7 /
   Shift+F7 (next / previous worksheet), and F8 (Close Tab) used keys that
-  mean something else in other spreadsheets. New and Close Tab are on the
+  mean something else in other spreadsheets. New and Close File are on the
   File menu; switch worksheets with Ctrl+Alt+PageDown / PageUp or the
   worksheet tabs.
+- **Clearer menu wording.** "Close Tab" is now **Close File**, and View >
+  Move Tab is **Move File Tab**, so it is clear which tab they act on. In
+  Japanese, ソート reads 並べ替え, the zoom commands read 表示倍率 / 拡大 /
+  縮小 / 100%に戻す, リネーム reads 名前を変更, and the editing-hints toggle
+  reads 編集のヒントを表示.
 - **Find and Replace is now one side panel.** Find and Replace share a
   dockable, resizable side panel instead of the bar above the sheet, with
   Find Next, Find Previous, Find All, Replace, and Replace All.

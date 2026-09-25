@@ -195,6 +195,7 @@ function bootstrap(): void {
     (range) => grid.setCopySource(range),
   );
   commands.clipboardActions = {
+    cut: () => clipboard.cutViaApi(),
     copy: () => clipboard.copyViaApi(),
     copyScreenshot: () => clipboard.copyScreenshotAsPng(),
     copyAsMarkdown: () => clipboard.copyMarkdownTable(),
@@ -402,10 +403,15 @@ function bootstrap(): void {
     }
   });
 
-  // ----- Clipboard: Ctrl+C / Ctrl+V via native copy/paste events -----
+  // ----- Clipboard: Ctrl+X / Ctrl+C / Ctrl+V via native cut/copy/paste events -----
   document.addEventListener('copy', (event) => {
     if (grid.isNavigating()) {
       clipboard.handleCopyEvent(event);
+    }
+  });
+  document.addEventListener('cut', (event) => {
+    if (grid.isNavigating()) {
+      clipboard.handleCutEvent(event);
     }
   });
   document.addEventListener('paste', (event) => {

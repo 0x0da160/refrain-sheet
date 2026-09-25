@@ -149,6 +149,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.edit.undo', command: 'edit.undo', shortcut: 'Ctrl+Z' },
         { labelKey: 'menu.edit.redo', command: 'edit.redo', shortcut: 'Ctrl+Y' },
         'separator',
+        { labelKey: 'menu.edit.cut', command: 'edit.cut', shortcut: 'Ctrl+X' },
         { labelKey: 'menu.edit.copy', command: 'edit.copy', shortcut: 'Ctrl+C' },
         // Copy Image and Copy as Markdown Table are alternate copy formats,
         // not the everyday Copy — grouped into their own submenu, the same

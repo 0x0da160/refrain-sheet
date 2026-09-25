@@ -70,6 +70,7 @@ export type CommandId =
   | 'drive.signOut'
   | 'edit.undo'
   | 'edit.redo'
+  | 'edit.cut'
   | 'edit.copy'
   | 'edit.copyScreenshot'
   | 'edit.copyAsMarkdown'
@@ -186,6 +187,7 @@ export type CommandId =
 export class Commands {
   /** Set by main.ts so menu Copy/Paste can go through the clipboard controller. */
   clipboardActions: {
+    cut: () => Promise<void>;
     copy: () => Promise<void>;
     /** Render the selection's actual on-screen appearance to a PNG and write it to the system clipboard. */
     copyScreenshot: () => Promise<void>;
@@ -361,6 +363,7 @@ export class Commands {
       // Flash Fill, Move Range, and Filter stay clickable on a CSV tab:
       // running one explains that the operation needs an RSF spreadsheet
       // document and offers to convert right there (see `ensureRsf`).
+      case 'edit.cut':
       case 'edit.copy':
       case 'edit.copyAsMarkdown':
       case 'edit.paste':
@@ -579,6 +582,9 @@ export class Commands {
         return;
       case 'edit.redo':
         if (tab) this.state.redo(tab);
+        return;
+      case 'edit.cut':
+        await this.clipboardActions?.cut();
         return;
       case 'edit.copy':
         await this.clipboardActions?.copy();

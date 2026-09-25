@@ -45,6 +45,8 @@ really is internal, rather than inventing an entry to satisfy it.
   could not see rows outside the screen anyway. **F9** recalculates
   formulas, and **Ctrl+Alt+PageDown / PageUp** switch worksheets alongside
   F7 / Shift+F7. Browser zoom, tab switching, and reload are never taken.
+- **Cut.** Edit > Cut, the right-click menu, and Ctrl+X (Cmd+X on macOS)
+  copy the selected cells and clear them in one undoable step.
 - **F4 switches references while typing a formula.** With the cursor on a
   reference, F4 cycles it through A1, $A$1, A$1, and $A1 (a range such as
   A1:B10 changes both ends). Outside a formula, F4 still creates a new

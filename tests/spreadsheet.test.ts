@@ -153,6 +153,50 @@ describe('copy / paste', () => {
     expect(clip.copyText()).toBe('1\t2\n3\t3');
   });
 
+  it('cuts: puts the range on the clipboard, clears it as one undo step, and pastes it elsewhere', async () => {
+    const { state, commands, tab } = setup('a,b,c\nd,e,f\n');
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 1 });
+    const clip = new ClipboardController(state, commands, () => undefined, document);
+    const setData = vi.fn();
+    const preventDefault = vi.fn();
+    const cut = { clipboardData: { setData }, preventDefault } as unknown as ClipboardEvent;
+    expect(clip.handleCutEvent(cut)).toBe(true);
+    expect(setData).toHaveBeenCalledWith('text/plain', 'a\tb');
+    expect(preventDefault).toHaveBeenCalled();
+    expect(tab.doc.getValue(0, 0)).toBe('');
+    expect(tab.doc.getValue(0, 1)).toBe('');
+    expect(tab.doc.getValue(0, 2)).toBe('c');
+
+    state.setSelection(tab, { row: 1, col: 0 }, null);
+    await clip.pasteText('a\tb');
+    expect(tab.doc.getValue(1, 0)).toBe('a');
+    expect(tab.doc.getValue(1, 1)).toBe('b');
+
+    state.undo(tab);
+    state.undo(tab);
+    expect(tab.doc.getValue(0, 0)).toBe('a');
+    expect(tab.doc.getValue(1, 0)).toBe('d');
+  });
+
+  it('menu Cut clears nothing when the browser blocks the clipboard', async () => {
+    const { state, commands, tab } = setup('a,b\n');
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    const notify = vi.fn();
+    const clip = new ClipboardController(state, commands, notify, document);
+    const writeText = vi.fn(async () => {
+      throw new Error('blocked');
+    });
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    try {
+      await clip.cutViaApi();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(writeText).toHaveBeenCalled();
+    expect(tab.doc.getValue(0, 0)).toBe('a');
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
+  });
+
   it('anchors a paste at the top-left cell of the selected range, not the active cell', async () => {
     const { state, commands, tab } = setup('a,b,c\nd,e,f\ng,h,i\n');
     // Drag from C3 back to B2: the active cell is C3, the range B2:C3.

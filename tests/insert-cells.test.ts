@@ -81,6 +81,7 @@ function withCopied(
   kind: SelectionKind = 'cell',
 ): void {
   commands.clipboardActions = {
+    cut: async () => undefined,
     copy: async () => undefined,
     copyScreenshot: async () => undefined,
     copyAsMarkdown: async () => undefined,
@@ -250,6 +251,7 @@ describe('Insert Copied Cells…', () => {
     const ui = stubUi();
     const { state, commands, tab } = rcsvSetup([['a']], ui);
     commands.clipboardActions = {
+      cut: async () => undefined,
       copy: async () => undefined,
       copyScreenshot: async () => undefined,
       copyAsMarkdown: async () => undefined,
@@ -428,6 +430,7 @@ describe('Insert Copied Rows / Insert Copied Columns', () => {
     const ui = stubUi();
     const { state, commands, tab } = rcsvSetup([['a']], ui);
     commands.clipboardActions = {
+      cut: async () => undefined,
       copy: async () => undefined,
       copyScreenshot: async () => undefined,
       copyAsMarkdown: async () => undefined,
@@ -545,6 +548,7 @@ describe('Insert Copied … menu/context-menu enablement', () => {
     ]);
     const clipboard = new ClipboardController(state, commands, vi.fn(), document);
     commands.clipboardActions = {
+      cut: async () => undefined,
       copy: () => clipboard.copyViaApi(),
       copyScreenshot: () => clipboard.copyScreenshotAsPng(),
       copyAsMarkdown: () => clipboard.copyMarkdownTable(),

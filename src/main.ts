@@ -281,14 +281,13 @@ function bootstrap(): void {
     yamlSheetView.element,
     textSheetView.element,
   ]);
-  // Everything between the two tab strips (find bar, formula bar, welcome
+  // Everything between the two tab strips (formula bar, welcome
   // screen, the sheet itself) lives in `#app-content`: a top/bottom-docked
   // side panel reserves space by padding this element rather than
   // `#app-body`, so it insets below the book tab strip and above the
   // worksheet tab strip instead of covering either of them (see
   // `applySidePanelPosition`, `src/ui/dialogs/shared.ts`, #399/#541).
   const appContent = el('div', { className: 'app-content', attrs: { id: 'app-content' } }, [
-    findBar.element,
     formulaBar.element,
     welcome.element,
     mainRow,
@@ -297,6 +296,7 @@ function bootstrap(): void {
     tabBar.element,
     appContent,
     sheetBar.element,
+    findBar.element,
     commentsPanel.element,
     markdownSheetView.panelElement,
     jsonSheetView.panelElement,
@@ -452,8 +452,6 @@ function bootstrap(): void {
         // Select All is only owned while the grid itself is focused (never a
         // text field or the rest of the page — the browser keeps Ctrl+A there).
         inGrid: grid.isNavigating(),
-        findBarOpen: findBar.isOpen,
-        inFindBar: target !== null && findBar.element.contains(target),
       },
     );
     if (!command) {

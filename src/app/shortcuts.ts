@@ -12,16 +12,13 @@
  *   browser tab switching (Ctrl+Tab, Ctrl+PageUp/Down, Ctrl+1–9).
  *   {@link resolveShortcut} returns `null` for them so the browser handles
  *   them normally.
- * - **Grid-scoped spreadsheet keys.** A few conventional spreadsheet keys
- *   that browsers also use are taken **only while the grid itself has focus**
- *   (the same scope as Ctrl+A), because there the spreadsheet meaning is the
- *   one the user expects and the browser feature does not work on a
- *   virtualized grid anyway: Ctrl+F (Find), Ctrl+H (Replace; browser
- *   history elsewhere), Ctrl+G (Go to Cell; browser find-next elsewhere), and
- *   Ctrl+E (Flash Fill; browser search box elsewhere). In text fields,
- *   dialogs, and the rest of the page those keys stay the browser's.
- * - **F3 / Shift+F3** move to the next/previous match only while the app's
- *   Find bar is open; with it closed, F3 is the browser's find.
+ * - **Spreadsheet keys win over the browser's.** The conventional
+ *   spreadsheet keys that a page *can* take from the browser are always the
+ *   app's, wherever focus is (text fields included): Ctrl+F (Find), Ctrl+H
+ *   (Replace), F3 / Shift+F3 (Find Next / Previous), Ctrl+G (Go to Cell), and
+ *   Ctrl+E (Flash Fill). The grid is virtualized, so the browser's own find
+ *   cannot see rows outside the viewport anyway; the browser's find stays
+ *   reachable from its own menu.
  * - Commands with no conventional unreserved key (New, Close Tab, sheet
  *   switching) use function keys or unreserved Ctrl+Shift combinations; see
  *   `knowledge/references/spreadsheet-shortcut-comparison.md` for how other
@@ -58,10 +55,6 @@ export interface ShortcutContext {
    * All is never intercepted.
    */
   inGrid?: boolean;
-  /** The app's Find/Replace bar is open. F3 / Shift+F3 step through matches. */
-  findBarOpen?: boolean;
-  /** Focus is inside the Find/Replace bar (one of its text fields). */
-  inFindBar?: boolean;
 }
 
 /** The subset of `KeyboardEvent` the resolver reads (keeps it DOM-free/testable). */
@@ -93,8 +86,6 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
 
   const mod = event.ctrlKey || event.metaKey;
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-  // Keys owned only while the grid itself (not a text field) has focus.
-  const gridOwned = ctx.inGrid === true && !ctx.inTextField;
 
   // Worksheet switching: Ctrl+Alt+PageDown/PageUp. Plain Ctrl+PageUp/Down is
   // browser tab switching, which a page cannot take. PageUp/PageDown produce
@@ -121,22 +112,20 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     if (key === 'o' && !event.shiftKey) {
       return 'file.open';
     }
-    // Find / Replace: Ctrl+Shift+F / Ctrl+Shift+H anywhere. Plain Ctrl+F /
-    // Ctrl+H only while the grid itself is focused — the virtualized grid is
-    // invisible to the browser's find — so text fields and the rest of the
-    // page keep the browser's find and history.
-    if (key === 'f' && (event.shiftKey || gridOwned)) {
+    // Find / Replace (Ctrl+F / Ctrl+H; the older Ctrl+Shift+F / Ctrl+Shift+H
+    // still work), Go to Cell (Ctrl+G), and Flash Fill (Ctrl+E): always the
+    // app's, taking precedence over the browser's find, history, find-next,
+    // and search-box keys (see the module note).
+    if (key === 'f') {
       return 'search.find';
     }
-    if (key === 'h' && (event.shiftKey || gridOwned)) {
+    if (key === 'h') {
       return 'search.replace';
     }
-    // Go to Cell (Ctrl+G) and Flash Fill (Ctrl+E): grid-owned only, so the
-    // browser keeps find-next and its search box everywhere else.
-    if (gridOwned && !event.shiftKey && key === 'g') {
+    if (key === 'g' && !event.shiftKey) {
       return 'search.goToCell';
     }
-    if (gridOwned && !event.shiftKey && key === 'e') {
+    if (key === 'e' && !event.shiftKey) {
       return 'edit.flashFill';
     }
     // Spreadsheet zoom: Ctrl+Shift+Period (in) / Ctrl+Shift+Comma (out) /
@@ -188,16 +177,9 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     return null;
   }
 
-  // Find next/previous: F3 / Shift+F3, only while the app's Find bar is open
-  // (from the grid or the bar's own fields, never an open cell editor). With
-  // the bar closed, F3 stays the browser's find.
-  if (
-    !mod &&
-    !event.altKey &&
-    event.key === 'F3' &&
-    ctx.findBarOpen === true &&
-    (!ctx.inTextField || ctx.inFindBar === true)
-  ) {
+  // Find next/previous: F3 / Shift+F3, always the app's (opening the Find
+  // and Replace panel if it is closed), over the browser's find-next.
+  if (!mod && !event.altKey && event.key === 'F3') {
     return event.shiftKey ? 'search.findPrev' : 'search.findNext';
   }
 
@@ -254,10 +236,9 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Ctrl+B / Cmd+B', descKey: 'shortcut.bold' },
   { keys: 'Ctrl+I / Cmd+I', descKey: 'shortcut.italic' },
   { keys: 'Ctrl+U / Cmd+U', descKey: 'shortcut.underline' },
-  { keys: 'Ctrl+F / Cmd+F', descKey: 'shortcut.findInGrid' },
-  { keys: 'Ctrl+Shift+F / Cmd+Shift+F', descKey: 'shortcut.find' },
-  { keys: 'Ctrl+H / Cmd+H', descKey: 'shortcut.replaceInGrid' },
-  { keys: 'Ctrl+Shift+H / Cmd+Shift+H', descKey: 'shortcut.replace' },
+  { keys: 'Ctrl+F / Cmd+F', descKey: 'shortcut.find' },
+  // macOS reserves Cmd+H (Hide), so Cmd+Shift+H is the Mac key for Replace.
+  { keys: 'Ctrl+H / Cmd+Shift+H', descKey: 'shortcut.replace' },
   { keys: 'F3 / Shift+F3', descKey: 'shortcut.findNextPrevKeys' },
   { keys: 'Ctrl+G / Cmd+G', descKey: 'shortcut.goToCell' },
   { keys: 'Ctrl+E / Cmd+E', descKey: 'shortcut.flashFill' },
@@ -274,3 +255,39 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Ctrl+End / Cmd+End', descKey: 'shortcut.jumpToEnd' },
   { keys: 'Esc', descKey: 'shortcut.cancelEdit' },
 ];
+
+/** Menu shortcut labels whose macOS key is not a plain Ctrl→Cmd swap. */
+const MAC_SHORTCUT_OVERRIDES: Readonly<Record<string, string>> = {
+  // macOS redo convention; Cmd+Y is not bound on a Mac.
+  'Ctrl+Y': 'Cmd+Shift+Z',
+  // macOS reserves Cmd+H (Hide), so Replace uses Cmd+Shift+H there.
+  'Ctrl+H': 'Cmd+Shift+H',
+};
+
+/** True on macOS (and iPadOS with a hardware keyboard), where Cmd replaces Ctrl. */
+export function isMacPlatform(
+  nav: Pick<Navigator, 'platform' | 'userAgent'> | undefined = globalThis.navigator,
+): boolean {
+  if (!nav) {
+    return false;
+  }
+  return /Mac|iPhone|iPad|iPod/.test(nav.platform || nav.userAgent || '');
+}
+
+/**
+ * The shortcut label a menu shows for `keys` (written the Windows/Linux way,
+ * e.g. `Ctrl+Shift+F`) on the current platform, so the menus always name the
+ * key {@link resolveShortcut} actually accepts: on macOS `Ctrl+` becomes
+ * `Cmd+`, except in Ctrl+Alt combinations, which use the Control key there
+ * too.
+ */
+export function displayShortcut(keys: string, mac: boolean): string {
+  if (!mac) {
+    return keys;
+  }
+  const override = MAC_SHORTCUT_OVERRIDES[keys];
+  if (override) {
+    return override;
+  }
+  return keys.startsWith('Ctrl+Alt+') ? keys : keys.replace(/^Ctrl\+/, 'Cmd+');
+}

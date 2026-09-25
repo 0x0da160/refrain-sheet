@@ -20,6 +20,7 @@ import {
 import type { CommandId, Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { SHEET_ZOOM_LEVELS } from '../app/settings';
+import { displayShortcut, isMacPlatform } from '../app/shortcuts';
 import { SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../app/sheet-font';
 import { THEMES, themeLabelKey, type ThemeChoice } from '../app/theme';
 import { createAppIcon, createAppLogotype } from './app-icon';
@@ -27,6 +28,9 @@ import { el, clearChildren } from './dom';
 import { ICON_BY_COMMAND } from './command-icons';
 import { createIcon } from './icon';
 import { onViewportResize, positionPopup, type AnchorRect } from './popup';
+
+/** Menu shortcut labels name Cmd instead of Ctrl on macOS. */
+const IS_MAC = isMacPlatform();
 
 export interface MenuItemDef {
   /**
@@ -169,8 +173,6 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           ],
         },
         { labelKey: 'menu.edit.fillDown', command: 'edit.fillDown', shortcut: 'Ctrl+D' },
-        // Ctrl+E only while the grid has focus; elsewhere it stays the
-        // browser's search-box key (see app/shortcuts.ts).
         { labelKey: 'menu.edit.flashFill', command: 'edit.flashFill', shortcut: 'Ctrl+E' },
         // Move Selected Cells is the keyboard-accessible equivalent of dragging
         // the selection border; RSF-only (the command explains the required
@@ -184,15 +186,12 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
     {
       labelKey: 'menu.search',
       items: [
-        { labelKey: 'menu.search.find', command: 'search.find', shortcut: 'Ctrl+Shift+F' },
-        { labelKey: 'menu.search.replace', command: 'search.replace', shortcut: 'Ctrl+Shift+H' },
+        { labelKey: 'menu.search.find', command: 'search.find', shortcut: 'Ctrl+F' },
+        { labelKey: 'menu.search.replace', command: 'search.replace', shortcut: 'Ctrl+H' },
         'separator',
-        // F3 / Shift+F3 only while the Find bar is open (see app/shortcuts.ts).
         { labelKey: 'menu.search.findNext', command: 'search.findNext', shortcut: 'F3' },
         { labelKey: 'menu.search.findPrev', command: 'search.findPrev', shortcut: 'Shift+F3' },
         'separator',
-        // Ctrl+G only while the grid has focus; elsewhere it stays the
-        // browser's find-next (Ctrl+Shift+G, find-previous, is never taken).
         { labelKey: 'menu.search.goToCell', command: 'search.goToCell', shortcut: 'Ctrl+G' },
       ],
     },
@@ -768,7 +767,10 @@ export class MenuBar {
             checked ? [createIcon(Check, 'check-icon', 14)] : icon ? [createIcon(icon, 'item-icon', 14)] : [],
           ),
           el('span', { className: 'label', text: label }),
-          el('span', { className: 'shortcut', text: item.shortcut ?? '' }),
+          el('span', {
+            className: 'shortcut',
+            text: item.shortcut ? displayShortcut(item.shortcut, IS_MAC) : '',
+          }),
         ],
       );
       button.disabled = !this.commands.isEnabled(command);

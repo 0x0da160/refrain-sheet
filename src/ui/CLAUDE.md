@@ -27,8 +27,9 @@ governs; this adds only what is specific to `src/ui/`.
   cases listed in `knowledge/decisions/ip-risk-policy.md` §5.
 - **Shortcuts.** Key routing lives in `src/app/shortcuts.ts`; never take a key
   the browser needs (tab/window keys, reload, zoom, print, dev tools).
-  Spreadsheet keys the browser also uses (Ctrl+F/H/G/E) are owned only while
-  the grid has focus, and F3 only while the Find bar is open. For how other spreadsheets bind a key, see
+  Spreadsheet keys the browser also uses (Ctrl+F/H/G/E, F3) are always the
+  app's. Menu labels go through `displayShortcut` (Cmd on macOS). For how
+  other spreadsheets bind a key, see
   `knowledge/references/spreadsheet-shortcut-comparison.md` — background
   only; adopting a key is its own decision on an Issue/PR.
 - For a visible change, also run `npm run ui:check` after `npm run build`.

@@ -44,15 +44,16 @@ editing, find/replace, and dialogs. Concretely:
   tools, browser tab switching with Ctrl+Tab / Ctrl+PageUp/PageDown /
   Ctrl+1–9) are never intercepted; zoom in particular stays the browser's
   because low-vision users depend on it.
-- **Grid-scoped spreadsheet keys** follow the same shape as Ctrl+A: while
-  the grid itself has focus, **Ctrl+F** opens Find, **Ctrl+H** Replace,
-  **Ctrl+G** Go to Cell, and **Ctrl+E** Flash Fill (Cmd on macOS). The
-  virtualized grid does not render rows outside the viewport, so the
-  browser's find cannot see them anyway. In text fields, dialogs, and the
-  rest of the page those keys keep their browser meaning (find, history,
-  find-next, search box). **F3 / Shift+F3** step through matches only while
-  the app's Find bar is open; with it closed, F3 is the browser's find, so
-  assistive-technology users keep a page-find route.
+- **Spreadsheet keys win over the browser's.** The conventional
+  spreadsheet keys a page can take are always the app's, wherever focus is:
+  **Ctrl+F** Find, **Ctrl+H** Replace (Cmd+Shift+H on macOS), **F3 /
+  Shift+F3** Find Next / Previous, **Ctrl+G** Go to Cell, and **Ctrl+E**
+  Flash Fill (Cmd on macOS). The virtualized grid does not render rows
+  outside the viewport, so the browser's find could not search the sheet
+  anyway. The browser's own page find stays reachable from the browser's
+  menu, and every one of these commands is also on the app's menus.
+- Menus show each shortcut the way the current platform types it (Cmd on
+  macOS, Ctrl elsewhere; `displayShortcut` in `src/app/shortcuts.ts`).
 - Grid-editing accelerators (Undo/Redo/Fill Down) are suppressed while a
   text field or the cell editor has focus, so ordinary text editing keeps
   its own behavior; Save and Open still work from anywhere.
@@ -96,7 +97,7 @@ editing, find/replace, and dialogs. Concretely:
 - Dialogs return focus and trap it while open (native `<dialog>` focus
   trapping, above).
 - On a touch device, opening a dialog, popover, docked panel, or the
-  Find/Replace bar autofocuses a field **without popping the on-screen
+  Find and Replace panel autofocuses a field **without popping the on-screen
   keyboard** (`focusWithoutKeyboard`) — a focus-management concern that is
   also an accessibility concern: keyboard-driven focus should not have an
   unwanted side effect on a different input modality. See

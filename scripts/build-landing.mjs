@@ -8,7 +8,8 @@
 //   landing/index.html      Japanese
 //   landing/en/index.html   English
 //
-// Also writes landing/robots.txt, copies the static assets alongside the
+// Also writes landing/robots.txt and landing/_headers (noindex on
+// *.pages.dev hosts), copies the static assets alongside the
 // generated pages, and — when a public site URL is passed — canonical
 // tags, hreflang alternates, absolute OG URLs and sitemap.xml.
 //
@@ -325,6 +326,14 @@ function main() {
   let robots = 'User-agent: *\nAllow: /\n';
   if (SITE) robots += `\nSitemap: ${SITE}sitemap.xml\n`;
   writeFileSync(join(landingDir, 'robots.txt'), robots, 'utf8');
+
+  // Cloudflare Pages `_headers`: keep every *.pages.dev host (the project's
+  // pages.dev alias and each branch/PR preview) out of search indexes, so only
+  // the custom domain is indexed. The custom domain matches neither pattern.
+  const headers =
+    'https://:project.pages.dev/*\n  X-Robots-Tag: noindex\n\n' +
+    'https://:version.:project.pages.dev/*\n  X-Robots-Tag: noindex\n';
+  writeFileSync(join(landingDir, '_headers'), headers, 'utf8');
 
   const sitemapPath = join(landingDir, 'sitemap.xml');
   if (SITE) {

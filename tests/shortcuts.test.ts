@@ -188,3 +188,18 @@ describe('resolveShortcut — sheet insert, shortcut list, clear formatting', ()
     expect(resolveShortcut(key({ key: '\\', ctrlKey: true }), FIELD)).toBeNull();
   });
 });
+
+describe('resolveShortcut — number format presets', () => {
+  it('maps Ctrl+Shift+1 / 4 / 5 by physical key, outside text fields only', () => {
+    const shifted = (code: string, char: string) => key({ key: char, code, ctrlKey: true, shiftKey: true });
+    expect(resolveShortcut(shifted('Digit1', '!'), GRID)).toBe('format.presetNumber');
+    expect(resolveShortcut(shifted('Digit4', '$'), GRID)).toBe('format.presetCurrency');
+    expect(resolveShortcut(shifted('Digit5', '%'), GRID)).toBe('format.presetPercent');
+    expect(resolveShortcut(shifted('Digit1', '!'), FIELD)).toBeNull();
+  });
+
+  it('keeps the Control key in macOS labels (Cmd+Shift+4 / 5 are screenshots there)', () => {
+    expect(displayShortcut('Ctrl+Shift+4', true)).toBe('Ctrl+Shift+4');
+    expect(displayShortcut('Ctrl+Shift+5', true)).toBe('Ctrl+Shift+5');
+  });
+});

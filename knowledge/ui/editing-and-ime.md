@@ -44,6 +44,16 @@ the extra lines (see
 [theming-and-visual-system.md](theming-and-visual-system.md) for the
 row-height/wrapping model).
 
+## Reference toggle (F4)
+
+While a formula is being typed in the cell editor or the formula bar,
+**F4** cycles the reference at the caret through `A1` → `$A$1` → `A$1` →
+`$A1` → `A1`; a range (`A1:B10`) changes both ends together. Text inside a
+string literal and function names such as `LOG10(` are never touched, and
+F4 does nothing when the field is not a formula or no reference touches the
+caret. The pure text logic is `src/core/formula-ref-toggle.ts`. Outside
+text editing F4 remains File > New.
+
 ## Visual feedback while editing
 
 - Edited cells are tinted yellow; hovering one shows the original value as a

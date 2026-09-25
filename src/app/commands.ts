@@ -111,6 +111,9 @@ export type CommandId =
   | 'format.numberFormat'
   | 'format.conditionalFormatting'
   | 'format.clear'
+  | 'format.presetNumber'
+  | 'format.presetCurrency'
+  | 'format.presetPercent'
   | 'sheet.recalculate'
   | 'sheet.timezone'
   | 'sheet.displayLanguage'
@@ -382,6 +385,9 @@ export class Commands {
       case 'format.borders':
       case 'format.numberFormat':
       case 'format.clear':
+      case 'format.presetNumber':
+      case 'format.presetCurrency':
+      case 'format.presetPercent':
         return tab !== null && tab.doc.kind === 'rsf' && tab.selection != null;
       // The async Clipboard API's image write has inconsistent browser
       // support (including on file://), so the item is hidden/disabled
@@ -515,6 +521,9 @@ export class Commands {
       case 'format.borders':
       case 'format.numberFormat':
       case 'format.clear':
+      case 'format.presetNumber':
+      case 'format.presetCurrency':
+      case 'format.presetPercent':
         return tab !== null && tab.doc.kind !== 'rsf' ? t('menu.format.csvOnlyTooltip') : null;
       default:
         return null;
@@ -683,6 +692,15 @@ export class Commands {
         return;
       case 'format.clear':
         if (tab) this.clearFormatting(tab);
+        return;
+      case 'format.presetNumber':
+        if (tab) this.format.applyNumberPreset(tab, 'number');
+        return;
+      case 'format.presetCurrency':
+        if (tab) this.format.applyNumberPreset(tab, 'currency');
+        return;
+      case 'format.presetPercent':
+        if (tab) this.format.applyNumberPreset(tab, 'percent');
         return;
       case 'sheet.recalculate':
         // Drops every cached result and advances the clock the volatile

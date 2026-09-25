@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: MIT
 import { t } from '../app/i18n';
 import { functionCompletions, type FunctionInfo } from '../core/formula';
+import { toggleReferenceAt } from '../core/formula-ref-toggle';
 import { el } from './dom';
 import { onViewportResize, positionPopup } from './popup';
 
 /** A text field that can hold a formula: the formula bar or an inline cell editor. */
 export type FormulaField = HTMLInputElement | HTMLTextAreaElement;
+
+/** F4 with no modifiers: the reference toggle key while typing a formula. */
+export function isRefToggleKey(event: KeyboardEvent): boolean {
+  return event.key === 'F4' && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
+}
 
 let popupSeq = 0;
 
@@ -252,6 +258,25 @@ export class FormulaFieldRef {
 
   endRef(): void {
     this.span = null;
+  }
+
+  /**
+   * F4 while typing a formula: cycle the `$` markers of the reference at the
+   * caret (`A1` → `$A$1` → `A$1` → `$A1`). Returns false when the field is
+   * not a formula or no reference touches the caret, so the key is left alone.
+   */
+  toggleReference(): boolean {
+    const caret = this.field.selectionEnd ?? this.field.value.length;
+    const result = toggleReferenceAt(this.field.value, caret);
+    if (!result) {
+      return false;
+    }
+    this.field.value = result.text;
+    this.field.setSelectionRange(result.end, result.end);
+    // Hosts refresh highlights, completions, and the live preview from their
+    // input listener, exactly as for typed text.
+    this.field.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
   }
 
   /** Typing invalidates any pending pointer-entered reference. */

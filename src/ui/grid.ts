@@ -24,7 +24,7 @@ import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 import { onKeyboardOpenChange, onKeyboardResize } from './popup';
 import { centeredScrollOffset } from './grid/center-scroll';
-import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
+import { FormulaAutocomplete, FormulaFieldRef, isRefToggleKey } from './formula-autocomplete';
 import type { FormulaLivePreview } from './formula-bar';
 import { beginsTextEntry, isComposingKey } from './ime';
 import { createIcon } from './icon';
@@ -3519,6 +3519,11 @@ export class Grid {
       return;
     }
     const input = editor.input;
+    if (isRefToggleKey(event) && editor.ref.toggleReference()) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (event.key === 'Enter' && event.altKey) {
       // Insert a literal newline at the caret (replacing any selection); this
       // never commits, navigates, or opens a menu.

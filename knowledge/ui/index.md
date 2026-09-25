@@ -44,6 +44,13 @@ it.
   spreadsheet font choice, vertical text centering, and conditional
   row-height wrapping.
 
+Before choosing or changing a keyboard shortcut, the
+[spreadsheet shortcut comparison](../references/spreadsheet-shortcut-comparison.md)
+lists what Excel for the web and LibreOffice Calc document and where they
+disagree or collide with the browser. It is background, not a spec; the
+shipped keys and their browser-safety rules are in `src/app/shortcuts.ts`
+and [accessibility.md](accessibility.md).
+
 Any change to how the UI looks or is laid out also falls under the
 [IP risk policy](../decisions/ip-risk-policy.md): familiar operation is
 welcome, but screens, icons, wording, and layout stay original, never a

@@ -1,8 +1,10 @@
 # References
 
 Curated pointers to internal reference material and external specs/standards
-this repository relies on. This is an index, not new prose — each entry is a
-link plus one line; the authoritative content stays where it already lives.
+this repository relies on. This is mostly an index — each entry is a link
+plus one line, and the authoritative content stays where it already lives.
+The exception is a short list of design reference notes kept here because
+they have no other home; they are research material, not specs.
 For the knowledge bundle's own domains, start at
 [`knowledge/index.md`](../index.md), not here.
 
@@ -39,6 +41,18 @@ For the knowledge bundle's own domains, start at
     an Issue and apply safe labels.
   - [`verify-change`](../../.claude/skills/verify-change/SKILL.md) — run the
     confirmed verification commands and report results honestly.
+
+## Design reference notes
+
+Kept in this folder. Background for design discussions only — nothing in them
+is implemented or adopted by being listed here.
+
+- [Spreadsheet shortcut comparison](spreadsheet-shortcut-comparison.md) —
+  Excel for the web vs. LibreOffice Calc keyboard shortcuts, where they
+  disagree or collide with the browser, and what each row leaves open for
+  Refrain Sheet. Checked against vendor help pages, not hands-on; not a
+  spec (the shipped keys are in `src/app/shortcuts.ts`). Canonical text in
+  Japanese.
 
 ## External references
 

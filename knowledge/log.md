@@ -230,3 +230,14 @@ the landing-page reference was pointed at `site/template.html`, and the
 escalation conditions were tied to the root `CLAUDE.md` "High-risk changes"
 rule, which now names third-party IP risk. Linked from `decisions/index.md`,
 the bundle root, `ui/index.md`, and `src/ui/CLAUDE.md`.
+
+**Spreadsheet shortcut comparison added.** A Japanese design memo comparing
+Excel for the web and LibreOffice Calc keyboard shortcuts was edited into
+`references/spreadsheet-shortcut-comparison.md` (English summary, canonical
+Japanese text). It is a reference note, not a decision, so it went under
+`references/` rather than `decisions/`; the references index now allows such
+notes alongside its links. The edit dropped references to a local text file
+and to an earlier draft, carries a `stale_after` date because the vendor pages
+change, and adds how the table relates to the shipped shortcut rules in
+`src/app/shortcuts.ts` and to `decisions/ip-risk-policy.md`. Linked from the
+references index, the bundle root, `ui/index.md`, and `src/ui/CLAUDE.md`.

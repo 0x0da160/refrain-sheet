@@ -25,4 +25,8 @@ governs; this adds only what is specific to `src/ui/`.
   fine; Excel's screens, icons, wording, layout, and assets are not. Specify
   UI changes from the user's goal, never "same as Excel", and escalate the
   cases listed in `knowledge/decisions/ip-risk-policy.md` §5.
+- **Shortcuts.** Key routing lives in `src/app/shortcuts.ts`; never take a
+  browser- or OS-reserved key. For how other spreadsheets bind a key, see
+  `knowledge/references/spreadsheet-shortcut-comparison.md` — background
+  only; adopting a key is its own decision on an Issue/PR.
 - For a visible change, also run `npm run ui:check` after `npm run build`.

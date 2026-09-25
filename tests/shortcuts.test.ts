@@ -92,9 +92,10 @@ describe('SHORTCUT_DOCS', () => {
   });
 
   it('does not advertise any browser-reserved accelerator', () => {
-    // Ctrl+F is advertised only as the grid-scoped Find (the documented
-    // exception); every other entry must stay clear of it.
-    const joined = SHORTCUT_DOCS.filter((s) => s.descKey !== 'shortcut.findInGrid')
+    // Ctrl+F / Ctrl+H are advertised only as the grid-scoped Find / Replace
+    // (the documented exceptions); every other entry must stay clear of them.
+    const gridScoped = new Set(['shortcut.findInGrid', 'shortcut.replaceInGrid']);
+    const joined = SHORTCUT_DOCS.filter((s) => !gridScoped.has(s.descKey))
       .map((s) => s.keys)
       .join(' | ');
     expect(joined).not.toMatch(/Ctrl\+F\b/);
@@ -124,5 +125,69 @@ describe('resolveShortcut — Ctrl+F opens app Find only in the grid', () => {
   });
   it('keeps Ctrl+Shift+F everywhere', () => {
     expect(resolveShortcut(key({ key: 'F', ctrlKey: true, shiftKey: true }), FIELD)).toBe('search.find');
+  });
+});
+
+describe('resolveShortcut — grid-scoped spreadsheet keys', () => {
+  const IN_GRID: ShortcutContext = { ...GRID, inGrid: true };
+  const cases: Array<[string, ShortcutKey, string]> = [
+    ['Ctrl+H', key({ key: 'h', ctrlKey: true }), 'search.replace'],
+    ['Ctrl+G', key({ key: 'g', ctrlKey: true }), 'search.goToCell'],
+    ['Ctrl+E', key({ key: 'e', ctrlKey: true }), 'edit.flashFill'],
+    ['Cmd+H', key({ key: 'h', metaKey: true }), 'search.replace'],
+  ];
+  for (const [name, ev, command] of cases) {
+    it(`${name} runs ${command} while the grid has focus`, () => {
+      expect(resolveShortcut(ev, IN_GRID)).toBe(command);
+    });
+    it(`${name} stays the browser's in text fields and outside the grid`, () => {
+      expect(resolveShortcut(ev, FIELD)).toBeNull();
+      expect(resolveShortcut(ev, { ...FIELD, inGrid: true })).toBeNull();
+      expect(resolveShortcut(ev, { ...GRID, inGrid: false })).toBeNull();
+    });
+    it(`${name} never fires during IME composition`, () => {
+      expect(resolveShortcut(ev, { ...IN_GRID, isComposing: true })).toBeNull();
+    });
+  }
+  it('keeps Ctrl+Shift+H everywhere', () => {
+    expect(resolveShortcut(key({ key: 'H', ctrlKey: true, shiftKey: true }), FIELD)).toBe('search.replace');
+  });
+});
+
+describe('resolveShortcut — F3 steps through matches only with the Find bar open', () => {
+  const F3 = key({ key: 'F3' });
+  const SHIFT_F3 = key({ key: 'F3', shiftKey: true });
+  it('finds next / previous from the grid while the bar is open', () => {
+    const ctx: ShortcutContext = { ...GRID, inGrid: true, findBarOpen: true };
+    expect(resolveShortcut(F3, ctx)).toBe('search.findNext');
+    expect(resolveShortcut(SHIFT_F3, ctx)).toBe('search.findPrev');
+  });
+  it("works from the Find bar's own fields", () => {
+    const ctx: ShortcutContext = { ...FIELD, findBarOpen: true, inFindBar: true };
+    expect(resolveShortcut(F3, ctx)).toBe('search.findNext');
+  });
+  it('stays the browser find while the bar is closed', () => {
+    expect(resolveShortcut(F3, { ...GRID, inGrid: true, findBarOpen: false })).toBeNull();
+    expect(resolveShortcut(SHIFT_F3, { ...GRID, inGrid: true })).toBeNull();
+  });
+  it('does not fire inside another text field such as the cell editor', () => {
+    expect(resolveShortcut(F3, { ...FIELD, findBarOpen: true, inFindBar: false })).toBeNull();
+  });
+});
+
+describe('resolveShortcut — F9 and worksheet switching', () => {
+  it('F9 recalculates outside text fields only', () => {
+    expect(resolveShortcut(key({ key: 'F9' }), GRID)).toBe('sheet.recalculate');
+    expect(resolveShortcut(key({ key: 'F9' }), FIELD)).toBeNull();
+  });
+  it('Ctrl+Alt+PageDown / PageUp switch worksheets outside text fields', () => {
+    const down = key({ key: 'PageDown', ctrlKey: true, altKey: true });
+    const up = key({ key: 'PageUp', ctrlKey: true, altKey: true });
+    expect(resolveShortcut(down, GRID)).toBe('worksheet.next');
+    expect(resolveShortcut(up, GRID)).toBe('worksheet.prev');
+    expect(resolveShortcut(down, FIELD)).toBeNull();
+  });
+  it('plain Ctrl+PageDown stays browser tab switching', () => {
+    expect(resolveShortcut(key({ key: 'PageDown', ctrlKey: true }), GRID)).toBeNull();
   });
 });

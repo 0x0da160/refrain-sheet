@@ -241,3 +241,10 @@ and to an earlier draft, carries a `stale_after` date because the vendor pages
 change, and adds how the table relates to the shipped shortcut rules in
 `src/app/shortcuts.ts` and to `decisions/ip-risk-policy.md`. Linked from the
 references index, the bundle root, `ui/index.md`, and `src/ui/CLAUDE.md`.
+
+**Shortcut review against the comparison reference.** Added grid-scoped
+Ctrl+H / Ctrl+G / Ctrl+E, F3 / Shift+F3 while the Find bar is open, F9, and
+Ctrl+Alt+PageDown / PageUp. Updated `ui/accessibility.md` (key-ownership
+rule), `ui/find-replace-and-goto.md`, `ui/selection-and-navigation.md`,
+`ui/copy-paste-fill-and-flash-fill.md`, the worksheet-switching tables, and
+added an adoption table to `references/spreadsheet-shortcut-comparison.md`.

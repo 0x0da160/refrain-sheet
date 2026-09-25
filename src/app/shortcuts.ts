@@ -5,20 +5,27 @@
  * Design goals (see README "Keyboard shortcuts"):
  *
  * - **Never fight the browser, OS, or assistive technology.** Application
- *   shortcuts deliberately avoid browser-reserved and commonly essential
- *   combinations: new window/tab (Ctrl+N/T), close tab/window (Ctrl+W), reload
- *   (Ctrl+R/F5), history (Ctrl+H, Alt+Arrow), address bar (Ctrl+L), browser
- *   find next (F3), print (Ctrl+P), zoom (Ctrl +/-/0), dev tools (F12),
- *   and browser tab switching (Ctrl+Tab, Ctrl+PageUp/Down). None of those are
- *   intercepted — {@link resolveShortcut} returns `null` for them so the
- *   browser handles them normally.
- * - The one deliberate exception is **Ctrl+F while the grid itself has
- *   focus**: the grid is virtualized, so the browser's find cannot see cells
- *   outside the viewport, and Ctrl+F there opens the app's Find instead.
- *   Everywhere else (text fields, dialogs, the rest of the page) Ctrl+F stays
- *   the browser's, and F3 always reaches the browser's find.
- * - Commands that would otherwise collide (New, Close Tab, Replace) use
- *   safe alternatives (function keys or unreserved Ctrl+Shift combinations).
+ *   shortcuts never take the keys a page cannot or must not override: new
+ *   window/tab (Ctrl+N/T), close tab/window (Ctrl+W), reload (Ctrl+R/F5),
+ *   history navigation (Alt+Arrow), address bar (Ctrl+L), print (Ctrl+P),
+ *   zoom (Ctrl +/-/0 — low-vision users depend on it), dev tools (F12), and
+ *   browser tab switching (Ctrl+Tab, Ctrl+PageUp/Down, Ctrl+1–9).
+ *   {@link resolveShortcut} returns `null` for them so the browser handles
+ *   them normally.
+ * - **Grid-scoped spreadsheet keys.** A few conventional spreadsheet keys
+ *   that browsers also use are taken **only while the grid itself has focus**
+ *   (the same scope as Ctrl+A), because there the spreadsheet meaning is the
+ *   one the user expects and the browser feature does not work on a
+ *   virtualized grid anyway: Ctrl+F (Find), Ctrl+H (Replace; browser
+ *   history elsewhere), Ctrl+G (Go to Cell; browser find-next elsewhere), and
+ *   Ctrl+E (Flash Fill; browser search box elsewhere). In text fields,
+ *   dialogs, and the rest of the page those keys stay the browser's.
+ * - **F3 / Shift+F3** move to the next/previous match only while the app's
+ *   Find bar is open; with it closed, F3 is the browser's find.
+ * - Commands with no conventional unreserved key (New, Close Tab, sheet
+ *   switching) use function keys or unreserved Ctrl+Shift combinations; see
+ *   `knowledge/references/spreadsheet-shortcut-comparison.md` for how other
+ *   spreadsheets bind them.
  * - Every command is also available from the menus, so keyboard shortcuts are
  *   optional accelerators, never the only path.
  * - Shortcuts use `KeyboardEvent.key` / modifier state, never the deprecated
@@ -51,6 +58,10 @@ export interface ShortcutContext {
    * All is never intercepted.
    */
   inGrid?: boolean;
+  /** The app's Find/Replace bar is open. F3 / Shift+F3 step through matches. */
+  findBarOpen?: boolean;
+  /** Focus is inside the Find/Replace bar (one of its text fields). */
+  inFindBar?: boolean;
 }
 
 /** The subset of `KeyboardEvent` the resolver reads (keeps it DOM-free/testable). */
@@ -82,6 +93,22 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
 
   const mod = event.ctrlKey || event.metaKey;
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  // Keys owned only while the grid itself (not a text field) has focus.
+  const gridOwned = ctx.inGrid === true && !ctx.inTextField;
+
+  // Worksheet switching: Ctrl+Alt+PageDown/PageUp. Plain Ctrl+PageUp/Down is
+  // browser tab switching, which a page cannot take. PageUp/PageDown produce
+  // no character, so this Ctrl+Alt pair cannot collide with AltGr typing.
+  if (
+    event.ctrlKey &&
+    event.altKey &&
+    !event.shiftKey &&
+    !event.metaKey &&
+    !ctx.inTextField &&
+    (event.key === 'PageDown' || event.key === 'PageUp')
+  ) {
+    return event.key === 'PageDown' ? 'worksheet.next' : 'worksheet.prev';
+  }
 
   // ----- Modifier combinations (Ctrl/Cmd based). Alt is never part of an
   // application accelerator, so AltGr and OS combinations are left alone. -----
@@ -94,15 +121,23 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     if (key === 'o' && !event.shiftKey) {
       return 'file.open';
     }
-    // Find: Ctrl+Shift+F anywhere. Plain Ctrl+F only while the grid itself
-    // is focused — the virtualized grid is invisible to the browser's find —
-    // so text fields and the rest of the page keep the browser's Ctrl+F.
-    // Replace uses Ctrl+Shift+H because Ctrl+H is browser history.
-    if (key === 'f' && (event.shiftKey || (ctx.inGrid === true && !ctx.inTextField))) {
+    // Find / Replace: Ctrl+Shift+F / Ctrl+Shift+H anywhere. Plain Ctrl+F /
+    // Ctrl+H only while the grid itself is focused — the virtualized grid is
+    // invisible to the browser's find — so text fields and the rest of the
+    // page keep the browser's find and history.
+    if (key === 'f' && (event.shiftKey || gridOwned)) {
       return 'search.find';
     }
-    if (event.shiftKey && key === 'h') {
+    if (key === 'h' && (event.shiftKey || gridOwned)) {
       return 'search.replace';
+    }
+    // Go to Cell (Ctrl+G) and Flash Fill (Ctrl+E): grid-owned only, so the
+    // browser keeps find-next and its search box everywhere else.
+    if (gridOwned && !event.shiftKey && key === 'g') {
+      return 'search.goToCell';
+    }
+    if (gridOwned && !event.shiftKey && key === 'e') {
+      return 'edit.flashFill';
     }
     // Spreadsheet zoom: Ctrl+Shift+Period (in) / Ctrl+Shift+Comma (out) /
     // Ctrl+Shift+0 (reset). Deliberately NOT the browser's zoom keys
@@ -153,9 +188,26 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     return null;
   }
 
-  // ----- Unmodified function keys (avoid F1/F3/F5/F6/F11/F12 which browsers
+  // Find next/previous: F3 / Shift+F3, only while the app's Find bar is open
+  // (from the grid or the bar's own fields, never an open cell editor). With
+  // the bar closed, F3 stays the browser's find.
+  if (
+    !mod &&
+    !event.altKey &&
+    event.key === 'F3' &&
+    ctx.findBarOpen === true &&
+    (!ctx.inTextField || ctx.inFindBar === true)
+  ) {
+    return event.shiftKey ? 'search.findPrev' : 'search.findNext';
+  }
+
+  // ----- Unmodified function keys (avoid F1/F5/F6/F11/F12 which browsers
   // reserve). Suppressed in text fields to avoid surprising an active edit. -----
   if (!mod && !event.altKey && !event.shiftKey && !ctx.inTextField) {
+    // Recalculate formulas (spreadsheet convention; not a browser key).
+    if (event.key === 'F9') {
+      return 'sheet.recalculate';
+    }
     if (event.key === 'F4') {
       return 'file.new';
     }
@@ -191,8 +243,8 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Ctrl+S / Cmd+S', descKey: 'shortcut.save' },
   { keys: 'Ctrl+Shift+S / Cmd+Shift+S', descKey: 'shortcut.saveOptions' },
   { keys: 'F8', descKey: 'shortcut.closeTab' },
-  { keys: 'F7', descKey: 'shortcut.nextSheet' },
-  { keys: 'Shift+F7', descKey: 'shortcut.prevSheet' },
+  { keys: 'F7, Ctrl+Alt+PageDown', descKey: 'shortcut.nextSheet' },
+  { keys: 'Shift+F7, Ctrl+Alt+PageUp', descKey: 'shortcut.prevSheet' },
   { keys: 'Ctrl+Z / Cmd+Z', descKey: 'shortcut.undo' },
   { keys: 'Ctrl+Y, Ctrl+Shift+Z / Cmd+Shift+Z', descKey: 'shortcut.redo' },
   { keys: 'Ctrl+C / Cmd+C', descKey: 'shortcut.copy' },
@@ -204,7 +256,12 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Ctrl+U / Cmd+U', descKey: 'shortcut.underline' },
   { keys: 'Ctrl+F / Cmd+F', descKey: 'shortcut.findInGrid' },
   { keys: 'Ctrl+Shift+F / Cmd+Shift+F', descKey: 'shortcut.find' },
+  { keys: 'Ctrl+H / Cmd+H', descKey: 'shortcut.replaceInGrid' },
   { keys: 'Ctrl+Shift+H / Cmd+Shift+H', descKey: 'shortcut.replace' },
+  { keys: 'F3 / Shift+F3', descKey: 'shortcut.findNextPrevKeys' },
+  { keys: 'Ctrl+G / Cmd+G', descKey: 'shortcut.goToCell' },
+  { keys: 'Ctrl+E / Cmd+E', descKey: 'shortcut.flashFill' },
+  { keys: 'F9', descKey: 'shortcut.recalculate' },
   { keys: 'Ctrl+Shift+. / Cmd+Shift+.', descKey: 'shortcut.zoomIn' },
   { keys: 'Ctrl+Shift+, / Cmd+Shift+,', descKey: 'shortcut.zoomOut' },
   { keys: 'Ctrl+Shift+0 / Cmd+Shift+0', descKey: 'shortcut.zoomReset' },

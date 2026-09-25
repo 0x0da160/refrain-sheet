@@ -39,22 +39,26 @@ editing, find/replace, and dialogs. Concretely:
   deprecated `keyCode`), only when the application owns the context, never
   during IME composition or ordinary text entry, and `preventDefault()` is
   called only for a recognized application command on a cancelable event.
-  Browser-reserved and OS-essential keys (new tab, close tab, reload,
-  history, browser find next (F3), print, zoom, dev tools, browser tab
-  switching) are never intercepted. The one exception follows the same
-  shape as Ctrl+A: **Ctrl+F / Cmd+F** opens the app's Find only while the
-  grid itself has focus, because the virtualized grid does not render rows
-  outside the viewport and the browser's find cannot see them. In text
-  fields, dialogs, and the rest of the page Ctrl+F stays the browser's, and
-  F3 always reaches the browser's find, so assistive-technology users keep a
-  page-find route.
+  Keys a page cannot or must not take (new window/tab, close tab, reload,
+  history navigation with Alt+Arrow, address bar, print, **zoom**, dev
+  tools, browser tab switching with Ctrl+Tab / Ctrl+PageUp/PageDown /
+  Ctrl+1–9) are never intercepted; zoom in particular stays the browser's
+  because low-vision users depend on it.
+- **Grid-scoped spreadsheet keys** follow the same shape as Ctrl+A: while
+  the grid itself has focus, **Ctrl+F** opens Find, **Ctrl+H** Replace,
+  **Ctrl+G** Go to Cell, and **Ctrl+E** Flash Fill (Cmd on macOS). The
+  virtualized grid does not render rows outside the viewport, so the
+  browser's find cannot see them anyway. In text fields, dialogs, and the
+  rest of the page those keys keep their browser meaning (find, history,
+  find-next, search box). **F3 / Shift+F3** step through matches only while
+  the app's Find bar is open; with it closed, F3 is the browser's find, so
+  assistive-technology users keep a page-find route.
 - Grid-editing accelerators (Undo/Redo/Fill Down) are suppressed while a
   text field or the cell editor has focus, so ordinary text editing keeps
   its own behavior; Save and Open still work from anywhere.
 - Formula and Function Help is a searchable, keyboard-accessible panel.
-  Flash Fill's preview and Insert Copied … commands are fully
-  keyboard-accessible through the menu and context menu even though they
-  have no dedicated shortcut.
+  Insert Copied … commands are fully keyboard-accessible through the menu
+  and context menu even though they have no dedicated shortcut.
 
 ## ARIA labeling
 

@@ -258,3 +258,16 @@ panel with Find Next and Find All (a clickable result list). Updated
 `ui/mobile-and-touch.md`, `ui/view-formatting-and-panels.md`,
 `architecture/system-overview.md`, and the adoption table in
 `references/spreadsheet-shortcut-comparison.md`.
+
+## 2026-09-26
+
+**Google Sheets added to the shortcut comparison.** The owner's revised memo
+added Google Sheets (default PC shortcuts) between Excel for the web and
+LibreOffice Calc. `references/spreadsheet-shortcut-comparison.md` now
+compares three products and adds rows the memo raised (paste values vs.
+paste formatting on `Ctrl + Shift + V`, fill down/right, borders, clear
+formatting, Google's `F4` / `F9` / `Ctrl + E` meanings, sheet switching on
+`Alt + ↓/↑`). Rows from the earlier Excel/Calc check that the memo dropped
+were kept. The English summary's stale "grid-only Ctrl+F/H/G/E" wording was
+corrected to "always the app's", and the adoption table gained Cut, Fill
+Down, and Paste Values rows.

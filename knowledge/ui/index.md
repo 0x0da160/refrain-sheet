@@ -46,7 +46,7 @@ it.
 
 Before choosing or changing a keyboard shortcut, the
 [spreadsheet shortcut comparison](../references/spreadsheet-shortcut-comparison.md)
-lists what Excel for the web and LibreOffice Calc document and where they
+lists what Excel for the web, Google Sheets, and LibreOffice Calc document and where they
 disagree or collide with the browser. It is background, not a spec; the
 shipped keys and their browser-safety rules are in `src/app/shortcuts.ts`
 and [accessibility.md](accessibility.md).

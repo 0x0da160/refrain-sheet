@@ -7,7 +7,7 @@
  * preview, and the explicit, button-triggered Format action — backed by the
  * `yaml` package instead of `JSON.parse`/`JSON.stringify`.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { RsfDocument } from '../src/core/rsf-document';
@@ -88,6 +88,13 @@ function setup(ui: UiPort = stubUi()): {
   return { view, state, tab, workbook, data, ui };
 }
 
+// The preview render is debounced (120 ms) and then painted on an animation
+// frame. Let the last test's pending render finish while jsdom still exists,
+// so it never fires after the environment is torn down.
+afterAll(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+});
 describe('YamlSheetView', () => {
   it('gives the source textarea the shared flex-sizing style class, not just its own id-scoped class', () => {
     const { view } = setup();

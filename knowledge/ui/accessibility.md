@@ -40,8 +40,14 @@ editing, find/replace, and dialogs. Concretely:
   during IME composition or ordinary text entry, and `preventDefault()` is
   called only for a recognized application command on a cancelable event.
   Browser-reserved and OS-essential keys (new tab, close tab, reload,
-  history, browser find, print, zoom, dev tools, browser tab switching) are
-  never intercepted.
+  history, browser find next (F3), print, zoom, dev tools, browser tab
+  switching) are never intercepted. The one exception follows the same
+  shape as Ctrl+A: **Ctrl+F / Cmd+F** opens the app's Find only while the
+  grid itself has focus, because the virtualized grid does not render rows
+  outside the viewport and the browser's find cannot see them. In text
+  fields, dialogs, and the rest of the page Ctrl+F stays the browser's, and
+  F3 always reaches the browser's find, so assistive-technology users keep a
+  page-find route.
 - Grid-editing accelerators (Undo/Redo/Fill Down) are suppressed while a
   text field or the cell editor has focus, so ordinary text editing keeps
   its own behavior; Save and Open still work from anywhere.

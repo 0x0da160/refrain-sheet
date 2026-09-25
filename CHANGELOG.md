@@ -37,21 +37,24 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
-- **More spreadsheet keyboard shortcuts.** While you work in the grid,
-  **Ctrl+H** opens Replace, **Ctrl+G** opens Go to Cell, and **Ctrl+E** runs
-  Flash Fill (Cmd on macOS). While the Find bar is open, **F3 / Shift+F3**
-  go to the next / previous match. **F9** recalculates formulas, and
-  **Ctrl+Alt+PageDown / PageUp** switch worksheets alongside F7 / Shift+F7.
-  Outside the grid these keys keep their browser meaning, and browser zoom,
-  tab switching, and reload are never taken.
+- **Spreadsheet keyboard shortcuts that act on the sheet.** Ctrl+F opens
+  Find, Ctrl+H opens Replace (Cmd+Shift+H on macOS), F3 / Shift+F3 go to the
+  next / previous match, Ctrl+G opens Go to Cell, and Ctrl+E runs Flash Fill
+  (Cmd on macOS). They work wherever focus is and take precedence over the
+  browser's own keys; the browser's page find stays in its menu, because it
+  could not see rows outside the screen anyway. **F9** recalculates
+  formulas, and **Ctrl+Alt+PageDown / PageUp** switch worksheets alongside
+  F7 / Shift+F7. Browser zoom, tab switching, and reload are never taken.
+- **Find All.** Find and Replace can list every matching cell (reference,
+  worksheet, and text); click a row to jump to that cell.
 
 ### Changed
 
-- **Ctrl+F / Cmd+F now opens Refrain Sheet's Find while you are working in
-  the grid.** The browser's own find could not see rows outside the screen,
-  so it missed matches in larger sheets. In text fields, dialogs, and the
-  rest of the page Ctrl+F still opens the browser's find, F3 always does,
-  and Ctrl+Shift+F keeps opening the app's Find from anywhere.
+- **Find and Replace is now one side panel.** Find and Replace share a
+  dockable, resizable side panel instead of the bar above the sheet, with
+  Find Next, Find Previous, Find All, Replace, and Replace All.
+- **Menus show the keys you actually press.** Find and Replace list Ctrl+F
+  and Ctrl+H, and on macOS every menu shortcut reads Cmd instead of Ctrl.
 
 ## [0.9.2] - 2026-09-23
 

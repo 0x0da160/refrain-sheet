@@ -22,6 +22,7 @@
  */
 import { Check } from 'lucide';
 import type { IconNode } from 'lucide';
+import { displayShortcut, isMacPlatform } from '../app/shortcuts';
 import { el } from './dom';
 import { createIcon } from './icon';
 import { onViewportResize, positionPopup, type AnchorRect } from './popup';
@@ -291,7 +292,12 @@ export class ContextMenu {
           el('span', { className: 'label', text: entry.label }),
           ...(hasSubmenu
             ? [el('span', { className: 'submenu-arrow', attrs: { 'aria-hidden': 'true' } })]
-            : [el('span', { className: 'shortcut', text: entry.shortcut ?? '' })]),
+            : [
+                el('span', {
+                  className: 'shortcut',
+                  text: entry.shortcut ? displayShortcut(entry.shortcut, isMacPlatform()) : '',
+                }),
+              ]),
         ],
       );
       button.disabled = entry.disabled === true;

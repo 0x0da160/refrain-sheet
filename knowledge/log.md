@@ -248,3 +248,13 @@ Ctrl+Alt+PageDown / PageUp. Updated `ui/accessibility.md` (key-ownership
 rule), `ui/find-replace-and-goto.md`, `ui/selection-and-navigation.md`,
 `ui/copy-paste-fill-and-flash-fill.md`, the worksheet-switching tables, and
 added an adoption table to `references/spreadsheet-shortcut-comparison.md`.
+
+**Spreadsheet keys always win; Find and Replace side panel.** Ctrl+F / Ctrl+H
+(Cmd+Shift+H on macOS) / Ctrl+G / Ctrl+E and F3 / Shift+F3 are now the app's
+wherever focus is, not only in the grid. Find and Replace became one side
+panel with Find Next and Find All (a clickable result list). Updated
+`ui/find-replace-and-goto.md`, `ui/accessibility.md`,
+`ui/selection-and-navigation.md`, `ui/copy-paste-fill-and-flash-fill.md`,
+`ui/mobile-and-touch.md`, `ui/view-formatting-and-panels.md`,
+`architecture/system-overview.md`, and the adoption table in
+`references/spreadsheet-shortcut-comparison.md`.

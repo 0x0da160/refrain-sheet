@@ -138,7 +138,7 @@ code (this determinism is also recorded as an invariant in
   in cooperative time slices with an honest percentage, and the operation
   aborts cleanly — changing nothing — if the document changes meanwhile.
 - Flash Fill is **RSF-only**; on a plain CSV document it explains the
-  required conversion and changes nothing. **Ctrl+E / Cmd+E** runs it only
-  while the grid itself has focus; elsewhere Ctrl+E stays the browser's
-  search-box key (see [accessibility.md](accessibility.md)). The command is
+  required conversion and changes nothing. **Ctrl+E / Cmd+E** runs it, taking
+  precedence over the browser's search-box key (see
+  [accessibility.md](accessibility.md)). The command is
   also fully keyboard-accessible through the menu and context menu.

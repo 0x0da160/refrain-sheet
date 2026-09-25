@@ -111,7 +111,7 @@ export const I18N = {
       'メニューバーからすべてのコマンドを実行でき、同じ操作にキーボードからも届きます。日本語入力は最初の1打鍵から扱えるので、ローマ字の1文字目が英字としてセルに入ることはありません。',
     'f3.li1': '変換中は Enter / Esc / 矢印キーがIMEのもの。確定してから初めてセルに届く',
     'f3.li2':
-      'Ctrl+W・Ctrl+T・ズームなどブラウザに必要なキーは奪わない（Ctrl+F・Ctrl+H などは表の操作中だけアプリの機能）',
+      'Ctrl+F・Ctrl+H・F3 などの表計算キーはアプリの機能として働き、Ctrl+W・Ctrl+T・ズームなどブラウザに必要なキーは奪わない',
     'f3.li3': 'Alt+Enter でセル内改行、複数行の値もCSV・RSF・コピペを往復',
     'f3.cap': 'ファイルメニュー。ショートカットは補助であり、すべてメニューから実行できます。',
     'f8.h3': '先頭ゼロ・日付・長い番号を型推論で変えない',
@@ -441,7 +441,7 @@ export const I18N = {
       'A desktop-style menu bar is the single visible set of commands, and every one of them is reachable from the keyboard. Japanese and CJK input is safe from the very first keystroke — the first Romaji character joins the composition instead of leaking as a Latin letter.',
     'f3.li1': 'While composing, Enter / Esc / arrows belong to the IME, never to the cell',
     'f3.li2':
-      'Keys the browser needs (Ctrl+W, Ctrl+T, reload, zoom) are never intercepted; Ctrl+F, Ctrl+H and friends act on the sheet only while you work in the grid',
+      'Spreadsheet keys such as Ctrl+F, Ctrl+H and F3 act on the sheet, while keys the browser needs (Ctrl+W, Ctrl+T, reload, zoom) are never intercepted',
     'f3.li3':
       'Alt+Enter inserts a line break; multi-line values round-trip through CSV, RSF and the clipboard',
     'f3.cap': 'The File menu. Shortcuts are accelerators only — nothing depends on them.',

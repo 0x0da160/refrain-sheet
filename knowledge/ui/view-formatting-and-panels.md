@@ -117,7 +117,8 @@ serials). Keyboard shortcuts: **Ctrl+B / Ctrl+I / Ctrl+U**.
 ## The shared dockable-panel chrome
 
 Filter, Sort, Data Validation, Conditional Formatting/Cell Formatting, SQL
-Query, the Comments panel, and the docked Markdown/JSON/YAML worksheet
+Query, the Comments panel, the Find and Replace panel, and the docked
+Markdown/JSON/YAML worksheet
 preview all share one **dockable, resizable side panel** shell
 (`openSidePanel` / `buildSidePanelChrome` in `src/ui/dialogs/shared.ts`)
 instead of separate popup layouts:

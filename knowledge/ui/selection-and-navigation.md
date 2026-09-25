@@ -80,8 +80,8 @@ for formula-reference highlighting's own visual language).
 you type (e.g. `B12`), like Excel's Name Box or Ctrl+G. The field is seeded
 with the current cell, validates on every keystroke, and Enter confirms. It
 works on both CSV and RSF tabs and only moves the selection — nothing is
-written to the document. **Ctrl+G / Cmd+G** opens it while the grid itself
-has focus; elsewhere Ctrl+G stays the browser's "Find Again" (see
+written to the document. **Ctrl+G / Cmd+G** opens it from anywhere, taking
+precedence over the browser's "Find Again" (see
 [accessibility.md](accessibility.md)).
 
 ## The cell-reference box

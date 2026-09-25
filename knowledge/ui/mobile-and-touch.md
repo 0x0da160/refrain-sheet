@@ -74,7 +74,7 @@ press-and-hold (rather than two plain taps) does not.
 A single tap-to-select must not pop the on-screen keyboard; only an action
 that actually opens an editable field (double-tap, or explicitly focusing a
 text field) should. The mechanism, shared across the grid and every dialog/
-docked-panel/Find-bar text field:
+docked-panel text field (the Find and Replace panel included):
 
 - **The technique** is to focus the field with `readOnly` set, then restore
   `readOnly` to its normal value immediately after — a standard trick for
@@ -99,7 +99,7 @@ docked-panel/Find-bar text field:
   pointer-type tracking defaults safely so that first claim is still
   treated as keyboard-safe rather than assumed to be a mouse user.
 - **Elsewhere**, `focusWithoutKeyboard` covers dialog/popover/docked-panel
-  autofocus and the Find/Replace bar's input — opening any of these on a
+  autofocus and the Find and Replace panel's input — opening any of these on a
   touch device does not pop the keyboard, but the Find field's text is
   still selected as usual once focus lands.
 - **On-device keyboard diagnostics.** Emulation does not reproduce how
@@ -125,7 +125,7 @@ docked-panel/Find-bar text field:
   a focused text control whose computed font size is under ~16px.
   `src/styles/mobile-layout.css` floors every dialog text
   input/select/textarea (including the SQL query editor and the
-  data-validation list-values field), the Find bar's input, the formula
+  data-validation list-values field), the Find and Replace panel's inputs, the formula
   bar, and the grid's cell editor/resting cells to 16px at the mobile
   breakpoint — the grid and formula bar use `max(16px, …)` against their
   own zoom-scaled font size so the floor only engages below roughly 130%
@@ -194,13 +194,9 @@ that changes layout without touching desktop-width behavior:
   re-renders. Protection, problems, unsaved/edit state, filter/sort, and the
   selection stay visible. Desktop always shows everything and never shows
   the button.
-- **A three-row find bar** (#594): the search field with icon-only
-  previous/next/close, then the replace row, then the options with the
-  match count. The field labels become visually hidden (placeholders carry
-  them), where they used to wrap one character per line.
 - **A compact document tab row.** The close button's 36px tap target sets
   a tab's height; the tab adds only a 2px frame around it.
-- **Dockable side panels** (Filter/Sort/Format/SQL Query/Comments/preview —
+- **Dockable side panels** (Filter/Sort/Format/SQL Query/Comments/Find and Replace/preview —
   see [view-formatting-and-panels.md](view-formatting-and-panels.md))
   default to docking at the **bottom** instead of the desktop default of
   the right edge, specifically on a narrow, portrait viewport

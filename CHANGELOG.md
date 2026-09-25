@@ -45,8 +45,18 @@ really is internal, rather than inventing an entry to satisfy it.
   could not see rows outside the screen anyway. **F9** recalculates
   formulas, and **Ctrl+Alt+PageDown / PageUp** switch worksheets alongside
   F7 / Shift+F7. Browser zoom, tab switching, and reload are never taken.
+- **More familiar spreadsheet keys.** Shift+F11 inserts a worksheet,
+  Ctrl+/ shows the keyboard shortcut list, and Ctrl+\\ clears formatting
+  (Cmd on macOS). With a cell selected, Tab / Shift+Tab now move right /
+  left instead of leaving the sheet; at the edge of a row Tab still moves
+  focus out of the sheet.
 - **Find All.** Find and Replace can list every matching cell (reference,
   worksheet, and text); click a row to jump to that cell.
+
+### Fixed
+
+- **Shift+Enter moves up.** With a cell selected (not editing), Shift+Enter
+  moved down like Enter; it now moves up.
 
 ### Changed
 

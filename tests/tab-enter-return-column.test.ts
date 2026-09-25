@@ -184,3 +184,48 @@ describe('Enter returns to the Tab-entry start column', () => {
     expect(tab.selection).toEqual({ row: 1, col: 0 });
   });
 });
+
+describe('navigation-mode Tab and Shift+Enter (no editor open)', () => {
+  function press(grid: Grid, key: string, shiftKey = false): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key, shiftKey, bubbles: true, cancelable: true });
+    grid.element.dispatchEvent(event);
+    return event;
+  }
+
+  it('Tab / Shift+Tab move right / left while a cell is only selected', () => {
+    const { grid, tab } = setupGrid('a,b,c\nd,e,f\n');
+    grid.select(tab, 0, 0);
+    expect(press(grid, 'Tab').defaultPrevented).toBe(true);
+    expect(tab.selection).toEqual({ row: 0, col: 1 });
+    expect(press(grid, 'Tab', true).defaultPrevented).toBe(true);
+    expect(tab.selection).toEqual({ row: 0, col: 0 });
+  });
+
+  it('leaves Tab to the browser at the row edge so focus can leave the grid', () => {
+    const { grid, tab } = setupGrid('a,b,c\nd,e,f\n');
+    grid.select(tab, 0, 2);
+    expect(press(grid, 'Tab').defaultPrevented).toBe(false);
+    expect(tab.selection).toEqual({ row: 0, col: 2 });
+    grid.select(tab, 1, 0);
+    expect(press(grid, 'Tab', true).defaultPrevented).toBe(false);
+    expect(tab.selection).toEqual({ row: 1, col: 0 });
+  });
+
+  it('Shift+Enter moves up and Enter moves down', () => {
+    const { grid, tab } = setupGrid('a,b,c\nd,e,f\ng,h,i\n');
+    grid.select(tab, 1, 1);
+    press(grid, 'Enter', true);
+    expect(tab.selection).toEqual({ row: 0, col: 1 });
+    press(grid, 'Enter');
+    expect(tab.selection).toEqual({ row: 1, col: 1 });
+  });
+
+  it('Tab across a row, then Enter, returns to the row-start column', () => {
+    const { grid, tab } = setupGrid('a,b,c\nd,e,f\n');
+    grid.select(tab, 0, 0);
+    press(grid, 'Tab');
+    press(grid, 'Tab');
+    press(grid, 'Enter');
+    expect(tab.selection).toEqual({ row: 1, col: 0 });
+  });
+});

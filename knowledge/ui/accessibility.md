@@ -52,6 +52,11 @@ editing, find/replace, and dialogs. Concretely:
   outside the viewport, so the browser's find could not search the sheet
   anyway. The browser's own page find stays reachable from the browser's
   menu, and every one of these commands is also on the app's menus.
+- Tab / Shift+Tab move between cells inside the grid, but at the row's
+  first or last field they fall through to the browser, so focus can
+  always leave the grid by keyboard.
+- **Shift+F11** inserts a worksheet, **Ctrl+/** opens the shortcut list,
+  and **Ctrl+\\** clears formatting (Ctrl+¥ on Japanese keyboards).
 - Menus show each shortcut the way the current platform types it (Cmd on
   macOS, Ctrl elsewhere; `displayShortcut` in `src/app/shortcuts.ts`).
 - Grid-editing accelerators (Undo/Redo/Fill Down) are suppressed while a

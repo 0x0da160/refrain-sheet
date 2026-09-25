@@ -3773,8 +3773,21 @@ export class Grid {
         return;
       case 'Enter':
         event.preventDefault();
-        this.moveSelection(tab, 1, 0, false, 'enter');
+        this.moveSelection(tab, event.shiftKey ? -1 : 1, 0, false, 'enter');
         return;
+      case 'Tab': {
+        // Tab / Shift+Tab move right / left within the row. At the row's
+        // edge the key is left to the browser, so keyboard users can always
+        // Tab out of the grid (no keyboard trap).
+        const sel = tab.selection;
+        if (!sel) return;
+        const step = event.shiftKey ? -1 : 1;
+        const target = sel.col + step;
+        if (target < 0 || target >= tab.doc.fieldCount(sel.row)) return;
+        event.preventDefault();
+        this.moveSelection(tab, 0, step, false, 'tab');
+        return;
+      }
       case 'F2':
         event.preventDefault();
         if (tab.selection) this.openEditor(tab, tab.selection.row, tab.selection.col, null);

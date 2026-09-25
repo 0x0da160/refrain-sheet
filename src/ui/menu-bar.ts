@@ -246,7 +246,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.format.conditionalFormatting', command: 'format.conditionalFormatting' },
         'separator',
-        { labelKey: 'menu.format.clear', command: 'format.clear' },
+        { labelKey: 'menu.format.clear', command: 'format.clear', shortcut: 'Ctrl+\\' },
       ],
     },
     {
@@ -312,7 +312,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
       labelKey: 'menu.help',
       items: [
         { labelKey: 'menu.help.formula', command: 'help.formula' },
-        { labelKey: 'menu.help.shortcuts', command: 'help.shortcuts' },
+        { labelKey: 'menu.help.shortcuts', command: 'help.shortcuts', shortcut: 'Ctrl+/' },
         { labelKey: 'menu.help.about', command: 'help.about' },
       ],
     },
@@ -395,7 +395,7 @@ function moveTabItems(): Array<MenuItemDef | 'separator'> {
  */
 function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
   return [
-    { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add' },
+    { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add', shortcut: 'Shift+F11' },
     { labelKey: 'menu.sheet.addMarkdownSheet', command: 'worksheet.addMarkdown' },
     { labelKey: 'menu.sheet.addJsonSheet', command: 'worksheet.addJson' },
     { labelKey: 'menu.sheet.addYamlSheet', command: 'worksheet.addYaml' },

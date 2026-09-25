@@ -128,6 +128,10 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     if (key === 'e' && !event.shiftKey) {
       return 'edit.flashFill';
     }
+    // Keyboard shortcut list (Ctrl+/). Not a browser key; works anywhere.
+    if (key === '/' && !event.shiftKey) {
+      return 'help.shortcuts';
+    }
     // Spreadsheet zoom: Ctrl+Shift+Period (in) / Ctrl+Shift+Comma (out) /
     // Ctrl+Shift+0 (reset). Deliberately NOT the browser's zoom keys
     // (Ctrl +/-/0), which are never intercepted. Matched on the physical key
@@ -173,6 +177,11 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
       if (!event.shiftKey && key === 'u') {
         return 'format.underline';
       }
+      // Clear formatting (Ctrl+\). On Japanese keyboards the same key may
+      // report the yen sign.
+      if (!event.shiftKey && (key === '\\' || key === '\u00a5')) {
+        return 'format.clear';
+      }
     }
     return null;
   }
@@ -205,6 +214,11 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     return event.shiftKey ? 'worksheet.prev' : 'worksheet.next';
   }
 
+  // Insert a worksheet: Shift+F11 (plain F11 stays the browser's full screen).
+  if (!mod && !event.altKey && event.shiftKey && !ctx.inTextField && event.key === 'F11') {
+    return 'worksheet.add';
+  }
+
   return null;
 }
 
@@ -227,6 +241,7 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'F8', descKey: 'shortcut.closeTab' },
   { keys: 'F7, Ctrl+Alt+PageDown', descKey: 'shortcut.nextSheet' },
   { keys: 'Shift+F7, Ctrl+Alt+PageUp', descKey: 'shortcut.prevSheet' },
+  { keys: 'Shift+F11', descKey: 'shortcut.addSheet' },
   { keys: 'Ctrl+Z / Cmd+Z', descKey: 'shortcut.undo' },
   { keys: 'Ctrl+Y, Ctrl+Shift+Z / Cmd+Shift+Z', descKey: 'shortcut.redo' },
   { keys: 'Ctrl+C / Cmd+C', descKey: 'shortcut.copy' },
@@ -236,6 +251,7 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Ctrl+B / Cmd+B', descKey: 'shortcut.bold' },
   { keys: 'Ctrl+I / Cmd+I', descKey: 'shortcut.italic' },
   { keys: 'Ctrl+U / Cmd+U', descKey: 'shortcut.underline' },
+  { keys: 'Ctrl+\\ / Cmd+\\', descKey: 'shortcut.clearFormatting' },
   { keys: 'Ctrl+F / Cmd+F', descKey: 'shortcut.find' },
   // macOS reserves Cmd+H (Hide), so Cmd+Shift+H is the Mac key for Replace.
   { keys: 'Ctrl+H / Cmd+Shift+H', descKey: 'shortcut.replace' },
@@ -249,11 +265,13 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Ctrl+Wheel / Cmd+Wheel', descKey: 'shortcut.zoomWheel' },
   { keys: 'Enter / Shift+Enter', descKey: 'shortcut.findNextPrev' },
   { keys: 'F2', descKey: 'shortcut.editCell' },
-  { keys: 'Enter', descKey: 'shortcut.commitDown' },
+  { keys: 'Enter / Shift+Enter', descKey: 'shortcut.commitDown' },
+  { keys: 'Tab / Shift+Tab', descKey: 'shortcut.moveRightLeft' },
   { keys: 'Shift+Arrows', descKey: 'shortcut.extendSelection' },
   { keys: 'Ctrl+Home / Cmd+Home', descKey: 'shortcut.jumpToStart' },
   { keys: 'Ctrl+End / Cmd+End', descKey: 'shortcut.jumpToEnd' },
   { keys: 'Esc', descKey: 'shortcut.cancelEdit' },
+  { keys: 'Ctrl+/ / Cmd+/', descKey: 'shortcut.list' },
 ];
 
 /** Menu shortcut labels whose macOS key is not a plain Ctrl→Cmd swap. */

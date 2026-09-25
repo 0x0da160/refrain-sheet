@@ -271,3 +271,11 @@ formatting, Google's `F4` / `F9` / `Ctrl + E` meanings, sheet switching on
 were kept. The English summary's stale "grid-only Ctrl+F/H/G/E" wording was
 corrected to "always the app's", and the adoption table gained Cut, Fill
 Down, and Paste Values rows.
+
+**Grid movement keys and three more shortcuts.** Tab / Shift+Tab now move
+right / left with a cell selected (falling through to the browser at the
+row edge, so there is no keyboard trap), Shift+Enter moves up, and
+Shift+F11 / Ctrl+/ / Ctrl+\ insert a worksheet, show the shortcut list, and
+clear formatting. Updated `ui/selection-and-navigation.md`,
+`ui/accessibility.md`, and the adoption table in
+`references/spreadsheet-shortcut-comparison.md`.

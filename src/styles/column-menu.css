@@ -1,0 +1,157 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Header-row filter buttons and the column menu ---------- */
+
+/* A header-row cell of an active filter range keeps room on its right for
+   the button, so the header text never runs underneath it. */
+.vcell.has-filter-button {
+  padding-right: calc(28px * var(--sheet-zoom, 1));
+}
+
+/* A real <button> (outside the Tab order: the grid owns Tab; Alt+Down on
+   the cell is the keyboard route). A quiet outlined chip while unused;
+   accent-filled once the column narrows the rows or orders them. */
+.header-filter-button {
+  position: absolute;
+  top: 50%;
+  right: calc(4px * var(--sheet-zoom, 1));
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: calc(20px * var(--sheet-zoom, 1));
+  height: calc(18px * var(--sheet-zoom, 1));
+  padding: 0 2px;
+  color: var(--text-dim);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.header-filter-button:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.header-filter-button.filtered,
+.header-filter-button.sorted {
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.header-filter-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* The popover itself — placed by src/ui/popup.ts (below the button, flipped
+   or clamped into the visual viewport). Same layer as the context menu. */
+.column-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  width: min(280px, calc(100vw - 8px));
+  padding: var(--space-4);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 18px var(--shadow);
+}
+
+.column-menu-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+  font-weight: 600;
+}
+
+.column-menu-letter {
+  flex: none;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.column-menu-header {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.column-menu-sorts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.column-menu-sort {
+  gap: var(--space-2);
+}
+
+.column-menu-sort.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.column-menu-search {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.column-menu-values {
+  max-height: min(240px, 40vh);
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.column-menu-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.column-menu-all {
+  font-weight: 600;
+}
+
+.column-menu-blank {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.column-menu-note {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.column-menu-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.column-menu-more {
+  gap: var(--space-2);
+  margin-right: auto;
+}

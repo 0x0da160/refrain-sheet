@@ -25,6 +25,7 @@ function checks(): MenuChecks {
     driveAvailable: () => false,
     protectedDoc: () => false,
     sheetLocked: () => false,
+    headerFilter: () => false,
   };
 }
 

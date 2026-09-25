@@ -17,6 +17,7 @@
 @import './styles/comments-panel.css';
 @import './styles/virtualized-grid.css';
 @import './styles/context-menu.css';
+@import './styles/column-menu.css';
 @import './styles/status-bar.css';
 @import './styles/dialogs.css';
 @import './styles/version-history-preview.css';

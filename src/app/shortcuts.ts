@@ -241,7 +241,7 @@ export interface ShortcutDoc {
 
 /**
  * The canonical shortcut map, shown in the About dialog and mirrored in the
- * README. Copy/Paste are handled through native clipboard events (not the
+ * README. Cut/Copy/Paste are handled through native clipboard events (not the
  * resolver) but are listed here for completeness.
  */
 export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
@@ -256,6 +256,7 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Shift+F11', descKey: 'shortcut.addSheet' },
   { keys: 'Ctrl+Z / Cmd+Z', descKey: 'shortcut.undo' },
   { keys: 'Ctrl+Y, Ctrl+Shift+Z / Cmd+Shift+Z', descKey: 'shortcut.redo' },
+  { keys: 'Ctrl+X / Cmd+X', descKey: 'shortcut.cut' },
   { keys: 'Ctrl+C / Cmd+C', descKey: 'shortcut.copy' },
   { keys: 'Ctrl+V / Cmd+V', descKey: 'shortcut.paste' },
   { keys: 'Ctrl+A / Cmd+A', descKey: 'shortcut.selectAll' },

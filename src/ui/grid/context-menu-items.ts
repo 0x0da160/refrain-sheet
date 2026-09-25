@@ -30,6 +30,7 @@ export interface ContextMenuGroupDef {
  * places (#396).
  */
 export const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupDef | 'separator'> = [
+  { command: 'edit.cut', labelKey: 'menu.edit.cut', shortcut: 'Ctrl+X' },
   { command: 'edit.copy', labelKey: 'menu.edit.copy', shortcut: 'Ctrl+C' },
   { command: 'edit.paste', labelKey: 'menu.edit.paste', shortcut: 'Ctrl+V' },
   { command: 'edit.selectAll', labelKey: 'menu.edit.selectAll', shortcut: 'Ctrl+A' },

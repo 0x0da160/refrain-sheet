@@ -286,3 +286,8 @@ cycles the reference at the caret through A1 / $A$1 / A$1 / $A1
 currency, and percent presets. Updated `ui/editing-and-ime.md`,
 `ui/view-formatting-and-panels.md`, and the adoption table in
 `references/spreadsheet-shortcut-comparison.md`.
+
+**Cut.** Added Edit > Cut / Ctrl+X: copy, then clear the source cells as
+one history entry; pasting is an ordinary paste. Documented in
+`ui/copy-paste-fill-and-flash-fill.md` and marked adopted in
+`references/spreadsheet-shortcut-comparison.md`.

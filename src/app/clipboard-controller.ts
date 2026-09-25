@@ -127,6 +127,21 @@ export class ClipboardController {
     return true;
   }
 
+  /**
+   * Ctrl+X / Cmd+X: copy the selection into the clipboard event, then clear
+   * the copied cells as one undoable edit. Pasting afterwards works like
+   * pasting a copy (formula references adjust to the new spot); Move
+   * Selected Cells stays the way to relocate cells with references intact.
+   */
+  handleCutEvent(event: ClipboardEvent): boolean {
+    const tab = this.state.activeTab;
+    if (!tab || !this.handleCopyEvent(event)) {
+      return false;
+    }
+    this.commands.clearRange(tab);
+    return true;
+  }
+
   /** Ctrl+V / Cmd+V: paste the clipboard event text. */
   handlePasteEvent(event: ClipboardEvent): boolean {
     const text = event.clipboardData?.getData('text/plain') ?? '';
@@ -183,6 +198,27 @@ export class ClipboardController {
       return matrix.length > 0 ? { matrix, origin: null } : null;
     }
     return null;
+  }
+
+  /**
+   * Menu Cut: copy through the async clipboard API, then clear the cells.
+   * When the browser blocks clipboard access nothing is cleared, so a cut
+   * can never lose data that did not reach the clipboard.
+   */
+  async cutViaApi(): Promise<void> {
+    const tab = this.state.activeTab;
+    const text = this.copyText();
+    if (!tab || text === null) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      this.notify(t('notify.cutBlocked'), 'warn');
+      return;
+    }
+    this.commands.clearRange(tab);
+    this.notify(t('notify.cut'), 'info');
   }
 
   /** Menu Copy: async clipboard API with a graceful message when blocked. */

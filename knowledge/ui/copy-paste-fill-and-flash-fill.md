@@ -36,6 +36,19 @@ empty and is pasted from the internal clipboard.
   gains rows or columns silently — such pastes require the explicit RSF
   conversion (see [../formats/index.md](../formats/index.md)).
 
+## Cut
+
+**Edit > Cut** (also on the grid's right-click menu) and **Ctrl+X /
+Cmd+X** copy the selection exactly like Copy, then clear the copied cells
+as one undoable edit. Pasting afterwards is an ordinary paste of that copy,
+so formula references adjust to the new position as they would after Copy;
+to relocate cells with their references intact, use **Move Selected
+Cells** (below). Ctrl+X goes through the browser's native `cut` event while
+the grid is navigated, so text fields keep their own Cut. The menu command
+uses the async Clipboard API; if the browser blocks it, nothing is cleared
+and a notice suggests Ctrl+X, so a cut never loses data that did not reach
+the clipboard.
+
 ## Insert Copied Cells / Rows / Columns
 
 - **Edit > Insert Copied Cells…** (also on the cell context menu) inserts

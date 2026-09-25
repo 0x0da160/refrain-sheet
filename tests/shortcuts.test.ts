@@ -169,3 +169,22 @@ describe('resolveShortcut — F9 and worksheet switching', () => {
     expect(resolveShortcut(key({ key: 'PageDown', ctrlKey: true }), GRID)).toBeNull();
   });
 });
+
+describe('resolveShortcut — sheet insert, shortcut list, clear formatting', () => {
+  it("Shift+F11 inserts a worksheet outside text fields; plain F11 stays the browser's", () => {
+    expect(resolveShortcut(key({ key: 'F11', shiftKey: true }), GRID)).toBe('worksheet.add');
+    expect(resolveShortcut(key({ key: 'F11' }), GRID)).toBeNull();
+    expect(resolveShortcut(key({ key: 'F11', shiftKey: true }), FIELD)).toBeNull();
+  });
+
+  it('Ctrl+/ (Cmd+/) opens the shortcut list anywhere', () => {
+    expect(resolveShortcut(key({ key: '/', ctrlKey: true }), GRID)).toBe('help.shortcuts');
+    expect(resolveShortcut(key({ key: '/', metaKey: true }), FIELD)).toBe('help.shortcuts');
+  });
+
+  it('Ctrl+\\ (or the yen key) clears formatting outside text fields', () => {
+    expect(resolveShortcut(key({ key: '\\', ctrlKey: true }), GRID)).toBe('format.clear');
+    expect(resolveShortcut(key({ key: '\u00a5', ctrlKey: true }), GRID)).toBe('format.clear');
+    expect(resolveShortcut(key({ key: '\\', ctrlKey: true }), FIELD)).toBeNull();
+  });
+});

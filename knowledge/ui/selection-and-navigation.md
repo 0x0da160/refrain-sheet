@@ -43,6 +43,16 @@ it extends beyond the currently rendered viewport (see "Command flow" and
 the state model in
 [../architecture/system-overview.md](../architecture/system-overview.md)).
 
+## Moving with Enter and Tab
+
+With a cell selected (no editor open), **Enter / Shift+Enter** move down /
+up and **Tab / Shift+Tab** move right / left, the same as while editing
+(where the key applies the edit first). After typing across a row with Tab,
+Enter returns to the column where that row began. At the row's first or
+last field, Tab / Shift+Tab are left to the browser, so keyboard users can
+always Tab out of the grid (no keyboard trap; see
+[accessibility.md](accessibility.md)).
+
 ## Select All
 
 **Edit > Select All Cells** selects the **used range** of the active

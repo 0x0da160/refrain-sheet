@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-09-25
+
 ### Added
 
 - **Filter buttons on the header row.** Sheet > Filter & Sort > Filter

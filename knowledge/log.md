@@ -296,3 +296,10 @@ one history entry; pasting is an ordinary paste. Documented in
 grid (`src/ui/grid/data-edge.ts`). Documented in
 `ui/selection-and-navigation.md` and marked adopted in
 `references/spreadsheet-shortcut-comparison.md`.
+
+**F4 / F7 / F8 unbound (owner decision).** The owner chose to remove the
+non-standard bindings: F4 (New), F7 / Shift+F7 (worksheet switching), and
+F8 (Close Tab). New and Close Tab are menu-only; worksheet switching keeps
+Ctrl+Alt+PageDown / PageUp. Updated `ui/tabs-and-worksheet-strip.md`,
+`ui/editing-and-ime.md`, `domains/workbook-and-worksheet-lifecycle.md`,
+and the adoption table in `references/spreadsheet-shortcut-comparison.md`.

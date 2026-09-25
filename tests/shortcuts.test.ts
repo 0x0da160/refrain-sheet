@@ -24,8 +24,6 @@ describe('resolveShortcut — recognized accelerators', () => {
     expect(resolveShortcut(key({ key: 'o', ctrlKey: true }), GRID)).toBe('file.open');
     expect(resolveShortcut(key({ key: 'f', ctrlKey: true, shiftKey: true }), GRID)).toBe('search.find');
     expect(resolveShortcut(key({ key: 'h', ctrlKey: true, shiftKey: true }), GRID)).toBe('search.replace');
-    expect(resolveShortcut(key({ key: 'F4' }), GRID)).toBe('file.new');
-    expect(resolveShortcut(key({ key: 'F8' }), GRID)).toBe('file.closeTab');
   });
 
   it('maps editing commands only outside text fields', () => {
@@ -36,7 +34,6 @@ describe('resolveShortcut — recognized accelerators', () => {
     // In a text field the editor/browser keep undo/redo/fill.
     expect(resolveShortcut(key({ key: 'z', ctrlKey: true }), FIELD)).toBeNull();
     expect(resolveShortcut(key({ key: 'd', ctrlKey: true }), FIELD)).toBeNull();
-    expect(resolveShortcut(key({ key: 'F4' }), FIELD)).toBeNull();
   });
 
   it('treats Cmd (metaKey) like Ctrl for cross-platform parity', () => {
@@ -201,5 +198,18 @@ describe('resolveShortcut — number format presets', () => {
   it('keeps the Control key in macOS labels (Cmd+Shift+4 / 5 are screenshots there)', () => {
     expect(displayShortcut('Ctrl+Shift+4', true)).toBe('Ctrl+Shift+4');
     expect(displayShortcut('Ctrl+Shift+5', true)).toBe('Ctrl+Shift+5');
+  });
+});
+
+describe('resolveShortcut — F4 / F7 / F8 are not bound', () => {
+  it('leaves F4, F7, Shift+F7, and F8 alone (New and Close Tab are menu-only)', () => {
+    for (const k of [
+      key({ key: 'F4' }),
+      key({ key: 'F7' }),
+      key({ key: 'F7', shiftKey: true }),
+      key({ key: 'F8' }),
+    ]) {
+      expect(resolveShortcut(k, GRID)).toBeNull();
+    }
   });
 });

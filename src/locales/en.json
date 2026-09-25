@@ -1053,6 +1053,7 @@
   "shortcut.paste": "Paste at the active cell",
   "shortcut.selectAll": "Select all cells (only while the grid has focus)",
   "shortcut.extendSelection": "Extend the selection range",
+  "shortcut.dataEdge": "Jump to the edge of the data (add Shift to select)",
   "shortcut.jumpToStart": "Jump to the first cell (A1)",
   "shortcut.jumpToEnd": "Jump to the last used cell",
   "viewportDebug.copy": "Copy log",

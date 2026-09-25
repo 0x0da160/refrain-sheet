@@ -291,3 +291,8 @@ currency, and percent presets. Updated `ui/editing-and-ime.md`,
 one history entry; pasting is an ordinary paste. Documented in
 `ui/copy-paste-fill-and-flash-fill.md` and marked adopted in
 `references/spreadsheet-shortcut-comparison.md`.
+
+**Ctrl+Arrow data-edge jumps.** Added Ctrl+Arrow / Ctrl+Shift+Arrow in the
+grid (`src/ui/grid/data-edge.ts`). Documented in
+`ui/selection-and-navigation.md` and marked adopted in
+`references/spreadsheet-shortcut-comparison.md`.

@@ -45,6 +45,9 @@ really is internal, rather than inventing an entry to satisfy it.
   could not see rows outside the screen anyway. **F9** recalculates
   formulas, and **Ctrl+Alt+PageDown / PageUp** switch worksheets alongside
   F7 / Shift+F7. Browser zoom, tab switching, and reload are never taken.
+- **Jump to the edge of the data.** Ctrl+Arrow (Cmd+Arrow on macOS) moves
+  to the end of the current block of filled cells, or to the next filled
+  cell; add Shift to select up to there.
 - **Cut.** Edit > Cut, the right-click menu, and Ctrl+X (Cmd+X on macOS)
   copy the selected cells and clear them in one undoable step.
 - **F4 switches references while typing a formula.** With the cursor on a

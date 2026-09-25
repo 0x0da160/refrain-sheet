@@ -53,6 +53,16 @@ last field, Tab / Shift+Tab are left to the browser, so keyboard users can
 always Tab out of the grid (no keyboard trap; see
 [accessibility.md](accessibility.md)).
 
+## Jumping to the data edge
+
+**Ctrl+Arrow / Cmd+Arrow** jumps along the row or column: from a filled
+cell next to another filled cell it goes to the last filled cell of that
+block; otherwise it goes to the next filled cell, or to the end of the row
+or sheet when nothing further is filled. **Ctrl+Shift+Arrow** extends the
+selection to the same place. Vertical jumps walk only visible rows, in the
+order shown, so filtered-out rows are skipped and a sorted view is followed
+as displayed. The rule lives in `src/ui/grid/data-edge.ts`.
+
 ## Select All
 
 **Edit > Select All Cells** selects the **used range** of the active

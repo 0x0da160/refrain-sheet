@@ -284,6 +284,7 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Enter / Shift+Enter', descKey: 'shortcut.commitDown' },
   { keys: 'Tab / Shift+Tab', descKey: 'shortcut.moveRightLeft' },
   { keys: 'Shift+Arrows', descKey: 'shortcut.extendSelection' },
+  { keys: 'Ctrl+Arrows / Cmd+Arrows', descKey: 'shortcut.dataEdge' },
   { keys: 'Ctrl+Home / Cmd+Home', descKey: 'shortcut.jumpToStart' },
   { keys: 'Ctrl+End / Cmd+End', descKey: 'shortcut.jumpToEnd' },
   { keys: 'Esc', descKey: 'shortcut.cancelEdit' },

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { Plus } from 'lucide';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, ListFilter, Plus } from 'lucide';
 import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import { isGridSurface, LARGE_OP_CELLS, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
@@ -1724,7 +1724,9 @@ export class Grid {
     // accessible filter button in its header; columns that carry criteria
     // show it filled. The button dispatches the same shared filter command
     // as the menu and context menu.
-    if (filter && c >= filter.left && c <= filter.right) {
+    // With a header row, the buttons sit in the header row's own cells
+    // instead (see `headerFilterButton`).
+    if (filter && !filter.headerRow && c >= filter.left && c <= filter.right) {
       const filtered = filter.columns.some((column) => column.col === c);
       const key = filtered ? 'grid.filterButtonActive' : 'grid.filterButton';
       const filterButton = el('button', {
@@ -1930,8 +1932,17 @@ export class Grid {
     const preview = this.formulaLivePreview;
     const value =
       preview && preview.row === row && preview.col === col ? preview.value : doc.getDisplayValue(row, col);
-    if (cell.textContent !== value) {
-      cell.textContent = value;
+    const button = this.headerFilterButton(tab, row, col);
+    if (button) {
+      // A header-row filter cell: its text node plus the button (the text
+      // stays the first child, so caret hit-testing keeps working).
+      cell.replaceChildren(value, button);
+      cell.classList.add('has-filter-button');
+    } else {
+      cell.classList.remove('has-filter-button');
+      if (cell.textContent !== value || cell.childElementCount > 0) {
+        cell.textContent = value;
+      }
     }
     if (doc.kind === 'csv') {
       const field = doc.getField(row, col);
@@ -1972,6 +1983,81 @@ export class Grid {
       }
       this.paintCellStyle(cell, doc, row, col);
     }
+  }
+
+  /**
+   * The filter button of a header-row cell of the active filter range, or
+   * null for any other cell. Shows whether the column narrows the rows
+   * (filled) and whether the rows are ordered by it (an arrow); opens the
+   * column menu (see `src/ui/column-menu.ts`).
+   */
+  private headerFilterButton(tab: Tab, row: number, col: number): HTMLButtonElement | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || !this.isHeaderFilterCell(tab, row, col)) {
+      return null;
+    }
+    const filter = doc.filter!;
+    const sort = doc.sort;
+    const key = sort && sort.keys[0]?.col === col ? sort.keys[0] : null;
+    const filtered = filter.columns.some((column) => column.col === col);
+    const letter = columnLabel(col);
+    const parts = [t('grid.headerFilterButton', { letter })];
+    if (filtered) {
+      parts.push(t('grid.headerFilterFiltered'));
+    }
+    if (key) {
+      parts.push(t(key.ascending ? 'grid.headerFilterSortedAsc' : 'grid.headerFilterSortedDesc'));
+    }
+    const label = parts.join(' ');
+    const button = el('button', {
+      className: `header-filter-button${filtered ? ' filtered' : ''}${key ? ' sorted' : ''}`,
+      attrs: {
+        type: 'button',
+        tabindex: '-1',
+        'data-headerfilter': String(col),
+        'aria-label': label,
+        'aria-haspopup': 'dialog',
+        title: label,
+      },
+    });
+    if (filtered) {
+      button.append(createIcon(ListFilter, 'header-filter-icon', 12));
+    }
+    if (key) {
+      button.append(
+        createIcon(key.ascending ? ArrowUpNarrowWide : ArrowDownWideNarrow, 'header-filter-icon', 12),
+      );
+    }
+    if (!filtered && !key) {
+      button.append(createIcon(ChevronDown, 'header-filter-icon', 12));
+    }
+    // Keep a press from starting a selection drag or opening the editor.
+    button.addEventListener('mousedown', (event) => event.stopPropagation());
+    button.addEventListener('dblclick', (event) => event.stopPropagation());
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.openColumnMenu(tab, col, button);
+    });
+    return button;
+  }
+
+  /** True for a header-row cell of the active filter range (it carries a filter button). */
+  private isHeaderFilterCell(tab: Tab, row: number, col: number): boolean {
+    const filter = tab.doc.kind === 'rsf' ? tab.doc.filter : null;
+    return (
+      filter !== null && filter.headerRow && row === filter.top && col >= filter.left && col <= filter.right
+    );
+  }
+
+  /** Open the column menu for `col` below `anchor`, then return focus to the grid. */
+  private openColumnMenu(tab: Tab, col: number, anchor: HTMLElement | null): void {
+    const r = anchor?.getBoundingClientRect();
+    const rect = r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
+    void this.commands.columnMenu(tab, col, rect).finally(() => {
+      if (this.state.activeTab === tab) {
+        this.focusGrid();
+      }
+    });
   }
 
   /** Human-readable explanation of a malformed field's structural problem(s). */
@@ -3773,6 +3859,16 @@ export class Grid {
     // layer (`app/shortcuts.ts`) except Ctrl+Home / Ctrl+End, which are grid
     // navigation (jump to A1 / the last used cell) and so belong here
     // alongside the other navigation keys below.
+    // Alt+Down on a header-row filter cell opens its column menu, the
+    // keyboard route to what the cell's button does.
+    if (event.altKey && !mod && event.key === 'ArrowDown' && tab.selection) {
+      const { row, col } = tab.selection;
+      if (this.isHeaderFilterCell(tab, row, col)) {
+        event.preventDefault();
+        this.openColumnMenu(tab, col, this.cellAt(row, col)?.querySelector('.header-filter-button') ?? null);
+        return;
+      }
+    }
     if (event.altKey || (mod && event.key !== 'Home' && event.key !== 'End')) {
       return;
     }

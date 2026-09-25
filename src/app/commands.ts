@@ -37,7 +37,7 @@ import { DiffCommands } from './commands/diff';
 import { PasteFillCommands, type FlashFillPreview } from './commands/paste-fill';
 import { RangeOpsCommands, type ReplaceAllReport } from './commands/range-ops';
 import { isGridSurface, LARGE_OP_CELLS } from './commands/shared';
-import type { ConvertReason, UiPort } from './ui-port';
+import type { ColumnMenuInput, ConvertReason, UiPort } from './ui-port';
 
 export { isGridSurface, LARGE_OP_CELLS };
 
@@ -101,6 +101,7 @@ export type CommandId =
   | 'sheet.autoFitCols'
   | 'sheet.filter'
   | 'sheet.filterClear'
+  | 'sheet.headerFilter'
   | 'sheet.sort'
   | 'sheet.sortClear'
   | 'format.bold'
@@ -223,8 +224,8 @@ export class Commands {
   ) {
     this.fileIo = new FileIoCommands(state, ui, dom, () => this.gridActions);
     this.driveIo = __OFFLINE_BUILD__ ? null : new DriveIoCommands(state, ui, this.fileIo);
-    this.filter = new FilterCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.sort = new SortCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
+    this.filter = new FilterCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason), this.sort);
     this.validation = new ValidationCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.conditionalFormat = new ConditionalFormatCommands(state, ui, (tab, reason) =>
       this.ensureRsf(tab, reason),
@@ -420,6 +421,8 @@ export class Commands {
       }
       case 'sheet.filterClear':
         return tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null;
+      case 'sheet.headerFilter':
+        return tab?.selection != null || (tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null);
       case 'sheet.sortClear':
         return tab !== null && tab.doc.kind === 'rsf' && tab.doc.sort !== null;
       case 'sheet.recalculate':
@@ -665,6 +668,9 @@ export class Commands {
         return;
       case 'sheet.filterClear':
         if (tab) this.clearAllFilters(tab);
+        return;
+      case 'sheet.headerFilter':
+        if (tab) await this.toggleHeaderFilter(tab);
         return;
       case 'sheet.sort':
         if (tab) await this.sortDialog(tab);
@@ -1366,6 +1372,27 @@ export class Commands {
   /** Sheet > Filter & Sort > Clear All Filters: every row becomes visible again (undoable). See `FilterCommands.clearAllFilters`. */
   clearAllFilters(tab: Tab): boolean {
     return this.filter.clearAllFilters(tab);
+  }
+
+  /**
+   * Sheet > Filter & Sort > Filter Buttons on Header Row: add or remove the
+   * header row's filter buttons. See `FilterCommands.toggleHeaderFilter`.
+   */
+  async toggleHeaderFilter(tab: Tab): Promise<boolean> {
+    return this.filter.toggleHeaderFilter(tab);
+  }
+
+  /** Whether the active tab's sheet shows filter buttons (has a filter range). */
+  hasFilter(tab: Tab | null): boolean {
+    return tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null;
+  }
+
+  /**
+   * A header cell's filter button: open the column menu (sort, value
+   * checklist) beside `anchor`. See `FilterCommands.columnMenu`.
+   */
+  async columnMenu(tab: Tab, col: number, anchor: ColumnMenuInput['anchor']): Promise<boolean> {
+    return this.filter.columnMenu(tab, col, anchor);
   }
 
   // ----- Sorting (RSF spreadsheet documents only; view-only, unsaved) -----

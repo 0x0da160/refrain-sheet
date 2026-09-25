@@ -32,6 +32,7 @@ function checks(): MenuChecks {
     driveAvailable: () => false,
     protectedDoc: () => false,
     sheetLocked: () => false,
+    headerFilter: () => false,
   };
 }
 
@@ -127,6 +128,7 @@ describe('Sheet menu reorganization', () => {
   it('keeps every filter/sort command reachable inside the Filter & Sort submenu', () => {
     const filterSort = submenuOf(menu('menu.sheet'), 'menu.sheet.filterSort');
     expect(filterSort.map((i) => i.command)).toEqual([
+      'sheet.headerFilter',
       'sheet.filter',
       'sheet.filterClear',
       'sheet.sort',

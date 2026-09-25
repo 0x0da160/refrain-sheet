@@ -152,7 +152,7 @@ export class SortCommands {
    * so no honest percentage is available) and apply it. Aborts — changing
    * nothing — if the document is replaced while the busy indicator is shown.
    */
-  private async applySort(tab: Tab, sort: SheetSort): Promise<boolean> {
+  async applySort(tab: Tab, sort: SheetSort, announce = true): Promise<boolean> {
     const doc = tab.doc;
     if (doc.kind !== 'rsf') {
       return false;
@@ -166,7 +166,7 @@ export class SortCommands {
     }
     this.state.seedSortOrder(sort, order);
     const applied = this.state.setSort(tab, sort);
-    if (applied) {
+    if (applied && announce) {
       this.ui.notify(t('notify.sorted', { keys: sort.keys.length }), 'info');
     }
     return applied;

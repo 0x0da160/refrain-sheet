@@ -59,7 +59,9 @@ in-app way to recover. Before changing anything under `wasm/src/`:
   embeds, so a different home directory cannot change the binary.
   `.github/workflows/wasm.yml` runs `test:rust`, rebuilds, and fails if
   `src/wasm-gen/` differs from the committed files — so always rebuild with
-  exactly those versions (the Docker image has them) and commit the result.
+  exactly those versions (the Docker image has them, and so does a
+  Claude Code on the web session via `.claude/hooks/session-start.sh`) and
+  commit the result.
   The frozen `.rsf` fixtures (`tests/rsf-fixtures.test.ts`) pin the codecs'
   compressed output byte-for-byte on the JS side.
 - `wasm-opt` is deliberately disabled in the release profile (see the comment

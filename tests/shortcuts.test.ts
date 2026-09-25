@@ -48,7 +48,7 @@ describe('resolveShortcut — reserved keys are never intercepted', () => {
     ['Ctrl+N (new window)', key({ key: 'n', ctrlKey: true })],
     ['Ctrl+T (new tab)', key({ key: 't', ctrlKey: true })],
     ['Ctrl+W (close tab)', key({ key: 'w', ctrlKey: true })],
-    ['Ctrl+F (browser find)', key({ key: 'f', ctrlKey: true })],
+    ['Ctrl+F outside the grid (browser find)', key({ key: 'f', ctrlKey: true })],
     ['Ctrl+H (history)', key({ key: 'h', ctrlKey: true })],
     ['Ctrl+P (print)', key({ key: 'p', ctrlKey: true })],
     ['Ctrl+R (reload)', key({ key: 'r', ctrlKey: true })],
@@ -92,11 +92,37 @@ describe('SHORTCUT_DOCS', () => {
   });
 
   it('does not advertise any browser-reserved accelerator', () => {
-    const joined = SHORTCUT_DOCS.map((s) => s.keys).join(' | ');
+    // Ctrl+F is advertised only as the grid-scoped Find (the documented
+    // exception); every other entry must stay clear of it.
+    const joined = SHORTCUT_DOCS.filter((s) => s.descKey !== 'shortcut.findInGrid')
+      .map((s) => s.keys)
+      .join(' | ');
     expect(joined).not.toMatch(/Ctrl\+F\b/);
     expect(joined).not.toMatch(/Ctrl\+H\b/);
     expect(joined).not.toMatch(/Ctrl\+N\b/);
     expect(joined).not.toMatch(/Ctrl\+W\b/);
     expect(joined).not.toMatch(/Ctrl\+Tab/);
+  });
+});
+
+describe('resolveShortcut — Ctrl+F opens app Find only in the grid', () => {
+  const ctrlF = key({ key: 'f', ctrlKey: true });
+  const IN_GRID: ShortcutContext = { ...GRID, inGrid: true };
+  it('opens app Find while the grid has focus', () => {
+    expect(resolveShortcut(ctrlF, IN_GRID)).toBe('search.find');
+    expect(resolveShortcut(key({ key: 'f', metaKey: true }), IN_GRID)).toBe('search.find');
+  });
+  it('leaves Ctrl+F to the browser in text fields', () => {
+    expect(resolveShortcut(ctrlF, FIELD)).toBeNull();
+    expect(resolveShortcut(ctrlF, { ...FIELD, inGrid: true })).toBeNull();
+  });
+  it('leaves Ctrl+F to the browser outside the grid', () => {
+    expect(resolveShortcut(ctrlF, { ...GRID, inGrid: false })).toBeNull();
+  });
+  it('never fires during IME composition', () => {
+    expect(resolveShortcut(ctrlF, { ...IN_GRID, isComposing: true })).toBeNull();
+  });
+  it('keeps Ctrl+Shift+F everywhere', () => {
+    expect(resolveShortcut(key({ key: 'F', ctrlKey: true, shiftKey: true }), FIELD)).toBe('search.find');
   });
 });

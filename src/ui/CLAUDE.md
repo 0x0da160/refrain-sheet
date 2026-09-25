@@ -26,7 +26,8 @@ governs; this adds only what is specific to `src/ui/`.
   UI changes from the user's goal, never "same as Excel", and escalate the
   cases listed in `knowledge/decisions/ip-risk-policy.md` §5.
 - **Shortcuts.** Key routing lives in `src/app/shortcuts.ts`; never take a
-  browser- or OS-reserved key. For how other spreadsheets bind a key, see
+  browser- or OS-reserved key (the only exception is Ctrl+F while the grid
+  has focus, which opens the app's Find). For how other spreadsheets bind a key, see
   `knowledge/references/spreadsheet-shortcut-comparison.md` — background
   only; adopting a key is its own decision on an Issue/PR.
 - For a visible change, also run `npm run ui:check` after `npm run build`.

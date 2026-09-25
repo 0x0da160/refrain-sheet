@@ -8,11 +8,16 @@
  *   shortcuts deliberately avoid browser-reserved and commonly essential
  *   combinations: new window/tab (Ctrl+N/T), close tab/window (Ctrl+W), reload
  *   (Ctrl+R/F5), history (Ctrl+H, Alt+Arrow), address bar (Ctrl+L), browser
- *   find (Ctrl+F, F3), print (Ctrl+P), zoom (Ctrl +/-/0), dev tools (F12),
+ *   find next (F3), print (Ctrl+P), zoom (Ctrl +/-/0), dev tools (F12),
  *   and browser tab switching (Ctrl+Tab, Ctrl+PageUp/Down). None of those are
  *   intercepted — {@link resolveShortcut} returns `null` for them so the
  *   browser handles them normally.
- * - Commands that would otherwise collide (New, Close Tab, Find, Replace) use
+ * - The one deliberate exception is **Ctrl+F while the grid itself has
+ *   focus**: the grid is virtualized, so the browser's find cannot see cells
+ *   outside the viewport, and Ctrl+F there opens the app's Find instead.
+ *   Everywhere else (text fields, dialogs, the rest of the page) Ctrl+F stays
+ *   the browser's, and F3 always reaches the browser's find.
+ * - Commands that would otherwise collide (New, Close Tab, Replace) use
  *   safe alternatives (function keys or unreserved Ctrl+Shift combinations).
  * - Every command is also available from the menus, so keyboard shortcuts are
  *   optional accelerators, never the only path.
@@ -89,9 +94,11 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     if (key === 'o' && !event.shiftKey) {
       return 'file.open';
     }
-    // Find / Replace use Ctrl+Shift+F / Ctrl+Shift+H because plain Ctrl+F is
-    // the browser's find and Ctrl+H is browser history.
-    if (event.shiftKey && key === 'f') {
+    // Find: Ctrl+Shift+F anywhere. Plain Ctrl+F only while the grid itself
+    // is focused — the virtualized grid is invisible to the browser's find —
+    // so text fields and the rest of the page keep the browser's Ctrl+F.
+    // Replace uses Ctrl+Shift+H because Ctrl+H is browser history.
+    if (key === 'f' && (event.shiftKey || (ctx.inGrid === true && !ctx.inTextField))) {
       return 'search.find';
     }
     if (event.shiftKey && key === 'h') {
@@ -195,6 +202,7 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Ctrl+B / Cmd+B', descKey: 'shortcut.bold' },
   { keys: 'Ctrl+I / Cmd+I', descKey: 'shortcut.italic' },
   { keys: 'Ctrl+U / Cmd+U', descKey: 'shortcut.underline' },
+  { keys: 'Ctrl+F / Cmd+F', descKey: 'shortcut.findInGrid' },
   { keys: 'Ctrl+Shift+F / Cmd+Shift+F', descKey: 'shortcut.find' },
   { keys: 'Ctrl+Shift+H / Cmd+Shift+H', descKey: 'shortcut.replace' },
   { keys: 'Ctrl+Shift+. / Cmd+Shift+.', descKey: 'shortcut.zoomIn' },

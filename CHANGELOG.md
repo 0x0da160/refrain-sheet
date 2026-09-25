@@ -35,6 +35,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- **Ctrl+F / Cmd+F now opens Refrain Sheet's Find while you are working in
+  the grid.** The browser's own find could not see rows outside the screen,
+  so it missed matches in larger sheets. In text fields, dialogs, and the
+  rest of the page Ctrl+F still opens the browser's find, F3 always does,
+  and Ctrl+Shift+F keeps opening the app's Find from anywhere.
+
 ## [0.9.2] - 2026-09-23
 
 ### Changed

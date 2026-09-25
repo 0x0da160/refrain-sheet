@@ -14,11 +14,14 @@ generated:
 
 ## Opening Find/Replace
 
-**Ctrl+Shift+F / Cmd+Shift+F** opens Find; **Ctrl+Shift+H / Cmd+Shift+H**
-opens Replace. These are deliberately **not** the browser's own Ctrl+F /
-Ctrl+H — those stay reserved for the browser's own find/history (see
+**Ctrl+Shift+F / Cmd+Shift+F** opens Find anywhere; **Ctrl+F / Cmd+F**
+also opens it, but only while the grid itself has focus — the grid is
+virtualized, so the browser's own find cannot see rows outside the viewport.
+In text fields, dialogs, and the rest of the page Ctrl+F stays the
+browser's, and F3 always reaches the browser's find (see
 [accessibility.md](accessibility.md) and the shortcut-ownership rule it
-describes). Both commands are also reachable from the Search menu.
+describes). **Ctrl+Shift+H / Cmd+Shift+H** opens Replace; Ctrl+H stays the
+browser's history. Both commands are also reachable from the Search menu.
 
 Next / Previous navigate with wrap-around; match counts (occurrences and
 matching cells) update live as you type. Previous, Next, and Close are

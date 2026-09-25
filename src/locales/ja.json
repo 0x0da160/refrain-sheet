@@ -1053,6 +1053,7 @@
   "shortcut.paste": "アクティブセルに貼り付け",
   "shortcut.selectAll": "すべてのセルを選択（グリッドにフォーカスがあるときのみ）",
   "shortcut.extendSelection": "選択範囲を拡張",
+  "shortcut.dataEdge": "データの端へ移動（Shift を加えると選択）",
   "shortcut.jumpToStart": "先頭のセル（A1）へ移動",
   "shortcut.jumpToEnd": "最後に使用されたセルへ移動",
   "viewportDebug.copy": "ログをコピー",

@@ -25,6 +25,7 @@ import { el, clearChildren } from './dom';
 import { onKeyboardOpenChange, onKeyboardResize } from './popup';
 import { centeredScrollOffset } from './grid/center-scroll';
 import { FormulaAutocomplete, FormulaFieldRef, isRefToggleKey } from './formula-autocomplete';
+import { findDataEdge } from './grid/data-edge';
 import type { FormulaLivePreview } from './formula-bar';
 import { beginsTextEntry, isComposingKey } from './ime';
 import { createIcon } from './icon';
@@ -192,6 +193,9 @@ function frameCoalesced<T>(apply: (arg: T) => void): (arg: T) => void {
     });
   };
 }
+
+/** The four arrow keys, for Ctrl+Arrow data-edge jumps. */
+const ARROW_KEYS: ReadonlySet<string> = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 
 /**
  * How long after an on-screen keyboard opens a further shrink of the visible
@@ -3351,6 +3355,43 @@ export class Grid {
   }
 
   /**
+   * Ctrl+Arrow: move (or, with Shift, extend) the selection to the edge of
+   * the data in that direction (see `findDataEdge`). Vertical moves walk
+   * visible rows in display order, so filtered-out rows are skipped and a
+   * sorted view is followed as shown.
+   */
+  private jumpToDataEdge(tab: Tab, key: string, extend: boolean): void {
+    const sel = tab.selection ?? { row: 0, col: 0 };
+    const doc = tab.doc;
+    let row = sel.row;
+    let col = sel.col;
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      const last = doc.fieldCount(row) - 1;
+      const step = key === 'ArrowRight' ? 1 : -1;
+      col = findDataEdge(
+        Math.max(0, Math.min(col, last)),
+        (c) => (c + step >= 0 && c + step <= last ? c + step : null),
+        (c) => doc.getValue(row, c) !== '',
+      );
+    } else {
+      const delta = key === 'ArrowDown' ? 1 : -1;
+      row = findDataEdge(
+        row,
+        (r) => {
+          const next = this.stepVisibleRow(tab, r, delta);
+          return next === r ? null : next;
+        },
+        (r) => col < doc.fieldCount(r) && doc.getValue(r, col) !== '',
+      );
+      col = Math.max(0, Math.min(col, doc.fieldCount(row) - 1));
+    }
+    this.commitEditor();
+    this.state.setSelection(tab, { row, col }, extend ? (tab.anchor ?? sel) : null, 'cell');
+    this.scrollCellIntoView(tab, row, col);
+    this.focusGrid();
+  }
+
+  /**
    * `entryTracking` drives the Tab-then-Enter "return to start column"
    * convention (Excel/Sheets/Calc): `'tab'` remembers `tab.tabEntryCol` as the
    * column this call started from (only if a pass is not already in
@@ -3720,8 +3761,16 @@ export class Grid {
       return;
     }
     const mod = event.ctrlKey || event.metaKey;
-    // Every Ctrl/Cmd combination is left to the application shortcut layer
-    // (`app/shortcuts.ts`) except Ctrl+Home / Ctrl+End, which are grid
+    // Ctrl/Cmd+Arrow jumps to the edge of the data (Shift extends the
+    // selection there). Like Ctrl+Home / Ctrl+End it is grid navigation, so
+    // it is handled here rather than in `app/shortcuts.ts`.
+    if (mod && !event.altKey && ARROW_KEYS.has(event.key) && !isComposingKey(event, this.composing)) {
+      event.preventDefault();
+      this.jumpToDataEdge(tab, event.key, event.shiftKey);
+      return;
+    }
+    // Every other Ctrl/Cmd combination is left to the application shortcut
+    // layer (`app/shortcuts.ts`) except Ctrl+Home / Ctrl+End, which are grid
     // navigation (jump to A1 / the last used cell) and so belong here
     // alongside the other navigation keys below.
     if (event.altKey || (mod && event.key !== 'Home' && event.key !== 'End')) {

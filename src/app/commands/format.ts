@@ -7,10 +7,12 @@ import {
   cellStylesEqual,
   type BorderSide,
   type CellStylePatch,
+  type NumberFormat,
 } from '../../core/cell-style';
 import type { CellRange } from '../../core/clipboard';
 import type { StyleChange } from '../../core/history';
 import type { AppState, Tab } from '../app-state';
+import { getLocale } from '../i18n';
 import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult, UiPort } from '../commands';
 import { applyWhileOpen } from './shared';
 
@@ -171,6 +173,25 @@ export class FormatCommands {
           'history.setNumberFormat',
         ),
     );
+  }
+
+  /**
+   * Apply a preset number format to the selection in one step (the
+   * Ctrl+Shift+1 / 4 / 5 keys). Currency follows the display language: yen
+   * with no decimals in Japanese, dollars with two decimals otherwise.
+   */
+  applyNumberPreset(tab: Tab, preset: 'number' | 'currency' | 'percent'): boolean {
+    if (tab.doc.kind !== 'rsf') {
+      return false;
+    }
+    const yen = getLocale() === 'ja';
+    const format: NumberFormat =
+      preset === 'number'
+        ? { kind: 'number', decimals: 2, thousands: true }
+        : preset === 'percent'
+          ? { kind: 'percent', decimals: 0, thousands: false }
+          : { kind: 'currency', decimals: yen ? 0 : 2, thousands: true, currencySymbol: yen ? '¥' : '$' };
+    return this.applyToSelection(tab, { numberFormat: format }, 'history.setNumberFormat');
   }
 
   /** Remove every style property from the selection (values are untouched). */

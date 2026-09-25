@@ -6,7 +6,7 @@ import { getEditHints } from '../app/settings';
 import { extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import { selectionRefLabel } from '../core/selection-label';
 import { el, focusOnTapWithoutRevealScroll } from './dom';
-import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
+import { FormulaAutocomplete, FormulaFieldRef, isRefToggleKey } from './formula-autocomplete';
 import { isComposingKey } from './ime';
 
 /** The raw text currently being typed for a cell, before it is committed. */
@@ -159,6 +159,11 @@ export class FormulaBar implements FormulaRefTarget {
       return;
     }
     if (this.autocomplete.onKeyDown(event)) {
+      return;
+    }
+    if (isRefToggleKey(event) && this.ref.toggleReference()) {
+      event.preventDefault();
+      event.stopPropagation();
       return;
     }
     if (event.key === 'Enter' && event.altKey) {

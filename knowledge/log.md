@@ -279,3 +279,10 @@ Shift+F11 / Ctrl+/ / Ctrl+\ insert a worksheet, show the shortcut list, and
 clear formatting. Updated `ui/selection-and-navigation.md`,
 `ui/accessibility.md`, and the adoption table in
 `references/spreadsheet-shortcut-comparison.md`.
+
+**F4 reference toggle and number format keys.** F4 while typing a formula
+cycles the reference at the caret through A1 / $A$1 / A$1 / $A1
+(`src/core/formula-ref-toggle.ts`), and Ctrl+Shift+1 / 4 / 5 apply number,
+currency, and percent presets. Updated `ui/editing-and-ime.md`,
+`ui/view-formatting-and-panels.md`, and the adoption table in
+`references/spreadsheet-shortcut-comparison.md`.

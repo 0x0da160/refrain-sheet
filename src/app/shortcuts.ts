@@ -147,6 +147,17 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
       if (event.code === 'Digit0') {
         return 'view.zoom.reset';
       }
+      // Number format presets: Ctrl+Shift+1 (number), 4 (currency),
+      // 5 (percent), matched on the physical digit key for every layout.
+      if (event.code === 'Digit1') {
+        return 'format.presetNumber';
+      }
+      if (event.code === 'Digit4') {
+        return 'format.presetCurrency';
+      }
+      if (event.code === 'Digit5') {
+        return 'format.presetPercent';
+      }
     }
     // Select All Cells: owned only while the grid itself is focused, so the
     // browser's global Ctrl+A (page text, text inputs) is never suppressed.
@@ -235,6 +246,7 @@ export interface ShortcutDoc {
  */
 export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'F4', descKey: 'shortcut.new' },
+  { keys: 'F4', descKey: 'shortcut.refToggle' },
   { keys: 'Ctrl+O / Cmd+O', descKey: 'shortcut.open' },
   { keys: 'Ctrl+S / Cmd+S', descKey: 'shortcut.save' },
   { keys: 'Ctrl+Shift+S / Cmd+Shift+S', descKey: 'shortcut.saveOptions' },
@@ -252,6 +264,9 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { keys: 'Ctrl+I / Cmd+I', descKey: 'shortcut.italic' },
   { keys: 'Ctrl+U / Cmd+U', descKey: 'shortcut.underline' },
   { keys: 'Ctrl+\\ / Cmd+\\', descKey: 'shortcut.clearFormatting' },
+  { keys: 'Ctrl+Shift+1', descKey: 'shortcut.formatNumber' },
+  { keys: 'Ctrl+Shift+4', descKey: 'shortcut.formatCurrency' },
+  { keys: 'Ctrl+Shift+5', descKey: 'shortcut.formatPercent' },
   { keys: 'Ctrl+F / Cmd+F', descKey: 'shortcut.find' },
   // macOS reserves Cmd+H (Hide), so Cmd+Shift+H is the Mac key for Replace.
   { keys: 'Ctrl+H / Cmd+Shift+H', descKey: 'shortcut.replace' },
@@ -280,6 +295,11 @@ const MAC_SHORTCUT_OVERRIDES: Readonly<Record<string, string>> = {
   'Ctrl+Y': 'Cmd+Shift+Z',
   // macOS reserves Cmd+H (Hide), so Replace uses Cmd+Shift+H there.
   'Ctrl+H': 'Cmd+Shift+H',
+  // macOS takes Cmd+Shift+4 / 5 for screenshots, so the number format
+  // presets keep the Control key there.
+  'Ctrl+Shift+1': 'Ctrl+Shift+1',
+  'Ctrl+Shift+4': 'Ctrl+Shift+4',
+  'Ctrl+Shift+5': 'Ctrl+Shift+5',
 };
 
 /** True on macOS (and iPadOS with a hardware keyboard), where Cmd replaces Ctrl. */

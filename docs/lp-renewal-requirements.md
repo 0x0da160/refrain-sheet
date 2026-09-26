@@ -1,6 +1,6 @@
 # LP renewal — requirements definition / LPリニューアル 要件定義書
 
-**Status: draft (v0.1, 2026-09-26). No landing-page code is changed by this document.**
+**Status: draft (v0.2, 2026-09-26). No landing-page code is changed by this document.**
 
 ## English (summary)
 
@@ -12,8 +12,10 @@ refreshed design, clearer message, better conversion and SEO. Primary CTA is
 Japanese and English are kept; the no-external-resources rule is kept.
 Analytics moves from opt-in-for-everyone to region-based consent (consent
 banner only for EEA/UK/CH visitors), which needs human approval as a
-personal-data and deploy-config change. Design direction will be chosen
-from side-by-side mockups before implementation. Work proceeds in phases
+personal-data and deploy-config change. Design direction is decided:
+mockup AC2 (C's soft rounded panels with A's trust elements). Copy speaks to
+each persona through wording and context rather than by naming the audience,
+and is written for people first and search second (§4.6). Work proceeds in phases
 with no deadline; quality first. Open decisions are listed in §9.
 
 ## 日本語
@@ -42,6 +44,11 @@ with no deadline; quality first. Open decisions are listed in §9.
 | 開発者・エンジニア                                 | 仕組み、正確さ、拡張性              | バイト単位で一致すること、RSF・数式・SQL、GitHub              |
 
 英語版の読者（海外ユーザー）は、上の3ペルソナの英語版として扱う。
+
+各ペルソナの入口は、見出しで読者を名指しして作らない（「情シスの方へ」
+「エンジニア向け」などは使わない）。その読者が気にする言葉と文脈
+（「社外秘」「社内のルール」「サーバーに送信しない」「ソースコードを公開」など）で、
+自分に関係のある段落だと気づけるように書く（§4.6）。
 
 ### 3. スコープ
 
@@ -111,6 +118,35 @@ with no deadline; quality first. Open decisions are listed in §9.
 - CLAUDE.md の定める高リスク変更（個人データ、デプロイ設定）に当たるため、
   **実装の前に人間の承認を得る**。法的な判断は専門家に確認してもらうことを推奨する
 
+#### 4.6 ライティングとSEO
+
+優先順位は **人への訴求 > 検索エンジン** とする。検索のために読みにくくしない。
+
+- **読者を名指ししない。** ペルソナは言葉と文脈で呼び分ける（§2）。
+- **検索されやすい言葉を、見出しと本文に自然に入れる。** 主な言葉は
+  「CSV 編集」「CSVエディタ」「文字化け」「先頭ゼロ（が消える）」「Shift_JIS」
+  「改行コード」「無料」「インストール不要」「ブラウザ」「オフライン」。
+  同じ言葉を不自然に繰り返さない。
+- **h1 と主な h2 に「CSV」を入れる。** 例：h1「CSVを直すのは1セル。変わるのも、その1セルだけ。」、
+  h1 の直前に置く短い説明「文字化けしない、先頭ゼロが消えない。無料のCSVエディタ」。
+  見出しの階層（h1 → h2 → h3）を飛ばさない。
+- **悩みの言葉で書く。** 検索する人は機能名ではなく症状で探す
+  （「JANコードが 4.9E+12 になる」「社員名簿が文字化けする」）。
+  用途別の事例とFAQは、症状の言葉を見出しに使う。
+- **`<title>` と meta description** は、今のものが持つ言葉（CSV 編集・無料・Shift_JIS・
+  先頭ゼロ・改行コード・インストール不要）を引き継ぎ、新しいコピーに合わせて書き直す。
+  title は32文字前後、description は120文字前後を目安にする。
+- **FAQ** は、実際に検索される質問の形で書き、構造化データ（FAQPage）と一致させる。
+- **英語版** は逐語訳しない。英語で検索される言葉
+  （"edit CSV without Excel changing it"、"keep leading zeros"、"Shift_JIS CSV editor" など）
+  を調べてから書く。
+- **文言のルール**：`knowledge/ui/ui-writing-and-wording.md` の原則に従う
+  （落ち着いた敬体、根拠のない断定をしない、「アップロード」は実際に送信するときだけ使う）。
+  訴求文と、アプリの操作文言は混ぜない。
+- **事実だけを書く。** 「送信しない」「実行しない」などは、実装と
+  `knowledge/operations/security-threat-model.md` に合っていることを確かめる。
+  Google ドライブ連携のような例外は省略しない。
+
 ### 5. 非機能要件
 
 | 分類             | 要件                                                                                                                                                                             |
@@ -125,15 +161,18 @@ with no deadline; quality first. Open decisions are listed in §9.
 | ライセンス表記   | すべてのソースファイルの先頭に `// SPDX-License-Identifier: MIT`                                                                                                                 |
 | IPリスク         | Excelの画面の再現、Microsoftの素材、「Excel互換」とうたう表現を使わない                                                                                                          |
 
-### 6. デザインの方向性（比較してから決める）
+### 6. デザインの方向性（決定：AC2）
 
-次の4案をモックアップ（ファーストビュー + 1セクション、日本語、ライトとダーク）にして並べて比べ、
-1つに決める（組み合わせてもよい）。
+4案（A. 信頼感・堅実／B. モダン・開発者ツール風／C. 親しみやすさ／
+D. design-system v2 に忠実）と、A×C のミックス3案をモックアップで比べ、
+**AC2「Cの器 × Aの信頼要素」** に決めた。
 
-- **A. 信頼感・堅実**（業務SaaS風）：情シスに響く、落ち着いた配色と整然としたレイアウト
-- **B. モダン・開発者ツール風**：ダーク基調、等幅フォント、大胆なタイポグラフィ
-- **C. 親しみやすさ**：明るい色と図解で、非エンジニアにも気軽に感じてもらう
-- **D. design-system v2 に忠実**：既存のブランドトークンの範囲で表現を磨く
+- **Cから取るもの**：Mist（`#DAECD8`）の大きな角丸パネル、丸いボタン、角丸の大きいカード、
+  やわらかい余白
+- **Aから取るもの**：アプリ画面風の表のプレビュー、「差分 1セル」の表示、
+  「先頭ゼロ・文字コード・改行コード：そのまま」の表示、根拠を並べたセクション
+- 配色は design-system v2 の Preserve green・Paper・Ink・Mist の範囲に収める
+- ダークテーマ版と、360px幅のレイアウトはフェーズ1で設計する
 
 決めた方向性は `design-system/v2/brand/` のトークンに反映する。LPだけで使う値は
 brand レイヤーに置き、アプリと共有している foundations は壊さない。
@@ -163,10 +202,10 @@ brand レイヤーに置き、アプリと共有している foundations は壊�
 
 | #   | 論点                                                                        | 決める人                          |
 | --- | --------------------------------------------------------------------------- | --------------------------------- |
-| Q1  | デザインの方向性（A〜D）                                                    | メンテナー（モックを見てから）    |
+| Q1  | ~~デザインの方向性~~ → **決定：AC2**（§6）                                  | 決定済み                          |
 | Q2  | 地域で分ける解析方針の最終承認と、専門家への確認の要否                      | メンテナー                        |
 | Q3  | ダウンロードCTAのリンク先（最新アセットへの直接リンクか、Releasesページか） | メンテナー                        |
-| Q4  | ヒーローのキャッチコピー（案を複数出して選ぶ）                              | メンテナー                        |
+| Q4  | ヒーローのキャッチコピー（AC2 の案をたたき台にする。§4.6）                  | メンテナー                        |
 | Q5  | 実績・信頼の材料（GitHubのスター数、導入事例、テストの件数など）を載せるか  | メンテナー                        |
 | Q6  | 性能の目標値（§5）を現状の計測をもとに確定する                              | Claude が計測し、メンテナーが承認 |
 
@@ -174,7 +213,7 @@ brand レイヤーに置き、アプリと共有している foundations は壊�
 
 | フェーズ | 内容                                                                     | 完了の条件                                                |
 | -------- | ------------------------------------------------------------------------ | --------------------------------------------------------- |
-| 0        | デザイン4案のモックアップ、コピー案                                      | Q1・Q4 が決まる                                           |
+| 0        | デザイン案のモックアップ、コピー案                                       | Q1（決定済み）・Q4 が決まる                               |
 | 1        | 基盤：部品化したビルド、トークン、レイアウト、ファーストビューと動くデモ | 既存テスト + 外部リソーステスト + `ui:check` がすべて通る |
 | 2        | 残りのセクション、日英のコピー、privacy と terms のデザイン統一          | 翻訳キーが日英で一致、a11yと性能の目標を満たす            |
 | 3        | 解析方針の変更（Pages Functions、同意の処理、privacy の改訂）            | 人間の承認（Q2）を得たうえで、独立したPRにする            |

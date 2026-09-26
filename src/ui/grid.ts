@@ -2060,7 +2060,10 @@ export class Grid {
       const conditionalColor =
         doc.kind === 'rsf' ? doc.getConditionalFormatStyle(row, col)?.textColor : undefined;
       const spans = richTextNodes(rich, doc.kind === 'rsf' ? doc.getStyle(row, col) : null, conditionalColor);
-      cell.replaceChildren(...spans, ...(button ? [button] : []));
+      // One wrapper, so a wrapped row's flex cell lays the parts out as one
+      // run of text rather than as side-by-side flex items.
+      const body = el('span', { className: 'rich-text-body' }, spans);
+      cell.replaceChildren(body, ...(button ? [button] : []));
       cell.classList.toggle('has-filter-button', button !== null);
     } else if (button) {
       // A header-row filter cell: its text node plus the button (the text
@@ -2364,7 +2367,7 @@ export class Grid {
   private cellTextLength(cell: HTMLElement): number {
     let length = 0;
     for (const child of cell.childNodes) {
-      if (child.nodeType === Node.TEXT_NODE || (child as Element).classList?.contains('rich-run')) {
+      if (child.nodeType === Node.TEXT_NODE || (child as Element).classList?.contains('rich-text-body')) {
         length += child.textContent?.length ?? 0;
       }
     }

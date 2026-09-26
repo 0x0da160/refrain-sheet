@@ -323,6 +323,11 @@ describe('rich text: rendering', () => {
     });
     grid.refresh();
     const cell = grid.element.querySelector<HTMLElement>('[data-row="0"][data-col="0"]')!;
+    // One wrapper child: a wrapped row's cell is a flex box, and loose spans
+    // would each become a separate flex item.
+    const bodies = [...cell.children].filter((child) => child.classList.contains('rich-text-body'));
+    expect(bodies).toHaveLength(1);
+    expect(cell.querySelectorAll(':scope > .rich-run')).toHaveLength(0);
     const spans = [...cell.querySelectorAll<HTMLElement>('.rich-run')];
     expect(spans.map((s) => s.textContent)).toEqual(['Hello ', 'world']);
     expect(spans[1].style.fontWeight).toBe('bold');

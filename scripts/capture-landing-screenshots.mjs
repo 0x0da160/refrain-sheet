@@ -2,12 +2,16 @@
 // Capture the landing page's marketing screenshots straight from the real app.
 //
 // Drives the built distribution (dist/index.html) in headless Chromium —
-// same loading path as scripts/ui-check.mjs — through the five UI states the
-// landing page (site/template.html) shows off, and writes each shot
-// into site/assets/ as a master-resolution .webp plus the smaller
-// responsive srcset variants the template already references. Re-run this
-// whenever the UI changes enough that the existing screenshots look stale;
-// it always overwrites the same file names, so no other file needs editing.
+// same loading path as scripts/ui-check.mjs — to the one real UI state the
+// landing page shows (site/partials/csv.html, and the SoftwareApplication
+// screenshot in scripts/build-landing.mjs): a Shift_JIS sales ledger with
+// one edited cell. It writes the shot into site/assets/ as a
+// master-resolution .webp plus the smaller responsive srcset variants the
+// partial already references. Re-run this whenever the UI changes enough
+// that the screenshot looks stale; it always overwrites the same file
+// names, so no other file needs editing. The hero demo is drawn, not
+// captured (brand guidelines D-42) — compare it against a fresh capture of
+// the same flow when either changes.
 //
 //   npm run build                        # dist/ must already exist
 //   npm run capture:landing-screenshots
@@ -63,18 +67,9 @@ const SALES_LEDGER_CSV =
   SALES_LEDGER_ROWS.map((row) => row.join(',')).join('\r\n') +
   '\r\n';
 
-// Row 2 is missing its trailing quote (unclosed quote); row 3 has one field
-// fewer than the header (field-count mismatch) — both are diagnostics
-// `byte-csv-parser.ts` reports and `confirmValidation` renders as a table.
-const RAGGED_CSV = 'name,qty,price\napple,3,100\n"berry,5,200\ncherry,4\n';
-
-/** Each shot's file base name and the responsive widths template.html's srcset expects. */
+/** Each shot's file base name and the responsive widths its srcset (site/partials/csv.html) expects. */
 const SHOTS = {
   'shift-jis-csv-editor': [400, 800],
-  'save-with-options-dialog': [750],
-  'csv-validation-dialog': [400, 750],
-  'file-menu': [800],
-  'dark-theme-english-ui': [800],
 };
 
 async function writeWebp(basename, buffer) {
@@ -125,13 +120,8 @@ async function newPage(browser, { locale, theme }) {
   return page;
 }
 
-/**
- * Picks a file through the welcome screen's Open button. Does not wait for
- * the resulting tab: opening a file with diagnostics blocks on the
- * validation dialog before the grid ever renders, so callers decide what to
- * wait for next (grid cells for a clean open, the dialog for a ragged one).
- */
-async function chooseFile(page, name, bytes) {
+/** Opens a well-formed CSV through the welcome screen's Open button and waits for its grid. */
+async function openCleanFile(page, name, bytes) {
   const buffer = Buffer.from(bytes);
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),
@@ -140,10 +130,6 @@ async function chooseFile(page, name, bytes) {
   // Playwright's setFiles() only accepts real paths or {name, mimeType,
   // buffer}, which is exactly what an in-memory generated fixture needs.
   await chooser.setFiles({ name, mimeType: 'text/csv', buffer });
-}
-
-async function openCleanFile(page, name, bytes) {
-  await chooseFile(page, name, bytes);
   await page.waitForSelector('[data-row][data-col]');
 }
 
@@ -154,9 +140,9 @@ async function editRemarkCell(page) {
   await page.locator('.status-protect-toggle').click();
 
   // Column 4 ("備考"/remarks) of the B-2002 row (row index 2 — row 0 is the
-  // header) — empty in the fixture, so editing it demonstrates the "only the
-  // touched cell turns yellow" claim, matching the B-2002 example already
-  // used in the "minimal diff" mock further up the landing page.
+  // header) — empty in the fixture, so editing it demonstrates the landing
+  // page's "only the cells you edit change" claim: only this cell turns
+  // colored.
   const cell = page.locator('[data-row="2"][data-col="4"]');
   await cell.dblclick();
   await page.keyboard.type('残り12点・要発注');
@@ -168,42 +154,11 @@ async function main() {
   mkdirSync(assetsDir, { recursive: true });
   const browser = await chromium.launch();
   try {
-    {
-      const page = await newPage(browser, { locale: 'ja', theme: 'light' });
-      await openCleanFile(page, 'sales.csv', toShiftJis(SALES_LEDGER_CSV));
-      await editRemarkCell(page);
-      await writeWebp('shift-jis-csv-editor', await page.screenshot());
-
-      await page.getByRole('button', { name: 'ファイル', exact: true }).click();
-      await page.waitForSelector('.menu-list');
-      await writeWebp('file-menu', await page.screenshot());
-
-      await page.getByRole('menuitem', { name: 'エクスポート' }).hover();
-      await page.getByRole('menuitem', { name: 'オプションを指定して保存…' }).click();
-      const saveDialog = page.getByRole('dialog');
-      await saveDialog.waitFor();
-      await writeWebp('save-with-options-dialog', await saveDialog.screenshot());
-      await page.keyboard.press('Escape');
-
-      await page.context().close();
-    }
-
-    {
-      const page = await newPage(browser, { locale: 'ja', theme: 'light' });
-      await chooseFile(page, 'broken.csv', Buffer.from(RAGGED_CSV, 'utf8'));
-      const validationDialog = page.getByRole('dialog');
-      await validationDialog.waitFor();
-      await writeWebp('csv-validation-dialog', await validationDialog.screenshot());
-      await page.context().close();
-    }
-
-    {
-      const page = await newPage(browser, { locale: 'en', theme: 'dark' });
-      await openCleanFile(page, 'sales.csv', toShiftJis(SALES_LEDGER_CSV));
-      await editRemarkCell(page);
-      await writeWebp('dark-theme-english-ui', await page.screenshot());
-      await page.context().close();
-    }
+    const page = await newPage(browser, { locale: 'ja', theme: 'light' });
+    await openCleanFile(page, 'sales.csv', toShiftJis(SALES_LEDGER_CSV));
+    await editRemarkCell(page);
+    await writeWebp('shift-jis-csv-editor', await page.screenshot());
+    await page.context().close();
   } finally {
     await browser.close();
   }

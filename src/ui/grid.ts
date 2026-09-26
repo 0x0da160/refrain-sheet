@@ -375,6 +375,9 @@ export class Grid {
   /** The range currently outlined as a copy source (see `setCopySource`), or
    * null when nothing is being highlighted. */
   private copySource: CellRange | null = null;
+  /** Where each tab's selection was when Escape cleared it, so the next
+   * arrow key moves on from there instead of from A1. */
+  private readonly clearedAt = new WeakMap<Tab, { row: number; col: number }>();
   /** Active whole-row / whole-column header drag, if any. */
   private headerDrag: { axis: 'row' | 'col'; anchor: number; last: number } | null = null;
   /** Active pointer reference entry into a formula editor, if any. */
@@ -823,7 +826,11 @@ export class Grid {
    * filter pins nothing (pinning them would show rows the filter hides).
    */
   private frozenRowCount(tab: Tab): number {
-    let n = Math.max(1, this.state.frozenPanes(tab).rows);
+    const frozen = this.state.frozenPanes(tab).rows;
+    if (frozen === 0 && !this.firstRowHasValues(tab)) {
+      return 0; // an empty first row has nothing worth following the scroll
+    }
+    let n = Math.max(1, frozen);
     // Keep at least one scrollable row on screen: a freeze point far down the
     // sheet pins only as many rows as fit (never measured without a layout).
     const viewH = this.element.clientHeight;
@@ -831,6 +838,22 @@ export class Grid {
       n = Math.min(n, Math.max(1, Math.floor(viewH / this.rowH(tab)) - 2));
     }
     return n > 0 && this.pinnedSlots(tab, n).length > 0 ? n : 0;
+  }
+
+  /** Whether the first displayed row has any non-empty cell (the automatic pin's condition). */
+  private firstRowHasValues(tab: Tab): boolean {
+    const doc = tab.doc;
+    if (doc.rowCount === 0) {
+      return false;
+    }
+    const row = this.docRowOf(tab, 0);
+    const fields = doc.fieldCount(row);
+    for (let c = 0; c < fields; c++) {
+      if (doc.getValue(row, c) !== '') {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -3708,7 +3731,7 @@ export class Grid {
    * sorted view is followed as shown.
    */
   private jumpToDataEdge(tab: Tab, key: string, extend: boolean): void {
-    const sel = tab.selection ?? { row: 0, col: 0 };
+    const sel = tab.selection ?? this.clearedAt.get(tab) ?? { row: 0, col: 0 };
     const doc = tab.doc;
     let row = sel.row;
     let col = sel.col;
@@ -3755,7 +3778,7 @@ export class Grid {
     extend: boolean,
     entryTracking: 'tab' | 'enter' | 'reset' = 'reset',
   ): void {
-    const sel = tab.selection ?? { row: 0, col: 0 };
+    const sel = tab.selection ?? this.clearedAt.get(tab) ?? { row: 0, col: 0 };
     const row = dRow === 0 ? sel.row : this.stepVisibleRow(tab, sel.row, dRow);
     let col = entryTracking === 'enter' && tab.tabEntryCol !== null ? tab.tabEntryCol : sel.col + dCol;
     const fieldCount = tab.doc.fieldCount(row);
@@ -4252,6 +4275,24 @@ export class Grid {
       case 'F2':
         event.preventDefault();
         if (tab.selection) this.openEditor(tab, tab.selection.row, tab.selection.col, null);
+        return;
+      case 'Escape':
+        // Escape first dismisses whatever is in progress (a copy outline, a
+        // drag — see the document-level listener); only when nothing is does
+        // it clear the cell selection itself.
+        if (
+          !tab.selection ||
+          this.copySource ||
+          this.movingRange ||
+          this.filling ||
+          this.resizing ||
+          this.dragging
+        ) {
+          return;
+        }
+        event.preventDefault();
+        this.clearedAt.set(tab, tab.selection);
+        this.state.setSelection(tab, null, null);
         return;
       case 'Delete':
       case 'Backspace':

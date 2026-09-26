@@ -101,6 +101,8 @@ export interface MenuChecks {
   autoFitOnOpen: () => boolean;
   /** Whether the right-side cell comments panel is open. */
   commentsPanel: () => boolean;
+  /** Whether the app is shown full screen (View > Full Screen). */
+  fullscreen: () => boolean;
   /** Whether Bold/Italic/Underline is "on" for the whole current selection. */
   formatActive: (key: 'bold' | 'italic' | 'underline') => boolean;
   /** Whether the active tab is read-only protected (see `Tab.readOnly`). */
@@ -344,6 +346,9 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           command: 'view.commentsPanel',
           checked: checks.commentsPanel,
         },
+        // Menu only: F11 stays the browser's own full screen, which a page
+        // cannot reliably take over in every browser.
+        { labelKey: 'menu.view.fullscreen', command: 'view.fullscreen', checked: checks.fullscreen },
         'separator',
         // Spreadsheet zoom, Spreadsheet Font, and Theme each live in their own
         // submenu: grouping every choice family this way (rather than a

@@ -436,8 +436,8 @@ describe('convert to RSF command', () => {
 });
 
 describe('read-only protection (issue #443)', () => {
-  it('ensureRsf refuses the implicit CSV -> RSF conversion on a protected tab, without asking to convert', async () => {
-    const ui = stubUi();
+  it('ensureRsf refuses the implicit CSV -> RSF conversion on a protected tab while it stays protected', async () => {
+    const ui = stubUi({ confirm: vi.fn(async () => false) });
     const { state, commands } = setup(ui);
     await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
     const tab = state.activeTab!;
@@ -468,17 +468,18 @@ describe('read-only protection (issue #443)', () => {
     expect(tab.doc.kind).toBe('csv');
   });
 
-  it('ensureRsf unlocks the book when the warning is accepted, but still does not itself convert', async () => {
+  it('ensureRsf goes on to the conversion prompt once the warning unlocks the book', async () => {
     const ui = stubUi({ confirm: vi.fn(async () => true) });
     const { state, commands } = setup(ui);
     await commands.openFiles([opened('a.csv', utf8('a,b\n'))], { confirmNonCsv: false });
     const tab = state.activeTab!;
 
     const result = await commands.ensureRsf(tab, 'formula');
-    expect(result).toBeNull();
     expect(tab.readOnly).toBe(false);
-    expect(tab.doc.kind).toBe('csv'); // the original ensureRsf call is not retried
-    expect(ui.confirmConvert).not.toHaveBeenCalled();
+    // The action that needed RSF is not dropped: it continues to the usual prompt.
+    expect(ui.confirmConvert).toHaveBeenCalledTimes(1);
+    expect(result).not.toBeNull();
+    expect(tab.doc.kind).toBe('rsf');
   });
 
   it('file.toggleProtect flips the active tab and back', async () => {
@@ -872,5 +873,49 @@ describe('Help menu commands', () => {
     expect(ui.showAbout).toHaveBeenLastCalledWith('shortcuts');
     await commands.run('help.formula');
     expect(ui.showFormulaHelp).toHaveBeenCalled();
+  });
+});
+
+describe('view.fullscreen', () => {
+  function fakeDocument(enabled: boolean) {
+    const fake = {
+      fullscreenEnabled: enabled,
+      fullscreenElement: null as Element | null,
+      documentElement: {} as HTMLElement,
+      exitFullscreen: vi.fn(async () => {
+        fake.fullscreenElement = null;
+      }),
+    };
+    fake.documentElement.requestFullscreen = vi.fn(async () => {
+      fake.fullscreenElement = fake.documentElement;
+    });
+    return fake;
+  }
+
+  it('enters full screen, then leaves it on the next run', async () => {
+    const dom = fakeDocument(true);
+    const commands = new Commands(new AppState(), stubUi(), dom as unknown as Document);
+    expect(commands.isEnabled('view.fullscreen')).toBe(true);
+    await commands.run('view.fullscreen');
+    expect(commands.isFullscreen()).toBe(true);
+    await commands.run('view.fullscreen');
+    expect(dom.exitFullscreen).toHaveBeenCalledTimes(1);
+    expect(commands.isFullscreen()).toBe(false);
+  });
+
+  it('is disabled where the page may not go full screen', () => {
+    const commands = new Commands(new AppState(), stubUi(), fakeDocument(false) as unknown as Document);
+    expect(commands.isEnabled('view.fullscreen')).toBe(false);
+  });
+
+  it('reports a refused request instead of failing silently', async () => {
+    const dom = fakeDocument(true);
+    dom.documentElement.requestFullscreen = vi.fn(async () => {
+      throw new TypeError('denied');
+    });
+    const ui = stubUi();
+    const commands = new Commands(new AppState(), ui, dom as unknown as Document);
+    await commands.run('view.fullscreen');
+    expect(ui.notify).toHaveBeenCalledWith(t('notify.fullscreenFailed'), 'error');
   });
 });

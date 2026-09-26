@@ -1034,8 +1034,9 @@ export class FileIoCommands {
     if (tab.doc.kind === 'rsf') {
       return tab.doc;
     }
-    if (tab.readOnly) {
-      await warnProtectedAndOfferUnlock(this.ui, this.state, tab, 'book');
+    // Unprotecting here goes straight on to the conversion prompt, so the
+    // action that needed RSF is not lost.
+    if (tab.readOnly && !(await warnProtectedAndOfferUnlock(this.ui, this.state, tab, 'book'))) {
       return null;
     }
     const ok = await this.ui.confirmConvert(reason, tab.name);

@@ -47,6 +47,25 @@ really is internal, rather than inventing an entry to satisfy it.
 - **Text editors follow the OS colours in the hybrid theme.** The Markdown,
   JSON, YAML and text sheet editors now go dark when the OS is dark, like the
   rest of the window; only the spreadsheet grid stays light.
+- View › Full Screen shows the whole app full screen; choose it again, or
+  press Esc, to leave. F11 still gives the browser's own full screen.
+- Esc now clears the cell selection when nothing else is in progress (no
+  cell being edited, no copy outline, no drag). The next arrow key carries
+  on from the cell that was selected.
+
+### Fixed
+
+- Unprotecting a file or unlocking a sheet from the warning that appears
+  when you try to edit it now completes the edit you were making (typing,
+  deleting, pasting, inserting rows, and so on), instead of dropping it so
+  you had to do it again.
+
+### Changed
+
+- **Row 1 follows the scroll only when it has values.** With nothing
+  frozen, an empty first row now scrolls away like any other row; once
+  any cell in it has a value, it stays at the top again. Sticky First Row
+  still pins it either way.
 
 ## [0.9.8] - 2026-09-26
 

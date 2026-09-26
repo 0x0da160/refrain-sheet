@@ -219,6 +219,25 @@ describe('sticky first row', () => {
     expect(grid.element.querySelectorAll('.vgrid-stickyrow').length).toBe(1);
   });
 
+  it('follows the scroll only when the first row has values', () => {
+    const { state, grid, tab } = setup(',,\nr1c0,r1c1,r1c2\nr2c0,r2c1,r2c2\n');
+    const layer = grid.element.querySelector<HTMLElement>('.vgrid-sticky')!;
+    // An empty first row scrolls away like any other row.
+    expect(layer.hidden).toBe(true);
+    expect(grid.element.querySelector('.vgrid-rows [data-row="0"][data-col="0"]')).not.toBeNull();
+    // Once it has a value, it follows the scroll.
+    state.editCell(tab, 0, 1, 'title');
+    grid.refresh();
+    expect(layer.hidden).toBe(false);
+    expect(layer.querySelector('[data-row="0"][data-col="1"]')!.textContent).toBe('title');
+    // Choosing Sticky First Row pins it even when empty.
+    state.editCell(tab, 0, 1, '');
+    state.setStickyFirstRow(true);
+    grid.refresh();
+    expect(layer.hidden).toBe(false);
+    expect(layer.classList.contains('auto')).toBe(false);
+  });
+
   it('keeps row 0 pinned while the scrolling region starts at row 1', () => {
     const { state, grid } = setup(bigCsv(10_000));
     state.setStickyFirstRow(true);
@@ -586,6 +605,36 @@ describe('selection and keyboard interaction', () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     expect(tab.doc.getValue(0, 0)).toBe('r0c0');
     expect(grid.element.querySelector('.cell-editor')).toBeNull();
+  });
+
+  it('Escape clears the cell selection, and the next arrow key moves on from where it was', () => {
+    const { state, grid, tab } = setup(bigCsv(20));
+    state.setSelection(tab, { row: 3, col: 1 }, { row: 2, col: 0 });
+    const esc = (): void =>
+      void grid.element.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      );
+    esc();
+    expect(tab.selection).toBeNull();
+    expect(state.selectedRange(tab)).toBeNull();
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+    );
+    expect(tab.selection).toEqual({ row: 4, col: 1 });
+  });
+
+  it('Escape only dismisses the copy outline when one is shown, keeping the selection', () => {
+    const { state, grid, tab } = setup(bigCsv(20));
+    state.setSelection(tab, { row: 1, col: 1 }, null);
+    grid.setCopySource({ top: 1, left: 1, bottom: 1, right: 1 });
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    expect(tab.selection).toEqual({ row: 1, col: 1 });
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    expect(tab.selection).toBeNull();
   });
 
   it('Delete clears the selected range atomically', async () => {

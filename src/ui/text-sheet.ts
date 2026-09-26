@@ -3,6 +3,7 @@ import type { AppState, Tab } from '../app/app-state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { el } from './dom';
+import { SourceEditor } from './source-editor';
 
 /** How long to wait after the last keystroke before committing an undoable edit. */
 const COMMIT_DEBOUNCE_MS = 600;
@@ -21,6 +22,8 @@ const COMMIT_DEBOUNCE_MS = 600;
  */
 export class TextSheetView {
   readonly element: HTMLElement;
+  /** The editing surface (see `SourceEditor`); `textarea` is its element. */
+  readonly editor: SourceEditor;
   private readonly textarea: HTMLTextAreaElement;
 
   /** The (tab, sheetId) the textarea currently reflects, so a pending debounced edit commits to the right place. */
@@ -31,17 +34,14 @@ export class TextSheetView {
     private readonly state: AppState,
     private readonly commands: Commands,
   ) {
-    const sourceLabel = el('label', {
-      className: 'form-label',
-      text: t('dialog.textEditor.source'),
-      attrs: { for: 'text-sheet-source' },
+    this.editor = new SourceEditor({
+      id: 'text-sheet-source',
+      className: 'text-sheet-source',
+      label: t('dialog.textEditor.source'),
+      indentUnit: '\t',
     });
-    this.textarea = el('textarea', {
-      // Shares the JSON/Markdown source pane's style — see `json-sheet.ts`.
-      className: 'text-sheet-source markdown-editor-source',
-      attrs: { id: 'text-sheet-source', spellcheck: 'false' },
-    }) as HTMLTextAreaElement;
-    const sourcePane = el('div', { className: 'markdown-editor-pane' }, [sourceLabel, this.textarea]);
+    this.textarea = this.editor.textarea;
+    const sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
     const panes = el('div', { className: 'markdown-editor-panes' }, [sourcePane]);
 
     this.element = el('div', { className: 'text-sheet-view' }, [panes]);
@@ -82,7 +82,7 @@ export class TextSheetView {
       // previous binding owed it before loading this one's text.
       this.flushCommit();
       this.bound = { tab, sheetId: sheet.id };
-      this.textarea.value = sheet.plainText;
+      this.editor.setValue(sheet.plainText);
     }
     this.textarea.readOnly = tab.readOnly;
     this.element.hidden = false;

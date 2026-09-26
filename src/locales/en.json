@@ -797,7 +797,7 @@
   "dialog.richText.applyColor": "Color Selected Text",
   "dialog.richText.clear": "Remove Formatting from Selection",
   "dialog.richText.preview": "Preview",
-  "dialog.richText.apply": "Apply",
+  "dialog.richText.apply": "Apply to Cell",
   "menu.format.backgroundColor": "Background Color…",
   "menu.format.borders": "Borders…",
   "menu.format.numberFormat": "Number Format…",

@@ -34,7 +34,7 @@ export const MAX_TEXT_RUNS = 10_000;
 const RUN_KEYS: readonly RunFormatKey[] = ['bold', 'italic', 'underline', 'textColor'];
 
 /** True when a format sets nothing. */
-export function isPlainFormat(format: RunFormat): boolean {
+function isPlainFormat(format: RunFormat): boolean {
   return RUN_KEYS.every((key) => format[key] === undefined);
 }
 
@@ -61,7 +61,7 @@ export function runsEqual(a: readonly TextRun[] | undefined, b: readonly TextRun
 }
 
 /** The text the runs spell out. */
-export function runsText(runs: readonly TextRun[]): string {
+function runsText(runs: readonly TextRun[]): string {
   return runs.map((run) => run.text).join('');
 }
 

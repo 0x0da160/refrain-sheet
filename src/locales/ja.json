@@ -797,7 +797,7 @@
   "dialog.richText.applyColor": "選んだ文字に色を付ける",
   "dialog.richText.clear": "選んだ文字の書式を削除",
   "dialog.richText.preview": "プレビュー",
-  "dialog.richText.apply": "適用",
+  "dialog.richText.apply": "セルに反映",
   "menu.format.backgroundColor": "背景色…",
   "menu.format.borders": "罫線…",
   "menu.format.numberFormat": "数値の書式…",

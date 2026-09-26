@@ -185,8 +185,8 @@ site/         the separate static marketing site, plain JS (npm run build:landin
 knowledge/    the OKF knowledge bundle (architecture, operations, formats,
               agent-loop, domains, ui, references, decisions)
 docs/         the Knip baseline and proposal/analysis records
-design-system/  vendored Refrain Sheet Design System deliverable (tokens,
-              logos, icons); the app copies what it ships into src/
+design-system/  Refrain Sheet Design System, one directory per version (2.0.0 is
+              current); the app copies what it ships into src/
 public/       files served as-is at the site root (favicon)
 ```
 

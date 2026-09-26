@@ -1,0 +1,899 @@
+/*! Refrain Sheet Design System — components  v2.0.0
+ *  Hand-written. Values come only from tokens.css (the build rejects colour
+ *  literals in this file). Reference implementations: the app may use its
+ *  own class names, but must reproduce these metrics and states. */
+
+/* =========================================================================
+   1. Controls
+   Two heights, one anatomy. .rs-control lives in bars, toolbars and menus
+   (--control-h); .rs-btn lives in dialogs and panels (--field-h). Height,
+   padding, type, radius and states belong to the base class; variants may
+   change colour only.
+   ========================================================================= */
+.rs-control,
+.rs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1-5);
+  min-block-size: var(--control-h);
+  padding-block: 0;
+  padding-inline: var(--control-px);
+  font: inherit;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--chrome-text);
+  background-color: transparent;
+  border: var(--border-thin) solid transparent;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: default;
+  user-select: none;
+  transition-property: background-color, border-color, color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
+}
+.rs-btn {
+  min-block-size: var(--field-h);
+  padding-inline: var(--space-3);
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+}
+/* Square icon-only control. It must carry an aria-label and a tooltip. */
+.rs-control--icon,
+.rs-btn--icon {
+  padding-inline: 0;
+  inline-size: var(--control-h);
+}
+.rs-btn--icon {
+  inline-size: var(--field-h);
+}
+
+/* Variants: colour only. */
+.rs-btn--primary {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+.rs-btn--secondary {
+  background-color: var(--chrome-surface);
+  border-color: var(--border-control);
+}
+.rs-btn--danger {
+  background-color: var(--danger);
+  border-color: var(--danger);
+  color: var(--danger-contrast);
+}
+/* .rs-control and .rs-btn--ghost are both "ghost": no fill until hovered. */
+
+@media (hover: hover) {
+  .rs-control:hover,
+  .rs-btn--ghost:hover,
+  .rs-btn--secondary:hover {
+    background-color: var(--chrome-hover);
+  }
+  .rs-btn--primary:hover {
+    background-color: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
+  .rs-btn--danger:hover {
+    background-color: var(--danger-hover);
+    border-color: var(--danger-hover);
+  }
+}
+.rs-control:active,
+.rs-btn--ghost:active,
+.rs-btn--secondary:active {
+  background-color: var(--chrome-pressed);
+  transition-duration: var(--duration-instant);
+}
+.rs-btn--primary:active {
+  background-color: var(--accent-active);
+  border-color: var(--accent-active);
+}
+
+/* On/off toolbar toggles (Bold, Wrap, a docked panel's button). The state is
+   aria-pressed, shown by fill *and* by the accent-coloured icon. */
+.rs-control[aria-pressed='true'] {
+  background-color: var(--accent-subtle);
+  color: var(--accent-subtle-text);
+}
+
+.rs-control:disabled,
+.rs-control[aria-disabled='true'],
+.rs-btn:disabled,
+.rs-btn[aria-disabled='true'] {
+  opacity: 0.4;
+  pointer-events: none;
+}
+/* Busy: keep the label, block input, show progress next to it. */
+.rs-btn[aria-busy='true'] {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Segmented group: only the outer corners are rounded, borders collapse. */
+.rs-group {
+  display: inline-flex;
+}
+.rs-group > .rs-btn {
+  background-color: var(--chrome-surface);
+  border-color: var(--border-control);
+  border-radius: 0;
+}
+.rs-group > .rs-btn:first-child {
+  border-start-start-radius: var(--radius-md);
+  border-end-start-radius: var(--radius-md);
+}
+.rs-group > .rs-btn:last-child {
+  border-start-end-radius: var(--radius-md);
+  border-end-end-radius: var(--radius-md);
+}
+.rs-group > .rs-btn + .rs-btn {
+  margin-inline-start: calc(var(--border-thin) * -1);
+}
+.rs-group > .rs-btn[aria-pressed='true'] {
+  background-color: var(--accent-subtle);
+  color: var(--accent-subtle-text);
+  z-index: 1;
+}
+
+/* Dialog button order: the committing action is rightmost, the safe action
+   just before it. Label with the action ("削除"), plus the object when it
+   cannot be undone ("3 行を削除"); never "OK". */
+.rs-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* =========================================================================
+   2. Forms
+   Label (what), helper (how), placeholder (example), validation (whether).
+   A placeholder is never a label.
+   ========================================================================= */
+.rs-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.rs-field + .rs-field {
+  margin-block-start: var(--stack-gap);
+}
+/* Label beside the control: the dense layout for panels. */
+.rs-field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+}
+.rs-field--inline > .rs-label {
+  flex: 0 0 8em;
+}
+.rs-label {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--chrome-text);
+}
+.rs-label__optional {
+  margin-inline-start: var(--space-1);
+  font-size: var(--text-meta);
+  color: var(--chrome-text-muted);
+}
+
+.rs-input,
+.rs-select,
+.rs-textarea {
+  min-block-size: var(--field-h);
+  padding-block: 0;
+  padding-inline: var(--space-2);
+  font: inherit;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--chrome-text);
+  background-color: var(--chrome-surface);
+  border: var(--border-thin) solid var(--border-control);
+  border-radius: var(--radius-md);
+  accent-color: var(--accent);
+}
+.rs-textarea {
+  min-block-size: calc(var(--field-h) * 3);
+  padding-block: var(--space-1-5);
+  resize: vertical;
+}
+.rs-input--data {
+  font-family: var(--font-data);
+  font-feature-settings: var(--font-feature-data);
+}
+.rs-input::placeholder,
+.rs-textarea::placeholder {
+  color: var(--chrome-text-subtle);
+  opacity: 1;
+}
+@media (hover: hover) {
+  .rs-input:hover,
+  .rs-select:hover,
+  .rs-textarea:hover {
+    border-color: var(--chrome-text-muted);
+  }
+}
+.rs-input:focus-visible,
+.rs-select:focus-visible,
+.rs-textarea:focus-visible {
+  outline-offset: 0;
+  border-color: var(--focus-ring);
+}
+.rs-input[aria-invalid='true'],
+.rs-select[aria-invalid='true'],
+.rs-textarea[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+.rs-input:disabled,
+.rs-select:disabled,
+.rs-textarea:disabled {
+  opacity: 0.4;
+  background-color: var(--chrome-sunken);
+}
+/* iOS Safari zooms the page when a field under 16px takes focus. */
+@media (pointer: coarse) {
+  .rs-input,
+  .rs-select,
+  .rs-textarea {
+    font-size: max(1rem, var(--text-body));
+  }
+}
+
+/* Native checkbox and radio, recoloured with accent-color: the platform
+   control keeps its keyboard, forced-colors and zoom behaviour. */
+.rs-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--control-h);
+  accent-color: var(--accent);
+}
+.rs-check > input {
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+  margin: 0;
+}
+
+.rs-helper,
+.rs-error {
+  margin: 0;
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
+  color: var(--chrome-text-muted);
+}
+.rs-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--danger-text);
+}
+
+.rs-fieldset {
+  margin: 0;
+  padding: var(--inset);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-lg);
+}
+.rs-fieldset > legend {
+  padding-inline: var(--space-1);
+  font-weight: var(--weight-bold);
+}
+
+/* =========================================================================
+   3. Chips — one class per meaning, no generic badge. Read-only: no hover,
+   no pointer. em-based so they follow the surrounding text size.
+   ========================================================================= */
+.rs-tag,
+.rs-kbd,
+.rs-code,
+.rs-metric {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  line-height: 1;
+  font-size: 0.875em;
+  color: var(--chrome-text-muted);
+  background-color: var(--chrome-sunken);
+  border: var(--border-thin) solid var(--chrome-border);
+}
+.rs-tag {
+  padding: 0.25em 0.6em;
+  border-radius: var(--radius-full);
+  color: var(--chrome-text);
+}
+.rs-kbd,
+.rs-code,
+.rs-metric {
+  padding: 0.2em 0.45em;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-code);
+  font-feature-settings: var(--font-feature-data);
+}
+.rs-kbd {
+  box-shadow: var(--shadow-xs);
+}
+.rs-tag--added {
+  background-color: var(--state-added);
+  color: var(--state-added-text);
+}
+.rs-tag--modified {
+  background-color: var(--state-modified);
+  color: var(--state-modified-text);
+}
+.rs-tag--removed {
+  background-color: var(--state-removed);
+  color: var(--state-removed-text);
+}
+.rs-dot {
+  display: inline-block;
+  inline-size: 0.5em;
+  block-size: 0.5em;
+  margin-inline-end: var(--space-1);
+  border-radius: var(--radius-full);
+  background-color: currentColor;
+  vertical-align: middle;
+}
+
+/* =========================================================================
+   4. Surfaces — each surface uses exactly one separation device.
+   Border: panels, cards, bars. Elevation (shadow + border in light): menus,
+   popovers, dialogs, toasts. Fill: wells, selected rows.
+   ========================================================================= */
+.rs-panel,
+.rs-card {
+  background-color: var(--chrome-surface);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-lg);
+  padding: var(--inset);
+}
+.rs-well {
+  background-color: var(--chrome-sunken);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+.rs-raised {
+  background-color: var(--chrome-raised);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+.rs-separator {
+  flex: none;
+  align-self: stretch;
+  margin: var(--space-1);
+  border: 0;
+  border-inline-start: var(--border-thin) solid var(--chrome-border);
+}
+.rs-separator--horizontal {
+  margin: var(--space-1) 0;
+  border-inline-start: 0;
+  border-block-start: var(--border-thin) solid var(--chrome-border);
+}
+
+/* =========================================================================
+   5. App shell
+   Fixed frame, one scrolling region (the sheet). Rows: menu bar (with the
+   document tabs sharing its row when wide), formula bar, main, sheet strip,
+   status bar. All bars share --bar-h and one left content edge.
+   ========================================================================= */
+.rs-app {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr);
+  block-size: 100dvh;
+  overflow: hidden;
+  background-color: var(--chrome-bg);
+  color: var(--chrome-text);
+}
+.rs-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0-5);
+  min-block-size: var(--bar-h);
+  min-inline-size: 0;
+  padding-inline: var(--space-2);
+  background-color: var(--chrome-surface);
+  border-block-end: var(--border-thin) solid var(--chrome-border);
+}
+/* A bar never scrolls or wraps: what does not fit collapses into a menu,
+   and only the tab list scrolls. Menus are fixed-positioned, so clipping the
+   bar does not clip them. */
+.rs-bar > :not(.rs-tabs) {
+  flex-shrink: 0;
+}
+.rs-bar {
+  overflow-x: clip;
+}
+.rs-bar--bottom {
+  border-block-end: 0;
+  border-block-start: var(--border-thin) solid var(--chrome-border);
+}
+.rs-bar__spacer {
+  flex: 1;
+}
+.rs-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-block-size: 0;
+}
+
+/* Status bar: quiet, always visible, colour only when something is wrong.
+   Items read left to right as: document facts, then selection facts. */
+.rs-statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: var(--statusbar-h);
+  padding-inline: var(--space-2);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
+  color: var(--chrome-text-muted);
+  background-color: var(--chrome-surface);
+  border-block-start: var(--border-thin) solid var(--chrome-border);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.rs-statusbar__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.rs-statusbar__item[data-tone='warning'] {
+  color: var(--warning-text);
+}
+.rs-statusbar__item[data-tone='danger'] {
+  color: var(--danger-text);
+}
+/* Numbers in the status bar are data: fixed-pitch digits. */
+.rs-statusbar__value {
+  font-family: var(--font-data);
+}
+
+/* =========================================================================
+   6. Menus
+   Menu bar items open drop-downs; drop-downs, context menus and submenus
+   share one item anatomy: [icon/check 16] [label] [shortcut] [chevron].
+   ========================================================================= */
+.rs-menubar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0-5);
+}
+.rs-menubar > button {
+  min-block-size: var(--control-h);
+  padding-inline: var(--control-px);
+  font: inherit;
+  color: var(--chrome-text);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+@media (hover: hover) {
+  .rs-menubar > button:hover {
+    background-color: var(--chrome-hover);
+  }
+}
+.rs-menubar > button[aria-expanded='true'] {
+  background-color: var(--chrome-pressed);
+}
+
+.rs-menu {
+  min-inline-size: 14rem;
+  max-block-size: calc(100dvh - var(--space-8));
+  overflow-y: auto;
+  padding: var(--space-1);
+  background-color: var(--chrome-raised);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  z-index: var(--z-menu);
+}
+.rs-menu__item {
+  display: grid;
+  grid-template-columns: var(--icon-sm) minmax(0, 1fr) auto var(--icon-sm);
+  align-items: center;
+  column-gap: var(--space-2);
+  min-block-size: var(--control-h);
+  padding-inline: var(--control-px);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--chrome-text);
+  border-radius: var(--radius-sm);
+  cursor: default;
+  user-select: none;
+}
+/* Highlight follows the pointer and the keyboard alike. */
+.rs-menu__item:focus-visible,
+.rs-menu__item[data-highlighted] {
+  outline: none;
+  background-color: var(--chrome-hover);
+}
+@media (hover: hover) {
+  .rs-menu__item:hover {
+    background-color: var(--chrome-hover);
+  }
+}
+.rs-menu__item[aria-disabled='true'] {
+  opacity: 0.4;
+}
+.rs-menu__icon {
+  grid-column: 1;
+  color: var(--chrome-text-muted);
+}
+.rs-menu__item[aria-checked='true'] .rs-menu__icon {
+  color: var(--accent-text);
+}
+.rs-menu__label {
+  grid-column: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rs-menu__shortcut {
+  grid-column: 3;
+  padding-inline-start: var(--space-4);
+  font-family: var(--font-code);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  color: var(--chrome-text-muted);
+}
+.rs-menu__chevron {
+  grid-column: 4;
+  color: var(--chrome-text-muted);
+}
+.rs-menu__group {
+  padding: var(--space-1-5) var(--control-px) var(--space-1);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
+  font-weight: var(--weight-bold);
+  color: var(--chrome-text-muted);
+}
+.rs-menu__separator {
+  margin: var(--space-1) calc(var(--space-1) * -1);
+  border: 0;
+  border-block-start: var(--border-thin) solid var(--chrome-border);
+}
+
+/* =========================================================================
+   7. Tabs
+   Document tabs sit in the top bar with the indicator on their bottom edge;
+   worksheet tabs sit in the bottom strip with the indicator on top. The
+   selected tab is marked by fill, weight and indicator — never colour only.
+   ========================================================================= */
+.rs-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-0-5);
+  min-inline-size: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.rs-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  max-inline-size: 16rem;
+  min-block-size: var(--control-h);
+  padding-inline: var(--control-px);
+  font: inherit;
+  color: var(--chrome-text-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  cursor: default;
+}
+.rs-tab__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (hover: hover) {
+  .rs-tab:hover {
+    background-color: var(--chrome-hover);
+    color: var(--chrome-text);
+  }
+}
+.rs-tab[aria-selected='true'] {
+  color: var(--chrome-text);
+  font-weight: var(--weight-bold);
+  background-color: var(--chrome-raised);
+}
+.rs-tab[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  inset-inline: var(--space-1);
+  inset-block-end: 0;
+  block-size: var(--border-strong);
+  border-radius: var(--radius-full);
+  background-color: var(--accent);
+}
+.rs-tabs--bottom .rs-tab[aria-selected='true']::after {
+  inset-block-end: auto;
+  inset-block-start: 0;
+}
+/* Unsaved document: a filled dot before the close button (shape, not colour). */
+.rs-tab__dirty {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: var(--radius-full);
+  background-color: currentColor;
+}
+
+/* =========================================================================
+   8. Formula bar
+   [name box, data font] [fx] [input, data font, grows to multi-line].
+   ========================================================================= */
+.rs-formula-bar {
+  display: flex;
+  flex: 1;
+  min-inline-size: 0;
+  align-items: center;
+  gap: var(--space-1);
+}
+.rs-formula-bar__name,
+.rs-formula-bar__input {
+  min-block-size: var(--control-h);
+  padding-inline: var(--space-1-5);
+  font-family: var(--font-data);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--chrome-text);
+  background-color: var(--chrome-surface);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-sm);
+}
+.rs-formula-bar__name {
+  inline-size: 7em;
+  flex: none;
+}
+.rs-formula-bar__input {
+  flex: 1;
+  min-inline-size: 0;
+}
+.rs-formula-bar__fx {
+  flex: none;
+  color: var(--chrome-text-muted);
+}
+
+/* =========================================================================
+   9. Overlays
+   Tooltip   — does not block; 1–2 lines; names + shortcut.
+   Popover   — does not block; closes on Esc and outside click.
+   Panel     — docked beside the grid; never covers the active cell.
+   Dialog    — non-modal floats above panels; modal adds a scrim.
+   Destructive confirmations: Esc and scrim click do nothing; the committing
+   button names the verb and the object.
+   ========================================================================= */
+.rs-tooltip {
+  max-inline-size: 20rem;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-meta);
+  line-height: var(--leading-meta);
+  color: var(--inverse-text);
+  background-color: var(--inverse-bg);
+  border-radius: var(--radius-sm);
+  z-index: var(--z-tooltip);
+  pointer-events: none;
+}
+.rs-tooltip__shortcut {
+  margin-inline-start: var(--space-2);
+  font-family: var(--font-code);
+  color: var(--inverse-text-muted);
+}
+
+.rs-popover {
+  padding: var(--inset);
+  background-color: var(--chrome-raised);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  z-index: var(--z-popover);
+}
+
+/* Docked side panel (filter, sort, format, SQL, comments, preview). */
+.rs-dock {
+  display: flex;
+  flex-direction: column;
+  inline-size: clamp(16rem, 28vw, 32rem);
+  min-block-size: 0;
+  background-color: var(--chrome-surface);
+  border-inline-start: var(--border-thin) solid var(--chrome-border);
+  z-index: var(--z-panel);
+}
+.rs-dock__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--bar-h);
+  padding-inline: var(--inset) var(--space-1);
+  border-block-end: var(--border-thin) solid var(--chrome-border);
+}
+.rs-dock__title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-weight: var(--weight-bold);
+}
+.rs-dock__body {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: var(--inset);
+}
+.rs-dock__foot {
+  padding: var(--inset);
+  border-block-start: var(--border-thin) solid var(--chrome-border);
+}
+
+.rs-scrim {
+  position: fixed;
+  inset: 0;
+  background-color: var(--overlay);
+  z-index: var(--z-modal);
+}
+.rs-dialog {
+  display: flex;
+  flex-direction: column;
+  inline-size: min(32rem, calc(100vw - var(--space-8)));
+  max-block-size: min(86dvh, 48rem);
+  padding: 0;
+  color: var(--chrome-text);
+  background-color: var(--chrome-raised);
+  border: var(--border-thin) solid var(--chrome-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-modal);
+}
+.rs-dialog--wide {
+  inline-size: min(48rem, calc(100vw - var(--space-8)));
+}
+.rs-dialog::backdrop {
+  background-color: var(--overlay);
+}
+.rs-dialog__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-4) var(--space-2);
+}
+.rs-dialog__title {
+  flex: 1;
+  margin: 0;
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
+  font-weight: var(--weight-bold);
+}
+.rs-dialog__body {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-4);
+}
+.rs-dialog__foot {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+/* Below the mobile breakpoint a dialog becomes a bottom sheet. */
+@media (max-width: 48em) {
+  .rs-dialog {
+    position: fixed;
+    inset-block-end: 0;
+    inset-inline: 0;
+    inline-size: 100vw;
+    max-block-size: 90dvh;
+    margin: 0;
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+  }
+  .rs-dock {
+    position: fixed;
+    inset-inline: 0;
+    inset-block-end: 0;
+    inline-size: 100vw;
+    max-block-size: 70dvh;
+    border-inline-start: 0;
+    border-block-start: var(--border-thin) solid var(--chrome-border);
+    border-start-start-radius: var(--radius-xl);
+    border-start-end-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+/* =========================================================================
+   10. Feedback
+   Toast: one at a time, top-right, inverse surface. Success disappears after
+   4–6 s; an error stays until dismissed and always offers a way forward
+   (retry, undo, save elsewhere).
+   Banner: in-flow, persistent, explains a document-level condition.
+   ========================================================================= */
+.rs-toast {
+  position: fixed;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  inline-size: min(26rem, calc(100vw - var(--space-6)));
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--inverse-text);
+  background-color: var(--inverse-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-toast);
+}
+.rs-toast__message {
+  flex: 1;
+}
+.rs-toast--danger {
+  color: var(--danger-contrast);
+  background-color: var(--danger);
+}
+
+.rs-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  color: var(--chrome-text);
+  background-color: var(--info-subtle);
+  border-inline-start: var(--border-thick) solid var(--info);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.rs-banner--warning {
+  background-color: var(--warning-subtle);
+  border-inline-start-color: var(--warning);
+}
+.rs-banner--danger {
+  background-color: var(--danger-subtle);
+  border-inline-start-color: var(--danger);
+}
+.rs-banner__title {
+  font-weight: var(--weight-bold);
+}
+
+/* Determinate progress: long parse, save, recompute. Always paired with a
+   percentage label; indeterminate only when no estimate exists. */
+.rs-progress {
+  inline-size: 100%;
+  block-size: var(--space-1);
+  overflow: hidden;
+  background-color: var(--chrome-sunken);
+  border-radius: var(--radius-full);
+}
+.rs-progress__bar {
+  block-size: 100%;
+  background-color: var(--accent);
+  border-radius: inherit;
+  transition: inline-size var(--duration-base) var(--ease-out);
+}
+
+.rs-skeleton {
+  background-color: var(--chrome-sunken);
+  border-radius: var(--radius-sm);
+}
+
+/* Empty state: says what the area is for and offers the next action. */
+.rs-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--chrome-text-muted);
+}
+.rs-empty__title {
+  margin: 0;
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
+  color: var(--chrome-text);
+}

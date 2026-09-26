@@ -1,0 +1,371 @@
+/*! Refrain Sheet Design System — grid & source editors  v2.0.0
+ *  Hand-written. Values come only from tokens.css (the build rejects colour
+ *  literals in this file).
+ *
+ *  The canvas is document space: it uses canvas-* / state-* / ref-* /
+ *  syntax-* tokens only, never chrome-*, so the hybrid theme can keep it on
+ *  paper while the shell goes dark. Geometry is px multiplied by
+ *  --sheet-zoom (the grid measures itself; rem would break that). */
+
+/* =========================================================================
+   1. Grid frame
+   ========================================================================= */
+.rs-grid {
+  --sheet-zoom: 1;
+  --_row: calc(var(--grid-row-h) * var(--sheet-zoom));
+  --_px: calc(var(--grid-cell-px) * var(--sheet-zoom));
+  position: relative;
+  overflow: auto;
+  overscroll-behavior: contain;
+  font-family: var(--font-data);
+  font-feature-settings: var(--font-feature-data);
+  font-size: calc(var(--grid-font-size) * var(--sheet-zoom));
+  color: var(--canvas-text);
+  background-color: var(--canvas-bg);
+  outline-offset: calc(var(--focus-width) * -1);
+}
+.rs-grid:focus-visible {
+  outline-color: var(--canvas-focus-ring);
+}
+
+/* Every cell is exactly one row tall, border-box, with a single shared 1px
+   line on its end and bottom edges. line-height fills what is left, so the
+   line box centres the glyphs in every font. */
+.rs-cell,
+.rs-colhead,
+.rs-rowhead {
+  position: relative;
+  box-sizing: border-box;
+  block-size: var(--_row);
+  padding-inline: var(--_px);
+  line-height: calc(var(--_row) - var(--border-thin));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  border-inline-end: var(--border-thin) solid var(--canvas-grid);
+  border-block-end: var(--border-thin) solid var(--canvas-grid);
+  border-radius: var(--radius-cell);
+}
+/* Numbers (and dates, and computed numbers) align to the end, text to the
+   start — the one alignment rule a spreadsheet user relies on without
+   reading. */
+.rs-cell[data-type='number'] {
+  text-align: end;
+}
+.rs-cell[data-type='boolean'],
+.rs-cell[data-type='error'] {
+  text-align: center;
+}
+
+.rs-colhead,
+.rs-rowhead,
+.rs-corner {
+  font-family: var(--font-data);
+  color: var(--canvas-header-text);
+  background-color: var(--canvas-header-bg);
+  user-select: none;
+}
+.rs-colhead {
+  text-align: center;
+  border-block-end-color: var(--canvas-grid-strong);
+}
+.rs-rowhead {
+  min-inline-size: calc(var(--grid-rowhead-min-w) * var(--sheet-zoom));
+  text-align: end;
+  border-inline-end-color: var(--canvas-grid-strong);
+}
+/* Headers of the selected rows/columns: fill + bold, so the position of the
+   selection is readable from the edges of the sheet. */
+.rs-colhead[aria-selected='true'],
+.rs-rowhead[aria-selected='true'] {
+  color: var(--canvas-header-selected-text);
+  background-color: var(--canvas-header-selected-bg);
+  font-weight: var(--weight-bold);
+}
+.rs-colhead[aria-selected='true'] {
+  box-shadow: inset 0 calc(var(--border-strong) * -1) 0 var(--canvas-selection-border);
+}
+.rs-rowhead[aria-selected='true'] {
+  box-shadow: inset calc(var(--border-strong) * -1) 0 0 var(--canvas-selection-border);
+}
+
+/* Optional banded rows. Off by default: bands compete with user fills. */
+.rs-grid[data-banded] .rs-row:nth-child(even) > .rs-cell {
+  background-color: var(--canvas-row-alt);
+}
+
+/* Frozen rows/columns end on a stronger line. */
+.rs-cell[data-frozen-edge='block'],
+.rs-rowhead[data-frozen-edge='block'] {
+  border-block-end: var(--border-strong) solid var(--canvas-frozen-divider);
+}
+.rs-cell[data-frozen-edge='inline'] {
+  border-inline-end: var(--border-strong) solid var(--canvas-frozen-divider);
+}
+
+/* Cells past the end of a short CSV record: they do not exist in the file. */
+.rs-cell--void {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--canvas-bg) 0 6px,
+    var(--canvas-row-alt) 6px 12px
+  );
+}
+
+/* =========================================================================
+   2. Selection
+   Range  — translucent fill (user fills stay visible) + 1px edge.
+   Active — 2px border inside the cell, no fill: it is where typing goes.
+   Fill handle — square on the active corner; move handle — rounded, top-left.
+   ========================================================================= */
+.rs-range {
+  position: absolute;
+  pointer-events: none;
+  background-color: var(--canvas-range-fill);
+  box-shadow: inset 0 0 0 var(--border-thin) var(--canvas-selection-border);
+}
+.rs-active-cell {
+  position: absolute;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 var(--border-strong) var(--canvas-selection-border);
+}
+.rs-fill-handle {
+  position: absolute;
+  inline-size: calc(var(--grid-fill-handle) * var(--sheet-zoom));
+  block-size: calc(var(--grid-fill-handle) * var(--sheet-zoom));
+  background-color: var(--canvas-selection-border);
+  border: var(--border-thin) solid var(--canvas-bg);
+  border-radius: var(--radius-cell);
+  cursor: crosshair;
+  touch-action: none;
+}
+.rs-move-handle {
+  position: absolute;
+  inline-size: calc(10px * var(--sheet-zoom));
+  block-size: calc(10px * var(--sheet-zoom));
+  background-color: var(--canvas-selection-border);
+  border: var(--border-thin) solid var(--canvas-bg);
+  border-radius: var(--radius-xs);
+  cursor: move;
+  touch-action: none;
+}
+/* Touch: handles grow to a 24px hit area without growing visually. */
+@media (pointer: coarse) {
+  .rs-fill-handle::before,
+  .rs-move-handle::before {
+    content: '';
+    position: absolute;
+    inset: calc(var(--space-2) * -1);
+  }
+}
+
+/* Copy source: marching ants. With reduced motion, a static dashed edge. */
+.rs-copy-marquee {
+  position: absolute;
+  pointer-events: none;
+  outline: var(--border-strong) dashed var(--canvas-selection-border);
+  outline-offset: calc(var(--border-strong) * -1);
+  animation: rs-marquee 600ms steps(4) infinite;
+}
+@keyframes rs-marquee {
+  50% {
+    outline-color: var(--canvas-bg);
+  }
+}
+
+/* Find: every match tinted, the current one outlined. The tint is an image
+   layer, so it sits on top of a user's own cell fill instead of replacing it. */
+.rs-find-match {
+  background-image: linear-gradient(var(--canvas-find-match), var(--canvas-find-match));
+}
+.rs-find-match[aria-current='true'] {
+  box-shadow: inset 0 0 0 var(--border-strong) var(--canvas-find-current);
+}
+
+/* =========================================================================
+   3. Cell states — each has a colour AND a shape, so none relies on colour.
+   Corners are reserved: top-right = comment, bottom-left = formula,
+   bottom-right = fill handle, inline-start edge = edited change bar.
+   ========================================================================= */
+.rs-cell[data-edited] {
+  background-color: var(--state-modified);
+  box-shadow: inset var(--border-strong) 0 0 var(--canvas-edited-mark);
+}
+.rs-cell[data-formula] {
+  color: var(--canvas-formula-text);
+}
+.rs-cell[data-formula]::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-end: 0;
+  border-inline-start: calc(4px * var(--sheet-zoom)) solid var(--canvas-formula-mark);
+  border-block-start: calc(4px * var(--sheet-zoom)) solid transparent;
+  pointer-events: none;
+}
+.rs-cell[data-comment]::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: 0;
+  border-inline-start: calc(var(--grid-mark) * var(--sheet-zoom)) solid transparent;
+  border-block-start: calc(var(--grid-mark) * var(--sheet-zoom)) solid var(--canvas-comment-mark);
+  pointer-events: none;
+}
+/* Error values: the literal code (#DIV/0!), bold, red. */
+.rs-cell[data-type='error'] {
+  color: var(--canvas-error-text);
+  font-weight: var(--weight-bold);
+}
+/* Unparseable source (a malformed CSV quote, invalid JSON): wavy underline. */
+.rs-cell[data-malformed] {
+  text-decoration: underline wavy var(--canvas-error-text);
+  text-underline-offset: 3px;
+}
+/* Diff states. */
+.rs-cell[data-state='added'] {
+  background-color: var(--state-added);
+  color: var(--state-added-text);
+}
+.rs-cell[data-state='modified'] {
+  background-color: var(--state-modified);
+  color: var(--state-modified-text);
+}
+.rs-cell[data-state='removed'] {
+  background-color: var(--state-removed);
+  color: var(--state-removed-text);
+  text-decoration: line-through;
+}
+
+/* =========================================================================
+   4. Formula references — colour + border pattern, cycled in this order.
+   ========================================================================= */
+.rs-ref {
+  position: absolute;
+  pointer-events: none;
+}
+.rs-ref[data-ref='1'] {
+  background-color: var(--ref-1-fill);
+  outline: var(--border-strong) solid var(--ref-1);
+}
+.rs-ref[data-ref='2'] {
+  background-color: var(--ref-2-fill);
+  outline: var(--border-strong) dashed var(--ref-2);
+}
+.rs-ref[data-ref='3'] {
+  background-color: var(--ref-3-fill);
+  outline: var(--border-strong) dotted var(--ref-3);
+}
+.rs-ref[data-ref='4'] {
+  background-color: var(--ref-4-fill);
+  outline: calc(var(--border-strong) + var(--border-thin)) double var(--ref-4);
+}
+.rs-ref {
+  outline-offset: calc(var(--border-strong) * -1);
+}
+/* The same colour marks the reference text in the formula bar. */
+.rs-ref-token[data-ref='1'] {
+  color: var(--ref-1);
+}
+.rs-ref-token[data-ref='2'] {
+  color: var(--ref-2);
+}
+.rs-ref-token[data-ref='3'] {
+  color: var(--ref-3);
+}
+.rs-ref-token[data-ref='4'] {
+  color: var(--ref-4);
+}
+
+/* =========================================================================
+   5. In-cell editing and header controls
+   ========================================================================= */
+.rs-cell-editor {
+  position: absolute;
+  margin: 0;
+  padding-inline: calc(var(--_px) - var(--border-strong));
+  font: inherit;
+  line-height: calc(var(--_row) - var(--border-thin) - var(--border-strong) * 2);
+  color: var(--canvas-text);
+  background-color: var(--canvas-bg);
+  border: var(--border-strong) solid var(--canvas-selection-border);
+  border-radius: var(--radius-cell);
+  box-shadow: var(--shadow-md);
+  outline: none;
+}
+/* Filter button in a column header. A real button: 16px visible, 24px hit. */
+.rs-filter-button {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: calc(var(--space-1) * var(--sheet-zoom));
+  translate: 0 -50%;
+  display: inline-grid;
+  place-items: center;
+  inline-size: var(--icon-sm);
+  block-size: var(--icon-sm);
+  padding: 0;
+  color: var(--canvas-header-text);
+  background-color: var(--canvas-bg);
+  border: var(--border-thin) solid var(--canvas-grid-strong);
+  border-radius: var(--radius-xs);
+}
+.rs-filter-button::before {
+  content: '';
+  position: absolute;
+  inset: calc(var(--space-1) * -1);
+}
+.rs-filter-button[aria-pressed='true'] {
+  color: var(--canvas-bg);
+  background-color: var(--canvas-selection-border);
+  border-color: var(--canvas-selection-border);
+}
+
+/* =========================================================================
+   6. Source editors (JSON / YAML / Markdown / text worksheets)
+   Same canvas surface as the grid; monospace; line numbers in the header
+   colours; syntax colours are never the only cue (structure stays readable
+   in monochrome).
+   ========================================================================= */
+.rs-source {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  font-family: var(--font-code);
+  font-feature-settings: var(--font-feature-data);
+  font-size: calc(var(--grid-font-size) * var(--sheet-zoom));
+  line-height: 1.6;
+  color: var(--canvas-text);
+  background-color: var(--canvas-bg);
+  tab-size: 2;
+}
+.rs-source__gutter {
+  padding-inline: var(--space-2);
+  text-align: end;
+  color: var(--canvas-header-text);
+  background-color: var(--canvas-header-bg);
+  border-inline-end: var(--border-thin) solid var(--canvas-grid);
+  user-select: none;
+}
+.rs-source__text {
+  margin: 0;
+  padding-inline: var(--space-3);
+  white-space: pre;
+  outline: none;
+}
+.rs-syn-key {
+  color: var(--syntax-key);
+}
+.rs-syn-string {
+  color: var(--syntax-string);
+}
+.rs-syn-number {
+  color: var(--syntax-number);
+}
+.rs-syn-literal {
+  color: var(--syntax-literal);
+}
+.rs-syn-punct {
+  color: var(--syntax-punct);
+}
+.rs-syn-heading {
+  font-weight: var(--weight-bold);
+}

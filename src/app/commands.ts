@@ -1254,9 +1254,9 @@ export class Commands {
     if (!encoded.ok) {
       return false; // unreachable for UTF-8, kept for type-safety with encodeCsvExport's signature
     }
-    const base = tab.name.replace(/\.(rsf|rcsv|csv)$/i, '');
+    const name = `${tab.name.replace(/\.(rsf|rcsv|csv)$/i, '')}-diff.csv`;
     try {
-      await saveBytesAs(this.dom, `${base}-diff.csv`, encoded.bytes, 'csv');
+      await saveBytesAs(this.dom, name, encoded.bytes, 'csv');
       return true;
     } catch (err) {
       // A cancelled save picker (AbortError) is a silent no-op, matching every
@@ -1265,7 +1265,7 @@ export class Commands {
         return false;
       }
       this.ui.notify(
-        t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
+        t('notify.saveFailed', { name, error: err instanceof Error ? err.message : String(err) }),
         'error',
       );
       return false;

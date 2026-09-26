@@ -856,6 +856,7 @@ describe('saving and exporting RSF', () => {
       expect(tab.handle).toBeNull(); // association untouched
       expect(tab.doc.isDirty).toBe(true); // still unsaved
       expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining('disk full'), 'error');
+      expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining(`"${tab.name}"`), 'error');
     } finally {
       restore();
     }

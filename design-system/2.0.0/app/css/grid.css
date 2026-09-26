@@ -3,9 +3,10 @@
  *  literals in this file).
  *
  *  The canvas is document space: it uses canvas-* / state-* / ref-* /
- *  syntax-* tokens only, never chrome-*, so the hybrid theme can keep it on
- *  paper while the shell goes dark. Geometry is px multiplied by
- *  --sheet-zoom (the grid measures itself; rem would break that). */
+ *  syntax-* tokens only, never the shell tokens (bg-*, fg-*, border-*), so
+ *  the hybrid theme can keep it on paper while the shell goes dark.
+ *  Geometry is px multiplied by --sheet-zoom (the grid measures itself;
+ *  rem would break that). */
 
 /* =========================================================================
    1. Grid frame
@@ -38,12 +39,12 @@
   box-sizing: border-box;
   block-size: var(--_row);
   padding-inline: var(--_px);
-  line-height: calc(var(--_row) - var(--border-thin));
+  line-height: calc(var(--_row) - var(--stroke-thin));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
-  border-inline-end: var(--border-thin) solid var(--canvas-grid);
-  border-block-end: var(--border-thin) solid var(--canvas-grid);
+  border-inline-end: var(--stroke-thin) solid var(--canvas-grid);
+  border-block-end: var(--stroke-thin) solid var(--canvas-grid);
   border-radius: var(--radius-cell);
 }
 /* Numbers (and dates, and computed numbers) align to the end, text to the
@@ -83,10 +84,10 @@
   font-weight: var(--weight-bold);
 }
 .rs-colhead[aria-selected='true'] {
-  box-shadow: inset 0 calc(var(--border-strong) * -1) 0 var(--canvas-selection-border);
+  box-shadow: inset 0 calc(var(--stroke-medium) * -1) 0 var(--canvas-selection-border);
 }
 .rs-rowhead[aria-selected='true'] {
-  box-shadow: inset calc(var(--border-strong) * -1) 0 0 var(--canvas-selection-border);
+  box-shadow: inset calc(var(--stroke-medium) * -1) 0 0 var(--canvas-selection-border);
 }
 
 /* Optional banded rows. Off by default: bands compete with user fills. */
@@ -97,10 +98,10 @@
 /* Frozen rows/columns end on a stronger line. */
 .rs-cell[data-frozen-edge='block'],
 .rs-rowhead[data-frozen-edge='block'] {
-  border-block-end: var(--border-strong) solid var(--canvas-frozen-divider);
+  border-block-end: var(--stroke-medium) solid var(--canvas-frozen-divider);
 }
 .rs-cell[data-frozen-edge='inline'] {
-  border-inline-end: var(--border-strong) solid var(--canvas-frozen-divider);
+  border-inline-end: var(--stroke-medium) solid var(--canvas-frozen-divider);
 }
 
 /* Cells past the end of a short CSV record: they do not exist in the file. */
@@ -122,19 +123,19 @@
   position: absolute;
   pointer-events: none;
   background-color: var(--canvas-range-fill);
-  box-shadow: inset 0 0 0 var(--border-thin) var(--canvas-selection-border);
+  box-shadow: inset 0 0 0 var(--stroke-thin) var(--canvas-selection-border);
 }
 .rs-active-cell {
   position: absolute;
   pointer-events: none;
-  box-shadow: inset 0 0 0 var(--border-strong) var(--canvas-selection-border);
+  box-shadow: inset 0 0 0 var(--stroke-medium) var(--canvas-selection-border);
 }
 .rs-fill-handle {
   position: absolute;
   inline-size: calc(var(--grid-fill-handle) * var(--sheet-zoom));
   block-size: calc(var(--grid-fill-handle) * var(--sheet-zoom));
   background-color: var(--canvas-selection-border);
-  border: var(--border-thin) solid var(--canvas-bg);
+  border: var(--stroke-thin) solid var(--canvas-bg);
   border-radius: var(--radius-cell);
   cursor: crosshair;
   touch-action: none;
@@ -144,7 +145,7 @@
   inline-size: calc(10px * var(--sheet-zoom));
   block-size: calc(10px * var(--sheet-zoom));
   background-color: var(--canvas-selection-border);
-  border: var(--border-thin) solid var(--canvas-bg);
+  border: var(--stroke-thin) solid var(--canvas-bg);
   border-radius: var(--radius-xs);
   cursor: move;
   touch-action: none;
@@ -163,8 +164,8 @@
 .rs-copy-marquee {
   position: absolute;
   pointer-events: none;
-  outline: var(--border-strong) dashed var(--canvas-selection-border);
-  outline-offset: calc(var(--border-strong) * -1);
+  outline: var(--stroke-medium) dashed var(--canvas-selection-border);
+  outline-offset: calc(var(--stroke-medium) * -1);
   animation: rs-marquee 600ms steps(4) infinite;
 }
 @keyframes rs-marquee {
@@ -179,7 +180,7 @@
   background-image: linear-gradient(var(--canvas-find-match), var(--canvas-find-match));
 }
 .rs-find-match[aria-current='true'] {
-  box-shadow: inset 0 0 0 var(--border-strong) var(--canvas-find-current);
+  box-shadow: inset 0 0 0 var(--stroke-medium) var(--canvas-find-current);
 }
 
 /* =========================================================================
@@ -189,7 +190,7 @@
    ========================================================================= */
 .rs-cell[data-edited] {
   background-color: var(--state-modified);
-  box-shadow: inset var(--border-strong) 0 0 var(--canvas-edited-mark);
+  box-shadow: inset var(--stroke-medium) 0 0 var(--canvas-edited-mark);
 }
 .rs-cell[data-formula] {
   color: var(--canvas-formula-text);
@@ -246,22 +247,22 @@
 }
 .rs-ref[data-ref='1'] {
   background-color: var(--ref-1-fill);
-  outline: var(--border-strong) solid var(--ref-1);
+  outline: var(--stroke-medium) solid var(--ref-1);
 }
 .rs-ref[data-ref='2'] {
   background-color: var(--ref-2-fill);
-  outline: var(--border-strong) dashed var(--ref-2);
+  outline: var(--stroke-medium) dashed var(--ref-2);
 }
 .rs-ref[data-ref='3'] {
   background-color: var(--ref-3-fill);
-  outline: var(--border-strong) dotted var(--ref-3);
+  outline: var(--stroke-medium) dotted var(--ref-3);
 }
 .rs-ref[data-ref='4'] {
   background-color: var(--ref-4-fill);
-  outline: calc(var(--border-strong) + var(--border-thin)) double var(--ref-4);
+  outline: calc(var(--stroke-medium) + var(--stroke-thin)) double var(--ref-4);
 }
 .rs-ref {
-  outline-offset: calc(var(--border-strong) * -1);
+  outline-offset: calc(var(--stroke-medium) * -1);
 }
 /* The same colour marks the reference text in the formula bar. */
 .rs-ref-token[data-ref='1'] {
@@ -283,12 +284,12 @@
 .rs-cell-editor {
   position: absolute;
   margin: 0;
-  padding-inline: calc(var(--_px) - var(--border-strong));
+  padding-inline: calc(var(--_px) - var(--stroke-medium));
   font: inherit;
-  line-height: calc(var(--_row) - var(--border-thin) - var(--border-strong) * 2);
+  line-height: calc(var(--_row) - var(--stroke-thin) - var(--stroke-medium) * 2);
   color: var(--canvas-text);
   background-color: var(--canvas-bg);
-  border: var(--border-strong) solid var(--canvas-selection-border);
+  border: var(--stroke-medium) solid var(--canvas-selection-border);
   border-radius: var(--radius-cell);
   box-shadow: var(--shadow-md);
   outline: none;
@@ -306,7 +307,7 @@
   padding: 0;
   color: var(--canvas-header-text);
   background-color: var(--canvas-bg);
-  border: var(--border-thin) solid var(--canvas-grid-strong);
+  border: var(--stroke-thin) solid var(--canvas-grid-strong);
   border-radius: var(--radius-xs);
 }
 .rs-filter-button::before {
@@ -342,7 +343,7 @@
   text-align: end;
   color: var(--canvas-header-text);
   background-color: var(--canvas-header-bg);
-  border-inline-end: var(--border-thin) solid var(--canvas-grid);
+  border-inline-end: var(--stroke-thin) solid var(--canvas-grid);
   user-select: none;
 }
 .rs-source__text {

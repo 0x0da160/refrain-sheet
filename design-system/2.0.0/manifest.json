@@ -3,7 +3,42 @@
   "version": "2.0.0",
   "released": "2026-09-26",
   "supersedes": "1.0.0",
-  "source": "tools/source.mjs",
+  "layers": {
+    "foundations": {
+      "purpose": "Shared by brand and app",
+      "css": "foundations/css/foundations.css",
+      "docs": "foundations/docs/foundations.html",
+      "themes": [
+        "light",
+        "dark"
+      ]
+    },
+    "app": {
+      "purpose": "Application UI",
+      "requires": "foundations",
+      "css": "app/css/refrain-sheet.css",
+      "docs": "app/docs/design-system.html",
+      "themes": [
+        "light",
+        "dark",
+        "hybrid"
+      ],
+      "density": [
+        "compact",
+        "standard",
+        "comfortable"
+      ],
+      "density_default": "standard"
+    },
+    "brand": {
+      "purpose": "Landing site, documentation, store listings",
+      "requires": "foundations",
+      "guidelines_version": "3.0",
+      "css": "brand/css/refrain-brand.css",
+      "docs": "brand/docs/brand-guidelines.html"
+    }
+  },
+  "source": "tools/source/*.mjs",
   "build": "node design-system/2.0.0/tools/build.mjs [--check]",
   "targets": {
     "primary": "Windows 11 / Chrome",
@@ -22,47 +57,30 @@
     "available_weights": [
       400,
       700
-    ]
+    ],
+    "min_size_px": 12
   },
   "color": {
     "space": "OKLCH",
     "delivery": "sRGB hex",
-    "themes": [
-      "light",
-      "dark",
-      "hybrid"
-    ],
-    "data_swatches": 65
-  },
-  "density": {
-    "modes": [
-      "compact",
-      "standard",
-      "comfortable"
-    ],
-    "default": "standard",
-    "coarse_pointer_floor_px": 44
+    "document_swatches": 65
   },
   "tokens_format": "Design Tokens Format Module 2025.10",
   "accessibility": {
     "standard": "WCAG 2.2 AA",
-    "contrast_checks": 210,
-    "contrast_pass": 210
-  },
-  "files": {
-    "css/tokens.css": 34128,
-    "css/base.css": 4623,
-    "css/components.css": 24701,
-    "css/grid.css": 12172,
-    "css/refrain-sheet.css": 75627,
-    "tokens/": 85208,
-    "tools/": 50674,
-    "logo/": 38730,
-    "icons/": 38812,
-    "docs/design-system.html": 124896,
-    "docs/decisions.md": 12867,
-    "docs/research.md": 11147,
-    "docs/migration.md": 8289,
-    "docs/brand-guidelines.html": 100172
+    "contrast": {
+      "foundations": {
+        "checks": 76,
+        "pass": 76
+      },
+      "app": {
+        "checks": 96,
+        "pass": 96
+      },
+      "brand": {
+        "checks": 6,
+        "pass": 6
+      }
+    }
   }
 }

@@ -22,9 +22,9 @@
   font: inherit;
   font-size: var(--text-body);
   line-height: var(--leading-body);
-  color: var(--chrome-text);
+  color: var(--fg-default);
   background-color: transparent;
-  border: var(--border-thin) solid transparent;
+  border: var(--stroke-thin) solid transparent;
   border-radius: var(--radius-sm);
   white-space: nowrap;
   flex-shrink: 0;
@@ -57,7 +57,7 @@
   color: var(--accent-contrast);
 }
 .rs-btn--secondary {
-  background-color: var(--chrome-surface);
+  background-color: var(--bg-surface);
   border-color: var(--border-control);
 }
 .rs-btn--danger {
@@ -71,7 +71,7 @@
   .rs-control:hover,
   .rs-btn--ghost:hover,
   .rs-btn--secondary:hover {
-    background-color: var(--chrome-hover);
+    background-color: var(--bg-hover);
   }
   .rs-btn--primary:hover {
     background-color: var(--accent-hover);
@@ -85,7 +85,7 @@
 .rs-control:active,
 .rs-btn--ghost:active,
 .rs-btn--secondary:active {
-  background-color: var(--chrome-pressed);
+  background-color: var(--bg-pressed);
   transition-duration: var(--duration-instant);
 }
 .rs-btn--primary:active {
@@ -118,7 +118,7 @@
   display: inline-flex;
 }
 .rs-group > .rs-btn {
-  background-color: var(--chrome-surface);
+  background-color: var(--bg-surface);
   border-color: var(--border-control);
   border-radius: 0;
 }
@@ -131,7 +131,7 @@
   border-end-end-radius: var(--radius-md);
 }
 .rs-group > .rs-btn + .rs-btn {
-  margin-inline-start: calc(var(--border-thin) * -1);
+  margin-inline-start: calc(var(--stroke-thin) * -1);
 }
 .rs-group > .rs-btn[aria-pressed='true'] {
   background-color: var(--accent-subtle);
@@ -174,12 +174,12 @@
 .rs-label {
   font-size: var(--text-body);
   line-height: var(--leading-body);
-  color: var(--chrome-text);
+  color: var(--fg-default);
 }
 .rs-label__optional {
   margin-inline-start: var(--space-1);
-  font-size: var(--text-meta);
-  color: var(--chrome-text-muted);
+  font-size: var(--text-caption);
+  color: var(--fg-muted);
 }
 
 .rs-input,
@@ -191,9 +191,9 @@
   font: inherit;
   font-size: var(--text-body);
   line-height: var(--leading-body);
-  color: var(--chrome-text);
-  background-color: var(--chrome-surface);
-  border: var(--border-thin) solid var(--border-control);
+  color: var(--fg-default);
+  background-color: var(--bg-surface);
+  border: var(--stroke-thin) solid var(--border-control);
   border-radius: var(--radius-md);
   accent-color: var(--accent);
 }
@@ -208,14 +208,14 @@
 }
 .rs-input::placeholder,
 .rs-textarea::placeholder {
-  color: var(--chrome-text-subtle);
+  color: var(--fg-subtle);
   opacity: 1;
 }
 @media (hover: hover) {
   .rs-input:hover,
   .rs-select:hover,
   .rs-textarea:hover {
-    border-color: var(--chrome-text-muted);
+    border-color: var(--fg-muted);
   }
 }
 .rs-input:focus-visible,
@@ -233,7 +233,7 @@
 .rs-select:disabled,
 .rs-textarea:disabled {
   opacity: 0.4;
-  background-color: var(--chrome-sunken);
+  background-color: var(--bg-sunken);
 }
 /* iOS Safari zooms the page when a field under 16px takes focus. */
 @media (pointer: coarse) {
@@ -262,9 +262,9 @@
 .rs-helper,
 .rs-error {
   margin: 0;
-  font-size: var(--text-meta);
-  line-height: var(--leading-meta);
-  color: var(--chrome-text-muted);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  color: var(--fg-muted);
 }
 .rs-error {
   display: flex;
@@ -276,7 +276,7 @@
 .rs-fieldset {
   margin: 0;
   padding: var(--inset);
-  border: var(--border-thin) solid var(--chrome-border);
+  border: var(--stroke-thin) solid var(--border-default);
   border-radius: var(--radius-lg);
 }
 .rs-fieldset > legend {
@@ -298,14 +298,14 @@
   white-space: nowrap;
   line-height: 1;
   font-size: 0.875em;
-  color: var(--chrome-text-muted);
-  background-color: var(--chrome-sunken);
-  border: var(--border-thin) solid var(--chrome-border);
+  color: var(--fg-muted);
+  background-color: var(--bg-sunken);
+  border: var(--stroke-thin) solid var(--border-default);
 }
 .rs-tag {
   padding: 0.25em 0.6em;
   border-radius: var(--radius-full);
-  color: var(--chrome-text);
+  color: var(--fg-default);
 }
 .rs-kbd,
 .rs-code,
@@ -347,19 +347,19 @@
    ========================================================================= */
 .rs-panel,
 .rs-card {
-  background-color: var(--chrome-surface);
-  border: var(--border-thin) solid var(--chrome-border);
+  background-color: var(--bg-surface);
+  border: var(--stroke-thin) solid var(--border-default);
   border-radius: var(--radius-lg);
   padding: var(--inset);
 }
 .rs-well {
-  background-color: var(--chrome-sunken);
+  background-color: var(--bg-sunken);
   border-radius: var(--radius-sm);
   padding: var(--space-3);
 }
 .rs-raised {
-  background-color: var(--chrome-raised);
-  border: var(--border-thin) solid var(--chrome-border);
+  background-color: var(--bg-raised);
+  border: var(--stroke-thin) solid var(--border-default);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
 }
@@ -368,12 +368,12 @@
   align-self: stretch;
   margin: var(--space-1);
   border: 0;
-  border-inline-start: var(--border-thin) solid var(--chrome-border);
+  border-inline-start: var(--stroke-thin) solid var(--border-default);
 }
 .rs-separator--horizontal {
   margin: var(--space-1) 0;
   border-inline-start: 0;
-  border-block-start: var(--border-thin) solid var(--chrome-border);
+  border-block-start: var(--stroke-thin) solid var(--border-default);
 }
 
 /* =========================================================================
@@ -388,8 +388,8 @@
   grid-template-columns: minmax(0, 1fr);
   block-size: 100dvh;
   overflow: hidden;
-  background-color: var(--chrome-bg);
-  color: var(--chrome-text);
+  background-color: var(--bg-page);
+  color: var(--fg-default);
 }
 .rs-bar {
   display: flex;
@@ -398,8 +398,8 @@
   min-block-size: var(--bar-h);
   min-inline-size: 0;
   padding-inline: var(--space-2);
-  background-color: var(--chrome-surface);
-  border-block-end: var(--border-thin) solid var(--chrome-border);
+  background-color: var(--bg-surface);
+  border-block-end: var(--stroke-thin) solid var(--border-default);
 }
 /* A bar never scrolls or wraps: what does not fit collapses into a menu,
    and only the tab list scrolls. Menus are fixed-positioned, so clipping the
@@ -412,7 +412,7 @@
 }
 .rs-bar--bottom {
   border-block-end: 0;
-  border-block-start: var(--border-thin) solid var(--chrome-border);
+  border-block-start: var(--stroke-thin) solid var(--border-default);
 }
 .rs-bar__spacer {
   flex: 1;
@@ -431,11 +431,11 @@
   gap: var(--space-3);
   min-block-size: var(--statusbar-h);
   padding-inline: var(--space-2);
-  font-size: var(--text-meta);
-  line-height: var(--leading-meta);
-  color: var(--chrome-text-muted);
-  background-color: var(--chrome-surface);
-  border-block-start: var(--border-thin) solid var(--chrome-border);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  color: var(--fg-muted);
+  background-color: var(--bg-surface);
+  border-block-start: var(--stroke-thin) solid var(--border-default);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -469,18 +469,18 @@
   min-block-size: var(--control-h);
   padding-inline: var(--control-px);
   font: inherit;
-  color: var(--chrome-text);
+  color: var(--fg-default);
   background: none;
   border: 0;
   border-radius: var(--radius-sm);
 }
 @media (hover: hover) {
   .rs-menubar > button:hover {
-    background-color: var(--chrome-hover);
+    background-color: var(--bg-hover);
   }
 }
 .rs-menubar > button[aria-expanded='true'] {
-  background-color: var(--chrome-pressed);
+  background-color: var(--bg-pressed);
 }
 
 .rs-menu {
@@ -488,8 +488,8 @@
   max-block-size: calc(100dvh - var(--space-8));
   overflow-y: auto;
   padding: var(--space-1);
-  background-color: var(--chrome-raised);
-  border: var(--border-thin) solid var(--chrome-border);
+  background-color: var(--bg-raised);
+  border: var(--stroke-thin) solid var(--border-default);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   z-index: var(--z-menu);
@@ -503,7 +503,7 @@
   padding-inline: var(--control-px);
   font-size: var(--text-body);
   line-height: var(--leading-body);
-  color: var(--chrome-text);
+  color: var(--fg-default);
   border-radius: var(--radius-sm);
   cursor: default;
   user-select: none;
@@ -512,11 +512,11 @@
 .rs-menu__item:focus-visible,
 .rs-menu__item[data-highlighted] {
   outline: none;
-  background-color: var(--chrome-hover);
+  background-color: var(--bg-hover);
 }
 @media (hover: hover) {
   .rs-menu__item:hover {
-    background-color: var(--chrome-hover);
+    background-color: var(--bg-hover);
   }
 }
 .rs-menu__item[aria-disabled='true'] {
@@ -524,7 +524,7 @@
 }
 .rs-menu__icon {
   grid-column: 1;
-  color: var(--chrome-text-muted);
+  color: var(--fg-muted);
 }
 .rs-menu__item[aria-checked='true'] .rs-menu__icon {
   color: var(--accent-text);
@@ -541,23 +541,23 @@
   font-family: var(--font-code);
   font-size: var(--text-caption);
   line-height: var(--leading-caption);
-  color: var(--chrome-text-muted);
+  color: var(--fg-muted);
 }
 .rs-menu__chevron {
   grid-column: 4;
-  color: var(--chrome-text-muted);
+  color: var(--fg-muted);
 }
 .rs-menu__group {
   padding: var(--space-1-5) var(--control-px) var(--space-1);
-  font-size: var(--text-meta);
-  line-height: var(--leading-meta);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
   font-weight: var(--weight-bold);
-  color: var(--chrome-text-muted);
+  color: var(--fg-muted);
 }
 .rs-menu__separator {
   margin: var(--space-1) calc(var(--space-1) * -1);
   border: 0;
-  border-block-start: var(--border-thin) solid var(--chrome-border);
+  border-block-start: var(--stroke-thin) solid var(--border-default);
 }
 
 /* =========================================================================
@@ -583,7 +583,7 @@
   min-block-size: var(--control-h);
   padding-inline: var(--control-px);
   font: inherit;
-  color: var(--chrome-text-muted);
+  color: var(--fg-muted);
   background: none;
   border: 0;
   border-radius: var(--radius-sm);
@@ -596,21 +596,21 @@
 }
 @media (hover: hover) {
   .rs-tab:hover {
-    background-color: var(--chrome-hover);
-    color: var(--chrome-text);
+    background-color: var(--bg-hover);
+    color: var(--fg-default);
   }
 }
 .rs-tab[aria-selected='true'] {
-  color: var(--chrome-text);
+  color: var(--fg-default);
   font-weight: var(--weight-bold);
-  background-color: var(--chrome-raised);
+  background-color: var(--bg-raised);
 }
 .rs-tab[aria-selected='true']::after {
   content: '';
   position: absolute;
   inset-inline: var(--space-1);
   inset-block-end: 0;
-  block-size: var(--border-strong);
+  block-size: var(--stroke-medium);
   border-radius: var(--radius-full);
   background-color: var(--accent);
 }
@@ -644,9 +644,9 @@
   font-family: var(--font-data);
   font-size: var(--text-body);
   line-height: var(--leading-body);
-  color: var(--chrome-text);
-  background-color: var(--chrome-surface);
-  border: var(--border-thin) solid var(--chrome-border);
+  color: var(--fg-default);
+  background-color: var(--bg-surface);
+  border: var(--stroke-thin) solid var(--border-default);
   border-radius: var(--radius-sm);
 }
 .rs-formula-bar__name {
@@ -659,7 +659,7 @@
 }
 .rs-formula-bar__fx {
   flex: none;
-  color: var(--chrome-text-muted);
+  color: var(--fg-muted);
 }
 
 /* =========================================================================
@@ -674,8 +674,8 @@
 .rs-tooltip {
   max-inline-size: 20rem;
   padding: var(--space-1) var(--space-2);
-  font-size: var(--text-meta);
-  line-height: var(--leading-meta);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
   color: var(--inverse-text);
   background-color: var(--inverse-bg);
   border-radius: var(--radius-sm);
@@ -690,8 +690,8 @@
 
 .rs-popover {
   padding: var(--inset);
-  background-color: var(--chrome-raised);
-  border: var(--border-thin) solid var(--chrome-border);
+  background-color: var(--bg-raised);
+  border: var(--stroke-thin) solid var(--border-default);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   z-index: var(--z-popover);
@@ -703,8 +703,8 @@
   flex-direction: column;
   inline-size: clamp(16rem, 28vw, 32rem);
   min-block-size: 0;
-  background-color: var(--chrome-surface);
-  border-inline-start: var(--border-thin) solid var(--chrome-border);
+  background-color: var(--bg-surface);
+  border-inline-start: var(--stroke-thin) solid var(--border-default);
   z-index: var(--z-panel);
 }
 .rs-dock__head {
@@ -713,7 +713,7 @@
   gap: var(--space-1);
   min-block-size: var(--bar-h);
   padding-inline: var(--inset) var(--space-1);
-  border-block-end: var(--border-thin) solid var(--chrome-border);
+  border-block-end: var(--stroke-thin) solid var(--border-default);
 }
 .rs-dock__title {
   flex: 1;
@@ -730,7 +730,7 @@
 }
 .rs-dock__foot {
   padding: var(--inset);
-  border-block-start: var(--border-thin) solid var(--chrome-border);
+  border-block-start: var(--stroke-thin) solid var(--border-default);
 }
 
 .rs-scrim {
@@ -745,9 +745,9 @@
   inline-size: min(32rem, calc(100vw - var(--space-8)));
   max-block-size: min(86dvh, 48rem);
   padding: 0;
-  color: var(--chrome-text);
-  background-color: var(--chrome-raised);
-  border: var(--border-thin) solid var(--chrome-border);
+  color: var(--fg-default);
+  background-color: var(--bg-raised);
+  border: var(--stroke-thin) solid var(--border-default);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   z-index: var(--z-modal);
@@ -799,7 +799,7 @@
     inline-size: 100vw;
     max-block-size: 70dvh;
     border-inline-start: 0;
-    border-block-start: var(--border-thin) solid var(--chrome-border);
+    border-block-start: var(--stroke-thin) solid var(--border-default);
     border-start-start-radius: var(--radius-xl);
     border-start-end-radius: var(--radius-xl);
     box-shadow: var(--shadow-lg);
@@ -844,9 +844,9 @@
   flex-wrap: wrap;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  color: var(--chrome-text);
+  color: var(--fg-default);
   background-color: var(--info-subtle);
-  border-inline-start: var(--border-thick) solid var(--info);
+  border-inline-start: var(--stroke-thick) solid var(--info);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .rs-banner--warning {
@@ -867,7 +867,7 @@
   inline-size: 100%;
   block-size: var(--space-1);
   overflow: hidden;
-  background-color: var(--chrome-sunken);
+  background-color: var(--bg-sunken);
   border-radius: var(--radius-full);
 }
 .rs-progress__bar {
@@ -878,7 +878,7 @@
 }
 
 .rs-skeleton {
-  background-color: var(--chrome-sunken);
+  background-color: var(--bg-sunken);
   border-radius: var(--radius-sm);
 }
 
@@ -889,11 +889,11 @@
   gap: var(--space-2);
   padding: var(--space-8) var(--space-4);
   text-align: center;
-  color: var(--chrome-text-muted);
+  color: var(--fg-muted);
 }
 .rs-empty__title {
   margin: 0;
   font-size: var(--text-title);
   line-height: var(--leading-title);
-  color: var(--chrome-text);
+  color: var(--fg-default);
 }

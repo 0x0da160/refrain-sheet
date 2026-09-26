@@ -79,13 +79,14 @@ describe.each(SHEET_ZOOM_LEVELS)('grid geometry at %i%% zoom', (level) => {
     for (const head of grid.element.querySelectorAll<HTMLElement>('.vcell.vhead[data-col]')) {
       expect(head.style.width).toBe(`${colW}px`);
     }
-    const cells = grid.element.querySelectorAll<HTMLElement>('.vgrid-rows .vcell[data-row][data-col]');
+    // Row 1 follows the scroll in the pinned layer; the other rows are virtualized.
+    const cells = grid.element.querySelectorAll<HTMLElement>('.vcell[data-row][data-col]');
     expect(cells.length).toBe(9);
     for (const cell of cells) {
       // The grid line lives inside this width (border-box), never added to it.
       expect(cell.style.width).toBe(`${colW}px`);
     }
-    for (const row of grid.element.querySelectorAll<HTMLElement>('.vgrid-rows .vgrid-row')) {
+    for (const row of grid.element.querySelectorAll<HTMLElement>('.vgrid-row, .vgrid-stickyrow')) {
       expect(row.style.height).toBe(`${rowH}px`);
     }
   });

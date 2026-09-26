@@ -7,7 +7,7 @@ import { Commands, type UiPort } from '../src/app/commands';
 import { t } from '../src/app/i18n';
 import { RsfDocument } from '../src/core/rsf-document';
 import { Grid, OVERSCAN_ROWS, ROW_HEIGHT, COL_WIDTH, MIN_COL_WIDTH, ROW_HEAD_WIDTH } from '../src/ui/grid';
-import { doc } from './helpers';
+import { doc, readBundledCss } from './helpers';
 
 const noopUi: UiPort = {
   confirmValidation: async () => true,
@@ -139,7 +139,9 @@ describe('virtualized rendering', () => {
     grid.element.scrollTop = 50_000 * ROW_HEIGHT;
     grid.refresh();
     expect(grid.element.querySelector('[data-row="50000"][data-col="0"]')).not.toBeNull();
-    expect(grid.element.querySelector('[data-row="0"][data-col="0"]')).toBeNull();
+    // Only the first row, which follows the scroll, stays rendered from the top.
+    expect(grid.element.querySelector('.vgrid-rows [data-row="1"][data-col="0"]')).toBeNull();
+    expect(grid.element.querySelector('.vgrid-stickyrow [data-row="0"][data-col="0"]')).not.toBeNull();
     expect(cellEl(grid, 50_000, 0).textContent).toBe('r50000c0');
   });
 
@@ -157,11 +159,11 @@ describe('virtualized rendering', () => {
     const { grid } = setup(bigCsv(20, 300));
     grid.element.scrollLeft = 250 * COL_WIDTH;
     grid.refresh();
-    const dataCell = grid.element.querySelector<HTMLElement>('.vgrid-rows [data-row="0"][data-col]')!;
+    const dataCell = grid.element.querySelector<HTMLElement>('.vgrid-rows [data-row="1"][data-col]')!;
     const col = Number(dataCell.dataset.col);
     const headerCell = grid.element.querySelector<HTMLElement>(`.vgrid-header [data-colhead="${col}"]`)!;
     expect(headerCell.getAttribute('aria-colindex')).toBe(dataCell.getAttribute('aria-colindex'));
-    const rowHeadCell = grid.element.querySelector<HTMLElement>('.vgrid-rows [data-rowhead="0"]')!;
+    const rowHeadCell = grid.element.querySelector<HTMLElement>('.vgrid-rows [data-rowhead="1"]')!;
     expect(rowHeadCell.getAttribute('aria-colindex')).toBe('1');
   });
 
@@ -176,9 +178,14 @@ describe('virtualized rendering', () => {
 });
 
 describe('sticky first row', () => {
-  it('is disabled by default and toggleable through app state', () => {
+  it('follows the scroll automatically, and is marked as pinned when chosen', () => {
     const { state, grid } = setup(bigCsv(100));
-    expect(grid.element.querySelector<HTMLElement>('.vgrid-sticky')!.hidden).toBe(true);
+    // Nothing frozen: row 1 still follows the scroll, looking like an ordinary row.
+    const layer = grid.element.querySelector<HTMLElement>('.vgrid-sticky')!;
+    expect(layer.hidden).toBe(false);
+    expect(layer.classList.contains('auto')).toBe(true);
+    expect(layer.querySelector('.vrowhead.pinned')).toBeNull();
+    expect(layer.querySelector('.vrowhead')!.textContent).toBe('1');
     state.setStickyFirstRow(true);
     grid.refresh();
     expect(grid.element.querySelector<HTMLElement>('.vgrid-sticky')!.hidden).toBe(false);
@@ -187,10 +194,11 @@ describe('sticky first row', () => {
     expect(sticky.querySelector('[data-row="0"][data-col="0"]')!.textContent).toBe('r0c0');
     // The pinned row header is visually distinct from column headers.
     expect(sticky.querySelector('.vrowhead.pinned')).not.toBeNull();
+    expect(layer.classList.contains('auto')).toBe(false);
     state.setStickyFirstRow(false);
     grid.refresh();
-    expect(grid.element.querySelector<HTMLElement>('.vgrid-sticky')!.hidden).toBe(true);
-    expect(grid.element.querySelector('.vgrid-stickyrow')).toBeNull();
+    expect(layer.classList.contains('auto')).toBe(true);
+    expect(grid.element.querySelectorAll('.vgrid-stickyrow').length).toBe(1);
   });
 
   it('keeps row 0 pinned while the scrolling region starts at row 1', () => {
@@ -235,7 +243,7 @@ describe('sticky first column', () => {
     const pinnedHead = grid.element.querySelector<HTMLElement>('.vgrid-header .colpin')!;
     expect(pinnedHead).not.toBeNull();
     expect(pinnedHead.dataset.colhead).toBe('0');
-    const pinnedCell = grid.element.querySelector<HTMLElement>('.vgrid-rows .colpin[data-row="0"]')!;
+    const pinnedCell = grid.element.querySelector<HTMLElement>('.colpin[data-row="0"]')!;
     expect(pinnedCell).not.toBeNull();
     expect(pinnedCell.dataset.col).toBe('0');
     expect(pinnedCell.textContent).toBe('r0c0');
@@ -288,6 +296,9 @@ describe('sticky at the selected cell', () => {
     const pinnedHeads = Array.from(grid.element.querySelectorAll<HTMLElement>('.vgrid-header .colpin'));
     expect(pinnedHeads.map((h) => h.dataset.colhead)).toEqual(['0', '1']);
     expect(pinnedHeads.map((h) => h.classList.contains('colpin-edge'))).toEqual([false, true]);
+    // Plain labels: no pin marker in the headers.
+    expect(pinnedHeads.map((h) => h.textContent)).toEqual(['A', 'B']);
+    expect(pinnedRows.map((r) => r.querySelector('.vrowhead')!.textContent)).toEqual(['1', '2', '3']);
     expect(pinnedHeads[1]!.style.left).toBe(`${ROW_HEAD_WIDTH + COL_WIDTH}px`);
     expect(grid.element.querySelectorAll('[data-row="5"][data-col="1"]').length).toBe(1);
     expect(cellEl(grid, 5, 1).classList.contains('colpin')).toBe(true);
@@ -295,7 +306,9 @@ describe('sticky at the selected cell', () => {
     await commands.run('view.freezeAtSelection');
     grid.refresh();
     expect(tab.freeze).toBeNull();
-    expect(grid.element.querySelector<HTMLElement>('.vgrid-sticky')!.hidden).toBe(true);
+    // Back to only the automatic first row.
+    expect(grid.element.querySelector<HTMLElement>('.vgrid-sticky')!.classList.contains('auto')).toBe(true);
+    expect(grid.element.querySelectorAll('.vgrid-stickyrow').length).toBe(1);
     expect(grid.element.querySelector('.colpin')).toBeNull();
   });
 
@@ -351,6 +364,13 @@ describe('sticky at the selected cell', () => {
 });
 
 describe('moving a selection by dragging its border', () => {
+  it('shows the corner handle only where a touch or pen pointer may be used', () => {
+    const css = readBundledCss().replace(/\s+/g, ' ');
+    expect(css).toMatch(
+      /@media not all and \(any-pointer: coarse\) \{ \.move-handle \{ display: none; \} \}/,
+    );
+  });
+
   function mouse(target: Element, type: string, init: MouseEventInit = {}): void {
     target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ...init }));
   }

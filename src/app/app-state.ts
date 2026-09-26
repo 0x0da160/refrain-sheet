@@ -15,6 +15,7 @@ import type { LosslessDocument } from '../core/lossless-document';
 import type { RsfDocument } from '../core/rsf-document';
 import { sortDataTop, type SheetSort } from '../core/sort';
 import type { Worksheet } from '../core/worksheet';
+import type { FileStamp } from './file-access';
 import { t } from './i18n';
 import { clampSheetZoom, getSheetZoom, getWrapCells } from './settings';
 import { safeStorageGet } from './storage';
@@ -59,6 +60,13 @@ export interface Tab {
   doc: EditorDocument;
   history: History;
   handle: FileSystemFileHandle | null;
+  /**
+   * How `handle`'s file looked on disk when this tab opened or last saved it.
+   * A save that finds a different stamp asks before overwriting, so an edit
+   * saved from another browser tab or another app is never silently lost.
+   * Null when there is no handle or the stamp is unknown (no check is made).
+   */
+  diskStamp: FileStamp | null;
   /** Active cell. */
   selection: Selection | null;
   /** Selection anchor for rectangular ranges (null: single-cell selection). */
@@ -226,6 +234,7 @@ export class AppState {
       doc,
       history: new History(),
       handle,
+      diskStamp: null,
       selection: doc.rowCount > 0 ? { row: 0, col: 0 } : null,
       anchor: null,
       selectionKind: 'cell',

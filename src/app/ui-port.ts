@@ -245,6 +245,12 @@ export type NumberFormatDialogResult = { action: 'apply'; format: NumberFormat }
 export interface UiPort {
   confirmValidation(name: string, summary: ValidationSummary): Promise<boolean>;
   confirmUnsaved(names: string[]): Promise<'save' | 'discard' | 'cancel'>;
+  /**
+   * The file `name` was changed on disk (another browser tab or app) after
+   * this tab opened or last saved it. Overwrite it anyway, save to a
+   * different file instead, or cancel the save.
+   */
+  confirmChangedOnDisk(name: string): Promise<'overwrite' | 'saveAs' | 'cancel'>;
   chooseSaveOptions(tab: Tab, downloadNote: string | null): Promise<SaveOptions | null>;
   /**
    * Ask for the filename to create in Google Drive, preselected with

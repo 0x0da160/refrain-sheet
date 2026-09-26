@@ -27,6 +27,7 @@ function noOpUiPort(): UiPort {
   return {
     confirmValidation: async () => false,
     confirmUnsaved: async () => 'cancel',
+    confirmChangedOnDisk: async () => 'overwrite',
     chooseSaveOptions: async () => null,
     promptDriveName: async () => null,
     confirmUnrepresentable: async () => false,

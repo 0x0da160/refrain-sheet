@@ -13,6 +13,7 @@ import { doc, utf8 } from './helpers';
 const noopUi: UiPort = {
   confirmValidation: async () => true,
   confirmUnsaved: async () => 'discard',
+  confirmChangedOnDisk: async () => 'overwrite',
   chooseSaveOptions: async () => null,
   promptDriveName: async () => null,
   confirmUnrepresentable: async () => false,

@@ -11,6 +11,31 @@ export interface OpenedFile {
    * into memory. The command layer reports it and skips loading.
    */
   tooLarge?: boolean;
+  /** The file's modification time and size when it was read (see {@link FileStamp}). */
+  stamp?: FileStamp;
+}
+
+/**
+ * What a file looked like on disk at a known moment: enough to notice that
+ * something else (another browser tab, another app) wrote it since.
+ */
+export interface FileStamp {
+  lastModified: number;
+  size: number;
+}
+
+export function sameFileStamp(a: FileStamp, b: FileStamp): boolean {
+  return a.lastModified === b.lastModified && a.size === b.size;
+}
+
+/** The current stamp of `handle`'s file, or null when it cannot be read (deleted, permission). */
+export async function readFileStamp(handle: FileSystemFileHandle): Promise<FileStamp | null> {
+  try {
+    const file = await handle.getFile();
+    return { lastModified: file.lastModified, size: file.size };
+  } catch {
+    return null;
+  }
 }
 
 type SaveMode = 'overwrite' | 'download';
@@ -48,7 +73,13 @@ export async function readFileObject(
     return { name: file.name, bytes: new Uint8Array(0), handle, size: file.size, tooLarge: true };
   }
   const buffer = await file.arrayBuffer();
-  return { name: file.name, bytes: new Uint8Array(buffer), handle, size: file.size };
+  return {
+    name: file.name,
+    bytes: new Uint8Array(buffer),
+    handle,
+    size: file.size,
+    stamp: { lastModified: file.lastModified, size: file.size },
+  };
 }
 
 /**

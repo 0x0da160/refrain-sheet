@@ -27,6 +27,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   return {
     confirmValidation: vi.fn(async () => true),
     confirmUnsaved: vi.fn(async () => 'discard' as const),
+    confirmChangedOnDisk: vi.fn(async () => 'overwrite' as const),
     chooseSaveOptions: vi.fn(async () => null),
     promptDriveName: async () => null,
     confirmUnrepresentable: vi.fn(async () => false),
@@ -112,6 +113,43 @@ function fakeHandle(options: { failWrite?: boolean } = {}): FakeHandle {
   return { handle, written: () => captured };
 }
 
+/**
+ * A handle backed by a tiny in-memory "disk": `getFile` reports the current
+ * modification time and size, a write through the handle updates both, and
+ * `touch` simulates another browser tab or app saving the same file.
+ */
+function diskHandle(name: string, initial: Uint8Array) {
+  let bytes = initial;
+  let modified = 1000;
+  let writes = 0;
+  const handle = {
+    kind: 'file',
+    name,
+    isSameEntry: async () => false,
+    getFile: async () => ({ lastModified: modified, size: bytes.length }),
+    createWritable: async () => ({
+      write: async (data: Uint8Array) => {
+        bytes = new Uint8Array(data);
+      },
+      close: async () => {
+        modified += 1;
+        writes += 1;
+      },
+    }),
+  } as unknown as FileSystemFileHandle;
+  const stamp = () => ({ lastModified: modified, size: bytes.length });
+  return {
+    handle,
+    opened: (): OpenedFile => ({ name, bytes, handle, size: bytes.length, stamp: stamp() }),
+    touch: (next: Uint8Array) => {
+      bytes = next;
+      modified += 100;
+    },
+    bytes: () => bytes,
+    writes: () => writes,
+  };
+}
+
 function setup(ui: UiPort = stubUi()) {
   const state = new AppState();
   const commands = new Commands(state, ui, document);
@@ -195,6 +233,85 @@ describe('saving', () => {
     expect(decodeBytes(fake.written()!, 'utf-8')).toBe('X,b\n');
     expect(tab.doc.isDirty).toBe(false);
     expect(tab.history.canUndo).toBe(false);
+  });
+
+  describe('when the file changed on disk since it was opened', () => {
+    async function openEdited(ui: UiPort, name = 'a.csv', bytes = utf8('a,b\n')) {
+      const disk = diskHandle(name, bytes);
+      const { state, commands } = setup(ui);
+      await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+      const tab = state.activeTab!;
+      state.setReadOnly(tab, false);
+      state.editCell(tab, 0, 0, 'X');
+      return { disk, state, commands, tab };
+    }
+
+    it('saves without asking when nothing else wrote the file, including a second save', async () => {
+      const ui = stubUi();
+      const { disk, state, commands, tab } = await openEdited(ui);
+      expect(await commands.save(tab, KEEP)).toBe(true);
+      state.editCell(tab, 0, 1, 'Y');
+      expect(await commands.save(tab, KEEP)).toBe(true);
+      expect(ui.confirmChangedOnDisk).not.toHaveBeenCalled();
+      expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('X,Y\n');
+    });
+
+    it('asks, and Cancel leaves the other edit on disk and this tab unsaved', async () => {
+      const ui = stubUi({ confirmChangedOnDisk: vi.fn(async () => 'cancel' as const) });
+      const { disk, commands, tab } = await openEdited(ui);
+      disk.touch(utf8('other,tab\n'));
+      expect(await commands.save(tab, KEEP)).toBe(false);
+      expect(ui.confirmChangedOnDisk).toHaveBeenCalledWith('a.csv');
+      expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('other,tab\n');
+      expect(tab.doc.isDirty).toBe(true);
+    });
+
+    it('overwrites when the user chooses Overwrite, and does not ask again next time', async () => {
+      const ui = stubUi({ confirmChangedOnDisk: vi.fn(async () => 'overwrite' as const) });
+      const { disk, state, commands, tab } = await openEdited(ui);
+      disk.touch(utf8('other,tab\n'));
+      expect(await commands.save(tab, KEEP)).toBe(true);
+      expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('X,b\n');
+      state.editCell(tab, 0, 1, 'Y');
+      expect(await commands.save(tab, KEEP)).toBe(true);
+      expect(ui.confirmChangedOnDisk).toHaveBeenCalledOnce();
+    });
+
+    it('Save As writes a different file and switches the tab to it, leaving the changed file alone', async () => {
+      const copy = diskHandle('a-copy.csv', new Uint8Array(0));
+      const g = globalThis as { showSaveFilePicker?: unknown };
+      const prev = g.showSaveFilePicker;
+      g.showSaveFilePicker = vi.fn(async () => copy.handle);
+      try {
+        const ui = stubUi({ confirmChangedOnDisk: vi.fn(async () => 'saveAs' as const) });
+        const { disk, commands, tab } = await openEdited(ui);
+        disk.touch(utf8('other,tab\n'));
+        expect(await commands.save(tab, KEEP)).toBe(true);
+        expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('other,tab\n');
+        expect(decodeBytes(copy.bytes(), 'utf-8')).toBe('X,b\n');
+        expect(tab.handle).toBe(copy.handle);
+        expect(tab.name).toBe('a-copy.csv');
+      } finally {
+        if (prev === undefined) delete g.showSaveFilePicker;
+        else g.showSaveFilePicker = prev;
+      }
+    });
+
+    it('asks before overwriting an .rsf file too', async () => {
+      const ui = stubUi({ confirmChangedOnDisk: vi.fn(async () => 'cancel' as const) });
+      const bytes = encodeRsf({
+        name: 'Sheet1',
+        delimiter: ',',
+        rowCount: 2,
+        columnCount: 2,
+        cells: [[0, 0, 'hi']],
+      });
+      const { disk, commands, tab } = await openEdited(ui, 'doc.rsf', bytes);
+      disk.touch(utf8('newer'));
+      expect(await commands.save(tab, KEEP)).toBe(false);
+      expect(ui.confirmChangedOnDisk).toHaveBeenCalledWith('doc.rsf');
+      expect(disk.writes()).toBe(0);
+    });
   });
 
   it('falls back to a download save when no handle exists and reports it', async () => {

@@ -16,6 +16,7 @@ function stubUi(): UiPort {
   return {
     confirmValidation: vi.fn(async () => true),
     confirmUnsaved: vi.fn(async () => 'discard' as const),
+    confirmChangedOnDisk: vi.fn(async () => 'overwrite' as const),
     chooseSaveOptions: vi.fn(async () => null),
     promptDriveName: async () => null,
     confirmUnrepresentable: vi.fn(async () => false),

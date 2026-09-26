@@ -35,6 +35,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- Saving no longer silently overwrites changes made to the same file
+  elsewhere. When the file was saved from another browser tab or changed by
+  another app after you opened it, Save now asks whether to overwrite it,
+  save to a different file, or cancel.
+
 ## [0.9.2] - 2026-09-23
 
 ### Changed

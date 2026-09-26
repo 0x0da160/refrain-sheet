@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-09-26
+
 ### Added
 
 - **Format part of a cell's text.** In an RSF sheet, part of a cell's text

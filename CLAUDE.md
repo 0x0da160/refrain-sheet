@@ -76,7 +76,8 @@ Do not invent commands. If a needed command does not exist, stop and say so.
 
 ## Branch & PR conventions
 
-- Agent branch name: `agent/issue-<number>-<short-slug>`. Never push to `main`.
+- Issue-driven agent branch name: `agent/issue-<number>-<short-slug>`; an
+  interactive session uses the branch it was assigned. Never push to `main`.
 - One focused change per PR. PR body must include: Summary, Files Changed,
   Verification (exact commands + pass/fail/skipped), linked Issue (`Closes #<n>`),
   and any Human Actions Required. **All agent-authored human-facing text is

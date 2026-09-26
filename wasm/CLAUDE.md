@@ -8,8 +8,8 @@ command table does not cover — read this before touching anything here.
 ## What this crate is
 
 `refrain-csv-core` (`wasm/Cargo.toml`): byte-level CSV parsing/validation/
-sniffing/indexing/serialization planning, plus the three RSF compression
-codecs, compiled to `wasm32-unknown-unknown` and embedded into the app as
+sniffing/indexing/serialization planning, plus the compression codecs
+(Zstandard for `.rsf`, DEFLATE for `.xlsx` import), compiled to `wasm32-unknown-unknown` and embedded into the app as
 Base64 (never fetched at runtime — see
 [`knowledge/operations/security-threat-model.md`](../knowledge/operations/security-threat-model.md)).
 The codec implementations and their container framing are documented in

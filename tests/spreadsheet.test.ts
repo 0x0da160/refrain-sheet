@@ -798,6 +798,23 @@ describe('saving and exporting RSF', () => {
     }
   });
 
+  it('the file name typed in the save picker becomes the tab name', async () => {
+    const sink: WritableSink = { bytes: null, closed: false };
+    const handle = Object.assign(fakeSaveHandle(sink), { name: 'Budget 2026.rsf' });
+    const restore = withSavePicker(vi.fn(async () => handle));
+    try {
+      const { state, commands, tab } = await converted('a,b\n1,2\n');
+      const events: string[] = [];
+      state.subscribe((event) => events.push(event));
+      expect(await commands.save(tab, KEEP)).toBe(true);
+      expect(tab.name).toBe('Budget 2026.rsf');
+      expect(tab.doc.kind === 'rsf' && tab.doc.name).toBe('Budget 2026.rsf');
+      expect(events).toContain('tabs');
+    } finally {
+      restore();
+    }
+  });
+
   it('cancelling the picker leaves the document dirty and unassociated', async () => {
     const picker = vi.fn(async () => {
       throw new DOMException('User cancelled', 'AbortError');

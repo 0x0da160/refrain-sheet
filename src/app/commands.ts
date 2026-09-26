@@ -160,6 +160,7 @@ export type CommandId =
   | 'view.wrap'
   | 'view.stickyFirstRow'
   | 'view.stickyFirstColumn'
+  | 'view.freezeAtSelection'
   | 'view.commentsPanel'
   | 'view.zoom.in'
   | 'view.zoom.out'
@@ -373,6 +374,14 @@ export class Commands {
         return tab !== null && tab.selection !== null && isGridSurface(tab);
       case 'edit.selectAll':
         return tab !== null;
+      // Freezing at A1 would freeze nothing; once frozen, the toggle always clears.
+      case 'view.freezeAtSelection':
+        return (
+          tab !== null &&
+          (tab.freeze !== null ||
+            (tab.selection !== null &&
+              (this.state.sortSlot(tab, tab.selection.row) > 0 || tab.selection.col > 0)))
+        );
       case 'edit.undo':
         return tab !== null && tab.history.canUndo;
       case 'edit.redo':
@@ -904,10 +913,22 @@ export class Commands {
         this.state.setWrapCells(!this.state.wrapCells);
         return;
       case 'view.stickyFirstRow':
-        this.state.setStickyFirstRow(!this.state.stickyFirstRow);
+        this.state.setStickyFirstRow(!this.state.stickyFirstRowShown);
         return;
       case 'view.stickyFirstColumn':
-        this.state.setStickyFirstColumn(!this.state.stickyFirstColumn);
+        this.state.setStickyFirstColumn(!this.state.stickyFirstColumnShown);
+        return;
+      case 'view.freezeAtSelection':
+        if (!tab) return;
+        if (tab.freeze) {
+          this.state.setTabFreeze(tab, null);
+        } else if (tab.selection) {
+          // Rows count in display order, so a sorted view freezes what is shown above.
+          this.state.setTabFreeze(tab, {
+            rows: this.state.sortSlot(tab, tab.selection.row),
+            cols: tab.selection.col,
+          });
+        }
         return;
       case 'view.commentsPanel':
         this.panelActions?.toggleComments();

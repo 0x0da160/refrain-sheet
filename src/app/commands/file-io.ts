@@ -595,8 +595,8 @@ export class FileIoCommands {
     }
     // Record the tab's live view state (zoom, overridden column widths) so
     // the container persists it; presentational only, never dirties the doc.
-    // Zoom/wrap decided by a browser- or file-level setting are not copied
-    // into the worksheet, which keeps its own.
+    // Zoom/wrap inherited from the file or browser level are not copied into
+    // the worksheet, so it keeps following that level.
     doc.setDisplaySettings(
       decidedBySheet(resolveZoom(doc).source) ? tab.zoom : doc.displayZoom,
       tab.colWidths,
@@ -659,6 +659,8 @@ export class FileIoCommands {
     // cancelled/failed save never mutates the tab's file association.
     if (outcome.handle) {
       tab.handle = outcome.handle;
+      // The picker lets the user type a different file name; the tab follows it.
+      this.state.adoptSavedName(tab, outcome.handle.name);
       if (outcome.mode === 'overwrite') {
         await recordRecentFile(outcome.handle, tab.name);
       }

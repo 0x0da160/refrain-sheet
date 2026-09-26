@@ -316,8 +316,8 @@ export class WorksheetsState {
   /**
    * Snapshot the active worksheet's live view (selection, column widths)
    * into the worksheet, so switching away and back restores where you were.
-   * Widths, and zoom/wrap unless a browser- or file-level setting decides
-   * them, are also written to the worksheet's persisted display settings,
+   * Widths, and zoom/wrap unless they are inherited from the file or browser
+   * level, are also written to the worksheet's persisted display settings,
    * which is what makes them per-worksheet in the saved file.
    */
   private saveSheetView(tab: Tab, doc: RsfDocument): void {
@@ -326,9 +326,10 @@ export class WorksheetsState {
     view.anchor = tab.anchor;
     view.selectionKind = tab.selectionKind;
     view.colWidths = tab.colWidths.slice();
+    view.freeze = tab.freeze;
     doc.activeSheet.displayColWidths = tab.colWidths.slice();
-    // The worksheet keeps the zoom/wrap it shows unless a browser- or
-    // file-level setting is what decides them (then it keeps its own).
+    // A zoom/wrap inherited from the file or browser level is not copied
+    // into the worksheet, so it keeps following that level.
     if (decidedBySheet(resolveZoom(doc).source)) {
       doc.activeSheet.displayZoom = tab.zoom;
     }
@@ -348,11 +349,12 @@ export class WorksheetsState {
     tab.selection = view.selection ?? (sheet.rowCount > 0 ? { row: 0, col: 0 } : null);
     tab.anchor = view.anchor;
     tab.selectionKind = view.selectionKind;
-    // Zoom and wrap are layered (browser > file > worksheet); the worksheet
+    // Zoom and wrap are layered (worksheet > file > browser); the worksheet
     // level is written when it changes, so it is simply re-resolved here.
     tab.zoom = resolveZoom(doc).value;
     tab.colWidths = view.colWidths.length > 0 ? view.colWidths.slice() : sheet.displayColWidths.slice();
     tab.wrapCells = resolveWrap(doc).value;
+    tab.freeze = view.freeze;
     tab.tabEntryCol = null;
     this.state.clampSelection(tab);
   }

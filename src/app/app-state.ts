@@ -14,7 +14,7 @@ import {
 import type { LosslessDocument } from '../core/lossless-document';
 import type { RsfDocument } from '../core/rsf-document';
 import { sortDataTop, type SheetSort } from '../core/sort';
-import type { Worksheet } from '../core/worksheet';
+import type { FreezePanes, Worksheet } from '../core/worksheet';
 import { t } from './i18n';
 import { getWrapCells } from './settings';
 import { safeStorageGet } from './storage';
@@ -83,8 +83,8 @@ export interface Tab {
    */
   colWidths: number[];
   /**
-   * Effective spreadsheet zoom percent for this tab, resolved browser >
-   * file > worksheet (`state/view-layers.ts`), falling back to the value last
+   * Effective spreadsheet zoom percent for this tab, resolved worksheet >
+   * file > browser (`state/view-layers.ts`), falling back to the value last
    * used in this browser. Zooming never mutates document content and never
    * marks a document dirty; an RSF file's file/worksheet levels are persisted
    * in its container on the next save.
@@ -92,7 +92,7 @@ export interface Tab {
   zoom: number;
   /**
    * Whether long cells wrap onto several visual lines in this tab. Resolved
-   * like zoom (browser > file > worksheet), and each worksheet of a workbook
+   * like zoom (worksheet > file > browser), and each worksheet of a workbook
    * remembers its own. Purely visual — for a plain CSV it is local application
    * state that never touches the file's bytes.
    */
@@ -106,6 +106,13 @@ export interface Tab {
    * that pass (a click, an arrow key, opening a menu, and so on).
    */
   tabEntryCol: number | null;
+  /**
+   * Rows/columns frozen at a selected cell (View > Sticky Up to Selected
+   * Cell), or null to follow the application-level sticky first row / first
+   * column preferences. Session-only view state, remembered per worksheet of
+   * a workbook, never written to the file.
+   */
+  freeze: FreezePanes | null;
   /**
    * Read-only protection: while true, every mutating command that would
    * touch document content, structure, or the undo history is refused (see
@@ -217,7 +224,7 @@ export class AppState {
     handle: FileSystemFileHandle | null,
     startsReadOnly = false,
   ): Tab {
-    // Zoom and wrap are layered: browser > file > worksheet (see
+    // Zoom and wrap are layered: worksheet > file > browser (see
     // `state/view-layers.ts`); column widths come from the document alone.
     const stored = doc.kind === 'rsf' ? doc : null;
     const tab: Tab = {
@@ -235,6 +242,7 @@ export class AppState {
       zoom: resolveZoom(doc).value,
       wrapCells: resolveWrap(doc).value,
       tabEntryCol: null,
+      freeze: null,
       readOnly: startsReadOnly,
       neverSaved: false,
     };
@@ -429,6 +437,23 @@ export class AppState {
       return;
     }
     tab.readOnly = readOnly;
+    this.emit('tabs');
+  }
+
+  /**
+   * Adopt the file name the user chose when saving (the save picker's file
+   * name, or the name typed for a Drive upload) as the tab's name, so the
+   * tab label and later downloads follow the saved file.
+   * An empty name is ignored. Emits `tabs` only when the name changed.
+   */
+  adoptSavedName(tab: Tab, name: string): void {
+    if (!name || tab.name === name) {
+      return;
+    }
+    tab.name = name;
+    if (tab.doc.kind === 'rsf') {
+      tab.doc.name = name;
+    }
     this.emit('tabs');
   }
 
@@ -813,12 +838,53 @@ export class AppState {
     this.emit('view');
   }
 
+  /**
+   * Turn the sticky first row preference on/off. Also drops the active tab's
+   * freeze-at-selection, so the choice visibly takes effect there.
+   */
   setStickyFirstRow(sticky: boolean): void {
     this.structuralOps.setStickyFirstRow(sticky);
   }
 
+  /** Column counterpart of {@link setStickyFirstRow}. */
   setStickyFirstColumn(sticky: boolean): void {
     this.structuralOps.setStickyFirstColumn(sticky);
+  }
+
+  /** Whether the active tab currently shows a sticky first row from the preference (menu check). */
+  get stickyFirstRowShown(): boolean {
+    return this.stickyFirstRow && !this.activeTab?.freeze;
+  }
+
+  /** Whether the active tab currently shows a sticky first column from the preference (menu check). */
+  get stickyFirstColumnShown(): boolean {
+    return this.stickyFirstColumn && !this.activeTab?.freeze;
+  }
+
+  /**
+   * How many display rows (from the top) and columns (from the left) of a
+   * tab stay on screen while the rest scrolls: the tab's own
+   * freeze-at-selection when set, otherwise the sticky first row / first
+   * column preferences. Clamped to the document's size.
+   */
+  frozenPanes(tab: Tab): FreezePanes {
+    const freeze = tab.freeze ?? {
+      rows: this.stickyFirstRow ? 1 : 0,
+      cols: this.stickyFirstColumn ? 1 : 0,
+    };
+    return {
+      rows: Math.max(0, Math.min(freeze.rows, tab.doc.rowCount)),
+      cols: Math.max(0, Math.min(freeze.cols, tab.doc.columnCount)),
+    };
+  }
+
+  /**
+   * Freeze a tab at a split point (rows above, columns left of it), or clear
+   * it with null. Purely visual: it never changes document content, CSV
+   * bytes, the dirty state, or the undo history.
+   */
+  setTabFreeze(tab: Tab, freeze: FreezePanes | null): void {
+    this.structuralOps.setTabFreeze(tab, freeze);
   }
 
   // ----- Filtering (RSF spreadsheet documents only) -----

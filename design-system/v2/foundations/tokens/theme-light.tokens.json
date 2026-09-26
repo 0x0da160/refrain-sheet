@@ -1,0 +1,384 @@
+{
+  "$schema": "https://www.designtokens.org/schemas/2025.10/format.json",
+  "$description": "Shared semantic colours, light. Resolve against foundations.tokens.json.",
+  "semantic": {
+    "$type": "color",
+    "bg-page": {
+      "$value": "{color.paper.50}",
+      "$description": "Page / app background"
+    },
+    "bg-surface": {
+      "$value": "{color.paper.0}",
+      "$description": "Bars, cards, docked panels, fields"
+    },
+    "bg-raised": {
+      "$value": "{color.paper.0}",
+      "$description": "Menus, popovers, dialogs — anything floating"
+    },
+    "bg-sunken": {
+      "$value": "{color.paper.100}",
+      "$description": "Wells, inset areas, progress track"
+    },
+    "bg-hover": {
+      "$value": "{color.paper.100}",
+      "$description": "Hover fill of items and ghost buttons"
+    },
+    "bg-pressed": {
+      "$value": "{color.paper.200}",
+      "$description": "Pressed fill of the same"
+    },
+    "border-default": {
+      "$value": "{color.paper.200}",
+      "$description": "Separators and non-interactive edges"
+    },
+    "border-strong": {
+      "$value": "{color.paper.300}",
+      "$description": "Edges that must read over a busy surface"
+    },
+    "border-control": {
+      "$value": "{color.ink.300}",
+      "$description": "Outline of an interactive control (3:1)"
+    },
+    "fg-default": {
+      "$value": "{color.ink.900}",
+      "$description": "Primary text"
+    },
+    "fg-muted": {
+      "$value": "{color.ink.500}",
+      "$description": "Secondary text: helper, metadata, shortcut hints"
+    },
+    "fg-subtle": {
+      "$value": "{color.ink.400}",
+      "$description": "Placeholders only"
+    },
+    "accent": {
+      "$value": "{color.green.600}",
+      "$description": "Primary action fill, active indicator, checked control"
+    },
+    "accent-hover": {
+      "$value": "{color.green.700}"
+    },
+    "accent-active": {
+      "$value": "{color.green.800}"
+    },
+    "accent-contrast": {
+      "$value": "{color.paper.0}",
+      "$description": "Text/icon on an accent fill"
+    },
+    "accent-subtle": {
+      "$value": "{color.green.50}",
+      "$description": "Selected item fill"
+    },
+    "accent-subtle-text": {
+      "$value": "{color.green.800}",
+      "$description": "Text on accent-subtle"
+    },
+    "accent-text": {
+      "$value": "{color.green.700}",
+      "$description": "Accent-coloured text and icons"
+    },
+    "focus-ring": {
+      "$value": "{color.green.600}",
+      "$description": "Keyboard focus outline"
+    },
+    "danger": {
+      "$value": "{color.red.600}",
+      "$description": "Destructive action fill, error icon"
+    },
+    "danger-hover": {
+      "$value": "{color.red.700}"
+    },
+    "danger-contrast": {
+      "$value": "{color.paper.0}",
+      "$description": "Text on a danger fill"
+    },
+    "danger-text": {
+      "$value": "{color.red.700}",
+      "$description": "Error message text"
+    },
+    "danger-subtle": {
+      "$value": "{color.red.100}",
+      "$description": "Error banner fill"
+    },
+    "warning": {
+      "$value": "{color.amber.600}",
+      "$description": "Warning icon and stripe"
+    },
+    "warning-text": {
+      "$value": "{color.amber.700}",
+      "$description": "Warning message text"
+    },
+    "warning-subtle": {
+      "$value": "{color.amber.100}",
+      "$description": "Warning banner fill"
+    },
+    "success": {
+      "$value": "{color.green.600}",
+      "$description": "Success icon"
+    },
+    "success-text": {
+      "$value": "{color.green.700}",
+      "$description": "Success message text"
+    },
+    "success-subtle": {
+      "$value": "{color.green.100}",
+      "$description": "Success banner fill"
+    },
+    "info": {
+      "$value": "{color.blue.600}",
+      "$description": "Information icon and stripe"
+    },
+    "info-text": {
+      "$value": "{color.blue.700}",
+      "$description": "Information message text"
+    },
+    "info-subtle": {
+      "$value": "{color.blue.100}",
+      "$description": "Information banner fill"
+    },
+    "link": {
+      "$value": "{color.green.700}"
+    },
+    "link-visited": {
+      "$value": "{color.green.900}"
+    },
+    "inverse-bg": {
+      "$value": "{color.ink.800}",
+      "$description": "Tooltips and toasts: the opposite of the theme"
+    },
+    "inverse-text": {
+      "$value": "{color.paper.50}"
+    },
+    "inverse-text-muted": {
+      "$value": "{color.ink.200}"
+    },
+    "overlay": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.0157,
+          0.0314,
+          0.0549
+        ],
+        "alpha": 0.45,
+        "hex": "#04080e"
+      },
+      "$description": "Scrim behind a modal"
+    }
+  },
+  "shadow": {
+    "$type": "shadow",
+    "xs": {
+      "$value": [
+        {
+          "color": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0157,
+              0.0314,
+              0.0549
+            ],
+            "alpha": 0.06,
+            "hex": "#04080e"
+          },
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 1,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 2,
+            "unit": "px"
+          },
+          "spread": {
+            "value": 0,
+            "unit": "px"
+          }
+        }
+      ]
+    },
+    "sm": {
+      "$value": [
+        {
+          "color": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0157,
+              0.0314,
+              0.0549
+            ],
+            "alpha": 0.1,
+            "hex": "#04080e"
+          },
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 1,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 3,
+            "unit": "px"
+          },
+          "spread": {
+            "value": 0,
+            "unit": "px"
+          }
+        },
+        {
+          "color": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0157,
+              0.0314,
+              0.0549
+            ],
+            "alpha": 0.06,
+            "hex": "#04080e"
+          },
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 1,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 2,
+            "unit": "px"
+          },
+          "spread": {
+            "value": 0,
+            "unit": "px"
+          }
+        }
+      ]
+    },
+    "md": {
+      "$value": [
+        {
+          "color": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0157,
+              0.0314,
+              0.0549
+            ],
+            "alpha": 0.08,
+            "hex": "#04080e"
+          },
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 4,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 6,
+            "unit": "px"
+          },
+          "spread": {
+            "value": 0,
+            "unit": "px"
+          }
+        },
+        {
+          "color": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0157,
+              0.0314,
+              0.0549
+            ],
+            "alpha": 0.06,
+            "hex": "#04080e"
+          },
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 2,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 4,
+            "unit": "px"
+          },
+          "spread": {
+            "value": 0,
+            "unit": "px"
+          }
+        }
+      ]
+    },
+    "lg": {
+      "$value": [
+        {
+          "color": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0157,
+              0.0314,
+              0.0549
+            ],
+            "alpha": 0.08,
+            "hex": "#04080e"
+          },
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 10,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 15,
+            "unit": "px"
+          },
+          "spread": {
+            "value": 0,
+            "unit": "px"
+          }
+        },
+        {
+          "color": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0157,
+              0.0314,
+              0.0549
+            ],
+            "alpha": 0.05,
+            "hex": "#04080e"
+          },
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 4,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 6,
+            "unit": "px"
+          },
+          "spread": {
+            "value": 0,
+            "unit": "px"
+          }
+        }
+      ]
+    }
+  }
+}

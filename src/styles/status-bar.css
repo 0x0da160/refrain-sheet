@@ -107,7 +107,7 @@
   margin-left: auto;
 }
 
-/* Below `@media (max-width: 700px)` this flips: only `.status-version-short`
+/* Below `@media (max-width: 43.75em)` this flips: only `.status-version-short`
    ("v1.2.3", no "Version " prefix) shows, to save space in the status bar
    (#478). See `StatusBar.appendVersion`. */
 .status-version-short {

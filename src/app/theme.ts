@@ -8,7 +8,7 @@
  * setting a single `data-theme` attribute (`"light"`, `"dark"` or `"hybrid"`)
  * plus the matching `color-scheme` on the document root; every surface reads
  * its colors from the design-system tokens keyed off that attribute
- * (design-system/2.0.0, loaded by `styles.css`), so no per-element work is
+ * (design-system/v2, loaded by `styles.css`), so no per-element work is
  * needed.
  *
  * When the choice is `"system"` the resolved theme follows

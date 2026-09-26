@@ -40,10 +40,10 @@ const STATIC_ASSETS = ['main.js', 'consent.js', 'favicon.svg', 'assets'];
 // The design-system token stylesheets site/styles.css is written against:
 // the foundations shared with the app, then the landing-only brand layer.
 // They are prepended to styles.css so the site still ships one stylesheet
-// with no @import. Regenerate them with design-system/2.0.0/tools/build.mjs.
+// with no @import. Regenerate them with design-system/v2/tools/build.mjs.
 const DESIGN_TOKENS = [
-  'design-system/2.0.0/foundations/css/foundations.css',
-  'design-system/2.0.0/brand/css/brand-tokens.css',
+  'design-system/v2/foundations/css/foundations.css',
+  'design-system/v2/brand/css/brand-tokens.css',
 ];
 
 const rawSite = process.argv[2];

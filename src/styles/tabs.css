@@ -87,7 +87,7 @@
   flex: none;
 }
 
-@media (min-width: 701px) {
+@media (width > 43.75em) {
   #app.tabs-in-menu-row {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);

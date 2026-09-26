@@ -7,7 +7,7 @@ sources:
   - resource: ../../src/app/theme.ts
   - resource: ../../CHANGELOG.md
   - resource: ../../src/styles/tailwind-token-bridge.css
-  - resource: ../../design-system/2.0.0/docs/migration.md
+  - resource: ../../design-system/v2/docs/migration.md
   - resource: ../../src/styles/virtualized-grid.css
   - resource: ../../src/ui/command-icons.ts
 status: stable
@@ -70,7 +70,7 @@ paints it.
 ## The semantic token system
 
 The theme is a **semantic CSS custom-property system** taken from the
-Refrain Sheet Design System v2.0.0 (`design-system/2.0.0/`), whose generated
+Refrain Sheet Design System v2 (`design-system/v2/`, currently 2.1.0), whose generated
 token CSS `src/styles.css` loads first: `foundations.css` holds the shell
 colours (`--bg-*`, `--fg-*`, `--border-*`, `--accent-*`, status colours,
 `--inverse-*`, `--overlay`, `--shadow-*`) for light and dark, and
@@ -115,12 +115,16 @@ properties, used everywhere outside the grid instead of scattered literals
   Compact, Standard (default) and Comfortable (`src/app/density.ts`), stored
   on this device only and applied as `data-density` on the document root.
   The menu bar, document tab row, formula bar, and worksheet strip share one
-  outer height, `--bar-h` (28 / 32 / 40px, border included — the app is
+  outer height, `--bar-h` (28 / 32 / 36px, border included — the app is
   `box-sizing: border-box` throughout); the status bar uses
-  `--statusbar-h` (24 / 24 / 32px); inline controls and menu items
+  `--statusbar-h` (24 / 24 / 28px); inline controls and menu items
   `--control-h` (24 / 28 / 32px); fields and buttons in dialogs and panels
-  `--field-h` (28 / 32 / 40px); dialog insets `--inset` (8 / 12 / 16px).
-  A coarse pointer (touch) raises bars to 48px and controls to 44px whatever
+  `--field-h` (28 / 32 / 36px); the top and bottom padding of dialogs
+  `--inset` (8 / 12 / 16px). The values follow one design-system rule: each
+  step moves every vertical size by 4px from Standard, never below 24px;
+  horizontal padding does not change.
+  A coarse pointer (touch) raises bars to 48px, the status bar to 40px and
+  controls to 44px whatever
   the choice. Density never changes text size or the grid's geometry. On a wide window the document tabs
   share the menu bar's row (see
   [tabs-and-worksheet-strip.md](tabs-and-worksheet-strip.md)). Their left content edges line up at
@@ -129,7 +133,8 @@ properties, used everywhere outside the grid instead of scattered literals
 The grid's own cell geometry (`src/styles/virtualized-grid.css`) is
 deliberately outside this scale: `grid.ts` measures cell padding and keeps
 row height in sync with `--grid-row-height`. Touch-target floors in the
-mobile layout (36–44px `min-height`) are also literals, since they are
+mobile layout use the design system's target tokens (`--target-touch` 44px,
+`--target-touch-dense` 40px) rather than the spacing scale, since they are
 accessibility minimums rather than spacing.
 
 ## Stacking order

@@ -38,8 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 ### Added
 
 - **View > Density** switches the height of the bars, buttons, fields and
-  menu items between Compact, Standard (the default) and Comfortable. Text
-  size and the spreadsheet grid do not change. The choice is remembered on
+  menu items between Compact, Standard (the default) and Comfortable, 4px
+  per step. Text size and the spreadsheet grid do not change. The choice is remembered on
   this device only.
 - Colour pickers (text, fill, borders, conditional formats) now suggest a
   set of 65 document colours where the browser supports it (Chrome, Edge);
@@ -65,6 +65,17 @@ really is internal, rather than inventing an entry to satisfy it.
   and the JSON and YAML editors use the same fixed-width font as the rest of
   the app's code text. The keyboard-shortcut help's note on appearance now
   mentions the Hybrid theme and Density.
+- The diff panel's Modified, Added and Deleted badges now use amber, green
+  and red on a pale background; Modified and Added were the same green.
+- Warning text and icons are a slightly lighter amber in the light theme,
+  and so are the third formula-reference colour and the outline of the
+  current find match.
+- On touch devices, dialog titles and headings grow along with the rest of
+  the text, and the status bar is 40px tall. On a phone, the document tabs'
+  close buttons and the status bar's Details button are larger (40px).
+- The phone layout starts at the same 700px width as before, now measured
+  relative to the browser's default text size: if you have made text larger
+  in your browser, the phone layout starts at a proportionally wider window.
 
 ## [0.9.5] - 2026-09-26
 

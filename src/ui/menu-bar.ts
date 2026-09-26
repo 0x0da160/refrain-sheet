@@ -616,7 +616,7 @@ export class MenuBar {
    * Mobile only (hidden by desktop-width CSS): the hamburger button that
    * expands `.menu-row` below the logo row. A separate top-level element
    * from `.element` — rather than a child of it, as it used to be — purely
-   * so the mobile grid (`@media (max-width: 700px)` in styles.css) can place
+   * so the mobile grid (`@media (max-width: 43.75em)` in styles.css) can place
    * it in its own trailing column, past the status bar, in a three-column
    * `[app icon | status bar | hamburger]` layout (#478). The caller mounts
    * it as a sibling of `.element` and `StatusBar.element`; `MenuBar` still
@@ -702,7 +702,7 @@ export class MenuBar {
     this.submenuEl?.remove();
     this.submenuEl = null;
     clearChildren(this.element);
-    // Mobile only: lets the mobile layout (`@media (max-width: 700px)` in
+    // Mobile only: lets the mobile layout (`@media (max-width: 43.75em)` in
     // styles.css) grow `.menu-bar` to the full width of its shared row with
     // `.status-bar` and hide that row's sibling while the row expands, via a
     // plain CSS sibling selector — desktop-width CSS never reads this class.

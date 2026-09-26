@@ -77,12 +77,13 @@ export class WelcomeScreen {
       // it never shifts layout, and it follows the light/dark theme.
       el('h1', { className: 'm-0' }, [createAppLogotype('welcome-logotype block', 44)]),
       el('p', { className: 'm-0 text-dim', text: t('app.subtitle') }),
-      // Equal-width buttons: one column on a phone, one row of equal
-      // columns from the `sm` breakpoint up.
+      // Equal-width buttons: one column in the phone layout, one row of
+      // equal columns above it (`desktop:`, tailwind-token-bridge.css).
       el(
         'div',
         {
-          className: 'mt-(--space-2) mb-(--space-0-5) grid gap-(--space-2) sm:grid-flow-col sm:auto-cols-fr',
+          className:
+            'mt-(--space-2) mb-(--space-0-5) grid gap-(--space-2) desktop:grid-flow-col desktop:auto-cols-fr',
         },
         [open, create, createCsv],
       ),

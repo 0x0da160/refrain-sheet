@@ -123,7 +123,7 @@ export const I18N = {
       'ホスト版アプリで「ドライブから開く」「ドライブに保存」を選んだときだけ、Googleへのサインインと Google Drive API との通信が発生します。アクセス範囲は開いた・作成したファイルに限られ（drive.file スコープ）、アクセストークンはブラウザのメモリ上にのみ保持されます。ファイルは運営者のサーバーを経由せず、ブラウザとGoogle Driveの間で直接やり取りされます。配布版にはこの機能はありません。',
     'f6.h3': '読み取り専用から始める保護モード',
     'f6.p':
-      '既存のファイルは既定で読み取り専用で開きます。編集するときは、ステータスバーのアイコンか ファイル > ドキュメント > ファイルの保護を解除 で切り替えます。この設定はタブごと・セッション限りで、ファイルには保存されません。',
+      '既存のファイルは既定で読み取り専用で開きます。編集するときは、ステータスバーのアイコンか ファイル > このファイル > ファイルの保護を解除 で切り替えます。この設定はタブごと・セッション限りで、ファイルには保存されません。',
     'f7.h3': 'ほかにも：Markdownシート',
     'f7.p':
       'RSFのファイルに Markdown シートを追加し、ソースとプレビューを並べてメモや手順書を書けます（シート > Markdownシートの追加）。MarkdownシートはCSVへの書き出しの対象外です。',
@@ -453,7 +453,7 @@ export const I18N = {
       'Only when you choose Open from Drive or Save to Drive in the hosted app does it sign in to Google and talk to the Google Drive API. Access is limited to files opened or created through this feature (the drive.file scope), the access token lives only in browser memory, and file contents travel directly between your browser and Google Drive, never through a server of ours. The downloadable release does not include this feature.',
     'f6.h3': 'A protect mode that stops accidental edits',
     'f6.p':
-      'Opening an existing file defaults to read-only; a status bar control or File > Document > Unprotect File unlocks it. The setting is per-tab, session-only, and never saved with the file.',
+      'Opening an existing file defaults to read-only; a status bar control or File > This File > Unprotect File unlocks it. The setting is per-tab, session-only, and never saved with the file.',
     'f7.h3': 'Also included: Markdown sheets',
     'f7.p':
       'Add a Markdown sheet to an RSF file (Sheet > Add Markdown Sheet) and write notes or procedures with source and preview side by side. Markdown sheets are excluded from CSV export.',

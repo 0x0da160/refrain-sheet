@@ -59,6 +59,18 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- **Clearer wording throughout the app, in Japanese and English.** Buttons
+  now say what they do: closing a file with unsaved changes asks "Save
+  Changes Before Closing?" with Save and Close / Close Without Saving / Keep
+  Editing, and sheet dialogs say Add, Rename, or Duplicate instead of OK.
+  Messages after a failed save or a download save say what happened to the
+  original file and what to do next. "Document", "snapshot", and similar
+  terms became "file" and "version"; File > Document is now File > This
+  File, and the Convert command reads Convert to RSF Spreadsheet…. Messages
+  that pointed to the wrong menu now name the right one. Background
+  explanations in Settings, Keyboard Shortcuts, the export, sort, filter,
+  timezone, display-language, and version-history dialogs are folded under
+  "More details", and text unrelated to a dialog was removed.
 - The interface text is one step larger and easier to read: menus,
   dialogs and panels use 14px instead of 13px, dialog titles 16px, and no
   text is smaller than 12px (menu shortcuts and small labels were 9–11px).

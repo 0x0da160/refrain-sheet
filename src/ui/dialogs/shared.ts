@@ -23,6 +23,22 @@ export function externalLink(text: string, href: string): HTMLAnchorElement {
   });
 }
 
+/**
+ * Background a user does not need in order to decide or act — how a setting
+ * is stored, what an export leaves out, how keys are routed — folded behind
+ * a closed native `<details>` disclosure so the dialog shows only what the
+ * decision needs. Impact a user must see before a save, convert, discard, or
+ * encoding change never goes here (`knowledge/ui/ui-writing-and-wording.md`
+ * §2-3). `<details>`/`<summary>` are keyboard- and screen-reader-accessible
+ * natively.
+ */
+export function helpDetails(...paragraphs: string[]): HTMLDetailsElement {
+  return el('details', { className: 'dialog-help' }, [
+    el('summary', { text: t('dialog.help.summary') }),
+    ...paragraphs.map((text) => el('p', { className: 'dialog-note', text })),
+  ]);
+}
+
 function cellName(row: number, col: number): string {
   return `R${row + 1}C${col + 1}`;
 }

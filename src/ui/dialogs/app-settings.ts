@@ -23,7 +23,7 @@ import {
 import { listTimeZones } from '../../core/timezone';
 import { APP_VERSION_DISPLAY } from '../../app/version';
 import { el } from '../dom';
-import { dialogButton, externalLink, openDialog, submitOnEnter } from './shared';
+import { dialogButton, externalLink, helpDetails, openDialog, submitOnEnter } from './shared';
 import { openVersionHistoryPreview } from './version-preview';
 
 /** Formats a stored timestamp for display, in the app's current UI language. */
@@ -192,13 +192,12 @@ export class AppSettingsDialogs {
           text: t('dialog.settings.range', { min: minMiB, max: maxMiB }),
           attrs: { id: 'settings-maxsize-help' },
         }),
-        el('p', { className: 'dialog-note', text: t('dialog.settings.note') }),
+        helpDetails(t('dialog.settings.note')),
         el('div', { className: 'form-row' }, [
           el('label', { text: t('dialog.settings.shiftPaste'), attrs: { for: pasteId } }),
           pasteSelect,
         ]),
-        el('p', { className: 'dialog-note', text: t('dialog.settings.shiftPasteNote') }),
-        el('p', { className: 'dialog-note', text: t('dialog.settings.local') }),
+        helpDetails(t('dialog.settings.shiftPasteNote')),
         el('h3', { text: t('dialog.settings.display') }),
         el('p', { className: 'dialog-note', text: t('dialog.settings.displayOrder') }),
         el('h4', { text: t('dialog.settings.browserLevel') }),
@@ -211,7 +210,7 @@ export class AppSettingsDialogs {
           el('p', { className: 'dialog-note', text: t('dialog.settings.fileLevelNote') }),
         );
       }
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.settings.sheetLevelNote') }));
+      body.append(helpDetails(t('dialog.settings.sheetLevelNote'), t('dialog.settings.local')));
 
       const submit = (): void => {
         const mib = Number(input.value);
@@ -258,6 +257,7 @@ export class AppSettingsDialogs {
         el('label', { text: t('dialog.timezone.label'), attrs: { for: selectId } }),
         select,
         el('p', { className: 'dialog-note', text: t('dialog.timezone.note') }),
+        helpDetails(t('dialog.timezone.help')),
       );
       buttons.append(
         dialogButton(t('dialog.timezone.cancel'), false, false, () => close(null)),
@@ -288,6 +288,7 @@ export class AppSettingsDialogs {
         el('label', { text: t('dialog.displayLanguage.label'), attrs: { for: selectId } }),
         select,
         el('p', { className: 'dialog-note', text: t('dialog.displayLanguage.note') }),
+        helpDetails(t('dialog.displayLanguage.help')),
       );
       buttons.append(
         dialogButton(t('dialog.displayLanguage.cancel'), false, false, () => close(null)),
@@ -329,6 +330,7 @@ export class AppSettingsDialogs {
             el('label', { text: t('dialog.versionHistory.label'), attrs: { for: checkboxId } }),
           ]),
           el('p', { className: 'dialog-note', text: t('dialog.versionHistory.note') }),
+          helpDetails(t('dialog.versionHistory.help')),
         );
 
         // Retained-snapshot cap: default / an explicit number / unlimited.
@@ -484,7 +486,7 @@ export class AppSettingsDialogs {
 
   private showShortcuts(): Promise<void> {
     return openDialog<void>(t('dialog.shortcuts.title'), undefined, (body, buttons, close) => {
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.shortcuts.note') }));
+      body.append(helpDetails(t('dialog.shortcuts.note'), t('dialog.shortcuts.appearanceNote')));
       // Grouped by task, each key named for this platform (Cmd on macOS).
       const mac = isMacPlatform();
       for (const group of SHORTCUT_GROUPS) {
@@ -500,8 +502,6 @@ export class AppSettingsDialogs {
         }
         body.append(table);
       }
-      body.append(el('h3', { text: t('dialog.shortcuts.appearance') }));
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.shortcuts.appearanceNote') }));
       buttons.append(dialogButton(t('dialog.close'), true, true, () => close(undefined)));
     });
   }

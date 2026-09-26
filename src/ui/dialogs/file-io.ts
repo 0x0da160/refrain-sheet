@@ -10,7 +10,7 @@ import { setSuppressHistoryCapWarning } from '../../app/settings';
 import { storageSharedWithOtherLocalFiles } from '../../app/storage';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/serializer';
 import { el } from '../dom';
-import { cellList, dialogButton, openDialog, submitOnEnter } from './shared';
+import { cellList, dialogButton, helpDetails, openDialog, submitOnEnter } from './shared';
 
 /**
  * File I/O and CSV/RSF conversion dialogs: save options, encoding/delimiter
@@ -130,7 +130,7 @@ export class FileIoDialogs {
       if (downloadNote) {
         body.append(el('p', { className: 'dialog-note', text: downloadNote }));
       }
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.saveOptions.injectionWarning') }));
+      body.append(helpDetails(t('dialog.saveOptions.injectionWarning')));
 
       buttons.append(
         dialogButton(t('dialog.saveOptions.cancel'), false, false, () => close(null)),
@@ -258,7 +258,10 @@ export class FileIoDialogs {
   explainRsfSave(name: string): Promise<boolean> {
     return openDialog(t('dialog.rsfSave.title'), false, (body, buttons, close) => {
       body.append(el('p', { text: t('dialog.rsfSave.message', { name }) }));
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.rsfSave.note') }));
+      body.append(
+        el('p', { className: 'dialog-note', text: t('dialog.rsfSave.note') }),
+        helpDetails(t('dialog.rsfSave.help')),
+      );
       buttons.append(
         dialogButton(t('dialog.rsfSave.cancel'), false, false, () => close(false)),
         dialogButton(t('dialog.rsfSave.ok'), true, true, () => close(true)),
@@ -314,7 +317,7 @@ export class FileIoDialogs {
     return openDialog<CsvExportOptions | null>(t('dialog.exportCsv.title'), null, (body, buttons, close) => {
       body.append(el('p', { text: t('dialog.exportCsv.message', { name }) }));
       body.append(el('p', { className: 'dialog-warning', text: t('dialog.exportCsv.warning') }));
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.exportCsv.notPreserved') }));
+      body.append(helpDetails(t('dialog.exportCsv.notPreserved')));
 
       const makeSelect = (
         labelText: string,
@@ -368,7 +371,7 @@ export class FileIoDialogs {
       updateBom();
 
       body.append(encoding.row, bom.row, bomNote, delimiter.row, quoteStyle.row, lineEnding.row);
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.saveOptions.injectionWarning') }));
+      body.append(helpDetails(t('dialog.saveOptions.injectionWarning')));
 
       buttons.append(
         dialogButton(t('dialog.exportCsv.cancel'), false, true, () => close(null)),
@@ -390,7 +393,7 @@ export class FileIoDialogs {
     return openDialog(t('dialog.exportXlsx.title'), false, (body, buttons, close) => {
       body.append(el('p', { text: t('dialog.exportXlsx.message', { name }) }));
       body.append(el('p', { className: 'dialog-warning', text: t('dialog.exportXlsx.warning') }));
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.exportXlsx.notPreserved') }));
+      body.append(helpDetails(t('dialog.exportXlsx.notPreserved')));
       buttons.append(
         dialogButton(t('dialog.exportXlsx.cancel'), false, false, () => close(false)),
         dialogButton(t('dialog.exportXlsx.ok'), true, true, () => close(true)),
@@ -403,7 +406,7 @@ export class FileIoDialogs {
     return openDialog(t('dialog.exportJson.title'), false, (body, buttons, close) => {
       body.append(el('p', { text: t('dialog.exportJson.message', { name }) }));
       body.append(el('p', { className: 'dialog-warning', text: t('dialog.exportJson.warning') }));
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.exportJson.notPreserved') }));
+      body.append(helpDetails(t('dialog.exportJson.notPreserved')));
       buttons.append(
         dialogButton(t('dialog.exportJson.cancel'), false, false, () => close(false)),
         dialogButton(t('dialog.exportJson.ok'), true, true, () => close(true)),

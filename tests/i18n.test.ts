@@ -50,11 +50,11 @@ describe('t()', () => {
 
   it('substitutes parameters', () => {
     setLocale('en');
-    expect(t('status.cell', { row: 3, col: 7 })).toBe('Row 3, Col 7');
+    expect(t('status.cell', { row: 3, col: 7 })).toBe('Row 3, Column 7');
     expect(t('find.count', { matches: 5, cells: 2 })).toBe('5 matches in 2 cells');
   });
 
   it('leaves unknown placeholders intact', () => {
-    expect(t('status.cell', { row: 1 })).toBe('Row 1, Col {col}');
+    expect(t('status.cell', { row: 1 })).toBe('Row 1, Column {col}');
   });
 });

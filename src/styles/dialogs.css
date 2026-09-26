@@ -103,6 +103,27 @@ dialog::backdrop {
   border-radius: var(--radius-sm);
 }
 
+/* Supplementary explanation folded behind a disclosure (`helpDetails`). */
+.dialog-help {
+  margin: 0 0 var(--space-2);
+}
+
+.dialog-help summary {
+  cursor: pointer;
+  color: var(--fg-muted);
+  font-size: var(--text-caption);
+}
+
+.dialog-help[open] summary {
+  margin-bottom: var(--space-1);
+}
+
+.dialog-help summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
 .dialog-warning {
   background: var(--warning-subtle);
   border: 1px solid var(--warning);

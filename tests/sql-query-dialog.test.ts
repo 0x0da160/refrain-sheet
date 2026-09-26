@@ -71,7 +71,7 @@ describe('SqlQueryDialogs.showSqlQuery', () => {
     helpToggle.click();
     expect(helpPanel.hidden).toBe(false);
     expect(helpToggle.getAttribute('aria-expanded')).toBe('true');
-    expect(helpPanel.textContent).toContain('read-only SQL query');
+    expect(helpPanel.textContent).toContain('SQL SELECT query');
 
     helpToggle.click();
     expect(helpPanel.hidden).toBe(true);

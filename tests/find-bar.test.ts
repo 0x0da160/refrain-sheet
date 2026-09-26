@@ -103,7 +103,7 @@ describe('FindBar replaceCurrent', () => {
     replaceButton.click();
 
     expect(tab.doc.getValue(0, 0)).toBe('bar');
-    expect(findBar.element.querySelector('.find-count')?.textContent).not.toContain('not on a match');
+    expect(findBar.element.querySelector('.find-count')?.textContent).not.toContain('is not a match');
   });
 
   it('does not edit the cell and reports a distinct status when the selection is off a match', () => {
@@ -120,7 +120,7 @@ describe('FindBar replaceCurrent', () => {
     expect(tab.doc.getValue(0, 0)).toBe('foo');
     expect(tab.doc.getValue(1, 0)).toBe('foo');
     const status = findBar.element.querySelector('.find-count')?.textContent ?? '';
-    expect(status).toContain('not on a match');
+    expect(status).toContain('is not a match');
   });
 });
 

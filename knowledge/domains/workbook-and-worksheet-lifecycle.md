@@ -117,7 +117,7 @@ There are two ways to convert, both explicit and confirmed. Either way the
 result is a workbook with **one** worksheet populated from the CSV, and the
 source `.csv` on disk is never modified:
 
-- **File > Convert to Spreadsheet (RSF)…** converts up front. It uses the
+- **File > This File > Convert to RSF Spreadsheet…** converts up front. It uses the
   CSV's current (including unsaved) contents and opens the result in a
   **new** `.rsf` tab; the source CSV tab and the file on disk stay open and
   unchanged. The command is enabled only for a CSV document that has not

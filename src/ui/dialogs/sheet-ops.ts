@@ -43,6 +43,7 @@ import {
 } from 'lucide';
 import {
   dialogButton,
+  helpDetails,
   openDialog,
   openSidePanel,
   panelCheck,
@@ -332,11 +333,10 @@ export class SheetOpsDialogs {
 
         body.append(
           panelSection(null, [
-            el('p', { className: 'dialog-note', text: t('dialog.filter.combineNote') }),
-            el('p', {
-              className: 'dialog-note',
-              text: t('dialog.filter.crossNote', { n: input.otherColumns }),
-            }),
+            helpDetails(
+              t('dialog.filter.combineNote'),
+              t('dialog.filter.crossNote', { n: input.otherColumns }),
+            ),
           ]),
         );
 
@@ -527,6 +527,7 @@ export class SheetOpsDialogs {
         keysSection.append(
           el('div', { className: 'panel-row' }, [addBtn]),
           el('p', { className: 'dialog-note', text: t('dialog.sort.note') }),
+          helpDetails(t('dialog.sort.help')),
         );
 
         if (input.hasActiveSort) {
@@ -754,7 +755,7 @@ export class SheetOpsDialogs {
       null,
       (body, buttons, close) => {
         body.append(el('p', { text: t('dialog.insertCells.message', { rows, cols }) }));
-        body.append(el('p', { className: 'dialog-note', text: t('dialog.insertCells.note') }));
+        body.append(helpDetails(t('dialog.insertCells.note')));
         buttons.append(
           dialogButton(t('dialog.insertCells.cancel'), false, true, () => close(null)),
           dialogButton(t('dialog.insertCells.right'), false, false, () => close('right')),
@@ -812,7 +813,7 @@ export class SheetOpsDialogs {
           attrs: { id: errorId, role: 'status', 'aria-live': 'polite' },
         });
 
-        const okButton = dialogButton(t('dialog.sheetName.ok'), true, false, () => submit());
+        const okButton = dialogButton(t(`dialog.sheetName.ok.${mode}`), true, false, () => submit());
         const refresh = (): boolean => {
           const message = validate(input.value);
           error.textContent = message ?? '';

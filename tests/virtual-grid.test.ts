@@ -607,6 +607,36 @@ describe('selection and keyboard interaction', () => {
     expect(grid.element.querySelector('.cell-editor')).toBeNull();
   });
 
+  it('Escape clears the cell selection, and the next arrow key moves on from where it was', () => {
+    const { state, grid, tab } = setup(bigCsv(20));
+    state.setSelection(tab, { row: 3, col: 1 }, { row: 2, col: 0 });
+    const esc = (): void =>
+      void grid.element.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      );
+    esc();
+    expect(tab.selection).toBeNull();
+    expect(state.selectedRange(tab)).toBeNull();
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }),
+    );
+    expect(tab.selection).toEqual({ row: 4, col: 1 });
+  });
+
+  it('Escape only dismisses the copy outline when one is shown, keeping the selection', () => {
+    const { state, grid, tab } = setup(bigCsv(20));
+    state.setSelection(tab, { row: 1, col: 1 }, null);
+    grid.setCopySource({ top: 1, left: 1, bottom: 1, right: 1 });
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    expect(tab.selection).toEqual({ row: 1, col: 1 });
+    grid.element.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    expect(tab.selection).toBeNull();
+  });
+
   it('Delete clears the selected range atomically', async () => {
     const { state, grid, tab } = setup(bigCsv(10));
     state.setSelection(tab, { row: 1, col: 1 }, { row: 0, col: 0 });

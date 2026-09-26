@@ -130,6 +130,21 @@ describe('read-only protection', () => {
     ]);
   });
 
+  it('passes a retry that finishes the refused edit once the tab is unprotected', () => {
+    const state = new AppState();
+    const tab = state.addTab('a.rsf', RsfDocument.blank('a.rsf', 5, 3, 'Sheet1'), null, true);
+    const retries: Array<() => void> = [];
+    state.warnBlocked = (_tab, _scope, retry) => retries.push(retry);
+
+    expect(state.editCell(tab, 0, 0, 'x')).toBe(false);
+    expect(state.insertRows(tab, 0, 1)).toBe(false);
+    expect(retries).toHaveLength(2);
+    state.setReadOnly(tab, false);
+    retries.forEach((retry) => retry());
+    expect(tab.doc.rowCount).toBe(6);
+    expect(tab.doc.getValue(1, 0)).toBe('x');
+  });
+
   it('refuses structural and worksheet-lifecycle operations on a protected RSF tab', () => {
     const state = new AppState();
     const tab = state.addTab('a.rsf', RsfDocument.blank('a.rsf', 5, 3, 'Sheet1'), null, true);
@@ -187,6 +202,21 @@ describe('worksheet lock', () => {
       { tab, scope: 'sheet' },
       { tab, scope: 'sheet' },
     ]);
+  });
+
+  it('names the locked worksheet and retries the edit after it is unlocked', () => {
+    const state = new AppState();
+    const workbook = RsfDocument.blank('a.rsf', 5, 3, 'Sheet1');
+    const tab = state.addTab('a.rsf', workbook, null);
+    state.setSheetLocked(tab, workbook.activeSheetId, true);
+    const calls: Array<{ retry: () => void; sheetId?: string }> = [];
+    state.warnBlocked = (_tab, _scope, retry, sheetId) => calls.push({ retry, sheetId });
+
+    expect(state.editCell(tab, 0, 0, 'x')).toBe(false);
+    expect(calls[0]?.sheetId).toBe(workbook.activeSheetId);
+    state.setSheetLocked(tab, workbook.activeSheetId, false);
+    calls[0]?.retry();
+    expect(workbook.getValue(0, 0)).toBe('x');
   });
 
   it('locking one worksheet leaves every other worksheet in the workbook editable', () => {

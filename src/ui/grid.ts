@@ -375,6 +375,9 @@ export class Grid {
   /** The range currently outlined as a copy source (see `setCopySource`), or
    * null when nothing is being highlighted. */
   private copySource: CellRange | null = null;
+  /** Where each tab's selection was when Escape cleared it, so the next
+   * arrow key moves on from there instead of from A1. */
+  private readonly clearedAt = new WeakMap<Tab, { row: number; col: number }>();
   /** Active whole-row / whole-column header drag, if any. */
   private headerDrag: { axis: 'row' | 'col'; anchor: number; last: number } | null = null;
   /** Active pointer reference entry into a formula editor, if any. */
@@ -3728,7 +3731,7 @@ export class Grid {
    * sorted view is followed as shown.
    */
   private jumpToDataEdge(tab: Tab, key: string, extend: boolean): void {
-    const sel = tab.selection ?? { row: 0, col: 0 };
+    const sel = tab.selection ?? this.clearedAt.get(tab) ?? { row: 0, col: 0 };
     const doc = tab.doc;
     let row = sel.row;
     let col = sel.col;
@@ -3775,7 +3778,7 @@ export class Grid {
     extend: boolean,
     entryTracking: 'tab' | 'enter' | 'reset' = 'reset',
   ): void {
-    const sel = tab.selection ?? { row: 0, col: 0 };
+    const sel = tab.selection ?? this.clearedAt.get(tab) ?? { row: 0, col: 0 };
     const row = dRow === 0 ? sel.row : this.stepVisibleRow(tab, sel.row, dRow);
     let col = entryTracking === 'enter' && tab.tabEntryCol !== null ? tab.tabEntryCol : sel.col + dCol;
     const fieldCount = tab.doc.fieldCount(row);
@@ -4272,6 +4275,24 @@ export class Grid {
       case 'F2':
         event.preventDefault();
         if (tab.selection) this.openEditor(tab, tab.selection.row, tab.selection.col, null);
+        return;
+      case 'Escape':
+        // Escape first dismisses whatever is in progress (a copy outline, a
+        // drag — see the document-level listener); only when nothing is does
+        // it clear the cell selection itself.
+        if (
+          !tab.selection ||
+          this.copySource ||
+          this.movingRange ||
+          this.filling ||
+          this.resizing ||
+          this.dragging
+        ) {
+          return;
+        }
+        event.preventDefault();
+        this.clearedAt.set(tab, tab.selection);
+        this.state.setSelection(tab, null, null);
         return;
       case 'Delete':
       case 'Backspace':

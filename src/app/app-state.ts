@@ -173,8 +173,11 @@ export class AppState {
    * exactly like `announce`; `Commands`-layer callers with their own
    * `UiPort` access (e.g. `FileIoCommands.ensureRsf`) call
    * `warnProtectedAndOfferUnlock` directly instead of going through this.
+   * `retry` repeats the refused call; it is run once the user unlocks, so
+   * the edit that asked for unlocking still happens.
    */
-  warnBlocked: ((tab: Tab, scope: 'book' | 'sheet') => void) | null = null;
+  warnBlocked: ((tab: Tab, scope: 'book' | 'sheet', retry: () => void, sheetId?: string) => void) | null =
+    null;
   /** Keep the first record row pinned below the header while scrolling. */
   stickyFirstRow: boolean;
   /** Keep the first data column pinned beside the row headers while scrolling. */
@@ -462,13 +465,14 @@ export class AppState {
    * first in every mutating entry point (`editCell`, `bulkEdit`, `pushEntry`,
    * and — before it even touches the document — `FileIoCommands.ensureRsf`),
    * so a protected tab can be neither edited nor silently converted to RSF.
-   * Returns true when the caller must stop.
+   * Returns true when the caller must stop; `retry` repeats the refused call
+   * after the user unlocks (see `warnBlocked`).
    */
-  private refuseReadOnlyWrite(tab: Tab): boolean {
+  private refuseReadOnlyWrite(tab: Tab, retry: () => void): boolean {
     if (!tab.readOnly) {
       return false;
     }
-    this.warnBlocked?.(tab, 'book');
+    this.warnBlocked?.(tab, 'book', retry);
     return true;
   }
 
@@ -482,7 +486,7 @@ export class AppState {
    * the active worksheet, matching how an absent `Operation.sheetId` is
    * documented to apply to it. Returns true when the caller must stop.
    */
-  private refuseLockedSheetWrite(tab: Tab, sheetId?: string): boolean {
+  private refuseLockedSheetWrite(tab: Tab, retry: () => void, sheetId?: string): boolean {
     const doc = tab.doc;
     if (doc.kind !== 'rsf') {
       return false;
@@ -491,7 +495,7 @@ export class AppState {
     if (!sheet?.locked) {
       return false;
     }
-    this.warnBlocked?.(tab, 'sheet');
+    this.warnBlocked?.(tab, 'sheet', retry, sheet.id);
     return true;
   }
 
@@ -542,7 +546,8 @@ export class AppState {
 
   /** Set one cell's value as a single undoable operation. */
   editCell(tab: Tab, row: number, col: number, value: string, label = 'history.editCell'): boolean {
-    if (this.refuseReadOnlyWrite(tab) || this.refuseLockedSheetWrite(tab)) {
+    const retry = (): void => void this.editCell(tab, row, col, value, label);
+    if (this.refuseReadOnlyWrite(tab, retry) || this.refuseLockedSheetWrite(tab, retry)) {
       return false;
     }
     if (tab.doc.kind === 'csv') {
@@ -594,9 +599,10 @@ export class AppState {
     if (effective.length === 0) {
       return false;
     }
+    const retry = (): void => void this.bulkEdit(tab, changes, label);
     if (
-      this.refuseReadOnlyWrite(tab) ||
-      this.refuseLockedSheetWrite(tab) ||
+      this.refuseReadOnlyWrite(tab, retry) ||
+      this.refuseLockedSheetWrite(tab, retry) ||
       this.refuseSpillWrite(tab, effective) ||
       this.refuseSortedWrite(tab, effective) ||
       this.refuseInvalidWrite(tab, effective)
@@ -634,7 +640,8 @@ export class AppState {
     if (!nonEmpty) {
       return false;
     }
-    if (this.refuseReadOnlyWrite(tab)) {
+    const retry = (): void => void this.pushEntry(tab, entry);
+    if (this.refuseReadOnlyWrite(tab, retry)) {
       return false;
     }
     // A worksheet's lock blocks its own cell/structural/filter/wrap changes,
@@ -648,7 +655,7 @@ export class AppState {
       if (op.type === 'sheets' || op.type === 'csvStructure') {
         continue;
       }
-      if (this.refuseLockedSheetWrite(tab, op.sheetId)) {
+      if (this.refuseLockedSheetWrite(tab, retry, op.sheetId)) {
         return false;
       }
     }

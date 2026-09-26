@@ -24,6 +24,7 @@ function checks(): MenuChecks {
     editHints: () => true,
     autoFitOnOpen: () => true,
     commentsPanel: () => false,
+    fullscreen: () => false,
     formatActive: () => false,
     driveAvailable: () => false,
     protectedDoc: () => false,

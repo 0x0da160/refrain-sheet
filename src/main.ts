@@ -165,16 +165,23 @@ function bootstrap(): void {
   // Markdown/JSON worksheet textareas, since it is wired at the AppState
   // layer those already go through. `warningOpen` collapses a burst of
   // blocked attempts (e.g. held-key typing into a locked cell) into a single
-  // dialog instead of stacking one per keystroke.
+  // dialog instead of stacking one per keystroke. Unlocking replays the
+  // edit that raised the dialog, so the user does not have to repeat it.
   let warningOpen = false;
-  state.warnBlocked = (tab, scope) => {
+  state.warnBlocked = (tab, scope, retry, sheetId) => {
     if (warningOpen) {
       return;
     }
     warningOpen = true;
-    void warnProtectedAndOfferUnlock(ui, state, tab, scope).finally(() => {
-      warningOpen = false;
-    });
+    void warnProtectedAndOfferUnlock(ui, state, tab, scope, sheetId)
+      .finally(() => {
+        warningOpen = false;
+      })
+      .then((unlocked) => {
+        if (unlocked && state.tabs.includes(tab)) {
+          retry();
+        }
+      });
   };
 
   const commands = new Commands(state, ui, document);
@@ -230,6 +237,9 @@ function bootstrap(): void {
     autoFitAllColumns: (tab) => grid.autoFitAllColumns(tab),
     goToCell: (row, col) => grid.reveal(row, col),
   };
+  // Entering or leaving full screen (the View menu, or Escape) refreshes the
+  // View menu's check mark.
+  document.addEventListener('fullscreenchange', () => state.emit('view'));
   // The cell comments list: a dockable side panel like Filter/Sort/Format —
   // see src/ui/comments-panel.ts.
   const commentsPanel = new CommentsPanel(state, grid);
@@ -249,6 +259,7 @@ function bootstrap(): void {
     bandedRows: () => getBandedRows(),
     autoFitOnOpen: () => getAutoFitOnOpen(),
     commentsPanel: () => commentsPanel.isOpen,
+    fullscreen: () => commands.isFullscreen(),
     formatActive: (key) => {
       const tab = state.activeTab;
       return tab !== null && commands.isFormatActive(tab, key);

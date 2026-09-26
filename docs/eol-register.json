@@ -155,53 +155,25 @@
       "support": "Current major (node24 runtime).",
       "plan": null
     },
-    "github:actions/checkout@5": {
+    "github:actions/configure-pages@6": {
       "eol": null,
-      "support": "Superseded by v7 (runs on node24). Used by the release workflows only.",
-      "plan": {
-        "action": "Move the release workflows to checkout@v7 with the Node.js 24 change.",
-        "due": "2026-12-31"
-      }
+      "support": "Current major (node24 runtime).",
+      "plan": null
     },
-    "github:actions/setup-node@5": {
+    "github:actions/deploy-pages@5": {
       "eol": null,
-      "support": "Superseded by v7 (runs on node24). Used by the release workflows only.",
-      "plan": {
-        "action": "Move the release workflows to setup-node@v7 with the Node.js 24 change.",
-        "due": "2026-12-31"
-      }
+      "support": "Current major (node24 runtime).",
+      "plan": null
     },
-    "github:actions/configure-pages@5": {
+    "github:actions/upload-pages-artifact@5": {
       "eol": null,
-      "support": "Runs on the deprecated node20 Actions runtime; v6 is current.",
-      "plan": {
-        "action": "Move release.yml to configure-pages@v6 (Pages deploy change: human approval required).",
-        "due": "2026-10-31"
-      }
+      "support": "Current major (composite action).",
+      "plan": null
     },
-    "github:actions/deploy-pages@4": {
+    "github:actions/attest-build-provenance@4": {
       "eol": null,
-      "support": "Runs on the deprecated node20 Actions runtime; v5 is current.",
-      "plan": {
-        "action": "Move release.yml to deploy-pages@v5 (Pages deploy change: human approval required).",
-        "due": "2026-10-31"
-      }
-    },
-    "github:actions/upload-pages-artifact@3": {
-      "eol": null,
-      "support": "Wraps upload-artifact@v4 (node20 runtime); v5 is current.",
-      "plan": {
-        "action": "Move release.yml to upload-pages-artifact@v5 (Pages deploy change: human approval required).",
-        "due": "2026-10-31"
-      }
-    },
-    "github:actions/attest-build-provenance@2": {
-      "eol": null,
-      "support": "Wraps node20-runtime actions; v4 is current.",
-      "plan": {
-        "action": "Move release.yml to attest-build-provenance@v4 (release signing change: human approval required).",
-        "due": "2026-10-31"
-      }
+      "support": "Current major (composite action).",
+      "plan": null
     }
   }
 }

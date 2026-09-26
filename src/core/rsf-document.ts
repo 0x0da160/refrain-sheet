@@ -205,8 +205,8 @@ export class RsfDocument {
   private autoFormatSourceFlag = false;
 
   /**
-   * File-level display settings: when set, they apply to every worksheet and
-   * outrank the worksheet's own `displayZoom` / `displayWrap` (see
+   * File-level display settings: when set, they apply to every worksheet that
+   * does not set its own `displayZoom` / `displayWrap` (the worksheet wins, see
    * `settings-cascade.ts`); `undefined` means the file specifies none.
    * Presentational like the worksheet's: persisted with the next save, never
    * marks the document dirty, and kept (not reverted) by a history restore.

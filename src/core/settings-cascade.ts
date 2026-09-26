@@ -2,12 +2,13 @@
 /**
  * The precedence of layered display settings (zoom, wrap long rows).
  *
- * A setting can be specified at three levels, from broadest to narrowest:
- * this browser, the file (an RSF workbook), and the worksheet. Every level is
- * optional — "not specified" defers to the next one — and the **first level
- * that specifies a value wins**, in {@link SETTING_PRECEDENCE} order. When no
- * level specifies anything, the caller's fallback (the built-in default or the
- * value last used in this browser) applies.
+ * A setting can be specified at three levels, from narrowest to broadest:
+ * the worksheet, the file (an RSF workbook), and this browser. Every level is
+ * optional — "not specified" defers to the next one — and the **narrowest
+ * level that specifies a value wins**, in {@link SETTING_PRECEDENCE} order, so
+ * the browser level acts as this browser's default. When no level specifies
+ * anything, the caller's fallback (the value last used in this browser)
+ * applies.
  *
  * Pure and DOM-free: callers read each level from wherever it lives and pass
  * the values in.
@@ -17,7 +18,7 @@
 export type SettingSource = 'browser' | 'file' | 'sheet' | 'default';
 
 /** Levels in precedence order: an earlier level beats every later one. */
-export const SETTING_PRECEDENCE = ['browser', 'file', 'sheet'] as const;
+export const SETTING_PRECEDENCE = ['sheet', 'file', 'browser'] as const;
 
 /** The value each level specifies; `undefined` means "not specified". */
 export type SettingLayers<T> = Partial<Record<(typeof SETTING_PRECEDENCE)[number], T>>;

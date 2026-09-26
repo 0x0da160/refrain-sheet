@@ -8,13 +8,7 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppState } from '../src/app/app-state';
-import {
-  getBrowserZoom,
-  getSheetZoom,
-  setBrowserWrap,
-  setBrowserZoom,
-  setSheetZoom,
-} from '../src/app/settings';
+import { setBrowserWrap, setBrowserZoom, setSheetZoom } from '../src/app/settings';
 import { decodeRsfWorkbook, rsfJsonText } from '../src/core/rsf-codec';
 import { RsfDocument } from '../src/core/rsf-document';
 import { resolveSetting, SETTING_PRECEDENCE } from '../src/core/settings-cascade';
@@ -35,19 +29,19 @@ function reopen(doc: RsfDocument): RsfDocument {
 }
 
 describe('resolveSetting', () => {
-  it('orders the levels browser, file, sheet', () => {
-    expect([...SETTING_PRECEDENCE]).toEqual(['browser', 'file', 'sheet']);
+  it('orders the levels sheet, file, browser (narrowest first)', () => {
+    expect([...SETTING_PRECEDENCE]).toEqual(['sheet', 'file', 'browser']);
   });
 
-  it('takes the first specified level and reports where it came from', () => {
-    expect(resolveSetting({ browser: 1, file: 2, sheet: 3 }, 0)).toEqual({ value: 1, source: 'browser' });
-    expect(resolveSetting({ file: 2, sheet: 3 }, 0)).toEqual({ value: 2, source: 'file' });
-    expect(resolveSetting({ sheet: 3 }, 0)).toEqual({ value: 3, source: 'sheet' });
+  it('takes the narrowest specified level and reports where it came from', () => {
+    expect(resolveSetting({ browser: 1, file: 2, sheet: 3 }, 0)).toEqual({ value: 3, source: 'sheet' });
+    expect(resolveSetting({ browser: 1, file: 2 }, 0)).toEqual({ value: 2, source: 'file' });
+    expect(resolveSetting({ browser: 1 }, 0)).toEqual({ value: 1, source: 'browser' });
     expect(resolveSetting<number>({}, 0)).toEqual({ value: 0, source: 'default' });
   });
 
   it('treats false as a specified value', () => {
-    expect(resolveSetting({ file: false, sheet: true }, true)).toEqual({ value: false, source: 'file' });
+    expect(resolveSetting({ browser: true, file: false }, true)).toEqual({ value: false, source: 'file' });
   });
 });
 
@@ -92,15 +86,16 @@ function decodeData(bytes: Uint8Array) {
   return decoded.data;
 }
 
-describe('AppState: browser > file > sheet', () => {
-  it('lets the file level beat the sheet level, and the browser level beat both', () => {
-    const doc = rsfDoc();
-    doc.activeSheet.displayZoom = 75;
-    doc.fileZoom = 125;
-    const state = new AppState();
-    expect(state.addTab('a.rsf', doc, null).zoom).toBe(125);
+describe('AppState: sheet > file > browser', () => {
+  it('lets the sheet beat the file, and the file beat the browser default', () => {
     setBrowserZoom(200);
-    expect(state.addTab('b.rsf', doc, null).zoom).toBe(200);
+    const state = new AppState();
+    expect(state.addTab('a.rsf', rsfDoc(), null).zoom).toBe(200);
+    const doc = rsfDoc();
+    doc.fileZoom = 125;
+    expect(state.addTab('b.rsf', doc, null).zoom).toBe(125);
+    doc.activeSheet.displayZoom = 75;
+    expect(state.addTab('c.rsf', doc, null).zoom).toBe(75);
   });
 
   it('falls back to the last-used zoom when no level specifies one', () => {
@@ -109,26 +104,21 @@ describe('AppState: browser > file > sheet', () => {
     expect(state.addTab('a.rsf', rsfDoc(), null).zoom).toBe(110);
   });
 
-  it('writes a View-menu zoom change to the level in effect', () => {
+  it('writes a View-menu zoom change to the sheet, which wins', () => {
+    setBrowserZoom(90);
     const state = new AppState();
     const doc = rsfDoc();
     doc.fileZoom = 125;
     const tab = state.addTab('a.rsf', doc, null);
     state.setTabZoom(tab, 150);
-    expect(doc.fileZoom).toBe(150);
-    expect(doc.activeSheet.displayZoom).toBeUndefined();
-    expect(getSheetZoom()).toBe(100); // the last-used value is untouched
-
-    setBrowserZoom(90);
+    expect(doc.activeSheet.displayZoom).toBe(150);
+    expect(doc.fileZoom).toBe(125);
+    expect(tab.zoom).toBe(150);
     state.reapplyViewSettings();
-    expect(tab.zoom).toBe(90);
-    state.setTabZoom(tab, 50);
-    expect(getBrowserZoom()).toBe(50);
-    expect(doc.fileZoom).toBe(150);
-    expect(tab.zoom).toBe(50);
+    expect(tab.zoom).toBe(150);
   });
 
-  it('re-resolves every open tab when the browser level changes', () => {
+  it('re-resolves every open tab when the browser default changes', () => {
     const state = new AppState();
     const a = state.addTab('a.rsf', rsfDoc(), null);
     const b = state.addTab('b.rsf', rsfDoc(), null);
@@ -141,24 +131,13 @@ describe('AppState: browser > file > sheet', () => {
     expect(a.wrapCells).toBe(false);
   });
 
-  it('does not auto-enable wrapping when the file says not to wrap', () => {
+  it('keeps an inherited file zoom out of the saved worksheet', () => {
     const state = new AppState();
     const doc = rsfDoc();
-    doc.fileWrap = false;
+    doc.fileZoom = 150;
     const tab = state.addTab('a.rsf', doc, null);
-    state.editCell(tab, 0, 0, 'a\nb');
-    expect(state.wrapCells).toBe(false);
-    expect(doc.activeSheet.displayWrap).toBeUndefined();
-  });
-
-  it('keeps a browser-level zoom out of the saved worksheet', () => {
-    setBrowserZoom(200);
-    const state = new AppState();
-    const doc = rsfDoc();
-    doc.activeSheet.displayZoom = 75;
-    const tab = state.addTab('a.rsf', doc, null);
-    expect(tab.zoom).toBe(200);
+    expect(tab.zoom).toBe(150);
     state.addSheet(tab, 'S2');
-    expect(doc.sheets[0].displayZoom).toBe(75);
+    expect(doc.sheets[0].displayZoom).toBeUndefined();
   });
 });

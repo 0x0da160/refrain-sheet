@@ -15,11 +15,11 @@
  * editing-help tooltip preference, and what Ctrl+Shift+V pastes.
  *
  * Zoom and wrap are layered settings (`src/core/settings-cascade.ts`):
- * **browser > file > worksheet**. The browser level ({@link getBrowserZoom},
- * {@link getBrowserWrap}) is unset by default and, when set in File >
- * Settings…, outranks every file. The "last used" values
- * ({@link getSheetZoom}, {@link getWrapCells}) are not a level: they are only
- * the fallback when no level specifies anything.
+ * **worksheet > file > browser** — the narrowest level that specifies a value
+ * wins. The browser level ({@link getBrowserZoom}, {@link getBrowserWrap}) is
+ * this browser's default, unset unless chosen in File > Settings…. The "last
+ * used" values ({@link getSheetZoom}, {@link getWrapCells}) are not a level:
+ * they are only the fallback when no level specifies anything.
  */
 
 import { RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../core/rsf-codec';
@@ -167,15 +167,16 @@ export function setWrapCellsPreference(wrap: boolean): void {
 }
 
 // ---------------------------------------------------------------------------
-// Browser-level display settings (outrank file and worksheet settings)
+// Browser-level display settings (this browser's default; files and worksheets outrank it)
 // ---------------------------------------------------------------------------
 
 const BROWSER_ZOOM_KEY = 'refrain-csv-html.browserZoom';
 const BROWSER_WRAP_KEY = 'refrain-csv-html.browserWrap';
 
 /**
- * The zoom this browser always uses, or `undefined` when unset (the file or
- * worksheet decides). **Default: unset.**
+ * This browser's default zoom, used when neither the worksheet nor the file
+ * sets one; `undefined` when unset (the last-used zoom applies). **Default:
+ * unset.**
  */
 export function getBrowserZoom(): number | undefined {
   const stored = safeStorageGet(BROWSER_ZOOM_KEY);
@@ -196,8 +197,9 @@ export function setBrowserZoom(zoom: number | undefined): void {
 }
 
 /**
- * Whether this browser always wraps long rows, or `undefined` when unset (the
- * file or worksheet decides). **Default: unset.**
+ * This browser's default for wrapping long rows, used when neither the
+ * worksheet nor the file sets one; `undefined` when unset (the last-used value
+ * applies). **Default: unset.**
  */
 export function getBrowserWrap(): boolean | undefined {
   const stored = safeStorageGet(BROWSER_WRAP_KEY);
@@ -315,7 +317,7 @@ export interface LocalSettings {
   /** Maximum file size to open, in bytes. */
   maxFileSize: number;
   shiftPaste: ShiftPasteMode;
-  /** This browser's display settings (outrank the file's). */
+  /** This browser's default display settings (the file's outrank them). */
   browserDisplay: DisplayLevelSettings;
   /** The active RSF file's display settings, or null when the active tab is not an RSF file. */
   fileDisplay: DisplayLevelSettings | null;

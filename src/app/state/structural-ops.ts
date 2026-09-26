@@ -7,14 +7,7 @@ import { RsfDocument, RSF_EXTENSION } from '../../core/rsf-document';
 import type { AppState, EditorDocument, Selection, Tab } from '../app-state';
 import { defaultSheetName, STICKY_COL_KEY, STICKY_KEY } from './defaults';
 import { getLocale, t } from '../i18n';
-import {
-  clampSheetZoom,
-  getBrowserWrap,
-  setBrowserWrap,
-  setBrowserZoom,
-  setSheetZoom,
-  setWrapCellsPreference,
-} from '../settings';
+import { clampSheetZoom, setSheetZoom, setWrapCellsPreference } from '../settings';
 import { safeStorageSet } from '../storage';
 import { resolveWrap, resolveZoom } from './view-layers';
 
@@ -427,57 +420,44 @@ export class StructuralOpsState {
   }
 
   /**
-   * Turn wrapping on/off for the active tab (View > Wrap Long Rows). Purely
-   * visual: it never changes document content, CSV bytes, or the dirty state.
-   * The change is written to the level that currently decides the value
-   * (browser > file > worksheet, see `view-layers.ts`): a browser-level
-   * setting is updated for every tab, a file-level one for the whole file;
-   * otherwise it becomes the last-used value and the active worksheet
-   * remembers it for persistence with the next save.
+   * Turn wrapping on/off for the active tab. Purely visual: it never changes
+   * document content, CSV bytes, or the dirty state. The choice also becomes
+   * the last-used value (the fallback when no level specifies one), and an RSF
+   * worksheet remembers it — the narrowest level, so it wins — for
+   * persistence with the next save.
    */
   setWrapCells(wrap: boolean): void {
-    const tab = this.state.activeTab;
-    const source = tab ? resolveWrap(tab.doc).source : getBrowserWrap() === undefined ? 'default' : 'browser';
-    if (source === 'browser') {
-      setBrowserWrap(wrap);
-      this.reapplyViewSettings();
-      this.state.emit('view');
-      return;
-    }
-    if (tab && source === 'file' && tab.doc.kind === 'rsf') {
-      tab.doc.fileWrap = wrap;
-      tab.wrapCells = wrap;
-      this.state.emit('view');
-      return;
-    }
     setWrapCellsPreference(wrap);
-    if (tab) {
-      this.applyWrap(tab, wrap);
+    const tab = this.state.activeTab;
+    if (!tab) {
+      this.state.emit('view');
+      return;
     }
+    this.applyWrap(tab, wrap);
     this.state.emit('view');
   }
 
   /**
    * Set a tab's (and its active worksheet's) wrap state without emitting.
    * Also called back into by `AppState.applyOp` when undo/redo replays a
-   * recorded `wrap` operation. Writes the worksheet level; the tab shows the
-   * re-resolved value, so a browser- or file-level setting still wins.
+   * recorded `wrap` operation.
    */
   applyWrap(tab: Tab, wrap: boolean, sheetId?: string): void {
     if (tab.doc.kind === 'rsf') {
       tab.doc.setDisplayWrapOn(sheetId, wrap);
       // Only the *active* worksheet's state is what the grid renders.
       if (sheetId === undefined || sheetId === tab.doc.activeSheetId) {
-        tab.wrapCells = resolveWrap(tab.doc).value;
+        tab.wrapCells = wrap;
       }
       return;
     }
-    tab.wrapCells = getBrowserWrap() ?? wrap;
+    tab.wrapCells = wrap;
   }
 
   /**
    * Re-resolve every open tab's zoom and wrap, after a browser- or file-level
-   * setting changed (File > Settings…). Does not emit.
+   * setting changed (File > Settings…). Does not emit. A plain CSV tab has no
+   * worksheet level, so it takes the browser setting (or the last-used value).
    */
   reapplyViewSettings(): void {
     for (const tab of this.state.tabs) {
@@ -516,10 +496,6 @@ export class StructuralOpsState {
   ): Extract<Operation, { type: 'wrap' }> | null {
     if (tab.wrapCells || changes.length === 0) {
       return null; // already wrapping: nothing to turn on
-    }
-    const source = resolveWrap(tab.doc).source;
-    if (source === 'browser' || source === 'file') {
-      return null; // "don't wrap" was chosen above the worksheet: respect it
     }
     const doc = tab.doc;
     let formulasScanned = 0;
@@ -575,27 +551,16 @@ export class StructuralOpsState {
 
   /**
    * Set the active tab's spreadsheet zoom (clamped percent). Purely visual:
-   * it never changes document content, CSV bytes, or the dirty state. Like
-   * {@link setWrapCells}, the change is written to the level that currently
-   * decides the zoom: the browser level (every tab follows), the file level,
-   * or else the active worksheet (RSF) plus the last-used value.
+   * it never changes document content, CSV bytes, or the dirty state. The
+   * chosen zoom also becomes the last-used value (the fallback when no level
+   * specifies one), and an RSF worksheet remembers it — the narrowest level,
+   * so it wins — for persistence with the next save.
    */
   setTabZoom(tab: Tab, zoom: number): void {
     const z = clampSheetZoom(zoom);
-    const source = resolveZoom(tab.doc).source;
-    if (source === 'browser') {
-      setBrowserZoom(z);
-      this.reapplyViewSettings();
-      this.state.emit('view');
-      return;
-    }
-    if (source === 'file' && tab.doc.kind === 'rsf') {
-      tab.doc.fileZoom = z;
-    } else {
-      setSheetZoom(z);
-      if (tab.doc.kind === 'rsf') {
-        tab.doc.displayZoom = z;
-      }
+    setSheetZoom(z);
+    if (tab.doc.kind === 'rsf') {
+      tab.doc.displayZoom = z;
     }
     if (tab.zoom !== z) {
       tab.zoom = z;

@@ -4,7 +4,7 @@ import type { EditorDocument } from '../app-state';
 import { clampSheetZoom, getBrowserWrap, getBrowserZoom, getSheetZoom, getWrapCells } from '../settings';
 
 /**
- * A document's effective zoom and wrap, resolved **browser > file > worksheet**
+ * A document's effective zoom and wrap, resolved **worksheet > file > browser**
  * (`src/core/settings-cascade.ts`). The browser level lives in `localStorage`;
  * the file and worksheet levels exist only for RSF documents (the active
  * worksheet's). When no level specifies a value, the value last used in this
@@ -29,9 +29,10 @@ export function resolveWrap(doc: EditorDocument): ResolvedSetting<boolean> {
 }
 
 /**
- * Whether the worksheet level is what decides a setting: it does, or nothing
- * above it does. The live value is then written back to the worksheet (on
- * sheet switch and save), as before layering existed.
+ * Whether the live value should be written back to the worksheet (on sheet
+ * switch and save), as before layering existed: only when the worksheet
+ * decides it or nothing does — never a value inherited from the file or the
+ * browser, which would otherwise freeze into every worksheet.
  */
 export function decidedBySheet(source: SettingSource): boolean {
   return source === 'sheet' || source === 'default';

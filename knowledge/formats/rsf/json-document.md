@@ -96,10 +96,10 @@ letter is `bad-shape`.
 The top-level `view` holds display settings for every worksheet: `zoom`
 (number, clamped into 50–200) and `wrap` (boolean; unlike a worksheet's,
 `false` is stored, because it means "don't wrap" rather than "not
-specified"). A key that is present **outranks** the same key in a
-worksheet's `view`; a missing key leaves the choice to the worksheet. The
-application applies one more level above the file — settings made for the
-browser in File > Settings… — so the order is browser > file > worksheet
+specified"). A key that is present applies to every worksheet whose own
+`view` does not set that key: the **worksheet wins**. The application adds
+one broader level below the file — this browser's defaults from File >
+Settings… — so the order is worksheet > file > browser
 (`src/core/settings-cascade.ts`). A value of the wrong type is `bad-shape`.
 Readers older than this key ignore it and use the worksheet settings.
 

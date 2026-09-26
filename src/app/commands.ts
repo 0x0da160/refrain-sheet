@@ -993,9 +993,18 @@ export class Commands {
           setBrowserWrap(chosen.browserDisplay.wrap);
           // The file level is presentational like zoom: kept with the next
           // save, never marks the document dirty.
+          // Choosing a file-level value clears each worksheet's own one, so the
+          // file setting takes effect everywhere (a worksheet would outrank it).
           if (rsf && chosen.fileDisplay) {
-            rsf.fileZoom = chosen.fileDisplay.zoom;
-            rsf.fileWrap = chosen.fileDisplay.wrap;
+            const { zoom, wrap } = chosen.fileDisplay;
+            if (zoom !== undefined && zoom !== rsf.fileZoom) {
+              for (const sheet of rsf.sheets) sheet.displayZoom = undefined;
+            }
+            if (wrap !== undefined && wrap !== rsf.fileWrap) {
+              for (const sheet of rsf.sheets) sheet.displayWrap = undefined;
+            }
+            rsf.fileZoom = zoom;
+            rsf.fileWrap = wrap;
           }
           // Re-resolve zoom/wrap everywhere; menus also label Ctrl+Shift+V on
           // whichever command it now runs.

@@ -172,7 +172,7 @@ export interface RsfWorkbookData {
   autoFormatSource?: boolean;
   /**
    * File-level display settings. Each one, when present, applies to every
-   * worksheet and outranks the worksheet's own (see `settings-cascade.ts`).
+   * worksheet that does not set its own (see `settings-cascade.ts`).
    */
   display?: RsfFileDisplaySettings;
 }

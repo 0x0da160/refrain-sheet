@@ -64,6 +64,7 @@ really is internal, rather than inventing an entry to satisfy it.
   a form-field frame or focus highlight, JSON and YAML use a fixed-width
   font, and the status bar shows the caret's line and column and the line
   and character counts instead of a row and column count.
+
 ### Fixed
 
 - **Add Sheet asks for the sheet type again.** Sheet > Add Sheet, the "+"

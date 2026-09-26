@@ -181,8 +181,8 @@ describe('accessibility semantics', () => {
     setLocale('ja');
     const { bar } = setup();
     const strip = bar.element.querySelector('.sheet-strip')!;
-    expect(strip.getAttribute('aria-label')).toBe('このブック内のワークシート');
-    expect(bar.element.querySelector('.sheet-add')!.getAttribute('aria-label')).toBe('ワークシートを追加');
+    expect(strip.getAttribute('aria-label')).toBe('このファイル内のシート');
+    expect(bar.element.querySelector('.sheet-add')!.getAttribute('aria-label')).toBe('シートを追加');
     setLocale('en');
   });
 });

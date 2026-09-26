@@ -167,28 +167,28 @@ change must preserve) is documented in
 src/
   core/       lossless CSV document model, RSF workbook/worksheet model +
               file codec, the formula engine — DOM-independent, unit-tested
-  app/        tabs & app state, the typed command layer (commands.ts) and its
-              UI contract (ui-port.ts), file access, settings, i18n, shortcuts
-  ui/         menu bar, grid (+ grid/ pure helpers), formula bar, dialogs,
-              status bar
-  styles/     hand-written CSS by section, loaded in order by styles.css
-  assets/     bundled icon/logotype SVGs
+  app/        state/ (tabs & app state), commands/ (the typed command layer)
+              and its UI contract (ui-port.ts), file access, settings, i18n
+  ui/         menu bar, grid/, formula bar, dialogs/, status bar
+  styles/     hand-written CSS, one file per UI module, loaded in order by
+              styles/index.css
   locales/    en.json, ja.json (identical key sets)
   generated/  generated: embedded WASM (Base64) + wasm-bindgen glue
 wasm/         Rust crate compiled to WebAssembly (CSV core, compression,
               stats/search primitives); toolchain pinned by rust-toolchain.toml
-tests/        unit, property-based/fuzz, and jsdom UI tests; fixtures/rsf/ is
-              the frozen .rsf compatibility corpus
+tests/        core/, app/, ui/ (mirroring src/), tooling/ (scripts, workflows,
+              repository rules), site/; fixtures/rsf/ is the frozen .rsf
+              compatibility corpus
 bench/        reproducible performance benchmarks (npm run bench)
-scripts/      build, embed, release, and verification scripts (npm run …)
+scripts/      build/, check/, release/, ui-check/ and shared lib/ (npm run …)
 site/         the separate static marketing site, plain JS (npm run build:landing)
 knowledge/    the OKF knowledge bundle (architecture, operations, formats,
               agent-loop, domains, ui, references, decisions)
-docs/         the Knip baseline and proposal/analysis records
-design-system/  Refrain Sheet Design System, one directory per version (2.0.0 is
-              current); the app and the landing site load its generated
-              token CSS
-public/       files served as-is at the site root (favicon)
+docs/         machine-checked ledgers (EOL register, Knip baseline) and
+              proposals/ (proposal and analysis records)
+design-system/  Refrain Sheet Design System (v2/ is current); the single
+              source of brand artwork and design tokens for the app and the
+              landing site
 ```
 
 Menu actions, keyboard shortcuts, context menus, and drag & drop all pass

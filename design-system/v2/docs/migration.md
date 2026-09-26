@@ -12,7 +12,7 @@
 | `docs/brand-guidelines.html`（v2.0） | `brand/docs/brand-guidelines.html`（v3.0） |
 | `logo/` `icons/` | `foundations/logo/` `foundations/icons/`（中身は同一） |
 
-v1.0.0 のディレクトリは履歴として残します。アプリのテスト（`tests/brand-assets.test.ts`）はまだ `design-system/1.0.0/` のアイコンを参照していますが、中身は同一なので、適用時にパスを変えるだけで済みます。
+v1.0.0 のディレクトリは削除しました（Git 履歴のリリース v0.9.9、コミット `6024f16` にあります）。アプリと LP はロゴとアイコンを `foundations/` のマスターから直接読み込み、リポジトリには複製を置きません。
 
 ## 2. トークンの対応（v1.0.0 → v2.0.0）
 

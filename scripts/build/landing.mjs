@@ -35,7 +35,16 @@ const landingDir = join(root, 'landing');
 
 // styles.css is minified on the way out (see minify-css.mjs); the rest are
 // copied verbatim.
-const STATIC_ASSETS = ['main.js', 'consent.js', 'favicon.svg', 'assets'];
+const STATIC_ASSETS = ['main.js', 'consent.js', 'assets'];
+// Brand artwork comes straight from the design-system masters (no copy is kept
+// under site/): landing path -> master path.
+const BRAND_ASSETS = {
+  'favicon.svg': 'design-system/v2/foundations/icons/favicon.svg',
+  'assets/refrain-sheet-logotype-horizontal.svg':
+    'design-system/v2/foundations/logo/refrain-sheet-logotype-horizontal.svg',
+  'assets/refrain-sheet-logotype-horizontal-reverse.svg':
+    'design-system/v2/foundations/logo/refrain-sheet-logotype-horizontal-reverse.svg',
+};
 
 // The design-system stylesheets site/styles.css is written against: the
 // foundations shared with the app, the app tokens (the hero demo draws the
@@ -382,6 +391,9 @@ function copyStaticAssets() {
   mkdirSync(landingDir, { recursive: true });
   for (const name of STATIC_ASSETS) {
     cpSync(join(srcDir, name), join(landingDir, name), { recursive: true });
+  }
+  for (const [out, master] of Object.entries(BRAND_ASSETS)) {
+    cpSync(join(root, master), join(landingDir, out));
   }
   const css = [...DESIGN_SYSTEM_CSS.map((f) => join(root, f)), join(srcDir, 'styles.css')]
     .map((f) => readFileSync(f, 'utf8'))

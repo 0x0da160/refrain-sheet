@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { readFileSync } from 'node:fs';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import { assertBuildMode, buildCsp } from './scripts/lib/csp.mjs';
@@ -19,6 +20,9 @@ import { assertBuildMode, buildCsp } from './scripts/lib/csp.mjs';
  * hosted-only CSP relaxation for the opt-in cloud sync described in
  * knowledge/operations/security-threat-model.md can never reach the offline artifact or the release ZIP.
  */
+/** The favicon master; the build emits it as dist/favicon.svg (no copy is kept in the repo). */
+const FAVICON_MASTER = 'design-system/v2/foundations/icons/favicon.svg';
+
 export default defineConfig(({ command, mode }) => {
   // Vite's own defaults — 'development' for `vite dev`, 'production' for
   // `vite build` — both mean the offline policy. Only an explicit
@@ -36,6 +40,9 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     base: './',
+    // No public/ directory: the only static file (the favicon) comes from the
+    // design-system master through the brand-favicon plugin below.
+    publicDir: false,
     define: {
       // Lets the offline production build compile the Drive client out
       // entirely (see src/app/commands/index.ts). Only `vite build` in offline mode;
@@ -61,6 +68,18 @@ export default defineConfig(({ command, mode }) => {
     },
     plugins: [
       tailwindcss(),
+      {
+        name: 'brand-favicon',
+        configureServer(server) {
+          server.middlewares.use('/favicon.svg', (_req, res) => {
+            res.setHeader('Content-Type', 'image/svg+xml');
+            res.end(readFileSync(FAVICON_MASTER));
+          });
+        },
+        generateBundle() {
+          this.emitFile({ type: 'asset', fileName: 'favicon.svg', source: readFileSync(FAVICON_MASTER) });
+        },
+      },
       {
         name: 'csp-inject',
         enforce: 'post' as const,

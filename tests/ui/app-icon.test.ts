@@ -11,10 +11,9 @@
  * carries a real accessible name since nothing else does.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import iconUrl from '../../src/assets/icon.svg';
-import iconDarkUrl from '../../src/assets/icon-dark.svg';
-import logotypeUrl from '../../src/assets/logotype.svg';
-import logotypeDarkUrl from '../../src/assets/logotype-dark.svg';
+import iconUrl from '../../design-system/v2/foundations/icons/app-icon-1024.svg';
+import logotypeUrl from '../../design-system/v2/foundations/logo/refrain-sheet-logotype-horizontal.svg';
+import logotypeDarkUrl from '../../design-system/v2/foundations/logo/refrain-sheet-logotype-horizontal-reverse.svg';
 import {
   appIconUrl,
   appLogotypeUrl,
@@ -22,6 +21,9 @@ import {
   createAppLogotype,
   refreshAppIcons,
 } from '../../src/ui/app-icon';
+
+/** One app-icon master serves both themes (see src/ui/app-icon.ts). */
+const iconDarkUrl = iconUrl;
 import { applyTheme, setTheme } from '../../src/app/theme';
 import { t } from '../../src/app/i18n';
 

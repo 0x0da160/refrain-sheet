@@ -1,60 +1,47 @@
 // SPDX-License-Identifier: MIT
 /**
- * The brand artwork the app and landing site ship are copies of the vendored
- * Refrain Sheet Design System masters (design-system/v2/foundations/). Vite needs them
- * under src/ and public/, so they cannot simply be referenced in place; this
- * keeps every copy byte-identical to its master so they cannot drift.
- *
- * The design system has a single app icon for both themes (no dark
- * variant), which is why src/assets/icon-dark.svg is the same artwork as
- * icon.svg. If a dark master is added, point `icon-dark.svg` at it here.
+ * Brand artwork has a single source: the vendored Refrain Sheet Design System
+ * masters (design-system/v2/foundations/). The app imports them directly
+ * (src/ui/app-icon.ts), vite.config.ts emits the favicon from its master, and
+ * scripts/build/landing.mjs copies the landing site's favicon and logotypes
+ * from theirs at build time. No copy is committed, so none can drift; this
+ * test keeps it that way by failing if a byte-identical copy of any master
+ * reappears elsewhere in the repository's shipped sources.
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const raw = import.meta.glob(
-  [
-    '../../design-system/v2/foundations/icons/*.svg',
-    '../../design-system/v2/foundations/logo/*.svg',
-    '../../src/assets/*.svg',
-    '../../site/favicon.svg',
-    '../../site/assets/*.svg',
-    '../../public/favicon.svg',
-  ],
+const masters = import.meta.glob(
+  ['../../design-system/v2/foundations/icons/*.svg', '../../design-system/v2/foundations/logo/*.svg'],
   { query: '?raw', import: 'default', eager: true },
 ) as Record<string, string>;
 
-const DS = '../../design-system/v2/foundations';
-const copies: Array<[copy: string, master: string]> = [
-  ['../../public/favicon.svg', `${DS}/icons/favicon.svg`],
-  ['../../site/favicon.svg', `${DS}/icons/favicon.svg`],
-  [
-    '../../site/assets/refrain-sheet-logotype-horizontal.svg',
-    `${DS}/logo/refrain-sheet-logotype-horizontal.svg`,
-  ],
-  [
-    '../../site/assets/refrain-sheet-logotype-horizontal-reverse.svg',
-    `${DS}/logo/refrain-sheet-logotype-horizontal-reverse.svg`,
-  ],
-  ['../../src/assets/icon.svg', `${DS}/icons/app-icon-1024.svg`],
-  ['../../src/assets/icon-dark.svg', `${DS}/icons/app-icon-1024.svg`],
-  ['../../src/assets/logotype.svg', `${DS}/logo/refrain-sheet-logotype-horizontal.svg`],
-  ['../../src/assets/logotype-dark.svg', `${DS}/logo/refrain-sheet-logotype-horizontal-reverse.svg`],
-];
+const shipped = import.meta.glob(['../../src/**/*.svg', '../../site/**/*.svg', '../../public/**/*.svg'], {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
 
-describe('brand assets match the design-system masters', () => {
-  it.each(copies)('%s is a byte-identical copy of %s', (copy, master) => {
-    expect(raw[master], `missing master ${master}`).toBeTypeOf('string');
-    expect(raw[copy], `missing copy ${copy}`).toBeTypeOf('string');
-    expect(raw[copy]).toBe(raw[master]);
+describe('brand assets have a single source', () => {
+  it('finds the design-system masters', () => {
+    expect(Object.keys(masters).length).toBeGreaterThan(0);
   });
 
-  it('covers every SVG in src/assets/', () => {
-    const shipped = Object.keys(raw).filter((path) => path.startsWith('../../src/assets/'));
-    expect(shipped.sort()).toEqual(
-      copies
-        .map(([copy]) => copy)
-        .filter((c) => c.startsWith('../../src/assets/'))
-        .sort(),
-    );
+  it('no shipped source directory holds a copy of a master', () => {
+    const masterBodies = new Set(Object.values(masters));
+    const copies = Object.entries(shipped)
+      .filter(([, body]) => masterBodies.has(body))
+      .map(([path]) => path);
+    expect(copies).toEqual([]);
+  });
+
+  it('every master the builds reference exists', () => {
+    const referenced = [
+      ...readFileSync('src/ui/app-icon.ts', 'utf8').matchAll(/'\.\.\/\.\.\/(design-system\/[^']+\.svg)'/g),
+      ...readFileSync('vite.config.ts', 'utf8').matchAll(/'(design-system\/[^']+\.svg)'/g),
+      ...readFileSync('scripts/build/landing.mjs', 'utf8').matchAll(/'(design-system\/[^']+\.svg)'/g),
+    ].map((m) => `../../${m[1]}`);
+    expect(referenced.length).toBe(7);
+    for (const path of referenced) expect(Object.keys(masters)).toContain(path);
   });
 });

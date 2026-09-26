@@ -8,7 +8,7 @@ export default tseslint.config(
   // from version control). Linting a checked-out worktree would lint a second
   // copy of the project — including its built `dist/` — and fail the run for
   // reasons that have nothing to do with the tree being checked.
-  // `landing/` is the gitignored build output of `scripts/build-landing.mjs`;
+  // `landing/` is the gitignored build output of `scripts/build/landing.mjs`;
   // its sources under `site/` are linted by the block further below.
   {
     ignores: [
@@ -16,7 +16,7 @@ export default tseslint.config(
       'dist-hosted/',
       'node_modules/',
       'coverage/',
-      'src/wasm-gen/',
+      'src/generated/',
       'wasm/',
       '.claude/',
       'landing/',
@@ -86,7 +86,7 @@ export default tseslint.config(
     // The landing site (`site/`) is a self-contained static marketing
     // site in plain browser JS, not part of the TypeScript app. `main.js` and
     // `consent.js` load as classic <script> tags; `i18n.js` is an ES module
-    // read only at build time by scripts/build-landing.mjs.
+    // read only at build time by scripts/build/landing.mjs.
     files: ['site/**/*.js'],
     languageOptions: {
       globals: {

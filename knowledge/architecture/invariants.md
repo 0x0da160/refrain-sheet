@@ -63,7 +63,7 @@ generated:
   metrics (row height, header width, wrap line box) and drives the CSS via
   inline custom properties set from those same values, so the element
   height and CSS line box cannot diverge at any zoom level
-  (`tests/zoom-alignment.test.ts`). Column widths are stored at 100% zoom.
+  (`tests/ui/zoom-alignment.test.ts`). Column widths are stored at 100% zoom.
 - **Deterministic Flash Fill:** pattern inference (`src/core/flash-fill.ts`)
   is a bounded, deterministic search over closed data structures — no
   network, no model, no dynamic code — and a fill is proposed only when
@@ -72,7 +72,7 @@ generated:
 - **Formula index:** `RsfDocument` maintains a per-row formula-cell count in
   parallel with the data so formula enumeration skips formula-free rows;
   consistency with the data is enforced by a property-based test
-  (`tests/formula-index.test.ts`).
+  (`tests/core/formula-index.test.ts`).
 - **Offline runtime:** no runtime network access of any kind — no CDNs,
   remote fonts, analytics, or fetches. `npm run check:dist` asserts the
   production bundle is self-contained (verified passing as of this
@@ -80,8 +80,8 @@ generated:
 - **IME safety:** the grid's keyboard target is a persistent hidden sink
   textarea that is promoted in place into the cell editor, so composition
   never starts in a non-editable element and no printable character is
-  ever synthesized from `keydown` (`tests/ime-composition.test.ts`).
+  ever synthesized from `keydown` (`tests/ui/ime-composition.test.ts`).
 - **Single version source:** `package.json` is the only place the app
   version is written; `src/core/app-identity.ts` imports it (and
   `src/app/version.ts` derives the display form from that), and
-  `scripts/check-versions.mjs` gates drift.
+  `scripts/check/versions.mjs` gates drift.

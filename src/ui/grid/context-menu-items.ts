@@ -2,7 +2,7 @@
 // What the grid's right-click menu offers: the command entries and the
 // quick-format toolbar above them. The grid builds the DOM (see Grid).
 import { Grid3x3, PaintBucket, PencilLine, Table, type IconNode } from 'lucide';
-import type { Tab } from '../../app/app-state';
+import type { Tab } from '../../app/state';
 import type { CommandId, Commands } from '../../app/commands';
 import { t } from '../../app/i18n';
 import type { ContextMenuToolbarItem } from '../context-menu';

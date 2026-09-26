@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
-import { assertBuildMode, buildCsp } from './scripts/csp.mjs';
+import { assertBuildMode, buildCsp } from './scripts/lib/csp.mjs';
 
 /**
  * The build must work when dist/index.html is opened directly via file://.
@@ -10,7 +10,7 @@ import { assertBuildMode, buildCsp } from './scripts/csp.mjs';
  * rewritten to plain <script defer> / <link> without crossorigin attributes.
  *
  * Two build modes share everything below except their output directory and the
- * Content-Security-Policy injected into index.html (see scripts/csp.mjs):
+ * Content-Security-Policy injected into index.html (see scripts/lib/csp.mjs):
  *
  *   vite build                → offline, dist/        (file:// + release ZIP)
  *   vite build --mode hosted  → hosted,  dist-hosted/ (app.refrain-sheet.com)
@@ -29,7 +29,7 @@ export default defineConfig(({ command, mode }) => {
   // Google Drive credentials reach the bundle only in the hosted build. The
   // offline build is hardcoded to empty strings whatever the environment
   // holds, so the release ZIP can never carry a credential or a code path that
-  // would reach the network; scripts/check-dist.mjs asserts that mechanically.
+  // would reach the network; scripts/check/dist.mjs asserts that mechanically.
   // These are public identifiers delivered as repository *variables*, never
   // secrets — see knowledge/operations/security-supply-chain.md.
   const hostedEnv = (name: string) => JSON.stringify(buildMode === 'hosted' ? (process.env[name] ?? '') : '');
@@ -38,7 +38,7 @@ export default defineConfig(({ command, mode }) => {
     base: './',
     define: {
       // Lets the offline production build compile the Drive client out
-      // entirely (see src/app/commands.ts). Only `vite build` in offline mode;
+      // entirely (see src/app/commands/index.ts). Only `vite build` in offline mode;
       // dev and Vitest keep it false so the Drive code stays testable.
       __OFFLINE_BUILD__: JSON.stringify(command === 'build' && buildMode === 'offline'),
       __DRIVE_CLIENT_ID__: hostedEnv('VITE_GOOGLE_OAUTH_CLIENT_ID'),
@@ -66,7 +66,7 @@ export default defineConfig(({ command, mode }) => {
         enforce: 'post' as const,
         transformIndexHtml(html: string) {
           if (!html.includes('__CSP__')) {
-            throw new Error('index.html is missing the __CSP__ placeholder (see scripts/csp.mjs)');
+            throw new Error('index.html is missing the __CSP__ placeholder (see scripts/lib/csp.mjs)');
           }
           return html.replace('__CSP__', csp);
         },

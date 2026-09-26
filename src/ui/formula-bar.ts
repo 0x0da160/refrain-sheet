@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { AppState, FormulaRefTarget } from '../app/app-state';
+import type { AppState, FormulaRefTarget } from '../app/state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { getEditHints } from '../app/settings';

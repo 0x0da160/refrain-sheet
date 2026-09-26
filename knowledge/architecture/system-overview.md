@@ -33,7 +33,7 @@ from the layers below it, never above — see
 │   encoding, validation, serializer, RSF codec, scheduler      │
 ├───────────────────────────────────────────────────────────────┤
 │ Infrastructure                                                │
-│   csv-engine.ts (WASM bridge + JS fallback), wasm-gen/        │
+│   csv-engine.ts (WASM bridge + JS fallback), generated/       │
 │   (embedded WASM + glue), wasm/ (Rust crate), build scripts   │
 └───────────────────────────────────────────────────────────────┘
 ```
@@ -61,8 +61,8 @@ input surface ─▶ resolveShortcut / menu / context menu
 `UiPort` (`src/app/ui-port.ts`, together with every dialog's input/result
 types) is an interface, not a concrete class: the command layer drives
 dialogs, notifications, and the busy indicator only through this port, which
-keeps the whole layer unit-testable without a DOM (`tests/commands.test.ts`,
-`tests/progress.test.ts`).
+keeps the whole layer unit-testable without a DOM (`tests/app/commands.test.ts`,
+`tests/app/progress.test.ts`).
 
 ## Data flow and document kinds
 
@@ -142,7 +142,7 @@ bindings, exposing two narrow interfaces:
 
 The WASM binary is embedded as Base64 and instantiated locally (no fetch —
 this is what keeps `file://` working). A pure-TypeScript fallback with
-byte-exact, parity-tested semantics (`tests/wasm-engine.test.ts`) is used
+byte-exact, parity-tested semantics (`tests/core/wasm-engine.test.ts`) is used
 when WebAssembly is unavailable. There are no Web Workers: the engine is
 synchronous, and long scans are time-sliced on the main thread instead (see
 below).
@@ -152,10 +152,10 @@ below).
 `src/core/sql-engine.ts` provides local, read-only SQL analysis (Data > Run
 SQL Query…), executed by [sql.js](https://github.com/sql-js/sql.js) (SQLite
 compiled to WebAssembly), embedded the same way as the Rust core (Base64,
-`scripts/embed-sqljs.mjs` → `src/wasm-gen/sqljs-wasm-payload.ts`) and
+`scripts/build/embed-sqljs.mjs` → `src/generated/sqljs-wasm-payload.ts`) and
 instantiated from those decoded bytes via sql.js's `wasmBinary` option —
 `locateFile()` is never set, so the `file://` / `connect-src 'none'` offline
-guarantee holds exactly as it does for the Rust core (`scripts/check-dist.mjs`
+guarantee holds exactly as it does for the Rust core (`scripts/check/dist.mjs`
 asserts both). The engine has no dependency on the DOM or the command layer
 and never mutates its input: `src/app/commands/sql.ts` adapts a `Tab`'s
 document into the engine's plain `SqlTable` shape (a header row plus string
@@ -188,10 +188,10 @@ yield between slices), applied uniformly by the command layer:
 
 ## Where to add things
 
-| You want to…                      | Put the logic in…                               | Wire it via…                                    |
-| --------------------------------- | ----------------------------------------------- | ----------------------------------------------- |
-| Add a new user command            | `Commands` (+ `CommandId` union)                | menu-bar/shortcut tables; `isEnabled` for state |
-| Add a document operation          | `LosslessDocument` / `RsfDocument` + `AppState` | a `HistoryEntry` so it is atomically undoable   |
-| Add a heavy scan                  | a pure function in `src/core/`                  | `forEachIndexSliced` + the busy/progress rules  |
-| Add a dialog                      | `Dialogs` + a `UiPort` method                   | called from the command layer only              |
-| Accelerate a byte-level primitive | `wasm/src/` + a JS fallback in `csv-engine.ts`  | parity tests in `tests/wasm-engine.test.ts`     |
+| You want to…                      | Put the logic in…                               | Wire it via…                                     |
+| --------------------------------- | ----------------------------------------------- | ------------------------------------------------ |
+| Add a new user command            | `Commands` (+ `CommandId` union)                | menu-bar/shortcut tables; `isEnabled` for state  |
+| Add a document operation          | `LosslessDocument` / `RsfDocument` + `AppState` | a `HistoryEntry` so it is atomically undoable    |
+| Add a heavy scan                  | a pure function in `src/core/`                  | `forEachIndexSliced` + the busy/progress rules   |
+| Add a dialog                      | `Dialogs` + a `UiPort` method                   | called from the command layer only               |
+| Accelerate a byte-level primitive | `wasm/src/` + a JS fallback in `csv-engine.ts`  | parity tests in `tests/core/wasm-engine.test.ts` |

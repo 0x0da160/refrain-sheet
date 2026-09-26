@@ -9,7 +9,7 @@ import { serializeDocument, KEEP_SAVE_OPTIONS, type SaveOptions } from '../src/c
 
 /**
  * The app's real stylesheet, assembled the same way the browser/build sees
- * it. `src/styles.css` is an ordered loader of `@import './styles/*.css'`
+ * it. `src/styles/index.css` is an ordered loader of `@import './*.css'`
  * statements (split by section — see its own header comment); jsdom does not
  * apply linked stylesheets and vitest stubs CSS imports, so tests that assert
  * on stylesheet source read this instead of a single file. Reads the loader's
@@ -17,9 +17,9 @@ import { serializeDocument, KEEP_SAVE_OPTIONS, type SaveOptions } from '../src/c
  * sections are added, removed, or reordered.
  */
 export function readBundledCss(): string {
-  const loader = readFileSync('src/styles.css', 'utf8');
+  const loader = readFileSync('src/styles/index.css', 'utf8');
   const imports = [...loader.matchAll(/^@import '\.\/(.+?)';$/gm)].map((m) => m[1]);
-  return imports.map((rel) => readFileSync(`src/${rel}`, 'utf8')).join('\n');
+  return imports.map((rel) => readFileSync(`src/styles/${rel}`, 'utf8')).join('\n');
 }
 
 export function utf8(text: string): Uint8Array {

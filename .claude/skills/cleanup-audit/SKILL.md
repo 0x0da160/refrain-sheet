@@ -59,7 +59,7 @@ value.
    entry (with the PR) for anything that left the list. Keep it a
    current-state report; narrative belongs in the PR description.
 5. **Keep the CI gate in step:** `npm run check:knip` fails on any finding
-   not on `scripts/check-knip.mjs`'s `DEFERRED` list, and on a `DEFERRED`
+   not on `scripts/check/knip.mjs`'s `DEFERRED` list, and on a `DEFERRED`
    entry that is no longer reported. Only an S2/S3 finding classified in the
    baseline may be added to `DEFERRED` — never add one just to make CI pass.
 

@@ -11,7 +11,7 @@ import type { CellChange, HistoryEntry, Operation } from '../../core/history';
 import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, type RsfDocument } from '../../core/rsf-document';
 import { computeSortOrder, sortsEqual, type SheetSort } from '../../core/sort';
 import type { Worksheet } from '../../core/worksheet';
-import type { AppState, Tab } from '../app-state';
+import type { AppState, Tab } from './index';
 import { decidedBySheet, resolveWrap, resolveZoom } from './view-layers';
 
 /**

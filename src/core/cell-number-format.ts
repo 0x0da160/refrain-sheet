@@ -7,7 +7,7 @@
  * than duplicated. Currency is composed on top of that rendering instead of
  * being added to the shared grammar, so `TEXT()`'s documented, tested subset
  * is untouched (a literal `"$0.00"` format code stays unsupported there —
- * see `tests/formula-functions.test.ts`).
+ * see `tests/core/formula-functions.test.ts`).
  */
 import type { NumberFormat } from './cell-style';
 import { formatValueAsText } from './formula-text-format';

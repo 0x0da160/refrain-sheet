@@ -25,7 +25,7 @@ miniz_oxide = "=0.9.1"
 # ruzstd provides a pure-Rust Zstandard encoder (ruzstd::encoding) and decoder
 # (ruzstd::decoding); no libzstd / C toolchain. Pinned for reproducible builds.
 # 0.9.x needs Rust 1.87+ (rust-toolchain.toml). The frozen .rsf fixtures
-# (tests/rsf-fixtures.test.ts) pin the encoder's output byte-for-byte, so a
+# (tests/core/rsf-fixtures.test.ts) pin the encoder's output byte-for-byte, so a
 # bump that changes the compressed bytes fails there before it can ship.
 ruzstd = "=0.9.0"
 # lz4_flex: pure-Rust LZ4 with the Frame format (frame feature, default on).

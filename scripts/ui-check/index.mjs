@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: MIT
+// Headless-browser UI smoke check.
+//
+// Loads the built distribution (dist/index.html) in headless Chromium the
+// same way a user does — directly via file://, no server — and fails if the
+// app does not render or logs a console/page error. CI runs it on every pull
+// request after the offline build (.github/workflows/ci.yml); developers and
+// agents also run it on demand to confirm a UI change works in a real
+// browser engine. It is not part of `npm run build`/`test`.
+//
+// Once the app renders, it also runs the grid geometry and visual check
+// (scripts/ui-check/grid.mjs): cell size, grid lines, padding, text
+// placement, editing/IME and hit testing at every spreadsheet zoom level.
+// Set UI_CHECK_SCREENSHOT_DIR to also save a screenshot per zoom level.
+// A second, fresh page then runs the add-sheet dialog check
+// (scripts/ui-check/sheet-add.mjs): the sheet-type picker is shown.
+//
+//   npm run build   # dist/ must already exist
+//   npm run ui:check
+
+import { existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { chromium } from 'playwright';
+import { checkGridGeometry } from './grid.mjs';
+import { checkSheetAddDialog } from './sheet-add.mjs';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const indexHtml = join(root, 'dist', 'index.html');
+
+if (!existsSync(indexHtml)) {
+  console.error(`ui-check: FAIL: ${indexHtml} does not exist — run \`npm run build\` first`);
+  process.exit(1);
+}
+
+const errors = [];
+
+const browser = await chromium.launch();
+try {
+  const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  page.on('pageerror', (error) => errors.push(`page error: ${error.message}`));
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      errors.push(`console error: ${message.text()}`);
+    }
+  });
+
+  await page.goto(pathToFileURL(indexHtml).href);
+
+  let rendered = true;
+  try {
+    await page.waitForSelector('.menu-bar', { timeout: 10_000 });
+  } catch {
+    rendered = false;
+    errors.push('the menu bar (.menu-bar) never appeared — the app did not render');
+  }
+  if (rendered) {
+    errors.push(...(await checkGridGeometry(page, { screenshotDir: process.env.UI_CHECK_SCREENSHOT_DIR })));
+    const sheetPage = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+    sheetPage.on('pageerror', (error) => errors.push(`page error: ${error.message}`));
+    await sheetPage.goto(pathToFileURL(indexHtml).href);
+    await sheetPage.waitForSelector('.menu-bar', { timeout: 10_000 });
+    errors.push(...(await checkSheetAddDialog(sheetPage)));
+  }
+} finally {
+  await browser.close();
+}
+
+if (errors.length > 0) {
+  console.error(`ui-check: FAIL: ${errors.length} issue(s) loading ${indexHtml} in headless Chromium:`);
+  for (const error of errors) {
+    console.error(`  - ${error}`);
+  }
+  process.exit(1);
+}
+console.warn(
+  `ui-check: ok: ${indexHtml} loaded and rendered in headless Chromium with no console/page errors`,
+);

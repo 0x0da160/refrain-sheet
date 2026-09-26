@@ -28,7 +28,7 @@ import { parseXlsxWorkbook, type XlsxImportError } from '../../core/xlsx-import'
 import { buildXlsxExport, type XlsxSheetInput } from '../../core/xlsx-export';
 import { parseJsonWorkbook, type JsonImportError } from '../../core/json-import';
 import { buildJsonExport } from '../../core/json-export';
-import type { AppState, Tab } from '../app-state';
+import type { AppState, Tab } from '../state';
 import { defaultSheetName } from '../state/defaults';
 import { decidedBySheet, resolveWrap, resolveZoom } from '../state/view-layers';
 import { readFileObject, requestSaveHandle, saveBytes, saveBytesAs, type OpenedFile } from '../file-access';

@@ -5,7 +5,7 @@ description: The interaction model of the two independent tab strips — drag re
 sources:
   - resource: ../../src/ui/shell-layout.ts
   - resource: ../../src/app/recent-files.ts
-  - resource: ../../tests/shell-layout.test.ts
+  - resource: ../../tests/ui/shell-layout.test.ts
   - resource: ../../README.md
 status: stable
 generated:

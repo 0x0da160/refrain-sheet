@@ -5,7 +5,7 @@
  * Four bundled variants exist — `icon.svg`/`logotype.svg` for the light theme
  * and `icon-dark.svg`/`logotype-dark.svg` for the dark one. (Design System
  * v1.0.0 has one app icon for both themes, so the two icon files are the same
- * artwork today; `tests/brand-assets.test.ts` ties each file to its master.)
+ * artwork today; `tests/ui/brand-assets.test.ts` ties each file to its master.)
  * All four are
  * imported at build time (Vite, `base: './'`), so they resolve under a GitHub
  * Pages base path and via `file://` with no runtime network request of any

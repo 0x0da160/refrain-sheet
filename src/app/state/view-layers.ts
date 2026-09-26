@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { resolveSetting, type ResolvedSetting, type SettingSource } from '../../core/settings-cascade';
-import type { EditorDocument } from '../app-state';
+import type { EditorDocument } from './index';
 import { clampSheetZoom, getBrowserWrap, getBrowserZoom, getSheetZoom, getWrapCells } from '../settings';
 import { DEFAULT_SHEET_FONT, getBrowserSheetFont, isSheetFontId, type SheetFontId } from '../sheet-font';
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { parse as parseYaml, stringify as stringifyYaml, YAMLParseError } from 'yaml';
-import type { AppState, Tab } from '../app/app-state';
+import type { AppState, Tab } from '../app/state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { tokenizeCode } from '../core/syntax-highlight';

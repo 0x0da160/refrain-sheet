@@ -7,7 +7,7 @@ import {
   type SqlQueryResult,
   type SqlTable,
 } from '../../core/sql-engine';
-import type { Tab } from '../app-state';
+import type { Tab } from '../state';
 
 /** One selectable SQL data source: a worksheet of the active RSF workbook, or the whole CSV tab. */
 export interface SqlSource {

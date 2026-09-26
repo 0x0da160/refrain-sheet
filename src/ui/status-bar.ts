@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { Lock, LockOpen, TriangleAlert } from 'lucide';
-import type { AppState, Tab } from '../app/app-state';
+import type { AppState, Tab } from '../app/state';
 import { t } from '../app/i18n';
 import { APP_VERSION_DISPLAY } from '../app/version';
 import { forEachIndexSliced } from '../core/scheduler';

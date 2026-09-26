@@ -216,7 +216,7 @@ CSV インジェクションなどの注意書きは、該当する条件、想�
 文言の編集元は次のとおり。
 
 - アプリ：`src/locales/ja.json` と `src/locales/en.json`。両者のキー集合は
-  一致させる（`tests/i18n.test.ts` が検査する）。
+  一致させる（`tests/app/i18n.test.ts` が検査する）。
 - 紹介ページ：`site/i18n.js`。`npm run build:landing` が生成する
   `landing/index.html` と `landing/en/index.html` は直接編集しない。
 

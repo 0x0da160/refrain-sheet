@@ -13,7 +13,7 @@
  * - the localized description key (`formula.fn.<NAME>` in `en.json` / `ja.json`).
  *
  * A function therefore cannot be implemented without being documented, or
- * documented without being implemented — `tests/formula-help.test.ts` asserts
+ * documented without being implemented — `tests/app/formula-help.test.ts` asserts
  * exactly that, and the i18n parity test asserts both locales describe every
  * entry.
  *

@@ -3,7 +3,7 @@ import { isValidSheetName, MAX_SHEET_NAME_LENGTH } from '../../core/formula';
 import { MAX_WORKSHEETS, type RsfDocument } from '../../core/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
 import type { Worksheet, WorksheetKind } from '../../core/worksheet';
-import type { AppState, Tab } from '../app-state';
+import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
 import type { CommandId, ConvertReason, UiPort } from '../commands';
 import { LARGE_OP_CELLS, pct, withBusy } from './shared';

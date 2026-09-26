@@ -10,7 +10,7 @@ import {
   rangeToTsv,
   rangeToValueMatrix,
 } from '../core/clipboard';
-import type { AppState, Selection, SelectionKind } from './app-state';
+import type { AppState, Selection, SelectionKind } from './state';
 import type { Commands } from './commands';
 import { t } from './i18n';
 import { asVisualDisplaySource, onScreenGeometry, renderStyledRangeToPng } from './screenshot-export';

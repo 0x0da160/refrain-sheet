@@ -69,7 +69,7 @@ Do not invent commands. If a needed command does not exist, stop and say so.
 - Strict TypeScript, ES modules, 2-space indent; Prettier is authoritative for style.
 - Layering (see `knowledge/architecture/index.md`): `ui/ → app/ → core/ → infrastructure`.
   Dependencies flow **inward only**. `src/core/` must never import DOM or UI code.
-- Every state mutation goes through the typed command layer (`src/app/commands.ts`)
+- Every state mutation goes through the typed command layer (`src/app/commands/index.ts`)
   and `AppState`; one `HistoryEntry` per user-visible mutation (undoable, atomic).
 - Cell values render as **text, never HTML**. No `eval` / `new Function`.
 - All user-facing strings are localized in `src/locales/en.json` and `ja.json`;

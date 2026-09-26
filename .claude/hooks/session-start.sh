@@ -18,8 +18,8 @@ cd "${CLAUDE_PROJECT_DIR:-$(pwd)}"
 # passed or near without a plan, a planned upgrade or the quarterly EOL review
 # overdue. Printed on stdout so the session starts knowing about them; never
 # fails the hook. Reads only committed files, so it needs no npm install.
-if command -v node >/dev/null 2>&1 && [ -f scripts/check-eol.mjs ]; then
-  eol_report="$(node scripts/check-eol.mjs --no-fail 2>&1 | grep 'FAIL' || true)"
+if command -v node >/dev/null 2>&1 && [ -f scripts/check/eol.mjs ]; then
+  eol_report="$(node scripts/check/eol.mjs --no-fail 2>&1 | grep 'FAIL' || true)"
   if [ -n "$eol_report" ]; then
     echo "Dependency lifecycle findings (npm run check:eol) — address them or raise them with the user before other work:"
     echo "$eol_report"

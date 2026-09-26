@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { AppState, Tab } from '../app-state';
+import type { AppState, Tab } from '../state';
 import type { UiPort } from '../commands';
 import { t } from '../i18n';
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { MessageSquare } from 'lucide';
-import type { AppState } from '../app/app-state';
+import type { AppState } from '../app/state';
 import { t } from '../app/i18n';
 import { collectSheetComments, collectWorkbookComments, type CommentEntry } from '../core/cell-comment';
 import { cellLabel } from '../core/formula';

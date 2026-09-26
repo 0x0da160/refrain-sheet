@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { FileCode, FileJson, FileText, FileType, Lock, LockOpen, Plus, Table, type IconNode } from 'lucide';
-import type { AppState } from '../app/app-state';
+import type { AppState } from '../app/state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import type { WorksheetKind } from '../core/worksheet';

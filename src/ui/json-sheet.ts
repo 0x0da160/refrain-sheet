@@ -12,6 +12,8 @@ import {
 import { Eye } from 'lucide';
 import { el } from './dom';
 import { SourceEditor } from './source-editor';
+import { SourceProblemBar } from './source-problem-bar';
+import { validateJson } from '../core/source-validation';
 import { CoalescedRenderer, isLargePreviewSource, syncScroll } from './editor-preview-perf';
 
 /** How long to wait after the last keystroke before committing an undoable edit. */
@@ -58,6 +60,8 @@ export class JsonSheetView {
   readonly panelElement: HTMLElement;
   /** The editing surface (see `SourceEditor`); `textarea` is its element. */
   readonly editor: SourceEditor;
+  /** The syntax-check line under the editor (see `SourceProblemBar`). */
+  readonly problemBar: SourceProblemBar;
   private readonly textarea: HTMLTextAreaElement;
   private readonly preview: HTMLElement;
   private readonly previewToggle: HTMLButtonElement;
@@ -83,6 +87,7 @@ export class JsonSheetView {
       indentUnit: '  ',
     });
     this.textarea = this.editor.textarea;
+    this.problemBar = new SourceProblemBar(this.textarea, validateJson, 'sourceCheck.validJson');
     const sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
 
     this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
@@ -110,7 +115,7 @@ export class JsonSheetView {
 
     const panes = el('div', { className: 'markdown-editor-panes' }, [sourcePane]);
 
-    this.element = el('div', { className: 'json-sheet-view' }, [toolbar, panes]);
+    this.element = el('div', { className: 'json-sheet-view' }, [toolbar, panes, this.problemBar.element]);
     this.element.hidden = true;
 
     // The preview's own dockable panel — same `buildSidePanelChrome` machinery
@@ -292,6 +297,8 @@ export class JsonSheetView {
    * listener), which coalesces bursts down to this one.
    */
   private renderPreview(): void {
+    // The syntax check rides the same coalesced render as the preview.
+    this.problemBar.check();
     const text = this.textarea.value;
     if (isLargePreviewSource(text)) {
       this.preview.replaceChildren(

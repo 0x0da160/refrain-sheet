@@ -4,7 +4,7 @@
 // The app's colours come from the Refrain Sheet Design System
 // (design-system/v2/): foundations.css holds the shell colours (bg-*,
 // fg-*, border-*, accent-*, …) for light and dark, and app-tokens.css adds the
-// canvas colours (the grid and source editors) and the hybrid theme — a dark
+// canvas colours (the grid) and the hybrid theme — a dark
 // shell around a light canvas. src/styles.css loads both, and src/app/theme.ts
 // picks the theme with `data-theme` on the document root.
 //

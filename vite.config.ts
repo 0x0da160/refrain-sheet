@@ -49,10 +49,11 @@ export default defineConfig(({ command, mode }) => {
       target: 'es2020',
       modulePreload: false,
       cssCodeSplit: false,
-      rollupOptions: {
+      rolldownOptions: {
         output: {
           format: 'iife' as const,
-          inlineDynamicImports: true,
+          // One classic script: IIFE output cannot be split into chunks.
+          codeSplitting: false,
           entryFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash][extname]',
         },

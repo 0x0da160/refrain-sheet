@@ -228,9 +228,9 @@ export function parseCsvIndexJs(
     const recordStart = pos;
     const fieldOffset = fields.length / FIELD_STRIDE;
     let fieldCount = 0;
-    let termStart = len;
-    let termEnd = len;
-    let lastFieldEnd = recordStart;
+    let termStart: number;
+    let termEnd: number;
+    let lastFieldEnd: number;
     for (;;) {
       // ----- scan one field (same algorithm as wasm/src/csv.rs) -----
       const fieldStart = pos;

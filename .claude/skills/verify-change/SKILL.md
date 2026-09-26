@@ -21,6 +21,7 @@ Run in this order; stop reporting nothing as passed unless it actually ran.
 | Self-contained dist | `npm run check:dist`     | always                              |
 | Version consistency | `npm run check:versions` | always                              |
 | Unused code (Knip)  | `npm run check:knip`     | always                              |
+| EOL register        | `npm run check:eol`      | always (date-driven findings too)   |
 | Production audit    | `npm run audit:ci`       | always (network-dependent)          |
 | Rust tests          | `npm run test:rust`      | only if `wasm/` changed             |
 | Rebuild WASM        | `npm run build:wasm`     | only if `wasm/` Rust source changed |

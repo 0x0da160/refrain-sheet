@@ -28,6 +28,8 @@ generated:
   section in `THIRD-PARTY-NOTICES.md` (enforced by
   `tests/third-party-notices.test.ts`). Everything else is dev-only
   build/test tooling.
+- **Keep current.** Patch weekly, review end of life quarterly — see
+  [dependency-lifecycle.md](dependency-lifecycle.md).
 - **Audit before adding.** New dependencies are reviewed for necessity,
   maintenance status, permission surface (install scripts, network
   access), and transitive footprint.
@@ -72,6 +74,11 @@ The committed `.npmrc` applies to every npm invocation in the repo:
   introduces a high/critical-severity or disallowed-license dependency.
   Uses `pull_request`, not `pull_request_target`, so untrusted PR code
   never runs with secrets or write access.
+- **`maintenance.yml`** (weekly schedule + `workflow_dispatch`) is
+  read-only: the full `npm audit`, the date-driven EOL gate, and the full
+  SBOM as an artifact — see [dependency-lifecycle.md](dependency-lifecycle.md).
+  Dependabot (`.github/dependabot.yml`) proposes weekly update pull
+  requests that go through the same CI and review as any other.
 - **`release-docs.yml`** (`workflow_dispatch` only) holds
   `contents: write` and `pull-requests: write`, but never writes to `main`
   directly — it pushes a rolling `chore/release-docs` branch (with an
@@ -93,7 +100,7 @@ The committed `.npmrc` applies to every npm invocation in the repo:
 ### GitHub Actions pinning policy
 
 Every **official GitHub-maintained `actions/*`** action is pinned to a
-major-version tag (e.g. `actions/checkout@v4`) — an explicit, documented
+major-version tag (e.g. `actions/checkout@v7`) — an explicit, documented
 exception for first-party actions.
 
 **Any third-party (non-`actions/*`) action MUST be pinned to a full commit

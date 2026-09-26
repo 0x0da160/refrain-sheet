@@ -46,6 +46,9 @@ really is internal, rather than inventing an entry to satisfy it.
   it, or turn off “Regular expression” to search for the text as typed. A
   search text longer than 1,024 characters gets its own message instead of
   being reported as an invalid regular expression.
+- **Data > Run SQL Query…** runs on the SQLite engine from sql.js 1.14.2,
+  and the icons come from lucide 1.48.0 (both were updated along with the
+  rest of the build toolchain; nothing is fetched at runtime).
 
 ## [0.9.7] - 2026-09-26
 

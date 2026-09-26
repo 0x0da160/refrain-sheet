@@ -1,0 +1,79 @@
+# Frequent patching (knowledge/operations/dependency-lifecycle.md): Dependabot
+# proposes updates weekly, as pull requests that go through the normal CI and
+# human review — nothing is merged automatically.
+#
+# - Patch and minor updates are grouped into one pull request per ecosystem,
+#   so the weekly batch stays reviewable; majors arrive one per pull request.
+# - `cooldown` waits a few days after a release before proposing it, so a
+#   compromised or broken release is usually yanked before it reaches a
+#   pull request (a supply-chain guard alongside `ignore-scripts`).
+# - A major upgrade also needs its new cycle in docs/eol-register.json
+#   (`npm run check:eol`), which CI enforces.
+# - The Rust toolchain (rust-toolchain.toml), wasm-pack and wasm-bindgen-cli
+#   are pinned with checksums in several files and are bumped together by
+#   hand (the update-dependencies skill), so the wasm-bindgen crate, which
+#   must equal wasm-bindgen-cli, is excluded here. A Cargo update changes
+#   the embedded WASM: rebuild it with `npm run build:wasm` on the pull
+#   request (wasm.yml fails until then), and regenerate the sql.js payload
+#   with `npm run build:sqljs` when sql.js changes (check:generated).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    groups:
+      npm-patch-minor:
+        update-types: [minor, patch]
+    labels: ['type:chore']
+    commit-message:
+      prefix: 'deps'
+
+  - package-ecosystem: cargo
+    directory: /wasm
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    groups:
+      cargo-patch-minor:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: wasm-bindgen
+    labels: ['type:chore']
+    commit-message:
+      prefix: 'deps(wasm)'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 3
+    groups:
+      actions:
+        patterns: ['*']
+    labels: ['type:chore']
+    commit-message:
+      prefix: 'ci'
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    ignore:
+      # The Node.js line is an LTS decision made in the EOL review
+      # (docs/eol-plan.md), not a weekly bump to the next odd release.
+      - dependency-name: node
+        update-types: [version-update:semver-major]
+    labels: ['type:chore']
+    commit-message:
+      prefix: 'docker'

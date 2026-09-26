@@ -53,8 +53,8 @@ in-app way to recover. Before changing anything under `wasm/src/`:
   that isn't followed by `build:wasm` has no effect on the running app —
   `npm run build` alone does not rebuild it.
 - **The build is reproducible, and CI checks it.** With the toolchain pinned
-  in the root `rust-toolchain.toml` (1.84.1), wasm-pack 0.13.1, and
-  wasm-bindgen-cli 0.2.100, `build:wasm` is byte-deterministic across
+  in the root `rust-toolchain.toml` (1.98.1), wasm-pack 0.15.0, and
+  wasm-bindgen-cli 0.2.129, `build:wasm` is byte-deterministic across
   machines: `scripts/build-wasm.mjs` remaps the cargo home in the paths rustc
   embeds, so a different home directory cannot change the binary.
   `.github/workflows/wasm.yml` runs `test:rust`, rebuilds, and fails if

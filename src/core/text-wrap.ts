@@ -41,7 +41,6 @@ function segmentLines(segment: string, measure: WrapMeasure, contentWidth: numbe
     // The word does not fit on the current line: move to a fresh line.
     if (lineWidth > 0) {
       lines += 1;
-      lineWidth = 0;
       if (lines >= maxLines) {
         return maxLines;
       }
@@ -120,8 +119,6 @@ function segmentToLines(
     }
     if (currentWidth > 0) {
       lines.push(current);
-      current = '';
-      currentWidth = 0;
       if (lines.length >= maxLines) {
         return lines;
       }

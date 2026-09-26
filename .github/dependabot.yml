@@ -29,6 +29,13 @@ updates:
     groups:
       npm-patch-minor:
         update-types: [minor, patch]
+    ignore:
+      # TypeScript 7 is blocked on typescript-eslint's peer range (<6.1.0),
+      # so `npm ci` fails on it; the upgrade is tracked as a dated plan in
+      # docs/eol-register.json and done by hand once typescript-eslint
+      # supports it. Drop this entry at that point.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
     labels: ['type:chore']
     commit-message:
       prefix: 'deps'

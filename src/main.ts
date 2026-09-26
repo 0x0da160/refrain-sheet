@@ -7,7 +7,10 @@ import { warnProtectedAndOfferUnlock } from './app/commands/shared';
 import { getLocale, initLocale, onLocaleChange, t } from './app/i18n';
 import { getAutoFitOnOpen, getEditHints, getShiftPasteMode, getSheetZoom } from './app/settings';
 import { applySheetFont, getSheetFont } from './app/sheet-font';
+import { listRecentFiles } from './app/recent-files';
 import { resolveShortcut } from './app/shortcuts';
+import { getSqlHistory } from './app/sql-queries';
+import { storageSharedWithOtherLocalFiles } from './app/storage';
 import { applyTheme, getTheme } from './app/theme';
 import { initCsvEngine } from './core/csv-engine';
 import { initSqlEngine } from './core/sql-engine';
@@ -43,6 +46,13 @@ function bootstrap(): void {
   // Resolve and apply the color theme before first paint (no flash of the
   // wrong theme); a "system" choice tracks OS changes live via matchMedia.
   applyTheme(getTheme());
+  // From file://, other local HTML files share this storage: the first access
+  // to each list switches it to memory-only and deletes what an earlier
+  // release stored there, so do that now rather than when first used.
+  if (storageSharedWithOtherLocalFiles()) {
+    void listRecentFiles();
+    getSqlHistory();
+  }
   // Keep every product-identity icon on the theme's variant, including live
   // `prefers-color-scheme` changes while the choice is "system".
   initAppIcons();

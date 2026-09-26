@@ -1109,6 +1109,7 @@
   "dialog.recentFiles.clear": "Clear List",
   "dialog.recentFiles.cancel": "Cancel",
   "dialog.recentFiles.note": "This list is kept only in this browser. File contents are not stored.",
+  "dialog.recentFiles.noteSession": "Opened from a local file, this app keeps the list only until the page is closed, because other local HTML files could read what it stores. File contents are not stored.",
   "notify.recentEmpty": "No recently opened files yet. Files you open with File > Open… appear here.",
   "notify.recentCleared": "Cleared the recent files list.",
   "notify.recentPermissionDenied": "Could not open “{name}”: the browser did not allow reading it.",

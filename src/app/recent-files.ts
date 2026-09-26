@@ -11,7 +11,14 @@
  * a file name, the opaque handle, and when it was opened — and is never sent
  * anywhere. File contents are never stored. File > Open Recent… can clear it,
  * and reopening still asks the browser for read permission each session.
+ *
+ * From a `file://` URL, every local HTML file shares this storage in
+ * Chromium-based browsers, so another local page could read the handles. There
+ * the list is kept in memory for the session only, and a list an earlier
+ * release stored is deleted.
  */
+
+import { storageSharedWithOtherLocalFiles } from './storage';
 
 export interface RecentFileEntry {
   id: string;
@@ -95,6 +102,14 @@ export class MemoryRecentFilesStore implements RecentFilesStore {
 let store: RecentFilesStore | null = null;
 
 function currentStore(): RecentFilesStore {
+  if (store === null && storageSharedWithOtherLocalFiles()) {
+    try {
+      if (typeof indexedDB !== 'undefined') indexedDB.deleteDatabase(DB_NAME);
+    } catch {
+      // Storage blocked: there is nothing stored to delete.
+    }
+    store = new MemoryRecentFilesStore();
+  }
   store ??= typeof indexedDB === 'undefined' ? new MemoryRecentFilesStore() : new IndexedDbRecentFilesStore();
   return store;
 }

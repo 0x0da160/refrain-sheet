@@ -1109,6 +1109,7 @@
   "dialog.recentFiles.clear": "一覧を消去",
   "dialog.recentFiles.cancel": "キャンセル",
   "dialog.recentFiles.note": "この一覧はこのブラウザーの中だけに保存されます。ファイルの内容は保存しません。",
+  "dialog.recentFiles.noteSession": "ローカルのファイルから開いているため、この一覧はページを閉じるまでしか保持しません（保存すると、ほかのローカル HTML ファイルから読まれるおそれがあるため）。ファイルの内容は保存しません。",
   "notify.recentEmpty": "最近開いたファイルはまだありません。「ファイル > 開く…」で開いたファイルがここに表示されます。",
   "notify.recentCleared": "最近使ったファイルの一覧を消去しました。",
   "notify.recentPermissionDenied": "「{name}」を開けませんでした。ブラウザーが読み取りを許可しませんでした。",

@@ -7,6 +7,7 @@ import type { DelimiterId } from '../../core/byte-csv-parser';
 import type { CsvExportOptions, CsvLineEnding } from '../../core/csv-export';
 import type { EncodingId } from '../../core/encoding';
 import { setSuppressHistoryCapWarning } from '../../app/settings';
+import { storageSharedWithOtherLocalFiles } from '../../app/storage';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/serializer';
 import { el } from '../dom';
 import { cellList, dialogButton, openDialog, submitOnEnter } from './shared';
@@ -445,7 +446,14 @@ export class FileIoDialogs {
         body.append(
           el('p', { text: t('dialog.recentFiles.message') }),
           list,
-          el('p', { className: 'dialog-note', text: t('dialog.recentFiles.note') }),
+          el('p', {
+            className: 'dialog-note',
+            text: t(
+              storageSharedWithOtherLocalFiles()
+                ? 'dialog.recentFiles.noteSession'
+                : 'dialog.recentFiles.note',
+            ),
+          }),
         );
         buttons.append(
           dialogButton(t('dialog.recentFiles.clear'), false, false, () => close('clear')),

@@ -69,6 +69,12 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- **Private data is no longer stored where other local files can read it.**
+  When the offline build is opened from a local file (`file://`), Chrome and
+  Edge let every local HTML file read the same browser storage. From there,
+  File > Open Recent… and the SQL query history and saved queries are now
+  kept only until the page is closed, and anything an earlier release
+  stored for them is deleted. The hosted app is unchanged.
 - **PageUp and PageDown move one screen** instead of a fixed 20 rows.
 - **The keyboard shortcut list is grouped by task** and shows only the keys
   for your system (Cmd on macOS). It now also lists Ctrl+Enter, Alt+Enter,

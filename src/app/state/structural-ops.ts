@@ -4,6 +4,7 @@ import { adjustFormulaForAxis, isFormula, sheetNameKey, shiftFormulaRefs } from 
 import type { CellChange, HistoryEntry, Operation } from '../../core/history';
 import { LosslessDocument } from '../../core/lossless-document';
 import { RsfDocument, RSF_EXTENSION } from '../../core/rsf-document';
+import type { FreezePanes } from '../../core/worksheet';
 import type { AppState, EditorDocument, Selection, Tab } from '../app-state';
 import { defaultSheetName, STICKY_COL_KEY, STICKY_KEY } from './defaults';
 import { getLocale, t } from '../i18n';
@@ -555,15 +556,32 @@ export class StructuralOpsState {
   }
 
   setStickyFirstRow(sticky: boolean): void {
+    this.clearActiveFreeze();
     this.state.stickyFirstRow = sticky;
     safeStorageSet(STICKY_KEY, sticky ? '1' : '0');
     this.state.emit('view');
   }
 
   setStickyFirstColumn(sticky: boolean): void {
+    this.clearActiveFreeze();
     this.state.stickyFirstColumn = sticky;
     safeStorageSet(STICKY_COL_KEY, sticky ? '1' : '0');
     this.state.emit('view');
+  }
+
+  setTabFreeze(tab: Tab, freeze: FreezePanes | null): void {
+    const next =
+      freeze && (freeze.rows > 0 || freeze.cols > 0) ? { rows: freeze.rows, cols: freeze.cols } : null;
+    tab.freeze = next;
+    this.state.emit('view');
+  }
+
+  /** The sticky first row/column toggles replace the active tab's freeze-at-selection. */
+  private clearActiveFreeze(): void {
+    const tab = this.state.activeTab;
+    if (tab) {
+      tab.freeze = null;
+    }
   }
 
   /**

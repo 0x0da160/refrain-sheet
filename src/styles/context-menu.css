@@ -49,12 +49,12 @@
   align-items: center;
   justify-content: center;
   width: 28px;
-  height: 28px;
+  height: var(--control-h);
   border: none;
   background: none;
   border-radius: var(--radius-sm);
   cursor: default;
-  font-size: 13px;
+  font-size: var(--text-body);
   color: inherit;
 }
 

@@ -141,7 +141,7 @@
 .column-menu-note {
   margin: 0;
   color: var(--fg-muted);
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 
 .column-menu-foot {

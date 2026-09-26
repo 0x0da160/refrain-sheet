@@ -37,7 +37,7 @@ export class WelcomeScreen {
   private render(): void {
     clearChildren(this.element);
     const actionClasses =
-      'welcome-action inline-flex items-center justify-center gap-(--space-2) rounded-(--radius-md) border border-accent px-(--space-4) py-(--space-2) text-[14px] cursor-pointer hover:bg-accent-soft hover:text-accent';
+      'welcome-action inline-flex items-center justify-center gap-(--space-2) rounded-(--radius-md) border border-accent px-(--space-4) py-(--space-2) text-(length:--text-body) cursor-pointer hover:bg-accent-soft hover:text-accent';
     const open = el(
       'button',
       { className: `${actionClasses} primary bg-accent text-accent-contrast`, attrs: { type: 'button' } },
@@ -62,7 +62,7 @@ export class WelcomeScreen {
       'button',
       {
         className:
-          'welcome-recent inline-flex items-center gap-(--space-1-5) rounded-(--radius-sm) border-0 bg-transparent px-(--space-1-5) py-(--space-1) text-[13px] text-accent cursor-pointer hover:underline',
+          'welcome-recent inline-flex items-center gap-(--space-1-5) rounded-(--radius-sm) border-0 bg-transparent px-(--space-1-5) py-(--space-1) text-(length:--text-body) text-accent cursor-pointer hover:underline',
         attrs: { type: 'button' },
       },
       [createIcon(FolderClock, 'flex-none', 16), el('span', { text: t('menu.file.openRecent') })],

@@ -72,7 +72,7 @@ table.diff-table td {
   display: inline-block;
   padding: 1px var(--space-2);
   border-radius: 10px;
-  font-size: 12px;
+  font-size: var(--text-caption);
   white-space: nowrap;
 }
 

@@ -104,7 +104,7 @@
   align-items: baseline;
   gap: var(--space-1-5);
   font-family: var(--font-sheet);
-  font-size: 12px;
+  font-size: var(--text-caption);
   font-weight: var(--weight-bold);
 }
 

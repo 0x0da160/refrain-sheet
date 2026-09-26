@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.9] - 2026-09-26
+
 ### Added
 
 - **Syntax check for JSON and YAML sheets.** A line under the editor says

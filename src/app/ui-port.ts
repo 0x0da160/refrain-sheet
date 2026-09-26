@@ -19,7 +19,7 @@ import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/se
 import type { ValidationSummary } from '../core/validation';
 import type { RsfHistorySnapshot } from '../core/rsf-codec';
 import type { WorksheetKind } from '../core/worksheet';
-import type { Tab } from './app-state';
+import type { Tab } from './state';
 import type { LocaleId } from './i18n';
 import type { SqlRunOutcome, SqlSource } from './commands/sql';
 import type { DiffRunOutcome, DiffTabOption } from './commands/diff';

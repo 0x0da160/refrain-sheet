@@ -10,11 +10,11 @@
  *
  * These benches run in Node (V8), not a browser. They measure the pure data
  * processing cost; DOM-related responsiveness is covered by tests
- * (tests/perf.test.ts, tests/virtual-grid.test.ts) and by the manual
+ * (tests/ui/perf.test.ts, tests/ui/virtual-grid.test.ts) and by the manual
  * profiling steps documented in knowledge/operations/performance-principles.md.
  */
 import { describe, test } from 'vitest';
-import { AppState } from '../src/app/app-state';
+import { AppState } from '../src/app/state';
 import { initCsvEngine, setCsvEngineForTesting } from '../src/core/csv-engine';
 import type { CellChange } from '../src/core/history';
 import { LosslessDocument } from '../src/core/lossless-document';

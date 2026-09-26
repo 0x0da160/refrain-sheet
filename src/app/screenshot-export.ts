@@ -31,7 +31,7 @@ import {
   type VisualDisplaySource,
 } from '../core/screenshot-layout';
 import { countVisualLines, rowHeightForLines, wrapVisualLines } from '../core/text-wrap';
-import type { EditorDocument, Tab } from './app-state';
+import type { EditorDocument, Tab } from './state';
 
 /**
  * Kept in sync with `COL_WIDTH`/`ROW_HEIGHT`/`WRAP_LINE_HEIGHT`/

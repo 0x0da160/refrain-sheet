@@ -220,9 +220,6 @@ export const MAX_CRITERIA_PAIRS = 32;
 /** Maximum sort_index/order pairs accepted by SORT. */
 export const MAX_SORT_KEYS = 8;
 
-/** Maximum repetitions REPT-style growth may request (guards string blow-up). */
-export const MAX_JOIN_ITEMS = MAX_RANGE_CELLS;
-
 // ---------------------------------------------------------------------------
 // Coercion
 // ---------------------------------------------------------------------------

@@ -3,8 +3,8 @@ type: operations-concept
 title: Dependency lifecycle — patching cadence and EOL management
 description: How often dependencies and toolchains are updated, how end of life is tracked from the full SBOM, and which gates enforce both (Dependabot, check:eol, the weekly maintenance workflow, the session-start hook).
 sources:
-  - resource: ../../scripts/sbom.mjs
-  - resource: ../../scripts/check-eol.mjs
+  - resource: ../../scripts/release/sbom.mjs
+  - resource: ../../scripts/check/eol.mjs
   - resource: ../../docs/eol-register.json
   - resource: ../../docs/eol-plan.md
   - resource: ../../.github/dependabot.yml
@@ -37,7 +37,7 @@ it), record why and a due date as the entry's `plan`.
 ## The full SBOM is the inventory
 
 `npm run sbom` (the release artifact) lists only the production npm tree.
-`npm run sbom:full` (`scripts/sbom.mjs`) writes a CycloneDX 1.5 document
+`npm run sbom:full` (`scripts/release/sbom.mjs`) writes a CycloneDX 1.5 document
 covering everything that builds, tests, or ships the app: every npm package
 in the lockfile, every Rust crate in `wasm/Cargo.lock`, the toolchains
 (Node.js lines from the Dockerfile and every workflow, the Debian base
@@ -52,7 +52,7 @@ component, keyed `<ecosystem>:<name>@<cycle>` (cycle = SemVer major, or
 `0.minor` below 1): the upstream `eol` date (or `null` for rolling
 releases where only the newest line is supported), a one-line `support`
 note, and an optional `plan` (`action` + `due`). `npm run check:eol`
-(`scripts/check-eol.mjs`) builds the SBOM in memory and fails when:
+(`scripts/check/eol.mjs`) builds the SBOM in memory and fails when:
 
 - a component has no entry, or an entry matches nothing (a major upgrade
   must move its entry to the new cycle);
@@ -78,7 +78,7 @@ every Claude Code session starts knowing what is overdue.
 - **Generated payloads:** a `sql.js` bump needs `npm run build:sqljs`
   (`check:generated`); a Cargo bump needs `npm run build:wasm`. The frozen
   `.rsf` fixtures pin the codecs' compressed output, so a codec upgrade
-  that changes the bytes is caught by `tests/rsf-fixtures.test.ts`.
+  that changes the bytes is caught by `tests/core/rsf-fixtures.test.ts`.
 - **Lockfile-only resolution:** agents do not run `npm install`; edit
   `package.json`, then `npm update --package-lock-only --ignore-scripts`,
   then `npm ci --ignore-scripts`.
@@ -86,4 +86,4 @@ every Claude Code session starts knowing what is overdue.
   `release-docs.yml`) are high-risk: their action and Node.js upgrades are
   planned in the register and need human approval.
 - **Notices:** `THIRD-PARTY-NOTICES.md` records exact versions of runtime
-  dependencies and linked crates (`tests/third-party-notices.test.ts`).
+  dependencies and linked crates (`tests/tooling/third-party-notices.test.ts`).

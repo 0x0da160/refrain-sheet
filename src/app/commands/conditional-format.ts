@@ -6,7 +6,7 @@ import {
 } from '../../core/conditional-format';
 import { cellLabel } from '../../core/formula';
 import type { RsfDocument } from '../../core/rsf-document';
-import type { AppState, Tab } from '../app-state';
+import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
 import type {
   ConditionalFormatDialogInput,

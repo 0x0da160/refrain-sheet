@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Build-time copy dictionary, read by scripts/build-landing.mjs. Not loaded
+// Build-time copy dictionary, read by scripts/build/landing.mjs. Not loaded
 // by the browser — the pre-rendered pages carry the text already. A "\n" in
 // a value becomes a <br> in the page. The hero demo's app labels are not
 // here: they come from src/locales, exactly as the app shows them.

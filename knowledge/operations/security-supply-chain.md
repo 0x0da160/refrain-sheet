@@ -26,7 +26,7 @@ generated:
   YAML worksheet kind's auto-format action; a hand-rolled parser was
   rejected as a correctness/maintenance risk). Every one of them has a
   section in `THIRD-PARTY-NOTICES.md` (enforced by
-  `tests/third-party-notices.test.ts`). Everything else is dev-only
+  `tests/tooling/third-party-notices.test.ts`). Everything else is dev-only
   build/test tooling.
 - **Keep current.** Patch weekly, review end of life quarterly — see
   [dependency-lifecycle.md](dependency-lifecycle.md).
@@ -86,8 +86,8 @@ The committed `.npmrc` applies to every npm invocation in the repo:
   advanced from where this workflow itself left it) and opens a PR reviewed
   like any other. It installs no npm dependencies: `cloc` comes from the
   signed Ubuntu archive, and the only scripts it executes are the committed
-  `scripts/changelog.mjs` and `scripts/code-stats.mjs`. Releases normally
-  update the same two files inside the release commit (`scripts/release.mjs`),
+  `scripts/release/changelog.mjs` and `scripts/release/code-stats.mjs`. Releases normally
+  update the same two files inside the release commit (`scripts/release/index.mjs`),
   so this is a manual catch-up only.
 - **`release.yml`** is the only workflow that writes to the repository
   **without review**, and only on a pushed strict-SemVer tag. The
@@ -125,7 +125,7 @@ The tag workflow (`release.yml`) runs only for a strict
    `actions/attest-build-provenance` (OIDC, no long-lived secret),
 6. deploys `dist/` to GitHub Pages only after all of the above succeed.
 
-`scripts/release.mjs` runs the complete local check suite — including
+`scripts/release/index.mjs` runs the complete local check suite — including
 **Rust tests** and the security audit — before it will create or push a
 tag, so a tag only ever exists because the checks passed. It refuses to
 run from a detached HEAD, the wrong branch, a dirty tree, or when behind

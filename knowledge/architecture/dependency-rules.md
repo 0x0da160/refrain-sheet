@@ -43,7 +43,7 @@ Two rules keep this honest:
   evaluation, autocomplete, the help dialog's function table, and the
   localization key each function needs. A function cannot be implemented
   without being documented, or documented without being implemented;
-  `tests/formula-help.test.ts` and the i18n parity test enforce both
+  `tests/app/formula-help.test.ts` and the i18n parity test enforce both
   directions.
 - **`formula.ts` owns plumbing, not semantics.** It turns AST nodes into
   lazy, memoized `FnArg` accessors and hands them to the registry. Laziness

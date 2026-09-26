@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { Tab } from '../../app/app-state';
+import type { Tab } from '../../app/state';
 import type { ConvertReason } from '../../app/commands';
 import { getLocale, t } from '../../app/i18n';
 import type { RecentFileChoice } from '../../app/ui-port';

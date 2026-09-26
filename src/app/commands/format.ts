@@ -13,7 +13,7 @@ import {
 import type { CellRange } from '../../core/clipboard';
 import type { Operation, StyleChange } from '../../core/history';
 import { remapRuns, runsEqual, runsForText, type TextRun } from '../../core/rich-text';
-import type { AppState, Tab } from '../app-state';
+import type { AppState, Tab } from '../state';
 import { getLocale } from '../i18n';
 import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult, UiPort } from '../commands';
 import { applyWhileOpen } from './shared';

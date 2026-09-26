@@ -11,7 +11,7 @@ governs; this adds only what is specific to `src/ui/`.
   (`src/app/ui-port.ts`), which the UI implements. `src/app/` must never
   import `src/ui/` (lint-enforced).
 - **Every string is localized.** Use `t('key')` and add the key to both
-  `src/locales/en.json` and `ja.json` (`tests/i18n.test.ts` checks the key
+  `src/locales/en.json` and `ja.json` (`tests/app/i18n.test.ts` checks the key
   sets are identical). Write and review the wording itself by
   `knowledge/ui/ui-writing-and-wording.md` (action-first labels, the
   target/impact/next-step rule for save, convert, discard, and encoding
@@ -21,7 +21,7 @@ governs; this adds only what is specific to `src/ui/`.
   items) live in `grid/` and are unit-tested without a DOM. Keep new pure
   logic there, not in the `Grid` class.
 - **Styling** is hand-written CSS under `src/styles/`, loaded in order by
-  `src/styles.css`, using the design tokens; see
+  `src/styles/index.css`, using the design tokens; see
   `knowledge/ui/theming-and-visual-system.md`. `npm run check:contrast`
   gates color pairs.
 - **Familiar operation, original expression.** Excel-like operation is

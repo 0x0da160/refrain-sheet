@@ -229,7 +229,7 @@ Pages deploy.
 
 The full analysis, the verified release-asset inventory, and the exact
 decisions that would have to be recorded in `README.md` first are in
-`docs/release-automation-gap.md`.
+`docs/proposals/release-automation-gap.md`.
 
 **To disable releases entirely / immediately:** disable or delete
 `.github/workflows/release.yml` (Actions tab → the workflow → **Disable

@@ -43,7 +43,7 @@ Google Drive sync.
   release ZIP are **not** covered and must keep making zero network
   connections of any kind — `npm run check:dist`'s `connect-src 'none'`
   assertion continues to apply, unchanged. The Drive client is not merely
-  disabled there but **compiled out**: `src/app/commands.ts` gates it on the
+  disabled there but **compiled out**: `src/app/commands/index.ts` gates it on the
   `__OFFLINE_BUILD__` define (`vite.config.ts`), and `check:dist` fails if
   the offline bundle contains any Google endpoint.
 - **Nothing loads until the user asks.** Google's scripts are fetched
@@ -70,7 +70,7 @@ Google Drive sync.
   `HOSTED_ALLOWLIST`. Keyword grants live in a second list,
   `HOSTED_KEYWORD_GRANTS`, because they are categorically more dangerous —
   an origin permits one host, a keyword applies to every source in its
-  directive. `scripts/check-dist.mjs` rejects any `'unsafe-*'` the built
+  directive. `scripts/check/dist.mjs` rejects any `'unsafe-*'` the built
   policy uses that is not declared there.
 - **`style-src 'unsafe-inline'` is granted, to the hosted build only.**
   Google's `api.js` styles the picker dialog with inline style attributes
@@ -93,13 +93,13 @@ never reach the offline build or the release ZIP:
 | `npm run build`        | `dist/`        | the `file://` build and the release ZIP   |
 | `npm run build:hosted` | `dist-hosted/` | the GitHub Pages deploy (the hosted site) |
 
-`scripts/csp.mjs` is the single source of truth for the policy — one CSP
+`scripts/lib/csp.mjs` is the single source of truth for the policy — one CSP
 per build mode, substituted into `index.html`'s `__CSP__` placeholder by
 `vite.config.ts`. `npm run check:dist` validates `dist/` in offline mode
 (requires `connect-src 'none'`, no `http:`/`https:` source anywhere);
 `npm run check:dist:hosted` validates `dist-hosted/` in hosted mode
 (rejects any origin absent from `HOSTED_ALLOWLIST`). Both assert the built
-CSP matches `scripts/csp.mjs` byte-for-byte. `.github/workflows/ci.yml` and
+CSP matches `scripts/lib/csp.mjs` byte-for-byte. `.github/workflows/ci.yml` and
 `.github/workflows/release.yml` build and validate both artifacts on every
 change.
 

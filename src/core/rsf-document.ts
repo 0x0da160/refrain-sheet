@@ -92,7 +92,7 @@ export const NEW_DOC_COLS = 26;
  * name (`Sheet1` / `シート1`); this constant only applies when a caller
  * supplies none, keeping the core layer free of i18n dependencies.
  */
-export const DEFAULT_SHEET_NAME = 'Sheet1';
+const DEFAULT_SHEET_NAME = 'Sheet1';
 
 /** Maximum number of worksheets a workbook may hold (mirrors the container bound). */
 export const MAX_WORKSHEETS = MAX_RSF_SHEETS;

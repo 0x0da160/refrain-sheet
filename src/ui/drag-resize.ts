@@ -6,7 +6,7 @@ import { visualViewportRect } from './popup';
  * windows in `src/ui/dialogs/shared.ts` (both the modal `<dialog>` from
  * `openDialog` and the anchored, non-modal popover from `openPopover`).
  * Mirrors the pointer-capture pattern used for the grid's column-resize,
- * fill, and move handles (`src/ui/grid.ts`): capture on the handle itself so
+ * fill, and move handles (`src/ui/grid/index.ts`): capture on the handle itself so
  * move/up keep targeting it even if the pointer leaves its small hit area,
  * feature-checked because jsdom (tests) implements neither method.
  *

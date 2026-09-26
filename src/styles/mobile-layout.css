@@ -375,7 +375,7 @@
   }
 
   /* Resting cells get the same 16px floor as the promoted editor above
-     (#402/#519): `placeSinkOverCell` (src/ui/grid.ts) sizes the editor's box
+     (#402/#519): `placeSinkOverCell` (src/ui/grid/index.ts) sizes the editor's box
      from the *resting cell's own* rendered rect, so if only the editor were
      floored, that box would be measured against the smaller unfloored cell
      font and then rendered with the larger floored editor font — a visible

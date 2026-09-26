@@ -11,8 +11,8 @@ import initWasm, {
   rsfZstd as wasmZstd,
   sniffDelimiter as wasmSniffDelimiter,
   statsAggregate as wasmStatsAggregate,
-} from '../wasm-gen/refrain_csv_core';
-import { WASM_BASE64 } from '../wasm-gen/wasm-payload';
+} from '../generated/refrain_csv_core';
+import { WASM_BASE64 } from '../generated/wasm-payload';
 import { readSimpleZstdFrame, writeRawZstdFrame } from './zstd-frame';
 
 /**

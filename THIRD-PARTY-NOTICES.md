@@ -49,7 +49,7 @@ SOFTWARE.
 - Purpose: the execution engine behind **Data > Run SQL Query…**
   (`src/core/sql-engine.ts`) — SQLite compiled to WebAssembly. The compiled
   `sql-wasm.wasm` binary is Base64-embedded into the build output at build
-  time (`scripts/embed-sqljs.mjs` → `src/wasm-gen/sqljs-wasm-payload.ts`) and
+  time (`scripts/build/embed-sqljs.mjs` → `src/generated/sqljs-wasm-payload.ts`) and
   instantiated locally from those decoded bytes only (sql.js's `wasmBinary`
   option); `locateFile()` is never set, so no `.wasm` asset is fetched over
   the network and `file://` usage keeps working. No network access is

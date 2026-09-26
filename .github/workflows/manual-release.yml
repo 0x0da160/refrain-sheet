@@ -11,8 +11,8 @@ name: Manual release recovery
 #   script) -> call release.yml (GitHub Release + Pages from the exact tag).
 #
 # The release commit also carries the CHANGELOG.md section for the new version
-# (the `[Unreleased]` entries, filed by scripts/changelog.mjs) and the refreshed
-# README.md code statistics (scripts/code-stats.mjs + cloc). Both can be caught
+# (the `[Unreleased]` entries, filed by scripts/release/changelog.mjs) and the refreshed
+# README.md code statistics (scripts/release/code-stats.mjs + cloc). Both can be caught
 # up by hand with the `Release docs` workflow.
 #
 # The full check suite runs once, in the validate job's documented dry run. The
@@ -166,7 +166,7 @@ jobs:
           for tool in node npm git gh jq cargo; do
             command -v "$tool" >/dev/null || { echo "::error::Required tool '$tool' is not available on this runner."; exit 1; }
           done
-          test -f scripts/release.mjs || { echo "::error::scripts/release.mjs is missing."; exit 1; }
+          test -f scripts/release/index.mjs || { echo "::error::scripts/release/index.mjs is missing."; exit 1; }
           for script in release check:versions format:check lint test test:rust audit:ci build check:dist; do
             node -e 'const s=require("./package.json").scripts||{}; if(!s[process.argv[1]]) { console.error("::error::package.json has no script: "+process.argv[1]); process.exit(1); }' "$script"
           done
@@ -285,7 +285,7 @@ jobs:
           done <<<"$(git tag --list 'v*' --sort=creatordate)"
 
           # The target version. This mirrors `computeVersion()` in
-          # scripts/release.mjs against the same authoritative source
+          # scripts/release/index.mjs against the same authoritative source
           # (package.json); the documented dry run below re-computes it
           # independently and the two are compared, so a drift cannot go unnoticed.
           version="$(node -e '
@@ -335,7 +335,7 @@ jobs:
 
           out mode release
 
-      # The documented dry run: `scripts/release.mjs --dry-run` runs the full
+      # The documented dry run: `scripts/release/index.mjs --dry-run` runs the full
       # required suite (check:versions, format:check, lint, test, test:rust,
       # audit:ci, build, check:dist) and changes nothing. It is the authority on
       # the next version; its plan is compared with the value computed above.
@@ -407,7 +407,7 @@ jobs:
               ;;
           esac
           RESULT="$RESULT" ACTION_EN="$ACTION_EN" ACTION_JA="$ACTION_JA" \
-            node scripts/release-summary.mjs >>"$GITHUB_STEP_SUMMARY"
+            node scripts/release/summary.mjs >>"$GITHUB_STEP_SUMMARY"
 
       # Fail the run (visibly red) only after the summary above exists.
       - name: Fail on an ineligible release
@@ -510,11 +510,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read # only to fetch scripts/release-summary.mjs
+      contents: read # only to fetch scripts/release/summary.mjs
     steps:
       - uses: actions/checkout@v7
         with:
-          sparse-checkout: scripts/release-summary.mjs
+          sparse-checkout: scripts/release/summary.mjs
           sparse-checkout-cone-mode: false
 
       - name: Write the bilingual result
@@ -544,4 +544,4 @@ jobs:
             ACTION_JA="リリースは完了しませんでした。実行ログを確認してください。タグや Release の削除・変更は行っていません。"
           fi
           RESULT="$RESULT" ACTION_EN="$ACTION_EN" ACTION_JA="$ACTION_JA" \
-            node scripts/release-summary.mjs >>"$GITHUB_STEP_SUMMARY"
+            node scripts/release/summary.mjs >>"$GITHUB_STEP_SUMMARY"

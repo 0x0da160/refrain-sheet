@@ -7,7 +7,7 @@
    state remains on screen. Layout, color, and spacing are Tailwind utility
    classes on the elements themselves (src/ui/welcome-screen.ts); the
    `welcome-*` class names that remain here are hooks for tests and
-   scripts/capture-landing-screenshots.mjs, not styling. */
+   scripts/build/capture-landing-screenshots.mjs, not styling. */
 .welcome-screen[hidden] {
   display: none;
 }

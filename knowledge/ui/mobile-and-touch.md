@@ -3,20 +3,20 @@ type: ui-concept
 title: Mobile and touch
 description: Touch drag gestures, on-screen-keyboard suppression rules, and phone-width layout adaptations, grounded in code and tests rather than the (touch-thin) README.
 sources:
-  - resource: ../../tests/grid-touch.test.ts
-  - resource: ../../tests/mobile-input-focus.test.ts
-  - resource: ../../tests/mobile-menu.test.ts
-  - resource: ../../tests/status-bar.test.ts
-  - resource: ../../tests/mobile-zoom.test.ts
-  - resource: ../../tests/side-panel-mobile-dock.test.ts
+  - resource: ../../tests/ui/grid-touch.test.ts
+  - resource: ../../tests/ui/mobile-input-focus.test.ts
+  - resource: ../../tests/ui/mobile-menu.test.ts
+  - resource: ../../tests/ui/status-bar.test.ts
+  - resource: ../../tests/ui/mobile-zoom.test.ts
+  - resource: ../../tests/ui/side-panel-mobile-dock.test.ts
   - resource: ../../src/styles/mobile-layout.css
   - resource: ../../src/ui/dom.ts
-  - resource: ../../src/ui/grid.ts
+  - resource: ../../src/ui/grid/index.ts
   - resource: ../../src/ui/popup.ts
-  - resource: ../../tests/keyboard-viewport-fix.test.ts
-  - resource: ../../tests/grid-autoscroll.test.ts
+  - resource: ../../tests/ui/keyboard-viewport-fix.test.ts
+  - resource: ../../tests/ui/grid-autoscroll.test.ts
   - resource: ../../src/ui/viewport-debug.ts
-  - resource: ../../tests/focus-on-tap.test.ts
+  - resource: ../../tests/ui/focus-on-tap.test.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -27,9 +27,9 @@ generated:
 
 `README.md` barely mentions touch, so this file is grounded directly in
 `src/ui/`, `src/styles/mobile-layout.css`, and the mobile/touch test suite
-(`tests/grid-touch.test.ts`, `tests/mobile-input-focus.test.ts`,
-`tests/mobile-menu.test.ts`, `tests/mobile-zoom.test.ts`,
-`tests/side-panel-mobile-dock.test.ts`). Where a behavior is not confirmed
+(`tests/ui/grid-touch.test.ts`, `tests/ui/mobile-input-focus.test.ts`,
+`tests/ui/mobile-menu.test.ts`, `tests/ui/mobile-zoom.test.ts`,
+`tests/ui/side-panel-mobile-dock.test.ts`). Where a behavior is not confirmed
 by one of these, it is either omitted here or explicitly caveated — nothing
 below is inferred from the README's touch-thin prose alone.
 
@@ -37,7 +37,7 @@ below is inferred from the README's touch-thin prose alone.
 
 The grid listens to pointer events and distinguishes `pointerType`, so
 mouse listeners and touch/pen listeners never both fire for the same
-gesture (`tests/grid-touch.test.ts`, "ignores pointer events whose
+gesture (`tests/ui/grid-touch.test.ts`, "ignores pointer events whose
 pointerType is 'mouse'"). Two different start rules apply, by design:
 
 - **Handle-anchored drags start immediately on touch**, exactly like a

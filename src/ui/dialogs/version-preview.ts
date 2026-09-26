@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { X } from 'lucide';
-import { AppState } from '../../app/app-state';
+import { AppState } from '../../app/state';
 import { Commands, type UiPort } from '../../app/commands';
 import { t } from '../../app/i18n';
 import { decodeRsfHistorySnapshot, type RsfHistorySnapshot } from '../../core/rsf-codec';

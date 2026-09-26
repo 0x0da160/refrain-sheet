@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { Cloud, HardDrive, Lock, X } from 'lucide';
-import type { AppState, Tab } from '../app/app-state';
+import type { AppState, Tab } from '../app/state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { ICON_BY_COMMAND } from './command-icons';

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-import './styles.css';
-import { AppState } from './app/app-state';
+import './styles/index.css';
+import { AppState } from './app/state';
 import { ClipboardController } from './app/clipboard-controller';
 import { Commands, type UiPort } from './app/commands';
 import { warnProtectedAndOfferUnlock } from './app/commands/shared';

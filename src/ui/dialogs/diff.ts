@@ -43,7 +43,7 @@ function columnCheckbox(
  * tab against, pick one or more key columns, and view every row classified
  * as added/modified/deleted/unchanged/key_invalid. Nothing here mutates
  * either source document — see `src/core/diff-engine.ts` for the engine and
- * docs/csv-diff-review-proposal.md for the scope this first slice
+ * docs/proposals/csv-diff-review.md for the scope this first slice
  * deliberately stays within (no rule engine, templates, approvals, or audit
  * export yet; results render as a plain, non-virtualized table).
  */

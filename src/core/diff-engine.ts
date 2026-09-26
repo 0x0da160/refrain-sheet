@@ -2,7 +2,7 @@
 /**
  * A hand-written, dependency-free row-diff engine for comparing two tables
  * shaped like `sql-engine.ts`'s `SqlTable` (a header row plus string rows) —
- * see docs/csv-diff-review-proposal.md for the product background and
+ * see docs/proposals/csv-diff-review.md for the product background and
  * knowledge/architecture/index.md "The SQL query engine" for why this, like the SQL
  * engine, carries no new dependency (a WASM RDB was evaluated and rejected
  * there for the same CSP/module-loading/dependency-count reasons).

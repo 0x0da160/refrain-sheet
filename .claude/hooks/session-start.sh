@@ -1,7 +1,8 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
 #
-# SessionStart hook for Claude Code on the web. Installs the npm dependencies
+# SessionStart hook. In every session it reports overdue dependency-lifecycle
+# findings (below). On Claude Code on the web it also installs the npm dependencies
 # and the pinned WASM toolchain directly on the session container, so every
 # command in CLAUDE.md (including `npm run build:wasm`) runs without Docker.
 #
@@ -11,16 +12,28 @@
 # match `.github/workflows/wasm.yml` and the Dockerfile.
 set -euo pipefail
 
+cd "${CLAUDE_PROJECT_DIR:-$(pwd)}"
+
+# Dependency-lifecycle findings (CLAUDE.md "Dependency maintenance"): an EOL
+# passed or near without a plan, a planned upgrade or the quarterly EOL review
+# overdue. Printed on stdout so the session starts knowing about them; never
+# fails the hook. Reads only committed files, so it needs no npm install.
+if command -v node >/dev/null 2>&1 && [ -f scripts/check-eol.mjs ]; then
+  eol_report="$(node scripts/check-eol.mjs --no-fail 2>&1 | grep 'FAIL' || true)"
+  if [ -n "$eol_report" ]; then
+    echo "Dependency lifecycle findings (npm run check:eol) — address them or raise them with the user before other work:"
+    echo "$eol_report"
+  fi
+fi
+
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
-WASM_PACK_VERSION=v0.13.1
-WASM_PACK_SHA256=c539d91ccab2591a7e975bcf82c82e1911b03335c80aa83d67ad25ed2ad06539
-WASM_BINDGEN_VERSION=0.2.100
-WASM_BINDGEN_SHA256=63d6a38deb65bd7023c02bdf382ab66b0d2c0241c8582fd3413b5a808b8aeb5b
-
-cd "${CLAUDE_PROJECT_DIR:-$(pwd)}"
+WASM_PACK_VERSION=v0.15.0
+WASM_PACK_SHA256=c09f971ecaed9a2efc80fdcea7a00ef6b53c7fadc8c57d1f61b53a6aa66b668a
+WASM_BINDGEN_VERSION=0.2.129
+WASM_BINDGEN_SHA256=82d12bb940e2d4e72e0d5605387fc1b8ca179044e012b620f0ce4e7440e8320e
 
 # npm dependencies: lockfile-strict and without lifecycle scripts (see CLAUDE.md).
 # Skipped when node_modules already matches the lockfile.
@@ -57,7 +70,7 @@ install_tool() {
 install_tool wasm-pack "$WASM_PACK_VERSION" "$WASM_PACK_SHA256" \
   "https://github.com/rustwasm/wasm-pack/releases/download/${WASM_PACK_VERSION}/wasm-pack-${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz"
 install_tool wasm-bindgen "$WASM_BINDGEN_VERSION" "$WASM_BINDGEN_SHA256" \
-  "https://github.com/rustwasm/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+  "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz"
 
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export PATH=\"$bin:\$PATH\"" >>"$CLAUDE_ENV_FILE"

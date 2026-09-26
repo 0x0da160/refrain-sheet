@@ -35,6 +35,12 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- **Data > Run SQL Query…** runs on the SQLite engine from sql.js 1.14.2,
+  and the icons come from lucide 1.48.0 (both were updated along with the
+  rest of the build toolchain; nothing is fetched at runtime).
+
 ## [0.9.7] - 2026-09-26
 
 ### Changed

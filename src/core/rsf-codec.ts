@@ -882,7 +882,7 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
   if (value.filter !== undefined && value.filter !== null) {
     // Full semantic validation against this worksheet's dimensions; an
     // invalid filter is dropped (never guessed at) and the caller warns.
-    let validated: SheetFilter | null = null;
+    let validated: SheetFilter | null;
     try {
       validated = isObject(value.filter)
         ? validateFilter(value.filter as unknown as SheetFilter, sheet.rowCount, sheet.columnCount)

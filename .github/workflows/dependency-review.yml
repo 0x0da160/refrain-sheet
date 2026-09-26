@@ -29,7 +29,7 @@ jobs:
     # manifests through the dependency graph API, not the work tree.
     steps:
       - name: Review dependency changes
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         with:
           # Block a PR that adds a dependency with a known high/critical
           # vulnerability, and surface the findings in the PR.

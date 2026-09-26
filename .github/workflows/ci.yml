@@ -44,13 +44,13 @@ jobs:
     steps:
       # Depth 2 so the changelog gate can see the merge commit's first parent
       # (the base branch tip) and derive the pull request's own diff from it.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       # `npm ci --ignore-scripts` reproduces node_modules strictly from the
@@ -76,6 +76,14 @@ jobs:
       # scripts/check-knowledge-frontmatter.mjs.
       - name: Knowledge bundle checks
         run: npm run check:knowledge
+
+      # Every direct dependency and toolchain in the full SBOM must have a
+      # lifecycle entry in docs/eol-register.json (scripts/check-eol.mjs).
+      # Date-driven findings (EOL passed, a plan or the quarterly review
+      # overdue) annotate the run here instead of blocking unrelated pull
+      # requests; the weekly maintenance.yml run fails on them.
+      - name: EOL register
+        run: npm run check:eol -- --overdue-as-warning
 
       # CHANGELOG.md stopped being updated for nine releases because nothing
       # asked for it (Issue #178). This fails a pull request that changes
@@ -124,11 +132,11 @@ jobs:
       matrix:
         shard: [1, 2]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies (no lifecycle scripts)
@@ -154,11 +162,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies (no lifecycle scripts)
@@ -209,7 +217,7 @@ jobs:
           fi
 
       - name: Upload build output
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: refrain-sheet-dist
           path: dist/

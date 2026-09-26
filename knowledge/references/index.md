@@ -39,6 +39,9 @@ For the knowledge bundle's own domains, start at
     verified-dead code item in a single small, evidence-documented PR.
   - [`triage-issue`](../../.claude/skills/triage-issue/SKILL.md) — classify
     an Issue and apply safe labels.
+  - [`update-dependencies`](../../.claude/skills/update-dependencies/SKILL.md)
+    — patch dependencies and toolchains, and run the quarterly EOL review
+    against the full SBOM.
   - [`verify-change`](../../.claude/skills/verify-change/SKILL.md) — run the
     confirmed verification commands and report results honestly.
 

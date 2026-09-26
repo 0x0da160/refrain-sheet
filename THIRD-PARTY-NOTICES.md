@@ -43,7 +43,7 @@ SOFTWARE.
 
 ## sql.js (and SQLite)
 
-- Version: 1.14.1
+- Version: 1.14.2
 - Author: sql.js authors
 - Source: https://github.com/sql-js/sql.js
 - Purpose: the execution engine behind **Data > Run SQL Query…**
@@ -85,7 +85,7 @@ SOFTWARE.
 
 ## lucide
 
-- Version: 1.28.0
+- Version: 1.48.0
 - Author: Lucide Contributors
 - Source: https://github.com/lucide-icons/lucide
 - Purpose: UI icons (menu toggle, close/add buttons, checkmarks, file actions,
@@ -148,16 +148,15 @@ licensed and build for `wasm32-unknown-unknown` with no C/C++ toolchain.
 
 | Crate          | Version | Purpose                                | SPDX license                |
 | -------------- | ------- | -------------------------------------- | --------------------------- |
-| `wasm-bindgen` | 0.2.100 | JS ⇄ WASM bindings                     | `MIT OR Apache-2.0`         |
-| `miniz_oxide`  | 0.8.0   | DEFLATE codec (`.xlsx` import)         | `MIT OR Zlib OR Apache-2.0` |
-| `ruzstd`       | 0.8.1   | Zstandard encoder+decoder (`.rsf`)     | `MIT`                       |
+| `wasm-bindgen` | 0.2.129 | JS ⇄ WASM bindings                     | `MIT OR Apache-2.0`         |
+| `miniz_oxide`  | 0.9.1   | DEFLATE codec (`.xlsx` import)         | `MIT OR Zlib OR Apache-2.0` |
+| `ruzstd`       | 0.9.0   | Zstandard encoder+decoder (`.rsf`)     | `MIT`                       |
 | `lz4_flex`     | 0.14.0  | LZ4 Frame codec (unused; still linked) | `MIT`                       |
-| `twox-hash`    | 1.6/2.1 | xxHash checksums used by the codecs    | `MIT`                       |
+| `twox-hash`    | 2.1     | xxHash checksums used by the codecs    | `MIT`                       |
 | `adler2`       | 2.0.1   | Adler-32 (miniz_oxide dependency)      | `0BSD OR MIT OR Apache-2.0` |
 
-`ruzstd` is pinned to `0.8.1` — the version whose pure-Rust Zstandard **encoder**
-(added in 0.8.0) still builds on the pinned Rust toolchain; 0.8.2+ requires a
-newer compiler. Each of `ruzstd`, `lz4_flex`, and `miniz_oxide` provides both
+`ruzstd` provides the pure-Rust Zstandard **encoder** (added in 0.8.0) used
+for `.rsf`; its exact version is pinned in `wasm/Cargo.toml`. Each of `ruzstd`, `lz4_flex`, and `miniz_oxide` provides both
 compression and decompression. Their MIT license text (representative below for
 `ruzstd`; `lz4_flex` and `twox-hash` are identical in substance) permits
 redistribution under this project's MIT license.
@@ -186,7 +185,7 @@ SOFTWARE.
 
 ## Development-only dependencies
 
-Build and test tooling (Vite, Rollup, esbuild, TypeScript, Vitest, jsdom,
+Build and test tooling (Vite, Rolldown, TypeScript, Vitest, jsdom,
 fast-check, ESLint, Prettier, and their transitive dependencies) is used only
 during development and CI. It is **not** included in the distributed build
 output. Their licenses (MIT, Apache-2.0, ISC, BSD) are recorded in

@@ -322,3 +322,12 @@ corrected to `site/i18n.js` and the generated `landing/` pages, and its
 current `src/locales/ja.json` strings that differ from the rules, to be
 fixed one focused change at a time. Linked from `ui/index.md`,
 `src/ui/CLAUDE.md`, and the root `CLAUDE.md`.
+
+**Dependency lifecycle.** Added `operations/dependency-lifecycle.md`: the
+weekly patching and quarterly EOL-review cadences, the full SBOM
+(`scripts/sbom.mjs`, `npm run sbom:full`) as the inventory, and the
+`docs/eol-register.json` gate (`npm run check:eol`) with its enforcement
+points (ci.yml, the weekly `maintenance.yml`, Dependabot, the
+session-start hook). Linked from `operations/index.md`, the root
+`CLAUDE.md`, and `security-supply-chain.md`, whose Actions-pinning example
+and workflow list were brought up to date.

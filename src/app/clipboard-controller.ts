@@ -197,7 +197,7 @@ export class ClipboardController {
    * falls back to parsing the system clipboard text (origin unknown).
    */
   async getCopied(): Promise<{ matrix: string[][]; origin: Selection | null } | null> {
-    let text: string | null = null;
+    let text: string | null;
     try {
       text = await navigator.clipboard.readText();
     } catch {
@@ -336,7 +336,7 @@ export class ClipboardController {
    * copied elsewhere since then means the internal copy is stale.
    */
   private async internalIsCurrent(): Promise<string | null | true> {
-    let text: string | null = null;
+    let text: string | null;
     try {
       text = await navigator.clipboard.readText();
     } catch {
@@ -398,7 +398,7 @@ export class ClipboardController {
     if (!tab) {
       return;
     }
-    let text: string | null = null;
+    let text: string | null;
     try {
       text = await navigator.clipboard.readText();
     } catch {

@@ -12,7 +12,10 @@ governs; this adds only what is specific to `src/ui/`.
   import `src/ui/` (lint-enforced).
 - **Every string is localized.** Use `t('key')` and add the key to both
   `src/locales/en.json` and `ja.json` (`tests/i18n.test.ts` checks the key
-  sets are identical).
+  sets are identical). Write and review the wording itself by
+  `knowledge/ui/ui-writing-and-wording.md` (action-first labels, the
+  target/impact/next-step rule for save, convert, discard, and encoding
+  changes, and the recommended terms).
 - **Grid.** `grid.ts` is the virtualized renderer; its pure helpers
   (geometry, auto-fit planning, formula-reference overlay, context-menu
   items) live in `grid/` and are unit-tested without a DOM. Keep new pure

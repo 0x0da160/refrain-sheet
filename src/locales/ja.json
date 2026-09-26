@@ -86,6 +86,7 @@
   "tab.dirty": "未保存の変更",
   "tab.source.local": "ローカルファイル",
   "tab.source.drive": "Google ドライブのファイル",
+  "tab.protected": "保護中（読み取り専用）",
   "tabs.label": "開いているファイル",
   "sheets.label": "このブック内のワークシート",
   "sheets.add": "ワークシートを追加",

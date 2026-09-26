@@ -55,6 +55,16 @@
   color: var(--text-muted);
 }
 
+/* Read-only protection (`Tab.readOnly`), mirroring the worksheet lock mark. */
+.tab .tab-lock {
+  display: flex;
+  flex: none;
+}
+
+.tab .tab-lock-icon {
+  color: var(--text-muted);
+}
+
 /* ----- Document tabs share the menu bar's row when they fit (#596) -----
    The menu names end well before the right edge, so the book tab strip
    moves up into that free space instead of taking a 32px row of its own.

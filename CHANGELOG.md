@@ -48,6 +48,8 @@ really is internal, rather than inventing an entry to satisfy it.
 - **Number, currency, and percent formats on the Format menu**, beside
   their Ctrl+Shift+1 / 4 / 5 keys.
 - **Ctrl+Enter applies an edit and stays on the cell.**
+- **Protected files show a lock on their file tab**, so you can see which
+  open files are read-only without switching to them.
 
 ### Changed
 
@@ -56,6 +58,12 @@ really is internal, rather than inventing an entry to satisfy it.
   for your system (Cmd on macOS). It now also lists Ctrl+Enter, Alt+Enter,
   Delete / Backspace, Home / End, PageUp / PageDown, and Alt+Down (filter
   menu).
+
+### Fixed
+
+- **The file tab now shows the name you chose when saving.** Typing a new
+  file name in the save dialog (or in File > Save to Drive as…) used to
+  leave the tab with its old name.
 
 ## [0.9.3] - 2026-09-25
 

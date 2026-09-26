@@ -165,6 +165,8 @@ export class DriveIoCommands {
       );
 
       tab.drive = { fileId: meta.id, name: meta.name };
+      // Save As asks for a name; the tab label follows the Drive file's name.
+      this.state.adoptSavedName(tab, meta.name);
       // The uploaded bytes become the new baseline, exactly as a local save
       // would, so the tab stops reporting unsaved changes. Also ends the
       // "brand-new, never-saved CSV" structural-edit exception (#479), same

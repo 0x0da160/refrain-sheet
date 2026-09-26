@@ -19,6 +19,7 @@ import {
 import { validateFilter, type SheetFilter } from './filter';
 import { getRsfCodec } from './csv-engine';
 import { MAX_COMMENT_LENGTH } from './cell-comment';
+import { MAX_TEXT_RUNS, runsForText, type TextRun } from './rich-text';
 import { DEFAULT_DISPLAY_LANGUAGE } from './display-language';
 import { DEFAULT_TIMEZONE } from './timezone';
 import { readSkippableFrame, readU32, writeSkippableFrame, writeU32, ZSTD_MAGIC } from './zstd-frame';
@@ -268,7 +269,11 @@ function isoTime(ms: number): string {
   return new Date(ms).toISOString();
 }
 
-function styleToJson(style: CellStyle): { [key: string]: Json } {
+/**
+ * `input` is the cell's text: rich-text runs are written only while they
+ * still spell it out (stale runs are dropped here, never saved).
+ */
+function styleToJson(style: CellStyle, input: string): { [key: string]: Json } {
   const out: { [key: string]: Json } = {};
   if (style.bold) out.bold = true;
   if (style.italic) out.italic = true;
@@ -294,6 +299,17 @@ function styleToJson(style: CellStyle): { [key: string]: Json } {
       format.currencySymbol = f.currencySymbol;
     }
     out.numberFormat = format;
+  }
+  const runs = runsForText(style.runs, input);
+  if (runs) {
+    out.runs = runs.map((run) => {
+      const json: { [key: string]: Json } = { text: run.text };
+      if (run.bold !== undefined) json.bold = run.bold;
+      if (run.italic !== undefined) json.italic = run.italic;
+      if (run.underline !== undefined) json.underline = run.underline;
+      if (run.textColor !== undefined) json.textColor = run.textColor;
+      return json;
+    });
   }
   return out;
 }
@@ -391,8 +407,14 @@ function sheetToJson(sheet: RsfWorksheetData): { [key: string]: Json } {
   }
   if (sheet.styles && sheet.styles.length > 0) {
     const styles: { [key: string]: Json } = {};
+    const inputs = new Map<string, string>();
+    if (sheet.styles.some(([, , style]) => style.runs)) {
+      for (const [row, col, input] of sheet.cells) {
+        inputs.set(`${row},${col}`, input);
+      }
+    }
     for (const [row, col, style] of sheet.styles) {
-      const json = styleToJson(style);
+      const json = styleToJson(style, inputs.get(`${row},${col}`) ?? '');
       if (Object.keys(json).length > 0) {
         styles[a1(row, col)] = json;
       }
@@ -703,7 +725,46 @@ function styleFromJson(value: unknown): CellStyle {
     }
     style.numberFormat = numberFormat;
   }
+  if (value.runs !== undefined) {
+    style.runs = runsFromJson(value.runs);
+  }
   return style;
+}
+
+/** A style's rich-text runs: `[{ "text", "bold"?, "italic"?, "underline"?, "textColor"? }]`. */
+function runsFromJson(value: unknown): TextRun[] {
+  if (!Array.isArray(value)) {
+    fail();
+  }
+  if (value.length > MAX_TEXT_RUNS) {
+    fail('too-large');
+  }
+  let length = 0;
+  return value.map((raw) => {
+    if (!isObject(raw) || typeof raw.text !== 'string') {
+      fail();
+    }
+    length += raw.text.length;
+    if (length > MAX_RSF_CELL_LENGTH) {
+      fail('too-large');
+    }
+    const run: TextRun = { text: raw.text };
+    const bold = optBoolean(raw, 'bold');
+    if (bold !== undefined) run.bold = bold;
+    const italic = optBoolean(raw, 'italic');
+    if (italic !== undefined) run.italic = italic;
+    const underline = optBoolean(raw, 'underline');
+    if (underline !== undefined) run.underline = underline;
+    const color = optString(raw, 'textColor');
+    if (color !== undefined) {
+      const hex = normalizeHexColor(color);
+      if (hex === null) {
+        fail();
+      }
+      run.textColor = hex;
+    }
+    return run;
+  });
 }
 
 /** Workbook-wide running totals, so many worksheets cannot add up past a bound. */

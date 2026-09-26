@@ -5,6 +5,7 @@ import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport } from '../core/csv-export'
 import type { CellValidation } from '../core/data-validation';
 import type { DiffResult } from '../core/diff-engine';
 import { cellLabel, columnLabel, isFormula, parseRef } from '../core/formula';
+import type { TextRun } from '../core/rich-text';
 import type { RsfDocument } from '../core/rsf-document';
 import type { CompiledQuery, SearchScope } from '../core/search';
 import { KEEP_SAVE_OPTIONS, type SaveOptions } from '../core/serializer';
@@ -1313,10 +1314,24 @@ export class Commands {
    * Commit a cell edit from the grid or formula bar. Entering a formula
    * (`=...`) into a CSV document offers the explicit RSF conversion; if
    * declined, the text is kept as a plain literal value.
+   *
+   * `runs` is the cell's rich text from the cell editor (null clears it);
+   * when left out, formatted parts carry over through the edit (see
+   * `FormatCommands.styleForEdit`).
    */
-  async commitCellEdit(tab: Tab, row: number, col: number, value: string): Promise<boolean> {
+  async commitCellEdit(
+    tab: Tab,
+    row: number,
+    col: number,
+    value: string,
+    runs?: TextRun[] | null,
+  ): Promise<boolean> {
     if (tab.doc.kind === 'csv' && isFormula(value)) {
       await this.ensureRsf(tab, 'formula');
+    }
+    const styled = this.format.styleForEdit(tab, row, col, value, runs);
+    if (styled) {
+      return this.format.editCellWithStyle(tab, row, col, value, styled.before, styled.after);
     }
     return this.state.editCell(tab, row, col, value);
   }

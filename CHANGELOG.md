@@ -37,6 +37,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Format part of a cell's text.** In an RSF sheet, part of a cell's text
+  can now have its own bold, italic, underline, or text color. While editing
+  a cell, select some of its text: a small toolbar appears above it with
+  bold, italic, underline, text colors, and a button that removes the
+  selected text's formatting. Ctrl+B, Ctrl+I, and Ctrl+U work on the
+  selection too. The cell shows the formatting while you edit it. The
+  formatting is saved in the .rsf file; releases before this one open such
+  files and show the text with the cell's own formatting.
 - **View > Density** switches the height of the bars, buttons, fields and
   menu items between Compact, Standard (the default) and Comfortable. Text
   size and the spreadsheet grid do not change. The choice is remembered on

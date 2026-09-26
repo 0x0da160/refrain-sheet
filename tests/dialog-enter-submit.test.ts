@@ -160,7 +160,7 @@ describe('Enter submits single-line dialog inputs', () => {
   });
 
   it('submits the Settings dialog from the max file size input', async () => {
-    const promise = new Dialogs().chooseSettings({ maxFileSize: 64 * 1024 * 1024, shiftPaste: 'formats' });
+    const promise = new Dialogs().chooseSettings({ maxFileSize: 64 * 1024 * 1024, shiftPaste: 'values' });
     const dialog = document.querySelector('dialog')!;
     const input = dialog.querySelector<HTMLInputElement>('input[type="number"]')!;
     input.value = '128';
@@ -169,17 +169,17 @@ describe('Enter submits single-line dialog inputs', () => {
     enter(input);
 
     const result = await promise;
-    expect(result).toEqual({ maxFileSize: clampMaxFileSize(miBToBytes(128)), shiftPaste: 'formats' });
+    expect(result).toEqual({ maxFileSize: clampMaxFileSize(miBToBytes(128)), shiftPaste: 'values' });
   });
 
   it('saves the Ctrl+Shift+V choice from the Settings dialog', async () => {
-    const promise = new Dialogs().chooseSettings({ maxFileSize: 64 * 1024 * 1024, shiftPaste: 'formats' });
+    const promise = new Dialogs().chooseSettings({ maxFileSize: 64 * 1024 * 1024, shiftPaste: 'values' });
     const dialog = document.querySelector('dialog')!;
     const select = dialog.querySelector<HTMLSelectElement>('#settings-shift-paste')!;
-    select.value = 'values';
+    select.value = 'formats';
     enter(dialog.querySelector<HTMLInputElement>('input[type="number"]')!);
 
-    expect(await promise).toEqual({ maxFileSize: 64 * 1024 * 1024, shiftPaste: 'values' });
+    expect(await promise).toEqual({ maxFileSize: 64 * 1024 * 1024, shiftPaste: 'formats' });
   });
 
   it('still submits the sheet-name prompt on Enter after sharing the helper', async () => {

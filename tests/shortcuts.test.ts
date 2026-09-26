@@ -118,13 +118,13 @@ describe('SHORTCUT_GROUPS', () => {
 describe('resolveShortcut — Paste Special and date/time keys', () => {
   const IN_GRID: ShortcutContext = { ...GRID, inGrid: true };
 
-  it('Ctrl+Shift+V pastes formatting by default and values when set', () => {
+  it('Ctrl+Shift+V pastes values by default and formatting when set', () => {
     const v = key({ key: 'V', ctrlKey: true, shiftKey: true });
-    expect(resolveShortcut(v, IN_GRID)).toBe('edit.pasteFormats');
-    expect(resolveShortcut(v, { ...IN_GRID, shiftPaste: 'formats' })).toBe('edit.pasteFormats');
+    expect(resolveShortcut(v, IN_GRID)).toBe('edit.pasteValues');
     expect(resolveShortcut(v, { ...IN_GRID, shiftPaste: 'values' })).toBe('edit.pasteValues');
+    expect(resolveShortcut(v, { ...IN_GRID, shiftPaste: 'formats' })).toBe('edit.pasteFormats');
     expect(resolveShortcut(key({ key: 'V', metaKey: true, shiftKey: true }), IN_GRID)).toBe(
-      'edit.pasteFormats',
+      'edit.pasteValues',
     );
   });
 

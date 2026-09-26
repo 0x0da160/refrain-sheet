@@ -87,7 +87,7 @@ export class AppSettingsDialogs {
 
       const pasteId = 'settings-shift-paste';
       const pasteSelect = el('select', { attrs: { id: pasteId } }) as HTMLSelectElement;
-      for (const mode of ['formats', 'values'] as const) {
+      for (const mode of ['values', 'formats'] as const) {
         const option = el('option', {
           text: t(`dialog.settings.shiftPaste.${mode}`),
           attrs: { value: mode },
@@ -125,7 +125,7 @@ export class AppSettingsDialogs {
         }
         close({
           maxFileSize: clampMaxFileSize(miBToBytes(mib)),
-          shiftPaste: pasteSelect.value === 'values' ? 'values' : 'formats',
+          shiftPaste: pasteSelect.value === 'formats' ? 'formats' : 'values',
         });
       };
       submitOnEnter(input, submit);

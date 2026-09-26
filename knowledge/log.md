@@ -305,7 +305,7 @@ Ctrl+Alt+PageDown / PageUp. Updated `ui/tabs-and-worksheet-strip.md`,
 and the adoption table in `references/spreadsheet-shortcut-comparison.md`.
 
 **Shortcut final pass.** Added Paste Values / Paste Formatting (Edit >
-Paste Special; Ctrl+Shift+V runs Paste Formatting by default, switchable
+Paste Special; Ctrl+Shift+V runs Paste Values by default, switchable
 in File > Settings…), Ctrl+; / Ctrl+Shift+; date and time entry, the
 number-format presets on the Format menu, Ctrl+Enter (apply and stay), and
 screenful PageUp / PageDown; the shortcut list is grouped and

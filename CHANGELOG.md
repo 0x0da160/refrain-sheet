@@ -39,8 +39,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 - **Paste Values and Paste Formatting.** Edit > Paste Special pastes only
   the copied cells' calculated values, or only their formatting.
-  **Ctrl+Shift+V** (Cmd+Shift+V on macOS) pastes the formatting by default;
-  File > Settings… can switch it to values.
+  **Ctrl+Shift+V** (Cmd+Shift+V on macOS) pastes the values by default;
+  File > Settings… can switch it to formatting.
 - **Enter today's date or the current time.** **Ctrl+;** enters today's
   date and **Ctrl+Shift+;** (Ctrl+: on a Japanese keyboard) the current
   time, as `2026-09-25` and `13:45`, into the cell or at the cursor while

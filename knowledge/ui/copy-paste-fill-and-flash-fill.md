@@ -45,10 +45,11 @@ Cmd+Shift+V** (while the grid has focus) runs one of them:
   and leaves values alone. It tiles over a larger selection like Paste, as
   one undoable entry, and needs a copy made in this app from a spreadsheet
   (RSF) document, because the system clipboard carries text only; it is
-  disabled on a CSV document. **Default for Ctrl+Shift+V.**
+  disabled on a CSV document.
 - **Paste Values Only** pastes the copied cells' calculated values: formula
   results instead of formulas, and numbers without their number format.
   Text copied from another app is already plain values and is pasted as-is.
+  **Default for Ctrl+Shift+V** (owner decision, 2026-09-26).
 
 Spreadsheets disagree on what Ctrl+Shift+V does, so **File > Settings…**
 chooses which command the key runs; both stay on the menu either way, and

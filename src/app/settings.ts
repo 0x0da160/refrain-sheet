@@ -231,8 +231,8 @@ export function setSuppressHistoryCapWarning(suppress: boolean): void {
 // ---------------------------------------------------------------------------
 
 /**
- * What Ctrl+Shift+V (Cmd+Shift+V) pastes: only the copied cells' formatting
- * (**default**), or only their values. Spreadsheets disagree on this key, so
+ * What Ctrl+Shift+V (Cmd+Shift+V) pastes: only the copied cells' values
+ * (**default**), or only their formatting. Spreadsheets disagree on this key, so
  * it is a preference; both commands stay on the Edit > Paste Special menu
  * whichever one the key runs.
  */
@@ -242,7 +242,7 @@ const SHIFT_PASTE_KEY = 'refrain-csv-html.shiftPaste';
 
 /** The Ctrl+Shift+V preference; anything unrecognized reads as the default. */
 export function getShiftPasteMode(): ShiftPasteMode {
-  return safeStorageGet(SHIFT_PASTE_KEY) === 'values' ? 'values' : 'formats';
+  return safeStorageGet(SHIFT_PASTE_KEY) === 'formats' ? 'formats' : 'values';
 }
 
 /** Persist the Ctrl+Shift+V preference locally. */

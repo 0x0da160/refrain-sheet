@@ -59,8 +59,8 @@ export interface ShortcutContext {
    */
   inGrid?: boolean;
   /**
-   * What Ctrl+Shift+V pastes (the user's setting): only the formatting
-   * (default) or only the values.
+   * What Ctrl+Shift+V pastes (the user's setting): only the values
+   * (default) or only the formatting.
    */
   shiftPaste?: 'formats' | 'values';
 }
@@ -149,7 +149,7 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     // setting), while the grid has focus. Text fields keep the browser's
     // paste-as-plain-text.
     if (key === 'v' && event.shiftKey && ctx.inGrid === true && !ctx.inTextField) {
-      return ctx.shiftPaste === 'values' ? 'edit.pasteValues' : 'edit.pasteFormats';
+      return ctx.shiftPaste === 'formats' ? 'edit.pasteFormats' : 'edit.pasteValues';
     }
     // Keyboard shortcut list (Ctrl+/). Not a browser key; works anywhere.
     if (key === '/' && !event.shiftKey) {

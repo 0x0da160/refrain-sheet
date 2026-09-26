@@ -826,7 +826,11 @@ export class Grid {
    * filter pins nothing (pinning them would show rows the filter hides).
    */
   private frozenRowCount(tab: Tab): number {
-    let n = Math.max(1, this.state.frozenPanes(tab).rows);
+    const frozen = this.state.frozenPanes(tab).rows;
+    if (frozen === 0 && !this.firstRowHasValues(tab)) {
+      return 0; // an empty first row has nothing worth following the scroll
+    }
+    let n = Math.max(1, frozen);
     // Keep at least one scrollable row on screen: a freeze point far down the
     // sheet pins only as many rows as fit (never measured without a layout).
     const viewH = this.element.clientHeight;
@@ -834,6 +838,22 @@ export class Grid {
       n = Math.min(n, Math.max(1, Math.floor(viewH / this.rowH(tab)) - 2));
     }
     return n > 0 && this.pinnedSlots(tab, n).length > 0 ? n : 0;
+  }
+
+  /** Whether the first displayed row has any non-empty cell (the automatic pin's condition). */
+  private firstRowHasValues(tab: Tab): boolean {
+    const doc = tab.doc;
+    if (doc.rowCount === 0) {
+      return false;
+    }
+    const row = this.docRowOf(tab, 0);
+    const fields = doc.fieldCount(row);
+    for (let c = 0; c < fields; c++) {
+      if (doc.getValue(row, c) !== '') {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

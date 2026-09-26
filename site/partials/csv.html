@@ -1,0 +1,42 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- CSV: the one dark band, demonstrating the product with a real capture
+     (scripts/capture-landing-screenshots.mjs), never a drawn screen. -->
+<section class="rb-section rb-band csv-band" data-theme="dark" id="csv">
+  <div class="rb-wrap csv-grid">
+    <div class="csv-copy">
+      <p class="rb-eyebrow" lang="en">CSV</p>
+      <h2 class="rb-h2" data-i18n="csv.h2">CSVを直すのは1セル。\n変わるのも、その1セルだけ。</h2>
+      <p class="rb-prose" data-i18n="csv.p">
+        文字化けしない、先頭ゼロが消えない。会計や給与、受発注のシステムに取り込み直すCSVも、開いたときのまま保存します。何も変えずに保存すれば、元のファイルとバイト単位で同じです。
+      </p>
+      <ul class="csv-kept">
+        <li data-i18n="csv.k1">先頭ゼロ：そのまま</li>
+        <li data-i18n="csv.k2">文字コード：そのまま</li>
+        <li data-i18n="csv.k3">改行コード：そのまま</li>
+        <li data-i18n="csv.k4">変わるのは、直したセルだけ</li>
+      </ul>
+    </div>
+    <figure class="rb-shot csv-shot">
+      <img
+        alt="Refrain Sheet の画面。Shift_JIS のCSVを開き、編集したセルだけが色づいている"
+        data-i18n="csv.alt"
+        data-i18n-attr="alt"
+        decoding="async"
+        height="1520"
+        loading="lazy"
+        sizes="(min-width: 56.25em) 560px, calc(100vw - 2.5rem)"
+        src="assets/refrain-sheet-shift-jis-csv-editor.webp"
+        srcset="
+          assets/refrain-sheet-shift-jis-csv-editor-400w.webp  400w,
+          assets/refrain-sheet-shift-jis-csv-editor-800w.webp  800w,
+          assets/refrain-sheet-shift-jis-csv-editor.webp      1800w
+        "
+        width="1800"
+      />
+      <figcaption data-i18n="csv.cap">
+        Shift_JIS
+        の売上台帳を開いたところ。編集したセルだけが色づき、ステータスバーには文字コード・区切り文字・改行コードが表示されます。
+      </figcaption>
+    </figure>
+  </div>
+</section>

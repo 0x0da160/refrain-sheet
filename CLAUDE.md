@@ -2,7 +2,7 @@
 
 Operational guide for automated and assisted engineering on **Refrain Sheet** — a
 local-first, fully offline, format-preserving CSV / spreadsheet editor that runs
-from a single static HTML file. This file is a contract: follow it exactly.
+from a single static HTML file. This file is the operating contract for agents working here.
 
 ## Project overview
 
@@ -79,8 +79,8 @@ Do not invent commands. If a needed command does not exist, stop and say so.
 - Issue-driven agent branch name: `agent/issue-<number>-<short-slug>`; an
   interactive session uses the branch it was assigned. Never push to `main`.
 - One focused change per PR. PR body must include: Summary, Files Changed,
-  Verification (exact commands + pass/fail/skipped), linked Issue (`Closes #<n>`),
-  and any Human Actions Required. **All agent-authored human-facing text is
+  Verification (exact commands + pass/fail/skipped), the linked Issue when there
+  is one (`Closes #<n>`), and any Human Actions Required. **All agent-authored human-facing text is
   bilingual: English first, then Japanese** (`## English` / `## 日本語`). Never
   translate code, commands, paths, identifiers, label names, secret names, URLs,
   raw logs, or error messages. Quote the Issue author's own words verbatim in

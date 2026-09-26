@@ -37,14 +37,26 @@ const landingDir = join(root, 'landing');
 // copied verbatim.
 const STATIC_ASSETS = ['main.js', 'consent.js', 'favicon.svg', 'assets'];
 
-// The design-system token stylesheets site/styles.css is written against:
-// the foundations shared with the app, then the landing-only brand layer.
-// They are prepended to styles.css so the site still ships one stylesheet
-// with no @import. Regenerate them with design-system/v2/tools/build.mjs.
-const DESIGN_TOKENS = [
+// The design-system stylesheets site/styles.css is written against: the
+// foundations shared with the app, the app tokens (the hero demo draws the
+// real app screen with the app's own values — brand guidelines D-42), the
+// landing-only brand tokens, and the brand `rb-` components. They are
+// prepended to styles.css so the site still ships one stylesheet with no
+// @import. Regenerate them with design-system/v2/tools/build.mjs.
+const DESIGN_SYSTEM_CSS = [
   'design-system/v2/foundations/css/foundations.css',
+  'design-system/v2/app/css/app-tokens.css',
   'design-system/v2/brand/css/brand-tokens.css',
+  'design-system/v2/brand/css/brand.css',
 ];
+
+// The app's own UI strings. The hero demo takes every menu, dialog and
+// status-bar label from here (`data-app-i18n`), so it always reads exactly
+// like the real app (brand guidelines D-42).
+const APP_I18N = {
+  ja: JSON.parse(readFileSync(join(root, 'src/locales/ja.json'), 'utf8')),
+  en: JSON.parse(readFileSync(join(root, 'src/locales/en.json'), 'utf8')),
+};
 
 const rawSite = process.argv[2];
 const SITE = rawSite ? rawSite.replace(/\/+$/, '') + '/' : undefined;
@@ -116,13 +128,39 @@ function pageUrl(pageId, lang) {
   return SITE + PAGE_FILES[pageId][lang];
 }
 
+/**
+ * Inline `<!-- @include partials/name.html -->` markers with the partial's
+ * contents. Partials are plain HTML fragments under site/partials/, shared
+ * between pages (header, footer, consent banner) or split out of the long
+ * index template one section per file; they may not include each other.
+ */
+function resolveIncludes(html) {
+  return html.replace(/<!--\s*@include\s+(partials\/[\w-]+\.html)\s*-->/g, (m, file) => {
+    const partial = readFileSync(join(srcDir, file), 'utf8').replace(
+      /^<!-- SPDX-License-Identifier: MIT -->\n/,
+      '',
+    );
+    if (/@include/.test(partial)) throw new Error(`nested include in ${file}`);
+    return partial;
+  });
+}
+
+/** Set an element's text, turning each "\n" in the copy into a <br>. */
+function setText(doc, el, text) {
+  el.textContent = '';
+  text.split('\n').forEach((line, i) => {
+    if (i) el.appendChild(doc.createElement('br'));
+    el.appendChild(doc.createTextNode(line));
+  });
+}
+
 function build(pageId, lang) {
   const page = PAGE_FILES[pageId];
   const outRelPath = page[lang];
   const d = I18N[lang];
   const metaKey = pageId === 'index' ? '' : `${pageId}.`;
   const depth = (outRelPath.match(/\//g) ?? []).length;
-  const template = readFileSync(join(srcDir, page.template), 'utf8');
+  const template = resolveIncludes(readFileSync(join(srcDir, page.template), 'utf8'));
   const dom = new JSDOM(template);
   const doc = dom.window.document;
   doc.documentElement.setAttribute('lang', lang);
@@ -134,9 +172,27 @@ function build(pageId, lang) {
     const attr = el.getAttribute('data-i18n-attr');
     if (attr) {
       el.setAttribute(attr, d[key]);
-    } else if (!el.querySelector('*')) {
-      el.textContent = d[key];
+    } else if (!el.querySelector('*:not(br)')) {
+      setText(doc, el, d[key]);
     }
+  }
+
+  // ---------- app UI strings (hero demo) ----------
+  // `data-app-i18n-args` maps each {placeholder} to a key of this page's
+  // own dictionary (the demo's sample file name, which differs per language).
+  for (const el of doc.querySelectorAll('[data-app-i18n]')) {
+    const key = el.getAttribute('data-app-i18n');
+    const text = APP_I18N[lang][key];
+    if (text === undefined) throw new Error(`missing app string: ${key}`);
+    const args = JSON.parse(el.getAttribute('data-app-i18n-args') ?? '{}');
+    const value = text.replace(/\{(\w+)\}/g, (m, name) => {
+      if (!(name in args)) throw new Error(`missing argument {${name}} for app string: ${key}`);
+      if (!(args[name] in d)) throw new Error(`missing key: ${args[name]}`);
+      return d[args[name]];
+    });
+    el.textContent = value;
+    el.removeAttribute('data-app-i18n');
+    el.removeAttribute('data-app-i18n-args');
   }
 
   // ---------- language switcher ----------
@@ -167,7 +223,7 @@ function build(pageId, lang) {
         el.setAttribute(attr, rel(v, depth));
       }
     }
-    for (const el of doc.querySelectorAll('img[srcset]')) {
+    for (const el of doc.querySelectorAll('img[srcset], source[srcset]')) {
       const rewritten = el
         .getAttribute('srcset')
         .split(',')
@@ -197,7 +253,6 @@ function build(pageId, lang) {
     content: 'index,follow,max-image-preview:large,max-snippet:-1',
     'data-seo': '1',
   });
-  appendTag(doc, head, 'meta', { name: 'theme-color', content: '#1f7a4a', 'data-seo': '1' });
   appendTag(doc, head, 'meta', { name: 'author', content: '0x0da160', 'data-seo': '1' });
 
   const url = pageUrl(pageId, lang);
@@ -275,11 +330,19 @@ function build(pageId, lang) {
       screenshot: {
         '@type': 'ImageObject',
         contentUrl: absOrRel('assets/refrain-sheet-shift-jis-csv-editor.webp', depth),
-        caption: d['hero.alt'],
+        caption: d['csv.alt'],
       },
       image: absOrRel(OG_IMG, depth),
     };
     const graph = [app];
+    const faq = [...doc.querySelectorAll('details.qa')].map((qa) => ({
+      '@type': 'Question',
+      name: qa.querySelector('summary').textContent.trim(),
+      acceptedAnswer: { '@type': 'Answer', text: qa.querySelector('p').textContent.trim() },
+    }));
+    if (faq.length) {
+      graph.push({ '@context': 'https://schema.org', '@type': 'FAQPage', inLanguage: lang, mainEntity: faq });
+    }
     if (SITE) {
       graph.push({
         '@context': 'https://schema.org',
@@ -320,7 +383,7 @@ function copyStaticAssets() {
   for (const name of STATIC_ASSETS) {
     cpSync(join(srcDir, name), join(landingDir, name), { recursive: true });
   }
-  const css = [...DESIGN_TOKENS.map((f) => join(root, f)), join(srcDir, 'styles.css')]
+  const css = [...DESIGN_SYSTEM_CSS.map((f) => join(root, f)), join(srcDir, 'styles.css')]
     .map((f) => readFileSync(f, 'utf8'))
     .join('\n');
   writeFileSync(join(landingDir, 'styles.css'), minifyCss(css), 'utf8');

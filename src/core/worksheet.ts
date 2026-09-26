@@ -146,6 +146,11 @@ export class Worksheet {
    * it never changes cell data, evaluation, export, or the dirty state.
    */
   displayWrap: boolean | undefined;
+  /**
+   * This worksheet's spreadsheet font id, or `undefined` when it sets none
+   * (the file's or this browser's applies). Presentational only.
+   */
+  displayFont: string | undefined;
 
   /**
    * Whether this worksheet is locked against editing (Sheet ▸ Lock Sheet, or
@@ -775,6 +780,7 @@ export class Worksheet {
     copy.displayZoom = this.displayZoom;
     copy.displayColWidths = this.displayColWidths.slice();
     copy.displayWrap = this.displayWrap;
+    copy.displayFont = this.displayFont;
     copy.locked = this.locked;
     copy.styles = new Map([...this.styles].map(([row, rowStyles]) => [row, new Map(rowStyles)]));
     copy.comments = new Map([...this.comments].map(([row, rowComments]) => [row, new Map(rowComments)]));
@@ -794,6 +800,7 @@ export class Worksheet {
     copy.displayZoom = this.displayZoom;
     copy.displayColWidths = this.displayColWidths.slice();
     copy.displayWrap = this.displayWrap;
+    copy.displayFont = this.displayFont;
     copy.locked = this.locked;
     return copy;
   }

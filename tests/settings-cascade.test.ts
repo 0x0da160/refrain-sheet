@@ -6,12 +6,15 @@
  * Covers the pure resolver, the RSF file-level `view`, and how AppState
  * resolves, writes, and re-resolves the levels.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Commands, type UiPort } from '../src/app/commands';
 import { AppState } from '../src/app/app-state';
 import { setBrowserWrap, setBrowserZoom, setSheetZoom } from '../src/app/settings';
 import { decodeRsfWorkbook, rsfJsonText } from '../src/core/rsf-codec';
 import { RsfDocument } from '../src/core/rsf-document';
 import { resolveSetting, SETTING_PRECEDENCE } from '../src/core/settings-cascade';
+import { getSheetFont, setBrowserSheetFont } from '../src/app/sheet-font';
+import { resolveSheetFont } from '../src/app/state/view-layers';
 
 beforeEach(() => {
   localStorage.clear();
@@ -139,5 +142,87 @@ describe('AppState: sheet > file > browser', () => {
     expect(tab.zoom).toBe(150);
     state.addSheet(tab, 'S2');
     expect(doc.sheets[0].displayZoom).toBeUndefined();
+  });
+});
+
+describe('spreadsheet font: sheet > file > browser', () => {
+  it('round-trips the sheet and file fonts through the RSF view', () => {
+    const doc = rsfDoc();
+    doc.fileFont = 'meiryo-ui';
+    doc.activeSheet.displayFont = 'ms';
+    const data = decodeOk(doc);
+    expect(data.display).toEqual({ font: 'meiryo-ui' });
+    expect(data.sheets[0].display).toEqual({ font: 'ms' });
+    const back = reopen(doc);
+    expect(back.fileFont).toBe('meiryo-ui');
+    expect(back.activeSheet.displayFont).toBe('ms');
+  });
+
+  it('refuses a malformed font id', () => {
+    const tree = JSON.parse(rsfJsonText(decodeOk(rsfDoc()))) as Record<string, unknown>;
+    tree.view = { font: '<b>' };
+    expect(decodeRsfWorkbook(new TextEncoder().encode(JSON.stringify(tree))).ok).toBe(false);
+  });
+
+  it('resolves the narrowest level, skipping ids this release does not know', () => {
+    const doc = rsfDoc();
+    expect(resolveSheetFont(doc)).toEqual({ value: 'biz-ud', source: 'default' });
+    setBrowserSheetFont('ms-ui');
+    expect(resolveSheetFont(doc)).toEqual({ value: 'ms-ui', source: 'browser' });
+    doc.fileFont = 'noto-sans-jp';
+    expect(resolveSheetFont(doc)).toEqual({ value: 'noto-sans-jp', source: 'file' });
+    doc.activeSheet.displayFont = 'future-font';
+    expect(resolveSheetFont(doc).source).toBe('file');
+    doc.activeSheet.displayFont = 'ms';
+    expect(resolveSheetFont(doc)).toEqual({ value: 'ms', source: 'sheet' });
+    expect(resolveSheetFont(null).value).toBe('ms-ui');
+  });
+
+  it('clears the browser font back to the default', () => {
+    setBrowserSheetFont('ms');
+    setBrowserSheetFont(undefined);
+    expect(getSheetFont()).toBe('biz-ud');
+  });
+});
+
+function stubUi(overrides: Partial<UiPort> = {}): UiPort {
+  return new Proxy(
+    { notify: vi.fn(), setBusy: vi.fn(), ...overrides },
+    {
+      get: (target, key) => (key in target ? target[key as keyof typeof target] : vi.fn(async () => null)),
+    },
+  ) as unknown as UiPort;
+}
+
+describe('commands: where font and file-level settings are written', () => {
+  it("sets an RSF sheet font from the View menu, and this browser's font for a CSV", async () => {
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    const doc = rsfDoc();
+    state.addTab('a.rsf', doc, null);
+    await commands.run('view.sheetFont.ms');
+    expect(doc.activeSheet.displayFont).toBe('ms');
+    expect(getSheetFont()).toBe('biz-ud');
+    state.closeTab(state.activeTab!.id);
+    await commands.run('view.sheetFont.meiryoUi');
+    expect(getSheetFont()).toBe('meiryo-ui');
+  });
+
+  it("clears the sheets' own values when a file-level value is chosen in Settings", async () => {
+    const state = new AppState();
+    const doc = rsfDoc();
+    doc.activeSheet.displayFont = 'ms';
+    doc.activeSheet.displayZoom = 75;
+    const chooseSettings = vi.fn(async (current: Parameters<UiPort['chooseSettings']>[0]) => ({
+      ...current,
+      fileDisplay: { zoom: 125, wrap: undefined, font: 'noto-sans-jp' as const },
+    }));
+    const commands = new Commands(state, stubUi({ chooseSettings }), document);
+    const tab = state.addTab('a.rsf', doc, null);
+    await commands.run('app.settings');
+    expect(doc.activeSheet.displayFont).toBeUndefined();
+    expect(doc.activeSheet.displayZoom).toBeUndefined();
+    expect(resolveSheetFont(doc)).toEqual({ value: 'noto-sans-jp', source: 'file' });
+    expect(tab.zoom).toBe(125);
   });
 });

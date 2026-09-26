@@ -14,6 +14,10 @@ import { createElement, type IconNode } from 'lucide';
  * localized label (button text, `aria-label`, or `title`) that already
  * conveys its meaning to assistive technology, so the icon itself would only
  * produce a redundant announcement.
+ *
+ * Every icon also gets the `ui-icon` class, which draws its lines at the
+ * design system's rendered stroke width (`--icon-stroke`, 1.5px) whatever the
+ * icon's size — see `src/styles/base.css`.
  */
 export function createIcon(node: IconNode, className: string, size = 16): SVGElement {
   const svg = createElement(node, {
@@ -22,6 +26,6 @@ export function createIcon(node: IconNode, className: string, size = 16): SVGEle
     'aria-hidden': 'true',
     focusable: 'false',
   });
-  svg.setAttribute('class', className);
+  svg.setAttribute('class', className ? `ui-icon ${className}` : 'ui-icon');
   return svg;
 }

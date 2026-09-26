@@ -2,6 +2,7 @@
 import { resolveSetting, type ResolvedSetting, type SettingSource } from '../../core/settings-cascade';
 import type { EditorDocument } from '../app-state';
 import { clampSheetZoom, getBrowserWrap, getBrowserZoom, getSheetZoom, getWrapCells } from '../settings';
+import { DEFAULT_SHEET_FONT, getBrowserSheetFont, isSheetFontId, type SheetFontId } from '../sheet-font';
 
 /**
  * A document's effective zoom and wrap, resolved **worksheet > file > browser**
@@ -25,6 +26,23 @@ export function resolveWrap(doc: EditorDocument): ResolvedSetting<boolean> {
   return resolveSetting(
     { browser: getBrowserWrap(), file: rsf?.fileWrap, sheet: rsf?.activeSheet.displayWrap },
     getWrapCells(),
+  );
+}
+
+/**
+ * A document's effective spreadsheet font, resolved like zoom and wrap. A
+ * stored id this release does not know is treated as "not specified".
+ */
+export function resolveSheetFont(doc: EditorDocument | null): ResolvedSetting<SheetFontId> {
+  const rsf = doc?.kind === 'rsf' ? doc : null;
+  const known = (id: string | undefined): SheetFontId | undefined => (isSheetFontId(id) ? id : undefined);
+  return resolveSetting(
+    {
+      sheet: known(rsf?.activeSheet.displayFont),
+      file: known(rsf?.fileFont),
+      browser: getBrowserSheetFont(),
+    },
+    DEFAULT_SHEET_FONT,
   );
 }
 

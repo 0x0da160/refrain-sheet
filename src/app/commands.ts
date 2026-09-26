@@ -28,8 +28,10 @@ import {
   setBrowserWrap,
   setBrowserZoom,
 } from './settings';
-import { setSheetFont, type SheetFontId } from './sheet-font';
+import { getBrowserSheetFont, isSheetFontId, setBrowserSheetFont, type SheetFontId } from './sheet-font';
 import { localDateStamp } from './shortcuts';
+import { getBandedRows, setBandedRows } from './banded-rows';
+import { setDensity, type DensityChoice } from './density';
 import { setTheme, type ThemeChoice } from './theme';
 import { CommentCommands } from './commands/comment';
 import { ConditionalFormatCommands } from './commands/conditional-format';
@@ -175,6 +177,7 @@ export type CommandId =
   | 'view.zoom.200'
   | 'view.zoom.reset'
   | 'view.editHints'
+  | 'view.bandedRows'
   | 'view.autoFitOnOpen'
   | 'view.sheetFont.bizUd'
   | 'view.sheetFont.ms'
@@ -186,6 +189,9 @@ export type CommandId =
   | 'view.theme.light'
   | 'view.theme.dark'
   | 'view.theme.hybrid'
+  | 'view.density.compact'
+  | 'view.density.standard'
+  | 'view.density.comfortable'
   | 'app.settings'
   | 'help.formula'
   | 'help.shortcuts'
@@ -963,6 +969,11 @@ export class Commands {
         // Pure preference toggle; re-emit so menus and editors refresh.
         this.state.emit('view');
         return;
+      case 'view.bandedRows':
+        // Pure CSS (data-banded-rows attribute), stored on this device only.
+        setBandedRows(!getBandedRows());
+        this.state.emit('view');
+        return;
       case 'view.autoFitOnOpen':
         setAutoFitOnOpen(!getAutoFitOnOpen());
         // Pure preference toggle (like view.editHints above); it only takes
@@ -984,9 +995,15 @@ export class Commands {
           'view.sheetFont.meiryoUi': 'meiryo-ui',
           'view.sheetFont.yuGothicUi': 'yu-gothic-ui',
         };
-        setSheetFont(fonts[id]);
-        // Applying the font is pure CSS; re-emit so the menu checkmark and the
-        // grid (which measures with the active font) refresh.
+        // An RSF worksheet remembers its own font (the narrowest level, so it
+        // wins); anything else sets this browser's font. Main applies the
+        // effective font on the 'view' event, which also refreshes the menu
+        // checkmark and the grid (which measures with the active font).
+        if (tab && tab.doc.kind === 'rsf') {
+          tab.doc.activeSheet.displayFont = fonts[id];
+        } else {
+          setBrowserSheetFont(fonts[id]);
+        }
         this.state.emit('view');
         return;
       }
@@ -1000,33 +1017,52 @@ export class Commands {
         this.state.emit('view');
         return;
       }
+      case 'view.density.compact':
+      case 'view.density.standard':
+      case 'view.density.comfortable': {
+        // Pure CSS (data-density attribute), stored on this device only.
+        setDensity(id.slice('view.density.'.length) as DensityChoice);
+        this.state.emit('view');
+        return;
+      }
       case 'app.settings': {
         const rsf = tab && tab.doc.kind === 'rsf' ? tab.doc : null;
         const chosen = await this.ui.chooseSettings({
           maxFileSize: getMaxFileSize(),
           shiftPaste: getShiftPasteMode(),
-          browserDisplay: { zoom: getBrowserZoom(), wrap: getBrowserWrap() },
-          fileDisplay: rsf ? { zoom: rsf.fileZoom, wrap: rsf.fileWrap } : null,
+          browserDisplay: { zoom: getBrowserZoom(), wrap: getBrowserWrap(), font: getBrowserSheetFont() },
+          fileDisplay: rsf
+            ? {
+                zoom: rsf.fileZoom,
+                wrap: rsf.fileWrap,
+                font: isSheetFontId(rsf.fileFont) ? rsf.fileFont : undefined,
+              }
+            : null,
         });
         if (chosen !== null) {
           const applied = setMaxFileSize(chosen.maxFileSize);
           setShiftPasteMode(chosen.shiftPaste);
           setBrowserZoom(chosen.browserDisplay.zoom);
           setBrowserWrap(chosen.browserDisplay.wrap);
+          setBrowserSheetFont(chosen.browserDisplay.font);
           // The file level is presentational like zoom: kept with the next
           // save, never marks the document dirty.
           // Choosing a file-level value clears each worksheet's own one, so the
           // file setting takes effect everywhere (a worksheet would outrank it).
           if (rsf && chosen.fileDisplay) {
-            const { zoom, wrap } = chosen.fileDisplay;
+            const { zoom, wrap, font } = chosen.fileDisplay;
             if (zoom !== undefined && zoom !== rsf.fileZoom) {
               for (const sheet of rsf.sheets) sheet.displayZoom = undefined;
             }
             if (wrap !== undefined && wrap !== rsf.fileWrap) {
               for (const sheet of rsf.sheets) sheet.displayWrap = undefined;
             }
+            if (font !== undefined && font !== rsf.fileFont) {
+              for (const sheet of rsf.sheets) sheet.displayFont = undefined;
+            }
             rsf.fileZoom = zoom;
             rsf.fileWrap = wrap;
+            rsf.fileFont = font;
           }
           // Re-resolve zoom/wrap everywhere; menus also label Ctrl+Shift+V on
           // whichever command it now runs.

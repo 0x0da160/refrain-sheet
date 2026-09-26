@@ -11,7 +11,7 @@
   flex: none;
   background: var(--bg-surface);
   border-top: 1px solid var(--border-default);
-  min-height: var(--bar-height);
+  min-height: var(--bar-h);
 }
 
 .sheet-bar[hidden] {
@@ -43,7 +43,7 @@
 
 .sheet-tab.active {
   background: var(--bg-raised);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   border-bottom: 2px solid var(--accent);
 }
 
@@ -134,13 +134,13 @@
   gap: var(--space-1-5);
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border-default);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   cursor: pointer;
 }
 
 .sheet-kind-picker-option.selected {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-subtle-text);
   background: var(--accent-subtle);
 }
 

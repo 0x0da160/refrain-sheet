@@ -83,8 +83,8 @@
   --brand-ink: #141A22;               /* ink.900 — Ink — text, and the ground of dark surfaces */
 
   /* ---------- type (families and weights; each layer has its own scale) ---------- */
-  --font-ui: "BIZ UDPGothic", "Yu Gothic UI", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
-  --font-data: "BIZ UDGothic", "MS Gothic", "Hiragino Sans", "Noto Sans CJK JP", "Noto Sans JP", sans-serif;
+  --font-ui: "BIZ UDPGothic", "Yu Gothic UI", "Meiryo UI", "Meiryo", "Yu Gothic", "MS UI Gothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", sans-serif;
+  --font-data: "BIZ UDGothic", "BIZ UDゴシック", "MS Gothic", "ＭＳ ゴシック", "Meiryo", "Yu Gothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", sans-serif;
   --font-code: "BIZ UDGothic", "Consolas", "SFMono-Regular", "Menlo", monospace;
   --font-feature-data: "zero" 1;
   --weight-regular: 400;              /* Default */

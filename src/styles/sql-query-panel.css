@@ -5,7 +5,7 @@
 .sql-query-input {
   flex: 1;
   font-family: var(--font-sheet);
-  font-size: 13px;
+  font-size: var(--text-body);
   padding: var(--space-1-5) var(--space-2);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -47,7 +47,7 @@
 }
 
 .sql-query-help-title {
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .sql-query-help-panel .help-code {
@@ -97,7 +97,7 @@ table.sql-query-table td {
 }
 
 .sql-query-suggestion {
-  font-size: 12px;
+  font-size: var(--text-caption);
   padding: var(--space-0-5) var(--space-2);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
@@ -107,7 +107,7 @@ table.sql-query-table td {
 
 .sql-query-suggestion:hover,
 .sql-query-suggestion:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
@@ -118,7 +118,7 @@ table.sql-query-table td {
 .sql-query-syntax-status {
   min-height: 1.2em;
   margin: 0 0 var(--space-2);
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: var(--fg-muted);
 }
 
@@ -181,13 +181,13 @@ table.sql-query-table td {
 }
 
 .sql-query-list-meta {
-  font-size: 11px;
+  font-size: var(--text-caption);
   color: var(--fg-muted);
 }
 
 .sql-query-list-code {
   font-family: var(--font-sheet);
-  font-size: 12px;
+  font-size: var(--text-caption);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -16,7 +16,7 @@
 
 .formula-help .help-section h3 {
   margin: 0 0 var(--space-1);
-  font-size: 13px;
+  font-size: var(--text-body);
 }
 
 .formula-help .help-code,
@@ -43,8 +43,8 @@
 
 .formula-help .help-fn-group h4 {
   margin: 0 0 var(--space-1);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-bold);
 }
 
 .formula-help .help-fn-table {

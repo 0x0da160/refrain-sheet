@@ -86,6 +86,7 @@ is not a string is `bad-shape`; one longer than 1,000,000 characters is
 | ----------- | ------- | -------------------------------------------------------------------------------- |
 | `zoom`      | number  | Zoom percent, clamped into 50–200 on load.                                       |
 | `wrap`      | boolean | Wrap long cells onto several lines.                                              |
+| `font`      | string  | Spreadsheet font id (`biz-ud`, `ms`, …): 1–64 of `a-z 0-9 -`, else `bad-shape`.  |
 | `colWidths` | object  | Width in pixels at 100% zoom per column letter: `{ "B": 240 }`, clamped 40–1200. |
 
 A width for a column past `cols` is dropped; a key that is not a column
@@ -94,13 +95,14 @@ letter is `bad-shape`.
 ### File-level view
 
 The top-level `view` holds display settings for every worksheet: `zoom`
-(number, clamped into 50–200) and `wrap` (boolean; unlike a worksheet's,
+(number, clamped into 50–200), `font` (same rule as a worksheet's) and `wrap` (boolean; unlike a worksheet's,
 `false` is stored, because it means "don't wrap" rather than "not
 specified"). A key that is present applies to every worksheet whose own
 `view` does not set that key: the **worksheet wins**. The application adds
 one broader level below the file — this browser's defaults from File >
 Settings… — so the order is worksheet > file > browser
-(`src/core/settings-cascade.ts`). A value of the wrong type is `bad-shape`.
+(`src/core/settings-cascade.ts`). A value of the wrong type is `bad-shape`. A well-formed font id the
+application does not know counts as "not specified".
 Readers older than this key ignore it and use the worksheet settings.
 
 ### Styles

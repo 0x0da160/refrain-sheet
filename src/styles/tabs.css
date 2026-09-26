@@ -7,10 +7,12 @@
   align-items: flex-end;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-default);
-  padding: var(--space-1) var(--space-2) 0;
+  /* The tabs are 26px tall and sit on the bottom rule; the space above them
+     is what the density adds or removes (4px at the standard 32px bar). */
+  padding: max(0px, calc(var(--bar-h) - 28px)) var(--space-2) 0;
   gap: var(--space-0-5);
   overflow-x: auto;
-  min-height: var(--bar-height);
+  min-height: var(--bar-h);
 }
 
 .tab {
@@ -28,7 +30,7 @@
 
 .tab[aria-selected='true'] {
   background: var(--bg-raised);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   /* The book tab strip sits above the grid (bottom-open, top-rounded — see
      `.tab` above), so its active indicator belongs on the top edge, the
      mirror image of `.sheet-tab.active`'s bottom edge below the grid. */
@@ -43,7 +45,7 @@
 
 .tab .dirty-mark {
   color: var(--accent);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
 .tab .tab-source {

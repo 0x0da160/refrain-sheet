@@ -65,14 +65,14 @@ table.diff-table td {
 }
 
 .diff-cell-changed {
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .diff-badge {
   display: inline-block;
   padding: 1px var(--space-2);
-  border-radius: 10px;
-  font-size: 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-caption);
   white-space: nowrap;
 }
 

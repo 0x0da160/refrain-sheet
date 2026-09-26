@@ -120,6 +120,11 @@ export interface RsfDisplaySettings {
   colWidths?: Array<[number, number]>;
   /** Whether long cells wrap onto several visual lines. */
   wrap?: boolean;
+  /**
+   * Spreadsheet font id (`biz-ud`, `ms`, …). Only its shape is checked here;
+   * the application ignores an id it does not know.
+   */
+  font?: string;
 }
 
 /**
@@ -182,6 +187,8 @@ export interface RsfWorkbookData {
 interface RsfFileDisplaySettings {
   zoom?: number;
   wrap?: boolean;
+  /** Spreadsheet font id (see {@link RsfDisplaySettings.font}). */
+  font?: string;
 }
 
 /**
@@ -362,13 +369,22 @@ function sheetToJson(sheet: RsfWorksheetData): { [key: string]: Json } {
     out.lines = text.split('\n');
   }
   const display = sheet.display;
-  if (display && (display.zoom !== undefined || display.wrap || (display.colWidths?.length ?? 0) > 0)) {
+  if (
+    display &&
+    (display.zoom !== undefined ||
+      display.wrap ||
+      display.font !== undefined ||
+      (display.colWidths?.length ?? 0) > 0)
+  ) {
     const view: { [key: string]: Json } = {};
     if (display.zoom !== undefined) {
       view.zoom = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(display.zoom)));
     }
     if (display.wrap) {
       view.wrap = true;
+    }
+    if (display.font !== undefined) {
+      view.font = display.font;
     }
     const widths: { [key: string]: Json } = {};
     let any = false;
@@ -433,13 +449,19 @@ function workbookContentToJson(data: RsfWorkbookData): { [key: string]: Json } {
   if (data.activeSheetId) out.activeSheet = data.activeSheetId;
   if (data.autoFormatSource) out.autoFormatSource = true;
   const fileView = data.display;
-  if (fileView && (fileView.zoom !== undefined || fileView.wrap !== undefined)) {
+  if (
+    fileView &&
+    (fileView.zoom !== undefined || fileView.wrap !== undefined || fileView.font !== undefined)
+  ) {
     const view: { [key: string]: Json } = {};
     if (fileView.zoom !== undefined) {
       view.zoom = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(fileView.zoom)));
     }
     if (fileView.wrap !== undefined) {
       view.wrap = fileView.wrap;
+    }
+    if (fileView.font !== undefined) {
+      view.font = fileView.font;
     }
     out.view = view;
   }
@@ -619,6 +641,18 @@ function optTime(obj: JsonObject, key: string): number | undefined {
   }
   const ms = Date.parse(value);
   return Number.isFinite(ms) && ms > 0 ? ms : undefined;
+}
+
+/** A `view.font` id: 1–64 lowercase letters, digits, or hyphens; anything else is `bad-shape`. */
+function optFontId(obj: JsonObject): string | undefined {
+  const value = obj.font;
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== 'string' || !/^[a-z0-9-]{1,64}$/.test(value)) {
+    fail();
+  }
+  return value;
 }
 
 function intIn(value: unknown, min: number, max: number, overflow: RsfDecodeError = 'bad-shape'): number {
@@ -819,6 +853,10 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
     if (optBoolean(view, 'wrap')) {
       display.wrap = true;
     }
+    const font = optFontId(view);
+    if (font !== undefined) {
+      display.font = font;
+    }
     if (view.colWidths !== undefined) {
       if (!isObject(view.colWidths)) {
         fail();
@@ -837,7 +875,7 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
         display.colWidths = widths;
       }
     }
-    if (display.zoom !== undefined || display.wrap || display.colWidths) {
+    if (display.zoom !== undefined || display.wrap || display.font !== undefined || display.colWidths) {
       sheet.display = display;
     }
   }
@@ -962,7 +1000,11 @@ function workbookFromJson(value: unknown): RsfWorkbookData {
     if (wrap !== undefined) {
       display.wrap = wrap;
     }
-    if (display.zoom !== undefined || display.wrap !== undefined) {
+    const font = optFontId(view);
+    if (font !== undefined) {
+      display.font = font;
+    }
+    if (display.zoom !== undefined || display.wrap !== undefined || display.font !== undefined) {
       data.display = display;
     }
   }

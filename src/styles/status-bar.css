@@ -10,14 +10,14 @@
   background: var(--bg-surface);
   border-top: 1px solid var(--border-default);
   padding: var(--space-0-5) var(--space-2);
-  font-size: 12px;
+  font-size: var(--text-caption);
   color: var(--fg-muted);
-  min-height: var(--status-bar-height);
+  min-height: var(--statusbar-h);
 }
 
 .status-bar .warn {
   color: var(--danger-text);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .status-bar .sel-stat {
@@ -50,7 +50,7 @@
   border: none;
   background: none;
   color: var(--danger-text);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   text-decoration: underline;
   padding: 0;
   cursor: pointer;
@@ -65,8 +65,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  color: var(--accent);
-  font-weight: 600;
+  color: var(--accent-text);
+  font-weight: var(--weight-bold);
 }
 
 .status-protected-icon {
@@ -80,7 +80,7 @@
   border: none;
   background: none;
   color: var(--fg-muted);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   text-decoration: underline;
   padding: 0;
   cursor: pointer;

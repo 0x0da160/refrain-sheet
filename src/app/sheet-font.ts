@@ -9,11 +9,12 @@
  * every spreadsheet surface already reads that variable, so no per-element
  * work is needed.
  *
- * Precedence: this is an **application-level** preference stored only in
- * `localStorage`. RSF documents do not carry a per-document sheet-font
- * override in this version, so the application preference always applies and
- * there is no conflict to resolve. (Choosing a font never touches document
- * bytes and never converts a CSV to RSF — it is pure display state.)
+ * Precedence: the font is a layered setting like zoom and wrap
+ * (`src/core/settings-cascade.ts`): **worksheet > file > this browser**. An
+ * RSF worksheet or file may name its own font; the browser level stored here
+ * in `localStorage` is the default for everything else (see
+ * `resolveSheetFont` in `state/view-layers.ts`). Choosing a font never touches
+ * a CSV's bytes and never converts a CSV to RSF — it is pure display state.
  *
  * All six families are local fonts declared in
  * `styles/tailwind-token-bridge.css`: BIZ UD Gothic (the default) with a
@@ -86,10 +87,28 @@ export function isSheetFontId(value: unknown): value is SheetFontId {
   return typeof value === 'string' && (SHEET_FONTS as readonly string[]).includes(value);
 }
 
-/** The current sheet font: the stored preference, or the default. */
-export function getSheetFont(): SheetFontId {
+/** This browser's font, or `undefined` when none is chosen. */
+export function getBrowserSheetFont(): SheetFontId | undefined {
   const stored = safeStorageGet(STORAGE_KEY);
-  return isSheetFontId(stored) ? stored : DEFAULT_SHEET_FONT;
+  return isSheetFontId(stored) ? stored : undefined;
+}
+
+/** This browser's font, or the default: what a document with no font of its own uses. */
+export function getSheetFont(): SheetFontId {
+  return getBrowserSheetFont() ?? DEFAULT_SHEET_FONT;
+}
+
+/** Set this browser's font, or clear it (`undefined`: the default applies). Does not apply it. */
+export function setBrowserSheetFont(id: SheetFontId | undefined): void {
+  if (id === undefined) {
+    try {
+      globalThis.localStorage?.removeItem(STORAGE_KEY);
+    } catch {
+      // Storage may be unavailable: nothing was stored to remove.
+    }
+    return;
+  }
+  safeStorageSet(STORAGE_KEY, id);
 }
 
 /**

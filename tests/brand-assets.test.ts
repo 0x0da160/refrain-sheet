@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 /**
  * The brand artwork the app and landing site ship are copies of the vendored
- * Refrain Sheet Design System masters (design-system/1.0.0/). Vite needs them
+ * Refrain Sheet Design System masters (design-system/2.0.0/foundations/). Vite needs them
  * under src/ and public/, so they cannot simply be referenced in place; this
  * keeps every copy byte-identical to its master so they cannot drift.
  *
- * design-system v1.0.0 has a single app icon for both themes (no dark
+ * The design system has a single app icon for both themes (no dark
  * variant), which is why src/assets/icon-dark.svg is the same artwork as
  * icon.svg. If a dark master is added, point `icon-dark.svg` at it here.
  */
@@ -13,8 +13,8 @@ import { describe, expect, it } from 'vitest';
 
 const raw = import.meta.glob(
   [
-    '../design-system/1.0.0/icons/*.svg',
-    '../design-system/1.0.0/logo/*.svg',
+    '../design-system/2.0.0/foundations/icons/*.svg',
+    '../design-system/2.0.0/foundations/logo/*.svg',
     '../src/assets/*.svg',
     '../site/favicon.svg',
     '../public/favicon.svg',
@@ -22,7 +22,7 @@ const raw = import.meta.glob(
   { query: '?raw', import: 'default', eager: true },
 ) as Record<string, string>;
 
-const DS = '../design-system/1.0.0';
+const DS = '../design-system/2.0.0/foundations';
 const copies: Array<[copy: string, master: string]> = [
   ['../public/favicon.svg', `${DS}/icons/favicon.svg`],
   ['../site/favicon.svg', `${DS}/icons/favicon.svg`],

@@ -7,10 +7,13 @@ import { warnProtectedAndOfferUnlock } from './app/commands/shared';
 import { getLocale, initLocale, onLocaleChange, t } from './app/i18n';
 import { getAutoFitOnOpen, getEditHints, getShiftPasteMode, getSheetZoom } from './app/settings';
 import { applySheetFont, getSheetFont } from './app/sheet-font';
+import { resolveSheetFont } from './app/state/view-layers';
 import { listRecentFiles } from './app/recent-files';
 import { resolveShortcut } from './app/shortcuts';
 import { getSqlHistory } from './app/sql-queries';
 import { storageSharedWithOtherLocalFiles } from './app/storage';
+import { applyBandedRows, getBandedRows } from './app/banded-rows';
+import { applyDensity, getDensity } from './app/density';
 import { applyTheme, getTheme } from './app/theme';
 import { initCsvEngine } from './core/csv-engine';
 import { initSqlEngine } from './core/sql-engine';
@@ -46,6 +49,9 @@ function bootstrap(): void {
   // Resolve and apply the color theme before first paint (no flash of the
   // wrong theme); a "system" choice tracks OS changes live via matchMedia.
   applyTheme(getTheme());
+  // UI density (bar and control heights), also a pure CSS attribute.
+  applyDensity(getDensity());
+  applyBandedRows(getBandedRows());
   // From file://, other local HTML files share this storage: the first access
   // to each list switches it to memory-only and deletes what an earlier
   // release stored there, so do that now rather than when first used.
@@ -235,10 +241,12 @@ function bootstrap(): void {
     stickyFirstRow: () => state.stickyFirstRowShown,
     stickyFirstColumn: () => state.stickyFirstColumnShown,
     freezeAtSelection: () => state.activeTab?.freeze != null,
-    sheetFont: () => getSheetFont(),
+    sheetFont: () => resolveSheetFont(state.activeTab?.doc ?? null).value,
     theme: () => getTheme(),
+    density: () => getDensity(),
     zoom: () => state.activeTab?.zoom ?? getSheetZoom(),
     editHints: () => getEditHints(),
+    bandedRows: () => getBandedRows(),
     autoFitOnOpen: () => getAutoFitOnOpen(),
     commentsPanel: () => commentsPanel.isOpen,
     formatActive: (key) => {
@@ -365,6 +373,11 @@ function bootstrap(): void {
   };
 
   state.subscribe((event) => {
+    // The font is layered (worksheet > file > browser), so it follows the
+    // active document and worksheet. Pure CSS: setting it again is a no-op.
+    if (event !== 'selection') {
+      applySheetFont(resolveSheetFont(state.activeTab?.doc ?? null).value);
+    }
     // Any change of document, worksheet, or content invalidates the state a
     // context menu was built against (its enabled items, its anchor cell), so
     // the menu is dismissed rather than left pointing at something else.

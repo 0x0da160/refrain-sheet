@@ -45,6 +45,34 @@ really is internal, rather than inventing an entry to satisfy it.
   selection too. The cell shows the formatting while you edit it. The
   formatting is saved in the .rsf file; releases before this one open such
   files and show the text with the cell's own formatting.
+- **View > Density** switches the height of the bars, buttons, fields and
+  menu items between Compact, Standard (the default) and Comfortable. Text
+  size and the spreadsheet grid do not change. The choice is remembered on
+  this device only.
+- Colour pickers (text, fill, borders, conditional formats) now suggest a
+  set of 65 document colours where the browser supports it (Chrome, Edge);
+  any other colour can still be chosen.
+- **View > Banded Rows** tints every other row of the grid. It is now off by
+  default, because the stripes compete with the fill colours you give cells;
+  turn it on to get the previous look. The choice is remembered on this
+  device only.
+
+### Changed
+
+- The interface text is one step larger and easier to read: menus,
+  dialogs and panels use 14px instead of 13px, dialog titles 16px, and no
+  text is smaller than 12px (menu shortcuts and small labels were 9–11px).
+  Buttons and fields in dialogs and panels are a little taller (32px). On
+  touch devices, text and controls grow to touch-friendly sizes.
+- New conditional-format highlight rules start with a light red fill and
+  dark red text, and new colour scales run from white to a softer green.
+- Icons are drawn with a slightly finer, uniform line.
+- Accent-coloured text (links, sort and filter status, the welcome screen's
+  buttons) is a slightly darker green in the light theme, for better
+  contrast. The Markdown and text editors use 14px text instead of 13px,
+  and the JSON and YAML editors use the same fixed-width font as the rest of
+  the app's code text. The keyboard-shortcut help's note on appearance now
+  mentions the Hybrid theme and Density.
 
 ## [0.9.5] - 2026-09-26
 
@@ -103,6 +131,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Spreadsheet font per sheet, per file, or for this browser.** In an RSF
+  file, View > Spreadsheet Font now sets the font for the current sheet.
+  File > Settings… can set it for the whole file or as this browser's
+  default. As with zoom and wrapping, the narrowest level that sets a font
+  wins: the sheet, then the file, then this browser. For a CSV file the
+  View menu still sets this browser's font. Older releases open these files
+  and ignore the saved fonts.
 - **Default zoom and wrapping for this browser or the whole file.** File >
   Settings… can now set the zoom and long-cell wrapping for this browser
   (the default for every file) and, for an RSF file, for the whole file

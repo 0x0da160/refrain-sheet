@@ -7,6 +7,7 @@ import {
   ClipboardCopy,
   ClipboardList,
   Contrast,
+  Rows3,
   FileCog,
   FileDown,
   History,
@@ -24,6 +25,7 @@ import { getLocale, t } from '../app/i18n';
 import { getShiftPasteMode, SHEET_ZOOM_LEVELS, type ShiftPasteMode } from '../app/settings';
 import { displayShortcut, isMacPlatform } from '../app/shortcuts';
 import { SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../app/sheet-font';
+import { DENSITIES, densityLabelKey, type DensityChoice } from '../app/density';
 import { THEMES, themeLabelKey, type ThemeChoice } from '../app/theme';
 import { createAppIcon, createAppLogotype } from './app-icon';
 import { el, clearChildren } from './dom';
@@ -87,10 +89,14 @@ export interface MenuChecks {
   freezeAtSelection: () => boolean;
   sheetFont: () => SheetFontId;
   theme: () => ThemeChoice;
+  /** The UI density choice (View > Density). */
+  density: () => DensityChoice;
   /** The active tab's spreadsheet zoom percent (app default when no tab). */
   zoom: () => number;
   /** Whether editing-help tooltips are enabled. */
   editHints: () => boolean;
+  /** Whether every other grid row is tinted (View > Banded Rows). */
+  bandedRows: () => boolean;
   /** Whether opening a file auto-fits every column to its content. */
   autoFitOnOpen: () => boolean;
   /** Whether the right-side cell comments panel is open. */
@@ -326,6 +332,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           command: 'view.freezeAtSelection',
           checked: checks.freezeAtSelection,
         },
+        { labelKey: 'menu.view.bandedRows', command: 'view.bandedRows', checked: checks.bandedRows },
         { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
         {
           labelKey: 'menu.view.autoFitOnOpen',
@@ -347,6 +354,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.view.zoom', icon: ZoomIn, submenu: zoomItems(checks) },
         { labelKey: 'menu.view.sheetFont', icon: TypeIcon, submenu: sheetFontItems(checks) },
         { labelKey: 'menu.view.theme', icon: Contrast, submenu: themeItems(checks) },
+        { labelKey: 'menu.view.density', icon: Rows3, submenu: densityItems(checks) },
         'separator',
         // Tab movement stays menu/context-menu driven: every remaining
         // Ctrl/Alt+arrow-style accelerator conflicts with browser or OS tab
@@ -424,6 +432,20 @@ function themeItems(checks: MenuChecks): MenuItemDef[] {
     labelKey: themeLabelKey(id),
     command: theme2command[id],
     checked: () => checks.theme() === id,
+  }));
+}
+
+/** The three UI densities as checkable menu items (View > Density). */
+function densityItems(checks: MenuChecks): MenuItemDef[] {
+  const density2command: Record<DensityChoice, CommandId> = {
+    compact: 'view.density.compact',
+    standard: 'view.density.standard',
+    comfortable: 'view.density.comfortable',
+  };
+  return DENSITIES.map((id) => ({
+    labelKey: densityLabelKey(id),
+    command: density2command[id],
+    checked: () => checks.density() === id,
   }));
 }
 

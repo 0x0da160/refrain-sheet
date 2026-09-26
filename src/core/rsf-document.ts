@@ -213,6 +213,8 @@ export class RsfDocument {
    */
   fileZoom: number | undefined;
   fileWrap: boolean | undefined;
+  /** File-level spreadsheet font id; the worksheet's own wins, like zoom and wrap. */
+  fileFont: string | undefined;
 
   /**
    * Workbook-wide evaluation memo, keyed by worksheet id + cell. Cleared by
@@ -444,6 +446,7 @@ export class RsfDocument {
     doc.autoFormatSourceFlag = data.autoFormatSource ?? false;
     doc.fileZoom = data.display?.zoom;
     doc.fileWrap = data.display?.wrap;
+    doc.fileFont = data.display?.font;
     if (data.createdAt !== undefined) {
       doc.createdAt = data.createdAt;
     }
@@ -476,6 +479,7 @@ export class RsfDocument {
       if (entry.display.wrap) {
         sheet.displayWrap = true;
       }
+      sheet.displayFont = entry.display.font;
     }
     sheet.filter = entry.filter ?? null;
     sheet.filterDropped = entry.filterDropped === true;
@@ -1046,11 +1050,17 @@ export class RsfDocument {
       if (sheet.kind !== 'grid') {
         entry.kind = sheet.kind;
       }
-      if (sheet.displayZoom !== undefined || colWidths.length > 0 || sheet.displayWrap === true) {
+      if (
+        sheet.displayZoom !== undefined ||
+        colWidths.length > 0 ||
+        sheet.displayWrap === true ||
+        sheet.displayFont !== undefined
+      ) {
         entry.display = {
           ...(sheet.displayZoom !== undefined ? { zoom: sheet.displayZoom } : {}),
           ...(colWidths.length > 0 ? { colWidths } : {}),
           ...(sheet.displayWrap === true ? { wrap: true } : {}),
+          ...(sheet.displayFont !== undefined ? { font: sheet.displayFont } : {}),
         };
       }
       if (sheet.filter !== null) {
@@ -1104,10 +1114,11 @@ export class RsfDocument {
       historyMaxOverride: this.historyMaxOverrideValue,
       autoFormatSource: this.autoFormatSourceFlag,
     };
-    if (this.fileZoom !== undefined || this.fileWrap !== undefined) {
+    if (this.fileZoom !== undefined || this.fileWrap !== undefined || this.fileFont !== undefined) {
       payload.display = {
         ...(this.fileZoom !== undefined ? { zoom: this.fileZoom } : {}),
         ...(this.fileWrap !== undefined ? { wrap: this.fileWrap } : {}),
+        ...(this.fileFont !== undefined ? { font: this.fileFont } : {}),
       };
     }
     return encodeRsfWorkbook(payload);

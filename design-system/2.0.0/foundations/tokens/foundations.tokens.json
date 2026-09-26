@@ -735,19 +735,29 @@
         "$value": [
           "BIZ UDPGothic",
           "Yu Gothic UI",
+          "Meiryo UI",
+          "Meiryo",
+          "Yu Gothic",
+          "MS UI Gothic",
           "Hiragino Sans",
+          "Hiragino Kaku Gothic ProN",
           "Noto Sans JP",
-          "system-ui",
+          "Noto Sans CJK JP",
           "sans-serif"
         ]
       },
       "data": {
         "$value": [
           "BIZ UDGothic",
+          "BIZ UDゴシック",
           "MS Gothic",
+          "ＭＳ ゴシック",
+          "Meiryo",
+          "Yu Gothic",
           "Hiragino Sans",
-          "Noto Sans CJK JP",
+          "Hiragino Kaku Gothic ProN",
           "Noto Sans JP",
+          "Noto Sans CJK JP",
           "sans-serif"
         ]
       },

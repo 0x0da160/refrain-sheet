@@ -287,6 +287,17 @@ function bootstrap(): void {
     },
     () => void commands.run('file.toggleProtect'),
   );
+  // A Markdown/JSON/YAML/text worksheet shows its editor's line/column in
+  // the status bar instead of a grid size and cell reference.
+  const sourceSheetViews = [markdownSheetView, jsonSheetView, yamlSheetView, textSheetView];
+  statusBar.editorCaret = () => sourceSheetViews.find((view) => view.active)?.editor.caret() ?? null;
+  for (const view of sourceSheetViews) {
+    view.editor.onCaretChange = (caret) => {
+      if (view.active) {
+        statusBar.updateEditorCaret(caret);
+      }
+    };
+  }
 
   const app = document.getElementById('app');
   if (!app) {

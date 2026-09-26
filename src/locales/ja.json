@@ -837,6 +837,8 @@
   "grid.stickyColTitle": "固定された{letter}列のデータです。行ヘッダーではなく、ファイルのデータです。",
   "status.doc.csv": "CSV",
   "status.doc.rsf": "RSFスプレッドシート",
+  "status.editorCaret": "{line} 行目, {col} 列目",
+  "status.editorSize": "全 {lines} 行, {chars} 文字",
   "status.gridSize": "{rows} 行 × {cols} 列",
   "status.formulas": "数式 {n} 個",
   "status.filtered": "フィルター中: {total} 行中 {shown} 行",

@@ -35,6 +35,18 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- **Markdown, JSON, YAML and text sheets now edit like a text editor, not a
+  cell.** Tab types an indent (a tab in text and Markdown, two spaces in JSON
+  and YAML) instead of leaving the editor, Tab and Shift+Tab indent and
+  outdent the selected lines, and Enter keeps the current line's
+  indentation. Press Escape, then Tab, to move focus on. A line break no
+  longer turns on "Wrap Long Rows", the editor fills the sheet area without
+  a form-field frame or focus highlight, JSON and YAML use a fixed-width
+  font, and the status bar shows the caret's line and column and the line
+  and character counts instead of a row and column count.
+
 ## [0.9.4] - 2026-09-26
 
 ### Added

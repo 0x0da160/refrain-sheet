@@ -146,3 +146,42 @@
 .markdown-editor-preview .tok-number {
   color: var(--warning);
 }
+
+/* ---------- Worksheet source editors (`ui/source-editor.ts`) ----------
+   The Markdown/JSON/YAML/text worksheets are edited as documents, so their
+   textarea is drawn as an editing surface filling the sheet area rather than
+   as a form field: no box, focus ring or resize grip, tab stops of four
+   columns, and roomier lines. */
+.source-editor {
+  border: none;
+  border-radius: 0;
+  resize: none;
+  outline: none;
+  box-shadow: none;
+  padding: var(--space-4) var(--space-5);
+  background: var(--cell-bg);
+  line-height: 1.6;
+  tab-size: 4;
+}
+
+.source-editor:focus,
+.source-editor:focus-visible {
+  outline: none;
+}
+
+/* The editor fills its worksheet edge to edge; the toolbar above it (preview
+   toggle, Format) keeps the inset instead, separated by a rule. */
+.markdown-sheet-view > .markdown-editor-toolbar,
+.json-sheet-view > .markdown-editor-toolbar,
+.yaml-sheet-view > .markdown-editor-toolbar {
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+/* JSON and YAML are code: indentation must line up, so they use a fixed-pitch
+   face (system fonts only — the app stays offline). */
+.json-sheet-source.source-editor,
+.yaml-sheet-source.source-editor {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'BIZ UDGothic', 'MS Gothic', monospace;
+}

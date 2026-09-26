@@ -12,6 +12,7 @@ import {
 } from './dialogs/shared';
 import { Eye } from 'lucide';
 import { el } from './dom';
+import { SourceEditor } from './source-editor';
 import { CoalescedRenderer, isLargePreviewSource, syncScroll } from './editor-preview-perf';
 
 /** How long to wait after the last keystroke before committing an undoable edit. */
@@ -54,6 +55,8 @@ function renderYamlPreview(text: string): Array<Node | string> {
 export class YamlSheetView {
   readonly element: HTMLElement;
   readonly panelElement: HTMLElement;
+  /** The editing surface (see `SourceEditor`); `textarea` is its element. */
+  readonly editor: SourceEditor;
   private readonly textarea: HTMLTextAreaElement;
   private readonly preview: HTMLElement;
   private readonly previewToggle: HTMLButtonElement;
@@ -72,17 +75,14 @@ export class YamlSheetView {
     private readonly state: AppState,
     private readonly commands: Commands,
   ) {
-    const sourceLabel = el('label', {
-      className: 'form-label',
-      text: t('dialog.yamlEditor.source'),
-      attrs: { for: 'yaml-sheet-source' },
+    this.editor = new SourceEditor({
+      id: 'yaml-sheet-source',
+      className: 'yaml-sheet-source',
+      label: t('dialog.yamlEditor.source'),
+      indentUnit: '  ',
     });
-    this.textarea = el('textarea', {
-      // Shares the JSON/Markdown source pane's style — see `json-sheet.ts`.
-      className: 'yaml-sheet-source markdown-editor-source',
-      attrs: { id: 'yaml-sheet-source', spellcheck: 'false' },
-    }) as HTMLTextAreaElement;
-    const sourcePane = el('div', { className: 'markdown-editor-pane' }, [sourceLabel, this.textarea]);
+    this.textarea = this.editor.textarea;
+    const sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
 
     this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
     this.previewToggle.addEventListener('click', () => this.setPreviewVisible(!this.previewVisible));
@@ -202,7 +202,7 @@ export class YamlSheetView {
       // previous binding owed it before loading this one's text.
       this.flushCommit();
       this.bound = { tab, sheetId: sheet.id };
-      this.textarea.value = sheet.yamlText;
+      this.editor.setValue(sheet.yamlText);
       this.renderPreview();
     }
     this.textarea.readOnly = tab.readOnly;

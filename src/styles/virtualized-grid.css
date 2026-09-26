@@ -63,14 +63,15 @@
   display: flex;
 }
 
-/* Distinct from the column header: warm pinned background + strong rule
-   under the last pinned row. */
+/* Pinned rows keep the ordinary cell look; a strong rule under the last one
+   marks the frozen boundary. The automatic first row (nothing frozen) has no
+   rule, so it reads as the same row it was before scrolling. */
 .vgrid-stickyrow:last-child {
   border-bottom: 2px solid var(--accent);
 }
 
-.vgrid-stickyrow .vcell {
-  background: var(--sticky-bg);
+.vgrid-sticky.auto .vgrid-stickyrow:last-child {
+  border-bottom: none;
 }
 
 .vgrid-rows {
@@ -217,6 +218,7 @@
    centered too. Rows that fit on one line keep the normal single-line height
    and the `.vcell` centering box above — so enabling Wrap Long Rows never
    grows a row whose content already fits. */
+.vgrid-stickyrow.wrapped .vcell[data-col],
 .vgrid-row.wrapped .vcell[data-col] {
   display: flex;
   align-items: center;
@@ -227,6 +229,7 @@
   line-height: var(--grid-wrap-line);
 }
 
+.vgrid-stickyrow.wrapped .vcell.vrowhead,
 .vgrid-row.wrapped .vcell.vrowhead {
   display: flex;
   align-items: center;
@@ -304,6 +307,15 @@
   cursor: move;
   z-index: 3;
   touch-action: none;
+}
+
+/* With a mouse or trackpad, the selection's own border is the move grip (see
+   `moveEdgeHit` in grid.ts), so the corner handle is shown only where a
+   finger or pen may be used — a border line is too thin to grab by touch. */
+@media not all and (any-pointer: coarse) {
+  .move-handle {
+    display: none;
+  }
 }
 
 /* An animated "marching ants" border over a copied range (see
@@ -416,7 +428,8 @@
   );
 }
 
-.vgrid-row.alt .vcell {
+.vgrid-row.alt .vcell,
+.vgrid-stickyrow.alt .vcell {
   background: var(--row-alt);
 }
 
@@ -634,6 +647,7 @@
 }
 
 .vgrid-row.alt .vcell.in-range,
+.vgrid-stickyrow.alt .vcell.in-range,
 .vgrid-row.selected-row .vcell.in-range {
   background: var(--accent-soft);
 }

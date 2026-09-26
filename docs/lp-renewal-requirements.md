@@ -1,6 +1,6 @@
 # LP renewal — requirements definition / LPリニューアル 要件定義書
 
-**Status: draft (v0.5, 2026-09-26). No landing-page code is changed by this document.**
+**Status: draft (v0.6, 2026-09-26). No landing-page code is changed by this document.**
 
 ## English (summary)
 
@@ -21,7 +21,9 @@ CSV without breaking it": spreadsheet features widen the audience, CSV
 preservation stays the lead strength. Copy favours plain, concrete words
 over the abstract brand line (§1.1). The brand guidelines were revised to
 match AC2 (design system 2.3.0), the English copy was approved, and the
-region-based analytics consent (Q2) was approved by the maintainer. Work proceeds in phases
+region-based analytics consent (Q2) was approved by the maintainer. The
+hero demo may be drawn in HTML/SVG/CSS under a new guideline exception,
+provided it stays faithful to the real UI (Q7, design system D-42). Work proceeds in phases
 with no deadline; quality first. Open decisions are listed in §9.
 
 ## 日本語
@@ -142,8 +144,15 @@ LPの見出しには使わない。現場の担当者が一読で「何のソフ
   一時停止ボタンをつける（WCAG 2.2.2）
 - デモの画面は Refrain Sheet 自身のUIにする。
   Excelの画面を再現しない（`knowledge/decisions/ip-risk-policy.md`）
-- ブランドガイドラインは「画面は実物だけ。架空の UI を描き起こさない」と定めている。
-  描き起こしたSVGのデモはこれに反するので、作り方は Q7 で決める
+- ブランドガイドラインの「画面は実物だけ」の例外として描き起こす（Q7 で決定、
+  `design-system/v2/docs/decisions.md` の D-42）。**実物のUIから離れないこと**を受け入れ条件にする：
+  - 色・書体・寸法は、アプリのトークン（`design-system/v2/app/css/app-tokens.css` と共通基盤）を使う
+  - メニュー・ボタン・状態の文言は `src/locales/ja.json`・`en.json` と同じにする
+  - 見せる操作は、同じ手順でアプリで再現できるものだけ。画面の配置（メニュー、数式バー、グリッド、
+    シートのタブ）は実物と同じ順と比率にする
+  - 要素を減らすのはよいが、実物にない装飾・部品・演出は足さない
+  - デモを作るPRでは、`npm run capture:landing-screenshots` で撮った同じ場面の画面を並べて、
+    差がないことをレビューで確かめる。アプリの画面が変わったときも同じ確認をする
 - 日本語版と英語版で、デモの中の文字とサンプルデータを切り替える
 
 #### 4.4 多言語
@@ -260,15 +269,15 @@ brand レイヤーに置き、アプリと共有している foundations は壊�
 
 ### 9. 未決事項
 
-| #   | 論点                                                                                                                   | 決める人                          |
-| --- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| Q1  | ~~デザインの方向性~~ → **決定：AC2**（§6）                                                                             | 決定済み                          |
-| Q2  | ~~地域で分ける解析方針の最終承認~~ → **承認済み**（2026-09-26）。専門家への確認はフェーズ3の前に推奨                   | 決定済み                          |
-| Q3  | ダウンロードCTAのリンク先（最新アセットへの直接リンクか、Releasesページか）                                            | メンテナー                        |
-| Q4  | ヒーローのキャッチコピー → h1「CSVを壊さず編集できる、軽い表計算ソフト」を軸に最終化（§1.1）                           | メンテナー                        |
-| Q5  | 実績・信頼の材料（GitHubのスター数、導入事例、テストの件数など）を載せるか                                             | メンテナー                        |
-| Q6  | 性能の目標値（§5）を現状の計測をもとに確定する                                                                         | Claude が計測し、メンテナーが承認 |
-| Q7  | 動くデモの作り方（ガイドラインの「画面は実物だけ」との整合。実物の画面を撮って動かすか、ガイドラインに例外を設けるか） | メンテナー                        |
+| #   | 論点                                                                                                          | 決める人                          |
+| --- | ------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Q1  | ~~デザインの方向性~~ → **決定：AC2**（§6）                                                                    | 決定済み                          |
+| Q2  | ~~地域で分ける解析方針の最終承認~~ → **承認済み**（2026-09-26）。専門家への確認はフェーズ3の前に推奨          | 決定済み                          |
+| Q3  | ダウンロードCTAのリンク先（最新アセットへの直接リンクか、Releasesページか）                                   | メンテナー                        |
+| Q4  | ヒーローのキャッチコピー → h1「CSVを壊さず編集できる、軽い表計算ソフト」を軸に最終化（§1.1）                  | メンテナー                        |
+| Q5  | 実績・信頼の材料（GitHubのスター数、導入事例、テストの件数など）を載せるか                                    | メンテナー                        |
+| Q6  | 性能の目標値（§5）を現状の計測をもとに確定する                                                                | Claude が計測し、メンテナーが承認 |
+| Q7  | ~~動くデモの作り方~~ → **ガイドラインに例外を設けて描き起こす**。実物のUIから離れないことが条件（§4.3、D-42） | 決定済み                          |
 
 ### 10. 進め方（段階的に公開）
 

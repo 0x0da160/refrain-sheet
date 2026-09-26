@@ -109,7 +109,7 @@
 }
 
 .formula-autocomplete .ac-desc {
-  font-size: 11px;
+  font-size: var(--text-min);
   color: var(--fg-muted);
 }
 

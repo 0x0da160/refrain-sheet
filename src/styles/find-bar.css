@@ -105,7 +105,7 @@
   gap: var(--space-1-5);
   font-family: var(--font-sheet);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .find-result-sheet {

@@ -110,7 +110,7 @@
 
 .markdown-editor-preview th {
   background: var(--bg-raised);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .markdown-editor-preview .md-align-left {

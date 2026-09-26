@@ -17,7 +17,7 @@
 
 .status-bar .warn {
   color: var(--danger-text);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .status-bar .sel-stat {
@@ -50,7 +50,7 @@
   border: none;
   background: none;
   color: var(--danger-text);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   text-decoration: underline;
   padding: 0;
   cursor: pointer;
@@ -66,7 +66,7 @@
   align-items: center;
   gap: var(--space-1);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .status-protected-icon {
@@ -80,7 +80,7 @@
   border: none;
   background: none;
   color: var(--fg-muted);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   text-decoration: underline;
   padding: 0;
   cursor: pointer;

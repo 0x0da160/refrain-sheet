@@ -443,7 +443,7 @@
 .vcell.vrowhead {
   background: var(--canvas-header-bg) !important;
   color: var(--canvas-header-text);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   text-align: center;
   user-select: none;
 }
@@ -501,7 +501,7 @@
   min-width: 16px;
   height: 16px;
   padding: 0 2px;
-  font-size: 9px;
+  font-size: var(--text-min);
   line-height: 1;
   color: var(--canvas-header-text);
   background: var(--canvas-bg);
@@ -530,7 +530,7 @@
 .status-filter,
 .status-sort {
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .sort-key-row {
@@ -712,7 +712,7 @@
    text is the literal error code (e.g. #DIV/0!) and it is bold. */
 .vcell.cell-error {
   color: var(--canvas-error-text);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   font-style: normal;
 }
 
@@ -736,7 +736,7 @@
    / Yu Gothic UI), which do have true bold glyphs, since it only adds a
    little extra weight on top of an already-bold face. */
 .vcell.cell-bold {
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   -webkit-text-stroke: 0.4px currentColor;
 }
 

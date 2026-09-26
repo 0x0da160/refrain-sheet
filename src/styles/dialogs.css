@@ -214,7 +214,7 @@ dialog::backdrop {
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .side-panel-title-icon {
@@ -338,11 +338,11 @@ dialog::backdrop {
 .panel-section-title {
   margin: 0;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .panel-lead {
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .panel-field {
@@ -362,7 +362,7 @@ dialog::backdrop {
 .panel-field-label {
   color: var(--fg-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 /* Side-by-side fields (e.g. color / style / width) share the width evenly
@@ -731,7 +731,7 @@ table.diag-table th {
 }
 
 .recent-file-name {
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   overflow-wrap: anywhere;
 }
 

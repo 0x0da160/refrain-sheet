@@ -65,7 +65,7 @@ table.diff-table td {
 }
 
 .diff-cell-changed {
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .diff-badge {

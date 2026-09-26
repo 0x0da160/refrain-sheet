@@ -74,7 +74,7 @@
 }
 
 .toolbar-item.icon-bold {
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
 .toolbar-item.icon-italic {

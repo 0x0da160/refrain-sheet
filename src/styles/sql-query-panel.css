@@ -47,7 +47,7 @@
 }
 
 .sql-query-help-title {
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .sql-query-help-panel .help-code {
@@ -181,7 +181,7 @@ table.sql-query-table td {
 }
 
 .sql-query-list-meta {
-  font-size: 11px;
+  font-size: var(--text-min);
   color: var(--fg-muted);
 }
 

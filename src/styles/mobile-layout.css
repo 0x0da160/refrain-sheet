@@ -319,7 +319,7 @@
 
   .formula-bar .cell-ref {
     min-width: 72px;
-    font-size: 11px;
+    font-size: var(--text-min);
   }
 
   .toolbar-item {

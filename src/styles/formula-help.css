@@ -44,7 +44,7 @@
 .formula-help .help-fn-group h4 {
   margin: 0 0 var(--space-1);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .formula-help .help-fn-table {

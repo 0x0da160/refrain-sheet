@@ -43,7 +43,7 @@
 
 .sheet-tab.active {
   background: var(--bg-raised);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   border-bottom: 2px solid var(--accent);
 }
 

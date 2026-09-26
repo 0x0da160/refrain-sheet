@@ -115,27 +115,30 @@ properties, used everywhere outside the grid instead of scattered literals
   Compact, Standard (default) and Comfortable (`src/app/density.ts`), stored
   on this device only and applied as `data-density` on the document root.
   The menu bar, document tab row, formula bar, and worksheet strip share one
-  outer height, `--bar-h` (28 / 32 / 36px, border included — the app is
+  outer height, `--bar-h` (24 / 32 / 40px, border included — the app is
   `box-sizing: border-box` throughout); the status bar uses
-  `--statusbar-h` (24 / 24 / 28px); inline controls and menu items
-  `--control-h` (24 / 28 / 32px); fields and buttons in dialogs and panels
-  `--field-h` (28 / 32 / 36px); the top and bottom padding of dialogs
-  `--inset` (8 / 12 / 16px). The values follow one design-system rule: each
-  step moves every vertical size by 4px from Standard, never below 24px;
+  `--statusbar-h` (24 / 24 / 32px); inline controls `--control-h`
+  (24 / 28 / 36px), with menu items and document tabs derived from it
+  (control + 4px and control − 2px); fields and buttons in dialogs and
+  panels `--field-h` (24 / 32 / 40px); the top and bottom padding of dialogs
+  `--inset` (4 / 12 / 20px). The values follow one design-system rule: each
+  step moves every vertical size by 8px from Standard, never below 24px;
   horizontal padding does not change.
-  A coarse pointer (touch) raises bars to 48px, the status bar to 40px and
-  controls to 44px whatever
-  the choice. Density never changes text size or the grid's geometry. On a wide window the document tabs
+  A coarse pointer (touch) has its own Standard — bars 40px, status bar and
+  controls 36px, fields 40px — and the same 8px step, never below 28px
+  (Compact bars 32px, Comfortable 48px), so the choice also works on a
+  phone. Density never changes text size or the grid's geometry. On a wide window the document tabs
   share the menu bar's row (see
   [tabs-and-worksheet-strip.md](tabs-and-worksheet-strip.md)). Their left content edges line up at
   `--space-2` (8px).
 
 The grid's own cell geometry (`src/styles/virtualized-grid.css`) is
 deliberately outside this scale: `grid.ts` measures cell padding and keeps
-row height in sync with `--grid-row-height`. Touch-target floors in the
-mobile layout use the design system's target tokens (`--target-touch` 44px,
-`--target-touch-dense` 40px) rather than the spacing scale, since they are
-accessibility minimums rather than spacing.
+row height in sync with `--grid-row-height`. Tap-target floors in the
+mobile layout use the density tokens (`--bar-h`, `--control-h`,
+`--field-h`) rather than the spacing scale, since they are target sizes
+rather than spacing; a coarse pointer already raises those tokens to touch
+sizes.
 
 ## Stacking order
 

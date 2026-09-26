@@ -37,7 +37,7 @@
 <header class="doc-head">
   <div class="wrap">
     <img src="../../foundations/logo/refrain-sheet-logotype-horizontal-reverse.svg" alt="Refrain Sheet" height="36">
-    <p class="eyebrow">APP DESIGN SYSTEM · <!-- gen:version -->v2.1.0 · 2026-09-26<!-- /gen:version --></p>
+    <p class="eyebrow">APP DESIGN SYSTEM · <!-- gen:version -->v2.2.0 · 2026-09-26<!-- /gen:version --></p>
     <h1>表を主役にする、静かな道具</h1>
     <p>書式を保持する CSV・スプレッドシートエディタ Refrain Sheet の、<b>アプリ UI</b> のためのデザインシステムです。
       表計算ソフトに慣れた人が迷わず使える操作感を、独自のモダンな表現で実現します。
@@ -86,7 +86,7 @@
       <tr><th>構成</th><td>ブランドと UI が 1 つの文書</td><td>共通基盤・ブランド・アプリの 3 層</td><td>LP は読ませる、アプリは使わせる。目的の違う規定を分け、共通部分は 1 か所に</td></tr>
       <tr><th>UI の文字</th><td>本文 16px（最小 14px）</td><td>本文 14px、補助 12px（日本語も 12px まで）</td><td>主要な業務系デザインシステムがそろって 14 / 12px</td></tr>
       <tr><th>セルの文字</th><td>16px</td><td>12px × 表示倍率（アプリの現行値を維持）</td><td>既定の行高・列幅・保存済みの列幅がこの値を前提にしている</td></tr>
-      <tr><th>コントロール高</th><td>32 / 36（既定） / 44</td><td>バー内 24 / 28（既定） / 32、フォーム 28 / 32（既定） / 36（1 段 4px の規則、2.1.0）</td><td>バー 4 本分の縦幅がグリッドの行数に直結する</td></tr>
+      <tr><th>コントロール高</th><td>32 / 36（既定） / 44</td><td>バー内 24 / 28（既定） / 36、フォーム 24 / 32（既定） / 40（1 段 8px の規則、2.2.0）</td><td>バー 4 本分の縦幅がグリッドの行数に直結する</td></tr>
       <tr><th>密度</th><td>compact / comfortable（既定） / spacious</td><td>compact / standard（既定） / comfortable。「表示」メニューから切り替える</td><td>値が変わったため名前を再利用しない</td></tr>
       <tr><th>トークン名</th><td><code>--chrome-*</code>、線の太さ <code>--border-thin</code></td><td>共通の <code>--bg-*</code> <code>--fg-*</code> <code>--border-*</code>、線の太さ <code>--stroke-*</code></td><td>LP にも同じ名前で使えるように。色と太さの名前の衝突を解消</td></tr>
       <tr><th>角丸</th><td>lg 10px、xl 14px</td><td>lg 8px、xl 12px</td><td>メニュー 8 = 項目 4 + 内側余白 4 の同心</td></tr>
@@ -221,16 +221,16 @@
   <p>余白・角丸・線・アイコン・動きの段階は <a href="../../foundations/docs/foundations.html#space">共通基盤</a> にあります。
     アプリが足すのは、密度・グリッドの寸法・重なり順・セルの角（<code>--radius-cell: 0</code>）です。</p>
   <h3>密度</h3>
-  <p>密度の規則は 1 つです：<b>standard から 1 段ごとに、縦方向（ブロック方向）の寸法をすべて 4px ずつ変える。高さは 24px（<code>--target-min</code>）を下回らない。</b>
-    横方向の余白・文字サイズ・グリッドの寸法は変えません（グリッドは表示倍率で調整します）。バーは常に中のコントロール ＋ 4px です。
-    既定は standard です。粗いポインタでは密度にかかわらず、共通基盤のタッチの大きさ（<code>--target-touch</code> 44px、<code>--target-touch-dense</code> 40px）を使います。
+  <p>密度の規則は 1 つです：<b>standard から 1 段ごとに、縦方向（ブロック方向）の寸法をすべて 8px ずつ変える。高さは 24px（<code>--target-min</code>）を下回らない。</b>
+    横方向の余白・文字サイズ・グリッドの寸法は変えません（グリッドは表示倍率で調整します）。バーは中のコントロール ＋ 4px です（compact は下限のため同じ高さ）。
+    既定は standard です。粗いポインタには密度ごとに別の値があり（表の「タッチ」の列、compact / standard / comfortable）、同じ 8px の刻みで 28px を下回りません。comfortable が共通基盤のタッチの大きさ（<code>--target-touch</code> 44px）になります。
     compact でも操作対象は 24px 以上で、WCAG 2.2 の 2.5.8（最小ターゲット 24×24px）を満たします。</p>
-  <!-- gen:density --><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th class="num">compact</th><th class="num">standard（既定）</th><th class="num">comfortable</th><th class="num">タッチ</th><th>用途</th></tr></thead><tbody><tr><th><code>--bar-h</code></th><td class="num">28px</td><td class="num">32px</td><td class="num">36px</td><td class="num">48px</td><td>Menu bar, tab row, formula bar, sheet strip (= control-h + 4px)</td></tr>
-<tr><th><code>--statusbar-h</code></th><td class="num">24px</td><td class="num">24px</td><td class="num">28px</td><td class="num">40px</td><td>Status bar</td></tr>
-<tr><th><code>--control-h</code></th><td class="num">24px</td><td class="num">28px</td><td class="num">32px</td><td class="num">44px</td><td>Inline controls in bars and menus, menu items, tabs, list rows</td></tr>
-<tr><th><code>--field-h</code></th><td class="num">28px</td><td class="num">32px</td><td class="num">36px</td><td class="num">44px</td><td>Buttons and fields in dialogs and panels</td></tr>
-<tr><th><code>--inset</code></th><td class="num">8px</td><td class="num">12px</td><td class="num">16px</td><td class="num">—</td><td>Block (top and bottom) padding of panels, dialogs, popovers</td></tr>
-<tr><th><code>--stack-gap</code></th><td class="num">8px</td><td class="num">12px</td><td class="num">16px</td><td class="num">—</td><td>Vertical gap between form rows</td></tr>
+  <!-- gen:density --><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th class="num">compact</th><th class="num">standard（既定）</th><th class="num">comfortable</th><th class="num">タッチ</th><th>用途</th></tr></thead><tbody><tr><th><code>--bar-h</code></th><td class="num">24px</td><td class="num">32px</td><td class="num">40px</td><td class="num">32 / 40 / 48px</td><td>Menu bar, tab row, formula bar, sheet strip (= control-h + 4px)</td></tr>
+<tr><th><code>--statusbar-h</code></th><td class="num">24px</td><td class="num">24px</td><td class="num">32px</td><td class="num">28 / 36 / 44px</td><td>Status bar</td></tr>
+<tr><th><code>--control-h</code></th><td class="num">24px</td><td class="num">28px</td><td class="num">36px</td><td class="num">28 / 36 / 44px</td><td>Inline controls in bars and menus, menu items, tabs, list rows</td></tr>
+<tr><th><code>--field-h</code></th><td class="num">24px</td><td class="num">32px</td><td class="num">40px</td><td class="num">32 / 40 / 48px</td><td>Buttons and fields in dialogs and panels</td></tr>
+<tr><th><code>--inset</code></th><td class="num">4px</td><td class="num">12px</td><td class="num">20px</td><td class="num">—</td><td>Block (top and bottom) padding of panels, dialogs, popovers</td></tr>
+<tr><th><code>--stack-gap</code></th><td class="num">4px</td><td class="num">12px</td><td class="num">20px</td><td class="num">—</td><td>Vertical gap between form rows</td></tr>
 <tr><th><code>--control-px</code></th><td class="num">8px</td><td class="num">8px</td><td class="num">8px</td><td class="num">—</td><td>Horizontal padding of controls and menu items</td></tr>
 <tr><th><code>--inset-inline</code></th><td class="num">16px</td><td class="num">16px</td><td class="num">16px</td><td class="num">—</td><td>Side padding of dialogs and panels</td></tr></tbody></table></div><!-- /gen:density -->
   <ul>
@@ -529,7 +529,7 @@
       <tr><td>1.4.1 色の使用</td><td>すべての状態に形の手がかりがある（上のセル状態の表）</td></tr>
       <tr><td>1.4.4 / 1.4.12 文字サイズ・間隔</td><td>UI は rem。200% 拡大と文字間隔の上書きで、ラベルが切れない（<code>min-block-size</code> を使い、固定の高さにしない）</td></tr>
       <tr><td>2.4.7 / 2.4.11 フォーカス</td><td>2px のアウトラインを 1 つの定義で全要素に適用。パネルがフォーカス中のセルを隠さない</td></tr>
-      <tr><td>2.5.8 ターゲットサイズ</td><td>compact でも 24px 以上。タッチ（粗いポインタとスマートフォン配置）では操作 44px、多数が並ぶタブ・状態バーの項目 40px。小さな印（フィルハンドル・フィルタボタン）は当たり判定を 24px に拡大</td></tr>
+      <tr><td>2.5.8 ターゲットサイズ</td><td>compact でも 24px 以上。タッチ（粗いポインタとスマートフォン配置）では密度に応じて操作 28 / 36 / 44px、多数が並ぶタブ・状態バーの項目 28 / 32 / 40px。小さな印（フィルハンドル・フィルタボタン）は当たり判定を 24px に拡大</td></tr>
       <tr><td>4.1.2 名前・役割・値</td><td>ネイティブ要素を優先し、足りないところだけ ARIA。アイコンだけのボタンにはラベル</td></tr>
       <tr><td>4.1.3 状態メッセージ</td><td>トーストは <code>role="status"</code>、エラーは <code>role="alert"</code>。セル移動のたびには読み上げない</td></tr>
       <tr><td>Windows ハイコントラスト</td><td><code>forced-colors</code> で枠を明示し、フォーカスに <code>Highlight</code> を使う。差分・検索・選択の色は情報なので保持する</td></tr>
@@ -615,7 +615,7 @@ node design-system/v2/tools/build.mjs --check  # 生成物が最新か・監査�
 
 </main>
 
-<footer><div class="wrap">Refrain Sheet Design System · App · <!-- gen:version -->v2.1.0 · 2026-09-26<!-- /gen:version --> · 色は OKLCH で設計し sRGB で納品 · Web フォント 0 件</div></footer>
+<footer><div class="wrap">Refrain Sheet Design System · App · <!-- gen:version -->v2.2.0 · 2026-09-26<!-- /gen:version --> · 色は OKLCH で設計し sRGB で納品 · Web フォント 0 件</div></footer>
 
 <script src="../../foundations/docs/doc.js"></script>
 </body>

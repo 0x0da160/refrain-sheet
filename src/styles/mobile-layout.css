@@ -56,11 +56,12 @@
    worth re-checking against #267 specifically on iOS Safari.
 
    Spacing/margins/font-sizes below are trimmed to the necessary minimum for
-   a narrow viewport (#462), but every `min-height`/`min-width` tap-target
-   floor (the design system's --target-touch 44px and --target-touch-dense
-   40px) and the 16px input-zoom floor further below are left exactly
-   as-is: those already cap the rendered size regardless of padding, so
-   tightening padding here does not shrink the actual tap target. */
+   a narrow viewport (#462). Tap targets take their height from the density
+   tokens (`--bar-h`, `--control-h`, `--field-h`), which a coarse pointer
+   already raises to touch sizes — 36px controls at standard, 44px at
+   comfortable, 28px at compact — so View > Density works on a phone too
+   and the rows stay compact; padding here never adds to that height. The
+   16px input-zoom floor further below is left exactly as-is. */
 @media (max-width: 43.75em) {
   #app {
     display: grid;
@@ -167,8 +168,8 @@
     grid-row: 2;
     grid-column: 3;
     align-self: start;
-    min-width: var(--target-touch);
-    min-height: var(--target-touch);
+    min-width: var(--control-h);
+    min-height: var(--bar-h);
   }
 
   .menu-row {
@@ -206,8 +207,8 @@
 
   .menu > button,
   .menu-item {
-    padding: var(--space-2) var(--space-3);
-    min-height: var(--target-touch);
+    padding: 0 var(--space-3);
+    min-height: calc(var(--control-h) + 4px);
   }
 
   .menu > button {
@@ -217,20 +218,20 @@
   /* The close button's dense tap target sets the tab's height; the tab adds
      only a thin frame around it (#594), not another 8px above and below. */
   .tab {
-    padding: var(--space-0-5) var(--space-0-5) var(--space-0-5) var(--space-3);
+    padding: 0 var(--space-0-5) 0 var(--space-3);
   }
 
   .tab .tab-close {
-    padding: var(--space-2);
-    min-width: var(--target-touch-dense);
-    min-height: var(--target-touch-dense);
+    padding: var(--space-1);
+    min-width: calc(var(--control-h) - 4px);
+    min-height: calc(var(--control-h) - 4px);
   }
 
   .sheet-tab,
   .sheet-add,
   .sheet-grid-add {
-    padding: var(--space-2) var(--space-2);
-    min-height: var(--target-touch-dense);
+    padding: 0 var(--space-2);
+    min-height: max(28px, calc(var(--control-h) - 4px));
   }
 
   /* The add-column button extends the column-header row, so it keeps the
@@ -239,7 +240,7 @@
     min-height: 0;
     padding-top: 0;
     padding-bottom: 0;
-    min-width: var(--target-touch);
+    min-width: var(--control-h);
     justify-content: center;
   }
 
@@ -266,13 +267,13 @@
   }
 
   .dialog-buttons button {
-    padding: var(--space-2) var(--space-3);
-    min-height: var(--target-touch);
+    padding: 0 var(--space-3);
+    min-height: var(--field-h);
   }
 
   .welcome-action {
-    padding: var(--space-2) var(--space-4);
-    min-height: var(--target-touch);
+    padding: 0 var(--space-4);
+    min-height: var(--field-h);
   }
 
   /* Chrome surfaces the mobile breakpoint above didn't previously cover:
@@ -282,7 +283,7 @@
     padding: var(--space-0-5) var(--space-2);
     gap: var(--space-0-5) var(--space-2);
     font-size: var(--text-caption);
-    min-height: 22px;
+    min-height: var(--statusbar-h);
   }
 
   /* The file details (encoding, delimiter, size, …) collapse behind a
@@ -294,7 +295,7 @@
   .status-bar button.status-details-toggle {
     display: inline-flex;
     align-items: center;
-    min-height: var(--target-touch-dense);
+    min-height: max(28px, calc(var(--control-h) - 4px));
   }
 
   .status-bar .sel-stats,
@@ -313,7 +314,7 @@
   }
 
   .formula-bar {
-    padding: var(--space-1) var(--space-1-5);
+    padding: var(--space-0-5) var(--space-1-5);
     gap: var(--space-1);
   }
 

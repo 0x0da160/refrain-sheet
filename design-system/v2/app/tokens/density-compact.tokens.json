@@ -5,7 +5,7 @@
     "$type": "dimension",
     "bar-h": {
       "$value": {
-        "value": 1.75,
+        "value": 1.5,
         "unit": "rem"
       },
       "$description": "Menu bar, tab row, formula bar, sheet strip (= control-h + 4px)"
@@ -26,21 +26,21 @@
     },
     "field-h": {
       "$value": {
-        "value": 1.75,
+        "value": 1.5,
         "unit": "rem"
       },
       "$description": "Buttons and fields in dialogs and panels"
     },
     "inset": {
       "$value": {
-        "value": 0.5,
+        "value": 0.25,
         "unit": "rem"
       },
       "$description": "Block (top and bottom) padding of panels, dialogs, popovers"
     },
     "stack-gap": {
       "$value": {
-        "value": 0.5,
+        "value": 0.25,
         "unit": "rem"
       },
       "$description": "Vertical gap between form rows"

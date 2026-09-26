@@ -35,6 +35,17 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- **View > Density** now makes a clear difference: each step moves the bars,
+  menu items, tabs, buttons and fields by 8px instead of 4px (bars are 24,
+  32 and 40px on a desktop), and dialogs get tighter or roomier spacing to
+  match. Standard looks the same as before.
+- On a phone or tablet the density now applies too (it used to be ignored
+  there), and the layout is more compact: at Standard the bars are 40px
+  instead of 48px, so more rows of the sheet fit on screen. Compact goes
+  down to 32px bars; Comfortable keeps the previous touch sizes.
+
 ## [0.9.6] - 2026-09-26
 
 ### Added

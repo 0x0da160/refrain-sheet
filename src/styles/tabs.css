@@ -7,9 +7,10 @@
   align-items: flex-end;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-default);
-  /* The tabs are 26px tall and sit on the bottom rule; the space above them
-     is what the density adds or removes (4px at the standard 32px bar). */
-  padding: max(0px, calc(var(--bar-h) - 28px)) var(--space-2) 0;
+  /* The tabs are the control height less 2px and sit on the bottom rule;
+     the space above them fills the rest of the bar (5px at the standard
+     32px bar, whose 1px rule is included). */
+  padding: max(0px, calc(var(--bar-h) - var(--control-h) + 1px)) var(--space-2) 0;
   gap: var(--space-0-5);
   overflow-x: auto;
   min-height: var(--bar-h);
@@ -23,7 +24,9 @@
   border-bottom: none;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: var(--bg-hover);
-  padding: var(--space-0-5) var(--space-1-5) var(--space-0-5) var(--space-3);
+  /* Height from the density (26px at standard), not from padding. */
+  min-height: calc(var(--control-h) - 2px);
+  padding: 0 var(--space-1-5) 0 var(--space-3);
   max-width: 240px;
   cursor: default;
 }

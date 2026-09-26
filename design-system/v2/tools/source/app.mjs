@@ -115,30 +115,32 @@ export const typeScale = [
 export const typeCoarse = { size: 2, leading: 4 };
 
 /* ---------------------------------------------------------------------------
-   Density: one rule. Each step moves every block-axis (vertical) size by
-   4px from standard; heights never go below the 24px target minimum.
-   Inline (horizontal) sizes, type and the grid never change.
-   standard: [px, description]. A bar is its control plus 4px.
+   Density: three modes that must look clearly different (D-36, D-37).
+   Each mode moves the block-axis (vertical) sizes by 8px from standard,
+   heights clamped to the floor (one per pointer type); inset and gaps are
+   not targets and are not clamped. Inline (horizontal) sizes, type and the
+   grid never change.
+   standard: [fine px, coarse px, description]. A bar is its control plus 4px.
    ------------------------------------------------------------------------- */
 export const density = {
   modes: ['compact', 'standard', 'comfortable'],
   default: 'standard',
-  step: 4,
+  // Fine pointer (mouse, trackpad): 8px a step, heights at least
+  // --target-min (24px, WCAG 2.5.8).
+  step: 8,
   floor: 24,
+  // Coarse pointer (touch): the same step from its own standard, which sits
+  // below the 44px touch size so a phone shows more rows; comfortable
+  // reaches it and compact stays at least 28px.
+  coarseStep: 8,
+  coarseFloor: 28,
   standard: {
-    'bar-h': [32, 'Menu bar, tab row, formula bar, sheet strip (= control-h + 4px)'],
-    'statusbar-h': [24, 'Status bar'],
-    'control-h': [28, 'Inline controls in bars and menus, menu items, tabs, list rows'],
-    'field-h': [32, 'Buttons and fields in dialogs and panels'],
-    inset: [12, 'Block (top and bottom) padding of panels, dialogs, popovers'],
-    'stack-gap': [12, 'Vertical gap between form rows'],
-  },
-  // Touch: foundations target sizes, whatever the density.
-  coarse: {
-    'bar-h': ['target-touch', 4],
-    'statusbar-h': ['target-touch-dense', 0],
-    'control-h': ['target-touch', 0],
-    'field-h': ['target-touch', 0],
+    'bar-h': [32, 40, 'Menu bar, tab row, formula bar, sheet strip (= control-h + 4px)'],
+    'statusbar-h': [24, 36, 'Status bar'],
+    'control-h': [28, 36, 'Inline controls in bars and menus, menu items, tabs, list rows'],
+    'field-h': [32, 40, 'Buttons and fields in dialogs and panels'],
+    inset: [12, null, 'Block (top and bottom) padding of panels, dialogs, popovers'],
+    'stack-gap': [12, null, 'Vertical gap between form rows'],
   },
 };
 

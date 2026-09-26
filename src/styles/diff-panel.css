@@ -71,7 +71,7 @@ table.diff-table td {
 .diff-badge {
   display: inline-block;
   padding: 1px var(--space-2);
-  border-radius: 10px;
+  border-radius: var(--radius-full);
   font-size: var(--text-caption);
   white-space: nowrap;
 }

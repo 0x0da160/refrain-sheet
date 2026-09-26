@@ -26,7 +26,7 @@
   color: var(--fg-muted);
   background: var(--bg-raised);
   border: 1px solid var(--border-default);
-  border-radius: 9px;
+  border-radius: var(--radius-full);
   cursor: pointer;
 }
 

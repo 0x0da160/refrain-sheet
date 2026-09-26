@@ -114,7 +114,7 @@
   border: 1px solid var(--canvas-grid-strong);
   background: var(--canvas-header-bg);
   color: var(--canvas-header-text);
-  padding: 3px 10px;
+  padding: var(--space-1) var(--space-2);
   cursor: pointer;
   font: inherit;
   line-height: 1;
@@ -126,7 +126,7 @@
   left: 0;
   z-index: 6;
   border-top: none;
-  border-radius: 0 0 5px 5px;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
 .sheet-grid-add-col {
@@ -137,7 +137,7 @@
   /* Exactly as tall as the column-header row it extends, at every zoom. */
   height: var(--grid-row-height);
   border-left: none;
-  border-radius: 0 5px 5px 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 .sheet-grid-add:disabled {
@@ -304,7 +304,7 @@
   height: calc(10px * var(--sheet-zoom, 1));
   background: var(--canvas-selection-border);
   border: 1px solid var(--canvas-bg);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   cursor: move;
   z-index: 3;
   touch-action: none;
@@ -506,7 +506,7 @@
   color: var(--canvas-header-text);
   background: var(--canvas-bg);
   border: 1px solid var(--canvas-grid-strong);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   cursor: pointer;
 }
 

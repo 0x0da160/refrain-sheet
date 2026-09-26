@@ -91,7 +91,7 @@
   "sheets.label": "このファイル内のシート",
   "sheets.add": "シートを追加",
   "sheets.tabTitle": "{name} — ダブルクリックまたはF2で名前を変更",
-  "sheets.kind.grid": "グリッドシート",
+  "sheets.kind.grid": "RSFシート",
   "sheets.kind.markdown": "Markdownシート",
   "sheets.kind.json": "JSONシート",
   "sheets.kind.yaml": "YAMLシート",

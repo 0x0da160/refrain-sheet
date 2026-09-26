@@ -91,7 +91,7 @@
   "sheets.label": "Sheets in this file",
   "sheets.add": "Add sheet",
   "sheets.tabTitle": "{name} — double-click or F2 to rename",
-  "sheets.kind.grid": "Grid sheet",
+  "sheets.kind.grid": "RSF sheet",
   "sheets.kind.markdown": "Markdown sheet",
   "sheets.kind.json": "JSON sheet",
   "sheets.kind.yaml": "YAML sheet",

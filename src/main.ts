@@ -112,7 +112,8 @@ function bootstrap(): void {
     chooseDataValidation: (input, onApply) => dialogs.chooseDataValidation(input, onApply),
     chooseConditionalFormat: (input, onApply) => dialogs.chooseConditionalFormat(input, onApply),
     chooseCellComment: (input) => dialogs.chooseCellComment(input),
-    promptSheetName: (mode, current, validate) => dialogs.promptSheetName(mode, current, validate),
+    promptSheetName: (mode, current, validate, kindOptions) =>
+      dialogs.promptSheetName(mode, current, validate, kindOptions),
     confirmDeleteSheet: (name, references) => dialogs.confirmDeleteSheet(name, references),
     chooseExportSheet: (sheets, currentId) => dialogs.chooseExportSheet(sheets, currentId),
     confirm: (title, message, ok, cancel) => dialogs.confirm(title, message, ok, cancel),

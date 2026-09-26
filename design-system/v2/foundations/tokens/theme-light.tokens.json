@@ -19,6 +19,10 @@
       "$value": "{color.paper.100}",
       "$description": "Wells, inset areas, progress track"
     },
+    "bg-feature": {
+      "$value": "{color.green.100}",
+      "$description": "Landing site: the one Mist panel behind the first view"
+    },
     "bg-hover": {
       "$value": "{color.paper.100}",
       "$description": "Hover fill of items and ghost buttons"

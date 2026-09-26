@@ -148,7 +148,7 @@
   color: var(--fg-default);
   background-color: var(--bg-surface);
   border: var(--stroke-thin) solid var(--border-control);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-full);
   transition-property: background-color, border-color, color;
   transition-duration: var(--duration-fast);
   transition-timing-function: var(--ease-out);
@@ -185,6 +185,17 @@
   gap: var(--space-8);
   padding-block: var(--brand-section-pad) var(--space-12);
 }
+/* The Mist panel: one per page, behind the first view. Pale green, never
+   the Preserve green; the primary button stays the only strong green in it. */
+.rb-feature {
+  padding: clamp(var(--space-8), 5vw, var(--space-16)) clamp(var(--space-5), 4vw, var(--space-12));
+  color: var(--fg-default);
+  background-color: var(--bg-feature);
+  border-radius: var(--brand-radius-panel);
+}
+.rb-feature .rb-eyebrow {
+  color: var(--accent-subtle-text);
+}
 .rb-actions {
   display: flex;
   flex-wrap: wrap;
@@ -199,7 +210,7 @@
   padding: var(--space-6);
   background-color: var(--bg-surface);
   border: var(--stroke-thin) solid var(--border-default);
-  border-radius: var(--radius-xl);
+  border-radius: var(--brand-radius-card);
 }
 .rb-card__icon {
   display: grid;
@@ -221,7 +232,7 @@
   overflow: hidden;
   background-color: var(--bg-surface);
   border: var(--stroke-thin) solid var(--border-default);
-  border-radius: var(--radius-2xl);
+  border-radius: var(--brand-radius-card);
   box-shadow: var(--brand-shadow-showcase);
 }
 .rb-shot img {

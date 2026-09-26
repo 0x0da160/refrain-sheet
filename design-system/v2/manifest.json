@@ -1,6 +1,6 @@
 {
   "name": "Refrain Sheet Design System",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "released": "2026-09-26",
   "supersedes": "1.0.0",
   "layers": {
@@ -77,8 +77,8 @@
         "pass": 99
       },
       "brand": {
-        "checks": 2,
-        "pass": 2
+        "checks": 8,
+        "pass": 8
       }
     }
   }

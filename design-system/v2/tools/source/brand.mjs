@@ -31,6 +31,8 @@ export const layout = [
   ['brand-section-pad', 'clamp(4rem, 9vw, 6rem)', 'Vertical padding of a section'],
   ['brand-header-h', '4rem', '64px sticky header'],
   ['brand-measure', '40em', 'Reading measure: about 40 full-width characters'],
+  ['brand-radius-panel', 'clamp(1.75rem, 1.2rem + 2vw, 2.5rem)', '28–40px — the Mist panel and dark bands drawn as panels'],
+  ['brand-radius-card', 'clamp(1.125rem, 0.9rem + 0.8vw, 1.5rem)', '18–24px — cards and product frames'],
 ];
 
 // Controls: marketing buttons are touch-sized on every device.
@@ -54,4 +56,7 @@ export const shadows = {
 // on accent-subtle, muted copy) are audited once, in foundations.
 export const contrastPairs = [
   ['fg-default', 'bg-sunken', 4.5, 'Inline code in a sunken well'],
+  ['fg-default', 'bg-feature', 4.5, 'Heading and lead on the Mist panel'],
+  ['fg-muted', 'bg-feature', 4.5, 'Secondary copy on the Mist panel'],
+  ['accent-subtle-text', 'bg-feature', 4.5, 'Eyebrow text on the Mist panel'],
 ];

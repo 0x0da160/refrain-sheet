@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { Bold, Eraser, Italic, Underline, type IconNode } from 'lucide';
 import { t } from '../app/i18n';
+import { ensureSwatchList } from './document-colors';
 import { el } from './dom';
 import { createIcon } from './icon';
 
@@ -71,7 +72,12 @@ export class RichTextToolbar {
     };
     const custom = el('input', {
       className: 'rich-toolbar-custom',
-      attrs: { type: 'color', title: t('richText.color.custom'), 'aria-label': t('richText.color.custom') },
+      attrs: {
+        type: 'color',
+        title: t('richText.color.custom'),
+        'aria-label': t('richText.color.custom'),
+        list: ensureSwatchList(),
+      },
     }) as HTMLInputElement;
     custom.addEventListener('change', () => onAction({ kind: 'color', color: custom.value.toLowerCase() }));
     custom.addEventListener('blur', (event) => onLeave(event.relatedTarget));

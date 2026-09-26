@@ -35,6 +35,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Add Sheet asks for the sheet type again.** Sheet > Add Sheet, the "+"
+  button beside the sheet tabs, and Shift+F11 now show the sheet-type choice
+  (RSF, Markdown, JSON, YAML or text), with RSF selected. The suggested name
+  follows the type you pick, for example "Sheet2" for RSF and "Notes1" for
+  Markdown. The grid type is now called "RSF sheet" wherever it is named.
+
 ## [0.9.4] - 2026-09-26
 
 ### Added

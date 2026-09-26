@@ -121,6 +121,21 @@ export class Dialogs {
     );
   }
 
+  confirmChangedOnDisk(name: string): Promise<'overwrite' | 'saveAs' | 'cancel'> {
+    return openDialog<'overwrite' | 'saveAs' | 'cancel'>(
+      t('dialog.changedOnDisk.title'),
+      'cancel',
+      (body, buttons, close) => {
+        body.append(el('p', { text: t('dialog.changedOnDisk.message', { name }) }));
+        buttons.append(
+          dialogButton(t('dialog.changedOnDisk.cancel'), false, true, () => close('cancel')),
+          dialogButton(t('dialog.changedOnDisk.overwrite'), false, false, () => close('overwrite')),
+          dialogButton(t('dialog.changedOnDisk.saveAs'), true, false, () => close('saveAs')),
+        );
+      },
+    );
+  }
+
   /** See `FileIoDialogs.promptDriveName` for the full behavior contract. */
   promptDriveName(suggested: string): Promise<string | null> {
     return this.fileIo.promptDriveName(suggested);

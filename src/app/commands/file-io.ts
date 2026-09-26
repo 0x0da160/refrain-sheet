@@ -31,7 +31,16 @@ import { buildJsonExport } from '../../core/json-export';
 import type { AppState, Tab } from '../app-state';
 import { defaultSheetName } from '../state/defaults';
 import { decidedBySheet, resolveWrap, resolveZoom } from '../state/view-layers';
-import { readFileObject, requestSaveHandle, saveBytes, saveBytesAs, type OpenedFile } from '../file-access';
+import {
+  readFileObject,
+  readFileStamp,
+  requestSaveHandle,
+  sameFileStamp,
+  saveBytes,
+  saveBytesAs,
+  type OpenedFile,
+  type SaveOutcome,
+} from '../file-access';
 import {
   clearRecentFiles,
   ensureReadPermission,
@@ -269,6 +278,7 @@ export class FileIoCommands {
     }
 
     const tab = this.state.addTab(file.name, doc, file.handle, true);
+    tab.diskStamp = file.handle ? (file.stamp ?? null) : null;
     await this.autoFitOnOpen(tab);
   }
 
@@ -300,6 +310,7 @@ export class FileIoCommands {
     }
     const name = file.name;
     const tab = this.state.addTab(name, result.doc, file.handle, true);
+    tab.diskStamp = file.handle ? (file.stamp ?? null) : null;
     tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
     if (result.doc.filterDropped) {
       // The container carried filter metadata that failed validation; it was
@@ -478,13 +489,18 @@ export class FileIoCommands {
       ncrReports = result.ncrReplacements;
     }
 
+    const target = await this.confirmDiskUnchanged(tab, tab.handle);
+    if (!target.ok) {
+      return false;
+    }
     const written = await this.runSaveStep(tab.name, () =>
-      saveBytes(this.dom, tab.name, result.bytes, tab.handle),
+      saveBytes(this.dom, tab.name, result.bytes, target.handle),
     );
     if (!written.ok) {
       return false;
     }
     const outcome = written.value;
+    await this.recordWrittenFile(tab, outcome);
     // A real save (however it landed) ends the "brand-new, never-saved CSV"
     // exception (#479): further structural edits go through the normal
     // explicit RSF conversion again.
@@ -649,7 +665,13 @@ export class FileIoCommands {
   ): Promise<boolean> {
     // The handle was already acquired inside the gesture; `saveBytes`
     // overwrites through it or, with no handle, produces a download.
-    const written = await this.runSaveStep(tab.name, () => saveBytes(this.dom, tab.name, bytes, handle));
+    const target = await this.confirmDiskUnchanged(tab, handle);
+    if (!target.ok) {
+      return false;
+    }
+    const written = await this.runSaveStep(tab.name, () =>
+      saveBytes(this.dom, tab.name, bytes, target.handle),
+    );
     if (!written.ok) {
       return false;
     }
@@ -657,16 +679,7 @@ export class FileIoCommands {
     if (outcome.fellBack) {
       this.ui.notify(t('notify.permissionDenied'), 'warn');
     }
-    // Associate the destination only after a successful overwrite so a
-    // cancelled/failed save never mutates the tab's file association.
-    if (outcome.handle) {
-      tab.handle = outcome.handle;
-      // The picker lets the user type a different file name; the tab follows it.
-      this.state.adoptSavedName(tab, outcome.handle.name);
-      if (outcome.mode === 'overwrite') {
-        await recordRecentFile(outcome.handle, tab.name);
-      }
-    }
+    await this.recordWrittenFile(tab, outcome);
     if (outcome.mode === 'overwrite') {
       this.ui.notify(t('notify.savedOverwrite'), 'info');
     } else {
@@ -1209,6 +1222,62 @@ export class FileIoCommands {
       );
       return { ok: false };
     }
+  }
+
+  /**
+   * Before a save overwrites the tab's own file, make sure nothing else wrote
+   * it since this tab opened or last saved it — another browser tab with the
+   * same file open, or another app. If something did, ask: overwrite anyway,
+   * save to a different file (the picker opens from the dialog's click), or
+   * cancel. Returns the handle to write through (null means download), or
+   * `ok: false` when the save must stop. A file whose stamp cannot be read
+   * (deleted, permission) is not blocked: the write itself reports problems.
+   */
+  private async confirmDiskUnchanged(
+    tab: Tab,
+    handle: FileSystemFileHandle | null,
+  ): Promise<{ ok: true; handle: FileSystemFileHandle | null } | { ok: false }> {
+    if (!handle || handle !== tab.handle || !tab.diskStamp) {
+      return { ok: true, handle };
+    }
+    const current = await readFileStamp(handle);
+    if (current === null || sameFileStamp(current, tab.diskStamp)) {
+      return { ok: true, handle };
+    }
+    const choice = await this.ui.confirmChangedOnDisk(tab.name);
+    if (choice === 'overwrite') {
+      return { ok: true, handle };
+    }
+    if (choice === 'cancel') {
+      return { ok: false };
+    }
+    const picked = await this.runSaveStep(tab.name, () =>
+      requestSaveHandle(tab.name, tab.doc.kind === 'rsf' ? 'rsf' : 'csv'),
+    );
+    return picked.ok ? { ok: true, handle: picked.value } : picked;
+  }
+
+  /**
+   * After a successful overwrite, associate the tab with the file it wrote
+   * (a newly picked file also gives the tab its name) and remember the file's
+   * new stamp for the next save's check. A download leaves both unchanged.
+   * Only called after the write succeeded, so a cancelled or failed save
+   * never mutates the tab's file association.
+   */
+  private async recordWrittenFile(tab: Tab, outcome: SaveOutcome): Promise<void> {
+    if (outcome.mode !== 'overwrite' || !outcome.handle) {
+      return;
+    }
+    const handle = outcome.handle;
+    if (handle !== tab.handle) {
+      tab.handle = handle;
+      // The picker lets the user type a different file name; the tab follows it.
+      this.state.adoptSavedName(tab, handle.name);
+      await recordRecentFile(handle, tab.name);
+    } else if (tab.doc.kind === 'rsf') {
+      await recordRecentFile(handle, tab.name);
+    }
+    tab.diskStamp = await readFileStamp(handle);
   }
 
   /**

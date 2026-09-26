@@ -35,6 +35,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- **Row 1 follows the scroll only when it has values.** With nothing
+  frozen, an empty first row now scrolls away like any other row; once
+  any cell in it has a value, it stays at the top again. Sticky First Row
+  still pins it either way.
+
 ## [0.9.8] - 2026-09-26
 
 ### Changed

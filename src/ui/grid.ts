@@ -28,6 +28,7 @@ import { centeredScrollOffset } from './grid/center-scroll';
 import { FormulaAutocomplete, FormulaFieldRef, isRefToggleKey } from './formula-autocomplete';
 import { findDataEdge } from './grid/data-edge';
 import { pageStep } from './grid/page-step';
+import { MOVE_EDGE_PX, onRangeEdge } from './grid/range-edge';
 import type { FormulaLivePreview } from './formula-bar';
 import { beginsTextEntry, isComposingKey } from './ime';
 import { createIcon } from './icon';
@@ -158,8 +159,9 @@ interface LayoutSignature {
   wrap: boolean;
   /** Active sheet font signature — changing it re-measures wrapped heights. */
   font: string;
-  sticky: boolean;
-  stickyCol: boolean;
+  /** Pinned row / column counts (sticky first row/column or freeze-at-selection). */
+  sticky: number;
+  stickyCol: number;
   locale: string;
   /** Spreadsheet zoom percent — changing it rescales every grid metric. */
   zoom: number;
@@ -466,7 +468,7 @@ export class Grid {
     document.body.append(this.refIndicator);
     this.canvas = el('div', { className: 'vgrid-canvas' });
     this.headerEl = el('div', { className: 'vgrid-header', attrs: { role: 'row' } });
-    this.stickyEl = el('div', { className: 'vgrid-stickyrow', attrs: { role: 'row' } });
+    this.stickyEl = el('div', { className: 'vgrid-sticky', attrs: { role: 'rowgroup' } });
     this.rowsLayer = el('div', { className: 'vgrid-rows' });
     this.emptyEl = el('div', { className: 'grid-empty' });
     this.addRowButton = el(
@@ -794,41 +796,80 @@ export class Grid {
     this.heightsVersion += 1;
   }
 
-  private stickyEnabled(tab: Tab): boolean {
-    // A first row hidden by the active filter is never pinned (pinning it
-    // would show a row the filter hides).
-    return this.state.stickyFirstRow && tab.doc.rowCount > 0 && !this.hiddenOf(tab)?.has(0);
+  /**
+   * Display slots `[0, n)` that stay pinned below the column header (the
+   * sticky first row, or every row above a freeze-at-selection point). A
+   * frozen area whose rows are all hidden by the active filter pins nothing
+   * (pinning them would show rows the filter hides).
+   */
+  private frozenRowCount(tab: Tab): number {
+    let n = this.state.frozenPanes(tab).rows;
+    // Keep at least one scrollable row on screen: a freeze point far down the
+    // sheet pins only as many rows as fit (never measured without a layout).
+    const viewH = this.element.clientHeight;
+    if (viewH > 0) {
+      n = Math.min(n, Math.max(1, Math.floor(viewH / this.rowH(tab)) - 2));
+    }
+    return n > 0 && this.pinnedSlots(tab, n).length > 0 ? n : 0;
   }
 
-  /** First document row of the scrolling region. */
+  /** The visible (not filtered-out) display slots among the first `n`. */
+  private pinnedSlots(tab: Tab, n = this.frozenRowCount(tab)): number[] {
+    const hidden = this.hiddenOf(tab);
+    const slots: number[] = [];
+    for (let slot = 0; slot < n; slot++) {
+      if (!hidden?.has(this.docRowOf(tab, slot))) {
+        slots.push(slot);
+      }
+    }
+    return slots;
+  }
+
+  /** First display slot of the scrolling region. */
   private scrollRowBase(tab: Tab): number {
-    return this.stickyEnabled(tab) ? 1 : 0;
+    return this.frozenRowCount(tab);
   }
 
   /**
-   * Height of the sticky overlays (header + optional pinned first row). Both
-   * overlays are always single-line so the pinned area stays a stable height
-   * even when data rows below wrap to several lines.
+   * Height of the sticky overlays (header + pinned rows). Both are always
+   * single-line so the pinned area stays a stable height even when data rows
+   * below wrap to several lines.
    */
   private overlayHeight(tab: Tab): number {
-    return this.rowH(tab) * (this.stickyEnabled(tab) ? 2 : 1);
+    return this.rowH(tab) * (1 + this.pinnedSlots(tab).length);
   }
 
-  private stickyColEnabled(tab: Tab): boolean {
-    return this.state.stickyFirstColumn && tab.doc.columnCount > 0;
+  /** Columns `[0, n)` that stay pinned right of the row numbers. */
+  private frozenColCount(tab: Tab): number {
+    const n = this.state.frozenPanes(tab).cols;
+    // Like rows: pin only as many columns as leave one scrollable column.
+    const viewW = this.element.clientWidth - this.headW(tab);
+    if (n <= 1 || viewW <= 0) {
+      return n;
+    }
+    let fit = 1;
+    while (fit < n && this.colOffset(tab, fit + 1) + COL_WIDTH * this.zoomOf(tab) <= viewW) {
+      fit += 1;
+    }
+    return fit;
   }
 
   /** First document column of the horizontally scrolling region. */
   private scrollColBase(tab: Tab): number {
-    return this.stickyColEnabled(tab) ? 1 : 0;
+    return this.frozenColCount(tab);
+  }
+
+  /** Width of the pinned columns (not counting the row-number column). */
+  private frozenColsWidth(tab: Tab): number {
+    return this.colOffset(tab, this.frozenColCount(tab));
   }
 
   /**
-   * Width of the sticky horizontal overlay (row headers + optional pinned
-   * first column) that the scrollable column region starts after.
+   * Width of the sticky horizontal overlay (row headers + pinned columns)
+   * that the scrollable column region starts after.
    */
   private overlayWidth(tab: Tab): number {
-    return this.headW(tab) + (this.stickyColEnabled(tab) ? this.colWidth(tab, 0) : 0);
+    return this.headW(tab) + this.frozenColsWidth(tab);
   }
 
   /** Rendered pixel width of a column (per-tab override or default, zoomed). */
@@ -959,8 +1000,8 @@ export class Grid {
       cols: tab.doc.columnCount,
       wrap: this.state.wrapCells,
       font: this.fontSignature(),
-      sticky: this.stickyEnabled(tab),
-      stickyCol: this.stickyColEnabled(tab),
+      sticky: this.frozenRowCount(tab),
+      stickyCol: this.frozenColCount(tab),
       locale: getLocale(),
       zoom: tab.zoom,
       hidden: this.hiddenOf(tab),
@@ -984,6 +1025,16 @@ export class Grid {
       a.locale === b.locale &&
       a.zoom === b.zoom &&
       a.hidden === b.hidden
+    );
+  }
+
+  /**
+   * Whether the pinned row/column counts still match the rendered layout (a
+   * grid resize can change how many fit without any other layout input).
+   */
+  private samePins(tab: Tab): boolean {
+    return (
+      this.layout?.sticky === this.frozenRowCount(tab) && this.layout.stickyCol === this.frozenColCount(tab)
     );
   }
 
@@ -1314,8 +1365,10 @@ export class Grid {
     // Columns have per-column widths; the cached offset index answers the
     // visible range in O(log n) instead of walking every column from 0.
     const colIdx = this.colOffsetIndex(tab);
-    const firstVisible = colIdx.colAtOrBefore(scrollLeft);
-    const limit = scrollLeft + viewW;
+    // Pinned columns sit over the start of the scrolled band, and the band
+    // itself runs to the right edge of everything past the row numbers.
+    const firstVisible = colIdx.colAtOrBefore(scrollLeft + this.frozenColsWidth(tab));
+    const limit = scrollLeft + viewW + this.frozenColsWidth(tab);
     const lastVisible = colIdx.colAtOrAfter(limit);
     const colStart = Math.max(startCol, firstVisible - OVERSCAN_COLS);
     const colEnd = Math.min(totalCols, lastVisible + OVERSCAN_COLS);
@@ -1380,7 +1433,7 @@ export class Grid {
       win = this.computeWindow(tab);
       this.scheduleWrapPass(tab, measurer);
     }
-    if (this.sameWindow(this.window, win)) {
+    if (this.sameWindow(this.window, win) && this.samePins(tab)) {
       this.paintWindowCells(tab);
       this.refreshSelection();
       this.refreshFormulaRefs();
@@ -1424,10 +1477,10 @@ export class Grid {
     this.headerEl.style.width = `${totalW}px`;
     this.headerEl.style.height = `${this.rowH(tab)}px`;
     this.headerEl.append(this.buildCorner(tab));
-    if (this.stickyColEnabled(tab)) {
-      const pinnedHead = this.buildColumnHeaderCell(tab, 0, true);
-      pinnedHead.classList.add('colpin');
-      pinnedHead.style.left = `${this.headW(tab)}px`;
+    const frozenCols = this.frozenColCount(tab);
+    for (let c = 0; c < frozenCols; c++) {
+      const pinnedHead = this.buildColumnHeaderCell(tab, c, true);
+      this.pinColumnCell(tab, pinnedHead, c, frozenCols);
       this.headerEl.append(pinnedHead);
     }
     const headSpacer = el('div', { className: 'vspacer', attrs: { 'aria-hidden': 'true' } });
@@ -1437,19 +1490,27 @@ export class Grid {
       this.headerEl.append(this.buildColumnHeaderCell(tab, c, false));
     }
 
-    // ----- Sticky first record row (optional, single-line, distinct) -----
+    // ----- Pinned record rows (optional, single-line, distinct) -----
     clearChildren(this.stickyEl);
-    if (this.stickyEnabled(tab)) {
+    const pinned = this.pinnedSlots(tab);
+    if (pinned.length > 0) {
       this.stickyEl.hidden = false;
       this.stickyEl.style.width = `${totalW}px`;
-      this.stickyEl.style.height = `${this.rowH(tab)}px`;
+      this.stickyEl.style.height = `${this.rowH(tab) * pinned.length}px`;
       this.stickyEl.style.top = `${this.rowH(tab)}px`;
-      this.stickyEl.dataset.row = '0';
-      this.stickyEl.setAttribute('aria-rowindex', '2');
-      this.buildRowCells(tab, this.stickyEl, 0, win, true);
+      for (const slot of pinned) {
+        const row = this.docRowOf(tab, slot);
+        const rowEl = el('div', {
+          className: 'vgrid-stickyrow',
+          attrs: { role: 'row', 'data-row': String(row), 'aria-rowindex': String(slot + 2) },
+        });
+        rowEl.style.width = `${totalW}px`;
+        rowEl.style.height = `${this.rowH(tab)}px`;
+        this.buildRowCells(tab, rowEl, row, win, true);
+        this.stickyEl.append(rowEl);
+      }
     } else {
       this.stickyEl.hidden = true;
-      delete this.stickyEl.dataset.row;
     }
 
     // ----- Virtualized data rows (variable height) -----
@@ -1537,7 +1598,7 @@ export class Grid {
     if (this.hiddenOf(tab)?.has(row)) {
       return 0; // filtered out: the row's band collapses entirely
     }
-    if (this.stickyEnabled(tab) && row === 0) {
+    if (this.state.sortSlot(tab, row) < this.state.frozenPanes(tab).rows) {
       return this.rowH(tab);
     }
     const doc = tab.doc;
@@ -1718,7 +1779,9 @@ export class Grid {
         role: 'columnheader',
         'data-colhead': String(c),
         'aria-colindex': String(c + 2),
-        title: pinned ? t('grid.stickyColTitle') : t('grid.colTitle', { letter: columnLabel(c), n: c + 1 }),
+        title: pinned
+          ? t('grid.stickyColTitle', { letter: columnLabel(c) })
+          : t('grid.colTitle', { letter: columnLabel(c), n: c + 1 }),
       },
     });
     head.style.width = `${this.colWidth(tab, c)}px`;
@@ -1888,15 +1951,15 @@ export class Grid {
       attrs: { role: 'rowheader', 'data-rowhead': String(row), 'aria-colindex': '1' },
     });
     if (pinned) {
-      head.setAttribute('title', t('grid.stickyRowTitle'));
+      head.setAttribute('title', t('grid.stickyRowTitle', { n: row + 1 }));
     }
     head.style.width = `${this.headW(tab)}px`;
     rowEl.append(head);
     const fieldCount = doc.fieldCount(row);
-    if (this.stickyColEnabled(tab)) {
-      const pinCell = this.buildDataCell(tab, row, 0, fieldCount);
-      pinCell.classList.add('colpin');
-      pinCell.style.left = `${this.headW(tab)}px`;
+    const frozenCols = this.frozenColCount(tab);
+    for (let c = 0; c < frozenCols; c++) {
+      const pinCell = this.buildDataCell(tab, row, c, fieldCount);
+      this.pinColumnCell(tab, pinCell, c, frozenCols);
       rowEl.append(pinCell);
     }
     const originX = this.colOffset(tab, this.scrollColBase(tab));
@@ -1906,6 +1969,13 @@ export class Grid {
     for (let c = win.colStart; c < win.colEnd; c++) {
       rowEl.append(this.buildDataCell(tab, row, c, fieldCount));
     }
+  }
+
+  /** Make a cell of pinned column `c` stick right of the row numbers (and the pinned columns before it). */
+  private pinColumnCell(tab: Tab, cell: HTMLElement, c: number, frozenCols: number): void {
+    cell.classList.add('colpin');
+    cell.classList.toggle('colpin-edge', c === frozenCols - 1);
+    cell.style.left = `${this.headW(tab) + this.colOffset(tab, c)}px`;
   }
 
   /** Build one data cell (or a void placeholder past the row's field count). */
@@ -2247,16 +2317,7 @@ export class Grid {
       // Begin a range-move drag from the current selection (RSF only).
       const range = this.state.selectedRange(tab);
       if (range && tab.doc.kind === 'rsf') {
-        this.commitEditor();
-        this.movingRange = {
-          source: range,
-          origin: { row: range.top, col: range.left },
-          delta: { row: 0, col: 0 },
-          valid: false,
-        };
-        this.updateMovePreview(tab);
-        event.preventDefault();
-        event.stopPropagation();
+        this.beginMove(tab, range, { row: range.top, col: range.left }, event);
       }
       return;
     }
@@ -2286,6 +2347,16 @@ export class Grid {
         this.refDrag = { anchor: cell };
         refTarget.beginRef();
         refTarget.setRef(cellLabel(cell.row, cell.col));
+        return;
+      }
+    }
+    // Pressing on the selection's outer border (anywhere along it, not only
+    // the corner handle) also drags the selected cells to move them.
+    const edgeCell = event.shiftKey ? null : this.moveEdgeHit(tab, event);
+    if (edgeCell) {
+      const range = this.state.selectedRange(tab);
+      if (range) {
+        this.beginMove(tab, range, edgeCell, event);
         return;
       }
     }
@@ -2462,6 +2533,12 @@ export class Grid {
       return;
     }
     if (!this.dragging) {
+      // Hovering the selection's border shows the move cursor.
+      const hoverTab = this.state.activeTab;
+      this.element.classList.toggle(
+        'move-edge',
+        hoverTab !== null && this.moveEdgeHit(hoverTab, event) !== null,
+      );
       return;
     }
     const tab = this.state.activeTab;
@@ -2948,6 +3025,48 @@ export class Grid {
 
   // ----- Range move (drag the selection to move it) -----
 
+  /**
+   * Start a range-move drag of `source`. `origin` is the cell the drag was
+   * grabbed at, so the destination follows the pointer from there.
+   */
+  private beginMove(tab: Tab, source: CellRange, origin: { row: number; col: number }, event: Event): void {
+    this.commitEditor();
+    this.element.classList.remove('move-edge');
+    this.movingRange = { source, origin, delta: { row: 0, col: 0 }, valid: false };
+    this.updateMovePreview(tab);
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  /**
+   * The selected cell under a mouse event when the pointer sits on the
+   * selection's outer border (see `onRangeEdge`), or null. Only RSF
+   * worksheets can move ranges, and never while a cell is being edited.
+   */
+  private moveEdgeHit(tab: Tab, event: MouseEvent): { row: number; col: number } | null {
+    if (tab.doc.kind !== 'rsf' || this.editor !== null || tab.doc !== this.lastDoc) {
+      return null;
+    }
+    const range = this.state.selectedRange(tab);
+    const cellEl = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-row][data-col]');
+    if (!range || !cellEl) {
+      return null;
+    }
+    const rect = cellEl.getBoundingClientRect();
+    if (!(rect.width > 0 && rect.height > 0)) {
+      return null; // not laid out (no geometry to measure the border against)
+    }
+    const row = Number(cellEl.dataset.row);
+    const col = Number(cellEl.dataset.col);
+    const point = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+    return onRangeEdge(range, row, col, point, MOVE_EDGE_PX * this.zoomOf(tab)) ? { row, col } : null;
+  }
+
   /** The current move destination rectangle, or null when nothing is dragging. */
   private moveDest(): CellRange | null {
     if (!this.movingRange) {
@@ -3359,7 +3478,7 @@ export class Grid {
       return;
     }
     const slot = this.state.sortSlot(tab, target.row);
-    if (!(this.stickyEnabled(tab) && slot === 0)) {
+    if (slot >= this.scrollRowBase(tab)) {
       const idx = this.heightIndex(tab);
       const y = idx.offsetOf(slot) - idx.offsetOf(this.scrollRowBase(tab));
       // The scroll area is the grid minus the sticky header (and sticky
@@ -3387,7 +3506,7 @@ export class Grid {
     const overlay = this.overlayHeight(tab);
     // The height index is keyed by display slot, not document row.
     const slot = this.state.sortSlot(tab, row);
-    if (!(this.stickyEnabled(tab) && slot === 0)) {
+    if (slot >= this.scrollRowBase(tab)) {
       const startRow = this.scrollRowBase(tab);
       const y = idx.offsetOf(slot) - idx.offsetOf(startRow);
       const rowH = idx.heightOf(slot);
@@ -3398,12 +3517,16 @@ export class Grid {
         this.element.scrollTop = y + rowH - viewH;
       }
     }
-    if (!(this.stickyColEnabled(tab) && col === 0)) {
-      const x = this.colOffset(tab, col);
+    const frozenCols = this.frozenColCount(tab);
+    if (col >= frozenCols) {
+      // Scrolled columns keep their natural x; the pinned columns cover the
+      // first `frozenW` pixels of the band right of the row numbers.
+      const frozenW = this.frozenColsWidth(tab);
+      const x = this.colOffset(tab, col) - frozenW;
       const w = this.colWidth(tab, col);
       const viewW = this.element.clientWidth - this.overlayWidth(tab);
       if (x < this.element.scrollLeft) {
-        this.element.scrollLeft = x;
+        this.element.scrollLeft = Math.max(0, x);
       } else if (x + w > this.element.scrollLeft + viewW) {
         this.element.scrollLeft = x + w - viewW;
       }

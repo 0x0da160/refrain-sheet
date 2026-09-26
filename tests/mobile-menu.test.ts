@@ -83,6 +83,7 @@ function menuChecks(): MenuChecks {
     wrap: () => false,
     stickyFirstRow: () => false,
     stickyFirstColumn: () => false,
+    freezeAtSelection: () => false,
     sheetFont: () => 'biz-ud',
     theme: () => 'system',
     zoom: () => 100,

@@ -327,6 +327,7 @@ export class WorksheetsState {
     view.zoom = tab.zoom;
     view.colWidths = tab.colWidths.slice();
     view.wrap = tab.wrapCells;
+    view.freeze = tab.freeze;
     doc.activeSheet.displayZoom = tab.zoom;
     doc.activeSheet.displayColWidths = tab.colWidths.slice();
     doc.activeSheet.displayWrap = tab.wrapCells;
@@ -346,6 +347,7 @@ export class WorksheetsState {
     tab.zoom = clampSheetZoom(view.zoom ?? sheet.displayZoom ?? getSheetZoom());
     tab.colWidths = view.colWidths.length > 0 ? view.colWidths.slice() : sheet.displayColWidths.slice();
     tab.wrapCells = view.wrap ?? sheet.displayWrap ?? getWrapCells();
+    tab.freeze = view.freeze;
     tab.tabEntryCol = null;
     this.state.clampSelection(tab);
   }

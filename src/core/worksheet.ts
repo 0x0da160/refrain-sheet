@@ -39,6 +39,16 @@ interface WorksheetPoint {
 }
 
 /**
+ * Rows above / columns left of a split point that stay on screen while the
+ * rest of the grid scrolls ("freeze at the selected cell"). `rows` counts
+ * display rows from the top, `cols` columns from the left; 0 means none.
+ */
+export interface FreezePanes {
+  rows: number;
+  cols: number;
+}
+
+/**
  * Session-only view state remembered per worksheet so switching sheets and
  * coming back restores where you were. It is deliberately *not* part of the
  * saved container: only the presentational settings that RSF documents
@@ -54,6 +64,8 @@ export interface WorksheetView {
   colWidths: number[];
   /** Live "wrap long rows" state while this worksheet is active. */
   wrap: boolean | undefined;
+  /** Rows/columns frozen at a selected cell while this worksheet is active (null: none). */
+  freeze: FreezePanes | null;
 }
 
 /**
@@ -156,6 +168,7 @@ export class Worksheet {
     zoom: undefined,
     colWidths: [],
     wrap: undefined,
+    freeze: null,
   };
 
   /**

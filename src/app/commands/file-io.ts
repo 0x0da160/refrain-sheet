@@ -652,6 +652,8 @@ export class FileIoCommands {
     // cancelled/failed save never mutates the tab's file association.
     if (outcome.handle) {
       tab.handle = outcome.handle;
+      // The picker lets the user type a different file name; the tab follows it.
+      this.state.adoptSavedName(tab, outcome.handle.name);
       if (outcome.mode === 'overwrite') {
         await recordRecentFile(outcome.handle, tab.name);
       }

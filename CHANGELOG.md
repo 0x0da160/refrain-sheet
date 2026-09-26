@@ -37,6 +37,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Sticky at the selected cell.** View > Sticky at Selected Cell keeps
+  every row above and every column left of the selected cell on screen
+  while the rest of the sheet scrolls. Choose it again to release them.
+  Each open file and each worksheet remembers its own setting for the
+  session; Sticky First Row / Sticky First Column still work as before.
+- **Move cells by dragging the selection's border.** In an `.rsf`
+  spreadsheet you can now grab the selected range anywhere along its outer
+  border, not only by the small handle at its top-left corner. The pointer
+  turns into a move cursor over the border.
 - **Paste Values and Paste Formatting.** Edit > Paste Special pastes only
   the copied cells' calculated values, or only their formatting.
   **Ctrl+Shift+V** (Cmd+Shift+V on macOS) pastes the values by default;
@@ -48,6 +57,8 @@ really is internal, rather than inventing an entry to satisfy it.
 - **Number, currency, and percent formats on the Format menu**, beside
   their Ctrl+Shift+1 / 4 / 5 keys.
 - **Ctrl+Enter applies an edit and stays on the cell.**
+- **Protected files show a lock on their file tab**, so you can see which
+  open files are read-only without switching to them.
 
 ### Changed
 
@@ -65,6 +76,12 @@ really is internal, rather than inventing an entry to satisfy it.
   スナップショット became 版, デコードできないバイト became 読み取れない文字,
   アクティブセル became 選択中のセル, and 書式をクリア became 書式を削除.
   フィルター and ブラウザ are now spelled the same way everywhere.
+
+### Fixed
+
+- **The file tab now shows the name you chose when saving.** Typing a new
+  file name in the save dialog (or in File > Save to Drive as…) used to
+  leave the tab with its old name.
 
 ## [0.9.3] - 2026-09-25
 

@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
+import type { CellStyle } from '../core/cell-style';
 import type { CellRange } from '../core/clipboard';
 import {
   copyRows,
   parsePastedText,
   rangeToMarkdownTable,
   rangeToMatrix,
+  rangeToStyleMatrix,
   rangeToTsv,
+  rangeToValueMatrix,
 } from '../core/clipboard';
 import type { AppState, Selection, SelectionKind } from './app-state';
 import type { Commands } from './commands';
@@ -27,8 +30,16 @@ import { asVisualDisplaySource, onScreenGeometry, renderStyledRangeToPng } from 
  * navigator.clipboard API is used for the menu commands where available.
  */
 export class ClipboardController {
-  private internal: { text: string; matrix: string[][]; origin: Selection; kind: SelectionKind } | null =
-    null;
+  private internal: {
+    text: string;
+    matrix: string[][];
+    /** Calculated, unformatted values, for Paste Values. */
+    values: string[][];
+    /** Cell styles (null for a CSV document, which has none), for Paste Formatting. */
+    styles: Array<Array<CellStyle | null>> | null;
+    origin: Selection;
+    kind: SelectionKind;
+  } | null = null;
   /**
    * The full range most recently copied, kept separately from `internal`
    * (which drives paste) purely to drive the grid's animated copy-source
@@ -73,6 +84,8 @@ export class ClipboardController {
     this.internal = {
       text,
       matrix: rangeToMatrix(tab.doc, range, rows),
+      values: rangeToValueMatrix(tab.doc, range, rows),
+      styles: tab.doc.kind === 'rsf' ? rangeToStyleMatrix(tab.doc, range, rows) : null,
       origin: { row: range.top, col: range.left },
       kind: tab.selectionKind,
     };
@@ -315,6 +328,68 @@ export class ClipboardController {
     } catch {
       this.notify(t('notify.clipboardBlocked'), 'warn');
     }
+  }
+
+  /**
+   * Whether the system clipboard still holds the app's own last copy (or
+   * cannot be read, in which case the internal copy is trusted). Text
+   * copied elsewhere since then means the internal copy is stale.
+   */
+  private async internalIsCurrent(): Promise<string | null | true> {
+    let text: string | null = null;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      text = null;
+    }
+    if (this.internal && (text === null || text === '' || text === this.internal.text)) {
+      return true;
+    }
+    return text;
+  }
+
+  /**
+   * Paste Values: the copied cells' calculated values, never their formulas
+   * or formatting. Text copied from elsewhere is already plain values and is
+   * pasted as-is.
+   */
+  async pasteValuesViaApi(): Promise<void> {
+    const tab = this.state.activeTab;
+    if (!tab) {
+      return;
+    }
+    const current = await this.internalIsCurrent();
+    if (current === true && this.internal) {
+      await this.commands.applyPaste(tab, this.internal.values, null);
+      this.clearCopySource();
+      return;
+    }
+    if (typeof current === 'string' && current !== '') {
+      await this.commands.applyPaste(tab, parsePastedText(current), null);
+      this.clearCopySource();
+      return;
+    }
+    this.notify(t('notify.pasteBlocked'), 'warn');
+  }
+
+  /**
+   * Paste Formatting: the copied cells' formatting only. Needs a copy made
+   * in this app from a spreadsheet document, since the system clipboard
+   * carries text alone.
+   */
+  async pasteFormatsViaApi(): Promise<void> {
+    const tab = this.state.activeTab;
+    if (!tab) {
+      return;
+    }
+    const current = await this.internalIsCurrent();
+    const styles = current === true ? this.internal?.styles : null;
+    if (!styles) {
+      this.notify(t('notify.noFormatsToPaste'), 'info');
+      return;
+    }
+    this.commands.pasteStyles(tab, styles);
+    this.clearCopySource();
   }
 
   /** Menu Paste: async clipboard API, falling back to the internal clipboard. */

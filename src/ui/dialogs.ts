@@ -46,6 +46,7 @@ import { SheetOpsDialogs } from './dialogs/sheet-ops';
 import { SqlQueryDialogs } from './dialogs/sql';
 import { DiffDialogs } from './dialogs/diff';
 import { dialogButton, openDialog } from './dialogs/shared';
+import type { LocalSettings } from '../app/settings';
 
 export class Dialogs {
   private readonly appSettings = new AppSettingsDialogs();
@@ -369,8 +370,8 @@ export class Dialogs {
   }
 
   /** See `AppSettingsDialogs.chooseSettings` for the full behavior contract. */
-  chooseSettings(currentMaxFileSize: number): Promise<number | null> {
-    return this.appSettings.chooseSettings(currentMaxFileSize);
+  chooseSettings(current: LocalSettings): Promise<LocalSettings | null> {
+    return this.appSettings.chooseSettings(current);
   }
 
   /** See `AppSettingsDialogs.chooseTimezone` for the full behavior contract. */

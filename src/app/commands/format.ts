@@ -5,6 +5,7 @@ import {
   BORDER_STYLE_KEY,
   BORDER_WIDTH_KEY,
   cellStylesEqual,
+  type CellStyle,
   type BorderSide,
   type CellStylePatch,
   type NumberFormat,
@@ -192,6 +193,60 @@ export class FormatCommands {
           ? { kind: 'percent', decimals: 0, thousands: false }
           : { kind: 'currency', decimals: yen ? 0 : 2, thousands: true, currencySymbol: yen ? '¥' : '$' };
     return this.applyToSelection(tab, { numberFormat: format }, 'history.setNumberFormat');
+  }
+
+  /**
+   * Paste Formatting: give the selection the copied cells' styles (values
+   * untouched), as one undoable entry. Like a paste, it starts at the
+   * selection's top-left cell and repeats the copied pattern over a larger
+   * selection whose size is an exact multiple of it. Cells past the sheet's
+   * current edge and rows hidden by a filter are skipped.
+   */
+  pasteStyles(tab: Tab, styles: ReadonlyArray<ReadonlyArray<CellStyle | null>>): boolean {
+    const doc = tab.doc;
+    const dest = this.state.selectedRange(tab);
+    if (doc.kind !== 'rsf' || !dest || styles.length === 0 || styles[0].length === 0) {
+      return false;
+    }
+    const srcH = styles.length;
+    const srcW = styles[0].length;
+    const destH = dest.bottom - dest.top + 1;
+    const destW = dest.right - dest.left + 1;
+    const tile = (destH > srcH || destW > srcW) && destH % srcH === 0 && destW % srcW === 0;
+    const height = Math.min(tile ? destH : srcH, doc.rowCount - dest.top);
+    const width = Math.min(tile ? destW : srcW, doc.columnCount - dest.left);
+    const hidden = this.state.hiddenRows(tab);
+    const sheetId = doc.activeSheetId;
+    const changes: StyleChange[] = [];
+    for (let i = 0; i < height; i++) {
+      const row = dest.top + i;
+      if (hidden?.has(row)) {
+        continue;
+      }
+      for (let j = 0; j < width; j++) {
+        const col = dest.left + j;
+        const before = doc.getStyle(row, col);
+        const after = styles[i % srcH][j % srcW];
+        if (!cellStylesEqual(before, after)) {
+          changes.push({ row, col, before, after });
+        }
+      }
+    }
+    if (height > 0 && width > 0) {
+      this.state.setSelection(
+        tab,
+        { row: dest.top, col: dest.left },
+        { row: dest.top + height - 1, col: dest.left + width - 1 },
+      );
+    }
+    if (changes.length === 0) {
+      return false;
+    }
+    return this.state.pushEntry(tab, {
+      label: 'history.pasteFormats',
+      sheetId,
+      ops: [{ type: 'styles', changes, sheetId }],
+    });
   }
 
   /** Remove every style property from the selection (values are untouched). */

@@ -4,6 +4,7 @@ import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import { isGridSurface, LARGE_OP_CELLS, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { getEditHints, nextZoomLevel } from '../app/settings';
+import { dateStampKeyOf, localDateStamp } from '../app/shortcuts';
 import {
   BORDER_WIDTH_PX,
   borderSideValue,
@@ -26,6 +27,7 @@ import { onKeyboardOpenChange, onKeyboardResize } from './popup';
 import { centeredScrollOffset } from './grid/center-scroll';
 import { FormulaAutocomplete, FormulaFieldRef, isRefToggleKey } from './formula-autocomplete';
 import { findDataEdge } from './grid/data-edge';
+import { pageStep } from './grid/page-step';
 import type { FormulaLivePreview } from './formula-bar';
 import { beginsTextEntry, isComposingKey } from './ime';
 import { createIcon } from './icon';
@@ -3370,6 +3372,13 @@ export class Grid {
     this.scrollCellIntoView(tab, target.row, target.col);
   }
 
+  /** Rows one PageUp / PageDown moves: a screenful at the selected row's height. */
+  private pageRows(tab: Tab): number {
+    const slot = this.state.sortSlot(tab, tab.selection?.row ?? 0);
+    const viewH = this.element.clientHeight - this.overlayHeight(tab);
+    return pageStep(viewH, this.heightIndex(tab).heightOf(slot));
+  }
+
   /** `renderIfUnmoved: false` skips the repaint when the cell was already in view. */
   private scrollCellIntoView(tab: Tab, row: number, col: number, renderIfUnmoved = true): void {
     const scrollTop = this.element.scrollTop;
@@ -3651,14 +3660,16 @@ export class Grid {
       event.stopPropagation();
       return;
     }
-    if (event.key === 'Enter' && event.altKey) {
-      // Insert a literal newline at the caret (replacing any selection); this
-      // never commits, navigates, or opens a menu.
+    // Alt+Enter inserts a literal newline, Ctrl+; / Ctrl+Shift+; today's
+    // date / the current time, at the caret (replacing any selection); none
+    // of them commits, navigates, or opens a menu.
+    const stamp = dateStampKeyOf(event);
+    if ((event.key === 'Enter' && event.altKey) || stamp) {
       event.preventDefault();
       event.stopPropagation();
       const start = input.selectionStart ?? input.value.length;
       const end = input.selectionEnd ?? input.value.length;
-      input.setRangeText('\n', start, end, 'end');
+      input.setRangeText(stamp ? localDateStamp(stamp) : '\n', start, end, 'end');
       editor.autocomplete.update();
       editor.updateRefs();
       return;
@@ -3674,7 +3685,8 @@ export class Grid {
       event.preventDefault();
       event.stopPropagation();
       this.commitEditor();
-      if (tab) {
+      // Ctrl+Enter (Cmd+Enter) commits and stays on the cell.
+      if (tab && !event.ctrlKey && !event.metaKey) {
         this.moveSelection(tab, event.shiftKey ? -1 : 1, 0, false, 'enter');
       }
     } else if (event.key === 'Tab') {
@@ -3903,11 +3915,11 @@ export class Grid {
         return;
       case 'PageDown':
         event.preventDefault();
-        this.moveSelection(tab, 20, 0, extend);
+        this.moveSelection(tab, this.pageRows(tab), 0, extend);
         return;
       case 'PageUp':
         event.preventDefault();
-        this.moveSelection(tab, -20, 0, extend);
+        this.moveSelection(tab, -this.pageRows(tab), 0, extend);
         return;
       case 'Home':
         event.preventDefault();

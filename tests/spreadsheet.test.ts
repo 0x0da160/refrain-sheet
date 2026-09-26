@@ -198,6 +198,66 @@ describe('copy / paste', () => {
     expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
   });
 
+  it('Paste Values pastes calculated values, not formulas or number formats', async () => {
+    const { state, commands, tab } = await converted('1000,2\n3,4\n');
+    state.editCell(tab, 1, 1, '=A1+B1');
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.run('format.presetNumber');
+    state.setSelection(tab, { row: 1, col: 1 }, { row: 0, col: 0 });
+    const clip = new ClipboardController(state, commands, () => undefined, document);
+    clip.copyText();
+    state.setSelection(tab, { row: 0, col: 2 }, null);
+    vi.stubGlobal('navigator', { clipboard: { readText: async () => Promise.reject(new Error('blocked')) } });
+    try {
+      await clip.pasteValuesViaApi();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(tab.doc.getValue(0, 2)).toBe('1000');
+    expect(tab.doc.getValue(1, 3)).toBe('1002');
+    state.undo(tab);
+    expect(tab.doc.getValue(1, 3)).toBe('');
+  });
+
+  it('Paste Formatting copies styles only, as one undo step', async () => {
+    const { state, commands, tab } = await converted('a,b\nc,d\n');
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.run('format.bold');
+    const clip = new ClipboardController(state, commands, () => undefined, document);
+    clip.copyText();
+    state.setSelection(tab, { row: 1, col: 1 }, { row: 1, col: 0 });
+    vi.stubGlobal('navigator', { clipboard: { readText: async () => 'a' } });
+    try {
+      await clip.pasteFormatsViaApi();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    const rsf = tab.doc as RsfDocument;
+    // A 1x1 copy repeats over the 1x2 selection; values are untouched.
+    expect(rsf.getStyle(1, 0)?.bold).toBe(true);
+    expect(rsf.getStyle(1, 1)?.bold).toBe(true);
+    expect(rsf.getValue(1, 0)).toBe('c');
+    state.undo(tab);
+    expect(rsf.getStyle(1, 0)?.bold ?? false).toBe(false);
+    expect(rsf.getStyle(1, 1)?.bold ?? false).toBe(false);
+  });
+
+  it('Paste Formatting says so when there is nothing to paste', async () => {
+    const { state, commands, tab } = await converted('a,b\n');
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    const notify = vi.fn();
+    const clip = new ClipboardController(state, commands, notify, document);
+    clip.copyText();
+    // The system clipboard now holds text copied elsewhere.
+    vi.stubGlobal('navigator', { clipboard: { readText: async () => 'other' } });
+    try {
+      await clip.pasteFormatsViaApi();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'info');
+  });
+
   it('anchors a paste at the top-left cell of the selected range, not the active cell', async () => {
     const { state, commands, tab } = setup('a,b,c\nd,e,f\ng,h,i\n');
     // Drag from C3 back to B2: the active cell is C3, the range B2:C3.

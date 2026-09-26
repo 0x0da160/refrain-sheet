@@ -5,7 +5,7 @@ import { ClipboardController } from './app/clipboard-controller';
 import { Commands, type UiPort } from './app/commands';
 import { warnProtectedAndOfferUnlock } from './app/commands/shared';
 import { getLocale, initLocale, onLocaleChange, t } from './app/i18n';
-import { getAutoFitOnOpen, getEditHints, getSheetZoom } from './app/settings';
+import { getAutoFitOnOpen, getEditHints, getShiftPasteMode, getSheetZoom } from './app/settings';
 import { applySheetFont, getSheetFont } from './app/sheet-font';
 import { resolveShortcut } from './app/shortcuts';
 import { applyTheme, getTheme } from './app/theme';
@@ -203,6 +203,8 @@ function bootstrap(): void {
     copyScreenshot: () => clipboard.copyScreenshotAsPng(),
     copyAsMarkdown: () => clipboard.copyMarkdownTable(),
     paste: () => clipboard.pasteViaApi(),
+    pasteValues: () => clipboard.pasteValuesViaApi(),
+    pasteFormats: () => clipboard.pasteFormatsViaApi(),
     getCopied: () => clipboard.getCopied(),
     copiedKind: () => clipboard.copiedKind(),
   };
@@ -463,6 +465,7 @@ function bootstrap(): void {
         // Select All is only owned while the grid itself is focused (never a
         // text field or the rest of the page — the browser keeps Ctrl+A there).
         inGrid: grid.isNavigating(),
+        shiftPaste: getShiftPasteMode(),
       },
     );
     if (!command) {

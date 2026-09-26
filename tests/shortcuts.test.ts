@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import {
+  dateStampKeyOf,
   displayShortcut,
+  displayShortcutKeys,
   isMacPlatform,
+  localDateStamp,
   resolveShortcut,
-  SHORTCUT_DOCS,
+  SHORTCUT_GROUPS,
   type ShortcutContext,
   type ShortcutKey,
 } from '../src/app/shortcuts';
@@ -84,21 +87,79 @@ describe('resolveShortcut — IME and modifiers', () => {
   });
 });
 
-describe('SHORTCUT_DOCS', () => {
-  it('every documented shortcut has a description in both locales', () => {
-    for (const { descKey } of SHORTCUT_DOCS) {
-      expect(CATALOGS.en[descKey], `missing en ${descKey}`).toBeTruthy();
-      expect(CATALOGS.ja[descKey], `missing ja ${descKey}`).toBeTruthy();
+describe('SHORTCUT_GROUPS', () => {
+  const rows = SHORTCUT_GROUPS.flatMap((g) => g.items);
+
+  it('every group and documented shortcut has text in both locales', () => {
+    for (const key of [...SHORTCUT_GROUPS.map((g) => g.titleKey), ...rows.map((r) => r.descKey)]) {
+      expect(CATALOGS.en[key], `missing en ${key}`).toBeTruthy();
+      expect(CATALOGS.ja[key], `missing ja ${key}`).toBeTruthy();
     }
   });
 
   it('does not advertise any browser-reserved accelerator', () => {
-    const joined = SHORTCUT_DOCS.map((s) => s.keys).join(' | ');
+    const joined = rows.flatMap((r) => r.keys).join(' | ');
     expect(joined).not.toMatch(/Ctrl\+N\b/);
     expect(joined).not.toMatch(/Ctrl\+T\b/);
     expect(joined).not.toMatch(/Ctrl\+W\b/);
     expect(joined).not.toMatch(/Ctrl\+Tab/);
     expect(joined).not.toMatch(/Ctrl\+PageDown\b/);
+  });
+
+  it("shows only the current platform's keys, without duplicates", () => {
+    expect(displayShortcutKeys(['Ctrl+Y', 'Ctrl+Shift+Z'], false)).toBe('Ctrl+Y / Ctrl+Shift+Z');
+    expect(displayShortcutKeys(['Ctrl+Y', 'Ctrl+Shift+Z'], true)).toBe('Cmd+Shift+Z');
+    expect(displayShortcutKeys(['Ctrl+H'], true)).toBe('Cmd+Shift+H');
+    expect(displayShortcutKeys(['Alt+Enter'], true)).toBe('Option+Enter');
+    expect(displayShortcutKeys(['Ctrl+Shift+4'], true)).toBe('Ctrl+Shift+4');
+  });
+});
+
+describe('resolveShortcut — Paste Special and date/time keys', () => {
+  const IN_GRID: ShortcutContext = { ...GRID, inGrid: true };
+
+  it('Ctrl+Shift+V pastes values by default and formatting when set', () => {
+    const v = key({ key: 'V', ctrlKey: true, shiftKey: true });
+    expect(resolveShortcut(v, IN_GRID)).toBe('edit.pasteValues');
+    expect(resolveShortcut(v, { ...IN_GRID, shiftPaste: 'values' })).toBe('edit.pasteValues');
+    expect(resolveShortcut(v, { ...IN_GRID, shiftPaste: 'formats' })).toBe('edit.pasteFormats');
+    expect(resolveShortcut(key({ key: 'V', metaKey: true, shiftKey: true }), IN_GRID)).toBe(
+      'edit.pasteValues',
+    );
+  });
+
+  it('leaves Ctrl+Shift+V to text fields and the rest of the page', () => {
+    const v = key({ key: 'V', ctrlKey: true, shiftKey: true });
+    expect(resolveShortcut(v, FIELD)).toBeNull();
+    expect(resolveShortcut(v, { ...GRID, inGrid: false })).toBeNull();
+  });
+
+  it('Ctrl+; enters the date and Ctrl+Shift+; the time on US and Japanese layouts', () => {
+    expect(resolveShortcut(key({ key: ';', ctrlKey: true }), IN_GRID)).toBe('edit.insertDate');
+    // US: Shift+; produces ":" (some browsers report ";" while Cmd is held).
+    expect(resolveShortcut(key({ key: ':', ctrlKey: true, shiftKey: true }), IN_GRID)).toBe(
+      'edit.insertTime',
+    );
+    expect(resolveShortcut(key({ key: ';', metaKey: true, shiftKey: true }), IN_GRID)).toBe(
+      'edit.insertTime',
+    );
+    // Japanese: ":" has its own key.
+    expect(resolveShortcut(key({ key: ':', ctrlKey: true }), IN_GRID)).toBe('edit.insertTime');
+    // Japanese Shift+; produces "+", the browser's zoom-in: never taken.
+    expect(resolveShortcut(key({ key: '+', ctrlKey: true, shiftKey: true }), IN_GRID)).toBeNull();
+  });
+
+  it('leaves Ctrl+; outside the grid to the browser', () => {
+    expect(resolveShortcut(key({ key: ';', ctrlKey: true }), FIELD)).toBeNull();
+    expect(resolveShortcut(key({ key: ';', ctrlKey: true }), { ...GRID, inGrid: false })).toBeNull();
+    expect(dateStampKeyOf(key({ key: ';', ctrlKey: true, altKey: true }))).toBeNull();
+    expect(dateStampKeyOf(key({ key: ';' }))).toBeNull();
+  });
+
+  it('stamps the device clock as ISO date and 24-hour time', () => {
+    const now = new Date(2026, 8, 5, 7, 3, 59);
+    expect(localDateStamp('date', now)).toBe('2026-09-05');
+    expect(localDateStamp('time', now)).toBe('07:03');
   });
 });
 

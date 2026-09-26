@@ -1,4 +1,6 @@
 import {
+  CalendarClock,
+  ClipboardPaste,
   Cloud,
   ArrowLeftRight,
   Check,
@@ -19,7 +21,7 @@ import {
 } from 'lucide';
 import type { CommandId, Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
-import { SHEET_ZOOM_LEVELS } from '../app/settings';
+import { getShiftPasteMode, SHEET_ZOOM_LEVELS, type ShiftPasteMode } from '../app/settings';
 import { displayShortcut, isMacPlatform } from '../app/shortcuts';
 import { SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../app/sheet-font';
 import { THEMES, themeLabelKey, type ThemeChoice } from '../app/theme';
@@ -32,6 +34,15 @@ import { onViewportResize, positionPopup, type AnchorRect } from './popup';
 /** Menu shortcut labels name Cmd instead of Ctrl on macOS. */
 const IS_MAC = isMacPlatform();
 
+function shortcutLabel(shortcut: MenuItemDef['shortcut']): string {
+  const keys = typeof shortcut === 'function' ? shortcut() : shortcut;
+  return keys ? displayShortcut(keys, IS_MAC) : '';
+}
+
+/** Ctrl+Shift+V labels whichever Paste Special command the setting gives it. */
+const shiftPasteShortcut = (mode: ShiftPasteMode) => (): string | undefined =>
+  getShiftPasteMode() === mode ? 'Ctrl+Shift+V' : undefined;
+
 export interface MenuItemDef {
   /**
    * Usually a fixed i18n key. Some items' wording depends on live state
@@ -43,7 +54,8 @@ export interface MenuItemDef {
   labelKey: string | (() => string);
   /** Omitted for a non-interactive group heading (see `heading`). */
   command?: CommandId;
-  shortcut?: string;
+  /** Written the Windows/Linux way; a getter when it depends on a setting. */
+  shortcut?: string | (() => string | undefined);
   checked?: () => boolean;
   /** Render as a non-interactive group heading instead of a command item. */
   heading?: boolean;
@@ -158,6 +170,22 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // way Insert Copied's three variants are below (#518).
         { labelKey: 'menu.edit.copyAs', icon: ClipboardCopy, submenu: copyAsItems() },
         { labelKey: 'menu.edit.paste', command: 'edit.paste', shortcut: 'Ctrl+V' },
+        {
+          labelKey: 'menu.edit.pasteSpecial',
+          icon: ClipboardPaste,
+          submenu: [
+            {
+              labelKey: 'menu.edit.pasteValues',
+              command: 'edit.pasteValues',
+              shortcut: shiftPasteShortcut('values'),
+            },
+            {
+              labelKey: 'menu.edit.pasteFormats',
+              command: 'edit.pasteFormats',
+              shortcut: shiftPasteShortcut('formats'),
+            },
+          ],
+        },
         // Ctrl+A is owned only while the grid itself has focus (never inside
         // text fields or the rest of the page — the browser keeps it there).
         { labelKey: 'menu.edit.selectAll', command: 'edit.selectAll', shortcut: 'Ctrl+A' },
@@ -177,6 +205,14 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         },
         { labelKey: 'menu.edit.fillDown', command: 'edit.fillDown', shortcut: 'Ctrl+D' },
         { labelKey: 'menu.edit.flashFill', command: 'edit.flashFill', shortcut: 'Ctrl+E' },
+        {
+          labelKey: 'menu.edit.insertDateTime',
+          icon: CalendarClock,
+          submenu: [
+            { labelKey: 'menu.edit.insertDate', command: 'edit.insertDate', shortcut: 'Ctrl+;' },
+            { labelKey: 'menu.edit.insertTime', command: 'edit.insertTime', shortcut: 'Ctrl+Shift+;' },
+          ],
+        },
         // Move Selected Cells is the keyboard-accessible equivalent of dragging
         // the selection border; RSF-only (the command explains the required
         // conversion on a CSV tab). No shortcut by design — it opens a
@@ -246,6 +282,13 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.format.colorAndBorders', icon: SwatchBook, submenu: colorAndBordersItems() },
         { labelKey: 'menu.format.numberFormat', command: 'format.numberFormat' },
+        { labelKey: 'menu.format.presetNumber', command: 'format.presetNumber', shortcut: 'Ctrl+Shift+1' },
+        {
+          labelKey: 'menu.format.presetCurrency',
+          command: 'format.presetCurrency',
+          shortcut: 'Ctrl+Shift+4',
+        },
+        { labelKey: 'menu.format.presetPercent', command: 'format.presetPercent', shortcut: 'Ctrl+Shift+5' },
         'separator',
         { labelKey: 'menu.format.conditionalFormatting', command: 'format.conditionalFormatting' },
         'separator',
@@ -773,7 +816,7 @@ export class MenuBar {
           el('span', { className: 'label', text: label }),
           el('span', {
             className: 'shortcut',
-            text: item.shortcut ? displayShortcut(item.shortcut, IS_MAC) : '',
+            text: shortcutLabel(item.shortcut),
           }),
         ],
       );

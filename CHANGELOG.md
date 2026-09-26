@@ -35,6 +35,28 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- **Paste Values and Paste Formatting.** Edit > Paste Special pastes only
+  the copied cells' calculated values, or only their formatting.
+  **Ctrl+Shift+V** (Cmd+Shift+V on macOS) pastes the values by default;
+  File > Settings… can switch it to formatting.
+- **Enter today's date or the current time.** **Ctrl+;** enters today's
+  date and **Ctrl+Shift+;** (Ctrl+: on a Japanese keyboard) the current
+  time, as `2026-09-25` and `13:45`, into the cell or at the cursor while
+  editing. Also under Edit > Enter Date or Time.
+- **Number, currency, and percent formats on the Format menu**, beside
+  their Ctrl+Shift+1 / 4 / 5 keys.
+- **Ctrl+Enter applies an edit and stays on the cell.**
+
+### Changed
+
+- **PageUp and PageDown move one screen** instead of a fixed 20 rows.
+- **The keyboard shortcut list is grouped by task** and shows only the keys
+  for your system (Cmd on macOS). It now also lists Ctrl+Enter, Alt+Enter,
+  Delete / Backspace, Home / End, PageUp / PageDown, and Alt+Down (filter
+  menu).
+
 ## [0.9.3] - 2026-09-25
 
 ### Added

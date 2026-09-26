@@ -12,7 +12,7 @@
  * whole file is held in memory while editing), the application-level
  * spreadsheet zoom (used for documents that do not carry their own — RSF
  * documents persist zoom in their container and take precedence), and the
- * editing-help tooltip preference.
+ * editing-help tooltip preference, and what Ctrl+Shift+V pastes.
  */
 
 import { RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../core/rsf-codec';
@@ -224,6 +224,37 @@ export function getSuppressHistoryCapWarning(): boolean {
 /** Persist the suppress-history-cap-warning preference locally. */
 export function setSuppressHistoryCapWarning(suppress: boolean): void {
   safeStorageSet(SUPPRESS_HISTORY_CAP_WARNING_KEY, suppress ? '1' : '0');
+}
+
+// ---------------------------------------------------------------------------
+// Ctrl+Shift+V paste mode
+// ---------------------------------------------------------------------------
+
+/**
+ * What Ctrl+Shift+V (Cmd+Shift+V) pastes: only the copied cells' values
+ * (**default**), or only their formatting. Spreadsheets disagree on this key, so
+ * it is a preference; both commands stay on the Edit > Paste Special menu
+ * whichever one the key runs.
+ */
+export type ShiftPasteMode = 'formats' | 'values';
+
+const SHIFT_PASTE_KEY = 'refrain-csv-html.shiftPaste';
+
+/** The Ctrl+Shift+V preference; anything unrecognized reads as the default. */
+export function getShiftPasteMode(): ShiftPasteMode {
+  return safeStorageGet(SHIFT_PASTE_KEY) === 'formats' ? 'formats' : 'values';
+}
+
+/** Persist the Ctrl+Shift+V preference locally. */
+export function setShiftPasteMode(mode: ShiftPasteMode): void {
+  safeStorageSet(SHIFT_PASTE_KEY, mode);
+}
+
+/** The values the Settings… dialog edits. */
+export interface LocalSettings {
+  /** Maximum file size to open, in bytes. */
+  maxFileSize: number;
+  shiftPaste: ShiftPasteMode;
 }
 
 /** Bytes -> whole MiB (rounded), for display and number inputs. */

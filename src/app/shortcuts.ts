@@ -19,7 +19,7 @@
  *   Ctrl+E (Flash Fill). The grid is virtualized, so the browser's own find
  *   cannot see rows outside the viewport anyway; the browser's find stays
  *   reachable from its own menu.
- * - Commands whose conventional key the browser keeps (New, Close Tab)
+ * - Commands whose conventional key the browser keeps (New, Close File)
  *   have no shortcut rather than an unusual one; sheet switching uses
  *   Ctrl+Alt+PageDown/PageUp because plain Ctrl+PageDown/PageUp is browser
  *   tab switching. See
@@ -35,6 +35,7 @@
  * DOM. `main.ts` computes the context and calls `preventDefault()` + runs the
  * command only when a command is returned and the event is cancelable.
  */
+import { dateStamp, type DateStampKind } from '../core/date-stamp';
 import type { CommandId } from './commands';
 
 export interface ShortcutContext {
@@ -57,6 +58,11 @@ export interface ShortcutContext {
    * All is never intercepted.
    */
   inGrid?: boolean;
+  /**
+   * What Ctrl+Shift+V pastes (the user's setting): only the values
+   * (default) or only the formatting.
+   */
+  shiftPaste?: 'formats' | 'values';
 }
 
 /** The subset of `KeyboardEvent` the resolver reads (keeps it DOM-free/testable). */
@@ -129,6 +135,21 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
     }
     if (key === 'e' && !event.shiftKey) {
       return 'edit.flashFill';
+    }
+    // Today's date (Ctrl+;) / the current time (Ctrl+Shift+;) into the
+    // active cell, while the grid has focus. The cell editor and formula bar
+    // insert them at the caret themselves (see `dateStampKeyOf`); everywhere
+    // else the key stays the browser's (on a Japanese layout Ctrl+; is also
+    // a zoom-in key).
+    const stamp = dateStampKeyOf(event);
+    if (stamp && ctx.inGrid === true && !ctx.inTextField) {
+      return stamp === 'date' ? 'edit.insertDate' : 'edit.insertTime';
+    }
+    // Paste Formatting / Paste Values (Ctrl+Shift+V, per the user's
+    // setting), while the grid has focus. Text fields keep the browser's
+    // paste-as-plain-text.
+    if (key === 'v' && event.shiftKey && ctx.inGrid === true && !ctx.inTextField) {
+      return ctx.shiftPaste === 'formats' ? 'edit.pasteFormats' : 'edit.pasteValues';
     }
     // Keyboard shortcut list (Ctrl+/). Not a browser key; works anywhere.
     if (key === '/' && !event.shiftKey) {
@@ -222,60 +243,134 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
   return null;
 }
 
-/** One row of the human-readable shortcut reference (About dialog, README, Help). */
-export interface ShortcutDoc {
-  keys: string;
+/**
+ * Ctrl+; (today's date) or Ctrl+Shift+; (the current time), read from the
+ * character the key produces: `;` for the date, `:` for the time. On a US
+ * layout `:` is Shift+; and on a Japanese layout it has its own key, so both
+ * get the conventional pair. Ctrl+Shift+; on a Japanese layout produces `+`
+ * and stays the browser's zoom-in.
+ */
+export function dateStampKeyOf(event: ShortcutKey): DateStampKind | null {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+    return null;
+  }
+  if (event.key === ';') {
+    // Some browsers report the unshifted character while Cmd is held.
+    return event.shiftKey ? 'time' : 'date';
+  }
+  return event.key === ':' ? 'time' : null;
+}
+
+/** Today's date or the current time on this device's clock, as cell text. */
+export function localDateStamp(kind: DateStampKind, now: Date = new Date()): string {
+  return dateStamp(kind, now.getTime(), -now.getTimezoneOffset() * 60_000);
+}
+
+/** One row of the keyboard shortcut list (Help > Keyboard Shortcuts). */
+interface ShortcutDoc {
+  /** Alternative keys, written the Windows/Linux way (see {@link displayShortcutKeys}). */
+  keys: readonly string[];
   descKey: string;
 }
 
+/** A titled group of rows in the keyboard shortcut list. */
+export interface ShortcutGroup {
+  titleKey: string;
+  items: readonly ShortcutDoc[];
+}
+
 /**
- * The canonical shortcut map, shown in the About dialog and mirrored in the
- * README. Cut/Copy/Paste are handled through native clipboard events (not the
- * resolver) but are listed here for completeness.
+ * The keyboard shortcut list, grouped by task. Cut/Copy/Paste are handled
+ * through native clipboard events (not the resolver) and the movement keys
+ * by the grid, but all are listed so the list is complete.
  */
-export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
-  { keys: 'F4', descKey: 'shortcut.refToggle' },
-  { keys: 'Ctrl+O / Cmd+O', descKey: 'shortcut.open' },
-  { keys: 'Ctrl+S / Cmd+S', descKey: 'shortcut.save' },
-  { keys: 'Ctrl+Shift+S / Cmd+Shift+S', descKey: 'shortcut.saveOptions' },
-  { keys: 'Ctrl+Alt+PageDown', descKey: 'shortcut.nextSheet' },
-  { keys: 'Ctrl+Alt+PageUp', descKey: 'shortcut.prevSheet' },
-  { keys: 'Shift+F11', descKey: 'shortcut.addSheet' },
-  { keys: 'Ctrl+Z / Cmd+Z', descKey: 'shortcut.undo' },
-  { keys: 'Ctrl+Y, Ctrl+Shift+Z / Cmd+Shift+Z', descKey: 'shortcut.redo' },
-  { keys: 'Ctrl+X / Cmd+X', descKey: 'shortcut.cut' },
-  { keys: 'Ctrl+C / Cmd+C', descKey: 'shortcut.copy' },
-  { keys: 'Ctrl+V / Cmd+V', descKey: 'shortcut.paste' },
-  { keys: 'Ctrl+A / Cmd+A', descKey: 'shortcut.selectAll' },
-  { keys: 'Ctrl+D / Cmd+D', descKey: 'shortcut.fillDown' },
-  { keys: 'Ctrl+B / Cmd+B', descKey: 'shortcut.bold' },
-  { keys: 'Ctrl+I / Cmd+I', descKey: 'shortcut.italic' },
-  { keys: 'Ctrl+U / Cmd+U', descKey: 'shortcut.underline' },
-  { keys: 'Ctrl+\\ / Cmd+\\', descKey: 'shortcut.clearFormatting' },
-  { keys: 'Ctrl+Shift+1', descKey: 'shortcut.formatNumber' },
-  { keys: 'Ctrl+Shift+4', descKey: 'shortcut.formatCurrency' },
-  { keys: 'Ctrl+Shift+5', descKey: 'shortcut.formatPercent' },
-  { keys: 'Ctrl+F / Cmd+F', descKey: 'shortcut.find' },
-  // macOS reserves Cmd+H (Hide), so Cmd+Shift+H is the Mac key for Replace.
-  { keys: 'Ctrl+H / Cmd+Shift+H', descKey: 'shortcut.replace' },
-  { keys: 'F3 / Shift+F3', descKey: 'shortcut.findNextPrevKeys' },
-  { keys: 'Ctrl+G / Cmd+G', descKey: 'shortcut.goToCell' },
-  { keys: 'Ctrl+E / Cmd+E', descKey: 'shortcut.flashFill' },
-  { keys: 'F9', descKey: 'shortcut.recalculate' },
-  { keys: 'Ctrl+Shift+. / Cmd+Shift+.', descKey: 'shortcut.zoomIn' },
-  { keys: 'Ctrl+Shift+, / Cmd+Shift+,', descKey: 'shortcut.zoomOut' },
-  { keys: 'Ctrl+Shift+0 / Cmd+Shift+0', descKey: 'shortcut.zoomReset' },
-  { keys: 'Ctrl+Wheel / Cmd+Wheel', descKey: 'shortcut.zoomWheel' },
-  { keys: 'Enter / Shift+Enter', descKey: 'shortcut.findNextPrev' },
-  { keys: 'F2', descKey: 'shortcut.editCell' },
-  { keys: 'Enter / Shift+Enter', descKey: 'shortcut.commitDown' },
-  { keys: 'Tab / Shift+Tab', descKey: 'shortcut.moveRightLeft' },
-  { keys: 'Shift+Arrows', descKey: 'shortcut.extendSelection' },
-  { keys: 'Ctrl+Arrows / Cmd+Arrows', descKey: 'shortcut.dataEdge' },
-  { keys: 'Ctrl+Home / Cmd+Home', descKey: 'shortcut.jumpToStart' },
-  { keys: 'Ctrl+End / Cmd+End', descKey: 'shortcut.jumpToEnd' },
-  { keys: 'Esc', descKey: 'shortcut.cancelEdit' },
-  { keys: 'Ctrl+/ / Cmd+/', descKey: 'shortcut.list' },
+export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
+  {
+    titleKey: 'shortcut.group.file',
+    items: [
+      { keys: ['Ctrl+O'], descKey: 'shortcut.open' },
+      { keys: ['Ctrl+S'], descKey: 'shortcut.save' },
+      { keys: ['Ctrl+Shift+S'], descKey: 'shortcut.saveOptions' },
+    ],
+  },
+  {
+    titleKey: 'shortcut.group.edit',
+    items: [
+      { keys: ['F2'], descKey: 'shortcut.editCell' },
+      { keys: ['Enter', 'Shift+Enter'], descKey: 'shortcut.commitDown' },
+      { keys: ['Tab', 'Shift+Tab'], descKey: 'shortcut.moveRightLeft' },
+      { keys: ['Ctrl+Enter'], descKey: 'shortcut.commitStay' },
+      { keys: ['Alt+Enter'], descKey: 'shortcut.newLine' },
+      { keys: ['Esc'], descKey: 'shortcut.cancelEdit' },
+      { keys: ['F4'], descKey: 'shortcut.refToggle' },
+      { keys: ['Delete', 'Backspace'], descKey: 'shortcut.clearCells' },
+      { keys: ['Ctrl+;'], descKey: 'shortcut.insertDate' },
+      { keys: ['Ctrl+Shift+;'], descKey: 'shortcut.insertTime' },
+      { keys: ['Ctrl+Z'], descKey: 'shortcut.undo' },
+      { keys: ['Ctrl+Y', 'Ctrl+Shift+Z'], descKey: 'shortcut.redo' },
+      { keys: ['Ctrl+X'], descKey: 'shortcut.cut' },
+      { keys: ['Ctrl+C'], descKey: 'shortcut.copy' },
+      { keys: ['Ctrl+V'], descKey: 'shortcut.paste' },
+      { keys: ['Ctrl+Shift+V'], descKey: 'shortcut.pasteSpecial' },
+      { keys: ['Ctrl+D'], descKey: 'shortcut.fillDown' },
+      { keys: ['Ctrl+E'], descKey: 'shortcut.flashFill' },
+    ],
+  },
+  {
+    titleKey: 'shortcut.group.move',
+    items: [
+      { keys: ['Arrows'], descKey: 'shortcut.moveCell' },
+      { keys: ['Shift+Arrows'], descKey: 'shortcut.extendSelection' },
+      { keys: ['Ctrl+Arrows'], descKey: 'shortcut.dataEdge' },
+      { keys: ['Home', 'End'], descKey: 'shortcut.rowStartEnd' },
+      { keys: ['Ctrl+Home'], descKey: 'shortcut.jumpToStart' },
+      { keys: ['Ctrl+End'], descKey: 'shortcut.jumpToEnd' },
+      { keys: ['PageUp', 'PageDown'], descKey: 'shortcut.page' },
+      { keys: ['Ctrl+A'], descKey: 'shortcut.selectAll' },
+      { keys: ['Ctrl+G'], descKey: 'shortcut.goToCell' },
+      { keys: ['Alt+Down'], descKey: 'shortcut.filterMenu' },
+    ],
+  },
+  {
+    titleKey: 'shortcut.group.format',
+    items: [
+      { keys: ['Ctrl+B'], descKey: 'shortcut.bold' },
+      { keys: ['Ctrl+I'], descKey: 'shortcut.italic' },
+      { keys: ['Ctrl+U'], descKey: 'shortcut.underline' },
+      { keys: ['Ctrl+Shift+1'], descKey: 'shortcut.formatNumber' },
+      { keys: ['Ctrl+Shift+4'], descKey: 'shortcut.formatCurrency' },
+      { keys: ['Ctrl+Shift+5'], descKey: 'shortcut.formatPercent' },
+      { keys: ['Ctrl+\\'], descKey: 'shortcut.clearFormatting' },
+    ],
+  },
+  {
+    titleKey: 'shortcut.group.search',
+    items: [
+      { keys: ['Ctrl+F'], descKey: 'shortcut.find' },
+      { keys: ['Ctrl+H'], descKey: 'shortcut.replace' },
+      { keys: ['F3', 'Shift+F3'], descKey: 'shortcut.findNextPrevKeys' },
+      { keys: ['Enter', 'Shift+Enter'], descKey: 'shortcut.findNextPrev' },
+    ],
+  },
+  {
+    titleKey: 'shortcut.group.sheet',
+    items: [
+      { keys: ['Ctrl+Alt+PageDown'], descKey: 'shortcut.nextSheet' },
+      { keys: ['Ctrl+Alt+PageUp'], descKey: 'shortcut.prevSheet' },
+      { keys: ['Shift+F11'], descKey: 'shortcut.addSheet' },
+      { keys: ['F9'], descKey: 'shortcut.recalculate' },
+    ],
+  },
+  {
+    titleKey: 'shortcut.group.view',
+    items: [
+      { keys: ['Ctrl+Shift+.'], descKey: 'shortcut.zoomIn' },
+      { keys: ['Ctrl+Shift+,'], descKey: 'shortcut.zoomOut' },
+      { keys: ['Ctrl+Shift+0'], descKey: 'shortcut.zoomReset' },
+      { keys: ['Ctrl+Wheel'], descKey: 'shortcut.zoomWheel' },
+      { keys: ['Ctrl+/'], descKey: 'shortcut.list' },
+    ],
+  },
 ];
 
 /** Menu shortcut labels whose macOS key is not a plain Ctrl→Cmd swap. */
@@ -289,6 +384,9 @@ const MAC_SHORTCUT_OVERRIDES: Readonly<Record<string, string>> = {
   'Ctrl+Shift+1': 'Ctrl+Shift+1',
   'Ctrl+Shift+4': 'Ctrl+Shift+4',
   'Ctrl+Shift+5': 'Ctrl+Shift+5',
+  // The Mac keyboard names the Alt key Option.
+  'Alt+Enter': 'Option+Enter',
+  'Alt+Down': 'Option+Down',
 };
 
 /** True on macOS (and iPadOS with a hardware keyboard), where Cmd replaces Ctrl. */
@@ -317,4 +415,13 @@ export function displayShortcut(keys: string, mac: boolean): string {
     return override;
   }
   return keys.startsWith('Ctrl+Alt+') ? keys : keys.replace(/^Ctrl\+/, 'Cmd+');
+}
+
+/**
+ * A shortcut-list row's keys as shown on the current platform: each
+ * alternative through {@link displayShortcut}, duplicates (two Windows keys
+ * that are the same key on a Mac) dropped, joined with " / ".
+ */
+export function displayShortcutKeys(keys: readonly string[], mac: boolean): string {
+  return Array.from(new Set(keys.map((k) => displayShortcut(k, mac)))).join(' / ');
 }

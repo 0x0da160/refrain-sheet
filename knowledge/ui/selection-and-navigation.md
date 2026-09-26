@@ -63,6 +63,10 @@ selection to the same place. Vertical jumps walk only visible rows, in the
 order shown, so filtered-out rows are skipped and a sorted view is followed
 as displayed. The rule lives in `src/ui/grid/data-edge.ts`.
 
+**PageUp / PageDown** move by one screenful: the whole rows of the selected
+row's height that fit in the scroll area (`src/ui/grid/page-step.ts`),
+falling back to 20 rows before the grid has a measurable height.
+
 ## Select All
 
 **Edit > Select All Cells** selects the **used range** of the active

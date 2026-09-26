@@ -60,6 +60,11 @@ really is internal, rather than inventing an entry to satisfy it.
   of "Workbook" / "Book" and "Sheet" instead of "Worksheet" (in Japanese,
   ファイル and シート instead of ブック and ワークシート). The Sheet menu's
   sheet submenu is now Sheet > Manage Sheets.
+- **Plainer Japanese wording.** エクスポート／インポート became 書き出し／読み込み,
+  RSFスプレッドシートドキュメント became RSFファイル, version-history
+  スナップショット became 版, デコードできないバイト became 読み取れない文字,
+  アクティブセル became 選択中のセル, and 書式をクリア became 書式を削除.
+  フィルター and ブラウザ are now spelled the same way everywhere.
 
 ## [0.9.3] - 2026-09-25
 

@@ -505,6 +505,7 @@
   "shortcut.moveCell": "Move one cell",
   "shortcut.rowStartEnd": "Jump to the start / end of the row",
   "shortcut.page": "Move up / down one screen",
+  "shortcut.filterMenu": "Open the column's filter menu (on a header cell with a filter button)",
   "dialog.close": "Close",
   "dialog.ok": "OK",
   "dialog.dragHandle": "Drag to move this window",

@@ -328,6 +328,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
       { keys: ['PageUp', 'PageDown'], descKey: 'shortcut.page' },
       { keys: ['Ctrl+A'], descKey: 'shortcut.selectAll' },
       { keys: ['Ctrl+G'], descKey: 'shortcut.goToCell' },
+      { keys: ['Alt+Down'], descKey: 'shortcut.filterMenu' },
     ],
   },
   {
@@ -385,6 +386,7 @@ const MAC_SHORTCUT_OVERRIDES: Readonly<Record<string, string>> = {
   'Ctrl+Shift+5': 'Ctrl+Shift+5',
   // The Mac keyboard names the Alt key Option.
   'Alt+Enter': 'Option+Enter',
+  'Alt+Down': 'Option+Down',
 };
 
 /** True on macOS (and iPadOS with a hardware keyboard), where Cmd replaces Ctrl. */

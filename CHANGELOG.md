@@ -54,7 +54,8 @@ really is internal, rather than inventing an entry to satisfy it.
 - **PageUp and PageDown move one screen** instead of a fixed 20 rows.
 - **The keyboard shortcut list is grouped by task** and shows only the keys
   for your system (Cmd on macOS). It now also lists Ctrl+Enter, Alt+Enter,
-  Delete / Backspace, Home / End, and PageUp / PageDown.
+  Delete / Backspace, Home / End, PageUp / PageDown, and Alt+Down (filter
+  menu).
 
 ## [0.9.3] - 2026-09-25
 

@@ -505,6 +505,7 @@
   "shortcut.moveCell": "1セル移動",
   "shortcut.rowStartEnd": "行の先頭／末尾へ移動",
   "shortcut.page": "1画面分上／下へ移動",
+  "shortcut.filterMenu": "列のフィルターメニューを開く（フィルターボタンのある見出しセルで）",
   "dialog.close": "閉じる",
   "dialog.ok": "OK",
   "dialog.dragHandle": "ドラッグしてウィンドウを移動",

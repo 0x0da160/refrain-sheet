@@ -2,7 +2,7 @@
 // WCAG AA contrast gate for the colours the app actually renders.
 //
 // The app's colours come from the Refrain Sheet Design System
-// (design-system/2.0.0/): foundations.css holds the shell colours (bg-*,
+// (design-system/v2/): foundations.css holds the shell colours (bg-*,
 // fg-*, border-*, accent-*, …) for light and dark, and app-tokens.css adds the
 // canvas colours (the grid and source editors) and the hybrid theme — a dark
 // shell around a light canvas. src/styles.css loads both, and src/app/theme.ts
@@ -15,7 +15,7 @@
 // theme. Every pair targets AA body text (4.5:1): each is real rendered text,
 // not a large heading or a decorative border.
 //
-// The design system's own build (design-system/2.0.0/tools/build.mjs --check)
+// The design system's own build (design-system/v2/tools/build.mjs --check)
 // audits the pairs its components use; this gate covers how the app uses the
 // tokens today.
 //
@@ -26,8 +26,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const FOUNDATIONS = 'design-system/2.0.0/foundations/css/foundations.css';
-const APP_TOKENS = 'design-system/2.0.0/app/css/app-tokens.css';
+const FOUNDATIONS = 'design-system/v2/foundations/css/foundations.css';
+const APP_TOKENS = 'design-system/v2/app/css/app-tokens.css';
 
 // ---------- sRGB hex -> WCAG relative luminance ----------
 
@@ -133,11 +133,15 @@ const THEMES = [
  *    bars and the welcome screen.
  *  - link on bg-raised: links in dialogs.
  *  - fg-default / warning-text on warning-subtle: the warning banner in
- *    dialogs and the diff panel, and the warning toast.
+ *    dialogs and the diff panel, the warning toast, and the diff panel's
+ *    "modified" badge.
+ *  - success-text on success-subtle, danger-text on danger-subtle: the diff
+ *    panel's "added" and "deleted" badges.
  *  - danger-text on bg-raised / bg-surface: error text in dialogs and bars.
  *  - danger-contrast on danger: the error toast.
  *  - inverse-text on inverse-bg: the ordinary toast.
- *  - success on bg-raised: success text in dialogs and previews.
+ *  - success-text on bg-raised / bg-surface: success text in dialogs and
+ *    strings in the Markdown preview.
  *  - canvas-*: cell text on a plain, banded, selected and edited cell; header
  *    labels, plain and selected; muted, formula and error text in the grid.
  */
@@ -159,7 +163,10 @@ const PAIRS = [
   ['danger-text', 'bg-surface', 4.5],
   ['danger-contrast', 'danger', 4.5],
   ['inverse-text', 'inverse-bg', 4.5],
-  ['success', 'bg-raised', 4.5],
+  ['success-text', 'bg-raised', 4.5],
+  ['success-text', 'bg-surface', 4.5],
+  ['success-text', 'success-subtle', 4.5],
+  ['danger-text', 'danger-subtle', 4.5],
   ['canvas-text', 'canvas-bg', 4.5],
   ['canvas-text', 'canvas-row-alt', 4.5],
   ['canvas-text', 'canvas-selection', 4.5],

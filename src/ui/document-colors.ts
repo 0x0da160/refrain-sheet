@@ -3,7 +3,7 @@
  * Document colours (design system D-13): the colours a user puts *into* a
  * document — text and fill colours, conditional-format colours — are data,
  * drawn the same in every theme. The design system offers them as a fixed
- * 65-colour set (`--swatch-*` in `design-system/2.0.0/app/css/app-tokens.css`:
+ * 65-colour set (`--swatch-*` in `design-system/v2/app/css/app-tokens.css`:
  * nine hue families in seven steps, plus white and black), and suggests
  * conditional-format defaults from the same set.
  *

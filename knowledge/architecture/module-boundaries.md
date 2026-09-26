@@ -33,7 +33,7 @@ The rules that diagram implies:
 - **Styling stays hand-written CSS, split by section under `src/styles/`**
   and loaded through `src/styles.css` — an ordered list of `@import`
   statements: first the Refrain Sheet Design System's generated token CSS
-  (`design-system/2.0.0/foundations/css/foundations.css` and
+  (`design-system/v2/foundations/css/foundations.css` and
   `app/css/app-tokens.css`, the single source of every colour, spacing,
   radius, shadow and layer value), then one `./styles/*.css` per section; order matters,
   since a later section can still override an earlier one at equal

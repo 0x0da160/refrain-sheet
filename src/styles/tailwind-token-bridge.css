@@ -2,7 +2,7 @@
 
 /* ---------- Design-system tokens ----------
    Colour, spacing, radius, shadow and layer tokens come from the Refrain Sheet
-   Design System v2.0.0 (design-system/2.0.0/), loaded first by src/styles.css:
+   Design System v2 (design-system/v2/), loaded first by src/styles.css:
    foundations.css (palette, shell colours bg-* / fg-* / border-*, spacing,
    radii, shadows) and app-tokens.css (canvas colours for the grid and source
    editors, the hybrid theme, layers). The theme is chosen by `data-theme` on
@@ -17,6 +17,7 @@
    them. Each entry is a var() reference, not a literal, so utilities follow
    the theme. */
 @theme {
+  --breakpoint-*: initial;
   --color-surface: var(--bg-raised);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-subtle);
@@ -26,6 +27,12 @@
   --color-line: var(--border-default);
   --color-dim: var(--fg-muted);
 }
+
+/* Responsive variants follow the design system's breakpoints, not
+   Tailwind's defaults (cleared with `--breakpoint-*: initial` above):
+   `desktop:` applies above --bp-md (43.75em), where the phone layout
+   (mobile-layout.css) ends. */
+@custom-variant desktop (@media (width > 43.75em));
 
 :root {
   /* Selectable spreadsheet fonts (View > Spreadsheet Font). Nothing is

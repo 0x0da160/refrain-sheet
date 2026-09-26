@@ -162,7 +162,8 @@ docked-panel text field (the Find and Replace panel included):
 
 ## Phone-width layout adaptations
 
-`src/styles/mobile-layout.css` gates a `@media (max-width: 700px)` block
+`src/styles/mobile-layout.css` gates a `@media (max-width: 43.75em)` block (700px at the default font
+size; the design system's `--bp-md`)
 that changes layout without touching desktop-width behavior:
 
 - **The formula bar moves below the grid**, directly above the worksheet
@@ -194,21 +195,24 @@ that changes layout without touching desktop-width behavior:
   re-renders. Protection, problems, unsaved/edit state, filter/sort, and the
   selection stay visible. Desktop always shows everything and never shows
   the button.
-- **A compact document tab row.** The close button's 36px tap target sets
+- **A compact document tab row.** The close button's 40px tap target (`--target-touch-dense`) sets
   a tab's height; the tab adds only a 2px frame around it.
 - **Dockable side panels** (Filter/Sort/Format/SQL Query/Comments/Find and Replace/preview —
   see [view-formatting-and-panels.md](view-formatting-and-panels.md))
   default to docking at the **bottom** instead of the desktop default of
   the right edge, specifically on a narrow, portrait viewport
-  (`(max-width: 700px) and (orientation: portrait)`) — there is little
+  (`(max-width: 43.75em) and (orientation: portrait)`) — there is little
   usable width for a left/right split there. This is only the _default_:
   once a user explicitly picks a dock side from the panel's header
   switcher, that explicit choice is remembered for the rest of the session
   regardless of viewport, exactly as on desktop.
 - Tap targets grow at this width: tabs, worksheet-strip tabs, menu items,
   dialog buttons, and the menu-bar toggle all carry explicit minimum
-  height/width floors (36–44px) so padding trims do not shrink the actual
-  touch target.
+  height/width floors so padding trims do not shrink the actual
+  touch target: the design system's `--target-touch` (44px) for the menu
+  toggle, menu items, dialog buttons and welcome actions, and
+  `--target-touch-dense` (40px) for items in a strip of many — document-tab
+  close buttons, worksheet-strip tabs and the status bar's Details button.
 - Toasts sit at the top-right on every screen size, away from where a
   phone's thumb rests and where the on-screen keyboard first appears.
 - Narrow dialog rows (label + select, the Filter condition row, the Sort

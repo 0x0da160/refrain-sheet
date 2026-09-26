@@ -57,11 +57,11 @@
 
    Spacing/margins/font-sizes below are trimmed to the necessary minimum for
    a narrow viewport (#462), but every `min-height`/`min-width` tap-target
-   floor (44px/40px/36px) and the 16px input-zoom floor further below are
-   left exactly as-is: those already cap the rendered size regardless of
-   padding, so tightening padding here does not shrink the actual tap
-   target. */
-@media (max-width: 700px) {
+   floor (the design system's --target-touch 44px and --target-touch-dense
+   40px) and the 16px input-zoom floor further below are left exactly
+   as-is: those already cap the rendered size regardless of padding, so
+   tightening padding here does not shrink the actual tap target. */
+@media (max-width: 43.75em) {
   #app {
     display: grid;
     grid-template-columns: auto 1fr auto;
@@ -167,8 +167,8 @@
     grid-row: 2;
     grid-column: 3;
     align-self: start;
-    min-width: 44px;
-    min-height: 44px;
+    min-width: var(--target-touch);
+    min-height: var(--target-touch);
   }
 
   .menu-row {
@@ -207,14 +207,14 @@
   .menu > button,
   .menu-item {
     padding: var(--space-2) var(--space-3);
-    min-height: 44px;
+    min-height: var(--target-touch);
   }
 
   .menu > button {
     white-space: nowrap;
   }
 
-  /* The close button's 36px tap target sets the tab's height; the tab adds
+  /* The close button's dense tap target sets the tab's height; the tab adds
      only a thin frame around it (#594), not another 8px above and below. */
   .tab {
     padding: var(--space-0-5) var(--space-0-5) var(--space-0-5) var(--space-3);
@@ -222,15 +222,15 @@
 
   .tab .tab-close {
     padding: var(--space-2);
-    min-width: 36px;
-    min-height: 36px;
+    min-width: var(--target-touch-dense);
+    min-height: var(--target-touch-dense);
   }
 
   .sheet-tab,
   .sheet-add,
   .sheet-grid-add {
     padding: var(--space-2) var(--space-2);
-    min-height: 40px;
+    min-height: var(--target-touch-dense);
   }
 
   /* The add-column button extends the column-header row, so it keeps the
@@ -239,11 +239,11 @@
     min-height: 0;
     padding-top: 0;
     padding-bottom: 0;
-    min-width: 44px;
+    min-width: var(--target-touch);
     justify-content: center;
   }
 
-  /* The 40px tap-target floor above already sets the tabs' own height;
+  /* The dense tap-target floor above already sets the tabs' own height;
      `.sheet-strip`/`.sheet-grid-actions` desktop padding (3px top/bottom)
      only adds surrounding chrome on top of that floor, so it's trimmed
      here without touching the floor itself (#468). */
@@ -267,12 +267,12 @@
 
   .dialog-buttons button {
     padding: var(--space-2) var(--space-3);
-    min-height: 44px;
+    min-height: var(--target-touch);
   }
 
   .welcome-action {
     padding: var(--space-2) var(--space-4);
-    min-height: 44px;
+    min-height: var(--target-touch);
   }
 
   /* Chrome surfaces the mobile breakpoint above didn't previously cover:
@@ -294,7 +294,7 @@
   .status-bar button.status-details-toggle {
     display: inline-flex;
     align-items: center;
-    min-height: 36px;
+    min-height: var(--target-touch-dense);
   }
 
   .status-bar .sel-stats,

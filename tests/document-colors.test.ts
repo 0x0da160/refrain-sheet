@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 // The document-colour constants in src/ui/document-colors.ts must match the
-// design system they come from (design-system/2.0.0/app/css/app-tokens.css),
+// design system they come from (design-system/v2/app/css/app-tokens.css),
 // and the swatch <datalist> must offer exactly the resolvable swatches.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -16,7 +16,7 @@ import {
   SWATCH_TOKENS,
 } from '../src/ui/document-colors';
 
-const appTokens = readFileSync(join(__dirname, '../design-system/2.0.0/app/css/app-tokens.css'), 'utf8');
+const appTokens = readFileSync(join(__dirname, '../design-system/v2/app/css/app-tokens.css'), 'utf8');
 
 function token(name: string): string | undefined {
   const m = new RegExp(`${name}:\\s*(#[0-9A-Fa-f]{6})`).exec(appTokens);

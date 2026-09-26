@@ -135,7 +135,7 @@
 }
 
 .markdown-editor-preview .tok-string {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .markdown-editor-preview .tok-comment {

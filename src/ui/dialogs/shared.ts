@@ -183,7 +183,7 @@ function effectiveSidePanelPosition(): SidePanelPosition {
   }
   const isMobilePortrait =
     typeof globalThis.matchMedia === 'function' &&
-    globalThis.matchMedia('(max-width: 700px) and (orientation: portrait)').matches;
+    globalThis.matchMedia('(max-width: 43.75em) and (orientation: portrait)').matches;
   return isMobilePortrait ? 'bottom' : 'right';
 }
 

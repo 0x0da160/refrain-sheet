@@ -34,7 +34,7 @@ function stubMatchMedia(matchesMobilePortrait: boolean): void {
   vi.stubGlobal(
     'matchMedia',
     vi.fn((query: string) => ({
-      matches: query === '(max-width: 700px) and (orientation: portrait)' && matchesMobilePortrait,
+      matches: query === '(max-width: 43.75em) and (orientation: portrait)' && matchesMobilePortrait,
       media: query,
       addEventListener: () => {},
       removeEventListener: () => {},

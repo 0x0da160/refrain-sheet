@@ -2,7 +2,7 @@
 /**
  * Banded rows (View > Banded Rows): a faint tint on every other grid row.
  *
- * Off by default, as the design system decides (design-system/2.0.0: the
+ * Off by default, as the design system decides (design-system/v2: the
  * `--canvas-row-alt` bands compete with the fill colours a user gives cells).
  * Like the theme and the density, it is a display preference stored only in
  * `localStorage` on this device and applied as one attribute on the document

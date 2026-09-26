@@ -101,7 +101,7 @@ jobs:
         run: npm run check:knip
 
       # Verifies the design-system colour tokens the app loads
-      # (design-system/2.0.0, generated CSS) meet WCAG AA contrast for every
+      # (design-system/v2, generated CSS) meet WCAG AA contrast for every
       # text/background pair that composes in the UI, in every theme — see
       # scripts/check-contrast.mjs.
       - name: Contrast check

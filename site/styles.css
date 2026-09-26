@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 /* Tokens (colour, type, space, shape, motion) come from the Refrain Sheet
    Design System and are prepended to this file by scripts/build-landing.mjs:
-   design-system/2.0.0/foundations/css/foundations.css (shared with the app)
-   and design-system/2.0.0/brand/css/brand-tokens.css (landing only). See
-   design-system/2.0.0/brand/docs/brand-guidelines.html. Never write a colour
+   design-system/v2/foundations/css/foundations.css (shared with the app)
+   and design-system/v2/brand/css/brand-tokens.css (landing only). See
+   design-system/v2/brand/docs/brand-guidelines.html. Never write a colour
    literal here: use a token, so dark sections (data-theme="dark") follow. */
 
 * {
@@ -164,7 +164,7 @@ p {
 .nav a.navlink:hover {
   color: var(--accent-text);
 }
-@media (max-width: 55em) {
+@media (max-width: 56.25em) {
   .nav a.navlink {
     display: none;
   }
@@ -351,7 +351,7 @@ p {
   color: var(--fg-muted);
   line-height: 1.6;
 }
-@media (max-width: 47.5em) {
+@media (max-width: 43.75em) {
   .stats-grid {
     grid-template-columns: 1fr;
   }
@@ -477,7 +477,7 @@ p {
   color: var(--accent-text);
 }
 .panel-dark .result {
-  color: var(--warning);
+  color: var(--warning-text);
 }
 .tag-ok {
   display: inline-flex;

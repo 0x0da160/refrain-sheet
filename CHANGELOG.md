@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-09-26
+
 ### Added
 
 - **Default zoom and wrapping for this browser or the whole file.** File >

@@ -1321,7 +1321,7 @@ export class Grid {
     schedule(() => {
       this.scrollScheduled = false;
       const tab = this.state.activeTab;
-      if (!tab || tab.doc !== this.lastDoc) {
+      if (!tab || tab.doc !== this.lastDoc || this.windowCoversViewport(tab)) {
         return;
       }
       this.render(tab);
@@ -1383,36 +1383,61 @@ export class Grid {
     });
   }
 
-  private computeWindow(tab: Tab): RenderWindow {
+  /**
+   * The display slots and columns actually on screen, without overscan:
+   * `[first, last)` rows and `[firstCol, lastCol)` columns, each clamped to
+   * the scrolling region's start.
+   */
+  private viewportSpan(tab: Tab): { first: number; last: number; firstCol: number; lastCol: number } {
     const idx = this.heightIndex(tab);
-    const overlay = this.overlayHeight(tab);
-    const viewH = Math.max(0, this.element.clientHeight - overlay);
+    const viewH = Math.max(0, this.element.clientHeight - this.overlayHeight(tab));
     const viewW = Math.max(0, this.element.clientWidth - this.overlayWidth(tab));
     const scrollTop = this.element.scrollTop;
     const scrollLeft = this.element.scrollLeft;
     const rowCount = tab.doc.rowCount;
     const startRow = this.scrollRowBase(tab);
-    const startCol = this.scrollColBase(tab);
-    const totalCols = Math.max(1, tab.doc.columnCount);
     // Row window from the height index: the scroll layer's content origin is
     // the top of the first scroll row, so add its offset to scrollTop. With a
     // uniform (unwrapped) index this reduces exactly to floor(scrollTop / H).
     const originY = idx.offsetOf(startRow);
     const first = Math.max(startRow, idx.rowAtOffset(originY + scrollTop, rowCount));
     const last = idx.rowAtOffset(originY + scrollTop + viewH, rowCount) + 1;
-    const rowStart = Math.max(startRow, first - OVERSCAN_ROWS);
-    const rowEnd = Math.min(rowCount, last + OVERSCAN_ROWS);
     // Columns have per-column widths; the cached offset index answers the
     // visible range in O(log n) instead of walking every column from 0.
     const colIdx = this.colOffsetIndex(tab);
     // Pinned columns sit over the start of the scrolled band, and the band
     // itself runs to the right edge of everything past the row numbers.
-    const firstVisible = colIdx.colAtOrBefore(scrollLeft + this.frozenColsWidth(tab));
-    const limit = scrollLeft + viewW + this.frozenColsWidth(tab);
-    const lastVisible = colIdx.colAtOrAfter(limit);
-    const colStart = Math.max(startCol, firstVisible - OVERSCAN_COLS);
-    const colEnd = Math.min(totalCols, lastVisible + OVERSCAN_COLS);
+    const firstCol = Math.max(
+      this.scrollColBase(tab),
+      colIdx.colAtOrBefore(scrollLeft + this.frozenColsWidth(tab)),
+    );
+    const lastCol = colIdx.colAtOrAfter(scrollLeft + viewW + this.frozenColsWidth(tab));
+    return { first, last, firstCol, lastCol };
+  }
+
+  private computeWindow(tab: Tab): RenderWindow {
+    const { first, last, firstCol, lastCol } = this.viewportSpan(tab);
+    const rowStart = Math.max(this.scrollRowBase(tab), first - OVERSCAN_ROWS);
+    const rowEnd = Math.min(tab.doc.rowCount, last + OVERSCAN_ROWS);
+    const colStart = Math.max(this.scrollColBase(tab), firstCol - OVERSCAN_COLS);
+    const colEnd = Math.min(Math.max(1, tab.doc.columnCount), lastCol + OVERSCAN_COLS);
     return { rowStart, rowEnd, colStart, colEnd, heights: this.heightsVersion };
+  }
+
+  /**
+   * True when the rendered window (overscan included) still covers every row
+   * and column on screen, so a scroll step needs no DOM work at all: the rows
+   * are absolutely positioned inside the scrolled canvas and the headers and
+   * pinned cells are CSS-sticky. Scrolling then rebuilds the window once per
+   * overscan's worth of rows instead of on every row boundary crossed.
+   */
+  private windowCoversViewport(tab: Tab): boolean {
+    const win = this.window;
+    if (win === null || win.heights !== this.heightsVersion || !this.samePins(tab)) {
+      return false;
+    }
+    const { first, last, firstCol, lastCol } = this.viewportSpan(tab);
+    return first >= win.rowStart && last <= win.rowEnd && firstCol >= win.colStart && lastCol <= win.colEnd;
   }
 
   private sameWindow(a: RenderWindow | null, b: RenderWindow): boolean {

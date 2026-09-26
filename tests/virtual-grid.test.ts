@@ -127,6 +127,24 @@ describe('virtualized rendering', () => {
     expect(grid.element.querySelectorAll('[data-row][data-col]').length).toBeLessThan(1000);
   });
 
+  it('reuses the rendered rows while a scroll stays inside the overscan', async () => {
+    const { grid } = setup(bigCsv(100_000));
+    const scrollTo = async (top: number): Promise<void> => {
+      grid.element.scrollTop = top;
+      grid.element.dispatchEvent(new Event('scroll'));
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+    };
+    await scrollTo(2_000 * ROW_HEIGHT);
+    const rowAfterRebuild = cellEl(grid, 2_000, 0).parentElement;
+    // A few rows further: still inside the overscan, so the DOM is untouched.
+    await scrollTo((2_000 + OVERSCAN_ROWS - 2) * ROW_HEIGHT);
+    expect(cellEl(grid, 2_000, 0).parentElement).toBe(rowAfterRebuild);
+    // Past the overscan: the window is rebuilt around the new viewport.
+    await scrollTo(2_100 * ROW_HEIGHT);
+    expect(cellEl(grid, 2_100, 0).textContent).toBe('r2100c0');
+    expect(grid.element.querySelector('[data-row="2000"][data-col="0"]')).toBeNull();
+  });
+
   it('sizes the scroll canvas to the full document height', () => {
     const { grid } = setup(bigCsv(100_000));
     const canvas = grid.element.querySelector<HTMLElement>('.vgrid-canvas')!;

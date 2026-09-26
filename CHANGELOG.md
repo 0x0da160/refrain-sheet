@@ -47,6 +47,19 @@ really is internal, rather than inventing an entry to satisfy it.
   there), and the layout is more compact: at Standard the bars are 40px
   instead of 48px, so more rows of the sheet fit on screen. Compact goes
   down to 32px bars; Comfortable keeps the previous touch sizes.
+- Buttons, menu items and tab close buttons now show a pressed state the
+  moment you click or tap them, so a click is acknowledged even before a
+  slow action finishes.
+- The busy indicator no longer flashes over the window for operations that
+  finish within about a third of a second; it appears only when a wait is
+  long enough to notice.
+- Scrolling a large sheet does less work: the grid redraws its rows only
+  after you scroll past the extra rows it already keeps ready, not on every
+  row.
+- Converting a large CSV file to an RSF workbook is about 3–4 times faster
+  (a 200,000-row, 6-column file went from about 1.4 seconds to about 0.4
+  seconds in our benchmark), because cell text is read with much less
+  overhead.
 
 ## [0.9.6] - 2026-09-26
 

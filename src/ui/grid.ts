@@ -13,16 +13,7 @@ import {
 } from '../core/cell-style';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
 import { ColOffsetIndex } from '../core/col-offset-index';
-import {
-  charFormats,
-  isFormatOn,
-  remapFormats,
-  runsForText,
-  runsFromChars,
-  setFormatKey,
-  type RunFormat,
-  type TextRun,
-} from '../core/rich-text';
+import { runsForText, type TextRun } from '../core/rich-text';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import type { LosslessDocument } from '../core/lossless-document';
 import { RowHeightIndex } from '../core/row-height-index';
@@ -77,6 +68,7 @@ import {
   WRAP_VERTICAL_PAD,
 } from './grid/geometry';
 import { ValidationPicker } from './validation-picker';
+import { RichCellEditor } from './rich-cell-editor';
 import { richTextNodes } from './rich-text-render';
 
 // The grid's pure helpers live in src/ui/grid/; re-exported for existing importers.
@@ -351,13 +343,8 @@ export class Grid {
     /** The dropdown of allowed values, and the full set it picks from — see `refreshValidationPicker`. */
     picker: ValidationPicker;
     pickerValues: readonly string[] | null;
-    /**
-     * Rich text being edited (see `rich-text.ts`): one format per character
-     * of `text`, the field's value they describe; null while the text has no
-     * formatted part. `replace` is true when the edit replaces the cell's
-     * text outright (type-to-edit), so its old formatting does not carry over.
-     */
-    rich: { formats: RunFormat[] | null; text: string; replace: boolean; preview: HTMLElement | null } | null;
+    /** Formatting parts of the text (RSF grid worksheets only) — see `RichCellEditor`. */
+    rich: RichCellEditor | null;
   } | null = null;
   /**
    * The grid's real keyboard target: a permanently mounted, visually hidden
@@ -655,7 +642,12 @@ export class Grid {
     sink.addEventListener('keydown', (event) => this.sinkKeyDown(event));
     sink.addEventListener('input', () => this.sinkInput());
     sink.addEventListener('click', () => this.editor?.autocomplete.update());
-    sink.addEventListener('blur', () => this.commitEditor());
+    sink.addEventListener('blur', (event) => {
+      // Moving to the formatted field or its toolbar keeps the edit open.
+      if (!this.editor?.rich?.owns(event.relatedTarget)) {
+        this.commitEditor();
+      }
+    });
   }
 
   /**
@@ -3844,18 +3836,17 @@ export class Grid {
     const doc = tab.doc;
     const rich =
       doc.kind === 'rsf' && doc.activeSheet.kind === 'grid'
-        ? {
-            formats:
-              initial === null
-                ? (() => {
-                    const runs = runsForText(doc.getStyle(row, col)?.runs, input.value);
-                    return runs ? charFormats(runs) : null;
-                  })()
-                : null,
-            text: input.value,
-            replace: initial !== null,
-            preview: null,
-          }
+        ? new RichCellEditor(
+            {
+              input,
+              container: this.canvas,
+              cellStyle: () => (tab.doc.kind === 'rsf' ? tab.doc.getStyle(row, col) : null),
+              navigationKey: (event) => this.editorNavigationKey(event),
+              focusLeft: () => this.commitEditor(),
+            },
+            initial === null ? runsForText(doc.getStyle(row, col)?.runs, input.value) : null,
+            initial !== null,
+          )
         : null;
     this.editor = {
       row,
@@ -3886,99 +3877,8 @@ export class Grid {
     autocomplete.update();
     updateRefs();
     this.refreshValidationPicker(this.editor);
-    this.refreshRichPreview(this.editor);
-  }
-
-  /**
-   * Bring the editor's per-character formats up to date with its field
-   * (typing, pasting, an IME, Alt+Enter, a picked value): unchanged text
-   * keeps its format and new text takes the format of the text it follows.
-   */
-  private syncRichText(editor: NonNullable<Grid['editor']>): void {
-    const rich = editor.rich;
-    if (!rich || rich.text === editor.input.value) {
-      return;
-    }
-    if (rich.formats) {
-      rich.formats = remapFormats(rich.text, editor.input.value, rich.formats);
-    }
-    rich.text = editor.input.value;
-  }
-
-  /**
-   * Ctrl+B / Ctrl+I / Ctrl+U in the cell editor: toggle bold/italic/
-   * underline on the selected part of the text only (rich text, RSF grid
-   * worksheets). With nothing selected, or in a formula, nothing changes.
-   * Returns true when the key was handled.
-   */
-  private toggleRichFormat(
-    editor: NonNullable<Grid['editor']>,
-    key: 'bold' | 'italic' | 'underline',
-  ): boolean {
-    const rich = editor.rich;
-    const tab = this.state.activeTab;
-    if (!rich || !tab || tab.doc.kind !== 'rsf') {
-      return false;
-    }
-    this.syncRichText(editor);
-    const input = editor.input;
-    const start = input.selectionStart ?? 0;
-    const end = input.selectionEnd ?? 0;
-    if (start === end || input.value.startsWith('=')) {
-      return true;
-    }
-    const cellOn = !!tab.doc.getStyle(editor.row, editor.col)?.[key];
-    const formats = rich.formats ?? input.value.split('').map((): RunFormat => ({}));
-    const on = !isFormatOn(formats, start, end, key, cellOn);
-    // Store the part's value only where it differs from the whole cell's.
-    rich.formats = setFormatKey(formats, start, end, key, on === cellOn ? null : on);
-    this.refreshRichPreview(editor);
-    return true;
-  }
-
-  /** The editor's rich-text runs to commit: an array, null to clear, or undefined for "unchanged". */
-  private editorRuns(editor: NonNullable<Grid['editor']>): TextRun[] | null | undefined {
-    const rich = editor.rich;
-    if (!rich) {
-      return undefined;
-    }
-    this.syncRichText(editor);
-    if (rich.formats) {
-      return runsFromChars(editor.input.value, rich.formats);
-    }
-    return rich.replace ? null : undefined;
-  }
-
-  /**
-   * Show how the text being edited looks with its formatted parts, just
-   * below the editor: the editor itself is a plain-text field.
-   */
-  private refreshRichPreview(editor: NonNullable<Grid['editor']>): void {
-    const rich = editor.rich;
-    const tab = this.state.activeTab;
-    const runs =
-      rich?.formats && tab?.doc.kind === 'rsf' ? runsFromChars(editor.input.value, rich.formats) : null;
-    if (!rich || !runs || tab?.doc.kind !== 'rsf') {
-      rich?.preview?.remove();
-      if (rich) {
-        rich.preview = null;
-      }
-      return;
-    }
-    if (!rich.preview) {
-      rich.preview = el('div', {
-        className: 'rich-text-preview',
-        attrs: { role: 'note', 'aria-label': t('richText.preview') },
-      });
-      document.body.append(rich.preview);
-    }
-    const style = tab.doc.getStyle(editor.row, editor.col);
-    rich.preview.replaceChildren(...richTextNodes(runs, style));
-    rich.preview.style.color = style?.textColor ?? '';
-    const rect = editor.input.getBoundingClientRect();
-    rich.preview.style.left = `${rect.left}px`;
-    rich.preview.style.top = `${rect.bottom + 2}px`;
-    rich.preview.style.minWidth = `${rect.width}px`;
+    // A cell that already has formatted parts is edited showing them.
+    rich?.begin(input.selectionStart ?? input.value.length);
   }
 
   /**
@@ -4008,10 +3908,12 @@ export class Grid {
       return;
     }
     const input = editor.input;
+    // Ctrl+B / Ctrl+I / Ctrl+U format the selected part of the text.
     const richKey = richFormatKeyOf(event);
-    if (richKey && this.toggleRichFormat(editor, richKey)) {
+    if (richKey && editor.rich) {
       event.preventDefault();
       event.stopPropagation();
+      editor.rich.toggle(richKey);
       return;
     }
     if (isRefToggleKey(event) && editor.ref.toggleReference()) {
@@ -4031,8 +3933,7 @@ export class Grid {
       input.setRangeText(stamp ? localDateStamp(stamp) : '\n', start, end, 'end');
       editor.autocomplete.update();
       editor.updateRefs();
-      this.syncRichText(editor);
-      this.refreshRichPreview(editor);
+      editor.rich?.plainChanged();
       return;
     }
     if (editor.autocomplete.onKeyDown(event)) {
@@ -4041,6 +3942,11 @@ export class Grid {
     if (editor.picker.onKeyDown(event)) {
       return;
     }
+    this.editorNavigationKey(event);
+  }
+
+  /** Enter / Tab commit (and move), Escape cancels — for either cell editor field. */
+  private editorNavigationKey(event: KeyboardEvent): void {
     const tab = this.state.activeTab;
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -4085,8 +3991,7 @@ export class Grid {
       this.refreshValidationPicker(editor);
     }
     editor.updateRefs();
-    this.syncRichText(editor);
-    this.refreshRichPreview(editor);
+    editor.rich?.plainChanged();
   }
 
   /** Position the sink exactly over a rendered cell (canvas coordinates). */
@@ -4140,7 +4045,7 @@ export class Grid {
   private disposeEditor(editor: NonNullable<Grid['editor']>): void {
     editor.autocomplete.dispose();
     editor.picker.dispose();
-    editor.rich?.preview?.remove();
+    editor.rich?.dispose();
     editor.ref.endRef();
     if (this.state.formulaRefTarget === editor.ref) {
       this.state.formulaRefTarget = editor.prevRefTarget;
@@ -4157,8 +4062,9 @@ export class Grid {
     }
     this.editor = null;
     const tab = this.state.activeTab;
+    // Read the formatted field first: it writes its text back to the input.
+    const runs = editor.rich?.runs();
     const value = editor.input.value;
-    const runs = this.editorRuns(editor);
     this.disposeEditor(editor);
     this.demoteSink();
     if (tab && tab.doc === this.lastDoc) {

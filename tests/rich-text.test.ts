@@ -22,7 +22,6 @@ import {
 } from '../src/core/rich-text';
 import { RsfDocument } from '../src/core/rsf-document';
 import { t } from '../src/app/i18n';
-import { Dialogs } from '../src/ui/dialogs';
 import { Grid } from '../src/ui/grid';
 import { rsfFromTree, rsfTree } from './rsf-single-sheet';
 
@@ -71,7 +70,6 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseVersionHistory: vi.fn(async () => null),
     confirmHistoryCapExceeded: vi.fn(async () => true),
     chooseTextColor: vi.fn(async () => null),
-    chooseRichText: vi.fn(async () => null),
     chooseBackgroundColor: vi.fn(async () => null),
     chooseBorders: vi.fn(async () => null),
     chooseNumberFormat: vi.fn(async () => null),
@@ -205,8 +203,19 @@ describe('rich text: the .rsf file', () => {
   });
 });
 
-describe('rich text: editing', () => {
-  it('Ctrl+B in the cell editor bolds only the selected text, as one undoable edit', () => {
+describe('rich text: editing in the cell', () => {
+  const field = () => document.querySelector<HTMLElement>('.rich-cell-editor');
+  const parts = () =>
+    [...(field()?.querySelectorAll<HTMLElement>('.rich-run') ?? [])].map((span) => [
+      span.textContent,
+      span.style.fontWeight,
+      span.style.color,
+    ]);
+  const toolbar = () => document.querySelector<HTMLElement>('.rich-text-toolbar')!;
+  const toolButton = (label: string) =>
+    toolbar().querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!;
+
+  it('Ctrl+B bolds only the selected text, shows it in the cell, and commits as one undoable edit', () => {
     const { state, grid, tab, doc } = setup();
     grid.openEditor(tab, 0, 0, null);
     const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
@@ -214,25 +223,75 @@ describe('rich text: editing', () => {
     const event = ctrl('b');
     input.dispatchEvent(event);
     expect(event.defaultPrevented).toBe(true);
-    expect(document.querySelector('.rich-text-preview')?.textContent).toBe('Hello world');
+    // The formatted field now edits the cell, showing the bold part.
+    expect(parts()).toEqual([
+      ['Hello ', 'normal', ''],
+      ['world', 'bold', ''],
+    ]);
     grid.commitEditor();
     expect(doc.getStyle(0, 0)?.runs).toEqual(WORLD_BOLD);
     expect(doc.getValue(0, 0)).toBe('Hello world');
-    expect(document.querySelector('.rich-text-preview')).toBeNull();
+    expect(field()).toBeNull();
     state.undo(tab);
     expect(doc.getStyle(0, 0)).toBeNull();
     expect(tab.history.canUndo).toBe(false);
   });
 
-  it('keeps formatted parts through typing in the editor', () => {
+  it('opens a cell with formatted parts showing them, and typed text keeps its part', () => {
     const { grid, tab, doc } = setup();
     doc.setCellStyleOn(undefined, 0, 0, { runs: WORLD_BOLD });
     grid.openEditor(tab, 0, 0, null);
-    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
-    input.value = 'Hello world!';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(parts()).toEqual([
+      ['Hello ', 'normal', ''],
+      ['world', 'bold', ''],
+    ]);
+    const world = field()!.querySelectorAll('.rich-run')[1].firstChild as Text;
+    world.data = 'world!';
+    field()!.dispatchEvent(new Event('input', { bubbles: true }));
     grid.commitEditor();
+    expect(doc.getValue(0, 0)).toBe('Hello world!');
     expect(doc.getStyle(0, 0)?.runs).toEqual([{ text: 'Hello ' }, { text: 'world!', bold: true }]);
+  });
+
+  it('the toolbar appears over selected text and colors it', () => {
+    const { grid, tab, doc } = setup();
+    grid.openEditor(tab, 0, 0, null);
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    input.setSelectionRange(0, 5);
+    document.dispatchEvent(new Event('selectionchange'));
+    expect(toolbar().hidden).toBe(false);
+    toolButton(t('richText.color.red')).click();
+    expect(parts()).toEqual([
+      ['Hello', 'normal', 'rgb(211, 47, 47)'],
+      [' world', 'normal', ''],
+    ]);
+    grid.commitEditor();
+    expect(doc.getStyle(0, 0)?.runs).toEqual([{ text: 'Hello', textColor: '#d32f2f' }, { text: ' world' }]);
+    expect(document.querySelector('.rich-text-toolbar')).toBeNull();
+  });
+
+  it('removing the formatting of all the text clears the parts', () => {
+    const { grid, tab, doc } = setup();
+    doc.setCellStyleOn(undefined, 0, 0, { runs: WORLD_BOLD });
+    grid.openEditor(tab, 0, 0, null);
+    const range = document.createRange();
+    range.selectNodeContents(field()!);
+    document.getSelection()!.removeAllRanges();
+    document.getSelection()!.addRange(range);
+    toolButton(t('richText.clear')).click();
+    grid.commitEditor();
+    expect(doc.getStyle(0, 0)).toBeNull();
+  });
+
+  it('shows no toolbar without a selection or in a formula', () => {
+    const { grid, tab } = setup('=1+1');
+    grid.openEditor(tab, 0, 0, null);
+    const input = grid.element.querySelector<HTMLTextAreaElement>('.cell-editor')!;
+    input.setSelectionRange(0, 3);
+    document.dispatchEvent(new Event('selectionchange'));
+    expect(toolbar().hidden).toBe(true);
+    input.dispatchEvent(ctrl('b'));
+    expect(field()).toBeNull();
   });
 
   it('typing over a cell replaces its formatted parts', () => {
@@ -252,22 +311,6 @@ describe('rich text: editing', () => {
     state.undo(tab);
     expect(doc.getValue(0, 0)).toBe('Hello world');
     expect(doc.getStyle(0, 0)?.runs).toEqual(WORLD_BOLD);
-  });
-
-  it('the Format Text in Cell panel commits its result', async () => {
-    const { commands, tab, doc, ui } = setup();
-    tab.selection = { row: 0, col: 0 };
-    vi.mocked(ui.chooseRichText).mockResolvedValue({ text: 'Hello world', runs: WORLD_BOLD });
-    await commands.run('format.richText');
-    expect(ui.chooseRichText).toHaveBeenCalledWith({ text: 'Hello world', runs: null, cellStyle: null });
-    expect(doc.getStyle(0, 0)?.runs).toEqual(WORLD_BOLD);
-  });
-
-  it('is not offered for a formula cell', () => {
-    const { commands, tab, doc } = setup('=1+1');
-    tab.selection = { row: 0, col: 0 };
-    expect(doc.isFormulaCell(0, 0)).toBe(true);
-    expect(commands.isEnabled('format.richText')).toBe(false);
   });
 });
 
@@ -294,38 +337,5 @@ describe('rich text: rendering', () => {
     const cell = grid.element.querySelector<HTMLElement>('[data-row="0"][data-col="0"]')!;
     expect(cell.querySelector('.rich-run')).toBeNull();
     expect(cell.textContent).toBe('Other');
-  });
-});
-
-describe('rich text: the Format Text in Cell panel', () => {
-  const button = (label: string) =>
-    [...document.querySelectorAll<HTMLButtonElement>('.side-panel button')].find(
-      (b) => b.textContent === label,
-    )!;
-
-  it('formats the selected text and previews it', async () => {
-    const promise = new Dialogs().chooseRichText({ text: 'Hello world', runs: null, cellStyle: null });
-    const field = document.querySelector<HTMLTextAreaElement>('#rich-text-field')!;
-    field.setSelectionRange(6, 11);
-    button(t('menu.format.bold')).click();
-    const color = document.querySelector<HTMLInputElement>('#rich-text-color')!;
-    color.value = '#00aa00';
-    field.setSelectionRange(0, 5);
-    button(t('dialog.richText.applyColor')).click();
-    expect(document.querySelectorAll('.rich-text-preview-box .rich-run')).toHaveLength(3);
-    button(t('dialog.richText.apply')).click();
-    expect(await promise).toEqual({
-      text: 'Hello world',
-      runs: [{ text: 'Hello', textColor: '#00aa00' }, { text: ' ' }, { text: 'world', bold: true }],
-    });
-  });
-
-  it('removes formatting from the selection', async () => {
-    const promise = new Dialogs().chooseRichText({ text: 'Hello world', runs: WORLD_BOLD, cellStyle: null });
-    const field = document.querySelector<HTMLTextAreaElement>('#rich-text-field')!;
-    field.setSelectionRange(0, 11);
-    button(t('dialog.richText.clear')).click();
-    button(t('dialog.richText.apply')).click();
-    expect(await promise).toEqual({ text: 'Hello world', runs: null });
   });
 });

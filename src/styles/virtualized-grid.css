@@ -808,19 +808,99 @@
   line-height: calc(var(--grid-row-height) - 1px - 6px * var(--sheet-zoom, 1));
 }
 
-/* Rich text (parts of a cell's text with their own format): the formatted
-   parts as they will look, floating just below the plain-text cell editor. */
-.rich-text-preview {
-  position: fixed;
-  z-index: 6;
-  max-width: min(480px, calc(100vw - 16px));
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--field-bg);
-  color: var(--text);
-  box-shadow: 0 2px 6px rgb(0 0 0 / 15%);
+/* Rich text (parts of a cell's text with their own format) while editing:
+   the formatted field replaces the plain editor over the cell
+   (`src/ui/rich-cell-editor.ts`), in exactly the plain editor's box. */
+.vgrid-canvas .grid-sink.cell-editor.rich-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vgrid-canvas .rich-cell-editor {
+  position: absolute;
+  z-index: 5;
+  box-sizing: border-box;
+  margin: 0;
+  border: 2px solid var(--accent);
+  padding: max(0px, calc(3px * var(--sheet-zoom, 1) - 2px)) max(0px, calc(6px * var(--sheet-zoom, 1) - 2px));
+  background: var(--canvas-bg);
+  color: var(--canvas-text);
+  font: inherit;
+  line-height: calc(var(--grid-row-height) - 1px - 6px * var(--sheet-zoom, 1));
   white-space: pre-wrap;
   overflow-wrap: break-word;
-  pointer-events: none;
+  overflow: auto;
+  outline: none;
+  cursor: text;
+}
+
+/* The floating toolbar over text selected in the cell editor
+   (`src/ui/rich-text-toolbar.ts`). */
+.rich-text-toolbar {
+  position: fixed;
+  z-index: var(--z-menu);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  box-shadow: var(--shadow-md);
+}
+
+.rich-text-toolbar[hidden] {
+  display: none;
+}
+
+.rich-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.rich-toolbar-button:hover {
+  background: var(--accent-subtle);
+}
+
+.rich-toolbar-button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.rich-toolbar-swatch {
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgb(0 0 0 / 25%);
+  border-radius: 50%;
+}
+
+/* "Same as the cell": an empty swatch with a diagonal line. */
+.rich-toolbar-swatch.auto {
+  background: linear-gradient(135deg, transparent 45%, var(--fg-muted) 45% 55%, transparent 55%);
+}
+
+.rich-toolbar-custom {
+  width: 26px;
+  height: 26px;
+  padding: 1px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.rich-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--border-default);
 }

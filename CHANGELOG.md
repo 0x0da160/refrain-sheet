@@ -39,11 +39,12 @@ really is internal, rather than inventing an entry to satisfy it.
 
 - **Format part of a cell's text.** In an RSF sheet, part of a cell's text
   can now have its own bold, italic, underline, or text color. While editing
-  a cell, select some of its text and press Ctrl+B, Ctrl+I, or Ctrl+U; a
-  preview under the cell shows the result. For colors, use Format > Format
-  Text in Cell…, which also lets you remove formatting from a selection.
-  The formatting is saved in the .rsf file; releases before this one open
-  such files and show the text with the cell's own formatting.
+  a cell, select some of its text: a small toolbar appears above it with
+  bold, italic, underline, text colors, and a button that removes the
+  selected text's formatting. Ctrl+B, Ctrl+I, and Ctrl+U work on the
+  selection too. The cell shows the formatting while you edit it. The
+  formatting is saved in the .rsf file; releases before this one open such
+  files and show the text with the cell's own formatting.
 
 ## [0.9.5] - 2026-09-26
 

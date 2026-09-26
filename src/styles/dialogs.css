@@ -739,20 +739,3 @@ table.diag-table th {
   color: var(--fg-muted);
   font-size: 12px;
 }
-
-/* Format Text in Cell panel (`FormatDialogs.chooseRichText`). */
-.rich-text-field {
-  width: 100%;
-  resize: vertical;
-  font: inherit;
-}
-
-.rich-text-preview-box {
-  min-height: 2.5em;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--field-bg);
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-}

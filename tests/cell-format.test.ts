@@ -71,7 +71,6 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseVersionHistory: vi.fn(async () => null),
     confirmHistoryCapExceeded: vi.fn(async () => true),
     chooseTextColor: vi.fn(async () => null),
-    chooseRichText: vi.fn(async () => null),
     chooseBackgroundColor: vi.fn(async () => null),
     chooseBorders: vi.fn(async () => null),
     chooseNumberFormat: vi.fn(async () => null),
@@ -469,7 +468,6 @@ describe('FormatCommands via Commands (RSF worksheets)', () => {
   it('promptTextColor applies the chosen color and Clear Color removes it', async () => {
     const ui = stubUi({
       chooseTextColor: vi.fn(async () => ({ action: 'apply' as const, color: '#ff00ff' })),
-      chooseRichText: vi.fn(async () => null),
     });
     const { commands, tab, doc, state } = sheet([['a']], ui);
     state.setSelection(tab, { row: 0, col: 0 }, null);

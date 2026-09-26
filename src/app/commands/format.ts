@@ -102,45 +102,6 @@ export class FormatCommands {
     );
   }
 
-  /**
-   * Open the "Format Text in Cell" panel for the active cell (a plain-text
-   * cell of a grid worksheet) and commit its result through `commit` — the
-   * ordinary cell-edit path, so the text and its formatted parts change as
-   * one undoable edit. Nothing is committed when the panel is closed, or
-   * when the file or cell changed while it was open.
-   */
-  async promptRichText(
-    tab: Tab,
-    commit: (row: number, col: number, text: string, runs: TextRun[] | null) => Promise<boolean>,
-  ): Promise<boolean> {
-    const doc = tab.doc;
-    const selection = tab.selection;
-    if (doc.kind !== 'rsf' || doc.activeSheet.kind !== 'grid' || !selection) {
-      return false;
-    }
-    const { row, col } = selection;
-    if (doc.isFormulaCell(row, col)) {
-      return false;
-    }
-    const sheetId = doc.activeSheetId;
-    const text = doc.getValue(row, col);
-    const style = doc.getStyle(row, col);
-    const result = await this.ui.chooseRichText({
-      text,
-      runs: runsForText(style?.runs, text),
-      cellStyle: style,
-    });
-    if (
-      !result ||
-      !this.isStillActive(tab, doc) ||
-      doc.activeSheetId !== sheetId ||
-      doc.getValue(row, col) !== text
-    ) {
-      return false;
-    }
-    return commit(row, col, result.text, result.runs);
-  }
-
   /** Open the Background Color dialog and apply the choice. */
   async promptBackgroundColor(tab: Tab): Promise<boolean> {
     const range = this.state.selectedRange(tab);

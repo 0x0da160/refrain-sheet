@@ -121,7 +121,6 @@ export type CommandId =
   | 'format.italic'
   | 'format.underline'
   | 'format.textColor'
-  | 'format.richText'
   | 'format.backgroundColor'
   | 'format.borders'
   | 'format.numberFormat'
@@ -424,15 +423,6 @@ export class Commands {
       case 'format.presetPercent':
       case 'edit.pasteFormats':
         return tab !== null && tab.doc.kind === 'rsf' && tab.selection != null;
-      // Formatting part of a cell's text: one plain-text cell of a grid worksheet.
-      case 'format.richText':
-        return (
-          tab !== null &&
-          tab.doc.kind === 'rsf' &&
-          tab.doc.activeSheet.kind === 'grid' &&
-          tab.selection != null &&
-          !tab.doc.isFormulaCell(tab.selection.row, tab.selection.col)
-        );
       // The async Clipboard API's image write has inconsistent browser
       // support (including on file://), so the item is hidden/disabled
       // outright there rather than failing at run time.
@@ -572,16 +562,6 @@ export class Commands {
       case 'format.presetPercent':
       case 'edit.pasteFormats':
         return tab !== null && tab.doc.kind !== 'rsf' ? t('menu.format.csvOnlyTooltip') : null;
-      case 'format.richText':
-        if (tab === null) {
-          return null;
-        }
-        if (tab.doc.kind !== 'rsf') {
-          return t('menu.format.csvOnlyTooltip');
-        }
-        return tab.selection && tab.doc.isFormulaCell(tab.selection.row, tab.selection.col)
-          ? t('menu.format.richTextFormulaTooltip')
-          : null;
       default:
         return null;
     }
@@ -758,12 +738,6 @@ export class Commands {
         return;
       case 'format.textColor':
         if (tab) await this.promptTextColor(tab);
-        return;
-      case 'format.richText':
-        if (tab)
-          await this.format.promptRichText(tab, (row, col, text, runs) =>
-            this.commitCellEdit(tab, row, col, text, runs),
-          );
         return;
       case 'format.backgroundColor':
         if (tab) await this.promptBackgroundColor(tab);

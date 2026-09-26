@@ -62,7 +62,6 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseVersionHistory: vi.fn(async () => null),
     confirmHistoryCapExceeded: vi.fn(async () => true),
     chooseTextColor: vi.fn(async () => null),
-    chooseRichText: vi.fn(async () => null),
     chooseBackgroundColor: vi.fn(async () => null),
     chooseBorders: vi.fn(async () => null),
     chooseNumberFormat: vi.fn(async () => null),

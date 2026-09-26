@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.8] - 2026-09-26
+
 ### Changed
 
 - When a file cannot be saved or exported, the error now names the file

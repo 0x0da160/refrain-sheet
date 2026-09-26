@@ -57,6 +57,7 @@ const noopUi: UiPort = {
   chooseVersionHistory: async () => null,
   confirmHistoryCapExceeded: async () => true,
   chooseTextColor: async () => null,
+  chooseRichText: async () => null,
   chooseBackgroundColor: async () => null,
   chooseBorders: async () => null,
   chooseNumberFormat: async () => null,

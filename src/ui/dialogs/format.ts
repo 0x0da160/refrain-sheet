@@ -6,6 +6,8 @@ import type {
   ConditionalFormatDialogInput,
   ConditionalFormatDialogResult,
   NumberFormatDialogResult,
+  RichTextDialogInput,
+  RichTextDialogResult,
 } from '../../app/commands';
 import { t } from '../../app/i18n';
 import {
@@ -30,8 +32,18 @@ import type {
   ConditionalFormatRule,
   ConditionalFormatStyle,
 } from '../../core/conditional-format';
-import { Hash, PaintBucket, Palette, Sparkles, Table, type IconNode } from 'lucide';
+import {
+  charFormats,
+  clearFormats,
+  isFormatOn,
+  remapFormats,
+  runsFromChars,
+  setFormatKey,
+  type RunFormat,
+} from '../../core/rich-text';
+import { Hash, PaintBucket, Palette, Sparkles, Table, Type, type IconNode } from 'lucide';
 import { el } from '../dom';
+import { richTextNodes } from '../rich-text-render';
 import { dialogButton, openSidePanel, panelCheck, panelField, panelSection, submitOnEnter } from './shared';
 
 const DEFAULT_COLOR = '#000000';
@@ -198,6 +210,101 @@ export class FormatDialogs {
     onApply?: ApplyHandler<ColorDialogResult>,
   ): Promise<ColorDialogResult | null> {
     return this.chooseColor(t('dialog.color.title.background'), PaintBucket, current, onApply);
+  }
+
+  /**
+   * Format part of a cell's text: the cell's text in a field, buttons that
+   * set bold/italic/underline/text color on the selected part (or clear its
+   * own formatting), and a preview of the result. The field stays editable;
+   * typed text takes the format of the text it follows. Apply resolves with
+   * the text and its formatted parts; closing resolves null.
+   */
+  chooseRichText(input: RichTextDialogInput): Promise<RichTextDialogResult | null> {
+    return openSidePanel<RichTextDialogResult | null>(
+      { title: t('dialog.richText.title'), icon: Type, fallback: null },
+      (body, buttons, apply) => {
+        const cell = input.cellStyle;
+        const field = el('textarea', {
+          className: 'rich-text-field',
+          attrs: { id: 'rich-text-field', rows: '4', 'data-autofocus': 'true' },
+        }) as HTMLTextAreaElement;
+        field.value = input.text;
+        let text = input.text;
+        let formats: RunFormat[] = input.runs
+          ? charFormats(input.runs)
+          : input.text.split('').map((): RunFormat => ({}));
+        const preview = el('div', { className: 'rich-text-preview-box', attrs: { 'aria-live': 'polite' } });
+        const sync = (): void => {
+          if (field.value !== text) {
+            formats = remapFormats(text, field.value, formats);
+            text = field.value;
+          }
+        };
+        const render = (): void => {
+          sync();
+          const runs = runsFromChars(text, formats);
+          preview.style.color = cell?.textColor ?? '';
+          preview.replaceChildren(...richTextNodes(runs ?? [{ text }], cell));
+        };
+        field.addEventListener('input', render);
+        const selection = (): [number, number] => {
+          sync();
+          return [field.selectionStart ?? 0, field.selectionEnd ?? 0];
+        };
+        // Toolbar buttons keep the field's focus and selection.
+        const tool = (label: string, action: () => void): HTMLButtonElement => {
+          const button = dialogButton(label, false, false, () => {
+            action();
+            render();
+          });
+          button.addEventListener('mousedown', (event) => event.preventDefault());
+          return button;
+        };
+        const toggle = (key: 'bold' | 'italic' | 'underline') => (): void => {
+          const [start, end] = selection();
+          const cellOn = !!cell?.[key];
+          const on = !isFormatOn(formats, start, end, key, cellOn);
+          formats = setFormatKey(formats, start, end, key, on === cellOn ? null : on);
+        };
+        const color = colorSwatch('rich-text-color', cell?.textColor ?? DEFAULT_COLOR);
+        body.append(
+          panelSection(null, [panelField(t('dialog.richText.text'), field, t('dialog.richText.hint'))]),
+          panelSection(null, [
+            el('div', { className: 'panel-row' }, [
+              tool(t('menu.format.bold'), toggle('bold')),
+              tool(t('menu.format.italic'), toggle('italic')),
+              tool(t('menu.format.underline'), toggle('underline')),
+            ]),
+            el('div', { className: 'panel-row' }, [
+              color,
+              tool(t('dialog.richText.applyColor'), () => {
+                const [start, end] = selection();
+                const value = color.value.toLowerCase();
+                formats = setFormatKey(
+                  formats,
+                  start,
+                  end,
+                  'textColor',
+                  value === cell?.textColor ? null : value,
+                );
+              }),
+              tool(t('dialog.richText.clear'), () => {
+                const [start, end] = selection();
+                formats = clearFormats(formats, start, end);
+              }),
+            ]),
+          ]),
+          panelSection(t('dialog.richText.preview'), [preview]),
+        );
+        buttons.append(
+          dialogButton(t('dialog.richText.apply'), true, false, () => {
+            sync();
+            apply({ text, runs: runsFromChars(text, formats) });
+          }),
+        );
+        render();
+      },
+    );
   }
 
   /**

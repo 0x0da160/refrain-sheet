@@ -69,6 +69,7 @@ function noOpUiPort(): UiPort {
     chooseVersionHistory: async () => null,
     confirmHistoryCapExceeded: async () => false,
     chooseTextColor: async () => null,
+    chooseRichText: async () => null,
     chooseBackgroundColor: async () => null,
     chooseBorders: async () => null,
     chooseNumberFormat: async () => null,

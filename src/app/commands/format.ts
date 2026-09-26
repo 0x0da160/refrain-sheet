@@ -11,7 +11,8 @@ import {
   type NumberFormat,
 } from '../../core/cell-style';
 import type { CellRange } from '../../core/clipboard';
-import type { StyleChange } from '../../core/history';
+import type { Operation, StyleChange } from '../../core/history';
+import { remapRuns, runsEqual, runsForText, type TextRun } from '../../core/rich-text';
 import type { AppState, Tab } from '../app-state';
 import { getLocale } from '../i18n';
 import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult, UiPort } from '../commands';
@@ -46,6 +47,7 @@ const CLEAR_PATCH: CellStylePatch = {
   borderBottom: null,
   borderLeft: null,
   numberFormat: null,
+  runs: null,
 };
 
 /**
@@ -98,6 +100,45 @@ export class FormatCommands {
           'history.setTextColor',
         ),
     );
+  }
+
+  /**
+   * Open the "Format Text in Cell" panel for the active cell (a plain-text
+   * cell of a grid worksheet) and commit its result through `commit` — the
+   * ordinary cell-edit path, so the text and its formatted parts change as
+   * one undoable edit. Nothing is committed when the panel is closed, or
+   * when the file or cell changed while it was open.
+   */
+  async promptRichText(
+    tab: Tab,
+    commit: (row: number, col: number, text: string, runs: TextRun[] | null) => Promise<boolean>,
+  ): Promise<boolean> {
+    const doc = tab.doc;
+    const selection = tab.selection;
+    if (doc.kind !== 'rsf' || doc.activeSheet.kind !== 'grid' || !selection) {
+      return false;
+    }
+    const { row, col } = selection;
+    if (doc.isFormulaCell(row, col)) {
+      return false;
+    }
+    const sheetId = doc.activeSheetId;
+    const text = doc.getValue(row, col);
+    const style = doc.getStyle(row, col);
+    const result = await this.ui.chooseRichText({
+      text,
+      runs: runsForText(style?.runs, text),
+      cellStyle: style,
+    });
+    if (
+      !result ||
+      !this.isStillActive(tab, doc) ||
+      doc.activeSheetId !== sheetId ||
+      doc.getValue(row, col) !== text
+    ) {
+      return false;
+    }
+    return commit(row, col, result.text, result.runs);
   }
 
   /** Open the Background Color dialog and apply the choice. */
@@ -246,6 +287,70 @@ export class FormatCommands {
       label: 'history.pasteFormats',
       sheetId,
       ops: [{ type: 'styles', changes, sheetId }],
+    });
+  }
+
+  /**
+   * The style change a single-cell edit brings to the cell's rich text
+   * (RSF grid worksheets only), or null when there is none. `runs` from the
+   * cell editor replaces the formatted parts (null clears them); left out,
+   * they carry over from the old text to the new (`remapRuns`). Runs that
+   * no longer matched the cell's text are dropped.
+   */
+  styleForEdit(
+    tab: Tab,
+    row: number,
+    col: number,
+    value: string,
+    runs: TextRun[] | null | undefined,
+  ): { before: CellStyle | null; after: CellStyle | null } | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || doc.activeSheet.kind !== 'grid') {
+      return null;
+    }
+    if (row < 0 || row >= doc.rowCount || col < 0 || col >= doc.columnCount) {
+      return null;
+    }
+    const before = doc.getStyle(row, col);
+    const current = doc.getValue(row, col);
+    if (runs === undefined && (!before?.runs || current === value)) {
+      return null;
+    }
+    const next = runs === undefined ? remapRuns(current, value, runsForText(before?.runs, current)) : runs;
+    const nextRuns = next && runsForText(next, value) ? next : null;
+    if (runsEqual(before?.runs, nextRuns ?? undefined)) {
+      return null;
+    }
+    return { before, after: applyCellStylePatch(before, { runs: nextRuns }) };
+  }
+
+  /**
+   * Commit one cell's new input together with its new style (rich text) as
+   * one undoable entry; either part may be unchanged.
+   */
+  editCellWithStyle(
+    tab: Tab,
+    row: number,
+    col: number,
+    value: string,
+    before: CellStyle | null,
+    after: CellStyle | null,
+  ): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return false;
+    }
+    const sheetId = doc.activeSheetId;
+    const previous = doc.getValue(row, col);
+    const ops: Operation[] = [];
+    if (previous !== value) {
+      ops.push({ type: 'cells', changes: [{ row, col, before: previous, after: value }], sheetId });
+    }
+    ops.push({ type: 'styles', changes: [{ row, col, before, after }], sheetId });
+    return this.state.pushEntry(tab, {
+      label: previous !== value ? 'history.editCell' : 'history.formatText',
+      sheetId,
+      ops,
     });
   }
 

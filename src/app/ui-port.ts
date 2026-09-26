@@ -7,7 +7,8 @@
  * from `commands.ts` for existing importers.
  */
 import type { DelimiterId } from '../core/byte-csv-parser';
-import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../core/cell-style';
+import type { BorderLineStyle, BorderSide, BorderWidth, CellStyle, NumberFormat } from '../core/cell-style';
+import type { TextRun } from '../core/rich-text';
 import type { CsvExportOptions } from '../core/csv-export';
 import type { EncodingId } from '../core/encoding';
 import type { ConditionalFormatRule } from '../core/conditional-format';
@@ -267,6 +268,19 @@ export type CellCommentDialogResult = { action: 'apply'; text: string } | { acti
 /** What the Text/Background Color dialog resolved to (null = cancelled, nothing changes). */
 export type ColorDialogResult = { action: 'apply'; color: string } | { action: 'clear' };
 
+/** The cell the "Format Text in Cell" panel edits: its text, formatted parts, and whole-cell style. */
+export interface RichTextDialogInput {
+  text: string;
+  runs: readonly TextRun[] | null;
+  cellStyle: CellStyle | null;
+}
+
+/** What the "Format Text in Cell" panel resolved to: the text and its formatted parts (null = none). */
+export interface RichTextDialogResult {
+  text: string;
+  runs: TextRun[] | null;
+}
+
 /** What the Borders dialog resolved to (null = cancelled, nothing changes). */
 export type BordersDialogResult = {
   action: 'apply';
@@ -514,6 +528,12 @@ export interface UiPort {
     current: string | null,
     onApply?: ApplyHandler<ColorDialogResult>,
   ): Promise<ColorDialogResult | null>;
+  /**
+   * The "Format Text in Cell" panel: edit one cell's text and give parts of
+   * it their own bold/italic/underline/text color. Resolves with the result
+   * to commit, or null when closed without applying.
+   */
+  chooseRichText(input: RichTextDialogInput): Promise<RichTextDialogResult | null>;
   /** The Background Color dialog — see {@link chooseTextColor}. */
   chooseBackgroundColor(
     current: string | null,

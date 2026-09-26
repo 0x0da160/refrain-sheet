@@ -807,3 +807,20 @@
      composition on it) sits at the rendered text's exact vertical position. */
   line-height: calc(var(--grid-row-height) - 1px - 6px * var(--sheet-zoom, 1));
 }
+
+/* Rich text (parts of a cell's text with their own format): the formatted
+   parts as they will look, floating just below the plain-text cell editor. */
+.rich-text-preview {
+  position: fixed;
+  z-index: 6;
+  max-width: min(480px, calc(100vw - 16px));
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--field-bg);
+  color: var(--text);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 15%);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  pointer-events: none;
+}

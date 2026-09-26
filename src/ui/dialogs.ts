@@ -8,6 +8,8 @@ import type {
   ColumnMenuInput,
   ColumnMenuResult,
   ColorDialogResult,
+  RichTextDialogInput,
+  RichTextDialogResult,
   ConditionalFormatDialogInput,
   ConditionalFormatDialogResult,
   ConvertReason,
@@ -320,6 +322,11 @@ export class Dialogs {
     onApply?: ApplyHandler<ColorDialogResult>,
   ): Promise<ColorDialogResult | null> {
     return this.format.chooseTextColor(current, onApply);
+  }
+
+  /** See `FormatDialogs.chooseRichText` for the full behavior contract. */
+  chooseRichText(input: RichTextDialogInput): Promise<RichTextDialogResult | null> {
+    return this.format.chooseRichText(input);
   }
 
   /** See `FormatDialogs.chooseBackgroundColor` for the full behavior contract. */

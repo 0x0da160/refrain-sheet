@@ -281,6 +281,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           shortcut: 'Ctrl+U',
           checked: () => checks.formatActive('underline'),
         },
+        { labelKey: 'menu.format.richText', command: 'format.richText' },
         'separator',
         { labelKey: 'menu.format.colorAndBorders', icon: SwatchBook, submenu: colorAndBordersItems() },
         { labelKey: 'menu.format.numberFormat', command: 'format.numberFormat' },

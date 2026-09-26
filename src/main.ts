@@ -137,6 +137,7 @@ function bootstrap(): void {
       dialogs.chooseVersionHistory(current, maxOverride, history),
     confirmHistoryCapExceeded: (name, max) => dialogs.confirmHistoryCapExceeded(name, max),
     chooseTextColor: (current, onApply) => dialogs.chooseTextColor(current, onApply),
+    chooseRichText: (input) => dialogs.chooseRichText(input),
     chooseBackgroundColor: (current, onApply) => dialogs.chooseBackgroundColor(current, onApply),
     chooseBorders: (current, currentLineStyle, currentWidth, onApply) =>
       dialogs.chooseBorders(current, currentLineStyle, currentWidth, onApply),

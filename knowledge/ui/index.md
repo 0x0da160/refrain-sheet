@@ -43,6 +43,11 @@ it.
   Light/Dark/Hybrid themes, live `prefers-color-scheme` tracking, the
   spreadsheet font choice, vertical text centering, and conditional
   row-height wrapping.
+- [UI writing and wording rules](ui-writing-and-wording.md) — how in-app
+  text is written: action-first labels, calm polite Japanese, full impact
+  statements for save/convert/discard/encoding changes, recommended terms,
+  and the review checklist for any string change (canonical text in
+  Japanese).
 
 Before choosing or changing a keyboard shortcut, the
 [spreadsheet shortcut comparison](../references/spreadsheet-shortcut-comparison.md)

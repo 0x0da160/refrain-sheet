@@ -70,7 +70,8 @@ Do not invent commands. If a needed command does not exist, stop and say so.
   and `AppState`; one `HistoryEntry` per user-visible mutation (undoable, atomic).
 - Cell values render as **text, never HTML**. No `eval` / `new Function`.
 - All user-facing strings are localized in `src/locales/en.json` and `ja.json`;
-  the two files must have identical key sets.
+  the two files must have identical key sets. Wording follows
+  `knowledge/ui/ui-writing-and-wording.md`.
 - Every source file starts with `// SPDX-License-Identifier: MIT`.
 
 ## Branch & PR conventions

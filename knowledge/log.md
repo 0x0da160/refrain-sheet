@@ -312,3 +312,13 @@ screenful PageUp / PageDown; the shortcut list is grouped and
 platform-specific. Updated `ui/copy-paste-fill-and-flash-fill.md`,
 `ui/editing-and-ime.md`, `ui/selection-and-navigation.md`, and the adoption
 table in `references/spreadsheet-shortcut-comparison.md`.
+
+**UI writing and wording rules.** Added `ui/ui-writing-and-wording.md`
+from an owner-supplied draft: principles, notation defaults, recommended
+terms, situational examples, and the review checklist for in-app strings
+(canonical text in Japanese). The draft's landing-page paths were
+corrected to `site/i18n.js` and the generated `landing/` pages, and its
+"reconcile with the real strings first" step was done: §7 records the
+current `src/locales/ja.json` strings that differ from the rules, to be
+fixed one focused change at a time. Linked from `ui/index.md`,
+`src/ui/CLAUDE.md`, and the root `CLAUDE.md`.

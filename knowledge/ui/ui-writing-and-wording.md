@@ -46,9 +46,10 @@ encoding changes, preventing a wrong decision beats brevity.
 - **Text carries state on its own** (never colour/icon only), and
   **Japanese and English match in meaning**, not word-for-word.
 
-These rules apply to every new or changed string. Existing strings that
-differ from them (§7) are brought in line by their own focused change, not
-by a sweep. Because the primary audience is Japanese office users, the
+These rules apply to every new or changed string. The owner-requested
+review of 2026-09-26 brought the existing strings in line (§7).
+Explanations a user does not need in order to act go behind a folded
+"More details" disclosure (§3), never impact on risky operations. Because the primary audience is Japanese office users, the
 canonical text follows in Japanese. It also applies to the landing page's
 product descriptions, whose copy lives in `site/i18n.js`, without mixing
 marketing copy into operational wording.
@@ -128,6 +129,12 @@ Refrain Sheet は、書式とバイト列を保持する CSV 編集、RSF への
 - 文字数の一律上限は設けない。狭い画面、拡大表示、日英切り替えで実画面を
   確認する。
 - 入力欄のプレースホルダーを、常に必要なラベルや説明の代わりにしない。
+- 判断や操作に必要のない補足（保存場所の仕組み、書き出しで含まれないものの
+  一覧、キーの扱いなど）は、ダイアログに常に表示せず「詳しい説明」の折りたたみ
+  （`helpDetails`、`src/ui/dialogs/shared.ts`）に入れる。保存・変換・破棄・
+  文字コード変更の影響（§2-3）は折りたたまない。
+- その画面の操作に関係のない説明は書かない（例：ショートカット一覧にテーマや
+  表示密度の説明を載せない）。
 - 成功・警告・エラーの強さは実際の影響に合わせる。「必ず」「完全」などの断定
   は、対応範囲と検証結果が一致する場合だけ使う。
 
@@ -213,26 +220,26 @@ CSV インジェクションなどの注意書きは、該当する条件、想�
 - 紹介ページ：`site/i18n.js`。`npm run build:landing` が生成する
   `landing/index.html` と `landing/en/index.html` は直接編集しない。
 
-## 7. 現行文言との差分（2026年9月26日時点の棚卸し）
+## 7. 現行文言との差分（2026年9月26日の見直しで是正済み）
 
-本ルール制定時に `src/locales/ja.json` と照合し、次の差分を確認した。いずれも
-既存の公開済み文言であり、本ルールの制定だけを理由に一括で書き換えない。是正は
-対象ごとに個別の Issue／PR で行い、§4 の最後の段落に従ってメニュー・ダイアログ・
-ヘルプを同時に揃える。
+本ルール制定時に `src/locales/ja.json` と照合して見つかった次の差分は、同日、
+オーナーの依頼による全文言の見直しで是正した。
 
-| キー                                               | 現行の日本語                                            | 本ルールとの差分                                                               |
-| -------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `dialog.unsaved.title`                             | 未保存の変更                                            | 見出しが判断事項になっていない（§2-7、§5.1）                                   |
-| `dialog.unsaved.discard` / `dialog.unsaved.cancel` | 破棄 / キャンセル                                       | 選択後の動作が具体的でない（「変更を破棄」「編集を続ける」）（§2-7）           |
-| `dialog.unrepresentable.message`                   | 選択した文字コード（{encoding}）では表現できない文字が… | 対象セルは別行で示されるが、次の行動が書かれていない（§2-6、§5.2）             |
-| `notify.saveFailed`                                | 保存に失敗しました: {error}                             | 対象と次の行動がなく、技術的なエラー文だけになり得る（§2-6）                   |
-| `notify.savedDownload`                             | ダウンロードとして「{name}」を保存しました。…           | ダウンロードの完了を観測できているかを確認し、観測範囲に合わせる（§2-8、§5.3） |
-| `dialog.sheetName.ok` / `dialog.ok`                | OK                                                      | 対象＋動詞にできるか確認する（§2-1）                                           |
-| `diag.text-after-quote` / `find.invalidRegex` など | 「不正な」「不正です」                                  | 利用者を責める印象を避け、問題と次の行動を書けるか確認する（§2-2、§2-6）       |
+| キー                                               | 見直し前                        | 見直し後                                                    |
+| -------------------------------------------------- | ------------------------------- | ----------------------------------------------------------- |
+| `dialog.unsaved.title`                             | 未保存の変更                    | 閉じる前に変更を保存しますか？                              |
+| `dialog.unsaved.discard` / `dialog.unsaved.cancel` | 破棄 / キャンセル               | 保存せずに閉じる / 編集を続ける（保存は「保存して閉じる」） |
+| `dialog.unrepresentable.message`                   | …表現できない文字が…            | 保存していないことと、次に取れる3つの行動を示す             |
+| `notify.saveFailed`                                | 保存に失敗しました: {error}     | 元のファイルは変更されていないことと、次の行動を示す        |
+| `notify.savedDownload`                             | ダウンロードとして…保存しました | 観測できる「ダウンロードを開始しました」に合わせた          |
+| `dialog.sheetName.ok` / `dialog.ok`                | OK                              | 追加／名前を変更／複製、閉じる                              |
+| `diag.text-after-quote` / `find.invalidRegex` など | 「不正な」「不正です」          | 「余分な文字」「書き方に誤りがあります」                    |
 
-一方、「文字コードを指定して開き直す…」「オプションを指定して保存…」
-「このまま開く」、開き直しの警告文（バイト列を変更しないことの明示）、
-変換確認の注記（元のCSVを変更しないことの明示）は、すでに本ルールに沿っている。
+同じ見直しで、「ドキュメント」「文書」をファイルに、「クリア」を削除・解除・
+消去に、「スナップショット」を版に、「アクティブ」を選択中・表示中に揃え、
+「ファイル > ドキュメント」サブメニューを「ファイル > このファイル」とした。
+メニューの場所が変わっていた案内文（「ファイル > 書き出し > CSVとして書き出す…」
+など）も実際のメニューに合わせた。
 
 ## 8. 参考資料
 

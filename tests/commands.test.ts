@@ -208,7 +208,7 @@ describe('saving', () => {
     expect(ok).toBe(true);
     expect(URL.createObjectURL).toHaveBeenCalledOnce();
     const messages = (ui.notify as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
-    expect(messages.some((m) => m.includes('NOT overwritten'))).toBe(true);
+    expect(messages.some((m) => m.includes('was not overwritten'))).toBe(true);
   });
 
   it('falls back to a download when writing is denied', async () => {

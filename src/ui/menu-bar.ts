@@ -538,7 +538,7 @@ function filterSortItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
 /**
  * Writing the document out in a different format (File > Export): choosing
  * options for the current format, or converting to one of the other
- * supported file types. Distinct from Sheet > Convert to Spreadsheet (RSF),
+ * supported file types. Distinct from File > This File > Convert to RSF Spreadsheet…,
  * which changes the *document's* underlying kind rather than writing a copy.
  */
 function exportItems(): MenuItemDef[] {
@@ -551,7 +551,7 @@ function exportItems(): MenuItemDef[] {
 }
 
 /**
- * Per-document actions that are not everyday file I/O (File > Document):
+ * Per-document actions that are not everyday file I/O (File > This File):
  * reopening with a different encoding, toggling read-only protection, and
  * converting a CSV tab to an RSF spreadsheet.
  */

@@ -792,7 +792,7 @@ describe('saving and exporting RSF', () => {
       expect(sink.bytes).not.toBeNull();
       // The handle is retained so subsequent saves overwrite without a picker.
       expect(tab.handle).toBe(handle);
-      expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining('overwritten'), 'info');
+      expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining('Saved to the original file'), 'info');
     } finally {
       restore();
     }
@@ -831,7 +831,10 @@ describe('saving and exporting RSF', () => {
       expect(tab.handle).toBeNull(); // association untouched
       expect(tab.doc.isDirty).toBe(true); // still unsaved
       // No misleading save-success notification.
-      expect(ui.notify).not.toHaveBeenCalledWith(expect.stringContaining('overwritten'), 'info');
+      expect(ui.notify).not.toHaveBeenCalledWith(
+        expect.stringContaining('Saved to the original file'),
+        'info',
+      );
       expect(ui.notify).not.toHaveBeenCalledWith(expect.stringContaining('download'), 'info');
     } finally {
       restore();

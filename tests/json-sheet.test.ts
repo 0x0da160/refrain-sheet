@@ -146,7 +146,7 @@ describe('JsonSheetView', () => {
 
     const preview = view.panelElement.querySelector('.markdown-editor-preview')!;
     expect(preview.querySelector('pre code')).toBeNull();
-    expect(preview.textContent).toContain('too large');
+    expect(preview.textContent).toContain('Too large');
   });
 
   it('keeps the source textarea and preview pane scroll positions in sync', () => {

@@ -139,8 +139,13 @@ img {
   gap: var(--space-6);
   justify-items: start;
 }
-.hero-copy .rb-eyebrow {
+/* The line above the h1 is a sentence, not an eyebrow label: plain text,
+   never upper-cased, in the body face. */
+.hero-kicker {
   margin: 0;
+  font-size: var(--brand-text-small);
+  font-weight: var(--weight-bold);
+  color: var(--accent-subtle-text);
 }
 .hero-lead {
   margin: 0;

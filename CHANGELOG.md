@@ -56,6 +56,10 @@ really is internal, rather than inventing an entry to satisfy it.
   for your system (Cmd on macOS). It now also lists Ctrl+Enter, Alt+Enter,
   Delete / Backspace, Home / End, PageUp / PageDown, and Alt+Down (filter
   menu).
+- **Plainer names for files and sheets.** The app now says "File" instead
+  of "Workbook" / "Book" and "Sheet" instead of "Worksheet" (in Japanese,
+  ファイル and シート instead of ブック and ワークシート). The Sheet menu's
+  sheet submenu is now Sheet > Manage Sheets.
 
 ## [0.9.3] - 2026-09-25
 

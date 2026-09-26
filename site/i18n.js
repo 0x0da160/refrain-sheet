@@ -123,16 +123,16 @@ export const I18N = {
       'ホスト版アプリで「ドライブから開く」「ドライブに保存」を選んだときだけ、Googleへのサインインと Google Drive API との通信が発生します。アクセス範囲は開いた・作成したファイルに限られ（drive.file スコープ）、アクセストークンはブラウザのメモリ上にのみ保持されます。ファイルは運営者のサーバーを経由せず、ブラウザとGoogle Driveの間で直接やり取りされます。配布版にはこの機能はありません。',
     'f6.h3': '読み取り専用から始める保護モード',
     'f6.p':
-      '既存のファイルは既定で読み取り専用で開きます。編集するときは、ステータスバーのアイコンか ファイル > ドキュメント > ブックの保護を解除 で切り替えます。この設定はタブごと・セッション限りで、ファイルには保存されません。',
+      '既存のファイルは既定で読み取り専用で開きます。編集するときは、ステータスバーのアイコンか ファイル > ドキュメント > ファイルの保護を解除 で切り替えます。この設定はタブごと・セッション限りで、ファイルには保存されません。',
     'f7.h3': 'ほかにも：Markdownシート',
     'f7.p':
-      'RSFのブックに Markdown シートを追加し、ソースとプレビューを並べてメモや手順書を書けます（シート > Markdownシートの追加）。MarkdownシートはCSVエクスポートの対象外です。',
+      'RSFのファイルに Markdown シートを追加し、ソースとプレビューを並べてメモや手順書を書けます（シート > Markdownシートの追加）。MarkdownシートはCSVエクスポートの対象外です。',
 
     'f4.h3': '集計・比較・書式が必要なときだけ、RSFへ。',
     'f4.p':
       'CSVには、数式、複数シート、書式、コメントを完全には表せません。Refrain Sheet は、CSVを無理にスプレッドシート化しません。必要なときだけRSF（.rsf）へ明示的に変換し、CSVの正本とは役割を分けます。変換しても元の .csv は変更されません。',
     'f4.li1': '55関数：SUM・XLOOKUP・SUMIFS・TEXT・FILTER・UNIQUE ほか',
-    'f4.li2': '複数ワークシート、シート間参照、絶対／相対参照、循環参照の検出',
+    'f4.li2': '複数シート、シート間参照、絶対／相対参照、循環参照の検出',
     'f4.li3': 'フィルタと最大8階層の複数キー並べ替え。表示順が変わるだけで、データや数式は書き換わりません',
     'f4.li4': '数式エンジンは自作パーサ。eval も new Function も使いません',
     'f4.li5':
@@ -141,11 +141,10 @@ export const I18N = {
     'f4.li7': 'データ入力規則：選択範囲を値のリストまたは数値範囲に制限し、違反する入力を理由付きで拒否',
     'f4.li8': '条件付き書式：比較・重複・2色スケールでセルの背景色を値に応じて自動着色',
     'f4.li9': '数値の書式設定：数値・パーセント・通貨の表示形式を、小数桁数や桁区切りとともに指定',
-    'f4.li10': 'SQLクエリの実行：ワークシートに対してローカルで動く読み取り専用のSELECTクエリを実行',
+    'f4.li10': 'SQLクエリの実行：シートに対してローカルで動く読み取り専用のSELECTクエリを実行',
     'f4.li11': '比較／差分：開いている2つのタブをキー列で比較し、追加・変更・削除・キー不整合を行ごとに判定',
     'f4.li12': 'セルコメント：セルの値とは独立した短いメモを添付。ホバーで内容を表示',
-    'f4.li13':
-      'コメントパネル：ワークシート単位・ワークブック単位で全コメントを一覧表示。クリックでそのセルへジャンプ',
+    'f4.li13': 'コメントパネル：シート単位・ファイル単位で全コメントを一覧表示。クリックでそのセルへジャンプ',
 
     'theme.eyebrow': 'DETAILS',
     'theme.h2': '英語UIとダークテーマも、標準装備。',
@@ -454,16 +453,16 @@ export const I18N = {
       'Only when you choose Open from Drive or Save to Drive in the hosted app does it sign in to Google and talk to the Google Drive API. Access is limited to files opened or created through this feature (the drive.file scope), the access token lives only in browser memory, and file contents travel directly between your browser and Google Drive, never through a server of ours. The downloadable release does not include this feature.',
     'f6.h3': 'A protect mode that stops accidental edits',
     'f6.p':
-      'Opening an existing file defaults to read-only; a status bar control or File > Document > Unprotect Book unlocks it. The setting is per-tab, session-only, and never saved with the file.',
+      'Opening an existing file defaults to read-only; a status bar control or File > Document > Unprotect File unlocks it. The setting is per-tab, session-only, and never saved with the file.',
     'f7.h3': 'Also included: Markdown sheets',
     'f7.p':
-      'Add a Markdown sheet to an RSF workbook (Sheet > Add Markdown Sheet) and write notes or procedures with source and preview side by side. Markdown sheets are excluded from CSV export.',
+      'Add a Markdown sheet to an RSF file (Sheet > Add Markdown Sheet) and write notes or procedures with source and preview side by side. Markdown sheets are excluded from CSV export.',
 
     'f4.h3': 'RSF, only when you need to calculate, compare or format.',
     'f4.p':
       "Plain CSV can't fully hold formulas, multiple sheets, formatting or comments. Refrain Sheet doesn't force a CSV into a spreadsheet: those live in a separate .rsf document, created only by an explicit conversion, so it and the original CSV keep separate roles. The original .csv is never changed.",
     'f4.li1': '55 functions: SUM, XLOOKUP, SUMIFS, TEXT, FILTER, UNIQUE and more',
-    'f4.li2': 'Multiple worksheets, cross-sheet references, absolute/relative refs, cycle detection',
+    'f4.li2': 'Multiple sheets, cross-sheet references, absolute/relative refs, cycle detection',
     'f4.li3':
       'Filtering and a compound sort with up to 8 keys — reorders the view only, never the data or formulas',
     'f4.li4': 'A hand-written formula engine — no eval, no new Function, no macros',
@@ -477,12 +476,12 @@ export const I18N = {
     'f4.li9':
       'Number Format: Number, Percent, or Currency display, with decimal places and a thousands separator',
     'f4.li10':
-      'SQL Query: a local, read-only SELECT query against the worksheet, with autocomplete and saved queries',
+      'SQL Query: a local, read-only SELECT query against the sheet, with autocomplete and saved queries',
     'f4.li11':
       'Compare / Diff: compares two open tabs by key column, classifying every row as added, modified, deleted or unchanged',
     'f4.li12': 'Cell Comment: attaches a short note to a cell, independent of its value',
     'f4.li13':
-      'Comments Panel: lists every comment for the current worksheet or the whole workbook, click an entry to jump to its cell',
+      'Comments Panel: lists every comment for the current sheet or the whole file, click an entry to jump to its cell',
 
     'theme.eyebrow': 'DETAILS',
     'theme.h2': 'English UI and dark theme, built in.',

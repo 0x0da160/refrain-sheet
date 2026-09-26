@@ -169,3 +169,15 @@ entries. A stored handle grants nothing by itself: reopening asks the
 browser for read permission again in each session. Only browsers with the
 File System Access API record anything; the dialog's Clear List button
 empties it.
+
+**Opened from `file://`, storage is shared with other local files.**
+Chromium-based browsers give every local HTML file one storage origin
+(verified 2026-09-26: a page in another folder read both `localStorage`
+and this IndexedDB database). So when the app runs from `file://`
+(`storageSharedWithOtherLocalFiles()` in `src/app/storage.ts`), the
+recently opened files list and the SQL query history / saved queries are
+kept in memory only, and copies an earlier release stored are deleted at
+startup. Plain preferences (theme, zoom, size limit…) stay in
+`localStorage` there: they reveal nothing about the user's data and every
+read is validated and clamped. The hosted build has its own origin and is
+unaffected.

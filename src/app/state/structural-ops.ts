@@ -10,6 +10,7 @@ import { defaultSheetName, STICKY_COL_KEY, STICKY_KEY } from './defaults';
 import { getLocale, t } from '../i18n';
 import { clampSheetZoom, setSheetZoom, setWrapCellsPreference } from '../settings';
 import { safeStorageSet } from '../storage';
+import { resolveWrap, resolveZoom } from './view-layers';
 
 /**
  * Structural operations on RSF spreadsheet documents — row/column insert and
@@ -422,8 +423,9 @@ export class StructuralOpsState {
   /**
    * Turn wrapping on/off for the active tab. Purely visual: it never changes
    * document content, CSV bytes, or the dirty state. The choice also becomes
-   * the application-level preference (used by documents that store none), and
-   * an RSF worksheet remembers it for persistence with the next save.
+   * the last-used value (the fallback when no level specifies one), and an RSF
+   * worksheet remembers it — the narrowest level, so it wins — for
+   * persistence with the next save.
    */
   setWrapCells(wrap: boolean): void {
     setWrapCellsPreference(wrap);
@@ -451,6 +453,18 @@ export class StructuralOpsState {
       return;
     }
     tab.wrapCells = wrap;
+  }
+
+  /**
+   * Re-resolve every open tab's zoom and wrap, after a browser- or file-level
+   * setting changed (File > Settings…). Does not emit. A plain CSV tab has no
+   * worksheet level, so it takes the browser setting (or the last-used value).
+   */
+  reapplyViewSettings(): void {
+    for (const tab of this.state.tabs) {
+      tab.zoom = resolveZoom(tab.doc).value;
+      tab.wrapCells = resolveWrap(tab.doc).value;
+    }
   }
 
   /**
@@ -539,9 +553,9 @@ export class StructuralOpsState {
   /**
    * Set the active tab's spreadsheet zoom (clamped percent). Purely visual:
    * it never changes document content, CSV bytes, or the dirty state. The
-   * chosen zoom also becomes the application-level preference (used by tabs
-   * whose document stores no zoom of its own), and RSF documents remember it
-   * for persistence with the next save.
+   * chosen zoom also becomes the last-used value (the fallback when no level
+   * specifies one), and an RSF worksheet remembers it — the narrowest level,
+   * so it wins — for persistence with the next save.
    */
   setTabZoom(tab: Tab, zoom: number): void {
     const z = clampSheetZoom(zoom);

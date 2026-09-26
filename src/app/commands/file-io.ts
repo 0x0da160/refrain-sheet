@@ -30,6 +30,7 @@ import { parseJsonWorkbook, type JsonImportError } from '../../core/json-import'
 import { buildJsonExport } from '../../core/json-export';
 import type { AppState, Tab } from '../app-state';
 import { defaultSheetName } from '../state/defaults';
+import { decidedBySheet, resolveWrap, resolveZoom } from '../state/view-layers';
 import { readFileObject, requestSaveHandle, saveBytes, saveBytesAs, type OpenedFile } from '../file-access';
 import {
   clearRecentFiles,
@@ -594,7 +595,13 @@ export class FileIoCommands {
     }
     // Record the tab's live view state (zoom, overridden column widths) so
     // the container persists it; presentational only, never dirties the doc.
-    doc.setDisplaySettings(tab.zoom, tab.colWidths, tab.wrapCells);
+    // Zoom/wrap inherited from the file or browser level are not copied into
+    // the worksheet, so it keeps following that level.
+    doc.setDisplaySettings(
+      decidedBySheet(resolveZoom(doc).source) ? tab.zoom : doc.displayZoom,
+      tab.colWidths,
+      decidedBySheet(resolveWrap(doc).source) ? tab.wrapCells : undefined,
+    );
     // The whole workbook is serialized, not just the active worksheet.
     let totalCells = 0;
     for (const sheet of doc.sheets) {

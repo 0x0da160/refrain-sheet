@@ -17,11 +17,15 @@ import {
   getEditHints,
   getMaxFileSize,
   getShiftPasteMode,
+  getBrowserWrap,
+  getBrowserZoom,
   nextZoomLevel,
   setAutoFitOnOpen,
   setEditHints,
   setMaxFileSize,
   setShiftPasteMode,
+  setBrowserWrap,
+  setBrowserZoom,
 } from './settings';
 import { setSheetFont, type SheetFontId } from './sheet-font';
 import { localDateStamp } from './shortcuts';
@@ -996,15 +1000,36 @@ export class Commands {
         return;
       }
       case 'app.settings': {
+        const rsf = tab && tab.doc.kind === 'rsf' ? tab.doc : null;
         const chosen = await this.ui.chooseSettings({
           maxFileSize: getMaxFileSize(),
           shiftPaste: getShiftPasteMode(),
+          browserDisplay: { zoom: getBrowserZoom(), wrap: getBrowserWrap() },
+          fileDisplay: rsf ? { zoom: rsf.fileZoom, wrap: rsf.fileWrap } : null,
         });
         if (chosen !== null) {
           const applied = setMaxFileSize(chosen.maxFileSize);
           setShiftPasteMode(chosen.shiftPaste);
-          // Menus label Ctrl+Shift+V on whichever command it now runs.
-          this.state.emit('view');
+          setBrowserZoom(chosen.browserDisplay.zoom);
+          setBrowserWrap(chosen.browserDisplay.wrap);
+          // The file level is presentational like zoom: kept with the next
+          // save, never marks the document dirty.
+          // Choosing a file-level value clears each worksheet's own one, so the
+          // file setting takes effect everywhere (a worksheet would outrank it).
+          if (rsf && chosen.fileDisplay) {
+            const { zoom, wrap } = chosen.fileDisplay;
+            if (zoom !== undefined && zoom !== rsf.fileZoom) {
+              for (const sheet of rsf.sheets) sheet.displayZoom = undefined;
+            }
+            if (wrap !== undefined && wrap !== rsf.fileWrap) {
+              for (const sheet of rsf.sheets) sheet.displayWrap = undefined;
+            }
+            rsf.fileZoom = zoom;
+            rsf.fileWrap = wrap;
+          }
+          // Re-resolve zoom/wrap everywhere; menus also label Ctrl+Shift+V on
+          // whichever command it now runs.
+          this.state.reapplyViewSettings();
           this.ui.notify(t('notify.settingsSaved', { size: Math.round(applied / (1024 * 1024)) }), 'info');
         }
         return;

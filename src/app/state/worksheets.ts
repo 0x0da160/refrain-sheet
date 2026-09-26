@@ -12,7 +12,7 @@ import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, type RsfDocument } from '..
 import { computeSortOrder, sortsEqual, type SheetSort } from '../../core/sort';
 import type { Worksheet } from '../../core/worksheet';
 import type { AppState, Tab } from '../app-state';
-import { clampSheetZoom, getSheetZoom, getWrapCells } from '../settings';
+import { decidedBySheet, resolveWrap, resolveZoom } from './view-layers';
 
 /**
  * Row filtering and worksheet lifecycle operations on RSF spreadsheet
@@ -314,23 +314,28 @@ export class WorksheetsState {
   }
 
   /**
-   * Snapshot the active worksheet's live view (selection, zoom, column widths)
+   * Snapshot the active worksheet's live view (selection, column widths)
    * into the worksheet, so switching away and back restores where you were.
-   * Zoom and widths are also written to the worksheet's persisted display
-   * settings, which is what makes them per-worksheet in the saved file.
+   * Widths, and zoom/wrap unless they are inherited from the file or browser
+   * level, are also written to the worksheet's persisted display settings,
+   * which is what makes them per-worksheet in the saved file.
    */
   private saveSheetView(tab: Tab, doc: RsfDocument): void {
     const view = doc.activeSheet.view;
     view.selection = tab.selection;
     view.anchor = tab.anchor;
     view.selectionKind = tab.selectionKind;
-    view.zoom = tab.zoom;
     view.colWidths = tab.colWidths.slice();
-    view.wrap = tab.wrapCells;
     view.freeze = tab.freeze;
-    doc.activeSheet.displayZoom = tab.zoom;
     doc.activeSheet.displayColWidths = tab.colWidths.slice();
-    doc.activeSheet.displayWrap = tab.wrapCells;
+    // A zoom/wrap inherited from the file or browser level is not copied
+    // into the worksheet, so it keeps following that level.
+    if (decidedBySheet(resolveZoom(doc).source)) {
+      doc.activeSheet.displayZoom = tab.zoom;
+    }
+    if (decidedBySheet(resolveWrap(doc).source)) {
+      doc.activeSheet.displayWrap = tab.wrapCells;
+    }
   }
 
   /**
@@ -344,9 +349,11 @@ export class WorksheetsState {
     tab.selection = view.selection ?? (sheet.rowCount > 0 ? { row: 0, col: 0 } : null);
     tab.anchor = view.anchor;
     tab.selectionKind = view.selectionKind;
-    tab.zoom = clampSheetZoom(view.zoom ?? sheet.displayZoom ?? getSheetZoom());
+    // Zoom and wrap are layered (worksheet > file > browser); the worksheet
+    // level is written when it changes, so it is simply re-resolved here.
+    tab.zoom = resolveZoom(doc).value;
     tab.colWidths = view.colWidths.length > 0 ? view.colWidths.slice() : sheet.displayColWidths.slice();
-    tab.wrapCells = view.wrap ?? sheet.displayWrap ?? getWrapCells();
+    tab.wrapCells = resolveWrap(doc).value;
     tab.freeze = view.freeze;
     tab.tabEntryCol = null;
     this.state.clampSelection(tab);

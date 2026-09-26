@@ -37,6 +37,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Default zoom and wrapping for this browser or the whole file.** File >
+  Settings… can now set the zoom and long-cell wrapping for this browser
+  (the default for every file) and, for an RSF file, for the whole file
+  (every sheet). The narrowest level that sets a value wins: the sheet, then
+  the file, then this browser. Changing the zoom or wrapping from the View
+  menu still sets it for the current sheet. Older releases open these files
+  and ignore the file-level setting.
 - **Sticky at the selected cell.** View > Sticky at Selected Cell keeps
   every row above and every column left of the selected cell on screen
   while the rest of the sheet scrolls. Choose it again to release them.
@@ -62,6 +69,12 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- **Private data is no longer stored where other local files can read it.**
+  When the offline build is opened from a local file (`file://`), Chrome and
+  Edge let every local HTML file read the same browser storage. From there,
+  File > Open Recent… and the SQL query history and saved queries are now
+  kept only until the page is closed, and anything an earlier release
+  stored for them is deleted. The hosted app is unchanged.
 - **PageUp and PageDown move one screen** instead of a fixed 20 rows.
 - **The keyboard shortcut list is grouped by task** and shows only the keys
   for your system (Cmd on macOS). It now also lists Ctrl+Enter, Alt+Enter,

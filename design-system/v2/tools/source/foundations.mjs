@@ -9,7 +9,7 @@
 // Colour references are 'hue.step' strings into `palette`; translucent
 // values are { ref, alpha }. Rationale: docs/decisions.md.
 
-export const VERSION = '2.2.0';
+export const VERSION = '2.3.0';
 export const RELEASED = '2026-09-26';
 
 /* ---------------------------------------------------------------------------
@@ -112,6 +112,7 @@ export const semantic = {
   'bg-surface': ['paper.0', 'ink.800', 'Bars, cards, docked panels, fields'],
   'bg-raised': ['paper.0', 'ink.700', 'Menus, popovers, dialogs — anything floating'],
   'bg-sunken': ['paper.100', 'ink.950', 'Wells, inset areas, progress track'],
+  'bg-feature': ['green.100', 'green.900', 'Landing site: the one Mist panel behind the first view'],
   'bg-hover': ['paper.100', 'ink.600', 'Hover fill of items and ghost buttons'],
   'bg-pressed': ['paper.200', 'ink.500', 'Pressed fill of the same'],
   'border-default': ['paper.200', 'ink.600', 'Separators and non-interactive edges'],

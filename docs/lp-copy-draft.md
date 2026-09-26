@@ -1,6 +1,6 @@
 # LP copy draft (JA / EN) / LPコピー案（日英対訳）
 
-**Status: draft (2026-09-26). Source for `site/i18n.js` in phase 2; no landing-page code is changed by this document.**
+**Status: English copy approved by the maintainer (2026-09-26); blocks not yet written are listed in §7. Source for `site/i18n.js` in phase 2; no landing-page code is changed by this document.**
 
 ## English (summary)
 

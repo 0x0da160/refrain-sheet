@@ -1,6 +1,6 @@
 # LP renewal — requirements definition / LPリニューアル 要件定義書
 
-**Status: draft (v0.4, 2026-09-26). No landing-page code is changed by this document.**
+**Status: draft (v0.5, 2026-09-26). No landing-page code is changed by this document.**
 
 ## English (summary)
 
@@ -19,7 +19,9 @@ and is written for people first and search second (§4.6). The message is
 widened from "a CSV editor" to "a lightweight spreadsheet app that edits
 CSV without breaking it": spreadsheet features widen the audience, CSV
 preservation stays the lead strength. Copy favours plain, concrete words
-over the abstract brand line (§1.1). Work proceeds in phases
+over the abstract brand line (§1.1). The brand guidelines were revised to
+match AC2 (design system 2.3.0), the English copy was approved, and the
+region-based analytics consent (Q2) was approved by the maintainer. Work proceeds in phases
 with no deadline; quality first. Open decisions are listed in §9.
 
 ## 日本語
@@ -138,8 +140,10 @@ LPの見出しには使わない。現場の担当者が一読で「何のソフ
   **動画ファイルや外部のプレイヤーは使わない**
 - `prefers-reduced-motion` のときは止めた状態（最終フレーム）で見せ、
   一時停止ボタンをつける（WCAG 2.2.2）
-- デモの画面は Refrain Sheet 自身のUIを描いたものにする。
+- デモの画面は Refrain Sheet 自身のUIにする。
   Excelの画面を再現しない（`knowledge/decisions/ip-risk-policy.md`）
+- ブランドガイドラインは「画面は実物だけ。架空の UI を描き起こさない」と定めている。
+  描き起こしたSVGのデモはこれに反するので、作り方は Q7 で決める
 - 日本語版と英語版で、デモの中の文字とサンプルデータを切り替える
 
 #### 4.4 多言語
@@ -148,7 +152,7 @@ LPの見出しには使わない。現場の担当者が一読で「何のソフ
   `hreflang`、canonical も維持する
 - 翻訳キーは日英で同じ集合にし、テストで確認する（現行の方針を引き継ぐ）
 
-#### 4.5 アクセス解析（要承認）
+#### 4.5 アクセス解析（承認済み：2026-09-26）
 
 - **方針：地域で分ける。**
   - EEA・英国・スイスからの訪問：これまでどおりオプトインの同意バナーを出し、
@@ -161,8 +165,9 @@ LPの見出しには使わない。現場の担当者が一読で「何のソフ
   同意が必要な地域として扱う**（安全側に倒す）
 - `privacy.html` と `knowledge/operations/security-threat-model.md` の記述を
   あわせて更新する
-- CLAUDE.md の定める高リスク変更（個人データ、デプロイ設定）に当たるため、
-  **実装の前に人間の承認を得る**。法的な判断は専門家に確認してもらうことを推奨する
+- CLAUDE.md の定める高リスク変更（個人データ、デプロイ設定）に当たる。方針はメンテナーが
+  2026-09-26 に承認した（Q2）。実装はフェーズ3で独立したPRにし、そのPRも人間がレビューする。
+  法的な判断は専門家に確認してもらうことを推奨する
 
 #### 4.6 ライティングとSEO
 
@@ -223,10 +228,11 @@ D. design-system v2 に忠実）と、A×C のミックス3案をモックアッ
 - **Aから取るもの**：アプリ画面風の表のプレビュー、「差分 1セル」の表示、
   「先頭ゼロ・文字コード・改行コード：そのまま」の表示、根拠を並べたセクション
 - 配色は design-system v2 の Preserve green・Paper・Ink・Mist の範囲に収める
-- ブランドガイドラインとの差（丸いボタン、Mist の大きなパネル）は、フェーズ1で
-  ガイドラインを改訂するか、ボタンの角丸を 8px に戻すかを決める
+- ブランドガイドラインとの差（丸いボタン、Mist の大きなパネル、カードの角丸）は、
+  ガイドラインの側を改訂して解消した（design-system 2.3.0：`.rb-btn` の両端を丸く、
+  `.rb-feature` と `--bg-feature`、`--brand-radius-card`。`design-system/v2/docs/decisions.md` の D-38〜D-41）
 - 表計算の機能を見せるブランド訴求版（`AC2-Brand`）を、ページ構成のたたき台にする
-- ダークテーマ版と、360px幅のレイアウトはフェーズ1で設計する
+- ダークテーマ版と360px幅のモックアップを作成済み。細部はフェーズ1で詰める
 
 決めた方向性は `design-system/v2/brand/` のトークンに反映する。LPだけで使う値は
 brand レイヤーに置き、アプリと共有している foundations は壊さない。
@@ -242,7 +248,7 @@ brand レイヤーに置き、アプリと共有している foundations は壊�
   - `site/` を部品（partials）ごとのファイルに分け、`build-landing.mjs` で組み立てる（jsdom は今も使っている）
   - CSSは design-system v2 のトークンを土台にして、セクションごとに書き直す
   - JSはバニラで、デモのアニメーションと言語切り替えと同意の処理だけにする
-- 例外：国の判定のための Pages Functions（`functions/`）を1つ加える（§4.5・要承認）
+- 例外：国の判定のための Pages Functions（`functions/`）を1つ加える（§4.5・承認済み）
 
 ### 8. KPIと計測
 
@@ -254,14 +260,15 @@ brand レイヤーに置き、アプリと共有している foundations は壊�
 
 ### 9. 未決事項
 
-| #   | 論点                                                                                         | 決める人                          |
-| --- | -------------------------------------------------------------------------------------------- | --------------------------------- |
-| Q1  | ~~デザインの方向性~~ → **決定：AC2**（§6）                                                   | 決定済み                          |
-| Q2  | 地域で分ける解析方針の最終承認と、専門家への確認の要否                                       | メンテナー                        |
-| Q3  | ダウンロードCTAのリンク先（最新アセットへの直接リンクか、Releasesページか）                  | メンテナー                        |
-| Q4  | ヒーローのキャッチコピー → h1「CSVを壊さず編集できる、軽い表計算ソフト」を軸に最終化（§1.1） | メンテナー                        |
-| Q5  | 実績・信頼の材料（GitHubのスター数、導入事例、テストの件数など）を載せるか                   | メンテナー                        |
-| Q6  | 性能の目標値（§5）を現状の計測をもとに確定する                                               | Claude が計測し、メンテナーが承認 |
+| #   | 論点                                                                                                                   | 決める人                          |
+| --- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Q1  | ~~デザインの方向性~~ → **決定：AC2**（§6）                                                                             | 決定済み                          |
+| Q2  | ~~地域で分ける解析方針の最終承認~~ → **承認済み**（2026-09-26）。専門家への確認はフェーズ3の前に推奨                   | 決定済み                          |
+| Q3  | ダウンロードCTAのリンク先（最新アセットへの直接リンクか、Releasesページか）                                            | メンテナー                        |
+| Q4  | ヒーローのキャッチコピー → h1「CSVを壊さず編集できる、軽い表計算ソフト」を軸に最終化（§1.1）                           | メンテナー                        |
+| Q5  | 実績・信頼の材料（GitHubのスター数、導入事例、テストの件数など）を載せるか                                             | メンテナー                        |
+| Q6  | 性能の目標値（§5）を現状の計測をもとに確定する                                                                         | Claude が計測し、メンテナーが承認 |
+| Q7  | 動くデモの作り方（ガイドラインの「画面は実物だけ」との整合。実物の画面を撮って動かすか、ガイドラインに例外を設けるか） | メンテナー                        |
 
 ### 10. 進め方（段階的に公開）
 

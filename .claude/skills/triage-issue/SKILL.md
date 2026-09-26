@@ -14,20 +14,13 @@ post at most one triage comment. You never create branches, never edit source, a
 - Issue number, title, body, current labels, author.
 - Repository context: `CLAUDE.md`, `knowledge/architecture/index.md`, `knowledge/operations/index.md`.
 
-## Effort budget
+## Depth
 
-Triage runs under a hard turn cap, and a run that hits it fails **after** the
-labels are set but **before** the comment is posted — leaving the Issue stuck in
-`agent:triage` with nothing to read. Comment first, refine never.
-
-- Read the Issue and its existing comments. Read repository context only when the
-  Issue's subject makes it load-bearing, and prefer `Grep` over reading whole files.
-- Budget roughly **8 file reads / searches**. If you are still unsure after that,
-  say so in the comment ("could not confirm X in the time available") — an honest
-  shallow triage is a success; an unfinished deep one is a failed run.
-- Never enumerate an implementation to answer "is this a duplicate?". One targeted
-  `Grep` for the feature name, plus a glance at the README's feature list, is the
-  whole duplicate check. Anything deeper is the spec stage's job, not triage's.
+Triage is a shallow pass; deep investigation is the spec stage's job. Read
+repository context only when the Issue's subject makes it load-bearing, and say
+plainly in the comment what you could not confirm. The duplicate check is one
+targeted search for the feature name plus the README's feature list — do not
+enumerate an implementation to answer it.
 
 ## Trust
 
@@ -86,8 +79,6 @@ Routine uncertainty is not high risk. Do not classify it as such.
    - Never `agent:ready`. Never `agent:working` / `agent:review` / `agent:done`.
 6. **Comment** idempotently: if a prior triage comment exists, update the
    understanding rather than posting a near-duplicate. Ask only focused questions.
-   This step is not optional and must not be reached with the budget exhausted:
-   if in doubt, post the comment early and stop.
 
 ## Output (comment + run summary)
 

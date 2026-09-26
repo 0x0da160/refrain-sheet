@@ -100,9 +100,10 @@ jobs:
       - name: Unused code
         run: npm run check:knip
 
-      # Verifies the Oklch-authored color system's actual declared tokens
-      # (src/styles.css) meet WCAG AA contrast for every text/background pair
-      # that composes in the UI, in every theme — see scripts/check-contrast.mjs.
+      # Verifies the design-system colour tokens the app loads
+      # (design-system/2.0.0, generated CSS) meet WCAG AA contrast for every
+      # text/background pair that composes in the UI, in every theme — see
+      # scripts/check-contrast.mjs.
       - name: Contrast check
         run: npm run check:contrast
 

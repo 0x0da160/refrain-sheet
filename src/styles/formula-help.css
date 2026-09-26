@@ -5,17 +5,17 @@
 .formula-help .formula-help-search {
   width: 100%;
   font: inherit;
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
 }
 
 .formula-help .help-section {
-  margin-top: var(--space-5);
+  margin-top: var(--space-3);
 }
 
 .formula-help .help-section h3 {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-1);
   font-size: 13px;
 }
 
@@ -24,17 +24,17 @@
 .formula-help .help-fn-table td:last-child code {
   font-family: var(--font-sheet);
   font-style: normal;
-  background: var(--panel);
+  background: var(--bg-surface);
   border-radius: var(--radius-sm);
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-1);
 }
 
 .formula-help .help-examples code {
-  margin-right: var(--space-1);
+  margin-right: var(--space-0-5);
 }
 
 .formula-help .help-fn-group {
-  margin-top: var(--space-4);
+  margin-top: var(--space-2);
 }
 
 .formula-help .help-fn-group:first-child {
@@ -42,7 +42,7 @@
 }
 
 .formula-help .help-fn-group h4 {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-1);
   font-size: 12px;
   font-weight: 600;
 }
@@ -54,17 +54,17 @@
 
 .formula-help .help-fn-table th,
 .formula-help .help-fn-table td {
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-default);
   text-align: left;
   vertical-align: top;
 }
 
 .formula-help .help-errors {
-  margin: var(--space-2) 0 0;
-  padding-left: var(--space-6);
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
 }
 
 .formula-help .help-errors li {
-  margin: var(--space-2) 0;
+  margin: var(--space-1) 0;
 }

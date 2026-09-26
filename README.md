@@ -186,7 +186,8 @@ knowledge/    the OKF knowledge bundle (architecture, operations, formats,
               agent-loop, domains, ui, references, decisions)
 docs/         the Knip baseline and proposal/analysis records
 design-system/  Refrain Sheet Design System, one directory per version (2.0.0 is
-              current); the app copies what it ships into src/
+              current); the app and the landing site load its generated
+              token CSS
 public/       files served as-is at the site root (favicon)
 ```
 

@@ -31,8 +31,11 @@ The rules that diagram implies:
   that the grid implements. The command still owns the flow; the grid only
   supplies DOM-dependent measurement.
 - **Styling stays hand-written CSS, split by section under `src/styles/`**
-  and loaded through `src/styles.css` — an ordered list of
-  `@import './styles/*.css'` statements, one per section; order matters,
+  and loaded through `src/styles.css` — an ordered list of `@import`
+  statements: first the Refrain Sheet Design System's generated token CSS
+  (`design-system/2.0.0/foundations/css/foundations.css` and
+  `app/css/app-tokens.css`, the single source of every colour, spacing,
+  radius, shadow and layer value), then one `./styles/*.css` per section; order matters,
   since a later section can still override an earlier one at equal
   specificity, exactly as when this was one file — plus Tailwind utility
   classes for non-grid surfaces (menus, dialogs, panels, the welcome
@@ -42,9 +45,9 @@ The rules that diagram implies:
   section imports only `tailwindcss/theme.css` and
   `tailwindcss/utilities.css` — never the Preflight base layer — so Tailwind
   contributes utility classes without resetting any element's default
-  styling. The `@theme` block bridges a subset of the semantic color tokens
-  (e.g. `--accent`, `--surface`) so Tailwind classes such as `bg-accent`
-  keep following the light/dark theme. The grid (`src/ui/grid.ts`) is intentionally left out of this
+  styling. The `@theme` block bridges a subset of the design-system colour
+  tokens (e.g. `--accent`, `--bg-raised`) so Tailwind classes such as
+  `bg-accent` keep following the theme. The grid (`src/ui/grid.ts`) is intentionally left out of this
   migration to keep its rendering path unaffected; no framework (React,
   Vue, etc.) is used anywhere.
 

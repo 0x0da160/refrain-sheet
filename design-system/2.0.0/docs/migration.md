@@ -97,9 +97,9 @@ v1.0.0 のディレクトリは履歴として残します。アプリのテス�
 
 | 段階 | 内容 | 目に見える変化 | 危険度 |
 | --- | --- | --- | --- |
-| 1 | 共通基盤とアプリ層の CSS を取り込み、上の対応表で名前だけを置き換える（値が同じもの） | なし | 低 |
-| 2 | 色の差分：暗いテーマの副次テキスト、バナー（F-3）、参照色（D-12）、コメントの印の色と位置（D-11）、`rgba()` の直書きの除去 | 小 | 低 |
-| 3 | 重なり順を `--z-*` に置き換える | なし（順序は同じ） | 低 |
+| 1 | 共通基盤とアプリ層の CSS を取り込み、上の対応表で名前だけを置き換える（値が同じもの）— **適用済み（§7）** | なし | 低 |
+| 2 | 色の差分：暗いテーマの副次テキスト、バナー（F-3）、参照色（D-12）、コメントの印の色と位置（D-11）、`rgba()` の直書きの除去 — **適用済み（§7）** | 小 | 低 |
+| 3 | 重なり順を `--z-*` に置き換える — **適用済み（§7）** | なし（順序は同じ） | 低 |
 | 4 | 太さ 600 を 700 に（描画は同じ）。9〜11px の文字を 12px（caption）に | 小さすぎる文字が 12px になる | 低 |
 | 5 | UI の本文を 13px から 14px に。コントロールとメニュー項目の高さを `--control-h` / `--field-h` に | 全画面の文字とボタンが一回り大きくなる | 中 |
 | 6 | 角丸・余白のリテラル（3px・5px・9px・10px など）をトークンに | ごく小 | 低 |
@@ -155,3 +155,48 @@ LP のクラス名と HTML の構造は変えていません（`rb-` 部品へ�
 | `--font-body` `--font-jp` / `--font-mono` | `--font-ui` / `--font-code` |
 
 LP の余白トークンは、名前も値も共通基盤と同じです（`--space-1` = 4px）。アプリの余白と違い、そのまま置き換えられます。
+
+## 7. アプリへの適用の記録 — 段階 1〜3（2026-09-26）
+
+`src/styles.css` が最初に `foundations/css/foundations.css` と `app/css/app-tokens.css` を読み込みます。
+アプリ独自の色・余白・角丸・影の定義（`tailwind-token-bridge.css` の `:root`、`dark-theme.css`、`hybrid-theme.css`）は削除しました。
+アプリに残る独自トークンは、フォントの連鎖（`--font-ui` の上書き、`--sheet-font-*`、`--font-sheet`）と `--bar-height` / `--status-bar-height` だけです。
+`src/app/theme.ts` は、hybrid が暗く解決されたときに `data-theme="hybrid"` を付けます。
+グリッドは `canvas-*` / `state-*` / `ref-*` だけを使うように書き換えました。
+`npm run check:contrast` は生成された CSS の色を読んで、アプリが組み合わせる 25 組を 3 テーマで検査します。
+
+### 計画・対応表と実際が違った点
+
+| 項目 | 計画・文書の記述 | 実際 |
+| --- | --- | --- |
+| hybrid の枠 | アプリの文書（§色・テーマ）は「hybrid の枠は常に dark」 | アプリの hybrid は OS に従う。OS が明るいときは全体が light で、`data-theme="hybrid"` は OS が暗いときだけ付く |
+| `--bar-height` → `--bar-h` | 段階 1（値が同じ） | `pointer: coarse` では `--bar-h` が 48px になり値が変わる。密度の段階（5・7）まで `--bar-height` / `--status-bar-height` を残す |
+| `--font-ui` / `--font-sheet` | 既定値を DS の `--font-ui` / `--font-data` に | DS の連鎖は短く、アプリが検証済みの Windows の代替（Meiryo UI・MS UI Gothic など）がない。アプリの連鎖で上書きしたまま |
+| `--surface` | `--bg-surface`（浮く面は `--bg-raised`） | アプリの `--surface` は両テーマで `--bg-raised` と同じ値だったので、すべて `--bg-raised` に |
+| `--selected-row` | `--canvas-header-selected-bg` | 見出しではなく選択行のセルの背景だったので `--canvas-selection`（値は従来と同じ） |
+| `--cell-bg`（ソースエディタ） | `--canvas-bg` | 入れ物はツールバーを含む枠なので `--bg-surface`。入力欄（`.source-editor`）だけを `--canvas-bg` ＋ `--canvas-text` に |
+| `--find-highlight` | `--canvas-find-match` | アプリではファイルのドロップ表示（枠）だけが使っていた。`color-mix(in srgb, var(--accent) 18%, transparent)` で従来の見た目のまま |
+| ドロップ表示の重なり順 | ファイルのドロップは `--z-overlay`（250） | 読み込み中の表示（250）より下に置く必要があるので `--z-modal`（200、従来と同じ値） |
+| 数式参照の注記（60） | 対応する層がない | `--z-raised`（10）。これより上で競合する要素はなく、順序は同じ |
+| `--danger-soft` | — | アプリで未定義のまま `rgba()` の代替値が使われていた。`--state-removed` に |
+| 警告トースト | 決める | `--warning-subtle` ＋ `--warning-text`（警告バナーと同じ配色） |
+| 表示診断（`viewport-debug.css`） | — | 開発用の診断表示なので、色の直書きを残す |
+
+### 目に見える変化（段階 2）
+
+- dark：副次テキストが明るくなった（4.5:1 を満たす値）。入力欄の背景が `--bg-surface`（ink.800）に。
+- 行・列見出しの背景が `--canvas-header-bg`（light は paper.50、dark は ink.900）に、選択中の見出しが `--canvas-header-selected-*` に。
+- 固定行・固定列の境界線が緑から `--canvas-frozen-divider`（灰）に。
+- コメントの印が右上の青に、数式の印が左下に（D-11）。重ならなくなった。
+- 数式の参照色が blue・violet・amber・teal に（D-12）。
+- トーストが `--inverse-*` に（dark では明るい面）。エラーは `--danger`。
+- 読み込み中の覆いが白の半透明から `--overlay`（暗い半透明）に。
+- 影が `--shadow-*` に。
+- hybrid（OS が暗いとき）：ソースエディタの入力欄も明るい紙になった。
+
+### 残した差分（次の段階以降）
+
+- 縞模様の行：DS は「既定では無効」だが、アプリは交互の行に `--canvas-row-alt` を常に付けている。paper.50 になって縞が以前より濃い。
+- アクセントの文字：DS は文字に `--accent-text` を使うが、アプリは `--accent` のまま（light で 5.0:1、AA は満たす）。
+- `tests/brand-assets.test.ts` は `design-system/1.0.0/` のアイコンを参照したまま。
+- 文字サイズ・太さ・高さ・密度・アイコンの線幅は段階 4〜9 で扱う。

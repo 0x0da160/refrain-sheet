@@ -7,6 +7,7 @@ sources:
   - resource: ../../src/app/theme.ts
   - resource: ../../CHANGELOG.md
   - resource: ../../src/styles/tailwind-token-bridge.css
+  - resource: ../../design-system/2.0.0/docs/migration.md
   - resource: ../../src/styles/virtualized-grid.css
   - resource: ../../src/ui/command-icons.ts
 status: stable
@@ -29,8 +30,8 @@ generated:
 - **Hybrid** also follows `prefers-color-scheme` for the surrounding UI
   chrome, exactly like System default, but forces the **spreadsheet/grid
   area to stay light** even when the rest of the UI resolves to dark
-  (`src/app/theme.ts`; `styles.css` scopes this override to
-  `data-theme-choice="hybrid"`). **Hybrid is the default for new users**
+  (`src/app/theme.ts` sets the design system's `data-theme="hybrid"`: a
+  dark shell around a light canvas). **Hybrid is the default for new users**
   (`DEFAULT_THEME` in `src/app/theme.ts`).
 
 > `README.md`'s "Theme (light / dark)" section describes only System
@@ -48,12 +49,12 @@ switching theme is pure display state — it never alters CSV bytes, RSF
 data, formulas, calculations, or document semantics.
 
 The resolved theme is applied by setting one `data-theme` attribute
-(`"light"` or `"dark"`) plus the matching `color-scheme` on the document
-root, before first paint, so there is no flash of the wrong theme
-(`src/app/theme.ts` resolves the choice and applies it; System and Hybrid
-both resolve via `prefers-color-scheme`, Hybrid's grid-stays-light behavior
-being a CSS override on top of the same resolved root theme, not a
-separate root theme).
+(`"light"`, `"dark"`, or `"hybrid"` when a Hybrid choice resolves dark) plus
+the matching `color-scheme` on the document root, before first paint, so
+there is no flash of the wrong theme (`src/app/theme.ts` resolves the choice
+and applies it; System and Hybrid both resolve via `prefers-color-scheme`,
+and a Hybrid choice on a light system is simply light). The root also
+carries `data-theme-choice` with the raw choice.
 
 The **application icon** is theme-aware: the header logo and welcome-screen
 icon use a light asset in the light theme and `icon-dark.svg` in the dark
@@ -68,8 +69,17 @@ paints it.
 
 ## The semantic token system
 
-The theme is a **semantic CSS custom-property system**: one light palette
-in `:root`, one dark palette under `:root[data-theme="dark"]`, and every
+The theme is a **semantic CSS custom-property system** taken from the
+Refrain Sheet Design System v2.0.0 (`design-system/2.0.0/`), whose generated
+token CSS `src/styles.css` loads first: `foundations.css` holds the shell
+colours (`--bg-*`, `--fg-*`, `--border-*`, `--accent-*`, status colours,
+`--inverse-*`, `--overlay`, `--shadow-*`) for light and dark, and
+`app-tokens.css` adds the **canvas** colours (`--canvas-*`, `--state-*`,
+`--ref-*`) and the hybrid theme. The app defines no colour values of its own.
+The grid and the source editors are canvas and use only canvas tokens; the
+shell (bars, menus, dialogs, panels) uses only shell tokens — mixing them is
+what would make text unreadable in Hybrid. `npm run check:contrast` checks
+the text/background pairs the app composes, in all three themes. Every
 surface (app background, menus, dialogs, buttons, grid background,
 alternating rows, grid lines, headers, cell/muted text, active cell and
 selected range, formula-reference highlights, dirty/edited indicators,
@@ -89,20 +99,24 @@ here.
 
 ## Spacing, radius, and bar-height tokens
 
-Layout sizes follow the same rule as colors: one set of custom properties
-on `:root` (`src/styles/tailwind-token-bridge.css`), used everywhere outside
-the grid instead of scattered literals (#594).
+Layout sizes follow the same rule as colors: the design system's custom
+properties, used everywhere outside the grid instead of scattered literals
+(#594).
 
-- **Spacing** — `--space-1` … `--space-7` (2, 4, 6, 8, 12, 16, 24px). Every
-  non-grid `padding`, `margin`, and `gap` uses this scale; 1px hairline
-  offsets are the only literals left. Tailwind classes read it too, e.g.
-  `gap-(--space-4)`.
+- **Spacing** — the design system's 4px scale with half-steps:
+  `--space-0-5` (2px), `--space-1` (4), `--space-1-5` (6), `--space-2` (8),
+  `--space-3` (12), `--space-4` (16), `--space-6` (24), in rem so they
+  follow the browser's font size. Every non-grid `padding`, `margin`, and
+  `gap` uses this scale; 1px hairline offsets are the only literals left.
+  Tailwind classes read it too, e.g. `gap-(--space-2)`.
 - **Corner radius** — `--radius-sm` (4px: fields, buttons, menu items),
-  `--radius-md` (6px: tabs, cards, dialogs), `--radius-lg` (12px).
+  `--radius-md` (6px: tabs, cards, dialogs), `--radius-xl` (12px).
 - **Bars** — the menu bar, document tab row, formula bar, and worksheet
   strip share one outer height, `--bar-height` (32px, border included — the
   app is `box-sizing: border-box` throughout); the status bar uses the
-  smaller `--status-bar-height` (24px). On a wide window the document tabs
+  smaller `--status-bar-height` (24px). These two stay app-local
+  (`src/styles/tailwind-token-bridge.css`) until the density setting adopts
+  the design system's `--bar-h` / `--statusbar-h`. On a wide window the document tabs
   share the menu bar's row (see
   [tabs-and-worksheet-strip.md](tabs-and-worksheet-strip.md)). Their left content edges line up at
   `--space-4`.
@@ -124,12 +138,14 @@ column-header row. Anything scrolled under the row numbers, the sticky row,
 or the column headers is therefore covered by them — a selection handle
 never shows on top of a header.
 
-Across the app, bottom to top: docked side panels, floating dialogs, and
-the filter popover (100); the formula autocomplete (120); menu-bar
-drop-downs and context menus (150, submenus 160), so a menu opened next to
-a docked panel is never drawn under it; the drag-and-drop overlay (200);
-the loading overlay (250); toasts (300), shown at the top-right on every
-screen size.
+Across the app, bottom to top, using the design system's layer tokens: the
+formula-reference note (`--z-raised`, 10); docked side panels, floating
+dialogs, and the filter popover (`--z-panel`, 100); the formula
+autocomplete (`--z-popover`, 120); menu-bar drop-downs and context menus
+(`--z-menu` 150, `--z-submenu` 160), so a menu opened next to a docked panel
+is never drawn under it; the drag-and-drop overlay (`--z-modal`, 200); the
+loading overlay (`--z-overlay`, 250); toasts (`--z-toast`, 300), shown at
+the top-right on every screen size.
 
 ## Menu icons
 

@@ -1,18 +1,26 @@
 /* SPDX-License-Identifier: MIT */
 
+/* ---------- Design-system tokens ----------
+   Colour, spacing, radius, shadow and layer tokens come from the Refrain Sheet
+   Design System v2.0.0 (design-system/2.0.0/), loaded first by src/styles.css:
+   foundations.css (palette, shell colours bg-* / fg-* / border-*, spacing,
+   radii, shadows) and app-tokens.css (canvas colours for the grid and source
+   editors, the hybrid theme, layers). The theme is chosen by `data-theme` on
+   the document root (light / dark / hybrid — see src/app/theme.ts). This file
+   keeps only what the design system does not define for the app yet. */
+
 /* ---------- Tailwind token bridge ----------
-   Maps a subset of the semantic tokens below to Tailwind color utilities
-   (e.g. `bg-surface`, `text-accent`) as non-grid components adopt them. Each
-   entry is a var() reference, not a literal, so utilities keep following the
-   dark-theme override further down this file — add more entries here as more
-   components migrate. */
+   Maps a subset of the design-system tokens to Tailwind color utilities
+   (e.g. `bg-surface`, `text-accent`) for the non-grid components that use
+   them. Each entry is a var() reference, not a literal, so utilities follow
+   the theme. */
 @theme {
-  --color-surface: var(--surface);
+  --color-surface: var(--bg-raised);
   --color-accent: var(--accent);
-  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft: var(--accent-subtle);
   --color-accent-contrast: var(--accent-contrast);
-  --color-line: var(--border);
-  --color-dim: var(--text-dim);
+  --color-line: var(--border-default);
+  --color-dim: var(--fg-muted);
 }
 
 :root {
@@ -21,7 +29,9 @@
      primary target, Chrome/Edge) resolves BIZ UDPGothic; older Windows
      installs without it fall through the UI-condensed and regular Windows
      families. macOS/iOS reach Hiragino; Android and Linux reach Noto CJK
-     (by name where the browser exposes it, otherwise via sans-serif). */
+     (by name where the browser exposes it, otherwise via sans-serif).
+     Overrides the design system's shorter --font-ui chain with the Windows
+     fallbacks the app has been tested on. */
   --font-ui:
     'BIZ UDPGothic', 'Yu Gothic UI', 'Meiryo UI', 'Meiryo', 'Yu Gothic', 'MS UI Gothic', 'Hiragino Sans',
     'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Noto Sans CJK JP', sans-serif;
@@ -52,100 +62,11 @@
      (see src/app/sheet-font.ts); BIZ UD Gothic is the default. */
   --font-sheet: var(--sheet-font-biz-ud);
 
-  /* ---------- Spacing, corner radius, and bar sizes (#594) ----------
-     Every non-grid padding, margin, and gap uses this one scale, and every
-     corner radius one of the three radii, so controls line up and spacing
-     reads the same across bars, menus, dialogs, and panels. The grid keeps
-     its own cell geometry (virtualized-grid.css), which grid.ts measures. */
-  --space-1: 2px;
-  --space-2: 4px;
-  --space-3: 6px;
-  --space-4: 8px;
-  --space-5: 12px;
-  --space-6: 16px;
-  --space-7: 24px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 12px;
   /* The menu bar, document tab row, formula bar, and worksheet strip share
      one outer height (border included — the app is border-box throughout);
-     the status bar is deliberately smaller. */
+     the status bar is deliberately smaller. These stay app-local until the
+     density setting (design system: --bar-h / --statusbar-h, which also grow
+     under a coarse pointer) is adopted. */
   --bar-height: 32px;
   --status-bar-height: 24px;
-
-  /* ---------- Oklab-based color system ----------
-     Every semantic token below is authored as oklch(L C H[ / alpha]) — the
-     cylindrical form of the perceptually-uniform Oklab space — instead of
-     hand-picked hex, so lightness and chroma steps stay comparable across
-     tokens and between the light/dark themes below. Three hue families are
-     shared across many tokens: `--hue-paper` (warm — backgrounds, the brand's
-     "paper" neutral), `--hue-neutral` (cool — borders and text, the brand's
-     "ink" neutral) and `--hue-accent` (green — the brand's dominant hue);
-     they live here, once, and every other block inherits them unless it says
-     otherwise. Values below are re-derived from the Refrain Sheet Design
-     System v1.0.0 (design-system/1.0.0/css/tokens.css) — see that file's own
-     oklch comments for the exact L/C per palette step. Danger, warning, and
-     the formula/reference colors keep their own literal hue, since unifying
-     those would change what they mean, not just how they're written; the
-     design system defines success as identical to accent in both themes, so
-     `--success` follows `--hue-accent` too. */
-  --hue-paper: 107;
-  --hue-neutral: 256;
-  --hue-accent: 152;
-
-  /* ---------- Semantic color tokens (light theme = default) ----------
-     Every surface reads its colors from these tokens; the dark theme below
-     overrides the same names. Selection, errors, dirty state, and warnings are
-     always paired with a non-color cue (outline pattern, marker glyph, bold,
-     wavy underline) so they never rely on color alone. */
-  --bg: oklch(96.5% 0.012 var(--hue-paper));
-  --panel: oklch(100% 0 var(--hue-paper));
-  --panel-hover: oklch(94.4% 0.012 var(--hue-paper));
-  --panel-active: oklch(89.5% 0.012 var(--hue-paper));
-  --border: oklch(89.5% 0.012 var(--hue-paper));
-  --border-subtle: oklch(94.4% 0.012 var(--hue-paper));
-  --text: oklch(21.5% 0.018 var(--hue-neutral));
-  --text-dim: oklch(42.1% 0.018 var(--hue-neutral));
-  --text-muted: oklch(49.7% 0.018 var(--hue-neutral));
-  --surface: oklch(100% 0 var(--hue-paper));
-  --field-bg: oklch(100% 0 var(--hue-paper));
-  --cell-bg: oklch(100% 0 var(--hue-paper));
-  --grid-line: oklch(89.5% 0.012 var(--hue-paper));
-  --row-alt: oklch(98.2% 0.006 var(--hue-paper));
-  --selected-row: oklch(97% 0.021 141);
-  --info-soft: oklch(93% 0.034 252);
-  --accent: oklch(52.5% 0.13 var(--hue-accent));
-  --accent-soft: oklch(97% 0.021 141);
-  --accent-contrast: oklch(100% 0 var(--hue-accent));
-  --accent-contrast-dim: oklch(97% 0.021 141);
-  --range-fill: oklch(52.5% 0.13 var(--hue-accent) / 0.14);
-  --edited: oklch(92.9% 0.036 76);
-  --edited-border: oklch(79.9% 0.064 75);
-  --danger: oklch(54.9% 0.138 27);
-  --warning: oklch(50.1% 0.106 75);
-  --warning-soft: oklch(92.9% 0.036 76);
-  --warning-border: oklch(79.9% 0.064 75);
-  --success: oklch(52.5% 0.13 var(--hue-accent));
-  --formula-text: oklch(39.3% 0.11 138);
-  --formula-marker: oklch(55.3% 0.161 144);
-  --void-a: oklch(100% 0 var(--hue-paper));
-  --void-b: oklch(96.5% 0.012 var(--hue-paper));
-  --find-highlight: oklch(52.5% 0.13 var(--hue-accent) / 0.18);
-  --scrim: oklch(21.5% 0.018 var(--hue-neutral) / 0.45);
-  --scrim-light: oklch(100% 0 var(--hue-paper) / 0.55);
-  --tooltip-bg: oklch(27.9% 0.019 var(--hue-neutral));
-  --tooltip-text: oklch(96.5% 0.012 var(--hue-paper));
-  /* Toasts stay dark chips in both themes so their light text always reads;
-     the warn/error variants carry their own dark backgrounds. */
-  --toast-warn-bg: oklch(50.1% 0.106 75);
-  --toast-error-bg: oklch(46% 0.16 27);
-  --shadow: oklch(0% 0 0 / 0.15);
-  --shadow-strong: oklch(0% 0 0 / 0.3);
-  /* Four visually distinct formula-reference colors (always paired with a
-     distinct border pattern: solid / dashed / dotted / double). */
-  --fref-1: oklch(54.6% 0.092 var(--hue-accent));
-  --fref-2: oklch(55% 0.145 135);
-  --fref-3: oklch(66.6% 0.157 58.3);
-  --fref-4: oklch(55.8% 0.252 302.3);
-  color-scheme: light;
 }

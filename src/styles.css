@@ -4,10 +4,11 @@
    what it covers); this file is just the ordered loader. Order matters:
    later files can override earlier ones at equal specificity, exactly as
    when this was one file, so this list must stay in the original order. */
+@import '../design-system/2.0.0/foundations/css/foundations.css';
+@import '../design-system/2.0.0/app/css/app-tokens.css';
 @import './styles/tokens.css';
 @import './styles/tailwind-token-bridge.css';
-@import './styles/dark-theme.css';
-@import './styles/hybrid-theme.css';
+@import './styles/base.css';
 @import './styles/menu-bar.css';
 @import './styles/tabs.css';
 @import './styles/worksheet-strip.css';

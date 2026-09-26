@@ -89,15 +89,15 @@
   .formula-bar {
     order: 1;
     border-bottom: none;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--border-default);
   }
 
   .menu-bar {
     grid-row: 2;
     grid-column: 1;
     border-bottom: none;
-    border-top: 1px solid var(--border);
-    padding: 0 var(--space-1);
+    border-top: 1px solid var(--border-default);
+    padding: 0 var(--space-0-5);
     flex-wrap: wrap;
   }
 
@@ -206,7 +206,7 @@
 
   .menu > button,
   .menu-item {
-    padding: var(--space-4) var(--space-5);
+    padding: var(--space-2) var(--space-3);
     min-height: 44px;
   }
 
@@ -217,11 +217,11 @@
   /* The close button's 36px tap target sets the tab's height; the tab adds
      only a thin frame around it (#594), not another 8px above and below. */
   .tab {
-    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-5);
+    padding: var(--space-0-5) var(--space-0-5) var(--space-0-5) var(--space-3);
   }
 
   .tab .tab-close {
-    padding: var(--space-4);
+    padding: var(--space-2);
     min-width: 36px;
     min-height: 36px;
   }
@@ -229,7 +229,7 @@
   .sheet-tab,
   .sheet-add,
   .sheet-grid-add {
-    padding: var(--space-4) var(--space-4);
+    padding: var(--space-2) var(--space-2);
     min-height: 40px;
   }
 
@@ -249,29 +249,29 @@
      here without touching the floor itself (#468). */
   .sheet-strip,
   .sheet-grid-actions {
-    padding: 1px var(--space-3);
+    padding: 1px var(--space-1-5);
   }
 
   .dialog-title {
-    padding: var(--space-4) var(--space-5);
+    padding: var(--space-2) var(--space-3);
     font-size: 13px;
   }
 
   .dialog-body {
-    padding: var(--space-4) var(--space-5);
+    padding: var(--space-2) var(--space-3);
   }
 
   .dialog-buttons {
-    padding: var(--space-4) var(--space-5);
+    padding: var(--space-2) var(--space-3);
   }
 
   .dialog-buttons button {
-    padding: var(--space-4) var(--space-5);
+    padding: var(--space-2) var(--space-3);
     min-height: 44px;
   }
 
   .welcome-action {
-    padding: var(--space-4) var(--space-6);
+    padding: var(--space-2) var(--space-4);
     min-height: 44px;
   }
 
@@ -279,8 +279,8 @@
      the status bar, the formula bar's cell-ref label, and the context
      menu's formatting toolbar/its own padding. */
   .status-bar {
-    padding: var(--space-1) var(--space-4);
-    gap: var(--space-1) var(--space-4);
+    padding: var(--space-0-5) var(--space-2);
+    gap: var(--space-0-5) var(--space-2);
     font-size: 12px;
     min-height: 22px;
   }
@@ -299,7 +299,7 @@
 
   .status-bar .sel-stats,
   .status-bar .status-selection {
-    gap: var(--space-1) var(--space-4);
+    gap: var(--space-0-5) var(--space-2);
   }
 
   /* Shorten the version text to just "v1.2.3" here, opposite the base rule
@@ -313,8 +313,8 @@
   }
 
   .formula-bar {
-    padding: var(--space-2) var(--space-3);
-    gap: var(--space-2);
+    padding: var(--space-1) var(--space-1-5);
+    gap: var(--space-1);
   }
 
   .formula-bar .cell-ref {
@@ -329,11 +329,11 @@
   }
 
   .context-menu {
-    padding: var(--space-1) 0;
+    padding: var(--space-0-5) 0;
   }
 
   .context-menu-toolbar {
-    padding: var(--space-1) var(--space-2);
+    padding: var(--space-0-5) var(--space-1);
     gap: 1px;
   }
 

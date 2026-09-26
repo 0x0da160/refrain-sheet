@@ -9,20 +9,20 @@
 dialog {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 32px var(--shadow-strong);
+  box-shadow: var(--shadow-lg);
   padding: 0;
   max-width: min(680px, 92vw);
   max-height: 86vh;
   overflow: hidden;
   font-size: 13px;
-  background: var(--surface);
-  color: var(--text);
+  background: var(--bg-raised);
+  color: var(--fg-default);
 }
 
 dialog::backdrop {
-  background: var(--scrim);
+  background: var(--overlay);
 }
 
 /* The column-filter popover (see openPopover in src/ui/dialogs.ts): the same
@@ -35,16 +35,16 @@ dialog::backdrop {
   left: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 32px var(--shadow-strong);
+  box-shadow: var(--shadow-lg);
   max-width: min(420px, calc(100vw - 8px));
   max-height: 86vh;
   overflow: hidden;
   font-size: 13px;
-  background: var(--surface);
-  color: var(--text);
-  z-index: 100;
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  z-index: var(--z-panel);
 }
 
 /* Every dialog/popover heading is also a drag handle for repositioning it
@@ -56,26 +56,26 @@ dialog::backdrop {
   user-select: none;
   touch-action: none;
   margin: 0;
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-3) var(--space-4);
   font-size: 14px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .dialog-body {
   flex: 1 1 auto;
   min-height: 0;
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-3) var(--space-4);
   overflow: auto;
 }
 
 .dialog-body p {
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-2);
   line-height: 1.5;
 }
 
 .dialog-note {
-  color: var(--text-dim);
+  color: var(--fg-muted);
   font-size: 12px;
 }
 
@@ -83,8 +83,8 @@ dialog::backdrop {
    holds in both light and dark; the native anchor keeps it keyboard- and
    screen-reader-accessible, and focus-visible draws the shared focus ring. */
 .about-links {
-  margin: 0 0 var(--space-4);
-  padding-left: var(--space-6);
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-4);
   line-height: 1.6;
 }
 
@@ -104,11 +104,11 @@ dialog::backdrop {
 }
 
 .dialog-warning {
-  background: var(--warning-soft);
-  border: 1px solid var(--warning-border);
+  background: var(--warning-subtle);
+  border: 1px solid var(--warning);
   border-radius: var(--radius-sm);
-  padding: var(--space-4) var(--space-4);
-  margin: 0 0 var(--space-4);
+  padding: var(--space-2) var(--space-2);
+  margin: 0 0 var(--space-2);
   line-height: 1.5;
 }
 
@@ -116,18 +116,18 @@ dialog::backdrop {
   flex: none;
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-6);
-  border-top: 1px solid var(--border);
-  background: var(--panel);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-surface);
 }
 
 .dialog-buttons button {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
+  border: 1px solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-default);
   border-radius: var(--radius-sm);
-  padding: var(--space-3) var(--space-6);
+  padding: var(--space-1-5) var(--space-4);
 }
 
 .dialog-buttons button.primary {
@@ -186,17 +186,17 @@ dialog::backdrop {
   position: fixed;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-default);
   /* No box-shadow: unlike a floating dialog, a docked panel sits flush
      against a viewport edge, so a shadow (which was always cast downward,
      regardless of dock side) only ever looked right for a top dock and wrong
      for the other three. The 1px border is enough to separate it from the
      sheet. */
-  background: var(--surface);
-  color: var(--text);
+  background: var(--bg-raised);
+  color: var(--fg-default);
   font-size: 13px;
   overflow: hidden;
-  z-index: 100;
+  z-index: var(--z-panel);
 }
 
 .side-panel-title {
@@ -204,15 +204,15 @@ dialog::backdrop {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-6);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
 }
 
 /* Icon + title: the same in every panel, the icon in the accent color. */
 .side-panel-title-text {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-2);
   min-width: 0;
   font-weight: 600;
 }
@@ -237,11 +237,11 @@ dialog::backdrop {
 .side-panel.collapsed > .side-panel-title {
   cursor: pointer;
   border-bottom: none;
-  padding-block: var(--space-2);
+  padding-block: var(--space-1);
 }
 
 .side-panel.collapsed > .side-panel-title:hover {
-  background: var(--panel-hover);
+  background: var(--bg-hover);
 }
 
 /* In a top/bottom dock a collapsed panel's edge is inside the stack; only
@@ -257,20 +257,20 @@ dialog::backdrop {
   display: flex;
   flex: none;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-0-5);
 }
 
 .side-panel-positions {
   display: flex;
   flex: none;
-  gap: var(--space-1);
+  gap: var(--space-0-5);
 }
 
 .side-panel-title-divider {
   width: 1px;
   height: 16px;
-  margin-inline: var(--space-2);
-  background: var(--border);
+  margin-inline: var(--space-1);
+  background: var(--border-default);
 }
 
 .side-panel-header-btn {
@@ -283,17 +283,17 @@ dialog::backdrop {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-dim);
+  color: var(--fg-muted);
 }
 
 .side-panel-header-btn:hover {
-  background: var(--panel-hover);
-  color: var(--text);
+  background: var(--bg-hover);
+  color: var(--fg-default);
 }
 
 .side-panel-header-btn[aria-pressed='true'] {
-  border-color: var(--border);
-  background: var(--surface);
+  border-color: var(--border-default);
+  background: var(--bg-raised);
   color: var(--accent);
 }
 
@@ -309,8 +309,8 @@ dialog::backdrop {
 .side-panel-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  padding: var(--space-6);
+  gap: var(--space-4);
+  padding: var(--space-4);
 }
 
 .side-panel-form [hidden] {
@@ -324,15 +324,15 @@ dialog::backdrop {
 .panel-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-2);
   min-width: 0;
 }
 
 /* A titled section starts a new group: a rule above it separates it from
    whatever precedes it. */
 .panel-section:has(> .panel-section-title):not(:first-child) {
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-default);
 }
 
 .panel-section-title {
@@ -348,7 +348,7 @@ dialog::backdrop {
 .panel-field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -356,11 +356,11 @@ dialog::backdrop {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-2);
 }
 
 .panel-field-label {
-  color: var(--text-dim);
+  color: var(--fg-muted);
   font-size: 12px;
   font-weight: 600;
 }
@@ -370,21 +370,21 @@ dialog::backdrop {
 .panel-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: var(--space-4) var(--space-5);
+  gap: var(--space-2) var(--space-3);
   align-items: end;
 }
 
 .panel-stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-1-5);
 }
 
 .panel-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-1-5);
 }
 
 .panel-row-end {
@@ -399,19 +399,19 @@ dialog::backdrop {
 .panel-choices {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .panel-choices-inline {
   flex-direction: row;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-6);
+  gap: var(--space-1) var(--space-4);
 }
 
 .panel-check {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-1-5);
   min-height: 24px;
   cursor: pointer;
 }
@@ -432,11 +432,11 @@ dialog::backdrop {
   width: 100%;
   min-width: 0;
   height: 28px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border);
+  padding: 0 var(--space-1-5);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  background: var(--field-bg);
-  color: var(--text);
+  background: var(--bg-surface);
+  color: var(--fg-default);
   font: inherit;
 }
 
@@ -445,11 +445,11 @@ dialog::backdrop {
   width: 100%;
   min-width: 0;
   min-height: 96px;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border);
+  padding: var(--space-1-5) var(--space-2);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  background: var(--field-bg);
-  color: var(--text);
+  background: var(--bg-surface);
+  color: var(--fg-default);
   font: inherit;
   resize: vertical;
 }
@@ -489,10 +489,10 @@ dialog::backdrop {
   box-sizing: border-box;
   width: 48px;
   height: 28px;
-  padding: var(--space-1);
-  border: 1px solid var(--border);
+  padding: var(--space-0-5);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  background: var(--field-bg);
+  background: var(--bg-surface);
   cursor: pointer;
 }
 
@@ -504,11 +504,11 @@ dialog::backdrop {
   justify-content: center;
   box-sizing: border-box;
   height: 28px;
-  padding: 0 var(--space-5);
-  border: 1px solid var(--border);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text);
+  background: var(--bg-raised);
+  color: var(--fg-default);
   font: inherit;
   white-space: nowrap;
 }
@@ -519,7 +519,7 @@ dialog::backdrop {
 }
 
 .panel-button:hover:not(:disabled) {
-  background: var(--panel-hover);
+  background: var(--bg-hover);
 }
 
 .panel-button.primary {
@@ -548,7 +548,7 @@ dialog::backdrop {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: var(--space-4);
+  gap: var(--space-2);
 }
 
 .dialog-buttons-actions:empty {
@@ -557,7 +557,7 @@ dialog::backdrop {
 
 .side-panel .dialog-buttons {
   align-items: center;
-  padding: var(--space-4) var(--space-6);
+  padding: var(--space-2) var(--space-4);
 }
 
 .side-panel .dialog-buttons button {
@@ -623,26 +623,26 @@ dialog::backdrop {
 table.diag-table {
   border-collapse: collapse;
   width: 100%;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-2);
 }
 
 table.diag-table th,
 table.diag-table td {
-  border: 1px solid var(--border);
-  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border-default);
+  padding: var(--space-1) var(--space-2);
   text-align: left;
   vertical-align: top;
 }
 
 table.diag-table th {
-  background: var(--panel);
+  background: var(--bg-surface);
 }
 
 .form-row {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
 .form-row label:first-child {
@@ -654,28 +654,28 @@ table.diag-table th {
 .form-row > label:has(> select, > input) {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-2);
 }
 
 .form-row select {
   font: inherit;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-1-5);
   min-width: 200px;
 }
 
 .form-row input[type='number'] {
   font: inherit;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-1-5);
   width: 8em;
 }
 
 .form-unit {
-  color: var(--text-dim);
+  color: var(--fg-muted);
 }
 
 .version-history-max-input {
   font: inherit;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-1-5);
   width: 6em;
 }
 
@@ -691,23 +691,23 @@ table.diag-table th {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--border-subtle);
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-default);
 }
 
 .version-history-entry-actions {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-1-5);
 }
 
 /* File > Open Recent…: one full-width button per file, name above time. */
 .recent-files-list {
   list-style: none;
-  margin: var(--space-4) 0;
+  margin: var(--space-2) 0;
   padding: 0;
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-1);
   max-height: 50vh;
   overflow-y: auto;
 }
@@ -715,11 +715,11 @@ table.diag-table th {
 .recent-file {
   display: grid;
   width: 100%;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border);
+  gap: var(--space-0-5);
+  padding: var(--space-1-5) var(--space-2);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  background: var(--field-bg);
+  background: var(--bg-surface);
   color: inherit;
   font: inherit;
   text-align: left;
@@ -727,7 +727,7 @@ table.diag-table th {
 }
 
 .recent-file:hover {
-  background: var(--panel-hover);
+  background: var(--bg-hover);
 }
 
 .recent-file-name {
@@ -736,6 +736,6 @@ table.diag-table th {
 }
 
 .recent-file-time {
-  color: var(--text-dim);
+  color: var(--fg-muted);
   font-size: 12px;
 }

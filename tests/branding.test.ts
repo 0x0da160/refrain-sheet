@@ -41,6 +41,7 @@ function stubUi(): UiPort {
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -90,6 +91,7 @@ function menuChecks(): MenuChecks {
     driveAvailable: () => false,
     protectedDoc: () => false,
     sheetLocked: () => false,
+    headerFilter: () => false,
   };
 }
 

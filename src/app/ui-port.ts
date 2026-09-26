@@ -161,6 +161,48 @@ export type FilterDialogResult =
   | { action: 'clearAll' };
 
 /**
+ * Everything the header-row column menu needs: the compact popover a filter
+ * button on a header cell opens, offering a one-click sort by that column and
+ * a searchable checklist of the column's values. The command layer prepares
+ * it (the distinct values of the rows the *other* columns' criteria leave
+ * visible, enumerated in time slices for large ranges) so the popover itself
+ * stays a pure presentation surface — mirrors `FilterDialogInput`.
+ */
+export interface ColumnMenuInput {
+  /** Absolute document column index. */
+  col: number;
+  /** Column letter (A, B, …) for labels. */
+  colLetter: string;
+  /** The column's header text. */
+  header: string;
+  /**
+   * Where to place the popover (viewport coordinates of the button that
+   * opened it), or null to place it near the top-left of the viewport.
+   */
+  anchor: { left: number; top: number; right: number; bottom: number } | null;
+  /** Bounded, sorted list of distinct displayed values. */
+  values: string[];
+  /** True when the column holds more distinct values than `values` lists. */
+  valuesTruncated: boolean;
+  /** The values currently allowed for this column, or null when all are. */
+  selected: string[] | null;
+  /** True when this column also carries comparison conditions (edited in the Filter panel). */
+  hasConditions: boolean;
+  /** True when this column carries any criteria at all. */
+  hasColumnFilter: boolean;
+  /** This column's direction in the active sort, or null when it is not the sort key. */
+  sorted: 'asc' | 'desc' | null;
+}
+
+/** What the column menu resolved to (null = dismissed, nothing changes). */
+export type ColumnMenuResult =
+  | { action: 'sort'; ascending: boolean }
+  | { action: 'clearSort' }
+  | { action: 'apply'; values: string[] | null }
+  | { action: 'clearColumn' }
+  | { action: 'more' };
+
+/**
  * Everything the sort dialog needs to edit the sheet's compound sort keys.
  * The command layer prepares it (range detection, per-column header labels)
  * so the dialog itself stays a pure presentation surface — mirrors
@@ -292,6 +334,12 @@ export interface UiPort {
     input: FilterDialogInput,
     onApply?: ApplyHandler<FilterDialogResult>,
   ): Promise<FilterDialogResult | null>;
+  /**
+   * The header-row column menu: a small popover anchored beside a header
+   * cell's filter button with sort buttons and a searchable value checklist.
+   * Resolves with the chosen action, or null when dismissed (nothing changes).
+   */
+  chooseColumnMenu(input: ColumnMenuInput): Promise<ColumnMenuResult | null>;
   /**
    * The accessible sort dialog: compound sort keys (column + direction) and
    * the header-row setting. Resolves with the chosen action, or null when

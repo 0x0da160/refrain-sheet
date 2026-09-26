@@ -14,6 +14,7 @@ import { initSqlEngine } from './core/sql-engine';
 import { validateDocument } from './core/validation';
 import { initAppIcons } from './ui/app-icon';
 import { CommentsPanel } from './ui/comments-panel';
+import { closeColumnMenu } from './ui/column-menu';
 import { closeAllContextMenus } from './ui/context-menu';
 import { Dialogs, Toasts } from './ui/dialogs';
 import { el } from './ui/dom';
@@ -96,6 +97,7 @@ function bootstrap(): void {
     chooseInsertShift: (rows, cols) => dialogs.chooseInsertShift(rows, cols),
     confirmFlashFill: (preview) => dialogs.confirmFlashFill(preview),
     chooseFilter: (input, onApply) => dialogs.chooseFilter(input, onApply),
+    chooseColumnMenu: (input) => dialogs.chooseColumnMenu(input),
     chooseSort: (input, onApply) => dialogs.chooseSort(input, onApply),
     chooseDataValidation: (input, onApply) => dialogs.chooseDataValidation(input, onApply),
     chooseConditionalFormat: (input, onApply) => dialogs.chooseConditionalFormat(input, onApply),
@@ -133,6 +135,7 @@ function bootstrap(): void {
       // state must not survive into it.
       if (label !== null) {
         closeAllContextMenus();
+        closeColumnMenu();
       }
       loadingOverlay.set(label, progress);
     },
@@ -232,6 +235,7 @@ function bootstrap(): void {
     },
     driveAvailable: () => commands.driveAvailable(),
     protectedDoc: () => state.activeTab?.readOnly ?? false,
+    headerFilter: () => commands.hasFilter(state.activeTab),
     sheetLocked: () => {
       const doc = state.activeTab?.doc;
       return doc !== undefined && doc.kind === 'rsf' && doc.activeSheet.locked;
@@ -343,6 +347,7 @@ function bootstrap(): void {
     // the menu is dismissed rather than left pointing at something else.
     if (event !== 'selection') {
       closeAllContextMenus();
+      closeColumnMenu();
     }
     switch (event) {
       case 'tabs':

@@ -48,6 +48,26 @@ really is internal, rather than inventing an entry to satisfy it.
 - **Number, currency, and percent formats on the Format menu**, beside
   their Ctrl+Shift+1 / 4 / 5 keys.
 - **Ctrl+Enter applies an edit and stays on the cell.**
+
+### Changed
+
+- **PageUp and PageDown move one screen** instead of a fixed 20 rows.
+- **The keyboard shortcut list is grouped by task** and shows only the keys
+  for your system (Cmd on macOS). It now also lists Ctrl+Enter, Alt+Enter,
+  Delete / Backspace, Home / End, and PageUp / PageDown.
+
+## [0.9.3] - 2026-09-25
+
+### Added
+
+- **Filter buttons on the header row.** Sheet > Filter & Sort > Filter
+  Buttons on Header Row puts a button in each header cell of the data
+  around the active cell (or the selected range). The button opens a small
+  menu next to the column: order the rows ascending or descending by that
+  column, or search and tick the values to show. Filter by Condition… opens
+  the full Filter panel for comparisons. Alt+Down on a header cell opens
+  the same menu. Filter changes are undoable; the row order is view-only,
+  as with Sort….
 - **Spreadsheet keyboard shortcuts that act on the sheet.** Ctrl+F opens
   Find, Ctrl+H opens Replace (Cmd+Shift+H on macOS), F3 / Shift+F3 go to the
   next / previous match, Ctrl+G opens Go to Cell, and Ctrl+E runs Flash Fill
@@ -82,10 +102,11 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
-- **PageUp and PageDown move one screen** instead of a fixed 20 rows.
-- **The keyboard shortcut list is grouped by task** and shows only the keys
-  for your system (Cmd on macOS). It now also lists Ctrl+Enter, Alt+Enter,
-  Delete / Backspace, Home / End, and PageUp / PageDown.
+- **Clearing a column's filter keeps the filter buttons.** When the last
+  column's criteria are cleared, every row shows again but the range and its
+  buttons stay; Clear All Filters (or turning off Filter Buttons on Header
+  Row) removes them. With an active sort, rows a filter change shows again
+  now take their sorted place.
 - **F4, F7, and F8 no longer act outside a formula.** F4 (New), F7 /
   Shift+F7 (next / previous worksheet), and F8 (Close Tab) used keys that
   mean something else in other spreadsheets. New and Close File are on the

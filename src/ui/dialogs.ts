@@ -5,6 +5,8 @@ import type {
   BordersDialogResult,
   CellCommentDialogInput,
   CellCommentDialogResult,
+  ColumnMenuInput,
+  ColumnMenuResult,
   ColorDialogResult,
   ConditionalFormatDialogInput,
   ConditionalFormatDialogResult,
@@ -34,6 +36,7 @@ import type { RsfHistorySnapshot } from '../core/rsf-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
 import type { ValidationSummary } from '../core/validation';
 import type { WorksheetKind } from '../core/worksheet';
+import { openColumnMenu } from './column-menu';
 import { el } from './dom';
 import { createIcon } from './icon';
 import { AppSettingsDialogs } from './dialogs/app-settings';
@@ -239,6 +242,11 @@ export class Dialogs {
     onApply?: ApplyHandler<FilterDialogResult>,
   ): Promise<FilterDialogResult | null> {
     return this.sheetOps.chooseFilter(input, onApply);
+  }
+
+  /** The header-row column menu popover — see `src/ui/column-menu.ts`. */
+  chooseColumnMenu(input: ColumnMenuInput): Promise<ColumnMenuResult | null> {
+    return openColumnMenu(input);
   }
 
   /** See `SheetOpsDialogs.chooseSort` for the full behavior contract. */

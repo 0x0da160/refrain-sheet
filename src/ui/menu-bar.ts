@@ -99,6 +99,8 @@ export interface MenuChecks {
   protectedDoc: () => boolean;
   /** Whether the active worksheet is locked (see `Worksheet.locked`). */
   sheetLocked: () => boolean;
+  /** Whether the active sheet has a filter range (its header filter buttons are shown). */
+  headerFilter: () => boolean;
   /**
    * Whether Google Drive sync exists in this build. False for the offline
    * build, which omits the whole Drive submenu rather than showing it disabled
@@ -242,7 +244,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // stays scannable.
         { labelKey: 'menu.sheet.worksheet', icon: Layers, submenu: worksheetItems(checks) },
         { labelKey: 'menu.sheet.rowsAndColumns', icon: Table, submenu: rowsAndColumnsItems() },
-        { labelKey: 'menu.sheet.filterSort', icon: ListFilter, submenu: filterSortItems() },
+        { labelKey: 'menu.sheet.filterSort', icon: ListFilter, submenu: filterSortItems(checks) },
         'separator',
         // The only way a volatile formula (TODAY, NOW) updates without an
         // edit: there is deliberately no background recalculation timer.
@@ -493,8 +495,9 @@ function rowsAndColumnsItems(): Array<MenuItemDef | 'separator'> {
  * and the menu, context menu, and (for Filter) the header filter buttons all
  * dispatch these same commands.
  */
-function filterSortItems(): Array<MenuItemDef | 'separator'> {
+function filterSortItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
   return [
+    { labelKey: 'menu.sheet.headerFilter', command: 'sheet.headerFilter', checked: checks.headerFilter },
     { labelKey: 'menu.sheet.filter', command: 'sheet.filter' },
     { labelKey: 'menu.sheet.filterClear', command: 'sheet.filterClear' },
     'separator',

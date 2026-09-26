@@ -35,37 +35,33 @@ The agent session could not apply them: its permission policy denied editing
 the release/deploy workflows and querying the npm registry. Pick these up
 next, in this order:
 
-1. **Release/deploy workflows** — one commit over `release.yml`,
-   `manual-release.yml`, `release-docs.yml`: `node-version: 22` → `24`,
-   `checkout@v5` → `v7`, `setup-node@v5` → `v7`, `upload-pages-artifact@v3`
-   → `v5`, `attest-build-provenance@v2` → `v4`, `configure-pages@v5` → `v6`,
-   `deploy-pages@v4` → `v5`. Pre-checked: no `permissions` change is needed
-   (attest v4 creates a storage record only with `push-to-registry: true`);
-   `dist-hosted/` has no dotfiles, so upload-pages-artifact's hidden-file
-   exclusion does not matter; checkout v6+ keeps `git push` and
-   `--force-with-lease` working. Then in `eol-register.json` remove
-   `generic:nodejs@22`, `github:actions/checkout@5`, `setup-node@5`,
-   `configure-pages@5`, `deploy-pages@4`, `upload-pages-artifact@3` and
-   `attest-build-provenance@2`, and add `github:actions/configure-pages@6`,
-   `deploy-pages@5`, `upload-pages-artifact@5`, `attest-build-provenance@4`.
-   Verify with `npm run check:eol` and the first tag release after merging.
+1. **Release/deploy workflows** — the action majors were applied on
+   2026-09-26 by Dependabot #652 (`checkout@v7`, `setup-node@v7`,
+   `upload-pages-artifact@v5`, `attest-build-provenance@v4`,
+   `configure-pages@v6`, `deploy-pages@v5`), and the register moved to the
+   new keys. Still to do: `node-version: 22` → `24` in `release.yml`,
+   `manual-release.yml` and `release-docs.yml`, then remove
+   `generic:nodejs@22` from the register. Verify with the first tag release
+   after merging.
 2. **sql.js** — check for a release newer than 1.14.2 and the SQLite it
    embeds (`npm view sql.js version`); record the result on `npm:sql.js@1`.
-3. **TypeScript 7** — check whether typescript-eslint's peer range accepts
-   `typescript@7` (`npm view typescript-eslint peerDependencies`); upgrade if it does.
+3. **TypeScript 7** — checked 2026-09-26: typescript-eslint 8.70.1 (latest)
+   still requires `typescript` `>=4.8.4 <6.1.0`, so `npm ci` fails on 7.x.
+   Dependabot #651 (TypeScript 7.0.2) was merged anyway and has been rolled
+   back to 6.0.3; Dependabot now ignores TypeScript majors. Re-check the peer
+   range at the next review and upgrade by hand once it accepts 7.
 4. **wasm-pack** — open an Issue to decide whether to replace it with
    cargo + wasm-bindgen-cli.
 
 ### Open plan
 
-| Due        | Component                                                                                             | Action                                                                                                                      | Approval        |
-| ---------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| 2026-10-31 | configure-pages@5, deploy-pages@4, upload-pages-artifact@3, attest-build-provenance@2 (`release.yml`) | Move to v6 / v5 / v5 / v4 — these run on the deprecated node20 Actions runtime                                              | Human (deploy)  |
-| 2026-12-31 | Node.js 22, checkout@5, setup-node@5 (release workflows)                                              | Move `release.yml`, `manual-release.yml`, `release-docs.yml` to Node.js 24, checkout@v7, setup-node@v7                      | Human (release) |
-| 2026-12-31 | sql.js 1.x (embeds SQLite 3.49.1)                                                                     | Check whether sql.js ships a newer SQLite; if advisories apply and it lags, open an Issue on building SQLite WASM ourselves | Issue           |
-| 2027-01-15 | Rust 1.98                                                                                             | Bump to the current stable (policy: never more than four releases behind), rebuild the WASM payload                         | Normal PR       |
-| 2027-03-31 | TypeScript 6.0                                                                                        | Move to 7.x once typescript-eslint supports it                                                                              | Normal PR       |
-| 2027-03-31 | wasm-pack 0.15                                                                                        | Decide whether to drop wasm-pack for cargo + wasm-bindgen-cli (rustwasm org archived in 2025)                               | Issue           |
+| Due        | Component                         | Action                                                                                                                      | Approval        |
+| ---------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| 2026-12-31 | Node.js 22 (release workflows)    | Move `release.yml`, `manual-release.yml`, `release-docs.yml` to Node.js 24                                                  | Human (release) |
+| 2026-12-31 | sql.js 1.x (embeds SQLite 3.49.1) | Check whether sql.js ships a newer SQLite; if advisories apply and it lags, open an Issue on building SQLite WASM ourselves | Issue           |
+| 2027-01-15 | Rust 1.98                         | Bump to the current stable (policy: never more than four releases behind), rebuild the WASM payload                         | Normal PR       |
+| 2027-03-31 | TypeScript 6.0                    | Move to 7.x once typescript-eslint supports it                                                                              | Normal PR       |
+| 2027-03-31 | wasm-pack 0.15                    | Decide whether to drop wasm-pack for cargo + wasm-bindgen-cli (rustwasm org archived in 2025)                               | Issue           |
 
 ### Horizon (no action yet)
 
@@ -109,31 +105,31 @@ Actions のメジャー 11 件。直接依存とツールチェーンの 42 件�
 セッションの権限ポリシーにより、リリース/デプロイ系ワークフローの編集と npm
 レジストリの照会が拒否されたため未実施です。次の順に対応します。
 
-1. **リリース/デプロイ系ワークフロー** — `release.yml`・`manual-release.yml`・
-   `release-docs.yml` を 1 コミットで更新：`node-version: 22` → `24`、
-   `checkout@v5` → `v7`、`setup-node@v5` → `v7`、`upload-pages-artifact@v3`
-   → `v5`、`attest-build-provenance@v2` → `v4`、`configure-pages@v5` → `v6`、
-   `deploy-pages@v4` → `v5`。事前確認済み：`permissions` の変更は不要（attest
-   v4 のストレージレコードは `push-to-registry: true` のときのみ）、`dist-hosted/`
-   にドットファイルはなく、checkout v6 以降も `git push` と `--force-with-lease`
-   は動作します。あわせて `eol-register.json` の旧キー（上記 English 参照）を
-   削除し新キーを追加、`npm run check:eol` とマージ後最初のタグリリースで確認。
+1. **リリース/デプロイ系ワークフロー** — アクションのメジャー更新は
+   2026-09-26 に Dependabot #652 で適用済み（`checkout@v7`・`setup-node@v7`・
+   `upload-pages-artifact@v5`・`attest-build-provenance@v4`・
+   `configure-pages@v6`・`deploy-pages@v5`）で、台帳も新しいキーに移行済み。
+   残り：`release.yml`・`manual-release.yml`・`release-docs.yml` の
+   `node-version: 22` → `24` と、台帳からの `generic:nodejs@22` の削除。
+   マージ後最初のタグリリースで確認。
 2. **sql.js** — 1.14.2 より新しい版と内蔵 SQLite を確認し
    （`npm view sql.js version`）、`npm:sql.js@1` に結果を記録。
-3. **TypeScript 7** — typescript-eslint の peer 範囲が `typescript@7` を含むか確認
-   （`npm view typescript-eslint peerDependencies`）し、対応済みなら更新。
+3. **TypeScript 7** — 2026-09-26 に確認：typescript-eslint 8.70.1（最新）は
+   依然として `typescript` `>=4.8.4 <6.1.0` を要求し、7.x では `npm ci` が失敗
+   します。Dependabot #651（TypeScript 7.0.2）はマージされましたが 6.0.3 に
+   戻し、Dependabot は TypeScript のメジャー更新を無視する設定にしました。
+   次回レビューで peer 範囲を再確認し、7 を受け入れていれば手動で更新します。
 4. **wasm-pack** — cargo + wasm-bindgen-cli への置き換えを判断する Issue を作成。
 
 ### 未完了の計画
 
-| 期限       | 対象                                                                                                   | 対応                                                                                                | 承認             |
-| ---------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | ---------------- |
-| 2026-10-31 | `release.yml` の configure-pages@5・deploy-pages@4・upload-pages-artifact@3・attest-build-provenance@2 | v6 / v5 / v5 / v4 へ（非推奨の node20 ランタイム）                                                  | 人間（デプロイ） |
-| 2026-12-31 | リリース系ワークフローの Node.js 22・checkout@5・setup-node@5                                          | `release.yml`・`manual-release.yml`・`release-docs.yml` を Node.js 24・v7 へ                        | 人間（リリース） |
-| 2026-12-31 | sql.js 1.x（SQLite 3.49.1 を内包）                                                                     | 新しい SQLite を含む版の有無を確認。遅れていて該当アドバイザリがあれば自前ビルドを Issue 化         | Issue            |
-| 2027-01-15 | Rust 1.98                                                                                              | 最新安定版へ（方針：安定版から 4 リリース以上遅れない）。WASM ペイロード再ビルド                    | 通常 PR          |
-| 2027-03-31 | TypeScript 6.0                                                                                         | typescript-eslint の対応後に 7.x へ                                                                 | 通常 PR          |
-| 2027-03-31 | wasm-pack 0.15                                                                                         | wasm-pack を廃し cargo + wasm-bindgen-cli に置き換えるか判断（rustwasm org は 2025 年にアーカイブ） | Issue            |
+| 期限       | 対象                                | 対応                                                                                                | 承認             |
+| ---------- | ----------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------- |
+| 2026-12-31 | リリース系ワークフローの Node.js 22 | `release.yml`・`manual-release.yml`・`release-docs.yml` を Node.js 24 へ                            | 人間（リリース） |
+| 2026-12-31 | sql.js 1.x（SQLite 3.49.1 を内包）  | 新しい SQLite を含む版の有無を確認。遅れていて該当アドバイザリがあれば自前ビルドを Issue 化         | Issue            |
+| 2027-01-15 | Rust 1.98                           | 最新安定版へ（方針：安定版から 4 リリース以上遅れない）。WASM ペイロード再ビルド                    | 通常 PR          |
+| 2027-03-31 | TypeScript 6.0                      | typescript-eslint の対応後に 7.x へ                                                                 | 通常 PR          |
+| 2027-03-31 | wasm-pack 0.15                      | wasm-pack を廃し cargo + wasm-bindgen-cli に置き換えるか判断（rustwasm org は 2025 年にアーカイブ） | Issue            |
 
 ### 先の見通し（現時点で対応不要）
 

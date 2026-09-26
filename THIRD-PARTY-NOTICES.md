@@ -186,7 +186,7 @@ SOFTWARE.
 
 ## Development-only dependencies
 
-Build and test tooling (Vite, Rollup, esbuild, TypeScript, Vitest, jsdom,
+Build and test tooling (Vite, Rolldown, TypeScript, Vitest, jsdom,
 fast-check, ESLint, Prettier, and their transitive dependencies) is used only
 during development and CI. It is **not** included in the distributed build
 output. Their licenses (MIT, Apache-2.0, ISC, BSD) are recorded in

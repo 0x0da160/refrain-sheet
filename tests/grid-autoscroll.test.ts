@@ -39,6 +39,7 @@ function stubUi(): UiPort {
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -362,8 +363,8 @@ describe('on-screen keyboard open/close (keyboardOpenChanged)', () => {
     setView(grid, 260);
     grid.keyboardOpenChanged(true);
 
-    // Row 170's middle at the middle of the 260px grid minus the header row.
-    expect(grid.element.scrollTop).toBe(Math.round(170 * ROW + ROW / 2 - (260 - ROW) / 2));
+    // Row 170's middle at the middle of the 260px grid minus the header and the pinned first row.
+    expect(grid.element.scrollTop).toBe(Math.round((170 - 1) * ROW + ROW / 2 - (260 - 2 * ROW) / 2));
     expect(grid.element.querySelector('.cell-editor')).toBe(input);
     expect(input.value).toBe('draft');
 
@@ -387,7 +388,7 @@ describe('on-screen keyboard open/close (keyboardOpenChanged)', () => {
 
     setView(grid, 260);
     grid.keyboardOpenChanged(true);
-    expect(grid.element.scrollTop).toBe(Math.round(165 * ROW + ROW / 2 - (260 - ROW) / 2));
+    expect(grid.element.scrollTop).toBe(Math.round((165 - 1) * ROW + ROW / 2 - (260 - 2 * ROW) / 2));
 
     setView(grid, VIEW_HEIGHT);
     grid.keyboardOpenChanged(false);
@@ -423,9 +424,9 @@ describe('touch edit entry around the on-screen keyboard', () => {
     (grid as unknown as { lastPointerType: string }).lastPointerType = 'touch';
   }
 
-  /** Where `centerKeyboardTarget` puts `row` in a grid of `height` px (one header row). */
+  /** Where `centerKeyboardTarget` puts `row` in a grid of `height` px (header + the pinned first row). */
   function centered(row: number, height: number): number {
-    return Math.round(row * ROW + ROW / 2 - (height - ROW) / 2);
+    return Math.round((row - 1) * ROW + ROW / 2 - (height - 2 * ROW) / 2);
   }
 
   afterEach(() => {

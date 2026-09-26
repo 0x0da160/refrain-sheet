@@ -1,0 +1,85 @@
+{
+  "name": "Refrain Sheet Design System",
+  "version": "2.3.0",
+  "released": "2026-09-26",
+  "supersedes": "1.0.0",
+  "layers": {
+    "foundations": {
+      "purpose": "Shared by brand and app",
+      "css": "foundations/css/foundations.css",
+      "docs": "foundations/docs/foundations.html",
+      "themes": [
+        "light",
+        "dark"
+      ]
+    },
+    "app": {
+      "purpose": "Application UI",
+      "requires": "foundations",
+      "css": "app/css/refrain-sheet.css",
+      "docs": "app/docs/design-system.html",
+      "themes": [
+        "light",
+        "dark",
+        "hybrid"
+      ],
+      "density": [
+        "compact",
+        "standard",
+        "comfortable"
+      ],
+      "density_default": "standard"
+    },
+    "brand": {
+      "purpose": "Landing site, documentation, store listings",
+      "requires": "foundations",
+      "css": "brand/css/refrain-brand.css",
+      "docs": "brand/docs/brand-guidelines.html"
+    }
+  },
+  "source": "tools/source/*.mjs",
+  "build": "node design-system/v2/tools/build.mjs [--check]",
+  "targets": {
+    "primary": "Windows 11 / Chrome",
+    "supported": [
+      "iOS Safari",
+      "Android Chrome",
+      "macOS Safari",
+      "Firefox"
+    ]
+  },
+  "fonts": {
+    "webfonts": 0,
+    "ui": "\"BIZ UDPGothic\", \"Yu Gothic UI\", \"Meiryo UI\", \"Meiryo\", \"Yu Gothic\", \"MS UI Gothic\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Noto Sans JP\", \"Noto Sans CJK JP\", sans-serif",
+    "data": "\"BIZ UDGothic\", \"BIZ UDゴシック\", \"MS Gothic\", \"ＭＳ ゴシック\", \"Meiryo\", \"Yu Gothic\", \"Hiragino Sans\", \"Hiragino Kaku Gothic ProN\", \"Noto Sans JP\", \"Noto Sans CJK JP\", sans-serif",
+    "code": "\"BIZ UDGothic\", \"Consolas\", \"SFMono-Regular\", \"Menlo\", monospace",
+    "available_weights": [
+      400,
+      700
+    ],
+    "min_size_px": 12
+  },
+  "color": {
+    "space": "OKLCH",
+    "delivery": "sRGB hex",
+    "document_swatches": 65
+  },
+  "tokens_format": "Design Tokens Format Module 2025.10",
+  "accessibility": {
+    "standard": "WCAG 2.2 AA",
+    "contrast": {
+      "foundations": {
+        "checks": 94,
+        "pass": 94
+      },
+      "app": {
+        "checks": 99,
+        "pass": 99
+      },
+      "brand": {
+        "checks": 8,
+        "pass": 8
+      }
+    }
+  }
+}

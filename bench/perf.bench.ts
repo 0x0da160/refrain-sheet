@@ -13,7 +13,7 @@
  * (tests/perf.test.ts, tests/virtual-grid.test.ts) and by the manual
  * profiling steps documented in knowledge/operations/performance-principles.md.
  */
-import { bench, describe } from 'vitest';
+import { describe, test } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { initCsvEngine, setCsvEngineForTesting } from '../src/core/csv-engine';
 import type { CellChange } from '../src/core/history';
@@ -28,6 +28,25 @@ const wasmAvailable = (await initCsvEngine()) === 'wasm';
 
 // Fast, comparable runs: a fixed number of iterations instead of a time budget.
 const OPTS = { warmupIterations: 1, iterations: 5, warmupTime: 0, time: 0 };
+type BenchRunOpts = typeof OPTS;
+
+/**
+ * Vitest 5 runs benchmarks inside a test through the `bench` test-context
+ * fixture. This keeps the one-line `bench(name, fn, OPTS)` form used below:
+ * each call registers a test that runs a single benchmark with `OPTS`.
+ */
+function bench(name: string, fn: () => unknown, opts: BenchRunOpts): void {
+  test(name, async ({ bench: run }) => {
+    await run(name, fn).run(opts);
+  });
+}
+bench.skipIf =
+  (skip: boolean) =>
+  (name: string, fn: () => unknown, opts: BenchRunOpts): void => {
+    test.skipIf(skip)(name, async ({ bench: run }) => {
+      await run(name, fn).run(opts);
+    });
+  };
 
 /** Deterministic CSV bytes: `rows` rows of `cols` short mixed text/number fields. */
 function makeCsvBytes(rows: number, cols: number, valueLen = 0): Uint8Array {

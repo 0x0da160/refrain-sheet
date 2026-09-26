@@ -64,13 +64,20 @@ describe('theme preference', () => {
     expect(resolveTheme('hybrid')).toBe('dark');
   });
 
-  it('tags the root with the active choice so CSS can scope the hybrid grid override', () => {
+  it('uses the design-system hybrid theme (dark shell, light canvas) when hybrid resolves dark', () => {
     setSystemDark(true);
     applyTheme('hybrid');
-    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('hybrid');
     expect(document.documentElement.getAttribute('data-theme-choice')).toBe('hybrid');
+    expect(document.documentElement.style.getPropertyValue('color-scheme')).toBe('dark');
     applyTheme('light');
     expect(document.documentElement.getAttribute('data-theme-choice')).toBe('light');
+  });
+
+  it('keeps a hybrid choice fully light when the system is light', () => {
+    setSystemDark(false);
+    applyTheme('hybrid');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
   });
 
   it('applies an explicit choice to the document root regardless of the system', () => {

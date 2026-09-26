@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
+import type { CellStyle } from '../core/cell-style';
 import type { CellRange } from '../core/clipboard';
 import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport } from '../core/csv-export';
 import type { CellValidation } from '../core/data-validation';
 import type { DiffResult } from '../core/diff-engine';
 import { cellLabel, columnLabel, isFormula, parseRef } from '../core/formula';
+import type { TextRun } from '../core/rich-text';
 import type { RsfDocument } from '../core/rsf-document';
 import type { CompiledQuery, SearchScope } from '../core/search';
 import { KEEP_SAVE_OPTIONS, type SaveOptions } from '../core/serializer';
@@ -15,12 +17,21 @@ import {
   getAutoFitOnOpen,
   getEditHints,
   getMaxFileSize,
+  getShiftPasteMode,
+  getBrowserWrap,
+  getBrowserZoom,
   nextZoomLevel,
   setAutoFitOnOpen,
   setEditHints,
   setMaxFileSize,
+  setShiftPasteMode,
+  setBrowserWrap,
+  setBrowserZoom,
 } from './settings';
-import { setSheetFont, type SheetFontId } from './sheet-font';
+import { getBrowserSheetFont, isSheetFontId, setBrowserSheetFont, type SheetFontId } from './sheet-font';
+import { localDateStamp } from './shortcuts';
+import { getBandedRows, setBandedRows } from './banded-rows';
+import { setDensity, type DensityChoice } from './density';
 import { setTheme, type ThemeChoice } from './theme';
 import { CommentCommands } from './commands/comment';
 import { ConditionalFormatCommands } from './commands/conditional-format';
@@ -37,7 +48,7 @@ import { DiffCommands } from './commands/diff';
 import { PasteFillCommands, type FlashFillPreview } from './commands/paste-fill';
 import { RangeOpsCommands, type ReplaceAllReport } from './commands/range-ops';
 import { isGridSurface, LARGE_OP_CELLS } from './commands/shared';
-import type { ConvertReason, UiPort } from './ui-port';
+import type { ColumnMenuInput, ConvertReason, UiPort } from './ui-port';
 
 export { isGridSurface, LARGE_OP_CELLS };
 
@@ -70,10 +81,15 @@ export type CommandId =
   | 'drive.signOut'
   | 'edit.undo'
   | 'edit.redo'
+  | 'edit.cut'
   | 'edit.copy'
   | 'edit.copyScreenshot'
   | 'edit.copyAsMarkdown'
   | 'edit.paste'
+  | 'edit.pasteValues'
+  | 'edit.pasteFormats'
+  | 'edit.insertDate'
+  | 'edit.insertTime'
   | 'edit.insertCopiedCells'
   | 'edit.insertCopiedRows'
   | 'edit.insertCopiedCols'
@@ -100,6 +116,7 @@ export type CommandId =
   | 'sheet.autoFitCols'
   | 'sheet.filter'
   | 'sheet.filterClear'
+  | 'sheet.headerFilter'
   | 'sheet.sort'
   | 'sheet.sortClear'
   | 'format.bold'
@@ -111,6 +128,9 @@ export type CommandId =
   | 'format.numberFormat'
   | 'format.conditionalFormatting'
   | 'format.clear'
+  | 'format.presetNumber'
+  | 'format.presetCurrency'
+  | 'format.presetPercent'
   | 'sheet.recalculate'
   | 'sheet.timezone'
   | 'sheet.displayLanguage'
@@ -143,7 +163,9 @@ export type CommandId =
   | 'view.wrap'
   | 'view.stickyFirstRow'
   | 'view.stickyFirstColumn'
+  | 'view.freezeAtSelection'
   | 'view.commentsPanel'
+  | 'view.fullscreen'
   | 'view.zoom.in'
   | 'view.zoom.out'
   | 'view.zoom.50'
@@ -156,6 +178,7 @@ export type CommandId =
   | 'view.zoom.200'
   | 'view.zoom.reset'
   | 'view.editHints'
+  | 'view.bandedRows'
   | 'view.autoFitOnOpen'
   | 'view.sheetFont.bizUd'
   | 'view.sheetFont.ms'
@@ -167,6 +190,9 @@ export type CommandId =
   | 'view.theme.light'
   | 'view.theme.dark'
   | 'view.theme.hybrid'
+  | 'view.density.compact'
+  | 'view.density.standard'
+  | 'view.density.comfortable'
   | 'app.settings'
   | 'help.formula'
   | 'help.shortcuts'
@@ -183,12 +209,17 @@ export type CommandId =
 export class Commands {
   /** Set by main.ts so menu Copy/Paste can go through the clipboard controller. */
   clipboardActions: {
+    cut: () => Promise<void>;
     copy: () => Promise<void>;
     /** Render the selection's actual on-screen appearance to a PNG and write it to the system clipboard. */
     copyScreenshot: () => Promise<void>;
     /** Write the selection to the system clipboard as a GitHub-Flavored Markdown table. */
     copyAsMarkdown: () => Promise<void>;
     paste: () => Promise<void>;
+    /** Paste only the copied cells' calculated values (no formulas, no formatting). */
+    pasteValues: () => Promise<void>;
+    /** Paste only the copied cells' formatting (values untouched). */
+    pasteFormats: () => Promise<void>;
     /** The most recently copied range (internal clipboard, else parsed system text). */
     getCopied: () => Promise<{ matrix: string[][]; origin: Selection | null } | null>;
     /** The kind of the most recently copied selection in the internal clipboard, or null. Synchronous, for isEnabled(). */
@@ -218,8 +249,8 @@ export class Commands {
   ) {
     this.fileIo = new FileIoCommands(state, ui, dom, () => this.gridActions);
     this.driveIo = __OFFLINE_BUILD__ ? null : new DriveIoCommands(state, ui, this.fileIo);
-    this.filter = new FilterCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.sort = new SortCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
+    this.filter = new FilterCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason), this.sort);
     this.validation = new ValidationCommands(state, ui, (tab, reason) => this.ensureRsf(tab, reason));
     this.conditionalFormat = new ConditionalFormatCommands(state, ui, (tab, reason) =>
       this.ensureRsf(tab, reason),
@@ -304,6 +335,10 @@ export class Commands {
       case 'search.goToCell':
       case 'data.runSqlQuery':
         return tab !== null;
+      case 'view.fullscreen':
+        // False where the page may not go full screen (e.g. an iframe
+        // without permission, or iPhone Safari).
+        return this.dom.fullscreenEnabled === true;
       case 'data.compareDiff':
         // A second open tab is required to pick a baseline against.
         return tab !== null && this.state.tabs.length >= 2;
@@ -351,6 +386,14 @@ export class Commands {
         return tab !== null && tab.selection !== null && isGridSurface(tab);
       case 'edit.selectAll':
         return tab !== null;
+      // Freezing at A1 would freeze nothing; once frozen, the toggle always clears.
+      case 'view.freezeAtSelection':
+        return (
+          tab !== null &&
+          (tab.freeze !== null ||
+            (tab.selection !== null &&
+              (this.state.sortSlot(tab, tab.selection.row) > 0 || tab.selection.col > 0)))
+        );
       case 'edit.undo':
         return tab !== null && tab.history.canUndo;
       case 'edit.redo':
@@ -358,9 +401,13 @@ export class Commands {
       // Flash Fill, Move Range, and Filter stay clickable on a CSV tab:
       // running one explains that the operation needs an RSF spreadsheet
       // document and offers to convert right there (see `ensureRsf`).
+      case 'edit.cut':
       case 'edit.copy':
       case 'edit.copyAsMarkdown':
       case 'edit.paste':
+      case 'edit.pasteValues':
+      case 'edit.insertDate':
+      case 'edit.insertTime':
       case 'edit.fillDown':
       case 'edit.flashFill':
       case 'edit.moveRange':
@@ -382,6 +429,10 @@ export class Commands {
       case 'format.borders':
       case 'format.numberFormat':
       case 'format.clear':
+      case 'format.presetNumber':
+      case 'format.presetCurrency':
+      case 'format.presetPercent':
+      case 'edit.pasteFormats':
         return tab !== null && tab.doc.kind === 'rsf' && tab.selection != null;
       // The async Clipboard API's image write has inconsistent browser
       // support (including on file://), so the item is hidden/disabled
@@ -411,6 +462,8 @@ export class Commands {
       }
       case 'sheet.filterClear':
         return tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null;
+      case 'sheet.headerFilter':
+        return tab?.selection != null || (tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null);
       case 'sheet.sortClear':
         return tab !== null && tab.doc.kind === 'rsf' && tab.doc.sort !== null;
       case 'sheet.recalculate':
@@ -515,6 +568,10 @@ export class Commands {
       case 'format.borders':
       case 'format.numberFormat':
       case 'format.clear':
+      case 'format.presetNumber':
+      case 'format.presetCurrency':
+      case 'format.presetPercent':
+      case 'edit.pasteFormats':
         return tab !== null && tab.doc.kind !== 'rsf' ? t('menu.format.csvOnlyTooltip') : null;
       default:
         return null;
@@ -571,6 +628,9 @@ export class Commands {
       case 'edit.redo':
         if (tab) this.state.redo(tab);
         return;
+      case 'edit.cut':
+        await this.clipboardActions?.cut();
+        return;
       case 'edit.copy':
         await this.clipboardActions?.copy();
         return;
@@ -582,6 +642,24 @@ export class Commands {
         return;
       case 'edit.paste':
         await this.clipboardActions?.paste();
+        return;
+      case 'edit.pasteValues':
+        await this.clipboardActions?.pasteValues();
+        return;
+      case 'edit.pasteFormats':
+        await this.clipboardActions?.pasteFormats();
+        return;
+      case 'edit.insertDate':
+      case 'edit.insertTime':
+        if (tab?.selection) {
+          const { row, col } = tab.selection;
+          await this.commitCellEdit(
+            tab,
+            row,
+            col,
+            localDateStamp(id === 'edit.insertDate' ? 'date' : 'time'),
+          );
+        }
         return;
       case 'edit.insertCopiedCells':
         if (tab) await this.insertCopiedCells(tab);
@@ -651,6 +729,9 @@ export class Commands {
       case 'sheet.filterClear':
         if (tab) this.clearAllFilters(tab);
         return;
+      case 'sheet.headerFilter':
+        if (tab) await this.toggleHeaderFilter(tab);
+        return;
       case 'sheet.sort':
         if (tab) await this.sortDialog(tab);
         return;
@@ -683,6 +764,15 @@ export class Commands {
         return;
       case 'format.clear':
         if (tab) this.clearFormatting(tab);
+        return;
+      case 'format.presetNumber':
+        if (tab) this.format.applyNumberPreset(tab, 'number');
+        return;
+      case 'format.presetCurrency':
+        if (tab) this.format.applyNumberPreset(tab, 'currency');
+        return;
+      case 'format.presetPercent':
+        if (tab) this.format.applyNumberPreset(tab, 'percent');
         return;
       case 'sheet.recalculate':
         // Drops every cached result and advances the clock the volatile
@@ -835,16 +925,31 @@ export class Commands {
         this.state.setWrapCells(!this.state.wrapCells);
         return;
       case 'view.stickyFirstRow':
-        this.state.setStickyFirstRow(!this.state.stickyFirstRow);
+        this.state.setStickyFirstRow(!this.state.stickyFirstRowShown);
         return;
       case 'view.stickyFirstColumn':
-        this.state.setStickyFirstColumn(!this.state.stickyFirstColumn);
+        this.state.setStickyFirstColumn(!this.state.stickyFirstColumnShown);
+        return;
+      case 'view.freezeAtSelection':
+        if (!tab) return;
+        if (tab.freeze) {
+          this.state.setTabFreeze(tab, null);
+        } else if (tab.selection) {
+          // Rows count in display order, so a sorted view freezes what is shown above.
+          this.state.setTabFreeze(tab, {
+            rows: this.state.sortSlot(tab, tab.selection.row),
+            cols: tab.selection.col,
+          });
+        }
         return;
       case 'view.commentsPanel':
         this.panelActions?.toggleComments();
         // Pure UI-visibility toggle (like view.editHints above): re-emit so
         // the View menu checkbox reflects the new open/closed state.
         this.state.emit('view');
+        return;
+      case 'view.fullscreen':
+        await this.toggleFullscreen();
         return;
       case 'view.zoom.50':
       case 'view.zoom.75':
@@ -872,6 +977,11 @@ export class Commands {
         // Pure preference toggle; re-emit so menus and editors refresh.
         this.state.emit('view');
         return;
+      case 'view.bandedRows':
+        // Pure CSS (data-banded-rows attribute), stored on this device only.
+        setBandedRows(!getBandedRows());
+        this.state.emit('view');
+        return;
       case 'view.autoFitOnOpen':
         setAutoFitOnOpen(!getAutoFitOnOpen());
         // Pure preference toggle (like view.editHints above); it only takes
@@ -893,9 +1003,15 @@ export class Commands {
           'view.sheetFont.meiryoUi': 'meiryo-ui',
           'view.sheetFont.yuGothicUi': 'yu-gothic-ui',
         };
-        setSheetFont(fonts[id]);
-        // Applying the font is pure CSS; re-emit so the menu checkmark and the
-        // grid (which measures with the active font) refresh.
+        // An RSF worksheet remembers its own font (the narrowest level, so it
+        // wins); anything else sets this browser's font. Main applies the
+        // effective font on the 'view' event, which also refreshes the menu
+        // checkmark and the grid (which measures with the active font).
+        if (tab && tab.doc.kind === 'rsf') {
+          tab.doc.activeSheet.displayFont = fonts[id];
+        } else {
+          setBrowserSheetFont(fonts[id]);
+        }
         this.state.emit('view');
         return;
       }
@@ -909,10 +1025,56 @@ export class Commands {
         this.state.emit('view');
         return;
       }
+      case 'view.density.compact':
+      case 'view.density.standard':
+      case 'view.density.comfortable': {
+        // Pure CSS (data-density attribute), stored on this device only.
+        setDensity(id.slice('view.density.'.length) as DensityChoice);
+        this.state.emit('view');
+        return;
+      }
       case 'app.settings': {
-        const chosen = await this.ui.chooseSettings(getMaxFileSize());
+        const rsf = tab && tab.doc.kind === 'rsf' ? tab.doc : null;
+        const chosen = await this.ui.chooseSettings({
+          maxFileSize: getMaxFileSize(),
+          shiftPaste: getShiftPasteMode(),
+          browserDisplay: { zoom: getBrowserZoom(), wrap: getBrowserWrap(), font: getBrowserSheetFont() },
+          fileDisplay: rsf
+            ? {
+                zoom: rsf.fileZoom,
+                wrap: rsf.fileWrap,
+                font: isSheetFontId(rsf.fileFont) ? rsf.fileFont : undefined,
+              }
+            : null,
+        });
         if (chosen !== null) {
-          const applied = setMaxFileSize(chosen);
+          const applied = setMaxFileSize(chosen.maxFileSize);
+          setShiftPasteMode(chosen.shiftPaste);
+          setBrowserZoom(chosen.browserDisplay.zoom);
+          setBrowserWrap(chosen.browserDisplay.wrap);
+          setBrowserSheetFont(chosen.browserDisplay.font);
+          // The file level is presentational like zoom: kept with the next
+          // save, never marks the document dirty.
+          // Choosing a file-level value clears each worksheet's own one, so the
+          // file setting takes effect everywhere (a worksheet would outrank it).
+          if (rsf && chosen.fileDisplay) {
+            const { zoom, wrap, font } = chosen.fileDisplay;
+            if (zoom !== undefined && zoom !== rsf.fileZoom) {
+              for (const sheet of rsf.sheets) sheet.displayZoom = undefined;
+            }
+            if (wrap !== undefined && wrap !== rsf.fileWrap) {
+              for (const sheet of rsf.sheets) sheet.displayWrap = undefined;
+            }
+            if (font !== undefined && font !== rsf.fileFont) {
+              for (const sheet of rsf.sheets) sheet.displayFont = undefined;
+            }
+            rsf.fileZoom = zoom;
+            rsf.fileWrap = wrap;
+            rsf.fileFont = font;
+          }
+          // Re-resolve zoom/wrap everywhere; menus also label Ctrl+Shift+V on
+          // whichever command it now runs.
+          this.state.reapplyViewSettings();
           this.ui.notify(t('notify.settingsSaved', { size: Math.round(applied / (1024 * 1024)) }), 'info');
         }
         return;
@@ -1100,9 +1262,9 @@ export class Commands {
     if (!encoded.ok) {
       return false; // unreachable for UTF-8, kept for type-safety with encodeCsvExport's signature
     }
-    const base = tab.name.replace(/\.(rsf|rcsv|csv)$/i, '');
+    const name = `${tab.name.replace(/\.(rsf|rcsv|csv)$/i, '')}-diff.csv`;
     try {
-      await saveBytesAs(this.dom, `${base}-diff.csv`, encoded.bytes, 'csv');
+      await saveBytesAs(this.dom, name, encoded.bytes, 'csv');
       return true;
     } catch (err) {
       // A cancelled save picker (AbortError) is a silent no-op, matching every
@@ -1111,7 +1273,7 @@ export class Commands {
         return false;
       }
       this.ui.notify(
-        t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
+        t('notify.saveFailed', { name, error: err instanceof Error ? err.message : String(err) }),
         'error',
       );
       return false;
@@ -1160,10 +1322,24 @@ export class Commands {
    * Commit a cell edit from the grid or formula bar. Entering a formula
    * (`=...`) into a CSV document offers the explicit RSF conversion; if
    * declined, the text is kept as a plain literal value.
+   *
+   * `runs` is the cell's rich text from the cell editor (null clears it);
+   * when left out, formatted parts carry over through the edit (see
+   * `FormatCommands.styleForEdit`).
    */
-  async commitCellEdit(tab: Tab, row: number, col: number, value: string): Promise<boolean> {
+  async commitCellEdit(
+    tab: Tab,
+    row: number,
+    col: number,
+    value: string,
+    runs?: TextRun[] | null,
+  ): Promise<boolean> {
     if (tab.doc.kind === 'csv' && isFormula(value)) {
       await this.ensureRsf(tab, 'formula');
+    }
+    const styled = this.format.styleForEdit(tab, row, col, value, runs);
+    if (styled) {
+      return this.format.editCellWithStyle(tab, row, col, value, styled.before, styled.after);
     }
     return this.state.editCell(tab, row, col, value);
   }
@@ -1225,6 +1401,11 @@ export class Commands {
    */
   async applyPaste(tab: Tab, matrix: string[][], origin: Selection | null): Promise<boolean> {
     return this.pasteFill.applyPaste(tab, matrix, origin);
+  }
+
+  /** Paste Formatting. See `FormatCommands.pasteStyles` for the full behavior contract. */
+  pasteStyles(tab: Tab, styles: ReadonlyArray<ReadonlyArray<CellStyle | null>>): boolean {
+    return this.format.pasteStyles(tab, styles);
   }
 
   /**
@@ -1312,6 +1493,29 @@ export class Commands {
     return this.pasteFill.flashFill(tab);
   }
 
+  /** Whether the app is shown full screen (View > Full Screen). */
+  isFullscreen(): boolean {
+    return this.dom.fullscreenElement !== null;
+  }
+
+  /**
+   * Show the whole app full screen, or leave full screen. Uses the page's
+   * own Fullscreen API rather than the browser's F11 full screen, so the
+   * menu item can also leave it; Escape leaves it too (browser-owned).
+   * The View menu refreshes from the `fullscreenchange` listener in main.ts.
+   */
+  private async toggleFullscreen(): Promise<void> {
+    try {
+      if (this.isFullscreen()) {
+        await this.dom.exitFullscreen();
+      } else {
+        await this.dom.documentElement.requestFullscreen();
+      }
+    } catch {
+      this.ui.notify(t('notify.fullscreenFailed'), 'error');
+    }
+  }
+
   /**
    * Zoom the spreadsheet one preset step in/out (shared with the menu
    * presets; used by the keyboard shortcuts and Ctrl/Cmd + mouse wheel).
@@ -1342,6 +1546,27 @@ export class Commands {
   /** Sheet > Filter & Sort > Clear All Filters: every row becomes visible again (undoable). See `FilterCommands.clearAllFilters`. */
   clearAllFilters(tab: Tab): boolean {
     return this.filter.clearAllFilters(tab);
+  }
+
+  /**
+   * Sheet > Filter & Sort > Filter Buttons on Header Row: add or remove the
+   * header row's filter buttons. See `FilterCommands.toggleHeaderFilter`.
+   */
+  async toggleHeaderFilter(tab: Tab): Promise<boolean> {
+    return this.filter.toggleHeaderFilter(tab);
+  }
+
+  /** Whether the active tab's sheet shows filter buttons (has a filter range). */
+  hasFilter(tab: Tab | null): boolean {
+    return tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null;
+  }
+
+  /**
+   * A header cell's filter button: open the column menu (sort, value
+   * checklist) beside `anchor`. See `FilterCommands.columnMenu`.
+   */
+  async columnMenu(tab: Tab, col: number, anchor: ColumnMenuInput['anchor']): Promise<boolean> {
+    return this.filter.columnMenu(tab, col, anchor);
   }
 
   // ----- Sorting (RSF spreadsheet documents only; view-only, unsaved) -----

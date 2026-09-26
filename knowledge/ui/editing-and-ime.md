@@ -25,7 +25,17 @@ into the flow. **Enter** commits and moves the selection down one row;
 The **formula bar** above the grid is a second, always-visible edit surface
 for the same selected cell: **Enter** applies the edit and moves down,
 **Alt+Enter** inserts a newline, and **Esc** restores the value the cell had
-when it was selected. Both surfaces stay in sync with the active cell and
+when it was selected. In both surfaces **Ctrl+Enter / Cmd+Enter** applies
+the edit and stays on the cell.
+
+**Ctrl+; / Cmd+;** enters today's date and **Ctrl+Shift+; / Cmd+Shift+;**
+the current time, from the device clock, as text like `2026-09-25` and
+`13:45`. While editing (cell editor or formula bar) they go in at the
+caret; with the grid focused they replace the active cell's value as one
+undoable edit (also **Edit > Enter Date or Time**). The time key is matched
+by the `:` character, so it is Ctrl+Shift+; on a US layout and Ctrl+: on a
+Japanese one; Ctrl+Shift+; on a Japanese layout produces `+`, which stays
+the browser's zoom-in (`src/app/shortcuts.ts` `dateStampKeyOf`). Both surfaces stay in sync with the active cell and
 behave identically for formula autocomplete and pointer-entered references
 (see [selection-and-navigation.md](selection-and-navigation.md) and the
 formula-editing behavior documented in `README.md`'s "Formula autocomplete
@@ -44,6 +54,16 @@ the extra lines (see
 [theming-and-visual-system.md](theming-and-visual-system.md) for the
 row-height/wrapping model).
 
+## Reference toggle (F4)
+
+While a formula is being typed in the cell editor or the formula bar,
+**F4** cycles the reference at the caret through `A1` → `$A$1` → `A$1` →
+`$A1` → `A1`; a range (`A1:B10`) changes both ends together. Text inside a
+string literal and function names such as `LOG10(` are never touched, and
+F4 does nothing when the field is not a formula or no reference touches the
+caret. The pure text logic is `src/core/formula-ref-toggle.ts`. Outside
+text editing F4 does nothing (File > New has no shortcut).
+
 ## Visual feedback while editing
 
 - Edited cells are tinted yellow; hovering one shows the original value as a
@@ -55,8 +75,9 @@ row-height/wrapping model).
 - The active cell's row is highlighted while a single cell is selected;
   a multi-cell range shows no row highlight, since the range fill already
   shows where the selection is. Whole-row selections stay highlighted.
-  Unselected rows keep their alternating (zebra) background, a faint tint
-  a little above the plain cell background.
+  With **View > Banded Rows** on (off by default, stored on this device
+  only), unselected rows alternate with a faint tint; the selection and
+  the selected-row highlight still show over it.
 - The inline-editor / formula-bar usage guidance (Enter commits and moves
   down, Alt+Enter inserts a newline, Esc cancels, `=` starts a formula in
   RSF) is not persistent chrome — it is a **tooltip** on both surfaces plus

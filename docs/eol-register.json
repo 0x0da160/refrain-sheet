@@ -1,0 +1,179 @@
+{
+  "$comment": "Lifecycle register for every direct dependency and toolchain component in the full SBOM (npm run sbom:full). Checked by npm run check:eol; policy in knowledge/operations/dependency-lifecycle.md; plan in docs/eol-plan.md. Keys are <ecosystem>:<name>@<cycle>. eol = the date upstream (or, where marked, this project's policy) stops supporting the cycle; null = rolling release with no fixed date (only the newest line is supported, so stay current).",
+  "reviewed": "2026-09-26",
+  "reviewIntervalDays": 92,
+  "warnWithinDays": 180,
+  "components": {
+    "generic:nodejs@24": {
+      "eol": "2028-04-30",
+      "support": "Active LTS; maintenance LTS from 2026-10-20 (nodejs/Release schedule.json).",
+      "plan": null
+    },
+    "generic:nodejs@22": {
+      "eol": "2027-04-30",
+      "support": "Maintenance LTS. Still used by the release workflows only.",
+      "plan": {
+        "action": "Move manual-release.yml, release.yml and release-docs.yml to node-version 24 (release-workflow change: human approval required).",
+        "due": "2026-12-31"
+      }
+    },
+    "generic:debian@trixie": {
+      "eol": "2028-08-09",
+      "support": "Debian 13, base of the Docker toolchain image. Estimated end of regular security support (one year after Debian 14); Debian LTS continues to 2030-06-30.",
+      "plan": null
+    },
+    "generic:rust@1.98": {
+      "eol": "2027-02-04",
+      "support": "Upstream supports only the newest stable (6-week cadence). Project policy: never more than four releases behind stable; 1.102 is due 2027-02-04.",
+      "plan": {
+        "action": "Bump rust-toolchain.toml, the Dockerfile and the session hook to the current stable at the next quarterly review; rebuild the WASM payload (npm run build:wasm).",
+        "due": "2027-01-15"
+      }
+    },
+    "generic:rustup@1": {
+      "eol": null,
+      "support": "Rolling; only the Docker image's installer is pinned.",
+      "plan": null
+    },
+    "generic:wasm-pack@0.15": {
+      "eol": null,
+      "support": "Rolling. The rustwasm organization was archived in 2025; wasm-pack continues outside it with a small maintainer base.",
+      "plan": {
+        "action": "Evaluate replacing wasm-pack with cargo build + wasm-bindgen-cli directly (one fewer pinned binary); decide in an Issue.",
+        "due": "2027-03-31"
+      }
+    },
+    "generic:wasm-bindgen-cli@0.2": {
+      "eol": null,
+      "support": "Rolling; must equal the wasm-bindgen crate version. Maintained at github.com/wasm-bindgen/wasm-bindgen.",
+      "plan": null
+    },
+    "cargo:wasm-bindgen@0.2": {
+      "eol": null,
+      "support": "Rolling; pinned exactly (=) to match wasm-bindgen-cli.",
+      "plan": null
+    },
+    "cargo:miniz_oxide@0.9": {
+      "eol": null,
+      "support": "Rolling; DEFLATE codec for .xlsx import.",
+      "plan": null
+    },
+    "cargo:ruzstd@0.9": {
+      "eol": null,
+      "support": "Rolling; Zstandard codec for .rsf. The frozen .rsf fixtures pin its encoder output.",
+      "plan": null
+    },
+    "cargo:lz4_flex@0.14": {
+      "eol": null,
+      "support": "Rolling; LZ4 Frame codec (currently unused but linked; see THIRD-PARTY-NOTICES.md).",
+      "plan": null
+    },
+    "npm:encoding-japanese@2": {
+      "eol": null,
+      "support": "Runtime dependency; single-maintainer, actively released (2.4.0, 2026-09).",
+      "plan": null
+    },
+    "npm:lucide@1": {
+      "eol": null,
+      "support": "Runtime dependency; frequent minor releases.",
+      "plan": null
+    },
+    "npm:sql.js@1": {
+      "eol": null,
+      "support": "Runtime dependency; infrequent releases. 1.14.2 embeds SQLite 3.49.1 (2025-02), so SQLite fixes reach the app only through sql.js releases.",
+      "plan": {
+        "action": "Check at each quarterly review whether sql.js has shipped a newer SQLite; if SQLite advisories affect in-memory use and sql.js lags, open an Issue on building the SQLite WASM ourselves.",
+        "due": "2026-12-31"
+      }
+    },
+    "npm:yaml@2": {
+      "eol": null,
+      "support": "Runtime dependency; actively maintained.",
+      "plan": null
+    },
+    "npm:vite@8": {
+      "eol": null,
+      "support": "Current major. Vite supports the current minor, plus security fixes for the previous two majors' latest minors.",
+      "plan": null
+    },
+    "npm:vitest@5": {
+      "eol": null,
+      "support": "Current major; only the newest major receives fixes (Vitest 3 never received the GHSA-82fw-gwwq-j7x9 fix).",
+      "plan": null
+    },
+    "npm:typescript@6": {
+      "eol": null,
+      "support": "6.0 is the last JavaScript-based TypeScript line; 7.x (native compiler) is current. Held on 6 because typescript-eslint 8 supports <6.1.",
+      "plan": {
+        "action": "Move to TypeScript 7 once typescript-eslint publishes support for it.",
+        "due": "2027-03-31"
+      }
+    },
+    "npm:typescript-eslint@8": { "eol": null, "support": "Current major.", "plan": null },
+    "npm:eslint@10": {
+      "eol": null,
+      "support": "Current major; ESLint maintains the previous major for six months after a new one.",
+      "plan": null
+    },
+    "npm:@eslint/js@10": {
+      "eol": null,
+      "support": "Released with ESLint; keep on the same major.",
+      "plan": null
+    },
+    "npm:eslint-config-prettier@10": { "eol": null, "support": "Current major.", "plan": null },
+    "npm:prettier@3": { "eol": null, "support": "Current major.", "plan": null },
+    "npm:jsdom@30": { "eol": null, "support": "Rolling; only the newest major is maintained.", "plan": null },
+    "npm:fast-check@4": { "eol": null, "support": "Current major.", "plan": null },
+    "npm:knip@6": { "eol": null, "support": "Current major.", "plan": null },
+    "npm:playwright@1": {
+      "eol": null,
+      "support": "Rolling minors; each release pins its browser builds, so stay on the newest minor.",
+      "plan": null
+    },
+    "npm:sharp@0.35": { "eol": null, "support": "Rolling (0.x: each minor may break).", "plan": null },
+    "npm:tailwindcss@4": { "eol": null, "support": "Current major.", "plan": null },
+    "npm:@tailwindcss/vite@4": {
+      "eol": null,
+      "support": "Released with tailwindcss; keep on the same version.",
+      "plan": null
+    },
+    "npm:@types/sql.js@1": { "eol": null, "support": "Type definitions; follow sql.js.", "plan": null },
+    "github:actions/checkout@7": { "eol": null, "support": "Current major (node24 runtime).", "plan": null },
+    "github:actions/setup-node@7": {
+      "eol": null,
+      "support": "Current major (node24 runtime).",
+      "plan": null
+    },
+    "github:actions/cache@6": { "eol": null, "support": "Current major (node24 runtime).", "plan": null },
+    "github:actions/upload-artifact@7": {
+      "eol": null,
+      "support": "Current major (node24 runtime).",
+      "plan": null
+    },
+    "github:actions/dependency-review-action@5": {
+      "eol": null,
+      "support": "Current major (node24 runtime).",
+      "plan": null
+    },
+    "github:actions/configure-pages@6": {
+      "eol": null,
+      "support": "Current major (node24 runtime).",
+      "plan": null
+    },
+    "github:actions/deploy-pages@5": {
+      "eol": null,
+      "support": "Current major (node24 runtime).",
+      "plan": null
+    },
+    "github:actions/upload-pages-artifact@5": {
+      "eol": null,
+      "support": "Current major (composite action).",
+      "plan": null
+    },
+    "github:actions/attest-build-provenance@4": {
+      "eol": null,
+      "support": "Current major (composite action).",
+      "plan": null
+    }
+  }
+}

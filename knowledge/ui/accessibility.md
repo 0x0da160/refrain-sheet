@@ -39,16 +39,32 @@ editing, find/replace, and dialogs. Concretely:
   deprecated `keyCode`), only when the application owns the context, never
   during IME composition or ordinary text entry, and `preventDefault()` is
   called only for a recognized application command on a cancelable event.
-  Browser-reserved and OS-essential keys (new tab, close tab, reload,
-  history, browser find, print, zoom, dev tools, browser tab switching) are
-  never intercepted.
+  Keys a page cannot or must not take (new window/tab, close tab, reload,
+  history navigation with Alt+Arrow, address bar, print, **zoom**, dev
+  tools, browser tab switching with Ctrl+Tab / Ctrl+PageUp/PageDown /
+  Ctrl+1–9) are never intercepted; zoom in particular stays the browser's
+  because low-vision users depend on it.
+- **Spreadsheet keys win over the browser's.** The conventional
+  spreadsheet keys a page can take are always the app's, wherever focus is:
+  **Ctrl+F** Find, **Ctrl+H** Replace (Cmd+Shift+H on macOS), **F3 /
+  Shift+F3** Find Next / Previous, **Ctrl+G** Go to Cell, and **Ctrl+E**
+  Flash Fill (Cmd on macOS). The virtualized grid does not render rows
+  outside the viewport, so the browser's find could not search the sheet
+  anyway. The browser's own page find stays reachable from the browser's
+  menu, and every one of these commands is also on the app's menus.
+- Tab / Shift+Tab move between cells inside the grid, but at the row's
+  first or last field they fall through to the browser, so focus can
+  always leave the grid by keyboard.
+- **Shift+F11** inserts a worksheet, **Ctrl+/** opens the shortcut list,
+  and **Ctrl+\\** clears formatting (Ctrl+¥ on Japanese keyboards).
+- Menus show each shortcut the way the current platform types it (Cmd on
+  macOS, Ctrl elsewhere; `displayShortcut` in `src/app/shortcuts.ts`).
 - Grid-editing accelerators (Undo/Redo/Fill Down) are suppressed while a
   text field or the cell editor has focus, so ordinary text editing keeps
   its own behavior; Save and Open still work from anywhere.
 - Formula and Function Help is a searchable, keyboard-accessible panel.
-  Flash Fill's preview and Insert Copied … commands are fully
-  keyboard-accessible through the menu and context menu even though they
-  have no dedicated shortcut.
+  Insert Copied … commands are fully keyboard-accessible through the menu
+  and context menu even though they have no dedicated shortcut.
 
 ## ARIA labeling
 
@@ -86,7 +102,7 @@ editing, find/replace, and dialogs. Concretely:
 - Dialogs return focus and trap it while open (native `<dialog>` focus
   trapping, above).
 - On a touch device, opening a dialog, popover, docked panel, or the
-  Find/Replace bar autofocuses a field **without popping the on-screen
+  Find and Replace panel autofocuses a field **without popping the on-screen
   keyboard** (`focusWithoutKeyboard`) — a focus-management concern that is
   also an accessibility concern: keyboard-driven focus should not have an
   unwanted side effect on a different input modality. See

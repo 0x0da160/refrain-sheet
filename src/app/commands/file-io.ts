@@ -30,6 +30,7 @@ import { parseJsonWorkbook, type JsonImportError } from '../../core/json-import'
 import { buildJsonExport } from '../../core/json-export';
 import type { AppState, Tab } from '../app-state';
 import { defaultSheetName } from '../state/defaults';
+import { decidedBySheet, resolveWrap, resolveZoom } from '../state/view-layers';
 import {
   readFileObject,
   readFileStamp,
@@ -482,7 +483,7 @@ export class FileIoCommands {
       }
       result = serializeDocument(tab.doc, options, true);
       if (!result.ok) {
-        this.ui.notify(t('notify.saveFailed', { error: 'serialization' }), 'error');
+        this.ui.notify(t('notify.saveFailedUnrepresentable', { name: tab.name }), 'error');
         return false;
       }
       ncrReports = result.ncrReplacements;
@@ -492,7 +493,9 @@ export class FileIoCommands {
     if (!target.ok) {
       return false;
     }
-    const written = await this.runSaveStep(() => saveBytes(this.dom, tab.name, result.bytes, target.handle));
+    const written = await this.runSaveStep(tab.name, () =>
+      saveBytes(this.dom, tab.name, result.bytes, target.handle),
+    );
     if (!written.ok) {
       return false;
     }
@@ -610,7 +613,13 @@ export class FileIoCommands {
     }
     // Record the tab's live view state (zoom, overridden column widths) so
     // the container persists it; presentational only, never dirties the doc.
-    doc.setDisplaySettings(tab.zoom, tab.colWidths, tab.wrapCells);
+    // Zoom/wrap inherited from the file or browser level are not copied into
+    // the worksheet, so it keeps following that level.
+    doc.setDisplaySettings(
+      decidedBySheet(resolveZoom(doc).source) ? tab.zoom : doc.displayZoom,
+      tab.colWidths,
+      decidedBySheet(resolveWrap(doc).source) ? tab.wrapCells : undefined,
+    );
     // The whole workbook is serialized, not just the active worksheet.
     let totalCells = 0;
     for (const sheet of doc.sheets) {
@@ -660,7 +669,9 @@ export class FileIoCommands {
     if (!target.ok) {
       return false;
     }
-    const written = await this.runSaveStep(() => saveBytes(this.dom, tab.name, bytes, target.handle));
+    const written = await this.runSaveStep(tab.name, () =>
+      saveBytes(this.dom, tab.name, bytes, target.handle),
+    );
     if (!written.ok) {
       return false;
     }
@@ -805,7 +816,7 @@ export class FileIoCommands {
     const bytes = await withBusyIfLarge(large, this.ui, label, () =>
       buildCsvExportBytes(rows, doc.delimiter, options),
     );
-    const written = await this.runSaveStep(() => saveBytesAs(this.dom, name, bytes, 'csv'));
+    const written = await this.runSaveStep(name, () => saveBytesAs(this.dom, name, bytes, 'csv'));
     if (!written.ok) {
       return false;
     }
@@ -900,7 +911,7 @@ export class FileIoCommands {
       return false;
     }
     const bytes = await withBusyIfLarge(large, this.ui, label, () => buildXlsxExport(sheets));
-    const written = await this.runSaveStep(() => saveBytesAs(this.dom, name, bytes, 'xlsx'));
+    const written = await this.runSaveStep(name, () => saveBytesAs(this.dom, name, bytes, 'xlsx'));
     if (!written.ok) {
       return false;
     }
@@ -998,7 +1009,7 @@ export class FileIoCommands {
       return false;
     }
     const bytes = await withBusyIfLarge(large, this.ui, label, () => buildJsonExport(rows));
-    const written = await this.runSaveStep(() => saveBytesAs(this.dom, name, bytes, 'json'));
+    const written = await this.runSaveStep(name, () => saveBytesAs(this.dom, name, bytes, 'json'));
     if (!written.ok) {
       return false;
     }
@@ -1036,8 +1047,9 @@ export class FileIoCommands {
     if (tab.doc.kind === 'rsf') {
       return tab.doc;
     }
-    if (tab.readOnly) {
-      await warnProtectedAndOfferUnlock(this.ui, this.state, tab, 'book');
+    // Unprotecting here goes straight on to the conversion prompt, so the
+    // action that needed RSF is not lost.
+    if (tab.readOnly && !(await warnProtectedAndOfferUnlock(this.ui, this.state, tab, 'book'))) {
       return null;
     }
     const ok = await this.ui.confirmConvert(reason, tab.name);
@@ -1189,12 +1201,15 @@ export class FileIoCommands {
    * Run one step of a save/export flow (acquiring a picker handle or
    * writing the finished bytes), classifying a thrown error the way every
    * save/export path must: a cancelled picker (`AbortError`) is a silent
-   * stop, anything else is reported via `notify.saveFailed`. Either way the
+   * stop, anything else is reported via `notify.saveFailed`, naming the file. Either way the
    * caller gets `ok: false` and must stop without saving — the two cases
    * are never distinguished further because both already leave the
    * document and disk untouched.
    */
-  private async runSaveStep<T>(work: () => Promise<T>): Promise<{ ok: true; value: T } | { ok: false }> {
+  private async runSaveStep<T>(
+    name: string,
+    work: () => Promise<T>,
+  ): Promise<{ ok: true; value: T } | { ok: false }> {
     try {
       return { ok: true, value: await work() };
     } catch (err) {
@@ -1202,7 +1217,7 @@ export class FileIoCommands {
         return { ok: false };
       }
       this.ui.notify(
-        t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
+        t('notify.saveFailed', { name, error: err instanceof Error ? err.message : String(err) }),
         'error',
       );
       return { ok: false };
@@ -1236,7 +1251,7 @@ export class FileIoCommands {
     if (choice === 'cancel') {
       return { ok: false };
     }
-    const picked = await this.runSaveStep(() =>
+    const picked = await this.runSaveStep(tab.name, () =>
       requestSaveHandle(tab.name, tab.doc.kind === 'rsf' ? 'rsf' : 'csv'),
     );
     return picked.ok ? { ok: true, handle: picked.value } : picked;
@@ -1244,7 +1259,7 @@ export class FileIoCommands {
 
   /**
    * After a successful overwrite, associate the tab with the file it wrote
-   * (a new one after Save As takes that file's name) and remember the file's
+   * (a newly picked file also gives the tab its name) and remember the file's
    * new stamp for the next save's check. A download leaves both unchanged.
    * Only called after the write succeeded, so a cancelled or failed save
    * never mutates the tab's file association.
@@ -1255,12 +1270,9 @@ export class FileIoCommands {
     }
     const handle = outcome.handle;
     if (handle !== tab.handle) {
-      // Save As away from a changed file takes the new file's name; a first
-      // save keeps the tab's name, as before.
-      if (tab.handle) {
-        tab.name = handle.name;
-      }
       tab.handle = handle;
+      // The picker lets the user type a different file name; the tab follows it.
+      this.state.adoptSavedName(tab, handle.name);
       await recordRecentFile(handle, tab.name);
     } else if (tab.doc.kind === 'rsf') {
       await recordRecentFile(handle, tab.name);
@@ -1285,7 +1297,7 @@ export class FileIoCommands {
     if (tab.handle) {
       return { ok: true, handle: tab.handle };
     }
-    const acquired = await this.runSaveStep(() => requestSaveHandle(tab.name, 'rsf'));
+    const acquired = await this.runSaveStep(tab.name, () => requestSaveHandle(tab.name, 'rsf'));
     return acquired.ok ? { ok: true, handle: acquired.value } : acquired;
   }
 }

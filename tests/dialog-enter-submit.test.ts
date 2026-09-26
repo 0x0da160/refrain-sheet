@@ -160,7 +160,12 @@ describe('Enter submits single-line dialog inputs', () => {
   });
 
   it('submits the Settings dialog from the max file size input', async () => {
-    const promise = new Dialogs().chooseSettings(64 * 1024 * 1024);
+    const promise = new Dialogs().chooseSettings({
+      maxFileSize: 64 * 1024 * 1024,
+      shiftPaste: 'values',
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
+      fileDisplay: null,
+    });
     const dialog = document.querySelector('dialog')!;
     const input = dialog.querySelector<HTMLInputElement>('input[type="number"]')!;
     input.value = '128';
@@ -169,7 +174,70 @@ describe('Enter submits single-line dialog inputs', () => {
     enter(input);
 
     const result = await promise;
-    expect(result).toBe(clampMaxFileSize(miBToBytes(128)));
+    expect(result).toEqual({
+      maxFileSize: clampMaxFileSize(miBToBytes(128)),
+      shiftPaste: 'values',
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
+      fileDisplay: null,
+    });
+  });
+
+  it('saves the Ctrl+Shift+V choice from the Settings dialog', async () => {
+    const promise = new Dialogs().chooseSettings({
+      maxFileSize: 64 * 1024 * 1024,
+      shiftPaste: 'values',
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
+      fileDisplay: null,
+    });
+    const dialog = document.querySelector('dialog')!;
+    const select = dialog.querySelector<HTMLSelectElement>('#settings-shift-paste')!;
+    select.value = 'formats';
+    enter(dialog.querySelector<HTMLInputElement>('input[type="number"]')!);
+
+    expect(await promise).toEqual({
+      maxFileSize: 64 * 1024 * 1024,
+      shiftPaste: 'formats',
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
+      fileDisplay: null,
+    });
+  });
+
+  it('edits the browser- and file-level zoom and wrap in the Settings dialog', async () => {
+    const promise = new Dialogs().chooseSettings({
+      maxFileSize: 64 * 1024 * 1024,
+      shiftPaste: 'values',
+      browserDisplay: { zoom: undefined, wrap: true, font: 'ms' },
+      fileDisplay: { zoom: 133, wrap: undefined, font: undefined },
+    });
+    const dialog = document.querySelector('dialog')!;
+    expect(dialog.querySelector<HTMLSelectElement>('#settings-browser-wrap')!.value).toBe('on');
+    // A stored non-preset file zoom is still offered and preselected.
+    expect(dialog.querySelector<HTMLSelectElement>('#settings-file-zoom')!.value).toBe('133');
+    dialog.querySelector<HTMLSelectElement>('#settings-browser-zoom')!.value = '150';
+    dialog.querySelector<HTMLSelectElement>('#settings-browser-wrap')!.value = '';
+    dialog.querySelector<HTMLSelectElement>('#settings-file-wrap')!.value = 'off';
+    expect(dialog.querySelector<HTMLSelectElement>('#settings-browser-font')!.value).toBe('ms');
+    dialog.querySelector<HTMLSelectElement>('#settings-browser-font')!.value = '';
+    dialog.querySelector<HTMLSelectElement>('#settings-file-font')!.value = 'meiryo-ui';
+    enter(dialog.querySelector<HTMLInputElement>('input[type="number"]')!);
+
+    expect(await promise).toMatchObject({
+      browserDisplay: { zoom: 150, wrap: undefined, font: undefined },
+      fileDisplay: { zoom: 133, wrap: false, font: 'meiryo-ui' },
+    });
+  });
+
+  it('omits the file level from the Settings dialog when no RSF file is active', async () => {
+    const promise = new Dialogs().chooseSettings({
+      maxFileSize: 64 * 1024 * 1024,
+      shiftPaste: 'values',
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
+      fileDisplay: null,
+    });
+    const dialog = document.querySelector('dialog')!;
+    expect(dialog.querySelector('#settings-file-zoom')).toBeNull();
+    enter(dialog.querySelector<HTMLInputElement>('input[type="number"]')!);
+    expect((await promise)?.fileDisplay).toBeNull();
   });
 
   it('still submits the sheet-name prompt on Enter after sharing the helper', async () => {

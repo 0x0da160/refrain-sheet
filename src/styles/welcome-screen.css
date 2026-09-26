@@ -15,7 +15,7 @@
 /* Hide the document-specific surfaces while the welcome screen is up. */
 #app.welcome-mode .tab-bar,
 #app.welcome-mode .formula-bar,
-#app.welcome-mode .find-bar,
+#app.welcome-mode .find-panel,
 #app.welcome-mode .main-row,
 #app.welcome-mode .comments-panel {
   display: none;

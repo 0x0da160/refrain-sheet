@@ -32,6 +32,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -169,13 +170,13 @@ describe('multi-line value round trips', () => {
     grid.setTextMeasurer((text: string) => text.length * 10);
     grid.refresh();
     // Single-line initially.
-    expect(grid.element.querySelector<HTMLElement>('.vgrid-row[data-row="0"]')!.style.height).toBe(
+    expect(grid.element.querySelector<HTMLElement>('[role="row"][data-row="0"]')!.style.height).toBe(
       `${ROW_HEIGHT}px`,
     );
     // Enter a two-line value; the row grows and gets the wrapped class.
     state.editCell(tab, 0, 0, 'a\nb');
     grid.refresh();
-    const rowEl = grid.element.querySelector<HTMLElement>('.vgrid-row[data-row="0"]')!;
+    const rowEl = grid.element.querySelector<HTMLElement>('[role="row"][data-row="0"]')!;
     expect(rowEl.classList.contains('wrapped')).toBe(true);
     expect(Number.parseInt(rowEl.style.height, 10)).toBeGreaterThan(ROW_HEIGHT);
   });

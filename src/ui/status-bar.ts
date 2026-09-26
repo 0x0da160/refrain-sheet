@@ -4,6 +4,7 @@ import type { AppState, Tab } from '../app/app-state';
 import { t } from '../app/i18n';
 import { APP_VERSION_DISPLAY } from '../app/version';
 import { forEachIndexSliced } from '../core/scheduler';
+import type { CaretPosition } from '../core/text-editing';
 import {
   computeSelectionStats,
   SelectionStatsAccumulator,
@@ -47,6 +48,14 @@ export class StatusBar {
    * Desktop always shows them. Kept across re-renders.
    */
   private detailsOpen = false;
+  /**
+   * The caret of the Markdown/JSON/YAML/text worksheet editor on screen, or
+   * null when none is. Set by the app shell (see `main.ts`); those
+   * worksheets show a line/column instead of a grid size and cell.
+   */
+  editorCaret: (() => CaretPosition | null) | null = null;
+  /** The line/column segment while an editor worksheet is active, updated in place as the caret moves. */
+  private editorPosition: HTMLElement | null = null;
 
   constructor(
     private readonly state: AppState,
@@ -81,6 +90,7 @@ export class StatusBar {
   render(): void {
     // Any rerender invalidates a scan targeting the previous selection/document.
     this.statsToken += 1;
+    this.editorPosition = null;
     clearChildren(this.element);
     this.element.classList.toggle('details-open', this.detailsOpen);
     const tab = this.state.activeTab;
@@ -93,6 +103,20 @@ export class StatusBar {
     if (doc.kind === 'rsf') {
       this.element.append(this.detail(el('span', { className: 'doc-kind', text: t('status.doc.rsf') })));
       this.appendProtection(tab);
+      const caret = doc.activeSheet.kind === 'grid' ? null : (this.editorCaret?.() ?? null);
+      if (caret) {
+        // An editor worksheet is a text document, not a grid: no rows ×
+        // columns, formulas, filter or cell reference.
+        if (doc.isDirty) {
+          this.element.append(el('span', { text: t('status.unsaved') }));
+        }
+        this.appendDetailsToggle();
+        this.editorPosition = el('span', { className: 'status-editor-position', attrs: { role: 'status' } });
+        this.element.append(this.editorPosition);
+        this.updateEditorCaret(caret);
+        this.appendVersion();
+        return;
+      }
       this.element.append(
         this.detail(
           el('span', { text: t('status.gridSize', { rows: doc.rowCount, cols: doc.columnCount }) }),
@@ -198,6 +222,17 @@ export class StatusBar {
     this.appendDetailsToggle();
     this.appendSelection(tab);
     this.appendVersion();
+  }
+
+  /** Show where the editor's caret is (cheap: only the one segment changes). */
+  updateEditorCaret(caret: CaretPosition): void {
+    if (!this.editorPosition) {
+      return;
+    }
+    this.editorPosition.textContent = `${t('status.editorCaret', { line: caret.line, col: caret.col })} · ${t(
+      'status.editorSize',
+      { lines: caret.lines.toLocaleString('en-US'), chars: caret.chars.toLocaleString('en-US') },
+    )}`;
   }
 
   /**

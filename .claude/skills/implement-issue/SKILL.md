@@ -10,14 +10,10 @@ change **in the working tree** and verify it honestly. **You are an implementati
 agent, not a planning-only agent** — never stop after analysis or a plan, and never
 claim success without a real change.
 
-**Who owns git and the PR.** Under the `implement-issue.yml` workflow, the _workflow_
-(not you) creates the branch, commits, pushes, opens/updates the PR, verifies the
-resulting artifacts, and moves the labels. In that context you only edit files and
-run validation — do **not** run `git` branch/commit/push, open a PR, or change
-labels. When you run this skill outside that automation (e.g. locally), you may
-perform those git/PR steps yourself, but apply the **same artifact truth checks**
-below and never treat `agent:review` as a proxy for "done". You never merge, never
-push to a protected branch, and never force-push.
+**Who owns git and the PR.** You do: create the branch, commit, push, open or
+update the PR, and move the labels, applying the artifact truth checks below
+before `agent:review`. Never treat `agent:review` as a proxy for "done". You never
+merge, never push to a protected branch, and never force-push.
 
 ## Preconditions (abort safely if any fails)
 
@@ -29,7 +25,7 @@ push to a protected branch, and never force-push.
    payments, secrets/crypto, personal/sensitive data, database/destructive ops,
    infra/deploy/permissions, major dependency upgrade, public-API break, RSF format
    or `wasm/` core without sign-off). If it is, make no changes, record the exact
-   approval needed, and stop (the workflow applies `agent:blocked`).
+   approval needed, apply `agent:blocked`, and stop.
 
 That is the whole list. **A Work Brief is not a precondition.** Its absence, its
 age, and a `needs-clarification` status in an older brief are all non-fatal — see
@@ -70,9 +66,8 @@ human-authored Issue body. Skip this when the newest brief is already accurate.
 ## This may be a continuation run
 
 One Issue has **one** stable branch `agent/issue-<number>-<short-slug>` and **one**
-pull request, for its whole life. Under `implement-issue.yml` that branch is checked
-out _before_ you start, so the working tree may already contain committed work from
-an earlier run that exhausted its turn budget.
+pull request, for its whole life. If that branch already exists, check it out and
+build on it: it may already contain committed work from an earlier run.
 
 Before planning anything, check:
 
@@ -85,12 +80,6 @@ Then implement **only the remaining work**. Do not redo finished work, re-explor
 repository broadly, re-summarize the Issue at length, or re-run validation that the
 existing PR body already records. Never revert, rewrite, or force-push over earlier
 commits — that work is another run's, and it is preserved deliberately.
-
-Your turn budget is finite and reaching it is normal, not a failure of the Issue.
-Keep the working tree coherent as you go: if the budget runs out, the workflow
-commits whatever is in the tree onto the stable branch as a **draft** PR marked
-incomplete, so a half-finished edit left mid-file is the one thing that genuinely
-loses work. Prefer finishing one file before starting the next.
 
 ## Autonomous decision policy
 
@@ -113,8 +102,7 @@ not high risk.
 ## Procedure
 
 1. **Read context** as listed in _Task input_ above, and reconcile the newest human
-   comments against the newest Work Brief. (Do not change labels — the workflow
-   manages `agent:working`/`agent:review`.)
+   comments against the newest Work Brief.
 2. **Plan, then implement — do not stop at the plan.** Decide the minimal files to
    touch, then make the change. Resolve routine gaps from repository evidence rather
    than stopping. Make **no** file changes only when a genuine stop condition applies
@@ -144,8 +132,7 @@ not high risk.
 
 ## Artifact truth checks (before any `agent:review`)
 
-`agent:review` may be applied **only** when every one of these is verified — the
-`implement-issue.yml` workflow enforces them, and you must too if you run git yourself:
+`agent:review` may be applied **only** when you have verified every one of these:
 
 1. A real, non-empty diff exists (`git status --porcelain` non-empty; never an empty
    commit).
@@ -160,10 +147,9 @@ If any check fails → **do not** apply `agent:review`; the run is blocked.
 
 ## Stop conditions (the complete list)
 
-Stop **only** for these. Write the reason to `"$RUNNER_TEMP/agent-summary.md"`, and
-write exactly one token — `blocked`, `needs-clarification`, or `no-change-needed` —
-as the first line of `"$RUNNER_TEMP/agent-outcome.txt"` so the workflow routes the
-Issue truthfully.
+Stop **only** for these. Report exactly one outcome token — `blocked`,
+`needs-clarification`, or `no-change-needed` — with the reason, in your reply and
+in an Issue comment, so the Issue is routed truthfully.
 
 **`blocked`** — a safety boundary from precondition 4; contradictory human
 requirements that cannot both be satisfied; missing credentials, external access, or
@@ -178,7 +164,7 @@ consequence of each option.
 **`no-change-needed`** — the requested outcome already holds in the repository. Say
 where, and how you confirmed it.
 
-The tokens themselves are machine-read by the workflow and are **never translated**.
+The tokens themselves are fixed labels and are **never translated**.
 The explanation you write alongside them is human-facing, so it is bilingual, and it
 must cover: what happened, why it matters, what you already checked, the smallest
 human action needed, and your recommended default when a safe one exists.

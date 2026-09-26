@@ -19,7 +19,7 @@ from the layers below it, never above — see
 ```text
 ┌───────────────────────────────────────────────────────────────┐
 │ UI (src/ui/)                                                  │
-│   grid, menu bar, tab bar, formula bar, find bar, dialogs,    │
+│   grid, menu bar, tab bar, formula bar, find panel, dialogs,  │
 │   status bar, welcome screen, loading overlay, IME helpers    │
 ├───────────────────────────────────────────────────────────────┤
 │ Application (src/app/)                                        │

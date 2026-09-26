@@ -5,11 +5,11 @@
 .formula-bar {
   display: flex;
   align-items: stretch;
-  gap: var(--space-3);
-  padding: var(--space-1) var(--space-4);
-  min-height: var(--bar-height);
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-1-5);
+  padding: var(--space-0-5) var(--space-2);
+  min-height: var(--bar-h);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-default);
 }
 
 /* `.formula-bar`'s own `display: flex` above would otherwise win over the
@@ -25,11 +25,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  background: var(--field-bg);
+  background: var(--bg-surface);
   font-family: var(--font-sheet);
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 
 .formula-bar .formula-field {
@@ -46,14 +46,17 @@
   font-size: calc(13px * var(--sheet-zoom, 1));
   /* Formulas are shown upright everywhere, never italic. */
   font-style: normal;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-3);
+  /* 26px at the standard 32px bar (x zoom); the density moves it with the
+     bar, and the vertical padding with it so one line always fits. Never
+     under 20px, so the compact 24px bar still shows a whole line. */
+  padding: max(0px, calc((var(--bar-h) - 24px) / 2)) var(--space-1-5);
   resize: vertical;
-  min-height: calc(26px * var(--sheet-zoom, 1));
-  height: calc(26px * var(--sheet-zoom, 1));
-  background: var(--field-bg);
-  color: var(--text);
+  min-height: calc(max(var(--bar-h) - 6px, 20px) * var(--sheet-zoom, 1));
+  height: calc(max(var(--bar-h) - 6px, 20px) * var(--sheet-zoom, 1));
+  background: var(--bg-surface);
+  color: var(--fg-default);
 }
 
 .formula-autocomplete {
@@ -61,17 +64,17 @@
   top: 100%;
   left: 0;
   /* Above the dockable side panels (100), like the floating variant below. */
-  z-index: 120;
-  margin: var(--space-1) 0 0;
-  padding: var(--space-1);
+  z-index: var(--z-popover);
+  margin: var(--space-0-5) 0 0;
+  padding: var(--space-0-5);
   list-style: none;
   min-width: 260px;
   max-height: 240px;
   overflow-y: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  box-shadow: 0 4px 12px var(--shadow);
+  box-shadow: var(--shadow-md);
 }
 
 /* The inline cell editor's popup floats over the grid (fixed to the viewport,
@@ -82,7 +85,7 @@
   left: 0;
   /* Above the dockable side panels (100) so the cell editor's completion
      list is never clipped by a panel docked at the edge it opens toward. */
-  z-index: 120;
+  z-index: var(--z-popover);
 }
 
 .formula-autocomplete[hidden] {
@@ -93,7 +96,7 @@
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
@@ -105,16 +108,16 @@
 
 .formula-autocomplete .ac-sig {
   font-family: var(--font-sheet);
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 
 .formula-autocomplete .ac-desc {
-  font-size: 11px;
-  color: var(--text-dim);
+  font-size: var(--text-caption);
+  color: var(--fg-muted);
 }
 
 .formula-autocomplete .ac-item.active .ac-desc {
-  color: var(--accent-contrast-dim);
+  color: var(--accent-contrast);
 }
 
 /* Editing guidance is tooltip/ARIA-only (View > Editing Help Tooltips);

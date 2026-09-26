@@ -12,6 +12,8 @@
 // (scripts/ui-check-grid.mjs): cell size, grid lines, padding, text
 // placement, editing/IME and hit testing at every spreadsheet zoom level.
 // Set UI_CHECK_SCREENSHOT_DIR to also save a screenshot per zoom level.
+// A second, fresh page then runs the add-sheet dialog check
+// (scripts/ui-check-sheet-add.mjs): the sheet-type picker is shown.
 //
 //   npm run build   # dist/ must already exist
 //   npm run ui:check
@@ -21,6 +23,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 import { checkGridGeometry } from './ui-check-grid.mjs';
+import { checkSheetAddDialog } from './ui-check-sheet-add.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const indexHtml = join(root, 'dist', 'index.html');
@@ -53,6 +56,11 @@ try {
   }
   if (rendered) {
     errors.push(...(await checkGridGeometry(page, { screenshotDir: process.env.UI_CHECK_SCREENSHOT_DIR })));
+    const sheetPage = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+    sheetPage.on('pageerror', (error) => errors.push(`page error: ${error.message}`));
+    await sheetPage.goto(pathToFileURL(indexHtml).href);
+    await sheetPage.waitForSelector('.menu-bar', { timeout: 10_000 });
+    errors.push(...(await checkSheetAddDialog(sheetPage)));
   }
 } finally {
   await browser.close();

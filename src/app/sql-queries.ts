@@ -8,9 +8,18 @@
  * restrictions, quota exceeded); every read is defensive, so corrupt or
  * missing storage contents simply fall back to an empty list rather than
  * throwing.
+ *
+ * From a `file://` URL, where every local HTML file shares this storage (see
+ * `storageSharedWithOtherLocalFiles`), both lists are kept in memory for the
+ * session only, and anything an earlier release stored there is deleted.
  */
 
-import { safeStorageGet, safeStorageSet } from './storage';
+import {
+  safeStorageGet,
+  safeStorageRemove,
+  safeStorageSet,
+  storageSharedWithOtherLocalFiles,
+} from './storage';
 
 /** One past query run, most-recent-first in {@link getSqlHistory}. */
 export interface SqlHistoryEntry {
@@ -64,8 +73,24 @@ function isSavedQuery(v: unknown): v is SqlSavedQuery {
   );
 }
 
+/** Session-only lists, used instead of `localStorage` from a `file://` URL. */
+const memoryLists = new Map<string, string>();
+let purgedSharedStorage = false;
+
+function readRaw(key: string): string | null {
+  if (!storageSharedWithOtherLocalFiles()) {
+    return safeStorageGet(key);
+  }
+  if (!purgedSharedStorage) {
+    purgedSharedStorage = true;
+    safeStorageRemove(HISTORY_KEY);
+    safeStorageRemove(SAVED_KEY);
+  }
+  return memoryLists.get(key) ?? null;
+}
+
 function readList<T>(key: string, isEntry: (v: unknown) => v is T): T[] {
-  const raw = safeStorageGet(key);
+  const raw = readRaw(key);
   if (raw === null) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -76,6 +101,10 @@ function readList<T>(key: string, isEntry: (v: unknown) => v is T): T[] {
 }
 
 function writeList<T>(key: string, list: T[]): void {
+  if (storageSharedWithOtherLocalFiles()) {
+    memoryLists.set(key, JSON.stringify(list));
+    return;
+  }
   safeStorageSet(key, JSON.stringify(list));
 }
 

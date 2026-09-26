@@ -5,6 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta content="#147F43" name="theme-color" />
     <title data-i18n="privacy.meta.title">プライバシーポリシー | Refrain Sheet</title>
     <meta
       content="Refrain Sheetの紹介ページ（refrain-sheet.com）とホスト版アプリ（app.refrain-sheet.com）における、アクセス解析やGoogleドライブ連携などの情報の取り扱いについて説明します。"
@@ -14,46 +15,12 @@
     />
     <link href="favicon.svg" rel="icon" type="image/svg+xml" />
     <link href="styles.css" rel="stylesheet" />
-    <noscript
-      ><style>
-        .reveal {
-          opacity: 1;
-          transform: none;
-        }
-      </style></noscript
-    >
   </head>
-  <body>
-    <a class="skip" data-i18n="a11y.skip" href="#main">本文へスキップ</a>
-    <header class="site-header">
-      <div class="wrap header-inner">
-        <a class="brand" href="./">
-          <img
-            alt="Refrain Sheet"
-            height="28"
-            src="assets/refrain-sheet-logotype-horizontal.svg"
-            width="134"
-          />
-        </a>
-        <nav aria-label="Main" class="nav">
-          <div aria-label="Language / 言語" class="lang" role="group">
-            <a data-lang="ja" href="{{JA_HREF}}" hreflang="ja" lang="ja">JA</a
-            ><a data-lang="en" href="{{EN_HREF}}" hreflang="en" lang="en">EN</a>
-          </div>
-          <a
-            class="btn btn-dark"
-            data-i18n="nav.cta"
-            href="https://app.refrain-sheet.com/"
-            rel="noopener"
-            target="_blank"
-            >アプリを開く</a
-          >
-        </nav>
-      </div>
-    </header>
+  <body class="rb-page">
+    <!-- @include partials/header.html -->
     <main id="main">
       <section class="legal">
-        <div class="wrap">
+        <div class="rb-wrap">
           <h1 data-i18n="privacy.h1">プライバシーポリシー</h1>
           <p class="lede" data-i18n="privacy.intro.p">
             本ページは、Refrain
@@ -133,71 +100,8 @@
         </div>
       </section>
     </main>
-    <footer class="site-footer">
-      <div class="wrap footer-inner">
-        <div>
-          <div style="font-weight: 700; color: var(--ink)">Refrain Sheet</div>
-          <div data-i18n="footer.tagline">ローカルで動く、書式保持CSV・スプレッドシートエディタ</div>
-        </div>
-        <div class="footer-links">
-          <a data-i18n="footer.l1" href="https://app.refrain-sheet.com/" rel="noopener" target="_blank"
-            >Webアプリ</a
-          >
-          <a
-            data-i18n="footer.l2"
-            href="https://github.com/0x0da160/refrain-sheet"
-            rel="noopener"
-            target="_blank"
-            >GitHub</a
-          >
-          <a
-            data-i18n="footer.l3"
-            href="https://github.com/0x0da160/refrain-sheet/releases/"
-            rel="noopener"
-            target="_blank"
-            >リリース</a
-          >
-          <a
-            data-i18n="footer.l4"
-            href="https://github.com/0x0da160/refrain-sheet#readme"
-            rel="noopener"
-            target="_blank"
-            >ドキュメント</a
-          >
-          <a data-i18n="footer.privacyPolicy" href="privacy.html">プライバシーポリシー</a>
-          <a data-i18n="footer.terms" href="terms.html">利用規約</a>
-          <button data-i18n="footer.privacy" id="cookie-settings-link" type="button">Cookie設定</button>
-        </div>
-        <div data-i18n="footer.note">MIT License · Refrain Sheet 公式の紹介ページです</div>
-      </div>
-    </footer>
-
-    <div class="cookie-consent" hidden id="cookie-consent" role="region">
-      <div class="cookie-consent-inner">
-        <p class="cookie-consent-text" data-i18n="consent.text">
-          このページ（refrain-sheet.com）は、訪問状況の把握のために Google Analytics
-          を利用します。同意した場合のみ読み込まれ、いつでも取り消せます。CSVを編集するアプリ本体（app.refrain-sheet.com）は引き続き通信を一切行いません。
-        </p>
-        <div class="cookie-consent-actions">
-          <button
-            class="btn btn-ghost"
-            data-consent-action="decline"
-            data-i18n="consent.decline"
-            type="button"
-          >
-            同意しない
-          </button>
-          <button
-            class="btn btn-primary"
-            data-consent-action="accept"
-            data-i18n="consent.accept"
-            type="button"
-          >
-            同意する
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- @include partials/footer.html -->
+    <!-- @include partials/consent.html -->
 
     <script src="main.js"></script>
     <script src="consent.js"></script>

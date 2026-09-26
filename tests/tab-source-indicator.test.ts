@@ -25,6 +25,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -102,5 +103,28 @@ describe('TabBar storage-source indicator', () => {
     expect(bar.element.querySelector('.tab')?.getAttribute('title')).toBe(
       'local.csv — Local file — Unsaved changes',
     );
+  });
+});
+
+describe('TabBar protection indicator', () => {
+  it('shows a lock on a protected tab and names it in the tooltip', () => {
+    const { state, bar } = setup();
+    const tab = state.addTab('opened.csv', doc('a\n'), null);
+    state.setReadOnly(tab, true);
+    const lock = bar.element.querySelector('.tab .tab-lock');
+    expect(lock?.getAttribute('aria-label')).toBe('Protected (read-only)');
+    expect(lock?.querySelector('svg')).not.toBeNull();
+    expect(bar.element.querySelector('.tab')?.getAttribute('title')).toBe(
+      'opened.csv — Local file — Protected (read-only)',
+    );
+  });
+
+  it('removes the lock as soon as protection is turned off', () => {
+    const { state, bar } = setup();
+    const tab = state.addTab('opened.csv', doc('a\n'), null);
+    state.setReadOnly(tab, true);
+    expect(bar.element.querySelector('.tab .tab-lock')).not.toBeNull();
+    state.setReadOnly(tab, false);
+    expect(bar.element.querySelector('.tab .tab-lock')).toBeNull();
   });
 });

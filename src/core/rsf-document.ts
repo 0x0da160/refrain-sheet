@@ -205,6 +205,18 @@ export class RsfDocument {
   private autoFormatSourceFlag = false;
 
   /**
+   * File-level display settings: when set, they apply to every worksheet that
+   * does not set its own `displayZoom` / `displayWrap` (the worksheet wins, see
+   * `settings-cascade.ts`); `undefined` means the file specifies none.
+   * Presentational like the worksheet's: persisted with the next save, never
+   * marks the document dirty, and kept (not reverted) by a history restore.
+   */
+  fileZoom: number | undefined;
+  fileWrap: boolean | undefined;
+  /** File-level spreadsheet font id; the worksheet's own wins, like zoom and wrap. */
+  fileFont: string | undefined;
+
+  /**
    * Workbook-wide evaluation memo, keyed by worksheet id + cell. Cleared by
    * every mutation (see {@link touch}) because a cross-sheet reference means a
    * change in one worksheet can invalidate a formula in another.
@@ -432,6 +444,9 @@ export class RsfDocument {
     doc.historyList = data.history ?? [];
     doc.historyMaxOverrideValue = data.historyMaxOverride;
     doc.autoFormatSourceFlag = data.autoFormatSource ?? false;
+    doc.fileZoom = data.display?.zoom;
+    doc.fileWrap = data.display?.wrap;
+    doc.fileFont = data.display?.font;
     if (data.createdAt !== undefined) {
       doc.createdAt = data.createdAt;
     }
@@ -464,6 +479,7 @@ export class RsfDocument {
       if (entry.display.wrap) {
         sheet.displayWrap = true;
       }
+      sheet.displayFont = entry.display.font;
     }
     sheet.filter = entry.filter ?? null;
     sheet.filterDropped = entry.filterDropped === true;
@@ -799,7 +815,7 @@ export class RsfDocument {
    * Replace this workbook's structural and cell content with a past snapshot
    * (Sheet ▸ File Version History…'s "Restore" action). This file's own
    * settings — history retention (enabled state, cap override),
-   * auto-format-on-commit and `docId` — are kept as
+   * auto-format-on-commit, file-level display settings and `docId` — are kept as
    * they are now, not reverted to what they were at snapshot time; only
    * content (worksheets, cells, styles, comments, filters, locks, delimiter,
    * timezone, display language) is replaced.
@@ -1034,11 +1050,17 @@ export class RsfDocument {
       if (sheet.kind !== 'grid') {
         entry.kind = sheet.kind;
       }
-      if (sheet.displayZoom !== undefined || colWidths.length > 0 || sheet.displayWrap === true) {
+      if (
+        sheet.displayZoom !== undefined ||
+        colWidths.length > 0 ||
+        sheet.displayWrap === true ||
+        sheet.displayFont !== undefined
+      ) {
         entry.display = {
           ...(sheet.displayZoom !== undefined ? { zoom: sheet.displayZoom } : {}),
           ...(colWidths.length > 0 ? { colWidths } : {}),
           ...(sheet.displayWrap === true ? { wrap: true } : {}),
+          ...(sheet.displayFont !== undefined ? { font: sheet.displayFont } : {}),
         };
       }
       if (sheet.filter !== null) {
@@ -1092,6 +1114,13 @@ export class RsfDocument {
       historyMaxOverride: this.historyMaxOverrideValue,
       autoFormatSource: this.autoFormatSourceFlag,
     };
+    if (this.fileZoom !== undefined || this.fileWrap !== undefined || this.fileFont !== undefined) {
+      payload.display = {
+        ...(this.fileZoom !== undefined ? { zoom: this.fileZoom } : {}),
+        ...(this.fileWrap !== undefined ? { wrap: this.fileWrap } : {}),
+        ...(this.fileFont !== undefined ? { font: this.fileFont } : {}),
+      };
+    }
     return encodeRsfWorkbook(payload);
   }
 

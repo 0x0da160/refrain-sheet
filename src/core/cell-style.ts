@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { runsEqual, withoutRunKey, type TextRun } from './rich-text';
 
 /**
  * Visual, cell-level formatting: bold/italic/underline, text color, cell
@@ -34,6 +35,12 @@ export interface CellStyle {
   borderBottomWidth?: BorderWidth;
   borderLeftWidth?: BorderWidth;
   numberFormat?: NumberFormat;
+  /**
+   * Parts of the cell's text with their own bold/italic/underline/text color
+   * (rich text, see `rich-text.ts`). Applied only while the segments still
+   * spell out the cell's input.
+   */
+  runs?: TextRun[];
 }
 
 /**
@@ -211,7 +218,8 @@ export function isEmptyCellStyle(style: CellStyle): boolean {
     style.borderRight === undefined &&
     style.borderBottom === undefined &&
     style.borderLeft === undefined &&
-    style.numberFormat === undefined
+    style.numberFormat === undefined &&
+    style.runs === undefined
   );
 }
 
@@ -237,7 +245,8 @@ export function cellStylesEqual(a: CellStyle | null, b: CellStyle | null): boole
         an[BORDER_STYLE_KEY[side]] === bn[BORDER_STYLE_KEY[side]] &&
         an[BORDER_WIDTH_KEY[side]] === bn[BORDER_WIDTH_KEY[side]],
     ) &&
-    numberFormatsEqual(an.numberFormat, bn.numberFormat)
+    numberFormatsEqual(an.numberFormat, bn.numberFormat) &&
+    runsEqual(an.runs, bn.runs)
   );
 }
 
@@ -269,12 +278,26 @@ export interface CellStylePatch {
   borderLeftWidth?: BorderWidth;
   /** `null` clears the number format ("General"); an object replaces it whole (never merged). */
   numberFormat?: NumberFormat | null;
+  /** `null` removes the rich-text runs; an array replaces them whole. */
+  runs?: TextRun[] | null;
 }
 
 /** Apply `patch` to `style` (or to the default empty style), returning the new style
  *  (or `null` when the result has no properties set). Never mutates its input. */
 export function applyCellStylePatch(style: CellStyle | null, patch: CellStylePatch): CellStyle | null {
   const next: CellStyle = { ...(style ?? {}) };
+  // Setting a text property on the whole cell applies it to all of the
+  // cell's text, so no part keeps its own value for it.
+  if (next.runs) {
+    for (const key of ['bold', 'italic', 'underline', 'textColor'] as const) {
+      if (patch[key] !== undefined && next.runs) {
+        next.runs = withoutRunKey(next.runs, key);
+      }
+    }
+    if (next.runs === undefined) {
+      delete next.runs;
+    }
+  }
   if (patch.bold !== undefined) {
     if (patch.bold) next.bold = true;
     else delete next.bold;
@@ -321,6 +344,13 @@ export function applyCellStylePatch(style: CellStyle | null, patch: CellStylePat
       delete next.numberFormat;
     } else {
       next.numberFormat = normalizeNumberFormat(patch.numberFormat);
+    }
+  }
+  if (patch.runs !== undefined) {
+    if (patch.runs === null || patch.runs.length === 0) {
+      delete next.runs;
+    } else {
+      next.runs = patch.runs;
     }
   }
   return isEmptyCellStyle(next) ? null : next;

@@ -5,12 +5,12 @@
 .drop-overlay {
   position: fixed;
   inset: 0;
-  background: var(--find-highlight);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   border: 4px dashed var(--accent);
   display: none;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  z-index: var(--z-modal);
   pointer-events: none;
 }
 
@@ -19,11 +19,11 @@
 }
 
 .drop-overlay .drop-message {
-  background: var(--surface);
+  background: var(--bg-raised);
   border: 1px solid var(--accent);
   border-radius: var(--radius-md);
-  padding: var(--space-6) var(--space-7);
-  font-size: 16px;
-  color: var(--accent);
-  box-shadow: 0 8px 24px var(--shadow-strong);
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--text-title);
+  color: var(--accent-text);
+  box-shadow: var(--shadow-lg);
 }

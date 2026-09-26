@@ -11,20 +11,20 @@
   right: 14px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  z-index: 300;
+  gap: var(--space-2);
+  z-index: var(--z-toast);
   max-width: 380px;
 }
 
 .toast {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-4);
-  background: var(--tooltip-bg);
-  color: var(--tooltip-text);
+  gap: var(--space-2);
+  background: var(--inverse-bg);
+  color: var(--inverse-text);
   border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-5);
-  box-shadow: 0 6px 18px var(--shadow-strong);
+  padding: var(--space-2) var(--space-3);
+  box-shadow: var(--shadow-lg);
   line-height: 1.45;
 }
 
@@ -41,21 +41,26 @@
   background: none;
   color: inherit;
   border-radius: var(--radius-sm);
-  padding: var(--space-2);
+  padding: var(--space-1);
   opacity: 0.75;
 }
 
 .toast-close:hover {
   opacity: 1;
-  background: rgb(255 255 255 / 15%);
+  /* A tint of the toast's own text colour, so it reads on every variant. */
+  background: color-mix(in srgb, currentColor 15%, transparent);
 }
 
+/* The design system has no warning toast; it borrows the warning banner's
+   colours, so it stays distinct from the neutral and the danger toast. */
 .toast.warn {
-  background: var(--toast-warn-bg);
+  background: var(--warning-subtle);
+  color: var(--warning-text);
 }
 
 .toast.error {
-  background: var(--toast-error-bg);
+  background: var(--danger);
+  color: var(--danger-contrast);
 }
 
 /* Keyboard focus visibility */

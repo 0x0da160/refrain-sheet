@@ -18,27 +18,27 @@
 .comments-scope-label {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-default);
 }
 
 .comments-scope {
   flex: 1;
   min-width: 0;
-  height: 28px;
+  height: var(--field-h);
   font: inherit;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border);
+  padding: 0 var(--space-1-5);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  background: var(--field-bg);
-  color: var(--text);
+  background: var(--bg-surface);
+  color: var(--fg-default);
 }
 
 .comments-empty {
   margin: 0;
-  padding: var(--space-5) var(--space-6);
-  color: var(--text-dim);
+  padding: var(--space-3) var(--space-4);
+  color: var(--fg-muted);
   font-size: 0.9em;
 }
 
@@ -56,15 +56,15 @@
 .comment-item {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-0-5);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-default);
   cursor: pointer;
 }
 
 .comment-item:hover,
 .comment-item:focus-visible {
-  background: var(--panel-hover);
+  background: var(--bg-hover);
 }
 
 .comment-item:focus-visible {
@@ -75,16 +75,16 @@
 .comment-item-header {
   display: flex;
   align-items: baseline;
-  gap: var(--space-3);
+  gap: var(--space-1-5);
   font-family: var(--font-sheet);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-bold);
 }
 
 .comment-item-sheet {
   font-family: inherit;
   font-weight: 400;
-  color: var(--text-dim);
+  color: var(--fg-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -92,7 +92,7 @@
 
 .comment-item-text {
   font-size: 0.9em;
-  color: var(--text-dim);
+  color: var(--fg-muted);
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }

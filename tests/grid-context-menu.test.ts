@@ -42,6 +42,7 @@ function stubUi(): UiPort {
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -119,12 +120,13 @@ beforeEach(() => {
 });
 
 describe('the grid right-click menu (#396)', () => {
-  it('keeps Copy/Paste/Select All at the top level and groups the rest into Edit / Rows & Columns', () => {
+  it('keeps Cut/Copy/Paste/Select All at the top level and groups the rest into Edit / Rows & Columns', () => {
     const { state, grid, tab } = grid3x3();
     state.setSelection(tab, { row: 0, col: 0 }, null);
     openCellContextMenu(grid);
 
     expect(topLevelLabels()).toEqual([
+      t('menu.edit.cut'),
       t('menu.edit.copy'),
       t('menu.edit.paste'),
       t('menu.edit.selectAll'),

@@ -33,6 +33,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -152,6 +153,110 @@ describe('copy / paste', () => {
     state.setSelection(tab, { row: 1, col: 1 }, { row: 0, col: 0 });
     const clip = new ClipboardController(state, commands, () => undefined, document);
     expect(clip.copyText()).toBe('1\t2\n3\t3');
+  });
+
+  it('cuts: puts the range on the clipboard, clears it as one undo step, and pastes it elsewhere', async () => {
+    const { state, commands, tab } = setup('a,b,c\nd,e,f\n');
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 1 });
+    const clip = new ClipboardController(state, commands, () => undefined, document);
+    const setData = vi.fn();
+    const preventDefault = vi.fn();
+    const cut = { clipboardData: { setData }, preventDefault } as unknown as ClipboardEvent;
+    expect(clip.handleCutEvent(cut)).toBe(true);
+    expect(setData).toHaveBeenCalledWith('text/plain', 'a\tb');
+    expect(preventDefault).toHaveBeenCalled();
+    expect(tab.doc.getValue(0, 0)).toBe('');
+    expect(tab.doc.getValue(0, 1)).toBe('');
+    expect(tab.doc.getValue(0, 2)).toBe('c');
+
+    state.setSelection(tab, { row: 1, col: 0 }, null);
+    await clip.pasteText('a\tb');
+    expect(tab.doc.getValue(1, 0)).toBe('a');
+    expect(tab.doc.getValue(1, 1)).toBe('b');
+
+    state.undo(tab);
+    state.undo(tab);
+    expect(tab.doc.getValue(0, 0)).toBe('a');
+    expect(tab.doc.getValue(1, 0)).toBe('d');
+  });
+
+  it('menu Cut clears nothing when the browser blocks the clipboard', async () => {
+    const { state, commands, tab } = setup('a,b\n');
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    const notify = vi.fn();
+    const clip = new ClipboardController(state, commands, notify, document);
+    const writeText = vi.fn(async () => {
+      throw new Error('blocked');
+    });
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    try {
+      await clip.cutViaApi();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(writeText).toHaveBeenCalled();
+    expect(tab.doc.getValue(0, 0)).toBe('a');
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
+  });
+
+  it('Paste Values pastes calculated values, not formulas or number formats', async () => {
+    const { state, commands, tab } = await converted('1000,2\n3,4\n');
+    state.editCell(tab, 1, 1, '=A1+B1');
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.run('format.presetNumber');
+    state.setSelection(tab, { row: 1, col: 1 }, { row: 0, col: 0 });
+    const clip = new ClipboardController(state, commands, () => undefined, document);
+    clip.copyText();
+    state.setSelection(tab, { row: 0, col: 2 }, null);
+    vi.stubGlobal('navigator', { clipboard: { readText: async () => Promise.reject(new Error('blocked')) } });
+    try {
+      await clip.pasteValuesViaApi();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(tab.doc.getValue(0, 2)).toBe('1000');
+    expect(tab.doc.getValue(1, 3)).toBe('1002');
+    state.undo(tab);
+    expect(tab.doc.getValue(1, 3)).toBe('');
+  });
+
+  it('Paste Formatting copies styles only, as one undo step', async () => {
+    const { state, commands, tab } = await converted('a,b\nc,d\n');
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.run('format.bold');
+    const clip = new ClipboardController(state, commands, () => undefined, document);
+    clip.copyText();
+    state.setSelection(tab, { row: 1, col: 1 }, { row: 1, col: 0 });
+    vi.stubGlobal('navigator', { clipboard: { readText: async () => 'a' } });
+    try {
+      await clip.pasteFormatsViaApi();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    const rsf = tab.doc as RsfDocument;
+    // A 1x1 copy repeats over the 1x2 selection; values are untouched.
+    expect(rsf.getStyle(1, 0)?.bold).toBe(true);
+    expect(rsf.getStyle(1, 1)?.bold).toBe(true);
+    expect(rsf.getValue(1, 0)).toBe('c');
+    state.undo(tab);
+    expect(rsf.getStyle(1, 0)?.bold ?? false).toBe(false);
+    expect(rsf.getStyle(1, 1)?.bold ?? false).toBe(false);
+  });
+
+  it('Paste Formatting says so when there is nothing to paste', async () => {
+    const { state, commands, tab } = await converted('a,b\n');
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    const notify = vi.fn();
+    const clip = new ClipboardController(state, commands, notify, document);
+    clip.copyText();
+    // The system clipboard now holds text copied elsewhere.
+    vi.stubGlobal('navigator', { clipboard: { readText: async () => 'other' } });
+    try {
+      await clip.pasteFormatsViaApi();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'info');
   });
 
   it('anchors a paste at the top-left cell of the selected range, not the active cell', async () => {
@@ -688,7 +793,24 @@ describe('saving and exporting RSF', () => {
       expect(sink.bytes).not.toBeNull();
       // The handle is retained so subsequent saves overwrite without a picker.
       expect(tab.handle).toBe(handle);
-      expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining('overwritten'), 'info');
+      expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining('Saved to the original file'), 'info');
+    } finally {
+      restore();
+    }
+  });
+
+  it('the file name typed in the save picker becomes the tab name', async () => {
+    const sink: WritableSink = { bytes: null, closed: false };
+    const handle = Object.assign(fakeSaveHandle(sink), { name: 'Budget 2026.rsf' });
+    const restore = withSavePicker(vi.fn(async () => handle));
+    try {
+      const { state, commands, tab } = await converted('a,b\n1,2\n');
+      const events: string[] = [];
+      state.subscribe((event) => events.push(event));
+      expect(await commands.save(tab, KEEP)).toBe(true);
+      expect(tab.name).toBe('Budget 2026.rsf');
+      expect(tab.doc.kind === 'rsf' && tab.doc.name).toBe('Budget 2026.rsf');
+      expect(events).toContain('tabs');
     } finally {
       restore();
     }
@@ -710,7 +832,10 @@ describe('saving and exporting RSF', () => {
       expect(tab.handle).toBeNull(); // association untouched
       expect(tab.doc.isDirty).toBe(true); // still unsaved
       // No misleading save-success notification.
-      expect(ui.notify).not.toHaveBeenCalledWith(expect.stringContaining('overwritten'), 'info');
+      expect(ui.notify).not.toHaveBeenCalledWith(
+        expect.stringContaining('Saved to the original file'),
+        'info',
+      );
       expect(ui.notify).not.toHaveBeenCalledWith(expect.stringContaining('download'), 'info');
     } finally {
       restore();
@@ -732,6 +857,7 @@ describe('saving and exporting RSF', () => {
       expect(tab.handle).toBeNull(); // association untouched
       expect(tab.doc.isDirty).toBe(true); // still unsaved
       expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining('disk full'), 'error');
+      expect(ui.notify).toHaveBeenCalledWith(expect.stringContaining(`"${tab.name}"`), 'error');
     } finally {
       restore();
     }

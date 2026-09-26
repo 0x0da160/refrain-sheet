@@ -5,15 +5,22 @@ import { ClipboardController } from './app/clipboard-controller';
 import { Commands, type UiPort } from './app/commands';
 import { warnProtectedAndOfferUnlock } from './app/commands/shared';
 import { getLocale, initLocale, onLocaleChange, t } from './app/i18n';
-import { getAutoFitOnOpen, getEditHints, getSheetZoom } from './app/settings';
+import { getAutoFitOnOpen, getEditHints, getShiftPasteMode, getSheetZoom } from './app/settings';
 import { applySheetFont, getSheetFont } from './app/sheet-font';
+import { resolveSheetFont } from './app/state/view-layers';
+import { listRecentFiles } from './app/recent-files';
 import { resolveShortcut } from './app/shortcuts';
+import { getSqlHistory } from './app/sql-queries';
+import { storageSharedWithOtherLocalFiles } from './app/storage';
+import { applyBandedRows, getBandedRows } from './app/banded-rows';
+import { applyDensity, getDensity } from './app/density';
 import { applyTheme, getTheme } from './app/theme';
 import { initCsvEngine } from './core/csv-engine';
 import { initSqlEngine } from './core/sql-engine';
 import { validateDocument } from './core/validation';
 import { initAppIcons } from './ui/app-icon';
 import { CommentsPanel } from './ui/comments-panel';
+import { closeColumnMenu } from './ui/column-menu';
 import { closeAllContextMenus } from './ui/context-menu';
 import { Dialogs, Toasts } from './ui/dialogs';
 import { el } from './ui/dom';
@@ -42,6 +49,16 @@ function bootstrap(): void {
   // Resolve and apply the color theme before first paint (no flash of the
   // wrong theme); a "system" choice tracks OS changes live via matchMedia.
   applyTheme(getTheme());
+  // UI density (bar and control heights), also a pure CSS attribute.
+  applyDensity(getDensity());
+  applyBandedRows(getBandedRows());
+  // From file://, other local HTML files share this storage: the first access
+  // to each list switches it to memory-only and deletes what an earlier
+  // release stored there, so do that now rather than when first used.
+  if (storageSharedWithOtherLocalFiles()) {
+    void listRecentFiles();
+    getSqlHistory();
+  }
   // Keep every product-identity icon on the theme's variant, including live
   // `prefers-color-scheme` changes while the choice is "system".
   initAppIcons();
@@ -97,11 +114,13 @@ function bootstrap(): void {
     chooseInsertShift: (rows, cols) => dialogs.chooseInsertShift(rows, cols),
     confirmFlashFill: (preview) => dialogs.confirmFlashFill(preview),
     chooseFilter: (input, onApply) => dialogs.chooseFilter(input, onApply),
+    chooseColumnMenu: (input) => dialogs.chooseColumnMenu(input),
     chooseSort: (input, onApply) => dialogs.chooseSort(input, onApply),
     chooseDataValidation: (input, onApply) => dialogs.chooseDataValidation(input, onApply),
     chooseConditionalFormat: (input, onApply) => dialogs.chooseConditionalFormat(input, onApply),
     chooseCellComment: (input) => dialogs.chooseCellComment(input),
-    promptSheetName: (mode, current, validate) => dialogs.promptSheetName(mode, current, validate),
+    promptSheetName: (mode, current, validate, kindOptions) =>
+      dialogs.promptSheetName(mode, current, validate, kindOptions),
     confirmDeleteSheet: (name, references) => dialogs.confirmDeleteSheet(name, references),
     chooseExportSheet: (sheets, currentId) => dialogs.chooseExportSheet(sheets, currentId),
     confirm: (title, message, ok, cancel) => dialogs.confirm(title, message, ok, cancel),
@@ -134,6 +153,7 @@ function bootstrap(): void {
       // state must not survive into it.
       if (label !== null) {
         closeAllContextMenus();
+        closeColumnMenu();
       }
       loadingOverlay.set(label, progress);
     },
@@ -146,16 +166,23 @@ function bootstrap(): void {
   // Markdown/JSON worksheet textareas, since it is wired at the AppState
   // layer those already go through. `warningOpen` collapses a burst of
   // blocked attempts (e.g. held-key typing into a locked cell) into a single
-  // dialog instead of stacking one per keystroke.
+  // dialog instead of stacking one per keystroke. Unlocking replays the
+  // edit that raised the dialog, so the user does not have to repeat it.
   let warningOpen = false;
-  state.warnBlocked = (tab, scope) => {
+  state.warnBlocked = (tab, scope, retry, sheetId) => {
     if (warningOpen) {
       return;
     }
     warningOpen = true;
-    void warnProtectedAndOfferUnlock(ui, state, tab, scope).finally(() => {
-      warningOpen = false;
-    });
+    void warnProtectedAndOfferUnlock(ui, state, tab, scope, sheetId)
+      .finally(() => {
+        warningOpen = false;
+      })
+      .then((unlocked) => {
+        if (unlocked && state.tabs.includes(tab)) {
+          retry();
+        }
+      });
   };
 
   const commands = new Commands(state, ui, document);
@@ -196,10 +223,13 @@ function bootstrap(): void {
     (range) => grid.setCopySource(range),
   );
   commands.clipboardActions = {
+    cut: () => clipboard.cutViaApi(),
     copy: () => clipboard.copyViaApi(),
     copyScreenshot: () => clipboard.copyScreenshotAsPng(),
     copyAsMarkdown: () => clipboard.copyMarkdownTable(),
     paste: () => clipboard.pasteViaApi(),
+    pasteValues: () => clipboard.pasteValuesViaApi(),
+    pasteFormats: () => clipboard.pasteFormatsViaApi(),
     getCopied: () => clipboard.getCopied(),
     copiedKind: () => clipboard.copiedKind(),
   };
@@ -208,6 +238,9 @@ function bootstrap(): void {
     autoFitAllColumns: (tab) => grid.autoFitAllColumns(tab),
     goToCell: (row, col) => grid.reveal(row, col),
   };
+  // Entering or leaving full screen (the View menu, or Escape) refreshes the
+  // View menu's check mark.
+  document.addEventListener('fullscreenchange', () => state.emit('view'));
   // The cell comments list: a dockable side panel like Filter/Sort/Format —
   // see src/ui/comments-panel.ts.
   const commentsPanel = new CommentsPanel(state, grid);
@@ -216,20 +249,25 @@ function bootstrap(): void {
   };
   const menuBar = new MenuBar(commands, {
     wrap: () => state.wrapCells,
-    stickyFirstRow: () => state.stickyFirstRow,
-    stickyFirstColumn: () => state.stickyFirstColumn,
-    sheetFont: () => getSheetFont(),
+    stickyFirstRow: () => state.stickyFirstRowShown,
+    stickyFirstColumn: () => state.stickyFirstColumnShown,
+    freezeAtSelection: () => state.activeTab?.freeze != null,
+    sheetFont: () => resolveSheetFont(state.activeTab?.doc ?? null).value,
     theme: () => getTheme(),
+    density: () => getDensity(),
     zoom: () => state.activeTab?.zoom ?? getSheetZoom(),
     editHints: () => getEditHints(),
+    bandedRows: () => getBandedRows(),
     autoFitOnOpen: () => getAutoFitOnOpen(),
     commentsPanel: () => commentsPanel.isOpen,
+    fullscreen: () => commands.isFullscreen(),
     formatActive: (key) => {
       const tab = state.activeTab;
       return tab !== null && commands.isFormatActive(tab, key);
     },
     driveAvailable: () => commands.driveAvailable(),
     protectedDoc: () => state.activeTab?.readOnly ?? false,
+    headerFilter: () => commands.hasFilter(state.activeTab),
     sheetLocked: () => {
       const doc = state.activeTab?.doc;
       return doc !== undefined && doc.kind === 'rsf' && doc.activeSheet.locked;
@@ -270,6 +308,17 @@ function bootstrap(): void {
     },
     () => void commands.run('file.toggleProtect'),
   );
+  // A Markdown/JSON/YAML/text worksheet shows its editor's line/column in
+  // the status bar instead of a grid size and cell reference.
+  const sourceSheetViews = [markdownSheetView, jsonSheetView, yamlSheetView, textSheetView];
+  statusBar.editorCaret = () => sourceSheetViews.find((view) => view.active)?.editor.caret() ?? null;
+  for (const view of sourceSheetViews) {
+    view.editor.onCaretChange = (caret) => {
+      if (view.active) {
+        statusBar.updateEditorCaret(caret);
+      }
+    };
+  }
 
   const app = document.getElementById('app');
   if (!app) {
@@ -282,14 +331,13 @@ function bootstrap(): void {
     yamlSheetView.element,
     textSheetView.element,
   ]);
-  // Everything between the two tab strips (find bar, formula bar, welcome
+  // Everything between the two tab strips (formula bar, welcome
   // screen, the sheet itself) lives in `#app-content`: a top/bottom-docked
   // side panel reserves space by padding this element rather than
   // `#app-body`, so it insets below the book tab strip and above the
   // worksheet tab strip instead of covering either of them (see
   // `applySidePanelPosition`, `src/ui/dialogs/shared.ts`, #399/#541).
   const appContent = el('div', { className: 'app-content', attrs: { id: 'app-content' } }, [
-    findBar.element,
     formulaBar.element,
     welcome.element,
     mainRow,
@@ -298,6 +346,7 @@ function bootstrap(): void {
     tabBar.element,
     appContent,
     sheetBar.element,
+    findBar.element,
     commentsPanel.element,
     markdownSheetView.panelElement,
     jsonSheetView.panelElement,
@@ -336,11 +385,17 @@ function bootstrap(): void {
   };
 
   state.subscribe((event) => {
+    // The font is layered (worksheet > file > browser), so it follows the
+    // active document and worksheet. Pure CSS: setting it again is a no-op.
+    if (event !== 'selection') {
+      applySheetFont(resolveSheetFont(state.activeTab?.doc ?? null).value);
+    }
     // Any change of document, worksheet, or content invalidates the state a
     // context menu was built against (its enabled items, its anchor cell), so
     // the menu is dismissed rather than left pointing at something else.
     if (event !== 'selection') {
       closeAllContextMenus();
+      closeColumnMenu();
     }
     switch (event) {
       case 'tabs':
@@ -403,10 +458,15 @@ function bootstrap(): void {
     }
   });
 
-  // ----- Clipboard: Ctrl+C / Ctrl+V via native copy/paste events -----
+  // ----- Clipboard: Ctrl+X / Ctrl+C / Ctrl+V via native cut/copy/paste events -----
   document.addEventListener('copy', (event) => {
     if (grid.isNavigating()) {
       clipboard.handleCopyEvent(event);
+    }
+  });
+  document.addEventListener('cut', (event) => {
+    if (grid.isNavigating()) {
+      clipboard.handleCutEvent(event);
     }
   });
   document.addEventListener('paste', (event) => {
@@ -453,6 +513,7 @@ function bootstrap(): void {
         // Select All is only owned while the grid itself is focused (never a
         // text field or the rest of the page — the browser keeps Ctrl+A there).
         inGrid: grid.isNavigating(),
+        shiftPaste: getShiftPasteMode(),
       },
     );
     if (!command) {

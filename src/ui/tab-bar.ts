@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { Cloud, HardDrive, X } from 'lucide';
+import { Cloud, HardDrive, Lock, X } from 'lucide';
 import type { AppState, Tab } from '../app/app-state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -17,8 +17,8 @@ const TAB_MENU_ITEMS: Array<{ command: CommandId; labelKey: string }> = [
 ];
 
 /**
- * Tab strip for open files with dirty indicators (●), close buttons,
- * drag-and-drop reordering (with a drop-position indicator), and a context
+ * Tab strip for open files with protection (lock) and dirty (●) indicators,
+ * close buttons, drag-and-drop reordering (with a drop-position indicator), and a context
  * menu for keyboard/menu-driven movement. Reordering only changes the strip
  * order: each tab keeps its document, dirty state, selection, undo history,
  * file handle, and mode untouched, and the active tab stays active. Tab
@@ -60,6 +60,9 @@ export class TabBar {
     const dirty = tab.doc.isDirty;
     const sourceLabel = t(tab.drive ? 'tab.source.drive' : 'tab.source.local');
     const titleParts = [tab.name, sourceLabel];
+    if (tab.readOnly) {
+      titleParts.push(t('tab.protected'));
+    }
     if (dirty) {
       titleParts.push(t('tab.dirty'));
     }
@@ -80,6 +83,13 @@ export class TabBar {
         el('span', { className: 'tab-source', attrs: { 'aria-label': sourceLabel } }, [
           createIcon(tab.drive ? Cloud : HardDrive, 'tab-source-icon', 14),
         ]),
+        ...(tab.readOnly
+          ? [
+              el('span', { className: 'tab-lock', attrs: { 'aria-label': t('tab.protected') } }, [
+                createIcon(Lock, 'tab-lock-icon', 12),
+              ]),
+            ]
+          : []),
         el('span', {
           className: 'dirty-mark',
           text: dirty ? '● ' : '',

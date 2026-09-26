@@ -129,7 +129,7 @@ export function installKeyboardViewportFix(): void {
 /**
  * While the keyboard is open, fit `#app` to the visible area instead of the
  * full layout viewport (`data-keyboard-open` plus two custom properties, see
- * `#app` in `styles/hybrid-theme.css`). WebKit pushes the page up when the
+ * `#app` in `styles/base.css`). WebKit pushes the page up when the
  * keyboard opens, far enough to hide the menu bar and the top rows — and the
  * very cell being edited when it sits near the top. Following the visible
  * area keeps the whole app on screen however far the page was pushed, and

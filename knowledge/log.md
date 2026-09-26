@@ -241,3 +241,102 @@ and to an earlier draft, carries a `stale_after` date because the vendor pages
 change, and adds how the table relates to the shipped shortcut rules in
 `src/app/shortcuts.ts` and to `decisions/ip-risk-policy.md`. Linked from the
 references index, the bundle root, `ui/index.md`, and `src/ui/CLAUDE.md`.
+
+**Shortcut review against the comparison reference.** Added grid-scoped
+Ctrl+H / Ctrl+G / Ctrl+E, F3 / Shift+F3 while the Find bar is open, F9, and
+Ctrl+Alt+PageDown / PageUp. Updated `ui/accessibility.md` (key-ownership
+rule), `ui/find-replace-and-goto.md`, `ui/selection-and-navigation.md`,
+`ui/copy-paste-fill-and-flash-fill.md`, the worksheet-switching tables, and
+added an adoption table to `references/spreadsheet-shortcut-comparison.md`.
+
+**Spreadsheet keys always win; Find and Replace side panel.** Ctrl+F / Ctrl+H
+(Cmd+Shift+H on macOS) / Ctrl+G / Ctrl+E and F3 / Shift+F3 are now the app's
+wherever focus is, not only in the grid. Find and Replace became one side
+panel with Find Next and Find All (a clickable result list). Updated
+`ui/find-replace-and-goto.md`, `ui/accessibility.md`,
+`ui/selection-and-navigation.md`, `ui/copy-paste-fill-and-flash-fill.md`,
+`ui/mobile-and-touch.md`, `ui/view-formatting-and-panels.md`,
+`architecture/system-overview.md`, and the adoption table in
+`references/spreadsheet-shortcut-comparison.md`.
+
+## 2026-09-26
+
+**Google Sheets added to the shortcut comparison.** The owner's revised memo
+added Google Sheets (default PC shortcuts) between Excel for the web and
+LibreOffice Calc. `references/spreadsheet-shortcut-comparison.md` now
+compares three products and adds rows the memo raised (paste values vs.
+paste formatting on `Ctrl + Shift + V`, fill down/right, borders, clear
+formatting, Google's `F4` / `F9` / `Ctrl + E` meanings, sheet switching on
+`Alt + ↓/↑`). Rows from the earlier Excel/Calc check that the memo dropped
+were kept. The English summary's stale "grid-only Ctrl+F/H/G/E" wording was
+corrected to "always the app's", and the adoption table gained Cut, Fill
+Down, and Paste Values rows.
+
+**Grid movement keys and three more shortcuts.** Tab / Shift+Tab now move
+right / left with a cell selected (falling through to the browser at the
+row edge, so there is no keyboard trap), Shift+Enter moves up, and
+Shift+F11 / Ctrl+/ / Ctrl+\ insert a worksheet, show the shortcut list, and
+clear formatting. Updated `ui/selection-and-navigation.md`,
+`ui/accessibility.md`, and the adoption table in
+`references/spreadsheet-shortcut-comparison.md`.
+
+**F4 reference toggle and number format keys.** F4 while typing a formula
+cycles the reference at the caret through A1 / $A$1 / A$1 / $A1
+(`src/core/formula-ref-toggle.ts`), and Ctrl+Shift+1 / 4 / 5 apply number,
+currency, and percent presets. Updated `ui/editing-and-ime.md`,
+`ui/view-formatting-and-panels.md`, and the adoption table in
+`references/spreadsheet-shortcut-comparison.md`.
+
+**Cut.** Added Edit > Cut / Ctrl+X: copy, then clear the source cells as
+one history entry; pasting is an ordinary paste. Documented in
+`ui/copy-paste-fill-and-flash-fill.md` and marked adopted in
+`references/spreadsheet-shortcut-comparison.md`.
+
+**Ctrl+Arrow data-edge jumps.** Added Ctrl+Arrow / Ctrl+Shift+Arrow in the
+grid (`src/ui/grid/data-edge.ts`). Documented in
+`ui/selection-and-navigation.md` and marked adopted in
+`references/spreadsheet-shortcut-comparison.md`.
+
+**F4 / F7 / F8 unbound (owner decision).** The owner chose to remove the
+non-standard bindings: F4 (New), F7 / Shift+F7 (worksheet switching), and
+F8 (Close Tab). New and Close Tab are menu-only; worksheet switching keeps
+Ctrl+Alt+PageDown / PageUp. Updated `ui/tabs-and-worksheet-strip.md`,
+`ui/editing-and-ime.md`, `domains/workbook-and-worksheet-lifecycle.md`,
+and the adoption table in `references/spreadsheet-shortcut-comparison.md`.
+
+**Shortcut final pass.** Added Paste Values / Paste Formatting (Edit >
+Paste Special; Ctrl+Shift+V runs Paste Values by default, switchable
+in File > Settings…), Ctrl+; / Ctrl+Shift+; date and time entry, the
+number-format presets on the Format menu, Ctrl+Enter (apply and stay), and
+screenful PageUp / PageDown; the shortcut list is grouped and
+platform-specific. Updated `ui/copy-paste-fill-and-flash-fill.md`,
+`ui/editing-and-ime.md`, `ui/selection-and-navigation.md`, and the adoption
+table in `references/spreadsheet-shortcut-comparison.md`.
+
+**UI writing and wording rules.** Added `ui/ui-writing-and-wording.md`
+from an owner-supplied draft: principles, notation defaults, recommended
+terms, situational examples, and the review checklist for in-app strings
+(canonical text in Japanese). The draft's landing-page paths were
+corrected to `site/i18n.js` and the generated `landing/` pages, and its
+"reconcile with the real strings first" step was done: §7 records the
+current `src/locales/ja.json` strings that differ from the rules, to be
+fixed one focused change at a time. Linked from `ui/index.md`,
+`src/ui/CLAUDE.md`, and the root `CLAUDE.md`.
+
+**Dependency lifecycle.** Added `operations/dependency-lifecycle.md`: the
+weekly patching and quarterly EOL-review cadences, the full SBOM
+(`scripts/sbom.mjs`, `npm run sbom:full`) as the inventory, and the
+`docs/eol-register.json` gate (`npm run check:eol`) with its enforcement
+points (ci.yml, the weekly `maintenance.yml`, Dependabot, the
+session-start hook). Linked from `operations/index.md`, the root
+`CLAUDE.md`, and `security-supply-chain.md`, whose Actions-pinning example
+and workflow list were brought up to date.
+
+**Landing page renewal.** The landing site was rebuilt around the approved
+requirements (`docs/lp-renewal-requirements.md`): `site/template.html` is
+now a skeleton that includes one partial per section from `site/partials/`,
+and the hero demo draws the real app screen from the app's own strings and
+tokens (design system D-42). `decisions/ip-risk-policy.md` now points at
+the FAQ partial, which carries the "not an Excel replacement / no Excel
+compatibility guarantee" statements the policy relies on; the old
+comparison table is gone.

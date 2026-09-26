@@ -32,6 +32,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -147,5 +148,54 @@ describe('TextSheetView', () => {
 
     expect(view.element.hidden).toBe(true);
     expect(view.active).toBe(false);
+  });
+  it('does not turn on Wrap Long Rows when the text gains a line break', () => {
+    const { view, tab } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = 'line one\nline two';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('blur'));
+
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.plainText : '').toBe('line one\nline two');
+    expect(tab.wrapCells).toBe(false);
+    // The single undo entry is the text edit alone, with no wrap operation.
+    expect(tab.history.undo()?.ops.map((op) => op.type)).toEqual(['cells']);
+  });
+
+  it('types a tab character on Tab instead of moving focus, and indents selected lines', () => {
+    const { view } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = 'ab';
+    textarea.setSelectionRange(1, 1);
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    textarea.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(textarea.value).toBe('a\tb');
+
+    textarea.value = 'one\ntwo';
+    textarea.setSelectionRange(0, 7);
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    expect(textarea.value).toBe('\tone\n\ttwo');
+    textarea.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }),
+    );
+    expect(textarea.value).toBe('one\ntwo');
+  });
+
+  it('lets Tab move focus on after Escape, so the keyboard is never trapped', () => {
+    const { view } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = 'ab';
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    textarea.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(false);
+    expect(textarea.value).toBe('ab');
+  });
+
+  it('has no visible form label: the editor is named by aria-label', () => {
+    const { view } = setup();
+    expect(view.element.querySelector('label')).toBeNull();
+    expect(view.element.querySelector('textarea')!.getAttribute('aria-label')).toBeTruthy();
   });
 });

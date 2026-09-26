@@ -36,6 +36,40 @@ empty and is pasted from the internal clipboard.
   gains rows or columns silently — such pastes require the explicit RSF
   conversion (see [../formats/index.md](../formats/index.md)).
 
+## Paste Special
+
+**Edit > Paste Special** has two commands, and **Ctrl+Shift+V /
+Cmd+Shift+V** (while the grid has focus) runs one of them:
+
+- **Paste Formatting Only** gives the selection the copied cells' styles
+  and leaves values alone. It tiles over a larger selection like Paste, as
+  one undoable entry, and needs a copy made in this app from a spreadsheet
+  (RSF) document, because the system clipboard carries text only; it is
+  disabled on a CSV document.
+- **Paste Values Only** pastes the copied cells' calculated values: formula
+  results instead of formulas, and numbers without their number format.
+  Text copied from another app is already plain values and is pasted as-is.
+  **Default for Ctrl+Shift+V** (owner decision, 2026-09-26).
+
+Spreadsheets disagree on what Ctrl+Shift+V does, so **File > Settings…**
+chooses which command the key runs; both stay on the menu either way, and
+the menu shows the key beside the one it runs. The choice is stored in the
+browser only (`src/app/settings.ts`). Text fields keep the browser's own
+Ctrl+Shift+V (paste as plain text).
+
+## Cut
+
+**Edit > Cut** (also on the grid's right-click menu) and **Ctrl+X /
+Cmd+X** copy the selection exactly like Copy, then clear the copied cells
+as one undoable edit. Pasting afterwards is an ordinary paste of that copy,
+so formula references adjust to the new position as they would after Copy;
+to relocate cells with their references intact, use **Move Selected
+Cells** (below). Ctrl+X goes through the browser's native `cut` event while
+the grid is navigated, so text fields keep their own Cut. The menu command
+uses the async Clipboard API; if the browser blocks it, nothing is cleared
+and a notice suggests Ctrl+X, so a cut never loses data that did not reach
+the clipboard.
+
 ## Insert Copied Cells / Rows / Columns
 
 - **Edit > Insert Copied Cells…** (also on the cell context menu) inserts
@@ -138,6 +172,7 @@ code (this determinism is also recorded as an invariant in
   in cooperative time slices with an honest percentage, and the operation
   aborts cleanly — changing nothing — if the document changes meanwhile.
 - Flash Fill is **RSF-only**; on a plain CSV document it explains the
-  required conversion and changes nothing. No keyboard shortcut is claimed
-  (the conventional Ctrl+E is browser-reserved); the command is fully
-  keyboard-accessible through the menu and context menu.
+  required conversion and changes nothing. **Ctrl+E / Cmd+E** runs it, taking
+  precedence over the browser's search-box key (see
+  [accessibility.md](accessibility.md)). The command is
+  also fully keyboard-accessible through the menu and context menu.

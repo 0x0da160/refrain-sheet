@@ -14,13 +14,14 @@ import {
 import type { LosslessDocument } from '../core/lossless-document';
 import type { RsfDocument } from '../core/rsf-document';
 import { sortDataTop, type SheetSort } from '../core/sort';
-import type { Worksheet } from '../core/worksheet';
+import type { FreezePanes, Worksheet } from '../core/worksheet';
 import type { FileStamp } from './file-access';
 import { t } from './i18n';
-import { clampSheetZoom, getSheetZoom, getWrapCells } from './settings';
+import { getWrapCells } from './settings';
 import { safeStorageGet } from './storage';
 import { STICKY_COL_KEY, STICKY_KEY } from './state/defaults';
 import { StructuralOpsState } from './state/structural-ops';
+import { resolveWrap, resolveZoom } from './state/view-layers';
 import { WorksheetsState } from './state/worksheets';
 
 /** Either document kind; the shared surface is duck-typed across both. */
@@ -90,17 +91,16 @@ export interface Tab {
    */
   colWidths: number[];
   /**
-   * Spreadsheet zoom percent for this tab. Initialized from the RSF
-   * document's stored zoom when present (document wins), otherwise from the
-   * application-level preference. Zooming never mutates document content and
-   * never marks a document dirty; for RSF documents the current zoom is
-   * recorded into the container on the next save.
+   * Effective spreadsheet zoom percent for this tab, resolved worksheet >
+   * file > browser (`state/view-layers.ts`), falling back to the value last
+   * used in this browser. Zooming never mutates document content and never
+   * marks a document dirty; an RSF file's file/worksheet levels are persisted
+   * in its container on the next save.
    */
   zoom: number;
   /**
-   * Whether long cells wrap onto several visual lines in this tab. Follows the
-   * same precedence as zoom: an RSF worksheet's stored value wins, otherwise
-   * the application-level preference applies, and each worksheet of a workbook
+   * Whether long cells wrap onto several visual lines in this tab. Resolved
+   * like zoom (worksheet > file > browser), and each worksheet of a workbook
    * remembers its own. Purely visual — for a plain CSV it is local application
    * state that never touches the file's bytes.
    */
@@ -114,6 +114,13 @@ export interface Tab {
    * that pass (a click, an arrow key, opening a menu, and so on).
    */
   tabEntryCol: number | null;
+  /**
+   * Rows/columns frozen at a selected cell (View > Sticky Up to Selected
+   * Cell), or null to follow the application-level sticky first row / first
+   * column preferences. Session-only view state, remembered per worksheet of
+   * a workbook, never written to the file.
+   */
+  freeze: FreezePanes | null;
   /**
    * Read-only protection: while true, every mutating command that would
    * touch document content, structure, or the undo history is refused (see
@@ -174,8 +181,11 @@ export class AppState {
    * exactly like `announce`; `Commands`-layer callers with their own
    * `UiPort` access (e.g. `FileIoCommands.ensureRsf`) call
    * `warnProtectedAndOfferUnlock` directly instead of going through this.
+   * `retry` repeats the refused call; it is run once the user unlocks, so
+   * the edit that asked for unlocking still happens.
    */
-  warnBlocked: ((tab: Tab, scope: 'book' | 'sheet') => void) | null = null;
+  warnBlocked: ((tab: Tab, scope: 'book' | 'sheet', retry: () => void, sheetId?: string) => void) | null =
+    null;
   /** Keep the first record row pinned below the header while scrolling. */
   stickyFirstRow: boolean;
   /** Keep the first data column pinned beside the row headers while scrolling. */
@@ -225,8 +235,8 @@ export class AppState {
     handle: FileSystemFileHandle | null,
     startsReadOnly = false,
   ): Tab {
-    // Display precedence: an RSF document's stored settings win; anything the
-    // document does not carry falls back to the application-level preference.
+    // Zoom and wrap are layered: worksheet > file > browser (see
+    // `state/view-layers.ts`); column widths come from the document alone.
     const stored = doc.kind === 'rsf' ? doc : null;
     const tab: Tab = {
       id: `tab-${nextTabId++}`,
@@ -241,9 +251,10 @@ export class AppState {
       rsfSaveExplained: false,
       drive: null,
       colWidths: stored ? stored.displayColWidths.slice() : [],
-      zoom: clampSheetZoom(stored?.displayZoom ?? getSheetZoom()),
-      wrapCells: stored?.displayWrap ?? getWrapCells(),
+      zoom: resolveZoom(doc).value,
+      wrapCells: resolveWrap(doc).value,
       tabEntryCol: null,
+      freeze: null,
       readOnly: startsReadOnly,
       neverSaved: false,
     };
@@ -442,17 +453,35 @@ export class AppState {
   }
 
   /**
+   * Adopt the file name the user chose when saving (the save picker's file
+   * name, or the name typed for a Drive upload) as the tab's name, so the
+   * tab label and later downloads follow the saved file.
+   * An empty name is ignored. Emits `tabs` only when the name changed.
+   */
+  adoptSavedName(tab: Tab, name: string): void {
+    if (!name || tab.name === name) {
+      return;
+    }
+    tab.name = name;
+    if (tab.doc.kind === 'rsf') {
+      tab.doc.name = name;
+    }
+    this.emit('tabs');
+  }
+
+  /**
    * Refuse a write to a read-only-protected tab, announcing why. Checked
    * first in every mutating entry point (`editCell`, `bulkEdit`, `pushEntry`,
    * and — before it even touches the document — `FileIoCommands.ensureRsf`),
    * so a protected tab can be neither edited nor silently converted to RSF.
-   * Returns true when the caller must stop.
+   * Returns true when the caller must stop; `retry` repeats the refused call
+   * after the user unlocks (see `warnBlocked`).
    */
-  private refuseReadOnlyWrite(tab: Tab): boolean {
+  private refuseReadOnlyWrite(tab: Tab, retry: () => void): boolean {
     if (!tab.readOnly) {
       return false;
     }
-    this.warnBlocked?.(tab, 'book');
+    this.warnBlocked?.(tab, 'book', retry);
     return true;
   }
 
@@ -466,7 +495,7 @@ export class AppState {
    * the active worksheet, matching how an absent `Operation.sheetId` is
    * documented to apply to it. Returns true when the caller must stop.
    */
-  private refuseLockedSheetWrite(tab: Tab, sheetId?: string): boolean {
+  private refuseLockedSheetWrite(tab: Tab, retry: () => void, sheetId?: string): boolean {
     const doc = tab.doc;
     if (doc.kind !== 'rsf') {
       return false;
@@ -475,7 +504,7 @@ export class AppState {
     if (!sheet?.locked) {
       return false;
     }
-    this.warnBlocked?.(tab, 'sheet');
+    this.warnBlocked?.(tab, 'sheet', retry, sheet.id);
     return true;
   }
 
@@ -526,7 +555,8 @@ export class AppState {
 
   /** Set one cell's value as a single undoable operation. */
   editCell(tab: Tab, row: number, col: number, value: string, label = 'history.editCell'): boolean {
-    if (this.refuseReadOnlyWrite(tab) || this.refuseLockedSheetWrite(tab)) {
+    const retry = (): void => void this.editCell(tab, row, col, value, label);
+    if (this.refuseReadOnlyWrite(tab, retry) || this.refuseLockedSheetWrite(tab, retry)) {
       return false;
     }
     if (tab.doc.kind === 'csv') {
@@ -578,9 +608,10 @@ export class AppState {
     if (effective.length === 0) {
       return false;
     }
+    const retry = (): void => void this.bulkEdit(tab, changes, label);
     if (
-      this.refuseReadOnlyWrite(tab) ||
-      this.refuseLockedSheetWrite(tab) ||
+      this.refuseReadOnlyWrite(tab, retry) ||
+      this.refuseLockedSheetWrite(tab, retry) ||
       this.refuseSpillWrite(tab, effective) ||
       this.refuseSortedWrite(tab, effective) ||
       this.refuseInvalidWrite(tab, effective)
@@ -618,7 +649,8 @@ export class AppState {
     if (!nonEmpty) {
       return false;
     }
-    if (this.refuseReadOnlyWrite(tab)) {
+    const retry = (): void => void this.pushEntry(tab, entry);
+    if (this.refuseReadOnlyWrite(tab, retry)) {
       return false;
     }
     // A worksheet's lock blocks its own cell/structural/filter/wrap changes,
@@ -632,7 +664,7 @@ export class AppState {
       if (op.type === 'sheets' || op.type === 'csvStructure') {
         continue;
       }
-      if (this.refuseLockedSheetWrite(tab, op.sheetId)) {
+      if (this.refuseLockedSheetWrite(tab, retry, op.sheetId)) {
         return false;
       }
     }
@@ -800,32 +832,75 @@ export class AppState {
   }
 
   /**
-   * Turn wrapping on/off for the active tab. Purely visual: it never changes
-   * document content, CSV bytes, or the dirty state. The choice also becomes
-   * the application-level preference (used by documents that store none), and
-   * an RSF worksheet remembers it for persistence with the next save.
+   * Turn wrapping on/off for the active tab. Purely visual; written to the
+   * level that currently decides it — see `StructuralOpsState.setWrapCells`.
    */
   setWrapCells(wrap: boolean): void {
     this.structuralOps.setWrapCells(wrap);
   }
 
   /**
-   * Set the active tab's spreadsheet zoom (clamped percent). Purely visual:
-   * it never changes document content, CSV bytes, or the dirty state. The
-   * chosen zoom also becomes the application-level preference (used by tabs
-   * whose document stores no zoom of its own), and RSF documents remember it
-   * for persistence with the next save.
+   * Set the active tab's spreadsheet zoom (clamped percent). Purely visual;
+   * written to the level that currently decides the zoom — see
+   * `StructuralOpsState.setTabZoom`.
    */
   setTabZoom(tab: Tab, zoom: number): void {
     this.structuralOps.setTabZoom(tab, zoom);
   }
 
+  /** Re-resolve every tab's zoom and wrap after a browser/file-level change, and repaint. */
+  reapplyViewSettings(): void {
+    this.structuralOps.reapplyViewSettings();
+    this.emit('view');
+  }
+
+  /**
+   * Turn the sticky first row preference on/off. Also drops the active tab's
+   * freeze-at-selection, so the choice visibly takes effect there.
+   */
   setStickyFirstRow(sticky: boolean): void {
     this.structuralOps.setStickyFirstRow(sticky);
   }
 
+  /** Column counterpart of {@link setStickyFirstRow}. */
   setStickyFirstColumn(sticky: boolean): void {
     this.structuralOps.setStickyFirstColumn(sticky);
+  }
+
+  /** Whether the active tab currently shows a sticky first row from the preference (menu check). */
+  get stickyFirstRowShown(): boolean {
+    return this.stickyFirstRow && !this.activeTab?.freeze;
+  }
+
+  /** Whether the active tab currently shows a sticky first column from the preference (menu check). */
+  get stickyFirstColumnShown(): boolean {
+    return this.stickyFirstColumn && !this.activeTab?.freeze;
+  }
+
+  /**
+   * How many display rows (from the top) and columns (from the left) of a
+   * tab stay on screen while the rest scrolls: the tab's own
+   * freeze-at-selection when set, otherwise the sticky first row / first
+   * column preferences. Clamped to the document's size.
+   */
+  frozenPanes(tab: Tab): FreezePanes {
+    const freeze = tab.freeze ?? {
+      rows: this.stickyFirstRow ? 1 : 0,
+      cols: this.stickyFirstColumn ? 1 : 0,
+    };
+    return {
+      rows: Math.max(0, Math.min(freeze.rows, tab.doc.rowCount)),
+      cols: Math.max(0, Math.min(freeze.cols, tab.doc.columnCount)),
+    };
+  }
+
+  /**
+   * Freeze a tab at a split point (rows above, columns left of it), or clear
+   * it with null. Purely visual: it never changes document content, CSV
+   * bytes, the dirty state, or the undo history.
+   */
+  setTabFreeze(tab: Tab, freeze: FreezePanes | null): void {
+    this.structuralOps.setTabFreeze(tab, freeze);
   }
 
   // ----- Filtering (RSF spreadsheet documents only) -----

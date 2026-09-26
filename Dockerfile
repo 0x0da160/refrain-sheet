@@ -8,7 +8,7 @@
 #   docker compose run --rm app npm run build
 #   docker compose run --rm app npm run ui:check     # headless-browser UI check
 
-FROM node:22-bookworm-slim
+FROM node:24-trixie-slim
 
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
     NPM_CONFIG_FUND=false \
@@ -24,13 +24,13 @@ ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
 # is checked against a recorded SHA-256 before it runs (no `curl | sh`).
 # gcc/libc are required to build proc-macro crates for the host; git lets the
 # one-command release script (scripts/release.mjs) run inside the container.
-ARG RUSTUP_VERSION=1.28.2
-ARG RUSTUP_INIT_SHA256=20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c
-ARG RUST_TOOLCHAIN=1.84.1
-ARG WASM_PACK_VERSION=v0.13.1
-ARG WASM_PACK_SHA256=c539d91ccab2591a7e975bcf82c82e1911b03335c80aa83d67ad25ed2ad06539
-ARG WASM_BINDGEN_VERSION=0.2.100
-ARG WASM_BINDGEN_SHA256=63d6a38deb65bd7023c02bdf382ab66b0d2c0241c8582fd3413b5a808b8aeb5b
+ARG RUSTUP_VERSION=1.29.1
+ARG RUSTUP_INIT_SHA256=dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71
+ARG RUST_TOOLCHAIN=1.98.1
+ARG WASM_PACK_VERSION=v0.15.0
+ARG WASM_PACK_SHA256=c09f971ecaed9a2efc80fdcea7a00ef6b53c7fadc8c57d1f61b53a6aa66b668a
+ARG WASM_BINDGEN_VERSION=0.2.129
+ARG WASM_BINDGEN_SHA256=82d12bb940e2d4e72e0d5605387fc1b8ca179044e012b620f0ce4e7440e8320e
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl gcc git libc6-dev \
     && rm -rf /var/lib/apt/lists/* \
@@ -46,7 +46,7 @@ RUN apt-get update \
     && tar -xzf "wasm-pack-${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz" -C /usr/local/cargo/bin --strip-components=1 \
        "wasm-pack-${WASM_PACK_VERSION}-x86_64-unknown-linux-musl/wasm-pack" \
     && curl --proto '=https' --tlsv1.2 -sSfLO \
-       "https://github.com/rustwasm/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+       "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
     && echo "${WASM_BINDGEN_SHA256}  wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz" | sha256sum -c - \
     && tar -xzf "wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz" -C /usr/local/cargo/bin --strip-components=1 \
        "wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl/wasm-bindgen" \

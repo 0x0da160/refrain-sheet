@@ -32,13 +32,16 @@ import type {
 } from '../../core/conditional-format';
 import { Hash, PaintBucket, Palette, Sparkles, Table, type IconNode } from 'lucide';
 import { el } from '../dom';
+import {
+  CF_DEFAULT_BACKGROUND,
+  CF_DEFAULT_SCALE_MAX_COLOR,
+  CF_DEFAULT_SCALE_MIN_COLOR,
+  CF_DEFAULT_TEXT,
+  ensureSwatchList,
+} from '../document-colors';
 import { dialogButton, openSidePanel, panelCheck, panelField, panelSection, submitOnEnter } from './shared';
 
 const DEFAULT_COLOR = '#000000';
-
-const CF_DEFAULT_BACKGROUND = '#ffc7ce';
-const CF_DEFAULT_SCALE_MIN_COLOR = '#ffffff';
-const CF_DEFAULT_SCALE_MAX_COLOR = '#63be7b';
 
 const CF_OPERATORS: readonly CellValueOperator[] = [
   'greaterThan',
@@ -76,6 +79,7 @@ function styleFields(
       type: 'color',
       id: `${idPrefix}-bg-color`,
       value: initial.backgroundColor ?? CF_DEFAULT_BACKGROUND,
+      list: ensureSwatchList(),
     },
   }) as HTMLInputElement;
   const textCheckbox = el('input', {
@@ -83,7 +87,12 @@ function styleFields(
   }) as HTMLInputElement;
   textCheckbox.checked = initial.textColor !== undefined;
   const textInput = el('input', {
-    attrs: { type: 'color', id: `${idPrefix}-text-color`, value: initial.textColor ?? DEFAULT_COLOR },
+    attrs: {
+      type: 'color',
+      id: `${idPrefix}-text-color`,
+      value: initial.textColor ?? DEFAULT_COLOR,
+      list: ensureSwatchList(),
+    },
   }) as HTMLInputElement;
   for (const control of [bgCheckbox, bgInput, textCheckbox, textInput]) {
     control.addEventListener('change', onChange);
@@ -116,11 +125,14 @@ function colorToggleRow(checkbox: HTMLInputElement, label: string, swatch: HTMLI
   return el('div', { className: 'panel-row panel-row-spread' }, [panelCheck(checkbox, label), swatch]);
 }
 
-/** A native color picker styled as the panels' shared fixed-size swatch. */
+/**
+ * A native color picker styled as the panels' shared fixed-size swatch,
+ * suggesting the design system's document colours (see document-colors.ts).
+ */
 function colorSwatch(id: string, value: string): HTMLInputElement {
   return el('input', {
     className: 'panel-swatch',
-    attrs: { type: 'color', id, value },
+    attrs: { type: 'color', id, value, list: ensureSwatchList() },
   }) as HTMLInputElement;
 }
 
@@ -497,7 +509,7 @@ export class FormatDialogs {
         const value2Row = panelField(t('dialog.conditionalFormat.value2'), value2Input);
         const cellValueStyle = styleFields(
           'cf-cellvalue',
-          existingCellValue?.style ?? { backgroundColor: CF_DEFAULT_BACKGROUND },
+          existingCellValue?.style ?? { backgroundColor: CF_DEFAULT_BACKGROUND, textColor: CF_DEFAULT_TEXT },
           refresh,
         );
         const cellValueSection = panelSection(null, [
@@ -514,7 +526,7 @@ export class FormatDialogs {
         const existingDuplicateStyle =
           input.existing?.kind === 'duplicate'
             ? input.existing.style
-            : { backgroundColor: CF_DEFAULT_BACKGROUND };
+            : { backgroundColor: CF_DEFAULT_BACKGROUND, textColor: CF_DEFAULT_TEXT };
         const duplicateStyle = styleFields('cf-duplicate', existingDuplicateStyle, refresh);
         const duplicateSection = panelSection(null, [duplicateStyle.row]);
         body.append(duplicateSection);

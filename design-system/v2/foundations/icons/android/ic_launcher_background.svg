@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Refrain Sheet — Android adaptive icon — background layer (108dp)
+  Geometry scaled from the 1024 master; colours are the brand palette.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432" width="432" height="432"
+     role="img" aria-label="Refrain Sheet">
+  <title>Refrain Sheet</title>
+  <path fill="#147F43" d="M0 0L432 0L432 432L0 432Z"/>
+</svg>

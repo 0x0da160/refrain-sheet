@@ -43,6 +43,30 @@ it extends beyond the currently rendered viewport (see "Command flow" and
 the state model in
 [../architecture/system-overview.md](../architecture/system-overview.md)).
 
+## Moving with Enter and Tab
+
+With a cell selected (no editor open), **Enter / Shift+Enter** move down /
+up and **Tab / Shift+Tab** move right / left, the same as while editing
+(where the key applies the edit first). After typing across a row with Tab,
+Enter returns to the column where that row began. At the row's first or
+last field, Tab / Shift+Tab are left to the browser, so keyboard users can
+always Tab out of the grid (no keyboard trap; see
+[accessibility.md](accessibility.md)).
+
+## Jumping to the data edge
+
+**Ctrl+Arrow / Cmd+Arrow** jumps along the row or column: from a filled
+cell next to another filled cell it goes to the last filled cell of that
+block; otherwise it goes to the next filled cell, or to the end of the row
+or sheet when nothing further is filled. **Ctrl+Shift+Arrow** extends the
+selection to the same place. Vertical jumps walk only visible rows, in the
+order shown, so filtered-out rows are skipped and a sorted view is followed
+as displayed. The rule lives in `src/ui/grid/data-edge.ts`.
+
+**PageUp / PageDown** move by one screenful: the whole rows of the selected
+row's height that fit in the scroll area (`src/ui/grid/page-step.ts`),
+falling back to 20 rows before the grid has a measurable height.
+
 ## Select All
 
 **Edit > Select All Cells** selects the **used range** of the active
@@ -80,9 +104,9 @@ for formula-reference highlighting's own visual language).
 you type (e.g. `B12`), like Excel's Name Box or Ctrl+G. The field is seeded
 with the current cell, validates on every keystroke, and Enter confirms. It
 works on both CSV and RSF tabs and only moves the selection — nothing is
-written to the document. No default keyboard shortcut is bound: the
-conventional Ctrl+G is reserved by some browsers for "Find Again", so the
-command stays reachable only from the menu.
+written to the document. **Ctrl+G / Cmd+G** opens it from anywhere, taking
+precedence over the browser's "Find Again" (see
+[accessibility.md](accessibility.md)).
 
 ## The cell-reference box
 

@@ -7,7 +7,7 @@
  * preview, and the explicit, button-triggered Format action — backed by the
  * `yaml` package instead of `JSON.parse`/`JSON.stringify`.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { RsfDocument } from '../src/core/rsf-document';
@@ -33,6 +33,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -89,6 +90,13 @@ function setup(ui: UiPort = stubUi()): {
   return { view, state, tab, workbook, data, ui };
 }
 
+// The preview render is debounced (120 ms) and then painted on an animation
+// frame. Let the last test's pending render finish while jsdom still exists,
+// so it never fires after the environment is torn down.
+afterAll(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+});
 describe('YamlSheetView', () => {
   it('gives the source textarea the shared flex-sizing style class, not just its own id-scoped class', () => {
     const { view } = setup();
@@ -140,7 +148,7 @@ describe('YamlSheetView', () => {
 
     const preview = view.panelElement.querySelector('.markdown-editor-preview')!;
     expect(preview.querySelector('pre code')).toBeNull();
-    expect(preview.textContent).toContain('too large');
+    expect(preview.textContent).toContain('Too large');
   });
 
   it('keeps the source textarea and preview pane scroll positions in sync', () => {

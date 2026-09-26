@@ -51,8 +51,8 @@ describe('grid typography model (stylesheet)', () => {
 
   it('draws a single shared 1px grid line per cell (right + bottom only, inside the box)', () => {
     const body = ruleBody('.vcell');
-    expect(body).toMatch(/border-right:\s*1px solid var\(--grid-line\)/);
-    expect(body).toMatch(/border-bottom:\s*1px solid var\(--grid-line\)/);
+    expect(body).toMatch(/border-right:\s*1px solid var\(--canvas-grid\)/);
+    expect(body).toMatch(/border-bottom:\s*1px solid var\(--canvas-grid\)/);
     // A left/top border would double every line between neighbours.
     expect(body).not.toMatch(/border-(left|top)\s*:/);
     expect(body).not.toMatch(/(^|[^-])border\s*:/);
@@ -120,6 +120,7 @@ const noopUi: UiPort = {
   chooseInsertShift: async () => null,
   confirmFlashFill: async () => false,
   chooseFilter: async () => null,
+  chooseColumnMenu: async () => null,
   chooseSort: async () => null,
   chooseDataValidation: async () => null,
   chooseConditionalFormat: async () => null,

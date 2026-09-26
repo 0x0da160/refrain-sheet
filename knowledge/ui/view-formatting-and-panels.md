@@ -112,12 +112,18 @@ choice). Number Format offers Number/Percent/Currency with decimal places,
 thousands separator, and a currency symbol; it never adds a date kind (see
 [theming-and-visual-system.md](theming-and-visual-system.md) and
 `README.md`'s "Dates and times" section for how this interacts with date
-serials). Keyboard shortcuts: **Ctrl+B / Ctrl+I / Ctrl+U**.
+serials). Keyboard shortcuts: **Ctrl+B / Ctrl+I / Ctrl+U**, **Ctrl+\\**
+(Clear Formatting), and the one-step number format presets **Ctrl+Shift+1**
+(Number, 2 decimals with thousands separator), **Ctrl+Shift+4** (Currency:
+¥ with no decimals in Japanese, $ with 2 decimals otherwise), and
+**Ctrl+Shift+5** (Percent). The presets keep the Control key on macOS,
+where Cmd+Shift+4 / 5 take screenshots.
 
 ## The shared dockable-panel chrome
 
 Filter, Sort, Data Validation, Conditional Formatting/Cell Formatting, SQL
-Query, the Comments panel, and the docked Markdown/JSON/YAML worksheet
+Query, the Comments panel, the Find and Replace panel, and the docked
+Markdown/JSON/YAML worksheet
 preview all share one **dockable, resizable side panel** shell
 (`openSidePanel` / `buildSidePanelChrome` in `src/ui/dialogs/shared.ts`)
 instead of separate popup layouts:

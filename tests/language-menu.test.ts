@@ -15,16 +15,21 @@ function checks(): MenuChecks {
     wrap: () => false,
     stickyFirstRow: () => false,
     stickyFirstColumn: () => false,
+    freezeAtSelection: () => false,
     sheetFont: () => 'biz-ud',
     theme: () => 'system',
+    density: () => 'standard',
+    bandedRows: () => false,
     zoom: () => 100,
     editHints: () => true,
     autoFitOnOpen: () => true,
     commentsPanel: () => false,
+    fullscreen: () => false,
     formatActive: () => false,
     driveAvailable: () => false,
     protectedDoc: () => false,
     sheetLocked: () => false,
+    headerFilter: () => false,
   };
 }
 

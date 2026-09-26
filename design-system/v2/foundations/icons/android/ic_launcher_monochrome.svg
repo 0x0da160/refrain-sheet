@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Refrain Sheet — Android 13 themed icon — monochrome layer. One colour, so the cells are read from a knockout gap instead of a colour step; the OS re-tints this layer.
+  Geometry scaled from the 1024 master; colours are the brand palette.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 432" width="432" height="432"
+     role="img" aria-label="Refrain Sheet">
+  <title>Refrain Sheet</title>
+  <path fill="#141A22" d="M166.788 126L210.6 126L210.6 210.6L126 210.6L126 166.788C126 144.261 144.261 126 166.788 126ZM221.4 126L265.212 126C287.739 126 306 144.261 306 166.788L306 210.6L221.4 210.6L221.4 126ZM126 221.4L210.6 221.4L210.6 306L166.788 306C144.261 306 126 287.739 126 265.212L126 221.4ZM221.4 221.4L306 221.4L306 306L221.4 306L221.4 221.4Z"/>
+</svg>

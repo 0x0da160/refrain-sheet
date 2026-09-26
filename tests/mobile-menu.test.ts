@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 /**
- * At the mobile breakpoint (`@media (max-width: 700px)` in `src/styles.css`)
+ * At the mobile breakpoint (`@media (max-width: 43.75em)` in `src/styles/mobile-layout.css`)
  * the top-level menu row (`.menu-row`) now collapses behind a hamburger
  * toggle (`.menu-bar-toggle`) and, once expanded, wraps onto its own
  * full-width row below the logo row instead of scrolling horizontally beside
@@ -44,6 +44,7 @@ function stubUi(): UiPort {
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -83,16 +84,21 @@ function menuChecks(): MenuChecks {
     wrap: () => false,
     stickyFirstRow: () => false,
     stickyFirstColumn: () => false,
+    freezeAtSelection: () => false,
     sheetFont: () => 'biz-ud',
     theme: () => 'system',
+    density: () => 'standard',
+    bandedRows: () => false,
     zoom: () => 100,
     editHints: () => true,
     autoFitOnOpen: () => true,
     commentsPanel: () => false,
+    fullscreen: () => false,
     formatActive: () => false,
     driveAvailable: () => false,
     protectedDoc: () => false,
     sheetLocked: () => false,
+    headerFilter: () => false,
   };
 }
 

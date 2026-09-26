@@ -1,10 +1,13 @@
 import {
+  CalendarClock,
+  ClipboardPaste,
   Cloud,
   ArrowLeftRight,
   Check,
   ClipboardCopy,
   ClipboardList,
   Contrast,
+  Rows3,
   FileCog,
   FileDown,
   History,
@@ -19,14 +22,28 @@ import {
 } from 'lucide';
 import type { CommandId, Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
-import { SHEET_ZOOM_LEVELS } from '../app/settings';
+import { getShiftPasteMode, SHEET_ZOOM_LEVELS, type ShiftPasteMode } from '../app/settings';
+import { displayShortcut, isMacPlatform } from '../app/shortcuts';
 import { SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../app/sheet-font';
+import { DENSITIES, densityLabelKey, type DensityChoice } from '../app/density';
 import { THEMES, themeLabelKey, type ThemeChoice } from '../app/theme';
 import { createAppIcon, createAppLogotype } from './app-icon';
 import { el, clearChildren } from './dom';
 import { ICON_BY_COMMAND } from './command-icons';
 import { createIcon } from './icon';
 import { onViewportResize, positionPopup, type AnchorRect } from './popup';
+
+/** Menu shortcut labels name Cmd instead of Ctrl on macOS. */
+const IS_MAC = isMacPlatform();
+
+function shortcutLabel(shortcut: MenuItemDef['shortcut']): string {
+  const keys = typeof shortcut === 'function' ? shortcut() : shortcut;
+  return keys ? displayShortcut(keys, IS_MAC) : '';
+}
+
+/** Ctrl+Shift+V labels whichever Paste Special command the setting gives it. */
+const shiftPasteShortcut = (mode: ShiftPasteMode) => (): string | undefined =>
+  getShiftPasteMode() === mode ? 'Ctrl+Shift+V' : undefined;
 
 export interface MenuItemDef {
   /**
@@ -39,7 +56,8 @@ export interface MenuItemDef {
   labelKey: string | (() => string);
   /** Omitted for a non-interactive group heading (see `heading`). */
   command?: CommandId;
-  shortcut?: string;
+  /** Written the Windows/Linux way; a getter when it depends on a setting. */
+  shortcut?: string | (() => string | undefined);
   checked?: () => boolean;
   /** Render as a non-interactive group heading instead of a command item. */
   heading?: boolean;
@@ -67,22 +85,32 @@ export interface MenuChecks {
   wrap: () => boolean;
   stickyFirstRow: () => boolean;
   stickyFirstColumn: () => boolean;
+  /** Whether the active tab is frozen at a selected cell. */
+  freezeAtSelection: () => boolean;
   sheetFont: () => SheetFontId;
   theme: () => ThemeChoice;
+  /** The UI density choice (View > Density). */
+  density: () => DensityChoice;
   /** The active tab's spreadsheet zoom percent (app default when no tab). */
   zoom: () => number;
   /** Whether editing-help tooltips are enabled. */
   editHints: () => boolean;
+  /** Whether every other grid row is tinted (View > Banded Rows). */
+  bandedRows: () => boolean;
   /** Whether opening a file auto-fits every column to its content. */
   autoFitOnOpen: () => boolean;
   /** Whether the right-side cell comments panel is open. */
   commentsPanel: () => boolean;
+  /** Whether the app is shown full screen (View > Full Screen). */
+  fullscreen: () => boolean;
   /** Whether Bold/Italic/Underline is "on" for the whole current selection. */
   formatActive: (key: 'bold' | 'italic' | 'underline') => boolean;
   /** Whether the active tab is read-only protected (see `Tab.readOnly`). */
   protectedDoc: () => boolean;
   /** Whether the active worksheet is locked (see `Worksheet.locked`). */
   sheetLocked: () => boolean;
+  /** Whether the active sheet has a filter range (its header filter buttons are shown). */
+  headerFilter: () => boolean;
   /**
    * Whether Google Drive sync exists in this build. False for the offline
    * build, which omits the whole Drive submenu rather than showing it disabled
@@ -124,7 +152,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // frequent actions (New/Open/Save) stay at the top level per that
         // report's own UX caveat; everything else now follows the same
         // family-submenu convention as Sheet/View below.
-        { labelKey: 'menu.file.new', command: 'file.new', shortcut: 'F4' },
+        { labelKey: 'menu.file.new', command: 'file.new' },
         { labelKey: 'menu.file.newCsv', command: 'file.newCsv' },
         { labelKey: 'menu.file.open', command: 'file.open', shortcut: 'Ctrl+O' },
         { labelKey: 'menu.file.openRecent', command: 'file.openRecent' },
@@ -136,7 +164,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.file.settings', command: 'app.settings' },
         'separator',
-        { labelKey: 'menu.file.closeTab', command: 'file.closeTab', shortcut: 'F8' },
+        { labelKey: 'menu.file.closeTab', command: 'file.closeTab' },
       ],
     },
     {
@@ -145,12 +173,29 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.edit.undo', command: 'edit.undo', shortcut: 'Ctrl+Z' },
         { labelKey: 'menu.edit.redo', command: 'edit.redo', shortcut: 'Ctrl+Y' },
         'separator',
+        { labelKey: 'menu.edit.cut', command: 'edit.cut', shortcut: 'Ctrl+X' },
         { labelKey: 'menu.edit.copy', command: 'edit.copy', shortcut: 'Ctrl+C' },
         // Copy Image and Copy as Markdown Table are alternate copy formats,
         // not the everyday Copy — grouped into their own submenu, the same
         // way Insert Copied's three variants are below (#518).
         { labelKey: 'menu.edit.copyAs', icon: ClipboardCopy, submenu: copyAsItems() },
         { labelKey: 'menu.edit.paste', command: 'edit.paste', shortcut: 'Ctrl+V' },
+        {
+          labelKey: 'menu.edit.pasteSpecial',
+          icon: ClipboardPaste,
+          submenu: [
+            {
+              labelKey: 'menu.edit.pasteValues',
+              command: 'edit.pasteValues',
+              shortcut: shiftPasteShortcut('values'),
+            },
+            {
+              labelKey: 'menu.edit.pasteFormats',
+              command: 'edit.pasteFormats',
+              shortcut: shiftPasteShortcut('formats'),
+            },
+          ],
+        },
         // Ctrl+A is owned only while the grid itself has focus (never inside
         // text fields or the rest of the page — the browser keeps it there).
         { labelKey: 'menu.edit.selectAll', command: 'edit.selectAll', shortcut: 'Ctrl+A' },
@@ -169,10 +214,15 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           ],
         },
         { labelKey: 'menu.edit.fillDown', command: 'edit.fillDown', shortcut: 'Ctrl+D' },
-        // No keyboard shortcut by design: Ctrl+E (the conventional Flash Fill
-        // key) is a browser-reserved address-bar shortcut. The command stays
-        // keyboard-accessible through the menu and context menu.
-        { labelKey: 'menu.edit.flashFill', command: 'edit.flashFill' },
+        { labelKey: 'menu.edit.flashFill', command: 'edit.flashFill', shortcut: 'Ctrl+E' },
+        {
+          labelKey: 'menu.edit.insertDateTime',
+          icon: CalendarClock,
+          submenu: [
+            { labelKey: 'menu.edit.insertDate', command: 'edit.insertDate', shortcut: 'Ctrl+;' },
+            { labelKey: 'menu.edit.insertTime', command: 'edit.insertTime', shortcut: 'Ctrl+Shift+;' },
+          ],
+        },
         // Move Selected Cells is the keyboard-accessible equivalent of dragging
         // the selection border; RSF-only (the command explains the required
         // conversion on a CSV tab). No shortcut by design — it opens a
@@ -185,16 +235,13 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
     {
       labelKey: 'menu.search',
       items: [
-        { labelKey: 'menu.search.find', command: 'search.find', shortcut: 'Ctrl+Shift+F' },
-        { labelKey: 'menu.search.replace', command: 'search.replace', shortcut: 'Ctrl+Shift+H' },
+        { labelKey: 'menu.search.find', command: 'search.find', shortcut: 'Ctrl+F' },
+        { labelKey: 'menu.search.replace', command: 'search.replace', shortcut: 'Ctrl+H' },
         'separator',
-        { labelKey: 'menu.search.findNext', command: 'search.findNext' },
-        { labelKey: 'menu.search.findPrev', command: 'search.findPrev' },
+        { labelKey: 'menu.search.findNext', command: 'search.findNext', shortcut: 'F3' },
+        { labelKey: 'menu.search.findPrev', command: 'search.findPrev', shortcut: 'Shift+F3' },
         'separator',
-        // No shortcut by design: the conventional Ctrl+G is Firefox's "Find
-        // Again" and Ctrl+Shift+G its "Find Previous", so both are reserved.
-        // The command stays keyboard-accessible through the menu.
-        { labelKey: 'menu.search.goToCell', command: 'search.goToCell' },
+        { labelKey: 'menu.search.goToCell', command: 'search.goToCell', shortcut: 'Ctrl+G' },
       ],
     },
     {
@@ -207,11 +254,11 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         // stays scannable.
         { labelKey: 'menu.sheet.worksheet', icon: Layers, submenu: worksheetItems(checks) },
         { labelKey: 'menu.sheet.rowsAndColumns', icon: Table, submenu: rowsAndColumnsItems() },
-        { labelKey: 'menu.sheet.filterSort', icon: ListFilter, submenu: filterSortItems() },
+        { labelKey: 'menu.sheet.filterSort', icon: ListFilter, submenu: filterSortItems(checks) },
         'separator',
         // The only way a volatile formula (TODAY, NOW) updates without an
         // edit: there is deliberately no background recalculation timer.
-        { labelKey: 'menu.sheet.recalculate', command: 'sheet.recalculate' },
+        { labelKey: 'menu.sheet.recalculate', command: 'sheet.recalculate', shortcut: 'F9' },
         { labelKey: 'menu.sheet.timezone', command: 'sheet.timezone' },
         { labelKey: 'menu.sheet.displayLanguage', command: 'sheet.displayLanguage' },
         { labelKey: 'menu.sheet.versionHistory', command: 'sheet.versionHistory' },
@@ -245,10 +292,17 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         'separator',
         { labelKey: 'menu.format.colorAndBorders', icon: SwatchBook, submenu: colorAndBordersItems() },
         { labelKey: 'menu.format.numberFormat', command: 'format.numberFormat' },
+        { labelKey: 'menu.format.presetNumber', command: 'format.presetNumber', shortcut: 'Ctrl+Shift+1' },
+        {
+          labelKey: 'menu.format.presetCurrency',
+          command: 'format.presetCurrency',
+          shortcut: 'Ctrl+Shift+4',
+        },
+        { labelKey: 'menu.format.presetPercent', command: 'format.presetPercent', shortcut: 'Ctrl+Shift+5' },
         'separator',
         { labelKey: 'menu.format.conditionalFormatting', command: 'format.conditionalFormatting' },
         'separator',
-        { labelKey: 'menu.format.clear', command: 'format.clear' },
+        { labelKey: 'menu.format.clear', command: 'format.clear', shortcut: 'Ctrl+\\' },
       ],
     },
     {
@@ -275,6 +329,12 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           command: 'view.stickyFirstColumn',
           checked: checks.stickyFirstColumn,
         },
+        {
+          labelKey: 'menu.view.freezeAtSelection',
+          command: 'view.freezeAtSelection',
+          checked: checks.freezeAtSelection,
+        },
+        { labelKey: 'menu.view.bandedRows', command: 'view.bandedRows', checked: checks.bandedRows },
         { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
         {
           labelKey: 'menu.view.autoFitOnOpen',
@@ -286,6 +346,9 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           command: 'view.commentsPanel',
           checked: checks.commentsPanel,
         },
+        // Menu only: F11 stays the browser's own full screen, which a page
+        // cannot reliably take over in every browser.
+        { labelKey: 'menu.view.fullscreen', command: 'view.fullscreen', checked: checks.fullscreen },
         'separator',
         // Spreadsheet zoom, Spreadsheet Font, and Theme each live in their own
         // submenu: grouping every choice family this way (rather than a
@@ -296,6 +359,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
         { labelKey: 'menu.view.zoom', icon: ZoomIn, submenu: zoomItems(checks) },
         { labelKey: 'menu.view.sheetFont', icon: TypeIcon, submenu: sheetFontItems(checks) },
         { labelKey: 'menu.view.theme', icon: Contrast, submenu: themeItems(checks) },
+        { labelKey: 'menu.view.density', icon: Rows3, submenu: densityItems(checks) },
         'separator',
         // Tab movement stays menu/context-menu driven: every remaining
         // Ctrl/Alt+arrow-style accelerator conflicts with browser or OS tab
@@ -314,7 +378,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
       labelKey: 'menu.help',
       items: [
         { labelKey: 'menu.help.formula', command: 'help.formula' },
-        { labelKey: 'menu.help.shortcuts', command: 'help.shortcuts' },
+        { labelKey: 'menu.help.shortcuts', command: 'help.shortcuts', shortcut: 'Ctrl+/' },
         { labelKey: 'menu.help.about', command: 'help.about' },
       ],
     },
@@ -376,6 +440,20 @@ function themeItems(checks: MenuChecks): MenuItemDef[] {
   }));
 }
 
+/** The three UI densities as checkable menu items (View > Density). */
+function densityItems(checks: MenuChecks): MenuItemDef[] {
+  const density2command: Record<DensityChoice, CommandId> = {
+    compact: 'view.density.compact',
+    standard: 'view.density.standard',
+    comfortable: 'view.density.comfortable',
+  };
+  return DENSITIES.map((id) => ({
+    labelKey: densityLabelKey(id),
+    command: density2command[id],
+    checked: () => checks.density() === id,
+  }));
+}
+
 /**
  * Tab movement (View > Move Tab): reordering the open-file tab strip itself,
  * distinct from worksheet reordering inside a workbook (Sheet > Worksheet).
@@ -397,7 +475,7 @@ function moveTabItems(): Array<MenuItemDef | 'separator'> {
  */
 function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
   return [
-    { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add' },
+    { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add', shortcut: 'Shift+F11' },
     { labelKey: 'menu.sheet.addMarkdownSheet', command: 'worksheet.addMarkdown' },
     { labelKey: 'menu.sheet.addJsonSheet', command: 'worksheet.addJson' },
     { labelKey: 'menu.sheet.addYamlSheet', command: 'worksheet.addYaml' },
@@ -417,8 +495,8 @@ function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
       checked: checks.sheetLocked,
     },
     'separator',
-    { labelKey: 'menu.sheet.nextSheet', command: 'worksheet.next', shortcut: 'F7' },
-    { labelKey: 'menu.sheet.prevSheet', command: 'worksheet.prev', shortcut: 'Shift+F7' },
+    { labelKey: 'menu.sheet.nextSheet', command: 'worksheet.next', shortcut: 'Ctrl+Alt+PageDown' },
+    { labelKey: 'menu.sheet.prevSheet', command: 'worksheet.prev', shortcut: 'Ctrl+Alt+PageUp' },
     'separator',
     { labelKey: 'menu.sheet.moveSheetFirst', command: 'worksheet.moveFirst' },
     { labelKey: 'menu.sheet.moveSheetLeft', command: 'worksheet.moveLeft' },
@@ -451,8 +529,9 @@ function rowsAndColumnsItems(): Array<MenuItemDef | 'separator'> {
  * and the menu, context menu, and (for Filter) the header filter buttons all
  * dispatch these same commands.
  */
-function filterSortItems(): Array<MenuItemDef | 'separator'> {
+function filterSortItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
   return [
+    { labelKey: 'menu.sheet.headerFilter', command: 'sheet.headerFilter', checked: checks.headerFilter },
     { labelKey: 'menu.sheet.filter', command: 'sheet.filter' },
     { labelKey: 'menu.sheet.filterClear', command: 'sheet.filterClear' },
     'separator',
@@ -464,7 +543,7 @@ function filterSortItems(): Array<MenuItemDef | 'separator'> {
 /**
  * Writing the document out in a different format (File > Export): choosing
  * options for the current format, or converting to one of the other
- * supported file types. Distinct from Sheet > Convert to Spreadsheet (RSF),
+ * supported file types. Distinct from File > This File > Convert to RSF Spreadsheet…,
  * which changes the *document's* underlying kind rather than writing a copy.
  */
 function exportItems(): MenuItemDef[] {
@@ -477,7 +556,7 @@ function exportItems(): MenuItemDef[] {
 }
 
 /**
- * Per-document actions that are not everyday file I/O (File > Document):
+ * Per-document actions that are not everyday file I/O (File > This File):
  * reopening with a different encoding, toggling read-only protection, and
  * converting a CSV tab to an RSF spreadsheet.
  */
@@ -542,7 +621,7 @@ export class MenuBar {
    * Mobile only (hidden by desktop-width CSS): the hamburger button that
    * expands `.menu-row` below the logo row. A separate top-level element
    * from `.element` — rather than a child of it, as it used to be — purely
-   * so the mobile grid (`@media (max-width: 700px)` in styles.css) can place
+   * so the mobile grid (`@media (max-width: 43.75em)` in styles.css) can place
    * it in its own trailing column, past the status bar, in a three-column
    * `[app icon | status bar | hamburger]` layout (#478). The caller mounts
    * it as a sibling of `.element` and `StatusBar.element`; `MenuBar` still
@@ -628,7 +707,7 @@ export class MenuBar {
     this.submenuEl?.remove();
     this.submenuEl = null;
     clearChildren(this.element);
-    // Mobile only: lets the mobile layout (`@media (max-width: 700px)` in
+    // Mobile only: lets the mobile layout (`@media (max-width: 43.75em)` in
     // styles.css) grow `.menu-bar` to the full width of its shared row with
     // `.status-bar` and hide that row's sibling while the row expands, via a
     // plain CSS sibling selector — desktop-width CSS never reads this class.
@@ -769,7 +848,10 @@ export class MenuBar {
             checked ? [createIcon(Check, 'check-icon', 14)] : icon ? [createIcon(icon, 'item-icon', 14)] : [],
           ),
           el('span', { className: 'label', text: label }),
-          el('span', { className: 'shortcut', text: item.shortcut ?? '' }),
+          el('span', {
+            className: 'shortcut',
+            text: shortcutLabel(item.shortcut),
+          }),
         ],
       );
       button.disabled = !this.commands.isEnabled(command);

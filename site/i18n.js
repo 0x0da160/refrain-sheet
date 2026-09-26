@@ -1,260 +1,165 @@
 // SPDX-License-Identifier: MIT
 // Build-time copy dictionary, read by scripts/build-landing.mjs. Not loaded
-// by the browser — the pre-rendered pages carry the text already.
+// by the browser — the pre-rendered pages carry the text already. A "\n" in
+// a value becomes a <br> in the page. The hero demo's app labels are not
+// here: they come from src/locales, exactly as the app shows them.
 export const I18N = {
   ja: {
-    'meta.title': 'CSVを壊さず編集する無料エディタ｜Shift_JIS・先頭ゼロ・改行コードを保持｜Refrain Sheet',
+    'meta.title': 'CSVを壊さず編集できる無料の表計算ソフト｜Refrain Sheet',
     'meta.desc':
-      'Excelで開くと変わる先頭ゼロ、文字コード、日付、引用符、BOM、改行コードを保持してCSVを編集。無編集保存は元ファイルとバイト単位で一致。ブラウザ内でローカル処理、インストール・アカウント登録不要。',
-
-    'hero.sub': 'Shift_JIS / CP932対応。再インポート前のCSVを安全に修正する、ブラウザ完結のCSVエディタ。',
+      '先頭ゼロ・文字コード・改行コードを変えずにCSVを編集できる、無料の表計算ソフト。数式やフィルタでの集計にも対応。ブラウザで開くだけで、インストールも登録も不要です。',
     'a11y.skip': '本文へスキップ',
-    'hero.alt': 'Refrain Sheet の画面。Shift_JIS のCSVを開き、編集したセルだけが黄色く表示されている',
-    'f1.alt': '「オプションを指定して保存」ダイアログ。文字コード・BOM・改行コードを選択できる',
-    'f2.alt':
-      'CSV検証結果ダイアログ。閉じ引用符の後の不正なテキストやフィールド数の不一致が行・列つきで一覧表示されている',
-    'f3.alt':
-      'ファイルメニューを開いた画面。新規スプレッドシート、文字コードを指定して開き直す、オプションを指定して保存などの項目が並ぶ',
-    'theme.alt': '英語UI・ダークテーマで同じCSVを開いた Refrain Sheet の画面',
-
-    'nav.principle': 'Refrain原則',
     'nav.features': '機能',
-    'nav.rsf': 'スプレッドシート',
-    'nav.compare': '比較',
-    'nav.start': '使いはじめる',
-    'nav.cta': 'アプリを開く',
-
-    'hero.eyebrow': 'LOCAL-FIRST CSV EDITOR',
-    'hero.h1': 'CSVを壊さず編集。先頭ゼロ・文字コード・改行コードをそのまま保つ。',
-    'hero.lede':
-      '会計・給与・勤怠・受発注・EC・基幹システムから出力したCSVを、Excelの自動変換なしで修正。Refrain Sheet は、変更したフィールド以外のバイトを保持して保存します。',
-    'hero.forwhom':
-      '取引先指定のCSV、インポート用テンプレート、商品・従業員マスタを「見た目だけでなく、データファイルとして」壊さず直したい方へ。',
-    'hero.cta1': 'CSVをブラウザで開く（無料・インストール不要）',
-    'hero.cta2': 'GitHubで仕様とソースを見る',
-    'hero.note':
-      'CSVの読み込み・編集・保存はブラウザ内で行われ、アプリ本体がファイルを外部のサーバーへ送信することはありません（Google Drive連携を使う場合を除く）。',
-    'hero.badge1': '無編集保存：元ファイルとバイト単位で一致',
-    'hero.badge2': 'CSV編集はローカル処理',
-    'hero.badge3': 'Shift_JIS / CP932対応',
-    'hero.badge4': 'インストール・アカウント不要',
-    'hero.cap':
-      'Shift_JIS の売上台帳を開いたところ。編集したセルだけが黄色く色づき、ステータスバーが文字コード・区切り文字・改行コードを常に表示します。',
-
-    'stat1.k': '0 bytes',
-    'stat1.v': '無編集保存での差分。元のバイト列をそのまま書き戻します',
-    'stat2.k': '1 field',
-    'stat2.v': '1セル編集時に再シリアライズされる範囲。ほかのバイトは動きません',
-    'stat3.k': '0 requests',
-    'stat3.v':
-      'CSVの読み込み・編集・保存で発生する通信。CDNもテレメトリもありません（Google Drive連携の利用時を除く）',
-
-    'why.eyebrow': 'THE PROBLEM',
-    'why.h2': 'CSVは「表」ではなく、次のシステムへ渡すデータです。',
-    'why.p':
-      '表計算ソフトは、値を計算や表示に都合のよい形へ解釈します。そのため、郵便番号・社員番号・商品コード・口座番号の先頭ゼロが落ちる、「1-2」や「2024-01-01」が日付に変わる、16桁以上の番号の下位桁が失われる、文字コード（UTF-8とShift_JIS / CP932）の取り違えで文字化けする、引用符・カンマ・改行・BOM・空欄や「HH:mm」形式の時刻が変わる、といったことが起こり得ます。画面上は同じに見えても、次のシステムへ再インポートしたときのエラーや取り込み違いにつながります。',
-    'never.title': '通常保存で勝手に変えないこと',
-    'never.1': '改行コード（CRLF / LF）と区切り文字：混在していても統一しません',
-    'never.2': 'ヘッダー行：レイアウトを整形しません',
-    'never.3': 'セル前後の空白：足しも削りもしません',
-    'never.4': '引用符（"）：不要な付け外しをしません',
-    'never.5': 'BOM（ファイル先頭の文字コード識別子）：付け外ししません',
-    'never.6': '壊れたCSV：勝手に修復・正規化しません',
-    'never.7': '未編集フィールドのデコードできないバイト（文字化けして見える部分）：置き換えません',
-
-    'diff.h3': '直すのは1セル。変えてよいのも、その1セルだけ。',
-    'diff.p':
-      '備考だけを修正しても、ほかの列や改行、引用符まで作り直しません。正確には、編集したフィールドのバイト範囲だけを再シリアライズし、未編集部分のバイトはそのまま保持します。引用されていたフィールドは引用されたまま、新しい値に必要なときだけ引用符が付きます。',
-    'diff.file': 'sales.csv — Shift_JIS / CRLF',
-    'diff.label_before': '編集前',
-    'diff.label_after': '編集後',
-    'diff.result': '書き換わるのは編集したフィールドのバイト範囲だけ。他は完全一致',
-
-    'use.eyebrow': 'USE CASES',
-    'use.h2': '再インポート前のCSVを、安心して直すために。',
-    'use.lede': '業務システムの間を行き来するCSVの、よくある修正場面です。',
-    'use.c1h': '会計・税務の仕訳・提出用CSV',
+    'nav.csv': 'CSVの保持',
+    'nav.security': 'セキュリティ',
+    'nav.faq': 'よくある質問',
+    'nav.cta': '無料で開く',
+    'hero.eyebrow': 'ブラウザで開くだけ。無料・インストール不要',
+    'hero.h1': 'CSVを壊さず\n編集できる、\n軽い表計算ソフト',
+    'hero.lead':
+      '先頭の「0」も、文字コードも、改行コードも、開いたときのまま。数式やフィルタを使った集計もできます。データはパソコンの外に出ません。',
+    'hero.cta1': 'ブラウザで開いてみる',
+    'hero.cta2': 'オフライン版をダウンロード',
+    'hero.badge1': 'Shift_JIS対応',
+    'hero.badge2': 'オフラインでも動く',
+    'hero.badge3': 'オープンソース（MIT）',
+    'demo.file.csv': 'uriage.csv',
+    'demo.file.rsf': 'uriage.rsf',
+    'demo.h.name': '商品名',
+    'demo.h.qty': '数量',
+    'demo.h.sales': '売上',
+    'demo.h.unit': '単価',
+    'demo.r1': '抹茶 ラテベース',
+    'demo.r2': '抹茶 セレモニアル',
+    'demo.r3': 'ほうじ茶 パウダー',
+    'demo.n1': '1',
+    'demo.n4': '4',
+    'demo.step1': 'Shift_JIS・CRLF のCSVを開く',
+    'demo.step2': 'セルに数式を入力する',
+    'demo.step3': 'RSFスプレッドシートに変換する',
+    'demo.step4': '計算できた。元のCSVファイルはそのまま',
+    'demo.pause': 'デモを一時停止',
+    'demo.play': 'デモを再生',
+    'pillars.p1h': 'CSVを壊さない',
+    'pillars.p1p':
+      '先頭の「0」も、文字コードも、改行コードも、開いたときのまま。変わるのは、直したセルだけです。',
+    'pillars.p2h': '表計算ソフトとして使える',
+    'pillars.p2p': '数式、フィルタ、条件付き書式、複数のシート。よく使う機能に絞った、軽い表計算ソフトです。',
+    'pillars.p3h': 'データを外に出さない',
+    'pillars.p3p':
+      'ブラウザの中だけで動くので、ファイルをサーバーに送る必要がありません。1つのHTMLファイルで、オフラインでも使えます。',
+    'feat.h2': '集計も、整理も、見比べも。\n表計算ソフトとして、ここまでできます。',
+    'feat.lead':
+      '大きな表計算ソフトの代わりではありません。手元のデータを、安全に、手早く扱うための表計算ソフトです。',
+    'feat.f1h': '数式と55の関数',
+    'feat.f1p': 'SUMIFS、XLOOKUP、FILTER、UNIQUE など。シートをまたぐ参照にも対応しています。',
+    'feat.f2h': '並べ替えとフィルタ',
+    'feat.f2p': '必要な行だけを絞り込み、見たい順に並べられます。',
+    'feat.f3h': '入力規則と条件付き書式',
+    'feat.f3p': '入力できる値を決めたり、条件に合うセルに色をつけたりできます。',
+    'feat.f4h': 'SQLで集計',
+    'feat.f4p': '表にSQLで問い合わせて、結果を読み取り専用で表示します。',
+    'feat.f5h': '2つの表の比較',
+    'feat.f5p': 'タブを並べて、どこが違うかを確かめられます。',
+    'feat.f6h': 'コメントと版の履歴',
+    'feat.f6p': 'セルにメモを残し、前の版を確かめて元に戻せます。',
+    'feat.f7h': 'XLSX・JSONの読み書き',
+    'feat.f7p': 'CSV・JSON・XLSXを読み込み、書き出せます（書き出しは値のみ）。',
+    'feat.f8h': 'メモや設定のシート',
+    'feat.f8p': 'Markdown・JSON・YAML・テキストのシートを、同じファイルにまとめられます。',
+    'csv.h2': 'CSVを直すのは1セル。\n変わるのも、その1セルだけ。',
+    'csv.p':
+      '文字化けしない、先頭ゼロが消えない。会計や給与、受発注のシステムに取り込み直すCSVも、開いたときのまま保存します。何も変えずに保存すれば、元のファイルとバイト単位で同じです。',
+    'csv.k1': '先頭ゼロ：そのまま',
+    'csv.k2': '文字コード：そのまま',
+    'csv.k3': '改行コード：そのまま',
+    'csv.k4': '変わるのは、直したセルだけ',
+    'csv.alt': 'Refrain Sheet の画面。Shift_JIS のCSVを開き、編集したセルだけが色づいている',
+    'csv.cap':
+      'Shift_JIS の売上台帳を開いたところ。編集したセルだけが色づき、ステータスバーには文字コード・区切り文字・改行コードが表示されます。',
+    'use.h2': '業務のCSVで、よくある困りごとに。',
+    'use.c1t': '経理・税務',
+    'use.c1h': '科目コードの「0」が消えて、取り込みでエラーになる',
     'use.c1p':
-      '指定された列構成や空欄、科目などのコード、Shift_JISの文字コードを保ったまま、修正した箇所だけを変更します。',
-    'use.c2h': '人事・給与・勤怠の従業員CSV',
+      'コードは文字列のまま保つので、指定された列構成や Shift_JIS の文字コードを崩さずに、仕訳や提出用のCSVを直せます。',
+    'use.c2t': '人事・給与',
+    'use.c2h': '社員番号や時刻が、勝手に数値や日付に変わる',
     'use.c2p':
-      '社員番号・郵便番号・口座番号の先頭ゼロや「HH:mm」形式の時刻を、数値や時刻に変換せず文字列のまま扱います。',
-    'use.c3h': '受発注・在庫・商品マスタCSV',
+      '値を型推論で変換しないので、社員番号・郵便番号の先頭ゼロや「HH:mm」の時刻も、書かれたとおりの文字のままです。',
+    'use.c3t': '受発注・EC',
+    'use.c3h': 'JANコードが 4.9E+12 のような表記になる',
     'use.c3p':
-      '商品コードやJANコード、備考を直しても、取引先指定の列順・区切り文字・引用ルールはそのまま維持します。',
-    'use.c4h': '基幹システムと現場ツールの間のCSV',
+      '長い番号も数値として扱わないので、指数表記になりません。取引先が指定した列の順・区切り文字・引用符もそのままです。',
+    'use.c4t': '集計・確認',
+    'use.c4h': '書き出したCSVを、ちょっと集計して確かめたい',
     'use.c4p':
-      'API連携の有無にかかわらず残る、CSV受け渡しの小さな修正作業に。直した箇所以外は元のファイルのまま渡せます。',
-    'use.c5h': '原因の調査・診断が必要なCSV',
-    'use.c5p': 'フィールド数の不一致や閉じていない引用符を、勝手に直さず行・列つきで確認できます。',
-
-    'features.eyebrow': 'FEATURES',
-    'features.h2': '壊さないために、勝手に推測しない。',
-    'features.lede':
-      '「数値に見えるから数値にする」「崩れているから直す」といった推測をせず、ファイルの状態を示して判断をユーザーに委ねます。文字コードの確認から壊れたCSVの診断、日本語入力まで、実務でCSVを扱うときにつまずきやすい点に対応しています。',
-
-    'f1.h3': '文字コード・BOM・改行コードを確認して保存',
-    'f1.p':
-      'UTF-8（BOMあり／なし）、Shift_JIS / CP932、EUC-JP に対応。自動判定に加えて文字コードを指定して開き直すこともでき、開き直しても元のバイトは変わりません。保存時は文字コード・BOM・改行コードを個別に選べるので、意図して変えたいときだけ反映できます。',
-    'f1.li1': 'CP932で表現できない文字があると既定で保存を中止し、影響するセルを知らせる',
-    'f1.li2': '改行コードの変換は行終端だけを書き換え、末尾の改行を勝手に足さない',
-    'f1.li3': 'ステータスバーに文字コード・区切り文字・改行コード・サイズを常時表示',
-    'f1.cap': 'オプションを指定して保存。CSVインジェクションの注意も明示されます。',
-
-    'f2.h3': '壊れたCSVも、自動修復せずに診断',
-    'f2.p':
-      '閉じていない引用符、引用符の後の余分なテキスト、フィールド数の不一致を、行・列つきの一覧で示します。自動修復も正規化も行いません。開くかどうかはユーザーが判断でき、「このまま開く」を選べば、不正な箇所は編集しない限りバイト単位で保持されます。',
-    'f2.cap': 'CSV検証結果ダイアログ。何が起きているかを説明し、判断はユーザーに委ねます。',
-
-    'f3.h3': '日本語入力と、デスクトップアプリに近い操作',
-    'f3.p':
-      'メニューバーからすべてのコマンドを実行でき、同じ操作にキーボードからも届きます。日本語入力は最初の1打鍵から扱えるので、ローマ字の1文字目が英字としてセルに入ることはありません。',
-    'f3.li1': '変換中は Enter / Esc / 矢印キーがIMEのもの。確定してから初めてセルに届く',
-    'f3.li2': 'Ctrl+W・Ctrl+F・Ctrl+T などブラウザ標準のキーは奪わない',
-    'f3.li3': 'Alt+Enter でセル内改行、複数行の値もCSV・RSF・コピペを往復',
-    'f3.cap': 'ファイルメニュー。ショートカットは補助であり、すべてメニューから実行できます。',
-    'f8.h3': '先頭ゼロ・日付・長い番号を型推論で変えない',
-    'f8.p':
-      'CSVの値は書かれた文字列のまま扱います。「0123」は「0123」のまま、「2024-01-01」や16桁以上の番号も、数値や日付に変換して書き戻すことはありません。',
-
-    'f5.h3': 'Google Drive連携は、使うときだけ',
-    'f5.p':
-      'ホスト版アプリで「ドライブから開く」「ドライブに保存」を選んだときだけ、Googleへのサインインと Google Drive API との通信が発生します。アクセス範囲は開いた・作成したファイルに限られ（drive.file スコープ）、アクセストークンはブラウザのメモリ上にのみ保持されます。ファイルは運営者のサーバーを経由せず、ブラウザとGoogle Driveの間で直接やり取りされます。配布版にはこの機能はありません。',
-    'f6.h3': '読み取り専用から始める保護モード',
-    'f6.p':
-      '既存のファイルは既定で読み取り専用で開きます。編集するときは、ステータスバーのアイコンか ファイル > ドキュメント > ブックの保護を解除 で切り替えます。この設定はタブごと・セッション限りで、ファイルには保存されません。',
-    'f7.h3': 'ほかにも：Markdownシート',
-    'f7.p':
-      'RSFのブックに Markdown シートを追加し、ソースとプレビューを並べてメモや手順書を書けます（シート > Markdownシートの追加）。MarkdownシートはCSVエクスポートの対象外です。',
-
-    'f4.h3': '集計・比較・書式が必要なときだけ、RSFへ。',
-    'f4.p':
-      'CSVには、数式、複数シート、書式、コメントを完全には表せません。Refrain Sheet は、CSVを無理にスプレッドシート化しません。必要なときだけRSF（.rsf）へ明示的に変換し、CSVの正本とは役割を分けます。変換しても元の .csv は変更されません。',
-    'f4.li1': '55関数：SUM・XLOOKUP・SUMIFS・TEXT・FILTER・UNIQUE ほか',
-    'f4.li2': '複数ワークシート、シート間参照、絶対／相対参照、循環参照の検出',
-    'f4.li3': 'フィルタと最大8階層の複数キー並べ替え。表示順が変わるだけで、データや数式は書き換わりません',
-    'f4.li4': '数式エンジンは自作パーサ。eval も new Function も使いません',
-    'f4.li5':
-      '太字・斜体・下線・文字色・背景色・罫線。セルの値や数式には影響せず、Undoでき、.rsf に保存されます',
-    'f4.li6': 'オートフィット、選択範囲の統計、CSV / XLSX エクスポート',
-    'f4.li7': 'データ入力規則：選択範囲を値のリストまたは数値範囲に制限し、違反する入力を理由付きで拒否',
-    'f4.li8': '条件付き書式：比較・重複・2色スケールでセルの背景色を値に応じて自動着色',
-    'f4.li9': '数値の書式設定：数値・パーセント・通貨の表示形式を、小数桁数や桁区切りとともに指定',
-    'f4.li10': 'SQLクエリの実行：ワークシートに対してローカルで動く読み取り専用のSELECTクエリを実行',
-    'f4.li11': '比較／差分：開いている2つのタブをキー列で比較し、追加・変更・削除・キー不整合を行ごとに判定',
-    'f4.li12': 'セルコメント：セルの値とは独立した短いメモを添付。ホバーで内容を表示',
-    'f4.li13':
-      'コメントパネル：ワークシート単位・ワークブック単位で全コメントを一覧表示。クリックでそのセルへジャンプ',
-
-    'theme.eyebrow': 'DETAILS',
-    'theme.h2': '英語UIとダークテーマも、標準装備。',
-    'theme.p':
-      '日本語と英語はどちらも第一級のUI言語です。テーマはシステム設定に追従し、ライト／ダークを明示指定することもできます。表示の変更がCSVのバイトやRSFのデータを書き換えることはありません。',
-    'theme.cap': '英語UI × ダークテーマ。同じファイル、同じバイト。',
-
-    'cmp.eyebrow': 'COMPARISON',
-    'cmp.h2': 'Excelの代わりではなく、CSVの受け渡しを守る道具です。',
-    'cmp.lede':
-      '表計算ソフトは計算・集計・可視化のための道具で、CSVを別のシステムへ渡すときに求められる性質とは目的が異なります。下の表では、Refrain Sheet の挙動と、ほかの製品を選ぶときに確認したい観点を並べています。',
-    'cmp.col1': '一般的な表計算ソフト',
-    'cmp.col2': 'CSVエディタ（製品により異なる）',
-    'cmp.col3': 'Refrain Sheet',
-    'cmp.r1': '主な目的',
-    'cmp.r1a': '計算、集計、可視化',
-    'cmp.r1b': 'CSVの閲覧・編集',
-    'cmp.r1c': 'CSVをデータファイルとして編集・保存',
-    'cmp.r2': '値の扱い（先頭ゼロ・日付・長い番号）',
-    'cmp.r2a': '表示・計算のため型変換が起こり得る',
-    'cmp.r2b': '製品・設定により異なる',
-    'cmp.r2c': '値を型推論で書き換えない',
-    'cmp.r3': '無編集で開いて保存',
-    'cmp.r3a': '製品・開き方・設定に依存',
-    'cmp.r3b': '製品・設定により異なる',
-    'cmp.r3c': '元ファイルとバイト単位で一致',
-    'cmp.r4': '1セルだけの修正',
-    'cmp.r4a': '製品・設定に依存',
-    'cmp.r4b': '製品・設定により異なる',
-    'cmp.r4c': '編集したフィールド以外のバイトを保持',
-    'cmp.r5': '文字コード',
-    'cmp.r5a': '製品・開き方に依存',
-    'cmp.r5b': '製品により異なる',
-    'cmp.r5c': 'UTF-8・Shift_JIS / CP932・EUC-JPを判定。開き直しと保存時の指定が可能',
-    'cmp.r6': 'ファイルの処理場所',
-    'cmp.r6a': '製品・利用形態に依存',
-    'cmp.r6b': '製品・利用形態に依存',
-    'cmp.r6c': '通常のCSV編集はブラウザ内でローカル処理',
-    'cmp.r7': '導入',
-    'cmp.r7a': '製品により異なる',
-    'cmp.r7b': '製品により異なる',
-    'cmp.r7c': 'ブラウザで開くだけ。配布版はHTMLファイル1つで file:// でも動作',
-    'cmp.note':
-      '※ 一般的な表計算ソフト・他のCSVエディタの挙動は、製品・バージョン・設定によって異なります。Refrain Sheet の挙動はリポジトリのREADMEおよびテストで定義されています。',
-
-    'sec.eyebrow': 'SECURITY',
-    'sec.h2': '機密CSVは端末内で。必要なときだけGoogle Driveと直接やり取り。',
-    'sec.lede':
-      'CSVの読み込み・編集・保存はブラウザ内で行います。Google Drive連携を使うときだけ、ユーザーの操作に応じてGoogleと通信します。なお、この紹介ページのアクセス解析（同意した場合のみ）は、CSVを扱うアプリ本体とは別のものです。',
-    'sec.c1h': '通常のCSV編集は端末内で完結',
+      'RSFスプレッドシートに変換すれば、数式やフィルタ、SQLで集計できます。元のCSVファイルは変更しません。',
+    'use.c5t': '原因の調査',
+    'use.c5h': 'どこが壊れているのか分からないCSVがある',
+    'use.c5p': '閉じていない引用符やフィールド数の違いを、自動で直さずに、行と列の位置つきで確かめられます。',
+    'sec.h2': '社外秘のデータも、パソコンの外に出さずに。',
+    'sec.lead':
+      '送信しない、実行しない、隠さない。社内のルールに照らして判断するための材料を、ひとつずつ確かめられます。',
+    'sec.c1h': 'サーバーに送信しない',
     'sec.c1p':
-      "ファイルはブラウザ内で読み込まれ、保存先もお使いの端末です。CDN・外部フォント・アナリティクス・テレメトリはありません。配布版はCSPで connect-src 'none' を指定し、通信そのものをブロックします。",
-    'sec.c2h': 'コードを実行しない',
+      '開いたファイルは、ブラウザの中だけで処理します。Google ドライブ連携を使う場合を除き、外部には送信しません。',
+    'sec.c2h': 'スクリプトを実行しない',
     'sec.c2p':
-      'セル内容はHTMLとして解釈されず、innerHTML・eval・new Function・マクロは一切使用しません。数式は専用エンジンで評価されます。',
-    'sec.c3h': 'サプライチェーン対策',
+      'セルの内容は、常に文字として表示します。ファイルにHTMLやスクリプトが紛れ込んでいても、動き出すことはありません。',
+    'sec.c3h': 'ソースコードを公開',
     'sec.c3p':
-      '本番依存は4パッケージのみ（推移的依存ゼロ）、lockfile固定、install スクリプト無効化。リリースにはSHA-256・SBOM・ビルド来歴の署名が付きます。',
-
-    'start.eyebrow': 'GET STARTED',
-    'start.h2': '3ステップで使いはじめる。',
-    'start.s1h': 'ブラウザで開く',
-    'start.s1p': '公開中のWebアプリをそのまま開くだけ。インストールもアカウント登録も不要です。',
-    'start.s2h': 'CSVをドラッグ＆ドロップ',
-    'start.s2p': 'ウィンドウのどこにドロップしてもOK。ファイルごとにタブが開きます。',
-    'start.s3h': 'オフラインで使う',
-    'start.s3p':
-      'リリースZIPを展開し、index.html をダブルクリック。file:// でも動作し、ネットワークに接続しません。',
-    'start.cta': 'アプリを開く',
-    'start.cta2': 'リリース一覧',
-
+      'オープンソース（MIT ライセンス）なので、誰でも中身を確認できます。1つのHTMLファイルとして配布しています。',
+    'sec.c4h': '配布版はネットワークに接続しない',
+    'sec.c4p':
+      'ダウンロードして使うオフライン版は、Content Security Policy でネットワーク接続そのものを禁止しています。',
+    'sec.c5h': '依存を減らし、出どころを示す',
+    'sec.c5p':
+      '外部ライブラリは最小限に絞り、インストール時のスクリプトは実行しません。リリースには SHA-256、SBOM、ビルドの来歴の署名が付きます。',
     'faq.h2': 'よくある質問',
-    'faq.q1': 'データは外部へ送信されますか？',
-    'faq.a1':
-      '通常のCSV編集では送信されません。ファイルはブラウザ内で読み込まれ、保存もお使いの端末に対して行われます。ホスト版アプリでGoogle Drive連携を使ったときだけ、ユーザーの操作に応じてブラウザとGoogle Driveの間で直接ファイルをやり取りします。配布版はCSPでネットワーク接続そのものを禁止しています。',
+    'faq.q10': '無料で使えますか？',
+    'faq.a10':
+      'はい、無料です。MIT ライセンスのオープンソースで、アカウントの登録もいりません。ブラウザで開くWebアプリと、ダウンロードして使うオフライン版があります。',
     'faq.q2': 'Excelの代わりになりますか？',
     'faq.a2':
-      '目的が違います。Refrain Sheet はCSVを壊さずに直すためのエディタで、Excel互換を保証するものではありません。数式や書式が必要なときは、明示的にRSFスプレッドシートへ変換して使います。',
+      '目的が違います。Refrain Sheet は手元のデータを壊さずに扱うための軽い表計算ソフトで、Excel 互換を保証するものではありません。CSVはそのまま編集し、数式や書式を使うときは RSF スプレッドシートに変換します。',
+    'faq.q8': 'CSVの先頭の0が消えないようにできますか？',
+    'faq.a8':
+      'はい。値を型推論で変換しないため、「0123」や16桁以上の番号は書かれたとおりの文字列として扱われ、保存時もそのまま書き戻されます。ただし、取り込み先のシステムがその値を受け付けるかどうかは、取り込み先の仕様を事前にご確認ください。',
+    'faq.q4': 'Shift_JISのCSVが文字化けしませんか？',
+    'faq.a4':
+      '開くときに文字コードを判定し、保存するときも同じ文字コードで書き戻します。判定と違う場合は、文字コードを指定して開き直せます。対応しているのは UTF-8（BOMあり／なし）、Shift_JIS / CP932、EUC-JP です。UTF-16 と ISO-2022-JP には対応しておらず、該当しそうなファイルは警告を表示したうえでベストエフォートで開きます（元のバイトは変更されません）。',
+    'faq.q6': 'CSVのまま数式や色を付けられますか？',
+    'faq.a6':
+      'CSVのままではできません。数式や書式（太字・色・罫線など）はRSFスプレッドシートの機能で、使うときはRSFへ明示的に変換します。変換しても元のCSVファイルは変更されず、書式設定はセルの値・数式の結果・CSVの書き出しを変えません。',
+    'faq.q1': 'データは外部へ送信されますか？',
+    'faq.a1':
+      '通常の編集では送信されません。ファイルはブラウザ内で読み込まれ、保存もお使いの端末に対して行われます。Webアプリで Google ドライブ連携を使ったときだけ、操作に応じてブラウザと Google ドライブの間で直接ファイルをやり取りします。',
+    'faq.q11': 'インターネットにつながっていないパソコンで使えますか？',
+    'faq.a11':
+      '使えます。リリースページからオフライン版（ZIP）をダウンロードして展開し、index.html をブラウザで開くだけです。file:// でも動き、ネットワークには接続しません。',
     'faq.q3': '大きなCSVを開けますか？',
     'faq.a3':
       '既定の上限は512MiBで、設定で16MiB〜2GiBに変更できます。上限を超えるファイルは読み込む前に拒否されます。表示は仮想化されていますが、数百MB級のファイルは環境によって描画・編集が重くなることがあります。',
-    'faq.q4': 'どの文字コードに対応していますか？',
-    'faq.a4':
-      'UTF-8（BOMあり／なし）、Shift_JIS / CP932、EUC-JP に対応しています。UTF-16 と ISO-2022-JP は現行リリースでは対応しておらず、該当しそうなファイルは警告を表示したうえでベストエフォートで開きます（元のバイトは変更されません）。',
-    'faq.q5': '上書き保存はできますか？',
-    'faq.a5':
-      'Chromium系ブラウザでは File System Access API により元ファイルへ直接上書きできます。Firefox・Safari などではダウンロード保存にフォールバックし、その旨が通知されます。',
-    'faq.q6': 'CSVを編集したまま、数式や色を付けられますか？',
-    'faq.a6':
-      'CSVのままではできません。数式や書式（太字・色・罫線など）はRSFスプレッドシートの機能で、使うときはRSFへ明示的に変換します。CSVの正本に書式を埋め込むことはなく、書式設定はセルの値・数式の結果・CSVエクスポートを変更しません。',
-    'faq.q7': 'この紹介ページ自体にアナリティクスは入っていますか？',
-    'faq.a7':
-      'この紹介ページ（refrain-sheet.com）のみ、訪問数を把握するために Google Analytics を使う場合があります。読み込まれるのは、ページ下部の同意バナーで「同意する」を選んだ場合のみで、フッターの「Cookie設定」からいつでも選び直せます。CSVを編集するアプリ本体（app.refrain-sheet.com）はこの紹介ページとは別に配信されており、アクセス解析は含まれません。アプリ本体が通信するのは、Google Drive連携を使う場合だけです。',
-    'faq.q8': '先頭ゼロや長い番号は守れますか？',
-    'faq.a8':
-      'はい。値を型推論で変換しないため、「0123」や16桁以上の番号は書かれたとおりの文字列として扱われ、保存時もそのまま書き戻されます。ただし、取り込み先のシステムがその値を受け付けるかどうかは、取り込み先の仕様を事前にご確認ください。',
-    'faq.q9': '壊れたCSVでも編集できますか？',
+    'faq.q9': '壊れたCSVでも開けますか？',
     'faq.a9':
-      '開くことはできます。閉じていない引用符やフィールド数の不一致などを行・列つきで示したうえで、自動修復せずに開くかどうかを選べます。不正な箇所は編集しない限りバイト単位で保持されますが、壊れたままのデータを取り込み先のシステムが受け付けるとは限りません。',
-
-    'cta.h2': 'まずは、再インポート前のCSVを1つ開いてみてください。',
-    'cta.p':
-      'インストールもアカウント登録も不要です。編集したセルは色付きで表示されるので、どこを直したかを確かめながら、必要なセルだけを修正できます。',
-    'cta.b1': 'CSVをブラウザで開く',
-    'cta.b2': 'GitHubで仕様とソースを見る',
-    'cta.badge1': '登録不要',
-    'cta.badge2': 'アップロード不要',
-    'cta.badge3': 'コピーしたCSVでまず試せます',
-
-    'footer.tagline': 'ローカルで動く、書式保持CSV・スプレッドシートエディタ',
+      '開けます。閉じていない引用符やフィールド数の不一致などを行・列つきで示したうえで、自動修復せずに開くかどうかを選べます。不正な箇所は編集しない限りバイト単位で保持されますが、壊れたままのデータを取り込み先のシステムが受け付けるとは限りません。',
+    'faq.q5': '元のファイルに上書き保存できますか？',
+    'faq.a5':
+      'Chromium系のブラウザ（Chrome・Edge など）では、元のファイルに直接上書きできます。Firefox・Safari ではダウンロードでの保存になり、その旨が通知されます。',
+    'faq.q7': 'この紹介ページにアクセス解析は入っていますか？',
+    'faq.a7':
+      'この紹介ページ（refrain-sheet.com）のみ、訪問数を把握するために Google Analytics を使う場合があります。読み込まれるのは、ページ下部の同意バナーで「同意する」を選んだ場合のみで、フッターの「Cookie設定」からいつでも選び直せます。CSVを編集するアプリ本体（app.refrain-sheet.com）はこの紹介ページとは別に配信されており、アクセス解析は含まれません。',
+    'start.h2': '使いはじめは、3ステップ。',
+    'start.s1h': 'ブラウザで開く',
+    'start.s1p': 'インストールも登録もいりません。',
+    'start.s2h': 'CSVをドラッグ＆ドロップ',
+    'start.s2p': '文字コードを確かめて開きます。ファイルはパソコンの外に送られません。',
+    'start.s3h': '直して、保存',
+    'start.s3p': '変わるのは、直したところだけです。',
+    'start.cta1': 'ブラウザで開いてみる',
+    'start.cta2': 'オフライン版をダウンロード',
+    'start.cta3': 'GitHubでソースコードを見る',
+    'footer.tagline': 'CSVを壊さず編集できる、軽い表計算ソフト',
     'footer.l1': 'Webアプリ',
     'footer.l2': 'GitHub',
     'footer.l3': 'リリース',
@@ -263,12 +168,10 @@ export const I18N = {
     'footer.privacyPolicy': 'プライバシーポリシー',
     'footer.terms': '利用規約',
     'footer.note': 'MIT License · Refrain Sheet 公式の紹介ページです',
-
     'consent.text':
       'このページ（refrain-sheet.com）は、訪問状況の把握のために Google Analytics を利用します。同意した場合のみ読み込まれ、いつでも取り消せます。CSVを編集するアプリ本体（app.refrain-sheet.com）にアクセス解析は含まれません。',
     'consent.decline': '同意しない',
     'consent.accept': '同意する',
-
     'privacy.meta.title': 'プライバシーポリシー | Refrain Sheet',
     'privacy.meta.desc':
       'Refrain Sheetの紹介ページ（refrain-sheet.com）とホスト版アプリ（app.refrain-sheet.com）における、アクセス解析やGoogleドライブ連携などの情報の取り扱いについて説明します。',
@@ -302,7 +205,6 @@ export const I18N = {
     'privacy.contact.p':
       'プライバシーに関するご質問やご要望は、以下のGitHub Issuesからお寄せください。開発者: 0x0da160。',
     'privacy.contact.link': 'GitHub Issues',
-
     'terms.meta.title': '利用規約 | Refrain Sheet',
     'terms.meta.desc': 'Refrain Sheetの紹介ページおよびホスト版アプリのご利用にあたっての条件を説明します。',
     'terms.h1': '利用規約',
@@ -331,265 +233,162 @@ export const I18N = {
   },
 
   en: {
-    'meta.title': 'Refrain Sheet — byte-preserving CSV editor for the browser',
+    'meta.title': 'Free CSV Editor & Lightweight Spreadsheet | Refrain Sheet',
     'meta.desc':
-      'A local-first, format-preserving CSV editor. Encodings, BOMs, line endings and quoting stay byte-for-byte intact; convert to RSF for formulas, sorting and formatting.',
-
-    'hero.sub': 'Browser-only, format-preserving CSV editor with Shift_JIS support',
+      'Edit CSV files without losing leading zeros, encoding or line endings. A free, lightweight spreadsheet with formulas and filters that runs in your browser — nothing to install.',
     'a11y.skip': 'Skip to main content',
-    'hero.alt': 'Refrain Sheet showing a Shift_JIS CSV file with only the edited cell highlighted in amber',
-    'f1.alt': 'The Save with Options dialog, offering character encoding, BOM and line-ending choices',
-    'f2.alt':
-      'The CSV validation dialog listing unbalanced quotes and field-count mismatches with row and column numbers',
-    'f3.alt': 'The File menu open, showing New spreadsheet, Reopen with encoding and Save with options',
-    'theme.alt': 'Refrain Sheet with the English UI and dark theme, showing the same CSV file',
-
-    'nav.principle': 'The principle',
     'nav.features': 'Features',
-    'nav.rsf': 'Spreadsheet',
-    'nav.compare': 'Compare',
-    'nav.start': 'Get started',
-    'nav.cta': 'Open the app',
-
-    'hero.eyebrow': 'LOCAL-FIRST CSV EDITOR',
-    'hero.h1': 'Edit the values. Leave the file alone.',
-    'hero.lede':
-      'Refrain Sheet is a format-preserving CSV and spreadsheet editor that runs entirely in your browser. You edit field values; everything else — encoding, quoting, line endings, BOMs — stays exactly as it was.',
-    'hero.forwhom':
-      'For teams reworking CSVs from core systems, accounting, order management or e-commerce — without breaking them.',
-    'hero.cta1': 'Try opening a CSV — no install',
-    'hero.cta2': 'See the spec and source on GitHub',
-    'hero.note':
-      'CSV files are read, edited and saved inside your browser; the app itself never sends them to an outside server (unless you use the Google Drive integration).',
-    'hero.badge1': 'Unedited save: byte-identical',
-    'hero.badge2': 'CSV editing stays local',
-    'hero.badge3': 'Shift_JIS / CP932 ready',
-    'hero.badge4': 'No install, no account',
-    'hero.cap':
-      'A Shift_JIS ledger opened in the app. Only the edited cell is tinted, and the status bar always reports encoding, delimiter and line endings.',
-
-    'stat1.k': '0 bytes',
-    'stat1.v': 'changed on an unedited save — the original bytes are written back',
-    'stat2.k': '1 field',
-    'stat2.v': 're-serialized when you edit a cell — every other byte is left alone',
-    'stat3.k': '0 requests',
-    'stat3.v':
-      'made by reading, editing and saving a CSV. No CDN, no analytics, no telemetry (Google Drive aside)',
-
-    'why.eyebrow': 'THE PROBLEM',
-    'why.h2': "A CSV isn't a table. It's data headed for the next system.",
-    'why.p':
-      'Spreadsheet apps interpret values so they are convenient to calculate and display. That can drop leading zeros from postal codes, employee IDs, product codes and account numbers, turn "1-2" or "2024-01-01" into dates, lose the trailing digits of 16-digit-plus numbers, garble text when UTF-8 and Shift_JIS / CP932 are mixed up, or change quotes, commas, line breaks, BOMs, empty fields and "HH:mm" times. The screen may look the same, yet the next import fails or reads the wrong values.',
-    'never.title': 'What a normal save never does',
-    'never.1': 'unify line-ending styles or delimiters',
-    'never.2': 'alter the header layout',
-    'never.3': 'add or remove whitespace',
-    'never.4': 'add or remove quotes unnecessarily',
-    'never.5': 'add or remove BOMs',
-    'never.6': 'repair malformed CSV',
-    'never.7': 'replace undecodable bytes in unmodified fields',
-
-    'diff.h3': 'You fix one cell. Only that cell should change.',
-    'diff.p':
-      "Correct a single note and the other columns, line breaks and quotes are not rebuilt. Precisely: only the edited field's byte range is re-serialized, and every unedited byte is kept. A quoted field stays quoted, and an unquoted one gains quotes only when the new value truly needs them.",
-    'diff.file': 'sales.csv — Shift_JIS / CRLF',
-    'diff.label_before': 'before',
-    'diff.label_after': 'after',
-    'diff.result': "Only the edited field's byte range is rewritten — the rest is identical",
-
-    'use.eyebrow': 'USE CASES',
-    'use.h2': 'For fixing a CSV before it goes back in.',
-    'use.lede': 'Common fixes for CSV files that travel between business systems.',
-    'use.c1h': 'Accounting and tax journal or filing CSVs',
+    'nav.csv': 'CSV',
+    'nav.security': 'Security',
+    'nav.faq': 'FAQ',
+    'nav.cta': 'Open free',
+    'hero.eyebrow': 'Runs in your browser. Free, nothing to install.',
+    'hero.h1': 'A lightweight spreadsheet that edits CSV without breaking it',
+    'hero.lead':
+      'Leading zeros, encoding and line endings stay exactly as they were. Sort, filter and total your data with formulas. Your files never leave your computer.',
+    'hero.cta1': 'Open in your browser',
+    'hero.cta2': 'Download the offline version',
+    'hero.badge1': 'UTF-8, Shift_JIS & more',
+    'hero.badge2': 'Works offline',
+    'hero.badge3': 'Open source (MIT)',
+    'demo.file.csv': 'sales.csv',
+    'demo.file.rsf': 'sales.rsf',
+    'demo.h.name': 'Product',
+    'demo.h.qty': 'Qty',
+    'demo.h.sales': 'Sales',
+    'demo.h.unit': 'Unit price',
+    'demo.r1': 'Matcha latte base',
+    'demo.r2': 'Ceremonial matcha',
+    'demo.r3': 'Hojicha powder',
+    'demo.n1': '1',
+    'demo.n4': '4',
+    'demo.step1': 'Open a Shift_JIS CSV with CRLF line endings',
+    'demo.step2': 'Type a formula into a cell',
+    'demo.step3': 'Convert it to an RSF spreadsheet',
+    'demo.step4': 'Calculated — the original CSV file is unchanged',
+    'demo.pause': 'Pause the demo',
+    'demo.play': 'Play the demo',
+    'pillars.p1h': 'Never breaks your CSV',
+    'pillars.p1p':
+      'Leading zeros, encoding and line endings stay as they were. Only the cells you edit change.',
+    'pillars.p2h': 'A real spreadsheet, kept light',
+    'pillars.p2p':
+      'Formulas, filters, conditional formatting and multiple sheets. Just the features you use most.',
+    'pillars.p3h': 'Your data stays with you',
+    'pillars.p3p':
+      'It runs entirely in your browser, so your files never need to be uploaded. One HTML file that works offline.',
+    'feat.h2': 'Total it, tidy it, compare it —\nall in a lightweight spreadsheet.',
+    'feat.lead':
+      "It isn't meant to replace a full office suite. It's for working with the data in front of you, safely and quickly.",
+    'feat.f1h': 'Formulas and 55 functions',
+    'feat.f1p': '55 functions including SUMIFS, XLOOKUP, FILTER and UNIQUE, with references across sheets.',
+    'feat.f2h': 'Sort and filter',
+    'feat.f2p': 'Narrow down to the rows you need and put them in the order you want.',
+    'feat.f3h': 'Data validation and conditional formatting',
+    'feat.f3p': 'Limit what can be entered, and color the cells that match a rule.',
+    'feat.f4h': 'Totals with SQL',
+    'feat.f4p': 'Query your tables with SQL and see the results in a read-only view.',
+    'feat.f5h': 'Compare two tables',
+    'feat.f5p': 'Put two tabs side by side and see exactly what differs.',
+    'feat.f6h': 'Comments and version history',
+    'feat.f6p': 'Leave notes on cells, review earlier versions and restore them.',
+    'feat.f7h': 'XLSX and JSON in and out',
+    'feat.f7p': 'Import and export CSV, JSON and XLSX (exports contain values only).',
+    'feat.f8h': 'Notes and settings sheets',
+    'feat.f8p': 'Keep Markdown, JSON, YAML and plain-text sheets in the same file.',
+    'csv.h2': 'Edit one cell,\nand only that cell changes.',
+    'csv.p':
+      'No garbled text, no lost leading zeros. CSV files headed back into accounting, payroll or ordering systems are saved just as they were opened. Save without editing and you get a byte-for-byte identical file.',
+    'csv.k1': 'Leading zeros: kept',
+    'csv.k2': 'Encoding: kept',
+    'csv.k3': 'Line endings: kept',
+    'csv.k4': 'Only the cells you edit change',
+    'csv.alt': 'Refrain Sheet with a Shift_JIS CSV open; only the edited cell is highlighted',
+    'csv.cap':
+      'A Shift_JIS sales ledger open in Refrain Sheet. Only the edited cell is highlighted, and the status bar shows the encoding, delimiter and line endings.',
+    'use.h2': 'For the everyday trouble with business CSV files.',
+    'use.c1t': 'Accounting and tax',
+    'use.c1h': 'Account codes lose their leading zero and the import fails',
     'use.c1p':
-      'Keep the required columns, empty fields, account codes and Shift_JIS encoding, and change only what you fix.',
-    'use.c2h': 'HR, payroll and attendance employee CSVs',
+      'Codes stay as text, so you can fix journal and filing CSVs without disturbing the required columns or the Shift_JIS encoding.',
+    'use.c2t': 'HR and payroll',
+    'use.c2h': 'Employee IDs and times turn into numbers or dates',
     'use.c2p':
-      'Employee IDs, postal codes, account numbers and "HH:mm" times stay as text, never converted to numbers or times.',
-    'use.c3h': 'Order, inventory and product master CSVs',
+      'Values are never type-inferred, so leading zeros in employee IDs and postal codes, and "HH:mm" times, stay exactly as written.',
+    'use.c3t': 'Orders and e-commerce',
+    'use.c3h': 'A barcode number shows up as 4.9E+12',
     'use.c3p':
-      "Fix product codes, JAN codes or notes while the partner's column order, delimiter and quoting rules stay intact.",
-    'use.c4h': 'CSVs passed between core systems and team tools',
+      'Long numbers are never treated as numbers, so they never switch to scientific notation. Your partner’s column order, delimiter and quoting stay as they were.',
+    'use.c4t': 'Totals and checks',
+    'use.c4h': 'You want to total an exported CSV to check it',
     'use.c4p':
-      'For the small CSV fixes that remain with or without an API. Everything except what you fixed is handed on as it was.',
-    'use.c5h': 'CSVs that need investigation',
+      'Convert it to an RSF spreadsheet and total it with formulas, filters or SQL. The original CSV file is not changed.',
+    'use.c5t': 'Troubleshooting',
+    'use.c5h': 'A CSV is broken and you can’t tell where',
     'use.c5p':
-      'See field-count mismatches and unclosed quotes with their rows and columns, without an automatic repair.',
-
-    'features.eyebrow': 'FEATURES',
-    'features.h2': 'Nothing is broken, because nothing is guessed.',
-    'features.lede':
-      'No "it looks like a number, so make it a number" and no "it looks broken, so fix it". The app shows you the state of the file and leaves the decision to you, from encoding checks and malformed-file diagnostics to Japanese input.',
-
-    'f1.h3': 'Encodings and save options',
-    'f1.p':
-      'UTF-8 (with or without BOM), Shift_JIS / CP932 and EUC-JP are supported, detected automatically, and reinterpretable at any time via Reopen with Encoding — which never alters the original bytes. On save you choose encoding, BOM and line endings independently.',
-    'f1.li1':
-      "Characters the target encoding can't represent cancel the save by default, with a per-cell report",
-    'f1.li2': 'Line-ending conversion rewrites terminators only — a missing final newline is never added',
-    'f1.li3': 'The status bar always shows encoding, delimiter, line endings and file size',
-    'f1.cap': 'Save with Options, including an explicit CSV-injection warning.',
-
-    'f2.h3': 'Malformed CSV opens — unrepaired',
-    'f2.p':
-      "Unclosed quotes, invalid text after a closing quote, inconsistent field counts — every problem is listed with its row, column and a plain explanation. Nothing is normalized. Choose Open Anyway and malformed regions are preserved byte-for-byte as long as you don't edit them.",
-    'f2.cap': 'The CSV Validation Results dialog explains the damage and leaves the decision to you.',
-
-    'f3.h3': 'Menu-first UI, IME-safe editing',
-    'f3.p':
-      'A desktop-style menu bar is the single visible set of commands, and every one of them is reachable from the keyboard. Japanese and CJK input is safe from the very first keystroke — the first Romaji character joins the composition instead of leaking as a Latin letter.',
-    'f3.li1': 'While composing, Enter / Esc / arrows belong to the IME, never to the cell',
-    'f3.li2': 'Browser-reserved keys (Ctrl+W, Ctrl+F, Ctrl+T, reload, zoom) are never intercepted',
-    'f3.li3':
-      'Alt+Enter inserts a line break; multi-line values round-trip through CSV, RSF and the clipboard',
-    'f3.cap': 'The File menu. Shortcuts are accelerators only — nothing depends on them.',
-    'f8.h3': 'No type inference for leading zeros, dates or long IDs',
-    'f8.p':
-      'CSV values are handled as the text they are written as. "0123" stays "0123", and "2024-01-01" or a 16-digit-plus number is never converted to a number or date and written back.',
-
-    'f5.h3': 'Google Drive, only when you use it',
-    'f5.p':
-      'Only when you choose Open from Drive or Save to Drive in the hosted app does it sign in to Google and talk to the Google Drive API. Access is limited to files opened or created through this feature (the drive.file scope), the access token lives only in browser memory, and file contents travel directly between your browser and Google Drive, never through a server of ours. The downloadable release does not include this feature.',
-    'f6.h3': 'A protect mode that stops accidental edits',
-    'f6.p':
-      'Opening an existing file defaults to read-only; a status bar control or File > Document > Unprotect Book unlocks it. The setting is per-tab, session-only, and never saved with the file.',
-    'f7.h3': 'Also included: Markdown sheets',
-    'f7.p':
-      'Add a Markdown sheet to an RSF workbook (Sheet > Add Markdown Sheet) and write notes or procedures with source and preview side by side. Markdown sheets are excluded from CSV export.',
-
-    'f4.h3': 'RSF, only when you need to calculate, compare or format.',
-    'f4.p':
-      "Plain CSV can't fully hold formulas, multiple sheets, formatting or comments. Refrain Sheet doesn't force a CSV into a spreadsheet: those live in a separate .rsf document, created only by an explicit conversion, so it and the original CSV keep separate roles. The original .csv is never changed.",
-    'f4.li1': '55 functions: SUM, XLOOKUP, SUMIFS, TEXT, FILTER, UNIQUE and more',
-    'f4.li2': 'Multiple worksheets, cross-sheet references, absolute/relative refs, cycle detection',
-    'f4.li3':
-      'Filtering and a compound sort with up to 8 keys — reorders the view only, never the data or formulas',
-    'f4.li4': 'A hand-written formula engine — no eval, no new Function, no macros',
-    'f4.li5':
-      "Bold, italic, underline, text/background color and borders. Never touches a cell's value or formula results, is undoable, and is saved in the .rsf file",
-    'f4.li6': 'Auto-fit, selection statistics, CSV and XLSX export',
-    'f4.li7':
-      'Data Validation: restrict a range to a list or a numeric range, refusing violating edits with a reason',
-    'f4.li8':
-      'Conditional Formatting: auto-colors cells by comparison, duplicate values, or a two-color scale',
-    'f4.li9':
-      'Number Format: Number, Percent, or Currency display, with decimal places and a thousands separator',
-    'f4.li10':
-      'SQL Query: a local, read-only SELECT query against the worksheet, with autocomplete and saved queries',
-    'f4.li11':
-      'Compare / Diff: compares two open tabs by key column, classifying every row as added, modified, deleted or unchanged',
-    'f4.li12': 'Cell Comment: attaches a short note to a cell, independent of its value',
-    'f4.li13':
-      'Comments Panel: lists every comment for the current worksheet or the whole workbook, click an entry to jump to its cell',
-
-    'theme.eyebrow': 'DETAILS',
-    'theme.h2': 'English UI and dark theme, built in.',
-    'theme.p':
-      'Japanese and English are both first-class UI languages. The theme follows your system by default and can be pinned to light or dark. Display state never changes CSV bytes, RSF data or formula results.',
-    'theme.cap': 'English UI, dark theme. Same file, same bytes.',
-
-    'cmp.eyebrow': 'COMPARISON',
-    'cmp.h2': 'Not an Excel replacement: a tool that protects CSV handoffs.',
-    'cmp.lede':
-      'Spreadsheet apps are built to calculate, summarize and visualize, which is a different job from handing a CSV to another system. The table shows what Refrain Sheet does and what to check when you evaluate other products.',
-    'cmp.col1': 'Typical spreadsheet apps',
-    'cmp.col2': 'CSV editors (vary by product)',
-    'cmp.col3': 'Refrain Sheet',
-    'cmp.r1': 'Main purpose',
-    'cmp.r1a': 'Calculation, summaries, charts',
-    'cmp.r1b': 'Viewing and editing CSV',
-    'cmp.r1c': 'Editing and saving CSV as a data file',
-    'cmp.r2': 'Values (leading zeros, dates, long IDs)',
-    'cmp.r2a': 'May be type-converted for display or calculation',
-    'cmp.r2b': 'Varies by product and settings',
-    'cmp.r2c': 'Never rewritten by type inference',
-    'cmp.r3': 'Open and save, no edits',
-    'cmp.r3a': 'Depends on product, import method and settings',
-    'cmp.r3b': 'Varies by product and settings',
-    'cmp.r3c': 'Byte-for-byte identical to the original',
-    'cmp.r4': 'Fixing a single cell',
-    'cmp.r4a': 'Depends on product and settings',
-    'cmp.r4b': 'Varies by product and settings',
-    'cmp.r4c': 'Every byte outside the edited field is kept',
-    'cmp.r5': 'Character encodings',
-    'cmp.r5a': 'Depends on product and import method',
-    'cmp.r5b': 'Varies by product',
-    'cmp.r5c': 'Detects UTF-8, Shift_JIS / CP932 and EUC-JP; reopen or choose on save',
-    'cmp.r6': 'Where the file is processed',
-    'cmp.r6a': 'Depends on product and deployment',
-    'cmp.r6b': 'Depends on product and deployment',
-    'cmp.r6c': 'Normal CSV editing happens locally in the browser',
-    'cmp.r7': 'Setup',
-    'cmp.r7a': 'Varies by product',
-    'cmp.r7b': 'Varies by product',
-    'cmp.r7c': 'Just open it in a browser; the release is one HTML file that works over file://',
-    'cmp.note':
-      "Behaviour of typical spreadsheet apps and other CSV editors varies by product, version and settings. Refrain Sheet's own guarantees are defined by its README and test suite.",
-
-    'sec.eyebrow': 'SECURITY',
-    'sec.h2': 'Confidential CSVs stay on your device. Google Drive only when you need it.',
-    'sec.lede':
-      'CSV files are read, edited and saved inside the browser. The app talks to Google only when you use the Google Drive integration. The analytics on this introduction page (only with your consent) are separate from the app that handles your CSVs.',
-    'sec.c1h': 'Normal CSV editing stays on your device',
+      'See unclosed quotes and mismatched field counts with their row and column, without any automatic repair.',
+    'sec.h2': 'Keep confidential data on your own computer.',
+    'sec.lead':
+      "Nothing uploaded, nothing executed, nothing hidden. Everything you need to check it against your company's policies.",
+    'sec.c1h': 'Nothing is uploaded',
     'sec.c1p':
-      "Files are read in the browser and saved to your own device. No CDN, external fonts, analytics or telemetry. The downloadable release sets connect-src 'none' in its CSP, blocking network access outright.",
-    'sec.c2h': 'Nothing is executed',
-    'sec.c2p':
-      'Cell content is never interpreted as HTML; there is no innerHTML, eval, new Function or macro anywhere. Formulas run in a sandboxed engine.',
-    'sec.c3h': 'Supply chain discipline',
+      'Files are processed inside your browser. Nothing is sent anywhere unless you choose to use Google Drive.',
+    'sec.c2h': 'No scripts are run',
+    'sec.c2p': 'Cell contents are always shown as plain text. HTML or scripts hidden in a file never run.',
+    'sec.c3h': 'Open source',
     'sec.c3p':
-      'Four production dependencies with zero transitive dependencies, enforced lockfiles, install scripts disabled, and releases shipped with SHA-256 checksums, an SBOM and signed build provenance.',
-
-    'start.eyebrow': 'GET STARTED',
-    'start.h2': 'Three steps.',
-    'start.s1h': 'Open it in a browser',
-    'start.s1p': 'Just open the hosted web app. No installation, no account, no setup.',
-    'start.s2h': 'Drag and drop a CSV',
-    'start.s2p': 'Drop files anywhere in the window; each one opens in its own tab.',
-    'start.s3h': 'Or run it offline',
-    'start.s3p': 'Download a release ZIP, extract it, and double-click index.html. It works over file://.',
-    'start.cta': 'Open the app',
-    'start.cta2': 'All releases',
-
+      'Open source under the MIT license, so anyone can inspect it. Distributed as a single HTML file.',
+    'sec.c4h': 'The offline version never connects',
+    'sec.c4p':
+      'The downloadable offline version blocks every network connection with its Content Security Policy.',
+    'sec.c5h': 'Few dependencies, known origins',
+    'sec.c5p':
+      'Third-party libraries are kept to a minimum and no install scripts are run. Releases come with SHA-256 checksums, an SBOM and signed build provenance.',
     'faq.h2': 'Questions',
-    'faq.q1': 'Is my data sent anywhere?',
-    'faq.a1':
-      'Not during normal CSV editing. Files are read inside the browser and saved back to your own device. Only when you use the Google Drive integration in the hosted app are files exchanged, at your request, directly between your browser and Google Drive. The downloadable release blocks network access at the CSP level.',
-    'faq.q2': 'Is this an Excel replacement?',
+    'faq.q10': 'Is it free?',
+    'faq.a10':
+      'Yes. It is open source under the MIT license, with no account needed. Use the web app in your browser, or download the offline version.',
+    'faq.q2': 'Is it a replacement for Excel?',
     'faq.a2':
-      'No — different purpose. Refrain Sheet fixes CSV files without damaging them; formulas and structural edits require an explicit conversion to an .rsf spreadsheet. Excel compatibility is not claimed.',
-    'faq.q3': 'How large a file can it open?',
-    'faq.a3':
-      'The default limit is 512 MiB (adjustable from 16 MiB to 2 GiB) and oversized files are refused before their bytes are read. Rendering is virtualized, but hundred-megabyte files can still feel slow.',
-    'faq.q4': 'Which encodings are supported?',
+      'No — it has a different purpose. Refrain Sheet is a lightweight spreadsheet for handling your data without breaking it, and Excel compatibility is not claimed. CSV files are edited as they are; for formulas and formatting you convert to an RSF spreadsheet.',
+    'faq.q8': 'How do I keep leading zeros in a CSV file?',
+    'faq.a8':
+      'You don’t have to do anything. Values are never type-inferred, so "0123" or a number of 16 digits or more is handled as the text it is written as and written back unchanged on save. Whether the receiving system accepts that value depends on that system, so check its specification beforehand.',
+    'faq.q4': 'Will a Shift_JIS CSV turn into garbled text?',
     'faq.a4':
-      'UTF-8 (with or without BOM), Shift_JIS / CP932 and EUC-JP. UTF-16 and ISO-2022-JP are not supported in this release; such files still open with a best-effort interpretation and a warning, and their bytes remain untouched.',
-    'faq.q5': 'Can it always overwrite the original file?',
-    'faq.a5':
-      'In Chromium-based browsers, yes, via the File System Access API. Firefox and Safari fall back to a download save, and the app tells you which kind of save happened.',
+      'No. The encoding is detected when the file opens, and the file is written back in the same encoding; if the detection is wrong, you can reopen the file with a chosen encoding. Supported encodings are UTF-8 (with or without BOM), Shift_JIS / CP932 and EUC-JP. UTF-16 and ISO-2022-JP are not supported; such files still open with a best-effort interpretation and a warning, and their bytes remain untouched.',
     'faq.q6': 'Can I add formulas or colors while keeping the file a CSV?',
     'faq.a6':
-      "Not in the CSV itself. Formulas and formatting (bold, color, borders) are RSF spreadsheet features that require an explicit conversion to RSF. Formatting is never embedded in the original CSV, and it never changes a cell's value, formula results or CSV export.",
-    'faq.q7': 'Does this introduction page itself use analytics?',
-    'faq.a7':
-      'Only this introduction page (refrain-sheet.com) may use Google Analytics, to measure visits. It loads only if you choose "Accept" in the consent banner at the bottom of the page, and you can change that choice anytime from "Cookie settings" in the footer. The app itself (app.refrain-sheet.com), where you edit CSVs, is served separately and contains no analytics; it makes network requests only when you use the Google Drive integration.',
-    'faq.q8': 'Are leading zeros and long IDs preserved?',
-    'faq.a8':
-      'Yes. Values are never type-inferred, so "0123" or a 16-digit-plus number is handled as the text it is written as and written back unchanged on save. Whether the receiving system accepts that value is a matter of that system\'s own specification, so check it beforehand.',
-    'faq.q9': 'Can I edit a malformed CSV?',
+      'Not in the CSV itself. Formulas and formatting (bold, color, borders) are RSF spreadsheet features that require an explicit conversion to RSF. The original CSV file is not changed by the conversion, and formatting never changes a cell’s value, formula results or CSV export.',
+    'faq.q1': 'Is my data sent anywhere?',
+    'faq.a1':
+      'Not during normal editing. Files are read inside the browser and saved back to your own device. Only when you use the Google Drive integration in the web app are files exchanged, at your request, directly between your browser and Google Drive.',
+    'faq.q11': 'Can I use it on a computer that isn’t connected to the internet?',
+    'faq.a11':
+      'Yes. Download the offline version (ZIP) from the releases page, unzip it and open index.html in your browser. It works from file:// and never connects to the network.',
+    'faq.q3': 'How large a file can it open?',
+    'faq.a3':
+      'The default limit is 512 MiB (adjustable from 16 MiB to 2 GiB) and oversized files are refused before their bytes are read. Rendering is virtualized, but files of hundreds of megabytes can still feel slow.',
+    'faq.q9': 'Can I open a broken CSV file?',
     'faq.a9':
-      'You can open it. Problems such as unclosed quotes or field-count mismatches are listed with their rows and columns, and you choose whether to open the file without any automatic repair. Malformed regions are kept byte-for-byte unless you edit them, but there is no guarantee the receiving system will accept the damaged data.',
-
-    'cta.h2': 'Open one CSV you are about to re-import.',
-    'cta.p':
-      'No install and no account. Edited cells are tinted, so you can check exactly what you changed while fixing only the cells that need it.',
-    'cta.b1': 'Open a CSV in your browser',
-    'cta.b2': 'See the spec and source on GitHub',
-    'cta.badge1': 'No sign-up',
-    'cta.badge2': 'Nothing uploaded',
-    'cta.badge3': 'Try it first with a copy of your CSV',
-
-    'footer.tagline': 'A local-first, format-preserving CSV and spreadsheet editor',
+      'Yes. Problems such as unclosed quotes or field-count mismatches are listed with their rows and columns, and you choose whether to open the file without any automatic repair. Broken regions are kept byte-for-byte unless you edit them, but there is no guarantee the receiving system will accept the damaged data.',
+    'faq.q5': 'Can it overwrite the original file?',
+    'faq.a5':
+      'In Chromium-based browsers (Chrome, Edge and others), yes. Firefox and Safari save by downloading instead, and the app tells you which kind of save happened.',
+    'faq.q7': 'Does this introduction page use analytics?',
+    'faq.a7':
+      'Only this introduction page (refrain-sheet.com) may use Google Analytics, to measure visits. It loads only if you choose "Accept" in the consent banner at the bottom of the page, and you can change that choice anytime from "Cookie settings" in the footer. The app itself (app.refrain-sheet.com), where you edit CSVs, is served separately and contains no analytics.',
+    'start.h2': 'Get started in three steps.',
+    'start.s1h': 'Open it in your browser',
+    'start.s1p': 'Nothing to install, no account to create.',
+    'start.s2h': 'Drag and drop a CSV file',
+    'start.s2p': 'The encoding is checked as it opens. Your file never leaves your computer.',
+    'start.s3h': 'Edit and save',
+    'start.s3p': 'Only what you changed is changed.',
+    'start.cta1': 'Open in your browser',
+    'start.cta2': 'Download the offline version',
+    'start.cta3': 'View the source on GitHub',
+    'footer.tagline': 'A lightweight spreadsheet that edits CSV without breaking it',
     'footer.l1': 'Web app',
     'footer.l2': 'GitHub',
     'footer.l3': 'Releases',
@@ -598,12 +397,10 @@ export const I18N = {
     'footer.privacyPolicy': 'Privacy Policy',
     'footer.terms': 'Terms of Service',
     'footer.note': 'MIT License · The official introduction page for Refrain Sheet',
-
     'consent.text':
       'This page (refrain-sheet.com) uses Google Analytics to understand visits. It loads only with your consent, which you can withdraw at any time. The app itself (app.refrain-sheet.com), where you edit CSVs, contains no analytics.',
     'consent.decline': 'Decline',
     'consent.accept': 'Accept',
-
     'privacy.meta.title': 'Privacy Policy | Refrain Sheet',
     'privacy.meta.desc':
       "How Refrain Sheet's introduction page (refrain-sheet.com) and hosted app (app.refrain-sheet.com) handle data, including analytics and the Google Drive integration.",
@@ -637,7 +434,6 @@ export const I18N = {
     'privacy.contact.p':
       'For privacy questions or requests, please reach out via the GitHub Issues linked below. Developer: 0x0da160.',
     'privacy.contact.link': 'GitHub Issues',
-
     'terms.meta.title': 'Terms of Service | Refrain Sheet',
     'terms.meta.desc': "The terms for using Refrain Sheet's introduction page and hosted app.",
     'terms.h1': 'Terms of Service',

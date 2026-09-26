@@ -74,7 +74,7 @@ press-and-hold (rather than two plain taps) does not.
 A single tap-to-select must not pop the on-screen keyboard; only an action
 that actually opens an editable field (double-tap, or explicitly focusing a
 text field) should. The mechanism, shared across the grid and every dialog/
-docked-panel/Find-bar text field:
+docked-panel text field (the Find and Replace panel included):
 
 - **The technique** is to focus the field with `readOnly` set, then restore
   `readOnly` to its normal value immediately after — a standard trick for
@@ -99,7 +99,7 @@ docked-panel/Find-bar text field:
   pointer-type tracking defaults safely so that first claim is still
   treated as keyboard-safe rather than assumed to be a mouse user.
 - **Elsewhere**, `focusWithoutKeyboard` covers dialog/popover/docked-panel
-  autofocus and the Find/Replace bar's input — opening any of these on a
+  autofocus and the Find and Replace panel's input — opening any of these on a
   touch device does not pop the keyboard, but the Find field's text is
   still selected as usual once focus lands.
 - **On-device keyboard diagnostics.** Emulation does not reproduce how
@@ -125,7 +125,7 @@ docked-panel/Find-bar text field:
   a focused text control whose computed font size is under ~16px.
   `src/styles/mobile-layout.css` floors every dialog text
   input/select/textarea (including the SQL query editor and the
-  data-validation list-values field), the Find bar's input, the formula
+  data-validation list-values field), the Find and Replace panel's inputs, the formula
   bar, and the grid's cell editor/resting cells to 16px at the mobile
   breakpoint — the grid and formula bar use `max(16px, …)` against their
   own zoom-scaled font size so the floor only engages below roughly 130%
@@ -162,7 +162,8 @@ docked-panel/Find-bar text field:
 
 ## Phone-width layout adaptations
 
-`src/styles/mobile-layout.css` gates a `@media (max-width: 700px)` block
+`src/styles/mobile-layout.css` gates a `@media (max-width: 43.75em)` block (700px at the default font
+size; the design system's `--bp-md`)
 that changes layout without touching desktop-width behavior:
 
 - **The formula bar moves below the grid**, directly above the worksheet
@@ -194,25 +195,29 @@ that changes layout without touching desktop-width behavior:
   re-renders. Protection, problems, unsaved/edit state, filter/sort, and the
   selection stay visible. Desktop always shows everything and never shows
   the button.
-- **A three-row find bar** (#594): the search field with icon-only
-  previous/next/close, then the replace row, then the options with the
-  match count. The field labels become visually hidden (placeholders carry
-  them), where they used to wrap one character per line.
-- **A compact document tab row.** The close button's 36px tap target sets
-  a tab's height; the tab adds only a 2px frame around it.
-- **Dockable side panels** (Filter/Sort/Format/SQL Query/Comments/preview —
+- **A compact document tab row.** The close button's tap target
+  (`--control-h` − 4px: 32px at the touch Standard density) sets a tab's
+  height; the tab adds only a thin frame around it.
+- **Dockable side panels** (Filter/Sort/Format/SQL Query/Comments/Find and Replace/preview —
   see [view-formatting-and-panels.md](view-formatting-and-panels.md))
   default to docking at the **bottom** instead of the desktop default of
   the right edge, specifically on a narrow, portrait viewport
-  (`(max-width: 700px) and (orientation: portrait)`) — there is little
+  (`(max-width: 43.75em) and (orientation: portrait)`) — there is little
   usable width for a left/right split there. This is only the _default_:
   once a user explicitly picks a dock side from the panel's header
   switcher, that explicit choice is remembered for the rest of the session
   regardless of viewport, exactly as on desktop.
-- Tap targets grow at this width: tabs, worksheet-strip tabs, menu items,
+- Tap targets at this width: tabs, worksheet-strip tabs, menu items,
   dialog buttons, and the menu-bar toggle all carry explicit minimum
-  height/width floors (36–44px) so padding trims do not shrink the actual
-  touch target.
+  height/width floors taken from the density tokens, so padding never
+  decides a target's size and **View > Density** works on a phone: the
+  menu toggle uses `--bar-h`, menu items `--control-h` + 4px, dialog
+  buttons and welcome actions `--field-h`, and items in a strip of many —
+  document-tab close buttons, worksheet-strip tabs and the status bar's
+  Details button — `--control-h` − 4px (never under 28px). On a coarse
+  pointer that is 32 / 40 / 48px for bars and 28 / 36 / 44px for controls
+  (Compact / Standard / Comfortable); Standard is below the 44px touch
+  size on purpose so more rows fit.
 - Toasts sit at the top-right on every screen size, away from where a
   phone's thumb rests and where the on-screen keyboard first appears.
 - Narrow dialog rows (label + select, the Filter condition row, the Sort

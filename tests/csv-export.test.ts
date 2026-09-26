@@ -34,6 +34,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -318,11 +319,10 @@ describe('exportCsv command flow', () => {
   it('derives the default filename by replacing .rcsv with .csv', async () => {
     const ui = stubUi();
     interceptDownload();
-    let downloadName = '';
     const notifySpy = ui.notify as ReturnType<typeof vi.fn>;
     const { commands, tab } = rcsvSetup([['1']], ui);
     expect(await commands.exportCsv(tab)).toBe(true);
-    downloadName = String(notifySpy.mock.calls[0][0]);
+    const downloadName = String(notifySpy.mock.calls[0][0]);
     expect(downloadName).toContain('data.csv');
   });
 });

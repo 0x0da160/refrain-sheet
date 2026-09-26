@@ -1,0 +1,118 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Base page layout ----------
+   Box model, the one-viewport app frame, and the element resets the app
+   relies on. Colours come from the design-system tokens (see
+   tailwind-token-bridge.css). */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  color: var(--fg-default);
+  background: var(--bg-page);
+  /* The app fills exactly one viewport (see #app below); this is a backstop
+     against any element accidentally pushing the whole page into a
+     horizontal or vertical scrollbar, since every scrollable surface here is
+     meant to scroll within itself (the grid, the tab strips, dialogs). */
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  /* On phones, 100vh is the height with the browser's address bar hidden, so
+     a static 100vh box can sit partly below the fold while the bar is shown.
+     100dvh tracks the actually-visible viewport instead; browsers without
+     support keep the 100vh value above. */
+  height: 100dvh;
+  /* Disables the double-tap-to-zoom gesture across the whole app. `manipulation`
+     still permits pinch-zoom and normal panning, so it only removes the
+     unwanted zoom, never the accessibility zoom a user asks for. An element
+     that needs a different touch gesture (e.g. the grid's drag handles) sets
+     its own more specific touch-action, which still takes precedence. */
+  touch-action: manipulation;
+}
+
+/* While an on-screen keyboard is open, the app fits the visible area rather
+   than the full viewport, so the top of the app stays on screen when iOS
+   Safari pushes the page up. `installKeyboardViewportFix` (src/ui/popup.ts)
+   sets the attribute and both properties. */
+:root[data-keyboard-open] #app {
+  position: fixed;
+  top: var(--visual-viewport-top, 0px);
+  left: 0;
+  right: 0;
+  height: var(--visual-viewport-height, 100dvh);
+}
+
+/* Everything except the menu bar and status bar (both direct `#app`
+   children, always at the true viewport top/bottom edges): the book tab
+   strip, `.app-content`, and the worksheet tab strip, stacked vertically. */
+.app-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Everything between the two tab strips (find bar, formula bar, welcome
+   screen, the sheet itself). A top/bottom-docked side panel reserves space
+   by padding this element instead of `.app-body`, so it insets below the
+   book tab strip / above the worksheet tab strip instead of covering either
+   one — see `reserveAppEdge`, `src/ui/dialogs/shared.ts` (#399/#541). */
+.app-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+@layer base {
+  button {
+    font: inherit;
+    color: inherit;
+  }
+}
+
+/* Lucide icons (src/ui/icon.ts) are drawn on a 24-unit grid at 16-24px, which
+   would scale Lucide's 2-unit stroke to 1.33-2px. A non-scaling stroke keeps
+   the rendered line at the design system's --icon-stroke (1.5px) at every
+   size (design system D-15). */
+.ui-icon :is(path, line, polyline, polygon, rect, circle, ellipse) {
+  vector-effect: non-scaling-stroke;
+  stroke-width: var(--icon-stroke);
+}
+
+/* Press feedback. A control acknowledges the press itself the moment the
+   pointer goes down, before the action it triggers has run, so even a slow
+   action never reads as a missed click — and on touch, where hover never
+   applies, this is the only immediate response a tap gets. The tint is
+   derived from the control's own text colour, so it reads in every theme
+   and on the accent-filled primary button alike. */
+:is(
+    .panel-button,
+    .menu > button,
+    .menu-item,
+    .toolbar-item,
+    .menu-bar-toggle,
+    .side-panel-header-btn,
+    .rich-toolbar-button,
+    .header-filter-button,
+    .toast-close,
+    .tab-close,
+    .markdown-preview-panel-close,
+    .recent-file
+  ):active:not(:disabled) {
+  box-shadow: inset 0 0 0 100vmax color-mix(in srgb, currentColor 12%, transparent);
+}

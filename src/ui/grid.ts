@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-import { Plus } from 'lucide';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, ListFilter, Plus } from 'lucide';
 import type { AppState, FormulaRefTarget, Tab } from '../app/app-state';
 import { isGridSurface, LARGE_OP_CELLS, type Commands } from '../app/commands';
 import { getLocale, t } from '../app/i18n';
 import { getEditHints, nextZoomLevel } from '../app/settings';
+import { dateStampKeyOf, localDateStamp } from '../app/shortcuts';
 import {
   BORDER_WIDTH_PX,
   borderSideValue,
@@ -12,6 +13,7 @@ import {
 } from '../core/cell-style';
 import { normalizeRange, rangeContains, type CellRange } from '../core/clipboard';
 import { ColOffsetIndex } from '../core/col-offset-index';
+import { runsForText, type TextRun } from '../core/rich-text';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import type { LosslessDocument } from '../core/lossless-document';
 import { RowHeightIndex } from '../core/row-height-index';
@@ -24,7 +26,10 @@ import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 import { onKeyboardOpenChange, onKeyboardResize } from './popup';
 import { centeredScrollOffset } from './grid/center-scroll';
-import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
+import { FormulaAutocomplete, FormulaFieldRef, isRefToggleKey } from './formula-autocomplete';
+import { findDataEdge } from './grid/data-edge';
+import { pageStep } from './grid/page-step';
+import { MOVE_EDGE_PX, onRangeEdge } from './grid/range-edge';
 import type { FormulaLivePreview } from './formula-bar';
 import { beginsTextEntry, isComposingKey } from './ime';
 import { createIcon } from './icon';
@@ -63,6 +68,8 @@ import {
   WRAP_VERTICAL_PAD,
 } from './grid/geometry';
 import { ValidationPicker } from './validation-picker';
+import { RichCellEditor } from './rich-cell-editor';
+import { richTextNodes } from './rich-text-render';
 
 // The grid's pure helpers live in src/ui/grid/; re-exported for existing importers.
 export {
@@ -155,8 +162,9 @@ interface LayoutSignature {
   wrap: boolean;
   /** Active sheet font signature — changing it re-measures wrapped heights. */
   font: string;
-  sticky: boolean;
-  stickyCol: boolean;
+  /** Pinned row / column counts (sticky first row/column or freeze-at-selection). */
+  sticky: number;
+  stickyCol: number;
   locale: string;
   /** Spreadsheet zoom percent — changing it rescales every grid metric. */
   zoom: number;
@@ -192,6 +200,9 @@ function frameCoalesced<T>(apply: (arg: T) => void): (arg: T) => void {
     });
   };
 }
+
+/** The four arrow keys, for Ctrl+Arrow data-edge jumps. */
+const ARROW_KEYS: ReadonlySet<string> = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 
 /**
  * How long after an on-screen keyboard opens a further shrink of the visible
@@ -233,6 +244,15 @@ const DOUBLE_TAP_MS = 300;
  * long-press tolerance (10px) wrongly rejected.
  */
 const DOUBLE_TAP_SLOP_PX = 30;
+
+/** Ctrl+B / Ctrl+I / Ctrl+U (Cmd on macOS): the text property the key toggles, else null. */
+function richFormatKeyOf(event: KeyboardEvent): 'bold' | 'italic' | 'underline' | null {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) {
+    return null;
+  }
+  const key = event.key.toLowerCase();
+  return key === 'b' ? 'bold' : key === 'i' ? 'italic' : key === 'u' ? 'underline' : null;
+}
 
 /** A new grid sink textarea (see `Grid.sink`), not yet wired or mounted. */
 function createSink(): HTMLTextAreaElement {
@@ -323,6 +343,8 @@ export class Grid {
     /** The dropdown of allowed values, and the full set it picks from — see `refreshValidationPicker`. */
     picker: ValidationPicker;
     pickerValues: readonly string[] | null;
+    /** Formatting parts of the text (RSF grid worksheets only) — see `RichCellEditor`. */
+    rich: RichCellEditor | null;
   } | null = null;
   /**
    * The grid's real keyboard target: a permanently mounted, visually hidden
@@ -353,6 +375,9 @@ export class Grid {
   /** The range currently outlined as a copy source (see `setCopySource`), or
    * null when nothing is being highlighted. */
   private copySource: CellRange | null = null;
+  /** Where each tab's selection was when Escape cleared it, so the next
+   * arrow key moves on from there instead of from A1. */
+  private readonly clearedAt = new WeakMap<Tab, { row: number; col: number }>();
   /** Active whole-row / whole-column header drag, if any. */
   private headerDrag: { axis: 'row' | 'col'; anchor: number; last: number } | null = null;
   /** Active pointer reference entry into a formula editor, if any. */
@@ -460,7 +485,7 @@ export class Grid {
     document.body.append(this.refIndicator);
     this.canvas = el('div', { className: 'vgrid-canvas' });
     this.headerEl = el('div', { className: 'vgrid-header', attrs: { role: 'row' } });
-    this.stickyEl = el('div', { className: 'vgrid-stickyrow', attrs: { role: 'row' } });
+    this.stickyEl = el('div', { className: 'vgrid-sticky', attrs: { role: 'rowgroup' } });
     this.rowsLayer = el('div', { className: 'vgrid-rows' });
     this.emptyEl = el('div', { className: 'grid-empty' });
     this.addRowButton = el(
@@ -620,7 +645,12 @@ export class Grid {
     sink.addEventListener('keydown', (event) => this.sinkKeyDown(event));
     sink.addEventListener('input', () => this.sinkInput());
     sink.addEventListener('click', () => this.editor?.autocomplete.update());
-    sink.addEventListener('blur', () => this.commitEditor());
+    sink.addEventListener('blur', (event) => {
+      // Moving to the formatted field or its toolbar keeps the edit open.
+      if (!this.editor?.rich?.owns(event.relatedTarget)) {
+        this.commitEditor();
+      }
+    });
   }
 
   /**
@@ -788,41 +818,121 @@ export class Grid {
     this.heightsVersion += 1;
   }
 
-  private stickyEnabled(tab: Tab): boolean {
-    // A first row hidden by the active filter is never pinned (pinning it
-    // would show a row the filter hides).
-    return this.state.stickyFirstRow && tab.doc.rowCount > 0 && !this.hiddenOf(tab)?.has(0);
+  /**
+   * Display slots `[0, n)` that stay pinned below the column header (the
+   * sticky first row, or every row above a freeze-at-selection point). With
+   * nothing frozen, the first row still follows the scroll on its own (see
+   * `autoPinnedRow`). A frozen area whose rows are all hidden by the active
+   * filter pins nothing (pinning them would show rows the filter hides).
+   */
+  private frozenRowCount(tab: Tab): number {
+    const frozen = this.state.frozenPanes(tab).rows;
+    if (frozen === 0 && !this.firstRowHasValues(tab)) {
+      return 0; // an empty first row has nothing worth following the scroll
+    }
+    let n = Math.max(1, frozen);
+    // Keep at least one scrollable row on screen: a freeze point far down the
+    // sheet pins only as many rows as fit (never measured without a layout).
+    const viewH = this.element.clientHeight;
+    if (viewH > 0) {
+      n = Math.min(n, Math.max(1, Math.floor(viewH / this.rowH(tab)) - 2));
+    }
+    return n > 0 && this.pinnedSlots(tab, n).length > 0 ? n : 0;
   }
 
-  /** First document row of the scrolling region. */
-  private scrollRowBase(tab: Tab): number {
-    return this.stickyEnabled(tab) ? 1 : 0;
+  /** Whether the first displayed row has any non-empty cell (the automatic pin's condition). */
+  private firstRowHasValues(tab: Tab): boolean {
+    const doc = tab.doc;
+    if (doc.rowCount === 0) {
+      return false;
+    }
+    const row = this.docRowOf(tab, 0);
+    const fields = doc.fieldCount(row);
+    for (let c = 0; c < fields; c++) {
+      if (doc.getValue(row, c) !== '') {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
-   * Height of the sticky overlays (header + optional pinned first row). Both
-   * overlays are always single-line so the pinned area stays a stable height
-   * even when data rows below wrap to several lines.
+   * Whether the pinned first row is only the automatic one (no row frozen by
+   * the user): it looks like an ordinary row, with no boundary rule.
    */
-  private overlayHeight(tab: Tab): number {
-    return this.rowH(tab) * (this.stickyEnabled(tab) ? 2 : 1);
+  private autoPinnedRow(tab: Tab): boolean {
+    return this.state.frozenPanes(tab).rows === 0;
   }
 
-  private stickyColEnabled(tab: Tab): boolean {
-    return this.state.stickyFirstColumn && tab.doc.columnCount > 0;
+  /** Pinned-row count, negated for the automatic first row (a layout-signature input). */
+  private rowPinSignature(tab: Tab): number {
+    const n = this.frozenRowCount(tab);
+    return this.autoPinnedRow(tab) ? -n : n;
+  }
+
+  /** The visible (not filtered-out) display slots among the first `n`. */
+  private pinnedSlots(tab: Tab, n = this.frozenRowCount(tab)): number[] {
+    const hidden = this.hiddenOf(tab);
+    const slots: number[] = [];
+    for (let slot = 0; slot < n; slot++) {
+      if (!hidden?.has(this.docRowOf(tab, slot))) {
+        slots.push(slot);
+      }
+    }
+    return slots;
+  }
+
+  /** First display slot of the scrolling region. */
+  private scrollRowBase(tab: Tab): number {
+    return this.frozenRowCount(tab);
+  }
+
+  /** Height of the sticky overlays: the single-line column header plus the pinned rows. */
+  private overlayHeight(tab: Tab): number {
+    return this.rowH(tab) + this.pinnedHeight(tab);
+  }
+
+  /** Total height of the pinned rows (each at its own, possibly wrapped, height). */
+  private pinnedHeight(tab: Tab): number {
+    const idx = this.heightIndex(tab);
+    let h = 0;
+    for (const slot of this.pinnedSlots(tab)) {
+      h += idx.heightOf(slot);
+    }
+    return h;
+  }
+
+  /** Columns `[0, n)` that stay pinned right of the row numbers. */
+  private frozenColCount(tab: Tab): number {
+    const n = this.state.frozenPanes(tab).cols;
+    // Like rows: pin only as many columns as leave one scrollable column.
+    const viewW = this.element.clientWidth - this.headW(tab);
+    if (n <= 1 || viewW <= 0) {
+      return n;
+    }
+    let fit = 1;
+    while (fit < n && this.colOffset(tab, fit + 1) + COL_WIDTH * this.zoomOf(tab) <= viewW) {
+      fit += 1;
+    }
+    return fit;
   }
 
   /** First document column of the horizontally scrolling region. */
   private scrollColBase(tab: Tab): number {
-    return this.stickyColEnabled(tab) ? 1 : 0;
+    return this.frozenColCount(tab);
+  }
+
+  /** Width of the pinned columns (not counting the row-number column). */
+  private frozenColsWidth(tab: Tab): number {
+    return this.colOffset(tab, this.frozenColCount(tab));
   }
 
   /**
-   * Width of the sticky horizontal overlay (row headers + optional pinned
-   * first column) that the scrollable column region starts after.
+   * Width of the sticky horizontal overlay (row headers + pinned columns)
+   * that the scrollable column region starts after.
    */
   private overlayWidth(tab: Tab): number {
-    return this.headW(tab) + (this.stickyColEnabled(tab) ? this.colWidth(tab, 0) : 0);
+    return this.headW(tab) + this.frozenColsWidth(tab);
   }
 
   /** Rendered pixel width of a column (per-tab override or default, zoomed). */
@@ -953,8 +1063,8 @@ export class Grid {
       cols: tab.doc.columnCount,
       wrap: this.state.wrapCells,
       font: this.fontSignature(),
-      sticky: this.stickyEnabled(tab),
-      stickyCol: this.stickyColEnabled(tab),
+      sticky: this.rowPinSignature(tab),
+      stickyCol: this.frozenColCount(tab),
       locale: getLocale(),
       zoom: tab.zoom,
       hidden: this.hiddenOf(tab),
@@ -978,6 +1088,16 @@ export class Grid {
       a.locale === b.locale &&
       a.zoom === b.zoom &&
       a.hidden === b.hidden
+    );
+  }
+
+  /**
+   * Whether the pinned row/column counts still match the rendered layout (a
+   * grid resize can change how many fit without any other layout input).
+   */
+  private samePins(tab: Tab): boolean {
+    return (
+      this.layout?.sticky === this.rowPinSignature(tab) && this.layout.stickyCol === this.frozenColCount(tab)
     );
   }
 
@@ -1224,7 +1344,7 @@ export class Grid {
     schedule(() => {
       this.scrollScheduled = false;
       const tab = this.state.activeTab;
-      if (!tab || tab.doc !== this.lastDoc) {
+      if (!tab || tab.doc !== this.lastDoc || this.windowCoversViewport(tab)) {
         return;
       }
       this.render(tab);
@@ -1286,34 +1406,61 @@ export class Grid {
     });
   }
 
-  private computeWindow(tab: Tab): RenderWindow {
+  /**
+   * The display slots and columns actually on screen, without overscan:
+   * `[first, last)` rows and `[firstCol, lastCol)` columns, each clamped to
+   * the scrolling region's start.
+   */
+  private viewportSpan(tab: Tab): { first: number; last: number; firstCol: number; lastCol: number } {
     const idx = this.heightIndex(tab);
-    const overlay = this.overlayHeight(tab);
-    const viewH = Math.max(0, this.element.clientHeight - overlay);
+    const viewH = Math.max(0, this.element.clientHeight - this.overlayHeight(tab));
     const viewW = Math.max(0, this.element.clientWidth - this.overlayWidth(tab));
     const scrollTop = this.element.scrollTop;
     const scrollLeft = this.element.scrollLeft;
     const rowCount = tab.doc.rowCount;
     const startRow = this.scrollRowBase(tab);
-    const startCol = this.scrollColBase(tab);
-    const totalCols = Math.max(1, tab.doc.columnCount);
     // Row window from the height index: the scroll layer's content origin is
     // the top of the first scroll row, so add its offset to scrollTop. With a
     // uniform (unwrapped) index this reduces exactly to floor(scrollTop / H).
     const originY = idx.offsetOf(startRow);
     const first = Math.max(startRow, idx.rowAtOffset(originY + scrollTop, rowCount));
     const last = idx.rowAtOffset(originY + scrollTop + viewH, rowCount) + 1;
-    const rowStart = Math.max(startRow, first - OVERSCAN_ROWS);
-    const rowEnd = Math.min(rowCount, last + OVERSCAN_ROWS);
     // Columns have per-column widths; the cached offset index answers the
     // visible range in O(log n) instead of walking every column from 0.
     const colIdx = this.colOffsetIndex(tab);
-    const firstVisible = colIdx.colAtOrBefore(scrollLeft);
-    const limit = scrollLeft + viewW;
-    const lastVisible = colIdx.colAtOrAfter(limit);
-    const colStart = Math.max(startCol, firstVisible - OVERSCAN_COLS);
-    const colEnd = Math.min(totalCols, lastVisible + OVERSCAN_COLS);
+    // Pinned columns sit over the start of the scrolled band, and the band
+    // itself runs to the right edge of everything past the row numbers.
+    const firstCol = Math.max(
+      this.scrollColBase(tab),
+      colIdx.colAtOrBefore(scrollLeft + this.frozenColsWidth(tab)),
+    );
+    const lastCol = colIdx.colAtOrAfter(scrollLeft + viewW + this.frozenColsWidth(tab));
+    return { first, last, firstCol, lastCol };
+  }
+
+  private computeWindow(tab: Tab): RenderWindow {
+    const { first, last, firstCol, lastCol } = this.viewportSpan(tab);
+    const rowStart = Math.max(this.scrollRowBase(tab), first - OVERSCAN_ROWS);
+    const rowEnd = Math.min(tab.doc.rowCount, last + OVERSCAN_ROWS);
+    const colStart = Math.max(this.scrollColBase(tab), firstCol - OVERSCAN_COLS);
+    const colEnd = Math.min(Math.max(1, tab.doc.columnCount), lastCol + OVERSCAN_COLS);
     return { rowStart, rowEnd, colStart, colEnd, heights: this.heightsVersion };
+  }
+
+  /**
+   * True when the rendered window (overscan included) still covers every row
+   * and column on screen, so a scroll step needs no DOM work at all: the rows
+   * are absolutely positioned inside the scrolled canvas and the headers and
+   * pinned cells are CSS-sticky. Scrolling then rebuilds the window once per
+   * overscan's worth of rows instead of on every row boundary crossed.
+   */
+  private windowCoversViewport(tab: Tab): boolean {
+    const win = this.window;
+    if (win === null || win.heights !== this.heightsVersion || !this.samePins(tab)) {
+      return false;
+    }
+    const { first, last, firstCol, lastCol } = this.viewportSpan(tab);
+    return first >= win.rowStart && last <= win.rowEnd && firstCol >= win.colStart && lastCol <= win.colEnd;
   }
 
   private sameWindow(a: RenderWindow | null, b: RenderWindow): boolean {
@@ -1374,7 +1521,7 @@ export class Grid {
       win = this.computeWindow(tab);
       this.scheduleWrapPass(tab, measurer);
     }
-    if (this.sameWindow(this.window, win)) {
+    if (this.sameWindow(this.window, win) && this.samePins(tab)) {
       this.paintWindowCells(tab);
       this.refreshSelection();
       this.refreshFormulaRefs();
@@ -1418,10 +1565,10 @@ export class Grid {
     this.headerEl.style.width = `${totalW}px`;
     this.headerEl.style.height = `${this.rowH(tab)}px`;
     this.headerEl.append(this.buildCorner(tab));
-    if (this.stickyColEnabled(tab)) {
-      const pinnedHead = this.buildColumnHeaderCell(tab, 0, true);
-      pinnedHead.classList.add('colpin');
-      pinnedHead.style.left = `${this.headW(tab)}px`;
+    const frozenCols = this.frozenColCount(tab);
+    for (let c = 0; c < frozenCols; c++) {
+      const pinnedHead = this.buildColumnHeaderCell(tab, c, true);
+      this.pinColumnCell(tab, pinnedHead, c, frozenCols);
       this.headerEl.append(pinnedHead);
     }
     const headSpacer = el('div', { className: 'vspacer', attrs: { 'aria-hidden': 'true' } });
@@ -1431,19 +1578,33 @@ export class Grid {
       this.headerEl.append(this.buildColumnHeaderCell(tab, c, false));
     }
 
-    // ----- Sticky first record row (optional, single-line, distinct) -----
+    // ----- Pinned record rows (optional, single-line, distinct) -----
     clearChildren(this.stickyEl);
-    if (this.stickyEnabled(tab)) {
+    const pinned = this.pinnedSlots(tab);
+    const autoPinned = this.autoPinnedRow(tab);
+    this.stickyEl.classList.toggle('auto', autoPinned);
+    if (pinned.length > 0) {
       this.stickyEl.hidden = false;
       this.stickyEl.style.width = `${totalW}px`;
-      this.stickyEl.style.height = `${this.rowH(tab)}px`;
+      this.stickyEl.style.height = `${this.pinnedHeight(tab)}px`;
       this.stickyEl.style.top = `${this.rowH(tab)}px`;
-      this.stickyEl.dataset.row = '0';
-      this.stickyEl.setAttribute('aria-rowindex', '2');
-      this.buildRowCells(tab, this.stickyEl, 0, win, true);
+      for (const slot of pinned) {
+        const row = this.docRowOf(tab, slot);
+        const rowEl = el('div', {
+          className: `vgrid-stickyrow${slot % 2 === 1 ? ' alt' : ''}`,
+          attrs: { role: 'row', 'data-row': String(row), 'aria-rowindex': String(slot + 2) },
+        });
+        const height = idx.heightOf(slot);
+        if (height > this.rowH(tab)) {
+          rowEl.classList.add('wrapped');
+        }
+        rowEl.style.width = `${totalW}px`;
+        rowEl.style.height = `${height}px`;
+        this.buildRowCells(tab, rowEl, row, win, !autoPinned);
+        this.stickyEl.append(rowEl);
+      }
     } else {
       this.stickyEl.hidden = true;
-      delete this.stickyEl.dataset.row;
     }
 
     // ----- Virtualized data rows (variable height) -----
@@ -1524,15 +1685,13 @@ export class Grid {
    * Measured pixel height of a data row: the tallest of its cells' wrapped
    * heights, each measured against that cell's own column width (a formula
    * cell contributes its displayed result). Only rows whose content genuinely
-   * needs more than one visual line exceed the single-line height. The pinned
-   * sticky row is always single-line.
+   * needs more than one visual line exceed the single-line height. Pinned
+   * rows wrap like any other row, so the first row looks the same whether or
+   * not it currently follows the scroll.
    */
   private computeRowHeight(tab: Tab, row: number, measure: WrapMeasure, chrome: number): number {
     if (this.hiddenOf(tab)?.has(row)) {
       return 0; // filtered out: the row's band collapses entirely
-    }
-    if (this.stickyEnabled(tab) && row === 0) {
-      return this.rowH(tab);
     }
     const doc = tab.doc;
     const fields = doc.fieldCount(row);
@@ -1558,7 +1717,12 @@ export class Grid {
     idx: RowHeightIndex,
   ): void {
     let changed = false;
+    // The pinned rows are on screen too, above the scrolled window.
+    const slots = [...this.pinnedSlots(tab)];
     for (let slot = win.rowStart; slot < win.rowEnd; slot++) {
+      slots.push(slot);
+    }
+    for (const slot of slots) {
       const row = this.docRowOf(tab, slot);
       if (idx.set(slot, this.computeRowHeight(tab, row, m.measure, m.chrome))) {
         changed = true;
@@ -1624,9 +1788,6 @@ export class Grid {
       const ok = await forEachIndexSliced(
         total,
         (slot) => {
-          if (slot < startRow) {
-            return;
-          }
           const row = this.docRowOf(tab, slot);
           if (idx.set(slot, this.computeRowHeight(tab, row, m.measure, m.chrome))) {
             dirty = true;
@@ -1707,12 +1868,14 @@ export class Grid {
     const filter = doc.kind === 'rsf' ? doc.filter : null;
     const head = el('div', {
       className: `vcell vhead${pinned ? ' pinned' : ''}`,
-      text: pinned ? `📌 ${columnLabel(c)}` : columnLabel(c),
+      text: columnLabel(c),
       attrs: {
         role: 'columnheader',
         'data-colhead': String(c),
         'aria-colindex': String(c + 2),
-        title: pinned ? t('grid.stickyColTitle') : t('grid.colTitle', { letter: columnLabel(c), n: c + 1 }),
+        title: pinned
+          ? t('grid.stickyColTitle', { letter: columnLabel(c) })
+          : t('grid.colTitle', { letter: columnLabel(c), n: c + 1 }),
       },
     });
     head.style.width = `${this.colWidth(tab, c)}px`;
@@ -1720,7 +1883,9 @@ export class Grid {
     // accessible filter button in its header; columns that carry criteria
     // show it filled. The button dispatches the same shared filter command
     // as the menu and context menu.
-    if (filter && c >= filter.left && c <= filter.right) {
+    // With a header row, the buttons sit in the header row's own cells
+    // instead (see `headerFilterButton`).
+    if (filter && !filter.headerRow && c >= filter.left && c <= filter.right) {
       const filtered = filter.columns.some((column) => column.col === c);
       const key = filtered ? 'grid.filterButtonActive' : 'grid.filterButton';
       const filterButton = el('button', {
@@ -1853,10 +2018,12 @@ export class Grid {
     const win = this.window;
     let clipped = false;
     if (tab && win && ranges.length > 0) {
+      // The window's slots already start past the pinned rows; while it sits
+      // right below them, the pinned rows extend the visible band to the top.
       const base = this.scrollRowBase(tab);
       clipped = formulaRefsExceedViewport(ranges, {
-        firstRow: base + win.rowStart,
-        lastRow: base + win.rowEnd - 1,
+        firstRow: win.rowStart === base ? 0 : win.rowStart,
+        lastRow: win.rowEnd - 1,
         colStart: win.colStart,
         colEnd: win.colEnd,
       });
@@ -1876,19 +2043,19 @@ export class Grid {
     const doc = tab.doc;
     const head = el('div', {
       className: `vcell vrowhead${pinned ? ' pinned' : ''}`,
-      text: pinned ? `📌 ${row + 1}` : String(row + 1),
+      text: String(row + 1),
       attrs: { role: 'rowheader', 'data-rowhead': String(row), 'aria-colindex': '1' },
     });
     if (pinned) {
-      head.setAttribute('title', t('grid.stickyRowTitle'));
+      head.setAttribute('title', t('grid.stickyRowTitle', { n: row + 1 }));
     }
     head.style.width = `${this.headW(tab)}px`;
     rowEl.append(head);
     const fieldCount = doc.fieldCount(row);
-    if (this.stickyColEnabled(tab)) {
-      const pinCell = this.buildDataCell(tab, row, 0, fieldCount);
-      pinCell.classList.add('colpin');
-      pinCell.style.left = `${this.headW(tab)}px`;
+    const frozenCols = this.frozenColCount(tab);
+    for (let c = 0; c < frozenCols; c++) {
+      const pinCell = this.buildDataCell(tab, row, c, fieldCount);
+      this.pinColumnCell(tab, pinCell, c, frozenCols);
       rowEl.append(pinCell);
     }
     const originX = this.colOffset(tab, this.scrollColBase(tab));
@@ -1898,6 +2065,13 @@ export class Grid {
     for (let c = win.colStart; c < win.colEnd; c++) {
       rowEl.append(this.buildDataCell(tab, row, c, fieldCount));
     }
+  }
+
+  /** Make a cell of pinned column `c` stick right of the row numbers (and the pinned columns before it). */
+  private pinColumnCell(tab: Tab, cell: HTMLElement, c: number, frozenCols: number): void {
+    cell.classList.add('colpin');
+    cell.classList.toggle('colpin-edge', c === frozenCols - 1);
+    cell.style.left = `${this.headW(tab) + this.colOffset(tab, c)}px`;
   }
 
   /** Build one data cell (or a void placeholder past the row's field count). */
@@ -1926,8 +2100,29 @@ export class Grid {
     const preview = this.formulaLivePreview;
     const value =
       preview && preview.row === row && preview.col === col ? preview.value : doc.getDisplayValue(row, col);
-    if (cell.textContent !== value) {
-      cell.textContent = value;
+    const button = this.headerFilterButton(tab, row, col);
+    const rich = this.richRuns(tab, row, col, value);
+    cell.classList.toggle('rich-text', rich !== null);
+    if (rich) {
+      // Rich text: one span per formatted part (text only, never HTML).
+      const conditionalColor =
+        doc.kind === 'rsf' ? doc.getConditionalFormatStyle(row, col)?.textColor : undefined;
+      const spans = richTextNodes(rich, doc.kind === 'rsf' ? doc.getStyle(row, col) : null, conditionalColor);
+      // One wrapper, so a wrapped row's flex cell lays the parts out as one
+      // run of text rather than as side-by-side flex items.
+      const body = el('span', { className: 'rich-text-body' }, spans);
+      cell.replaceChildren(body, ...(button ? [button] : []));
+      cell.classList.toggle('has-filter-button', button !== null);
+    } else if (button) {
+      // A header-row filter cell: its text node plus the button (the text
+      // stays the first child, so caret hit-testing keeps working).
+      cell.replaceChildren(value, button);
+      cell.classList.add('has-filter-button');
+    } else {
+      cell.classList.remove('has-filter-button');
+      if (cell.textContent !== value || cell.childElementCount > 0) {
+        cell.textContent = value;
+      }
     }
     if (doc.kind === 'csv') {
       const field = doc.getField(row, col);
@@ -1967,7 +2162,106 @@ export class Grid {
         cell.removeAttribute('title');
       }
       this.paintCellStyle(cell, doc, row, col);
+      if (rich) {
+        // Each part carries its own underline; a cell-wide one could not be
+        // switched off for a plain part.
+        cell.classList.remove('cell-underline');
+      }
     }
+  }
+
+  /**
+   * The rich-text runs to paint for a cell, or null for plain text: only on
+   * a grid worksheet, only while the runs still spell out the cell's input,
+   * and only when the cell shows that input as-is (not a formula result or
+   * a number format's rendering, and not a live formula preview).
+   */
+  private richRuns(tab: Tab, row: number, col: number, shown: string): readonly TextRun[] | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || doc.activeSheet.kind !== 'grid') {
+      return null;
+    }
+    const runs = doc.getStyle(row, col)?.runs;
+    if (!runs) {
+      return null;
+    }
+    const input = doc.getValue(row, col);
+    return input === shown ? runsForText(runs, input) : null;
+  }
+
+  /**
+   * The filter button of a header-row cell of the active filter range, or
+   * null for any other cell. Shows whether the column narrows the rows
+   * (filled) and whether the rows are ordered by it (an arrow); opens the
+   * column menu (see `src/ui/column-menu.ts`).
+   */
+  private headerFilterButton(tab: Tab, row: number, col: number): HTMLButtonElement | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || !this.isHeaderFilterCell(tab, row, col)) {
+      return null;
+    }
+    const filter = doc.filter!;
+    const sort = doc.sort;
+    const key = sort && sort.keys[0]?.col === col ? sort.keys[0] : null;
+    const filtered = filter.columns.some((column) => column.col === col);
+    const letter = columnLabel(col);
+    const parts = [t('grid.headerFilterButton', { letter })];
+    if (filtered) {
+      parts.push(t('grid.headerFilterFiltered'));
+    }
+    if (key) {
+      parts.push(t(key.ascending ? 'grid.headerFilterSortedAsc' : 'grid.headerFilterSortedDesc'));
+    }
+    const label = parts.join(' ');
+    const button = el('button', {
+      className: `header-filter-button${filtered ? ' filtered' : ''}${key ? ' sorted' : ''}`,
+      attrs: {
+        type: 'button',
+        tabindex: '-1',
+        'data-headerfilter': String(col),
+        'aria-label': label,
+        'aria-haspopup': 'dialog',
+        title: label,
+      },
+    });
+    if (filtered) {
+      button.append(createIcon(ListFilter, 'header-filter-icon', 12));
+    }
+    if (key) {
+      button.append(
+        createIcon(key.ascending ? ArrowUpNarrowWide : ArrowDownWideNarrow, 'header-filter-icon', 12),
+      );
+    }
+    if (!filtered && !key) {
+      button.append(createIcon(ChevronDown, 'header-filter-icon', 12));
+    }
+    // Keep a press from starting a selection drag or opening the editor.
+    button.addEventListener('mousedown', (event) => event.stopPropagation());
+    button.addEventListener('dblclick', (event) => event.stopPropagation());
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      this.openColumnMenu(tab, col, button);
+    });
+    return button;
+  }
+
+  /** True for a header-row cell of the active filter range (it carries a filter button). */
+  private isHeaderFilterCell(tab: Tab, row: number, col: number): boolean {
+    const filter = tab.doc.kind === 'rsf' ? tab.doc.filter : null;
+    return (
+      filter !== null && filter.headerRow && row === filter.top && col >= filter.left && col <= filter.right
+    );
+  }
+
+  /** Open the column menu for `col` below `anchor`, then return focus to the grid. */
+  private openColumnMenu(tab: Tab, col: number, anchor: HTMLElement | null): void {
+    const r = anchor?.getBoundingClientRect();
+    const rect = r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
+    void this.commands.columnMenu(tab, col, rect).finally(() => {
+      if (this.state.activeTab === tab) {
+        this.focusGrid();
+      }
+    });
   }
 
   /** Human-readable explanation of a malformed field's structural problem(s). */
@@ -2073,8 +2367,8 @@ export class Grid {
    */
   private caretOffsetFromPoint(cell: HTMLElement, clientX: number, clientY: number): number | null {
     const doc = cell.ownerDocument;
-    let node: Node | null = null;
-    let offset = 0;
+    let node: Node | null;
+    let offset: number;
     if (typeof doc.caretPositionFromPoint === 'function') {
       const pos = doc.caretPositionFromPoint(clientX, clientY);
       if (!pos) {
@@ -2093,19 +2387,39 @@ export class Grid {
       return null;
     }
     if (node?.nodeType === Node.TEXT_NODE) {
-      // The cell's text is always exactly one text node, so this offset is
-      // already the character offset within the cell's raw value.
-      return cell.contains(node) ? offset : null;
+      if (!cell.contains(node)) {
+        return null;
+      }
+      // Plain cells hold one text node; a rich-text cell holds one per
+      // formatted part (`span.rich-run`), so add the parts before this one.
+      let before = 0;
+      for (const run of cell.querySelectorAll('.rich-run')) {
+        if (run.contains(node)) {
+          break;
+        }
+        before += run.textContent?.length ?? 0;
+      }
+      return before + offset;
     }
     if (node === cell) {
       // The hit landed on the cell element itself (e.g. past the end of a
-      // short value, or an empty cell), not inside its text node. `offset`
-      // here is a child index (0 or 1, since the cell has at most one text
-      // child) rather than a character count: 0 means "before the text", any
-      // other value means "after it".
-      return offset > 0 ? (cell.textContent?.length ?? 0) : 0;
+      // short value, or an empty cell), not inside its text. `offset` here
+      // is a child index rather than a character count: 0 means "before the
+      // text", any other value means "after it".
+      return offset > 0 ? this.cellTextLength(cell) : 0;
     }
     return null;
+  }
+
+  /** Length of a rendered cell's own text (a header filter button adds none). */
+  private cellTextLength(cell: HTMLElement): number {
+    let length = 0;
+    for (const child of cell.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE || (child as Element).classList?.contains('rich-text-body')) {
+        length += child.textContent?.length ?? 0;
+      }
+    }
+    return length;
   }
 
   /**
@@ -2155,16 +2469,7 @@ export class Grid {
       // Begin a range-move drag from the current selection (RSF only).
       const range = this.state.selectedRange(tab);
       if (range && tab.doc.kind === 'rsf') {
-        this.commitEditor();
-        this.movingRange = {
-          source: range,
-          origin: { row: range.top, col: range.left },
-          delta: { row: 0, col: 0 },
-          valid: false,
-        };
-        this.updateMovePreview(tab);
-        event.preventDefault();
-        event.stopPropagation();
+        this.beginMove(tab, range, { row: range.top, col: range.left }, event);
       }
       return;
     }
@@ -2194,6 +2499,16 @@ export class Grid {
         this.refDrag = { anchor: cell };
         refTarget.beginRef();
         refTarget.setRef(cellLabel(cell.row, cell.col));
+        return;
+      }
+    }
+    // Pressing on the selection's outer border (anywhere along it, not only
+    // the corner handle) also drags the selected cells to move them.
+    const edgeCell = event.shiftKey ? null : this.moveEdgeHit(tab, event);
+    if (edgeCell) {
+      const range = this.state.selectedRange(tab);
+      if (range) {
+        this.beginMove(tab, range, edgeCell, event);
         return;
       }
     }
@@ -2370,6 +2685,12 @@ export class Grid {
       return;
     }
     if (!this.dragging) {
+      // Hovering the selection's border shows the move cursor.
+      const hoverTab = this.state.activeTab;
+      this.element.classList.toggle(
+        'move-edge',
+        hoverTab !== null && this.moveEdgeHit(hoverTab, event) !== null,
+      );
       return;
     }
     const tab = this.state.activeTab;
@@ -2856,6 +3177,48 @@ export class Grid {
 
   // ----- Range move (drag the selection to move it) -----
 
+  /**
+   * Start a range-move drag of `source`. `origin` is the cell the drag was
+   * grabbed at, so the destination follows the pointer from there.
+   */
+  private beginMove(tab: Tab, source: CellRange, origin: { row: number; col: number }, event: Event): void {
+    this.commitEditor();
+    this.element.classList.remove('move-edge');
+    this.movingRange = { source, origin, delta: { row: 0, col: 0 }, valid: false };
+    this.updateMovePreview(tab);
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  /**
+   * The selected cell under a mouse event when the pointer sits on the
+   * selection's outer border (see `onRangeEdge`), or null. Only RSF
+   * worksheets can move ranges, and never while a cell is being edited.
+   */
+  private moveEdgeHit(tab: Tab, event: MouseEvent): { row: number; col: number } | null {
+    if (tab.doc.kind !== 'rsf' || this.editor !== null || tab.doc !== this.lastDoc) {
+      return null;
+    }
+    const range = this.state.selectedRange(tab);
+    const cellEl = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-row][data-col]');
+    if (!range || !cellEl) {
+      return null;
+    }
+    const rect = cellEl.getBoundingClientRect();
+    if (!(rect.width > 0 && rect.height > 0)) {
+      return null; // not laid out (no geometry to measure the border against)
+    }
+    const row = Number(cellEl.dataset.row);
+    const col = Number(cellEl.dataset.col);
+    const point = {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+    return onRangeEdge(range, row, col, point, MOVE_EDGE_PX * this.zoomOf(tab)) ? { row, col } : null;
+  }
+
   /** The current move destination rectangle, or null when nothing is dragging. */
   private moveDest(): CellRange | null {
     if (!this.movingRange) {
@@ -3267,7 +3630,7 @@ export class Grid {
       return;
     }
     const slot = this.state.sortSlot(tab, target.row);
-    if (!(this.stickyEnabled(tab) && slot === 0)) {
+    if (slot >= this.scrollRowBase(tab)) {
       const idx = this.heightIndex(tab);
       const y = idx.offsetOf(slot) - idx.offsetOf(this.scrollRowBase(tab));
       // The scroll area is the grid minus the sticky header (and sticky
@@ -3280,6 +3643,13 @@ export class Grid {
     this.scrollCellIntoView(tab, target.row, target.col);
   }
 
+  /** Rows one PageUp / PageDown moves: a screenful at the selected row's height. */
+  private pageRows(tab: Tab): number {
+    const slot = this.state.sortSlot(tab, tab.selection?.row ?? 0);
+    const viewH = this.element.clientHeight - this.overlayHeight(tab);
+    return pageStep(viewH, this.heightIndex(tab).heightOf(slot));
+  }
+
   /** `renderIfUnmoved: false` skips the repaint when the cell was already in view. */
   private scrollCellIntoView(tab: Tab, row: number, col: number, renderIfUnmoved = true): void {
     const scrollTop = this.element.scrollTop;
@@ -3288,7 +3658,7 @@ export class Grid {
     const overlay = this.overlayHeight(tab);
     // The height index is keyed by display slot, not document row.
     const slot = this.state.sortSlot(tab, row);
-    if (!(this.stickyEnabled(tab) && slot === 0)) {
+    if (slot >= this.scrollRowBase(tab)) {
       const startRow = this.scrollRowBase(tab);
       const y = idx.offsetOf(slot) - idx.offsetOf(startRow);
       const rowH = idx.heightOf(slot);
@@ -3299,12 +3669,16 @@ export class Grid {
         this.element.scrollTop = y + rowH - viewH;
       }
     }
-    if (!(this.stickyColEnabled(tab) && col === 0)) {
-      const x = this.colOffset(tab, col);
+    const frozenCols = this.frozenColCount(tab);
+    if (col >= frozenCols) {
+      // Scrolled columns keep their natural x; the pinned columns cover the
+      // first `frozenW` pixels of the band right of the row numbers.
+      const frozenW = this.frozenColsWidth(tab);
+      const x = this.colOffset(tab, col) - frozenW;
       const w = this.colWidth(tab, col);
       const viewW = this.element.clientWidth - this.overlayWidth(tab);
       if (x < this.element.scrollLeft) {
-        this.element.scrollLeft = x;
+        this.element.scrollLeft = Math.max(0, x);
       } else if (x + w > this.element.scrollLeft + viewW) {
         this.element.scrollLeft = x + w - viewW;
       }
@@ -3351,6 +3725,43 @@ export class Grid {
   }
 
   /**
+   * Ctrl+Arrow: move (or, with Shift, extend) the selection to the edge of
+   * the data in that direction (see `findDataEdge`). Vertical moves walk
+   * visible rows in display order, so filtered-out rows are skipped and a
+   * sorted view is followed as shown.
+   */
+  private jumpToDataEdge(tab: Tab, key: string, extend: boolean): void {
+    const sel = tab.selection ?? this.clearedAt.get(tab) ?? { row: 0, col: 0 };
+    const doc = tab.doc;
+    let row = sel.row;
+    let col = sel.col;
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      const last = doc.fieldCount(row) - 1;
+      const step = key === 'ArrowRight' ? 1 : -1;
+      col = findDataEdge(
+        Math.max(0, Math.min(col, last)),
+        (c) => (c + step >= 0 && c + step <= last ? c + step : null),
+        (c) => doc.getValue(row, c) !== '',
+      );
+    } else {
+      const delta = key === 'ArrowDown' ? 1 : -1;
+      row = findDataEdge(
+        row,
+        (r) => {
+          const next = this.stepVisibleRow(tab, r, delta);
+          return next === r ? null : next;
+        },
+        (r) => col < doc.fieldCount(r) && doc.getValue(r, col) !== '',
+      );
+      col = Math.max(0, Math.min(col, doc.fieldCount(row) - 1));
+    }
+    this.commitEditor();
+    this.state.setSelection(tab, { row, col }, extend ? (tab.anchor ?? sel) : null, 'cell');
+    this.scrollCellIntoView(tab, row, col);
+    this.focusGrid();
+  }
+
+  /**
    * `entryTracking` drives the Tab-then-Enter "return to start column"
    * convention (Excel/Sheets/Calc): `'tab'` remembers `tab.tabEntryCol` as the
    * column this call started from (only if a pass is not already in
@@ -3367,7 +3778,7 @@ export class Grid {
     extend: boolean,
     entryTracking: 'tab' | 'enter' | 'reset' = 'reset',
   ): void {
-    const sel = tab.selection ?? { row: 0, col: 0 };
+    const sel = tab.selection ?? this.clearedAt.get(tab) ?? { row: 0, col: 0 };
     const row = dRow === 0 ? sel.row : this.stepVisibleRow(tab, sel.row, dRow);
     let col = entryTracking === 'enter' && tab.tabEntryCol !== null ? tab.tabEntryCol : sel.col + dCol;
     const fieldCount = tab.doc.fieldCount(row);
@@ -3472,7 +3883,34 @@ export class Grid {
     const rule = this.commands.validationAt(tab, row, col);
     const pickerValues = rule?.rule.kind === 'list' ? rule.rule.values : null;
     const picker = new ValidationPicker(input, document.body);
-    this.editor = { row, col, input, autocomplete, ref, prevRefTarget, updateRefs, picker, pickerValues };
+    // Rich text applies only to a grid worksheet of an RSF file.
+    const doc = tab.doc;
+    const rich =
+      doc.kind === 'rsf' && doc.activeSheet.kind === 'grid'
+        ? new RichCellEditor(
+            {
+              input,
+              container: this.canvas,
+              cellStyle: () => (tab.doc.kind === 'rsf' ? tab.doc.getStyle(row, col) : null),
+              navigationKey: (event) => this.editorNavigationKey(event),
+              focusLeft: () => this.commitEditor(),
+            },
+            initial === null ? runsForText(doc.getStyle(row, col)?.runs, input.value) : null,
+            initial !== null,
+          )
+        : null;
+    this.editor = {
+      row,
+      col,
+      input,
+      autocomplete,
+      ref,
+      prevRefTarget,
+      updateRefs,
+      picker,
+      pickerValues,
+      rich,
+    };
     input.focus({ preventScroll: true });
     if (initial === null) {
       // Never select-all here: that would silently replace the whole cell on
@@ -3490,6 +3928,8 @@ export class Grid {
     autocomplete.update();
     updateRefs();
     this.refreshValidationPicker(this.editor);
+    // A cell that already has formatted parts is edited showing them.
+    rich?.begin(input.selectionStart ?? input.value.length);
   }
 
   /**
@@ -3519,16 +3959,32 @@ export class Grid {
       return;
     }
     const input = editor.input;
-    if (event.key === 'Enter' && event.altKey) {
-      // Insert a literal newline at the caret (replacing any selection); this
-      // never commits, navigates, or opens a menu.
+    // Ctrl+B / Ctrl+I / Ctrl+U format the selected part of the text.
+    const richKey = richFormatKeyOf(event);
+    if (richKey && editor.rich) {
+      event.preventDefault();
+      event.stopPropagation();
+      editor.rich.toggle(richKey);
+      return;
+    }
+    if (isRefToggleKey(event) && editor.ref.toggleReference()) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    // Alt+Enter inserts a literal newline, Ctrl+; / Ctrl+Shift+; today's
+    // date / the current time, at the caret (replacing any selection); none
+    // of them commits, navigates, or opens a menu.
+    const stamp = dateStampKeyOf(event);
+    if ((event.key === 'Enter' && event.altKey) || stamp) {
       event.preventDefault();
       event.stopPropagation();
       const start = input.selectionStart ?? input.value.length;
       const end = input.selectionEnd ?? input.value.length;
-      input.setRangeText('\n', start, end, 'end');
+      input.setRangeText(stamp ? localDateStamp(stamp) : '\n', start, end, 'end');
       editor.autocomplete.update();
       editor.updateRefs();
+      editor.rich?.plainChanged();
       return;
     }
     if (editor.autocomplete.onKeyDown(event)) {
@@ -3537,12 +3993,18 @@ export class Grid {
     if (editor.picker.onKeyDown(event)) {
       return;
     }
+    this.editorNavigationKey(event);
+  }
+
+  /** Enter / Tab commit (and move), Escape cancels — for either cell editor field. */
+  private editorNavigationKey(event: KeyboardEvent): void {
     const tab = this.state.activeTab;
     if (event.key === 'Enter') {
       event.preventDefault();
       event.stopPropagation();
       this.commitEditor();
-      if (tab) {
+      // Ctrl+Enter (Cmd+Enter) commits and stays on the cell.
+      if (tab && !event.ctrlKey && !event.metaKey) {
         this.moveSelection(tab, event.shiftKey ? -1 : 1, 0, false, 'enter');
       }
     } else if (event.key === 'Tab') {
@@ -3580,6 +4042,7 @@ export class Grid {
       this.refreshValidationPicker(editor);
     }
     editor.updateRefs();
+    editor.rich?.plainChanged();
   }
 
   /** Position the sink exactly over a rendered cell (canvas coordinates). */
@@ -3633,6 +4096,7 @@ export class Grid {
   private disposeEditor(editor: NonNullable<Grid['editor']>): void {
     editor.autocomplete.dispose();
     editor.picker.dispose();
+    editor.rich?.dispose();
     editor.ref.endRef();
     if (this.state.formulaRefTarget === editor.ref) {
       this.state.formulaRefTarget = editor.prevRefTarget;
@@ -3649,11 +4113,13 @@ export class Grid {
     }
     this.editor = null;
     const tab = this.state.activeTab;
+    // Read the formatted field first: it writes its text back to the input.
+    const runs = editor.rich?.runs();
     const value = editor.input.value;
     this.disposeEditor(editor);
     this.demoteSink();
     if (tab && tab.doc === this.lastDoc) {
-      void this.commands.commitCellEdit(tab, editor.row, editor.col, value);
+      void this.commands.commitCellEdit(tab, editor.row, editor.col, value, runs);
     }
   }
 
@@ -3715,10 +4181,28 @@ export class Grid {
       return;
     }
     const mod = event.ctrlKey || event.metaKey;
-    // Every Ctrl/Cmd combination is left to the application shortcut layer
-    // (`app/shortcuts.ts`) except Ctrl+Home / Ctrl+End, which are grid
+    // Ctrl/Cmd+Arrow jumps to the edge of the data (Shift extends the
+    // selection there). Like Ctrl+Home / Ctrl+End it is grid navigation, so
+    // it is handled here rather than in `app/shortcuts.ts`.
+    if (mod && !event.altKey && ARROW_KEYS.has(event.key) && !isComposingKey(event, this.composing)) {
+      event.preventDefault();
+      this.jumpToDataEdge(tab, event.key, event.shiftKey);
+      return;
+    }
+    // Every other Ctrl/Cmd combination is left to the application shortcut
+    // layer (`app/shortcuts.ts`) except Ctrl+Home / Ctrl+End, which are grid
     // navigation (jump to A1 / the last used cell) and so belong here
     // alongside the other navigation keys below.
+    // Alt+Down on a header-row filter cell opens its column menu, the
+    // keyboard route to what the cell's button does.
+    if (event.altKey && !mod && event.key === 'ArrowDown' && tab.selection) {
+      const { row, col } = tab.selection;
+      if (this.isHeaderFilterCell(tab, row, col)) {
+        event.preventDefault();
+        this.openColumnMenu(tab, col, this.cellAt(row, col)?.querySelector('.header-filter-button') ?? null);
+        return;
+      }
+    }
     if (event.altKey || (mod && event.key !== 'Home' && event.key !== 'End')) {
       return;
     }
@@ -3753,11 +4237,11 @@ export class Grid {
         return;
       case 'PageDown':
         event.preventDefault();
-        this.moveSelection(tab, 20, 0, extend);
+        this.moveSelection(tab, this.pageRows(tab), 0, extend);
         return;
       case 'PageUp':
         event.preventDefault();
-        this.moveSelection(tab, -20, 0, extend);
+        this.moveSelection(tab, -this.pageRows(tab), 0, extend);
         return;
       case 'Home':
         event.preventDefault();
@@ -3773,11 +4257,42 @@ export class Grid {
         return;
       case 'Enter':
         event.preventDefault();
-        this.moveSelection(tab, 1, 0, false, 'enter');
+        this.moveSelection(tab, event.shiftKey ? -1 : 1, 0, false, 'enter');
         return;
+      case 'Tab': {
+        // Tab / Shift+Tab move right / left within the row. At the row's
+        // edge the key is left to the browser, so keyboard users can always
+        // Tab out of the grid (no keyboard trap).
+        const sel = tab.selection;
+        if (!sel) return;
+        const step = event.shiftKey ? -1 : 1;
+        const target = sel.col + step;
+        if (target < 0 || target >= tab.doc.fieldCount(sel.row)) return;
+        event.preventDefault();
+        this.moveSelection(tab, 0, step, false, 'tab');
+        return;
+      }
       case 'F2':
         event.preventDefault();
         if (tab.selection) this.openEditor(tab, tab.selection.row, tab.selection.col, null);
+        return;
+      case 'Escape':
+        // Escape first dismisses whatever is in progress (a copy outline, a
+        // drag — see the document-level listener); only when nothing is does
+        // it clear the cell selection itself.
+        if (
+          !tab.selection ||
+          this.copySource ||
+          this.movingRange ||
+          this.filling ||
+          this.resizing ||
+          this.dragging
+        ) {
+          return;
+        }
+        event.preventDefault();
+        this.clearedAt.set(tab, tab.selection);
+        this.state.setSelection(tab, null, null);
         return;
       case 'Delete':
       case 'Backspace':

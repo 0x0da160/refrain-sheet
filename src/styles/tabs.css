@@ -5,30 +5,35 @@
 .tab-bar {
   display: flex;
   align-items: flex-end;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-  padding: var(--space-2) var(--space-4) 0;
-  gap: var(--space-1);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-default);
+  /* The tabs are the control height less 2px and sit on the bottom rule;
+     the space above them fills the rest of the bar (5px at the standard
+     32px bar, whose 1px rule is included). */
+  padding: max(0px, calc(var(--bar-h) - var(--control-h) + 1px)) var(--space-2) 0;
+  gap: var(--space-0-5);
   overflow-x: auto;
-  min-height: var(--bar-height);
+  min-height: var(--bar-h);
 }
 
 .tab {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  border: 1px solid var(--border);
+  gap: var(--space-1-5);
+  border: 1px solid var(--border-default);
   border-bottom: none;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
-  background: var(--panel-hover);
-  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-5);
+  background: var(--bg-hover);
+  /* Height from the density (26px at standard), not from padding. */
+  min-height: calc(var(--control-h) - 2px);
+  padding: 0 var(--space-1-5) 0 var(--space-3);
   max-width: 240px;
   cursor: default;
 }
 
 .tab[aria-selected='true'] {
-  background: var(--surface);
-  font-weight: 600;
+  background: var(--bg-raised);
+  font-weight: var(--weight-bold);
   /* The book tab strip sits above the grid (bottom-open, top-rounded — see
      `.tab` above), so its active indicator belongs on the top edge, the
      mirror image of `.sheet-tab.active`'s bottom edge below the grid. */
@@ -43,7 +48,7 @@
 
 .tab .dirty-mark {
   color: var(--accent);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
 .tab .tab-source {
@@ -52,7 +57,17 @@
 }
 
 .tab .tab-source-icon {
-  color: var(--text-muted);
+  color: var(--fg-subtle);
+}
+
+/* Read-only protection (`Tab.readOnly`), mirroring the worksheet lock mark. */
+.tab .tab-lock {
+  display: flex;
+  flex: none;
+}
+
+.tab .tab-lock-icon {
+  color: var(--fg-subtle);
 }
 
 /* ----- Document tabs share the menu bar's row when they fit (#596) -----
@@ -75,7 +90,7 @@
   flex: none;
 }
 
-@media (min-width: 701px) {
+@media (width > 43.75em) {
   #app.tabs-in-menu-row {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);

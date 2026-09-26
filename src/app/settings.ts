@@ -12,11 +12,19 @@
  * whole file is held in memory while editing), the application-level
  * spreadsheet zoom (used for documents that do not carry their own — RSF
  * documents persist zoom in their container and take precedence), and the
- * editing-help tooltip preference.
+ * editing-help tooltip preference, and what Ctrl+Shift+V pastes.
+ *
+ * Zoom and wrap are layered settings (`src/core/settings-cascade.ts`):
+ * **worksheet > file > browser** — the narrowest level that specifies a value
+ * wins. The browser level ({@link getBrowserZoom}, {@link getBrowserWrap}) is
+ * this browser's default, unset unless chosen in File > Settings…. The "last
+ * used" values ({@link getSheetZoom}, {@link getWrapCells}) are not a level:
+ * they are only the fallback when no level specifies anything.
  */
 
 import { RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../core/rsf-codec';
-import { safeStorageGet, safeStorageSet } from './storage';
+import type { SheetFontId } from './sheet-font';
+import { safeStorageGet, safeStorageRemove, safeStorageSet } from './storage';
 
 const MIB = 1024 * 1024;
 
@@ -160,6 +168,55 @@ export function setWrapCellsPreference(wrap: boolean): void {
 }
 
 // ---------------------------------------------------------------------------
+// Browser-level display settings (this browser's default; files and worksheets outrank it)
+// ---------------------------------------------------------------------------
+
+const BROWSER_ZOOM_KEY = 'refrain-csv-html.browserZoom';
+const BROWSER_WRAP_KEY = 'refrain-csv-html.browserWrap';
+
+/**
+ * This browser's default zoom, used when neither the worksheet nor the file
+ * sets one; `undefined` when unset (the last-used zoom applies). **Default:
+ * unset.**
+ */
+export function getBrowserZoom(): number | undefined {
+  const stored = safeStorageGet(BROWSER_ZOOM_KEY);
+  if (stored === null || stored === '') {
+    return undefined;
+  }
+  const parsed = Number(stored);
+  return Number.isFinite(parsed) ? clampSheetZoom(parsed) : undefined;
+}
+
+/** Set (clamped) or clear (`undefined`) the browser-level zoom. */
+export function setBrowserZoom(zoom: number | undefined): void {
+  if (zoom === undefined) {
+    safeStorageRemove(BROWSER_ZOOM_KEY);
+  } else {
+    safeStorageSet(BROWSER_ZOOM_KEY, String(clampSheetZoom(zoom)));
+  }
+}
+
+/**
+ * This browser's default for wrapping long rows, used when neither the
+ * worksheet nor the file sets one; `undefined` when unset (the last-used value
+ * applies). **Default: unset.**
+ */
+export function getBrowserWrap(): boolean | undefined {
+  const stored = safeStorageGet(BROWSER_WRAP_KEY);
+  return stored === '1' ? true : stored === '0' ? false : undefined;
+}
+
+/** Set or clear (`undefined`) the browser-level wrap setting. */
+export function setBrowserWrap(wrap: boolean | undefined): void {
+  if (wrap === undefined) {
+    safeStorageRemove(BROWSER_WRAP_KEY);
+  } else {
+    safeStorageSet(BROWSER_WRAP_KEY, wrap ? '1' : '0');
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Editing-help tooltips
 // ---------------------------------------------------------------------------
 
@@ -224,6 +281,48 @@ export function getSuppressHistoryCapWarning(): boolean {
 /** Persist the suppress-history-cap-warning preference locally. */
 export function setSuppressHistoryCapWarning(suppress: boolean): void {
   safeStorageSet(SUPPRESS_HISTORY_CAP_WARNING_KEY, suppress ? '1' : '0');
+}
+
+// ---------------------------------------------------------------------------
+// Ctrl+Shift+V paste mode
+// ---------------------------------------------------------------------------
+
+/**
+ * What Ctrl+Shift+V (Cmd+Shift+V) pastes: only the copied cells' values
+ * (**default**), or only their formatting. Spreadsheets disagree on this key, so
+ * it is a preference; both commands stay on the Edit > Paste Special menu
+ * whichever one the key runs.
+ */
+export type ShiftPasteMode = 'formats' | 'values';
+
+const SHIFT_PASTE_KEY = 'refrain-csv-html.shiftPaste';
+
+/** The Ctrl+Shift+V preference; anything unrecognized reads as the default. */
+export function getShiftPasteMode(): ShiftPasteMode {
+  return safeStorageGet(SHIFT_PASTE_KEY) === 'formats' ? 'formats' : 'values';
+}
+
+/** Persist the Ctrl+Shift+V preference locally. */
+export function setShiftPasteMode(mode: ShiftPasteMode): void {
+  safeStorageSet(SHIFT_PASTE_KEY, mode);
+}
+
+/** A layered display setting in the Settings… dialog; `undefined` = not specified. */
+export interface DisplayLevelSettings {
+  zoom: number | undefined;
+  wrap: boolean | undefined;
+  font: SheetFontId | undefined;
+}
+
+/** The values the Settings… dialog edits. */
+export interface LocalSettings {
+  /** Maximum file size to open, in bytes. */
+  maxFileSize: number;
+  shiftPaste: ShiftPasteMode;
+  /** This browser's default display settings (the file's outrank them). */
+  browserDisplay: DisplayLevelSettings;
+  /** The active RSF file's display settings, or null when the active tab is not an RSF file. */
+  fileDisplay: DisplayLevelSettings | null;
 }
 
 /** Bytes -> whole MiB (rounded), for display and number inputs. */

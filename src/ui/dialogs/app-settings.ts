@@ -2,7 +2,8 @@
 import type { VersionHistoryChoice } from '../../app/commands';
 import { driveConfigured } from '../../app/drive/config';
 import { getLocale, t, type LocaleId } from '../../app/i18n';
-import { SHORTCUT_DOCS } from '../../app/shortcuts';
+import { isSheetFontId, SHEET_FONTS, sheetFontLabelKey } from '../../app/sheet-font';
+import { displayShortcutKeys, isMacPlatform, SHORTCUT_GROUPS } from '../../app/shortcuts';
 import { FUNCTION_INFOS, type FunctionCategory } from '../../core/formula';
 import {
   bytesToMiB,
@@ -10,6 +11,9 @@ import {
   clampMaxFileSize,
   MIN_MAX_FILE_SIZE,
   MAX_MAX_FILE_SIZE,
+  SHEET_ZOOM_LEVELS,
+  type DisplayLevelSettings,
+  type LocalSettings,
 } from '../../app/settings';
 import {
   DEFAULT_HISTORY_SNAPSHOT_LIMIT,
@@ -19,7 +23,7 @@ import {
 import { listTimeZones } from '../../core/timezone';
 import { APP_VERSION_DISPLAY } from '../../app/version';
 import { el } from '../dom';
-import { dialogButton, externalLink, openDialog, submitOnEnter } from './shared';
+import { dialogButton, externalLink, helpDetails, openDialog, submitOnEnter } from './shared';
 import { openVersionHistoryPreview } from './version-preview';
 
 /** Formats a stored timestamp for display, in the app's current UI language. */
@@ -54,6 +58,70 @@ const FUNCTION_CATEGORY_LABEL_KEY: Record<FunctionCategory, string> = {
 };
 
 /**
+ * The zoom, wrap, and font pickers for one level of the layered display settings
+ * (browser or file). An empty value means "not specified" — the next level
+ * decides. `read` returns the level's values as currently picked.
+ */
+function displayLevelFields(
+  idPrefix: string,
+  current: DisplayLevelSettings,
+  unsetKey: string,
+  fontUnsetKey: string,
+): { rows: HTMLElement[]; read: () => DisplayLevelSettings } {
+  const zoomId = `${idPrefix}-zoom`;
+  const zoomSelect = el('select', { attrs: { id: zoomId } }) as HTMLSelectElement;
+  const levels: number[] = [...SHEET_ZOOM_LEVELS];
+  if (current.zoom !== undefined && !levels.includes(current.zoom)) {
+    levels.push(current.zoom);
+    levels.sort((a, b) => a - b);
+  }
+  zoomSelect.append(el('option', { text: t(unsetKey), attrs: { value: '' } }));
+  for (const level of levels) {
+    zoomSelect.append(el('option', { text: `${level}%`, attrs: { value: String(level) } }));
+  }
+  zoomSelect.value = current.zoom === undefined ? '' : String(current.zoom);
+
+  const wrapId = `${idPrefix}-wrap`;
+  const wrapSelect = el('select', { attrs: { id: wrapId } }) as HTMLSelectElement;
+  wrapSelect.append(
+    el('option', { text: t(unsetKey), attrs: { value: '' } }),
+    el('option', { text: t('dialog.settings.wrapOn'), attrs: { value: 'on' } }),
+    el('option', { text: t('dialog.settings.wrapOff'), attrs: { value: 'off' } }),
+  );
+  wrapSelect.value = current.wrap === undefined ? '' : current.wrap ? 'on' : 'off';
+
+  const fontId = `${idPrefix}-font`;
+  const fontSelect = el('select', { attrs: { id: fontId } }) as HTMLSelectElement;
+  fontSelect.append(el('option', { text: t(fontUnsetKey), attrs: { value: '' } }));
+  for (const font of SHEET_FONTS) {
+    fontSelect.append(el('option', { text: t(sheetFontLabelKey(font)), attrs: { value: font } }));
+  }
+  fontSelect.value = current.font ?? '';
+
+  return {
+    rows: [
+      el('div', { className: 'form-row' }, [
+        el('label', { text: t('dialog.settings.zoom'), attrs: { for: zoomId } }),
+        zoomSelect,
+      ]),
+      el('div', { className: 'form-row' }, [
+        el('label', { text: t('dialog.settings.wrap'), attrs: { for: wrapId } }),
+        wrapSelect,
+      ]),
+      el('div', { className: 'form-row' }, [
+        el('label', { text: t('dialog.settings.font'), attrs: { for: fontId } }),
+        fontSelect,
+      ]),
+    ],
+    read: () => ({
+      zoom: zoomSelect.value === '' ? undefined : Number(zoomSelect.value),
+      wrap: wrapSelect.value === '' ? undefined : wrapSelect.value === 'on',
+      font: isSheetFontId(fontSelect.value) ? fontSelect.value : undefined,
+    }),
+  };
+}
+
+/**
  * App-level settings and help dialogs: the local settings (max file size),
  * timezone, and display-language prompts, the About/keyboard-shortcuts
  * panel, and the offline formula-help reference. Extracted from `Dialogs` as
@@ -64,12 +132,14 @@ const FUNCTION_CATEGORY_LABEL_KEY: Record<FunctionCategory, string> = {
  */
 export class AppSettingsDialogs {
   /**
-   * Edit local settings. Currently the maximum file-size limit (in MiB).
-   * Returns the chosen limit in bytes, or null when cancelled. The value is
-   * clamped into the supported range before being returned.
+   * Edit local settings: the maximum file-size limit (in MiB), what
+   * Ctrl+Shift+V pastes, and the browser- and file-level zoom/wrap (the file
+   * level only when the active tab is an RSF file). Returns the chosen
+   * settings, or null when cancelled. The size is clamped into the supported
+   * range before being returned.
    */
-  chooseSettings(currentMaxFileSize: number): Promise<number | null> {
-    return openDialog<number | null>(t('dialog.settings.title'), null, (body, buttons, close) => {
+  chooseSettings(current: LocalSettings): Promise<LocalSettings | null> {
+    return openDialog<LocalSettings | null>(t('dialog.settings.title'), null, (body, buttons, close) => {
       const minMiB = bytesToMiB(MIN_MAX_FILE_SIZE);
       const maxMiB = bytesToMiB(MAX_MAX_FILE_SIZE);
       const input = el('input', {
@@ -82,7 +152,33 @@ export class AppSettingsDialogs {
           'aria-describedby': 'settings-maxsize-help',
         },
       });
-      input.value = String(bytesToMiB(currentMaxFileSize));
+      input.value = String(bytesToMiB(current.maxFileSize));
+
+      const pasteId = 'settings-shift-paste';
+      const pasteSelect = el('select', { attrs: { id: pasteId } }) as HTMLSelectElement;
+      for (const mode of ['values', 'formats'] as const) {
+        const option = el('option', {
+          text: t(`dialog.settings.shiftPaste.${mode}`),
+          attrs: { value: mode },
+        });
+        (option as HTMLOptionElement).selected = mode === current.shiftPaste;
+        pasteSelect.append(option);
+      }
+
+      const browserFields = displayLevelFields(
+        'settings-browser',
+        current.browserDisplay,
+        'dialog.settings.followFile',
+        'dialog.settings.fontDefault',
+      );
+      const fileFields = current.fileDisplay
+        ? displayLevelFields(
+            'settings-file',
+            current.fileDisplay,
+            'dialog.settings.followSheet',
+            'dialog.settings.followSheet',
+          )
+        : null;
 
       body.append(
         el('div', { className: 'form-row' }, [
@@ -96,9 +192,25 @@ export class AppSettingsDialogs {
           text: t('dialog.settings.range', { min: minMiB, max: maxMiB }),
           attrs: { id: 'settings-maxsize-help' },
         }),
-        el('p', { className: 'dialog-note', text: t('dialog.settings.note') }),
-        el('p', { className: 'dialog-note', text: t('dialog.settings.local') }),
+        helpDetails(t('dialog.settings.note')),
+        el('div', { className: 'form-row' }, [
+          el('label', { text: t('dialog.settings.shiftPaste'), attrs: { for: pasteId } }),
+          pasteSelect,
+        ]),
+        helpDetails(t('dialog.settings.shiftPasteNote')),
+        el('h3', { text: t('dialog.settings.display') }),
+        el('p', { className: 'dialog-note', text: t('dialog.settings.displayOrder') }),
+        el('h4', { text: t('dialog.settings.browserLevel') }),
+        ...browserFields.rows,
       );
+      if (fileFields) {
+        body.append(
+          el('h4', { text: t('dialog.settings.fileLevel') }),
+          ...fileFields.rows,
+          el('p', { className: 'dialog-note', text: t('dialog.settings.fileLevelNote') }),
+        );
+      }
+      body.append(helpDetails(t('dialog.settings.sheetLevelNote'), t('dialog.settings.local')));
 
       const submit = (): void => {
         const mib = Number(input.value);
@@ -106,7 +218,12 @@ export class AppSettingsDialogs {
           close(null);
           return;
         }
-        close(clampMaxFileSize(miBToBytes(mib)));
+        close({
+          maxFileSize: clampMaxFileSize(miBToBytes(mib)),
+          shiftPaste: pasteSelect.value === 'formats' ? 'formats' : 'values',
+          browserDisplay: browserFields.read(),
+          fileDisplay: fileFields ? fileFields.read() : null,
+        });
       };
       submitOnEnter(input, submit);
 
@@ -140,6 +257,7 @@ export class AppSettingsDialogs {
         el('label', { text: t('dialog.timezone.label'), attrs: { for: selectId } }),
         select,
         el('p', { className: 'dialog-note', text: t('dialog.timezone.note') }),
+        helpDetails(t('dialog.timezone.help')),
       );
       buttons.append(
         dialogButton(t('dialog.timezone.cancel'), false, false, () => close(null)),
@@ -170,6 +288,7 @@ export class AppSettingsDialogs {
         el('label', { text: t('dialog.displayLanguage.label'), attrs: { for: selectId } }),
         select,
         el('p', { className: 'dialog-note', text: t('dialog.displayLanguage.note') }),
+        helpDetails(t('dialog.displayLanguage.help')),
       );
       buttons.append(
         dialogButton(t('dialog.displayLanguage.cancel'), false, false, () => close(null)),
@@ -211,6 +330,7 @@ export class AppSettingsDialogs {
             el('label', { text: t('dialog.versionHistory.label'), attrs: { for: checkboxId } }),
           ]),
           el('p', { className: 'dialog-note', text: t('dialog.versionHistory.note') }),
+          helpDetails(t('dialog.versionHistory.help')),
         );
 
         // Retained-snapshot cap: default / an explicit number / unlimited.
@@ -366,14 +486,22 @@ export class AppSettingsDialogs {
 
   private showShortcuts(): Promise<void> {
     return openDialog<void>(t('dialog.shortcuts.title'), undefined, (body, buttons, close) => {
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.shortcuts.note') }));
-      const table = el('table', { className: 'shortcut-table' });
-      for (const { keys, descKey } of SHORTCUT_DOCS) {
-        table.append(el('tr', {}, [el('td', { text: keys }), el('td', { text: t(descKey) })]));
+      body.append(helpDetails(t('dialog.shortcuts.note'), t('dialog.shortcuts.appearanceNote')));
+      // Grouped by task, each key named for this platform (Cmd on macOS).
+      const mac = isMacPlatform();
+      for (const group of SHORTCUT_GROUPS) {
+        body.append(el('h3', { text: t(group.titleKey) }));
+        const table = el('table', { className: 'shortcut-table' });
+        for (const { keys, descKey } of group.items) {
+          table.append(
+            el('tr', {}, [
+              el('td', { text: displayShortcutKeys(keys, mac) }),
+              el('td', { text: t(descKey) }),
+            ]),
+          );
+        }
+        body.append(table);
       }
-      body.append(table);
-      body.append(el('h3', { text: t('dialog.shortcuts.appearance') }));
-      body.append(el('p', { className: 'dialog-note', text: t('dialog.shortcuts.appearanceNote') }));
       buttons.append(dialogButton(t('dialog.close'), true, true, () => close(undefined)));
     });
   }

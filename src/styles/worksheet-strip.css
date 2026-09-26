@@ -9,9 +9,9 @@
   display: flex;
   align-items: center;
   flex: none;
-  background: var(--panel);
-  border-top: 1px solid var(--border);
-  min-height: var(--bar-height);
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-default);
+  min-height: var(--bar-h);
 }
 
 .sheet-bar[hidden] {
@@ -21,8 +21,8 @@
 .sheet-strip {
   display: flex;
   align-items: stretch;
-  gap: var(--space-1);
-  padding: 0 var(--space-4) var(--space-1);
+  gap: var(--space-0-5);
+  padding: 0 var(--space-2) var(--space-0-5);
   overflow-x: auto;
   flex: 1 1 auto;
   min-width: 0;
@@ -31,40 +31,40 @@
 .sheet-tab {
   display: flex;
   align-items: center;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-default);
   border-top: none;
   border-radius: 0 0 var(--radius-md) var(--radius-md);
-  background: var(--panel-hover);
-  padding: var(--space-1) var(--space-4);
+  background: var(--bg-hover);
+  padding: var(--space-0-5) var(--space-2);
   max-width: 200px;
   cursor: default;
   white-space: nowrap;
 }
 
 .sheet-tab.active {
-  background: var(--surface);
-  font-weight: 600;
+  background: var(--bg-raised);
+  font-weight: var(--weight-bold);
   border-bottom: 2px solid var(--accent);
 }
 
 .sheet-tab .sheet-kind {
   display: flex;
   flex: none;
-  margin-right: var(--space-2);
+  margin-right: var(--space-1);
 }
 
 .sheet-tab .sheet-kind-icon {
-  color: var(--text-muted);
+  color: var(--fg-subtle);
 }
 
 .sheet-tab .sheet-lock {
   display: flex;
   flex: none;
-  margin-right: var(--space-2);
+  margin-right: var(--space-1);
 }
 
 .sheet-tab .sheet-lock-icon {
-  color: var(--text-muted);
+  color: var(--fg-subtle);
 }
 
 .sheet-tab .sheet-label {
@@ -94,12 +94,12 @@
 .sheet-add {
   display: flex;
   align-items: center;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-default);
   border-top: none;
   border-radius: 0 0 var(--radius-md) var(--radius-md);
-  background: var(--panel-hover);
+  background: var(--bg-hover);
   color: inherit;
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-1) var(--space-2);
   cursor: pointer;
   font: inherit;
   line-height: 1;
@@ -121,7 +121,7 @@
    leading field label, not one of several equal options here. */
 .sheet-kind-picker {
   flex-wrap: wrap;
-  gap: var(--space-3);
+  gap: var(--space-1-5);
 }
 
 .sheet-kind-picker label:first-child {
@@ -131,17 +131,17 @@
 .sheet-kind-picker-option {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  gap: var(--space-1-5);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
   cursor: pointer;
 }
 
 .sheet-kind-picker-option.selected {
   border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--accent-subtle-text);
+  background: var(--accent-subtle);
 }
 
 .sheet-kind-picker-option input[type='radio'] {
@@ -155,9 +155,9 @@
 }
 
 .dialog-error {
-  color: var(--danger, #c0392b);
+  color: var(--danger-text);
   min-height: 1.2em;
-  margin: var(--space-2) 0 0;
+  margin: var(--space-1) 0 0;
 }
 
 .tab .tab-close {
@@ -167,12 +167,12 @@
   border: none;
   background: none;
   border-radius: var(--radius-sm);
-  padding: var(--space-1);
+  padding: var(--space-0-5);
   min-width: 20px;
   min-height: 20px;
   color: inherit;
 }
 
 .tab .tab-close:hover {
-  background: var(--panel-active);
+  background: var(--bg-pressed);
 }

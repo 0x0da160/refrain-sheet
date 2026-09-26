@@ -9,30 +9,30 @@
 .diff-column-list {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  margin: 0 0 var(--space-4);
+  gap: var(--space-1) var(--space-3);
+  margin: 0 0 var(--space-2);
 }
 
 .diff-column-item {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .diff-compare-columns {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-2);
 }
 
 .diff-compare-columns summary {
   cursor: pointer;
-  color: var(--text-dim);
-  margin-bottom: var(--space-3);
+  color: var(--fg-muted);
+  margin-bottom: var(--space-1-5);
 }
 
 .diff-normalize-options {
   display: flex;
-  gap: var(--space-5);
-  margin: 0 0 var(--space-4);
+  gap: var(--space-3);
+  margin: 0 0 var(--space-2);
 }
 
 .diff-run-row {
@@ -41,12 +41,12 @@
 
 .diff-status {
   min-height: 1.4em;
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-2);
   line-height: 1.4;
 }
 
 .diff-status[role='alert'] {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .diff-results {
@@ -65,39 +65,39 @@ table.diff-table td {
 }
 
 .diff-cell-changed {
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .diff-badge {
   display: inline-block;
-  padding: 1px var(--space-4);
-  border-radius: 10px;
-  font-size: 12px;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-caption);
   white-space: nowrap;
 }
 
 .diff-badge-unchanged {
-  color: var(--text-dim);
-  background: var(--panel);
+  color: var(--fg-muted);
+  background: var(--bg-surface);
 }
 
 .diff-badge-modified {
-  color: var(--accent-contrast);
-  background: var(--accent);
+  color: var(--warning-text);
+  background: var(--warning-subtle);
 }
 
 .diff-badge-added {
-  color: var(--accent-contrast);
-  background: var(--success);
+  color: var(--success-text);
+  background: var(--success-subtle);
 }
 
 .diff-badge-deleted {
-  color: var(--accent-contrast);
-  background: var(--danger);
+  color: var(--danger-text);
+  background: var(--danger-subtle);
 }
 
 .diff-badge-key-invalid {
-  color: var(--text);
-  background: var(--warning-soft);
-  border: 1px solid var(--warning-border);
+  color: var(--fg-default);
+  background: var(--warning-subtle);
+  border: 1px solid var(--warning);
 }

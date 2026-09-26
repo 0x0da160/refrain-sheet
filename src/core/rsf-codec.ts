@@ -19,6 +19,7 @@ import {
 import { validateFilter, type SheetFilter } from './filter';
 import { getRsfCodec } from './csv-engine';
 import { MAX_COMMENT_LENGTH } from './cell-comment';
+import { MAX_TEXT_RUNS, runsForText, type TextRun } from './rich-text';
 import { DEFAULT_DISPLAY_LANGUAGE } from './display-language';
 import { DEFAULT_TIMEZONE } from './timezone';
 import { readSkippableFrame, readU32, writeSkippableFrame, writeU32, ZSTD_MAGIC } from './zstd-frame';
@@ -119,6 +120,11 @@ export interface RsfDisplaySettings {
   colWidths?: Array<[number, number]>;
   /** Whether long cells wrap onto several visual lines. */
   wrap?: boolean;
+  /**
+   * Spreadsheet font id (`biz-ud`, `ms`, …). Only its shape is checked here;
+   * the application ignores an id it does not know.
+   */
+  font?: string;
 }
 
 /**
@@ -170,6 +176,19 @@ export interface RsfWorkbookData {
   historyMaxOverride?: number | null;
   /** Whether the JSON/YAML editors auto-format their source on commit (default `false`). */
   autoFormatSource?: boolean;
+  /**
+   * File-level display settings. Each one, when present, applies to every
+   * worksheet that does not set its own (see `settings-cascade.ts`).
+   */
+  display?: RsfFileDisplaySettings;
+}
+
+/** Validated file-level display settings; an absent key means "not specified". */
+interface RsfFileDisplaySettings {
+  zoom?: number;
+  wrap?: boolean;
+  /** Spreadsheet font id (see {@link RsfDisplaySettings.font}). */
+  font?: string;
 }
 
 /**
@@ -250,7 +269,11 @@ function isoTime(ms: number): string {
   return new Date(ms).toISOString();
 }
 
-function styleToJson(style: CellStyle): { [key: string]: Json } {
+/**
+ * `input` is the cell's text: rich-text runs are written only while they
+ * still spell it out (stale runs are dropped here, never saved).
+ */
+function styleToJson(style: CellStyle, input: string): { [key: string]: Json } {
   const out: { [key: string]: Json } = {};
   if (style.bold) out.bold = true;
   if (style.italic) out.italic = true;
@@ -276,6 +299,17 @@ function styleToJson(style: CellStyle): { [key: string]: Json } {
       format.currencySymbol = f.currencySymbol;
     }
     out.numberFormat = format;
+  }
+  const runs = runsForText(style.runs, input);
+  if (runs) {
+    out.runs = runs.map((run) => {
+      const json: { [key: string]: Json } = { text: run.text };
+      if (run.bold !== undefined) json.bold = run.bold;
+      if (run.italic !== undefined) json.italic = run.italic;
+      if (run.underline !== undefined) json.underline = run.underline;
+      if (run.textColor !== undefined) json.textColor = run.textColor;
+      return json;
+    });
   }
   return out;
 }
@@ -335,13 +369,22 @@ function sheetToJson(sheet: RsfWorksheetData): { [key: string]: Json } {
     out.lines = text.split('\n');
   }
   const display = sheet.display;
-  if (display && (display.zoom !== undefined || display.wrap || (display.colWidths?.length ?? 0) > 0)) {
+  if (
+    display &&
+    (display.zoom !== undefined ||
+      display.wrap ||
+      display.font !== undefined ||
+      (display.colWidths?.length ?? 0) > 0)
+  ) {
     const view: { [key: string]: Json } = {};
     if (display.zoom !== undefined) {
       view.zoom = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(display.zoom)));
     }
     if (display.wrap) {
       view.wrap = true;
+    }
+    if (display.font !== undefined) {
+      view.font = display.font;
     }
     const widths: { [key: string]: Json } = {};
     let any = false;
@@ -364,8 +407,14 @@ function sheetToJson(sheet: RsfWorksheetData): { [key: string]: Json } {
   }
   if (sheet.styles && sheet.styles.length > 0) {
     const styles: { [key: string]: Json } = {};
+    const inputs = new Map<string, string>();
+    if (sheet.styles.some(([, , style]) => style.runs)) {
+      for (const [row, col, input] of sheet.cells) {
+        inputs.set(`${row},${col}`, input);
+      }
+    }
     for (const [row, col, style] of sheet.styles) {
-      const json = styleToJson(style);
+      const json = styleToJson(style, inputs.get(`${row},${col}`) ?? '');
       if (Object.keys(json).length > 0) {
         styles[a1(row, col)] = json;
       }
@@ -399,6 +448,23 @@ function workbookContentToJson(data: RsfWorkbookData): { [key: string]: Json } {
   }
   if (data.activeSheetId) out.activeSheet = data.activeSheetId;
   if (data.autoFormatSource) out.autoFormatSource = true;
+  const fileView = data.display;
+  if (
+    fileView &&
+    (fileView.zoom !== undefined || fileView.wrap !== undefined || fileView.font !== undefined)
+  ) {
+    const view: { [key: string]: Json } = {};
+    if (fileView.zoom !== undefined) {
+      view.zoom = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(fileView.zoom)));
+    }
+    if (fileView.wrap !== undefined) {
+      view.wrap = fileView.wrap;
+    }
+    if (fileView.font !== undefined) {
+      view.font = fileView.font;
+    }
+    out.view = view;
+  }
   out.sheets = data.sheets.slice(0, MAX_RSF_SHEETS).map(sheetToJson);
   return out;
 }
@@ -577,6 +643,18 @@ function optTime(obj: JsonObject, key: string): number | undefined {
   return Number.isFinite(ms) && ms > 0 ? ms : undefined;
 }
 
+/** A `view.font` id: 1–64 lowercase letters, digits, or hyphens; anything else is `bad-shape`. */
+function optFontId(obj: JsonObject): string | undefined {
+  const value = obj.font;
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== 'string' || !/^[a-z0-9-]{1,64}$/.test(value)) {
+    fail();
+  }
+  return value;
+}
+
 function intIn(value: unknown, min: number, max: number, overflow: RsfDecodeError = 'bad-shape'): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < min) {
     fail();
@@ -647,7 +725,46 @@ function styleFromJson(value: unknown): CellStyle {
     }
     style.numberFormat = numberFormat;
   }
+  if (value.runs !== undefined) {
+    style.runs = runsFromJson(value.runs);
+  }
   return style;
+}
+
+/** A style's rich-text runs: `[{ "text", "bold"?, "italic"?, "underline"?, "textColor"? }]`. */
+function runsFromJson(value: unknown): TextRun[] {
+  if (!Array.isArray(value)) {
+    fail();
+  }
+  if (value.length > MAX_TEXT_RUNS) {
+    fail('too-large');
+  }
+  let length = 0;
+  return value.map((raw) => {
+    if (!isObject(raw) || typeof raw.text !== 'string') {
+      fail();
+    }
+    length += raw.text.length;
+    if (length > MAX_RSF_CELL_LENGTH) {
+      fail('too-large');
+    }
+    const run: TextRun = { text: raw.text };
+    const bold = optBoolean(raw, 'bold');
+    if (bold !== undefined) run.bold = bold;
+    const italic = optBoolean(raw, 'italic');
+    if (italic !== undefined) run.italic = italic;
+    const underline = optBoolean(raw, 'underline');
+    if (underline !== undefined) run.underline = underline;
+    const color = optString(raw, 'textColor');
+    if (color !== undefined) {
+      const hex = normalizeHexColor(color);
+      if (hex === null) {
+        fail();
+      }
+      run.textColor = hex;
+    }
+    return run;
+  });
 }
 
 /** Workbook-wide running totals, so many worksheets cannot add up past a bound. */
@@ -736,6 +853,10 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
     if (optBoolean(view, 'wrap')) {
       display.wrap = true;
     }
+    const font = optFontId(view);
+    if (font !== undefined) {
+      display.font = font;
+    }
     if (view.colWidths !== undefined) {
       if (!isObject(view.colWidths)) {
         fail();
@@ -754,14 +875,14 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
         display.colWidths = widths;
       }
     }
-    if (display.zoom !== undefined || display.wrap || display.colWidths) {
+    if (display.zoom !== undefined || display.wrap || display.font !== undefined || display.colWidths) {
       sheet.display = display;
     }
   }
   if (value.filter !== undefined && value.filter !== null) {
     // Full semantic validation against this worksheet's dimensions; an
     // invalid filter is dropped (never guessed at) and the caller warns.
-    let validated: SheetFilter | null = null;
+    let validated: SheetFilter | null;
     try {
       validated = isObject(value.filter)
         ? validateFilter(value.filter as unknown as SheetFilter, sheet.rowCount, sheet.columnCount)
@@ -863,6 +984,30 @@ function workbookFromJson(value: unknown): RsfWorkbookData {
   const language = optString(value, 'language');
   if (language) data.displayLanguage = language;
   if (optBoolean(value, 'autoFormatSource')) data.autoFormatSource = true;
+  if (value.view !== undefined) {
+    const view = value.view;
+    if (!isObject(view)) {
+      fail();
+    }
+    const display: RsfFileDisplaySettings = {};
+    if (view.zoom !== undefined) {
+      if (typeof view.zoom !== 'number' || !Number.isFinite(view.zoom)) {
+        fail();
+      }
+      display.zoom = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(view.zoom)));
+    }
+    const wrap = optBoolean(view, 'wrap');
+    if (wrap !== undefined) {
+      display.wrap = wrap;
+    }
+    const font = optFontId(view);
+    if (font !== undefined) {
+      display.font = font;
+    }
+    if (display.zoom !== undefined || display.wrap !== undefined || display.font !== undefined) {
+      data.display = display;
+    }
+  }
   // An active-worksheet id that names no worksheet falls back to the first.
   const active = optString(value, 'activeSheet');
   data.activeSheetId = active !== undefined && ids.has(active) ? active : sheets[0].id;

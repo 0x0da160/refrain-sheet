@@ -1,0 +1,299 @@
+/* Refrain Sheet Design System — documentation pages only (not shipped).
+   Shared by foundations.html, brand-guidelines.html and design-system.html.
+   Values are token references; requires foundations.css. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--fg-default);
+  background: var(--bg-page);
+}
+a {
+  color: var(--link);
+}
+code {
+  font-family: var(--font-code);
+  font-size: 0.95em;
+}
+.wrap {
+  inline-size: min(72rem, calc(100% - var(--space-8)));
+  margin-inline: auto;
+}
+.doc-skip {
+  position: absolute;
+  inset-inline-start: var(--space-2);
+  inset-block-start: calc(var(--space-12) * -1);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-raised);
+  border-radius: var(--radius-md);
+}
+.doc-skip:focus {
+  inset-block-start: var(--space-2);
+}
+.doc-head {
+  background: var(--ink-900);
+  color: var(--paper-50);
+  padding-block: var(--space-12) var(--space-8);
+}
+.doc-head h1 {
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  margin-block: var(--space-4) var(--space-2);
+}
+.doc-head p {
+  color: var(--ink-150);
+  max-inline-size: 46em;
+}
+.doc-head a {
+  color: var(--green-200);
+}
+.eyebrow {
+  font-family: var(--font-code);
+  font-size: 0.75rem;
+  letter-spacing: var(--tracking-caps);
+  color: var(--green-300);
+  margin: 0;
+}
+.doc-layers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block-start: var(--space-4);
+  font-size: 0.8125rem;
+}
+.doc-layers a {
+  padding: var(--space-1) var(--space-3);
+  color: var(--paper-50);
+  text-decoration: none;
+  border: var(--stroke-thin) solid var(--ink-500);
+  border-radius: var(--radius-full);
+}
+.doc-layers a[aria-current='page'] {
+  color: var(--ink-900);
+  background: var(--green-300);
+  border-color: var(--green-300);
+}
+.doc-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-block-start: var(--space-6);
+  align-items: center;
+  font-size: 0.8125rem;
+  color: var(--ink-150);
+}
+.doc-switch [role='group'] {
+  display: inline-flex;
+}
+.doc-switch button {
+  min-block-size: 2rem;
+  padding-inline: var(--space-3);
+  font: inherit;
+  color: var(--paper-50);
+  background: var(--ink-800);
+  border: var(--stroke-thin) solid var(--ink-500);
+  cursor: pointer;
+}
+.doc-switch button + button {
+  margin-inline-start: -1px;
+}
+.doc-switch button:first-child {
+  border-start-start-radius: var(--radius-md);
+  border-end-start-radius: var(--radius-md);
+}
+.doc-switch button:last-child {
+  border-start-end-radius: var(--radius-md);
+  border-end-end-radius: var(--radius-md);
+}
+.doc-switch button[aria-pressed='true'] {
+  color: var(--ink-900);
+  background: var(--green-300);
+}
+nav.toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin-block-start: var(--space-6);
+  font-size: 0.8125rem;
+}
+nav.toc a {
+  color: var(--green-200);
+}
+section {
+  padding-block: var(--space-10);
+  border-block-end: var(--stroke-thin) solid var(--border-default);
+}
+section h2 {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  margin: 0 0 var(--space-3);
+}
+section h3 {
+  font-size: 1rem;
+  margin-block: var(--space-8) var(--space-2);
+}
+section h4 {
+  font-size: 0.875rem;
+  margin-block: var(--space-4) var(--space-1);
+  color: var(--fg-muted);
+}
+section p,
+section li {
+  max-inline-size: 48em;
+}
+section ul,
+section ol {
+  padding-inline-start: 1.4em;
+}
+.lead {
+  font-size: 1rem;
+  line-height: 1.5rem;
+  color: var(--fg-muted);
+}
+.doc-scroll {
+  overflow-x: auto;
+  margin-block: var(--space-3);
+}
+.doc-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+.doc-table th,
+.doc-table td {
+  text-align: start;
+  padding: var(--space-1-5) var(--space-2);
+  border-block-end: var(--stroke-thin) solid var(--border-default);
+  vertical-align: middle;
+}
+.doc-table thead th {
+  background: var(--bg-sunken);
+  font-weight: var(--weight-bold);
+}
+.doc-table tbody th {
+  font-weight: var(--weight-regular);
+  white-space: nowrap;
+}
+.doc-table .num {
+  text-align: end;
+  font-family: var(--font-data);
+  white-space: nowrap;
+}
+.doc-table .ng {
+  color: var(--danger-text);
+  font-weight: var(--weight-bold);
+}
+.doc-meta {
+  font-size: 0.8125rem;
+  color: var(--fg-muted);
+}
+.doc-chip {
+  display: inline-block;
+  inline-size: 1rem;
+  block-size: 1rem;
+  border-radius: var(--radius-xs);
+  border: var(--stroke-thin) solid var(--border-strong);
+  vertical-align: -0.2em;
+  margin-inline-end: var(--space-1-5);
+}
+.doc-swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block: var(--space-2);
+}
+.doc-swatch {
+  margin: 0;
+  inline-size: 6.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.doc-swatch .doc-chip {
+  display: block;
+  inline-size: 100%;
+  block-size: 2.5rem;
+  margin: 0 0 var(--space-1);
+  border-radius: var(--radius-sm);
+}
+.doc-swatch small {
+  color: var(--fg-muted);
+}
+.doc-picker-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0-5);
+  margin-block: var(--space-0-5);
+}
+.doc-picker-label {
+  inline-size: 4rem;
+  font-size: 0.75rem;
+  font-family: var(--font-code);
+  color: var(--fg-muted);
+}
+.doc-picker-cell {
+  inline-size: 1.75rem;
+  block-size: 1.25rem;
+  border-radius: var(--radius-xs);
+  box-shadow: inset 0 0 0 1px var(--border-default);
+}
+.cols {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+}
+.demo {
+  padding: var(--space-4);
+  background: var(--bg-page);
+  border: var(--stroke-thin) dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+}
+.demo-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.callout {
+  padding: var(--space-3) var(--space-4);
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-text);
+  border-radius: var(--radius-md);
+  max-inline-size: 48em;
+}
+.layer-map {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+.layer-map > div {
+  padding: var(--space-4);
+  background: var(--bg-surface);
+  border: var(--stroke-thin) solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+.layer-map h3 {
+  margin: 0 0 var(--space-2);
+}
+.layer-map ul {
+  margin: 0;
+}
+pre.doc-code {
+  overflow-x: auto;
+  padding: var(--space-3);
+  font-family: var(--font-code);
+  font-size: 0.8125rem;
+  background: var(--bg-sunken);
+  border-radius: var(--radius-sm);
+}
+footer {
+  padding-block: var(--space-8);
+  font-size: 0.8125rem;
+  color: var(--fg-muted);
+}

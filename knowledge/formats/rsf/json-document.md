@@ -48,6 +48,7 @@ content is the same document.
 | `language`         | string           | no       | `"ja"` for `TEXT()` weekday names. Left out for English; an unknown value falls back.    |
 | `activeSheet`      | string           | no       | The id of the worksheet to show on open; the first one when missing or unknown.          |
 | `autoFormatSource` | boolean          | no       | Whether the JSON/YAML editors reformat their source on commit. Left out when `false`.    |
+| `view`             | object           | no       | File-level display settings (below). Left out when the file specifies none.              |
 | `sheets`           | array of objects | yes      | 1–256 worksheets, in tab order (see below).                                              |
 | `history`          | object           | no       | Version history (see below). Left out when history is on with no snapshots and no limit. |
 
@@ -85,10 +86,24 @@ is not a string is `bad-shape`; one longer than 1,000,000 characters is
 | ----------- | ------- | -------------------------------------------------------------------------------- |
 | `zoom`      | number  | Zoom percent, clamped into 50–200 on load.                                       |
 | `wrap`      | boolean | Wrap long cells onto several lines.                                              |
+| `font`      | string  | Spreadsheet font id (`biz-ud`, `ms`, …): 1–64 of `a-z 0-9 -`, else `bad-shape`.  |
 | `colWidths` | object  | Width in pixels at 100% zoom per column letter: `{ "B": 240 }`, clamped 40–1200. |
 
 A width for a column past `cols` is dropped; a key that is not a column
 letter is `bad-shape`.
+
+### File-level view
+
+The top-level `view` holds display settings for every worksheet: `zoom`
+(number, clamped into 50–200), `font` (same rule as a worksheet's) and `wrap` (boolean; unlike a worksheet's,
+`false` is stored, because it means "don't wrap" rather than "not
+specified"). A key that is present applies to every worksheet whose own
+`view` does not set that key: the **worksheet wins**. The application adds
+one broader level below the file — this browser's defaults from File >
+Settings… — so the order is worksheet > file > browser
+(`src/core/settings-cascade.ts`). A value of the wrong type is `bad-shape`. A well-formed font id the
+application does not know counts as "not specified".
+Readers older than this key ignore it and use the worksheet settings.
 
 ### Styles
 
@@ -103,11 +118,23 @@ outside the grid, or a malformed one, is `bad-shape`.
 | `border…Style`                                           | string  | `solid` (default, left out), `dashed`, `dotted`, `double` |
 | `border…Width`                                           | string  | `thin` (default, left out), `medium`, `thick`             |
 | `numberFormat`                                           | object  | `{ "kind", "decimals", "thousands", "currencySymbol" }`   |
+| `runs`                                                   | array   | Rich text: parts of the cell's text with their own format |
 
 A line style or width without its border color is ignored. `numberFormat`'s
 `kind` is `number`, `percent`, or `currency`; `decimals` is an integer
 0–10; `currencySymbol` (currency only) is cut to 4 characters. Any other
 value is `bad-shape`.
+
+`runs` lists the cell's text as segments,
+`[{ "text": "Hello " }, { "text": "world", "bold": true }]`, each with
+optional `bold`, `italic`, `underline` (booleans; `false` switches off the
+whole cell's value for that part) and `textColor` (`#rrggbb`). An absent key
+inherits the cell's own style. The segments must spell out the cell's input
+exactly; the writer leaves `runs` out when they do not (the text was changed
+without them) and for formulas, and a reader shows such runs as plain text.
+At most 10,000 segments (`too-large` beyond); a segment that is not an object
+with a string `text`, or a value of the wrong type, is `bad-shape`. Readers
+older than this key ignore it and show the text with the cell's own style.
 
 ### Filter
 

@@ -4,89 +4,90 @@
    Fully separate from selection styling. Each of the four cycling styles
    pairs a distinct color with a distinct background pattern and border
    pattern (solid/dashed/dotted/double), so references are distinguishable
-   without relying on color alone. */
+   without relying on color alone. Colours are the design system's four
+   reference colours (D-12: blue, violet, amber, teal). */
 .vcell.fref-0 {
-  background-color: rgba(37, 99, 235, 0.14);
+  background-color: var(--ref-1-fill);
 }
 
 .vcell.fref-1 {
-  background-color: rgba(22, 163, 74, 0.12);
-  background-image: repeating-linear-gradient(45deg, transparent 0 6px, rgba(22, 163, 74, 0.14) 6px 8px);
+  background-color: var(--ref-2-fill);
+  background-image: repeating-linear-gradient(45deg, transparent 0 6px, var(--ref-2-fill) 6px 8px);
 }
 
 .vcell.fref-2 {
-  background-color: rgba(217, 119, 6, 0.12);
-  background-image: repeating-linear-gradient(-45deg, transparent 0 6px, rgba(217, 119, 6, 0.14) 6px 8px);
+  background-color: var(--ref-3-fill);
+  background-image: repeating-linear-gradient(-45deg, transparent 0 6px, var(--ref-3-fill) 6px 8px);
 }
 
 .vcell.fref-3 {
-  background-color: rgba(147, 51, 234, 0.12);
-  background-image: repeating-linear-gradient(0deg, transparent 0 6px, rgba(147, 51, 234, 0.14) 6px 8px);
+  background-color: var(--ref-4-fill);
+  background-image: repeating-linear-gradient(0deg, transparent 0 6px, var(--ref-4-fill) 6px 8px);
 }
 
 .vcell.fref-0.fref-top {
-  border-top: 2px solid var(--fref-1);
+  border-top: 2px solid var(--ref-1);
 }
 .vcell.fref-0.fref-bottom {
-  border-bottom: 2px solid var(--fref-1);
+  border-bottom: 2px solid var(--ref-1);
 }
 .vcell.fref-0.fref-left {
-  border-left: 2px solid var(--fref-1);
+  border-left: 2px solid var(--ref-1);
 }
 .vcell.fref-0.fref-right {
-  border-right: 2px solid var(--fref-1);
+  border-right: 2px solid var(--ref-1);
 }
 
 .vcell.fref-1.fref-top {
-  border-top: 2px dashed var(--fref-2);
+  border-top: 2px dashed var(--ref-2);
 }
 .vcell.fref-1.fref-bottom {
-  border-bottom: 2px dashed var(--fref-2);
+  border-bottom: 2px dashed var(--ref-2);
 }
 .vcell.fref-1.fref-left {
-  border-left: 2px dashed var(--fref-2);
+  border-left: 2px dashed var(--ref-2);
 }
 .vcell.fref-1.fref-right {
-  border-right: 2px dashed var(--fref-2);
+  border-right: 2px dashed var(--ref-2);
 }
 
 .vcell.fref-2.fref-top {
-  border-top: 2px dotted var(--fref-3);
+  border-top: 2px dotted var(--ref-3);
 }
 .vcell.fref-2.fref-bottom {
-  border-bottom: 2px dotted var(--fref-3);
+  border-bottom: 2px dotted var(--ref-3);
 }
 .vcell.fref-2.fref-left {
-  border-left: 2px dotted var(--fref-3);
+  border-left: 2px dotted var(--ref-3);
 }
 .vcell.fref-2.fref-right {
-  border-right: 2px dotted var(--fref-3);
+  border-right: 2px dotted var(--ref-3);
 }
 
 .vcell.fref-3.fref-top {
-  border-top: 3px double var(--fref-4);
+  border-top: 3px double var(--ref-4);
 }
 .vcell.fref-3.fref-bottom {
-  border-bottom: 3px double var(--fref-4);
+  border-bottom: 3px double var(--ref-4);
 }
 .vcell.fref-3.fref-left {
-  border-left: 3px double var(--fref-4);
+  border-left: 3px double var(--ref-4);
 }
 .vcell.fref-3.fref-right {
-  border-right: 3px double var(--fref-4);
+  border-right: 3px double var(--ref-4);
 }
 
 /* Floating note: a referenced range continues beyond the rendered viewport */
 .ref-indicator {
   position: fixed;
-  z-index: 60;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 3px 8px;
-  font-size: 12px;
-  color: var(--text-dim);
-  box-shadow: 0 2px 6px var(--shadow);
+  z-index: var(--z-raised);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-caption);
+  color: var(--fg-muted);
+  box-shadow: var(--shadow-sm);
   pointer-events: none;
 }
 

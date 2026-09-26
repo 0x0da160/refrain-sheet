@@ -5,8 +5,9 @@ import { t } from '../app/i18n';
 import { getEditHints } from '../app/settings';
 import { extractFormulaRefs, type FormulaRefRange } from '../core/formula';
 import { selectionRefLabel } from '../core/selection-label';
+import { dateStampKeyOf, localDateStamp } from '../app/shortcuts';
 import { el, focusOnTapWithoutRevealScroll } from './dom';
-import { FormulaAutocomplete, FormulaFieldRef } from './formula-autocomplete';
+import { FormulaAutocomplete, FormulaFieldRef, isRefToggleKey } from './formula-autocomplete';
 import { isComposingKey } from './ime';
 
 /** The raw text currently being typed for a cell, before it is committed. */
@@ -161,17 +162,28 @@ export class FormulaBar implements FormulaRefTarget {
     if (this.autocomplete.onKeyDown(event)) {
       return;
     }
-    if (event.key === 'Enter' && event.altKey) {
+    if (isRefToggleKey(event) && this.ref.toggleReference()) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    // Alt+Enter inserts a newline, Ctrl+; / Ctrl+Shift+; today's date / the
+    // current time, at the caret.
+    const stamp = dateStampKeyOf(event);
+    if ((event.key === 'Enter' && event.altKey) || stamp) {
       event.preventDefault();
       event.stopPropagation();
       const { selectionStart, selectionEnd } = this.textarea;
-      this.textarea.setRangeText('\n', selectionStart, selectionEnd, 'end');
+      this.textarea.setRangeText(stamp ? localDateStamp(stamp) : '\n', selectionStart, selectionEnd, 'end');
       this.autocomplete.update();
     } else if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       event.stopPropagation();
       this.commit();
-      this.moveDown();
+      // Ctrl+Enter (Cmd+Enter) commits and stays on the cell.
+      if (!event.ctrlKey && !event.metaKey) {
+        this.moveDown();
+      }
     } else if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();

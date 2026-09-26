@@ -5,22 +5,21 @@
 .grid-container {
   flex: 1;
   overflow: auto;
-  background: var(--cell-bg);
-  /* `color` is inherited from `body` as a *computed* value, not a live
-     reference to `--text` — re-declaring it here re-anchors inheritance to
-     whatever `--text` cascades to at this element, so the hybrid-theme
-     override above (which only redeclares custom properties, not `color`
-     itself) actually reaches plain cell text instead of leaving it at body's
-     dark-mode color. */
-  color: var(--text);
+  /* The grid is canvas (document space): everything inside it reads the
+     design system's canvas-* / state-* / ref-* tokens only, never the shell
+     tokens (bg-*, fg-*, border-*), so the hybrid theme can keep it on paper
+     while the shell goes dark. `color` is re-declared because `body` passes
+     down the shell text colour. */
+  background: var(--canvas-bg);
+  color: var(--canvas-text);
   position: relative;
   outline-offset: -2px;
 }
 
 .grid-empty {
   padding: 40px;
-  color: var(--text-dim);
-  font-size: 14px;
+  color: var(--canvas-text-muted);
+  font-size: var(--text-body);
   text-align: center;
 }
 
@@ -32,12 +31,12 @@
 
 /* Stacking inside the grid canvas, bottom to top. Rows and cells create no
    stacking context of their own, so everything below competes directly:
-     1-2  data cells; the sticky first column (.vcell.colpin, 2)
+     1-2  data cells; the pinned columns (.vcell.colpin, 2)
      3    selection handles (.fill-handle, .move-handle) and the hidden sink
      4    the copy-source outline
      5    the inline cell editor
      6    row numbers (.vcell.vrowhead) and the add-row button
-     7    the sticky first row (.vgrid-stickyrow)
+     7    the pinned rows (.vgrid-sticky, holding .vgrid-stickyrow rows)
      8    the column-header row (.vgrid-header) and the add-column button
    So anything scrolled under the row numbers, the sticky row, or the column
    headers is covered by them. Inside the header row (its own context): the
@@ -50,20 +49,28 @@
   display: flex;
 }
 
-.vgrid-stickyrow {
+.vgrid-sticky {
   position: sticky;
   z-index: 7;
-  display: flex;
-  /* Distinct from the column header: warm pinned background + strong rule. */
-  border-bottom: 2px solid var(--accent);
 }
 
-.vgrid-stickyrow .vcell {
-  background: var(--sticky-bg);
-}
-
-.vgrid-stickyrow[hidden] {
+.vgrid-sticky[hidden] {
   display: none;
+}
+
+.vgrid-stickyrow {
+  display: flex;
+}
+
+/* Pinned rows keep the ordinary cell look; a strong rule under the last one
+   marks the frozen boundary. The automatic first row (nothing frozen) has no
+   rule, so it reads as the same row it was before scrolling. */
+.vgrid-stickyrow:last-child {
+  border-bottom: 2px solid var(--canvas-frozen-divider);
+}
+
+.vgrid-sticky.auto .vgrid-stickyrow:last-child {
+  border-bottom: none;
 }
 
 .vgrid-rows {
@@ -104,10 +111,10 @@
 .sheet-grid-add {
   display: flex;
   align-items: center;
-  border: 1px solid var(--border);
-  background: var(--panel-hover);
-  color: inherit;
-  padding: 3px 10px;
+  border: 1px solid var(--canvas-grid-strong);
+  background: var(--canvas-header-bg);
+  color: var(--canvas-header-text);
+  padding: var(--space-1) var(--space-2);
   cursor: pointer;
   font: inherit;
   line-height: 1;
@@ -119,7 +126,7 @@
   left: 0;
   z-index: 6;
   border-top: none;
-  border-radius: 0 0 5px 5px;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
 .sheet-grid-add-col {
@@ -130,7 +137,7 @@
   /* Exactly as tall as the column-header row it extends, at every zoom. */
   height: var(--grid-row-height);
   border-left: none;
-  border-radius: 0 5px 5px 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 .sheet-grid-add:disabled {
@@ -139,7 +146,7 @@
 }
 
 .sheet-grid-add:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--canvas-focus-ring);
   outline-offset: 1px;
 }
 
@@ -178,8 +185,8 @@
 
 .vcell {
   flex: none;
-  border-right: 1px solid var(--grid-line);
-  border-bottom: 1px solid var(--grid-line);
+  border-right: 1px solid var(--canvas-grid);
+  border-bottom: 1px solid var(--canvas-grid);
   padding: calc(3px * var(--sheet-zoom, 1)) calc(6px * var(--sheet-zoom, 1));
   /* Resolved from the *inherited* (zoom-scaled) row height, so the line box
      tracks the row height at every zoom level. */
@@ -187,7 +194,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: pre;
-  background: var(--cell-bg);
+  background: var(--canvas-bg);
   position: relative;
 }
 
@@ -210,6 +217,7 @@
    centered too. Rows that fit on one line keep the normal single-line height
    and the `.vcell` centering box above — so enabling Wrap Long Rows never
    grows a row whose content already fits. */
+.vgrid-stickyrow.wrapped .vcell[data-col],
 .vgrid-row.wrapped .vcell[data-col] {
   display: flex;
   align-items: center;
@@ -220,6 +228,7 @@
   line-height: var(--grid-wrap-line);
 }
 
+.vgrid-stickyrow.wrapped .vcell.vrowhead,
 .vgrid-row.wrapped .vcell.vrowhead {
   display: flex;
   align-items: center;
@@ -228,7 +237,9 @@
 
 /* A small corner marker on cells carrying a comment (#235): a CSS triangle
    drawn with borders, so it needs no image asset and never affects layout —
-   `.vcell` is already `position: relative` (see above). */
+   `.vcell` is already `position: relative` (see above). The corners are
+   reserved (design system D-11): top-right = comment, bottom-left = formula,
+   bottom-right = fill handle, so the two marks never overlap. */
 .vcell.cell-comment::after {
   content: '';
   position: absolute;
@@ -238,7 +249,7 @@
   height: 0;
   border-style: solid;
   border-width: 6px 0 0 6px;
-  border-color: var(--warning) transparent transparent transparent;
+  border-color: var(--canvas-comment-mark) transparent transparent transparent;
   pointer-events: none;
 }
 
@@ -260,7 +271,7 @@
 }
 
 .col-resize-handle:hover {
-  background: var(--accent);
+  background: var(--canvas-selection-border);
   opacity: 0.45;
 }
 
@@ -270,15 +281,15 @@
   bottom: 0;
   width: calc(8px * var(--sheet-zoom, 1));
   height: calc(8px * var(--sheet-zoom, 1));
-  background: var(--accent);
-  border: 1px solid var(--cell-bg);
+  background: var(--canvas-selection-border);
+  border: 1px solid var(--canvas-bg);
   cursor: crosshair;
   z-index: 3;
   touch-action: none;
 }
 
 .vcell.fill-target {
-  outline: 1px dashed var(--accent);
+  outline: 1px dashed var(--canvas-selection-border);
   outline-offset: -1px;
 }
 
@@ -291,12 +302,21 @@
   top: 0;
   width: calc(10px * var(--sheet-zoom, 1));
   height: calc(10px * var(--sheet-zoom, 1));
-  background: var(--accent);
-  border: 1px solid var(--cell-bg);
-  border-radius: 2px;
+  background: var(--canvas-selection-border);
+  border: 1px solid var(--canvas-bg);
+  border-radius: var(--radius-xs);
   cursor: move;
   z-index: 3;
   touch-action: none;
+}
+
+/* With a mouse or trackpad, the selection's own border is the move grip (see
+   `moveEdgeHit` in grid.ts), so the corner handle is shown only where a
+   finger or pen may be used — a border line is too thin to grab by touch. */
+@media not all and (any-pointer: coarse) {
+  .move-handle {
+    display: none;
+  }
 }
 
 /* An animated "marching ants" border over a copied range (see
@@ -313,10 +333,10 @@
   pointer-events: none;
   z-index: 4; /* above .fill-handle/.move-handle (3) */
   background:
-    linear-gradient(90deg, var(--accent) 50%, transparent 0) repeat-x,
-    linear-gradient(90deg, var(--accent) 50%, transparent 0) repeat-x,
-    linear-gradient(180deg, var(--accent) 50%, transparent 0) repeat-y,
-    linear-gradient(180deg, var(--accent) 50%, transparent 0) repeat-y;
+    linear-gradient(90deg, var(--canvas-selection-border) 50%, transparent 0) repeat-x,
+    linear-gradient(90deg, var(--canvas-selection-border) 50%, transparent 0) repeat-x,
+    linear-gradient(180deg, var(--canvas-selection-border) 50%, transparent 0) repeat-y,
+    linear-gradient(180deg, var(--canvas-selection-border) 50%, transparent 0) repeat-y;
   background-size:
     8px 2px,
     8px 2px,
@@ -353,6 +373,12 @@
   cursor: move;
 }
 
+/* Hovering the outer border of a movable selection: pressing there drags the
+   selected cells, like the corner handle. */
+.grid-container.move-edge .vcell {
+  cursor: move;
+}
+
 .grid-container.moving-range.move-invalid {
   cursor: not-allowed;
 }
@@ -372,51 +398,56 @@
   }
 
   .col-resize-handle {
-    background: var(--accent);
+    background: var(--canvas-selection-border);
     opacity: 0.35;
   }
 }
 
 .vcell.move-source {
-  outline: 1px dashed var(--text-dim);
+  outline: 1px dashed var(--canvas-text-muted);
   outline-offset: -1px;
   opacity: 0.7;
 }
 
 .vcell.move-target {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--canvas-selection-border);
   outline-offset: -2px;
-  background: var(--accent-soft);
+  background: var(--canvas-selection);
 }
 
 /* Invalid destination: a dashed danger outline plus a crossed pattern, so the
    state reads without relying on color perception. */
 .vcell.move-target-invalid {
-  outline: 2px dashed var(--danger);
+  outline: 2px dashed var(--canvas-error-text);
   outline-offset: -2px;
   background: repeating-linear-gradient(
     45deg,
     transparent,
     transparent 4px,
-    var(--danger-soft, rgba(200, 0, 0, 0.12)) 4px,
-    var(--danger-soft, rgba(200, 0, 0, 0.12)) 8px
+    var(--state-removed) 4px,
+    var(--state-removed) 8px
   );
 }
 
-.vgrid-row.alt .vcell {
-  background: var(--row-alt);
+/* Banded rows are off by default (design system: bands compete with the
+   fill colours users give cells); View > Banded Rows sets data-banded-rows
+   on the root. :where() adds no specificity, so the selected-row and
+   selection rules below still win exactly as before. */
+:where(:root[data-banded-rows]) .vgrid-row.alt .vcell,
+:where(:root[data-banded-rows]) .vgrid-stickyrow.alt .vcell {
+  background: var(--canvas-row-alt);
 }
 
 .vgrid-row.selected-row .vcell,
 .vgrid-stickyrow.selected-row .vcell {
-  background: var(--selected-row);
+  background: var(--canvas-selection);
 }
 
 .vcell.vhead,
 .vcell.vrowhead {
-  background: var(--panel) !important;
-  color: var(--text-dim);
-  font-weight: 600;
+  background: var(--canvas-header-bg) !important;
+  color: var(--canvas-header-text);
+  font-weight: var(--weight-bold);
   text-align: center;
   user-select: none;
 }
@@ -435,24 +466,28 @@
 }
 
 .vcell.vrowhead.pinned {
-  color: var(--accent);
+  color: var(--canvas-header-selected-text);
 }
 
-/* Sticky first column: the pinned column-0 header and its per-row data cells
-   stick to the left, right after the row-header column (see `overlayWidth`
-   in grid.ts, which reserves this space out of the scrollable viewport). The
-   accent right border marks the frozen boundary, mirroring the sticky row's
-   accent bottom border above. Normal cell/alt-row/selection backgrounds are
+/* Pinned columns (sticky first column, or every column left of a
+   freeze-at-selection point): their header and per-row data cells stick to
+   the left, right after the row-header column (see `overlayWidth` in grid.ts,
+   which reserves this space out of the scrollable viewport). The accent right
+   border on the last one (.colpin-edge) marks the frozen boundary, mirroring
+   the pinned rows' accent bottom border above. Normal cell/alt-row/selection backgrounds are
    left untouched so selection highlighting still shows through when a
    selected range includes the frozen column. */
 .vcell.colpin {
   position: sticky;
   z-index: 2;
-  border-right: 2px solid var(--accent);
+}
+
+.vcell.colpin-edge {
+  border-right: 2px solid var(--canvas-frozen-divider);
 }
 
 .vcell.vhead.pinned {
-  color: var(--accent);
+  color: var(--canvas-header-selected-text);
 }
 
 /* Column-header filter button (shown on every column of an active filter's
@@ -470,43 +505,43 @@
   min-width: 16px;
   height: 16px;
   padding: 0 2px;
-  font-size: 9px;
+  font-size: var(--text-caption);
   line-height: 1;
-  color: var(--text-dim);
-  background: var(--field-bg);
-  border: 1px solid var(--border);
-  border-radius: 3px;
+  color: var(--canvas-header-text);
+  background: var(--canvas-bg);
+  border: 1px solid var(--canvas-grid-strong);
+  border-radius: var(--radius-xs);
   cursor: pointer;
 }
 
 .filter-indicator:hover {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--canvas-selection-border);
+  border-color: var(--canvas-selection-border);
 }
 
 .filter-indicator.active {
-  color: var(--accent-contrast);
-  background: var(--accent);
-  border-color: var(--accent);
+  color: var(--canvas-bg);
+  background: var(--canvas-selection-border);
+  border-color: var(--canvas-selection-border);
 }
 
 .filter-indicator:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--canvas-focus-ring);
   outline-offset: 1px;
 }
 
 /* Filter/sort status chips and dialog sections. */
 .status-filter,
 .status-sort {
-  color: var(--accent);
-  font-weight: 600;
+  color: var(--accent-text);
+  font-weight: var(--weight-bold);
 }
 
 .sort-key-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-1-5);
 }
 
 /* Spatial cross layout for the Borders dialog's side checkboxes (#393): each
@@ -519,16 +554,16 @@
   grid-template-rows: repeat(3, auto);
   justify-items: center;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  border: 1px dashed var(--border);
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--border-default);
   border-radius: var(--radius-sm);
 }
 
 .format-borders-cell {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-1-5);
   white-space: nowrap;
 }
 
@@ -564,21 +599,21 @@
 .filter-condition-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: var(--space-3);
+  gap: var(--space-1-5);
 }
 
 .filter-value-list {
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-1) var(--space-2);
 }
 
 .filter-value {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-1-5);
   min-height: 24px;
   white-space: nowrap;
   overflow: hidden;
@@ -599,78 +634,80 @@
 }
 
 .vcell.vcorner:hover {
-  background: var(--accent-soft) !important;
-  color: var(--accent);
+  background: var(--canvas-header-selected-bg) !important;
+  color: var(--canvas-header-selected-text);
 }
 
 /* Whole-sheet selection: the corner reads as pressed, distinct from the active
    cell (solid outline), a cell range (soft fill), and whole-row/column
    selections (their header emphasis via .sel-rows / .sel-cols). */
 .grid-container.sel-all .vcell.vcorner {
-  background: var(--accent) !important;
-  color: var(--accent-contrast);
-  box-shadow: inset 0 0 0 2px var(--accent);
+  background: var(--canvas-selection-border) !important;
+  color: var(--canvas-bg);
+  box-shadow: inset 0 0 0 2px var(--canvas-selection-border);
 }
 
 .vcell.in-range {
-  background: var(--accent-soft);
+  background: var(--canvas-selection);
 }
 
-.vgrid-row.alt .vcell.in-range,
+:where(:root[data-banded-rows]) .vgrid-row.alt .vcell.in-range,
+:where(:root[data-banded-rows]) .vgrid-stickyrow.alt .vcell.in-range,
 .vgrid-row.selected-row .vcell.in-range {
-  background: var(--accent-soft);
+  background: var(--canvas-selection);
 }
 
 .vcell.selected {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--canvas-selection-border);
   outline-offset: -2px;
 }
 
 /* The opposite corner of a rectangular selection (distinct from the active
    cell's solid outline). */
 .vcell.anchor {
-  outline: 2px dashed var(--accent);
+  outline: 2px dashed var(--canvas-selection-border);
   outline-offset: -2px;
 }
 
 /* Row/column headers intersecting the selection. */
 .vcell.vrowhead.hdr-sel,
 .vcell.vhead.hdr-sel {
-  background: var(--accent-soft) !important;
-  color: var(--accent);
+  background: var(--canvas-header-selected-bg) !important;
+  color: var(--canvas-header-selected-text);
 }
 
 /* Whole-row / whole-column selections emphasize their headers further. */
 .grid-container.sel-rows .vcell.vrowhead.hdr-sel,
 .grid-container.sel-cols .vcell.vhead.hdr-sel {
-  box-shadow: inset 0 0 0 2px var(--accent);
+  box-shadow: inset 0 0 0 2px var(--canvas-selection-border);
 }
 
 .vcell.edited {
-  background: var(--edited) !important;
-  box-shadow: inset 2px 0 0 var(--edited-border);
+  background: var(--state-modified) !important;
+  box-shadow: inset 2px 0 0 var(--canvas-edited-mark);
 }
 
 .vcell.malformed {
-  text-decoration: underline wavy var(--danger);
+  text-decoration: underline wavy var(--canvas-error-text);
   text-underline-offset: 3px;
 }
 
 /* Formula cells are never italicized (italic hurts CJK legibility and can be
    confused with the selection/editing state). They are differentiated by a
-   subtle green tint plus a non-italic corner marker in the top-right. */
+   subtle green tint plus a non-italic corner marker in the bottom-left (the
+   top-right corner belongs to the comment mark). */
 .vcell.formula {
-  color: var(--formula-text);
+  color: var(--canvas-formula-text);
   font-style: normal;
 }
 
-.vcell.formula::after {
+.vcell.formula::before {
   content: '';
   position: absolute;
-  top: 0;
-  right: 0;
-  border-top: 5px solid var(--formula-marker);
-  border-left: 5px solid transparent;
+  left: 0;
+  bottom: 0;
+  border-bottom: 5px solid var(--canvas-formula-mark);
+  border-right: 5px solid transparent;
   opacity: 0.8;
   pointer-events: none;
 }
@@ -678,13 +715,13 @@
 /* Error cells stay clear without relying on color or italic alone: the cell
    text is the literal error code (e.g. #DIV/0!) and it is bold. */
 .vcell.cell-error {
-  color: var(--danger);
-  font-weight: 700;
+  color: var(--canvas-error-text);
+  font-weight: var(--weight-bold);
   font-style: normal;
 }
 
-.vcell.cell-error::after {
-  border-top-color: var(--danger);
+.vcell.cell-error::before {
+  border-bottom-color: var(--canvas-error-text);
 }
 
 /* Cell/range formatting (Format menu, RSF only). Placed after `.formula` and
@@ -703,7 +740,7 @@
    / Yu Gothic UI), which do have true bold glyphs, since it only adds a
    little extra weight on top of an already-bold face. */
 .vcell.cell-bold {
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   -webkit-text-stroke: 0.4px currentColor;
 }
 
@@ -718,10 +755,10 @@
 .vcell.void {
   background: repeating-linear-gradient(
     45deg,
-    var(--void-a),
-    var(--void-a) 6px,
-    var(--void-b) 6px,
-    var(--void-b) 12px
+    var(--canvas-bg),
+    var(--canvas-bg) 6px,
+    var(--canvas-row-alt) 6px,
+    var(--canvas-row-alt) 12px
   );
 }
 
@@ -752,14 +789,14 @@
 }
 
 .vgrid-canvas .grid-sink.cell-editor {
-  border: 2px solid var(--accent);
+  border: 2px solid var(--canvas-selection-border);
   /* The editor covers the cell's whole box, so its 2px border stands in for
      the first 2px of the cell padding: text (and the IME composition) starts
      exactly where the rendered cell text does, at every zoom level. */
   padding: max(0px, calc(3px * var(--sheet-zoom, 1) - 2px)) max(0px, calc(6px * var(--sheet-zoom, 1) - 2px));
-  color: var(--text);
+  color: var(--canvas-text);
   caret-color: auto;
-  background: var(--field-bg);
+  background: var(--canvas-bg);
   opacity: 1;
   pointer-events: auto;
   z-index: 5;
@@ -773,4 +810,101 @@
   /* The same line box as a single-line cell, so the first line (and the IME
      composition on it) sits at the rendered text's exact vertical position. */
   line-height: calc(var(--grid-row-height) - 1px - 6px * var(--sheet-zoom, 1));
+}
+
+/* Rich text (parts of a cell's text with their own format) while editing:
+   the formatted field replaces the plain editor over the cell
+   (`src/ui/rich-cell-editor.ts`), in exactly the plain editor's box. */
+.vgrid-canvas .grid-sink.cell-editor.rich-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vgrid-canvas .rich-cell-editor {
+  position: absolute;
+  z-index: 5;
+  box-sizing: border-box;
+  margin: 0;
+  border: 2px solid var(--accent);
+  padding: max(0px, calc(3px * var(--sheet-zoom, 1) - 2px)) max(0px, calc(6px * var(--sheet-zoom, 1) - 2px));
+  background: var(--canvas-bg);
+  color: var(--canvas-text);
+  font: inherit;
+  line-height: calc(var(--grid-row-height) - 1px - 6px * var(--sheet-zoom, 1));
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  overflow: auto;
+  outline: none;
+  cursor: text;
+}
+
+/* The floating toolbar over text selected in the cell editor
+   (`src/ui/rich-text-toolbar.ts`). */
+.rich-text-toolbar {
+  position: fixed;
+  z-index: var(--z-menu);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  box-shadow: var(--shadow-md);
+}
+
+.rich-text-toolbar[hidden] {
+  display: none;
+}
+
+.rich-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.rich-toolbar-button:hover {
+  background: var(--accent-subtle);
+}
+
+.rich-toolbar-button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.rich-toolbar-swatch {
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgb(0 0 0 / 25%);
+  border-radius: 50%;
+}
+
+/* "Same as the cell": an empty swatch with a diagonal line. */
+.rich-toolbar-swatch.auto {
+  background: linear-gradient(135deg, transparent 45%, var(--fg-muted) 45% 55%, transparent 55%);
+}
+
+.rich-toolbar-custom {
+  width: 26px;
+  height: 26px;
+  padding: 1px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.rich-toolbar-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--border-default);
 }

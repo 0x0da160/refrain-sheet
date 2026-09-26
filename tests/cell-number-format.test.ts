@@ -10,6 +10,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
+import { setLocale } from '../src/app/i18n';
 import { formatCellNumber } from '../src/core/cell-number-format';
 import {
   MAX_CURRENCY_SYMBOL_LENGTH,
@@ -41,6 +42,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseInsertShift: vi.fn(async () => 'down' as const),
     confirmFlashFill: vi.fn(async () => true),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -331,5 +333,46 @@ describe('FormatCommands.promptNumberFormat via Commands', () => {
     expect(doc.getStyle(0, 0)).toBeNull();
     state.redo(tab);
     expect(doc.getStyle(0, 0)?.numberFormat).toEqual(format);
+  });
+});
+
+describe('number format presets (Ctrl+Shift+1 / 4 / 5)', () => {
+  it('applies number, percent, and locale-dependent currency presets to the selection', async () => {
+    const { commands, tab, doc, state } = sheet([['1234.5', '0.25']], stubUi());
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    await commands.run('format.presetNumber');
+    expect(doc.getStyle(0, 0)?.numberFormat).toEqual({ kind: 'number', decimals: 2, thousands: true });
+
+    state.setSelection(tab, { row: 0, col: 1 }, null);
+    await commands.run('format.presetPercent');
+    expect(doc.getStyle(0, 1)?.numberFormat).toEqual({ kind: 'percent', decimals: 0, thousands: false });
+
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    setLocale('en');
+    await commands.run('format.presetCurrency');
+    expect(doc.getStyle(0, 0)?.numberFormat).toEqual({
+      kind: 'currency',
+      decimals: 2,
+      thousands: true,
+      currencySymbol: '$',
+    });
+    setLocale('ja');
+    await commands.run('format.presetCurrency');
+    expect(doc.getStyle(0, 0)?.numberFormat).toEqual({
+      kind: 'currency',
+      decimals: 0,
+      thousands: true,
+      currencySymbol: '¥',
+    });
+    setLocale('en');
+    expect(doc.getValue(0, 0)).toBe('1234.5');
+  });
+
+  it('is disabled on a plain CSV tab', () => {
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    const tab = state.addTab('t.csv', csvDoc('a,b\n'), null);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    expect(commands.isEnabled('format.presetNumber')).toBe(false);
   });
 });

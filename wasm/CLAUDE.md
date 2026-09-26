@@ -8,8 +8,8 @@ command table does not cover — read this before touching anything here.
 ## What this crate is
 
 `refrain-csv-core` (`wasm/Cargo.toml`): byte-level CSV parsing/validation/
-sniffing/indexing/serialization planning, plus the three RSF compression
-codecs, compiled to `wasm32-unknown-unknown` and embedded into the app as
+sniffing/indexing/serialization planning, plus the compression codecs
+(Zstandard for `.rsf`, DEFLATE for `.xlsx` import), compiled to `wasm32-unknown-unknown` and embedded into the app as
 Base64 (never fetched at runtime — see
 [`knowledge/operations/security-threat-model.md`](../knowledge/operations/security-threat-model.md)).
 The codec implementations and their container framing are documented in
@@ -53,13 +53,15 @@ in-app way to recover. Before changing anything under `wasm/src/`:
   that isn't followed by `build:wasm` has no effect on the running app —
   `npm run build` alone does not rebuild it.
 - **The build is reproducible, and CI checks it.** With the toolchain pinned
-  in the root `rust-toolchain.toml` (1.84.1), wasm-pack 0.13.1, and
-  wasm-bindgen-cli 0.2.100, `build:wasm` is byte-deterministic across
+  in the root `rust-toolchain.toml` (1.98.1), wasm-pack 0.15.0, and
+  wasm-bindgen-cli 0.2.129, `build:wasm` is byte-deterministic across
   machines: `scripts/build-wasm.mjs` remaps the cargo home in the paths rustc
   embeds, so a different home directory cannot change the binary.
   `.github/workflows/wasm.yml` runs `test:rust`, rebuilds, and fails if
   `src/wasm-gen/` differs from the committed files — so always rebuild with
-  exactly those versions (the Docker image has them) and commit the result.
+  exactly those versions (the Docker image has them, and so does a
+  Claude Code on the web session via `.claude/hooks/session-start.sh`) and
+  commit the result.
   The frozen `.rsf` fixtures (`tests/rsf-fixtures.test.ts`) pin the codecs'
   compressed output byte-for-byte on the JS side.
 - `wasm-opt` is deliberately disabled in the release profile (see the comment

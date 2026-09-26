@@ -12,8 +12,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: var(--space-5);
-  background: var(--cell-bg);
+  padding: 0;
+  background: var(--bg-surface);
 }
 
 .json-sheet-view[hidden] {

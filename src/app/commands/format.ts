@@ -5,12 +5,16 @@ import {
   BORDER_STYLE_KEY,
   BORDER_WIDTH_KEY,
   cellStylesEqual,
+  type CellStyle,
   type BorderSide,
   type CellStylePatch,
+  type NumberFormat,
 } from '../../core/cell-style';
 import type { CellRange } from '../../core/clipboard';
-import type { StyleChange } from '../../core/history';
+import type { Operation, StyleChange } from '../../core/history';
+import { remapRuns, runsEqual, runsForText, type TextRun } from '../../core/rich-text';
 import type { AppState, Tab } from '../app-state';
+import { getLocale } from '../i18n';
 import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult, UiPort } from '../commands';
 import { applyWhileOpen } from './shared';
 
@@ -43,6 +47,7 @@ const CLEAR_PATCH: CellStylePatch = {
   borderBottom: null,
   borderLeft: null,
   numberFormat: null,
+  runs: null,
 };
 
 /**
@@ -171,6 +176,143 @@ export class FormatCommands {
           'history.setNumberFormat',
         ),
     );
+  }
+
+  /**
+   * Apply a preset number format to the selection in one step (the
+   * Ctrl+Shift+1 / 4 / 5 keys). Currency follows the display language: yen
+   * with no decimals in Japanese, dollars with two decimals otherwise.
+   */
+  applyNumberPreset(tab: Tab, preset: 'number' | 'currency' | 'percent'): boolean {
+    if (tab.doc.kind !== 'rsf') {
+      return false;
+    }
+    const yen = getLocale() === 'ja';
+    const format: NumberFormat =
+      preset === 'number'
+        ? { kind: 'number', decimals: 2, thousands: true }
+        : preset === 'percent'
+          ? { kind: 'percent', decimals: 0, thousands: false }
+          : { kind: 'currency', decimals: yen ? 0 : 2, thousands: true, currencySymbol: yen ? '¥' : '$' };
+    return this.applyToSelection(tab, { numberFormat: format }, 'history.setNumberFormat');
+  }
+
+  /**
+   * Paste Formatting: give the selection the copied cells' styles (values
+   * untouched), as one undoable entry. Like a paste, it starts at the
+   * selection's top-left cell and repeats the copied pattern over a larger
+   * selection whose size is an exact multiple of it. Cells past the sheet's
+   * current edge and rows hidden by a filter are skipped.
+   */
+  pasteStyles(tab: Tab, styles: ReadonlyArray<ReadonlyArray<CellStyle | null>>): boolean {
+    const doc = tab.doc;
+    const dest = this.state.selectedRange(tab);
+    if (doc.kind !== 'rsf' || !dest || styles.length === 0 || styles[0].length === 0) {
+      return false;
+    }
+    const srcH = styles.length;
+    const srcW = styles[0].length;
+    const destH = dest.bottom - dest.top + 1;
+    const destW = dest.right - dest.left + 1;
+    const tile = (destH > srcH || destW > srcW) && destH % srcH === 0 && destW % srcW === 0;
+    const height = Math.min(tile ? destH : srcH, doc.rowCount - dest.top);
+    const width = Math.min(tile ? destW : srcW, doc.columnCount - dest.left);
+    const hidden = this.state.hiddenRows(tab);
+    const sheetId = doc.activeSheetId;
+    const changes: StyleChange[] = [];
+    for (let i = 0; i < height; i++) {
+      const row = dest.top + i;
+      if (hidden?.has(row)) {
+        continue;
+      }
+      for (let j = 0; j < width; j++) {
+        const col = dest.left + j;
+        const before = doc.getStyle(row, col);
+        const after = styles[i % srcH][j % srcW];
+        if (!cellStylesEqual(before, after)) {
+          changes.push({ row, col, before, after });
+        }
+      }
+    }
+    if (height > 0 && width > 0) {
+      this.state.setSelection(
+        tab,
+        { row: dest.top, col: dest.left },
+        { row: dest.top + height - 1, col: dest.left + width - 1 },
+      );
+    }
+    if (changes.length === 0) {
+      return false;
+    }
+    return this.state.pushEntry(tab, {
+      label: 'history.pasteFormats',
+      sheetId,
+      ops: [{ type: 'styles', changes, sheetId }],
+    });
+  }
+
+  /**
+   * The style change a single-cell edit brings to the cell's rich text
+   * (RSF grid worksheets only), or null when there is none. `runs` from the
+   * cell editor replaces the formatted parts (null clears them); left out,
+   * they carry over from the old text to the new (`remapRuns`). Runs that
+   * no longer matched the cell's text are dropped.
+   */
+  styleForEdit(
+    tab: Tab,
+    row: number,
+    col: number,
+    value: string,
+    runs: TextRun[] | null | undefined,
+  ): { before: CellStyle | null; after: CellStyle | null } | null {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf' || doc.activeSheet.kind !== 'grid') {
+      return null;
+    }
+    if (row < 0 || row >= doc.rowCount || col < 0 || col >= doc.columnCount) {
+      return null;
+    }
+    const before = doc.getStyle(row, col);
+    const current = doc.getValue(row, col);
+    if (runs === undefined && (!before?.runs || current === value)) {
+      return null;
+    }
+    const next = runs === undefined ? remapRuns(current, value, runsForText(before?.runs, current)) : runs;
+    const nextRuns = next && runsForText(next, value) ? next : null;
+    if (runsEqual(before?.runs, nextRuns ?? undefined)) {
+      return null;
+    }
+    return { before, after: applyCellStylePatch(before, { runs: nextRuns }) };
+  }
+
+  /**
+   * Commit one cell's new input together with its new style (rich text) as
+   * one undoable entry; either part may be unchanged.
+   */
+  editCellWithStyle(
+    tab: Tab,
+    row: number,
+    col: number,
+    value: string,
+    before: CellStyle | null,
+    after: CellStyle | null,
+  ): boolean {
+    const doc = tab.doc;
+    if (doc.kind !== 'rsf') {
+      return false;
+    }
+    const sheetId = doc.activeSheetId;
+    const previous = doc.getValue(row, col);
+    const ops: Operation[] = [];
+    if (previous !== value) {
+      ops.push({ type: 'cells', changes: [{ row, col, before: previous, after: value }], sheetId });
+    }
+    ops.push({ type: 'styles', changes: [{ row, col, before, after }], sheetId });
+    return this.state.pushEntry(tab, {
+      label: previous !== value ? 'history.editCell' : 'history.formatText',
+      sheetId,
+      ops,
+    });
   }
 
   /** Remove every style property from the selection (values are untouched). */

@@ -59,14 +59,14 @@ it.
 Everything is available from the **Sheet** menu, the worksheet strip's
 context menu (right-click a worksheet tab), and the keyboard:
 
-| Action              | How                                                            |
-| ------------------- | -------------------------------------------------------------- |
-| Switch worksheet    | Click a tab, `←` / `→`, `Home` / `End`, or `F7` / `Shift+F7`   |
-| Add worksheet       | The `+` button, or Sheet > Add Worksheet                       |
-| Rename worksheet    | Double-click a tab, `F2`, or Sheet > Rename Worksheet…         |
-| Duplicate worksheet | Sheet > Duplicate Worksheet…                                   |
-| Delete worksheet    | Sheet > Delete Worksheet                                       |
-| Reorder worksheet   | Drag a tab, `Alt`+`←` / `→`, `Alt`+`Home` / `End`, or the menu |
+| Action              | How                                                                                |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| Switch worksheet    | Click a tab, `←` / `→`, `Home` / `End`, or `Ctrl+Alt+PageDown` / `Ctrl+Alt+PageUp` |
+| Add worksheet       | The `+` button, or Sheet > Add Worksheet                                           |
+| Rename worksheet    | Double-click a tab, `F2`, or Sheet > Rename Worksheet…                             |
+| Duplicate worksheet | Sheet > Duplicate Worksheet…                                                       |
+| Delete worksheet    | Sheet > Delete Worksheet                                                           |
+| Reorder worksheet   | Drag a tab, `Alt`+`←` / `→`, `Alt`+`Home` / `End`, or the menu                     |
 
 Drag-and-drop reordering is a convenience only — every reorder has a
 keyboard and menu equivalent, and the strip announces the result to
@@ -117,7 +117,7 @@ There are two ways to convert, both explicit and confirmed. Either way the
 result is a workbook with **one** worksheet populated from the CSV, and the
 source `.csv` on disk is never modified:
 
-- **File > Convert to Spreadsheet (RSF)…** converts up front. It uses the
+- **File > This File > Convert to RSF Spreadsheet…** converts up front. It uses the
   CSV's current (including unsaved) contents and opens the result in a
   **new** `.rsf` tab; the source CSV tab and the file on disk stay open and
   unchanged. The command is enabled only for a CSV document that has not

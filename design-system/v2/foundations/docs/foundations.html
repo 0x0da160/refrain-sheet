@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Refrain Sheet Foundations</title>
+<meta name="description" content="ブランド（LP・ドキュメント）とアプリ UI が共有する基盤：色、文字の書体と太さ、余白、形、線、動き、アイコン、ロゴ。">
+<link rel="icon" href="../icons/favicon.svg">
+<link rel="stylesheet" href="../css/foundations.css">
+<link rel="stylesheet" href="doc.css">
+</head>
+<body>
+<a class="doc-skip" href="#main">本文へスキップ</a>
+<header class="doc-head">
+  <div class="wrap">
+    <img src="../logo/refrain-sheet-logotype-horizontal-reverse.svg" alt="Refrain Sheet" height="36">
+    <p class="eyebrow">FOUNDATIONS · <!-- gen:version -->v2.3.0 · 2026-09-26<!-- /gen:version --></p>
+    <h1>共通基盤</h1>
+    <p>ブランド（LP・ドキュメント・ストア掲載）とアプリ UI の両方が使う、ただ一つの基盤です。
+      ここにある値は両方で同じ意味を持ち、どちらかの層で上書きしません。
+      層ごとの規定は <a href="../../brand/docs/brand-guidelines.html">ブランドガイドライン</a> と
+      <a href="../../app/docs/design-system.html">アプリのデザインシステム</a> にあります。</p>
+    <nav class="doc-layers" aria-label="層">
+      <a href="foundations.html" aria-current="page">共通基盤</a>
+      <a href="../../brand/docs/brand-guidelines.html">ブランド</a>
+      <a href="../../app/docs/design-system.html">アプリ</a>
+    </nav>
+    <div class="doc-switch"><span>テーマ</span>
+      <div role="group" data-switch="theme" aria-label="テーマ">
+        <button type="button" aria-pressed="true" data-value="light">light</button>
+        <button type="button" aria-pressed="false" data-value="dark">dark</button>
+      </div>
+    </div>
+    <nav class="toc" aria-label="目次">
+      <a href="#layers">3 つの層</a><a href="#color">色</a><a href="#type">文字</a>
+      <a href="#space">余白・形・動き</a><a href="#icons">アイコンとロゴ</a><a href="#a11y">アクセシビリティ</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+<section id="layers"><div class="wrap">
+  <h2>3 つの層</h2>
+  <p class="lead">ブランドとアプリは目的が違います。LP は「読んでもらう」ために大きく流体的に、
+    アプリは「一日中使う」ために密に作ります。それでも同じ製品に見えるよう、
+    色・書体・形・動きの基盤は 1 つにまとめています。</p>
+  <div class="layer-map">
+    <div><h3>共通基盤（この文書）</h3><ul>
+      <li>色のパレットとブランドの基準色</li>
+      <li>共通の意味色（light / dark）</li>
+      <li>書体・太さ・最小サイズ 12px</li>
+      <li>余白・角丸・線・動き・ブレークポイント</li>
+      <li>アイコン（Lucide）・ロゴ・アプリアイコン</li>
+      <li>WCAG 2.2 AA の基準</li></ul></div>
+    <div><h3>ブランド</h3><ul>
+      <li>LP・ドキュメント・ストア掲載・SNS 画像</li>
+      <li>流体的な文字サイズ（本文 16〜18px）</li>
+      <li>ページの幅と区切り、暗い帯</li>
+      <li>ロゴの使い方、写真、文言、名前の扱い</li>
+      <li>クラス接頭辞 <code>rb-</code></li></ul></div>
+    <div><h3>アプリ</h3><ul>
+      <li>アプリ UI のすべての画面</li>
+      <li>hybrid テーマとキャンバス（シート）の色</li>
+      <li>密な文字サイズ（本文 14px、セル 12px）</li>
+      <li>密度・グリッド・重なり順・部品</li>
+      <li>クラス接頭辞 <code>rs-</code></li></ul></div>
+  </div>
+  <h3>判断の目安</h3>
+  <ul>
+    <li><b>両方で同じ意味なら共通基盤へ。</b>緑が「操作・現在地」を意味するのは LP でもアプリでも同じなので、<code>--accent</code> は共通です。</li>
+    <li><b>片方の読み方にしか合わないなら層へ。</b>LP の 18px の本文はアプリには大きすぎ、アプリの 24px の行は LP には窮屈です。文字のスケールは層ごとに持ちます。</li>
+    <li><b>層は基盤を上書きしない。</b>足すだけです。上書きが必要になったら、それは基盤の値が間違っている合図です。</li>
+  </ul>
+</div></section>
+
+<section id="color"><div class="wrap">
+  <h2>色</h2>
+  <p>OKLCH で設計し、sRGB の 16 進で納品します。中間色は暖色の <b>Paper</b>（紙）と寒色の <b>Ink</b>（記録）の二極で、
+    明るいテーマでは紙が面・インクが文字、暗いテーマではその関係が反転します。
+    緑の色相は明るいほど黄側へ寄る軌跡を持ち、ブランドの基準色 5 つ（下の表）がそのままスケール上に乗っています。
+    新しく足した段階（<code>ink-150</code>・<code>ink-250</code>・<code>violet</code>・<code>teal</code>）は、
+    明度と色相を保ったまま sRGB に収まるまで彩度だけを落としています。</p>
+  <h3>ブランドの基準色</h3>
+  <!-- gen:anchors --><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th>値</th><th>役割</th></tr></thead><tbody><tr><th><code>--brand-green</code></th><td><span class="doc-chip" style="background:#147F43"></span><code>#147F43</code> <small>green.600</small></td><td>Preserve — dominant brand colour, app-icon ground</td></tr>
+<tr><th><code>--brand-paper</code></th><td><span class="doc-chip" style="background:#F4F4EB"></span><code>#F4F4EB</code> <small>paper.50</small></td><td>Paper — page and shell background in light</td></tr>
+<tr><th><code>--brand-mist</code></th><td><span class="doc-chip" style="background:#DAECD8"></span><code>#DAECD8</code> <small>green.100</small></td><td>Mist — quiet structure</td></tr>
+<tr><th><code>--brand-leaf</code></th><td><span class="doc-chip" style="background:#8BC191"></span><code>#8BC191</code> <small>green.300</small></td><td>Leaf — accent on dark</td></tr>
+<tr><th><code>--brand-ink</code></th><td><span class="doc-chip" style="background:#141A22"></span><code>#141A22</code> <small>ink.900</small></td><td>Ink — text, and the ground of dark surfaces</td></tr></tbody></table></div><!-- /gen:anchors -->
+  <h3>パレット</h3>
+  <!-- gen:palette --><div class="doc-swatch-row"><figure class="doc-swatch"><span class="doc-chip" style="background:#EEF9EC"></span><figcaption><b>green-50</b><br><code>#EEF9EC</code><br><small>97.0% 0.021 140.9</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#DAECD8"></span><figcaption><b>green-100</b><br><code>#DAECD8</code><br><small>92.4% 0.033 142.5</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#B3D5B3"></span><figcaption><b>green-200</b><br><code>#B3D5B3</code><br><small>83.9% 0.059 145.0</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#8BC191"></span><figcaption><b>green-300</b><br><code>#8BC191</code><br><small>76.0% 0.088 147.5</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#5DA56C"></span><figcaption><b>green-400</b><br><code>#5DA56C</code><br><small>66.0% 0.112 149.3</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#3D9156"></span><figcaption><b>green-500</b><br><code>#3D9156</code><br><small>58.9% 0.121 150.8</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#147F43"></span><figcaption><b>green-600</b><br><code>#147F43</code><br><small>52.5% 0.130 152.3</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#006335"></span><figcaption><b>green-700</b><br><code>#006335</code><br><small>43.9% 0.110 154.4</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#004A29"></span><figcaption><b>green-800</b><br><code>#004A29</code><br><small>36.0% 0.087 156.2</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#002F1B"></span><figcaption><b>green-900</b><br><code>#002F1B</code><br><small>26.9% 0.062 159.3</small></figcaption></figure></div>
+<div class="doc-swatch-row"><figure class="doc-swatch"><span class="doc-chip" style="background:#FFFFFF"></span><figcaption><b>paper-0</b><br><code>#FFFFFF</code><br><small>100.0% 0.000 0.0</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#F4F4EB"></span><figcaption><b>paper-50</b><br><code>#F4F4EB</code><br><small>96.5% 0.012 106.6</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#EDEDE4"></span><figcaption><b>paper-100</b><br><code>#EDEDE4</code><br><small>94.4% 0.012 106.6</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#DDDDD4"></span><figcaption><b>paper-200</b><br><code>#DDDDD4</code><br><small>89.5% 0.012 106.6</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#CBCBC3"></span><figcaption><b>paper-300</b><br><code>#CBCBC3</code><br><small>84.0% 0.011 106.6</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#B2B2AA"></span><figcaption><b>paper-400</b><br><code>#B2B2AA</code><br><small>76.1% 0.011 106.7</small></figcaption></figure></div>
+<div class="doc-swatch-row"><figure class="doc-swatch"><span class="doc-chip" style="background:#A7ADB5"></span><figcaption><b>ink-150</b><br><code>#A7ADB5</code><br><small>74.5% 0.013 255.5</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#999FA7"></span><figcaption><b>ink-200</b><br><code>#999FA7</code><br><small>70.0% 0.014 255.5</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#8D939B"></span><figcaption><b>ink-250</b><br><code>#8D939B</code><br><small>66.1% 0.014 255.5</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#81878F"></span><figcaption><b>ink-300</b><br><code>#81878F</code><br><small>62.1% 0.014 255.5</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#6F757D"></span><figcaption><b>ink-350</b><br><code>#6F757D</code><br><small>56.0% 0.014 255.6</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#5C636D"></span><figcaption><b>ink-400</b><br><code>#5C636D</code><br><small>49.7% 0.018 257.2</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#474E57"></span><figcaption><b>ink-500</b><br><code>#474E57</code><br><small>42.1% 0.018 254.7</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#323941"></span><figcaption><b>ink-600</b><br><code>#323941</code><br><small>34.1% 0.017 251.8</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#232932"></span><figcaption><b>ink-700</b><br><code>#232932</code><br><small>27.9% 0.019 258.4</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#1B2129"></span><figcaption><b>ink-800</b><br><code>#1B2129</code><br><small>24.5% 0.018 255.7</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#141A22"></span><figcaption><b>ink-900</b><br><code>#141A22</code><br><small>21.5% 0.018 255.7</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#0B1118"></span><figcaption><b>ink-950</b><br><code>#0B1118</code><br><small>17.5% 0.017 252.6</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#04080E"></span><figcaption><b>ink-1000</b><br><code>#04080E</code><br><small>13.2% 0.016 251.8</small></figcaption></figure></div>
+<div class="doc-swatch-row"><figure class="doc-swatch"><span class="doc-chip" style="background:#F6E5CE"></span><figcaption><b>amber-100</b><br><code>#F6E5CE</code><br><small>92.9% 0.036 75.5</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#D6B890"></span><figcaption><b>amber-300</b><br><code>#D6B890</code><br><small>79.9% 0.064 74.6</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#B99056"></span><figcaption><b>amber-500</b><br><code>#B99056</code><br><small>67.9% 0.090 74.9</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#A6762A"></span><figcaption><b>amber-600</b><br><code>#A6762A</code><br><small>60.1% 0.108 75.0</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#865900"></span><figcaption><b>amber-700</b><br><code>#865900</code><br><small>50.1% 0.106 74.9</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#472D00"></span><figcaption><b>amber-900</b><br><code>#472D00</code><br><small>32.1% 0.068 74.7</small></figcaption></figure></div>
+<div class="doc-swatch-row"><figure class="doc-swatch"><span class="doc-chip" style="background:#FFDDD9"></span><figcaption><b>red-100</b><br><code>#FFDDD9</code><br><small>92.5% 0.038 25.8</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#E49C93"></span><figcaption><b>red-300</b><br><code>#E49C93</code><br><small>76.1% 0.088 27.2</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#C5675D"></span><figcaption><b>red-500</b><br><code>#C5675D</code><br><small>62.1% 0.122 27.4</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#B44B43"></span><figcaption><b>red-600</b><br><code>#B44B43</code><br><small>54.9% 0.138 26.9</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#9E2321"></span><figcaption><b>red-700</b><br><code>#9E2321</code><br><small>46.0% 0.160 26.9</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#5D0004"></span><figcaption><b>red-900</b><br><code>#5D0004</code><br><small>30.1% 0.123 27.3</small></figcaption></figure></div>
+<div class="doc-swatch-row"><figure class="doc-swatch"><span class="doc-chip" style="background:#D8EAFF"></span><figcaption><b>blue-100</b><br><code>#D8EAFF</code><br><small>93.0% 0.034 252.3</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#95BBE7"></span><figcaption><b>blue-300</b><br><code>#95BBE7</code><br><small>78.0% 0.075 252.4</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#4F89C9"></span><figcaption><b>blue-500</b><br><code>#4F89C9</code><br><small>61.9% 0.115 252.2</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#2D74BC"></span><figcaption><b>blue-600</b><br><code>#2D74BC</code><br><small>55.1% 0.132 251.8</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#0059A1"></span><figcaption><b>blue-700</b><br><code>#0059A1</code><br><small>46.1% 0.137 251.7</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#002E59"></span><figcaption><b>blue-900</b><br><code>#002E59</code><br><small>30.0% 0.090 252.2</small></figcaption></figure></div>
+<div class="doc-swatch-row"><figure class="doc-swatch"><span class="doc-chip" style="background:#EBE3FC"></span><figcaption><b>violet-100</b><br><code>#EBE3FC</code><br><small>93.0% 0.035 300.3</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#BFABE6"></span><figcaption><b>violet-300</b><br><code>#BFABE6</code><br><small>77.9% 0.085 300.0</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#9372C8"></span><figcaption><b>violet-500</b><br><code>#9372C8</code><br><small>62.0% 0.130 300.3</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#8059BB"></span><figcaption><b>violet-600</b><br><code>#8059BB</code><br><small>55.0% 0.150 299.9</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#673E9E"></span><figcaption><b>violet-700</b><br><code>#673E9E</code><br><small>46.1% 0.151 300.2</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#361E57"></span><figcaption><b>violet-900</b><br><code>#361E57</code><br><small>29.9% 0.099 299.8</small></figcaption></figure></div>
+<div class="doc-swatch-row"><figure class="doc-swatch"><span class="doc-chip" style="background:#CFEFEF"></span><figcaption><b>teal-100</b><br><code>#CFEFEF</code><br><small>92.9% 0.033 196.6</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#7BC7C6"></span><figcaption><b>teal-300</b><br><code>#7BC7C6</code><br><small>78.0% 0.076 194.6</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#339797"></span><figcaption><b>teal-500</b><br><code>#339797</code><br><small>62.0% 0.090 195.1</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#138282"></span><figcaption><b>teal-600</b><br><code>#138282</code><br><small>55.1% 0.090 194.9</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#006666"></span><figcaption><b>teal-700</b><br><code>#006666</code><br><small>46.2% 0.079 194.8</small></figcaption></figure><figure class="doc-swatch"><span class="doc-chip" style="background:#003636"></span><figcaption><b>teal-900</b><br><code>#003636</code><br><small>30.1% 0.051 194.8</small></figcaption></figure></div><!-- /gen:palette -->
+  <h3>共通の意味色</h3>
+  <p>ブランドとアプリの両方がこの名前で色を使います。アプリの hybrid テーマはこの dark を枠に、キャンバスに light を使います。
+    LP の暗い帯は、その区間だけに <code>data-theme="dark"</code> を付けます。</p>
+  <!-- gen:semantic --><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th>light</th><th>dark</th><th>用途</th></tr></thead><tbody><tr><th><code>--bg-page</code></th><td><span class="doc-chip" style="background:#F4F4EB"></span><code>paper.50</code></td><td><span class="doc-chip" style="background:#141A22"></span><code>ink.900</code></td><td>Page / app background</td></tr>
+<tr><th><code>--bg-surface</code></th><td><span class="doc-chip" style="background:#FFFFFF"></span><code>paper.0</code></td><td><span class="doc-chip" style="background:#1B2129"></span><code>ink.800</code></td><td>Bars, cards, docked panels, fields</td></tr>
+<tr><th><code>--bg-raised</code></th><td><span class="doc-chip" style="background:#FFFFFF"></span><code>paper.0</code></td><td><span class="doc-chip" style="background:#232932"></span><code>ink.700</code></td><td>Menus, popovers, dialogs — anything floating</td></tr>
+<tr><th><code>--bg-sunken</code></th><td><span class="doc-chip" style="background:#EDEDE4"></span><code>paper.100</code></td><td><span class="doc-chip" style="background:#0B1118"></span><code>ink.950</code></td><td>Wells, inset areas, progress track</td></tr>
+<tr><th><code>--bg-feature</code></th><td><span class="doc-chip" style="background:#DAECD8"></span><code>green.100</code></td><td><span class="doc-chip" style="background:#002F1B"></span><code>green.900</code></td><td>Landing site: the one Mist panel behind the first view</td></tr>
+<tr><th><code>--bg-hover</code></th><td><span class="doc-chip" style="background:#EDEDE4"></span><code>paper.100</code></td><td><span class="doc-chip" style="background:#323941"></span><code>ink.600</code></td><td>Hover fill of items and ghost buttons</td></tr>
+<tr><th><code>--bg-pressed</code></th><td><span class="doc-chip" style="background:#DDDDD4"></span><code>paper.200</code></td><td><span class="doc-chip" style="background:#474E57"></span><code>ink.500</code></td><td>Pressed fill of the same</td></tr>
+<tr><th><code>--border-default</code></th><td><span class="doc-chip" style="background:#DDDDD4"></span><code>paper.200</code></td><td><span class="doc-chip" style="background:#323941"></span><code>ink.600</code></td><td>Separators and non-interactive edges</td></tr>
+<tr><th><code>--border-strong</code></th><td><span class="doc-chip" style="background:#CBCBC3"></span><code>paper.300</code></td><td><span class="doc-chip" style="background:#474E57"></span><code>ink.500</code></td><td>Edges that must read over a busy surface</td></tr>
+<tr><th><code>--border-control</code></th><td><span class="doc-chip" style="background:#81878F"></span><code>ink.300</code></td><td><span class="doc-chip" style="background:#6F757D"></span><code>ink.350</code></td><td>Outline of an interactive control (3:1)</td></tr>
+<tr><th><code>--fg-default</code></th><td><span class="doc-chip" style="background:#141A22"></span><code>ink.900</code></td><td><span class="doc-chip" style="background:#F4F4EB"></span><code>paper.50</code></td><td>Primary text</td></tr>
+<tr><th><code>--fg-muted</code></th><td><span class="doc-chip" style="background:#474E57"></span><code>ink.500</code></td><td><span class="doc-chip" style="background:#A7ADB5"></span><code>ink.150</code></td><td>Secondary text: helper, metadata, shortcut hints</td></tr>
+<tr><th><code>--fg-subtle</code></th><td><span class="doc-chip" style="background:#5C636D"></span><code>ink.400</code></td><td><span class="doc-chip" style="background:#8D939B"></span><code>ink.250</code></td><td>Placeholders only</td></tr>
+<tr><th><code>--accent</code></th><td><span class="doc-chip" style="background:#147F43"></span><code>green.600</code></td><td><span class="doc-chip" style="background:#8BC191"></span><code>green.300</code></td><td>Primary action fill, active indicator, checked control</td></tr>
+<tr><th><code>--accent-hover</code></th><td><span class="doc-chip" style="background:#006335"></span><code>green.700</code></td><td><span class="doc-chip" style="background:#B3D5B3"></span><code>green.200</code></td><td></td></tr>
+<tr><th><code>--accent-active</code></th><td><span class="doc-chip" style="background:#004A29"></span><code>green.800</code></td><td><span class="doc-chip" style="background:#DAECD8"></span><code>green.100</code></td><td></td></tr>
+<tr><th><code>--accent-contrast</code></th><td><span class="doc-chip" style="background:#FFFFFF"></span><code>paper.0</code></td><td><span class="doc-chip" style="background:#141A22"></span><code>ink.900</code></td><td>Text/icon on an accent fill</td></tr>
+<tr><th><code>--accent-subtle</code></th><td><span class="doc-chip" style="background:#EEF9EC"></span><code>green.50</code></td><td><span class="doc-chip" style="background:#002F1B"></span><code>green.900</code></td><td>Selected item fill</td></tr>
+<tr><th><code>--accent-subtle-text</code></th><td><span class="doc-chip" style="background:#004A29"></span><code>green.800</code></td><td><span class="doc-chip" style="background:#B3D5B3"></span><code>green.200</code></td><td>Text on accent-subtle</td></tr>
+<tr><th><code>--accent-text</code></th><td><span class="doc-chip" style="background:#006335"></span><code>green.700</code></td><td><span class="doc-chip" style="background:#8BC191"></span><code>green.300</code></td><td>Accent-coloured text and icons</td></tr>
+<tr><th><code>--focus-ring</code></th><td><span class="doc-chip" style="background:#147F43"></span><code>green.600</code></td><td><span class="doc-chip" style="background:#8BC191"></span><code>green.300</code></td><td>Keyboard focus outline</td></tr>
+<tr><th><code>--danger</code></th><td><span class="doc-chip" style="background:#B44B43"></span><code>red.600</code></td><td><span class="doc-chip" style="background:#E49C93"></span><code>red.300</code></td><td>Destructive action fill, error icon</td></tr>
+<tr><th><code>--danger-hover</code></th><td><span class="doc-chip" style="background:#9E2321"></span><code>red.700</code></td><td><span class="doc-chip" style="background:#FFDDD9"></span><code>red.100</code></td><td></td></tr>
+<tr><th><code>--danger-contrast</code></th><td><span class="doc-chip" style="background:#FFFFFF"></span><code>paper.0</code></td><td><span class="doc-chip" style="background:#141A22"></span><code>ink.900</code></td><td>Text on a danger fill</td></tr>
+<tr><th><code>--danger-text</code></th><td><span class="doc-chip" style="background:#9E2321"></span><code>red.700</code></td><td><span class="doc-chip" style="background:#E49C93"></span><code>red.300</code></td><td>Error message text</td></tr>
+<tr><th><code>--danger-subtle</code></th><td><span class="doc-chip" style="background:#FFDDD9"></span><code>red.100</code></td><td><span class="doc-chip" style="background:#5D0004"></span><code>red.900</code></td><td>Error banner fill</td></tr>
+<tr><th><code>--warning</code></th><td><span class="doc-chip" style="background:#A6762A"></span><code>amber.600</code></td><td><span class="doc-chip" style="background:#D6B890"></span><code>amber.300</code></td><td>Warning icon and stripe</td></tr>
+<tr><th><code>--warning-text</code></th><td><span class="doc-chip" style="background:#865900"></span><code>amber.700</code></td><td><span class="doc-chip" style="background:#D6B890"></span><code>amber.300</code></td><td>Warning message text</td></tr>
+<tr><th><code>--warning-subtle</code></th><td><span class="doc-chip" style="background:#F6E5CE"></span><code>amber.100</code></td><td><span class="doc-chip" style="background:#472D00"></span><code>amber.900</code></td><td>Warning banner fill</td></tr>
+<tr><th><code>--success</code></th><td><span class="doc-chip" style="background:#147F43"></span><code>green.600</code></td><td><span class="doc-chip" style="background:#8BC191"></span><code>green.300</code></td><td>Success icon</td></tr>
+<tr><th><code>--success-text</code></th><td><span class="doc-chip" style="background:#006335"></span><code>green.700</code></td><td><span class="doc-chip" style="background:#8BC191"></span><code>green.300</code></td><td>Success message text</td></tr>
+<tr><th><code>--success-subtle</code></th><td><span class="doc-chip" style="background:#DAECD8"></span><code>green.100</code></td><td><span class="doc-chip" style="background:#002F1B"></span><code>green.900</code></td><td>Success banner fill</td></tr>
+<tr><th><code>--info</code></th><td><span class="doc-chip" style="background:#2D74BC"></span><code>blue.600</code></td><td><span class="doc-chip" style="background:#95BBE7"></span><code>blue.300</code></td><td>Information icon and stripe</td></tr>
+<tr><th><code>--info-text</code></th><td><span class="doc-chip" style="background:#0059A1"></span><code>blue.700</code></td><td><span class="doc-chip" style="background:#95BBE7"></span><code>blue.300</code></td><td>Information message text</td></tr>
+<tr><th><code>--info-subtle</code></th><td><span class="doc-chip" style="background:#D8EAFF"></span><code>blue.100</code></td><td><span class="doc-chip" style="background:#002E59"></span><code>blue.900</code></td><td>Information banner fill</td></tr>
+<tr><th><code>--link</code></th><td><span class="doc-chip" style="background:#006335"></span><code>green.700</code></td><td><span class="doc-chip" style="background:#8BC191"></span><code>green.300</code></td><td></td></tr>
+<tr><th><code>--link-visited</code></th><td><span class="doc-chip" style="background:#002F1B"></span><code>green.900</code></td><td><span class="doc-chip" style="background:#B3D5B3"></span><code>green.200</code></td><td></td></tr>
+<tr><th><code>--inverse-bg</code></th><td><span class="doc-chip" style="background:#1B2129"></span><code>ink.800</code></td><td><span class="doc-chip" style="background:#EDEDE4"></span><code>paper.100</code></td><td>Tooltips and toasts: the opposite of the theme</td></tr>
+<tr><th><code>--inverse-text</code></th><td><span class="doc-chip" style="background:#F4F4EB"></span><code>paper.50</code></td><td><span class="doc-chip" style="background:#141A22"></span><code>ink.900</code></td><td></td></tr>
+<tr><th><code>--inverse-text-muted</code></th><td><span class="doc-chip" style="background:#999FA7"></span><code>ink.200</code></td><td><span class="doc-chip" style="background:#474E57"></span><code>ink.500</code></td><td></td></tr>
+<tr><th><code>--overlay</code></th><td><span class="doc-chip" style="background:rgb(4 8 14 / 0.45)"></span><code>ink.1000 / 0.45</code></td><td><span class="doc-chip" style="background:rgb(4 8 14 / 0.65)"></span><code>ink.1000 / 0.65</code></td><td>Scrim behind a modal</td></tr></tbody></table></div><!-- /gen:semantic -->
+  <h3>段階と役割の対応</h3>
+  <p>意味色は、パレットの段階を役割ごとに同じ規則で選びます。4 つの状態（danger・warning・info・success）は、
+    どれも「印（アイコン・帯・塗り）」「文字」「淡い面」の 3 つをそろえて持ちます。</p>
+  <div class="doc-scroll"><table class="doc-table">
+    <thead><tr><th>役割</th><th>light</th><th>dark</th><th>例</th></tr></thead>
+    <tbody>
+      <tr><th>印・塗り</th><td>600</td><td>300</td><td><code>--accent</code> <code>--danger</code> <code>--info</code> <code>--success</code></td></tr>
+      <tr><th>文字</th><td>700</td><td>300</td><td><code>--accent-text</code> <code>--danger-text</code> <code>--info-text</code> <code>--success-text</code></td></tr>
+      <tr><th>淡い面</th><td>100</td><td>900</td><td><code>--danger-subtle</code> <code>--info-subtle</code> <code>--success-subtle</code></td></tr>
+      <tr><th>ホバー・押下</th><td>1 段・2 段濃く</td><td>1 段・2 段明るく</td><td><code>--accent-hover</code> <code>--accent-active</code> <code>--danger-hover</code></td></tr>
+    </tbody>
+  </table></div>
+  <p>例外は 1 つです。<b>選択の面（<code>--accent-subtle</code>）は green.50</b>：一覧で面積が大きいため、状態の淡い面（100）より一段淡くします。
+    状態の色相（amber・red・blue・violet・teal）は 100 と 900 の明度がそろっています（約 93% と約 30%）。中間の段階は amber だけが約 5% 明るいものの、
+    600 の印（白地で 4.0:1）と 700 の文字（淡い面の上で 4.9:1）はどちらも基準を満たすので、例外を作らず同じ番号を使います。
+    キャンバスの印（参照色・検索の現在の一致・編集済みの変更バー）も同じ規則で 600 です。</p>
+  <div class="callout">緑は 1 つの意味しか持ちません：「操作・現在地・保全」。成功（<code>success</code>）も同じ緑ですが、
+    必ずアイコンか文言を添えます。</div>
+</div></section>
+
+<section id="type"><div class="wrap">
+  <h2>文字</h2>
+  <p>Web フォントは LP でもアプリでも読み込みません。Windows 11 に標準搭載の BIZ UD ゴシックを基準に、
+    macOS / iOS はヒラギノ、Android / Linux は Noto にフォールバックします。
+    ダウンロードも表示の揺れ（FOUT・CLS）もなく、オフラインでも同じ見た目になります。</p>
+  <!-- gen:fonts --><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th>用途</th><th>スタック</th></tr></thead><tbody><tr><th><code>--font-ui</code></th><td>アプリの UI、LP の本文と見出し</td><td><code>"BIZ UDPGothic", "Yu Gothic UI", "Meiryo UI", "Meiryo", "Yu Gothic", "MS UI Gothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", sans-serif</code></td></tr>
+<tr><th><code>--font-data</code></th><td>セル・数値・パス（アプリの既定のスプレッドシートのフォント）</td><td><code>"BIZ UDGothic", "BIZ UDゴシック", "MS Gothic", "ＭＳ ゴシック", "Meiryo", "Yu Gothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", sans-serif</code></td></tr>
+<tr><th><code>--font-code</code></th><td>コード・JSON と YAML のエディタ・ショートカット表記・LP の見出し上の英字ラベル</td><td><code>"BIZ UDGothic", "Consolas", "SFMono-Regular", "Menlo", monospace</code></td></tr></tbody></table></div><!-- /gen:fonts -->
+  <ul>
+    <li><b>太さは 400 と 700 だけ。</b>BIZ UD に 500・600・800 はなく、指定すると 400 か 700 に落ちます。LP の見出しも 700 です。</li>
+    <li><b>最小は 12px（<code>--text-min</code>）。</b>日本語も英数字も同じ下限です。</li>
+    <li><b>日本語の字間は詰めない。</b>負のトラッキングは英語の見出し（<code>:lang(en)</code>）だけに使います。</li>
+    <li><b>大文字の英字ラベル</b>にだけ <code>--tracking-caps</code>（0.08em）を使います。日本語には使いません。</li>
+    <li><b>ロゴタイプの Inter は図形です。</b>ロゴタイプは Inter の Bold 700 と Medium 500 をアウトライン化したもので、UI や LP のテキストに Inter を使う根拠にはなりません。</li>
+    <li><b>桁揃えは書体で行う。</b>BIZ UD に <code>tnum</code> はありません。BIZ UDGothic は英数が半角固定なので数値列が揃います。スラッシュ付きゼロ（<code>zero</code>）は常時有効です。</li>
+    <li>文字サイズのスケールは層ごとに持ちます（ブランド：流体 12〜52px、アプリ：12 / 14 / 16 / 20px）。</li>
+  </ul>
+</div></section>
+
+<section id="space"><div class="wrap">
+  <h2>余白・形・線・動き</h2>
+  <p>余白は 4px を基準に、密な UI のための 2px と 6px を足しています。LP の大きな区切りのために 80px・96px まであります。
+    形は「外側はやわらかく、データは直角」。アプリのセルだけが角 0（<code>--radius-cell</code>、アプリ層）です。
+    入れ子の角は同心にします（外側の半径 ＝ 内側の半径 ＋ 間の余白）。</p>
+  <!-- gen:scales --><h4>余白</h4><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th class="num">値</th><th>用途</th></tr></thead><tbody><tr><th><code>--space-0</code></th><td class="num">0px</td><td></td></tr>
+<tr><th><code>--space-0-5</code></th><td class="num">2px</td><td></td></tr>
+<tr><th><code>--space-1</code></th><td class="num">4px</td><td></td></tr>
+<tr><th><code>--space-1-5</code></th><td class="num">6px</td><td></td></tr>
+<tr><th><code>--space-2</code></th><td class="num">8px</td><td></td></tr>
+<tr><th><code>--space-3</code></th><td class="num">12px</td><td></td></tr>
+<tr><th><code>--space-4</code></th><td class="num">16px</td><td></td></tr>
+<tr><th><code>--space-5</code></th><td class="num">20px</td><td></td></tr>
+<tr><th><code>--space-6</code></th><td class="num">24px</td><td></td></tr>
+<tr><th><code>--space-8</code></th><td class="num">32px</td><td></td></tr>
+<tr><th><code>--space-10</code></th><td class="num">40px</td><td></td></tr>
+<tr><th><code>--space-12</code></th><td class="num">48px</td><td></td></tr>
+<tr><th><code>--space-16</code></th><td class="num">64px</td><td></td></tr>
+<tr><th><code>--space-20</code></th><td class="num">80px</td><td></td></tr>
+<tr><th><code>--space-24</code></th><td class="num">96px</td><td></td></tr></tbody></table></div>
+<h4>角丸</h4><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th class="num">値</th><th>用途</th></tr></thead><tbody><tr><th><code>--radius-xs</code></th><td class="num">2px</td><td>Marks and chips inside dense UI</td></tr>
+<tr><th><code>--radius-sm</code></th><td class="num">4px</td><td>Menu items, inline controls up to 28px, tabs</td></tr>
+<tr><th><code>--radius-md</code></th><td class="num">6px</td><td>Buttons and fields</td></tr>
+<tr><th><code>--radius-lg</code></th><td class="num">8px</td><td>Menus, popovers, cards in the app (= sm + 4px inset)</td></tr>
+<tr><th><code>--radius-xl</code></th><td class="num">12px</td><td>Dialogs, toasts; cards on the landing site</td></tr>
+<tr><th><code>--radius-2xl</code></th><td class="num">16px</td><td>Screenshot frames and hero media on the landing site</td></tr>
+<tr><th><code>--radius-full</code></th><td class="num">999px</td><td>Pills, status dots</td></tr></tbody></table></div>
+<h4>線</h4><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th class="num">値</th><th>用途</th></tr></thead><tbody><tr><th><code>--stroke-thin</code></th><td class="num">1px</td><td>Separators, fields, cards, grid lines</td></tr>
+<tr><th><code>--stroke-medium</code></th><td class="num">2px</td><td>Active cell, selected-tab indicator, focus ring</td></tr>
+<tr><th><code>--stroke-thick</code></th><td class="num">4px</td><td>Banner stripe</td></tr></tbody></table></div>
+<h4>ターゲットの大きさ</h4><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th class="num">値</th><th>用途</th></tr></thead><tbody><tr><th><code>--target-min</code></th><td class="num">24px</td><td>WCAG 2.5.8 minimum, every pointer</td></tr>
+<tr><th><code>--target-touch</code></th><td class="num">44px</td><td>Touch: actions, menu items, fields, dialog buttons</td></tr>
+<tr><th><code>--target-touch-dense</code></th><td class="num">40px</td><td>Touch: items in a strip of many (tabs, status-bar items)</td></tr></tbody></table></div>
+<h4>アイコン</h4><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th class="num">値</th><th>用途</th></tr></thead><tbody><tr><th><code>--icon-sm</code></th><td class="num">16px</td><td>Menus, bars, buttons (default)</td></tr>
+<tr><th><code>--icon-md</code></th><td class="num">20px</td><td>Coarse pointer, landing-site feature lists</td></tr>
+<tr><th><code>--icon-lg</code></th><td class="num">24px</td><td>Welcome screen, landing-site feature cards</td></tr></tbody></table></div>
+<h4>動き</h4><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th class="num">値</th><th>用途</th></tr></thead><tbody><tr><th><code>--duration-instant</code></th><td class="num">80ms</td><td>Press feedback</td></tr>
+<tr><th><code>--duration-fast</code></th><td class="num">120ms</td><td>Hover, colour changes</td></tr>
+<tr><th><code>--duration-base</code></th><td class="num">200ms</td><td>Open/close of menus, popovers, panels</td></tr>
+<tr><th><code>--duration-slow</code></th><td class="num">320ms</td><td>Drawers and bottom sheets</td></tr></tbody></table></div>
+<h4>ブレークポイント</h4><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th class="num">値</th><th>用途</th></tr></thead><tbody><tr><th><code>--bp-sm</code></th><td class="num">32.5em</td><td>520px — at or below: the narrowest phone adjustments</td></tr>
+<tr><th><code>--bp-md</code></th><td class="num">43.75em</td><td>700px — at or below: the phone layout (app); landing-site stat rows stack</td></tr>
+<tr><th><code>--bp-lg</code></th><td class="num">56.25em</td><td>900px — at or below: landing-site columns stack, header links fold</td></tr>
+<tr><th><code>--bp-xl</code></th><td class="num">90em</td><td>1440px — reserved; nothing switches here yet</td></tr></tbody></table></div><!-- /gen:scales -->
+  <ul>
+    <li>動くのは開閉とフィードバックだけ。LP のボタンも持ち上げません（動かないものを動かさない）。</li>
+    <li><code>prefers-reduced-motion</code> では遷移を止めます。</li>
+    <li>メディアクエリは em で書きます。既定の文字サイズを大きくしている人には、その実効幅に合ったレイアウトが出ます。</li>
+    <li>ブレークポイントは端末の種類ではなく、<b>中身が崩れる幅</b>です。値はアプリと LP が実際に切り替える幅で、
+      「以下」を <code>max-width</code> で書きます（例：<code>(max-width: 43.75em)</code> がアプリのスマートフォン配置）。
+      新しい幅が必要になったら、先にこの表に足します。</li>
+  </ul>
+</div></section>
+
+<section id="icons"><div class="wrap">
+  <h2>アイコンとロゴ</h2>
+  <h3>アイコン</h3>
+  <ul>
+    <li>ライブラリは Lucide（ISC）だけ。混在させません。</li>
+    <li>24 単位のグリッドを 16 / 20 / 24px で描き、描画上の線幅は大きさによらず 1.5px（<code>vector-effect: non-scaling-stroke</code>）。端と接合は round。</li>
+    <li>色は <code>currentColor</code>。塗りはステータスの点など、小さく確実に読ませたいものだけ。</li>
+    <li>解決済みの概念に独自の絵を作らない（設定＝歯車、検索＝虫眼鏡、削除＝ごみ箱）。アイコンだけのボタンには必ずラベルを付けます。</li>
+  </ul>
+  <h3>ロゴとアプリアイコン</h3>
+  <div class="cols">
+    <div class="demo"><img src="../logo/refrain-sheet-logotype-horizontal.svg" alt="Refrain Sheet" height="40"></div>
+    <div class="demo" data-theme="dark"><img src="../logo/refrain-sheet-logotype-horizontal-reverse.svg" alt="Refrain Sheet" height="40"></div>
+    <div class="demo"><img src="../icons/app-icon-rounded.svg" alt="Refrain Sheet のアプリアイコン" height="64"></div>
+  </div>
+  <p>ファイルは <code>foundations/logo/</code> と <code>foundations/icons/</code> にあり、LP とアプリの両方がここから取り込みます。
+    使い方（余白・最小サイズ・背景ごとの版・禁止事項）は <a href="../../brand/docs/brand-guidelines.html#logo">ブランドガイドライン</a>、
+    寸法と字詰めの詳細は <code>foundations/logo/SPEC.md</code> にあります。</p>
+</div></section>
+
+<section id="a11y"><div class="wrap">
+  <h2>アクセシビリティ</h2>
+  <p>WCAG 2.2 レベル AA が、LP とアプリの共通の出荷条件です。文字 4.5:1、UI 部品と状態の印 3:1。
+    下の監査は共通の意味色だけを対象にしています。キャンバスの色（アプリ）と LP 固有の組み合わせは、それぞれの文書で監査します。
+    APCA（WCAG 3 の候補）は未確定のため、判定には使っていません。</p>
+  <!-- gen:contrast --><p class="doc-meta">94 / 94 合格（47 組 × 2 テーマ）</p><div class="doc-scroll"><table class="doc-table"><thead><tr><th>用途</th><th>前景 / 背景</th><th class="num">下限</th><th class="num">light</th><th class="num">dark</th></tr></thead><tbody><tr><td>Body text on the page</td><td><code>fg-default</code> / <code>bg-page</code></td><td class="num">4.5</td><td class="num">15.81</td><td class="num">15.81</td></tr>
+<tr><td>Body text on bars and cards</td><td><code>fg-default</code> / <code>bg-surface</code></td><td class="num">4.5</td><td class="num">17.49</td><td class="num">14.65</td></tr>
+<tr><td>Body text in menus and dialogs</td><td><code>fg-default</code> / <code>bg-raised</code></td><td class="num">4.5</td><td class="num">17.49</td><td class="num">13.23</td></tr>
+<tr><td>Text on a hovered item</td><td><code>fg-default</code> / <code>bg-hover</code></td><td class="num">4.5</td><td class="num">14.85</td><td class="num">10.56</td></tr>
+<tr><td>Text on a pressed item</td><td><code>fg-default</code> / <code>bg-pressed</code></td><td class="num">4.5</td><td class="num">12.80</td><td class="num">7.61</td></tr>
+<tr><td>Secondary text on the page</td><td><code>fg-muted</code> / <code>bg-page</code></td><td class="num">4.5</td><td class="num">7.61</td><td class="num">7.74</td></tr>
+<tr><td>Secondary text on bars and cards</td><td><code>fg-muted</code> / <code>bg-surface</code></td><td class="num">4.5</td><td class="num">8.42</td><td class="num">7.17</td></tr>
+<tr><td>Secondary text in menus</td><td><code>fg-muted</code> / <code>bg-raised</code></td><td class="num">4.5</td><td class="num">8.42</td><td class="num">6.47</td></tr>
+<tr><td>Shortcut hint on a hovered item</td><td><code>fg-muted</code> / <code>bg-hover</code></td><td class="num">4.5</td><td class="num">7.15</td><td class="num">5.17</td></tr>
+<tr><td>Placeholder in a field</td><td><code>fg-subtle</code> / <code>bg-surface</code></td><td class="num">4.5</td><td class="num">6.07</td><td class="num">5.23</td></tr>
+<tr><td>Placeholder in a dialog field</td><td><code>fg-subtle</code> / <code>bg-raised</code></td><td class="num">4.5</td><td class="num">6.07</td><td class="num">4.73</td></tr>
+<tr><td>Primary button label</td><td><code>accent-contrast</code> / <code>accent</code></td><td class="num">4.5</td><td class="num">5.06</td><td class="num">8.44</td></tr>
+<tr><td>Primary button label, hovered</td><td><code>accent-contrast</code> / <code>accent-hover</code></td><td class="num">4.5</td><td class="num">7.40</td><td class="num">10.90</td></tr>
+<tr><td>Accent text</td><td><code>accent-text</code> / <code>bg-page</code></td><td class="num">4.5</td><td class="num">6.69</td><td class="num">8.44</td></tr>
+<tr><td>Accent text on bars and cards</td><td><code>accent-text</code> / <code>bg-surface</code></td><td class="num">4.5</td><td class="num">7.40</td><td class="num">7.82</td></tr>
+<tr><td>Accent text in menus</td><td><code>accent-text</code> / <code>bg-raised</code></td><td class="num">4.5</td><td class="num">7.40</td><td class="num">7.06</td></tr>
+<tr><td>Selected item text</td><td><code>accent-subtle-text</code> / <code>accent-subtle</code></td><td class="num">4.5</td><td class="num">9.64</td><td class="num">9.20</td></tr>
+<tr><td>Destructive button label</td><td><code>danger-contrast</code> / <code>danger</code></td><td class="num">4.5</td><td class="num">5.21</td><td class="num">7.89</td></tr>
+<tr><td>Error message</td><td><code>danger-text</code> / <code>bg-page</code></td><td class="num">4.5</td><td class="num">6.99</td><td class="num">7.89</td></tr>
+<tr><td>Error message on a bar</td><td><code>danger-text</code> / <code>bg-surface</code></td><td class="num">4.5</td><td class="num">7.73</td><td class="num">7.31</td></tr>
+<tr><td>Error message in a dialog</td><td><code>danger-text</code> / <code>bg-raised</code></td><td class="num">4.5</td><td class="num">7.73</td><td class="num">6.60</td></tr>
+<tr><td>Error banner text</td><td><code>danger-text</code> / <code>danger-subtle</code></td><td class="num">4.5</td><td class="num">6.11</td><td class="num">6.46</td></tr>
+<tr><td>Warning message</td><td><code>warning-text</code> / <code>bg-page</code></td><td class="num">4.5</td><td class="num">5.52</td><td class="num">9.26</td></tr>
+<tr><td>Warning banner text</td><td><code>warning-text</code> / <code>warning-subtle</code></td><td class="num">4.5</td><td class="num">4.94</td><td class="num">6.77</td></tr>
+<tr><td>Body text in a warning banner</td><td><code>fg-default</code> / <code>warning-subtle</code></td><td class="num">4.5</td><td class="num">14.17</td><td class="num">11.55</td></tr>
+<tr><td>Success message</td><td><code>success-text</code> / <code>bg-page</code></td><td class="num">4.5</td><td class="num">6.69</td><td class="num">8.44</td></tr>
+<tr><td>Success message in a dialog</td><td><code>success-text</code> / <code>bg-raised</code></td><td class="num">4.5</td><td class="num">7.40</td><td class="num">7.06</td></tr>
+<tr><td>Success banner text</td><td><code>success-text</code> / <code>success-subtle</code></td><td class="num">4.5</td><td class="num">5.98</td><td class="num">7.12</td></tr>
+<tr><td>Information message</td><td><code>info-text</code> / <code>bg-page</code></td><td class="num">4.5</td><td class="num">6.45</td><td class="num">8.78</td></tr>
+<tr><td>Information banner text</td><td><code>info-text</code> / <code>info-subtle</code></td><td class="num">4.5</td><td class="num">5.82</td><td class="num">6.87</td></tr>
+<tr><td>Link</td><td><code>link</code> / <code>bg-page</code></td><td class="num">4.5</td><td class="num">6.69</td><td class="num">8.44</td></tr>
+<tr><td>Link in a dialog</td><td><code>link</code> / <code>bg-raised</code></td><td class="num">4.5</td><td class="num">7.40</td><td class="num">7.06</td></tr>
+<tr><td>Visited link</td><td><code>link-visited</code> / <code>bg-page</code></td><td class="num">4.5</td><td class="num">13.35</td><td class="num">10.90</td></tr>
+<tr><td>Tooltip / toast text</td><td><code>inverse-text</code> / <code>inverse-bg</code></td><td class="num">4.5</td><td class="num">14.65</td><td class="num">14.85</td></tr>
+<tr><td>Tooltip shortcut hint</td><td><code>inverse-text-muted</code> / <code>inverse-bg</code></td><td class="num">4.5</td><td class="num">6.07</td><td class="num">7.15</td></tr>
+<tr><td>Field outline</td><td><code>border-control</code> / <code>bg-page</code></td><td class="num">3</td><td class="num">3.28</td><td class="num">3.76</td></tr>
+<tr><td>Field outline on a bar or card</td><td><code>border-control</code> / <code>bg-surface</code></td><td class="num">3</td><td class="num">3.62</td><td class="num">3.48</td></tr>
+<tr><td>Field outline in a dialog</td><td><code>border-control</code> / <code>bg-raised</code></td><td class="num">3</td><td class="num">3.62</td><td class="num">3.15</td></tr>
+<tr><td>Accent fill / indicator</td><td><code>accent</code> / <code>bg-page</code></td><td class="num">3</td><td class="num">4.58</td><td class="num">8.44</td></tr>
+<tr><td>Selected-tab indicator on a bar</td><td><code>accent</code> / <code>bg-surface</code></td><td class="num">3</td><td class="num">5.06</td><td class="num">7.82</td></tr>
+<tr><td>Focus ring on a bar or card</td><td><code>focus-ring</code> / <code>bg-surface</code></td><td class="num">3</td><td class="num">5.06</td><td class="num">7.82</td></tr>
+<tr><td>Focus ring in a dialog</td><td><code>focus-ring</code> / <code>bg-raised</code></td><td class="num">3</td><td class="num">5.06</td><td class="num">7.06</td></tr>
+<tr><td>Error icon</td><td><code>danger</code> / <code>bg-page</code></td><td class="num">3</td><td class="num">4.71</td><td class="num">7.89</td></tr>
+<tr><td>Warning icon</td><td><code>warning</code> / <code>bg-page</code></td><td class="num">3</td><td class="num">3.62</td><td class="num">9.26</td></tr>
+<tr><td>Warning stripe on its banner</td><td><code>warning</code> / <code>warning-subtle</code></td><td class="num">3</td><td class="num">3.24</td><td class="num">6.77</td></tr>
+<tr><td>Info icon</td><td><code>info</code> / <code>bg-page</code></td><td class="num">3</td><td class="num">4.38</td><td class="num">8.78</td></tr>
+<tr><td>Success icon</td><td><code>success</code> / <code>bg-page</code></td><td class="num">3</td><td class="num">4.58</td><td class="num">8.44</td></tr></tbody></table></div><!-- /gen:contrast -->
+  <ul>
+    <li>フォーカスリングは 2px（<code>--focus-width</code>）で、消しません。</li>
+    <li>操作対象は 24×24px 以上（<code>--target-min</code>、WCAG 2.5.8）。タッチ（<code>pointer: coarse</code> と、各製品のスマートフォン配置）では、
+      操作・メニュー項目・入力欄が 44px（<code>--target-touch</code>）、タブや状態バーの項目のように多数が一列に並ぶものが 40px（<code>--target-touch-dense</code>）以上。
+      大きさをそろえるために、既存の操作対象を小さくはしません。</li>
+    <li>色だけで情報を伝えません。</li>
+  </ul>
+</div></section>
+</main>
+<footer><div class="wrap">Refrain Sheet Design System · Foundations · <!-- gen:version -->v2.3.0 · 2026-09-26<!-- /gen:version --></div></footer>
+<script src="doc.js"></script>
+</body>
+</html>

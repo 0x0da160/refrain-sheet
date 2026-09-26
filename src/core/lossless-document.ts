@@ -28,6 +28,32 @@ export interface RecordSpan {
   fieldCount: number;
 }
 
+/** Longest field {@link asciiString} builds by hand; longer ones go to `TextDecoder`, which wins there. */
+const ASCII_FAST_MAX = 32;
+
+/**
+ * The string for `bytes[start..end)` when that range is short and pure ASCII
+ * (collapsing each doubled quote to one when `unescape` is set, exactly like
+ * `unescapeQuotedBytes`), or null to fall back to the full decoder.
+ */
+function asciiString(bytes: Uint8Array, start: number, end: number, unescape: boolean): string | null {
+  if (end - start > ASCII_FAST_MAX) {
+    return null;
+  }
+  let out = '';
+  for (let i = start; i < end; i++) {
+    const b = bytes[i];
+    if (b > 0x7f) {
+      return null;
+    }
+    out += String.fromCharCode(b);
+    if (unescape && b === 0x22 && i + 1 < end && bytes[i + 1] === 0x22) {
+      i += 1;
+    }
+  }
+  return out;
+}
+
 /** Cap on the number of lazily materialized FieldNodes kept in memory. */
 const FIELD_CACHE_LIMIT = 100_000;
 
@@ -161,15 +187,10 @@ export class LosslessDocument {
    * value is decoded on demand and cached (bounded cache).
    */
   getField(row: number, col: number): FieldNode | null {
-    if (row < 0 || row >= this.rowCount || col < 0) {
+    const fieldIndex = this.fieldIndexOf(row, col);
+    if (fieldIndex < 0) {
       return null;
     }
-    const base = row * RECORD_STRIDE;
-    const records = this.index.records;
-    if (col >= records[base + 5]) {
-      return null;
-    }
-    const fieldIndex = records[base + 4] + col;
     const cached = this.fieldCache.get(fieldIndex);
     if (cached) {
       return cached;
@@ -180,28 +201,24 @@ export class LosslessDocument {
     const end = fields[f + 1];
     const contentStart = fields[f + 2];
     const contentEnd = fields[f + 3];
-    const prefixEnd = fields[f + 4];
-    const suffixStart = fields[f + 5];
     const flags = fields[f + 6];
     const quoted = (flags & FLAG_QUOTED) !== 0;
     const malformed = (flags & FLAG_MALFORMED) !== 0;
-
-    let value: string;
-    let hasUndecodable: boolean;
-    if (quoted) {
-      const raw = unescapeQuotedBytes(this.bytes.subarray(contentStart, contentEnd));
-      value = decodeBytes(raw, this.encoding);
+    const suffixStart = fields[f + 5];
+    const value = this.decodeField(fieldIndex);
+    // A file that decodes cleanly as a whole has no undecodable field (see
+    // hasUndecodableAnywhere), so the per-field strict decode only runs for
+    // the rare file that does contain undecodable bytes.
+    let hasUndecodable = false;
+    if (this.hasUndecodableAnywhere()) {
+      const raw = quoted
+        ? unescapeQuotedBytes(this.bytes.subarray(contentStart, contentEnd))
+        : this.bytes.subarray(contentStart, contentEnd);
       hasUndecodable = !decodesCleanly(raw, this.encoding);
-      if (malformed && suffixStart < end) {
-        // Junk after the closing quote is part of the displayed value.
-        const suffixBytes = this.bytes.subarray(suffixStart, end);
-        value += decodeBytes(suffixBytes, this.encoding);
-        hasUndecodable = hasUndecodable || !decodesCleanly(suffixBytes, this.encoding);
+      if (quoted && malformed && suffixStart < end) {
+        hasUndecodable =
+          hasUndecodable || !decodesCleanly(this.bytes.subarray(suffixStart, end), this.encoding);
       }
-    } else {
-      const raw = this.bytes.subarray(contentStart, contentEnd);
-      value = decodeBytes(raw, this.encoding);
-      hasUndecodable = !decodesCleanly(raw, this.encoding);
     }
 
     const node: FieldNode = {
@@ -210,7 +227,7 @@ export class LosslessDocument {
       quoted,
       contentStart,
       contentEnd,
-      prefixEnd,
+      prefixEnd: fields[f + 4],
       suffixStart,
       value,
       hasUndecodable,
@@ -223,9 +240,59 @@ export class LosslessDocument {
     return node;
   }
 
+  /** Flat index of a field in the parse index, or -1 when (row, col) holds none. */
+  private fieldIndexOf(row: number, col: number): number {
+    const records = this.index.records;
+    const base = row * RECORD_STRIDE;
+    if (row < 0 || base >= records.length || col < 0 || col >= records[base + 5]) {
+      return -1;
+    }
+    return records[base + 4] + col;
+  }
+
+  /**
+   * Decode one field's displayed value. Short all-ASCII fields — the bulk of
+   * a typical CSV — are built directly from the bytes: every supported
+   * encoding maps ASCII bytes to the same code points, so this is exactly
+   * what `TextDecoder` returns, without a view allocation and a native call
+   * per field. Anything else goes through the encoding's decoder.
+   */
+  private decodeField(fieldIndex: number): string {
+    const f = fieldIndex * FIELD_STRIDE;
+    const fields = this.index.fields;
+    const contentStart = fields[f + 2];
+    const contentEnd = fields[f + 3];
+    const flags = fields[f + 6];
+    const bytes = this.bytes;
+    if ((flags & FLAG_QUOTED) === 0) {
+      return (
+        asciiString(bytes, contentStart, contentEnd, false) ??
+        decodeBytes(bytes.subarray(contentStart, contentEnd), this.encoding)
+      );
+    }
+    let value =
+      asciiString(bytes, contentStart, contentEnd, true) ??
+      decodeBytes(unescapeQuotedBytes(bytes.subarray(contentStart, contentEnd)), this.encoding);
+    const end = fields[f + 1];
+    const suffixStart = fields[f + 5];
+    if ((flags & FLAG_MALFORMED) !== 0 && suffixStart < end) {
+      // Junk after the closing quote is part of the displayed value.
+      value +=
+        asciiString(bytes, suffixStart, end, false) ??
+        decodeBytes(bytes.subarray(suffixStart, end), this.encoding);
+    }
+    return value;
+  }
+
   /** Original decoded value of a cell. */
   getOriginalValue(row: number, col: number): string {
-    return this.getField(row, col)?.value ?? '';
+    // Value-only reads (whole-sheet scans, conversion, rendering) skip the
+    // FieldNode and its cache: decoding is cheaper than the bookkeeping.
+    const fieldIndex = this.fieldIndexOf(row, col);
+    if (fieldIndex < 0) {
+      return '';
+    }
+    return this.fieldCache.get(fieldIndex)?.value ?? this.decodeField(fieldIndex);
   }
 
   /** Current value of a cell: the edited value if present, otherwise the original. */

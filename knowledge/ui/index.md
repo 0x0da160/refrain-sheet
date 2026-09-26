@@ -43,10 +43,15 @@ it.
   Light/Dark/Hybrid themes, live `prefers-color-scheme` tracking, the
   spreadsheet font choice, vertical text centering, and conditional
   row-height wrapping.
+- [UI writing and wording rules](ui-writing-and-wording.md) — how in-app
+  text is written: action-first labels, calm polite Japanese, full impact
+  statements for save/convert/discard/encoding changes, recommended terms,
+  and the review checklist for any string change (canonical text in
+  Japanese).
 
 Before choosing or changing a keyboard shortcut, the
 [spreadsheet shortcut comparison](../references/spreadsheet-shortcut-comparison.md)
-lists what Excel for the web and LibreOffice Calc document and where they
+lists what Excel for the web, Google Sheets, and LibreOffice Calc document and where they
 disagree or collide with the browser. It is background, not a spec; the
 shipped keys and their browser-safety rules are in `src/app/shortcuts.ts`
 and [accessibility.md](accessibility.md).

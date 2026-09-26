@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addSqlHistoryEntry,
   clearSqlHistory,
@@ -117,5 +117,27 @@ describe('sql-queries: saved queries', () => {
   it('falls back to an empty list for corrupt stored data', () => {
     localStorage.setItem('refrain-csv-html.sqlSavedQueries', '{not valid json');
     expect(getSqlSavedQueries()).toEqual([]);
+  });
+});
+
+describe('from a file:// URL (storage shared with other local HTML files)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps history and saved queries in memory and deletes what was stored', () => {
+    localStorage.setItem(
+      'refrain-csv-html.sqlHistory',
+      JSON.stringify([{ query: 'old', sourceId: 's', sourceName: 'n', ranAt: 1 }]),
+    );
+    vi.stubGlobal('location', { protocol: 'file:' });
+    expect(getSqlHistory()).toEqual([]);
+    expect(localStorage.getItem('refrain-csv-html.sqlHistory')).toBeNull();
+    addSqlHistoryEntry({ query: 'SELECT 1', sourceId: 's', sourceName: 'n', ranAt: 2 });
+    expect(saveSqlQuery('mine', 'SELECT 2', 's')).not.toBeNull();
+    expect(getSqlHistory().map((e) => e.query)).toEqual(['SELECT 1']);
+    expect(getSqlSavedQueries().map((q) => q.name)).toEqual(['mine']);
+    expect(localStorage.getItem('refrain-csv-html.sqlHistory')).toBeNull();
+    expect(localStorage.getItem('refrain-csv-html.sqlSavedQueries')).toBeNull();
   });
 });

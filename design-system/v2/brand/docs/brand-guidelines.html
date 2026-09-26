@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Refrain Sheet Brand Guidelines</title>
+<meta name="description" content="Refrain Sheet のブランドガイドライン。LP・ドキュメント・ストア掲載のための、ロゴ・色の使い方・文字組み・レイアウト・部品・画像・文言の規定。">
+<link rel="icon" href="../../foundations/icons/favicon.svg">
+<link rel="stylesheet" href="../css/refrain-brand.css">
+<link rel="stylesheet" href="../../foundations/docs/doc.css">
+<style>
+  .brand-demo { padding: var(--space-6); background: var(--bg-page); border: var(--stroke-thin) dashed var(--border-strong); border-radius: var(--radius-lg); }
+  .brand-demo .rb-hero { padding-block: 0; }
+  .logo-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .logo-grid figure { margin: 0; }
+  .logo-grid .tile { display: grid; place-items: center; min-block-size: 8rem; padding: var(--space-6); border: var(--stroke-thin) solid var(--border-default); border-radius: var(--radius-lg); }
+  .tile--paper { background: var(--paper-50); }
+  .tile--ink { background: var(--ink-900); }
+  .tile--green { background: var(--green-600); color: var(--paper-50); }
+  .logo-grid figcaption { margin-block-start: var(--space-2); font-size: 0.8125rem; color: var(--fg-muted); }
+  .dont { color: var(--danger-text); font-weight: var(--weight-bold); }
+  .do { color: var(--accent-text); font-weight: var(--weight-bold); }
+  .proportion { display: flex; block-size: 2.5rem; border-radius: var(--radius-md); overflow: hidden; border: var(--stroke-thin) solid var(--border-default); }
+  .proportion span { display: grid; place-items: center; font-size: 0.75rem; }
+</style>
+</head>
+<body>
+<a class="doc-skip" href="#main">本文へスキップ</a>
+<header class="doc-head">
+  <div class="wrap">
+    <img src="../../foundations/logo/refrain-sheet-logotype-horizontal-reverse.svg" alt="Refrain Sheet" height="36">
+    <p class="eyebrow">BRAND GUIDELINES · <!-- gen:version -->v2.3.0 · 2026-09-26<!-- /gen:version --></p>
+    <h1>保持する構造。静かな差異。</h1>
+    <p>CSV を壊さずに扱う、ローカルファーストの書式保持 CSV・スプレッドシートエディタ「Refrain Sheet」を、
+      アプリの外で伝えるための規定です。LP・ドキュメント・ストア掲載・SNS 画像・README が対象です。
+      色・書体・形は <a href="../../foundations/docs/foundations.html">共通基盤</a> をアプリと共有し、
+      アプリの画面そのものの規定は <a href="../../app/docs/design-system.html">デザインシステム</a> にあります。</p>
+    <nav class="doc-layers" aria-label="層">
+      <a href="../../foundations/docs/foundations.html">共通基盤</a>
+      <a href="brand-guidelines.html" aria-current="page">ブランド</a>
+      <a href="../../app/docs/design-system.html">アプリ</a>
+    </nav>
+    <nav class="toc" aria-label="目次">
+      <a href="#scope">適用範囲</a><a href="#core">ブランドの核</a><a href="#logo">ロゴ</a><a href="#appicon">アプリアイコン</a>
+      <a href="#color">色の使い方</a><a href="#type">文字組み</a><a href="#layout">レイアウト</a><a href="#components">部品</a>
+      <a href="#imagery">画像</a><a href="#voice">文言と名前</a><a href="#a11y">アクセシビリティ</a><a href="#impl">実装</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+<section id="scope"><div class="wrap">
+  <h2>適用範囲</h2>
+  <div class="doc-scroll"><table class="doc-table">
+    <thead><tr><th>対象</th><th>この文書</th><th>アプリのデザインシステム</th></tr></thead>
+    <tbody>
+      <tr><td>LP（<code>site/</code>）・プライバシーポリシーなどの静的ページ</td><td>○</td><td>—</td></tr>
+      <tr><td>ドキュメント・README・リリースノートの画像</td><td>○</td><td>—</td></tr>
+      <tr><td>ストア掲載・SNS の画像・OGP 画像</td><td>○</td><td>—</td></tr>
+      <tr><td>アプリの画面（ようこそ画面を含む）</td><td>ロゴとアプリアイコンの使い方だけ</td><td>○</td></tr>
+      <tr><td>印刷物</td><td colspan="2">対象外。必要になった時点で節を足す（画面の淡い色や罫線は紙では別の値になる）</td></tr>
+    </tbody>
+  </table></div>
+  <p>ブランドガイドラインは、デザインシステムの 1 つの層として同じ版番号を使います（2.1.0 から。以前はガイドライン独自に v3.0 と数えていました）。</p>
+  <h3>2.3.0 の変更</h3>
+  <ul>
+    <li><b>ボタンは両端を丸く。</b>角丸 8px から <code>--radius-full</code> に変えました。</li>
+    <li><b>ファーストビューに Mist のパネル（<code>.rb-feature</code>）を追加しました。</b>1 ページに 1 つだけ使えます。色は共通基盤の <code>--bg-feature</code> です。</li>
+    <li><b>カードと額縁の角丸を大きく。</b>カードは 12px、額縁は 16px から、どちらも <code>--brand-radius-card</code>（18〜24px）に変えました。</li>
+    <li><b>動くデモは描き起こしてよい（例外）。</b>LP のファーストビューのデモに限り、実物の値・言葉・機能だけで描き起こせます（<a href="#imagery">画像</a>）。</li>
+    <li><b>ブランドの核は判断の軸。</b>LP の見出しには、一読で「何のソフトか」がわかる言葉を使います。製品の種類は「表計算ソフト」と呼びます。</li>
+  </ul>
+  <h3>ガイドライン v2.0 からの変更</h3>
+  <ul>
+    <li><b>ブランドとアプリの規定を分けました。</b>v2.0 は 1 つの文書に両方を書いていました。共通の色・書体・形は <a href="../../foundations/docs/foundations.html">共通基盤</a> に移しています。</li>
+    <li><b>本文の書体を OS 標準に統一しました。</b>v2.0 は UI とブランドの書体を Inter としていましたが、LP もアプリも Web フォントを読み込まないため、実際には BIZ UD ゴシックで表示されていました。Inter はロゴタイプの図形の中だけに残ります。</li>
+    <li><b>太さは 400 と 700 だけ。</b>v2.0 の 500・600（LP では 800 も）は BIZ UD に存在せず、400 か 700 で描画されていました。</li>
+    <li><b>文字の最小は 12px。</b>v2.0 のキャプション 11px を廃止しました。</li>
+    <li><b>大文字の英字ラベルの字間は 0.08em。</b>v2.0 の値を維持し、アプリ側もこれに揃えました（LP の 0.14em は広すぎたため縮めました）。</li>
+  </ul>
+</div></section>
+
+<section id="core"><div class="wrap">
+  <h2>ブランドの核</h2>
+  <p class="lead">Refrain Sheet は、開いたファイルを勝手に変えない表計算ツールです。
+    ブランドが伝えることは 1 つ：「あなたのデータは、あなたが変えたところだけが変わる」。</p>
+  <p>この一文は、何を書き、何を書かないかを決めるための<b>判断の軸</b>です。LP の見出しにはそのまま使わず、
+    読んだ人が一読で「何のソフトか」をわかる言葉に言い換えます（例：「CSVを壊さず編集できる、軽い表計算ソフト」。<a href="#voice">文言と名前</a>）。</p>
+  <div class="doc-scroll"><table class="doc-table">
+    <thead><tr><th>性格</th><th>見え方</th><th>しないこと</th></tr></thead>
+    <tbody>
+      <tr><td><b>静か</b></td><td>紙の地、少ない色、控えめな動き</td><td>派手なグラデーション、跳ねるアニメーション、濃い緑の全面塗り</td></tr>
+      <tr><td><b>正確</b></td><td>直角のセル、等幅の数字、実際の画面</td><td>架空の UI（実物にない画面・機能）、誇張した数値、ぼかした比較</td></tr>
+      <tr><td><b>誠実</b></td><td>できないことも書く（「Excel の代わりではない」）</td><td>「完全互換」「すべて対応」などの断言</td></tr>
+      <tr><td><b>身近</b></td><td>業務の言葉、日本語が第一</td><td>専門用語の羅列、英語の直訳調</td></tr>
+    </tbody>
+  </table></div>
+</div></section>
+
+<section id="logo"><div class="wrap">
+  <h2>ロゴ</h2>
+  <p>ロゴタイプは Inter（opsz 32）の Bold 700「Refrain」と Medium 500「Sheet」を、光学的に字詰めしてアウトライン化した図形です。
+    ライブテキストで組み直しません。ファイルは <code>foundations/logo/</code>、寸法と字詰めの表は <code>foundations/logo/SPEC.md</code> にあります。</p>
+  <div class="logo-grid">
+    <figure><div class="tile tile--paper"><img src="../../foundations/logo/refrain-sheet-logotype-horizontal.svg" alt="Refrain Sheet" height="40"></div><figcaption><span class="do">使う</span> Paper・白・淡い背景 → <code>logotype-horizontal.svg</code></figcaption></figure>
+    <figure><div class="tile tile--ink"><img src="../../foundations/logo/refrain-sheet-logotype-horizontal-reverse.svg" alt="Refrain Sheet" height="40"></div><figcaption><span class="do">使う</span> Ink など濃い背景 → <code>logotype-horizontal-reverse.svg</code></figcaption></figure>
+    <figure><div class="tile tile--green">Refrain Sheet（ワードマーク 1 色版を Paper 色で）</div><figcaption><span class="do">使う</span> ブランドの緑の上 → ロックアップは使わず <code>wordmark-mono.svg</code> を Paper 色で</figcaption></figure>
+  </div>
+  <ul>
+    <li><b>余白：</b>上下左右にアイコンの辺の 1/4 以上。</li>
+    <li><b>最小サイズ：</b>横組みロックアップは高さ 24px まで。それより小さい場所（ファビコン、狭い画面のヘッダ）ではアイコン単体を使います。</li>
+    <li><b>配置：</b>LP のヘッダでは高さ 24px、左端は本文の左端に揃えます。</li>
+  </ul>
+  <p><span class="dont">禁止</span>：ライブテキストで組み直す／字間・語間・太さを変える／縦横比を変える／パレット外の色で塗る／影・グラデーション・枠線を足す／アイコンと文字の距離を変える／写真や柄の上に直接置く。</p>
+</div></section>
+
+<section id="appicon"><div class="wrap">
+  <h2>アプリアイコン</h2>
+  <p>マスターは 1024px の正方形で、角丸はありません。最終的なマスクは OS がかけます。
+    プラットフォームごとの差は、デザインの変更ではなくマスクの形への対応です。</p>
+  <div class="doc-scroll"><table class="doc-table">
+    <thead><tr><th>用途</th><th>ファイル（<code>foundations/icons/</code>）</th><th>仕様</th></tr></thead>
+    <tbody>
+      <tr><td>iOS / App Store / macOS</td><td><code>app-icon-1024.svg</code> / <code>.png</code></td><td>正方形、角丸なし、透過なし。影やハイライトを足さない</td></tr>
+      <tr><td>Web / favicon</td><td><code>favicon.svg</code>、16 / 32 / 48 の PNG</td><td>連続角丸 22.37%。16px でも右下のセルの濃淡で「セルの構造」が読める</td></tr>
+      <tr><td>PWA（any）</td><td><code>icon-192.png</code> / <code>icon-512.png</code></td><td>角丸のプレート</td></tr>
+      <tr><td>PWA（maskable）</td><td><code>maskable-512.png</code></td><td>マークを 93% に縮小。中央 80% の円で切られても欠けない</td></tr>
+      <tr><td>Android アダプティブ</td><td><code>android/ic_launcher_*.svg</code></td><td>108dp。前景のブロックは 45dp（直角の角が 66dp の安全円に収まる最大値）</td></tr>
+      <tr><td>Android テーマアイコン</td><td><code>ic_launcher_monochrome.svg</code></td><td>単色。セルの境界は 6% の抜きで表す（この層だけの例外）</td></tr>
+    </tbody>
+  </table></div>
+  <p>アイコンの外周は連続角丸（squircle）、内側のセルは右下だけが直角です。「外側はやわらかく、データは直角」という形の言語は、このアイコンから来ています。</p>
+</div></section>
+
+<section id="color"><div class="wrap">
+  <h2>色の使い方</h2>
+  <p>色の値は <a href="../../foundations/docs/foundations.html#color">共通基盤</a> にあります。ここでは LP などでの配分と使い方だけを決めます。</p>
+  <div class="proportion" aria-label="面積の目安">
+    <span style="flex: 70; background: var(--paper-50); color: var(--ink-900)">Paper 70%</span>
+    <span style="flex: 18; background: var(--paper-0); color: var(--ink-900)">白 18%</span>
+    <span style="flex: 7; background: var(--ink-900); color: var(--paper-50)">Ink 7%</span>
+    <span style="flex: 5; background: var(--green-600); color: var(--paper-0)">緑</span>
+  </div>
+  <ul>
+    <li><b>紙が主役。</b>面の大半は <code>--bg-page</code>（Paper）と <code>--bg-surface</code>（白）。</li>
+    <li><b>濃い緑（<code>--accent</code>）は 1 画面に 1〜2 か所。</b>主要な行動ボタン、見出し上の英字ラベル、強調したい 1 語まで。本文を緑にしません。</li>
+    <li><b>淡い緑（Mist、<code>--bg-feature</code>）のパネルは 1 ページに 1 つ。</b>ファーストビューの背景に <code>.rb-feature</code> として使います。面の大半を占める地の色にはせず、ほかのセクションには使いません。暗いテーマでは green.900 に切り替わります。</li>
+    <li><b>暗い帯は 1 ページに 1〜2 本。</b>製品の実演（画面・比較）に使い、本文の長い説明には使いません。帯の区間に <code>data-theme="dark"</code> を付けると、同じトークンが暗い値に切り替わります。</li>
+    <li><b>状態の色（amber・red・blue）は意味があるときだけ。</b>「編集済み」「エラー」「情報」を説明する図の中で使い、飾りに使いません。</li>
+    <li><b>グラデーション・写真の背景は使いません。</b></li>
+  </ul>
+</div></section>
+
+<section id="type"><div class="wrap">
+  <h2>文字組み</h2>
+  <p>LP の文字は画面幅に合わせて連続的に変わります（<code>clamp()</code>）。最小値はスマートフォン、最大値は広い画面での大きさです。
+    本文は 16〜18px で、アプリ（14px）より大きく、読むための大きさです。</p>
+  <!-- gen:type --><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th class="num">最小 – 最大</th><th class="num">行送り</th><th class="num">ウェイト</th><th>見本</th><th>用途</th></tr></thead><tbody><tr><th><code>--brand-text-caption</code></th><td class="num">12–14px</td><td class="num">1.75</td><td class="num">400</td><td><span style="font-size:var(--brand-text-caption);line-height:var(--brand-leading-caption);font-weight:400">保持する構造</span></td><td>Captions, footnotes, eyebrows</td></tr>
+<tr><th><code>--brand-text-small</code></th><td class="num">14–16px</td><td class="num">1.75</td><td class="num">400</td><td><span style="font-size:var(--brand-text-small);line-height:var(--brand-leading-small);font-weight:400">保持する構造</span></td><td>Secondary copy, nav, buttons</td></tr>
+<tr><th><code>--brand-text-body</code></th><td class="num">16–18px</td><td class="num">1.75</td><td class="num">400</td><td><span style="font-size:var(--brand-text-body);line-height:var(--brand-leading-body);font-weight:400">保持する構造</span></td><td>Body copy</td></tr>
+<tr><th><code>--brand-text-lead</code></th><td class="num">18–24px</td><td class="num">1.75</td><td class="num">400</td><td><span style="font-size:var(--brand-text-lead);line-height:var(--brand-leading-lead);font-weight:400">保持する構造</span></td><td>Lead paragraphs, h3</td></tr>
+<tr><th><code>--brand-text-h2</code></th><td class="num">24–36px</td><td class="num">1.3</td><td class="num">700</td><td><span style="font-size:var(--brand-text-h2);line-height:var(--brand-leading-h2);font-weight:700">保持する構造</span></td><td>Section headings</td></tr>
+<tr><th><code>--brand-text-display</code></th><td class="num">32–52px</td><td class="num">1.3</td><td class="num">700</td><td><span style="font-size:var(--brand-text-display);line-height:var(--brand-leading-display);font-weight:700">保持する構造</span></td><td>Hero heading, one per page</td></tr></tbody></table></div><!-- /gen:type -->
+  <ul>
+    <li><b>表示用の見出しは 1 ページに 1 つ</b>（<code>.rb-display</code>）。</li>
+    <li><b>行の長さ</b>は全角 40 字前後まで（<code>--brand-measure</code>）。行送りは 2 つだけです：読む文は 1.75（<code>--leading-prose</code>）、見出しは 1.3（<code>--leading-display</code>）。</li>
+    <li><b>見出し上の英字ラベル</b>（<code>.rb-eyebrow</code>）は <code>--font-code</code>・大文字・字間 0.08em。日本語のラベルは大文字化も字間の調整もしません。</li>
+    <li><b>英語の見出しだけ</b> <code>--brand-tracking-display-latin</code>（−0.02em）で詰めます。日本語は詰めません。</li>
+    <li>太さは 400 と 700 だけです。</li>
+  </ul>
+</div></section>
+
+<section id="layout"><div class="wrap">
+  <h2>レイアウト</h2>
+  <!-- gen:layout --><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th>値</th><th>用途</th></tr></thead><tbody><tr><th><code>--brand-content-max</code></th><td><code>73.75rem</code></td><td>1180px — content column</td></tr>
+<tr><th><code>--brand-gutter</code></th><td><code>1.25rem</code></td><td>Minimum side margin</td></tr>
+<tr><th><code>--brand-section-pad</code></th><td><code>clamp(4rem, 9vw, 6rem)</code></td><td>Vertical padding of a section</td></tr>
+<tr><th><code>--brand-header-h</code></th><td><code>4rem</code></td><td>64px sticky header</td></tr>
+<tr><th><code>--brand-measure</code></th><td><code>40em</code></td><td>Reading measure: about 40 full-width characters</td></tr>
+<tr><th><code>--brand-radius-panel</code></th><td><code>clamp(1.75rem, 1.2rem + 2vw, 2.5rem)</code></td><td>28–40px — the Mist panel and dark bands drawn as panels</td></tr>
+<tr><th><code>--brand-radius-card</code></th><td><code>clamp(1.125rem, 0.9rem + 0.8vw, 1.5rem)</code></td><td>18–24px — cards and product frames</td></tr>
+<tr><th><code>--brand-btn-h</code></th><td><code>2.75rem</code></td><td>44px (= --target-touch) — default button</td></tr>
+<tr><th><code>--brand-btn-h-lg</code></th><td><code>3.25rem</code></td><td>52px — hero call to action</td></tr>
+<tr><th><code>--brand-btn-px</code></th><td><code>1.25rem</code></td><td>20px</td></tr>
+<tr><th><code>--brand-btn-px-lg</code></th><td><code>1.5rem</code></td><td>24px</td></tr></tbody></table></div><!-- /gen:layout -->
+  <ul>
+    <li>本文の列は最大 1180px。左右には最低 20px の余白をとります。</li>
+    <li>セクションの上下の余白は 64〜96px（画面幅に応じて変わる）。セクションの区切りは余白と地色で表し、線を重ねません。</li>
+    <li>ヘッダは高さ 64px で、スクロールしても上端に固定します。</li>
+    <li>ブレークポイントは共通基盤の値だけを使います：<code>--bp-sm</code> 32.5em（ヘッダを詰める）、<code>--bp-md</code> 43.75em（数値の並びを縦に積む）、<code>--bp-lg</code> 56.25em（段組みを 1 列にし、ヘッダのリンクを畳む）。どれも「以下」を <code>max-width</code> で書きます。</li>
+  </ul>
+</div></section>
+
+<section id="components"><div class="wrap">
+  <h2>部品</h2>
+  <p>クラス接頭辞は <code>rb-</code>（アプリは <code>rs-</code>）。値はすべて共通基盤とブランドのトークンを参照します。</p>
+  <h3>見出し・ボタン</h3>
+  <div class="brand-demo">
+    <div class="rb-hero">
+      <div>
+        <p class="rb-eyebrow" lang="en">Local-first CSV editor</p>
+        <h1 class="rb-display">CSV を、開いたときの形のまま。</h1>
+        <p class="rb-lead">変更したセルだけが変わります。区切り文字・引用符・改行コード・文字コードは、読み込んだときのまま保存されます。</p>
+        <div class="rb-actions" style="margin-block-start: var(--space-6)">
+          <a class="rb-btn rb-btn--primary rb-btn--lg" href="#components">ブラウザで開く</a>
+          <a class="rb-btn rb-btn--lg" href="#components">ダウンロード</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p>ボタンは高さ 44px（共通基盤の <code>--target-touch</code> と同じ。ヒーローは 52px）で、両端を丸くします（<code>--radius-full</code>）。押せる場所であることを色と枠で示し、ホバーで持ち上げません。
+    主要な行動（<code>.rb-btn--primary</code>）は 1 画面に 1 つです。</p>
+  <h3>ファーストビューのパネル</h3>
+  <div class="brand-demo">
+    <div class="rb-feature">
+      <p class="rb-eyebrow">ブラウザで開くだけ。無料・インストール不要</p>
+      <h1 class="rb-display">CSVを壊さず編集できる、軽い表計算ソフト</h1>
+      <p class="rb-lead">先頭の「0」も、文字コードも、改行コードも、開いたときのまま。数式やフィルタを使った集計もできます。</p>
+      <div class="rb-actions" style="margin-block-start: var(--space-6)">
+        <a class="rb-btn rb-btn--primary rb-btn--lg" href="#components">ブラウザで開いてみる</a>
+        <a class="rb-btn rb-btn--lg" href="#components">オフライン版をダウンロード</a>
+      </div>
+    </div>
+  </div>
+  <p><code>.rb-feature</code> は Mist の地に大きな角丸（<code>--brand-radius-panel</code>、28〜40px）をつけたパネルです。1 ページに 1 つ、ファーストビューだけに使います。
+    パネルの中の濃い緑は主要な行動ボタンだけにします。</p>
+  <h3>カード・バッジ・表</h3>
+  <div class="brand-demo">
+    <div class="rb-cards">
+      <div class="rb-card"><div class="rb-card__icon" aria-hidden="true">✓</div><h3 class="rb-h3">書式を保持</h3><p>引用符、改行コード、末尾の改行まで、開いたときのまま保存します。</p></div>
+      <div class="rb-card"><div class="rb-card__icon" aria-hidden="true">⌁</div><h3 class="rb-h3">完全オフライン</h3><p>ファイルはどこにも送信されません。1 つの HTML ファイルで動きます。</p></div>
+      <div class="rb-card"><div class="rb-card__icon" aria-hidden="true">あ</div><h3 class="rb-h3">日本語入力に配慮</h3><p>変換中の Enter や矢印キーを、セルの確定や移動として扱いません。</p></div>
+    </div>
+    <p style="margin-block: var(--space-6) var(--space-3)"><span class="rb-badge">UTF-8</span> <span class="rb-badge">Shift_JIS</span> <span class="rb-badge">CRLF / LF</span></p>
+    <table class="rb-table"><thead><tr><th>項目</th><th>Refrain Sheet</th></tr></thead><tbody><tr><td>区切り文字の保持</td><td>読み込んだまま</td></tr><tr><td>外部への送信</td><td>なし</td></tr></tbody></table>
+  </div>
+  <h3>暗い帯と画面の見本</h3>
+  <div class="brand-demo rb-band" data-theme="dark">
+    <p class="rb-eyebrow" lang="en">Never silently changed</p>
+    <h2 class="rb-h2">変えたところだけが、変わる。</h2>
+    <figure class="rb-shot" style="margin-block-start: var(--space-6); max-inline-size: 30rem">
+      <div style="aspect-ratio: 16 / 9; display: grid; place-items: center; color: var(--fg-muted)">（実際のスクリーンショット）</div>
+      <figcaption>編集したセルには、左端に変更バーが付きます。</figcaption>
+    </figure>
+  </div>
+</div></section>
+
+<section id="imagery"><div class="wrap">
+  <h2>画像</h2>
+  <ul>
+    <li><b>画面は実物だけ。</b>LP やストアの画面は、実際のアプリから <code>scripts/capture-landing-screenshots.mjs</code> で撮影します。架空の UI を描き起こしたり、実際にない機能を合成したりしません。</li>
+    <li><b>例外：LP のファーストビューの動くデモ。</b>操作の流れを見せるアニメーションに限り、実物の画面を HTML・SVG・CSS で描き起こせます。実物から離れないように、次を守ります。
+      <ul>
+        <li><b>実物の値で描く。</b>色・書体・寸法はアプリのトークン（<code>app/css/app-tokens.css</code> と共通基盤）を使い、手で値を決めません。</li>
+        <li><b>実物の言葉で描く。</b>メニュー・ボタン・状態の文言は <code>src/locales/ja.json</code>・<code>en.json</code> と同じにします。言い換えたり、短くしたりしません。</li>
+        <li><b>実際にある機能と操作だけ。</b>デモで見せる操作は、同じ手順でアプリで再現できるものに限ります。画面の配置（メニュー、数式バー、グリッド、シートのタブ）は実物と同じ順と比率にします。</li>
+        <li><b>省略はよいが、足さない。</b>要素を減らして単純にするのは構いません。実物にない装飾・部品・演出は足しません。</li>
+        <li><b>実物と見比べて確かめる。</b>デモを変えるとき、アプリの画面を変えたときは、<code>capture-landing-screenshots.mjs</code> で撮った同じ場面と並べて確認します。</li>
+      </ul>
+      動きは <code>prefers-reduced-motion</code> で止め、一時停止のボタンをつけます。デモ以外の画面の見本は、これまでどおり実物の撮影です。</li>
+    <li><b>サンプルのデータ</b>は、日本の業務で自然な、架空の内容（商品名・数量・単価）にします。実在の人名・会社名・個人情報は使いません。</li>
+    <li><b>額縁</b>は <code>.rb-shot</code>（角丸 <code>--brand-radius-card</code>、18〜24px、薄い影）。端末の外枠やブラウザの装飾を足しません。</li>
+    <li><b>他社製品の画面・アイコン・ロゴを載せません。</b>比較は文章と表で行います。</li>
+    <li>すべての画像に代替テキストを付けます。装飾だけの画像は <code>alt=""</code>。</li>
+  </ul>
+</div></section>
+
+<section id="voice"><div class="wrap">
+  <h2>文言と名前</h2>
+  <h3>話し方</h3>
+  <ul>
+    <li><b>事実を具体的に。</b>「高速」「安心」のような形容ではなく、何が起きるかを書きます（「変更したセルだけが変わる」）。数値を出すときは、測定した条件と一緒に書きます。</li>
+    <li><b>できないことも書く。</b>「Excel の代わりではありません」「Excel 互換を保証しません」は LP の約束です。</li>
+    <li><b>日本語が第一、英語は対等。</b>英語版は直訳ではなく、同じ事実を英語として自然に書きます。</li>
+    <li>本文は敬体（です・ます）、ボタンと見出しは体言止め（「ダウンロード」「書式を保持」）。</li>
+    <li><b>見出しで「何のソフトか」を言い切る。</b>抽象的なスローガンや比喩を見出しにしません。読者を名指しせず（「情シスの方へ」など）、その人が気にする言葉と文脈で伝えます。</li>
+  </ul>
+  <h3>名前の書き方</h3>
+  <div class="doc-scroll"><table class="doc-table">
+    <thead><tr><th></th><th>正</th><th>誤</th></tr></thead>
+    <tbody>
+      <tr><td>製品名</td><td>Refrain Sheet</td><td>RefrainSheet、refrain sheet、リフレインシート（読み仮名としての併記は可）</td></tr>
+      <tr><td>他社製品</td><td>Microsoft Excel、Google スプレッドシート（事実の比較・説明のときだけ）</td><td>「Excel 互換」「Excel と同じ操作」「Microsoft 公認」</td></tr>
+      <tr><td>製品の種類</td><td>表計算ソフト（英語は spreadsheet）。補助的に「CSVエディタ」</td><td>「スプレッドシート」（Google スプレッドシートと取り違えやすい）、「表計算アプリ」「表計算ツール」</td></tr>
+      <tr><td>形式</td><td>CSV、RSF、UTF-8、Shift_JIS、CRLF</td><td>csv、Utf8、SJIS</td></tr>
+    </tbody>
+  </table></div>
+  <p>他社の名称・ロゴ・画面の扱いは <code>knowledge/decisions/ip-risk-policy.md</code> に従います。</p>
+</div></section>
+
+<section id="a11y"><div class="wrap">
+  <h2>アクセシビリティ</h2>
+  <p>基準は共通基盤と同じ WCAG 2.2 AA です。共通の意味色の監査は <a href="../../foundations/docs/foundations.html#a11y">共通基盤</a> にあり、ここでは LP で追加される組み合わせだけを監査します。</p>
+  <!-- gen:contrast --><p class="doc-meta">8 / 8 合格（4 組 × 2 テーマ）</p><div class="doc-scroll"><table class="doc-table"><thead><tr><th>用途</th><th>前景 / 背景</th><th class="num">下限</th><th class="num">light</th><th class="num">dark</th></tr></thead><tbody><tr><td>Inline code in a sunken well</td><td><code>fg-default</code> / <code>bg-sunken</code></td><td class="num">4.5</td><td class="num">14.85</td><td class="num">17.14</td></tr>
+<tr><td>Heading and lead on the Mist panel</td><td><code>fg-default</code> / <code>bg-feature</code></td><td class="num">4.5</td><td class="num">14.14</td><td class="num">13.35</td></tr>
+<tr><td>Secondary copy on the Mist panel</td><td><code>fg-muted</code> / <code>bg-feature</code></td><td class="num">4.5</td><td class="num">6.80</td><td class="num">6.53</td></tr>
+<tr><td>Eyebrow text on the Mist panel</td><td><code>accent-subtle-text</code> / <code>bg-feature</code></td><td class="num">4.5</td><td class="num">8.44</td><td class="num">9.20</td></tr></tbody></table></div><!-- /gen:contrast -->
+  <ul>
+    <li>見出しの階層を飛ばしません（h1 → h2 → h3）。</li>
+    <li>言語の切り替えは <code>lang</code> 属性で示し、英語版には <code>html[lang="en"]</code> を付けます。</li>
+    <li>自動再生の動画・カルーセルは使いません。スクロールでの出現は不透明度の変化だけ（320ms）で、要素を滑り込ませません。</li>
+    <li><code>prefers-reduced-motion</code> ではスムーズスクロールと遷移を止めます。</li>
+  </ul>
+</div></section>
+
+<section id="impl"><div class="wrap">
+  <h2>実装</h2>
+<pre class="doc-code"><code>&lt;link rel="stylesheet" href="refrain-brand.css"&gt;   &lt;!-- foundations + brand tokens + rb- 部品 --&gt;
+&lt;body class="rb-page"&gt;
+  &lt;section class="rb-section"&gt;&lt;div class="rb-wrap"&gt;…&lt;/div&gt;&lt;/section&gt;
+  &lt;section class="rb-section rb-band" data-theme="dark"&gt;…&lt;/section&gt;</code></pre>
+  <div class="doc-scroll"><table class="doc-table">
+    <thead><tr><th>ファイル</th><th>内容</th><th>編集</th></tr></thead>
+    <tbody>
+      <tr><td><code>tools/source/brand.mjs</code></td><td>ブランド層の値の唯一の出典</td><td>手で編集する</td></tr>
+      <tr><td><code>brand/css/brand-tokens.css</code></td><td>流体の文字・レイアウト・ボタンの寸法・影</td><td>生成物</td></tr>
+      <tr><td><code>brand/css/brand.css</code></td><td><code>rb-</code> 部品</td><td>手で編集する（色のリテラル禁止）</td></tr>
+      <tr><td><code>brand/css/refrain-brand.css</code></td><td>共通基盤 ＋ 上の 2 つの結合</td><td>生成物</td></tr>
+      <tr><td><code>brand/tokens/brand.tokens.json</code></td><td>DTCG 2025.10 形式</td><td>生成物</td></tr>
+    </tbody>
+  </table></div>
+  <p>LP（<code>site/</code>）には適用済みです。<code>scripts/build-landing.mjs</code> が共通基盤とブランドのトークンを <code>site/styles.css</code> の前に連結します。
+    暗い部分には <code>data-theme="dark"</code>、ページ全体には <code>data-theme="light"</code> を付けます。詳細は <code>docs/migration.md</code> の「LP への適用」にあります。</p>
+</div></section>
+</main>
+<footer><div class="wrap">Refrain Sheet Brand Guidelines · <!-- gen:version -->v2.3.0 · 2026-09-26<!-- /gen:version --></div></footer>
+</body>
+</html>

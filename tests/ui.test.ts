@@ -34,6 +34,7 @@ const noopUi: UiPort = {
   chooseInsertShift: async () => null,
   confirmFlashFill: async () => false,
   chooseFilter: async () => null,
+  chooseColumnMenu: async () => null,
   chooseSort: async () => null,
   chooseDataValidation: async () => null,
   chooseConditionalFormat: async () => null,

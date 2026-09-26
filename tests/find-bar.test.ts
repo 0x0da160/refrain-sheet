@@ -31,6 +31,7 @@ const noopUi: UiPort = {
   chooseInsertShift: async () => null,
   confirmFlashFill: async () => false,
   chooseFilter: async () => null,
+  chooseColumnMenu: async () => null,
   chooseSort: async () => null,
   chooseDataValidation: async () => null,
   chooseConditionalFormat: async () => null,
@@ -103,7 +104,7 @@ describe('FindBar replaceCurrent', () => {
     replaceButton.click();
 
     expect(tab.doc.getValue(0, 0)).toBe('bar');
-    expect(findBar.element.querySelector('.find-count')?.textContent).not.toContain('not on a match');
+    expect(findBar.element.querySelector('.find-count')?.textContent).not.toContain('is not a match');
   });
 
   it('does not edit the cell and reports a distinct status when the selection is off a match', () => {
@@ -120,26 +121,85 @@ describe('FindBar replaceCurrent', () => {
     expect(tab.doc.getValue(0, 0)).toBe('foo');
     expect(tab.doc.getValue(1, 0)).toBe('foo');
     const status = findBar.element.querySelector('.find-count')?.textContent ?? '';
-    expect(status).toContain('not on a match');
+    expect(status).toContain('is not a match');
   });
 });
 
-describe('FindBar layout groups (#594)', () => {
-  it('groups search, options, and replace, and hides only the replace group in find mode', () => {
+describe('FindBar side panel', () => {
+  it('shows the find and replace fields together in one panel', () => {
     const { findBar } = setup();
     findBar.open(false);
-    const replaceGroup = findBar.element.querySelector<HTMLElement>('.find-group-replace')!;
-    expect(replaceGroup.hidden).toBe(true);
-    expect(findBar.element.querySelector<HTMLElement>('.find-group-find')!.hidden).toBe(false);
-    findBar.open(true);
-    expect(replaceGroup.hidden).toBe(false);
+    expect(findBar.element.classList.contains('side-panel')).toBe(true);
+    expect(findBar.element.hidden).toBe(false);
+    const inputs = findBar.element.querySelectorAll<HTMLInputElement>('input[type="text"]');
+    expect(inputs).toHaveLength(2);
+    for (const input of inputs) {
+      expect(input.closest('[hidden]')).toBeNull();
+    }
   });
 
-  it('keeps an accessible name and tooltip on the icon-only close button', () => {
+  it('puts the caret in the replace field for Replace once there is a query', () => {
+    const { findBar, findInput, replaceInput } = setup();
+    findBar.open(true);
+    expect(document.activeElement).toBe(findInput);
+    search(findInput, 'foo');
+    findBar.open(true);
+    expect(document.activeElement).toBe(replaceInput);
+  });
+
+  it('closes from the header close button, which keeps an accessible name', () => {
     const { findBar } = setup();
-    const close = findBar.element.querySelector<HTMLButtonElement>('.find-close')!;
-    expect(close.textContent).toBe('Close');
-    expect(close.title).toBe('Close');
-    expect(close.querySelector('.visually-hidden')?.textContent).toBe('Close');
+    findBar.open(false);
+    const close = findBar.element.querySelector<HTMLButtonElement>('.side-panel-close-btn')!;
+    expect(close.getAttribute('aria-label')).toBe('Close Find and Replace');
+    close.click();
+    expect(findBar.isOpen).toBe(false);
+  });
+});
+
+describe('FindBar Find Next and Find All', () => {
+  function buttonByText(findBar: FindBar, text: string): HTMLButtonElement {
+    return Array.from(findBar.element.querySelectorAll('button')).find(
+      (b) => b.textContent === text,
+    ) as HTMLButtonElement;
+  }
+
+  it('Find Next moves the selection to the next matching cell', () => {
+    const { state, tab, findBar, findInput } = setup();
+    findBar.open(false);
+    search(findInput, 'foo');
+    state.setSelection(tab, { row: 0, col: 1 });
+    buttonByText(findBar, 'Find Next').click();
+    expect(tab.selection).toMatchObject({ row: 1, col: 0 });
+  });
+
+  it('Find All lists every matching cell, and a row jumps to its cell', () => {
+    const { tab, findBar, findInput } = setup();
+    findBar.open(false);
+    search(findInput, 'foo');
+    buttonByText(findBar, 'Find All').click();
+    const rows = findBar.element.querySelectorAll<HTMLElement>('.find-result');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].querySelector('.find-result-ref')?.textContent).toBe('A1');
+    expect(rows[1].querySelector('.find-result-ref')?.textContent).toBe('A2');
+    expect(rows[1].querySelector('.find-result-text')?.textContent).toBe('foo');
+    rows[1].click();
+    expect(tab.selection).toMatchObject({ row: 1, col: 0 });
+    expect(rows[1].classList.contains('current')).toBe(true);
+    expect(rows[1].getAttribute('aria-current')).toBe('true');
+  });
+
+  it('hides the list until Find All is pressed, and follows the query afterwards', () => {
+    const { findBar, findInput } = setup();
+    findBar.open(false);
+    search(findInput, 'foo');
+    const list = findBar.element.querySelector<HTMLElement>('.find-results')!;
+    expect(list.hidden).toBe(true);
+    buttonByText(findBar, 'Find All').click();
+    expect(list.hidden).toBe(false);
+    search(findInput, 'y');
+    expect(findBar.element.querySelectorAll('.find-result')).toHaveLength(1);
+    search(findInput, '');
+    expect(list.hidden).toBe(true);
   });
 });

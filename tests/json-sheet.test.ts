@@ -6,7 +6,7 @@
  * `MarkdownSheetView`), the syntax-highlighted read-only preview, and the
  * explicit, button-triggered Format action.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { RsfDocument } from '../src/core/rsf-document';
@@ -32,6 +32,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -88,6 +89,13 @@ function setup(ui: UiPort = stubUi()): {
   return { view, state, tab, workbook, data, ui };
 }
 
+// The preview render is debounced (120 ms) and then painted on an animation
+// frame. Let the last test's pending render finish while jsdom still exists,
+// so it never fires after the environment is torn down.
+afterAll(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+});
 describe('JsonSheetView', () => {
   it('gives the source textarea the shared flex-sizing style class, not just its own id-scoped class', () => {
     const { view } = setup();
@@ -139,7 +147,7 @@ describe('JsonSheetView', () => {
 
     const preview = view.panelElement.querySelector('.markdown-editor-preview')!;
     expect(preview.querySelector('pre code')).toBeNull();
-    expect(preview.textContent).toContain('too large');
+    expect(preview.textContent).toContain('Too large');
   });
 
   it('keeps the source textarea and preview pane scroll positions in sync', () => {
@@ -280,5 +288,26 @@ describe('JsonSheetView', () => {
 
     expect(textarea.value).toBe('{"a":1,"b":[1,2]}');
     expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.jsonText : '').toBe('{"a":1,"b":[1,2]}');
+  });
+  it('shows the first syntax error under the editor, and a Go to Error button that moves the caret there', async () => {
+    const { view } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    const bar = view.element.querySelector('.source-problem-bar') as HTMLElement;
+    textarea.value = '{\n "a": 1\n "b": 2}';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+
+    expect(bar.classList.contains('has-problem')).toBe(true);
+    expect(bar.textContent).toContain('Line 3, column 2');
+    (bar.querySelector('.source-problem-goto') as HTMLButtonElement).click();
+    expect(textarea.selectionStart).toBe(11);
+
+    textarea.value = '{"a": 1, "b": 2}';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+    expect(bar.classList.contains('has-problem')).toBe(false);
+    expect((bar.querySelector('.source-problem-goto') as HTMLButtonElement).hidden).toBe(true);
   });
 });

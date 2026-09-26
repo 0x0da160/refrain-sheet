@@ -39,21 +39,30 @@ interface WorksheetPoint {
 }
 
 /**
+ * Rows above / columns left of a split point that stay on screen while the
+ * rest of the grid scrolls ("freeze at the selected cell"). `rows` counts
+ * display rows from the top, `cols` columns from the left; 0 means none.
+ */
+export interface FreezePanes {
+  rows: number;
+  cols: number;
+}
+
+/**
  * Session-only view state remembered per worksheet so switching sheets and
  * coming back restores where you were. It is deliberately *not* part of the
  * saved container: only the presentational settings that RSF documents
- * persist (zoom, column widths) are written to the file.
+ * persist (column widths here; zoom and wrap live on the worksheet itself)
+ * are written to the file.
  */
 export interface WorksheetView {
   selection: WorksheetPoint | null;
   anchor: WorksheetPoint | null;
   selectionKind: 'cell' | 'row' | 'col';
-  /** Live spreadsheet zoom percent while this worksheet is active. */
-  zoom: number | undefined;
   /** Live per-column widths (px at 100% zoom) while this worksheet is active. */
   colWidths: number[];
-  /** Live "wrap long rows" state while this worksheet is active. */
-  wrap: boolean | undefined;
+  /** Rows/columns frozen at a selected cell while this worksheet is active (null: none). */
+  freeze: FreezePanes | null;
 }
 
 /**
@@ -137,6 +146,11 @@ export class Worksheet {
    * it never changes cell data, evaluation, export, or the dirty state.
    */
   displayWrap: boolean | undefined;
+  /**
+   * This worksheet's spreadsheet font id, or `undefined` when it sets none
+   * (the file's or this browser's applies). Presentational only.
+   */
+  displayFont: string | undefined;
 
   /**
    * Whether this worksheet is locked against editing (Sheet ▸ Lock Sheet, or
@@ -153,9 +167,8 @@ export class Worksheet {
     selection: null,
     anchor: null,
     selectionKind: 'cell',
-    zoom: undefined,
     colWidths: [],
-    wrap: undefined,
+    freeze: null,
   };
 
   /**
@@ -767,6 +780,7 @@ export class Worksheet {
     copy.displayZoom = this.displayZoom;
     copy.displayColWidths = this.displayColWidths.slice();
     copy.displayWrap = this.displayWrap;
+    copy.displayFont = this.displayFont;
     copy.locked = this.locked;
     copy.styles = new Map([...this.styles].map(([row, rowStyles]) => [row, new Map(rowStyles)]));
     copy.comments = new Map([...this.comments].map(([row, rowComments]) => [row, new Map(rowComments)]));
@@ -786,6 +800,7 @@ export class Worksheet {
     copy.displayZoom = this.displayZoom;
     copy.displayColWidths = this.displayColWidths.slice();
     copy.displayWrap = this.displayWrap;
+    copy.displayFont = this.displayFont;
     copy.locked = this.locked;
     return copy;
   }

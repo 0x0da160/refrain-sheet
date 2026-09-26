@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../src/app/app-state';
 import { Commands, type UiPort } from '../src/app/commands';
 import { LoadingOverlay } from '../src/ui/loading-overlay';
-import { utf8 } from './helpers';
+import { readBundledCss, utf8 } from './helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   return {
@@ -31,6 +31,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseInsertShift: vi.fn(async () => null),
     confirmFlashFill: vi.fn(async () => false),
     chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
     chooseSort: vi.fn(async () => null),
     chooseDataValidation: vi.fn(async () => null),
     chooseConditionalFormat: vi.fn(async () => null),
@@ -106,6 +107,13 @@ describe('loading overlay', () => {
     overlay.set(null);
     expect(spinner.hidden).toBe(false);
     expect(progress.hidden).toBe(true);
+  });
+
+  it('reveals itself only after a short delay, so a quick operation never flashes the scrim', () => {
+    const css = readBundledCss();
+    const rule = /\.loading-overlay \{[^}]*\}/.exec(css)?.[0] ?? '';
+    expect(rule).toMatch(/animation: loading-reveal [\d.]+s [\w-]+ 0\.3s both;/);
+    expect(css).toMatch(/@keyframes loading-reveal \{\s*from \{\s*opacity: 0;/);
   });
 });
 

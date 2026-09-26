@@ -39,6 +39,9 @@ For the knowledge bundle's own domains, start at
     verified-dead code item in a single small, evidence-documented PR.
   - [`triage-issue`](../../.claude/skills/triage-issue/SKILL.md) — classify
     an Issue and apply safe labels.
+  - [`update-dependencies`](../../.claude/skills/update-dependencies/SKILL.md)
+    — patch dependencies and toolchains, and run the quarterly EOL review
+    against the full SBOM.
   - [`verify-change`](../../.claude/skills/verify-change/SKILL.md) — run the
     confirmed verification commands and report results honestly.
 
@@ -48,7 +51,7 @@ Kept in this folder. Background for design discussions only — nothing in them
 is implemented or adopted by being listed here.
 
 - [Spreadsheet shortcut comparison](spreadsheet-shortcut-comparison.md) —
-  Excel for the web vs. LibreOffice Calc keyboard shortcuts, where they
+  Excel for the web vs. Google Sheets vs. LibreOffice Calc keyboard shortcuts, where they
   disagree or collide with the browser, and what each row leaves open for
   Refrain Sheet. Checked against vendor help pages, not hands-on; not a
   spec (the shipped keys are in `src/app/shortcuts.ts`). Canonical text in

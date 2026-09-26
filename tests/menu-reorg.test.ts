@@ -22,16 +22,21 @@ function checks(): MenuChecks {
     wrap: () => false,
     stickyFirstRow: () => false,
     stickyFirstColumn: () => false,
+    freezeAtSelection: () => false,
     sheetFont: () => 'biz-ud',
     theme: () => 'system',
+    density: () => 'standard',
+    bandedRows: () => false,
     zoom: () => 100,
     editHints: () => true,
     autoFitOnOpen: () => true,
     commentsPanel: () => false,
+    fullscreen: () => false,
     formatActive: () => false,
     driveAvailable: () => false,
     protectedDoc: () => false,
     sheetLocked: () => false,
+    headerFilter: () => false,
   };
 }
 
@@ -127,6 +132,7 @@ describe('Sheet menu reorganization', () => {
   it('keeps every filter/sort command reachable inside the Filter & Sort submenu', () => {
     const filterSort = submenuOf(menu('menu.sheet'), 'menu.sheet.filterSort');
     expect(filterSort.map((i) => i.command)).toEqual([
+      'sheet.headerFilter',
       'sheet.filter',
       'sheet.filterClear',
       'sheet.sort',
@@ -278,6 +284,27 @@ describe('View menu reorganization', () => {
     expect(hybrid).toBeDefined();
     expect(hybrid?.labelKey).toBe('theme.hybrid');
     expect(hybrid?.checked?.()).toBe(false);
+  });
+
+  it('offers Banded Rows as a View toggle, off by default', () => {
+    const banded = items(menu('menu.view')).find((i) => i.command === 'view.bandedRows');
+    expect(banded?.labelKey).toBe('menu.view.bandedRows');
+    expect(banded?.checked?.()).toBe(false);
+  });
+
+  it('offers the three densities in a View > Density submenu, standard checked (design system D-04)', () => {
+    const densitySub = submenuOf(menu('menu.view'), 'menu.view.density');
+    expect(densitySub.map((i) => i.command)).toEqual([
+      'view.density.compact',
+      'view.density.standard',
+      'view.density.comfortable',
+    ]);
+    expect(densitySub.map((i) => i.labelKey)).toEqual([
+      'density.compact',
+      'density.standard',
+      'density.comfortable',
+    ]);
+    expect(densitySub.filter((i) => i.checked?.()).map((i) => i.command)).toEqual(['view.density.standard']);
   });
 
   it('keeps every tab-movement command reachable inside the Move Tab submenu', () => {

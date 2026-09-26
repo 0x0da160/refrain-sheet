@@ -108,6 +108,13 @@ jobs:
       - name: Unused code
         run: npm run check:knip
 
+      # File naming and placement (kebab-case names, tests/<area>/,
+      # scripts/<role>/, no file beside a same-named directory, every
+      # stylesheet loaded by src/styles/index.css) — see
+      # scripts/check/layout.mjs.
+      - name: Repository layout
+        run: npm run check:layout
+
       # Verifies the design-system colour tokens the app loads
       # (design-system/v2, generated CSS) meet WCAG AA contrast for every
       # text/background pair that composes in the UI, in every theme — see

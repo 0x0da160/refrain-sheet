@@ -61,3 +61,22 @@ in `src/`. The application identity that `.rsf` metadata records
 (`APP_NAME`, `APP_VERSION`) lives in `src/core/app-identity.ts` for this
 reason — it was previously imported by `rsf-document.ts` from
 `src/app/version.ts`, the tree's only `core/` → `app/` import.
+
+## Layout and naming
+
+The directory structure itself is part of the contract, enforced by
+`npm run check:layout` (`scripts/check/layout.mjs`):
+
+- A module is a file **or** a directory, never both. When a module grows
+  helpers, it becomes `x/index.ts` plus siblings (`src/app/commands/`,
+  `src/app/state/`, `src/ui/grid/`, `src/ui/dialogs/`), so a directory's
+  entry point is always its `index.ts`.
+- Stylesheets are named after the UI module they style
+  (`src/ui/tab-bar.ts` → `src/styles/tab-bar.css`) and are all loaded, in
+  order, by `src/styles/index.css`.
+- Tests mirror the layer they exercise: `tests/core/`, `tests/app/`,
+  `tests/ui/`, plus `tests/tooling/` (scripts, workflows, repository rules)
+  and `tests/site/` (the landing site). Scripts are grouped by role:
+  `scripts/build/`, `scripts/check/`, `scripts/release/`, `scripts/lib/`,
+  `scripts/ui-check/`.
+- File names are kebab-case; generated output lives in `src/generated/`.

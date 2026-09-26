@@ -57,6 +57,7 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | Production dependency audit  | `npm run audit:ci`                                                                   |
 | Knowledge bundle checks      | `npm run check:knowledge` (frontmatter, links, paths)                                |
 | Unused-code gate (Knip)      | `npm run check:knip`                                                                 |
+| Layout and naming gate       | `npm run check:layout` (kebab-case names, `tests/<area>/`, `scripts/<role>/`)        |
 | sql.js payload provenance    | `npm run check:generated`                                                            |
 | EOL register gate            | `npm run check:eol` (every direct/toolchain component has a current lifecycle entry) |
 | Full SBOM (all toolchains)   | `npm run sbom:full` (CycloneDX; npm, Rust crates, toolchains, Actions)               |
@@ -99,7 +100,7 @@ Do not invent commands. If a needed command does not exist, stop and say so.
 ## Required verification before opening a PR
 
 Run and report, honestly, at minimum: `format:check`, `lint`, `build`, `test`,
-`check:dist`, `check:versions`, `check:knip`. Add `test:rust` (and `build:wasm`)
+`check:dist`, `check:versions`, `check:knip`, `check:layout`. Add `test:rust` (and `build:wasm`)
 when `wasm/` changes. Never claim a command passed if it was not executed; never
 hide a failure.
 

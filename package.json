@@ -33,6 +33,7 @@
     "check:contrast": "node scripts/check/contrast.mjs",
     "check:knowledge": "node scripts/check/knowledge.mjs",
     "check:knip": "node scripts/check/knip.mjs",
+    "check:layout": "node scripts/check/layout.mjs",
     "check:generated": "node scripts/check/generated.mjs",
     "check:eol": "node scripts/check/eol.mjs",
     "audit:ci": "npm audit --omit=dev --audit-level=high",

@@ -340,3 +340,16 @@ tokens (design system D-42). `decisions/ip-risk-policy.md` now points at
 the FAQ partial, which carries the "not an Excel replacement / no Excel
 compatibility guarantee" statements the policy relies on; the old
 comparison table is gone.
+
+**Repository layout reorganized.** Directory modules replace the
+file-plus-directory pairs (`src/app/commands/index.ts`,
+`src/app/state/index.ts`, `src/ui/grid/index.ts`, `src/ui/dialogs/index.ts`);
+`src/wasm-gen/` became `src/generated/`; stylesheets were renamed after
+their UI modules and loaded from `src/styles/index.css`; tests moved into
+`tests/{core,app,ui,tooling,site}/` and scripts into
+`scripts/{build,check,release,lib,ui-check}/`; proposals moved to
+`docs/proposals/`. `design-system/1.0.0/` and every committed copy of a
+design-system master were removed — the builds read the masters directly.
+Paths across the bundle were updated; the new rules are recorded in
+`architecture/module-boundaries.md` ("Layout and naming") and enforced by
+`npm run check:layout`.

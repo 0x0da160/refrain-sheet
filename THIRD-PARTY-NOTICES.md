@@ -43,7 +43,7 @@ SOFTWARE.
 
 ## sql.js (and SQLite)
 
-- Version: 1.14.1
+- Version: 1.14.2
 - Author: sql.js authors
 - Source: https://github.com/sql-js/sql.js
 - Purpose: the execution engine behind **Data > Run SQL Query…**
@@ -85,7 +85,7 @@ SOFTWARE.
 
 ## lucide
 
-- Version: 1.28.0
+- Version: 1.48.0
 - Author: Lucide Contributors
 - Source: https://github.com/lucide-icons/lucide
 - Purpose: UI icons (menu toggle, close/add buttons, checkmarks, file actions,

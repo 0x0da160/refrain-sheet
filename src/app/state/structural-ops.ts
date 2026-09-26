@@ -499,6 +499,11 @@ export class StructuralOpsState {
       return null; // already wrapping: nothing to turn on
     }
     const doc = tab.doc;
+    // Markdown/JSON/YAML/text worksheets are edited as documents, not cells:
+    // their line breaks are content and "Wrap Long Rows" means nothing there.
+    if (doc.kind === 'rsf' && sheetId !== undefined && doc.sheetById(sheetId)?.kind !== 'grid') {
+      return null;
+    }
     let formulasScanned = 0;
     let found = false;
     for (const change of changes) {

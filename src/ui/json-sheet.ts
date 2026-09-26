@@ -11,6 +11,7 @@ import {
 } from './dialogs/shared';
 import { Eye } from 'lucide';
 import { el } from './dom';
+import { SourceEditor } from './source-editor';
 import { CoalescedRenderer, isLargePreviewSource, syncScroll } from './editor-preview-perf';
 
 /** How long to wait after the last keystroke before committing an undoable edit. */
@@ -55,6 +56,8 @@ function renderJsonPreview(text: string): Array<Node | string> {
 export class JsonSheetView {
   readonly element: HTMLElement;
   readonly panelElement: HTMLElement;
+  /** The editing surface (see `SourceEditor`); `textarea` is its element. */
+  readonly editor: SourceEditor;
   private readonly textarea: HTMLTextAreaElement;
   private readonly preview: HTMLElement;
   private readonly previewToggle: HTMLButtonElement;
@@ -73,19 +76,14 @@ export class JsonSheetView {
     private readonly state: AppState,
     private readonly commands: Commands,
   ) {
-    const sourceLabel = el('label', {
-      className: 'form-label',
-      text: t('dialog.jsonEditor.source'),
-      attrs: { for: 'json-sheet-source' },
+    this.editor = new SourceEditor({
+      id: 'json-sheet-source',
+      className: 'json-sheet-source',
+      label: t('dialog.jsonEditor.source'),
+      indentUnit: '  ',
     });
-    this.textarea = el('textarea', {
-      // Shares the Markdown source pane's style (flex sizing, font, border) —
-      // see `markdown-sheet.ts` for why the class is required rather than
-      // relying on the textarea's intrinsic default size.
-      className: 'json-sheet-source markdown-editor-source',
-      attrs: { id: 'json-sheet-source', spellcheck: 'false' },
-    }) as HTMLTextAreaElement;
-    const sourcePane = el('div', { className: 'markdown-editor-pane' }, [sourceLabel, this.textarea]);
+    this.textarea = this.editor.textarea;
+    const sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
 
     this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
     this.previewToggle.addEventListener('click', () => this.setPreviewVisible(!this.previewVisible));
@@ -211,7 +209,7 @@ export class JsonSheetView {
       // previous binding owed it before loading this one's text.
       this.flushCommit();
       this.bound = { tab, sheetId: sheet.id };
-      this.textarea.value = sheet.jsonText;
+      this.editor.setValue(sheet.jsonText);
       this.renderPreview();
     }
     this.textarea.readOnly = tab.readOnly;

@@ -11,6 +11,7 @@ import {
 } from './dialogs/shared';
 import { Eye } from 'lucide';
 import { el } from './dom';
+import { SourceEditor } from './source-editor';
 import { syncScroll } from './editor-preview-perf';
 import { renderMarkdownBlocks } from './markdown-render';
 
@@ -48,6 +49,8 @@ const COMMIT_DEBOUNCE_MS = 600;
 export class MarkdownSheetView {
   readonly element: HTMLElement;
   readonly panelElement: HTMLElement;
+  /** The editing surface (see `SourceEditor`); `textarea` is its element. */
+  readonly editor: SourceEditor;
   private readonly textarea: HTMLTextAreaElement;
   private readonly preview: HTMLElement;
   private readonly previewToggle: HTMLButtonElement;
@@ -62,20 +65,14 @@ export class MarkdownSheetView {
     private readonly state: AppState,
     private readonly commands: Commands,
   ) {
-    const sourceLabel = el('label', {
-      className: 'form-label',
-      text: t('dialog.markdownEditor.source'),
-      attrs: { for: 'markdown-sheet-source' },
+    this.editor = new SourceEditor({
+      id: 'markdown-sheet-source',
+      className: 'markdown-sheet-source',
+      label: t('dialog.markdownEditor.source'),
+      indentUnit: '\t',
     });
-    this.textarea = el('textarea', {
-      // `markdown-editor-source` is the shared style (flex sizing, font,
-      // border) for the Markdown source pane — without it this textarea
-      // keeps its intrinsic browser-default size instead of filling its
-      // pane (#486).
-      className: 'markdown-sheet-source markdown-editor-source',
-      attrs: { id: 'markdown-sheet-source', spellcheck: 'false' },
-    }) as HTMLTextAreaElement;
-    const sourcePane = el('div', { className: 'markdown-editor-pane' }, [sourceLabel, this.textarea]);
+    this.textarea = this.editor.textarea;
+    const sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
 
     this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
     this.previewToggle.addEventListener('click', () => this.setPreviewVisible(!this.previewVisible));
@@ -189,7 +186,7 @@ export class MarkdownSheetView {
       // previous binding owed it before loading this one's text.
       this.flushCommit();
       this.bound = { tab, sheetId: sheet.id };
-      this.textarea.value = sheet.markdownText;
+      this.editor.setValue(sheet.markdownText);
       this.renderPreview();
     }
     this.textarea.readOnly = tab.readOnly;

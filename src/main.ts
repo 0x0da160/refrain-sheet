@@ -112,7 +112,8 @@ function bootstrap(): void {
     chooseDataValidation: (input, onApply) => dialogs.chooseDataValidation(input, onApply),
     chooseConditionalFormat: (input, onApply) => dialogs.chooseConditionalFormat(input, onApply),
     chooseCellComment: (input) => dialogs.chooseCellComment(input),
-    promptSheetName: (mode, current, validate) => dialogs.promptSheetName(mode, current, validate),
+    promptSheetName: (mode, current, validate, kindOptions) =>
+      dialogs.promptSheetName(mode, current, validate, kindOptions),
     confirmDeleteSheet: (name, references) => dialogs.confirmDeleteSheet(name, references),
     chooseExportSheet: (sheets, currentId) => dialogs.chooseExportSheet(sheets, currentId),
     confirm: (title, message, ok, cancel) => dialogs.confirm(title, message, ok, cancel),
@@ -287,6 +288,17 @@ function bootstrap(): void {
     },
     () => void commands.run('file.toggleProtect'),
   );
+  // A Markdown/JSON/YAML/text worksheet shows its editor's line/column in
+  // the status bar instead of a grid size and cell reference.
+  const sourceSheetViews = [markdownSheetView, jsonSheetView, yamlSheetView, textSheetView];
+  statusBar.editorCaret = () => sourceSheetViews.find((view) => view.active)?.editor.caret() ?? null;
+  for (const view of sourceSheetViews) {
+    view.editor.onCaretChange = (caret) => {
+      if (view.active) {
+        statusBar.updateEditorCaret(caret);
+      }
+    };
+  }
 
   const app = document.getElementById('app');
   if (!app) {

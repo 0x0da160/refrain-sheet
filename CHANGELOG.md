@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-09-26
+
 ### Changed
 
 - The app now takes its colours, spacing, corner radii, shadows and layer

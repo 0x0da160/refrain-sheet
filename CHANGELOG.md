@@ -35,6 +35,27 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- **View > Density** switches the height of the bars, buttons, fields and
+  menu items between Compact, Standard (the default) and Comfortable. Text
+  size and the spreadsheet grid do not change. The choice is remembered on
+  this device only.
+- Colour pickers (text, fill, borders, conditional formats) now suggest a
+  set of 65 document colours where the browser supports it (Chrome, Edge);
+  any other colour can still be chosen.
+
+### Changed
+
+- The interface text is one step larger and easier to read: menus,
+  dialogs and panels use 14px instead of 13px, dialog titles 16px, and no
+  text is smaller than 12px (menu shortcuts and small labels were 9–11px).
+  Buttons and fields in dialogs and panels are a little taller (32px). On
+  touch devices, text and controls grow to touch-friendly sizes.
+- New conditional-format highlight rules start with a light red fill and
+  dark red text, and new colour scales run from white to a softer green.
+- Icons are drawn with a slightly finer, uniform line.
+
 ## [0.9.5] - 2026-09-26
 
 ### Changed

@@ -49,11 +49,12 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   /* 26px at the standard 32px bar (x zoom); the density moves it with the
-     bar, and the vertical padding with it so one line always fits. */
+     bar, and the vertical padding with it so one line always fits. Never
+     under 20px, so the compact 24px bar still shows a whole line. */
   padding: max(0px, calc((var(--bar-h) - 24px) / 2)) var(--space-1-5);
   resize: vertical;
-  min-height: calc((var(--bar-h) - 6px) * var(--sheet-zoom, 1));
-  height: calc((var(--bar-h) - 6px) * var(--sheet-zoom, 1));
+  min-height: calc(max(var(--bar-h) - 6px, 20px) * var(--sheet-zoom, 1));
+  height: calc(max(var(--bar-h) - 6px, 20px) * var(--sheet-zoom, 1));
   background: var(--bg-surface);
   color: var(--fg-default);
 }

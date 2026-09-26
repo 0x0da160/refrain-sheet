@@ -31,20 +31,23 @@ const errors = [];
 /* ------------------------- rules that derive values ---------------------- */
 
 // Density: standard ± one step per mode on every block-axis size, heights
-// clamped to the target minimum; inset and gaps are not targets.
+// clamped to the floor; inset and gaps are not targets. The fine and the
+// coarse pointer each have their own standard, step and floor.
 const HEIGHTS = new Set(['bar-h', 'statusbar-h', 'control-h', 'field-h']);
+const densityStd = A.density.modes.indexOf(A.density.default);
+const stepValues = (px, name, step, floor) =>
+  A.density.modes.map((_, i) => {
+    const v = px + (i - densityStd) * step;
+    return HEIGHTS.has(name) ? Math.max(v, floor) : v;
+  });
 const density = Object.fromEntries(
-  Object.entries(A.density.standard).map(([name, [px, note]]) => {
-    const std = A.density.modes.indexOf(A.density.default);
-    const values = A.density.modes.map((_, i) => {
-      const v = px + (i - std) * A.density.step;
-      return HEIGHTS.has(name) ? Math.max(v, A.density.floor) : v;
-    });
-    return [name, [...values, note]];
-  }),
+  Object.entries(A.density.standard).map(([name, [px, , note]]) => [name, [...stepValues(px, name, A.density.step, A.density.floor), note]]),
 );
-const targetPx = Object.fromEntries(F.targets.map(([n, px]) => [n, px]));
-const coarseDensity = Object.fromEntries(Object.entries(A.density.coarse).map(([name, [target, extra]]) => [name, targetPx[target] + extra]));
+const coarseDensity = Object.fromEntries(
+  Object.entries(A.density.standard)
+    .filter(([, [, coarse]]) => coarse !== null)
+    .map(([name, [, coarse]]) => [name, stepValues(coarse, name, A.density.coarseStep, A.density.coarseFloor)]),
+);
 const coarseType = (size, lh) => [size + A.typeCoarse.size, lh + A.typeCoarse.leading];
 const leading = (key) => F.typeShared[`leading-${key}`][0];
 
@@ -354,20 +357,23 @@ function buildAppCss() {
   L.push('}');
   L.push('');
   L.push('/* ---------- density ----------');
-  L.push(`   One rule: each mode moves every block-axis size by ${A.density.step}px from`);
-  L.push(`   ${A.density.default}; heights never go below ${A.density.floor}px. Inline sizes, type and the`);
-  L.push('   grid never change. A coarse pointer uses the touch target sizes. */');
-  const defIdx = A.density.modes.indexOf(A.density.default);
+  L.push(`   Each mode moves every block-axis size by ${A.density.step}px from ${A.density.default}`);
+  L.push(`   (${A.density.coarseStep}px on a coarse pointer); heights never go below ${A.density.floor}px`);
+  L.push(`   (${A.density.coarseFloor}px on touch). Inline sizes, type and the grid never change. */`);
   const modeBlock = (i) =>
     Object.entries(density)
-      .map(([name, v]) => decl(name, rem(v[i]), `${v[i]}px${i === defIdx ? ` — ${v[3]}` : ''}`))
+      .map(([name, v]) => decl(name, rem(v[i]), `${v[i]}px${i === densityStd ? ` — ${v[3]}` : ''}`))
+      .join('\n');
+  const coarseBlock = (i) =>
+    Object.entries(coarseDensity)
+      .map(([name, v]) => decl(name, rem(v[i]), `${v[i]}px`, '    '))
       .join('\n');
   L.push(':root,');
   L.push(`[data-density="${A.density.default}"] {`);
-  L.push(modeBlock(defIdx));
+  L.push(modeBlock(densityStd));
   L.push('}');
   A.density.modes.forEach((m, i) => {
-    if (i === defIdx) return;
+    if (i === densityStd) return;
     L.push(`[data-density="${m}"] {`);
     L.push(modeBlock(i));
     L.push('}');
@@ -375,8 +381,17 @@ function buildAppCss() {
   L.push('');
   L.push('@media (pointer: coarse) {');
   L.push('  :root,');
+  L.push(`  [data-density="${A.density.default}"] {`);
+  L.push(coarseBlock(densityStd));
+  L.push('  }');
+  A.density.modes.forEach((m, i) => {
+    if (i === densityStd) return;
+    L.push(`  [data-density="${m}"] {`);
+    L.push(coarseBlock(i));
+    L.push('  }');
+  });
+  L.push('  :root,');
   L.push('  [data-density] {');
-  for (const [name, px] of Object.entries(coarseDensity)) L.push(decl(name, rem(px), `${px}px`, '    '));
   for (const [name, size0, lh0] of A.typeScale) {
     const [size, lh] = coarseType(size0, lh0);
     L.push(decl(`text-${name}`, rem(size), `${size}px`, '    '));
@@ -588,7 +603,7 @@ function docAppType() {
   return table(['トークン', 'num:サイズ / 行送り', 'num:タッチ', 'num:ウェイト', '見本', '用途'], A.typeScale.map(([name, size, lh, weight, role]) => `<tr><th><code>--text-${name}</code></th><td class="num">${size}px / ${lh}px</td><td class="num">${coarseType(size, lh).join('px / ')}px</td><td class="num">${weight}</td><td><span style="font-size:var(--text-${name});line-height:var(--leading-${name});font-weight:${weight}">保持する構造 Refrain 123</span></td><td>${esc(role)}</td></tr>`));
 }
 function docDensity() {
-  const rows = Object.entries(density).map(([name, v]) => `<tr><th><code>--${name}</code></th>${v.slice(0, 3).map((px) => `<td class="num">${px}px</td>`).join('')}<td class="num">${coarseDensity[name] ? coarseDensity[name] + 'px' : '—'}</td><td>${esc(v[3])}</td></tr>`);
+  const rows = Object.entries(density).map(([name, v]) => `<tr><th><code>--${name}</code></th>${v.slice(0, 3).map((px) => `<td class="num">${px}px</td>`).join('')}<td class="num">${coarseDensity[name] ? coarseDensity[name].join(' / ') + 'px' : '—'}</td><td>${esc(v[3])}</td></tr>`);
   const fixed = A.inline.map(([name, px, note]) => `<tr><th><code>--${name}</code></th>${A.density.modes.map(() => `<td class="num">${px}px</td>`).join('')}<td class="num">—</td><td>${esc(note)}</td></tr>`);
   return table(['トークン', ...A.density.modes.map((m) => `num:${m}${m === A.density.default ? '（既定）' : ''}`), 'num:タッチ', '用途'], [...rows, ...fixed]);
 }

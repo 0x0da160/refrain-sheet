@@ -7,11 +7,12 @@
  * touches document bytes, RSF data, formulas, or calculations. It is applied
  * as one `data-density` attribute on the document root; the design system's
  * app tokens (`--bar-h`, `--statusbar-h`, `--control-h`, `--field-h`,
- * `--control-px`, `--inset`, `--stack-gap`) are keyed off it, so bars,
- * controls and fields change height with no per-element work. Density never
+ * `--inset`, `--stack-gap`) are keyed off it, so bars, controls and fields
+ * change height with no per-element work — 8px a step, so the three modes
+ * look clearly different. A coarse pointer (touch) has its own, larger
+ * values for each choice, so the density works on a phone too. Density never
  * changes text size or the grid's geometry (cell size stays 104 × 24 px at
- * 100% zoom), and a coarse pointer (touch) keeps the design system's touch
- * floors whatever the choice.
+ * 100% zoom).
  */
 
 export type DensityChoice = 'compact' | 'standard' | 'comfortable';

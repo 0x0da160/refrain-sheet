@@ -433,6 +433,23 @@ export class AppState {
   }
 
   /**
+   * Adopt the file name the user chose when saving (the save picker's file
+   * name, or the name typed for a Drive upload) as the tab's name, so the
+   * tab label and later downloads follow the saved file.
+   * An empty name is ignored. Emits `tabs` only when the name changed.
+   */
+  adoptSavedName(tab: Tab, name: string): void {
+    if (!name || tab.name === name) {
+      return;
+    }
+    tab.name = name;
+    if (tab.doc.kind === 'rsf') {
+      tab.doc.name = name;
+    }
+    this.emit('tabs');
+  }
+
+  /**
    * Refuse a write to a read-only-protected tab, announcing why. Checked
    * first in every mutating entry point (`editCell`, `bulkEdit`, `pushEntry`,
    * and — before it even touches the document — `FileIoCommands.ensureRsf`),

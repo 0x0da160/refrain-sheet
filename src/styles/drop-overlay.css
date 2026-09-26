@@ -23,7 +23,7 @@
   border: 1px solid var(--accent);
   border-radius: var(--radius-md);
   padding: var(--space-4) var(--space-6);
-  font-size: 16px;
-  color: var(--accent);
+  font-size: var(--text-title);
+  color: var(--accent-text);
   box-shadow: var(--shadow-lg);
 }

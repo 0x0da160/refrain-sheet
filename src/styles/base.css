@@ -17,7 +17,7 @@ body {
 
 body {
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: var(--text-body);
   color: var(--fg-default);
   background: var(--bg-page);
   /* The app fills exactly one viewport (see #app below); this is a backstop
@@ -83,4 +83,13 @@ body {
     font: inherit;
     color: inherit;
   }
+}
+
+/* Lucide icons (src/ui/icon.ts) are drawn on a 24-unit grid at 16-24px, which
+   would scale Lucide's 2-unit stroke to 1.33-2px. A non-scaling stroke keeps
+   the rendered line at the design system's --icon-stroke (1.5px) at every
+   size (design system D-15). */
+.ui-icon :is(path, line, polyline, polygon, rect, circle, ellipse) {
+  vector-effect: non-scaling-stroke;
+  stroke-width: var(--icon-stroke);
 }

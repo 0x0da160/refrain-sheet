@@ -29,6 +29,8 @@ import {
 } from './settings';
 import { getBrowserSheetFont, isSheetFontId, setBrowserSheetFont, type SheetFontId } from './sheet-font';
 import { localDateStamp } from './shortcuts';
+import { getBandedRows, setBandedRows } from './banded-rows';
+import { setDensity, type DensityChoice } from './density';
 import { setTheme, type ThemeChoice } from './theme';
 import { CommentCommands } from './commands/comment';
 import { ConditionalFormatCommands } from './commands/conditional-format';
@@ -174,6 +176,7 @@ export type CommandId =
   | 'view.zoom.200'
   | 'view.zoom.reset'
   | 'view.editHints'
+  | 'view.bandedRows'
   | 'view.autoFitOnOpen'
   | 'view.sheetFont.bizUd'
   | 'view.sheetFont.ms'
@@ -185,6 +188,9 @@ export type CommandId =
   | 'view.theme.light'
   | 'view.theme.dark'
   | 'view.theme.hybrid'
+  | 'view.density.compact'
+  | 'view.density.standard'
+  | 'view.density.comfortable'
   | 'app.settings'
   | 'help.formula'
   | 'help.shortcuts'
@@ -962,6 +968,11 @@ export class Commands {
         // Pure preference toggle; re-emit so menus and editors refresh.
         this.state.emit('view');
         return;
+      case 'view.bandedRows':
+        // Pure CSS (data-banded-rows attribute), stored on this device only.
+        setBandedRows(!getBandedRows());
+        this.state.emit('view');
+        return;
       case 'view.autoFitOnOpen':
         setAutoFitOnOpen(!getAutoFitOnOpen());
         // Pure preference toggle (like view.editHints above); it only takes
@@ -1002,6 +1013,14 @@ export class Commands {
         setTheme(id.slice('view.theme.'.length) as ThemeChoice);
         // Applying the theme is pure CSS (data-theme attribute); re-emit so the
         // menu checkmark refreshes. Document bytes are never touched.
+        this.state.emit('view');
+        return;
+      }
+      case 'view.density.compact':
+      case 'view.density.standard':
+      case 'view.density.comfortable': {
+        // Pure CSS (data-density attribute), stored on this device only.
+        setDensity(id.slice('view.density.'.length) as DensityChoice);
         this.state.emit('view');
         return;
       }

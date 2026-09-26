@@ -19,7 +19,7 @@
 .grid-empty {
   padding: 40px;
   color: var(--canvas-text-muted);
-  font-size: 14px;
+  font-size: var(--text-body);
   text-align: center;
 }
 
@@ -114,7 +114,7 @@
   border: 1px solid var(--canvas-grid-strong);
   background: var(--canvas-header-bg);
   color: var(--canvas-header-text);
-  padding: 3px 10px;
+  padding: var(--space-1) var(--space-2);
   cursor: pointer;
   font: inherit;
   line-height: 1;
@@ -126,7 +126,7 @@
   left: 0;
   z-index: 6;
   border-top: none;
-  border-radius: 0 0 5px 5px;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
 .sheet-grid-add-col {
@@ -137,7 +137,7 @@
   /* Exactly as tall as the column-header row it extends, at every zoom. */
   height: var(--grid-row-height);
   border-left: none;
-  border-radius: 0 5px 5px 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 .sheet-grid-add:disabled {
@@ -304,7 +304,7 @@
   height: calc(10px * var(--sheet-zoom, 1));
   background: var(--canvas-selection-border);
   border: 1px solid var(--canvas-bg);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   cursor: move;
   z-index: 3;
   touch-action: none;
@@ -429,8 +429,12 @@
   );
 }
 
-.vgrid-row.alt .vcell,
-.vgrid-stickyrow.alt .vcell {
+/* Banded rows are off by default (design system: bands compete with the
+   fill colours users give cells); View > Banded Rows sets data-banded-rows
+   on the root. :where() adds no specificity, so the selected-row and
+   selection rules below still win exactly as before. */
+:where(:root[data-banded-rows]) .vgrid-row.alt .vcell,
+:where(:root[data-banded-rows]) .vgrid-stickyrow.alt .vcell {
   background: var(--canvas-row-alt);
 }
 
@@ -443,7 +447,7 @@
 .vcell.vrowhead {
   background: var(--canvas-header-bg) !important;
   color: var(--canvas-header-text);
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   text-align: center;
   user-select: none;
 }
@@ -501,12 +505,12 @@
   min-width: 16px;
   height: 16px;
   padding: 0 2px;
-  font-size: 9px;
+  font-size: var(--text-caption);
   line-height: 1;
   color: var(--canvas-header-text);
   background: var(--canvas-bg);
   border: 1px solid var(--canvas-grid-strong);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   cursor: pointer;
 }
 
@@ -529,8 +533,8 @@
 /* Filter/sort status chips and dialog sections. */
 .status-filter,
 .status-sort {
-  color: var(--accent);
-  font-weight: 600;
+  color: var(--accent-text);
+  font-weight: var(--weight-bold);
 }
 
 .sort-key-row {
@@ -647,8 +651,8 @@
   background: var(--canvas-selection);
 }
 
-.vgrid-row.alt .vcell.in-range,
-.vgrid-stickyrow.alt .vcell.in-range,
+:where(:root[data-banded-rows]) .vgrid-row.alt .vcell.in-range,
+:where(:root[data-banded-rows]) .vgrid-stickyrow.alt .vcell.in-range,
 .vgrid-row.selected-row .vcell.in-range {
   background: var(--canvas-selection);
 }
@@ -712,7 +716,7 @@
    text is the literal error code (e.g. #DIV/0!) and it is bold. */
 .vcell.cell-error {
   color: var(--canvas-error-text);
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   font-style: normal;
 }
 
@@ -736,7 +740,7 @@
    / Yu Gothic UI), which do have true bold glyphs, since it only adds a
    little extra weight on top of an already-bold face. */
 .vcell.cell-bold {
-  font-weight: 700;
+  font-weight: var(--weight-bold);
   -webkit-text-stroke: 0.4px currentColor;
 }
 

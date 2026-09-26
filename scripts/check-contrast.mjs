@@ -17,8 +17,7 @@
 //
 // The design system's own build (design-system/2.0.0/tools/build.mjs --check)
 // audits the pairs its components use; this gate covers how the app uses the
-// tokens today, including pairs the design system would write differently
-// (e.g. plain --accent as text, where the design system has --accent-text).
+// tokens today.
 //
 //   node scripts/check-contrast.mjs
 
@@ -128,8 +127,11 @@ const THEMES = [
  *  - fg-muted on bg-surface / bg-raised: secondary labels, hints, row counts.
  *  - fg-subtle on bg-surface: shortcut hints and inactive tab text.
  *  - accent-contrast on accent: the primary button (welcome screen, dialogs).
- *  - accent on accent-subtle: that button's hover state and selected items.
- *  - accent on bg-raised: accent-coloured links and text in dialogs.
+ *  - accent-subtle-text on accent-subtle: that button's hover state and
+ *    selected items (sort buttons, toolbar toggles, the sheet-kind picker).
+ *  - accent-text on bg-raised / bg-surface: accent-coloured text in dialogs,
+ *    bars and the welcome screen.
+ *  - link on bg-raised: links in dialogs.
  *  - fg-default / warning-text on warning-subtle: the warning banner in
  *    dialogs and the diff panel, and the warning toast.
  *  - danger-text on bg-raised / bg-surface: error text in dialogs and bars.
@@ -147,8 +149,10 @@ const PAIRS = [
   ['fg-muted', 'bg-raised', 4.5],
   ['fg-subtle', 'bg-surface', 4.5],
   ['accent-contrast', 'accent', 4.5],
-  ['accent', 'accent-subtle', 4.5],
-  ['accent', 'bg-raised', 4.5],
+  ['accent-subtle-text', 'accent-subtle', 4.5],
+  ['accent-text', 'bg-raised', 4.5],
+  ['accent-text', 'bg-surface', 4.5],
+  ['link', 'bg-raised', 4.5],
   ['fg-default', 'warning-subtle', 4.5],
   ['warning-text', 'warning-subtle', 4.5],
   ['danger-text', 'bg-raised', 4.5],

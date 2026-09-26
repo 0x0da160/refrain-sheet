@@ -75,8 +75,9 @@ text editing F4 does nothing (File > New has no shortcut).
 - The active cell's row is highlighted while a single cell is selected;
   a multi-cell range shows no row highlight, since the range fill already
   shows where the selection is. Whole-row selections stay highlighted.
-  Unselected rows keep their alternating (zebra) background, a faint tint
-  a little above the plain cell background.
+  With **View > Banded Rows** on (off by default, stored on this device
+  only), unselected rows alternate with a faint tint; the selection and
+  the selected-row highlight still show over it.
 - The inline-editor / formula-bar usage guidance (Enter commits and moves
   down, Alt+Enter inserts a newline, Esc cancels, `=` starts a formula in
   RSF) is not persistent chrome — it is a **tooltip** on both surfaces plus

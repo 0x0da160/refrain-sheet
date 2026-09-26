@@ -128,6 +128,8 @@
       <tr><td>hybrid（新規利用者の既定）</td><td>共通基盤の dark</td><td>light</td><td>周りの光を抑えつつ、データは紙として読みたい</td></tr>
     </tbody>
   </table></div>
+  <p>アプリの「テーマ」メニューの「ハイブリッド」は OS・ブラウザの設定に従います。OS が暗いときにだけ <code>data-theme="hybrid"</code> を付け、
+    OS が明るいときは全体を light で表示します（どちらでもキャンバスは light です）。</p>
   <h3>キャンバスの色</h3>
   <p><b>キャンバス（グリッド・ソースエディタ）の中では <code>canvas-*</code>・<code>state-*</code>・<code>ref-*</code>・<code>syntax-*</code> だけを使い、
     枠では使いません。</b>この分離が崩れると、hybrid で文字が読めなくなります。</p>
@@ -337,10 +339,11 @@
   <h3>約束事</h3>
   <ul>
     <li>数値・日付は右揃え、文字列は左揃え、真偽値とエラーは中央。</li>
-    <li>交互の縞はオフが既定。利用者の塗り色と競合するためです。</li>
+    <li>交互の縞はオフが既定。利用者の塗り色と競合するためです。アプリでは「表示 &gt; 行を交互に色分け」でオンにでき、設定は端末ごとに保存します（ルートの <code>data-banded-rows</code>）。</li>
     <li>固定した行・列の境界は 2px の <code>canvas-frozen-divider</code>。</li>
     <li>セル内のエディタはセルと同じ位置・同じ行送りに文字を置き、2px の枠と影で「浮いている」ことを示します。</li>
     <li>ソースエディタ（JSON・YAML・Markdown・テキスト）もキャンバス側です。構文色は <code>syntax-*</code> で、色がなくても構造が読めることを前提にします。</li>
+    <li>ソースエディタの文字は <code>--text-body</code>（14px）です。グリッドと違い、表示倍率では拡大しません。JSON と YAML は字下げをそろえるため <code>--font-code</code>、Markdown とテキストは文章なので利用者が選んだスプレッドシートのフォントで表示します。</li>
   </ul>
 </div></section>
 
@@ -592,7 +595,7 @@ node design-system/2.0.0/tools/build.mjs --check  # 生成物が最新か・監�
   <h3>使い方</h3>
 <pre class="doc-code"><code>&lt;html lang="ja" data-theme="hybrid" data-density="standard"&gt;
 &lt;!-- data-theme: light | dark | hybrid。省略すると OS の設定に従う --&gt;
-&lt;!-- data-density: compact | standard | comfortable --&gt;
+&lt;!-- data-density: compact | standard | comfortable（アプリは「表示 &gt; 表示密度」、端末ごとに保存） --&gt;
 &lt;button type="button" class="rs-btn rs-btn--primary"&gt;保存&lt;/button&gt;
 &lt;div class="rs-cell" data-type="number" data-edited&gt;1,200&lt;/div&gt;</code></pre>
   <h3>運用の決まり</h3>

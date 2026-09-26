@@ -49,12 +49,12 @@
   align-items: center;
   justify-content: center;
   width: 28px;
-  height: 28px;
+  height: var(--control-h);
   border: none;
   background: none;
   border-radius: var(--radius-sm);
   cursor: default;
-  font-size: 13px;
+  font-size: var(--text-body);
   color: inherit;
 }
 
@@ -66,7 +66,7 @@
 
 .toolbar-item.active {
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--accent-subtle-text);
 }
 
 .toolbar-item:disabled {
@@ -74,7 +74,7 @@
 }
 
 .toolbar-item.icon-bold {
-  font-weight: 700;
+  font-weight: var(--weight-bold);
 }
 
 .toolbar-item.icon-italic {

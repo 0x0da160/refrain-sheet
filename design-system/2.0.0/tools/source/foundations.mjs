@@ -190,10 +190,23 @@ export const shadows = {
    ------------------------------------------------------------------------- */
 export const fonts = {
   // UI and brand text. OS-installed only: zero web fonts in both layers.
-  'font-ui': ['BIZ UDPGothic', 'Yu Gothic UI', 'Hiragino Sans', 'Noto Sans JP', 'system-ui', 'sans-serif'],
-  // Cells, numbers, paths. Ends in sans-serif: a generic monospace is
-  // Latin-only on macOS/iOS/Android and would break Japanese cells.
-  'font-data': ['BIZ UDGothic', 'MS Gothic', 'Hiragino Sans', 'Noto Sans CJK JP', 'Noto Sans JP', 'sans-serif'],
+  // Windows (the app's primary target) resolves BIZ UDPGothic; older Windows
+  // installs fall through the UI-condensed and regular Windows families.
+  // macOS/iOS reach Hiragino; Android and Linux reach Noto CJK. This is the
+  // chain the app shipped and tested before v2.0.0 took it over.
+  'font-ui': [
+    'BIZ UDPGothic', 'Yu Gothic UI', 'Meiryo UI', 'Meiryo', 'Yu Gothic', 'MS UI Gothic',
+    'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Noto Sans CJK JP', 'sans-serif',
+  ],
+  // Cells, numbers, paths: the app's default spreadsheet font. Fixed-pitch
+  // Windows families first (BIZ UDGothic, MS Gothic, under both their Latin
+  // and Japanese names), then families whose kana/kanji stay full-width.
+  // Ends in sans-serif: a generic monospace is Latin-only on
+  // macOS/iOS/Android and would break Japanese cells.
+  'font-data': [
+    'BIZ UDGothic', 'BIZ UDゴシック', 'MS Gothic', 'ＭＳ ゴシック', 'Meiryo', 'Yu Gothic',
+    'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Noto Sans CJK JP', 'sans-serif',
+  ],
   // Code, source editors, shortcut labels, eyebrows.
   'font-code': ['BIZ UDGothic', 'Consolas', 'SFMono-Regular', 'Menlo', 'monospace'],
 };

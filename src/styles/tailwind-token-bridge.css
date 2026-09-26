@@ -6,8 +6,10 @@
    foundations.css (palette, shell colours bg-* / fg-* / border-*, spacing,
    radii, shadows) and app-tokens.css (canvas colours for the grid and source
    editors, the hybrid theme, layers). The theme is chosen by `data-theme` on
-   the document root (light / dark / hybrid — see src/app/theme.ts). This file
-   keeps only what the design system does not define for the app yet. */
+   the document root (light / dark / hybrid — see src/app/theme.ts), and bar,
+   control and field heights by `data-density` (compact / standard /
+   comfortable — see src/app/density.ts). This file keeps only what the
+   design system does not define: the spreadsheet fonts a user can pick. */
 
 /* ---------- Tailwind token bridge ----------
    Maps a subset of the design-system tokens to Tailwind color utilities
@@ -19,27 +21,18 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-subtle);
   --color-accent-contrast: var(--accent-contrast);
+  --color-accent-text: var(--accent-text);
+  --color-accent-subtle-text: var(--accent-subtle-text);
   --color-line: var(--border-default);
   --color-dim: var(--fg-muted);
 }
 
 :root {
-  /* General UI: navigation, buttons, dialogs, forms, helper text. Zero
-     webfonts — OS-local families only, proportional first. Windows (the
-     primary target, Chrome/Edge) resolves BIZ UDPGothic; older Windows
-     installs without it fall through the UI-condensed and regular Windows
-     families. macOS/iOS reach Hiragino; Android and Linux reach Noto CJK
-     (by name where the browser exposes it, otherwise via sans-serif).
-     Overrides the design system's shorter --font-ui chain with the Windows
-     fallbacks the app has been tested on. */
-  --font-ui:
-    'BIZ UDPGothic', 'Yu Gothic UI', 'Meiryo UI', 'Meiryo', 'Yu Gothic', 'MS UI Gothic', 'Hiragino Sans',
-    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Noto Sans CJK JP', sans-serif;
-
   /* Selectable spreadsheet fonts (View > Spreadsheet Font). Nothing is
      fetched from a CDN or bundled. BIZ UD Gothic (the default) is a
      fixed-pitch face: full-width kana/kanji and half-width Latin/digits. Its
-     chain keeps fixed-pitch Windows families first (MS Gothic), then
+     chain is the design system's --font-data: fixed-pitch Windows families
+     first (MS Gothic), then
      families whose kana/kanji are still full-width but whose Latin is
      proportional (Meiryo, Yu Gothic, Hiragino, Noto CJK), and ends in
      sans-serif so macOS/iOS/Android never land on a Latin-only generic
@@ -48,9 +41,7 @@
      Gothic / MS UI Gothic keep their original monospace fallback. Noto Sans
      JP / Meiryo UI / Yu Gothic UI (#396) are proportional UI fonts, so they
      fall back through their own family and a generic sans-serif instead. */
-  --sheet-font-biz-ud:
-    'BIZ UDGothic', 'BIZ UDゴシック', 'MS Gothic', 'ＭＳ ゴシック', 'Meiryo', 'Yu Gothic', 'Hiragino Sans',
-    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Noto Sans CJK JP', sans-serif;
+  --sheet-font-biz-ud: var(--font-data);
   --sheet-font-ms: 'ＭＳ ゴシック', 'MS Gothic', monospace;
   --sheet-font-ms-ui: 'MS UI Gothic', 'ＭＳ ゴシック', 'MS Gothic', monospace;
   --sheet-font-noto-sans-jp: 'Noto Sans JP', sans-serif;
@@ -61,12 +52,4 @@
      The active choice is applied by overriding this on the document root
      (see src/app/sheet-font.ts); BIZ UD Gothic is the default. */
   --font-sheet: var(--sheet-font-biz-ud);
-
-  /* The menu bar, document tab row, formula bar, and worksheet strip share
-     one outer height (border included — the app is border-box throughout);
-     the status bar is deliberately smaller. These stay app-local until the
-     density setting (design system: --bar-h / --statusbar-h, which also grow
-     under a coarse pointer) is adopted. */
-  --bar-height: 32px;
-  --status-bar-height: 24px;
 }

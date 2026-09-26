@@ -254,7 +254,7 @@
 
   .dialog-title {
     padding: var(--space-2) var(--space-3);
-    font-size: 13px;
+    font-size: var(--text-body);
   }
 
   .dialog-body {
@@ -281,7 +281,7 @@
   .status-bar {
     padding: var(--space-0-5) var(--space-2);
     gap: var(--space-0-5) var(--space-2);
-    font-size: 12px;
+    font-size: var(--text-caption);
     min-height: 22px;
   }
 
@@ -319,13 +319,13 @@
 
   .formula-bar .cell-ref {
     min-width: 72px;
-    font-size: 11px;
+    font-size: var(--text-caption);
   }
 
   .toolbar-item {
     width: 26px;
     height: 26px;
-    font-size: 12px;
+    font-size: var(--text-caption);
   }
 
   .context-menu {

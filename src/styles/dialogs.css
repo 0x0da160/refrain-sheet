@@ -16,7 +16,7 @@ dialog {
   max-width: min(680px, 92vw);
   max-height: 86vh;
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--text-body);
   background: var(--bg-raised);
   color: var(--fg-default);
 }
@@ -41,7 +41,7 @@ dialog::backdrop {
   max-width: min(420px, calc(100vw - 8px));
   max-height: 86vh;
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--text-body);
   background: var(--bg-raised);
   color: var(--fg-default);
   z-index: var(--z-panel);
@@ -56,8 +56,8 @@ dialog::backdrop {
   user-select: none;
   touch-action: none;
   margin: 0;
-  padding: var(--space-3) var(--space-4);
-  font-size: 14px;
+  padding: var(--inset) var(--space-4);
+  font-size: var(--text-title);
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-default);
 }
@@ -65,7 +65,7 @@ dialog::backdrop {
 .dialog-body {
   flex: 1 1 auto;
   min-height: 0;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--inset) var(--space-4);
   overflow: auto;
 }
 
@@ -76,7 +76,7 @@ dialog::backdrop {
 
 .dialog-note {
   color: var(--fg-muted);
-  font-size: 12px;
+  font-size: var(--text-caption);
 }
 
 /* External links in dialogs (e.g. About). Uses the theme accent so contrast
@@ -89,7 +89,7 @@ dialog::backdrop {
 }
 
 .dialog-link {
-  color: var(--accent);
+  color: var(--link);
   text-decoration: underline;
 }
 
@@ -117,12 +117,13 @@ dialog::backdrop {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--inset) var(--space-4);
   border-top: 1px solid var(--border-default);
   background: var(--bg-surface);
 }
 
 .dialog-buttons button {
+  min-height: var(--field-h);
   border: 1px solid var(--border-default);
   background: var(--bg-raised);
   color: var(--fg-default);
@@ -194,7 +195,7 @@ dialog::backdrop {
      sheet. */
   background: var(--bg-raised);
   color: var(--fg-default);
-  font-size: 13px;
+  font-size: var(--text-body);
   overflow: hidden;
   z-index: var(--z-panel);
 }
@@ -214,7 +215,7 @@ dialog::backdrop {
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .side-panel-title-icon {
@@ -294,7 +295,7 @@ dialog::backdrop {
 .side-panel-header-btn[aria-pressed='true'] {
   border-color: var(--border-default);
   background: var(--bg-raised);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .side-panel-header-btn:focus-visible {
@@ -337,12 +338,12 @@ dialog::backdrop {
 
 .panel-section-title {
   margin: 0;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
 }
 
 .panel-lead {
-  font-weight: 600;
+  font-weight: var(--weight-bold);
 }
 
 .panel-field {
@@ -361,8 +362,8 @@ dialog::backdrop {
 
 .panel-field-label {
   color: var(--fg-muted);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-bold);
 }
 
 /* Side-by-side fields (e.g. color / style / width) share the width evenly
@@ -431,7 +432,7 @@ dialog::backdrop {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  height: 28px;
+  height: var(--field-h);
   padding: 0 var(--space-1-5);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -503,7 +504,7 @@ dialog::backdrop {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  height: 28px;
+  height: var(--field-h);
   padding: 0 var(--space-3);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -514,7 +515,7 @@ dialog::backdrop {
 }
 
 .panel-icon-button {
-  width: 28px;
+  width: var(--field-h);
   padding: 0;
 }
 
@@ -561,7 +562,7 @@ dialog::backdrop {
 }
 
 .side-panel .dialog-buttons button {
-  height: 28px;
+  height: var(--field-h);
   padding-block: 0;
 }
 
@@ -731,11 +732,11 @@ table.diag-table th {
 }
 
 .recent-file-name {
-  font-weight: 600;
+  font-weight: var(--weight-bold);
   overflow-wrap: anywhere;
 }
 
 .recent-file-time {
   color: var(--fg-muted);
-  font-size: 12px;
+  font-size: var(--text-caption);
 }

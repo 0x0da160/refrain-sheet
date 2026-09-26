@@ -12,6 +12,8 @@ import { listRecentFiles } from './app/recent-files';
 import { resolveShortcut } from './app/shortcuts';
 import { getSqlHistory } from './app/sql-queries';
 import { storageSharedWithOtherLocalFiles } from './app/storage';
+import { applyBandedRows, getBandedRows } from './app/banded-rows';
+import { applyDensity, getDensity } from './app/density';
 import { applyTheme, getTheme } from './app/theme';
 import { initCsvEngine } from './core/csv-engine';
 import { initSqlEngine } from './core/sql-engine';
@@ -47,6 +49,9 @@ function bootstrap(): void {
   // Resolve and apply the color theme before first paint (no flash of the
   // wrong theme); a "system" choice tracks OS changes live via matchMedia.
   applyTheme(getTheme());
+  // UI density (bar and control heights), also a pure CSS attribute.
+  applyDensity(getDensity());
+  applyBandedRows(getBandedRows());
   // From file://, other local HTML files share this storage: the first access
   // to each list switches it to memory-only and deletes what an earlier
   // release stored there, so do that now rather than when first used.
@@ -238,8 +243,10 @@ function bootstrap(): void {
     freezeAtSelection: () => state.activeTab?.freeze != null,
     sheetFont: () => resolveSheetFont(state.activeTab?.doc ?? null).value,
     theme: () => getTheme(),
+    density: () => getDensity(),
     zoom: () => state.activeTab?.zoom ?? getSheetZoom(),
     editHints: () => getEditHints(),
+    bandedRows: () => getBandedRows(),
     autoFitOnOpen: () => getAutoFitOnOpen(),
     commentsPanel: () => commentsPanel.isOpen,
     formatActive: (key) => {

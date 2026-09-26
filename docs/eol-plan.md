@@ -28,6 +28,34 @@ lifecycle entry). The machine-readable source of truth is
 | CI actions                | checkout/setup-node v5, cache/upload-artifact v4, dependency-review v4 | v7 / v7 / v6 / v7 / v5 | The replaced cache, upload-artifact and dependency-review majors ran on the deprecated node20 runtime |
 | Runtime npm (patch/minor) | sql.js 1.14.1, lucide 1.28.0, encoding-japanese 2.3.0                  | 1.14.2, 1.48.0, 2.4.0  | Routine updates; `@types/encoding-japanese` dropped (types now bundled)                               |
 
+### Approved, not yet applied (to do)
+
+The maintainer approved every open item on 2026-09-26 (「承認するので全て実施して」).
+The agent session could not apply them: its permission policy denied editing
+the release/deploy workflows and querying the npm registry. Pick these up
+next, in this order:
+
+1. **Release/deploy workflows** — one commit over `release.yml`,
+   `manual-release.yml`, `release-docs.yml`: `node-version: 22` → `24`,
+   `checkout@v5` → `v7`, `setup-node@v5` → `v7`, `upload-pages-artifact@v3`
+   → `v5`, `attest-build-provenance@v2` → `v4`, `configure-pages@v5` → `v6`,
+   `deploy-pages@v4` → `v5`. Pre-checked: no `permissions` change is needed
+   (attest v4 creates a storage record only with `push-to-registry: true`);
+   `dist-hosted/` has no dotfiles, so upload-pages-artifact's hidden-file
+   exclusion does not matter; checkout v6+ keeps `git push` and
+   `--force-with-lease` working. Then in `eol-register.json` remove
+   `generic:nodejs@22`, `github:actions/checkout@5`, `setup-node@5`,
+   `configure-pages@5`, `deploy-pages@4`, `upload-pages-artifact@3` and
+   `attest-build-provenance@2`, and add `github:actions/configure-pages@6`,
+   `deploy-pages@5`, `upload-pages-artifact@5`, `attest-build-provenance@4`.
+   Verify with `npm run check:eol` and the first tag release after merging.
+2. **sql.js** — check for a release newer than 1.14.2 and the SQLite it
+   embeds (`npm view sql.js version`); record the result on `npm:sql.js@1`.
+3. **TypeScript 7** — check whether typescript-eslint's peer range accepts
+   `typescript@7` (`npm view typescript-eslint peerDependencies`); upgrade if it does.
+4. **wasm-pack** — open an Issue to decide whether to replace it with
+   cargo + wasm-bindgen-cli.
+
 ### Open plan
 
 | Due        | Component                                                                                             | Action                                                                                                                      | Approval        |
@@ -74,6 +102,27 @@ Actions のメジャー 11 件。直接依存とツールチェーンの 42 件�
 | miniz_oxide / ruzstd          | 0.8.0 / 0.8.1               | 0.9.1 / 0.9.0    | 最新版。固定 `.rsf` フィクスチャのバイト列は不変                                                  |
 | CI の Actions                 | checkout/setup-node v5 ほか | v7 など          | 置き換えた cache・upload-artifact・dependency-review のメジャーは非推奨の node20 ランタイムで動作 |
 | 実行時 npm（パッチ/マイナー） | sql.js 1.14.1 ほか          | 1.14.2 ほか      | 定常更新。`@types/encoding-japanese` は同梱型定義に置き換え削除                                   |
+
+### 承認済み・未実施（要対応）
+
+2026-09-26 に全項目が承認済み（「承認するので全て実施して」）。エージェント
+セッションの権限ポリシーにより、リリース/デプロイ系ワークフローの編集と npm
+レジストリの照会が拒否されたため未実施です。次の順に対応します。
+
+1. **リリース/デプロイ系ワークフロー** — `release.yml`・`manual-release.yml`・
+   `release-docs.yml` を 1 コミットで更新：`node-version: 22` → `24`、
+   `checkout@v5` → `v7`、`setup-node@v5` → `v7`、`upload-pages-artifact@v3`
+   → `v5`、`attest-build-provenance@v2` → `v4`、`configure-pages@v5` → `v6`、
+   `deploy-pages@v4` → `v5`。事前確認済み：`permissions` の変更は不要（attest
+   v4 のストレージレコードは `push-to-registry: true` のときのみ）、`dist-hosted/`
+   にドットファイルはなく、checkout v6 以降も `git push` と `--force-with-lease`
+   は動作します。あわせて `eol-register.json` の旧キー（上記 English 参照）を
+   削除し新キーを追加、`npm run check:eol` とマージ後最初のタグリリースで確認。
+2. **sql.js** — 1.14.2 より新しい版と内蔵 SQLite を確認し
+   （`npm view sql.js version`）、`npm:sql.js@1` に結果を記録。
+3. **TypeScript 7** — typescript-eslint の peer 範囲が `typescript@7` を含むか確認
+   （`npm view typescript-eslint peerDependencies`）し、対応済みなら更新。
+4. **wasm-pack** — cargo + wasm-bindgen-cli への置き換えを判断する Issue を作成。
 
 ### 未完了の計画
 

@@ -37,6 +37,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- **Data > Run SQL Query…** runs on the SQLite engine from sql.js 1.14.2,
+  and the icons come from lucide 1.48.0 (both were updated along with the
+  rest of the build toolchain; nothing is fetched at runtime).
+
+## [0.9.7] - 2026-09-26
+
+### Changed
+
 - **View > Density** now makes a clear difference: each step moves the bars,
   menu items, tabs, buttons and fields by 8px instead of 4px (bars are 24,
   32 and 40px on a desktop), and dialogs get tighter or roomier spacing to
@@ -45,9 +53,19 @@ really is internal, rather than inventing an entry to satisfy it.
   there), and the layout is more compact: at Standard the bars are 40px
   instead of 48px, so more rows of the sheet fit on screen. Compact goes
   down to 32px bars; Comfortable keeps the previous touch sizes.
-- **Data > Run SQL Query…** runs on the SQLite engine from sql.js 1.14.2,
-  and the icons come from lucide 1.48.0 (both were updated along with the
-  rest of the build toolchain; nothing is fetched at runtime).
+- Buttons, menu items and tab close buttons now show a pressed state the
+  moment you click or tap them, so a click is acknowledged even before a
+  slow action finishes.
+- The busy indicator no longer flashes over the window for operations that
+  finish within about a third of a second; it appears only when a wait is
+  long enough to notice.
+- Scrolling a large sheet does less work: the grid redraws its rows only
+  after you scroll past the extra rows it already keeps ready, not on every
+  row.
+- Converting a large CSV file to an RSF workbook is about 3–4 times faster
+  (a 200,000-row, 6-column file went from about 1.4 seconds to about 0.4
+  seconds in our benchmark), because cell text is read with much less
+  overhead.
 
 ## [0.9.6] - 2026-09-26
 

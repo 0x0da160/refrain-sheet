@@ -8,7 +8,7 @@ from a single static HTML file. This file is a contract: follow it exactly.
 
 - Front end: TypeScript + Vite. Domain core in `src/core/` (pure, DOM-free).
 - Performance core: Rust compiled to WebAssembly in `wasm/`, embedded as Base64.
-- Tests: Vitest (`tests/`) + Rust unit tests. Lint: ESLint 9. Format: Prettier.
+- Tests: Vitest (`tests/`) + Rust unit tests. Lint: ESLint 10. Format: Prettier.
 
 ## Durable knowledge
 

@@ -5,20 +5,22 @@
  * The choice is an **application-level** preference stored only in
  * `localStorage` — it never touches document bytes, RSF data, formulas, or
  * calculations; it is pure display state. The resolved theme is applied by
- * setting a single `data-theme` attribute (`"light"` or `"dark"`) plus the
- * matching `color-scheme` on the document root; every surface reads its colors
- * from CSS custom properties keyed off that attribute (see `styles.css`), so no
- * per-element work is needed.
+ * setting a single `data-theme` attribute (`"light"`, `"dark"` or `"hybrid"`)
+ * plus the matching `color-scheme` on the document root; every surface reads
+ * its colors from the design-system tokens keyed off that attribute
+ * (design-system/2.0.0, loaded by `styles.css`), so no per-element work is
+ * needed.
  *
  * When the choice is `"system"` the resolved theme follows
  * `prefers-color-scheme`, and a `matchMedia` listener re-applies it live when
  * the OS/browser theme changes. Nothing is ever sent anywhere.
  *
- * `"hybrid"` resolves the document root the same way `"system"` does (so the
- * UI chrome still follows the OS/browser preference), but also tags the root
- * with `data-theme-choice="hybrid"`; `styles.css` uses that tag to force the
- * spreadsheet/grid area back to its light colors whenever the resolved theme
- * is dark, independent of the rest of the UI (#363).
+ * `"hybrid"` resolves the same way `"system"` does (so the UI chrome still
+ * follows the OS/browser preference), but when that resolves dark the root
+ * gets `data-theme="hybrid"` instead of `"dark"`: the design system's hybrid
+ * theme, a dark shell around a light canvas, so the spreadsheet area stays
+ * light independent of the rest of the UI (#363). The root also carries
+ * `data-theme-choice` with the raw choice.
  */
 
 export type ThemeChoice = 'system' | 'light' | 'dark' | 'hybrid';
@@ -112,9 +114,8 @@ function applyResolved(): void {
   const resolved = resolveTheme(currentChoice);
   const root = globalThis.document?.documentElement;
   if (root) {
-    root.setAttribute('data-theme', resolved);
-    // Lets styles.css scope the hybrid grid-stays-light override to exactly
-    // the active choice, without affecting "system" (#363).
+    // A dark hybrid is its own design-system theme: dark shell, light canvas.
+    root.setAttribute('data-theme', currentChoice === 'hybrid' && resolved === 'dark' ? 'hybrid' : resolved);
     root.setAttribute('data-theme-choice', currentChoice);
     // Hint native form controls / scrollbars to match, alongside the CSS tokens.
     root.style.setProperty('color-scheme', resolved);

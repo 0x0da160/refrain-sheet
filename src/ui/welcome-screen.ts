@@ -22,7 +22,7 @@ export class WelcomeScreen {
   constructor(private readonly commands: Commands) {
     this.element = el('div', {
       className:
-        'welcome-screen flex flex-1 flex-col items-center justify-center gap-(--space-5) overflow-auto bg-surface p-10 text-center',
+        'welcome-screen flex flex-1 flex-col items-center justify-center gap-(--space-3) overflow-auto bg-surface p-10 text-center',
     });
     this.element.hidden = true;
     this.render();
@@ -37,7 +37,7 @@ export class WelcomeScreen {
   private render(): void {
     clearChildren(this.element);
     const actionClasses =
-      'welcome-action inline-flex items-center justify-center gap-(--space-4) rounded-(--radius-md) border border-accent px-(--space-6) py-(--space-4) text-[14px] cursor-pointer hover:bg-accent-soft hover:text-accent';
+      'welcome-action inline-flex items-center justify-center gap-(--space-2) rounded-(--radius-md) border border-accent px-(--space-4) py-(--space-2) text-[14px] cursor-pointer hover:bg-accent-soft hover:text-accent';
     const open = el(
       'button',
       { className: `${actionClasses} primary bg-accent text-accent-contrast`, attrs: { type: 'button' } },
@@ -62,7 +62,7 @@ export class WelcomeScreen {
       'button',
       {
         className:
-          'welcome-recent inline-flex items-center gap-(--space-3) rounded-(--radius-sm) border-0 bg-transparent px-(--space-3) py-(--space-2) text-[13px] text-accent cursor-pointer hover:underline',
+          'welcome-recent inline-flex items-center gap-(--space-1-5) rounded-(--radius-sm) border-0 bg-transparent px-(--space-1-5) py-(--space-1) text-[13px] text-accent cursor-pointer hover:underline',
         attrs: { type: 'button' },
       },
       [createIcon(FolderClock, 'flex-none', 16), el('span', { text: t('menu.file.openRecent') })],
@@ -81,13 +81,15 @@ export class WelcomeScreen {
       // columns from the `sm` breakpoint up.
       el(
         'div',
-        { className: 'mt-(--space-4) mb-(--space-1) grid gap-(--space-4) sm:grid-flow-col sm:auto-cols-fr' },
+        {
+          className: 'mt-(--space-2) mb-(--space-0-5) grid gap-(--space-2) sm:grid-flow-col sm:auto-cols-fr',
+        },
         [open, create, createCsv],
       ),
       ...(this.commands.isEnabled('file.openRecent') ? [recent] : []),
       el('p', {
         className:
-          'welcome-drop mt-(--space-3) rounded-(--radius-md) border-2 border-dashed border-line px-(--space-7) py-(--space-5) text-dim',
+          'welcome-drop mt-(--space-1-5) rounded-(--radius-md) border-2 border-dashed border-line px-(--space-6) py-(--space-3) text-dim',
         text: t('welcome.drop'),
       }),
     );

@@ -37,6 +37,19 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- The app now takes its colours, spacing, corner radii, shadows and layer
+  order from the Refrain Sheet Design System v2.0.0, the same source as the
+  landing site. What you may notice: in the dark theme, secondary text is
+  brighter and easier to read, and input fields are a little lighter;
+  row and column headers use a paper tint, and the line under frozen rows
+  and beside frozen columns is grey instead of green; the comment mark is
+  blue in the top-right corner and the formula mark moved to the
+  bottom-left, so a cell with both shows both; the four formula-reference
+  colours are now blue, violet, amber and teal, all easier to tell apart;
+  toasts use the inverted colours (light on the dark theme), and error
+  toasts are red; the loading screen dims the app instead of whitening it.
+  In the Hybrid theme with a dark system, the Markdown, JSON, YAML and text
+  editors now stay light like the grid.
 - The landing site now takes every colour, font, spacing and radius from the
   Refrain Sheet Design System v2.0.0 instead of its own copies, so it can no
   longer drift from the app. What visitors notice: headings and buttons use

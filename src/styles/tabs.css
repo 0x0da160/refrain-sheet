@@ -5,10 +5,10 @@
 .tab-bar {
   display: flex;
   align-items: flex-end;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-  padding: var(--space-2) var(--space-4) 0;
-  gap: var(--space-1);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-default);
+  padding: var(--space-1) var(--space-2) 0;
+  gap: var(--space-0-5);
   overflow-x: auto;
   min-height: var(--bar-height);
 }
@@ -16,18 +16,18 @@
 .tab {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  border: 1px solid var(--border);
+  gap: var(--space-1-5);
+  border: 1px solid var(--border-default);
   border-bottom: none;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
-  background: var(--panel-hover);
-  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-5);
+  background: var(--bg-hover);
+  padding: var(--space-0-5) var(--space-1-5) var(--space-0-5) var(--space-3);
   max-width: 240px;
   cursor: default;
 }
 
 .tab[aria-selected='true'] {
-  background: var(--surface);
+  background: var(--bg-raised);
   font-weight: 600;
   /* The book tab strip sits above the grid (bottom-open, top-rounded — see
      `.tab` above), so its active indicator belongs on the top edge, the
@@ -52,7 +52,7 @@
 }
 
 .tab .tab-source-icon {
-  color: var(--text-muted);
+  color: var(--fg-subtle);
 }
 
 /* Read-only protection (`Tab.readOnly`), mirroring the worksheet lock mark. */
@@ -62,7 +62,7 @@
 }
 
 .tab .tab-lock-icon {
-  color: var(--text-muted);
+  color: var(--fg-subtle);
 }
 
 /* ----- Document tabs share the menu bar's row when they fit (#596) -----

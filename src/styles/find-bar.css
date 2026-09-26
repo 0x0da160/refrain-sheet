@@ -13,18 +13,18 @@
 .find-panel-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-2);
 }
 
 .find-actions button {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
+  gap: var(--space-1);
+  border: 1px solid var(--border-default);
+  background: var(--bg-raised);
+  color: var(--fg-default);
   border-radius: var(--radius-sm);
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-1) var(--space-2);
   font: inherit;
 }
 
@@ -47,7 +47,7 @@
 }
 
 .find-count {
-  color: var(--text-dim);
+  color: var(--fg-muted);
 }
 
 .find-count:empty,
@@ -56,11 +56,11 @@
 }
 
 .find-error {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .find-results-note {
-  color: var(--text-dim);
+  color: var(--fg-muted);
 }
 
 .find-results-note[hidden],
@@ -72,22 +72,22 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-default);
 }
 
 .find-result {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-2);
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-0-5);
+  padding: var(--space-1-5) var(--space-1);
+  border-bottom: 1px solid var(--border-default);
   cursor: pointer;
 }
 
 .find-result:hover,
 .find-result:focus-visible,
 .find-result.current {
-  background: var(--panel-hover);
+  background: var(--bg-hover);
 }
 
 .find-result.current {
@@ -102,7 +102,7 @@
 .find-result-header {
   display: flex;
   align-items: baseline;
-  gap: var(--space-3);
+  gap: var(--space-1-5);
   font-family: var(--font-sheet);
   font-size: 12px;
   font-weight: 600;
@@ -111,7 +111,7 @@
 .find-result-sheet {
   font-family: inherit;
   font-weight: 400;
-  color: var(--text-dim);
+  color: var(--fg-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -120,7 +120,7 @@
 .find-result-text {
   font-family: var(--font-sheet);
   font-size: 0.9em;
-  color: var(--text-dim);
+  color: var(--fg-muted);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

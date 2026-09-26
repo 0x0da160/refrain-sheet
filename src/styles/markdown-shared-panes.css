@@ -6,8 +6,8 @@
 .markdown-editor-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  margin: 0 0 var(--space-4);
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
 }
 
 /* The JSON/YAML editors' auto-format-on-commit checkbox (#557):  pushed to
@@ -16,16 +16,16 @@
 .markdown-editor-toolbar-checkbox {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-1-5);
   margin-left: auto;
-  color: var(--text-dim);
+  color: var(--fg-muted);
   font-size: 0.9em;
   cursor: pointer;
 }
 
 .markdown-editor-panes {
   display: flex;
-  gap: var(--space-5);
+  gap: var(--space-3);
   align-items: stretch;
 }
 
@@ -47,22 +47,22 @@
   min-height: 320px;
   font-family: var(--font-sheet);
   font-size: 13px;
-  padding: var(--space-4);
-  border: 1px solid var(--border);
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   resize: vertical;
-  background: var(--surface);
-  color: var(--text);
+  background: var(--bg-raised);
+  color: var(--fg-default);
 }
 
 .markdown-editor-preview {
   flex: 1;
   min-height: 320px;
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--border);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   overflow: auto;
-  background: var(--panel);
+  background: var(--bg-surface);
   line-height: 1.5;
 }
 
@@ -71,9 +71,9 @@
 }
 
 .markdown-editor-preview pre {
-  background: var(--surface);
+  background: var(--bg-raised);
   border-radius: var(--radius-sm);
-  padding: var(--space-4);
+  padding: var(--space-2);
   overflow: auto;
 }
 
@@ -83,10 +83,10 @@
 }
 
 .markdown-editor-preview blockquote {
-  margin: 0 0 var(--space-4);
-  padding-left: var(--space-4);
-  border-left: 3px solid var(--border);
-  color: var(--text-dim);
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-2);
+  border-left: 3px solid var(--border-default);
+  color: var(--fg-muted);
 }
 
 /* GFM-style tables (#486) — `src/core/markdown.ts`'s table block, rendered
@@ -98,18 +98,18 @@
    to special-case "no alignment" vs "explicitly left". */
 .markdown-editor-preview table {
   border-collapse: collapse;
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-2);
 }
 
 .markdown-editor-preview th,
 .markdown-editor-preview td {
-  border: 1px solid var(--border);
-  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border-default);
+  padding: var(--space-1) var(--space-2);
   text-align: left;
 }
 
 .markdown-editor-preview th {
-  background: var(--surface);
+  background: var(--bg-raised);
   font-weight: 600;
 }
 
@@ -128,7 +128,7 @@
 /* Fenced-code-block syntax highlighting (#486) — token classes come from
    `src/core/syntax-highlight.ts`'s `CodeToken.type`, rendered by
    `renderMarkdownBlocks`. Colors reuse existing semantic tokens rather than
-   introducing new ones, so both themes (`:root[data-theme='dark']`) stay in
+   introducing new ones, so every theme (`data-theme` on the root) stays in
    sync automatically. */
 .markdown-editor-preview .tok-keyword {
   color: var(--accent);
@@ -139,12 +139,12 @@
 }
 
 .markdown-editor-preview .tok-comment {
-  color: var(--text-dim);
+  color: var(--fg-muted);
   font-style: italic;
 }
 
 .markdown-editor-preview .tok-number {
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 /* ---------- Worksheet source editors (`ui/source-editor.ts`) ----------
@@ -158,8 +158,12 @@
   resize: none;
   outline: none;
   box-shadow: none;
-  padding: var(--space-4) var(--space-5);
-  background: var(--cell-bg);
+  padding: var(--space-2) var(--space-3);
+  /* The document itself is canvas, like the grid (design system: canvas
+     colours cover the grid and the source editors), so the hybrid theme keeps
+     it on paper while the toolbar around it follows the shell. */
+  background: var(--canvas-bg);
+  color: var(--canvas-text);
   line-height: 1.6;
   tab-size: 4;
 }
@@ -175,8 +179,8 @@
 .json-sheet-view > .markdown-editor-toolbar,
 .yaml-sheet-view > .markdown-editor-toolbar {
   margin: 0;
-  padding: var(--space-3) var(--space-5);
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-1-5) var(--space-3);
+  border-bottom: 1px solid var(--border-default);
 }
 
 /* JSON and YAML are code: indentation must line up, so they use a fixed-pitch

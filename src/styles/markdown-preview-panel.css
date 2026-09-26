@@ -14,16 +14,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-2);
+  padding: var(--space-1);
   border: none;
   background: transparent;
-  color: var(--text-dim);
+  color: var(--fg-muted);
   border-radius: var(--radius-sm);
 }
 
 .markdown-preview-panel-close:hover {
-  background: var(--surface);
-  color: var(--text);
+  background: var(--bg-raised);
+  color: var(--fg-default);
 }
 
 .markdown-preview-panel-close:focus-visible {

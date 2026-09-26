@@ -6,8 +6,10 @@
    foundations.css (palette, shell colours bg-* / fg-* / border-*, spacing,
    radii, shadows) and app-tokens.css (canvas colours for the grid and source
    editors, the hybrid theme, layers). The theme is chosen by `data-theme` on
-   the document root (light / dark / hybrid — see src/app/theme.ts). This file
-   keeps only what the design system does not define for the app yet. */
+   the document root (light / dark / hybrid — see src/app/theme.ts), and bar,
+   control and field heights by `data-density` (compact / standard /
+   comfortable — see src/app/density.ts). This file keeps only what the
+   design system does not define for the app: the font chains. */
 
 /* ---------- Tailwind token bridge ----------
    Maps a subset of the design-system tokens to Tailwind color utilities
@@ -61,12 +63,4 @@
      The active choice is applied by overriding this on the document root
      (see src/app/sheet-font.ts); BIZ UD Gothic is the default. */
   --font-sheet: var(--sheet-font-biz-ud);
-
-  /* The menu bar, document tab row, formula bar, and worksheet strip share
-     one outer height (border included — the app is border-box throughout);
-     the status bar is deliberately smaller. These stay app-local until the
-     density setting (design system: --bar-h / --statusbar-h, which also grow
-     under a coarse pointer) is adopted. */
-  --bar-height: 32px;
-  --status-bar-height: 24px;
 }

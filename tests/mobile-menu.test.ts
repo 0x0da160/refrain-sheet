@@ -86,6 +86,7 @@ function menuChecks(): MenuChecks {
     freezeAtSelection: () => false,
     sheetFont: () => 'biz-ud',
     theme: () => 'system',
+    density: () => 'standard',
     zoom: () => 100,
     editHints: () => true,
     autoFitOnOpen: () => true,

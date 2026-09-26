@@ -97,7 +97,7 @@ classes for non-grid surfaces, see
 styling-architecture paragraph — that mechanical detail is not repeated
 here.
 
-## Spacing, radius, and bar-height tokens
+## Spacing, radius, and density tokens
 
 Layout sizes follow the same rule as colors: the design system's custom
 properties, used everywhere outside the grid instead of scattered literals
@@ -111,15 +111,20 @@ properties, used everywhere outside the grid instead of scattered literals
   Tailwind classes read it too, e.g. `gap-(--space-2)`.
 - **Corner radius** — `--radius-sm` (4px: fields, buttons, menu items),
   `--radius-md` (6px: tabs, cards, dialogs), `--radius-xl` (12px).
-- **Bars** — the menu bar, document tab row, formula bar, and worksheet
-  strip share one outer height, `--bar-height` (32px, border included — the
-  app is `box-sizing: border-box` throughout); the status bar uses the
-  smaller `--status-bar-height` (24px). These two stay app-local
-  (`src/styles/tailwind-token-bridge.css`) until the density setting adopts
-  the design system's `--bar-h` / `--statusbar-h`. On a wide window the document tabs
+- **Bars and controls follow the density** — **View > Density** offers
+  Compact, Standard (default) and Comfortable (`src/app/density.ts`), stored
+  on this device only and applied as `data-density` on the document root.
+  The menu bar, document tab row, formula bar, and worksheet strip share one
+  outer height, `--bar-h` (28 / 32 / 40px, border included — the app is
+  `box-sizing: border-box` throughout); the status bar uses
+  `--statusbar-h` (24 / 24 / 32px); inline controls and menu items
+  `--control-h` (24 / 28 / 32px); fields and buttons in dialogs and panels
+  `--field-h` (28 / 32 / 40px); dialog insets `--inset` (8 / 12 / 16px).
+  A coarse pointer (touch) raises bars to 48px and controls to 44px whatever
+  the choice. Density never changes text size or the grid's geometry. On a wide window the document tabs
   share the menu bar's row (see
   [tabs-and-worksheet-strip.md](tabs-and-worksheet-strip.md)). Their left content edges line up at
-  `--space-4`.
+  `--space-2` (8px).
 
 The grid's own cell geometry (`src/styles/virtualized-grid.css`) is
 deliberately outside this scale: `grid.ts` measures cell padding and keeps

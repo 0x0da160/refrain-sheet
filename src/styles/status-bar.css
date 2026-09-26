@@ -12,7 +12,7 @@
   padding: var(--space-0-5) var(--space-2);
   font-size: var(--text-caption);
   color: var(--fg-muted);
-  min-height: var(--status-bar-height);
+  min-height: var(--statusbar-h);
 }
 
 .status-bar .warn {

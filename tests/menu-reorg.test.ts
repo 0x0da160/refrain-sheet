@@ -25,6 +25,7 @@ function checks(): MenuChecks {
     freezeAtSelection: () => false,
     sheetFont: () => 'biz-ud',
     theme: () => 'system',
+    density: () => 'standard',
     zoom: () => 100,
     editHints: () => true,
     autoFitOnOpen: () => true,
@@ -281,6 +282,21 @@ describe('View menu reorganization', () => {
     expect(hybrid).toBeDefined();
     expect(hybrid?.labelKey).toBe('theme.hybrid');
     expect(hybrid?.checked?.()).toBe(false);
+  });
+
+  it('offers the three densities in a View > Density submenu, standard checked (design system D-04)', () => {
+    const densitySub = submenuOf(menu('menu.view'), 'menu.view.density');
+    expect(densitySub.map((i) => i.command)).toEqual([
+      'view.density.compact',
+      'view.density.standard',
+      'view.density.comfortable',
+    ]);
+    expect(densitySub.map((i) => i.labelKey)).toEqual([
+      'density.compact',
+      'density.standard',
+      'density.comfortable',
+    ]);
+    expect(densitySub.filter((i) => i.checked?.()).map((i) => i.command)).toEqual(['view.density.standard']);
   });
 
   it('keeps every tab-movement command reachable inside the Move Tab submenu', () => {

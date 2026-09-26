@@ -77,6 +77,14 @@ jobs:
       - name: Knowledge bundle checks
         run: npm run check:knowledge
 
+      # Every direct dependency and toolchain in the full SBOM must have a
+      # lifecycle entry in docs/eol-register.json (scripts/check-eol.mjs).
+      # Date-driven findings (EOL passed, a plan or the quarterly review
+      # overdue) annotate the run here instead of blocking unrelated pull
+      # requests; the weekly maintenance.yml run fails on them.
+      - name: EOL register
+        run: npm run check:eol -- --overdue-as-warning
+
       # CHANGELOG.md stopped being updated for nine releases because nothing
       # asked for it (Issue #178). This fails a pull request that changes
       # application source without a changelog entry; a genuinely internal

@@ -1,0 +1,71 @@
+name: Dependency maintenance
+
+# Weekly supply-chain health check (knowledge/operations/dependency-lifecycle.md).
+# Dependabot (.github/dependabot.yml) proposes the patch/minor updates; this
+# run makes the two things Dependabot cannot see fail loudly on a schedule:
+#
+#   - End of life: `npm run check:eol` without --overdue-as-warning, so an
+#     EOL that passed, a planned upgrade whose date slipped, or an overdue
+#     quarterly EOL review turns this workflow red.
+#   - Advisories in the whole npm tree (dev tooling included), which the
+#     pull-request gate (`audit:ci`) deliberately limits to production.
+#
+# It also publishes the full SBOM (npm, Rust crates, toolchains, actions) as
+# an artifact for the review. Read-only: it never writes to the repository.
+
+on:
+  schedule:
+    # Mondays 03:17 UTC (off the hour to avoid the scheduler's peak).
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintenance
+  cancel-in-progress: false
+
+# Action-pinning policy (see knowledge/operations/security-supply-chain.md):
+# only official GitHub-maintained actions/*, pinned to a major version tag.
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies (no lifecycle scripts)
+        run: npm ci --ignore-scripts
+
+      - name: Full SBOM
+        run: npm run sbom:full
+
+      - name: Upload the full SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: refrain-sheet-full-sbom
+          path: refrain-sheet.full.sbom.json
+          if-no-files-found: error
+
+      # Informational: what is behind, for the job summary. Never fails.
+      - name: Outdated dependencies
+        run: |
+          {
+            echo '## Outdated npm dependencies'
+            echo '```'
+            npm outdated || true
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: End-of-life register
+        run: npm run check:eol
+
+      - name: Audit all dependencies (including dev tooling)
+        run: npm audit --audit-level=moderate

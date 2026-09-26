@@ -45,6 +45,9 @@ really is internal, rather than inventing an entry to satisfy it.
   there), and the layout is more compact: at Standard the bars are 40px
   instead of 48px, so more rows of the sheet fit on screen. Compact goes
   down to 32px bars; Comfortable keeps the previous touch sizes.
+- **Data > Run SQL Query…** runs on the SQLite engine from sql.js 1.14.2,
+  and the icons come from lucide 1.48.0 (both were updated along with the
+  rest of the build toolchain; nothing is fetched at runtime).
 
 ## [0.9.6] - 2026-09-26
 

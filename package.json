@@ -34,8 +34,10 @@
     "check:knowledge": "node scripts/check-knowledge-frontmatter.mjs",
     "check:knip": "node scripts/check-knip.mjs",
     "check:generated": "node scripts/check-generated.mjs",
+    "check:eol": "node scripts/check-eol.mjs",
     "audit:ci": "npm audit --omit=dev --audit-level=high",
     "sbom": "npm sbom --sbom-format cyclonedx --omit=dev",
+    "sbom:full": "node scripts/sbom.mjs",
     "release": "node scripts/release.mjs"
   },
   "dependencies": {

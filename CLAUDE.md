@@ -58,6 +58,9 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | Knowledge bundle checks      | `npm run check:knowledge` (frontmatter, links, paths)                                |
 | Unused-code gate (Knip)      | `npm run check:knip`                                                                 |
 | sql.js payload provenance    | `npm run check:generated`                                                            |
+| EOL register gate            | `npm run check:eol` (every direct/toolchain component has a current lifecycle entry) |
+| Full SBOM (all toolchains)   | `npm run sbom:full` (CycloneDX; npm, Rust crates, toolchains, Actions)               |
+| Lockfile-only dep update     | `npm update --package-lock-only --ignore-scripts` (after editing `package.json`)     |
 
 Do not invent commands. If a needed command does not exist, stop and say so.
 
@@ -107,6 +110,31 @@ hide a failure.
   architecture changes. File a separate Issue for out-of-scope work.
 - Do not change existing public behavior unless the Issue explicitly requires it.
 - Preserve CSV byte-for-byte fidelity and the offline / no-runtime-network guarantee.
+
+## Dependency maintenance (patch often, review EOL quarterly)
+
+Policy: `knowledge/operations/dependency-lifecycle.md`; procedure: the
+`update-dependencies` skill.
+
+- **Patch weekly.** Dependabot opens grouped patch/minor pull requests
+  every Monday; review and merge them within the week. A security advisory
+  is patched as soon as it is known, not at the next batch. An agent
+  session that meets an open Dependabot pull request or a failing
+  `maintenance.yml` run treats it as work, not background noise.
+- **Review EOL quarterly.** `docs/eol-register.json` is reviewed at least
+  every 92 days against the full SBOM: upstream EOL dates re-checked, due
+  majors taken or planned with a date, `docs/eol-plan.md` rewritten,
+  `reviewed` bumped. `npm run check:eol` fails when the review, a planned
+  action, or an EOL date is overdue (weekly in `maintenance.yml`; as a
+  warning on pull requests), and the session-start hook prints any such
+  finding — **address it or raise it with the user before other work.**
+- **Every major upgrade updates the register** (new `<ecosystem>:<name>@<cycle>`
+  key, old one removed) in the same pull request; CI rejects a mismatch.
+- The Rust channel, wasm-pack and wasm-bindgen-cli (versions + SHA-256) move
+  together across `rust-toolchain.toml`, the `Dockerfile`, `wasm.yml` and
+  `.claude/hooks/session-start.sh`, followed by `npm run build:wasm`.
+- Upgrades touching the release/deploy workflows stay high-risk (below):
+  record them as a dated `plan` and get human approval.
 
 ## Security & secrets
 

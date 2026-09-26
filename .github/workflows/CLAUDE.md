@@ -13,7 +13,8 @@ permissions, triggers, or secrets is high-risk: get human approval first.**
   tool is pinned by version and verified against a recorded SHA-256
   (see `wasm.yml`), never `curl | sh`.
 - **Workflows in use:** `ci.yml` and `dependency-review.yml` (pull requests),
-  `wasm.yml` (Rust/WASM changes), `manual-release.yml` → `release.yml`
+  `wasm.yml` (Rust/WASM changes), `maintenance.yml` (weekly: full audit,
+  EOL gate, full SBOM), `manual-release.yml` → `release.yml`
   (releases; the release commit also files the CHANGELOG.md section and the
   README code statistics), and the manual-only `release-docs.yml`. Don't add
   a workflow that runs on every push or merge unless it gates something; a

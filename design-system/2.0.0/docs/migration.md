@@ -124,9 +124,13 @@ v1.0.0 のディレクトリは履歴として残します。アプリのテス�
 | トースト | 右上・濃い面は v2 と一致 |
 | モバイル | タッチの下限 36〜44px の直書きを `pointer: coarse` のトークンに |
 
-## 6. LP への適用（`site/`）
+## 6. LP への適用（`site/`）— 適用済み（2026-09-26）
 
-LP は `site/styles.css` の 1 ファイルで、規模が小さく見た目の変化も小さいため、アプリより先に済ませやすいです。
+`scripts/build-landing.mjs` が `foundations/css/foundations.css` と `brand/css/brand-tokens.css` を
+`site/styles.css` の前に連結して、1 枚のスタイルシートとして書き出します（`@import` は使いません）。
+`site/styles.css` の独自トークンと色の直書きはなくなりました。暗い部分（`.dark`・`.panel-dark`・クッキー同意）は
+`data-theme="dark"` で共通トークンを暗い値に切り替え、`<html>` には `data-theme="light"` を付けて、OS のダークモードでも LP は明るいままにしています。
+LP のクラス名と HTML の構造は変えていません（`rb-` 部品への書き換えは、LP を作り直すときに行います）。
 
 | 段階 | 内容 | 目に見える変化 |
 | --- | --- | --- |

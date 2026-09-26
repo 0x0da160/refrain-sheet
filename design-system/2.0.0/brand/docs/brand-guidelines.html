@@ -258,7 +258,7 @@
   <ul>
     <li>見出しの階層を飛ばしません（h1 → h2 → h3）。</li>
     <li>言語の切り替えは <code>lang</code> 属性で示し、英語版には <code>html[lang="en"]</code> を付けます。</li>
-    <li>自動再生の動画・カルーセルは使いません。</li>
+    <li>自動再生の動画・カルーセルは使いません。スクロールでの出現は不透明度の変化だけ（320ms）で、要素を滑り込ませません。</li>
     <li><code>prefers-reduced-motion</code> ではスムーズスクロールと遷移を止めます。</li>
   </ul>
 </div></section>
@@ -279,7 +279,8 @@
       <tr><td><code>brand/tokens/brand.tokens.json</code></td><td>DTCG 2025.10 形式</td><td>生成物</td></tr>
     </tbody>
   </table></div>
-  <p>LP（<code>site/styles.css</code>）への適用手順は <code>docs/migration.md</code> の「LP への適用」にあります。</p>
+  <p>LP（<code>site/</code>）には適用済みです。<code>scripts/build-landing.mjs</code> が共通基盤とブランドのトークンを <code>site/styles.css</code> の前に連結します。
+    暗い部分には <code>data-theme="dark"</code>、ページ全体には <code>data-theme="light"</code> を付けます。詳細は <code>docs/migration.md</code> の「LP への適用」にあります。</p>
 </div></section>
 </main>
 <footer><div class="wrap">Refrain Sheet Brand Guidelines v3.0 · <!-- gen:version -->v2.0.0 · 2026-09-26<!-- /gen:version --></div></footer>

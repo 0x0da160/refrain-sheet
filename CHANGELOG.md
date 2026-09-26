@@ -37,6 +37,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- The landing site now takes every colour, font, spacing and radius from the
+  Refrain Sheet Design System v2.0.0 instead of its own copies, so it can no
+  longer drift from the app. What visitors notice: headings and buttons use
+  the bold weight the fonts actually have, the small all-caps labels are
+  less widely spaced, corners are slightly tighter, buttons no longer lift
+  on hover, sections fade in without sliding, and the dark panels and the
+  cookie banner use the app's dark-theme colours. The page stays light even
+  when the operating system is in dark mode, as before.
 - **Markdown, JSON, YAML and text sheets now edit like a text editor, not a
   cell.** Tab types an indent (a tab in text and Markdown, two spaces in JSON
   and YAML) instead of leaving the editor, Tab and Shift+Tab indent and

@@ -10,6 +10,8 @@ import {
   clampMaxFileSize,
   MIN_MAX_FILE_SIZE,
   MAX_MAX_FILE_SIZE,
+  SHEET_ZOOM_LEVELS,
+  type DisplayLevelSettings,
   type LocalSettings,
 } from '../../app/settings';
 import {
@@ -55,6 +57,56 @@ const FUNCTION_CATEGORY_LABEL_KEY: Record<FunctionCategory, string> = {
 };
 
 /**
+ * The zoom and wrap pickers for one level of the layered display settings
+ * (browser or file). An empty value means "not specified" — the next level
+ * decides. `read` returns the level's values as currently picked.
+ */
+function displayLevelFields(
+  idPrefix: string,
+  current: DisplayLevelSettings,
+  unsetKey: string,
+): { rows: HTMLElement[]; read: () => DisplayLevelSettings } {
+  const zoomId = `${idPrefix}-zoom`;
+  const zoomSelect = el('select', { attrs: { id: zoomId } }) as HTMLSelectElement;
+  const levels: number[] = [...SHEET_ZOOM_LEVELS];
+  if (current.zoom !== undefined && !levels.includes(current.zoom)) {
+    levels.push(current.zoom);
+    levels.sort((a, b) => a - b);
+  }
+  zoomSelect.append(el('option', { text: t(unsetKey), attrs: { value: '' } }));
+  for (const level of levels) {
+    zoomSelect.append(el('option', { text: `${level}%`, attrs: { value: String(level) } }));
+  }
+  zoomSelect.value = current.zoom === undefined ? '' : String(current.zoom);
+
+  const wrapId = `${idPrefix}-wrap`;
+  const wrapSelect = el('select', { attrs: { id: wrapId } }) as HTMLSelectElement;
+  wrapSelect.append(
+    el('option', { text: t(unsetKey), attrs: { value: '' } }),
+    el('option', { text: t('dialog.settings.wrapOn'), attrs: { value: 'on' } }),
+    el('option', { text: t('dialog.settings.wrapOff'), attrs: { value: 'off' } }),
+  );
+  wrapSelect.value = current.wrap === undefined ? '' : current.wrap ? 'on' : 'off';
+
+  return {
+    rows: [
+      el('div', { className: 'form-row' }, [
+        el('label', { text: t('dialog.settings.zoom'), attrs: { for: zoomId } }),
+        zoomSelect,
+      ]),
+      el('div', { className: 'form-row' }, [
+        el('label', { text: t('dialog.settings.wrap'), attrs: { for: wrapId } }),
+        wrapSelect,
+      ]),
+    ],
+    read: () => ({
+      zoom: zoomSelect.value === '' ? undefined : Number(zoomSelect.value),
+      wrap: wrapSelect.value === '' ? undefined : wrapSelect.value === 'on',
+    }),
+  };
+}
+
+/**
  * App-level settings and help dialogs: the local settings (max file size),
  * timezone, and display-language prompts, the About/keyboard-shortcuts
  * panel, and the offline formula-help reference. Extracted from `Dialogs` as
@@ -65,9 +117,11 @@ const FUNCTION_CATEGORY_LABEL_KEY: Record<FunctionCategory, string> = {
  */
 export class AppSettingsDialogs {
   /**
-   * Edit local settings. Currently the maximum file-size limit (in MiB).
-   * Returns the chosen limit in bytes, or null when cancelled. The value is
-   * clamped into the supported range before being returned.
+   * Edit local settings: the maximum file-size limit (in MiB), what
+   * Ctrl+Shift+V pastes, and the browser- and file-level zoom/wrap (the file
+   * level only when the active tab is an RSF file). Returns the chosen
+   * settings, or null when cancelled. The size is clamped into the supported
+   * range before being returned.
    */
   chooseSettings(current: LocalSettings): Promise<LocalSettings | null> {
     return openDialog<LocalSettings | null>(t('dialog.settings.title'), null, (body, buttons, close) => {
@@ -96,6 +150,15 @@ export class AppSettingsDialogs {
         pasteSelect.append(option);
       }
 
+      const browserFields = displayLevelFields(
+        'settings-browser',
+        current.browserDisplay,
+        'dialog.settings.followFile',
+      );
+      const fileFields = current.fileDisplay
+        ? displayLevelFields('settings-file', current.fileDisplay, 'dialog.settings.followSheet')
+        : null;
+
       body.append(
         el('div', { className: 'form-row' }, [
           el('label', { text: t('dialog.settings.maxFileSize') }, [
@@ -115,7 +178,19 @@ export class AppSettingsDialogs {
         ]),
         el('p', { className: 'dialog-note', text: t('dialog.settings.shiftPasteNote') }),
         el('p', { className: 'dialog-note', text: t('dialog.settings.local') }),
+        el('h3', { text: t('dialog.settings.display') }),
+        el('p', { className: 'dialog-note', text: t('dialog.settings.displayOrder') }),
+        el('h4', { text: t('dialog.settings.browserLevel') }),
+        ...browserFields.rows,
       );
+      if (fileFields) {
+        body.append(
+          el('h4', { text: t('dialog.settings.fileLevel') }),
+          ...fileFields.rows,
+          el('p', { className: 'dialog-note', text: t('dialog.settings.fileLevelNote') }),
+        );
+      }
+      body.append(el('p', { className: 'dialog-note', text: t('dialog.settings.sheetLevelNote') }));
 
       const submit = (): void => {
         const mib = Number(input.value);
@@ -126,6 +201,8 @@ export class AppSettingsDialogs {
         close({
           maxFileSize: clampMaxFileSize(miBToBytes(mib)),
           shiftPaste: pasteSelect.value === 'formats' ? 'formats' : 'values',
+          browserDisplay: browserFields.read(),
+          fileDisplay: fileFields ? fileFields.read() : null,
         });
       };
       submitOnEnter(input, submit);

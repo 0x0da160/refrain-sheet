@@ -48,6 +48,7 @@ content is the same document.
 | `language`         | string           | no       | `"ja"` for `TEXT()` weekday names. Left out for English; an unknown value falls back.    |
 | `activeSheet`      | string           | no       | The id of the worksheet to show on open; the first one when missing or unknown.          |
 | `autoFormatSource` | boolean          | no       | Whether the JSON/YAML editors reformat their source on commit. Left out when `false`.    |
+| `view`             | object           | no       | File-level display settings (below). Left out when the file specifies none.              |
 | `sheets`           | array of objects | yes      | 1–256 worksheets, in tab order (see below).                                              |
 | `history`          | object           | no       | Version history (see below). Left out when history is on with no snapshots and no limit. |
 
@@ -89,6 +90,18 @@ is not a string is `bad-shape`; one longer than 1,000,000 characters is
 
 A width for a column past `cols` is dropped; a key that is not a column
 letter is `bad-shape`.
+
+### File-level view
+
+The top-level `view` holds display settings for every worksheet: `zoom`
+(number, clamped into 50–200) and `wrap` (boolean; unlike a worksheet's,
+`false` is stored, because it means "don't wrap" rather than "not
+specified"). A key that is present **outranks** the same key in a
+worksheet's `view`; a missing key leaves the choice to the worksheet. The
+application applies one more level above the file — settings made for the
+browser in File > Settings… — so the order is browser > file > worksheet
+(`src/core/settings-cascade.ts`). A value of the wrong type is `bad-shape`.
+Readers older than this key ignore it and use the worksheet settings.
 
 ### Styles
 

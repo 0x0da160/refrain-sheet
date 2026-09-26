@@ -170,6 +170,17 @@ export interface RsfWorkbookData {
   historyMaxOverride?: number | null;
   /** Whether the JSON/YAML editors auto-format their source on commit (default `false`). */
   autoFormatSource?: boolean;
+  /**
+   * File-level display settings. Each one, when present, applies to every
+   * worksheet and outranks the worksheet's own (see `settings-cascade.ts`).
+   */
+  display?: RsfFileDisplaySettings;
+}
+
+/** Validated file-level display settings; an absent key means "not specified". */
+interface RsfFileDisplaySettings {
+  zoom?: number;
+  wrap?: boolean;
 }
 
 /**
@@ -399,6 +410,17 @@ function workbookContentToJson(data: RsfWorkbookData): { [key: string]: Json } {
   }
   if (data.activeSheetId) out.activeSheet = data.activeSheetId;
   if (data.autoFormatSource) out.autoFormatSource = true;
+  const fileView = data.display;
+  if (fileView && (fileView.zoom !== undefined || fileView.wrap !== undefined)) {
+    const view: { [key: string]: Json } = {};
+    if (fileView.zoom !== undefined) {
+      view.zoom = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(fileView.zoom)));
+    }
+    if (fileView.wrap !== undefined) {
+      view.wrap = fileView.wrap;
+    }
+    out.view = view;
+  }
   out.sheets = data.sheets.slice(0, MAX_RSF_SHEETS).map(sheetToJson);
   return out;
 }
@@ -863,6 +885,26 @@ function workbookFromJson(value: unknown): RsfWorkbookData {
   const language = optString(value, 'language');
   if (language) data.displayLanguage = language;
   if (optBoolean(value, 'autoFormatSource')) data.autoFormatSource = true;
+  if (value.view !== undefined) {
+    const view = value.view;
+    if (!isObject(view)) {
+      fail();
+    }
+    const display: RsfFileDisplaySettings = {};
+    if (view.zoom !== undefined) {
+      if (typeof view.zoom !== 'number' || !Number.isFinite(view.zoom)) {
+        fail();
+      }
+      display.zoom = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(view.zoom)));
+    }
+    const wrap = optBoolean(view, 'wrap');
+    if (wrap !== undefined) {
+      display.wrap = wrap;
+    }
+    if (display.zoom !== undefined || display.wrap !== undefined) {
+      data.display = display;
+    }
+  }
   // An active-worksheet id that names no worksheet falls back to the first.
   const active = optString(value, 'activeSheet');
   data.activeSheetId = active !== undefined && ids.has(active) ? active : sheets[0].id;

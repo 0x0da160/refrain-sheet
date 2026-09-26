@@ -37,6 +37,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Zoom and wrapping for this browser or the whole file.** File >
+  Settings… can now set the zoom and long-cell wrapping for this browser
+  (every file) and, for an RSF file, for the whole file (every sheet). A
+  setting made at more than one level is taken from the browser first, then
+  the file, then the sheet; "Not specified" leaves it to the next level.
+  Changing the zoom or wrapping from the View menu updates the level that is
+  currently in effect. Older releases open these files and ignore the
+  file-level setting.
 - **Paste Values and Paste Formatting.** Edit > Paste Special pastes only
   the copied cells' calculated values, or only their formatting.
   **Ctrl+Shift+V** (Cmd+Shift+V on macOS) pastes the values by default;

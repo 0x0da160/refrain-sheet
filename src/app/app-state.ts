@@ -16,10 +16,11 @@ import type { RsfDocument } from '../core/rsf-document';
 import { sortDataTop, type SheetSort } from '../core/sort';
 import type { Worksheet } from '../core/worksheet';
 import { t } from './i18n';
-import { clampSheetZoom, getSheetZoom, getWrapCells } from './settings';
+import { getWrapCells } from './settings';
 import { safeStorageGet } from './storage';
 import { STICKY_COL_KEY, STICKY_KEY } from './state/defaults';
 import { StructuralOpsState } from './state/structural-ops';
+import { resolveWrap, resolveZoom } from './state/view-layers';
 import { WorksheetsState } from './state/worksheets';
 
 /** Either document kind; the shared surface is duck-typed across both. */
@@ -82,17 +83,16 @@ export interface Tab {
    */
   colWidths: number[];
   /**
-   * Spreadsheet zoom percent for this tab. Initialized from the RSF
-   * document's stored zoom when present (document wins), otherwise from the
-   * application-level preference. Zooming never mutates document content and
-   * never marks a document dirty; for RSF documents the current zoom is
-   * recorded into the container on the next save.
+   * Effective spreadsheet zoom percent for this tab, resolved browser >
+   * file > worksheet (`state/view-layers.ts`), falling back to the value last
+   * used in this browser. Zooming never mutates document content and never
+   * marks a document dirty; an RSF file's file/worksheet levels are persisted
+   * in its container on the next save.
    */
   zoom: number;
   /**
-   * Whether long cells wrap onto several visual lines in this tab. Follows the
-   * same precedence as zoom: an RSF worksheet's stored value wins, otherwise
-   * the application-level preference applies, and each worksheet of a workbook
+   * Whether long cells wrap onto several visual lines in this tab. Resolved
+   * like zoom (browser > file > worksheet), and each worksheet of a workbook
    * remembers its own. Purely visual — for a plain CSV it is local application
    * state that never touches the file's bytes.
    */
@@ -217,8 +217,8 @@ export class AppState {
     handle: FileSystemFileHandle | null,
     startsReadOnly = false,
   ): Tab {
-    // Display precedence: an RSF document's stored settings win; anything the
-    // document does not carry falls back to the application-level preference.
+    // Zoom and wrap are layered: browser > file > worksheet (see
+    // `state/view-layers.ts`); column widths come from the document alone.
     const stored = doc.kind === 'rsf' ? doc : null;
     const tab: Tab = {
       id: `tab-${nextTabId++}`,
@@ -232,8 +232,8 @@ export class AppState {
       rsfSaveExplained: false,
       drive: null,
       colWidths: stored ? stored.displayColWidths.slice() : [],
-      zoom: clampSheetZoom(stored?.displayZoom ?? getSheetZoom()),
-      wrapCells: stored?.displayWrap ?? getWrapCells(),
+      zoom: resolveZoom(doc).value,
+      wrapCells: resolveWrap(doc).value,
       tabEntryCol: null,
       readOnly: startsReadOnly,
       neverSaved: false,
@@ -791,24 +791,26 @@ export class AppState {
   }
 
   /**
-   * Turn wrapping on/off for the active tab. Purely visual: it never changes
-   * document content, CSV bytes, or the dirty state. The choice also becomes
-   * the application-level preference (used by documents that store none), and
-   * an RSF worksheet remembers it for persistence with the next save.
+   * Turn wrapping on/off for the active tab. Purely visual; written to the
+   * level that currently decides it — see `StructuralOpsState.setWrapCells`.
    */
   setWrapCells(wrap: boolean): void {
     this.structuralOps.setWrapCells(wrap);
   }
 
   /**
-   * Set the active tab's spreadsheet zoom (clamped percent). Purely visual:
-   * it never changes document content, CSV bytes, or the dirty state. The
-   * chosen zoom also becomes the application-level preference (used by tabs
-   * whose document stores no zoom of its own), and RSF documents remember it
-   * for persistence with the next save.
+   * Set the active tab's spreadsheet zoom (clamped percent). Purely visual;
+   * written to the level that currently decides the zoom — see
+   * `StructuralOpsState.setTabZoom`.
    */
   setTabZoom(tab: Tab, zoom: number): void {
     this.structuralOps.setTabZoom(tab, zoom);
+  }
+
+  /** Re-resolve every tab's zoom and wrap after a browser/file-level change, and repaint. */
+  reapplyViewSettings(): void {
+    this.structuralOps.reapplyViewSettings();
+    this.emit('view');
   }
 
   setStickyFirstRow(sticky: boolean): void {

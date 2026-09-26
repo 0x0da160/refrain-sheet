@@ -42,18 +42,15 @@ interface WorksheetPoint {
  * Session-only view state remembered per worksheet so switching sheets and
  * coming back restores where you were. It is deliberately *not* part of the
  * saved container: only the presentational settings that RSF documents
- * persist (zoom, column widths) are written to the file.
+ * persist (column widths here; zoom and wrap live on the worksheet itself)
+ * are written to the file.
  */
 export interface WorksheetView {
   selection: WorksheetPoint | null;
   anchor: WorksheetPoint | null;
   selectionKind: 'cell' | 'row' | 'col';
-  /** Live spreadsheet zoom percent while this worksheet is active. */
-  zoom: number | undefined;
   /** Live per-column widths (px at 100% zoom) while this worksheet is active. */
   colWidths: number[];
-  /** Live "wrap long rows" state while this worksheet is active. */
-  wrap: boolean | undefined;
 }
 
 /**
@@ -153,9 +150,7 @@ export class Worksheet {
     selection: null,
     anchor: null,
     selectionKind: 'cell',
-    zoom: undefined,
     colWidths: [],
-    wrap: undefined,
   };
 
   /**

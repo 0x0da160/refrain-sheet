@@ -24,3 +24,12 @@ export function safeStorageSet(key: string, value: string): void {
     // Storage may be unavailable; the value simply is not persisted.
   }
 }
+
+/** Remove a key from `localStorage`; silently no-ops if storage is unavailable. */
+export function safeStorageRemove(key: string): void {
+  try {
+    globalThis.localStorage?.removeItem(key);
+  } catch {
+    // Storage may be unavailable; nothing was stored to remove.
+  }
+}

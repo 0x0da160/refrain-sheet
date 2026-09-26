@@ -2319,8 +2319,8 @@ export class Grid {
    */
   private caretOffsetFromPoint(cell: HTMLElement, clientX: number, clientY: number): number | null {
     const doc = cell.ownerDocument;
-    let node: Node | null = null;
-    let offset = 0;
+    let node: Node | null;
+    let offset: number;
     if (typeof doc.caretPositionFromPoint === 'function') {
       const pos = doc.caretPositionFromPoint(clientX, clientY);
       if (!pos) {

@@ -46,7 +46,7 @@
   flex: 1;
   min-height: 320px;
   font-family: var(--font-sheet);
-  font-size: 13px;
+  font-size: var(--text-body);
   padding: var(--space-2);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -131,7 +131,7 @@
    introducing new ones, so every theme (`data-theme` on the root) stays in
    sync automatically. */
 .markdown-editor-preview .tok-keyword {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .markdown-editor-preview .tok-string {
@@ -183,9 +183,10 @@
   border-bottom: 1px solid var(--border-default);
 }
 
-/* JSON and YAML are code: indentation must line up, so they use a fixed-pitch
-   face (system fonts only — the app stays offline). */
+/* JSON and YAML are code: indentation must line up, so they use the design
+   system's fixed-pitch code face (system fonts only — the app stays
+   offline). */
 .json-sheet-source.source-editor,
 .yaml-sheet-source.source-editor {
-  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'BIZ UDGothic', 'MS Gothic', monospace;
+  font-family: var(--font-code);
 }

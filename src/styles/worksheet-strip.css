@@ -140,7 +140,7 @@
 
 .sheet-kind-picker-option.selected {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-subtle-text);
   background: var(--accent-subtle);
 }
 

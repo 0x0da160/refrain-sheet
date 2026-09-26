@@ -325,14 +325,15 @@
    6. Source editors (JSON / YAML / Markdown / text worksheets)
    Same canvas surface as the grid; monospace; line numbers in the header
    colours; syntax colours are never the only cue (structure stays readable
-   in monochrome).
+   in monochrome). Text is body size: unlike the grid, an editor does not
+   follow the spreadsheet zoom.
    ========================================================================= */
 .rs-source {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   font-family: var(--font-code);
   font-feature-settings: var(--font-feature-data);
-  font-size: calc(var(--grid-font-size) * var(--sheet-zoom));
+  font-size: var(--text-body);
   line-height: 1.6;
   color: var(--canvas-text);
   background-color: var(--canvas-bg);

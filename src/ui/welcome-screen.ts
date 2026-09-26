@@ -37,7 +37,7 @@ export class WelcomeScreen {
   private render(): void {
     clearChildren(this.element);
     const actionClasses =
-      'welcome-action inline-flex items-center justify-center gap-(--space-2) rounded-(--radius-md) border border-accent px-(--space-4) py-(--space-2) text-(length:--text-body) cursor-pointer hover:bg-accent-soft hover:text-accent';
+      'welcome-action inline-flex items-center justify-center gap-(--space-2) rounded-(--radius-md) border border-accent px-(--space-4) py-(--space-2) text-(length:--text-body) cursor-pointer hover:bg-accent-soft hover:text-accent-subtle-text';
     const open = el(
       'button',
       { className: `${actionClasses} primary bg-accent text-accent-contrast`, attrs: { type: 'button' } },
@@ -46,13 +46,13 @@ export class WelcomeScreen {
     open.addEventListener('click', () => void this.commands.run('file.open'));
     const create = el(
       'button',
-      { className: `${actionClasses} bg-surface text-accent`, attrs: { type: 'button' } },
+      { className: `${actionClasses} bg-surface text-accent-text`, attrs: { type: 'button' } },
       [createIcon(FilePlus, 'flex-none', 18), el('span', { text: t('welcome.new') })],
     );
     create.addEventListener('click', () => void this.commands.run('file.new'));
     const createCsv = el(
       'button',
-      { className: `${actionClasses} bg-surface text-accent`, attrs: { type: 'button' } },
+      { className: `${actionClasses} bg-surface text-accent-text`, attrs: { type: 'button' } },
       [createIcon(FilePlus2, 'flex-none', 18), el('span', { text: t('welcome.newCsv') })],
     );
     createCsv.addEventListener('click', () => void this.commands.run('file.newCsv'));
@@ -62,7 +62,7 @@ export class WelcomeScreen {
       'button',
       {
         className:
-          'welcome-recent inline-flex items-center gap-(--space-1-5) rounded-(--radius-sm) border-0 bg-transparent px-(--space-1-5) py-(--space-1) text-(length:--text-body) text-accent cursor-pointer hover:underline',
+          'welcome-recent inline-flex items-center gap-(--space-1-5) rounded-(--radius-sm) border-0 bg-transparent px-(--space-1-5) py-(--space-1) text-(length:--text-body) text-accent-text cursor-pointer hover:underline',
         attrs: { type: 'button' },
       },
       [createIcon(FolderClock, 'flex-none', 16), el('span', { text: t('menu.file.openRecent') })],

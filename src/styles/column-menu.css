@@ -31,7 +31,7 @@
 }
 
 .header-filter-button:hover {
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
@@ -80,8 +80,8 @@
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
   background: var(--accent-subtle);
-  color: var(--accent);
-  font-size: var(--text-min);
+  color: var(--accent-subtle-text);
+  font-size: var(--text-caption);
 }
 
 .column-menu-header {
@@ -103,7 +103,7 @@
 .column-menu-sort.active {
   border-color: var(--accent);
   background: var(--accent-subtle);
-  color: var(--accent);
+  color: var(--accent-subtle-text);
 }
 
 .column-menu-search {

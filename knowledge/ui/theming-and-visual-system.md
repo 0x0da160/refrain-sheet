@@ -181,7 +181,10 @@ shown with a checkmark. Six local families are offered:
 Windows 11 Chrome/Edge is the primary target, so the defaults are the
 Windows-bundled BIZ UD pair: **BIZ UDGothic** (fixed-pitch — full-width
 kana/kanji, half-width Latin and digits) for the grid and **BIZ UDPGothic**
-(proportional) for `--font-ui`. Both chains end in `sans-serif` and include
+(proportional) for `--font-ui`. Both chains are the design system's
+(`--font-data` and `--font-ui` in `foundations.css`, shared with the landing
+site); the default spreadsheet font `--sheet-font-biz-ud` points at
+`--font-data`. Both chains end in `sans-serif` and include
 Hiragino (macOS/iOS) and Noto CJK (Android/Linux) so other platforms need
 no extra fonts. The grid chain keeps fixed-pitch Windows families first
 (MS Gothic), then families whose kana/kanji stay full-width but whose Latin

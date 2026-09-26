@@ -77,7 +77,10 @@
 .menu > button {
   border: none;
   background: none;
-  padding: var(--space-1-5) var(--space-2);
+  /* Height from the density, not from padding, so the bar's own
+     --bar-h (which includes its 1px rule) is what sets the row height. */
+  min-height: var(--control-h);
+  padding: 0 var(--space-2);
   cursor: default;
   border-radius: var(--radius-sm);
 }
@@ -160,7 +163,7 @@
 
 .menu-item .shortcut {
   color: var(--fg-muted);
-  font-size: var(--text-min);
+  font-size: var(--text-caption);
 }
 
 .menu-item .check {
@@ -187,7 +190,7 @@
 
 .menu-heading {
   padding: var(--space-1) var(--space-3) var(--space-0-5);
-  font-size: var(--text-min);
+  font-size: var(--text-caption);
   font-weight: var(--weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.03em;

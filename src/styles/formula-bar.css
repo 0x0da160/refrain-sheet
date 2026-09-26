@@ -48,10 +48,12 @@
   font-style: normal;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-1-5);
+  /* 26px at the standard 32px bar (x zoom); the density moves it with the
+     bar, and the vertical padding with it so one line always fits. */
+  padding: max(0px, calc((var(--bar-h) - 24px) / 2)) var(--space-1-5);
   resize: vertical;
-  min-height: calc(26px * var(--sheet-zoom, 1));
-  height: calc(26px * var(--sheet-zoom, 1));
+  min-height: calc((var(--bar-h) - 6px) * var(--sheet-zoom, 1));
+  height: calc((var(--bar-h) - 6px) * var(--sheet-zoom, 1));
   background: var(--bg-surface);
   color: var(--fg-default);
 }
@@ -109,7 +111,7 @@
 }
 
 .formula-autocomplete .ac-desc {
-  font-size: var(--text-min);
+  font-size: var(--text-caption);
   color: var(--fg-muted);
 }
 

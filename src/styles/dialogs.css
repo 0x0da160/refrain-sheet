@@ -89,7 +89,7 @@ dialog::backdrop {
 }
 
 .dialog-link {
-  color: var(--accent);
+  color: var(--link);
   text-decoration: underline;
 }
 
@@ -295,7 +295,7 @@ dialog::backdrop {
 .side-panel-header-btn[aria-pressed='true'] {
   border-color: var(--border-default);
   background: var(--bg-raised);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .side-panel-header-btn:focus-visible {

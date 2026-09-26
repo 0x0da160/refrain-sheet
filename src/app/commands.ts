@@ -29,6 +29,7 @@ import {
 } from './settings';
 import { getBrowserSheetFont, isSheetFontId, setBrowserSheetFont, type SheetFontId } from './sheet-font';
 import { localDateStamp } from './shortcuts';
+import { getBandedRows, setBandedRows } from './banded-rows';
 import { setDensity, type DensityChoice } from './density';
 import { setTheme, type ThemeChoice } from './theme';
 import { CommentCommands } from './commands/comment';
@@ -175,6 +176,7 @@ export type CommandId =
   | 'view.zoom.200'
   | 'view.zoom.reset'
   | 'view.editHints'
+  | 'view.bandedRows'
   | 'view.autoFitOnOpen'
   | 'view.sheetFont.bizUd'
   | 'view.sheetFont.ms'
@@ -964,6 +966,11 @@ export class Commands {
       case 'view.editHints':
         setEditHints(!getEditHints());
         // Pure preference toggle; re-emit so menus and editors refresh.
+        this.state.emit('view');
+        return;
+      case 'view.bandedRows':
+        // Pure CSS (data-banded-rows attribute), stored on this device only.
+        setBandedRows(!getBandedRows());
         this.state.emit('view');
         return;
       case 'view.autoFitOnOpen':

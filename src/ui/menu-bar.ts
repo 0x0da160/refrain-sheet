@@ -95,6 +95,8 @@ export interface MenuChecks {
   zoom: () => number;
   /** Whether editing-help tooltips are enabled. */
   editHints: () => boolean;
+  /** Whether every other grid row is tinted (View > Banded Rows). */
+  bandedRows: () => boolean;
   /** Whether opening a file auto-fits every column to its content. */
   autoFitOnOpen: () => boolean;
   /** Whether the right-side cell comments panel is open. */
@@ -330,6 +332,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           command: 'view.freezeAtSelection',
           checked: checks.freezeAtSelection,
         },
+        { labelKey: 'menu.view.bandedRows', command: 'view.bandedRows', checked: checks.bandedRows },
         { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
         {
           labelKey: 'menu.view.autoFitOnOpen',

@@ -107,7 +107,7 @@ table.sql-query-table td {
 
 .sql-query-suggestion:hover,
 .sql-query-suggestion:focus-visible {
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 
@@ -181,7 +181,7 @@ table.sql-query-table td {
 }
 
 .sql-query-list-meta {
-  font-size: var(--text-min);
+  font-size: var(--text-caption);
   color: var(--fg-muted);
 }
 

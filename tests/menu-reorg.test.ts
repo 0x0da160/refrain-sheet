@@ -26,6 +26,7 @@ function checks(): MenuChecks {
     sheetFont: () => 'biz-ud',
     theme: () => 'system',
     density: () => 'standard',
+    bandedRows: () => false,
     zoom: () => 100,
     editHints: () => true,
     autoFitOnOpen: () => true,
@@ -282,6 +283,12 @@ describe('View menu reorganization', () => {
     expect(hybrid).toBeDefined();
     expect(hybrid?.labelKey).toBe('theme.hybrid');
     expect(hybrid?.checked?.()).toBe(false);
+  });
+
+  it('offers Banded Rows as a View toggle, off by default', () => {
+    const banded = items(menu('menu.view')).find((i) => i.command === 'view.bandedRows');
+    expect(banded?.labelKey).toBe('menu.view.bandedRows');
+    expect(banded?.checked?.()).toBe(false);
   });
 
   it('offers the three densities in a View > Density submenu, standard checked (design system D-04)', () => {

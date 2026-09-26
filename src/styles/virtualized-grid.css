@@ -429,8 +429,12 @@
   );
 }
 
-.vgrid-row.alt .vcell,
-.vgrid-stickyrow.alt .vcell {
+/* Banded rows are off by default (design system: bands compete with the
+   fill colours users give cells); View > Banded Rows sets data-banded-rows
+   on the root. :where() adds no specificity, so the selected-row and
+   selection rules below still win exactly as before. */
+:where(:root[data-banded-rows]) .vgrid-row.alt .vcell,
+:where(:root[data-banded-rows]) .vgrid-stickyrow.alt .vcell {
   background: var(--canvas-row-alt);
 }
 
@@ -501,7 +505,7 @@
   min-width: 16px;
   height: 16px;
   padding: 0 2px;
-  font-size: var(--text-min);
+  font-size: var(--text-caption);
   line-height: 1;
   color: var(--canvas-header-text);
   background: var(--canvas-bg);
@@ -529,7 +533,7 @@
 /* Filter/sort status chips and dialog sections. */
 .status-filter,
 .status-sort {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: var(--weight-bold);
 }
 
@@ -647,8 +651,8 @@
   background: var(--canvas-selection);
 }
 
-.vgrid-row.alt .vcell.in-range,
-.vgrid-stickyrow.alt .vcell.in-range,
+:where(:root[data-banded-rows]) .vgrid-row.alt .vcell.in-range,
+:where(:root[data-banded-rows]) .vgrid-stickyrow.alt .vcell.in-range,
 .vgrid-row.selected-row .vcell.in-range {
   background: var(--canvas-selection);
 }

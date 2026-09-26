@@ -85,6 +85,7 @@ function menuChecks(): MenuChecks {
     sheetFont: () => 'biz-ud',
     theme: () => 'system',
     density: () => 'standard',
+    bandedRows: () => false,
     zoom: () => 100,
     editHints: () => true,
     autoFitOnOpen: () => true,

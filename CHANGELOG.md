@@ -44,6 +44,10 @@ really is internal, rather than inventing an entry to satisfy it.
 - Colour pickers (text, fill, borders, conditional formats) now suggest a
   set of 65 document colours where the browser supports it (Chrome, Edge);
   any other colour can still be chosen.
+- **View > Banded Rows** tints every other row of the grid. It is now off by
+  default, because the stripes compete with the fill colours you give cells;
+  turn it on to get the previous look. The choice is remembered on this
+  device only.
 
 ### Changed
 
@@ -55,6 +59,12 @@ really is internal, rather than inventing an entry to satisfy it.
 - New conditional-format highlight rules start with a light red fill and
   dark red text, and new colour scales run from white to a softer green.
 - Icons are drawn with a slightly finer, uniform line.
+- Accent-coloured text (links, sort and filter status, the welcome screen's
+  buttons) is a slightly darker green in the light theme, for better
+  contrast. The Markdown and text editors use 14px text instead of 13px,
+  and the JSON and YAML editors use the same fixed-width font as the rest of
+  the app's code text. The keyboard-shortcut help's note on appearance now
+  mentions the Hybrid theme and Density.
 
 ## [0.9.5] - 2026-09-26
 

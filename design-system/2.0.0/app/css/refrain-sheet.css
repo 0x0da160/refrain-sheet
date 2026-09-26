@@ -83,8 +83,8 @@
   --brand-ink: #141A22;               /* ink.900 — Ink — text, and the ground of dark surfaces */
 
   /* ---------- type (families and weights; each layer has its own scale) ---------- */
-  --font-ui: "BIZ UDPGothic", "Yu Gothic UI", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
-  --font-data: "BIZ UDGothic", "MS Gothic", "Hiragino Sans", "Noto Sans CJK JP", "Noto Sans JP", sans-serif;
+  --font-ui: "BIZ UDPGothic", "Yu Gothic UI", "Meiryo UI", "Meiryo", "Yu Gothic", "MS UI Gothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", sans-serif;
+  --font-data: "BIZ UDGothic", "BIZ UDゴシック", "MS Gothic", "ＭＳ ゴシック", "Meiryo", "Yu Gothic", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", sans-serif;
   --font-code: "BIZ UDGothic", "Consolas", "SFMono-Regular", "Menlo", monospace;
   --font-feature-data: "zero" 1;
   --weight-regular: 400;              /* Default */
@@ -2069,14 +2069,15 @@ a:visited {
    6. Source editors (JSON / YAML / Markdown / text worksheets)
    Same canvas surface as the grid; monospace; line numbers in the header
    colours; syntax colours are never the only cue (structure stays readable
-   in monochrome).
+   in monochrome). Text is body size: unlike the grid, an editor does not
+   follow the spreadsheet zoom.
    ========================================================================= */
 .rs-source {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   font-family: var(--font-code);
   font-feature-settings: var(--font-feature-data);
-  font-size: calc(var(--grid-font-size) * var(--sheet-zoom));
+  font-size: var(--text-body);
   line-height: 1.6;
   color: var(--canvas-text);
   background-color: var(--canvas-bg);

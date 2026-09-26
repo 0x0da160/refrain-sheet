@@ -178,18 +178,19 @@ describe('virtualized rendering', () => {
 describe('sticky first row', () => {
   it('is disabled by default and toggleable through app state', () => {
     const { state, grid } = setup(bigCsv(100));
-    expect(grid.element.querySelector<HTMLElement>('.vgrid-stickyrow')!.hidden).toBe(true);
+    expect(grid.element.querySelector<HTMLElement>('.vgrid-sticky')!.hidden).toBe(true);
     state.setStickyFirstRow(true);
     grid.refresh();
+    expect(grid.element.querySelector<HTMLElement>('.vgrid-sticky')!.hidden).toBe(false);
     const sticky = grid.element.querySelector<HTMLElement>('.vgrid-stickyrow')!;
-    expect(sticky.hidden).toBe(false);
     expect(sticky.dataset.row).toBe('0');
     expect(sticky.querySelector('[data-row="0"][data-col="0"]')!.textContent).toBe('r0c0');
     // The pinned row header is visually distinct from column headers.
     expect(sticky.querySelector('.vrowhead.pinned')).not.toBeNull();
     state.setStickyFirstRow(false);
     grid.refresh();
-    expect(grid.element.querySelector<HTMLElement>('.vgrid-stickyrow')!.hidden).toBe(true);
+    expect(grid.element.querySelector<HTMLElement>('.vgrid-sticky')!.hidden).toBe(true);
+    expect(grid.element.querySelector('.vgrid-stickyrow')).toBeNull();
   });
 
   it('keeps row 0 pinned while the scrolling region starts at row 1', () => {
@@ -266,6 +267,145 @@ describe('sticky first column', () => {
     expect(localStorage.getItem('refrain-csv-html.stickyFirstColumn')).toBe('1');
     const fresh = new AppState();
     expect(fresh.stickyFirstColumn).toBe(true);
+  });
+});
+
+describe('sticky at the selected cell', () => {
+  it('pins every row above and column left of the active cell, and toggles off', async () => {
+    const { state, commands, grid, tab } = setup(bigCsv(50, 20));
+    state.setSelection(tab, { row: 3, col: 2 }, null);
+    expect(commands.isEnabled('view.freezeAtSelection')).toBe(true);
+    await commands.run('view.freezeAtSelection');
+    grid.refresh();
+    expect(tab.freeze).toEqual({ rows: 3, cols: 2 });
+    expect(grid.element.querySelector<HTMLElement>('.vgrid-sticky')!.hidden).toBe(false);
+    const pinnedRows = Array.from(grid.element.querySelectorAll<HTMLElement>('.vgrid-stickyrow'));
+    expect(pinnedRows.map((r) => r.dataset.row)).toEqual(['0', '1', '2']);
+    // The scrolling rows start right below the frozen ones.
+    const firstScrolled = grid.element.querySelector<HTMLElement>('.vgrid-row')!;
+    expect(firstScrolled.dataset.row).toBe('3');
+    // Columns A and B are pinned in the header and every row; only B carries the boundary rule.
+    const pinnedHeads = Array.from(grid.element.querySelectorAll<HTMLElement>('.vgrid-header .colpin'));
+    expect(pinnedHeads.map((h) => h.dataset.colhead)).toEqual(['0', '1']);
+    expect(pinnedHeads.map((h) => h.classList.contains('colpin-edge'))).toEqual([false, true]);
+    expect(pinnedHeads[1]!.style.left).toBe(`${ROW_HEAD_WIDTH + COL_WIDTH}px`);
+    expect(grid.element.querySelectorAll('[data-row="5"][data-col="1"]').length).toBe(1);
+    expect(cellEl(grid, 5, 1).classList.contains('colpin')).toBe(true);
+    // Choosing it again clears the freeze.
+    await commands.run('view.freezeAtSelection');
+    grid.refresh();
+    expect(tab.freeze).toBeNull();
+    expect(grid.element.querySelector<HTMLElement>('.vgrid-sticky')!.hidden).toBe(true);
+    expect(grid.element.querySelector('.colpin')).toBeNull();
+  });
+
+  it('keeps the pinned rows and columns while scrolled far away', async () => {
+    const { state, commands, grid, tab } = setup(bigCsv(5_000, 300));
+    state.setSelection(tab, { row: 2, col: 3 }, null);
+    await commands.run('view.freezeAtSelection');
+    grid.refresh();
+    grid.element.scrollTop = 3_000 * ROW_HEIGHT;
+    grid.element.scrollLeft = 250 * COL_WIDTH;
+    grid.refresh();
+    expect(grid.element.querySelector('.vgrid-stickyrow [data-row="1"][data-col="2"]')).not.toBeNull();
+    expect(grid.element.querySelector('.vgrid-row .colpin[data-col="2"]')).not.toBeNull();
+    // Frozen rows never reappear in the scrolling region.
+    expect(grid.element.querySelector('.vgrid-row[data-row="1"]')).toBeNull();
+  });
+
+  it('scrolls a column into view past the pinned columns', async () => {
+    const { state, commands, grid, tab } = setup(bigCsv(20, 60));
+    state.setSelection(tab, { row: 1, col: 2 }, null);
+    await commands.run('view.freezeAtSelection');
+    grid.refresh();
+    grid.element.scrollLeft = 30 * COL_WIDTH;
+    grid.refresh();
+    grid.reveal(1, 10);
+    // Column K's left edge lands right after the two pinned columns.
+    expect(grid.element.scrollLeft).toBe(10 * COL_WIDTH - 2 * COL_WIDTH);
+    expect(cellEl(grid, 1, 10)).toBeTruthy();
+  });
+
+  it('is unavailable at A1 and replaced by the sticky first row/column toggles', async () => {
+    const { state, commands, tab } = setup(bigCsv(10, 5));
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    expect(commands.isEnabled('view.freezeAtSelection')).toBe(false);
+    state.setTabFreeze(tab, { rows: 2, cols: 2 });
+    expect(state.stickyFirstRowShown).toBe(false);
+    await commands.run('view.stickyFirstRow');
+    expect(tab.freeze).toBeNull();
+    expect(state.stickyFirstRow).toBe(true);
+    expect(state.frozenPanes(tab)).toEqual({ rows: 1, cols: 0 });
+  });
+
+  it('is remembered per worksheet', () => {
+    const rsf = RsfDocument.empty('book', 10, 4, 'Sheet1');
+    const { state, tab } = setupRsf(rsf);
+    const first = rsf.activeSheetId;
+    state.setTabFreeze(tab, { rows: 1, cols: 1 });
+    expect(state.addSheet(tab, 'Sheet2')).not.toBeNull();
+    expect(tab.freeze).toBeNull();
+    state.setActiveSheet(tab, first);
+    expect(tab.freeze).toEqual({ rows: 1, cols: 1 });
+  });
+});
+
+describe('moving a selection by dragging its border', () => {
+  function mouse(target: Element, type: string, init: MouseEventInit = {}): void {
+    target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ...init }));
+  }
+
+  /** Give a rendered cell a real-looking box (jsdom has no layout). */
+  function layOut(cell: HTMLElement, left: number, top: number): void {
+    cell.getBoundingClientRect = () =>
+      ({
+        left,
+        top,
+        width: 100,
+        height: 24,
+        right: left + 100,
+        bottom: top + 24,
+        x: left,
+        y: top,
+      }) as DOMRect;
+  }
+
+  function selectedRsf() {
+    const rsf = RsfDocument.empty('book', 10, 4, 'Sheet1');
+    rsf.setCell(1, 1, 'x');
+    const setupResult = setupRsf(rsf);
+    setupResult.state.setSelection(setupResult.tab, { row: 2, col: 2 }, { row: 1, col: 1 });
+    return setupResult;
+  }
+
+  it('starts a move from anywhere on the outer border', () => {
+    const { commands, grid, tab } = selectedRsf();
+    const moveRange = vi.spyOn(commands, 'moveRange').mockResolvedValue(true);
+    // Grab the bottom border of C3 (the range's bottom-right cell).
+    const grabbed = cellEl(grid, 2, 2);
+    layOut(grabbed, 300, 100);
+    mouse(grabbed, 'mousemove', { clientX: 350, clientY: 122 });
+    expect(grid.element.classList.contains('move-edge')).toBe(true);
+    mouse(grabbed, 'mousedown', { clientX: 350, clientY: 122 });
+    expect(grid.element.classList.contains('moving-range')).toBe(true);
+    mouse(cellEl(grid, 5, 3), 'mousemove');
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    // The drag follows the grabbed cell: C3 → D6 is 3 rows down, 1 column right.
+    expect(moveRange).toHaveBeenCalledWith(tab, { top: 1, left: 1, bottom: 2, right: 2 }, 3, 1);
+  });
+
+  it('selects normally from the middle of a selected cell', () => {
+    const { commands, grid, tab } = selectedRsf();
+    const moveRange = vi.spyOn(commands, 'moveRange');
+    const inside = cellEl(grid, 1, 2);
+    layOut(inside, 300, 76);
+    mouse(inside, 'mousemove', { clientX: 350, clientY: 88 });
+    expect(grid.element.classList.contains('move-edge')).toBe(false);
+    mouse(inside, 'mousedown', { clientX: 350, clientY: 88 });
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    expect(grid.element.classList.contains('moving-range')).toBe(false);
+    expect(tab.selection).toEqual({ row: 1, col: 2 });
+    expect(moveRange).not.toHaveBeenCalled();
   });
 });
 

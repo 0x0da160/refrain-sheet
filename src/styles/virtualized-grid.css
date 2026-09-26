@@ -32,12 +32,12 @@
 
 /* Stacking inside the grid canvas, bottom to top. Rows and cells create no
    stacking context of their own, so everything below competes directly:
-     1-2  data cells; the sticky first column (.vcell.colpin, 2)
+     1-2  data cells; the pinned columns (.vcell.colpin, 2)
      3    selection handles (.fill-handle, .move-handle) and the hidden sink
      4    the copy-source outline
      5    the inline cell editor
      6    row numbers (.vcell.vrowhead) and the add-row button
-     7    the sticky first row (.vgrid-stickyrow)
+     7    the pinned rows (.vgrid-sticky, holding .vgrid-stickyrow rows)
      8    the column-header row (.vgrid-header) and the add-column button
    So anything scrolled under the row numbers, the sticky row, or the column
    headers is covered by them. Inside the header row (its own context): the
@@ -50,20 +50,27 @@
   display: flex;
 }
 
-.vgrid-stickyrow {
+.vgrid-sticky {
   position: sticky;
   z-index: 7;
+}
+
+.vgrid-sticky[hidden] {
+  display: none;
+}
+
+.vgrid-stickyrow {
   display: flex;
-  /* Distinct from the column header: warm pinned background + strong rule. */
+}
+
+/* Distinct from the column header: warm pinned background + strong rule
+   under the last pinned row. */
+.vgrid-stickyrow:last-child {
   border-bottom: 2px solid var(--accent);
 }
 
 .vgrid-stickyrow .vcell {
   background: var(--sticky-bg);
-}
-
-.vgrid-stickyrow[hidden] {
-  display: none;
 }
 
 .vgrid-rows {
@@ -353,6 +360,12 @@
   cursor: move;
 }
 
+/* Hovering the outer border of a movable selection: pressing there drags the
+   selected cells, like the corner handle. */
+.grid-container.move-edge .vcell {
+  cursor: move;
+}
+
 .grid-container.moving-range.move-invalid {
   cursor: not-allowed;
 }
@@ -438,16 +451,20 @@
   color: var(--accent);
 }
 
-/* Sticky first column: the pinned column-0 header and its per-row data cells
-   stick to the left, right after the row-header column (see `overlayWidth`
-   in grid.ts, which reserves this space out of the scrollable viewport). The
-   accent right border marks the frozen boundary, mirroring the sticky row's
-   accent bottom border above. Normal cell/alt-row/selection backgrounds are
+/* Pinned columns (sticky first column, or every column left of a
+   freeze-at-selection point): their header and per-row data cells stick to
+   the left, right after the row-header column (see `overlayWidth` in grid.ts,
+   which reserves this space out of the scrollable viewport). The accent right
+   border on the last one (.colpin-edge) marks the frozen boundary, mirroring
+   the pinned rows' accent bottom border above. Normal cell/alt-row/selection backgrounds are
    left untouched so selection highlighting still shows through when a
    selected range includes the frozen column. */
 .vcell.colpin {
   position: sticky;
   z-index: 2;
+}
+
+.vcell.colpin-edge {
   border-right: 2px solid var(--accent);
 }
 

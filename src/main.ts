@@ -221,8 +221,9 @@ function bootstrap(): void {
   };
   const menuBar = new MenuBar(commands, {
     wrap: () => state.wrapCells,
-    stickyFirstRow: () => state.stickyFirstRow,
-    stickyFirstColumn: () => state.stickyFirstColumn,
+    stickyFirstRow: () => state.stickyFirstRowShown,
+    stickyFirstColumn: () => state.stickyFirstColumnShown,
+    freezeAtSelection: () => state.activeTab?.freeze != null,
     sheetFont: () => getSheetFont(),
     theme: () => getTheme(),
     zoom: () => state.activeTab?.zoom ?? getSheetZoom(),

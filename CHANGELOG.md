@@ -37,6 +37,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Sticky at the selected cell.** View > Sticky at Selected Cell keeps
+  every row above and every column left of the selected cell on screen
+  while the rest of the sheet scrolls. Choose it again to release them.
+  Each open file and each worksheet remembers its own setting for the
+  session; Sticky First Row / Sticky First Column still work as before.
+- **Move cells by dragging the selection's border.** In an `.rsf`
+  spreadsheet you can now grab the selected range anywhere along its outer
+  border, not only by the small handle at its top-left corner. The pointer
+  turns into a move cursor over the border.
 - **Paste Values and Paste Formatting.** Edit > Paste Special pastes only
   the copied cells' calculated values, or only their formatting.
   **Ctrl+Shift+V** (Cmd+Shift+V on macOS) pastes the values by default;

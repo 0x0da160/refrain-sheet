@@ -14,6 +14,15 @@
   z-index: var(--z-overlay);
   /* A slow load never traps the pointer beyond the translucent scrim. */
   pointer-events: none;
+  /*
+   * Reveal only once the wait is long enough to notice. An operation that
+   * finishes within a few hundred milliseconds reads as one continuous
+   * action; flashing a full-window scrim for it would only make it feel
+   * slower. The overlay is in the DOM (and announced) from the start; this
+   * compositor-driven opacity animation still runs while a synchronous step
+   * holds the main thread, so a long wait is never left without feedback.
+   */
+  animation: loading-reveal 0.12s ease-out 0.3s both;
 }
 
 .loading-overlay[hidden] {
@@ -68,6 +77,15 @@
   box-shadow: var(--shadow-md);
 }
 
+@keyframes loading-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes loading-spin {
   to {
     transform: rotate(360deg);
@@ -75,6 +93,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .loading-overlay {
+    /* Same delay, no fade. */
+    animation-duration: 0.01s;
+  }
+
   .loading-overlay .loading-spinner {
     animation: none;
   }

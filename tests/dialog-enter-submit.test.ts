@@ -163,7 +163,7 @@ describe('Enter submits single-line dialog inputs', () => {
     const promise = new Dialogs().chooseSettings({
       maxFileSize: 64 * 1024 * 1024,
       shiftPaste: 'values',
-      browserDisplay: { zoom: undefined, wrap: undefined },
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
       fileDisplay: null,
     });
     const dialog = document.querySelector('dialog')!;
@@ -177,7 +177,7 @@ describe('Enter submits single-line dialog inputs', () => {
     expect(result).toEqual({
       maxFileSize: clampMaxFileSize(miBToBytes(128)),
       shiftPaste: 'values',
-      browserDisplay: { zoom: undefined, wrap: undefined },
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
       fileDisplay: null,
     });
   });
@@ -186,7 +186,7 @@ describe('Enter submits single-line dialog inputs', () => {
     const promise = new Dialogs().chooseSettings({
       maxFileSize: 64 * 1024 * 1024,
       shiftPaste: 'values',
-      browserDisplay: { zoom: undefined, wrap: undefined },
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
       fileDisplay: null,
     });
     const dialog = document.querySelector('dialog')!;
@@ -197,7 +197,7 @@ describe('Enter submits single-line dialog inputs', () => {
     expect(await promise).toEqual({
       maxFileSize: 64 * 1024 * 1024,
       shiftPaste: 'formats',
-      browserDisplay: { zoom: undefined, wrap: undefined },
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
       fileDisplay: null,
     });
   });
@@ -206,8 +206,8 @@ describe('Enter submits single-line dialog inputs', () => {
     const promise = new Dialogs().chooseSettings({
       maxFileSize: 64 * 1024 * 1024,
       shiftPaste: 'values',
-      browserDisplay: { zoom: undefined, wrap: true },
-      fileDisplay: { zoom: 133, wrap: undefined },
+      browserDisplay: { zoom: undefined, wrap: true, font: 'ms' },
+      fileDisplay: { zoom: 133, wrap: undefined, font: undefined },
     });
     const dialog = document.querySelector('dialog')!;
     expect(dialog.querySelector<HTMLSelectElement>('#settings-browser-wrap')!.value).toBe('on');
@@ -216,11 +216,14 @@ describe('Enter submits single-line dialog inputs', () => {
     dialog.querySelector<HTMLSelectElement>('#settings-browser-zoom')!.value = '150';
     dialog.querySelector<HTMLSelectElement>('#settings-browser-wrap')!.value = '';
     dialog.querySelector<HTMLSelectElement>('#settings-file-wrap')!.value = 'off';
+    expect(dialog.querySelector<HTMLSelectElement>('#settings-browser-font')!.value).toBe('ms');
+    dialog.querySelector<HTMLSelectElement>('#settings-browser-font')!.value = '';
+    dialog.querySelector<HTMLSelectElement>('#settings-file-font')!.value = 'meiryo-ui';
     enter(dialog.querySelector<HTMLInputElement>('input[type="number"]')!);
 
     expect(await promise).toMatchObject({
-      browserDisplay: { zoom: 150, wrap: undefined },
-      fileDisplay: { zoom: 133, wrap: false },
+      browserDisplay: { zoom: 150, wrap: undefined, font: undefined },
+      fileDisplay: { zoom: 133, wrap: false, font: 'meiryo-ui' },
     });
   });
 
@@ -228,7 +231,7 @@ describe('Enter submits single-line dialog inputs', () => {
     const promise = new Dialogs().chooseSettings({
       maxFileSize: 64 * 1024 * 1024,
       shiftPaste: 'values',
-      browserDisplay: { zoom: undefined, wrap: undefined },
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
       fileDisplay: null,
     });
     const dialog = document.querySelector('dialog')!;

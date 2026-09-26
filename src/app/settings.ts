@@ -23,6 +23,7 @@
  */
 
 import { RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../core/rsf-codec';
+import type { SheetFontId } from './sheet-font';
 import { safeStorageGet, safeStorageRemove, safeStorageSet } from './storage';
 
 const MIB = 1024 * 1024;
@@ -310,6 +311,7 @@ export function setShiftPasteMode(mode: ShiftPasteMode): void {
 export interface DisplayLevelSettings {
   zoom: number | undefined;
   wrap: boolean | undefined;
+  font: SheetFontId | undefined;
 }
 
 /** The values the Settings… dialog edits. */

@@ -219,6 +219,25 @@ describe('sticky first row', () => {
     expect(grid.element.querySelectorAll('.vgrid-stickyrow').length).toBe(1);
   });
 
+  it('follows the scroll only when the first row has values', () => {
+    const { state, grid, tab } = setup(',,\nr1c0,r1c1,r1c2\nr2c0,r2c1,r2c2\n');
+    const layer = grid.element.querySelector<HTMLElement>('.vgrid-sticky')!;
+    // An empty first row scrolls away like any other row.
+    expect(layer.hidden).toBe(true);
+    expect(grid.element.querySelector('.vgrid-rows [data-row="0"][data-col="0"]')).not.toBeNull();
+    // Once it has a value, it follows the scroll.
+    state.editCell(tab, 0, 1, 'title');
+    grid.refresh();
+    expect(layer.hidden).toBe(false);
+    expect(layer.querySelector('[data-row="0"][data-col="1"]')!.textContent).toBe('title');
+    // Choosing Sticky First Row pins it even when empty.
+    state.editCell(tab, 0, 1, '');
+    state.setStickyFirstRow(true);
+    grid.refresh();
+    expect(layer.hidden).toBe(false);
+    expect(layer.classList.contains('auto')).toBe(false);
+  });
+
   it('keeps row 0 pinned while the scrolling region starts at row 1', () => {
     const { state, grid } = setup(bigCsv(10_000));
     state.setStickyFirstRow(true);

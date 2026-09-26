@@ -35,6 +35,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.7] - 2026-09-26
+
 ### Changed
 
 - **View > Density** now makes a clear difference: each step moves the bars,

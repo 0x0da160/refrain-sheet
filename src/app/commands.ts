@@ -165,6 +165,7 @@ export type CommandId =
   | 'view.stickyFirstColumn'
   | 'view.freezeAtSelection'
   | 'view.commentsPanel'
+  | 'view.fullscreen'
   | 'view.zoom.in'
   | 'view.zoom.out'
   | 'view.zoom.50'
@@ -334,6 +335,10 @@ export class Commands {
       case 'search.goToCell':
       case 'data.runSqlQuery':
         return tab !== null;
+      case 'view.fullscreen':
+        // False where the page may not go full screen (e.g. an iframe
+        // without permission, or iPhone Safari).
+        return this.dom.fullscreenEnabled === true;
       case 'data.compareDiff':
         // A second open tab is required to pick a baseline against.
         return tab !== null && this.state.tabs.length >= 2;
@@ -943,6 +948,9 @@ export class Commands {
         // the View menu checkbox reflects the new open/closed state.
         this.state.emit('view');
         return;
+      case 'view.fullscreen':
+        await this.toggleFullscreen();
+        return;
       case 'view.zoom.50':
       case 'view.zoom.75':
       case 'view.zoom.90':
@@ -1483,6 +1491,29 @@ export class Commands {
    */
   async flashFill(tab: Tab): Promise<boolean> {
     return this.pasteFill.flashFill(tab);
+  }
+
+  /** Whether the app is shown full screen (View > Full Screen). */
+  isFullscreen(): boolean {
+    return this.dom.fullscreenElement !== null;
+  }
+
+  /**
+   * Show the whole app full screen, or leave full screen. Uses the page's
+   * own Fullscreen API rather than the browser's F11 full screen, so the
+   * menu item can also leave it; Escape leaves it too (browser-owned).
+   * The View menu refreshes from the `fullscreenchange` listener in main.ts.
+   */
+  private async toggleFullscreen(): Promise<void> {
+    try {
+      if (this.isFullscreen()) {
+        await this.dom.exitFullscreen();
+      } else {
+        await this.dom.documentElement.requestFullscreen();
+      }
+    } catch {
+      this.ui.notify(t('notify.fullscreenFailed'), 'error');
+    }
   }
 
   /**

@@ -35,6 +35,21 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- View › Full Screen shows the whole app full screen; choose it again, or
+  press Esc, to leave. F11 still gives the browser's own full screen.
+- Esc now clears the cell selection when nothing else is in progress (no
+  cell being edited, no copy outline, no drag). The next arrow key carries
+  on from the cell that was selected.
+
+### Fixed
+
+- Unprotecting a file or unlocking a sheet from the warning that appears
+  when you try to edit it now completes the edit you were making (typing,
+  deleting, pasting, inserting rows, and so on), instead of dropping it so
+  you had to do it again.
+
 ## [0.9.8] - 2026-09-26
 
 ### Changed

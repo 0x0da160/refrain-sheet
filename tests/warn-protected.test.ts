@@ -16,7 +16,7 @@ import { RsfDocument } from '../src/core/rsf-document';
 import { doc } from './helpers';
 
 function stubConfirm(result: boolean) {
-  return vi.fn(async () => result);
+  return vi.fn(async (..._args: string[]) => result);
 }
 
 describe('warnProtectedAndOfferUnlock', () => {
@@ -25,7 +25,7 @@ describe('warnProtectedAndOfferUnlock', () => {
     const tab = state.addTab('a.csv', doc('a\n'), null, true);
     const confirm = stubConfirm(true);
 
-    await warnProtectedAndOfferUnlock({ confirm } as never, state, tab, 'book');
+    expect(await warnProtectedAndOfferUnlock({ confirm } as never, state, tab, 'book')).toBe(true);
 
     expect(confirm).toHaveBeenCalledWith(
       t('dialog.warnProtected.bookTitle'),
@@ -40,7 +40,9 @@ describe('warnProtectedAndOfferUnlock', () => {
     const state = new AppState();
     const tab = state.addTab('a.csv', doc('a\n'), null, true);
 
-    await warnProtectedAndOfferUnlock({ confirm: stubConfirm(false) } as never, state, tab, 'book');
+    expect(
+      await warnProtectedAndOfferUnlock({ confirm: stubConfirm(false) } as never, state, tab, 'book'),
+    ).toBe(false);
 
     expect(tab.readOnly).toBe(true);
   });
@@ -72,5 +74,20 @@ describe('warnProtectedAndOfferUnlock', () => {
     await warnProtectedAndOfferUnlock({ confirm: stubConfirm(false) } as never, state, tab, 'sheet');
 
     expect(workbook.activeSheet.locked).toBe(true);
+  });
+
+  it('unlocks the named worksheet rather than the active one', async () => {
+    const state = new AppState();
+    const workbook = RsfDocument.blank('a.rsf', 3, 3, 'Budget');
+    const other = workbook.createWorksheet('Notes', 3, 3);
+    workbook.insertSheetAt(1, other);
+    const tab = state.addTab('a.rsf', workbook, null);
+    state.setSheetLocked(tab, other.id, true);
+    const confirm = stubConfirm(true);
+
+    expect(await warnProtectedAndOfferUnlock({ confirm } as never, state, tab, 'sheet', other.id)).toBe(true);
+
+    expect(confirm.mock.calls[0]?.[1]).toBe(t('dialog.warnProtected.sheetMessage', { name: 'Notes' }));
+    expect(other.locked).toBe(false);
   });
 });

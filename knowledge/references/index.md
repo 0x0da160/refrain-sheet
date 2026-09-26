@@ -23,7 +23,8 @@ For the knowledge bundle's own domains, start at
   — integration analysis for the "CSV Diff Review" feature request
   (Issue #255); proposal only, no feature code.
 - [`CHANGELOG.md`](../../CHANGELOG.md) — user-visible change history,
-  Keep a Changelog format.
+  Keep a Changelog format; it holds the current minor series, and older
+  series are archived under [`docs/changelog/`](../../docs/changelog/0.8.md).
 - [`THIRD-PARTY-NOTICES.md`](../../THIRD-PARTY-NOTICES.md) — third-party
   license notices for software bundled in the distributed build.
 - Agent-workflow skills (`.claude/skills/*/SKILL.md`):

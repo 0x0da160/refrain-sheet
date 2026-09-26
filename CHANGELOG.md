@@ -92,6 +92,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Spreadsheet font per sheet, per file, or for this browser.** In an RSF
+  file, View > Spreadsheet Font now sets the font for the current sheet.
+  File > Settings… can set it for the whole file or as this browser's
+  default. As with zoom and wrapping, the narrowest level that sets a font
+  wins: the sheet, then the file, then this browser. For a CSV file the
+  View menu still sets this browser's font. Older releases open these files
+  and ignore the saved fonts.
 - **Default zoom and wrapping for this browser or the whole file.** File >
   Settings… can now set the zoom and long-cell wrapping for this browser
   (the default for every file) and, for an RSF file, for the whole file

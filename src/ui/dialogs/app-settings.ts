@@ -2,6 +2,7 @@
 import type { VersionHistoryChoice } from '../../app/commands';
 import { driveConfigured } from '../../app/drive/config';
 import { getLocale, t, type LocaleId } from '../../app/i18n';
+import { isSheetFontId, SHEET_FONTS, sheetFontLabelKey } from '../../app/sheet-font';
 import { displayShortcutKeys, isMacPlatform, SHORTCUT_GROUPS } from '../../app/shortcuts';
 import { FUNCTION_INFOS, type FunctionCategory } from '../../core/formula';
 import {
@@ -57,7 +58,7 @@ const FUNCTION_CATEGORY_LABEL_KEY: Record<FunctionCategory, string> = {
 };
 
 /**
- * The zoom and wrap pickers for one level of the layered display settings
+ * The zoom, wrap, and font pickers for one level of the layered display settings
  * (browser or file). An empty value means "not specified" — the next level
  * decides. `read` returns the level's values as currently picked.
  */
@@ -65,6 +66,7 @@ function displayLevelFields(
   idPrefix: string,
   current: DisplayLevelSettings,
   unsetKey: string,
+  fontUnsetKey: string,
 ): { rows: HTMLElement[]; read: () => DisplayLevelSettings } {
   const zoomId = `${idPrefix}-zoom`;
   const zoomSelect = el('select', { attrs: { id: zoomId } }) as HTMLSelectElement;
@@ -88,6 +90,14 @@ function displayLevelFields(
   );
   wrapSelect.value = current.wrap === undefined ? '' : current.wrap ? 'on' : 'off';
 
+  const fontId = `${idPrefix}-font`;
+  const fontSelect = el('select', { attrs: { id: fontId } }) as HTMLSelectElement;
+  fontSelect.append(el('option', { text: t(fontUnsetKey), attrs: { value: '' } }));
+  for (const font of SHEET_FONTS) {
+    fontSelect.append(el('option', { text: t(sheetFontLabelKey(font)), attrs: { value: font } }));
+  }
+  fontSelect.value = current.font ?? '';
+
   return {
     rows: [
       el('div', { className: 'form-row' }, [
@@ -98,10 +108,15 @@ function displayLevelFields(
         el('label', { text: t('dialog.settings.wrap'), attrs: { for: wrapId } }),
         wrapSelect,
       ]),
+      el('div', { className: 'form-row' }, [
+        el('label', { text: t('dialog.settings.font'), attrs: { for: fontId } }),
+        fontSelect,
+      ]),
     ],
     read: () => ({
       zoom: zoomSelect.value === '' ? undefined : Number(zoomSelect.value),
       wrap: wrapSelect.value === '' ? undefined : wrapSelect.value === 'on',
+      font: isSheetFontId(fontSelect.value) ? fontSelect.value : undefined,
     }),
   };
 }
@@ -154,9 +169,15 @@ export class AppSettingsDialogs {
         'settings-browser',
         current.browserDisplay,
         'dialog.settings.followFile',
+        'dialog.settings.fontDefault',
       );
       const fileFields = current.fileDisplay
-        ? displayLevelFields('settings-file', current.fileDisplay, 'dialog.settings.followSheet')
+        ? displayLevelFields(
+            'settings-file',
+            current.fileDisplay,
+            'dialog.settings.followSheet',
+            'dialog.settings.followSheet',
+          )
         : null;
 
       body.append(

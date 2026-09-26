@@ -22,6 +22,7 @@ import { MAX_COMMENT_LENGTH } from './cell-comment';
 import { MAX_TEXT_RUNS, runsForText, type TextRun } from './rich-text';
 import { DEFAULT_DISPLAY_LANGUAGE } from './display-language';
 import { DEFAULT_TIMEZONE } from './timezone';
+import { GRID_LOOK_KEYS, isBandLevel, isEmptyGridLook, type GridLookLayer } from './grid-look';
 import { readSkippableFrame, readU32, writeSkippableFrame, writeU32, ZSTD_MAGIC } from './zstd-frame';
 
 /**
@@ -125,6 +126,8 @@ export interface RsfDisplaySettings {
    * the application ignores an id it does not know.
    */
   font?: string;
+  /** The worksheet's own grid look (bands, gridlines, highlights). */
+  look?: GridLookLayer;
 }
 
 /**
@@ -189,6 +192,8 @@ interface RsfFileDisplaySettings {
   wrap?: boolean;
   /** Spreadsheet font id (see {@link RsfDisplaySettings.font}). */
   font?: string;
+  /** The file's grid look (see {@link RsfDisplaySettings.look}). */
+  look?: GridLookLayer;
 }
 
 /**
@@ -374,6 +379,7 @@ function sheetToJson(sheet: RsfWorksheetData): { [key: string]: Json } {
     (display.zoom !== undefined ||
       display.wrap ||
       display.font !== undefined ||
+      !isEmptyGridLook(display.look) ||
       (display.colWidths?.length ?? 0) > 0)
   ) {
     const view: { [key: string]: Json } = {};
@@ -386,6 +392,7 @@ function sheetToJson(sheet: RsfWorksheetData): { [key: string]: Json } {
     if (display.font !== undefined) {
       view.font = display.font;
     }
+    lookToJson(display.look, view);
     const widths: { [key: string]: Json } = {};
     let any = false;
     for (const [col, width] of [...(display.colWidths ?? [])].sort((a, b) => a[0] - b[0])) {
@@ -451,7 +458,10 @@ function workbookContentToJson(data: RsfWorkbookData): { [key: string]: Json } {
   const fileView = data.display;
   if (
     fileView &&
-    (fileView.zoom !== undefined || fileView.wrap !== undefined || fileView.font !== undefined)
+    (fileView.zoom !== undefined ||
+      fileView.wrap !== undefined ||
+      fileView.font !== undefined ||
+      !isEmptyGridLook(fileView.look))
   ) {
     const view: { [key: string]: Json } = {};
     if (fileView.zoom !== undefined) {
@@ -463,6 +473,7 @@ function workbookContentToJson(data: RsfWorkbookData): { [key: string]: Json } {
     if (fileView.font !== undefined) {
       view.font = fileView.font;
     }
+    lookToJson(fileView.look, view);
     out.view = view;
   }
   out.sheets = data.sheets.slice(0, MAX_RSF_SHEETS).map(sheetToJson);
@@ -653,6 +664,38 @@ function optFontId(obj: JsonObject): string | undefined {
     fail();
   }
   return value;
+}
+
+/**
+ * The grid-look keys of a `view` (`bands`, `gridlines`, `rowHighlight`,
+ * `colHighlight` booleans; `bandLevel` 1–3). A present key of the wrong type
+ * or range is `bad-shape`; `undefined` when none is present.
+ */
+function optLook(view: JsonObject): GridLookLayer | undefined {
+  const look: GridLookLayer = {};
+  for (const key of ['bands', 'gridlines', 'rowHighlight', 'colHighlight'] as const) {
+    const value = optBoolean(view, key);
+    if (value !== undefined) {
+      look[key] = value;
+    }
+  }
+  if (view.bandLevel !== undefined) {
+    if (!isBandLevel(view.bandLevel)) {
+      fail();
+    }
+    look.bandLevel = view.bandLevel;
+  }
+  return isEmptyGridLook(look) ? undefined : look;
+}
+
+/** Write a grid look's specified keys into a `view` object (`false` included: it is a choice). */
+function lookToJson(look: GridLookLayer | undefined, view: { [key: string]: Json }): void {
+  for (const key of GRID_LOOK_KEYS) {
+    const value = look?.[key];
+    if (value !== undefined) {
+      view[key] = value;
+    }
+  }
 }
 
 function intIn(value: unknown, min: number, max: number, overflow: RsfDecodeError = 'bad-shape'): number {
@@ -857,6 +900,10 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
     if (font !== undefined) {
       display.font = font;
     }
+    const look = optLook(view);
+    if (look) {
+      display.look = look;
+    }
     if (view.colWidths !== undefined) {
       if (!isObject(view.colWidths)) {
         fail();
@@ -875,7 +922,13 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
         display.colWidths = widths;
       }
     }
-    if (display.zoom !== undefined || display.wrap || display.font !== undefined || display.colWidths) {
+    if (
+      display.zoom !== undefined ||
+      display.wrap ||
+      display.font !== undefined ||
+      display.look ||
+      display.colWidths
+    ) {
       sheet.display = display;
     }
   }
@@ -1004,7 +1057,16 @@ function workbookFromJson(value: unknown): RsfWorkbookData {
     if (font !== undefined) {
       display.font = font;
     }
-    if (display.zoom !== undefined || display.wrap !== undefined || display.font !== undefined) {
+    const look = optLook(view);
+    if (look) {
+      display.look = look;
+    }
+    if (
+      display.zoom !== undefined ||
+      display.wrap !== undefined ||
+      display.font !== undefined ||
+      display.look
+    ) {
       data.display = display;
     }
   }

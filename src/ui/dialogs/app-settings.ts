@@ -3,6 +3,7 @@ import type { VersionHistoryChoice } from '../../app/commands';
 import { driveConfigured } from '../../app/drive/config';
 import { getLocale, t, type LocaleId } from '../../app/i18n';
 import { isSheetFontId, SHEET_FONTS, sheetFontLabelKey } from '../../app/sheet-font';
+import { BAND_LEVELS, isBandLevel, type GridLook, type GridLookLayer } from '../../core/grid-look';
 import { displayShortcutKeys, isMacPlatform, SHORTCUT_GROUPS } from '../../app/shortcuts';
 import { FUNCTION_INFOS, type FunctionCategory } from '../../core/formula';
 import {
@@ -57,6 +58,92 @@ const FUNCTION_CATEGORY_LABEL_KEY: Record<FunctionCategory, string> = {
   arrays: 'dialog.formulaHelp.category.arrays',
 };
 
+/** Option values and labels of each grid-look picker; `''` (not specified) comes first. */
+const LOOK_OPTIONS: Array<{
+  key: keyof GridLook;
+  labelKey: string;
+  options: Array<[string, string]>;
+}> = [
+  {
+    key: 'bands',
+    labelKey: 'dialog.settings.bands',
+    options: [
+      ['on', 'dialog.settings.show'],
+      ['off', 'dialog.settings.hide'],
+    ],
+  },
+  {
+    key: 'bandLevel',
+    labelKey: 'dialog.settings.bandLevel',
+    options: BAND_LEVELS.map((level) => [String(level), `dialog.settings.bandLevel.${level}`]),
+  },
+  {
+    key: 'gridlines',
+    labelKey: 'dialog.settings.gridlines',
+    options: [
+      ['on', 'dialog.settings.show'],
+      ['off', 'dialog.settings.hide'],
+    ],
+  },
+  {
+    key: 'rowHighlight',
+    labelKey: 'dialog.settings.rowHighlight',
+    options: [
+      ['on', 'dialog.settings.highlightOn'],
+      ['off', 'dialog.settings.highlightOff'],
+    ],
+  },
+  {
+    key: 'colHighlight',
+    labelKey: 'dialog.settings.colHighlight',
+    options: [
+      ['on', 'dialog.settings.highlightOn'],
+      ['off', 'dialog.settings.highlightOff'],
+    ],
+  },
+];
+
+/** The grid-look pickers for one settings level (see {@link displayLevelFields}). */
+function lookFields(
+  idPrefix: string,
+  current: GridLookLayer,
+  unsetKey: string,
+): { rows: HTMLElement[]; read: () => GridLookLayer } {
+  const selects = new Map<keyof GridLook, HTMLSelectElement>();
+  const rows = LOOK_OPTIONS.map(({ key, labelKey, options }) => {
+    const id = `${idPrefix}-${key}`;
+    const select = el('select', { attrs: { id } }) as HTMLSelectElement;
+    select.append(el('option', { text: t(unsetKey), attrs: { value: '' } }));
+    for (const [value, textKey] of options) {
+      select.append(el('option', { text: t(textKey), attrs: { value } }));
+    }
+    const value = current[key];
+    select.value =
+      value === undefined ? '' : typeof value === 'boolean' ? (value ? 'on' : 'off') : String(value);
+    selects.set(key, select);
+    return el('div', { className: 'form-row' }, [
+      el('label', { text: t(labelKey), attrs: { for: id } }),
+      select,
+    ]);
+  });
+  return {
+    rows,
+    read: () => {
+      const look: GridLookLayer = {};
+      for (const [key, select] of selects) {
+        if (select.value === '') continue;
+        if (key === 'bandLevel') {
+          const level = Number(select.value);
+          if (isBandLevel(level)) look.bandLevel = level;
+        } else {
+          look[key] = select.value === 'on';
+        }
+      }
+      return look;
+    },
+  };
+}
+
 /**
  * The zoom, wrap, and font pickers for one level of the layered display settings
  * (browser or file). An empty value means "not specified" — the next level
@@ -67,6 +154,7 @@ function displayLevelFields(
   current: DisplayLevelSettings,
   unsetKey: string,
   fontUnsetKey: string,
+  lookUnsetKey: string,
 ): { rows: HTMLElement[]; read: () => DisplayLevelSettings } {
   const zoomId = `${idPrefix}-zoom`;
   const zoomSelect = el('select', { attrs: { id: zoomId } }) as HTMLSelectElement;
@@ -98,6 +186,8 @@ function displayLevelFields(
   }
   fontSelect.value = current.font ?? '';
 
+  const look = lookFields(idPrefix, current.look, lookUnsetKey);
+
   return {
     rows: [
       el('div', { className: 'form-row' }, [
@@ -112,11 +202,13 @@ function displayLevelFields(
         el('label', { text: t('dialog.settings.font'), attrs: { for: fontId } }),
         fontSelect,
       ]),
+      ...look.rows,
     ],
     read: () => ({
       zoom: zoomSelect.value === '' ? undefined : Number(zoomSelect.value),
       wrap: wrapSelect.value === '' ? undefined : wrapSelect.value === 'on',
       font: isSheetFontId(fontSelect.value) ? fontSelect.value : undefined,
+      look: look.read(),
     }),
   };
 }
@@ -170,11 +262,13 @@ export class AppSettingsDialogs {
         current.browserDisplay,
         'dialog.settings.followFile',
         'dialog.settings.fontDefault',
+        'dialog.settings.lookDefault',
       );
       const fileFields = current.fileDisplay
         ? displayLevelFields(
             'settings-file',
             current.fileDisplay,
+            'dialog.settings.followSheet',
             'dialog.settings.followSheet',
             'dialog.settings.followSheet',
           )

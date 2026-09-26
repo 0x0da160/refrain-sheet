@@ -82,20 +82,27 @@ is not a string is `bad-shape`; one longer than 1,000,000 characters is
 
 ### View
 
-| Key         | Type    | Meaning                                                                          |
-| ----------- | ------- | -------------------------------------------------------------------------------- |
-| `zoom`      | number  | Zoom percent, clamped into 50–200 on load.                                       |
-| `wrap`      | boolean | Wrap long cells onto several lines.                                              |
-| `font`      | string  | Spreadsheet font id (`biz-ud`, `ms`, …): 1–64 of `a-z 0-9 -`, else `bad-shape`.  |
-| `colWidths` | object  | Width in pixels at 100% zoom per column letter: `{ "B": 240 }`, clamped 40–1200. |
+| Key            | Type    | Meaning                                                                          |
+| -------------- | ------- | -------------------------------------------------------------------------------- |
+| `zoom`         | number  | Zoom percent, clamped into 50–200 on load.                                       |
+| `wrap`         | boolean | Wrap long cells onto several lines.                                              |
+| `font`         | string  | Spreadsheet font id (`biz-ud`, `ms`, …): 1–64 of `a-z 0-9 -`, else `bad-shape`.  |
+| `colWidths`    | object  | Width in pixels at 100% zoom per column letter: `{ "B": 240 }`, clamped 40–1200. |
+| `bands`        | boolean | Tint every other row (banded rows).                                              |
+| `bandLevel`    | number  | Band strength: `1` light, `2` medium, `3` dark; any other value is `bad-shape`.  |
+| `gridlines`    | boolean | Draw the lines between cells.                                                    |
+| `rowHighlight` | boolean | Tint the selected cell's row.                                                    |
+| `colHighlight` | boolean | Tint the selected cell's column.                                                 |
 
 A width for a column past `cols` is dropped; a key that is not a column
-letter is `bad-shape`.
+letter is `bad-shape`. The grid-look keys (`bands` through `colHighlight`)
+store `false` as well as `true`, since `false` is a choice ("no gridlines")
+rather than "not specified"; a boolean of the wrong type is `bad-shape`.
 
 ### File-level view
 
 The top-level `view` holds display settings for every worksheet: `zoom`
-(number, clamped into 50–200), `font` (same rule as a worksheet's) and `wrap` (boolean; unlike a worksheet's,
+(number, clamped into 50–200), `font` and the grid-look keys (same rules as a worksheet's) and `wrap` (boolean; unlike a worksheet's,
 `false` is stored, because it means "don't wrap" rather than "not
 specified"). A key that is present applies to every worksheet whose own
 `view` does not set that key: the **worksheet wins**. The application adds

@@ -22,6 +22,7 @@
  * they are only the fallback when no level specifies anything.
  */
 
+import type { GridLookLayer } from '../core/grid-look';
 import { RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../core/rsf-codec';
 import type { SheetFontId } from './sheet-font';
 import { safeStorageGet, safeStorageRemove, safeStorageSet } from './storage';
@@ -312,6 +313,8 @@ export interface DisplayLevelSettings {
   zoom: number | undefined;
   wrap: boolean | undefined;
   font: SheetFontId | undefined;
+  /** Banded rows, band strength, gridlines, highlights; a missing key is not specified. */
+  look: GridLookLayer;
 }
 
 /** The values the Settings… dialog edits. */

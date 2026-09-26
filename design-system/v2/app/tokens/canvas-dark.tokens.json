@@ -7,13 +7,30 @@
       "$value": "{color.ink.950}",
       "$description": "Cell background; also source-editor background"
     },
+    "canvas-row-alt-light": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.0784,
+          0.102,
+          0.1333
+        ],
+        "alpha": 0.5,
+        "hex": "#141a22"
+      },
+      "$description": "Banded rows, light strength (the default); drawn over canvas-bg"
+    },
     "canvas-row-alt": {
       "$value": "{color.ink.900}",
-      "$description": "Optional banded rows (off by default)"
+      "$description": "Banded rows, medium strength (bands are off by default)"
+    },
+    "canvas-row-alt-strong": {
+      "$value": "{color.ink.800}",
+      "$description": "Banded rows, dark strength"
     },
     "canvas-header-bg": {
-      "$value": "{color.ink.900}",
-      "$description": "Row and column headers"
+      "$value": "{color.ink.800}",
+      "$description": "Row and column headers; darker than every band"
     },
     "canvas-header-text": {
       "$value": "{color.ink.150}"
@@ -31,7 +48,11 @@
     },
     "canvas-grid-strong": {
       "$value": "{color.ink.600}",
-      "$description": "Header edge lines"
+      "$description": "Header edge lines, and the lines between headers"
+    },
+    "canvas-outside": {
+      "$value": "{color.ink.1000}",
+      "$description": "Area past the last row and column"
     },
     "canvas-frozen-divider": {
       "$value": "{color.ink.350}",

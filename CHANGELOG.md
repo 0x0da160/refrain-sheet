@@ -35,6 +35,26 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- Banded rows now come in three strengths — Light, Medium, and Dark — chosen
+  in File > Settings…. Light, the default, is as faint as bands were before
+  the recent redesign made them darker.
+- View > Gridlines turns the lines between cells on or off, View > Highlight
+  Selected Row turns the tint of the selected cell's row on or off (on by
+  default), and the new View > Highlight Selected Column tints its column
+  (off by default).
+- Like zoom, wrapping, and font, these settings can be set for a sheet, for
+  an RSF file (File > Settings…), and for this browser (File > Settings…);
+  the narrowest one wins. In an RSF file, the View menu changes the current
+  sheet; in a CSV file, it changes this browser's setting.
+
+### Changed
+
+- Row numbers and column letters sit on a darker background, and the area
+  past the last row and column is shaded instead of white, so the edges of
+  the sheet are easy to see.
+
 ## [0.9.8] - 2026-09-26
 
 ### Changed

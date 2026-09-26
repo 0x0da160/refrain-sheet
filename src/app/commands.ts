@@ -5,6 +5,7 @@ import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport } from '../core/csv-export'
 import type { CellValidation } from '../core/data-validation';
 import type { DiffResult } from '../core/diff-engine';
 import { cellLabel, columnLabel, isFormula, parseRef } from '../core/formula';
+import { GRID_LOOK_KEYS } from '../core/grid-look';
 import type { TextRun } from '../core/rich-text';
 import type { RsfDocument } from '../core/rsf-document';
 import type { CompiledQuery, SearchScope } from '../core/search';
@@ -30,7 +31,8 @@ import {
 } from './settings';
 import { getBrowserSheetFont, isSheetFontId, setBrowserSheetFont, type SheetFontId } from './sheet-font';
 import { localDateStamp } from './shortcuts';
-import { getBandedRows, setBandedRows } from './banded-rows';
+import { getBrowserGridLook, setBrowserGridLook } from './grid-look';
+import { resolveGridLook } from './state/view-layers';
 import { setDensity, type DensityChoice } from './density';
 import { setTheme, type ThemeChoice } from './theme';
 import { CommentCommands } from './commands/comment';
@@ -178,6 +180,9 @@ export type CommandId =
   | 'view.zoom.reset'
   | 'view.editHints'
   | 'view.bandedRows'
+  | 'view.gridlines'
+  | 'view.highlightRow'
+  | 'view.highlightCol'
   | 'view.autoFitOnOpen'
   | 'view.sheetFont.bizUd'
   | 'view.sheetFont.ms'
@@ -970,10 +975,28 @@ export class Commands {
         this.state.emit('view');
         return;
       case 'view.bandedRows':
-        // Pure CSS (data-banded-rows attribute), stored on this device only.
-        setBandedRows(!getBandedRows());
+      case 'view.gridlines':
+      case 'view.highlightRow':
+      case 'view.highlightCol': {
+        const keys = {
+          'view.bandedRows': 'bands',
+          'view.gridlines': 'gridlines',
+          'view.highlightRow': 'rowHighlight',
+          'view.highlightCol': 'colHighlight',
+        } as const;
+        const key = keys[id];
+        const next = !resolveGridLook(tab?.doc ?? null)[key];
+        // Like the font: an RSF worksheet remembers its own value (the
+        // narrowest level, so it wins); anything else sets this browser's.
+        // Main applies the effective look (pure CSS) on the 'view' event.
+        if (tab && tab.doc.kind === 'rsf') {
+          tab.doc.activeSheet.displayLook[key] = next;
+        } else {
+          setBrowserGridLook({ ...getBrowserGridLook(), [key]: next });
+        }
         this.state.emit('view');
         return;
+      }
       case 'view.autoFitOnOpen':
         setAutoFitOnOpen(!getAutoFitOnOpen());
         // Pure preference toggle (like view.editHints above); it only takes
@@ -1030,12 +1053,18 @@ export class Commands {
         const chosen = await this.ui.chooseSettings({
           maxFileSize: getMaxFileSize(),
           shiftPaste: getShiftPasteMode(),
-          browserDisplay: { zoom: getBrowserZoom(), wrap: getBrowserWrap(), font: getBrowserSheetFont() },
+          browserDisplay: {
+            zoom: getBrowserZoom(),
+            wrap: getBrowserWrap(),
+            font: getBrowserSheetFont(),
+            look: getBrowserGridLook(),
+          },
           fileDisplay: rsf
             ? {
                 zoom: rsf.fileZoom,
                 wrap: rsf.fileWrap,
                 font: isSheetFontId(rsf.fileFont) ? rsf.fileFont : undefined,
+                look: { ...rsf.fileLook },
               }
             : null,
         });
@@ -1045,12 +1074,13 @@ export class Commands {
           setBrowserZoom(chosen.browserDisplay.zoom);
           setBrowserWrap(chosen.browserDisplay.wrap);
           setBrowserSheetFont(chosen.browserDisplay.font);
+          setBrowserGridLook(chosen.browserDisplay.look);
           // The file level is presentational like zoom: kept with the next
           // save, never marks the document dirty.
           // Choosing a file-level value clears each worksheet's own one, so the
           // file setting takes effect everywhere (a worksheet would outrank it).
           if (rsf && chosen.fileDisplay) {
-            const { zoom, wrap, font } = chosen.fileDisplay;
+            const { zoom, wrap, font, look } = chosen.fileDisplay;
             if (zoom !== undefined && zoom !== rsf.fileZoom) {
               for (const sheet of rsf.sheets) sheet.displayZoom = undefined;
             }
@@ -1060,6 +1090,12 @@ export class Commands {
             if (font !== undefined && font !== rsf.fileFont) {
               for (const sheet of rsf.sheets) sheet.displayFont = undefined;
             }
+            for (const key of GRID_LOOK_KEYS) {
+              if (look[key] !== undefined && look[key] !== rsf.fileLook[key]) {
+                for (const sheet of rsf.sheets) delete sheet.displayLook[key];
+              }
+            }
+            rsf.fileLook = { ...look };
             rsf.fileZoom = zoom;
             rsf.fileWrap = wrap;
             rsf.fileFont = font;

@@ -169,6 +169,7 @@ const PAIRS = [
   ['danger-text', 'danger-subtle', 4.5],
   ['canvas-text', 'canvas-bg', 4.5],
   ['canvas-text', 'canvas-row-alt', 4.5],
+  ['canvas-text', 'canvas-row-alt-strong', 4.5],
   ['canvas-text', 'canvas-selection', 4.5],
   ['canvas-text', 'state-modified', 4.5],
   ['canvas-header-text', 'canvas-header-bg', 4.5],

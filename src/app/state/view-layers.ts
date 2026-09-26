@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { resolveSetting, type ResolvedSetting, type SettingSource } from '../../core/settings-cascade';
+import { resolveGridLook as resolveLookLayers, type GridLook } from '../../core/grid-look';
 import type { EditorDocument } from '../app-state';
+import { getBrowserGridLook } from '../grid-look';
 import { clampSheetZoom, getBrowserWrap, getBrowserZoom, getSheetZoom, getWrapCells } from '../settings';
 import { DEFAULT_SHEET_FONT, getBrowserSheetFont, isSheetFontId, type SheetFontId } from '../sheet-font';
 
@@ -44,6 +46,21 @@ export function resolveSheetFont(doc: EditorDocument | null): ResolvedSetting<Sh
     },
     DEFAULT_SHEET_FONT,
   );
+}
+
+/**
+ * A document's effective grid look (bands, band strength, gridlines, and the
+ * selected row/column highlight), each key resolved like zoom and wrap. Only
+ * RSF files carry a file and worksheet level; everything else uses this
+ * browser's, else the defaults.
+ */
+export function resolveGridLook(doc: EditorDocument | null): GridLook {
+  const rsf = doc?.kind === 'rsf' ? doc : null;
+  return resolveLookLayers({
+    sheet: rsf?.activeSheet.displayLook,
+    file: rsf?.fileLook,
+    browser: getBrowserGridLook(),
+  });
 }
 
 /**

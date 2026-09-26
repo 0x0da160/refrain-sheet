@@ -4,6 +4,7 @@ import type { CellConditionalFormat } from './conditional-format';
 import type { CellValidation } from './data-validation';
 import type { SheetFilter } from './filter';
 import { isFormula, parseFormula, type ParseResult } from './formula';
+import type { GridLookLayer } from './grid-look';
 import type { SheetSort } from './sort';
 
 /** A parsed formula kept alongside the source it was compiled from. */
@@ -151,6 +152,11 @@ export class Worksheet {
    * (the file's or this browser's applies). Presentational only.
    */
   displayFont: string | undefined;
+  /**
+   * This worksheet's own grid look (bands, gridlines, row/column highlight);
+   * a missing key defers to the file's or this browser's. Presentational only.
+   */
+  displayLook: GridLookLayer = {};
 
   /**
    * Whether this worksheet is locked against editing (Sheet ▸ Lock Sheet, or
@@ -781,6 +787,7 @@ export class Worksheet {
     copy.displayColWidths = this.displayColWidths.slice();
     copy.displayWrap = this.displayWrap;
     copy.displayFont = this.displayFont;
+    copy.displayLook = { ...this.displayLook };
     copy.locked = this.locked;
     copy.styles = new Map([...this.styles].map(([row, rowStyles]) => [row, new Map(rowStyles)]));
     copy.comments = new Map([...this.comments].map(([row, rowComments]) => [row, new Map(rowComments)]));
@@ -801,6 +808,7 @@ export class Worksheet {
     copy.displayColWidths = this.displayColWidths.slice();
     copy.displayWrap = this.displayWrap;
     copy.displayFont = this.displayFont;
+    copy.displayLook = { ...this.displayLook };
     copy.locked = this.locked;
     return copy;
   }

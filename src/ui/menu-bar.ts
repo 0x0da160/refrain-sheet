@@ -97,6 +97,12 @@ export interface MenuChecks {
   editHints: () => boolean;
   /** Whether every other grid row is tinted (View > Banded Rows). */
   bandedRows: () => boolean;
+  /** Whether lines are drawn between data cells (View > Gridlines). */
+  gridlines: () => boolean;
+  /** Whether the selected cell's row is tinted. */
+  highlightRow: () => boolean;
+  /** Whether the selected cell's column is tinted. */
+  highlightCol: () => boolean;
   /** Whether opening a file auto-fits every column to its content. */
   autoFitOnOpen: () => boolean;
   /** Whether the right-side cell comments panel is open. */
@@ -333,6 +339,9 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
           checked: checks.freezeAtSelection,
         },
         { labelKey: 'menu.view.bandedRows', command: 'view.bandedRows', checked: checks.bandedRows },
+        { labelKey: 'menu.view.gridlines', command: 'view.gridlines', checked: checks.gridlines },
+        { labelKey: 'menu.view.highlightRow', command: 'view.highlightRow', checked: checks.highlightRow },
+        { labelKey: 'menu.view.highlightCol', command: 'view.highlightCol', checked: checks.highlightCol },
         { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
         {
           labelKey: 'menu.view.autoFitOnOpen',

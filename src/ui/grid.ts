@@ -1110,6 +1110,10 @@ export class Grid {
     this.element.classList.toggle('sel-cols', kind === 'col');
     this.element.classList.toggle('sel-all', whole);
     this.syncCorner();
+    // The active cell's row (and, when View > Highlight Selected Column is on,
+    // its column) is highlighted only while a single cell is selected; a
+    // multi-cell range already shows where the selection is.
+    const multiCell = range !== null && (range.top !== range.bottom || range.left !== range.right);
     const cells = this.canvas.querySelectorAll<HTMLElement>('[data-row][data-col]');
     for (const cell of cells) {
       const row = Number(cell.dataset.row);
@@ -1123,15 +1127,17 @@ export class Grid {
       cell.classList.toggle('in-range', inRange && !isActive);
       cell.classList.toggle('selected', isActive);
       cell.classList.toggle('anchor', isAnchor);
+      const inSelCols = range !== null && kind === 'col' && col >= range.left && col <= range.right;
+      cell.classList.toggle(
+        'selected-col',
+        inSelCols || (!multiCell && active !== null && active.col === col),
+      );
       if (isActive) {
         cell.setAttribute('aria-selected', 'true');
       } else {
         cell.removeAttribute('aria-selected');
       }
     }
-    // The active cell's row is highlighted only while a single cell is
-    // selected; a multi-cell range already shows where the selection is.
-    const multiCell = range !== null && (range.top !== range.bottom || range.left !== range.right);
     const rows = this.canvas.querySelectorAll<HTMLElement>('.vgrid-row, .vgrid-stickyrow');
     for (const rowEl of rows) {
       const row = Number(rowEl.dataset.row);

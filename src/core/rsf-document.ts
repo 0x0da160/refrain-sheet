@@ -50,6 +50,7 @@ import {
   type RsfWorksheetData,
 } from './rsf-codec';
 import { Worksheet } from './worksheet';
+import { isEmptyGridLook, type GridLookLayer } from './grid-look';
 import { APP_NAME, APP_VERSION } from './app-identity';
 import type { LosslessDocument } from './lossless-document';
 import { DEFAULT_TIMEZONE, isValidTimeZone, localTimeZone, timeZoneOffsetMs } from './timezone';
@@ -215,6 +216,8 @@ export class RsfDocument {
   fileWrap: boolean | undefined;
   /** File-level spreadsheet font id; the worksheet's own wins, like zoom and wrap. */
   fileFont: string | undefined;
+  /** File-level grid look (bands, gridlines, highlights); the worksheet's own keys win. */
+  fileLook: GridLookLayer = {};
 
   /**
    * Workbook-wide evaluation memo, keyed by worksheet id + cell. Cleared by
@@ -447,6 +450,7 @@ export class RsfDocument {
     doc.fileZoom = data.display?.zoom;
     doc.fileWrap = data.display?.wrap;
     doc.fileFont = data.display?.font;
+    doc.fileLook = { ...data.display?.look };
     if (data.createdAt !== undefined) {
       doc.createdAt = data.createdAt;
     }
@@ -480,6 +484,7 @@ export class RsfDocument {
         sheet.displayWrap = true;
       }
       sheet.displayFont = entry.display.font;
+      sheet.displayLook = { ...entry.display.look };
     }
     sheet.filter = entry.filter ?? null;
     sheet.filterDropped = entry.filterDropped === true;
@@ -1054,13 +1059,15 @@ export class RsfDocument {
         sheet.displayZoom !== undefined ||
         colWidths.length > 0 ||
         sheet.displayWrap === true ||
-        sheet.displayFont !== undefined
+        sheet.displayFont !== undefined ||
+        !isEmptyGridLook(sheet.displayLook)
       ) {
         entry.display = {
           ...(sheet.displayZoom !== undefined ? { zoom: sheet.displayZoom } : {}),
           ...(colWidths.length > 0 ? { colWidths } : {}),
           ...(sheet.displayWrap === true ? { wrap: true } : {}),
           ...(sheet.displayFont !== undefined ? { font: sheet.displayFont } : {}),
+          ...(!isEmptyGridLook(sheet.displayLook) ? { look: { ...sheet.displayLook } } : {}),
         };
       }
       if (sheet.filter !== null) {
@@ -1114,11 +1121,17 @@ export class RsfDocument {
       historyMaxOverride: this.historyMaxOverrideValue,
       autoFormatSource: this.autoFormatSourceFlag,
     };
-    if (this.fileZoom !== undefined || this.fileWrap !== undefined || this.fileFont !== undefined) {
+    if (
+      this.fileZoom !== undefined ||
+      this.fileWrap !== undefined ||
+      this.fileFont !== undefined ||
+      !isEmptyGridLook(this.fileLook)
+    ) {
       payload.display = {
         ...(this.fileZoom !== undefined ? { zoom: this.fileZoom } : {}),
         ...(this.fileWrap !== undefined ? { wrap: this.fileWrap } : {}),
         ...(this.fileFont !== undefined ? { font: this.fileFont } : {}),
+        ...(!isEmptyGridLook(this.fileLook) ? { look: { ...this.fileLook } } : {}),
       };
     }
     return encodeRsfWorkbook(payload);

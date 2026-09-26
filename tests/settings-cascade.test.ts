@@ -215,7 +215,7 @@ describe('commands: where font and file-level settings are written', () => {
     doc.activeSheet.displayZoom = 75;
     const chooseSettings = vi.fn(async (current: Parameters<UiPort['chooseSettings']>[0]) => ({
       ...current,
-      fileDisplay: { zoom: 125, wrap: undefined, font: 'noto-sans-jp' as const },
+      fileDisplay: { zoom: 125, wrap: undefined, font: 'noto-sans-jp' as const, look: {} },
     }));
     const commands = new Commands(state, stubUi({ chooseSettings }), document);
     const tab = state.addTab('a.rsf', doc, null);

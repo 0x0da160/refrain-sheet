@@ -163,7 +163,7 @@ describe('Enter submits single-line dialog inputs', () => {
     const promise = new Dialogs().chooseSettings({
       maxFileSize: 64 * 1024 * 1024,
       shiftPaste: 'values',
-      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
       fileDisplay: null,
     });
     const dialog = document.querySelector('dialog')!;
@@ -177,7 +177,7 @@ describe('Enter submits single-line dialog inputs', () => {
     expect(result).toEqual({
       maxFileSize: clampMaxFileSize(miBToBytes(128)),
       shiftPaste: 'values',
-      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
       fileDisplay: null,
     });
   });
@@ -186,7 +186,7 @@ describe('Enter submits single-line dialog inputs', () => {
     const promise = new Dialogs().chooseSettings({
       maxFileSize: 64 * 1024 * 1024,
       shiftPaste: 'values',
-      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
       fileDisplay: null,
     });
     const dialog = document.querySelector('dialog')!;
@@ -197,7 +197,7 @@ describe('Enter submits single-line dialog inputs', () => {
     expect(await promise).toEqual({
       maxFileSize: 64 * 1024 * 1024,
       shiftPaste: 'formats',
-      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
       fileDisplay: null,
     });
   });
@@ -206,8 +206,8 @@ describe('Enter submits single-line dialog inputs', () => {
     const promise = new Dialogs().chooseSettings({
       maxFileSize: 64 * 1024 * 1024,
       shiftPaste: 'values',
-      browserDisplay: { zoom: undefined, wrap: true, font: 'ms' },
-      fileDisplay: { zoom: 133, wrap: undefined, font: undefined },
+      browserDisplay: { zoom: undefined, wrap: true, font: 'ms', look: {} },
+      fileDisplay: { zoom: 133, wrap: undefined, font: undefined, look: {} },
     });
     const dialog = document.querySelector('dialog')!;
     expect(dialog.querySelector<HTMLSelectElement>('#settings-browser-wrap')!.value).toBe('on');
@@ -222,8 +222,39 @@ describe('Enter submits single-line dialog inputs', () => {
     enter(dialog.querySelector<HTMLInputElement>('input[type="number"]')!);
 
     expect(await promise).toMatchObject({
-      browserDisplay: { zoom: 150, wrap: undefined, font: undefined },
-      fileDisplay: { zoom: 133, wrap: false, font: 'meiryo-ui' },
+      browserDisplay: { zoom: 150, wrap: undefined, font: undefined, look: {} },
+      fileDisplay: { zoom: 133, wrap: false, font: 'meiryo-ui', look: {} },
+    });
+  });
+
+  it('edits the grid look at the browser and file levels', async () => {
+    const promise = new Dialogs().chooseSettings({
+      maxFileSize: 64 * 1024 * 1024,
+      shiftPaste: 'values',
+      browserDisplay: {
+        zoom: undefined,
+        wrap: undefined,
+        font: undefined,
+        look: { bands: true, bandLevel: 2 },
+      },
+      fileDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: { gridlines: false } },
+    });
+    const dialog = document.querySelector('dialog')!;
+    const select = (id: string): HTMLSelectElement => dialog.querySelector<HTMLSelectElement>(`#${id}`)!;
+    expect(select('settings-browser-bands').value).toBe('on');
+    expect(select('settings-browser-bandLevel').value).toBe('2');
+    expect(select('settings-file-gridlines').value).toBe('off');
+    expect(select('settings-file-colHighlight').value).toBe('');
+    select('settings-browser-bandLevel').value = '1';
+    select('settings-browser-colHighlight').value = 'on';
+    select('settings-file-gridlines').value = '';
+    select('settings-file-rowHighlight').value = 'off';
+    dialog
+      .querySelector<HTMLInputElement>('input[type="number"]')!
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(await promise).toMatchObject({
+      browserDisplay: { look: { bands: true, bandLevel: 1, colHighlight: true } },
+      fileDisplay: { look: { rowHighlight: false } },
     });
   });
 
@@ -231,7 +262,7 @@ describe('Enter submits single-line dialog inputs', () => {
     const promise = new Dialogs().chooseSettings({
       maxFileSize: 64 * 1024 * 1024,
       shiftPaste: 'values',
-      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined },
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
       fileDisplay: null,
     });
     const dialog = document.querySelector('dialog')!;

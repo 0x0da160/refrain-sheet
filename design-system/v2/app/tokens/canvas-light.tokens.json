@@ -7,19 +7,36 @@
       "$value": "{color.paper.0}",
       "$description": "Cell background; also source-editor background"
     },
+    "canvas-row-alt-light": {
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.9569,
+          0.9569,
+          0.9216
+        ],
+        "alpha": 0.5,
+        "hex": "#f4f4eb"
+      },
+      "$description": "Banded rows, light strength (the default); drawn over canvas-bg"
+    },
     "canvas-row-alt": {
       "$value": "{color.paper.50}",
-      "$description": "Optional banded rows (off by default)"
+      "$description": "Banded rows, medium strength (bands are off by default)"
+    },
+    "canvas-row-alt-strong": {
+      "$value": "{color.paper.100}",
+      "$description": "Banded rows, dark strength"
     },
     "canvas-header-bg": {
-      "$value": "{color.paper.50}",
-      "$description": "Row and column headers"
+      "$value": "{color.paper.200}",
+      "$description": "Row and column headers; darker than every band"
     },
     "canvas-header-text": {
       "$value": "{color.ink.500}"
     },
     "canvas-header-selected-bg": {
-      "$value": "{color.green.100}",
+      "$value": "{color.green.200}",
       "$description": "Header of a selected row/column"
     },
     "canvas-header-selected-text": {
@@ -31,7 +48,11 @@
     },
     "canvas-grid-strong": {
       "$value": "{color.paper.300}",
-      "$description": "Header edge lines"
+      "$description": "Header edge lines, and the lines between headers"
+    },
+    "canvas-outside": {
+      "$value": "{color.paper.300}",
+      "$description": "Area past the last row and column"
     },
     "canvas-frozen-divider": {
       "$value": "{color.ink.300}",

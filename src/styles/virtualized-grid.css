@@ -10,10 +10,16 @@
      tokens (bg-*, fg-*, border-*), so the hybrid theme can keep it on paper
      while the shell goes dark. `color` is re-declared because `body` passes
      down the shell text colour. */
-  background: var(--canvas-bg);
+  /* Past the last row and column the container shows through: darker than
+     any cell, so the sheet's edge is plain to see. */
+  background: var(--canvas-outside);
   color: var(--canvas-text);
   position: relative;
   outline-offset: -2px;
+}
+
+.grid-container:has(> .grid-empty) {
+  background: var(--canvas-bg);
 }
 
 .grid-empty {
@@ -430,22 +436,55 @@
 }
 
 /* Banded rows are off by default (design system: bands compete with the
-   fill colours users give cells); View > Banded Rows sets data-banded-rows
-   on the root. :where() adds no specificity, so the selected-row and
+   fill colours users give cells). The grid look (src/app/grid-look.ts) sets
+   data-banded-rows and data-band-level (1 light, 2 medium, 3 dark) on the
+   root. The light band is translucent, so it is layered over the cell
+   background. :where() adds no specificity, so the selected-row and
    selection rules below still win exactly as before. */
-:where(:root[data-banded-rows]) .vgrid-row.alt .vcell,
-:where(:root[data-banded-rows]) .vgrid-stickyrow.alt .vcell {
-  background: var(--canvas-row-alt);
+:root {
+  --grid-band: var(--canvas-row-alt-light);
 }
 
-.vgrid-row.selected-row .vcell,
-.vgrid-stickyrow.selected-row .vcell {
+:root[data-band-level='2'] {
+  --grid-band: var(--canvas-row-alt);
+}
+
+:root[data-band-level='3'] {
+  --grid-band: var(--canvas-row-alt-strong);
+}
+
+:where(:root[data-banded-rows]) .vgrid-row.alt .vcell,
+:where(:root[data-banded-rows]) .vgrid-stickyrow.alt .vcell {
+  background: linear-gradient(var(--grid-band), var(--grid-band)) var(--canvas-bg);
+}
+
+/* The selected cell's row (data-row-highlight, on by default) and column
+   (data-col-highlight, off by default). */
+:where(:root[data-row-highlight]) .vgrid-row.selected-row .vcell,
+:where(:root[data-row-highlight]) .vgrid-stickyrow.selected-row .vcell,
+:where(:root[data-col-highlight]) .vgrid-row .vcell.selected-col,
+:where(:root[data-col-highlight]) .vgrid-stickyrow .vcell.selected-col {
   background: var(--canvas-selection);
+}
+
+/* Gridlines off: data cells keep their 1px border box (so nothing moves) but
+   draw it in their own background. Borders a user gave a cell are inline
+   styles and still show; the frozen-pane divider is kept. */
+:where(:root[data-no-gridlines]) .vcell:not(.vhead, .vrowhead) {
+  border-bottom-color: transparent;
+}
+
+:where(:root[data-no-gridlines]) .vcell:not(.vhead, .vrowhead, .colpin-edge) {
+  border-right-color: transparent;
 }
 
 .vcell.vhead,
 .vcell.vrowhead {
   background: var(--canvas-header-bg) !important;
+  /* The header ground is as dark as the gridlines, so headers are ruled
+     with the stronger line. */
+  border-right-color: var(--canvas-grid-strong);
+  border-bottom-color: var(--canvas-grid-strong);
   color: var(--canvas-header-text);
   font-weight: var(--weight-bold);
   text-align: center;
@@ -653,7 +692,7 @@
 
 :where(:root[data-banded-rows]) .vgrid-row.alt .vcell.in-range,
 :where(:root[data-banded-rows]) .vgrid-stickyrow.alt .vcell.in-range,
-.vgrid-row.selected-row .vcell.in-range {
+:where(:root[data-row-highlight]) .vgrid-row.selected-row .vcell.in-range {
   background: var(--canvas-selection);
 }
 

@@ -21,13 +21,9 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** `<file>|<issue type>|<name>` — each needs a docs/knip-baseline.md entry. */
-const DEFERRED = new Set([
-  // S3 — RSF document model; human review required (CLAUDE.md).
-  'src/core/rsf-document.ts|exports|DEFAULT_SHEET_NAME',
-  // Maintainer decision pending: wire the guard into a join function, or remove it.
-  'src/core/formula-value.ts|exports|MAX_JOIN_ITEMS',
-  'src/core/formula-value.ts|duplicates|MAX_RANGE_CELLS+MAX_JOIN_ITEMS',
-]);
+// Empty: every finding is resolved. Add an entry only after classifying it
+// in docs/knip-baseline.md (the cleanup-audit skill).
+const DEFERRED = new Set([]);
 
 const run = spawnSync('npx', ['--no-install', 'knip', '--no-progress', '--reporter', 'json'], {
   cwd: root,

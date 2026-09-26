@@ -30,35 +30,21 @@ catch unused locals, parameters, and imports; Knip adds unused **exports**,
 - `design-system/`, `dist/`, `dist-hosted/`, `landing/` match no `project`
   glob, so Knip never reads them.
 
-## Open findings — all deferred
+## Open findings
 
-### S3 — RSF persisted-format contract (human review required)
-
-| File                       | Kind   | Names                |
-| -------------------------- | ------ | -------------------- |
-| `src/core/rsf-document.ts` | export | `DEFAULT_SHEET_NAME` |
-
-The RSF codec's own findings were resolved when the format was redesigned
-(#602): its constants are now module-private. This one is very likely used
-internally in its own file (the pattern that made most earlier findings
-S1), but `CLAUDE.md` lists the RSF document model as high-risk — "extra care, full `test:rust`, and human review" — so it waits
-for a dedicated, human-reviewed pass rather than a static-analysis-driven
-unexport. That pass should run against the frozen `.rsf` corpus in
-`tests/fixtures/rsf/` (`tests/rsf-fixtures.test.ts`).
-
-### S2 — `MAX_JOIN_ITEMS` (maintainer decision)
-
-`src/core/formula-value.ts:224` — `export const MAX_JOIN_ITEMS =
-MAX_RANGE_CELLS;`, commented "guards string blow-up". Nothing references it
-beyond its definition (`grep` across `src/` and `tests/`), and no function
-enforces it. Deleting it breaks nothing, but it may be a limit a join/repeat
-function was meant to enforce and does not. Knip also reports it as a
-**duplicate export** of `MAX_RANGE_CELLS` (same resolved value, 2,000,000);
-the two name different limits (range size vs. join item count), so that half
-is a false positive unless a maintainer confirms they were meant to be one
-constant. Decide: wire it into the join functions, or remove it.
+None. A fresh `npx knip` run reports no findings, and the `DEFERRED` list in
+`scripts/check-knip.mjs` is empty.
 
 ## Resolved (kept for the lessons; details in each PR)
+
+- **S3 `DEFAULT_SHEET_NAME`** (`src/core/rsf-document.ts`) — used only inside
+  its own file, so the `export` was removed and the value (`'Sheet1'`) is
+  unchanged. No byte of the RSF format depends on the keyword; the frozen
+  `.rsf` fixture corpus and `test:rust` still pass.
+- **S2 `MAX_JOIN_ITEMS`** (`src/core/formula-value.ts`) — removed. No `REPT`
+  function exists, and `CONCAT` / `TEXTJOIN` are already bounded by
+  `MAX_TEXT_LENGTH` (output) and `MAX_RANGE_CELLS` (input), so the constant
+  guarded nothing. This also clears Knip's duplicate-export report.
 
 - **Unlisted `@eslint/js`** — declared as a pinned devDependency; **unlisted
   `wasm-pack`** — moved to `ignoreBinaries` (`308e3a7`); no longer needed

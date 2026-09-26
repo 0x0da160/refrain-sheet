@@ -6,6 +6,7 @@ import { t } from '../app/i18n';
 import { cellLabel } from '../core/formula';
 import {
   compileQuery,
+  MAX_PATTERN_LENGTH,
   replaceAllInValue,
   searchDocument,
   searchWorkbook,
@@ -306,7 +307,9 @@ export class FindBar {
     const query = this.compile();
     if (!query.ok) {
       this.countEl.textContent = '';
-      if (query.error !== 'empty') {
+      if (this.findInput.value.length > MAX_PATTERN_LENGTH) {
+        this.errorEl.textContent = t('find.tooLong', { max: MAX_PATTERN_LENGTH });
+      } else if (query.error !== 'empty') {
         this.errorEl.textContent = t('find.invalidRegex', { error: query.error });
       }
       this.renderResults();

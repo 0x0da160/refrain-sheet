@@ -472,13 +472,15 @@ export class FileIoCommands {
       }
       result = serializeDocument(tab.doc, options, true);
       if (!result.ok) {
-        this.ui.notify(t('notify.saveFailed', { error: 'serialization' }), 'error');
+        this.ui.notify(t('notify.saveFailedUnrepresentable', { name: tab.name }), 'error');
         return false;
       }
       ncrReports = result.ncrReplacements;
     }
 
-    const written = await this.runSaveStep(() => saveBytes(this.dom, tab.name, result.bytes, tab.handle));
+    const written = await this.runSaveStep(tab.name, () =>
+      saveBytes(this.dom, tab.name, result.bytes, tab.handle),
+    );
     if (!written.ok) {
       return false;
     }
@@ -647,7 +649,7 @@ export class FileIoCommands {
   ): Promise<boolean> {
     // The handle was already acquired inside the gesture; `saveBytes`
     // overwrites through it or, with no handle, produces a download.
-    const written = await this.runSaveStep(() => saveBytes(this.dom, tab.name, bytes, handle));
+    const written = await this.runSaveStep(tab.name, () => saveBytes(this.dom, tab.name, bytes, handle));
     if (!written.ok) {
       return false;
     }
@@ -801,7 +803,7 @@ export class FileIoCommands {
     const bytes = await withBusyIfLarge(large, this.ui, label, () =>
       buildCsvExportBytes(rows, doc.delimiter, options),
     );
-    const written = await this.runSaveStep(() => saveBytesAs(this.dom, name, bytes, 'csv'));
+    const written = await this.runSaveStep(name, () => saveBytesAs(this.dom, name, bytes, 'csv'));
     if (!written.ok) {
       return false;
     }
@@ -896,7 +898,7 @@ export class FileIoCommands {
       return false;
     }
     const bytes = await withBusyIfLarge(large, this.ui, label, () => buildXlsxExport(sheets));
-    const written = await this.runSaveStep(() => saveBytesAs(this.dom, name, bytes, 'xlsx'));
+    const written = await this.runSaveStep(name, () => saveBytesAs(this.dom, name, bytes, 'xlsx'));
     if (!written.ok) {
       return false;
     }
@@ -994,7 +996,7 @@ export class FileIoCommands {
       return false;
     }
     const bytes = await withBusyIfLarge(large, this.ui, label, () => buildJsonExport(rows));
-    const written = await this.runSaveStep(() => saveBytesAs(this.dom, name, bytes, 'json'));
+    const written = await this.runSaveStep(name, () => saveBytesAs(this.dom, name, bytes, 'json'));
     if (!written.ok) {
       return false;
     }
@@ -1185,12 +1187,15 @@ export class FileIoCommands {
    * Run one step of a save/export flow (acquiring a picker handle or
    * writing the finished bytes), classifying a thrown error the way every
    * save/export path must: a cancelled picker (`AbortError`) is a silent
-   * stop, anything else is reported via `notify.saveFailed`. Either way the
+   * stop, anything else is reported via `notify.saveFailed`, naming the file. Either way the
    * caller gets `ok: false` and must stop without saving — the two cases
    * are never distinguished further because both already leave the
    * document and disk untouched.
    */
-  private async runSaveStep<T>(work: () => Promise<T>): Promise<{ ok: true; value: T } | { ok: false }> {
+  private async runSaveStep<T>(
+    name: string,
+    work: () => Promise<T>,
+  ): Promise<{ ok: true; value: T } | { ok: false }> {
     try {
       return { ok: true, value: await work() };
     } catch (err) {
@@ -1198,7 +1203,7 @@ export class FileIoCommands {
         return { ok: false };
       }
       this.ui.notify(
-        t('notify.saveFailed', { error: err instanceof Error ? err.message : String(err) }),
+        t('notify.saveFailed', { name, error: err instanceof Error ? err.message : String(err) }),
         'error',
       );
       return { ok: false };
@@ -1222,7 +1227,7 @@ export class FileIoCommands {
     if (tab.handle) {
       return { ok: true, handle: tab.handle };
     }
-    const acquired = await this.runSaveStep(() => requestSaveHandle(tab.name, 'rsf'));
+    const acquired = await this.runSaveStep(tab.name, () => requestSaveHandle(tab.name, 'rsf'));
     return acquired.ok ? { ok: true, handle: acquired.value } : acquired;
   }
 }

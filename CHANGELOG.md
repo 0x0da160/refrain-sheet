@@ -37,6 +37,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- When a file cannot be saved or exported, the error now names the file
+  (for example, “Could not save "data.csv"”). The rare case where some
+  characters still cannot be saved in the chosen encoding, even as numeric
+  character references, now says so and suggests choosing another encoding,
+  instead of showing the internal word “serialization”.
+- An invalid regular expression in Find now tells you what to do: correct
+  it, or turn off “Regular expression” to search for the text as typed. A
+  search text longer than 1,024 characters gets its own message instead of
+  being reported as an invalid regular expression.
 - **Data > Run SQL Query…** runs on the SQLite engine from sql.js 1.14.2,
   and the icons come from lucide 1.48.0 (both were updated along with the
   rest of the build toolchain; nothing is fetched at runtime).

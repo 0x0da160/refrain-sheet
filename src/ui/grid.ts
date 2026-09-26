@@ -798,12 +798,13 @@ export class Grid {
 
   /**
    * Display slots `[0, n)` that stay pinned below the column header (the
-   * sticky first row, or every row above a freeze-at-selection point). A
-   * frozen area whose rows are all hidden by the active filter pins nothing
-   * (pinning them would show rows the filter hides).
+   * sticky first row, or every row above a freeze-at-selection point). With
+   * nothing frozen, the first row still follows the scroll on its own (see
+   * `autoPinnedRow`). A frozen area whose rows are all hidden by the active
+   * filter pins nothing (pinning them would show rows the filter hides).
    */
   private frozenRowCount(tab: Tab): number {
-    let n = this.state.frozenPanes(tab).rows;
+    let n = Math.max(1, this.state.frozenPanes(tab).rows);
     // Keep at least one scrollable row on screen: a freeze point far down the
     // sheet pins only as many rows as fit (never measured without a layout).
     const viewH = this.element.clientHeight;
@@ -811,6 +812,20 @@ export class Grid {
       n = Math.min(n, Math.max(1, Math.floor(viewH / this.rowH(tab)) - 2));
     }
     return n > 0 && this.pinnedSlots(tab, n).length > 0 ? n : 0;
+  }
+
+  /**
+   * Whether the pinned first row is only the automatic one (no row frozen by
+   * the user): it looks like an ordinary row, with no boundary rule.
+   */
+  private autoPinnedRow(tab: Tab): boolean {
+    return this.state.frozenPanes(tab).rows === 0;
+  }
+
+  /** Pinned-row count, negated for the automatic first row (a layout-signature input). */
+  private rowPinSignature(tab: Tab): number {
+    const n = this.frozenRowCount(tab);
+    return this.autoPinnedRow(tab) ? -n : n;
   }
 
   /** The visible (not filtered-out) display slots among the first `n`. */
@@ -830,13 +845,19 @@ export class Grid {
     return this.frozenRowCount(tab);
   }
 
-  /**
-   * Height of the sticky overlays (header + pinned rows). Both are always
-   * single-line so the pinned area stays a stable height even when data rows
-   * below wrap to several lines.
-   */
+  /** Height of the sticky overlays: the single-line column header plus the pinned rows. */
   private overlayHeight(tab: Tab): number {
-    return this.rowH(tab) * (1 + this.pinnedSlots(tab).length);
+    return this.rowH(tab) + this.pinnedHeight(tab);
+  }
+
+  /** Total height of the pinned rows (each at its own, possibly wrapped, height). */
+  private pinnedHeight(tab: Tab): number {
+    const idx = this.heightIndex(tab);
+    let h = 0;
+    for (const slot of this.pinnedSlots(tab)) {
+      h += idx.heightOf(slot);
+    }
+    return h;
   }
 
   /** Columns `[0, n)` that stay pinned right of the row numbers. */
@@ -1000,7 +1021,7 @@ export class Grid {
       cols: tab.doc.columnCount,
       wrap: this.state.wrapCells,
       font: this.fontSignature(),
-      sticky: this.frozenRowCount(tab),
+      sticky: this.rowPinSignature(tab),
       stickyCol: this.frozenColCount(tab),
       locale: getLocale(),
       zoom: tab.zoom,
@@ -1034,7 +1055,7 @@ export class Grid {
    */
   private samePins(tab: Tab): boolean {
     return (
-      this.layout?.sticky === this.frozenRowCount(tab) && this.layout.stickyCol === this.frozenColCount(tab)
+      this.layout?.sticky === this.rowPinSignature(tab) && this.layout.stickyCol === this.frozenColCount(tab)
     );
   }
 
@@ -1493,20 +1514,26 @@ export class Grid {
     // ----- Pinned record rows (optional, single-line, distinct) -----
     clearChildren(this.stickyEl);
     const pinned = this.pinnedSlots(tab);
+    const autoPinned = this.autoPinnedRow(tab);
+    this.stickyEl.classList.toggle('auto', autoPinned);
     if (pinned.length > 0) {
       this.stickyEl.hidden = false;
       this.stickyEl.style.width = `${totalW}px`;
-      this.stickyEl.style.height = `${this.rowH(tab) * pinned.length}px`;
+      this.stickyEl.style.height = `${this.pinnedHeight(tab)}px`;
       this.stickyEl.style.top = `${this.rowH(tab)}px`;
       for (const slot of pinned) {
         const row = this.docRowOf(tab, slot);
         const rowEl = el('div', {
-          className: 'vgrid-stickyrow',
+          className: `vgrid-stickyrow${slot % 2 === 1 ? ' alt' : ''}`,
           attrs: { role: 'row', 'data-row': String(row), 'aria-rowindex': String(slot + 2) },
         });
+        const height = idx.heightOf(slot);
+        if (height > this.rowH(tab)) {
+          rowEl.classList.add('wrapped');
+        }
         rowEl.style.width = `${totalW}px`;
-        rowEl.style.height = `${this.rowH(tab)}px`;
-        this.buildRowCells(tab, rowEl, row, win, true);
+        rowEl.style.height = `${height}px`;
+        this.buildRowCells(tab, rowEl, row, win, !autoPinned);
         this.stickyEl.append(rowEl);
       }
     } else {
@@ -1591,15 +1618,13 @@ export class Grid {
    * Measured pixel height of a data row: the tallest of its cells' wrapped
    * heights, each measured against that cell's own column width (a formula
    * cell contributes its displayed result). Only rows whose content genuinely
-   * needs more than one visual line exceed the single-line height. The pinned
-   * sticky row is always single-line.
+   * needs more than one visual line exceed the single-line height. Pinned
+   * rows wrap like any other row, so the first row looks the same whether or
+   * not it currently follows the scroll.
    */
   private computeRowHeight(tab: Tab, row: number, measure: WrapMeasure, chrome: number): number {
     if (this.hiddenOf(tab)?.has(row)) {
       return 0; // filtered out: the row's band collapses entirely
-    }
-    if (this.state.sortSlot(tab, row) < this.state.frozenPanes(tab).rows) {
-      return this.rowH(tab);
     }
     const doc = tab.doc;
     const fields = doc.fieldCount(row);
@@ -1625,7 +1650,12 @@ export class Grid {
     idx: RowHeightIndex,
   ): void {
     let changed = false;
+    // The pinned rows are on screen too, above the scrolled window.
+    const slots = [...this.pinnedSlots(tab)];
     for (let slot = win.rowStart; slot < win.rowEnd; slot++) {
+      slots.push(slot);
+    }
+    for (const slot of slots) {
       const row = this.docRowOf(tab, slot);
       if (idx.set(slot, this.computeRowHeight(tab, row, m.measure, m.chrome))) {
         changed = true;
@@ -1691,9 +1721,6 @@ export class Grid {
       const ok = await forEachIndexSliced(
         total,
         (slot) => {
-          if (slot < startRow) {
-            return;
-          }
           const row = this.docRowOf(tab, slot);
           if (idx.set(slot, this.computeRowHeight(tab, row, m.measure, m.chrome))) {
             dirty = true;
@@ -1774,7 +1801,7 @@ export class Grid {
     const filter = doc.kind === 'rsf' ? doc.filter : null;
     const head = el('div', {
       className: `vcell vhead${pinned ? ' pinned' : ''}`,
-      text: pinned ? `📌 ${columnLabel(c)}` : columnLabel(c),
+      text: columnLabel(c),
       attrs: {
         role: 'columnheader',
         'data-colhead': String(c),
@@ -1924,10 +1951,12 @@ export class Grid {
     const win = this.window;
     let clipped = false;
     if (tab && win && ranges.length > 0) {
+      // The window's slots already start past the pinned rows; while it sits
+      // right below them, the pinned rows extend the visible band to the top.
       const base = this.scrollRowBase(tab);
       clipped = formulaRefsExceedViewport(ranges, {
-        firstRow: base + win.rowStart,
-        lastRow: base + win.rowEnd - 1,
+        firstRow: win.rowStart === base ? 0 : win.rowStart,
+        lastRow: win.rowEnd - 1,
         colStart: win.colStart,
         colEnd: win.colEnd,
       });
@@ -1947,7 +1976,7 @@ export class Grid {
     const doc = tab.doc;
     const head = el('div', {
       className: `vcell vrowhead${pinned ? ' pinned' : ''}`,
-      text: pinned ? `📌 ${row + 1}` : String(row + 1),
+      text: String(row + 1),
       attrs: { role: 'rowheader', 'data-rowhead': String(row), 'aria-colindex': '1' },
     });
     if (pinned) {

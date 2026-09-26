@@ -25,7 +25,6 @@
   --grid-line: oklch(89.5% 0.012 var(--hue-paper));
   --row-alt: oklch(98.2% 0.006 var(--hue-paper));
   --selected-row: oklch(97% 0.021 141);
-  --sticky-bg: oklch(97.3% 0.031 92.9);
   --info-soft: oklch(93% 0.034 252);
   --accent: oklch(52.5% 0.13 var(--hue-accent));
   --accent-soft: oklch(97% 0.021 141);

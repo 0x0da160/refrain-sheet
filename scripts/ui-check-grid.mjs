@@ -91,7 +91,10 @@ function buildCsv() {
 async function measureCell(page, row, col) {
   return page.evaluate(
     ({ row, col }) => {
-      const cell = document.querySelector(`.vgrid-rows .vcell[data-row="${row}"][data-col="${col}"]`);
+      // Row 1 lives in the pinned layer (it follows the scroll); the rest are virtualized rows.
+      const cell = document.querySelector(
+        `:is(.vgrid-rows, .vgrid-sticky) .vcell[data-row="${row}"][data-col="${col}"]`,
+      );
       if (!cell) return null;
       const cs = getComputedStyle(cell);
       const r = cell.getBoundingClientRect();

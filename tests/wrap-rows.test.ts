@@ -114,13 +114,14 @@ function setup(document_: RsfDocument | string, opts: SetupOptions = {}) {
 }
 
 function rowEl(grid: Grid, row: number): HTMLElement {
-  return grid.element.querySelector<HTMLElement>(`.vgrid-row[data-row="${row}"]`)!;
+  // Row 1 follows the scroll in the pinned layer; the rest are virtualized rows.
+  return grid.element.querySelector<HTMLElement>(`[role="row"][data-row="${row}"]`)!;
 }
 
 describe('conditional row-height wrapping', () => {
   it('keeps short rows at the single-line height while wrapping is enabled', () => {
     const { grid } = setup('ab,cd\nef,gh\n');
-    for (const el of grid.element.querySelectorAll<HTMLElement>('.vgrid-row')) {
+    for (const el of grid.element.querySelectorAll<HTMLElement>('.vgrid-row, .vgrid-stickyrow')) {
       expect(el.style.height).toBe(`${ROW_HEIGHT}px`);
       expect(el.classList.contains('wrapped')).toBe(false);
     }
@@ -237,12 +238,14 @@ describe('conditional row-height wrapping', () => {
     }
   });
 
-  it('keeps the pinned sticky first row single-line even with a long value', () => {
+  it('wraps the pinned first row like any other row', () => {
     const { grid } = setup('hello world,x\nsecond,y\nthird,z\n', { colWidths: [50, 132], sticky: true });
-    // The pinned overlay row stays a stable single-line height…
     const sticky = grid.element.querySelector<HTMLElement>('.vgrid-stickyrow')!;
-    expect(sticky.style.height).toBe(`${ROW_HEIGHT}px`);
-    expect(sticky.classList.contains('wrapped')).toBe(false);
+    expect(sticky.classList.contains('wrapped')).toBe(true);
+    expect(parseInt(sticky.style.height, 10)).toBeGreaterThan(ROW_HEIGHT);
+    // The pinned layer is exactly as tall as the row it holds.
+    const layer = grid.element.querySelector<HTMLElement>('.vgrid-sticky')!;
+    expect(layer.style.height).toBe(sticky.style.height);
   });
 
   it('supports selection, keyboard navigation, and copy across variable-height rows', () => {

@@ -1,0 +1,197 @@
+{
+  "$schema": "https://www.designtokens.org/schemas/2025.10/format.json",
+  "$description": "Brand layer (landing site, docs, store listings). Resolve against foundations.tokens.json.",
+  "typography": {
+    "$type": "typography",
+    "caption": {
+      "$value": {
+        "fontFamily": "{font.family.ui}",
+        "fontSize": {
+          "value": 0.875,
+          "unit": "rem"
+        },
+        "fontWeight": "{font.weight.regular}",
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        },
+        "lineHeight": 1.6
+      },
+      "$description": "Captions, footnotes, eyebrows. Fluid from 0.75rem (see brand-tokens.css); the value is the maximum."
+    },
+    "small": {
+      "$value": {
+        "fontFamily": "{font.family.ui}",
+        "fontSize": {
+          "value": 1,
+          "unit": "rem"
+        },
+        "fontWeight": "{font.weight.regular}",
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        },
+        "lineHeight": 1.7
+      },
+      "$description": "Secondary copy, nav, buttons. Fluid from 0.875rem (see brand-tokens.css); the value is the maximum."
+    },
+    "body": {
+      "$value": {
+        "fontFamily": "{font.family.ui}",
+        "fontSize": {
+          "value": 1.125,
+          "unit": "rem"
+        },
+        "fontWeight": "{font.weight.regular}",
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        },
+        "lineHeight": 1.75
+      },
+      "$description": "Body copy. Fluid from 1rem (see brand-tokens.css); the value is the maximum."
+    },
+    "lead": {
+      "$value": {
+        "fontFamily": "{font.family.ui}",
+        "fontSize": {
+          "value": 1.5,
+          "unit": "rem"
+        },
+        "fontWeight": "{font.weight.regular}",
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        },
+        "lineHeight": 1.7
+      },
+      "$description": "Lead paragraphs, h3. Fluid from 1.125rem (see brand-tokens.css); the value is the maximum."
+    },
+    "h2": {
+      "$value": {
+        "fontFamily": "{font.family.ui}",
+        "fontSize": {
+          "value": 2.25,
+          "unit": "rem"
+        },
+        "fontWeight": "{font.weight.bold}",
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        },
+        "lineHeight": 1.3
+      },
+      "$description": "Section headings. Fluid from 1.5rem (see brand-tokens.css); the value is the maximum."
+    },
+    "display": {
+      "$value": {
+        "fontFamily": "{font.family.ui}",
+        "fontSize": {
+          "value": 3.25,
+          "unit": "rem"
+        },
+        "fontWeight": "{font.weight.bold}",
+        "letterSpacing": {
+          "value": 0,
+          "unit": "px"
+        },
+        "lineHeight": 1.25
+      },
+      "$description": "Hero heading, one per page. Fluid from 2rem (see brand-tokens.css); the value is the maximum."
+    }
+  },
+  "control": {
+    "$type": "dimension",
+    "btn-h": {
+      "$value": {
+        "value": 2.75,
+        "unit": "rem"
+      },
+      "$description": "44px — default button"
+    },
+    "btn-h-lg": {
+      "$value": {
+        "value": 3.25,
+        "unit": "rem"
+      },
+      "$description": "52px — hero call to action"
+    },
+    "btn-px": {
+      "$value": {
+        "value": 1.25,
+        "unit": "rem"
+      },
+      "$description": "20px"
+    },
+    "btn-px-lg": {
+      "$value": {
+        "value": 1.5,
+        "unit": "rem"
+      },
+      "$description": "24px"
+    }
+  },
+  "shadow": {
+    "$type": "shadow",
+    "showcase": {
+      "$value": [
+        {
+          "color": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0784,
+              0.102,
+              0.1333
+            ],
+            "alpha": 0.05,
+            "hex": "#141a22"
+          },
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 1,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 2,
+            "unit": "px"
+          },
+          "spread": {
+            "value": 0,
+            "unit": "px"
+          }
+        },
+        {
+          "color": {
+            "colorSpace": "srgb",
+            "components": [
+              0.0784,
+              0.102,
+              0.1333
+            ],
+            "alpha": 0.18,
+            "hex": "#141a22"
+          },
+          "offsetX": {
+            "value": 0,
+            "unit": "px"
+          },
+          "offsetY": {
+            "value": 12,
+            "unit": "px"
+          },
+          "blur": {
+            "value": 32,
+            "unit": "px"
+          },
+          "spread": {
+            "value": -12,
+            "unit": "px"
+          }
+        }
+      ]
+    }
+  }
+}

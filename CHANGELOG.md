@@ -37,6 +37,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- The landing site now takes every colour, font, spacing and radius from the
+  Refrain Sheet Design System v2.0.0 instead of its own copies, so it can no
+  longer drift from the app. What visitors notice: headings and buttons use
+  the bold weight the fonts actually have, the small all-caps labels are
+  less widely spaced, corners are slightly tighter, buttons no longer lift
+  on hover, sections fade in without sliding, and the dark panels and the
+  cookie banner use the app's dark-theme colours. The page stays light even
+  when the operating system is in dark mode, as before.
 - **The first row follows the scroll.** When no rows are frozen, row 1
   now stays at the top of the grid as you scroll down, looking like an
   ordinary row. Sticky First Row still adds the line under it, and pinned

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Refrain Sheet — PWA maskable: the mark is scaled to 93% so it survives a circular mask
+  Geometry scaled from the 1024 master; colours are the brand palette.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"
+     role="img" aria-label="Refrain Sheet">
+  <title>Refrain Sheet</title>
+  <path fill="#147F43" d="M0 0L1024 0L1024 1024L0 1024Z"/>
+  <path fill="#F4F4EB" d="M359.48 233L512 233L512 512L233 512L233 359.48C233 289.625 289.625 233 359.48 233Z"/>
+  <path fill="#DAECD8" d="M512 233L664.52 233C734.375 233 791 289.625 791 359.48L791 512L512 512L512 233Z"/>
+  <path fill="#DAECD8" d="M233 512L512 512L512 791L359.48 791C289.625 791 233 734.375 233 664.52L233 512Z"/>
+  <path fill="#8BC191" d="M512 512L791 512L791 791L512 791L512 512Z"/>
+</svg>

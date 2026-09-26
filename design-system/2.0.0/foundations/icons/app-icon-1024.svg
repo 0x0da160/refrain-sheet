@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Refrain Sheet — app icon master, 1024 square, no corner rounding (the OS applies the mask)
+  Geometry scaled from the 1024 master; colours are the brand palette.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"
+     role="img" aria-label="Refrain Sheet app icon">
+  <title>Refrain Sheet app icon</title>
+  <path fill="#147F43" d="M0 0L1024 0L1024 1024L0 1024Z"/>
+  <path fill="#F4F4EB" d="M348 212L512 212L512 512L212 512L212 348C212 272.887 272.887 212 348 212Z"/>
+  <path fill="#DAECD8" d="M512 212L676 212C751.113 212 812 272.887 812 348L812 512L512 512L512 212Z"/>
+  <path fill="#DAECD8" d="M212 512L512 512L512 812L348 812C272.887 812 212 751.113 212 676L212 512Z"/>
+  <path fill="#8BC191" d="M512 512L812 512L812 812L512 812L512 512Z"/>
+</svg>

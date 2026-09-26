@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!doctype html>
 
-<html lang="ja">
+<html data-theme="light" lang="ja">
   <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1" name="viewport" />
@@ -21,7 +21,6 @@
       ><style>
         .reveal {
           opacity: 1;
-          transform: none;
         }
       </style></noscript
     >
@@ -174,7 +173,7 @@
               <p class="lede" data-i18n="diff.p" style="margin: var(--space-4) 0 var(--space-6)">
                 備考だけを修正しても、ほかの列や改行、引用符まで作り直しません。正確には、編集したフィールドのバイト範囲だけを再シリアライズし、未編集部分のバイトはそのまま保持します。引用されていたフィールドは引用されたまま、新しい値に必要なときだけ引用符が付きます。
               </p>
-              <div class="panel-dark">
+              <div class="panel-dark" data-theme="dark">
                 <div class="ph">
                   <span data-i18n="diff.file">sales.csv — Shift_JIS / CRLF</span>
                   <span class="tag-ok">◆ minimal diff</span>
@@ -190,7 +189,7 @@
                   CRLF <span class="ok">kept</span> · CP932 <span class="ok">kept</span> · quotes
                   <span class="ok">kept</span> · BOM <span class="ok">kept</span>
                 </div>
-                <div class="row" data-i18n="diff.result" style="color: #e3b23c">
+                <div class="row result" data-i18n="diff.result">
                   書き換わるのは編集したフィールドのバイト範囲だけ。他は完全一致
                 </div>
               </div>
@@ -199,7 +198,7 @@
         </div>
       </section>
       <!-- USE CASES -->
-      <section id="usecases" style="background: var(--surface); border-block: 1px solid var(--line)">
+      <section id="usecases" style="background: var(--bg-surface); border-block: 1px solid var(--border-default)">
         <div class="wrap">
           <div class="section-head reveal">
             <p class="eyebrow" data-i18n="use.eyebrow">USE CASES</p>
@@ -263,7 +262,7 @@
         </div>
       </section>
       <!-- FEATURES -->
-      <section id="features" style="background: var(--surface); border-block: 1px solid var(--line)">
+      <section id="features" style="background: var(--bg-surface); border-block: 1px solid var(--border-default)">
         <div class="wrap">
           <div class="section-head reveal">
             <p class="eyebrow" data-i18n="features.eyebrow">FEATURES</p>
@@ -410,7 +409,7 @@
         </div>
       </section>
       <!-- RSF + SECURITY (dark) -->
-      <section class="dark" id="rsf">
+      <section class="dark" data-theme="dark" id="rsf">
         <div class="wrap">
           <div class="section-head reveal" style="margin-bottom: var(--space-10)">
             <p class="eyebrow">RSF SPREADSHEET</p>
@@ -423,70 +422,70 @@
           </div>
           <div class="cards reveal">
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">FORMULAS</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">FORMULAS</h3>
               <p data-i18n="f4.li1">55関数：SUM・XLOOKUP・SUMIFS・TEXT・FILTER・UNIQUE ほか</p>
             </div>
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">MULTIPLE SHEETS</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">MULTIPLE SHEETS</h3>
               <p data-i18n="f4.li2">複数シート、シート間参照、絶対／相対参照、循環参照の検出</p>
             </div>
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">FILTER &amp; SORT</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">FILTER &amp; SORT</h3>
               <p data-i18n="f4.li3">
                 フィルタと最大8階層の複数キー並べ替え。表示順が変わるだけで、データや数式は書き換わりません
               </p>
             </div>
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">FORMATTING</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">FORMATTING</h3>
               <p data-i18n="f4.li5">
                 太字・斜体・下線・文字色・背景色・罫線。セルの値や数式には影響せず、Undoでき、.rsf
                 に保存されます
               </p>
             </div>
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">EXPORT</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">EXPORT</h3>
               <p data-i18n="f4.li6">オートフィット、選択範囲の統計、CSV / XLSX への書き出し</p>
             </div>
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">NO EVAL</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">NO EVAL</h3>
               <p data-i18n="f4.li4">数式エンジンは自作パーサ。eval も new Function も使いません</p>
             </div>
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">DATA VALIDATION</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">DATA VALIDATION</h3>
               <p data-i18n="f4.li7">
                 データ入力規則：選択範囲を値のリストまたは数値範囲に制限し、違反する入力を理由付きで拒否
               </p>
             </div>
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">CONDITIONAL FORMATTING</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">CONDITIONAL FORMATTING</h3>
               <p data-i18n="f4.li8">
                 条件付き書式：比較・重複・2色スケールでセルの背景色を値に応じて自動着色
               </p>
             </div>
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">NUMBER FORMAT</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">NUMBER FORMAT</h3>
               <p data-i18n="f4.li9">
                 数値の書式設定：数値・パーセント・通貨の表示形式を、小数桁数や桁区切りとともに指定
               </p>
             </div>
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">SQL QUERY</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">SQL QUERY</h3>
               <p data-i18n="f4.li10">
                 SQLクエリの実行：シートに対してローカルで動く読み取り専用のSELECTクエリを実行
               </p>
             </div>
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">COMPARE / DIFF</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">COMPARE / DIFF</h3>
               <p data-i18n="f4.li11">
                 比較／差分：開いている2つのタブをキー列で比較し、追加・変更・削除・キー不整合を行ごとに判定
               </p>
             </div>
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">CELL COMMENT</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">CELL COMMENT</h3>
               <p data-i18n="f4.li12">セルコメント：セルの値とは独立した短いメモを添付。ホバーで内容を表示</p>
             </div>
             <div class="card">
-              <h3 style="font-family: var(--font-mono); font-size: var(--text-sm)">COMMENTS PANEL</h3>
+              <h3 style="font-family: var(--font-code); font-size: var(--brand-text-small)">COMMENTS PANEL</h3>
               <p data-i18n="f4.li13">
                 コメントパネル：シート単位・ファイル単位で全コメントを一覧表示。クリックでそのセルへジャンプ
               </p>
@@ -500,7 +499,7 @@
             </p>
           </div>
           <figure class="reveal" style="margin: 0">
-            <div class="shot" style="border-color: var(--night-line)">
+            <div class="shot" style="border-color: var(--border-default)">
               <img
                 alt="英語UI・ダークテーマで同じCSVを開いた Refrain Sheet の画面"
                 data-i18n="theme.alt"
@@ -517,7 +516,7 @@
                 width="1800"
               />
             </div>
-            <figcaption class="shot-cap" data-i18n="theme.cap" style="color: #8b929d">
+            <figcaption class="shot-cap" data-i18n="theme.cap">
               英語UI × ダークテーマ。同じファイル、同じバイト。
             </figcaption>
           </figure>
@@ -601,7 +600,7 @@
         </div>
       </section>
       <!-- SECURITY -->
-      <section style="background: var(--surface); border-block: 1px solid var(--line)">
+      <section style="background: var(--bg-surface); border-block: 1px solid var(--border-default)">
         <div class="wrap">
           <div class="section-head reveal">
             <p class="eyebrow" data-i18n="sec.eyebrow">SECURITY</p>
@@ -848,7 +847,7 @@
     <footer class="site-footer">
       <div class="wrap footer-inner">
         <div>
-          <div style="font-weight: 700; color: var(--ink)">Refrain Sheet</div>
+          <div style="font-weight: 700; color: var(--fg-default)">Refrain Sheet</div>
           <div data-i18n="footer.tagline">ローカルで動く、書式保持CSV・スプレッドシートエディタ</div>
         </div>
         <div class="footer-links">
@@ -884,7 +883,7 @@
       </div>
     </footer>
 
-    <div class="cookie-consent" hidden id="cookie-consent" role="region">
+    <div class="cookie-consent" hidden id="cookie-consent" data-theme="dark" role="region">
       <div class="cookie-consent-inner">
         <p class="cookie-consent-text" data-i18n="consent.text">
           このページ（refrain-sheet.com）は、訪問状況の把握のために Google Analytics

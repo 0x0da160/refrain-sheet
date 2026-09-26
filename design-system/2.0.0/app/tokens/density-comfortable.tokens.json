@@ -1,0 +1,56 @@
+{
+  "$schema": "https://www.designtokens.org/schemas/2025.10/format.json",
+  "$description": "Density \"comfortable\".",
+  "size": {
+    "$type": "dimension",
+    "bar-h": {
+      "$value": {
+        "value": 2.5,
+        "unit": "rem"
+      },
+      "$description": "Menu bar, tab row, formula bar, sheet strip"
+    },
+    "statusbar-h": {
+      "$value": {
+        "value": 2,
+        "unit": "rem"
+      },
+      "$description": "Status bar"
+    },
+    "control-h": {
+      "$value": {
+        "value": 2,
+        "unit": "rem"
+      },
+      "$description": "Inline controls in bars and menus, menu items, tabs, list rows"
+    },
+    "field-h": {
+      "$value": {
+        "value": 2.5,
+        "unit": "rem"
+      },
+      "$description": "Buttons and fields in dialogs and panels"
+    },
+    "control-px": {
+      "$value": {
+        "value": 0.75,
+        "unit": "rem"
+      },
+      "$description": "Horizontal padding of controls and menu items"
+    },
+    "inset": {
+      "$value": {
+        "value": 1,
+        "unit": "rem"
+      },
+      "$description": "Padding inside panels, dialogs, popovers"
+    },
+    "stack-gap": {
+      "$value": {
+        "value": 1,
+        "unit": "rem"
+      },
+      "$description": "Vertical gap between form rows"
+    }
+  }
+}

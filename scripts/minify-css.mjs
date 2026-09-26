@@ -6,14 +6,16 @@
 // This is intentionally not a general-purpose CSS parser: it strips comments,
 // drops the semicolon immediately before a `}` (optional in CSS), and
 // collapses runs of whitespace to a single space, dropping that space
-// entirely next to `{ } ; , :` where CSS never requires it. Quoted strings
-// (font names, generated content, attribute-selector values) are copied
-// verbatim so their internal spacing is never touched. Whitespace that is
-// syntactically significant elsewhere — the descendant combinator ("a b"),
-// and the operators inside calc()/clamp()/min()/max() ("1rem + 2vw") — is
-// never adjacent to those punctuation characters, so it is always preserved.
+// entirely next to `{ } ; ,` and after `:` where CSS never requires it.
+// Quoted strings (font names, generated content, attribute-selector values)
+// are copied verbatim so their internal spacing is never touched. Whitespace
+// that is syntactically significant elsewhere — the descendant combinator
+// ("a b", and "a :is(b)", where the space before the colon is what makes it
+// a descendant), and the operators inside calc()/clamp()/min()/max()
+// ("1rem + 2vw") — is always preserved.
 
-const DROP_ADJACENT_TO = new Set(['{', '}', ';', ',', ':']);
+const DROP_AFTER = new Set(['{', '}', ';', ',', ':']);
+const DROP_BEFORE = new Set(['{', '}', ';', ',']);
 
 /** @param {string} css */
 export function minifyCss(css) {
@@ -49,7 +51,7 @@ export function minifyCss(css) {
       let j = i;
       while (j < n && /\s/.test(css[j])) j += 1;
       const next = css[j];
-      if (lastEmitted && next && !DROP_ADJACENT_TO.has(lastEmitted) && !DROP_ADJACENT_TO.has(next)) {
+      if (lastEmitted && next && !DROP_AFTER.has(lastEmitted) && !DROP_BEFORE.has(next)) {
         out += ' ';
         lastEmitted = ' ';
       }

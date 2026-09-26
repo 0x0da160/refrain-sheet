@@ -1,0 +1,48 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- USE CASES: headed by the symptom people search for, answered in one line. -->
+<section class="rb-section" id="use">
+  <div class="rb-wrap">
+    <div class="section-head">
+      <p class="rb-eyebrow" lang="en">Use cases</p>
+      <h2 class="rb-h2" data-i18n="use.h2">業務のCSVで、よくある困りごとに。</h2>
+    </div>
+    <ul class="rb-cards rb-cards--wide usecase-grid">
+      <li class="rb-card">
+        <p class="usecase-tag" data-i18n="use.c1t">経理・税務</p>
+        <h3 class="rb-h3" data-i18n="use.c1h">科目コードの「0」が消えて、取り込みでエラーになる</h3>
+        <p data-i18n="use.c1p">
+          コードは文字列のまま保つので、指定された列構成や Shift_JIS
+          の文字コードを崩さずに、仕訳や提出用のCSVを直せます。
+        </p>
+      </li>
+      <li class="rb-card">
+        <p class="usecase-tag" data-i18n="use.c2t">人事・給与</p>
+        <h3 class="rb-h3" data-i18n="use.c2h">社員番号や時刻が、勝手に数値や日付に変わる</h3>
+        <p data-i18n="use.c2p">
+          値を型推論で変換しないので、社員番号・郵便番号の先頭ゼロや「HH:mm」の時刻も、書かれたとおりの文字のままです。
+        </p>
+      </li>
+      <li class="rb-card">
+        <p class="usecase-tag" data-i18n="use.c3t">受発注・EC</p>
+        <h3 class="rb-h3" data-i18n="use.c3h">JANコードが 4.9E+12 のような表記になる</h3>
+        <p data-i18n="use.c3p">
+          長い番号も数値として扱わないので、指数表記になりません。取引先が指定した列の順・区切り文字・引用符もそのままです。
+        </p>
+      </li>
+      <li class="rb-card">
+        <p class="usecase-tag" data-i18n="use.c4t">集計・確認</p>
+        <h3 class="rb-h3" data-i18n="use.c4h">書き出したCSVを、ちょっと集計して確かめたい</h3>
+        <p data-i18n="use.c4p">
+          RSFスプレッドシートに変換すれば、数式やフィルタ、SQLで集計できます。元のCSVファイルは変更しません。
+        </p>
+      </li>
+      <li class="rb-card">
+        <p class="usecase-tag" data-i18n="use.c5t">原因の調査</p>
+        <h3 class="rb-h3" data-i18n="use.c5h">どこが壊れているのか分からないCSVがある</h3>
+        <p data-i18n="use.c5p">
+          閉じていない引用符やフィールド数の違いを、自動で直さずに、行と列の位置つきで確かめられます。
+        </p>
+      </li>
+    </ul>
+  </div>
+</section>

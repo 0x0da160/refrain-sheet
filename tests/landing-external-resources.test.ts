@@ -7,7 +7,30 @@
 import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
 
-const template = readFileSync('site/template.html', 'utf8');
+// The index page is a skeleton that includes one partial per section; the
+// header, footer and consent banner partials are shared by every page.
+const PARTIALS = [
+  'header',
+  'hero',
+  'pillars',
+  'features',
+  'csv',
+  'usecases',
+  'security',
+  'faq',
+  'start',
+  'footer',
+  'consent',
+];
+const template = [
+  'site/template.html',
+  'site/privacy.html',
+  'site/terms.html',
+  ...PARTIALS.map((name) => `site/partials/${name}.html`),
+]
+  .map((f) => readFileSync(f, 'utf8'))
+  .join('\n');
+const consentBanner = readFileSync('site/partials/consent.html', 'utf8');
 const styles = readFileSync('site/styles.css', 'utf8');
 const i18n = readFileSync('site/i18n.js', 'utf8');
 const consent = readFileSync('site/consent.js', 'utf8');
@@ -60,7 +83,10 @@ describe('landing page analytics is consent-gated', () => {
   });
 
   it('shows the consent banner hidden by default, so it never flashes as loaded', () => {
-    expect(template).toMatch(/<div class="cookie-consent" hidden id="cookie-consent"/);
+    expect(consentBanner).toMatch(/<div class="cookie-consent" hidden id="cookie-consent"/);
+    for (const page of ['site/template.html', 'site/privacy.html', 'site/terms.html']) {
+      expect(readFileSync(page, 'utf8'), page).toMatch(/<!-- @include partials\/consent\.html -->/);
+    }
   });
 
   it('has matching consent and cookie-settings copy in both locales', () => {

@@ -331,3 +331,12 @@ points (ci.yml, the weekly `maintenance.yml`, Dependabot, the
 session-start hook). Linked from `operations/index.md`, the root
 `CLAUDE.md`, and `security-supply-chain.md`, whose Actions-pinning example
 and workflow list were brought up to date.
+
+**Landing page renewal.** The landing site was rebuilt around the approved
+requirements (`docs/lp-renewal-requirements.md`): `site/template.html` is
+now a skeleton that includes one partial per section from `site/partials/`,
+and the hero demo draws the real app screen from the app's own strings and
+tokens (design system D-42). `decisions/ip-risk-policy.md` now points at
+the FAQ partial, which carries the "not an Excel replacement / no Excel
+compatibility guarantee" statements the policy relies on; the old
+comparison table is gone.

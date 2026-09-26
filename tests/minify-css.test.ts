@@ -21,6 +21,13 @@ describe('minifyCss', () => {
     expect(minifyCss('div  p {\n  color: red;\n}')).toBe('div p{color:red}');
   });
 
+  it('preserves the descendant space before a pseudo-class, which changes what the selector matches', () => {
+    // ".a :is(.b)" matches .b inside .a; ".a:is(.b)" matches an element that is both.
+    expect(minifyCss('.a :is(.b, .c) {\n  color: red;\n}')).toBe('.a :is(.b,.c){color:red}');
+    expect(minifyCss('.a :hover {\n  color: red;\n}')).toBe('.a :hover{color:red}');
+    expect(minifyCss('a::after, b:hover {\n  color: red;\n}')).toBe('a::after,b:hover{color:red}');
+  });
+
   it('preserves operator spacing inside clamp()/calc()-style math', () => {
     const src = '--text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);';
     expect(minifyCss(src)).toBe('--text-xs:clamp(0.75rem,0.7rem + 0.25vw,0.875rem);');

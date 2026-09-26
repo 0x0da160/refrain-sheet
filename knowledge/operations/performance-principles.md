@@ -101,17 +101,35 @@ Fixing those in JS took `RsfDocument.fromLossless` from ~1.42 s to
 
 Moving the decoding itself into Rust would not help: WebAssembly cannot
 create JavaScript strings, so every string still crosses the boundary
-through `TextDecoder`, and the per-call cost is exactly what dominated.
-The one WASM-side change measured to pay off further is **fewer, larger
-crossings**: decoding the whole buffer once and slicing it (~18 ms for the
-same 1.2 million fields in a micro-benchmark, versus ~91 ms for the ASCII
-fast path and ~171 ms for per-field `TextDecoder`). For a pure-ASCII file
-byte offsets already equal string offsets; for anything else the parser
-would have to emit a UTF-16 offset per field boundary, a change to the
-`wasm/` index layout that needs the extra care and human review
-`CLAUDE.md` requires. It also trades memory behavior — sliced strings keep
-the whole decoded file alive — so it is recorded here as the next step to
-take **if** profiling shows the remaining ~0.14 s mattering, not adopted.
+through `TextDecoder`.
+
+**Whole-file decode + slice — tried, measured, not adopted (2026-09).** A
+micro-benchmark suggested decoding the whole buffer once and slicing field
+values out of it (~18 ms for 1.2 million ASCII fields, versus ~91 ms for
+the ASCII fast path). It was built end to end: a Rust `utf16_positions`
+primitive (one forward pass mapping each field's byte offsets to UTF-16
+offsets, with a JS mirror), a strict whole-file decode, and a switch to
+slicing once an eighth of the fields had been decoded one by one (so a
+first paint never pays for it). Measured as the first full read of a fresh
+200,000×6 document (median of 8, three alternating rounds against the
+unchanged code):
+
+| File                   | Per-field (kept) | Whole-file + slice |
+| ---------------------- | ---------------- | ------------------ |
+| ASCII, short values    | ~136 ms          | ~116 ms            |
+| ASCII, long values     | ~206 ms          | ~196 ms (noise)    |
+| Japanese, short values | ~262 ms          | ~264 ms            |
+| Japanese, long values  | ~302 ms          | ~325 ms            |
+
+For non-ASCII text the UTF-8 → UTF-16 transcoding itself dominates (a
+41 MB Japanese file takes ~140 ms to decode as one call), so a single call
+only moves that cost, and the offset map (~47–100 ms in WASM for 2.4
+million positions, plus copying the bytes into WASM memory) comes on top.
+Only short ASCII values gained, by ~15%, and even an ASCII-only variant
+without the WASM map regressed long Japanese values by ~7% (a larger
+`decodeField`). Not worth a `wasm/` change, the extra code, or keeping the
+decoded file alive through sliced strings. Revisit only with a
+transcoder demonstrably faster than the engine's `TextDecoder`.
 
 The copy of the parse index out of WASM memory (`records`/`fields` as
 fresh `Uint32Array`s) is the other visible WASM-side cost; reading them as

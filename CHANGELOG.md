@@ -35,6 +35,19 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- **Syntax check for JSON and YAML sheets.** A line under the editor says
+  whether the text has syntax errors and, if it does, shows the first one
+  with its line and column (and how many more there are). Go to Error puts
+  the cursor on it. YAML duplicate keys and tab indentation count as errors.
+
+### Changed
+
+- **Text editors follow the OS colours in the hybrid theme.** The Markdown,
+  JSON, YAML and text sheet editors now go dark when the OS is dark, like the
+  rest of the window; only the spreadsheet grid stays light.
+
 ## [0.9.8] - 2026-09-26
 
 ### Changed

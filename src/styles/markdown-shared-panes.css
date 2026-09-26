@@ -159,11 +159,11 @@
   outline: none;
   box-shadow: none;
   padding: var(--space-2) var(--space-3);
-  /* The document itself is canvas, like the grid (design system: canvas
-     colours cover the grid and the source editors), so the hybrid theme keeps
-     it on paper while the toolbar around it follows the shell. */
-  background: var(--canvas-bg);
-  color: var(--canvas-text);
+  /* Unlike the grid, a text editor follows the shell colours, so under the
+     hybrid theme it goes dark with the OS instead of staying on paper (the
+     owner's choice: the hybrid theme keeps only the spreadsheet grid light). */
+  background: var(--bg-surface);
+  color: var(--fg-default);
   line-height: 1.6;
   tab-size: 4;
 }
@@ -189,4 +189,47 @@
 .json-sheet-source.source-editor,
 .yaml-sheet-source.source-editor {
   font-family: var(--font-code);
+}
+
+/* The JSON/YAML syntax-check line under the editor (`ui/source-problem-bar.ts`):
+   a quiet "no errors" note, or the first error in the danger colours with a
+   button that moves the caret to it. Shell tokens, like the editor. */
+.source-problem-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  padding: var(--space-1) var(--space-3);
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--fg-muted);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+}
+
+.source-problem-bar.has-problem {
+  background: var(--danger-subtle);
+  color: var(--danger-text);
+}
+
+.source-problem-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.source-problem-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-problem-goto {
+  flex: none;
+}
+
+.source-problem-goto[hidden] {
+  display: none;
 }

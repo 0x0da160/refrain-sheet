@@ -288,4 +288,25 @@ describe('JsonSheetView', () => {
     expect(textarea.value).toBe('{"a":1,"b":[1,2]}');
     expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.jsonText : '').toBe('{"a":1,"b":[1,2]}');
   });
+  it('shows the first syntax error under the editor, and a Go to Error button that moves the caret there', async () => {
+    const { view } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    const bar = view.element.querySelector('.source-problem-bar') as HTMLElement;
+    textarea.value = '{\n "a": 1\n "b": 2}';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+
+    expect(bar.classList.contains('has-problem')).toBe(true);
+    expect(bar.textContent).toContain('Line 3, column 2');
+    (bar.querySelector('.source-problem-goto') as HTMLButtonElement).click();
+    expect(textarea.selectionStart).toBe(11);
+
+    textarea.value = '{"a": 1, "b": 2}';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+    expect(bar.classList.contains('has-problem')).toBe(false);
+    expect((bar.querySelector('.source-problem-goto') as HTMLButtonElement).hidden).toBe(true);
+  });
 });

@@ -76,9 +76,11 @@ colours (`--bg-*`, `--fg-*`, `--border-*`, `--accent-*`, status colours,
 `--inverse-*`, `--overlay`, `--shadow-*`) for light and dark, and
 `app-tokens.css` adds the **canvas** colours (`--canvas-*`, `--state-*`,
 `--ref-*`) and the hybrid theme. The app defines no colour values of its own.
-The grid and the source editors are canvas and use only canvas tokens; the
-shell (bars, menus, dialogs, panels) uses only shell tokens — mixing them is
-what would make text unreadable in Hybrid. `npm run check:contrast` checks
+The grid is canvas and uses only canvas tokens; the shell (bars, menus,
+dialogs, panels) and the Markdown/JSON/YAML/text source editors use only
+shell tokens, so in Hybrid the editors go dark with the OS and only the grid
+stays light — mixing the two sets is what would make text unreadable in
+Hybrid. `npm run check:contrast` checks
 the text/background pairs the app composes, in all three themes. Every
 surface (app background, menus, dialogs, buttons, grid background,
 alternating rows, grid lines, headers, cell/muted text, active cell and

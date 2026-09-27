@@ -108,4 +108,11 @@ export {
   type SheetRewriteOptions,
   type SpanMap,
 } from './rewrite';
-export { adjustFormulaForAxis, extractFormulaRefs, type FormulaRefRange, shiftFormulaRefs } from './ref-scan';
+export {
+  adjustFormulaForAxis,
+  extractFormulaRefs,
+  type FormulaRefRange,
+  moveFormulaAxis,
+  movedAxisIndex,
+  shiftFormulaRefs,
+} from './ref-scan';

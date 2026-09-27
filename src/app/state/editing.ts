@@ -14,6 +14,7 @@ import type { AppState } from './index';
 import type { StructuralOpsState } from './structural-ops';
 import type { Tab } from './types';
 import type { WorksheetsState } from './worksheets';
+import { deleteColWidths, insertColWidths } from './col-widths';
 import type { WriteGuards } from './write-guards';
 
 export class EditingState {
@@ -265,6 +266,9 @@ export class EditingState {
     }
     if (op.type === 'csvStructure') {
       tab.doc = direction === 'after' ? op.after : op.before;
+      if (op.colWidths) {
+        tab.colWidths = (direction === 'after' ? op.colWidths.after : op.colWidths.before).slice();
+      }
       return;
     }
     const doc = tab.doc;
@@ -279,6 +283,16 @@ export class EditingState {
       doc.setFilterStateOn(op.sheetId, direction === 'after' ? op.after : op.before);
       return;
     }
+    this.applyAxisOp(tab, doc, op, direction);
+  }
+
+  /** Apply (or invert) a whole-row or whole-column insert/delete. */
+  private applyAxisOp(
+    tab: Tab,
+    doc: RsfDocument,
+    op: Extract<Operation, { type: 'rows' | 'cols' }>,
+    direction: 'before' | 'after',
+  ): void {
     const effective = direction === 'after' ? op.action : op.action === 'insert' ? 'delete' : 'insert';
     if (op.type === 'rows') {
       if (effective === 'insert') {
@@ -300,7 +314,40 @@ export class EditingState {
       } else {
         doc.deleteColsOn(op.sheetId, op.index, op.count);
       }
+      this.shiftColWidths(tab, doc, op, effective);
     }
+  }
+
+  /**
+   * Move column widths with a column insert or delete, so a real insert
+   * keeps every existing column at its own width and the new columns start
+   * at the default. Undoing a delete restores the deleted columns' widths
+   * (as does an insert that carries widths, e.g. the far half of a move).
+   * The active worksheet's live widths are on the tab; any other worksheet
+   * keeps them in its remembered view and persisted display settings.
+   */
+  private shiftColWidths(
+    tab: Tab,
+    doc: RsfDocument,
+    op: Extract<Operation, { type: 'cols' }>,
+    effective: 'insert' | 'delete',
+  ): void {
+    const shift = (widths: number[]): number[] =>
+      effective === 'insert'
+        ? insertColWidths(widths, op.index, op.count, op.widths)
+        : deleteColWidths(widths, op.index, op.count);
+    const sheet = op.sheetId === undefined ? doc.activeSheet : doc.sheetById(op.sheetId);
+    if (!sheet) {
+      return;
+    }
+    if (sheet === doc.activeSheet) {
+      tab.colWidths = shift(tab.colWidths);
+      return;
+    }
+    if (sheet.view.colWidths.length > 0) {
+      sheet.view.colWidths = shift(sheet.view.colWidths);
+    }
+    sheet.displayColWidths = shift(sheet.displayColWidths);
   }
 
   /** Apply (or invert) a worksheet lifecycle operation on the workbook. */

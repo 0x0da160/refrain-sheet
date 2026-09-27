@@ -317,9 +317,11 @@
 }
 
 /* With a mouse or trackpad, the selection's own border is the move grip (see
-   `moveEdgeHit` in grid.ts), so the corner handle is shown only where a
-   finger or pen may be used — a border line is too thin to grab by touch. */
-@media not all and (any-pointer: coarse) {
+   `moveEdgeHit` in grid.ts), so the corner handle is shown only where touch
+   is the primary input — a border line is too thin to grab by finger. It
+   keys on the primary pointer, not any pointer: a desktop or laptop that
+   also has a touch screen is still driven by its mouse and shows no handle. */
+@media not all and (pointer: coarse) {
   .move-handle {
     display: none;
   }
@@ -529,6 +531,99 @@
   color: var(--canvas-header-selected-text);
 }
 
+/* Row/column header hover tools (see `CellBuilder.appendHeaderTools`): a
+   grip to drag the row/column elsewhere and a small + that inserts one row
+   below / one column to the right. Shown only while a mouse hovers the
+   header, and hidden during a drag; touch uses the menus instead. */
+.head-grip,
+.head-insert {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--canvas-header-text);
+}
+
+.head-grip {
+  left: 1px;
+  width: 12px;
+  height: 18px;
+  cursor: grab;
+  opacity: 0.75;
+}
+
+.head-insert {
+  right: calc(8px * var(--sheet-zoom, 1));
+  width: 16px;
+  height: 16px;
+  background: var(--canvas-bg);
+  border: 1px solid var(--canvas-grid-strong);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+/* Beside an active filter's button, the + moves left of it. */
+.vhead:has(.filter-indicator) .head-insert {
+  right: calc(8px * var(--sheet-zoom, 1) + 22px);
+}
+
+/* Row numbers are right-aligned, so the row's + sits beside its grip. */
+.vrowhead .head-insert {
+  right: auto;
+  left: 15px;
+}
+
+.head-grip:hover,
+.head-insert:hover {
+  color: var(--canvas-selection-border);
+  border-color: var(--canvas-selection-border);
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .grid-container:not(.moving-cols, .moving-rows, .moving-range) .vhead:hover > .head-grip,
+  .grid-container:not(.moving-cols, .moving-rows, .moving-range) .vhead:hover > .head-insert,
+  .grid-container:not(.moving-cols, .moving-rows, .moving-range) .vrowhead:hover > .head-grip,
+  .grid-container:not(.moving-cols, .moving-rows, .moving-range) .vrowhead:hover > .head-insert {
+    display: inline-flex;
+  }
+}
+
+/* Dragging rows/columns by a grip: the moving ones are dashed and faded,
+   and a bar marks the edge they would land on. */
+.grid-container.moving-cols,
+.grid-container.moving-cols .vcell,
+.grid-container.moving-rows,
+.grid-container.moving-rows .vcell {
+  cursor: grabbing;
+}
+
+.vcell.axis-move-source {
+  outline: 1px dashed var(--canvas-text-muted);
+  outline-offset: -1px;
+  opacity: 0.7;
+}
+
+.grid-container.moving-cols .vcell.axis-drop-before {
+  box-shadow: inset 3px 0 0 var(--canvas-selection-border);
+}
+
+.grid-container.moving-cols .vcell.axis-drop-after {
+  box-shadow: inset -3px 0 0 var(--canvas-selection-border);
+}
+
+.grid-container.moving-rows .vcell.axis-drop-before {
+  box-shadow: inset 0 3px 0 var(--canvas-selection-border);
+}
+
+.grid-container.moving-rows .vcell.axis-drop-after {
+  box-shadow: inset 0 -3px 0 var(--canvas-selection-border);
+}
+
 /* Column-header filter button (shown on every column of an active filter's
    range). A real <button> so Enter/Space and focus-visible work natively;
    filled when the column carries criteria. */
@@ -706,6 +801,13 @@
 .vcell.anchor {
   outline: 2px dashed var(--canvas-selection-border);
   outline-offset: -2px;
+}
+
+/* While a copy is pending, the copied cells drop the selection's solid and
+   dashed outlines so the moving copy-source border over them stays visible. */
+.vcell.in-copy-source.selected,
+.vcell.in-copy-source.anchor {
+  outline: none;
 }
 
 /* Row/column headers intersecting the selection. */

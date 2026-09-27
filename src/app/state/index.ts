@@ -375,6 +375,14 @@ export class AppState {
   }
 
   /**
+   * Move `count` whole rows/columns from `from` to the boundary `to` (in the
+   * current layout) as one undoable reorder; see `StructuralOpsState.moveAxis`.
+   */
+  moveAxis(tab: Tab, axis: 'row' | 'col', from: number, count: number, to: number): boolean {
+    return this.structuralOps.moveAxis(tab, axis, from, count, to);
+  }
+
+  /**
    * Insert a copied rectangular range at `at`, shifting existing cells by
    * inserting whole rows (`down`) or whole columns (`right`) across the sheet.
    * Whole-axis insertion keeps every formula consistent: references are

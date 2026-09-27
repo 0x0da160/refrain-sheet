@@ -13,6 +13,8 @@ import { getLocale, t } from '../i18n';
 import { clampSheetZoom, setSheetZoom, setWrapCellsPreference } from '../settings';
 import { safeStorageSet } from '../storage';
 import { resolveWrap, resolveZoom } from './view-layers';
+import { colWidthsAt, deleteColWidths, insertColWidths } from './col-widths';
+import { planAxisMove } from './axis-move';
 
 /**
  * Structural operations on RSF spreadsheet documents — row/column insert and
@@ -131,7 +133,10 @@ export class StructuralOpsState {
       for (const row of rows) {
         row.splice(index, 0, ...Array.from({ length: count }, () => ''));
       }
-      return this.pushCsvStructure(tab, doc, rows, 'history.insertCols');
+      return this.pushCsvStructure(tab, doc, rows, 'history.insertCols', {
+        before: tab.colWidths.slice(),
+        after: insertColWidths(tab.colWidths, index, count),
+      });
     }
     if (!isWorkbook(doc) || count < 1) {
       return false;
@@ -174,7 +179,10 @@ export class StructuralOpsState {
       for (const row of rows) {
         row.splice(index, count);
       }
-      return this.pushCsvStructure(tab, doc, rows, 'history.deleteCols');
+      return this.pushCsvStructure(tab, doc, rows, 'history.deleteCols', {
+        before: tab.colWidths.slice(),
+        after: deleteColWidths(tab.colWidths, index, count),
+      });
     }
     if (!isWorkbook(doc) || count < 1 || index < 0 || index + count > doc.columnCount) {
       return false;
@@ -196,12 +204,33 @@ export class StructuralOpsState {
       sheetId,
       ops: [
         ...this.state.filterClearOpsFor(doc),
-        { type: 'cols', action: 'delete', index, count, data, sheetId },
+        {
+          type: 'cols',
+          action: 'delete',
+          index,
+          count,
+          data,
+          sheetId,
+          widths: colWidthsAt(tab.colWidths, index, count),
+        },
         { type: 'cells', changes: rewrites.active, sheetId },
         ...rewrites.others,
       ],
     };
     return this.state.pushEntry(tab, entry);
+  }
+
+  /**
+   * Move `count` whole rows/columns from `from` to the boundary `to` as one
+   * undoable reorder; see `planAxisMove` for how it is recorded.
+   */
+  moveAxis(tab: Tab, axis: 'row' | 'col', from: number, count: number, to: number): boolean {
+    const doc = tab.doc;
+    if (!isWorkbook(doc)) {
+      return false;
+    }
+    const entry = planAxisMove(doc, tab.colWidths, this.state.filterClearOpsFor(doc), axis, from, count, to);
+    return entry !== null && this.state.pushEntry(tab, entry);
   }
 
   /**
@@ -336,7 +365,13 @@ export class StructuralOpsState {
    * encode cannot fail in practice; a failure just aborts the edit rather than
    * committing something unrepresentable.
    */
-  private pushCsvStructure(tab: Tab, before: LosslessDocument, rows: string[][], label: string): boolean {
+  private pushCsvStructure(
+    tab: Tab,
+    before: LosslessDocument,
+    rows: string[][],
+    label: string,
+    colWidths?: { before: number[]; after: number[] },
+  ): boolean {
     const result = encodeCsvExport(rows, before.delimiter, {
       encoding: before.encoding,
       bom: before.hasBom,
@@ -351,7 +386,10 @@ export class StructuralOpsState {
       encoding: before.encoding,
       delimiter: before.delimiter,
     });
-    return this.state.pushEntry(tab, { label, ops: [{ type: 'csvStructure', before, after }] });
+    return this.state.pushEntry(tab, {
+      label,
+      ops: [{ type: 'csvStructure', before, after, ...(colWidths ? { colWidths } : {}) }],
+    });
   }
 
   /**

@@ -529,6 +529,33 @@ export class Commands {
   }
 
   /**
+   * Move `count` whole rows/columns starting at `from` to the boundary `to`
+   * (in the current layout) — dragging a row/column header's grip. A reorder
+   * that keeps values, styles, comments, widths, and formula references with
+   * the moved cells; one undo step. The moved rows/columns stay selected.
+   */
+  moveAxis(tab: Tab, axis: 'row' | 'col', from: number, count: number, to: number): boolean {
+    const doc = tab.doc;
+    if (!isWorkbook(doc)) {
+      this.ui.notify(t('move.csvOnly'), 'warn');
+      return false;
+    }
+    if (!this.state.moveAxis(tab, axis, from, count, to)) {
+      return false;
+    }
+    const start = to > from ? to - count : to;
+    const end = start + count - 1;
+    if (axis === 'row') {
+      const lastCol = Math.max(0, doc.columnCount - 1);
+      this.state.setSelection(tab, { row: end, col: 0 }, { row: start, col: lastCol }, 'row');
+    } else {
+      const lastRow = Math.max(0, doc.rowCount - 1);
+      this.state.setSelection(tab, { row: 0, col: end }, { row: lastRow, col: start }, 'col');
+    }
+    return true;
+  }
+
+  /**
    * Replace every match in the active tab (or workbook-wide) as one atomic,
    * singly-undoable operation. See `RangeOpsCommands.replaceAll` for the full
    * behavior contract.

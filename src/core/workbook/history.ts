@@ -108,10 +108,22 @@ export type Operation =
       count: number;
       data: string[][];
       sheetId?: string;
+      /**
+       * The deleted columns' display widths (0 = default), so undoing a
+       * delete brings the columns back at the width they had. Column widths
+       * are view state, not data: they never mark the document dirty.
+       */
+      widths?: number[];
     }
   | { type: 'filter'; before: SheetFilter | null; after: SheetFilter | null; sheetId?: string }
   /** Whole-document swap for a structural edit on a still-unsaved new CSV (see above). */
-  | { type: 'csvStructure'; before: LosslessDocument; after: LosslessDocument }
+  | {
+      type: 'csvStructure';
+      before: LosslessDocument;
+      after: LosslessDocument;
+      /** Column widths before/after, when the swap inserted or deleted columns. */
+      colWidths?: { before: number[]; after: number[] };
+    }
   /**
    * A change to the "wrap long rows" display setting, carried inside the entry
    * of the edit that caused it (an edit committing a line break turns wrapping

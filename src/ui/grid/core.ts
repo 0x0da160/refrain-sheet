@@ -187,6 +187,12 @@ export class GridCore {
   readonly clearedAt = new WeakMap<Tab, { row: number; col: number }>();
   /** Active whole-row / whole-column header drag, if any. */
   headerDrag: { axis: 'row' | 'col'; anchor: number; last: number } | null = null;
+  /**
+   * Active row/column move drag from a header's grip, if any: `count`
+   * rows/columns from `from`, to be dropped at the boundary `to` (in the
+   * current layout; null until the pointer is over a valid drop point).
+   */
+  axisMove: { axis: 'row' | 'col'; from: number; count: number; to: number | null } | null = null;
   /** Active pointer reference entry into a formula editor, if any. */
   refDrag: { anchor: { row: number; col: number } } | null = null;
   /** Touch/pen press-and-hold state (drag arming and the touch context menu). */
@@ -400,6 +406,9 @@ export class GridCore {
       }
       if (this.movingRange) {
         this.drags.cancelMove();
+      }
+      if (this.axisMove) {
+        this.drags.cancelAxisMove();
       }
       if (this.filling) {
         this.drags.cancelFill();

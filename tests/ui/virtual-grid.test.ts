@@ -402,11 +402,11 @@ describe('sticky at the selected cell', () => {
 });
 
 describe('moving a selection by dragging its border', () => {
-  it('shows the corner handle only where a touch or pen pointer may be used', () => {
+  it('shows the corner handle only where touch is the primary input', () => {
+    // Keyed on the primary pointer: a mouse-driven desktop that also has a
+    // touch screen shows no corner handle (its border is the move grip).
     const css = readBundledCss().replace(/\s+/g, ' ');
-    expect(css).toMatch(
-      /@media not all and \(any-pointer: coarse\) \{ \.move-handle \{ display: none; \} \}/,
-    );
+    expect(css).toMatch(/@media not all and \(pointer: coarse\) \{ \.move-handle \{ display: none; \} \}/);
   });
 
   function mouse(target: Element, type: string, init: MouseEventInit = {}): void {
@@ -464,6 +464,56 @@ describe('moving a selection by dragging its border', () => {
     expect(grid.element.classList.contains('moving-range')).toBe(false);
     expect(tab.selection).toEqual({ row: 1, col: 2 });
     expect(moveRange).not.toHaveBeenCalled();
+  });
+});
+
+describe('row/column header tools', () => {
+  function mouse(target: Element, type: string, init: MouseEventInit = {}): void {
+    target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, ...init }));
+  }
+
+  function colHead(grid: Grid, col: number): HTMLElement {
+    return grid.element.querySelector<HTMLElement>(`[data-colhead="${col}"]`)!;
+  }
+
+  it('offers a move grip and an insert button on each header of an RSF worksheet', () => {
+    const { grid } = setupRsf(RsfDocument.empty('book', 5, 4, 'Sheet1'));
+    const head = colHead(grid, 1);
+    expect(head.querySelector('[data-axismove="col"]')).not.toBeNull();
+    expect(head.querySelector('.head-insert')?.getAttribute('aria-label')).toBe(
+      t('grid.insertColRightButton'),
+    );
+    const rowHead = grid.element.querySelector<HTMLElement>('[data-rowhead="0"]')!;
+    expect(rowHead.querySelector('[data-axismove="row"]')).not.toBeNull();
+  });
+
+  it('shows no move grip on a CSV file, whose bytes cannot be reordered', () => {
+    const { grid } = setup('a,b\n1,2\n');
+    expect(grid.element.querySelector('[data-axismove]')).toBeNull();
+    expect(grid.element.querySelector('.head-insert')).not.toBeNull();
+  });
+
+  it('drags a column by its grip to the edge under the pointer', () => {
+    const { commands, grid, tab } = setupRsf(RsfDocument.empty('book', 5, 4, 'Sheet1'));
+    const moveAxis = vi.spyOn(commands, 'moveAxis').mockReturnValue(true);
+    mouse(colHead(grid, 0).querySelector('[data-axismove]')!, 'mousedown');
+    expect(tab.selectionKind).toBe('col');
+    const target = cellEl(grid, 2, 2);
+    target.getBoundingClientRect = () => ({ left: 300, width: 100, top: 0, height: 24 }) as DOMRect;
+    // Right half of column C: drop after it (the boundary before D).
+    mouse(target, 'mousemove', { clientX: 380 });
+    expect(target.classList.contains('axis-drop-before')).toBe(false);
+    expect(grid.element.classList.contains('moving-cols')).toBe(true);
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    expect(moveAxis).toHaveBeenCalledWith(tab, 'col', 0, 1, 3);
+    expect(grid.element.classList.contains('moving-cols')).toBe(false);
+  });
+
+  it('inserts a column to the right from the header button', () => {
+    const { grid, tab } = setupRsf(RsfDocument.empty('book', 5, 4, 'Sheet1'));
+    const insert = colHead(grid, 1).querySelector<HTMLButtonElement>('.head-insert')!;
+    insert.click();
+    return vi.waitFor(() => expect(tab.doc.columnCount).toBe(5));
   });
 });
 

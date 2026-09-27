@@ -430,6 +430,53 @@ describe('row and column operations', () => {
     expect(tab.doc.getValue(0, 2)).toBe('=A1+B1');
   });
 
+  it('moves column widths with inserted and deleted columns, and restores them on undo', async () => {
+    const { state, tab } = await converted('a,b,c\n');
+    tab.colWidths = [100, 200, 300];
+    state.insertCols(tab, 1, 1);
+    expect(tab.colWidths).toEqual([100, 0, 200, 300]);
+    state.undo(tab);
+    expect(tab.colWidths).toEqual([100, 200, 300]);
+    state.deleteCols(tab, 1, 1);
+    expect(tab.colWidths).toEqual([100, 300]);
+    state.undo(tab);
+    expect(tab.colWidths).toEqual([100, 200, 300]);
+    state.redo(tab);
+    expect(tab.colWidths).toEqual([100, 300]);
+  });
+
+  it('moves whole columns as a reorder, keeping widths, styles and references', async () => {
+    const { state, commands, tab, rcsv } = await converted('a,b,c,d\n1,2,3,=B2\n');
+    state.editCell(tab, 1, 3, '=B2');
+    rcsv.setCellStyleOn(undefined, 0, 1, { bold: true });
+    tab.colWidths = [0, 150];
+    // Move column B to just before D (the boundary at index 3).
+    expect(commands.moveAxis(tab, 'col', 1, 1, 3)).toBe(true);
+    expect([0, 1, 2, 3].map((c) => tab.doc.getValue(0, c))).toEqual(['a', 'c', 'b', 'd']);
+    expect(tab.doc.getValue(1, 3)).toBe('=C2');
+    expect(tab.doc.getDisplayValue(1, 3)).toBe('2');
+    expect(rcsv.activeSheet.getStyle(0, 2)).toEqual({ bold: true });
+    expect(rcsv.activeSheet.getStyle(0, 1)).toBeNull();
+    expect(tab.colWidths).toEqual([0, 0, 150]);
+    expect(state.selectedRange(tab)).toMatchObject({ left: 2, right: 2 });
+    state.undo(tab);
+    expect([0, 1, 2, 3].map((c) => tab.doc.getValue(0, c))).toEqual(['a', 'b', 'c', 'd']);
+    expect(tab.doc.getValue(1, 3)).toBe('=B2');
+    expect(rcsv.activeSheet.getStyle(0, 1)).toEqual({ bold: true });
+    expect(tab.colWidths).toEqual([0, 150]);
+  });
+
+  it('moves whole rows upward and updates references into them', async () => {
+    const { state, commands, tab } = await converted('x\ny\nz\n=A3\n');
+    state.editCell(tab, 3, 0, '=A3');
+    // Move row 3 ("z") to the top.
+    expect(commands.moveAxis(tab, 'row', 2, 1, 0)).toBe(true);
+    expect([0, 1, 2, 3].map((r) => tab.doc.getValue(r, 0))).toEqual(['z', 'x', 'y', '=A1']);
+    expect(tab.doc.getDisplayValue(3, 0)).toBe('z');
+    // Dropping a span back onto itself is not a move.
+    expect(commands.moveAxis(tab, 'row', 0, 1, 1)).toBe(false);
+  });
+
   it('confirms before deleting non-empty rows through the command', async () => {
     const ui = stubUi({ confirm: vi.fn(async () => false) });
     const { state, commands, tab } = await converted('a,b\nc,d\n', ui);

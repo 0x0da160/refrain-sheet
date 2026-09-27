@@ -251,6 +251,75 @@ export class DragOperations {
     }
   }
 
+  // ----- Row/column move (a header's grip) -----
+
+  /**
+   * Point the row/column move at the boundary `to` (or null when the pointer
+   * is off the grid) and repaint its preview: the moving rows/columns dashed,
+   * and a bar on the edge where they would land. A drop back onto the moved
+   * span itself is no move, so it shows no bar.
+   */
+  updateAxisMove(tab: Tab, to: number | null): void {
+    const move = this.core.axisMove;
+    if (!move) {
+      return;
+    }
+    const valid = to !== null && (to < move.from || to > move.from + move.count);
+    move.to = valid ? to : null;
+    this.clearAxisMovePreview();
+    const cols = move.axis === 'col';
+    this.core.element.classList.add(cols ? 'moving-cols' : 'moving-rows');
+    const length = cols ? tab.doc.columnCount : tab.doc.rowCount;
+    const cells = this.core.element.querySelectorAll<HTMLElement>(
+      cols ? '[data-col], [data-colhead]' : '[data-row][data-col], [data-rowhead]',
+    );
+    for (const cell of cells) {
+      const index = Number(
+        cols ? (cell.dataset.col ?? cell.dataset.colhead) : (cell.dataset.row ?? cell.dataset.rowhead),
+      );
+      if (index >= move.from && index < move.from + move.count) {
+        cell.classList.add('axis-move-source');
+      }
+      if (move.to !== null) {
+        if (index === move.to) {
+          cell.classList.add('axis-drop-before');
+        } else if (move.to === length && index === length - 1) {
+          cell.classList.add('axis-drop-after');
+        }
+      }
+    }
+  }
+
+  private clearAxisMovePreview(): void {
+    for (const cell of this.core.element.querySelectorAll(
+      '.axis-move-source, .axis-drop-before, .axis-drop-after',
+    )) {
+      cell.classList.remove('axis-move-source', 'axis-drop-before', 'axis-drop-after');
+    }
+    this.core.element.classList.remove('moving-cols', 'moving-rows');
+  }
+
+  /** Abort a row/column move without changing anything. */
+  cancelAxisMove(): void {
+    if (this.core.axisMove) {
+      this.clearAxisMovePreview();
+      this.core.axisMove = null;
+    }
+  }
+
+  /** Drop the moving rows/columns at the previewed boundary (mouseup). */
+  endAxisMove(): void {
+    const move = this.core.axisMove;
+    if (!move) {
+      return;
+    }
+    this.cancelAxisMove();
+    const tab = this.core.state.activeTab;
+    if (move.to !== null && tab && tab.doc === this.core.lastDoc) {
+      this.core.commands.moveAxis(tab, move.axis, move.from, move.count, move.to);
+    }
+  }
+
   // ----- Pointer reference entry -----
 
   /** Reference text for a single cell or a rectangle (`A1` or `A1:B3`). */

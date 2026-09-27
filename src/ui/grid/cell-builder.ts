@@ -9,7 +9,7 @@
  * `this.core`.
  */
 import { isCsv, isWorkbook } from '../../core/editor-document';
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, ListFilter } from 'lucide';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, GripVertical, ListFilter, Plus } from 'lucide';
 import type { Tab } from '../../app/state';
 import { t } from '../../app/i18n';
 import { runsForText, type TextRun } from '../../core/workbook/rich-text';
@@ -78,6 +78,7 @@ export class CellBuilder {
       });
       head.append(filterButton);
     }
+    this.appendHeaderTools(tab, head, 'col', c);
     // Draggable boundary to resize; double-click auto-fits to visible content.
     const handle = el('div', {
       className: 'col-resize-handle',
@@ -85,6 +86,61 @@ export class CellBuilder {
     });
     head.append(handle);
     return head;
+  }
+
+  /**
+   * The row/column header's hover tools: a grip to drag the row/column (or
+   * the selected rows/columns it belongs to) somewhere else, and a small +
+   * that inserts one row below / one column to the right. CSS shows them
+   * only while a mouse hovers the header; the same actions stay reachable
+   * from the menus and the context menu. The grip is offered only where a
+   * move is possible: an RSF worksheet (moving is a structural edit a
+   * byte-preserving CSV cannot represent), and for rows not while a sort
+   * reorders what is shown. A locked worksheet gets neither tool.
+   */
+  private appendHeaderTools(tab: Tab, head: HTMLElement, axis: 'row' | 'col', index: number): void {
+    const doc = tab.doc;
+    if (isWorkbook(doc) && doc.activeSheet.locked) {
+      return;
+    }
+    if (isWorkbook(doc) && (axis === 'col' || doc.sort === null)) {
+      const grip = el('span', {
+        className: 'head-grip',
+        attrs: {
+          'data-axismove': axis,
+          'aria-hidden': 'true',
+          title: t(axis === 'row' ? 'grid.moveRowGrip' : 'grid.moveColGrip'),
+        },
+      });
+      grip.append(createIcon(GripVertical, '', 12));
+      head.append(grip);
+    }
+    const label = t(axis === 'row' ? 'grid.insertRowBelowButton' : 'grid.insertColRightButton');
+    const insert = el('button', {
+      className: 'head-insert',
+      attrs: { type: 'button', tabindex: '-1', 'aria-label': label, title: label },
+    });
+    insert.append(createIcon(Plus, '', 12));
+    insert.addEventListener('mousedown', (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+    });
+    insert.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const current = this.core.state.activeTab;
+      if (!current) {
+        return;
+      }
+      this.core.editing.commitEditor();
+      if (axis === 'row') {
+        this.core.pointer.selectRows(current, index, index);
+      } else {
+        this.core.pointer.selectCols(current, index, index);
+      }
+      this.core.editing.focusGrid();
+      void this.core.commands.run(axis === 'row' ? 'sheet.insertRowBelow' : 'sheet.insertColRight');
+    });
+    head.append(insert);
   }
 
   /**
@@ -223,6 +279,7 @@ export class CellBuilder {
       head.setAttribute('title', t('grid.stickyRowTitle', { n: row + 1 }));
     }
     head.style.width = `${this.core.metrics.headW(tab)}px`;
+    this.appendHeaderTools(tab, head, 'row', row);
     rowEl.append(head);
     const fieldCount = doc.fieldCount(row);
     const frozenCols = this.core.metrics.frozenColCount(tab);

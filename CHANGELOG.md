@@ -38,6 +38,25 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- Hovering a row number or column letter shows a grip and a small + button.
+  Drag the grip to move the row or column (or all the selected ones) to
+  another place in an RSF sheet; the rows or columns in between close up,
+  and formulas, formatting, comments, and column widths move with the cells.
+  The + inserts one row below or one column to the right.
+
+### Fixed
+
+- Inserting or deleting columns now moves the column widths with the
+  columns, so each column keeps its width and a new column starts at the
+  default width. Undoing a column delete brings back the deleted columns'
+  widths.
+- The small move handle at the top-left of a selection no longer shows on a
+  desktop or laptop driven by a mouse, even when it also has a touch screen.
+- After copying, the moving dashed border around the copied cells is no
+  longer hidden under the selection's solid border.
+
 ## [0.9.13] - 2026-09-27
 
 ### Changed

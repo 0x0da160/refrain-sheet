@@ -170,6 +170,8 @@ exports[`core export surface > keeps every core module exporting the same names 
     "isFormula",
     "isValidSheetName",
     "literalToValue",
+    "moveFormulaAxis",
+    "movedAxisIndex",
     "parseFormula",
     "parseRef",
     "parseRefEx",

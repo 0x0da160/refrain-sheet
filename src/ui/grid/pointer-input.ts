@@ -61,6 +61,7 @@ export class PointerInput {
     this.core.drags.endFill();
     this.core.drags.endRefDrag();
     this.core.drags.endMove();
+    this.core.drags.endAxisMove();
     this.core.autoScroll.stop();
   }
 
@@ -72,6 +73,7 @@ export class PointerInput {
     const target = event.target as HTMLElement | null;
     if (
       this.startHandleDrag(tab, target, event) ||
+      this.startAxisMove(tab, target, event) ||
       this.startReferenceEntry(target, event) ||
       this.startEdgeMove(tab, event) ||
       this.startHeaderSelection(tab, target, event, 'row') ||
@@ -132,6 +134,68 @@ export class PointerInput {
       return true;
     }
     return false;
+  }
+
+  /**
+   * A press on a row/column header's grip starts moving that row/column —
+   * or the whole selected span of rows/columns when the grip's header is
+   * part of it. True when the press was on a grip.
+   */
+  private startAxisMove(tab: Tab, target: HTMLElement | null, event: MouseEvent): boolean {
+    const grip = target?.closest<HTMLElement>('[data-axismove]');
+    if (!grip) {
+      return false;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const axis = grip.dataset.axismove === 'row' ? 'row' : 'col';
+    const head = grip.closest<HTMLElement>(axis === 'row' ? '[data-rowhead]' : '[data-colhead]');
+    if (!head || !isWorkbook(tab.doc)) {
+      return true;
+    }
+    const index = Number(axis === 'row' ? head.dataset.rowhead : head.dataset.colhead);
+    this.core.editing.commitEditor();
+    const range = this.core.state.selectedRange(tab);
+    const low = range ? (axis === 'row' ? range.top : range.left) : -1;
+    const high = range ? (axis === 'row' ? range.bottom : range.right) : -1;
+    let from = index;
+    let count = 1;
+    if (range && tab.selectionKind === axis && index >= low && index <= high) {
+      from = low;
+      count = high - low + 1;
+    } else if (axis === 'row') {
+      this.selectRows(tab, index, index);
+    } else {
+      this.selectCols(tab, index, index);
+    }
+    this.core.axisMove = { axis, from, count, to: null };
+    this.core.drags.updateAxisMove(tab, null);
+    this.core.editing.focusGrid();
+    return true;
+  }
+
+  /**
+   * The row/column boundary under the pointer for a row/column move: before
+   * the row/column under it, or after it past its middle.
+   */
+  private axisBoundaryFromEvent(event: MouseEvent, axis: 'row' | 'col'): number | null {
+    const target = event.target as HTMLElement | null;
+    const hit =
+      axis === 'row'
+        ? target?.closest<HTMLElement>('[data-rowhead], [data-row]')
+        : target?.closest<HTMLElement>('[data-colhead], [data-col]');
+    if (!hit) {
+      return null;
+    }
+    const index = Number(
+      axis === 'row' ? (hit.dataset.rowhead ?? hit.dataset.row) : (hit.dataset.colhead ?? hit.dataset.col),
+    );
+    const rect = hit.getBoundingClientRect();
+    const past =
+      axis === 'row'
+        ? event.clientY > rect.top + rect.height / 2
+        : event.clientX > rect.left + rect.width / 2;
+    return past ? index + 1 : index;
   }
 
   /**
@@ -226,7 +290,7 @@ export class PointerInput {
   });
 
   /** Whole-row selection spanning rows [anchorRow, targetRow] across all columns. */
-  private selectRows(tab: Tab, anchorRow: number, targetRow: number): void {
+  selectRows(tab: Tab, anchorRow: number, targetRow: number): void {
     const rows = tab.doc.rowCount;
     if (rows === 0) {
       return;
@@ -240,7 +304,7 @@ export class PointerInput {
   }
 
   /** Whole-column selection spanning columns [anchorCol, targetCol] across all rows. */
-  private selectCols(tab: Tab, anchorCol: number, targetCol: number): void {
+  selectCols(tab: Tab, anchorCol: number, targetCol: number): void {
     const cols = tab.doc.columnCount;
     if (cols === 0 || tab.doc.rowCount === 0) {
       return;
@@ -274,6 +338,14 @@ export class PointerInput {
   }
 
   onMouseMove(event: MouseEvent): void {
+    const axisMove = this.core.axisMove;
+    if (axisMove) {
+      const tab = this.core.state.activeTab;
+      if (tab) {
+        this.core.drags.updateAxisMove(tab, this.axisBoundaryFromEvent(event, axisMove.axis));
+      }
+      return;
+    }
     if (this.core.headerDrag) {
       const tab = this.core.state.activeTab;
       if (!tab) {

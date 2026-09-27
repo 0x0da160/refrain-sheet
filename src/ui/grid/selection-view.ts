@@ -189,6 +189,15 @@ export class SelectionView {
       old.remove();
     }
     const range = this.core.copySource;
+    // The active cell's solid outline is drawn in the same color right under
+    // the dashes, which would hide them; cells of the copied range drop it
+    // while the copy is pending (see `.vcell.in-copy-source` in grid.css).
+    for (const cell of this.core.canvas.querySelectorAll<HTMLElement>('[data-row][data-col]')) {
+      cell.classList.toggle(
+        'in-copy-source',
+        range !== null && rangeContains(range, Number(cell.dataset.row), Number(cell.dataset.col)),
+      );
+    }
     if (!range) {
       return;
     }

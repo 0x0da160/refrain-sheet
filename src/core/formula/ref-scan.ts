@@ -268,3 +268,103 @@ export function adjustFormulaForAxis(
   const mapRowSpan = axis === 'row' ? mapSpan : undefined;
   return rewriteFormulaRefs(src, mapRef, mapRange, mapColSpan, mapRowSpan, sheetOpts);
 }
+
+/**
+ * Where index `v` along an axis ends up when the `count` rows/columns
+ * starting at `from` are moved to the boundary `to` (a position in the
+ * pre-move layout, outside `[from + 1, from + count - 1]`): the moved span
+ * shifts as a block and the rows/columns it passes over close the gap.
+ */
+export function movedAxisIndex(v: number, from: number, count: number, to: number): number {
+  if (to > from + count) {
+    if (v >= from && v < from + count) {
+      return v + (to - from - count);
+    }
+    return v >= from + count && v < to ? v - count : v;
+  }
+  if (to < from) {
+    if (v >= from && v < from + count) {
+      return v - (from - to);
+    }
+    return v >= to && v < from ? v + count : v;
+  }
+  return v;
+}
+
+/**
+ * Where the span `[low, high]` ends up under the same move: the block it
+ * becomes when its rows/columns stay together (all inside it or all outside
+ * the move), otherwise its two endpoints' new positions, in order.
+ */
+function movedAxisSpan(low: number, high: number, from: number, count: number, to: number): [number, number] {
+  const p = (v: number): number => movedAxisIndex(v, from, count, to);
+  // The move shuffles only [first, last): the moved span plus what it passes over.
+  const first = Math.min(from, to);
+  const last = Math.max(from + count, to);
+  const pieces: Array<[number, number]> = [];
+  const piece = (a: number, b: number): void => {
+    const lo = Math.max(a, low);
+    const hi = Math.min(b, high);
+    if (lo <= hi) {
+      pieces.push([p(lo), p(hi)]);
+    }
+  };
+  piece(-Infinity, first - 1);
+  piece(from, from + count - 1);
+  piece(to < from ? to : from + count, to < from ? from - 1 : to - 1);
+  piece(last, Infinity);
+  pieces.sort((a, b) => a[0] - b[0]);
+  const contiguous = pieces.every((cur, i) => i === 0 || cur[0] === pieces[i - 1][1] + 1);
+  if (contiguous && pieces.length > 0) {
+    return [pieces[0][0], pieces[pieces.length - 1][1]];
+  }
+  const a = p(low);
+  const b = p(high);
+  return a <= b ? [a, b] : [b, a];
+}
+
+/**
+ * Adjust references for moving whole rows or columns (a reorder, not an
+ * overwrite): every reference follows the cell it pointed at to its new
+ * position, so a formula keeps reading the same values. A range that still
+ * covers one unbroken block afterwards becomes that block (a total over rows
+ * 1-3 still totals them when row 3 moves to the top); a range the move splits
+ * keeps its two endpoint cells, like any spreadsheet. `$` markers are
+ * preserved.
+ */
+export function moveFormulaAxis(
+  src: string,
+  axis: 'row' | 'col',
+  from: number,
+  count: number,
+  to: number,
+  sheetOpts?: SheetRewriteOptions,
+): string {
+  const p = (v: number): number => movedAxisIndex(v, from, count, to);
+  const span = (a: number, b: number): [number, number] => {
+    const [low, high] = movedAxisSpan(Math.min(a, b), Math.max(a, b), from, count, to);
+    return a <= b ? [low, high] : [high, low];
+  };
+  const mapRef: RefMap = (ref) =>
+    axis === 'row' ? { row: p(ref.row), col: ref.col } : { row: ref.row, col: p(ref.col) };
+  const mapRange: RangeMap = (a, b) => {
+    if (axis === 'row') {
+      const [ra, rb] = span(a.row, b.row);
+      return { from: { row: ra, col: a.col }, to: { row: rb, col: b.col } };
+    }
+    const [ca, cb] = span(a.col, b.col);
+    return { from: { row: a.row, col: ca }, to: { row: b.row, col: cb } };
+  };
+  const mapSpan: SpanMap = (a, b) => {
+    const [fa, fb] = span(a.index, b.index);
+    return { from: fa, to: fb };
+  };
+  return rewriteFormulaRefs(
+    src,
+    mapRef,
+    mapRange,
+    axis === 'col' ? mapSpan : undefined,
+    axis === 'row' ? mapSpan : undefined,
+    sheetOpts,
+  );
+}

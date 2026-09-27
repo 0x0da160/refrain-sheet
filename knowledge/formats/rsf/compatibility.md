@@ -3,8 +3,8 @@ type: format-concept
 title: RSF versioning and compatibility
 description: Lossy CSV→RSF conversion, the JSON document version and how later versions may extend it, the refused binary format of releases up to 0.8.x, and the frozen fixture corpus.
 sources:
-  - resource: ../../../src/core/rsf-codec.ts
-  - resource: ../../../tests/rsf-fixtures.test.ts
+  - resource: ../../../src/core/workbook/rsf-codec.ts
+  - resource: ../../../tests/core/rsf-fixtures.test.ts
 status: stable
 generated:
   by: claude-code
@@ -66,7 +66,7 @@ the same content always serializes to the same text.
 `tests/fixtures/rsf/v1/` holds committed files in this format — every
 feature on one sheet, the four source worksheet kinds, version history, a
 compressed bulk sheet, and a Raw-block file written by the JavaScript
-fallback — and `tests/rsf-fixtures.test.ts` checks each two ways: the
+fallback — and `tests/core/rsf-fixtures.test.ts` checks each two ways: the
 committed bytes must still **decode** to the data they were written from (a
 fixture is never rewritten), and the current encoder must still
 **reproduce** them byte-for-byte (output stability, which also pins the

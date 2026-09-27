@@ -282,7 +282,7 @@ clear formatting. Updated `ui/selection-and-navigation.md`,
 
 **F4 reference toggle and number format keys.** F4 while typing a formula
 cycles the reference at the caret through A1 / $A$1 / A$1 / $A1
-(`src/core/formula-ref-toggle.ts`), and Ctrl+Shift+1 / 4 / 5 apply number,
+(`src/core/formula/ref-toggle.ts`), and Ctrl+Shift+1 / 4 / 5 apply number,
 currency, and percent presets. Updated `ui/editing-and-ime.md`,
 `ui/view-formatting-and-panels.md`, and the adoption table in
 `references/spreadsheet-shortcut-comparison.md`.
@@ -340,3 +340,28 @@ tokens (design system D-42). `decisions/ip-risk-policy.md` now points at
 the FAQ partial, which carries the "not an Excel replacement / no Excel
 compatibility guarantee" statements the policy relies on; the old
 comparison table is gone.
+
+**Repository layout reorganized.** Directory modules replace the
+file-plus-directory pairs (`src/app/commands/index.ts`,
+`src/app/state/index.ts`, `src/ui/grid/index.ts`, `src/ui/dialogs/index.ts`);
+`src/wasm-gen/` became `src/generated/`; stylesheets were renamed after
+their UI modules and loaded from `src/styles/index.css`; tests moved into
+`tests/{core,app,ui,tooling,site}/` and scripts into
+`scripts/{build,check,release,lib,ui-check}/`; proposals moved to
+`docs/proposals/`. `design-system/1.0.0/` and every committed copy of a
+design-system master were removed — the builds read the masters directly.
+Paths across the bundle were updated; the new rules are recorded in
+`architecture/module-boundaries.md` ("Layout and naming") and enforced by
+`npm run check:layout`.
+
+**Structural refactoring (proposal R0–R9).** `src/core/` is grouped into
+`csv/`, `formula/`, `workbook/`, and `interchange/`; the formula engine is
+split into tokenizer/parser/evaluator/rewrite modules with one function
+file per group, and its rank order is enforced by
+`tests/tooling/architecture.test.ts`. `RsfDocument` extends a `Workbook`
+base with `RecalcEngine`, `SheetRegistry`, and `VersionHistory`
+collaborators. Commands are declared once in `src/app/commands/catalog/`;
+the grid is a `GridCore` plus collaborators; `main.ts` became `ui/shell/`.
+Paths across the bundle were updated (`architecture/dependency-rules.md`,
+`system-overview.md`, the domain and RSF format files); the outcome is
+recorded in `docs/proposals/structural-refactoring-plan.md`.

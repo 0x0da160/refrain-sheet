@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { t } from '../app/i18n';
 import { functionCompletions, type FunctionInfo } from '../core/formula';
-import { toggleReferenceAt } from '../core/formula-ref-toggle';
+import { toggleReferenceAt } from '../core/formula/ref-toggle';
 import { el } from './dom';
 import { onViewportResize, positionPopup } from './popup';
 

@@ -2,11 +2,10 @@
 /**
  * The theme-aware application icon and logotype.
  *
- * Four bundled variants exist — `icon.svg`/`logotype.svg` for the light theme
- * and `icon-dark.svg`/`logotype-dark.svg` for the dark one. (Design System
- * v1.0.0 has one app icon for both themes, so the two icon files are the same
- * artwork today; `tests/brand-assets.test.ts` ties each file to its master.)
- * All four are
+ * The icon and the logotype each have a light and a dark variant, imported
+ * directly from the design-system masters (`design-system/v2/foundations/`).
+ * The design system has one app icon for both themes, so both icon variants
+ * are the same artwork today. All of them are
  * imported at build time (Vite, `base: './'`), so they resolve under a GitHub
  * Pages base path and via `file://` with no runtime network request of any
  * kind; there is no icon library and nothing is ever fetched.
@@ -33,10 +32,13 @@ import { t } from '../app/i18n';
 import { el } from './dom';
 // Bundled at build time (relative, hashed URLs): all four variants ship in
 // the static production build and in the file:// distribution.
-import iconDarkUrl from '../assets/icon-dark.svg';
-import iconUrl from '../assets/icon.svg';
-import logotypeDarkUrl from '../assets/logotype-dark.svg';
-import logotypeUrl from '../assets/logotype.svg';
+// Imported straight from the design-system masters, so no copy can drift.
+import iconUrl from '../../design-system/v2/foundations/icons/app-icon-1024.svg';
+import logotypeDarkUrl from '../../design-system/v2/foundations/logo/refrain-sheet-logotype-horizontal-reverse.svg';
+import logotypeUrl from '../../design-system/v2/foundations/logo/refrain-sheet-logotype-horizontal.svg';
+
+/** The design system has one app icon for both themes; this slot is where a dark master would go. */
+const iconDarkUrl = iconUrl;
 
 /** Marks an element as a product-identity icon that follows the theme. */
 const APP_ICON_ATTR = 'data-app-icon';

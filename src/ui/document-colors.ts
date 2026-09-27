@@ -27,7 +27,7 @@ export const SWATCH_TOKENS: readonly string[] = [
  * Conditional-format defaults, stored in the document when a new rule is
  * created. They equal the design system's `--cf-*` tokens (red.100 fill with
  * red.900 text for a highlight; white to green.300 for a colour scale) —
- * tests/document-colors.test.ts keeps the two in sync.
+ * tests/ui/document-colors.test.ts keeps the two in sync.
  */
 export const CF_DEFAULT_BACKGROUND = '#ffddd9';
 export const CF_DEFAULT_TEXT = '#5d0004';

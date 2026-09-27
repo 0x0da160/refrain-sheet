@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { getCsvEngine } from './csv-engine';
+import { getCsvEngine } from './csv/csv-engine';
 /**
  * Selection statistics over a rectangular grid range.
  *

@@ -101,6 +101,11 @@
       "support": "Current major; only the newest major receives fixes (Vitest 3 never received the GHSA-82fw-gwwq-j7x9 fix).",
       "plan": null
     },
+    "npm:@vitest/coverage-v8@5": {
+      "eol": null,
+      "support": "Released in lockstep with Vitest; always pinned to the exact vitest version and moved with it.",
+      "plan": null
+    },
     "npm:typescript@6": {
       "eol": null,
       "support": "6.0 is the last JavaScript-based TypeScript line; 7.x (native compiler) is current. Held on 6 because typescript-eslint 8 supports <6.1.",

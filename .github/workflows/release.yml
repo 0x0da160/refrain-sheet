@@ -127,7 +127,7 @@ jobs:
         run: npm run check:dist
 
       # The hosted artifact deployed to Pages is built from the same sources
-      # and differs only in its Content-Security-Policy (scripts/csp.mjs). Both
+      # and differs only in its Content-Security-Policy (scripts/lib/csp.mjs). Both
       # artifacts are built and validated before either is published, so the
       # offline dist/ that goes into the release ZIP can never inherit a
       # hosted-only CSP relaxation. See knowledge/operations/security-threat-model.md.

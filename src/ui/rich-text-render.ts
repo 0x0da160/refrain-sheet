@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-import type { CellStyle } from '../core/cell-style';
-import type { TextRun } from '../core/rich-text';
+import type { CellStyle } from '../core/workbook/cell-style';
+import type { TextRun } from '../core/workbook/rich-text';
 import { el } from './dom';
 
 /**

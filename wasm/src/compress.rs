@@ -2,7 +2,7 @@
 //! Compression and integrity primitives for the binary RSF container.
 //!
 //! The container framing (magic bytes, header, checksum) lives on the
-//! JavaScript side in `src/core/rsf-codec.ts`; this module provides only the
+//! JavaScript side in `src/core/workbook/rsf-codec.ts`; this module provides only the
 //! CPU-heavy primitives: the pure-Rust compression codecs and a CRC-32
 //! checksum. Every decompressor is bounded by an explicit output limit so a
 //! malicious "decompression bomb" cannot exhaust memory.

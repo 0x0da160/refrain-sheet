@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-import type { AppState, Tab } from '../app/app-state';
+import { isWorkbook } from '../core/editor-document';
+import type { AppState, Tab } from '../app/state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { el } from './dom';
@@ -62,13 +63,13 @@ export class TextSheetView {
   /** True when the active worksheet is a plain-text sheet — the caller hides the grid exactly when this is true. */
   get active(): boolean {
     const tab = this.state.activeTab;
-    return tab !== null && tab.doc.kind === 'rsf' && tab.doc.activeSheet.kind === 'text';
+    return tab !== null && isWorkbook(tab.doc) && tab.doc.activeSheet.kind === 'text';
   }
 
   /** Show/hide and (re)populate from the active tab/worksheet. Call on every `tabs`/`active`/`sheets`/`doc` event. */
   refresh(): void {
     const tab = this.state.activeTab;
-    if (tab === null || tab.doc.kind !== 'rsf' || tab.doc.activeSheet.kind !== 'text') {
+    if (tab === null || !isWorkbook(tab.doc) || tab.doc.activeSheet.kind !== 'text') {
       this.flushCommit();
       this.bound = null;
       this.element.hidden = true;
@@ -98,7 +99,7 @@ export class TextSheetView {
       return;
     }
     const { tab, sheetId } = this.bound;
-    if (tab.doc.kind !== 'rsf' || tab.doc.activeSheet.id !== sheetId) {
+    if (!isWorkbook(tab.doc) || tab.doc.activeSheet.id !== sheetId) {
       return;
     }
     const sheet = tab.doc.activeSheet;

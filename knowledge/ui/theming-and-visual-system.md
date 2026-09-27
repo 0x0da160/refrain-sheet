@@ -8,7 +8,7 @@ sources:
   - resource: ../../CHANGELOG.md
   - resource: ../../src/styles/tailwind-token-bridge.css
   - resource: ../../design-system/v2/docs/migration.md
-  - resource: ../../src/styles/virtualized-grid.css
+  - resource: ../../src/styles/grid.css
   - resource: ../../src/ui/command-icons.ts
 status: stable
 generated:
@@ -71,7 +71,7 @@ paints it.
 
 The theme is a **semantic CSS custom-property system** taken from the
 Refrain Sheet Design System v2 (`design-system/v2/`, currently 2.1.0), whose generated
-token CSS `src/styles.css` loads first: `foundations.css` holds the shell
+token CSS `src/styles/index.css` loads first: `foundations.css` holds the shell
 colours (`--bg-*`, `--fg-*`, `--border-*`, `--accent-*`, status colours,
 `--inverse-*`, `--overlay`, `--shadow-*`) for light and dark, and
 `app-tokens.css` adds the **canvas** colours (`--canvas-*`, `--state-*`,
@@ -93,7 +93,7 @@ and warnings are never signaled by color alone (see
 one pairs with).
 
 For how `src/styles/` is physically split by section, loaded via
-`src/styles.css`'s ordered `@import` list, and bridged to Tailwind utility
+`src/styles/index.css`'s ordered `@import` list, and bridged to Tailwind utility
 classes for non-grid surfaces, see
 [../architecture/module-boundaries.md](../architecture/module-boundaries.md)'s
 styling-architecture paragraph — that mechanical detail is not repeated
@@ -134,8 +134,8 @@ properties, used everywhere outside the grid instead of scattered literals
   [tabs-and-worksheet-strip.md](tabs-and-worksheet-strip.md)). Their left content edges line up at
   `--space-2` (8px).
 
-The grid's own cell geometry (`src/styles/virtualized-grid.css`) is
-deliberately outside this scale: `grid.ts` measures cell padding and keeps
+The grid's own cell geometry (`src/styles/grid.css`) is
+deliberately outside this scale: `src/ui/grid/index.ts` measures cell padding and keeps
 row height in sync with `--grid-row-height`. Tap-target floors in the
 mobile layout use the density tokens (`--bar-h`, `--control-h`,
 `--field-h`) rather than the spacing scale, since they are target sizes
@@ -232,7 +232,7 @@ remaining content height — so the line box itself centers the glyphs. The
 inline cell editor offsets its 2px border against the same padding so
 typed and IME-composed text starts exactly where the cell text is drawn.
 `npm run ui:check` measures all of this in headless Chromium at every zoom
-level (`scripts/ui-check-grid.mjs`). Because this depends on the line box rather
+level (`scripts/ui-check/grid.mjs`). Because this depends on the line box rather
 than any font's baseline or half-leading metrics, it holds identically for
 every offered spreadsheet font and fallback stack, and for Japanese,
 Latin, numeric, formula-result, error, and mixed-script values.

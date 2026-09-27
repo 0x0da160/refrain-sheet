@@ -48,21 +48,21 @@ in-app way to recover. Before changing anything under `wasm/src/`:
   minimum Rust toolchain compatibility). Do not relax a pin without reading
   its comment and re-verifying the reason still holds.
 - **Rebuilding the embedded artifact is a separate, explicit step:**
-  `npm run build:wasm` (`scripts/build-wasm.mjs`) runs `wasm-pack build` then `scripts/embed-wasm.mjs`
+  `npm run build:wasm` (`scripts/build/wasm.mjs`) runs `wasm-pack build` then `scripts/build/embed-wasm.mjs`
   to re-embed the Base64 payload into the JS bundle. A `wasm/src/` change
   that isn't followed by `build:wasm` has no effect on the running app —
   `npm run build` alone does not rebuild it.
 - **The build is reproducible, and CI checks it.** With the toolchain pinned
   in the root `rust-toolchain.toml` (1.98.1), wasm-pack 0.15.0, and
   wasm-bindgen-cli 0.2.129, `build:wasm` is byte-deterministic across
-  machines: `scripts/build-wasm.mjs` remaps the cargo home in the paths rustc
+  machines: `scripts/build/wasm.mjs` remaps the cargo home in the paths rustc
   embeds, so a different home directory cannot change the binary.
   `.github/workflows/wasm.yml` runs `test:rust`, rebuilds, and fails if
-  `src/wasm-gen/` differs from the committed files — so always rebuild with
+  `src/generated/` differs from the committed files — so always rebuild with
   exactly those versions (the Docker image has them, and so does a
   Claude Code on the web session via `.claude/hooks/session-start.sh`) and
   commit the result.
-  The frozen `.rsf` fixtures (`tests/rsf-fixtures.test.ts`) pin the codecs'
+  The frozen `.rsf` fixtures (`tests/core/rsf-fixtures.test.ts`) pin the codecs'
   compressed output byte-for-byte on the JS side.
 - `wasm-opt` is deliberately disabled in the release profile (see the comment
   in `Cargo.toml`) so the build never needs to download binaryen; don't

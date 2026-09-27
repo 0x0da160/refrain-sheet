@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 import { X } from 'lucide';
-import { AppState } from '../../app/app-state';
+import { AppState } from '../../app/state';
 import { Commands, type UiPort } from '../../app/commands';
 import { t } from '../../app/i18n';
-import { decodeRsfHistorySnapshot, type RsfHistorySnapshot } from '../../core/rsf-codec';
-import { RsfDocument } from '../../core/rsf-document';
+import { decodeRsfHistorySnapshot, type RsfHistorySnapshot } from '../../core/workbook/rsf-codec';
+import { RsfDocument } from '../../core/workbook/rsf-document';
 import { el, focusWithoutKeyboard } from '../dom';
 import { Grid } from '../grid';
 import { createIcon } from '../icon';

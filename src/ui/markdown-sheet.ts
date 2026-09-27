@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-import type { AppState, Tab } from '../app/app-state';
+import { isWorkbook } from '../core/editor-document';
+import type { AppState, Tab } from '../app/state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { parseMarkdown } from '../core/markdown';
@@ -8,7 +9,7 @@ import {
   buildSidePanelChrome,
   releaseSidePanel,
   currentSidePanelPlacement,
-} from './dialogs/shared';
+} from './dialogs/side-panel';
 import { Eye } from 'lucide';
 import { el } from './dom';
 import { SourceEditor } from './source-editor';
@@ -27,7 +28,7 @@ const COMMIT_DEBOUNCE_MS = 600;
  * The rendered preview (`panelElement`) is a separate, persistent dockable
  * `.side-panel` — the same `buildSidePanelChrome`/`applySidePanelPosition`/
  * `currentSidePanelPlacement` machinery the Filter/Sort/Format/SQL Query
- * panels and the comments panel use (`src/ui/dialogs/shared.ts`,
+ * panels and the comments panel use (`src/ui/dialogs/side-panel.ts`,
  * `ui/comments-panel.ts`) — toggled by `previewToggle`, rather than a fixed
  * inline split, per the Issue's request to dock the preview like the Filter
  * panel. The caller must append `panelElement` into the app shell alongside
@@ -165,13 +166,13 @@ export class MarkdownSheetView {
   /** True when the active worksheet is a Markdown sheet — the caller hides the grid exactly when this is true. */
   get active(): boolean {
     const tab = this.state.activeTab;
-    return tab !== null && tab.doc.kind === 'rsf' && tab.doc.activeSheet.kind === 'markdown';
+    return tab !== null && isWorkbook(tab.doc) && tab.doc.activeSheet.kind === 'markdown';
   }
 
   /** Show/hide and (re)populate from the active tab/worksheet. Call on every `tabs`/`active`/`sheets`/`doc` event. */
   refresh(): void {
     const tab = this.state.activeTab;
-    if (tab === null || tab.doc.kind !== 'rsf' || tab.doc.activeSheet.kind !== 'markdown') {
+    if (tab === null || !isWorkbook(tab.doc) || tab.doc.activeSheet.kind !== 'markdown') {
       this.flushCommit();
       this.bound = null;
       this.element.hidden = true;
@@ -204,7 +205,7 @@ export class MarkdownSheetView {
       return;
     }
     const { tab, sheetId } = this.bound;
-    if (tab.doc.kind !== 'rsf' || tab.doc.activeSheet.id !== sheetId) {
+    if (!isWorkbook(tab.doc) || tab.doc.activeSheet.id !== sheetId) {
       return;
     }
     const sheet = tab.doc.activeSheet;

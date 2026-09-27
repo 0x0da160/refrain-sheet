@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, RangeDialogsPort } from '../ui-port';
+import { isWorkbook } from '../../core/editor-document';
 import {
   filterDataTop,
   rowMatchesFilter,
@@ -6,20 +8,14 @@ import {
   MAX_FILTER_ROWS,
   MAX_FILTER_VALUES,
   type SheetFilter,
-} from '../../core/filter';
+} from '../../core/workbook/filter';
 import { cellLabel, columnLabel } from '../../core/formula';
-import type { RsfDocument } from '../../core/rsf-document';
+import type { RsfDocument } from '../../core/workbook/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
-import type { AppState, Tab } from '../app-state';
+import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type {
-  ColumnMenuInput,
-  ConvertReason,
-  FilterDialogInput,
-  FilterDialogResult,
-  UiPort,
-} from '../commands';
-import { compareSortValues, validateSort } from '../../core/sort';
+import type { ColumnMenuInput, ConvertReason, FilterDialogInput, FilterDialogResult } from '../commands';
+import { compareSortValues, validateSort, type SheetSort } from '../../core/workbook/sort';
 import { applyWhileOpen, LARGE_OP_CELLS, pct, withBusy } from './shared';
 import type { SortCommands } from './sort';
 
@@ -39,12 +35,12 @@ interface CellRange {
  * `src/app/commands/file-io.ts`) — `Commands` still exposes the same public
  * methods, delegating to an instance of this class. This is the `Commands`-
  * layer dispatch code, distinct from (and a consumer of) the pure filter
- * logic in `src/core/filter.ts`.
+ * logic in `src/core/workbook/filter.ts`.
  */
 export class FilterCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & RangeDialogsPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
     private readonly sort: SortCommands,
   ) {}
@@ -180,7 +176,7 @@ export class FilterCommands {
    * RSF-only, with the same explicit CSV conversion offer as Filter….
    */
   async toggleHeaderFilter(tab: Tab): Promise<boolean> {
-    if (tab.doc.kind === 'rsf' && tab.doc.filter !== null) {
+    if (isWorkbook(tab.doc) && tab.doc.filter !== null) {
       return this.clearAllFilters(tab);
     }
     if (!tab.selection) {
@@ -233,7 +229,7 @@ export class FilterCommands {
    */
   async columnMenu(tab: Tab, col: number, anchor: ColumnMenuInput['anchor']): Promise<boolean> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.filter === null) {
+    if (!isWorkbook(doc) || doc.filter === null) {
       return false;
     }
     const filter = doc.filter;
@@ -254,17 +250,6 @@ export class FilterCommands {
       return false;
     }
     const existing = filter.columns.find((c) => c.col === col) ?? null;
-    const sort = doc.sort;
-    const sortedHere =
-      sort !== null &&
-      sort.keys.length === 1 &&
-      sort.keys[0].col === col &&
-      sort.top === filter.top &&
-      sort.bottom === filter.bottom
-        ? sort.keys[0].ascending
-          ? 'asc'
-          : 'desc'
-        : null;
     const input: ColumnMenuInput = {
       col,
       colLetter: columnLabel(col),
@@ -275,7 +260,7 @@ export class FilterCommands {
       selected: existing?.values ?? null,
       hasConditions: (existing?.conditions.length ?? 0) > 0,
       hasColumnFilter: existing !== null,
-      sorted: sortedHere,
+      sorted: sortDirectionOn(doc.sort, filter, col),
     };
     const sheet = doc.activeSheet;
     const result = await this.ui.chooseColumnMenu(input);
@@ -291,49 +276,79 @@ export class FilterCommands {
         return this.filterDialog(tab, col);
       case 'clearSort':
         return this.sort.clearSort(tab);
-      case 'sort': {
-        const next = validateSort(
-          {
-            top: current.top,
-            left: current.left,
-            bottom: current.bottom,
-            right: current.right,
-            headerRow: current.headerRow,
-            keys: [{ col, ascending: result.ascending }],
-          },
-          doc.rowCount,
-          doc.columnCount,
-        );
-        if (!next) {
-          return false;
-        }
-        // A different sort range cannot simply be replaced in place (an
-        // active sort's range is fixed), so the old sort is released first.
-        this.state.setSort(tab, null);
-        return this.sort.applySort(tab, next);
-      }
+      case 'sort':
+        return this.sortFromColumnMenu(tab, doc, current, col, result.ascending);
       case 'clearColumn':
-      case 'apply': {
-        const kept = current.columns.filter((c) => c.col !== col);
-        const before = current.columns.find((c) => c.col === col) ?? null;
-        const values = result.action === 'apply' ? result.values : null;
-        const conditions = result.action === 'apply' ? (before?.conditions ?? []) : [];
-        const columns =
-          conditions.length > 0 || values !== null
-            ? [...kept, { col, join: before?.join ?? 'and', conditions, values }]
-            : kept;
-        const next = validateFilter(
-          { ...current, columns: columns.sort((a, b) => a.col - b.col) },
-          doc.rowCount,
-          doc.columnCount,
+      case 'apply':
+        return this.applyColumnMenuValues(
+          tab,
+          doc,
+          current,
+          col,
+          result.action === 'apply' ? result.values : null,
         );
-        if (!next) {
-          await this.ui.showMessage(t('dialog.filter.title'), t('dialog.filter.invalid'));
-          return false;
-        }
-        return this.applyFilter(tab, next);
-      }
     }
+  }
+
+  /**
+   * Sort the filter range by one column from its header menu. A different
+   * sort range cannot simply be replaced in place (an active sort's range is
+   * fixed), so the old sort is released first.
+   */
+  private sortFromColumnMenu(
+    tab: Tab,
+    doc: RsfDocument,
+    current: SheetFilter,
+    col: number,
+    ascending: boolean,
+  ): Promise<boolean> {
+    const next = validateSort(
+      {
+        top: current.top,
+        left: current.left,
+        bottom: current.bottom,
+        right: current.right,
+        headerRow: current.headerRow,
+        keys: [{ col, ascending }],
+      },
+      doc.rowCount,
+      doc.columnCount,
+    );
+    if (!next) {
+      return Promise.resolve(false);
+    }
+    this.state.setSort(tab, null);
+    return this.sort.applySort(tab, next);
+  }
+
+  /**
+   * Apply the header menu's value checklist to one column (null values clear
+   * the column's criteria), keeping the column's existing conditions.
+   */
+  private async applyColumnMenuValues(
+    tab: Tab,
+    doc: RsfDocument,
+    current: SheetFilter,
+    col: number,
+    values: string[] | null,
+  ): Promise<boolean> {
+    const kept = current.columns.filter((c) => c.col !== col);
+    const before = current.columns.find((c) => c.col === col) ?? null;
+    const conditions = values !== null ? (before?.conditions ?? []) : [];
+    const columns =
+      conditions.length > 0 || values !== null
+        ? [...kept, { col, join: before?.join ?? 'and', conditions, values }]
+        : kept;
+    const next = validateFilter(
+      { ...current, columns: columns.sort((a, b) => a.col - b.col) },
+      doc.rowCount,
+      doc.columnCount,
+    );
+    if (!next) {
+      await this.ui.showMessage(t('dialog.filter.title'), t('dialog.filter.invalid'));
+      return false;
+    }
+    return this.applyFilter(tab, next);
   }
 
   /**
@@ -445,7 +460,7 @@ export class FilterCommands {
    */
   private async applyFilter(tab: Tab, filter: SheetFilter): Promise<boolean> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return false;
     }
     const dataTop = filterDataTop(filter);
@@ -500,7 +515,7 @@ export class FilterCommands {
    */
   private async resort(tab: Tab): Promise<void> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sort === null) {
+    if (!isWorkbook(doc) || doc.sort === null) {
       return;
     }
     const sort = { ...doc.sort, keys: doc.sort.keys.map((k) => ({ ...k })) };
@@ -533,4 +548,18 @@ export class FilterCommands {
       this.state.setSelection(tab, { row, col: sel.col }, null);
     }
   }
+}
+
+/** How `col` is sorted when the active sort is exactly one key on it over the filter's rows, else null. */
+function sortDirectionOn(sort: SheetSort | null, filter: SheetFilter, col: number): 'asc' | 'desc' | null {
+  if (
+    sort === null ||
+    sort.keys.length !== 1 ||
+    sort.keys[0].col !== col ||
+    sort.top !== filter.top ||
+    sort.bottom !== filter.bottom
+  ) {
+    return null;
+  }
+  return sort.keys[0].ascending ? 'asc' : 'desc';
 }

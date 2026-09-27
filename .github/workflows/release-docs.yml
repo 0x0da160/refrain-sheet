@@ -8,11 +8,11 @@ name: Release docs
 # release cut without `cloc` installed, or to refresh the numbers between
 # releases.
 #
-#   - CHANGELOG.md: `node scripts/changelog.mjs sync` files the pending
+#   - CHANGELOG.md: `node scripts/release/changelog.mjs sync` files the pending
 #     `[Unreleased]` entries under the current package.json version, but only
 #     when that version is already tagged and has no section yet. Entries meant
 #     for the next release are left where they are.
-#   - README.md: `node scripts/code-stats.mjs` recounts the tracked files with
+#   - README.md: `node scripts/release/code-stats.mjs` recounts the tracked files with
 #     `cloc` and rewrites only the region between the code-stats markers.
 #
 # It does NOT commit to `main`. When either file changes, it pushes the rolling
@@ -60,10 +60,10 @@ jobs:
           sudo apt-get install -y --no-install-recommends cloc
 
       - name: File released changelog entries
-        run: node scripts/changelog.mjs sync
+        run: node scripts/release/changelog.mjs sync
 
       - name: Recount code statistics
-        run: node scripts/code-stats.mjs
+        run: node scripts/release/code-stats.mjs
 
       - name: Detect a change
         id: diff
@@ -112,9 +112,9 @@ jobs:
           this catches them up when they have drifted.
 
           - `CHANGELOG.md`: pending `[Unreleased]` entries filed under the
-            current, already-tagged version (`scripts/changelog.mjs sync`).
+            current, already-tagged version (`scripts/release/changelog.mjs sync`).
           - `README.md`: the `cloc` table between the code-stats markers
-            (`scripts/code-stats.mjs`). Nothing else in the file is rewritten.
+            (`scripts/release/code-stats.mjs`). Nothing else in the file is rewritten.
 
           Changelog: not-needed
 
@@ -125,8 +125,8 @@ jobs:
           pull request はずれが生じた場合の追従用です。
 
           - `CHANGELOG.md`: `[Unreleased]` の項目を、タグ付け済みの現在の
-            バージョンの節へ移動しました (`scripts/changelog.mjs sync`)。
+            バージョンの節へ移動しました (`scripts/release/changelog.mjs sync`)。
           - `README.md`: code-stats マーカー間の `cloc` 集計表のみを更新しました
-            (`scripts/code-stats.mjs`)。それ以外の箇所は書き換えていません。
+            (`scripts/release/code-stats.mjs`)。それ以外の箇所は書き換えていません。
           BODY
           )"

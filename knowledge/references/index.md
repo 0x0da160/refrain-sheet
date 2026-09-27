@@ -14,16 +14,17 @@ For the knowledge bundle's own domains, start at
   domain map (Architecture, Operations, Formats, Agent loop, Domains, UI).
 - [`docs/knip-baseline.md`](../../docs/knip-baseline.md) — the classified
   dead-code (Knip) audit baseline; reproduced with `npx knip`.
-- [`docs/release-automation-gap.md`](../../docs/release-automation-gap.md) —
+- [`docs/proposals/release-automation-gap.md`](../../docs/proposals/release-automation-gap.md) —
   why automatic release-on-merge is not implemented, and the manual release
   path that exists instead.
-- [`docs/continuous-improvement-plan.md`](../../docs/continuous-improvement-plan.md)
+- [`docs/proposals/continuous-improvement-plan.md`](../../docs/proposals/continuous-improvement-plan.md)
   — a proposal-only roadmap; nothing in it is enabled.
-- [`docs/csv-diff-review-proposal.md`](../../docs/csv-diff-review-proposal.md)
+- [`docs/proposals/csv-diff-review.md`](../../docs/proposals/csv-diff-review.md)
   — integration analysis for the "CSV Diff Review" feature request
   (Issue #255); proposal only, no feature code.
 - [`CHANGELOG.md`](../../CHANGELOG.md) — user-visible change history,
-  Keep a Changelog format.
+  Keep a Changelog format; it holds the current minor series, and older
+  series are archived under [`docs/changelog/`](../../docs/changelog/0.8.md).
 - [`THIRD-PARTY-NOTICES.md`](../../THIRD-PARTY-NOTICES.md) — third-party
   license notices for software bundled in the distributed build.
 - Agent-workflow skills (`.claude/skills/*/SKILL.md`):

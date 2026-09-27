@@ -63,7 +63,7 @@ jobs:
       - name: Version consistency
         run: npm run check:versions
 
-      # The committed sql.js payload (src/wasm-gen/sqljs-wasm-payload.ts) must
+      # The committed sql.js payload (src/generated/sqljs-wasm-payload.ts) must
       # be the installed sql.js binary. The Rust payload is verified by
       # rebuilding it in wasm.yml.
       - name: Generated payload provenance
@@ -73,12 +73,12 @@ jobs:
       # parseable OKF v0.2 frontmatter with a non-empty `type`; the bundle's
       # reserved index.md/log.md files must carry none; relative links and
       # backticked repository paths must resolve — see
-      # scripts/check-knowledge-frontmatter.mjs.
+      # scripts/check/knowledge.mjs.
       - name: Knowledge bundle checks
         run: npm run check:knowledge
 
       # Every direct dependency and toolchain in the full SBOM must have a
-      # lifecycle entry in docs/eol-register.json (scripts/check-eol.mjs).
+      # lifecycle entry in docs/eol-register.json (scripts/check/eol.mjs).
       # Date-driven findings (EOL passed, a plan or the quarterly review
       # overdue) annotate the run here instead of blocking unrelated pull
       # requests; the weekly maintenance.yml run fails on them.
@@ -102,16 +102,23 @@ jobs:
         run: npm run lint
 
       # Unused exports/files/dependencies (Knip). Fails on any finding not on
-      # scripts/check-knip.mjs's explicit, human-review-pending DEFERRED list,
+      # scripts/check/knip.mjs's explicit, human-review-pending DEFERRED list,
       # and on a deferred entry that has since been resolved — see
       # docs/knip-baseline.md.
       - name: Unused code
         run: npm run check:knip
 
+      # File naming and placement (kebab-case names, tests/<area>/,
+      # scripts/<role>/, no file beside a same-named directory, every
+      # stylesheet loaded by src/styles/index.css) — see
+      # scripts/check/layout.mjs.
+      - name: Repository layout
+        run: npm run check:layout
+
       # Verifies the design-system colour tokens the app loads
       # (design-system/v2, generated CSS) meet WCAG AA contrast for every
       # text/background pair that composes in the UI, in every theme — see
-      # scripts/check-contrast.mjs.
+      # scripts/check/contrast.mjs.
       - name: Contrast check
         run: npm run check:contrast
 
@@ -180,7 +187,7 @@ jobs:
 
       # Open the offline dist/index.html via file:// in headless Chromium, the
       # way a user does, and fail on a render failure or any console/page error
-      # (scripts/ui-check.mjs). The browser comes from Playwright's own
+      # (scripts/ui-check/index.mjs). The browser comes from Playwright's own
       # download, installed by an explicit step like the Dockerfile's, never
       # by an npm lifecycle script.
       - name: Install headless Chromium for the UI check
@@ -191,7 +198,7 @@ jobs:
 
       # The hosted artifact (app.refrain-sheet.com) is built from the same
       # sources and differs only in its Content-Security-Policy, which
-      # scripts/csp.mjs emits per mode. The two policies are byte-identical
+      # scripts/lib/csp.mjs emits per mode. The two policies are byte-identical
       # today; building and validating both here is what stops a future
       # hosted-only relaxation from ever reaching the offline dist/ that ships
       # in the release ZIP. See knowledge/operations/security-supply-chain.md.

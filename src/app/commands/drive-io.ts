@@ -12,11 +12,12 @@
 // `driveConfigured()` is false, every command is disabled, and none of the
 // Google scripts is ever fetched.
 
-import type { AppState, Tab } from '../app-state';
+import type { NotifyPort, FileDialogsPort } from '../ui-port';
+import { isCsv } from '../../core/editor-document';
+import type { AppState, Tab } from '../state';
 import { getMaxFileSize } from '../settings';
 import { t } from '../i18n';
-import type { UiPort } from '../commands';
-import { LosslessDocument } from '../../core/lossless-document';
+import { LosslessDocument } from '../../core/csv/lossless-document';
 import { DriveAuthCancelled, DriveAuthError, forgetToken, getAccessToken, signOut } from '../drive/auth';
 import {
   DriveApiError,
@@ -35,7 +36,7 @@ import { withBusy } from './shared';
 export class DriveIoCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & FileDialogsPort,
     private readonly fileIo: FileIoCommands,
   ) {}
 
@@ -172,7 +173,7 @@ export class DriveIoCommands {
       // "brand-new, never-saved CSV" structural-edit exception (#479), same
       // as a local save.
       tab.neverSaved = false;
-      if (tab.doc.kind === 'csv') {
+      if (isCsv(tab.doc)) {
         const baseline = LosslessDocument.fromBytes(encoded.bytes, {
           encoding: tab.doc.encoding,
           delimiter: tab.doc.delimiter,

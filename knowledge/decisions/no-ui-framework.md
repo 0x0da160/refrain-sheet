@@ -6,7 +6,7 @@ sources:
   - resource: ../../knowledge/architecture/module-boundaries.md
   - resource: ../../knowledge/operations/security-supply-chain.md
   - resource: ../../knowledge/operations/performance-principles.md
-  - resource: ../../src/ui/grid.ts
+  - resource: ../../src/ui/grid/index.ts
   - resource: ../../package.json
 status: stable
 generated:
@@ -55,7 +55,7 @@ single rationale doc:
   "What is optimized where" table describes grid rendering as
   "Virtualization (visible window + overscan), in-place repaint unless a
   layout input changed" — a `LayoutSignature`-gated repaint
-  (`src/ui/grid.ts`), not a virtual-DOM reconciliation pass. This is the
+  (`src/ui/grid/index.ts`), not a virtual-DOM reconciliation pass. This is the
   same reason `module-boundaries.md` gives for excluding the grid from the
   Tailwind CSS migration: "to keep its rendering path unaffected." A
   component framework's render/diff cycle is a different, coarser-grained

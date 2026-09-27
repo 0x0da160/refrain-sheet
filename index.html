@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <!-- The policy is generated per build mode from scripts/csp.mjs — the
+    <!-- The policy is generated per build mode from scripts/lib/csp.mjs — the
          single source of truth for both the offline and the hosted build — and
          substituted here by vite.config.ts. The two modes emit a byte-identical
          policy today; see knowledge/operations/security-threat-model.md. -->
@@ -14,11 +14,11 @@
          mobile-browser-chrome tint; no manifest.json is shipped, since the
          app's offline/no-install identity stands regardless. -->
     <meta name="theme-color" content="#147F43" />
-    <!-- SVG favicon copied verbatim from public/ to the dist root. The
-         relative "/favicon.svg" reference is rewritten to "./favicon.svg" by
-         Vite's base:'./' so it resolves under a GitHub Pages base path and when
-         dist/index.html is opened directly via file://; no network request. -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- SVG favicon emitted verbatim from the design-system master to the dist
+         root by vite.config.ts's brand-favicon plugin. The relative reference
+         resolves under a GitHub Pages base path and when dist/index.html is
+         opened directly via file://; no network request. -->
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <title>Refrain Sheet — A local-first, format-preserving CSV and spreadsheet editor</title>
     <script type="module" src="./src/main.ts"></script>
   </head>

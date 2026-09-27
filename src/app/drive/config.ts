@@ -4,7 +4,7 @@
 // The OAuth client id is injected by vite.config.ts and is ALWAYS the empty
 // string in the offline build, whatever the build environment happens to hold.
 // The offline artifact must never carry a credential or reach the network;
-// scripts/check-dist.mjs asserts that mechanically rather than trusting it.
+// scripts/check/dist.mjs asserts that mechanically rather than trusting it.
 //
 // An OAuth client id for a browser app is a public identifier, not a secret —
 // it is delivered through the `GOOGLE_OAUTH_CLIENT_ID` repository *variable*,

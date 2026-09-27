@@ -4,7 +4,7 @@ title: Undo/redo and history
 description: What a person experiences pressing Ctrl+Z — one HistoryEntry per user-visible mutation, what rides bundled into a single entry, and what is deliberately not undoable (Sort).
 sources:
   - resource: ../../README.md
-  - resource: ../../src/core/history.ts
+  - resource: ../../src/core/workbook/history.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5

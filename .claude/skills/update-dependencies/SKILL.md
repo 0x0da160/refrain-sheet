@@ -68,8 +68,8 @@ wasm-bindgen `.sha256sum`). Then:
 ```bash
 npm run test:rust
 npm run build:wasm                      # rebuild the embedded payload
-git add src/wasm-gen && npm run build:wasm && git diff --quiet -- src/wasm-gen   # reproducible?
-npx vitest run tests/rsf-fixtures.test.ts tests/wasm-engine.test.ts tests/rsf-codec.test.ts
+git add src/generated && npm run build:wasm && git diff --quiet -- src/generated   # reproducible?
+npx vitest run tests/core/rsf-fixtures.test.ts tests/core/wasm-engine.test.ts tests/core/rsf-codec.test.ts
 ```
 
 The frozen `.rsf` fixtures pin the codecs' output byte-for-byte: if a codec

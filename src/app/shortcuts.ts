@@ -91,10 +91,7 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
   if (ctx.isComposing || event.key === 'Process' || event.key === 'Dead') {
     return null;
   }
-
   const mod = event.ctrlKey || event.metaKey;
-  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-
   // Worksheet switching: Ctrl+Alt+PageDown/PageUp. Plain Ctrl+PageUp/Down is
   // browser tab switching, which a page cannot take. PageUp/PageDown produce
   // no character, so this Ctrl+Alt pair cannot collide with AltGr typing.
@@ -108,138 +105,149 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
   ) {
     return event.key === 'PageDown' ? 'worksheet.next' : 'worksheet.prev';
   }
-
-  // ----- Modifier combinations (Ctrl/Cmd based). Alt is never part of an
-  // application accelerator, so AltGr and OS combinations are left alone. -----
+  // Alt is never part of an application accelerator, so AltGr and OS
+  // combinations are left alone.
   if (mod && !event.altKey) {
-    // Save / Save with Options — widely accepted app overrides of "save page".
-    if (key === 's') {
-      return event.shiftKey ? 'file.saveOptions' : 'file.save';
-    }
-    // Open a file. Works whether or not a field has focus.
-    if (key === 'o' && !event.shiftKey) {
-      return 'file.open';
-    }
-    // Find / Replace (Ctrl+F / Ctrl+H; the older Ctrl+Shift+F / Ctrl+Shift+H
-    // still work), Go to Cell (Ctrl+G), and Flash Fill (Ctrl+E): always the
-    // app's, taking precedence over the browser's find, history, find-next,
-    // and search-box keys (see the module note).
-    if (key === 'f') {
+    return resolveModified(event, ctx);
+  }
+  return mod || event.altKey ? null : resolveFunctionKey(event, ctx);
+}
+
+/** Ctrl/Cmd (never Alt) combinations. */
+function resolveModified(event: ShortcutKey, ctx: ShortcutContext): CommandId | null {
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  const owned = resolveAlwaysOwned(key, event.shiftKey);
+  if (owned) {
+    return owned;
+  }
+  const gridFocused = ctx.inGrid === true && !ctx.inTextField;
+  // Today's date (Ctrl+;) / the current time (Ctrl+Shift+;) into the active
+  // cell, while the grid has focus. The cell editor and formula bar insert
+  // them at the caret themselves (see `dateStampKeyOf`); everywhere else the
+  // key stays the browser's (on a Japanese layout Ctrl+; is also a zoom-in key).
+  const stamp = dateStampKeyOf(event);
+  if (stamp && gridFocused) {
+    return stamp === 'date' ? 'edit.insertDate' : 'edit.insertTime';
+  }
+  // Paste Formatting / Paste Values (Ctrl+Shift+V, per the user's setting),
+  // while the grid has focus. Text fields keep the browser's
+  // paste-as-plain-text.
+  if (key === 'v' && event.shiftKey && gridFocused) {
+    return ctx.shiftPaste === 'formats' ? 'edit.pasteFormats' : 'edit.pasteValues';
+  }
+  // Keyboard shortcut list (Ctrl+/). Not a browser key; works anywhere.
+  if (key === '/' && !event.shiftKey) {
+    return 'help.shortcuts';
+  }
+  const physical = event.shiftKey && !ctx.inTextField ? PHYSICAL_SHIFT_KEYS.get(event.code ?? '') : undefined;
+  if (physical) {
+    return physical;
+  }
+  // Select All Cells: owned only while the grid itself is focused, so the
+  // browser's global Ctrl+A (page text, text inputs) is never suppressed.
+  if (key === 'a' && !event.shiftKey && gridFocused) {
+    return 'edit.selectAll';
+  }
+  // Grid-editing accelerators: only when not editing text, so text fields and
+  // the browser keep their own undo/redo and typing.
+  return ctx.inTextField ? null : resolveGridEditing(key, event.shiftKey);
+}
+
+/**
+ * Keys that are the app's wherever focus is: Save / Save with Options (widely
+ * accepted overrides of "save page"), Open, and Find / Replace (Ctrl+F /
+ * Ctrl+H; the older Ctrl+Shift+F / Ctrl+Shift+H still work), Go to Cell
+ * (Ctrl+G), and Flash Fill (Ctrl+E), which take precedence over the browser's
+ * find, history, find-next, and search-box keys (see the module note).
+ */
+function resolveAlwaysOwned(key: string, shift: boolean): CommandId | null {
+  switch (key) {
+    case 's':
+      return shift ? 'file.saveOptions' : 'file.save';
+    case 'o':
+      return shift ? null : 'file.open';
+    case 'f':
       return 'search.find';
-    }
-    if (key === 'h') {
+    case 'h':
       return 'search.replace';
-    }
-    if (key === 'g' && !event.shiftKey) {
-      return 'search.goToCell';
-    }
-    if (key === 'e' && !event.shiftKey) {
-      return 'edit.flashFill';
-    }
-    // Today's date (Ctrl+;) / the current time (Ctrl+Shift+;) into the
-    // active cell, while the grid has focus. The cell editor and formula bar
-    // insert them at the caret themselves (see `dateStampKeyOf`); everywhere
-    // else the key stays the browser's (on a Japanese layout Ctrl+; is also
-    // a zoom-in key).
-    const stamp = dateStampKeyOf(event);
-    if (stamp && ctx.inGrid === true && !ctx.inTextField) {
-      return stamp === 'date' ? 'edit.insertDate' : 'edit.insertTime';
-    }
-    // Paste Formatting / Paste Values (Ctrl+Shift+V, per the user's
-    // setting), while the grid has focus. Text fields keep the browser's
-    // paste-as-plain-text.
-    if (key === 'v' && event.shiftKey && ctx.inGrid === true && !ctx.inTextField) {
-      return ctx.shiftPaste === 'formats' ? 'edit.pasteFormats' : 'edit.pasteValues';
-    }
-    // Keyboard shortcut list (Ctrl+/). Not a browser key; works anywhere.
-    if (key === '/' && !event.shiftKey) {
-      return 'help.shortcuts';
-    }
-    // Spreadsheet zoom: Ctrl+Shift+Period (in) / Ctrl+Shift+Comma (out) /
-    // Ctrl+Shift+0 (reset). Deliberately NOT the browser's zoom keys
-    // (Ctrl +/-/0), which are never intercepted. Matched on the physical key
-    // (`code`) so Shift-shifted layouts (>, <) resolve identically, and
-    // suppressed in text fields so typing punctuation is never disturbed.
-    if (event.shiftKey && !ctx.inTextField) {
-      if (event.code === 'Period') {
-        return 'view.zoom.in';
-      }
-      if (event.code === 'Comma') {
-        return 'view.zoom.out';
-      }
-      if (event.code === 'Digit0') {
-        return 'view.zoom.reset';
-      }
-      // Number format presets: Ctrl+Shift+1 (number), 4 (currency),
-      // 5 (percent), matched on the physical digit key for every layout.
-      if (event.code === 'Digit1') {
-        return 'format.presetNumber';
-      }
-      if (event.code === 'Digit4') {
-        return 'format.presetCurrency';
-      }
-      if (event.code === 'Digit5') {
-        return 'format.presetPercent';
-      }
-    }
-    // Select All Cells: owned only while the grid itself is focused, so the
-    // browser's global Ctrl+A (page text, text inputs) is never suppressed.
-    if (key === 'a' && !event.shiftKey && ctx.inGrid === true && !ctx.inTextField) {
-      return 'edit.selectAll';
-    }
-    // Grid-editing accelerators: only when not editing text, so text fields
-    // and the browser keep their own undo/redo and typing.
-    if (!ctx.inTextField) {
-      if (key === 'z') {
-        return event.shiftKey ? 'edit.redo' : 'edit.undo';
-      }
-      if (key === 'y' && !event.shiftKey) {
-        return 'edit.redo';
-      }
-      if (key === 'd' && !event.shiftKey) {
-        return 'edit.fillDown';
-      }
-      // Bold/Italic/Underline: the conventional word-processor accelerators.
-      // Unlike Ctrl+Shift+B (the browser's bookmarks-bar toggle), plain
-      // Ctrl+B/I/U are not browser-reserved, so they are safe to own here.
-      if (!event.shiftKey && key === 'b') {
-        return 'format.bold';
-      }
-      if (!event.shiftKey && key === 'i') {
-        return 'format.italic';
-      }
-      if (!event.shiftKey && key === 'u') {
-        return 'format.underline';
-      }
-      // Clear formatting (Ctrl+\). On Japanese keyboards the same key may
-      // report the yen sign.
-      if (!event.shiftKey && (key === '\\' || key === '\u00a5')) {
-        return 'format.clear';
-      }
-    }
+    case 'g':
+      return shift ? null : 'search.goToCell';
+    case 'e':
+      return shift ? null : 'edit.flashFill';
+    default:
+      return null;
+  }
+}
+
+/**
+ * Ctrl+Shift+<physical key>, outside text fields so typing punctuation is
+ * never disturbed. Spreadsheet zoom: Period (in) / Comma (out) / Digit0
+ * (reset) — deliberately NOT the browser's zoom keys (Ctrl +/-/0), which are
+ * never intercepted. Number format presets: Digit1 (number), Digit4
+ * (currency), Digit5 (percent). Matched on `code` so Shift-shifted layouts
+ * (>, <, !, $, %) resolve identically.
+ */
+const PHYSICAL_SHIFT_KEYS: ReadonlyMap<string, CommandId> = new Map([
+  ['Period', 'view.zoom.in'],
+  ['Comma', 'view.zoom.out'],
+  ['Digit0', 'view.zoom.reset'],
+  ['Digit1', 'format.presetNumber'],
+  ['Digit4', 'format.presetCurrency'],
+  ['Digit5', 'format.presetPercent'],
+]);
+
+/**
+ * Undo/Redo, Fill Down, and Bold/Italic/Underline/Clear formatting. Unlike
+ * Ctrl+Shift+B (the browser's bookmarks-bar toggle), plain Ctrl+B/I/U are not
+ * browser-reserved, so they are safe to own. Clear formatting is Ctrl+\; on
+ * Japanese keyboards the same key may report the yen sign.
+ */
+function resolveGridEditing(key: string, shift: boolean): CommandId | null {
+  if (key === 'z') {
+    return shift ? 'edit.redo' : 'edit.undo';
+  }
+  if (shift) {
     return null;
   }
+  switch (key) {
+    case 'y':
+      return 'edit.redo';
+    case 'd':
+      return 'edit.fillDown';
+    case 'b':
+      return 'format.bold';
+    case 'i':
+      return 'format.italic';
+    case 'u':
+      return 'format.underline';
+    case '\\':
+    case '\u00a5':
+      return 'format.clear';
+    default:
+      return null;
+  }
+}
 
-  // Find next/previous: F3 / Shift+F3, always the app's (opening the Find
-  // and Replace panel if it is closed), over the browser's find-next.
-  if (!mod && !event.altKey && event.key === 'F3') {
+/** Unmodified (or Shift-only) function keys; never Ctrl/Cmd/Alt. */
+function resolveFunctionKey(event: ShortcutKey, ctx: ShortcutContext): CommandId | null {
+  // Find next/previous: F3 / Shift+F3, always the app's (opening the Find and
+  // Replace panel if it is closed), over the browser's find-next.
+  if (event.key === 'F3') {
     return event.shiftKey ? 'search.findPrev' : 'search.findNext';
   }
-
-  // ----- Unmodified function keys (avoid F1/F5/F6/F11/F12 which browsers
-  // reserve). Suppressed in text fields to avoid surprising an active edit. -----
-  if (!mod && !event.altKey && !event.shiftKey && !ctx.inTextField) {
-    // Recalculate formulas (spreadsheet convention; not a browser key).
-    if (event.key === 'F9') {
-      return 'sheet.recalculate';
-    }
+  // Function keys are suppressed in text fields to avoid surprising an active
+  // edit, and F1/F5/F6/F11/F12 stay the browser's.
+  if (ctx.inTextField) {
+    return null;
   }
-
+  // Recalculate formulas (spreadsheet convention; not a browser key).
+  if (event.key === 'F9' && !event.shiftKey) {
+    return 'sheet.recalculate';
+  }
   // Insert a worksheet: Shift+F11 (plain F11 stays the browser's full screen).
-  if (!mod && !event.altKey && event.shiftKey && !ctx.inTextField && event.key === 'F11') {
+  if (event.key === 'F11' && event.shiftKey) {
     return 'worksheet.add';
   }
-
   return null;
 }
 

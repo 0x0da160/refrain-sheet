@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-import type { CellStyle } from '../core/cell-style';
+import { isWorkbook } from '../core/editor-document';
+import type { CellStyle } from '../core/workbook/cell-style';
 import type { CellRange } from '../core/clipboard';
 import {
   copyRows,
@@ -10,7 +11,7 @@ import {
   rangeToTsv,
   rangeToValueMatrix,
 } from '../core/clipboard';
-import type { AppState, Selection, SelectionKind } from './app-state';
+import type { AppState, Selection, SelectionKind } from './state';
 import type { Commands } from './commands';
 import { t } from './i18n';
 import { asVisualDisplaySource, onScreenGeometry, renderStyledRangeToPng } from './screenshot-export';
@@ -85,7 +86,7 @@ export class ClipboardController {
       text,
       matrix: rangeToMatrix(tab.doc, range, rows),
       values: rangeToValueMatrix(tab.doc, range, rows),
-      styles: tab.doc.kind === 'rsf' ? rangeToStyleMatrix(tab.doc, range, rows) : null,
+      styles: isWorkbook(tab.doc) ? rangeToStyleMatrix(tab.doc, range, rows) : null,
       origin: { row: range.top, col: range.left },
       kind: tab.selectionKind,
     };

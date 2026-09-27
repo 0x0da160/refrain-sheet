@@ -1,7 +1,7 @@
 dist/
 node_modules/
 package-lock.json
-src/wasm-gen/
+src/generated/
 wasm/target/
 wasm/pkg/
 # Vendored design-team deliverable (tokens, docs, logos, icons); its

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { dateStampKeyOf, localDateStamp } from '../app/shortcuts';
-import type { CellStyle } from '../core/cell-style';
+import type { CellStyle } from '../core/workbook/cell-style';
 import {
   charFormats,
   clearFormats,
@@ -10,7 +10,7 @@ import {
   setFormatKey,
   type RunFormat,
   type TextRun,
-} from '../core/rich-text';
+} from '../core/workbook/rich-text';
 import { el } from './dom';
 import { richTextNodes } from './rich-text-render';
 import { RichTextToolbar, type RichTextAction } from './rich-text-toolbar';

@@ -80,77 +80,16 @@ export function openColumnMenu(input: ColumnMenuInput): Promise<ColumnMenuResult
     );
 
     // ----- Order by this column -----
-    const sortButton = (ascending: boolean): HTMLButtonElement => {
-      const pressed = input.sorted === (ascending ? 'asc' : 'desc');
-      const label = t(ascending ? 'columnMenu.sortAsc' : 'columnMenu.sortDesc');
-      const button = el('button', {
-        className: `panel-button column-menu-sort${pressed ? ' active' : ''}`,
-        attrs: { type: 'button', 'aria-pressed': pressed ? 'true' : 'false' },
-      });
-      button.append(
-        createIcon(ascending ? ArrowUpNarrowWide : ArrowDownWideNarrow, 'column-menu-icon', 14),
-        el('span', { text: label }),
-      );
-      button.addEventListener('click', () =>
-        finish(pressed ? { action: 'clearSort' } : { action: 'sort', ascending }),
-      );
-      return button;
-    };
-    root.append(
-      el(
-        'div',
-        { className: 'column-menu-sorts', attrs: { role: 'group', 'aria-label': t('columnMenu.sortGroup') } },
-        [sortButton(true), sortButton(false)],
-      ),
-    );
-    if (input.sorted !== null) {
-      root.append(el('p', { className: 'column-menu-note', text: t('columnMenu.sortedNote') }));
-    }
+    root.append(...sortSection(input, finish));
 
     // ----- Values to show -----
-    const search = el('input', {
-      className: 'column-menu-search',
-      attrs: {
-        type: 'search',
-        placeholder: t('dialog.filter.searchValues'),
-        'aria-label': t('dialog.filter.searchValues'),
-      },
-    }) as HTMLInputElement;
-    const allCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
-    const allLabel = el('span');
-    const list = el('div', {
-      className: 'column-menu-values',
-      attrs: { role: 'group', 'aria-label': t('columnMenu.valuesGroup') },
-    });
-    root.append(
-      search,
-      el('label', { className: 'column-menu-value column-menu-all' }, [allCheck, allLabel]),
-      list,
-    );
-    if (input.valuesTruncated) {
-      root.append(el('p', { className: 'column-menu-note', text: t('dialog.filter.valuesTruncated') }));
-    }
-    if (input.hasConditions) {
-      root.append(el('p', { className: 'column-menu-note', text: t('columnMenu.conditionsNote') }));
-    }
+    const { search, allCheck, allLabel, list } = valuesSection(root, input);
 
     const selected = input.selected === null ? null : new Set(input.selected);
     const checked = new Set(input.values.filter((v) => selected === null || selected.has(v)));
     let matches: string[] = input.values;
 
     // ----- Footer -----
-    const moreBtn = el('button', {
-      className: 'panel-button column-menu-more',
-      text: t('columnMenu.more'),
-      attrs: { type: 'button' },
-    });
-    moreBtn.prepend(createIcon(ListFilter, 'column-menu-icon', 14));
-    moreBtn.addEventListener('click', () => finish({ action: 'more' }));
-    const applyBtn = el('button', {
-      className: 'panel-button primary',
-      text: t('columnMenu.apply'),
-      attrs: { type: 'button' },
-    });
     const apply = (): void => {
       if (checked.size === 0) {
         return;
@@ -158,18 +97,7 @@ export function openColumnMenu(input: ColumnMenuInput): Promise<ColumnMenuResult
       const all = checked.size === input.values.length && !input.valuesTruncated;
       finish({ action: 'apply', values: all ? null : input.values.filter((v) => checked.has(v)) });
     };
-    applyBtn.addEventListener('click', apply);
-    const foot = el('div', { className: 'column-menu-foot' }, [moreBtn]);
-    if (input.hasColumnFilter) {
-      const clearBtn = el('button', {
-        className: 'panel-button',
-        text: t('columnMenu.clearColumn'),
-        attrs: { type: 'button' },
-      });
-      clearBtn.addEventListener('click', () => finish({ action: 'clearColumn' }));
-      foot.append(clearBtn);
-    }
-    foot.append(applyBtn);
+    const { foot, applyBtn } = footer(input, finish, apply);
     root.append(foot);
 
     const syncAll = (): void => {
@@ -186,38 +114,7 @@ export function openColumnMenu(input: ColumnMenuInput): Promise<ColumnMenuResult
     const renderValues = (): void => {
       const term = search.value.toLowerCase();
       matches = term === '' ? input.values : input.values.filter((v) => v.toLowerCase().includes(term));
-      const shown = matches.slice(0, VALUE_DISPLAY_CAP);
-      const rows: HTMLElement[] = shown.map((v) => {
-        const cb = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
-        cb.checked = checked.has(v);
-        cb.addEventListener('change', () => {
-          if (cb.checked) {
-            checked.add(v);
-          } else {
-            checked.delete(v);
-          }
-          syncAll();
-        });
-        return el('label', { className: 'column-menu-value' }, [
-          cb,
-          el('span', {
-            className: v === '' ? 'column-menu-blank' : '',
-            text: v === '' ? t('dialog.filter.blankValue') : v,
-          }),
-        ]);
-      });
-      if (matches.length > shown.length) {
-        rows.push(
-          el('p', {
-            className: 'column-menu-note',
-            text: t('dialog.filter.valuesMore', { n: matches.length - shown.length }),
-          }),
-        );
-      }
-      if (matches.length === 0) {
-        rows.push(el('p', { className: 'column-menu-note', text: t('columnMenu.noMatches') }));
-      }
-      list.replaceChildren(...rows);
+      list.replaceChildren(...valueRows(matches, checked, syncAll));
       syncAll();
     };
     allCheck.addEventListener('change', () => {
@@ -240,24 +137,7 @@ export function openColumnMenu(input: ColumnMenuInput): Promise<ColumnMenuResult
     renderValues();
 
     // ----- Dismissal -----
-    root.addEventListener('keydown', (event) => {
-      event.stopPropagation(); // keys typed here never reach the grid or app shortcuts
-      if (event.key === 'Escape' && !event.isComposing) {
-        event.preventDefault();
-        finish(null);
-      }
-    });
-    const outside = (event: Event): void => {
-      const target = event.target as Node | null;
-      if (!target || !root.contains(target)) {
-        finish(null);
-      }
-    };
-    on(document, 'mousedown', outside, true);
-    on(document, 'touchstart', outside, true);
-    on(document, 'scroll', outside, true);
-    on(window, 'resize', () => finish(null));
-    on(window, 'blur', () => finish(null));
+    wireDismissal(root, on, finish);
 
     document.body.append(root);
     const a = input.anchor;
@@ -268,4 +148,166 @@ export function openColumnMenu(input: ColumnMenuInput): Promise<ColumnMenuResult
     }
     focusWithoutKeyboard(search);
   });
+}
+
+/** The "order by this column" buttons (pressing the active one clears the sort) and the sorted note. */
+function sortSection(
+  input: ColumnMenuInput,
+  finish: (result: ColumnMenuResult | null) => void,
+): HTMLElement[] {
+  const sortButton = (ascending: boolean): HTMLButtonElement => {
+    const pressed = input.sorted === (ascending ? 'asc' : 'desc');
+    const label = t(ascending ? 'columnMenu.sortAsc' : 'columnMenu.sortDesc');
+    const button = el('button', {
+      className: `panel-button column-menu-sort${pressed ? ' active' : ''}`,
+      attrs: { type: 'button', 'aria-pressed': pressed ? 'true' : 'false' },
+    });
+    button.append(
+      createIcon(ascending ? ArrowUpNarrowWide : ArrowDownWideNarrow, 'column-menu-icon', 14),
+      el('span', { text: label }),
+    );
+    button.addEventListener('click', () =>
+      finish(pressed ? { action: 'clearSort' } : { action: 'sort', ascending }),
+    );
+    return button;
+  };
+  const out: HTMLElement[] = [
+    el(
+      'div',
+      { className: 'column-menu-sorts', attrs: { role: 'group', 'aria-label': t('columnMenu.sortGroup') } },
+      [sortButton(true), sortButton(false)],
+    ),
+  ];
+  if (input.sorted !== null) {
+    out.push(el('p', { className: 'column-menu-note', text: t('columnMenu.sortedNote') }));
+  }
+  return out;
+}
+
+/** "More filter options…", "Clear filter" (when the column has one), and Apply. */
+function footer(
+  input: ColumnMenuInput,
+  finish: (result: ColumnMenuResult | null) => void,
+  apply: () => void,
+): { foot: HTMLElement; applyBtn: HTMLButtonElement } {
+  const moreBtn = el('button', {
+    className: 'panel-button column-menu-more',
+    text: t('columnMenu.more'),
+    attrs: { type: 'button' },
+  });
+  moreBtn.prepend(createIcon(ListFilter, 'column-menu-icon', 14));
+  moreBtn.addEventListener('click', () => finish({ action: 'more' }));
+  const applyBtn = el('button', {
+    className: 'panel-button primary',
+    text: t('columnMenu.apply'),
+    attrs: { type: 'button' },
+  }) as HTMLButtonElement;
+  applyBtn.addEventListener('click', apply);
+  const foot = el('div', { className: 'column-menu-foot' }, [moreBtn]);
+  if (input.hasColumnFilter) {
+    const clearBtn = el('button', {
+      className: 'panel-button',
+      text: t('columnMenu.clearColumn'),
+      attrs: { type: 'button' },
+    });
+    clearBtn.addEventListener('click', () => finish({ action: 'clearColumn' }));
+    foot.append(clearBtn);
+  }
+  foot.append(applyBtn);
+  return { foot, applyBtn };
+}
+
+/** Checkbox rows for the matching values (capped), plus "more" / "no matches" notes. */
+function valueRows(matches: string[], checked: Set<string>, changed: () => void): HTMLElement[] {
+  const shown = matches.slice(0, VALUE_DISPLAY_CAP);
+  const rows: HTMLElement[] = shown.map((v) => {
+    const cb = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+    cb.checked = checked.has(v);
+    cb.addEventListener('change', () => {
+      if (cb.checked) {
+        checked.add(v);
+      } else {
+        checked.delete(v);
+      }
+      changed();
+    });
+    return el('label', { className: 'column-menu-value' }, [
+      cb,
+      el('span', {
+        className: v === '' ? 'column-menu-blank' : '',
+        text: v === '' ? t('dialog.filter.blankValue') : v,
+      }),
+    ]);
+  });
+  if (matches.length > shown.length) {
+    rows.push(
+      el('p', {
+        className: 'column-menu-note',
+        text: t('dialog.filter.valuesMore', { n: matches.length - shown.length }),
+      }),
+    );
+  }
+  if (matches.length === 0) {
+    rows.push(el('p', { className: 'column-menu-note', text: t('columnMenu.noMatches') }));
+  }
+  return rows;
+}
+
+/** Escape, and any interaction outside the menu (press, scroll, resize, blur), dismisses it. */
+function wireDismissal(
+  root: HTMLElement,
+  on: (target: EventTarget, type: string, handler: (event: Event) => void, capture?: boolean) => void,
+  finish: (result: ColumnMenuResult | null) => void,
+): void {
+  root.addEventListener('keydown', (event) => {
+    event.stopPropagation(); // keys typed here never reach the grid or app shortcuts
+    if (event.key === 'Escape' && !event.isComposing) {
+      event.preventDefault();
+      finish(null);
+    }
+  });
+  const outside = (event: Event): void => {
+    const target = event.target as Node | null;
+    if (!target || !root.contains(target)) {
+      finish(null);
+    }
+  };
+  on(document, 'mousedown', outside, true);
+  on(document, 'touchstart', outside, true);
+  on(document, 'scroll', outside, true);
+  on(window, 'resize', () => finish(null));
+  on(window, 'blur', () => finish(null));
+}
+
+/** The value search, the all-values checkbox, the value list, and their notes. */
+function valuesSection(
+  root: HTMLElement,
+  input: ColumnMenuInput,
+): { search: HTMLInputElement; allCheck: HTMLInputElement; allLabel: HTMLElement; list: HTMLElement } {
+  const search = el('input', {
+    className: 'column-menu-search',
+    attrs: {
+      type: 'search',
+      placeholder: t('dialog.filter.searchValues'),
+      'aria-label': t('dialog.filter.searchValues'),
+    },
+  }) as HTMLInputElement;
+  const allCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+  const allLabel = el('span');
+  const list = el('div', {
+    className: 'column-menu-values',
+    attrs: { role: 'group', 'aria-label': t('columnMenu.valuesGroup') },
+  });
+  root.append(
+    search,
+    el('label', { className: 'column-menu-value column-menu-all' }, [allCheck, allLabel]),
+    list,
+  );
+  if (input.valuesTruncated) {
+    root.append(el('p', { className: 'column-menu-note', text: t('dialog.filter.valuesTruncated') }));
+  }
+  if (input.hasConditions) {
+    root.append(el('p', { className: 'column-menu-note', text: t('columnMenu.conditionsNote') }));
+  }
+  return { search, allCheck, allLabel, list };
 }

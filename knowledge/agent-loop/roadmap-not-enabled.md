@@ -46,6 +46,6 @@ comment, a PR event, or a manual `workflow_dispatch`. No workflow uses a
 market/competitor research. A proposal for introducing that in small,
 independently-approvable phases — including a static run-count/cooldown
 fallback for when no live Claude usage-quota signal is available — is
-recorded in `docs/continuous-improvement-plan.md`. Like the auto-merge
+recorded in `docs/proposals/continuous-improvement-plan.md`. Like the auto-merge
 criteria above, nothing there is implemented or scheduled by that
 document; each phase needs its own Issue and explicit approval.

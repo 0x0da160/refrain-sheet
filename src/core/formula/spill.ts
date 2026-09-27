@@ -50,7 +50,7 @@
  * into another, reference the *anchor* cell.
  */
 
-import type { AstNode } from '.';
+import type { AstNode } from './parser';
 import { lookupFunction } from './functions';
 import type { ValueGrid } from './value';
 

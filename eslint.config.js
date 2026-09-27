@@ -17,7 +17,6 @@ const COMPLEXITY_RATCHET = [
   'src/core/diff-engine.ts',
   'src/core/workbook/filter.ts',
   'src/core/flash-fill.ts',
-  'src/core/formula/index.ts',
   'src/core/markdown.ts',
   'src/core/workbook/rsf-codec.ts',
   'src/core/sql-engine.ts',

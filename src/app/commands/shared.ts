@@ -2,6 +2,9 @@
 import { isCsv, isWorkbook } from '../../core/editor-document';
 import type { AppState, Tab } from '../state';
 import type { NotifyPort } from '../ui-port';
+
+/** The file extension of a CSV document. */
+export const CSV_EXTENSION = '.csv';
 import { t } from '../i18n';
 
 /**

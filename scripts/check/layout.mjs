@@ -43,12 +43,10 @@ const EXEMPT = ['src/generated/', 'tests/fixtures/'];
 const MAX_SOURCE_LINES = 800;
 /** Oversized files, each capped at its current line count. Shrink, never grow. */
 const LINE_BUDGET = {
-  'src/app/commands/file-io.ts': 1235,
   'src/core/workbook/rsf-codec.ts': 1160,
   'src/ui/dialogs/sheet-ops.ts': 1100,
   'src/ui/menu-bar.ts': 1049,
   'src/ui/dialogs/shared.ts': 880,
-  'src/app/commands/paste-fill.ts': 846,
   'src/core/workbook/worksheet.ts': 823,
 };
 

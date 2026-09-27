@@ -23,7 +23,7 @@ import type { Tab } from './state';
 import type { LocaleId } from './i18n';
 import type { SqlRunOutcome, SqlSource } from './commands/sql';
 import type { DiffRunOutcome, DiffTabOption } from './commands/diff';
-import type { FlashFillPreview } from './commands/paste-fill';
+import type { FlashFillPreview } from './commands/fill';
 import type { LocalSettings } from './settings';
 
 /**

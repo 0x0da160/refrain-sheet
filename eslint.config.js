@@ -19,7 +19,6 @@ const COMPLEXITY_RATCHET = [
   'src/core/workbook/rsf-codec.ts',
   'src/core/sql-engine.ts',
   'src/core/interchange/xlsx-import.ts',
-  'src/main.ts',
   'src/ui/column-menu.ts',
   'src/ui/dialogs/app-settings.ts',
   'src/ui/dialogs/diff.ts',

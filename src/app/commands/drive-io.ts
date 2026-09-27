@@ -12,11 +12,11 @@
 // `driveConfigured()` is false, every command is disabled, and none of the
 // Google scripts is ever fetched.
 
+import type { NotifyPort, FileDialogsPort } from '../ui-port';
 import { isCsv } from '../../core/editor-document';
 import type { AppState, Tab } from '../state';
 import { getMaxFileSize } from '../settings';
 import { t } from '../i18n';
-import type { UiPort } from '../commands';
 import { LosslessDocument } from '../../core/csv/lossless-document';
 import { DriveAuthCancelled, DriveAuthError, forgetToken, getAccessToken, signOut } from '../drive/auth';
 import {
@@ -36,7 +36,7 @@ import { withBusy } from './shared';
 export class DriveIoCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & FileDialogsPort,
     private readonly fileIo: FileIoCommands,
   ) {}
 

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, RangeDialogsPort } from '../ui-port';
 import { isWorkbook } from '../../core/editor-document';
 import { normalizeCommentText } from '../../core/workbook/cell-comment';
 import { cellLabel } from '../../core/formula';
@@ -6,7 +7,7 @@ import type { CommentChange } from '../../core/workbook/history';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type { CellCommentDialogInput, ConvertReason, UiPort } from '../commands';
+import type { CellCommentDialogInput, ConvertReason } from '../commands';
 
 /**
  * Cell-comment commands for RSF spreadsheet documents: the dialog flow for
@@ -26,7 +27,7 @@ import type { CellCommentDialogInput, ConvertReason, UiPort } from '../commands'
 export class CommentCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & RangeDialogsPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, EditDialogsPort } from '../ui-port';
 import { isCsv } from '../../core/editor-document';
 import type { CellRange } from '../../core/clipboard';
 import { inferLinearSeries, seriesValueAt } from '../../core/fill-series';
@@ -14,7 +15,7 @@ import type { RsfDocument } from '../../core/workbook/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
 import type { AppState, Selection, Tab } from '../state';
 import { t } from '../i18n';
-import type { ConvertReason, UiPort } from '../commands';
+import type { ConvertReason } from '../commands';
 import { LARGE_OP_CELLS, nextPaint, pct, withBusy } from './shared';
 
 /** Everything the Flash Fill preview dialog shows before anything is applied. */
@@ -82,7 +83,7 @@ function describeFlashFillOp(op: FlashFillOp): string {
 export class PasteFillCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & EditDialogsPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
     private readonly getCopied: () => Promise<{ matrix: string[][]; origin: Selection | null } | null>,
   ) {}

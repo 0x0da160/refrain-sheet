@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, RangeDialogsPort } from '../ui-port';
 import { isWorkbook } from '../../core/editor-document';
 import {
   filterDataTop,
@@ -13,13 +14,7 @@ import type { RsfDocument } from '../../core/workbook/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type {
-  ColumnMenuInput,
-  ConvertReason,
-  FilterDialogInput,
-  FilterDialogResult,
-  UiPort,
-} from '../commands';
+import type { ColumnMenuInput, ConvertReason, FilterDialogInput, FilterDialogResult } from '../commands';
 import { compareSortValues, validateSort } from '../../core/workbook/sort';
 import { applyWhileOpen, LARGE_OP_CELLS, pct, withBusy } from './shared';
 import type { SortCommands } from './sort';
@@ -45,7 +40,7 @@ interface CellRange {
 export class FilterCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & RangeDialogsPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
     private readonly sort: SortCommands,
   ) {}

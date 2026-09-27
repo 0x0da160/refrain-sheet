@@ -4,7 +4,7 @@ import { clearChildren, el, focusWithoutKeyboard } from '../dom';
 import { makeDraggable, makeEdgeResizable, makeResizable, type EdgeResizeAxis } from '../drag-resize';
 import { createIcon } from '../icon';
 import { visualViewportRect } from '../popup';
-import { updateShellLayout } from '../shell-layout';
+import { updateShellLayout } from '../shell/tab-row-fit';
 import { t } from '../../app/i18n';
 
 /**

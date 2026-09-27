@@ -11,7 +11,7 @@ import {
   MIN_SHARED_TAB_STRIP_PX,
   TABS_IN_MENU_ROW_CLASS,
   updateShellLayout,
-} from '../../src/ui/shell-layout';
+} from '../../src/ui/shell/tab-row-fit';
 
 function rect(left: number, right: number): DOMRect {
   return {

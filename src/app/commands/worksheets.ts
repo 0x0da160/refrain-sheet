@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, WorksheetDialogsPort } from '../ui-port';
 import { isCsv, isWorkbook } from '../../core/editor-document';
 import { isValidSheetName, MAX_SHEET_NAME_LENGTH } from '../../core/formula';
 import { MAX_WORKSHEETS, type RsfDocument } from '../../core/workbook/rsf-document';
@@ -6,7 +7,7 @@ import { forEachIndexSliced } from '../../core/scheduler';
 import type { Worksheet, WorksheetKind } from '../../core/workbook/worksheet';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type { ConvertReason, UiPort } from '../commands';
+import type { ConvertReason } from '../commands';
 
 /** Where Move Worksheet puts the active worksheet. */
 export type WorksheetMove =
@@ -33,7 +34,7 @@ import { LARGE_OP_CELLS, pct, withBusy } from './shared';
 export class WorksheetCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & WorksheetDialogsPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 

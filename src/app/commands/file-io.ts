@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, FileDialogsPort } from '../ui-port';
 import { isCsv, isWorkbook } from '../../core/editor-document';
 import { initCsvEngine } from '../../core/csv/csv-engine';
 import {
@@ -42,7 +43,7 @@ import {
 } from '../recent-files';
 import { getLocale, t } from '../i18n';
 import { getAutoFitOnOpen, getMaxFileSize, getSuppressHistoryCapWarning } from '../settings';
-import type { ConvertReason, UiPort } from '../commands';
+import type { ConvertReason } from '../commands';
 import {
   isGridSurface,
   LARGE_OP_CELLS,
@@ -78,7 +79,7 @@ export class FileIoCommands {
 
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & FileDialogsPort,
     private readonly dom: Document,
     private readonly gridActions: () => GridAutoFitPort | null,
   ) {}

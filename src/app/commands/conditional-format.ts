@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, RangeDialogsPort } from '../ui-port';
 import {
   conditionalFormatRangesEqual,
   validateConditionalFormat,
@@ -8,12 +9,7 @@ import { cellLabel } from '../../core/formula';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type {
-  ConditionalFormatDialogInput,
-  ConditionalFormatDialogResult,
-  ConvertReason,
-  UiPort,
-} from '../commands';
+import type { ConditionalFormatDialogInput, ConditionalFormatDialogResult, ConvertReason } from '../commands';
 import { applyWhileOpen } from './shared';
 
 /**
@@ -33,7 +29,7 @@ import { applyWhileOpen } from './shared';
 export class ConditionalFormatCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & RangeDialogsPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 

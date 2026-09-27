@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { isCsv, isWorkbook } from '../../core/editor-document';
 import type { AppState, Tab } from '../state';
-import type { UiPort } from '../commands';
+import type { NotifyPort } from '../ui-port';
 import { t } from '../i18n';
 
 /**
@@ -41,7 +41,7 @@ export type ProtectedScope = 'book' | 'sheet';
  * access and calls this the same way.
  */
 export async function warnProtectedAndOfferUnlock(
-  ui: UiPort,
+  ui: NotifyPort,
   state: AppState,
   tab: Tab,
   scope: ProtectedScope,
@@ -119,7 +119,7 @@ export function nextPaint(): Promise<void> {
  * UI is given a chance to paint it, the work runs, and the indicator is
  * always cleared afterwards (even on error).
  */
-export async function withBusy<T>(ui: UiPort, label: string, work: () => T | Promise<T>): Promise<T> {
+export async function withBusy<T>(ui: NotifyPort, label: string, work: () => T | Promise<T>): Promise<T> {
   ui.setBusy(label);
   await nextPaint();
   try {
@@ -138,7 +138,7 @@ export async function withBusy<T>(ui: UiPort, label: string, work: () => T | Pro
  */
 export async function withBusyIfLarge<T>(
   large: boolean,
-  ui: UiPort,
+  ui: NotifyPort,
   label: string,
   work: () => T | Promise<T>,
 ): Promise<T> {

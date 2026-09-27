@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, EditDialogsPort } from '../ui-port';
 import { isCsv, isWorkbook } from '../../core/editor-document';
 import type { CellRange } from '../../core/clipboard';
 import { cellLabel, columnLabel, parseRef } from '../../core/formula';
@@ -9,7 +10,7 @@ import { forEachIndexSliced, yieldToBrowser } from '../../core/scheduler';
 import { replaceAllInValue, type CompiledQuery, type SearchScope } from '../../core/search';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type { ConvertReason, UiPort } from '../commands';
+import type { ConvertReason } from '../commands';
 import { LARGE_OP_CELLS, pct, withBusy } from './shared';
 
 /** What a Replace All actually did, for the find bar's status line. */
@@ -38,7 +39,7 @@ export interface ReplaceAllReport {
 export class RangeOpsCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & EditDialogsPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 

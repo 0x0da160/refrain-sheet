@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, FormatDialogsPort } from '../ui-port';
 import { isWorkbook } from '../../core/editor-document';
 import {
   applyCellStylePatch,
@@ -16,7 +17,7 @@ import type { Operation, StyleChange } from '../../core/workbook/history';
 import { remapRuns, runsEqual, runsForText, type TextRun } from '../../core/workbook/rich-text';
 import type { AppState, Tab } from '../state';
 import { getLocale } from '../i18n';
-import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult, UiPort } from '../commands';
+import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult } from '../commands';
 import { applyWhileOpen } from './shared';
 
 /** Every visible (non-hidden-row) cell of `range`, row-major. */
@@ -68,7 +69,7 @@ const CLEAR_PATCH: CellStylePatch = {
 export class FormatCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & FormatDialogsPort,
   ) {}
 
   toggleBold(tab: Tab): boolean {

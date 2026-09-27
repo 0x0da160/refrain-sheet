@@ -73,7 +73,7 @@
 /* ----- Document tabs share the menu bar's row when they fit (#596) -----
    The menu names end well before the right edge, so the book tab strip
    moves up into that free space instead of taking a 32px row of its own.
-   `updateShellLayout` (src/ui/shell-layout.ts) sets `.tabs-in-menu-row` on
+   `updateShellLayout` (src/ui/shell/tab-row-fit.ts) sets `.tabs-in-menu-row` on
    `#app` only while at least 240px is left beside the menu names — a narrow
    window, or one narrowed by a left/right-docked side panel, keeps the tabs
    on their own row. `#app` becomes a grid and `.app-body` steps aside

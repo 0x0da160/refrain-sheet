@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, RangeDialogsPort } from '../ui-port';
 import { isWorkbook } from '../../core/editor-document';
 import {
   computeSortOrder,
@@ -10,7 +11,7 @@ import { cellLabel, columnLabel } from '../../core/formula';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type { ConvertReason, SortDialogInput, SortDialogResult, UiPort } from '../commands';
+import type { ConvertReason, SortDialogInput, SortDialogResult } from '../commands';
 import { applyWhileOpen, LARGE_OP_CELLS, withBusyIfLarge } from './shared';
 
 /**
@@ -31,7 +32,7 @@ import { applyWhileOpen, LARGE_OP_CELLS, withBusyIfLarge } from './shared';
 export class SortCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & RangeDialogsPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 

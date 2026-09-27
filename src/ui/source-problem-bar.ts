@@ -8,16 +8,24 @@ import { createIcon } from './icon';
 /**
  * The syntax-check line under a JSON or YAML worksheet's editor: either "no
  * syntax errors" or the first error with its line and column, and a button
- * that puts the caret on it. The owning view calls {@link check} whenever the
- * text changes (it rides the view's coalesced preview render, so a burst of
- * typing is checked once).
+ * that puts the caret on it. It re-checks on its own shortly after each
+ * edit (a burst of typing is checked once) and at once when the editor loses
+ * focus, independent of the preview: the preview render is cancelled when an
+ * edit commits, and the check used to ride it, so an error typed just before
+ * clicking away was never reported. The owning view also calls
+ * {@link check} after replacing the text programmatically.
  */
+
+/** How long after the last keystroke the text is re-checked. */
+const CHECK_DEBOUNCE_MS = 150;
+
 export class SourceProblemBar {
   readonly element: HTMLElement;
   private readonly icon: HTMLElement;
   private readonly text: HTMLElement;
   private readonly goTo: HTMLButtonElement;
   private problem: SourceProblem | null = null;
+  private checkTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly textarea: HTMLTextAreaElement,
@@ -38,6 +46,12 @@ export class SourceProblemBar {
       this.text,
       this.goTo,
     ]);
+    this.textarea.addEventListener('input', () => this.scheduleCheck());
+    this.textarea.addEventListener('blur', () => {
+      if (this.checkTimer !== null) {
+        this.check();
+      }
+    });
     this.check();
   }
 
@@ -46,8 +60,19 @@ export class SourceProblemBar {
     return this.problem;
   }
 
-  /** Re-check the textarea's current text and update the line. */
+  private scheduleCheck(): void {
+    if (this.checkTimer !== null) {
+      clearTimeout(this.checkTimer);
+    }
+    this.checkTimer = setTimeout(() => this.check(), CHECK_DEBOUNCE_MS);
+  }
+
+  /** Re-check the textarea's current text now and update the line. */
   check(): void {
+    if (this.checkTimer !== null) {
+      clearTimeout(this.checkTimer);
+      this.checkTimer = null;
+    }
     const problem = this.validate(this.textarea.value);
     this.problem = problem;
     this.element.classList.toggle('has-problem', problem !== null);

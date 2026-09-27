@@ -38,6 +38,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The JSON/YAML syntax check no longer misses your last edit.** If you
+  typed an error and then clicked outside the editor (or switched sheets)
+  straight away, the line under the editor kept saying there were no syntax
+  errors. It now re-checks on its own as you type and again when the editor
+  loses focus.
+
 ### Changed
 
 - In File > Settings…, every "Not specified" choice now says what then

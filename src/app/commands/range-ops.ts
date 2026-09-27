@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isCsv, isWorkbook } from '../../core/editor-document';
 import type { CellRange } from '../../core/clipboard';
 import { cellLabel, columnLabel, parseRef } from '../../core/formula';
 import type { CellChange, Operation } from '../../core/workbook/history';
@@ -61,7 +62,7 @@ export class RangeOpsCommands {
         if (current === '') {
           continue;
         }
-        if (doc.kind === 'csv') {
+        if (isCsv(doc)) {
           const before = doc.isEdited(r, c) ? current : null;
           const after = doc.getOriginalValue(r, c) === '' ? null : '';
           changes.push({ row: r, col: c, before, after });
@@ -145,7 +146,7 @@ export class RangeOpsCommands {
    */
   async moveRange(tab: Tab, source: CellRange, deltaRow: number, deltaCol: number): Promise<boolean> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       this.ui.notify(t('move.csvOnly'), 'warn');
       return false;
     }
@@ -225,7 +226,7 @@ export class RangeOpsCommands {
     if (!tab || !query.ok) {
       return { count: 0, cells: 0, sheets: 0, skipped: 0, confirmed: true };
     }
-    if (scope === 'workbook' && tab.doc.kind === 'rsf') {
+    if (scope === 'workbook' && isWorkbook(tab.doc)) {
       return this.replaceAllInWorkbook(tab, tab.doc, query, replacement);
     }
     const doc = tab.doc;
@@ -263,7 +264,7 @@ export class RangeOpsCommands {
         if (replaced.count === 0) {
           continue;
         }
-        if (doc.kind === 'csv') {
+        if (isCsv(doc)) {
           const before = doc.isEdited(row, col) ? current : null;
           const after = replaced.value === doc.getOriginalValue(row, col) ? null : replaced.value;
           changes.push({ row, col, before, after });

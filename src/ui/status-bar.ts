@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../core/editor-document';
 import { Lock, LockOpen, TriangleAlert } from 'lucide';
 import type { AppState, Tab } from '../app/state';
 import { t } from '../app/i18n';
@@ -100,7 +101,7 @@ export class StatusBar {
     }
     const doc = tab.doc;
 
-    if (doc.kind === 'rsf') {
+    if (isWorkbook(doc)) {
       this.element.append(this.detail(el('span', { className: 'doc-kind', text: t('status.doc.rsf') })));
       this.appendProtection(tab);
       const caret = doc.activeSheet.kind === 'grid' ? null : (this.editorCaret?.() ?? null);
@@ -319,7 +320,7 @@ export class StatusBar {
     }
     const doc = tab.doc;
     const readDisplay = (r: number, c: number): string =>
-      doc.kind === 'rsf' ? doc.getDisplayValue(r, c) : doc.getValue(r, c);
+      isWorkbook(doc) ? doc.getDisplayValue(r, c) : doc.getValue(r, c);
     // Rows hidden by an active filter are excluded from the aggregates (the
     // stats describe the visible selection).
     const hidden = this.state.hiddenRows(tab);

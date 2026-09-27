@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../../core/editor-document';
 import { normalizeCommentText } from '../../core/workbook/cell-comment';
 import { cellLabel } from '../../core/formula';
 import type { CommentChange } from '../../core/workbook/history';
@@ -37,7 +38,7 @@ export class CommentCommands {
   /** Set (or clear, with `null`) one cell's comment on the active worksheet, undoably. */
   setComment(tab: Tab, row: number, col: number, text: string | null): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return false;
     }
     const before = doc.getComment(row, col);

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isCsv } from '../../core/editor-document';
 import type { Tab } from '../../app/state';
 import type { ConvertReason } from '../../app/commands';
 import { getLocale, t } from '../../app/i18n';
@@ -73,7 +74,7 @@ export class FileIoDialogs {
 
   chooseSaveOptions(tab: Tab, downloadNote: string | null): Promise<SaveOptions | null> {
     const doc = tab.doc;
-    if (doc.kind !== 'csv') {
+    if (!isCsv(doc)) {
       // Save-with-options applies only to byte-preserving CSV documents.
       return Promise.resolve(null);
     }
@@ -192,7 +193,7 @@ export class FileIoDialogs {
 
   chooseReopen(tab: Tab): Promise<{ encoding: EncodingId; delimiter: DelimiterId } | null> {
     const doc = tab.doc;
-    if (doc.kind !== 'csv') {
+    if (!isCsv(doc)) {
       // Reinterpretation applies only to byte-preserving CSV documents.
       return Promise.resolve(null);
     }

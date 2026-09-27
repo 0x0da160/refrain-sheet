@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../core/editor-document';
 import { FileCode, FileJson, FileText, FileType, Lock, LockOpen, Plus, Table, type IconNode } from 'lucide';
 import type { AppState } from '../app/state';
 import type { CommandId, Commands } from '../app/commands';
@@ -102,11 +103,10 @@ export class SheetBar {
     }
     // A plain CSV document is a single sheet: there is nothing to list, so the
     // whole row goes away instead of leaving an empty band under the grid.
-    this.element.hidden = doc.kind !== 'rsf';
-    const key =
-      doc.kind === 'rsf'
-        ? `rsf|${doc.activeSheetId}|${doc.sheets.map((s) => `${s.id}:${s.name}:${s.locked ? 1 : 0}`).join('')}`
-        : 'csv';
+    this.element.hidden = !isWorkbook(doc);
+    const key = isWorkbook(doc)
+      ? `rsf|${doc.activeSheetId}|${doc.sheets.map((s) => `${s.id}:${s.name}:${s.locked ? 1 : 0}`).join('')}`
+      : 'csv';
     if (!force && key === this.renderedKey) {
       return;
     }
@@ -115,7 +115,7 @@ export class SheetBar {
     clearChildren(this.strip);
     this.strip.setAttribute('aria-label', t('sheets.label'));
 
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       // Plain CSV: no worksheet tabs (it is a single-sheet document) — nothing
       // else to render here.
       this.strip.removeAttribute('role');

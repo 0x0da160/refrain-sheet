@@ -12,6 +12,7 @@
 // `driveConfigured()` is false, every command is disabled, and none of the
 // Google scripts is ever fetched.
 
+import { isCsv } from '../../core/editor-document';
 import type { AppState, Tab } from '../state';
 import { getMaxFileSize } from '../settings';
 import { t } from '../i18n';
@@ -172,7 +173,7 @@ export class DriveIoCommands {
       // "brand-new, never-saved CSV" structural-edit exception (#479), same
       // as a local save.
       tab.neverSaved = false;
-      if (tab.doc.kind === 'csv') {
+      if (isCsv(tab.doc)) {
         const baseline = LosslessDocument.fromBytes(encoded.bytes, {
           encoding: tab.doc.encoding,
           delimiter: tab.doc.delimiter,

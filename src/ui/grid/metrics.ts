@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../../core/editor-document';
 import type { AppState, Tab } from '../../app/state';
 import { ColOffsetIndex } from '../../core/col-offset-index';
 import { RowHeightIndex } from '../../core/row-height-index';
@@ -133,7 +134,7 @@ export class GridMetrics {
   heightIndex(tab: Tab): RowHeightIndex {
     let index = this.rowHeights.get(tab.doc);
     const hidden = this.hiddenOf(tab);
-    const sort = tab.doc.kind === 'rsf' ? tab.doc.sort : null;
+    const sort = isWorkbook(tab.doc) ? tab.doc.sort : null;
     if (
       !index ||
       this.indexZoom.get(tab.doc) !== tab.zoom ||

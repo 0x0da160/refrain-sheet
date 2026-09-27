@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isCsv } from '../../core/editor-document';
 import type { CellRange } from '../../core/clipboard';
 import { inferLinearSeries, seriesValueAt } from '../../core/fill-series';
 import {
@@ -129,7 +130,7 @@ export class PasteFillCommands {
     }
     const containsFormula = matrix.some((row) => row.some((v) => isFormula(v)));
 
-    if (tab.doc.kind === 'csv') {
+    if (isCsv(tab.doc)) {
       const doc = tab.doc;
       let fits = at.row + height <= doc.rowCount;
       if (fits) {
@@ -221,7 +222,7 @@ export class PasteFillCommands {
     if (hidden?.has(row)) {
       return; // filtered-out rows are never modified by a paste
     }
-    if (doc.kind === 'csv') {
+    if (isCsv(doc)) {
       for (let j = 0; j < width; j++) {
         const col = at.col + j;
         const value = matrix[i % srcH][j % srcW];
@@ -265,7 +266,7 @@ export class PasteFillCommands {
   ): boolean {
     const doc = tab.doc;
     let applied: boolean;
-    if (doc.kind === 'csv') {
+    if (isCsv(doc)) {
       applied = this.state.bulkEdit(tab, changes, 'history.paste');
     } else {
       // RSF: the grid may grow to fit the paste (atomically undoable).

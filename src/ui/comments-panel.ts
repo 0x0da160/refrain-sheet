@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../core/editor-document';
 import { MessageSquare } from 'lucide';
 import type { AppState } from '../app/state';
 import { t } from '../app/i18n';
@@ -112,7 +113,7 @@ export class CommentsPanel {
 
   /** The effective scope (never `workbook` for a plain CSV document). */
   private get scope(): CommentScope {
-    return this.scopeSelect.value === 'workbook' && this.state.activeTab?.doc.kind === 'rsf'
+    return this.scopeSelect.value === 'workbook' && isWorkbook(this.state.activeTab?.doc)
       ? 'workbook'
       : 'sheet';
   }
@@ -132,15 +133,15 @@ export class CommentsPanel {
       return;
     }
     const tab = this.state.activeTab;
-    const isWorkbook = tab?.doc.kind === 'rsf';
-    this.scopeSelect.disabled = !isWorkbook;
-    this.scopeSelect.title = isWorkbook ? '' : t('find.scope.csvOnly');
-    if (!isWorkbook) {
+    const inWorkbook = isWorkbook(tab?.doc);
+    this.scopeSelect.disabled = !inWorkbook;
+    this.scopeSelect.title = inWorkbook ? '' : t('find.scope.csvOnly');
+    if (!inWorkbook) {
       this.scopeSelect.value = 'sheet';
     }
 
     clearChildren(this.listEl);
-    if (!tab || tab.doc.kind !== 'rsf') {
+    if (!tab || !isWorkbook(tab.doc)) {
       this.messageEl.textContent = t('panel.comments.csvOnly');
       this.messageEl.hidden = false;
       return;
@@ -201,7 +202,7 @@ export class CommentsPanel {
    */
   private jumpTo(entry: CommentEntry): void {
     const tab = this.state.activeTab;
-    if (!tab || tab.doc.kind !== 'rsf') {
+    if (!tab || !isWorkbook(tab.doc)) {
       return;
     }
     if (tab.doc.activeSheetId !== entry.sheetId) {

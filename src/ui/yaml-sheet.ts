@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../core/editor-document';
 import { parse as parseYaml, stringify as stringifyYaml, YAMLParseError } from 'yaml';
 import type { AppState, Tab } from '../app/state';
 import type { Commands } from '../app/commands';
@@ -186,13 +187,13 @@ export class YamlSheetView {
   /** True when the active worksheet is a YAML sheet — the caller hides the grid exactly when this is true. */
   get active(): boolean {
     const tab = this.state.activeTab;
-    return tab !== null && tab.doc.kind === 'rsf' && tab.doc.activeSheet.kind === 'yaml';
+    return tab !== null && isWorkbook(tab.doc) && tab.doc.activeSheet.kind === 'yaml';
   }
 
   /** Show/hide and (re)populate from the active tab/worksheet. Call on every `tabs`/`active`/`sheets`/`doc` event. */
   refresh(): void {
     const tab = this.state.activeTab;
-    if (tab === null || tab.doc.kind !== 'rsf' || tab.doc.activeSheet.kind !== 'yaml') {
+    if (tab === null || !isWorkbook(tab.doc) || tab.doc.activeSheet.kind !== 'yaml') {
       this.flushCommit();
       this.bound = null;
       this.element.hidden = true;
@@ -230,7 +231,7 @@ export class YamlSheetView {
       return;
     }
     const { tab } = this.bound;
-    if (tab.doc.kind !== 'rsf') {
+    if (!isWorkbook(tab.doc)) {
       return;
     }
     tab.doc.setAutoFormatSource(this.autoFormatCheckbox.checked);
@@ -254,7 +255,7 @@ export class YamlSheetView {
       return;
     }
     const { tab, sheetId } = this.bound;
-    if (tab.doc.kind !== 'rsf' || tab.doc.activeSheet.id !== sheetId) {
+    if (!isWorkbook(tab.doc) || tab.doc.activeSheet.id !== sheetId) {
       return;
     }
     const sheet = tab.doc.activeSheet;

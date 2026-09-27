@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isCsv, isWorkbook } from '../../core/editor-document';
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, ListFilter, Plus } from 'lucide';
 import type { AppState, FormulaRefTarget, Tab } from '../../app/state';
 import { isGridSurface, type Commands } from '../../app/commands';
@@ -762,7 +763,7 @@ export class Grid {
     for (const old of this.canvas.querySelectorAll('.move-handle')) {
       old.remove();
     }
-    if (!range || tab.doc.kind !== 'rsf' || tab.doc.rowCount === 0) {
+    if (!range || !isWorkbook(tab.doc) || tab.doc.rowCount === 0) {
       return;
     }
     const cell = this.cellAt(range.top, range.left);
@@ -1444,7 +1445,7 @@ export class Grid {
    */
   private buildColumnHeaderCell(tab: Tab, c: number, pinned: boolean): HTMLElement {
     const doc = tab.doc;
-    const filter = doc.kind === 'rsf' ? doc.filter : null;
+    const filter = isWorkbook(doc) ? doc.filter : null;
     const head = el('div', {
       className: `vcell vhead${pinned ? ' pinned' : ''}`,
       text: columnLabel(c),
@@ -1684,9 +1685,10 @@ export class Grid {
     cell.classList.toggle('rich-text', rich !== null);
     if (rich) {
       // Rich text: one span per formatted part (text only, never HTML).
-      const conditionalColor =
-        doc.kind === 'rsf' ? doc.getConditionalFormatStyle(row, col)?.textColor : undefined;
-      const spans = richTextNodes(rich, doc.kind === 'rsf' ? doc.getStyle(row, col) : null, conditionalColor);
+      const conditionalColor = isWorkbook(doc)
+        ? doc.getConditionalFormatStyle(row, col)?.textColor
+        : undefined;
+      const spans = richTextNodes(rich, isWorkbook(doc) ? doc.getStyle(row, col) : null, conditionalColor);
       // One wrapper, so a wrapped row's flex cell lays the parts out as one
       // run of text rather than as side-by-side flex items.
       const body = el('span', { className: 'rich-text-body' }, spans);
@@ -1703,7 +1705,7 @@ export class Grid {
         cell.textContent = value;
       }
     }
-    if (doc.kind === 'csv') {
+    if (isCsv(doc)) {
       const field = doc.getField(row, col);
       // A brand-new CSV has no original file to differ from, so its edits
       // are not highlighted until the first save sets a baseline.
@@ -1757,7 +1759,7 @@ export class Grid {
    */
   private richRuns(tab: Tab, row: number, col: number, shown: string): readonly TextRun[] | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.activeSheet.kind !== 'grid') {
+    if (!isWorkbook(doc) || doc.activeSheet.kind !== 'grid') {
       return null;
     }
     const runs = doc.getStyle(row, col)?.runs;
@@ -1776,7 +1778,7 @@ export class Grid {
    */
   private headerFilterButton(tab: Tab, row: number, col: number): HTMLButtonElement | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || !this.isHeaderFilterCell(tab, row, col)) {
+    if (!isWorkbook(doc) || !this.isHeaderFilterCell(tab, row, col)) {
       return null;
     }
     const filter = doc.filter!;
@@ -1826,7 +1828,7 @@ export class Grid {
 
   /** True for a header-row cell of the active filter range (it carries a filter button). */
   private isHeaderFilterCell(tab: Tab, row: number, col: number): boolean {
-    const filter = tab.doc.kind === 'rsf' ? tab.doc.filter : null;
+    const filter = isWorkbook(tab.doc) ? tab.doc.filter : null;
     return (
       filter !== null && filter.headerRow && row === filter.top && col >= filter.left && col <= filter.right
     );
@@ -1917,7 +1919,7 @@ export class Grid {
     if (target?.closest<HTMLElement>('[data-movehandle]')) {
       // Begin a range-move drag from the current selection (RSF only).
       const range = this.state.selectedRange(tab);
-      if (range && tab.doc.kind === 'rsf') {
+      if (range && isWorkbook(tab.doc)) {
         this.beginMove(tab, range, { row: range.top, col: range.left }, event);
       }
       return;
@@ -2522,7 +2524,7 @@ export class Grid {
    * worksheets can move ranges, and never while a cell is being edited.
    */
   private moveEdgeHit(tab: Tab, event: MouseEvent): { row: number; col: number } | null {
-    if (tab.doc.kind !== 'rsf' || this.editor !== null || tab.doc !== this.lastDoc) {
+    if (!isWorkbook(tab.doc) || this.editor !== null || tab.doc !== this.lastDoc) {
       return null;
     }
     const range = this.state.selectedRange(tab);
@@ -2915,7 +2917,7 @@ export class Grid {
   private stepVisibleRow(tab: Tab, from: number, delta: number): number {
     const hidden = this.metrics.hiddenOf(tab);
     const rowCount = tab.doc.rowCount;
-    const sorted = tab.doc.kind === 'rsf' && tab.doc.sort !== null;
+    const sorted = isWorkbook(tab.doc) && tab.doc.sort !== null;
     if ((!hidden || hidden.size === 0) && !sorted) {
       return Math.max(0, Math.min(rowCount - 1, from + delta));
     }
@@ -3098,12 +3100,12 @@ export class Grid {
     // Rich text applies only to a grid worksheet of an RSF file.
     const doc = tab.doc;
     const rich =
-      doc.kind === 'rsf' && doc.activeSheet.kind === 'grid'
+      isWorkbook(doc) && doc.activeSheet.kind === 'grid'
         ? new RichCellEditor(
             {
               input,
               container: this.canvas,
-              cellStyle: () => (tab.doc.kind === 'rsf' ? tab.doc.getStyle(row, col) : null),
+              cellStyle: () => (isWorkbook(tab.doc) ? tab.doc.getStyle(row, col) : null),
               navigationKey: (event) => this.editorNavigationKey(event),
               focusLeft: () => this.commitEditor(),
             },

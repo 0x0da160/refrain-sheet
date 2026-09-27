@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../core/editor-document';
 import { Search } from 'lucide';
 import type { AppState } from '../app/state';
 import type { Commands } from '../app/commands';
@@ -258,17 +259,17 @@ export class FindBar {
    * explanation rather than silently missing.
    */
   private updateScopeAvailability(): void {
-    const isWorkbook = this.state.activeTab?.doc.kind === 'rsf';
-    this.scopeSelect.disabled = !isWorkbook;
-    this.scopeSelect.title = isWorkbook ? '' : t('find.scope.csvOnly');
-    if (!isWorkbook) {
+    const inWorkbook = isWorkbook(this.state.activeTab?.doc);
+    this.scopeSelect.disabled = !inWorkbook;
+    this.scopeSelect.title = inWorkbook ? '' : t('find.scope.csvOnly');
+    if (!inWorkbook) {
       this.scopeSelect.value = 'sheet';
     }
   }
 
   /** The effective scope (never `workbook` for a plain CSV document). */
   private get scope(): SearchScope {
-    return this.scopeSelect.value === 'workbook' && this.state.activeTab?.doc.kind === 'rsf'
+    return this.scopeSelect.value === 'workbook' && isWorkbook(this.state.activeTab?.doc)
       ? 'workbook'
       : 'sheet';
   }
@@ -316,7 +317,7 @@ export class FindBar {
       return;
     }
     const doc = tab.doc;
-    if (this.scope === 'workbook' && doc.kind === 'rsf') {
+    if (this.scope === 'workbook' && isWorkbook(doc)) {
       const result = searchWorkbook(doc.sheets, query);
       this.matches = result.cells;
       this.matchCount = result.matchCount;
@@ -324,8 +325,8 @@ export class FindBar {
       this.aborted = result.aborted;
     } else {
       const result = searchDocument(doc, query);
-      const sheetId = doc.kind === 'rsf' ? doc.activeSheetId : '';
-      const sheetName = doc.kind === 'rsf' ? doc.activeSheet.name : '';
+      const sheetId = isWorkbook(doc) ? doc.activeSheetId : '';
+      const sheetName = isWorkbook(doc) ? doc.activeSheet.name : '';
       this.matches = result.cells.map((cell) => ({ ...cell, sheetId, sheetName }));
       this.matchCount = result.matchCount;
       this.sheetCount = result.cellCount > 0 ? 1 : 0;
@@ -383,7 +384,7 @@ export class FindBar {
       const ref = cellLabel(match.row, match.col);
       let value = '';
       if (doc) {
-        const sheet = doc.kind === 'rsf' && match.sheetId !== '' ? doc.sheetById(match.sheetId) : null;
+        const sheet = isWorkbook(doc) && match.sheetId !== '' ? doc.sheetById(match.sheetId) : null;
         value = sheet ? sheet.getValue(match.row, match.col) : doc.getValue(match.row, match.col);
       }
       const snippet = value.length > RESULT_TEXT_LIMIT ? `${value.slice(0, RESULT_TEXT_LIMIT)}…` : value;
@@ -453,7 +454,7 @@ export class FindBar {
       return false;
     }
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return match.row < doc.rowCount && match.col < doc.fieldCount(match.row);
     }
     const sheet = match.sheetId === '' ? doc.activeSheet : doc.sheetById(match.sheetId);
@@ -506,7 +507,7 @@ export class FindBar {
     if (this.current < 0 && tab.selection) {
       // Start from the selection: the first match at or after it, on the
       // active worksheet, so "Next" continues from where the user is looking.
-      const activeId = tab.doc.kind === 'rsf' ? tab.doc.activeSheetId : '';
+      const activeId = isWorkbook(tab.doc) ? tab.doc.activeSheetId : '';
       const { row, col } = tab.selection;
       const at = this.matches.findIndex(
         (m) =>
@@ -525,7 +526,7 @@ export class FindBar {
     if (!tab) {
       return;
     }
-    if (match.sheetId !== '' && tab.doc.kind === 'rsf' && tab.doc.activeSheetId !== match.sheetId) {
+    if (match.sheetId !== '' && isWorkbook(tab.doc) && tab.doc.activeSheetId !== match.sheetId) {
       // Cross-worksheet navigation: activate the sheet first, then reveal.
       this.state.setActiveSheet(tab, match.sheetId);
     }
@@ -555,7 +556,7 @@ export class FindBar {
     const query = this.compile();
     if (!query.ok || this.matches.length === 0) return;
     const sel = tab.selection;
-    const activeId = tab.doc.kind === 'rsf' ? tab.doc.activeSheetId : '';
+    const activeId = isWorkbook(tab.doc) ? tab.doc.activeSheetId : '';
     const onMatch =
       sel &&
       this.matches.some(

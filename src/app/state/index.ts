@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { type EditorDocument, isCsv, isWorkbook, workbookOf } from '../../core/editor-document';
 import { normalizeRange, type CellRange } from '../../core/clipboard';
 import type { CellConditionalFormat } from '../../core/workbook/conditional-format';
 import {
@@ -15,7 +16,6 @@ import {
   type Operation,
   type SheetOperation,
 } from '../../core/workbook/history';
-import type { LosslessDocument } from '../../core/csv/lossless-document';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
 import { sortDataTop, type SheetSort } from '../../core/workbook/sort';
 import type { FreezePanes, Worksheet } from '../../core/workbook/worksheet';
@@ -26,9 +26,6 @@ import { STICKY_COL_KEY, STICKY_KEY } from './defaults';
 import { StructuralOpsState } from './structural-ops';
 import { resolveWrap, resolveZoom } from './view-layers';
 import { WorksheetsState } from './worksheets';
-
-/** Either document kind; the shared surface is duck-typed across both. */
-export type EditorDocument = LosslessDocument | RsfDocument;
 
 export interface Selection {
   row: number;
@@ -233,7 +230,7 @@ export class AppState {
   ): Tab {
     // Zoom and wrap are layered: worksheet > file > browser (see
     // `state/view-layers.ts`); column widths come from the document alone.
-    const stored = doc.kind === 'rsf' ? doc : null;
+    const stored = workbookOf(doc);
     const tab: Tab = {
       id: `tab-${nextTabId++}`,
       name,
@@ -323,7 +320,7 @@ export class AppState {
    */
   findTabForFile(name: string, bytes: Uint8Array): Tab | null {
     for (const tab of this.tabs) {
-      if (tab.name !== name || tab.doc.kind !== 'csv' || tab.doc.bytes.length !== bytes.length) {
+      if (tab.name !== name || !isCsv(tab.doc) || tab.doc.bytes.length !== bytes.length) {
         continue;
       }
       let same = true;
@@ -409,7 +406,7 @@ export class AppState {
     cells: ReadonlyArray<{ row: number; col: number }>,
   ): { row: number; col: number } | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || cells.length === 0 || !doc.hasSpills()) {
+    if (!isWorkbook(doc) || cells.length === 0 || !doc.hasSpills()) {
       return null;
     }
     const sheetId = doc.activeSheetId;
@@ -458,7 +455,7 @@ export class AppState {
       return;
     }
     tab.name = name;
-    if (tab.doc.kind === 'rsf') {
+    if (isWorkbook(tab.doc)) {
       tab.doc.name = name;
     }
     this.emit('tabs');
@@ -492,7 +489,7 @@ export class AppState {
    */
   private refuseLockedSheetWrite(tab: Tab, retry: () => void, sheetId?: string): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return false;
     }
     const sheet = doc.sheetById(sheetId ?? doc.activeSheetId);
@@ -512,7 +509,7 @@ export class AppState {
    */
   private refuseSortedWrite(tab: Tab, cells: ReadonlyArray<{ row: number; col: number }>): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sort === null) {
+    if (!isWorkbook(doc) || doc.sort === null) {
       return false;
     }
     const sort = doc.sort;
@@ -535,7 +532,7 @@ export class AppState {
     changes: ReadonlyArray<{ row: number; col: number; after: string | null }>,
   ): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.validations.length === 0) {
+    if (!isWorkbook(doc) || doc.validations.length === 0) {
       return false;
     }
     for (const change of changes) {
@@ -554,7 +551,7 @@ export class AppState {
     if (this.refuseReadOnlyWrite(tab, retry) || this.refuseLockedSheetWrite(tab, retry)) {
       return false;
     }
-    if (tab.doc.kind === 'csv') {
+    if (isCsv(tab.doc)) {
       const field = tab.doc.getField(row, col);
       if (!field) {
         return false;
@@ -613,7 +610,7 @@ export class AppState {
     ) {
       return false;
     }
-    const sheetId = tab.doc.kind === 'rsf' ? tab.doc.activeSheetId : undefined;
+    const sheetId = isWorkbook(tab.doc) ? tab.doc.activeSheetId : undefined;
     for (const change of effective) {
       this.applyChange(tab, change, 'after', sheetId);
     }
@@ -692,14 +689,14 @@ export class AppState {
   }
 
   revertCell(tab: Tab, row: number, col: number): boolean {
-    if (tab.doc.kind !== 'csv' || !tab.doc.isEdited(row, col)) {
+    if (!isCsv(tab.doc) || !tab.doc.isEdited(row, col)) {
       return false;
     }
     return this.editCell(tab, row, col, tab.doc.getOriginalValue(row, col), 'history.revertCell');
   }
 
   revertAll(tab: Tab): boolean {
-    if (tab.doc.kind !== 'csv') {
+    if (!isCsv(tab.doc)) {
       return false;
     }
     const changes: CellChange[] = tab.doc
@@ -1161,7 +1158,7 @@ export class AppState {
     // Undo/redo must show the change where it happened rather than silently
     // altering a worksheet the user is not looking at.
     const doc = tab.doc;
-    if (entry.sheetId !== undefined && doc.kind === 'rsf' && doc.sheetById(entry.sheetId)) {
+    if (entry.sheetId !== undefined && isWorkbook(doc) && doc.sheetById(entry.sheetId)) {
       this.worksheetsState.activateSheet(tab, doc, entry.sheetId);
     }
   }
@@ -1175,7 +1172,7 @@ export class AppState {
       return;
     }
     if (op.type === 'styles') {
-      if (tab.doc.kind !== 'rsf') {
+      if (!isWorkbook(tab.doc)) {
         return;
       }
       const changes = direction === 'after' ? op.changes : [...op.changes].reverse();
@@ -1190,7 +1187,7 @@ export class AppState {
       return;
     }
     if (op.type === 'comments') {
-      if (tab.doc.kind !== 'rsf') {
+      if (!isWorkbook(tab.doc)) {
         return;
       }
       const changes = direction === 'after' ? op.changes : [...op.changes].reverse();
@@ -1215,7 +1212,7 @@ export class AppState {
       return;
     }
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return;
     }
     if (op.type === 'sheets') {
@@ -1283,7 +1280,7 @@ export class AppState {
 
   private applyChange(tab: Tab, change: CellChange, direction: 'before' | 'after', sheetId?: string): void {
     const value = direction === 'before' ? change.before : change.after;
-    if (tab.doc.kind === 'csv') {
+    if (isCsv(tab.doc)) {
       if (value === null) {
         tab.doc.revert(change.row, change.col);
       } else {

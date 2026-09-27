@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isCsv, isWorkbook } from '../../core/editor-document';
 import type { AppState, Tab } from '../state';
 import type { UiPort } from '../commands';
 import { t } from '../i18n';
@@ -13,7 +14,7 @@ import { t } from '../i18n';
  * own context menu and double-click-to-fit).
  */
 export function isGridSurface(tab: Tab): boolean {
-  return tab.doc.kind === 'csv' || tab.doc.activeSheet.kind === 'grid';
+  return isCsv(tab.doc) || tab.doc.activeSheet.kind === 'grid';
 }
 
 /**
@@ -47,8 +48,8 @@ export async function warnProtectedAndOfferUnlock(
   sheetId?: string,
 ): Promise<boolean> {
   const doc = tab.doc;
-  const lockedId = doc.kind === 'rsf' ? (sheetId ?? doc.activeSheetId) : '';
-  const sheetName = doc.kind === 'rsf' ? (doc.sheetById(lockedId)?.name ?? doc.activeSheet.name) : '';
+  const lockedId = isWorkbook(doc) ? (sheetId ?? doc.activeSheetId) : '';
+  const sheetName = isWorkbook(doc) ? (doc.sheetById(lockedId)?.name ?? doc.activeSheet.name) : '';
   const title = scope === 'book' ? t('dialog.warnProtected.bookTitle') : t('dialog.warnProtected.sheetTitle');
   const message =
     scope === 'book'
@@ -65,7 +66,7 @@ export async function warnProtectedAndOfferUnlock(
   }
   if (scope === 'book') {
     state.setReadOnly(tab, false);
-  } else if (doc.kind === 'rsf') {
+  } else if (isWorkbook(doc)) {
     state.setSheetLocked(tab, lockedId, false);
   }
   return true;

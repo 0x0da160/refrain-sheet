@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../../core/editor-document';
 import {
   computeSortOrder,
   validateSort,
@@ -159,7 +160,7 @@ export class SortCommands {
    */
   async applySort(tab: Tab, sort: SheetSort, announce = true): Promise<boolean> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return false;
     }
     const rows = sort.bottom - sort.top + 1;

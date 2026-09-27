@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isCsv, isWorkbook } from './core/editor-document';
 import './styles/index.css';
 import { AppState } from './app/state';
 import { ClipboardController } from './app/clipboard-controller';
@@ -269,7 +270,7 @@ function bootstrap(): void {
     headerFilter: () => commands.hasFilter(state.activeTab),
     sheetLocked: () => {
       const doc = state.activeTab?.doc;
-      return doc !== undefined && doc.kind === 'rsf' && doc.activeSheet.locked;
+      return doc !== undefined && isWorkbook(doc) && doc.activeSheet.locked;
     },
   });
   const tabBar = new TabBar(state, commands);
@@ -301,7 +302,7 @@ function bootstrap(): void {
     state,
     () => {
       const tab = state.activeTab;
-      if (tab && tab.doc.kind === 'csv' && tab.doc.diagnostics.length > 0) {
+      if (tab && isCsv(tab.doc) && tab.doc.diagnostics.length > 0) {
         void dialogs.confirmValidation(tab.name, validateDocument(tab.doc));
       }
     },

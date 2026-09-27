@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../core/editor-document';
 import type { CellStyle } from '../core/workbook/cell-style';
 import type { CellRange } from '../core/clipboard';
 import {
@@ -85,7 +86,7 @@ export class ClipboardController {
       text,
       matrix: rangeToMatrix(tab.doc, range, rows),
       values: rangeToValueMatrix(tab.doc, range, rows),
-      styles: tab.doc.kind === 'rsf' ? rangeToStyleMatrix(tab.doc, range, rows) : null,
+      styles: isWorkbook(tab.doc) ? rangeToStyleMatrix(tab.doc, range, rows) : null,
       origin: { row: range.top, col: range.left },
       kind: tab.selectionKind,
     };

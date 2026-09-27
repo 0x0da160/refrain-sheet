@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isCsv, isWorkbook } from '../../core/editor-document';
 import { initCsvEngine } from '../../core/csv/csv-engine';
 import {
   buildCsvExportBytes,
@@ -410,7 +411,7 @@ export class FileIoCommands {
   }
 
   async reopen(tab: Tab): Promise<void> {
-    if (tab.doc.kind !== 'csv') {
+    if (!isCsv(tab.doc)) {
       return;
     }
     // The reopen dialog itself warns that unsaved edits are discarded.
@@ -427,7 +428,7 @@ export class FileIoCommands {
 
   /** File > Save with Options…: CSV only (an `.rsf` file has no options to choose). */
   async saveWithOptions(tab: Tab): Promise<void> {
-    if (tab.doc.kind !== 'csv') {
+    if (!isCsv(tab.doc)) {
       return;
     }
     const willDownload = tab.handle ? null : t('save.downloadNote', { name: tab.name });
@@ -446,7 +447,7 @@ export class FileIoCommands {
    * Returns true when the file was actually saved.
    */
   async save(tab: Tab, options: SaveOptions): Promise<boolean> {
-    if (tab.doc.kind === 'rsf') {
+    if (isWorkbook(tab.doc)) {
       return this.saveRsf(tab);
     }
     if (tab.doc.isDirty) {
@@ -523,7 +524,7 @@ export class FileIoCommands {
    * Access API downloads the finished bytes.
    */
   private async saveRsf(tab: Tab): Promise<boolean> {
-    if (tab.doc.kind !== 'rsf') {
+    if (!isWorkbook(tab.doc)) {
       return false;
     }
     // Acquire the destination up front, inside the user gesture. `handle` is
@@ -578,7 +579,7 @@ export class FileIoCommands {
    */
   private async encodeRsfBytes(tab: Tab): Promise<Uint8Array | null> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return null;
     }
     // Warn before the save actually happens when it will drop the oldest
@@ -687,7 +688,7 @@ export class FileIoCommands {
    * prompt or the encode was cancelled.
    */
   async encodeForUpload(tab: Tab): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
-    if (tab.doc.kind === 'rsf') {
+    if (isWorkbook(tab.doc)) {
       const bytes = await this.encodeRsfBytes(tab);
       return bytes === null ? null : { bytes, mimeType: 'application/octet-stream' };
     }
@@ -718,7 +719,7 @@ export class FileIoCommands {
    * Nothing in this flow ever mutates the source document or marks it saved.
    */
   async exportCsv(tab: Tab): Promise<boolean> {
-    if (tab.doc.kind !== 'rsf') {
+    if (!isWorkbook(tab.doc)) {
       return false;
     }
     const doc = tab.doc;
@@ -839,22 +840,21 @@ export class FileIoCommands {
     const name = `${base}.xlsx`;
     const label = t('loading.exporting', { name });
 
-    const plans =
-      doc.kind === 'rsf'
-        ? doc.sheets.map((s) => ({
-            name: s.name,
-            rowCount: s.rowCount,
-            columnCount: s.columnCount,
-            getValue: (r: number, c: number) => doc.getSheetDisplayValue(s.id, r, c),
-          }))
-        : [
-            {
-              name: base,
-              rowCount: doc.rowCount,
-              columnCount: doc.columnCount,
-              getValue: (r: number, c: number) => doc.getDisplayValue(r, c),
-            },
-          ];
+    const plans = isWorkbook(doc)
+      ? doc.sheets.map((s) => ({
+          name: s.name,
+          rowCount: s.rowCount,
+          columnCount: s.columnCount,
+          getValue: (r: number, c: number) => doc.getSheetDisplayValue(s.id, r, c),
+        }))
+      : [
+          {
+            name: base,
+            rowCount: doc.rowCount,
+            columnCount: doc.columnCount,
+            getValue: (r: number, c: number) => doc.getDisplayValue(r, c),
+          },
+        ];
     const totalRows = plans.reduce((sum, p) => sum + p.rowCount, 0);
     const large = plans.reduce((sum, p) => sum + p.rowCount * p.columnCount, 0) > LARGE_OP_CELLS;
 
@@ -929,7 +929,7 @@ export class FileIoCommands {
     let getValue: (r: number, c: number) => string;
     let base: string;
 
-    if (doc.kind === 'rsf') {
+    if (isWorkbook(doc)) {
       const exportable = doc.sheets.filter((s) => s.kind === 'grid');
       if (exportable.length === 0) {
         this.ui.notify(t('notify.noExportableSheet'), 'warn');
@@ -1031,7 +1031,7 @@ export class FileIoCommands {
    * explicit conversion when it is still CSV. Never converts silently.
    */
   async ensureRsf(tab: Tab, reason: ConvertReason): Promise<RsfDocument | null> {
-    if (tab.doc.kind === 'rsf') {
+    if (isWorkbook(tab.doc)) {
       return tab.doc;
     }
     // Unprotecting here goes straight on to the conversion prompt, so the
@@ -1072,7 +1072,7 @@ export class FileIoCommands {
    */
   private async buildRsfSliced(tab: Tab, label: string): Promise<RsfDocument | null> {
     const doc = tab.doc;
-    if (doc.kind !== 'csv') {
+    if (!isCsv(doc)) {
       return null;
     }
     const columnCount = Math.max(1, doc.columnCount);
@@ -1164,7 +1164,7 @@ export class FileIoCommands {
    * conversion runs behind the loading indicator.
    */
   async convertCommand(tab: Tab): Promise<void> {
-    if (tab.doc.kind !== 'csv') {
+    if (!isCsv(tab.doc)) {
       return;
     }
     const ok = await this.ui.confirmConvert('command', tab.name);

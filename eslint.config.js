@@ -88,6 +88,23 @@ export default tseslint.config(
     rules: { complexity: 'off', 'max-lines-per-function': 'off' },
   },
   {
+    // CSV vs workbook is a capability question answered in one place
+    // (src/core/editor-document.ts: isWorkbook / isCsv / workbookOf /
+    // activeSheetOf), never by comparing a document's `kind` directly.
+    files: ['src/**/*.ts'],
+    ignores: ['src/core/editor-document.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "BinaryExpression[operator=/^[!=]==$/][left.property.name='kind'][right.value=/^(rsf|csv)$/]",
+          message: 'Use isWorkbook()/isCsv()/workbookOf() from src/core/editor-document.ts.',
+        },
+      ],
+    },
+  },
+  {
     // Layering (knowledge/architecture/module-boundaries.md): dependencies
     // flow inward only, ui -> app -> core. Core is DOM-free so it runs
     // unchanged in Node for tests and benchmarks.

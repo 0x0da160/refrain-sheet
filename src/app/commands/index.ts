@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isCsv, isWorkbook, workbookOf } from '../../core/editor-document';
 import type { CellStyle } from '../../core/workbook/cell-style';
 import type { CellRange } from '../../core/clipboard';
 import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport } from '../../core/interchange/csv-export';
@@ -344,7 +345,7 @@ export class Commands {
         return tab !== null && this.state.tabs.length >= 2;
       case 'file.saveOptions':
         // Encoding/EOL/BOM options; an .rsf file has nothing to choose.
-        return tab !== null && tab.doc.kind === 'csv';
+        return tab !== null && isCsv(tab.doc);
       case 'file.openRecent':
         // Only the File System Access API gives the app a file it can reopen.
         return fileSystemAccessAvailable();
@@ -357,9 +358,9 @@ export class Commands {
         return this.driveAvailable() && this.driveSignedIn();
       case 'file.reopen':
       case 'sheet.convert':
-        return tab !== null && tab.doc.kind === 'csv';
+        return tab !== null && isCsv(tab.doc);
       case 'sheet.exportCsv':
-        return tab !== null && tab.doc.kind === 'rsf';
+        return tab !== null && isWorkbook(tab.doc);
       // Unlike CSV (already the format for a CSV-kind tab), no tab kind is
       // already an .xlsx or .json file, so both kinds can export to either.
       case 'sheet.exportXlsx':
@@ -433,7 +434,7 @@ export class Commands {
       case 'format.presetCurrency':
       case 'format.presetPercent':
       case 'edit.pasteFormats':
-        return tab !== null && tab.doc.kind === 'rsf' && tab.selection != null;
+        return tab !== null && isWorkbook(tab.doc) && tab.selection != null;
       // The async Clipboard API's image write has inconsistent browser
       // support (including on file://), so the item is hidden/disabled
       // outright there rather than failing at run time.
@@ -461,37 +462,35 @@ export class Commands {
         return tab?.selection != null && kind === 'col';
       }
       case 'sheet.filterClear':
-        return tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null;
+        return tab !== null && isWorkbook(tab.doc) && tab.doc.filter !== null;
       case 'sheet.headerFilter':
-        return tab?.selection != null || (tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null);
+        return tab?.selection != null || (tab !== null && isWorkbook(tab.doc) && tab.doc.filter !== null);
       case 'sheet.sortClear':
-        return tab !== null && tab.doc.kind === 'rsf' && tab.doc.sort !== null;
+        return tab !== null && isWorkbook(tab.doc) && tab.doc.sort !== null;
       case 'sheet.recalculate':
         // Only spreadsheet documents evaluate anything; a plain CSV has no
         // formulas and therefore nothing to recalculate.
-        return tab !== null && tab.doc.kind === 'rsf';
+        return tab !== null && isWorkbook(tab.doc);
       case 'sheet.timezone':
         // The timezone only affects TODAY()/NOW(), which only a spreadsheet
         // document evaluates.
-        return tab !== null && tab.doc.kind === 'rsf';
+        return tab !== null && isWorkbook(tab.doc);
       case 'sheet.displayLanguage':
         // The display language only affects TEXT()'s ddd/dddd tokens, which
         // only a spreadsheet document evaluates.
-        return tab !== null && tab.doc.kind === 'rsf';
+        return tab !== null && isWorkbook(tab.doc);
       case 'sheet.versionHistory':
         // Version history is an RSF-only, per-file setting; a plain CSV has
         // no container to record snapshots in.
-        return tab !== null && tab.doc.kind === 'rsf';
+        return tab !== null && isWorkbook(tab.doc);
       case 'sheet.clearVersionHistory':
-        return tab !== null && tab.doc.kind === 'rsf' && tab.doc.history.length > 0;
+        return tab !== null && isWorkbook(tab.doc) && tab.doc.history.length > 0;
       case 'edit.revertCell':
         return (
-          tab?.selection != null &&
-          tab.doc.kind === 'csv' &&
-          tab.doc.isEdited(tab.selection.row, tab.selection.col)
+          tab?.selection != null && isCsv(tab.doc) && tab.doc.isEdited(tab.selection.row, tab.selection.col)
         );
       case 'edit.revertAll':
-        return tab !== null && tab.doc.kind === 'csv' && tab.doc.isDirty;
+        return tab !== null && isCsv(tab.doc) && tab.doc.isDirty;
       case 'view.zoom.50':
       case 'view.zoom.75':
       case 'view.zoom.90':
@@ -516,21 +515,21 @@ export class Commands {
       case 'worksheet.rename':
       case 'worksheet.duplicate':
       case 'worksheet.toggleLock':
-        return tab !== null && tab.doc.kind === 'rsf';
+        return tab !== null && isWorkbook(tab.doc);
       case 'worksheet.delete':
         // A workbook always keeps at least one worksheet.
-        return tab !== null && tab.doc.kind === 'rsf' && tab.doc.sheetCount > 1;
+        return tab !== null && isWorkbook(tab.doc) && tab.doc.sheetCount > 1;
       case 'worksheet.next':
       case 'worksheet.prev':
-        return tab !== null && tab.doc.kind === 'rsf' && tab.doc.sheetCount > 1;
+        return tab !== null && isWorkbook(tab.doc) && tab.doc.sheetCount > 1;
       case 'worksheet.moveLeft':
       case 'worksheet.moveFirst':
-        return tab !== null && tab.doc.kind === 'rsf' && tab.doc.sheetIndex(tab.doc.activeSheetId) > 0;
+        return tab !== null && isWorkbook(tab.doc) && tab.doc.sheetIndex(tab.doc.activeSheetId) > 0;
       case 'worksheet.moveRight':
       case 'worksheet.moveLast':
         return (
           tab !== null &&
-          tab.doc.kind === 'rsf' &&
+          isWorkbook(tab.doc) &&
           tab.doc.sheetIndex(tab.doc.activeSheetId) < tab.doc.sheetCount - 1
         );
       case 'tab.next':
@@ -572,7 +571,7 @@ export class Commands {
       case 'format.presetCurrency':
       case 'format.presetPercent':
       case 'edit.pasteFormats':
-        return tab !== null && tab.doc.kind !== 'rsf' ? t('menu.format.csvOnlyTooltip') : null;
+        return tab !== null && !isWorkbook(tab.doc) ? t('menu.format.csvOnlyTooltip') : null;
       default:
         return null;
     }
@@ -778,14 +777,14 @@ export class Commands {
         // Drops every cached result and advances the clock the volatile
         // functions read. It changes no cell input, so the document does not
         // become dirty and nothing is pushed onto the undo history.
-        if (tab && tab.doc.kind === 'rsf') {
+        if (tab && isWorkbook(tab.doc)) {
           tab.doc.recalculate();
           this.state.emit('doc');
           this.ui.notify(t('notify.recalculated'), 'info');
         }
         return;
       case 'sheet.timezone':
-        if (tab && tab.doc.kind === 'rsf') {
+        if (tab && isWorkbook(tab.doc)) {
           const chosen = await this.ui.chooseTimezone(tab.doc.timezone);
           // Like Recalculate, this changes no cell input: no history entry,
           // no dirty flag. setTimezone() itself invalidates every cached
@@ -798,7 +797,7 @@ export class Commands {
         }
         return;
       case 'sheet.displayLanguage':
-        if (tab && tab.doc.kind === 'rsf') {
+        if (tab && isWorkbook(tab.doc)) {
           const chosen = await this.ui.chooseDisplayLanguage(tab.doc.displayLanguage);
           // Like Timezone, this changes no cell input: no history entry, no
           // dirty flag. setDisplayLanguage() itself invalidates every cached
@@ -815,7 +814,7 @@ export class Commands {
         }
         return;
       case 'sheet.versionHistory':
-        if (tab && tab.doc.kind === 'rsf') {
+        if (tab && isWorkbook(tab.doc)) {
           const doc = tab.doc;
           const choice = await this.ui.chooseVersionHistory(
             doc.historyEnabled,
@@ -886,7 +885,7 @@ export class Commands {
         }
         return;
       case 'sheet.clearVersionHistory':
-        if (tab && tab.doc.kind === 'rsf' && tab.doc.history.length > 0) {
+        if (tab && isWorkbook(tab.doc) && tab.doc.history.length > 0) {
           const ok = await this.ui.confirm(
             t('dialog.clearVersionHistory.title'),
             t('dialog.clearVersionHistory.message', { n: tab.doc.history.length }),
@@ -1007,7 +1006,7 @@ export class Commands {
         // wins); anything else sets this browser's font. Main applies the
         // effective font on the 'view' event, which also refreshes the menu
         // checkmark and the grid (which measures with the active font).
-        if (tab && tab.doc.kind === 'rsf') {
+        if (tab && isWorkbook(tab.doc)) {
           tab.doc.activeSheet.displayFont = fonts[id];
         } else {
           setBrowserSheetFont(fonts[id]);
@@ -1034,7 +1033,7 @@ export class Commands {
         return;
       }
       case 'app.settings': {
-        const rsf = tab && tab.doc.kind === 'rsf' ? tab.doc : null;
+        const rsf = workbookOf(tab?.doc);
         const chosen = await this.ui.chooseSettings({
           maxFileSize: getMaxFileSize(),
           shiftPaste: getShiftPasteMode(),
@@ -1118,7 +1117,7 @@ export class Commands {
         if (tab) this.cycleWorksheet(tab, id === 'worksheet.next' ? 1 : -1);
         return;
       case 'worksheet.toggleLock':
-        if (tab && tab.doc.kind === 'rsf') {
+        if (tab && isWorkbook(tab.doc)) {
           this.state.setSheetLocked(tab, tab.doc.activeSheetId, !tab.doc.activeSheet.locked);
         }
         return;
@@ -1334,7 +1333,7 @@ export class Commands {
     value: string,
     runs?: TextRun[] | null,
   ): Promise<boolean> {
-    if (tab.doc.kind === 'csv' && isFormula(value)) {
+    if (isCsv(tab.doc) && isFormula(value)) {
       await this.ensureRsf(tab, 'formula');
     }
     const styled = this.format.styleForEdit(tab, row, col, value, runs);
@@ -1558,7 +1557,7 @@ export class Commands {
 
   /** Whether the active tab's sheet shows filter buttons (has a filter range). */
   hasFilter(tab: Tab | null): boolean {
-    return tab !== null && tab.doc.kind === 'rsf' && tab.doc.filter !== null;
+    return tab !== null && isWorkbook(tab.doc) && tab.doc.filter !== null;
   }
 
   /**

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../../core/editor-document';
 import {
   filterDataTop,
   rowMatchesFilter,
@@ -180,7 +181,7 @@ export class FilterCommands {
    * RSF-only, with the same explicit CSV conversion offer as Filter….
    */
   async toggleHeaderFilter(tab: Tab): Promise<boolean> {
-    if (tab.doc.kind === 'rsf' && tab.doc.filter !== null) {
+    if (isWorkbook(tab.doc) && tab.doc.filter !== null) {
       return this.clearAllFilters(tab);
     }
     if (!tab.selection) {
@@ -233,7 +234,7 @@ export class FilterCommands {
    */
   async columnMenu(tab: Tab, col: number, anchor: ColumnMenuInput['anchor']): Promise<boolean> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.filter === null) {
+    if (!isWorkbook(doc) || doc.filter === null) {
       return false;
     }
     const filter = doc.filter;
@@ -445,7 +446,7 @@ export class FilterCommands {
    */
   private async applyFilter(tab: Tab, filter: SheetFilter): Promise<boolean> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return false;
     }
     const dataTop = filterDataTop(filter);
@@ -500,7 +501,7 @@ export class FilterCommands {
    */
   private async resort(tab: Tab): Promise<void> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sort === null) {
+    if (!isWorkbook(doc) || doc.sort === null) {
       return;
     }
     const sort = { ...doc.sort, keys: doc.sort.keys.map((k) => ({ ...k })) };

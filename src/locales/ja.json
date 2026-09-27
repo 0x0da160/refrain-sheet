@@ -1187,6 +1187,6 @@
   "columnMenu.more": "条件で絞り込む…",
   "columnMenu.clearColumn": "すべて表示",
   "columnMenu.apply": "適用",
-  "menu.sheet.headerFilter": "見出し行のフィルターボタン",
-  "notify.headerFilterOn": "{range} の見出し行にフィルターボタンを付けました。ボタンから行の並べ替えや表示する値の選択ができます。Ctrl+Z で元に戻せます。"
+  "menu.sheet.headerFilter": "見出しで絞り込み・並べ替え",
+  "notify.headerFilterOn": "{range} の見出しから絞り込みと並べ替えができるようにしました。見出しセルのボタンで、行の並べ替えや表示する値の選択ができます。Ctrl+Z で元に戻せます。"
 }

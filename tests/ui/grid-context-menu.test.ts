@@ -132,6 +132,7 @@ describe('the grid right-click menu (#396)', () => {
       t('menu.edit.selectAll'),
       t('menu.edit'),
       t('menu.data.comment'),
+      t('menu.sheet.headerFilter'),
       t('menu.sheet.filter'),
       t('menu.sheet.filterClear'),
       t('menu.sheet.rowsAndColumns'),

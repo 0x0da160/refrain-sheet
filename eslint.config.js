@@ -10,9 +10,7 @@ import prettier from 'eslint-config-prettier';
  */
 const COMPLEXITY_RATCHET = [
   'src/app/commands/filter.ts',
-  'src/app/commands/index.ts',
   'src/app/commands/paste-fill.ts',
-  'src/app/shortcuts.ts',
   'src/core/csv/byte-csv-parser.ts',
   'src/core/diff-engine.ts',
   'src/core/workbook/filter.ts',

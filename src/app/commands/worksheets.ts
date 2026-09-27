@@ -6,7 +6,20 @@ import { forEachIndexSliced } from '../../core/scheduler';
 import type { Worksheet, WorksheetKind } from '../../core/workbook/worksheet';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type { CommandId, ConvertReason, UiPort } from '../commands';
+import type { ConvertReason, UiPort } from '../commands';
+
+/** Where Move Worksheet puts the active worksheet. */
+export type WorksheetMove =
+  'worksheet.moveLeft' | 'worksheet.moveRight' | 'worksheet.moveFirst' | 'worksheet.moveLast';
+
+/** The selection-relative row/column structure commands. */
+export type SheetOpId =
+  | 'sheet.insertRowAbove'
+  | 'sheet.insertRowBelow'
+  | 'sheet.deleteRows'
+  | 'sheet.insertColLeft'
+  | 'sheet.insertColRight'
+  | 'sheet.deleteCols';
 import { LARGE_OP_CELLS, pct, withBusy } from './shared';
 
 /**
@@ -288,7 +301,7 @@ export class WorksheetCommands {
   }
 
   /** Move the active worksheet within the workbook's worksheet order. */
-  moveActiveWorksheet(tab: Tab, id: CommandId): void {
+  moveActiveWorksheet(tab: Tab, id: WorksheetMove): void {
     const doc = tab.doc;
     if (!isWorkbook(doc)) {
       return;
@@ -333,7 +346,7 @@ export class WorksheetCommands {
    * there is no on-disk byte layout to protect yet (#479). Every other CSV
    * tab still goes through `ensureRsf`, which asks first.
    */
-  async runSheetOp(tab: Tab, id: CommandId): Promise<void> {
+  async runSheetOp(tab: Tab, id: SheetOpId): Promise<void> {
     const range = this.state.selectedRange(tab);
     if (!range) {
       return;

@@ -9,7 +9,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
-import { Commands, type CommandId, type UiPort } from '../../src/app/commands';
+import { Commands, COMMAND_IDS as CATALOG_IDS, type CommandId, type UiPort } from '../../src/app/commands';
 import { setLocale } from '../../src/app/i18n';
 import { utf8 } from '../helpers';
 
@@ -144,8 +144,6 @@ const COMMAND_IDS: readonly CommandId[] = [
   'help.shortcuts',
   'lang.en',
   'lang.ja',
-  'tab.next',
-  'tab.prev',
   'tab.moveLeft',
   'tab.moveRight',
   'tab.moveFirst',
@@ -177,7 +175,7 @@ async function build(situation: Situation): Promise<Commands> {
 
 describe('command surface (characterization)', () => {
   it('lists every CommandId exactly once', () => {
-    expect(new Set(COMMAND_IDS).size).toBe(COMMAND_IDS.length);
+    expect([...COMMAND_IDS].sort()).toEqual([...CATALOG_IDS].sort());
   });
 
   for (const situation of ['none', 'csv', 'csvReadOnly', 'rsf', 'rsfMarkdown'] as const) {

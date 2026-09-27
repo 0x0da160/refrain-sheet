@@ -17,7 +17,7 @@ generated:
 A formula value is one of: **blank**, **number** (always a finite double),
 **text**, **boolean**, **error**, or — only where arrays are allowed — a
 rectangular **array**. Coercion rules are stated exhaustively in
-`src/core/formula-value.ts` and summarized in the offline help.
+`src/core/formula/value.ts` and summarized in the offline help.
 
 Dates are **not** a separate value kind; they are numbers on the serial
 scale below. That is why `=A1+7` means "a week later" with no special
@@ -54,7 +54,7 @@ and never propagates — only the engine creates error values.
   RSF serials one greater than Excel's for the 60 days before that date.
 - Valid serials run from `0` to 9999-12-31; anything outside is `#NUM!`.
 - **All conversions in the formula engine itself are UTC.** No function in
-  `src/core/formula-date.ts` reads a timezone or a DST rule directly, so
+  `src/core/formula/date.ts` reads a timezone or a DST rule directly, so
   `DATE`, `YEAR`, `MONTH`, `DAY`, and `DATEDIF` return the same answer on
   every machine regardless of any setting.
 - **`TODAY()` and `NOW()` read the workbook's own stored timezone**, not

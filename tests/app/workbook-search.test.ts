@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { compileQuery, searchWorkbook } from '../../src/core/search';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   return {

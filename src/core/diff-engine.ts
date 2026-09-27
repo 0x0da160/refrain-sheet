@@ -234,6 +234,24 @@ function classifySide(
 
 // ----- Public entry point -----
 
+/** True when an entry's key is non-blank and occurs exactly once on its side. */
+function hasUniqueKey(side: { byKey: Map<string, SideEntry[]> }, entry: SideEntry): boolean {
+  const ownGroup = side.byKey.get(entry.keyId);
+  return !entry.blankKey && ownGroup !== undefined && ownGroup.length <= 1;
+}
+
+/** The result row for an entry whose key is blank or duplicated on its side. */
+function invalidKeyRow(entry: SideEntry, side: 'before' | 'after'): DiffRow {
+  return {
+    type: 'key_invalid',
+    key: null,
+    before: side === 'before' ? entry.wide : null,
+    after: side === 'after' ? entry.wide : null,
+    changedColumns: [],
+    reason: entry.blankKey ? 'blankKey' : 'duplicateKey',
+  };
+}
+
 export function computeDiff(baseline: SqlTable, current: SqlTable, options: DiffOptions): DiffResult {
   if (options.keyColumns.length === 0) {
     throw new DiffError('noKeyColumns', 'at least one key column is required');
@@ -277,16 +295,8 @@ export function computeDiff(baseline: SqlTable, current: SqlTable, options: Diff
   const keyValues = (wide: string[]): string[] => keyColumnIndexes.map((idx) => wide[idx]);
 
   for (const entry of baselineSide.entries) {
-    const ownGroup = baselineSide.byKey.get(entry.keyId);
-    if (entry.blankKey || !ownGroup || ownGroup.length > 1) {
-      rows.push({
-        type: 'key_invalid',
-        key: null,
-        before: entry.wide,
-        after: null,
-        changedColumns: [],
-        reason: entry.blankKey ? 'blankKey' : 'duplicateKey',
-      });
+    if (!hasUniqueKey(baselineSide, entry)) {
+      rows.push(invalidKeyRow(entry, 'before'));
       counts.keyInvalid++;
       continue;
     }
@@ -322,16 +332,8 @@ export function computeDiff(baseline: SqlTable, current: SqlTable, options: Diff
   }
 
   for (const entry of currentSide.entries) {
-    const ownGroup = currentSide.byKey.get(entry.keyId);
-    if (entry.blankKey || !ownGroup || ownGroup.length > 1) {
-      rows.push({
-        type: 'key_invalid',
-        key: null,
-        before: null,
-        after: entry.wide,
-        changedColumns: [],
-        reason: entry.blankKey ? 'blankKey' : 'duplicateKey',
-      });
+    if (!hasUniqueKey(currentSide, entry)) {
+      rows.push(invalidKeyRow(entry, 'after'));
       counts.keyInvalid++;
       continue;
     }

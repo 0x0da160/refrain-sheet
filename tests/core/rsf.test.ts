@@ -4,9 +4,9 @@ import {
   DEFAULT_HISTORY_SNAPSHOT_LIMIT,
   MAX_RSF_HISTORY_SNAPSHOTS,
   RSF_FORMAT_VERSION,
-} from '../../src/core/rsf-codec';
+} from '../../src/core/workbook/rsf-codec';
 import { decodeRsf, encodeRsf, rsfFromTree, rsfTree } from '../rsf-single-sheet';
-import { NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../../src/core/rsf-document';
+import { NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../../src/core/workbook/rsf-document';
 import { APP_NAME, APP_VERSION } from '../../src/core/app-identity';
 import { doc } from '../helpers';
 

@@ -23,7 +23,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { t } from '../../src/app/i18n';
-import { MenuBar, type MenuChecks } from '../../src/ui/menu-bar';
+import { MenuBar } from '../../src/ui/menu-bar';
+import type { MenuChecks } from '../../src/ui/menu-bar/menus';
 
 function stubUi(): UiPort {
   return {

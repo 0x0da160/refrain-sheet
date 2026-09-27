@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { Grid, ROW_HEIGHT } from '../../src/ui/grid';
 import { doc } from '../helpers';
 
@@ -420,7 +420,7 @@ describe('touch edit entry around the on-screen keyboard', () => {
   }
 
   function touchGrid(grid: Grid): void {
-    (grid as unknown as { lastPointerType: string }).lastPointerType = 'touch';
+    (grid as unknown as { core: { lastPointerType: string } }).core.lastPointerType = 'touch';
   }
 
   /** Where `centerKeyboardTarget` puts `row` in a grid of `height` px (header + the pinned first row). */

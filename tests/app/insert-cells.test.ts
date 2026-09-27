@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState, type Selection, type SelectionKind } from '../../src/app/state';
 import { ClipboardController } from '../../src/app/clipboard-controller';
 import { Commands, type UiPort } from '../../src/app/commands';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { doc as csvDoc } from '../helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {

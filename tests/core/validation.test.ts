@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { validateDocument, VALIDATION_DISPLAY_LIMIT } from '../../src/core/validation';
+import { validateDocument, VALIDATION_DISPLAY_LIMIT } from '../../src/core/csv/validation';
 import { doc } from '../helpers';
 
 describe('structural validation diagnostics', () => {

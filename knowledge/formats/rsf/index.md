@@ -11,8 +11,8 @@ Zstandard**: `zstd -d book.rsf -o book.json` turns it into text any editor
 opens. The binary container earlier releases wrote (and its `.rcsv`
 predecessor) is no longer read; see [compatibility.md](compatibility.md).
 
-The reference implementation lives in `src/core/rsf-codec.ts` (container
-and JSON) and `src/core/zstd-frame.ts` (the codec-free Zstandard frame
+The reference implementation lives in `src/core/workbook/rsf-codec.ts` (container
+and JSON) and `src/core/workbook/zstd-frame.ts` (the codec-free Zstandard frame
 parts); compression runs in the embedded WASM engine (`wasm/src/compress.rs`).
 **High risk, human-review area:** `CLAUDE.md` calls out the RSF format by
 name as needing extra care and human review for any change.

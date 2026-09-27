@@ -56,10 +56,10 @@ Group findings under these exact bilingual headings:
 Every finding and suggestion is bilingual, in this shape:
 
 ```markdown
-**English:** `src/core/formula.ts:120` — the guard runs after the array is
+**English:** `src/core/formula/index.ts:120` — the guard runs after the array is
 materialized, so a 2M-cell range still allocates. Move it above the loop.
 
-**日本語:** `src/core/formula.ts:120` — 配列を実体化した後にガードが走るため、
+**日本語:** `src/core/formula/index.ts:120` — 配列を実体化した後にガードが走るため、
 200万セルの範囲では依然としてメモリを確保してしまいます。ループの前に移動してください。
 ```
 

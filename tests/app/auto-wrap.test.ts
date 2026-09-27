@@ -9,8 +9,8 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AppState } from '../../src/app/state';
-import { RsfDocument } from '../../src/core/rsf-document';
-import { encodeRsfWorkbook, decodeRsfWorkbook } from '../../src/core/rsf-codec';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
+import { encodeRsfWorkbook, decodeRsfWorkbook } from '../../src/core/workbook/rsf-codec';
 import { doc as csvDoc } from '../helpers';
 
 beforeEach(() => {

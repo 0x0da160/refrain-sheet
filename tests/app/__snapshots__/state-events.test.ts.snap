@@ -1,0 +1,33 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AppState event sequence (characterization) > emits the same events for a scripted session 1`] = `
+[
+  "open csv: [tabs] -> undefined 3xa|2",
+  "unprotect: [tabs] -> undefined 3xa|2",
+  "select: [selection] -> undefined 3xa|2",
+  "edit: [doc] -> true 3xa|x",
+  "undo: [doc] -> object 3xa|2",
+  "redo: [doc] -> object 3xa|x",
+  "insert rows: [] -> false 3xa|x",
+  "delete cols: [] -> false 3xa|x",
+  "zoom: [view] -> undefined 3xa|x",
+  "wrap: [view] -> undefined 3xa|x",
+  "freeze: [view] -> undefined 3xa|x",
+  "read-only: [tabs] -> undefined 3xa|x",
+  "new rsf: [tabs] -> undefined 100x|",
+  "add sheet: [doc sheets] -> object 100x|",
+  "rename sheet: [doc sheets] -> true 100x|",
+  "switch sheet: [sheets] -> true 100x|",
+  "move sheet: [doc sheets] -> true 100x|",
+  "delete sheet: [doc sheets] -> true 100x|",
+  "rsf edit: [doc] -> true 100x=1+2|",
+  "rsf insert rows: [doc] -> true 102x|",
+  "rsf delete cols: [doc] -> true 102x|",
+  "rsf undo: [doc] -> object 102x|",
+  "rsf filter: [] -> false 102x|",
+  "activate csv: [active] -> undefined 3xa|x",
+  "cycle: [active] -> undefined 102x|",
+  "move tab: [tabs] -> true 102x|",
+  "close rsf: [tabs] -> undefined 3xa|x",
+]
+`;

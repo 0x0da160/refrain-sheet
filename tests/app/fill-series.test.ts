@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { inferLinearSeries, seriesValueAt } from '../../src/core/fill-series';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { doc as csvDoc } from '../helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {

@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { t } from '../../src/app/i18n';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { CommentsPanel } from '../../src/ui/comments-panel';
 import { Grid } from '../../src/ui/grid';
 import { doc as csvDoc } from '../helpers';

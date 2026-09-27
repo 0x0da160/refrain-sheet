@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { initCsvEngine, setCsvEngineForTesting } from '../../src/core/csv-engine';
+import { initCsvEngine, setCsvEngineForTesting } from '../../src/core/csv/csv-engine';
 import { rsfDeflate } from '../../src/generated/refrain_csv_core';
-import { parseXlsxWorkbook } from '../../src/core/xlsx-import';
-import { buildXlsxExport, type XlsxSheetInput } from '../../src/core/xlsx-export';
+import { parseXlsxWorkbook } from '../../src/core/interchange/xlsx-import';
+import { buildXlsxExport, type XlsxSheetInput } from '../../src/core/interchange/xlsx-export';
 
 // ----- Minimal ZIP writer, independent of the reader under test -----
 // (STORE and DEFLATE methods, with hooks to inject corruption for negative tests.)

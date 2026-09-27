@@ -3,6 +3,18 @@ import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
+/**
+ * Files exempt from the function size/complexity limits below, each for a
+ * reason that outweighs splitting it. Only ever shrink this list.
+ *
+ * - byte-csv-parser.ts: the JS fallback of the hot CSV scan, kept a
+ *   line-for-line mirror of the Rust port in wasm/src/csv.rs so the two
+ *   engines stay provably identical (knowledge/architecture/invariants.md).
+ * - rsf-codec.ts: the persisted `.rsf` format's validating decoder/encoder;
+ *   changes there are high-risk by policy (src/core/CLAUDE.md).
+ */
+const COMPLEXITY_RATCHET = ['src/core/csv/byte-csv-parser.ts', 'src/core/workbook/rsf-codec.ts'];
+
 export default tseslint.config(
   // `.claude/` holds agent scratch space and git worktrees (already excluded
   // from version control). Linting a checked-out worktree would lint a second
@@ -42,6 +54,35 @@ export default tseslint.config(
       // `import { type A }` with only type specifiers still leaves an empty
       // runtime import under some emit settings; require `import type { A }`.
       '@typescript-eslint/no-import-type-side-effects': 'error',
+    },
+  },
+  {
+    // Keep functions small enough to review and test on their own.
+    files: ['src/**/*.ts'],
+    rules: {
+      complexity: ['error', 30],
+      'max-lines-per-function': ['error', { max: 120, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
+    files: COMPLEXITY_RATCHET,
+    rules: { complexity: 'off', 'max-lines-per-function': 'off' },
+  },
+  {
+    // CSV vs workbook is a capability question answered in one place
+    // (src/core/editor-document.ts: isWorkbook / isCsv / workbookOf /
+    // activeSheetOf), never by comparing a document's `kind` directly.
+    files: ['src/**/*.ts'],
+    ignores: ['src/core/editor-document.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "BinaryExpression[operator=/^[!=]==$/][left.property.name='kind'][right.value=/^(rsf|csv)$/]",
+          message: 'Use isWorkbook()/isCsv()/workbookOf() from src/core/editor-document.ts.',
+        },
+      ],
     },
   },
   {

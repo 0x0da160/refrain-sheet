@@ -19,8 +19,8 @@ import {
   DEFAULT_HISTORY_SNAPSHOT_LIMIT,
   MAX_RSF_HISTORY_SNAPSHOTS,
   type RsfHistorySnapshot,
-} from '../../core/rsf-codec';
-import { listTimeZones } from '../../core/timezone';
+} from '../../core/workbook/rsf-codec';
+import { listTimeZones } from '../../core/workbook/timezone';
 import { APP_VERSION_DISPLAY } from '../../app/version';
 import { el } from '../dom';
 import { dialogButton, externalLink, helpDetails, openDialog, submitOnEnter } from './shared';
@@ -541,13 +541,7 @@ export class AppSettingsDialogs {
         return sec;
       };
       const p = (key: string): HTMLElement => el('p', { text: t(key) });
-      const code = (text: string): HTMLElement => el('code', { className: 'help-code', text });
-      const codeList = (samples: string[]): HTMLElement =>
-        el(
-          'p',
-          { className: 'help-examples' },
-          samples.flatMap((s, i) => (i === 0 ? [code(s)] : [document.createTextNode(' '), code(s)])),
-        );
+      const codeList = helpCodeList;
 
       body.append(section('dialog.formulaHelp.section.syntax', p('dialog.formulaHelp.syntaxBody')));
       body.append(
@@ -572,68 +566,12 @@ export class AppSettingsDialogs {
         ),
       );
 
-      // ----- Functions table (from the shared source of truth), grouped by
-      // category so the list reads as a reference rather than one long
-      // alphabetical wall; FUNCTION_INFOS is already name-sorted, so each
-      // category's rows stay alphabetical too. -----
-      const funcSection = el('section', { className: 'help-section' }, [
-        el('h3', { text: t('dialog.formulaHelp.section.functions') }),
-      ]);
-      const categoryGroups: Array<{ el: HTMLElement; rows: Array<{ row: HTMLElement; text: string }> }> = [];
-      for (const category of FUNCTION_CATEGORY_ORDER) {
-        const infos = FUNCTION_INFOS.filter((info) => info.category === category);
-        if (infos.length === 0) {
-          continue;
-        }
-        const table = el('table', { className: 'help-fn-table' });
-        table.append(
-          el('thead', {}, [
-            el('tr', {}, [
-              el('th', { text: t('dialog.formulaHelp.col.function') }),
-              el('th', { text: t('dialog.formulaHelp.col.description') }),
-              el('th', { text: t('dialog.formulaHelp.col.example') }),
-            ]),
-          ]),
-        );
-        const tbody = el('tbody');
-        const rows: Array<{ row: HTMLElement; text: string }> = [];
-        for (const info of infos) {
-          const desc = t(`formula.fn.${info.name}`);
-          const row = el('tr', {}, [
-            el('td', {}, [code(info.signature)]),
-            el('td', { text: desc }),
-            el('td', {}, [code(info.example)]),
-          ]);
-          tbody.append(row);
-          rows.push({ row, text: `${info.name} ${info.signature} ${desc} ${info.example}`.toLowerCase() });
-        }
-        table.append(tbody);
-        const group = el('div', { className: 'help-fn-group' }, [
-          el('h4', { text: t(FUNCTION_CATEGORY_LABEL_KEY[category]) }),
-          table,
-        ]);
-        categoryGroups.push({ el: group, rows });
-        funcSection.append(group);
-      }
+      // ----- Functions table, grouped by category -----
+      const { funcSection, categoryGroups } = functionTable();
       body.append(funcSection);
 
       // ----- Errors -----
-      const errorList = el('ul', { className: 'help-errors' });
-      const errors: Array<[string, string]> = [
-        ['#ERROR!', 'dialog.formulaHelp.err.error'],
-        ['#NAME?', 'dialog.formulaHelp.err.name'],
-        ['#VALUE!', 'dialog.formulaHelp.err.value'],
-        ['#DIV/0!', 'dialog.formulaHelp.err.div0'],
-        ['#REF!', 'dialog.formulaHelp.err.ref'],
-        ['#CYCLE!', 'dialog.formulaHelp.err.cycle'],
-        ['#N/A', 'dialog.formulaHelp.err.na'],
-        ['#NUM!', 'dialog.formulaHelp.err.num'],
-        ['#SPILL!', 'dialog.formulaHelp.err.spill'],
-        ['#CALC!', 'dialog.formulaHelp.err.calc'],
-      ];
-      for (const [errCode, descKey] of errors) {
-        errorList.append(el('li', {}, [code(errCode), document.createTextNode(` — ${t(descKey)}`)]));
-      }
+      const errorList = helpErrorList();
       body.append(
         section('dialog.formulaHelp.section.errors', p('dialog.formulaHelp.errorsIntro'), errorList),
       );
@@ -686,32 +624,124 @@ export class AppSettingsDialogs {
       noResults.hidden = true;
       body.append(noResults);
 
-      const applyFilter = (): void => {
-        const q = search.value.trim().toLowerCase();
-        let anyVisible = false;
-        for (const entry of entries) {
-          const show = q === '' || entry.text.includes(q);
-          entry.el.hidden = !show;
-          anyVisible = anyVisible || show;
-        }
-        let anyRow = false;
-        for (const group of categoryGroups) {
-          let anyInGroup = false;
-          for (const { row, text } of group.rows) {
-            const show = q === '' || text.includes(q);
-            row.hidden = !show;
-            anyInGroup = anyInGroup || show;
-          }
-          group.el.hidden = !anyInGroup;
-          anyRow = anyRow || anyInGroup;
-        }
-        funcSection.hidden = !anyRow;
-        anyVisible = anyVisible || anyRow;
-        noResults.hidden = anyVisible;
-      };
+      const applyFilter = (): void =>
+        filterHelp(search.value.trim().toLowerCase(), entries, categoryGroups, funcSection, noResults);
       search.addEventListener('input', applyFilter);
 
       buttons.append(dialogButton(t('dialog.close'), true, false, () => close(undefined)));
     });
   }
+}
+
+const helpCode = (text: string): HTMLElement => el('code', { className: 'help-code', text });
+
+/** Code samples on one line, separated by spaces. */
+function helpCodeList(samples: string[]): HTMLElement {
+  return el(
+    'p',
+    { className: 'help-examples' },
+    samples.flatMap((s, i) => (i === 0 ? [helpCode(s)] : [document.createTextNode(' '), helpCode(s)])),
+  );
+}
+
+/**
+ * The functions table (from the shared source of truth), grouped by category
+ * so the list reads as a reference rather than one long alphabetical wall;
+ * FUNCTION_INFOS is already name-sorted, so each category's rows stay
+ * alphabetical too. Rows carry their searchable text.
+ */
+function functionTable(): {
+  funcSection: HTMLElement;
+  categoryGroups: Array<{ el: HTMLElement; rows: Array<{ row: HTMLElement; text: string }> }>;
+} {
+  const funcSection = el('section', { className: 'help-section' }, [
+    el('h3', { text: t('dialog.formulaHelp.section.functions') }),
+  ]);
+  const categoryGroups: Array<{ el: HTMLElement; rows: Array<{ row: HTMLElement; text: string }> }> = [];
+  for (const category of FUNCTION_CATEGORY_ORDER) {
+    const infos = FUNCTION_INFOS.filter((info) => info.category === category);
+    if (infos.length === 0) {
+      continue;
+    }
+    const table = el('table', { className: 'help-fn-table' });
+    table.append(
+      el('thead', {}, [
+        el('tr', {}, [
+          el('th', { text: t('dialog.formulaHelp.col.function') }),
+          el('th', { text: t('dialog.formulaHelp.col.description') }),
+          el('th', { text: t('dialog.formulaHelp.col.example') }),
+        ]),
+      ]),
+    );
+    const tbody = el('tbody');
+    const rows: Array<{ row: HTMLElement; text: string }> = [];
+    for (const info of infos) {
+      const desc = t(`formula.fn.${info.name}`);
+      const row = el('tr', {}, [
+        el('td', {}, [helpCode(info.signature)]),
+        el('td', { text: desc }),
+        el('td', {}, [helpCode(info.example)]),
+      ]);
+      tbody.append(row);
+      rows.push({ row, text: `${info.name} ${info.signature} ${desc} ${info.example}`.toLowerCase() });
+    }
+    table.append(tbody);
+    const group = el('div', { className: 'help-fn-group' }, [
+      el('h4', { text: t(FUNCTION_CATEGORY_LABEL_KEY[category]) }),
+      table,
+    ]);
+    categoryGroups.push({ el: group, rows });
+    funcSection.append(group);
+  }
+  return { funcSection, categoryGroups };
+}
+
+/** Every formula error value with its explanation. */
+function helpErrorList(): HTMLElement {
+  const errorList = el('ul', { className: 'help-errors' });
+  const errors: Array<[string, string]> = [
+    ['#ERROR!', 'dialog.formulaHelp.err.error'],
+    ['#NAME?', 'dialog.formulaHelp.err.name'],
+    ['#VALUE!', 'dialog.formulaHelp.err.value'],
+    ['#DIV/0!', 'dialog.formulaHelp.err.div0'],
+    ['#REF!', 'dialog.formulaHelp.err.ref'],
+    ['#CYCLE!', 'dialog.formulaHelp.err.cycle'],
+    ['#N/A', 'dialog.formulaHelp.err.na'],
+    ['#NUM!', 'dialog.formulaHelp.err.num'],
+    ['#SPILL!', 'dialog.formulaHelp.err.spill'],
+    ['#CALC!', 'dialog.formulaHelp.err.calc'],
+  ];
+  for (const [errCode, descKey] of errors) {
+    errorList.append(el('li', {}, [helpCode(errCode), document.createTextNode(` — ${t(descKey)}`)]));
+  }
+  return errorList;
+}
+
+/** Show only the help sections and function rows matching `q` (all when empty). */
+function filterHelp(
+  q: string,
+  entries: Array<{ el: HTMLElement; text: string }>,
+  categoryGroups: Array<{ el: HTMLElement; rows: Array<{ row: HTMLElement; text: string }> }>,
+  funcSection: HTMLElement,
+  noResults: HTMLElement,
+): void {
+  let anyVisible = false;
+  for (const entry of entries) {
+    const show = q === '' || entry.text.includes(q);
+    entry.el.hidden = !show;
+    anyVisible = anyVisible || show;
+  }
+  let anyRow = false;
+  for (const group of categoryGroups) {
+    let anyInGroup = false;
+    for (const { row, text } of group.rows) {
+      const show = q === '' || text.includes(q);
+      row.hidden = !show;
+      anyInGroup = anyInGroup || show;
+    }
+    group.el.hidden = !anyInGroup;
+    anyRow = anyRow || anyInGroup;
+  }
+  funcSection.hidden = !anyRow;
+  noResults.hidden = anyVisible || anyRow;
 }

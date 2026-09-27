@@ -5,7 +5,7 @@ import { AppState } from '../../src/app/state';
 import { ClipboardController } from '../../src/app/clipboard-controller';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { t } from '../../src/app/i18n';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { Grid, OVERSCAN_ROWS, ROW_HEIGHT, COL_WIDTH, MIN_COL_WIDTH, ROW_HEAD_WIDTH } from '../../src/ui/grid';
 import { doc, readBundledCss } from '../helpers';
 

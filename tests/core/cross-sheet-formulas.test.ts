@@ -20,7 +20,7 @@ import {
   shiftFormulaRefs,
   type AstNode,
 } from '../../src/core/formula';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 
 /** A two-worksheet workbook with known values on each sheet. */
 function workbook(): RsfDocument {

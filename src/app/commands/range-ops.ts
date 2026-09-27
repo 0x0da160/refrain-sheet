@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, EditDialogsPort } from '../ui-port';
+import { isCsv, isWorkbook } from '../../core/editor-document';
 import type { CellRange } from '../../core/clipboard';
 import { cellLabel, columnLabel, parseRef } from '../../core/formula';
-import type { CellChange, Operation } from '../../core/history';
-import { moveTarget, planRangeMove, validateMove, type RangeMovePlan } from '../../core/range-move';
-import type { RsfDocument } from '../../core/rsf-document';
+import type { CellChange, Operation } from '../../core/workbook/history';
+import { moveTarget, planRangeMove, validateMove, type RangeMovePlan } from '../../core/workbook/range-move';
+import type { RsfDocument } from '../../core/workbook/rsf-document';
 import { forEachIndexSliced, yieldToBrowser } from '../../core/scheduler';
 import { replaceAllInValue, type CompiledQuery, type SearchScope } from '../../core/search';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type { ConvertReason, UiPort } from '../commands';
+import type { ConvertReason } from '../commands';
 import { LARGE_OP_CELLS, pct, withBusy } from './shared';
 
 /** What a Replace All actually did, for the find bar's status line. */
@@ -32,12 +34,12 @@ export interface ReplaceAllReport {
  * `src/app/commands/file-io.ts`) — `Commands` still exposes the same public
  * methods, delegating to an instance of this class. This is the `Commands`-
  * layer dispatch code, distinct from (and a consumer of) the pure planning
- * logic in `src/core/range-move.ts` and `src/core/search.ts`.
+ * logic in `src/core/workbook/range-move.ts` and `src/core/search.ts`.
  */
 export class RangeOpsCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & EditDialogsPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 
@@ -61,7 +63,7 @@ export class RangeOpsCommands {
         if (current === '') {
           continue;
         }
-        if (doc.kind === 'csv') {
+        if (isCsv(doc)) {
           const before = doc.isEdited(r, c) ? current : null;
           const after = doc.getOriginalValue(r, c) === '' ? null : '';
           changes.push({ row: r, col: c, before, after });
@@ -145,7 +147,7 @@ export class RangeOpsCommands {
    */
   async moveRange(tab: Tab, source: CellRange, deltaRow: number, deltaCol: number): Promise<boolean> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       this.ui.notify(t('move.csvOnly'), 'warn');
       return false;
     }
@@ -225,7 +227,7 @@ export class RangeOpsCommands {
     if (!tab || !query.ok) {
       return { count: 0, cells: 0, sheets: 0, skipped: 0, confirmed: true };
     }
-    if (scope === 'workbook' && tab.doc.kind === 'rsf') {
+    if (scope === 'workbook' && isWorkbook(tab.doc)) {
       return this.replaceAllInWorkbook(tab, tab.doc, query, replacement);
     }
     const doc = tab.doc;
@@ -263,7 +265,7 @@ export class RangeOpsCommands {
         if (replaced.count === 0) {
           continue;
         }
-        if (doc.kind === 'csv') {
+        if (isCsv(doc)) {
           const before = doc.isEdited(row, col) ? current : null;
           const after = replaced.value === doc.getOriginalValue(row, col) ? null : replaced.value;
           changes.push({ row, col, before, after });

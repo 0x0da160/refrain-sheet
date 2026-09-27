@@ -1,11 +1,26 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, WorksheetDialogsPort } from '../ui-port';
+import { isCsv, isWorkbook } from '../../core/editor-document';
 import { isValidSheetName, MAX_SHEET_NAME_LENGTH } from '../../core/formula';
-import { MAX_WORKSHEETS, type RsfDocument } from '../../core/rsf-document';
+import { MAX_WORKSHEETS, type RsfDocument } from '../../core/workbook/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
-import type { Worksheet, WorksheetKind } from '../../core/worksheet';
+import type { Worksheet, WorksheetKind } from '../../core/workbook/worksheet';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type { CommandId, ConvertReason, UiPort } from '../commands';
+import type { ConvertReason } from '../commands';
+
+/** Where Move Worksheet puts the active worksheet. */
+export type WorksheetMove =
+  'worksheet.moveLeft' | 'worksheet.moveRight' | 'worksheet.moveFirst' | 'worksheet.moveLast';
+
+/** The selection-relative row/column structure commands. */
+export type SheetOpId =
+  | 'sheet.insertRowAbove'
+  | 'sheet.insertRowBelow'
+  | 'sheet.deleteRows'
+  | 'sheet.insertColLeft'
+  | 'sheet.insertColRight'
+  | 'sheet.deleteCols';
 import { LARGE_OP_CELLS, pct, withBusy } from './shared';
 
 /**
@@ -19,7 +34,7 @@ import { LARGE_OP_CELLS, pct, withBusy } from './shared';
 export class WorksheetCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & WorksheetDialogsPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 
@@ -103,7 +118,7 @@ export class WorksheetCommands {
    */
   async addWorksheet(tab: Tab): Promise<void> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
+    if (!isWorkbook(doc) || !this.canAddWorksheet(doc)) {
       return;
     }
     const initialKind: WorksheetKind = 'grid';
@@ -169,7 +184,7 @@ export class WorksheetCommands {
    */
   private async addSingleKindWorksheet(tab: Tab, kind: Exclude<WorksheetKind, 'grid'>): Promise<void> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
+    if (!isWorkbook(doc) || !this.canAddWorksheet(doc)) {
       return;
     }
     const suggested = this.suggestNameForKind(doc, kind);
@@ -188,7 +203,7 @@ export class WorksheetCommands {
   /** Rename the active worksheet, updating cross-sheet formulas workbook-wide. */
   async renameWorksheet(tab: Tab): Promise<void> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return;
     }
     const sheet = doc.activeSheet;
@@ -213,7 +228,7 @@ export class WorksheetCommands {
    */
   async duplicateWorksheet(tab: Tab): Promise<void> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || !this.canAddWorksheet(doc)) {
+    if (!isWorkbook(doc) || !this.canAddWorksheet(doc)) {
       return;
     }
     const source = doc.activeSheet;
@@ -260,7 +275,7 @@ export class WorksheetCommands {
    */
   async deleteWorksheet(tab: Tab): Promise<void> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return;
     }
     if (doc.sheetCount <= 1) {
@@ -287,9 +302,9 @@ export class WorksheetCommands {
   }
 
   /** Move the active worksheet within the workbook's worksheet order. */
-  moveActiveWorksheet(tab: Tab, id: CommandId): void {
+  moveActiveWorksheet(tab: Tab, id: WorksheetMove): void {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return;
     }
     const from = doc.sheetIndex(doc.activeSheetId);
@@ -317,7 +332,7 @@ export class WorksheetCommands {
   /** Activate the next/previous worksheet, wrapping around. */
   cycleWorksheet(tab: Tab, offset: number): void {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sheetCount < 2) {
+    if (!isWorkbook(doc) || doc.sheetCount < 2) {
       return;
     }
     const index = doc.sheetIndex(doc.activeSheetId);
@@ -332,12 +347,12 @@ export class WorksheetCommands {
    * there is no on-disk byte layout to protect yet (#479). Every other CSV
    * tab still goes through `ensureRsf`, which asks first.
    */
-  async runSheetOp(tab: Tab, id: CommandId): Promise<void> {
+  async runSheetOp(tab: Tab, id: SheetOpId): Promise<void> {
     const range = this.state.selectedRange(tab);
     if (!range) {
       return;
     }
-    const doc = tab.doc.kind === 'csv' && tab.neverSaved ? tab.doc : await this.ensureRsf(tab, 'structure');
+    const doc = isCsv(tab.doc) && tab.neverSaved ? tab.doc : await this.ensureRsf(tab, 'structure');
     if (!doc) {
       return;
     }
@@ -350,13 +365,13 @@ export class WorksheetCommands {
     // told when that happened. An active sort is dropped the same way (see
     // `Worksheet.insertRows` etc.) but, being session-only view state, is not
     // restored by undo. Neither exists on a plain CSV document.
-    const hadFilter = doc.kind === 'rsf' && doc.filter !== null;
-    const hadSort = doc.kind === 'rsf' && doc.sort !== null;
+    const hadFilter = isWorkbook(doc) && doc.filter !== null;
+    const hadSort = isWorkbook(doc) && doc.sort !== null;
     const done = (applied: boolean): void => {
-      if (applied && hadFilter && doc.kind === 'rsf' && doc.filter === null) {
+      if (applied && hadFilter && isWorkbook(doc) && doc.filter === null) {
         this.ui.notify(t('notify.filterClearedByStructure'), 'info');
       }
-      if (applied && hadSort && doc.kind === 'rsf' && doc.sort === null) {
+      if (applied && hadSort && isWorkbook(doc) && doc.sort === null) {
         this.ui.notify(t('notify.sortClearedByStructure'), 'info');
       }
     };
@@ -422,20 +437,20 @@ export class WorksheetCommands {
    * to insert relative to.
    */
   async appendAxis(tab: Tab, axis: 'row' | 'col'): Promise<void> {
-    const doc = tab.doc.kind === 'csv' && tab.neverSaved ? tab.doc : await this.ensureRsf(tab, 'structure');
+    const doc = isCsv(tab.doc) && tab.neverSaved ? tab.doc : await this.ensureRsf(tab, 'structure');
     if (!doc) {
       return;
     }
-    const hadFilter = doc.kind === 'rsf' && doc.filter !== null;
-    const hadSort = doc.kind === 'rsf' && doc.sort !== null;
+    const hadFilter = isWorkbook(doc) && doc.filter !== null;
+    const hadSort = isWorkbook(doc) && doc.sort !== null;
     const applied =
       axis === 'row'
         ? this.state.insertRows(tab, doc.rowCount, 1)
         : this.state.insertCols(tab, doc.columnCount, 1);
-    if (applied && hadFilter && doc.kind === 'rsf' && doc.filter === null) {
+    if (applied && hadFilter && isWorkbook(doc) && doc.filter === null) {
       this.ui.notify(t('notify.filterClearedByStructure'), 'info');
     }
-    if (applied && hadSort && doc.kind === 'rsf' && doc.sort === null) {
+    if (applied && hadSort && isWorkbook(doc) && doc.sort === null) {
       this.ui.notify(t('notify.sortClearedByStructure'), 'info');
     }
   }

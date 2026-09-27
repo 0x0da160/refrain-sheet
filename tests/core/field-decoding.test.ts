@@ -6,10 +6,10 @@
  * strict per-field decode.
  */
 import { describe, expect, it } from 'vitest';
-import { unescapeQuotedBytes } from '../../src/core/byte-csv-parser';
-import { initCsvEngine, setCsvEngineForTesting, type CsvEngineName } from '../../src/core/csv-engine';
-import { decodeBytes, decodesCleanly, type EncodingId } from '../../src/core/encoding';
-import type { LosslessDocument } from '../../src/core/lossless-document';
+import { unescapeQuotedBytes } from '../../src/core/csv/byte-csv-parser';
+import { initCsvEngine, setCsvEngineForTesting, type CsvEngineName } from '../../src/core/csv/csv-engine';
+import { decodeBytes, decodesCleanly, type EncodingId } from '../../src/core/csv/encoding';
+import type { LosslessDocument } from '../../src/core/csv/lossless-document';
 import { concat, doc, enc, utf8 } from '../helpers';
 
 const wasm = (await initCsvEngine()) === 'wasm';

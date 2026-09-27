@@ -1,0 +1,392 @@
+// SPDX-License-Identifier: MIT
+/**
+ * Deterministic spreadsheet filtering for RSF documents.
+ *
+ * A {@link SheetFilter} describes one filtered rectangular range: which rows
+ * are *data* rows (below the optional header row), and per-column criteria.
+ * Rows whose data fails the criteria are hidden **visually only** — their
+ * values, identity, formulas, references, heights, and history behavior are
+ * untouched, and formula evaluation always uses the normal sheet model (no
+ * filter-aware functions exist in the formula specification).
+ *
+ * Combination semantics (documented, localized in the filter dialog):
+ * - Conditions inside one column combine with the column's own AND/OR choice.
+ * - A column's selected-values list (when limited) is an additional condition
+ *   the row must also satisfy (AND with the column's conditions).
+ * - Criteria across different columns always combine with AND.
+ *
+ * The hidden-row set is a snapshot taken when the filter is applied, edited,
+ * or restored (open/undo/redo) — editing a cell afterwards does not
+ * automatically re-evaluate the filter (re-open the filter dialog and Apply
+ * to re-evaluate). This matches conventional spreadsheets and keeps every
+ * keystroke O(1).
+ *
+ * Everything here is pure and DOM-free; predicates never use regular
+ * expressions, `eval`, or any dynamic code — only plain string/number
+ * comparisons on the displayed values.
+ */
+
+// ----- Bounds (shared by the UI and the RSF codec) ---------------------------
+// Persisted filter metadata is validated against these on load; the UI
+// enforces them on creation so a filter within bounds always round-trips.
+
+/** Maximum data rows a filter range may cover (keeps evaluation bounded). */
+export const MAX_FILTER_ROWS = 1_000_000;
+/** Maximum columns that may carry criteria in one filter. */
+const MAX_FILTER_COLUMNS = 64;
+/** Maximum comparison conditions per column. */
+export const MAX_FILTER_CONDITIONS = 4;
+/** Maximum entries in a column's selected-values list. */
+export const MAX_FILTER_VALUES = 1000;
+/** Maximum length (UTF-16 code units) of any filter comparison string/value. */
+const MAX_FILTER_STRING = 1024;
+
+/** Text comparison operators (case-sensitive, exact string semantics). */
+export const FILTER_TEXT_OPS = [
+  'contains',
+  'notContains',
+  'equals',
+  'notEquals',
+  'beginsWith',
+  'endsWith',
+  'blank',
+  'notBlank',
+] as const;
+export type FilterTextOp = (typeof FILTER_TEXT_OPS)[number];
+
+/** Numeric comparison operators (displayed value must parse as a number). */
+export const FILTER_NUMBER_OPS = [
+  'numEquals',
+  'numNotEquals',
+  'numGreater',
+  'numGreaterEq',
+  'numLess',
+  'numLessEq',
+  'numBetween',
+] as const;
+export type FilterNumberOp = (typeof FILTER_NUMBER_OPS)[number];
+
+/** One comparison condition on a column's displayed values. */
+export type FilterCondition =
+  | { kind: 'text'; op: FilterTextOp; value: string }
+  | { kind: 'number'; op: FilterNumberOp; value: number; value2?: number };
+
+/** Criteria for one column of the filtered range. */
+export interface ColumnFilter {
+  /** Absolute document column index. */
+  col: number;
+  /** How this column's `conditions` combine with each other. */
+  join: 'and' | 'or';
+  /** Comparison conditions (0..{@link MAX_FILTER_CONDITIONS}). */
+  conditions: FilterCondition[];
+  /**
+   * Exact displayed values the row may have in this column, or null when all
+   * values are allowed. Combined with `conditions` via AND. Bounded by
+   * {@link MAX_FILTER_VALUES}.
+   */
+  values: string[] | null;
+}
+
+/** The whole filter state of a sheet (one filtered range at a time). */
+export interface SheetFilter {
+  /** Filtered rectangle (inclusive document coordinates). */
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+  /** Treat the range's first row as a header (never hidden, never evaluated). */
+  headerRow: boolean;
+  /** Per-column criteria. Columns without an entry accept every value. */
+  columns: ColumnFilter[];
+}
+
+/** First data row of a filter (the row below the header when one is set). */
+export function filterDataTop(filter: SheetFilter): number {
+  return filter.headerRow ? filter.top + 1 : filter.top;
+}
+
+/**
+ * Parse a displayed value as a finite number for numeric conditions, or null.
+ * Mirrors the selection-statistics rule (`Number()` on the trimmed text) so
+ * "numeric" means the same thing everywhere.
+ */
+function filterNumericValue(display: string): number | null {
+  const trimmed = display.trim();
+  if (trimmed === '') {
+    return null;
+  }
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Evaluate one condition against a displayed cell value. */
+function matchCondition(cond: FilterCondition, display: string): boolean {
+  if (cond.kind === 'text') {
+    switch (cond.op) {
+      case 'contains':
+        return display.includes(cond.value);
+      case 'notContains':
+        return !display.includes(cond.value);
+      case 'equals':
+        return display === cond.value;
+      case 'notEquals':
+        return display !== cond.value;
+      case 'beginsWith':
+        return display.startsWith(cond.value);
+      case 'endsWith':
+        return display.endsWith(cond.value);
+      case 'blank':
+        return display.trim() === '';
+      case 'notBlank':
+        return display.trim() !== '';
+    }
+  }
+  const n = filterNumericValue(display);
+  if (n === null) {
+    // Non-numeric cells never satisfy a numeric comparison (including the
+    // negated ones — "not equal to 5" still means "is a number other than 5").
+    return false;
+  }
+  switch (cond.op) {
+    case 'numEquals':
+      return n === cond.value;
+    case 'numNotEquals':
+      return n !== cond.value;
+    case 'numGreater':
+      return n > cond.value;
+    case 'numGreaterEq':
+      return n >= cond.value;
+    case 'numLess':
+      return n < cond.value;
+    case 'numLessEq':
+      return n <= cond.value;
+    case 'numBetween': {
+      const lo = Math.min(cond.value, cond.value2 ?? cond.value);
+      const hi = Math.max(cond.value, cond.value2 ?? cond.value);
+      return n >= lo && n <= hi;
+    }
+  }
+}
+
+// A row scan re-evaluates every column's criteria once per row (up to
+// MAX_FILTER_ROWS times per filter application). `column.values` stays the
+// same array instance for the whole scan, so its membership Set is built
+// once — lazily, on first use — and cached here rather than rescanned with
+// `Array.includes` on every row. Keying by the array (not the ColumnFilter
+// object) means a fresh `values` array from a new filter application never
+// collides with a stale cache entry; the WeakMap lets old entries be
+// collected once that array is no longer referenced.
+const valuesSetCache = new WeakMap<string[], Set<string>>();
+
+function valuesSet(values: string[]): Set<string> {
+  let set = valuesSetCache.get(values);
+  if (!set) {
+    set = new Set(values);
+    valuesSetCache.set(values, set);
+  }
+  return set;
+}
+
+/** Evaluate one column's criteria against a displayed cell value. */
+export function matchColumn(column: ColumnFilter, display: string): boolean {
+  if (column.conditions.length > 0) {
+    if (column.join === 'or') {
+      if (!column.conditions.some((c) => matchCondition(c, display))) {
+        return false;
+      }
+    } else if (!column.conditions.every((c) => matchCondition(c, display))) {
+      return false;
+    }
+  }
+  if (column.values !== null && !valuesSet(column.values).has(display)) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * True when a data row satisfies every column's criteria (columns combine
+ * with AND). `get` returns the *displayed* value of an absolute cell.
+ */
+export function rowMatchesFilter(
+  filter: SheetFilter,
+  row: number,
+  get: (row: number, col: number) => string,
+): boolean {
+  for (const column of filter.columns) {
+    if (!matchColumn(column, get(row, column.col))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Compute the complete hidden-row set of a filter synchronously. Bounded by
+ * the filter range (itself bounded by {@link MAX_FILTER_ROWS}); the command
+ * layer uses a time-sliced equivalent with progress for large ranges.
+ */
+export function computeHiddenRows(
+  filter: SheetFilter,
+  get: (row: number, col: number) => string,
+): Set<number> {
+  const hidden = new Set<number>();
+  for (let r = filterDataTop(filter); r <= filter.bottom; r++) {
+    if (!rowMatchesFilter(filter, r, get)) {
+      hidden.add(r);
+    }
+  }
+  return hidden;
+}
+
+/**
+ * Structural validation of a (possibly untrusted) filter against the sheet
+ * dimensions and the documented bounds. Returns the filter when fully valid,
+ * or null when anything is out of bounds — persisted filter metadata that
+ * fails this is ignored (with a localized warning) rather than corrupting or
+ * rejecting the document.
+ */
+export function validateFilter(
+  filter: SheetFilter,
+  rowCount: number,
+  columnCount: number,
+): SheetFilter | null {
+  if (!validFilterRange(filter, rowCount, columnCount) || typeof filter.headerRow !== 'boolean') {
+    return null;
+  }
+  if (!Array.isArray(filter.columns) || filter.columns.length > MAX_FILTER_COLUMNS) {
+    return null;
+  }
+  const seen = new Set<number>();
+  for (const column of filter.columns) {
+    if (!validFilterColumn(column, filter) || seen.has(column.col)) {
+      return null;
+    }
+    seen.add(column.col);
+  }
+  return filter;
+}
+
+const intish = (n: number): boolean => Number.isInteger(n) && n >= 0;
+
+/** A well-formed, in-bounds, not-too-tall rectangle. */
+function validFilterRange(filter: SheetFilter, rowCount: number, columnCount: number): boolean {
+  return (
+    intish(filter.top) &&
+    intish(filter.left) &&
+    intish(filter.bottom) &&
+    intish(filter.right) &&
+    filter.top <= filter.bottom &&
+    filter.left <= filter.right &&
+    filter.bottom < rowCount &&
+    filter.right < columnCount &&
+    filter.bottom - filter.top + 1 <= MAX_FILTER_ROWS
+  );
+}
+
+/**
+ * One column's criteria: inside the filter range, a known join, bounded
+ * conditions and values. A column entry with no criteria at all is
+ * meaningless; the filter shape is treated as invalid rather than carrying
+ * dead entries around.
+ */
+function validFilterColumn(column: ColumnFilter, filter: SheetFilter): boolean {
+  if (!intish(column.col) || column.col < filter.left || column.col > filter.right) {
+    return false;
+  }
+  if (column.join !== 'and' && column.join !== 'or') {
+    return false;
+  }
+  if (!Array.isArray(column.conditions) || column.conditions.length > MAX_FILTER_CONDITIONS) {
+    return false;
+  }
+  if (!column.conditions.every(validFilterCondition)) {
+    return false;
+  }
+  if (column.values !== null) {
+    if (!Array.isArray(column.values) || column.values.length > MAX_FILTER_VALUES) {
+      return false;
+    }
+    if (!column.values.every((v) => typeof v === 'string' && v.length <= MAX_FILTER_STRING)) {
+      return false;
+    }
+  }
+  return column.conditions.length > 0 || column.values !== null;
+}
+
+/** A text or number condition with a known operator and bounded, finite operands. */
+function validFilterCondition(cond: FilterCondition): boolean {
+  if (cond.kind === 'text') {
+    return (
+      (FILTER_TEXT_OPS as readonly string[]).includes(cond.op) &&
+      typeof cond.value === 'string' &&
+      cond.value.length <= MAX_FILTER_STRING
+    );
+  }
+  if (cond.kind === 'number') {
+    return (
+      (FILTER_NUMBER_OPS as readonly string[]).includes(cond.op) &&
+      Number.isFinite(cond.value) &&
+      !(cond.op === 'numBetween' && cond.value2 !== undefined && !Number.isFinite(cond.value2))
+    );
+  }
+  return false;
+}
+
+/** Deep structural equality of two filter states (null-safe). */
+export function filtersEqual(a: SheetFilter | null, b: SheetFilter | null): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a === null || b === null) {
+    return false;
+  }
+  if (
+    a.top !== b.top ||
+    a.left !== b.left ||
+    a.bottom !== b.bottom ||
+    a.right !== b.right ||
+    a.headerRow !== b.headerRow ||
+    a.columns.length !== b.columns.length
+  ) {
+    return false;
+  }
+  for (let i = 0; i < a.columns.length; i++) {
+    const ca = a.columns[i];
+    const cb = b.columns[i];
+    if (ca.col !== cb.col || ca.join !== cb.join || ca.conditions.length !== cb.conditions.length) {
+      return false;
+    }
+    for (let j = 0; j < ca.conditions.length; j++) {
+      const xa = ca.conditions[j];
+      const xb = cb.conditions[j];
+      if (xa.kind !== xb.kind || xa.op !== xb.op) {
+        return false;
+      }
+      if (xa.kind === 'text' && xb.kind === 'text' && xa.value !== xb.value) {
+        return false;
+      }
+      if (
+        xa.kind === 'number' &&
+        xb.kind === 'number' &&
+        (xa.value !== xb.value || xa.value2 !== xb.value2)
+      ) {
+        return false;
+      }
+    }
+    if ((ca.values === null) !== (cb.values === null)) {
+      return false;
+    }
+    if (ca.values !== null && cb.values !== null) {
+      if (ca.values.length !== cb.values.length) {
+        return false;
+      }
+      for (let j = 0; j < ca.values.length; j++) {
+        if (ca.values[j] !== cb.values[j]) {
+          return false;
+        }
+      }
+    }
+  }
+  return true;
+}

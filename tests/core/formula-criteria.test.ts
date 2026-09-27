@@ -10,8 +10,8 @@ import {
   matchWildcard,
   parseCriterion,
   unescapeWildcard,
-} from '../../src/core/formula-criteria';
-import { MAX_CRITERIA_LENGTH, type FormulaValue } from '../../src/core/formula-value';
+} from '../../src/core/formula/criteria';
+import { MAX_CRITERIA_LENGTH, type FormulaValue } from '../../src/core/formula/value';
 
 const num = (value: number): FormulaValue => ({ type: 'number', value });
 const text = (value: string): FormulaValue => ({ type: 'string', value });

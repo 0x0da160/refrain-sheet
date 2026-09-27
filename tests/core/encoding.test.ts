@@ -9,7 +9,7 @@ import {
   hasUtf8Bom,
   replaceUnrepresentableChars,
   UTF8_BOM,
-} from '../../src/core/encoding';
+} from '../../src/core/csv/encoding';
 import { concat, enc, utf8 } from '../helpers';
 
 describe('encoding detection', () => {

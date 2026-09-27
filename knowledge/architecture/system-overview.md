@@ -33,7 +33,7 @@ from the layers below it, never above — see
 │   encoding, validation, serializer, RSF codec, scheduler      │
 ├───────────────────────────────────────────────────────────────┤
 │ Infrastructure                                                │
-│   csv-engine.ts (WASM bridge + JS fallback), generated/       │
+│   csv/csv-engine.ts (WASM bridge + JS fallback), generated/   │
 │   (embedded WASM + glue), wasm/ (Rust crate), build scripts   │
 └───────────────────────────────────────────────────────────────┘
 ```
@@ -46,9 +46,9 @@ command layer:
 
 ```text
 input surface ─▶ resolveShortcut / menu / context menu
-                      │  (CommandId, a closed union type)
+                      │  (CommandId = keyof the command catalog)
                       ▼
-              Commands.run(id) ── isEnabled(id) drives menu state
+              Commands.run(id) ── catalog spec: enabled / disabledReason / run
                       │
         ┌─────────────┼──────────────────┐
         ▼             ▼                  ▼
@@ -76,10 +76,10 @@ Two document kinds share one duck-typed editing surface (`EditorDocument`):
   save is byte-identical by construction — see
   [invariants.md](invariants.md).
 - **`RsfDocument`** (`kind: 'rsf'`) — a **workbook** of one or more
-  `Worksheet`s (`src/core/worksheet.ts`). Cell inputs are the document;
+  `Worksheet`s (`src/core/workbook/worksheet.ts`). Cell inputs are the document;
   formulas evaluate lazily with memoization and full memo invalidation per
   mutation. Saved as a `.rsf` file — a JSON document compressed with
-  Zstandard (`src/core/rsf-codec.ts`; spec in
+  Zstandard (`src/core/workbook/rsf-codec.ts`; spec in
   [formats/rsf/index.md](../formats/rsf/index.md)); the binary format of
   releases up to 0.8.x (and `.rcsv`) is refused with an explanation.
 
@@ -131,7 +131,7 @@ dismissal.
 
 ## The WASM boundary
 
-`src/core/csv-engine.ts` is the only module that touches the generated
+`src/core/csv/csv-engine.ts` is the only module that touches the generated
 bindings, exposing two narrow interfaces:
 
 - `CsvEngine` — parsing, delimiter sniffing, serialization planning/apply,
@@ -188,10 +188,10 @@ yield between slices), applied uniformly by the command layer:
 
 ## Where to add things
 
-| You want to…                      | Put the logic in…                               | Wire it via…                                     |
-| --------------------------------- | ----------------------------------------------- | ------------------------------------------------ |
-| Add a new user command            | `Commands` (+ `CommandId` union)                | menu-bar/shortcut tables; `isEnabled` for state  |
-| Add a document operation          | `LosslessDocument` / `RsfDocument` + `AppState` | a `HistoryEntry` so it is atomically undoable    |
-| Add a heavy scan                  | a pure function in `src/core/`                  | `forEachIndexSliced` + the busy/progress rules   |
-| Add a dialog                      | `Dialogs` + a `UiPort` method                   | called from the command layer only               |
-| Accelerate a byte-level primitive | `wasm/src/` + a JS fallback in `csv-engine.ts`  | parity tests in `tests/core/wasm-engine.test.ts` |
+| You want to…                      | Put the logic in…                                  | Wire it via…                                     |
+| --------------------------------- | -------------------------------------------------- | ------------------------------------------------ |
+| Add a new user command            | a `CommandSpec` in `src/app/commands/catalog/`     | menu-bar/shortcut tables; `enabled` for state    |
+| Add a document operation          | `LosslessDocument` / `RsfDocument` + `AppState`    | a `HistoryEntry` so it is atomically undoable    |
+| Add a heavy scan                  | a pure function in `src/core/`                     | `forEachIndexSliced` + the busy/progress rules   |
+| Add a dialog                      | `Dialogs` + a `UiPort` method                      | called from the command layer only               |
+| Accelerate a byte-level primitive | `wasm/src/` + a JS fallback in `csv/csv-engine.ts` | parity tests in `tests/core/wasm-engine.test.ts` |

@@ -6,9 +6,9 @@
  * exercise the same path the grid does rather than the evaluator in isolation.
  */
 import { describe, expect, it } from 'vitest';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { FUNCTION_INFOS, SUPPORTED_FUNCTIONS } from '../../src/core/formula';
-import type { DisplayLanguageId } from '../../src/core/display-language';
+import type { DisplayLanguageId } from '../../src/core/workbook/display-language';
 
 /** Build a worksheet from `{ A1: '…' }` style cell literals. */
 function sheet(cells: Record<string, string>, rows = 20, cols = 10): RsfDocument {

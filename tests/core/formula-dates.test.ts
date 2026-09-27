@@ -15,11 +15,11 @@ import {
   serialToParts,
   todaySerial,
   weekdayOf,
-} from '../../src/core/formula-date';
-import { RsfDocument } from '../../src/core/rsf-document';
+} from '../../src/core/formula/date';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { VOLATILE_FUNCTIONS } from '../../src/core/formula';
-import { DEFAULT_TIMEZONE, localTimeZone } from '../../src/core/timezone';
-import { DEFAULT_DISPLAY_LANGUAGE } from '../../src/core/display-language';
+import { DEFAULT_TIMEZONE, localTimeZone } from '../../src/core/workbook/timezone';
+import { DEFAULT_DISPLAY_LANGUAGE } from '../../src/core/workbook/display-language';
 
 function evaluate(formula: string, cells: Record<string, string> = {}): string {
   const doc = RsfDocument.empty('t.rsf', 10, 6);

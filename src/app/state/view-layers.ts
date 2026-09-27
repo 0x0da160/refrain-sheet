@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { type EditorDocument, workbookOf } from '../../core/editor-document';
 import { resolveSetting, type ResolvedSetting, type SettingSource } from '../../core/settings-cascade';
-import type { EditorDocument } from './index';
 import { clampSheetZoom, getBrowserWrap, getBrowserZoom, getSheetZoom, getWrapCells } from '../settings';
 import { DEFAULT_SHEET_FONT, getBrowserSheetFont, isSheetFontId, type SheetFontId } from '../sheet-font';
 
@@ -12,7 +12,7 @@ import { DEFAULT_SHEET_FONT, getBrowserSheetFont, isSheetFontId, type SheetFontI
  * browser applies.
  */
 export function resolveZoom(doc: EditorDocument): ResolvedSetting<number> {
-  const rsf = doc.kind === 'rsf' ? doc : null;
+  const rsf = workbookOf(doc);
   const resolved = resolveSetting(
     { browser: getBrowserZoom(), file: rsf?.fileZoom, sheet: rsf?.activeSheet.displayZoom },
     getSheetZoom(),
@@ -22,7 +22,7 @@ export function resolveZoom(doc: EditorDocument): ResolvedSetting<number> {
 
 /** See {@link resolveZoom}. */
 export function resolveWrap(doc: EditorDocument): ResolvedSetting<boolean> {
-  const rsf = doc.kind === 'rsf' ? doc : null;
+  const rsf = workbookOf(doc);
   return resolveSetting(
     { browser: getBrowserWrap(), file: rsf?.fileWrap, sheet: rsf?.activeSheet.displayWrap },
     getWrapCells(),
@@ -34,7 +34,7 @@ export function resolveWrap(doc: EditorDocument): ResolvedSetting<boolean> {
  * stored id this release does not know is treated as "not specified".
  */
 export function resolveSheetFont(doc: EditorDocument | null): ResolvedSetting<SheetFontId> {
-  const rsf = doc?.kind === 'rsf' ? doc : null;
+  const rsf = workbookOf(doc);
   const known = (id: string | undefined): SheetFontId | undefined => (isSheetFontId(id) ? id : undefined);
   return resolveSetting(
     {

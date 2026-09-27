@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { setLocale, t } from '../../src/app/i18n';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { SheetBar } from '../../src/ui/sheet-bar';
 import { TabBar } from '../../src/ui/tab-bar';
 import { doc as csvDoc } from '../helpers';

@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../core/editor-document';
 import { MessageSquare } from 'lucide';
 import type { AppState } from '../app/state';
 import { t } from '../app/i18n';
-import { collectSheetComments, collectWorkbookComments, type CommentEntry } from '../core/cell-comment';
+import {
+  collectSheetComments,
+  collectWorkbookComments,
+  type CommentEntry,
+} from '../core/workbook/cell-comment';
 import { cellLabel } from '../core/formula';
 import {
   applySidePanelPosition,
@@ -10,7 +15,7 @@ import {
   releaseSidePanel,
   currentSidePanelPlacement,
   type SidePanelChrome,
-} from './dialogs/shared';
+} from './dialogs/side-panel';
 import { clearChildren, el } from './dom';
 import type { Grid } from './grid';
 
@@ -21,7 +26,7 @@ type CommentScope = 'sheet' | 'workbook';
  * the whole workbook (see #375, the UI half of #364 — persistence itself
  * shipped in #371). A dockable, resizable side panel — the same
  * `.side-panel` chrome/positioning as the Filter/Sort/Format/SQL Query
- * panels (`openSidePanel`, `src/ui/dialogs/shared.ts`) — rather than a
+ * panels (`openSidePanel`, `src/ui/dialogs/side-panel.ts`) — rather than a
  * separate always-right-hand-side surface, so every dockable panel in the
  * app behaves and remembers its dock side/size identically (#399). Unlike
  * those transient panels it is created once and toggled open/closed rather
@@ -108,7 +113,7 @@ export class CommentsPanel {
 
   /** The effective scope (never `workbook` for a plain CSV document). */
   private get scope(): CommentScope {
-    return this.scopeSelect.value === 'workbook' && this.state.activeTab?.doc.kind === 'rsf'
+    return this.scopeSelect.value === 'workbook' && isWorkbook(this.state.activeTab?.doc)
       ? 'workbook'
       : 'sheet';
   }
@@ -128,15 +133,15 @@ export class CommentsPanel {
       return;
     }
     const tab = this.state.activeTab;
-    const isWorkbook = tab?.doc.kind === 'rsf';
-    this.scopeSelect.disabled = !isWorkbook;
-    this.scopeSelect.title = isWorkbook ? '' : t('find.scope.csvOnly');
-    if (!isWorkbook) {
+    const inWorkbook = isWorkbook(tab?.doc);
+    this.scopeSelect.disabled = !inWorkbook;
+    this.scopeSelect.title = inWorkbook ? '' : t('find.scope.csvOnly');
+    if (!inWorkbook) {
       this.scopeSelect.value = 'sheet';
     }
 
     clearChildren(this.listEl);
-    if (!tab || tab.doc.kind !== 'rsf') {
+    if (!tab || !isWorkbook(tab.doc)) {
       this.messageEl.textContent = t('panel.comments.csvOnly');
       this.messageEl.hidden = false;
       return;
@@ -197,7 +202,7 @@ export class CommentsPanel {
    */
   private jumpTo(entry: CommentEntry): void {
     const tab = this.state.activeTab;
-    if (!tab || tab.doc.kind !== 'rsf') {
+    if (!tab || !isWorkbook(tab.doc)) {
       return;
     }
     if (tab.doc.activeSheetId !== entry.sheetId) {

@@ -3,7 +3,7 @@ type: format-concept
 title: RSF versioning and compatibility
 description: Lossy CSV→RSF conversion, the JSON document version and how later versions may extend it, the refused binary format of releases up to 0.8.x, and the frozen fixture corpus.
 sources:
-  - resource: ../../../src/core/rsf-codec.ts
+  - resource: ../../../src/core/workbook/rsf-codec.ts
   - resource: ../../../tests/core/rsf-fixtures.test.ts
 status: stable
 generated:

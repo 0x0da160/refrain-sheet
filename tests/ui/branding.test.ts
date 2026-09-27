@@ -17,7 +17,8 @@ import { Commands, type UiPort } from '../../src/app/commands';
 import { getLocale, setLocale } from '../../src/app/i18n';
 import { t } from '../../src/app/i18n';
 import { Dialogs } from '../../src/ui/dialogs';
-import { MenuBar, type MenuChecks } from '../../src/ui/menu-bar';
+import { MenuBar } from '../../src/ui/menu-bar';
+import type { MenuChecks } from '../../src/ui/menu-bar/menus';
 import { WelcomeScreen } from '../../src/ui/welcome-screen';
 
 const SITE_URL = 'https://app.refrain-sheet.com/';

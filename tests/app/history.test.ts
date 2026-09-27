@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import { AppState } from '../../src/app/state';
-import { cellsEntry, History } from '../../src/core/history';
+import { cellsEntry, History } from '../../src/core/workbook/history';
 import { asCsv, doc } from '../helpers';
 
 function setup(csv = 'a,b,c\n1,2,3\n') {

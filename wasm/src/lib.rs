@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 //! WebAssembly bindings for Refrain Sheet's byte-level CSV core.
 //!
-//! The exported surface mirrors `src/core/csv-engine.ts` on the JavaScript
+//! The exported surface mirrors `src/core/csv/csv-engine.ts` on the JavaScript
 //! side: parsing returns flat `u32` index arrays (copied out of WASM memory
 //! once per parse), and serialization is expressed as byte-range replacement
 //! plans over the original bytes so unmodified regions stay byte-identical.
@@ -103,7 +103,7 @@ pub fn apply_replacements(
 // ----- Binary RSF container primitives (see compress.rs) -----
 //
 // Legacy `.rcsv` containers (magic "RCSV", container version 2) are still
-// read transparently by `src/core/rsf-codec.ts`, but these primitives only
+// read transparently by `src/core/workbook/rsf-codec.ts`, but these primitives only
 // ever serve the current RSF container format; nothing here decodes RCSV
 // specifically.
 

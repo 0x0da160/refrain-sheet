@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { FormulaBar } from '../../src/ui/formula-bar';
 import { Grid, ROW_HEIGHT } from '../../src/ui/grid';
 import { asCsv, doc, saved } from '../helpers';

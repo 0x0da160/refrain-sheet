@@ -11,10 +11,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, LARGE_OP_CELLS, type FilterDialogResult, type UiPort } from '../../src/app/commands';
 import { t } from '../../src/app/i18n';
-import { DEFAULT_CSV_EXPORT_OPTIONS } from '../../src/core/csv-export';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { DEFAULT_CSV_EXPORT_OPTIONS } from '../../src/core/interchange/csv-export';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { compileQuery } from '../../src/core/search';
-import { KEEP_SAVE_OPTIONS } from '../../src/core/serializer';
+import { KEEP_SAVE_OPTIONS } from '../../src/core/csv/serializer';
 import { doc } from '../helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {

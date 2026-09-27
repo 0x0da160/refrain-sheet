@@ -9,7 +9,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
-import { applyCellStylePatch } from '../../src/core/cell-style';
+import { applyCellStylePatch } from '../../src/core/workbook/cell-style';
 import {
   charFormats,
   isFormatOn,
@@ -19,8 +19,8 @@ import {
   runsFromChars,
   setFormatKey,
   type TextRun,
-} from '../../src/core/rich-text';
-import { RsfDocument } from '../../src/core/rsf-document';
+} from '../../src/core/workbook/rich-text';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { t } from '../../src/app/i18n';
 import { Grid } from '../../src/ui/grid';
 import { rsfFromTree, rsfTree } from '../rsf-single-sheet';

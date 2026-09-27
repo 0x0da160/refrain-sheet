@@ -120,6 +120,43 @@ function matchesAll(op: FlashFillOp, examples: FlashFillExample[], get: SourceRe
 }
 
 /**
+ * The split candidate for one source column and separator: the part index is
+ * derived from the first example (from the start, else from the end, trying
+ * each casing in order) and verified against every example. Null when no
+ * form fits.
+ */
+function splitCandidate(
+  examples: FlashFillExample[],
+  get: SourceReader,
+  col: number,
+  sep: string,
+): FlashFillOp | null {
+  const first = examples[0];
+  const source = get(first.row, col);
+  if (source === '' || !source.includes(sep)) {
+    return null;
+  }
+  const parts = source.split(sep);
+  for (const casing of CASINGS) {
+    // From the start: the first index whose part matches; then from the end
+    // (e.g. "last part"), only when no from-start form fits.
+    for (const fromEnd of [false, true]) {
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[fromEnd ? parts.length - 1 - i : i];
+        if (part === '' || applyCasing(part, casing) !== first.value) {
+          continue;
+        }
+        const op: FlashFillOp = { kind: 'split', col, sep, index: i, fromEnd, casing };
+        if (matchesAll(op, examples, get)) {
+          return op;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Enumerate every candidate transformation that reproduces all examples, in
  * a fixed deterministic order (copy, then split, then affix, then concat;
  * columns ascending; separators and casings in their declared order). Casing
@@ -157,39 +194,9 @@ export function inferFlashFillCandidates(
 
   for (const col of sourceCols) {
     for (const sep of FLASH_FILL_SEPARATORS) {
-      // Derive the candidate index from the first example, then verify all.
-      const first = examples[0];
-      const source = get(first.row, col);
-      if (source === '' || !source.includes(sep)) {
-        continue;
-      }
-      const parts = source.split(sep);
-      let added = false;
-      for (const casing of CASINGS) {
-        // From the start: the first index whose part matches.
-        for (let i = 0; i < parts.length && !added; i++) {
-          if (parts[i] !== '' && applyCasing(parts[i], casing) === first.value) {
-            const op: FlashFillOp = { kind: 'split', col, sep, index: i, fromEnd: false, casing };
-            if (matchesAll(op, examples, get)) {
-              add(op);
-              added = true;
-            }
-          }
-        }
-        // From the end (e.g. "last part"), only when no from-start form fits.
-        for (let i = 0; i < parts.length && !added; i++) {
-          const j = parts.length - 1 - i;
-          if (parts[j] !== '' && applyCasing(parts[j], casing) === first.value) {
-            const op: FlashFillOp = { kind: 'split', col, sep, index: i, fromEnd: true, casing };
-            if (matchesAll(op, examples, get)) {
-              add(op);
-              added = true;
-            }
-          }
-        }
-        if (added) {
-          break;
-        }
+      const op = splitCandidate(examples, get, col, sep);
+      if (op) {
+        add(op);
       }
     }
   }

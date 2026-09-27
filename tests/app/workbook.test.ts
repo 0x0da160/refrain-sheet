@@ -13,8 +13,8 @@ import {
   encodeRsfWorkbook,
   MAX_RSF_SHEETS,
   type RsfWorkbookData,
-} from '../../src/core/rsf-codec';
-import { MAX_WORKSHEETS, RsfDocument } from '../../src/core/rsf-document';
+} from '../../src/core/workbook/rsf-codec';
+import { MAX_WORKSHEETS, RsfDocument } from '../../src/core/workbook/rsf-document';
 import { rsfFromTree, rsfTree } from '../rsf-single-sheet';
 import { doc as csvDoc } from '../helpers';
 

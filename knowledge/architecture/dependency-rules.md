@@ -4,9 +4,9 @@ title: Formula engine dependency rules
 description: The formula engine's internal, acyclic module graph, its two governing rules, and why there is no WASM formula evaluator or worker.
 sources:
   - resource: docs/architecture.md (migrated content; file removed after migration — see knowledge/log.md)
-  - resource: ../../src/core/formula-value.ts
-  - resource: ../../src/core/formula-functions.ts
-  - resource: ../../src/core/formula.ts
+  - resource: ../../src/core/formula/value.ts
+  - resource: ../../src/core/formula/functions/index.ts
+  - resource: ../../src/core/formula/index.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -20,40 +20,51 @@ dependency graph stays acyclic. Every module is DOM-free and testable in
 isolation (see [module-boundaries.md](module-boundaries.md)).
 
 ```text
-formula-value.ts    value model, error set, coercion rules, documented limits
+formula/value.ts          value model, error set, coercion rules, documented limits
       ↑
-      ├── formula-criteria.ts   criteria parsing, safe wildcard matching
-      ├── formula-date.ts       the UTC date-serial scale, DATEDIF
-      ├── formula-text.ts       code-point-safe text helpers
-      ├── formula-text-format.ts   TEXT()'s Excel-compatible format-code subset
+      ├── formula/criteria.ts      criteria parsing, safe wildcard matching
+      ├── formula/date.ts          the UTC date-serial scale, DATEDIF
+      ├── formula/text.ts          code-point-safe text helpers
+      ├── formula/text-format.ts   TEXT()'s Excel-compatible format-code subset
       ↑
-formula-functions.ts   the function registry: one FunctionDef per function
+formula/functions/        the function registry: one FunctionDef per function,
+                          one file per group (aggregate, logical, math, lookup,
+                          strings, dates, statistics, arrays), concatenated in
+                          a fixed order by functions/index.ts
       ↑
-formula.ts             tokenizer, parser, evaluator, reference rewriting
+formula/refs.ts, tokenizer.ts, ref-toggle.ts   references, lexing, F4 cycling
       ↑
-spill.ts               dynamic-array placement (pure; takes a SpillSource)
+formula/parser.ts, evaluator.ts, rewrite.ts, ref-scan.ts
+formula/index.ts          the public facade re-exporting the above
       ↑
-rsf-document.ts        the workbook: memo, spill maps, clock, cross-sheet eval
+formula/spill.ts          dynamic-array placement (pure; takes a SpillSource)
+      ↑
+workbook/*                the workbook: recalc-engine.ts (memo, spill maps,
+                          clock, cross-sheet eval) under rsf-document.ts
 ```
+
+`tests/tooling/architecture.test.ts` enforces this ranking: a module may
+import only modules of an equal-or-lower rank, and no helper may import
+its own directory's `index.ts`.
 
 Two rules keep this honest:
 
-- **The registry is the single source of truth.** `formula-functions.ts`
+- **The registry is the single source of truth.** `formula/functions/`
   drives which names the parser accepts, argument-count validation,
   evaluation, autocomplete, the help dialog's function table, and the
   localization key each function needs. A function cannot be implemented
   without being documented, or documented without being implemented;
   `tests/app/formula-help.test.ts` and the i18n parity test enforce both
   directions.
-- **`formula.ts` owns plumbing, not semantics.** It turns AST nodes into
+- **`formula/evaluator.ts` owns plumbing, not semantics.** It turns AST nodes into
   lazy, memoized `FnArg` accessors and hands them to the registry. Laziness
   is a correctness requirement, not an optimization: `IF` and `IFERROR`
   must be able to leave a branch unevaluated whose evaluation would raise
   the very error the formula exists to avoid.
 
-`spill.ts` is pure and knows nothing about worksheets: it receives a
+`formula/spill.ts` is pure and knows nothing about worksheets: it receives a
 `SpillSource` (dimensions, a cell reader, and the already-evaluated array
-results) and returns a placement map. `RsfDocument` owns the impure parts —
+results) and returns a placement map. `RecalcEngine` (under `RsfDocument`) owns the impure parts —
 when to rebuild, the evaluation memo, and the workbook-wide clock that
 volatile functions read.
 

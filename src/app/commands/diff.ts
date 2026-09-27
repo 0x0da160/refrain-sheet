@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../../core/editor-document';
 import { computeDiff, DiffError, type DiffOptions, type DiffResult } from '../../core/diff-engine';
 import type { Tab } from '../state';
 import type { AppState } from '../state';
@@ -69,6 +70,6 @@ export class DiffCommands {
   }
 
   private defaultSourceId(tab: Tab): string {
-    return tab.doc.kind === 'rsf' ? tab.doc.activeSheetId : 'csv';
+    return isWorkbook(tab.doc) ? tab.doc.activeSheetId : 'csv';
   }
 }

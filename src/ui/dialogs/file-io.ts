@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
+import { isCsv } from '../../core/editor-document';
 import type { Tab } from '../../app/state';
 import type { ConvertReason } from '../../app/commands';
 import { getLocale, t } from '../../app/i18n';
 import type { RecentFileChoice } from '../../app/ui-port';
-import type { DelimiterId } from '../../core/byte-csv-parser';
-import type { CsvExportOptions, CsvLineEnding } from '../../core/csv-export';
-import type { EncodingId } from '../../core/encoding';
+import type { DelimiterId } from '../../core/csv/byte-csv-parser';
+import type { CsvExportOptions, CsvLineEnding } from '../../core/interchange/csv-export';
+import type { EncodingId } from '../../core/csv/encoding';
 import { setSuppressHistoryCapWarning } from '../../app/settings';
 import { storageSharedWithOtherLocalFiles } from '../../app/storage';
-import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/serializer';
+import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/csv/serializer';
 import { el } from '../dom';
 import { cellList, dialogButton, helpDetails, openDialog, submitOnEnter } from './shared';
 
@@ -73,7 +74,7 @@ export class FileIoDialogs {
 
   chooseSaveOptions(tab: Tab, downloadNote: string | null): Promise<SaveOptions | null> {
     const doc = tab.doc;
-    if (doc.kind !== 'csv') {
+    if (!isCsv(doc)) {
       // Save-with-options applies only to byte-preserving CSV documents.
       return Promise.resolve(null);
     }
@@ -192,7 +193,7 @@ export class FileIoDialogs {
 
   chooseReopen(tab: Tab): Promise<{ encoding: EncodingId; delimiter: DelimiterId } | null> {
     const doc = tab.doc;
-    if (doc.kind !== 'csv') {
+    if (!isCsv(doc)) {
       // Reinterpretation applies only to byte-preserving CSV documents.
       return Promise.resolve(null);
     }

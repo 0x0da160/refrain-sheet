@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../../core/editor-document';
 import type { AppState, Tab } from '../../app/state';
 import { ColOffsetIndex } from '../../core/col-offset-index';
 import { RowHeightIndex } from '../../core/row-height-index';
-import type { SheetSort } from '../../core/sort';
+import type { SheetSort } from '../../core/workbook/sort';
 import { COL_WIDTH, ROW_HEAD_WIDTH, ROW_HEIGHT, WRAP_LINE_HEIGHT, WRAP_VERTICAL_PAD } from './geometry';
 
 /** Cached column-offset index plus the state it was built from, for invalidation. */
@@ -91,7 +92,7 @@ export class GridMetrics {
 
   /**
    * The document row whose content belongs at display slot `row`. Identity
-   * when nothing is sorted — see `AppState.docRow`/`core/sort.ts`.
+   * when nothing is sorted — see `AppState.docRow`/`core/workbook/sort.ts`.
    */
   docRowOf(tab: Tab, row: number): number {
     return this.state.docRow(tab, row);
@@ -133,7 +134,7 @@ export class GridMetrics {
   heightIndex(tab: Tab): RowHeightIndex {
     let index = this.rowHeights.get(tab.doc);
     const hidden = this.hiddenOf(tab);
-    const sort = tab.doc.kind === 'rsf' ? tab.doc.sort : null;
+    const sort = isWorkbook(tab.doc) ? tab.doc.sort : null;
     if (
       !index ||
       this.indexZoom.get(tab.doc) !== tab.zoom ||

@@ -10,8 +10,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type SortDialogResult, type UiPort } from '../../src/app/commands';
-import type { ColumnFilter, SheetFilter } from '../../src/core/filter';
-import { RsfDocument } from '../../src/core/rsf-document';
+import type { ColumnFilter, SheetFilter } from '../../src/core/workbook/filter';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import {
   compareSortValues,
   computeSortOrder,
@@ -21,7 +21,7 @@ import {
   MAX_SHEET_SORT_KEYS,
   MAX_SHEET_SORT_COLUMNS,
   type SheetSort,
-} from '../../src/core/sort';
+} from '../../src/core/workbook/sort';
 import { doc as csvDoc } from '../helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {

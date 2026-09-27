@@ -61,7 +61,7 @@ While a formula is being typed in the cell editor or the formula bar,
 `$A1` → `A1`; a range (`A1:B10`) changes both ends together. Text inside a
 string literal and function names such as `LOG10(` are never touched, and
 F4 does nothing when the field is not a formula or no reference touches the
-caret. The pure text logic is `src/core/formula-ref-toggle.ts`. Outside
+caret. The pure text logic is `src/core/formula/ref-toggle.ts`. Outside
 text editing F4 does nothing (File > New has no shortcut).
 
 ## Visual feedback while editing

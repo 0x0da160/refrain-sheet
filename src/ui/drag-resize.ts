@@ -6,7 +6,7 @@ import { visualViewportRect } from './popup';
  * windows in `src/ui/dialogs/shared.ts` (both the modal `<dialog>` from
  * `openDialog` and the anchored, non-modal popover from `openPopover`).
  * Mirrors the pointer-capture pattern used for the grid's column-resize,
- * fill, and move handles (`src/ui/grid/index.ts`): capture on the handle itself so
+ * fill, and move handles (`src/ui/grid/pointer-input.ts`): capture on the handle itself so
  * move/up keep targeting it even if the pointer leaves its small hit area,
  * feature-checked because jsdom (tests) implements neither method.
  *
@@ -188,7 +188,7 @@ export type EdgeResizeAxis = 'horizontal' | 'vertical';
 /**
  * Drag `handle` (a single edge, not a corner) to resize `container` along one
  * axis — used by the docked, edge-anchored side panel (`openSidePanel`,
- * `src/ui/dialogs/shared.ts`) instead of the floating windows above, which is
+ * `src/ui/dialogs/side-panel.ts`) instead of the floating windows above, which is
  * why this reports a size through `onResize` rather than writing
  * `width`/`height` styles itself: the caller (re)applies the panel's CSS for
  * whichever edge is currently docked. `axis`/`sign` are re-invoked on every

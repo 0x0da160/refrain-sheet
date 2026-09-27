@@ -3,8 +3,8 @@
 import { describe, expect, it } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { SqlCommands } from '../../src/app/commands/sql';
-import { NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../../src/core/rsf-document';
-import { Worksheet } from '../../src/core/worksheet';
+import { NEW_DOC_COLS, NEW_DOC_ROWS, RsfDocument } from '../../src/core/workbook/rsf-document';
+import { Worksheet } from '../../src/core/workbook/worksheet';
 
 describe('Worksheet.usedExtent', () => {
   it('reports zero for a worksheet with no content', () => {

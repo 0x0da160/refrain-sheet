@@ -5,9 +5,9 @@
  * sheet without building a whole `RsfWorkbookData` each time. It maps onto
  * `encodeRsfWorkbook`/`decodeRsfWorkbook` — the only format there is.
  */
-import type { DelimiterId } from '../src/core/byte-csv-parser';
-import type { CellStyle } from '../src/core/cell-style';
-import type { SheetFilter } from '../src/core/filter';
+import type { DelimiterId } from '../src/core/csv/byte-csv-parser';
+import type { CellStyle } from '../src/core/workbook/cell-style';
+import type { SheetFilter } from '../src/core/workbook/filter';
 import {
   decodeRsfWorkbook,
   encodeRsfWorkbook,
@@ -17,7 +17,7 @@ import {
   type RsfDisplaySettings,
   type RsfHistorySnapshot,
   type RsfWorksheetKind,
-} from '../src/core/rsf-codec';
+} from '../src/core/workbook/rsf-codec';
 
 export interface RsfData {
   name: string;

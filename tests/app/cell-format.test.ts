@@ -20,10 +20,10 @@ import {
   normalizeHexColor,
   resolveSharedBorder,
   type CellStyle,
-} from '../../src/core/cell-style';
+} from '../../src/core/workbook/cell-style';
 import { decodeRsf, encodeRsf, type RsfData } from '../rsf-single-sheet';
-import { RsfDocument } from '../../src/core/rsf-document';
-import { Worksheet } from '../../src/core/worksheet';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
+import { Worksheet } from '../../src/core/workbook/worksheet';
 import { doc as csvDoc } from '../helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {

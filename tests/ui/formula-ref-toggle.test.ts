@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { toggleReferenceAt } from '../../src/core/formula-ref-toggle';
+import { toggleReferenceAt } from '../../src/core/formula/ref-toggle';
 import { FormulaFieldRef, isRefToggleKey } from '../../src/ui/formula-autocomplete';
 
 function cycle(text: string, caret: number, times = 1): string {

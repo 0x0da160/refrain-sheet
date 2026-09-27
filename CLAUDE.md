@@ -47,6 +47,7 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | Lint                         | `npm run lint`                                                                       |
 | Type-check + build           | `npm run build` (`tsc --noEmit && vite build`)                                       |
 | Unit tests                   | `npm run test`                                                                       |
+| Unit tests with coverage     | `npm run test:coverage` (fails below the floor in `vite.config.ts`)                  |
 | Rust tests                   | `npm run test:rust`                                                                  |
 | Rebuild embedded WASM        | `npm run build:wasm` (only when `wasm/` changes)                                     |
 | Build the landing site       | `npm run build:landing` (add `-- https://refrain-sheet.com/` for the production URL) |

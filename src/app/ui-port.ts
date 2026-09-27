@@ -6,24 +6,24 @@
  * which is what keeps the app layer from importing the UI layer. Re-exported
  * from `commands.ts` for existing importers.
  */
-import type { DelimiterId } from '../core/byte-csv-parser';
-import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../core/cell-style';
-import type { CsvExportOptions } from '../core/csv-export';
-import type { EncodingId } from '../core/encoding';
-import type { ConditionalFormatRule } from '../core/conditional-format';
-import type { ValidationRule } from '../core/data-validation';
+import type { DelimiterId } from '../core/csv/byte-csv-parser';
+import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../core/workbook/cell-style';
+import type { CsvExportOptions } from '../core/interchange/csv-export';
+import type { EncodingId } from '../core/csv/encoding';
+import type { ConditionalFormatRule } from '../core/workbook/conditional-format';
+import type { ValidationRule } from '../core/workbook/data-validation';
 import type { DiffOptions, DiffResult } from '../core/diff-engine';
-import type { ColumnFilter } from '../core/filter';
-import type { SortKey } from '../core/sort';
-import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
-import type { ValidationSummary } from '../core/validation';
-import type { RsfHistorySnapshot } from '../core/rsf-codec';
-import type { WorksheetKind } from '../core/worksheet';
+import type { ColumnFilter } from '../core/workbook/filter';
+import type { SortKey } from '../core/workbook/sort';
+import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/csv/serializer';
+import type { ValidationSummary } from '../core/csv/validation';
+import type { RsfHistorySnapshot } from '../core/workbook/rsf-codec';
+import type { WorksheetKind } from '../core/workbook/worksheet';
 import type { Tab } from './state';
 import type { LocaleId } from './i18n';
 import type { SqlRunOutcome, SqlSource } from './commands/sql';
 import type { DiffRunOutcome, DiffTabOption } from './commands/diff';
-import type { FlashFillPreview } from './commands/paste-fill';
+import type { FlashFillPreview } from './commands/fill';
 import type { LocalSettings } from './settings';
 
 /**
@@ -279,13 +279,23 @@ export type BordersDialogResult = {
 /** What the Number Format dialog resolved to (null = cancelled, nothing changes). */
 export type NumberFormatDialogResult = { action: 'apply'; format: NumberFormat } | { action: 'clear' };
 
-/**
- * The UI surface the command layer talks to. Menu items, context menus,
- * keyboard shortcuts, and drag-and-drop all execute the same commands; the
- * commands drive dialogs and notifications only through this port, which
- * keeps the layer unit-testable without a DOM.
- */
-export interface UiPort {
+/** Non-blocking notices, simple message/confirm dialogs, and the busy indicator — the feedback every flow uses. */
+export interface NotifyPort {
+  confirm(title: string, message: string, okLabel: string, cancelLabel: string): Promise<boolean>;
+  showMessage(title: string, message: string): Promise<void>;
+  notify(text: string, kind: 'info' | 'warn' | 'error'): void;
+  /**
+   * Show or hide the busy/loading indicator. `label` is already-localized
+   * text describing the current operation; `null` hides the indicator.
+   * `progress` is a real completion percentage (0-100) when the caller has
+   * one to report — it shows a determinate progress bar in place of the
+   * indeterminate spinner. Omit it when no honest percentage exists.
+   */
+  setBusy(label: string | null, progress?: number | null): void;
+}
+
+/** Opening, saving, converting, exporting and reopening files. */
+export interface FileDialogsPort {
   confirmValidation(name: string, summary: ValidationSummary): Promise<boolean>;
   confirmUnsaved(names: string[]): Promise<'save' | 'discard' | 'cancel'>;
   chooseSaveOptions(tab: Tab, downloadNote: string | null): Promise<SaveOptions | null>;
@@ -316,6 +326,40 @@ export interface UiPort {
    * *is* the explicit confirmation; null cancels the export.
    */
   chooseExportCsv(name: string, currentDelimiter: DelimiterId): Promise<CsvExportOptions | null>;
+  /**
+   * Choose which worksheet a multi-worksheet workbook exports to CSV. CSV holds
+   * exactly one worksheet, so the choice is always explicit — the export never
+   * silently takes the active worksheet. Resolves with the worksheet id, or
+   * null when cancelled.
+   */
+  chooseExportSheet(sheets: Array<{ id: string; name: string }>, currentId: string): Promise<string | null>;
+  /**
+   * Explain and confirm the lossy XLSX export: calculated values only, no
+   * formulas or formatting. Unlike CSV, every worksheet is included, so there
+   * is no worksheet picker. Resolving true is the explicit confirmation to
+   * proceed; false cancels and leaves the document untouched.
+   */
+  confirmExportXlsx(name: string): Promise<boolean>;
+  /**
+   * Explain and confirm the lossy JSON export: calculated values only, one
+   * worksheet (see `chooseExportSheet`). Resolving true is the explicit
+   * confirmation to proceed; false cancels and leaves the document untouched.
+   */
+  confirmExportJson(name: string): Promise<boolean>;
+  /**
+   * Warn that saving now will drop the oldest recorded version-history
+   * snapshot because this file's retained-snapshot cap (`max`) has been
+   * reached (Sheet ▸ File Version History…), shown before the save happens.
+   * Carries a "don't show again" checkbox (default off) whose choice is
+   * persisted locally (`app/settings.ts`'s `setSuppressHistoryCapWarning`),
+   * never written into the file. Resolves true to proceed with the save,
+   * false to cancel it.
+   */
+  confirmHistoryCapExceeded(name: string, max: number): Promise<boolean>;
+}
+
+/** Paste, Flash Fill, range moves, replace-all and Go to Cell. */
+export interface EditDialogsPort {
   /** Choose the shift direction for Insert Copied Cells… (null cancels). */
   chooseInsertShift(rows: number, cols: number): Promise<'right' | 'down' | null>;
   /**
@@ -325,6 +369,39 @@ export interface UiPort {
    * leaves the document untouched.
    */
   confirmFlashFill(preview: FlashFillPreview): Promise<boolean>;
+  /**
+   * Confirm a workbook-wide Replace All before anything is mutated. Returns
+   * false to cancel, which must leave every worksheet untouched.
+   */
+  confirmReplaceAllWorkbook(input: WorkbookReplaceConfirmInput): Promise<boolean>;
+  /**
+   * Confirm a range move that would replace non-empty destination cells.
+   * Cancel is the default; nothing is mutated until this resolves true.
+   */
+  confirmRangeMoveOverwrite(input: RangeMoveConfirmInput): Promise<boolean>;
+  /**
+   * Ask for a destination for "Move Selected Cells…" — the keyboard-equivalent
+   * of dragging the selection. Returns the top-left destination cell in A1
+   * notation, or null when cancelled. `validate` returns a localized error for
+   * an unusable entry, or null when it is acceptable.
+   */
+  promptMoveTarget(
+    source: string,
+    suggestion: string,
+    validate: (text: string) => string | null,
+  ): Promise<string | null>;
+  /**
+   * "Go to Cell…": ask for a cell reference (e.g. "B12") to jump the
+   * selection to. `suggestion` seeds the field with the current cell;
+   * `validate` returns a localized error for an unusable entry, or null
+   * when it is acceptable. Resolves with the entered text, or null when
+   * cancelled.
+   */
+  promptGoToCell(suggestion: string, validate: (text: string) => string | null): Promise<string | null>;
+}
+
+/** Rules attached to a range: filter, sort, data validation, conditional formatting and cell comments. */
+export interface RangeDialogsPort {
   /**
    * The accessible filter dialog for one column: conditions, AND/OR join,
    * the bounded searchable value list, and the header-row setting. Resolves
@@ -375,136 +452,10 @@ export interface UiPort {
    * null when cancelled (nothing changes).
    */
   chooseCellComment(input: CellCommentDialogInput): Promise<CellCommentDialogResult | null>;
-  /**
-   * Ask for a worksheet name when adding, renaming, or duplicating. `validate`
-   * returns an already-localized error message for an unacceptable name (empty,
-   * too long, duplicate, or containing a character the formula/file syntax
-   * reserves) or null when it is acceptable, so the dialog can report the
-   * problem inline instead of silently refusing. Resolves with the trimmed
-   * name (and, for `mode === 'add'`, the chosen kind), or null when cancelled.
-   *
-   * `kindOptions` is supplied only for `mode === 'add'`: it renders a
-   * worksheet-kind picker (grid/Markdown/JSON/YAML/text) alongside the name
-   * field, defaulting to `kindOptions.initialKind`. Changing the picker calls
-   * `suggestName(kind)` to refill the name field with that kind's default
-   * name — but only while the user has not yet typed a name of their own, so
-   * an intentional custom name is never clobbered by switching kinds.
-   * `rename`/`duplicate` omit it; the resolved `kind` is meaningless there
-   * and callers ignore it.
-   */
-  promptSheetName(
-    mode: 'add' | 'rename' | 'duplicate',
-    current: string,
-    validate: (name: string) => string | null,
-    kindOptions?: { initialKind: WorksheetKind; suggestName: (kind: WorksheetKind) => string },
-  ): Promise<{ name: string; kind: WorksheetKind } | null>;
-  /**
-   * Confirm deleting a worksheet that holds content, a filter, or non-default
-   * display settings. `referenceCount` is how many formulas elsewhere in the
-   * workbook point at it and will become #REF!, so the warning is truthful.
-   */
-  confirmDeleteSheet(name: string, referenceCount: number): Promise<boolean>;
-  /**
-   * Choose which worksheet a multi-worksheet workbook exports to CSV. CSV holds
-   * exactly one worksheet, so the choice is always explicit — the export never
-   * silently takes the active worksheet. Resolves with the worksheet id, or
-   * null when cancelled.
-   */
-  chooseExportSheet(sheets: Array<{ id: string; name: string }>, currentId: string): Promise<string | null>;
-  /**
-   * Explain and confirm the lossy XLSX export: calculated values only, no
-   * formulas or formatting. Unlike CSV, every worksheet is included, so there
-   * is no worksheet picker. Resolving true is the explicit confirmation to
-   * proceed; false cancels and leaves the document untouched.
-   */
-  confirmExportXlsx(name: string): Promise<boolean>;
-  /**
-   * Explain and confirm the lossy JSON export: calculated values only, one
-   * worksheet (see `chooseExportSheet`). Resolving true is the explicit
-   * confirmation to proceed; false cancels and leaves the document untouched.
-   */
-  confirmExportJson(name: string): Promise<boolean>;
-  confirm(title: string, message: string, okLabel: string, cancelLabel: string): Promise<boolean>;
-  showMessage(title: string, message: string): Promise<void>;
-  notify(text: string, kind: 'info' | 'warn' | 'error'): void;
-  openFindBar(replaceMode: boolean): void;
-  findNext(direction: 1 | -1): void;
-  /** Open the About dialog, or its independent Keyboard Shortcuts dialog. */
-  showAbout(section?: 'about' | 'shortcuts'): void;
-  /** Open the offline formula & function help panel. */
-  showFormulaHelp(): void;
-  /** Open the local, read-only SQL query panel (see `src/core/sql-engine.ts`). */
-  showSqlQuery(input: SqlQueryDialogInput): Promise<void>;
-  /** Open the local, read-only two-tab compare panel (see `src/core/diff-engine.ts`). */
-  showDiff(input: DiffDialogInput): Promise<void>;
-  /**
-   * Confirm a workbook-wide Replace All before anything is mutated. Returns
-   * false to cancel, which must leave every worksheet untouched.
-   */
-  confirmReplaceAllWorkbook(input: WorkbookReplaceConfirmInput): Promise<boolean>;
-  /**
-   * Confirm a range move that would replace non-empty destination cells.
-   * Cancel is the default; nothing is mutated until this resolves true.
-   */
-  confirmRangeMoveOverwrite(input: RangeMoveConfirmInput): Promise<boolean>;
-  /**
-   * Ask for a destination for "Move Selected Cells…" — the keyboard-equivalent
-   * of dragging the selection. Returns the top-left destination cell in A1
-   * notation, or null when cancelled. `validate` returns a localized error for
-   * an unusable entry, or null when it is acceptable.
-   */
-  promptMoveTarget(
-    source: string,
-    suggestion: string,
-    validate: (text: string) => string | null,
-  ): Promise<string | null>;
-  /**
-   * "Go to Cell…": ask for a cell reference (e.g. "B12") to jump the
-   * selection to. `suggestion` seeds the field with the current cell;
-   * `validate` returns a localized error for an unusable entry, or null
-   * when it is acceptable. Resolves with the entered text, or null when
-   * cancelled.
-   */
-  promptGoToCell(suggestion: string, validate: (text: string) => string | null): Promise<string | null>;
-  /** Edit local settings; returns the chosen values, or null when cancelled. */
-  chooseSettings(current: LocalSettings): Promise<LocalSettings | null>;
-  /**
-   * The workbook Timezone… dialog: pick an IANA zone from every zone the
-   * runtime knows, with `current` preselected. Resolves with the chosen zone
-   * name, or null when cancelled (nothing changes).
-   */
-  chooseTimezone(current: string): Promise<string | null>;
-  /**
-   * The workbook Display language… dialog: pick `en` or `ja`, with `current`
-   * preselected. Resolves with the chosen language, or null when cancelled
-   * (nothing changes).
-   */
-  chooseDisplayLanguage(current: LocaleId): Promise<LocaleId | null>;
-  /**
-   * The Sheet ▸ File Version History… dialog: whether this file records a
-   * snapshot on every successful save, the per-file retained-snapshot cap
-   * override (`maxOverride`: `undefined` = default, `null` = unlimited, or an
-   * explicit number), and the recorded snapshots themselves (oldest first) so
-   * one can be restored. Resolves `{ kind: 'save', ... }` when the enabled
-   * checkbox / cap setting is confirmed, `{ kind: 'restore', index }` when a
-   * snapshot's Restore action is chosen, or null when cancelled (nothing
-   * changes). Never deletes anything — clearing is `sheet.clearVersionHistory`.
-   */
-  chooseVersionHistory(
-    current: boolean,
-    maxOverride: number | null | undefined,
-    history: readonly RsfHistorySnapshot[],
-  ): Promise<VersionHistoryChoice | null>;
-  /**
-   * Warn that saving now will drop the oldest recorded version-history
-   * snapshot because this file's retained-snapshot cap (`max`) has been
-   * reached (Sheet ▸ File Version History…), shown before the save happens.
-   * Carries a "don't show again" checkbox (default off) whose choice is
-   * persisted locally (`app/settings.ts`'s `setSuppressHistoryCapWarning`),
-   * never written into the file. Resolves true to proceed with the save,
-   * false to cancel it.
-   */
-  confirmHistoryCapExceeded(name: string, max: number): Promise<boolean>;
+}
+
+/** Cell formatting pickers. */
+export interface FormatDialogsPort {
   /**
    * The Text Color dialog: a color picker preselected from `current` (null
    * when the selection has none, or is mixed). Resolves with the chosen
@@ -543,12 +494,96 @@ export interface UiPort {
     current: NumberFormat | null,
     onApply?: ApplyHandler<NumberFormatDialogResult>,
   ): Promise<NumberFormatDialogResult | null>;
-  /**
-   * Show or hide the busy/loading indicator. `label` is already-localized
-   * text describing the current operation; `null` hides the indicator.
-   * `progress` is a real completion percentage (0-100) when the caller has
-   * one to report — it shows a determinate progress bar in place of the
-   * indeterminate spinner. Omit it when no honest percentage exists.
-   */
-  setBusy(label: string | null, progress?: number | null): void;
 }
+
+/** Worksheet naming and deletion. */
+export interface WorksheetDialogsPort {
+  /**
+   * Ask for a worksheet name when adding, renaming, or duplicating. `validate`
+   * returns an already-localized error message for an unacceptable name (empty,
+   * too long, duplicate, or containing a character the formula/file syntax
+   * reserves) or null when it is acceptable, so the dialog can report the
+   * problem inline instead of silently refusing. Resolves with the trimmed
+   * name (and, for `mode === 'add'`, the chosen kind), or null when cancelled.
+   *
+   * `kindOptions` is supplied only for `mode === 'add'`: it renders a
+   * worksheet-kind picker (grid/Markdown/JSON/YAML/text) alongside the name
+   * field, defaulting to `kindOptions.initialKind`. Changing the picker calls
+   * `suggestName(kind)` to refill the name field with that kind's default
+   * name — but only while the user has not yet typed a name of their own, so
+   * an intentional custom name is never clobbered by switching kinds.
+   * `rename`/`duplicate` omit it; the resolved `kind` is meaningless there
+   * and callers ignore it.
+   */
+  promptSheetName(
+    mode: 'add' | 'rename' | 'duplicate',
+    current: string,
+    validate: (name: string) => string | null,
+    kindOptions?: { initialKind: WorksheetKind; suggestName: (kind: WorksheetKind) => string },
+  ): Promise<{ name: string; kind: WorksheetKind } | null>;
+  /**
+   * Confirm deleting a worksheet that holds content, a filter, or non-default
+   * display settings. `referenceCount` is how many formulas elsewhere in the
+   * workbook point at it and will become #REF!, so the warning is truthful.
+   */
+  confirmDeleteSheet(name: string, referenceCount: number): Promise<boolean>;
+}
+
+/** Panels and settings dialogs the command catalog opens directly. */
+interface PanelsPort {
+  openFindBar(replaceMode: boolean): void;
+  findNext(direction: 1 | -1): void;
+  /** Open the About dialog, or its independent Keyboard Shortcuts dialog. */
+  showAbout(section?: 'about' | 'shortcuts'): void;
+  /** Open the offline formula & function help panel. */
+  showFormulaHelp(): void;
+  /** Open the local, read-only SQL query panel (see `src/core/sql-engine.ts`). */
+  showSqlQuery(input: SqlQueryDialogInput): Promise<void>;
+  /** Open the local, read-only two-tab compare panel (see `src/core/diff-engine.ts`). */
+  showDiff(input: DiffDialogInput): Promise<void>;
+  /** Edit local settings; returns the chosen values, or null when cancelled. */
+  chooseSettings(current: LocalSettings): Promise<LocalSettings | null>;
+  /**
+   * The workbook Timezone… dialog: pick an IANA zone from every zone the
+   * runtime knows, with `current` preselected. Resolves with the chosen zone
+   * name, or null when cancelled (nothing changes).
+   */
+  chooseTimezone(current: string): Promise<string | null>;
+  /**
+   * The workbook Display language… dialog: pick `en` or `ja`, with `current`
+   * preselected. Resolves with the chosen language, or null when cancelled
+   * (nothing changes).
+   */
+  chooseDisplayLanguage(current: LocaleId): Promise<LocaleId | null>;
+  /**
+   * The Sheet ▸ File Version History… dialog: whether this file records a
+   * snapshot on every successful save, the per-file retained-snapshot cap
+   * override (`maxOverride`: `undefined` = default, `null` = unlimited, or an
+   * explicit number), and the recorded snapshots themselves (oldest first) so
+   * one can be restored. Resolves `{ kind: 'save', ... }` when the enabled
+   * checkbox / cap setting is confirmed, `{ kind: 'restore', index }` when a
+   * snapshot's Restore action is chosen, or null when cancelled (nothing
+   * changes). Never deletes anything — clearing is `sheet.clearVersionHistory`.
+   */
+  chooseVersionHistory(
+    current: boolean,
+    maxOverride: number | null | undefined,
+    history: readonly RsfHistorySnapshot[],
+  ): Promise<VersionHistoryChoice | null>;
+}
+
+/**
+ * The UI surface the command layer talks to. Menu items, context menus,
+ * keyboard shortcuts, and drag-and-drop all execute the same commands; the
+ * commands drive dialogs and notifications only through this port, which
+ * keeps the layer unit-testable without a DOM.
+ */
+export interface UiPort
+  extends
+    NotifyPort,
+    FileDialogsPort,
+    EditDialogsPort,
+    RangeDialogsPort,
+    FormatDialogsPort,
+    WorksheetDialogsPort,
+    PanelsPort {}

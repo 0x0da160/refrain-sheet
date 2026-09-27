@@ -15,13 +15,13 @@
  */
 import { describe, test } from 'vitest';
 import { AppState } from '../src/app/state';
-import { initCsvEngine, setCsvEngineForTesting } from '../src/core/csv-engine';
-import type { CellChange } from '../src/core/history';
-import { LosslessDocument } from '../src/core/lossless-document';
-import { decodeRsfWorkbook, encodeRsfWorkbook, type RsfWorkbookData } from '../src/core/rsf-codec';
-import { RsfDocument } from '../src/core/rsf-document';
+import { initCsvEngine, setCsvEngineForTesting } from '../src/core/csv/csv-engine';
+import type { CellChange } from '../src/core/workbook/history';
+import { LosslessDocument } from '../src/core/csv/lossless-document';
+import { decodeRsfWorkbook, encodeRsfWorkbook, type RsfWorkbookData } from '../src/core/workbook/rsf-codec';
+import { RsfDocument } from '../src/core/workbook/rsf-document';
 import { compileQuery, replaceAllInValue } from '../src/core/search';
-import { serializeDocument, KEEP_SAVE_OPTIONS } from '../src/core/serializer';
+import { serializeDocument, KEEP_SAVE_OPTIONS } from '../src/core/csv/serializer';
 import { computeSelectionStats } from '../src/core/stats';
 
 const wasmAvailable = (await initCsvEngine()) === 'wasm';

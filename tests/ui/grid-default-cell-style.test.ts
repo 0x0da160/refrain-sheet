@@ -15,7 +15,7 @@ import { onScreenGeometry } from '../../src/app/screenshot-export';
 import { SHEET_ZOOM_LEVELS } from '../../src/app/settings';
 import { ColOffsetIndex } from '../../src/core/col-offset-index';
 import { RowHeightIndex } from '../../src/core/row-height-index';
-import { serializeDocument } from '../../src/core/serializer';
+import { serializeDocument } from '../../src/core/csv/serializer';
 import { COL_WIDTH, Grid, ROW_HEAD_WIDTH, ROW_HEIGHT } from '../../src/ui/grid';
 import { concat, doc, enc, readBundledCss, utf8 } from '../helpers';
 

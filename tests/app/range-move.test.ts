@@ -9,8 +9,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
-import { moveTarget, planRangeMove, validateMove } from '../../src/core/range-move';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { moveTarget, planRangeMove, validateMove } from '../../src/core/workbook/range-move';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   return {

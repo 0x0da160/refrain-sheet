@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, FormatDialogsPort } from '../ui-port';
+import { isWorkbook } from '../../core/editor-document';
 import {
   applyCellStylePatch,
   BORDER_SIDES,
@@ -9,13 +11,13 @@ import {
   type BorderSide,
   type CellStylePatch,
   type NumberFormat,
-} from '../../core/cell-style';
+} from '../../core/workbook/cell-style';
 import type { CellRange } from '../../core/clipboard';
-import type { Operation, StyleChange } from '../../core/history';
-import { remapRuns, runsEqual, runsForText, type TextRun } from '../../core/rich-text';
+import type { Operation, StyleChange } from '../../core/workbook/history';
+import { remapRuns, runsEqual, runsForText, type TextRun } from '../../core/workbook/rich-text';
 import type { AppState, Tab } from '../state';
 import { getLocale } from '../i18n';
-import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult, UiPort } from '../commands';
+import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult } from '../commands';
 import { applyWhileOpen } from './shared';
 
 /** Every visible (non-hidden-row) cell of `range`, row-major. */
@@ -58,7 +60,7 @@ const CLEAR_PATCH: CellStylePatch = {
  * methods, delegating to an instance of this class.
  *
  * Every change applies to the current selection as one atomic, undoable
- * `styles` history operation (see `src/core/history.ts`). Styling is purely
+ * `styles` history operation (see `src/core/workbook/history.ts`). Styling is purely
  * presentational: it never touches cell values, formula results, sort, or
  * filter, so it is applied even to cells inside a sorted range or a spill
  * (unlike a value write, which those refuse). Rows hidden by an active
@@ -67,7 +69,7 @@ const CLEAR_PATCH: CellStylePatch = {
 export class FormatCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & FormatDialogsPort,
   ) {}
 
   toggleBold(tab: Tab): boolean {
@@ -86,7 +88,7 @@ export class FormatCommands {
   async promptTextColor(tab: Tab): Promise<boolean> {
     const range = this.state.selectedRange(tab);
     const doc = tab.doc;
-    if (!range || doc.kind !== 'rsf') {
+    if (!range || !isWorkbook(doc)) {
       return false;
     }
     const current = doc.getStyle(range.top, range.left)?.textColor ?? null;
@@ -106,7 +108,7 @@ export class FormatCommands {
   async promptBackgroundColor(tab: Tab): Promise<boolean> {
     const range = this.state.selectedRange(tab);
     const doc = tab.doc;
-    if (!range || doc.kind !== 'rsf') {
+    if (!range || !isWorkbook(doc)) {
       return false;
     }
     const current = doc.getStyle(range.top, range.left)?.backgroundColor ?? null;
@@ -126,7 +128,7 @@ export class FormatCommands {
   async promptBorders(tab: Tab): Promise<boolean> {
     const range = this.state.selectedRange(tab);
     const doc = tab.doc;
-    if (!range || doc.kind !== 'rsf') {
+    if (!range || !isWorkbook(doc)) {
       return false;
     }
     const style = doc.getStyle(range.top, range.left);
@@ -162,7 +164,7 @@ export class FormatCommands {
   async promptNumberFormat(tab: Tab): Promise<boolean> {
     const range = this.state.selectedRange(tab);
     const doc = tab.doc;
-    if (!range || doc.kind !== 'rsf') {
+    if (!range || !isWorkbook(doc)) {
       return false;
     }
     const current = doc.getStyle(range.top, range.left)?.numberFormat ?? null;
@@ -184,7 +186,7 @@ export class FormatCommands {
    * with no decimals in Japanese, dollars with two decimals otherwise.
    */
   applyNumberPreset(tab: Tab, preset: 'number' | 'currency' | 'percent'): boolean {
-    if (tab.doc.kind !== 'rsf') {
+    if (!isWorkbook(tab.doc)) {
       return false;
     }
     const yen = getLocale() === 'ja';
@@ -207,7 +209,7 @@ export class FormatCommands {
   pasteStyles(tab: Tab, styles: ReadonlyArray<ReadonlyArray<CellStyle | null>>): boolean {
     const doc = tab.doc;
     const dest = this.state.selectedRange(tab);
-    if (doc.kind !== 'rsf' || !dest || styles.length === 0 || styles[0].length === 0) {
+    if (!isWorkbook(doc) || !dest || styles.length === 0 || styles[0].length === 0) {
       return false;
     }
     const srcH = styles.length;
@@ -266,7 +268,7 @@ export class FormatCommands {
     runs: TextRun[] | null | undefined,
   ): { before: CellStyle | null; after: CellStyle | null } | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.activeSheet.kind !== 'grid') {
+    if (!isWorkbook(doc) || doc.activeSheet.kind !== 'grid') {
       return null;
     }
     if (row < 0 || row >= doc.rowCount || col < 0 || col >= doc.columnCount) {
@@ -298,7 +300,7 @@ export class FormatCommands {
     after: CellStyle | null,
   ): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return false;
     }
     const sheetId = doc.activeSheetId;
@@ -329,7 +331,7 @@ export class FormatCommands {
    */
   isActive(tab: Tab, key: 'bold' | 'italic' | 'underline'): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return false;
     }
     const range = this.state.selectedRange(tab);
@@ -364,7 +366,7 @@ export class FormatCommands {
 
   private applyPatch(tab: Tab, range: CellRange, patch: CellStylePatch, label: string): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return false;
     }
     const hidden = this.state.hiddenRows(tab);

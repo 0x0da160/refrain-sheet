@@ -17,8 +17,8 @@ import {
   MAX_VALIDATION_LIST_VALUES,
   MAX_VALIDATION_RULES,
   type CellValidation,
-} from '../../src/core/data-validation';
-import { RsfDocument } from '../../src/core/rsf-document';
+} from '../../src/core/workbook/data-validation';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { doc as csvDoc } from '../helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {

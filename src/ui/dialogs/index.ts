@@ -28,20 +28,22 @@ import type {
 } from '../../app/commands';
 import { X } from 'lucide';
 import { t, type LocaleId } from '../../app/i18n';
-import type { DelimiterId } from '../../core/byte-csv-parser';
-import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../../core/cell-style';
-import type { CsvExportOptions } from '../../core/csv-export';
-import type { EncodingId } from '../../core/encoding';
-import type { RsfHistorySnapshot } from '../../core/rsf-codec';
-import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/serializer';
-import type { ValidationSummary } from '../../core/validation';
-import type { WorksheetKind } from '../../core/worksheet';
+import type { DelimiterId } from '../../core/csv/byte-csv-parser';
+import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../../core/workbook/cell-style';
+import type { CsvExportOptions } from '../../core/interchange/csv-export';
+import type { EncodingId } from '../../core/csv/encoding';
+import type { RsfHistorySnapshot } from '../../core/workbook/rsf-codec';
+import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/csv/serializer';
+import type { ValidationSummary } from '../../core/csv/validation';
+import type { WorksheetKind } from '../../core/workbook/worksheet';
 import { openColumnMenu } from '../column-menu';
 import { el } from '../dom';
 import { createIcon } from '../icon';
 import { AppSettingsDialogs } from './app-settings';
 import { FileIoDialogs } from './file-io';
 import { FormatDialogs } from './format';
+import { FilterDialog } from './filter-dialog';
+import { RangeRuleDialogs } from './range-rule-dialogs';
 import { SheetOpsDialogs } from './sheet-ops';
 import { SqlQueryDialogs } from './sql';
 import { DiffDialogs } from './diff';
@@ -52,6 +54,8 @@ export class Dialogs {
   private readonly appSettings = new AppSettingsDialogs();
   private readonly fileIo = new FileIoDialogs();
   private readonly sheetOps = new SheetOpsDialogs();
+  private readonly filterDialog = new FilterDialog();
+  private readonly ruleDialogs = new RangeRuleDialogs();
   private readonly format = new FormatDialogs();
   private readonly sqlQuery = new SqlQueryDialogs();
   private readonly diff = new DiffDialogs();
@@ -236,12 +240,12 @@ export class Dialogs {
     });
   }
 
-  /** See `SheetOpsDialogs.chooseFilter` for the full behavior contract. */
+  /** See `FilterDialog.chooseFilter` for the full behavior contract. */
   chooseFilter(
     input: FilterDialogInput,
     onApply?: ApplyHandler<FilterDialogResult>,
   ): Promise<FilterDialogResult | null> {
-    return this.sheetOps.chooseFilter(input, onApply);
+    return this.filterDialog.chooseFilter(input, onApply);
   }
 
   /** The header-row column menu popover — see `src/ui/column-menu.ts`. */
@@ -249,25 +253,25 @@ export class Dialogs {
     return openColumnMenu(input);
   }
 
-  /** See `SheetOpsDialogs.chooseSort` for the full behavior contract. */
+  /** See `RangeRuleDialogs.chooseSort` for the full behavior contract. */
   chooseSort(
     input: SortDialogInput,
     onApply?: ApplyHandler<SortDialogResult>,
   ): Promise<SortDialogResult | null> {
-    return this.sheetOps.chooseSort(input, onApply);
+    return this.ruleDialogs.chooseSort(input, onApply);
   }
 
-  /** See `SheetOpsDialogs.chooseDataValidation` for the full behavior contract. */
+  /** See `RangeRuleDialogs.chooseDataValidation` for the full behavior contract. */
   chooseDataValidation(
     input: DataValidationDialogInput,
     onApply?: ApplyHandler<DataValidationDialogResult>,
   ): Promise<DataValidationDialogResult | null> {
-    return this.sheetOps.chooseDataValidation(input, onApply);
+    return this.ruleDialogs.chooseDataValidation(input, onApply);
   }
 
-  /** See `SheetOpsDialogs.chooseCellComment` for the full behavior contract. */
+  /** See `RangeRuleDialogs.chooseCellComment` for the full behavior contract. */
   chooseCellComment(input: CellCommentDialogInput): Promise<CellCommentDialogResult | null> {
-    return this.sheetOps.chooseCellComment(input);
+    return this.ruleDialogs.chooseCellComment(input);
   }
 
   /** See `SheetOpsDialogs.chooseInsertShift` for the full behavior contract. */

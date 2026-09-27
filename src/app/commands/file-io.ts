@@ -1,67 +1,40 @@
 // SPDX-License-Identifier: MIT
-import { initCsvEngine } from '../../core/csv-engine';
-import {
-  buildCsvExportBytes,
-  newCsvExportScan,
-  scanCsvExportRow,
-  type CsvExportScan,
-} from '../../core/csv-export';
-import { detectEncoding } from '../../core/encoding';
+import type { NotifyPort, FileDialogsPort } from '../ui-port';
+import { isCsv, isWorkbook } from '../../core/editor-document';
+import { initCsvEngine } from '../../core/csv/csv-engine';
 import { forEachIndexSliced } from '../../core/scheduler';
-import { LosslessDocument } from '../../core/lossless-document';
-import {
-  RsfDocument,
-  RSF_EXTENSION,
-  RSF_LEGACY_EXTENSION,
-  NEW_DOC_ROWS,
-  NEW_DOC_COLS,
-  type RsfParseError,
-} from '../../core/rsf-document';
+import { LosslessDocument } from '../../core/csv/lossless-document';
+import { RsfDocument, RSF_EXTENSION, NEW_DOC_ROWS, NEW_DOC_COLS } from '../../core/workbook/rsf-document';
 import {
   serializeDocument,
   KEEP_SAVE_OPTIONS,
   type NcrCellReport,
   type SaveOptions,
-} from '../../core/serializer';
-import { validateDocument } from '../../core/validation';
-import { parseXlsxWorkbook, type XlsxImportError } from '../../core/xlsx-import';
-import { buildXlsxExport, type XlsxSheetInput } from '../../core/xlsx-export';
-import { parseJsonWorkbook, type JsonImportError } from '../../core/json-import';
-import { buildJsonExport } from '../../core/json-export';
+} from '../../core/csv/serializer';
 import type { AppState, Tab } from '../state';
 import { defaultSheetName } from '../state/defaults';
 import { decidedBySheet, resolveWrap, resolveZoom } from '../state/view-layers';
-import { readFileObject, requestSaveHandle, saveBytes, saveBytesAs, type OpenedFile } from '../file-access';
-import {
-  clearRecentFiles,
-  ensureReadPermission,
-  listRecentFiles,
-  recordRecentFile,
-  removeRecentFile,
-} from '../recent-files';
+import { requestSaveHandle, saveBytes, type OpenedFile } from '../file-access';
+import { recordRecentFile } from '../recent-files';
 import { getLocale, t } from '../i18n';
-import { getAutoFitOnOpen, getMaxFileSize, getSuppressHistoryCapWarning } from '../settings';
-import type { ConvertReason, UiPort } from '../commands';
+import { getSuppressHistoryCapWarning } from '../settings';
+import type { ConvertReason } from '../commands';
 import {
-  isGridSurface,
+  CSV_EXTENSION,
   LARGE_OP_CELLS,
-  LARGE_OPEN_BYTES,
   nextPaint,
   pct,
   warnProtectedAndOfferUnlock,
   withBusy,
   withBusyIfLarge,
 } from './shared';
+import { FileOpening } from './file-open';
+import { FileExporting } from './file-export';
 
 /** The subset of `Commands.gridActions` file I/O needs to auto-fit a newly opened tab. */
 interface GridAutoFitPort {
   autoFitAllColumns(tab: Tab): Promise<void>;
 }
-
-const CSV_EXTENSION = '.csv';
-const CSV_LIKE_EXTENSIONS = [CSV_EXTENSION, '.tsv', '.txt', RSF_EXTENSION, RSF_LEGACY_EXTENSION];
-const XLSX_EXTENSION = '.xlsx';
-const JSON_EXTENSION = '.json';
 
 /**
  * File I/O and CSV/RSF conversion: opening, saving, exporting, closing tabs,
@@ -74,38 +47,25 @@ export class FileIoCommands {
   private newDocCount = 0;
   /** Blank-document counter so each File > New CSV tab gets a distinct default name. */
   private newCsvDocCount = 0;
+  /** Opening files: picked, dropped, recent, reopened, and every supported format. */
+  readonly opening: FileOpening;
+
+  /** The explicit, confirmed lossy exports: CSV, XLSX, JSON. */
+  readonly exporting: FileExporting;
 
   constructor(
-    private readonly state: AppState,
-    private readonly ui: UiPort,
-    private readonly dom: Document,
-    private readonly gridActions: () => GridAutoFitPort | null,
-  ) {}
-
-  /**
-   * Auto-fit every column of a freshly opened tab, when the "auto-fit on
-   * open" preference is enabled. Skipped when the tab already carries
-   * column-width metadata (an RSF worksheet resized and saved by the user) —
-   * an explicit prior choice always wins over the app default, matching
-   * `getWrapCells` and the app zoom preference.
-   */
-  private async autoFitOnOpen(tab: Tab): Promise<void> {
-    if (!getAutoFitOnOpen() || tab.colWidths.length > 0 || !isGridSurface(tab)) {
-      return;
-    }
-    await this.gridActions()?.autoFitAllColumns(tab);
+    readonly state: AppState,
+    readonly ui: NotifyPort & FileDialogsPort,
+    readonly dom: Document,
+    readonly gridActions: () => GridAutoFitPort | null,
+  ) {
+    this.opening = new FileOpening(this);
+    this.exporting = new FileExporting(this);
   }
 
   /** Open picked or dropped files. Every entry point (menu, shortcut, drop) funnels through here. */
-  async openFiles(files: OpenedFile[], opts: { confirmNonCsv: boolean }): Promise<void> {
-    for (const file of files) {
-      await this.openFile(file, opts);
-      // Only a file opened through the File System Access API can be read
-      // again later, so only those join File > Open Recent (#598).
-      if (file.handle && !file.tooLarge) {
-        await recordRecentFile(file.handle, file.name);
-      }
-    }
+  openFiles(files: OpenedFile[], opts: { confirmNonCsv: boolean }): Promise<void> {
+    return this.opening.openFiles(files, opts);
   }
 
   /**
@@ -115,319 +75,21 @@ export class FileIoCommands {
    * moved or deleted is reported and dropped from the list. The dialog can
    * also clear the whole list.
    */
-  async openRecent(): Promise<void> {
-    const entries = await listRecentFiles();
-    if (entries.length === 0) {
-      this.ui.notify(t('notify.recentEmpty'), 'info');
-      return;
-    }
-    const choice = await this.ui.chooseRecentFile(
-      entries.map((entry) => ({ id: entry.id, name: entry.name, openedAt: entry.openedAt })),
-    );
-    if (choice === null) {
-      return;
-    }
-    if (choice === 'clear') {
-      await clearRecentFiles();
-      this.ui.notify(t('notify.recentCleared'), 'info');
-      return;
-    }
-    const entry = entries.find((e) => e.id === choice);
-    if (!entry) {
-      return;
-    }
-    if (!(await ensureReadPermission(entry.handle))) {
-      this.ui.notify(t('notify.recentPermissionDenied', { name: entry.name }), 'warn');
-      return;
-    }
-    let file: File;
-    try {
-      file = await entry.handle.getFile();
-    } catch {
-      await removeRecentFile(entry.id);
-      this.ui.notify(t('notify.recentMissing', { name: entry.name }), 'warn');
-      return;
-    }
-    const opened = await readFileObject(file, entry.handle, getMaxFileSize());
-    await this.openFiles([opened], { confirmNonCsv: false });
+  openRecent(): Promise<void> {
+    return this.opening.openRecent();
   }
 
-  async openDroppedFiles(fileList: File[], handles: Array<FileSystemFileHandle | null>): Promise<void> {
-    const files: OpenedFile[] = [];
-    const maxSize = getMaxFileSize();
-    for (let i = 0; i < fileList.length; i++) {
-      try {
-        files.push(await readFileObject(fileList[i], handles[i] ?? null, maxSize));
-      } catch (err) {
-        this.ui.notify(
-          t('notify.openFailed', {
-            name: fileList[i].name,
-            error: err instanceof Error ? err.message : String(err),
-          }),
-          'error',
-        );
-      }
-    }
-    await this.openFiles(files, { confirmNonCsv: true });
+  openDroppedFiles(fileList: File[], handles: Array<FileSystemFileHandle | null>): Promise<void> {
+    return this.opening.openDroppedFiles(fileList, handles);
   }
 
-  private async openFile(file: OpenedFile, opts: { confirmNonCsv: boolean }): Promise<void> {
-    if (file.tooLarge || file.size > getMaxFileSize()) {
-      await this.ui.showMessage(
-        t('dialog.tooLarge.title'),
-        t('dialog.tooLarge.message', {
-          name: file.name,
-          size: Math.ceil(file.size / (1024 * 1024)),
-          limit: Math.round(getMaxFileSize() / (1024 * 1024)),
-        }),
-      );
-      return;
-    }
-
-    const lowerName = file.name.toLowerCase();
-    if (lowerName.endsWith(RSF_EXTENSION) || lowerName.endsWith(RSF_LEGACY_EXTENSION)) {
-      await this.openRsfFile(file);
-      return;
-    }
-
-    if (lowerName.endsWith(XLSX_EXTENSION)) {
-      await this.openXlsxFile(file);
-      return;
-    }
-
-    if (lowerName.endsWith(JSON_EXTENSION)) {
-      await this.openJsonFile(file);
-      return;
-    }
-
-    if (opts.confirmNonCsv) {
-      const lower = file.name.toLowerCase();
-      if (!CSV_LIKE_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
-        const open = await this.ui.confirm(
-          t('dialog.nonCsv.title'),
-          t('dialog.nonCsv.message', { name: file.name }),
-          t('dialog.nonCsv.open'),
-          t('dialog.nonCsv.cancel'),
-        );
-        if (!open) {
-          return;
-        }
-      }
-    }
-
-    const existing = await this.findExistingTab(file);
-    if (existing) {
-      this.state.activateTab(existing.id);
-      this.ui.notify(t('notify.sameFile', { name: file.name }), 'info');
-      return;
-    }
-
-    const detection = detectEncoding(file.bytes);
-    if (detection.unsupportedCandidate) {
-      await this.ui.showMessage(
-        t('dialog.unsupported.title'),
-        t('dialog.unsupported.message', {
-          name: file.name,
-          candidate: detection.unsupportedCandidate,
-          encoding: t(`encoding.${detection.encoding}`),
-        }),
-      );
-    } else if (detection.uncertain) {
-      await this.ui.showMessage(
-        t('dialog.unsupported.title'),
-        t('dialog.uncertain.message', { name: file.name }),
-      );
-    }
-
-    let doc: LosslessDocument;
-    try {
-      doc = await withBusyIfLarge(
-        file.size > LARGE_OPEN_BYTES,
-        this.ui,
-        t('loading.opening', { name: file.name }),
-        async () => {
-          // The embedded WASM engine initializes in the background at startup;
-          // parsing waits for it here (idempotent, usually already resolved) so
-          // the first open still uses the fast engine.
-          await initCsvEngine();
-          return LosslessDocument.fromBytes(file.bytes);
-        },
-      );
-    } catch (err) {
-      this.ui.notify(
-        t('notify.openFailed', { name: file.name, error: err instanceof Error ? err.message : String(err) }),
-        'error',
-      );
-      return;
-    }
-
-    if (doc.diagnostics.length > 0) {
-      const openAnyway = await this.ui.confirmValidation(file.name, validateDocument(doc));
-      if (!openAnyway) {
-        return;
-      }
-    }
-
-    const tab = this.state.addTab(file.name, doc, file.handle, true);
-    await this.autoFitOnOpen(tab);
-  }
-
-  private async openRsfFile(file: OpenedFile): Promise<void> {
-    const result = await withBusyIfLarge(
-      file.size > LARGE_OPEN_BYTES,
-      this.ui,
-      t('loading.opening', { name: file.name }),
-      async () => {
-        await initCsvEngine(); // reading a compressed Zstandard frame needs the WASM codec
-        return RsfDocument.fromBytes(file.bytes, file.name);
-      },
-    );
-    if (!result.ok) {
-      const reasonKey: Record<RsfParseError, string> = {
-        'bad-magic': 'dialog.rsfInvalid.badMagic',
-        'legacy-format': 'dialog.rsfInvalid.legacyFormat',
-        'bad-version': 'dialog.rsfInvalid.badVersion',
-        'bad-shape': 'dialog.rsfInvalid.badShape',
-        checksum: 'dialog.rsfInvalid.checksum',
-        'unsupported-compression': 'dialog.rsfInvalid.compression',
-        'too-large': 'dialog.rsfInvalid.tooLarge',
-      };
-      await this.ui.showMessage(
-        t('dialog.rsfInvalid.title'),
-        t('dialog.rsfInvalid.message', { name: file.name, reason: t(reasonKey[result.error]) }),
-      );
-      return;
-    }
-    const name = file.name;
-    const tab = this.state.addTab(name, result.doc, file.handle, true);
-    tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
-    if (result.doc.filterDropped) {
-      // The container carried filter metadata that failed validation; it was
-      // ignored (never guessed at) and the sheet itself loaded normally.
-      this.ui.notify(t('notify.filterDropped', { name }), 'warn');
-    }
-    // No auto-fit: an RSF workbook's worksheets keep the widths they were
-    // saved with, and fitting them to content gave unintended widths.
-  }
-
-  /**
-   * Import a `.xlsx` workbook: always a new `.rsf` tab, never a matching
-   * handle, since an `.xlsx` file is never the save target for the resulting
-   * document (mirrors the legacy `.rcsv` migration above). Only calculated
-   * display values are read — no formulas, styles, or column widths —
-   * matching the documented lossy scope of `.xlsx` export.
-   */
-  private async openXlsxFile(file: OpenedFile): Promise<void> {
-    const result = await withBusyIfLarge(
-      file.size > LARGE_OPEN_BYTES,
-      this.ui,
-      t('loading.opening', { name: file.name }),
-      async () => {
-        await initCsvEngine(); // reading DEFLATE-compressed ZIP entries needs the WASM codec
-        return parseXlsxWorkbook(file.bytes);
-      },
-    );
-    if (!result.ok) {
-      const reasonKey: Record<XlsxImportError, string> = {
-        'not-a-zip': 'dialog.xlsxInvalid.notAZip',
-        'missing-workbook': 'dialog.xlsxInvalid.missingWorkbook',
-        'no-sheets': 'dialog.xlsxInvalid.noSheets',
-        'corrupt-entry': 'dialog.xlsxInvalid.corruptEntry',
-        'too-large': 'dialog.xlsxInvalid.tooLarge',
-      };
-      await this.ui.showMessage(
-        t('dialog.xlsxInvalid.title'),
-        t('dialog.xlsxInvalid.message', { name: file.name, reason: t(reasonKey[result.error]) }),
-      );
-      return;
-    }
-    const name = `${file.name.slice(0, -XLSX_EXTENSION.length)}${RSF_EXTENSION}`;
-    const doc = RsfDocument.fromSheetValues(name, result.sheets, getLocale());
-    doc.markUnsaved();
-    const tab = this.state.addTab(name, doc, null, true);
-    tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
-    this.ui.notify(t('notify.xlsxImported', { name }), 'info');
-    await this.autoFitOnOpen(tab);
-  }
-
-  /**
-   * Import a `.json` file: always a new `.rsf` tab, never a matching handle,
-   * for the same reason as `.xlsx` above — a `.json` file is never the save
-   * target for the resulting document. Only a top-level array of flat
-   * (non-nested) objects is supported (see `parseJsonWorkbook`); columns are
-   * the union of every object's keys, in first-seen order.
-   */
-  private async openJsonFile(file: OpenedFile): Promise<void> {
-    const result = await withBusyIfLarge(
-      file.size > LARGE_OPEN_BYTES,
-      this.ui,
-      t('loading.opening', { name: file.name }),
-      () => parseJsonWorkbook(file.bytes),
-    );
-    if (!result.ok) {
-      const reasonKey: Record<JsonImportError, string> = {
-        'invalid-json': 'dialog.jsonInvalid.invalidJson',
-        'not-an-array': 'dialog.jsonInvalid.notAnArray',
-        'empty-array': 'dialog.jsonInvalid.emptyArray',
-        'not-flat-object': 'dialog.jsonInvalid.notFlatObject',
-      };
-      await this.ui.showMessage(
-        t('dialog.jsonInvalid.title'),
-        t('dialog.jsonInvalid.message', { name: file.name, reason: t(reasonKey[result.error]) }),
-      );
-      return;
-    }
-    const name = `${file.name.slice(0, -JSON_EXTENSION.length)}${RSF_EXTENSION}`;
-    const doc = RsfDocument.fromValues(
-      name,
-      ',',
-      result.rows,
-      result.columnCount,
-      defaultSheetName(),
-      getLocale(),
-    );
-    doc.markUnsaved();
-    const tab = this.state.addTab(name, doc, null, true);
-    tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
-    this.ui.notify(t('notify.jsonImported', { name }), 'info');
-    await this.autoFitOnOpen(tab);
-  }
-
-  private async findExistingTab(file: OpenedFile): Promise<Tab | null> {
-    if (file.handle) {
-      for (const tab of this.state.tabs) {
-        if (!tab.handle) continue;
-        try {
-          if (await file.handle.isSameEntry(tab.handle)) {
-            return tab;
-          }
-        } catch {
-          // isSameEntry can fail across contexts; fall through to the heuristic.
-        }
-      }
-    }
-    return this.state.findTabForFile(file.name, file.bytes);
-  }
-
-  async reopen(tab: Tab): Promise<void> {
-    if (tab.doc.kind !== 'csv') {
-      return;
-    }
-    // The reopen dialog itself warns that unsaved edits are discarded.
-    const choice = await this.ui.chooseReopen(tab);
-    if (!choice) {
-      return;
-    }
-    const doc = tab.doc.reinterpret(choice);
-    this.state.setBaseline(tab, doc);
-    if (doc.diagnostics.length > 0) {
-      await this.ui.confirmValidation(tab.name, validateDocument(doc));
-    }
+  reopen(tab: Tab): Promise<void> {
+    return this.opening.reopen(tab);
   }
 
   /** File > Save with Options…: CSV only (an `.rsf` file has no options to choose). */
   async saveWithOptions(tab: Tab): Promise<void> {
-    if (tab.doc.kind !== 'csv') {
+    if (!isCsv(tab.doc)) {
       return;
     }
     const willDownload = tab.handle ? null : t('save.downloadNote', { name: tab.name });
@@ -446,7 +108,7 @@ export class FileIoCommands {
    * Returns true when the file was actually saved.
    */
   async save(tab: Tab, options: SaveOptions): Promise<boolean> {
-    if (tab.doc.kind === 'rsf') {
+    if (isWorkbook(tab.doc)) {
       return this.saveRsf(tab);
     }
     if (tab.doc.isDirty) {
@@ -523,7 +185,7 @@ export class FileIoCommands {
    * Access API downloads the finished bytes.
    */
   private async saveRsf(tab: Tab): Promise<boolean> {
-    if (tab.doc.kind !== 'rsf') {
+    if (!isWorkbook(tab.doc)) {
       return false;
     }
     // Acquire the destination up front, inside the user gesture. `handle` is
@@ -578,7 +240,7 @@ export class FileIoCommands {
    */
   private async encodeRsfBytes(tab: Tab): Promise<Uint8Array | null> {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return null;
     }
     // Warn before the save actually happens when it will drop the oldest
@@ -687,7 +349,7 @@ export class FileIoCommands {
    * prompt or the encode was cancelled.
    */
   async encodeForUpload(tab: Tab): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
-    if (tab.doc.kind === 'rsf') {
+    if (isWorkbook(tab.doc)) {
       const bytes = await this.encodeRsfBytes(tab);
       return bytes === null ? null : { bytes, mimeType: 'application/octet-stream' };
     }
@@ -717,107 +379,8 @@ export class FileIoCommands {
    * numeric-character-reference replacement and reports the affected cells.
    * Nothing in this flow ever mutates the source document or marks it saved.
    */
-  async exportCsv(tab: Tab): Promise<boolean> {
-    if (tab.doc.kind !== 'rsf') {
-      return false;
-    }
-    const doc = tab.doc;
-    // CSV holds exactly one worksheet. A multi-worksheet workbook therefore
-    // requires an explicit choice — the export never silently takes the active
-    // worksheet — and the dialog states that only that worksheet is written and
-    // that formulas become their calculated values. A Markdown or JSON
-    // worksheet has no CSV analog (there is no grid to write), so both are
-    // excluded from the choice entirely, exactly like the sheet limit above.
-    const exportable = doc.sheets.filter((s) => s.kind === 'grid');
-    if (exportable.length === 0) {
-      this.ui.notify(t('notify.noExportableSheet'), 'warn');
-      return false;
-    }
-    let sheetId = exportable.some((s) => s.id === doc.activeSheetId) ? doc.activeSheetId : exportable[0].id;
-    if (exportable.length > 1) {
-      const chosen = await this.ui.chooseExportSheet(
-        exportable.map((s) => ({ id: s.id, name: s.name })),
-        sheetId,
-      );
-      if (chosen === null || tab.doc !== doc) {
-        return false;
-      }
-      sheetId = chosen;
-    }
-    const sheet = doc.sheetById(sheetId);
-    if (!sheet) {
-      return false;
-    }
-    const options = await this.ui.chooseExportCsv(tab.name, doc.delimiter);
-    if (!options || tab.doc !== doc) {
-      return false;
-    }
-    const base = tab.name.replace(/\.(rsf|rcsv)$/i, '');
-    // A multi-worksheet workbook names the exported worksheet in the file name
-    // so several exports from one workbook do not collide.
-    const name = (doc.sheetCount > 1 ? `${base}-${sheet.name}` : base) + '.csv';
-    const label = t('loading.exporting', { name });
-    const large = sheet.rowCount * sheet.columnCount > LARGE_OP_CELLS;
-
-    // Sliced, read-only scan of the chosen worksheet's displayed (calculated)
-    // values. Aborts — producing nothing — if the tab's document changes.
-    const scanValues = async (allowNcr: boolean): Promise<CsvExportScan | null> => {
-      const scan = newCsvExportScan();
-      const completed = await forEachIndexSliced(
-        sheet.rowCount,
-        (r) => {
-          const values: string[] = [];
-          for (let c = 0; c < sheet.columnCount; c++) {
-            values.push(doc.getSheetDisplayValue(sheetId, r, c));
-          }
-          scanCsvExportRow(scan, r, values, options.encoding, allowNcr);
-        },
-        {
-          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`, pct(done, total)),
-          shouldStop: () => tab.doc !== doc,
-        },
-      );
-      return completed && tab.doc === doc ? scan : null;
-    };
-
-    let scan = await withBusyIfLarge(large, this.ui, label, () => scanValues(false));
-    if (!scan) {
-      return false;
-    }
-    let ncrReports: NcrCellReport[] = [];
-    if (scan.unrepresentable.length > 0) {
-      const proceed = await this.ui.confirmUnrepresentable(
-        t(`encoding.${options.encoding}`),
-        scan.unrepresentable,
-      );
-      if (!proceed) {
-        return false; // cancel by default; the document is untouched
-      }
-      scan = await withBusyIfLarge(large, this.ui, label, () => scanValues(true));
-      if (!scan) {
-        return false;
-      }
-      ncrReports = scan.ncrReplacements;
-    }
-    const rows = scan.rows;
-    const bytes = await withBusyIfLarge(large, this.ui, label, () =>
-      buildCsvExportBytes(rows, doc.delimiter, options),
-    );
-    const written = await this.runSaveStep(name, () => saveBytesAs(this.dom, name, bytes, 'csv'));
-    if (!written.ok) {
-      return false;
-    }
-    const outcome = written.value;
-    this.ui.notify(
-      outcome.mode === 'overwrite'
-        ? t('notify.exportedCsv', { name })
-        : t('notify.exportedCsvDownload', { name: outcome.downloadName ?? name }),
-      'info',
-    );
-    if (ncrReports.length > 0) {
-      await this.ui.notifyNcr(ncrReports);
-    }
-    return true;
+  exportCsv(tab: Tab): Promise<boolean> {
+    return this.exporting.exportCsv(tab);
   }
 
   /**
@@ -829,87 +392,8 @@ export class FileIoCommands {
    * documented conversion. Nothing in this flow ever mutates the source
    * document or marks it saved.
    */
-  async exportXlsx(tab: Tab): Promise<boolean> {
-    const doc = tab.doc;
-    const confirmed = await this.ui.confirmExportXlsx(tab.name);
-    if (!confirmed || tab.doc !== doc) {
-      return false;
-    }
-    const base = tab.name.replace(/\.(rsf|rcsv|csv|tsv|txt)$/i, '');
-    const name = `${base}.xlsx`;
-    const label = t('loading.exporting', { name });
-
-    const plans =
-      doc.kind === 'rsf'
-        ? doc.sheets.map((s) => ({
-            name: s.name,
-            rowCount: s.rowCount,
-            columnCount: s.columnCount,
-            getValue: (r: number, c: number) => doc.getSheetDisplayValue(s.id, r, c),
-          }))
-        : [
-            {
-              name: base,
-              rowCount: doc.rowCount,
-              columnCount: doc.columnCount,
-              getValue: (r: number, c: number) => doc.getDisplayValue(r, c),
-            },
-          ];
-    const totalRows = plans.reduce((sum, p) => sum + p.rowCount, 0);
-    const large = plans.reduce((sum, p) => sum + p.rowCount * p.columnCount, 0) > LARGE_OP_CELLS;
-
-    // Sliced, read-only scan of every planned worksheet's displayed
-    // (calculated) values. Aborts — producing nothing — if the tab's
-    // document changes.
-    const scanSheets = async (): Promise<XlsxSheetInput[] | null> => {
-      const sheets: XlsxSheetInput[] = [];
-      let doneRows = 0;
-      for (const plan of plans) {
-        const rows: string[][] = [];
-        const completed = await forEachIndexSliced(
-          plan.rowCount,
-          (r) => {
-            const values: string[] = [];
-            for (let c = 0; c < plan.columnCount; c++) {
-              values.push(plan.getValue(r, c));
-            }
-            rows.push(values);
-          },
-          {
-            onProgress: (done) =>
-              this.ui.setBusy(
-                `${label} (${pct(doneRows + done, totalRows)}%)`,
-                pct(doneRows + done, totalRows),
-              ),
-            shouldStop: () => tab.doc !== doc,
-          },
-        );
-        if (!completed || tab.doc !== doc) {
-          return null;
-        }
-        doneRows += plan.rowCount;
-        sheets.push({ name: plan.name, rows });
-      }
-      return sheets;
-    };
-
-    const sheets = await withBusyIfLarge(large, this.ui, label, scanSheets);
-    if (!sheets) {
-      return false;
-    }
-    const bytes = await withBusyIfLarge(large, this.ui, label, () => buildXlsxExport(sheets));
-    const written = await this.runSaveStep(name, () => saveBytesAs(this.dom, name, bytes, 'xlsx'));
-    if (!written.ok) {
-      return false;
-    }
-    const outcome = written.value;
-    this.ui.notify(
-      outcome.mode === 'overwrite'
-        ? t('notify.exportedXlsx', { name })
-        : t('notify.exportedXlsxDownload', { name: outcome.downloadName ?? name }),
-      'info',
-    );
-    return true;
+  exportXlsx(tab: Tab): Promise<boolean> {
+    return this.exporting.exportXlsx(tab);
   }
 
   /**
@@ -922,92 +406,8 @@ export class FileIoCommands {
    * `buildJsonExport`). Cells carry only their calculated/display values.
    * Nothing in this flow ever mutates the source document or marks it saved.
    */
-  async exportJson(tab: Tab): Promise<boolean> {
-    const doc = tab.doc;
-    let rowCount: number;
-    let columnCount: number;
-    let getValue: (r: number, c: number) => string;
-    let base: string;
-
-    if (doc.kind === 'rsf') {
-      const exportable = doc.sheets.filter((s) => s.kind === 'grid');
-      if (exportable.length === 0) {
-        this.ui.notify(t('notify.noExportableSheet'), 'warn');
-        return false;
-      }
-      let sheetId = exportable.some((s) => s.id === doc.activeSheetId) ? doc.activeSheetId : exportable[0].id;
-      if (exportable.length > 1) {
-        const chosen = await this.ui.chooseExportSheet(
-          exportable.map((s) => ({ id: s.id, name: s.name })),
-          sheetId,
-        );
-        if (chosen === null || tab.doc !== doc) {
-          return false;
-        }
-        sheetId = chosen;
-      }
-      const sheet = doc.sheetById(sheetId);
-      if (!sheet) {
-        return false;
-      }
-      rowCount = sheet.rowCount;
-      columnCount = sheet.columnCount;
-      getValue = (r, c) => doc.getSheetDisplayValue(sheetId, r, c);
-      base = tab.name.replace(/\.(rsf|rcsv)$/i, '') + (doc.sheetCount > 1 ? `-${sheet.name}` : '');
-    } else {
-      rowCount = doc.rowCount;
-      columnCount = doc.columnCount;
-      getValue = (r, c) => doc.getDisplayValue(r, c);
-      base = tab.name.replace(/\.(rsf|rcsv|csv|tsv|txt)$/i, '');
-    }
-
-    const confirmed = await this.ui.confirmExportJson(tab.name);
-    if (!confirmed || tab.doc !== doc) {
-      return false;
-    }
-
-    const name = `${base}.json`;
-    const label = t('loading.exporting', { name });
-    const large = rowCount * columnCount > LARGE_OP_CELLS;
-
-    // Sliced, read-only scan of the chosen worksheet's displayed (calculated)
-    // values. Aborts — producing nothing — if the tab's document changes.
-    const scanRows = async (): Promise<string[][] | null> => {
-      const rows: string[][] = [];
-      const completed = await forEachIndexSliced(
-        rowCount,
-        (r) => {
-          const values: string[] = [];
-          for (let c = 0; c < columnCount; c++) {
-            values.push(getValue(r, c));
-          }
-          rows.push(values);
-        },
-        {
-          onProgress: (done, total) => this.ui.setBusy(`${label} (${pct(done, total)}%)`, pct(done, total)),
-          shouldStop: () => tab.doc !== doc,
-        },
-      );
-      return completed && tab.doc === doc ? rows : null;
-    };
-
-    const rows = await withBusyIfLarge(large, this.ui, label, scanRows);
-    if (!rows) {
-      return false;
-    }
-    const bytes = await withBusyIfLarge(large, this.ui, label, () => buildJsonExport(rows));
-    const written = await this.runSaveStep(name, () => saveBytesAs(this.dom, name, bytes, 'json'));
-    if (!written.ok) {
-      return false;
-    }
-    const outcome = written.value;
-    this.ui.notify(
-      outcome.mode === 'overwrite'
-        ? t('notify.exportedJson', { name })
-        : t('notify.exportedJsonDownload', { name: outcome.downloadName ?? name }),
-      'info',
-    );
-    return true;
+  exportJson(tab: Tab): Promise<boolean> {
+    return this.exporting.exportJson(tab);
   }
 
   async closeTab(tab: Tab): Promise<void> {
@@ -1031,7 +431,7 @@ export class FileIoCommands {
    * explicit conversion when it is still CSV. Never converts silently.
    */
   async ensureRsf(tab: Tab, reason: ConvertReason): Promise<RsfDocument | null> {
-    if (tab.doc.kind === 'rsf') {
+    if (isWorkbook(tab.doc)) {
       return tab.doc;
     }
     // Unprotecting here goes straight on to the conversion prompt, so the
@@ -1072,7 +472,7 @@ export class FileIoCommands {
    */
   private async buildRsfSliced(tab: Tab, label: string): Promise<RsfDocument | null> {
     const doc = tab.doc;
-    if (doc.kind !== 'csv') {
+    if (!isCsv(doc)) {
       return null;
     }
     const columnCount = Math.max(1, doc.columnCount);
@@ -1164,7 +564,7 @@ export class FileIoCommands {
    * conversion runs behind the loading indicator.
    */
   async convertCommand(tab: Tab): Promise<void> {
-    if (tab.doc.kind !== 'csv') {
+    if (!isCsv(tab.doc)) {
       return;
     }
     const ok = await this.ui.confirmConvert('command', tab.name);
@@ -1193,7 +593,7 @@ export class FileIoCommands {
    * are never distinguished further because both already leave the
    * document and disk untouched.
    */
-  private async runSaveStep<T>(
+  async runSaveStep<T>(
     name: string,
     work: () => Promise<T>,
   ): Promise<{ ok: true; value: T } | { ok: false }> {

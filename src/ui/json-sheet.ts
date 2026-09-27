@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../core/editor-document';
 import type { AppState, Tab } from '../app/state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -8,7 +9,7 @@ import {
   buildSidePanelChrome,
   releaseSidePanel,
   currentSidePanelPlacement,
-} from './dialogs/shared';
+} from './dialogs/side-panel';
 import { Eye } from 'lucide';
 import { el } from './dom';
 import { SourceEditor } from './source-editor';
@@ -193,13 +194,13 @@ export class JsonSheetView {
   /** True when the active worksheet is a JSON sheet — the caller hides the grid exactly when this is true. */
   get active(): boolean {
     const tab = this.state.activeTab;
-    return tab !== null && tab.doc.kind === 'rsf' && tab.doc.activeSheet.kind === 'json';
+    return tab !== null && isWorkbook(tab.doc) && tab.doc.activeSheet.kind === 'json';
   }
 
   /** Show/hide and (re)populate from the active tab/worksheet. Call on every `tabs`/`active`/`sheets`/`doc` event. */
   refresh(): void {
     const tab = this.state.activeTab;
-    if (tab === null || tab.doc.kind !== 'rsf' || tab.doc.activeSheet.kind !== 'json') {
+    if (tab === null || !isWorkbook(tab.doc) || tab.doc.activeSheet.kind !== 'json') {
       this.flushCommit();
       this.bound = null;
       this.element.hidden = true;
@@ -237,7 +238,7 @@ export class JsonSheetView {
       return;
     }
     const { tab } = this.bound;
-    if (tab.doc.kind !== 'rsf') {
+    if (!isWorkbook(tab.doc)) {
       return;
     }
     tab.doc.setAutoFormatSource(this.autoFormatCheckbox.checked);
@@ -264,7 +265,7 @@ export class JsonSheetView {
       return;
     }
     const { tab, sheetId } = this.bound;
-    if (tab.doc.kind !== 'rsf' || tab.doc.activeSheet.id !== sheetId) {
+    if (!isWorkbook(tab.doc) || tab.doc.activeSheet.id !== sheetId) {
       return;
     }
     const sheet = tab.doc.activeSheet;

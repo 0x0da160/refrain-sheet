@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type ColumnMenuInput, type ColumnMenuResult, type UiPort } from '../../src/app/commands';
 import { getLocale, setLocale } from '../../src/app/i18n';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { openColumnMenu } from '../../src/ui/column-menu';
 import { Grid } from '../../src/ui/grid';
 

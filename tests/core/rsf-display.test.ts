@@ -6,8 +6,13 @@
  * over app defaults).
  */
 import { describe, expect, it } from 'vitest';
-import { RSF_COL_WIDTH_MAX, RSF_COL_WIDTH_MIN, RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../../src/core/rsf-codec';
-import { RsfDocument } from '../../src/core/rsf-document';
+import {
+  RSF_COL_WIDTH_MAX,
+  RSF_COL_WIDTH_MIN,
+  RSF_ZOOM_MAX,
+  RSF_ZOOM_MIN,
+} from '../../src/core/workbook/rsf-codec';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { decodeRsf, encodeRsf, rsfFromTree, rsfTree, type RsfData } from '../rsf-single-sheet';
 
 const base: RsfData = {

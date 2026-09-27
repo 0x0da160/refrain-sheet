@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { isFormula } from '../../src/core/formula';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 
 /** Brute-force reference: scan every cell of the document surface. */
 function bruteForce(doc: RsfDocument): Array<{ row: number; col: number; src: string }> {

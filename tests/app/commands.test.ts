@@ -7,9 +7,9 @@ import { t, type LocaleId } from '../../src/app/i18n';
 import type { OpenedFile } from '../../src/app/file-access';
 import { setSuppressHistoryCapWarning } from '../../src/app/settings';
 import { compileQuery } from '../../src/core/search';
-import { decodeBytes } from '../../src/core/encoding';
+import { decodeBytes } from '../../src/core/csv/encoding';
 import { encodeRsf } from '../rsf-single-sheet';
-import { buildXlsxExport, type XlsxSheetInput } from '../../src/core/xlsx-export';
+import { buildXlsxExport, type XlsxSheetInput } from '../../src/core/interchange/xlsx-export';
 import { asCsv, enc, utf8 } from '../helpers';
 
 // Simulates a hosted build with Drive sync configured and a cached access

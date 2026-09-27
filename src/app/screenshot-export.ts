@@ -22,8 +22,9 @@
  * of this feature. `doc` is injected (never the global `document`), matching
  * `file-access.ts`.
  */
+import { isWorkbook, type EditorDocument } from '../core/editor-document';
 import type { CellRange } from '../core/clipboard';
-import { BORDER_WIDTH_PX, type BorderSideValue } from '../core/cell-style';
+import { BORDER_WIDTH_PX, type BorderSideValue } from '../core/workbook/cell-style';
 import {
   layoutStyledRangeForImage,
   type CellVisualStyle,
@@ -31,7 +32,7 @@ import {
   type VisualDisplaySource,
 } from '../core/screenshot-layout';
 import { countVisualLines, rowHeightForLines, wrapVisualLines } from '../core/text-wrap';
-import type { EditorDocument, Tab } from './state';
+import type { Tab } from './state';
 
 /**
  * Kept in sync with `COL_WIDTH`/`ROW_HEIGHT`/`WRAP_LINE_HEIGHT`/
@@ -68,7 +69,7 @@ export function onScreenGeometry(
 
 /** Adapts a plain CSV document (which carries no per-cell styling) to `VisualDisplaySource`. */
 export function asVisualDisplaySource(doc: EditorDocument): VisualDisplaySource {
-  if (doc.kind === 'rsf') {
+  if (isWorkbook(doc)) {
     return doc;
   }
   return {

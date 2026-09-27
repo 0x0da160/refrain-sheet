@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { rangeToTsv } from '../../src/core/clipboard';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { countVisualLines, rowHeightForLines } from '../../src/core/text-wrap';
 import { Grid, MAX_WRAP_LINES, ROW_HEIGHT, WRAP_LINE_HEIGHT, WRAP_VERTICAL_PAD } from '../../src/ui/grid';
 import { doc } from '../helpers';

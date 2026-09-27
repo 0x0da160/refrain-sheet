@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { buildXlsxExport, type XlsxSheetInput } from '../../src/core/xlsx-export';
+import { buildXlsxExport, type XlsxSheetInput } from '../../src/core/interchange/xlsx-export';
 
 // ----- Minimal STORE-only ZIP reader, independent of the writer under test -----
 

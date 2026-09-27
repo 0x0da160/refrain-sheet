@@ -571,6 +571,7 @@
   "notify.permissionDenied": "ファイルへの書き込みが許可されなかったため、ダウンロードで保存します。",
   "notify.openFailed": "「{name}」を開けませんでした: {error}",
   "notify.sameFile": "「{name}」はすでに開いているため、そのタブに切り替えました。",
+  "notify.openInAnotherTab": "「{name}」は別のブラウザタブですでに開いています。そのタブで編集するか、そちらで閉じてから開いてください。",
   "notify.reverted": "すべての編集を破棄しました。",
   "notify.settingsSaved": "設定を保存しました。",
   "notify.noFormatsToPaste": "貼り付ける書式がありません。先にRSFファイルのセルをコピーしてください。",

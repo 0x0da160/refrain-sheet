@@ -26,7 +26,6 @@ const COMPLEXITY_RATCHET = [
   'src/ui/dialogs/format.ts',
   'src/ui/dialogs/sheet-ops.ts',
   'src/ui/dialogs/sql.ts',
-  'src/ui/grid/index.ts',
   'src/ui/menu-bar.ts',
   'src/ui/status-bar.ts',
   'src/ui/viewport-debug.ts',

@@ -420,7 +420,7 @@ describe('touch edit entry around the on-screen keyboard', () => {
   }
 
   function touchGrid(grid: Grid): void {
-    (grid as unknown as { lastPointerType: string }).lastPointerType = 'touch';
+    (grid as unknown as { core: { lastPointerType: string } }).core.lastPointerType = 'touch';
   }
 
   /** Where `centerKeyboardTarget` puts `row` in a grid of `height` px (header + the pinned first row). */

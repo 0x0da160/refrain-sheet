@@ -16,16 +16,27 @@ governs; this adds only what is specific to `src/ui/`.
   `knowledge/ui/ui-writing-and-wording.md` (action-first labels, the
   target/impact/next-step rule for save, convert, discard, and encoding
   changes, and the recommended terms).
-- **Grid.** `grid/index.ts` is the virtualized renderer (the `Grid` class:
-  rendering, selection, editing, and event wiring). Everything with its own
-  state or no need for the class lives beside it in `grid/`: pixel metrics
-  and pinned panes (`metrics.ts`), drag-edge auto-scroll (`auto-scroll.ts`),
-  touch press-and-hold / double-tap (`touch-gestures.ts`), on-screen
+- **Grid.** `grid/index.ts` is the `Grid` facade: the public surface the
+  shell and tests use. Its shared state lives in `GridCore` (`grid/core.ts`),
+  and each concern is a collaborator that reaches that state through
+  `this.core`: rendering (`renderer.ts`, `cell-builder.ts`,
+  `wrap-layout.ts`), selection painting (`selection-view.ts`), in-cell
+  editing (`edit-session.ts`), pointer and keyboard input
+  (`pointer-input.ts`, `navigation.ts`), drags (`drag-operations.ts`), and
+  auto-fit (`auto-fitter.ts`). Stateless pieces sit beside them: pixel
+  metrics and pinned panes (`metrics.ts`), drag-edge auto-scroll
+  (`auto-scroll.ts`), touch gestures (`touch-gestures.ts`), on-screen
   keyboard handling (`keyboard-viewport.ts`), per-cell painting
-  (`cell-paint.ts`), auto-fit measuring and planning (`autofit-measure.ts`,
-  `autofit.ts`), and pure helpers (geometry, formula-reference overlay,
-  context-menu items). Keep new logic in a focused `grid/` module like
-  these, not in the `Grid` class.
+  (`cell-paint.ts`), auto-fit measuring (`autofit-measure.ts`,
+  `autofit.ts`), and pure helpers. Collaborators import `GridCore` as a
+  type only; put new logic in the collaborator that owns the concern, never
+  back into the facade.
+- **Shell.** `src/main.ts` only calls `startApp()`; the composition root is
+  `shell/` (`index.ts` wires, `surfaces.ts` builds, `ui-port.ts` implements
+  `UiPort`, `refresh.ts`/`layout.ts`/`input.ts`/`preferences.ts` handle the
+  rest). Menus are declared per menu in `menu-bar/menus.ts`; every catalog
+  command must be reachable from a menu, a shortcut, or a UI surface
+  (`tests/app/command-catalog.test.ts`).
 - **Styling** is hand-written CSS under `src/styles/`, loaded in order by
   `src/styles/index.css`, using the design tokens; see
   `knowledge/ui/theming-and-visual-system.md`. `npm run check:contrast`

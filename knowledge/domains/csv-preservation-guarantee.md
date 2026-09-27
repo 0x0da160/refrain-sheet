@@ -4,10 +4,10 @@ title: CSV preservation guarantee
 description: The Refrain principle, byte-identical unedited saves, minimal-diff edits, the guarantee's documented exceptions, encoding detection/support, opening structurally invalid CSV, and the CSV-injection warning.
 sources:
   - resource: ../../README.md
-  - resource: ../../src/core/lossless-document.ts
-  - resource: ../../src/core/serializer.ts
-  - resource: ../../src/core/encoding.ts
-  - resource: ../../src/core/byte-csv-parser.ts
+  - resource: ../../src/core/csv/lossless-document.ts
+  - resource: ../../src/core/csv/serializer.ts
+  - resource: ../../src/core/csv/encoding.ts
+  - resource: ../../src/core/csv/byte-csv-parser.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5

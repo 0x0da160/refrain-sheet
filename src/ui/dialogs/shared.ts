@@ -50,7 +50,7 @@ export type DialogBuilder<T> = (body: HTMLElement, buttons: HTMLElement, close: 
  * A corner grip appended to a dialog/popover so it can be resized (see
  * `makeResizable`, `src/ui/drag-resize.ts`). `aria-hidden` plus a `title`
  * tooltip mirrors the grid's pointer-only resize/fill/move handles
- * (`.col-resize-handle` etc. in `src/ui/grid/index.ts`): a mouse/touch affordance
+ * (`.col-resize-handle` etc. in `src/ui/grid/cell-builder.ts`): a mouse/touch affordance
  * with no keyboard equivalent, so it is not exposed to assistive tech.
  */
 function resizeGrip(): HTMLDivElement {

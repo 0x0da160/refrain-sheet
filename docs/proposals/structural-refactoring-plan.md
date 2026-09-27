@@ -1,10 +1,11 @@
 # Structural refactoring plan — proposal
 
-**Status: proposal only. Nothing in this document is implemented, and filing
-it is not approval.** Each phase below becomes its own Issue (or small set of
-Issues) that needs `agent:ready` from a human before any code moves. Phases
-that touch `src/core/rsf-*.ts` are high-risk under `CLAUDE.md` and need
-explicit maintainer sign-off and full `test:rust` + RSF fixture verification.
+**Status: implemented in one pull request at the requester's direction** —
+the four decisions in §9 were answered "approve, implement, add, reorganize"
+and the phases were asked for as a single PR rather than the ~70 small ones
+proposed below. See **Outcome** at the end of each language section for what
+landed and where it deviates. The body below is kept as the original
+proposal.
 
 Requested in an interactive session (`大胆・大規模・緻密・徹底的なリファクタリングを計画してください。`).
 Measurements below were taken on `main` at `6fc0fe5` (v0.9.9, 2026-09-27).
@@ -452,6 +453,46 @@ Decisions needed from a human before the matching phase starts:
    many import paths at once; approve them as move-only PRs, or keep the flat
    layout and apply only the file splits.
 
+### 10. Outcome
+
+All ten phases landed on `claude/bold-refactoring-plan-612d7a` as one pull
+request, one commit per phase (the `core/` directory move is its own
+move-only commit, listed in `.git-blame-ignore-revs`).
+
+| Measure                                  | Before (`main`) | After                              |
+| ---------------------------------------- | --------------- | ---------------------------------- |
+| `src/core/rsf-document.ts` → `workbook/` | 1786            | 519                                |
+| `src/core/formula.ts` → `formula/index`  | 2050            | 111                                |
+| `formula-functions.ts` → `functions/*`   | 2170            | ≤ 446 per group file               |
+| `src/ui/grid/index.ts`                   | 3576            | 268 (largest grid file 644)        |
+| `src/main.ts`                            | 607             | 5                                  |
+| `src/app/state/index.ts`                 | 1292            | 769                                |
+| `src/app/commands/index.ts`              | 1759            | 590                                |
+| `kind === 'rsf' \| 'csv'` outside core   | 204             | 0 (lint-enforced)                  |
+| complexity-ratchet exemptions            | —               | 2 (`byte-csv-parser`, `rsf-codec`) |
+
+Behavior was pinned before any move by the R0 characterization snapshots
+(command surface, formula-help examples, core export surface, AppState
+event order); the only snapshot change is the removal of the unreachable
+`tab.next` / `tab.prev` commands, which the new catalog reachability test
+found. The v1 RSF fixtures re-encode byte-identically before and after R6
+and R8.
+
+Deviations from the proposal:
+
+- **No `I18nPort` / `SettingsPort`** and **no typed event payloads**: the
+  role-segregated `UiPort` covered the coupling that mattered; the others
+  would have touched every UI module for no behavior gain.
+- **Menu placement and icons stay in the UI layer** (`menu-bar/menus.ts`);
+  the catalog holds `enabled` / `disabledReason` / `run` only, and
+  `tests/app/command-catalog.test.ts` checks every command is reachable.
+- **Size targets missed:** `commands/index.ts` is 590 lines (target ≤ 300)
+  and `AppState` 769 (target ≤ 500). Both are now thin delegation; further
+  cuts would split cohesive public surfaces.
+- **`rsf-codec.ts` and `byte-csv-parser.ts` were not split** — they are the
+  persisted-format and hot-path code the plan froze; they are the only
+  entries left in the line budget and complexity ratchet.
+
 ## 日本語
 
 **ステータス: 提案のみ。** 本書の内容はまだ何も実装されていません。各フェーズは個別の Issue となり、人間による `agent:ready` を得てから着手します。`src/core/rsf-*.ts` に触れるフェーズ（R6）は `CLAUDE.md` 上の高リスク変更であり、メンテナーの明示的な承認が必要です。計測値は `main` の `6fc0fe5`（v0.9.9）時点のものです。
@@ -498,3 +539,11 @@ Decisions needed from a human before the matching phase starts:
 2. R6（`RsfDocument` 分解）の実施可否。
 3. カバレッジ計測（`@vitest/coverage-v8` の追加。新しい devDependency のため本計画では前提にしていません）。
 4. `core/` 内のディレクトリ再編（`csv/`・`workbook/`・`formula/`）を移動のみの PR として行うか、フラットな配置のままファイル分割だけ行うか。
+
+### 実施結果
+
+全フェーズを依頼者の指示により 1 本の PR で実施しました（フェーズごとに 1 コミット。`core/` のディレクトリ移動は移動のみのコミットとし、`.git-blame-ignore-revs` に登録）。`rsf-document.ts` は 1786 行から 519 行、`formula.ts` は 2050 行から 111 行のファサード、`grid/index.ts` は 3576 行から 268 行、`main.ts` は 607 行から 5 行、`AppState` は 1292 行から 769 行、`commands/index.ts` は 1759 行から 590 行になりました。コア外の `kind` 比較 204 箇所は 0 になり、lint で禁止しています。複雑度ラチェットの例外は `byte-csv-parser` と `rsf-codec` の 2 件のみです。
+
+移動前に R0 の特性化スナップショットで挙動を固定しました。スナップショットの変更は、新しいカタログ到達可能性テストが見つけた到達不能な `tab.next`／`tab.prev` の削除だけです。v1 の RSF フィクスチャは R6・R8 の前後でバイト一致で再エンコードされます。
+
+計画との差分: `I18nPort`／`SettingsPort` と型付きイベントペイロードは導入していません。メニューの配置とアイコンは UI 層（`menu-bar/menus.ts`）に残し、到達可能性はテストで担保しています。`commands/index.ts`（目標 300 行以下）と `AppState`（目標 500 行以下）は目標未達です。`rsf-codec.ts` と `byte-csv-parser.ts` は計画どおり分割していません。

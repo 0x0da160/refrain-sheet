@@ -3,7 +3,7 @@ type: format-concept
 title: RSF JSON document
 description: The JSON inside a .rsf file — every key of the workbook, worksheet, view, style, filter, comment, and history objects, how they are laid out for a text editor, and what the reader validates.
 sources:
-  - resource: ../../../src/core/rsf-codec.ts
+  - resource: ../../../src/core/workbook/rsf-codec.ts
   - resource: ../../../tests/core/rsf-codec.test.ts
   - resource: ../../../tests/fixtures/rsf/v1/features.rsf
 status: stable

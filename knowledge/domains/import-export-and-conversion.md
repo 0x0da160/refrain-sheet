@@ -5,11 +5,11 @@ description: What formats import (CSV, JSON array-of-flat-objects, XLSX) and exp
 sources:
   - resource: ../../README.md
   - resource: ../../CHANGELOG.md
-  - resource: ../../src/core/csv-export.ts
-  - resource: ../../src/core/json-import.ts
-  - resource: ../../src/core/json-export.ts
-  - resource: ../../src/core/xlsx-import.ts
-  - resource: ../../src/core/xlsx-export.ts
+  - resource: ../../src/core/interchange/csv-export.ts
+  - resource: ../../src/core/interchange/json-import.ts
+  - resource: ../../src/core/interchange/json-export.ts
+  - resource: ../../src/core/interchange/xlsx-import.ts
+  - resource: ../../src/core/interchange/xlsx-export.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5

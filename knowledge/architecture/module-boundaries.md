@@ -4,7 +4,7 @@ title: Module boundaries
 description: The inward-only dependency rule between UI, app, core, and infrastructure, what each layer may and may not do, and how the rule is enforced.
 sources:
   - resource: docs/architecture.md (migrated content; file removed after migration — see knowledge/log.md)
-  - resource: ../../src/core/rsf-document.ts
+  - resource: ../../src/core/workbook/rsf-document.ts
   - resource: ../../src/core/app-identity.ts
 status: stable
 generated:

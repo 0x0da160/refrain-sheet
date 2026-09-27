@@ -3,9 +3,9 @@ type: format-concept
 title: RSF overview
 description: Design goals, the two-frame Zstandard container, Zstandard-only compression with a Raw-block fallback, bounds, and the workbook/worksheet model.
 sources:
-  - resource: ../../../src/core/rsf-codec.ts
-  - resource: ../../../src/core/zstd-frame.ts
-  - resource: ../../../src/core/csv-engine.ts
+  - resource: ../../../src/core/workbook/rsf-codec.ts
+  - resource: ../../../src/core/workbook/zstd-frame.ts
+  - resource: ../../../src/core/csv/csv-engine.ts
 status: stable
 generated:
   by: claude-code

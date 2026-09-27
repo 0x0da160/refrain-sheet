@@ -4,3 +4,6 @@
 
 # Reorganize the repository layout (file moves and path-only rewrites)
 a4e11e4d5912e59f4c82c048f073a658a1697af6
+
+# Group src/core into formula/, csv/, workbook/, interchange/ (move only)
+b349bd2a57c2a22bff2f77f919bac5e06167513c

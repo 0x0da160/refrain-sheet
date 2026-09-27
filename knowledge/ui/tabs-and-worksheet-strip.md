@@ -3,7 +3,7 @@ type: ui-concept
 title: Tabs and worksheet strip
 description: The interaction model of the two independent tab strips — drag reorder with a drop indicator, keyboard equivalents, roving tabindex, dirty indicators, and the close-tab flow.
 sources:
-  - resource: ../../src/ui/shell-layout.ts
+  - resource: ../../src/ui/shell/tab-row-fit.ts
   - resource: ../../src/app/recent-files.ts
   - resource: ../../tests/ui/tab-row-fit.test.ts
   - resource: ../../README.md

@@ -4,8 +4,8 @@ title: Workbook and worksheet lifecycle
 description: User-facing behavior of RSF workbooks and worksheets — worksheet kinds, add/rename/duplicate/delete/reorder as atomic undoable operations, naming rules, the two independent tab strips, and converting a CSV to a spreadsheet.
 sources:
   - resource: ../../README.md
-  - resource: ../../src/core/worksheet.ts
-  - resource: ../../src/core/rsf-document.ts
+  - resource: ../../src/core/workbook/worksheet.ts
+  - resource: ../../src/core/workbook/rsf-document.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5

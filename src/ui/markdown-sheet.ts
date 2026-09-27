@@ -29,7 +29,7 @@ const COMMIT_DEBOUNCE_MS = 600;
  * `.side-panel` — the same `buildSidePanelChrome`/`applySidePanelPosition`/
  * `currentSidePanelPlacement` machinery the Filter/Sort/Format/SQL Query
  * panels and the comments panel use (`src/ui/dialogs/side-panel.ts`,
- * `ui/comments-panel.ts`) — toggled by `previewToggle`, rather than a fixed
+ * `ui/comments-panel.ts`) — opened by `previewToggle`, rather than a fixed
  * inline split, per the Issue's request to dock the preview like the Filter
  * panel. The caller must append `panelElement` into the app shell alongside
  * `element` (see `main.ts`), not inside it.
@@ -59,7 +59,7 @@ export class MarkdownSheetView {
   /** The (tab, sheetId) the textarea currently reflects, so a pending debounced edit commits to the right place. */
   private bound: { tab: Tab; sheetId: string } | null = null;
   private commitTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Whether the preview panel should be open while this view is active; toggled by `previewToggle`, not persisted across reloads. */
+  /** Whether the preview panel should be open while this view is active; opened by `previewToggle` and closed by its header ×, not persisted across reloads. */
   private previewVisible = true;
 
   constructor(
@@ -76,7 +76,8 @@ export class MarkdownSheetView {
     const sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
 
     this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
-    this.previewToggle.addEventListener('click', () => this.setPreviewVisible(!this.previewVisible));
+    // Opens only: the preview panel closes from its header × alone.
+    this.previewToggle.addEventListener('click', () => this.setPreviewVisible(true));
     const toolbar = el('div', { className: 'markdown-editor-toolbar' }, [this.previewToggle]);
 
     const panes = el('div', { className: 'markdown-editor-panes' }, [sourcePane]);
@@ -130,7 +131,7 @@ export class MarkdownSheetView {
     });
   }
 
-  /** Open/close the preview panel; toggled by `previewToggle` and its own close button. */
+  /** Open/close the preview panel: `previewToggle` opens it, its header × closes it. */
   private setPreviewVisible(visible: boolean): void {
     this.previewVisible = visible;
     this.updatePanelVisibility();
@@ -157,10 +158,10 @@ export class MarkdownSheetView {
   }
 
   private updatePreviewToggle(): void {
-    this.previewToggle.textContent = this.previewVisible
-      ? t('dialog.markdownEditor.hidePreview')
-      : t('dialog.markdownEditor.showPreview');
-    this.previewToggle.setAttribute('aria-pressed', String(this.previewVisible));
+    this.previewToggle.textContent = t('dialog.markdownEditor.showPreview');
+    // Disabled while the preview is open instead of turning into a Hide
+    // button, so it never closes the panel.
+    this.previewToggle.disabled = this.previewVisible;
   }
 
   /** True when the active worksheet is a Markdown sheet — the caller hides the grid exactly when this is true. */

@@ -1,0 +1,69 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- COMPARE: how CSV handling differs from a typical spreadsheet app, said
+     honestly — no product names, no compatibility claims, and every
+     Refrain Sheet cell backed by the README and tests. -->
+<section class="rb-section compare" id="compare">
+  <div class="rb-wrap">
+    <div class="section-head">
+      <p class="rb-eyebrow" lang="en">Compare</p>
+      <h2 class="rb-h2" data-i18n="cmp.h2">一般的な表計算ソフトとの違い</h2>
+      <p class="rb-lead" data-i18n="cmp.lead">
+        大きな表計算ソフトの代わりではありません。違いは、CSVを開いて保存するときの扱いと、使いはじめるまでの手間です。
+      </p>
+    </div>
+    <div class="cmp-scroll">
+      <table class="rb-table cmp-table">
+        <thead>
+          <tr>
+            <th scope="col" data-i18n="cmp.col0">比べるところ</th>
+            <th scope="col" data-i18n="cmp.col1">一般的な表計算ソフト</th>
+            <th class="cmp-ours" scope="col" data-i18n="cmp.col2">Refrain Sheet</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row" data-i18n="cmp.r1">何も変えずに保存したとき</th>
+            <td data-i18n="cmp.r1a">
+              開き方や設定によっては、文字コード・引用符・改行コードが変わることがある
+            </td>
+            <td data-i18n="cmp.r1b">元のファイルとバイト単位で同じ</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="cmp.r2">1つのセルだけ直したとき</th>
+            <td data-i18n="cmp.r2a">製品や設定による</td>
+            <td data-i18n="cmp.r2b">直したセル以外のバイトはそのまま</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="cmp.r3">先頭ゼロ・日付・長い番号</th>
+            <td data-i18n="cmp.r3a">表示や計算のために、数値や日付に変換されることがある</td>
+            <td data-i18n="cmp.r3b">書かれたとおりの文字のまま</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="cmp.r4">Shift_JIS のCSV</th>
+            <td data-i18n="cmp.r4a">開き方によっては文字化けすることがある</td>
+            <td data-i18n="cmp.r4b">文字コードを判定し、同じ文字コードで保存</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="cmp.r5">壊れたCSV</th>
+            <td data-i18n="cmp.r5a">製品による</td>
+            <td data-i18n="cmp.r5b">自動で直さず、問題の位置を示して開く</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="cmp.r6">数式・関数・書式</th>
+            <td data-i18n="cmp.r6a">豊富にそろっている</td>
+            <td data-i18n="cmp.r6b">55の関数と、よく使う書式。RSFスプレッドシートで使う</td>
+          </tr>
+          <tr>
+            <th scope="row" data-i18n="cmp.r7">使いはじめるまで</th>
+            <td data-i18n="cmp.r7a">インストールやアカウント登録が必要なことがある</td>
+            <td data-i18n="cmp.r7b">ブラウザで開くだけ。ログインもアカウント登録も不要</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cmp-note" data-i18n="cmp.note">
+      ※ 一般的な表計算ソフトの動きは、製品・バージョン・設定によって異なります。Refrain Sheet
+      の動きは、リポジトリの README とテストで確かめられます。
+    </p>
+  </div>
+</section>

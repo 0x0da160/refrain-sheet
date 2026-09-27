@@ -109,7 +109,7 @@ img {
 .rb-card .rb-h3 {
   margin-block-end: var(--space-1);
 }
-/* Five cards read as 3 + 2, never 4 + 1. */
+/* Five or six cards read as 3 + 2 or 3 + 3, never 4 + 1. */
 .rb-cards--wide {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
 }
@@ -189,7 +189,8 @@ img {
 .demo[data-scene='1'] [data-step='1'],
 .demo[data-scene='2'] [data-step='2'],
 .demo[data-scene='3'] [data-step='3'],
-.demo[data-scene='4'] [data-step='4'] {
+.demo[data-scene='4'] [data-step='4'],
+.demo[data-scene='5'] [data-step='5'] {
   color: var(--fg-default);
   font-weight: var(--weight-bold);
 }
@@ -341,7 +342,6 @@ img {
 
 .app-grid {
   display: grid;
-  grid-template-columns: var(--grid-rowhead-min-w) 9.5rem 3.5rem 4.5rem 5.5rem;
   grid-auto-rows: var(--grid-row-h);
   align-content: start;
   flex: 1;
@@ -371,13 +371,22 @@ img {
 .gh-row {
   justify-content: flex-end;
 }
+.app-grid--csv {
+  grid-template-columns: var(--grid-rowhead-min-w) 5.5rem 9.5rem 3.5rem 5.5rem;
+}
+.app-grid--rsf {
+  grid-template-columns: var(--grid-rowhead-min-w) 9.5rem 3.5rem 4.5rem 5.5rem;
+}
 .app-formula {
   color: var(--canvas-formula-text);
 }
-.cell-d2 {
+.cell-d2,
+.fill-d {
   position: relative;
 }
-.demo[data-scene='4'] .cell-d2::before {
+/* Formula cells carry the app's corner mark. */
+.demo--rsf:is([data-scene='4'], [data-scene='5']) .cell-d2::before,
+.demo--rsf[data-scene='5'] .fill-d::before {
   content: '';
   position: absolute;
   inset-block-start: 0;
@@ -387,23 +396,36 @@ img {
 }
 /* The active cell: its row tinted, its headers highlighted, its border drawn. */
 .demo[data-scene='1'] :is(.col-a, .row-1),
-.demo:not([data-scene='1']) :is(.col-d, .row-2) {
+.demo--csv[data-scene='2'] :is(.col-d, .row-3),
+.demo--csv:is([data-scene='3'], [data-scene='4']) :is(.col-d, .row-4),
+.demo--rsf:is([data-scene='2'], [data-scene='3'], [data-scene='4']) :is(.col-d, .row-2),
+.demo--rsf[data-scene='5'] :is(.col-d, .row-2, .row-3, .row-4) {
   color: var(--canvas-header-selected-text);
   background-color: var(--canvas-header-selected-bg);
 }
 .demo[data-scene='1'] :is(.cell-a1, .row1),
-.demo:not([data-scene='1']) .row2 {
+.demo--csv[data-scene='2'] .row3,
+.demo--csv:is([data-scene='3'], [data-scene='4']) .row4,
+.demo--rsf:is([data-scene='2'], [data-scene='3'], [data-scene='4']) .row2,
+.demo--rsf[data-scene='5'] .fill-d {
   background-color: var(--canvas-selection);
 }
 .demo[data-scene='1'] .cell-a1,
-.demo:not([data-scene='1']) .cell-d2 {
+.demo--csv[data-scene='2'] .cell-d3,
+.demo--csv:is([data-scene='3'], [data-scene='4']) .cell-d4,
+.demo--rsf:not([data-scene='1']) .cell-d2 {
   box-shadow: inset 0 0 0 var(--stroke-medium) var(--canvas-selection-border);
 }
+/* An edited CSV cell, as the app marks it until the next save. */
+.demo--csv[data-scene='3'] .cell-d3 {
+  background-color: var(--state-modified);
+  box-shadow: inset var(--stroke-medium) 0 0 var(--canvas-edited-mark);
+}
 /* Typing a formula outlines the cells it refers to, as the app does. */
-.demo[data-scene='2'] .ref-c2 {
+.demo--rsf[data-scene='2'] .ref-c2 {
   box-shadow: inset 0 0 0 var(--stroke-medium) var(--ref-1);
 }
-.demo[data-scene='2'] .ref-b2 {
+.demo--rsf[data-scene='2'] .ref-b2 {
   outline: var(--stroke-medium) dashed var(--ref-2);
   outline-offset: calc(var(--stroke-medium) * -1);
 }
@@ -530,12 +552,24 @@ img {
 }
 
 /* ---------- Scenes ----------
-   1 open a CSV · 2 type a formula · 3 confirm the conversion · 4 converted.
-   Without JavaScript (or with reduced motion) the demo rests on scene 4. */
-.demo[data-scene='1'] :is(.only-s2, .only-s3, .only-s4, .only-rsf, .not-s1),
-.demo[data-scene='2'] :is(.only-s1, .only-s3, .only-s4, .only-rsf),
-.demo[data-scene='3'] :is(.only-s1, .only-s2, .only-s4, .only-rsf),
-.demo[data-scene='4'] :is(.only-s1, .only-s2, .only-s3, .only-csv) {
+   CSV demo (hero):          1 open (protected) · 2 unprotect, type in one
+                             cell · 3 the edited cell is marked · 4 saved.
+   Spreadsheet demo (features): 1 open a CSV · 2 type a formula · 3 confirm
+                             the conversion · 4 converted · 5 fill down.
+   Without JavaScript (or with reduced motion) each demo rests on its last
+   scene. Class names say which scenes show an element: only-s1 … only-s5,
+   the pairs only-s34 / only-s45, only-s234, not-s1, and — in the
+   spreadsheet demo — only-csv (before the conversion) / only-rsf (after). */
+.demo:not([data-scene='1']) .only-s1,
+.demo:not([data-scene='2']) .only-s2,
+.demo:not([data-scene='3']) .only-s3,
+.demo:not([data-scene='4']) .only-s4,
+.demo:not([data-scene='5']) .only-s5,
+.demo[data-scene='1'] .not-s1,
+.demo:is([data-scene='1'], [data-scene='2'], [data-scene='5']) .only-s34,
+.demo:is([data-scene='1'], [data-scene='5']) .only-s234,
+.demo:is([data-scene='1'], [data-scene='2'], [data-scene='3']) :is(.only-s45, .only-rsf),
+.demo:is([data-scene='4'], [data-scene='5']) .only-csv {
   display: none;
 }
 .demo.is-running[data-scene='2'] .app-typed {
@@ -545,12 +579,17 @@ img {
   vertical-align: bottom;
   animation: demo-type 1.4s steps(6, end) 0.3s forwards;
 }
-.demo.is-running[data-scene='2'] .cell-d2 .app-typed {
+.demo.is-running[data-scene='2'] :is(.cell-d2, .cell-d3) .app-typed {
   border-inline-end: var(--stroke-thin) solid var(--canvas-text);
+}
+/* How far the typing reveal runs: the typed formula, or the CSV demo's
+   new cell value (a few full-width characters or one English word). */
+.demo--csv {
+  --demo-typed-w: 4.5em;
 }
 @keyframes demo-type {
   to {
-    max-inline-size: 6ch;
+    max-inline-size: var(--demo-typed-w, 6ch);
   }
 }
 .demo.is-running :is(.app-dialog, .app-toast) {
@@ -605,6 +644,21 @@ img {
   margin: 0 0 var(--space-2);
   color: var(--accent-text);
 }
+/* Features: the heading and the spreadsheet demo side by side on desktop. */
+.feat-top {
+  display: grid;
+  gap: var(--space-10);
+  align-items: center;
+  margin-block-end: var(--space-10);
+}
+@media (min-width: 56.25em) {
+  .feat-top {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  }
+  .feat-top .section-head {
+    margin-block-end: 0;
+  }
+}
 
 /* ---------- CSV band (dark) ---------- */
 .csv-band {
@@ -648,16 +702,55 @@ img {
   background-color: var(--bg-raised);
   border-radius: var(--radius-full);
 }
+.csv-features {
+  margin-block-start: var(--space-12);
+}
+
+/* ---------- Comparison ---------- */
+.cmp-scroll {
+  overflow-x: auto;
+  background-color: var(--bg-surface);
+  border: var(--stroke-thin) solid var(--border-default);
+  border-radius: var(--brand-radius-card);
+}
+.cmp-table {
+  min-inline-size: 40rem;
+  table-layout: fixed;
+}
+.cmp-table th[scope='col']:first-child {
+  inline-size: 24%;
+}
+.cmp-table tbody tr:last-child > * {
+  border-block-end: 0;
+}
+.cmp-table tbody th {
+  font-weight: var(--weight-bold);
+}
+.cmp-table td:nth-child(2) {
+  color: var(--fg-muted);
+}
+.cmp-table .cmp-ours {
+  color: var(--accent-text);
+}
+.cmp-note {
+  margin: var(--space-4) 0 0;
+  font-size: var(--brand-text-caption);
+  color: var(--fg-muted);
+}
 
 /* =========================================================================
    FAQ
    ========================================================================= */
-.faq-wrap {
-  max-inline-size: 52rem;
-}
 .faq {
   display: grid;
   gap: var(--space-3);
+}
+/* Two columns on desktop; each question keeps its own height when opened. */
+@media (min-width: 56.25em) {
+  .faq {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
 }
 .qa {
   background-color: var(--bg-surface);

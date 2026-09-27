@@ -1,14 +1,16 @@
 <!-- SPDX-License-Identifier: MIT -->
-<!-- HERO: the Mist panel (.rb-feature, one per page) with the product demo.
-     The demo is the one drawn screen the brand guidelines allow (D-42): it
-     takes every label from src/locales (data-app-i18n), every colour and size
-     from the app tokens, and shows only steps you can repeat in the app. -->
+<!-- HERO: the Mist panel (.rb-feature, one per page) with the CSV demo:
+     open a CSV, change one cell, save — only that cell changes. Drawn screens
+     are allowed under the brand guidelines (D-42) only because they take every
+     label from src/locales (data-app-i18n), every colour and size from the app
+     tokens, and show only steps you can repeat in the app. The spreadsheet
+     demo lives in features.html. -->
 <section class="hero">
   <div class="rb-wrap">
     <div class="rb-feature hero-panel">
       <div class="hero-copy">
         <p class="hero-kicker" data-i18n="hero.eyebrow">ブラウザで開くだけ。無料・インストール不要</p>
-        <h1 class="rb-display" data-i18n="hero.h1">CSVを壊さず編集できる、軽い表計算ソフト</h1>
+        <h1 class="rb-display" data-i18n="hero.h1">CSVが壊れない軽い表計算ソフト</h1>
         <p class="rb-lead hero-lead" data-i18n="hero.lead">
           先頭の「0」も、文字コードも、改行コードも、開いたときのまま。数式やフィルタを使った集計もできます。データはパソコンの外に出ません。
         </p>
@@ -33,11 +35,12 @@
         <ul class="hero-badges">
           <li class="rb-badge" data-i18n="hero.badge1">Shift_JIS対応</li>
           <li class="rb-badge" data-i18n="hero.badge2">オフラインでも動く</li>
+          <li class="rb-badge" data-i18n="hero.badge4">ログイン・アカウント登録不要</li>
           <li class="rb-badge" data-i18n="hero.badge3">オープンソース（MIT）</li>
         </ul>
       </div>
 
-      <figure class="demo" data-demo data-scene="4">
+      <figure class="demo demo--csv" data-demo data-scene="4" data-scenes="4">
         <div aria-hidden="true" class="demo-app">
           <div class="app-menubar">
             <picture>
@@ -68,20 +71,22 @@
                 <rect height="7" rx="1.5" width="10" x="3" y="7"></rect>
                 <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path>
               </svg>
-              <span class="app-dirty only-s4">●</span>
-              <span class="only-csv" data-i18n="demo.file.csv">uriage.csv</span>
-              <span class="only-rsf" data-i18n="demo.file.rsf">uriage.rsf</span>
+              <span class="app-dirty only-s3">●</span>
+              <span data-i18n="demo.file.csv">uriage.csv</span>
               <span class="app-tab-close">×</span>
             </span>
           </div>
           <div class="app-fx">
-            <span class="app-namebox"><span class="only-s1">A1</span><span class="not-s1">D2</span></span>
+            <span class="app-namebox"
+              ><span class="only-s1">A1</span><span class="only-s2">D3</span
+              ><span class="only-s34">D4</span></span
+            >
             <span class="app-fx-input"
-              ><span class="only-s1" data-i18n="demo.h.name">商品名</span
-              ><span class="only-s2 app-typed">=C2/B2</span><span class="only-s4">=C2/B2</span></span
+              ><span class="only-s1" data-i18n="demo.csv.h.code">商品コード</span
+              ><span class="only-s2" data-i18n="demo.csv.old">在庫僅少</span></span
             >
           </div>
-          <div class="app-grid">
+          <div class="app-grid app-grid--csv">
             <span class="gh gh-corner"></span>
             <span class="gh gh-col col-a">A</span>
             <span class="gh gh-col">B</span>
@@ -89,42 +94,35 @@
             <span class="gh gh-col col-d">D</span>
 
             <span class="gh gh-row row-1">1</span>
-            <span class="gc cell-a1" data-i18n="demo.h.name">商品名</span>
+            <span class="gc cell-a1" data-i18n="demo.csv.h.code">商品コード</span>
+            <span class="gc row1" data-i18n="demo.h.name">商品名</span>
             <span class="gc row1" data-i18n="demo.h.qty">数量</span>
-            <span class="gc row1" data-i18n="demo.h.sales">売上</span>
-            <span class="gc row1" data-i18n="demo.h.unit">単価</span>
+            <span class="gc row1" data-i18n="demo.csv.h.note">備考</span>
 
-            <span class="gh gh-row row-2">2</span>
-            <span class="gc row2" data-i18n="demo.r1">抹茶 ラテベース</span>
-            <span class="gc row2 num ref-b2">20</span>
-            <span class="gc row2 num ref-c2">64000</span>
-            <span class="gc row2 cell-d2"
-              ><span class="only-s2 app-typed">=C2/B2</span><span class="only-s3">=C2/B2</span
-              ><span class="only-s4 app-formula">3200</span></span
+            <span class="gh gh-row">2</span>
+            <span class="gc">0012</span>
+            <span class="gc" data-i18n="demo.r1">抹茶 ラテベース</span>
+            <span class="gc">20</span>
+            <span class="gc"></span>
+
+            <span class="gh gh-row row-3">3</span>
+            <span class="gc row3">0034</span>
+            <span class="gc row3" data-i18n="demo.r2">抹茶 セレモニアル</span>
+            <span class="gc row3">12</span>
+            <span class="gc row3 cell-d3"
+              ><span class="only-s1" data-i18n="demo.csv.old">在庫僅少</span
+              ><span class="only-s2 app-typed" data-i18n="demo.csv.new">要発注</span
+              ><span class="only-s34" data-i18n="demo.csv.new">要発注</span></span
             >
 
-            <span class="gh gh-row">3</span>
-            <span class="gc" data-i18n="demo.r2">抹茶 セレモニアル</span>
-            <span class="gc num">12</span>
-            <span class="gc num">57600</span>
-            <span class="gc"></span>
-
-            <span class="gh gh-row">4</span>
-            <span class="gc" data-i18n="demo.r3">ほうじ茶 パウダー</span>
-            <span class="gc num">30</span>
-            <span class="gc num">63000</span>
-            <span class="gc"></span>
-          </div>
-          <div class="app-sheets only-rsf">
-            <span
-              class="app-sheet-tab"
-              data-app-i18n="sheet.defaultName"
-              data-app-i18n-args='{"n":"demo.n1"}'
-            ></span>
+            <span class="gh gh-row row-4">4</span>
+            <span class="gc row4">0056</span>
+            <span class="gc row4" data-i18n="demo.r3">ほうじ茶 パウダー</span>
+            <span class="gc row4">30</span>
+            <span class="gc row4 cell-d4"></span>
           </div>
           <div class="app-status">
-            <span class="only-csv" data-app-i18n="status.doc.csv"></span>
-            <span class="only-rsf" data-app-i18n="status.doc.rsf"></span>
+            <span data-app-i18n="status.doc.csv"></span>
             <span class="only-s1 st-protected"
               ><svg class="app-icon" viewBox="0 0 16 16">
                 <rect height="7" rx="1.5" width="10" x="3" y="7"></rect>
@@ -143,47 +141,28 @@
                 <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg
               ><span data-app-i18n="status.protect.protect"></span
             ></span>
-            <span class="only-csv"
+            <span
               ><span data-app-i18n="status.encoding"></span>: <span data-app-i18n="encoding.shift_jis"></span
             ></span>
-            <span class="only-csv"
-              ><span data-app-i18n="status.delimiter"></span>:
-              <span data-app-i18n="status.delimiter.comma"></span
-            ></span>
-            <span class="only-csv"><span data-app-i18n="status.lineEndings"></span>: CRLF</span>
-            <span
-              class="only-rsf"
-              data-app-i18n="status.gridSize"
-              data-app-i18n-args='{"rows":"demo.n4","cols":"demo.n4"}'
-            ></span>
-            <span class="only-rsf" data-app-i18n="status.unsaved"></span>
+            <span><span data-app-i18n="status.lineEndings"></span>: CRLF</span>
+            <span class="only-s3" data-app-i18n="status.edits" data-app-i18n-args='{"n":"demo.n1"}'></span>
           </div>
 
-          <div class="app-scrim only-s3"></div>
-          <div class="app-dialog only-s3">
-            <div class="app-dialog-title" data-app-i18n="dialog.convert.title"></div>
-            <div class="app-dialog-body">
-              <p data-app-i18n="dialog.convert.formula" data-app-i18n-args='{"name":"demo.file.csv"}'></p>
-              <p class="app-dialog-note" data-app-i18n="dialog.convert.note"></p>
-            </div>
-            <div class="app-dialog-actions">
-              <span class="app-btn" data-app-i18n="dialog.convert.cancel"></span>
-              <span class="app-btn app-btn-primary" data-app-i18n="dialog.convert.ok"></span>
-            </div>
-          </div>
-          <div class="app-toast only-s4" data-app-i18n="notify.converted"></div>
+          <div class="app-toast only-s4" data-app-i18n="notify.savedOverwrite"></div>
         </div>
 
         <figcaption class="demo-caption">
           <ol class="demo-steps">
-            <li data-step="1" data-i18n="demo.step1">CSVを開く（Shift_JIS・CRLF）</li>
-            <li data-step="2" data-i18n="demo.step2">セルに数式を入力する</li>
-            <li data-step="3" data-i18n="demo.step3">RSFスプレッドシートに変換する</li>
-            <li data-step="4" data-i18n="demo.step4">集計できた。元のCSVファイルはそのまま</li>
+            <li data-step="1" data-i18n="demo.csv.step1">
+              Shift_JIS・CRLF のCSVを開く（最初は保護された状態）
+            </li>
+            <li data-step="2" data-i18n="demo.csv.step2">保護を外して、1つのセルを書き換える</li>
+            <li data-step="3" data-i18n="demo.csv.step3">直したセルだけに色がつく</li>
+            <li data-step="4" data-i18n="demo.csv.step4">上書き保存。変わったのは、直したセルだけ</li>
           </ol>
           <button class="demo-toggle" data-demo-toggle hidden type="button">
-            <span class="demo-toggle-pause" data-i18n="demo.pause">一時停止</span>
-            <span class="demo-toggle-play" data-i18n="demo.play">再生</span>
+            <span class="demo-toggle-pause" data-i18n="demo.pause">デモを一時停止</span>
+            <span class="demo-toggle-play" data-i18n="demo.play">デモを再生</span>
           </button>
         </figcaption>
       </figure>

@@ -96,6 +96,7 @@ const FEATURES = {
     'データ入力規則・条件付き書式・数値の書式設定・SQLクエリの実行・比較／差分・セルコメント・コメントパネル',
     'CSVの読み込み・編集・保存はブラウザ内で処理（Google Drive連携を使う場合のみGoogleと通信）',
     'ホスト版アプリでのGoogle Drive連携（drive.fileスコープ）',
+    'ログイン・アカウント登録不要（Google Drive連携を使う場合のみGoogleアカウントでサインイン）',
   ],
   en: [
     'Byte-identical output when a file is saved without edits',
@@ -109,6 +110,7 @@ const FEATURES = {
     'Data validation, conditional formatting, number formatting, SQL queries, tab comparison/diff, cell comments and a comments panel',
     'CSV files are read, edited and saved inside the browser; the app contacts Google only when you use Google Drive',
     'Optional Google Drive open/save in the hosted app (drive.file scope)',
+    'No sign-in or account needed (a Google sign-in is asked only for Google Drive)',
   ],
 };
 const OG_ALT = {

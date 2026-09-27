@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 // Guards the structure of the landing site (site/): the partials the build
-// includes, the copy dictionary both languages share, and the hero demo's
-// promise to the brand guidelines (design system D-42) — the drawn app
+// includes, the copy dictionary both languages share, and the page demos'
+// promise to the brand guidelines (design system D-42) — each drawn app
 // screen takes its labels from the app's own locale files and its colours
 // from the design tokens, so it cannot drift from the real app unnoticed.
 // `fs` is declared ambiently in tests/node-shims.d.ts (no @types/node needed).
@@ -65,9 +65,10 @@ describe('landing copy', () => {
   });
 });
 
-describe('hero demo stays faithful to the real app (D-42)', () => {
-  const hero = new DOMParser().parseFromString(read('site/partials/hero.html'), 'text/html');
-  const screen = hero.querySelector('.demo-app');
+// The CSV demo (hero) and the spreadsheet demo (features).
+describe.each(['hero.html', 'features.html'])('%s demo stays faithful to the real app (D-42)', (file) => {
+  const doc = new DOMParser().parseFromString(read(`site/partials/${file}`), 'text/html');
+  const screen = doc.querySelector('.demo-app');
 
   it('exists', () => {
     expect(screen).not.toBeNull();
@@ -93,8 +94,8 @@ describe('hero demo stays faithful to the real app (D-42)', () => {
   it('writes no UI text of its own: the rest is sample data or cell values', () => {
     // Text the demo may carry literally: cell references and addresses,
     // numbers, the typed formula, and the few symbols the app draws.
-    const allowed = /^(?:[A-D]|[A-D]?\d+|=C2\/B2|[×●:]|CRLF)$/;
-    const walker = hero.createTreeWalker(screen!, 4 /* NodeFilter.SHOW_TEXT */);
+    const allowed = /^(?:[A-D]|[A-D]?\d+|D2:D4|=C2\/B2|[×●:]|CRLF)$/;
+    const walker = doc.createTreeWalker(screen!, 4 /* NodeFilter.SHOW_TEXT */);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const text = node.textContent!.trim();
       if (!text) continue;
@@ -104,7 +105,9 @@ describe('hero demo stays faithful to the real app (D-42)', () => {
         expect(token, `literal text "${text}" in the demo`).toMatch(allowed);
     }
   });
+});
 
+describe('landing stylesheet', () => {
   it('draws with design tokens only — no colour literals in the landing stylesheet', () => {
     const css = read('site/styles.css').replace(/\/\*[\s\S]*?\*\//g, '');
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);

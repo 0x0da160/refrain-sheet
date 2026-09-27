@@ -6,7 +6,8 @@ import type { CellChange, HistoryEntry, Operation } from '../../core/workbook/hi
 import { LosslessDocument } from '../../core/csv/lossless-document';
 import { RsfDocument, RSF_EXTENSION } from '../../core/workbook/rsf-document';
 import type { FreezePanes } from '../../core/workbook/worksheet';
-import type { AppState, Selection, Tab } from './index';
+import type { AppState } from './index';
+import type { Selection, Tab } from './types';
 import { defaultSheetName, STICKY_COL_KEY, STICKY_KEY } from './defaults';
 import { getLocale, t } from '../i18n';
 import { clampSheetZoom, setSheetZoom, setWrapCellsPreference } from '../settings';

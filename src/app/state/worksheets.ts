@@ -24,7 +24,8 @@ import {
 } from '../../core/workbook/rsf-document';
 import { computeSortOrder, sortsEqual, type SheetSort } from '../../core/workbook/sort';
 import type { Worksheet } from '../../core/workbook/worksheet';
-import type { AppState, Tab } from './index';
+import type { AppState } from './index';
+import type { Tab } from './types';
 import { decidedBySheet, resolveWrap, resolveZoom } from './view-layers';
 
 /**

@@ -2,149 +2,23 @@
 import { type EditorDocument, isCsv, isWorkbook, workbookOf } from '../../core/editor-document';
 import { normalizeRange, type CellRange } from '../../core/clipboard';
 import type { CellConditionalFormat } from '../../core/workbook/conditional-format';
-import {
-  checkValidationValue,
-  findValidation,
-  type CellValidation,
-} from '../../core/workbook/data-validation';
-import { filtersEqual, type SheetFilter } from '../../core/workbook/filter';
-import { cellLabel } from '../../core/formula';
-import {
-  History,
-  type CellChange,
-  type HistoryEntry,
-  type Operation,
-  type SheetOperation,
-} from '../../core/workbook/history';
+import type { CellValidation } from '../../core/workbook/data-validation';
+import type { SheetFilter } from '../../core/workbook/filter';
+import { History, type CellChange, type HistoryEntry, type Operation } from '../../core/workbook/history';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
-import { sortDataTop, type SheetSort } from '../../core/workbook/sort';
+import type { SheetSort } from '../../core/workbook/sort';
 import type { FreezePanes, Worksheet } from '../../core/workbook/worksheet';
-import { t } from '../i18n';
 import { getWrapCells } from '../settings';
 import { safeStorageGet } from '../storage';
 import { STICKY_COL_KEY, STICKY_KEY } from './defaults';
 import { StructuralOpsState } from './structural-ops';
 import { resolveWrap, resolveZoom } from './view-layers';
+import { EditingState } from './editing';
+import type { FormulaRefTarget, Selection, SelectionKind, StateEventType, Tab } from './types';
 import { WorksheetsState } from './worksheets';
+import { WriteGuards } from './write-guards';
 
-export interface Selection {
-  row: number;
-  col: number;
-}
-
-/**
- * How the current selection was made, so the grid can render it distinctly:
- * a cell/range selection, a whole-row selection (from row headers), or a
- * whole-column selection (from column headers). It does not change the
- * selected rectangle — copy/paste/fill/statistics all use `selectedRange`.
- */
-export type SelectionKind = 'cell' | 'row' | 'col';
-
-/**
- * A formula editor (the formula bar) that can receive cell/range references
- * from the grid by pointer. While `isCapturing()` is true, clicking or
- * dragging cells in the grid inserts a reference at the caret instead of
- * moving the selection. `beginRef` marks the insertion point, `setRef`
- * replaces the pending reference text (so a drag keeps rewriting one span),
- * and `endRef` finalizes it.
- */
-export interface FormulaRefTarget {
-  isCapturing(): boolean;
-  beginRef(): void;
-  setRef(text: string): void;
-  endRef(): void;
-}
-
-export interface Tab {
-  id: string;
-  name: string;
-  doc: EditorDocument;
-  history: History;
-  handle: FileSystemFileHandle | null;
-  /** Active cell. */
-  selection: Selection | null;
-  /** Selection anchor for rectangular ranges (null: single-cell selection). */
-  anchor: Selection | null;
-  /** How the selection was made (drives distinct rendering). */
-  selectionKind: SelectionKind;
-  /** The "must be saved as .rsf" explanation was already shown for this tab. */
-  rsfSaveExplained: boolean;
-  /**
-   * The Google Drive file this tab is associated with, set when the document
-   * was opened from Drive or saved to it. Lets a later save overwrite the same
-   * file instead of creating a duplicate. Null for any tab that has never
-   * touched Drive — which is every tab in the offline build.
-   */
-  drive: { fileId: string; name: string } | null;
-  /**
-   * Per-column pixel widths for this open document during the session,
-   * expressed at 100% zoom. A missing or zero entry means the default width.
-   * Stored on the tab so resizing a plain CSV never mutates its bytes; RSF
-   * documents persist these in their container on save.
-   */
-  colWidths: number[];
-  /**
-   * Effective spreadsheet zoom percent for this tab, resolved worksheet >
-   * file > browser (`state/view-layers.ts`), falling back to the value last
-   * used in this browser. Zooming never mutates document content and never
-   * marks a document dirty; an RSF file's file/worksheet levels are persisted
-   * in its container on the next save.
-   */
-  zoom: number;
-  /**
-   * Whether long cells wrap onto several visual lines in this tab. Resolved
-   * like zoom (worksheet > file > browser), and each worksheet of a workbook
-   * remembers its own. Purely visual — for a plain CSV it is local application
-   * state that never touches the file's bytes.
-   */
-  wrapCells: boolean;
-  /**
-   * The column where an uninterrupted "type → Tab → type → Tab → … → Enter"
-   * entry pass began, so Enter can return to it instead of merely moving one
-   * row down from wherever the last Tab landed (matching Excel/Sheets/Calc).
-   * Null when no such pass is in progress. Set on the first Tab of a pass;
-   * cleared by `setSelection` on any selection change that is not part of
-   * that pass (a click, an arrow key, opening a menu, and so on).
-   */
-  tabEntryCol: number | null;
-  /**
-   * Rows/columns frozen at a selected cell (View > Sticky Up to Selected
-   * Cell), or null to follow the application-level sticky first row / first
-   * column preferences. Session-only view state, remembered per worksheet of
-   * a workbook, never written to the file.
-   */
-  freeze: FreezePanes | null;
-  /**
-   * Read-only protection: while true, every mutating command that would
-   * touch document content, structure, or the undo history is refused (see
-   * `AppState.refuseReadOnlyWrite`). Defaults to true whenever an existing
-   * file is opened, and false for a newly created blank document; the user
-   * toggles it explicitly afterward (File > Protect Document, or the status
-   * bar control) and the choice is session-only — never persisted to the
-   * saved file, and reset to the default the next time the file is opened.
-   * Purely a UI guard, not a security boundary: it protects against
-   * accidental edits, not a hostile actor.
-   */
-  readOnly: boolean;
-  /**
-   * True only for a CSV tab created by `File > New CSV` (`FileIoCommands.newCsvDocument`)
-   * that has never been saved (to disk or Drive) since. There is no on-disk
-   * byte layout to protect yet, so structural edits (row/column insert and
-   * delete) are allowed directly on the CSV document as an exception to the
-   * usual "convert to RSF first" rule (#479) — see the `csvStructure` history
-   * operation. Set back to `false` by the first successful save, after which
-   * the normal explicit-conversion requirement applies again.
-   */
-  neverSaved: boolean;
-}
-
-/**
- * State change kinds. `sheets` covers the *worksheets inside* the active RSF
- * workbook (added, renamed, reordered, or switched) and is deliberately
- * distinct from `tabs`, which covers the open documents in the application tab
- * strip — the two strips are independent surfaces.
- */
-export type StateEventType = 'tabs' | 'active' | 'doc' | 'selection' | 'view' | 'sheets';
+export type { FormulaRefTarget, Selection, SelectionKind, StateEventType, Tab } from './types';
 
 let nextTabId = 1;
 
@@ -194,11 +68,19 @@ export class AppState {
   /** Filtering and worksheet lifecycle operations — see `WorksheetsState`. */
   private readonly worksheetsState: WorksheetsState;
 
+  /** The checks every user-initiated write passes — see `WriteGuards`. */
+  private readonly guards: WriteGuards;
+
+  /** Edits, prebuilt entries, reverts, and undo/redo — see `EditingState`. */
+  private readonly editing: EditingState;
+
   constructor() {
     this.stickyFirstRow = safeStorageGet(STICKY_KEY) === '1';
     this.stickyFirstColumn = safeStorageGet(STICKY_COL_KEY) === '1';
     this.structuralOps = new StructuralOpsState(this);
     this.worksheetsState = new WorksheetsState(this);
+    this.guards = new WriteGuards(this);
+    this.editing = new EditingState(this, this.guards, this.structuralOps, this.worksheetsState);
   }
 
   subscribe(fn: (event: StateEventType) => void): () => void {
@@ -393,43 +275,13 @@ export class AppState {
 
   /**
    * The dynamic-array spill anchor a write would land inside, or null when the
-   * cells are free to write.
-   *
-   * Derived spill cells are not independent values — they are one formula's
-   * output — so writing into one would be silently undone by the next
-   * recalculation. Every user-initiated write path consults this and refuses,
-   * pointing the user at the anchor instead. Undo and redo deliberately do
-   * **not**: they restore inputs, and a derived cell's input is always empty.
+   * cells are free to write. See `WriteGuards.spillBlocked`.
    */
   spillBlocked(
     tab: Tab,
     cells: ReadonlyArray<{ row: number; col: number }>,
   ): { row: number; col: number } | null {
-    const doc = tab.doc;
-    if (!isWorkbook(doc) || cells.length === 0 || !doc.hasSpills()) {
-      return null;
-    }
-    const sheetId = doc.activeSheetId;
-    for (const cell of cells) {
-      if (doc.isSpillDerivedCell(sheetId, cell.row, cell.col)) {
-        const anchor = doc.spillAnchorAt(sheetId, cell.row, cell.col);
-        return anchor ? { row: anchor.row, col: anchor.col } : { row: cell.row, col: cell.col };
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Refuse a write that would land in a spill range, announcing why.
-   * Returns true when the caller must stop.
-   */
-  private refuseSpillWrite(tab: Tab, cells: ReadonlyArray<{ row: number; col: number }>): boolean {
-    const anchor = this.spillBlocked(tab, cells);
-    if (!anchor) {
-      return false;
-    }
-    this.announce?.(t('notify.spillProtected', { cell: cellLabel(anchor.row, anchor.col) }));
-    return true;
+    return this.guards.spillBlocked(tab, cells);
   }
 
   /**
@@ -461,270 +313,37 @@ export class AppState {
     this.emit('tabs');
   }
 
-  /**
-   * Refuse a write to a read-only-protected tab, announcing why. Checked
-   * first in every mutating entry point (`editCell`, `bulkEdit`, `pushEntry`,
-   * and — before it even touches the document — `FileIoCommands.ensureRsf`),
-   * so a protected tab can be neither edited nor silently converted to RSF.
-   * Returns true when the caller must stop; `retry` repeats the refused call
-   * after the user unlocks (see `warnBlocked`).
-   */
-  private refuseReadOnlyWrite(tab: Tab, retry: () => void): boolean {
-    if (!tab.readOnly) {
-      return false;
-    }
-    this.warnBlocked?.(tab, 'book', retry);
-    return true;
-  }
-
-  /**
-   * Refuse a write to a locked worksheet, announcing why. A worksheet's lock
-   * (Sheet ▸ Lock Sheet, or its tab context menu) blocks edits to that
-   * worksheet only — every other worksheet in the workbook stays editable.
-   * Checked in every mutating entry point that can target a single worksheet
-   * (`editCell`, `bulkEdit`, and, per operation, `pushEntry`), exactly like
-   * {@link refuseReadOnlyWrite}'s whole-tab protection. `sheetId` defaults to
-   * the active worksheet, matching how an absent `Operation.sheetId` is
-   * documented to apply to it. Returns true when the caller must stop.
-   */
-  private refuseLockedSheetWrite(tab: Tab, retry: () => void, sheetId?: string): boolean {
-    const doc = tab.doc;
-    if (!isWorkbook(doc)) {
-      return false;
-    }
-    const sheet = doc.sheetById(sheetId ?? doc.activeSheetId);
-    if (!sheet?.locked) {
-      return false;
-    }
-    this.warnBlocked?.(tab, 'sheet', retry, sheet.id);
-    return true;
-  }
-
-  /**
-   * Refuse a write that would land inside an active sort's range, announcing
-   * why. Editing a sorted range is disabled — rather than translated cell by
-   * cell — so a sort can never turn "edit what I see" into a silent write to
-   * an unrelated document row; clearing the sort (Sheet ▸ Clear Sort) always
-   * re-enables editing. Returns true when the caller must stop.
-   */
-  private refuseSortedWrite(tab: Tab, cells: ReadonlyArray<{ row: number; col: number }>): boolean {
-    const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.sort === null) {
-      return false;
-    }
-    const sort = doc.sort;
-    const dataTop = sortDataTop(sort);
-    if (!cells.some((cell) => cell.row >= dataTop && cell.row <= sort.bottom)) {
-      return false;
-    }
-    this.announce?.(t('notify.sortedRangeReadOnly'));
-    return true;
-  }
-
-  /**
-   * Refuse a write whose new value violates the data-validation rule covering
-   * that cell, announcing why. Blank values always pass (clearing a cell is
-   * never itself invalid), and only RSF documents carry rules. Returns true
-   * when the caller must stop.
-   */
-  private refuseInvalidWrite(
-    tab: Tab,
-    changes: ReadonlyArray<{ row: number; col: number; after: string | null }>,
-  ): boolean {
-    const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.validations.length === 0) {
-      return false;
-    }
-    for (const change of changes) {
-      const rule = findValidation(doc.validations, change.row, change.col);
-      if (rule && !checkValidationValue(rule.rule, change.after ?? '')) {
-        this.announce?.(t('notify.invalidValue', { cell: cellLabel(change.row, change.col) }));
-        return true;
-      }
-    }
-    return false;
-  }
+  // ----- Edits and undo/redo — see `EditingState` -----
 
   /** Set one cell's value as a single undoable operation. */
   editCell(tab: Tab, row: number, col: number, value: string, label = 'history.editCell'): boolean {
-    const retry = (): void => void this.editCell(tab, row, col, value, label);
-    if (this.refuseReadOnlyWrite(tab, retry) || this.refuseLockedSheetWrite(tab, retry)) {
-      return false;
-    }
-    if (isCsv(tab.doc)) {
-      const field = tab.doc.getField(row, col);
-      if (!field) {
-        return false;
-      }
-      const before = tab.doc.isEdited(row, col) ? tab.doc.getValue(row, col) : null;
-      const after = value === field.value ? null : value;
-      if (before === after) {
-        return false;
-      }
-      const changes = [{ row, col, before, after }];
-      this.applyChange(tab, changes[0], 'after');
-      // A committed line break turns wrapping on, in the same history entry.
-      const ops: Operation[] = [{ type: 'cells', changes }];
-      this.structuralOps.appendAutoWrap(tab, changes, ops);
-      tab.history.push({ label, ops });
-      this.emit('doc');
-      return true;
-    }
-    if (row < 0 || row >= tab.doc.rowCount || col < 0 || col >= tab.doc.columnCount) {
-      return false;
-    }
-    const before = tab.doc.getValue(row, col);
-    if (before === value) {
-      return false;
-    }
-    if (
-      this.refuseSpillWrite(tab, [{ row, col }]) ||
-      this.refuseSortedWrite(tab, [{ row, col }]) ||
-      this.refuseInvalidWrite(tab, [{ row, col, after: value }])
-    ) {
-      return false;
-    }
-    const sheetId = tab.doc.activeSheetId;
-    const changes = [{ row, col, before, after: value }];
-    this.applyChange(tab, changes[0], 'after', sheetId);
-    const ops: Operation[] = [{ type: 'cells', changes, sheetId }];
-    this.structuralOps.appendAutoWrap(tab, changes, ops, sheetId);
-    tab.history.push({ label, ops, sheetId });
-    this.emit('doc');
-    return true;
+    return this.editing.editCell(tab, row, col, value, label);
   }
 
   /** Apply several cell changes as one atomic, singly-undoable operation. */
   bulkEdit(tab: Tab, changes: CellChange[], label: string): boolean {
-    const effective = changes.filter((c) => c.before !== c.after);
-    if (effective.length === 0) {
-      return false;
-    }
-    const retry = (): void => void this.bulkEdit(tab, changes, label);
-    if (
-      this.refuseReadOnlyWrite(tab, retry) ||
-      this.refuseLockedSheetWrite(tab, retry) ||
-      this.refuseSpillWrite(tab, effective) ||
-      this.refuseSortedWrite(tab, effective) ||
-      this.refuseInvalidWrite(tab, effective)
-    ) {
-      return false;
-    }
-    const sheetId = isWorkbook(tab.doc) ? tab.doc.activeSheetId : undefined;
-    for (const change of effective) {
-      this.applyChange(tab, change, 'after', sheetId);
-    }
-    const ops: Operation[] = [{ type: 'cells', changes: effective, ...(sheetId ? { sheetId } : {}) }];
-    this.structuralOps.appendAutoWrap(tab, effective, ops, sheetId);
-    tab.history.push({ label, ops, ...(sheetId ? { sheetId } : {}) });
-    this.emit('doc');
-    return true;
+    return this.editing.bulkEdit(tab, changes, label);
   }
 
   /** Push and apply a prebuilt multi-op entry atomically. */
   pushEntry(tab: Tab, entry: HistoryEntry): boolean {
-    const nonEmpty = entry.ops.some((op) => {
-      if (op.type === 'cells' || op.type === 'styles' || op.type === 'comments') {
-        return op.changes.length > 0;
-      }
-      if (op.type === 'filter') {
-        return !filtersEqual(op.before, op.after);
-      }
-      if (op.type === 'wrap') {
-        return op.before !== op.after;
-      }
-      if (op.type === 'sheets' || op.type === 'csvStructure') {
-        return true;
-      }
-      return op.count > 0;
-    });
-    if (!nonEmpty) {
-      return false;
-    }
-    const retry = (): void => void this.pushEntry(tab, entry);
-    if (this.refuseReadOnlyWrite(tab, retry)) {
-      return false;
-    }
-    // A worksheet's lock blocks its own cell/structural/filter/wrap changes,
-    // checked per operation (`op.sheetId`, defaulting to the active
-    // worksheet) so an entry that also touches other, unlocked worksheets —
-    // e.g. renaming a worksheet rewrites formulas across the whole workbook —
-    // is not refused wholesale. `sheets` (worksheet lifecycle: add/remove/
-    // rename/move) and `csvStructure` act on the workbook or a plain CSV
-    // document rather than one worksheet's content, so they are exempt.
-    for (const op of entry.ops) {
-      if (op.type === 'sheets' || op.type === 'csvStructure') {
-        continue;
-      }
-      if (this.refuseLockedSheetWrite(tab, retry, op.sheetId)) {
-        return false;
-      }
-    }
-    // Structural operations (row/column insert and delete) move a spill's
-    // anchor rather than writing into it, so only the cell writes are checked.
-    for (const op of entry.ops) {
-      if (
-        op.type === 'cells' &&
-        (this.refuseSpillWrite(tab, op.changes) ||
-          this.refuseSortedWrite(tab, op.changes) ||
-          this.refuseInvalidWrite(tab, op.changes))
-      ) {
-        return false;
-      }
-    }
-    // Applied before the entry is recorded so the automatic wrap enable — which
-    // is decided from the *committed* values — can join the same entry and
-    // therefore undo together with the edit that caused it.
-    this.applyEntry(tab, entry, 'after');
-    for (const op of entry.ops) {
-      if (op.type === 'cells' && op.changes.length > 0) {
-        this.structuralOps.appendAutoWrap(tab, op.changes, entry.ops, op.sheetId);
-        break;
-      }
-    }
-    tab.history.push(entry);
-    this.clampSelection(tab);
-    this.emit('doc');
-    return true;
+    return this.editing.pushEntry(tab, entry);
   }
 
   revertCell(tab: Tab, row: number, col: number): boolean {
-    if (!isCsv(tab.doc) || !tab.doc.isEdited(row, col)) {
-      return false;
-    }
-    return this.editCell(tab, row, col, tab.doc.getOriginalValue(row, col), 'history.revertCell');
+    return this.editing.revertCell(tab, row, col);
   }
 
   revertAll(tab: Tab): boolean {
-    if (!isCsv(tab.doc)) {
-      return false;
-    }
-    const changes: CellChange[] = tab.doc
-      .listEdits()
-      .map(({ row, col, value }) => ({ row, col, before: value, after: null }));
-    return this.bulkEdit(tab, changes, 'history.revertAll');
+    return this.editing.revertAll(tab);
   }
 
   undo(tab: Tab): HistoryEntry | null {
-    const entry = tab.history.undo();
-    if (!entry) {
-      return null;
-    }
-    this.applyEntry(tab, entry, 'before');
-    this.clampSelection(tab);
-    this.emit('doc');
-    return entry;
+    return this.editing.undo(tab);
   }
 
   redo(tab: Tab): HistoryEntry | null {
-    const entry = tab.history.redo();
-    if (!entry) {
-      return null;
-    }
-    this.applyEntry(tab, entry, 'after');
-    this.clampSelection(tab);
-    this.emit('doc');
-    return entry;
+    return this.editing.redo(tab);
   }
 
   // ----- Structural operations (RSF spreadsheet documents only) -----
@@ -1146,148 +765,5 @@ export class AppState {
    */
   countReferencesToSheet(doc: RsfDocument, sheetId: string): number {
     return this.worksheetsState.countReferencesToSheet(doc, sheetId);
-  }
-
-  // ----- Internals -----
-
-  private applyEntry(tab: Tab, entry: HistoryEntry, direction: 'before' | 'after'): void {
-    const ops = direction === 'after' ? entry.ops : [...entry.ops].reverse();
-    for (const op of ops) {
-      this.applyOp(tab, op, direction);
-    }
-    // Undo/redo must show the change where it happened rather than silently
-    // altering a worksheet the user is not looking at.
-    const doc = tab.doc;
-    if (entry.sheetId !== undefined && isWorkbook(doc) && doc.sheetById(entry.sheetId)) {
-      this.worksheetsState.activateSheet(tab, doc, entry.sheetId);
-    }
-  }
-
-  private applyOp(tab: Tab, op: Operation, direction: 'before' | 'after'): void {
-    if (op.type === 'cells') {
-      const changes = direction === 'after' ? op.changes : [...op.changes].reverse();
-      for (const change of changes) {
-        this.applyChange(tab, change, direction, op.sheetId);
-      }
-      return;
-    }
-    if (op.type === 'styles') {
-      if (!isWorkbook(tab.doc)) {
-        return;
-      }
-      const changes = direction === 'after' ? op.changes : [...op.changes].reverse();
-      for (const change of changes) {
-        tab.doc.setCellStyleOn(
-          op.sheetId,
-          change.row,
-          change.col,
-          direction === 'before' ? change.before : change.after,
-        );
-      }
-      return;
-    }
-    if (op.type === 'comments') {
-      if (!isWorkbook(tab.doc)) {
-        return;
-      }
-      const changes = direction === 'after' ? op.changes : [...op.changes].reverse();
-      for (const change of changes) {
-        tab.doc.setCommentOn(
-          op.sheetId,
-          change.row,
-          change.col,
-          direction === 'before' ? change.before : change.after,
-        );
-      }
-      return;
-    }
-    if (op.type === 'wrap') {
-      // Presentational: applies to plain CSV tabs too (as local view state),
-      // and never marks anything dirty.
-      this.structuralOps.applyWrap(tab, direction === 'after' ? op.after : op.before, op.sheetId);
-      return;
-    }
-    if (op.type === 'csvStructure') {
-      tab.doc = direction === 'after' ? op.after : op.before;
-      return;
-    }
-    const doc = tab.doc;
-    if (!isWorkbook(doc)) {
-      return;
-    }
-    if (op.type === 'sheets') {
-      this.applySheetOp(tab, doc, op.op, direction);
-      return;
-    }
-    if (op.type === 'filter') {
-      doc.setFilterStateOn(op.sheetId, direction === 'after' ? op.after : op.before);
-      return;
-    }
-    const effective = direction === 'after' ? op.action : op.action === 'insert' ? 'delete' : 'insert';
-    if (op.type === 'rows') {
-      if (effective === 'insert') {
-        doc.insertRowsOn(
-          op.sheetId,
-          op.index,
-          op.data.length > 0 ? op.data : Array.from({ length: op.count }, () => []),
-        );
-      } else {
-        doc.deleteRowsOn(op.sheetId, op.index, op.count);
-      }
-    } else {
-      if (effective === 'insert') {
-        doc.insertColsOn(
-          op.sheetId,
-          op.index,
-          op.data.length > 0 ? op.data : Array.from({ length: op.count }, () => []),
-        );
-      } else {
-        doc.deleteColsOn(op.sheetId, op.index, op.count);
-      }
-    }
-  }
-
-  /** Apply (or invert) a worksheet lifecycle operation on the workbook. */
-  private applySheetOp(tab: Tab, doc: RsfDocument, op: SheetOperation, direction: 'before' | 'after'): void {
-    const forward = direction === 'after';
-    switch (op.action) {
-      case 'add':
-        if (forward) {
-          doc.insertSheetAt(op.index, op.sheet);
-          this.worksheetsState.activateSheet(tab, doc, op.sheet.id);
-        } else {
-          doc.removeSheet(op.sheet.id);
-          this.worksheetsState.adoptActiveSheetView(tab, doc);
-        }
-        return;
-      case 'remove':
-        if (forward) {
-          doc.removeSheet(op.sheet.id);
-          this.worksheetsState.adoptActiveSheetView(tab, doc);
-        } else {
-          doc.insertSheetAt(op.index, op.sheet);
-          this.worksheetsState.activateSheet(tab, doc, op.sheet.id);
-        }
-        return;
-      case 'rename':
-        doc.renameSheet(op.sheetId, forward ? op.after : op.before);
-        return;
-      case 'move':
-        doc.moveSheet(op.sheetId, forward ? op.to : op.from);
-        return;
-    }
-  }
-
-  private applyChange(tab: Tab, change: CellChange, direction: 'before' | 'after', sheetId?: string): void {
-    const value = direction === 'before' ? change.before : change.after;
-    if (isCsv(tab.doc)) {
-      if (value === null) {
-        tab.doc.revert(change.row, change.col);
-      } else {
-        tab.doc.setValue(change.row, change.col, value);
-      }
-    } else {
-      tab.doc.setCellOn(sheetId, change.row, change.col, value ?? '');
-    }
   }
 }

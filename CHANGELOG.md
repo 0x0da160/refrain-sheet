@@ -38,6 +38,16 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- **A file can be open in only one place at a time.** Opening a file that
+  another browser tab of the app already has open now says so and does not
+  open a second copy, so two copies can no longer overwrite each other's
+  saves. Opening an `.rsf` file that is already open in this window now
+  switches to its tab, as CSV files already did. Files opened without the
+  browser's file access (for example in Firefox) cannot be recognised and
+  are not checked.
+
 ## [0.9.12] - 2026-09-27
 
 ### Added

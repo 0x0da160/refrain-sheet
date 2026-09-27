@@ -4,8 +4,8 @@ title: Editing and IME safety
 description: Inline cell editing, the formula bar as a second edit surface, multi-line editing, and the user-facing flow behind the IME-safe hidden "sink" textarea.
 sources:
   - resource: ../../README.md
-  - resource: ../../src/ui/grid.ts
-  - resource: ../../tests/ime-composition.test.ts
+  - resource: ../../src/ui/grid/index.ts
+  - resource: ../../tests/ui/ime-composition.test.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -61,7 +61,7 @@ While a formula is being typed in the cell editor or the formula bar,
 `$A1` → `A1`; a range (`A1:B10`) changes both ends together. Text inside a
 string literal and function names such as `LOG10(` are never touched, and
 F4 does nothing when the field is not a formula or no reference touches the
-caret. The pure text logic is `src/core/formula-ref-toggle.ts`. Outside
+caret. The pure text logic is `src/core/formula/ref-toggle.ts`. Outside
 text editing F4 does nothing (File > New has no shortcut).
 
 ## Visual feedback while editing
@@ -123,7 +123,7 @@ synthesized from `keydown`, composition never starts in a non-editable
 element" — is recorded as an invariant in
 [../architecture/invariants.md](../architecture/invariants.md) (see its "IME
 safety" bullet); that file is the durable guarantee tests protect, this file
-is how it reads from the keyboard. `tests/ime-composition.test.ts` covers
+is how it reads from the keyboard. `tests/ui/ime-composition.test.ts` covers
 composition detection (`isComposing` / `keyCode` 229 / a tracked flag),
 typing opening an empty editor without synthesizing the key or calling
 `preventDefault`, Enter/Esc belonging to the IME while composing, the editor

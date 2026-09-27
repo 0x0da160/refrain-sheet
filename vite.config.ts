@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
+import { readFileSync } from 'node:fs';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
-import { assertBuildMode, buildCsp } from './scripts/csp.mjs';
+import { assertBuildMode, buildCsp } from './scripts/lib/csp.mjs';
 
 /**
  * The build must work when dist/index.html is opened directly via file://.
@@ -10,7 +11,7 @@ import { assertBuildMode, buildCsp } from './scripts/csp.mjs';
  * rewritten to plain <script defer> / <link> without crossorigin attributes.
  *
  * Two build modes share everything below except their output directory and the
- * Content-Security-Policy injected into index.html (see scripts/csp.mjs):
+ * Content-Security-Policy injected into index.html (see scripts/lib/csp.mjs):
  *
  *   vite build                → offline, dist/        (file:// + release ZIP)
  *   vite build --mode hosted  → hosted,  dist-hosted/ (app.refrain-sheet.com)
@@ -19,6 +20,9 @@ import { assertBuildMode, buildCsp } from './scripts/csp.mjs';
  * hosted-only CSP relaxation for the opt-in cloud sync described in
  * knowledge/operations/security-threat-model.md can never reach the offline artifact or the release ZIP.
  */
+/** The favicon master; the build emits it as dist/favicon.svg (no copy is kept in the repo). */
+const FAVICON_MASTER = 'design-system/v2/foundations/icons/favicon.svg';
+
 export default defineConfig(({ command, mode }) => {
   // Vite's own defaults — 'development' for `vite dev`, 'production' for
   // `vite build` — both mean the offline policy. Only an explicit
@@ -29,16 +33,19 @@ export default defineConfig(({ command, mode }) => {
   // Google Drive credentials reach the bundle only in the hosted build. The
   // offline build is hardcoded to empty strings whatever the environment
   // holds, so the release ZIP can never carry a credential or a code path that
-  // would reach the network; scripts/check-dist.mjs asserts that mechanically.
+  // would reach the network; scripts/check/dist.mjs asserts that mechanically.
   // These are public identifiers delivered as repository *variables*, never
   // secrets — see knowledge/operations/security-supply-chain.md.
   const hostedEnv = (name: string) => JSON.stringify(buildMode === 'hosted' ? (process.env[name] ?? '') : '');
 
   return {
     base: './',
+    // No public/ directory: the only static file (the favicon) comes from the
+    // design-system master through the brand-favicon plugin below.
+    publicDir: false,
     define: {
       // Lets the offline production build compile the Drive client out
-      // entirely (see src/app/commands.ts). Only `vite build` in offline mode;
+      // entirely (see src/app/commands/index.ts). Only `vite build` in offline mode;
       // dev and Vitest keep it false so the Drive code stays testable.
       __OFFLINE_BUILD__: JSON.stringify(command === 'build' && buildMode === 'offline'),
       __DRIVE_CLIENT_ID__: hostedEnv('VITE_GOOGLE_OAUTH_CLIENT_ID'),
@@ -62,11 +69,23 @@ export default defineConfig(({ command, mode }) => {
     plugins: [
       tailwindcss(),
       {
+        name: 'brand-favicon',
+        configureServer(server) {
+          server.middlewares.use('/favicon.svg', (_req, res) => {
+            res.setHeader('Content-Type', 'image/svg+xml');
+            res.end(readFileSync(FAVICON_MASTER));
+          });
+        },
+        generateBundle() {
+          this.emitFile({ type: 'asset', fileName: 'favicon.svg', source: readFileSync(FAVICON_MASTER) });
+        },
+      },
+      {
         name: 'csp-inject',
         enforce: 'post' as const,
         transformIndexHtml(html: string) {
           if (!html.includes('__CSP__')) {
-            throw new Error('index.html is missing the __CSP__ placeholder (see scripts/csp.mjs)');
+            throw new Error('index.html is missing the __CSP__ placeholder (see scripts/lib/csp.mjs)');
           }
           return html.replace('__CSP__', csp);
         },
@@ -89,6 +108,15 @@ export default defineConfig(({ command, mode }) => {
       include: ['tests/**/*.test.ts'],
       benchmark: {
         include: ['bench/**/*.bench.ts'],
+      },
+      // `npm run test:coverage`. The thresholds are a floor, not a target: a
+      // restructuring change must not leave code less tested than before.
+      coverage: {
+        provider: 'v8',
+        include: ['src/**/*.ts'],
+        exclude: ['src/generated/**'],
+        reporter: ['text-summary', 'json-summary'],
+        thresholds: { statements: 81, branches: 75, functions: 79, lines: 82 },
       },
     },
   };

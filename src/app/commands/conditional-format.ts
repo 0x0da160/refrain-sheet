@@ -1,19 +1,15 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, RangeDialogsPort } from '../ui-port';
 import {
   conditionalFormatRangesEqual,
   validateConditionalFormat,
   MAX_CONDITIONAL_FORMAT_RULES,
-} from '../../core/conditional-format';
+} from '../../core/workbook/conditional-format';
 import { cellLabel } from '../../core/formula';
-import type { RsfDocument } from '../../core/rsf-document';
-import type { AppState, Tab } from '../app-state';
+import type { RsfDocument } from '../../core/workbook/rsf-document';
+import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type {
-  ConditionalFormatDialogInput,
-  ConditionalFormatDialogResult,
-  ConvertReason,
-  UiPort,
-} from '../commands';
+import type { ConditionalFormatDialogInput, ConditionalFormatDialogResult, ConvertReason } from '../commands';
 import { applyWhileOpen } from './shared';
 
 /**
@@ -23,7 +19,7 @@ import { applyWhileOpen } from './shared';
  * (`src/app/commands/data-validation.ts`) — `Commands` still exposes the same
  * public methods, delegating to an instance of this class. This is the
  * `Commands`-layer dispatch code, distinct from (and a consumer of) the pure
- * logic in `src/core/conditional-format.ts`.
+ * logic in `src/core/workbook/conditional-format.ts`.
  *
  * Like data validation, a worksheet's rules are session-only view state (see
  * `Worksheet.conditionalFormats`): applying or clearing one is a direct state
@@ -33,7 +29,7 @@ import { applyWhileOpen } from './shared';
 export class ConditionalFormatCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & RangeDialogsPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 

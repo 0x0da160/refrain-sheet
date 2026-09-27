@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-import type { AppState, Tab } from '../app/app-state';
+import { isWorkbook } from '../core/editor-document';
+import type { AppState, Tab } from '../app/state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { tokenizeCode } from '../core/syntax-highlight';
@@ -8,10 +9,12 @@ import {
   buildSidePanelChrome,
   releaseSidePanel,
   currentSidePanelPlacement,
-} from './dialogs/shared';
+} from './dialogs/side-panel';
 import { Eye } from 'lucide';
 import { el } from './dom';
 import { SourceEditor } from './source-editor';
+import { SourceProblemBar } from './source-problem-bar';
+import { validateJson } from '../core/source-validation';
 import { CoalescedRenderer, isLargePreviewSource, syncScroll } from './editor-preview-perf';
 
 /** How long to wait after the last keystroke before committing an undoable edit. */
@@ -58,6 +61,8 @@ export class JsonSheetView {
   readonly panelElement: HTMLElement;
   /** The editing surface (see `SourceEditor`); `textarea` is its element. */
   readonly editor: SourceEditor;
+  /** The syntax-check line under the editor (see `SourceProblemBar`). */
+  readonly problemBar: SourceProblemBar;
   private readonly textarea: HTMLTextAreaElement;
   private readonly preview: HTMLElement;
   private readonly previewToggle: HTMLButtonElement;
@@ -83,6 +88,7 @@ export class JsonSheetView {
       indentUnit: '  ',
     });
     this.textarea = this.editor.textarea;
+    this.problemBar = new SourceProblemBar(this.textarea, validateJson, 'sourceCheck.validJson');
     const sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
 
     this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
@@ -110,7 +116,7 @@ export class JsonSheetView {
 
     const panes = el('div', { className: 'markdown-editor-panes' }, [sourcePane]);
 
-    this.element = el('div', { className: 'json-sheet-view' }, [toolbar, panes]);
+    this.element = el('div', { className: 'json-sheet-view' }, [toolbar, panes, this.problemBar.element]);
     this.element.hidden = true;
 
     // The preview's own dockable panel — same `buildSidePanelChrome` machinery
@@ -188,13 +194,13 @@ export class JsonSheetView {
   /** True when the active worksheet is a JSON sheet — the caller hides the grid exactly when this is true. */
   get active(): boolean {
     const tab = this.state.activeTab;
-    return tab !== null && tab.doc.kind === 'rsf' && tab.doc.activeSheet.kind === 'json';
+    return tab !== null && isWorkbook(tab.doc) && tab.doc.activeSheet.kind === 'json';
   }
 
   /** Show/hide and (re)populate from the active tab/worksheet. Call on every `tabs`/`active`/`sheets`/`doc` event. */
   refresh(): void {
     const tab = this.state.activeTab;
-    if (tab === null || tab.doc.kind !== 'rsf' || tab.doc.activeSheet.kind !== 'json') {
+    if (tab === null || !isWorkbook(tab.doc) || tab.doc.activeSheet.kind !== 'json') {
       this.flushCommit();
       this.bound = null;
       this.element.hidden = true;
@@ -232,7 +238,7 @@ export class JsonSheetView {
       return;
     }
     const { tab } = this.bound;
-    if (tab.doc.kind !== 'rsf') {
+    if (!isWorkbook(tab.doc)) {
       return;
     }
     tab.doc.setAutoFormatSource(this.autoFormatCheckbox.checked);
@@ -259,7 +265,7 @@ export class JsonSheetView {
       return;
     }
     const { tab, sheetId } = this.bound;
-    if (tab.doc.kind !== 'rsf' || tab.doc.activeSheet.id !== sheetId) {
+    if (!isWorkbook(tab.doc) || tab.doc.activeSheet.id !== sheetId) {
       return;
     }
     const sheet = tab.doc.activeSheet;
@@ -292,6 +298,8 @@ export class JsonSheetView {
    * listener), which coalesces bursts down to this one.
    */
   private renderPreview(): void {
+    // The syntax check rides the same coalesced render as the preview.
+    this.problemBar.check();
     const text = this.textarea.value;
     if (isLargePreviewSource(text)) {
       this.preview.replaceChildren(

@@ -23,7 +23,7 @@ ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
 # committed payload against a rebuild with the same versions. Every download
 # is checked against a recorded SHA-256 before it runs (no `curl | sh`).
 # gcc/libc are required to build proc-macro crates for the host; git lets the
-# one-command release script (scripts/release.mjs) run inside the container.
+# one-command release script (scripts/release/index.mjs) run inside the container.
 ARG RUSTUP_VERSION=1.29.1
 ARG RUSTUP_INIT_SHA256=dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71
 ARG RUST_TOOLCHAIN=1.98.1
@@ -62,7 +62,7 @@ WORKDIR /app
 COPY package.json package-lock.json* .npmrc* ./
 RUN if [ -f package-lock.json ]; then npm ci --ignore-scripts; fi
 
-# Headless Chromium for `npm run ui:check` (scripts/ui-check.mjs), used to
+# Headless Chromium for `npm run ui:check` (scripts/ui-check/index.mjs), used to
 # visually verify UI changes. Fetched with an explicit RUN step rather than
 # an npm postinstall/lifecycle script (which --ignore-scripts always blocks)
 # so the browser binary download stays outside npm's supply-chain surface,

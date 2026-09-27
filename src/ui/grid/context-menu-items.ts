@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: MIT
 // What the grid's right-click menu offers: the command entries and the
-// quick-format toolbar above them. The grid builds the DOM (see Grid).
+// quick-format toolbar above them. The grid opens the menu (see Grid).
 import { Grid3x3, PaintBucket, PencilLine, Table, type IconNode } from 'lucide';
-import type { Tab } from '../../app/app-state';
+import type { Tab } from '../../app/state';
 import type { CommandId, Commands } from '../../app/commands';
 import { t } from '../../app/i18n';
-import type { ContextMenuToolbarItem } from '../context-menu';
+import { ICON_BY_COMMAND } from '../command-icons';
+import type { ContextMenuEntry, ContextMenuToolbarItem } from '../context-menu';
 
-export interface ContextMenuCommandDef {
+interface ContextMenuCommandDef {
   command: CommandId;
   labelKey: string;
   shortcut?: string;
 }
 
-export interface ContextMenuGroupDef {
+interface ContextMenuGroupDef {
   labelKey: string;
   icon: IconNode;
   submenu: Array<ContextMenuCommandDef | 'separator'>;
@@ -29,7 +30,7 @@ export interface ContextMenuGroupDef {
  * `menu.sheet.rowsAndColumns`) so the grouping reads the same way in both
  * places (#396).
  */
-export const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupDef | 'separator'> = [
+const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupDef | 'separator'> = [
   { command: 'edit.cut', labelKey: 'menu.edit.cut', shortcut: 'Ctrl+X' },
   { command: 'edit.copy', labelKey: 'menu.edit.copy', shortcut: 'Ctrl+C' },
   { command: 'edit.paste', labelKey: 'menu.edit.paste', shortcut: 'Ctrl+V' },
@@ -78,6 +79,35 @@ export const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupD
  * Buttons are disabled (never hidden) exactly when their command is, matching
  * the app's existing convention for RSF-only commands on a plain CSV tab.
  */
+/** One menu definition as a live context-menu entry, enabled per the command's current state. */
+function buildContextEntry(
+  commands: Commands,
+  item: ContextMenuCommandDef | ContextMenuGroupDef | 'separator',
+): ContextMenuEntry {
+  if (item === 'separator') {
+    return 'separator';
+  }
+  if ('submenu' in item) {
+    return {
+      label: t(item.labelKey),
+      icon: item.icon,
+      submenu: item.submenu.map((sub) => buildContextEntry(commands, sub)),
+    };
+  }
+  return {
+    label: t(item.labelKey),
+    icon: ICON_BY_COMMAND[item.command],
+    shortcut: item.shortcut,
+    disabled: !commands.isEnabled(item.command),
+    onSelect: () => void commands.run(item.command),
+  };
+}
+
+/** The right-click menu's entries ({@link CONTEXT_MENU_ITEMS}) for the current command state. */
+export function contextMenuEntries(commands: Commands): ContextMenuEntry[] {
+  return CONTEXT_MENU_ITEMS.map((item) => buildContextEntry(commands, item));
+}
+
 export function formatToolbarItems(commands: Commands, tab: Tab): ContextMenuToolbarItem[] {
   const toggle = (
     command: CommandId,

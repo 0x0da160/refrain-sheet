@@ -3,9 +3,9 @@ type: ui-concept
 title: Tabs and worksheet strip
 description: The interaction model of the two independent tab strips — drag reorder with a drop indicator, keyboard equivalents, roving tabindex, dirty indicators, and the close-tab flow.
 sources:
-  - resource: ../../src/ui/shell-layout.ts
+  - resource: ../../src/ui/shell/tab-row-fit.ts
   - resource: ../../src/app/recent-files.ts
-  - resource: ../../tests/shell-layout.test.ts
+  - resource: ../../tests/ui/tab-row-fit.test.ts
   - resource: ../../README.md
 status: stable
 generated:
@@ -28,7 +28,7 @@ that data-ownership distinction is not repeated here.
 the menu bar's row, to the right of the menu names, whenever at least
 240px is left there (#596); otherwise — a narrow window, or one narrowed by
 a left/right-docked side panel — it takes its own row below the menu bar.
-`updateShellLayout` (`src/ui/shell-layout.ts`) decides this from `#app`'s
+`updateShellLayout` (`src/ui/shell/tab-row-fit.ts`) decides this from `#app`'s
 content width and the menu bar's natural width, and sets
 `.tabs-in-menu-row` on `#app`; a `ResizeObserver` re-runs it on window
 resizes and language switches, and docking a side panel re-runs it

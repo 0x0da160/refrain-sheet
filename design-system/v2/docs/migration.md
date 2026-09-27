@@ -12,7 +12,7 @@
 | `docs/brand-guidelines.html`（v2.0） | `brand/docs/brand-guidelines.html`（v3.0） |
 | `logo/` `icons/` | `foundations/logo/` `foundations/icons/`（中身は同一） |
 
-v1.0.0 のディレクトリは履歴として残します。アプリのテスト（`tests/brand-assets.test.ts`）はまだ `design-system/1.0.0/` のアイコンを参照していますが、中身は同一なので、適用時にパスを変えるだけで済みます。
+v1.0.0 のディレクトリは削除しました（Git 履歴のリリース v0.9.9、コミット `6024f16` にあります）。アプリと LP はロゴとアイコンを `foundations/` のマスターから直接読み込み、リポジトリには複製を置きません。
 
 ## 2. トークンの対応（v1.0.0 → v2.0.0）
 
@@ -232,7 +232,7 @@ LP の余白トークンは、名前も値も共通基盤と同じです（`--sp
 
 | 項目 | 対応 |
 | --- | --- |
-| 縞模様の行 | 既定でオフ（DS どおり）。「表示 > 行を交互に色分け」でオンにでき、端末ごとに保存（`src/app/banded-rows.ts`、ルートの `data-banded-rows`、D-26） |
+| 縞模様の行 | 既定でオフ（DS どおり）。「表示 > 縞模様の行」でオンにでき、濃さは 3 段階（D-43）。シート > ファイル > このブラウザの順で決まる（`src/app/grid-look.ts`、ルートの `data-banded-rows` / `data-band-level`、D-26） |
 | アクセントの文字 | 文字は `--accent-text`、`--accent-subtle` の上の文字は `--accent-subtle-text`、リンクは `--link`。アイコンや印などの図形は `--accent` のまま。`check:contrast` の組も差し替えた |
 | compact のバー | メニューのボタンの高さを `--control-h` から、タブ行の上の余白と数式バーの入力欄の高さを `--bar-h` から計算するようにした。ファイルを開いた状態で、メニューバー・タブ行・数式バー・シートの切り替え行が 28 / 32 / 40px、状態バーが 24 / 24 / 32px（幅 1400px、ヘッドレス Chromium で実測） |
 | 9〜11px → caption | 本文が `--text-body` になったので、`--text-min` をやめて `--text-caption` にそろえた（タッチでは 14px で、本文 16px より小さいまま） |

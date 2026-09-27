@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../core/editor-document';
 import { parse as parseYaml, stringify as stringifyYaml, YAMLParseError } from 'yaml';
-import type { AppState, Tab } from '../app/app-state';
+import type { AppState, Tab } from '../app/state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { tokenizeCode } from '../core/syntax-highlight';
@@ -9,10 +10,12 @@ import {
   buildSidePanelChrome,
   releaseSidePanel,
   currentSidePanelPlacement,
-} from './dialogs/shared';
+} from './dialogs/side-panel';
 import { Eye } from 'lucide';
 import { el } from './dom';
 import { SourceEditor } from './source-editor';
+import { SourceProblemBar } from './source-problem-bar';
+import { validateYaml } from '../core/source-validation';
 import { CoalescedRenderer, isLargePreviewSource, syncScroll } from './editor-preview-perf';
 
 /** How long to wait after the last keystroke before committing an undoable edit. */
@@ -57,6 +60,8 @@ export class YamlSheetView {
   readonly panelElement: HTMLElement;
   /** The editing surface (see `SourceEditor`); `textarea` is its element. */
   readonly editor: SourceEditor;
+  /** The syntax-check line under the editor (see `SourceProblemBar`). */
+  readonly problemBar: SourceProblemBar;
   private readonly textarea: HTMLTextAreaElement;
   private readonly preview: HTMLElement;
   private readonly previewToggle: HTMLButtonElement;
@@ -82,6 +87,7 @@ export class YamlSheetView {
       indentUnit: '  ',
     });
     this.textarea = this.editor.textarea;
+    this.problemBar = new SourceProblemBar(this.textarea, validateYaml, 'sourceCheck.validYaml');
     const sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
 
     this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
@@ -109,7 +115,7 @@ export class YamlSheetView {
 
     const panes = el('div', { className: 'markdown-editor-panes' }, [sourcePane]);
 
-    this.element = el('div', { className: 'yaml-sheet-view' }, [toolbar, panes]);
+    this.element = el('div', { className: 'yaml-sheet-view' }, [toolbar, panes, this.problemBar.element]);
     this.element.hidden = true;
 
     this.preview = el('div', {
@@ -181,13 +187,13 @@ export class YamlSheetView {
   /** True when the active worksheet is a YAML sheet — the caller hides the grid exactly when this is true. */
   get active(): boolean {
     const tab = this.state.activeTab;
-    return tab !== null && tab.doc.kind === 'rsf' && tab.doc.activeSheet.kind === 'yaml';
+    return tab !== null && isWorkbook(tab.doc) && tab.doc.activeSheet.kind === 'yaml';
   }
 
   /** Show/hide and (re)populate from the active tab/worksheet. Call on every `tabs`/`active`/`sheets`/`doc` event. */
   refresh(): void {
     const tab = this.state.activeTab;
-    if (tab === null || tab.doc.kind !== 'rsf' || tab.doc.activeSheet.kind !== 'yaml') {
+    if (tab === null || !isWorkbook(tab.doc) || tab.doc.activeSheet.kind !== 'yaml') {
       this.flushCommit();
       this.bound = null;
       this.element.hidden = true;
@@ -225,7 +231,7 @@ export class YamlSheetView {
       return;
     }
     const { tab } = this.bound;
-    if (tab.doc.kind !== 'rsf') {
+    if (!isWorkbook(tab.doc)) {
       return;
     }
     tab.doc.setAutoFormatSource(this.autoFormatCheckbox.checked);
@@ -249,7 +255,7 @@ export class YamlSheetView {
       return;
     }
     const { tab, sheetId } = this.bound;
-    if (tab.doc.kind !== 'rsf' || tab.doc.activeSheet.id !== sheetId) {
+    if (!isWorkbook(tab.doc) || tab.doc.activeSheet.id !== sheetId) {
       return;
     }
     const sheet = tab.doc.activeSheet;
@@ -273,6 +279,8 @@ export class YamlSheetView {
   }
 
   private renderPreview(): void {
+    // The syntax check rides the same coalesced render as the preview.
+    this.problemBar.check();
     const text = this.textarea.value;
     if (isLargePreviewSource(text)) {
       this.preview.replaceChildren(

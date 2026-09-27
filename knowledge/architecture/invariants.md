@@ -32,7 +32,7 @@ generated:
   politely, and — for RSF — persisted per worksheet; it never marks a
   document dirty and never touches CSV bytes.
 - **Range move rewrites references, never guesses:** moving a rectangle
-  (`src/core/range-move.ts`, RSF-only) plans every cell write and formula
+  (`src/core/workbook/range-move.ts`, RSF-only) plans every cell write and formula
   rewrite from current values before touching the document, so the whole
   move is one atomic, undoable entry. A reference to a moved cell follows
   it; every other reference — and any range that only partially overlaps
@@ -48,13 +48,13 @@ generated:
   never affect cell data, never mark a document dirty. A structurally
   readable but invalid filter is dropped (never guessed at) with a warning
   (see [formats/rsf/index.md](../formats/rsf/index.md)).
-- **Filter = hide only, never mutate:** a filter (`src/core/filter.ts`) only
+- **Filter = hide only, never mutate:** a filter (`src/core/workbook/filter.ts`) only
   computes a hidden-row set; it never deletes, reorders, or rewrites cells,
   and formula evaluation is unaffected. The virtualized grid collapses
   hidden rows to zero height in the row-height index — no DOM is
   materialized for them — and copy/fill/clear/Flash Fill/selection-stats
   and keyboard navigation all skip hidden rows consistently.
-- **Sort = display order only, never mutate:** a sort (`src/core/sort.ts`)
+- **Sort = display order only, never mutate:** a sort (`src/core/workbook/sort.ts`)
   only computes a display-order mapping; it never deletes, reorders, or
   rewrites cells. Unlike a filter, a sort is session-only view state — never
   persisted, not an undoable `HistoryEntry`, and never marks the document
@@ -63,7 +63,7 @@ generated:
   metrics (row height, header width, wrap line box) and drives the CSS via
   inline custom properties set from those same values, so the element
   height and CSS line box cannot diverge at any zoom level
-  (`tests/zoom-alignment.test.ts`). Column widths are stored at 100% zoom.
+  (`tests/ui/zoom-alignment.test.ts`). Column widths are stored at 100% zoom.
 - **Deterministic Flash Fill:** pattern inference (`src/core/flash-fill.ts`)
   is a bounded, deterministic search over closed data structures — no
   network, no model, no dynamic code — and a fill is proposed only when
@@ -72,7 +72,7 @@ generated:
 - **Formula index:** `RsfDocument` maintains a per-row formula-cell count in
   parallel with the data so formula enumeration skips formula-free rows;
   consistency with the data is enforced by a property-based test
-  (`tests/formula-index.test.ts`).
+  (`tests/core/formula-index.test.ts`).
 - **Offline runtime:** no runtime network access of any kind — no CDNs,
   remote fonts, analytics, or fetches. `npm run check:dist` asserts the
   production bundle is self-contained (verified passing as of this
@@ -80,8 +80,8 @@ generated:
 - **IME safety:** the grid's keyboard target is a persistent hidden sink
   textarea that is promoted in place into the cell editor, so composition
   never starts in a non-editable element and no printable character is
-  ever synthesized from `keydown` (`tests/ime-composition.test.ts`).
+  ever synthesized from `keydown` (`tests/ui/ime-composition.test.ts`).
 - **Single version source:** `package.json` is the only place the app
   version is written; `src/core/app-identity.ts` imports it (and
   `src/app/version.ts` derives the display form from that), and
-  `scripts/check-versions.mjs` gates drift.
+  `scripts/check/versions.mjs` gates drift.

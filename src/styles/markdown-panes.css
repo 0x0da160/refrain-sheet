@@ -1,0 +1,235 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Markdown source/preview panes (shared by the Markdown
+   worksheet's docked source view and preview panel, #433/#502) ---------- */
+
+.markdown-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+}
+
+/* The JSON/YAML editors' auto-format-on-commit checkbox (#557):  pushed to
+   the toolbar's trailing edge, away from the preview-toggle/Format buttons,
+   since it is a persistent per-file setting rather than a one-off action. */
+.markdown-editor-toolbar-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  margin-left: auto;
+  color: var(--fg-muted);
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.markdown-editor-panes {
+  display: flex;
+  gap: var(--space-3);
+  align-items: stretch;
+}
+
+.markdown-editor-pane {
+  flex: 1 1 50%;
+  min-width: 0;
+  /* Without this, a flex column item defaults to `min-height: auto`, which
+     blocks it from shrinking below its content size — so a long preview
+     grows the whole pane (and past it, its `overflow: hidden` ancestor)
+     instead of letting `.markdown-editor-preview`'s own `overflow: auto`
+     scroll internally (#502). */
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-editor-source {
+  flex: 1;
+  min-height: 320px;
+  font-family: var(--font-sheet);
+  font-size: var(--text-body);
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+  background: var(--bg-raised);
+  color: var(--fg-default);
+}
+
+.markdown-editor-preview {
+  flex: 1;
+  min-height: 320px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  overflow: auto;
+  background: var(--bg-surface);
+  line-height: 1.5;
+}
+
+.markdown-editor-preview > :first-child {
+  margin-top: 0;
+}
+
+.markdown-editor-preview pre {
+  background: var(--bg-raised);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  overflow: auto;
+}
+
+.markdown-editor-preview code {
+  font-family: var(--font-sheet);
+  font-size: 0.9em;
+}
+
+.markdown-editor-preview blockquote {
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-2);
+  border-left: 3px solid var(--border-default);
+  color: var(--fg-muted);
+}
+
+/* GFM-style tables (#486) — `src/core/markdown.ts`'s table block, rendered
+   via `renderMarkdownBlocks`. Alignment classes come from the delimiter
+   row's colons (`:---`/`:---:`/`---:`); a plain `---` cell (no colons) is
+   unaligned and gets no class at all, relying on `th`/`td`'s own default
+   `text-align: left` below — `.md-align-left` only matters for a cell
+   explicitly marked `:---`, kept distinct so the AST/render layer never has
+   to special-case "no alignment" vs "explicitly left". */
+.markdown-editor-preview table {
+  border-collapse: collapse;
+  margin: 0 0 var(--space-2);
+}
+
+.markdown-editor-preview th,
+.markdown-editor-preview td {
+  border: 1px solid var(--border-default);
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+}
+
+.markdown-editor-preview th {
+  background: var(--bg-raised);
+  font-weight: var(--weight-bold);
+}
+
+.markdown-editor-preview .md-align-left {
+  text-align: left;
+}
+
+.markdown-editor-preview .md-align-center {
+  text-align: center;
+}
+
+.markdown-editor-preview .md-align-right {
+  text-align: right;
+}
+
+/* Fenced-code-block syntax highlighting (#486) — token classes come from
+   `src/core/syntax-highlight.ts`'s `CodeToken.type`, rendered by
+   `renderMarkdownBlocks`. Colors reuse existing semantic tokens rather than
+   introducing new ones, so every theme (`data-theme` on the root) stays in
+   sync automatically. */
+.markdown-editor-preview .tok-keyword {
+  color: var(--accent-text);
+}
+
+.markdown-editor-preview .tok-string {
+  color: var(--success-text);
+}
+
+.markdown-editor-preview .tok-comment {
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+.markdown-editor-preview .tok-number {
+  color: var(--warning-text);
+}
+
+/* ---------- Worksheet source editors (`ui/source-editor.ts`) ----------
+   The Markdown/JSON/YAML/text worksheets are edited as documents, so their
+   textarea is drawn as an editing surface filling the sheet area rather than
+   as a form field: no box, focus ring or resize grip, tab stops of four
+   columns, and roomier lines. */
+.source-editor {
+  border: none;
+  border-radius: 0;
+  resize: none;
+  outline: none;
+  box-shadow: none;
+  padding: var(--space-2) var(--space-3);
+  /* Unlike the grid, a text editor follows the shell colours, so under the
+     hybrid theme it goes dark with the OS instead of staying on paper (the
+     owner's choice: the hybrid theme keeps only the spreadsheet grid light). */
+  background: var(--bg-surface);
+  color: var(--fg-default);
+  line-height: 1.6;
+  tab-size: 4;
+}
+
+.source-editor:focus,
+.source-editor:focus-visible {
+  outline: none;
+}
+
+/* The editor fills its worksheet edge to edge; the toolbar above it (preview
+   toggle, Format) keeps the inset instead, separated by a rule. */
+.markdown-sheet-view > .markdown-editor-toolbar,
+.json-sheet-view > .markdown-editor-toolbar,
+.yaml-sheet-view > .markdown-editor-toolbar {
+  margin: 0;
+  padding: var(--space-1-5) var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+}
+
+/* JSON and YAML are code: indentation must line up, so they use the design
+   system's fixed-pitch code face (system fonts only — the app stays
+   offline). */
+.json-sheet-source.source-editor,
+.yaml-sheet-source.source-editor {
+  font-family: var(--font-code);
+}
+
+/* The JSON/YAML syntax-check line under the editor (`ui/source-problem-bar.ts`):
+   a quiet "no errors" note, or the first error in the danger colours with a
+   button that moves the caret to it. Shell tokens, like the editor. */
+.source-problem-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  padding: var(--space-1) var(--space-3);
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--fg-muted);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+}
+
+.source-problem-bar.has-problem {
+  background: var(--danger-subtle);
+  color: var(--danger-text);
+}
+
+.source-problem-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.source-problem-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-problem-goto {
+  flex: none;
+}
+
+.source-problem-goto[hidden] {
+  display: none;
+}

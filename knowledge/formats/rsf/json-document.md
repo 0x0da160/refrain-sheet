@@ -3,8 +3,8 @@ type: format-concept
 title: RSF JSON document
 description: The JSON inside a .rsf file — every key of the workbook, worksheet, view, style, filter, comment, and history objects, how they are laid out for a text editor, and what the reader validates.
 sources:
-  - resource: ../../../src/core/rsf-codec.ts
-  - resource: ../../../tests/rsf-codec.test.ts
+  - resource: ../../../src/core/workbook/rsf-codec.ts
+  - resource: ../../../tests/core/rsf-codec.test.ts
   - resource: ../../../tests/fixtures/rsf/v1/features.rsf
 status: stable
 generated:
@@ -17,7 +17,7 @@ generated:
 After the container is unwrapped (see [overview.md](overview.md)), a `.rsf`
 file is one UTF-8 JSON document (no BOM). This page is its full
 specification for format **version 1**. The reference implementation is
-`src/core/rsf-codec.ts`.
+`src/core/workbook/rsf-codec.ts`.
 
 ## Layout
 
@@ -145,7 +145,7 @@ older than this key ignore it and show the text with the cell's own style.
 
 ### Filter
 
-`filter` has the in-memory shape of `SheetFilter` (`src/core/filter.ts`):
+`filter` has the in-memory shape of `SheetFilter` (`src/core/workbook/filter.ts`):
 `top`, `left`, `bottom`, `right` (0-based, inclusive), `headerRow`, and
 `columns`, each with `col`, `join` (`and`/`or`), `conditions` (`{ kind:
 "text", op, value }` or `{ kind: "number", op, value, value2? }`), and

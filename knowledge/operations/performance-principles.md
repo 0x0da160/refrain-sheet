@@ -45,22 +45,22 @@ progress.
 
 ## What is optimized where
 
-| Path                                                             | Mechanism                                                                                                                                                            | Code                                                                             |
-| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Opening / parsing CSV                                            | Rust/WASM byte parser + indexer, busy indicator painted first                                                                                                        | `wasm/src/csv.rs`, `src/core/csv-engine.ts`, `withBusy` in `src/app/commands.ts` |
-| Startup                                                          | WASM engine initializes in the background; UI paints without waiting; first open awaits the same idempotent promise                                                  | `src/main.ts`, `initCsvEngine`                                                   |
-| Grid rendering                                                   | Virtualization (visible window + overscan), in-place repaint unless a layout input changed                                                                           | `src/ui/grid.ts` (`LayoutSignature`)                                             |
-| Scroll / drag selection / column resize / fill preview           | Passive scroll listener; rAF-scheduled re-render; leading-edge frame coalescing for pointer drags                                                                    | `src/ui/grid.ts` (`frameCoalesced`)                                              |
-| Scroll within the overscan                                       | No DOM work while the rendered window (overscan included) still covers the viewport; rows rebuild once per overscan's worth of rows scrolled                         | `src/ui/grid.ts` (`windowCoversViewport`)                                        |
-| CSV cell text (every value read: render, scans, conversion)      | Short pure-ASCII fields built directly from the bytes; value-only reads skip the `FieldNode` cache; per-field strict decode only when the file has undecodable bytes | `src/core/lossless-document.ts` (`decodeField`, `asciiString`)                   |
-| Selection statistics                                             | ≤ 20,000 cells synchronous; larger selections deferred: debounce, time-sliced scan, cancellation on newer selection/edit/tab, "Calculating…" placeholder             | `src/ui/status-bar.ts`, `src/core/stats.ts` (`SelectionStatsAccumulator`)        |
-| Replace All                                                      | Time-sliced read-only match scan with % progress and cancellation, then one synchronous atomic `bulkEdit`                                                            | `src/app/commands.ts` (`replaceAll`), `src/core/scheduler.ts`                    |
-| Find-as-you-type counts                                          | 120 ms debounce + wall-clock search budget (partial results instead of a freeze)                                                                                     | `src/ui/find-bar.ts`, `src/core/search.ts`                                       |
-| Formula recalculation                                            | Lazy evaluation with memoization; only displayed cells are computed                                                                                                  | `src/core/rsf-document.ts`                                                       |
-| Formula-cell enumeration                                         | Per-row formula index (built lazily, maintained by every mutator) so the status-bar count and reference-rewrite scan skip formula-free rows                          | `src/core/rsf-document.ts` (`formulaPerRow`)                                     |
-| `.rsf` save / open                                               | JSON + WASM Zstandard + CRC-32 behind the busy indicator; decompression bounded by the header length (512 MiB ceiling)                                               | `src/core/rsf-codec.ts`, `wasm/src/compress.rs`                                  |
-| CSV field decoding (per-cell text, every field, every load/save) | One cached `TextDecoder` per (encoding, fatal) pair, reused across all fields                                                                                        | `src/core/encoding.ts` (`decodeBytes`, `decodesCleanly`)                         |
-| `VLOOKUP` / `MATCH` / `XLOOKUP` exact-match lookup               | Hash index over the lookup range, built once and cached per (range grid, revision); a wildcard or approximate lookup still scans linearly                            | `src/core/formula-functions.ts` (`findExactIndexed`, `exactIndexCache`)          |
+| Path                                                             | Mechanism                                                                                                                                                            | Code                                                                                        |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Opening / parsing CSV                                            | Rust/WASM byte parser + indexer, busy indicator painted first                                                                                                        | `wasm/src/csv.rs`, `src/core/csv/csv-engine.ts`, `withBusy` in `src/app/commands/shared.ts` |
+| Startup                                                          | WASM engine initializes in the background; UI paints without waiting; first open awaits the same idempotent promise                                                  | `src/main.ts`, `initCsvEngine`                                                              |
+| Grid rendering                                                   | Virtualization (visible window + overscan), in-place repaint unless a layout input changed                                                                           | `src/ui/grid/core.ts` (`LayoutSignature`)                                                   |
+| Scroll / drag selection / column resize / fill preview           | Passive scroll listener; rAF-scheduled re-render; leading-edge frame coalescing for pointer drags                                                                    | `src/ui/grid/dom-support.ts` (`frameCoalesced`)                                             |
+| Scroll within the overscan                                       | No DOM work while the rendered window (overscan included) still covers the viewport; rows rebuild once per overscan's worth of rows scrolled                         | `src/ui/grid/renderer.ts` (`windowCoversViewport`)                                          |
+| CSV cell text (every value read: render, scans, conversion)      | Short pure-ASCII fields built directly from the bytes; value-only reads skip the `FieldNode` cache; per-field strict decode only when the file has undecodable bytes | `src/core/csv/lossless-document.ts` (`decodeField`, `asciiString`)                          |
+| Selection statistics                                             | ≤ 20,000 cells synchronous; larger selections deferred: debounce, time-sliced scan, cancellation on newer selection/edit/tab, "Calculating…" placeholder             | `src/ui/status-bar.ts`, `src/core/stats.ts` (`SelectionStatsAccumulator`)                   |
+| Replace All                                                      | Time-sliced read-only match scan with % progress and cancellation, then one synchronous atomic `bulkEdit`                                                            | `src/app/commands/range-ops.ts` (`replaceAll`), `src/core/scheduler.ts`                     |
+| Find-as-you-type counts                                          | 120 ms debounce + wall-clock search budget (partial results instead of a freeze)                                                                                     | `src/ui/find-bar.ts`, `src/core/search.ts`                                                  |
+| Formula recalculation                                            | Lazy evaluation with memoization; only displayed cells are computed                                                                                                  | `src/core/workbook/rsf-document.ts`                                                         |
+| Formula-cell enumeration                                         | Per-row formula index (built lazily, maintained by every mutator) so the status-bar count and reference-rewrite scan skip formula-free rows                          | `src/core/workbook/rsf-document.ts` (`formulaPerRow`)                                       |
+| `.rsf` save / open                                               | JSON + WASM Zstandard + CRC-32 behind the busy indicator; decompression bounded by the header length (512 MiB ceiling)                                               | `src/core/workbook/rsf-codec.ts`, `wasm/src/compress.rs`                                    |
+| CSV field decoding (per-cell text, every field, every load/save) | One cached `TextDecoder` per (encoding, fatal) pair, reused across all fields                                                                                        | `src/core/csv/encoding.ts` (`decodeBytes`, `decodesCleanly`)                                |
+| `VLOOKUP` / `MATCH` / `XLOOKUP` exact-match lookup               | Hash index over the lookup range, built once and cached per (range grid, revision); a wildcard or approximate lookup still scans linearly                            | `src/core/formula/functions/index.ts` (`findExactIndexed`, `exactIndexCache`)               |
 
 ## Deliberate non-optimizations
 
@@ -145,11 +145,11 @@ in `wasm/src/ops.rs` (`aggregate` for selection statistics, `count_literal`
 for long literal search) remain the only general-purpose data primitives
 moved into the Rust core.
 
-- **Column/range sort** (`src/core/sort.ts`) — the comparator calls back
+- **Column/range sort** (`src/core/workbook/sort.ts`) — the comparator calls back
   into JavaScript once per key per comparison via an injected
   `get(row, col)` closure; materializing every cell's displayed text
   first would cost more than the sort itself.
-- **Filter row matching** (`src/core/filter.ts`, `computeHiddenRows`) — a
+- **Filter row matching** (`src/core/workbook/filter.ts`, `computeHiddenRows`) — a
   linear scan of plain `includes`/`startsWith`/`===`/`Number()` comparisons
   per cell, no regex. Like `statsAggregate` (see the note in
   [performance-measurements.md](performance-measurements.md)), the cost is
@@ -158,7 +158,7 @@ moved into the Rust core.
   offloading it would hit the same `get(row, col)`-closure-per-cell problem
   as sort, at a larger call count.
 - **`SUMIFS`/`COUNTIFS`/wildcard criteria matching**
-  (`src/core/formula-functions.ts`, `src/core/formula-criteria.ts`) — the
+  (`src/core/formula/functions/index.ts`, `src/core/formula/criteria.ts`) — the
   closest real candidate (~166–244 ms per 100,000 cells measured), but the
   values are `FormulaValue`s with error-propagation semantics, so only the
   comparison core could move to Rust while type dispatch stayed in JS —

@@ -47,6 +47,7 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | Lint                         | `npm run lint`                                                                       |
 | Type-check + build           | `npm run build` (`tsc --noEmit && vite build`)                                       |
 | Unit tests                   | `npm run test`                                                                       |
+| Unit tests with coverage     | `npm run test:coverage` (fails below the floor in `vite.config.ts`)                  |
 | Rust tests                   | `npm run test:rust`                                                                  |
 | Rebuild embedded WASM        | `npm run build:wasm` (only when `wasm/` changes)                                     |
 | Build the landing site       | `npm run build:landing` (add `-- https://refrain-sheet.com/` for the production URL) |
@@ -57,9 +58,11 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | Production dependency audit  | `npm run audit:ci`                                                                   |
 | Knowledge bundle checks      | `npm run check:knowledge` (frontmatter, links, paths)                                |
 | Unused-code gate (Knip)      | `npm run check:knip`                                                                 |
+| Layout and naming gate       | `npm run check:layout` (kebab-case names, `tests/<area>/`, `scripts/<role>/`)        |
 | sql.js payload provenance    | `npm run check:generated`                                                            |
 | EOL register gate            | `npm run check:eol` (every direct/toolchain component has a current lifecycle entry) |
 | Full SBOM (all toolchains)   | `npm run sbom:full` (CycloneDX; npm, Rust crates, toolchains, Actions)               |
+| Archive older changelog      | `npm run changelog:archive` (when a new minor series starts)                         |
 | Lockfile-only dep update     | `npm update --package-lock-only --ignore-scripts` (after editing `package.json`)     |
 
 Do not invent commands. If a needed command does not exist, stop and say so.
@@ -69,7 +72,7 @@ Do not invent commands. If a needed command does not exist, stop and say so.
 - Strict TypeScript, ES modules, 2-space indent; Prettier is authoritative for style.
 - Layering (see `knowledge/architecture/index.md`): `ui/ → app/ → core/ → infrastructure`.
   Dependencies flow **inward only**. `src/core/` must never import DOM or UI code.
-- Every state mutation goes through the typed command layer (`src/app/commands.ts`)
+- Every state mutation goes through the typed command layer (`src/app/commands/index.ts`)
   and `AppState`; one `HistoryEntry` per user-visible mutation (undoable, atomic).
 - Cell values render as **text, never HTML**. No `eval` / `new Function`.
 - All user-facing strings are localized in `src/locales/en.json` and `ja.json`;
@@ -99,7 +102,7 @@ Do not invent commands. If a needed command does not exist, stop and say so.
 ## Required verification before opening a PR
 
 Run and report, honestly, at minimum: `format:check`, `lint`, `build`, `test`,
-`check:dist`, `check:versions`, `check:knip`. Add `test:rust` (and `build:wasm`)
+`check:dist`, `check:versions`, `check:knip`, `check:layout`. Add `test:rust` (and `build:wasm`)
 when `wasm/` changes. Never claim a command passed if it was not executed; never
 hide a failure.
 

@@ -26,7 +26,7 @@ are deliberate, not accidental.
 
 All 55 functions, grouped as they appear in the offline help
 (**Help > Formula and Function Help**). `[square brackets]` mark optional
-arguments. `src/core/formula-functions.ts`'s `FUNCTION_DEFS` is the single
+arguments. `src/core/formula/functions/index.ts`'s `FUNCTION_DEFS` is the single
 shared source of truth for this list, the autocomplete metadata, and the
 evaluator, so documented functions cannot drift from implemented ones — a
 test enforces this.
@@ -76,7 +76,7 @@ A criterion is a value, or text beginning with a comparison operator:
 - Every criteria range in one call must have the same shape; a mismatch is
   `#VALUE!` rather than a silently misaligned scan.
 - Matching never compiles a regular expression. The wildcard matcher
-  (`src/core/formula-criteria.ts`) is a hand-written, bounded scan whose
+  (`src/core/formula/criteria.ts`) is a hand-written, bounded scan whose
   worst case is proportional to pattern length × subject length, so no
   criterion can trigger catastrophic backtracking — see
   [`../operations/security-threat-model.md`](../operations/security-threat-model.md).

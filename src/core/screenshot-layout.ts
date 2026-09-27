@@ -11,8 +11,13 @@
  * rather than computed here.
  */
 import { copyRows, type CellRange } from './clipboard';
-import { borderSideValue, resolveSharedBorder, type BorderSideValue, type CellStyle } from './cell-style';
-import type { ConditionalFormatStyle } from './conditional-format';
+import {
+  borderSideValue,
+  resolveSharedBorder,
+  type BorderSideValue,
+  type CellStyle,
+} from './workbook/cell-style';
+import type { ConditionalFormatStyle } from './workbook/conditional-format';
 
 /** A cell's fully resolved visual appearance, ready to paint. */
 export interface CellVisualStyle {

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../../core/editor-document';
 import { computeDiff, DiffError, type DiffOptions, type DiffResult } from '../../core/diff-engine';
-import type { Tab } from '../app-state';
-import type { AppState } from '../app-state';
+import type { Tab } from '../state';
+import type { AppState } from '../state';
 import { SqlCommands } from './sql';
 
 /** One other open tab the active tab could be compared against. */
@@ -16,7 +17,7 @@ export type DiffRunOutcome = { ok: true; result: DiffResult } | { ok: false; err
  * Local, read-only two-tab compare: pick a baseline tab and a current tab
  * (both already open), pick key column(s), and classify every row as
  * added/modified/deleted/unchanged/key_invalid. See `src/core/diff-engine.ts`
- * for the engine and docs/csv-diff-review-proposal.md for the product scope
+ * for the engine and docs/proposals/csv-diff-review.md for the product scope
  * this first slice deliberately stays within (no rule engine, templates,
  * approvals, or audit export yet).
  *
@@ -69,6 +70,6 @@ export class DiffCommands {
   }
 
   private defaultSourceId(tab: Tab): string {
-    return tab.doc.kind === 'rsf' ? tab.doc.activeSheetId : 'csv';
+    return isWorkbook(tab.doc) ? tab.doc.activeSheetId : 'csv';
   }
 }

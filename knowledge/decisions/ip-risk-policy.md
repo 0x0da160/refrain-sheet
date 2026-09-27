@@ -4,6 +4,7 @@ title: Familiar operation, original expression — IP risk policy
 description: How Refrain Sheet pursues an Excel-familiar feel while keeping its visual expression, assets, branding, and implementation its own, and when a UI change must be escalated for IP review (Japan-focused; canonical text in Japanese).
 sources:
   - resource: ../../site/template.html
+  - resource: ../../site/partials/faq.html
   - resource: ../../README.md
   - resource: ../../CLAUDE.md
 status: stable
@@ -72,9 +73,10 @@ because the policy targets publication in Japan and cites Japanese law.
   自プロジェクトの UI の部品として流用しない。
 - Excel の高度な機能群を網羅するのではなく、Refrain Sheet の用途に必要な機能を
   選ぶ。
-- 紹介ページ（`site/template.html`）は、Refrain Sheet を CSV の書式とバイト列の
-  保持に重点を置いたブラウザエディタとして説明し、「Excel の代わりではない」
-  「Excel 互換を保証しない」と明記している。また、メニュー優先の UI、IME への
+- 紹介ページ（`site/template.html` と `site/partials/`）は、Refrain Sheet を
+  「CSVを壊さず編集できる、軽い表計算ソフト」として説明し、よくある質問
+  （`site/partials/faq.html`）で「Excel の代わりではない」「Excel 互換を保証しない」
+  と明記している。また、メニュー優先の UI、IME への
   配慮、文字コード・区切り文字・改行コードの常時表示を製品の特徴としている。
 
 **重要な限界：** 非商用・無料・公益目的・OSS であることは、第三者の知的財産権を
@@ -272,5 +274,5 @@ UI を変更するときは、Issue または PR に少なくとも次の各項�
   素材の扱い。 <https://www.microsoft.com/en-us/legal/intellectualproperty/permissions>
 - 〔R9〕INPIT「J-PlatPat」— 国内の特許・意匠・商標の検索。
   <https://www.j-platpat.inpit.go.jp/>
-- プロジェクト内の紹介ページ：`site/template.html`（Excel との関係の説明、比較表、
-  FAQ）。
+- プロジェクト内の紹介ページ：`site/template.html` と `site/partials/`（Excel との
+  関係は FAQ で説明）。

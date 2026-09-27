@@ -23,7 +23,7 @@
  */
 
 import type { GridLookLayer } from '../core/grid-look';
-import { RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../core/rsf-codec';
+import { RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../core/workbook/rsf-codec';
 import type { SheetFontId } from './sheet-font';
 import { safeStorageGet, safeStorageRemove, safeStorageSet } from './storage';
 

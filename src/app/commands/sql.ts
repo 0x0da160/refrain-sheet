@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isWorkbook } from '../../core/editor-document';
 import {
   initSqlEngine,
   runSqlQuery,
@@ -7,7 +8,7 @@ import {
   type SqlQueryResult,
   type SqlTable,
 } from '../../core/sql-engine';
-import type { Tab } from '../app-state';
+import type { Tab } from '../state';
 
 /** One selectable SQL data source: a worksheet of the active RSF workbook, or the whole CSV tab. */
 export interface SqlSource {
@@ -26,7 +27,7 @@ export type SqlRunOutcome = { ok: true; result: SqlQueryResult } | { ok: false; 
 export class SqlCommands {
   /** Data sources selectable for a tab: one per worksheet for an RSF workbook, or the tab itself for a plain CSV. */
   listSources(tab: Tab): SqlSource[] {
-    if (tab.doc.kind === 'rsf') {
+    if (isWorkbook(tab.doc)) {
       return tab.doc.sheets.map((sheet) => ({ id: sheet.id, name: sheet.name }));
     }
     return [{ id: 'csv', name: tab.name }];
@@ -41,7 +42,7 @@ export class SqlCommands {
   readTable(tab: Tab, sourceId: string): SqlTable {
     const doc = tab.doc;
     const cap = SQL_MAX_SOURCE_ROWS + 1;
-    if (doc.kind === 'rsf') {
+    if (isWorkbook(doc)) {
       const sheet = doc.sheetById(sourceId) ?? doc.activeSheet;
       // A worksheet's rowCount/columnCount is its fully allocated grid (e.g.
       // 100x26 for a new sheet), not its content — trim to the used range so

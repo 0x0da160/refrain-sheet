@@ -5,7 +5,7 @@ name: WASM core
 # before this workflow a pull request touching wasm/ merged without
 # `npm run test:rust` ever running on it.
 #
-# The rebuild step is the provenance check for src/wasm-gen/: with the toolchain
+# The rebuild step is the provenance check for src/generated/: with the toolchain
 # pinned by rust-toolchain.toml plus the exact wasm-pack and wasm-bindgen-cli
 # binaries below, `npm run build:wasm` is deterministic, so the committed
 # payload, JS glue, and .d.ts must match a fresh build exactly. A wasm/src
@@ -16,18 +16,18 @@ on:
   pull_request:
     paths:
       - 'wasm/**'
-      - 'src/wasm-gen/refrain_csv_core.*'
-      - 'src/wasm-gen/wasm-payload.ts'
-      - 'scripts/embed-wasm.mjs'
+      - 'src/generated/refrain_csv_core.*'
+      - 'src/generated/wasm-payload.ts'
+      - 'scripts/build/embed-wasm.mjs'
       - 'rust-toolchain.toml'
       - '.github/workflows/wasm.yml'
   push:
     branches: [main]
     paths:
       - 'wasm/**'
-      - 'src/wasm-gen/refrain_csv_core.*'
-      - 'src/wasm-gen/wasm-payload.ts'
-      - 'scripts/embed-wasm.mjs'
+      - 'src/generated/refrain_csv_core.*'
+      - 'src/generated/wasm-payload.ts'
+      - 'scripts/build/embed-wasm.mjs'
       - 'rust-toolchain.toml'
       - '.github/workflows/wasm.yml'
   workflow_dispatch:
@@ -113,14 +113,14 @@ jobs:
 
       - name: The committed payload matches the rebuild
         run: |
-          if ! git diff --quiet -- src/wasm-gen/; then
-            echo "::error::src/wasm-gen/ differs from a fresh 'npm run build:wasm' with the pinned toolchain. Rebuild it (Docker: 'docker compose run --rm app npm run build:wasm') and commit the result." >&2
-            git diff --stat -- src/wasm-gen/ >&2
+          if ! git diff --quiet -- src/generated/; then
+            echo "::error::src/generated/ differs from a fresh 'npm run build:wasm' with the pinned toolchain. Rebuild it (Docker: 'docker compose run --rm app npm run build:wasm') and commit the result." >&2
+            git diff --stat -- src/generated/ >&2
             exit 1
           fi
-          echo "src/wasm-gen/ is byte-identical to a fresh build."
+          echo "src/generated/ is byte-identical to a fresh build."
 
       # The rebuilt payload drives the JS side too: the frozen .rsf fixtures pin
       # the codecs' compressed output byte-for-byte.
       - name: RSF fixtures and WASM engine tests
-        run: npx vitest run tests/rsf-fixtures.test.ts tests/wasm-engine.test.ts tests/rsf-codec.test.ts
+        run: npx vitest run tests/core/rsf-fixtures.test.ts tests/core/wasm-engine.test.ts tests/core/rsf-codec.test.ts

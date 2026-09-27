@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
-import { encodeCsvExport } from '../../core/csv-export';
+import { isCsv, isWorkbook, type EditorDocument } from '../../core/editor-document';
+import { encodeCsvExport } from '../../core/interchange/csv-export';
 import { adjustFormulaForAxis, isFormula, sheetNameKey, shiftFormulaRefs } from '../../core/formula';
-import type { CellChange, HistoryEntry, Operation } from '../../core/history';
-import { LosslessDocument } from '../../core/lossless-document';
-import { RsfDocument, RSF_EXTENSION } from '../../core/rsf-document';
-import type { FreezePanes } from '../../core/worksheet';
-import type { AppState, EditorDocument, Selection, Tab } from '../app-state';
+import type { CellChange, HistoryEntry, Operation } from '../../core/workbook/history';
+import { LosslessDocument } from '../../core/csv/lossless-document';
+import { RsfDocument, RSF_EXTENSION } from '../../core/workbook/rsf-document';
+import type { FreezePanes } from '../../core/workbook/worksheet';
+import type { AppState } from './index';
+import type { Selection, Tab } from './types';
 import { defaultSheetName, STICKY_COL_KEY, STICKY_KEY } from './defaults';
 import { getLocale, t } from '../i18n';
 import { clampSheetZoom, setSheetZoom, setWrapCellsPreference } from '../settings';
@@ -39,7 +41,7 @@ export class StructuralOpsState {
    */
   insertRows(tab: Tab, index: number, count: number): boolean {
     const doc = tab.doc;
-    if (doc.kind === 'csv') {
+    if (isCsv(doc)) {
       if (!tab.neverSaved || count < 1) {
         return false;
       }
@@ -48,7 +50,7 @@ export class StructuralOpsState {
       rows.splice(index, 0, ...Array.from({ length: count }, blankRow));
       return this.pushCsvStructure(tab, doc, rows, 'history.insertRows');
     }
-    if (doc.kind !== 'rsf' || count < 1) {
+    if (!isWorkbook(doc) || count < 1) {
       return false;
     }
     const rewrites = this.formulaRewrites(doc, 'row', 'insert', index, count);
@@ -76,7 +78,7 @@ export class StructuralOpsState {
   /** Delete rows (never all of them). Referencing formulas get #REF! or clamped ranges. */
   deleteRows(tab: Tab, index: number, count: number): boolean {
     const doc = tab.doc;
-    if (doc.kind === 'csv') {
+    if (isCsv(doc)) {
       if (
         !tab.neverSaved ||
         count < 1 ||
@@ -90,7 +92,7 @@ export class StructuralOpsState {
       rows.splice(index, count);
       return this.pushCsvStructure(tab, doc, rows, 'history.deleteRows');
     }
-    if (doc.kind !== 'rsf' || count < 1 || index < 0 || index + count > doc.rowCount) {
+    if (!isWorkbook(doc) || count < 1 || index < 0 || index + count > doc.rowCount) {
       return false;
     }
     if (count >= doc.rowCount) {
@@ -121,7 +123,7 @@ export class StructuralOpsState {
 
   insertCols(tab: Tab, index: number, count: number): boolean {
     const doc = tab.doc;
-    if (doc.kind === 'csv') {
+    if (isCsv(doc)) {
       if (!tab.neverSaved || count < 1) {
         return false;
       }
@@ -131,7 +133,7 @@ export class StructuralOpsState {
       }
       return this.pushCsvStructure(tab, doc, rows, 'history.insertCols');
     }
-    if (doc.kind !== 'rsf' || count < 1) {
+    if (!isWorkbook(doc) || count < 1) {
       return false;
     }
     const rewrites = this.formulaRewrites(doc, 'col', 'insert', index, count);
@@ -158,7 +160,7 @@ export class StructuralOpsState {
 
   deleteCols(tab: Tab, index: number, count: number): boolean {
     const doc = tab.doc;
-    if (doc.kind === 'csv') {
+    if (isCsv(doc)) {
       if (
         !tab.neverSaved ||
         count < 1 ||
@@ -174,7 +176,7 @@ export class StructuralOpsState {
       }
       return this.pushCsvStructure(tab, doc, rows, 'history.deleteCols');
     }
-    if (doc.kind !== 'rsf' || count < 1 || index < 0 || index + count > doc.columnCount) {
+    if (!isWorkbook(doc) || count < 1 || index < 0 || index + count > doc.columnCount) {
       return false;
     }
     if (count >= doc.columnCount) {
@@ -219,7 +221,7 @@ export class StructuralOpsState {
     origin: Selection | null,
   ): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || matrix.length === 0 || matrix[0].length === 0) {
+    if (!isWorkbook(doc) || matrix.length === 0 || matrix[0].length === 0) {
       return false;
     }
     const height = matrix.length;
@@ -360,8 +362,8 @@ export class StructuralOpsState {
    * original file on disk stays untouched).
    */
   convertToRsf(tab: Tab, prebuilt?: RsfDocument): RsfDocument | null {
-    if (tab.doc.kind !== 'csv') {
-      return tab.doc.kind === 'rsf' ? (tab.doc as RsfDocument) : null;
+    if (!isCsv(tab.doc)) {
+      return isWorkbook(tab.doc) ? (tab.doc as RsfDocument) : null;
     }
     const base = tab.name.replace(/\.(csv|tsv|txt)$/i, '');
     const name = `${base}${RSF_EXTENSION}`;
@@ -388,7 +390,7 @@ export class StructuralOpsState {
    * or null when the tab is not a CSV.
    */
   convertToRsfNewTab(tab: Tab, prebuilt?: RsfDocument): RsfDocument | null {
-    if (tab.doc.kind !== 'csv') {
+    if (!isCsv(tab.doc)) {
       return null;
     }
     const base = tab.name.replace(/\.(csv|tsv|txt)$/i, '');
@@ -413,7 +415,7 @@ export class StructuralOpsState {
 
   /** Mark an RSF tab saved (its in-memory document is the baseline). */
   markTabSaved(tab: Tab): void {
-    if (tab.doc.kind === 'rsf') {
+    if (isWorkbook(tab.doc)) {
       tab.doc.markSaved();
       tab.history.clear();
       this.state.emit('doc');
@@ -444,7 +446,7 @@ export class StructuralOpsState {
    * recorded `wrap` operation.
    */
   applyWrap(tab: Tab, wrap: boolean, sheetId?: string): void {
-    if (tab.doc.kind === 'rsf') {
+    if (isWorkbook(tab.doc)) {
       tab.doc.setDisplayWrapOn(sheetId, wrap);
       // Only the *active* worksheet's state is what the grid renders.
       if (sheetId === undefined || sheetId === tab.doc.activeSheetId) {
@@ -501,7 +503,7 @@ export class StructuralOpsState {
     const doc = tab.doc;
     // Markdown/JSON/YAML/text worksheets are edited as documents, not cells:
     // their line breaks are content and "Wrap Long Rows" means nothing there.
-    if (doc.kind === 'rsf' && sheetId !== undefined && doc.sheetById(sheetId)?.kind !== 'grid') {
+    if (isWorkbook(doc) && sheetId !== undefined && doc.sheetById(sheetId)?.kind !== 'grid') {
       return null;
     }
     let formulasScanned = 0;
@@ -523,7 +525,7 @@ export class StructuralOpsState {
       }
       formulasScanned += 1;
       const shown =
-        doc.kind === 'rsf' && sheetId !== undefined
+        isWorkbook(doc) && sheetId !== undefined
           ? doc.getSheetDisplayValue(sheetId, change.row, change.col)
           : doc.getDisplayValue(change.row, change.col);
       if (shown.includes('\n')) {
@@ -565,7 +567,7 @@ export class StructuralOpsState {
   setTabZoom(tab: Tab, zoom: number): void {
     const z = clampSheetZoom(zoom);
     setSheetZoom(z);
-    if (tab.doc.kind === 'rsf') {
+    if (isWorkbook(tab.doc)) {
       tab.doc.displayZoom = z;
     }
     if (tab.zoom !== z) {

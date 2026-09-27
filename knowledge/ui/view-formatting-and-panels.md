@@ -6,6 +6,7 @@ sources:
   - resource: ../../README.md
   - resource: ../../CHANGELOG.md
   - resource: ../../src/ui/dialogs/shared.ts
+  - resource: ../../src/ui/dialogs/side-panel.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -125,7 +126,7 @@ Filter, Sort, Data Validation, Conditional Formatting/Cell Formatting, SQL
 Query, the Comments panel, the Find and Replace panel, and the docked
 Markdown/JSON/YAML worksheet
 preview all share one **dockable, resizable side panel** shell
-(`openSidePanel` / `buildSidePanelChrome` in `src/ui/dialogs/shared.ts`)
+(`openSidePanel` / `buildSidePanelChrome` in `src/ui/dialogs/side-panel.ts`)
 instead of separate popup layouts:
 
 - **One title bar.** `buildSidePanelChrome` builds every panel's header:
@@ -162,7 +163,7 @@ instead of separate popup layouts:
   opened panel starts expanded, and changing the dock side, size, or
   maximize state from any panel moves the whole dock. The dock's space
   stays reserved until the last panel closes (#598). The bookkeeping is
-  `openSidePanels` in `src/ui/dialogs/shared.ts`: a panel joins through
+  `openSidePanels` in `src/ui/dialogs/side-panel.ts`: a panel joins through
   `applySidePanelPosition` and leaves through `releaseSidePanel`.
 - **Persistence within a session.** The most recently chosen dock position
   and size are remembered for the next panel opened in the same session

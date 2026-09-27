@@ -1,0 +1,202 @@
+// SPDX-License-Identifier: MIT
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AppState } from '../../src/app/state';
+import { Commands, type UiPort } from '../../src/app/commands';
+import { t } from '../../src/app/i18n';
+import { APP_VERSION_DISPLAY } from '../../src/app/version';
+import { FormulaBar } from '../../src/ui/formula-bar';
+import { StatusBar } from '../../src/ui/status-bar';
+import { WelcomeScreen } from '../../src/ui/welcome-screen';
+import { doc } from '../helpers';
+
+function stubUi(overrides: Partial<UiPort> = {}): UiPort {
+  return {
+    confirmValidation: vi.fn(async () => true),
+    confirmUnsaved: vi.fn(async () => 'discard' as const),
+    confirmChangedOnDisk: vi.fn(async () => 'overwrite' as const),
+    chooseSaveOptions: vi.fn(async () => null),
+    promptDriveName: async () => null,
+    confirmUnrepresentable: vi.fn(async () => false),
+    notifyNcr: vi.fn(async () => undefined),
+    confirmUndecodableEdit: vi.fn(async () => true),
+    chooseReopen: vi.fn(async () => null),
+    confirmConvert: vi.fn(async () => true),
+    explainRsfSave: vi.fn(async () => true),
+    chooseExportCsv: vi.fn(async () => null),
+    confirmExportXlsx: vi.fn(async () => true),
+    confirmExportJson: vi.fn(async () => true),
+    chooseInsertShift: vi.fn(async () => null),
+    confirmFlashFill: vi.fn(async () => false),
+    chooseFilter: vi.fn(async () => null),
+    chooseColumnMenu: vi.fn(async () => null),
+    chooseSort: vi.fn(async () => null),
+    chooseDataValidation: vi.fn(async () => null),
+    chooseConditionalFormat: vi.fn(async () => null),
+    chooseCellComment: vi.fn(async () => null),
+    promptSheetName: vi.fn(async () => null),
+    confirmDeleteSheet: vi.fn(async () => true),
+    chooseExportSheet: vi.fn(async () => null),
+    confirmReplaceAllWorkbook: vi.fn(async () => true),
+    confirmRangeMoveOverwrite: vi.fn(async () => true),
+    promptMoveTarget: vi.fn(async () => null),
+    promptGoToCell: vi.fn(async () => null),
+    confirm: vi.fn(async () => true),
+    showMessage: vi.fn(async () => undefined),
+    notify: vi.fn(),
+    openFindBar: vi.fn(),
+    findNext: vi.fn(),
+    showAbout: vi.fn(),
+    showFormulaHelp: vi.fn(),
+    showSqlQuery: vi.fn(async () => undefined),
+    showDiff: vi.fn(async () => undefined),
+    chooseSettings: vi.fn(async () => null),
+    chooseTimezone: vi.fn(async () => null),
+    chooseDisplayLanguage: vi.fn(async () => null),
+    chooseVersionHistory: vi.fn(async () => null),
+    confirmHistoryCapExceeded: vi.fn(async () => true),
+    chooseTextColor: vi.fn(async () => null),
+    chooseBackgroundColor: vi.fn(async () => null),
+    chooseBorders: vi.fn(async () => null),
+    chooseNumberFormat: vi.fn(async () => null),
+    chooseRecentFile: vi.fn(async () => null),
+    setBusy: vi.fn(),
+    ...overrides,
+  };
+}
+
+/** Mirror main.ts's wiring: the welcome screen shows exactly when no tab is open. */
+function setup(overrides: Partial<UiPort> = {}) {
+  const ui = stubUi(overrides);
+  const state = new AppState();
+  const commands = new Commands(state, ui, document);
+  const welcome = new WelcomeScreen(commands);
+  document.body.append(welcome.element);
+  const refresh = () => welcome.refresh(state.tabs.length === 0);
+  state.subscribe(refresh);
+  refresh();
+  return { ui, state, commands, welcome };
+}
+
+beforeEach(() => {
+  document.body.textContent = '';
+});
+
+describe('welcome screen (initial screen)', () => {
+  it('is shown on first launch with localized entry points', () => {
+    const { welcome } = setup();
+    expect(welcome.element.hidden).toBe(false);
+    const buttons = welcome.element.querySelectorAll<HTMLButtonElement>('.welcome-action');
+    expect(buttons).toHaveLength(3);
+    expect(buttons[0].textContent).toBe(t('welcome.open'));
+    expect(buttons[1].textContent).toBe(t('welcome.new'));
+    expect(buttons[2].textContent).toBe(t('welcome.newCsv'));
+    expect(welcome.element.querySelector('.welcome-drop')!.textContent).toBe(t('welcome.drop'));
+    // The offline/network-behavior description moved to Help ▸ About (#520).
+    expect(welcome.element.querySelector('.welcome-note')).toBeNull();
+  });
+
+  it('the New Spreadsheet entry point creates a document and hides the screen', () => {
+    const { state, welcome } = setup();
+    welcome.element.querySelectorAll<HTMLButtonElement>('.welcome-action')[1].click();
+    expect(state.tabs).toHaveLength(1);
+    expect(state.tabs[0].doc.kind).toBe('rsf');
+    expect(welcome.element.hidden).toBe(true);
+  });
+
+  it('the New CSV entry point creates a blank, editable CSV document and hides the screen (#396)', () => {
+    const { state, welcome } = setup();
+    welcome.element.querySelectorAll<HTMLButtonElement>('.welcome-action')[2].click();
+    expect(state.tabs).toHaveLength(1);
+    const tab = state.tabs[0];
+    expect(tab.doc.kind).toBe('csv');
+    expect(tab.name.endsWith('.csv')).toBe(true);
+    // A single blank row/column, not zero rows — otherwise the grid has no
+    // selectable cell to start typing into (see Grid.refresh's empty state).
+    expect(tab.doc.rowCount).toBe(1);
+    expect(welcome.element.hidden).toBe(true);
+  });
+
+  it('returns after the last clean tab is closed', async () => {
+    const { state, commands, welcome } = setup();
+    const tab = state.addTab('a.csv', doc('x,y\n'), null);
+    expect(welcome.element.hidden).toBe(true);
+    await commands.closeTab(tab);
+    expect(state.tabs).toHaveLength(0);
+    expect(welcome.element.hidden).toBe(false);
+  });
+
+  it('does not return while other tabs remain open', async () => {
+    const { state, commands, welcome } = setup();
+    const first = state.addTab('a.csv', doc('x\n'), null);
+    state.addTab('b.csv', doc('y\n'), null);
+    await commands.closeTab(first);
+    expect(state.tabs).toHaveLength(1);
+    expect(welcome.element.hidden).toBe(true);
+  });
+
+  it('closing the final dirty tab after Save completes the save first, then returns', async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:fake') as unknown as typeof URL.createObjectURL;
+    const confirmUnsaved = vi.fn(async () => 'save' as const);
+    const { state, commands, welcome } = setup({ confirmUnsaved });
+    const tab = state.addTab('a.csv', doc('a,b\n'), null);
+    state.editCell(tab, 0, 0, 'edited');
+    expect(tab.doc.isDirty).toBe(true);
+    await commands.closeTab(tab);
+    expect(confirmUnsaved).toHaveBeenCalled();
+    expect(URL.createObjectURL).toHaveBeenCalled(); // the save actually ran
+    expect(state.tabs).toHaveLength(0);
+    expect(welcome.element.hidden).toBe(false);
+  });
+
+  it('closing the final dirty tab after Discard returns without saving', async () => {
+    const confirmUnsaved = vi.fn(async () => 'discard' as const);
+    const { state, commands, welcome } = setup({ confirmUnsaved });
+    const tab = state.addTab('a.csv', doc('a,b\n'), null);
+    state.editCell(tab, 0, 0, 'edited');
+    await commands.closeTab(tab);
+    expect(state.tabs).toHaveLength(0);
+    expect(welcome.element.hidden).toBe(false);
+  });
+
+  it('cancelling the close keeps the tab open and the welcome screen hidden', async () => {
+    const confirmUnsaved = vi.fn(async () => 'cancel' as const);
+    const { state, commands, welcome } = setup({ confirmUnsaved });
+    const tab = state.addTab('a.csv', doc('a,b\n'), null);
+    state.editCell(tab, 0, 0, 'edited');
+    await commands.closeTab(tab);
+    expect(state.tabs).toHaveLength(1);
+    expect(tab.doc.getValue(0, 0)).toBe('edited');
+    expect(welcome.element.hidden).toBe(true);
+  });
+
+  it('document-specific UI state is cleared when the last tab closes', async () => {
+    const { state, commands } = setup();
+    const statusBar = new StatusBar(
+      state,
+      () => undefined,
+      () => undefined,
+    );
+    const formulaBar = new FormulaBar(state, commands, () => undefined);
+    state.subscribe(() => {
+      statusBar.render();
+      formulaBar.refresh(true);
+    });
+    const tab = state.addTab('a.csv', doc('hello,world\n'), null);
+    statusBar.render();
+    formulaBar.refresh(true);
+    // Document-specific info is present while the tab is open.
+    expect(statusBar.element.textContent).toContain(t('status.encoding'));
+    await commands.closeTab(tab);
+    // No encoding/selection/dirty info remains; only the app version — both
+    // the full ("Version v1.2.3") and short ("v1.2.3") variants are always
+    // in the DOM, CSS picks one per breakpoint (#478).
+    expect(statusBar.element.querySelector('.status-version-full')!.textContent).toBe(
+      t('dialog.about.version', { version: APP_VERSION_DISPLAY }),
+    );
+    expect(statusBar.element.querySelector('.status-version-short')!.textContent).toBe(APP_VERSION_DISPLAY);
+    const textarea = formulaBar.element.querySelector('textarea')!;
+    expect(textarea.value).toBe('');
+    expect(textarea.disabled).toBe(true);
+  });
+});

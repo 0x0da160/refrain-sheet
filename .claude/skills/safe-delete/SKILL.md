@@ -62,7 +62,7 @@ exists to prevent.
    should not for an S0 item).
 5. Run `npm run check:knip` and confirm it passes: the expected finding is
    gone and nothing new appeared. If the item was on
-   `scripts/check-knip.mjs`'s `DEFERRED` list, remove it there, and move it
+   `scripts/check/knip.mjs`'s `DEFERRED` list, remove it there, and move it
    to the "Resolved" list in `docs/knip-baseline.md`.
 6. Commit with a message stating the hypothesis, the evidence (summarized),
    and the verification result. Open a PR whose body includes the same,

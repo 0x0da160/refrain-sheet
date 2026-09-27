@@ -28,7 +28,7 @@ permissions, triggers, or secrets is high-risk: get human approval first.**
   in one action invocation.
 - **Merges and deploys stay human.** No workflow merges; Pages deploys only
   from the tag-triggered `release.yml`.
-- `tests/release-workflow.test.ts` and `tests/release-staged-files.test.ts`
+- `tests/tooling/release-workflow.test.ts` and `tests/tooling/release-staged-files.test.ts`
   assert release invariants. See
   `knowledge/agent-loop/configuration-and-permissions.md` and
   `knowledge/operations/security-supply-chain.md`.

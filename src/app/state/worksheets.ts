@@ -1,17 +1,31 @@
 // SPDX-License-Identifier: MIT
-import { conditionalFormatRangesEqual, type CellConditionalFormat } from '../../core/conditional-format';
-import { findValidation, validationRangesEqual, type CellValidation } from '../../core/data-validation';
-import { computeHiddenRows, filtersEqual, type SheetFilter } from '../../core/filter';
+import { activeSheetOf, isWorkbook, workbookOf } from '../../core/editor-document';
+import {
+  conditionalFormatRangesEqual,
+  type CellConditionalFormat,
+} from '../../core/workbook/conditional-format';
+import {
+  findValidation,
+  validationRangesEqual,
+  type CellValidation,
+} from '../../core/workbook/data-validation';
+import { computeHiddenRows, filtersEqual, type SheetFilter } from '../../core/workbook/filter';
 import {
   formulaReferencesSheet,
   invalidateSheetRefsInFormula,
   renameSheetInFormula,
 } from '../../core/formula';
-import type { CellChange, HistoryEntry, Operation } from '../../core/history';
-import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, type RsfDocument } from '../../core/rsf-document';
-import { computeSortOrder, sortsEqual, type SheetSort } from '../../core/sort';
-import type { Worksheet } from '../../core/worksheet';
-import type { AppState, Tab } from '../app-state';
+import type { CellChange, HistoryEntry, Operation } from '../../core/workbook/history';
+import {
+  MAX_WORKSHEETS,
+  NEW_DOC_COLS,
+  NEW_DOC_ROWS,
+  type RsfDocument,
+} from '../../core/workbook/rsf-document';
+import { computeSortOrder, sortsEqual, type SheetSort } from '../../core/workbook/sort';
+import type { Worksheet } from '../../core/workbook/worksheet';
+import type { AppState } from './index';
+import type { Tab } from './types';
 import { decidedBySheet, resolveWrap, resolveZoom } from './view-layers';
 
 /**
@@ -47,7 +61,7 @@ export class WorksheetsState {
    */
   hiddenRows(tab: Tab): Set<number> | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.filter === null) {
+    if (!isWorkbook(doc) || doc.filter === null) {
       return null;
     }
     let hidden = this.hiddenRowsCache.get(doc.filter);
@@ -75,7 +89,7 @@ export class WorksheetsState {
    */
   setFilter(tab: Tab, filter: SheetFilter | null): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || filtersEqual(doc.filter, filter)) {
+    if (!isWorkbook(doc) || filtersEqual(doc.filter, filter)) {
       return false;
     }
     const entry: HistoryEntry = {
@@ -119,7 +133,7 @@ export class WorksheetsState {
    */
   sortOrder(tab: Tab): number[] | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sort === null) {
+    if (!isWorkbook(doc) || doc.sort === null) {
       return null;
     }
     let order = this.sortOrderCache.get(doc.sort);
@@ -159,7 +173,7 @@ export class WorksheetsState {
    */
   sortSlot(tab: Tab, row: number): number {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sort === null) {
+    if (!isWorkbook(doc) || doc.sort === null) {
       return row;
     }
     const sort = doc.sort;
@@ -184,7 +198,7 @@ export class WorksheetsState {
    */
   setSort(tab: Tab, sort: SheetSort | null): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || sortsEqual(doc.activeSheet.sort, sort)) {
+    if (!isWorkbook(doc) || sortsEqual(doc.activeSheet.sort, sort)) {
       return false;
     }
     doc.activeSheet.sort = sort;
@@ -200,11 +214,10 @@ export class WorksheetsState {
    * their own rule at once.
    */
   setValidation(tab: Tab, validation: CellValidation): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    const sheet = activeSheetOf(tab.doc);
+    if (!sheet) {
       return false;
     }
-    const sheet = doc.activeSheet;
     const next = sheet.validations.filter((v) => !validationRangesEqual(v, validation));
     next.push(validation);
     sheet.validations = next;
@@ -214,11 +227,10 @@ export class WorksheetsState {
 
   /** Clear the data-validation rule covering exactly `range`, if one exists. */
   clearValidation(tab: Tab, range: Pick<CellValidation, 'top' | 'left' | 'bottom' | 'right'>): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    const sheet = activeSheetOf(tab.doc);
+    if (!sheet) {
       return false;
     }
-    const sheet = doc.activeSheet;
     const next = sheet.validations.filter((v) => !validationRangesEqual(v, range));
     if (next.length === sheet.validations.length) {
       return false;
@@ -234,7 +246,7 @@ export class WorksheetsState {
     range: Pick<CellValidation, 'top' | 'left' | 'bottom' | 'right'>,
   ): CellValidation | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return null;
     }
     return doc.activeSheet.validations.find((v) => validationRangesEqual(v, range)) ?? null;
@@ -243,7 +255,7 @@ export class WorksheetsState {
   /** The rule applying to one cell on the active worksheet, or null. */
   validationAt(tab: Tab, row: number, col: number): CellValidation | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return null;
     }
     return findValidation(doc.activeSheet.validations, row, col);
@@ -255,11 +267,10 @@ export class WorksheetsState {
    * to the container — see {@link Worksheet.conditionalFormats}.
    */
   setConditionalFormat(tab: Tab, format: CellConditionalFormat): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    const sheet = activeSheetOf(tab.doc);
+    if (!sheet) {
       return false;
     }
-    const sheet = doc.activeSheet;
     const next = sheet.conditionalFormats.filter((cf) => !conditionalFormatRangesEqual(cf, format));
     next.push(format);
     sheet.conditionalFormats = next;
@@ -272,11 +283,10 @@ export class WorksheetsState {
     tab: Tab,
     range: Pick<CellConditionalFormat, 'top' | 'left' | 'bottom' | 'right'>,
   ): boolean {
-    const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    const sheet = activeSheetOf(tab.doc);
+    if (!sheet) {
       return false;
     }
-    const sheet = doc.activeSheet;
     const next = sheet.conditionalFormats.filter((cf) => !conditionalFormatRangesEqual(cf, range));
     if (next.length === sheet.conditionalFormats.length) {
       return false;
@@ -292,7 +302,7 @@ export class WorksheetsState {
     range: Pick<CellConditionalFormat, 'top' | 'left' | 'bottom' | 'right'>,
   ): CellConditionalFormat | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return null;
     }
     return doc.activeSheet.conditionalFormats.find((cf) => conditionalFormatRangesEqual(cf, range)) ?? null;
@@ -301,7 +311,7 @@ export class WorksheetsState {
   /** The comment on one cell of the active worksheet, or null. */
   commentAt(tab: Tab, row: number, col: number): string | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return null;
     }
     return doc.activeSheet.getComment(row, col);
@@ -310,7 +320,7 @@ export class WorksheetsState {
   /** The active tab's workbook, or null when it is not an RSF document. */
   activeWorkbook(): RsfDocument | null {
     const tab = this.state.activeTab;
-    return tab && tab.doc.kind === 'rsf' ? tab.doc : null;
+    return workbookOf(tab?.doc);
   }
 
   /**
@@ -381,7 +391,7 @@ export class WorksheetsState {
    */
   setActiveSheet(tab: Tab, sheetId: string): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.activeSheetId === sheetId || !doc.sheetById(sheetId)) {
+    if (!isWorkbook(doc) || doc.activeSheetId === sheetId || !doc.sheetById(sheetId)) {
       return false;
     }
     this.activateSheet(tab, doc, sheetId);
@@ -401,7 +411,7 @@ export class WorksheetsState {
    */
   setSheetLocked(tab: Tab, sheetId: string, locked: boolean): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return false;
     }
     const sheet = doc.sheetById(sheetId);
@@ -420,7 +430,7 @@ export class WorksheetsState {
    */
   addSheet(tab: Tab, name: string): Worksheet | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sheetCount >= MAX_WORKSHEETS) {
+    if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
       return null;
     }
     const sheet = doc.createWorksheet(name, NEW_DOC_ROWS, NEW_DOC_COLS);
@@ -450,7 +460,7 @@ export class WorksheetsState {
    */
   addMarkdownSheet(tab: Tab, name: string): Worksheet | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sheetCount >= MAX_WORKSHEETS) {
+    if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
       return null;
     }
     const sheet = doc.createMarkdownWorksheet(name);
@@ -476,7 +486,7 @@ export class WorksheetsState {
    */
   addJsonSheet(tab: Tab, name: string): Worksheet | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sheetCount >= MAX_WORKSHEETS) {
+    if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
       return null;
     }
     const sheet = doc.createJsonWorksheet(name);
@@ -500,7 +510,7 @@ export class WorksheetsState {
    */
   addYamlSheet(tab: Tab, name: string): Worksheet | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sheetCount >= MAX_WORKSHEETS) {
+    if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
       return null;
     }
     const sheet = doc.createYamlWorksheet(name);
@@ -525,7 +535,7 @@ export class WorksheetsState {
    */
   addTextSheet(tab: Tab, name: string): Worksheet | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sheetCount >= MAX_WORKSHEETS) {
+    if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
       return null;
     }
     const sheet = doc.createTextWorksheet(name);
@@ -551,7 +561,7 @@ export class WorksheetsState {
    */
   duplicateSheet(tab: Tab, sourceId: string, name: string, prebuilt?: Worksheet): Worksheet | null {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sheetCount >= MAX_WORKSHEETS) {
+    if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
       return null;
     }
     // `prebuilt` comes from the time-sliced duplication of large worksheets
@@ -580,7 +590,7 @@ export class WorksheetsState {
    */
   renameSheet(tab: Tab, sheetId: string, name: string): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return false;
     }
     const sheet = doc.sheetById(sheetId);
@@ -618,7 +628,7 @@ export class WorksheetsState {
    */
   deleteSheet(tab: Tab, sheetId: string): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf' || doc.sheetCount <= 1) {
+    if (!isWorkbook(doc) || doc.sheetCount <= 1) {
       return false;
     }
     const index = doc.sheetIndex(sheetId);
@@ -656,7 +666,7 @@ export class WorksheetsState {
   /** Move a worksheet to a new position as one atomic, undoable operation. */
   moveSheet(tab: Tab, sheetId: string, toIndex: number): boolean {
     const doc = tab.doc;
-    if (doc.kind !== 'rsf') {
+    if (!isWorkbook(doc)) {
       return false;
     }
     const from = doc.sheetIndex(sheetId);

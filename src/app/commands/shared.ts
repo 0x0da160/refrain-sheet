@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
-import type { AppState, Tab } from '../app-state';
-import type { UiPort } from '../commands';
+import { isCsv, isWorkbook } from '../../core/editor-document';
+import type { AppState, Tab } from '../state';
+import type { NotifyPort } from '../ui-port';
+
+/** The file extension of a CSV document. */
+export const CSV_EXTENSION = '.csv';
 import { t } from '../i18n';
 
 /**
@@ -13,7 +17,7 @@ import { t } from '../i18n';
  * own context menu and double-click-to-fit).
  */
 export function isGridSurface(tab: Tab): boolean {
-  return tab.doc.kind === 'csv' || tab.doc.activeSheet.kind === 'grid';
+  return isCsv(tab.doc) || tab.doc.activeSheet.kind === 'grid';
 }
 
 /**
@@ -25,10 +29,11 @@ export type ProtectedScope = 'book' | 'sheet';
 /**
  * Shows a blocking warning dialog explaining that `tab` (or its active
  * worksheet, for `scope: 'sheet'`) is protected/locked, and offers to
- * unlock it. Interrupts the attempted edit either way — unlocking here
- * never retries whatever action was blocked, so the user tries again once
- * it is unlocked; that keeps this one small, reusable primitive rather than
- * threading "replay the original mutation" through every call site.
+ * unlock it. Resolves true when the user unlocked it, so the caller can go
+ * on with the edit that was blocked instead of making the user repeat it
+ * (`AppState.warnBlocked` passes a retry for that; `ensureRsf` continues).
+ * `sheetId` names the locked worksheet for `scope: 'sheet'` (default: the
+ * active one), so the sheet that refused the edit is the one unlocked.
  *
  * Two callers: `AppState`'s own `refuseReadOnlyWrite`/`refuseLockedSheetWrite`
  * guards (wired through `AppState.warnBlocked`, since `AppState` holds no
@@ -39,13 +44,15 @@ export type ProtectedScope = 'book' | 'sheet';
  * access and calls this the same way.
  */
 export async function warnProtectedAndOfferUnlock(
-  ui: UiPort,
+  ui: NotifyPort,
   state: AppState,
   tab: Tab,
   scope: ProtectedScope,
-): Promise<void> {
+  sheetId?: string,
+): Promise<boolean> {
   const doc = tab.doc;
-  const sheetName = doc.kind === 'rsf' ? doc.activeSheet.name : '';
+  const lockedId = isWorkbook(doc) ? (sheetId ?? doc.activeSheetId) : '';
+  const sheetName = isWorkbook(doc) ? (doc.sheetById(lockedId)?.name ?? doc.activeSheet.name) : '';
   const title = scope === 'book' ? t('dialog.warnProtected.bookTitle') : t('dialog.warnProtected.sheetTitle');
   const message =
     scope === 'book'
@@ -58,13 +65,14 @@ export async function warnProtectedAndOfferUnlock(
     t('dialog.warnProtected.cancel'),
   );
   if (!unlock) {
-    return;
+    return false;
   }
   if (scope === 'book') {
     state.setReadOnly(tab, false);
-  } else if (doc.kind === 'rsf') {
-    state.setSheetLocked(tab, doc.activeSheetId, false);
+  } else if (isWorkbook(doc)) {
+    state.setSheetLocked(tab, lockedId, false);
   }
+  return true;
 }
 
 /**
@@ -114,7 +122,7 @@ export function nextPaint(): Promise<void> {
  * UI is given a chance to paint it, the work runs, and the indicator is
  * always cleared afterwards (even on error).
  */
-export async function withBusy<T>(ui: UiPort, label: string, work: () => T | Promise<T>): Promise<T> {
+export async function withBusy<T>(ui: NotifyPort, label: string, work: () => T | Promise<T>): Promise<T> {
   ui.setBusy(label);
   await nextPaint();
   try {
@@ -133,7 +141,7 @@ export async function withBusy<T>(ui: UiPort, label: string, work: () => T | Pro
  */
 export async function withBusyIfLarge<T>(
   large: boolean,
-  ui: UiPort,
+  ui: NotifyPort,
   label: string,
   work: () => T | Promise<T>,
 ): Promise<T> {

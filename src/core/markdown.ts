@@ -81,6 +81,61 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
   return parseBlocks(lines);
 }
 
+/** A fenced code block opened by `match` at line `i`; `next` is the line after its closing fence. */
+function readFencedCode(
+  lines: string[],
+  i: number,
+  match: RegExpExecArray,
+): { block: MarkdownBlock; next: number } {
+  const fenceChar = match[1][0];
+  const fenceLen = match[1].length;
+  const lang = match[2] || null;
+  const closeRe = new RegExp(`^${fenceChar}{${fenceLen},}\\s*$`);
+  const codeLines: string[] = [];
+  let next = i + 1;
+  while (next < lines.length && !closeRe.test(lines[next])) {
+    codeLines.push(lines[next]);
+    next++;
+  }
+  if (next < lines.length) {
+    next++; // consume the closing fence
+  }
+  return { block: { type: 'codeBlock', text: codeLines.join('\n'), lang }, next };
+}
+
+/** A pipe table starting at line `i` (header row + delimiter row), or null when there is none. */
+function readTable(lines: string[], i: number): { block: MarkdownBlock; next: number } | null {
+  const line = lines[i];
+  if (!line.includes('|') || i + 1 >= lines.length || !TABLE_DELIMITER_ROW_RE.test(lines[i + 1])) {
+    return null;
+  }
+  const delimiterCells = splitTableRow(lines[i + 1]);
+  if (delimiterCells.length === 0 || !delimiterCells.every((cell) => TABLE_DELIMITER_CELL_RE.test(cell))) {
+    return null;
+  }
+  const header = splitTableRow(line).map((cell) => parseInline(cell));
+  const align = delimiterCells.map(tableCellAlign);
+  let next = i + 2;
+  const rows: MarkdownInline[][][] = [];
+  while (next < lines.length && lines[next].trim() !== '' && lines[next].includes('|')) {
+    rows.push(splitTableRow(lines[next]).map((cell) => parseInline(cell)));
+    next++;
+  }
+  return { block: { type: 'table', align, header, rows }, next };
+}
+
+/** True when `line` continues a paragraph rather than starting another block. */
+function continuesParagraph(line: string): boolean {
+  return (
+    line.trim() !== '' &&
+    !HEADING_RE.test(line) &&
+    !FENCE_OPEN_RE.test(line) &&
+    !HR_RE.test(line) &&
+    !BLOCKQUOTE_RE.test(line) &&
+    !LIST_ITEM_RE.test(line)
+  );
+}
+
 function parseBlocks(lines: string[]): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   let i = 0;
@@ -94,20 +149,9 @@ function parseBlocks(lines: string[]): MarkdownBlock[] {
 
     const fenceMatch = FENCE_OPEN_RE.exec(line);
     if (fenceMatch) {
-      const fenceChar = fenceMatch[1][0];
-      const fenceLen = fenceMatch[1].length;
-      const lang = fenceMatch[2] || null;
-      const closeRe = new RegExp(`^${fenceChar}{${fenceLen},}\\s*$`);
-      const codeLines: string[] = [];
-      i++;
-      while (i < lines.length && !closeRe.test(lines[i])) {
-        codeLines.push(lines[i]);
-        i++;
-      }
-      if (i < lines.length) {
-        i++; // consume the closing fence
-      }
-      blocks.push({ type: 'codeBlock', text: codeLines.join('\n'), lang });
+      const fence = readFencedCode(lines, i, fenceMatch);
+      blocks.push(fence.block);
+      i = fence.next;
       continue;
     }
 
@@ -135,20 +179,11 @@ function parseBlocks(lines: string[]): MarkdownBlock[] {
       continue;
     }
 
-    if (line.includes('|') && i + 1 < lines.length && TABLE_DELIMITER_ROW_RE.test(lines[i + 1])) {
-      const delimiterCells = splitTableRow(lines[i + 1]);
-      if (delimiterCells.length > 0 && delimiterCells.every((cell) => TABLE_DELIMITER_CELL_RE.test(cell))) {
-        const header = splitTableRow(line).map((cell) => parseInline(cell));
-        const align = delimiterCells.map(tableCellAlign);
-        i += 2;
-        const rows: MarkdownInline[][][] = [];
-        while (i < lines.length && lines[i].trim() !== '' && lines[i].includes('|')) {
-          rows.push(splitTableRow(lines[i]).map((cell) => parseInline(cell)));
-          i++;
-        }
-        blocks.push({ type: 'table', align, header, rows });
-        continue;
-      }
+    const table = readTable(lines, i);
+    if (table) {
+      blocks.push(table.block);
+      i = table.next;
+      continue;
     }
 
     const firstItemMatch = LIST_ITEM_RE.exec(line);
@@ -168,15 +203,7 @@ function parseBlocks(lines: string[]): MarkdownBlock[] {
     }
 
     const paraLines: string[] = [];
-    while (
-      i < lines.length &&
-      lines[i].trim() !== '' &&
-      !HEADING_RE.test(lines[i]) &&
-      !FENCE_OPEN_RE.test(lines[i]) &&
-      !HR_RE.test(lines[i]) &&
-      !BLOCKQUOTE_RE.test(lines[i]) &&
-      !LIST_ITEM_RE.test(lines[i])
-    ) {
+    while (i < lines.length && continuesParagraph(lines[i])) {
       paraLines.push(lines[i]);
       i++;
     }

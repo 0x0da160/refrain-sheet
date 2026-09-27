@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: MIT
+import type { NotifyPort, RangeDialogsPort } from '../ui-port';
 import {
   validateValidation,
   validationRangesEqual,
   MAX_VALIDATION_RULES,
   type CellValidation,
-} from '../../core/data-validation';
+} from '../../core/workbook/data-validation';
 import { cellLabel } from '../../core/formula';
-import type { RsfDocument } from '../../core/rsf-document';
-import type { AppState, Tab } from '../app-state';
+import type { RsfDocument } from '../../core/workbook/rsf-document';
+import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type {
-  ConvertReason,
-  DataValidationDialogInput,
-  DataValidationDialogResult,
-  UiPort,
-} from '../commands';
+import type { ConvertReason, DataValidationDialogInput, DataValidationDialogResult } from '../commands';
 import { applyWhileOpen } from './shared';
 
 /**
@@ -25,7 +21,7 @@ import { applyWhileOpen } from './shared';
  * `Commands` still exposes the same public methods, delegating to an
  * instance of this class. This is the `Commands`-layer dispatch code,
  * distinct from (and a consumer of) the pure logic in
- * `src/core/data-validation.ts`.
+ * `src/core/workbook/data-validation.ts`.
  *
  * Like sorting, a worksheet's rules are session-only view state (see
  * `Worksheet.validations`): applying or clearing one is a direct state
@@ -37,7 +33,7 @@ import { applyWhileOpen } from './shared';
 export class ValidationCommands {
   constructor(
     private readonly state: AppState,
-    private readonly ui: UiPort,
+    private readonly ui: NotifyPort & RangeDialogsPort,
     private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 

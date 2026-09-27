@@ -279,7 +279,8 @@ export class YamlSheetView {
   }
 
   private renderPreview(): void {
-    // The syntax check rides the same coalesced render as the preview.
+    // Keeps the syntax check in step with loads and Format, which replace
+    // the text without an `input` event (typing is checked by the bar itself).
     this.problemBar.check();
     const text = this.textarea.value;
     if (isLargePreviewSource(text)) {

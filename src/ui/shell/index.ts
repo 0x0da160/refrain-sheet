@@ -9,6 +9,7 @@ import { Commands } from '../../app/commands';
 import { warnProtectedAndOfferUnlock } from '../../app/commands/shared';
 import { t } from '../../app/i18n';
 import { AppState } from '../../app/state';
+import { installOpenFilesChannel } from '../../app/open-elsewhere';
 import type { UiPort } from '../../app/commands';
 import { Dialogs, Toasts } from '../dialogs';
 import type { FindBar } from '../find-bar';
@@ -37,6 +38,8 @@ export function startApp(): void {
   installProtectedWarning(state, ui);
 
   const commands = new Commands(state, ui, document);
+  // Answer other browser tabs asking whether a file is already open here.
+  installOpenFilesChannel(() => state.tabs.flatMap((tab) => (tab.handle ? [tab.handle] : [])));
   const surfaces = createSurfaces(state, commands, dialogs, toasts);
   findBar = surfaces.findBar;
 

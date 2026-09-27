@@ -109,17 +109,21 @@ describe('YamlSheetView', () => {
     expect(view.panelElement.hidden).toBe(false);
   });
 
-  it('closes the preview panel when the toggle button is clicked, and reopens it on a second click', () => {
+  it('never closes the preview from the toolbar button: it is disabled while open and reopens after ×', () => {
     const { view } = setup();
     const toggle = view.element.querySelector('.markdown-editor-toolbar button') as HTMLButtonElement;
-
-    toggle.click();
-    expect(view.panelElement.hidden).toBe(true);
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(toggle.disabled).toBe(true);
 
     toggle.click();
     expect(view.panelElement.hidden).toBe(false);
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+
+    (view.panelElement.querySelector('.side-panel-close-btn') as HTMLButtonElement).click();
+    expect(view.panelElement.hidden).toBe(true);
+    expect(toggle.disabled).toBe(false);
+
+    toggle.click();
+    expect(view.panelElement.hidden).toBe(false);
+    expect(toggle.disabled).toBe(true);
   });
 
   it('renders the preview as syntax-highlighted tokens, reflecting the source', async () => {
@@ -326,5 +330,32 @@ describe('YamlSheetView', () => {
 
     expect(textarea.value).toBe('a: 1\nb: [1, 2]\n');
     expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe('a: 1\nb: [1, 2]\n');
+  });
+  it('reports a syntax error typed just before the editor loses focus', () => {
+    const { view } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    const bar = view.element.querySelector('.source-problem-bar') as HTMLElement;
+    textarea.value = 'a: 1';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('blur'));
+    expect(bar.classList.contains('has-problem')).toBe(false);
+
+    // Committing the edit on blur cancels the pending preview render; the
+    // check must not depend on it.
+    textarea.value = 'a: 1\na: 2';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('blur'));
+    expect(bar.classList.contains('has-problem')).toBe(true);
+    expect(bar.textContent).toContain('Line 2, column 1');
+  });
+
+  it('re-checks shortly after typing without waiting for the preview', async () => {
+    const { view } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    const bar = view.element.querySelector('.source-problem-bar') as HTMLElement;
+    textarea.value = 'key: [1, 2';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(bar.classList.contains('has-problem')).toBe(true);
   });
 });

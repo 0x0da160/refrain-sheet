@@ -565,7 +565,8 @@ dialog::backdrop {
   outline-offset: 1px;
 }
 
-/* The footer: the panel's own actions, then Close always bottom-right. */
+/* The footer: the panel's own actions, right-aligned. There is no Close
+   button: a side panel closes only from its header's ×. */
 .dialog-buttons-actions {
   display: flex;
   flex-wrap: wrap;
@@ -575,6 +576,16 @@ dialog::backdrop {
 
 .dialog-buttons-actions:empty {
   display: none;
+}
+
+/* A panel with no actions of its own (SQL Query) shows no footer at all. */
+.side-panel .dialog-buttons:has(> .dialog-buttons-actions:empty) {
+  display: none;
+}
+
+/* The panel itself takes focus when none of its controls asks for it. */
+.side-panel:focus {
+  outline: none;
 }
 
 .side-panel .dialog-buttons {

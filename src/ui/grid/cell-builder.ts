@@ -476,13 +476,50 @@ export class CellBuilder {
     return button;
   }
 
-  /** True for a header-row cell of the active filter range (it carries a filter button). */
+  /**
+   * True for a header-row cell of the active filter range whose column holds
+   * a value (it carries a filter button). An empty column gets no button
+   * until something is typed into it.
+   */
   isHeaderFilterCell(tab: Tab, row: number, col: number): boolean {
-    const filter = isWorkbook(tab.doc) ? tab.doc.filter : null;
-    return (
-      filter !== null && filter.headerRow && row === filter.top && col >= filter.left && col <= filter.right
-    );
+    const doc = tab.doc;
+    const filter = isWorkbook(doc) ? doc.filter : null;
+    if (
+      !isWorkbook(doc) ||
+      filter === null ||
+      !filter.headerRow ||
+      row !== filter.top ||
+      col < filter.left ||
+      col > filter.right
+    ) {
+      return false;
+    }
+    // Memoized per document revision: an empty column would otherwise be
+    // scanned top to bottom on every render.
+    const revision = doc.revisionCounter;
+    let cache = this.filledColumns;
+    if (!cache || cache.doc !== doc || cache.revision !== revision || cache.filter !== filter) {
+      cache = { doc, revision, filter, cols: new Map() };
+      this.filledColumns = cache;
+    }
+    let filled = cache.cols.get(col);
+    if (filled === undefined) {
+      filled = false;
+      for (let r = filter.top; r <= filter.bottom && !filled; r++) {
+        filled = doc.getValue(r, col) !== '';
+      }
+      cache.cols.set(col, filled);
+    }
+    return filled;
   }
+
+  /** Which filter-range columns hold a value, for {@link isHeaderFilterCell}. */
+  private filledColumns: {
+    doc: object;
+    revision: number;
+    filter: object;
+    cols: Map<number, boolean>;
+  } | null = null;
 
   /** Open the column menu for `col` below `anchor`, then return focus to the grid. */
   openColumnMenu(tab: Tab, col: number, anchor: HTMLElement | null): void {

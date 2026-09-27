@@ -5,12 +5,13 @@
 /* A header-row cell of an active filter range keeps room on its right for
    the button, so the header text never runs underneath it. */
 .vcell.has-filter-button {
-  padding-right: calc(28px * var(--sheet-zoom, 1));
+  padding-right: calc(26px * var(--sheet-zoom, 1));
 }
 
 /* A real <button> (outside the Tab order: the grid owns Tab; Alt+Down on
-   the cell is the keyboard route). A quiet outlined chip while unused;
-   accent-filled once the column narrows the rows or orders them. */
+   the cell is the keyboard route). A small square, borderless tile at rest
+   so it sits quietly in the header; tinted with the accent once the column
+   narrows the rows or orders them. */
 .header-filter-button {
   position: absolute;
   top: 50%;
@@ -20,25 +21,26 @@
   align-items: center;
   justify-content: center;
   gap: 1px;
-  min-width: calc(20px * var(--sheet-zoom, 1));
+  box-sizing: border-box;
+  min-width: calc(18px * var(--sheet-zoom, 1));
   height: calc(18px * var(--sheet-zoom, 1));
-  padding: 0 2px;
+  padding: 0 1px;
   color: var(--fg-muted);
-  background: var(--bg-raised);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-full);
+  background: var(--bg-hover);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 
 .header-filter-button:hover {
   color: var(--accent-text);
-  border-color: var(--accent);
+  background: var(--accent-subtle);
 }
 
 .header-filter-button.filtered,
 .header-filter-button.sorted {
-  color: var(--accent-contrast);
-  background: var(--accent);
+  color: var(--accent-subtle-text);
+  background: var(--accent-subtle);
   border-color: var(--accent);
 }
 

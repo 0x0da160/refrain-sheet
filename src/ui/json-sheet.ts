@@ -74,7 +74,7 @@ export class JsonSheetView {
   /** The (tab, sheetId) the textarea currently reflects, so a pending debounced edit commits to the right place. */
   private bound: { tab: Tab; sheetId: string } | null = null;
   private commitTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Whether the preview panel should be open while this view is active; toggled by `previewToggle`, not persisted across reloads. */
+  /** Whether the preview panel should be open while this view is active; opened by `previewToggle` and closed by its header ×, not persisted across reloads. */
   private previewVisible = true;
 
   constructor(
@@ -92,7 +92,8 @@ export class JsonSheetView {
     const sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
 
     this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
-    this.previewToggle.addEventListener('click', () => this.setPreviewVisible(!this.previewVisible));
+    // Opens only: the preview panel closes from its header × alone.
+    this.previewToggle.addEventListener('click', () => this.setPreviewVisible(true));
     this.formatButton = el('button', {
       className: 'json-sheet-format',
       attrs: { type: 'button' },
@@ -161,7 +162,7 @@ export class JsonSheetView {
     });
   }
 
-  /** Open/close the preview panel; toggled by `previewToggle` and its own close button. */
+  /** Open/close the preview panel: `previewToggle` opens it, its header × closes it. */
   private setPreviewVisible(visible: boolean): void {
     this.previewVisible = visible;
     this.updatePanelVisibility();
@@ -185,10 +186,10 @@ export class JsonSheetView {
   }
 
   private updatePreviewToggle(): void {
-    this.previewToggle.textContent = this.previewVisible
-      ? t('dialog.jsonEditor.hidePreview')
-      : t('dialog.jsonEditor.showPreview');
-    this.previewToggle.setAttribute('aria-pressed', String(this.previewVisible));
+    this.previewToggle.textContent = t('dialog.jsonEditor.showPreview');
+    // Disabled while the preview is open instead of turning into a Hide
+    // button, so it never closes the panel.
+    this.previewToggle.disabled = this.previewVisible;
   }
 
   /** True when the active worksheet is a JSON sheet — the caller hides the grid exactly when this is true. */
@@ -298,7 +299,8 @@ export class JsonSheetView {
    * listener), which coalesces bursts down to this one.
    */
   private renderPreview(): void {
-    // The syntax check rides the same coalesced render as the preview.
+    // Keeps the syntax check in step with loads and Format, which replace
+    // the text without an `input` event (typing is checked by the bar itself).
     this.problemBar.check();
     const text = this.textarea.value;
     if (isLargePreviewSource(text)) {

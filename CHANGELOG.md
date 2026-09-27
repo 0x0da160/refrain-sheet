@@ -57,6 +57,47 @@ really is internal, rather than inventing an entry to satisfy it.
 - After copying, the moving dashed border around the copied cells is no
   longer hidden under the selection's solid border.
 
+## [0.9.13] - 2026-09-27
+
+### Changed
+
+- **Filter & Sort from Headers.** The menu item that puts filter buttons on
+  the header row is renamed from "Filter Buttons on Header Row", and it is now
+  in the right-click menu too, with a check mark while it is on. The header
+  buttons are small rounded squares instead of pills. A column with no values
+  gets no button until something is typed into it.
+
+### Fixed
+
+- **The JSON/YAML syntax check no longer misses your last edit.** If you
+  typed an error and then clicked outside the editor (or switched sheets)
+  straight away, the line under the editor kept saying there were no syntax
+  errors. It now re-checks on its own as you type and again when the editor
+  loses focus.
+
+### Changed
+
+- In File > Settings…, every "Not specified" choice now says what then
+  applies: the default (for example, "Not specified (default: Light)"), the
+  value last used for zoom and wrapping, or — for the file — this browser's
+  setting, which updates as you change it in the same dialog.
+- The row and column headers are lighter again, and the area past the last
+  row and column is now clearly darker than the headers in the light theme
+  and a lighter gray in the dark theme, so the edge of the table stands out.
+- Side panels now close only from the × at the top right of the panel (or
+  Escape). The Close button at the bottom of Filter, Sort, Format, Data
+  Validation, Conditional Format, Color, Borders, Number Format and SQL
+  Query is gone; View > Comments Panel and the Show preview button of
+  Markdown, JSON and YAML sheets now only open their panel instead of
+  closing it when pressed again.
+- **A file can be open in only one place at a time.** Opening a file that
+  another browser tab of the app already has open now says so and does not
+  open a second copy, so two copies can no longer overwrite each other's
+  saves. Opening an `.rsf` file that is already open in this window now
+  switches to its tab, as CSV files already did. Files opened without the
+  browser's file access (for example in Firefox) cannot be recognised and
+  are not checked.
+
 ## [0.9.12] - 2026-09-27
 
 ### Added

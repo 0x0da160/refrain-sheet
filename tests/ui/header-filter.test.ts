@@ -12,6 +12,7 @@ import { Commands, type ColumnMenuInput, type ColumnMenuResult, type UiPort } fr
 import { getLocale, setLocale } from '../../src/app/i18n';
 import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { openColumnMenu } from '../../src/ui/column-menu';
+import { contextMenuEntries } from '../../src/ui/grid/context-menu-items';
 import { Grid } from '../../src/ui/grid';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
@@ -54,11 +55,11 @@ function sheet(ui: UiPort = stubUi()) {
   return { state, commands, tab, doc, ui };
 }
 
-describe('Filter Buttons on Header Row', () => {
-  it('turns on over the data block with a header row and no criteria, trimmed to the last header cell', async () => {
+describe('Filter & Sort from Headers', () => {
+  it('turns on over the whole data block with a header row and no criteria', async () => {
     const { commands, tab, doc, state } = sheet();
     expect(await commands.toggleHeaderFilter(tab)).toBe(true);
-    expect(doc.filter).toEqual({ top: 0, left: 0, bottom: 4, right: 2, headerRow: true, columns: [] });
+    expect(doc.filter).toEqual({ top: 0, left: 0, bottom: 4, right: 3, headerRow: true, columns: [] });
     expect(state.hiddenRows(tab)?.size ?? 0).toBe(0);
     expect(commands.hasFilter(tab)).toBe(true);
   });
@@ -280,5 +281,39 @@ describe('header-row filter buttons in the grid', () => {
     buttons[1].click();
     await Promise.resolve();
     expect(chooseColumnMenu).toHaveBeenCalledWith(expect.objectContaining({ col: 1, header: 'qty' }));
+  });
+
+  it('skip an empty column until a value is typed into it', async () => {
+    document.body.textContent = '';
+    const { state, commands, tab, doc } = sheet();
+    const grid = new Grid(state, commands);
+    Object.defineProperty(grid.element, 'clientHeight', { value: 400, configurable: true });
+    Object.defineProperty(grid.element, 'clientWidth', { value: 800, configurable: true });
+    document.body.append(grid.element);
+    await commands.toggleHeaderFilter(tab);
+    grid.refresh();
+    const cols = (): string[] =>
+      [...grid.element.querySelectorAll<HTMLButtonElement>('.header-filter-button')].map(
+        (b) => b.dataset.headerfilter!,
+      );
+    expect(cols()).toEqual(['0', '1', '2']);
+    doc.setCell(3, 3, 'late');
+    grid.refresh();
+    expect(cols()).toEqual(['0', '1', '2', '3']);
+  });
+});
+
+describe('the right-click menu', () => {
+  it('toggles Filter & Sort from Headers and shows whether it is on', async () => {
+    const { commands, tab } = sheet();
+    const find = () =>
+      contextMenuEntries(commands, tab).find(
+        (e): e is Exclude<typeof e, 'separator'> =>
+          e !== 'separator' && e.label === 'Filter & Sort from Headers',
+      )!;
+    setLocale('en');
+    expect(find().checked).toBe(false);
+    await commands.toggleHeaderFilter(tab);
+    expect(find().checked).toBe(true);
   });
 });

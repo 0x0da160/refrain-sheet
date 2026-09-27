@@ -88,10 +88,10 @@ export class Commands {
     goToCell: (row: number, col: number) => void;
   } | null = null;
 
-  /** Set by main.ts so the View menu can show/hide the comments panel. */
+  /** Set by main.ts so the View menu can open the comments panel. */
   panelActions: {
-    /** Show/hide the right-side cell comments panel. */
-    toggleComments: () => void;
+    /** Open the cell comments panel (only its header × closes it). */
+    openComments: () => void;
   } | null = null;
 
   /**
@@ -415,7 +415,7 @@ export class Commands {
   }
 
   /**
-   * Sheet > Filter & Sort > Filter Buttons on Header Row: add or remove the
+   * Sheet > Filter & Sort > Filter & Sort from Headers: add or remove the
    * header row's filter buttons. See `FilterCommands.toggleHeaderFilter`.
    */
   async toggleHeaderFilter(tab: Tab): Promise<boolean> {

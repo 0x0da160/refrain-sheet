@@ -6,6 +6,7 @@ import { Commands, type UiPort } from '../../src/app/commands';
 import { t, type LocaleId } from '../../src/app/i18n';
 import type { OpenedFile } from '../../src/app/file-access';
 import { setSuppressHistoryCapWarning } from '../../src/app/settings';
+import { installOpenFilesChannel, uninstallOpenFilesChannel } from '../../src/app/open-elsewhere';
 import { compileQuery } from '../../src/core/search';
 import { decodeBytes } from '../../src/core/csv/encoding';
 import { encodeRsf } from '../rsf-single-sheet';
@@ -218,6 +219,60 @@ describe('opening files', () => {
     // The status bar / File menu toggle unlocks it explicitly.
     state.setReadOnly(tab, false);
     expect(state.editCell(tab, 0, 0, 'z')).toBe(true);
+  });
+});
+
+describe('opening a file that is already open', () => {
+  it('switches to the tab instead of opening an .rsf file twice in this window', async () => {
+    const bytes = encodeRsf({
+      name: 'Sheet1',
+      delimiter: ',',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [[0, 0, 'hi']],
+    });
+    const disk = diskHandle('doc.rsf', bytes);
+    (disk.handle as unknown as { isSameEntry: (o: unknown) => Promise<boolean> }).isSameEntry = async (o) =>
+      o === disk.handle;
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+    await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+    expect(state.tabs).toHaveLength(1);
+    expect(ui.notify).toHaveBeenCalledWith(t('notify.sameFile', { name: 'doc.rsf' }), 'info');
+  });
+
+  it('refuses a file another browser tab has open, for .csv and .rsf alike', async () => {
+    // The "other tab" answers yes to every query.
+    const channel = {
+      onmessage: null as ((event: MessageEvent) => void) | null,
+      postMessage: (m: unknown) => {
+        const { id } = m as { id: string };
+        setTimeout(() => channel.onmessage?.({ data: { kind: 'open-here', id } } as MessageEvent), 0);
+      },
+    };
+    installOpenFilesChannel(
+      () => [],
+      () => channel,
+    );
+    try {
+      const ui = stubUi();
+      const { state, commands } = setup(ui);
+      const csv = diskHandle('a.csv', utf8('a,b\n'));
+      const rsf = diskHandle(
+        'doc.rsf',
+        encodeRsf({ name: 'S', delimiter: ',', rowCount: 1, columnCount: 1, cells: [] }),
+      );
+      await commands.openFiles([csv.opened(), rsf.opened()], { confirmNonCsv: false });
+      expect(state.tabs).toHaveLength(0);
+      expect(ui.notify).toHaveBeenCalledWith(t('notify.openInAnotherTab', { name: 'a.csv' }), 'warn');
+      expect(ui.notify).toHaveBeenCalledWith(t('notify.openInAnotherTab', { name: 'doc.rsf' }), 'warn');
+      // A file without a handle cannot be recognised and still opens.
+      await commands.openFiles([opened('b.csv', utf8('x\n'))], { confirmNonCsv: false });
+      expect(state.tabs).toHaveLength(1);
+    } finally {
+      uninstallOpenFilesChannel();
+    }
   });
 });
 

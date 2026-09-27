@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.14] - 2026-09-27
+
 ### Added
 
 - Hovering a row number or column letter shows a grip and a small + button.

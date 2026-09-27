@@ -5,6 +5,7 @@ import type { CellValidation } from './data-validation';
 import type { SheetFilter } from './filter';
 import { isFormula, parseFormula, type ParseResult } from '../formula';
 import type { SheetSort } from './sort';
+import { SparseCellMap } from './sparse-cell-map';
 
 /** A parsed formula kept alongside the source it was compiled from. */
 export interface CompiledFormula {
@@ -178,7 +179,7 @@ export class Worksheet {
    * presentational: it never affects a cell's value, formula evaluation, sort
    * or filter, or CSV export.
    */
-  private styles: Map<number, Map<number, CellStyle>> = new Map();
+  private styles = new SparseCellMap<CellStyle>();
 
   /**
    * Sparse cell-level annotations (see {@link ../cell-comment}), keyed
@@ -187,7 +188,7 @@ export class Worksheet {
    * insert/delete the same way `styles` is, so a comment keeps following the
    * cell it was attached to.
    */
-  private comments: Map<number, Map<number, string>> = new Map();
+  private comments = new SparseCellMap<string>();
 
   private readonly formulaCache = new Map<string, CompiledFormula>();
   /**
@@ -394,183 +395,69 @@ export class Worksheet {
 
   /** The style of one cell, or `null` when it carries none. */
   getStyle(row: number, col: number): CellStyle | null {
-    return this.styles.get(row)?.get(col) ?? null;
+    return this.styles.get(row, col);
   }
 
   /** Set (or clear, with `null`) one cell's style. Returns true when it changed. */
   setStyle(row: number, col: number, style: CellStyle | null): boolean {
-    if (!this.contains(row, col)) {
+    if (!this.contains(row, col) || cellStylesEqual(this.getStyle(row, col), style)) {
       return false;
     }
-    const current = this.getStyle(row, col);
-    if (cellStylesEqual(current, style)) {
-      return false;
-    }
-    if (style === null) {
-      const rowStyles = this.styles.get(row);
-      rowStyles?.delete(col);
-      if (rowStyles && rowStyles.size === 0) {
-        this.styles.delete(row);
-      }
-    } else {
-      let rowStyles = this.styles.get(row);
-      if (!rowStyles) {
-        rowStyles = new Map();
-        this.styles.set(row, rowStyles);
-      }
-      rowStyles.set(col, style);
-    }
+    this.styles.put(row, col, style);
     return true;
   }
 
   /** Every styled cell as [row, col, style] triples (sparse). */
   collectStyles(): Array<[number, number, CellStyle]> {
-    const out: Array<[number, number, CellStyle]> = [];
-    for (const [row, rowStyles] of this.styles) {
-      for (const [col, style] of rowStyles) {
-        out.push([row, col, style]);
-      }
-    }
-    return out;
+    return this.styles.collect();
   }
 
   get styledCellCount(): number {
-    let n = 0;
-    for (const rowStyles of this.styles.values()) {
-      n += rowStyles.size;
-    }
-    return n;
-  }
-
-  /**
-   * Reindex every styled cell's row after a row insert/delete, so styles
-   * follow the data they were applied to. Rows removed by a delete lose their
-   * styles along with their values (undoing the delete restores cell values
-   * via the history entry's row data, but not their styles — the same
-   * trade-off already accepted for the sheet filter and sort, which are also
-   * dropped rather than threaded through structural-edit undo).
-   */
-  private shiftStyleRows(mapRow: (row: number) => number | null): void {
-    if (this.styles.size === 0) {
-      return;
-    }
-    const next: Map<number, Map<number, CellStyle>> = new Map();
-    for (const [row, rowStyles] of this.styles) {
-      const mapped = mapRow(row);
-      if (mapped !== null) {
-        next.set(mapped, rowStyles);
-      }
-    }
-    this.styles = next;
-  }
-
-  /** Reindex every styled cell's column after a column insert/delete. */
-  private shiftStyleCols(mapCol: (col: number) => number | null): void {
-    if (this.styles.size === 0) {
-      return;
-    }
-    const next: Map<number, Map<number, CellStyle>> = new Map();
-    for (const [row, rowStyles] of this.styles) {
-      const nextRow: Map<number, CellStyle> = new Map();
-      for (const [col, style] of rowStyles) {
-        const mapped = mapCol(col);
-        if (mapped !== null) {
-          nextRow.set(mapped, style);
-        }
-      }
-      if (nextRow.size > 0) {
-        next.set(row, nextRow);
-      }
-    }
-    this.styles = next;
+    return this.styles.cellCount;
   }
 
   // ----- Cell comments (see cell-comment.ts) -----
 
   /** The comment on one cell, or `null` when it carries none. */
   getComment(row: number, col: number): string | null {
-    return this.comments.get(row)?.get(col) ?? null;
+    return this.comments.get(row, col);
   }
 
   /** Set (or clear, with `null`) one cell's comment. Returns true when it changed. */
   setComment(row: number, col: number, text: string | null): boolean {
-    if (!this.contains(row, col)) {
+    if (!this.contains(row, col) || this.getComment(row, col) === text) {
       return false;
     }
-    const current = this.getComment(row, col);
-    if (current === text) {
-      return false;
-    }
-    if (text === null) {
-      const rowComments = this.comments.get(row);
-      rowComments?.delete(col);
-      if (rowComments && rowComments.size === 0) {
-        this.comments.delete(row);
-      }
-    } else {
-      let rowComments = this.comments.get(row);
-      if (!rowComments) {
-        rowComments = new Map();
-        this.comments.set(row, rowComments);
-      }
-      rowComments.set(col, text);
-    }
+    this.comments.put(row, col, text);
     return true;
   }
 
   get commentedCellCount(): number {
-    let n = 0;
-    for (const rowComments of this.comments.values()) {
-      n += rowComments.size;
-    }
-    return n;
+    return this.comments.cellCount;
   }
 
   /** Every commented cell as [row, col, text] triples (sparse). */
   collectComments(): Array<[number, number, string]> {
-    const out: Array<[number, number, string]> = [];
-    for (const [row, rowComments] of this.comments) {
-      for (const [col, text] of rowComments) {
-        out.push([row, col, text]);
-      }
-    }
-    return out;
+    return this.comments.collect();
   }
 
-  /** Reindex every commented cell's row after a row insert/delete. */
-  private shiftCommentRows(mapRow: (row: number) => number | null): void {
-    if (this.comments.size === 0) {
-      return;
-    }
-    const next: Map<number, Map<number, string>> = new Map();
-    for (const [row, rowComments] of this.comments) {
-      const mapped = mapRow(row);
-      if (mapped !== null) {
-        next.set(mapped, rowComments);
-      }
-    }
-    this.comments = next;
+  /**
+   * Reindex styles and comments after a row insert/delete, so they follow the
+   * data they were applied to. Rows removed by a delete lose their styles and
+   * comments along with their values (undoing the delete restores cell values
+   * via the history entry's row data, but not their styles — the same
+   * trade-off already accepted for the sheet filter and sort, which are also
+   * dropped rather than threaded through structural-edit undo).
+   */
+  private shiftAnnotationRows(mapRow: (row: number) => number | null): void {
+    this.styles.shiftRows(mapRow);
+    this.comments.shiftRows(mapRow);
   }
 
-  /** Reindex every commented cell's column after a column insert/delete. */
-  private shiftCommentCols(mapCol: (col: number) => number | null): void {
-    if (this.comments.size === 0) {
-      return;
-    }
-    const next: Map<number, Map<number, string>> = new Map();
-    for (const [row, rowComments] of this.comments) {
-      const nextRow: Map<number, string> = new Map();
-      for (const [col, text] of rowComments) {
-        const mapped = mapCol(col);
-        if (mapped !== null) {
-          nextRow.set(mapped, text);
-        }
-      }
-      if (nextRow.size > 0) {
-        next.set(row, nextRow);
-      }
-    }
-    this.comments = next;
+  /** Reindex styles and comments after a column insert/delete. */
+  private shiftAnnotationCols(mapCol: (col: number) => number | null): void {
+    this.styles.shiftCols(mapCol);
+    this.comments.shiftCols(mapCol);
   }
 
   /** True when any cell in the worksheet holds a value (used for delete confirmation). */
@@ -639,8 +526,7 @@ export class Worksheet {
     });
     this.data.splice(at, 0, ...prepared);
     this.formulaPerRow?.splice(at, 0, ...prepared.map((row) => this.countRowFormulas(row)));
-    this.shiftStyleRows((row) => (row >= at ? row + prepared.length : row));
-    this.shiftCommentRows((row) => (row >= at ? row + prepared.length : row));
+    this.shiftAnnotationRows((row) => (row >= at ? row + prepared.length : row));
     this.revision += 1;
     // The sort's stored range would otherwise silently drift against the
     // shifted rows; since sort is session-only view state (not undo-tracked),
@@ -658,8 +544,7 @@ export class Worksheet {
       this.data.push(new Array<string>(this.cols).fill(''));
       this.formulaPerRow?.push(0);
     }
-    this.shiftStyleRows((row) => (row < index ? row : row < index + count ? null : row - count));
-    this.shiftCommentRows((row) => (row < index ? row : row < index + count ? null : row - count));
+    this.shiftAnnotationRows((row) => (row < index ? row : row < index + count ? null : row - count));
     this.revision += 1;
     this.sort = null;
     this.validations = [];
@@ -677,8 +562,7 @@ export class Worksheet {
         this.formulaPerRow[r] += this.countRowFormulas(inserts);
       }
     }
-    this.shiftStyleCols((col) => (col >= at ? col + count : col));
-    this.shiftCommentCols((col) => (col >= at ? col + count : col));
+    this.shiftAnnotationCols((col) => (col >= at ? col + count : col));
     this.cols += count;
     this.revision += 1;
     this.sort = null;
@@ -698,8 +582,7 @@ export class Worksheet {
         removed[c].push(cut[c] ?? '');
       }
     }
-    this.shiftStyleCols((col) => (col < index ? col : col < index + count ? null : col - count));
-    this.shiftCommentCols((col) => (col < index ? col : col < index + count ? null : col - count));
+    this.shiftAnnotationCols((col) => (col < index ? col : col < index + count ? null : col - count));
     this.cols -= count;
     if (this.cols === 0) {
       this.cols = 1;
@@ -782,8 +665,8 @@ export class Worksheet {
     copy.displayWrap = this.displayWrap;
     copy.displayFont = this.displayFont;
     copy.locked = this.locked;
-    copy.styles = new Map([...this.styles].map(([row, rowStyles]) => [row, new Map(rowStyles)]));
-    copy.comments = new Map([...this.comments].map(([row, rowComments]) => [row, new Map(rowComments)]));
+    copy.styles = this.styles.clone();
+    copy.comments = this.comments.clone();
     return copy;
   }
 
@@ -811,13 +694,7 @@ export class Worksheet {
     if (source) {
       target.data[row] = source.slice();
     }
-    const rowStyles = this.styles.get(row);
-    if (rowStyles && rowStyles.size > 0) {
-      target.styles.set(row, new Map(rowStyles));
-    }
-    const rowComments = this.comments.get(row);
-    if (rowComments && rowComments.size > 0) {
-      target.comments.set(row, new Map(rowComments));
-    }
+    this.styles.copyRowInto(row, target.styles);
+    this.comments.copyRowInto(row, target.comments);
   }
 }

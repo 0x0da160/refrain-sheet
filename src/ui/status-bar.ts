@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { isWorkbook } from '../core/editor-document';
+import type { LosslessDocument } from '../core/csv/lossless-document';
+import type { RsfDocument } from '../core/workbook/rsf-document';
 import { Lock, LockOpen, TriangleAlert } from 'lucide';
 import type { AppState, Tab } from '../app/state';
 import { t } from '../app/i18n';
@@ -102,64 +104,75 @@ export class StatusBar {
     const doc = tab.doc;
 
     if (isWorkbook(doc)) {
-      this.element.append(this.detail(el('span', { className: 'doc-kind', text: t('status.doc.rsf') })));
-      this.appendProtection(tab);
-      const caret = doc.activeSheet.kind === 'grid' ? null : (this.editorCaret?.() ?? null);
-      if (caret) {
-        // An editor worksheet is a text document, not a grid: no rows ×
-        // columns, formulas, filter or cell reference.
-        if (doc.isDirty) {
-          this.element.append(el('span', { text: t('status.unsaved') }));
-        }
-        this.appendDetailsToggle();
-        this.editorPosition = el('span', { className: 'status-editor-position', attrs: { role: 'status' } });
-        this.element.append(this.editorPosition);
-        this.updateEditorCaret(caret);
-        this.appendVersion();
-        return;
-      }
-      this.element.append(
-        this.detail(
-          el('span', { text: t('status.gridSize', { rows: doc.rowCount, cols: doc.columnCount }) }),
-        ),
-      );
-      const formulas = doc.countFormulaCells();
-      if (formulas > 0) {
-        this.element.append(this.detail(el('span', { text: t('status.formulas', { n: formulas }) })));
-      }
-      // Active filter: visible-row / total-row count over the filtered range.
-      if (doc.filter !== null) {
-        const hidden = this.state.hiddenRows(tab);
-        const dataTop = doc.filter.headerRow ? doc.filter.top + 1 : doc.filter.top;
-        const total = Math.max(0, doc.filter.bottom - dataTop + 1);
-        const shown = total - (hidden ? hidden.size : 0);
-        this.element.append(
-          el('span', {
-            className: 'status-filter',
-            text: t('status.filtered', { shown, total }),
-            attrs: { title: t('status.filteredTitle') },
-          }),
-        );
-      }
-      // Active sort: session-only view state, like the filter indicator above.
-      if (doc.sort !== null) {
-        this.element.append(
-          el('span', {
-            className: 'status-sort',
-            text: t('status.sorted', { keys: doc.sort.keys.length }),
-            attrs: { title: t('status.sortedTitle') },
-          }),
-        );
-      }
+      this.renderWorkbook(tab, doc);
+      return;
+    }
+    this.renderCsv(tab, doc);
+    this.appendDetailsToggle();
+    this.appendSelection(tab);
+    this.appendVersion();
+  }
+
+  /** Workbook status: grid size, formulas, filter and sort indicators — or an editor worksheet's caret. */
+  private renderWorkbook(tab: Tab, doc: RsfDocument): void {
+    this.element.append(this.detail(el('span', { className: 'doc-kind', text: t('status.doc.rsf') })));
+    this.appendProtection(tab);
+    const caret = doc.activeSheet.kind === 'grid' ? null : (this.editorCaret?.() ?? null);
+    if (caret) {
+      // An editor worksheet is a text document, not a grid: no rows ×
+      // columns, formulas, filter or cell reference.
       if (doc.isDirty) {
         this.element.append(el('span', { text: t('status.unsaved') }));
       }
       this.appendDetailsToggle();
-      this.appendSelection(tab);
+      this.editorPosition = el('span', { className: 'status-editor-position', attrs: { role: 'status' } });
+      this.element.append(this.editorPosition);
+      this.updateEditorCaret(caret);
       this.appendVersion();
       return;
     }
+    this.element.append(
+      this.detail(el('span', { text: t('status.gridSize', { rows: doc.rowCount, cols: doc.columnCount }) })),
+    );
+    const formulas = doc.countFormulaCells();
+    if (formulas > 0) {
+      this.element.append(this.detail(el('span', { text: t('status.formulas', { n: formulas }) })));
+    }
+    // Active filter: visible-row / total-row count over the filtered range.
+    if (doc.filter !== null) {
+      const hidden = this.state.hiddenRows(tab);
+      const dataTop = doc.filter.headerRow ? doc.filter.top + 1 : doc.filter.top;
+      const total = Math.max(0, doc.filter.bottom - dataTop + 1);
+      const shown = total - (hidden ? hidden.size : 0);
+      this.element.append(
+        el('span', {
+          className: 'status-filter',
+          text: t('status.filtered', { shown, total }),
+          attrs: { title: t('status.filteredTitle') },
+        }),
+      );
+    }
+    // Active sort: session-only view state, like the filter indicator above.
+    if (doc.sort !== null) {
+      this.element.append(
+        el('span', {
+          className: 'status-sort',
+          text: t('status.sorted', { keys: doc.sort.keys.length }),
+          attrs: { title: t('status.sortedTitle') },
+        }),
+      );
+    }
+    if (doc.isDirty) {
+      this.element.append(el('span', { text: t('status.unsaved') }));
+    }
+    this.appendDetailsToggle();
+    this.appendSelection(tab);
+    this.appendVersion();
+    return;
+  }
 
+  /** CSV status: encoding, delimiter, line endings, size, problems, edits, engine. */
+  private renderCsv(tab: Tab, doc: LosslessDocument): void {
     this.element.append(this.detail(el('span', { className: 'doc-kind', text: t('status.doc.csv') })));
     this.appendProtection(tab);
     const encodingLabel = t(`encoding.${doc.encoding}`);
@@ -219,10 +232,6 @@ export class StatusBar {
         }),
       ),
     );
-
-    this.appendDetailsToggle();
-    this.appendSelection(tab);
-    this.appendVersion();
   }
 
   /** Show where the editor's caret is (cheap: only the one segment changes). */

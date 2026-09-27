@@ -281,6 +281,37 @@ interface ParsedCell {
   value: string;
 }
 
+/**
+ * A cell's value as text for its OOXML cell type `type` (`t` attribute), or
+ * null when the cell is malformed (a shared-string index out of range, or a
+ * type outside the OOXML cell-type enumeration).
+ */
+function cellValue(type: string | null, content: string, sharedStrings: string[]): string | null {
+  switch (type) {
+    case null:
+    case 'n':
+    case 'str':
+    case 'd':
+    case 'e':
+      return extractCellValueText(content) ?? '';
+    case 's': {
+      const idxText = extractCellValueText(content);
+      const idx = idxText !== null ? Number(idxText) : NaN;
+      return Number.isInteger(idx) && idx >= 0 && idx < sharedStrings.length ? sharedStrings[idx] : null;
+    }
+    case 'b': {
+      const raw = extractCellValueText(content);
+      return raw === '1' ? 'TRUE' : raw === '0' ? 'FALSE' : '';
+    }
+    case 'inlineStr': {
+      const isMatch = /<is\b[^>]*>([\s\S]*?)<\/is>/.exec(content);
+      return isMatch ? extractRunText(isMatch[1]) : '';
+    }
+    default:
+      return null; // not a value defined by the OOXML cell-type enumeration
+  }
+}
+
 /** Parse one `xl/worksheets/sheetN.xml` part into sparse cells, or `null` if the XML is invalid. */
 function parseWorksheetCells(xml: string, sharedStrings: string[]): ParsedCell[] | null {
   const cells: ParsedCell[] = [];
@@ -322,37 +353,9 @@ function parseWorksheetCells(xml: string, sharedStrings: string[]): ParsedCell[]
       if (cellMatch[3] === undefined) {
         continue; // self-closed cell: no value
       }
-      const type = getAttr(cAttrs, 't');
-      let value: string;
-      switch (type) {
-        case null:
-        case 'n':
-        case 'str':
-        case 'd':
-        case 'e':
-          value = extractCellValueText(cContent) ?? '';
-          break;
-        case 's': {
-          const idxText = extractCellValueText(cContent);
-          const idx = idxText !== null ? Number(idxText) : NaN;
-          if (!Number.isInteger(idx) || idx < 0 || idx >= sharedStrings.length) {
-            return null;
-          }
-          value = sharedStrings[idx];
-          break;
-        }
-        case 'b': {
-          const raw = extractCellValueText(cContent);
-          value = raw === '1' ? 'TRUE' : raw === '0' ? 'FALSE' : '';
-          break;
-        }
-        case 'inlineStr': {
-          const isMatch = /<is\b[^>]*>([\s\S]*?)<\/is>/.exec(cContent);
-          value = isMatch ? extractRunText(isMatch[1]) : '';
-          break;
-        }
-        default:
-          return null; // not a value defined by the OOXML cell-type enumeration
+      const value = cellValue(getAttr(cAttrs, 't'), cContent, sharedStrings);
+      if (value === null) {
+        return null;
       }
       if (value !== '') {
         cells.push({ row: rowIndex, col: colIndex, value });

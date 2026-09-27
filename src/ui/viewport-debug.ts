@@ -169,6 +169,45 @@ export function installViewportDebug(): void {
     }
   };
 
+  listenForViewportEvents(doc, panel, record);
+
+  copy.addEventListener('click', () => {
+    const text = [
+      `Refrain Sheet ${APP_VERSION_DISPLAY}`,
+      navigator.userAgent,
+      `dpr=${globalThis.devicePixelRatio}`,
+      ...lines,
+    ].join('\n');
+    output.value = text;
+    const showForManualCopy = (): void => {
+      output.hidden = false;
+      output.select();
+      status.textContent = t('viewportDebug.copyFailed');
+    };
+    if (!navigator.clipboard) {
+      showForManualCopy();
+      return;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+      status.textContent = t('viewportDebug.copied', { count: lines.length });
+    }, showForManualCopy);
+  });
+  clear.addEventListener('click', () => {
+    lines.length = 0;
+    last = '';
+    output.hidden = true;
+    status.textContent = '';
+    log('clear', true);
+  });
+  panel.insertBefore(buildKeyboardProbe(record), output);
+  log('start', true);
+}
+
+/**
+ * Record every viewport, scroll, focus, pointer, and on-screen keyboard event
+ * that can explain a shifted page — taps on the debug panel itself excepted.
+ */
+function listenForViewportEvents(doc: Document, panel: HTMLElement, record: (event: string) => void): void {
   const vv = globalThis.visualViewport;
   vv?.addEventListener('resize', () => record('vv-resize'));
   vv?.addEventListener('scroll', () => record('vv-scroll'));
@@ -209,35 +248,4 @@ export function installViewportDebug(): void {
   }
   onKeyboardOpenChange((open) => record(open ? 'kb-open' : 'kb-close'));
   onKeyboardResize(() => record('kb-resize'));
-
-  copy.addEventListener('click', () => {
-    const text = [
-      `Refrain Sheet ${APP_VERSION_DISPLAY}`,
-      navigator.userAgent,
-      `dpr=${globalThis.devicePixelRatio}`,
-      ...lines,
-    ].join('\n');
-    output.value = text;
-    const showForManualCopy = (): void => {
-      output.hidden = false;
-      output.select();
-      status.textContent = t('viewportDebug.copyFailed');
-    };
-    if (!navigator.clipboard) {
-      showForManualCopy();
-      return;
-    }
-    navigator.clipboard.writeText(text).then(() => {
-      status.textContent = t('viewportDebug.copied', { count: lines.length });
-    }, showForManualCopy);
-  });
-  clear.addEventListener('click', () => {
-    lines.length = 0;
-    last = '';
-    output.hidden = true;
-    status.textContent = '';
-    log('clear', true);
-  });
-  panel.insertBefore(buildKeyboardProbe(record), output);
-  log('start', true);
 }

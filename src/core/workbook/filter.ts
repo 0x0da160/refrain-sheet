@@ -251,20 +251,7 @@ export function validateFilter(
   rowCount: number,
   columnCount: number,
 ): SheetFilter | null {
-  const intish = (n: number): boolean => Number.isInteger(n) && n >= 0;
-  if (!intish(filter.top) || !intish(filter.left) || !intish(filter.bottom) || !intish(filter.right)) {
-    return null;
-  }
-  if (filter.top > filter.bottom || filter.left > filter.right) {
-    return null;
-  }
-  if (filter.bottom >= rowCount || filter.right >= columnCount) {
-    return null;
-  }
-  if (filter.bottom - filter.top + 1 > MAX_FILTER_ROWS) {
-    return null;
-  }
-  if (typeof filter.headerRow !== 'boolean') {
+  if (!validFilterRange(filter, rowCount, columnCount) || typeof filter.headerRow !== 'boolean') {
     return null;
   }
   if (!Array.isArray(filter.columns) || filter.columns.length > MAX_FILTER_COLUMNS) {
@@ -272,58 +259,78 @@ export function validateFilter(
   }
   const seen = new Set<number>();
   for (const column of filter.columns) {
-    if (!intish(column.col) || column.col < filter.left || column.col > filter.right) {
-      return null;
-    }
-    if (seen.has(column.col)) {
+    if (!validFilterColumn(column, filter) || seen.has(column.col)) {
       return null;
     }
     seen.add(column.col);
-    if (column.join !== 'and' && column.join !== 'or') {
-      return null;
-    }
-    if (!Array.isArray(column.conditions) || column.conditions.length > MAX_FILTER_CONDITIONS) {
-      return null;
-    }
-    for (const cond of column.conditions) {
-      if (cond.kind === 'text') {
-        if (!(FILTER_TEXT_OPS as readonly string[]).includes(cond.op)) {
-          return null;
-        }
-        if (typeof cond.value !== 'string' || cond.value.length > MAX_FILTER_STRING) {
-          return null;
-        }
-      } else if (cond.kind === 'number') {
-        if (!(FILTER_NUMBER_OPS as readonly string[]).includes(cond.op)) {
-          return null;
-        }
-        if (!Number.isFinite(cond.value)) {
-          return null;
-        }
-        if (cond.op === 'numBetween' && cond.value2 !== undefined && !Number.isFinite(cond.value2)) {
-          return null;
-        }
-      } else {
-        return null;
-      }
-    }
-    if (column.values !== null) {
-      if (!Array.isArray(column.values) || column.values.length > MAX_FILTER_VALUES) {
-        return null;
-      }
-      for (const v of column.values) {
-        if (typeof v !== 'string' || v.length > MAX_FILTER_STRING) {
-          return null;
-        }
-      }
-    }
-    // A column entry with no criteria at all is meaningless; drop the filter
-    // shape as invalid rather than carrying dead entries around.
-    if (column.conditions.length === 0 && column.values === null) {
-      return null;
-    }
   }
   return filter;
+}
+
+const intish = (n: number): boolean => Number.isInteger(n) && n >= 0;
+
+/** A well-formed, in-bounds, not-too-tall rectangle. */
+function validFilterRange(filter: SheetFilter, rowCount: number, columnCount: number): boolean {
+  return (
+    intish(filter.top) &&
+    intish(filter.left) &&
+    intish(filter.bottom) &&
+    intish(filter.right) &&
+    filter.top <= filter.bottom &&
+    filter.left <= filter.right &&
+    filter.bottom < rowCount &&
+    filter.right < columnCount &&
+    filter.bottom - filter.top + 1 <= MAX_FILTER_ROWS
+  );
+}
+
+/**
+ * One column's criteria: inside the filter range, a known join, bounded
+ * conditions and values. A column entry with no criteria at all is
+ * meaningless; the filter shape is treated as invalid rather than carrying
+ * dead entries around.
+ */
+function validFilterColumn(column: ColumnFilter, filter: SheetFilter): boolean {
+  if (!intish(column.col) || column.col < filter.left || column.col > filter.right) {
+    return false;
+  }
+  if (column.join !== 'and' && column.join !== 'or') {
+    return false;
+  }
+  if (!Array.isArray(column.conditions) || column.conditions.length > MAX_FILTER_CONDITIONS) {
+    return false;
+  }
+  if (!column.conditions.every(validFilterCondition)) {
+    return false;
+  }
+  if (column.values !== null) {
+    if (!Array.isArray(column.values) || column.values.length > MAX_FILTER_VALUES) {
+      return false;
+    }
+    if (!column.values.every((v) => typeof v === 'string' && v.length <= MAX_FILTER_STRING)) {
+      return false;
+    }
+  }
+  return column.conditions.length > 0 || column.values !== null;
+}
+
+/** A text or number condition with a known operator and bounded, finite operands. */
+function validFilterCondition(cond: FilterCondition): boolean {
+  if (cond.kind === 'text') {
+    return (
+      (FILTER_TEXT_OPS as readonly string[]).includes(cond.op) &&
+      typeof cond.value === 'string' &&
+      cond.value.length <= MAX_FILTER_STRING
+    );
+  }
+  if (cond.kind === 'number') {
+    return (
+      (FILTER_NUMBER_OPS as readonly string[]).includes(cond.op) &&
+      Number.isFinite(cond.value) &&
+      !(cond.op === 'numBetween' && cond.value2 !== undefined && !Number.isFinite(cond.value2))
+    );
+  }
+  return false;
 }
 
 /** Deep structural equality of two filter states (null-safe). */

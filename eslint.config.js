@@ -9,22 +9,13 @@ import prettier from 'eslint-config-prettier';
  * ever removed, and a file leaves the list once it passes the limits.
  */
 const COMPLEXITY_RATCHET = [
-  'src/app/commands/filter.ts',
   'src/core/csv/byte-csv-parser.ts',
-  'src/core/diff-engine.ts',
-  'src/core/workbook/filter.ts',
-  'src/core/flash-fill.ts',
-  'src/core/markdown.ts',
   'src/core/workbook/rsf-codec.ts',
-  'src/core/sql-engine.ts',
-  'src/core/interchange/xlsx-import.ts',
   'src/ui/column-menu.ts',
   'src/ui/dialogs/app-settings.ts',
   'src/ui/dialogs/diff.ts',
   'src/ui/dialogs/format.ts',
   'src/ui/dialogs/sql.ts',
-  'src/ui/status-bar.ts',
-  'src/ui/viewport-debug.ts',
 ];
 
 export default tseslint.config(

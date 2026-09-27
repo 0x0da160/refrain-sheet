@@ -38,6 +38,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- In File > Settings…, every "Not specified" choice now says what then
+  applies: the default (for example, "Not specified (default: Light)"), the
+  value last used for zoom and wrapping, or — for the file — this browser's
+  setting, which updates as you change it in the same dialog.
+
 ## [0.9.12] - 2026-09-27
 
 ### Added

@@ -8,7 +8,7 @@
  * All six now share `submitOnEnter` (`src/ui/dialogs/shared.ts`).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { getLocale, setLocale } from '../../src/app/i18n';
+import { getLocale, setLocale, t } from '../../src/app/i18n';
 import { clampMaxFileSize, miBToBytes } from '../../src/app/settings';
 import { Dialogs } from '../../src/ui/dialogs';
 
@@ -100,7 +100,7 @@ describe('Enter submits single-line dialog inputs', () => {
     enter(value1);
     expect(document.querySelector('.side-panel')).not.toBeNull();
 
-    panel.querySelector<HTMLButtonElement>('.side-panel-footer-close')!.click();
+    panel.querySelector<HTMLButtonElement>('.side-panel-close-btn')!.click();
     expect(await promise).toBeNull();
   });
 
@@ -225,6 +225,37 @@ describe('Enter submits single-line dialog inputs', () => {
       browserDisplay: { zoom: 150, wrap: undefined, font: undefined, look: {} },
       fileDisplay: { zoom: 133, wrap: false, font: 'meiryo-ui', look: {} },
     });
+  });
+
+  it('names the value that applies when a setting is not specified', async () => {
+    const promise = new Dialogs().chooseSettings({
+      maxFileSize: 64 * 1024 * 1024,
+      shiftPaste: 'values',
+      browserDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: { bandLevel: 3 } },
+      fileDisplay: { zoom: undefined, wrap: undefined, font: undefined, look: {} },
+    });
+    const dialog = document.querySelector('dialog')!;
+    const unset = (id: string): string =>
+      dialog.querySelector<HTMLSelectElement>(`#${id}`)!.options[0].textContent ?? '';
+    expect(unset('settings-browser-bands')).toBe(
+      t('dialog.settings.unsetDefault', { value: t('dialog.settings.hide') }),
+    );
+    expect(unset('settings-browser-colHighlight')).toBe(
+      t('dialog.settings.unsetDefault', { value: t('dialog.settings.highlightOff') }),
+    );
+    expect(unset('settings-browser-zoom')).toBe(t('dialog.settings.unsetLastUsed', { value: '100%' }));
+    // The file level shows this browser's choice, and follows edits to it.
+    expect(unset('settings-file-bandLevel')).toBe(
+      t('dialog.settings.unsetBrowser', { value: t('dialog.settings.bandLevel.3') }),
+    );
+    const browserGrid = dialog.querySelector<HTMLSelectElement>('#settings-browser-gridlines')!;
+    browserGrid.value = 'off';
+    browserGrid.dispatchEvent(new Event('change'));
+    expect(unset('settings-file-gridlines')).toBe(
+      t('dialog.settings.unsetBrowser', { value: t('dialog.settings.hide') }),
+    );
+    enter(dialog.querySelector<HTMLInputElement>('input[type="number"]')!);
+    await promise;
   });
 
   it('edits the grid look at the browser and file levels', async () => {

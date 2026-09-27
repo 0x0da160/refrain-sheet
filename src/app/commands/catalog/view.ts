@@ -135,9 +135,9 @@ export const VIEW_COMMANDS = {
   ),
   'view.commentsPanel': {
     run: (ctx) => {
-      ctx.commands.panelActions?.toggleComments();
-      // Pure UI-visibility toggle: re-emit so the View menu checkbox reflects it.
-      ctx.state.emit('view');
+      // Opens only: a side panel closes from its header × alone, never from
+      // a menu command run a second time.
+      ctx.commands.panelActions?.openComments();
     },
   },
   // False where the page may not go full screen (e.g. an iframe without

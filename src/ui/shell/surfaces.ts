@@ -73,9 +73,9 @@ export function createSurfaces(
   // see src/ui/comments-panel.ts.
   const commentsPanel = new CommentsPanel(state, grid);
   commands.panelActions = {
-    toggleComments: () => commentsPanel.toggle(),
+    openComments: () => commentsPanel.open(),
   };
-  const menuBar = createMenuBar(state, commands, commentsPanel);
+  const menuBar = createMenuBar(state, commands);
   const tabBar = new TabBar(state, commands);
   // The worksheet strip of the active RSF workbook, rendered below the grid —
   // a separate surface from the document tab strip above it.
@@ -164,7 +164,7 @@ function wireCommandActions(
   document.addEventListener('fullscreenchange', () => state.emit('view'));
 }
 
-function createMenuBar(state: AppState, commands: Commands, commentsPanel: CommentsPanel): MenuBar {
+function createMenuBar(state: AppState, commands: Commands): MenuBar {
   return new MenuBar(commands, {
     wrap: () => state.wrapCells,
     stickyFirstRow: () => state.stickyFirstRowShown,
@@ -180,7 +180,6 @@ function createMenuBar(state: AppState, commands: Commands, commentsPanel: Comme
     highlightRow: () => resolveGridLook(state.activeTab?.doc ?? null).rowHighlight,
     highlightCol: () => resolveGridLook(state.activeTab?.doc ?? null).colHighlight,
     autoFitOnOpen: () => getAutoFitOnOpen(),
-    commentsPanel: () => commentsPanel.isOpen,
     fullscreen: () => commands.isFullscreen(),
     formatActive: (key) => {
       const tab = state.activeTab;

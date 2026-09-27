@@ -2,7 +2,6 @@
 import type { VersionHistoryChoice } from '../../app/commands';
 import { driveConfigured } from '../../app/drive/config';
 import { getLocale, t, type LocaleId } from '../../app/i18n';
-import { isSheetFontId, SHEET_FONTS, sheetFontLabelKey } from '../../app/sheet-font';
 import { displayShortcutKeys, isMacPlatform, SHORTCUT_GROUPS } from '../../app/shortcuts';
 import { FUNCTION_INFOS, type FunctionCategory } from '../../core/formula';
 import {
@@ -11,8 +10,6 @@ import {
   clampMaxFileSize,
   MIN_MAX_FILE_SIZE,
   MAX_MAX_FILE_SIZE,
-  SHEET_ZOOM_LEVELS,
-  type DisplayLevelSettings,
   type LocalSettings,
 } from '../../app/settings';
 import {
@@ -23,7 +20,7 @@ import {
 import { listTimeZones } from '../../core/workbook/timezone';
 import { APP_VERSION_DISPLAY } from '../../app/version';
 import { el } from '../dom';
-import { lookFields } from './grid-look-fields';
+import { browserFallback, displayLevelFields, labelUnset } from './display-level-fields';
 import { dialogButton, externalLink, helpDetails, openDialog, submitOnEnter } from './shared';
 import { openVersionHistoryPreview } from './version-preview';
 
@@ -57,75 +54,6 @@ const FUNCTION_CATEGORY_LABEL_KEY: Record<FunctionCategory, string> = {
   statistics: 'dialog.formulaHelp.category.statistics',
   arrays: 'dialog.formulaHelp.category.arrays',
 };
-
-/**
- * The zoom, wrap, and font pickers for one level of the layered display settings
- * (browser or file). An empty value means "not specified" — the next level
- * decides. `read` returns the level's values as currently picked.
- */
-function displayLevelFields(
-  idPrefix: string,
-  current: DisplayLevelSettings,
-  unsetKey: string,
-  fontUnsetKey: string,
-  lookUnsetKey: string,
-): { rows: HTMLElement[]; read: () => DisplayLevelSettings } {
-  const zoomId = `${idPrefix}-zoom`;
-  const zoomSelect = el('select', { attrs: { id: zoomId } }) as HTMLSelectElement;
-  const levels: number[] = [...SHEET_ZOOM_LEVELS];
-  if (current.zoom !== undefined && !levels.includes(current.zoom)) {
-    levels.push(current.zoom);
-    levels.sort((a, b) => a - b);
-  }
-  zoomSelect.append(el('option', { text: t(unsetKey), attrs: { value: '' } }));
-  for (const level of levels) {
-    zoomSelect.append(el('option', { text: `${level}%`, attrs: { value: String(level) } }));
-  }
-  zoomSelect.value = current.zoom === undefined ? '' : String(current.zoom);
-
-  const wrapId = `${idPrefix}-wrap`;
-  const wrapSelect = el('select', { attrs: { id: wrapId } }) as HTMLSelectElement;
-  wrapSelect.append(
-    el('option', { text: t(unsetKey), attrs: { value: '' } }),
-    el('option', { text: t('dialog.settings.wrapOn'), attrs: { value: 'on' } }),
-    el('option', { text: t('dialog.settings.wrapOff'), attrs: { value: 'off' } }),
-  );
-  wrapSelect.value = current.wrap === undefined ? '' : current.wrap ? 'on' : 'off';
-
-  const fontId = `${idPrefix}-font`;
-  const fontSelect = el('select', { attrs: { id: fontId } }) as HTMLSelectElement;
-  fontSelect.append(el('option', { text: t(fontUnsetKey), attrs: { value: '' } }));
-  for (const font of SHEET_FONTS) {
-    fontSelect.append(el('option', { text: t(sheetFontLabelKey(font)), attrs: { value: font } }));
-  }
-  fontSelect.value = current.font ?? '';
-
-  const look = lookFields(idPrefix, current.look, lookUnsetKey);
-
-  return {
-    rows: [
-      el('div', { className: 'form-row' }, [
-        el('label', { text: t('dialog.settings.zoom'), attrs: { for: zoomId } }),
-        zoomSelect,
-      ]),
-      el('div', { className: 'form-row' }, [
-        el('label', { text: t('dialog.settings.wrap'), attrs: { for: wrapId } }),
-        wrapSelect,
-      ]),
-      el('div', { className: 'form-row' }, [
-        el('label', { text: t('dialog.settings.font'), attrs: { for: fontId } }),
-        fontSelect,
-      ]),
-      ...look.rows,
-    ],
-    read: () => ({
-      zoom: zoomSelect.value === '' ? undefined : Number(zoomSelect.value),
-      wrap: wrapSelect.value === '' ? undefined : wrapSelect.value === 'on',
-      font: isSheetFontId(fontSelect.value) ? fontSelect.value : undefined,
-      look: look.read(),
-    }),
-  };
-}
 
 /**
  * App-level settings and help dialogs: the local settings (max file size),
@@ -171,22 +99,26 @@ export class AppSettingsDialogs {
         pasteSelect.append(option);
       }
 
-      const browserFields = displayLevelFields(
-        'settings-browser',
-        current.browserDisplay,
-        'dialog.settings.followFile',
-        'dialog.settings.fontDefault',
-        'dialog.settings.lookDefault',
+      // "Not specified" names what then applies: for this browser, the
+      // default (zoom and wrap: the value last used); for the file, this
+      // browser's choice as currently picked, so it follows edits above.
+      const browserFields = displayLevelFields('settings-browser', current.browserDisplay);
+      labelUnset(browserFields, browserFallback, (key) =>
+        key === 'zoom' || key === 'wrap' ? 'dialog.settings.unsetLastUsed' : 'dialog.settings.unsetDefault',
       );
       const fileFields = current.fileDisplay
-        ? displayLevelFields(
-            'settings-file',
-            current.fileDisplay,
-            'dialog.settings.followSheet',
-            'dialog.settings.followSheet',
-            'dialog.settings.followSheet',
-          )
+        ? displayLevelFields('settings-file', current.fileDisplay)
         : null;
+      if (fileFields) {
+        const relabel = (): void =>
+          labelUnset(
+            fileFields,
+            (key) => browserFields.selects.get(key)!.value || browserFallback(key),
+            () => 'dialog.settings.unsetBrowser',
+          );
+        relabel();
+        for (const select of browserFields.selects.values()) select.addEventListener('change', relabel);
+      }
 
       body.append(
         el('div', { className: 'form-row' }, [

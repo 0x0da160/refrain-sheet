@@ -88,10 +88,10 @@ export class Commands {
     goToCell: (row: number, col: number) => void;
   } | null = null;
 
-  /** Set by main.ts so the View menu can show/hide the comments panel. */
+  /** Set by main.ts so the View menu can open the comments panel. */
   panelActions: {
-    /** Show/hide the right-side cell comments panel. */
-    toggleComments: () => void;
+    /** Open the cell comments panel (only its header × closes it). */
+    openComments: () => void;
   } | null = null;
 
   /**

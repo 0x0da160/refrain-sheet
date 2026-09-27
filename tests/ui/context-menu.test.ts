@@ -10,7 +10,7 @@ import { Grid3x3, PaintBucket } from 'lucide';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { positionPopup } from '../../src/ui/popup';
 import { ContextMenu, closeAllContextMenus } from '../../src/ui/context-menu';
-import { defaultMenus, type MenuChecks, type MenuDef, type MenuItemDef } from '../../src/ui/menu-bar';
+import { defaultMenus, type MenuChecks, type MenuDef, type MenuItemDef } from '../../src/ui/menu-bar/menus';
 
 function sizedMenu(width: number, height: number): HTMLElement {
   const node = document.createElement('div');

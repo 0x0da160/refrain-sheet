@@ -7,7 +7,7 @@
  * locale.
  */
 import { describe, expect, it } from 'vitest';
-import { defaultMenus, type MenuChecks, type MenuDef, type MenuItemDef } from '../../src/ui/menu-bar';
+import { defaultMenus, type MenuChecks, type MenuDef, type MenuItemDef } from '../../src/ui/menu-bar/menus';
 import { getLocale, setLocale } from '../../src/app/i18n';
 
 function checks(): MenuChecks {

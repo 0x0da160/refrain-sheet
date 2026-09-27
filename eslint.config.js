@@ -23,7 +23,6 @@ const COMPLEXITY_RATCHET = [
   'src/ui/dialogs/diff.ts',
   'src/ui/dialogs/format.ts',
   'src/ui/dialogs/sql.ts',
-  'src/ui/menu-bar.ts',
   'src/ui/status-bar.ts',
   'src/ui/viewport-debug.ts',
 ];

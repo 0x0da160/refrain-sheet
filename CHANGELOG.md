@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.11] - 2026-09-27
+
 ### Fixed
 
 - Saving no longer silently overwrites changes made to the same file

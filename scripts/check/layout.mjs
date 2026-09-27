@@ -47,7 +47,7 @@ const MAX_SOURCE_LINES = 800;
  * whole (see src/core/CLAUDE.md); nothing else may exceed the limit.
  */
 const LINE_BUDGET = {
-  'src/core/workbook/rsf-codec.ts': 1160,
+  'src/core/workbook/rsf-codec.ts': 1079,
 };
 
 const errors = [];

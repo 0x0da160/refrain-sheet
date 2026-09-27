@@ -9,7 +9,7 @@
 // Colour references are 'hue.step' strings into `palette`; translucent
 // values are { ref, alpha }. Rationale: docs/decisions.md.
 
-export const VERSION = '2.3.0';
+export const VERSION = '2.4.0';
 export const RELEASED = '2026-09-26';
 
 /* ---------------------------------------------------------------------------

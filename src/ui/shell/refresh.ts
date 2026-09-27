@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** Keep every surface in step with application-state events and the UI language. */
 import { getLocale, onLocaleChange, t } from '../../app/i18n';
+import { applyGridLook } from '../../app/grid-look';
 import { applySheetFont } from '../../app/sheet-font';
 import type { AppState } from '../../app/state';
-import { resolveSheetFont } from '../../app/state/view-layers';
+import { resolveGridLook, resolveSheetFont } from '../../app/state/view-layers';
 import { closeColumnMenu } from '../column-menu';
 import { closeAllContextMenus } from '../context-menu';
 import type { Surfaces } from './surfaces';
@@ -34,9 +35,11 @@ export function subscribeSurfaces(
 
   state.subscribe((event) => {
     if (event !== 'selection') {
-      // The font is layered (worksheet > file > browser), so it follows the
-      // active document and worksheet. Pure CSS: setting it again is a no-op.
+      // The font and the grid look are layered (worksheet > file > browser),
+      // so they follow the active document and worksheet. Pure CSS: setting
+      // them again is a no-op.
       applySheetFont(resolveSheetFont(state.activeTab?.doc ?? null).value);
+      applyGridLook(resolveGridLook(state.activeTab?.doc ?? null));
       // Any change of document, worksheet, or content invalidates the state a
       // context menu was built against (its enabled items, its anchor cell),
       // so the menu is dismissed rather than left pointing at something else.

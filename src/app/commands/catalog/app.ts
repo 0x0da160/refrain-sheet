@@ -12,6 +12,8 @@ import {
   setMaxFileSize,
   setShiftPasteMode,
 } from '../../settings';
+import { GRID_LOOK_KEYS } from '../../../core/grid-look';
+import { getBrowserGridLook, setBrowserGridLook } from '../../grid-look';
 import { getBrowserSheetFont, isSheetFontId, setBrowserSheetFont } from '../../sheet-font';
 import type { Tab } from '../../state';
 import { withTab, type CommandContext, type CommandSpec } from './types';
@@ -22,12 +24,18 @@ async function settings(ctx: CommandContext): Promise<void> {
   const chosen = await ctx.ui.chooseSettings({
     maxFileSize: getMaxFileSize(),
     shiftPaste: getShiftPasteMode(),
-    browserDisplay: { zoom: getBrowserZoom(), wrap: getBrowserWrap(), font: getBrowserSheetFont() },
+    browserDisplay: {
+      zoom: getBrowserZoom(),
+      wrap: getBrowserWrap(),
+      font: getBrowserSheetFont(),
+      look: getBrowserGridLook(),
+    },
     fileDisplay: rsf
       ? {
           zoom: rsf.fileZoom,
           wrap: rsf.fileWrap,
           font: isSheetFontId(rsf.fileFont) ? rsf.fileFont : undefined,
+          look: { ...rsf.fileLook },
         }
       : null,
   });
@@ -39,12 +47,13 @@ async function settings(ctx: CommandContext): Promise<void> {
   setBrowserZoom(chosen.browserDisplay.zoom);
   setBrowserWrap(chosen.browserDisplay.wrap);
   setBrowserSheetFont(chosen.browserDisplay.font);
+  setBrowserGridLook(chosen.browserDisplay.look);
   // The file level is presentational like zoom: kept with the next save,
   // never marks the document dirty. Choosing a file-level value clears each
   // worksheet's own one, so the file setting takes effect everywhere (a
   // worksheet would outrank it).
   if (rsf && chosen.fileDisplay) {
-    const { zoom, wrap, font } = chosen.fileDisplay;
+    const { zoom, wrap, font, look } = chosen.fileDisplay;
     if (zoom !== undefined && zoom !== rsf.fileZoom) {
       for (const sheet of rsf.sheets) sheet.displayZoom = undefined;
     }
@@ -54,6 +63,12 @@ async function settings(ctx: CommandContext): Promise<void> {
     if (font !== undefined && font !== rsf.fileFont) {
       for (const sheet of rsf.sheets) sheet.displayFont = undefined;
     }
+    for (const key of GRID_LOOK_KEYS) {
+      if (look[key] !== undefined && look[key] !== rsf.fileLook[key]) {
+        for (const sheet of rsf.sheets) delete sheet.displayLook[key];
+      }
+    }
+    rsf.fileLook = { ...look };
     rsf.fileZoom = zoom;
     rsf.fileWrap = wrap;
     rsf.fileFont = font;

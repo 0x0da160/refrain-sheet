@@ -23,6 +23,7 @@ import {
 import { listTimeZones } from '../../core/workbook/timezone';
 import { APP_VERSION_DISPLAY } from '../../app/version';
 import { el } from '../dom';
+import { lookFields } from './grid-look-fields';
 import { dialogButton, externalLink, helpDetails, openDialog, submitOnEnter } from './shared';
 import { openVersionHistoryPreview } from './version-preview';
 
@@ -67,6 +68,7 @@ function displayLevelFields(
   current: DisplayLevelSettings,
   unsetKey: string,
   fontUnsetKey: string,
+  lookUnsetKey: string,
 ): { rows: HTMLElement[]; read: () => DisplayLevelSettings } {
   const zoomId = `${idPrefix}-zoom`;
   const zoomSelect = el('select', { attrs: { id: zoomId } }) as HTMLSelectElement;
@@ -98,6 +100,8 @@ function displayLevelFields(
   }
   fontSelect.value = current.font ?? '';
 
+  const look = lookFields(idPrefix, current.look, lookUnsetKey);
+
   return {
     rows: [
       el('div', { className: 'form-row' }, [
@@ -112,11 +116,13 @@ function displayLevelFields(
         el('label', { text: t('dialog.settings.font'), attrs: { for: fontId } }),
         fontSelect,
       ]),
+      ...look.rows,
     ],
     read: () => ({
       zoom: zoomSelect.value === '' ? undefined : Number(zoomSelect.value),
       wrap: wrapSelect.value === '' ? undefined : wrapSelect.value === 'on',
       font: isSheetFontId(fontSelect.value) ? fontSelect.value : undefined,
+      look: look.read(),
     }),
   };
 }
@@ -170,11 +176,13 @@ export class AppSettingsDialogs {
         current.browserDisplay,
         'dialog.settings.followFile',
         'dialog.settings.fontDefault',
+        'dialog.settings.lookDefault',
       );
       const fileFields = current.fileDisplay
         ? displayLevelFields(
             'settings-file',
             current.fileDisplay,
+            'dialog.settings.followSheet',
             'dialog.settings.followSheet',
             'dialog.settings.followSheet',
           )

@@ -22,6 +22,7 @@ import { MAX_COMMENT_LENGTH } from './cell-comment';
 import { MAX_TEXT_RUNS, runsForText, type TextRun } from './rich-text';
 import { DEFAULT_DISPLAY_LANGUAGE } from './display-language';
 import { DEFAULT_TIMEZONE } from './timezone';
+import { hasViewSettings, viewFromJson, viewToJson, type RsfViewSettings } from './rsf-view';
 import { readSkippableFrame, readU32, writeSkippableFrame, writeU32, ZSTD_MAGIC } from './zstd-frame';
 
 /**
@@ -66,8 +67,7 @@ const RSF_FORMAT_NAME = 'refrain-sheet';
 /** The JSON document version this release writes and reads. */
 export const RSF_FORMAT_VERSION = 1;
 
-export const RSF_ZOOM_MIN = 50;
-export const RSF_ZOOM_MAX = 200;
+export { RSF_ZOOM_MAX, RSF_ZOOM_MIN } from './rsf-view';
 export const RSF_COL_WIDTH_MIN = 40;
 export const RSF_COL_WIDTH_MAX = 1200;
 
@@ -112,19 +112,10 @@ export interface RsfHistorySnapshot {
   bytes: Uint8Array;
 }
 
-/** Validated presentational state of one worksheet. */
-export interface RsfDisplaySettings {
-  /** Spreadsheet zoom percent, or undefined when the file stores none. */
-  zoom?: number;
+/** Validated presentational state of one worksheet (the shared keys: `rsf-view.ts`). */
+export interface RsfDisplaySettings extends RsfViewSettings {
   /** Overridden column widths as [columnIndex, widthPx-at-100%] pairs. */
   colWidths?: Array<[number, number]>;
-  /** Whether long cells wrap onto several visual lines. */
-  wrap?: boolean;
-  /**
-   * Spreadsheet font id (`biz-ud`, `ms`, …). Only its shape is checked here;
-   * the application ignores an id it does not know.
-   */
-  font?: string;
 }
 
 /**
@@ -180,15 +171,7 @@ export interface RsfWorkbookData {
    * File-level display settings. Each one, when present, applies to every
    * worksheet that does not set its own (see `settings-cascade.ts`).
    */
-  display?: RsfFileDisplaySettings;
-}
-
-/** Validated file-level display settings; an absent key means "not specified". */
-interface RsfFileDisplaySettings {
-  zoom?: number;
-  wrap?: boolean;
-  /** Spreadsheet font id (see {@link RsfDisplaySettings.font}). */
-  font?: string;
+  display?: RsfViewSettings;
 }
 
 /**
@@ -369,23 +352,9 @@ function sheetToJson(sheet: RsfWorksheetData): { [key: string]: Json } {
     out.lines = text.split('\n');
   }
   const display = sheet.display;
-  if (
-    display &&
-    (display.zoom !== undefined ||
-      display.wrap ||
-      display.font !== undefined ||
-      (display.colWidths?.length ?? 0) > 0)
-  ) {
+  if (display && (hasViewSettings(display, 'drop') || (display.colWidths?.length ?? 0) > 0)) {
     const view: { [key: string]: Json } = {};
-    if (display.zoom !== undefined) {
-      view.zoom = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(display.zoom)));
-    }
-    if (display.wrap) {
-      view.wrap = true;
-    }
-    if (display.font !== undefined) {
-      view.font = display.font;
-    }
+    viewToJson(display, 'drop', view);
     const widths: { [key: string]: Json } = {};
     let any = false;
     for (const [col, width] of [...(display.colWidths ?? [])].sort((a, b) => a[0] - b[0])) {
@@ -449,20 +418,9 @@ function workbookContentToJson(data: RsfWorkbookData): { [key: string]: Json } {
   if (data.activeSheetId) out.activeSheet = data.activeSheetId;
   if (data.autoFormatSource) out.autoFormatSource = true;
   const fileView = data.display;
-  if (
-    fileView &&
-    (fileView.zoom !== undefined || fileView.wrap !== undefined || fileView.font !== undefined)
-  ) {
+  if (hasViewSettings(fileView, 'keep')) {
     const view: { [key: string]: Json } = {};
-    if (fileView.zoom !== undefined) {
-      view.zoom = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(fileView.zoom)));
-    }
-    if (fileView.wrap !== undefined) {
-      view.wrap = fileView.wrap;
-    }
-    if (fileView.font !== undefined) {
-      view.font = fileView.font;
-    }
+    viewToJson(fileView!, 'keep', view);
     out.view = view;
   }
   out.sheets = data.sheets.slice(0, MAX_RSF_SHEETS).map(sheetToJson);
@@ -641,18 +599,6 @@ function optTime(obj: JsonObject, key: string): number | undefined {
   }
   const ms = Date.parse(value);
   return Number.isFinite(ms) && ms > 0 ? ms : undefined;
-}
-
-/** A `view.font` id: 1–64 lowercase letters, digits, or hyphens; anything else is `bad-shape`. */
-function optFontId(obj: JsonObject): string | undefined {
-  const value = obj.font;
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value !== 'string' || !/^[a-z0-9-]{1,64}$/.test(value)) {
-    fail();
-  }
-  return value;
 }
 
 function intIn(value: unknown, min: number, max: number, overflow: RsfDecodeError = 'bad-shape'): number {
@@ -843,20 +789,7 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
     if (!isObject(view)) {
       fail();
     }
-    const display: RsfDisplaySettings = {};
-    if (view.zoom !== undefined) {
-      if (typeof view.zoom !== 'number' || !Number.isFinite(view.zoom)) {
-        fail();
-      }
-      display.zoom = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(view.zoom)));
-    }
-    if (optBoolean(view, 'wrap')) {
-      display.wrap = true;
-    }
-    const font = optFontId(view);
-    if (font !== undefined) {
-      display.font = font;
-    }
+    const display: RsfDisplaySettings = viewFromJson(view, 'drop', fail);
     if (view.colWidths !== undefined) {
       if (!isObject(view.colWidths)) {
         fail();
@@ -875,7 +808,7 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
         display.colWidths = widths;
       }
     }
-    if (display.zoom !== undefined || display.wrap || display.font !== undefined || display.colWidths) {
+    if (hasViewSettings(display, 'drop') || display.colWidths) {
       sheet.display = display;
     }
   }
@@ -989,22 +922,8 @@ function workbookFromJson(value: unknown): RsfWorkbookData {
     if (!isObject(view)) {
       fail();
     }
-    const display: RsfFileDisplaySettings = {};
-    if (view.zoom !== undefined) {
-      if (typeof view.zoom !== 'number' || !Number.isFinite(view.zoom)) {
-        fail();
-      }
-      display.zoom = Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(view.zoom)));
-    }
-    const wrap = optBoolean(view, 'wrap');
-    if (wrap !== undefined) {
-      display.wrap = wrap;
-    }
-    const font = optFontId(view);
-    if (font !== undefined) {
-      display.font = font;
-    }
-    if (display.zoom !== undefined || display.wrap !== undefined || display.font !== undefined) {
+    const display = viewFromJson(view, 'keep', fail);
+    if (hasViewSettings(display, 'keep')) {
       data.display = display;
     }
   }

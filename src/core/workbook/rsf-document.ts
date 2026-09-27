@@ -3,6 +3,7 @@ import type { DelimiterId } from '../csv/byte-csv-parser';
 import type { LosslessDocument } from '../csv/lossless-document';
 import { formatValue, isValidSheetName, sheetNameKey } from '../formula';
 import { APP_NAME, APP_VERSION } from '../app-identity';
+import { isEmptyGridLook, type GridLookLayer } from '../grid-look';
 import { DEFAULT_DISPLAY_LANGUAGE, isValidDisplayLanguage, type DisplayLanguageId } from './display-language';
 import {
   decodeRsfHistorySnapshot,
@@ -100,6 +101,8 @@ export class RsfDocument extends Workbook {
   fileWrap: boolean | undefined;
   /** File-level spreadsheet font id; the worksheet's own wins, like zoom and wrap. */
   fileFont: string | undefined;
+  /** File-level grid look (bands, gridlines, highlights); the worksheet's own keys win. */
+  fileLook: GridLookLayer = {};
 
   /**
    * `timezone` defaults to the browser's local zone, which is what every
@@ -267,6 +270,7 @@ export class RsfDocument extends Workbook {
     doc.fileZoom = data.display?.zoom;
     doc.fileWrap = data.display?.wrap;
     doc.fileFont = data.display?.font;
+    doc.fileLook = { ...data.display?.look };
     if (data.createdAt !== undefined) {
       doc.createdAt = data.createdAt;
     }
@@ -482,11 +486,17 @@ export class RsfDocument extends Workbook {
       historyMaxOverride: this.versions.maxOverride,
       autoFormatSource: this.autoFormatSourceFlag,
     };
-    if (this.fileZoom !== undefined || this.fileWrap !== undefined || this.fileFont !== undefined) {
+    if (
+      this.fileZoom !== undefined ||
+      this.fileWrap !== undefined ||
+      this.fileFont !== undefined ||
+      !isEmptyGridLook(this.fileLook)
+    ) {
       payload.display = {
         ...(this.fileZoom !== undefined ? { zoom: this.fileZoom } : {}),
         ...(this.fileWrap !== undefined ? { wrap: this.fileWrap } : {}),
         ...(this.fileFont !== undefined ? { font: this.fileFont } : {}),
+        ...(!isEmptyGridLook(this.fileLook) ? { look: { ...this.fileLook } } : {}),
       };
     }
     return encodeRsfWorkbook(payload);

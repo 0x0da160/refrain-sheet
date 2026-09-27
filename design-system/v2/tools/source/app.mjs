@@ -11,13 +11,20 @@
    ------------------------------------------------------------------------- */
 export const canvas = {
   'canvas-bg': ['paper.0', 'ink.950', 'Cell background; also source-editor background'],
-  'canvas-row-alt': ['paper.50', 'ink.900', 'Optional banded rows (off by default)'],
-  'canvas-header-bg': ['paper.50', 'ink.900', 'Row and column headers'],
+  'canvas-row-alt-light': [
+    { ref: 'paper.50', alpha: 0.5 },
+    { ref: 'ink.900', alpha: 0.5 },
+    'Banded rows, light strength (the default); drawn over canvas-bg',
+  ],
+  'canvas-row-alt': ['paper.50', 'ink.900', 'Banded rows, medium strength (bands are off by default)'],
+  'canvas-row-alt-strong': ['paper.100', 'ink.800', 'Banded rows, dark strength'],
+  'canvas-header-bg': ['paper.200', 'ink.800', 'Row and column headers; darker than every band'],
   'canvas-header-text': ['ink.500', 'ink.150', ''],
-  'canvas-header-selected-bg': ['green.100', 'green.900', 'Header of a selected row/column'],
+  'canvas-header-selected-bg': ['green.200', 'green.900', 'Header of a selected row/column'],
   'canvas-header-selected-text': ['green.800', 'green.200', ''],
   'canvas-grid': ['paper.200', 'ink.700', 'Grid lines'],
-  'canvas-grid-strong': ['paper.300', 'ink.600', 'Header edge lines'],
+  'canvas-grid-strong': ['paper.300', 'ink.600', 'Header edge lines, and the lines between headers'],
+  'canvas-outside': ['paper.300', 'ink.1000', 'Area past the last row and column'],
   'canvas-frozen-divider': ['ink.300', 'ink.350', 'Line after frozen rows/columns'],
   'canvas-text': ['ink.900', 'paper.50', 'Cell text in the default style'],
   'canvas-text-muted': ['ink.500', 'ink.150', 'Placeholder and secondary text inside the canvas'],
@@ -183,7 +190,9 @@ export const layers = [
 // Canvas pairs, checked in light, dark and hybrid.
 export const contrastPairs = [
   ['canvas-text', 'canvas-bg', 4.5, 'Cell text'],
+  ['canvas-text', 'canvas-row-alt-light over canvas-bg', 4.5, 'Cell text on a light banded row'],
   ['canvas-text', 'canvas-row-alt', 4.5, 'Cell text on a banded row'],
+  ['canvas-text', 'canvas-row-alt-strong', 4.5, 'Cell text on a dark banded row'],
   ['canvas-text', 'canvas-selection', 4.5, 'Cell text on a solid selection'],
   ['canvas-text', 'canvas-range-fill over canvas-bg', 4.5, 'Cell text inside a selection'],
   ['canvas-text', 'canvas-find-match over canvas-bg', 4.5, 'Cell text in a find match'],

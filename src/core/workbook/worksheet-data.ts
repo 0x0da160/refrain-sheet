@@ -6,6 +6,7 @@
  * information, so a worksheet without styles, comments, filters, locks or
  * display settings produces exactly the record earlier releases wrote.
  */
+import { isEmptyGridLook } from '../grid-look';
 import type { RsfWorksheetData } from './rsf-codec';
 import { Worksheet } from './worksheet';
 
@@ -28,6 +29,7 @@ export function worksheetFromData(entry: RsfWorksheetData): Worksheet {
       sheet.displayWrap = true;
     }
     sheet.displayFont = entry.display.font;
+    sheet.displayLook = { ...entry.display.look };
   }
   sheet.filter = entry.filter ?? null;
   sheet.filterDropped = entry.filterDropped === true;
@@ -64,13 +66,15 @@ export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, 
     sheet.displayZoom !== undefined ||
     colWidths.length > 0 ||
     sheet.displayWrap === true ||
-    sheet.displayFont !== undefined
+    sheet.displayFont !== undefined ||
+    !isEmptyGridLook(sheet.displayLook)
   ) {
     entry.display = {
       ...(sheet.displayZoom !== undefined ? { zoom: sheet.displayZoom } : {}),
       ...(colWidths.length > 0 ? { colWidths } : {}),
       ...(sheet.displayWrap === true ? { wrap: true } : {}),
       ...(sheet.displayFont !== undefined ? { font: sheet.displayFont } : {}),
+      ...(!isEmptyGridLook(sheet.displayLook) ? { look: { ...sheet.displayLook } } : {}),
     };
   }
   if (sheet.filter !== null) {

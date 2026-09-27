@@ -41,6 +41,7 @@ export class SelectionView {
     this.core.element.classList.toggle('sel-all', whole);
     this.core.cells.syncCorner();
     this.markCells(range, active, anchor);
+    this.markColumn(range, active, kind);
     this.markRowsAndHeaders(range, active, kind);
     this.placeFillHandle(tab, range);
     this.placeMoveHandle(tab, range);
@@ -67,6 +68,23 @@ export class SelectionView {
       } else {
         cell.removeAttribute('aria-selected');
       }
+    }
+  }
+
+  /**
+   * Mark the cells of the selected column: the active cell's column while a
+   * single cell is selected, or every column of a whole-column selection.
+   * CSS tints them only when View > Highlight Selected Column is on.
+   */
+  private markColumn(range: CellRange | null, active: Selection | null, kind: SelectionKind): void {
+    const multiCell = range !== null && (range.top !== range.bottom || range.left !== range.right);
+    for (const cell of this.core.canvas.querySelectorAll<HTMLElement>('[data-row][data-col]')) {
+      const col = Number(cell.dataset.col);
+      const inSelCols = range !== null && kind === 'col' && col >= range.left && col <= range.right;
+      cell.classList.toggle(
+        'selected-col',
+        inSelCols || (!multiCell && active !== null && active.col === col),
+      );
     }
   }
 

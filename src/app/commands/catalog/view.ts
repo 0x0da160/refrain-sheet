@@ -5,7 +5,9 @@
  * None of them touches document content or CSV bytes.
  */
 import { workbookOf } from '../../../core/editor-document';
-import { getBandedRows, setBandedRows } from '../../banded-rows';
+import type { GridLook } from '../../../core/grid-look';
+import { getBrowserGridLook, setBrowserGridLook } from '../../grid-look';
+import { resolveGridLook } from '../../state/view-layers';
 import { setDensity, type DensityChoice } from '../../density';
 import { t } from '../../i18n';
 import {
@@ -59,6 +61,26 @@ function sheetFont(font: SheetFontId): CommandSpec {
         doc.activeSheet.displayFont = font;
       } else {
         setBrowserSheetFont(font);
+      }
+      ctx.state.emit('view');
+    },
+  };
+}
+
+/**
+ * Toggle one key of the grid look. Like the font, an RSF worksheet remembers
+ * its own value (the narrowest level, so it wins); anything else sets this
+ * browser's. Main applies the effective look (pure CSS) on the `view` event.
+ */
+function gridLook(key: Exclude<keyof GridLook, 'bandLevel'>): CommandSpec {
+  return {
+    run: (ctx) => {
+      const next = !resolveGridLook(ctx.tab?.doc ?? null)[key];
+      const doc = workbookOf(ctx.tab?.doc);
+      if (doc) {
+        doc.activeSheet.displayLook[key] = next;
+      } else {
+        setBrowserGridLook({ ...getBrowserGridLook(), [key]: next });
       }
       ctx.state.emit('view');
     },
@@ -133,7 +155,10 @@ export const VIEW_COMMANDS = {
   'view.zoom.200': zoomTo(200),
   'view.zoom.reset': zoomTo(DEFAULT_SHEET_ZOOM),
   'view.editHints': preference(() => setEditHints(!getEditHints())),
-  'view.bandedRows': preference(() => setBandedRows(!getBandedRows())),
+  'view.bandedRows': gridLook('bands'),
+  'view.gridlines': gridLook('gridlines'),
+  'view.highlightRow': gridLook('rowHighlight'),
+  'view.highlightCol': gridLook('colHighlight'),
   // Takes effect on the next file open; re-emitted so the checkbox updates now.
   'view.autoFitOnOpen': preference(() => setAutoFitOnOpen(!getAutoFitOnOpen())),
   'view.sheetFont.bizUd': sheetFont('biz-ud'),

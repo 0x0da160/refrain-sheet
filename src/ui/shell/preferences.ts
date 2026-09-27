@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 /**
  * Everything applied before the first paint: the UI language, the persisted
- * display preferences (sheet font, theme, density, banded rows), storage
+ * display preferences (sheet font, theme, density, grid look), storage
  * hygiene, icons and viewport workarounds, and the background start of the
  * embedded WASM engines.
  */
-import { applyBandedRows, getBandedRows } from '../../app/banded-rows';
 import { applyDensity, getDensity } from '../../app/density';
+import { applyGridLook } from '../../app/grid-look';
 import { getLocale, initLocale } from '../../app/i18n';
 import { listRecentFiles } from '../../app/recent-files';
 import { applySheetFont, getSheetFont } from '../../app/sheet-font';
 import { getSqlHistory } from '../../app/sql-queries';
+import { resolveGridLook } from '../../app/state/view-layers';
 import { storageSharedWithOtherLocalFiles } from '../../app/storage';
 import { applyTheme, getTheme } from '../../app/theme';
 import { initCsvEngine } from '../../core/csv/csv-engine';
@@ -29,7 +30,9 @@ export function applyInitialPreferences(): void {
   applyTheme(getTheme());
   // UI density (bar and control heights), also a pure CSS attribute.
   applyDensity(getDensity());
-  applyBandedRows(getBandedRows());
+  // The grid look (bands, gridlines, highlights): this browser's, until a
+  // document is open and its own levels apply.
+  applyGridLook(resolveGridLook(null));
   // From file://, other local HTML files share this storage: the first access
   // to each list switches it to memory-only and deletes what an earlier
   // release stored there, so do that now rather than when first used.

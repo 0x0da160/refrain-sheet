@@ -19,15 +19,9 @@ import { MAX_SHEET_SORT_KEYS, type SortKey } from '../../core/workbook/sort';
 import { el } from '../dom';
 import { createIcon } from '../icon';
 import { ArrowDownAZ, CheckSquare, Trash2 } from 'lucide';
-import {
-  dialogButton,
-  helpDetails,
-  openDialog,
-  openSidePanel,
-  panelCheck,
-  panelField,
-  panelSection,
-} from './shared';
+import { dialogButton, helpDetails, openDialog } from './shared';
+import { panelCheck, panelField, panelSection } from './side-panel';
+import { openSidePanel } from './side-panel';
 
 export class RangeRuleDialogs {
   /**

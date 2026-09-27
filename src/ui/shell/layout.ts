@@ -29,7 +29,7 @@ export function mountLayout(
   // side panel reserves space by padding this element rather than
   // `#app-body`, so it insets below the book tab strip and above the
   // worksheet tab strip instead of covering either of them (see
-  // `applySidePanelPosition`, `src/ui/dialogs/shared.ts`, #399/#541).
+  // `applySidePanelPosition`, `src/ui/dialogs/side-panel.ts`, #399/#541).
   const appContent = el('div', { className: 'app-content', attrs: { id: 'app-content' } }, [
     s.formulaBar.element,
     s.welcome.element,

@@ -9,7 +9,7 @@ import {
   buildSidePanelChrome,
   releaseSidePanel,
   currentSidePanelPlacement,
-} from './dialogs/shared';
+} from './dialogs/side-panel';
 import { Eye } from 'lucide';
 import { el } from './dom';
 import { SourceEditor } from './source-editor';
@@ -28,7 +28,7 @@ const COMMIT_DEBOUNCE_MS = 600;
  * The rendered preview (`panelElement`) is a separate, persistent dockable
  * `.side-panel` — the same `buildSidePanelChrome`/`applySidePanelPosition`/
  * `currentSidePanelPlacement` machinery the Filter/Sort/Format/SQL Query
- * panels and the comments panel use (`src/ui/dialogs/shared.ts`,
+ * panels and the comments panel use (`src/ui/dialogs/side-panel.ts`,
  * `ui/comments-panel.ts`) — toggled by `previewToggle`, rather than a fixed
  * inline split, per the Issue's request to dock the preview like the Filter
  * panel. The caller must append `panelElement` into the app shell alongside

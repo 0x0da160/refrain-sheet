@@ -188,7 +188,7 @@ export type EdgeResizeAxis = 'horizontal' | 'vertical';
 /**
  * Drag `handle` (a single edge, not a corner) to resize `container` along one
  * axis — used by the docked, edge-anchored side panel (`openSidePanel`,
- * `src/ui/dialogs/shared.ts`) instead of the floating windows above, which is
+ * `src/ui/dialogs/side-panel.ts`) instead of the floating windows above, which is
  * why this reports a size through `onResize` rather than writing
  * `width`/`height` styles itself: the caller (re)applies the panel's CSS for
  * whichever edge is currently docked. `axis`/`sign` are re-invoked on every

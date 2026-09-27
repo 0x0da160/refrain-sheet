@@ -15,7 +15,7 @@ import {
   releaseSidePanel,
   currentSidePanelPlacement,
   type SidePanelChrome,
-} from './dialogs/shared';
+} from './dialogs/side-panel';
 import { clearChildren, el } from './dom';
 import type { Grid } from './grid';
 
@@ -26,7 +26,7 @@ type CommentScope = 'sheet' | 'workbook';
  * the whole workbook (see #375, the UI half of #364 — persistence itself
  * shipped in #371). A dockable, resizable side panel — the same
  * `.side-panel` chrome/positioning as the Filter/Sort/Format/SQL Query
- * panels (`openSidePanel`, `src/ui/dialogs/shared.ts`) — rather than a
+ * panels (`openSidePanel`, `src/ui/dialogs/side-panel.ts`) — rather than a
  * separate always-right-hand-side surface, so every dockable panel in the
  * app behaves and remembers its dock side/size identically (#399). Unlike
  * those transient panels it is created once and toggled open/closed rather

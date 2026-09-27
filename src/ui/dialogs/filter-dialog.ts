@@ -17,7 +17,9 @@ import {
 } from '../../core/workbook/filter';
 import { el } from '../dom';
 import { Filter } from 'lucide';
-import { dialogButton, helpDetails, openSidePanel, panelCheck, panelSection } from './shared';
+import { dialogButton, helpDetails } from './shared';
+import { panelCheck, panelSection } from './side-panel';
+import { openSidePanel } from './side-panel';
 
 export class FilterDialog {
   /**

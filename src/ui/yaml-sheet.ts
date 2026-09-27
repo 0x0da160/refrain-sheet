@@ -10,7 +10,7 @@ import {
   buildSidePanelChrome,
   releaseSidePanel,
   currentSidePanelPlacement,
-} from './dialogs/shared';
+} from './dialogs/side-panel';
 import { Eye } from 'lucide';
 import { el } from './dom';
 import { SourceEditor } from './source-editor';

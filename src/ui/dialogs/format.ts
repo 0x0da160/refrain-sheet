@@ -39,7 +39,9 @@ import {
   CF_DEFAULT_TEXT,
   ensureSwatchList,
 } from '../document-colors';
-import { dialogButton, openSidePanel, panelCheck, panelField, panelSection, submitOnEnter } from './shared';
+import { dialogButton, submitOnEnter } from './shared';
+import { panelCheck, panelField, panelSection } from './side-panel';
+import { openSidePanel } from './side-panel';
 
 const DEFAULT_COLOR = '#000000';
 

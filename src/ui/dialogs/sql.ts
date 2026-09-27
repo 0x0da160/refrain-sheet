@@ -22,7 +22,9 @@ import {
 } from '../../core/sql-engine';
 import { el } from '../dom';
 import { createIcon } from '../icon';
-import { dialogButton, openSidePanel, panelField, panelSection } from './shared';
+import { dialogButton } from './shared';
+import { panelField, panelSection } from './side-panel';
+import { openSidePanel } from './side-panel';
 
 /** Formats a stored timestamp for display, in the app's current UI language. */
 function formatWhen(ms: number): string {

@@ -15,15 +15,14 @@ import {
   type SearchScope,
   type SheetCellMatch,
 } from '../core/search';
+import { panelCheck, panelField } from './dialogs/side-panel';
 import {
   applySidePanelPosition,
   buildSidePanelChrome,
   currentSidePanelPlacement,
-  panelCheck,
-  panelField,
   releaseSidePanel,
   type SidePanelChrome,
-} from './dialogs/shared';
+} from './dialogs/side-panel';
 import { clearChildren, el, focusWithoutKeyboard } from './dom';
 import type { Grid } from './grid';
 

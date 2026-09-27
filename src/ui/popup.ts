@@ -78,7 +78,7 @@ export function visualViewportRect(): ViewportRect {
  * Works around a WebKit bug where the page can stay scrolled after the iOS
  * on-screen keyboard closes, most visible with a bottom-docked side panel
  * (`position: fixed`, anchored via `bottom` — see `applySidePanelPosition`,
- * `src/ui/dialogs/shared.ts`): WebKit pins fixed elements to the *visual*
+ * `src/ui/dialogs/side-panel.ts`): WebKit pins fixed elements to the *visual*
  * viewport while the keyboard is open, and does not always restore that
  * viewport's offset back to zero once it closes, leaving the whole page
  * looking shifted upward even though `body { overflow: hidden }` (see

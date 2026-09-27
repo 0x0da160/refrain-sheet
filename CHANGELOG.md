@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.13] - 2026-09-27
+
 ### Changed
 
 - **Filter & Sort from Headers.** The menu item that puts filter buttons on

@@ -44,7 +44,6 @@ const MAX_SOURCE_LINES = 800;
 /** Oversized files, each capped at its current line count. Shrink, never grow. */
 const LINE_BUDGET = {
   'src/ui/grid/index.ts': 3576,
-  'src/core/workbook/rsf-document.ts': 1786,
   'src/app/commands/index.ts': 1759,
   'src/app/state/index.ts': 1296,
   'src/app/commands/file-io.ts': 1234,

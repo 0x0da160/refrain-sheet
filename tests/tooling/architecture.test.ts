@@ -107,7 +107,9 @@ describe('src/ architecture', () => {
     // or a lower rank, so the value model never learns about functions and
     // the function registry never learns about the parser or the workbook.
     const rank = (file: string): number | null => {
-      const m = /\/src\/core\/(formula\/.*|workbook\/rsf-document\.ts)$/.exec(file);
+      const m = /\/src\/core\/(formula\/.*|workbook\/(?:rsf-document|workbook|recalc-engine)\.ts)$/.exec(
+        file,
+      );
       if (!m) return null;
       const path = m[1];
       if (path === 'formula/value.ts') return 0;
@@ -116,7 +118,7 @@ describe('src/ architecture', () => {
       if (/^formula\/(refs|tokenizer|ref-toggle)\.ts$/.test(path)) return 3;
       if (/^formula\/(parser|evaluator|rewrite|ref-scan|index)\.ts$/.test(path)) return 4;
       if (path === 'formula/spill.ts') return 5;
-      if (path === 'workbook/rsf-document.ts') return 6;
+      if (path.startsWith('workbook/')) return 6;
       throw new Error(`unranked formula-engine module: ${path}`);
     };
     const violations: string[] = [];

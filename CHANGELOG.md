@@ -44,6 +44,9 @@ really is internal, rather than inventing an entry to satisfy it.
   applies: the default (for example, "Not specified (default: Light)"), the
   value last used for zoom and wrapping, or — for the file — this browser's
   setting, which updates as you change it in the same dialog.
+- The row and column headers are lighter again, and the area past the last
+  row and column is now clearly darker than the headers in the light theme
+  and a lighter gray in the dark theme, so the edge of the table stands out.
 
 ## [0.9.12] - 2026-09-27
 

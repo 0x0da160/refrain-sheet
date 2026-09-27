@@ -29,8 +29,8 @@
       "$description": "Banded rows, dark strength"
     },
     "canvas-header-bg": {
-      "$value": "{color.paper.200}",
-      "$description": "Row and column headers; darker than every band"
+      "$value": "{color.paper.100}",
+      "$description": "Row and column headers"
     },
     "canvas-header-text": {
       "$value": "{color.ink.500}"
@@ -47,11 +47,11 @@
       "$description": "Grid lines"
     },
     "canvas-grid-strong": {
-      "$value": "{color.paper.300}",
+      "$value": "{color.paper.200}",
       "$description": "Header edge lines, and the lines between headers"
     },
     "canvas-outside": {
-      "$value": "{color.paper.300}",
+      "$value": "{color.paper.400}",
       "$description": "Area past the last row and column"
     },
     "canvas-frozen-divider": {

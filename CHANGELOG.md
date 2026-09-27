@@ -38,6 +38,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- Side panels now close only from the × at the top right of the panel (or
+  Escape). The Close button at the bottom of Filter, Sort, Format, Data
+  Validation, Conditional Format, Color, Borders, Number Format and SQL
+  Query is gone; View > Comments Panel and the Show preview button of
+  Markdown, JSON and YAML sheets now only open their panel instead of
+  closing it when pressed again.
+
 ## [0.9.12] - 2026-09-27
 
 ### Added

@@ -426,7 +426,6 @@ describe('View menu Spreadsheet Zoom submenu', () => {
     zoom: () => 100,
     editHints: () => true,
     autoFitOnOpen: () => true,
-    commentsPanel: () => false,
     fullscreen: () => false,
     formatActive: () => false,
     driveAvailable: () => false,

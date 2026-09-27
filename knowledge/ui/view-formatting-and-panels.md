@@ -169,8 +169,11 @@ instead of separate popup layouts:
   and size are remembered for the next panel opened in the same session
   (an in-memory preference, not written to the document or `localStorage`
   beyond what the theme/font preferences already use).
-- **Dismissal.** Only the footer's Close button (always the bottom-right
-  button of a transient panel), the header's ×, or Escape closes a panel.
+- **Dismissal.** Only the header's × (or Escape) closes a panel. No other
+  button does: transient panels have no footer Close button, and the
+  commands that show a persistent panel (View > Comments Panel, the Show
+  preview button of Markdown/JSON/YAML sheets) only open it — the preview
+  button is disabled while its panel is open rather than becoming Hide.
   Apply and Clear never do: the command passes an `onApply` handler
   (`ApplyHandler` in `src/app/ui-port.ts`, run through `applyWhileOpen` in
   `src/app/commands/shared.ts`), so each press applies immediately — one

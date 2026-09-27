@@ -563,7 +563,6 @@
   "dialog.sidePanel.maximize": "パネルを最大化",
   "dialog.sidePanel.restore": "パネルサイズを元に戻す",
   "dialog.sidePanel.close": "パネルを閉じる",
-  "dialog.sidePanel.closeButton": "閉じる",
   "drop.hint": "CSVファイルをドロップして開く — 各ファイルは別のタブで開きます",
   "notify.savedOverwrite": "元のファイルに上書き保存しました。",
   "notify.savedDownload": "「{name}」のダウンロードを開始しました。保存先はブラウザの設定で決まります。元のファイルは上書きしていません。",

@@ -100,7 +100,7 @@ describe('Enter submits single-line dialog inputs', () => {
     enter(value1);
     expect(document.querySelector('.side-panel')).not.toBeNull();
 
-    panel.querySelector<HTMLButtonElement>('.side-panel-footer-close')!.click();
+    panel.querySelector<HTMLButtonElement>('.side-panel-close-btn')!.click();
     expect(await promise).toBeNull();
   });
 

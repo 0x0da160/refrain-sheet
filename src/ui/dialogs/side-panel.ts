@@ -6,7 +6,6 @@
  * on the same side; the application content reserves the docked edge so a
  * panel never covers the grid.
  */
-import { dialogButton } from './shared';
 import { Maximize2, Minimize2, PanelBottom, PanelLeft, PanelRight, PanelTop, X, type IconNode } from 'lucide';
 import { clearChildren, el, focusWithoutKeyboard } from '../dom';
 import { makeEdgeResizable, type EdgeResizeAxis } from '../drag-resize';
@@ -294,7 +293,12 @@ function layoutSidePanels(position: SidePanelPosition, size: number): void {
 function expandSidePanel(panel: HTMLElement): void {
   expandedSidePanel = panel;
   layoutSidePanels(dockedPosition, dockedSize);
-  panel.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+  const target = panel.querySelector<HTMLElement>('[data-autofocus]');
+  if (target) {
+    target.focus();
+  } else if (panel.tabIndex === -1) {
+    panel.focus();
+  }
 }
 
 /**
@@ -565,8 +569,8 @@ export function buildSidePanelChrome(panel: HTMLElement, options: SidePanelChrom
  * Builds a side panel's body and footer. `apply` hands a result to the
  * caller: with an `onApply` handler the panel stays open (so the user can
  * adjust and apply again), otherwise it closes and resolves with the value.
- * Closing is the shared chrome's job (the footer Close button, the header ×,
- * or Escape), so builders add only their own action buttons.
+ * Closing is the shared chrome's job (the header ×, or Escape), so builders
+ * add only their own action buttons, and none of them closes the panel.
  */
 export type SidePanelBuilder<T> = (
   body: HTMLElement,
@@ -595,9 +599,10 @@ export interface SidePanelOptions<T> {
  * when the caller passes `onApply`, and neither an outside click nor the
  * window losing focus (e.g. a native color picker opening) dismisses it —
  * a stray click on the sheet while adjusting filter/sort/format/validation
- * settings must not silently discard them (#396). Only the footer's Close
- * button (always the bottom-right one), the header's ×, or Escape close it,
- * resolving `fallback`, and focus returns to whatever triggered it.
+ * settings must not silently discard them (#396). Only the header's × (or
+ * Escape) closes it, resolving `fallback`, and focus returns to whatever
+ * triggered it: there is no footer Close button, so no other button in the
+ * panel can close it as a side effect.
  */
 export function openSidePanel<T>(options: SidePanelOptions<T>, build: SidePanelBuilder<T>): Promise<T> {
   return new Promise((resolve) => {
@@ -615,11 +620,7 @@ export function openSidePanel<T>(options: SidePanelOptions<T>, build: SidePanelB
     const body = el('div', { className: 'dialog-body side-panel-form' });
     const buttons = el('div', { className: 'dialog-buttons' });
     const actions = el('div', { className: 'dialog-buttons-actions' });
-    const closeButton = dialogButton(t('dialog.sidePanel.closeButton'), false, false, () =>
-      finish(options.fallback),
-    );
-    closeButton.classList.add('side-panel-footer-close');
-    buttons.append(actions, closeButton);
+    buttons.append(actions);
     panel.append(chrome.heading, body, buttons, chrome.resizeHandle);
 
     const restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -659,18 +660,17 @@ export function openSidePanel<T>(options: SidePanelOptions<T>, build: SidePanelB
       ).filter((item) => !item.closest('[hidden]'));
 
     build(body, actions, apply);
-    // Nothing of the panel's own is focused first: the Close button is.
+    // Nothing of the panel's own asks for focus: the panel itself takes it
+    // (not the × — Enter or Space there would close the panel at once), so
+    // Escape and the Tab cycle work without focusing any control.
     if (!panel.querySelector('[data-autofocus]')) {
-      closeButton.dataset.autofocus = 'true';
+      panel.tabIndex = -1;
     }
     document.body.append(panel);
     // Docked once built, so a stack of open panels can measure its title bar.
     const initialPlacement = currentSidePanelPlacement();
     applySidePanelPosition(panel, initialPlacement.position, initialPlacement.size);
-    const autofocusTarget = panel.querySelector<HTMLElement>('[data-autofocus]');
-    if (autofocusTarget) {
-      focusWithoutKeyboard(autofocusTarget);
-    }
+    focusWithoutKeyboard(panel.querySelector<HTMLElement>('[data-autofocus]') ?? panel);
 
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {

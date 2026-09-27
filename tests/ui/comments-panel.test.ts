@@ -178,12 +178,14 @@ describe('CommentsPanel', () => {
     expect(scopeSelect.disabled).toBe(true);
   });
 
-  it('toggle() flips open/closed state', () => {
+  it('open() only opens (a second call keeps it open); only the header × closes it', () => {
     const { panel } = setupWorkbook();
     expect(panel.isOpen).toBe(false);
-    panel.toggle();
+    panel.open();
     expect(panel.isOpen).toBe(true);
-    panel.toggle();
+    panel.open();
+    expect(panel.isOpen).toBe(true);
+    (panel.element.querySelector('.side-panel-close-btn') as HTMLButtonElement).click();
     expect(panel.isOpen).toBe(false);
   });
 

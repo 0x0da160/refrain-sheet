@@ -3,9 +3,9 @@
 /**
  * Every dockable side panel shares one title bar (`buildSidePanelChrome`):
  * an icon before the title and the same dock/maximize/close (×) buttons.
- * A transient panel (`openSidePanel`) also always ends its footer with a
- * Close button, and applying never closes it when the caller keeps it open
- * (`onApply`) — only Close, the ×, or Escape do.
+ * A transient panel (`openSidePanel`) has no footer Close button, and
+ * applying never closes it when the caller keeps it open (`onApply`) — only
+ * the × or Escape do.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getLocale, setLocale, t } from '../../src/app/i18n';
@@ -70,9 +70,10 @@ describe('side panel chrome', () => {
       expect(heading.querySelector('svg.side-panel-title-icon')).not.toBeNull();
       expect(p.getAttribute('aria-labelledby')).toBe(heading.querySelector('.side-panel-title-text')!.id);
 
-      const footerButtons = p.querySelectorAll<HTMLButtonElement>('.dialog-buttons button');
-      const last = footerButtons[footerButtons.length - 1];
-      expect(last.textContent).toBe(t('dialog.sidePanel.closeButton'));
+      // No footer Close button: the header × is the only close control.
+      const footerLabels = Array.from(p.querySelectorAll('.dialog-buttons button'), (b) => b.textContent);
+      expect(footerLabels).not.toContain('Close');
+      expect(p.querySelector('.side-panel-footer-close')).toBeNull();
 
       const close = heading.querySelector<HTMLButtonElement>('.side-panel-close-btn')!;
       expect(close.getAttribute('aria-label')).toBe(t('dialog.sidePanel.close'));
@@ -95,7 +96,7 @@ describe('side panel chrome', () => {
     expect(onApply.mock.calls[0][0]).toMatchObject({ action: 'apply', sides: { borderTop: '#000000' } });
     expect(document.querySelector('.side-panel')).toBe(p);
 
-    button(p, t('dialog.sidePanel.closeButton')).click();
+    p.querySelector<HTMLButtonElement>('.side-panel-close-btn')!.click();
     expect(await promise).toBeNull();
     expect(document.querySelector('.side-panel')).toBeNull();
   });

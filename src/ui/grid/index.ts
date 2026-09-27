@@ -1,28 +1,17 @@
 // SPDX-License-Identifier: MIT
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, ListFilter, Plus } from 'lucide';
 import type { AppState, FormulaRefTarget, Tab } from '../../app/state';
-import { isGridSurface, LARGE_OP_CELLS, type Commands } from '../../app/commands';
+import { isGridSurface, type Commands } from '../../app/commands';
 import { getLocale, t } from '../../app/i18n';
 import { getEditHints, nextZoomLevel } from '../../app/settings';
 import { dateStampKeyOf, localDateStamp } from '../../app/shortcuts';
-import {
-  BORDER_WIDTH_PX,
-  borderSideValue,
-  resolveSharedBorder,
-  type BorderSideValue,
-} from '../../core/cell-style';
 import { normalizeRange, rangeContains, type CellRange } from '../../core/clipboard';
-import { ColOffsetIndex } from '../../core/col-offset-index';
 import { runsForText, type TextRun } from '../../core/rich-text';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../../core/formula';
-import type { LosslessDocument } from '../../core/lossless-document';
-import { RowHeightIndex } from '../../core/row-height-index';
-import type { RsfDocument } from '../../core/rsf-document';
+import type { RowHeightIndex } from '../../core/row-height-index';
 import { forEachIndexSliced } from '../../core/scheduler';
-import type { SheetSort } from '../../core/sort';
 import { countVisualLines, rowHeightForLines, type WrapMeasure } from '../../core/text-wrap';
-import { ICON_BY_COMMAND } from '../command-icons';
-import { ContextMenu, type ContextMenuEntry } from '../context-menu';
+import { ContextMenu } from '../context-menu';
 import { el, clearChildren } from '../dom';
 import { onKeyboardOpenChange, onKeyboardResize } from '../popup';
 import { centeredScrollOffset } from './center-scroll';
@@ -39,15 +28,8 @@ import {
   planAutoFitColumns,
   AUTOFIT_SAMPLE_BUDGET,
   type AutoFitInput,
-  type AutoFitResult,
-  type MultiAutoFitResult,
 } from './autofit';
-import {
-  CONTEXT_MENU_ITEMS,
-  formatToolbarItems,
-  type ContextMenuCommandDef,
-  type ContextMenuGroupDef,
-} from './context-menu-items';
+import { contextMenuEntries, formatToolbarItems } from './context-menu-items';
 import {
   clampFormulaRefs,
   matchFormulaRefCell,
@@ -67,6 +49,13 @@ import {
   WRAP_PASS_BUSY_ROWS,
   WRAP_VERTICAL_PAD,
 } from './geometry';
+import { EdgeAutoScroller } from './auto-scroll';
+import { caretOffsetFromPoint, malformedFieldTooltip, paintCellStyle } from './cell-paint';
+import { measureAutoFitColumns } from './autofit-measure';
+import { createSink, createTextMeasurer, frameCoalesced, richFormatKeyOf } from './dom-support';
+import { KeyboardViewport } from './keyboard-viewport';
+import { DoubleTap, LongPress } from './touch-gestures';
+import { GridMetrics } from './metrics';
 import { ValidationPicker } from '../validation-picker';
 import { RichCellEditor } from '../rich-cell-editor';
 import { richTextNodes } from '../rich-text-render';
@@ -92,11 +81,6 @@ export {
 };
 export type { AutoFitInput, ClampedFormulaRef };
 
-/** Render a resolved border side as a CSS `border-*` shorthand value (`''` when unset). */
-function cssBorder(border: BorderSideValue | null): string {
-  return border ? `${BORDER_WIDTH_PX[border.width]}px ${border.lineStyle} ${border.color}` : '';
-}
-
 interface RenderWindow {
   /**
    * First *display slot* of the scrolling region rendered (inclusive). A
@@ -111,42 +95,6 @@ interface RenderWindow {
   colEnd: number;
   /** Row-height revision this window was computed against (see heightsVersion). */
   heights: number;
-}
-
-/** Cached column-offset index plus the state it was built from, for invalidation. */
-interface ColOffsetCache {
-  index: ColOffsetIndex;
-  zoom: number;
-  columnCount: number;
-  /** Reference to the `colWidths` array the index was built from — a resize
-   *  mutates that array in place, so an explicit invalidation call is also
-   *  required (see `invalidateColOffsets`); this reference check catches the
-   *  cases where a new array is assigned instead (e.g. restoring a tab). */
-  widths: number[];
-}
-
-/**
- * Create a text measurer configured from an element's *computed* style via
- * `CanvasRenderingContext2D.measureText` — the same font family, size,
- * weight, and style the grid actually renders with (letter spacing is added
- * per character; CSS box chrome is accounted for separately by the caller).
- * Returns null where no 2D canvas context exists (e.g. jsdom); callers fall
- * back to DOM `scrollWidth` measurement there.
- */
-function createTextMeasurer(sample: Element): ((text: string) => number) | null {
-  if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') {
-    return null;
-  }
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  if (!ctx || typeof ctx.measureText !== 'function') {
-    return null;
-  }
-  const cs = getComputedStyle(sample);
-  ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-  const spacing = Number.parseFloat(cs.letterSpacing);
-  const extra = Number.isFinite(spacing) && spacing > 0 ? spacing : 0;
-  return (text: string) => ctx.measureText(text).width + extra * text.length;
 }
 
 /**
@@ -172,102 +120,8 @@ interface LayoutSignature {
   hidden: unknown;
 }
 
-/**
- * Leading-edge per-frame coalescing for high-frequency pointer events (drag
- * selection, column resizing, fill preview). The first event applies
- * immediately for instant feedback; further events within the same frame
- * only remember the latest argument, which is applied on the next frame.
- */
-function frameCoalesced<T>(apply: (arg: T) => void): (arg: T) => void {
-  let queued: { arg: T } | null = null;
-  let scheduled = false;
-  return (arg: T) => {
-    if (scheduled) {
-      queued = { arg };
-      return;
-    }
-    apply(arg);
-    scheduled = true;
-    const raf = (globalThis as { requestAnimationFrame?: (cb: () => void) => void }).requestAnimationFrame;
-    const schedule = typeof raf === 'function' ? raf : (fn: () => void) => setTimeout(fn, 16);
-    schedule(() => {
-      scheduled = false;
-      if (queued) {
-        const { arg: latest } = queued;
-        queued = null;
-        apply(latest);
-      }
-    });
-  };
-}
-
 /** The four arrow keys, for Ctrl+Arrow data-edge jumps. */
 const ARROW_KEYS: ReadonlySet<string> = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
-
-/**
- * How long after an on-screen keyboard opens a further shrink of the visible
- * area still re-centers the edited cell (the keyboard sliding in).
- */
-const KEYBOARD_SETTLE_MS = 1000;
-/**
- * Auto-scroll tuning for drags that should nudge the viewport when the
- * pointer nears the grid's edge (range selection, fill handle, column
- * resize, range move): how close to the edge (px) triggers a nudge, the
- * largest single nudge (px), and how often nudges repeat (ms) while the
- * pointer holds at the edge.
- */
-const AUTO_SCROLL_EDGE_PX = 24;
-const AUTO_SCROLL_MAX_STEP_PX = 28;
-const AUTO_SCROLL_INTERVAL_MS = 50;
-/**
- * Touch/pen press-and-hold duration that arms a drag (cell-range selection or
- * a row/column header drag) — a quick tap stays a tap, handled by the
- * browser's own synthetic click, same as before touch support existed.
- */
-const LONG_PRESS_MS = 400;
-/** Movement past this distance during the long-press window reads as the
- * start of a scroll, not a drag, and cancels the pending long-press. */
-const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
-/**
- * Touch/pen double-tap detection window: a second quick tap landing on the
- * same cell within this many ms of the first opens the inline editor, the
- * touch equivalent of a desktop double-click. Mobile browsers do not
- * reliably synthesize a `dblclick` DOM event from two taps on a plain
- * (non-form, non-anchor) element, so this is detected explicitly rather than
- * relying on `dblclick` for touch input.
- */
-const DOUBLE_TAP_MS = 300;
-/**
- * How far apart (px) the two taps of a double-tap may land, on top of both
- * hitting the same cell. A finger's second tap routinely lands 10–15px from
- * the first; the on-device log for #590 shows a 12px pair that the
- * long-press tolerance (10px) wrongly rejected.
- */
-const DOUBLE_TAP_SLOP_PX = 30;
-
-/** Ctrl+B / Ctrl+I / Ctrl+U (Cmd on macOS): the text property the key toggles, else null. */
-function richFormatKeyOf(event: KeyboardEvent): 'bold' | 'italic' | 'underline' | null {
-  if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) {
-    return null;
-  }
-  const key = event.key.toLowerCase();
-  return key === 'b' ? 'bold' : key === 'i' ? 'italic' : key === 'u' ? 'underline' : null;
-}
-
-/** A new grid sink textarea (see `Grid.sink`), not yet wired or mounted. */
-function createSink(): HTMLTextAreaElement {
-  return el('textarea', {
-    className: 'grid-sink',
-    attrs: {
-      rows: '1',
-      spellcheck: 'false',
-      autocapitalize: 'off',
-      autocomplete: 'off',
-      tabindex: '-1',
-      'aria-label': t('grid.label'),
-    },
-  });
-}
 
 /**
  * Virtualized CSV/RSF grid. Only the visible rows and columns (plus a small
@@ -299,25 +153,13 @@ export class Grid {
   private readonly addColAnchor: HTMLElement;
   private readonly addColButton: HTMLButtonElement;
 
+  /** Pixel metrics, pinned-pane layout, and their per-document caches. */
+  private readonly metrics: GridMetrics;
+  /** Nudges the viewport while a drag's pointer sits at the grid's edge. */
+  private readonly autoScroll: EdgeAutoScroller;
   private lastDoc: unknown = null;
   private window: RenderWindow | null = null;
   private layout: LayoutSignature | null = null;
-  /**
-   * Variable row heights keyed by the *document* object (empty/uniform unless
-   * wrapping grows rows). Keying by the document means a replaced document
-   * (convert/save/reopen) automatically starts from a fresh, correct index.
-   */
-  private readonly rowHeights = new WeakMap<object, RowHeightIndex>();
-  /** Bumped whenever any row height changes, so the render window rebuilds. */
-  private heightsVersion = 0;
-  /**
-   * Cached column-offset prefix sum, keyed by document. Built lazily and
-   * reused across every scroll/render until a resize, autofit, zoom, or
-   * column-count change invalidates it — rebuilding from scratch on every
-   * scroll would make horizontal scroll cost scale with total column count
-   * instead of the visible window.
-   */
-  private readonly colOffsets = new WeakMap<object, ColOffsetCache>();
   /** Offscreen measuring cell for font/chrome metrics (never shows content). */
   private readonly measureCell: HTMLElement;
   /** Layout signature the off-screen wrap-measure pass is running for, if any. */
@@ -382,32 +224,10 @@ export class Grid {
   private headerDrag: { axis: 'row' | 'col'; anchor: number; last: number } | null = null;
   /** Active pointer reference entry into a formula editor, if any. */
   private refDrag: { anchor: { row: number; col: number } } | null = null;
-  /** Pending touch/pen long-press-to-drag timer (cell/header drags only — the
-   * fill/move/resize handles start dragging immediately on touch, same as a
-   * mouse press, since they already opt out of native panning in CSS). */
-  private longPressTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Origin of a pending long-press: used to detect cancel-by-movement and to
-   * replay the original press once the hold is confirmed. */
-  private longPressOrigin: { event: PointerEvent; x: number; y: number } | null = null;
-  /** A completed long-press that has not yet turned into a drag — a mouse has
-   * a right-click for the context menu, but touch has no equivalent input, so
-   * a stationary press-and-hold (#406) opens it instead once the finger
-   * lifts. `x`/`y` are the press origin, used to tell a held finger's own
-   * sensor jitter apart from real movement (#475) — only movement past the
-   * tolerance cancels this back to `null` and leaves the gesture to the
-   * existing drag handling above. */
-  private longPressMenuTarget: { event: PointerEvent; x: number; y: number } | null = null;
-  /** A completed quick tap awaiting a possible second tap to complete a
-   * touch double-tap-to-edit gesture (see `DOUBLE_TAP_MS`); cleared once the
-   * window elapses with no matching second tap, or consumed immediately when
-   * one lands on the same cell within the movement tolerance. */
-  private pendingTap: {
-    row: number;
-    col: number;
-    x: number;
-    y: number;
-    timer: ReturnType<typeof setTimeout>;
-  } | null = null;
+  /** Touch/pen press-and-hold state (drag arming and the touch context menu). */
+  private readonly longPress = new LongPress();
+  /** Touch/pen double-tap-to-edit state. */
+  private readonly doubleTap = new DoubleTap();
   /**
    * Active range-move drag, if any. `origin` is the cell under the pointer when
    * the drag began (so the destination tracks the pointer without snapping to a
@@ -421,10 +241,6 @@ export class Grid {
     delta: { row: number; col: number };
     valid: boolean;
   } | null = null;
-  /** Timer driving auto-scroll while an active drag's pointer sits at/beyond the grid edge. */
-  private autoScrollTimer: ReturnType<typeof setInterval> | null = null;
-  /** Scroll direction/speed and the pointer position it was computed from. */
-  private autoScrollState: { dx: number; dy: number; clientX: number; clientY: number } | null = null;
   /** Ranges referenced by the formula currently being edited (highlighted). */
   private formulaRefs: FormulaRefRange[] = [];
   /** In-progress raw text from the formula bar, rendered in place of the
@@ -446,28 +262,12 @@ export class Grid {
    * (see `onResize`). `null` before the first observation.
    */
   private lastResizeWidth: number | null = null;
-  /**
-   * The grid's scroll position just before an on-screen keyboard opened, put
-   * back when it closes (see `keyboardOpenChanged`). `null` when the keyboard
-   * is closed or its opening did not move the grid.
-   */
-  private preKeyboardScroll: { top: number; left: number } | null = null;
   /** Unsubscribes `keyboardOpenChanged`; called by `dispose()`. */
   private readonly offKeyboardOpenChange: () => void;
   /** Unsubscribes `keyboardResized`; called by `dispose()`. */
   private readonly offKeyboardResize: () => void;
-  /**
-   * Until this time (`Date.now()`), a change in the visible area's height
-   * re-centers the edited cell: the keyboard can still be sliding in after
-   * the first open notification. 0 when not settling.
-   */
-  private keyboardSettleUntil = 0;
-  /**
-   * Fields outside the grid that edit the selected cell (the formula bar), so
-   * the keyboard opening for one of them centers that cell too
-   * (`addKeyboardEditField`).
-   */
-  private readonly keyboardEditFields = new Set<Element>();
+  /** Keeps the edited cell visible while an on-screen keyboard is open. */
+  private readonly keyboard: KeyboardViewport;
 
   constructor(
     private readonly state: AppState,
@@ -476,6 +276,40 @@ export class Grid {
     this.element = el('div', {
       className: 'grid-container',
       attrs: { tabindex: '0', role: 'grid' },
+    });
+    this.metrics = new GridMetrics(this.state, this.element, () => {
+      this.wrapPassSig = null;
+    });
+    this.keyboard = new KeyboardViewport({
+      element: this.element,
+      sink: () => this.sink,
+      showingActiveDocument: () => {
+        const tab = this.state.activeTab;
+        return tab !== null && tab.doc === this.lastDoc;
+      },
+      render: () => {
+        const tab = this.state.activeTab;
+        if (tab) {
+          this.render(tab);
+        }
+      },
+      centerTarget: () => {
+        const tab = this.state.activeTab;
+        if (tab) {
+          this.centerKeyboardTarget(tab);
+        }
+      },
+    });
+    this.autoScroll = new EdgeAutoScroller(this.element, {
+      dragActive: () => this.hasEdgeScrollableDrag(),
+      hasTab: () => this.state.activeTab !== null,
+      scrolled: (clientX, clientY) => {
+        const tab = this.state.activeTab;
+        if (tab) {
+          this.render(tab);
+          this.continueDragAt(tab, clientX, clientY);
+        }
+      },
     });
     this.refIndicator = el('div', {
       className: 'ref-indicator',
@@ -568,7 +402,7 @@ export class Grid {
     // Mousemove bubbles to document regardless of which element the pointer
     // is over, so this alone drives auto-scroll for a drag whose pointer has
     // left the grid entirely, not just one still inside `this.element`.
-    document.addEventListener('mousemove', (event) => this.trackAutoScroll(event));
+    document.addEventListener('mousemove', (event) => this.autoScroll.track(event));
     document.addEventListener('mouseup', () => this.endActiveDrags());
     // Touch/pen equivalents of the mouse drag wiring above (#290). A real
     // mouse also dispatches pointer events, so every handler below bails out
@@ -707,101 +541,6 @@ export class Grid {
     }
   }
 
-  // ----- Metrics -----
-  // All pixel metrics are zoom-aware: the tab's zoom percent scales the
-  // default row height, header width, wrap line height, and column widths.
-  // Column widths are *stored* at 100% zoom (per-tab session state; persisted
-  // by RSF documents) and only *rendered* scaled, so a saved width means the
-  // same thing at every zoom level.
-
-  /** The active tab's zoom factor (1 = 100%). */
-  private zoomOf(tab: Tab): number {
-    return (tab.zoom || 100) / 100;
-  }
-
-  /** The active filter's hidden-row set (null when nothing is filtered). */
-  private hiddenOf(tab: Tab): Set<number> | null {
-    return this.state.hiddenRows(tab);
-  }
-
-  /**
-   * The document row whose content belongs at display slot `row`. Identity
-   * when nothing is sorted — see `AppState.docRow`/`core/sort.ts`.
-   */
-  private docRowOf(tab: Tab, row: number): number {
-    return this.state.docRow(tab, row);
-  }
-
-  /** Zoomed default (single-line) row height in px. */
-  private rowH(tab: Tab): number {
-    return Math.round(ROW_HEIGHT * this.zoomOf(tab));
-  }
-
-  /** Zoomed wrapped-line box height in px. */
-  private wrapLineH(tab: Tab): number {
-    return Math.round(WRAP_LINE_HEIGHT * this.zoomOf(tab));
-  }
-
-  /** Zoomed vertical padding around wrapped lines in px. */
-  private wrapPad(tab: Tab): number {
-    return Math.round(WRAP_VERTICAL_PAD * this.zoomOf(tab));
-  }
-
-  /** Zoomed row-header width in px. */
-  private headW(tab: Tab): number {
-    return Math.round(ROW_HEAD_WIDTH * this.zoomOf(tab));
-  }
-
-  /** Zoom the row-height index was built for, per document. */
-  private readonly indexZoom = new WeakMap<object, number>();
-  /** Hidden-row snapshot the row-height index was seeded with, per document. */
-  private readonly indexHidden = new WeakMap<object, Set<number> | null>();
-  /** Active sort the row-height index was built against, per document. */
-  private readonly indexSort = new WeakMap<object, SheetSort | null>();
-
-  /**
-   * The per-tab row-height index (created lazily; uniform until wrapping
-   * grows a row or a filter hides one). It is keyed by **display slot**, not
-   * document row: with an active sort, slot `i`'s height is the wrapped
-   * height of whatever document row `docRowOf(tab, i)` currently shows there
-   * (see `measureWindowRows`/`runWrapPass`), so scroll offsets are always
-   * computed in the order rows are actually stacked on screen. Rows hidden
-   * by the active filter are seeded with height 0 at their own row number —
-   * a hidden row's slot always equals its document row (`computeSortOrder`
-   * never moves it) — so the virtualization offsets, scroll extent, and hit
-   * testing collapse them without any per-frame filtering work, and without
-   * ever materializing DOM for them.
-   */
-  private heightIndex(tab: Tab): RowHeightIndex {
-    let index = this.rowHeights.get(tab.doc);
-    const hidden = this.hiddenOf(tab);
-    const sort = tab.doc.kind === 'rsf' ? tab.doc.sort : null;
-    if (
-      !index ||
-      this.indexZoom.get(tab.doc) !== tab.zoom ||
-      this.indexHidden.get(tab.doc) !== hidden ||
-      this.indexSort.get(tab.doc) !== sort
-    ) {
-      // A zoom, filter, or sort change invalidates every cached height (the
-      // uniform default and any wrapped measurements — a sort change moves
-      // which document row's content each slot's height came from), so the
-      // index starts fresh.
-      index = new RowHeightIndex(this.rowH(tab));
-      if (hidden) {
-        for (const row of hidden) {
-          index.set(row, 0);
-        }
-      }
-      this.rowHeights.set(tab.doc, index);
-      this.indexZoom.set(tab.doc, tab.zoom);
-      this.indexHidden.set(tab.doc, hidden ?? null);
-      this.indexSort.set(tab.doc, sort);
-      this.wrapPassSig = null; // re-measure wrapped heights for the new state
-      this.heightsVersion += 1;
-    }
-    return index;
-  }
-
   /**
    * Test seam: install a deterministic text measurer so wrapping can be
    * exercised without a real 2D canvas (jsdom returns none). Pass null to
@@ -812,176 +551,7 @@ export class Grid {
     this.measurerOverride = measure;
     this.cachedMeasurer = null;
     this.wrapPassSig = null;
-    for (const tab of this.state.tabs) {
-      this.rowHeights.get(tab.doc)?.clear();
-    }
-    this.heightsVersion += 1;
-  }
-
-  /**
-   * Display slots `[0, n)` that stay pinned below the column header (the
-   * sticky first row, or every row above a freeze-at-selection point). With
-   * nothing frozen, the first row still follows the scroll on its own (see
-   * `autoPinnedRow`). A frozen area whose rows are all hidden by the active
-   * filter pins nothing (pinning them would show rows the filter hides).
-   */
-  private frozenRowCount(tab: Tab): number {
-    const frozen = this.state.frozenPanes(tab).rows;
-    if (frozen === 0 && !this.firstRowHasValues(tab)) {
-      return 0; // an empty first row has nothing worth following the scroll
-    }
-    let n = Math.max(1, frozen);
-    // Keep at least one scrollable row on screen: a freeze point far down the
-    // sheet pins only as many rows as fit (never measured without a layout).
-    const viewH = this.element.clientHeight;
-    if (viewH > 0) {
-      n = Math.min(n, Math.max(1, Math.floor(viewH / this.rowH(tab)) - 2));
-    }
-    return n > 0 && this.pinnedSlots(tab, n).length > 0 ? n : 0;
-  }
-
-  /** Whether the first displayed row has any non-empty cell (the automatic pin's condition). */
-  private firstRowHasValues(tab: Tab): boolean {
-    const doc = tab.doc;
-    if (doc.rowCount === 0) {
-      return false;
-    }
-    const row = this.docRowOf(tab, 0);
-    const fields = doc.fieldCount(row);
-    for (let c = 0; c < fields; c++) {
-      if (doc.getValue(row, c) !== '') {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Whether the pinned first row is only the automatic one (no row frozen by
-   * the user): it looks like an ordinary row, with no boundary rule.
-   */
-  private autoPinnedRow(tab: Tab): boolean {
-    return this.state.frozenPanes(tab).rows === 0;
-  }
-
-  /** Pinned-row count, negated for the automatic first row (a layout-signature input). */
-  private rowPinSignature(tab: Tab): number {
-    const n = this.frozenRowCount(tab);
-    return this.autoPinnedRow(tab) ? -n : n;
-  }
-
-  /** The visible (not filtered-out) display slots among the first `n`. */
-  private pinnedSlots(tab: Tab, n = this.frozenRowCount(tab)): number[] {
-    const hidden = this.hiddenOf(tab);
-    const slots: number[] = [];
-    for (let slot = 0; slot < n; slot++) {
-      if (!hidden?.has(this.docRowOf(tab, slot))) {
-        slots.push(slot);
-      }
-    }
-    return slots;
-  }
-
-  /** First display slot of the scrolling region. */
-  private scrollRowBase(tab: Tab): number {
-    return this.frozenRowCount(tab);
-  }
-
-  /** Height of the sticky overlays: the single-line column header plus the pinned rows. */
-  private overlayHeight(tab: Tab): number {
-    return this.rowH(tab) + this.pinnedHeight(tab);
-  }
-
-  /** Total height of the pinned rows (each at its own, possibly wrapped, height). */
-  private pinnedHeight(tab: Tab): number {
-    const idx = this.heightIndex(tab);
-    let h = 0;
-    for (const slot of this.pinnedSlots(tab)) {
-      h += idx.heightOf(slot);
-    }
-    return h;
-  }
-
-  /** Columns `[0, n)` that stay pinned right of the row numbers. */
-  private frozenColCount(tab: Tab): number {
-    const n = this.state.frozenPanes(tab).cols;
-    // Like rows: pin only as many columns as leave one scrollable column.
-    const viewW = this.element.clientWidth - this.headW(tab);
-    if (n <= 1 || viewW <= 0) {
-      return n;
-    }
-    let fit = 1;
-    while (fit < n && this.colOffset(tab, fit + 1) + COL_WIDTH * this.zoomOf(tab) <= viewW) {
-      fit += 1;
-    }
-    return fit;
-  }
-
-  /** First document column of the horizontally scrolling region. */
-  private scrollColBase(tab: Tab): number {
-    return this.frozenColCount(tab);
-  }
-
-  /** Width of the pinned columns (not counting the row-number column). */
-  private frozenColsWidth(tab: Tab): number {
-    return this.colOffset(tab, this.frozenColCount(tab));
-  }
-
-  /**
-   * Width of the sticky horizontal overlay (row headers + pinned columns)
-   * that the scrollable column region starts after.
-   */
-  private overlayWidth(tab: Tab): number {
-    return this.headW(tab) + this.frozenColsWidth(tab);
-  }
-
-  /** Rendered pixel width of a column (per-tab override or default, zoomed). */
-  private colWidth(tab: Tab, col: number): number {
-    const w = tab.colWidths[col];
-    return Math.round((w && w > 0 ? w : COL_WIDTH) * this.zoomOf(tab));
-  }
-
-  /**
-   * The column-offset index for `tab`, rebuilding it only when the widths
-   * array, zoom, or column count it was built from have changed since the
-   * last call.
-   */
-  private colOffsetIndex(tab: Tab): ColOffsetIndex {
-    const cached = this.colOffsets.get(tab.doc);
-    const columnCount = tab.doc.columnCount;
-    if (
-      cached &&
-      cached.zoom === tab.zoom &&
-      cached.widths === tab.colWidths &&
-      cached.columnCount === columnCount
-    ) {
-      return cached.index;
-    }
-    const index = new ColOffsetIndex(columnCount, (c) => this.colWidth(tab, c));
-    this.colOffsets.set(tab.doc, { index, zoom: tab.zoom, columnCount, widths: tab.colWidths });
-    return index;
-  }
-
-  /**
-   * Drop the cached column-offset index for `tab`'s document (used after a
-   * resize or autofit mutates `colWidths` in place, which the cache's
-   * reference check alone would not catch).
-   */
-  private invalidateColOffsets(tab: Tab): void {
-    this.colOffsets.delete(tab.doc);
-  }
-
-  /** X offset (from the first column) of column `col`, i.e. the summed widths before it. */
-  private colOffset(tab: Tab, col: number): number {
-    return this.colOffsetIndex(tab).offsetOf(col);
-  }
-
-  private totalColsWidth(tab: Tab): number {
-    return this.colOffsetIndex(tab).totalWidth;
-  }
-
-  private totalWidth(tab: Tab): number {
-    return this.headW(tab) + this.totalColsWidth(tab);
+    this.metrics.clearRowHeights(this.state.tabs);
   }
 
   /**
@@ -1063,11 +633,11 @@ export class Grid {
       cols: tab.doc.columnCount,
       wrap: this.state.wrapCells,
       font: this.fontSignature(),
-      sticky: this.rowPinSignature(tab),
-      stickyCol: this.frozenColCount(tab),
+      sticky: this.metrics.rowPinSignature(tab),
+      stickyCol: this.metrics.frozenColCount(tab),
       locale: getLocale(),
       zoom: tab.zoom,
-      hidden: this.hiddenOf(tab),
+      hidden: this.metrics.hiddenOf(tab),
     };
   }
 
@@ -1097,7 +667,8 @@ export class Grid {
    */
   private samePins(tab: Tab): boolean {
     return (
-      this.layout?.sticky === this.rowPinSignature(tab) && this.layout.stickyCol === this.frozenColCount(tab)
+      this.layout?.sticky === this.metrics.rowPinSignature(tab) &&
+      this.layout.stickyCol === this.metrics.frozenColCount(tab)
     );
   }
 
@@ -1311,15 +882,15 @@ export class Grid {
     // (including at the clamp ends, where a sudden page zoom would jar).
     event.preventDefault();
     const direction: 1 | -1 = event.deltaY < 0 ? 1 : -1;
-    const oldZoom = this.zoomOf(tab);
+    const oldZoom = this.metrics.zoomOf(tab);
     const next = nextZoomLevel(tab.zoom, direction);
     if (next === tab.zoom) {
       return; // already at the preset range's end
     }
     // Pointer anchor in content coordinates (inside the scrolling region).
     const rect = this.element.getBoundingClientRect();
-    const px = Math.max(0, event.clientX - rect.left - this.overlayWidth(tab));
-    const py = Math.max(0, event.clientY - rect.top - this.overlayHeight(tab));
+    const px = Math.max(0, event.clientX - rect.left - this.metrics.overlayWidth(tab));
+    const py = Math.max(0, event.clientY - rect.top - this.metrics.overlayHeight(tab));
     const contentX = this.element.scrollLeft + px;
     const contentY = this.element.scrollTop + py;
     // Shared zoom state/command path (same as the menu and shortcuts); the
@@ -1327,7 +898,7 @@ export class Grid {
     this.state.setTabZoom(tab, next);
     // Keep the content point under the pointer: content coordinates scale
     // (approximately, up to per-cell rounding) with the zoom ratio.
-    const scale = this.zoomOf(tab) / oldZoom;
+    const scale = this.metrics.zoomOf(tab) / oldZoom;
     this.element.scrollLeft = Math.max(0, Math.round(contentX * scale - px));
     this.element.scrollTop = Math.max(0, Math.round(contentY * scale - py));
   }
@@ -1412,13 +983,13 @@ export class Grid {
    * the scrolling region's start.
    */
   private viewportSpan(tab: Tab): { first: number; last: number; firstCol: number; lastCol: number } {
-    const idx = this.heightIndex(tab);
-    const viewH = Math.max(0, this.element.clientHeight - this.overlayHeight(tab));
-    const viewW = Math.max(0, this.element.clientWidth - this.overlayWidth(tab));
+    const idx = this.metrics.heightIndex(tab);
+    const viewH = Math.max(0, this.element.clientHeight - this.metrics.overlayHeight(tab));
+    const viewW = Math.max(0, this.element.clientWidth - this.metrics.overlayWidth(tab));
     const scrollTop = this.element.scrollTop;
     const scrollLeft = this.element.scrollLeft;
     const rowCount = tab.doc.rowCount;
-    const startRow = this.scrollRowBase(tab);
+    const startRow = this.metrics.scrollRowBase(tab);
     // Row window from the height index: the scroll layer's content origin is
     // the top of the first scroll row, so add its offset to scrollTop. With a
     // uniform (unwrapped) index this reduces exactly to floor(scrollTop / H).
@@ -1427,24 +998,24 @@ export class Grid {
     const last = idx.rowAtOffset(originY + scrollTop + viewH, rowCount) + 1;
     // Columns have per-column widths; the cached offset index answers the
     // visible range in O(log n) instead of walking every column from 0.
-    const colIdx = this.colOffsetIndex(tab);
+    const colIdx = this.metrics.colOffsetIndex(tab);
     // Pinned columns sit over the start of the scrolled band, and the band
     // itself runs to the right edge of everything past the row numbers.
     const firstCol = Math.max(
-      this.scrollColBase(tab),
-      colIdx.colAtOrBefore(scrollLeft + this.frozenColsWidth(tab)),
+      this.metrics.scrollColBase(tab),
+      colIdx.colAtOrBefore(scrollLeft + this.metrics.frozenColsWidth(tab)),
     );
-    const lastCol = colIdx.colAtOrAfter(scrollLeft + viewW + this.frozenColsWidth(tab));
+    const lastCol = colIdx.colAtOrAfter(scrollLeft + viewW + this.metrics.frozenColsWidth(tab));
     return { first, last, firstCol, lastCol };
   }
 
   private computeWindow(tab: Tab): RenderWindow {
     const { first, last, firstCol, lastCol } = this.viewportSpan(tab);
-    const rowStart = Math.max(this.scrollRowBase(tab), first - OVERSCAN_ROWS);
+    const rowStart = Math.max(this.metrics.scrollRowBase(tab), first - OVERSCAN_ROWS);
     const rowEnd = Math.min(tab.doc.rowCount, last + OVERSCAN_ROWS);
-    const colStart = Math.max(this.scrollColBase(tab), firstCol - OVERSCAN_COLS);
+    const colStart = Math.max(this.metrics.scrollColBase(tab), firstCol - OVERSCAN_COLS);
     const colEnd = Math.min(Math.max(1, tab.doc.columnCount), lastCol + OVERSCAN_COLS);
-    return { rowStart, rowEnd, colStart, colEnd, heights: this.heightsVersion };
+    return { rowStart, rowEnd, colStart, colEnd, heights: this.metrics.heightsVersion };
   }
 
   /**
@@ -1456,7 +1027,7 @@ export class Grid {
    */
   private windowCoversViewport(tab: Tab): boolean {
     const win = this.window;
-    if (win === null || win.heights !== this.heightsVersion || !this.samePins(tab)) {
+    if (win === null || win.heights !== this.metrics.heightsVersion || !this.samePins(tab)) {
       return false;
     }
     const { first, last, firstCol, lastCol } = this.viewportSpan(tab);
@@ -1495,7 +1066,7 @@ export class Grid {
       return;
     }
     const doc = tab.doc;
-    const idx = this.heightIndex(tab);
+    const idx = this.metrics.heightIndex(tab);
     // Conditional wrapping: measure the rows about to be shown so their heights
     // are exact *now* (immediate correctness for the visible region), recompute
     // the window against the corrected offsets, and let the off-screen rows be
@@ -1507,7 +1078,7 @@ export class Grid {
       // hides, whose collapsed (0-height) overrides must be preserved so the
       // virtualization still skips their bands.
       idx.clear();
-      const hidden = this.hiddenOf(tab);
+      const hidden = this.metrics.hiddenOf(tab);
       if (hidden) {
         for (const row of hidden) {
           idx.set(row, 0);
@@ -1530,22 +1101,25 @@ export class Grid {
     this.window = win;
     this.layout = this.layoutSignature(tab);
 
-    const totalW = this.totalWidth(tab);
-    const startRow = this.scrollRowBase(tab);
+    const totalW = this.metrics.totalWidth(tab);
+    const startRow = this.metrics.scrollRowBase(tab);
     const originY = idx.offsetOf(startRow);
-    const originX = this.colOffset(tab, this.scrollColBase(tab));
+    const originX = this.metrics.colOffset(tab, this.metrics.scrollColBase(tab));
     const layerHeight = idx.rangeHeight(startRow, doc.rowCount);
     // Zoom is applied through CSS custom properties (font sizes, line boxes)
     // plus the scaled JS metrics; the JS-computed row height stays the source
     // of truth so CSS line heights and element heights can never drift apart.
-    this.element.style.setProperty('--sheet-zoom', String(this.zoomOf(tab)));
-    this.element.style.setProperty('--grid-row-height', `${this.rowH(tab)}px`);
-    this.element.style.setProperty('--grid-wrap-line', `${this.wrapLineH(tab)}px`);
+    this.element.style.setProperty('--sheet-zoom', String(this.metrics.zoomOf(tab)));
+    this.element.style.setProperty('--grid-row-height', `${this.metrics.rowH(tab)}px`);
+    this.element.style.setProperty('--grid-wrap-line', `${this.metrics.wrapLineH(tab)}px`);
     // Use the element's own document, not the global `document`: a deferred
     // wrap pass (see runWrapPass) can still call render() after a torn-down
     // test environment has unbound the global `document` while this element's
     // ownerDocument reference is still alive.
-    this.element.ownerDocument.documentElement.style.setProperty('--sheet-zoom', String(this.zoomOf(tab)));
+    this.element.ownerDocument.documentElement.style.setProperty(
+      '--sheet-zoom',
+      String(this.metrics.zoomOf(tab)),
+    );
     // Announce zoom changes politely (menu, shortcut, or wheel — one shared
     // path). The first render of a tab sets the baseline silently.
     if (this.announcedZoom === null) {
@@ -1555,24 +1129,24 @@ export class Grid {
       this.zoomLive.textContent = t('grid.zoomAnnounce', { pct: tab.zoom });
     }
     this.canvas.style.width = `${totalW}px`;
-    this.canvas.style.height = `${this.overlayHeight(tab) + layerHeight}px`;
-    this.positionGridAddButtons(totalW, this.overlayHeight(tab) + layerHeight);
+    this.canvas.style.height = `${this.metrics.overlayHeight(tab) + layerHeight}px`;
+    this.positionGridAddButtons(totalW, this.metrics.overlayHeight(tab) + layerHeight);
     this.element.setAttribute('aria-rowcount', String(doc.rowCount + 1));
     this.element.setAttribute('aria-colcount', String(doc.columnCount + 1));
 
     // ----- Column header (always sticky, single-line) -----
     clearChildren(this.headerEl);
     this.headerEl.style.width = `${totalW}px`;
-    this.headerEl.style.height = `${this.rowH(tab)}px`;
+    this.headerEl.style.height = `${this.metrics.rowH(tab)}px`;
     this.headerEl.append(this.buildCorner(tab));
-    const frozenCols = this.frozenColCount(tab);
+    const frozenCols = this.metrics.frozenColCount(tab);
     for (let c = 0; c < frozenCols; c++) {
       const pinnedHead = this.buildColumnHeaderCell(tab, c, true);
       this.pinColumnCell(tab, pinnedHead, c, frozenCols);
       this.headerEl.append(pinnedHead);
     }
     const headSpacer = el('div', { className: 'vspacer', attrs: { 'aria-hidden': 'true' } });
-    headSpacer.style.width = `${this.colOffset(tab, win.colStart) - originX}px`;
+    headSpacer.style.width = `${this.metrics.colOffset(tab, win.colStart) - originX}px`;
     this.headerEl.append(headSpacer);
     for (let c = win.colStart; c < win.colEnd; c++) {
       this.headerEl.append(this.buildColumnHeaderCell(tab, c, false));
@@ -1580,22 +1154,22 @@ export class Grid {
 
     // ----- Pinned record rows (optional, single-line, distinct) -----
     clearChildren(this.stickyEl);
-    const pinned = this.pinnedSlots(tab);
-    const autoPinned = this.autoPinnedRow(tab);
+    const pinned = this.metrics.pinnedSlots(tab);
+    const autoPinned = this.metrics.autoPinnedRow(tab);
     this.stickyEl.classList.toggle('auto', autoPinned);
     if (pinned.length > 0) {
       this.stickyEl.hidden = false;
       this.stickyEl.style.width = `${totalW}px`;
-      this.stickyEl.style.height = `${this.pinnedHeight(tab)}px`;
-      this.stickyEl.style.top = `${this.rowH(tab)}px`;
+      this.stickyEl.style.height = `${this.metrics.pinnedHeight(tab)}px`;
+      this.stickyEl.style.top = `${this.metrics.rowH(tab)}px`;
       for (const slot of pinned) {
-        const row = this.docRowOf(tab, slot);
+        const row = this.metrics.docRowOf(tab, slot);
         const rowEl = el('div', {
           className: `vgrid-stickyrow${slot % 2 === 1 ? ' alt' : ''}`,
           attrs: { role: 'row', 'data-row': String(row), 'aria-rowindex': String(slot + 2) },
         });
         const height = idx.heightOf(slot);
-        if (height > this.rowH(tab)) {
+        if (height > this.metrics.rowH(tab)) {
           rowEl.classList.add('wrapped');
         }
         rowEl.style.width = `${totalW}px`;
@@ -1615,8 +1189,8 @@ export class Grid {
       if (height === 0) {
         continue; // hidden by the active filter: no DOM is materialized
       }
-      const row = this.docRowOf(tab, slot);
-      const wrapped = height > this.rowH(tab);
+      const row = this.metrics.docRowOf(tab, slot);
+      const wrapped = height > this.metrics.rowH(tab);
       const rowEl = el('div', {
         className: `vgrid-row ${slot % 2 === 1 ? 'alt' : ''}${wrapped ? ' wrapped' : ''}`,
         attrs: { role: 'row', 'data-row': String(row), 'aria-rowindex': String(slot + 2) },
@@ -1690,14 +1264,14 @@ export class Grid {
    * not it currently follows the scroll.
    */
   private computeRowHeight(tab: Tab, row: number, measure: WrapMeasure, chrome: number): number {
-    if (this.hiddenOf(tab)?.has(row)) {
+    if (this.metrics.hiddenOf(tab)?.has(row)) {
       return 0; // filtered out: the row's band collapses entirely
     }
     const doc = tab.doc;
     const fields = doc.fieldCount(row);
     let maxLines = 1;
     for (let c = 0; c < fields; c++) {
-      const contentWidth = this.colWidth(tab, c) - chrome;
+      const contentWidth = this.metrics.colWidth(tab, c) - chrome;
       const lines = countVisualLines(doc.getDisplayValue(row, c), measure, contentWidth, MAX_WRAP_LINES);
       if (lines > maxLines) {
         maxLines = lines;
@@ -1706,7 +1280,12 @@ export class Grid {
         break;
       }
     }
-    return rowHeightForLines(maxLines, this.rowH(tab), this.wrapLineH(tab), this.wrapPad(tab));
+    return rowHeightForLines(
+      maxLines,
+      this.metrics.rowH(tab),
+      this.metrics.wrapLineH(tab),
+      this.metrics.wrapPad(tab),
+    );
   }
 
   /** Measure every row of the current window into the index (bumps the version on any change). */
@@ -1718,18 +1297,18 @@ export class Grid {
   ): void {
     let changed = false;
     // The pinned rows are on screen too, above the scrolled window.
-    const slots = [...this.pinnedSlots(tab)];
+    const slots = [...this.metrics.pinnedSlots(tab)];
     for (let slot = win.rowStart; slot < win.rowEnd; slot++) {
       slots.push(slot);
     }
     for (const slot of slots) {
-      const row = this.docRowOf(tab, slot);
+      const row = this.metrics.docRowOf(tab, slot);
       if (idx.set(slot, this.computeRowHeight(tab, row, m.measure, m.chrome))) {
         changed = true;
       }
     }
     if (changed) {
-      this.heightsVersion += 1;
+      this.metrics.heightsVersion += 1;
     }
   }
 
@@ -1773,8 +1352,8 @@ export class Grid {
     sig: string,
   ): Promise<void> {
     const doc = tab.doc;
-    const idx = this.heightIndex(tab);
-    const startRow = this.scrollRowBase(tab);
+    const idx = this.metrics.heightIndex(tab);
+    const startRow = this.metrics.scrollRowBase(tab);
     const total = doc.rowCount;
     const scrollRows = total - startRow;
     const large = scrollRows > WRAP_PASS_BUSY_ROWS;
@@ -1788,7 +1367,7 @@ export class Grid {
       const ok = await forEachIndexSliced(
         total,
         (slot) => {
-          const row = this.docRowOf(tab, slot);
+          const row = this.metrics.docRowOf(tab, slot);
           if (idx.set(slot, this.computeRowHeight(tab, row, m.measure, m.chrome))) {
             dirty = true;
           }
@@ -1796,7 +1375,7 @@ export class Grid {
         {
           onProgress: (done) => {
             if (dirty) {
-              this.heightsVersion += 1;
+              this.metrics.heightsVersion += 1;
               this.updateScrollExtent(tab);
               dirty = false;
             }
@@ -1818,7 +1397,7 @@ export class Grid {
     }
     // Re-lay-out once so every rendered row sits at its final measured height.
     if (dirty) {
-      this.heightsVersion += 1;
+      this.metrics.heightsVersion += 1;
     }
     if (!this.element.ownerDocument.defaultView) {
       // The element's document was detached from its view: skip the pointless
@@ -1836,11 +1415,11 @@ export class Grid {
     if (this.state.activeTab !== tab || tab.doc !== this.lastDoc) {
       return;
     }
-    const idx = this.heightIndex(tab);
-    const layerHeight = idx.rangeHeight(this.scrollRowBase(tab), tab.doc.rowCount);
-    this.canvas.style.height = `${this.overlayHeight(tab) + layerHeight}px`;
+    const idx = this.metrics.heightIndex(tab);
+    const layerHeight = idx.rangeHeight(this.metrics.scrollRowBase(tab), tab.doc.rowCount);
+    this.canvas.style.height = `${this.metrics.overlayHeight(tab) + layerHeight}px`;
     this.rowsLayer.style.height = `${layerHeight}px`;
-    this.addRowAnchor.style.top = `${this.overlayHeight(tab) + layerHeight}px`;
+    this.addRowAnchor.style.top = `${this.metrics.overlayHeight(tab) + layerHeight}px`;
   }
 
   /**
@@ -1852,9 +1431,9 @@ export class Grid {
     if (!this.state.wrapCells) {
       return;
     }
-    this.heightIndex(tab).clear();
+    this.metrics.heightIndex(tab).clear();
     this.wrapPassSig = null;
-    this.heightsVersion += 1;
+    this.metrics.heightsVersion += 1;
   }
 
   /**
@@ -1878,7 +1457,7 @@ export class Grid {
           : t('grid.colTitle', { letter: columnLabel(c), n: c + 1 }),
       },
     });
-    head.style.width = `${this.colWidth(tab, c)}px`;
+    head.style.width = `${this.metrics.colWidth(tab, c)}px`;
     // Active filter: every column of the filtered range gets a keyboard-
     // accessible filter button in its header; columns that carry criteria
     // show it filled. The button dispatches the same shared filter command
@@ -1929,7 +1508,7 @@ export class Grid {
         title: t('grid.selectAllCorner'),
       },
     });
-    corner.style.width = `${this.headW(tab)}px`;
+    corner.style.width = `${this.metrics.headW(tab)}px`;
     // Enter/Space activate natively; a pointer tap does the same. Focus the
     // grid afterward so keyboard navigation and copy keep working.
     corner.addEventListener('click', () => {
@@ -2020,7 +1599,7 @@ export class Grid {
     if (tab && win && ranges.length > 0) {
       // The window's slots already start past the pinned rows; while it sits
       // right below them, the pinned rows extend the visible band to the top.
-      const base = this.scrollRowBase(tab);
+      const base = this.metrics.scrollRowBase(tab);
       clipped = formulaRefsExceedViewport(ranges, {
         firstRow: win.rowStart === base ? 0 : win.rowStart,
         lastRow: win.rowEnd - 1,
@@ -2049,18 +1628,18 @@ export class Grid {
     if (pinned) {
       head.setAttribute('title', t('grid.stickyRowTitle', { n: row + 1 }));
     }
-    head.style.width = `${this.headW(tab)}px`;
+    head.style.width = `${this.metrics.headW(tab)}px`;
     rowEl.append(head);
     const fieldCount = doc.fieldCount(row);
-    const frozenCols = this.frozenColCount(tab);
+    const frozenCols = this.metrics.frozenColCount(tab);
     for (let c = 0; c < frozenCols; c++) {
       const pinCell = this.buildDataCell(tab, row, c, fieldCount);
       this.pinColumnCell(tab, pinCell, c, frozenCols);
       rowEl.append(pinCell);
     }
-    const originX = this.colOffset(tab, this.scrollColBase(tab));
+    const originX = this.metrics.colOffset(tab, this.metrics.scrollColBase(tab));
     const spacer = el('div', { className: 'vspacer', attrs: { 'aria-hidden': 'true' } });
-    spacer.style.width = `${this.colOffset(tab, win.colStart) - originX}px`;
+    spacer.style.width = `${this.metrics.colOffset(tab, win.colStart) - originX}px`;
     rowEl.append(spacer);
     for (let c = win.colStart; c < win.colEnd; c++) {
       rowEl.append(this.buildDataCell(tab, row, c, fieldCount));
@@ -2071,14 +1650,14 @@ export class Grid {
   private pinColumnCell(tab: Tab, cell: HTMLElement, c: number, frozenCols: number): void {
     cell.classList.add('colpin');
     cell.classList.toggle('colpin-edge', c === frozenCols - 1);
-    cell.style.left = `${this.headW(tab) + this.colOffset(tab, c)}px`;
+    cell.style.left = `${this.metrics.headW(tab) + this.metrics.colOffset(tab, c)}px`;
   }
 
   /** Build one data cell (or a void placeholder past the row's field count). */
   private buildDataCell(tab: Tab, row: number, c: number, fieldCount: number): HTMLElement {
     if (c >= fieldCount) {
       const voidCell = el('div', { className: 'vcell void', attrs: { 'aria-hidden': 'true' } });
-      voidCell.style.width = `${this.colWidth(tab, c)}px`;
+      voidCell.style.width = `${this.metrics.colWidth(tab, c)}px`;
       return voidCell;
     }
     const cell = el('div', {
@@ -2090,7 +1669,7 @@ export class Grid {
         'aria-colindex': String(c + 2),
       },
     });
-    cell.style.width = `${this.colWidth(tab, c)}px`;
+    cell.style.width = `${this.metrics.colWidth(tab, c)}px`;
     this.paintCell(tab, cell, row, c);
     return cell;
   }
@@ -2136,7 +1715,7 @@ export class Grid {
         cell.title = doc.getOriginalValue(row, col);
       } else if (field?.malformed) {
         // Safe text-only tooltip explaining the structural parsing problem.
-        cell.title = this.malformedFieldTooltip(doc, row, col);
+        cell.title = malformedFieldTooltip(doc, row, col);
       } else if (cell.title !== '') {
         cell.removeAttribute('title');
       }
@@ -2161,7 +1740,7 @@ export class Grid {
       } else if (cell.title !== '') {
         cell.removeAttribute('title');
       }
-      this.paintCellStyle(cell, doc, row, col);
+      paintCellStyle(cell, doc, row, col);
       if (rich) {
         // Each part carries its own underline; a cell-wide one could not be
         // switched off for a plain part.
@@ -2264,68 +1843,6 @@ export class Grid {
     });
   }
 
-  /** Human-readable explanation of a malformed field's structural problem(s). */
-  private malformedFieldTooltip(doc: LosslessDocument, row: number, col: number): string {
-    const diags = doc.getFieldDiagnostics(row, col);
-    if (diags.length === 0) {
-      return '';
-    }
-    return diags
-      .map(
-        (d) =>
-          `${t(`diag.${d.type}`)}: ${t(`diagDesc.${d.type}`, { expected: d.expected ?? 0, actual: d.actual ?? 0 })}`,
-      )
-      .join('\n');
-  }
-
-  /**
-   * Apply (or clear) one cell's visual style — bold/italic/underline as CSS
-   * classes, colors and borders as inline styles so any `#rrggbb` value works
-   * without a matching stylesheet rule. Assigning `''` restores the normal
-   * grid appearance (the default border/background from `.vcell` in
-   * `src/styles/index.css`), so this is safe to call on a reused, previously
-   * styled cell element.
-   *
-   * A border shared with a neighbor is painted exactly once, as a single
-   * line, instead of each cell drawing its own side: this cell paints its
-   * bottom/right edges as the merge of its own borderBottom/Right with the
-   * neighbor below/right's borderTop/Left ({@link resolveSharedBorder}), and
-   * never paints its top/left edges except at the grid's own top/left
-   * boundary (row/col 0) — the cell above/to the left already painted that
-   * shared edge as its own (merged) bottom/right.
-   *
-   * A matching conditional-formatting rule (Format > Conditional
-   * Formatting…, `conditional-format.ts`) overrides the cell's own
-   * background/text color — the same "computed appearance wins" precedence
-   * every mainstream spreadsheet uses — but never its bold/italic/underline
-   * or borders, which conditional formatting cannot set.
-   */
-  private paintCellStyle(cell: HTMLElement, doc: RsfDocument, row: number, col: number): void {
-    const style = doc.getStyle(row, col);
-    const conditional = doc.getConditionalFormatStyle(row, col);
-    cell.classList.toggle('cell-bold', !!style?.bold);
-    cell.classList.toggle('cell-italic', !!style?.italic);
-    cell.classList.toggle('cell-underline', !!style?.underline);
-    cell.style.color = conditional?.textColor ?? style?.textColor ?? '';
-    cell.style.backgroundColor = conditional?.backgroundColor ?? style?.backgroundColor ?? '';
-    const below = row + 1 < doc.rowCount ? doc.getStyle(row + 1, col) : null;
-    const right = col + 1 < doc.columnCount ? doc.getStyle(row, col + 1) : null;
-    const top = row === 0 ? borderSideValue(style, 'borderTop') : null;
-    const left = col === 0 ? borderSideValue(style, 'borderLeft') : null;
-    const bottom = resolveSharedBorder(
-      borderSideValue(style, 'borderBottom'),
-      borderSideValue(below, 'borderTop'),
-    );
-    const rightSide = resolveSharedBorder(
-      borderSideValue(style, 'borderRight'),
-      borderSideValue(right, 'borderLeft'),
-    );
-    cell.style.borderTop = cssBorder(top);
-    cell.style.borderLeft = cssBorder(left);
-    cell.style.borderBottom = cssBorder(bottom);
-    cell.style.borderRight = cssBorder(rightSide);
-  }
-
   /** Repaint the currently rendered cells in place (values/classes only). */
   private paintWindowCells(tab: Tab): void {
     const cells = this.canvas.querySelectorAll<HTMLElement>('[data-row][data-col]');
@@ -2355,74 +1872,6 @@ export class Grid {
   }
 
   /**
-   * Character offset within a rendered cell's text nearest a viewport point,
-   * for seeding the editor's caret at the double-clicked position. Uses
-   * whichever caret-hit-testing API the document exposes (the standards-track
-   * `caretPositionFromPoint`, or the older `caretRangeFromPoint`); returns
-   * null where neither is available (e.g. jsdom in tests) or the point misses
-   * the cell's own text, so callers fall back to a sane default. The cell's
-   * text is always a single text node (`paintCell` sets `textContent`
-   * directly), so the returned offset is already the offset within the raw
-   * cell value.
-   */
-  private caretOffsetFromPoint(cell: HTMLElement, clientX: number, clientY: number): number | null {
-    const doc = cell.ownerDocument;
-    let node: Node | null;
-    let offset: number;
-    if (typeof doc.caretPositionFromPoint === 'function') {
-      const pos = doc.caretPositionFromPoint(clientX, clientY);
-      if (!pos) {
-        return null;
-      }
-      node = pos.offsetNode;
-      offset = pos.offset;
-    } else if (typeof doc.caretRangeFromPoint === 'function') {
-      const range = doc.caretRangeFromPoint(clientX, clientY);
-      if (!range) {
-        return null;
-      }
-      node = range.startContainer;
-      offset = range.startOffset;
-    } else {
-      return null;
-    }
-    if (node?.nodeType === Node.TEXT_NODE) {
-      if (!cell.contains(node)) {
-        return null;
-      }
-      // Plain cells hold one text node; a rich-text cell holds one per
-      // formatted part (`span.rich-run`), so add the parts before this one.
-      let before = 0;
-      for (const run of cell.querySelectorAll('.rich-run')) {
-        if (run.contains(node)) {
-          break;
-        }
-        before += run.textContent?.length ?? 0;
-      }
-      return before + offset;
-    }
-    if (node === cell) {
-      // The hit landed on the cell element itself (e.g. past the end of a
-      // short value, or an empty cell), not inside its text. `offset` here
-      // is a child index rather than a character count: 0 means "before the
-      // text", any other value means "after it".
-      return offset > 0 ? this.cellTextLength(cell) : 0;
-    }
-    return null;
-  }
-
-  /** Length of a rendered cell's own text (a header filter button adds none). */
-  private cellTextLength(cell: HTMLElement): number {
-    let length = 0;
-    for (const child of cell.childNodes) {
-      if (child.nodeType === Node.TEXT_NODE || (child as Element).classList?.contains('rich-text-body')) {
-        length += child.textContent?.length ?? 0;
-      }
-    }
-    return length;
-  }
-
-  /**
    * Hit-test by viewport coordinates instead of an event target. Used by
    * auto-scroll, where a nudge moves the grid's content under a pointer that
    * hasn't itself moved, so there is no fresh event target to read.
@@ -2446,7 +1895,7 @@ export class Grid {
     this.endFill();
     this.endRefDrag();
     this.endMove();
-    this.stopAutoScroll();
+    this.autoScroll.stop();
   }
 
   private onMouseDown(event: MouseEvent): void {
@@ -2460,7 +1909,7 @@ export class Grid {
       // Begin a column-resize drag (tracked via document mousemove/up).
       const col = Number(resizeHandle.dataset.colresize);
       this.commitEditor();
-      this.resizing = { col, startX: event.clientX, startWidth: this.colWidth(tab, col) };
+      this.resizing = { col, startX: event.clientX, startWidth: this.metrics.colWidth(tab, col) };
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -2742,13 +2191,12 @@ export class Grid {
     if (event.pointerType === 'mouse') {
       return;
     }
-    const origin = this.longPressOrigin;
-    if (origin) {
-      if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > LONG_PRESS_MOVE_TOLERANCE_PX) {
+    if (this.longPress.pending) {
+      if (this.longPress.movedFromOrigin(event)) {
         // Real movement before the hold completes reads as a scroll, not a
         // drag — cancel the pending long-press and leave the touch to the
         // browser's native panning.
-        this.clearLongPress();
+        this.longPress.clear();
       }
       return;
     }
@@ -2762,11 +2210,8 @@ export class Grid {
     ) {
       return;
     }
-    if (this.longPressMenuTarget) {
-      const menuOrigin = this.longPressMenuTarget;
-      if (
-        Math.hypot(event.clientX - menuOrigin.x, event.clientY - menuOrigin.y) <= LONG_PRESS_MOVE_TOLERANCE_PX
-      ) {
+    if (this.longPress.menuTarget) {
+      if (this.longPress.menuTargetHeld(event)) {
         // A held finger keeps reporting small jitter even while stationary —
         // only movement past the tolerance means the completed hold turned
         // into a drag (#475); a jittery `pointermove` here is not that.
@@ -2775,14 +2220,14 @@ export class Grid {
       // Real movement past the tolerance: the completed long-press turned
       // into a drag rather than a stationary hold — the pending
       // context-menu-on-release no longer applies.
-      this.longPressMenuTarget = null;
+      this.longPress.menuTarget = null;
     }
     // A drag is confirmed and moving: block the native scroll/pan this touch
     // would otherwise start, and drive the drag through the same code the
     // mouse path uses.
     event.preventDefault();
     this.onResizeMove(event);
-    this.trackAutoScroll(event);
+    this.autoScroll.track(event);
     this.onMouseMove(event);
   }
 
@@ -2794,10 +2239,10 @@ export class Grid {
     // without enough movement to have cancelled it already) — the same
     // gesture the browser's own synthetic click already treats as a plain
     // tap-to-select, and the only kind eligible to pair into a double-tap.
-    const wasQuickTap = this.longPressOrigin !== null && this.longPressTimer !== null;
-    this.clearLongPress();
-    const menuTarget = this.longPressMenuTarget;
-    this.longPressMenuTarget = null;
+    const wasQuickTap = this.longPress.quickTap;
+    this.longPress.clear();
+    const menuTarget = this.longPress.menuTarget;
+    this.longPress.menuTarget = null;
     this.releasePointerIfCaptured(event.pointerId);
     this.endActiveDrags();
     // The hold completed and lifted without ever turning into a drag: treat
@@ -2830,63 +2275,21 @@ export class Grid {
     if (!cell) {
       return;
     }
-    const pending = this.pendingTap;
-    if (
-      pending &&
-      pending.row === cell.row &&
-      pending.col === cell.col &&
-      Math.hypot(event.clientX - pending.x, event.clientY - pending.y) <= DOUBLE_TAP_SLOP_PX
-    ) {
-      clearTimeout(pending.timer);
-      this.pendingTap = null;
+    if (this.doubleTap.tap(cell, event)) {
       const cellEl = this.cellAt(cell.row, cell.col);
-      const caretOffset = cellEl ? this.caretOffsetFromPoint(cellEl, event.clientX, event.clientY) : null;
+      const caretOffset = cellEl ? caretOffsetFromPoint(cellEl, event.clientX, event.clientY) : null;
       this.openEditor(tab, cell.row, cell.col, null, caretOffset ?? undefined);
-      return;
     }
-    if (pending) {
-      clearTimeout(pending.timer);
-    }
-    this.pendingTap = {
-      row: cell.row,
-      col: cell.col,
-      x: event.clientX,
-      y: event.clientY,
-      timer: setTimeout(() => {
-        this.pendingTap = null;
-      }, DOUBLE_TAP_MS),
-    };
   }
 
   /** Arms a drag-selection/header-drag after a press-and-hold with no real movement. */
   private armLongPressDrag(event: PointerEvent): void {
-    this.clearLongPress();
-    this.longPressMenuTarget = null;
-    this.longPressOrigin = { event, x: event.clientX, y: event.clientY };
-    this.longPressTimer = setTimeout(() => {
-      this.longPressTimer = null;
-      const origin = this.longPressOrigin;
-      this.longPressOrigin = null;
-      if (!origin) {
-        return;
-      }
-      this.onMouseDown(origin.event);
+    this.longPress.arm(event, (press) => {
+      this.onMouseDown(press);
       if (this.dragging || this.headerDrag || this.refDrag) {
-        this.capturePointer(origin.event.pointerId);
+        this.capturePointer(press.pointerId);
       }
-      // The hold just fired and nothing has moved yet: this is a candidate
-      // for the context menu once the finger lifts (onPointerMove clears it
-      // again the moment real movement turns this into an actual drag).
-      this.longPressMenuTarget = { event: origin.event, x: origin.x, y: origin.y };
-    }, LONG_PRESS_MS);
-  }
-
-  private clearLongPress(): void {
-    if (this.longPressTimer !== null) {
-      clearTimeout(this.longPressTimer);
-      this.longPressTimer = null;
-    }
-    this.longPressOrigin = null;
+    });
   }
 
   /** Pointer capture keeps a touch drag's move/up events targeted at the grid even
@@ -2915,86 +2318,6 @@ export class Grid {
   /** Whether a drag that should auto-scroll the viewport on approaching an edge is active. */
   private hasEdgeScrollableDrag(): boolean {
     return this.dragging || this.filling !== null || this.movingRange !== null || this.resizing !== null;
-  }
-
-  /**
-   * Scroll direction/speed implied by a pointer position relative to the
-   * grid's edges, or null when the pointer isn't close enough to nudge the
-   * viewport. A zero-size rect means the grid isn't laid out (hidden, or an
-   * environment without real geometry, e.g. an unmocked jsdom test) and
-   * never nudges.
-   */
-  private edgeScrollDirection(clientX: number, clientY: number): { dx: number; dy: number } | null {
-    const rect = this.element.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) {
-      return null;
-    }
-    const step = (depth: number): number => Math.min(AUTO_SCROLL_MAX_STEP_PX, Math.max(4, Math.round(depth)));
-    let dx = 0;
-    if (clientX < rect.left + AUTO_SCROLL_EDGE_PX) {
-      dx = -step(rect.left + AUTO_SCROLL_EDGE_PX - clientX);
-    } else if (clientX > rect.right - AUTO_SCROLL_EDGE_PX) {
-      dx = step(clientX - (rect.right - AUTO_SCROLL_EDGE_PX));
-    }
-    let dy = 0;
-    if (clientY < rect.top + AUTO_SCROLL_EDGE_PX) {
-      dy = -step(rect.top + AUTO_SCROLL_EDGE_PX - clientY);
-    } else if (clientY > rect.bottom - AUTO_SCROLL_EDGE_PX) {
-      dy = step(clientY - (rect.bottom - AUTO_SCROLL_EDGE_PX));
-    }
-    return dx === 0 && dy === 0 ? null : { dx, dy };
-  }
-
-  /**
-   * Runs on every document-level mousemove: starts, updates, or stops the
-   * auto-scroll timer depending on whether an edge-scrollable drag is active
-   * and how close its pointer is to the grid's edge.
-   */
-  private trackAutoScroll(event: MouseEvent): void {
-    if (!this.hasEdgeScrollableDrag()) {
-      this.stopAutoScroll();
-      return;
-    }
-    const dir = this.edgeScrollDirection(event.clientX, event.clientY);
-    if (!dir) {
-      this.stopAutoScroll();
-      return;
-    }
-    this.autoScrollState = { ...dir, clientX: event.clientX, clientY: event.clientY };
-    if (this.autoScrollTimer === null) {
-      this.autoScrollTimer = setInterval(() => this.tickAutoScroll(), AUTO_SCROLL_INTERVAL_MS);
-    }
-  }
-
-  private stopAutoScroll(): void {
-    if (this.autoScrollTimer !== null) {
-      clearInterval(this.autoScrollTimer);
-      this.autoScrollTimer = null;
-    }
-    this.autoScrollState = null;
-  }
-
-  /**
-   * One auto-scroll nudge: move the viewport, re-render so the DOM reflects
-   * the new window, then feed the pointer's now-different cell back into
-   * whichever drag is active — the same update `onMouseMove` would have made
-   * had the pointer actually moved onto that cell.
-   */
-  private tickAutoScroll(): void {
-    const tab = this.state.activeTab;
-    const state = this.autoScrollState;
-    if (!tab || !state || !this.hasEdgeScrollableDrag()) {
-      this.stopAutoScroll();
-      return;
-    }
-    const before = { top: this.element.scrollTop, left: this.element.scrollLeft };
-    this.element.scrollTop = Math.max(0, this.element.scrollTop + state.dy);
-    this.element.scrollLeft = Math.max(0, this.element.scrollLeft + state.dx);
-    if (this.element.scrollTop === before.top && this.element.scrollLeft === before.left) {
-      return; // already at the scroll limit in every direction being nudged
-    }
-    this.render(tab);
-    this.continueDragAt(tab, state.clientX, state.clientY);
   }
 
   /**
@@ -3068,7 +2391,7 @@ export class Grid {
     const cell = this.cellFromEvent(event);
     if (cell) {
       const cellEl = this.cellAt(cell.row, cell.col);
-      const caretOffset = cellEl ? this.caretOffsetFromPoint(cellEl, event.clientX, event.clientY) : null;
+      const caretOffset = cellEl ? caretOffsetFromPoint(cellEl, event.clientX, event.clientY) : null;
       this.openEditor(tab, cell.row, cell.col, null, caretOffset ?? undefined);
     }
   }
@@ -3082,14 +2405,17 @@ export class Grid {
    * marks the document dirty.
    */
   private setColWidth(tab: Tab, col: number, screenWidth: number): void {
-    const w = Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, Math.round(screenWidth / this.zoomOf(tab))));
+    const w = Math.max(
+      MIN_COL_WIDTH,
+      Math.min(MAX_COL_WIDTH, Math.round(screenWidth / this.metrics.zoomOf(tab))),
+    );
     if (tab.colWidths[col] === w) {
       return;
     }
     tab.colWidths[col] = w;
     // A width change alters which cells wrap, so cached wrap heights are stale.
     this.invalidateRowHeights(tab);
-    this.invalidateColOffsets(tab);
+    this.metrics.invalidateColOffsets(tab);
     this.window = null; // force a re-layout with the new width
     this.render(tab);
   }
@@ -3216,7 +2542,7 @@ export class Grid {
       width: rect.width,
       height: rect.height,
     };
-    return onRangeEdge(range, row, col, point, MOVE_EDGE_PX * this.zoomOf(tab)) ? { row, col } : null;
+    return onRangeEdge(range, row, col, point, MOVE_EDGE_PX * this.metrics.zoomOf(tab)) ? { row, col } : null;
   }
 
   /** The current move destination rectangle, or null when nothing is dragging. */
@@ -3417,78 +2743,17 @@ export class Grid {
       return;
     }
     const doc = tab.doc;
-    const sampleCell = this.canvas.querySelector<HTMLElement>('.vcell[data-row][data-col]');
-    const measure = sampleCell ? createTextMeasurer(sampleCell) : null;
-    let result: MultiAutoFitResult;
-    if (measure && sampleCell) {
-      const cs = getComputedStyle(sampleCell);
-      const px = (v: string): number => {
-        const n = Number.parseFloat(v);
-        return Number.isFinite(n) ? n : 0;
-      };
-      // +2px keeps content clear of the ellipsis threshold.
-      const cellChrome =
-        px(cs.paddingLeft) + px(cs.paddingRight) + px(cs.borderLeftWidth) + px(cs.borderRightWidth) + 2;
-      const makeInput = (col: number): AutoFitInput => {
-        const visibleRows: number[] = [];
-        for (const cell of this.canvas.querySelectorAll<HTMLElement>(`.vcell[data-row][data-col="${col}"]`)) {
-          visibleRows.push(Number(cell.dataset.row));
-        }
-        return {
-          rowCount: doc.rowCount,
-          header: columnLabel(col),
-          getDisplayValue: (r) => doc.getDisplayValue(r, col),
-          visibleRows,
-          measure,
-          cellChrome,
-          headerChrome: cellChrome + 10, // the header also holds the resize handle
-          sampleBudget: AUTOFIT_SAMPLE_BUDGET,
-        };
-      };
-      // Progress + yielding only for genuinely large jobs (measured cells
-      // across all columns beyond the large-operation threshold).
-      const heavy =
-        cols.length > 1 && cols.length * Math.min(doc.rowCount, AUTOFIT_SAMPLE_BUDGET) > LARGE_OP_CELLS;
-      if (heavy) {
-        this.commands.setBusy(t('loading.autoFitCols', { done: 0, total: cols.length, pct: 0 }), 0);
-      }
-      try {
-        result = await planAutoFitColumns(cols, makeInput, {
-          yieldBetween: heavy,
-          onProgress: (done, total) => {
-            const pct = Math.floor((done / total) * 100);
-            this.commands.setBusy(t('loading.autoFitCols', { done, total, pct }), pct);
-          },
-          shouldStop: () => this.state.activeTab !== tab || tab.doc !== doc,
-        });
-      } finally {
-        if (heavy) {
-          this.commands.setBusy(null);
-        }
-      }
-    } else {
-      // Fallback without a 2D canvas context (e.g. jsdom): measure the
-      // rendered cells' DOM scrollWidth per column (visible rows only).
-      const plans = new Map<number, AutoFitResult>();
-      for (const col of cols) {
-        const widths: number[] = [];
-        let measuredRows = 0;
-        for (const cell of this.canvas.querySelectorAll<HTMLElement>(`.vcell[data-col="${col}"]`)) {
-          widths.push(cell.scrollWidth + 2);
-          measuredRows += 1;
-        }
-        const head = this.headerEl.querySelector<HTMLElement>(`[data-colhead="${col}"]`);
-        if (head) {
-          widths.push(head.scrollWidth + 10);
-        }
-        plans.set(col, {
-          width: autoFitWidth(widths),
-          measuredRows,
-          sampled: measuredRows < doc.rowCount,
-        });
-      }
-      result = { plans, completed: true };
-    }
+    const planned = measureAutoFitColumns({
+      canvas: this.canvas,
+      header: this.headerEl,
+      doc,
+      cols,
+      setBusy: (label, pct) => this.commands.setBusy(label, pct),
+      shouldStop: () => this.state.activeTab !== tab || tab.doc !== doc,
+    });
+    // Only the canvas-measured plan is asynchronous; the DOM fallback is
+    // applied in this same task (awaiting it would defer the new widths).
+    const result = planned instanceof Promise ? await planned : planned;
     if (!result.completed || this.state.activeTab !== tab || tab.doc !== doc) {
       return; // aborted: apply nothing
     }
@@ -3496,7 +2761,10 @@ export class Grid {
     // under the zoomed font, so normalize back to 100%-zoom storage units.
     let changed = false;
     for (const [col, plan] of result.plans) {
-      const w = Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, Math.round(plan.width / this.zoomOf(tab))));
+      const w = Math.max(
+        MIN_COL_WIDTH,
+        Math.min(MAX_COL_WIDTH, Math.round(plan.width / this.metrics.zoomOf(tab))),
+      );
       if (tab.colWidths[col] !== w) {
         tab.colWidths[col] = w;
         changed = true;
@@ -3505,7 +2773,7 @@ export class Grid {
     if (changed) {
       // New column widths change wrapping, so cached wrap heights are stale.
       this.invalidateRowHeights(tab);
-      this.invalidateColOffsets(tab);
+      this.metrics.invalidateColOffsets(tab);
       this.window = null;
       this.render(tab);
     }
@@ -3548,53 +2816,14 @@ export class Grid {
     this.select(tab, row, col, true);
   }
 
-  /**
-   * The on-screen keyboard opened or closed (`onKeyboardOpenChange`, fired
-   * after `#app` has been refitted to the visible area). On open, when the
-   * grid or a registered edit field (the formula bar, see
-   * `addKeyboardEditField`) holds focus, the cell being edited — or the selected cell, for
-   * type-to-edit — is scrolled to the vertical middle of the grid's now
-   * shorter scroll area, and the scroll position from before editing started
-   * is remembered. For a short while after, any further shrink of the
-   * visible area (the keyboard still sliding in) re-centers it again
-   * (`keyboardResized`). On close, the remembered position is put back.
-   */
+  /** The on-screen keyboard opened or closed — see `KeyboardViewport.openChanged`. */
   keyboardOpenChanged(open: boolean): void {
-    const tab = this.state.activeTab;
-    if (!tab || tab.doc !== this.lastDoc) {
-      this.preKeyboardScroll = null;
-      this.keyboardSettleUntil = 0;
-      return;
-    }
-    if (!open) {
-      this.keyboardSettleUntil = 0;
-      const saved = this.preKeyboardScroll;
-      this.preKeyboardScroll = null;
-      if (saved) {
-        this.element.scrollTop = saved.top;
-        this.element.scrollLeft = saved.left;
-        this.render(tab);
-      }
-      return;
-    }
-    if (!this.keyboardEditsCell()) {
-      this.preKeyboardScroll = null;
-      return;
-    }
-    this.preKeyboardScroll ??= { top: this.element.scrollTop, left: this.element.scrollLeft };
-    this.keyboardSettleUntil = Date.now() + KEYBOARD_SETTLE_MS;
-    this.centerKeyboardTarget(tab);
+    this.keyboard.openChanged(open);
   }
 
   /** The visible area changed height while the keyboard is open (`onKeyboardResize`). */
   keyboardResized(): void {
-    if (Date.now() > this.keyboardSettleUntil) {
-      return;
-    }
-    const tab = this.state.activeTab;
-    if (tab && tab.doc === this.lastDoc && this.keyboardEditsCell()) {
-      this.centerKeyboardTarget(tab);
-    }
+    this.keyboard.resized();
   }
 
   /**
@@ -3603,24 +2832,7 @@ export class Grid {
    * is centered in the shrunken grid just as for the in-cell editor.
    */
   addKeyboardEditField(field: Element): void {
-    this.keyboardEditFields.add(field);
-  }
-
-  /** Whether focus is on the in-cell editor or a registered edit field. */
-  private keyboardEditsCell(): boolean {
-    const active = this.element.ownerDocument.activeElement;
-    if (!active) {
-      return false;
-    }
-    if (active === this.sink) {
-      return true;
-    }
-    for (const field of this.keyboardEditFields) {
-      if (field.contains(active)) {
-        return true;
-      }
-    }
-    return false;
+    this.keyboard.addEditField(field);
   }
 
   /** Scroll the edited (or selected) cell to the vertical middle of the grid's scroll area. */
@@ -3630,12 +2842,12 @@ export class Grid {
       return;
     }
     const slot = this.state.sortSlot(tab, target.row);
-    if (slot >= this.scrollRowBase(tab)) {
-      const idx = this.heightIndex(tab);
-      const y = idx.offsetOf(slot) - idx.offsetOf(this.scrollRowBase(tab));
+    if (slot >= this.metrics.scrollRowBase(tab)) {
+      const idx = this.metrics.heightIndex(tab);
+      const y = idx.offsetOf(slot) - idx.offsetOf(this.metrics.scrollRowBase(tab));
       // The scroll area is the grid minus the sticky header (and sticky
       // first row), i.e. exactly the band `scrollCellIntoView` keeps a cell in.
-      const viewH = this.element.clientHeight - this.overlayHeight(tab);
+      const viewH = this.element.clientHeight - this.metrics.overlayHeight(tab);
       const maxScroll = this.element.scrollHeight - this.element.clientHeight;
       this.element.scrollTop = centeredScrollOffset(y, idx.heightOf(slot), viewH, maxScroll);
     }
@@ -3646,20 +2858,20 @@ export class Grid {
   /** Rows one PageUp / PageDown moves: a screenful at the selected row's height. */
   private pageRows(tab: Tab): number {
     const slot = this.state.sortSlot(tab, tab.selection?.row ?? 0);
-    const viewH = this.element.clientHeight - this.overlayHeight(tab);
-    return pageStep(viewH, this.heightIndex(tab).heightOf(slot));
+    const viewH = this.element.clientHeight - this.metrics.overlayHeight(tab);
+    return pageStep(viewH, this.metrics.heightIndex(tab).heightOf(slot));
   }
 
   /** `renderIfUnmoved: false` skips the repaint when the cell was already in view. */
   private scrollCellIntoView(tab: Tab, row: number, col: number, renderIfUnmoved = true): void {
     const scrollTop = this.element.scrollTop;
     const scrollLeft = this.element.scrollLeft;
-    const idx = this.heightIndex(tab);
-    const overlay = this.overlayHeight(tab);
+    const idx = this.metrics.heightIndex(tab);
+    const overlay = this.metrics.overlayHeight(tab);
     // The height index is keyed by display slot, not document row.
     const slot = this.state.sortSlot(tab, row);
-    if (slot >= this.scrollRowBase(tab)) {
-      const startRow = this.scrollRowBase(tab);
+    if (slot >= this.metrics.scrollRowBase(tab)) {
+      const startRow = this.metrics.scrollRowBase(tab);
       const y = idx.offsetOf(slot) - idx.offsetOf(startRow);
       const rowH = idx.heightOf(slot);
       const viewH = this.element.clientHeight - overlay;
@@ -3669,14 +2881,14 @@ export class Grid {
         this.element.scrollTop = y + rowH - viewH;
       }
     }
-    const frozenCols = this.frozenColCount(tab);
+    const frozenCols = this.metrics.frozenColCount(tab);
     if (col >= frozenCols) {
       // Scrolled columns keep their natural x; the pinned columns cover the
       // first `frozenW` pixels of the band right of the row numbers.
-      const frozenW = this.frozenColsWidth(tab);
-      const x = this.colOffset(tab, col) - frozenW;
-      const w = this.colWidth(tab, col);
-      const viewW = this.element.clientWidth - this.overlayWidth(tab);
+      const frozenW = this.metrics.frozenColsWidth(tab);
+      const x = this.metrics.colOffset(tab, col) - frozenW;
+      const w = this.metrics.colWidth(tab, col);
+      const viewW = this.element.clientWidth - this.metrics.overlayWidth(tab);
       if (x < this.element.scrollLeft) {
         this.element.scrollLeft = Math.max(0, x);
       } else if (x + w > this.element.scrollLeft + viewW) {
@@ -3701,7 +2913,7 @@ export class Grid {
    * plain clamped addition (`from`'s slot equals `from` itself).
    */
   private stepVisibleRow(tab: Tab, from: number, delta: number): number {
-    const hidden = this.hiddenOf(tab);
+    const hidden = this.metrics.hiddenOf(tab);
     const rowCount = tab.doc.rowCount;
     const sorted = tab.doc.kind === 'rsf' && tab.doc.sort !== null;
     if ((!hidden || hidden.size === 0) && !sorted) {
@@ -3712,7 +2924,7 @@ export class Grid {
     let slot = this.state.sortSlot(tab, from);
     while (steps > 0) {
       let next = slot + dir;
-      while (next >= 0 && next < rowCount && hidden?.has(this.docRowOf(tab, next))) {
+      while (next >= 0 && next < rowCount && hidden?.has(this.metrics.docRowOf(tab, next))) {
         next += dir;
       }
       if (next < 0 || next >= rowCount) {
@@ -3721,7 +2933,7 @@ export class Grid {
       slot = next;
       steps -= 1;
     }
-    return this.docRowOf(tab, slot);
+    return this.metrics.docRowOf(tab, slot);
   }
 
   /**
@@ -3823,7 +3035,7 @@ export class Grid {
       // already delivering text) is about to bring up the on-screen keyboard.
       // Remember where the grid was before selecting the cell scrolls it:
       // restored when the keyboard closes (`keyboardOpenChanged`).
-      this.preKeyboardScroll = { top: this.element.scrollTop, left: this.element.scrollLeft };
+      this.keyboard.rememberScroll();
     }
     if (row < 0 || row >= tab.doc.rowCount || col >= tab.doc.fieldCount(row)) {
       return;
@@ -4082,7 +3294,7 @@ export class Grid {
     if (this.element.ownerDocument.documentElement.dataset.keyboardOpen === undefined) {
       // The editor closed without a keyboard ever opening (e.g. a hardware
       // keyboard): nothing to restore later.
-      this.preKeyboardScroll = null;
+      this.keyboard.forgetScroll();
     }
     this.sink.classList.remove('cell-editor');
     this.sink.value = '';
@@ -4349,32 +3561,9 @@ export class Grid {
     this.openContextMenu(tab, event.clientX, event.clientY);
   }
 
-  private buildContextEntry(
-    item: ContextMenuCommandDef | ContextMenuGroupDef | 'separator',
-  ): ContextMenuEntry {
-    if (item === 'separator') {
-      return 'separator';
-    }
-    if ('submenu' in item) {
-      return {
-        label: t(item.labelKey),
-        icon: item.icon,
-        submenu: item.submenu.map((sub) => this.buildContextEntry(sub)),
-      };
-    }
-    return {
-      label: t(item.labelKey),
-      icon: ICON_BY_COMMAND[item.command],
-      shortcut: item.shortcut,
-      disabled: !this.commands.isEnabled(item.command),
-      onSelect: () => void this.commands.run(item.command),
-    };
-  }
-
   private openContextMenu(tab: Tab, x: number, y: number): void {
     this.closeContextMenu();
-    const entries: ContextMenuEntry[] = CONTEXT_MENU_ITEMS.map((item) => this.buildContextEntry(item));
-    this.contextMenu = ContextMenu.open(entries, x, y, {
+    this.contextMenu = ContextMenu.open(contextMenuEntries(this.commands), x, y, {
       onClose: () => (this.contextMenu = null),
       toolbar: formatToolbarItems(this.commands, tab),
     });

@@ -273,7 +273,9 @@ independent version and is intentionally not tied to the app version.
 [`CHANGELOG.md`](CHANGELOG.md) records what changed in each version. A pull
 request that changes user-visible behavior adds an entry under its
 `Unreleased` section; cutting a release retitles that section to the new
-version and date.
+version and date. The file holds only the current minor series; older series
+are archived, unchanged, in [`docs/changelog/`](docs/changelog/)
+(`npm run changelog:archive` when a new minor series starts).
 
 ### Cutting a release (`npm run release`)
 

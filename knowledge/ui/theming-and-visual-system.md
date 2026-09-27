@@ -135,7 +135,7 @@ properties, used everywhere outside the grid instead of scattered literals
   `--space-2` (8px).
 
 The grid's own cell geometry (`src/styles/grid.css`) is
-deliberately outside this scale: `grid.ts` measures cell padding and keeps
+deliberately outside this scale: `src/ui/grid/index.ts` measures cell padding and keeps
 row height in sync with `--grid-row-height`. Tap-target floors in the
 mobile layout use the density tokens (`--bar-h`, `--control-h`,
 `--field-h`) rather than the spacing scale, since they are target sizes

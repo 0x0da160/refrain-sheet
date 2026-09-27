@@ -16,10 +16,16 @@ governs; this adds only what is specific to `src/ui/`.
   `knowledge/ui/ui-writing-and-wording.md` (action-first labels, the
   target/impact/next-step rule for save, convert, discard, and encoding
   changes, and the recommended terms).
-- **Grid.** `grid.ts` is the virtualized renderer; its pure helpers
-  (geometry, auto-fit planning, formula-reference overlay, context-menu
-  items) live in `grid/` and are unit-tested without a DOM. Keep new pure
-  logic there, not in the `Grid` class.
+- **Grid.** `grid/index.ts` is the virtualized renderer (the `Grid` class:
+  rendering, selection, editing, and event wiring). Everything with its own
+  state or no need for the class lives beside it in `grid/`: pixel metrics
+  and pinned panes (`metrics.ts`), drag-edge auto-scroll (`auto-scroll.ts`),
+  touch press-and-hold / double-tap (`touch-gestures.ts`), on-screen
+  keyboard handling (`keyboard-viewport.ts`), per-cell painting
+  (`cell-paint.ts`), auto-fit measuring and planning (`autofit-measure.ts`,
+  `autofit.ts`), and pure helpers (geometry, formula-reference overlay,
+  context-menu items). Keep new logic in a focused `grid/` module like
+  these, not in the `Grid` class.
 - **Styling** is hand-written CSS under `src/styles/`, loaded in order by
   `src/styles/index.css`, using the design tokens; see
   `knowledge/ui/theming-and-visual-system.md`. `npm run check:contrast`

@@ -61,6 +61,7 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | sql.js payload provenance    | `npm run check:generated`                                                            |
 | EOL register gate            | `npm run check:eol` (every direct/toolchain component has a current lifecycle entry) |
 | Full SBOM (all toolchains)   | `npm run sbom:full` (CycloneDX; npm, Rust crates, toolchains, Actions)               |
+| Archive older changelog      | `npm run changelog:archive` (when a new minor series starts)                         |
 | Lockfile-only dep update     | `npm update --package-lock-only --ignore-scripts` (after editing `package.json`)     |
 
 Do not invent commands. If a needed command does not exist, stop and say so.

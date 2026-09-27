@@ -39,7 +39,8 @@
     "audit:ci": "npm audit --omit=dev --audit-level=high",
     "sbom": "npm sbom --sbom-format cyclonedx --omit=dev",
     "sbom:full": "node scripts/release/sbom.mjs",
-    "release": "node scripts/release/index.mjs"
+    "release": "node scripts/release/index.mjs",
+    "changelog:archive": "node scripts/release/changelog.mjs archive"
   },
   "dependencies": {
     "encoding-japanese": "^2.4.0",

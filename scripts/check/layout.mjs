@@ -41,7 +41,11 @@ const NAMED_DIRS = ['src/', 'tests/', 'scripts/', 'site/', 'bench/', 'docs/', 'k
 const EXEMPT = ['src/generated/', 'tests/fixtures/'];
 
 const MAX_SOURCE_LINES = 800;
-/** Oversized files, each capped at its current line count. Shrink, never grow. */
+/**
+ * Oversized files, each capped at its current line count. Shrink, never grow.
+ * rsf-codec.ts is the persisted `.rsf` format's codec, deliberately left
+ * whole (see src/core/CLAUDE.md); nothing else may exceed the limit.
+ */
 const LINE_BUDGET = {
   'src/core/workbook/rsf-codec.ts': 1160,
 };

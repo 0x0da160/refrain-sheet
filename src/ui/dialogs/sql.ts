@@ -67,72 +67,10 @@ export class SqlQueryDialogs {
         body.classList.add('sql-query-dialog');
 
         // ----- Help (hidden until the help icon is pressed) -----
-        const helpPanel = el(
-          'div',
-          {
-            className: 'sql-query-help-panel',
-            attrs: { id: 'sql-query-help-panel' },
-          },
-          [
-            el('p', { text: t('dialog.sqlQuery.intro') }),
-            el('p', { className: 'sql-query-help-title', text: t('dialog.sqlQuery.help.summary') }),
-            el('p', { text: t('dialog.sqlQuery.help.body') }),
-            el('p', { className: 'help-examples' }, [
-              el('code', {
-                className: 'help-code',
-                text: 'SELECT department, COUNT(*) AS n, SUM(amount) AS total FROM data WHERE amount > 0 GROUP BY department ORDER BY total DESC LIMIT 100',
-              }),
-            ]),
-          ],
-        );
-        helpPanel.hidden = true;
-        const helpToggle = el('button', {
-          className: 'sql-query-help-toggle',
-          attrs: {
-            type: 'button',
-            'aria-expanded': 'false',
-            'aria-controls': 'sql-query-help-panel',
-            'aria-label': t('dialog.sqlQuery.help.toggle'),
-            title: t('dialog.sqlQuery.help.toggle'),
-          },
-        });
-        helpToggle.append(createIcon(CircleHelp, 'sql-query-help-icon', 16));
-        helpToggle.addEventListener('click', () => {
-          helpPanel.hidden = !helpPanel.hidden;
-          helpToggle.setAttribute('aria-expanded', String(!helpPanel.hidden));
-        });
+        const { helpPanel, helpToggle } = sqlHelp();
 
-        // ----- Data source picker -----
-        const sourceSelect = el('select', { attrs: { id: 'sql-query-source' } });
-        for (const source of input.sources) {
-          sourceSelect.append(el('option', { text: source.name, attrs: { value: source.id } }));
-        }
-
-        // ----- Query editor -----
-        const queryLabel = el('label', {
-          className: 'panel-field-label',
-          text: t('dialog.sqlQuery.query'),
-          attrs: { for: 'sql-query-text' },
-        });
-        const queryText = el('textarea', {
-          className: 'sql-query-input',
-          attrs: {
-            id: 'sql-query-text',
-            rows: '6',
-            spellcheck: 'false',
-            'data-autofocus': 'true',
-            'aria-label': t('dialog.sqlQuery.query'),
-          },
-        }) as HTMLTextAreaElement;
-        queryText.value = 'SELECT * FROM data';
-        const editorSection = panelSection(null, [
-          panelField(t('dialog.sqlQuery.source'), sourceSelect),
-          el('div', { className: 'panel-field' }, [
-            el('div', { className: 'panel-field-header' }, [queryLabel, helpToggle]),
-            helpPanel,
-            queryText,
-          ]),
-        ]);
+        // ----- Data source picker and query editor -----
+        const { sourceSelect, queryText, editorSection } = queryEditor(input, helpPanel, helpToggle);
         body.append(editorSection);
 
         // ----- Suggestions (keywords / functions / columns) -----
@@ -147,21 +85,16 @@ export class SqlQueryDialogs {
           const caret = queryText.selectionStart ?? queryText.value.length;
           const columns = input.columns(sourceSelect.value);
           const matches = suggestSqlCompletions(queryText.value, caret, columns);
-          suggestionsWrap.replaceChildren();
           suggestionsWrap.hidden = matches.length === 0;
-          for (const s of matches) {
-            const chip = el('button', {
-              className: `sql-query-suggestion sql-query-suggestion-${s.kind}`,
-              text: s.text,
-              attrs: { type: 'button' },
-            });
-            chip.addEventListener('click', () => {
-              insertSuggestion(queryText, s.text);
-              refreshSuggestions();
-              refreshSyntaxStatus();
-            });
-            suggestionsWrap.append(chip);
-          }
+          suggestionsWrap.replaceChildren(
+            ...matches.map((suggestion) =>
+              suggestionChip(suggestion, () => {
+                insertSuggestion(queryText, suggestion.text);
+                refreshSuggestions();
+                refreshSyntaxStatus();
+              }),
+            ),
+          );
         };
 
         // ----- Live (structural-only) syntax check -----
@@ -179,10 +112,7 @@ export class SqlQueryDialogs {
             syntaxStatus.textContent = '';
             return;
           }
-          const message = t(`sql.error.${err.code}`, err.params);
-          syntaxStatus.textContent = err.location
-            ? `${message} ${t('sql.error.atPosition', { offset: err.location.offset + 1 })}`
-            : message;
+          syntaxStatus.textContent = sqlErrorText(err);
         };
 
         queryText.addEventListener('input', () => {
@@ -194,30 +124,18 @@ export class SqlQueryDialogs {
         sourceSelect.addEventListener('change', refreshSuggestions);
 
         // ----- Format / Run buttons (neither closes the dialog) -----
-        const runRow = el('div', { className: 'panel-row panel-row-end sql-query-run-row' });
-        const formatButton = dialogButton(t('dialog.sqlQuery.format'), false, false, () => {
-          queryText.value = formatSqlQuery(queryText.value);
-          refreshSuggestions();
-          refreshSyntaxStatus();
-        });
-        const runButton = dialogButton(t('dialog.sqlQuery.run'), true, false, () => void runQuery());
-        formatButton.classList.add('panel-button');
-        runButton.classList.add('panel-button');
-        runRow.append(formatButton, runButton);
+        const { runRow, runButton } = runControls(
+          () => {
+            queryText.value = formatSqlQuery(queryText.value);
+            refreshSuggestions();
+            refreshSyntaxStatus();
+          },
+          () => void runQuery(),
+        );
         editorSection.append(runRow);
 
         // ----- Status (announced) and results -----
-        const status = el('p', {
-          className: 'sql-query-status',
-          attrs: { role: 'status', 'aria-live': 'polite' },
-        });
-        const resultsWrap = el('div', { className: 'sql-query-results', attrs: { tabindex: '0' } });
-        editorSection.append(status, resultsWrap);
-
-        const setStatus = (text: string, isError: boolean): void => {
-          status.textContent = text;
-          status.setAttribute('role', isError ? 'alert' : 'status');
-        };
+        const { resultsWrap, setStatus } = statusArea(editorSection);
 
         const renderResult = (result: SqlQueryResult): void => {
           resultsWrap.replaceChildren();
@@ -225,54 +143,12 @@ export class SqlQueryDialogs {
             setStatus(t('dialog.sqlQuery.status.noColumns'), false);
             return;
           }
-          const table = el('table', { className: 'diag-table sql-query-table' });
-          const caption = el('caption', {
-            className: 'visually-hidden',
-            text: t('dialog.sqlQuery.tableCaption', {
-              rows: result.rows.length,
-              cols: result.columns.length,
-            }),
-          });
-          const headRow = el(
-            'tr',
-            {},
-            result.columns.map((name) => el('th', { text: name, attrs: { scope: 'col' } })),
-          );
-          const tbody = el('tbody');
-          for (const row of result.rows) {
-            tbody.append(
-              el(
-                'tr',
-                {},
-                row.map((cell) => el('td', { text: String(cell) })),
-              ),
-            );
-          }
-          table.append(caption, el('thead', {}, [headRow]), tbody);
-          resultsWrap.append(table);
-
-          const parts: string[] = [];
-          if (result.truncated) {
-            parts.push(
-              t('dialog.sqlQuery.status.truncated', {
-                shown: result.rows.length,
-                matched: result.matchedRows,
-              }),
-            );
-          } else {
-            parts.push(t('dialog.sqlQuery.status.success', { rows: result.rows.length }));
-          }
-          if (result.sourceTruncated) {
-            parts.push(t('dialog.sqlQuery.status.sourceTruncated', { cap: SQL_MAX_SOURCE_ROWS }));
-          }
-          setStatus(parts.join(' '), false);
+          resultsWrap.append(sqlResultTable(result));
+          setStatus(sqlStatusText(result), false);
         };
 
         // ----- Query history -----
-        const historyDetails = el('details', { className: 'sql-query-history' });
-        const historyBody = el('div', { className: 'sql-query-history-body' });
-        historyDetails.append(el('summary', { text: t('dialog.sqlQuery.history.title') }), historyBody);
-        const listsSection = panelSection(null, [historyDetails]);
+        const { listsSection, historyBody } = historySection();
         body.append(listsSection);
 
         const loadEntry = (query: string, sourceId: string): void => {
@@ -283,144 +159,14 @@ export class SqlQueryDialogs {
           queryText.focus();
         };
 
-        const renderHistory = (): void => {
-          historyBody.replaceChildren();
-          const entries = getSqlHistory();
-          if (entries.length === 0) {
-            historyBody.append(
-              el('p', { className: 'dialog-note', text: t('dialog.sqlQuery.history.empty') }),
-            );
-            return;
-          }
-          const clearButton = el('button', {
-            className: 'panel-button sql-query-list-clear',
-            text: t('dialog.sqlQuery.history.clear'),
-            attrs: { type: 'button' },
-          });
-          clearButton.addEventListener('click', () => {
-            clearSqlHistory();
-            renderHistory();
-          });
-          historyBody.append(clearButton);
-
-          const list = el('ul', { className: 'sql-query-list' });
-          entries.forEach((entry, index) => {
-            const item = el('li', { className: 'sql-query-list-item' }, [
-              el('div', { className: 'sql-query-list-text' }, [
-                el('span', {
-                  className: 'sql-query-list-meta',
-                  text: `${entry.sourceName} — ${formatWhen(entry.ranAt)}`,
-                }),
-                el('code', { className: 'sql-query-list-code', text: entry.query }),
-              ]),
-            ]);
-            const loadButton = el('button', {
-              className: 'panel-button',
-              text: t('dialog.sqlQuery.history.load'),
-              attrs: { type: 'button' },
-            });
-            loadButton.addEventListener('click', () => loadEntry(entry.query, entry.sourceId));
-            const deleteButton = el('button', {
-              className: 'panel-button',
-              text: t('dialog.sqlQuery.history.delete'),
-              attrs: { type: 'button' },
-            });
-            deleteButton.addEventListener('click', () => {
-              removeSqlHistoryEntry(index);
-              renderHistory();
-            });
-            item.append(el('div', { className: 'sql-query-list-actions' }, [loadButton, deleteButton]));
-            list.append(item);
-          });
-          historyBody.append(list);
-        };
+        const renderHistory = (): void => renderHistoryList(historyBody, loadEntry);
         renderHistory();
 
         // ----- Saved queries -----
-        const savedDetails = el('details', { className: 'sql-query-saved' });
-        const savedBody = el('div', { className: 'sql-query-saved-body' });
-        savedDetails.append(el('summary', { text: t('dialog.sqlQuery.saved.title') }), savedBody);
-        listsSection.append(savedDetails);
-
-        const saveNameInput = el('input', {
-          className: 'sql-query-save-name',
-          attrs: {
-            type: 'text',
-            placeholder: t('dialog.sqlQuery.saved.namePlaceholder'),
-            'aria-label': t('dialog.sqlQuery.saved.nameLabel'),
-            maxlength: String(SQL_MAX_SAVED_NAME_LENGTH),
-          },
-        }) as HTMLInputElement;
-        const saveError = el('p', {
-          className: 'dialog-error',
-          attrs: { role: 'status', 'aria-live': 'polite' },
-        });
-        const saveButton = el('button', {
-          className: 'panel-button',
-          text: t('dialog.sqlQuery.saved.save'),
-          attrs: { type: 'button' },
-        });
-        const savedListWrap = el('div', { className: 'sql-query-saved-list' });
-        savedBody.append(
-          el('div', { className: 'panel-row sql-query-save-row' }, [saveNameInput, saveButton]),
-          saveError,
-          savedListWrap,
-        );
-
-        const renderSaved = (): void => {
-          savedListWrap.replaceChildren();
-          const entries = getSqlSavedQueries();
-          if (entries.length === 0) {
-            savedListWrap.append(
-              el('p', { className: 'dialog-note', text: t('dialog.sqlQuery.saved.empty') }),
-            );
-            return;
-          }
-          const list = el('ul', { className: 'sql-query-list' });
-          for (const entry of entries) {
-            const item = el('li', { className: 'sql-query-list-item' }, [
-              el('div', { className: 'sql-query-list-text' }, [
-                el('span', { className: 'sql-query-list-meta', text: entry.name }),
-                el('code', { className: 'sql-query-list-code', text: entry.query }),
-              ]),
-            ]);
-            const loadButton = el('button', {
-              className: 'panel-button',
-              text: t('dialog.sqlQuery.saved.load'),
-              attrs: { type: 'button' },
-            });
-            loadButton.addEventListener('click', () => loadEntry(entry.query, entry.sourceId));
-            const deleteButton = el('button', {
-              className: 'panel-button',
-              text: t('dialog.sqlQuery.saved.delete'),
-              attrs: { type: 'button' },
-            });
-            deleteButton.addEventListener('click', () => {
-              deleteSqlSavedQuery(entry.id);
-              renderSaved();
-            });
-            item.append(el('div', { className: 'sql-query-list-actions' }, [loadButton, deleteButton]));
-            list.append(item);
-          }
-          savedListWrap.append(list);
-        };
-        renderSaved();
-
-        saveButton.addEventListener('click', () => {
-          const name = saveNameInput.value.trim();
-          if (name === '') {
-            saveError.textContent = t('dialog.sqlQuery.saved.nameRequired');
-            return;
-          }
-          if (getSqlSavedQueries().length >= SQL_MAX_SAVED_QUERIES) {
-            saveError.textContent = t('dialog.sqlQuery.saved.limitReached', { max: SQL_MAX_SAVED_QUERIES });
-            return;
-          }
-          saveSqlQuery(name, queryText.value, sourceSelect.value);
-          saveNameInput.value = '';
-          saveError.textContent = '';
-          renderSaved();
-        });
+        savedQueriesSection(listsSection, loadEntry, () => ({
+          query: queryText.value,
+          sourceId: sourceSelect.value,
+        }));
 
         // ----- Run -----
         const runQuery = async (): Promise<void> => {
@@ -444,12 +190,7 @@ export class SqlQueryDialogs {
             }
           }
           if (!outcome.ok) {
-            const err = outcome.error;
-            const message = t(`sql.error.${err.code}`, err.params);
-            const located = err.location
-              ? `${message} ${t('sql.error.atPosition', { offset: err.location.offset + 1 })}`
-              : message;
-            setStatus(located, true);
+            setStatus(sqlErrorText(outcome.error), true);
             return;
           }
           renderResult(outcome.result);
@@ -457,4 +198,327 @@ export class SqlQueryDialogs {
       },
     );
   }
+}
+
+/** The query help panel (hidden until toggled) and its toggle button. */
+function sqlHelp(): { helpPanel: HTMLElement; helpToggle: HTMLElement } {
+  const helpPanel = el('div', { className: 'sql-query-help-panel', attrs: { id: 'sql-query-help-panel' } }, [
+    el('p', { text: t('dialog.sqlQuery.intro') }),
+    el('p', { className: 'sql-query-help-title', text: t('dialog.sqlQuery.help.summary') }),
+    el('p', { text: t('dialog.sqlQuery.help.body') }),
+    el('p', { className: 'help-examples' }, [
+      el('code', {
+        className: 'help-code',
+        text: 'SELECT department, COUNT(*) AS n, SUM(amount) AS total FROM data WHERE amount > 0 GROUP BY department ORDER BY total DESC LIMIT 100',
+      }),
+    ]),
+  ]);
+  helpPanel.hidden = true;
+  const helpToggle = el('button', {
+    className: 'sql-query-help-toggle',
+    attrs: {
+      type: 'button',
+      'aria-expanded': 'false',
+      'aria-controls': 'sql-query-help-panel',
+      'aria-label': t('dialog.sqlQuery.help.toggle'),
+      title: t('dialog.sqlQuery.help.toggle'),
+    },
+  });
+  helpToggle.append(createIcon(CircleHelp, 'sql-query-help-icon', 16));
+  helpToggle.addEventListener('click', () => {
+    helpPanel.hidden = !helpPanel.hidden;
+    helpToggle.setAttribute('aria-expanded', String(!helpPanel.hidden));
+  });
+  return { helpPanel, helpToggle };
+}
+
+/** A localized query error, with its position when the engine reported one. */
+function sqlErrorText(err: {
+  code: string;
+  params?: Record<string, string | number>;
+  location?: { offset: number } | null;
+}): string {
+  const message = t(`sql.error.${err.code}`, err.params);
+  return err.location
+    ? `${message} ${t('sql.error.atPosition', { offset: err.location.offset + 1 })}`
+    : message;
+}
+
+/** The accessible results table. */
+function sqlResultTable(result: SqlQueryResult): HTMLElement {
+  const table = el('table', { className: 'diag-table sql-query-table' });
+  const caption = el('caption', {
+    className: 'visually-hidden',
+    text: t('dialog.sqlQuery.tableCaption', { rows: result.rows.length, cols: result.columns.length }),
+  });
+  const headRow = el(
+    'tr',
+    {},
+    result.columns.map((name) => el('th', { text: name, attrs: { scope: 'col' } })),
+  );
+  const tbody = el('tbody');
+  for (const row of result.rows) {
+    tbody.append(
+      el(
+        'tr',
+        {},
+        row.map((cell) => el('td', { text: String(cell) })),
+      ),
+    );
+  }
+  table.append(caption, el('thead', {}, [headRow]), tbody);
+  return table;
+}
+
+/** The announced result summary: rows shown, and whether results or the source were truncated. */
+function sqlStatusText(result: SqlQueryResult): string {
+  const parts: string[] = [];
+  if (result.truncated) {
+    parts.push(
+      t('dialog.sqlQuery.status.truncated', { shown: result.rows.length, matched: result.matchedRows }),
+    );
+  } else {
+    parts.push(t('dialog.sqlQuery.status.success', { rows: result.rows.length }));
+  }
+  if (result.sourceTruncated) {
+    parts.push(t('dialog.sqlQuery.status.sourceTruncated', { cap: SQL_MAX_SOURCE_ROWS }));
+  }
+  return parts.join(' ');
+}
+
+/** One history or saved-query entry: its label, the query, and Load / Delete buttons. */
+function queryListItem(
+  meta: string,
+  query: string,
+  labels: { load: string; delete: string },
+  onLoad: () => void,
+  onDelete: () => void,
+): HTMLElement {
+  const item = el('li', { className: 'sql-query-list-item' }, [
+    el('div', { className: 'sql-query-list-text' }, [
+      el('span', { className: 'sql-query-list-meta', text: meta }),
+      el('code', { className: 'sql-query-list-code', text: query }),
+    ]),
+  ]);
+  const loadButton = el('button', {
+    className: 'panel-button',
+    text: labels.load,
+    attrs: { type: 'button' },
+  });
+  loadButton.addEventListener('click', onLoad);
+  const deleteButton = el('button', {
+    className: 'panel-button',
+    text: labels.delete,
+    attrs: { type: 'button' },
+  });
+  deleteButton.addEventListener('click', onDelete);
+  item.append(el('div', { className: 'sql-query-list-actions' }, [loadButton, deleteButton]));
+  return item;
+}
+
+/** The device-local run history (newest first), with Clear. */
+function renderHistoryList(
+  historyBody: HTMLElement,
+  loadEntry: (query: string, sourceId: string) => void,
+): void {
+  historyBody.replaceChildren();
+  const entries = getSqlHistory();
+  if (entries.length === 0) {
+    historyBody.append(el('p', { className: 'dialog-note', text: t('dialog.sqlQuery.history.empty') }));
+    return;
+  }
+  const rerender = (): void => renderHistoryList(historyBody, loadEntry);
+  const clearButton = el('button', {
+    className: 'panel-button sql-query-list-clear',
+    text: t('dialog.sqlQuery.history.clear'),
+    attrs: { type: 'button' },
+  });
+  clearButton.addEventListener('click', () => {
+    clearSqlHistory();
+    rerender();
+  });
+  historyBody.append(clearButton);
+  const labels = { load: t('dialog.sqlQuery.history.load'), delete: t('dialog.sqlQuery.history.delete') };
+  const list = el('ul', { className: 'sql-query-list' });
+  entries.forEach((entry, index) => {
+    list.append(
+      queryListItem(
+        `${entry.sourceName} — ${formatWhen(entry.ranAt)}`,
+        entry.query,
+        labels,
+        () => loadEntry(entry.query, entry.sourceId),
+        () => {
+          removeSqlHistoryEntry(index);
+          rerender();
+        },
+      ),
+    );
+  });
+  historyBody.append(list);
+}
+
+/** The named saved queries. */
+function renderSavedList(
+  savedListWrap: HTMLElement,
+  loadEntry: (query: string, sourceId: string) => void,
+): void {
+  savedListWrap.replaceChildren();
+  const entries = getSqlSavedQueries();
+  if (entries.length === 0) {
+    savedListWrap.append(el('p', { className: 'dialog-note', text: t('dialog.sqlQuery.saved.empty') }));
+    return;
+  }
+  const labels = { load: t('dialog.sqlQuery.saved.load'), delete: t('dialog.sqlQuery.saved.delete') };
+  const list = el('ul', { className: 'sql-query-list' });
+  for (const entry of entries) {
+    list.append(
+      queryListItem(
+        entry.name,
+        entry.query,
+        labels,
+        () => loadEntry(entry.query, entry.sourceId),
+        () => {
+          deleteSqlSavedQuery(entry.id);
+          renderSavedList(savedListWrap, loadEntry);
+        },
+      ),
+    );
+  }
+  savedListWrap.append(list);
+}
+
+/** The data-source picker and the query textarea (with the help toggle in its label row). */
+function queryEditor(
+  input: SqlQueryDialogInput,
+  helpPanel: HTMLElement,
+  helpToggle: HTMLElement,
+): { sourceSelect: HTMLSelectElement; queryText: HTMLTextAreaElement; editorSection: HTMLElement } {
+  const sourceSelect = el('select', { attrs: { id: 'sql-query-source' } }) as HTMLSelectElement;
+  for (const source of input.sources) {
+    sourceSelect.append(el('option', { text: source.name, attrs: { value: source.id } }));
+  }
+  const queryLabel = el('label', {
+    className: 'panel-field-label',
+    text: t('dialog.sqlQuery.query'),
+    attrs: { for: 'sql-query-text' },
+  });
+  const queryText = el('textarea', {
+    className: 'sql-query-input',
+    attrs: {
+      id: 'sql-query-text',
+      rows: '6',
+      spellcheck: 'false',
+      'data-autofocus': 'true',
+      'aria-label': t('dialog.sqlQuery.query'),
+    },
+  }) as HTMLTextAreaElement;
+  queryText.value = 'SELECT * FROM data';
+  const editorSection = panelSection(null, [
+    panelField(t('dialog.sqlQuery.source'), sourceSelect),
+    el('div', { className: 'panel-field' }, [
+      el('div', { className: 'panel-field-header' }, [queryLabel, helpToggle]),
+      helpPanel,
+      queryText,
+    ]),
+  ]);
+  return { sourceSelect, queryText, editorSection };
+}
+
+/** One keyword / function / column suggestion chip. */
+function suggestionChip(suggestion: { kind: string; text: string }, onPick: () => void): HTMLElement {
+  const chip = el('button', {
+    className: `sql-query-suggestion sql-query-suggestion-${suggestion.kind}`,
+    text: suggestion.text,
+    attrs: { type: 'button' },
+  });
+  chip.addEventListener('click', onPick);
+  return chip;
+}
+
+/** The saved-queries list and the name + Save form (bounded name length and count). */
+function savedQueriesSection(
+  listsSection: HTMLElement,
+  loadEntry: (query: string, sourceId: string) => void,
+  current: () => { query: string; sourceId: string },
+): void {
+  const savedDetails = el('details', { className: 'sql-query-saved' });
+  const savedBody = el('div', { className: 'sql-query-saved-body' });
+  savedDetails.append(el('summary', { text: t('dialog.sqlQuery.saved.title') }), savedBody);
+  listsSection.append(savedDetails);
+  const saveNameInput = el('input', {
+    className: 'sql-query-save-name',
+    attrs: {
+      type: 'text',
+      placeholder: t('dialog.sqlQuery.saved.namePlaceholder'),
+      'aria-label': t('dialog.sqlQuery.saved.nameLabel'),
+      maxlength: String(SQL_MAX_SAVED_NAME_LENGTH),
+    },
+  }) as HTMLInputElement;
+  const saveError = el('p', { className: 'dialog-error', attrs: { role: 'status', 'aria-live': 'polite' } });
+  const saveButton = el('button', {
+    className: 'panel-button',
+    text: t('dialog.sqlQuery.saved.save'),
+    attrs: { type: 'button' },
+  });
+  const savedListWrap = el('div', { className: 'sql-query-saved-list' });
+  savedBody.append(
+    el('div', { className: 'panel-row sql-query-save-row' }, [saveNameInput, saveButton]),
+    saveError,
+    savedListWrap,
+  );
+  const renderSaved = (): void => renderSavedList(savedListWrap, loadEntry);
+  renderSaved();
+  saveButton.addEventListener('click', () => {
+    const name = saveNameInput.value.trim();
+    if (name === '') {
+      saveError.textContent = t('dialog.sqlQuery.saved.nameRequired');
+      return;
+    }
+    if (getSqlSavedQueries().length >= SQL_MAX_SAVED_QUERIES) {
+      saveError.textContent = t('dialog.sqlQuery.saved.limitReached', { max: SQL_MAX_SAVED_QUERIES });
+      return;
+    }
+    const { query, sourceId } = current();
+    saveSqlQuery(name, query, sourceId);
+    saveNameInput.value = '';
+    saveError.textContent = '';
+    renderSaved();
+  });
+}
+
+/** The Format and Run buttons (neither closes the panel). */
+function runControls(
+  onFormat: () => void,
+  onRun: () => void,
+): { runRow: HTMLElement; runButton: HTMLButtonElement } {
+  const runRow = el('div', { className: 'panel-row panel-row-end sql-query-run-row' });
+  const formatButton = dialogButton(t('dialog.sqlQuery.format'), false, false, onFormat);
+  const runButton = dialogButton(t('dialog.sqlQuery.run'), true, false, onRun);
+  formatButton.classList.add('panel-button');
+  runButton.classList.add('panel-button');
+  runRow.append(formatButton, runButton);
+  return { runRow, runButton };
+}
+
+/** The announced status line and the results area, appended to `into`. */
+function statusArea(into: HTMLElement): {
+  resultsWrap: HTMLElement;
+  setStatus: (text: string, isError: boolean) => void;
+} {
+  const status = el('p', { className: 'sql-query-status', attrs: { role: 'status', 'aria-live': 'polite' } });
+  const resultsWrap = el('div', { className: 'sql-query-results', attrs: { tabindex: '0' } });
+  into.append(status, resultsWrap);
+  const setStatus = (text: string, isError: boolean): void => {
+    status.textContent = text;
+    status.setAttribute('role', isError ? 'alert' : 'status');
+  };
+  return { resultsWrap, setStatus };
+}
+
+/** The collapsible run-history list, in the section that also holds the saved queries. */
+function historySection(): { listsSection: HTMLElement; historyBody: HTMLElement } {
+  const historyDetails = el('details', { className: 'sql-query-history' });
+  const historyBody = el('div', { className: 'sql-query-history-body' });
+  historyDetails.append(el('summary', { text: t('dialog.sqlQuery.history.title') }), historyBody);
+  return { listsSection: panelSection(null, [historyDetails]), historyBody };
 }

@@ -98,24 +98,7 @@ export class DiffDialogs {
       baselineSelect.addEventListener('change', rebuildColumnLists);
 
       // ----- Normalization options -----
-      const trimCheck = el('input', {
-        attrs: { type: 'checkbox', id: 'diff-normalize-trim' },
-      }) as HTMLInputElement;
-      const caseCheck = el('input', {
-        attrs: { type: 'checkbox', id: 'diff-normalize-case' },
-      }) as HTMLInputElement;
-      body.append(
-        el('div', { className: 'diff-normalize-options' }, [
-          el('div', { className: 'diff-column-item' }, [
-            trimCheck,
-            el('label', { text: t('dialog.diff.normalizeTrim'), attrs: { for: 'diff-normalize-trim' } }),
-          ]),
-          el('div', { className: 'diff-column-item' }, [
-            caseCheck,
-            el('label', { text: t('dialog.diff.normalizeCase'), attrs: { for: 'diff-normalize-case' } }),
-          ]),
-        ]),
-      );
+      const { trimCheck, caseCheck } = normalizeOptions(body);
 
       // ----- Filter (defaults to "changed only": unchanged rows are not the point of a diff) -----
       const filterLabel = el('label', {
@@ -151,25 +134,6 @@ export class DiffDialogs {
 
       let lastResult: DiffResult | null = null;
 
-      const renderRow = (row: DiffRow, columns: string[]): HTMLElement => {
-        const badge = el('span', { className: ROW_BADGE_CLASS[row.type], text: t(`diff.type.${row.type}`) });
-        if (row.reason) {
-          badge.title = t(`diff.reason.${row.reason}`);
-        }
-        const cells = columns.map((_, i) => {
-          const changed = row.changedColumns.includes(i);
-          const shown = (row.after ?? row.before)?.[i] ?? '';
-          const text =
-            changed && row.before && row.after
-              ? t('dialog.diff.cell.changed', { before: row.before[i], after: row.after[i] })
-              : shown;
-          const cell = el('td', { text });
-          if (changed) cell.classList.add('diff-cell-changed');
-          return cell;
-        });
-        return el('tr', { className: `diff-row diff-row-${row.type}` }, [el('td', {}, [badge]), ...cells]);
-      };
-
       const renderResult = (result: DiffResult, filter: FilterMode): void => {
         resultsWrap.replaceChildren();
         const shown = filter === 'changed' ? result.rows.filter((r) => r.type !== 'unchanged') : result.rows;
@@ -177,40 +141,8 @@ export class DiffDialogs {
           setStatus(t('dialog.diff.status.noRows'), false);
           return;
         }
-        const table = el('table', { className: 'diag-table diff-table' });
-        const caption = el('caption', {
-          className: 'visually-hidden',
-          text: t('dialog.diff.tableCaption', { rows: shown.length, cols: result.columns.length }),
-        });
-        const headRow = el('tr', {}, [
-          el('th', { text: t('dialog.diff.column.type'), attrs: { scope: 'col' } }),
-          ...result.columns.map((name) => el('th', { text: name, attrs: { scope: 'col' } })),
-        ]);
-        const tbody = el('tbody');
-        for (const row of shown) {
-          tbody.append(renderRow(row, result.columns));
-        }
-        table.append(caption, el('thead', {}, [headRow]), tbody);
-        resultsWrap.append(table);
-
-        const parts: string[] = [
-          t('dialog.diff.status.counts', {
-            added: result.counts.added,
-            modified: result.counts.modified,
-            deleted: result.counts.deleted,
-            unchanged: result.counts.unchanged,
-            keyInvalid: result.counts.keyInvalid,
-          }),
-        ];
-        if (result.truncated) {
-          parts.push(
-            t('dialog.diff.status.truncated', { shown: result.rows.length, matched: result.matchedRows }),
-          );
-        }
-        if (result.baselineTruncated || result.currentTruncated) {
-          parts.push(t('dialog.diff.status.sourceTruncated'));
-        }
-        setStatus(parts.join(' '), false);
+        resultsWrap.append(diffTable(result, shown));
+        setStatus(diffStatusText(result), false);
       };
 
       filterSelect.addEventListener('change', () => {
@@ -245,4 +177,86 @@ export class DiffDialogs {
       buttons.append(dialogButton(t('dialog.diff.close'), false, true, () => close(undefined)));
     });
   }
+}
+
+/** The whitespace-trim and case-insensitive comparison checkboxes. */
+function normalizeOptions(body: HTMLElement): { trimCheck: HTMLInputElement; caseCheck: HTMLInputElement } {
+  const trimCheck = el('input', {
+    attrs: { type: 'checkbox', id: 'diff-normalize-trim' },
+  }) as HTMLInputElement;
+  const caseCheck = el('input', {
+    attrs: { type: 'checkbox', id: 'diff-normalize-case' },
+  }) as HTMLInputElement;
+  body.append(
+    el('div', { className: 'diff-normalize-options' }, [
+      el('div', { className: 'diff-column-item' }, [
+        trimCheck,
+        el('label', { text: t('dialog.diff.normalizeTrim'), attrs: { for: 'diff-normalize-trim' } }),
+      ]),
+      el('div', { className: 'diff-column-item' }, [
+        caseCheck,
+        el('label', { text: t('dialog.diff.normalizeCase'), attrs: { for: 'diff-normalize-case' } }),
+      ]),
+    ]),
+  );
+  return { trimCheck, caseCheck };
+}
+
+/** One result row: its type badge (with the reason as a tooltip) and cells, changed cells marked. */
+function diffRowElement(row: DiffRow, columns: string[]): HTMLElement {
+  const badge = el('span', { className: ROW_BADGE_CLASS[row.type], text: t(`diff.type.${row.type}`) });
+  if (row.reason) {
+    badge.title = t(`diff.reason.${row.reason}`);
+  }
+  const cells = columns.map((_, i) => {
+    const changed = row.changedColumns.includes(i);
+    const shown = (row.after ?? row.before)?.[i] ?? '';
+    const text =
+      changed && row.before && row.after
+        ? t('dialog.diff.cell.changed', { before: row.before[i], after: row.after[i] })
+        : shown;
+    const cell = el('td', { text });
+    if (changed) cell.classList.add('diff-cell-changed');
+    return cell;
+  });
+  return el('tr', { className: `diff-row diff-row-${row.type}` }, [el('td', {}, [badge]), ...cells]);
+}
+
+/** The results table for the rows being shown. */
+function diffTable(result: DiffResult, shown: DiffRow[]): HTMLElement {
+  const table = el('table', { className: 'diag-table diff-table' });
+  const caption = el('caption', {
+    className: 'visually-hidden',
+    text: t('dialog.diff.tableCaption', { rows: shown.length, cols: result.columns.length }),
+  });
+  const headRow = el('tr', {}, [
+    el('th', { text: t('dialog.diff.column.type'), attrs: { scope: 'col' } }),
+    ...result.columns.map((name) => el('th', { text: name, attrs: { scope: 'col' } })),
+  ]);
+  const tbody = el('tbody');
+  for (const row of shown) {
+    tbody.append(diffRowElement(row, result.columns));
+  }
+  table.append(caption, el('thead', {}, [headRow]), tbody);
+  return table;
+}
+
+/** The announced summary: counts, and whether results or sources were truncated. */
+function diffStatusText(result: DiffResult): string {
+  const parts: string[] = [
+    t('dialog.diff.status.counts', {
+      added: result.counts.added,
+      modified: result.counts.modified,
+      deleted: result.counts.deleted,
+      unchanged: result.counts.unchanged,
+      keyInvalid: result.counts.keyInvalid,
+    }),
+  ];
+  if (result.truncated) {
+    parts.push(t('dialog.diff.status.truncated', { shown: result.rows.length, matched: result.matchedRows }));
+  }
+  if (result.baselineTruncated || result.currentTruncated) {
+    parts.push(t('dialog.diff.status.sourceTruncated'));
+  }
+  return parts.join(' ');
 }

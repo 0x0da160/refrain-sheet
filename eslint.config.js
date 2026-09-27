@@ -4,19 +4,16 @@ import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
 /**
- * Files that still hold a function over the size/complexity limits below.
- * A ratchet (docs/proposals/structural-refactoring-plan.md): entries are only
- * ever removed, and a file leaves the list once it passes the limits.
+ * Files exempt from the function size/complexity limits below, each for a
+ * reason that outweighs splitting it. Only ever shrink this list.
+ *
+ * - byte-csv-parser.ts: the JS fallback of the hot CSV scan, kept a
+ *   line-for-line mirror of the Rust port in wasm/src/csv.rs so the two
+ *   engines stay provably identical (knowledge/architecture/invariants.md).
+ * - rsf-codec.ts: the persisted `.rsf` format's validating decoder/encoder;
+ *   changes there are high-risk by policy (src/core/CLAUDE.md).
  */
-const COMPLEXITY_RATCHET = [
-  'src/core/csv/byte-csv-parser.ts',
-  'src/core/workbook/rsf-codec.ts',
-  'src/ui/column-menu.ts',
-  'src/ui/dialogs/app-settings.ts',
-  'src/ui/dialogs/diff.ts',
-  'src/ui/dialogs/format.ts',
-  'src/ui/dialogs/sql.ts',
-];
+const COMPLEXITY_RATCHET = ['src/core/csv/byte-csv-parser.ts', 'src/core/workbook/rsf-codec.ts'];
 
 export default tseslint.config(
   // `.claude/` holds agent scratch space and git worktrees (already excluded

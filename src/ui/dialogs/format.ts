@@ -466,40 +466,14 @@ export class FormatDialogs {
           }),
         );
 
-        const kindCellValue = el('input', {
-          attrs: { type: 'radio', name: 'cf-kind', id: 'cf-kind-cellvalue', 'data-autofocus': 'true' },
-        }) as HTMLInputElement;
-        const kindDuplicate = el('input', {
-          attrs: { type: 'radio', name: 'cf-kind', id: 'cf-kind-duplicate' },
-        }) as HTMLInputElement;
-        const kindColorScale = el('input', {
-          attrs: { type: 'radio', name: 'cf-kind', id: 'cf-kind-colorscale' },
-        }) as HTMLInputElement;
-        const initialKind = input.existing?.kind ?? 'cellValue';
-        kindCellValue.checked = initialKind === 'cellValue';
-        kindDuplicate.checked = initialKind === 'duplicate';
-        kindColorScale.checked = initialKind === 'colorScale';
-        body.append(
-          panelSection(null, [
-            el('div', { className: 'panel-choices', attrs: { role: 'radiogroup' } }, [
-              panelCheck(kindCellValue, t('dialog.conditionalFormat.kindCellValue')),
-              panelCheck(kindDuplicate, t('dialog.conditionalFormat.kindDuplicate')),
-              panelCheck(kindColorScale, t('dialog.conditionalFormat.kindColorScale')),
-            ]),
-          ]),
+        const { kindCellValue, kindDuplicate, kindColorScale } = ruleKindChoices(
+          body,
+          input.existing?.kind ?? 'cellValue',
         );
 
         // ----- Cell value section -----
         const existingCellValue = input.existing?.kind === 'cellValue' ? input.existing : null;
-        const operatorSelect = el('select', { attrs: { id: 'cf-operator' } }) as HTMLSelectElement;
-        for (const op of CF_OPERATORS) {
-          const option = el('option', {
-            text: t(CF_OPERATOR_LABEL_KEY[op]),
-            attrs: { value: op },
-          }) as HTMLOptionElement;
-          option.selected = op === (existingCellValue?.operator ?? 'greaterThan');
-          operatorSelect.append(option);
-        }
+        const operatorSelect = cellValueOperatorSelect(existingCellValue?.operator ?? 'greaterThan');
         const value1Input = el('input', {
           attrs: { type: 'text', id: 'cf-value1' },
         }) as HTMLInputElement;
@@ -535,20 +509,10 @@ export class FormatDialogs {
 
         // ----- Color scale section -----
         const existingColorScale = input.existing?.kind === 'colorScale' ? input.existing : null;
-        const minColorInput = colorSwatch(
-          'cf-min-color',
+        const { minColorInput, maxColorInput, colorScaleSection } = colorScaleFields(
           existingColorScale?.minColor ?? CF_DEFAULT_SCALE_MIN_COLOR,
-        );
-        const maxColorInput = colorSwatch(
-          'cf-max-color',
           existingColorScale?.maxColor ?? CF_DEFAULT_SCALE_MAX_COLOR,
         );
-        const colorScaleSection = panelSection(null, [
-          el('div', { className: 'panel-grid' }, [
-            panelField(t('dialog.conditionalFormat.minColor'), minColorInput),
-            panelField(t('dialog.conditionalFormat.maxColor'), maxColorInput),
-          ]),
-        ]);
         body.append(colorScaleSection);
 
         const error = el('p', {
@@ -559,32 +523,12 @@ export class FormatDialogs {
 
         const buildRule = (): ConditionalFormatRule | null => {
           if (kindCellValue.checked) {
-            const style = cellValueStyle.read();
-            if (style.backgroundColor === undefined && style.textColor === undefined) {
-              return null;
-            }
-            const operator = operatorSelect.value as CellValueOperator;
-            if (operator === 'textContains') {
-              return value1Input.value.trim() === ''
-                ? null
-                : { kind: 'cellValue', operator, value1: value1Input.value, style };
-            }
-            if (value1Input.value.trim() === '' || !Number.isFinite(Number(value1Input.value))) {
-              return null;
-            }
-            if (
-              operator === 'between' &&
-              (value2Input.value.trim() === '' || !Number.isFinite(Number(value2Input.value)))
-            ) {
-              return null;
-            }
-            return {
-              kind: 'cellValue',
-              operator,
-              value1: value1Input.value,
-              ...(operator === 'between' ? { value2: value2Input.value } : {}),
-              style,
-            };
+            return cellValueRule(
+              operatorSelect.value as CellValueOperator,
+              value1Input.value,
+              value2Input.value,
+              cellValueStyle.read(),
+            );
           }
           if (kindDuplicate.checked) {
             const style = duplicateStyle.read();
@@ -633,4 +577,86 @@ export class FormatDialogs {
       },
     );
   }
+}
+
+/** The cell-value rule's operator picker, preselecting `selected`. */
+function cellValueOperatorSelect(selected: CellValueOperator): HTMLSelectElement {
+  const select = el('select', { attrs: { id: 'cf-operator' } }) as HTMLSelectElement;
+  for (const op of CF_OPERATORS) {
+    const option = el('option', {
+      text: t(CF_OPERATOR_LABEL_KEY[op]),
+      attrs: { value: op },
+    }) as HTMLOptionElement;
+    option.selected = op === selected;
+    select.append(option);
+  }
+  return select;
+}
+
+/**
+ * A cell-value rule from the dialog's fields, or null when it is incomplete:
+ * no style, an empty "contains" text, or a non-numeric comparison value.
+ */
+function cellValueRule(
+  operator: CellValueOperator,
+  value1: string,
+  value2: string,
+  style: ConditionalFormatStyle,
+): ConditionalFormatRule | null {
+  if (style.backgroundColor === undefined && style.textColor === undefined) {
+    return null;
+  }
+  if (operator === 'textContains') {
+    return value1.trim() === '' ? null : { kind: 'cellValue', operator, value1, style };
+  }
+  const numeric = (text: string): boolean => text.trim() !== '' && Number.isFinite(Number(text));
+  if (!numeric(value1) || (operator === 'between' && !numeric(value2))) {
+    return null;
+  }
+  return { kind: 'cellValue', operator, value1, ...(operator === 'between' ? { value2 } : {}), style };
+}
+
+/** The rule-kind radio group (cell value, duplicates, color scale), appended to `body`. */
+function ruleKindChoices(
+  body: HTMLElement,
+  initialKind: ConditionalFormatRule['kind'],
+): { kindCellValue: HTMLInputElement; kindDuplicate: HTMLInputElement; kindColorScale: HTMLInputElement } {
+  const kindCellValue = el('input', {
+    attrs: { type: 'radio', name: 'cf-kind', id: 'cf-kind-cellvalue', 'data-autofocus': 'true' },
+  }) as HTMLInputElement;
+  const kindDuplicate = el('input', {
+    attrs: { type: 'radio', name: 'cf-kind', id: 'cf-kind-duplicate' },
+  }) as HTMLInputElement;
+  const kindColorScale = el('input', {
+    attrs: { type: 'radio', name: 'cf-kind', id: 'cf-kind-colorscale' },
+  }) as HTMLInputElement;
+  kindCellValue.checked = initialKind === 'cellValue';
+  kindDuplicate.checked = initialKind === 'duplicate';
+  kindColorScale.checked = initialKind === 'colorScale';
+  body.append(
+    panelSection(null, [
+      el('div', { className: 'panel-choices', attrs: { role: 'radiogroup' } }, [
+        panelCheck(kindCellValue, t('dialog.conditionalFormat.kindCellValue')),
+        panelCheck(kindDuplicate, t('dialog.conditionalFormat.kindDuplicate')),
+        panelCheck(kindColorScale, t('dialog.conditionalFormat.kindColorScale')),
+      ]),
+    ]),
+  );
+  return { kindCellValue, kindDuplicate, kindColorScale };
+}
+
+/** The color scale's min/max color swatches and their section. */
+function colorScaleFields(
+  minColor: string,
+  maxColor: string,
+): { minColorInput: HTMLInputElement; maxColorInput: HTMLInputElement; colorScaleSection: HTMLElement } {
+  const minColorInput = colorSwatch('cf-min-color', minColor);
+  const maxColorInput = colorSwatch('cf-max-color', maxColor);
+  const colorScaleSection = panelSection(null, [
+    el('div', { className: 'panel-grid' }, [
+      panelField(t('dialog.conditionalFormat.minColor'), minColorInput),
+      panelField(t('dialog.conditionalFormat.maxColor'), maxColorInput),
+    ]),
+  ]);
+  return { minColorInput, maxColorInput, colorScaleSection };
 }

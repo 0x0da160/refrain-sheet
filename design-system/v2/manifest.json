@@ -1,7 +1,7 @@
 {
   "name": "Refrain Sheet Design System",
-  "version": "2.4.0",
-  "released": "2026-09-26",
+  "version": "2.4.1",
+  "released": "2026-09-27",
   "supersedes": "1.0.0",
   "layers": {
     "foundations": {

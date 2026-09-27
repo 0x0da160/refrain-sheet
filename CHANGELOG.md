@@ -40,6 +40,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- In File > Settings…, every "Not specified" choice now says what then
+  applies: the default (for example, "Not specified (default: Light)"), the
+  value last used for zoom and wrapping, or — for the file — this browser's
+  setting, which updates as you change it in the same dialog.
+- The row and column headers are lighter again, and the area past the last
+  row and column is now clearly darker than the headers in the light theme
+  and a lighter gray in the dark theme, so the edge of the table stands out.
 - Side panels now close only from the × at the top right of the panel (or
   Escape). The Close button at the bottom of Filter, Sort, Format, Data
   Validation, Conditional Format, Color, Borders, Number Format and SQL

@@ -1,18 +1,25 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- CSV: the one dark band, demonstrating the product with a real capture
-     (scripts/build/capture-landing-screenshots.mjs), never a drawn screen. -->
+     (scripts/build/capture-landing-screenshots.mjs), never a drawn screen,
+     followed by the CSV features that keep a file as it was. -->
 <section class="rb-section rb-band csv-band" data-theme="dark" id="csv">
   <div class="rb-wrap csv-grid">
     <div class="csv-copy">
       <p class="rb-eyebrow" lang="en">CSV</p>
-      <h2 class="rb-h2" data-i18n="csv.h2">CSVを直すのは1セル。\n変わるのも、その1セルだけ。</h2>
+      <h2 class="rb-h2" data-i18n="csv.h2">変わるのは、直したセルだけ。ほかは1バイトも変えません。</h2>
       <p class="rb-prose" data-i18n="csv.p">
         文字化けしない、先頭ゼロが消えない。会計や給与、受発注のシステムに取り込み直すCSVも、開いたときのまま保存します。何も変えずに保存すれば、元のファイルとバイト単位で同じです。
+      </p>
+      <p class="rb-prose" data-i18n="csv.p2">
+        内部では、編集したフィールドのバイト範囲だけを書き直し、それ以外は元のファイルのバイトをそのまま書き戻しています。
       </p>
       <ul class="csv-kept">
         <li data-i18n="csv.k1">先頭ゼロ：そのまま</li>
         <li data-i18n="csv.k2">文字コード：そのまま</li>
         <li data-i18n="csv.k3">改行コード：そのまま</li>
+        <li data-i18n="csv.k5">区切り文字・引用符：そのまま</li>
+        <li data-i18n="csv.k6">BOM・空白：そのまま</li>
+        <li data-i18n="csv.k7">壊れた箇所：勝手に直さない</li>
         <li data-i18n="csv.k4">変わるのは、直したセルだけ</li>
       </ul>
     </div>
@@ -38,5 +45,47 @@
         の売上台帳を開いたところ。編集したセルだけが色づき、ステータスバーには文字コード・区切り文字・改行コードが表示されます。
       </figcaption>
     </figure>
+  </div>
+  <div class="rb-wrap">
+    <ul class="rb-cards rb-cards--wide csv-features">
+      <li class="rb-card">
+        <h3 class="rb-h3" data-i18n="csv.f1h">文字コードを判定して、開き直せる</h3>
+        <p data-i18n="csv.f1p">
+          UTF-8（BOMあり／なし）、Shift_JIS / CP932、EUC-JP
+          を判定して開きます。違っていたら、文字コードを指定して開き直せます。元のバイトは変わりません。
+        </p>
+      </li>
+      <li class="rb-card">
+        <h3 class="rb-h3" data-i18n="csv.f2h">保存するときに、形式を選べる</h3>
+        <p data-i18n="csv.f2p">
+          「オプションを指定して保存」で、文字コード・BOM・改行コードを選べます。選んだ文字コードで保存できない文字があるときは、保存する前に止めて、対象のセルを知らせます。
+        </p>
+      </li>
+      <li class="rb-card">
+        <h3 class="rb-h3" data-i18n="csv.f3h">数値や日付に変換しない</h3>
+        <p data-i18n="csv.f3p">
+          「0123」も「2024-01-01」も16桁の番号も、書かれたとおりの文字のまま扱います。
+        </p>
+      </li>
+      <li class="rb-card">
+        <h3 class="rb-h3" data-i18n="csv.f4h">壊れたCSVは、直さずに診断</h3>
+        <p data-i18n="csv.f4p">
+          閉じていない引用符やフィールド数の違いを、行と列の位置つきで一覧にします。自動では直さず、開くかどうかを選べます。
+        </p>
+      </li>
+      <li class="rb-card">
+        <h3 class="rb-h3" data-i18n="csv.f5h">開くときは、読み取り専用</h3>
+        <p data-i18n="csv.f5p">
+          既存のファイルは保護された状態で開くので、うっかり書き換えません。直すときは、ステータスバーの「編集」で保護を外します。
+        </p>
+      </li>
+      <li class="rb-card">
+        <h3 class="rb-h3" data-i18n="csv.f6h">日本語入力とキーボード操作</h3>
+        <p data-i18n="csv.f6p">
+          変換中の Enter
+          や矢印キーは日本語入力のほうで使われ、確定してからセルに入ります。メニューの操作は、キーボードからも使えます。
+        </p>
+      </li>
+    </ul>
   </div>
 </section>

@@ -38,6 +38,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- **Filter & Sort from Headers.** The menu item that puts filter buttons on
+  the header row is renamed from "Filter Buttons on Header Row", and it is now
+  in the right-click menu too, with a check mark while it is on. The header
+  buttons are small rounded squares instead of pills. A column with no values
+  gets no button until something is typed into it.
+
 ### Fixed
 
 - **The JSON/YAML syntax check no longer misses your last edit.** If you

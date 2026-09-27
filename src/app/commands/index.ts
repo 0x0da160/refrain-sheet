@@ -415,7 +415,7 @@ export class Commands {
   }
 
   /**
-   * Sheet > Filter & Sort > Filter Buttons on Header Row: add or remove the
+   * Sheet > Filter & Sort > Filter & Sort from Headers: add or remove the
    * header row's filter buttons. See `FilterCommands.toggleHeaderFilter`.
    */
   async toggleHeaderFilter(tab: Tab): Promise<boolean> {

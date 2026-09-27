@@ -631,7 +631,7 @@ export class PointerInput {
 
   private openContextMenu(tab: Tab, x: number, y: number): void {
     this.closeContextMenu();
-    this.core.contextMenu = ContextMenu.open(contextMenuEntries(this.core.commands), x, y, {
+    this.core.contextMenu = ContextMenu.open(contextMenuEntries(this.core.commands, tab), x, y, {
       onClose: () => (this.core.contextMenu = null),
       toolbar: formatToolbarItems(this.core.commands, tab),
     });

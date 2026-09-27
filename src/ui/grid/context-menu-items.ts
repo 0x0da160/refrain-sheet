@@ -12,6 +12,8 @@ interface ContextMenuCommandDef {
   command: CommandId;
   labelKey: string;
   shortcut?: string;
+  /** Renders a checkable item whose state this returns for the active tab. */
+  checked?: (commands: Commands, tab: Tab) => boolean;
 }
 
 interface ContextMenuGroupDef {
@@ -52,6 +54,11 @@ const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupDef | 's
   },
   { command: 'data.comment', labelKey: 'menu.data.comment' },
   'separator',
+  {
+    command: 'sheet.headerFilter',
+    labelKey: 'menu.sheet.headerFilter',
+    checked: (commands, tab) => commands.hasFilter(tab),
+  },
   { command: 'sheet.filter', labelKey: 'menu.sheet.filter' },
   { command: 'sheet.filterClear', labelKey: 'menu.sheet.filterClear' },
   'separator',
@@ -82,6 +89,7 @@ const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupDef | 's
 /** One menu definition as a live context-menu entry, enabled per the command's current state. */
 function buildContextEntry(
   commands: Commands,
+  tab: Tab,
   item: ContextMenuCommandDef | ContextMenuGroupDef | 'separator',
 ): ContextMenuEntry {
   if (item === 'separator') {
@@ -91,21 +99,22 @@ function buildContextEntry(
     return {
       label: t(item.labelKey),
       icon: item.icon,
-      submenu: item.submenu.map((sub) => buildContextEntry(commands, sub)),
+      submenu: item.submenu.map((sub) => buildContextEntry(commands, tab, sub)),
     };
   }
   return {
     label: t(item.labelKey),
     icon: ICON_BY_COMMAND[item.command],
     shortcut: item.shortcut,
+    checked: item.checked?.(commands, tab),
     disabled: !commands.isEnabled(item.command),
     onSelect: () => void commands.run(item.command),
   };
 }
 
 /** The right-click menu's entries ({@link CONTEXT_MENU_ITEMS}) for the current command state. */
-export function contextMenuEntries(commands: Commands): ContextMenuEntry[] {
-  return CONTEXT_MENU_ITEMS.map((item) => buildContextEntry(commands, item));
+export function contextMenuEntries(commands: Commands, tab: Tab): ContextMenuEntry[] {
+  return CONTEXT_MENU_ITEMS.map((item) => buildContextEntry(commands, tab, item));
 }
 
 export function formatToolbarItems(commands: Commands, tab: Tab): ContextMenuToolbarItem[] {

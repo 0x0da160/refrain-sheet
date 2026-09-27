@@ -164,15 +164,15 @@ export class FilterCommands {
   }
 
   /**
-   * Sheet > Filter & Sort > Filter Buttons on Header Row: turn the header
+   * Sheet > Filter & Sort > Filter & Sort from Headers: turn the header
    * row's filter buttons on or off (one undoable step either way).
    *
    * Turning on creates a filter with no criteria over the selected rectangle
    * (when more than one cell is selected) or the detected data block around
-   * the active cell, its first row treated as the header, trimmed on the
-   * right to the last non-blank header cell. Every row stays visible; each
-   * header cell of the range gets a button that opens the column menu
-   * ({@link columnMenu}). Turning off removes the filter, showing every row.
+   * the active cell, its first row treated as the header. Every row stays
+   * visible; each header cell of a column that holds a value gets a button
+   * that opens the column menu ({@link columnMenu}) — an empty column gets
+   * its button once a value is typed into it (see the grid's cell builder). Turning off removes the filter, showing every row.
    * RSF-only, with the same explicit CSV conversion offer as Filter….
    */
   async toggleHeaderFilter(tab: Tab): Promise<boolean> {
@@ -190,15 +190,7 @@ export class FilterCommands {
     if (!range) {
       return false;
     }
-    let right = range.right;
-    while (right > range.left && doc.getDisplayValue(range.top, right) === '') {
-      right -= 1;
-    }
-    const filter = validateFilter(
-      { ...range, right, headerRow: true, columns: [] },
-      doc.rowCount,
-      doc.columnCount,
-    );
+    const filter = validateFilter({ ...range, headerRow: true, columns: [] }, doc.rowCount, doc.columnCount);
     if (!filter) {
       return false;
     }
@@ -207,7 +199,7 @@ export class FilterCommands {
     if (applied) {
       this.ui.notify(
         t('notify.headerFilterOn', {
-          range: `${cellLabel(filter.top, filter.left)}:${cellLabel(filter.bottom, right)}`,
+          range: `${cellLabel(filter.top, filter.left)}:${cellLabel(filter.bottom, filter.right)}`,
         }),
         'info',
       );

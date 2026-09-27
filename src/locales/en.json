@@ -1186,6 +1186,6 @@
   "columnMenu.more": "Filter by Condition…",
   "columnMenu.clearColumn": "Show All",
   "columnMenu.apply": "Apply",
-  "menu.sheet.headerFilter": "Filter Buttons on Header Row",
-  "notify.headerFilterOn": "Added filter buttons to the header row of {range}. Use them to order rows or choose which values to show. Ctrl+Z undoes this."
+  "menu.sheet.headerFilter": "Filter & Sort from Headers",
+  "notify.headerFilterOn": "Turned on filtering and sorting from the headers of {range}. Use the button in a header cell to order rows or choose which values to show. Ctrl+Z undoes this."
 }

@@ -3,6 +3,38 @@ import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
+/**
+ * Files that still hold a function over the size/complexity limits below.
+ * A ratchet (docs/proposals/structural-refactoring-plan.md): entries are only
+ * ever removed, and a file leaves the list once it passes the limits.
+ */
+const COMPLEXITY_RATCHET = [
+  'src/app/commands/filter.ts',
+  'src/app/commands/index.ts',
+  'src/app/commands/paste-fill.ts',
+  'src/app/shortcuts.ts',
+  'src/core/byte-csv-parser.ts',
+  'src/core/diff-engine.ts',
+  'src/core/filter.ts',
+  'src/core/flash-fill.ts',
+  'src/core/formula.ts',
+  'src/core/markdown.ts',
+  'src/core/rsf-codec.ts',
+  'src/core/sql-engine.ts',
+  'src/core/xlsx-import.ts',
+  'src/main.ts',
+  'src/ui/column-menu.ts',
+  'src/ui/dialogs/app-settings.ts',
+  'src/ui/dialogs/diff.ts',
+  'src/ui/dialogs/format.ts',
+  'src/ui/dialogs/sheet-ops.ts',
+  'src/ui/dialogs/sql.ts',
+  'src/ui/grid/index.ts',
+  'src/ui/menu-bar.ts',
+  'src/ui/status-bar.ts',
+  'src/ui/viewport-debug.ts',
+];
+
 export default tseslint.config(
   // `.claude/` holds agent scratch space and git worktrees (already excluded
   // from version control). Linting a checked-out worktree would lint a second
@@ -43,6 +75,18 @@ export default tseslint.config(
       // runtime import under some emit settings; require `import type { A }`.
       '@typescript-eslint/no-import-type-side-effects': 'error',
     },
+  },
+  {
+    // Keep functions small enough to review and test on their own.
+    files: ['src/**/*.ts'],
+    rules: {
+      complexity: ['error', 30],
+      'max-lines-per-function': ['error', { max: 120, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
+    files: COMPLEXITY_RATCHET,
+    rules: { complexity: 'off', 'max-lines-per-function': 'off' },
   },
   {
     // Layering (knowledge/architecture/module-boundaries.md): dependencies

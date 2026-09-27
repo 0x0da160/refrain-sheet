@@ -18,6 +18,11 @@
 //   4. Every src/styles/*.css is imported by src/styles/index.css, and every
 //      import there names an existing file.
 //   5. Scripts live in a role directory under scripts/, never at its top level.
+//   6. No TypeScript source file under src/ is longer than MAX_SOURCE_LINES,
+//      except the files in LINE_BUDGET, each capped at its recorded size. The
+//      budget is a ratchet (docs/proposals/structural-refactoring-plan.md):
+//      a listed file may shrink but never grow, and an entry is removed once
+//      its file fits the limit, so the list only ever gets shorter.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -34,6 +39,24 @@ const SCRIPT_ROLES = new Set(['build', 'check', 'release', 'lib', 'ui-check']);
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+)+$/;
 const NAMED_DIRS = ['src/', 'tests/', 'scripts/', 'site/', 'bench/', 'docs/', 'knowledge/'];
 const EXEMPT = ['src/generated/', 'tests/fixtures/'];
+
+const MAX_SOURCE_LINES = 800;
+/** Oversized files, each capped at its current line count. Shrink, never grow. */
+const LINE_BUDGET = {
+  'src/ui/grid/index.ts': 3576,
+  'src/core/formula-functions.ts': 2170,
+  'src/core/formula.ts': 2050,
+  'src/core/rsf-document.ts': 1786,
+  'src/app/commands/index.ts': 1759,
+  'src/app/state/index.ts': 1292,
+  'src/app/commands/file-io.ts': 1234,
+  'src/core/rsf-codec.ts': 1160,
+  'src/ui/dialogs/sheet-ops.ts': 1100,
+  'src/ui/menu-bar.ts': 1049,
+  'src/ui/dialogs/shared.ts': 880,
+  'src/app/commands/paste-fill.ts': 844,
+  'src/core/worksheet.ts': 823,
+};
 
 const errors = [];
 
@@ -79,6 +102,27 @@ for (const file of files) {
 }
 for (const file of imported) {
   if (!existsSync(join(root, file))) errors.push(`src/styles/index.css: imports missing ${file}`);
+}
+
+const tracked = new Set(files);
+for (const file of files) {
+  if (!file.startsWith('src/') || !file.endsWith('.ts') || file.startsWith('src/generated/')) continue;
+  const lines = readFileSync(join(root, file), 'utf8').split('\n').length - 1;
+  const budget = LINE_BUDGET[file];
+  if (budget === undefined) {
+    if (lines > MAX_SOURCE_LINES) {
+      errors.push(`${file}: ${lines} lines; split it below ${MAX_SOURCE_LINES} (see src/*/CLAUDE.md)`);
+    }
+  } else if (lines > budget) {
+    errors.push(`${file}: grew to ${lines} lines past its ${budget}-line budget; split it instead`);
+  } else if (lines <= MAX_SOURCE_LINES) {
+    errors.push(`${file}: now ${lines} lines; remove its LINE_BUDGET entry`);
+  } else if (lines < budget) {
+    errors.push(`${file}: shrank to ${lines} lines; lower its LINE_BUDGET entry to ${lines}`);
+  }
+}
+for (const file of Object.keys(LINE_BUDGET)) {
+  if (!tracked.has(file)) errors.push(`LINE_BUDGET: ${file} no longer exists; remove its entry`);
 }
 
 if (errors.length > 0) {

@@ -109,6 +109,15 @@ export default defineConfig(({ command, mode }) => {
       benchmark: {
         include: ['bench/**/*.bench.ts'],
       },
+      // `npm run test:coverage`. The thresholds are a floor, not a target: a
+      // restructuring change must not leave code less tested than before.
+      coverage: {
+        provider: 'v8',
+        include: ['src/**/*.ts'],
+        exclude: ['src/generated/**'],
+        reporter: ['text-summary', 'json-summary'],
+        thresholds: { statements: 81, branches: 75, functions: 79, lines: 82 },
+      },
     },
   };
 });

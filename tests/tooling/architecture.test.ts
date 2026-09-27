@@ -89,4 +89,16 @@ describe('src/ architecture', () => {
     }
     expect(violations).toEqual([]);
   });
+
+  it('keeps directory-module helpers from importing their own entry point', () => {
+    // A helper beside `x/index.ts` exists so the entry point can shrink; it
+    // must not reach back into it (the entry point composes the helpers).
+    const violations: string[] = [];
+    for (const [file, deps] of graph) {
+      if (file.endsWith('/index.ts')) continue;
+      const entry = `${file.split('/').slice(0, -1).join('/')}/index.ts`;
+      if (entry in sources && deps.includes(entry)) violations.push(`${file} -> ${entry}`);
+    }
+    expect(violations).toEqual([]);
+  });
 });

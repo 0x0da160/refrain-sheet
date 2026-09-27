@@ -6,19 +6,19 @@
  * which is what keeps the app layer from importing the UI layer. Re-exported
  * from `commands.ts` for existing importers.
  */
-import type { DelimiterId } from '../core/byte-csv-parser';
-import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../core/cell-style';
-import type { CsvExportOptions } from '../core/csv-export';
-import type { EncodingId } from '../core/encoding';
-import type { ConditionalFormatRule } from '../core/conditional-format';
-import type { ValidationRule } from '../core/data-validation';
+import type { DelimiterId } from '../core/csv/byte-csv-parser';
+import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../core/workbook/cell-style';
+import type { CsvExportOptions } from '../core/interchange/csv-export';
+import type { EncodingId } from '../core/csv/encoding';
+import type { ConditionalFormatRule } from '../core/workbook/conditional-format';
+import type { ValidationRule } from '../core/workbook/data-validation';
 import type { DiffOptions, DiffResult } from '../core/diff-engine';
-import type { ColumnFilter } from '../core/filter';
-import type { SortKey } from '../core/sort';
-import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/serializer';
-import type { ValidationSummary } from '../core/validation';
-import type { RsfHistorySnapshot } from '../core/rsf-codec';
-import type { WorksheetKind } from '../core/worksheet';
+import type { ColumnFilter } from '../core/workbook/filter';
+import type { SortKey } from '../core/workbook/sort';
+import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/csv/serializer';
+import type { ValidationSummary } from '../core/csv/validation';
+import type { RsfHistorySnapshot } from '../core/workbook/rsf-codec';
+import type { WorksheetKind } from '../core/workbook/worksheet';
 import type { Tab } from './state';
 import type { LocaleId } from './i18n';
 import type { SqlRunOutcome, SqlSource } from './commands/sql';

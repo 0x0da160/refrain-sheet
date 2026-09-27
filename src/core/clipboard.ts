@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-import type { CellStyle } from './cell-style';
-import { formatValue, type FormulaValue } from './formula-value';
+import type { CellStyle } from './workbook/cell-style';
+import { formatValue, type FormulaValue } from './formula/value';
 
 /** A normalized rectangular cell range (inclusive bounds). */
 export interface CellRange {

@@ -3,7 +3,7 @@ import { FileCode, FileJson, FileText, FileType, Lock, LockOpen, Plus, Table, ty
 import type { AppState } from '../app/state';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
-import type { WorksheetKind } from '../core/worksheet';
+import type { WorksheetKind } from '../core/workbook/worksheet';
 import { ICON_BY_COMMAND } from './command-icons';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';

@@ -11,7 +11,7 @@ import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { setSheetFont, SHEET_FONTS } from '../../src/app/sheet-font';
 import { rowHeightForLines } from '../../src/core/text-wrap';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { Grid, ROW_HEIGHT, WRAP_LINE_HEIGHT, WRAP_VERTICAL_PAD } from '../../src/ui/grid';
 
 const ZOOMS = [50, 75, 90, 100, 125, 150, 200] as const;

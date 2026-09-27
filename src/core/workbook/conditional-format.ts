@@ -21,7 +21,7 @@
  * `FormulaValue`s (see `formula-value.ts`) supplied by the caller, so this
  * module never evaluates a formula itself.
  */
-import type { FormulaValue } from './formula-value';
+import type { FormulaValue } from '../formula/value';
 
 /** Maximum rules a single worksheet may carry at once (mirrors `MAX_VALIDATION_RULES`). */
 export const MAX_CONDITIONAL_FORMAT_RULES = 64;

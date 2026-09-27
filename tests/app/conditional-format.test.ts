@@ -23,9 +23,9 @@ import {
   type CellConditionalFormat,
   type CellValueRule,
   type ColorScaleRule,
-} from '../../src/core/conditional-format';
-import type { FormulaValue } from '../../src/core/formula-value';
-import { RsfDocument } from '../../src/core/rsf-document';
+} from '../../src/core/workbook/conditional-format';
+import type { FormulaValue } from '../../src/core/formula/value';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { doc as csvDoc } from '../helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {

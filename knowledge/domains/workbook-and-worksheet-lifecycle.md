@@ -38,7 +38,7 @@ disabled — converting to RSF is what unlocks multiple worksheets.
 
 A worksheet has a **kind**: `grid` (every worksheet before the field
 existed, and the default), `markdown`, `json`, `yaml`, or `text`
-(`WorksheetKind` in `src/core/worksheet.ts`). A non-`grid` kind holds one
+(`WorksheetKind` in `src/core/workbook/worksheet.ts`). A non-`grid` kind holds one
 document as its sole content — its raw source lives in cell A1 — and is
 rendered by a docked source/preview surface in the spreadsheet area instead
 of the grid while that worksheet is active (`markdown`/`json`/`yaml` also

@@ -13,15 +13,15 @@
  * (with progress) for large sheets; the final join/encode is a single
  * synchronous step over the already-prepared rows.
  */
-import type { DelimiterId } from './byte-csv-parser';
+import type { DelimiterId } from '../csv/byte-csv-parser';
 import {
   UTF8_BOM,
   encodeText,
   findUnrepresentableChars,
   replaceUnrepresentableChars,
   type EncodingId,
-} from './encoding';
-import type { NcrCellReport, UnrepresentableCell } from './serializer';
+} from '../csv/encoding';
+import type { NcrCellReport, UnrepresentableCell } from '../csv/serializer';
 
 export type CsvLineEnding = 'crlf' | 'lf' | 'cr';
 

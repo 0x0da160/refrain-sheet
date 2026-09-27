@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_DISPLAY_LANGUAGE, isValidDisplayLanguage } from '../../src/core/display-language';
+import { DEFAULT_DISPLAY_LANGUAGE, isValidDisplayLanguage } from '../../src/core/workbook/display-language';
 
 describe('isValidDisplayLanguage', () => {
   it('accepts the two shipped catalogs', () => {

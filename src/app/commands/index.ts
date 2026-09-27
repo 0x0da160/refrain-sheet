@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-import type { CellStyle } from '../../core/cell-style';
+import type { CellStyle } from '../../core/workbook/cell-style';
 import type { CellRange } from '../../core/clipboard';
-import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport } from '../../core/csv-export';
-import type { CellValidation } from '../../core/data-validation';
+import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport } from '../../core/interchange/csv-export';
+import type { CellValidation } from '../../core/workbook/data-validation';
 import type { DiffResult } from '../../core/diff-engine';
 import { cellLabel, columnLabel, isFormula, parseRef } from '../../core/formula';
-import type { TextRun } from '../../core/rich-text';
-import type { RsfDocument } from '../../core/rsf-document';
+import type { TextRun } from '../../core/workbook/rich-text';
+import type { RsfDocument } from '../../core/workbook/rsf-document';
 import type { CompiledQuery, SearchScope } from '../../core/search';
-import { KEEP_SAVE_OPTIONS, type SaveOptions } from '../../core/serializer';
+import { KEEP_SAVE_OPTIONS, type SaveOptions } from '../../core/csv/serializer';
 import type { AppState, Selection, SelectionKind, Tab } from '../state';
 import { fileSystemAccessAvailable, pickFiles, saveBytesAs, type OpenedFile } from '../file-access';
 import { getLocale, setLocale, t, type LocaleId } from '../i18n';

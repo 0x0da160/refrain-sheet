@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { getCsvEngine } from './csv-engine';
+import { getCsvEngine } from './csv/csv-engine';
 
 /** The document surface search needs; satisfied by CSV and RSF documents. */
 export interface SearchableDocument {

@@ -1,16 +1,28 @@
 // SPDX-License-Identifier: MIT
-import { conditionalFormatRangesEqual, type CellConditionalFormat } from '../../core/conditional-format';
-import { findValidation, validationRangesEqual, type CellValidation } from '../../core/data-validation';
-import { computeHiddenRows, filtersEqual, type SheetFilter } from '../../core/filter';
+import {
+  conditionalFormatRangesEqual,
+  type CellConditionalFormat,
+} from '../../core/workbook/conditional-format';
+import {
+  findValidation,
+  validationRangesEqual,
+  type CellValidation,
+} from '../../core/workbook/data-validation';
+import { computeHiddenRows, filtersEqual, type SheetFilter } from '../../core/workbook/filter';
 import {
   formulaReferencesSheet,
   invalidateSheetRefsInFormula,
   renameSheetInFormula,
 } from '../../core/formula';
-import type { CellChange, HistoryEntry, Operation } from '../../core/history';
-import { MAX_WORKSHEETS, NEW_DOC_COLS, NEW_DOC_ROWS, type RsfDocument } from '../../core/rsf-document';
-import { computeSortOrder, sortsEqual, type SheetSort } from '../../core/sort';
-import type { Worksheet } from '../../core/worksheet';
+import type { CellChange, HistoryEntry, Operation } from '../../core/workbook/history';
+import {
+  MAX_WORKSHEETS,
+  NEW_DOC_COLS,
+  NEW_DOC_ROWS,
+  type RsfDocument,
+} from '../../core/workbook/rsf-document';
+import { computeSortOrder, sortsEqual, type SheetSort } from '../../core/workbook/sort';
+import type { Worksheet } from '../../core/workbook/worksheet';
 import type { AppState, Tab } from './index';
 import { decidedBySheet, resolveWrap, resolveZoom } from './view-layers';
 

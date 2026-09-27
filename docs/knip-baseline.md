@@ -37,11 +37,11 @@ None. A fresh `npx knip` run reports no findings, and the `DEFERRED` list in
 
 ## Resolved (kept for the lessons; details in each PR)
 
-- **S3 `DEFAULT_SHEET_NAME`** (`src/core/rsf-document.ts`) — used only inside
+- **S3 `DEFAULT_SHEET_NAME`** (`src/core/workbook/rsf-document.ts`) — used only inside
   its own file, so the `export` was removed and the value (`'Sheet1'`) is
   unchanged. No byte of the RSF format depends on the keyword; the frozen
   `.rsf` fixture corpus and `test:rust` still pass.
-- **S2 `MAX_JOIN_ITEMS`** (`src/core/formula-value.ts`) — removed. No `REPT`
+- **S2 `MAX_JOIN_ITEMS`** (`src/core/formula/value.ts`) — removed. No `REPT`
   function exists, and `CONCAT` / `TEXTJOIN` are already bounded by
   `MAX_TEXT_LENGTH` (output) and `MAX_RANGE_CELLS` (input), so the constant
   guarded nothing. This also clears Knip's duplicate-export report.

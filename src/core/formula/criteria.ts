@@ -63,7 +63,7 @@ import {
   MAX_CRITERIA_LENGTH,
   parseNumericText,
   type FormulaValue,
-} from './formula-value';
+} from './value';
 
 /** The comparison a criterion performs. */
 type CriteriaOp = '=' | '<>' | '>' | '>=' | '<' | '<=';

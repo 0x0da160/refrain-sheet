@@ -6,7 +6,7 @@ import { getLocale, t } from '../../app/i18n';
 import { getEditHints, nextZoomLevel } from '../../app/settings';
 import { dateStampKeyOf, localDateStamp } from '../../app/shortcuts';
 import { normalizeRange, rangeContains, type CellRange } from '../../core/clipboard';
-import { runsForText, type TextRun } from '../../core/rich-text';
+import { runsForText, type TextRun } from '../../core/workbook/rich-text';
 import { cellLabel, columnLabel, extractFormulaRefs, type FormulaRefRange } from '../../core/formula';
 import type { RowHeightIndex } from '../../core/row-height-index';
 import { forEachIndexSliced } from '../../core/scheduler';

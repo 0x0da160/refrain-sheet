@@ -36,8 +36,8 @@
  * Whole-column and whole-row references are never rewritten by a move for the
  * same reason.
  */
-import { normalizeRange, type CellRange } from './clipboard';
-import { isFormula, rewriteFormulaRefs, MAX_REF_COLUMN, MAX_REF_ROW, type CellRefEx } from './formula';
+import { normalizeRange, type CellRange } from '../clipboard';
+import { isFormula, rewriteFormulaRefs, MAX_REF_COLUMN, MAX_REF_ROW, type CellRefEx } from '../formula';
 import type { CellChange } from './history';
 
 /** The minimal worksheet surface a move needs (satisfied by `Worksheet`). */

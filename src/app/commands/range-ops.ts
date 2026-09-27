@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 import type { CellRange } from '../../core/clipboard';
 import { cellLabel, columnLabel, parseRef } from '../../core/formula';
-import type { CellChange, Operation } from '../../core/history';
-import { moveTarget, planRangeMove, validateMove, type RangeMovePlan } from '../../core/range-move';
-import type { RsfDocument } from '../../core/rsf-document';
+import type { CellChange, Operation } from '../../core/workbook/history';
+import { moveTarget, planRangeMove, validateMove, type RangeMovePlan } from '../../core/workbook/range-move';
+import type { RsfDocument } from '../../core/workbook/rsf-document';
 import { forEachIndexSliced, yieldToBrowser } from '../../core/scheduler';
 import { replaceAllInValue, type CompiledQuery, type SearchScope } from '../../core/search';
 import type { AppState, Tab } from '../state';
@@ -32,7 +32,7 @@ export interface ReplaceAllReport {
  * `src/app/commands/file-io.ts`) — `Commands` still exposes the same public
  * methods, delegating to an instance of this class. This is the `Commands`-
  * layer dispatch code, distinct from (and a consumer of) the pure planning
- * logic in `src/core/range-move.ts` and `src/core/search.ts`.
+ * logic in `src/core/workbook/range-move.ts` and `src/core/search.ts`.
  */
 export class RangeOpsCommands {
   constructor(

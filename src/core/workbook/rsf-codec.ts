@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { DelimiterId } from './byte-csv-parser';
+import type { DelimiterId } from '../csv/byte-csv-parser';
 import {
   BORDER_LINE_STYLES,
   BORDER_SIDES,
@@ -17,7 +17,7 @@ import {
   type NumberFormatKind,
 } from './cell-style';
 import { validateFilter, type SheetFilter } from './filter';
-import { getRsfCodec } from './csv-engine';
+import { getRsfCodec } from '../csv/csv-engine';
 import { MAX_COMMENT_LENGTH } from './cell-comment';
 import { MAX_TEXT_RUNS, runsForText, type TextRun } from './rich-text';
 import { DEFAULT_DISPLAY_LANGUAGE } from './display-language';

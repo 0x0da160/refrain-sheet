@@ -3,9 +3,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
-import { encodeCsvExport, type CsvExportOptions } from '../../src/core/csv-export';
-import { decodeBytes } from '../../src/core/encoding';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { encodeCsvExport, type CsvExportOptions } from '../../src/core/interchange/csv-export';
+import { decodeBytes } from '../../src/core/csv/encoding';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 
 const UTF8_LF: CsvExportOptions = {
   encoding: 'utf-8',

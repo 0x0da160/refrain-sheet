@@ -5,8 +5,8 @@
  * and the RSF round trip that must **not** persist a single derived value.
  */
 import { describe, expect, it } from 'vitest';
-import { RsfDocument } from '../../src/core/rsf-document';
-import { canSpill, MAX_SPILL_ANCHORS } from '../../src/core/spill';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
+import { canSpill, MAX_SPILL_ANCHORS } from '../../src/core/formula/spill';
 import { parseFormula } from '../../src/core/formula';
 import { AppState } from '../../src/app/state';
 

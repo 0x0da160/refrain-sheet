@@ -9,8 +9,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
-import { RsfDocument } from '../../src/core/rsf-document';
-import type { Worksheet } from '../../src/core/worksheet';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
+import type { Worksheet } from '../../src/core/workbook/worksheet';
 import { MarkdownSheetView } from '../../src/ui/markdown-sheet';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {

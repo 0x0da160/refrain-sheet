@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 import { normalizeRange, type CellRange } from '../../core/clipboard';
-import type { CellConditionalFormat } from '../../core/conditional-format';
-import { checkValidationValue, findValidation, type CellValidation } from '../../core/data-validation';
-import { filtersEqual, type SheetFilter } from '../../core/filter';
+import type { CellConditionalFormat } from '../../core/workbook/conditional-format';
+import {
+  checkValidationValue,
+  findValidation,
+  type CellValidation,
+} from '../../core/workbook/data-validation';
+import { filtersEqual, type SheetFilter } from '../../core/workbook/filter';
 import { cellLabel } from '../../core/formula';
 import {
   History,
@@ -10,11 +14,11 @@ import {
   type HistoryEntry,
   type Operation,
   type SheetOperation,
-} from '../../core/history';
-import type { LosslessDocument } from '../../core/lossless-document';
-import type { RsfDocument } from '../../core/rsf-document';
-import { sortDataTop, type SheetSort } from '../../core/sort';
-import type { FreezePanes, Worksheet } from '../../core/worksheet';
+} from '../../core/workbook/history';
+import type { LosslessDocument } from '../../core/csv/lossless-document';
+import type { RsfDocument } from '../../core/workbook/rsf-document';
+import { sortDataTop, type SheetSort } from '../../core/workbook/sort';
+import type { FreezePanes, Worksheet } from '../../core/workbook/worksheet';
 import { t } from '../i18n';
 import { getWrapCells } from '../settings';
 import { safeStorageGet } from '../storage';

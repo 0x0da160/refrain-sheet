@@ -39,7 +39,7 @@ import {
   parseCriterion,
   unescapeWildcard,
   type Criterion,
-} from './formula-criteria';
+} from '../criteria';
 import {
   dateDif,
   isDateDifUnit,
@@ -48,7 +48,7 @@ import {
   remapShortYear,
   serialToParts,
   todaySerial,
-} from './formula-date';
+} from '../date';
 import {
   boundedText,
   codePointLength,
@@ -57,9 +57,9 @@ import {
   substituteText,
   toCodePoints,
   trimText,
-} from './formula-text';
-import { formatValueAsText } from './formula-text-format';
-import type { DisplayLanguageId } from './display-language';
+} from '../text';
+import { formatValueAsText } from '../text-format';
+import type { DisplayLanguageId } from '../../workbook/display-language';
 import {
   booleanValue,
   coerceToBoolean,
@@ -81,7 +81,7 @@ import {
   valuesEqual,
   type FormulaValue,
   type ValueGrid,
-} from './formula-value';
+} from '../value';
 
 // ---------------------------------------------------------------------------
 // The evaluation contract

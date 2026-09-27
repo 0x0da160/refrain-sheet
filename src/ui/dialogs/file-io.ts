@@ -3,12 +3,12 @@ import type { Tab } from '../../app/state';
 import type { ConvertReason } from '../../app/commands';
 import { getLocale, t } from '../../app/i18n';
 import type { RecentFileChoice } from '../../app/ui-port';
-import type { DelimiterId } from '../../core/byte-csv-parser';
-import type { CsvExportOptions, CsvLineEnding } from '../../core/csv-export';
-import type { EncodingId } from '../../core/encoding';
+import type { DelimiterId } from '../../core/csv/byte-csv-parser';
+import type { CsvExportOptions, CsvLineEnding } from '../../core/interchange/csv-export';
+import type { EncodingId } from '../../core/csv/encoding';
 import { setSuppressHistoryCapWarning } from '../../app/settings';
 import { storageSharedWithOtherLocalFiles } from '../../app/storage';
-import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/serializer';
+import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/csv/serializer';
 import { el } from '../dom';
 import { cellList, dialogButton, helpDetails, openDialog, submitOnEnter } from './shared';
 

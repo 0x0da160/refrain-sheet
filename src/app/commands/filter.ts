@@ -6,9 +6,9 @@ import {
   MAX_FILTER_ROWS,
   MAX_FILTER_VALUES,
   type SheetFilter,
-} from '../../core/filter';
+} from '../../core/workbook/filter';
 import { cellLabel, columnLabel } from '../../core/formula';
-import type { RsfDocument } from '../../core/rsf-document';
+import type { RsfDocument } from '../../core/workbook/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
@@ -19,7 +19,7 @@ import type {
   FilterDialogResult,
   UiPort,
 } from '../commands';
-import { compareSortValues, validateSort } from '../../core/sort';
+import { compareSortValues, validateSort } from '../../core/workbook/sort';
 import { applyWhileOpen, LARGE_OP_CELLS, pct, withBusy } from './shared';
 import type { SortCommands } from './sort';
 
@@ -39,7 +39,7 @@ interface CellRange {
  * `src/app/commands/file-io.ts`) — `Commands` still exposes the same public
  * methods, delegating to an instance of this class. This is the `Commands`-
  * layer dispatch code, distinct from (and a consumer of) the pure filter
- * logic in `src/core/filter.ts`.
+ * logic in `src/core/workbook/filter.ts`.
  */
 export class FilterCommands {
   constructor(

@@ -9,10 +9,10 @@ import {
   type BorderSide,
   type CellStylePatch,
   type NumberFormat,
-} from '../../core/cell-style';
+} from '../../core/workbook/cell-style';
 import type { CellRange } from '../../core/clipboard';
-import type { Operation, StyleChange } from '../../core/history';
-import { remapRuns, runsEqual, runsForText, type TextRun } from '../../core/rich-text';
+import type { Operation, StyleChange } from '../../core/workbook/history';
+import { remapRuns, runsEqual, runsForText, type TextRun } from '../../core/workbook/rich-text';
 import type { AppState, Tab } from '../state';
 import { getLocale } from '../i18n';
 import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult, UiPort } from '../commands';
@@ -58,7 +58,7 @@ const CLEAR_PATCH: CellStylePatch = {
  * methods, delegating to an instance of this class.
  *
  * Every change applies to the current selection as one atomic, undoable
- * `styles` history operation (see `src/core/history.ts`). Styling is purely
+ * `styles` history operation (see `src/core/workbook/history.ts`). Styling is purely
  * presentational: it never touches cell values, formula results, sort, or
  * filter, so it is applied even to cells inside a sorted range or a spill
  * (unlike a value write, which those refuse). Rows hidden by an active

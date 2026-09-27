@@ -76,10 +76,10 @@ Two document kinds share one duck-typed editing surface (`EditorDocument`):
   save is byte-identical by construction — see
   [invariants.md](invariants.md).
 - **`RsfDocument`** (`kind: 'rsf'`) — a **workbook** of one or more
-  `Worksheet`s (`src/core/worksheet.ts`). Cell inputs are the document;
+  `Worksheet`s (`src/core/workbook/worksheet.ts`). Cell inputs are the document;
   formulas evaluate lazily with memoization and full memo invalidation per
   mutation. Saved as a `.rsf` file — a JSON document compressed with
-  Zstandard (`src/core/rsf-codec.ts`; spec in
+  Zstandard (`src/core/workbook/rsf-codec.ts`; spec in
   [formats/rsf/index.md](../formats/rsf/index.md)); the binary format of
   releases up to 0.8.x (and `.rcsv`) is refused with an explanation.
 
@@ -131,7 +131,7 @@ dismissal.
 
 ## The WASM boundary
 
-`src/core/csv-engine.ts` is the only module that touches the generated
+`src/core/csv/csv-engine.ts` is the only module that touches the generated
 bindings, exposing two narrow interfaces:
 
 - `CsvEngine` — parsing, delimiter sniffing, serialization planning/apply,

@@ -8,8 +8,8 @@ import {
   type FlashFillOp,
 } from '../../core/flash-fill';
 import { cellLabel, columnLabel, isFormula, shiftFormulaRefs } from '../../core/formula';
-import type { CellChange, HistoryEntry, Operation } from '../../core/history';
-import type { RsfDocument } from '../../core/rsf-document';
+import type { CellChange, HistoryEntry, Operation } from '../../core/workbook/history';
+import type { RsfDocument } from '../../core/workbook/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
 import type { AppState, Selection, Tab } from '../state';
 import { t } from '../i18n';

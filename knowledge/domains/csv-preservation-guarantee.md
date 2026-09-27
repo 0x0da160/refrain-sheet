@@ -24,8 +24,8 @@ possible. A normal save never unifies line-ending styles or delimiters,
 alters the header layout, adds or removes whitespace, adds or removes quotes
 unnecessarily, adds or removes BOMs, repairs malformed CSV, or removes or
 replaces undecodable bytes in unmodified fields. This is the product's core
-differentiator, and it is what `src/core/lossless-document.ts` and
-`src/core/serializer.ts` exist to implement — see
+differentiator, and it is what `src/core/csv/lossless-document.ts` and
+`src/core/csv/serializer.ts` exist to implement — see
 [`../architecture/invariants.md`](../architecture/invariants.md) for the
 code-level guarantee ("CSV byte preservation") that tests and review protect.
 
@@ -85,7 +85,7 @@ does not apply when you explicitly ask for a transformation:
 ## Encodings
 
 Supported: UTF-8 (with or without BOM), Shift_JIS / CP932, and EUC-JP. UTF-16
-and ISO-2022-JP are **not** supported in this release — `src/core/encoding.ts`
+and ISO-2022-JP are **not** supported in this release — `src/core/csv/encoding.ts`
 only ever detects and decodes as `'utf-8' | 'shift_jis' | 'euc-jp'`. If a file
 looks like an unsupported encoding, a warning explains the supported range;
 the file still opens with a best-effort interpretation and its bytes remain
@@ -105,7 +105,7 @@ delimiter, line-ending style, file size, and undecodable-byte warnings.
 ## Opening structurally invalid CSV
 
 When a file is opened, its structure is parsed at the byte level
-(`src/core/byte-csv-parser.ts`) and problems are listed in a CSV Validation
+(`src/core/csv/byte-csv-parser.ts`) and problems are listed in a CSV Validation
 Results dialog with row, column, problem type, and a short explanation:
 unclosed quotes, invalid text immediately after a closing quote, bare quotes
 inside unquoted fields, inconsistent field counts across rows, and

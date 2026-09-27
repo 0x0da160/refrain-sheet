@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-import { initCsvEngine } from '../../core/csv-engine';
+import { initCsvEngine } from '../../core/csv/csv-engine';
 import {
   buildCsvExportBytes,
   newCsvExportScan,
   scanCsvExportRow,
   type CsvExportScan,
-} from '../../core/csv-export';
-import { detectEncoding } from '../../core/encoding';
+} from '../../core/interchange/csv-export';
+import { detectEncoding } from '../../core/csv/encoding';
 import { forEachIndexSliced } from '../../core/scheduler';
-import { LosslessDocument } from '../../core/lossless-document';
+import { LosslessDocument } from '../../core/csv/lossless-document';
 import {
   RsfDocument,
   RSF_EXTENSION,
@@ -16,18 +16,18 @@ import {
   NEW_DOC_ROWS,
   NEW_DOC_COLS,
   type RsfParseError,
-} from '../../core/rsf-document';
+} from '../../core/workbook/rsf-document';
 import {
   serializeDocument,
   KEEP_SAVE_OPTIONS,
   type NcrCellReport,
   type SaveOptions,
-} from '../../core/serializer';
-import { validateDocument } from '../../core/validation';
-import { parseXlsxWorkbook, type XlsxImportError } from '../../core/xlsx-import';
-import { buildXlsxExport, type XlsxSheetInput } from '../../core/xlsx-export';
-import { parseJsonWorkbook, type JsonImportError } from '../../core/json-import';
-import { buildJsonExport } from '../../core/json-export';
+} from '../../core/csv/serializer';
+import { validateDocument } from '../../core/csv/validation';
+import { parseXlsxWorkbook, type XlsxImportError } from '../../core/interchange/xlsx-import';
+import { buildXlsxExport, type XlsxSheetInput } from '../../core/interchange/xlsx-export';
+import { parseJsonWorkbook, type JsonImportError } from '../../core/interchange/json-import';
+import { buildJsonExport } from '../../core/interchange/json-export';
 import type { AppState, Tab } from '../state';
 import { defaultSheetName } from '../state/defaults';
 import { decidedBySheet, resolveWrap, resolveZoom } from '../state/view-layers';

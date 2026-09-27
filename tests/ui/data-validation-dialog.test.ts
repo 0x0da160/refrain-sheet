@@ -10,7 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { DataValidationDialogInput } from '../../src/app/commands';
 import { getLocale, setLocale, t } from '../../src/app/i18n';
-import { MAX_VALIDATION_LIST_VALUES } from '../../src/core/data-validation';
+import { MAX_VALIDATION_LIST_VALUES } from '../../src/core/workbook/data-validation';
 import { Dialogs } from '../../src/ui/dialogs';
 
 function dataValidationInput(overrides: Partial<DataValidationDialogInput> = {}): DataValidationDialogInput {

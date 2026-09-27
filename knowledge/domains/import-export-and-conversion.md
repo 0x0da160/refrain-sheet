@@ -31,7 +31,7 @@ the other.
   an `.rsf` in the binary format of releases up to 0.8.x) is refused with
   an explanation — see
   [`../formats/rsf/compatibility.md`](../formats/rsf/compatibility.md).
-- **JSON** (`src/core/json-import.ts`): **File > Open** accepts a `.json`
+- **JSON** (`src/core/interchange/json-import.ts`): **File > Open** accepts a `.json`
   file containing a top-level array of flat (non-nested) objects — one
   array element per row, columns as the union of every object's keys in
   first-seen order. A deeply nested value (an object or array as a
@@ -39,7 +39,7 @@ the other.
   document shaped that way is rejected with a typed error (`invalid-json`,
   `not-an-array`, `empty-array`, `not-flat-object`) rather than being
   silently flattened or dropped.
-- **XLSX** (`src/core/xlsx-import.ts`): an arbitrary, untrusted `.xlsx` (a
+- **XLSX** (`src/core/interchange/xlsx-import.ts`): an arbitrary, untrusted `.xlsx` (a
   ZIP archive of OOXML parts) is read for its calculated/display values
   only — formulas, cell styles/number formats, merged cells, column
   widths, and charts are not parsed. A numeric cell formatted as a date by
@@ -87,7 +87,7 @@ everything untouched.
 
 ### JSON
 
-**File > Export as JSON…** (`src/core/json-export.ts`) writes the active
+**File > Export as JSON…** (`src/core/interchange/json-export.ts`) writes the active
 worksheet's calculated values back out as a JSON array of objects, using
 the first row as field names; a multi-worksheet workbook is asked which
 worksheet to export, exactly like Export as CSV. Like CSV export, this is
@@ -99,7 +99,7 @@ a JSON number or boolean only for a canonical numeric form or exactly
 ### XLSX
 
 Export writes a `.xlsx` (Excel Open XML) ZIP archive
-(`src/core/xlsx-export.ts`), serializing only the displayed (calculated)
+(`src/core/interchange/xlsx-export.ts`), serializing only the displayed (calculated)
 values of one or more worksheets — no formulas, styles, column widths, or
 other spreadsheet-only data. Unlike CSV, XLSX natively holds multiple
 worksheets, so a whole workbook exports in one file with no per-sheet

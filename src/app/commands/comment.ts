@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-import { normalizeCommentText } from '../../core/cell-comment';
+import { normalizeCommentText } from '../../core/workbook/cell-comment';
 import { cellLabel } from '../../core/formula';
-import type { CommentChange } from '../../core/history';
-import type { RsfDocument } from '../../core/rsf-document';
+import type { CommentChange } from '../../core/workbook/history';
+import type { RsfDocument } from '../../core/workbook/rsf-document';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
 import type { CellCommentDialogInput, ConvertReason, UiPort } from '../commands';
@@ -14,10 +14,10 @@ import type { CellCommentDialogInput, ConvertReason, UiPort } from '../commands'
  * (`src/app/commands/data-validation.ts`) — `Commands` still exposes the
  * same public methods, delegating to an instance of this class. This is the
  * `Commands`-layer dispatch code, distinct from (and a consumer of) the pure
- * logic in `src/core/cell-comment.ts`.
+ * logic in `src/core/workbook/cell-comment.ts`.
  *
  * Unlike data validation, comments are persisted in the saved container (RSF
- * body version 11+, see `src/core/rsf-codec.ts`): setting or clearing one is
+ * body version 11+, see `src/core/workbook/rsf-codec.ts`): setting or clearing one is
  * an ordinary undoable `HistoryEntry` that marks the document dirty, built
  * and applied the same way `FormatCommands.applyPatch` builds a `'styles'`
  * operation (`src/app/commands/format.ts`).

@@ -6,7 +6,7 @@ import {
   listTimeZones,
   localTimeZone,
   timeZoneOffsetMs,
-} from '../../src/core/timezone';
+} from '../../src/core/workbook/timezone';
 
 describe('isValidTimeZone', () => {
   it('accepts UTC and real IANA zone names', () => {

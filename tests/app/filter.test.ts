@@ -19,9 +19,9 @@ import {
   MAX_FILTER_ROWS,
   type ColumnFilter,
   type SheetFilter,
-} from '../../src/core/filter';
+} from '../../src/core/workbook/filter';
 import { decodeRsf, encodeRsf, rsfFromTree, rsfTree, type RsfData } from '../rsf-single-sheet';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { doc as csvDoc } from '../helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {

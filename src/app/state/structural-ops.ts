@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-import { encodeCsvExport } from '../../core/csv-export';
+import { encodeCsvExport } from '../../core/interchange/csv-export';
 import { adjustFormulaForAxis, isFormula, sheetNameKey, shiftFormulaRefs } from '../../core/formula';
-import type { CellChange, HistoryEntry, Operation } from '../../core/history';
-import { LosslessDocument } from '../../core/lossless-document';
-import { RsfDocument, RSF_EXTENSION } from '../../core/rsf-document';
-import type { FreezePanes } from '../../core/worksheet';
+import type { CellChange, HistoryEntry, Operation } from '../../core/workbook/history';
+import { LosslessDocument } from '../../core/csv/lossless-document';
+import { RsfDocument, RSF_EXTENSION } from '../../core/workbook/rsf-document';
+import type { FreezePanes } from '../../core/workbook/worksheet';
 import type { AppState, EditorDocument, Selection, Tab } from './index';
 import { defaultSheetName, STICKY_COL_KEY, STICKY_KEY } from './defaults';
 import { getLocale, t } from '../i18n';

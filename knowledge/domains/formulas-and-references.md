@@ -24,7 +24,7 @@ supported (see
 [formula-functions-and-errors.md](formula-functions-and-errors.md)), plus
 operators `+ - * /`, parentheses, the comparisons `= <> < > <= >=`, and
 numeric / string / boolean (`TRUE`, `FALSE`) literals. The engine
-(`src/core/formula.ts` and the `formula-*.ts` family) is a hand-written
+(`src/core/formula/index.ts` and the `formula-*.ts` family) is a hand-written
 parser and evaluator — there is no `eval`, no `new Function`, no dynamic
 code generation, no macros, and loading a document never executes anything;
 see

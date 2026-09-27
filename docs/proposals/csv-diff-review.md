@@ -47,7 +47,7 @@ scratch:
   no external engine" shape the Issue's own reference SQL (`FULL OUTER JOIN
 ... USING (order_id)`) needs — it demonstrates the join can be expressed as
   plain TypeScript instead of a database query.
-- **`src/core/data-validation.ts`** already models per-cell rules
+- **`src/core/workbook/data-validation.ts`** already models per-cell rules
   (`ListValidationRule`, `NumberValidationRule`) with a severity-free
   pass/fail check (`checkValidationValue`). The Issue's rule engine
   (required, type, regex, allowed values, range, uniqueness, ...) is a
@@ -80,7 +80,7 @@ look like:
   the Issue specifies) rather than a synchronized dual-pane virtualized
   grid — a full split view is a much larger UI investment (see below) and
   isn't required to deliver the core value ("what changed since last time").
-- **Export** reusing `src/core/csv-export.ts` to write a diff CSV, satisfying
+- **Export** reusing `src/core/interchange/csv-export.ts` to write a diff CSV, satisfying
   the Issue's "output a diff CSV" requirement without new file-format code.
 
 This slice deliberately excludes, as separate later work:

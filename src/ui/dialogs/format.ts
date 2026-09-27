@@ -24,12 +24,12 @@ import {
   type BorderWidth,
   type NumberFormat,
   type NumberFormatKind,
-} from '../../core/cell-style';
+} from '../../core/workbook/cell-style';
 import type {
   CellValueOperator,
   ConditionalFormatRule,
   ConditionalFormatStyle,
-} from '../../core/conditional-format';
+} from '../../core/workbook/conditional-format';
 import { Hash, PaintBucket, Palette, Sparkles, Table, type IconNode } from 'lucide';
 import { el } from '../dom';
 import {

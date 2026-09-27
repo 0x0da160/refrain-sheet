@@ -19,8 +19,8 @@ import {
   DEFAULT_HISTORY_SNAPSHOT_LIMIT,
   MAX_RSF_HISTORY_SNAPSHOTS,
   type RsfHistorySnapshot,
-} from '../../core/rsf-codec';
-import { listTimeZones } from '../../core/timezone';
+} from '../../core/workbook/rsf-codec';
+import { listTimeZones } from '../../core/workbook/timezone';
 import { APP_VERSION_DISPLAY } from '../../app/version';
 import { el } from '../dom';
 import { dialogButton, externalLink, helpDetails, openDialog, submitOnEnter } from './shared';

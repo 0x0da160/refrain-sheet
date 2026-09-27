@@ -2,7 +2,11 @@
 import { MessageSquare } from 'lucide';
 import type { AppState } from '../app/state';
 import { t } from '../app/i18n';
-import { collectSheetComments, collectWorkbookComments, type CommentEntry } from '../core/cell-comment';
+import {
+  collectSheetComments,
+  collectWorkbookComments,
+  type CommentEntry,
+} from '../core/workbook/cell-comment';
 import { cellLabel } from '../core/formula';
 import {
   applySidePanelPosition,

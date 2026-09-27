@@ -13,8 +13,8 @@ import type {
   WorkbookReplaceConfirmInput,
 } from '../../app/commands';
 import { t } from '../../app/i18n';
-import { MAX_COMMENT_LENGTH } from '../../core/cell-comment';
-import { MAX_VALIDATION_LIST_VALUES, type ValidationRule } from '../../core/data-validation';
+import { MAX_COMMENT_LENGTH } from '../../core/workbook/cell-comment';
+import { MAX_VALIDATION_LIST_VALUES, type ValidationRule } from '../../core/workbook/data-validation';
 import {
   FILTER_NUMBER_OPS,
   FILTER_TEXT_OPS,
@@ -23,10 +23,10 @@ import {
   type FilterCondition,
   type FilterNumberOp,
   type FilterTextOp,
-} from '../../core/filter';
+} from '../../core/workbook/filter';
 import { MAX_SHEET_NAME_LENGTH } from '../../core/formula';
-import { MAX_SHEET_SORT_KEYS, type SortKey } from '../../core/sort';
-import type { WorksheetKind } from '../../core/worksheet';
+import { MAX_SHEET_SORT_KEYS, type SortKey } from '../../core/workbook/sort';
+import type { WorksheetKind } from '../../core/workbook/worksheet';
 import { el } from '../dom';
 import { createIcon } from '../icon';
 import {

@@ -11,16 +11,16 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { setLocale } from '../../src/app/i18n';
-import { formatCellNumber } from '../../src/core/cell-number-format';
+import { formatCellNumber } from '../../src/core/workbook/cell-number-format';
 import {
   MAX_CURRENCY_SYMBOL_LENGTH,
   MAX_NUMBER_FORMAT_DECIMALS,
   normalizeNumberFormat,
   numberFormatsEqual,
   type NumberFormat,
-} from '../../src/core/cell-style';
+} from '../../src/core/workbook/cell-style';
 import { decodeRsf, encodeRsf, rsfFromTree, rsfTree, type RsfData } from '../rsf-single-sheet';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { doc as csvDoc } from '../helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {

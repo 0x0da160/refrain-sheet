@@ -23,7 +23,7 @@
  * `file-access.ts`.
  */
 import type { CellRange } from '../core/clipboard';
-import { BORDER_WIDTH_PX, type BorderSideValue } from '../core/cell-style';
+import { BORDER_WIDTH_PX, type BorderSideValue } from '../core/workbook/cell-style';
 import {
   layoutStyledRangeForImage,
   type CellVisualStyle,

@@ -3,7 +3,7 @@
 //! and serialization planning.
 //!
 //! This module is a faithful port of the TypeScript byte parser in
-//! `src/core/byte-csv-parser.ts` and must keep identical semantics: it reads
+//! `src/core/csv/byte-csv-parser.ts` and must keep identical semantics: it reads
 //! structure only (byte offsets), never decodes text, never repairs malformed
 //! content, and never normalizes input bytes. Text decoding stays on the
 //! JavaScript side, where cell values are materialized lazily.

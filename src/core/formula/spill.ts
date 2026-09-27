@@ -50,9 +50,9 @@
  * into another, reference the *anchor* cell.
  */
 
-import type { AstNode } from './formula';
-import { lookupFunction } from './formula-functions';
-import type { ValueGrid } from './formula-value';
+import type { AstNode } from '.';
+import { lookupFunction } from './functions';
+import type { ValueGrid } from './value';
 
 /**
  * Maximum spill anchors evaluated per worksheet. Past this the remaining

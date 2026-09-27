@@ -44,18 +44,18 @@ const MAX_SOURCE_LINES = 800;
 /** Oversized files, each capped at its current line count. Shrink, never grow. */
 const LINE_BUDGET = {
   'src/ui/grid/index.ts': 3576,
-  'src/core/formula-functions.ts': 2170,
-  'src/core/formula.ts': 2050,
-  'src/core/rsf-document.ts': 1786,
+  'src/core/formula/functions/index.ts': 2170,
+  'src/core/formula/index.ts': 2050,
+  'src/core/workbook/rsf-document.ts': 1786,
   'src/app/commands/index.ts': 1759,
   'src/app/state/index.ts': 1292,
   'src/app/commands/file-io.ts': 1234,
-  'src/core/rsf-codec.ts': 1160,
+  'src/core/workbook/rsf-codec.ts': 1160,
   'src/ui/dialogs/sheet-ops.ts': 1100,
   'src/ui/menu-bar.ts': 1049,
   'src/ui/dialogs/shared.ts': 880,
   'src/app/commands/paste-fill.ts': 844,
-  'src/core/worksheet.ts': 823,
+  'src/core/workbook/worksheet.ts': 823,
 };
 
 const errors = [];

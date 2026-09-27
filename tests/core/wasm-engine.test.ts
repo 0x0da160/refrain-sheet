@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import fc from 'fast-check';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { detectDelimiterJs, parseCsvIndexJs, type DelimiterId } from '../../src/core/byte-csv-parser';
+import { detectDelimiterJs, parseCsvIndexJs, type DelimiterId } from '../../src/core/csv/byte-csv-parser';
 import {
   countLiteralJs,
   decodeEmbeddedWasm,
@@ -10,9 +10,9 @@ import {
   planReplacementsJs,
   setCsvEngineForTesting,
   statsAggregateJs,
-} from '../../src/core/csv-engine';
-import { LosslessDocument } from '../../src/core/lossless-document';
-import { serializeDocument } from '../../src/core/serializer';
+} from '../../src/core/csv/csv-engine';
+import { LosslessDocument } from '../../src/core/csv/lossless-document';
+import { serializeDocument } from '../../src/core/csv/serializer';
 import { WASM_BASE64, WASM_BYTE_LENGTH } from '../../src/generated/wasm-payload';
 import { utf8 } from '../helpers';
 

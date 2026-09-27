@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { DelimiterId } from './byte-csv-parser';
+import type { DelimiterId } from '../csv/byte-csv-parser';
 import {
   evaluateAst,
   evaluateAstArray,
@@ -11,7 +11,7 @@ import {
   sheetNameKey,
   type EvalContext,
   type FormulaValue,
-} from './formula';
+} from '../formula';
 import {
   buildSpillMap,
   canSpill,
@@ -20,8 +20,8 @@ import {
   isEmptySpillMap,
   type SpillAnchor,
   type SpillMap,
-} from './spill';
-import type { ValueGrid } from './formula-value';
+} from '../formula/spill';
+import type { ValueGrid } from '../formula/value';
 import { formatCellNumber } from './cell-number-format';
 import type { CellStyle } from './cell-style';
 import {
@@ -50,8 +50,8 @@ import {
   type RsfWorksheetData,
 } from './rsf-codec';
 import { Worksheet } from './worksheet';
-import { APP_NAME, APP_VERSION } from './app-identity';
-import type { LosslessDocument } from './lossless-document';
+import { APP_NAME, APP_VERSION } from '../app-identity';
+import type { LosslessDocument } from '../csv/lossless-document';
 import { DEFAULT_TIMEZONE, isValidTimeZone, localTimeZone, timeZoneOffsetMs } from './timezone';
 import { DEFAULT_DISPLAY_LANGUAGE, isValidDisplayLanguage, type DisplayLanguageId } from './display-language';
 

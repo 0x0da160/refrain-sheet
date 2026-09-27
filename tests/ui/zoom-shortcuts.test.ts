@@ -12,7 +12,7 @@ import { Commands, type UiPort } from '../../src/app/commands';
 import { nextZoomLevel } from '../../src/app/settings';
 import { resolveShortcut, type ShortcutKey } from '../../src/app/shortcuts';
 import { Grid } from '../../src/ui/grid';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 
 function key(over: Partial<ShortcutKey>): ShortcutKey {
   return { key: '', code: '', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...over };

@@ -17,7 +17,7 @@ generated:
 After the container is unwrapped (see [overview.md](overview.md)), a `.rsf`
 file is one UTF-8 JSON document (no BOM). This page is its full
 specification for format **version 1**. The reference implementation is
-`src/core/rsf-codec.ts`.
+`src/core/workbook/rsf-codec.ts`.
 
 ## Layout
 
@@ -138,7 +138,7 @@ older than this key ignore it and show the text with the cell's own style.
 
 ### Filter
 
-`filter` has the in-memory shape of `SheetFilter` (`src/core/filter.ts`):
+`filter` has the in-memory shape of `SheetFilter` (`src/core/workbook/filter.ts`):
 `top`, `left`, `bottom`, `right` (0-based, inclusive), `headerRow`, and
 `columns`, each with `col`, `join` (`and`/`or`), `conditions` (`{ kind:
 "text", op, value }` or `{ kind: "number", op, value, value2? }`), and

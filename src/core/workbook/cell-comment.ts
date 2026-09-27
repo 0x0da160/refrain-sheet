@@ -5,7 +5,7 @@
  * evaluation, sort, filter, or CSV export (see #235).
  *
  * Persisted in the RSF container (body version 11+, see
- * `src/core/rsf-codec.ts` and `knowledge/formats/rsf/index.md`): comments live in a
+ * `src/core/workbook/rsf-codec.ts` and `knowledge/formats/rsf/index.md`): comments live in a
  * worksheet's sparse comment map (`Worksheet`) and survive closing and
  * reopening a file, exactly like cell styles.
  *

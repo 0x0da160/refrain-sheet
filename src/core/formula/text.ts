@@ -31,7 +31,7 @@
  * They are covered by tests so the behaviour is pinned, not accidental.
  */
 
-import { MAX_TEXT_LENGTH } from './formula-value';
+import { MAX_TEXT_LENGTH } from './value';
 
 /**
  * Split text into code points. `Array.from` iterates a string by code point,

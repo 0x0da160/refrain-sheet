@@ -6,7 +6,7 @@ import { Commands, type UiPort } from '../../src/app/commands';
 import { t } from '../../src/app/i18n';
 import { resolveShortcut } from '../../src/app/shortcuts';
 import { rangeToTsv } from '../../src/core/clipboard';
-import { RsfDocument, NEW_DOC_ROWS, NEW_DOC_COLS } from '../../src/core/rsf-document';
+import { RsfDocument, NEW_DOC_ROWS, NEW_DOC_COLS } from '../../src/core/workbook/rsf-document';
 import { Grid } from '../../src/ui/grid';
 import { StatusBar } from '../../src/ui/status-bar';
 import { doc } from '../helpers';

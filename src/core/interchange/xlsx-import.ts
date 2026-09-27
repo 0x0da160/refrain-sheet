@@ -18,8 +18,8 @@
  * dependency or new WASM surface is introduced.
  */
 
-import { getRsfCodec, inflateRaw } from './csv-engine';
-import { parseRef } from './formula';
+import { getRsfCodec, inflateRaw } from '../csv/csv-engine';
+import { parseRef } from '../formula';
 
 interface XlsxImportSheet {
   /** Worksheet display name, taken from `xl/workbook.xml`. */

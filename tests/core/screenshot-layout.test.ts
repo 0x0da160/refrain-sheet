@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 import { layoutStyledRangeForImage, type VisualDisplaySource } from '../../src/core/screenshot-layout';
-import type { CellStyle } from '../../src/core/cell-style';
-import type { ConditionalFormatStyle } from '../../src/core/conditional-format';
+import type { CellStyle } from '../../src/core/workbook/cell-style';
+import type { ConditionalFormatStyle } from '../../src/core/workbook/conditional-format';
 
 /** A minimal fake `VisualDisplaySource` for pure, DOM-free unit tests. */
 function fakeSource(opts: {

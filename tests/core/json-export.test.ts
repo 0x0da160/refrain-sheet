@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { buildJsonExport } from '../../src/core/json-export';
+import { buildJsonExport } from '../../src/core/interchange/json-export';
 
 function parse(bytes: Uint8Array): unknown {
   return JSON.parse(new TextDecoder().decode(bytes));

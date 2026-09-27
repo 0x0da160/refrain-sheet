@@ -22,7 +22,7 @@ import {
   refLabel,
   shiftFormulaRefs,
 } from '../../src/core/formula';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   return {

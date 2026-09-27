@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { CellStyle } from './cell-style';
 import type { SheetFilter } from './filter';
-import type { LosslessDocument } from './lossless-document';
+import type { LosslessDocument } from '../csv/lossless-document';
 import type { Worksheet } from './worksheet';
 
 /**

@@ -30,8 +30,8 @@
  * into `#VALUE!`.
  */
 
-import { DEFAULT_DISPLAY_LANGUAGE, type DisplayLanguageId } from './display-language';
-import { serialToParts, weekdayOf } from './formula-date';
+import { DEFAULT_DISPLAY_LANGUAGE, type DisplayLanguageId } from '../workbook/display-language';
+import { serialToParts, weekdayOf } from './date';
 
 const NUMERIC_FORMAT = /^(#,##0|0)(\.0+)?(%)?$/;
 const DATE_TOKENS = /yyyy|yy|dddd|ddd|mm|dd|[-/. ]/gi;

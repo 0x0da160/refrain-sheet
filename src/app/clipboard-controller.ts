@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { CellStyle } from '../core/cell-style';
+import type { CellStyle } from '../core/workbook/cell-style';
 import type { CellRange } from '../core/clipboard';
 import {
   copyRows,

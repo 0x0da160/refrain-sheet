@@ -60,7 +60,7 @@
  * formula cell becomes the spill anchor.
  */
 
-import { DEFAULT_DISPLAY_LANGUAGE, type DisplayLanguageId } from './display-language';
+import { DEFAULT_DISPLAY_LANGUAGE, type DisplayLanguageId } from '../workbook/display-language';
 import {
   coerceToNumber,
   EMPTY_VALUE,
@@ -76,7 +76,7 @@ import {
   type ErrorCode,
   type FormulaValue,
   type ValueGrid,
-} from './formula-value';
+} from './value';
 import {
   FUNCTION_INFOS,
   isGrid,
@@ -86,7 +86,7 @@ import {
   type FnResult,
   type FunctionInfo,
   type GridResult,
-} from './formula-functions';
+} from './functions';
 
 export {
   EMPTY_VALUE,
@@ -96,7 +96,7 @@ export {
   MAX_FORMULA_LENGTH,
   type FormulaValue,
   type ValueGrid,
-} from './formula-value';
+} from './value';
 
 export {
   FUNCTION_INFOS,
@@ -104,7 +104,7 @@ export {
   VOLATILE_FUNCTIONS,
   type FunctionCategory,
   type FunctionInfo,
-} from './formula-functions';
+} from './functions';
 
 /** True when a string is a formula (leading `=`, at least one more character). */
 export function isFormula(input: string): boolean {

@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { warnProtectedAndOfferUnlock } from '../../src/app/commands/shared';
 import { t } from '../../src/app/i18n';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { doc } from '../helpers';
 
 function stubConfirm(result: boolean) {

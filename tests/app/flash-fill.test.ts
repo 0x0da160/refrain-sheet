@@ -15,7 +15,7 @@ import {
   inferFlashFillCandidates,
   type FlashFillOp,
 } from '../../src/core/flash-fill';
-import { RsfDocument } from '../../src/core/rsf-document';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { doc as csvDoc } from '../helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {

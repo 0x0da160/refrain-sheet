@@ -10,8 +10,8 @@
  * see `tests/core/formula-functions.test.ts`).
  */
 import type { NumberFormat } from './cell-style';
-import { formatValueAsText } from './formula-text-format';
-import { numberToText } from './formula-value';
+import { formatValueAsText } from '../formula/text-format';
+import { numberToText } from '../formula/value';
 
 /** The `formula-text-format.ts` code for `format`'s decimals/thousands, without a currency symbol. */
 function baseFormatCode(format: NumberFormat): string {

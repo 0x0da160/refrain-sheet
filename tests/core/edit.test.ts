@@ -2,8 +2,8 @@
 // Minimal-diff edits: only the byte range of the edited field changes;
 // quoting style, surrounding whitespace, and all other bytes are preserved.
 import { describe, expect, it } from 'vitest';
-import { decodeBytes, UTF8_BOM } from '../../src/core/encoding';
-import { serializeDocument } from '../../src/core/serializer';
+import { decodeBytes, UTF8_BOM } from '../../src/core/csv/encoding';
+import { serializeDocument } from '../../src/core/csv/serializer';
 import { concat, doc, enc, saved, utf8 } from '../helpers';
 
 function text(bytes: Uint8Array): string {

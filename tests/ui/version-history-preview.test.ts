@@ -8,7 +8,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getLocale, setLocale, t } from '../../src/app/i18n';
-import { encodeRsfBody, type RsfHistorySnapshot, type RsfWorkbookData } from '../../src/core/rsf-codec';
+import {
+  encodeRsfBody,
+  type RsfHistorySnapshot,
+  type RsfWorkbookData,
+} from '../../src/core/workbook/rsf-codec';
 
 // jsdom does not implement <dialog>.showModal(); the shim only needs to make
 // the element "open" so its content is queryable (see about-dialog.test.ts).

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
-import { parseJsonWorkbook } from '../../src/core/json-import';
-import { buildJsonExport } from '../../src/core/json-export';
+import { parseJsonWorkbook } from '../../src/core/interchange/json-import';
+import { buildJsonExport } from '../../src/core/interchange/json-export';
 
 function bytesOf(text: string): Uint8Array {
   return new TextEncoder().encode(text);

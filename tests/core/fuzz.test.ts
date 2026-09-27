@@ -5,10 +5,10 @@
 // must tolerate any input without crashing.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import type { DelimiterId } from '../../src/core/byte-csv-parser';
-import type { EncodingId } from '../../src/core/encoding';
-import { LosslessDocument } from '../../src/core/lossless-document';
-import { serializeDocument } from '../../src/core/serializer';
+import type { DelimiterId } from '../../src/core/csv/byte-csv-parser';
+import type { EncodingId } from '../../src/core/csv/encoding';
+import { LosslessDocument } from '../../src/core/csv/lossless-document';
+import { serializeDocument } from '../../src/core/csv/serializer';
 import { utf8 } from '../helpers';
 
 const ENCODINGS: EncodingId[] = ['utf-8', 'shift_jis', 'euc-jp'];

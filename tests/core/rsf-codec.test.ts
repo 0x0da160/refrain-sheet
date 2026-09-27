@@ -8,7 +8,7 @@
  * blocks and cannot read compressed blocks).
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { getRsfCodec, initCsvEngine, setCsvEngineForTesting } from '../../src/core/csv-engine';
+import { getRsfCodec, initCsvEngine, setCsvEngineForTesting } from '../../src/core/csv/csv-engine';
 import {
   decodeRsfHistorySnapshot,
   decodeRsfWorkbook,
@@ -21,9 +21,9 @@ import {
   unpackRsfJsonText,
   type RsfWorkbookData,
   type RsfWorksheetData,
-} from '../../src/core/rsf-codec';
-import { RsfDocument } from '../../src/core/rsf-document';
-import { readSimpleZstdFrame, writeRawZstdFrame } from '../../src/core/zstd-frame';
+} from '../../src/core/workbook/rsf-codec';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
+import { readSimpleZstdFrame, writeRawZstdFrame } from '../../src/core/workbook/zstd-frame';
 import { rsfFromTree, rsfTree } from '../rsf-single-sheet';
 
 const sheet: RsfWorksheetData = {

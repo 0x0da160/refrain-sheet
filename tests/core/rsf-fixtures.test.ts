@@ -28,14 +28,14 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { initCsvEngine, setCsvEngineForTesting, type CsvEngineName } from '../../src/core/csv-engine';
+import { initCsvEngine, setCsvEngineForTesting, type CsvEngineName } from '../../src/core/csv/csv-engine';
 import {
   decodeRsfWorkbook,
   encodeRsfBody,
   encodeRsfWorkbook,
   type RsfWorkbookData,
   type RsfWorksheetData,
-} from '../../src/core/rsf-codec';
+} from '../../src/core/workbook/rsf-codec';
 
 const LEGACY_DIR = new URL('../fixtures/rsf/', import.meta.url);
 const V1_DIR = new URL('../fixtures/rsf/v1/', import.meta.url);

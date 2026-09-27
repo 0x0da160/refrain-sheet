@@ -10,9 +10,9 @@ import {
   borderSideValue,
   resolveSharedBorder,
   type BorderSideValue,
-} from '../../core/cell-style';
-import type { LosslessDocument } from '../../core/lossless-document';
-import type { RsfDocument } from '../../core/rsf-document';
+} from '../../core/workbook/cell-style';
+import type { LosslessDocument } from '../../core/csv/lossless-document';
+import type { RsfDocument } from '../../core/workbook/rsf-document';
 
 /** Render a resolved border side as a CSS `border-*` shorthand value (`''` when unset). */
 function cssBorder(border: BorderSideValue | null): string {

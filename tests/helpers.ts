@@ -2,10 +2,10 @@
 // `fs` is declared ambiently in tests/node-shims.d.ts (no @types/node needed).
 import { readFileSync } from 'fs';
 import { expect } from 'vitest';
-import type { DelimiterId } from '../src/core/byte-csv-parser';
-import { encodeText, type EncodingId } from '../src/core/encoding';
-import { LosslessDocument } from '../src/core/lossless-document';
-import { serializeDocument, KEEP_SAVE_OPTIONS, type SaveOptions } from '../src/core/serializer';
+import type { DelimiterId } from '../src/core/csv/byte-csv-parser';
+import { encodeText, type EncodingId } from '../src/core/csv/encoding';
+import { LosslessDocument } from '../src/core/csv/lossless-document';
+import { serializeDocument, KEEP_SAVE_OPTIONS, type SaveOptions } from '../src/core/csv/serializer';
 
 /**
  * The app's real stylesheet, assembled the same way the browser/build sees

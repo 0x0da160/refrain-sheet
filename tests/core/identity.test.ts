@@ -2,8 +2,8 @@
 // The core product guarantee: opening a file and saving it without edits
 // produces byte-for-byte identical output, no matter how unusual the input.
 import { describe, expect, it } from 'vitest';
-import { UTF8_BOM } from '../../src/core/encoding';
-import { serializeDocument } from '../../src/core/serializer';
+import { UTF8_BOM } from '../../src/core/csv/encoding';
+import { serializeDocument } from '../../src/core/csv/serializer';
 import { concat, doc, enc, expectIdentity, utf8 } from '../helpers';
 
 describe('identity round-trip (unedited save === original bytes)', () => {

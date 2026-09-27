@@ -3,7 +3,7 @@ import { cellStylesEqual, type CellStyle } from './cell-style';
 import type { CellConditionalFormat } from './conditional-format';
 import type { CellValidation } from './data-validation';
 import type { SheetFilter } from './filter';
-import { isFormula, parseFormula, type ParseResult } from './formula';
+import { isFormula, parseFormula, type ParseResult } from '../formula';
 import type { SheetSort } from './sort';
 
 /** A parsed formula kept alongside the source it was compiled from. */
@@ -158,7 +158,7 @@ export class Worksheet {
    * password — that blocks this worksheet's own cell edits and structural
    * changes (see `AppState`'s `refuseLockedSheetWrite`); every other
    * worksheet in the workbook stays editable. Persisted in the RSF container
-   * (body version 13+, see `src/core/rsf-codec.ts`).
+   * (body version 13+, see `src/core/workbook/rsf-codec.ts`).
    */
   locked = false;
 
@@ -183,7 +183,7 @@ export class Worksheet {
   /**
    * Sparse cell-level annotations (see {@link ../cell-comment}), keyed
    * row-major like `styles`. Persisted in the RSF container (body version
-   * 11+, see `src/core/rsf-codec.ts`) and reindexed on row/column
+   * 11+, see `src/core/workbook/rsf-codec.ts`) and reindexed on row/column
    * insert/delete the same way `styles` is, so a comment keeps following the
    * cell it was attached to.
    */

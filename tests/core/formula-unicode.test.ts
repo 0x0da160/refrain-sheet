@@ -6,8 +6,8 @@
  * silently.
  */
 import { describe, expect, it } from 'vitest';
-import { RsfDocument } from '../../src/core/rsf-document';
-import { codePointLength, sliceCodePoints, trimText } from '../../src/core/formula-text';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
+import { codePointLength, sliceCodePoints, trimText } from '../../src/core/formula/text';
 
 function evaluate(formula: string, cells: Record<string, string> = {}): string {
   const doc = RsfDocument.empty('t.rsf', 12, 6);

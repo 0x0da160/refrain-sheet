@@ -16,7 +16,7 @@ import type { AppState, Tab } from '../state';
 import { getMaxFileSize } from '../settings';
 import { t } from '../i18n';
 import type { UiPort } from '../commands';
-import { LosslessDocument } from '../../core/lossless-document';
+import { LosslessDocument } from '../../core/csv/lossless-document';
 import { DriveAuthCancelled, DriveAuthError, forgetToken, getAccessToken, signOut } from '../drive/auth';
 import {
   DriveApiError,

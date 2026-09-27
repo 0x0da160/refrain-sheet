@@ -3,9 +3,9 @@ import {
   conditionalFormatRangesEqual,
   validateConditionalFormat,
   MAX_CONDITIONAL_FORMAT_RULES,
-} from '../../core/conditional-format';
+} from '../../core/workbook/conditional-format';
 import { cellLabel } from '../../core/formula';
-import type { RsfDocument } from '../../core/rsf-document';
+import type { RsfDocument } from '../../core/workbook/rsf-document';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
 import type {
@@ -23,7 +23,7 @@ import { applyWhileOpen } from './shared';
  * (`src/app/commands/data-validation.ts`) — `Commands` still exposes the same
  * public methods, delegating to an instance of this class. This is the
  * `Commands`-layer dispatch code, distinct from (and a consumer of) the pure
- * logic in `src/core/conditional-format.ts`.
+ * logic in `src/core/workbook/conditional-format.ts`.
  *
  * Like data validation, a worksheet's rules are session-only view state (see
  * `Worksheet.conditionalFormats`): applying or clearing one is a direct state

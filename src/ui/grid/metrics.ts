@@ -2,7 +2,7 @@
 import type { AppState, Tab } from '../../app/state';
 import { ColOffsetIndex } from '../../core/col-offset-index';
 import { RowHeightIndex } from '../../core/row-height-index';
-import type { SheetSort } from '../../core/sort';
+import type { SheetSort } from '../../core/workbook/sort';
 import { COL_WIDTH, ROW_HEAD_WIDTH, ROW_HEIGHT, WRAP_LINE_HEIGHT, WRAP_VERTICAL_PAD } from './geometry';
 
 /** Cached column-offset index plus the state it was built from, for invalidation. */
@@ -91,7 +91,7 @@ export class GridMetrics {
 
   /**
    * The document row whose content belongs at display slot `row`. Identity
-   * when nothing is sorted — see `AppState.docRow`/`core/sort.ts`.
+   * when nothing is sorted — see `AppState.docRow`/`core/workbook/sort.ts`.
    */
   docRowOf(tab: Tab, row: number): number {
     return this.state.docRow(tab, row);

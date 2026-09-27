@@ -21,6 +21,7 @@ import { parseJsonWorkbook, type JsonImportError } from '../../core/interchange/
 import type { Tab } from '../state';
 import { defaultSheetName } from '../state/defaults';
 import { readFileObject, type OpenedFile } from '../file-access';
+import { isOpenInAnotherTab } from '../open-elsewhere';
 import {
   clearRecentFiles,
   ensureReadPermission,
@@ -146,6 +147,9 @@ export class FileOpening {
 
     const lowerName = file.name.toLowerCase();
     if (lowerName.endsWith(RSF_EXTENSION) || lowerName.endsWith(RSF_LEGACY_EXTENSION)) {
+      if (await this.alreadyOpen(file)) {
+        return;
+      }
       await this.openRsfFile(file);
       return;
     }
@@ -175,10 +179,7 @@ export class FileOpening {
       }
     }
 
-    const existing = await this.findExistingTab(file);
-    if (existing) {
-      this.core.state.activateTab(existing.id);
-      this.core.ui.notify(t('notify.sameFile', { name: file.name }), 'info');
+    if (await this.alreadyOpen(file)) {
       return;
     }
 
@@ -353,6 +354,27 @@ export class FileOpening {
     tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
     this.core.ui.notify(t('notify.jsonImported', { name }), 'info');
     await this.autoFitOnOpen(tab);
+  }
+
+  /**
+   * A file that is already open is never opened a second time, so two
+   * copies cannot overwrite each other's saves. Open in this window: switch
+   * to its tab. Open in another browser tab of the app: say so and stop.
+   * (`.xlsx` and `.json` are imported into new, unsaved files and never
+   * hold the original, so they are not checked.)
+   */
+  private async alreadyOpen(file: OpenedFile): Promise<boolean> {
+    const existing = await this.findExistingTab(file);
+    if (existing) {
+      this.core.state.activateTab(existing.id);
+      this.core.ui.notify(t('notify.sameFile', { name: file.name }), 'info');
+      return true;
+    }
+    if (file.handle && (await isOpenInAnotherTab(file.handle))) {
+      this.core.ui.notify(t('notify.openInAnotherTab', { name: file.name }), 'warn');
+      return true;
+    }
+    return false;
   }
 
   private async findExistingTab(file: OpenedFile): Promise<Tab | null> {

@@ -104,8 +104,6 @@ export interface MenuChecks {
   highlightCol: () => boolean;
   /** Whether opening a file auto-fits every column to its content. */
   autoFitOnOpen: () => boolean;
-  /** Whether the right-side cell comments panel is open. */
-  commentsPanel: () => boolean;
   /** Whether the app is shown full screen (View > Full Screen). */
   fullscreen: () => boolean;
   /** Whether Bold/Italic/Underline is "on" for the whole current selection. */
@@ -379,11 +377,7 @@ function viewMenu(checks: MenuChecks): MenuDef {
         command: 'view.autoFitOnOpen',
         checked: checks.autoFitOnOpen,
       },
-      {
-        labelKey: 'menu.view.commentsPanel',
-        command: 'view.commentsPanel',
-        checked: checks.commentsPanel,
-      },
+      { labelKey: 'menu.view.commentsPanel', command: 'view.commentsPanel' },
       // Menu only: F11 stays the browser's own full screen, which a page
       // cannot reliably take over in every browser.
       { labelKey: 'menu.view.fullscreen', command: 'view.fullscreen', checked: checks.fullscreen },

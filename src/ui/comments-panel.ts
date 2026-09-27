@@ -29,8 +29,8 @@ type CommentScope = 'sheet' | 'workbook';
  * panels (`openSidePanel`, `src/ui/dialogs/side-panel.ts`) — rather than a
  * separate always-right-hand-side surface, so every dockable panel in the
  * app behaves and remembers its dock side/size identically (#399). Unlike
- * those transient panels it is created once and toggled open/closed rather
- * than resolved and torn down.
+ * those transient panels it is created once and opened/closed rather than
+ * resolved and torn down; only its header × closes it.
  *
  * Clicking an entry selects and reveals its cell, switching worksheets first
  * if the entry belongs to a different one; like `FindBar.next()`'s
@@ -88,15 +88,11 @@ export class CommentsPanel {
     return !this.element.hidden;
   }
 
-  toggle(): void {
-    if (this.isOpen) {
-      this.close();
-    } else {
-      this.open();
-    }
-  }
-
   open(): void {
+    if (this.isOpen) {
+      this.render();
+      return;
+    }
     this.element.hidden = false;
     // Applied on open rather than at construction time (the panel starts
     // hidden): reserving app-edge space for a closed panel would shrink the

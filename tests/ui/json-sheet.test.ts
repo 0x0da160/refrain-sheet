@@ -108,17 +108,21 @@ describe('JsonSheetView', () => {
     expect(view.panelElement.hidden).toBe(false);
   });
 
-  it('closes the preview panel when the toggle button is clicked, and reopens it on a second click', () => {
+  it('never closes the preview from the toolbar button: it is disabled while open and reopens after ×', () => {
     const { view } = setup();
     const toggle = view.element.querySelector('.markdown-editor-toolbar button') as HTMLButtonElement;
-
-    toggle.click();
-    expect(view.panelElement.hidden).toBe(true);
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(toggle.disabled).toBe(true);
 
     toggle.click();
     expect(view.panelElement.hidden).toBe(false);
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+
+    (view.panelElement.querySelector('.side-panel-close-btn') as HTMLButtonElement).click();
+    expect(view.panelElement.hidden).toBe(true);
+    expect(toggle.disabled).toBe(false);
+
+    toggle.click();
+    expect(view.panelElement.hidden).toBe(false);
+    expect(toggle.disabled).toBe(true);
   });
 
   it('renders the preview as syntax-highlighted tokens, reflecting the source', async () => {

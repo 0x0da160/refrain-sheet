@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.12] - 2026-09-27
+
 ### Added
 
 - Banded rows now come in three strengths — Light, Medium, and Dark — chosen

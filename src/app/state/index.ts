@@ -119,6 +119,7 @@ export class AppState {
       doc,
       history: new History(),
       handle,
+      diskStamp: null,
       selection: doc.rowCount > 0 ? { row: 0, col: 0 } : null,
       anchor: null,
       selectionKind: 'cell',

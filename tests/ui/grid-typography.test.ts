@@ -105,6 +105,7 @@ describe('grid typography model (stylesheet)', () => {
 const noopUi: UiPort = {
   confirmValidation: async () => true,
   confirmUnsaved: async () => 'discard',
+  confirmChangedOnDisk: async () => 'overwrite',
   chooseSaveOptions: async () => null,
   promptDriveName: async () => null,
   confirmUnrepresentable: async () => false,

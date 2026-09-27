@@ -3,6 +3,7 @@
 import type { EditorDocument } from '../../core/editor-document';
 import type { History } from '../../core/workbook/history';
 import type { FreezePanes } from '../../core/workbook/worksheet';
+import type { FileStamp } from '../file-access';
 
 export interface Selection {
   row: number;
@@ -38,6 +39,13 @@ export interface Tab {
   doc: EditorDocument;
   history: History;
   handle: FileSystemFileHandle | null;
+  /**
+   * How `handle`'s file looked on disk when this tab opened or last saved it.
+   * A save that finds a different stamp asks before overwriting, so an edit
+   * saved from another browser tab or another app is never silently lost.
+   * Null when there is no handle or the stamp is unknown (no check is made).
+   */
+  diskStamp: FileStamp | null;
   /** Active cell. */
   selection: Selection | null;
   /** Selection anchor for rectangular ranges (null: single-cell selection). */

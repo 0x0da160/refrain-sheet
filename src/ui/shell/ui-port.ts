@@ -26,6 +26,7 @@ export function createUiPort({ dialogs, toasts, loadingOverlay, findBar }: UiPor
   return {
     confirmValidation: (name, summary) => dialogs.confirmValidation(name, summary),
     confirmUnsaved: (names) => dialogs.confirmUnsaved(names),
+    confirmChangedOnDisk: (name) => dialogs.confirmChangedOnDisk(name),
     chooseSaveOptions: (tab, note) => dialogs.chooseSaveOptions(tab, note),
     promptDriveName: (suggested) => dialogs.promptDriveName(suggested),
     confirmUnrepresentable: (encoding, cells) => dialogs.confirmUnrepresentable(encoding, cells),

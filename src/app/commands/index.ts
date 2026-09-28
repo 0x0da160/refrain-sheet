@@ -21,6 +21,7 @@ import { isSignedIn as driveIsSignedIn } from '../drive/auth';
 import { FilterCommands } from './filter';
 import { FormatCommands } from './format';
 import { SortCommands } from './sort';
+import { SheetFolderCommands, type FolderAction } from './sheet-folders';
 import { WorksheetCommands } from './worksheets';
 import { SqlCommands, type SqlRunOutcome } from './sql';
 import { DiffCommands } from './diff';
@@ -118,6 +119,7 @@ export class Commands {
       conditionalFormat: new ConditionalFormatCommands(state, ui, ensureRsf),
       comment: new CommentCommands(state, ui, ensureRsf),
       worksheets: new WorksheetCommands(state, ui, ensureRsf),
+      folders: new SheetFolderCommands(state, ui),
       pasteFill: new PasteFillCommands(
         state,
         ui,
@@ -177,6 +179,20 @@ export class Commands {
       dom: this.dom,
       tab: this.state.activeTab,
     };
+  }
+
+  /** Rename, move, ungroup, or delete a sheet folder of the active workbook (its strip context menu). */
+  async folderAction(action: FolderAction, folderId: string): Promise<void> {
+    const tab = this.state.activeTab;
+    if (tab) {
+      await this.parts.folders.folderAction(tab, action, folderId);
+    }
+  }
+
+  /** Move a worksheet dropped onto a folder in the strip into that folder. */
+  dropSheetOnFolder(sheetId: string, folderId: string): boolean {
+    const tab = this.state.activeTab;
+    return tab !== null && this.parts.folders.dropSheetOnFolder(tab, sheetId, folderId);
   }
 
   /** Surface a localized notification (used by UI surfaces without direct port access). */

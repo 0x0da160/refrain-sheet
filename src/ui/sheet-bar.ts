@@ -1,8 +1,28 @@
 // SPDX-License-Identifier: MIT
 import { isWorkbook } from '../core/editor-document';
-import { FileCode, FileJson, FileText, FileType, Lock, LockOpen, Plus, Table, type IconNode } from 'lucide';
+import {
+  ChevronDown,
+  ChevronRight,
+  FileCode,
+  FileJson,
+  FileText,
+  FileType,
+  Folder,
+  Lock,
+  LockOpen,
+  Plus,
+  Table,
+  type IconNode,
+} from 'lucide';
 import type { AppState } from '../app/state';
 import type { CommandId, Commands } from '../app/commands';
+import type { RsfDocument } from '../core/workbook/rsf-document';
+import {
+  buildSheetTree,
+  folderPath,
+  type SheetFolder,
+  type SheetTreeNode,
+} from '../core/workbook/sheet-folders';
 import { t } from '../app/i18n';
 import type { WorksheetKind } from '../core/workbook/worksheet';
 import { ICON_BY_COMMAND } from './command-icons';
@@ -36,6 +56,8 @@ const SHEET_KIND_ICON: Record<WorksheetKind, IconNode> = {
 const SHEET_MENU_ITEMS: Array<{ command: CommandId; labelKey: string; separatorBefore?: boolean }> = [
   { command: 'worksheet.rename', labelKey: 'menu.sheet.renameSheet' },
   { command: 'worksheet.tabColor', labelKey: 'menu.sheet.tabColor' },
+  { command: 'worksheet.newFolder', labelKey: 'menu.sheet.newFolder' },
+  { command: 'worksheet.moveToFolder', labelKey: 'menu.sheet.moveToFolder' },
   { command: 'worksheet.duplicate', labelKey: 'menu.sheet.duplicateSheet' },
   { command: 'worksheet.delete', labelKey: 'menu.sheet.deleteSheet' },
   { command: 'worksheet.toggleLock', labelKey: 'menu.sheet.lockSheet', separatorBefore: true },
@@ -77,6 +99,8 @@ export class SheetBar {
    * rebuild it — which is what keeps a workbook with many worksheets cheap.
    */
   private renderedKey = '';
+  /** Folders shown closed, per workbook. Session-only: not saved in the file. */
+  private readonly collapsed = new WeakMap<RsfDocument, Set<string>>();
 
   constructor(
     private readonly state: AppState,
@@ -106,7 +130,7 @@ export class SheetBar {
     // whole row goes away instead of leaving an empty band under the grid.
     this.element.hidden = !isWorkbook(doc);
     const key = isWorkbook(doc)
-      ? `rsf|${doc.activeSheetId}|${doc.sheets.map((s) => `${s.id}:${s.name}:${s.locked ? 1 : 0}:${s.tabColor ?? ''}`).join('')}`
+      ? `rsf|${doc.activeSheetId}|${doc.sheets.map((s) => `${s.id}:${s.name}:${s.locked ? 1 : 0}:${s.tabColor ?? ''}:${s.folderId ?? ''}`).join('')}|${JSON.stringify(doc.folders)}|${[...this.closedFolders(doc)].join()}`
       : 'csv';
     if (!force && key === this.renderedKey) {
       return;
@@ -124,18 +148,12 @@ export class SheetBar {
     }
     this.strip.setAttribute('role', 'tablist');
     this.strip.setAttribute('aria-orientation', this.isVertical() ? 'vertical' : 'horizontal');
-    for (const sheet of doc.sheets) {
-      this.strip.append(
-        this.buildSheetTab(
-          sheet.id,
-          sheet.name,
-          sheet.kind,
-          sheet.locked,
-          sheet.tabColor,
-          sheet.id === doc.activeSheetId,
-        ),
-      );
-    }
+    const tree = buildSheetTree(
+      doc.sheets.map((sheet) => sheet.id),
+      (id) => doc.sheetById(id)?.folderId,
+      doc.folders,
+    );
+    this.appendNodes(this.strip, doc, tree);
     const add = el(
       'button',
       {
@@ -153,6 +171,133 @@ export class SheetBar {
     if (activeTab && typeof activeTab.scrollIntoView === 'function') {
       activeTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
+  }
+
+  /** The folders shown closed in `doc` (created on first use). */
+  private closedFolders(doc: RsfDocument): Set<string> {
+    let closed = this.collapsed.get(doc);
+    if (!closed) {
+      closed = new Set();
+      this.collapsed.set(doc, closed);
+    }
+    return closed;
+  }
+
+  /**
+   * Render tree items: a worksheet as its tab, a folder as a group of a
+   * header and its items. A closed folder still shows the active worksheet,
+   * so the tab being edited never disappears.
+   */
+  private appendNodes(parent: HTMLElement, doc: RsfDocument, nodes: readonly SheetTreeNode[]): void {
+    for (const node of nodes) {
+      if (node.kind === 'sheet') {
+        const sheet = doc.sheetById(node.id);
+        if (sheet) {
+          parent.append(
+            this.buildSheetTab(
+              sheet.id,
+              sheet.name,
+              sheet.kind,
+              sheet.locked,
+              sheet.tabColor,
+              sheet.id === doc.activeSheetId,
+            ),
+          );
+        }
+        continue;
+      }
+      const open = !this.closedFolders(doc).has(node.folder.id);
+      const items = el('div', { className: 'sheet-folder-items', attrs: { role: 'none' } });
+      if (open) {
+        this.appendNodes(items, doc, node.children);
+      } else if (folderPath(doc.folders, doc.activeSheet.folderId).includes(node.folder)) {
+        this.appendNodes(items, doc, [{ kind: 'sheet', id: doc.activeSheetId }]);
+      }
+      parent.append(
+        el('div', { className: `sheet-folder${open ? '' : ' closed'}`, attrs: { role: 'none' } }, [
+          this.buildFolderHeader(doc, node.folder, open),
+          items,
+        ]),
+      );
+    }
+  }
+
+  /** A folder's header: click opens or closes it, a worksheet dropped on it moves in. */
+  private buildFolderHeader(doc: RsfDocument, folder: SheetFolder, open: boolean): HTMLElement {
+    const header = el(
+      'button',
+      {
+        className: 'sheet-folder-header',
+        attrs: {
+          type: 'button',
+          'data-folder-id': folder.id,
+          'aria-expanded': open ? 'true' : 'false',
+          title: t(open ? 'sheets.folder.close' : 'sheets.folder.open', { name: folder.name }),
+        },
+      },
+      [
+        createIcon(open ? ChevronDown : ChevronRight, 'sheet-folder-chevron', 12),
+        createIcon(Folder, 'sheet-folder-icon', 14),
+        el('span', { className: 'sheet-label', text: folder.name }),
+      ],
+    );
+    header.addEventListener('click', () => {
+      const closed = this.closedFolders(doc);
+      if (!closed.delete(folder.id)) {
+        closed.add(folder.id);
+      }
+      this.render(true);
+      this.strip
+        .querySelector<HTMLElement>(`.sheet-folder-header[data-folder-id="${CSS.escape(folder.id)}"]`)
+        ?.focus();
+    });
+    header.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      this.openFolderMenu(folder.id, event.clientX, event.clientY);
+    });
+    header.addEventListener('dragover', (event) => {
+      if (!this.dragId) {
+        return;
+      }
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+      header.classList.add('drop-into');
+    });
+    header.addEventListener('dragleave', () => header.classList.remove('drop-into'));
+    header.addEventListener('drop', (event) => {
+      if (!this.dragId) {
+        return;
+      }
+      event.preventDefault();
+      const dragged = this.dragId;
+      this.clearDragState();
+      // Deferred for the same reason as a drop on a tab (see buildSheetTab).
+      queueMicrotask(() => {
+        if (this.commands.dropSheetOnFolder(dragged, folder.id)) {
+          this.liveRegion.textContent = t('notify.sheetMovedToFolder', {
+            name: doc.sheetById(dragged)?.name ?? '',
+            folder: folder.name,
+          });
+        }
+      });
+    });
+    return header;
+  }
+
+  private openFolderMenu(folderId: string, x: number, y: number): void {
+    this.closeContextMenu();
+    const run = (action: 'rename' | 'move' | 'ungroup' | 'delete') => () =>
+      void this.commands.folderAction(action, folderId);
+    const entries: ContextMenuEntry[] = [
+      { label: t('menu.sheet.renameFolder'), onSelect: run('rename') },
+      { label: t('menu.sheet.moveFolder'), onSelect: run('move') },
+      { label: t('menu.sheet.ungroupFolder'), onSelect: run('ungroup') },
+      'separator',
+      { label: t('menu.sheet.deleteFolder'), onSelect: run('delete') },
+    ];
+    this.contextMenu = ContextMenu.open(entries, x, y, { onClose: () => (this.contextMenu = null) });
   }
 
   private buildSheetTab(
@@ -267,13 +412,18 @@ export class SheetBar {
     if (!doc) {
       return;
     }
-    const index = doc.sheetIndex(id);
-    const last = doc.sheetCount - 1;
+    // The tabs as shown: in folder order, without those in closed folders.
+    const visible = Array.from(
+      this.strip.querySelectorAll<HTMLElement>('.sheet-tab'),
+      (tab) => tab.dataset.sheetId!,
+    );
+    const index = visible.indexOf(id);
+    const last = visible.length - 1;
     const go = (target: number): void => {
       event.preventDefault();
-      const next = doc.sheets[Math.max(0, Math.min(last, target))];
+      const next = visible[Math.max(0, Math.min(last, target))];
       if (next) {
-        this.activate(next.id);
+        this.activate(next);
         this.focusActive();
       }
     };
@@ -370,17 +520,9 @@ export class SheetBar {
     if (!tab || !doc) {
       return;
     }
-    const from = doc.sheetIndex(draggedId);
-    const targetIndex = doc.sheetIndex(targetId);
-    if (from < 0 || targetIndex < 0) {
-      return;
-    }
-    let to = targetIndex + (before ? 0 : 1);
-    if (from < to) {
-      to -= 1; // account for the removal of the dragged worksheet
-    }
     const name = doc.sheetById(draggedId)?.name ?? '';
-    if (this.state.moveSheet(tab, draggedId, to)) {
+    // Dropping next to a worksheet also puts it in that worksheet's folder.
+    if (this.state.folders.placeSheet(tab, draggedId, targetId, before)) {
       this.liveRegion.textContent = t('notify.sheetMoved', {
         name,
         pos: doc.sheetIndex(draggedId) + 1,
@@ -391,8 +533,8 @@ export class SheetBar {
 
   private clearDragState(): void {
     this.dragId = null;
-    for (const tabEl of this.strip.querySelectorAll('.sheet-tab')) {
-      tabEl.classList.remove('dragging', 'drop-before', 'drop-after');
+    for (const tabEl of this.strip.querySelectorAll('.sheet-tab, .sheet-folder-header')) {
+      tabEl.classList.remove('dragging', 'drop-before', 'drop-after', 'drop-into');
     }
   }
 

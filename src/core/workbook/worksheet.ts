@@ -176,6 +176,12 @@ export class Worksheet {
    */
   tabColor: string | undefined = undefined;
 
+  /**
+   * The id of the sheet folder this worksheet is in, or `undefined` for the
+   * top level (see `sheet-folders.ts`). Persisted as the worksheet's `folder`.
+   */
+  folderId: string | undefined = undefined;
+
   /** Session-only view state, restored when this worksheet becomes active. */
   readonly view: WorksheetView = {
     selection: null,
@@ -680,6 +686,7 @@ export class Worksheet {
     copy.displayLook = { ...this.displayLook };
     copy.locked = this.locked;
     copy.tabColor = this.tabColor;
+    copy.folderId = this.folderId;
     copy.styles = this.styles.clone();
     copy.comments = this.comments.clone();
     return copy;
@@ -702,6 +709,7 @@ export class Worksheet {
     copy.displayLook = { ...this.displayLook };
     copy.locked = this.locked;
     copy.tabColor = this.tabColor;
+    copy.folderId = this.folderId;
     return copy;
   }
 

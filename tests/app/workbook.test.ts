@@ -44,6 +44,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseCellComment: vi.fn(async () => null),
     promptSheetName: vi.fn(async () => null),
     chooseSheetTabColor: vi.fn(async () => null),
+    promptFolderName: vi.fn(async () => null),
+    chooseFolder: vi.fn(async () => null),
     confirmDeleteSheet: vi.fn(async () => true),
     chooseExportSheet: vi.fn(async () => null),
     confirmReplaceAllWorkbook: vi.fn(async () => true),
@@ -1253,5 +1255,63 @@ describe('worksheet.tabColor command', () => {
     const commands = new Commands(state, stubUi(), document);
     state.addTab('a.csv', csvDoc('a,b\n'), null);
     expect(commands.isEnabled('worksheet.tabColor')).toBe(false);
+  });
+});
+
+describe('sheet folder commands', () => {
+  it('moves the active worksheet into a new folder named in the dialog', async () => {
+    const promptFolderName = vi.fn(async () => 'Sales');
+    const { commands, doc } = setup(stubUi({ promptFolderName }));
+    expect(commands.isEnabled('worksheet.moveToFolder')).toBe(false);
+    await commands.run('worksheet.newFolder');
+    expect(promptFolderName).toHaveBeenCalledWith('create', expect.any(String), expect.any(Function));
+    expect(doc.folders.map((f) => f.name)).toEqual(['Sales']);
+    expect(doc.activeSheet.folderId).toBe(doc.folders[0].id);
+    expect(commands.isEnabled('worksheet.moveToFolder')).toBe(true);
+  });
+
+  it('offers the top level and every folder, and moves the worksheet to the choice', async () => {
+    const chooseFolder = vi.fn(async () => ({ folderId: null }));
+    const { state, commands, tab, doc } = setup(stubUi({ chooseFolder }));
+    const folder = state.folders.createFolder(tab, doc.activeSheetId, 'Sales')!;
+    await commands.run('worksheet.moveToFolder');
+    expect(chooseFolder).toHaveBeenCalledWith({
+      subject: 'sheet',
+      name: 'Sheet1',
+      current: folder,
+      options: [
+        { id: null, name: expect.any(String), depth: 0 },
+        { id: folder, name: 'Sales', depth: 0 },
+      ],
+    });
+    expect(doc.activeSheet.folderId).toBeUndefined();
+  });
+
+  it('never offers a folder as a place inside itself', async () => {
+    const chooseFolder = vi.fn<UiPort['chooseFolder']>(async () => null);
+    const { state, commands, tab, doc } = setup(stubUi({ chooseFolder }));
+    const outer = state.folders.createFolder(tab, doc.activeSheetId, 'Outer')!;
+    state.folders.createFolder(tab, doc.activeSheetId, 'Inner');
+    await commands.folderAction('move', outer);
+    expect(chooseFolder.mock.calls[0][0].options.map((o) => o.name)).toEqual([expect.any(String)]);
+  });
+
+  it('confirms before deleting a folder with its worksheets, and refuses one that holds them all', async () => {
+    const confirm = vi.fn(async () => true);
+    const notify = vi.fn();
+    const { state, commands, tab, doc } = setup(stubUi({ confirm, notify }));
+    const all = state.folders.createFolder(tab, doc.activeSheetId, 'All')!;
+    await commands.folderAction('delete', all);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(expect.any(String), 'warn');
+    expect(doc.sheetCount).toBe(1);
+
+    const other = state.addSheet(tab, 'Other')!;
+    state.folders.moveSheetToFolder(tab, other.id, undefined);
+    await commands.folderAction('delete', all);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(doc.sheets.map((s) => s.name)).toEqual(['Other']);
+    state.undo(tab);
+    expect(doc.sheets.map((s) => s.name)).toEqual(['Sheet1', 'Other']);
   });
 });

@@ -24,6 +24,7 @@ import type { PasteFillCommands } from '../paste-fill';
 import type { RangeOpsCommands } from '../range-ops';
 import type { SortCommands } from '../sort';
 import type { SqlCommands } from '../sql';
+import type { SheetFolderCommands } from '../sheet-folders';
 import type { WorksheetCommands } from '../worksheets';
 
 /** The feature controllers `Commands` composes, handed to catalog handlers. */
@@ -37,6 +38,7 @@ export interface CommandParts {
   readonly conditionalFormat: ConditionalFormatCommands;
   readonly comment: CommentCommands;
   readonly worksheets: WorksheetCommands;
+  readonly folders: SheetFolderCommands;
   readonly pasteFill: PasteFillCommands;
   readonly rangeOps: RangeOpsCommands;
   readonly format: FormatCommands;

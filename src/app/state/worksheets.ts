@@ -330,7 +330,7 @@ export class WorksheetsState {
    * level, are also written to the worksheet's persisted display settings,
    * which is what makes them per-worksheet in the saved file.
    */
-  private saveSheetView(tab: Tab, doc: RsfDocument): void {
+  saveSheetView(tab: Tab, doc: RsfDocument): void {
     const view = doc.activeSheet.view;
     view.selection = tab.selection;
     view.anchor = tab.anchor;
@@ -653,24 +653,36 @@ export class WorksheetsState {
    */
   deleteSheet(tab: Tab, sheetId: string): boolean {
     const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.sheetCount <= 1) {
+    return isWorkbook(doc) && this.deleteSheets(tab, doc, [sheetId], [], 'history.deleteSheet');
+  }
+
+  /**
+   * Delete several worksheets, then apply `extra` (a folder deletion's
+   * organize step), as one atomic, undoable operation, with the same
+   * #REF! rule as {@link deleteSheet}. Refused when it would leave no
+   * worksheet.
+   */
+  deleteSheets(
+    tab: Tab,
+    doc: RsfDocument,
+    ids: readonly string[],
+    extra: Operation[],
+    label: string,
+  ): boolean {
+    const doomed = doc.sheets.filter((sheet) => ids.includes(sheet.id));
+    if (doomed.length >= doc.sheetCount || (doomed.length === 0 && extra.length === 0)) {
       return false;
     }
-    const index = doc.sheetIndex(sheetId);
-    const sheet = doc.sheetById(sheetId);
-    if (!sheet || index < 0) {
-      return false;
-    }
-    // Invalidate references first (while the worksheet still exists), then
-    // remove it; undo re-inserts the worksheet before restoring the formulas.
+    // Invalidate references first (while the worksheets still exist), then
+    // remove them; undo re-inserts the worksheets before restoring the formulas.
     const ops: Operation[] = [];
     for (const target of doc.sheets) {
-      if (target.id === sheetId) {
+      if (doomed.includes(target)) {
         continue;
       }
       const changes: CellChange[] = [];
       for (const { row, col, src } of target.listFormulaCells()) {
-        const after = invalidateSheetRefsInFormula(src, sheet.name);
+        const after = doomed.reduce((text, sheet) => invalidateSheetRefsInFormula(text, sheet.name), src);
         if (after !== src) {
           changes.push({ row, col, before: src, after });
         }
@@ -679,9 +691,14 @@ export class WorksheetsState {
         ops.push({ type: 'cells', changes, sheetId: target.id });
       }
     }
-    ops.push({ type: 'sheets', op: { action: 'remove', sheet, index } });
+    // Last first, so each recorded index is still right when the removals
+    // replay in order, and when undo re-inserts them in reverse.
+    for (const sheet of doomed.slice().reverse()) {
+      ops.push({ type: 'sheets', op: { action: 'remove', sheet, index: doc.sheetIndex(sheet.id) } });
+    }
+    ops.push(...extra);
     this.saveSheetView(tab, doc);
-    const applied = this.state.pushEntry(tab, { label: 'history.deleteSheet', ops });
+    const applied = this.state.pushEntry(tab, { label, ops });
     if (applied) {
       this.state.emit('sheets');
     }

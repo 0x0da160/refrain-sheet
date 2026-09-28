@@ -381,6 +381,9 @@ export class EditingState {
       case 'tabColor':
         doc.setTabColor(op.sheetId, forward ? op.after : op.before);
         return;
+      case 'organize':
+        doc.applyOrganization(forward ? op.after : op.before);
+        return;
     }
   }
 

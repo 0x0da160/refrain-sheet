@@ -95,6 +95,89 @@
   box-shadow: inset -2px 0 0 var(--accent);
 }
 
+/* ----- Sheet folders (src/core/workbook/sheet-folders.ts) -----
+   A folder is a group: its header (chevron, folder icon, name) and then its
+   items. In the row, the group is outlined along its bottom edge so it reads
+   as one bracket around its tabs; beside the grid (below) its items are
+   indented instead. A closed folder shows only the header, plus the active
+   worksheet when that is inside it. */
+.sheet-folder {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-0-5);
+  flex: none;
+  border: 1px solid var(--border-default);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  padding: 0 var(--space-0-5) var(--space-0-5);
+}
+
+.sheet-folder-items {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-0-5);
+}
+
+.sheet-folder-items:empty {
+  display: none;
+}
+
+.sheet-folder-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: none;
+  background: none;
+  color: var(--fg-muted);
+  padding: var(--space-0-5) var(--space-1-5);
+  max-width: 200px;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sheet-folder-header:hover {
+  background: var(--bg-hover);
+}
+
+.sheet-folder-header:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.sheet-folder-header.drop-into {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.sheet-folder-header .sheet-folder-chevron,
+.sheet-folder-header .sheet-folder-icon {
+  flex: none;
+}
+
+/* The Move to Folder dialog's list of places. */
+.folder-picker {
+  display: flex;
+  flex-direction: column;
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) 0;
+}
+
+.folder-picker-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding-block: var(--space-1);
+  padding-inline-end: var(--space-2);
+  cursor: pointer;
+}
+
+.folder-picker-option:hover {
+  background: var(--bg-hover);
+}
+
 /* ----- Worksheet tabs on the left (View > Sheet Tabs on the Left) -----
    `.sheet-tabs-vertical` on `#app` (a browser setting, src/ui/shell/
    refresh.ts) stands the strip as a column beside the grid instead of a row
@@ -201,6 +284,27 @@
 
   #app.sheet-tabs-vertical .sheet-tab.drop-after {
     box-shadow: inset 0 -2px 0 var(--accent);
+  }
+
+  #app.sheet-tabs-vertical .sheet-folder,
+  #app.sheet-tabs-vertical .sheet-folder-items {
+    flex-direction: column;
+  }
+
+  #app.sheet-tabs-vertical .sheet-folder {
+    border: none;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  #app.sheet-tabs-vertical .sheet-folder-items {
+    padding-left: var(--space-3);
+    border-left: 1px solid var(--border-default);
+    margin-left: var(--space-2);
+  }
+
+  #app.sheet-tabs-vertical .sheet-folder-header {
+    max-width: none;
   }
 }
 

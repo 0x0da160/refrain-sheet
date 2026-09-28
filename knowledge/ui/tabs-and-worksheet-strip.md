@@ -121,6 +121,27 @@ row. A top/bottom-docked side panel insets the column through
 nothing to a bottom dock's offset (`reserveAppEdge` and `sheetBarHeight`
 in `src/ui/dialogs/side-panel.ts`).
 
+**Sheet folders.** Worksheets can be grouped in folders, nested to any
+depth; a worksheet is in at most one folder. Sheet > Move to New Folder…
+puts the active worksheet into a new folder where it is (so inside its
+current folder), and Sheet > Move to Folder… moves it to any folder or out
+of all of them. A folder's header in the strip opens and closes it (a
+closed folder still shows the active worksheet; open/closed is not saved),
+takes a dropped worksheet, and has its own context menu: Rename, Move
+(never into itself), Remove Folder, Keep Sheets (its contents move up a
+level), and Delete Folder and Its Sheets (confirmed; formulas pointing at
+those sheets become #REF!, as for deleting a sheet; refused when it would
+leave the file no sheet). A new worksheet joins the active worksheet's
+folder, a duplicate stays in its source's, and dropping a tab next to
+another puts it in that one's folder. Every change is one undoable step:
+`SheetFoldersState` (`src/app/state/sheet-folders.ts`) records the whole
+organization (folders, worksheet order, each worksheet's folder) before
+and after, as the `organize` sheets operation. The tree is derived from
+the worksheet order (`src/core/workbook/sheet-folders.ts`); the file keeps
+the folders as `folders` and each worksheet's `folder`
+([json-document.md](../formats/rsf/json-document.md)). Beside the grid the
+folders are indented; in the row, each folder's group is outlined.
+
 Plain CSV documents are single-sheet by definition: their worksheet strip
 is hidden, so no empty band sits under the grid (#456), and worksheet commands are
 disabled — converting to RSF is what unlocks multiple worksheets.

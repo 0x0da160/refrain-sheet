@@ -40,3 +40,35 @@ describe('validateYaml', () => {
     expect(problem!.message).not.toMatch(/at line/);
   });
 });
+
+describe('validateYaml likely mistakes', () => {
+  it('reports a list item indented into the value above it', () => {
+    const text = 'name: test\nlist:\n- a\n  - b\n';
+    expect(validateYaml(text)).toMatchObject({
+      line: 4,
+      col: 3,
+      detail: { kind: 'continuation', valueLine: 3 },
+    });
+  });
+
+  it('reports a key indented under a scalar value, and stray brackets', () => {
+    expect(validateYaml('k: v\n  x y: z\n')).not.toBeNull();
+    expect(validateYaml('k: v\n  }}}{{{\n')).toMatchObject({ line: 2, col: 3 });
+  });
+
+  it('accepts ordinary wrapped prose and URLs', () => {
+    expect(
+      validateYaml('text: a long line\n  that wraps onto the next line\nurl: https://example.com/a\n'),
+    ).toBeNull();
+    expect(validateYaml('text: first\n  see https://example.com/x\n')).toBeNull();
+  });
+
+  it('reports an alias with no anchor', () => {
+    expect(validateYaml('a: &x 1\nb: *y\n')).toMatchObject({
+      line: 2,
+      col: 4,
+      detail: { kind: 'unknownAlias', name: 'y' },
+    });
+    expect(validateYaml('a: &x 1\nb: *x\n')).toBeNull();
+  });
+});

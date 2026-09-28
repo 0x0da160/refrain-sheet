@@ -40,6 +40,12 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Fixed
 
+- **The YAML check catches mis-indented lines.** YAML reads a line indented
+  further than the one above as the rest of that value, so a `- item` or
+  `key: value` indented one step too far, or stray brackets, used to pass as
+  "no syntax errors". The check now points at such a line and says which
+  value it was folded into. An alias (`*name`) with no matching anchor is
+  also reported.
 - Scrolling the grid quickly no longer flashes the dark gray of the area
   outside the sheet where rows have not been drawn yet; the sheet stays white.
 

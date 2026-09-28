@@ -888,6 +888,8 @@
   "status.editorSize": "全 {lines} 行, {chars} 文字",
   "sourceCheck.validJson": "JSON の文法エラーはありません",
   "sourceCheck.validYaml": "YAML の文法エラーはありません",
+  "sourceCheck.continuation": "この行は {line} 行目の値の続きとして読まれています。字下げを確認してください。",
+  "sourceCheck.unknownAlias": "*{name} が参照するアンカー &{name} が、それより前に定義されていません。",
   "sourceCheck.error": "{line} 行目, {col} 列目: {message}",
   "sourceCheck.moreErrors": "（ほか {n} 件）",
   "sourceCheck.goTo": "エラーの位置へ移動",

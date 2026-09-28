@@ -888,6 +888,8 @@
   "status.editorSize": "{lines} lines, {chars} characters",
   "sourceCheck.validJson": "No JSON syntax errors",
   "sourceCheck.validYaml": "No YAML syntax errors",
+  "sourceCheck.continuation": "This line is read as part of the value on line {line}. Check its indentation.",
+  "sourceCheck.unknownAlias": "*{name} refers to an anchor &{name} that is not defined above it.",
   "sourceCheck.error": "Line {line}, column {col}: {message}",
   "sourceCheck.moreErrors": "(+{n} more)",
   "sourceCheck.goTo": "Go to Error",

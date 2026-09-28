@@ -29,8 +29,12 @@
   text-align: center;
 }
 
+/* The canvas is sized to the whole sheet, so painting it keeps rows the
+   browser scrolls into view before they are rendered on paper; only the area
+   past the sheet shows the container's --canvas-outside. */
 .vgrid-canvas {
   position: relative;
+  background: var(--canvas-bg);
   font-family: var(--font-sheet);
   font-size: calc(12px * var(--sheet-zoom, 1));
 }

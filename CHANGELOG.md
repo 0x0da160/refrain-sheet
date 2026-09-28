@@ -38,6 +38,11 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- Scrolling the grid quickly no longer flashes the dark gray of the area
+  outside the sheet where rows have not been drawn yet; the sheet stays white.
+
 ## [0.9.14] - 2026-09-27
 
 ### Added

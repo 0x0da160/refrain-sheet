@@ -12,7 +12,9 @@
 // Also writes landing/robots.txt and landing/_headers (noindex on
 // *.pages.dev hosts), copies the static assets alongside the
 // generated pages, and — when a public site URL is passed — canonical
-// tags, hreflang alternates, absolute OG URLs and sitemap.xml.
+// tags, hreflang alternates, absolute OG URLs and sitemap.xml. Every local
+// stylesheet, script and image a page references gets a `?v=<content hash>`
+// cache buster, so a release never mixes new HTML with cached old CSS/JS.
 //
 //   node scripts/build/landing.mjs                      # relative URLs (preview)
 //   node scripts/build/landing.mjs https://example.com/  # production
@@ -22,6 +24,7 @@
 // toolchain: DOM manipulation uses jsdom, already a devDependency for the
 // app's own jsdom-environment tests.
 
+import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, cpSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -249,6 +252,35 @@ function build(pageId, lang) {
     }
   }
 
+  // ---------- cache busting ----------
+  // A browser (or a Cloudflare zone's browser-cache TTL) may keep an old
+  // styles.css or main.js after a release while the HTML is already new,
+  // which breaks the layout until a hard reload. Tagging each local URL with
+  // its content hash makes a changed file a new URL; unchanged files keep
+  // theirs and stay cached.
+  const pageDir = dirname(join(landingDir, outRelPath));
+  const bust = (url) => {
+    if (/^(https?:|#|\/|data:)/.test(url) || url.includes('?')) return url;
+    return `${url}?v=${contentHash(join(pageDir, url))}`;
+  };
+  for (const el of doc.querySelectorAll(
+    'link[rel~="stylesheet"][href], link[rel~="icon"][href], script[src], img[src], source[src]',
+  )) {
+    const attr = el.tagName === 'LINK' ? 'href' : 'src';
+    el.setAttribute(attr, bust(el.getAttribute(attr)));
+  }
+  for (const el of doc.querySelectorAll('img[srcset], source[srcset]')) {
+    const rewritten = el
+      .getAttribute('srcset')
+      .split(',')
+      .map((candidate) => {
+        const [url, descriptor] = candidate.trim().split(/\s+/, 2);
+        return descriptor ? `${bust(url)} ${descriptor}` : bust(url);
+      })
+      .join(', ');
+    el.setAttribute('srcset', rewritten);
+  }
+
   // ---------- head ----------
   const head = doc.head;
   for (const el of head.querySelectorAll('[data-seo="1"]')) el.remove();
@@ -388,6 +420,16 @@ function build(pageId, lang) {
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, html, 'utf8');
   return out;
+}
+
+/** First 10 hex digits of a built file's SHA-256, memoized per path. */
+const hashes = new Map();
+function contentHash(file) {
+  if (!hashes.has(file)) {
+    if (!existsSync(file)) throw new Error(`cache buster: no such file ${file}`);
+    hashes.set(file, createHash('sha256').update(readFileSync(file)).digest('hex').slice(0, 10));
+  }
+  return hashes.get(file);
 }
 
 function copyStaticAssets() {

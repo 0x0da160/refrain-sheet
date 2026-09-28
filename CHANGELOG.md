@@ -38,6 +38,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- **Sheet tab colors.** Sheet > Sheet Tab Color… (or right-click a sheet
+  tab) gives a sheet's tab a color, from nine ready-made colors or any
+  color you pick. The color shows as a bar along the tab, is saved in the
+  RSF file, is kept when you duplicate the sheet, and can be undone.
+  **No Color** removes it. Older versions open such files and ignore the
+  color.
+
 ## [0.9.15] - 2026-09-28
 
 ### Added

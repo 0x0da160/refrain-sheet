@@ -47,6 +47,7 @@ function noOpUiPort(): UiPort {
     chooseConditionalFormat: async () => null,
     chooseCellComment: async () => null,
     promptSheetName: async () => null,
+    chooseSheetTabColor: async () => null,
     confirmDeleteSheet: async () => false,
     chooseExportSheet: async () => null,
     confirmExportXlsx: async () => false,

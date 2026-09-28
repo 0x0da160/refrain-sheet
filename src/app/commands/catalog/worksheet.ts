@@ -35,6 +35,7 @@ export const WORKSHEET_COMMANDS = {
   'worksheet.addYaml': onWorkbook(({ parts }, tab) => parts.worksheets.addYamlWorksheet(tab)),
   'worksheet.addText': onWorkbook(({ parts }, tab) => parts.worksheets.addTextWorksheet(tab)),
   'worksheet.rename': onWorkbook(({ parts }, tab) => parts.worksheets.renameWorksheet(tab)),
+  'worksheet.tabColor': onWorkbook(({ parts }, tab) => parts.worksheets.chooseTabColor(tab)),
   'worksheet.duplicate': onWorkbook(({ parts }, tab) => parts.worksheets.duplicateWorksheet(tab)),
   // A workbook always keeps at least one worksheet.
   'worksheet.delete': onWorkbook(({ parts }, tab) => parts.worksheets.deleteWorksheet(tab), severalSheets),

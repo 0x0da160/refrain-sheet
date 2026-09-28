@@ -37,6 +37,7 @@ const noopUi: UiPort = {
   chooseConditionalFormat: async () => null,
   chooseCellComment: async () => null,
   promptSheetName: async () => null,
+  chooseSheetTabColor: async () => null,
   confirmDeleteSheet: async () => true,
   chooseExportSheet: async () => null,
   confirmReplaceAllWorkbook: async () => true,

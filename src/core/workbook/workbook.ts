@@ -210,6 +210,16 @@ export class Workbook {
     return this.touchIf(true);
   }
 
+  /** Set or clear (`undefined`) a worksheet's tab color. Nothing else changes. */
+  setTabColor(id: string, color: string | undefined): boolean {
+    const sheet = this.sheetById(id);
+    if (!sheet || sheet.tabColor === color) {
+      return false;
+    }
+    sheet.tabColor = color;
+    return this.touchIf(true);
+  }
+
   /** Move a worksheet to a new position in the strip. */
   moveSheet(id: string, toIndex: number): boolean {
     return this.touchIf(this.registry.move(id, toIndex));

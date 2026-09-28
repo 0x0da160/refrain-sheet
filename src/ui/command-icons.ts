@@ -143,6 +143,7 @@ export const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'worksheet.addYaml': FileCode,
   'worksheet.addText': FileType,
   'worksheet.rename': Pencil,
+  'worksheet.tabColor': Palette,
   'worksheet.duplicate': CopyPlus,
   'worksheet.delete': Trash2,
   'worksheet.next': ChevronRight,

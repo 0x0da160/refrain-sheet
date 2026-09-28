@@ -238,6 +238,20 @@ const cases: FixtureCase[] = [
   ...prettyCases,
   ...prettyCases.map((c) => ({ ...c, file: c.file.replace('.rsf', '-compact.rsf'), encodes: true })),
   { file: 'history-deltas.rsf', engine: 'wasm', encodes: true, data: historyDeltas },
+  {
+    // Worksheet tab colors (`tabColor`), added after the compact fixtures.
+    file: 'tab-color.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: {
+      delimiter: ',',
+      activeSheetId: 's1',
+      sheets: [
+        { ...grid, tabColor: '#287ccf' },
+        { id: 's2', name: 'Sheet2', rowCount: 1, columnCount: 1, cells: [] },
+      ],
+    },
+  },
 ];
 
 function loadFixture(file: string, encode: () => Uint8Array): Uint8Array {

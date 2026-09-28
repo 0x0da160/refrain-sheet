@@ -140,6 +140,7 @@ exports[`command surface (characterization) > enablement and disabled reasons: c
   "worksheet.next": "disabled",
   "worksheet.prev": "disabled",
   "worksheet.rename": "disabled",
+  "worksheet.tabColor": "disabled",
   "worksheet.toggleLock": "disabled",
 }
 `;
@@ -284,6 +285,7 @@ exports[`command surface (characterization) > enablement and disabled reasons: c
   "worksheet.next": "disabled",
   "worksheet.prev": "disabled",
   "worksheet.rename": "disabled",
+  "worksheet.tabColor": "disabled",
   "worksheet.toggleLock": "disabled",
 }
 `;
@@ -428,6 +430,7 @@ exports[`command surface (characterization) > enablement and disabled reasons: n
   "worksheet.next": "disabled",
   "worksheet.prev": "disabled",
   "worksheet.rename": "disabled",
+  "worksheet.tabColor": "disabled",
   "worksheet.toggleLock": "disabled",
 }
 `;
@@ -572,6 +575,7 @@ exports[`command surface (characterization) > enablement and disabled reasons: r
   "worksheet.next": "disabled",
   "worksheet.prev": "disabled",
   "worksheet.rename": "enabled",
+  "worksheet.tabColor": "enabled",
   "worksheet.toggleLock": "enabled",
 }
 `;
@@ -716,6 +720,7 @@ exports[`command surface (characterization) > enablement and disabled reasons: r
   "worksheet.next": "enabled",
   "worksheet.prev": "enabled",
   "worksheet.rename": "enabled",
+  "worksheet.tabColor": "enabled",
   "worksheet.toggleLock": "enabled",
 }
 `;

@@ -12,6 +12,7 @@ import {
   CF_DEFAULT_SCALE_MIN_COLOR,
   CF_DEFAULT_TEXT,
   ensureSwatchList,
+  SHEET_TAB_PRESETS,
   SWATCH_LIST_ID,
   SWATCH_TOKENS,
 } from '../../src/ui/document-colors';
@@ -37,6 +38,13 @@ describe('document colours (design system D-13)', () => {
     expect(CF_DEFAULT_TEXT).toBe(token('--cf-highlight-text'));
     expect(CF_DEFAULT_SCALE_MIN_COLOR).toBe(token('--cf-scale-min'));
     expect(CF_DEFAULT_SCALE_MAX_COLOR).toBe(token('--cf-scale-max'));
+  });
+
+  it('uses step 5 of each hue family as the ready-made tab colors', () => {
+    expect(SHEET_TAB_PRESETS).toHaveLength(9);
+    for (const { family, color } of SHEET_TAB_PRESETS) {
+      expect(color).toBe(token(`--swatch-${family}-5`));
+    }
   });
 
   it('builds one shared datalist from the resolvable swatch values', () => {

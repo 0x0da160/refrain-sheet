@@ -140,6 +140,7 @@ export interface RsfWorksheetData {
   styles?: Array<[number, number, CellStyle]>;
   comments?: Array<[number, number, string]>;
   locked?: boolean;
+  tabColor?: string;
 }
 
 /** A workbook: its metadata plus its worksheets, in order. */
@@ -326,9 +327,8 @@ function filterToJson(filter: SheetFilter): Json {
 function sheetToJson(sheet: RsfWorksheetData): { [key: string]: Json } {
   const kind = sheet.kind ?? 'grid';
   const out: { [key: string]: Json } = { id: sheet.id, name: sheet.name, kind };
-  if (sheet.locked) {
-    out.locked = true;
-  }
+  if (sheet.locked) out.locked = true;
+  if (sheet.tabColor !== undefined) out.tabColor = sheet.tabColor;
   if (kind === 'grid') {
     out.rows = sheet.rowCount;
     out.cols = sheet.columnCount;
@@ -741,9 +741,9 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
   if (totals.cells > MAX_RSF_CELLS) {
     fail('too-large');
   }
-  if (optBoolean(value, 'locked')) {
-    sheet.locked = true;
-  }
+  if (optBoolean(value, 'locked')) sheet.locked = true;
+  const tabColor = optString(value, 'tabColor');
+  if (tabColor !== undefined) sheet.tabColor = normalizeHexColor(tabColor) ?? fail();
   if (value.view !== undefined) {
     const view = value.view;
     if (!isObject(view)) {

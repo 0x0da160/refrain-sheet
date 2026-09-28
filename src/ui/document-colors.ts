@@ -34,6 +34,24 @@ export const CF_DEFAULT_TEXT = '#5d0004';
 export const CF_DEFAULT_SCALE_MIN_COLOR = '#ffffff';
 export const CF_DEFAULT_SCALE_MAX_COLOR = '#8bc191';
 
+/**
+ * Ready-made worksheet tab colours: step 5 of each of the design system's
+ * nine hue families (`--swatch-<family>-5`), strong enough to read as a
+ * thin bar on a tab in either theme. tests/ui/document-colors.test.ts keeps
+ * them equal to the tokens. Any other colour can still be chosen.
+ */
+export const SHEET_TAB_PRESETS: ReadonlyArray<{ family: (typeof FAMILIES)[number]; color: string }> = [
+  { family: 'red', color: '#c35047' },
+  { family: 'orange', color: '#b95e00' },
+  { family: 'yellow', color: '#917900' },
+  { family: 'green', color: '#1b9247' },
+  { family: 'teal', color: '#008c8c' },
+  { family: 'blue', color: '#287ccf' },
+  { family: 'violet', color: '#8962c5' },
+  { family: 'pink', color: '#b94f87' },
+  { family: 'gray', color: '#767b82' },
+];
+
 /** The id of the shared `<datalist>` colour pickers point at. */
 export const SWATCH_LIST_ID = 'document-swatches';
 

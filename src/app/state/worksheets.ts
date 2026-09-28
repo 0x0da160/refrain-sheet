@@ -621,6 +621,31 @@ export class WorksheetsState {
   }
 
   /**
+   * Set (a lowercase `#rrggbb`) or clear (`undefined`) a worksheet's tab
+   * color as one undoable operation. Purely presentational: no cell, formula,
+   * or other worksheet changes, so it is allowed on a locked worksheet too,
+   * like renaming it.
+   */
+  setSheetTabColor(tab: Tab, sheetId: string, color: string | undefined): boolean {
+    const doc = tab.doc;
+    if (!isWorkbook(doc)) {
+      return false;
+    }
+    const sheet = doc.sheetById(sheetId);
+    if (!sheet || sheet.tabColor === color) {
+      return false;
+    }
+    const applied = this.state.pushEntry(tab, {
+      label: 'history.tabColor',
+      ops: [{ type: 'sheets', op: { action: 'tabColor', sheetId, before: sheet.tabColor, after: color } }],
+    });
+    if (applied) {
+      this.state.emit('sheets');
+    }
+    return applied;
+  }
+
+  /**
    * Delete a worksheet as one atomic, undoable operation. Every formula in the
    * remaining worksheets that referenced it becomes the explicit #REF! error —
    * references are never silently redirected to another worksheet. A workbook

@@ -764,6 +764,11 @@ export class AppState {
     return this.worksheetsState.moveSheet(tab, sheetId, toIndex);
   }
 
+  /** Set or clear a worksheet's tab color; see `WorksheetsState.setSheetTabColor`. */
+  setSheetTabColor(tab: Tab, sheetId: string, color: string | undefined): boolean {
+    return this.worksheetsState.setSheetTabColor(tab, sheetId, color);
+  }
+
   /** Toggle a worksheet's lock; see `WorksheetsState.setSheetLocked`. */
   setSheetLocked(tab: Tab, sheetId: string, locked: boolean): boolean {
     return this.worksheetsState.setSheetLocked(tab, sheetId, locked);

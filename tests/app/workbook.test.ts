@@ -43,6 +43,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseConditionalFormat: vi.fn(async () => null),
     chooseCellComment: vi.fn(async () => null),
     promptSheetName: vi.fn(async () => null),
+    chooseSheetTabColor: vi.fn(async () => null),
     confirmDeleteSheet: vi.fn(async () => true),
     chooseExportSheet: vi.fn(async () => null),
     confirmReplaceAllWorkbook: vi.fn(async () => true),
@@ -1186,5 +1187,71 @@ describe('worksheet.toggleLock command', () => {
     const commands = new Commands(state, stubUi(), document);
     state.addTab('a.csv', csvDoc('a,b\n'), null);
     expect(commands.isEnabled('worksheet.toggleLock')).toBe(false);
+  });
+});
+
+describe('worksheet.tabColor command', () => {
+  it('sets, changes, and clears the active worksheet’s tab color, each undoable', async () => {
+    const chooseSheetTabColor = vi
+      .fn()
+      .mockResolvedValueOnce({ action: 'apply', color: '#287ccf' })
+      .mockResolvedValueOnce({ action: 'apply', color: '#c35047' })
+      .mockResolvedValueOnce({ action: 'clear' });
+    const { state, commands, tab, doc } = setup(stubUi({ chooseSheetTabColor }));
+    expect(commands.isEnabled('worksheet.tabColor')).toBe(true);
+
+    await commands.run('worksheet.tabColor');
+    expect(chooseSheetTabColor).toHaveBeenLastCalledWith(null);
+    expect(doc.activeSheet.tabColor).toBe('#287ccf');
+    expect(doc.isDirty).toBe(true);
+
+    await commands.run('worksheet.tabColor');
+    expect(chooseSheetTabColor).toHaveBeenLastCalledWith('#287ccf');
+    expect(doc.activeSheet.tabColor).toBe('#c35047');
+
+    await commands.run('worksheet.tabColor');
+    expect(doc.activeSheet.tabColor).toBeUndefined();
+
+    state.undo(tab);
+    expect(doc.activeSheet.tabColor).toBe('#c35047');
+    state.undo(tab);
+    expect(doc.activeSheet.tabColor).toBe('#287ccf');
+    state.undo(tab);
+    expect(doc.activeSheet.tabColor).toBeUndefined();
+    state.redo(tab);
+    expect(doc.activeSheet.tabColor).toBe('#287ccf');
+  });
+
+  it('changes nothing when the dialog is cancelled', async () => {
+    const { commands, doc } = setup(stubUi({ chooseSheetTabColor: vi.fn(async () => null) }));
+    await commands.run('worksheet.tabColor');
+    expect(doc.activeSheet.tabColor).toBeUndefined();
+    expect(doc.isDirty).toBe(false);
+  });
+
+  it('works on a locked worksheet, like renaming it', async () => {
+    const ui = stubUi({
+      chooseSheetTabColor: vi.fn(async () => ({ action: 'apply' as const, color: '#1b9247' })),
+    });
+    const { commands, doc } = setup(ui);
+    await commands.run('worksheet.toggleLock');
+    await commands.run('worksheet.tabColor');
+    expect(doc.activeSheet.tabColor).toBe('#1b9247');
+  });
+
+  it('is kept by a duplicate and survives a save and reopen', () => {
+    const { state, tab, doc } = setup();
+    state.setSheetTabColor(tab, doc.activeSheetId, '#8962c5');
+    const copy = state.duplicateSheet(tab, doc.activeSheetId, 'Copy')!;
+    expect(copy.tabColor).toBe('#8962c5');
+    const reopened = RsfDocument.fromBytes(doc.toBytes(), 'book.rsf');
+    expect(reopened.ok && reopened.doc.sheets.map((s) => s.tabColor)).toEqual(['#8962c5', '#8962c5']);
+  });
+
+  it('is disabled without an RSF workbook', () => {
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    state.addTab('a.csv', csvDoc('a,b\n'), null);
+    expect(commands.isEnabled('worksheet.tabColor')).toBe(false);
   });
 });

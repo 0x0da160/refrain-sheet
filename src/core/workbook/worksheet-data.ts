@@ -34,6 +34,7 @@ export function worksheetFromData(entry: RsfWorksheetData): Worksheet {
   sheet.filter = entry.filter ?? null;
   sheet.filterDropped = entry.filterDropped === true;
   sheet.locked = entry.locked === true;
+  sheet.tabColor = entry.tabColor;
   for (const [r, c, style] of entry.styles ?? []) {
     sheet.setStyle(r, c, style);
   }
@@ -82,6 +83,9 @@ export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, 
   }
   if (sheet.locked) {
     entry.locked = true;
+  }
+  if (sheet.tabColor !== undefined) {
+    entry.tabColor = sheet.tabColor;
   }
   const styles = sheet.collectStyles();
   if (styles.length > 0) {

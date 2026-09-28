@@ -220,6 +220,20 @@ export class WorksheetCommands {
     }
   }
 
+  /** Choose, change, or clear the active worksheet's tab color (undoable). */
+  async chooseTabColor(tab: Tab): Promise<void> {
+    const doc = tab.doc;
+    if (!isWorkbook(doc)) {
+      return;
+    }
+    const sheet = doc.activeSheet;
+    const result = await this.ui.chooseSheetTabColor(sheet.tabColor ?? null);
+    if (result === null || tab.doc !== doc) {
+      return;
+    }
+    this.state.setSheetTabColor(tab, sheet.id, result.action === 'apply' ? result.color : undefined);
+  }
+
   /**
    * Duplicate the active worksheet. Large worksheets are copied in cooperative
    * time slices behind a percentage progress label; the copy is built to the

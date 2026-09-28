@@ -114,10 +114,15 @@ function topChromeInset(): number {
 }
 
 /** The live height of the worksheet tab strip (0 when hidden, e.g. a plain
- * CSV document, which has no worksheet strip, or the welcome screen). */
+ * CSV document, which has no worksheet strip, or the welcome screen). Also 0
+ * when the strip stands as a column beside the grid (View > Sheet Tabs on
+ * the Left): it then takes no height from the bottom edge. */
 function sheetBarHeight(): number {
   const bar = document.querySelector<HTMLElement>('.sheet-bar');
-  return bar && !bar.hidden ? bar.getBoundingClientRect().height : 0;
+  if (!bar || bar.hidden || getComputedStyle(bar).flexDirection === 'column') {
+    return 0;
+  }
+  return bar.getBoundingClientRect().height;
 }
 
 /**
@@ -370,6 +375,12 @@ function reserveAppEdge(position: SidePanelPosition, size: number): void {
     appContent.style.paddingTop = position === 'top' ? `${size}px` : '';
     appContent.style.paddingBottom = position === 'bottom' ? `${size}px` : '';
   }
+  // A worksheet strip standing beside the grid (View > Sheet Tabs on the
+  // Left) spans the same height as `#app-content`, so it takes the same
+  // inset through these properties (sheet-bar.css) instead of sliding under
+  // the panel.
+  app?.style.setProperty('--dock-inset-top', position === 'top' ? `${size}px` : '0px');
+  app?.style.setProperty('--dock-inset-bottom', position === 'bottom' ? `${size}px` : '0px');
 }
 
 /** Releases the space `reserveAppEdge` reserved, once the last panel closes. */
@@ -384,6 +395,8 @@ function clearAppEdgeReservation(): void {
     appContent.style.paddingTop = '';
     appContent.style.paddingBottom = '';
   }
+  app?.style.removeProperty('--dock-inset-top');
+  app?.style.removeProperty('--dock-inset-bottom');
   updateShellLayout();
 }
 

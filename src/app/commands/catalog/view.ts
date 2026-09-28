@@ -14,8 +14,10 @@ import {
   DEFAULT_SHEET_ZOOM,
   getAutoFitOnOpen,
   getEditHints,
+  getSheetTabsVertical,
   setAutoFitOnOpen,
   setEditHints,
+  setSheetTabsVertical,
 } from '../../settings';
 import { setBrowserSheetFont, type SheetFontId } from '../../sheet-font';
 import { setTheme, type ThemeChoice } from '../../theme';
@@ -155,6 +157,7 @@ export const VIEW_COMMANDS = {
   'view.zoom.200': zoomTo(200),
   'view.zoom.reset': zoomTo(DEFAULT_SHEET_ZOOM),
   'view.editHints': preference(() => setEditHints(!getEditHints())),
+  'view.sheetTabsVertical': preference(() => setSheetTabsVertical(!getSheetTabsVertical())),
   'view.bandedRows': gridLook('bands'),
   'view.gridlines': gridLook('gridlines'),
   'view.highlightRow': gridLook('rowHighlight'),

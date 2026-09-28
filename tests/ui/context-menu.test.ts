@@ -414,6 +414,7 @@ describe('View menu Spreadsheet Zoom submenu', () => {
   const checks = (): MenuChecks => ({
     wrap: () => false,
     stickyFirstRow: () => false,
+    sheetTabsVertical: () => false,
     stickyFirstColumn: () => false,
     freezeAtSelection: () => false,
     sheetFont: () => 'biz-ud',

@@ -126,6 +126,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'view.zoom.200',
   'view.zoom.reset',
   'view.editHints',
+  'view.sheetTabsVertical',
   'view.bandedRows',
   'view.gridlines',
   'view.highlightRow',

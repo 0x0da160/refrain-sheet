@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { setLocale, t } from '../../src/app/i18n';
+import { getSheetTabsVertical } from '../../src/app/settings';
 import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { SheetBar } from '../../src/ui/sheet-bar';
 import { TabBar } from '../../src/ui/tab-bar';
@@ -401,5 +402,80 @@ describe('SheetBar tab colors', () => {
       (b) => b.textContent,
     );
     expect(labels.some((l) => l?.includes(t('menu.sheet.tabColor')))).toBe(true);
+  });
+});
+
+describe('worksheet tabs on the left (View > Sheet Tabs on the Left)', () => {
+  const press = (el: HTMLElement, key: string, init: KeyboardEventInit = {}): void => {
+    el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }));
+  };
+
+  /** The column layout comes from sheet-bar.css, which jsdom does not load,
+   * so the strip is stood up as a column inline, as the stylesheet would. */
+  function setupVertical(names: string[]): Harness {
+    const harness = setup(names);
+    harness.bar.element.querySelector<HTMLElement>('.sheet-strip')!.style.flexDirection = 'column';
+    harness.bar.render(true);
+    return harness;
+  }
+
+  function stubRect(el: HTMLElement, top: number, height: number): void {
+    el.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top,
+        right: 180,
+        bottom: top + height,
+        width: 180,
+        height,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('is a browser setting toggled from the View menu command, off by default', async () => {
+    const { commands } = setup(['A']);
+    expect(getSheetTabsVertical()).toBe(false);
+    await commands.run('view.sheetTabsVertical');
+    expect(getSheetTabsVertical()).toBe(true);
+    await commands.run('view.sheetTabsVertical');
+    expect(getSheetTabsVertical()).toBe(false);
+  });
+
+  it('announces its orientation to assistive technologies', () => {
+    const { bar } = setup(['A', 'B']);
+    const strip = bar.element.querySelector<HTMLElement>('.sheet-strip')!;
+    expect(strip.getAttribute('aria-orientation')).toBe('horizontal');
+    strip.style.flexDirection = 'column';
+    bar.render(true);
+    expect(strip.getAttribute('aria-orientation')).toBe('vertical');
+  });
+
+  it('moves between worksheets with Up/Down and reorders with Alt+Up/Down', () => {
+    const { bar, doc } = setupVertical(['A', 'B', 'C']);
+    press(tabs(bar)[0], 'ArrowDown');
+    expect(doc.activeSheet.name).toBe('B');
+    press(tabs(bar)[1], 'ArrowUp');
+    expect(doc.activeSheet.name).toBe('A');
+    press(tabs(bar)[0], 'ArrowDown', { altKey: true });
+    expect(doc.sheets.map((s) => s.name)).toEqual(['B', 'A', 'C']);
+    press(tabs(bar)[1], 'ArrowUp', { altKey: true });
+    expect(doc.sheets.map((s) => s.name)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('drops above or below a tab by the pointer height', async () => {
+    const { bar, doc } = setupVertical(['A', 'B', 'C']);
+    const [a, , c] = tabs(bar);
+    stubRect(c, 100, 30);
+    a.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    // Upper half of C: A lands before it.
+    c.dispatchEvent(new MouseEvent('drop', { bubbles: true, cancelable: true, clientX: 170, clientY: 105 }));
+    await Promise.resolve();
+    expect(doc.sheets.map((s) => s.name)).toEqual(['B', 'A', 'C']);
   });
 });

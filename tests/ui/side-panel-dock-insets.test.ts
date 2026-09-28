@@ -163,6 +163,27 @@ describe('side panel dock insets and app-edge reservation', () => {
     await promise;
   });
 
+  it('a worksheet tab strip standing beside the grid takes no bottom inset and follows the reservation', async () => {
+    const { app, sheetBar } = mountAppShell();
+    // View > Sheet Tabs on the Left: sheet-bar.css stands the strip as a column.
+    sheetBar.style.flexDirection = 'column';
+    const promise = new Dialogs().chooseFilter(filterInput());
+    const panel = document.querySelector<HTMLElement>('.side-panel')!;
+    dockAt(panel, 'bottom');
+
+    expect(panel.style.bottom).toBe('24px'); // status bar only
+    expect(app.style.getPropertyValue('--dock-inset-bottom')).not.toBe('0px');
+    expect(app.style.getPropertyValue('--dock-inset-top')).toBe('0px');
+
+    dockAt(panel, 'top');
+    expect(app.style.getPropertyValue('--dock-inset-top')).not.toBe('0px');
+    expect(app.style.getPropertyValue('--dock-inset-bottom')).toBe('0px');
+
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await promise;
+    expect(app.style.getPropertyValue('--dock-inset-top')).toBe('');
+  });
+
   it('left/right docking is unaffected: full height, reservation stays on #app', async () => {
     const { app, appBody, appContent } = mountAppShell();
     const promise = new Dialogs().chooseFilter(filterInput());

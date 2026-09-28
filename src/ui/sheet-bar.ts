@@ -123,6 +123,7 @@ export class SheetBar {
       return;
     }
     this.strip.setAttribute('role', 'tablist');
+    this.strip.setAttribute('aria-orientation', this.isVertical() ? 'vertical' : 'horizontal');
     for (const sheet of doc.sheets) {
       this.strip.append(
         this.buildSheetTab(
@@ -276,12 +277,14 @@ export class SheetBar {
         this.focusActive();
       }
     };
+    // Up/Down mirror Left/Right, so the strip works the same whether it is a
+    // row under the grid or a column beside it (View > Sheet Tabs on the Left).
     if (event.altKey) {
       // Alt + arrow / Home / End reorders without a pointer.
       const command: CommandId | null =
-        event.key === 'ArrowLeft'
+        event.key === 'ArrowLeft' || event.key === 'ArrowUp'
           ? 'worksheet.moveLeft'
-          : event.key === 'ArrowRight'
+          : event.key === 'ArrowRight' || event.key === 'ArrowDown'
             ? 'worksheet.moveRight'
             : event.key === 'Home'
               ? 'worksheet.moveFirst'
@@ -296,9 +299,11 @@ export class SheetBar {
     }
     switch (event.key) {
       case 'ArrowLeft':
+      case 'ArrowUp':
         go(index - 1);
         return;
       case 'ArrowRight':
+      case 'ArrowDown':
         go(index + 1);
         return;
       case 'Home':
@@ -342,10 +347,20 @@ export class SheetBar {
     this.strip.querySelector<HTMLElement>('.sheet-tab[aria-selected="true"]')?.focus();
   }
 
-  /** True when the pointer sits in the left half of the target tab. */
+  /** True when the pointer sits in the left half (top half, in a vertical
+   * strip) of the target tab. */
   private dropsBefore(event: MouseEvent, tabEl: HTMLElement): boolean {
     const rect = tabEl.getBoundingClientRect();
+    if (this.isVertical()) {
+      return rect.height > 0 ? event.clientY < rect.top + rect.height / 2 : false;
+    }
     return rect.width > 0 ? event.clientX < rect.left + rect.width / 2 : false;
+  }
+
+  /** Whether the strip is laid out as a column. Read from the layout rather
+   * than the setting, because a narrow window keeps the row either way. */
+  private isVertical(): boolean {
+    return getComputedStyle(this.strip).flexDirection === 'column';
   }
 
   /** Move `draggedId` immediately before/after `targetId` and announce it. */

@@ -46,6 +46,12 @@ really is internal, rather than inventing an entry to satisfy it.
   RSF file, is kept when you duplicate the sheet, and can be undone.
   **No Color** removes it. Older versions open such files and ignore the
   color.
+- **Sheet tabs on the left.** View > Sheet Tabs on the Left lists a
+  file's sheets in a column beside the grid instead of a row under it, so
+  long sheet names and many sheets stay readable. Up/Down arrows move
+  between sheets there, and dragging a tab drops it above or below another.
+  The choice is remembered in this browser. Narrow screens such as phones
+  keep the row.
 
 ## [0.9.15] - 2026-09-28
 

@@ -30,6 +30,18 @@ Decisions the maintainer made on it (2026-09-28):
 - Markdown WYSIWYG is a mode on the Markdown sheet, still saved as Markdown.
 - The minimal edition is CSV editing only (no RSF, SQL, diff or Drive).
 - The next cloud storage after Google Drive is OneDrive, hosted build only.
+- Sheet tab orientation (horizontal or vertical) is a browser setting.
+- Font choices without a local font list: the current six Japanese fonts plus
+  a few common Latin fonts such as Arial, Times New Roman and Courier New.
+- The version-history diff highlights values, formulas, formatting, sheet
+  add/delete/rename and, once they exist, shapes, charts and images.
+- A locked (unreadable) sheet shows only its name, tab color and folder
+  position; it is left out of find, history and print.
+- Co-editing has two roles: can edit and can view.
+- Key derivation from the password: Argon2id (in the Rust/WASM core), with
+  AES-256-GCM; the final design still needs approval.
+- The first area to build is sheet organization: tab colors, vertical tabs
+  and sheet folders.
 
 ## 日本語
 
@@ -49,14 +61,22 @@ Decisions the maintainer made on it (2026-09-28):
 - 2026-09-28 CSV 編集専用ミニマル版: **CSV 編集だけ**。読み込み・編集・検索・並べ替え・フィルタ・保存に絞り、RSF・SQL・比較・Drive は外す。CSV の保存結果が通常版と一致することを試験する。
 - 2026-09-28 次のクラウドストレージ: **OneDrive**。Drive と同じく、ホスト版だけの明示的な例外として追加する。
 
+#### 細部の決定（2026-09-28 16:55Z〜）
+
+- シートタブの横並び・縦並びの設定: **ブラウザ**に保存する（端末ごとの好み。RSF には含めない）。
+- 主要フォント候補: **今の 6 書体＋欧文**。Arial、Times New Roman、Courier New など主要 OS にある欧文書体を数個加える（具体的な一覧は実装時に確定）。
+- 履歴プレビューの差分ハイライト: **オブジェクトまで**。値・数式、書式、シートの追加・削除・名前変更に加え、図形・グラフ・画像の変更も示す（オブジェクト部分はオブジェクト実装後）。
+- ロック中で読めないシートを解除前に見せる範囲: **名前と位置だけ**。シート名・タブ色・フォルダの位置だけを見せ、行数などほかの情報は隠す。検索・履歴・印刷の対象からも外す。
+- パスワードから暗号鍵を作る方式: **Argon2id** の方向で設計する（本体は AES-256-GCM を想定、Argon2id は既存の Rust/WASM に crate を追加）。方向性の決定であり、最終方式は設計時に人の承認を得る。
+- 最初に着手する領域: **シートの整理**（タブ色・縦タブ・シート用フォルダ）。残りの優先順位は後で決める。
+- 共同編集の権限: **編集と閲覧**の 2 段階。招待時に選ぶ。同じセルの同時編集は後から確定した方を採用し、上書きされた人に通知する（前提）。
+
 #### まだ決まっていないこと
 
-- 縦タブ／横タブ設定の保存先、主要フォント候補の具体的な一覧
-- 履歴差分に含める対象（セルのみか、シート構成・オブジェクトも含めるか）
-- 読めないシートで隠すメタデータの範囲（シート名以外）、検索・履歴・出力での扱い
-- 共同編集の参加者・権限・競合・同期の詳細
-- 暗号方式の具体（高リスク扱い、設計時に承認が必要）
-- 全要求の優先順位・スコープ・リリース分割・順序
+- 欧文フォント候補の具体的な一覧（実装時）
+- 共同編集の同期・接続断・保存先・履歴の詳細
+- 暗号方式の最終承認（高リスク扱い）
+- シートの整理以外の優先順位・スコープ・リリース分割・順序
 
 ### 要求仕様（ドラフト原文）
 

@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.15] - 2026-09-28
+
 ### Added
 
 - **Open and save Markdown, JSON, YAML, and text files directly.** A `.md`,

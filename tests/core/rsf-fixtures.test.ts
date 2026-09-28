@@ -80,11 +80,11 @@ interface FixtureCase {
   encodes: boolean;
 }
 
-const cases: FixtureCase[] = [
+const prettyCases: FixtureCase[] = [
   {
     file: 'features.rsf',
     engine: 'wasm',
-    encodes: true,
+    encodes: false, // pretty-printed, full-copy history: what releases before compact JSON wrote
     data: {
       delimiter: ';',
       appName: 'Refrain Sheet',
@@ -131,7 +131,7 @@ const cases: FixtureCase[] = [
   {
     file: 'source-sheets.rsf',
     engine: 'wasm',
-    encodes: true,
+    encodes: false, // pretty-printed, full-copy history: what releases before compact JSON wrote
     data: {
       delimiter: ',',
       autoFormatSource: true,
@@ -168,7 +168,7 @@ const cases: FixtureCase[] = [
   {
     file: 'history.rsf',
     engine: 'wasm',
-    encodes: true,
+    encodes: false, // pretty-printed, full-copy history: what releases before compact JSON wrote
     data: {
       delimiter: ',',
       activeSheetId: 's1',
@@ -189,16 +189,55 @@ const cases: FixtureCase[] = [
   {
     file: 'bulk-zstd.rsf',
     engine: 'wasm',
-    encodes: true,
+    encodes: false, // pretty-printed, full-copy history: what releases before compact JSON wrote
     data: { delimiter: ',', activeSheetId: 'bulk', sheets: [bulk] },
   },
   {
     // What the JavaScript fallback writes: a Zstandard frame of Raw blocks.
     file: 'raw-blocks.rsf',
     engine: 'js',
-    encodes: true,
+    encodes: false, // pretty-printed, full-copy history: what releases before compact JSON wrote
     data: { delimiter: ',', activeSheetId: 's1', sheets: [grid] },
   },
+];
+
+/** A version history of several saves, stored as deltas. */
+const historyDeltas: RsfWorkbookData = {
+  delimiter: ',',
+  activeSheetId: 's1',
+  sheets: [
+    { ...grid, cells: [...grid.cells, [3, 2, 'third save']] },
+    { ...bulk, rowCount: 201 },
+  ],
+  history: [
+    {
+      timestamp: 1_758_585_600_000,
+      bytes: encodeRsfBody({ delimiter: ',', activeSheetId: 's1', sheets: [grid] }),
+    },
+    {
+      timestamp: 1_758_589_200_000,
+      bytes: encodeRsfBody({ delimiter: ',', activeSheetId: 's1', sheets: [grid, bulk] }),
+    },
+    {
+      timestamp: 1_758_592_800_000,
+      bytes: encodeRsfBody({
+        delimiter: ',',
+        activeSheetId: 's1',
+        timezone: 'Asia/Tokyo',
+        sheets: [{ ...grid, cells: [...grid.cells, [3, 2, 'third save']] }, bulk],
+      }),
+    },
+  ],
+};
+
+/**
+ * Compact JSON with history stored as deltas, as this release writes: the
+ * same inputs as the pretty-printed fixtures, plus a longer history.
+ */
+const cases: FixtureCase[] = [
+  ...prettyCases,
+  ...prettyCases.map((c) => ({ ...c, file: c.file.replace('.rsf', '-compact.rsf'), encodes: true })),
+  { file: 'history-deltas.rsf', engine: 'wasm', encodes: true, data: historyDeltas },
 ];
 
 function loadFixture(file: string, encode: () => Uint8Array): Uint8Array {

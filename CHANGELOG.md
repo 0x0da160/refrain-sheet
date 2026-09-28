@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.16] - 2026-09-28
+
 ### Added
 
 - **Sheet tab colors.** Sheet > Sheet Tab Color… (or right-click a sheet

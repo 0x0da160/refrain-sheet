@@ -83,7 +83,13 @@ export class SourceProblemBar {
       this.text.removeAttribute('title');
       return;
     }
-    const where = t('sourceCheck.error', { line: problem.line, col: problem.col, message: problem.message });
+    const message =
+      problem.detail?.kind === 'continuation'
+        ? t('sourceCheck.continuation', { line: problem.detail.valueLine })
+        : problem.detail?.kind === 'unknownAlias'
+          ? t('sourceCheck.unknownAlias', { name: problem.detail.name })
+          : problem.message;
+    const where = t('sourceCheck.error', { line: problem.line, col: problem.col, message });
     this.text.textContent =
       problem.count > 1 ? `${where} ${t('sourceCheck.moreErrors', { n: problem.count - 1 })}` : where;
     this.text.title = this.text.textContent;

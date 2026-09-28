@@ -36,6 +36,11 @@ export const WORKSHEET_COMMANDS = {
   'worksheet.addText': onWorkbook(({ parts }, tab) => parts.worksheets.addTextWorksheet(tab)),
   'worksheet.rename': onWorkbook(({ parts }, tab) => parts.worksheets.renameWorksheet(tab)),
   'worksheet.tabColor': onWorkbook(({ parts }, tab) => parts.worksheets.chooseTabColor(tab)),
+  'worksheet.newFolder': onWorkbook(({ parts }, tab) => parts.folders.newFolder(tab)),
+  'worksheet.moveToFolder': onWorkbook(
+    ({ parts }, tab) => parts.folders.moveSheetToFolder(tab),
+    (doc) => doc.folders.length > 0,
+  ),
   'worksheet.duplicate': onWorkbook(({ parts }, tab) => parts.worksheets.duplicateWorksheet(tab)),
   // A workbook always keeps at least one worksheet.
   'worksheet.delete': onWorkbook(({ parts }, tab) => parts.worksheets.deleteWorksheet(tab), severalSheets),

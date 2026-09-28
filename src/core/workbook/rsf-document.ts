@@ -300,6 +300,7 @@ export class RsfDocument extends Workbook {
       doc.updatedAt = data.updatedAt;
     }
     doc.registry.replaceAll(sheets, data.activeSheetId);
+    doc.folderList = data.folders ?? [];
     return doc;
   }
 
@@ -409,6 +410,7 @@ export class RsfDocument extends Workbook {
       return false;
     }
     this.registry.replaceAll(sheets, data.activeSheetId);
+    this.folderList = data.folders ?? [];
     this.delimiter = data.delimiter;
     if (data.timezone !== undefined && isValidTimeZone(data.timezone)) {
       this.timezoneId = data.timezone;
@@ -482,9 +484,15 @@ export class RsfDocument extends Workbook {
   /** Encode the workbook from per-worksheet prepared cell lists (compresses). */
   toBytesFromSheetCells(perSheet: Array<Array<[number, number, string]>>): Uint8Array {
     this.updatedAt = Date.now();
-    const sheets = this.sheets.map((sheet, index) =>
-      worksheetToData(sheet, perSheet[index] ?? sheet.collectCells()),
-    );
+    const folderIds = new Set(this.folders.map((folder) => folder.id));
+    const sheets = this.sheets.map((sheet, index) => {
+      const entry = worksheetToData(sheet, perSheet[index] ?? sheet.collectCells());
+      // Never name a folder the file does not list (the reader rejects that).
+      if (entry.folderId !== undefined && !folderIds.has(entry.folderId)) {
+        delete entry.folderId;
+      }
+      return entry;
+    });
     const content: RsfWorkbookData = {
       delimiter: this.delimiter,
       // Record the creating/updating application (single source of truth).
@@ -496,6 +504,7 @@ export class RsfDocument extends Workbook {
       activeSheetId: this.activeSheetId,
       timezone: this.timezoneId,
       displayLanguage: this.displayLanguageId,
+      folders: this.folders.map((folder) => ({ ...folder })),
       sheets,
     };
     // Version history: while enabled, every successful save appends one

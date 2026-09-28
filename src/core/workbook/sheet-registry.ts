@@ -160,6 +160,24 @@ export class SheetRegistry {
     this.nextSeq = sheets.length + 1;
   }
 
+  /**
+   * Put the worksheets in the order `ids` lists them. Worksheets it leaves
+   * out keep their relative order after the listed ones; unknown ids are
+   * ignored. Returns whether the order changed.
+   */
+  reorder(ids: readonly string[]): boolean {
+    const rank = new Map(ids.map((id, index) => [id, index]));
+    const next = this.list
+      .map((sheet, index) => ({ sheet, key: rank.get(sheet.id) ?? ids.length + index }))
+      .sort((a, b) => a.key - b.key)
+      .map((entry) => entry.sheet);
+    if (next.every((sheet, index) => sheet === this.list[index])) {
+      return false;
+    }
+    this.list = next;
+    return true;
+  }
+
   /** Forget cached name lookups after a structural change or rename. */
   invalidateNames(): void {
     this.nameIndex = null;

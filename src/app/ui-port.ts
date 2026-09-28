@@ -502,8 +502,43 @@ export interface FormatDialogsPort {
   ): Promise<NumberFormatDialogResult | null>;
 }
 
+/** One place a worksheet or folder can go, in the Move to Folder dialog. */
+export interface FolderPickerOption {
+  /** The folder's id, or null for the top level. */
+  id: string | null;
+  name: string;
+  /** Nesting depth, 0 for the top level and top-level folders. */
+  depth: number;
+}
+
+/** What the Move to Folder dialog shows: what is moving, and where it can go. */
+export interface FolderPickerInput {
+  /** A worksheet or a folder is moving (sets the wording). */
+  subject: 'sheet' | 'folder';
+  /** The worksheet's or folder's name. */
+  name: string;
+  options: FolderPickerOption[];
+  /** Where it is now (null = top level); preselected. */
+  current: string | null;
+}
+
 /** Worksheet naming and deletion. */
 export interface WorksheetDialogsPort {
+  /**
+   * Ask for a sheet folder's name (`create` for a new folder, `rename`).
+   * `validate` returns an already-localized message for an unacceptable
+   * name, or null. Resolves with the trimmed name, or null when cancelled.
+   */
+  promptFolderName(
+    mode: 'create' | 'rename',
+    current: string,
+    validate: (name: string) => string | null,
+  ): Promise<string | null>;
+  /**
+   * The Move to Folder dialog. Resolves with the chosen place (`folderId`
+   * null = top level), or null when cancelled (nothing changes).
+   */
+  chooseFolder(input: FolderPickerInput): Promise<{ folderId: string | null } | null>;
   /**
    * The Tab Color dialog for the active worksheet: ready-made colors plus
    * any color, preselected from `current` (null when the tab has none).

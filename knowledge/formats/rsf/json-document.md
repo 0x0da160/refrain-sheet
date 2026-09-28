@@ -5,6 +5,7 @@ description: The JSON inside a .rsf file — every key of the workbook, workshee
 sources:
   - resource: ../../../src/core/workbook/rsf-codec.ts
   - resource: ../../../src/core/workbook/history-delta.ts
+  - resource: ../../../src/core/workbook/rsf-folders.ts
   - resource: ../../../tests/core/rsf-codec.test.ts
   - resource: ../../../tests/fixtures/rsf/v1/features.rsf
 status: stable
@@ -45,6 +46,7 @@ the same content is the same document.
 | `activeSheet`      | string           | no       | The id of the worksheet to show on open; the first one when missing or unknown.          |
 | `autoFormatSource` | boolean          | no       | Whether the JSON/YAML editors reformat their source on commit. Left out when `false`.    |
 | `view`             | object           | no       | File-level display settings (below). Left out when the file specifies none.              |
+| `folders`          | array of objects | no       | Sheet folders (below), at most 256. Left out when the file has none.                     |
 | `sheets`           | array of objects | yes      | 1–256 worksheets, in tab order (see below).                                              |
 | `history`          | object           | no       | Version history (see below). Left out when history is on with no snapshots and no limit. |
 
@@ -57,6 +59,7 @@ the same content is the same document.
 | `kind`     | string           | `grid` (default), `markdown`, `json`, `yaml`, or `text`.                                 |
 | `locked`   | boolean          | Protected against editing. Left out when `false`.                                        |
 | `tabColor` | string           | The tab's color, `#rrggbb` (written lowercase). Left out when none; else `bad-shape`.    |
+| `folder`   | string           | The id of the folder (in `folders`) the worksheet is in. Left out at the top level.      |
 | `rows`     | integer          | Grid only: row count, 1–2,000,000.                                                       |
 | `cols`     | integer          | Grid only: column count, 1–16,384 (and `rows × cols` at most 20,000,000).                |
 | `cells`    | array of arrays  | Grid only: rows of cell inputs (below).                                                  |
@@ -65,6 +68,22 @@ the same content is the same document.
 | `filter`   | object           | The worksheet's filter (below).                                                          |
 | `styles`   | object           | Cell formatting keyed by A1 reference (below).                                           |
 | `comments` | object           | Cell comments keyed by A1 reference: `{ "B2": "text" }` (at most 2,000 characters each). |
+
+### Folders
+
+`folders` lists the sheet folders: `{ "id", "name", "parent" }`. `id` is a
+string of 1–255 characters, unique among folders; `name` is non-empty text
+of at most 400 UTF-8 bytes; `parent`, when present, is the id of the
+folder this one is inside (absent = top level). A worksheet's `folder`
+names the one folder it is in. An unknown `folder` or `parent`, a
+duplicate id, a folder inside itself (at any depth), or a `folder` without
+a `folders` list is `bad-shape`; more than 256 folders is `too-large`.
+
+The folders do not reorder anything: `sheets` stays the one worksheet
+order. A folder shows where its first worksheet is, and an empty folder
+after its parent's other items; the application keeps each folder's
+worksheets next to one another in `sheets`. Readers older than these keys
+ignore them and show the worksheets in `sheets` order, without folders.
 
 ### Cells
 

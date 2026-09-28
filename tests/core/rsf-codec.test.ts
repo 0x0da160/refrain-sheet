@@ -96,6 +96,30 @@ describe('.rsf codec: round trips', () => {
     expect(rsfTree(encodeRsfWorkbook(book)).sheets[0].tabColor).toBeUndefined();
   });
 
+  it('round-trips nested sheet folders and each worksheet’s folder', () => {
+    const data: RsfWorkbookData = {
+      ...book,
+      folders: [
+        { id: 'f1', name: 'Sales' },
+        { id: 'f2', name: '2026', parentId: 'f1' },
+      ],
+      sheets: [{ ...sheet, folderId: 'f2' }],
+    };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok && decoded.data.folders).toEqual(data.folders);
+    expect(decoded.ok && decoded.data.sheets[0].folderId).toBe('f2');
+    const t = rsfTree(encodeRsfWorkbook(data));
+    expect(t.folders).toEqual([
+      { id: 'f1', name: 'Sales' },
+      { id: 'f2', name: '2026', parent: 'f1' },
+    ]);
+    expect(t.sheets[0].folder).toBe('f2');
+    // No folders: neither key is written.
+    const plain = rsfTree(encodeRsfWorkbook(book));
+    expect(plain.folders).toBeUndefined();
+    expect(plain.sheets[0].folder).toBeUndefined();
+  });
+
   it('round-trips version history snapshots, which decode on their own', () => {
     const snapshot = { timestamp: 1_700_000_000_000, bytes: encodeRsfBody(book) };
     const decoded = decodeRsfWorkbook(
@@ -273,6 +297,29 @@ describe('.rsf codec: validation of hand-edited files', () => {
     ['a non-boolean flag', (t: ReturnType<typeof tree>) => (t.sheets[0].locked = 'yes')],
     ['a tab color that is not hex', (t: ReturnType<typeof tree>) => (t.sheets[0].tabColor = 'blue')],
     ['a tab color that is not a string', (t: ReturnType<typeof tree>) => (t.sheets[0].tabColor = 5)],
+    ['a worksheet in an unknown folder', (t: ReturnType<typeof tree>) => (t.sheets[0].folder = 'f9')],
+    [
+      'a folder whose parent is unknown',
+      (t: ReturnType<typeof tree>) => (t.folders = [{ id: 'f1', name: 'A', parent: 'f9' }]),
+    ],
+    [
+      'folders inside each other',
+      (t: ReturnType<typeof tree>) =>
+        (t.folders = [
+          { id: 'f1', name: 'A', parent: 'f2' },
+          { id: 'f2', name: 'B', parent: 'f1' },
+        ]),
+    ],
+    [
+      'duplicate folder ids',
+      (t: ReturnType<typeof tree>) =>
+        (t.folders = [
+          { id: 'f1', name: 'A' },
+          { id: 'f1', name: 'B' },
+        ]),
+    ],
+    ['a folder with an empty name', (t: ReturnType<typeof tree>) => (t.folders = [{ id: 'f1', name: ' ' }])],
+    ['folders that are not a list', (t: ReturnType<typeof tree>) => (t.folders = { id: 'f1' })],
     ['a history limit of 0', (t: ReturnType<typeof tree>) => (t.history = { limit: 0 })],
     [
       'a snapshot without a time',

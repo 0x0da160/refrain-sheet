@@ -46,6 +46,13 @@ really is internal, rather than inventing an entry to satisfy it.
   RSF file, is kept when you duplicate the sheet, and can be undone.
   **No Color** removes it. Older versions open such files and ignore the
   color.
+- **Sheet folders.** Sheet > Move to New Folder… groups a sheet into a
+  folder, and Sheet > Move to Folder… moves it between folders; folders can
+  sit inside folders. Click a folder in the sheet tabs to open or close it,
+  or drop a sheet tab on it. Right-click a folder to rename it, move it,
+  remove it while keeping its sheets, or delete it with its sheets (after a
+  confirmation). Everything can be undone, and folders are saved in the RSF
+  file. Older versions open such files and show the sheets without folders.
 - **Sheet tabs on the left.** View > Sheet Tabs on the Left lists a
   file's sheets in a column beside the grid instead of a row under it, so
   long sheet names and many sheets stay readable. Up/Down arrows move

@@ -524,6 +524,8 @@ function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
     { labelKey: 'menu.sheet.addTextSheet', command: 'worksheet.addText' },
     { labelKey: 'menu.sheet.renameSheet', command: 'worksheet.rename' },
     { labelKey: 'menu.sheet.tabColor', command: 'worksheet.tabColor' },
+    { labelKey: 'menu.sheet.newFolder', command: 'worksheet.newFolder' },
+    { labelKey: 'menu.sheet.moveToFolder', command: 'worksheet.moveToFolder' },
     { labelKey: 'menu.sheet.duplicateSheet', command: 'worksheet.duplicate' },
     { labelKey: 'menu.sheet.deleteSheet', command: 'worksheet.delete' },
     'separator',

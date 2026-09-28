@@ -252,6 +252,25 @@ const cases: FixtureCase[] = [
       ],
     },
   },
+  {
+    // Nested sheet folders (`folders`, a worksheet's `folder`).
+    file: 'sheet-folders.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: {
+      delimiter: ',',
+      activeSheetId: 's1',
+      folders: [
+        { id: 'f1', name: 'Sales' },
+        { id: 'f2', name: '2026', parentId: 'f1' },
+      ],
+      sheets: [
+        { ...grid, folderId: 'f2' },
+        { id: 's2', name: 'Sheet2', rowCount: 1, columnCount: 1, cells: [], folderId: 'f1' },
+        { id: 's3', name: 'Sheet3', rowCount: 1, columnCount: 1, cells: [] },
+      ],
+    },
+  },
 ];
 
 function loadFixture(file: string, encode: () => Uint8Array): Uint8Array {

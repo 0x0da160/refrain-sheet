@@ -8,6 +8,7 @@ import type { CellValidation } from './data-validation';
 import { DEFAULT_DISPLAY_LANGUAGE, type DisplayLanguageId } from './display-language';
 import type { SheetFilter } from './filter';
 import { RecalcEngine } from './recalc-engine';
+import type { SheetFolder, SheetOrganization } from './sheet-folders';
 import { SheetRegistry } from './sheet-registry';
 import type { SheetSort } from './sort';
 import { isValidTimeZone, localTimeZone } from './timezone';
@@ -146,27 +147,35 @@ export class Workbook {
   /** Build (but do not insert) a new empty worksheet shaped like the active one. */
   createWorksheet(name: string, rows?: number, cols?: number): Worksheet {
     const active = this.activeSheet;
-    return Worksheet.empty(this.registry.mintId(), name, rows ?? active.rowCount, cols ?? active.columnCount);
+    return this.besideActive(
+      Worksheet.empty(this.registry.mintId(), name, rows ?? active.rowCount, cols ?? active.columnCount),
+    );
   }
 
   /** Build (but do not insert) a new worksheet holding one empty Markdown document. */
   createMarkdownWorksheet(name: string): Worksheet {
-    return Worksheet.markdown(this.registry.mintId(), name, '');
+    return this.besideActive(Worksheet.markdown(this.registry.mintId(), name, ''));
   }
 
   /** Build (but do not insert) a new worksheet holding one empty JSON document. */
   createJsonWorksheet(name: string): Worksheet {
-    return Worksheet.json(this.registry.mintId(), name, '');
+    return this.besideActive(Worksheet.json(this.registry.mintId(), name, ''));
   }
 
   /** Build (but do not insert) a new worksheet holding one empty YAML document. */
   createYamlWorksheet(name: string): Worksheet {
-    return Worksheet.yaml(this.registry.mintId(), name, '');
+    return this.besideActive(Worksheet.yaml(this.registry.mintId(), name, ''));
   }
 
   /** Build (but do not insert) a new worksheet holding one empty plain-text document. */
   createTextWorksheet(name: string): Worksheet {
-    return Worksheet.text(this.registry.mintId(), name, '');
+    return this.besideActive(Worksheet.text(this.registry.mintId(), name, ''));
+  }
+
+  /** A new worksheet goes in next to the active one, so it joins the active one's folder. */
+  private besideActive(sheet: Worksheet): Worksheet {
+    sheet.folderId = this.activeSheet.folderId;
+    return sheet;
   }
 
   /** Build (but do not insert) a deep copy of a worksheet under a new name. */
@@ -223,6 +232,56 @@ export class Workbook {
   /** Move a worksheet to a new position in the strip. */
   moveSheet(id: string, toIndex: number): boolean {
     return this.touchIf(this.registry.move(id, toIndex));
+  }
+
+  // ----- Sheet folders (sheet-folders.ts) -----
+
+  /** The folders, in the order they were created. Change them with {@link applyOrganization}. */
+  protected folderList: SheetFolder[] = [];
+  private nextFolderSeq = 1;
+
+  get folders(): readonly SheetFolder[] {
+    return this.folderList;
+  }
+
+  /** A folder id no folder uses yet. */
+  mintFolderId(): string {
+    for (;;) {
+      const id = `f${this.nextFolderSeq++}`;
+      if (!this.folderList.some((folder) => folder.id === id)) {
+        return id;
+      }
+    }
+  }
+
+  /** A copy of the folders, the worksheet order, and each worksheet's folder. */
+  organization(): SheetOrganization {
+    const folderOf: Record<string, string | undefined> = {};
+    for (const sheet of this.sheets) {
+      folderOf[sheet.id] = sheet.folderId;
+    }
+    return {
+      folders: this.folderList.map((folder) => ({ ...folder })),
+      order: this.sheets.map((sheet) => sheet.id),
+      folderOf,
+    };
+  }
+
+  /**
+   * Replace the folders, the worksheet order, and the folder of every
+   * worksheet `org` lists (one undoable step swaps whole snapshots). A
+   * worksheet `org` does not list — one removed and not yet re-inserted —
+   * keeps what it has.
+   */
+  applyOrganization(org: SheetOrganization): void {
+    this.folderList = org.folders.map((folder) => ({ ...folder }));
+    this.registry.reorder(org.order);
+    for (const sheet of this.sheets) {
+      if (Object.prototype.hasOwnProperty.call(org.folderOf, sheet.id)) {
+        sheet.folderId = org.folderOf[sheet.id];
+      }
+    }
+    this.touchIf(true);
   }
 
   /** The workbook's stored IANA timezone, read by `TODAY()`/`NOW()` (Sheet > Timezone…). */

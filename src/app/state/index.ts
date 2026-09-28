@@ -15,6 +15,7 @@ import { StructuralOpsState } from './structural-ops';
 import { resolveWrap, resolveZoom } from './view-layers';
 import { EditingState } from './editing';
 import type { FormulaRefTarget, Selection, SelectionKind, StateEventType, Tab } from './types';
+import { SheetFoldersState } from './sheet-folders';
 import { WorksheetsState } from './worksheets';
 import { WriteGuards } from './write-guards';
 
@@ -68,6 +69,9 @@ export class AppState {
   /** Filtering and worksheet lifecycle operations — see `WorksheetsState`. */
   private readonly worksheetsState: WorksheetsState;
 
+  /** Sheet folder operations — see `SheetFoldersState`. */
+  readonly folders: SheetFoldersState;
+
   /** The checks every user-initiated write passes — see `WriteGuards`. */
   private readonly guards: WriteGuards;
 
@@ -79,6 +83,7 @@ export class AppState {
     this.stickyFirstColumn = safeStorageGet(STICKY_COL_KEY) === '1';
     this.structuralOps = new StructuralOpsState(this);
     this.worksheetsState = new WorksheetsState(this);
+    this.folders = new SheetFoldersState(this, this.worksheetsState);
     this.guards = new WriteGuards(this);
     this.editing = new EditingState(this, this.guards, this.structuralOps, this.worksheetsState);
   }

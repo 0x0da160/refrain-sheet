@@ -2,6 +2,7 @@
 import type { CellStyle } from './cell-style';
 import type { SheetFilter } from './filter';
 import type { LosslessDocument } from '../csv/lossless-document';
+import type { SheetOrganization } from './sheet-folders';
 import type { Worksheet } from './worksheet';
 
 /**
@@ -55,7 +56,9 @@ export type SheetOperation =
   | { action: 'rename'; sheetId: string; before: string; after: string }
   | { action: 'move'; sheetId: string; from: number; to: number }
   /** Set or clear (`undefined`) a worksheet's tab color. */
-  | { action: 'tabColor'; sheetId: string; before: string | undefined; after: string | undefined };
+  | { action: 'tabColor'; sheetId: string; before: string | undefined; after: string | undefined }
+  /** Swap the sheet folders, the worksheet order, and each worksheet's folder. */
+  | { action: 'organize'; before: SheetOrganization; after: SheetOrganization };
 
 /**
  * One atomic sub-operation of a history entry. The `rows`/`cols`/`filter`/

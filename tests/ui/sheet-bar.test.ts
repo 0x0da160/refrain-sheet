@@ -42,6 +42,8 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseCellComment: vi.fn(async () => null),
     promptSheetName: vi.fn(async () => null),
     chooseSheetTabColor: vi.fn(async () => null),
+    promptFolderName: vi.fn(async () => null),
+    chooseFolder: vi.fn(async () => null),
     confirmDeleteSheet: vi.fn(async () => true),
     chooseExportSheet: vi.fn(async () => null),
     confirmReplaceAllWorkbook: vi.fn(async () => true),
@@ -477,5 +479,106 @@ describe('worksheet tabs on the left (View > Sheet Tabs on the Left)', () => {
     c.dispatchEvent(new MouseEvent('drop', { bubbles: true, cancelable: true, clientX: 170, clientY: 105 }));
     await Promise.resolve();
     expect(doc.sheets.map((s) => s.name)).toEqual(['B', 'A', 'C']);
+  });
+});
+
+describe('sheet folders in the strip', () => {
+  function withFolders(): Harness & { folder: string; inner: string } {
+    const harness = setup(['A', 'B', 'C', 'D']);
+    const { state, tab, doc } = harness;
+    const id = (name: string): string => doc.sheetByName(name)!.id;
+    const folder = state.folders.createFolder(tab, id('B'), 'Sales')!;
+    state.folders.moveSheetToFolder(tab, id('C'), folder);
+    const inner = state.folders.createFolder(tab, id('C'), '2026')!;
+    harness.bar.render(true);
+    return { ...harness, folder, inner };
+  }
+
+  const shown = (bar: SheetBar): string[] =>
+    Array.from(
+      bar.element.querySelectorAll<HTMLElement>('.sheet-tab .sheet-label, .sheet-folder-header .sheet-label'),
+      (label) => label.textContent ?? '',
+    );
+  const header = (bar: SheetBar, name: string): HTMLElement =>
+    Array.from(bar.element.querySelectorAll<HTMLElement>('.sheet-folder-header')).find(
+      (h) => h.textContent === name,
+    )!;
+
+  it('shows each folder as a header followed by its worksheets, nested', () => {
+    const { bar } = withFolders();
+    expect(shown(bar)).toEqual(['A', 'Sales', 'B', '2026', 'C', 'D']);
+    const inner = header(bar, '2026');
+    expect(inner.closest('.sheet-folder-items')?.previousElementSibling).toBe(header(bar, 'Sales'));
+    expect(inner.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('closes and opens a folder from its header, keeping the active worksheet in view', () => {
+    const { bar, state, tab, doc } = withFolders();
+    header(bar, 'Sales').click();
+    expect(shown(bar)).toEqual(['A', 'Sales', 'D']);
+    expect(header(bar, 'Sales').getAttribute('aria-expanded')).toBe('false');
+    state.setActiveSheet(tab, doc.sheetByName('C')!.id);
+    bar.render();
+    expect(shown(bar)).toEqual(['A', 'Sales', 'C', 'D']);
+    header(bar, 'Sales').click();
+    expect(shown(bar)).toEqual(['A', 'Sales', 'B', '2026', 'C', 'D']);
+  });
+
+  it('moves with the arrows through the worksheets as shown, skipping closed folders', () => {
+    const { bar, doc } = withFolders();
+    header(bar, '2026').click();
+    const press = (key: string): void => {
+      bar.render();
+      bar.element
+        .querySelector<HTMLElement>('.sheet-tab[aria-selected="true"]')!
+        .dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    };
+    press('ArrowRight');
+    expect(doc.activeSheet.name).toBe('B');
+    press('ArrowRight');
+    expect(doc.activeSheet.name).toBe('D');
+  });
+
+  it('moves a worksheet dropped on a folder header into that folder', async () => {
+    const { bar, doc, folder } = withFolders();
+    const d = bar.element.querySelector<HTMLElement>(
+      `.sheet-tab[data-sheet-id="${doc.sheetByName('D')!.id}"]`,
+    )!;
+    d.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    header(bar, 'Sales').dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    expect(doc.sheetByName('D')!.folderId).toBe(folder);
+    expect(doc.sheets.map((s) => s.name)).toEqual(['A', 'B', 'C', 'D']);
+  });
+
+  it('puts a worksheet dropped next to another into that worksheet’s folder', async () => {
+    const { bar, doc, folder } = withFolders();
+    const a = bar.element.querySelector<HTMLElement>(
+      `.sheet-tab[data-sheet-id="${doc.sheetByName('A')!.id}"]`,
+    )!;
+    const b = bar.element.querySelector<HTMLElement>(
+      `.sheet-tab[data-sheet-id="${doc.sheetByName('B')!.id}"]`,
+    )!;
+    a.dispatchEvent(new Event('dragstart', { bubbles: true }));
+    b.dispatchEvent(new MouseEvent('drop', { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+    expect(doc.sheetByName('A')!.folderId).toBe(folder);
+    bar.render();
+    expect(shown(bar)).toEqual(['Sales', 'B', 'A', '2026', 'C', 'D']);
+  });
+
+  it('offers rename, move, remove, and delete on a folder’s context menu', () => {
+    const { bar } = withFolders();
+    header(bar, 'Sales').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    const items = Array.from(
+      document.querySelectorAll('.context-menu [role="menuitem"]'),
+      (i) => i.textContent,
+    );
+    expect(items).toEqual([
+      t('menu.sheet.renameFolder'),
+      t('menu.sheet.moveFolder'),
+      t('menu.sheet.ungroupFolder'),
+      t('menu.sheet.deleteFolder'),
+    ]);
   });
 });

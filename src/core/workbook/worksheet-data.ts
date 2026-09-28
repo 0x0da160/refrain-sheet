@@ -35,6 +35,7 @@ export function worksheetFromData(entry: RsfWorksheetData): Worksheet {
   sheet.filterDropped = entry.filterDropped === true;
   sheet.locked = entry.locked === true;
   sheet.tabColor = entry.tabColor;
+  sheet.folderId = entry.folderId;
   for (const [r, c, style] of entry.styles ?? []) {
     sheet.setStyle(r, c, style);
   }
@@ -86,6 +87,9 @@ export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, 
   }
   if (sheet.tabColor !== undefined) {
     entry.tabColor = sheet.tabColor;
+  }
+  if (sheet.folderId !== undefined) {
+    entry.folderId = sheet.folderId;
   }
   const styles = sheet.collectStyles();
   if (styles.length > 0) {

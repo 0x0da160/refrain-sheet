@@ -44,6 +44,8 @@ function stubUi(): UiPort {
     chooseCellComment: async () => null,
     promptSheetName: async () => null,
     chooseSheetTabColor: async () => null,
+    promptFolderName: async () => null,
+    chooseFolder: async () => null,
     confirmDeleteSheet: async () => true,
     chooseExportSheet: async () => null,
     confirmReplaceAllWorkbook: async () => true,

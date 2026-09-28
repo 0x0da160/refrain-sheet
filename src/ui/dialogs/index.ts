@@ -36,7 +36,9 @@ import type { RsfHistorySnapshot } from '../../core/workbook/rsf-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/csv/serializer';
 import type { ValidationSummary } from '../../core/csv/validation';
 import type { WorksheetKind } from '../../core/workbook/worksheet';
+import type { FolderPickerInput } from '../../app/ui-port';
 import { openColumnMenu } from '../column-menu';
+import { chooseFolder, promptFolderName } from './sheet-folders';
 import { el } from '../dom';
 import { createIcon } from '../icon';
 import { AppSettingsDialogs } from './app-settings';
@@ -297,6 +299,20 @@ export class Dialogs {
   /** See `SheetOpsDialogs.chooseSheetTabColor` for the full behavior contract. */
   chooseSheetTabColor(current: string | null): Promise<ColorDialogResult | null> {
     return this.sheetOps.chooseSheetTabColor(current);
+  }
+
+  /** See `promptFolderName` in `./sheet-folders.ts`. */
+  promptFolderName(
+    mode: 'create' | 'rename',
+    current: string,
+    validate: (name: string) => string | null,
+  ): Promise<string | null> {
+    return promptFolderName(mode, current, validate);
+  }
+
+  /** See `chooseFolder` in `./sheet-folders.ts`. */
+  chooseFolder(input: FolderPickerInput): Promise<{ folderId: string | null } | null> {
+    return chooseFolder(input);
   }
 
   /** See `SheetOpsDialogs.promptSheetName` for the full behavior contract. */

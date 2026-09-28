@@ -38,6 +38,21 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- **Open and save Markdown, JSON, YAML, and text files directly.** A `.md`,
+  `.json`, `.yaml`/`.yml`, or `.txt` file now opens in its editor, and Save
+  writes the text back into the same file, keeping its encoding, BOM, and
+  line endings. If you add a second sheet, Save creates a new `.rsf` file
+  instead and leaves the original alone.
+
+### Changed
+
+- A `.json` file now opens in the JSON editor and a `.txt` file in the text
+  editor. To turn an array of JSON objects into a table, use
+  **File > Import JSON as Table…**; to open a `.txt` file as a table, rename
+  it to `.csv` or `.tsv`.
+
 ### Fixed
 
 - **The YAML check catches mis-indented lines.** YAML reads a line indented

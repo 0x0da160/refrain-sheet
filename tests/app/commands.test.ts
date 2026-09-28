@@ -5,6 +5,7 @@ import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { t, type LocaleId } from '../../src/app/i18n';
 import type { OpenedFile } from '../../src/app/file-access';
+import type { FileIoCommands } from '../../src/app/commands/file-io';
 import { setSuppressHistoryCapWarning } from '../../src/app/settings';
 import { installOpenFilesChannel, uninstallOpenFilesChannel } from '../../src/app/open-elsewhere';
 import { compileQuery } from '../../src/core/search';
@@ -1006,6 +1007,82 @@ describe('opening files by format', () => {
       expect.stringContaining('XLSX'),
       expect.stringContaining('broken.xlsx'),
     );
+  });
+});
+
+describe('opening and saving Markdown, JSON, YAML, and text files', () => {
+  it.each([
+    ['notes.md', 'markdown'],
+    ['data.json', 'json'],
+    ['ci.yml', 'yaml'],
+    ['memo.txt', 'text'],
+  ] as const)('opens %s in the %s editor with its own name and handle', async (name, kind) => {
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    const disk = diskHandle(name, utf8('hello\n'));
+    await commands.openFiles([disk.opened()], { confirmNonCsv: true });
+    const tab = state.activeTab!;
+    expect(tab.name).toBe(name);
+    expect(tab.handle).toBe(disk.handle);
+    expect(tab.textFile?.kind).toBe(kind);
+    expect(ui.confirm).not.toHaveBeenCalled();
+    const doc = tab.doc.kind === 'rsf' ? tab.doc : null;
+    expect(doc?.sheets).toHaveLength(1);
+    expect(doc?.sheets[0].kind).toBe(kind);
+    expect(doc?.sheets[0].getValue(0, 0)).toBe('hello\n');
+    expect(doc?.isDirty).toBe(false);
+  });
+
+  it('saves the edited text back into the same file, keeping CRLF', async () => {
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    const disk = diskHandle('ci.yaml', utf8('a: 1\r\nb: 2\r\n'));
+    await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    state.setReadOnly(tab, false);
+    state.editCell(tab, 0, 0, 'a: 1\nb: 3\n');
+    expect(await commands.save(tab, KEEP)).toBe(true);
+    expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('a: 1\r\nb: 3\r\n');
+    expect(tab.name).toBe('ci.yaml');
+    expect(tab.doc.isDirty).toBe(false);
+    expect(ui.explainRsfSave).not.toHaveBeenCalled();
+    // A second save after another edit still goes to the same file without asking.
+    state.editCell(tab, 0, 0, 'a: 2\n');
+    expect(await commands.save(tab, KEEP)).toBe(true);
+    expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('a: 2\r\n');
+    expect(ui.confirmChangedOnDisk).not.toHaveBeenCalled();
+  });
+
+  it('saves a new .rsf file instead once a second sheet is added, leaving the original alone', async () => {
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    const disk = diskHandle('notes.md', utf8('# hi\n'));
+    await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    state.setReadOnly(tab, false);
+    if (tab.doc.kind === 'rsf') {
+      tab.doc.insertSheetAt(1, tab.doc.createWorksheet('Sheet2'));
+    }
+    expect(await commands.save(tab, KEEP)).toBe(true);
+    expect(decodeBytes(disk.bytes(), 'utf-8')).toBe('# hi\n');
+    expect(disk.writes()).toBe(0);
+    expect(tab.name).toBe('notes.rsf');
+    expect(tab.handle).toBeNull();
+    expect(tab.textFile).toBeNull();
+    expect(ui.notify).toHaveBeenCalledWith(t('notify.textFileAsRsf', { name: 'notes.md' }), 'warn');
+  });
+
+  it('imports a .json array of objects as a table from File > Import JSON as Table', async () => {
+    const { state, commands } = setup();
+    const { parts } = commands as unknown as { parts: { fileIo: FileIoCommands } };
+    await parts.fileIo.opening.importJsonTables([
+      opened('rows.json', utf8('[{"a":1,"b":"x"},{"a":2,"b":"y"}]')),
+    ]);
+    const tab = state.activeTab!;
+    expect(tab.name).toBe('rows.rsf');
+    expect(tab.textFile).toBeNull();
+    expect(tab.doc.getValue(0, 1)).toBe('x');
+    expect(tab.doc.getValue(1, 0)).toBe('2');
   });
 });
 

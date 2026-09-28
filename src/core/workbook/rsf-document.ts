@@ -17,7 +17,7 @@ import { DEFAULT_SHEET_NAME, MAX_WORKSHEETS } from './sheet-registry';
 import { DEFAULT_TIMEZONE, isValidTimeZone, localTimeZone } from './timezone';
 import { VersionHistory } from './version-history';
 import { Workbook } from './workbook';
-import { Worksheet } from './worksheet';
+import { Worksheet, type WorksheetKind } from './worksheet';
 import { valuesToCsvText, worksheetFromData, worksheetToData } from './worksheet-data';
 
 export { MAX_WORKSHEETS } from './sheet-registry';
@@ -199,6 +199,28 @@ export class RsfDocument extends Workbook {
       return Worksheet.fromValues(`s${i + 1}`, candidate, sheet.rows, sheet.columnCount);
     });
     return new RsfDocument(name, ',', worksheets, undefined, localTimeZone(), displayLanguage);
+  }
+
+  /**
+   * A workbook holding one Markdown, JSON, YAML, or text worksheet whose
+   * source is `text`. Used when a plain-text file is opened directly in its
+   * editor.
+   */
+  static fromSourceText(
+    name: string,
+    kind: Exclude<WorksheetKind, 'grid'>,
+    text: string,
+    sheetName = DEFAULT_SHEET_NAME,
+    displayLanguage: DisplayLanguageId = DEFAULT_DISPLAY_LANGUAGE,
+  ): RsfDocument {
+    return new RsfDocument(
+      name,
+      ',',
+      [new Worksheet('s1', sheetName, [[text]], 1, kind)],
+      undefined,
+      localTimeZone(),
+      displayLanguage,
+    );
   }
 
   static empty(

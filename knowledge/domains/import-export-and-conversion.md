@@ -10,6 +10,7 @@ sources:
   - resource: ../../src/core/interchange/json-export.ts
   - resource: ../../src/core/interchange/xlsx-import.ts
   - resource: ../../src/core/interchange/xlsx-export.ts
+  - resource: ../../src/core/interchange/text-file.ts
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -31,7 +32,16 @@ the other.
   an `.rsf` in the binary format of releases up to 0.8.x) is refused with
   an explanation — see
   [`../formats/rsf/compatibility.md`](../formats/rsf/compatibility.md).
-- **JSON** (`src/core/interchange/json-import.ts`): **File > Open** accepts a `.json`
+- **Markdown, JSON, YAML, and text files** (`src/core/interchange/text-file.ts`):
+  **File > Open** opens a `.md`/`.markdown`, `.json`, `.yaml`/`.yml`, or
+  `.txt` file directly in its editor — a workbook with one worksheet of that
+  kind. The tab keeps the file's handle and remembers its encoding, BOM, and
+  dominant line ending, so Save writes the text back into the same file
+  (unchanged text is written back byte for byte). Once the workbook no
+  longer fits the file (a second worksheet, or a different kind), Save
+  writes a new `.rsf` file instead and leaves the original untouched.
+- **JSON as a table** (`src/core/interchange/json-import.ts`):
+  **File > Import JSON as Table…** accepts a `.json`
   file containing a top-level array of flat (non-nested) objects — one
   array element per row, columns as the union of every object's keys in
   first-seen order. A deeply nested value (an object or array as a

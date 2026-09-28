@@ -132,6 +132,7 @@ export class AppState {
       freeze: null,
       readOnly: startsReadOnly,
       neverSaved: false,
+      textFile: null,
     };
     this.tabs.push(tab);
     this.activeTabId = tab.id;

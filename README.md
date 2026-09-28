@@ -63,7 +63,9 @@ bundle:
   conditional formatting, cell formatting, a local read-only SQL query
   view, and in-file version history with restore/preview.
 - **Import and export.** CSV, JSON, and XLSX import; CSV, JSON, and XLSX
-  export — each an explicit, lossy (values-only) conversion.
+  export — each an explicit, lossy (values-only) conversion. Markdown,
+  JSON, YAML, and text files also open directly in their editors and save
+  back to the same file.
 - **Keyboard, mobile/touch, and accessibility support.** IME-safe editing
   from the first keystroke, full keyboard operability, ARIA labeling
   throughout, and a touch-adapted mobile layout.

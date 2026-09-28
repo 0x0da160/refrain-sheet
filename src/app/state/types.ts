@@ -4,6 +4,7 @@ import type { EditorDocument } from '../../core/editor-document';
 import type { History } from '../../core/workbook/history';
 import type { FreezePanes } from '../../core/workbook/worksheet';
 import type { FileStamp } from '../file-access';
+import type { TextFileFormat } from '../../core/interchange/text-file';
 
 export interface Selection {
   row: number;
@@ -121,6 +122,13 @@ export interface Tab {
    * the normal explicit-conversion requirement applies again.
    */
   neverSaved: boolean;
+  /**
+   * Set when the tab was opened from a Markdown, JSON, YAML, or text file:
+   * how that file's bytes are laid out, so a save writes the editor's text
+   * back into the same file (see `core/interchange/text-file.ts`). Null for
+   * every other tab.
+   */
+  textFile: TextFileFormat | null;
 }
 
 /**

@@ -115,7 +115,28 @@ export class StatusBar {
 
   /** Workbook status: grid size, formulas, filter and sort indicators — or an editor worksheet's caret. */
   private renderWorkbook(tab: Tab, doc: RsfDocument): void {
-    this.element.append(this.detail(el('span', { className: 'doc-kind', text: t('status.doc.rsf') })));
+    const textFile = tab.textFile;
+    this.element.append(
+      this.detail(
+        el('span', {
+          className: 'doc-kind',
+          text: t(textFile ? `status.doc.${textFile.kind}` : 'status.doc.rsf'),
+        }),
+      ),
+    );
+    if (textFile) {
+      // Opened from a text file: Save writes back in this encoding and these line endings.
+      const bom =
+        textFile.encoding === 'utf-8' ? `, ${textFile.bom ? t('status.bom.yes') : t('status.bom.no')}` : '';
+      const lineEnding = textFile.lineEnding.toUpperCase();
+      this.element.append(
+        this.detail(
+          el('span', {
+            text: `${t('status.encoding')}: ${t(`encoding.${textFile.encoding}`)}${bom} · ${t('status.lineEndings')}: ${lineEnding}`,
+          }),
+        ),
+      );
+    }
     this.appendProtection(tab);
     const caret = doc.activeSheet.kind === 'grid' ? null : (this.editorCaret?.() ?? null);
     if (caret) {

@@ -18,6 +18,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'file.newCsv',
   'file.open',
   'file.openRecent',
+  'file.importJsonTable',
   'file.reopen',
   'file.toggleProtect',
   'file.save',

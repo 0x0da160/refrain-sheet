@@ -112,10 +112,10 @@ export async function pickFiles(doc: Document, maxSize: number): Promise<OpenedF
     input.multiple = true;
     // `.rsf` is the current spreadsheet format; `.rcsv` is the legacy name,
     // still accepted so existing files open (then re-save as `.rsf`). `.xlsx`
-    // and `.json` both import as a new `.rsf` tab (see `Commands.openXlsxFile`,
-    // `Commands.openJsonFile`).
+    // imports as a new `.rsf` tab; Markdown, JSON, YAML, and text files open
+    // in their editors (see `FileOpening.openFile`).
     input.accept =
-      '.csv,.tsv,.txt,.rsf,.rcsv,.xlsx,.json,text/csv,text/tab-separated-values,text/plain,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      '.csv,.tsv,.txt,.rsf,.rcsv,.xlsx,.json,.md,.markdown,.yaml,.yml,text/csv,text/tab-separated-values,text/plain,text/markdown,application/json,application/yaml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     input.style.display = 'none';
     input.addEventListener('change', () => {
       const files = Array.from(input.files ?? []);
@@ -206,7 +206,28 @@ const SAVE_PICKER_TYPES = {
       accept: { 'application/json': ['.json'] },
     },
   ],
+  markdown: [
+    {
+      description: 'Markdown',
+      accept: { 'text/markdown': ['.md', '.markdown'] },
+    },
+  ],
+  yaml: [
+    {
+      description: 'YAML',
+      accept: { 'application/yaml': ['.yaml', '.yml'] },
+    },
+  ],
+  text: [
+    {
+      description: 'Text',
+      accept: { 'text/plain': ['.txt'] },
+    },
+  ],
 } as const;
+
+/** A kind of file the save picker can be asked for. */
+export type SavePickerKind = keyof typeof SAVE_PICKER_TYPES;
 
 /**
  * Open the "Save as" file picker and return the chosen file handle, WITHOUT
@@ -221,10 +242,7 @@ const SAVE_PICKER_TYPES = {
  * example a `file://` page), so the caller can encode and then fall back to a
  * download. Rejects with `AbortError` when the user cancels the picker.
  */
-export function requestSaveHandle(
-  name: string,
-  kind: keyof typeof SAVE_PICKER_TYPES,
-): Promise<FileSystemFileHandle | null> {
+export function requestSaveHandle(name: string, kind: SavePickerKind): Promise<FileSystemFileHandle | null> {
   const picker = (globalThis as FilePickerCapableWindow).showSaveFilePicker;
   if (typeof picker !== 'function') {
     return Promise.resolve(null);
@@ -250,7 +268,7 @@ export async function saveBytesAs(
   doc: Document,
   name: string,
   bytes: Uint8Array,
-  kind: keyof typeof SAVE_PICKER_TYPES,
+  kind: SavePickerKind,
 ): Promise<SaveOutcome> {
   const picker = (globalThis as FilePickerCapableWindow).showSaveFilePicker;
   if (typeof picker === 'function') {

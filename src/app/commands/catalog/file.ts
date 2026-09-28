@@ -17,6 +17,12 @@ export const FILE_COMMANDS = {
       await ctx.commands.openFiles(files, { confirmNonCsv: false });
     },
   },
+  'file.importJsonTable': {
+    run: async (ctx) => {
+      const files = await pickFiles(ctx.dom, getMaxFileSize());
+      await ctx.parts.fileIo.opening.importJsonTables(files);
+    },
+  },
   'file.openRecent': {
     // Only the File System Access API gives the app a file it can reopen.
     enabled: () => fileSystemAccessAvailable(),

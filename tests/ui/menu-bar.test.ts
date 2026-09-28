@@ -132,6 +132,12 @@ describe('menu-bar dropdown keyboard navigation', () => {
     expect(document.activeElement?.textContent).toContain(t('menu.file.open'));
     expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
 
+    // Open Recent (the very next item) is disabled without the File System
+    // Access API: one ArrowDown must skip it and land on Import JSON as Table.
+    document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    expect(document.activeElement?.textContent).toContain(t('menu.file.importJsonTable'));
+    expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
+
     // Save (the very next item) is disabled with no document open: one
     // ArrowDown must skip it and land on the Export submenu parent, which is
     // always clickable regardless of its (all-disabled) contents.
@@ -139,9 +145,9 @@ describe('menu-bar dropdown keyboard navigation', () => {
     expect(document.activeElement?.textContent).toContain(t('menu.file.export'));
     expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
 
-    // Cycling back up from Export must return to Open, skipping Save.
+    // Cycling back up from Export must return to Import JSON as Table, skipping Save.
     document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
-    expect(document.activeElement?.textContent).toContain(t('menu.file.open'));
+    expect(document.activeElement?.textContent).toContain(t('menu.file.importJsonTable'));
     expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
   });
 });

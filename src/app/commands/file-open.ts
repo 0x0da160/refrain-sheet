@@ -1,13 +1,20 @@
 // SPDX-License-Identifier: MIT
 /**
  * Opening files — picked, dropped, recent, and reopened with other options —
- * and turning each supported format (CSV-like text, .rsf, .xlsx, .json) into
- * a tab. Validation problems are shown before anything opens; a file already
+ * and turning each supported format (CSV-like text, .rsf, .xlsx, and the
+ * Markdown/JSON/YAML/text files that open in an editor) into a tab. Validation problems are shown before anything opens; a file already
  * open in another tab is activated instead of opened twice.
  */
 import { isCsv } from '../../core/editor-document';
 import { initCsvEngine } from '../../core/csv/csv-engine';
-import { detectEncoding } from '../../core/csv/encoding';
+import { detectEncoding, type EncodingDetection } from '../../core/csv/encoding';
+import {
+  decodeTextFile,
+  textFileBaseName,
+  textFileKindOf,
+  type TextFileKind,
+} from '../../core/interchange/text-file';
+import { isValidSheetName } from '../../core/formula';
 import { LosslessDocument } from '../../core/csv/lossless-document';
 import {
   RsfDocument,
@@ -36,7 +43,7 @@ import { isGridSurface, LARGE_OPEN_BYTES, withBusyIfLarge } from './shared';
 import type { FileIoCommands } from './file-io';
 import { CSV_EXTENSION } from './shared';
 
-const CSV_LIKE_EXTENSIONS = [CSV_EXTENSION, '.tsv', '.txt', RSF_EXTENSION, RSF_LEGACY_EXTENSION];
+const CSV_LIKE_EXTENSIONS = [CSV_EXTENSION, '.tsv', RSF_EXTENSION, RSF_LEGACY_EXTENSION];
 const XLSX_EXTENSION = '.xlsx';
 const JSON_EXTENSION = '.json';
 
@@ -132,16 +139,24 @@ export class FileOpening {
     await this.openFiles(files, { confirmNonCsv: true });
   }
 
+  /** Report a file over the size limit; true when it must not be opened. */
+  private async refuseTooLarge(file: OpenedFile): Promise<boolean> {
+    if (!file.tooLarge && file.size <= getMaxFileSize()) {
+      return false;
+    }
+    await this.core.ui.showMessage(
+      t('dialog.tooLarge.title'),
+      t('dialog.tooLarge.message', {
+        name: file.name,
+        size: Math.ceil(file.size / (1024 * 1024)),
+        limit: Math.round(getMaxFileSize() / (1024 * 1024)),
+      }),
+    );
+    return true;
+  }
+
   private async openFile(file: OpenedFile, opts: { confirmNonCsv: boolean }): Promise<void> {
-    if (file.tooLarge || file.size > getMaxFileSize()) {
-      await this.core.ui.showMessage(
-        t('dialog.tooLarge.title'),
-        t('dialog.tooLarge.message', {
-          name: file.name,
-          size: Math.ceil(file.size / (1024 * 1024)),
-          limit: Math.round(getMaxFileSize() / (1024 * 1024)),
-        }),
-      );
+    if (await this.refuseTooLarge(file)) {
       return;
     }
 
@@ -159,8 +174,12 @@ export class FileOpening {
       return;
     }
 
-    if (lowerName.endsWith(JSON_EXTENSION)) {
-      await this.openJsonFile(file);
+    const textKind = textFileKindOf(file.name);
+    if (textKind) {
+      if (await this.alreadyOpen(file)) {
+        return;
+      }
+      await this.openTextFile(file, textKind);
       return;
     }
 
@@ -183,22 +202,7 @@ export class FileOpening {
       return;
     }
 
-    const detection = detectEncoding(file.bytes);
-    if (detection.unsupportedCandidate) {
-      await this.core.ui.showMessage(
-        t('dialog.unsupported.title'),
-        t('dialog.unsupported.message', {
-          name: file.name,
-          candidate: detection.unsupportedCandidate,
-          encoding: t(`encoding.${detection.encoding}`),
-        }),
-      );
-    } else if (detection.uncertain) {
-      await this.core.ui.showMessage(
-        t('dialog.unsupported.title'),
-        t('dialog.uncertain.message', { name: file.name }),
-      );
-    }
+    await this.warnAboutEncoding(file, detectEncoding(file.bytes));
 
     let doc: LosslessDocument;
     try {
@@ -314,13 +318,64 @@ export class FileOpening {
   }
 
   /**
-   * Import a `.json` file: always a new `.rsf` tab, never a matching handle,
-   * for the same reason as `.xlsx` above — a `.json` file is never the save
-   * target for the resulting document. Only a top-level array of flat
-   * (non-nested) objects is supported (see `parseJsonWorkbook`); columns are
-   * the union of every object's keys, in first-seen order.
+   * Tell the user when a text file's encoding is outside the supported range
+   * or could not be told apart with confidence (the file still opens).
    */
-  private async openJsonFile(file: OpenedFile): Promise<void> {
+  private async warnAboutEncoding(file: OpenedFile, detection: EncodingDetection): Promise<void> {
+    if (detection.unsupportedCandidate) {
+      await this.core.ui.showMessage(
+        t('dialog.unsupported.title'),
+        t('dialog.unsupported.message', {
+          name: file.name,
+          candidate: detection.unsupportedCandidate,
+          encoding: t(`encoding.${detection.encoding}`),
+        }),
+      );
+    } else if (detection.uncertain) {
+      await this.core.ui.showMessage(
+        t('dialog.unsupported.title'),
+        t('dialog.uncertain.message', { name: file.name }),
+      );
+    }
+  }
+
+  /**
+   * Open a Markdown, JSON, YAML, or text file in its editor: one worksheet of
+   * that kind holding the file's text. The tab keeps the file's handle and
+   * name, and remembers its encoding, BOM, and line endings, so Save writes
+   * the text back into the same file (see `FileIoCommands.save`).
+   */
+  private async openTextFile(file: OpenedFile, kind: TextFileKind): Promise<void> {
+    const { text, format, detection } = decodeTextFile(file.bytes, kind);
+    await this.warnAboutEncoding(file, detection);
+    const base = textFileBaseName(file.name).trim();
+    const sheetName = base && isValidSheetName(base) ? base : defaultSheetName();
+    const doc = RsfDocument.fromSourceText(file.name, kind, text, sheetName, getLocale());
+    const tab = this.core.state.addTab(file.name, doc, file.handle, true);
+    tab.diskStamp = file.handle ? (file.stamp ?? null) : null;
+    tab.textFile = format;
+  }
+
+  /**
+   * File > Import JSON as Table…: pick `.json` files and import each as a
+   * table (a `.json` file opened the ordinary way opens in the JSON editor).
+   */
+  async importJsonTables(files: OpenedFile[]): Promise<void> {
+    for (const file of files) {
+      if (!(await this.refuseTooLarge(file))) {
+        await this.importJsonTable(file);
+      }
+    }
+  }
+
+  /**
+   * Import a `.json` file as a table: always a new `.rsf` tab, never a
+   * matching handle, for the same reason as `.xlsx` above — a `.json` file is
+   * never the save target for the resulting document. Only a top-level array
+   * of flat (non-nested) objects is supported (see `parseJsonWorkbook`);
+   * columns are the union of every object's keys, in first-seen order.
+   */
+  private async importJsonTable(file: OpenedFile): Promise<void> {
     const result = await withBusyIfLarge(
       file.size > LARGE_OPEN_BYTES,
       this.core.ui,
@@ -340,7 +395,10 @@ export class FileOpening {
       );
       return;
     }
-    const name = `${file.name.slice(0, -JSON_EXTENSION.length)}${RSF_EXTENSION}`;
+    const base = file.name.toLowerCase().endsWith(JSON_EXTENSION)
+      ? file.name.slice(0, -JSON_EXTENSION.length)
+      : file.name;
+    const name = `${base}${RSF_EXTENSION}`;
     const doc = RsfDocument.fromValues(
       name,
       ',',
@@ -360,8 +418,8 @@ export class FileOpening {
    * A file that is already open is never opened a second time, so two
    * copies cannot overwrite each other's saves. Open in this window: switch
    * to its tab. Open in another browser tab of the app: say so and stop.
-   * (`.xlsx` and `.json` are imported into new, unsaved files and never
-   * hold the original, so they are not checked.)
+   * (`.xlsx` files and JSON tables are imported into new, unsaved files and
+   * never hold the original, so they are not checked.)
    */
   private async alreadyOpen(file: OpenedFile): Promise<boolean> {
     const existing = await this.findExistingTab(file);

@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
 import type { NotifyPort, FileDialogsPort } from '../ui-port';
 import { isCsv, isWorkbook } from '../../core/editor-document';
+import { findUnrepresentableChars, replaceUnrepresentableChars } from '../../core/csv/encoding';
+import {
+  encodeTextFile,
+  textFileBaseName,
+  textFileSource,
+  type TextFileFormat,
+} from '../../core/interchange/text-file';
 import { initCsvEngine } from '../../core/csv/csv-engine';
 import { forEachIndexSliced } from '../../core/scheduler';
 import { LosslessDocument } from '../../core/csv/lossless-document';
@@ -21,6 +28,7 @@ import {
   saveBytes,
   type OpenedFile,
   type SaveOutcome,
+  type SavePickerKind,
 } from '../file-access';
 import { recordRecentFile } from '../recent-files';
 import { getLocale, t } from '../i18n';
@@ -115,6 +123,23 @@ export class FileIoCommands {
    * Returns true when the file was actually saved.
    */
   async save(tab: Tab, options: SaveOptions): Promise<boolean> {
+    if (tab.textFile) {
+      const text = textFileSource(tab.doc, tab.textFile);
+      if (text !== null) {
+        return this.saveTextFile(tab, tab.textFile, text);
+      }
+      // A second worksheet (or a different kind) no longer fits the text
+      // file. Save a new .rsf file instead; the original file is left as it
+      // was. Renamed and detached before any await, so the picker still opens
+      // inside the user's gesture.
+      const original = tab.name;
+      tab.textFile = null;
+      tab.handle = null;
+      tab.diskStamp = null;
+      this.state.adoptSavedName(tab, `${textFileBaseName(original)}${RSF_EXTENSION}`);
+      this.ui.notify(t('notify.textFileAsRsf', { name: original }), 'warn');
+      return this.saveRsf(tab);
+    }
     if (isWorkbook(tab.doc)) {
       return this.saveRsf(tab);
     }
@@ -182,6 +207,61 @@ export class FileIoCommands {
     const baseline = LosslessDocument.fromBytes(result.bytes, { encoding, delimiter: tab.doc.delimiter });
     this.state.setBaseline(tab, baseline);
     return true;
+  }
+
+  /**
+   * Save a tab opened from a Markdown, JSON, YAML, or text file back into
+   * that file, in its original encoding, BOM, and line endings. Characters a
+   * legacy encoding cannot hold are confirmed first, then written as numeric
+   * character references, as a CSV save does. With no writable handle the
+   * file is downloaded under its name.
+   */
+  private async saveTextFile(tab: Tab, format: TextFileFormat, text: string): Promise<boolean> {
+    let out = text;
+    const unrepresentable = findUnrepresentableChars(text, format.encoding);
+    if (unrepresentable.length > 0) {
+      const proceed = await this.ui.confirmUnrepresentable(t(`encoding.${format.encoding}`), [
+        { row: 0, col: 0, chars: unrepresentable },
+      ]);
+      if (!proceed) {
+        return false;
+      }
+      out = replaceUnrepresentableChars(text, format.encoding).text;
+    }
+    const bytes = encodeTextFile(out, format);
+    const target = await this.confirmDiskUnchanged(tab, tab.handle);
+    if (!target.ok) {
+      return false;
+    }
+    const written = await this.runSaveStep(tab.name, () =>
+      saveBytes(this.dom, tab.name, bytes, target.handle),
+    );
+    if (!written.ok) {
+      return false;
+    }
+    const outcome = written.value;
+    if (outcome.fellBack) {
+      this.ui.notify(t('notify.permissionDenied'), 'warn');
+    }
+    await this.recordWrittenFile(tab, outcome);
+    if (outcome.mode === 'overwrite') {
+      this.ui.notify(t('notify.savedOverwrite'), 'info');
+    } else {
+      this.ui.notify(t('notify.savedDownload', { name: outcome.downloadName ?? tab.name }), 'info');
+    }
+    format.savedText = out;
+    format.savedBytes = bytes;
+    this.state.markTabSaved(tab);
+    this.state.emit('tabs');
+    return true;
+  }
+
+  /** The kind of file a "save to a different file" picker offers for this tab. */
+  private pickerKindFor(tab: Tab): SavePickerKind {
+    if (tab.textFile) {
+      return tab.textFile.kind;
+    }
+    return isWorkbook(tab.doc) ? 'rsf' : 'csv';
   }
 
   /**
@@ -358,6 +438,21 @@ export class FileIoCommands {
    * prompt or the encode was cancelled.
    */
   async encodeForUpload(tab: Tab): Promise<{ bytes: Uint8Array; mimeType: string } | null> {
+    const text = tab.textFile ? textFileSource(tab.doc, tab.textFile) : null;
+    if (tab.textFile && text !== null) {
+      const encoding = tab.textFile.encoding;
+      const unrepresentable = findUnrepresentableChars(text, encoding);
+      if (
+        unrepresentable.length > 0 &&
+        !(await this.ui.confirmUnrepresentable(t(`encoding.${encoding}`), [
+          { row: 0, col: 0, chars: unrepresentable },
+        ]))
+      ) {
+        return null;
+      }
+      const safe = replaceUnrepresentableChars(text, encoding).text;
+      return { bytes: encodeTextFile(safe, tab.textFile), mimeType: 'text/plain' };
+    }
     if (isWorkbook(tab.doc)) {
       const bytes = await this.encodeRsfBytes(tab);
       return bytes === null ? null : { bytes, mimeType: 'application/octet-stream' };
@@ -648,7 +743,7 @@ export class FileIoCommands {
       return { ok: false };
     }
     const picked = await this.runSaveStep(tab.name, () =>
-      requestSaveHandle(tab.name, isWorkbook(tab.doc) ? 'rsf' : 'csv'),
+      requestSaveHandle(tab.name, this.pickerKindFor(tab)),
     );
     return picked.ok ? { ok: true, handle: picked.value } : picked;
   }

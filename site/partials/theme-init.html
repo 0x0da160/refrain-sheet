@@ -1,0 +1,14 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- THEME-INIT: included in every page's <head>. Applies a Light or Dark
+     choice saved by the header's theme switch before the first paint, so the
+     page never flashes the other theme. No saved choice = follow the OS. -->
+<script>
+  (function () {
+    try {
+      var theme = window.localStorage.getItem('rs-theme');
+      if (theme === 'light' || theme === 'dark') document.documentElement.setAttribute('data-theme', theme);
+    } catch (e) {
+      /* storage disabled: follow the OS setting */
+    }
+  })();
+</script>

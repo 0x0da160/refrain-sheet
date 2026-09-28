@@ -7,9 +7,10 @@
  * the tokens; the only literals are breakpoints (custom properties cannot be
  * used in media queries — the numbers match --bp-sm / --bp-md / --bp-lg).
  *
- * Theme: no data-theme on <html>, so the page follows the OS setting
- * (foundations' prefers-color-scheme block). Sections that must be dark
- * set data-theme="dark" themselves.
+ * Theme: by default there is no data-theme on <html>, so the page follows
+ * the OS setting (foundations' prefers-color-scheme block). The header's
+ * theme switch sets data-theme="light" or "dark" on <html> instead (see
+ * main.js). Sections that must be dark set data-theme="dark" themselves.
  */
 
 html {
@@ -56,6 +57,65 @@ img {
   align-items: center;
   margin-inline-end: auto;
 }
+.site-header .rb-header__logo {
+  block-size: var(--space-8);
+}
+/* Logos: the reverse artwork on a dark theme — the one chosen with the
+   theme switch, or the OS one when none is chosen. <picture> media queries
+   cannot see the switch, so both images are in the page and one is hidden. */
+:root[data-theme='light'] .logo-dark,
+:root[data-theme='dark'] .logo-light {
+  display: none;
+}
+@media not (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .logo-dark {
+    display: none;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .logo-light {
+    display: none;
+  }
+}
+.theme-switch {
+  display: flex;
+  padding: var(--space-1);
+  background-color: var(--bg-sunken);
+  border-radius: var(--radius-full);
+}
+.theme-switch[hidden] {
+  display: none;
+}
+.theme-switch button {
+  display: grid;
+  place-items: center;
+  inline-size: var(--space-8);
+  block-size: var(--space-8);
+  padding: 0;
+  color: var(--fg-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+.theme-switch button[aria-pressed='true'] {
+  color: var(--fg-default);
+  background-color: var(--bg-surface);
+  box-shadow: var(--shadow-sm);
+}
+.theme-switch button:focus-visible {
+  outline: var(--stroke-medium) solid var(--focus-ring);
+  outline-offset: var(--stroke-thin);
+}
+.theme-switch svg {
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .site-nav {
   margin-inline-start: 0;
 }
@@ -83,6 +143,10 @@ img {
 @media (max-width: 32.5em) {
   .rb-header__inner {
     gap: var(--space-2);
+  }
+  /* No room for the theme switch: the footer carries it on small screens. */
+  .site-header .theme-switch {
+    display: none;
   }
   .header-cta {
     padding-inline: var(--space-4);
@@ -267,9 +331,6 @@ img {
   background-color: var(--bg-surface);
   border-block-end: var(--stroke-thin) solid var(--border-default);
   white-space: nowrap;
-}
-.app-menubar picture {
-  display: flex;
 }
 .app-logo {
   block-size: var(--space-4);
@@ -838,6 +899,9 @@ img {
 .footer-inner {
   display: grid;
   gap: var(--space-5);
+}
+.site-footer .theme-switch {
+  justify-self: start;
 }
 .footer-name {
   font-weight: var(--weight-bold);

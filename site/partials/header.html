@@ -1,21 +1,25 @@
 <!-- SPDX-License-Identifier: MIT -->
+<!-- HEADER: logo, section links, language, theme (System / Light / Dark;
+     site/main.js wires it up, partials/theme-init.html applies a saved
+     choice before first paint) and the call to action. -->
 <a class="skip" data-i18n="a11y.skip" href="#main">本文へスキップ</a>
 <header class="rb-header site-header">
   <div class="rb-wrap rb-header__inner">
     <a class="brand" href="./">
-      <picture>
-        <source
-          media="(prefers-color-scheme: dark)"
-          srcset="assets/refrain-sheet-logotype-horizontal-reverse.svg"
-        />
-        <img
-          alt="Refrain Sheet"
-          class="rb-header__logo"
-          height="24"
-          src="assets/refrain-sheet-logotype-horizontal.svg"
-          width="115"
-        />
-      </picture>
+      <img
+        alt="Refrain Sheet"
+        class="rb-header__logo logo-light"
+        height="32"
+        src="assets/refrain-sheet-logotype-horizontal.svg"
+        width="153"
+      />
+      <img
+        alt="Refrain Sheet"
+        class="rb-header__logo logo-dark"
+        height="32"
+        src="assets/refrain-sheet-logotype-horizontal-reverse.svg"
+        width="153"
+      />
     </a>
     <nav aria-label="Main" class="rb-nav site-nav">
       <a data-i18n="nav.features" href="./#features">機能</a>
@@ -27,6 +31,59 @@
     <div aria-label="Language / 言語" class="lang" role="group">
       <a data-lang="ja" href="{{JA_HREF}}" hreflang="ja" lang="ja">JA</a
       ><a data-lang="en" href="{{EN_HREF}}" hreflang="en" lang="en">EN</a>
+    </div>
+    <div
+      aria-label="テーマ"
+      class="theme-switch"
+      data-i18n="theme.label"
+      data-i18n-attr="aria-label"
+      data-theme-switch
+      hidden
+      role="group"
+    >
+      <button
+        aria-label="システム設定に合わせる"
+        aria-pressed="true"
+        data-i18n="theme.system"
+        data-i18n-attr="aria-label title"
+        data-theme-choice="system"
+        title="システム設定に合わせる"
+        type="button"
+      >
+        <svg aria-hidden="true" viewBox="0 0 16 16">
+          <rect height="8" rx="1" width="12" x="2" y="2.5"></rect>
+          <path d="M5.5 13.5h5M8 10.5v3"></path>
+        </svg>
+      </button>
+      <button
+        aria-label="ライト"
+        aria-pressed="false"
+        data-i18n="theme.light"
+        data-i18n-attr="aria-label title"
+        data-theme-choice="light"
+        title="ライト"
+        type="button"
+      >
+        <svg aria-hidden="true" viewBox="0 0 16 16">
+          <circle cx="8" cy="8" r="3"></circle>
+          <path
+            d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1.1 1.1M11.9 11.9 13 13M3 13l1.1-1.1M11.9 4.1 13 3"
+          ></path>
+        </svg>
+      </button>
+      <button
+        aria-label="ダーク"
+        aria-pressed="false"
+        data-i18n="theme.dark"
+        data-i18n-attr="aria-label title"
+        data-theme-choice="dark"
+        title="ダーク"
+        type="button"
+      >
+        <svg aria-hidden="true" viewBox="0 0 16 16">
+          <path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7Z"></path>
+        </svg>
+      </button>
     </div>
     <a
       class="rb-btn rb-btn--primary header-cta"

@@ -15,6 +15,10 @@ export const I18N = {
     'nav.compare': '比較',
     'nav.faq': 'よくある質問',
     'nav.cta': '無料で開く',
+    'theme.label': 'テーマ',
+    'theme.system': 'システム設定に合わせる',
+    'theme.light': 'ライト',
+    'theme.dark': 'ダーク',
     'hero.eyebrow': 'ブラウザで開くだけ。無料・インストール不要',
     'hero.h1': 'CSVが壊れない\n軽い表計算ソフト',
     'hero.lead':
@@ -272,7 +276,7 @@ export const I18N = {
       'Googleドライブ連携を使わない限り、CSVを開く・編集する・保存するといった操作は、いかなるネットワーク通信も発生させません。ファイルはすべてブラウザの中だけで処理され、外部に送信されることはありません。',
     'privacy.storage.h2': 'Cookieとローカルストレージ',
     'privacy.storage.p':
-      '紹介ページの同意設定（Analyticsに同意したかどうか）は、お使いのブラウザのlocalStorageに保存されます。ブラウザの設定からいつでも削除できます。',
+      '紹介ページの同意設定（Analyticsに同意したかどうか）と、ライト・ダークを選んだときのテーマの設定は、お使いのブラウザのlocalStorageに保存されます。ブラウザの設定からいつでも削除できます。',
     'privacy.changes.h2': '本ポリシーの変更',
     'privacy.changes.p':
       '機能の追加や法令の変更に応じて、本ポリシーを更新することがあります。重要な変更がある場合は、このページの内容を更新してお知らせします。',
@@ -318,6 +322,10 @@ export const I18N = {
     'nav.compare': 'Compare',
     'nav.faq': 'FAQ',
     'nav.cta': 'Open free',
+    'theme.label': 'Theme',
+    'theme.system': 'System default',
+    'theme.light': 'Light',
+    'theme.dark': 'Dark',
     'hero.eyebrow': 'Runs in your browser. Free, nothing to install.',
     'hero.h1': 'A lightweight spreadsheet that edits CSV without breaking it',
     'hero.lead':
@@ -576,7 +584,7 @@ export const I18N = {
       'Unless you use the Google Drive integration, opening, editing, and saving a CSV makes no network requests at all. Files are processed entirely inside your browser and are never sent anywhere.',
     'privacy.storage.h2': 'Cookies and local storage',
     'privacy.storage.p':
-      "Your analytics consent choice on the introduction page is stored in your browser's localStorage. You can delete it at any time from your browser's settings.",
+      "Your analytics consent choice on the introduction page, and the theme if you pick Light or Dark, are stored in your browser's localStorage. You can delete them at any time from your browser's settings.",
     'privacy.changes.h2': 'Changes to this policy',
     'privacy.changes.p':
       'This policy may be updated as features change or as required by law. Material changes will be reflected on this page.',

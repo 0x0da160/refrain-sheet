@@ -16,10 +16,11 @@ generated:
 
 ## Design goals
 
-- **Readable.** The content is a pretty-printed JSON document (see
+- **Readable.** The content is a compact JSON document (see
   [json-document.md](json-document.md)). Any standard Zstandard tool
-  unpacks it, and any text editor or JSON tool reads the result; a grid
-  row is one line, so text diffs are meaningful.
+  unpacks it, and any JSON tool reads the result (`jq .` pretty-prints it).
+- **Small.** No whitespace, defaults left out, and version history stored
+  as deltas between snapshots rather than full copies.
 - **Inert data only.** Cell inputs and small metadata — no executable
   code, macros, external references, or network URLs. Loading validates
   strictly and never executes anything.

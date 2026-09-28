@@ -98,6 +98,64 @@ describe('.rsf codec: round trips', () => {
     expect(restored.ok && restored.data.sheets[0].cells).toEqual(sheet.cells);
   });
 
+  it('stores history as deltas and rebuilds every snapshot byte-for-byte', () => {
+    const v1: RsfWorkbookData = { ...book, updatedAt: 1_700_000_000_000 };
+    const v2: RsfWorkbookData = {
+      ...v1,
+      timezone: 'Asia/Tokyo', // a key added in the middle of the object
+      sheets: [{ ...sheet, cells: [...sheet.cells, [1, 1, 'edited']] }],
+    };
+    const v3: RsfWorkbookData = {
+      ...v2,
+      sheets: [
+        {
+          ...sheet,
+          rowCount: 4,
+          cells: [
+            [0, 0, 'name'],
+            [1, 0, 'inserted'],
+            [2, 1, 'edited'],
+            [3, 1, 'multi\nline'],
+          ],
+        },
+        { id: 's2', name: 'Two', rowCount: 1, columnCount: 1, cells: [[0, 0, 'new sheet']] },
+      ],
+    };
+    const history = [v1, v2, v3].map((v, i) => ({
+      timestamp: 1_700_000_000_000 + i,
+      bytes: encodeRsfBody(v),
+    }));
+    const encoded = encodeRsfWorkbook({ ...v3, history });
+    const stored = rsfTree(encoded).history as { deltas: unknown[]; snapshots?: unknown };
+    expect(stored.snapshots).toBeUndefined();
+    expect(stored.deltas).toHaveLength(3);
+    const decoded = decodeRsfWorkbook(encoded);
+    expect(decoded.ok && decoded.data.history).toEqual(history);
+  });
+
+  it('keeps a long history small: each save adds only what changed', () => {
+    const rows = Array.from({ length: 500 }, (_, r): [number, number, string] => [r, 0, `row ${r}`]);
+    const big: RsfWorksheetData = { id: 's1', name: 'S', rowCount: 500, columnCount: 1, cells: rows };
+    const history = Array.from({ length: 20 }, (_, i) => ({
+      timestamp: 1_700_000_000_000 + i,
+      bytes: encodeRsfBody({ delimiter: ',', sheets: [{ ...big, cells: [...rows, [499, 0, `save ${i}`]] }] }),
+    }));
+    const withHistory = rsfJsonText({ delimiter: ',', sheets: [big], history }).length;
+    const without = rsfJsonText({ delimiter: ',', sheets: [big] }).length;
+    // Twenty full copies would add about 150 KB; twenty deltas add about 2.4 KB.
+    expect(withHistory - without).toBeLessThan(4_000);
+  });
+
+  it('reads full-copy snapshots, as earlier releases wrote them', () => {
+    const t = JSON.parse(rsfJsonText(book)) as Record<string, unknown>;
+    const workbook = JSON.parse(new TextDecoder().decode(encodeRsfBody(book))) as unknown;
+    t.history = { enabled: true, snapshots: [{ at: '2023-11-14T22:13:20.000Z', workbook }] };
+    const decoded = decodeTree(t);
+    expect(decoded.ok && decoded.data.history).toEqual([
+      { timestamp: 1_700_000_000_000, bytes: encodeRsfBody(book) },
+    ]);
+  });
+
   it('keeps hostile-looking text as plain strings', () => {
     const data: RsfWorkbookData = {
       delimiter: ',',
@@ -111,23 +169,26 @@ describe('.rsf codec: round trips', () => {
   });
 });
 
-describe('.rsf codec: readable JSON', () => {
-  it('writes one grid row per line and trims trailing empty cells', () => {
+describe('.rsf codec: compact JSON', () => {
+  it('writes compact JSON with no whitespace and trims trailing empty cells', () => {
     const text = rsfJsonText(book);
-    expect(text).toContain('\n        ["name", "", "=A1&\\"!\\""],\n');
-    expect(text).toContain('\n        [],\n');
-    expect(text).toContain('\n        ["", "multi\\nline"]\n');
-    expect(text.endsWith('}\n')).toBe(true);
+    expect(text).toContain('"cells":[["name","","=A1&\\"!\\""],[],["","multi\\nline"]]');
+    expect(text).not.toMatch(/\n|": /);
   });
 
-  it('writes a source worksheet as one line of text per line', () => {
+  it('writes a source worksheet as one array element per line of text', () => {
     const text = rsfJsonText({
       delimiter: ',',
       sheets: [
         { id: 'm', name: 'M', kind: 'markdown', rowCount: 1, columnCount: 1, cells: [[0, 0, '# T\nbody']] },
       ],
     });
-    expect(text).toContain('"lines": [\n        "# T",\n        "body"\n      ]');
+    expect(text).toContain('"lines":["# T","body"]');
+  });
+
+  it('still reads a pretty-printed file, as earlier releases wrote', () => {
+    const pretty = JSON.stringify(JSON.parse(rsfJsonText(book)), null, 2);
+    expect(decodeRsfWorkbook(packRsfJsonText(pretty))).toMatchObject({ ok: true, data: book });
   });
 
   it('leaves the defaults out: UTC, English, history on with no snapshots, grid-only fields', () => {
@@ -202,6 +263,27 @@ describe('.rsf codec: validation of hand-edited files', () => {
     [
       'a snapshot without a time',
       (t: ReturnType<typeof tree>) => (t.history = { snapshots: [{ workbook: {} }] }),
+    ],
+    [
+      'both full snapshots and deltas',
+      (t: ReturnType<typeof tree>) => (t.history = { snapshots: [], deltas: [] }),
+    ],
+    [
+      'a delta that does not fit the document',
+      (t: ReturnType<typeof tree>) =>
+        (t.history = {
+          deltas: [{ at: '2025-01-01T00:00:00Z', delta: { o: { sheets: { a: [[5, { v: 1 }]] } } } }],
+        }),
+    ],
+    [
+      'a delta of an unknown form',
+      (t: ReturnType<typeof tree>) =>
+        (t.history = { deltas: [{ at: '2025-01-01T00:00:00Z', delta: { x: 1 } }] }),
+    ],
+    [
+      'a delta that yields no workbook object',
+      (t: ReturnType<typeof tree>) =>
+        (t.history = { deltas: [{ at: '2025-01-01T00:00:00Z', delta: { v: [] } }] }),
     ],
   ])('rejects %s as bad-shape', (_label, edit) => {
     const t = tree();

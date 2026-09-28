@@ -7,8 +7,8 @@ sources:
   - resource: ../../CHANGELOG.md
 status: stable
 generated:
-  by: claude-code/claude-sonnet-5
-  at: 2026-09-22T16:27:09Z
+  by: claude-code
+  at: 2026-09-28T16:00:00Z
 ---
 
 # Version history and snapshots
@@ -21,14 +21,19 @@ container itself, so past states survive after save and reload.
 
 ## How snapshots are stored
 
-Snapshots are stored inside the file's JSON, in its `history` section
-(each one a readable copy of the workbook as it was), and compressed
-together with the rest of it with Zstandard (see
+Snapshots are stored inside the file's JSON, in its `history` section,
+and compressed together with the rest of it with Zstandard (see
 [`../formats/rsf/json-document.md`](../formats/rsf/json-document.md#history)).
-There is no separate
-history file and no extra compression pass to configure, and because
-save-to-save content is usually very similar, this gives noticeably better
-compression than storing each snapshot on its own would. A snapshot holds
+Each snapshot is stored as a **delta** — only what differs from the
+snapshot after it (the newest: from the file's current content) — so a
+save that changes a few cells adds a few hundred bytes, not another copy of
+the workbook. The compressor alone could not do this: its match window is
+far smaller than a typical workbook, so full copies compressed to nearly
+their own size (a 2,000-row sheet with 20 saves was about 936 KB; with
+deltas it is about 51 KB, the same as with no history). Files from earlier
+releases store full copies (`snapshots`); they are still read, and the next
+save rewrites them as deltas. In memory every snapshot is still a complete
+workbook, so Preview and Restore are unchanged. A snapshot holds
 the same kind of inert cell/style/formula data the live document itself
 stores — never code, macros, or anything executable, consistent with the
 container's general "inert data only" guarantee (see

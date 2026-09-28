@@ -23,6 +23,7 @@ import { MAX_TEXT_RUNS, runsForText, type TextRun } from './rich-text';
 import { DEFAULT_DISPLAY_LANGUAGE } from './display-language';
 import { DEFAULT_TIMEZONE } from './timezone';
 import { hasViewSettings, viewFromJson, viewToJson, type RsfViewSettings } from './rsf-view';
+import { applyJsonDelta, diffJson, HistoryDeltaError } from './history-delta';
 import { readSkippableFrame, readU32, writeSkippableFrame, writeU32, ZSTD_MAGIC } from './zstd-frame';
 
 /**
@@ -427,9 +428,17 @@ function workbookContentToJson(data: RsfWorkbookData): { [key: string]: Json } {
   return out;
 }
 
-function historyToJson(data: RsfWorkbookData): Json | undefined {
-  const snapshots: Json[] = [];
+/**
+ * The history section. Snapshots are stored as a chain of deltas (see
+ * `history-delta.ts`): the newest is the change from the document's own
+ * content (`content`) back to that snapshot, and each older one the change
+ * from the snapshot after it — so a save that edits a few cells adds a few
+ * bytes, not a second copy of the workbook.
+ */
+function historyToJson(data: RsfWorkbookData, content: Json): Json | undefined {
   const dec = new TextDecoder();
+  const parsed: Array<{ at: string; workbook: Json }> = [];
+  let expanded = 0;
   for (const snapshot of data.history ?? []) {
     let workbook: Json;
     try {
@@ -437,93 +446,44 @@ function historyToJson(data: RsfWorkbookData): Json | undefined {
     } catch {
       continue; // never written by this codec; skip rather than corrupt the file
     }
-    snapshots.push({ at: isoTime(snapshot.timestamp), workbook });
+    expanded += snapshot.bytes.length;
+    parsed.push({ at: isoTime(snapshot.timestamp), workbook });
+  }
+  if (expanded > MAX_RSF_BODY_BYTES) {
+    throw new RangeError('rsf: the version history is larger than the format allows');
   }
   const enabled = data.historyEnabled !== false;
-  if (enabled && snapshots.length === 0 && data.historyMaxOverride === undefined) {
+  if (enabled && parsed.length === 0 && data.historyMaxOverride === undefined) {
     return undefined; // all defaults: leave the section out
   }
   const out: { [key: string]: Json } = { enabled };
   if (data.historyMaxOverride !== undefined) {
     out.limit = data.historyMaxOverride;
   }
-  out.snapshots = snapshots;
+  const deltas: Json[] = new Array<Json>(parsed.length);
+  let base = content;
+  for (let i = parsed.length - 1; i >= 0; i--) {
+    const { at, workbook } = parsed[i];
+    deltas[i] = { at, delta: diffJson(base, workbook) ?? { o: {} } };
+    base = workbook;
+  }
+  out.deltas = deltas;
   return out;
 }
 
-/** Arrays of strings under these keys get one element per line (a source worksheet's text). */
-const ONE_PER_LINE_KEYS: ReadonlySet<string> = new Set(['lines']);
-const INLINE_OBJECT_MAX = 100;
-
-function isPrimitive(value: Json): value is string | number | boolean | null {
-  return value === null || typeof value !== 'object';
-}
-
-/**
- * Pretty-print for a text editor: 2-space indentation, but an array of plain
- * values stays on one line (one grid row per line) and a small object of
- * plain values stays inline (a style, a column-width table).
- */
-function formatJson(value: Json, indent: string, key: string | null, out: string[]): void {
-  if (isPrimitive(value)) {
-    out.push(JSON.stringify(value));
-    return;
-  }
-  const inner = `${indent}  `;
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      out.push('[]');
-      return;
-    }
-    if (value.every(isPrimitive) && !(key !== null && ONE_PER_LINE_KEYS.has(key))) {
-      out.push(`[${value.map((v) => JSON.stringify(v)).join(', ')}]`);
-      return;
-    }
-    out.push('[\n');
-    value.forEach((item, i) => {
-      out.push(inner);
-      formatJson(item, inner, null, out);
-      out.push(i < value.length - 1 ? ',\n' : '\n');
-    });
-    out.push(`${indent}]`);
-    return;
-  }
-  const keys = Object.keys(value);
-  if (keys.length === 0) {
-    out.push('{}');
-    return;
-  }
-  if (keys.every((k) => isPrimitive(value[k]))) {
-    const inline = `{ ${keys.map((k) => `${JSON.stringify(k)}: ${JSON.stringify(value[k])}`).join(', ')} }`;
-    if (inline.length <= INLINE_OBJECT_MAX) {
-      out.push(inline);
-      return;
-    }
-  }
-  out.push('{\n');
-  keys.forEach((k, i) => {
-    out.push(`${inner}${JSON.stringify(k)}: `);
-    formatJson(value[k], inner, k, out);
-    out.push(i < keys.length - 1 ? ',\n' : '\n');
-  });
-  out.push(`${indent}}`);
-}
-
-/** The document's full JSON text, as stored (before compression). */
+/** The document's full JSON text, as stored (before compression): compact, no whitespace. */
 export function rsfJsonText(data: RsfWorkbookData): string {
+  const content = workbookContentToJson(data);
   const tree: { [key: string]: Json } = {
     format: RSF_FORMAT_NAME,
     version: RSF_FORMAT_VERSION,
-    ...workbookContentToJson(data),
+    ...content,
   };
-  const history = historyToJson(data);
+  const history = historyToJson(data, content);
   if (history !== undefined) {
     tree.history = history;
   }
-  const out: string[] = [];
-  formatJson(tree, '', null, out);
-  out.push('\n');
-  return out.join('');
+  return JSON.stringify(tree);
 }
 
 /** Encode a workbook as a `.rsf` file (JSON text, Zstandard-compressed). */
@@ -933,7 +893,17 @@ function workbookFromJson(value: unknown): RsfWorkbookData {
   return data;
 }
 
-function historyFromJson(value: unknown, data: RsfWorkbookData): void {
+/** The workbook content a history delta chain starts from: the document without its header or history. */
+function historyBase(tree: JsonObject): Json {
+  const base: JsonObject = { ...tree };
+  delete base.format;
+  delete base.version;
+  delete base.history;
+  return base as Json;
+}
+
+function historyFromJson(tree: JsonObject, data: RsfWorkbookData): void {
+  const value = tree.history;
   if (value === undefined) {
     return;
   }
@@ -946,25 +916,52 @@ function historyFromJson(value: unknown, data: RsfWorkbookData): void {
   if (value.limit !== undefined) {
     data.historyMaxOverride = value.limit === null ? null : intIn(value.limit, 1, MAX_RSF_HISTORY_SNAPSHOTS);
   }
-  const snapshots = value.snapshots ?? [];
-  if (!Array.isArray(snapshots)) {
+  if (value.snapshots !== undefined && value.deltas !== undefined) {
+    fail(); // one or the other, never both
+  }
+  const entries = value.deltas ?? value.snapshots ?? [];
+  if (!Array.isArray(entries)) {
     fail();
   }
-  if (snapshots.length > MAX_RSF_HISTORY_SNAPSHOTS) {
+  if (entries.length > MAX_RSF_HISTORY_SNAPSHOTS) {
     fail('too-large');
   }
   const enc = new TextEncoder();
-  const history: RsfHistorySnapshot[] = [];
-  for (const entry of snapshots) {
-    if (!isObject(entry) || !isObject(entry.workbook)) {
+  const history: RsfHistorySnapshot[] = new Array<RsfHistorySnapshot>(entries.length);
+  // Deltas are applied newest first, each to the snapshot after it; full
+  // snapshots (files written before deltas) stand alone.
+  let base = value.deltas !== undefined ? historyBase(tree) : null;
+  let expanded = 0;
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry: unknown = entries[i];
+    if (!isObject(entry)) {
       fail();
     }
     const timestamp = optTime(entry, 'at');
     if (timestamp === undefined) {
       fail();
     }
+    let workbook: unknown;
+    if (base === null) {
+      workbook = entry.workbook;
+    } else {
+      try {
+        workbook = base = applyJsonDelta(base, entry.delta);
+      } catch (err) {
+        if (err instanceof HistoryDeltaError) fail();
+        throw err;
+      }
+    }
+    if (!isObject(workbook)) {
+      fail();
+    }
     // Kept as compact JSON; validated in full only when previewed or restored.
-    history.push({ timestamp, bytes: enc.encode(JSON.stringify(entry.workbook)) });
+    const bytes = enc.encode(JSON.stringify(workbook));
+    expanded += bytes.length;
+    if (expanded > MAX_RSF_BODY_BYTES) {
+      fail('too-large');
+    }
+    history[i] = { timestamp, bytes };
   }
   if (history.length > 0) {
     data.history = history;
@@ -1053,7 +1050,7 @@ export function decodeRsfWorkbook(bytes: Uint8Array): RsfWorkbookDecodeResult {
       fail('bad-version');
     }
     const data = workbookFromJson(tree);
-    historyFromJson(tree.history, data);
+    historyFromJson(tree, data);
     return { ok: true, data };
   } catch (err) {
     if (err instanceof DecodeFailure) {

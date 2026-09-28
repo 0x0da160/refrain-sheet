@@ -52,6 +52,14 @@ really is internal, rather than inventing an entry to satisfy it.
   editor. To turn an array of JSON objects into a table, use
   **File > Import JSON as Table…**; to open a `.txt` file as a table, rename
   it to `.csv` or `.tsv`.
+- RSF files are much smaller when they keep version history. Each past
+  version now stores only what changed since the next one, instead of a
+  full copy of the workbook, so a save that edits a few cells adds a few
+  hundred bytes. A 2,000-row sheet with 20 saves drops from about 940 KB to
+  about 51 KB, and such files open and save faster. The JSON inside is also
+  written without indentation. Files saved by earlier versions still open,
+  history included; releases up to 0.9.14 open the new files without their
+  version history.
 
 ### Fixed
 

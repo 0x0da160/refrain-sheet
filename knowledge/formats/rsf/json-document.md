@@ -4,6 +4,7 @@ title: RSF JSON document
 description: The JSON inside a .rsf file — every key of the workbook, worksheet, view, style, filter, comment, and history objects, how they are laid out for a text editor, and what the reader validates.
 sources:
   - resource: ../../../src/core/workbook/rsf-codec.ts
+  - resource: ../../../src/core/workbook/history-delta.ts
   - resource: ../../../tests/core/rsf-codec.test.ts
   - resource: ../../../tests/fixtures/rsf/v1/features.rsf
 status: stable
@@ -21,17 +22,12 @@ specification for format **version 1**. The reference implementation is
 
 ## Layout
 
-The writer pretty-prints for a text editor:
-
-- 2-space indentation;
-- an array of plain values stays on **one line** — so each grid row is
-  one line, and a diff shows exactly which rows changed;
-- an object of plain values stays inline when it fits in about 100
-  characters (a style, a column-width table);
-- a source worksheet's text is stored as `lines`, **one element per line**.
-
-Readers must not depend on this layout; any valid JSON with the same
-content is the same document.
+The writer emits **compact** JSON, with no whitespace between tokens, to
+keep files small; `jq .` (or any JSON formatter) makes it readable. A
+source worksheet's text is stored as `lines`, one element per line.
+Releases up to 0.9.14 pretty-printed (2-space indentation, one grid row
+per line). Readers must not depend on either layout; any valid JSON with
+the same content is the same document.
 
 ## Workbook (top level)
 
@@ -155,15 +151,39 @@ the user is warned, while the rest of the file loads.
 
 ## History
 
-| Key         | Type             | Meaning                                                                           |
-| ----------- | ---------------- | --------------------------------------------------------------------------------- |
-| `enabled`   | boolean          | Whether saves record snapshots (default `true`).                                  |
-| `limit`     | integer or null  | Retained-snapshot cap, 1–500; `null` means unlimited (still at most 500).         |
-| `snapshots` | array of objects | Oldest first, at most 500 (`too-large` beyond): `{ "at": ISO time, "workbook" }`. |
+| Key         | Type             | Meaning                                                                            |
+| ----------- | ---------------- | ---------------------------------------------------------------------------------- |
+| `enabled`   | boolean          | Whether saves record snapshots (default `true`).                                   |
+| `limit`     | integer or null  | Retained-snapshot cap, 1–500; `null` means unlimited (still at most 500).          |
+| `deltas`    | array of objects | Snapshots as deltas, oldest first, at most 500: `{ "at": ISO time, "delta" }`.     |
+| `snapshots` | array of objects | Snapshots as full copies (written up to 0.9.14): `{ "at": ISO time, "workbook" }`. |
 
-A snapshot's `workbook` is a workbook object without `format`, `version`,
-or `history` — so history never nests. Snapshots are validated in full only
-when one is previewed or restored; a bad one fails then, not the file.
+A snapshot is a workbook object without `format`, `version`, or `history`
+— so history never nests. The writer stores `deltas`; readers accept either
+key, never both (`bad-shape`), and more than 500 entries is `too-large`.
+
+**Deltas.** The newest entry's `delta` turns the document's own workbook
+(the top level without `format`, `version`, and `history`) into that
+snapshot; each earlier entry's `delta` turns the snapshot after it into
+its own. A delta is one of:
+
+| Form                                        | Applies to | Result                                                                                                        |
+| ------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------- |
+| `{ "v": value }`                            | anything   | `value`.                                                                                                      |
+| `{ "o": { key: delta }, "d": [], "k": [] }` | an object  | Each key in `o` changed by its delta (a new key's delta must be `v`), each key in `d` removed, the rest kept. |
+| `{ "a": [[index, delta], …] }`              | an array   | The same length; each listed element (ascending indexes) changed by its delta.                                |
+| `{ "s": [start, deleteCount, [items]] }`    | an array   | `deleteCount` elements at `start` replaced by `items` (an inserted or deleted row, a new worksheet).          |
+
+`d` and `k` are optional. Keys keep the base's order with new keys
+appended, unless `k` lists the result's keys in order. An index, count, or
+key that does not fit, an unknown form, nesting deeper than 32, or a
+result that is not a workbook object is `bad-shape`; the rebuilt snapshots
+together may not exceed 512 MiB of JSON (`too-large`). A file with no
+changes since its newest snapshot stores `{ "o": {} }` for it.
+
+Snapshots are validated as workbooks in full only when one is previewed or
+restored; a bad one fails then, not the file. Readers older than `deltas`
+ignore the key: they open the file without its history, and saving there drops it.
 
 ## What the reader rejects
 

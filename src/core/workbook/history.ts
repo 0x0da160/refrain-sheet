@@ -53,7 +53,9 @@ export type SheetOperation =
   /** Remove the worksheet at `index` (undo inserts `sheet` back there). */
   | { action: 'remove'; sheet: Worksheet; index: number }
   | { action: 'rename'; sheetId: string; before: string; after: string }
-  | { action: 'move'; sheetId: string; from: number; to: number };
+  | { action: 'move'; sheetId: string; from: number; to: number }
+  /** Set or clear (`undefined`) a worksheet's tab color. */
+  | { action: 'tabColor'; sheetId: string; before: string | undefined; after: string | undefined };
 
 /**
  * One atomic sub-operation of a history entry. The `rows`/`cols`/`filter`/

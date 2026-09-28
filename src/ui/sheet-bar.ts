@@ -35,6 +35,7 @@ const SHEET_KIND_ICON: Record<WorksheetKind, IconNode> = {
 
 const SHEET_MENU_ITEMS: Array<{ command: CommandId; labelKey: string; separatorBefore?: boolean }> = [
   { command: 'worksheet.rename', labelKey: 'menu.sheet.renameSheet' },
+  { command: 'worksheet.tabColor', labelKey: 'menu.sheet.tabColor' },
   { command: 'worksheet.duplicate', labelKey: 'menu.sheet.duplicateSheet' },
   { command: 'worksheet.delete', labelKey: 'menu.sheet.deleteSheet' },
   { command: 'worksheet.toggleLock', labelKey: 'menu.sheet.lockSheet', separatorBefore: true },
@@ -105,7 +106,7 @@ export class SheetBar {
     // whole row goes away instead of leaving an empty band under the grid.
     this.element.hidden = !isWorkbook(doc);
     const key = isWorkbook(doc)
-      ? `rsf|${doc.activeSheetId}|${doc.sheets.map((s) => `${s.id}:${s.name}:${s.locked ? 1 : 0}`).join('')}`
+      ? `rsf|${doc.activeSheetId}|${doc.sheets.map((s) => `${s.id}:${s.name}:${s.locked ? 1 : 0}:${s.tabColor ?? ''}`).join('')}`
       : 'csv';
     if (!force && key === this.renderedKey) {
       return;
@@ -124,7 +125,14 @@ export class SheetBar {
     this.strip.setAttribute('role', 'tablist');
     for (const sheet of doc.sheets) {
       this.strip.append(
-        this.buildSheetTab(sheet.id, sheet.name, sheet.kind, sheet.locked, sheet.id === doc.activeSheetId),
+        this.buildSheetTab(
+          sheet.id,
+          sheet.name,
+          sheet.kind,
+          sheet.locked,
+          sheet.tabColor,
+          sheet.id === doc.activeSheetId,
+        ),
       );
     }
     const add = el(
@@ -151,6 +159,7 @@ export class SheetBar {
     name: string,
     kind: WorksheetKind,
     locked: boolean,
+    tabColor: string | undefined,
     active: boolean,
   ): HTMLElement {
     const kindLabel = t(SHEET_KIND_LABEL_KEY[kind]);
@@ -181,6 +190,12 @@ export class SheetBar {
         el('span', { className: 'sheet-label', text: name }),
       ],
     );
+    if (tabColor !== undefined) {
+      // A document color (drawn the same in every theme), shown as a bar
+      // along the tab's edge so the name stays on the theme's own colors.
+      tabEl.classList.add('has-color');
+      tabEl.style.setProperty('--sheet-tab-color', tabColor);
+    }
     tabEl.addEventListener('click', () => this.activate(id));
     tabEl.addEventListener('dblclick', () => {
       this.activate(id);

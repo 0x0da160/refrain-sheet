@@ -84,6 +84,18 @@ describe('.rsf codec: round trips', () => {
     expect(decoded.data.sheets[0]).toMatchObject({ kind, cells: [[0, 0, text]], locked: true });
   });
 
+  it('round-trips a worksheet tab color, stored lowercase', () => {
+    const decoded = decodeRsfWorkbook(
+      encodeRsfWorkbook({ ...book, sheets: [{ ...sheet, tabColor: '#287ccf' }] }),
+    );
+    expect(decoded.ok && decoded.data.sheets[0].tabColor).toBe('#287ccf');
+    const t = rsfTree(encodeRsfWorkbook(book));
+    t.sheets[0].tabColor = '#1B9247';
+    const hand = decodeTree(t);
+    expect(hand.ok && hand.data.sheets[0].tabColor).toBe('#1b9247');
+    expect(rsfTree(encodeRsfWorkbook(book)).sheets[0].tabColor).toBeUndefined();
+  });
+
   it('round-trips version history snapshots, which decode on their own', () => {
     const snapshot = { timestamp: 1_700_000_000_000, bytes: encodeRsfBody(book) };
     const decoded = decodeRsfWorkbook(
@@ -259,6 +271,8 @@ describe('.rsf codec: validation of hand-edited files', () => {
     ],
     ['duplicate worksheet ids', (t: ReturnType<typeof tree>) => t.sheets.push({ ...t.sheets[0], name: 'B' })],
     ['a non-boolean flag', (t: ReturnType<typeof tree>) => (t.sheets[0].locked = 'yes')],
+    ['a tab color that is not hex', (t: ReturnType<typeof tree>) => (t.sheets[0].tabColor = 'blue')],
+    ['a tab color that is not a string', (t: ReturnType<typeof tree>) => (t.sheets[0].tabColor = 5)],
     ['a history limit of 0', (t: ReturnType<typeof tree>) => (t.history = { limit: 0 })],
     [
       'a snapshot without a time',

@@ -505,6 +505,13 @@ export interface FormatDialogsPort {
 /** Worksheet naming and deletion. */
 export interface WorksheetDialogsPort {
   /**
+   * The Tab Color dialog for the active worksheet: ready-made colors plus
+   * any color, preselected from `current` (null when the tab has none).
+   * Resolves with the chosen color, `'clear'` to remove it, or null when
+   * cancelled (nothing changes).
+   */
+  chooseSheetTabColor(current: string | null): Promise<ColorDialogResult | null>;
+  /**
    * Ask for a worksheet name when adding, renaming, or duplicating. `validate`
    * returns an already-localized error message for an unacceptable name (empty,
    * too long, duplicate, or containing a character the formula/file syntax

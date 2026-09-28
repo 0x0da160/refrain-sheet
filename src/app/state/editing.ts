@@ -378,6 +378,9 @@ export class EditingState {
       case 'move':
         doc.moveSheet(op.sheetId, forward ? op.to : op.from);
         return;
+      case 'tabColor':
+        doc.setTabColor(op.sheetId, forward ? op.after : op.before);
+        return;
     }
   }
 

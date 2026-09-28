@@ -47,6 +47,7 @@ export function createUiPort({ dialogs, toasts, loadingOverlay, findBar }: UiPor
     chooseDataValidation: (input, onApply) => dialogs.chooseDataValidation(input, onApply),
     chooseConditionalFormat: (input, onApply) => dialogs.chooseConditionalFormat(input, onApply),
     chooseCellComment: (input) => dialogs.chooseCellComment(input),
+    chooseSheetTabColor: (current) => dialogs.chooseSheetTabColor(current),
     promptSheetName: (mode, current, validate, kindOptions) =>
       dialogs.promptSheetName(mode, current, validate, kindOptions),
     confirmDeleteSheet: (name, references) => dialogs.confirmDeleteSheet(name, references),

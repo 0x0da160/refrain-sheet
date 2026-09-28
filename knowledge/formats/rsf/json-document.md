@@ -56,6 +56,7 @@ the same content is the same document.
 | `name`     | string           | Display name used by cross-sheet formulas (at most 400 UTF-8 bytes).                     |
 | `kind`     | string           | `grid` (default), `markdown`, `json`, `yaml`, or `text`.                                 |
 | `locked`   | boolean          | Protected against editing. Left out when `false`.                                        |
+| `tabColor` | string           | The tab's color, `#rrggbb` (written lowercase). Left out when none; else `bad-shape`.    |
 | `rows`     | integer          | Grid only: row count, 1–2,000,000.                                                       |
 | `cols`     | integer          | Grid only: column count, 1–16,384 (and `rows × cols` at most 20,000,000).                |
 | `cells`    | array of arrays  | Grid only: rows of cell inputs (below).                                                  |

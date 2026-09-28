@@ -97,6 +97,16 @@ type, reports the problem inline in the active language, and is IME-safe
 see [editing-and-ime.md](editing-and-ime.md) for the general IME-safety
 architecture this reuses).
 
+**Tab colors.** Sheet > Sheet Tab Color… (also in the tab's context menu)
+gives the active worksheet's tab a color, drawn as a bar along the tab's
+edge so the name keeps the theme's own colors. The dialog offers nine
+ready-made colors (step 5 of each design-system hue family,
+`SHEET_TAB_PRESETS` in `src/ui/document-colors.ts`) and a native picker for
+any other; **No Color** removes it. A tab color is document data like a
+cell color: the same in every theme, saved in the RSF file as the
+worksheet's `tabColor`, kept by Duplicate, and one undoable change. Like
+renaming, it is allowed on a locked worksheet.
+
 Plain CSV documents are single-sheet by definition: their worksheet strip
 is hidden, so no empty band sits under the grid (#456), and worksheet commands are
 disabled — converting to RSF is what unlocks multiple worksheets.

@@ -47,6 +47,10 @@
   border-bottom: 2px solid var(--accent);
 }
 
+.sheet-tab.has-color {
+  box-shadow: inset 0 -4px 0 var(--sheet-tab-color);
+}
+
 .sheet-tab .sheet-kind {
   display: flex;
   flex: none;

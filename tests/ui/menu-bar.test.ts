@@ -38,6 +38,7 @@ function stubUi(): UiPort {
     chooseConditionalFormat: vi.fn(async () => null),
     chooseCellComment: vi.fn(async () => null),
     promptSheetName: vi.fn(async () => null),
+    chooseSheetTabColor: vi.fn(async () => null),
     confirmDeleteSheet: vi.fn(async () => true),
     chooseExportSheet: vi.fn(async () => null),
     confirmReplaceAllWorkbook: vi.fn(async () => true),

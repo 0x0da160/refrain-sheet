@@ -294,6 +294,11 @@ export class Dialogs {
     return this.sheetOps.chooseInsertShift(rows, cols);
   }
 
+  /** See `SheetOpsDialogs.chooseSheetTabColor` for the full behavior contract. */
+  chooseSheetTabColor(current: string | null): Promise<ColorDialogResult | null> {
+    return this.sheetOps.chooseSheetTabColor(current);
+  }
+
   /** See `SheetOpsDialogs.promptSheetName` for the full behavior contract. */
   promptSheetName(
     mode: 'add' | 'rename' | 'duplicate',

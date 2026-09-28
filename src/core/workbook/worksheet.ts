@@ -169,6 +169,13 @@ export class Worksheet {
    */
   locked = false;
 
+  /**
+   * The color of this worksheet's tab in the worksheet strip, lowercase
+   * `#rrggbb`, or `undefined` for none (Sheet ▸ Tab Color…). Purely
+   * presentational; persisted in the RSF container as `tabColor`.
+   */
+  tabColor: string | undefined = undefined;
+
   /** Session-only view state, restored when this worksheet becomes active. */
   readonly view: WorksheetView = {
     selection: null,
@@ -655,7 +662,7 @@ export class Worksheet {
    * verbatim — including formulas, whose worksheet-qualified references keep
    * pointing at the worksheets they named (the documented duplication policy;
    * see knowledge/formats/rsf/index.md) — along with the filter, display settings, lock
-   * state, and every cell's style.
+   * state, tab color, and every cell's style.
    */
   clone(id: string, name: string): Worksheet {
     const copy = new Worksheet(
@@ -672,6 +679,7 @@ export class Worksheet {
     copy.displayFont = this.displayFont;
     copy.displayLook = { ...this.displayLook };
     copy.locked = this.locked;
+    copy.tabColor = this.tabColor;
     copy.styles = this.styles.clone();
     copy.comments = this.comments.clone();
     return copy;
@@ -693,6 +701,7 @@ export class Worksheet {
     copy.displayFont = this.displayFont;
     copy.displayLook = { ...this.displayLook };
     copy.locked = this.locked;
+    copy.tabColor = this.tabColor;
     return copy;
   }
 

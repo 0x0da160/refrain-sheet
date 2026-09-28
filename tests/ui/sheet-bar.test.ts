@@ -40,6 +40,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     chooseConditionalFormat: vi.fn(async () => null),
     chooseCellComment: vi.fn(async () => null),
     promptSheetName: vi.fn(async () => null),
+    chooseSheetTabColor: vi.fn(async () => null),
     confirmDeleteSheet: vi.fn(async () => true),
     chooseExportSheet: vi.fn(async () => null),
     confirmReplaceAllWorkbook: vi.fn(async () => true),
@@ -379,5 +380,26 @@ describe('worksheet tab context menu — Lock/Unlock wording and checkmark (#541
     expect(unlockItem).toBeTruthy();
     expect(unlockItem.getAttribute('aria-checked')).toBe('true');
     expect(unlockItem.querySelector('.check-icon')).not.toBeNull();
+  });
+});
+
+describe('SheetBar tab colors', () => {
+  it('draws a colored tab only for a worksheet that has a tab color', () => {
+    const { bar, state, tab, doc } = setup(['A', 'B']);
+    state.setSheetTabColor(tab, doc.sheets[1].id, '#287ccf');
+    bar.render();
+    const [a, b] = tabs(bar);
+    expect(a.classList.contains('has-color')).toBe(false);
+    expect(b.classList.contains('has-color')).toBe(true);
+    expect(b.style.getPropertyValue('--sheet-tab-color')).toBe('#287ccf');
+  });
+
+  it('offers Sheet Tab Color… in the tab context menu', () => {
+    const { bar } = setup(['A']);
+    tabs(bar)[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    const labels = Array.from(document.querySelectorAll('.context-menu .menu-item')).map(
+      (b) => b.textContent,
+    );
+    expect(labels.some((l) => l?.includes(t('menu.sheet.tabColor')))).toBe(true);
   });
 });

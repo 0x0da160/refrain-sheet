@@ -98,6 +98,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'worksheet.addYaml',
   'worksheet.addText',
   'worksheet.rename',
+  'worksheet.tabColor',
   'worksheet.duplicate',
   'worksheet.delete',
   'worksheet.moveLeft',

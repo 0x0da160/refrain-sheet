@@ -50,6 +50,19 @@ describe('landing partials', () => {
   });
 });
 
+describe('landing theme', () => {
+  it('every page applies a saved theme in <head>, before first paint', () => {
+    for (const page of PAGES) {
+      const head = read(page).split('</head>')[0];
+      expect(includesOf(head), page).toContain('theme-init.html');
+    }
+  });
+
+  it('switches artwork with CSS, not <picture> media queries the theme switch cannot reach', () => {
+    expect(allSources).not.toMatch(/media="\(prefers-color-scheme/);
+  });
+});
+
 describe('landing copy', () => {
   it('has the same keys in Japanese and English', () => {
     expect(dictKeys.ja.length).toBeGreaterThan(100);

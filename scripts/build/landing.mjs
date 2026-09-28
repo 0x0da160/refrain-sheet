@@ -182,7 +182,8 @@ function build(pageId, lang) {
     if (!(key in d)) throw new Error(`missing key: ${key}`);
     const attr = el.getAttribute('data-i18n-attr');
     if (attr) {
-      el.setAttribute(attr, d[key]);
+      // One key can fill several attributes, e.g. "aria-label title".
+      for (const name of attr.split(/\s+/)) el.setAttribute(name, d[key]);
     } else if (!el.querySelector('*:not(br)')) {
       setText(doc, el, d[key]);
     }

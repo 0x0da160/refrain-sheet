@@ -57,6 +57,14 @@ this release does **not** read those files:
   identifier in place of `RSF2`, which older readers refuse as
   `bad-magic`.
 
+Two changes kept `"version": 1` this way. After 0.9.14 the writer emits
+compact JSON instead of pretty-printed JSON (layout was never part of the
+format), and stores version history as `history.deltas` instead of
+`history.snapshots` (a new optional key; see
+[json-document.md](json-document.md#history)). This release reads both
+history keys. A release up to 0.9.14 ignores `deltas`, so it opens such a
+file with its content intact but without its version history.
+
 Defaults are left out when writing (UTC timezone, English, unlocked,
 `grid`, solid/thin borders, history on with no snapshots and no limit), so
 the same content always serializes to the same text.
@@ -66,7 +74,9 @@ the same content always serializes to the same text.
 `tests/fixtures/rsf/v1/` holds committed files in this format — every
 feature on one sheet, the four source worksheet kinds, version history, a
 compressed bulk sheet, and a Raw-block file written by the JavaScript
-fallback — and `tests/core/rsf-fixtures.test.ts` checks each two ways: the
+fallback, each both pretty-printed with full-copy history (as releases up
+to 0.9.14 wrote, `encodes: false`) and compact with history deltas
+(`*-compact.rsf`, `history-deltas.rsf`) — and `tests/core/rsf-fixtures.test.ts` checks each two ways: the
 committed bytes must still **decode** to the data they were written from (a
 fixture is never rewritten), and the current encoder must still
 **reproduce** them byte-for-byte (output stability, which also pins the

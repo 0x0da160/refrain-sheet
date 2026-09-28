@@ -16,12 +16,14 @@ import {
 import type { AstNode } from './parser';
 import {
   coerceToNumber,
+  coerceToText,
   EMPTY_VALUE,
   errorValue,
   firstError,
   type FormulaValue,
   makeGrid,
   MAX_RANGE_CELLS,
+  MAX_TEXT_LENGTH,
   numberValue,
   scalarGrid,
   type ValueGrid,
@@ -377,6 +379,11 @@ function evalScalarBinary(op: string, leftResult: EvalResult, rightResult: EvalR
   }
   if (COMPARISON_OPS.includes(op)) {
     return evalComparison(op, left, right);
+  }
+  if (op === '&') {
+    // Each side as CONCAT would write it; errors were handled above.
+    const text = (coerceToText(left) ?? '') + (coerceToText(right) ?? '');
+    return text.length > MAX_TEXT_LENGTH ? errorValue('#VALUE!') : { type: 'string', value: text };
   }
   const a = coerceToNumber(left);
   const b = coerceToNumber(right);

@@ -199,7 +199,7 @@
   "dialog.formulaHelp.section.ranges": "Ranges",
   "dialog.formulaHelp.rangesBody": "A rectangular range is two corner references joined by a colon (A1:B10). A:A or A:C covers whole columns; 1:1 or 2:10 covers whole rows. Whole-column and whole-row ranges stop at the sheet's last row or column.",
   "dialog.formulaHelp.section.operators": "Operators",
-  "dialog.formulaHelp.operatorsBody": "Arithmetic: + - * / with parentheses for grouping. Comparisons = <> < > <= >= return TRUE or FALSE, useful as the condition in IF.",
+  "dialog.formulaHelp.operatorsBody": "Arithmetic: + - * / with parentheses for grouping. & joins values as text (=A1&\" \"&B1). Comparisons = <> < > <= >= return TRUE or FALSE, useful as the condition in IF.",
   "dialog.formulaHelp.section.functions": "Functions",
   "dialog.formulaHelp.col.function": "Function",
   "dialog.formulaHelp.col.description": "Description",

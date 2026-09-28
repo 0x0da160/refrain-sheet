@@ -22,7 +22,8 @@ A cell whose input begins with `=` is a formula. The grid shows the computed
 value; the formula bar shows the underlying expression. 55 functions are
 supported (see
 [formula-functions-and-errors.md](formula-functions-and-errors.md)), plus
-operators `+ - * /`, parentheses, the comparisons `= <> < > <= >=`, and
+operators `+ - * /`, the text join `&` (binding between `+ -` and the
+comparisons), parentheses, the comparisons `= <> < > <= >=`, and
 numeric / string / boolean (`TRUE`, `FALSE`) literals. The engine
 (`src/core/formula/index.ts` and the `formula-*.ts` family) is a hand-written
 parser and evaluator — there is no `eval`, no `new Function`, no dynamic

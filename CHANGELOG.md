@@ -38,6 +38,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- **`&` joins text in formulas.** `=A1&" "&B1` puts values together as
+  text, the same as `CONCAT`. Numbers and TRUE/FALSE join as they are
+  written, an empty cell adds nothing, and an error in either side is the
+  result. `&` binds more loosely than `+ -` and more tightly than the
+  comparisons, so `=1+2&3` gives `33`. Formulas using `&` used to show
+  an error.
+
 ## [0.9.16] - 2026-09-28
 
 ### Added

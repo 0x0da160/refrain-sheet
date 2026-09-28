@@ -179,6 +179,7 @@ describe('rewrites when worksheets change', () => {
     expect(invalidateSheetRefsInFormula('=Sheet1!A1', 'Sheet1')).toBe('=#REF!');
     expect(invalidateSheetRefsInFormula('=SUM(Sheet1!A1:A9)', 'Sheet1')).toBe('=SUM(#REF!)');
     expect(invalidateSheetRefsInFormula('=Sheet1!A1+Other!B2', 'Sheet1')).toBe('=#REF!+Other!B2');
+    expect(invalidateSheetRefsInFormula('=Sheet1!A1&Other!B2', 'Other')).toBe('=Sheet1!A1&#REF!');
     expect(invalidateSheetRefsInFormula('=A1+Other!B2', 'Sheet1')).toBe('=A1+Other!B2');
   });
 

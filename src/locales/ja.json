@@ -199,7 +199,7 @@
   "dialog.formulaHelp.section.ranges": "範囲",
   "dialog.formulaHelp.rangesBody": "長方形の範囲は2つの角のセル参照をコロンでつなぎます（A1:B10）。A:A や A:C は列全体、1:1 や 2:10 は行全体を表します。列全体・行全体の範囲は、シートの行数・列数までに限られます。",
   "dialog.formulaHelp.section.operators": "演算子",
-  "dialog.formulaHelp.operatorsBody": "算術: + - * / と、グループ化のための括弧。比較 = <> < > <= >= は TRUE か FALSE を返し、IF の条件などに使えます。",
+  "dialog.formulaHelp.operatorsBody": "算術: + - * / と、グループ化のための括弧。& は値を文字列としてつなぎます（=A1&\" \"&B1）。比較 = <> < > <= >= は TRUE か FALSE を返し、IF の条件などに使えます。",
   "dialog.formulaHelp.section.functions": "関数",
   "dialog.formulaHelp.col.function": "関数",
   "dialog.formulaHelp.col.description": "説明",

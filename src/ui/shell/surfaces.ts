@@ -5,7 +5,7 @@
  */
 import { ClipboardController } from '../../app/clipboard-controller';
 import type { Commands } from '../../app/commands';
-import { getAutoFitOnOpen, getEditHints, getSheetZoom } from '../../app/settings';
+import { getAutoFitOnOpen, getEditHints, getSheetTabsVertical, getSheetZoom } from '../../app/settings';
 import type { AppState } from '../../app/state';
 import { resolveGridLook, resolveSheetFont } from '../../app/state/view-layers';
 import { getDensity } from '../../app/density';
@@ -175,6 +175,7 @@ function createMenuBar(state: AppState, commands: Commands): MenuBar {
     density: () => getDensity(),
     zoom: () => state.activeTab?.zoom ?? getSheetZoom(),
     editHints: () => getEditHints(),
+    sheetTabsVertical: () => getSheetTabsVertical(),
     bandedRows: () => resolveGridLook(state.activeTab?.doc ?? null).bands,
     gridlines: () => resolveGridLook(state.activeTab?.doc ?? null).gridlines,
     highlightRow: () => resolveGridLook(state.activeTab?.doc ?? null).rowHighlight,

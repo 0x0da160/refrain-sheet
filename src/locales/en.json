@@ -57,6 +57,7 @@
   "menu.view.wrap": "Wrap Long Cell Text",
   "menu.view.editHints": "Show Editing Tips",
   "menu.view.autoFitOnOpen": "Auto-Fit Columns on Open",
+  "menu.view.sheetTabsVertical": "Sheet Tabs on the Left",
   "menu.view.commentsPanel": "Comments Panel",
   "menu.view.fullscreen": "Full Screen",
   "menu.view.zoom": "Spreadsheet Zoom",

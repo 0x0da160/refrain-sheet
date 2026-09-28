@@ -239,6 +239,27 @@ export function setEditHints(enabled: boolean): void {
 }
 
 // ---------------------------------------------------------------------------
+// Sheet tabs down the left side
+// ---------------------------------------------------------------------------
+
+const SHEET_TABS_VERTICAL_KEY = 'refrain-csv-html.sheetTabsVertical';
+
+/**
+ * Whether an RSF file's sheet tabs are listed down the left side of the grid
+ * instead of in a row below it. **Default: in a row.** A per-browser layout
+ * preference (View menu), never written into any document; a narrow window
+ * keeps the row whatever it says.
+ */
+export function getSheetTabsVertical(): boolean {
+  return safeStorageGet(SHEET_TABS_VERTICAL_KEY) === '1';
+}
+
+/** Persist the sheet-tab layout preference locally. */
+export function setSheetTabsVertical(vertical: boolean): void {
+  safeStorageSet(SHEET_TABS_VERTICAL_KEY, vertical ? '1' : '0');
+}
+
+// ---------------------------------------------------------------------------
 // Auto-fit column width on open
 // ---------------------------------------------------------------------------
 

@@ -94,6 +94,8 @@ export interface MenuChecks {
   zoom: () => number;
   /** Whether editing-help tooltips are enabled. */
   editHints: () => boolean;
+  /** Whether sheet tabs are listed down the left side (View menu). */
+  sheetTabsVertical: () => boolean;
   /** Whether every other grid row is tinted (View > Banded Rows). */
   bandedRows: () => boolean;
   /** Whether lines are drawn between data cells (View > Gridlines). */
@@ -377,6 +379,11 @@ function viewMenu(checks: MenuChecks): MenuDef {
         labelKey: 'menu.view.autoFitOnOpen',
         command: 'view.autoFitOnOpen',
         checked: checks.autoFitOnOpen,
+      },
+      {
+        labelKey: 'menu.view.sheetTabsVertical',
+        command: 'view.sheetTabsVertical',
+        checked: checks.sheetTabsVertical,
       },
       { labelKey: 'menu.view.commentsPanel', command: 'view.commentsPanel' },
       // Menu only: F11 stays the browser's own full screen, which a page

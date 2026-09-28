@@ -14,6 +14,7 @@ function checks(): MenuChecks {
   return {
     wrap: () => false,
     stickyFirstRow: () => false,
+    sheetTabsVertical: () => false,
     stickyFirstColumn: () => false,
     freezeAtSelection: () => false,
     sheetFont: () => 'biz-ud',

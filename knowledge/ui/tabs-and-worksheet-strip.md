@@ -107,6 +107,20 @@ cell color: the same in every theme, saved in the RSF file as the
 worksheet's `tabColor`, kept by Duplicate, and one undoable change. Like
 renaming, it is allowed on a locked worksheet.
 
+**Tabs on the left.** View > Sheet Tabs on the Left (a browser setting,
+`getSheetTabsVertical` in `src/app/settings.ts`, not document data) sets
+`.sheet-tabs-vertical` on `#app`, which stands the strip as a 180px column
+beside `#app-content` (`src/styles/sheet-bar.css`). The tabs are the row's
+look turned a quarter: attached to the grid on their right edge, with the
+tab color and the active marker on the far edge. Up/Down mirror Left/Right
+(Alt reorders), drops use the pointer's height, and the strip reports
+`aria-orientation`. The strip reads its orientation from the layout rather
+than the setting, because a window at or below 43.75em (phones) keeps the
+row. A top/bottom-docked side panel insets the column through
+`--dock-inset-top`/`--dock-inset-bottom` on `#app`, and the column adds
+nothing to a bottom dock's offset (`reserveAppEdge` and `sheetBarHeight`
+in `src/ui/dialogs/side-panel.ts`).
+
 Plain CSV documents are single-sheet by definition: their worksheet strip
 is hidden, so no empty band sits under the grid (#456), and worksheet commands are
 disabled — converting to RSF is what unlocks multiple worksheets.

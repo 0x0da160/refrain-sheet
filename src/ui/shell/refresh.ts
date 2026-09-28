@@ -2,6 +2,7 @@
 /** Keep every surface in step with application-state events and the UI language. */
 import { getLocale, onLocaleChange, t } from '../../app/i18n';
 import { applyGridLook } from '../../app/grid-look';
+import { getSheetTabsVertical } from '../../app/settings';
 import { applySheetFont } from '../../app/sheet-font';
 import type { AppState } from '../../app/state';
 import { resolveGridLook, resolveSheetFont } from '../../app/state/view-layers';
@@ -18,6 +19,7 @@ export function subscribeSurfaces(
 ): (selectionChanged: boolean) => void {
   const refreshAll = (selectionChanged: boolean): void => {
     app.classList.toggle('wrap-cells', state.wrapCells);
+    app.classList.toggle('sheet-tabs-vertical', getSheetTabsVertical());
     // No open document: restore the initial welcome screen and hide every
     // document-specific surface (tab strip, formula bar, find bar, grid).
     const noTabs = state.tabs.length === 0;
@@ -89,8 +91,12 @@ export function subscribeSurfaces(
         // Wrap and sticky-first-row both change grid metrics. The comments
         // panel's own open/closed state (toggled via the View menu) also
         // flows through this event.
+        // So does moving the worksheet tabs beside the grid (a browser
+        // setting), which also changes the strip's orientation.
         app.classList.toggle('wrap-cells', state.wrapCells);
+        app.classList.toggle('sheet-tabs-vertical', getSheetTabsVertical());
         s.menuBar.render();
+        s.sheetBar.render(true);
         s.grid.refresh();
         s.commentsPanel.render();
         return;

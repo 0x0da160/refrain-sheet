@@ -46,6 +46,8 @@ really is internal, rather than inventing an entry to satisfy it.
   "no syntax errors". The check now points at such a line and says which
   value it was folded into. An alias (`*name`) with no matching anchor is
   also reported.
+- Scrolling the grid quickly no longer flashes the dark gray of the area
+  outside the sheet where rows have not been drawn yet; the sheet stays white.
 
 ## [0.9.14] - 2026-09-27
 

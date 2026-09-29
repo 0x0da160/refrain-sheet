@@ -17,6 +17,7 @@ import {
   FileDown,
   History,
   Layers,
+  AlignStartVertical,
   ListFilter,
   SwatchBook,
   Table,
@@ -25,6 +26,7 @@ import {
   ZoomIn,
 } from 'lucide';
 import type { CommandId } from '../../app/commands';
+import type { Arrangement } from '../../core/workbook/object-arrange';
 import { getLocale } from '../../app/i18n';
 import { getShiftPasteMode, SHEET_ZOOM_LEVELS, type ShiftPasteMode } from '../../app/settings';
 import { displayShortcut, isMacPlatform } from '../../app/shortcuts';
@@ -323,9 +325,28 @@ function insertMenu(): MenuDef {
           { labelKey: 'menu.insert.sendToBack', command: 'object.sendToBack' },
         ],
       },
+      { labelKey: 'menu.insert.align', icon: AlignStartVertical, submenu: alignItems() },
+      { labelKey: 'menu.insert.group', command: 'object.group' },
+      { labelKey: 'menu.insert.ungroup', command: 'object.ungroup' },
       { labelKey: 'menu.insert.deleteObject', command: 'object.delete' },
     ],
   };
+}
+
+/** Insert > Align: line the selected objects up, or space three or more evenly. */
+function alignItems(): Array<MenuItemDef | 'separator'> {
+  const item = (how: Arrangement): MenuItemDef => ({
+    labelKey: `menu.insert.${how}`,
+    command: `object.${how}`,
+  });
+  return [
+    ...(['alignLeft', 'alignCenter', 'alignRight', 'alignTop', 'alignMiddle', 'alignBottom'] as const).map(
+      item,
+    ),
+    'separator',
+    item('distributeHorizontally'),
+    item('distributeVertically'),
+  ];
 }
 
 function formatMenu(checks: MenuChecks): MenuDef {

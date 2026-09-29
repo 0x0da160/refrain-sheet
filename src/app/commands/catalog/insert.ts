@@ -2,6 +2,7 @@
 /** Insert menu: shapes, pictures and charts over the sheet, and the object list and order commands. */
 import { MAX_IMAGE_BYTES } from '../../../core/workbook/sheet-images';
 import { pickImageFile } from '../../file-access';
+import { ARRANGEMENTS, type Arrangement } from '../../../core/workbook/object-arrange';
 import type { ObjectOrder, ShapeKind } from '../objects';
 import { withTab, type CommandSpec } from './types';
 
@@ -16,6 +17,20 @@ const order = (to: ObjectOrder): CommandSpec =>
     (ctx, tab) => ctx.parts.objects.order(tab, to),
     (ctx, tab) => ctx.parts.objects.canOrder(tab, to),
   );
+
+const arrange = (how: Arrangement): CommandSpec =>
+  withTab(
+    (ctx, tab) => {
+      const geometry = ctx.commands.objectGeometry;
+      if (geometry) ctx.parts.objects.arrange(tab, how, geometry);
+    },
+    (ctx, tab) => ctx.parts.objects.canArrange(tab, how),
+  );
+
+/** `object.alignLeft`, … `object.distributeVertically`. */
+const ARRANGE_COMMANDS = Object.fromEntries(
+  ARRANGEMENTS.map((how) => [`object.${how}`, arrange(how)]),
+) as Record<`object.${Arrangement}`, CommandSpec>;
 
 export const INSERT_COMMANDS = {
   'insert.rectangle': shape('rect'),
@@ -47,6 +62,15 @@ export const INSERT_COMMANDS = {
   'object.bringForward': order('forward'),
   'object.sendBackward': order('backward'),
   'object.sendToBack': order('back'),
+  'object.group': withTab(
+    (ctx, tab) => ctx.parts.objects.group(tab),
+    (ctx, tab) => ctx.parts.objects.canGroup(tab),
+  ),
+  'object.ungroup': withTab(
+    (ctx, tab) => ctx.parts.objects.ungroup(tab),
+    (ctx, tab) => ctx.parts.objects.canUngroup(tab),
+  ),
+  ...ARRANGE_COMMANDS,
   'object.delete': withTab(
     (ctx, tab) => ctx.parts.objects.deleteSelected(tab),
     (ctx, tab) => ctx.state.objectSelection.selected(tab).length > 0,

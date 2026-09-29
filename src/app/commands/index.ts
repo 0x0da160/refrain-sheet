@@ -22,7 +22,7 @@ import { FilterCommands } from './filter';
 import { FormatCommands } from './format';
 import { SortCommands } from './sort';
 import { SheetFolderCommands, type FolderAction } from './sheet-folders';
-import { ObjectCommands } from './objects';
+import { ObjectCommands, type ObjectGeometry } from './objects';
 import type { SheetObject } from '../../core/workbook/sheet-objects';
 import { WorksheetCommands } from './worksheets';
 import { SqlCommands, type SqlRunOutcome } from './sql';
@@ -90,6 +90,9 @@ export class Commands {
     /** Select a cell and scroll it into view ("Go to Cell…"). */
     goToCell: (row: number, col: number) => void;
   } | null = null;
+
+  /** Set by main.ts so commands can line objects up by where the grid draws them. */
+  objectGeometry: ObjectGeometry | null = null;
 
   /** Set by main.ts so the menus can open the comments and Check Data panels. */
   panelActions: {

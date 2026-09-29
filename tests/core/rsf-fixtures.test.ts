@@ -459,6 +459,49 @@ const cases: FixtureCase[] = [
     },
   },
   {
+    // Object groups (`group` on objects that move and copy together).
+    file: 'groups.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: {
+      delimiter: ',',
+      activeSheetId: 's1',
+      sheets: [
+        {
+          ...grid,
+          objects: [
+            {
+              id: 'o1',
+              name: 'Box',
+              kind: 'rect',
+              row: 0,
+              col: 0,
+              dx: 0,
+              dy: 0,
+              width: 80,
+              height: 40,
+              group: 'g1',
+            },
+            {
+              id: 'o2',
+              name: 'Label',
+              kind: 'text',
+              row: 0,
+              col: 0,
+              dx: 8,
+              dy: 8,
+              width: 60,
+              height: 20,
+              text: 'Hi',
+              group: 'g1',
+            },
+            { id: 'o3', name: 'Line', kind: 'line', row: 2, col: 1, dx: 0, dy: 0, width: 50, height: 0 },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Charts (`chart` on a chart object): one showing a range of another
     // worksheet, one keeping its own data (its worksheet was deleted).
     file: 'charts.rsf',

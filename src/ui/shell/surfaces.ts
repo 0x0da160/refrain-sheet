@@ -183,6 +183,10 @@ function wireCommandActions(
     autoFitAllColumns: (tab) => grid.autoFitAllColumns(tab),
     goToCell: (row, col) => grid.reveal(row, col),
   };
+  commands.objectGeometry = {
+    objectPosition: (tab, o) => grid.objectPosition(tab, o),
+    objectMovedTo: (tab, o, x, y) => grid.objectMovedTo(tab, o, x, y),
+  };
   // Entering or leaving full screen (the View menu, or Escape) refreshes the
   // View menu's check mark.
   document.addEventListener('fullscreenchange', () => state.emit('view'));

@@ -40,6 +40,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Group, align and space out objects.** Insert > Group makes the
+  selected shapes, pictures and charts one group: clicking any member
+  selects the whole group, so it moves, copies and deletes as one, and
+  clicking a member of a selected group again selects just that one to edit
+  it. Insert > Align lines the selected objects up on their left edges,
+  centers, right edges, tops, middles or bottoms, or spaces three or more
+  evenly across or down (a whole selected group moves as one). While
+  dragging, objects snap to the edges and middles of other objects, with a
+  guide line showing each match; hold Alt to snap to cell corners instead.
 - **Copy and paste shapes, pictures and charts.** With objects selected,
   Cut, Copy and Paste (Ctrl+X, Ctrl+C, Ctrl+V, the Edit menu, or the
   object's right-click menu) act on the objects: paste onto the same sheet,

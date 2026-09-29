@@ -98,6 +98,8 @@ export interface SheetObject {
   lockPosition?: true;
   /** 編集をロック: cannot be moved, resized, edited or deleted (the stronger lock). */
   lockEdit?: true;
+  /** The group it belongs to (objects sharing an id move and copy as one; see `object-arrange.ts`). */
+  group?: string;
 }
 
 /** Whether a kind is drawn as a line between two corners of its box. */
@@ -229,6 +231,7 @@ function formatValid(o: SheetObject): boolean {
     optional(o.fontSize, (size) => typeof size === 'number' && normalizeFontSize(size) !== null) &&
     optional(o.align, (align) => (OBJECT_TEXT_ALIGNS as readonly string[]).includes(align)) &&
     optional(o.valign, (valign) => (OBJECT_TEXT_VALIGNS as readonly string[]).includes(valign)) &&
+    optional(o.group, (group) => typeof group === 'string' && ID_PATTERN.test(group)) &&
     [o.flipH, o.flipV, o.bold, o.italic, o.hidden, o.lockPosition, o.lockEdit].every(
       (flag) => flag === undefined || flag === true,
     )

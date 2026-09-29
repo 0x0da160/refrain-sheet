@@ -1,0 +1,172 @@
+// SPDX-License-Identifier: MIT
+// @vitest-environment jsdom
+/**
+ * The Markdown sheet's visual mode (`MarkdownVisualEditor`): editing a block
+ * rewrites only that block's Markdown, and every other line of the source
+ * stays exactly as it was.
+ */
+import { beforeEach, describe, expect, it } from 'vitest';
+import { setLocale } from '../../src/app/i18n';
+import { MarkdownVisualEditor } from '../../src/ui/markdown-visual';
+
+const SOURCE = [
+  '#   Title  ',
+  '',
+  'First *para*.',
+  '',
+  '* one',
+  '*  two',
+  '',
+  '| a |',
+  '|---|',
+  '| 1 |',
+].join('\n');
+
+function editor(source = SOURCE): { visual: MarkdownVisualEditor; changes: string[] } {
+  const visual = new MarkdownVisualEditor();
+  const changes: string[] = [];
+  visual.onChange = (text) => changes.push(text);
+  document.body.replaceChildren(visual.element);
+  visual.load(source);
+  return { visual, changes };
+}
+
+function last(changes: string[]): string {
+  return changes[changes.length - 1];
+}
+
+function blocks(visual: MarkdownVisualEditor): HTMLElement[] {
+  return Array.from(visual.element.children) as HTMLElement[];
+}
+
+function caretIn(node: Node, offset: number): void {
+  const range = document.createRange();
+  range.setStart(node, offset);
+  range.collapse(true);
+  const selection = document.getSelection()!;
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function type(target: HTMLElement, text: string): void {
+  target.textContent = text;
+  target.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+beforeEach(() => {
+  setLocale('en');
+});
+
+describe('MarkdownVisualEditor', () => {
+  it('shows each block formatted and editable, plus an empty paragraph for new text', () => {
+    const { visual } = editor();
+    const shown = blocks(visual);
+    expect(shown.map((node) => node.tagName)).toEqual(['H1', 'P', 'UL', 'TABLE', 'P']);
+    expect(shown[1].querySelector('em')?.textContent).toBe('para');
+    expect(shown[1].contentEditable).toBe('true');
+    // A table is edited cell by cell.
+    expect(shown[3].contentEditable).not.toBe('true');
+    expect(shown[3].querySelector('td')!.contentEditable).toBe('true');
+    expect(shown[4].dataset.placeholder).toBe('Type here to add text');
+  });
+
+  it('rewrites only the edited block', () => {
+    const { visual, changes } = editor();
+    const paragraph = blocks(visual)[1];
+    paragraph.append(' More.');
+    paragraph.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(last(changes)).toBe(SOURCE.replace('First *para*.', 'First *para*. More.'));
+  });
+
+  it('writes a table cell back into the table', () => {
+    const { visual, changes } = editor();
+    type(blocks(visual)[3].querySelector('td')!, '2');
+    expect(last(changes).split('\n').slice(7)).toEqual(['| a |', '| --- |', '| 2 |']);
+    expect(last(changes).split('\n').slice(0, 7)).toEqual(SOURCE.split('\n').slice(0, 7));
+  });
+
+  it('adds text typed at the end as a new paragraph', () => {
+    const { visual, changes } = editor('# Title');
+    type(blocks(visual)[1], 'Hello');
+    expect(last(changes)).toBe('# Title\n\nHello');
+    type(blocks(visual)[1], 'Hello again');
+    expect(last(changes)).toBe('# Title\n\nHello again');
+  });
+
+  it('starts an empty document from the empty paragraph', () => {
+    const { visual, changes } = editor('');
+    expect(blocks(visual)).toHaveLength(1);
+    type(blocks(visual)[0], 'First');
+    expect(last(changes)).toBe('First');
+  });
+
+  it('removes a paragraph whose text is deleted', () => {
+    const { visual, changes } = editor();
+    type(blocks(visual)[1], '');
+    expect(last(changes)).toBe(SOURCE.replace('First *para*.\n\n', ''));
+  });
+
+  it('splits a paragraph in two on Enter', () => {
+    const { visual, changes } = editor('Hello world');
+    const paragraph = blocks(visual)[0];
+    caretIn(paragraph.firstChild!, 5);
+    paragraph.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(last(changes)).toBe('Hello\n\n world');
+    expect(blocks(visual).map((node) => node.textContent)).toEqual(['Hello', ' world', '']);
+    expect(blocks(visual)[1].contains(document.getSelection()!.anchorNode)).toBe(true);
+  });
+
+  it('joins a paragraph onto the one before on Backspace at its start', () => {
+    const { visual, changes } = editor('One\n\nTwo');
+    const second = blocks(visual)[1];
+    caretIn(second.firstChild!, 0);
+    second.dispatchEvent(new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true }));
+    expect(last(changes)).toBe('OneTwo');
+  });
+
+  it('turns the focused block into another kind', () => {
+    const { visual, changes } = editor();
+    const paragraph = blocks(visual)[1];
+    paragraph.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    visual.setBlockKind('h2');
+    expect(last(changes)).toBe(SOURCE.replace('First *para*.', '## First *para*.'));
+    expect(blocks(visual)[1].tagName).toBe('H2');
+    blocks(visual)[1].dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    visual.setBlockKind('bullets');
+    expect(last(changes)).toBe(SOURCE.replace('First *para*.', '- First *para*.'));
+  });
+
+  it('makes the selected text bold, and plain again', () => {
+    const { visual, changes } = editor('Hello world');
+    const paragraph = blocks(visual)[0];
+    const range = document.createRange();
+    range.setStart(paragraph.firstChild!, 6);
+    range.setEnd(paragraph.firstChild!, 11);
+    document.getSelection()!.removeAllRanges();
+    document.getSelection()!.addRange(range);
+    visual.toggleInline('strong');
+    expect(last(changes)).toBe('Hello **world**');
+    visual.toggleInline('strong');
+    expect(last(changes)).toBe('Hello world');
+  });
+
+  it('pastes plain text only', () => {
+    const { visual, changes } = editor('Hello');
+    const paragraph = blocks(visual)[0];
+    caretIn(paragraph.firstChild!, 5);
+    const paste = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { getData: (type: string) => (type === 'text/plain' ? ' <b>there</b>' : '<img src=x>') },
+    });
+    paragraph.dispatchEvent(paste);
+    expect(paste.defaultPrevented).toBe(true);
+    expect(paragraph.querySelector('b, img')).toBeNull();
+    expect(last(changes)).toBe('Hello <b>there</b>');
+  });
+
+  it('turns editing off when read-only', () => {
+    const { visual } = editor();
+    visual.setReadOnly(true);
+    expect(visual.element.querySelectorAll('[contenteditable="true"]')).toHaveLength(0);
+  });
+});

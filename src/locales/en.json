@@ -1372,5 +1372,22 @@
   "dialog.sqlQuery.written": "Results were put in the new sheet “{name}”.",
   "dialog.sqlQuery.writtenPartly": "The first {rows} rows shown were put in the new sheet “{name}”. To get the rest, narrow the query and run it again.",
   "dialog.sqlQuery.writeFailed": "The results could not be put in a new sheet. The file may be read-only or already hold the most sheets allowed.",
-  "sql.resultSheetName": "Query Result"
+  "sql.resultSheetName": "Query Result",
+  "dialog.markdownEditor.mode": "Editing mode",
+  "dialog.markdownEditor.mode.source": "Markdown",
+  "dialog.markdownEditor.mode.visual": "Formatted",
+  "dialog.markdownEditor.visual": "Formatted document",
+  "dialog.markdownEditor.newParagraph": "Type here to add text",
+  "dialog.markdownEditor.blockKind": "Block type",
+  "dialog.markdownEditor.kind.paragraph": "Paragraph",
+  "dialog.markdownEditor.kind.h1": "Heading 1",
+  "dialog.markdownEditor.kind.h2": "Heading 2",
+  "dialog.markdownEditor.kind.h3": "Heading 3",
+  "dialog.markdownEditor.kind.bullets": "Bulleted list",
+  "dialog.markdownEditor.kind.numbers": "Numbered list",
+  "dialog.markdownEditor.kind.quote": "Quote",
+  "dialog.markdownEditor.kind.code": "Code block",
+  "dialog.markdownEditor.bold": "Bold",
+  "dialog.markdownEditor.italic": "Italic",
+  "dialog.markdownEditor.code": "Code"
 }

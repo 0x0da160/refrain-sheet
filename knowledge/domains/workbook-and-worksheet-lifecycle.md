@@ -54,6 +54,19 @@ text) is covered by
 this file only describes what a worksheet kind means to the person editing
 it.
 
+A `markdown` worksheet can also be edited **formatted** (the Markdown /
+Formatted switch on its toolbar; `src/ui/markdown-visual.ts`). The
+document is shown rendered and each top-level block (heading, paragraph,
+list, quote, code block, table cells) is edited in place, with a block-type
+menu and Bold / Italic / Code buttons. What is stored is still the Markdown
+text in A1: an edit rewrites only the source lines of the block it touched
+(`parseMarkdownRanges` gives each block's lines, `blockToMarkdown` in
+`src/core/markdown-serialize.ts` writes it back), so switching modes never
+reformats the rest of a document. Enter starts a new paragraph,
+Shift+Enter breaks the line, Backspace at a paragraph's start joins it to
+the one before, and paste inserts plain text only. Horizontal rules and
+anything the Markdown parser does not model are edited in Markdown mode.
+
 ## Worksheet operations
 
 Everything is available from the **Sheet** menu, the worksheet strip's

@@ -81,6 +81,25 @@ export function parseMarkdown(source: string): MarkdownBlock[] {
   return parseBlocks(lines);
 }
 
+/** One top-level block and the source lines it came from (`start` inclusive, `end` exclusive). */
+export interface MarkdownBlockRange {
+  block: MarkdownBlock;
+  start: number;
+  end: number;
+}
+
+/**
+ * {@link parseMarkdown}, plus where each top-level block sits in the source
+ * (line indices after splitting on `\n`), so an editor can rewrite one
+ * block and leave every other line exactly as it was.
+ */
+export function parseMarkdownRanges(source: string): MarkdownBlockRange[] {
+  const lines = source.replace(/\r\n?/g, '\n').split('\n');
+  const ranges: Array<{ start: number; end: number }> = [];
+  const blocks = parseBlocks(lines, ranges);
+  return blocks.map((block, i) => ({ block, ...ranges[i] }));
+}
+
 /** A fenced code block opened by `match` at line `i`; `next` is the line after its closing fence. */
 function readFencedCode(
   lines: string[],
@@ -136,10 +155,19 @@ function continuesParagraph(line: string): boolean {
   );
 }
 
-function parseBlocks(lines: string[]): MarkdownBlock[] {
+function parseBlocks(lines: string[], ranges?: Array<{ start: number; end: number }>): MarkdownBlock[] {
   const blocks: MarkdownBlock[] = [];
   let i = 0;
+  let start = 0;
+  // Records the source lines of every block pushed since the last check.
+  const mark = (): void => {
+    if (ranges && ranges.length < blocks.length) {
+      ranges.push({ start, end: i });
+    }
+  };
   while (i < lines.length) {
+    mark();
+    start = i;
     const line = lines[i];
 
     if (line.trim() === '') {
@@ -209,6 +237,7 @@ function parseBlocks(lines: string[]): MarkdownBlock[] {
     }
     blocks.push({ type: 'paragraph', children: parseInlineLines(paraLines) });
   }
+  mark();
   return blocks;
 }
 

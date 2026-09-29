@@ -287,6 +287,7 @@ exports[`core export surface > keeps every core module exporting the same names 
   "markdown": [
     "isSafeMarkdownUrl",
     "parseMarkdown",
+    "parseMarkdownRanges",
   ],
   "range-move": [
     "moveTarget",

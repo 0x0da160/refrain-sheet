@@ -105,7 +105,7 @@ describe('MarkdownSheetView', () => {
 
   it('never closes the preview from the toolbar button: it is disabled while open and reopens after ×', () => {
     const { view } = setup();
-    const toggle = view.element.querySelector('.markdown-editor-toolbar button') as HTMLButtonElement;
+    const toggle = view.element.querySelector('.markdown-preview-toggle') as HTMLButtonElement;
     expect(toggle.disabled).toBe(true);
 
     toggle.click();
@@ -126,7 +126,7 @@ describe('MarkdownSheetView', () => {
 
     closeBtn.click();
     expect(view.panelElement.hidden).toBe(true);
-    const toggle = view.element.querySelector('.markdown-editor-toolbar button') as HTMLButtonElement;
+    const toggle = view.element.querySelector('.markdown-preview-toggle') as HTMLButtonElement;
     expect(toggle.disabled).toBe(false);
   });
 
@@ -186,6 +186,42 @@ describe('MarkdownSheetView', () => {
 
     state.setActiveSheet(tab, notes.id);
     view.refresh();
+    expect(view.panelElement.hidden).toBe(false);
+  });
+
+  it('switches to the formatted view, edits there, and saves Markdown text', async () => {
+    const { view, state, tab, workbook, notes } = setup();
+    await new Commands(state, stubUi(), document).commitCellEdit(tab, 0, 0, '# Plan\n\nDraft');
+    view.refresh();
+    const [markdownButton, formattedButton] = Array.from(
+      view.element.querySelectorAll<HTMLButtonElement>('.markdown-mode-button'),
+    );
+    expect(markdownButton.getAttribute('aria-pressed')).toBe('true');
+
+    formattedButton.click();
+    expect(formattedButton.getAttribute('aria-pressed')).toBe('true');
+    expect((view.element.querySelector('.markdown-editor-source')!.parentElement as HTMLElement).hidden).toBe(
+      true,
+    );
+    expect(view.panelElement.hidden).toBe(true);
+    const visual = view.element.querySelector('.markdown-visual')!;
+    expect(visual.querySelector('h1')!.textContent).toBe('Plan');
+
+    const paragraph = visual.querySelector('p')!;
+    paragraph.textContent = 'Final';
+    paragraph.dispatchEvent(new Event('input', { bubbles: true }));
+    view.flushCommit();
+    expect(workbook.sheetById(notes.id)!.markdownText).toBe('# Plan\n\nFinal');
+
+    // Undo shows the earlier text again.
+    state.undo(tab);
+    view.refresh();
+    expect(visual.querySelector('p')!.textContent).toBe('Draft');
+
+    markdownButton.click();
+    expect((view.element.querySelector('.markdown-editor-source') as HTMLTextAreaElement).value).toBe(
+      '# Plan\n\nDraft',
+    );
     expect(view.panelElement.hidden).toBe(false);
   });
 });

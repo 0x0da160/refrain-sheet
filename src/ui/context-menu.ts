@@ -20,6 +20,7 @@
  * {@link closeAllContextMenus}) — a menu can therefore never act on state that
  * has moved on beneath it.
  */
+import { noteInvoker } from './anchored-popover';
 import { Check } from 'lucide';
 import type { IconNode } from 'lucide';
 import { displayShortcut, isMacPlatform } from '../app/shortcuts';
@@ -309,6 +310,7 @@ export class ContextMenu {
         button.addEventListener('mouseenter', (event) => this.onSiblingHover(event as MouseEvent, list));
         button.addEventListener('click', () => {
           const run = entry.onSelect;
+          noteInvoker({ kind: 'beside', rect: button.getBoundingClientRect() });
           this.close();
           run?.();
         });
@@ -341,6 +343,8 @@ export class ContextMenu {
       button.classList.toggle('active', item.checked === true);
       button.addEventListener('click', () => {
         const run = item.onSelect;
+        // A color or border picker this starts opens by the button, not in the side panel.
+        noteInvoker({ kind: 'below', rect: button.getBoundingClientRect() });
         this.close();
         run();
       });

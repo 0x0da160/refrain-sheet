@@ -21,6 +21,7 @@
 @import './grid.css';
 @import './context-menu.css';
 @import './column-menu.css';
+@import './color-picker.css';
 @import './status-bar.css';
 @import './dialogs.css';
 @import './version-preview.css';

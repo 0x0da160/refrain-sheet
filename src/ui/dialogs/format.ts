@@ -32,12 +32,15 @@ import type {
 } from '../../core/workbook/conditional-format';
 import { Hash, PaintBucket, Palette, Sparkles, Table, type IconNode } from 'lucide';
 import { el } from '../dom';
+import { openAnchoredPopover, takeInvokerPlacement } from '../anchored-popover';
+import { buildColorPicker, colorField } from '../color-picker';
+import { installTooltips } from '../tooltip';
+import { BORDER_PRESETS, type BorderPreset } from '../../core/workbook/border-presets';
 import {
   CF_DEFAULT_BACKGROUND,
   CF_DEFAULT_SCALE_MAX_COLOR,
   CF_DEFAULT_SCALE_MIN_COLOR,
   CF_DEFAULT_TEXT,
-  ensureSwatchList,
 } from '../document-colors';
 import { dialogButton, submitOnEnter } from './shared';
 import { panelCheck, panelField, panelSection } from './side-panel';
@@ -76,26 +79,20 @@ function styleFields(
     attrs: { type: 'checkbox', id: `${idPrefix}-bg-enable` },
   }) as HTMLInputElement;
   bgCheckbox.checked = initial.backgroundColor !== undefined;
-  const bgInput = el('input', {
-    attrs: {
-      type: 'color',
-      id: `${idPrefix}-bg-color`,
-      value: initial.backgroundColor ?? CF_DEFAULT_BACKGROUND,
-      list: ensureSwatchList(),
-    },
-  }) as HTMLInputElement;
+  const bgInput = colorField(
+    `${idPrefix}-bg-color`,
+    initial.backgroundColor ?? CF_DEFAULT_BACKGROUND,
+    t('dialog.conditionalFormat.backgroundColor'),
+  );
   const textCheckbox = el('input', {
     attrs: { type: 'checkbox', id: `${idPrefix}-text-enable` },
   }) as HTMLInputElement;
   textCheckbox.checked = initial.textColor !== undefined;
-  const textInput = el('input', {
-    attrs: {
-      type: 'color',
-      id: `${idPrefix}-text-color`,
-      value: initial.textColor ?? DEFAULT_COLOR,
-      list: ensureSwatchList(),
-    },
-  }) as HTMLInputElement;
+  const textInput = colorField(
+    `${idPrefix}-text-color`,
+    initial.textColor ?? DEFAULT_COLOR,
+    t('dialog.conditionalFormat.textColor'),
+  );
   for (const control of [bgCheckbox, bgInput, textCheckbox, textInput]) {
     control.addEventListener('change', onChange);
   }
@@ -122,28 +119,66 @@ function styleFields(
  * One optional color: a checkbox + label on the left enabling it, and its
  * swatch on the right, lined up with every other such row in the panel.
  */
-function colorToggleRow(checkbox: HTMLInputElement, label: string, swatch: HTMLInputElement): HTMLElement {
-  swatch.classList.add('panel-swatch');
+function colorToggleRow(checkbox: HTMLInputElement, label: string, swatch: HTMLButtonElement): HTMLElement {
   return el('div', { className: 'panel-row panel-row-spread' }, [panelCheck(checkbox, label), swatch]);
 }
 
-/**
- * A native color picker styled as the panels' shared fixed-size swatch,
- * suggesting the design system's document colours (see document-colors.ts).
- */
-function colorSwatch(id: string, value: string): HTMLInputElement {
-  return el('input', {
-    className: 'panel-swatch',
-    attrs: { type: 'color', id, value, list: ensureSwatchList() },
-  }) as HTMLInputElement;
-}
-
-const BORDER_SIDE_LABEL_KEY: Record<BorderSide, string> = {
-  borderTop: 'dialog.borders.top',
-  borderRight: 'dialog.borders.right',
-  borderBottom: 'dialog.borders.bottom',
-  borderLeft: 'dialog.borders.left',
+const BORDER_PRESET_LABEL_KEY: Record<BorderPreset, string> = {
+  all: 'dialog.borders.preset.all',
+  outside: 'dialog.borders.preset.outside',
+  inside: 'dialog.borders.preset.inside',
+  top: 'dialog.borders.preset.top',
+  bottom: 'dialog.borders.preset.bottom',
+  left: 'dialog.borders.preset.left',
+  right: 'dialog.borders.preset.right',
+  none: 'dialog.borders.preset.none',
 };
+
+/** The lines of a 2×2 block of cells, as [x1, y1, x2, y2] on a 16px square. */
+const PRESET_ICON_LINES: Record<'top' | 'bottom' | 'left' | 'right' | 'midH' | 'midV', number[]> = {
+  top: [2, 2, 14, 2],
+  bottom: [2, 14, 14, 14],
+  left: [2, 2, 2, 14],
+  right: [14, 2, 14, 14],
+  midH: [2, 8, 14, 8],
+  midV: [8, 2, 8, 14],
+};
+
+const PRESET_ICON_DRAWN: Record<BorderPreset, Array<keyof typeof PRESET_ICON_LINES>> = {
+  all: ['top', 'bottom', 'left', 'right', 'midH', 'midV'],
+  outside: ['top', 'bottom', 'left', 'right'],
+  inside: ['midH', 'midV'],
+  top: ['top'],
+  bottom: ['bottom'],
+  left: ['left'],
+  right: ['right'],
+  none: [],
+};
+
+/**
+ * A preset's icon: a 2×2 block of cells whose every line is shown faint and
+ * dotted, with the lines the preset draws solid on top.
+ */
+function borderPresetIcon(preset: BorderPreset): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.setAttribute('width', '16');
+  svg.setAttribute('height', '16');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.classList.add('format-borders-preset-icon');
+  const drawn = new Set(PRESET_ICON_DRAWN[preset]);
+  for (const [name, [x1, y1, x2, y2]] of Object.entries(PRESET_ICON_LINES)) {
+    const line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', String(x1));
+    line.setAttribute('y1', String(y1));
+    line.setAttribute('x2', String(x2));
+    line.setAttribute('y2', String(y2));
+    line.classList.add(drawn.has(name as keyof typeof PRESET_ICON_LINES) ? 'drawn' : 'faint');
+    svg.append(line);
+  }
+  return svg;
+}
 
 const BORDER_LINE_STYLE_LABEL_KEY: Record<BorderLineStyle, string> = {
   solid: 'dialog.borders.lineStyle.solid',
@@ -172,11 +207,12 @@ const NUMBER_FORMAT_KIND_LABEL_KEY: Record<NumberFormatKind, string> = {
  */
 export class FormatDialogs {
   /**
-   * A single color picker (native `<input type="color">`, which every target
-   * browser supports) used for both Text Color and Background Color. `current`
-   * preselects the picker when the whole selection already shares one color;
-   * a "Clear color" button removes it instead of choosing one. Resolves null
-   * when cancelled.
+   * Text Color and Background Color: the shared color picker (see
+   * color-picker.ts). Chosen from the toolbar or the right-click menu it opens
+   * as a popover beside the control, and closes once a color is picked;
+   * otherwise it opens in the side panel, which stays open. Either way a pick
+   * is applied at once, and "No color" removes the color. `current`
+   * preselects the selection's color.
    */
   private chooseColor(
     title: string,
@@ -184,18 +220,49 @@ export class FormatDialogs {
     current: string | null,
     onApply?: ApplyHandler<ColorDialogResult>,
   ): Promise<ColorDialogResult | null> {
+    const resultOf = (color: string | null): ColorDialogResult =>
+      color === null ? { action: 'clear' } : { action: 'apply', color };
+    const placement = takeInvokerPlacement();
+    if (placement && onApply) {
+      return openAnchoredPopover({
+        placement,
+        label: title,
+        className: 'color-popover',
+        build: (root, close) => {
+          root.append(
+            el('div', { className: 'anchored-popover-title', text: title }),
+            buildColorPicker({
+              current,
+              noneLabel: t('colorPicker.none'),
+              onPick: (color) => {
+                close();
+                void onApply(resultOf(color));
+              },
+            }),
+          );
+        },
+      }).then(() => null);
+    }
     return openSidePanel<ColorDialogResult | null>(
       { title, icon, fallback: null, onApply },
-      (body, buttons, apply) => {
-        const input = colorSwatch('format-color-input', current ?? DEFAULT_COLOR);
-        input.dataset.autofocus = 'true';
-        body.append(panelSection(null, [panelField(t('dialog.color.label'), input)]));
-        buttons.append(
-          dialogButton(t('dialog.color.clear'), false, false, () => apply({ action: 'clear' })),
-          dialogButton(t('dialog.color.apply'), true, false, () =>
-            apply({ action: 'apply', color: input.value.toLowerCase() }),
-          ),
-        );
+      (body, _buttons, apply) => {
+        let chosen = current;
+        const draw = (): void => {
+          const picker = buildColorPicker({
+            current: chosen,
+            noneLabel: t('colorPicker.none'),
+            onPick: (color) => {
+              chosen = color;
+              apply(resultOf(color));
+              draw();
+            },
+          });
+          picker.id = 'format-color-picker';
+          section.replaceChildren(picker);
+        };
+        const section = panelSection(null, []);
+        body.append(section);
+        draw();
       },
     );
   }
@@ -215,13 +282,13 @@ export class FormatDialogs {
   }
 
   /**
-   * Choose which of the four sides carry a border, and their shared color,
-   * line style, and width. `current`/`currentLineStyle`/`currentWidth`
-   * reflect the selection's existing borders (a side is preselected when it
-   * already has a color; the color/style/width inputs start at the first
-   * side found, or the defaults). Applying sets every checked side to the
-   * chosen color/style/width and clears every unchecked one; resolves null
-   * when cancelled, leaving every border untouched.
+   * Borders: a row of presets (all lines, outline, inside lines, one edge,
+   * none) drawn across the selection as soon as one is pressed, with the
+   * line's color, style and width chosen first. `current`/`currentLineStyle`/
+   * `currentWidth` preselect the line from the selection's existing borders.
+   * Opens as a popover beside the toolbar button or right-click menu that
+   * chose it, else in the side panel; both stay open so presets combine
+   * (outline, then inside lines).
    */
   chooseBorders(
     current: Partial<Record<BorderSide, string>>,
@@ -229,113 +296,93 @@ export class FormatDialogs {
     currentWidth: BorderWidth | null,
     onApply?: ApplyHandler<BordersDialogResult>,
   ): Promise<BordersDialogResult | null> {
-    return openSidePanel<BordersDialogResult | null>(
-      {
-        title: t('dialog.borders.title'),
-        icon: Table,
-        fallback: null,
-        onApply,
-      },
-      (body, buttons, apply) => {
-        const colorId = 'format-borders-color';
-        const lineStyleId = 'format-borders-line-style';
-        const widthId = 'format-borders-width';
-        const initialColor = BORDER_SIDES.map((side) => current[side]).find(
-          (c): c is string => c !== undefined,
-        );
-        const colorInput = colorSwatch(colorId, initialColor ?? DEFAULT_COLOR);
-        const lineStyleSelect = el('select', { attrs: { id: lineStyleId } }) as HTMLSelectElement;
-        for (const lineStyle of BORDER_LINE_STYLES) {
-          const option = el('option', {
-            text: t(BORDER_LINE_STYLE_LABEL_KEY[lineStyle]),
-            attrs: { value: lineStyle },
-          }) as HTMLOptionElement;
-          option.selected = lineStyle === (currentLineStyle ?? DEFAULT_BORDER_LINE_STYLE);
-          lineStyleSelect.append(option);
-        }
-        const widthSelect = el('select', { attrs: { id: widthId } }) as HTMLSelectElement;
-        for (const width of BORDER_WIDTHS) {
-          const option = el('option', {
-            text: t(BORDER_WIDTH_LABEL_KEY[width]),
-            attrs: { value: width },
-          }) as HTMLOptionElement;
-          option.selected = width === (currentWidth ?? DEFAULT_BORDER_WIDTH);
-          widthSelect.append(option);
-        }
-        // A spatial cross layout (top/left/right/bottom checkboxes arranged in
-        // the same positions as the edges they control, "All" in the center)
-        // plus an "All" toggle that checks/unchecks every side at once and
-        // stays in sync when the individual checkboxes are (#393).
-        const SIDE_POSITION_CLASS: Record<BorderSide, string> = {
-          borderTop: 'format-borders-top',
-          borderRight: 'format-borders-right',
-          borderBottom: 'format-borders-bottom',
-          borderLeft: 'format-borders-left',
-        };
-        const checkboxes = new Map<BorderSide, HTMLInputElement>();
-        const allCheckboxId = 'format-border-all';
-        const allCheckbox = el('input', {
-          attrs: { type: 'checkbox', id: allCheckboxId, 'data-autofocus': 'true' },
-        }) as HTMLInputElement;
-        const grid = el('div', { className: 'format-borders-cross' });
-        BORDER_SIDES.forEach((side) => {
-          const checkboxId = `format-border-${side}`;
-          const checkbox = el('input', {
-            attrs: { type: 'checkbox', id: checkboxId },
-          }) as HTMLInputElement;
-          checkbox.checked = current[side] !== undefined;
-          checkboxes.set(side, checkbox);
-          checkbox.addEventListener('change', syncAllCheckbox);
-          grid.append(
-            el('div', { className: `format-borders-cell ${SIDE_POSITION_CLASS[side]}` }, [
-              checkbox,
-              el('label', { text: t(BORDER_SIDE_LABEL_KEY[side]), attrs: { for: checkboxId } }),
-            ]),
-          );
-        });
-        grid.append(
-          el('div', { className: 'format-borders-cell format-borders-all' }, [
-            allCheckbox,
-            el('label', { text: t('dialog.borders.all'), attrs: { for: allCheckboxId } }),
-          ]),
-        );
-        function syncAllCheckbox(): void {
-          const checkedCount = [...checkboxes.values()].filter((cb) => cb.checked).length;
-          allCheckbox.checked = checkedCount === checkboxes.size;
-          allCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.size;
-        }
-        allCheckbox.addEventListener('change', () => {
-          allCheckbox.indeterminate = false;
-          for (const checkbox of checkboxes.values()) {
-            checkbox.checked = allCheckbox.checked;
-          }
-        });
-        syncAllCheckbox();
-        body.append(
-          panelSection(null, [grid]),
-          panelSection(null, [
-            el('div', { className: 'panel-grid' }, [
-              panelField(t('dialog.borders.color'), colorInput),
-              panelField(t('dialog.borders.style'), lineStyleSelect),
-              panelField(t('dialog.borders.width'), widthSelect),
-            ]),
-          ]),
-        );
-        buttons.append(
-          dialogButton(t('dialog.borders.apply'), true, false, () => {
-            const color = isHexColor(colorInput.value) ? colorInput.value.toLowerCase() : DEFAULT_COLOR;
-            const sides: Partial<Record<BorderSide, string | null>> = {};
-            for (const [side, checkbox] of checkboxes) {
-              sides[side] = checkbox.checked ? color : null;
-            }
+    const initialColor = BORDER_SIDES.map((side) => current[side]).find((c): c is string => c !== undefined);
+    const build = (container: HTMLElement, apply: (result: BordersDialogResult) => void): void => {
+      const colorInput = colorField(
+        'format-borders-color',
+        initialColor ?? DEFAULT_COLOR,
+        t('dialog.borders.color'),
+      );
+      const lineStyleSelect = el('select', {
+        attrs: { id: 'format-borders-line-style' },
+      }) as HTMLSelectElement;
+      for (const lineStyle of BORDER_LINE_STYLES) {
+        const option = el('option', {
+          text: t(BORDER_LINE_STYLE_LABEL_KEY[lineStyle]),
+          attrs: { value: lineStyle },
+        }) as HTMLOptionElement;
+        option.selected = lineStyle === (currentLineStyle ?? DEFAULT_BORDER_LINE_STYLE);
+        lineStyleSelect.append(option);
+      }
+      const widthSelect = el('select', { attrs: { id: 'format-borders-width' } }) as HTMLSelectElement;
+      for (const width of BORDER_WIDTHS) {
+        const option = el('option', {
+          text: t(BORDER_WIDTH_LABEL_KEY[width]),
+          attrs: { value: width },
+        }) as HTMLOptionElement;
+        option.selected = width === (currentWidth ?? DEFAULT_BORDER_WIDTH);
+        widthSelect.append(option);
+      }
+      const presets = el(
+        'div',
+        {
+          className: 'format-borders-presets',
+          attrs: { role: 'group', 'aria-label': t('dialog.borders.presets') },
+        },
+        BORDER_PRESETS.map((preset) => {
+          const label = t(BORDER_PRESET_LABEL_KEY[preset]);
+          const button = el('button', {
+            className: 'format-borders-preset',
+            attrs: {
+              type: 'button',
+              id: `format-borders-preset-${preset}`,
+              'aria-label': label,
+              'data-tooltip': label,
+            },
+          });
+          button.append(borderPresetIcon(preset));
+          button.addEventListener('click', () =>
             apply({
-              action: 'apply',
-              sides,
+              action: 'preset',
+              preset,
+              color: isHexColor(colorInput.value) ? colorInput.value.toLowerCase() : DEFAULT_COLOR,
               lineStyle: lineStyleSelect.value as BorderLineStyle,
               width: widthSelect.value as BorderWidth,
-            });
-          }),
-        );
+            }),
+          );
+          return button;
+        }),
+      );
+      container.append(
+        presets,
+        el('div', { className: 'format-borders-line' }, [
+          panelField(t('dialog.borders.color'), colorInput),
+          panelField(t('dialog.borders.style'), lineStyleSelect),
+          panelField(t('dialog.borders.width'), widthSelect),
+        ]),
+        el('p', { className: 'dialog-note', text: t('dialog.borders.note') }),
+      );
+    };
+    const placement = takeInvokerPlacement();
+    if (placement && onApply) {
+      return openAnchoredPopover({
+        placement,
+        label: t('dialog.borders.title'),
+        className: 'borders-popover',
+        build: (root) => {
+          root.append(el('div', { className: 'anchored-popover-title', text: t('dialog.borders.title') }));
+          installTooltips(root);
+          build(root, (result) => void onApply(result));
+        },
+      }).then(() => null);
+    }
+    return openSidePanel<BordersDialogResult | null>(
+      { title: t('dialog.borders.title'), icon: Table, fallback: null, onApply },
+      (body, _buttons, apply) => {
+        const section = panelSection(null, []);
+        installTooltips(section);
+        build(section, apply);
+        body.append(section);
       },
     );
   }
@@ -649,9 +696,9 @@ function ruleKindChoices(
 function colorScaleFields(
   minColor: string,
   maxColor: string,
-): { minColorInput: HTMLInputElement; maxColorInput: HTMLInputElement; colorScaleSection: HTMLElement } {
-  const minColorInput = colorSwatch('cf-min-color', minColor);
-  const maxColorInput = colorSwatch('cf-max-color', maxColor);
+): { minColorInput: HTMLButtonElement; maxColorInput: HTMLButtonElement; colorScaleSection: HTMLElement } {
+  const minColorInput = colorField('cf-min-color', minColor, t('dialog.conditionalFormat.minColor'));
+  const maxColorInput = colorField('cf-max-color', maxColor, t('dialog.conditionalFormat.maxColor'));
   const colorScaleSection = panelSection(null, [
     el('div', { className: 'panel-grid' }, [
       panelField(t('dialog.conditionalFormat.minColor'), minColorInput),

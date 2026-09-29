@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
 /**
- * The Sheet Tab Color dialog: ready-made colors fill the "other color"
- * picker (so the picker always shows what Apply sets), the chosen one is
- * marked pressed, and the three buttons resolve apply / clear / cancel.
+ * The Sheet Tab Color dialog: the shared color picker, where picking a
+ * color applies it at once, "No Color" removes it and Cancel keeps it.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getLocale, setLocale, t } from '../../src/app/i18n';
 import { Dialogs } from '../../src/ui/dialogs';
-import { SHEET_TAB_PRESETS } from '../../src/ui/document-colors';
 
 function button(label: string): HTMLButtonElement {
   return Array.from(document.querySelectorAll<HTMLButtonElement>('dialog button')).find(
@@ -40,43 +38,32 @@ describe('Sheet Tab Color dialog', () => {
     document.querySelectorAll('dialog').forEach((d) => d.remove());
   });
 
-  it('shows one labeled button per ready-made color, the current one pressed', () => {
-    void new Dialogs().chooseSheetTabColor('#1b9247');
-    const presets = Array.from(document.querySelectorAll<HTMLButtonElement>('.tab-color-preset'));
-    expect(presets.map((p) => p.dataset.color)).toEqual(SHEET_TAB_PRESETS.map((p) => p.color));
-    expect(presets.every((p) => p.getAttribute('aria-label'))).toBe(true);
-    const pressed = presets.filter((p) => p.getAttribute('aria-pressed') === 'true');
-    expect(pressed.map((p) => p.dataset.color)).toEqual(['#1b9247']);
+  it("shows the palette with the tab's color pressed", () => {
+    void new Dialogs().chooseSheetTabColor('#287ccf');
+    const swatches = document.querySelectorAll<HTMLButtonElement>('dialog .color-swatch');
+    expect(swatches.length).toBeGreaterThanOrEqual(65);
+    const pressed = document.querySelectorAll<HTMLButtonElement>('dialog .color-swatch[aria-pressed="true"]');
+    expect([...pressed].map((b) => b.dataset.color)).toEqual(['#287ccf']);
+    expect(pressed[0].getAttribute('aria-label')).toBe('Blue 5 (#287ccf)');
   });
 
-  it('shows no ready-made color as chosen while the tab has none', () => {
-    void new Dialogs().chooseSheetTabColor(null);
-    expect(document.querySelectorAll('.tab-color-preset[aria-pressed="true"]')).toHaveLength(0);
-  });
-
-  it('applies a ready-made color after it is picked', async () => {
+  it('applies a palette color as soon as it is picked', async () => {
     const result = new Dialogs().chooseSheetTabColor(null);
-    const blue = document.querySelector<HTMLButtonElement>('.tab-color-preset[data-color="#287ccf"]')!;
-    blue.click();
-    expect(document.querySelector<HTMLInputElement>('#sheet-tab-color-input')!.value).toBe('#287ccf');
-    expect(blue.getAttribute('aria-pressed')).toBe('true');
-    button(t('dialog.tabColor.apply')).click();
-    await expect(result).resolves.toEqual({ action: 'apply', color: '#287ccf' });
+    document.querySelector<HTMLButtonElement>('dialog .color-swatch[data-color="#1b9247"]')!.click();
+    await expect(result).resolves.toEqual({ action: 'apply', color: '#1b9247' });
   });
 
-  it('applies any other color from the picker', async () => {
+  it('applies a color code or a CSS color name typed under More colors', async () => {
     const result = new Dialogs().chooseSheetTabColor(null);
-    const picker = document.querySelector<HTMLInputElement>('#sheet-tab-color-input')!;
-    picker.value = '#123456';
-    picker.dispatchEvent(new Event('input'));
-    expect(document.querySelectorAll('.tab-color-preset[aria-pressed="true"]')).toHaveLength(0);
-    button(t('dialog.tabColor.apply')).click();
-    await expect(result).resolves.toEqual({ action: 'apply', color: '#123456' });
+    const code = document.querySelector<HTMLInputElement>('dialog .color-picker-code')!;
+    code.value = 'tomato';
+    code.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await expect(result).resolves.toEqual({ action: 'apply', color: '#ff6347' });
   });
 
   it('resolves clear for No Color and null for Cancel', async () => {
     const cleared = new Dialogs().chooseSheetTabColor('#287ccf');
-    button(t('dialog.tabColor.clear')).click();
+    button(t('colorPicker.none')).click();
     await expect(cleared).resolves.toEqual({ action: 'clear' });
     const cancelled = new Dialogs().chooseSheetTabColor(null);
     button(t('dialog.tabColor.cancel')).click();

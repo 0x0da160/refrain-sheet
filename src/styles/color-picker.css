@@ -1,0 +1,205 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Anchored popover (src/ui/anchored-popover.ts) ----------
+   The color and border pickers opened from the toolbar or the right-click
+   menu float beside the control that opened them, like the column menu. */
+
+.anchored-popover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-menu);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  max-width: calc(100vw - 8px);
+  padding: var(--space-2);
+  overflow-y: auto;
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+
+.anchored-popover-title {
+  font-weight: var(--weight-heading);
+}
+
+/* ---------- Color picker (src/ui/color-picker.ts) ---------- */
+
+.color-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.color-picker-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.color-picker-heading {
+  color: var(--fg-muted);
+  font-size: var(--text-caption);
+}
+
+.color-picker-swatches {
+  display: grid;
+  grid-template-columns: repeat(9, 22px);
+  gap: var(--space-0-5);
+}
+
+.color-swatch {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.color-swatch:hover {
+  outline: 1px solid var(--fg-default);
+  outline-offset: 1px;
+}
+
+.color-swatch[aria-pressed='true'],
+.color-swatch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.color-picker-none {
+  min-height: var(--control-h);
+  padding: 0 var(--control-px);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.color-picker-none[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+
+.color-picker-more {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.color-picker-code {
+  flex: 1;
+  min-width: 0;
+}
+
+.color-picker-code[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.color-picker-free {
+  flex: none;
+  width: 36px;
+  height: var(--control-h);
+  padding: var(--space-0-5);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  cursor: pointer;
+}
+
+.color-picker-star {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.color-picker-star[aria-pressed='true'] {
+  color: var(--accent);
+}
+
+.color-picker-star[aria-pressed='true'] .color-picker-star-icon {
+  fill: currentColor;
+}
+
+.color-picker-star:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* A color form field: the swatch itself is the button that opens the picker. */
+.color-field {
+  background-clip: content-box;
+}
+
+.color-field:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- Borders (src/ui/dialogs/format.ts) ---------- */
+
+.format-borders-presets {
+  display: grid;
+  grid-template-columns: repeat(4, var(--control-h));
+  gap: var(--space-1);
+}
+
+.format-borders-preset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--fg-default);
+  cursor: pointer;
+}
+
+.format-borders-preset:hover {
+  background: var(--accent-subtle);
+}
+
+.format-borders-preset-icon line {
+  stroke-linecap: square;
+}
+
+.format-borders-preset-icon line.faint {
+  stroke: var(--fg-subtle);
+  stroke-width: 1;
+  stroke-dasharray: 1 2;
+}
+
+.format-borders-preset-icon line.drawn {
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.format-borders-line {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+.borders-popover {
+  width: min(300px, calc(100vw - 8px));
+}

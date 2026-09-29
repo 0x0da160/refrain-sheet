@@ -4,7 +4,7 @@ import type { ColorDialogResult } from '../../app/ui-port';
 import { t } from '../../app/i18n';
 import { MAX_SHEET_NAME_LENGTH } from '../../core/formula';
 import type { NewSheetKind } from '../../core/workbook/grid-paper';
-import { ensureSwatchList, SHEET_TAB_PRESETS } from '../document-colors';
+import { buildColorPicker } from '../color-picker';
 import { el } from '../dom';
 import { createIcon } from '../icon';
 import { FileCode, FileJson, FileText, FileType, Grid3x3, Table, type IconNode } from 'lucide';
@@ -34,72 +34,19 @@ const WORKSHEET_KIND_OPTIONS: ReadonlyArray<{ kind: NewSheetKind; labelKey: stri
  */
 export class SheetOpsDialogs {
   /**
-   * The Tab Color dialog: one button per ready-made color (a radio-like
-   * group, `aria-pressed` on the chosen one) and a native color picker for
-   * any other color. Choosing a ready-made color fills the picker, so the
-   * picker always shows what Apply will set. "No Color" removes it.
+   * The Tab Color dialog: the shared color picker (color-picker.ts). Picking
+   * a color applies it and closes; "No color" removes it; Cancel keeps it.
    */
   chooseSheetTabColor(current: string | null): Promise<ColorDialogResult | null> {
     return openDialog<ColorDialogResult | null>(t('dialog.tabColor.title'), null, (body, buttons, close) => {
-      const picker = el('input', {
-        className: 'panel-swatch',
-        attrs: {
-          type: 'color',
-          id: 'sheet-tab-color-input',
-          value: current ?? SHEET_TAB_PRESETS[0].color,
-          list: ensureSwatchList(),
-        },
-      }) as HTMLInputElement;
-      const presets: HTMLButtonElement[] = [];
-      // With no color yet, the picker's starting value is only a suggestion,
-      // so no ready-made color shows as chosen until the user picks one.
-      let chosen = current !== null;
-      const markPressed = (): void => {
-        for (const preset of presets) {
-          const pressed = chosen && preset.dataset.color === picker.value.toLowerCase();
-          preset.setAttribute('aria-pressed', pressed ? 'true' : 'false');
-        }
-      };
-      for (const { family, color } of SHEET_TAB_PRESETS) {
-        const button = el('button', {
-          className: 'tab-color-preset',
-          attrs: { type: 'button', 'data-color': color, 'aria-label': t(`dialog.tabColor.${family}`) },
-        }) as HTMLButtonElement;
-        button.title = t(`dialog.tabColor.${family}`);
-        button.style.backgroundColor = color;
-        button.addEventListener('click', () => {
-          picker.value = color;
-          chosen = true;
-          markPressed();
-        });
-        presets.push(button);
-      }
-      picker.addEventListener('input', () => {
-        chosen = true;
-        markPressed();
+      const picker = buildColorPicker({
+        current,
+        noneLabel: t('colorPicker.none'),
+        onPick: (color) => close(color === null ? { action: 'clear' } : { action: 'apply', color }),
       });
-      markPressed();
-      body.append(
-        el(
-          'div',
-          {
-            className: 'tab-color-presets',
-            attrs: { role: 'group', 'aria-label': t('dialog.tabColor.presets') },
-          },
-          presets,
-        ),
-        el('div', { className: 'tab-color-custom' }, [
-          el('label', { text: t('dialog.tabColor.custom'), attrs: { for: 'sheet-tab-color-input' } }),
-          picker,
-        ]),
-      );
-      buttons.append(
-        dialogButton(t('dialog.tabColor.cancel'), false, false, () => close(null)),
-        dialogButton(t('dialog.tabColor.clear'), false, false, () => close({ action: 'clear' })),
-        dialogButton(t('dialog.tabColor.apply'), true, true, () =>
-          close({ action: 'apply', color: picker.value.toLowerCase() }),
-        ),
-      );
+      picker.id = 'sheet-tab-color-picker';
+      body.append(picker);
+      buttons.append(dialogButton(t('dialog.tabColor.cancel'), false, false, () => close(null)));
     });
   }
 

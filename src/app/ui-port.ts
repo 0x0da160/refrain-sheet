@@ -8,6 +8,7 @@
  */
 import type { DelimiterId } from '../core/csv/byte-csv-parser';
 import type { BorderLineStyle, BorderSide, BorderWidth, NumberFormat } from '../core/workbook/cell-style';
+import type { BorderPreset } from '../core/workbook/border-presets';
 import type { CsvExportOptions } from '../core/interchange/csv-export';
 import type { EncodingId } from '../core/csv/encoding';
 import type { ConditionalFormatRule } from '../core/workbook/conditional-format';
@@ -284,14 +285,27 @@ export type CellCommentDialogResult = { action: 'apply'; text: string } | { acti
 /** What the Text/Background Color dialog resolved to (null = cancelled, nothing changes). */
 export type ColorDialogResult = { action: 'apply'; color: string } | { action: 'clear' };
 
-/** What the Borders dialog resolved to (null = cancelled, nothing changes). */
-export type BordersDialogResult = {
-  action: 'apply';
-  sides: Partial<Record<BorderSide, string | null>>;
-  /** Line style/width applied to every side being set (checked) by this apply. */
-  lineStyle: BorderLineStyle;
-  width: BorderWidth;
-};
+/**
+ * What the Borders dialog resolved to (null = cancelled, nothing changes):
+ * either every side's next state for each selected cell (`'apply'`), or a
+ * preset drawn across the selected range (`'preset'`: its outline, the
+ * lines inside it, one edge, every line, or none).
+ */
+export type BordersDialogResult =
+  | {
+      action: 'apply';
+      sides: Partial<Record<BorderSide, string | null>>;
+      /** Line style/width applied to every side being set (checked) by this apply. */
+      lineStyle: BorderLineStyle;
+      width: BorderWidth;
+    }
+  | {
+      action: 'preset';
+      preset: BorderPreset;
+      color: string;
+      lineStyle: BorderLineStyle;
+      width: BorderWidth;
+    };
 
 /**
  * What the Font dialog resolved to (null = cancelled, nothing changes): the
@@ -504,11 +518,10 @@ export interface FormatDialogsPort {
     onApply?: ApplyHandler<ColorDialogResult>,
   ): Promise<ColorDialogResult | null>;
   /**
-   * The Borders dialog: which of the four sides carry a border (from
-   * `current`) and their shared color, line style, and width. Resolves with
-   * every side's next state (a color to set it, `null` to clear it) plus the
-   * chosen line style/width to apply to every side being set, or null when
-   * cancelled.
+   * The Borders dialog: a preset to draw across the selection (outline,
+   * inside lines, one edge, all, none) with a color, line style and width
+   * preselected from `current`. Each choice is applied through `onApply` at
+   * once; resolves null when closed.
    */
   chooseBorders(
     current: Partial<Record<BorderSide, string>>,

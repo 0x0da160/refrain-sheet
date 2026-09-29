@@ -7,6 +7,7 @@
  * can go on it; its label, shortcut and checked state come from its menu
  * item, so the toolbar never words a command differently from the menus.
  */
+import { noteInvoker } from './anchored-popover';
 import { Bold, Italic, Maximize, Settings2, Underline, WrapText, type IconNode } from 'lucide';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -139,6 +140,8 @@ export class AppToolbar {
     this.keepFocus(button);
     button.addEventListener('click', () => {
       if (this.commands.isEnabled(command.id)) {
+        // A color or border picker this starts opens under the button.
+        noteInvoker({ kind: 'below', rect: button.getBoundingClientRect() });
         void this.commands.run(command.id);
       }
     });

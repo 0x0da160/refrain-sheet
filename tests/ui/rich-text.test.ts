@@ -265,13 +265,13 @@ describe('rich text: editing in the cell', () => {
     input.setSelectionRange(0, 5);
     document.dispatchEvent(new Event('selectionchange'));
     expect(toolbar().hidden).toBe(false);
-    toolButton(t('richText.color.red')).click();
+    toolButton(t('richText.color.named', { name: t('colorPicker.hue.red') })).click();
     expect(parts()).toEqual([
-      ['Hello', 'normal', 'rgb(211, 47, 47)'],
+      ['Hello', 'normal', 'rgb(147, 51, 45)'],
       [' world', 'normal', ''],
     ]);
     grid.commitEditor();
-    expect(doc.getStyle(0, 0)?.runs).toEqual([{ text: 'Hello', textColor: '#d32f2f' }, { text: ' world' }]);
+    expect(doc.getStyle(0, 0)?.runs).toEqual([{ text: 'Hello', textColor: '#93332d' }, { text: ' world' }]);
     expect(document.querySelector('.rich-text-toolbar')).toBeNull();
   });
 

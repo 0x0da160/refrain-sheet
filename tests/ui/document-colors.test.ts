@@ -6,13 +6,15 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import {
   CF_DEFAULT_BACKGROUND,
   CF_DEFAULT_SCALE_MAX_COLOR,
   CF_DEFAULT_SCALE_MIN_COLOR,
   CF_DEFAULT_TEXT,
+  documentColorsOf,
   ensureSwatchList,
-  SHEET_TAB_PRESETS,
+  SWATCH_COLORS,
   SWATCH_LIST_ID,
   SWATCH_TOKENS,
 } from '../../src/ui/document-colors';
@@ -33,18 +35,15 @@ describe('document colours (design system D-13)', () => {
     }
   });
 
+  it('gives the palette the swatch values, in token order', () => {
+    expect(SWATCH_COLORS).toEqual(SWATCH_TOKENS.map((name) => token(name)));
+  });
+
   it('uses the design system conditional-format defaults', () => {
     expect(CF_DEFAULT_BACKGROUND).toBe(token('--cf-highlight-bg'));
     expect(CF_DEFAULT_TEXT).toBe(token('--cf-highlight-text'));
     expect(CF_DEFAULT_SCALE_MIN_COLOR).toBe(token('--cf-scale-min'));
     expect(CF_DEFAULT_SCALE_MAX_COLOR).toBe(token('--cf-scale-max'));
-  });
-
-  it('uses step 5 of each hue family as the ready-made tab colors', () => {
-    expect(SHEET_TAB_PRESETS).toHaveLength(9);
-    for (const { family, color } of SHEET_TAB_PRESETS) {
-      expect(color).toBe(token(`--swatch-${family}-5`));
-    }
   });
 
   it('builds one shared datalist from the resolvable swatch values', () => {
@@ -56,5 +55,14 @@ describe('document colours (design system D-13)', () => {
     const lists = document.querySelectorAll(`datalist#${SWATCH_LIST_ID}`);
     expect(lists).toHaveLength(1);
     expect([...lists[0].querySelectorAll('option')].map((o) => o.value)).toEqual(['#ffefed', '#000000']);
+  });
+
+  it('lists the colors a workbook uses, most used first', () => {
+    const book = RsfDocument.empty('book.rsf', 4, 4, 'Sheet1');
+    book.setCellStyleOn(undefined, 0, 0, { textColor: '#AA0000', borderTop: '#00aa00' });
+    book.setCellStyleOn(undefined, 1, 0, { backgroundColor: '#00aa00', textColor: '#aa0000' });
+    book.setCellStyleOn(undefined, 2, 0, { borderLeft: '#00aa00' });
+    book.sheets[0].tabColor = '#0000aa';
+    expect(documentColorsOf(book)).toEqual(['#00aa00', '#aa0000', '#0000aa']);
   });
 });

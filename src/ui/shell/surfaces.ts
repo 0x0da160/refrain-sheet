@@ -35,6 +35,8 @@ import { TextSheetView } from '../text-sheet';
 import { WelcomeScreen } from '../welcome-screen';
 import { YamlSheetView } from '../yaml-sheet';
 import { rememberTextEditors, textFieldClipboard } from '../text-field-clipboard';
+import { setDocumentColorSource } from '../color-picker';
+import { documentColorsOf } from '../document-colors';
 import { t } from '../../app/i18n';
 
 export interface Surfaces {
@@ -84,6 +86,7 @@ export function createSurfaces(
     (range) => grid.setCopySource(range),
   );
   wireCommandActions(state, commands, grid, clipboard, toasts);
+  setDocumentColorSource(() => (state.activeTab ? documentColorsOf(state.activeTab.doc) : []));
   rememberTextEditors(document, [
     markdownSheetView.element,
     jsonSheetView.element,

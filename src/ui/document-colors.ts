@@ -14,6 +14,9 @@
  * still be chosen either way.
  */
 
+import { isWorkbook, type EditorDocument } from '../core/editor-document';
+import { BORDER_SIDES, normalizeHexColor } from '../core/workbook/cell-style';
+
 const FAMILIES = ['gray', 'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'violet', 'pink'] as const;
 
 /** The design system's 65 document-colour tokens, in palette order. */
@@ -21,6 +24,89 @@ export const SWATCH_TOKENS: readonly string[] = [
   ...FAMILIES.flatMap((family) => [1, 2, 3, 4, 5, 6, 7].map((step) => `--swatch-${family}-${step}`)),
   '--swatch-white',
   '--swatch-black',
+];
+
+/**
+ * The same 65 swatches as values, in {@link SWATCH_TOKENS} order, for the
+ * color picker's palette (which must draw before, and without, a stylesheet).
+ * tests/ui/document-colors.test.ts keeps them equal to the tokens.
+ */
+export const SWATCH_COLORS: readonly string[] = [
+  // gray
+  '#eef4fc',
+  '#dbe0e8',
+  '#b9bec6',
+  '#979ca3',
+  '#767b82',
+  '#54585f',
+  '#31363c',
+  // red
+  '#ffefed',
+  '#ffd4ce',
+  '#f8a59b',
+  '#e0796f',
+  '#c35047',
+  '#93332d',
+  '#5b1f1a',
+  // orange
+  '#fff0e7',
+  '#ffd6bc',
+  '#f0ad7f',
+  '#d88445',
+  '#b95e00',
+  '#874300',
+  '#542700',
+  // yellow
+  '#faf4dd',
+  '#ece0b3',
+  '#d2bd70',
+  '#b59a26',
+  '#917900',
+  '#695700',
+  '#403400',
+  // green
+  '#e6fae9',
+  '#c4eccb',
+  '#8ed09c',
+  '#59b26f',
+  '#1b9247',
+  '#006b2e',
+  '#01421a',
+  // teal
+  '#ddfafa',
+  '#b1edec',
+  '#65d2d2',
+  '#00b2b2',
+  '#008c8c',
+  '#006566',
+  '#003e3e',
+  // blue
+  '#ebf5ff',
+  '#cae2ff',
+  '#8ec2fd',
+  '#5b9fe9',
+  '#287ccf',
+  '#0e599d',
+  '#083662',
+  // violet
+  '#f5f1ff',
+  '#e5d8ff',
+  '#c7aff5',
+  '#a888e0',
+  '#8962c5',
+  '#644395',
+  '#3d285c',
+  // pink
+  '#ffeef5',
+  '#ffd1e5',
+  '#efa3c7',
+  '#d678a7',
+  '#b94f87',
+  '#8a3362',
+  '#561e3c',
+  // white, black
+  '#ffffff',
+  '#000000',
 ];
 
 /**
@@ -35,22 +121,33 @@ export const CF_DEFAULT_SCALE_MIN_COLOR = '#ffffff';
 export const CF_DEFAULT_SCALE_MAX_COLOR = '#8bc191';
 
 /**
- * Ready-made worksheet tab colours: step 5 of each of the design system's
- * nine hue families (`--swatch-<family>-5`), strong enough to read as a
- * thin bar on a tab in either theme. tests/ui/document-colors.test.ts keeps
- * them equal to the tokens. Any other colour can still be chosen.
+ * The colours a workbook already uses — cell text, fill and border colours
+ * and sheet tab colours on every sheet — most used first, for the color
+ * picker's "Used in this file" row.
  */
-export const SHEET_TAB_PRESETS: ReadonlyArray<{ family: (typeof FAMILIES)[number]; color: string }> = [
-  { family: 'red', color: '#c35047' },
-  { family: 'orange', color: '#b95e00' },
-  { family: 'yellow', color: '#917900' },
-  { family: 'green', color: '#1b9247' },
-  { family: 'teal', color: '#008c8c' },
-  { family: 'blue', color: '#287ccf' },
-  { family: 'violet', color: '#8962c5' },
-  { family: 'pink', color: '#b94f87' },
-  { family: 'gray', color: '#767b82' },
-];
+export function documentColorsOf(doc: EditorDocument): string[] {
+  if (!isWorkbook(doc)) {
+    return [];
+  }
+  const counts = new Map<string, number>();
+  const count = (color: string | undefined): void => {
+    const hex = color === undefined ? null : normalizeHexColor(color);
+    if (hex) {
+      counts.set(hex, (counts.get(hex) ?? 0) + 1);
+    }
+  };
+  for (const sheet of doc.sheets) {
+    count(sheet.tabColor);
+    for (const [, , style] of sheet.collectStyles()) {
+      count(style.textColor);
+      count(style.backgroundColor);
+      for (const side of BORDER_SIDES) {
+        count(style[side]);
+      }
+    }
+  }
+  return [...counts].sort((a, b) => b[1] - a[1]).map(([color]) => color);
+}
 
 /** The id of the shared `<datalist>` colour pickers point at. */
 export const SWATCH_LIST_ID = 'document-swatches';

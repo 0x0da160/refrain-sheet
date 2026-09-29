@@ -6,6 +6,7 @@
  * colors. Each change hands the whole new chart to `apply`, one undoable
  * step through the panel.
  */
+import { colorField } from './color-picker';
 import { t } from '../app/i18n';
 import {
   CHART_LEGENDS,
@@ -196,12 +197,16 @@ function colorFields(ctx: ChartPanelContext): HTMLElement[] {
       ? data.categories
       : data.series.map((s, i) => s.name ?? t('chart.series', { n: i + 1 }));
   return names.slice(0, MAX_CHART_SERIES).map((name, i) => {
-    const box = input('color', `chart:color:${i}`, chartColor(spec, i), ctx.disabled, (value) => {
+    const label = name === '' ? t('chart.series', { n: i + 1 }) : name;
+    const box = colorField(null, chartColor(spec, i), label);
+    box.dataset.focusKey = `chart:color:${i}`;
+    box.disabled = ctx.disabled;
+    box.addEventListener('change', () => {
       const colors = Array.from({ length: i + 1 }, (_, n) => chartColor(spec, n));
-      colors[i] = value.toLowerCase();
+      colors[i] = box.value.toLowerCase();
       ctx.apply({ ...spec, colors: [...colors, ...(spec.colors?.slice(i + 1) ?? [])] });
     });
-    return panelField(name === '' ? t('chart.series', { n: i + 1 }) : name, box);
+    return panelField(label, box);
   });
 }
 

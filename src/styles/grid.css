@@ -690,58 +690,6 @@
   gap: var(--space-1-5);
 }
 
-/* Spatial cross layout for the Borders dialog's side checkboxes (#393): each
-   one sits in the same position as the edge it controls, with "All" in the
-   center, so the mapping to top/right/bottom/left is visually obvious rather
-   than an arbitrary vertical list. */
-.format-borders-cross {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(3, auto);
-  justify-items: center;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px dashed var(--border-default);
-  border-radius: var(--radius-sm);
-}
-
-.format-borders-cell {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  white-space: nowrap;
-}
-
-.format-borders-cell input {
-  accent-color: var(--accent);
-}
-
-.format-borders-top {
-  grid-column: 2;
-  grid-row: 1;
-}
-
-.format-borders-left {
-  grid-column: 1;
-  grid-row: 2;
-}
-
-.format-borders-all {
-  grid-column: 2;
-  grid-row: 2;
-}
-
-.format-borders-right {
-  grid-column: 3;
-  grid-row: 2;
-}
-
-.format-borders-bottom {
-  grid-column: 2;
-  grid-row: 3;
-}
-
 .filter-condition-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));

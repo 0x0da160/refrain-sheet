@@ -549,6 +549,37 @@ describe('FormatCommands via Commands (RSF worksheets)', () => {
     expect(setup.doc.getStyle(0, 0)?.borderTop).toBe('#000000');
   });
 
+  it('draws a Borders preset across the selected range as one undo step', async () => {
+    const ui = stubUi({
+      chooseBorders: vi.fn(async (_current, _style, _width, onApply) => {
+        await onApply!({
+          action: 'preset',
+          preset: 'outside',
+          color: '#112233',
+          lineStyle: 'solid',
+          width: 'thin',
+        });
+        return null;
+      }),
+    });
+    const { commands, tab, doc, state } = sheet(
+      [
+        ['a', 'b'],
+        ['c', 'd'],
+      ],
+      ui,
+    );
+    doc.setCellStyleOn(undefined, 1, 1, { bold: true });
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 1, col: 1 });
+    expect(await commands.promptBorders(tab)).toBe(true);
+    expect(doc.getStyle(0, 0)).toMatchObject({ borderTop: '#112233', borderLeft: '#112233' });
+    expect(doc.getStyle(0, 0)?.borderRight).toBeUndefined();
+    expect(doc.getStyle(1, 1)).toMatchObject({ bold: true, borderRight: '#112233', borderBottom: '#112233' });
+    await commands.run('edit.undo');
+    expect(doc.getStyle(0, 0)).toBeNull();
+    expect(doc.getStyle(1, 1)).toEqual({ bold: true });
+  });
+
   it('a Borders panel closed without applying changes nothing', async () => {
     const ui = stubUi({ chooseBorders: vi.fn(async () => null) });
     const { commands, tab, doc, state } = sheet([['a']], ui);

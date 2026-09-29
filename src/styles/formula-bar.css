@@ -28,7 +28,7 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   background: var(--bg-surface);
-  font-family: var(--font-sheet);
+  font-family: var(--font-ui);
   font-size: var(--text-caption);
 }
 
@@ -107,7 +107,7 @@
 }
 
 .formula-autocomplete .ac-sig {
-  font-family: var(--font-sheet);
+  font-family: var(--font-code);
   font-size: var(--text-caption);
 }
 

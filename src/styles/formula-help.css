@@ -22,7 +22,7 @@
 .formula-help .help-code,
 .formula-help .help-fn-table td:first-child code,
 .formula-help .help-fn-table td:last-child code {
-  font-family: var(--font-sheet);
+  font-family: var(--font-code);
   font-style: normal;
   background: var(--bg-surface);
   border-radius: var(--radius-sm);

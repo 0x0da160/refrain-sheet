@@ -6,6 +6,7 @@
 import type { CellRange } from '../../core/clipboard';
 import { inferLinearSeries, seriesValueAt } from '../../core/fill-series';
 import {
+  applyFlashFillOp,
   flashFillRow,
   inferFlashFillCandidates,
   type FlashFillExample,
@@ -178,14 +179,23 @@ export class FillCommands {
       return false;
     }
     const targetCol = tab.selection.col;
-    const { top, bottom } = flashFillBlock(doc, tab.selection.row, this.core.state.selectedRange(tab));
+    const block = flashFillBlock(doc, tab.selection.row, this.core.state.selectedRange(tab));
+    const { top, bottom } = block;
     const { examples, firstFill } = leadingExamples(doc, top, bottom, targetCol);
-    const sourceCols =
+    let sourceCols =
       examples.length > 0 && firstFill <= bottom ? sourceColumns(doc, top, bottom, targetCol) : [];
-    const candidates =
+    let candidates =
       sourceCols.length > 0
         ? inferFlashFillCandidates(examples, sourceCols, (r, c) => doc.getValue(r, c))
         : [];
+    // A table's first row is usually its headings ("Name" over the names):
+    // no transformation makes the heading, so it is not an example.
+    const header = candidates.length === 0 ? headerRowSkipped(doc, examples, top, bottom, targetCol) : null;
+    if (header) {
+      examples.shift();
+      sourceCols = header.sourceCols;
+      candidates = header.candidates;
+    }
     const refusal =
       examples.length === 0
         ? 'dialog.flashFill.noExamples'
@@ -467,6 +477,35 @@ function flashFillBlock(
     bottom += 1;
   }
   return { top, bottom };
+}
+
+/**
+ * When the examples start with a heading row, the Flash Fill inferred from
+ * the examples under it: that needs one example besides the heading, a
+ * pattern those examples agree on, and a heading the pattern does not make
+ * from its own row (so a real first example is never dropped). Null when the
+ * first row does not look like a heading.
+ */
+function headerRowSkipped(
+  doc: RsfDocument,
+  examples: readonly FlashFillExample[],
+  top: number,
+  bottom: number,
+  targetCol: number,
+): { sourceCols: number[]; candidates: FlashFillOp[] } | null {
+  if (examples.length < 2 || examples[0].row !== top) {
+    return null;
+  }
+  const sourceCols = sourceColumns(doc, top + 1, bottom, targetCol);
+  if (sourceCols.length === 0) {
+    return null;
+  }
+  const read = (r: number, c: number): string => doc.getValue(r, c);
+  const candidates = inferFlashFillCandidates(examples.slice(1), sourceCols, read);
+  const makesHeading = candidates.some(
+    (op) => applyFlashFillOp(op, (c) => read(top, c)) === examples[0].value,
+  );
+  return candidates.length > 0 && !makesHeading ? { sourceCols, candidates } : null;
 }
 
 /** The leading run of non-empty target cells (the typed examples) and the first row to fill. */

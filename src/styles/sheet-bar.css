@@ -249,9 +249,13 @@
     box-sizing: border-box;
   }
 
+  /* A column of tabs reads as a list: rows at the list-row height
+     (--control-h, --control-px) with a little air between them, as the
+     design system's sidebars use, rather than the row strip's tight tabs. */
   #app.sheet-tabs-vertical .sheet-strip {
     flex-direction: column;
-    padding: var(--space-2) 0 var(--space-2) var(--space-0-5);
+    gap: var(--space-1);
+    padding: var(--space-2) 0 var(--space-2) var(--space-1);
     overflow-x: hidden;
     overflow-y: auto;
     min-height: 0;
@@ -263,6 +267,9 @@
     border-right: none;
     border-radius: var(--radius-md) 0 0 var(--radius-md);
     max-width: none;
+    min-height: var(--control-h);
+    padding: 0 var(--control-px);
+    box-sizing: border-box;
   }
 
   #app.sheet-tabs-vertical .sheet-add {
@@ -289,6 +296,7 @@
   #app.sheet-tabs-vertical .sheet-folder,
   #app.sheet-tabs-vertical .sheet-folder-items {
     flex-direction: column;
+    gap: var(--space-1);
   }
 
   #app.sheet-tabs-vertical .sheet-folder {
@@ -305,6 +313,8 @@
 
   #app.sheet-tabs-vertical .sheet-folder-header {
     max-width: none;
+    min-height: var(--control-h);
+    padding: 0 var(--control-px);
   }
 }
 

@@ -49,6 +49,7 @@ export class GridRenderer {
       clearChildren(this.core.headerEl);
       clearChildren(this.core.stickyEl);
       clearChildren(this.core.rowsLayer);
+      this.core.objects.render(null);
       this.core.canvas.style.width = '';
       this.core.canvas.style.height = '';
       this.core.addRowAnchor.hidden = true;
@@ -396,6 +397,7 @@ export class GridRenderer {
       this.core.cells.paintWindowCells(tab);
       this.core.selectionView.refreshSelection();
       this.core.cells.refreshFormulaRefs();
+      this.core.objects.render(tab);
       return;
     }
     this.core.window = win;
@@ -407,6 +409,7 @@ export class GridRenderer {
     this.keepEditorPlaced();
     this.core.selectionView.refreshSelection();
     this.core.cells.refreshFormulaRefs();
+    this.core.objects.render(tab);
   }
 
   /**

@@ -40,6 +40,19 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Shapes on a sheet.** The new Insert menu adds a rectangle, ellipse,
+  line, arrow or text box at the selected cell of an RSF spreadsheet sheet
+  (a CSV file is converted first). Drag a shape to move it (hold Alt to
+  snap it to a cell corner), drag its handles to resize it, and use the
+  arrow keys to nudge it (Shift for 10 pixels); Delete removes it. A shape
+  moves with the cells when rows or columns are inserted, deleted or
+  moved, and keeps its size when a row height or column width changes.
+  Insert > Object List… lists the sheet's shapes front first: show or hide
+  each, change the stacking order, and set its name, position and size (in
+  pixels or millimeters), rotation, fill, line and text. Two locks keep a
+  shape as it is: **Fix Position** stops moving and resizing, and **Lock
+  Editing** also stops changing or deleting it. Every change can be undone,
+  and shapes are saved in the file.
 - **A toolbar you can arrange.** A row of buttons above the formula bar
   runs common commands (Save, Undo, Redo, Cut, Copy, Paste, Bold, Italic,
   Underline, Font, colors, Borders, Sort, Filter). View > Customize

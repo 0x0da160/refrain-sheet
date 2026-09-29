@@ -154,6 +154,7 @@ export function defaultMenus(checks: MenuChecks): MenuDef[] {
     editMenu(),
     searchMenu(),
     sheetMenu(checks),
+    insertMenu(),
     formatMenu(checks),
     dataMenu(),
     viewMenu(checks),
@@ -293,6 +294,34 @@ function sheetMenu(checks: MenuChecks): MenuDef {
       { labelKey: 'menu.sheet.displayLanguage', command: 'sheet.displayLanguage' },
       { labelKey: 'menu.sheet.versionHistory', command: 'sheet.versionHistory' },
       { labelKey: 'menu.sheet.clearVersionHistory', command: 'sheet.clearVersionHistory' },
+    ],
+  };
+}
+
+function insertMenu(): MenuDef {
+  return {
+    labelKey: 'menu.insert',
+    items: [
+      // Shapes go on a spreadsheet sheet of an RSF file, at the selected
+      // cell; the object list places, orders and locks them.
+      { labelKey: 'menu.insert.rectangle', command: 'insert.rectangle' },
+      { labelKey: 'menu.insert.ellipse', command: 'insert.ellipse' },
+      { labelKey: 'menu.insert.line', command: 'insert.line' },
+      { labelKey: 'menu.insert.arrow', command: 'insert.arrow' },
+      { labelKey: 'menu.insert.textBox', command: 'insert.textBox' },
+      'separator',
+      { labelKey: 'menu.insert.objectList', command: 'insert.objectList' },
+      {
+        labelKey: 'menu.insert.order',
+        icon: Layers,
+        submenu: [
+          { labelKey: 'menu.insert.bringToFront', command: 'object.bringToFront' },
+          { labelKey: 'menu.insert.bringForward', command: 'object.bringForward' },
+          { labelKey: 'menu.insert.sendBackward', command: 'object.sendBackward' },
+          { labelKey: 'menu.insert.sendToBack', command: 'object.sendToBack' },
+        ],
+      },
+      { labelKey: 'menu.insert.deleteObject', command: 'object.delete' },
     ],
   };
 }

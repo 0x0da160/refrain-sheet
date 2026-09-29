@@ -35,6 +35,7 @@ export function subscribeSurfaces(
     s.statusBar.render();
     s.commentsPanel.render();
     s.validationCheckPanel.render();
+    s.objectsPanel.render();
   };
 
   state.subscribe((event) => {
@@ -89,6 +90,7 @@ export function subscribeSurfaces(
         s.formulaBar.refresh(true);
         s.statusBar.render();
         s.toolbar.render();
+        s.objectsPanel.render();
         return;
       case 'view':
         // Wrap and sticky-first-row both change grid metrics. The comments
@@ -104,6 +106,7 @@ export function subscribeSurfaces(
         s.grid.refresh();
         s.commentsPanel.render();
         s.validationCheckPanel.render();
+        s.objectsPanel.render();
         return;
     }
   });
@@ -114,6 +117,7 @@ export function subscribeSurfaces(
     s.findBar.refresh();
     s.commentsPanel.refresh();
     s.validationCheckPanel.refresh();
+    s.objectsPanel.refresh();
     dropMessage.textContent = t('drop.hint');
   });
   return refreshAll;
@@ -129,4 +133,5 @@ function refreshDocumentSurfaces(s: Surfaces, selectionChanged: boolean): void {
   s.findBar.refresh();
   s.commentsPanel.render();
   s.validationCheckPanel.render();
+  s.objectsPanel.render();
 }

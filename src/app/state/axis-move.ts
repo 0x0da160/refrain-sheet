@@ -14,6 +14,12 @@ import {
   type CellValidation,
 } from '../../core/workbook/data-validation';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
+import {
+  moveObjects,
+  shiftObjectsForDelete,
+  shiftObjectsForInsert,
+  type SheetObject,
+} from '../../core/workbook/sheet-objects';
 import { colWidthsAt } from './col-widths';
 
 /**
@@ -125,9 +131,11 @@ export function planAxisMove(
   // The rules as they stand, restored first on undo; after the insert, the
   // moved rules are put where their rows or columns went.
   const rules = sheet.validations;
+  const objects = sheet.objects;
   const ops: Operation[] = [
     ...leading,
     { type: 'validations', before: rules, after: rules, sheetId },
+    { type: 'objects', before: objects, after: objects, sheetId },
     { type: 'cells', changes: active, sheetId },
     ...others,
     { type: 'styles', changes: clearStyles, sheetId },
@@ -146,6 +154,12 @@ export function planAxisMove(
       after: moveValidations(rules, axis, from, count, to),
       sheetId,
     },
+    {
+      type: 'objects',
+      before: objectsAfterDeleteInsert(sheet, axis, from, count, to),
+      after: moveObjects(objects, axis, from, count, to),
+      sheetId,
+    },
   ];
   return { label: axis === 'row' ? 'history.moveRows' : 'history.moveCols', sheetId, ops };
 }
@@ -160,4 +174,22 @@ function structuralMove(
 ): CellValidation[] {
   const dest = to > from ? to - count : to;
   return shiftValidationsForInsert(shiftValidationsForDelete(rules, axis, from, count), axis, dest, count);
+}
+
+/** Where the delete and insert of a move leave the objects on their own. */
+function objectsAfterDeleteInsert(
+  sheet: { objects: readonly SheetObject[]; rowCount: number; columnCount: number },
+  axis: 'row' | 'col',
+  from: number,
+  count: number,
+  to: number,
+): SheetObject[] {
+  const dest = to > from ? to - count : to;
+  const limit = (axis === 'row' ? sheet.rowCount : sheet.columnCount) - count;
+  return shiftObjectsForInsert(
+    shiftObjectsForDelete(sheet.objects, axis, from, count, limit),
+    axis,
+    dest,
+    count,
+  );
 }

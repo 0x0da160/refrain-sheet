@@ -3,7 +3,8 @@
  * `.rsf` keys that `rsf-codec.ts` reads and writes through this module
  * rather than itself (knowledge/formats/rsf/json-document.md): a
  * worksheet's `tabColor` and `folder` and the file's `folders`
- * (`rsf-folders.ts`), and a worksheet's `validations`. Like every key in
+ * (`rsf-folders.ts`), a worksheet's `validations`, and its `objects`
+ * (`rsf-sheet-objects.ts`). Like every key in
  * the codec, a known key with the wrong shape fails the whole file.
  */
 import { cellLabel, parseRef } from '../formula';
@@ -16,6 +17,8 @@ import {
   type ValidationRule,
 } from './data-validation';
 import { placementFromJson, placementToJson, type RsfSheetPlacement } from './rsf-folders';
+import { objectsFromJson, objectsToJson } from './rsf-sheet-objects';
+import type { SheetObject } from './sheet-objects';
 
 export { foldersFromJson, foldersToJson, type RsfFolderList } from './rsf-folders';
 
@@ -23,6 +26,8 @@ export { foldersFromJson, foldersToJson, type RsfFolderList } from './rsf-folder
 export interface RsfSheetExtras extends RsfSheetPlacement {
   /** Data-validation rules, in the order they were applied (later wins). */
   validations?: CellValidation[];
+  /** Shapes over the grid, bottom to top. */
+  objects?: SheetObject[];
 }
 
 type Fail = (reason?: 'too-large') => never;
@@ -33,6 +38,9 @@ export function sheetExtrasToJson(sheet: RsfSheetExtras): { [key: string]: Json 
   const out: { [key: string]: Json } = { ...placementToJson(sheet) };
   if (sheet.validations && sheet.validations.length > 0) {
     out.validations = sheet.validations.map(validationToJson);
+  }
+  if (sheet.objects && sheet.objects.length > 0) {
+    out.objects = objectsToJson(sheet.objects);
   }
   return out;
 }
@@ -59,6 +67,15 @@ export function sheetExtrasFromJson(
     );
     if (rules.length > 0) {
       out.validations = rules;
+    }
+  }
+  if (value.objects !== undefined) {
+    if ((sheet.kind ?? 'grid') !== 'grid') {
+      return fail();
+    }
+    const objects = objectsFromJson(value.objects, sheet.rowCount, sheet.columnCount, fail);
+    if (objects.length > 0) {
+      out.objects = objects;
     }
   }
   return out;

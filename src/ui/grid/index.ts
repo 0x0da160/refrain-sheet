@@ -4,6 +4,7 @@ import type { Commands } from '../../app/commands';
 import type { CellRange } from '../../core/clipboard';
 import type { FormulaRefRange } from '../../core/formula';
 import type { WrapMeasure } from '../../core/text-wrap';
+import type { SheetObject } from '../../core/workbook/sheet-objects';
 import type { FormulaLivePreview } from '../formula-bar';
 import {
   autoFitWidth,
@@ -103,8 +104,19 @@ export class Grid {
   }
 
   /** Update selection highlighting only (cheap; used for selection events). */
+  /** An object's top-left corner from the sheet's, in pixels at 100% zoom (the object list's X and Y). */
+  objectPosition(tab: Tab, object: SheetObject): { x: number; y: number } {
+    return this.core.objects.positionOf(tab, object);
+  }
+
+  /** The object moved so its top-left corner is at (`x`, `y`) from the sheet's, in pixels at 100%. */
+  objectMovedTo(tab: Tab, object: SheetObject, x: number, y: number): SheetObject {
+    return this.core.objects.movedTo(tab, object, x, y);
+  }
+
   refreshSelection(): void {
-    return this.core.selectionView.refreshSelection();
+    this.core.selectionView.refreshSelection();
+    this.core.objects.render(this.core.state.activeTab);
   }
 
   /**

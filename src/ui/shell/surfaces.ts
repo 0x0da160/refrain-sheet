@@ -14,6 +14,7 @@ import { isCsv, isWorkbook } from '../../core/editor-document';
 import { validateDocument } from '../../core/csv/validation';
 import { CommentsPanel } from '../comments-panel';
 import { ValidationCheckPanel } from '../validation-check-panel';
+import { ObjectsPanel } from '../objects-panel';
 import { openPrint } from '../print-view';
 import type { Dialogs, Toasts } from '../dialogs';
 import { FindBar } from '../find-bar';
@@ -42,6 +43,8 @@ export interface Surfaces {
   clipboard: ClipboardController;
   commentsPanel: CommentsPanel;
   validationCheckPanel: ValidationCheckPanel;
+  /** Insert > Object List… (the shapes on the sheet, their properties and locks). */
+  objectsPanel: ObjectsPanel;
   menuBar: MenuBar;
   /** The main toolbar under the menu bar (View > Customize Toolbar…). */
   toolbar: AppToolbar;
@@ -83,6 +86,7 @@ export function createSurfaces(
   const commentsPanel = new CommentsPanel(state, grid);
   // Data > Check Data…: the same kind of panel, listing values that break a rule.
   const validationCheckPanel = new ValidationCheckPanel(state, grid);
+  const objectsPanel = new ObjectsPanel(state, commands, grid);
   const checks = menuChecks(state, commands);
   const menuBar = new MenuBar(commands, checks);
   const toolbar = new AppToolbar(commands, defaultMenus(checks));
@@ -90,6 +94,7 @@ export function createSurfaces(
     customizeToolbar: () => void customizeToolbar(toolbar.available, () => toolbar.render()),
     openComments: () => commentsPanel.open(),
     openValidationCheck: () => validationCheckPanel.open(),
+    openObjects: () => objectsPanel.open(),
     openPrint: () => openPrint(state, (text) => toasts.notify(text, 'warn')),
   };
   const tabBar = new TabBar(state, commands);
@@ -142,6 +147,7 @@ export function createSurfaces(
     clipboard,
     commentsPanel,
     validationCheckPanel,
+    objectsPanel,
     menuBar,
     toolbar,
     tabBar,

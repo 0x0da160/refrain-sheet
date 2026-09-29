@@ -5,6 +5,7 @@ import { formatCellNumber } from './cell-number-format';
 import type { CellStyle } from './cell-style';
 import type { CellConditionalFormat, ConditionalFormatStyle } from './conditional-format';
 import { validationListsEqual, type CellValidation } from './data-validation';
+import { objectListsEqual, type SheetObject } from './sheet-objects';
 import { DEFAULT_DISPLAY_LANGUAGE, type DisplayLanguageId } from './display-language';
 import type { SheetFilter } from './filter';
 import { RecalcEngine } from './recalc-engine';
@@ -587,6 +588,21 @@ export class Workbook {
     const sheet = this.resolveSheet(sheetId);
     if (this.bumpIf(!validationListsEqual(sheet.validations, rules))) {
       sheet.validations = rules.slice();
+    }
+  }
+
+  // ----- Objects (shapes) -----
+
+  /** The active worksheet's objects, bottom to top. */
+  get objects(): readonly SheetObject[] {
+    return this.activeSheet.objects;
+  }
+
+  /** Replace a worksheet's objects (persisted, so this marks the workbook changed). */
+  setObjectsOn(sheetId: string | undefined, objects: readonly SheetObject[]): void {
+    const sheet = this.resolveSheet(sheetId);
+    if (this.bumpIf(!objectListsEqual(sheet.objects, objects))) {
+      sheet.objects = objects.slice();
     }
   }
 

@@ -40,6 +40,16 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Choose a font and size for cells and for parts of a cell's text.**
+  Format > Font… sets the selected cells' font and size (in points), and
+  the toolbar over text selected in the cell editor now has font and size
+  lists for just that text. The lists offer the sheet fonts plus Arial,
+  Times New Roman and Courier New, and, where the browser allows it, Show
+  Fonts on This Device… adds the fonts installed on your computer. A file
+  opened on a computer without the chosen font shows the text in the sheet
+  font and keeps the font you chose. Rows do not yet grow to fit larger
+  text.
+
 - **Edit Markdown sheets formatted.** A Markdown sheet's toolbar now
   switches between Markdown and Formatted. Formatted shows the document as
   it reads and lets you edit headings, paragraphs, lists, quotes, code

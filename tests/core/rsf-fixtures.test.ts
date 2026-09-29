@@ -324,6 +324,33 @@ const cases: FixtureCase[] = [
       ],
     },
   },
+  {
+    // A cell's own font and size, and a rich-text part's (`fontFamily`, `fontSize`).
+    file: 'text-font.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: {
+      delimiter: ',',
+      activeSheetId: 's1',
+      sheets: [
+        {
+          ...grid,
+          styles: [
+            [0, 0, { fontFamily: 'Meiryo UI', fontSize: 10.5 }],
+            [
+              0,
+              1,
+              {
+                bold: true,
+                fontSize: 14,
+                runs: [{ text: 'na' }, { text: 'me', fontFamily: 'Courier New', fontSize: 20, bold: false }],
+              },
+            ],
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 function loadFixture(file: string, encode: () => Uint8Array): Uint8Array {

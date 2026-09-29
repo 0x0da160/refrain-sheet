@@ -69,6 +69,7 @@ function stubUi(): UiPort {
     chooseBackgroundColor: vi.fn(async () => null),
     chooseBorders: vi.fn(async () => null),
     chooseNumberFormat: vi.fn(async () => null),
+    chooseFont: vi.fn(async () => null),
     chooseRecentFile: vi.fn(async () => null),
     setBusy: noop,
   };

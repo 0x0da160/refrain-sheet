@@ -13,6 +13,7 @@ import {
 } from '../../core/workbook/cell-style';
 import type { LosslessDocument } from '../../core/csv/lossless-document';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
+import { paintFont } from '../font-choices';
 
 /** Render a resolved border side as a CSS `border-*` shorthand value (`''` when unset). */
 function cssBorder(border: BorderSideValue | null): string {
@@ -35,7 +36,7 @@ export function malformedFieldTooltip(doc: LosslessDocument, row: number, col: n
 
 /**
  * Apply (or clear) one cell's visual style — bold/italic/underline as CSS
- * classes, colors and borders as inline styles so any `#rrggbb` value works
+ * classes, its font, colors and borders as inline styles so any `#rrggbb` value works
  * without a matching stylesheet rule. Assigning `''` restores the normal
  * grid appearance (the default border/background from `.vcell` in
  * `src/styles/index.css`), so this is safe to call on a reused, previously
@@ -61,6 +62,7 @@ export function paintCellStyle(cell: HTMLElement, doc: RsfDocument, row: number,
   cell.classList.toggle('cell-bold', !!style?.bold);
   cell.classList.toggle('cell-italic', !!style?.italic);
   cell.classList.toggle('cell-underline', !!style?.underline);
+  paintFont(cell, style);
   cell.style.color = conditional?.textColor ?? style?.textColor ?? '';
   cell.style.backgroundColor = conditional?.backgroundColor ?? style?.backgroundColor ?? '';
   const below = row + 1 < doc.rowCount ? doc.getStyle(row + 1, col) : null;

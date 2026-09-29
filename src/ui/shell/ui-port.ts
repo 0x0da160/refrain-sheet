@@ -79,6 +79,7 @@ export function createUiPort({ dialogs, toasts, loadingOverlay, findBar }: UiPor
     chooseBorders: (current, currentLineStyle, currentWidth, onApply) =>
       dialogs.chooseBorders(current, currentLineStyle, currentWidth, onApply),
     chooseNumberFormat: (current, onApply) => dialogs.chooseNumberFormat(current, onApply),
+    chooseFont: (current, onApply) => dialogs.chooseFont(current, onApply),
     setBusy: (label, progress) => {
       // An operation is starting: a context menu built against the pre-operation
       // state must not survive into it.

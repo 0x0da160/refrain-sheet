@@ -41,6 +41,7 @@ import { el } from './dom';
 import { COL_WIDTH, ROW_HEAD_WIDTH } from './grid/geometry';
 import { openPrintPanel } from './dialogs/print-dialog';
 import { renderMarkdownBlocks } from './markdown-render';
+import { paintFont } from './font-choices';
 import { richTextNodes } from './rich-text-render';
 
 /** One grid to print: its rows (document rows, in print order) and columns. */
@@ -296,6 +297,7 @@ function cellElement(part: GridPart, row: number, col: number): HTMLElement {
   td.classList.toggle('cell-bold', !!style?.bold);
   td.classList.toggle('cell-italic', !!style?.italic);
   td.classList.toggle('cell-underline', !!style?.underline && !runs);
+  paintFont(td, style);
   td.style.color = conditional?.textColor ?? style?.textColor ?? '';
   td.style.backgroundColor = conditional?.backgroundColor ?? style?.backgroundColor ?? '';
   td.style.borderTop = cssBorder(borderSideValue(style, 'borderTop'));

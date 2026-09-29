@@ -12,8 +12,25 @@ import {
   type TextRun,
 } from '../core/workbook/rich-text';
 import { el } from './dom';
+import { paintFont } from './font-choices';
 import { richTextNodes } from './rich-text-render';
 import { RichTextToolbar, type RichTextAction } from './rich-text-toolbar';
+
+/** The value every character in `[start, end)` sets for `key`, or null when some set none or differ. */
+function commonValue<K extends 'fontFamily' | 'fontSize'>(
+  formats: readonly RunFormat[],
+  start: number,
+  end: number,
+  key: K,
+): NonNullable<RunFormat[K]> | null {
+  const first = formats[start]?.[key];
+  for (let i = start + 1; i < end; i++) {
+    if (formats[i]?.[key] !== first) {
+      return null;
+    }
+  }
+  return first ?? null;
+}
 
 /** What the grid lends the rich-text editing of one cell. */
 export interface RichCellEditorHost {
@@ -40,7 +57,7 @@ export interface RichCellEditorHost {
  * format of the part it is typed into.
  *
  * A floating toolbar ({@link RichTextToolbar}) appears over a text
- * selection: bold, italic, underline, a few colors or any color, and
+ * selection: font, size, bold, italic, underline, a few colors or any color, and
  * removing the selection's own formatting. Ctrl+B / Ctrl+I / Ctrl+U do the
  * same from the keyboard.
  */
@@ -173,6 +190,12 @@ export class RichCellEditor {
     } else if (action.kind === 'color') {
       const color = action.color === cell?.textColor ? null : action.color;
       formats = setFormatKey(formats, start, end, 'textColor', color);
+    } else if (action.kind === 'fontFamily') {
+      const family = action.family === cell?.fontFamily ? null : action.family;
+      formats = setFormatKey(formats, start, end, 'fontFamily', family);
+    } else if (action.kind === 'fontSize') {
+      const size = action.size === cell?.fontSize ? null : action.size;
+      formats = setFormatKey(formats, start, end, 'fontSize', size);
     } else {
       formats = clearFormats(formats, start, end);
     }
@@ -326,6 +349,7 @@ export class RichCellEditor {
     field.style.color = cell?.textColor ?? '';
     field.style.fontWeight = cell?.bold ? 'bold' : '';
     field.style.fontStyle = cell?.italic ? 'italic' : '';
+    paintFont(field, cell);
   }
 
   // ----- Selection -----
@@ -405,6 +429,8 @@ export class RichCellEditor {
       bold: isFormatOn(formats, start, end, 'bold', !!cell?.bold),
       italic: isFormatOn(formats, start, end, 'italic', !!cell?.italic),
       underline: isFormatOn(formats, start, end, 'underline', !!cell?.underline),
+      fontFamily: commonValue(formats, start, end, 'fontFamily'),
+      fontSize: commonValue(formats, start, end, 'fontSize'),
     });
   }
 

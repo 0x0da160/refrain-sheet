@@ -78,6 +78,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'format.numberFormat',
   'format.conditionalFormatting',
   'format.clear',
+  'format.font',
   'format.presetNumber',
   'format.presetCurrency',
   'format.presetPercent',

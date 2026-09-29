@@ -1,29 +1,14 @@
 // SPDX-License-Identifier: MIT
 import type { DelimiterId } from '../csv/byte-csv-parser';
-import {
-  BORDER_LINE_STYLES,
-  BORDER_SIDES,
-  BORDER_STYLE_KEY,
-  BORDER_WIDTH_KEY,
-  BORDER_WIDTHS,
-  DEFAULT_BORDER_LINE_STYLE,
-  DEFAULT_BORDER_WIDTH,
-  MAX_CURRENCY_SYMBOL_LENGTH,
-  MAX_NUMBER_FORMAT_DECIMALS,
-  NUMBER_FORMAT_KINDS,
-  normalizeHexColor,
-  type CellStyle,
-  type NumberFormat,
-  type NumberFormatKind,
-} from './cell-style';
+import type { CellStyle } from './cell-style';
 import { validateFilter, type SheetFilter } from './filter';
 import { getRsfCodec } from '../csv/csv-engine';
 import { MAX_COMMENT_LENGTH } from './cell-comment';
-import { MAX_TEXT_RUNS, runsForText, type TextRun } from './rich-text';
 import { DEFAULT_DISPLAY_LANGUAGE } from './display-language';
 import { DEFAULT_TIMEZONE } from './timezone';
 import { hasViewSettings, viewFromJson, viewToJson, type RsfViewSettings } from './rsf-view';
 import * as place from './rsf-sheet-extras';
+import * as cellStyle from './rsf-cell-style';
 import { applyJsonDelta, diffJson, HistoryDeltaError } from './history-delta';
 import { readSkippableFrame, readU32, writeSkippableFrame, writeU32, ZSTD_MAGIC } from './zstd-frame';
 
@@ -254,51 +239,6 @@ function isoTime(ms: number): string {
   return new Date(ms).toISOString();
 }
 
-/**
- * `input` is the cell's text: rich-text runs are written only while they
- * still spell it out (stale runs are dropped here, never saved).
- */
-function styleToJson(style: CellStyle, input: string): { [key: string]: Json } {
-  const out: { [key: string]: Json } = {};
-  if (style.bold) out.bold = true;
-  if (style.italic) out.italic = true;
-  if (style.underline) out.underline = true;
-  if (style.textColor) out.textColor = style.textColor;
-  if (style.backgroundColor) out.backgroundColor = style.backgroundColor;
-  for (const side of BORDER_SIDES) {
-    const color = style[side];
-    if (!color) {
-      continue;
-    }
-    out[side] = color;
-    const lineStyle = style[BORDER_STYLE_KEY[side]];
-    const width = style[BORDER_WIDTH_KEY[side]];
-    // The defaults (solid, thin) are left out, so a style has one spelling.
-    if (lineStyle && lineStyle !== DEFAULT_BORDER_LINE_STYLE) out[BORDER_STYLE_KEY[side]] = lineStyle;
-    if (width && width !== DEFAULT_BORDER_WIDTH) out[BORDER_WIDTH_KEY[side]] = width;
-  }
-  if (style.numberFormat) {
-    const f = style.numberFormat;
-    const format: { [key: string]: Json } = { kind: f.kind, decimals: f.decimals, thousands: f.thousands };
-    if (f.kind === 'currency' && f.currencySymbol !== undefined) {
-      format.currencySymbol = f.currencySymbol;
-    }
-    out.numberFormat = format;
-  }
-  const runs = runsForText(style.runs, input);
-  if (runs) {
-    out.runs = runs.map((run) => {
-      const json: { [key: string]: Json } = { text: run.text };
-      if (run.bold !== undefined) json.bold = run.bold;
-      if (run.italic !== undefined) json.italic = run.italic;
-      if (run.underline !== undefined) json.underline = run.underline;
-      if (run.textColor !== undefined) json.textColor = run.textColor;
-      return json;
-    });
-  }
-  return out;
-}
-
 function filterToJson(filter: SheetFilter): Json {
   return {
     top: filter.top,
@@ -384,7 +324,7 @@ function sheetToJson(sheet: RsfWorksheetData): { [key: string]: Json } {
       }
     }
     for (const [row, col, style] of sheet.styles) {
-      const json = styleToJson(style, inputs.get(`${row},${col}`) ?? '');
+      const json = cellStyle.styleToJson(style, inputs.get(`${row},${col}`) ?? '');
       if (Object.keys(json).length > 0) {
         styles[a1(row, col)] = json;
       }
@@ -579,101 +519,6 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T {
   return value as T;
 }
 
-function styleFromJson(value: unknown): CellStyle {
-  if (!isObject(value)) {
-    fail();
-  }
-  const style: CellStyle = {};
-  if (optBoolean(value, 'bold')) style.bold = true;
-  if (optBoolean(value, 'italic')) style.italic = true;
-  if (optBoolean(value, 'underline')) style.underline = true;
-  const color = (key: string): string | undefined => {
-    const raw = optString(value, key);
-    if (raw === undefined) {
-      return undefined;
-    }
-    const hex = normalizeHexColor(raw);
-    if (hex === null) {
-      fail();
-    }
-    return hex;
-  };
-  const text = color('textColor');
-  if (text) style.textColor = text;
-  const background = color('backgroundColor');
-  if (background) style.backgroundColor = background;
-  for (const side of BORDER_SIDES) {
-    const sideColor = color(side);
-    if (!sideColor) {
-      continue;
-    }
-    style[side] = sideColor;
-    const lineStyle = value[BORDER_STYLE_KEY[side]];
-    if (lineStyle !== undefined) {
-      style[BORDER_STYLE_KEY[side]] = oneOf(lineStyle, BORDER_LINE_STYLES);
-    }
-    const width = value[BORDER_WIDTH_KEY[side]];
-    if (width !== undefined) {
-      style[BORDER_WIDTH_KEY[side]] = oneOf(width, BORDER_WIDTHS);
-    }
-  }
-  const format = value.numberFormat;
-  if (format !== undefined) {
-    if (!isObject(format)) {
-      fail();
-    }
-    const kind: NumberFormatKind = oneOf(format.kind, NUMBER_FORMAT_KINDS);
-    const decimals = intIn(format.decimals, 0, MAX_NUMBER_FORMAT_DECIMALS);
-    const thousands = optBoolean(format, 'thousands') ?? false;
-    const numberFormat: NumberFormat = { kind, decimals, thousands };
-    if (kind === 'currency') {
-      const symbol = optString(format, 'currencySymbol', 64);
-      numberFormat.currencySymbol = (symbol ?? '$').slice(0, MAX_CURRENCY_SYMBOL_LENGTH);
-    }
-    style.numberFormat = numberFormat;
-  }
-  if (value.runs !== undefined) {
-    style.runs = runsFromJson(value.runs);
-  }
-  return style;
-}
-
-/** A style's rich-text runs: `[{ "text", "bold"?, "italic"?, "underline"?, "textColor"? }]`. */
-function runsFromJson(value: unknown): TextRun[] {
-  if (!Array.isArray(value)) {
-    fail();
-  }
-  if (value.length > MAX_TEXT_RUNS) {
-    fail('too-large');
-  }
-  let length = 0;
-  return value.map((raw) => {
-    if (!isObject(raw) || typeof raw.text !== 'string') {
-      fail();
-    }
-    length += raw.text.length;
-    if (length > MAX_RSF_CELL_LENGTH) {
-      fail('too-large');
-    }
-    const run: TextRun = { text: raw.text };
-    const bold = optBoolean(raw, 'bold');
-    if (bold !== undefined) run.bold = bold;
-    const italic = optBoolean(raw, 'italic');
-    if (italic !== undefined) run.italic = italic;
-    const underline = optBoolean(raw, 'underline');
-    if (underline !== undefined) run.underline = underline;
-    const color = optString(raw, 'textColor');
-    if (color !== undefined) {
-      const hex = normalizeHexColor(color);
-      if (hex === null) {
-        fail();
-      }
-      run.textColor = hex;
-    }
-    return run;
-  });
-}
-
 /** Workbook-wide running totals, so many worksheets cannot add up past a bound. */
 interface Totals {
   cells: number;
@@ -796,7 +641,7 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
     const styles: Array<[number, number, CellStyle]> = [];
     for (const [key, raw] of Object.entries(value.styles)) {
       const [row, col] = parseA1(key, sheet.rowCount, sheet.columnCount);
-      styles.push([row, col, styleFromJson(raw)]);
+      styles.push([row, col, cellStyle.styleFromJson(raw, MAX_RSF_CELL_LENGTH, fail)]);
     }
     totals.styles += styles.length;
     if (totals.styles > MAX_RSF_CELLS) {

@@ -4,14 +4,13 @@
  * restricts which values a cell in that range accepts — a fixed list of
  * choices (the spreadsheet-standard "dropdown"), or a numeric range.
  *
- * Mirrors `sort.ts`'s session-only-view-state model: a worksheet's rules
- * (`Worksheet.validations`) live only in memory, are never persisted in the
- * RSF container (they never reach `rsf-codec.ts`), and are simply dropped —
- * rather than shifted — whenever the worksheet's row/column structure
- * changes underneath them, exactly like a sort's stored range. Unlike a
- * sort, a worksheet may carry several rules at once (one per range); when
- * ranges overlap, the most recently applied rule wins for the overlapping
- * cells, like later paint on top of earlier paint.
+ * A worksheet's rules (`Worksheet.validations`) are saved in the RSF
+ * container (the worksheet's `validations` key) and follow row and column
+ * insertion and deletion the way a formula's range does: an insert inside a
+ * rule's range grows it, a delete shrinks it, and a rule whose cells are all
+ * deleted goes away. A worksheet may carry several rules at once (one per
+ * range); when ranges overlap, the most recently applied rule wins for the
+ * overlapping cells, like later paint on top of earlier paint.
  *
  * A blank value always passes every rule, matching every mainstream
  * spreadsheet: clearing a cell is never itself an invalid edit.
@@ -24,6 +23,8 @@
 export const MAX_VALIDATION_RULES = 64;
 /** Maximum distinct list values one `list` rule may carry. */
 export const MAX_VALIDATION_LIST_VALUES = 500;
+/** Maximum characters in one list value (the same bound as a comment). */
+export const MAX_VALIDATION_VALUE_LENGTH = 2000;
 
 /** Restrict a cell to one of a fixed set of values (the "dropdown" case). */
 interface ListValidationRule {
@@ -86,7 +87,9 @@ export function validateValidation(
     ) {
       return null;
     }
-    if (rule.values.some((v) => typeof v !== 'string' || v === '')) {
+    if (
+      rule.values.some((v) => typeof v !== 'string' || v === '' || v.length > MAX_VALIDATION_VALUE_LENGTH)
+    ) {
       return null;
     }
   } else if (rule.kind === 'number') {
@@ -146,4 +149,80 @@ export function checkValidationValue(rule: ValidationRule, value: string): boole
     return false;
   }
   return true;
+}
+
+/** Whether two rule lists are the same, rule for rule. */
+export function validationListsEqual(a: readonly CellValidation[], b: readonly CellValidation[]): boolean {
+  return a.length === b.length && a.every((v, i) => JSON.stringify(v) === JSON.stringify(b[i]));
+}
+
+/** The rules after `count` rows or columns were inserted at `index` on `axis`. */
+export function shiftValidationsForInsert(
+  rules: readonly CellValidation[],
+  axis: 'row' | 'col',
+  index: number,
+  count: number,
+): CellValidation[] {
+  return rules.map((v) => {
+    const [start, end] = axis === 'row' ? [v.top, v.bottom] : [v.left, v.right];
+    // At or before the start moves the whole range; inside it grows the range.
+    const from = start >= index ? start + count : start;
+    const to = end >= index ? end + count : end;
+    return withSpan(v, axis, from, to);
+  });
+}
+
+/**
+ * The rules after `count` rows or columns starting at `index` were deleted
+ * on `axis`. A range shrinks by the deleted part; one left with no cells is
+ * dropped.
+ */
+export function shiftValidationsForDelete(
+  rules: readonly CellValidation[],
+  axis: 'row' | 'col',
+  index: number,
+  count: number,
+): CellValidation[] {
+  const out: CellValidation[] = [];
+  const last = index + count; // one past the deleted span
+  for (const v of rules) {
+    const [start, end] = axis === 'row' ? [v.top, v.bottom] : [v.left, v.right];
+    const from = start < index ? start : start < last ? index : start - count;
+    const to = end < index ? end : end < last ? index - 1 : end - count;
+    if (from <= to) {
+      out.push(withSpan(v, axis, from, to));
+    }
+  }
+  return out;
+}
+
+/**
+ * The rules after moving `count` rows or columns from `from` to the
+ * boundary `to` (a reorder: the moved span is deleted, then inserted where
+ * `to` lands once it is gone). A rule wholly inside the span moves with it;
+ * any other rule follows the delete and the insert.
+ */
+export function moveValidations(
+  rules: readonly CellValidation[],
+  axis: 'row' | 'col',
+  from: number,
+  count: number,
+  to: number,
+): CellValidation[] {
+  const dest = to > from ? to - count : to;
+  const out: CellValidation[] = [];
+  for (const v of rules) {
+    const [start, end] = axis === 'row' ? [v.top, v.bottom] : [v.left, v.right];
+    if (start >= from && end < from + count) {
+      out.push(withSpan(v, axis, start - from + dest, end - from + dest));
+    } else {
+      const kept = shiftValidationsForDelete([v], axis, from, count);
+      out.push(...shiftValidationsForInsert(kept, axis, dest, count));
+    }
+  }
+  return out;
+}
+
+function withSpan(v: CellValidation, axis: 'row' | 'col', from: number, to: number): CellValidation {
+  return axis === 'row' ? { ...v, top: from, bottom: to } : { ...v, left: from, right: to };
 }

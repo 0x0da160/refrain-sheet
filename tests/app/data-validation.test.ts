@@ -3,8 +3,8 @@
 /**
  * Data validation: the pure rule core (structural validation, membership,
  * "last rule wins" lookup) and the command-level flow — dialog apply/clear,
- * CSV-mode restriction, invalid-write refusal, structural-edit interaction,
- * and non-undoable/non-dirty session-only behavior. Mirrors `sort.test.ts`.
+ * CSV-mode restriction, invalid-write refusal, following structural edits,
+ * and undo.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
@@ -12,6 +12,9 @@ import { Commands, type DataValidationDialogResult, type UiPort } from '../../sr
 import {
   checkValidationValue,
   findValidation,
+  moveValidations,
+  shiftValidationsForDelete,
+  shiftValidationsForInsert,
   validateValidation,
   validationRangesEqual,
   MAX_VALIDATION_LIST_VALUES,
@@ -92,6 +95,44 @@ function sheet(values: string[][], ui: UiPort = stubUi()) {
   const tab = state.addTab('t.rsf', doc, null);
   return { state, commands, tab, doc, ui };
 }
+
+describe('rules follow row and column changes', () => {
+  const rule = (top: number, bottom: number): CellValidation => ({
+    top,
+    left: 0,
+    bottom,
+    right: 0,
+    rule: { kind: 'list', values: ['x'] },
+  });
+  const spans = (rules: CellValidation[]): Array<[number, number]> => rules.map((v) => [v.top, v.bottom]);
+
+  it('an insert above moves a range, inside grows it, and below leaves it', () => {
+    expect(spans(shiftValidationsForInsert([rule(2, 4)], 'row', 2, 3))).toEqual([[5, 7]]);
+    expect(spans(shiftValidationsForInsert([rule(2, 4)], 'row', 3, 3))).toEqual([[2, 7]]);
+    expect(spans(shiftValidationsForInsert([rule(2, 4)], 'row', 5, 3))).toEqual([[2, 4]]);
+    expect(shiftValidationsForInsert([rule(2, 4)], 'col', 0, 1)[0]).toMatchObject({ left: 1, right: 1 });
+  });
+
+  it('a delete shrinks a range and drops one with no cells left', () => {
+    expect(spans(shiftValidationsForDelete([rule(2, 4)], 'row', 0, 2))).toEqual([[0, 2]]);
+    expect(spans(shiftValidationsForDelete([rule(2, 4)], 'row', 3, 1))).toEqual([[2, 3]]);
+    expect(spans(shiftValidationsForDelete([rule(2, 4)], 'row', 1, 2))).toEqual([[1, 2]]);
+    expect(spans(shiftValidationsForDelete([rule(2, 4)], 'row', 4, 5))).toEqual([[2, 3]]);
+    expect(shiftValidationsForDelete([rule(2, 4)], 'row', 1, 5)).toEqual([]);
+    expect(shiftValidationsForDelete([rule(2, 4)], 'col', 0, 1)).toEqual([]);
+  });
+
+  it('a move carries a rule inside the moved span and shifts the rest', () => {
+    // Rows 0-1 move to just before row 5: they land at 3-4.
+    expect(spans(moveValidations([rule(0, 1), rule(2, 2), rule(6, 7)], 'row', 0, 2, 5))).toEqual([
+      [3, 4],
+      [0, 0],
+      [6, 7],
+    ]);
+    // Row 4 moves up to row 1; a rule over rows 0-5 keeps covering the same rows.
+    expect(spans(moveValidations([rule(0, 5)], 'row', 4, 1, 1))).toEqual([[0, 5]]);
+  });
+});
 
 describe('checkValidationValue', () => {
   it('a blank (or whitespace-only) value always passes, for either rule kind', () => {
@@ -361,7 +402,31 @@ describe('data validation command flow', () => {
     expect(doc.getValue(1, 0)).toBe('');
   });
 
-  it('structural row/column edits drop every active validation rule', () => {
+  it('follows row and column inserts and deletes, and undo restores a removed rule', () => {
+    const { state, tab, doc } = sheet([[''], [''], [''], ['']]);
+    const rule: CellValidation = {
+      top: 1,
+      left: 0,
+      bottom: 2,
+      right: 0,
+      rule: { kind: 'list', values: ['x'] },
+    };
+    expect(state.setValidation(tab, rule)).toBe(true);
+    expect(state.insertRows(tab, 0, 1)).toBe(true); // above: moves
+    expect(doc.validations[0]).toMatchObject({ top: 2, bottom: 3 });
+    expect(state.insertRows(tab, 3, 2)).toBe(true); // inside: grows
+    expect(doc.validations[0]).toMatchObject({ top: 2, bottom: 5 });
+    expect(state.insertCols(tab, 0, 1)).toBe(true);
+    expect(doc.validations[0]).toMatchObject({ left: 1, right: 1 });
+    expect(state.deleteRows(tab, 2, 4)).toBe(true); // every row of the rule
+    expect(doc.validations).toHaveLength(0);
+    state.undo(tab);
+    expect(doc.validations[0]).toMatchObject({ top: 2, bottom: 5, left: 1, right: 1 });
+    state.redo(tab);
+    expect(doc.validations).toHaveLength(0);
+  });
+
+  it('saves the rules with the file', () => {
     const { state, tab, doc } = sheet([[''], ['']]);
     const rule: CellValidation = {
       top: 0,
@@ -371,11 +436,27 @@ describe('data validation command flow', () => {
       rule: { kind: 'list', values: ['x'] },
     };
     expect(state.setValidation(tab, rule)).toBe(true);
-    expect(state.insertRows(tab, 0, 1)).toBe(true);
-    expect(doc.validations).toHaveLength(0);
+    const reopened = RsfDocument.fromBytes(doc.toBytes(), 't.rsf');
+    expect(reopened.ok && reopened.doc.validations).toEqual([rule]);
   });
 
-  it('is session-only view state: not undoable and does not mark the document dirty', () => {
+  it('moves a rule with the rows it is on', () => {
+    const { state, tab, doc } = sheet([['a'], ['b'], ['c'], ['d']]);
+    const rule: CellValidation = {
+      top: 0,
+      left: 0,
+      bottom: 0,
+      right: 0,
+      rule: { kind: 'number', min: 1, max: null },
+    };
+    expect(state.setValidation(tab, rule)).toBe(true);
+    expect(state.moveAxis(tab, 'row', 0, 1, 3)).toBe(true);
+    expect(doc.validations[0]).toMatchObject({ top: 2, bottom: 2 });
+    state.undo(tab);
+    expect(doc.validations[0]).toMatchObject({ top: 0, bottom: 0 });
+  });
+
+  it('is saved with the file: undoable, and marks the document changed', () => {
     const { state, tab, doc } = sheet([['']]);
     expect(doc.isDirty).toBe(false);
     const rule: CellValidation = {
@@ -386,10 +467,16 @@ describe('data validation command flow', () => {
       rule: { kind: 'list', values: ['x'] },
     };
     expect(state.setValidation(tab, rule)).toBe(true);
-    expect(doc.isDirty).toBe(false);
-    expect(tab.history.canUndo).toBe(false);
-    state.undo(tab); // no-op: nothing to undo
-    expect(doc.validations).toHaveLength(1); // survives, since it was never history-tracked
+    expect(doc.isDirty).toBe(true);
+    expect(tab.history.canUndo).toBe(true);
+    state.undo(tab);
+    expect(doc.validations).toHaveLength(0);
+    state.redo(tab);
+    expect(doc.validations).toHaveLength(1);
+    expect(state.clearValidation(tab, rule)).toBe(true);
+    expect(doc.validations).toHaveLength(0);
+    state.undo(tab);
+    expect(doc.validations).toEqual([rule]);
   });
 
   it('several rules can be active at once, each covering its own range', () => {

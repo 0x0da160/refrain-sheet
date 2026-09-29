@@ -47,6 +47,16 @@ really is internal, rather than inventing an entry to satisfy it.
   comparisons, so `=1+2&3` gives `33`. Formulas using `&` used to show
   an error.
 
+### Changed
+
+- **Data validation rules are saved with the file.** Rules set with
+  Data > Data Validation… are now kept in the RSF file, can be undone and
+  redone, and follow rows and columns: inserting inside a rule's range
+  grows it, deleting shrinks it, and moving rows or columns takes their
+  rules along. Before, rules lasted only until the tab closed and any row
+  or column insert or delete removed them all. Older versions open such
+  files and ignore the rules.
+
 ## [0.9.16] - 2026-09-28
 
 ### Added

@@ -585,7 +585,7 @@
   "notify.sortCleared": "Sort cleared; rows are back in their original order.",
   "notify.sortClearedByStructure": "The active sort was cleared because rows or columns were inserted or deleted.",
   "notify.sortedRangeReadOnly": "This cell is part of the active sort's range and can't be edited while sorted. Clear the sort (Sheet > Filter & Sort > Clear Sort) to edit it.",
-  "notify.validationApplied": "Data validation rule applied. It is not saved with the file and Ctrl+Z does not undo it; change or clear it from Data > Data Validation….",
+  "notify.validationApplied": "Data validation rule applied. It is saved with the file; change or clear it from Data > Data Validation….",
   "notify.validationCleared": "Data validation rule cleared for this range.",
   "notify.conditionalFormatApplied": "Conditional formatting rule applied. It is not saved with the file and Ctrl+Z does not undo it; change or clear it from Format > Conditional Formatting….",
   "notify.conditionalFormatCleared": "Conditional formatting rule cleared for this range.",

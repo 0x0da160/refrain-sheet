@@ -115,6 +115,7 @@ export class StructuralOpsState {
       sheetId,
       ops: [
         ...this.state.filterClearOpsFor(doc),
+        validationsSnapshot(doc),
         { type: 'rows', action: 'delete', index, count, data, sheetId },
         { type: 'cells', changes: rewrites.active, sheetId },
         ...rewrites.others,
@@ -204,6 +205,7 @@ export class StructuralOpsState {
       sheetId,
       ops: [
         ...this.state.filterClearOpsFor(doc),
+        validationsSnapshot(doc),
         {
           type: 'cols',
           action: 'delete',
@@ -714,4 +716,14 @@ export class StructuralOpsState {
     }
     return { active, others };
   }
+}
+
+/**
+ * The active worksheet's data-validation rules as they are, placed ahead of
+ * a deletion so undo restores the rules it shrank or removed (see the
+ * `validations` operation).
+ */
+function validationsSnapshot(doc: RsfDocument): Operation {
+  const rules = doc.validations;
+  return { type: 'validations', before: rules, after: rules, sheetId: doc.activeSheetId };
 }

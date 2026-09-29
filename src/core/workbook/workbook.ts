@@ -4,7 +4,7 @@ import type { SpillAnchor } from '../formula/spill';
 import { formatCellNumber } from './cell-number-format';
 import type { CellStyle } from './cell-style';
 import type { CellConditionalFormat, ConditionalFormatStyle } from './conditional-format';
-import type { CellValidation } from './data-validation';
+import { validationListsEqual, type CellValidation } from './data-validation';
 import { DEFAULT_DISPLAY_LANGUAGE, type DisplayLanguageId } from './display-language';
 import type { SheetFilter } from './filter';
 import { RecalcEngine } from './recalc-engine';
@@ -564,11 +564,19 @@ export class Workbook {
     return this.activeSheet.sort;
   }
 
-  // ----- Data validation (session-only view state; never persisted) -----
+  // ----- Data validation -----
 
   /** The active worksheet's data-validation rules. */
   get validations(): readonly CellValidation[] {
     return this.activeSheet.validations;
+  }
+
+  /** Replace a worksheet's rules (persisted, so this marks the workbook changed). */
+  setValidationsOn(sheetId: string | undefined, rules: readonly CellValidation[]): void {
+    const sheet = this.resolveSheet(sheetId);
+    if (this.bumpIf(!validationListsEqual(sheet.validations, rules))) {
+      sheet.validations = rules.slice();
+    }
   }
 
   // ----- Cell comments -----

@@ -6,6 +6,7 @@ sources:
   - resource: ../../../src/core/workbook/rsf-codec.ts
   - resource: ../../../src/core/workbook/history-delta.ts
   - resource: ../../../src/core/workbook/rsf-folders.ts
+  - resource: ../../../src/core/workbook/rsf-sheet-extras.ts
   - resource: ../../../tests/core/rsf-codec.test.ts
   - resource: ../../../tests/fixtures/rsf/v1/features.rsf
 status: stable
@@ -52,22 +53,23 @@ the same content is the same document.
 
 ## Worksheet
 
-| Key        | Type             | Meaning                                                                                  |
-| ---------- | ---------------- | ---------------------------------------------------------------------------------------- |
-| `id`       | string (1–255)   | Stable internal identifier, unique in the workbook; a duplicate is `bad-shape`.          |
-| `name`     | string           | Display name used by cross-sheet formulas (at most 400 UTF-8 bytes).                     |
-| `kind`     | string           | `grid` (default), `markdown`, `json`, `yaml`, or `text`.                                 |
-| `locked`   | boolean          | Protected against editing. Left out when `false`.                                        |
-| `tabColor` | string           | The tab's color, `#rrggbb` (written lowercase). Left out when none; else `bad-shape`.    |
-| `folder`   | string           | The id of the folder (in `folders`) the worksheet is in. Left out at the top level.      |
-| `rows`     | integer          | Grid only: row count, 1–2,000,000.                                                       |
-| `cols`     | integer          | Grid only: column count, 1–16,384 (and `rows × cols` at most 20,000,000).                |
-| `cells`    | array of arrays  | Grid only: rows of cell inputs (below).                                                  |
-| `lines`    | array of strings | Source kinds only: the document text, split on `\n`.                                     |
-| `view`     | object           | Display settings (below).                                                                |
-| `filter`   | object           | The worksheet's filter (below).                                                          |
-| `styles`   | object           | Cell formatting keyed by A1 reference (below).                                           |
-| `comments` | object           | Cell comments keyed by A1 reference: `{ "B2": "text" }` (at most 2,000 characters each). |
+| Key           | Type             | Meaning                                                                                  |
+| ------------- | ---------------- | ---------------------------------------------------------------------------------------- |
+| `id`          | string (1–255)   | Stable internal identifier, unique in the workbook; a duplicate is `bad-shape`.          |
+| `name`        | string           | Display name used by cross-sheet formulas (at most 400 UTF-8 bytes).                     |
+| `kind`        | string           | `grid` (default), `markdown`, `json`, `yaml`, or `text`.                                 |
+| `locked`      | boolean          | Protected against editing. Left out when `false`.                                        |
+| `tabColor`    | string           | The tab's color, `#rrggbb` (written lowercase). Left out when none; else `bad-shape`.    |
+| `folder`      | string           | The id of the folder (in `folders`) the worksheet is in. Left out at the top level.      |
+| `rows`        | integer          | Grid only: row count, 1–2,000,000.                                                       |
+| `cols`        | integer          | Grid only: column count, 1–16,384 (and `rows × cols` at most 20,000,000).                |
+| `cells`       | array of arrays  | Grid only: rows of cell inputs (below).                                                  |
+| `lines`       | array of strings | Source kinds only: the document text, split on `\n`.                                     |
+| `view`        | object           | Display settings (below).                                                                |
+| `filter`      | object           | The worksheet's filter (below).                                                          |
+| `styles`      | object           | Cell formatting keyed by A1 reference (below).                                           |
+| `comments`    | object           | Cell comments keyed by A1 reference: `{ "B2": "text" }` (at most 2,000 characters each). |
+| `validations` | array of objects | Grid only: data-validation rules (below), at most 64. Left out when none.                |
 
 ### Folders
 
@@ -168,6 +170,19 @@ older than this key ignore it and show the text with the cell's own style.
 `values` (a list of allowed display values, or `null`). It is validated
 against the worksheet; a filter that fails validation is **dropped** and
 the user is warned, while the rest of the file loads.
+
+### Validations
+
+`validations` lists the worksheet's data-validation rules in the order they
+were applied; where ranges overlap, the later rule wins. Each is
+`{ "range": "B2:C10", "list": ["Yes", "No"] }` (the cell must be one of
+the values) or `{ "range": "B2:C10", "min": 0, "max": 100 }` (the cell must
+be a number in the range; either bound may be left out, not both). `range`
+is two A1 references as the writer spells them (upper case, no `$`), top
+left first, inside the worksheet. A list has 1–500 non-empty values of at
+most 2,000 characters. Anything else, or the key on a source worksheet, is
+`bad-shape`; more than 64 rules or 500 values is `too-large`. A blank cell
+always passes. Releases older than this key ignore it and apply no rules.
 
 ## History
 

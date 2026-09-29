@@ -96,9 +96,14 @@ exports[`core export surface > keeps every core module exporting the same names 
   "data-validation": [
     "MAX_VALIDATION_LIST_VALUES",
     "MAX_VALIDATION_RULES",
+    "MAX_VALIDATION_VALUE_LENGTH",
     "checkValidationValue",
     "findValidation",
+    "moveValidations",
+    "shiftValidationsForDelete",
+    "shiftValidationsForInsert",
     "validateValidation",
+    "validationListsEqual",
     "validationRangesEqual",
   ],
   "date-stamp": [

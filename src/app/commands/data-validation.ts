@@ -23,10 +23,9 @@ import { applyWhileOpen } from './shared';
  * distinct from (and a consumer of) the pure logic in
  * `src/core/workbook/data-validation.ts`.
  *
- * Like sorting, a worksheet's rules are session-only view state (see
- * `Worksheet.validations`): applying or clearing one is a direct state
- * change, not a `HistoryEntry` — never undoable and never marks the document
- * dirty. Writing a value that violates the rule covering its cell is refused
+ * A worksheet's rules are saved with the file (see `Worksheet.validations`):
+ * applying or clearing one is an undoable `HistoryEntry` that marks the
+ * document changed. Writing a value that violates the rule covering its cell is refused
  * by `AppState` (`refuseInvalidWrite`), the same way `refuseSortedWrite`
  * protects a sorted range.
  */
@@ -44,7 +43,7 @@ export class ValidationCommands {
 
   /**
    * Data > Data Validation…: open the dialog for the selected range and
-   * apply the result as one (non-undoable) view-state change.
+   * apply the result as one undoable change.
    *
    * RSF-only: on a plain CSV document the explicit-conversion dialog explains
    * that data validation requires converting to RSF and offers to do so

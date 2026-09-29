@@ -23,7 +23,7 @@ import { MAX_TEXT_RUNS, runsForText, type TextRun } from './rich-text';
 import { DEFAULT_DISPLAY_LANGUAGE } from './display-language';
 import { DEFAULT_TIMEZONE } from './timezone';
 import { hasViewSettings, viewFromJson, viewToJson, type RsfViewSettings } from './rsf-view';
-import * as place from './rsf-folders';
+import * as place from './rsf-sheet-extras';
 import { applyJsonDelta, diffJson, HistoryDeltaError } from './history-delta';
 import { readSkippableFrame, readU32, writeSkippableFrame, writeU32, ZSTD_MAGIC } from './zstd-frame';
 
@@ -124,7 +124,7 @@ export interface RsfDisplaySettings extends RsfViewSettings {
  * One worksheet. `id` is its stable internal identifier (never shown, kept
  * across renames); `name` is the display name cross-sheet formulas write.
  */
-export interface RsfWorksheetData extends place.RsfSheetPlacement {
+export interface RsfWorksheetData extends place.RsfSheetExtras {
   id: string;
   name: string;
   rowCount: number;
@@ -328,7 +328,7 @@ function sheetToJson(sheet: RsfWorksheetData): { [key: string]: Json } {
   const kind = sheet.kind ?? 'grid';
   const out: { [key: string]: Json } = { id: sheet.id, name: sheet.name, kind };
   if (sheet.locked) out.locked = true;
-  Object.assign(out, place.placementToJson(sheet));
+  Object.assign(out, place.sheetExtrasToJson(sheet));
   if (kind === 'grid') {
     out.rows = sheet.rowCount;
     out.cols = sheet.columnCount;
@@ -743,7 +743,7 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
     fail('too-large');
   }
   if (optBoolean(value, 'locked')) sheet.locked = true;
-  Object.assign(sheet, place.placementFromJson(value, fail));
+  Object.assign(sheet, place.sheetExtrasFromJson(value, sheet, fail));
   if (value.view !== undefined) {
     const view = value.view;
     if (!isObject(view)) {

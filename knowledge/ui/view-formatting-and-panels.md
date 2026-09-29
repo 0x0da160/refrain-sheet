@@ -20,19 +20,19 @@ Five RSF-only commands — **Filter**, **Sort**, **Data Validation**,
 (Sheet/Format/Data) and a UI shell (the dockable side panel, below), but
 differ sharply in one dimension: **what survives a save**.
 
-| Feature                    | Saved to `.rsf`?               | Undoable?                                                         | Marks document dirty? |
-| -------------------------- | ------------------------------ | ----------------------------------------------------------------- | --------------------- |
-| **Filter**                 | Yes (the worksheet's `filter`) | Yes (as one atomic step; clearing it via structural edits is too) | Yes                   |
-| **Cell Formatting**        | Yes                            | Yes (one atomic history entry per change)                         | Yes                   |
-| **Sort**                   | No — session-only view state   | No                                                                | No                    |
-| **Data Validation**        | No — session-only view state   | No                                                                | No                    |
-| **Conditional Formatting** | No — session-only view state   | No                                                                | No                    |
+| Feature                    | Saved to `.rsf`?                    | Undoable?                                                         | Marks document dirty? |
+| -------------------------- | ----------------------------------- | ----------------------------------------------------------------- | --------------------- |
+| **Filter**                 | Yes (the worksheet's `filter`)      | Yes (as one atomic step; clearing it via structural edits is too) | Yes                   |
+| **Cell Formatting**        | Yes                                 | Yes (one atomic history entry per change)                         | Yes                   |
+| **Sort**                   | No — session-only view state        | No                                                                | No                    |
+| **Data Validation**        | Yes (the worksheet's `validations`) | Yes (one atomic history entry per change)                         | Yes                   |
+| **Conditional Formatting** | No — session-only view state        | No                                                                | No                    |
 
 This split is deliberate and recorded as an invariant in
 [../architecture/invariants.md](../architecture/invariants.md) ("Filter =
 hide only, never mutate" and "Sort = display order only, never mutate"):
-Filter and Cell Formatting change what reopens with the file; Sort, Data
-Validation, and Conditional Formatting are purely how the current session
+Filter, Cell Formatting, and Data Validation change what reopens with the
+file; Sort and Conditional Formatting are purely how the current session
 looks at the data, cleared the moment the sort/rules are cleared or the tab
 closes.
 
@@ -90,6 +90,13 @@ cell; typing narrows it. Invalid edits are refused with an explanation, the
 same refusal pattern as editing inside a sorted range. Up to 64 rules per
 worksheet, up to 500 values in one list rule; overlapping ranges resolve to
 the most recently applied rule.
+
+Rules are saved with the file (the worksheet's `validations`, see
+[../formats/rsf/json-document.md](../formats/rsf/json-document.md)), and
+applying or clearing one is undoable. They follow row and column insertion,
+deletion, and moves the way a formula's range does: an insert inside a
+rule's range grows it, a delete shrinks it, and a rule whose cells are all
+deleted goes away (undo brings it back).
 
 ## Conditional Formatting
 

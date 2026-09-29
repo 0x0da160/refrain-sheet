@@ -207,11 +207,10 @@ export class WorksheetsState {
   }
 
   /**
-   * Apply (add or replace) a data-validation rule on the active worksheet.
-   * Session-only view state, like {@link setSort} — a direct mutation, not an
-   * undoable history entry. Any existing rule covering the exact same range
-   * is replaced; other rules are left as-is, so several ranges can each carry
-   * their own rule at once.
+   * Apply (add or replace) a data-validation rule on the active worksheet,
+   * as one undoable history entry (rules are saved in the file). Any
+   * existing rule covering the exact same range is replaced; other rules are
+   * left as-is, so several ranges can each carry their own rule at once.
    */
   setValidation(tab: Tab, validation: CellValidation): boolean {
     const sheet = activeSheetOf(tab.doc);
@@ -220,12 +219,10 @@ export class WorksheetsState {
     }
     const next = sheet.validations.filter((v) => !validationRangesEqual(v, validation));
     next.push(validation);
-    sheet.validations = next;
-    this.state.emit('doc');
-    return true;
+    return this.replaceValidations(tab, sheet.id, sheet.validations, next, 'history.setValidation');
   }
 
-  /** Clear the data-validation rule covering exactly `range`, if one exists. */
+  /** Clear the data-validation rule covering exactly `range`, if one exists (undoable). */
   clearValidation(tab: Tab, range: Pick<CellValidation, 'top' | 'left' | 'bottom' | 'right'>): boolean {
     const sheet = activeSheetOf(tab.doc);
     if (!sheet) {
@@ -235,9 +232,21 @@ export class WorksheetsState {
     if (next.length === sheet.validations.length) {
       return false;
     }
-    sheet.validations = next;
-    this.state.emit('doc');
-    return true;
+    return this.replaceValidations(tab, sheet.id, sheet.validations, next, 'history.clearValidation');
+  }
+
+  private replaceValidations(
+    tab: Tab,
+    sheetId: string,
+    before: readonly CellValidation[],
+    after: readonly CellValidation[],
+    label: string,
+  ): boolean {
+    return this.state.pushEntry(tab, {
+      label,
+      sheetId,
+      ops: [{ type: 'validations', before, after, sheetId }],
+    });
   }
 
   /** The rule covering exactly `range` on the active worksheet, or null. */

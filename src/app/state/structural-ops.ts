@@ -15,6 +15,7 @@ import { safeStorageSet } from '../storage';
 import { resolveWrap, resolveZoom } from './view-layers';
 import { colWidthsAt, deleteColWidths, insertColWidths } from './col-widths';
 import { planAxisMove } from './axis-move';
+import { showsSheet } from '../../core/workbook/sheet-charts';
 
 /**
  * Structural operations on RSF spreadsheet documents — row/column insert and
@@ -116,7 +117,7 @@ export class StructuralOpsState {
       ops: [
         ...this.state.filterClearOpsFor(doc),
         validationsSnapshot(doc),
-        objectsSnapshot(doc),
+        ...objectsSnapshots(doc),
         { type: 'rows', action: 'delete', index, count, data, sheetId },
         { type: 'cells', changes: rewrites.active, sheetId },
         ...rewrites.others,
@@ -207,7 +208,7 @@ export class StructuralOpsState {
       ops: [
         ...this.state.filterClearOpsFor(doc),
         validationsSnapshot(doc),
-        objectsSnapshot(doc),
+        ...objectsSnapshots(doc),
         {
           type: 'cols',
           action: 'delete',
@@ -734,7 +735,14 @@ function validationsSnapshot(doc: RsfDocument): Operation {
  * The active worksheet's objects as they are, placed ahead of a deletion so
  * undo puts back objects the deletion moved (see the `objects` operation).
  */
-function objectsSnapshot(doc: RsfDocument): Operation {
-  const objects = doc.objects;
-  return { type: 'objects', before: objects, after: objects, sheetId: doc.activeSheetId };
+/**
+ * The objects as they stand, restored first on undo: the active worksheet's,
+ * and those of every worksheet with a chart that shows it (a delete shrinks
+ * the chart's range, which re-inserting the cells would not grow back).
+ */
+function objectsSnapshots(doc: RsfDocument): Operation[] {
+  const active = doc.activeSheetId;
+  return doc.sheets
+    .filter((sheet) => sheet.id === active || showsSheet(sheet.objects, [active]))
+    .map((sheet) => ({ type: 'objects', before: sheet.objects, after: sheet.objects, sheetId: sheet.id }));
 }

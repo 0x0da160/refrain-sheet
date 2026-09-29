@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** Insert menu: shapes and pictures over the sheet, and the object list and order commands. */
+/** Insert menu: shapes, pictures and charts over the sheet, and the object list and order commands. */
 import { MAX_IMAGE_BYTES } from '../../../core/workbook/sheet-images';
 import { pickImageFile } from '../../file-access';
 import type { ObjectOrder, ShapeKind } from '../objects';
@@ -32,6 +32,10 @@ export const INSERT_COMMANDS = {
         await ctx.parts.objects.insertImage(tab, picked);
       }
     },
+    (ctx, tab) => ctx.parts.objects.canInsert(tab),
+  ),
+  'insert.chart': withTab(
+    (ctx, tab) => ctx.parts.objects.insertChart(tab),
     (ctx, tab) => ctx.parts.objects.canInsert(tab),
   ),
   'insert.objectList': {

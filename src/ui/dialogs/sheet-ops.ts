@@ -267,9 +267,10 @@ export class SheetOpsDialogs {
    * Confirm deleting a worksheet that holds content or is referenced by
    * formulas. The message states — truthfully — how many formulas elsewhere in
    * the workbook will become #REF!, because deletion never silently redirects
-   * references to another worksheet.
+   * references to another worksheet, and how many charts elsewhere show it
+   * (they keep the data they show now).
    */
-  confirmDeleteSheet(name: string, referenceCount: number): Promise<boolean> {
+  confirmDeleteSheet(name: string, referenceCount: number, chartCount = 0): Promise<boolean> {
     return openDialog<boolean>(t('dialog.deleteSheet.title'), false, (body, buttons, close) => {
       body.append(el('p', { text: t('dialog.deleteSheet.message', { name }) }));
       if (referenceCount > 0) {
@@ -277,6 +278,14 @@ export class SheetOpsDialogs {
           el('p', {
             className: 'dialog-note warn',
             text: t('dialog.deleteSheet.references', { n: referenceCount }),
+          }),
+        );
+      }
+      if (chartCount > 0) {
+        body.append(
+          el('p', {
+            className: 'dialog-note warn',
+            text: t('dialog.deleteSheet.charts', { n: chartCount }),
           }),
         );
       }

@@ -16,12 +16,21 @@
 import type { Tab } from '../../app/state';
 import { t } from '../../app/i18n';
 import { isWorkbook } from '../../core/editor-document';
+import { chartData } from '../../core/workbook/sheet-charts';
 import { isLineKind, isPositionLocked, type SheetObject } from '../../core/workbook/sheet-objects';
+import { buildChartSvg, type ChartWords } from '../chart-view';
 import { ContextMenu, type ContextMenuEntry } from '../context-menu';
 import { clearChildren, el } from '../dom';
 import { buildObjectElement, lineEnds, type ObjectBox } from '../sheet-object-view';
 import type { GridCore } from './core';
 import type { CommandId } from '../../app/commands';
+
+const CHART_WORDS: ChartWords = {
+  series: (n) => t('chart.series', { n }),
+  get noData() {
+    return t('chart.noData');
+  },
+};
 
 /** Pointer travel (px) before a press on an object becomes a drag. */
 const DRAG_THRESHOLD = 3;
@@ -95,6 +104,8 @@ export class ObjectLayer {
     const selected = this.core.state.objectSelection.selected(tab);
     const signature = [
       tab.doc,
+      // Charts show cells: redraw when any cell of the file changes.
+      isWorkbook(tab.doc) ? tab.doc.revisionCounter : 0,
       objects,
       tab.zoom,
       this.core.metrics.heightsVersion,
@@ -138,7 +149,12 @@ export class ObjectLayer {
   private objectElement(tab: Tab, o: SheetObject, selected: boolean): HTMLElement {
     const box = this.boxOf(tab, o);
     const image = o.image !== undefined && isWorkbook(tab.doc) ? tab.doc.images.get(o.image) : undefined;
-    const node = buildObjectElement(o, box, this.core.metrics.zoomOf(tab), image);
+    const zoom = this.core.metrics.zoomOf(tab);
+    const chart =
+      o.chart && isWorkbook(tab.doc)
+        ? buildChartSvg(o.chart, chartData(tab.doc, o.chart), box.w, box.h, zoom, CHART_WORDS)
+        : undefined;
+    const node = buildObjectElement(o, box, zoom, image, chart);
     node.tabIndex = -1;
     if (selected) {
       node.classList.add('selected');

@@ -58,6 +58,16 @@
   border: 1px dashed var(--border-default);
 }
 
+/* A chart draws its own white card (src/ui/chart-view.ts), in every theme. */
+.sheet-chart {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  font-family: var(--font-ui);
+  user-select: none;
+}
+
 .sheet-object-line .sheet-object-hit,
 .sheet-object-arrow .sheet-object-hit {
   pointer-events: stroke;

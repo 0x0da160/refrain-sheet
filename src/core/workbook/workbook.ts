@@ -7,6 +7,7 @@ import type { CellConditionalFormat, ConditionalFormatStyle } from './conditiona
 import { validationListsEqual, type CellValidation } from './data-validation';
 import { objectListsEqual, type SheetObject } from './sheet-objects';
 import { ImageStore } from './sheet-images';
+import { followCharts } from './sheet-charts';
 import { DEFAULT_DISPLAY_LANGUAGE, type DisplayLanguageId } from './display-language';
 import type { SheetFilter } from './filter';
 import { RecalcEngine } from './recalc-engine';
@@ -651,6 +652,7 @@ export class Workbook {
 
   insertRowsOn(sheetId: string | undefined, index: number, rows: string[][]): void {
     this.resolveSheet(sheetId).insertRows(index, rows);
+    followCharts(this.sheets, this.resolveSheet(sheetId), 'row', 'insert', index, rows.length);
     this.touch();
   }
 
@@ -660,6 +662,7 @@ export class Workbook {
 
   deleteRowsOn(sheetId: string | undefined, index: number, count: number): string[][] {
     const removed = this.resolveSheet(sheetId).deleteRows(index, count);
+    followCharts(this.sheets, this.resolveSheet(sheetId), 'row', 'delete', index, count);
     this.touch();
     return removed;
   }
@@ -670,6 +673,7 @@ export class Workbook {
 
   insertColsOn(sheetId: string | undefined, index: number, colsData: string[][]): void {
     this.resolveSheet(sheetId).insertCols(index, colsData);
+    followCharts(this.sheets, this.resolveSheet(sheetId), 'col', 'insert', index, colsData.length);
     this.touch();
   }
 
@@ -679,6 +683,7 @@ export class Workbook {
 
   deleteColsOn(sheetId: string | undefined, index: number, count: number): string[][] {
     const removed = this.resolveSheet(sheetId).deleteCols(index, count);
+    followCharts(this.sheets, this.resolveSheet(sheetId), 'col', 'delete', index, count);
     this.touch();
     return removed;
   }

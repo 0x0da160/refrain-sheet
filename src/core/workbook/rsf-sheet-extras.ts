@@ -25,6 +25,7 @@ import {
   type RsfSheetPlacement,
 } from './rsf-folders';
 import { checkImageReferences, imagesFromJson, imagesToJson, type RsfImageList } from './rsf-images';
+import { checkChartSources } from './rsf-sheet-charts';
 import { objectsFromJson, objectsToJson } from './rsf-sheet-objects';
 import type { SheetObject } from './sheet-objects';
 
@@ -38,11 +39,20 @@ export function fileExtrasToJson(data: RsfFileExtras): { folders?: Json; images?
 
 /**
  * Reads the file's `folders` and `images`, checking every worksheet's folder
- * and every image object's picture against them.
+ * and every image object's picture against them, and every chart's range
+ * against the worksheets.
  */
 export function fileExtrasFromJson(
   value: { [key: string]: unknown },
-  sheets: ReadonlyArray<RsfSheetPlacement & { objects?: readonly SheetObject[] }>,
+  sheets: ReadonlyArray<
+    RsfSheetPlacement & {
+      id: string;
+      kind?: string;
+      rowCount: number;
+      columnCount: number;
+      objects?: readonly SheetObject[];
+    }
+  >,
   fail: Fail,
 ): RsfFileExtras {
   const out: RsfFileExtras = {
@@ -50,6 +60,7 @@ export function fileExtrasFromJson(
     ...imagesFromJson(value.images, fail),
   };
   checkImageReferences(out, sheets, fail);
+  checkChartSources(sheets, fail);
   return out;
 }
 

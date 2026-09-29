@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 /**
- * Shapes and pictures placed over a spreadsheet worksheet: rectangles,
- * ellipses, lines, arrows, text boxes and images (`Worksheet.objects`; an
- * image's bytes are in the workbook's picture store, `sheet-images.ts`). Each is anchored to a cell —
+ * Shapes, pictures and charts placed over a spreadsheet worksheet:
+ * rectangles, ellipses, lines, arrows, text boxes, images and charts
+ * (`Worksheet.objects`; an image's bytes are in the workbook's picture
+ * store, `sheet-images.ts`; a chart's settings are in `sheet-charts.ts`). Each is anchored to a cell —
  * its top-left corner sits `dx`/`dy` pixels (at 100% zoom) right of and
  * below that cell's top-left corner — so inserting or deleting rows and
  * columns before it moves it with the cells, and a row-height or
@@ -16,10 +17,11 @@
  */
 import { movedAxisIndex } from '../formula';
 import { normalizeHexColor } from './cell-style';
+import { chartSpecValid, type ChartSpec } from './sheet-charts';
 import { IMAGE_ID_PATTERN } from './sheet-images';
 import { normalizeFontSize } from './text-font';
 
-const SHEET_OBJECT_KINDS = ['rect', 'ellipse', 'line', 'arrow', 'text', 'image'] as const;
+const SHEET_OBJECT_KINDS = ['rect', 'ellipse', 'line', 'arrow', 'text', 'image', 'chart'] as const;
 export type SheetObjectKind = (typeof SHEET_OBJECT_KINDS)[number];
 
 export const OBJECT_TEXT_ALIGNS = ['left', 'center', 'right'] as const;
@@ -77,6 +79,8 @@ export interface SheetObject {
   crop?: ObjectCrop;
   /** Image only: resizing may change its width-to-height ratio (kept by default). */
   aspectFree?: true;
+  /** Chart only: what it shows and how (required). */
+  chart?: ChartSpec;
   /** `#rrggbb`, or `'none'` for no fill / no line. Left out: the kind's default. */
   fill?: string;
   stroke?: string;
@@ -109,7 +113,7 @@ export function objectDefaults(kind: SheetObjectKind): {
   align: (typeof OBJECT_TEXT_ALIGNS)[number];
   valign: (typeof OBJECT_TEXT_VALIGNS)[number];
 } {
-  if (kind === 'text' || kind === 'image') {
+  if (kind === 'text' || kind === 'image' || kind === 'chart') {
     return { fill: 'none', stroke: 'none', strokeWidth: 1, align: 'left', valign: 'top' };
   }
   return {
@@ -201,6 +205,14 @@ function imageFieldsValid(o: SheetObject): boolean {
   );
 }
 
+/** Whether the chart settings fit the kind: a chart has them and holds no text. */
+function chartFieldsValid(o: SheetObject): boolean {
+  if (o.kind !== 'chart') {
+    return o.chart === undefined;
+  }
+  return o.chart !== undefined && chartSpecValid(o.chart) && o.text === undefined;
+}
+
 /** Whether the fill, line and text settings are all in range. */
 function formatValid(o: SheetObject): boolean {
   const optional = <T>(value: T | undefined, test: (value: T) => boolean): boolean =>
@@ -228,7 +240,10 @@ function formatValid(o: SheetObject): boolean {
  * worksheet of `rows` × `cols` (every rule the file reader enforces).
  */
 export function validateObject(object: SheetObject, rows: number, cols: number): SheetObject | null {
-  return placementValid(object, rows, cols) && formatValid(object) && imageFieldsValid(object)
+  return placementValid(object, rows, cols) &&
+    formatValid(object) &&
+    imageFieldsValid(object) &&
+    chartFieldsValid(object)
     ? object
     : null;
 }

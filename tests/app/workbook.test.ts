@@ -432,7 +432,7 @@ describe('worksheet commands', () => {
     doc.setCellOn(doc.sheets[0].id, 0, 0, '=Data!A1');
     state.setActiveSheet(tab, data.id);
     await commands.run('worksheet.delete');
-    expect(confirmDeleteSheet).toHaveBeenCalledWith('Data', 1);
+    expect(confirmDeleteSheet).toHaveBeenCalledWith('Data', 1, 0);
     expect(doc.sheetCount).toBe(1);
   });
 

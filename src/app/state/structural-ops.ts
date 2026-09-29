@@ -116,6 +116,7 @@ export class StructuralOpsState {
       ops: [
         ...this.state.filterClearOpsFor(doc),
         validationsSnapshot(doc),
+        objectsSnapshot(doc),
         { type: 'rows', action: 'delete', index, count, data, sheetId },
         { type: 'cells', changes: rewrites.active, sheetId },
         ...rewrites.others,
@@ -206,6 +207,7 @@ export class StructuralOpsState {
       ops: [
         ...this.state.filterClearOpsFor(doc),
         validationsSnapshot(doc),
+        objectsSnapshot(doc),
         {
           type: 'cols',
           action: 'delete',
@@ -726,4 +728,13 @@ export class StructuralOpsState {
 function validationsSnapshot(doc: RsfDocument): Operation {
   const rules = doc.validations;
   return { type: 'validations', before: rules, after: rules, sheetId: doc.activeSheetId };
+}
+
+/**
+ * The active worksheet's objects as they are, placed ahead of a deletion so
+ * undo puts back objects the deletion moved (see the `objects` operation).
+ */
+function objectsSnapshot(doc: RsfDocument): Operation {
+  const objects = doc.objects;
+  return { type: 'objects', before: objects, after: objects, sheetId: doc.activeSheetId };
 }

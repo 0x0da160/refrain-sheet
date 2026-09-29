@@ -22,6 +22,8 @@ import { FilterCommands } from './filter';
 import { FormatCommands } from './format';
 import { SortCommands } from './sort';
 import { SheetFolderCommands, type FolderAction } from './sheet-folders';
+import { ObjectCommands } from './objects';
+import type { SheetObject } from '../../core/workbook/sheet-objects';
 import { WorksheetCommands } from './worksheets';
 import { SqlCommands, type SqlRunOutcome } from './sql';
 import { DiffCommands } from './diff';
@@ -99,6 +101,8 @@ export class Commands {
     openPrint: () => void;
     /** Open View > Customize Toolbar… (which commands the toolbar shows, in which order). */
     customizeToolbar: () => void;
+    /** Open the object list (shapes on the sheet, with their properties and locks). */
+    openObjects: () => void;
   } | null = null;
 
   /**
@@ -124,6 +128,7 @@ export class Commands {
       validation: new ValidationCommands(state, ui, ensureRsf),
       conditionalFormat: new ConditionalFormatCommands(state, ui, ensureRsf),
       comment: new CommentCommands(state, ui, ensureRsf),
+      objects: new ObjectCommands(state, ui, ensureRsf),
       worksheets: new WorksheetCommands(state, ui, ensureRsf),
       folders: new SheetFolderCommands(state, ui),
       pasteFill: new PasteFillCommands(
@@ -199,6 +204,25 @@ export class Commands {
   dropSheetOnFolder(sheetId: string, folderId: string): boolean {
     const tab = this.state.activeTab;
     return tab !== null && this.parts.folders.dropSheetOnFolder(tab, sheetId, folderId);
+  }
+
+  /** The active worksheet's objects (shapes), bottom to top. */
+  objectsOf(tab: Tab): readonly SheetObject[] {
+    return this.parts.objects.objects(tab);
+  }
+
+  /**
+   * Change objects of the active worksheet (matched by id) as one undoable
+   * step: a move, resize or property edit from the grid or the object list.
+   * Refused, with a message, where a lock forbids it.
+   */
+  updateObjects(tab: Tab, changed: readonly SheetObject[], label: string): boolean {
+    return this.parts.objects.update(tab, changed, label);
+  }
+
+  /** Replace the active worksheet's whole object list (the list's reordering) as one undoable step. */
+  replaceObjects(tab: Tab, next: readonly SheetObject[], label: string): boolean {
+    return this.parts.objects.replace(tab, next, label);
   }
 
   /** Surface a localized notification (used by UI surfaces without direct port access). */

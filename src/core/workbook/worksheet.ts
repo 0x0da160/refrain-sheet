@@ -2,6 +2,7 @@
 import { cellStylesEqual, type CellStyle } from './cell-style';
 import type { CellConditionalFormat } from './conditional-format';
 import { shiftValidationsForDelete, shiftValidationsForInsert, type CellValidation } from './data-validation';
+import { shiftObjectsForDelete, shiftObjectsForInsert, type SheetObject } from './sheet-objects';
 import type { SheetFilter } from './filter';
 import { isFormula, parseFormula, type ParseResult } from '../formula';
 import type { GridLookLayer } from '../grid-look';
@@ -121,6 +122,14 @@ export class Worksheet {
    * a change replaces the whole list.
    */
   validations: CellValidation[] = [];
+
+  /**
+   * Shapes over the grid, bottom to top (see `sheet-objects.ts`). Persisted
+   * in the RSF container (`objects`), changed only through undoable history
+   * entries, and moved with row/column insertion and deletion. Treat the
+   * array and its objects as immutable: a change replaces the whole list.
+   */
+  objects: SheetObject[] = [];
 
   /**
    * Conditional-formatting rules that color a cell's background/text from its
@@ -547,6 +556,7 @@ export class Worksheet {
     this.formulaPerRow?.splice(at, 0, ...prepared.map((row) => this.countRowFormulas(row)));
     this.shiftAnnotationRows((row) => (row >= at ? row + prepared.length : row));
     this.validations = shiftValidationsForInsert(this.validations, 'row', at, prepared.length);
+    this.objects = shiftObjectsForInsert(this.objects, 'row', at, prepared.length);
     this.revision += 1;
     // The sort's stored range would otherwise silently drift against the
     // shifted rows; since sort is session-only view state (not undo-tracked),
@@ -565,6 +575,7 @@ export class Worksheet {
     }
     this.shiftAnnotationRows((row) => (row < index ? row : row < index + count ? null : row - count));
     this.validations = shiftValidationsForDelete(this.validations, 'row', index, count);
+    this.objects = shiftObjectsForDelete(this.objects, 'row', index, count, this.data.length);
     this.revision += 1;
     this.sort = null;
     this.conditionalFormats = [];
@@ -583,6 +594,7 @@ export class Worksheet {
     }
     this.shiftAnnotationCols((col) => (col >= at ? col + count : col));
     this.validations = shiftValidationsForInsert(this.validations, 'col', at, count);
+    this.objects = shiftObjectsForInsert(this.objects, 'col', at, count);
     this.cols += count;
     this.revision += 1;
     this.sort = null;
@@ -610,6 +622,7 @@ export class Worksheet {
         row.push('');
       }
     }
+    this.objects = shiftObjectsForDelete(this.objects, 'col', index, count, this.cols);
     this.revision += 1;
     this.sort = null;
     this.conditionalFormats = [];
@@ -688,6 +701,7 @@ export class Worksheet {
     copy.tabColor = this.tabColor;
     copy.folderId = this.folderId;
     copy.validations = this.validations.slice();
+    copy.objects = this.objects.slice();
     copy.styles = this.styles.clone();
     copy.comments = this.comments.clone();
     return copy;
@@ -712,6 +726,7 @@ export class Worksheet {
     copy.tabColor = this.tabColor;
     copy.folderId = this.folderId;
     copy.validations = this.validations.slice();
+    copy.objects = this.objects.slice();
     return copy;
   }
 

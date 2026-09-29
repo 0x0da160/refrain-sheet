@@ -16,6 +16,7 @@ import { resolveWrap, resolveZoom } from './view-layers';
 import { EditingState } from './editing';
 import type { FormulaRefTarget, Selection, SelectionKind, StateEventType, Tab } from './types';
 import { SheetFoldersState } from './sheet-folders';
+import { ObjectSelection } from './object-selection';
 import { WorksheetsState } from './worksheets';
 import { WriteGuards } from './write-guards';
 
@@ -71,6 +72,9 @@ export class AppState {
 
   /** Sheet folder operations — see `SheetFoldersState`. */
   readonly folders: SheetFoldersState;
+
+  /** Which objects (shapes) are picked — see `ObjectSelection`. */
+  readonly objectSelection = new ObjectSelection(this);
 
   /** The checks every user-initiated write passes — see `WriteGuards`. */
   private readonly guards: WriteGuards;

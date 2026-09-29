@@ -351,6 +351,60 @@ const cases: FixtureCase[] = [
       ],
     },
   },
+  {
+    // Shapes over a worksheet (`objects`), bottom to top, with the two locks.
+    file: 'objects.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: {
+      delimiter: ',',
+      activeSheetId: 's1',
+      sheets: [
+        {
+          ...grid,
+          objects: [
+            { id: 'o1', name: 'Box', kind: 'rect', row: 1, col: 1, dx: 4, dy: 3, width: 120, height: 60 },
+            {
+              id: 'o2',
+              name: 'Note',
+              kind: 'text',
+              row: 0,
+              col: 2,
+              dx: 0,
+              dy: 0,
+              width: 160,
+              height: 48,
+              rotation: 15,
+              fill: '#fff2cc',
+              stroke: 'none',
+              text: 'Check\nthis',
+              textColor: '#1f4e79',
+              fontSize: 12,
+              bold: true,
+              align: 'center',
+              valign: 'middle',
+              lockEdit: true,
+            },
+            {
+              id: 'o3',
+              name: 'Arrow 1',
+              kind: 'arrow',
+              row: 3,
+              col: 0,
+              dx: 8,
+              dy: 10,
+              width: 128,
+              height: 0,
+              flipH: true,
+              strokeWidth: 2.5,
+              hidden: true,
+              lockPosition: true,
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 function loadFixture(file: string, encode: () => Uint8Array): Uint8Array {

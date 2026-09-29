@@ -20,6 +20,7 @@ import type { FileIoCommands } from '../file-io';
 import type { FilterCommands } from '../filter';
 import type { FormatCommands } from '../format';
 import type { Commands } from '../index';
+import type { ObjectCommands } from '../objects';
 import type { PasteFillCommands } from '../paste-fill';
 import type { RangeOpsCommands } from '../range-ops';
 import type { SortCommands } from '../sort';
@@ -37,6 +38,7 @@ export interface CommandParts {
   readonly validation: ValidationCommands;
   readonly conditionalFormat: ConditionalFormatCommands;
   readonly comment: CommentCommands;
+  readonly objects: ObjectCommands;
   readonly worksheets: WorksheetCommands;
   readonly folders: SheetFolderCommands;
   readonly pasteFill: PasteFillCommands;

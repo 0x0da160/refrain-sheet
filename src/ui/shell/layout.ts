@@ -43,6 +43,7 @@ export function mountLayout(
     s.findBar.element,
     s.commentsPanel.element,
     s.validationCheckPanel.element,
+    s.objectsPanel.element,
     s.markdownSheetView.panelElement,
     s.jsonSheetView.panelElement,
     s.yamlSheetView.panelElement,

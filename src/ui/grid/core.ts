@@ -13,6 +13,7 @@
  * - `drags` — `DragOperations` (./drag-operations.ts)
  * - `autofit` — `AutoFitter` (./auto-fitter.ts)
  * - `navigation` — `Navigator` (./navigation.ts)
+ * - `objects` — `ObjectLayer` (./object-layer.ts)
  *
  * Collaborators reach each other through the core (`this.core.renderer`),
  * never by importing one another, so the import graph stays a star.
@@ -46,6 +47,7 @@ import { PointerInput } from './pointer-input';
 import { DragOperations } from './drag-operations';
 import { AutoFitter } from './auto-fitter';
 import { Navigator } from './navigation';
+import { ObjectLayer } from './object-layer';
 
 export interface RenderWindow {
   /**
@@ -96,6 +98,7 @@ export class GridCore {
   readonly drags: DragOperations;
   readonly autofit: AutoFitter;
   readonly navigation: Navigator;
+  readonly objects: ObjectLayer;
 
   readonly element: HTMLElement;
   readonly canvas: HTMLElement;
@@ -258,6 +261,7 @@ export class GridCore {
     this.drags = new DragOperations(this);
     this.autofit = new AutoFitter(this);
     this.navigation = new Navigator(this);
+    this.objects = new ObjectLayer(this);
     this.element = el('div', {
       className: 'grid-container',
       attrs: { tabindex: '0', role: 'grid' },
@@ -353,6 +357,7 @@ export class GridCore {
       this.headerEl,
       this.stickyEl,
       this.rowsLayer,
+      this.objects.element,
       this.addRowAnchor,
       this.addColAnchor,
       this.measureCell,
@@ -398,6 +403,8 @@ export class GridCore {
     // mouse also dispatches pointer events, so every handler below bails out
     // on `pointerType === 'mouse'` and leaves that input to the mouse
     // listeners already registered.
+    // A press that reaches the grid itself (not an object, which stops it) lets go of the picked objects.
+    this.element.addEventListener('pointerdown', () => this.objects.gridPointerDown());
     this.element.addEventListener('pointerdown', (event) => this.pointer.onPointerDown(event));
     this.element.addEventListener('pointermove', (event) => this.pointer.onPointerMove(event));
     this.element.addEventListener('pointerup', (event) => this.pointer.onPointerEnd(event));
@@ -409,6 +416,7 @@ export class GridCore {
       if (event.key !== 'Escape') {
         return;
       }
+      this.objects.cancelDrag();
       if (this.movingRange) {
         this.drags.cancelMove();
       }

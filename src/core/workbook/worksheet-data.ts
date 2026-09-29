@@ -9,6 +9,7 @@
 import { isEmptyGridLook } from '../grid-look';
 import { MAX_VALIDATION_RULES, validateValidation } from './data-validation';
 import type { RsfWorksheetData } from './rsf-codec';
+import { MAX_SHEET_OBJECTS, validateObject } from './sheet-objects';
 import { Worksheet } from './worksheet';
 
 /** Materialize one decoded worksheet record (already validated by the codec). */
@@ -38,6 +39,7 @@ export function worksheetFromData(entry: RsfWorksheetData): Worksheet {
   sheet.tabColor = entry.tabColor;
   sheet.folderId = entry.folderId;
   sheet.validations = entry.validations?.slice() ?? [];
+  sheet.objects = entry.objects?.slice() ?? [];
   for (const [r, c, style] of entry.styles ?? []) {
     sheet.setStyle(r, c, style);
   }
@@ -99,6 +101,15 @@ export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, 
   );
   if (validations.length > 0 && sheet.kind === 'grid') {
     entry.validations = validations.slice(0, MAX_VALIDATION_RULES);
+  }
+  // Likewise only objects that fit (an anchor past the last row never reads
+  // back), each id once.
+  const ids = new Set<string>();
+  const objects = sheet.objects.filter(
+    (o) => validateObject(o, sheet.rowCount, sheet.columnCount) && !ids.has(o.id) && ids.add(o.id),
+  );
+  if (objects.length > 0 && sheet.kind === 'grid') {
+    entry.objects = objects.slice(0, MAX_SHEET_OBJECTS);
   }
   const styles = sheet.collectStyles();
   if (styles.length > 0) {

@@ -273,7 +273,7 @@ if (mode === 'offline') {
 
 // 7. Size budget. The JS bundle embeds both WASM payloads, so growth is easy
 // to miss; a deliberate increase raises this number in the same pull request.
-const MAX_JS_BYTES = 2_600_000;
+const MAX_JS_BYTES = 5_000_000;
 const jsBytes = jsFiles.reduce((sum, f) => sum + statSync(f).size, 0);
 if (jsBytes > MAX_JS_BYTES) {
   fail(

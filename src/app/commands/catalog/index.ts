@@ -9,6 +9,7 @@ import { DATA_COMMANDS } from './data';
 import { EDIT_COMMANDS } from './edit';
 import { FILE_COMMANDS } from './file';
 import { FORMAT_COMMANDS } from './format';
+import { INSERT_COMMANDS } from './insert';
 import { SEARCH_COMMANDS } from './search';
 import { SHEET_COMMANDS } from './sheet';
 import type { CommandSpec } from './types';
@@ -20,6 +21,7 @@ const CATALOG = {
   ...EDIT_COMMANDS,
   ...SEARCH_COMMANDS,
   ...SHEET_COMMANDS,
+  ...INSERT_COMMANDS,
   ...FORMAT_COMMANDS,
   ...DATA_COMMANDS,
   ...WORKSHEET_COMMANDS,

@@ -4,6 +4,7 @@ import type { CellValidation } from './data-validation';
 import type { SheetFilter } from './filter';
 import type { LosslessDocument } from '../csv/lossless-document';
 import type { SheetOrganization } from './sheet-folders';
+import type { SheetObject } from './sheet-objects';
 import type { Worksheet } from './worksheet';
 
 /**
@@ -135,6 +136,18 @@ export type Operation =
       after: readonly CellValidation[];
       sheetId?: string;
     }
+  /**
+   * Swap a worksheet's whole object list (shapes; see `sheet-objects.ts`).
+   * Like `validations`, a structural entry carries a snapshot (`before` and
+   * `after` the list as it was) ahead of a deletion or move, so undo puts
+   * back objects the deletion moved.
+   */
+  | {
+      type: 'objects';
+      before: readonly SheetObject[];
+      after: readonly SheetObject[];
+      sheetId?: string;
+    }
   /** Whole-document swap for a structural edit on a still-unsaved new CSV (see above). */
   | {
       type: 'csvStructure';
@@ -179,7 +192,7 @@ function isEmpty(entry: HistoryEntry): boolean {
     if (op.type === 'filter' || op.type === 'wrap') {
       return op.before === op.after;
     }
-    if (op.type === 'validations') {
+    if (op.type === 'validations' || op.type === 'objects') {
       return op.before === op.after;
     }
     if (op.type === 'sheets' || op.type === 'csvStructure') {

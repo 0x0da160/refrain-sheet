@@ -70,6 +70,7 @@ the same content is the same document.
 | `styles`      | object           | Cell formatting keyed by A1 reference (below).                                           |
 | `comments`    | object           | Cell comments keyed by A1 reference: `{ "B2": "text" }` (at most 2,000 characters each). |
 | `validations` | array of objects | Grid only: data-validation rules (below), at most 64. Left out when none.                |
+| `objects`     | array of objects | Grid only: shapes over the grid (below), bottom to top, at most 1,000. Left out if none. |
 
 ### Folders
 
@@ -204,6 +205,39 @@ else — an unknown `type`, a `list` with `type`/`min`/`max`/`integer`,
 key on a source worksheet — is `bad-shape`; more than 64 rules or 500
 values is `too-large`. Releases older than this key ignore it and apply no
 rules.
+
+### Objects
+
+`objects` lists the shapes placed over a grid worksheet, bottom to top (the
+last is drawn on top). Each is anchored to a cell, so it moves when rows or
+columns are inserted or deleted before it, and moves without resizing when
+a row height or column width changes.
+
+| Key                        | Type   | Meaning                                                                            |
+| -------------------------- | ------ | ---------------------------------------------------------------------------------- |
+| `id`                       | string | 1–32 of `A-Z a-z 0-9 _ -`, unique in the worksheet.                                |
+| `name`                     | string | Shown in the object list: 1–100 characters, no control characters.                 |
+| `kind`                     | string | `rect`, `ellipse`, `line`, `arrow`, or `text` (a text box).                        |
+| `at`                       | string | The anchor cell, an A1 reference as the writer spells it, inside the worksheet.    |
+| `dx`, `dy`                 | number | The top-left corner's offset from the anchor cell's, in pixels at 100%, 0–1e5.     |
+| `width`, `height`          | number | The size in pixels at 100%, 0–100,000 (a straight line may be 0 either way).       |
+| `rotation`                 | number | Clockwise degrees, above 0 and below 360. Left out when 0.                         |
+| `flipH`, `flipV`           | `true` | A line or arrow starts at the right / bottom of its box instead of the left/top.   |
+| `fill`, `stroke`           | string | `#rrggbb` (lowercase) or `none`. Left out: the kind's default.                     |
+| `strokeWidth`              | number | Line width in pixels at 100%, 0.25–20.                                             |
+| `text`                     | string | The text on the shape, at most 10,000 characters.                                  |
+| `textColor`                | string | `#rrggbb` (lowercase).                                                             |
+| `fontSize`                 | number | Points, a half point from 6 to 96.                                                 |
+| `bold`, `italic`           | `true` | Text style.                                                                        |
+| `align`, `valign`          | string | `left`/`center`/`right` and `top`/`middle`/`bottom`.                               |
+| `hidden`                   | `true` | Not drawn or printed; still listed.                                                |
+| `lockPosition`, `lockEdit` | `true` | 配置を固定 (no move or resize) and 編集をロック (no move, resize, edit or delete). |
+
+Anything else in a known key — a flag set to anything but `true`, an
+anchor spelled another way or outside the worksheet, a duplicate `id`, an
+unknown `kind`, or the key on a source worksheet — is `bad-shape`; more
+than 1,000 objects is `too-large`. Releases older than this key ignore it
+and show no shapes.
 
 ## History
 

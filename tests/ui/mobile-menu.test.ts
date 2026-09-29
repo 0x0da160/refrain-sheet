@@ -139,6 +139,7 @@ describe('mobile menu bar (hamburger toggle, expands below the logo row)', () =>
       t('menu.edit'),
       t('menu.search'),
       t('menu.sheet'),
+      t('menu.insert'),
       t('menu.format'),
       t('menu.data'),
       t('menu.view'),

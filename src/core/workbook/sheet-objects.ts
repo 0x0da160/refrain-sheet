@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 /**
- * Shapes placed over a spreadsheet worksheet: rectangles, ellipses, lines,
- * arrows and text boxes (`Worksheet.objects`). Each is anchored to a cell —
+ * Shapes and pictures placed over a spreadsheet worksheet: rectangles,
+ * ellipses, lines, arrows, text boxes and images (`Worksheet.objects`; an
+ * image's bytes are in the workbook's picture store, `sheet-images.ts`). Each is anchored to a cell —
  * its top-left corner sits `dx`/`dy` pixels (at 100% zoom) right of and
  * below that cell's top-left corner — so inserting or deleting rows and
  * columns before it moves it with the cells, and a row-height or
@@ -15,9 +16,10 @@
  */
 import { movedAxisIndex } from '../formula';
 import { normalizeHexColor } from './cell-style';
+import { IMAGE_ID_PATTERN } from './sheet-images';
 import { normalizeFontSize } from './text-font';
 
-const SHEET_OBJECT_KINDS = ['rect', 'ellipse', 'line', 'arrow', 'text'] as const;
+const SHEET_OBJECT_KINDS = ['rect', 'ellipse', 'line', 'arrow', 'text', 'image'] as const;
 export type SheetObjectKind = (typeof SHEET_OBJECT_KINDS)[number];
 
 export const OBJECT_TEXT_ALIGNS = ['left', 'center', 'right'] as const;
@@ -30,6 +32,17 @@ export const MAX_OBJECT_NAME_LENGTH = 100;
 export const MAX_OBJECT_TEXT_LENGTH = 10000;
 /** Largest offset, width or height, in pixels at 100% zoom. */
 const MAX_OBJECT_EXTENT = 100000;
+/**
+ * How much of a picture is cut off each side, in percent of its width
+ * (`left`, `right`) or height (`top`, `bottom`); what is left fills the box.
+ */
+export interface ObjectCrop {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 /** Line widths, in pixels at 100% zoom. */
 export const MIN_OBJECT_LINE_WIDTH = 0.25;
 export const MAX_OBJECT_LINE_WIDTH = 20;
@@ -53,10 +66,17 @@ export interface SheetObject {
   /**
    * A line or arrow runs from the top-left to the bottom-right corner of its
    * box; `flipH` starts it at the right, `flipV` at the bottom. The arrow
-   * head is at the end.
+   * head is at the end. An image is mirrored left to right (`flipH`) or
+   * top to bottom (`flipV`); other shapes leave both out.
    */
   flipH?: true;
   flipV?: true;
+  /** Image only: the id of its picture in the workbook's store (required). */
+  image?: string;
+  /** Image only: the part of the picture cut off. Left out when none is. */
+  crop?: ObjectCrop;
+  /** Image only: resizing may change its width-to-height ratio (kept by default). */
+  aspectFree?: true;
   /** `#rrggbb`, or `'none'` for no fill / no line. Left out: the kind's default. */
   fill?: string;
   stroke?: string;
@@ -89,7 +109,7 @@ export function objectDefaults(kind: SheetObjectKind): {
   align: (typeof OBJECT_TEXT_ALIGNS)[number];
   valign: (typeof OBJECT_TEXT_VALIGNS)[number];
 } {
-  if (kind === 'text') {
+  if (kind === 'text' || kind === 'image') {
     return { fill: 'none', stroke: 'none', strokeWidth: 1, align: 'left', valign: 'top' };
   }
   return {
@@ -153,6 +173,34 @@ function placementValid(o: SheetObject, rows: number, cols: number): boolean {
   );
 }
 
+function cropValid(crop: ObjectCrop): boolean {
+  const side = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < 100;
+  return (
+    typeof crop === 'object' &&
+    crop !== null &&
+    side(crop.top) &&
+    side(crop.right) &&
+    side(crop.bottom) &&
+    side(crop.left) &&
+    crop.top + crop.bottom < 100 &&
+    crop.left + crop.right < 100
+  );
+}
+
+/** Whether the picture fields fit the kind: an image names its picture and holds no text. */
+function imageFieldsValid(o: SheetObject): boolean {
+  if (o.kind !== 'image') {
+    return o.image === undefined && o.crop === undefined && o.aspectFree === undefined;
+  }
+  return (
+    typeof o.image === 'string' &&
+    IMAGE_ID_PATTERN.test(o.image) &&
+    o.text === undefined &&
+    (o.crop === undefined || cropValid(o.crop)) &&
+    (o.aspectFree === undefined || o.aspectFree === true)
+  );
+}
+
 /** Whether the fill, line and text settings are all in range. */
 function formatValid(o: SheetObject): boolean {
   const optional = <T>(value: T | undefined, test: (value: T) => boolean): boolean =>
@@ -180,7 +228,9 @@ function formatValid(o: SheetObject): boolean {
  * worksheet of `rows` × `cols` (every rule the file reader enforces).
  */
 export function validateObject(object: SheetObject, rows: number, cols: number): SheetObject | null {
-  return placementValid(object, rows, cols) && formatValid(object) ? object : null;
+  return placementValid(object, rows, cols) && formatValid(object) && imageFieldsValid(object)
+    ? object
+    : null;
 }
 
 function withAxis(o: SheetObject, axis: 'row' | 'col', index: number, resetOffset: boolean): SheetObject {

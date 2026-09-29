@@ -39,6 +39,25 @@
   pointer-events: none;
 }
 
+/* A picture: the crop is the part of the image outside this frame. */
+.sheet-object-picture {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sheet-object-picture img {
+  position: absolute;
+  max-width: none;
+  max-height: none;
+  user-select: none;
+}
+
+.sheet-object-picture.missing {
+  border: 1px dashed var(--border-default);
+}
+
 .sheet-object-line .sheet-object-hit,
 .sheet-object-arrow .sheet-object-hit {
   pointer-events: stroke;

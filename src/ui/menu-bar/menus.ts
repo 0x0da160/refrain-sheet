@@ -302,13 +302,14 @@ function insertMenu(): MenuDef {
   return {
     labelKey: 'menu.insert',
     items: [
-      // Shapes go on a spreadsheet sheet of an RSF file, at the selected
-      // cell; the object list places, orders and locks them.
+      // Shapes and pictures go on a spreadsheet sheet of an RSF file, at the
+      // selected cell; the object list places, orders and locks them.
       { labelKey: 'menu.insert.rectangle', command: 'insert.rectangle' },
       { labelKey: 'menu.insert.ellipse', command: 'insert.ellipse' },
       { labelKey: 'menu.insert.line', command: 'insert.line' },
       { labelKey: 'menu.insert.arrow', command: 'insert.arrow' },
       { labelKey: 'menu.insert.textBox', command: 'insert.textBox' },
+      { labelKey: 'menu.insert.image', command: 'insert.image' },
       'separator',
       { labelKey: 'menu.insert.objectList', command: 'insert.objectList' },
       {

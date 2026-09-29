@@ -14,6 +14,7 @@ import {
 import type { AppState, Selection, SelectionKind } from './state';
 import type { Commands } from './commands';
 import { t } from './i18n';
+import { MAX_IMAGE_BYTES, SHEET_IMAGE_TYPES } from '../core/workbook/sheet-images';
 import { asVisualDisplaySource, onScreenGeometry, renderStyledRangeToPng } from './screenshot-export';
 
 /**
@@ -156,9 +157,26 @@ export class ClipboardController {
     return true;
   }
 
-  /** Ctrl+V / Cmd+V: paste the clipboard event text. */
+  /**
+   * Ctrl+V / Cmd+V: paste the clipboard event text, or, when it holds a
+   * picture and no text, place the picture over the sheet.
+   */
   handlePasteEvent(event: ClipboardEvent): boolean {
     const text = event.clipboardData?.getData('text/plain') ?? '';
+    const picture = text === '' ? pastedPicture(event) : null;
+    if (picture) {
+      const tab = this.state.activeTab;
+      if (!tab) {
+        return false;
+      }
+      event.preventDefault();
+      if (picture.size > MAX_IMAGE_BYTES) {
+        this.commands.refuseTooLargeImage();
+      } else {
+        void picture.arrayBuffer().then((buffer) => this.commands.insertImage(tab, new Uint8Array(buffer)));
+      }
+      return true;
+    }
     if (text === '') {
       // A copied blank cell puts an empty string on the clipboard; paste it
       // from the internal clipboard so it clears the destination.
@@ -416,4 +434,14 @@ export class ClipboardController {
     }
     this.notify(t('notify.pasteBlocked'), 'warn');
   }
+}
+
+/** The first PNG, JPEG, WebP or SVG file on the clipboard, if any. */
+function pastedPicture(event: ClipboardEvent): File | null {
+  for (const file of Array.from(event.clipboardData?.files ?? [])) {
+    if ((SHEET_IMAGE_TYPES as readonly string[]).includes(file.type)) {
+      return file;
+    }
+  }
+  return null;
 }

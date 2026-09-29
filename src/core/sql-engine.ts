@@ -346,6 +346,11 @@ function dedupeHeaderNames(headers: string[]): string[] {
   return names;
 }
 
+/** The column names a query sees for a source with these header cells (`FROM data`'s columns). */
+export function sqlColumnNames(headers: string[]): string[] {
+  return headers.length === 0 ? [] : dedupeHeaderNames(headers);
+}
+
 /** Double-quote a SQL identifier, escaping embedded `"` — safe for any column/table name regardless of leading digits, spaces, or symbols. */
 function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;

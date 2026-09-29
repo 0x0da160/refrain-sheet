@@ -694,6 +694,11 @@ export class AppState {
     return this.worksheetsState.addSheet(tab, name);
   }
 
+  /** Add a new worksheet holding `rows` after the active one (undoable) and activate it. */
+  addSheetFromValues(tab: Tab, name: string, rows: string[][]): Worksheet | null {
+    return this.worksheetsState.addSheetFromValues(tab, name, rows);
+  }
+
   /**
    * Add a new worksheet holding one empty Markdown document after the active
    * one, as one atomic, undoable operation, and activate it. `name` must

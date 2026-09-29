@@ -202,3 +202,76 @@ table.sql-query-table td {
 .sql-query-list-clear {
   margin-bottom: var(--space-1);
 }
+
+/* ---------- Query builder (Build a Query) ---------- */
+
+.sql-builder > summary {
+  cursor: pointer;
+  font-weight: var(--weight-bold);
+}
+
+.sql-builder-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.sql-builder-body > .dialog-note {
+  margin: 0;
+}
+
+.sql-builder-part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.sql-builder-part > legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
+.sql-builder-columns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 160px;
+  overflow-y: auto;
+  padding: var(--space-1) var(--space-1-5);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.sql-builder-row {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-width: 0;
+}
+
+.sql-builder-row > select,
+.sql-builder-row > input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.sql-builder-add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+}
+
+.sql-builder-limit {
+  width: 10em;
+}
+
+.sql-query-write {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+}

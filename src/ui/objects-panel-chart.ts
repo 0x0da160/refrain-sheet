@@ -11,6 +11,7 @@ import {
   CHART_LEGENDS,
   CHART_TYPES,
   chartColor,
+  chartDataToRows,
   chartRangeLabel,
   chartSourceFits,
   MAX_CHART_SERIES,
@@ -38,6 +39,10 @@ export interface ChartPanelContext {
   sheets: readonly ChartSheet[];
   disabled: boolean;
   apply: (spec: ChartSpec) => void;
+  /** Replace the data the chart keeps (rows as `chartDataToRows` writes them). */
+  editData: (rows: string[][]) => void;
+  /** Put the data the chart keeps into a new sheet and show those cells. */
+  dataToSheet: () => void;
 }
 
 /** `spec` with `key` set to `value`, or left out when `value` is undefined. */
@@ -134,9 +139,38 @@ function dataFields(ctx: ChartPanelContext): HTMLElement[] {
     panelField(t('panel.objects.chart.series'), series),
   ];
   if (!source) {
-    fields.push(el('p', { className: 'dialog-note', text: t('panel.objects.chart.keptNote') }));
+    fields.push(...keptDataFields(ctx));
   }
   return fields;
+}
+
+/**
+ * The data a chart keeps (its worksheet was deleted, or it was pasted from
+ * another file), editable as tab-separated text, and the way back to cells.
+ */
+function keptDataFields(ctx: ChartPanelContext): HTMLElement[] {
+  const rows = ctx.spec.data ? chartDataToRows(ctx.spec.data, (n) => t('chart.series', { n })) : [];
+  const text = el('textarea', {
+    className: 'objects-text objects-chart-data',
+    attrs: { rows: '5', spellcheck: 'false', wrap: 'off', 'data-focus-key': 'chart:data' },
+  }) as HTMLTextAreaElement;
+  text.value = rows.map((row) => row.join('\t')).join('\n');
+  text.disabled = ctx.disabled;
+  text.addEventListener('change', () =>
+    ctx.editData(text.value.split(/\r?\n/).map((line) => line.split('\t'))),
+  );
+  const toSheet = el('button', {
+    className: 'panel-button',
+    text: t('panel.objects.chart.dataToSheet'),
+    attrs: { type: 'button', 'data-focus-key': 'chart:dataToSheet' },
+  }) as HTMLButtonElement;
+  toSheet.disabled = ctx.disabled;
+  toSheet.addEventListener('click', () => ctx.dataToSheet());
+  return [
+    el('p', { className: 'dialog-note', text: t('panel.objects.chart.keptNote') }),
+    panelField(t('panel.objects.chart.data'), text),
+    toSheet,
+  ];
 }
 
 function textField(

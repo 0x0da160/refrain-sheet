@@ -104,6 +104,11 @@ export class Grid {
   }
 
   /** Update selection highlighting only (cheap; used for selection events). */
+  /** Whether the keyboard is on an object over the grid (so Copy, Cut and Paste act on objects). */
+  hasObjectFocus(): boolean {
+    return this.core.objects.element.contains(document.activeElement);
+  }
+
   /** An object's top-left corner from the sheet's, in pixels at 100% zoom (the object list's X and Y). */
   objectPosition(tab: Tab, object: SheetObject): { x: number; y: number } {
     return this.core.objects.positionOf(tab, object);

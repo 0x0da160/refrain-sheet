@@ -252,3 +252,10 @@
   resize: vertical;
   font: inherit;
 }
+
+/* A chart's kept data: tab-separated columns, so no wrapping and fixed tab stops. */
+.objects-chart-data {
+  white-space: pre;
+  overflow-x: auto;
+  tab-size: 12;
+}

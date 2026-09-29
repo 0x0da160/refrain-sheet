@@ -216,6 +216,11 @@ export class Commands {
     this.parts.objects.refuseTooLarge();
   }
 
+  /** Copying and pasting objects, and the data a chart keeps (see `objects.ts`). */
+  get objectActions(): ObjectCommands {
+    return this.parts.objects;
+  }
+
   /** The active worksheet's objects (shapes), bottom to top. */
   objectsOf(tab: Tab): readonly SheetObject[] {
     return this.parts.objects.objects(tab);

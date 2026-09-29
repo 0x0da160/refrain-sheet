@@ -532,6 +532,10 @@ export class ObjectLayer {
     this.core.pointer.closeContextMenu();
     this.core.contextMenu = ContextMenu.open(
       [
+        item('edit.cut', 'menu.edit.cut'),
+        item('edit.copy', 'menu.edit.copy'),
+        item('edit.paste', 'menu.edit.paste'),
+        'separator',
         item('object.bringToFront', 'menu.insert.bringToFront'),
         item('object.bringForward', 'menu.insert.bringForward'),
         item('object.sendBackward', 'menu.insert.sendBackward'),

@@ -40,6 +40,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Copy and paste shapes, pictures and charts.** With objects selected,
+  Cut, Copy and Paste (Ctrl+X, Ctrl+C, Ctrl+V, the Edit menu, or the
+  object's right-click menu) act on the objects: paste onto the same sheet,
+  another sheet, or another open file. A chart pasted within its file keeps
+  showing its cells; pasted into another file it keeps the values it showed,
+  so it never depends on the first file. The object list edits the values
+  such a chart keeps as tab-separated text, and "Put Data in a New Sheet"
+  moves them into a new sheet the chart then shows (one undoable step).
 - **Charts on a sheet.** Insert > Chart draws a bar chart of the selected
   cells (or of the filled block around the selected cell) beside them on an
   RSF spreadsheet sheet. The chart updates as the cells change, and its

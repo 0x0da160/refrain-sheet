@@ -11,7 +11,8 @@ import {
   type SheetObjectKind,
 } from '../../core/workbook/sheet-objects';
 import { imageSize, MAX_IMAGE_BYTES, sniffImageType } from '../../core/workbook/sheet-images';
-import { dataRegionAround } from '../../core/workbook/sheet-charts';
+import { chartDataFromRows, chartDataToRows, dataRegionAround } from '../../core/workbook/sheet-charts';
+import { copyObjects, pasteObjects, type ObjectClip } from '../../core/workbook/object-clipboard';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
 import type { ConvertReason, NotifyPort } from '../ui-port';
@@ -227,6 +228,108 @@ export class ObjectCommands {
       this.state.objectSelection.select(tab, []);
     }
     return done;
+  }
+
+  /** A copy of the selected objects, or null when none is selected. */
+  copySelected(tab: Tab): ObjectClip | null {
+    const doc = tab.doc;
+    const picked = new Set(this.state.objectSelection.selected(tab));
+    if (!isWorkbook(doc) || picked.size === 0) {
+      return null;
+    }
+    return copyObjects(
+      doc,
+      doc.activeSheetId,
+      doc.objects.filter((o) => picked.has(o.id)),
+    );
+  }
+
+  /**
+   * Paste copied objects onto the active sheet (a CSV file is converted
+   * first), on top of the others, and select them: see `object-clipboard.ts`
+   * for where they go and what a chart pasted into another file shows.
+   */
+  async paste(tab: Tab, clip: ObjectClip): Promise<boolean> {
+    const doc = await this.ensureRsf(tab, 'command');
+    if (!doc || doc.activeSheet.kind !== 'grid') {
+      return false;
+    }
+    const before = doc.objects;
+    if (before.length + clip.objects.length > MAX_SHEET_OBJECTS) {
+      this.ui.notify(t('object.tooMany', { max: MAX_SHEET_OBJECTS }), 'warn');
+      return false;
+    }
+    const pasted = pasteObjects(clip, {
+      book: doc,
+      sheetId: doc.activeSheetId,
+      rowCount: doc.rowCount,
+      columnCount: doc.columnCount,
+      objects: before,
+      images: doc.images,
+      gridSheet: (id) => {
+        const sheet = doc.sheetById(id);
+        return sheet?.kind === 'grid' ? sheet : null;
+      },
+    });
+    if (!this.replace(tab, [...before, ...pasted], 'history.pasteObjects')) {
+      return false;
+    }
+    this.state.objectSelection.select(
+      tab,
+      pasted.map((o) => o.id),
+    );
+    return true;
+  }
+
+  /** Replace the data a chart keeps (not a range) with `rows` as {@link chartDataToRows} writes them. */
+  setChartData(tab: Tab, id: string, rows: readonly (readonly string[])[]): boolean {
+    const o = this.objects(tab).find((x) => x.id === id);
+    if (!o?.chart?.data) {
+      return false;
+    }
+    return this.update(
+      tab,
+      [{ ...o, chart: { ...o.chart, data: chartDataFromRows(rows) } }],
+      'history.editObject',
+    );
+  }
+
+  /**
+   * Put the data a chart keeps into a new sheet after the active one and
+   * point the chart at those cells, as one undoable step; the new sheet is
+   * shown. Returns its name, or null.
+   */
+  chartDataToSheet(tab: Tab, id: string): string | null {
+    const doc = tab.doc;
+    const o = this.objects(tab).find((x) => x.id === id);
+    const data = o?.chart?.data;
+    if (!isWorkbook(doc) || !o?.chart || !data) {
+      return null;
+    }
+    if (o.lockEdit) {
+      this.ui.notify(t('object.locked.edit'), 'warn');
+      return null;
+    }
+    const rows = chartDataToRows(data, (n) => t('chart.series', { n }));
+    const chartSheet = doc.activeSheetId;
+    const before = doc.objects;
+    const name = doc.uniqueSheetName(t('object.chart.dataSheetName'));
+    const sheet = this.state.addSheetFromValues(tab, name, rows, (added) => {
+      const chart = {
+        ...o.chart!,
+        source: { sheetId: added.id, top: 0, left: 0, bottom: rows.length - 1, right: rows[0].length - 1 },
+      };
+      delete chart.data;
+      return [
+        {
+          type: 'objects',
+          before,
+          after: before.map((x) => (x.id === id ? { ...x, chart } : x)),
+          sheetId: chartSheet,
+        },
+      ];
+    });
+    return sheet?.name ?? null;
   }
 
   /** Move the selected objects in the stacking order. */

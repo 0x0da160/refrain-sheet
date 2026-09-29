@@ -252,6 +252,41 @@ export function chartData<S>(book: ChartCells<S>, spec: ChartSpec): ChartData | 
 }
 
 /**
+ * A chart's kept data as rows of text: series names across the first row
+ * (an unnamed series as `seriesName(n)`), category names down the first
+ * column, and each value (empty: none). The shape {@link chartData} reads
+ * back as the same data, and {@link chartDataFromRows} too.
+ */
+export function chartDataToRows(data: ChartData, seriesName: (n: number) => string): string[][] {
+  return [
+    ['', ...data.series.map((s, i) => s.name ?? seriesName(i + 1))],
+    ...data.categories.map((category, r) => [
+      category,
+      ...data.series.map((s) => (s.values[r] === null ? '' : String(s.values[r]))),
+    ]),
+  ];
+}
+
+/** Rows as {@link chartDataToRows} writes them (typed or pasted) as chart data, within the limits. */
+export function chartDataFromRows(rows: readonly (readonly string[])[]): ChartData {
+  const header = rows[0] ?? [];
+  const body = rows.slice(1, MAX_CHART_CATEGORIES + 1);
+  const width = Math.min(Math.max(header.length, ...body.map((row) => row.length)) - 1, MAX_CHART_SERIES);
+  const cut = (text: string | undefined): string => (text ?? '').slice(0, MAX_CHART_TEXT);
+  return {
+    categories: body.map((row) => cut(row[0])),
+    series: Array.from({ length: Math.max(0, width) }, (_, i) => ({
+      name: cut(header[i + 1]) || null,
+      values: body.map((row) => {
+        const text = (row[i + 1] ?? '').trim();
+        const value = Number(text);
+        return text !== '' && Number.isFinite(value) ? value : null;
+      }),
+    })),
+  };
+}
+
+/**
  * The block of filled cells around (`row`, `col`), for a chart inserted
  * from a single selected cell: grown one row or column at a time while
  * the next one holds anything, up to the chart limits.

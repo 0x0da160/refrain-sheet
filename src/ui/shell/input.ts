@@ -11,20 +11,20 @@ import type { AppState } from '../../app/state';
 import type { DropOverlay } from './layout';
 import type { Surfaces } from './surfaces';
 
-/** Ctrl+X / Ctrl+C / Ctrl+V via the native cut/copy/paste events, while the grid is navigated. */
+/** Ctrl+X / Ctrl+C / Ctrl+V via the native cut/copy/paste events, while the grid or an object over it has the keyboard. */
 export function installClipboardEvents(s: Surfaces): void {
   document.addEventListener('copy', (event) => {
-    if (s.grid.isNavigating()) {
+    if (s.grid.isNavigating() || s.grid.hasObjectFocus()) {
       s.clipboard.handleCopyEvent(event);
     }
   });
   document.addEventListener('cut', (event) => {
-    if (s.grid.isNavigating()) {
+    if (s.grid.isNavigating() || s.grid.hasObjectFocus()) {
       s.clipboard.handleCutEvent(event);
     }
   });
   document.addEventListener('paste', (event) => {
-    if (s.grid.isNavigating()) {
+    if (s.grid.isNavigating() || s.grid.hasObjectFocus()) {
       s.clipboard.handlePasteEvent(event);
     }
   });

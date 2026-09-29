@@ -195,8 +195,10 @@ that changes layout without touching desktop-width behavior:
   formula count, and the version — are marked `.status-detail` and hidden
   behind a **Details** button (`aria-expanded`), which stays open across
   re-renders. Protection, problems, unsaved/edit state, filter/sort, and the
-  selection stay visible. Desktop always shows everything and never shows
-  the button.
+  selection stay visible. An item set to show in Details
+  (View > Customize Status Bar…) is behind the toggle as well. Desktop
+  never shows this toggle; its own Details button opens a popover of the
+  items set to show there.
 - **A compact document tab row.** The close button's tap target
   (`--control-h` − 4px: 32px at the touch Standard density) sets a tab's
   height; the tab adds only a thin frame around it.

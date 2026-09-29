@@ -292,6 +292,14 @@
     display: none;
   }
 
+  /* One line: no desktop Details button, and zoom and full screen stay in
+     the View menu (a phone also zooms with two fingers). */
+  .status-bar button.status-more,
+  .status-bar .status-zoom,
+  .status-bar .status-fullscreen {
+    display: none;
+  }
+
   .status-bar button.status-details-toggle {
     display: inline-flex;
     align-items: center;

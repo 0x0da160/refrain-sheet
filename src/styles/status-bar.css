@@ -61,29 +61,43 @@
   text-decoration: none;
 }
 
-.status-bar .status-protected {
+/* Edit | Protected: the current one pressed (see StatusBar.appendProtection). */
+.status-bar .status-protect {
   display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--accent-text);
-  font-weight: var(--weight-bold);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
 }
 
-.status-protected-icon {
-  flex: none;
-}
-
-.status-bar button.status-protect-toggle {
+.status-bar .status-protect button {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   border: none;
   background: none;
   color: var(--fg-muted);
-  font-weight: var(--weight-bold);
-  text-decoration: underline;
-  padding: 0;
+  font: inherit;
+  padding: 0 var(--space-1-5);
   cursor: pointer;
+}
+
+.status-bar .status-protect button + button {
+  border-left: 1px solid var(--border-default);
+}
+
+.status-bar .status-protect button[aria-pressed='true'] {
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-text);
+  font-weight: var(--weight-bold);
+  cursor: default;
+}
+
+.status-bar .status-protect button:hover:not([aria-pressed='true']) {
+  background: var(--bg-hover);
+}
+
+.status-protected-icon {
+  flex: none;
 }
 
 /* Phone only (mobile-layout.css): shows or hides the file details. */
@@ -98,13 +112,91 @@
   cursor: pointer;
 }
 
-.status-protect-toggle-icon {
-  flex: none;
-  text-decoration: none;
-}
-
 .status-bar .status-version {
   margin-left: auto;
+}
+
+/* The right end: version, zoom (− level +) and full screen. */
+.status-bar .status-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.status-bar .status-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0-5);
+}
+
+.status-bar .status-zoom-select {
+  font: inherit;
+  color: inherit;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-0-5);
+}
+
+.status-bar button.status-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
+  padding: var(--space-0-5);
+  cursor: pointer;
+}
+
+.status-bar button.status-icon-button:hover {
+  background: var(--bg-hover);
+}
+
+.status-icon {
+  flex: none;
+}
+
+/* Desktop: items set to show in Details open from this button (a phone uses the Details toggle instead). */
+.status-bar button.status-more {
+  border: none;
+  background: none;
+  color: var(--fg-muted);
+  font: inherit;
+  text-decoration: underline;
+  padding: 0;
+  cursor: pointer;
+}
+
+@media (width > 43.75em) {
+  .status-bar .status-in-details {
+    display: none;
+  }
+}
+
+.status-details-popover {
+  font-size: var(--text-caption);
+}
+
+.status-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.status-details-popover .status-customize {
+  border: none;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  text-decoration: underline;
+  padding: 0;
+  cursor: pointer;
 }
 
 /* Below `@media (max-width: 43.75em)` this flips: only `.status-version-short`

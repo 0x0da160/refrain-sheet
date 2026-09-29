@@ -164,6 +164,25 @@ at once. The list and visibility are stored in this browser's `localStorage`
 only (`src/app/toolbar-prefs.ts`) — never in a file — so a file opens the
 same on every device; ids a build no longer offers are skipped.
 
+## The status bar
+
+The bar under the grid (`src/ui/status-bar.ts`). Its information items —
+file type, encoding, delimiter, line endings, size, rows × columns,
+formula count, edited cells, filter, sort, CSV engine, the selected cell
+with its totals, and the version — each show in the bar, behind the bar's
+**Details** button (a popover), or not at all, as **View > Customize
+Status Bar…** sets (also a right-click on the bar, and the popover's own
+link). The places are stored in this browser only
+(`src/app/status-bar-prefs.ts`); every item starts in the bar. Warnings
+and controls are always in the bar: structure problems, unreadable
+characters, unsaved changes, the protection switch (**Edit | Protected**,
+the current one pressed; choosing the other runs `file.toggleProtect`),
+and at the right end the spreadsheet zoom (− , the View > Spreadsheet
+Zoom levels, +; a zoom that is not a level is listed too) and Full Screen.
+On a phone the file details stay behind the Details toggle whatever their
+place, and zoom and Full Screen stay in the View menu, so the bar keeps to
+one line (see [mobile-and-touch.md](mobile-and-touch.md)).
+
 ## The shared dockable-panel chrome
 
 Filter, Sort, Data Validation, Conditional Formatting/Cell Formatting, SQL

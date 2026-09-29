@@ -27,6 +27,7 @@ import { MenuBar } from '../menu-bar';
 import { defaultMenus, type MenuChecks } from '../menu-bar/menus';
 import { AppToolbar } from '../app-toolbar';
 import { customizeToolbar } from '../dialogs/toolbar-customize';
+import { customizeStatusBar } from '../dialogs/status-bar-customize';
 import { getToolbarShown } from '../../app/toolbar-prefs';
 import { SheetBar } from '../sheet-bar';
 import { StatusBar } from '../status-bar';
@@ -104,6 +105,7 @@ export function createSurfaces(
   const toolbar = new AppToolbar(commands, defaultMenus(checks));
   commands.panelActions = {
     customizeToolbar: () => void customizeToolbar(toolbar.available, () => toolbar.render()),
+    customizeStatusBar: () => void customizeStatusBar(() => statusBar.render()),
     openComments: () => commentsPanel.open(),
     openValidationCheck: () => validationCheckPanel.open(),
     openObjects: () => objectsPanel.open(),
@@ -125,6 +127,7 @@ export function createSurfaces(
       }
     },
     () => void commands.run('file.toggleProtect'),
+    commands,
   );
   // A Markdown/JSON/YAML/text worksheet shows its editor's line/column in
   // the status bar instead of a grid size and cell reference.

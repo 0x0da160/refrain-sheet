@@ -168,6 +168,7 @@ export const VIEW_COMMANDS = {
       ctx.commands.panelActions?.customizeToolbar();
     },
   },
+  'view.customizeStatusBar': { run: (ctx) => ctx.commands.panelActions?.customizeStatusBar() },
   'view.editHints': preference(() => setEditHints(!getEditHints())),
   'view.sheetTabsVertical': preference(() => setSheetTabsVertical(!getSheetTabsVertical())),
   'view.bandedRows': gridLook('bands'),

@@ -1,6 +1,7 @@
 {
   "app.title": "Refrain Sheet",
   "app.subtitle": "A local-first, format-preserving CSV and spreadsheet editor.",
+  "app.subtitleMinimal": "The CSV-only edition: open, edit, find, sort, filter and save CSV files. Everything you do not edit is saved as it was.",
   "menu.file": "File",
   "menu.edit": "Edit",
   "menu.search": "Search",
@@ -1092,6 +1093,8 @@
   "dialog.jsonInvalid.emptyArray": "the array is empty, so there are no columns to import.",
   "dialog.jsonInvalid.notFlatObject": "every array element must be a flat object; nested objects and arrays as values are not supported.",
   "notify.converted": "Converted to an RSF spreadsheet. Saving creates an .rsf file; the original CSV file is unchanged.",
+  "notify.minimalNeedsWorkbook": "This needs an RSF spreadsheet, which the CSV-only edition does not have. Open the file in the regular edition to use it.",
+  "notify.minimalCsvOnly": "\"{name}\" was not opened. The CSV-only edition opens only CSV, TSV and text files.",
   "notify.convertedNewTab": "Opened \"{name}\" as an RSF spreadsheet in a new tab. The original CSV tab is unchanged.",
   "notify.xlsxImported": "Imported the calculated values as \"{name}\". Saving creates a new .rsf file; the original .xlsx file is unchanged.",
   "notify.jsonImported": "Imported the array of objects as \"{name}\". Saving creates a new .rsf file; the original .json file is unchanged.",

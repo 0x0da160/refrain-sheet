@@ -6,6 +6,8 @@ import type { Tab } from '../../app/state';
 import type { CommandId, Commands } from '../../app/commands';
 import { t } from '../../app/i18n';
 import { ICON_BY_COMMAND } from '../command-icons';
+import { isCommandAvailable } from '../../app/edition';
+import { pruneItems } from '../menu-bar/prune';
 import type { ContextMenuEntry, ContextMenuToolbarItem } from '../context-menu';
 
 interface ContextMenuCommandDef {
@@ -114,10 +116,16 @@ function buildContextEntry(
 
 /** The right-click menu's entries ({@link CONTEXT_MENU_ITEMS}) for the current command state. */
 export function contextMenuEntries(commands: Commands, tab: Tab): ContextMenuEntry[] {
-  return CONTEXT_MENU_ITEMS.map((item) => buildContextEntry(commands, tab, item));
+  return pruneItems(CONTEXT_MENU_ITEMS, isCommandAvailable).map((item) =>
+    buildContextEntry(commands, tab, item),
+  );
 }
 
+/** The quick-format toolbar above the right-click menu; none in an edition without formatting. */
 export function formatToolbarItems(commands: Commands, tab: Tab): ContextMenuToolbarItem[] {
+  if (!isCommandAvailable('format.bold')) {
+    return [];
+  }
   const toggle = (
     command: CommandId,
     icon: string,

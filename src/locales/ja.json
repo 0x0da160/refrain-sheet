@@ -1,6 +1,7 @@
 {
   "app.title": "Refrain Sheet",
   "app.subtitle": "ローカルで動く、書式保持CSV・スプレッドシートエディタです。",
+  "app.subtitleMinimal": "CSV 専用版です。CSV ファイルを開いて、編集・検索・並べ替え・フィルター・保存ができます。編集していない部分は元のまま保存します。",
   "menu.file": "ファイル",
   "menu.edit": "編集",
   "menu.search": "検索",
@@ -1092,6 +1093,8 @@
   "dialog.jsonInvalid.emptyArray": "配列が空のため、読み込む列がありません。",
   "dialog.jsonInvalid.notFlatObject": "配列の各要素は、入れ子のないオブジェクトである必要があります（値にオブジェクトや配列は使えません）。",
   "notify.converted": "RSFスプレッドシートに変換しました。保存すると .rsf ファイルが作成されます。元のCSVファイルは変更していません。",
+  "notify.minimalNeedsWorkbook": "この操作には RSF スプレッドシートが必要なため、CSV 専用版では使えません。通常版でファイルを開いてください。",
+  "notify.minimalCsvOnly": "「{name}」は開きませんでした。CSV 専用版で開けるのは CSV・TSV・テキストファイルだけです。",
   "notify.convertedNewTab": "「{name}」をRSFスプレッドシートとして新しいタブで開きました。元のCSVのタブは変更していません。",
   "notify.xlsxImported": "計算結果の値を「{name}」として読み込みました。保存すると新しい .rsf ファイルが作成され、元の .xlsx ファイルは変更しません。",
   "notify.jsonImported": "オブジェクトの配列を「{name}」として読み込みました。保存すると新しい .rsf ファイルが作成され、元の .json ファイルは変更しません。",

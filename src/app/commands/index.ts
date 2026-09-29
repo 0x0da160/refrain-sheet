@@ -50,6 +50,7 @@ export type { FlashFillPreview, ReplaceAllReport, SqlRunOutcome };
 export type * from '../ui-port';
 
 import { commandSpec, type CommandId } from './catalog';
+import { isCommandAvailable, isMinimalEdition } from '../edition';
 import type { CommandContext, CommandParts } from './catalog/types';
 
 export type { CommandId } from './catalog';
@@ -166,6 +167,9 @@ export class Commands {
 
   /** True when the command currently makes sense (drives menu-item enabled state). */
   isEnabled(id: CommandId): boolean {
+    if (!isCommandAvailable(id)) {
+      return false;
+    }
     return commandSpec(id).enabled?.(this.context()) ?? true;
   }
 
@@ -184,6 +188,9 @@ export class Commands {
   }
 
   async run(id: CommandId): Promise<void> {
+    if (!isCommandAvailable(id)) {
+      return; // not in this edition (see src/app/edition.ts)
+    }
     await commandSpec(id).run(this.context());
   }
 
@@ -323,6 +330,14 @@ export class Commands {
    * explicit conversion when it is still CSV. Never converts silently.
    */
   async ensureRsf(tab: Tab, reason: ConvertReason): Promise<RsfDocument | null> {
+    if (isMinimalEdition() && !isWorkbook(tab.doc)) {
+      // The CSV-only edition has no workbooks: a formula stays plain text,
+      // and anything else that needs one says so.
+      if (reason !== 'formula') {
+        this.ui.notify(t('notify.minimalNeedsWorkbook'), 'info');
+      }
+      return null;
+    }
     return this.parts.fileIo.ensureRsf(tab, reason);
   }
 

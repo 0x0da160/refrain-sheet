@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.20] - 2026-09-29
+
 ### Fixed
 
 - **Typing into a cell after unlocking a file works again.** After you

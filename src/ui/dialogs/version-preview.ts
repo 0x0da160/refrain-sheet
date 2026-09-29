@@ -11,7 +11,7 @@ import { createIcon } from '../icon';
 import { SheetBar } from '../sheet-bar';
 import { diffVersions } from '../../core/workbook/version-diff';
 import { versionChangesBar } from './version-changes';
-import { dialogButton, openDialog } from './shared';
+import { closeModal, dialogButton, openDialog, showModal } from './shared';
 
 /**
  * A `UiPort` that never shows anything and always resolves as if the user
@@ -178,13 +178,7 @@ export function openVersionHistoryPreview(
     closed = true;
     unsubscribe();
     grid.dispose();
-    if (dialog.open) {
-      dialog.close();
-    }
-    dialog.remove();
-    if (restoreFocus && restoreFocus.isConnected) {
-      restoreFocus.focus();
-    }
+    closeModal(dialog, restoreFocus);
   };
   closeBtn.addEventListener('click', finish);
   // Escape triggers 'cancel'; some environments never fire 'close', so
@@ -194,7 +188,7 @@ export function openVersionHistoryPreview(
   dialog.addEventListener('close', finish);
 
   document.body.append(dialog);
-  dialog.showModal();
+  showModal(dialog);
   grid.refresh();
   focusWithoutKeyboard(grid.element);
 }

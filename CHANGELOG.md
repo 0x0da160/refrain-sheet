@@ -38,6 +38,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Typing into a cell after unlocking a file works again.** After you
+  unlocked an opened file (or closed any other dialog), selecting a cell and
+  typing without pressing F2 first saved the cell as empty. Now the text you
+  type goes into the cell.
+
 ## [0.9.19] - 2026-09-29
 
 ### Added

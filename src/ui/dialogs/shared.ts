@@ -61,6 +61,31 @@ function resizeGrip(): HTMLDivElement {
 }
 
 /**
+ * Show a dialog modally. Focus leaves the page first (for the grid, its
+ * hidden text field), so the browser keeps nothing to hand back on close:
+ * handed back that way, the field had focus but no caret, and typing into a
+ * cell entered nothing (after Unlock, for one) until focus moved again.
+ * {@link closeModal} gives focus back itself, as a real move with the caret.
+ */
+export function showModal(dialog: HTMLDialogElement): void {
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+  dialog.showModal();
+}
+
+/** Close and remove a dialog opened with {@link showModal}, then give focus back to `restoreFocus`. */
+export function closeModal(dialog: HTMLDialogElement, restoreFocus: HTMLElement | null): void {
+  if (dialog.open) {
+    dialog.close();
+  }
+  dialog.remove();
+  if (restoreFocus && restoreFocus.isConnected) {
+    restoreFocus.focus();
+  }
+}
+
+/**
  * Modal dialogs built on the native <dialog> element, which provides the
  * focus trap and Escape handling. All content is added via textContent.
  * The heading doubles as a drag handle and a corner grip makes it resizable
@@ -89,13 +114,7 @@ export function openDialog<T>(title: string, fallback: T, build: DialogBuilder<T
         return;
       }
       settled = true;
-      if (dialog.open) {
-        dialog.close();
-      }
-      dialog.remove();
-      if (restoreFocus && restoreFocus.isConnected) {
-        restoreFocus.focus();
-      }
+      closeModal(dialog, restoreFocus);
       resolve(value);
     };
     // Escape triggers 'cancel'; some environments never fire 'close', so the
@@ -104,7 +123,7 @@ export function openDialog<T>(title: string, fallback: T, build: DialogBuilder<T
     dialog.addEventListener('close', () => finish(fallback));
     build(body, buttons, finish);
     document.body.append(dialog);
-    dialog.showModal();
+    showModal(dialog);
     const autofocusTarget = dialog.querySelector<HTMLElement>('[data-autofocus]');
     if (autofocusTarget) {
       focusWithoutKeyboard(autofocusTarget);

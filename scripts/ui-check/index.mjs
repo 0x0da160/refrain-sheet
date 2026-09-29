@@ -13,7 +13,9 @@
 // placement, editing/IME and hit testing at every spreadsheet zoom level.
 // Set UI_CHECK_SCREENSHOT_DIR to also save a screenshot per zoom level.
 // A second, fresh page then runs the add-sheet dialog check
-// (scripts/ui-check/sheet-add.mjs): the sheet-type picker is shown.
+// (scripts/ui-check/sheet-add.mjs): the sheet-type picker is shown. A third
+// runs the type-after-unlock check (scripts/ui-check/type-after-unlock.mjs):
+// typing into a cell without F2 still works after unlocking an opened file.
 //
 //   npm run build   # dist/ must already exist
 //   npm run ui:check
@@ -24,6 +26,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 import { checkGridGeometry } from './grid.mjs';
 import { checkSheetAddDialog } from './sheet-add.mjs';
+import { checkTypeAfterUnlock } from './type-after-unlock.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const indexHtml = join(root, 'dist', 'index.html');
@@ -61,6 +64,11 @@ try {
     await sheetPage.goto(pathToFileURL(indexHtml).href);
     await sheetPage.waitForSelector('.menu-bar', { timeout: 10_000 });
     errors.push(...(await checkSheetAddDialog(sheetPage)));
+    const unlockPage = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+    unlockPage.on('pageerror', (error) => errors.push(`page error: ${error.message}`));
+    await unlockPage.goto(pathToFileURL(indexHtml).href);
+    await unlockPage.waitForSelector('.menu-bar', { timeout: 10_000 });
+    errors.push(...(await checkTypeAfterUnlock(unlockPage)));
   }
 } finally {
   await browser.close();

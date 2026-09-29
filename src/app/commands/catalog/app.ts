@@ -16,6 +16,7 @@ import { GRID_LOOK_KEYS } from '../../../core/grid-look';
 import { getBrowserGridLook, setBrowserGridLook } from '../../grid-look';
 import { getBrowserSheetFont, isSheetFontId, setBrowserSheetFont } from '../../sheet-font';
 import type { Tab } from '../../state';
+import { getToolbarShown, setToolbarShown } from '../../toolbar-prefs';
 import { withTab, type CommandContext, type CommandSpec } from './types';
 
 /** File > Settings…: the per-device preferences and, for a workbook, its file-level display settings. */
@@ -24,6 +25,7 @@ async function settings(ctx: CommandContext): Promise<void> {
   const chosen = await ctx.ui.chooseSettings({
     maxFileSize: getMaxFileSize(),
     shiftPaste: getShiftPasteMode(),
+    showToolbar: getToolbarShown(),
     browserDisplay: {
       zoom: getBrowserZoom(),
       wrap: getBrowserWrap(),
@@ -44,6 +46,7 @@ async function settings(ctx: CommandContext): Promise<void> {
   }
   const applied = setMaxFileSize(chosen.maxFileSize);
   setShiftPasteMode(chosen.shiftPaste);
+  setToolbarShown(chosen.showToolbar);
   setBrowserZoom(chosen.browserDisplay.zoom);
   setBrowserWrap(chosen.browserDisplay.wrap);
   setBrowserSheetFont(chosen.browserDisplay.font);

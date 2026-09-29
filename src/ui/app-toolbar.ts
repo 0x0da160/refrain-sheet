@@ -15,6 +15,7 @@ import { ICON_BY_COMMAND } from './command-icons';
 import { el } from './dom';
 import { createIcon } from './icon';
 import { shortcutLabel, type MenuDef, type MenuItemDef } from './menu-bar/menus';
+import { dropDetachedTooltip, hideTooltip, installTooltips } from './tooltip';
 
 /**
  * Icons for commands the menus show with a check mark instead of an icon,
@@ -84,6 +85,7 @@ export class AppToolbar {
     this.available = toolbarCommands(menus);
     this.element = el('div', { className: 'app-toolbar', attrs: { role: 'toolbar' } });
     this.element.addEventListener('keydown', (event) => this.keyDown(event));
+    installTooltips(this.element);
     this.render();
   }
 
@@ -93,6 +95,7 @@ export class AppToolbar {
     this.element.setAttribute('aria-label', t('toolbar.label'));
     if (this.element.hidden) {
       this.element.replaceChildren();
+      hideTooltip();
       return;
     }
     const nodes: HTMLElement[] = [];
@@ -109,6 +112,7 @@ export class AppToolbar {
     this.element.replaceChildren(...nodes);
     const buttons = this.buttons();
     buttons.forEach((button, i) => (button.tabIndex = i === 0 ? 0 : -1));
+    dropDetachedTooltip();
   }
 
   private button(command: ToolbarCommand): HTMLButtonElement {
@@ -116,11 +120,16 @@ export class AppToolbar {
     const shortcut = shortcutLabel(command.item.shortcut);
     const enabled = this.commands.isEnabled(command.id);
     const reason = enabled ? null : this.commands.disabledReason(command.id);
-    const title = [shortcut ? `${label} (${shortcut})` : label, reason].filter(Boolean).join('\n');
+    // The app's quick tooltip (tooltip.ts) rather than a slow `title`; a
+    // disabled command says why on its second line, and to screen readers.
+    const tooltip = [shortcut ? `${label} (${shortcut})` : label, reason].filter(Boolean).join('\n');
     const button = el('button', {
       className: 'app-toolbar-button',
-      attrs: { type: 'button', title, 'aria-label': label, 'data-command': command.id },
+      attrs: { type: 'button', 'data-tooltip': tooltip, 'aria-label': label, 'data-command': command.id },
     }) as HTMLButtonElement;
+    if (reason) {
+      button.setAttribute('aria-description', reason);
+    }
     button.append(createIcon(command.icon, 'app-toolbar-icon', 16));
     // aria-disabled rather than disabled, so the reason stays reachable.
     button.setAttribute('aria-disabled', String(!enabled));
@@ -140,7 +149,7 @@ export class AppToolbar {
     const label = t('menu.view.customizeToolbar');
     const button = el('button', {
       className: 'app-toolbar-button app-toolbar-customize',
-      attrs: { type: 'button', title: label, 'aria-label': label },
+      attrs: { type: 'button', 'data-tooltip': label, 'aria-label': label },
     }) as HTMLButtonElement;
     button.append(createIcon(Settings2, 'app-toolbar-icon', 16));
     button.addEventListener('click', () => void this.commands.run('view.customizeToolbar'));

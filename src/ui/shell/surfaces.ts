@@ -34,6 +34,8 @@ import { TabBar } from '../tab-bar';
 import { TextSheetView } from '../text-sheet';
 import { WelcomeScreen } from '../welcome-screen';
 import { YamlSheetView } from '../yaml-sheet';
+import { rememberTextEditors, textFieldClipboard } from '../text-field-clipboard';
+import { t } from '../../app/i18n';
 
 export interface Surfaces {
   grid: Grid;
@@ -81,7 +83,13 @@ export function createSurfaces(
     document,
     (range) => grid.setCopySource(range),
   );
-  wireCommandActions(state, commands, grid, clipboard);
+  wireCommandActions(state, commands, grid, clipboard, toasts);
+  rememberTextEditors(document, [
+    markdownSheetView.element,
+    jsonSheetView.element,
+    yamlSheetView.element,
+    textSheetView.element,
+  ]);
   // The cell comments list: a dockable side panel like Filter/Sort/Format —
   // see src/ui/comments-panel.ts.
   const commentsPanel = new CommentsPanel(state, grid);
@@ -167,13 +175,29 @@ function wireCommandActions(
   commands: Commands,
   grid: Grid,
   clipboard: ClipboardController,
+  toasts: Toasts,
 ): void {
+  // On a Markdown, JSON, YAML or text sheet, Cut/Copy/Paste act on its text
+  // editor, never on the cell holding the whole text (text-field-clipboard.ts).
+  const onTextSheet = (): boolean => {
+    const doc = state.activeTab?.doc;
+    return isWorkbook(doc) && doc.activeSheet.kind !== 'grid';
+  };
+  const inTextSheet = async (action: 'cut' | 'copy' | 'paste'): Promise<void> => {
+    try {
+      if (!(await textFieldClipboard(document, action))) {
+        toasts.notify(t('notify.textSheetClipboardNoFocus'), 'info');
+      }
+    } catch {
+      toasts.notify(t(action === 'paste' ? 'notify.pasteBlocked' : 'notify.clipboardBlocked'), 'warn');
+    }
+  };
   commands.clipboardActions = {
-    cut: () => clipboard.cutViaApi(),
-    copy: () => clipboard.copyViaApi(),
+    cut: () => (onTextSheet() ? inTextSheet('cut') : clipboard.cutViaApi()),
+    copy: () => (onTextSheet() ? inTextSheet('copy') : clipboard.copyViaApi()),
     copyScreenshot: () => clipboard.copyScreenshotAsPng(),
     copyAsMarkdown: () => clipboard.copyMarkdownTable(),
-    paste: () => clipboard.pasteViaApi(),
+    paste: () => (onTextSheet() ? inTextSheet('paste') : clipboard.pasteViaApi()),
     pasteValues: () => clipboard.pasteValuesViaApi(),
     pasteFormats: () => clipboard.pasteFormatsViaApi(),
     getCopied: () => clipboard.getCopied(),

@@ -38,8 +38,31 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- **Faster toolbar tooltips.** A toolbar button's name and shortcut now
+  appear about a third of a second after you point at it, and at once as you
+  move along the toolbar, instead of after the browser's usual wait.
+- **Reorder the toolbar by dragging.** In View > Customize Toolbar…, drag a
+  command by the grip at the start of its row. The Up and Down buttons still
+  work.
+- **Show or hide the toolbar from File > Settings…**, as well as from View >
+  Show Toolbar.
+
+### Changed
+
+- **Toolbar and menu commands turn off where they do nothing.** Bold, colors,
+  borders and the other cell formatting are off on a CSV, on a Markdown,
+  JSON, YAML or text sheet, on a grid paper sheet, and while a shape is
+  picked, and the button's tooltip says why. Sort, filter, fill and the
+  other cell commands are off on a Markdown, JSON, YAML or text sheet.
+
 ### Fixed
 
+- **Cut on a Markdown, JSON, YAML or text sheet no longer empties the
+  sheet.** The toolbar's and the Edit menu's Cut, Copy and Paste now act on
+  the text you selected in the sheet's editor. Before, Cut removed the whole
+  text.
 - **Typing into a cell after unlocking a file works again.** After you
   unlocked an opened file (or closed any other dialog), selecting a cell and
   typing without pressing F2 first saved the cell as empty. Now the text you

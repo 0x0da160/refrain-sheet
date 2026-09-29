@@ -123,3 +123,60 @@
   justify-content: flex-end;
   margin-top: var(--space-1);
 }
+
+/* The app's own tooltip (src/ui/tooltip.ts), styled like the design
+   system's .rs-tooltip: inverse colors, caption text, above everything. */
+.app-tooltip {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  max-inline-size: 20rem;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  color: var(--inverse-text);
+  background-color: var(--inverse-bg);
+  border-radius: var(--radius-sm);
+  z-index: var(--z-tooltip);
+  pointer-events: none;
+  white-space: normal;
+}
+
+.app-tooltip[hidden] {
+  display: none;
+}
+
+.app-tooltip-note {
+  color: var(--inverse-text-muted);
+}
+
+/* Customize Toolbar: the grip that drags a row to a new place. */
+.toolbar-customize-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 24px;
+  color: var(--fg-subtle);
+  cursor: grab;
+  touch-action: none;
+}
+
+.toolbar-customize-row.dragging {
+  position: relative;
+  z-index: 1;
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-md);
+}
+
+.toolbar-customize-row.dragging .toolbar-customize-grip {
+  cursor: grabbing;
+}
+
+.toolbar-customize-row.drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.toolbar-customize-row.drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}

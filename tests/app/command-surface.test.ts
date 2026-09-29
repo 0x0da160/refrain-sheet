@@ -12,6 +12,7 @@ import { AppState } from '../../src/app/state';
 import { Commands, COMMAND_IDS as CATALOG_IDS, type CommandId, type UiPort } from '../../src/app/commands';
 import { setLocale } from '../../src/app/i18n';
 import { utf8 } from '../helpers';
+import type { RsfDocument } from '../../src/core/workbook/rsf-document';
 
 const COMMAND_IDS: readonly CommandId[] = [
   'file.new',
@@ -194,7 +195,7 @@ function inertUi(): UiPort {
   return new Proxy({} as UiPort, { get: () => vi.fn(async () => null) });
 }
 
-type Situation = 'none' | 'csv' | 'csvReadOnly' | 'rsf' | 'rsfMarkdown';
+type Situation = 'none' | 'csv' | 'csvReadOnly' | 'rsf' | 'rsfMarkdown' | 'rsfPaper' | 'rsfShapePicked';
 
 async function build(situation: Situation): Promise<Commands> {
   const state = new AppState();
@@ -205,9 +206,16 @@ async function build(situation: Situation): Promise<Commands> {
       confirmNonCsv: false,
     });
     if (situation === 'csvReadOnly') state.setReadOnly(state.activeTab!, true);
-  } else if (situation === 'rsf' || situation === 'rsfMarkdown') {
+  } else if (situation !== 'none') {
     await commands.run('file.new');
-    if (situation === 'rsfMarkdown') state.addMarkdownSheet(state.activeTab!, 'Notes');
+    const tab = state.activeTab!;
+    if (situation === 'rsfMarkdown') state.addMarkdownSheet(tab, 'Notes');
+    if (situation === 'rsfPaper') state.addPaperSheet(tab, 'Paper');
+    if (situation === 'rsfShapePicked') {
+      await commands.run('insert.rectangle');
+      const doc = tab.doc as RsfDocument;
+      state.objectSelection.select(tab, [doc.objects[0].id]);
+    }
   }
   return commands;
 }
@@ -217,7 +225,15 @@ describe('command surface (characterization)', () => {
     expect([...COMMAND_IDS].sort()).toEqual([...CATALOG_IDS].sort());
   });
 
-  for (const situation of ['none', 'csv', 'csvReadOnly', 'rsf', 'rsfMarkdown'] as const) {
+  for (const situation of [
+    'none',
+    'csv',
+    'csvReadOnly',
+    'rsf',
+    'rsfMarkdown',
+    'rsfPaper',
+    'rsfShapePicked',
+  ] as const) {
     it(`enablement and disabled reasons: ${situation}`, async () => {
       setLocale('en');
       const commands = await build(situation);

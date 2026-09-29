@@ -9,6 +9,7 @@
  * which the app layer never imports; `tests/app/command-catalog.test.ts`
  * checks that every catalog id is reachable from the UI and localized.
  */
+import { isWorkbook } from '../../../core/editor-document';
 import type { AppState, Tab } from '../../state';
 import type { UiPort } from '../../ui-port';
 import type { ConditionalFormatCommands } from '../conditional-format';
@@ -89,4 +90,38 @@ export function hasTab(ctx: CommandContext): boolean {
 /** True when the active tab has a selection. */
 export function hasSelection(ctx: CommandContext): boolean {
   return ctx.tab?.selection != null;
+}
+
+/**
+ * What the active tab shows, which decides the commands that apply to it:
+ * `csv` a CSV file, `grid` an RSF sheet of cells, `paper` a grid-paper sheet
+ * (its squares take no values or formatting), `text` a Markdown, JSON, YAML
+ * or text sheet (one text editor, no cells), `none` no open tab.
+ */
+export type Scene = 'none' | 'csv' | 'grid' | 'paper' | 'text';
+
+export function sceneOf(tab: Tab | null): Scene {
+  if (!tab) {
+    return 'none';
+  }
+  if (!isWorkbook(tab.doc)) {
+    return 'csv';
+  }
+  const sheet = tab.doc.activeSheet;
+  if (sheet.kind !== 'grid') {
+    return 'text';
+  }
+  return sheet.paper === undefined ? 'grid' : 'paper';
+}
+
+/** A selection among cells that hold values: on a CSV or an RSF sheet of cells. */
+export function hasCellSelection(ctx: CommandContext): boolean {
+  const scene = sceneOf(ctx.tab);
+  return hasSelection(ctx) && (scene === 'csv' || scene === 'grid');
+}
+
+/** A selection on a sheet with rows and columns: any but a Markdown, JSON, YAML or text sheet. */
+export function hasGridSelection(ctx: CommandContext): boolean {
+  const scene = sceneOf(ctx.tab);
+  return hasSelection(ctx) && (scene === 'csv' || scene === 'grid' || scene === 'paper');
 }

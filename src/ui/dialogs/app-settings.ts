@@ -99,6 +99,10 @@ export class AppSettingsDialogs {
         pasteSelect.append(option);
       }
 
+      const toolbarId = 'settings-show-toolbar';
+      const toolbarCheck = el('input', { attrs: { type: 'checkbox', id: toolbarId } }) as HTMLInputElement;
+      toolbarCheck.checked = current.showToolbar;
+
       // "Not specified" names what then applies: for this browser, the
       // default (zoom and wrap: the value last used); for the file, this
       // browser's choice as currently picked, so it follows edits above.
@@ -138,6 +142,10 @@ export class AppSettingsDialogs {
           pasteSelect,
         ]),
         helpDetails(t('dialog.settings.shiftPasteNote')),
+        el('div', { className: 'form-row' }, [
+          toolbarCheck,
+          el('label', { text: t('dialog.settings.showToolbar'), attrs: { for: toolbarId } }),
+        ]),
         el('h3', { text: t('dialog.settings.display') }),
         el('p', { className: 'dialog-note', text: t('dialog.settings.displayOrder') }),
         el('h4', { text: t('dialog.settings.browserLevel') }),
@@ -161,6 +169,7 @@ export class AppSettingsDialogs {
         close({
           maxFileSize: clampMaxFileSize(miBToBytes(mib)),
           shiftPaste: pasteSelect.value === 'formats' ? 'formats' : 'values',
+          showToolbar: toolbarCheck.checked,
           browserDisplay: browserFields.read(),
           fileDisplay: fileFields ? fileFields.read() : null,
         });

@@ -2,7 +2,7 @@
 import { runsEqual, withoutRunKey, type TextRun } from './rich-text';
 
 /**
- * Visual, cell-level formatting: bold/italic/underline, text color, cell
+ * Visual, cell-level formatting: bold/italic/underline, text color, font and size, cell
  * background color, per-side borders, and a numeric display format. Purely
  * presentational — it never affects a cell's value, formula evaluation,
  * sort/filter, or CSV export. Absent keys mean "not set" (inherit the
@@ -35,8 +35,12 @@ export interface CellStyle {
   borderBottomWidth?: BorderWidth;
   borderLeftWidth?: BorderWidth;
   numberFormat?: NumberFormat;
+  /** The cell's own font family name (`text-font.ts`); absent uses the sheet font. */
+  fontFamily?: string;
+  /** The cell's own font size in points; absent uses the grid's size. */
+  fontSize?: number;
   /**
-   * Parts of the cell's text with their own bold/italic/underline/text color
+   * Parts of the cell's text with their own bold/italic/underline/text color/font/size
    * (rich text, see `rich-text.ts`). Applied only while the segments still
    * spell out the cell's input.
    */
@@ -219,6 +223,8 @@ export function isEmptyCellStyle(style: CellStyle): boolean {
     style.borderBottom === undefined &&
     style.borderLeft === undefined &&
     style.numberFormat === undefined &&
+    style.fontFamily === undefined &&
+    style.fontSize === undefined &&
     style.runs === undefined
   );
 }
@@ -246,6 +252,8 @@ export function cellStylesEqual(a: CellStyle | null, b: CellStyle | null): boole
         an[BORDER_WIDTH_KEY[side]] === bn[BORDER_WIDTH_KEY[side]],
     ) &&
     numberFormatsEqual(an.numberFormat, bn.numberFormat) &&
+    an.fontFamily === bn.fontFamily &&
+    an.fontSize === bn.fontSize &&
     runsEqual(an.runs, bn.runs)
   );
 }
@@ -278,6 +286,10 @@ export interface CellStylePatch {
   borderLeftWidth?: BorderWidth;
   /** `null` clears the number format ("General"); an object replaces it whole (never merged). */
   numberFormat?: NumberFormat | null;
+  /** `null` goes back to the sheet font. */
+  fontFamily?: string | null;
+  /** `null` goes back to the grid's size. */
+  fontSize?: number | null;
   /** `null` removes the rich-text runs; an array replaces them whole. */
   runs?: TextRun[] | null;
 }
@@ -289,7 +301,7 @@ export function applyCellStylePatch(style: CellStyle | null, patch: CellStylePat
   // Setting a text property on the whole cell applies it to all of the
   // cell's text, so no part keeps its own value for it.
   if (next.runs) {
-    for (const key of ['bold', 'italic', 'underline', 'textColor'] as const) {
+    for (const key of ['bold', 'italic', 'underline', 'textColor', 'fontFamily', 'fontSize'] as const) {
       if (patch[key] !== undefined && next.runs) {
         next.runs = withoutRunKey(next.runs, key);
       }
@@ -345,6 +357,14 @@ export function applyCellStylePatch(style: CellStyle | null, patch: CellStylePat
     } else {
       next.numberFormat = normalizeNumberFormat(patch.numberFormat);
     }
+  }
+  if (patch.fontFamily !== undefined) {
+    if (patch.fontFamily === null) delete next.fontFamily;
+    else next.fontFamily = patch.fontFamily;
+  }
+  if (patch.fontSize !== undefined) {
+    if (patch.fontSize === null) delete next.fontSize;
+    else next.fontSize = patch.fontSize;
   }
   if (patch.runs !== undefined) {
     if (patch.runs === null || patch.runs.length === 0) {

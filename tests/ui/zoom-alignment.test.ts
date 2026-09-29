@@ -68,6 +68,7 @@ function stubUi(): UiPort {
     chooseBackgroundColor: async () => null,
     chooseBorders: async () => null,
     chooseNumberFormat: async () => null,
+    chooseFont: async () => null,
     chooseRecentFile: async () => null,
     setBusy: () => undefined,
   };

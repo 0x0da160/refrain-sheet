@@ -1047,6 +1047,23 @@
   cursor: pointer;
 }
 
+.rich-toolbar-fonts {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.rich-toolbar-select {
+  height: 26px;
+  max-width: 150px;
+  padding: 0 4px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--bg-raised);
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-caption);
+}
+
 .rich-toolbar-divider {
   width: 1px;
   height: 18px;

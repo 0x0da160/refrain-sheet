@@ -625,6 +625,11 @@ export class Commands {
     return this.parts.format.promptNumberFormat(tab);
   }
 
+  /** Open the Font dialog and apply the choice. See `FormatCommands.promptFont`. */
+  async promptFont(tab: Tab): Promise<boolean> {
+    return this.parts.format.promptFont(tab);
+  }
+
   /** Remove every style property from the selection. See `FormatCommands.clearFormatting`. */
   clearFormatting(tab: Tab): boolean {
     return this.parts.format.clearFormatting(tab);

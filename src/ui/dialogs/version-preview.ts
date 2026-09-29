@@ -78,6 +78,7 @@ function noOpUiPort(): UiPort {
     chooseBackgroundColor: async () => null,
     chooseBorders: async () => null,
     chooseNumberFormat: async () => null,
+    chooseFont: async () => null,
     setBusy: () => {},
   };
 }

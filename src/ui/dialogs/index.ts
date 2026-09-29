@@ -17,6 +17,7 @@ import type {
   FilterDialogInput,
   FilterDialogResult,
   FlashFillPreview,
+  FontDialogResult,
   NumberFormatDialogResult,
   RangeMoveConfirmInput,
   RecentFileChoice,
@@ -44,6 +45,7 @@ import { createIcon } from '../icon';
 import { AppSettingsDialogs } from './app-settings';
 import { FileIoDialogs } from './file-io';
 import { FormatDialogs } from './format';
+import { chooseFont } from './font';
 import { FilterDialog } from './filter-dialog';
 import { RangeRuleDialogs } from './range-rule-dialogs';
 import { SheetOpsDialogs } from './sheet-ops';
@@ -386,6 +388,14 @@ export class Dialogs {
     onApply?: ApplyHandler<NumberFormatDialogResult>,
   ): Promise<NumberFormatDialogResult | null> {
     return this.format.chooseNumberFormat(current, onApply);
+  }
+
+  /** See `chooseFont` (`./font.ts`) for the full behavior contract. */
+  chooseFont(
+    current: FontDialogResult,
+    onApply?: ApplyHandler<FontDialogResult>,
+  ): Promise<FontDialogResult | null> {
+    return chooseFont(current, onApply);
   }
 
   /** See `FormatDialogs.chooseConditionalFormat` for the full behavior contract. */

@@ -2,7 +2,7 @@
 
 /**
  * Rich text inside one cell: parts of a plain-text cell's input carrying
- * their own bold/italic/underline/text color. Stored on the cell's
+ * their own bold/italic/underline/text color/font/size. Stored on the cell's
  * {@link CellStyle} as `runs`, a list of text segments that concatenate to
  * the cell's input — so the runs check themselves: when the cell's text no
  * longer matches (edited through a path that did not carry the runs along),
@@ -19,6 +19,10 @@ export interface RunFormat {
   underline?: boolean;
   /** `#rrggbb`. */
   textColor?: string;
+  /** A font family name (`text-font.ts`). */
+  fontFamily?: string;
+  /** Points, a half point from 6 to 96. */
+  fontSize?: number;
 }
 
 /** One segment of a cell's text and its format. */
@@ -31,7 +35,14 @@ export type RunFormatKey = keyof RunFormat;
 /** Most runs one cell may carry (the reader refuses more as `too-large`). */
 export const MAX_TEXT_RUNS = 10_000;
 
-const RUN_KEYS: readonly RunFormatKey[] = ['bold', 'italic', 'underline', 'textColor'];
+const RUN_KEYS: readonly RunFormatKey[] = [
+  'bold',
+  'italic',
+  'underline',
+  'textColor',
+  'fontFamily',
+  'fontSize',
+];
 
 /** True when a format sets nothing. */
 function isPlainFormat(format: RunFormat): boolean {

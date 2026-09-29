@@ -320,6 +320,7 @@ function formatMenu(checks: MenuChecks): MenuDef {
         shortcut: 'Ctrl+U',
         checked: () => checks.formatActive('underline'),
       },
+      { labelKey: 'menu.format.font', command: 'format.font' },
       'separator',
       { labelKey: 'menu.format.colorAndBorders', icon: SwatchBook, submenu: colorAndBordersItems() },
       { labelKey: 'menu.format.numberFormat', command: 'format.numberFormat' },

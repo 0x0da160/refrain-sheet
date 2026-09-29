@@ -2,11 +2,13 @@
 import type { CellStyle } from '../core/workbook/cell-style';
 import type { TextRun } from '../core/workbook/rich-text';
 import { el } from './dom';
+import { paintFont } from './font-choices';
 
 /**
  * One `<span>` per rich-text run, as text (never HTML). Each span carries
  * its effective bold/italic/underline — the run's own value, else the whole
- * cell's — so a plain part inside a bold or underlined cell shows plain.
+ * cell's — so a plain part inside a bold or underlined cell shows plain;
+ * a run's own font and size override the cell's, which it otherwise inherits.
  * `colorOverride` (a conditional-formatting color) wins over every run's
  * own text color, the same "computed appearance wins" rule the cell follows.
  */
@@ -20,6 +22,7 @@ export function richTextNodes(
     span.style.fontWeight = (run.bold ?? !!cell?.bold) ? 'bold' : 'normal';
     span.style.fontStyle = (run.italic ?? !!cell?.italic) ? 'italic' : 'normal';
     span.style.textDecoration = (run.underline ?? !!cell?.underline) ? 'underline' : 'none';
+    paintFont(span, run);
     const color = colorOverride ?? run.textColor;
     if (color) {
       span.style.color = color;

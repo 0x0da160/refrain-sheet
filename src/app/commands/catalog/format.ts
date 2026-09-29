@@ -28,6 +28,7 @@ export const FORMAT_COMMANDS = {
     ({ tab, commands }) => tab && commands.promptBackgroundColor(tab),
   ),
   'format.borders': workbookFormatting(({ tab, commands }) => tab && commands.promptBorders(tab)),
+  'format.font': workbookFormatting(({ tab, commands }) => tab && commands.promptFont(tab)),
   'format.numberFormat': workbookFormatting(({ tab, commands }) => tab && commands.promptNumberFormat(tab)),
   'format.clear': workbookFormatting(({ tab, commands }) => tab && commands.clearFormatting(tab)),
   'format.presetNumber': workbookFormatting(

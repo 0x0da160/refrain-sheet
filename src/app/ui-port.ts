@@ -295,6 +295,16 @@ export type BordersDialogResult = {
   width: BorderWidth;
 };
 
+/**
+ * What the Font dialog resolved to (null = cancelled, nothing changes): the
+ * selection's font family and size in points, each null to go back to the
+ * sheet's own.
+ */
+export interface FontDialogResult {
+  fontFamily: string | null;
+  fontSize: number | null;
+}
+
 /** What the Number Format dialog resolved to (null = cancelled, nothing changes). */
 export type NumberFormatDialogResult = { action: 'apply'; format: NumberFormat } | { action: 'clear' };
 
@@ -519,6 +529,15 @@ export interface FormatDialogsPort {
     current: NumberFormat | null,
     onApply?: ApplyHandler<NumberFormatDialogResult>,
   ): Promise<NumberFormatDialogResult | null>;
+  /**
+   * The Font dialog: a font family and a size, preselected from `current`
+   * (the top-left selected cell's). Resolves with the choice, or null when
+   * cancelled (nothing changes).
+   */
+  chooseFont(
+    current: FontDialogResult,
+    onApply?: ApplyHandler<FontDialogResult>,
+  ): Promise<FontDialogResult | null>;
 }
 
 /** One place a worksheet or folder can go, in the Move to Folder dialog. */

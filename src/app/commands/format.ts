@@ -17,7 +17,12 @@ import type { Operation, StyleChange } from '../../core/workbook/history';
 import { remapRuns, runsEqual, runsForText, type TextRun } from '../../core/workbook/rich-text';
 import type { AppState, Tab } from '../state';
 import { getLocale } from '../i18n';
-import type { BordersDialogResult, ColorDialogResult, NumberFormatDialogResult } from '../commands';
+import type {
+  BordersDialogResult,
+  ColorDialogResult,
+  FontDialogResult,
+  NumberFormatDialogResult,
+} from '../commands';
 import { applyWhileOpen } from './shared';
 
 /** Every visible (non-hidden-row) cell of `range`, row-major. */
@@ -49,12 +54,14 @@ const CLEAR_PATCH: CellStylePatch = {
   borderBottom: null,
   borderLeft: null,
   numberFormat: null,
+  fontFamily: null,
+  fontSize: null,
   runs: null,
 };
 
 /**
  * Cell-/range-level visual formatting for RSF worksheets: bold, italic,
- * underline, text color, background color, per-side borders, and a numeric
+ * underline, text color, font and size, background color, per-side borders, and a numeric
  * display format. Extracted from `Commands` as a cohesive slice (the pattern
  * `RangeOpsCommands` established) — `Commands` still exposes the same public
  * methods, delegating to an instance of this class.
@@ -176,6 +183,30 @@ export class FormatCommands {
           tab,
           { numberFormat: result.action === 'apply' ? result.format : null },
           'history.setNumberFormat',
+        ),
+    );
+  }
+
+  /** Open the Font dialog (preselected from the top-left selected cell) and apply the choice. */
+  async promptFont(tab: Tab): Promise<boolean> {
+    const range = this.state.selectedRange(tab);
+    const doc = tab.doc;
+    if (!range || !isWorkbook(doc)) {
+      return false;
+    }
+    const style = doc.getStyle(range.top, range.left);
+    const current: FontDialogResult = {
+      fontFamily: style?.fontFamily ?? null,
+      fontSize: style?.fontSize ?? null,
+    };
+    return applyWhileOpen<FontDialogResult>(
+      (onApply) => this.ui.chooseFont(current, onApply),
+      (result) =>
+        this.isStillActive(tab, doc) &&
+        this.applyToSelection(
+          tab,
+          { fontFamily: result.fontFamily, fontSize: result.fontSize },
+          'history.setFont',
         ),
     );
   }

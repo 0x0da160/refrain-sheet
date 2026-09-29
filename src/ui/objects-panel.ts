@@ -12,7 +12,6 @@ import {
   MAX_OBJECT_LINE_WIDTH,
   MAX_OBJECT_NAME_LENGTH,
   MAX_OBJECT_TEXT_LENGTH,
-  MIN_OBJECT_LINE_WIDTH,
   OBJECT_TEXT_ALIGNS,
   OBJECT_TEXT_VALIGNS,
   objectDefaults,
@@ -164,6 +163,7 @@ export class ObjectsPanel {
         el('p', { className: 'dialog-note', text: t('panel.objects.many', { n: selected.length }) }),
       );
     }
+    this.body.append(el('p', { className: 'dialog-note', text: t('panel.objects.hint') }));
     if (focusKey) {
       this.body.querySelector<HTMLElement>(`[data-focus-key="${CSS.escape(focusKey)}"]`)?.focus();
     }
@@ -465,15 +465,16 @@ export class ObjectsPanel {
       String(o.strokeWidth ?? d.strokeWidth),
       editLocked,
       (value) => {
-        const width = Number(value);
-        if (value.trim() !== '' && width >= MIN_OBJECT_LINE_WIDTH && width <= MAX_OBJECT_LINE_WIDTH) {
+        const width = Math.round(Number(value));
+        if (value.trim() !== '' && width >= 1 && width <= MAX_OBJECT_LINE_WIDTH) {
           this.update(tab, o, { ...o, strokeWidth: width }, 'history.editObject');
         }
       },
     );
-    lineWidth.min = String(MIN_OBJECT_LINE_WIDTH);
+    // Whole pixels only (see `wholePixels`).
+    lineWidth.min = '1';
     lineWidth.max = String(MAX_OBJECT_LINE_WIDTH);
-    lineWidth.step = '0.25';
+    lineWidth.step = '1';
     style.push(panelField(t('panel.objects.strokeWidth'), lineWidth));
     return panelSection(t('panel.objects.style'), style);
   }
@@ -506,6 +507,8 @@ export class ObjectsPanel {
       o.fontSize ?? null,
       (points) => this.update(tab, o, withValue(o, 'fontSize', points ?? undefined), 'history.editObject'),
       { 'data-focus-key': 'fontSize' },
+      undefined,
+      true,
     );
     size.disabled = editLocked;
     const check = (key: 'bold' | 'italic'): HTMLElement => {

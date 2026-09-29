@@ -13,6 +13,7 @@
  *
  * A collaborator of the grid (see `./core.ts`).
  */
+import { editObjectText, INLINE_TEXT_KINDS } from './object-text-editor';
 import type { Tab } from '../../app/state';
 import { t } from '../../app/i18n';
 import { isWorkbook } from '../../core/editor-document';
@@ -27,6 +28,9 @@ import type { CommandId } from '../../app/commands';
 
 /** Pointer travel (px) before a press on an object becomes a drag. */
 const DRAG_THRESHOLD = 3;
+/** Two presses on one object this close in time (ms) and place (px) are a double press. */
+const DOUBLE_PRESS_MS = 500;
+const DOUBLE_PRESS_SLOP_PX = 6;
 const BOX_HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
 
 interface ObjectDrag {
@@ -54,8 +58,12 @@ export class ObjectLayer {
   /** Inputs of the last render; an equal set skips the rebuild (scrolling renders often). */
   private signature: unknown[] | null = null;
   private drag: ObjectDrag | null = null;
+  /** The object whose text is being typed on it; drawing waits until that ends. */
+  private editing: string | null = null;
   /** The picked ids at the last render, to tell a new pick. */
   private lastPicks = '';
+  /** The last press on an object, to tell a double press. */
+  private lastPress: { id: string; at: number; x: number; y: number } | null = null;
   private readonly onMove = (event: PointerEvent): void => this.dragMove(event);
   private readonly onUp = (event: PointerEvent): void => this.dragEnd(event, false);
   private readonly onCancel = (event: PointerEvent): void => this.dragEnd(event, true);
@@ -70,10 +78,11 @@ export class ObjectLayer {
         event.preventDefault();
       }
     });
+    // A press redraws the object under the pointer, so the browser's own
+    // dblclick never arrives: `pointerDown` tells a double press itself.
     this.element.addEventListener('dblclick', (event) => {
       if (this.objectFrom(event.target)) {
         event.stopPropagation();
-        void this.core.commands.run('insert.objectList');
       }
     });
     this.element.addEventListener('contextmenu', (event) => this.contextMenu(event));
@@ -98,6 +107,9 @@ export class ObjectLayer {
     if (!tab) {
       this.signature = null;
       clearChildren(this.element);
+      return;
+    }
+    if (this.editing !== null) {
       return;
     }
     const objects = this.objects(tab);
@@ -206,6 +218,35 @@ export class ObjectLayer {
     };
   }
 
+  /** The column (`x`) or row (`y`) edge nearest canvas position `at`. */
+  private toCellEdge(tab: Tab, axis: 'x' | 'y', at: number): number {
+    if (axis === 'x') {
+      const head = this.core.metrics.headW(tab);
+      const colIdx = this.core.metrics.colOffsetIndex(tab);
+      const x = Math.max(0, at - head);
+      const col = Math.max(0, Math.min(tab.doc.columnCount - 1, colIdx.colAtOrBefore(x)));
+      const start = colIdx.offsetOf(col);
+      const end = start + this.core.metrics.colWidth(tab, col);
+      return head + (x - start <= end - x ? start : end);
+    }
+    const head = this.core.metrics.rowH(tab);
+    const idx = this.core.metrics.heightIndex(tab);
+    const y = Math.max(0, at - head);
+    const row = Math.max(0, Math.min(tab.doc.rowCount - 1, idx.rowAtOffset(y, tab.doc.rowCount)));
+    const start = idx.offsetOf(row);
+    const end = start + idx.heightOf(row);
+    return head + (y - start <= end - y ? start : end);
+  }
+
+  /** Box edges `[left, top, right, bottom]` with the ones `handle` drags (both ends of a line) on the nearest cell edges. */
+  private toCellEdges(tab: Tab, handle: string, edges: readonly number[]): [number, number, number, number] {
+    const line = handle === 'start' || handle === 'end';
+    const [left, top, right, bottom] = edges;
+    const snap = (side: string, axis: 'x' | 'y', at: number): number =>
+      line || handle.includes(side) ? this.toCellEdge(tab, axis, at) : at;
+    return [snap('w', 'x', left), snap('n', 'y', top), snap('e', 'x', right), snap('s', 'y', bottom)];
+  }
+
   /** The object with its top-left corner moved to canvas point (`x`, `y`). */
   placeAt(tab: Tab, o: SheetObject, x: number, y: number, snap = false): SheetObject {
     const z = this.core.metrics.zoomOf(tab);
@@ -298,6 +339,10 @@ export class ObjectLayer {
     if (!pressed) {
       return;
     }
+    const handle = (event.target as Element).closest<HTMLElement>('[data-handle]')?.dataset.handle ?? null;
+    if (this.doublePress(event, id, handle !== null)) {
+      return;
+    }
     this.core.editing.commitEditor();
     const selected = this.core.state.objectSelection.selected(tab);
     const toggle = event.ctrlKey || event.metaKey || event.shiftKey;
@@ -318,7 +363,6 @@ export class ObjectLayer {
     if (event.button !== 0 || !next.includes(id)) {
       return;
     }
-    const handle = (event.target as Element).closest<HTMLElement>('[data-handle]')?.dataset.handle ?? null;
     const picked = new Set(next);
     const originals = handle ? [pressed] : objects.filter((o) => picked.has(o.id));
     this.drag = {
@@ -378,7 +422,7 @@ export class ObjectLayer {
       return;
     }
     const o = drag.originals[0];
-    drag.preview = this.resized(tab, o, drag.handle ?? 'se', dx, dy, event.shiftKey);
+    drag.preview = this.resized(tab, o, drag.handle ?? 'se', dx, dy, event.shiftKey, event.altKey);
     const node = this.elementFor(o.id);
     node?.replaceWith(this.objectElement(tab, drag.preview, true));
   }
@@ -386,6 +430,7 @@ export class ObjectLayer {
   /**
    * `o` with `handle` dragged by (`dx`, `dy`) screen pixels. A picture
    * keeps its width-to-height ratio unless it may stretch or Shift is held.
+   * With Alt held the edges being dragged land on the nearest cell edges.
    */
   private resized(
     tab: Tab,
@@ -394,6 +439,7 @@ export class ObjectLayer {
     dx: number,
     dy: number,
     shift = false,
+    alt = false,
   ): SheetObject {
     const z = this.core.metrics.zoomOf(tab);
     const box = this.boxOf(tab, o);
@@ -449,6 +495,8 @@ export class ObjectLayer {
       // On grid paper every edge lands on a square's edge, at least a square apart (a line may lie flat).
       [left, right] = this.toSquareEdges(tab, 'x', left, right, isLineKind(o.kind));
       [top, bottom] = this.toSquareEdges(tab, 'y', top, bottom, isLineKind(o.kind));
+    } else if (alt) {
+      [left, top, right, bottom] = this.toCellEdges(tab, handle, [left, top, right, bottom]);
     }
     const placed = this.placeAt(tab, o, left, top);
     const next: SheetObject = {
@@ -534,6 +582,67 @@ export class ObjectLayer {
     return true;
   }
 
+  // ----- Typing a shape's text on it -----
+
+  /**
+   * Whether this press on object `id` is the second of a double press (the
+   * same object, soon after, in about the same place). A double press types
+   * a shape's text on the shape; on any other object, or a shape whose text
+   * is locked, it opens the object's settings. Either way it picks that one
+   * object, out of its group too. Presses on a resize handle never count.
+   */
+  private doublePress(event: PointerEvent, id: string, onHandle: boolean): boolean {
+    const last = this.lastPress;
+    const now = event.timeStamp;
+    this.lastPress = onHandle ? null : { id, at: now, x: event.clientX, y: event.clientY };
+    const plain = event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey;
+    if (
+      !plain ||
+      !last ||
+      last.id !== id ||
+      now - last.at > DOUBLE_PRESS_MS ||
+      Math.hypot(event.clientX - last.x, event.clientY - last.y) > DOUBLE_PRESS_SLOP_PX
+    ) {
+      return false;
+    }
+    this.lastPress = null;
+    event.preventDefault();
+    this.core.editing.commitEditor();
+    const tab = this.core.state.activeTab;
+    if (tab) {
+      this.core.state.objectSelection.select(tab, [id]);
+    }
+    if (!this.editText(id)) {
+      void this.core.commands.run('insert.objectList');
+    }
+    return true;
+  }
+
+  /** Start typing the text of object `id` on it; false when its text is not typed on it. */
+  private editText(id: string): boolean {
+    const tab = this.core.state.activeTab;
+    const o = tab && this.objects(tab).find((item) => item.id === id);
+    const node = this.elementFor(id);
+    if (!tab || !o || !node || !INLINE_TEXT_KINDS.has(o.kind) || o.lockEdit || tab.readOnly) {
+      return false;
+    }
+    this.editing = o.id;
+    editObjectText(node, o, (text) => {
+      this.editing = null;
+      const current = this.objects(tab).find((item) => item.id === o.id);
+      if (text !== null && current) {
+        const next: SheetObject = { ...current, text };
+        if (text === '') {
+          delete next.text;
+        }
+        this.core.commands.updateObjects(tab, [next], 'history.editObject');
+      }
+      this.render(this.core.state.activeTab, true);
+      this.elementFor(o.id)?.focus({ preventScroll: true });
+    });
+    return true;
+  }
+
   // ----- Keyboard and context menu -----
 
   private keyDown(event: KeyboardEvent): void {
@@ -567,6 +676,12 @@ export class ObjectLayer {
     } else if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault();
       void this.core.commands.run('object.delete');
+    } else if (event.key === 'F2') {
+      event.preventDefault();
+      const node = this.objectFrom(event.target);
+      if (node?.dataset.objectId) {
+        this.editText(node.dataset.objectId);
+      }
     } else if (event.key === 'Enter') {
       event.preventDefault();
       void this.core.commands.run('insert.objectList');

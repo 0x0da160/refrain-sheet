@@ -121,15 +121,17 @@ export function fontFamilySelect(
   return select;
 }
 
-/** A `<select>` of font sizes in points; the first option (`''`) is the grid's size. */
+/** A `<select>` of font sizes in points (`wholeOnly`: whole points only); the first option (`''`) is the grid's size. */
 export function fontSizeSelect(
   current: number | null,
   onChange: (size: number | null) => void,
   attrs: Record<string, string> = {},
   defaultLabel = t('font.sizeDefault'),
+  wholeOnly = false,
 ): HTMLSelectElement {
   const select = el('select', { attrs }) as HTMLSelectElement;
-  const sizes = [...FONT_SIZES];
+  // A shape's text takes whole points only (see `wholePixels`).
+  const sizes = FONT_SIZES.filter((size) => !wholeOnly || Number.isInteger(size));
   if (current !== null && !sizes.includes(current)) {
     sizes.push(current);
     sizes.sort((a, b) => a - b);

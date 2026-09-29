@@ -1491,6 +1491,7 @@
   "panel.objects.unavailable": "図形や画像は RSF ファイルの表のシートに置けます。「挿入」メニューから追加してください。CSV ファイルは先に変換します。",
   "panel.objects.empty": "このシートにはオブジェクトがありません。「挿入」メニューから追加できます。",
   "panel.objects.many": "{n} 個のオブジェクトを選択しています。",
+  "panel.objects.hint": "四角形・円・テキストボックスは、ダブルクリックすると図の上で文字を入力できます。Alt キーを押しながら移動やサイズ変更をすると、セルの境界に合わせます。",
   "panel.objects.list": "このシートのオブジェクト（前面から順）",
   "panel.objects.shown": "{name} を表示",
   "panel.objects.lockPosition": "配置を固定: {name}",

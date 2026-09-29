@@ -207,21 +207,27 @@ export function buildObjectElement(
   }
   node.append(shapeSvg(o, box.w, box.h, zoom));
   if (!isLineKind(o.kind) && o.text) {
-    const d = objectDefaults(o.kind);
-    const text = el('div', {
-      className: `sheet-object-text align-${o.align ?? d.align} valign-${o.valign ?? d.valign}`,
-    });
+    const text = objectTextBox(o);
     text.append(el('span', { text: o.text }));
-    // Text on a filled shape is black unless chosen, whatever the theme (the
-    // fill is the file's own colour); on no fill it follows the sheet's text.
-    const color = o.textColor ?? ((o.fill ?? d.fill) === 'none' ? '' : '#000000');
-    if (color) text.style.color = color;
-    if (o.fontSize) text.style.fontSize = fontSizeCss(o.fontSize);
-    if (o.bold) text.style.fontWeight = '700';
-    if (o.italic) text.style.fontStyle = 'italic';
     node.append(text);
   }
   return node;
+}
+
+/** The box a shape's text sits in, laid out and styled as the shape asks (its text goes inside). */
+export function objectTextBox(o: SheetObject): HTMLElement {
+  const d = objectDefaults(o.kind);
+  const text = el('div', {
+    className: `sheet-object-text align-${o.align ?? d.align} valign-${o.valign ?? d.valign}`,
+  });
+  // Text on a filled shape is black unless chosen, whatever the theme (the
+  // fill is the file's own colour); on no fill it follows the sheet's text.
+  const color = o.textColor ?? ((o.fill ?? d.fill) === 'none' ? '' : '#000000');
+  if (color) text.style.color = color;
+  if (o.fontSize) text.style.fontSize = fontSizeCss(o.fontSize);
+  if (o.bold) text.style.fontWeight = '700';
+  if (o.italic) text.style.fontStyle = 'italic';
+  return text;
 }
 
 /** The object's element for `book` (its picture, or its chart drawn from the file's cells), placed at `box`. */

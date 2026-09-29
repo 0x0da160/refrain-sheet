@@ -44,6 +44,17 @@ describe('promptSheetName kind picker', () => {
     document.querySelectorAll('dialog').forEach((d) => d.remove());
   });
 
+  it('offers adding sheets from a CSV file instead, answering with fromCsv', async () => {
+    const answer = new Dialogs().promptSheetName('add', 'Sheet2', () => null, {
+      initialKind: 'grid',
+      suggestName: () => 'Sheet2',
+    });
+    const button = document.querySelector<HTMLButtonElement>('dialog .sheet-kind-csv')!;
+    expect(button.textContent).toBe(t('dialog.sheetName.fromCsv'));
+    button.click();
+    expect(await answer).toEqual({ name: '', kind: 'grid', fromCsv: true });
+  });
+
   it('renders no kind picker when kindOptions is omitted, even in add mode', () => {
     void new Dialogs().promptSheetName('add', 'Sheet1', () => null);
     const dialog = document.querySelector('dialog')!;

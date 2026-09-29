@@ -119,9 +119,10 @@ export class WorksheetCommands {
    * `SheetOpsDialogs.promptSheetName`) — the individual `addMarkdownWorksheet`/
    * `addJsonWorksheet`/`addYamlWorksheet`/`addTextWorksheet` methods below
    * remain the direct, single-kind entry points from the menu bar and
-   * worksheet-tab context menu.
+   * worksheet-tab context menu. Resolves to `'csv'` when the user chose to
+   * add sheets from CSV files instead (the caller runs that command).
    */
-  async addWorksheet(tab: Tab): Promise<void> {
+  async addWorksheet(tab: Tab): Promise<'csv' | void> {
     const doc = tab.doc;
     if (!isWorkbook(doc) || !this.canAddWorksheet(doc)) {
       return;
@@ -136,6 +137,9 @@ export class WorksheetCommands {
     );
     if (result === null || tab.doc !== doc) {
       return;
+    }
+    if (result.fromCsv) {
+      return 'csv';
     }
     const sheet = this.addSheetOfKind(tab, result.kind, result.name.trim());
     if (sheet) {
@@ -231,6 +235,29 @@ export class WorksheetCommands {
     if (this.state.renameSheet(tab, sheet.id, after)) {
       this.ui.notify(t('notify.sheetRenamed', { before, after }), 'info');
     }
+  }
+
+  /**
+   * Rename worksheet `sheetId` to `name`, typed on its tab. Returns what is
+   * wrong with the name (nothing changes), or null once renamed or when the
+   * name is unchanged.
+   */
+  renameSheetTo(tab: Tab, sheetId: string, name: string): string | null {
+    const doc = tab.doc;
+    const sheet = isWorkbook(doc) ? doc.sheetById(sheetId) : undefined;
+    if (!isWorkbook(doc) || !sheet || name.trim() === sheet.name) {
+      return null;
+    }
+    const problem = this.validateSheetName(doc, name, sheetId);
+    if (problem !== null) {
+      return problem;
+    }
+    const before = sheet.name;
+    const after = name.trim();
+    if (this.state.renameSheet(tab, sheetId, after)) {
+      this.ui.notify(t('notify.sheetRenamed', { before, after }), 'info');
+    }
+    return null;
   }
 
   /** Choose, change, or clear the active worksheet's tab color (undoable). */

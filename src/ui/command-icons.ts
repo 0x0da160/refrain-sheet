@@ -160,6 +160,7 @@ export const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'worksheet.addJson': FileJson,
   'worksheet.addYaml': FileCode,
   'worksheet.addText': FileType,
+  'worksheet.addFromCsv': FileSpreadsheet,
   'worksheet.rename': Pencil,
   'worksheet.tabColor': Palette,
   'worksheet.newFolder': FolderPlus,

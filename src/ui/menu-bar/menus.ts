@@ -612,6 +612,7 @@ function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
     { labelKey: 'menu.sheet.addJsonSheet', command: 'worksheet.addJson' },
     { labelKey: 'menu.sheet.addYamlSheet', command: 'worksheet.addYaml' },
     { labelKey: 'menu.sheet.addTextSheet', command: 'worksheet.addText' },
+    { labelKey: 'menu.sheet.addCsvSheet', command: 'worksheet.addFromCsv' },
     { labelKey: 'menu.sheet.renameSheet', command: 'worksheet.rename' },
     { labelKey: 'menu.sheet.tabColor', command: 'worksheet.tabColor' },
     { labelKey: 'menu.sheet.newFolder', command: 'worksheet.newFolder' },

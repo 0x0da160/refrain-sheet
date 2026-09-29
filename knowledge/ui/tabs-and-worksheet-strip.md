@@ -74,8 +74,8 @@ context menu (right-click a worksheet tab), and the keyboard:
 | Action              | How                                                                                |
 | ------------------- | ---------------------------------------------------------------------------------- |
 | Switch worksheet    | Click a tab, `←` / `→`, `Home` / `End`, or `Ctrl+Alt+PageDown` / `Ctrl+Alt+PageUp` |
-| Add worksheet       | The `+` button, or Sheet > Add Worksheet                                           |
-| Rename worksheet    | Double-click a tab, `F2`, or Sheet > Rename Worksheet…                             |
+| Add worksheet       | The `+` button, or Sheet > Add Worksheet; from a CSV file too (below)              |
+| Rename worksheet    | Double-click a tab or `F2` (typed on the tab), or Sheet > Rename Worksheet…        |
 | Duplicate worksheet | Sheet > Duplicate Worksheet…                                                       |
 | Delete worksheet    | Sheet > Delete Worksheet                                                           |
 | Reorder worksheet   | Drag a tab, `Alt`+`←` / `→`, `Alt`+`Home` / `End`, or the menu                     |
@@ -97,20 +97,39 @@ type, reports the problem inline in the active language, and is IME-safe
 see [editing-and-ime.md](editing-and-ime.md) for the general IME-safety
 architecture this reuses).
 
+**Renaming on the tab.** A double-click on a tab or a folder header, or
+`F2` on it, puts a text field in place of its name (`SheetBar.editName`).
+Enter keeps the name as one undoable step, Escape puts the old one back; a
+name that cannot be used keeps the field open, marked invalid, with the
+reason as its tooltip and announced, and leaving the field then gives up.
+A click redraws the strip (it activates a worksheet or opens a folder), so
+the browser's own `dblclick` never reaches the new tab: the strip treats a
+second click on the same tab or folder within 500 ms as the double-click,
+and a folder double-clicked is left open or closed as it was.
+
+**Adding sheets from CSV files.** Sheet > Add Sheet from CSV File… (also
+the Add Sheet dialog's From a CSV File… button) adds each chosen CSV file
+as a new worksheet after the active one, named after the file and
+de-duplicated like any new name, one undoable step per file. The file is
+read with the same encoding detection and warnings as opening it, and its
+values go in as Convert to RSF puts them; the file itself is never linked
+to the workbook or changed (`FileOpening.addCsvSheets`).
+
 **Tab colors.** Sheet > Sheet Tab Color… (also in the tab's context menu)
 gives the active worksheet's tab a color, drawn as a bar along the tab's
-edge so the name keeps the theme's own colors. The dialog offers nine
-ready-made colors (step 5 of each design-system hue family,
-`SHEET_TAB_PRESETS` in `src/ui/document-colors.ts`) and a native picker for
-any other; **No Color** removes it. A tab color is document data like a
+edge so the name keeps the theme's own colors. The dialog is the shared
+color picker (`src/ui/color-picker.ts`); **No Color** removes it. A tab color is document data like a
 cell color: the same in every theme, saved in the RSF file as the
 worksheet's `tabColor`, kept by Duplicate, and one undoable change. Like
 renaming, it is allowed on a locked worksheet.
 
 **Tabs on the left.** View > Sheet Tabs on the Left (a browser setting,
 `getSheetTabsVertical` in `src/app/settings.ts`, not document data) sets
-`.sheet-tabs-vertical` on `#app`, which stands the strip as a 180px column
-beside `#app-content` (`src/styles/sheet-bar.css`). The tabs are the row's
+`.sheet-tabs-vertical` on `#app`, which stands the strip as a column
+beside `#app-content` (`src/styles/sheet-bar.css`), 180px wide until the
+edge on its right is dragged (or moved with the arrow keys; a double-click
+goes back to 180px). The width is a browser setting too, kept between 120
+and 480px (`getSheetTabsWidth`), applied as `--sheet-tabs-width`. The tabs are the row's
 look turned a quarter: attached to the grid on their right edge, with the
 tab color and the active marker on the far edge. Up/Down mirror Left/Right
 (Alt reorders), drops use the pointer's height, and the strip reports
@@ -123,8 +142,8 @@ in `src/ui/dialogs/side-panel.ts`).
 
 **Sheet folders.** Worksheets can be grouped in folders, nested to any
 depth; a worksheet is in at most one folder. Sheet > Move to New Folder…
-puts the active worksheet into a new folder where it is (so inside its
-current folder), and Sheet > Move to Folder… moves it to any folder or out
+(or the folder button next to `+`) puts the active worksheet into a new
+folder where it is (so inside its current folder), and Sheet > Move to Folder… moves it to any folder or out
 of all of them. A folder's header in the strip opens and closes it (a
 closed folder still shows the active worksheet; open/closed is not saved),
 takes a dropped worksheet, and has its own context menu: Rename, Move

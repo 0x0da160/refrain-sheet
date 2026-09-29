@@ -13,6 +13,7 @@ import { decodeBytes } from '../../src/core/csv/encoding';
 import { encodeRsf } from '../rsf-single-sheet';
 import { buildXlsxExport, type XlsxSheetInput } from '../../src/core/interchange/xlsx-export';
 import { asCsv, enc, utf8 } from '../helpers';
+import type { RsfDocument } from '../../src/core/workbook/rsf-document';
 
 // Simulates a hosted build with Drive sync configured and a cached access
 // token, without going through the real Google Identity Services sign-in.
@@ -1087,6 +1088,49 @@ describe('opening and saving Markdown, JSON, YAML, and text files', () => {
     expect(tab.textFile).toBeNull();
     expect(tab.doc.getValue(0, 1)).toBe('x');
     expect(tab.doc.getValue(1, 0)).toBe('2');
+  });
+});
+
+describe('adding sheets from CSV files', () => {
+  it('adds each CSV file as a sheet after the active one, named after the file, as one undo step each', async () => {
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const tab = state.activeTab!;
+    const { parts } = commands as unknown as { parts: { fileIo: FileIoCommands } };
+    await parts.fileIo.opening.addCsvSheets(tab, [
+      opened('顧客.csv', enc('名前,市\n山田,東京\n', 'shift_jis')),
+      opened('Sheet1.csv', utf8('a,b\n')),
+    ]);
+    const doc = tab.doc as RsfDocument;
+    expect(doc.sheets.map((s) => s.name)).toEqual(['Sheet1', '顧客', 'Sheet1 (2)']);
+    expect(doc.sheetByName('顧客')!.getValue(1, 1)).toBe('東京');
+    expect(doc.activeSheet.name).toBe('Sheet1 (2)');
+    expect(ui.notify).toHaveBeenCalledWith(
+      t('notify.csvSheetAdded', { name: '顧客', file: '顧客.csv' }),
+      'info',
+    );
+    state.undo(tab);
+    expect(doc.sheets.map((s) => s.name)).toEqual(['Sheet1', '顧客']);
+  });
+
+  it('hands over from the Add Sheet dialog to the CSV file chooser', async () => {
+    const ui = stubUi({
+      promptSheetName: vi.fn(async () => ({ name: '', kind: 'grid' as const, fromCsv: true as const })),
+    });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    const run = vi.spyOn(commands, 'run');
+    const picker = vi.fn(async () => []);
+    (globalThis as { showOpenFilePicker?: unknown }).showOpenFilePicker = picker;
+    try {
+      await commands.run('worksheet.add');
+    } finally {
+      delete (globalThis as { showOpenFilePicker?: unknown }).showOpenFilePicker;
+    }
+    expect(run).toHaveBeenCalledWith('worksheet.addFromCsv');
+    expect(picker).toHaveBeenCalled();
+    expect((state.activeTab!.doc as RsfDocument).sheetCount).toBe(1);
   });
 });
 

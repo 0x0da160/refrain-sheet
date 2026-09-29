@@ -68,6 +68,18 @@ export class SheetFolderCommands {
     return this.state.folders.moveSheetToFolder(tab, sheetId, folderId);
   }
 
+  /**
+   * Rename folder `folderId` to `name`, typed on its header. Returns what is
+   * wrong with the name (nothing changes), or null once renamed or unchanged.
+   */
+  renameFolderTo(tab: Tab, folderId: string, name: string): string | null {
+    const problem = validateFolderName(name);
+    if (problem === null) {
+      this.state.folders.renameFolder(tab, folderId, name.trim());
+    }
+    return problem;
+  }
+
   /** Run one of a folder's context-menu actions. */
   async folderAction(tab: Tab, action: FolderAction, folderId: string): Promise<void> {
     const doc = workbook(tab);

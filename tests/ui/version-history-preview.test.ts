@@ -192,3 +192,63 @@ describe('Version history: Preview action', () => {
     expect(cellText(previewDialog(), 0, 0)).toBe('first');
   });
 });
+
+describe('Version history: Preview shows what changed', () => {
+  it('highlights changed cells against the version before, and counts them', async () => {
+    const { openVersionHistoryPreview } = await import('../../src/ui/dialogs/version-preview');
+    const older = snapshotWith([
+      [0, 0, 'same'],
+      [1, 0, 'old'],
+    ]);
+    const newer = snapshotWith([
+      [0, 0, 'same'],
+      [1, 0, 'new'],
+      [2, 1, 'added'],
+    ]);
+    openVersionHistoryPreview(newer, 'now', { snapshot: older, when: 'before' });
+    const dialog = previewDialog();
+    const cell = (row: number, col: number) =>
+      dialog.querySelector(`[data-row="${row}"][data-col="${col}"]`)!;
+    expect(cell(1, 0).classList.contains('diff-value')).toBe(true);
+    expect(cell(2, 1).classList.contains('diff-value')).toBe(true);
+    expect(cell(0, 0).classList.contains('diff-value')).toBe(false);
+    expect(dialog.querySelector('.version-changes')?.textContent).toContain(
+      t('versionChanges.counts', { values: 2, formats: 0 }),
+    );
+
+    // Turning the highlight off clears the marks.
+    const toggle = dialog.querySelector<HTMLInputElement>('.version-changes-toggle input')!;
+    toggle.click();
+    expect(cell(1, 0).classList.contains('diff-value')).toBe(false);
+  });
+
+  it('lists added, deleted and renamed sheets', async () => {
+    const { openVersionHistoryPreview } = await import('../../src/ui/dialogs/version-preview');
+    const older = snapshotWithSheets([
+      { name: 'Alpha', cells: [] },
+      { name: 'Beta', cells: [] },
+    ]);
+    const newer = snapshotWithSheets([{ name: 'Renamed', cells: [] }]);
+    openVersionHistoryPreview(newer, 'now', { snapshot: older, when: 'before' });
+    const text = previewDialog().querySelector('.version-changes')?.textContent ?? '';
+    expect(text).toContain(t('versionChanges.renamed', { from: 'Alpha', to: 'Renamed' }));
+    expect(text).toContain(t('versionChanges.removed', { name: 'Beta' }));
+  });
+
+  it('says there is nothing to compare for the oldest version', async () => {
+    const { openVersionHistoryPreview } = await import('../../src/ui/dialogs/version-preview');
+    openVersionHistoryPreview(snapshotWith([[0, 0, 'x']]), 'now');
+    expect(previewDialog().querySelector('.version-changes')?.textContent).toBe(t('versionChanges.oldest'));
+  });
+});
+
+describe('Version history: Preview compares with the version saved before it', () => {
+  it('passes the previous snapshot from the history list', async () => {
+    const { Dialogs } = await import('../../src/ui/dialogs');
+    const history = [snapshotWith([[0, 0, 'a']]), snapshotWith([[0, 0, 'b']])];
+    void new Dialogs().chooseVersionHistory(true, undefined, history);
+    clickPreviewButton(); // the newest entry is listed first
+    const dialog = previewDialog();
+    expect(dialog.querySelector('[data-row="0"][data-col="0"]')?.classList.contains('diff-value')).toBe(true);
+  });
+});

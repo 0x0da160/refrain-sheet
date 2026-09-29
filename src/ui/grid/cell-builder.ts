@@ -355,6 +355,9 @@ export class CellBuilder {
         cell.textContent = value;
       }
     }
+    const mark = this.core.cellMarker?.(row, col) ?? null;
+    cell.classList.toggle('diff-value', mark === 'value');
+    cell.classList.toggle('diff-format', mark === 'format');
     if (isCsv(doc)) {
       const field = doc.getField(row, col);
       // A brand-new CSV has no original file to differ from, so its edits

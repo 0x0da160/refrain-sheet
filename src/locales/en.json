@@ -1312,5 +1312,18 @@
   "validation.problem.tooLong": "the text is too long",
   "validation.problem.notDate": "it isn't a date written YYYY-MM-DD",
   "validation.problem.tooEarly": "the date is before the earliest allowed",
-  "validation.problem.tooLate": "the date is after the latest allowed"
+  "validation.problem.tooLate": "the date is after the latest allowed",
+  "versionChanges.oldest": "This is the oldest saved version, so there is no earlier one to compare it with.",
+  "versionChanges.since": "Changes since the version saved {when}.",
+  "versionChanges.counts": "This sheet: {values} cells with a changed value or formula, {formats} with changed formatting.",
+  "versionChanges.none": "This sheet: no changes.",
+  "versionChanges.sheetAdded": "This sheet was added in this version.",
+  "versionChanges.textChanged": "This sheet's text changed.",
+  "versionChanges.next": "Go to Next Change",
+  "versionChanges.show": "Highlight changes",
+  "versionChanges.legendValue": "Value or formula",
+  "versionChanges.legendFormat": "Formatting",
+  "versionChanges.added": "Sheet added: {name}",
+  "versionChanges.removed": "Sheet deleted: {name}",
+  "versionChanges.renamed": "Sheet renamed: {from} → {to}"
 }

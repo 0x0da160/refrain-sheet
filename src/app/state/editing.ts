@@ -8,6 +8,7 @@
  */
 import { isCsv, isWorkbook } from '../../core/editor-document';
 import { filtersEqual } from '../../core/workbook/filter';
+import { validationListsEqual } from '../../core/workbook/data-validation';
 import type { CellChange, HistoryEntry, Operation, SheetOperation } from '../../core/workbook/history';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
 import type { AppState } from './index';
@@ -112,6 +113,9 @@ export class EditingState {
       }
       if (op.type === 'wrap') {
         return op.before !== op.after;
+      }
+      if (op.type === 'validations') {
+        return !validationListsEqual(op.before, op.after);
       }
       if (op.type === 'sheets' || op.type === 'csvStructure') {
         return true;
@@ -281,6 +285,10 @@ export class EditingState {
     }
     if (op.type === 'filter') {
       doc.setFilterStateOn(op.sheetId, direction === 'after' ? op.after : op.before);
+      return;
+    }
+    if (op.type === 'validations') {
+      doc.setValidationsOn(op.sheetId, direction === 'after' ? op.after : op.before);
       return;
     }
     this.applyAxisOp(tab, doc, op, direction);

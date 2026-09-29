@@ -7,6 +7,12 @@ import type {
   Operation,
   StyleChange,
 } from '../../core/workbook/history';
+import {
+  moveValidations,
+  shiftValidationsForDelete,
+  shiftValidationsForInsert,
+  type CellValidation,
+} from '../../core/workbook/data-validation';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
 import { colWidthsAt } from './col-widths';
 
@@ -23,7 +29,8 @@ import { colWidthsAt } from './col-widths';
  * formula rewrites in the pre-move layout, then clearing the source's
  * styles/comments (so undoing the delete gets them back), deleting the
  * source span, inserting it at the destination, and restoring its styles
- * and comments there. `leading` (e.g. the filter-clear operations) goes
+ * and comments there. Data-validation rules move with their rows or
+ * columns the same way. `leading` (e.g. the filter-clear operations) goes
  * first.
  */
 export function planAxisMove(
@@ -115,8 +122,12 @@ export function planAxisMove(
   }
   const widths = axis === 'col' ? { widths: colWidthsAt(colWidths, from, count) } : {};
 
+  // The rules as they stand, restored first on undo; after the insert, the
+  // moved rules are put where their rows or columns went.
+  const rules = sheet.validations;
   const ops: Operation[] = [
     ...leading,
+    { type: 'validations', before: rules, after: rules, sheetId },
     { type: 'cells', changes: active, sheetId },
     ...others,
     { type: 'styles', changes: clearStyles, sheetId },
@@ -129,6 +140,24 @@ export function planAxisMove(
       : { type: 'cols', action: 'insert', index: dest, count, data, sheetId, ...widths },
     { type: 'styles', changes: placeStyles, sheetId },
     { type: 'comments', changes: placeComments, sheetId },
+    {
+      type: 'validations',
+      before: structuralMove(rules, axis, from, count, to),
+      after: moveValidations(rules, axis, from, count, to),
+      sheetId,
+    },
   ];
   return { label: axis === 'row' ? 'history.moveRows' : 'history.moveCols', sheetId, ops };
+}
+
+/** Where the delete and insert of a move leave the rules on their own. */
+function structuralMove(
+  rules: readonly CellValidation[],
+  axis: 'row' | 'col',
+  from: number,
+  count: number,
+  to: number,
+): CellValidation[] {
+  const dest = to > from ? to - count : to;
+  return shiftValidationsForInsert(shiftValidationsForDelete(rules, axis, from, count), axis, dest, count);
 }

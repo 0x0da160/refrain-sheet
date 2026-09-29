@@ -7,6 +7,7 @@
  * display settings produces exactly the record earlier releases wrote.
  */
 import { isEmptyGridLook } from '../grid-look';
+import { MAX_VALIDATION_RULES, validateValidation } from './data-validation';
 import type { RsfWorksheetData } from './rsf-codec';
 import { Worksheet } from './worksheet';
 
@@ -36,6 +37,7 @@ export function worksheetFromData(entry: RsfWorksheetData): Worksheet {
   sheet.locked = entry.locked === true;
   sheet.tabColor = entry.tabColor;
   sheet.folderId = entry.folderId;
+  sheet.validations = entry.validations?.slice() ?? [];
   for (const [r, c, style] of entry.styles ?? []) {
     sheet.setStyle(r, c, style);
   }
@@ -90,6 +92,13 @@ export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, 
   }
   if (sheet.folderId !== undefined) {
     entry.folderId = sheet.folderId;
+  }
+  // Only rules that fit the worksheet as it is, so the file always reads back.
+  const validations = sheet.validations.filter((v) =>
+    validateValidation(v, sheet.rowCount, sheet.columnCount),
+  );
+  if (validations.length > 0 && sheet.kind === 'grid') {
+    entry.validations = validations.slice(0, MAX_VALIDATION_RULES);
   }
   const styles = sheet.collectStyles();
   if (styles.length > 0) {

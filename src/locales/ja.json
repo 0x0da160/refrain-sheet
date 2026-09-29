@@ -585,7 +585,7 @@
   "notify.sortCleared": "並べ替えを解除し、行を元の順に戻しました。",
   "notify.sortClearedByStructure": "行または列を挿入・削除したため、適用中の並べ替えを解除しました。",
   "notify.sortedRangeReadOnly": "このセルは並べ替え中の範囲にあるため編集できません。編集するには「シート > フィルターと並べ替え > 並べ替えを解除」で並べ替えを解除してください。",
-  "notify.validationApplied": "入力規則を適用しました。入力規則はファイルに保存されず、Ctrl+Z でも戻せません。変更・解除は「データ > データの入力規則…」で行います。",
+  "notify.validationApplied": "入力規則を適用しました。入力規則はファイルに保存されます。変更・解除は「データ > データの入力規則…」で行います。",
   "notify.validationCleared": "この範囲の入力規則を解除しました。",
   "notify.conditionalFormatApplied": "条件付き書式を適用しました。条件付き書式はファイルに保存されず、Ctrl+Z でも戻せません。変更・解除は「書式 > 条件付き書式…」で行います。",
   "notify.conditionalFormatCleared": "この範囲の条件付き書式を解除しました。",

@@ -25,6 +25,7 @@ import {
 import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { readSimpleZstdFrame, writeRawZstdFrame } from '../../src/core/workbook/zstd-frame';
 import { rsfFromTree, rsfTree } from '../rsf-single-sheet';
+import type { CellValidation } from '../../src/core/workbook/data-validation';
 
 const sheet: RsfWorksheetData = {
   id: 's1',
@@ -118,6 +119,48 @@ describe('.rsf codec: round trips', () => {
     const plain = rsfTree(encodeRsfWorkbook(book));
     expect(plain.folders).toBeUndefined();
     expect(plain.sheets[0].folder).toBeUndefined();
+  });
+
+  it('round-trips data-validation rules as A1 ranges', () => {
+    const validations: CellValidation[] = [
+      { top: 0, left: 0, bottom: 1, right: 0, rule: { kind: 'list', values: ['a', 'b'] } },
+      { top: 0, left: 1, bottom: 0, right: 1, rule: { kind: 'number', min: null, max: 9.5 } },
+    ];
+    const data: RsfWorkbookData = { ...book, sheets: [{ ...sheet, validations }] };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok && decoded.data.sheets[0].validations).toEqual(validations);
+    const t = rsfTree(encodeRsfWorkbook(data));
+    expect(t.sheets[0].validations).toEqual([
+      { range: 'A1:A2', list: ['a', 'b'] },
+      { range: 'B1:B1', max: 9.5 },
+    ]);
+    expect(rsfTree(encodeRsfWorkbook(book)).sheets[0].validations).toBeUndefined();
+  });
+
+  it.each([
+    ['a lowercase range', { range: 'a1:A1', list: ['x'] }],
+    ['a range outside the worksheet', { range: 'A1:Z99', list: ['x'] }],
+    ['a reversed range', { range: 'A2:A1', list: ['x'] }],
+    ['an empty list value', { range: 'A1:A1', list: [''] }],
+    ['a list and a bound', { range: 'A1:A1', list: ['x'], min: 1 }],
+    ['no bound at all', { range: 'A1:A1' }],
+    ['min above max', { range: 'A1:A1', min: 2, max: 1 }],
+    ['a text bound', { range: 'A1:A1', min: '1' }],
+  ])('rejects a validation with %s', (_, rule) => {
+    const t = rsfTree(encodeRsfWorkbook(book));
+    t.sheets[0].validations = [rule];
+    expect(decodeTree(t)).toMatchObject({ ok: false, error: 'bad-shape' });
+  });
+
+  it('rejects validations on a source worksheet', () => {
+    const t = rsfTree(
+      encodeRsfWorkbook({
+        delimiter: ',',
+        sheets: [{ id: 'm', name: 'M', kind: 'markdown', rowCount: 1, columnCount: 1, cells: [] }],
+      }),
+    );
+    t.sheets[0].validations = [{ range: 'A1:A1', list: ['x'] }];
+    expect(decodeTree(t)).toMatchObject({ ok: false, error: 'bad-shape' });
   });
 
   it('round-trips version history snapshots, which decode on their own', () => {

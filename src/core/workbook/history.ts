@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { CellStyle } from './cell-style';
+import type { CellValidation } from './data-validation';
 import type { SheetFilter } from './filter';
 import type { LosslessDocument } from '../csv/lossless-document';
 import type { SheetOrganization } from './sheet-folders';
@@ -121,6 +122,19 @@ export type Operation =
       widths?: number[];
     }
   | { type: 'filter'; before: SheetFilter | null; after: SheetFilter | null; sheetId?: string }
+  /**
+   * Swap a worksheet's whole data-validation rule list. A structural entry
+   * also carries one, with `before` and `after` both the list as it was,
+   * placed ahead of the row/column operation: a no-op on redo (the structural
+   * operation shifts the rules itself), and on undo it restores rules the
+   * deletion shrank or removed.
+   */
+  | {
+      type: 'validations';
+      before: readonly CellValidation[];
+      after: readonly CellValidation[];
+      sheetId?: string;
+    }
   /** Whole-document swap for a structural edit on a still-unsaved new CSV (see above). */
   | {
       type: 'csvStructure';
@@ -163,6 +177,9 @@ function isEmpty(entry: HistoryEntry): boolean {
       return op.changes.length === 0;
     }
     if (op.type === 'filter' || op.type === 'wrap') {
+      return op.before === op.after;
+    }
+    if (op.type === 'validations') {
       return op.before === op.after;
     }
     if (op.type === 'sheets' || op.type === 'csvStructure') {

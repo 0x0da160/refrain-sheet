@@ -271,6 +271,25 @@ const cases: FixtureCase[] = [
       ],
     },
   },
+  {
+    // Data-validation rules (a worksheet's `validations`).
+    file: 'validations.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: {
+      delimiter: ',',
+      activeSheetId: 's1',
+      sheets: [
+        {
+          ...grid,
+          validations: [
+            { top: 1, left: 1, bottom: 3, right: 1, rule: { kind: 'list', values: ['Yes', 'No', '保留'] } },
+            { top: 1, left: 0, bottom: 3, right: 0, rule: { kind: 'number', min: 0, max: null } },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 function loadFixture(file: string, encode: () => Uint8Array): Uint8Array {

@@ -607,13 +607,9 @@ export class AppState {
     return this.worksheetsState.setSort(tab, sort);
   }
 
-  // ----- Data validation (RSF spreadsheet documents only; view-only, unsaved) -----
+  // ----- Data validation (RSF spreadsheet documents only; saved, undoable) -----
 
-  /**
-   * Apply (add or replace) a data-validation rule. Session-only view state,
-   * not an undoable history entry and never saved to the container — see
-   * {@link Worksheet.validations}.
-   */
+  /** Apply (add or replace) a data-validation rule — see {@link Worksheet.validations}. */
   setValidation(tab: Tab, validation: CellValidation): boolean {
     return this.worksheetsState.setValidation(tab, validation);
   }

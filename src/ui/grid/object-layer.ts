@@ -16,23 +16,14 @@
 import type { Tab } from '../../app/state';
 import { t } from '../../app/i18n';
 import { isWorkbook } from '../../core/editor-document';
-import { chartData } from '../../core/workbook/sheet-charts';
 import { isLineKind, isPositionLocked, type SheetObject } from '../../core/workbook/sheet-objects';
-import { buildChartSvg, type ChartWords } from '../chart-view';
 import { ContextMenu, type ContextMenuEntry } from '../context-menu';
 import { clearChildren, el } from '../dom';
-import { buildObjectElement, lineEnds, type ObjectBox } from '../sheet-object-view';
+import { buildObjectElement, drawObject, lineEnds, type ObjectBox } from '../sheet-object-view';
 import { snapMove, unionBox, type GuideBox, type GuideLine } from './object-guides';
 import { withGroups } from '../../core/workbook/object-arrange';
 import type { GridCore } from './core';
 import type { CommandId } from '../../app/commands';
-
-const CHART_WORDS: ChartWords = {
-  series: (n) => t('chart.series', { n }),
-  get noData() {
-    return t('chart.noData');
-  },
-};
 
 /** Pointer travel (px) before a press on an object becomes a drag. */
 const DRAG_THRESHOLD = 3;
@@ -157,13 +148,8 @@ export class ObjectLayer {
 
   private objectElement(tab: Tab, o: SheetObject, selected: boolean): HTMLElement {
     const box = this.boxOf(tab, o);
-    const image = o.image !== undefined && isWorkbook(tab.doc) ? tab.doc.images.get(o.image) : undefined;
     const zoom = this.core.metrics.zoomOf(tab);
-    const chart =
-      o.chart && isWorkbook(tab.doc)
-        ? buildChartSvg(o.chart, chartData(tab.doc, o.chart), box.w, box.h, zoom, CHART_WORDS)
-        : undefined;
-    const node = buildObjectElement(o, box, zoom, image, chart);
+    const node = isWorkbook(tab.doc) ? drawObject(tab.doc, o, box, zoom) : buildObjectElement(o, box, zoom);
     node.tabIndex = -1;
     if (selected) {
       node.classList.add('selected');
@@ -591,6 +577,9 @@ export class ObjectLayer {
         item('object.group', 'menu.insert.group'),
         item('object.ungroup', 'menu.insert.ungroup'),
         item('object.delete', 'menu.insert.deleteObject'),
+        'separator',
+        item('object.saveAsPng', 'menu.insert.saveAsPng'),
+        item('object.saveAsSvg', 'menu.insert.saveAsSvg'),
         'separator',
         item('insert.objectList', 'menu.insert.objectList'),
       ],

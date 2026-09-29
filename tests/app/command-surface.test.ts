@@ -117,6 +117,8 @@ const COMMAND_IDS: readonly CommandId[] = [
   'object.alignBottom',
   'object.distributeHorizontally',
   'object.distributeVertically',
+  'object.saveAsPng',
+  'object.saveAsSvg',
   'object.delete',
   'worksheet.add',
   'worksheet.addMarkdown',

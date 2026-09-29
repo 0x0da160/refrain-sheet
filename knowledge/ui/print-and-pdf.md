@@ -32,6 +32,14 @@ There is no keyboard shortcut: Ctrl+P stays the browser's (see
   conditional formatting, and column widths. The active sheet prints as
   shown: in its sort order and without the rows its filter hides. Other
   sheets print in document order.
+- Shapes, pictures and charts print over the cells, each drawn from the
+  corner of the cell it is anchored to at its offset and size, in the
+  sheet's stacking order; the grid reaches every shown object's anchor cell,
+  so a sheet of only objects prints too. Hidden objects never print, and an
+  object whose anchor cell does not print (outside the selection, on a row
+  the filter hides) is left out. Rows print at their natural height, so an
+  object that spans many rows may not line up with the same cells as on
+  screen.
 - A Markdown sheet prints rendered; a JSON, YAML or text sheet prints its
   text. A CSV document prints as one grid.
 - Everything is rendered as text into a print-only layer

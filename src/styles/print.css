@@ -83,6 +83,29 @@
     text-decoration: underline;
   }
 
+  /* A cell with objects anchored to it: they are drawn from its corner, over
+     the cells after it (src/ui/print-view.ts). The objects take nothing from
+     the cell's own formatting. */
+  .print-table td.print-object-anchor {
+    position: relative;
+    overflow: visible;
+  }
+
+  .print-object-anchor .sheet-object {
+    font-family: var(--font-sheet, sans-serif);
+    font-size: 12px;
+    font-weight: normal;
+    font-style: normal;
+    text-decoration: none;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .print-object-anchor .sheet-object-text {
+    color: #000;
+    white-space: pre-wrap;
+  }
+
   .print-text {
     margin: 0;
     white-space: pre-wrap;

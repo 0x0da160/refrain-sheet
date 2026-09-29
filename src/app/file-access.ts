@@ -163,12 +163,12 @@ export function pickImageFile(doc: Document, maxSize: number): Promise<Uint8Arra
   });
 }
 
-function triggerDownload(doc: Document, name: string, bytes: Uint8Array): void {
+function triggerDownload(doc: Document, name: string, bytes: Uint8Array, type = 'text/csv'): void {
   // Copy into a fresh ArrayBuffer-backed view so the Blob never sees a
   // SharedArrayBuffer-typed buffer.
   const copy = new Uint8Array(bytes.length);
   copy.set(bytes);
-  const blob = new Blob([copy], { type: 'text/csv' });
+  const blob = new Blob([copy], { type });
   const url = URL.createObjectURL(blob);
   const anchor = doc.createElement('a');
   anchor.href = url;
@@ -184,13 +184,15 @@ function triggerDownload(doc: Document, name: string, bytes: Uint8Array): void {
  * Save bytes back to the original file when a writable handle exists,
  * otherwise (or when writing fails / permission is denied) produce a
  * download. The outcome reports which mode actually happened, so the caller
- * never treats a download as an in-place overwrite.
+ * never treats a download as an in-place overwrite. `type` is the media
+ * type a download is given (CSV unless said).
  */
 export async function saveBytes(
   doc: Document,
   name: string,
   bytes: Uint8Array,
   handle: FileSystemFileHandle | null,
+  type?: string,
 ): Promise<SaveOutcome> {
   if (handle && typeof handle.createWritable === 'function') {
     try {
@@ -203,11 +205,11 @@ export async function saveBytes(
         throw err;
       }
       // NotAllowedError, SecurityError, quota problems, etc.: fall back.
-      triggerDownload(doc, name, bytes);
+      triggerDownload(doc, name, bytes, type);
       return { mode: 'download', downloadName: name, fellBack: true };
     }
   }
-  triggerDownload(doc, name, bytes);
+  triggerDownload(doc, name, bytes, type);
   return { mode: 'download', downloadName: name, fellBack: false };
 }
 
@@ -254,6 +256,18 @@ const SAVE_PICKER_TYPES = {
     {
       description: 'Text',
       accept: { 'text/plain': ['.txt'] },
+    },
+  ],
+  png: [
+    {
+      description: 'PNG',
+      accept: { 'image/png': ['.png'] },
+    },
+  ],
+  svg: [
+    {
+      description: 'SVG',
+      accept: { 'image/svg+xml': ['.svg'] },
     },
   ],
 } as const;

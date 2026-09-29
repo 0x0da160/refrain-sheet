@@ -23,6 +23,7 @@ import { FormatCommands } from './format';
 import { SortCommands } from './sort';
 import { SheetFolderCommands, type FolderAction } from './sheet-folders';
 import { ObjectCommands, type ObjectGeometry } from './objects';
+import type { ObjectImagePort } from './object-export';
 import type { SheetObject } from '../../core/workbook/sheet-objects';
 import { WorksheetCommands } from './worksheets';
 import { SqlCommands, type SqlRunOutcome } from './sql';
@@ -93,6 +94,9 @@ export class Commands {
 
   /** Set by main.ts so commands can line objects up by where the grid draws them. */
   objectGeometry: ObjectGeometry | null = null;
+
+  /** Set by main.ts so the selected objects can be saved as a picture drawn like the grid draws them. */
+  objectImages: ObjectImagePort | null = null;
 
   /** Set by main.ts so the menus can open the comments and Check Data panels. */
   panelActions: {

@@ -1372,5 +1372,22 @@
   "dialog.sqlQuery.written": "結果を新しいシート「{name}」に書き出しました。",
   "dialog.sqlQuery.writtenPartly": "表示中の先頭 {rows} 行を新しいシート「{name}」に書き出しました。残りも必要なら、条件を絞ってから実行し直してください。",
   "dialog.sqlQuery.writeFailed": "結果を新しいシートに書き出せませんでした。ファイルが読み取り専用か、シート数が上限に達している可能性があります。",
-  "sql.resultSheetName": "クエリ結果"
+  "sql.resultSheetName": "クエリ結果",
+  "dialog.markdownEditor.mode": "編集モード",
+  "dialog.markdownEditor.mode.source": "Markdown",
+  "dialog.markdownEditor.mode.visual": "見たまま",
+  "dialog.markdownEditor.visual": "見たままの文書",
+  "dialog.markdownEditor.newParagraph": "ここに入力して文章を追加",
+  "dialog.markdownEditor.blockKind": "段落の種類",
+  "dialog.markdownEditor.kind.paragraph": "本文",
+  "dialog.markdownEditor.kind.h1": "見出し 1",
+  "dialog.markdownEditor.kind.h2": "見出し 2",
+  "dialog.markdownEditor.kind.h3": "見出し 3",
+  "dialog.markdownEditor.kind.bullets": "箇条書き",
+  "dialog.markdownEditor.kind.numbers": "番号付きリスト",
+  "dialog.markdownEditor.kind.quote": "引用",
+  "dialog.markdownEditor.kind.code": "コードブロック",
+  "dialog.markdownEditor.bold": "太字",
+  "dialog.markdownEditor.italic": "斜体",
+  "dialog.markdownEditor.code": "コード"
 }

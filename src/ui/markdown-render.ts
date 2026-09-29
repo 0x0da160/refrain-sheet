@@ -65,14 +65,15 @@ function renderInline(nodes: MarkdownInline[]): Array<Node | string> {
   return out;
 }
 
-function renderBlock(block: MarkdownBlock): Node {
+/** Render one block as a DOM element. */
+export function renderMarkdownBlock(block: MarkdownBlock): HTMLElement {
   switch (block.type) {
     case 'heading':
       return el(HEADING_TAGS[block.level - 1], {}, renderInline(block.children));
     case 'paragraph':
       return el('p', {}, renderInline(block.children));
     case 'blockquote':
-      return el('blockquote', {}, block.children.map(renderBlock));
+      return el('blockquote', {}, block.children.map(renderMarkdownBlock));
     case 'hr':
       return el('hr');
     case 'codeBlock':
@@ -113,5 +114,5 @@ function renderBlock(block: MarkdownBlock): Node {
 
 /** Render a full Markdown block AST as an array of DOM nodes, one per block. */
 export function renderMarkdownBlocks(blocks: MarkdownBlock[]): Node[] {
-  return blocks.map(renderBlock);
+  return blocks.map(renderMarkdownBlock);
 }

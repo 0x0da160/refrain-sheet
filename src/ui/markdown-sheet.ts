@@ -10,11 +10,21 @@ import {
   releaseSidePanel,
   currentSidePanelPlacement,
 } from './dialogs/side-panel';
-import { Eye } from 'lucide';
+import { Bold, Code, Eye, Italic } from 'lucide';
 import { el } from './dom';
 import { SourceEditor } from './source-editor';
 import { syncScroll } from './editor-preview-perf';
 import { renderMarkdownBlocks } from './markdown-render';
+import { createIcon } from './icon';
+import {
+  blockKind,
+  MARKDOWN_BLOCK_KINDS,
+  MarkdownVisualEditor,
+  type MarkdownBlockKind,
+} from './markdown-visual';
+
+/** Source shows the Markdown text; visual shows it formatted and edits it in place. */
+type MarkdownMode = 'source' | 'visual';
 
 /** How long to wait after the last keystroke before committing an undoable edit. */
 const COMMIT_DEBOUNCE_MS = 600;
@@ -41,6 +51,11 @@ const COMMIT_DEBOUNCE_MS = 600;
  * keystroke, and always flushed immediately on blur or before this view
  * hands off to a different worksheet/tab.
  *
+ * Visual mode (`MarkdownVisualEditor`) swaps the textarea for the formatted
+ * document, edited in place; each edit writes the Markdown text back into
+ * the textarea and commits through the same debounce, so what is saved is
+ * always the Markdown text. The preview panel is hidden while it is on.
+ *
  * The source textarea and the preview pane keep their scroll positions in
  * sync proportionally in both directions (`syncScroll`, see
  * `editor-preview-perf.ts`) — unlike the JSON/YAML source views, the preview
@@ -55,6 +70,12 @@ export class MarkdownSheetView {
   private readonly textarea: HTMLTextAreaElement;
   private readonly preview: HTMLElement;
   private readonly previewToggle: HTMLButtonElement;
+  private readonly sourcePane: HTMLElement;
+  private readonly visual = new MarkdownVisualEditor();
+  private readonly modeButtons: Record<MarkdownMode, HTMLButtonElement>;
+  private readonly formatTools: HTMLElement;
+  private readonly blockKindSelect: HTMLSelectElement;
+  private mode: MarkdownMode = 'source';
 
   /** The (tab, sheetId) the textarea currently reflects, so a pending debounced edit commits to the right place. */
   private bound: { tab: Tab; sheetId: string } | null = null;
@@ -73,14 +94,41 @@ export class MarkdownSheetView {
       indentUnit: '\t',
     });
     this.textarea = this.editor.textarea;
-    const sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
+    this.sourcePane = el('div', { className: 'markdown-editor-pane' }, [this.textarea]);
+    const visualPane = el('div', { className: 'markdown-editor-pane markdown-visual-pane' }, [
+      this.visual.element,
+    ]);
 
-    this.previewToggle = el('button', { attrs: { type: 'button' } }) as HTMLButtonElement;
+    this.previewToggle = el('button', {
+      className: 'markdown-preview-toggle',
+      attrs: { type: 'button' },
+    }) as HTMLButtonElement;
     // Opens only: the preview panel closes from its header × alone.
     this.previewToggle.addEventListener('click', () => this.setPreviewVisible(true));
-    const toolbar = el('div', { className: 'markdown-editor-toolbar' }, [this.previewToggle]);
 
-    const panes = el('div', { className: 'markdown-editor-panes' }, [sourcePane]);
+    this.modeButtons = { source: this.modeButton('source'), visual: this.modeButton('visual') };
+    const modeGroup = el(
+      'div',
+      {
+        className: 'markdown-mode-switch',
+        attrs: { role: 'group', 'aria-label': t('dialog.markdownEditor.mode') },
+      },
+      [this.modeButtons.source, this.modeButtons.visual],
+    );
+    this.blockKindSelect = this.buildBlockKindSelect();
+    this.formatTools = el('div', { className: 'markdown-visual-tools' }, [
+      this.blockKindSelect,
+      this.formatButton(Bold, t('dialog.markdownEditor.bold'), 'strong'),
+      this.formatButton(Italic, t('dialog.markdownEditor.italic'), 'em'),
+      this.formatButton(Code, t('dialog.markdownEditor.code'), 'code'),
+    ]);
+    const toolbar = el('div', { className: 'markdown-editor-toolbar' }, [
+      modeGroup,
+      this.formatTools,
+      this.previewToggle,
+    ]);
+
+    const panes = el('div', { className: 'markdown-editor-panes' }, [this.sourcePane, visualPane]);
 
     this.element = el('div', { className: 'markdown-sheet-view' }, [toolbar, panes]);
     this.element.hidden = true;
@@ -107,6 +155,29 @@ export class MarkdownSheetView {
     this.panelElement.append(previewChrome.heading, body, previewChrome.resizeHandle);
     this.panelElement.hidden = true;
 
+    this.visual.onChange = (source) => {
+      this.editor.setValue(source);
+      this.renderPreview();
+      this.scheduleCommit();
+    };
+    this.visual.onFocusBlock = (block) => {
+      const kind = block ? blockKind(block) : null;
+      this.blockKindSelect.value = kind ?? '';
+      this.blockKindSelect.disabled = kind === null || this.textarea.readOnly;
+    };
+    this.visual.element.addEventListener('focusout', (event) => {
+      if (!(event.relatedTarget instanceof Node) || !this.visual.element.contains(event.relatedTarget)) {
+        this.flushCommit();
+      }
+    });
+    // Same early flush as the textarea's, for shortcuts pressed while editing visually.
+    this.visual.element.addEventListener('keydown', (event) => {
+      if (event.ctrlKey || event.metaKey) {
+        this.flushCommit();
+      }
+    });
+    this.applyMode();
+
     this.updatePreviewToggle();
     syncScroll(this.textarea, this.preview);
 
@@ -131,6 +202,73 @@ export class MarkdownSheetView {
     });
   }
 
+  private modeButton(mode: MarkdownMode): HTMLButtonElement {
+    const button = el('button', {
+      className: 'markdown-mode-button',
+      text: t(`dialog.markdownEditor.mode.${mode}`),
+      attrs: { type: 'button' },
+    }) as HTMLButtonElement;
+    button.addEventListener('click', () => this.setMode(mode));
+    return button;
+  }
+
+  private buildBlockKindSelect(): HTMLSelectElement {
+    const select = el('select', {
+      className: 'markdown-block-kind',
+      attrs: { 'aria-label': t('dialog.markdownEditor.blockKind') },
+    }) as HTMLSelectElement;
+    select.append(el('option', { text: '', attrs: { value: '', hidden: '' } }));
+    for (const kind of MARKDOWN_BLOCK_KINDS) {
+      select.append(el('option', { text: t(`dialog.markdownEditor.kind.${kind}`), attrs: { value: kind } }));
+    }
+    select.disabled = true;
+    // Keep the caret's block: choosing from the menu must not lose it.
+    select.addEventListener('change', () => {
+      if (select.value !== '') {
+        this.visual.setBlockKind(select.value as MarkdownBlockKind);
+      }
+    });
+    return select;
+  }
+
+  private formatButton(icon: typeof Bold, label: string, kind: 'strong' | 'em' | 'code'): HTMLButtonElement {
+    const button = el('button', {
+      className: 'markdown-format-button',
+      attrs: { type: 'button', 'aria-label': label, title: label },
+    }) as HTMLButtonElement;
+    button.append(createIcon(icon, 'markdown-format-icon', 16));
+    // Pressing the button must not take the selection out of the text.
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('click', () => this.visual.toggleInline(kind));
+    return button;
+  }
+
+  /** Switch between the Markdown text and the formatted, editable document. */
+  setMode(mode: MarkdownMode): void {
+    if (mode === this.mode) {
+      return;
+    }
+    this.mode = mode;
+    if (mode === 'visual') {
+      this.visual.load(this.textarea.value);
+      this.visual.setReadOnly(this.textarea.readOnly);
+    }
+    this.applyMode();
+    this.updatePanelVisibility();
+    (mode === 'visual' ? this.visual.element : this.textarea).focus();
+  }
+
+  private applyMode(): void {
+    const visual = this.mode === 'visual';
+    this.sourcePane.hidden = visual;
+    (this.visual.element.parentElement as HTMLElement).hidden = !visual;
+    this.formatTools.hidden = !visual;
+    this.previewToggle.hidden = visual;
+    for (const [mode, button] of Object.entries(this.modeButtons)) {
+      button.setAttribute('aria-pressed', String(mode === this.mode));
+    }
+  }
+
   /** Open/close the preview panel: `previewToggle` opens it, its header × closes it. */
   private setPreviewVisible(visible: boolean): void {
     this.previewVisible = visible;
@@ -140,7 +278,7 @@ export class MarkdownSheetView {
 
   /** Reconciles the panel's actual open/closed state with `previewVisible && active`. */
   private updatePanelVisibility(): void {
-    const shouldShow = this.previewVisible && this.active;
+    const shouldShow = this.previewVisible && this.active && this.mode === 'source';
     if (shouldShow === !this.panelElement.hidden) {
       return;
     }
@@ -188,8 +326,13 @@ export class MarkdownSheetView {
       // previous binding owed it before loading this one's text.
       this.flushCommit();
       this.bound = { tab, sheetId: sheet.id };
-      this.editor.setValue(sheet.markdownText);
-      this.renderPreview();
+      this.load(sheet.markdownText);
+    } else if (this.commitTimer === null && sheet.markdownText !== this.textarea.value) {
+      // Changed from elsewhere (Undo, Redo, Replace All) with no edit of ours pending.
+      this.load(sheet.markdownText);
+    }
+    if (this.textarea.readOnly !== tab.readOnly) {
+      this.visual.setReadOnly(tab.readOnly);
     }
     this.textarea.readOnly = tab.readOnly;
     this.element.hidden = false;
@@ -223,6 +366,15 @@ export class MarkdownSheetView {
       this.commitTimer = null;
       this.flushCommit();
     }, COMMIT_DEBOUNCE_MS);
+  }
+
+  private load(text: string): void {
+    this.editor.setValue(text);
+    this.renderPreview();
+    if (this.mode === 'visual') {
+      this.visual.load(text);
+      this.visual.setReadOnly(this.textarea.readOnly);
+    }
   }
 
   private renderPreview(): void {

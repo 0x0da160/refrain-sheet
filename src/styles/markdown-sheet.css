@@ -35,3 +35,88 @@
 .markdown-sheet-view .markdown-editor-source {
   min-height: 0;
 }
+
+/* ---------- Visual (formatted) editing mode ---------- */
+
+.markdown-sheet-view .markdown-editor-pane[hidden],
+.markdown-visual-tools[hidden],
+.markdown-sheet-view .markdown-editor-toolbar > button[hidden] {
+  display: none;
+}
+
+.markdown-mode-switch {
+  display: inline-flex;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.markdown-mode-button {
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  background: var(--bg-raised);
+  color: var(--fg-default);
+  font: inherit;
+}
+
+.markdown-mode-button + .markdown-mode-button {
+  border-left: 1px solid var(--border-default);
+}
+
+.markdown-mode-button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.markdown-visual-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.markdown-block-kind {
+  height: var(--field-h);
+  font: inherit;
+}
+
+.markdown-format-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--field-h);
+  height: var(--field-h);
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--fg-default);
+}
+
+.markdown-format-button:hover {
+  background: var(--bg-hover);
+}
+
+.markdown-sheet-view .markdown-visual {
+  min-height: 0;
+}
+
+.markdown-visual-block[contenteditable='true'],
+.markdown-visual-block [contenteditable='true'] {
+  outline: none;
+  border-radius: var(--radius-sm);
+}
+
+.markdown-visual-block[contenteditable='true']:focus,
+.markdown-visual-block [contenteditable='true']:focus {
+  box-shadow: 0 0 0 var(--focus-width) var(--focus-ring);
+}
+
+/* The empty paragraph at the end that takes new text. */
+.markdown-visual-block[data-placeholder]:empty {
+  min-height: 1.5em;
+}
+
+.markdown-visual-block[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--fg-muted);
+}

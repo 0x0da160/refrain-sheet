@@ -40,6 +40,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Edit Markdown sheets formatted.** A Markdown sheet's toolbar now
+  switches between Markdown and Formatted. Formatted shows the document as
+  it reads and lets you edit headings, paragraphs, lists, quotes, code
+  blocks and table cells in place, change a block's type, and make text
+  bold, italic or code. The sheet is still saved as Markdown text, and only
+  the parts you edit are rewritten. Undo from the Edit menu now also
+  updates a Markdown sheet's text while it is open.
+
 - **Build SQL queries without typing SQL.** Data > Run SQL Query… now has
   Build a Query: tick the columns to show, add conditions (equals, greater
   than, contains, is blank, …) matched all or any, group rows by a column

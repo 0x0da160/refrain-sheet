@@ -56,7 +56,7 @@ const PUNCTUATION: ReadonlyMap<string, TokenType> = new Map([
   ['!', 'bang'],
 ]);
 
-const SINGLE_CHAR_OPS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '=']);
+const SINGLE_CHAR_OPS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '=', '&']);
 
 export function tokenize(src: string): Token[] {
   const tokens: Token[] = [];

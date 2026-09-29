@@ -580,7 +580,7 @@ describe('value model and coercion', () => {
 
   it('an error typed into a cell stays text and does not propagate', () => {
     expect(evaluate('=COUNTA(A1:A1)', { A1: '#REF!' })).toBe('1');
-    expect(evaluate('=A1&""', { A1: '#REF!' })).toBe('#ERROR!'); // & is not an operator here
+    expect(evaluate('=A1&"x"', { A1: '#REF!' })).toBe('#REF!x');
   });
 
   it('boolean literals parse and compare', () => {

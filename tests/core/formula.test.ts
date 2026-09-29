@@ -163,6 +163,16 @@ describe('evaluation', () => {
     expect(display({}, '=10/4')).toBe('2.5');
   });
 
+  it('joins text with & between + - and the comparisons', () => {
+    const cells = { A1: 'Total', B1: '12', C1: '', D1: '=1/0' };
+    expect(display(cells, '=A1&": "&B1')).toBe('Total: 12');
+    expect(display(cells, '=A1&C1&TRUE')).toBe('TotalTRUE');
+    expect(display(cells, '=1+2&3*4')).toBe('312');
+    expect(display(cells, '=1&2="12"')).toBe('TRUE');
+    expect(display(cells, '=A1&D1')).toBe('#DIV/0!');
+    expect(display(cells, '=A1&')).toBe('#ERROR!');
+  });
+
   it('resolves cell references, coercing numeric strings and empties', () => {
     const cells = { A1: '4', B2: ' 2.5 ', C1: '', D1: 'text' };
     expect(display(cells, '=A1+B2')).toBe('6.5');
@@ -297,6 +307,7 @@ describe('reference rewriting', () => {
     expect(shiftFormulaRefs('=A1', 0, -1)).toBe('=#REF!');
     // Strings and function names are untouched.
     expect(shiftFormulaRefs('=IF(A1=1,"A1",SUM(B1:B2))', 1, 0)).toBe('=IF(A2=1,"A1",SUM(B2:B3))');
+    expect(shiftFormulaRefs('=A1&"-"&B1', 1, 0)).toBe('=A2&"-"&B2');
     // Unparseable formulas are left alone.
     expect(shiftFormulaRefs('=("broken', 1, 1)).toBe('=("broken');
   });

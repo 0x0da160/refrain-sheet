@@ -502,7 +502,7 @@ export class AppSettingsDialogs {
         section(
           'dialog.formulaHelp.section.operators',
           p('dialog.formulaHelp.operatorsBody'),
-          codeList(['+', '-', '*', '/', '( )', '=', '<>', '<', '>', '<=', '>=']),
+          codeList(['+', '-', '*', '/', '&', '( )', '=', '<>', '<', '>', '<=', '>=']),
         ),
       );
 

@@ -84,17 +84,26 @@ describe('sheet folders', () => {
     const { state, tab, doc, id } = setup(['Main', 'Beta', 'Gamma', 'Delta']);
     doc.setCellOn(id('Main'), 0, 0, '=Beta!A1');
     doc.setCellOn(id('Main'), 0, 1, '=Gamma!A1');
+    doc.setCellOn(id('Main'), 0, 2, '=Beta!A1&Gamma!A1');
     const outer = state.folders.createFolder(tab, id('Beta'), 'Outer')!;
     state.folders.moveSheetToFolder(tab, id('Gamma'), outer);
     state.folders.createFolder(tab, id('Gamma'), 'Inner');
     expect(state.folders.deleteFolder(tab, outer)).toBe(true);
     expect(names(doc)).toEqual(['Main', 'Delta']);
     expect(doc.folders).toEqual([]);
-    expect([0, 1].map((c) => doc.sheetByName('Main')!.getValue(0, c))).toEqual(['=#REF!', '=#REF!']);
+    expect([0, 1, 2].map((c) => doc.sheetByName('Main')!.getValue(0, c))).toEqual([
+      '=#REF!',
+      '=#REF!',
+      '=#REF!&#REF!',
+    ]);
     state.undo(tab);
     expect(names(doc)).toEqual(['Main', 'Beta', 'Gamma', 'Delta']);
     expect(doc.folders.map((f) => f.name)).toEqual(['Outer', 'Inner']);
-    expect([0, 1].map((c) => doc.sheetByName('Main')!.getValue(0, c))).toEqual(['=Beta!A1', '=Gamma!A1']);
+    expect([0, 1, 2].map((c) => doc.sheetByName('Main')!.getValue(0, c))).toEqual([
+      '=Beta!A1',
+      '=Gamma!A1',
+      '=Beta!A1&Gamma!A1',
+    ]);
     state.redo(tab);
     expect(names(doc)).toEqual(['Main', 'Delta']);
   });

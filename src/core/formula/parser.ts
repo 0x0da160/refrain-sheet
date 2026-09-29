@@ -159,10 +159,25 @@ class Parser {
 
   parseExpr(depth: number): AstNode {
     this.checkDepth(depth);
-    let left = this.parseAdditive(depth + 1);
+    let left = this.parseConcat(depth + 1);
     for (;;) {
       const token = this.peek();
       if (!token || token.type !== 'op' || !['=', '<>', '<', '>', '<=', '>='].includes(token.text)) {
+        return left;
+      }
+      this.next();
+      const right = this.parseConcat(depth + 1);
+      left = { kind: 'binary', op: token.text, left, right };
+    }
+  }
+
+  /** Text joining with `&`: binds more loosely than `+ -`, more tightly than comparisons. */
+  private parseConcat(depth: number): AstNode {
+    this.checkDepth(depth);
+    let left = this.parseAdditive(depth + 1);
+    for (;;) {
+      const token = this.peek();
+      if (!token || token.type !== 'op' || token.text !== '&') {
         return left;
       }
       this.next();

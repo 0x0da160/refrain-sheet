@@ -178,6 +178,7 @@ function fileMenu(checks: MenuChecks): MenuDef {
       'separator',
       { labelKey: 'menu.file.export', icon: FileDown, submenu: exportItems() },
       { labelKey: 'menu.file.document', icon: FileCog, submenu: documentItems(checks) },
+      { labelKey: 'menu.file.print', command: 'file.print' },
       ...driveMenuItems(checks),
       'separator',
       { labelKey: 'menu.file.settings', command: 'app.settings' },

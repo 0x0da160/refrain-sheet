@@ -40,6 +40,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Print and PDF.** File > Print… prints the current sheet, the selected
+  cells, or every sheet of the file, with paper size, orientation, shrink
+  to the page width or a scale, gridlines, row numbers and column letters,
+  the first row repeated on every page, and rows per page. It prints what
+  the sheet shows, including formatting, sort and filter. To make a PDF,
+  choose Save as PDF in the print dialog.
+
 - **`&` joins text in formulas.** `=A1&" "&B1` puts values together as
   text, the same as `CONCAT`. Numbers and TRUE/FALSE join as they are
   written, an empty cell adds nothing, and an error in either side is the

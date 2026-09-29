@@ -557,6 +557,12 @@ export class Workbook {
     return this.engine.conditionalFormatStyle(this.activeSheet, row, col);
   }
 
+  /** {@link getConditionalFormatStyle} on a specific worksheet (printing every sheet). */
+  getConditionalFormatStyleOn(sheetId: string, row: number, col: number): ConditionalFormatStyle | null {
+    const sheet = this.sheetById(sheetId);
+    return sheet ? this.engine.conditionalFormatStyle(sheet, row, col) : null;
+  }
+
   // ----- Sort state (session-only view state; never persisted) -----
 
   /** The active worksheet's sort. */

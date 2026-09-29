@@ -23,6 +23,7 @@
  */
 
 import type { GridLookLayer } from '../core/grid-look';
+import { normalizePrintSettings, type PrintSettings } from '../core/print-layout';
 import { RSF_ZOOM_MAX, RSF_ZOOM_MIN } from '../core/workbook/rsf-codec';
 import type { SheetFontId } from './sheet-font';
 import { safeStorageGet, safeStorageRemove, safeStorageSet } from './storage';
@@ -327,6 +328,31 @@ export function getShiftPasteMode(): ShiftPasteMode {
 /** Persist the Ctrl+Shift+V preference locally. */
 export function setShiftPasteMode(mode: ShiftPasteMode): void {
   safeStorageSet(SHIFT_PASTE_KEY, mode);
+}
+
+// ---------------------------------------------------------------------------
+// Print page settings
+// ---------------------------------------------------------------------------
+
+const PRINT_SETTINGS_KEY = 'refrain-csv-html.print';
+
+/**
+ * The page settings File > Print… last used in this browser (paper,
+ * orientation, scale, …), never written into any document. Anything missing
+ * or unreadable takes its default.
+ */
+export function getPrintSettings(): PrintSettings {
+  const stored = safeStorageGet(PRINT_SETTINGS_KEY);
+  try {
+    return normalizePrintSettings(stored ? JSON.parse(stored) : null);
+  } catch {
+    return normalizePrintSettings(null);
+  }
+}
+
+/** Remember the page settings locally for the next print. */
+export function setPrintSettings(settings: PrintSettings): void {
+  safeStorageSet(PRINT_SETTINGS_KEY, JSON.stringify(normalizePrintSettings(settings)));
 }
 
 /** A layered display setting in the Settings… dialog; `undefined` = not specified. */

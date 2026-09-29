@@ -14,6 +14,7 @@ import { isCsv, isWorkbook } from '../../core/editor-document';
 import { validateDocument } from '../../core/csv/validation';
 import { CommentsPanel } from '../comments-panel';
 import { ValidationCheckPanel } from '../validation-check-panel';
+import { openPrint } from '../print-view';
 import type { Dialogs, Toasts } from '../dialogs';
 import { FindBar } from '../find-bar';
 import { FormulaBar } from '../formula-bar';
@@ -79,6 +80,7 @@ export function createSurfaces(
   commands.panelActions = {
     openComments: () => commentsPanel.open(),
     openValidationCheck: () => validationCheckPanel.open(),
+    openPrint: () => openPrint(state, (text) => toasts.notify(text, 'warn')),
   };
   const menuBar = createMenuBar(state, commands);
   const tabBar = new TabBar(state, commands);

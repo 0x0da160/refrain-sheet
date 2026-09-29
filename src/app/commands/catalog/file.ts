@@ -39,6 +39,8 @@ export const FILE_COMMANDS = {
     // Encoding/EOL/BOM options; an .rsf file has nothing to choose.
     (_, tab) => isCsv(tab.doc),
   ),
+  // The panel prints through the browser's own print, which also saves PDFs.
+  'file.print': withTab((ctx) => ctx.commands.panelActions?.openPrint()),
   'file.closeTab': withTab((ctx, tab) => ctx.commands.closeTab(tab)),
   'drive.open': {
     enabled: driveAvailable,

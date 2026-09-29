@@ -31,6 +31,8 @@ it.
   Filter, Sort, Data Validation, Conditional Formatting, and Cell Formatting
   as a functional group (what's saved vs. session-only), plus the shared
   dockable-panel chrome (dock/resize/maximize) those and other panels share.
+- [Print and PDF](print-and-pdf.md) — File > Print…: what prints, the page
+  settings, and how the browser's print makes the PDF.
 - [Tabs and worksheet strip](tabs-and-worksheet-strip.md) — the interaction
   model of the two independent tab strips: drag reorder, keyboard
   equivalents, roving tabindex, dirty indicators, and the close-tab flow.

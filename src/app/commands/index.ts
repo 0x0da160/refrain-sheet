@@ -95,6 +95,8 @@ export class Commands {
     openComments: () => void;
     /** Open the Check Data panel (values that break a data-validation rule). */
     openValidationCheck: () => void;
+    /** Open the File > Print… panel (page settings, then the browser's print). */
+    openPrint: () => void;
   } | null = null;
 
   /**

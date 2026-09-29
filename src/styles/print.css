@@ -1,0 +1,93 @@
+/*
+ * File > Print… (`src/ui/print-view.ts`): the print-only layer. Never shown
+ * on screen; while printing, it is the only thing shown.
+ */
+.print-root {
+  display: none;
+}
+
+@media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body > :not(.print-root) {
+    display: none !important;
+  }
+
+  body > .print-root {
+    display: block;
+    color: #000;
+    font-family: var(--font-sheet, sans-serif);
+    font-size: 10pt;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .print-sheet + .print-sheet {
+    break-before: page;
+  }
+
+  .print-sheet-title {
+    margin: 0 0 6pt;
+    font-size: 12pt;
+  }
+
+  .print-table {
+    table-layout: fixed;
+    border-collapse: collapse;
+  }
+
+  .print-table.print-page-break {
+    break-before: page;
+  }
+
+  .print-table td,
+  .print-table th {
+    padding: 1pt 3pt;
+    overflow: hidden;
+    vertical-align: top;
+    text-align: left;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .print-table tr {
+    break-inside: avoid;
+  }
+
+  .print-gridlines .print-table td,
+  .print-gridlines .print-table th {
+    border: 0.5pt solid #bdbdbd;
+  }
+
+  .print-table th {
+    background: #f0f0f0;
+    font-weight: normal;
+    color: #444;
+    text-align: center;
+  }
+
+  .print-table td.cell-bold {
+    font-weight: bold;
+  }
+
+  .print-table td.cell-italic {
+    font-style: italic;
+  }
+
+  .print-table td.cell-underline {
+    text-decoration: underline;
+  }
+
+  .print-text {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: monospace;
+    font-size: 9pt;
+  }
+}

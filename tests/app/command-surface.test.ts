@@ -23,6 +23,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'file.toggleProtect',
   'file.save',
   'file.saveOptions',
+  'file.print',
   'file.closeTab',
   'drive.open',
   'drive.save',

@@ -23,6 +23,7 @@ import {
 import { el } from '../dom';
 import { createIcon } from '../icon';
 import { dialogButton } from './shared';
+import { sqlQueryBuilder } from './sql-builder';
 import { panelField, panelSection } from './side-panel';
 import { openSidePanel } from './side-panel';
 
@@ -71,14 +72,18 @@ export class SqlQueryDialogs {
 
         // ----- Data source picker and query editor -----
         const { sourceSelect, queryText, editorSection } = queryEditor(input, helpPanel, helpToggle);
-        body.append(editorSection);
+
+        // ----- Query builder: writes the query into the editor as choices change -----
+        const builder = sqlQueryBuilder(input.columns(sourceSelect.value), (query) => {
+          queryText.value = query;
+          refreshSuggestions();
+          refreshSyntaxStatus();
+        });
+        sourceSelect.addEventListener('change', () => builder.setColumns(input.columns(sourceSelect.value)));
+        body.append(panelSection(null, [builder.element]), editorSection);
 
         // ----- Suggestions (keywords / functions / columns) -----
-        const suggestionsWrap = el('div', {
-          className: 'sql-query-suggestions',
-          attrs: { role: 'group', 'aria-label': t('dialog.sqlQuery.suggestions.label') },
-        });
-        suggestionsWrap.hidden = true;
+        const suggestionsWrap = suggestionsGroup();
         editorSection.append(suggestionsWrap);
 
         const refreshSuggestions = (): void => {
@@ -137,6 +142,10 @@ export class SqlQueryDialogs {
         // ----- Status (announced) and results -----
         const { resultsWrap, setStatus } = statusArea(editorSection);
 
+        // ----- Put Results in New Sheet (shown once a query returned columns) -----
+        const writeResult = writeResultButton(input, setStatus);
+        editorSection.append(writeResult.button);
+
         const renderResult = (result: SqlQueryResult): void => {
           resultsWrap.replaceChildren();
           if (result.columns.length === 0) {
@@ -145,6 +154,7 @@ export class SqlQueryDialogs {
           }
           resultsWrap.append(sqlResultTable(result));
           setStatus(sqlStatusText(result), false);
+          writeResult.offer(result);
         };
 
         // ----- Query history -----
@@ -171,6 +181,7 @@ export class SqlQueryDialogs {
         // ----- Run -----
         const runQuery = async (): Promise<void> => {
           resultsWrap.replaceChildren();
+          writeResult.offer(null);
           const query = queryText.value;
           const sourceId = sourceSelect.value;
           runButton.disabled = true;
@@ -230,6 +241,38 @@ function sqlHelp(): { helpPanel: HTMLElement; helpToggle: HTMLElement } {
     helpToggle.setAttribute('aria-expanded', String(!helpPanel.hidden));
   });
   return { helpPanel, helpToggle };
+}
+
+/**
+ * Put Results in New Sheet: hidden until `offer` gives it a result, then
+ * puts that result into a new sheet and reports where.
+ */
+function writeResultButton(
+  input: SqlQueryDialogInput,
+  setStatus: (text: string, isError: boolean) => void,
+): { button: HTMLButtonElement; offer: (result: SqlQueryResult | null) => void } {
+  let offered: SqlQueryResult | null = null;
+  const button = dialogButton(t('dialog.sqlQuery.writeResult'), false, false, () => {
+    if (!offered) {
+      return;
+    }
+    const name = input.writeResult(offered);
+    setStatus(
+      name === null
+        ? t('dialog.sqlQuery.writeFailed')
+        : offered.truncated
+          ? t('dialog.sqlQuery.writtenPartly', { name, rows: offered.rows.length })
+          : t('dialog.sqlQuery.written', { name }),
+      name === null,
+    );
+  });
+  button.classList.add('panel-button', 'sql-query-write');
+  button.hidden = true;
+  const offer = (result: SqlQueryResult | null): void => {
+    offered = result;
+    button.hidden = result === null;
+  };
+  return { button, offer };
 }
 
 /** A localized query error, with its position when the engine reported one. */
@@ -422,6 +465,16 @@ function queryEditor(
     ]),
   ]);
   return { sourceSelect, queryText, editorSection };
+}
+
+/** The (initially hidden) row of suggestion chips. */
+function suggestionsGroup(): HTMLElement {
+  const wrap = el('div', {
+    className: 'sql-query-suggestions',
+    attrs: { role: 'group', 'aria-label': t('dialog.sqlQuery.suggestions.label') },
+  });
+  wrap.hidden = true;
+  return wrap;
 }
 
 /** One keyword / function / column suggestion chip. */

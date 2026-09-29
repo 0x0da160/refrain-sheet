@@ -172,6 +172,22 @@ identifier; `WITH` and `EXPLAIN` are deliberately still rejected by the gate
 for this first iteration (see the file's header comment for the exact scope
 and why).
 
+The panel's **Build a Query** section (`src/ui/dialogs/sql-builder.ts`) is
+only a way to write that same query: `src/core/sql-builder.ts` turns the
+chosen columns, conditions (all or any), one group-by column with
+COUNT/SUM/AVG/MIN/MAX totals, sort and limit into a `SELECT … FROM data`
+string, with every column double-quoted and every typed value a quoted
+string literal (or a plain number when it is one exactly as typed), and
+`instr`/`substr` instead of `LIKE` so `%` and `_` stay literal. The result
+goes into the query box and runs through the same gate. Column names come
+from `sqlColumnNames` (the engine's header deduplication, so a blank header
+is `colN`). **Put Results in New Sheet** (`writeSqlResult` in
+`src/app/commands/catalog/data.ts`) is the only write: the result's header
+row and rows (at most `SQL_MAX_RESULT_ROWS`) become a new worksheet after
+the active one through `AppState.addSheetFromValues` (one undoable
+`sheets` entry), or a new unsaved RSF tab when the source is a CSV; the
+source itself is never changed.
+
 ## Long-running operations
 
 `src/core/scheduler.ts` provides cooperative time slicing

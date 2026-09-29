@@ -25,6 +25,7 @@ function sqlInput(overrides: Partial<SqlQueryDialogInput> = {}): SqlQueryDialogI
       },
     })),
     columns: () => ['a'],
+    writeResult: vi.fn(() => 'Query Result'),
     ...overrides,
   };
 }
@@ -94,6 +95,62 @@ describe('SqlQueryDialogs.showSqlQuery', () => {
     await Promise.resolve();
 
     expect(panel.querySelector('table.sql-query-table')).not.toBeNull();
+
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await promise;
+  });
+
+  it('writes the built query into the query box as choices change', async () => {
+    const dialogs = new SqlQueryDialogs();
+    const promise = dialogs.showSqlQuery(sqlInput({ columns: () => ['dept', 'amount'] }));
+    const panel = document.querySelector('.side-panel')!;
+    const query = panel.querySelector('#sql-query-text') as HTMLTextAreaElement;
+    const builder = panel.querySelector('.sql-builder')!;
+    expect(query.value).toBe('SELECT * FROM data');
+
+    const boxes = builder.querySelectorAll<HTMLInputElement>('.sql-builder-columns input');
+    boxes[1].click();
+    expect(query.value).toBe('SELECT "amount"\nFROM data');
+
+    const addCondition = Array.from(builder.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Add Condition',
+    )!;
+    addCondition.click();
+    const value = builder.querySelector<HTMLInputElement>('.sql-builder-value')!;
+    value.value = "O'Neil";
+    value.dispatchEvent(new Event('input'));
+    expect(query.value).toBe('SELECT "amount"\nFROM data\nWHERE "dept" = \'O\'\'Neil\'');
+
+    const group = builder.querySelector<HTMLSelectElement>('select[aria-label="Group rows by"]')!;
+    group.value = 'dept';
+    group.dispatchEvent(new Event('change'));
+    expect(query.value.split('\n')[0]).toBe('SELECT "dept"');
+    // Column choices do not apply while grouping.
+    expect(builder.querySelector<HTMLInputElement>('.sql-builder-columns input')!.disabled).toBe(true);
+
+    panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await promise;
+  });
+
+  it('offers Put Results in New Sheet after a query returns rows', async () => {
+    const input = sqlInput();
+    const dialogs = new SqlQueryDialogs();
+    const promise = dialogs.showSqlQuery(input);
+    const panel = document.querySelector('.side-panel')!;
+    const write = panel.querySelector('.sql-query-write') as HTMLButtonElement;
+    expect(write.hidden).toBe(true);
+
+    const runButton = Array.from(panel.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Run Query',
+    )!;
+    runButton.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(write.hidden).toBe(false);
+
+    write.click();
+    expect(input.writeResult).toHaveBeenCalledTimes(1);
+    expect(panel.querySelector('.sql-query-status')!.textContent).toContain('“Query Result”');
 
     panel.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     await promise;

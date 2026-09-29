@@ -13,6 +13,7 @@ import type { EncodingId } from '../core/csv/encoding';
 import type { ConditionalFormatRule } from '../core/workbook/conditional-format';
 import type { ValidationRule } from '../core/workbook/data-validation';
 import type { DiffOptions, DiffResult } from '../core/diff-engine';
+import type { SqlQueryResult } from '../core/sql-engine';
 import type { ColumnFilter } from '../core/workbook/filter';
 import type { SortKey } from '../core/workbook/sort';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/csv/serializer';
@@ -47,6 +48,11 @@ export interface SqlQueryDialogInput {
   runQuery: (sourceId: string, query: string) => Promise<SqlRunOutcome>;
   /** Column names for a source, for the query editor's input suggestions. */
   columns: (sourceId: string) => string[];
+  /**
+   * Put a result into a new worksheet (a new spreadsheet tab for a CSV);
+   * returns the new sheet's name, or null when none could be added.
+   */
+  writeResult: (result: SqlQueryResult) => string | null;
 }
 
 /**

@@ -395,6 +395,7 @@ exports[`core export surface > keeps every core module exporting the same names 
     "formatSqlQuery",
     "initSqlEngine",
     "runSqlQuery",
+    "sqlColumnNames",
     "suggestSqlCompletions",
   ],
   "stats": [

@@ -59,6 +59,7 @@ describe('side panel chrome', () => {
             sources: [{ id: 's', name: 'Sheet1' }],
             runQuery: async () => ({ ok: true, result: { columns: [], rows: [] } }) as never,
             columns: () => [],
+            writeResult: () => null,
           }),
       ],
     ];

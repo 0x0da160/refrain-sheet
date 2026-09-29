@@ -461,6 +461,36 @@ export class WorksheetsState {
   }
 
   /**
+   * Add a new worksheet holding `rows` (row-major values; formulas stay
+   * formulas) after the active one, as one atomic, undoable operation, and
+   * activate it. The sheet is at least as large as a new empty one. `name`
+   * must already be validated and unique (see the command layer).
+   */
+  addSheetFromValues(tab: Tab, name: string, rows: string[][]): Worksheet | null {
+    const doc = tab.doc;
+    if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
+      return null;
+    }
+    const width = rows.reduce((max, row) => Math.max(max, row.length), 0);
+    const padded = rows.slice();
+    while (padded.length < NEW_DOC_ROWS) {
+      padded.push([]);
+    }
+    const sheet = doc.createWorksheetFromValues(name, padded, Math.max(width, NEW_DOC_COLS));
+    const index = doc.sheetIndex(doc.activeSheetId) + 1;
+    this.saveSheetView(tab, doc);
+    const applied = this.state.pushEntry(tab, {
+      label: 'history.addSheet',
+      ops: [{ type: 'sheets', op: { action: 'add', sheet, index } }],
+    });
+    if (!applied) {
+      return null;
+    }
+    this.state.emit('sheets');
+    return sheet;
+  }
+
+  /**
    * Add a new worksheet holding one empty Markdown document after the active
    * one, as one atomic, undoable operation, and activate it. `name` must
    * already be validated and unique (see the command layer). Otherwise

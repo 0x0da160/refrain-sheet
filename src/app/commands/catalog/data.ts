@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 /** Data commands (`data.*`): SQL query, two-tab compare, validation, comments. */
 import type { DiffResult } from '../../../core/diff-engine';
+import { isWorkbook } from '../../../core/editor-document';
+import type { SqlQueryResult } from '../../../core/sql-engine';
+import { RsfDocument, RSF_EXTENSION } from '../../../core/workbook/rsf-document';
 import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport } from '../../../core/interchange/csv-export';
 import { saveBytesAs } from '../../file-access';
-import { t } from '../../i18n';
+import { getLocale, t } from '../../i18n';
 import type { Tab } from '../../state';
 import { hasSelection, withTab, type CommandContext, type CommandSpec } from './types';
 
@@ -11,12 +14,37 @@ import { hasSelection, withTab, type CommandContext, type CommandSpec } from './
  * Data > Run SQL Query…: open the local, read-only SQL query panel. See
  * `src/core/sql-engine.ts` for the query engine and its documented scope.
  */
-function showSqlQuery({ ui, parts }: CommandContext, tab: Tab): Promise<void> {
+function showSqlQuery(ctx: CommandContext, tab: Tab): Promise<void> {
+  const { ui, parts } = ctx;
   return ui.showSqlQuery({
     sources: parts.sql.listSources(tab),
     runQuery: (sourceId, query) => parts.sql.runQuery(tab, sourceId, query),
     columns: (sourceId) => parts.sql.listColumns(tab, sourceId),
+    writeResult: (result) => writeSqlResult(ctx, tab, result),
   });
+}
+
+/**
+ * The SQL panel's Put Results in New Sheet: the result's header row and
+ * rows go into a new worksheet after the active one (one undoable step), or,
+ * for a CSV tab, into a new unsaved spreadsheet tab. The source is never
+ * changed. Returns the new sheet's name, or null when it could not be added.
+ */
+function writeSqlResult(ctx: CommandContext, tab: Tab, result: SqlQueryResult): string | null {
+  const rows = [result.columns, ...result.rows.map((row) => row.map(String))];
+  const doc = tab.doc;
+  if (isWorkbook(doc)) {
+    const name = doc.uniqueSheetName(t('sql.resultSheetName'));
+    return ctx.state.addSheetFromValues(tab, name, rows)?.name ?? null;
+  }
+  const base = tab.name.replace(/\.(rsf|rcsv|csv|tsv|txt)$/i, '');
+  const fileName = `${base}-${t('sql.resultSheetName')}${RSF_EXTENSION}`;
+  const sheetName = t('sql.resultSheetName');
+  const width = Math.max(1, result.columns.length);
+  const book = RsfDocument.fromValues(fileName, ',', rows, width, sheetName, getLocale());
+  book.markUnsaved();
+  ctx.state.addTab(fileName, book, null);
+  return sheetName;
 }
 
 /**

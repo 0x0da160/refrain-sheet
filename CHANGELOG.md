@@ -40,6 +40,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Build SQL queries without typing SQL.** Data > Run SQL Query… now has
+  Build a Query: tick the columns to show, add conditions (equals, greater
+  than, contains, is blank, …) matched all or any, group rows by a column
+  with counts, sums, averages, minimums and maximums, sort, and limit the
+  rows. The query box fills in as you choose and can still be edited by
+  hand. After a query runs, Put Results in New Sheet copies the result into
+  a new sheet (undoable); from a CSV file it opens a new spreadsheet tab.
+  Queries still only read the data.
+
 - **Version history shows what changed.** Previewing a saved version
   (Sheet > File Version History… > Preview) now highlights the cells whose
   value or formula changed and, with a different mark, those whose

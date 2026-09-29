@@ -152,6 +152,11 @@ export class Workbook {
     );
   }
 
+  /** Build (but do not insert) a new worksheet holding these row-major values. */
+  createWorksheetFromValues(name: string, rows: string[][], columnCount: number): Worksheet {
+    return this.besideActive(Worksheet.fromValues(this.registry.mintId(), name, rows, columnCount));
+  }
+
   /** Build (but do not insert) a new worksheet holding one empty Markdown document. */
   createMarkdownWorksheet(name: string): Worksheet {
     return this.besideActive(Worksheet.markdown(this.registry.mintId(), name, ''));

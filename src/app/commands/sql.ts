@@ -4,6 +4,7 @@ import {
   initSqlEngine,
   runSqlQuery,
   SqlQueryError,
+  sqlColumnNames,
   SQL_MAX_SOURCE_ROWS,
   type SqlQueryResult,
   type SqlTable,
@@ -72,13 +73,12 @@ export class SqlCommands {
   }
 
   /**
-   * Column names for a source, for the query editor's input suggestions.
-   * Purely a UX aid — {@link runQuery} still validates real column names
-   * against the engine's own header-deduplication rules when the query runs.
+   * Column names for a source exactly as a query sees them (the engine's
+   * header deduplication, so a blank header is `col3`), for the editor's
+   * suggestions and the query builder.
    */
   listColumns(tab: Tab, sourceId: string): string[] {
-    const headers = this.readTable(tab, sourceId).headers;
-    return Array.from(new Set(headers.map((h) => h.trim()).filter((h) => h !== '')));
+    return sqlColumnNames(this.readTable(tab, sourceId).headers);
   }
 
   /**

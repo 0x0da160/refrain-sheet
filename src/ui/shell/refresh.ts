@@ -26,6 +26,7 @@ export function subscribeSurfaces(
     app.classList.toggle('welcome-mode', noTabs);
     s.welcome.refresh(noTabs);
     s.menuBar.render();
+    s.toolbar.render();
     s.tabBar.render();
     s.sheetBar.render(true);
     s.refreshSourceSheetViews();
@@ -87,6 +88,7 @@ export function subscribeSurfaces(
         s.grid.refreshSelection();
         s.formulaBar.refresh(true);
         s.statusBar.render();
+        s.toolbar.render();
         return;
       case 'view':
         // Wrap and sticky-first-row both change grid metrics. The comments
@@ -97,6 +99,7 @@ export function subscribeSurfaces(
         app.classList.toggle('wrap-cells', state.wrapCells);
         app.classList.toggle('sheet-tabs-vertical', getSheetTabsVertical());
         s.menuBar.render();
+        s.toolbar.render();
         s.sheetBar.render(true);
         s.grid.refresh();
         s.commentsPanel.render();
@@ -119,6 +122,7 @@ export function subscribeSurfaces(
 /** The surfaces that show the active document's content. */
 function refreshDocumentSurfaces(s: Surfaces, selectionChanged: boolean): void {
   s.refreshSourceSheetViews();
+  s.toolbar.render();
   s.grid.refresh();
   s.formulaBar.refresh(selectionChanged);
   s.statusBar.render();

@@ -100,6 +100,7 @@ function menuChecks(): MenuChecks {
     highlightCol: () => false,
     zoom: () => 100,
     editHints: () => true,
+    toolbar: () => true,
     autoFitOnOpen: () => true,
     fullscreen: () => false,
     formatActive: () => false,

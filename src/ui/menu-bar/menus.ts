@@ -94,6 +94,8 @@ export interface MenuChecks {
   zoom: () => number;
   /** Whether editing-help tooltips are enabled. */
   editHints: () => boolean;
+  /** Whether the toolbar is shown (View menu). */
+  toolbar: () => boolean;
   /** Whether sheet tabs are listed down the left side (View menu). */
   sheetTabsVertical: () => boolean;
   /** Whether every other grid row is tinted (View > Banded Rows). */
@@ -377,6 +379,8 @@ function viewMenu(checks: MenuChecks): MenuDef {
       { labelKey: 'menu.view.gridlines', command: 'view.gridlines', checked: checks.gridlines },
       { labelKey: 'menu.view.highlightRow', command: 'view.highlightRow', checked: checks.highlightRow },
       { labelKey: 'menu.view.highlightCol', command: 'view.highlightCol', checked: checks.highlightCol },
+      { labelKey: 'menu.view.toolbar', command: 'view.toolbar', checked: checks.toolbar },
+      { labelKey: 'menu.view.customizeToolbar', command: 'view.customizeToolbar' },
       { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
       {
         labelKey: 'menu.view.autoFitOnOpen',

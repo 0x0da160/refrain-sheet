@@ -97,6 +97,8 @@ export class Commands {
     openValidationCheck: () => void;
     /** Open the File > Print… panel (page settings, then the browser's print). */
     openPrint: () => void;
+    /** Open View > Customize Toolbar… (which commands the toolbar shows, in which order). */
+    customizeToolbar: () => void;
   } | null = null;
 
   /**

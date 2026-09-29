@@ -31,6 +31,7 @@ export function mountLayout(
   // worksheet tab strip instead of covering either of them (see
   // `applySidePanelPosition`, `src/ui/dialogs/side-panel.ts`, #399/#541).
   const appContent = el('div', { className: 'app-content', attrs: { id: 'app-content' } }, [
+    s.toolbar.element,
     s.formulaBar.element,
     s.welcome.element,
     mainRow,

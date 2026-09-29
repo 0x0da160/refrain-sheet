@@ -22,6 +22,10 @@ import { Grid } from '../grid';
 import { JsonSheetView } from '../json-sheet';
 import { MarkdownSheetView } from '../markdown-sheet';
 import { MenuBar } from '../menu-bar';
+import { defaultMenus, type MenuChecks } from '../menu-bar/menus';
+import { AppToolbar } from '../app-toolbar';
+import { customizeToolbar } from '../dialogs/toolbar-customize';
+import { getToolbarShown } from '../../app/toolbar-prefs';
 import { SheetBar } from '../sheet-bar';
 import { StatusBar } from '../status-bar';
 import { TabBar } from '../tab-bar';
@@ -39,6 +43,8 @@ export interface Surfaces {
   commentsPanel: CommentsPanel;
   validationCheckPanel: ValidationCheckPanel;
   menuBar: MenuBar;
+  /** The main toolbar under the menu bar (View > Customize Toolbar…). */
+  toolbar: AppToolbar;
   tabBar: TabBar;
   sheetBar: SheetBar;
   findBar: FindBar;
@@ -77,12 +83,15 @@ export function createSurfaces(
   const commentsPanel = new CommentsPanel(state, grid);
   // Data > Check Data…: the same kind of panel, listing values that break a rule.
   const validationCheckPanel = new ValidationCheckPanel(state, grid);
+  const checks = menuChecks(state, commands);
+  const menuBar = new MenuBar(commands, checks);
+  const toolbar = new AppToolbar(commands, defaultMenus(checks));
   commands.panelActions = {
+    customizeToolbar: () => void customizeToolbar(toolbar.available, () => toolbar.render()),
     openComments: () => commentsPanel.open(),
     openValidationCheck: () => validationCheckPanel.open(),
     openPrint: () => openPrint(state, (text) => toasts.notify(text, 'warn')),
   };
-  const menuBar = createMenuBar(state, commands);
   const tabBar = new TabBar(state, commands);
   // The worksheet strip of the active RSF workbook, rendered below the grid —
   // a separate surface from the document tab strip above it.
@@ -134,6 +143,7 @@ export function createSurfaces(
     commentsPanel,
     validationCheckPanel,
     menuBar,
+    toolbar,
     tabBar,
     sheetBar,
     findBar,
@@ -172,8 +182,9 @@ function wireCommandActions(
   document.addEventListener('fullscreenchange', () => state.emit('view'));
 }
 
-function createMenuBar(state: AppState, commands: Commands): MenuBar {
-  return new MenuBar(commands, {
+/** The live state the menus and the toolbar show (check marks, the current font). */
+function menuChecks(state: AppState, commands: Commands): MenuChecks {
+  return {
     wrap: () => state.wrapCells,
     stickyFirstRow: () => state.stickyFirstRowShown,
     stickyFirstColumn: () => state.stickyFirstColumnShown,
@@ -183,6 +194,7 @@ function createMenuBar(state: AppState, commands: Commands): MenuBar {
     density: () => getDensity(),
     zoom: () => state.activeTab?.zoom ?? getSheetZoom(),
     editHints: () => getEditHints(),
+    toolbar: () => getToolbarShown(),
     sheetTabsVertical: () => getSheetTabsVertical(),
     bandedRows: () => resolveGridLook(state.activeTab?.doc ?? null).bands,
     gridlines: () => resolveGridLook(state.activeTab?.doc ?? null).gridlines,
@@ -201,7 +213,7 @@ function createMenuBar(state: AppState, commands: Commands): MenuBar {
       const doc = state.activeTab?.doc;
       return doc !== undefined && isWorkbook(doc) && doc.activeSheet.locked;
     },
-  });
+  };
 }
 
 /**

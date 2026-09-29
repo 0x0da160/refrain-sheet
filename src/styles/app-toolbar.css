@@ -1,0 +1,125 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Main toolbar (src/ui/app-toolbar.ts) ----------
+   One row of icon buttons above the formula bar; scrolls sideways on a
+   narrow screen rather than wrapping. */
+
+.app-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-0-5) var(--space-2);
+  min-height: var(--bar-h);
+  overflow-x: auto;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.app-toolbar[hidden],
+#app.welcome-mode .app-toolbar {
+  display: none;
+}
+
+.app-toolbar-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-default);
+  cursor: pointer;
+}
+
+.app-toolbar-button:hover {
+  background: var(--accent-subtle);
+}
+
+.app-toolbar-button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.app-toolbar-button[aria-disabled='true'] {
+  color: var(--fg-subtle);
+  cursor: default;
+}
+
+.app-toolbar-button[aria-disabled='true']:hover {
+  background: transparent;
+}
+
+.app-toolbar-divider {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 var(--space-1);
+  background: var(--border-default);
+}
+
+.app-toolbar-spacer {
+  flex: 1;
+}
+
+/* View > Customize Toolbar… (src/ui/dialogs/toolbar-customize.ts). */
+.toolbar-customize-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.toolbar-customize-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.toolbar-customize-row:hover {
+  background: var(--accent-subtle);
+}
+
+.toolbar-customize-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar-customize-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--fg-default);
+  cursor: pointer;
+}
+
+.toolbar-customize-tool:hover:not(:disabled) {
+  border-color: var(--border-default);
+}
+
+.toolbar-customize-tool:disabled {
+  color: var(--fg-subtle);
+  cursor: default;
+}
+
+.toolbar-customize-add {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-1);
+}

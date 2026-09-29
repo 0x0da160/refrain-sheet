@@ -21,6 +21,7 @@ import {
 } from '../../settings';
 import { setBrowserSheetFont, type SheetFontId } from '../../sheet-font';
 import { setTheme, type ThemeChoice } from '../../theme';
+import { getToolbarShown, setToolbarShown } from '../../toolbar-prefs';
 import { withTab, type CommandContext, type CommandSpec } from './types';
 
 /** A pure preference toggle: re-emit `view` so menus, checkmarks and editors refresh. */
@@ -156,6 +157,17 @@ export const VIEW_COMMANDS = {
   'view.zoom.150': zoomTo(150),
   'view.zoom.200': zoomTo(200),
   'view.zoom.reset': zoomTo(DEFAULT_SHEET_ZOOM),
+  'view.toolbar': preference(() => setToolbarShown(!getToolbarShown())),
+  'view.customizeToolbar': {
+    run: (ctx) => {
+      // Showing the toolbar too, so the changes can be seen as they are made.
+      if (!getToolbarShown()) {
+        setToolbarShown(true);
+        ctx.state.emit('view');
+      }
+      ctx.commands.panelActions?.customizeToolbar();
+    },
+  },
   'view.editHints': preference(() => setEditHints(!getEditHints())),
   'view.sheetTabsVertical': preference(() => setSheetTabsVertical(!getSheetTabsVertical())),
   'view.bandedRows': gridLook('bands'),

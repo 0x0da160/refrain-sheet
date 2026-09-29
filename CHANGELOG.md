@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.17] - 2026-09-29
+
 ### Added
 
 - **Copy and paste shapes, pictures and charts.** With objects selected,

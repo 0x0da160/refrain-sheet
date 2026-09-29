@@ -9,6 +9,8 @@ import { el, focusWithoutKeyboard } from '../dom';
 import { Grid } from '../grid';
 import { createIcon } from '../icon';
 import { SheetBar } from '../sheet-bar';
+import { diffVersions } from '../../core/workbook/version-diff';
+import { versionChangesBar } from './version-changes';
 import { dialogButton, openDialog } from './shared';
 
 /**
@@ -104,14 +106,26 @@ function openDecodeFailedDialog(title: string): void {
  * attempt. `Restore` (on the version-history dialog underneath, which this
  * stacks on top of rather than replaces) is completely unaffected — this
  * view never touches it.
+ *
+ * Above the grid, `versionChangesBar` highlights what changed since
+ * `previous` (the version saved before this one): cells whose value or
+ * formula changed, cells whose formatting alone changed, and sheets added,
+ * removed or renamed.
  */
-export function openVersionHistoryPreview(snapshot: RsfHistorySnapshot, when: string): void {
+export function openVersionHistoryPreview(
+  snapshot: RsfHistorySnapshot,
+  when: string,
+  previous: { snapshot: RsfHistorySnapshot; when: string } | null = null,
+): void {
   const title = t('dialog.versionHistoryPreview.title', { when });
   const decoded = decodeRsfHistorySnapshot(snapshot);
   if (!decoded.ok || decoded.data.sheets.length === 0) {
     openDecodeFailedDialog(title);
     return;
   }
+  // What changed since the version before; an undecodable one leaves nothing to compare.
+  const before = previous ? decodeRsfHistorySnapshot(previous.snapshot) : null;
+  const diff = before?.ok ? diffVersions(before.data, decoded.data) : null;
 
   const state = new AppState();
   const commands = new Commands(state, noOpUiPort(), document);
@@ -123,7 +137,8 @@ export function openVersionHistoryPreview(snapshot: RsfHistorySnapshot, when: st
   // Mirrors the live app's own vertical order (Commit 6): the worksheet
   // strip sits below the grid, not above it.
   const mainRow = el('div', { className: 'main-row' }, [grid.element]);
-  const body = el('div', { className: 'version-preview-body' }, [mainRow, sheetBar.element]);
+  const changes = versionChangesBar(state, grid, doc, diff, diff && previous ? previous.when : null);
+  const body = el('div', { className: 'version-preview-body' }, [changes.element, mainRow, sheetBar.element]);
 
   const dialog = el('dialog', {
     className: 'version-preview-dialog',
@@ -145,6 +160,7 @@ export function openVersionHistoryPreview(snapshot: RsfHistorySnapshot, when: st
       case 'sheets':
       case 'doc':
         sheetBar.render();
+        changes.render();
         grid.refresh();
         return;
       case 'selection':

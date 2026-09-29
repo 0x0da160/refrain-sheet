@@ -217,6 +217,11 @@ export class GridCore {
   /** In-progress raw text from the formula bar, rendered in place of the
    * active cell's committed value until it is committed or cleared. */
   formulaLivePreview: FormulaLivePreview | null = null;
+  /**
+   * A mark per cell of the active worksheet (the version-history preview's
+   * changes), painted as a `diff-<mark>` class; null paints none.
+   */
+  cellMarker: ((row: number, col: number) => 'value' | 'format' | null) | null = null;
   /** Floating note shown when a referenced range extends beyond the viewport. */
   readonly refIndicator: HTMLElement;
   /** `pointerType` of the most recent pointer gesture the grid handled,

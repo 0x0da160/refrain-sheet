@@ -62,6 +62,15 @@ the ones already saved.
   checked before committing to Restore. Preview is **read-only throughout**
   and commits nothing; it exists purely so a person can confirm which
   snapshot they want before taking the irreversible Restore step.
+- **What changed.** Above the grid, Preview compares the snapshot with the
+  one saved before it (`src/core/workbook/version-diff.ts`, sheets matched
+  by id): cells whose value or formula changed are tinted with a solid bar,
+  cells whose formatting alone changed get a dashed outline, and the bar
+  counts both for the shown sheet, lists sheets added, deleted and renamed,
+  notes a Markdown/JSON/YAML/text sheet whose text changed, steps through
+  the changed cells (**Go to Next Change**), and can hide the highlight.
+  The oldest snapshot has nothing to compare with and says so. Shapes,
+  charts and images join the comparison once they exist.
 
 **Sheet > Clear Version History** deletes every recorded snapshot for the
 current file, with a confirmation, since it can't be undone.

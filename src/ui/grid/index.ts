@@ -119,6 +119,15 @@ export class Grid {
     return this.core.selectionView.setCopySource(range);
   }
 
+  /**
+   * Mark cells of the active worksheet (the version-history preview's
+   * changes) and repaint; null removes every mark.
+   */
+  setCellMarker(marker: ((row: number, col: number) => 'value' | 'format' | null) | null): void {
+    this.core.cellMarker = marker;
+    this.refresh();
+  }
+
   // ----- Formula-reference highlighting -----
 
   /**

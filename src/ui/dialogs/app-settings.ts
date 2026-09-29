@@ -341,7 +341,7 @@ export class AppSettingsDialogs {
           for (let index = history.length - 1; index >= 0; index--) {
             const snapshot = history[index];
             const previewButton = dialogButton(t('dialog.versionHistory.preview'), false, false, () =>
-              this.previewVersionSnapshot(snapshot),
+              this.previewVersionSnapshot(snapshot, index > 0 ? history[index - 1] : null),
             );
             const restoreButton = dialogButton(t('dialog.versionHistory.restore'), false, false, () =>
               close({ kind: 'restore', index }),
@@ -381,14 +381,19 @@ export class AppSettingsDialogs {
   /**
    * The "Preview" action next to each version-history entry's Restore
    * button: decodes that snapshot's stored bytes and shows its worksheets
-   * read-only, so the user can confirm it is the right one before
+   * read-only, with what changed since the version saved before it (`previous`,
+   * null for the oldest), so the user can confirm it is the right one before
    * committing to Restore. Purely informational — it never touches the
    * live document — so it opens on top of the version-history dialog
    * rather than closing it (see `openVersionHistoryPreview`, which builds
    * the actual full-screen, read-only book UI).
    */
-  private previewVersionSnapshot(snapshot: RsfHistorySnapshot): void {
-    openVersionHistoryPreview(snapshot, formatWhen(snapshot.timestamp));
+  private previewVersionSnapshot(snapshot: RsfHistorySnapshot, previous: RsfHistorySnapshot | null): void {
+    openVersionHistoryPreview(
+      snapshot,
+      formatWhen(snapshot.timestamp),
+      previous ? { snapshot: previous, when: formatWhen(previous.timestamp) } : null,
+    );
   }
 
   /**

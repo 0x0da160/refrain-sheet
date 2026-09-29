@@ -40,6 +40,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Version history shows what changed.** Previewing a saved version
+  (Sheet > File Version History… > Preview) now highlights the cells whose
+  value or formula changed and, with a different mark, those whose
+  formatting changed since the version saved before it, counts them, lists
+  sheets added, deleted or renamed, and steps through the changes with Go
+  to Next Change. The highlight can be turned off.
+
 - **Print and PDF.** File > Print… prints the current sheet, the selected
   cells, or every sheet of the file, with paper size, orientation, shrink
   to the page width or a scale, gridlines, row numbers and column letters,

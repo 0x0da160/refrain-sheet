@@ -47,3 +47,59 @@
   font-family: var(--font-sheet);
   white-space: nowrap;
 }
+
+/* ---------- What changed since the previous version ---------- */
+
+.version-changes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.version-changes p {
+  margin: 0;
+}
+
+.version-changes-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.version-changes-toggle,
+.version-changes-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.version-changes-swatch {
+  position: relative;
+  display: inline-block;
+  width: 18px;
+  height: 14px;
+  margin-left: var(--space-2);
+  border: 1px solid var(--border-default);
+}
+
+.version-changes-sheets {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+/* A changed value or formula: tinted with a solid bar on the left. Formatting
+   alone: a dashed outline, so the two differ by shape, not only color. */
+.vcell.diff-value,
+.version-changes-swatch.diff-value {
+  background: var(--state-modified) !important;
+  box-shadow: inset 3px 0 0 var(--canvas-edited-mark);
+}
+
+.vcell.diff-format,
+.version-changes-swatch.diff-format {
+  outline: 1px dashed var(--canvas-edited-mark);
+  outline-offset: -2px;
+}

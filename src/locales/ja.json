@@ -1312,5 +1312,18 @@
   "validation.problem.tooLong": "文字数が多すぎます",
   "validation.problem.notDate": "YYYY-MM-DD 形式の日付ではありません",
   "validation.problem.tooEarly": "許可された最初の日付より前です",
-  "validation.problem.tooLate": "許可された最後の日付より後です"
+  "validation.problem.tooLate": "許可された最後の日付より後です",
+  "versionChanges.oldest": "保存されている中で最も古い版のため、比べる前の版はありません。",
+  "versionChanges.since": "{when} に保存した版からの変更です。",
+  "versionChanges.counts": "このシート: 値・数式の変更 {values} セル、書式の変更 {formats} セル。",
+  "versionChanges.none": "このシート: 変更はありません。",
+  "versionChanges.sheetAdded": "このシートはこの版で追加されました。",
+  "versionChanges.textChanged": "このシートのテキストが変更されています。",
+  "versionChanges.next": "次の変更へ移動",
+  "versionChanges.show": "変更を強調表示",
+  "versionChanges.legendValue": "値・数式",
+  "versionChanges.legendFormat": "書式",
+  "versionChanges.added": "追加されたシート: {name}",
+  "versionChanges.removed": "削除されたシート: {name}",
+  "versionChanges.renamed": "名前を変更したシート: {from} → {to}"
 }

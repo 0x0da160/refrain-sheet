@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.21] - 2026-09-29
+
 ### Added
 
 - **Faster toolbar tooltips.** A toolbar button's name and shortcut now

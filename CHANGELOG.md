@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.19] - 2026-09-29
+
 ### Added
 
 - **Grid paper sheets.** Sheet > Add Grid Paper Sheet (or Grid paper sheet

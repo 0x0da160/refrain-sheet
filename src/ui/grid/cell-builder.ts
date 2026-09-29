@@ -38,7 +38,7 @@ export class CellBuilder {
    */
   buildColumnHeaderCell(tab: Tab, c: number, pinned: boolean): HTMLElement {
     const doc = tab.doc;
-    const filter = isWorkbook(doc) ? doc.filter : null;
+    const filter = doc.filter;
     const head = el('div', {
       className: `vcell vhead${pinned ? ' pinned' : ''}`,
       text: columnLabel(c),
@@ -431,7 +431,7 @@ export class CellBuilder {
    */
   private headerFilterButton(tab: Tab, row: number, col: number): HTMLButtonElement | null {
     const doc = tab.doc;
-    if (!isWorkbook(doc) || !this.isHeaderFilterCell(tab, row, col)) {
+    if (!this.isHeaderFilterCell(tab, row, col)) {
       return null;
     }
     const filter = doc.filter!;
@@ -486,9 +486,8 @@ export class CellBuilder {
    */
   isHeaderFilterCell(tab: Tab, row: number, col: number): boolean {
     const doc = tab.doc;
-    const filter = isWorkbook(doc) ? doc.filter : null;
+    const filter = doc.filter;
     if (
-      !isWorkbook(doc) ||
       filter === null ||
       !filter.headerRow ||
       row !== filter.top ||

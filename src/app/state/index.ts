@@ -441,10 +441,11 @@ export class AppState {
 
   /**
    * After a successful save, the saved byte sequence becomes the new
-   * baseline document and the history is cleared.
+   * baseline document and the history is cleared. `keepView` (a save)
+   * keeps a CSV table's sort and filter on the saved table.
    */
-  setBaseline(tab: Tab, doc: EditorDocument): void {
-    this.structuralOps.setBaseline(tab, doc);
+  setBaseline(tab: Tab, doc: EditorDocument, keepView = false): void {
+    this.structuralOps.setBaseline(tab, doc, keepView);
   }
 
   /** Mark an RSF tab saved (its in-memory document is the baseline). */

@@ -159,6 +159,19 @@ export class StatusBar {
     if (formulas > 0) {
       this.element.append(this.detail(el('span', { text: t('status.formulas', { n: formulas }) })));
     }
+    this.appendSortFilter(tab);
+    if (doc.isDirty) {
+      this.element.append(el('span', { text: t('status.unsaved') }));
+    }
+    this.appendDetailsToggle();
+    this.appendSelection(tab);
+    this.appendVersion();
+    return;
+  }
+
+  /** The filter (rows shown of all) and sort indicators, when either is on. */
+  private appendSortFilter(tab: Tab): void {
+    const doc = tab.doc;
     // Active filter: visible-row / total-row count over the filtered range.
     if (doc.filter !== null) {
       const hidden = this.state.hiddenRows(tab);
@@ -183,13 +196,6 @@ export class StatusBar {
         }),
       );
     }
-    if (doc.isDirty) {
-      this.element.append(el('span', { text: t('status.unsaved') }));
-    }
-    this.appendDetailsToggle();
-    this.appendSelection(tab);
-    this.appendVersion();
-    return;
   }
 
   /** CSV status: encoding, delimiter, line endings, size, problems, edits, engine. */
@@ -243,6 +249,7 @@ export class StatusBar {
     if (doc.editCount > 0) {
       this.element.append(el('span', { text: t('status.edits', { n: doc.editCount }) }));
     }
+    this.appendSortFilter(tab);
 
     this.element.append(
       this.detail(

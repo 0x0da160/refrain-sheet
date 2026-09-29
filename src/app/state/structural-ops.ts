@@ -16,6 +16,8 @@ import { resolveWrap, resolveZoom } from './view-layers';
 import { colWidthsAt, deleteColWidths, insertColWidths } from './col-widths';
 import { planAxisMove } from './axis-move';
 import { showsSheet } from '../../core/workbook/sheet-charts';
+import { validateFilter } from '../../core/workbook/filter';
+import { validateSort } from '../../core/workbook/sort';
 
 /**
  * Structural operations on RSF spreadsheet documents — row/column insert and
@@ -387,6 +389,9 @@ export class StructuralOpsState {
     if (!result.ok) {
       return false;
     }
+    // The rebuilt table starts unsorted and unfiltered. Undo brings the old
+    // table back with its filter but, as in a workbook, not its sort.
+    before.sort = null;
     const after = LosslessDocument.fromBytes(result.bytes, {
       encoding: before.encoding,
       delimiter: before.delimiter,
@@ -413,6 +418,7 @@ export class StructuralOpsState {
     // `prebuilt` comes from the time-sliced conversion of large documents
     // (identical content, collected with progress instead of one long loop).
     const doc = prebuilt ?? RsfDocument.fromLossless(tab.doc, name, defaultSheetName(), getLocale());
+    keepSortFilter(tab.doc, doc);
     doc.name = name;
     tab.doc = doc;
     tab.name = name;
@@ -439,6 +445,7 @@ export class StructuralOpsState {
     const base = tab.name.replace(/\.(csv|tsv|txt)$/i, '');
     const name = `${base}${RSF_EXTENSION}`;
     const doc = prebuilt ?? RsfDocument.fromLossless(tab.doc, name, defaultSheetName(), getLocale());
+    keepSortFilter(tab.doc, doc);
     doc.name = name;
     doc.markUnsaved();
     this.state.addTab(name, doc, null);
@@ -449,7 +456,10 @@ export class StructuralOpsState {
    * After a successful save, the saved byte sequence becomes the new
    * baseline document and the history is cleared.
    */
-  setBaseline(tab: Tab, doc: EditorDocument): void {
+  setBaseline(tab: Tab, doc: EditorDocument, keepView = false): void {
+    if (keepView && isCsv(tab.doc) && isCsv(doc)) {
+      keepSortFilter(tab.doc, doc);
+    }
     tab.doc = doc;
     tab.history.clear();
     this.state.clampSelection(tab);
@@ -745,4 +755,21 @@ function objectsSnapshots(doc: RsfDocument): Operation[] {
   return doc.sheets
     .filter((sheet) => sheet.id === active || showsSheet(sheet.objects, [active]))
     .map((sheet) => ({ type: 'objects', before: sheet.objects, after: sheet.objects, sheetId: sheet.id }));
+}
+
+/**
+ * Carry a CSV table's sort and filter over to the document that replaces it
+ * (the saved table, or the workbook it was converted to), when they still
+ * fit its rows and columns.
+ */
+function keepSortFilter(from: LosslessDocument, to: EditorDocument): void {
+  const filter = from.filter && validateFilter(from.filter, to.rowCount, to.columnCount) ? from.filter : null;
+  const sort = from.sort && validateSort(from.sort, to.rowCount, to.columnCount) ? from.sort : null;
+  if (isCsv(to)) {
+    to.filter = filter;
+    to.sort = sort;
+  } else if (isWorkbook(to)) {
+    to.setFilterStateOn(undefined, filter);
+    to.activeSheet.sort = sort;
+  }
 }

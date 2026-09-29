@@ -8,7 +8,6 @@
  * beyond what is declared here, and reaches shared grid state through
  * `this.core`.
  */
-import { isWorkbook } from '../../core/editor-document';
 import type { Tab } from '../../app/state';
 import { centeredScrollOffset } from './center-scroll';
 import { findDataEdge } from './data-edge';
@@ -152,7 +151,7 @@ export class Navigator {
   private stepVisibleRow(tab: Tab, from: number, delta: number): number {
     const hidden = this.core.metrics.hiddenOf(tab);
     const rowCount = tab.doc.rowCount;
-    const sorted = isWorkbook(tab.doc) && tab.doc.sort !== null;
+    const sorted = tab.doc.sort !== null;
     if ((!hidden || hidden.size === 0) && !sorted) {
       return Math.max(0, Math.min(rowCount - 1, from + delta));
     }

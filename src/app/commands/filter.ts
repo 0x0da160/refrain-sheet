@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { NotifyPort, RangeDialogsPort } from '../ui-port';
-import { isWorkbook } from '../../core/editor-document';
+import { sortFilterOwnerOf, type EditorDocument } from '../../core/editor-document';
 import {
   filterDataTop,
   rowMatchesFilter,
@@ -10,11 +10,10 @@ import {
   type SheetFilter,
 } from '../../core/workbook/filter';
 import { cellLabel, columnLabel } from '../../core/formula';
-import type { RsfDocument } from '../../core/workbook/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type { ColumnMenuInput, ConvertReason, FilterDialogInput, FilterDialogResult } from '../commands';
+import type { ColumnMenuInput, FilterDialogInput, FilterDialogResult } from '../commands';
 import { compareSortValues, validateSort, type SheetSort } from '../../core/workbook/sort';
 import { applyWhileOpen, LARGE_OP_CELLS, pct, withBusy } from './shared';
 import type { SortCommands } from './sort';
@@ -28,7 +27,7 @@ interface CellRange {
 }
 
 /**
- * Filtering commands for RSF spreadsheet documents: the hidden-row query,
+ * Filtering commands (RSF documents and CSV tables alike): the hidden-row query,
  * the filter dialog flow, applying/clearing a filter, and moving a selection
  * off a row a freshly-applied filter just hid. Extracted from `Commands` as a
  * cohesive slice (see issue #68's extraction pattern, established by
@@ -41,7 +40,6 @@ export class FilterCommands {
   constructor(
     private readonly state: AppState,
     private readonly ui: NotifyPort & RangeDialogsPort,
-    private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
     private readonly sort: SortCommands,
   ) {}
 
@@ -54,12 +52,10 @@ export class FilterCommands {
    * Sheet > Filter & Sort > Filter… (also the column-header filter buttons
    * and the context menu): open the filter dialog for `targetCol` (default:
    * the active cell's column) and apply the result as one atomic, undoable
-   * operation.
+   * operation (in a CSV table: on screen only, not undoable, saved unchanged —
+   * see `AppState.setFilter`).
    *
-   * RSF-only: on a plain CSV document the explicit-conversion dialog explains
-   * that filtering requires converting to RSF and offers to do so right
-   * there (`ensureRsf`, same pattern as paste/fill); declining leaves the
-   * document unchanged. The filter range is the existing filter's range when one is active;
+   * The filter range is the existing filter's range when one is active;
    * otherwise the selected rectangle (when more than one cell is selected)
    * or the detected contiguous data block around the active cell, with the
    * first row treated as a header by default — the dialog shows this
@@ -72,10 +68,7 @@ export class FilterCommands {
     if (!tab.selection) {
       return false;
     }
-    const doc = await this.ensureRsf(tab, 'filter');
-    if (!doc) {
-      return false;
-    }
+    const doc = tab.doc;
     const existing = doc.filter;
 
     // The filtered rectangle. An active filter fixes it (clear all filters
@@ -116,11 +109,11 @@ export class FilterCommands {
       values,
       valuesTruncated,
     };
-    const sheet = doc.activeSheet;
+    const sheet = sortFilterOwnerOf(doc);
     return applyWhileOpen<FilterDialogResult>(
       (onApply) => this.ui.chooseFilter(input, onApply),
       async (result) => {
-        if (tab.doc !== doc || this.state.activeTab !== tab || doc.activeSheet !== sheet) {
+        if (tab.doc !== doc || this.state.activeTab !== tab || sortFilterOwnerOf(doc) !== sheet) {
           return false; // replaced document, or the user switched away: nothing changes
         }
         if (result.action === 'clearAll') {
@@ -173,19 +166,15 @@ export class FilterCommands {
    * visible; each header cell of a column that holds a value gets a button
    * that opens the column menu ({@link columnMenu}) — an empty column gets
    * its button once a value is typed into it (see the grid's cell builder). Turning off removes the filter, showing every row.
-   * RSF-only, with the same explicit CSV conversion offer as Filter….
    */
   async toggleHeaderFilter(tab: Tab): Promise<boolean> {
-    if (isWorkbook(tab.doc) && tab.doc.filter !== null) {
+    if (tab.doc.filter !== null) {
       return this.clearAllFilters(tab);
     }
     if (!tab.selection) {
       return false;
     }
-    const doc = await this.ensureRsf(tab, 'filter');
-    if (!doc) {
-      return false;
-    }
+    const doc = tab.doc;
     const range = await this.defaultRange(tab, doc);
     if (!range) {
       return false;
@@ -221,10 +210,10 @@ export class FilterCommands {
    */
   async columnMenu(tab: Tab, col: number, anchor: ColumnMenuInput['anchor']): Promise<boolean> {
     const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.filter === null) {
+    const filter = doc.filter;
+    if (filter === null) {
       return false;
     }
-    const filter = doc.filter;
     if (col < filter.left || col > filter.right) {
       return false;
     }
@@ -254,9 +243,9 @@ export class FilterCommands {
       hasColumnFilter: existing !== null,
       sorted: sortDirectionOn(doc.sort, filter, col),
     };
-    const sheet = doc.activeSheet;
+    const sheet = sortFilterOwnerOf(doc);
     const result = await this.ui.chooseColumnMenu(input);
-    if (!result || tab.doc !== doc || this.state.activeTab !== tab || doc.activeSheet !== sheet) {
+    if (!result || tab.doc !== doc || this.state.activeTab !== tab || sortFilterOwnerOf(doc) !== sheet) {
       return false; // dismissed, replaced document, or the user switched away
     }
     const current = doc.filter;
@@ -289,7 +278,7 @@ export class FilterCommands {
    */
   private sortFromColumnMenu(
     tab: Tab,
-    doc: RsfDocument,
+    doc: EditorDocument,
     current: SheetFilter,
     col: number,
     ascending: boolean,
@@ -319,7 +308,7 @@ export class FilterCommands {
    */
   private async applyColumnMenuValues(
     tab: Tab,
-    doc: RsfDocument,
+    doc: EditorDocument,
     current: SheetFilter,
     col: number,
     values: string[] | null,
@@ -349,7 +338,7 @@ export class FilterCommands {
    * active cell (bounded by {@link MAX_FILTER_ROWS}), spanning every sheet
    * column. Null (after telling the user) when there is no data there.
    */
-  private async defaultRange(tab: Tab, doc: RsfDocument): Promise<CellRange | null> {
+  private async defaultRange(tab: Tab, doc: EditorDocument): Promise<CellRange | null> {
     const active = tab.selection;
     if (!active) {
       return null;
@@ -402,7 +391,7 @@ export class FilterCommands {
    */
   private async distinctValues(
     tab: Tab,
-    doc: RsfDocument,
+    doc: EditorDocument,
     col: number,
     dataTop: number,
     bottom: number,
@@ -452,9 +441,6 @@ export class FilterCommands {
    */
   private async applyFilter(tab: Tab, filter: SheetFilter): Promise<boolean> {
     const doc = tab.doc;
-    if (!isWorkbook(doc)) {
-      return false;
-    }
     const dataTop = filterDataTop(filter);
     const rows = filter.bottom - dataTop + 1;
     const hidden = new Set<number>();
@@ -507,7 +493,7 @@ export class FilterCommands {
    */
   private async resort(tab: Tab): Promise<void> {
     const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.sort === null) {
+    if (doc.sort === null) {
       return;
     }
     const sort = { ...doc.sort, keys: doc.sort.keys.map((k) => ({ ...k })) };

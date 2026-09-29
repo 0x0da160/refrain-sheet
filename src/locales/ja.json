@@ -1017,8 +1017,6 @@
   "dialog.convert.structure": "行や列を挿入・削除するには、「{name}」を先にRSFスプレッドシートに変換する必要があります。CSVファイルの行・列の構造は変更しません。",
   "dialog.convert.fill": "値や数式を複数のセルにフィルするには、「{name}」を先にRSFスプレッドシートに変換する必要があります。",
   "dialog.convert.command": "「{name}」をRSFスプレッドシートに変換します。RSFでは、数式、行・列の挿入と削除、フィル、列幅の保存などが使えます。保存していない変更も含めて、現在の内容を変換します。",
-  "dialog.convert.filter": "フィルターを使うには、「{name}」を先にRSFスプレッドシートに変換する必要があります。",
-  "dialog.convert.sort": "並べ替えを使うには、「{name}」を先にRSFスプレッドシートに変換する必要があります。",
   "dialog.convert.validation": "データの入力規則を使うには、「{name}」を先にRSFスプレッドシートに変換する必要があります。",
   "dialog.convert.conditionalFormat": "条件付き書式を使うには、「{name}」を先にRSFスプレッドシートに変換する必要があります。",
   "dialog.convert.comment": "セルコメントを使うには、「{name}」を先にRSFスプレッドシートに変換する必要があります。",

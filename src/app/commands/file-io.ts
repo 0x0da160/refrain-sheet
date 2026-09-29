@@ -205,7 +205,7 @@ export class FileIoCommands {
     // The saved byte sequence becomes the new baseline and history is cleared.
     const encoding = options.encoding === 'keep' ? tab.doc.encoding : options.encoding;
     const baseline = LosslessDocument.fromBytes(result.bytes, { encoding, delimiter: tab.doc.delimiter });
-    this.state.setBaseline(tab, baseline);
+    this.state.setBaseline(tab, baseline, true);
     return true;
   }
 

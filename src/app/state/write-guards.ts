@@ -120,11 +120,10 @@ export class WriteGuards {
    * re-enables editing. Returns true when the caller must stop.
    */
   refuseSortedWrite(tab: Tab, cells: ReadonlyArray<{ row: number; col: number }>): boolean {
-    const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.sort === null) {
+    const sort = tab.doc.sort;
+    if (sort === null) {
       return false;
     }
-    const sort = doc.sort;
     const dataTop = sortDataTop(sort);
     if (!cells.some((cell) => cell.row >= dataTop && cell.row <= sort.bottom)) {
       return false;

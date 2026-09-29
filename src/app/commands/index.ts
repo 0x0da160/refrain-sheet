@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { isCsv, isWorkbook } from '../../core/editor-document';
-import type { CellStyle } from '../../core/workbook/cell-style';
+import type { CellStyle, HorizontalAlign } from '../../core/workbook/cell-style';
 import type { CellRange } from '../../core/clipboard';
 import type { CellValidation } from '../../core/workbook/data-validation';
 import { isFormula } from '../../core/formula';
@@ -696,6 +696,16 @@ export class Commands {
   /** Remove every style property from the selection. See `FormatCommands.clearFormatting`. */
   clearFormatting(tab: Tab): boolean {
     return this.parts.format.clearFormatting(tab);
+  }
+
+  /** Align the selection's text. See `FormatCommands.setHorizontalAlign`. */
+  setHorizontalAlign(tab: Tab, align: HorizontalAlign): boolean {
+    return this.parts.format.setHorizontalAlign(tab, align);
+  }
+
+  /** Whether the whole selection sits at `align`. See `FormatCommands.isAlignActive`. */
+  isAlignActive(tab: Tab, align: HorizontalAlign): boolean {
+    return this.parts.format.isAlignActive(tab, align);
   }
 
   /** Whether Bold/Italic/Underline is "on" for the whole selection. See `FormatCommands.isActive`. */

@@ -16,6 +16,7 @@ import {
   resolveSharedBorder,
   type BorderSideValue,
   type CellStyle,
+  type HorizontalAlign,
 } from './workbook/cell-style';
 import type { ConditionalFormatStyle } from './workbook/conditional-format';
 
@@ -32,6 +33,8 @@ export interface CellVisualStyle {
   borderRight: BorderSideValue | null;
   borderBottom: BorderSideValue | null;
   borderLeft: BorderSideValue | null;
+  /** Where the text sits across the cell. */
+  align: HorizontalAlign;
 }
 
 /** The minimal read-only surface `layoutStyledRangeForImage` needs from a document. */
@@ -68,6 +71,7 @@ function resolveCellVisualStyle(source: VisualDisplaySource, row: number, col: n
     bold: !!style?.bold,
     italic: !!style?.italic,
     underline: !!style?.underline,
+    align: style?.horizontalAlign ?? 'left',
     textColor: conditional?.textColor ?? style?.textColor ?? null,
     backgroundColor: conditional?.backgroundColor ?? style?.backgroundColor ?? null,
     borderTop: row === 0 ? borderSideValue(style, 'borderTop') : null,

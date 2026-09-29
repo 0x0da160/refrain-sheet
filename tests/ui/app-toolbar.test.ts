@@ -42,6 +42,7 @@ const checks = (bold = false): MenuChecks => ({
   autoFitOnOpen: () => true,
   fullscreen: () => false,
   formatActive: (key) => bold && key === 'bold',
+  alignActive: () => false,
   driveAvailable: () => false,
   protectedDoc: () => false,
   sheetLocked: () => false,

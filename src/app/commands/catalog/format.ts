@@ -41,6 +41,15 @@ export const FORMAT_COMMANDS = {
   'format.bold': workbookFormatting(({ tab, commands }) => tab && commands.toggleBold(tab)),
   'format.italic': workbookFormatting(({ tab, commands }) => tab && commands.toggleItalic(tab)),
   'format.underline': workbookFormatting(({ tab, commands }) => tab && commands.toggleUnderline(tab)),
+  'format.alignLeft': workbookFormatting(
+    ({ tab, commands }) => tab && commands.setHorizontalAlign(tab, 'left'),
+  ),
+  'format.alignCenter': workbookFormatting(
+    ({ tab, commands }) => tab && commands.setHorizontalAlign(tab, 'center'),
+  ),
+  'format.alignRight': workbookFormatting(
+    ({ tab, commands }) => tab && commands.setHorizontalAlign(tab, 'right'),
+  ),
   'format.textColor': workbookFormatting(({ tab, commands }) => tab && commands.promptTextColor(tab)),
   'format.backgroundColor': workbookFormatting(
     ({ tab, commands }) => tab && commands.promptBackgroundColor(tab),

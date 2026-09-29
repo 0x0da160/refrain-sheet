@@ -192,13 +192,19 @@ function paintCellText(
   ctx.font = cellFont(appearance, style);
   const color = style.textColor ?? appearance.textColor;
   ctx.fillStyle = color;
-  const textX = x + CELL_PADDING_X;
   const contentWidth = w - CELL_PADDING_X * 2;
+  // Where a line of `width` starts, for the cell's alignment.
+  const startX = (width: number): number => {
+    const free = Math.max(0, contentWidth - width);
+    const offset = style.align === 'center' ? free / 2 : style.align === 'right' ? free : 0;
+    return x + CELL_PADDING_X + offset;
+  };
   if (wrapLineHeight === null) {
     // Wrapping is off: single line, ellipsis-truncated exactly like the live
     // grid clips an overflowing cell.
     const textY = y + h / 2 + 1;
     const fitted = fitText(ctx, text, contentWidth);
+    const textX = startX(ctx.measureText(fitted).width);
     ctx.fillText(fitted, textX, textY);
     if (style.underline) {
       underlineLine(ctx, fitted, color, textX, textY, contentWidth);
@@ -212,6 +218,7 @@ function paintCellText(
   const lines = wrapVisualLines(text, measure, contentWidth, MAX_WRAP_LINES);
   let lineY = y + WRAP_VERTICAL_PAD / 2 + wrapLineHeight / 2 + 1;
   for (const line of lines) {
+    const textX = startX(ctx.measureText(line).width);
     ctx.fillText(line, textX, lineY);
     if (style.underline) {
       underlineLine(ctx, line, color, textX, lineY, contentWidth);

@@ -159,6 +159,7 @@ outside the grid, or a malformed one, is `bad-shape`.
 | `numberFormat`                                           | object  | `{ "kind", "decimals", "thousands", "currencySymbol" }`   |
 | `fontFamily`                                             | string  | The cell's own font, by family name                       |
 | `fontSize`                                               | number  | The cell's own font size in points                        |
+| `horizontalAlign`                                        | string  | `left`, `center` or `right`; absent is the start (left)   |
 | `runs`                                                   | array   | Rich text: parts of the cell's text with their own format |
 
 A line style or width without its border color is ignored. `numberFormat`'s
@@ -172,6 +173,11 @@ The name is kept as written even where that font is not installed: a reader
 shows the text in its own sheet font instead and writes the name back
 unchanged. Any other value is `bad-shape`. Readers older than these keys
 ignore them and show the cell in the sheet font and size.
+
+`horizontalAlign` places the text across the cell: `left`, `center` or
+`right`. Absent keeps the text at the start of the cell, as before this key.
+Any other value is `bad-shape`. Readers older than this key ignore it and
+show the text at the start of the cell.
 
 `runs` lists the cell's text as segments,
 `[{ "text": "Hello " }, { "text": "world", "bold": true }]`, each with

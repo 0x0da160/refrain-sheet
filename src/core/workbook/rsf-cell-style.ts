@@ -11,6 +11,7 @@ import {
   BORDER_STYLE_KEY,
   BORDER_WIDTH_KEY,
   BORDER_WIDTHS,
+  HORIZONTAL_ALIGNS,
   DEFAULT_BORDER_LINE_STYLE,
   DEFAULT_BORDER_WIDTH,
   MAX_CURRENCY_SYMBOL_LENGTH,
@@ -66,6 +67,7 @@ export function styleToJson(style: CellStyle, input: string): { [key: string]: J
     out.numberFormat = format;
   }
   fontToJson(style, out);
+  if (style.horizontalAlign) out.horizontalAlign = style.horizontalAlign;
   const runs = runsForText(style.runs, input);
   if (runs) {
     out.runs = runs.map((run) => {
@@ -114,6 +116,9 @@ export function styleFromJson(value: unknown, maxText: number, fail: Fail): Cell
     style.numberFormat = read.numberFormat(value.numberFormat);
   }
   read.font(value, style);
+  if (value.horizontalAlign !== undefined) {
+    style.horizontalAlign = read.oneOf(value.horizontalAlign, HORIZONTAL_ALIGNS);
+  }
   if (value.runs !== undefined) {
     style.runs = read.runs(value.runs, maxText);
   }

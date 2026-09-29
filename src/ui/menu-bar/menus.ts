@@ -116,6 +116,8 @@ export interface MenuChecks {
   fullscreen: () => boolean;
   /** Whether Bold/Italic/Underline is "on" for the whole current selection. */
   formatActive: (key: 'bold' | 'italic' | 'underline') => boolean;
+  /** Whether the whole current selection sits at `align`. */
+  alignActive: (align: 'left' | 'center' | 'right') => boolean;
   /** Whether the active tab is read-only protected (see `Tab.readOnly`). */
   protectedDoc: () => boolean;
   /** Whether the active worksheet is locked (see `Worksheet.locked`). */
@@ -387,6 +389,22 @@ function formatMenu(checks: MenuChecks): MenuDef {
         checked: () => checks.formatActive('underline'),
       },
       { labelKey: 'menu.format.font', command: 'format.font' },
+      'separator',
+      {
+        labelKey: 'menu.format.alignLeft',
+        command: 'format.alignLeft',
+        checked: () => checks.alignActive('left'),
+      },
+      {
+        labelKey: 'menu.format.alignCenter',
+        command: 'format.alignCenter',
+        checked: () => checks.alignActive('center'),
+      },
+      {
+        labelKey: 'menu.format.alignRight',
+        command: 'format.alignRight',
+        checked: () => checks.alignActive('right'),
+      },
       'separator',
       { labelKey: 'menu.format.colorAndBorders', icon: SwatchBook, submenu: colorAndBordersItems() },
       { labelKey: 'menu.format.numberFormat', command: 'format.numberFormat' },

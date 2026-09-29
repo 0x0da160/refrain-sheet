@@ -10,6 +10,7 @@ import {
   borderSideValue,
   resolveSharedBorder,
   type BorderSideValue,
+  type HorizontalAlign,
 } from '../../core/workbook/cell-style';
 import type { LosslessDocument } from '../../core/csv/lossless-document';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
@@ -63,6 +64,7 @@ export function paintCellStyle(cell: HTMLElement, doc: RsfDocument, row: number,
   cell.classList.toggle('cell-italic', !!style?.italic);
   cell.classList.toggle('cell-underline', !!style?.underline);
   paintFont(cell, style);
+  paintAlign(cell, style?.horizontalAlign);
   cell.style.color = conditional?.textColor ?? style?.textColor ?? '';
   cell.style.backgroundColor = conditional?.backgroundColor ?? style?.backgroundColor ?? '';
   const below = row + 1 < doc.rowCount ? doc.getStyle(row + 1, col) : null;
@@ -81,6 +83,14 @@ export function paintCellStyle(cell: HTMLElement, doc: RsfDocument, row: number,
   cell.style.borderLeft = cssBorder(left);
   cell.style.borderBottom = cssBorder(bottom);
   cell.style.borderRight = cssBorder(rightSide);
+}
+
+/** Where the text sits: `text-align`, plus `justify-content` for a wrapped row's flex cell. */
+const JUSTIFY: Record<HorizontalAlign, string> = { left: 'flex-start', center: 'center', right: 'flex-end' };
+
+function paintAlign(cell: HTMLElement, align: HorizontalAlign | undefined): void {
+  cell.style.textAlign = align ?? '';
+  cell.style.justifyContent = align ? JUSTIFY[align] : '';
 }
 
 /**

@@ -37,6 +37,7 @@ function checks(): MenuChecks {
     autoFitOnOpen: () => true,
     fullscreen: () => false,
     formatActive: () => false,
+    alignActive: () => false,
     driveAvailable: () => false,
     protectedDoc: () => false,
     sheetLocked: () => false,

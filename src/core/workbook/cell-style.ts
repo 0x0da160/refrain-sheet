@@ -39,6 +39,8 @@ export interface CellStyle {
   fontFamily?: string;
   /** The cell's own font size in points; absent uses the grid's size. */
   fontSize?: number;
+  /** Where the text sits across the cell; absent is the start (left), as before. */
+  horizontalAlign?: HorizontalAlign;
   /**
    * Parts of the cell's text with their own bold/italic/underline/text color/font/size
    * (rich text, see `rich-text.ts`). Applied only while the segments still
@@ -210,6 +212,10 @@ export function normalizeHexColor(value: string): string | null {
   return isHexColor(value) ? value.toLowerCase() : null;
 }
 
+/** Where a cell's text sits across it. */
+export type HorizontalAlign = 'left' | 'center' | 'right';
+export const HORIZONTAL_ALIGNS: readonly HorizontalAlign[] = ['left', 'center', 'right'];
+
 /** True when a style carries no properties (the canonical "no style" form is `null`, not `{}`). */
 export function isEmptyCellStyle(style: CellStyle): boolean {
   return (
@@ -225,6 +231,7 @@ export function isEmptyCellStyle(style: CellStyle): boolean {
     style.numberFormat === undefined &&
     style.fontFamily === undefined &&
     style.fontSize === undefined &&
+    style.horizontalAlign === undefined &&
     style.runs === undefined
   );
 }
@@ -254,6 +261,7 @@ export function cellStylesEqual(a: CellStyle | null, b: CellStyle | null): boole
     numberFormatsEqual(an.numberFormat, bn.numberFormat) &&
     an.fontFamily === bn.fontFamily &&
     an.fontSize === bn.fontSize &&
+    an.horizontalAlign === bn.horizontalAlign &&
     runsEqual(an.runs, bn.runs)
   );
 }
@@ -290,8 +298,24 @@ export interface CellStylePatch {
   fontFamily?: string | null;
   /** `null` goes back to the grid's size. */
   fontSize?: number | null;
+  /** `null` goes back to the start (left). */
+  horizontalAlign?: HorizontalAlign | null;
   /** `null` removes the rich-text runs; an array replaces them whole. */
   runs?: TextRun[] | null;
+}
+
+/** The patch keys whose value is set as-is, or removed by `null`. */
+const PLAIN_KEYS = ['fontFamily', 'fontSize', 'horizontalAlign'] as const;
+
+function applyPlainKeys(next: CellStyle, patch: CellStylePatch): void {
+  for (const key of PLAIN_KEYS) {
+    const value = patch[key];
+    if (value === null) {
+      delete next[key];
+    } else if (value !== undefined) {
+      (next as Record<string, unknown>)[key] = value;
+    }
+  }
 }
 
 /** Apply `patch` to `style` (or to the default empty style), returning the new style
@@ -358,14 +382,7 @@ export function applyCellStylePatch(style: CellStyle | null, patch: CellStylePat
       next.numberFormat = normalizeNumberFormat(patch.numberFormat);
     }
   }
-  if (patch.fontFamily !== undefined) {
-    if (patch.fontFamily === null) delete next.fontFamily;
-    else next.fontFamily = patch.fontFamily;
-  }
-  if (patch.fontSize !== undefined) {
-    if (patch.fontSize === null) delete next.fontSize;
-    else next.fontSize = patch.fontSize;
-  }
+  applyPlainKeys(next, patch);
   if (patch.runs !== undefined) {
     if (patch.runs === null || patch.runs.length === 0) {
       delete next.runs;

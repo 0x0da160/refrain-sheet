@@ -341,6 +341,7 @@ function cellElement(part: GridPart, row: number, col: number): HTMLElement {
   td.classList.toggle('cell-italic', !!style?.italic);
   td.classList.toggle('cell-underline', !!style?.underline && !runs);
   paintFont(td, style);
+  td.style.textAlign = style?.horizontalAlign ?? '';
   td.style.color = conditional?.textColor ?? style?.textColor ?? '';
   td.style.backgroundColor = conditional?.backgroundColor ?? style?.backgroundColor ?? '';
   td.style.borderTop = cssBorder(borderSideValue(style, 'borderTop'));

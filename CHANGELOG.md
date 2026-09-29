@@ -63,6 +63,11 @@ really is internal, rather than inventing an entry to satisfy it.
   sheet.** The toolbar's and the Edit menu's Cut, Copy and Paste now act on
   the text you selected in the sheet's editor. Before, Cut removed the whole
   text.
+
+## [0.9.20] - 2026-09-29
+
+### Fixed
+
 - **Typing into a cell after unlocking a file works again.** After you
   unlocked an opened file (or closed any other dialog), selecting a cell and
   typing without pressing F2 first saved the cell as empty. Now the text you

@@ -12,9 +12,11 @@ import {
   type RsfDecodeError,
   type RsfHistorySnapshot,
   type RsfWorkbookData,
+  type RsfWorksheetData,
 } from './rsf-codec';
 import { DEFAULT_SHEET_NAME, MAX_WORKSHEETS } from './sheet-registry';
 import { DEFAULT_TIMEZONE, isValidTimeZone, localTimeZone } from './timezone';
+import type { SheetImageEntry } from './sheet-images';
 import { VersionHistory } from './version-history';
 import { Workbook } from './workbook';
 import { Worksheet, type WorksheetKind } from './worksheet';
@@ -299,6 +301,7 @@ export class RsfDocument extends Workbook {
     if (data.updatedAt !== undefined) {
       doc.updatedAt = data.updatedAt;
     }
+    doc.images.load(data.images ?? []);
     doc.registry.replaceAll(sheets, data.activeSheetId);
     doc.folderList = data.folders ?? [];
     return doc;
@@ -405,7 +408,10 @@ export class RsfDocument extends Workbook {
       return false;
     }
     const data = decoded.data;
-    const sheets = data.sheets.map(worksheetFromData);
+    // The version's pictures join this session's (undo may still need the
+    // current ones); an id taken by a different picture is renamed.
+    const renamed = this.images.merge(data.images ?? []);
+    const sheets = data.sheets.map((entry) => worksheetFromData(renameImages(entry, renamed)));
     if (sheets.length === 0) {
       return false;
     }
@@ -493,6 +499,7 @@ export class RsfDocument extends Workbook {
       }
       return entry;
     });
+    const images = this.keepShownImages(sheets);
     const content: RsfWorkbookData = {
       delimiter: this.delimiter,
       // Record the creating/updating application (single source of truth).
@@ -506,6 +513,7 @@ export class RsfDocument extends Workbook {
       displayLanguage: this.displayLanguageId,
       folders: this.folders.map((folder) => ({ ...folder })),
       sheets,
+      images,
     };
     // Version history: while enabled, every successful save appends one
     // snapshot of exactly the content being saved (see `VersionHistory.record`).
@@ -534,6 +542,32 @@ export class RsfDocument extends Workbook {
   }
 
   /**
+   * The pictures the saved worksheets show, in first-shown order. An image
+   * object whose picture is missing (never expected) is left out of the
+   * file rather than written as a reference the reader would reject.
+   */
+  private keepShownImages(sheets: RsfWorkbookData['sheets']): SheetImageEntry[] {
+    const shown = new Set<string>();
+    for (const entry of sheets) {
+      if (!entry.objects) {
+        continue;
+      }
+      const kept = entry.objects.filter(
+        (o) => o.image === undefined || this.images.get(o.image) !== undefined,
+      );
+      for (const o of kept) {
+        if (o.image !== undefined) shown.add(o.image);
+      }
+      if (kept.length === 0) {
+        delete entry.objects;
+      } else if (kept.length !== entry.objects.length) {
+        entry.objects = kept;
+      }
+    }
+    return this.images.entries(shown);
+  }
+
+  /**
    * Export the active worksheet's computed values as CSV text (lossy: formulas
    * become their calculated values; spreadsheet metadata, the other worksheets,
    * and the original byte layout are not preserved).
@@ -557,4 +591,17 @@ export class RsfDocument extends Workbook {
       formatValue(this.evaluateInSheet(sheet, r, c)),
     );
   }
+}
+
+/** A worksheet record with its image objects' picture ids changed as `renamed` says. */
+function renameImages(entry: RsfWorksheetData, renamed: Map<string, string>): RsfWorksheetData {
+  if (renamed.size === 0 || !entry.objects) {
+    return entry;
+  }
+  return {
+    ...entry,
+    objects: entry.objects.map((o) =>
+      o.image !== undefined && renamed.has(o.image) ? { ...o, image: renamed.get(o.image) } : o,
+    ),
+  };
 }

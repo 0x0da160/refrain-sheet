@@ -137,7 +137,8 @@ export class ObjectLayer {
 
   private objectElement(tab: Tab, o: SheetObject, selected: boolean): HTMLElement {
     const box = this.boxOf(tab, o);
-    const node = buildObjectElement(o, box, this.core.metrics.zoomOf(tab));
+    const image = o.image !== undefined && isWorkbook(tab.doc) ? tab.doc.images.get(o.image) : undefined;
+    const node = buildObjectElement(o, box, this.core.metrics.zoomOf(tab), image);
     node.tabIndex = -1;
     if (selected) {
       node.classList.add('selected');
@@ -147,7 +148,9 @@ export class ObjectLayer {
         const { x1, y1, x2, y2 } = lineEnds(o, box.w, box.h);
         node.append(this.handle('start', x1, y1), this.handle('end', x2, y2));
       } else {
-        for (const name of BOX_HANDLES) {
+        // A picture keeps its shape: corner handles only, unless it may stretch.
+        const handles = keepsAspect(o) ? BOX_HANDLES.filter((name) => name.length === 2) : BOX_HANDLES;
+        for (const name of handles) {
           const x = name.includes('w') ? 0 : name.includes('e') ? box.w : box.w / 2;
           const y = name.includes('n') ? 0 : name.includes('s') ? box.h : box.h / 2;
           node.append(this.handle(name, x, y));
@@ -309,13 +312,23 @@ export class ObjectLayer {
       return;
     }
     const o = drag.originals[0];
-    drag.preview = this.resized(tab, o, drag.handle ?? 'se', dx, dy);
+    drag.preview = this.resized(tab, o, drag.handle ?? 'se', dx, dy, event.shiftKey);
     const node = this.elementFor(o.id);
     node?.replaceWith(this.objectElement(tab, drag.preview, true));
   }
 
-  /** `o` with `handle` dragged by (`dx`, `dy`) screen pixels. */
-  private resized(tab: Tab, o: SheetObject, handle: string, dx: number, dy: number): SheetObject {
+  /**
+   * `o` with `handle` dragged by (`dx`, `dy`) screen pixels. A picture
+   * keeps its width-to-height ratio unless it may stretch or Shift is held.
+   */
+  private resized(
+    tab: Tab,
+    o: SheetObject,
+    handle: string,
+    dx: number,
+    dy: number,
+    shift = false,
+  ): SheetObject {
     const z = this.core.metrics.zoomOf(tab);
     const box = this.boxOf(tab, o);
     // Into the object's own (unrotated) frame.
@@ -341,6 +354,17 @@ export class ObjectLayer {
       bottom = Math.max(start.y, end.y);
       flipH = start.x > end.x;
       flipV = start.y > end.y;
+    } else if (keepsAspect(o) && !shift && handle.length === 2 && box.w > 0 && box.h > 0) {
+      // Scale about the opposite corner by the larger of the two stretches.
+      const sx = (box.w + (handle.includes('w') ? -ldx : ldx)) / box.w;
+      const sy = (box.h + (handle.includes('n') ? -ldy : ldy)) / box.h;
+      const scale = Math.max(sx, sy, 1 / Math.min(box.w, box.h));
+      const w = box.w * scale;
+      const h = box.h * scale;
+      if (handle.includes('w')) left = right - w;
+      else right = left + w;
+      if (handle.includes('n')) top = bottom - h;
+      else bottom = top + h;
     } else {
       if (handle.includes('w')) left += ldx;
       if (handle.includes('e')) right += ldx;
@@ -363,7 +387,8 @@ export class ObjectLayer {
     };
     delete next.flipH;
     delete next.flipV;
-    if (isLineKind(o.kind)) {
+    // A line keeps its direction, a picture its mirroring; other shapes are symmetric.
+    if (isLineKind(o.kind) || o.kind === 'image') {
       if (flipH) next.flipH = true;
       if (flipV) next.flipV = true;
     }
@@ -509,4 +534,9 @@ export class ObjectLayer {
 
 function lockMessage(objects: readonly SheetObject[]): string {
   return objects.some((o) => o.lockEdit) ? 'object.locked.edit' : 'object.locked.position';
+}
+
+/** Whether resizing keeps the object's width-to-height ratio (a picture, unless it may stretch). */
+function keepsAspect(o: SheetObject): boolean {
+  return o.kind === 'image' && o.aspectFree !== true;
 }

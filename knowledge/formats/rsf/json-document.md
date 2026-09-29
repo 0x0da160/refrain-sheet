@@ -49,6 +49,7 @@ the same content is the same document.
 | `view`             | object           | no       | File-level display settings (below). Left out when the file specifies none.              |
 | `folders`          | array of objects | no       | Sheet folders (below), at most 256. Left out when the file has none.                     |
 | `sheets`           | array of objects | yes      | 1–256 worksheets, in tab order (see below).                                              |
+| `images`           | object           | no       | The pictures image objects show (below), keyed by id. Left out when the file has none.   |
 | `history`          | object           | no       | Version history (see below). Left out when history is on with no snapshots and no limit. |
 
 ## Worksheet
@@ -217,12 +218,13 @@ a row height or column width changes.
 | -------------------------- | ------ | ---------------------------------------------------------------------------------- |
 | `id`                       | string | 1–32 of `A-Z a-z 0-9 _ -`, unique in the worksheet.                                |
 | `name`                     | string | Shown in the object list: 1–100 characters, no control characters.                 |
-| `kind`                     | string | `rect`, `ellipse`, `line`, `arrow`, or `text` (a text box).                        |
+| `kind`                     | string | `rect`, `ellipse`, `line`, `arrow`, `text` (a text box), or `image`.               |
 | `at`                       | string | The anchor cell, an A1 reference as the writer spells it, inside the worksheet.    |
 | `dx`, `dy`                 | number | The top-left corner's offset from the anchor cell's, in pixels at 100%, 0–1e5.     |
 | `width`, `height`          | number | The size in pixels at 100%, 0–100,000 (a straight line may be 0 either way).       |
 | `rotation`                 | number | Clockwise degrees, above 0 and below 360. Left out when 0.                         |
 | `flipH`, `flipV`           | `true` | A line or arrow starts at the right / bottom of its box instead of the left/top.   |
+|                            |        | An image is mirrored left to right / top to bottom.                                |
 | `fill`, `stroke`           | string | `#rrggbb` (lowercase) or `none`. Left out: the kind's default.                     |
 | `strokeWidth`              | number | Line width in pixels at 100%, 0.25–20.                                             |
 | `text`                     | string | The text on the shape, at most 10,000 characters.                                  |
@@ -232,12 +234,42 @@ a row height or column width changes.
 | `align`, `valign`          | string | `left`/`center`/`right` and `top`/`middle`/`bottom`.                               |
 | `hidden`                   | `true` | Not drawn or printed; still listed.                                                |
 | `lockPosition`, `lockEdit` | `true` | 配置を固定 (no move or resize) and 編集をロック (no move, resize, edit or delete). |
+| `image`                    | string | Image only, required: the id of its picture in the file's `images`.                |
+| `crop`                     | object | Image only: `{ "top", "right", "bottom", "left" }`, percent cut off each side.     |
+| `aspectFree`               | `true` | Image only: resizing may change its width-to-height ratio.                         |
 
 Anything else in a known key — a flag set to anything but `true`, an
 anchor spelled another way or outside the worksheet, a duplicate `id`, an
 unknown `kind`, or the key on a source worksheet — is `bad-shape`; more
 than 1,000 objects is `too-large`. Releases older than this key ignore it
 and show no shapes.
+
+An image object's `crop` values are each at least 0 and below 100, with
+`top + bottom` and `left + right` below 100; what is left of the picture
+fills the object's box. An image object with `text`, an `image` that names
+no picture in `images`, or `image`, `crop` or `aspectFree` on another kind
+is `bad-shape`.
+
+### Images
+
+The top-level `images` holds each picture once, however many image objects
+(on any worksheet) show it: `{ "<id>": { "type", "data" } }`.
+
+| Key    | Type   | Meaning                                                                    |
+| ------ | ------ | -------------------------------------------------------------------------- |
+| `type` | string | `image/png`, `image/jpeg`, `image/webp`, or `image/svg+xml`.               |
+| `data` | string | The picture's bytes as Base64 (standard alphabet, padded, no line breaks). |
+
+An id is 1–64 of `A-Z a-z 0-9 _ -`. The writer names a picture from its
+bytes (`img-` and a hash), but readers must not depend on that. The
+picture's bytes must be what `type` says — PNG and JPEG and WebP by their
+signature, SVG as UTF-8 text with an `<svg` element — else `bad-shape`; a
+picture over 20 MiB, or more than 1,000 pictures, is `too-large`. The writer
+keeps only the pictures some image object shows. An application shows a
+picture only as an image (for SVG: never as a document, so its scripts and
+external references stay inert). Every release older than this key also
+predates `objects`, so it opens such a file without its shapes and
+pictures.
 
 ## History
 

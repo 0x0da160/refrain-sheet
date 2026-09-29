@@ -131,6 +131,38 @@ export async function pickFiles(doc: Document, maxSize: number): Promise<OpenedF
   });
 }
 
+/**
+ * Ask the user to pick one picture (Insert > Image…): its bytes, `'too-large'`
+ * when it is over `maxSize` (never read), or null when nothing was picked.
+ * A plain file input, since a picture is copied into the document and never
+ * saved back.
+ */
+export function pickImageFile(doc: Document, maxSize: number): Promise<Uint8Array | 'too-large' | null> {
+  return new Promise((resolve, reject) => {
+    const input = doc.createElement('input');
+    input.type = 'file';
+    input.accept = '.png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml';
+    input.style.display = 'none';
+    input.addEventListener('change', () => {
+      const file = input.files?.[0];
+      input.remove();
+      if (!file) {
+        resolve(null);
+      } else if (file.size > maxSize) {
+        resolve('too-large');
+      } else {
+        file.arrayBuffer().then((buffer) => resolve(new Uint8Array(buffer)), reject);
+      }
+    });
+    input.addEventListener('cancel', () => {
+      input.remove();
+      resolve(null);
+    });
+    doc.body.appendChild(input);
+    input.click();
+  });
+}
+
 function triggerDownload(doc: Document, name: string, bytes: Uint8Array): void {
   // Copy into a fresh ArrayBuffer-backed view so the Blob never sees a
   // SharedArrayBuffer-typed buffer.

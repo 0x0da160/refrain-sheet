@@ -3,8 +3,8 @@
  * `.rsf` keys that `rsf-codec.ts` reads and writes through this module
  * rather than itself (knowledge/formats/rsf/json-document.md): a
  * worksheet's `tabColor` and `folder` and the file's `folders`
- * (`rsf-folders.ts`), a worksheet's `validations`, and its `objects`
- * (`rsf-sheet-objects.ts`). Like every key in
+ * (`rsf-folders.ts`), a worksheet's `validations`, its `objects`
+ * (`rsf-sheet-objects.ts`), and the file's `images` (`rsf-images.ts`). Like every key in
  * the codec, a known key with the wrong shape fails the whole file.
  */
 import { cellLabel, parseRef } from '../formula';
@@ -16,11 +16,42 @@ import {
   type CellValidation,
   type ValidationRule,
 } from './data-validation';
-import { placementFromJson, placementToJson, type RsfSheetPlacement } from './rsf-folders';
+import {
+  foldersFromJson,
+  foldersToJson,
+  placementFromJson,
+  placementToJson,
+  type RsfFolderList,
+  type RsfSheetPlacement,
+} from './rsf-folders';
+import { checkImageReferences, imagesFromJson, imagesToJson, type RsfImageList } from './rsf-images';
 import { objectsFromJson, objectsToJson } from './rsf-sheet-objects';
 import type { SheetObject } from './sheet-objects';
 
-export { foldersFromJson, foldersToJson, type RsfFolderList } from './rsf-folders';
+/** The file-level keys kept here: the sheet folders and the pictures. */
+export interface RsfFileExtras extends RsfFolderList, RsfImageList {}
+
+/** The file's `folders` and `images` keys, each left out when empty. */
+export function fileExtrasToJson(data: RsfFileExtras): { folders?: Json; images?: Json } {
+  return { ...foldersToJson(data), ...imagesToJson(data) };
+}
+
+/**
+ * Reads the file's `folders` and `images`, checking every worksheet's folder
+ * and every image object's picture against them.
+ */
+export function fileExtrasFromJson(
+  value: { [key: string]: unknown },
+  sheets: ReadonlyArray<RsfSheetPlacement & { objects?: readonly SheetObject[] }>,
+  fail: Fail,
+): RsfFileExtras {
+  const out: RsfFileExtras = {
+    ...foldersFromJson(value.folders, sheets, fail),
+    ...imagesFromJson(value.images, fail),
+  };
+  checkImageReferences(out, sheets, fail);
+  return out;
+}
 
 /** The worksheet fields this module reads and writes. */
 export interface RsfSheetExtras extends RsfSheetPlacement {

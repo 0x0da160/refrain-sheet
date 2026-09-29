@@ -10,18 +10,26 @@ import {
   type SheetObject,
   type SheetObjectKind,
 } from '../../core/workbook/sheet-objects';
+import { imageSize, MAX_IMAGE_BYTES, sniffImageType } from '../../core/workbook/sheet-images';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
 import type { ConvertReason, NotifyPort } from '../ui-port';
 
+/** The kinds Insert > Rectangle… makes (an image comes from a picture: {@link ObjectCommands.insertImage}). */
+export type ShapeKind = Exclude<SheetObjectKind, 'image'>;
+
 /** A new object's size, in px at 100% zoom. */
-const DEFAULT_SIZE: Record<SheetObjectKind, { width: number; height: number }> = {
+const DEFAULT_SIZE: Record<ShapeKind, { width: number; height: number }> = {
   rect: { width: 128, height: 72 },
   ellipse: { width: 96, height: 72 },
   line: { width: 128, height: 0 },
   arrow: { width: 128, height: 0 },
   text: { width: 160, height: 48 },
 };
+/** A new picture is shown at its own size, shrunk (never grown) to fit this box. */
+const IMAGE_FIT = { width: 480, height: 360 };
+/** A picture that states no size (some SVGs) starts at this size. */
+const IMAGE_FALLBACK = { width: 240, height: 180 };
 
 /** The fields that place an object; changing one is a move or resize. */
 const GEOMETRY_KEYS = ['row', 'col', 'dx', 'dy', 'width', 'height', 'rotation', 'flipH', 'flipV'] as const;
@@ -56,8 +64,52 @@ export class ObjectCommands {
     return isWorkbook(tab.doc) ? tab.doc.objects : [];
   }
 
-  /** Insert a new object at the active cell and select it. */
-  async insert(tab: Tab, kind: SheetObjectKind): Promise<boolean> {
+  /** Insert a new shape at the active cell and select it. */
+  async insert(tab: Tab, kind: ShapeKind): Promise<boolean> {
+    return this.place(tab, kind, () => ({
+      ...DEFAULT_SIZE[kind],
+      ...(kind === 'text' ? { text: t('object.defaultText') } : {}),
+    }));
+  }
+
+  /**
+   * Insert a picture (a PNG, JPEG, WebP or SVG file's bytes, from Insert >
+   * Image… or a paste) at the active cell and select it. Anything else, or
+   * a picture over the size limit, is refused with a message.
+   */
+  async insertImage(tab: Tab, bytes: Uint8Array): Promise<boolean> {
+    const type = sniffImageType(bytes);
+    if (!type) {
+      this.ui.notify(t('object.image.unsupported'), 'warn');
+      return false;
+    }
+    if (bytes.length > MAX_IMAGE_BYTES) {
+      this.refuseTooLarge();
+      return false;
+    }
+    return this.place(tab, 'image', (doc) => {
+      const image = { type, bytes };
+      const natural = imageSize(image) ?? IMAGE_FALLBACK;
+      const scale = Math.min(1, IMAGE_FIT.width / natural.width, IMAGE_FIT.height / natural.height);
+      return {
+        image: doc.images.add(image),
+        width: Math.max(1, Math.round(natural.width * scale)),
+        height: Math.max(1, Math.round(natural.height * scale)),
+      };
+    });
+  }
+
+  /** Say a picture is over the size limit. */
+  refuseTooLarge(): void {
+    this.ui.notify(t('object.image.tooLarge', { max: Math.round(MAX_IMAGE_BYTES / 1024 / 1024) }), 'warn');
+  }
+
+  /** Add an object of `kind` near the active cell (fields from `fill`) and select it. */
+  private async place(
+    tab: Tab,
+    kind: SheetObjectKind,
+    fill: (doc: RsfDocument) => Pick<SheetObject, 'width' | 'height'> & Partial<SheetObject>,
+  ): Promise<boolean> {
     const doc = await this.ensureRsf(tab, 'command');
     if (!doc || doc.activeSheet.kind !== 'grid') {
       return false;
@@ -77,8 +129,7 @@ export class ObjectCommands {
       col: Math.min(cell.col, doc.columnCount - 1),
       dx: 8,
       dy: isLineKind(kind) ? 10 : 4,
-      ...DEFAULT_SIZE[kind],
-      ...(kind === 'text' ? { text: t('object.defaultText') } : {}),
+      ...fill(doc),
     };
     if (!this.replace(tab, [...before, object], 'history.insertObject')) {
       return false;
@@ -208,7 +259,9 @@ function lockRefusal(before: readonly SheetObject[], next: readonly SheetObject[
     const edited = [...keys].some(
       (key) =>
         !skip.has(key) &&
-        (old as unknown as Record<string, unknown>)[key] !== (now as unknown as Record<string, unknown>)[key],
+        // By value: a crop is an object.
+        JSON.stringify((old as unknown as Record<string, unknown>)[key]) !==
+          JSON.stringify((now as unknown as Record<string, unknown>)[key]),
     );
     if (edited && old.lockEdit) {
       return 'object.locked.edit';

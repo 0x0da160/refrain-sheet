@@ -206,6 +206,16 @@ export class Commands {
     return tab !== null && this.parts.folders.dropSheetOnFolder(tab, sheetId, folderId);
   }
 
+  /** Place a picture (PNG, JPEG, WebP or SVG bytes) over the active sheet; refused with a message otherwise. */
+  insertImage(tab: Tab, bytes: Uint8Array): Promise<boolean> {
+    return this.parts.objects.insertImage(tab, bytes);
+  }
+
+  /** Say a picture is over the size limit. */
+  refuseTooLargeImage(): void {
+    this.parts.objects.refuseTooLarge();
+  }
+
   /** The active worksheet's objects (shapes), bottom to top. */
   objectsOf(tab: Tab): readonly SheetObject[] {
     return this.parts.objects.objects(tab);

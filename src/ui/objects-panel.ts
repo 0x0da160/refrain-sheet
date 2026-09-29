@@ -14,6 +14,7 @@ import {
   OBJECT_TEXT_ALIGNS,
   OBJECT_TEXT_VALIGNS,
   objectDefaults,
+  type ObjectCrop,
   type SheetObject,
 } from '../core/workbook/sheet-objects';
 import {
@@ -63,11 +64,12 @@ function withValue<K extends keyof SheetObject>(
 }
 
 /**
- * Insert > Object List…: the shapes on the active sheet, top first, each
+ * Insert > Object List…: the shapes and pictures on the active sheet, top first, each
  * with show/hide, the two locks (配置を固定 keeps it where it is; 編集をロック
  * also keeps its content and format as they are) and a step up or down the
  * stacking order; and, for the one selected object, its name, position,
- * size, rotation, fill, line and text. A dockable side panel like the
+ * size, rotation, fill, line and text (a picture: its crop, mirroring and
+ * whether it keeps its shape). A dockable side panel like the
  * comments list, closed only by its ×. Every change is one undoable step
  * through `Commands.updateObjects`, which refuses what a lock forbids.
  */
@@ -291,9 +293,13 @@ export class ObjectsPanel {
     const sections = [
       panelSection(null, [panelField(t('panel.objects.name'), name)]),
       this.placement(tab, o, positionLocked),
-      this.style(tab, o, editLocked),
     ];
-    if (!isLineKind(o.kind)) {
+    if (o.kind === 'image') {
+      sections.push(this.picture(tab, o, editLocked, positionLocked));
+    } else {
+      sections.push(this.style(tab, o, editLocked));
+    }
+    if (!isLineKind(o.kind) && o.kind !== 'image') {
       sections.push(this.textSection(tab, o, editLocked));
     }
     return sections;
@@ -320,6 +326,7 @@ export class ObjectsPanel {
       return Math.round(this.unit === 'mm' ? value / MM_PER_PX : value);
     };
     const at = this.grid.objectPosition(tab, o);
+    const keepsRatio = o.kind === 'image' && o.aspectFree !== true;
     const number = (key: string, px: number, apply: (px: number) => SheetObject): HTMLElement => {
       const input = this.input('number', key, toUnit(px), positionLocked, (value) => {
         const next = fromUnit(value);
@@ -349,10 +356,79 @@ export class ObjectsPanel {
       el('div', { className: 'objects-grid' }, [
         number('x', at.x, (x) => this.grid.objectMovedTo(tab, o, x, at.y)),
         number('y', at.y, (y) => this.grid.objectMovedTo(tab, o, at.x, y)),
-        number('width', o.width, (width) => ({ ...o, width })),
-        number('height', o.height, (height) => ({ ...o, height })),
+        // A picture that keeps its shape follows one side with the other.
+        number('width', o.width, (width) =>
+          keepsRatio && o.width > 0
+            ? { ...o, width, height: Math.round((width * o.height) / o.width) }
+            : { ...o, width },
+        ),
+        number('height', o.height, (height) =>
+          keepsRatio && o.height > 0
+            ? { ...o, height, width: Math.round((height * o.width) / o.height) }
+            : { ...o, height },
+        ),
         panelField(t('panel.objects.rotation'), rotation),
       ]),
+    ]);
+  }
+
+  /**
+   * A picture's shape and crop: whether resizing keeps its width-to-height
+   * ratio, mirroring, and how much is cut off each side (percent).
+   */
+  private picture(tab: Tab, o: SheetObject, editLocked: boolean, positionLocked: boolean): HTMLElement {
+    const check = (
+      key: 'aspectFree' | 'flipH' | 'flipV',
+      checked: boolean,
+      disabled: boolean,
+    ): HTMLElement => {
+      const box = el('input', { attrs: { type: 'checkbox', 'data-focus-key': key } }) as HTMLInputElement;
+      box.checked = checked;
+      box.disabled = disabled;
+      box.addEventListener('change', () => {
+        const on = key === 'aspectFree' ? !box.checked : box.checked;
+        const label = key === 'aspectFree' ? 'history.editObject' : 'history.moveObject';
+        this.update(tab, o, withValue(o, key, on ? true : undefined), label);
+      });
+      return panelCheck(box, t(`panel.objects.${key === 'aspectFree' ? 'keepAspect' : key}`));
+    };
+    const crop = o.crop ?? { top: 0, right: 0, bottom: 0, left: 0 };
+    const side = (key: keyof ObjectCrop): HTMLElement => {
+      // Cropping cuts the picture down rather than stretching what is left, so it resizes the box.
+      const locked = editLocked || positionLocked;
+      const input = this.input('number', `crop:${key}`, String(crop[key]), locked, (value) => {
+        const percent = Math.round(Number(value) * 10) / 10;
+        const next = { ...crop, [key]: percent };
+        if (
+          value.trim() === '' ||
+          !Number.isFinite(percent) ||
+          percent < 0 ||
+          next.top + next.bottom >= 100 ||
+          next.left + next.right >= 100
+        ) {
+          return;
+        }
+        const none = Object.values(next).every((v) => v === 0);
+        const across = (100 - next.left - next.right) / (100 - crop.left - crop.right);
+        const down = (100 - next.top - next.bottom) / (100 - crop.top - crop.bottom);
+        const cropped = {
+          ...withValue(o, 'crop', none ? undefined : next),
+          width: Math.max(1, Math.round(o.width * across)),
+          height: Math.max(1, Math.round(o.height * down)),
+        };
+        this.update(tab, o, cropped, 'history.editObject');
+      });
+      input.min = '0';
+      input.max = '99';
+      input.step = '1';
+      return panelField(t(`panel.objects.crop.${key}`), input);
+    };
+    return panelSection(t('panel.objects.picture'), [
+      check('aspectFree', o.aspectFree !== true, editLocked),
+      check('flipH', o.flipH === true, positionLocked),
+      check('flipV', o.flipV === true, positionLocked),
+      el('p', { className: 'dialog-note', text: t('panel.objects.crop') }),
+      el('div', { className: 'objects-grid' }, [side('top'), side('bottom'), side('left'), side('right')]),
     ]);
   }
 

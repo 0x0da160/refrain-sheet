@@ -37,6 +37,13 @@ import {
   type RsfWorksheetData,
 } from '../../src/core/workbook/rsf-codec';
 
+/** A 2 × 1 PNG (a red and a blue pixel). */
+const FIXTURE_PNG = new Uint8Array([
+  137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 2, 0, 0, 0, 1, 8, 2, 0, 0, 0, 123,
+  64, 232, 221, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 0, 4, 255, 1, 7, 0, 1, 255, 226, 35, 158,
+  89, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130,
+]);
+
 const LEGACY_DIR = new URL('../fixtures/rsf/', import.meta.url);
 const V1_DIR = new URL('../fixtures/rsf/v1/', import.meta.url);
 const WRITE_MISSING = import.meta.env.RSF_FIXTURES_WRITE === '1';
@@ -403,6 +410,52 @@ const cases: FixtureCase[] = [
           ],
         },
       ],
+    },
+  },
+  {
+    // Pictures (`images`, stored once per file) and the image objects that show them.
+    file: 'images.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: {
+      delimiter: ',',
+      activeSheetId: 's1',
+      sheets: [
+        {
+          ...grid,
+          objects: [
+            {
+              id: 'o1',
+              name: 'Logo',
+              kind: 'image',
+              row: 1,
+              col: 1,
+              dx: 4,
+              dy: 3,
+              width: 120,
+              height: 60,
+              image: 'p1',
+            },
+            {
+              id: 'o2',
+              name: 'Logo copy',
+              kind: 'image',
+              row: 2,
+              col: 0,
+              dx: 0,
+              dy: 0,
+              width: 80,
+              height: 60,
+              rotation: 90,
+              flipH: true,
+              image: 'p1',
+              crop: { top: 10, right: 0, bottom: 5, left: 12.5 },
+              aspectFree: true,
+            },
+          ],
+        },
+      ],
+      images: [{ id: 'p1', type: 'image/png', bytes: FIXTURE_PNG }],
     },
   },
 ];

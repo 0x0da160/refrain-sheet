@@ -100,6 +100,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'insert.line',
   'insert.arrow',
   'insert.textBox',
+  'insert.image',
   'insert.objectList',
   'object.bringToFront',
   'object.bringForward',

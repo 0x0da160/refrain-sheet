@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 /**
- * How one sheet object (a shape: see `src/core/workbook/sheet-objects.ts`)
- * is drawn: an absolutely positioned box holding an SVG for the shape and a
- * text block over it. Colours come only from validated `#rrggbb` values and
+ * How one sheet object (a shape or a picture: see
+ * `src/core/workbook/sheet-objects.ts`) is drawn: an absolutely positioned
+ * box holding an SVG for the shape and a text block over it, or the picture
+ * as an `<img>` (where an SVG picture's scripts never run). Colours come only from validated `#rrggbb` values and
  * text is set with `textContent`, never parsed as markup.
  */
+import { bytesToBase64, type SheetImage } from '../core/workbook/sheet-images';
 import { isLineKind, objectDefaults, type SheetObject } from '../core/workbook/sheet-objects';
 import { el } from './dom';
 import { fontSizeCss } from './font-choices';
@@ -122,8 +124,54 @@ function shapeSvg(o: SheetObject, w: number, h: number, zoom: number): SVGElemen
   return svg;
 }
 
-/** The object's element, placed at `box` (canvas pixels) for `zoom`. */
-export function buildObjectElement(o: SheetObject, box: ObjectBox, zoom: number): HTMLElement {
+const dataUrls = new WeakMap<Uint8Array, string>();
+
+/** A picture as a `data:` URL (the only image source the offline policy allows), made once per picture. */
+function imageDataUrl(image: SheetImage): string {
+  let url = dataUrls.get(image.bytes);
+  if (url === undefined) {
+    url = `data:${image.type};base64,${bytesToBase64(image.bytes)}`;
+    dataUrls.set(image.bytes, url);
+  }
+  return url;
+}
+
+/**
+ * An image object's picture: the part left after the crop, stretched to
+ * fill the box and mirrored as the object says. A missing picture draws an
+ * empty frame.
+ */
+function pictureElement(o: SheetObject, box: ObjectBox, image: SheetImage | undefined): HTMLElement {
+  const frame = el('div', { className: 'sheet-object-picture' });
+  if (!image) {
+    frame.classList.add('missing');
+    return frame;
+  }
+  const crop = o.crop ?? { top: 0, right: 0, bottom: 0, left: 0 };
+  const w = box.w / (1 - (crop.left + crop.right) / 100);
+  const h = box.h / (1 - (crop.top + crop.bottom) / 100);
+  const img = el('img', { attrs: { src: imageDataUrl(image), alt: '', draggable: 'false' } });
+  img.style.width = `${w}px`;
+  img.style.height = `${h}px`;
+  img.style.left = `${(-crop.left / 100) * w}px`;
+  img.style.top = `${(-crop.top / 100) * h}px`;
+  if (o.flipH || o.flipV) {
+    frame.style.transform = `scale(${o.flipH ? -1 : 1}, ${o.flipV ? -1 : 1})`;
+  }
+  frame.append(img);
+  return frame;
+}
+
+/**
+ * The object's element, placed at `box` (canvas pixels) for `zoom`; an
+ * image object shows `image`, its picture from the workbook.
+ */
+export function buildObjectElement(
+  o: SheetObject,
+  box: ObjectBox,
+  zoom: number,
+  image?: SheetImage,
+): HTMLElement {
   const node = el('div', {
     className: `sheet-object sheet-object-${o.kind}`,
     attrs: { 'data-object-id': o.id, role: 'img', 'aria-label': o.name },
@@ -134,6 +182,10 @@ export function buildObjectElement(o: SheetObject, box: ObjectBox, zoom: number)
   node.style.height = `${box.h}px`;
   if (o.rotation) {
     node.style.transform = `rotate(${o.rotation}deg)`;
+  }
+  if (o.kind === 'image') {
+    node.append(pictureElement(o, box, image));
+    return node;
   }
   node.append(shapeSvg(o, box.w, box.h, zoom));
   if (!isLineKind(o.kind) && o.text) {

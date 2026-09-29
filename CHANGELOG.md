@@ -40,6 +40,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Pictures on a sheet.** Insert > Image… places a PNG, JPEG, WebP or SVG
+  picture at the selected cell of an RSF spreadsheet sheet, and Ctrl+V
+  places a copied picture when the clipboard holds no text. A picture is
+  saved inside the RSF file, once however many times it is placed, and
+  only while something still shows it. Dragging a corner keeps its
+  proportions (hold Shift, or turn off "Keep proportions when resizing" in
+  the object list, to stretch it); the object list also crops it, flips it
+  and rotates it. Pictures up to 20 MB each.
 - **Shapes on a sheet.** The new Insert menu adds a rectangle, ellipse,
   line, arrow or text box at the selected cell of an RSF spreadsheet sheet
   (a CSV file is converted first). Drag a shape to move it (hold Alt to

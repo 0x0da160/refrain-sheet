@@ -129,7 +129,7 @@ export interface RsfWorksheetData extends place.RsfSheetExtras {
 }
 
 /** A workbook: its metadata plus its worksheets, in order. */
-export interface RsfWorkbookData extends place.RsfFolderList {
+export interface RsfWorkbookData extends place.RsfFileExtras {
   /** Delimiter used as the default for CSV export. */
   delimiter: DelimiterId;
   appName?: string;
@@ -364,7 +364,7 @@ function workbookContentToJson(data: RsfWorkbookData): { [key: string]: Json } {
     viewToJson(fileView!, 'keep', view);
     out.view = view;
   }
-  Object.assign(out, place.foldersToJson(data));
+  Object.assign(out, place.fileExtrasToJson(data));
   out.sheets = data.sheets.slice(0, MAX_RSF_SHEETS).map(sheetToJson);
   return out;
 }
@@ -701,7 +701,7 @@ function workbookFromJson(value: unknown): RsfWorkbookData {
     }
     ids.add(sheet.id);
   }
-  const data: RsfWorkbookData = { delimiter, sheets, ...place.foldersFromJson(value.folders, sheets, fail) };
+  const data: RsfWorkbookData = { delimiter, sheets, ...place.fileExtrasFromJson(value, sheets, fail) };
   if (value.app !== undefined) {
     if (!isObject(value.app)) {
       fail();

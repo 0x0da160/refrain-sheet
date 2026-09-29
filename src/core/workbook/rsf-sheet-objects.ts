@@ -6,7 +6,7 @@
  * does not know is ignored.
  */
 import { cellLabel, parseRef } from '../formula';
-import { MAX_SHEET_OBJECTS, validateObject, type SheetObject } from './sheet-objects';
+import { MAX_SHEET_OBJECTS, validateObject, type ObjectCrop, type SheetObject } from './sheet-objects';
 
 type Fail = (reason?: 'too-large') => never;
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
@@ -16,6 +16,9 @@ const OPTIONAL_KEYS = [
   'rotation',
   'flipH',
   'flipV',
+  'image',
+  'crop',
+  'aspectFree',
   'fill',
   'stroke',
   'strokeWidth',
@@ -47,11 +50,20 @@ export function objectsToJson(objects: readonly SheetObject[]): Json[] {
     for (const key of OPTIONAL_KEYS) {
       const value = o[key];
       if (value !== undefined) {
-        out[key] = value;
+        out[key] = typeof value === 'object' ? { ...value } : value;
       }
     }
     return out;
   });
+}
+
+/** `{ "top", "right", "bottom", "left" }`, copied to exactly those keys (ranges are checked with the object). */
+function cropFromJson(value: unknown, fail: Fail): ObjectCrop {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return fail();
+  }
+  const { top, right, bottom, left } = value as { [key: string]: unknown };
+  return { top, right, bottom, left } as ObjectCrop;
 }
 
 /** Reads a worksheet's `objects` array for a grid of `rows` × `cols`. */
@@ -88,6 +100,9 @@ export function objectsFromJson(value: unknown, rows: number, cols: number, fail
       if (entry[key] !== undefined) {
         (object as unknown as Record<string, unknown>)[key] = entry[key];
       }
+    }
+    if (entry.crop !== undefined) {
+      object.crop = cropFromJson(entry.crop, fail);
     }
     if (!validateObject(object, rows, cols) || ids.has(object.id)) {
       return fail();

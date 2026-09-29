@@ -6,6 +6,7 @@ import type { CellStyle } from './cell-style';
 import type { CellConditionalFormat, ConditionalFormatStyle } from './conditional-format';
 import { validationListsEqual, type CellValidation } from './data-validation';
 import { objectListsEqual, type SheetObject } from './sheet-objects';
+import { ImageStore } from './sheet-images';
 import { DEFAULT_DISPLAY_LANGUAGE, type DisplayLanguageId } from './display-language';
 import type { SheetFilter } from './filter';
 import { RecalcEngine } from './recalc-engine';
@@ -591,7 +592,10 @@ export class Workbook {
     }
   }
 
-  // ----- Objects (shapes) -----
+  // ----- Objects (shapes and images) -----
+
+  /** The pictures image objects show (every sheet's; see `sheet-images.ts`). */
+  readonly images = new ImageStore();
 
   /** The active worksheet's objects, bottom to top. */
   get objects(): readonly SheetObject[] {

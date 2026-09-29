@@ -4,14 +4,29 @@ import { isCsv } from '../../../core/editor-document';
 import { t } from '../../i18n';
 import { localDateStamp } from '../../shortcuts';
 import { workbookFormatting } from './format';
-import { hasSelection, withTab, type CommandContext, type CommandSpec } from './types';
+import {
+  hasCellSelection,
+  hasGridSelection,
+  sceneOf,
+  withTab,
+  type CommandContext,
+  type CommandSpec,
+} from './types';
 
 const copiedKind = (ctx: CommandContext) => ctx.commands.clipboardActions?.copiedKind() ?? null;
+
+/**
+ * Cut, Copy and Paste: on cells (or picked shapes) as usual; on a Markdown,
+ * JSON, YAML or text sheet they act on its text editor instead (see
+ * `clipboardActions`), never on the cell that stores the whole text.
+ */
+const clipboardTarget = (ctx: CommandContext): boolean =>
+  hasGridSelection(ctx) || sceneOf(ctx.tab) === 'text';
 
 /** Insert today's date or the current time into the active cell (Ctrl+; / Ctrl+Shift+;). */
 function insertStamp(kind: 'date' | 'time'): CommandSpec {
   return {
-    enabled: hasSelection,
+    enabled: hasCellSelection,
     run: async ({ tab, commands }) => {
       if (tab?.selection) {
         const { row, col } = tab.selection;
@@ -30,24 +45,27 @@ export const EDIT_COMMANDS = {
     (ctx, tab) => ctx.state.redo(tab),
     (_, tab) => tab.history.canRedo,
   ),
-  'edit.cut': { enabled: hasSelection, run: (ctx) => ctx.commands.clipboardActions?.cut() },
-  'edit.copy': { enabled: hasSelection, run: (ctx) => ctx.commands.clipboardActions?.copy() },
+  'edit.cut': { enabled: clipboardTarget, run: (ctx) => ctx.commands.clipboardActions?.cut() },
+  'edit.copy': { enabled: clipboardTarget, run: (ctx) => ctx.commands.clipboardActions?.copy() },
   // The async Clipboard API's image write has inconsistent browser support
   // (including on file://), so the item is disabled outright there rather
   // than failing at run time.
   'edit.copyScreenshot': {
     enabled: (ctx) =>
-      hasSelection(ctx) &&
+      hasCellSelection(ctx) &&
       typeof ClipboardItem !== 'undefined' &&
       typeof navigator.clipboard?.write === 'function',
     run: (ctx) => ctx.commands.clipboardActions?.copyScreenshot(),
   },
   'edit.copyAsMarkdown': {
-    enabled: hasSelection,
+    enabled: hasCellSelection,
     run: (ctx) => ctx.commands.clipboardActions?.copyAsMarkdown(),
   },
-  'edit.paste': { enabled: hasSelection, run: (ctx) => ctx.commands.clipboardActions?.paste() },
-  'edit.pasteValues': { enabled: hasSelection, run: (ctx) => ctx.commands.clipboardActions?.pasteValues() },
+  'edit.paste': { enabled: clipboardTarget, run: (ctx) => ctx.commands.clipboardActions?.paste() },
+  'edit.pasteValues': {
+    enabled: hasCellSelection,
+    run: (ctx) => ctx.commands.clipboardActions?.pasteValues(),
+  },
   'edit.pasteFormats': workbookFormatting((ctx) => ctx.commands.clipboardActions?.pasteFormats()),
   'edit.insertDate': insertStamp('date'),
   'edit.insertTime': insertStamp('time'),
@@ -56,18 +74,21 @@ export const EDIT_COMMANDS = {
   // Rows/Columns require a matching whole-row/whole-column copy. Nothing
   // copied yet (or a copy of the wrong kind) disables the item outright.
   'edit.insertCopiedCells': {
-    enabled: (ctx) => hasSelection(ctx) && copiedKind(ctx) !== null,
+    enabled: (ctx) => hasCellSelection(ctx) && copiedKind(ctx) !== null,
     run: ({ tab, commands }) => tab && commands.insertCopiedCells(tab),
   },
   'edit.insertCopiedRows': {
-    enabled: (ctx) => hasSelection(ctx) && copiedKind(ctx) === 'row',
+    enabled: (ctx) => hasCellSelection(ctx) && copiedKind(ctx) === 'row',
     run: ({ tab, commands }) => tab && commands.insertCopiedAxis(tab, 'rows'),
   },
   'edit.insertCopiedCols': {
-    enabled: (ctx) => hasSelection(ctx) && copiedKind(ctx) === 'col',
+    enabled: (ctx) => hasCellSelection(ctx) && copiedKind(ctx) === 'col',
     run: ({ tab, commands }) => tab && commands.insertCopiedAxis(tab, 'cols'),
   },
-  'edit.selectAll': withTab((ctx, tab) => ctx.commands.selectAllCells(tab)),
+  'edit.selectAll': withTab(
+    (ctx, tab) => ctx.commands.selectAllCells(tab),
+    (_, tab) => sceneOf(tab) !== 'text',
+  ),
   'edit.revertCell': {
     enabled: ({ tab }) =>
       tab?.selection != null && isCsv(tab.doc) && tab.doc.isEdited(tab.selection.row, tab.selection.col),
@@ -81,10 +102,10 @@ export const EDIT_COMMANDS = {
   ),
   // Flash Fill and Move Range stay clickable on a CSV tab: running one
   // explains that it needs an RSF spreadsheet document and offers to convert.
-  'edit.fillDown': { enabled: hasSelection, run: ({ tab, commands }) => tab && commands.fillDown(tab) },
-  'edit.flashFill': { enabled: hasSelection, run: ({ tab, commands }) => tab && commands.flashFill(tab) },
+  'edit.fillDown': { enabled: hasCellSelection, run: ({ tab, commands }) => tab && commands.fillDown(tab) },
+  'edit.flashFill': { enabled: hasCellSelection, run: ({ tab, commands }) => tab && commands.flashFill(tab) },
   'edit.moveRange': {
-    enabled: hasSelection,
+    enabled: hasCellSelection,
     run: ({ tab, commands }) => tab && commands.promptAndMoveRange(tab),
   },
 } satisfies Record<string, CommandSpec>;

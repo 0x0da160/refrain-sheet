@@ -20,6 +20,7 @@ import {
 import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { AppToolbar, toolbarCommands } from '../../src/ui/app-toolbar';
 import { customizeToolbar } from '../../src/ui/dialogs/toolbar-customize';
+import { SHOW_DELAY_MS } from '../../src/ui/tooltip';
 import { defaultMenus, type MenuChecks } from '../../src/ui/menu-bar/menus';
 
 const checks = (bold = false): MenuChecks => ({
@@ -175,5 +176,117 @@ describe('toolbar: Customize Toolbar…', () => {
       .click();
     expect(localStorage.getItem('refrain-csv-html.toolbarItems')).toBeNull();
     expect(rows()).toEqual(DEFAULT_TOOLBAR_ITEMS);
+  });
+});
+
+describe('toolbar: which commands apply here', () => {
+  it('turns cell formatting off on a Markdown sheet, saying why', () => {
+    const { state, toolbar, tab } = setup(true);
+    state.addMarkdownSheet(tab!, 'Notes');
+    toolbar.render();
+    const bold = toolbar.element.querySelector<HTMLButtonElement>('[data-command="format.bold"]')!;
+    expect(bold.getAttribute('aria-disabled')).toBe('true');
+    expect(bold.dataset.tooltip).toContain(t('menu.format.textSheetTooltip'));
+    expect(bold.getAttribute('aria-description')).toBe(t('menu.format.textSheetTooltip'));
+    // Cut/Copy/Paste stay on: there they act on the sheet's text editor.
+    const cut = toolbar.element.querySelector<HTMLButtonElement>('[data-command="edit.cut"]')!;
+    expect(cut.getAttribute('aria-disabled')).toBe('false');
+    const sort = toolbar.element.querySelector<HTMLButtonElement>('[data-command="sheet.sort"]')!;
+    expect(sort.getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('turns cell formatting off while a shape is picked', async () => {
+    const { state, commands, toolbar, tab } = setup(true);
+    await commands.run('insert.rectangle');
+    const doc = tab!.doc as RsfDocument;
+    state.objectSelection.select(tab!, [doc.objects[0].id]);
+    toolbar.render();
+    const bold = toolbar.element.querySelector<HTMLButtonElement>('[data-command="format.bold"]')!;
+    expect(bold.getAttribute('aria-disabled')).toBe('true');
+    expect(bold.dataset.tooltip).toContain(t('menu.format.objectsTooltip'));
+    state.objectSelection.select(tab!, []);
+    toolbar.render();
+    expect(toolbar.element.querySelector('[data-command="format.bold"]')!.getAttribute('aria-disabled')).toBe(
+      'false',
+    );
+  });
+});
+
+describe('toolbar: tooltips', () => {
+  it('uses the quick tooltip instead of the browser title', () => {
+    vi.useFakeTimers();
+    try {
+      const { toolbar } = setup(true);
+      const bold = toolbar.element.querySelector<HTMLButtonElement>('[data-command="format.bold"]')!;
+      expect(bold.hasAttribute('title')).toBe(false);
+      bold.dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+      const tip = () => document.querySelector<HTMLElement>('.app-tooltip');
+      expect(tip()?.hidden ?? true).toBe(true);
+      vi.advanceTimersByTime(SHOW_DELAY_MS);
+      expect(tip()!.hidden).toBe(false);
+      expect(tip()!.textContent).toContain(t('menu.format.bold'));
+      // Moving straight to the next button shows its tooltip at once.
+      const italic = toolbar.element.querySelector<HTMLButtonElement>('[data-command="format.italic"]')!;
+      bold.dispatchEvent(new MouseEvent('pointerout', { bubbles: true, relatedTarget: italic }));
+      italic.dispatchEvent(new MouseEvent('pointerover', { bubbles: true }));
+      expect(tip()!.textContent).toContain(t('menu.format.italic'));
+      italic.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+      expect(tip()!.hidden).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('toolbar: settings', () => {
+  it('File > Settings… shows or hides the toolbar', async () => {
+    const state = new AppState();
+    const ui = new Proxy({} as UiPort, {
+      get: (_, key) =>
+        key === 'chooseSettings'
+          ? vi.fn(async (current: { showToolbar: boolean }) => ({ ...current, showToolbar: false }))
+          : vi.fn(async () => null),
+    });
+    const commands = new Commands(state, ui, document);
+    expect(getToolbarShown()).toBe(true);
+    await commands.run('app.settings');
+    expect(getToolbarShown()).toBe(false);
+  });
+});
+
+describe('toolbar: Customize Toolbar… drag', () => {
+  it('drags a row by its grip to a new place', () => {
+    const { toolbar } = setup();
+    void customizeToolbar(toolbar.available, () => toolbar.render());
+    const rows = [...document.querySelectorAll<HTMLElement>('.toolbar-customize-row')];
+    rows.forEach((row, i) => {
+      row.getBoundingClientRect = () => ({ top: i * 20, height: 20, bottom: i * 20 + 20 }) as DOMRect;
+    });
+    const grip = rows[0].querySelector<HTMLElement>('.toolbar-customize-grip')!;
+    const pointer = (type: string, clientY: number) =>
+      Object.assign(new MouseEvent(type, { bubbles: true, button: 0, clientY }), { pointerId: 1 });
+    grip.dispatchEvent(pointer('pointerdown', 10));
+    grip.dispatchEvent(pointer('pointermove', 55));
+    expect(rows[2].classList.contains('drop-after')).toBe(true);
+    grip.dispatchEvent(pointer('pointerup', 55));
+    expect(getToolbarItems().slice(0, 3)).toEqual(['edit.undo', 'edit.redo', 'file.save']);
+    expect(ids(toolbar).slice(0, 3)).toEqual(['edit.undo', 'edit.redo', 'file.save']);
+  });
+
+  it('Escape cancels a drag', () => {
+    const { toolbar } = setup();
+    void customizeToolbar(toolbar.available, () => toolbar.render());
+    const rows = [...document.querySelectorAll<HTMLElement>('.toolbar-customize-row')];
+    rows.forEach((row, i) => {
+      row.getBoundingClientRect = () => ({ top: i * 20, height: 20, bottom: i * 20 + 20 }) as DOMRect;
+    });
+    const grip = rows[0].querySelector<HTMLElement>('.toolbar-customize-grip')!;
+    const pointer = (type: string, clientY: number) =>
+      Object.assign(new MouseEvent(type, { bubbles: true, button: 0, clientY }), { pointerId: 1 });
+    grip.dispatchEvent(pointer('pointerdown', 10));
+    grip.dispatchEvent(pointer('pointermove', 55));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    grip.dispatchEvent(pointer('pointerup', 55));
+    expect(getToolbarItems()).toEqual(DEFAULT_TOOLBAR_ITEMS);
   });
 });

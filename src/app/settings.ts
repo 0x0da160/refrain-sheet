@@ -369,6 +369,8 @@ export interface LocalSettings {
   /** Maximum file size to open, in bytes. */
   maxFileSize: number;
   shiftPaste: ShiftPasteMode;
+  /** Whether the toolbar under the menu bar is shown (also View > Show Toolbar). */
+  showToolbar: boolean;
   /** This browser's default display settings (the file's outrank them). */
   browserDisplay: DisplayLevelSettings;
   /** The active RSF file's display settings, or null when the active tab is not an RSF file. */

@@ -8,7 +8,7 @@ import { DEFAULT_CSV_EXPORT_OPTIONS, encodeCsvExport } from '../../../core/inter
 import { saveBytesAs } from '../../file-access';
 import { getLocale, t } from '../../i18n';
 import type { Tab } from '../../state';
-import { hasSelection, withTab, type CommandContext, type CommandSpec } from './types';
+import { hasCellSelection, withTab, type CommandContext, type CommandSpec } from './types';
 
 /**
  * Data > Run SQL Query…: open the local, read-only SQL query panel. See
@@ -102,7 +102,7 @@ export const DATA_COMMANDS = {
   // Validation and comments stay clickable on a CSV tab: running one explains
   // that it needs an RSF spreadsheet document and offers to convert.
   'data.validation': {
-    enabled: hasSelection,
+    enabled: hasCellSelection,
     run: ({ tab, commands }) => tab && commands.validationDialog(tab),
   },
   // Opens only, like View > Comments Panel; on a CSV tab the panel explains
@@ -112,5 +112,8 @@ export const DATA_COMMANDS = {
       ctx.commands.panelActions?.openValidationCheck();
     },
   },
-  'data.comment': { enabled: hasSelection, run: ({ tab, commands }) => tab && commands.commentDialog(tab) },
+  'data.comment': {
+    enabled: hasCellSelection,
+    run: ({ tab, commands }) => tab && commands.commentDialog(tab),
+  },
 } satisfies Record<string, CommandSpec>;

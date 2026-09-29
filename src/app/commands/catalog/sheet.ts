@@ -9,7 +9,7 @@ import { getLocale, t } from '../../i18n';
 import type { Tab } from '../../state';
 import { isGridSurface } from '../shared';
 import type { SheetOpId } from '../worksheets';
-import { hasSelection, withTab, type CommandContext, type CommandSpec } from './types';
+import { hasCellSelection, sceneOf, withTab, type CommandContext, type CommandSpec } from './types';
 
 /**
  * Row insert/delete is meaningless while a whole-column selection is active
@@ -19,7 +19,10 @@ import { hasSelection, withTab, type CommandContext, type CommandSpec } from './
 function sheetOp(id: SheetOpId, axis: 'row' | 'col'): CommandSpec {
   return withTab(
     (ctx, tab) => ctx.parts.worksheets.runSheetOp(tab, id),
-    (_, tab) => tab.selection !== null && tab.selectionKind !== (axis === 'row' ? 'col' : 'row'),
+    (_, tab) =>
+      tab.selection !== null &&
+      tab.selectionKind !== (axis === 'row' ? 'col' : 'row') &&
+      sceneOf(tab) !== 'text',
   );
 }
 
@@ -166,16 +169,19 @@ export const SHEET_COMMANDS = {
     run: (ctx) => ctx.commands.gridActions?.autoFitSelectedColumns(),
   },
   // Filter and Sort work on a CSV tab too, on screen only: the file is saved unchanged.
-  'sheet.filter': { enabled: hasSelection, run: ({ tab, commands }) => tab && commands.filterDialog(tab) },
+  'sheet.filter': {
+    enabled: hasCellSelection,
+    run: ({ tab, commands }) => tab && commands.filterDialog(tab),
+  },
   'sheet.filterClear': withTab(
     (ctx, tab) => ctx.commands.clearAllFilters(tab),
     (_, tab) => tab.doc.filter !== null,
   ),
   'sheet.headerFilter': {
-    enabled: (ctx) => hasSelection(ctx) || ctx.commands.hasFilter(ctx.tab),
+    enabled: (ctx) => hasCellSelection(ctx) || ctx.commands.hasFilter(ctx.tab),
     run: ({ tab, commands }) => tab && commands.toggleHeaderFilter(tab),
   },
-  'sheet.sort': { enabled: hasSelection, run: ({ tab, commands }) => tab && commands.sortDialog(tab) },
+  'sheet.sort': { enabled: hasCellSelection, run: ({ tab, commands }) => tab && commands.sortDialog(tab) },
   'sheet.sortClear': withTab(
     (ctx, tab) => ctx.commands.clearSort(tab),
     (_, tab) => tab.doc.sort !== null,

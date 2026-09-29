@@ -16,6 +16,9 @@
 // (scripts/ui-check/sheet-add.mjs): the sheet-type picker is shown. A third
 // runs the type-after-unlock check (scripts/ui-check/type-after-unlock.mjs):
 // typing into a cell without F2 still works after unlocking an opened file.
+// A fourth, with clipboard access, runs the text-sheet clipboard check
+// (scripts/ui-check/text-sheet-clipboard.mjs): the toolbar's Cut and Paste
+// on a Markdown sheet act on its selected text, not the whole sheet.
 //
 //   npm run build   # dist/ must already exist
 //   npm run ui:check
@@ -27,6 +30,7 @@ import { chromium } from 'playwright';
 import { checkGridGeometry } from './grid.mjs';
 import { checkSheetAddDialog } from './sheet-add.mjs';
 import { checkTypeAfterUnlock } from './type-after-unlock.mjs';
+import { checkTextSheetClipboard } from './text-sheet-clipboard.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const indexHtml = join(root, 'dist', 'index.html');
@@ -69,6 +73,15 @@ try {
     await unlockPage.goto(pathToFileURL(indexHtml).href);
     await unlockPage.waitForSelector('.menu-bar', { timeout: 10_000 });
     errors.push(...(await checkTypeAfterUnlock(unlockPage)));
+    const clipboardContext = await browser.newContext({
+      viewport: { width: 1400, height: 900 },
+      permissions: ['clipboard-read', 'clipboard-write'],
+    });
+    const clipboardPage = await clipboardContext.newPage();
+    clipboardPage.on('pageerror', (error) => errors.push(`page error: ${error.message}`));
+    await clipboardPage.goto(pathToFileURL(indexHtml).href);
+    await clipboardPage.waitForSelector('.menu-bar', { timeout: 10_000 });
+    errors.push(...(await checkTextSheetClipboard(clipboardPage)));
   }
 } finally {
   await browser.close();

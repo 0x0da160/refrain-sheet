@@ -40,6 +40,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **A toolbar you can arrange.** A row of buttons above the formula bar
+  runs common commands (Save, Undo, Redo, Cut, Copy, Paste, Bold, Italic,
+  Underline, Font, colors, Borders, Sort, Filter). View > Customize
+  Toolbar… (or the button at its right end) lets you reorder the buttons,
+  remove them, add any other menu command that has an icon, and reset to
+  the default set. View > Show Toolbar hides it. These choices are saved in
+  this browser only, never in a file, so files look the same on every
+  computer.
+
 - **Choose a font and size for cells and for parts of a cell's text.**
   Format > Font… sets the selected cells' font and size (in points), and
   the toolbar over text selected in the cell editor now has font and size

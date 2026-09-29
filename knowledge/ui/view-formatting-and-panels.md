@@ -140,6 +140,30 @@ serials). Keyboard shortcuts: **Ctrl+B / Ctrl+I / Ctrl+U**, **Ctrl+\\**
 **Ctrl+Shift+5** (Percent). The presets keep the Control key on macOS,
 where Cmd+Shift+4 / 5 take screenshots.
 
+**Format > Font…** sets the selection's own font family and size in points
+(RSF keys in [the JSON document](../formats/rsf/json-document.md)); the
+toolbar over text selected in the cell editor sets them for just that text.
+Choices are a fixed list (the sheet fonts plus common Latin fonts) and,
+where `queryLocalFonts` is allowed, the device's fonts — never a typed name.
+A font the device lacks displays in the sheet font; its name stays saved.
+Rows do not grow for larger text, and auto-fit/wrap still measure with the
+sheet font.
+
+## The main toolbar
+
+A row of icon buttons above the formula bar (`src/ui/app-toolbar.ts`),
+hidden on the welcome screen. Any menu command with an icon can go on it
+(plus Bold/Italic/Underline, Wrap and Full Screen, which the menus show with
+a check mark instead); its tooltip, shortcut and pressed state come from the
+command's menu item, a divider separates commands from different menus, and
+an unavailable command is `aria-disabled` with its reason in the tooltip.
+View > Show Toolbar hides it; **View > Customize Toolbar…** (also its
+trailing button) opens a dockable panel to reorder, remove and add
+commands, and Reset Toolbar restores the default set. Every change applies
+at once. The list and visibility are stored in this browser's `localStorage`
+only (`src/app/toolbar-prefs.ts`) — never in a file — so a file opens the
+same on every device; ids a build no longer offers are skipped.
+
 ## The shared dockable-panel chrome
 
 Filter, Sort, Data Validation, Conditional Formatting/Cell Formatting, SQL

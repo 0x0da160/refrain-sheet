@@ -699,8 +699,13 @@ export class AppState {
   }
 
   /** Add a new worksheet holding `rows` after the active one (undoable) and activate it. */
-  addSheetFromValues(tab: Tab, name: string, rows: string[][]): Worksheet | null {
-    return this.worksheetsState.addSheetFromValues(tab, name, rows);
+  addSheetFromValues(
+    tab: Tab,
+    name: string,
+    rows: string[][],
+    extra = (_: Worksheet): Operation[] => [],
+  ): Worksheet | null {
+    return this.worksheetsState.addSheetFromValues(tab, name, rows, extra);
   }
 
   /**

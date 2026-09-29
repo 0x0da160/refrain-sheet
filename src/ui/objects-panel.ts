@@ -305,6 +305,11 @@ export class ObjectsPanel {
           sheets: doc.sheets,
           disabled: editLocked,
           apply: (chart) => this.update(tab, o, { ...o, chart }, 'history.editObject'),
+          editData: (rows) => this.commands.objectActions.setChartData(tab, o.id, rows),
+          dataToSheet: () => {
+            const name = this.commands.objectActions.chartDataToSheet(tab, o.id);
+            if (name) this.commands.notify(t('notify.chartDataToSheet', { name }), 'info');
+          },
         }),
       );
     } else if (o.kind === 'image') {

@@ -30,6 +30,8 @@ import type { AppState } from './index';
 import type { Tab } from './types';
 import { decidedBySheet, resolveWrap, resolveZoom } from './view-layers';
 
+type SheetOps = (sheet: Worksheet) => Operation[];
+
 /**
  * Row filtering and worksheet lifecycle operations on RSF spreadsheet
  * documents/workbooks — hidden-row computation, filter set/clear, and
@@ -465,9 +467,9 @@ export class WorksheetsState {
    * Add a new worksheet holding `rows` (row-major values; formulas stay
    * formulas) after the active one, as one atomic, undoable operation, and
    * activate it. The sheet is at least as large as a new empty one. `name`
-   * must already be validated and unique (see the command layer).
+   * must already be validated and unique (see the command layer); `extra` adds to the step.
    */
-  addSheetFromValues(tab: Tab, name: string, rows: string[][]): Worksheet | null {
+  addSheetFromValues(tab: Tab, name: string, rows: string[][], extra?: SheetOps): Worksheet | null {
     const doc = tab.doc;
     if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
       return null;
@@ -482,7 +484,7 @@ export class WorksheetsState {
     this.saveSheetView(tab, doc);
     const applied = this.state.pushEntry(tab, {
       label: 'history.addSheet',
-      ops: [{ type: 'sheets', op: { action: 'add', sheet, index } }],
+      ops: [{ type: 'sheets', op: { action: 'add', sheet, index } }, ...(extra?.(sheet) ?? [])],
     });
     if (!applied) {
       return null;

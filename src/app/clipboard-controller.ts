@@ -15,6 +15,7 @@ import type { AppState, Selection, SelectionKind } from './state';
 import type { Commands } from './commands';
 import { t } from './i18n';
 import { MAX_IMAGE_BYTES, SHEET_IMAGE_TYPES } from '../core/workbook/sheet-images';
+import type { ObjectClip } from '../core/workbook/object-clipboard';
 import { asVisualDisplaySource, onScreenGeometry, renderStyledRangeToPng } from './screenshot-export';
 
 /**
@@ -50,6 +51,14 @@ export class ClipboardController {
    * still paste the copied text/matrix from the system clipboard.
    */
   private copySourceRange: CellRange | null = null;
+  /**
+   * The objects (shapes, pictures, charts) most recently copied, with the
+   * text put on the system clipboard for them (their names): a paste
+   * places the objects while the clipboard still holds that text.
+   */
+  private objectCopy: { clip: ObjectClip; text: string } | null = null;
+  /** Whether the latest copy was of objects rather than cells. */
+  private copiedObjects = false;
 
   constructor(
     private readonly state: AppState,
@@ -82,6 +91,7 @@ export class ClipboardController {
     if (rows.length === 0) {
       return null;
     }
+    this.copiedObjects = false;
     const text = rangeToTsv(tab.doc, range, rows);
     this.internal = {
       text,
@@ -131,9 +141,32 @@ export class ClipboardController {
     this.onCopySourceChange(null);
   }
 
-  /** Ctrl+C / Cmd+C: write TSV into the clipboard event. */
+  /**
+   * Copy the selected objects, when any is selected, and return the text
+   * for the system clipboard (their names); null when none is selected.
+   */
+  private copySelectedObjects(): string | null {
+    const tab = this.state.activeTab;
+    const clip = tab ? this.commands.objectActions.copySelected(tab) : null;
+    if (!clip) {
+      return null;
+    }
+    const text = clip.objects.map((o) => o.name).join('\n');
+    this.objectCopy = { clip, text };
+    this.copiedObjects = true;
+    this.clearCopySource();
+    return text;
+  }
+
+  /** Whether a paste of `text` (null: the clipboard could not be read) places the copied objects. */
+  private pastesObjects(text: string | null): ObjectClip | null {
+    const copy = this.copiedObjects ? this.objectCopy : null;
+    return copy && (text === null || text === '' || text === copy.text) ? copy.clip : null;
+  }
+
+  /** Ctrl+C / Cmd+C: write TSV (or the selected objects' names) into the clipboard event. */
   handleCopyEvent(event: ClipboardEvent): boolean {
-    const text = this.copyText();
+    const text = this.copySelectedObjects() ?? this.copyText();
     if (text === null || !event.clipboardData) {
       return false;
     }
@@ -153,7 +186,11 @@ export class ClipboardController {
     if (!tab || !this.handleCopyEvent(event)) {
       return false;
     }
-    this.commands.clearRange(tab);
+    if (this.copiedObjects) {
+      this.commands.objectActions.deleteSelected(tab);
+    } else {
+      this.commands.clearRange(tab);
+    }
     return true;
   }
 
@@ -163,6 +200,12 @@ export class ClipboardController {
    */
   handlePasteEvent(event: ClipboardEvent): boolean {
     const text = event.clipboardData?.getData('text/plain') ?? '';
+    const objects = this.pastesObjects(text === '' && pastedPicture(event) ? 'picture' : text);
+    if (objects && this.state.activeTab) {
+      event.preventDefault();
+      void this.commands.objectActions.paste(this.state.activeTab, objects);
+      return true;
+    }
     const picture = text === '' ? pastedPicture(event) : null;
     if (picture) {
       const tab = this.state.activeTab;
@@ -239,7 +282,7 @@ export class ClipboardController {
    */
   async cutViaApi(): Promise<void> {
     const tab = this.state.activeTab;
-    const text = this.copyText();
+    const text = this.copySelectedObjects() ?? this.copyText();
     if (!tab || text === null) {
       return;
     }
@@ -249,13 +292,17 @@ export class ClipboardController {
       this.notify(t('notify.cutBlocked'), 'warn');
       return;
     }
-    this.commands.clearRange(tab);
+    if (this.copiedObjects) {
+      this.commands.objectActions.deleteSelected(tab);
+    } else {
+      this.commands.clearRange(tab);
+    }
     this.notify(t('notify.cut'), 'info');
   }
 
   /** Menu Copy: async clipboard API with a graceful message when blocked. */
   async copyViaApi(): Promise<void> {
-    const text = this.copyText();
+    const text = this.copySelectedObjects() ?? this.copyText();
     if (text === null) {
       return;
     }
@@ -422,6 +469,11 @@ export class ClipboardController {
       text = await navigator.clipboard.readText();
     } catch {
       text = null;
+    }
+    const objects = this.pastesObjects(text);
+    if (objects) {
+      await this.commands.objectActions.paste(tab, objects);
+      return;
     }
     if (text !== null && text !== '') {
       await this.pasteText(text);

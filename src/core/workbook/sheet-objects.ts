@@ -33,7 +33,7 @@ export const MAX_SHEET_OBJECTS = 1000;
 export const MAX_OBJECT_NAME_LENGTH = 100;
 export const MAX_OBJECT_TEXT_LENGTH = 10000;
 /** Largest offset, width or height, in pixels at 100% zoom. */
-const MAX_OBJECT_EXTENT = 100000;
+export const MAX_OBJECT_EXTENT = 100000;
 /**
  * How much of a picture is cut off each side, in percent of its width
  * (`left`, `right`) or height (`top`, `bottom`); what is left fills the box.

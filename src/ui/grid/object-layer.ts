@@ -22,6 +22,8 @@ import { buildChartSvg, type ChartWords } from '../chart-view';
 import { ContextMenu, type ContextMenuEntry } from '../context-menu';
 import { clearChildren, el } from '../dom';
 import { buildObjectElement, lineEnds, type ObjectBox } from '../sheet-object-view';
+import { snapMove, unionBox, type GuideBox, type GuideLine } from './object-guides';
+import { withGroups } from '../../core/workbook/object-arrange';
 import type { GridCore } from './core';
 import type { CommandId } from '../../app/commands';
 
@@ -47,6 +49,13 @@ interface ObjectDrag {
   moved: boolean;
   /** The resized object as it would be now (resize only). */
   preview: SheetObject | null;
+  /** A move: the moved objects' box and the other shown objects' boxes (canvas px), for guides. */
+  bounds: GuideBox | null;
+  others: GuideBox[];
+  /** A move: the drag so far, after snapping to guides. */
+  shift: { dx: number; dy: number };
+  /** A press on a member of a picked group: a click (no drag) picks that member alone. */
+  pickMember: boolean;
 }
 
 export class ObjectLayer {
@@ -272,12 +281,18 @@ export class ObjectLayer {
     this.core.editing.commitEditor();
     const selected = this.core.state.objectSelection.selected(tab);
     const toggle = event.ctrlKey || event.metaKey || event.shiftKey;
+    // A press picks the object's whole group; pressing a member of a picked group again picks it alone.
+    const group = withGroups(objects, [id]);
     let next: string[];
     if (toggle) {
-      next = selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id];
+      next = selected.includes(id)
+        ? selected.filter((s) => !group.includes(s))
+        : [...selected, ...group.filter((g) => !selected.includes(g))];
     } else {
-      next = selected.includes(id) ? [...selected] : [id];
+      next = selected.includes(id) ? [...selected] : group;
     }
+    const pickMember =
+      !toggle && selected.includes(id) && group.length > 1 && group.every((g) => selected.includes(g));
     this.core.state.objectSelection.select(tab, next);
     this.elementFor(id)?.focus({ preventScroll: true });
     if (event.button !== 0 || !next.includes(id)) {
@@ -285,15 +300,20 @@ export class ObjectLayer {
     }
     const handle = (event.target as Element).closest<HTMLElement>('[data-handle]')?.dataset.handle ?? null;
     const picked = new Set(next);
+    const originals = handle ? [pressed] : objects.filter((o) => picked.has(o.id));
     this.drag = {
       mode: handle ? 'resize' : 'move',
       handle,
       id,
-      originals: handle ? [pressed] : objects.filter((o) => picked.has(o.id)),
+      originals,
       startX: event.clientX,
       startY: event.clientY,
       moved: false,
       preview: null,
+      bounds: handle ? null : unionBox(originals.map((o) => this.boxOf(tab, o))),
+      others: objects.filter((o) => !o.hidden && !picked.has(o.id)).map((o) => this.boxOf(tab, o)),
+      shift: { dx: 0, dy: 0 },
+      pickMember,
     };
     document.addEventListener('pointermove', this.onMove);
     document.addEventListener('pointerup', this.onUp);
@@ -319,12 +339,17 @@ export class ObjectLayer {
     drag.moved = true;
     event.preventDefault();
     if (drag.mode === 'move') {
+      // Alt snaps to cell corners instead (on release), so no guides then.
+      const snap =
+        drag.bounds && !event.altKey ? snapMove(drag.bounds, drag.others, dx, dy) : { dx, dy, guides: [] };
+      drag.shift = { dx: snap.dx, dy: snap.dy };
       for (const o of drag.originals) {
         const node = this.elementFor(o.id);
         if (node) {
-          node.style.translate = `${dx}px ${dy}px`;
+          node.style.translate = `${snap.dx}px ${snap.dy}px`;
         }
       }
+      this.showGuides(snap.guides);
       return;
     }
     const o = drag.originals[0];
@@ -415,14 +440,18 @@ export class ObjectLayer {
     const drag = this.drag;
     const tab = this.core.state.activeTab;
     this.stopDrag();
+    if (drag && tab && !drag.moved && !cancelled && drag.pickMember) {
+      this.core.state.objectSelection.select(tab, [drag.id]);
+    }
     if (!drag || !tab || !drag.moved || cancelled) {
       this.render(tab, true);
       return;
     }
     let done: boolean;
     if (drag.mode === 'move') {
-      const dx = event.clientX - drag.startX;
-      const dy = event.clientY - drag.startY;
+      const { dx, dy } = event.altKey
+        ? { dx: event.clientX - drag.startX, dy: event.clientY - drag.startY }
+        : drag.shift;
       const moved = drag.originals.map((o) => {
         const box = this.boxOf(tab, o);
         return this.placeAt(tab, o, box.x + dx, box.y + dy, event.altKey);
@@ -440,7 +469,25 @@ export class ObjectLayer {
     this.elementFor(drag.id)?.focus({ preventScroll: true });
   }
 
+  /** Draw the guide lines of the current move (none: remove them). */
+  private showGuides(guides: readonly GuideLine[]): void {
+    for (const old of this.element.querySelectorAll('.sheet-object-guide')) {
+      old.remove();
+    }
+    for (const g of guides) {
+      const line = el('div', {
+        className: `sheet-object-guide guide-${g.axis}`,
+        attrs: { 'aria-hidden': 'true' },
+      });
+      line.style.left = `${g.axis === 'x' ? g.at : g.from}px`;
+      line.style.top = `${g.axis === 'x' ? g.from : g.at}px`;
+      line.style[g.axis === 'x' ? 'height' : 'width'] = `${g.to - g.from}px`;
+      this.element.append(line);
+    }
+  }
+
   private stopDrag(): void {
+    this.showGuides([]);
     this.drag = null;
     document.removeEventListener('pointermove', this.onMove);
     document.removeEventListener('pointerup', this.onUp);
@@ -541,6 +588,8 @@ export class ObjectLayer {
         item('object.sendBackward', 'menu.insert.sendBackward'),
         item('object.sendToBack', 'menu.insert.sendToBack'),
         'separator',
+        item('object.group', 'menu.insert.group'),
+        item('object.ungroup', 'menu.insert.ungroup'),
         item('object.delete', 'menu.insert.deleteObject'),
         'separator',
         item('insert.objectList', 'menu.insert.objectList'),

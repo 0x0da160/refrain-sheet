@@ -10,6 +10,7 @@
  * (`embedChartData` does the same when a chart's worksheet is deleted).
  */
 import { chartData, chartSourceFits, type ChartCells, type ChartData, type ChartSpec } from './sheet-charts';
+import { nextGroupId } from './object-arrange';
 import type { ImageStore, SheetImageEntry } from './sheet-images';
 import { MAX_OBJECT_EXTENT, nextObjectId, type SheetObject } from './sheet-objects';
 
@@ -89,6 +90,13 @@ export function pasteObjects(clip: ObjectClip, target: PasteTarget): SheetObject
   for (const entry of clip.images) {
     pictures.set(entry.id, target.images.add({ type: entry.type, bytes: entry.bytes }));
   }
+  // Each copied group becomes a new group, apart from the one it was copied from.
+  const groups = new Map<string, string>();
+  for (const o of clip.objects) {
+    if (o.group && !groups.has(o.group)) {
+      groups.set(o.group, nextGroupId(target.objects, new Set(groups.values())));
+    }
+  }
   const placed: SheetObject[] = [];
   for (const o of clip.objects) {
     const copy: SheetObject = {
@@ -103,6 +111,9 @@ export function pasteObjects(clip: ObjectClip, target: PasteTarget): SheetObject
     }
     if (o.image !== undefined) {
       copy.image = pictures.get(o.image) ?? o.image;
+    }
+    if (o.group) {
+      copy.group = groups.get(o.group);
     }
     const chart = pastedChart(o, clip, target);
     if (chart) copy.chart = chart;

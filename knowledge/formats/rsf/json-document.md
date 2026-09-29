@@ -239,12 +239,18 @@ a row height or column width changes.
 | `crop`                     | object | Image only: `{ "top", "right", "bottom", "left" }`, percent cut off each side.     |
 | `aspectFree`               | `true` | Image only: resizing may change its width-to-height ratio.                         |
 | `chart`                    | object | Chart only, required: the chart's type, cells and settings (Charts, below).        |
+| `group`                    | string | The group it belongs to: 1–32 of `A-Z a-z 0-9 _ -`, shared by every member.        |
 
 Anything else in a known key — a flag set to anything but `true`, an
 anchor spelled another way or outside the worksheet, a duplicate `id`, an
 unknown `kind`, or the key on a source worksheet — is `bad-shape`; more
 than 1,000 objects is `too-large`. Releases older than this key ignore it
 and show no shapes.
+
+Objects that share a `group` id are one group: the application picks,
+moves, copies and lines them up together, and each member keeps its own
+settings. Groups do not nest; a group id is only a name, so a group of one
+object is allowed.
 
 An image object's `crop` values are each at least 0 and below 100, with
 `top + bottom` and `left + right` below 100; what is left of the picture

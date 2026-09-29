@@ -13,6 +13,13 @@ import {
 import { imageSize, MAX_IMAGE_BYTES, sniffImageType } from '../../core/workbook/sheet-images';
 import { chartDataFromRows, chartDataToRows, dataRegionAround } from '../../core/workbook/sheet-charts';
 import { copyObjects, pasteObjects, type ObjectClip } from '../../core/workbook/object-clipboard';
+import {
+  arrangeBoxes,
+  arrangementMinimum,
+  nextGroupId,
+  type Arrangement,
+  type Box,
+} from '../../core/workbook/object-arrange';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
 import type { ConvertReason, NotifyPort } from '../ui-port';
@@ -39,6 +46,14 @@ const GEOMETRY_KEYS = ['row', 'col', 'dx', 'dy', 'width', 'height', 'rotation', 
 const LIST_KEYS = ['hidden', 'lockPosition', 'lockEdit'] as const;
 
 export type ObjectOrder = 'front' | 'back' | 'forward' | 'backward';
+
+/** Where objects are on screen, from the grid (cell sizes live in the view). */
+export interface ObjectGeometry {
+  /** The top-left corner from the sheet's, in pixels at 100% zoom. */
+  objectPosition(tab: Tab, o: SheetObject): { x: number; y: number };
+  /** `o` moved so its top-left corner is at (`x`, `y`). */
+  objectMovedTo(tab: Tab, o: SheetObject, x: number, y: number): SheetObject;
+}
 
 /**
  * Shapes over a spreadsheet worksheet (Insert > Rectangle…, the object
@@ -330,6 +345,105 @@ export class ObjectCommands {
       ];
     });
     return sheet?.name ?? null;
+  }
+
+  /** The selected objects, bottom to top. */
+  private picked(tab: Tab): SheetObject[] {
+    const picked = new Set(this.state.objectSelection.selected(tab));
+    return this.objects(tab).filter((o) => picked.has(o.id));
+  }
+
+  /** Whether the selection is two or more objects not already one group. */
+  canGroup(tab: Tab): boolean {
+    const picked = this.picked(tab);
+    return picked.length >= 2 && !picked.every((o) => o.group !== undefined && o.group === picked[0].group);
+  }
+
+  /** Make the selected objects one group (leaving any group they were in). */
+  group(tab: Tab): boolean {
+    if (!this.canGroup(tab)) {
+      return false;
+    }
+    const group = nextGroupId(this.objects(tab));
+    return this.update(
+      tab,
+      this.picked(tab).map((o) => ({ ...o, group })),
+      'history.groupObjects',
+    );
+  }
+
+  /** Whether any selected object is in a group. */
+  canUngroup(tab: Tab): boolean {
+    return this.picked(tab).some((o) => o.group !== undefined);
+  }
+
+  /** Break up every group a selected object is in. */
+  ungroup(tab: Tab): boolean {
+    const groups = new Set(this.picked(tab).map((o) => o.group));
+    const members = this.objects(tab).filter((o) => o.group !== undefined && groups.has(o.group));
+    return (
+      members.length > 0 &&
+      this.update(
+        tab,
+        members.map(({ group: _, ...rest }) => rest),
+        'history.ungroupObjects',
+      )
+    );
+  }
+
+  /**
+   * How many things an arrangement moves: each whole selected group counts
+   * once (it keeps its own layout), every other object alone.
+   */
+  private units(tab: Tab): SheetObject[][] {
+    const picked = this.picked(tab);
+    const all = this.objects(tab);
+    const byGroup = new Map<string, SheetObject[]>();
+    const units: SheetObject[][] = [];
+    for (const o of picked) {
+      const whole =
+        o.group !== undefined && all.filter((x) => x.group === o.group).every((x) => picked.includes(x));
+      if (!whole) {
+        units.push([o]);
+      } else if (!byGroup.has(o.group!)) {
+        const unit = picked.filter((x) => x.group === o.group);
+        byGroup.set(o.group!, unit);
+        units.push(unit);
+      }
+    }
+    return units;
+  }
+
+  canArrange(tab: Tab, how: Arrangement): boolean {
+    return this.units(tab).length >= arrangementMinimum(how);
+  }
+
+  /** Line the selected objects up, or space them evenly, as one step. */
+  arrange(tab: Tab, how: Arrangement, geometry: ObjectGeometry): boolean {
+    const units = this.units(tab);
+    if (units.length < arrangementMinimum(how)) {
+      return false;
+    }
+    const boxes = units.map((unit): Box => {
+      const corners = unit.map((o) => ({ ...geometry.objectPosition(tab, o), w: o.width, h: o.height }));
+      const x = Math.min(...corners.map((c) => c.x));
+      const y = Math.min(...corners.map((c) => c.y));
+      return {
+        x,
+        y,
+        w: Math.max(...corners.map((c) => c.x + c.w)) - x,
+        h: Math.max(...corners.map((c) => c.y + c.h)) - y,
+      };
+    });
+    const moved = arrangeBoxes(boxes, how).flatMap((to, i) =>
+      units[i].map((o) => {
+        const at = geometry.objectPosition(tab, o);
+        const x = Math.max(0, at.x + to.x - boxes[i].x);
+        const y = Math.max(0, at.y + to.y - boxes[i].y);
+        return geometry.objectMovedTo(tab, o, x, y);
+      }),
+    );
+    return this.update(tab, moved, 'history.moveObject');
   }
 
   /** Move the selected objects in the stacking order. */

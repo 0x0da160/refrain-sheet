@@ -109,6 +109,21 @@
   align-items: flex-end;
 }
 
+/* A guide while dragging: the moved objects line up with another object here. */
+.sheet-object-guide {
+  position: absolute;
+  pointer-events: none;
+  background: var(--canvas-selection-border);
+}
+
+.sheet-object-guide.guide-x {
+  width: 1px;
+}
+
+.sheet-object-guide.guide-y {
+  height: 1px;
+}
+
 .sheet-object.selected:not(.sheet-object-line, .sheet-object-arrow) {
   outline: 1px solid var(--canvas-selection-border);
   outline-offset: 1px;

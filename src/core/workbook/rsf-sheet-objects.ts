@@ -33,6 +33,7 @@ const OPTIONAL_KEYS = [
   'hidden',
   'lockPosition',
   'lockEdit',
+  'group',
 ] as const;
 
 /** `{ "id", "name", "kind", "at": "B3", "dx", "dy", "width", "height", …optional keys }`. */

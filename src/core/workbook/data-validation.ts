@@ -2,7 +2,10 @@
 /**
  * Data validation: an optional rule attached to a rectangular range that
  * restricts which values a cell in that range accepts — a fixed list of
- * choices (the spreadsheet-standard "dropdown"), or a numeric range.
+ * choices (the spreadsheet-standard "dropdown"), a number (optionally whole,
+ * optionally in a range), a text length, or a `YYYY-MM-DD` date. A rule can
+ * also make its cells required, and a column rule (`toEnd`) covers its
+ * columns down to the last row, which is how a column schema is written.
  *
  * A worksheet's rules (`Worksheet.validations`) are saved in the RSF
  * container (the worksheet's `validations` key) and follow row and column
@@ -12,8 +15,8 @@
  * range); when ranges overlap, the most recently applied rule wins for the
  * overlapping cells, like later paint on top of earlier paint.
  *
- * A blank value always passes every rule, matching every mainstream
- * spreadsheet: clearing a cell is never itself an invalid edit.
+ * A blank value passes every rule unless the rule is `required`, matching
+ * every mainstream spreadsheet's default.
  *
  * Everything here is pure and DOM-free; list membership and numeric parsing
  * never use regular expressions, `eval`, or any dynamic code.
@@ -32,14 +35,36 @@ interface ListValidationRule {
   values: string[];
 }
 
-/** Restrict a cell to a numeric value within an optional [min, max] range. */
+/**
+ * Restrict a cell to a number within an optional [min, max] range, and
+ * optionally to whole numbers. With no bound it only asks for a number.
+ */
 interface NumberValidationRule {
   kind: 'number';
   min: number | null;
   max: number | null;
+  integer?: boolean;
 }
 
-export type ValidationRule = ListValidationRule | NumberValidationRule;
+/** Restrict a cell's text to between `min` and `max` characters (at least one set). */
+interface TextLengthValidationRule {
+  kind: 'textLength';
+  min: number | null;
+  max: number | null;
+}
+
+/**
+ * Restrict a cell to a date written `YYYY-MM-DD` (how Ctrl+; enters one),
+ * within an optional [min, max] range, also `YYYY-MM-DD`.
+ */
+interface DateValidationRule {
+  kind: 'date';
+  min: string | null;
+  max: string | null;
+}
+
+export type ValidationRule =
+  ListValidationRule | NumberValidationRule | TextLengthValidationRule | DateValidationRule;
 
 /** One rule applied to a rectangular range (inclusive document coordinates). */
 export interface CellValidation {
@@ -48,7 +73,32 @@ export interface CellValidation {
   bottom: number;
   right: number;
   rule: ValidationRule;
+  /** A blank cell fails the rule (otherwise a blank always passes). */
+  required?: boolean;
+  /**
+   * A column rule: the range runs from `top` to the last row, so rows added
+   * below the current end are covered too (`bottom` is the last row when the
+   * rule was applied, and grows with inserts).
+   */
+  toEnd?: boolean;
 }
+
+/** Why a value fails its rule (see {@link validationProblem}). */
+export type ValidationProblem =
+  | 'required'
+  | 'notInList'
+  | 'notNumber'
+  | 'notInteger'
+  | 'tooSmall'
+  | 'tooLarge'
+  | 'tooShort'
+  | 'tooLong'
+  | 'notDate'
+  | 'tooEarly'
+  | 'tooLate';
+
+/** The longest text-length bound a rule may set (the longest cell text). */
+export const MAX_VALIDATION_TEXT_LENGTH = 1_000_000;
 
 /** True when two ranges cover exactly the same rectangle. */
 export function validationRangesEqual(
@@ -93,22 +143,53 @@ export function validateValidation(
       return null;
     }
   } else if (rule.kind === 'number') {
-    if (rule.min !== null && !Number.isFinite(rule.min)) {
+    if (!boundsOk(rule.min, rule.max, (n) => Number.isFinite(n))) {
       return null;
     }
-    if (rule.max !== null && !Number.isFinite(rule.max)) {
+    if (rule.integer !== undefined && rule.integer !== true) {
       return null;
     }
-    if (rule.min === null && rule.max === null) {
+  } else if (rule.kind === 'textLength') {
+    const length = (n: number): boolean => intish(n) && n <= MAX_VALIDATION_TEXT_LENGTH;
+    if (!boundsOk(rule.min, rule.max, length) || (rule.min === null && rule.max === null)) {
       return null;
     }
-    if (rule.min !== null && rule.max !== null && rule.min > rule.max) {
+  } else if (rule.kind === 'date') {
+    if (!boundsOk(rule.min, rule.max, isIsoDate)) {
       return null;
     }
   } else {
     return null;
   }
+  if (candidate.required !== undefined && candidate.required !== true) {
+    return null;
+  }
+  if (candidate.toEnd !== undefined && candidate.toEnd !== true) {
+    return null;
+  }
   return candidate;
+}
+
+/** Each bound is null or passes `ok`, and min is not above max. */
+function boundsOk<T extends number | string>(min: T | null, max: T | null, ok: (v: T) => boolean): boolean {
+  if ((min !== null && !ok(min)) || (max !== null && !ok(max))) {
+    return false;
+  }
+  return min === null || max === null || min <= max;
+}
+
+/** A real calendar date written `YYYY-MM-DD`. */
+export function isIsoDate(text: string): boolean {
+  if (typeof text !== 'string' || text.length !== 10 || text[4] !== '-' || text[7] !== '-') {
+    return false;
+  }
+  const [y, m, d] = [text.slice(0, 4), text.slice(5, 7), text.slice(8, 10)].map((part) =>
+    /^[0-9]+$/.test(part) ? Number(part) : NaN,
+  );
+  if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d) || m < 1 || m > 12 || d < 1) {
+    return false;
+  }
+  return d <= new Date(Date.UTC(y, m, 0)).getUTCDate();
 }
 
 /**
@@ -123,32 +204,83 @@ export function findValidation(
 ): CellValidation | null {
   for (let i = rules.length - 1; i >= 0; i--) {
     const v = rules[i];
-    if (row >= v.top && row <= v.bottom && col >= v.left && col <= v.right) {
+    if (row >= v.top && (v.toEnd === true || row <= v.bottom) && col >= v.left && col <= v.right) {
       return v;
     }
   }
   return null;
 }
 
+/** The column rule (`toEnd`) covering exactly columns `left`–`right`, or null. */
+export function findColumnValidation(
+  rules: readonly CellValidation[],
+  left: number,
+  right: number,
+): CellValidation | null {
+  return rules.find((v) => v.toEnd === true && v.left === left && v.right === right) ?? null;
+}
+
+/** Whether applying `next` replaces `rule`: the same range, or a column rule on the same columns. */
+export function replacesValidation(next: CellValidation, rule: CellValidation): boolean {
+  return next.toEnd === true
+    ? findColumnValidation([rule], next.left, next.right) !== null
+    : rule.toEnd !== true && validationRangesEqual(next, rule);
+}
+
 /** Whether `value` satisfies `rule`. A blank value always passes. */
 export function checkValidationValue(rule: ValidationRule, value: string): boolean {
-  if (value.trim() === '') {
-    return true;
+  return validationProblem({ rule }, value) === null;
+}
+
+/**
+ * Why `value` fails `validation`, or null when it passes. A blank value
+ * passes unless the rule is `required`. The value is the cell's input as
+ * typed (a formula is checked as its text, the same as when it is entered).
+ */
+export function validationProblem(
+  validation: Pick<CellValidation, 'rule' | 'required'>,
+  value: string,
+): ValidationProblem | null {
+  const { rule } = validation;
+  const trimmed = value.trim();
+  if (trimmed === '') {
+    return validation.required === true ? 'required' : null;
   }
-  if (rule.kind === 'list') {
-    return rule.values.includes(value);
+  switch (rule.kind) {
+    case 'list':
+      return rule.values.includes(value) ? null : 'notInList';
+    case 'number': {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n)) {
+        return 'notNumber';
+      }
+      if (rule.integer === true && !Number.isInteger(n)) {
+        return 'notInteger';
+      }
+      return rule.min !== null && n < rule.min
+        ? 'tooSmall'
+        : rule.max !== null && n > rule.max
+          ? 'tooLarge'
+          : null;
+    }
+    case 'textLength': {
+      const length = [...value].length;
+      return rule.min !== null && length < rule.min
+        ? 'tooShort'
+        : rule.max !== null && length > rule.max
+          ? 'tooLong'
+          : null;
+    }
+    case 'date':
+      if (!isIsoDate(trimmed)) {
+        return 'notDate';
+      }
+      return rule.min !== null && trimmed < rule.min
+        ? 'tooEarly'
+        : rule.max !== null && trimmed > rule.max
+          ? 'tooLate'
+          : null;
   }
-  const n = Number(value.trim());
-  if (!Number.isFinite(n)) {
-    return false;
-  }
-  if (rule.min !== null && n < rule.min) {
-    return false;
-  }
-  if (rule.max !== null && n > rule.max) {
-    return false;
-  }
-  return true;
 }
 
 /** Whether two rule lists are the same, rule for rule. */
@@ -165,9 +297,11 @@ export function shiftValidationsForInsert(
 ): CellValidation[] {
   return rules.map((v) => {
     const [start, end] = axis === 'row' ? [v.top, v.bottom] : [v.left, v.right];
-    // At or before the start moves the whole range; inside it grows the range.
+    // At or before the start moves the whole range; inside it grows the
+    // range, and so does adding rows at the end of a column rule.
     const from = start >= index ? start + count : start;
-    const to = end >= index ? end + count : end;
+    const grows = end >= index || (axis === 'row' && v.toEnd === true && index === end + 1);
+    const to = grows ? end + count : end;
     return withSpan(v, axis, from, to);
   });
 }

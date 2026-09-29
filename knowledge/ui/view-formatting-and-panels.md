@@ -83,13 +83,26 @@ to edit again. Row/column insertion or deletion drops the sort outright.
 ## Data Validation
 
 **Data > Data Validation…** restricts which values a cell accepts: a
-**list** rule (allowed values, one per line) or a **number** rule (optional
-min/max). A blank cell is always valid for either kind. Editing a cell
+**list** rule (allowed values, one per line), a **number** rule (optional
+min/max, optionally whole numbers only), a **text length** rule (fewest
+and/or most characters), or a **date** rule (`YYYY-MM-DD`, optional
+earliest/latest). A blank cell is valid unless **Don't allow blank cells**
+is ticked. **Apply to all of columns …** turns the rule into a column rule
+(a simple column schema): it covers the selected columns from row 1, or
+from row 2 when the header row is skipped, to the last row, including rows
+added later; selecting any cell in those columns reopens it. Editing a cell
 covered by a list rule shows a keyboard-accessible dropdown popup below the
-cell; typing narrows it. Invalid edits are refused with an explanation, the
+cell; typing narrows it. Invalid edits are refused with the reason, the
 same refusal pattern as editing inside a sorted range. Up to 64 rules per
 worksheet, up to 500 values in one list rule; overlapping ranges resolve to
 the most recently applied rule.
+
+**Data > Check Data…** opens a dockable panel (like the comments panel)
+listing every cell whose value breaks its rule — values that got in before
+the rule, or blanks in a required column — on the sheet or the whole file,
+down to the last row with data and at most 1,000 at a time. Selecting an
+entry goes to the cell; the list updates as cells are fixed. It only
+reports; nothing is changed.
 
 Rules are saved with the file (the worksheet's `validations`, see
 [../formats/rsf/json-document.md](../formats/rsf/json-document.md)), and

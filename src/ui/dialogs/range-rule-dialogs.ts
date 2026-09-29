@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /**
  * Dialogs that edit a rule attached to the selected range: sort keys, data
- * validation, and the cell comment.
+ * validation (delegated to `data-validation-dialog.ts`), and the cell comment.
  */
 import type {
   ApplyHandler,
@@ -14,13 +14,13 @@ import type {
 } from '../../app/commands';
 import { t } from '../../app/i18n';
 import { MAX_COMMENT_LENGTH } from '../../core/workbook/cell-comment';
-import { MAX_VALIDATION_LIST_VALUES, type ValidationRule } from '../../core/workbook/data-validation';
 import { MAX_SHEET_SORT_KEYS, type SortKey } from '../../core/workbook/sort';
 import { el } from '../dom';
 import { createIcon } from '../icon';
-import { ArrowDownAZ, CheckSquare, Trash2 } from 'lucide';
+import { ArrowDownAZ, Trash2 } from 'lucide';
+import { chooseDataValidation } from './data-validation-dialog';
 import { dialogButton, helpDetails, openDialog } from './shared';
-import { panelCheck, panelField, panelSection } from './side-panel';
+import { panelCheck, panelSection } from './side-panel';
 import { openSidePanel } from './side-panel';
 
 export class RangeRuleDialogs {
@@ -160,140 +160,17 @@ export class RangeRuleDialogs {
     );
   }
 
-  /**
-   * The accessible data-validation dialog for the selected range: a rule
-   * kind (a fixed list of choices, or a numeric range) and its parameters.
-   * The Apply button stays disabled, with an inline explanation, until the
-   * current fields describe a usable rule — mirroring `promptSheetName`'s
-   * live-validation pattern. Resolves with the chosen action, or null when
-   * cancelled (nothing changes).
-   */
+  /** The data-validation side panel (`data-validation-dialog.ts`). */
   chooseDataValidation(
     input: DataValidationDialogInput,
     onApply?: ApplyHandler<DataValidationDialogResult>,
   ): Promise<DataValidationDialogResult | null> {
-    return openSidePanel<DataValidationDialogResult | null>(
-      { title: t('dialog.dataValidation.title'), icon: CheckSquare, fallback: null, onApply },
-      (body, buttons, apply) => {
-        body.append(
-          el('p', {
-            className: 'panel-lead',
-            text: t('dialog.dataValidation.range', { range: input.rangeLabel }),
-          }),
-        );
-
-        const kindList = el('input', {
-          attrs: { type: 'radio', name: 'validation-kind', id: 'validation-kind-list' },
-        }) as HTMLInputElement;
-        const kindNumber = el('input', {
-          attrs: { type: 'radio', name: 'validation-kind', id: 'validation-kind-number' },
-        }) as HTMLInputElement;
-        const initialKind = input.existing?.kind ?? 'list';
-        kindList.checked = initialKind === 'list';
-        kindNumber.checked = initialKind === 'number';
-        body.append(
-          panelSection(null, [
-            el('div', { className: 'panel-choices', attrs: { role: 'radiogroup' } }, [
-              panelCheck(kindList, t('dialog.dataValidation.kindList')),
-              panelCheck(kindNumber, t('dialog.dataValidation.kindNumber')),
-            ]),
-          ]),
-        );
-
-        const listValues = el('textarea', {
-          className: 'validation-list-values',
-          attrs: { rows: '6', 'aria-label': t('dialog.dataValidation.listValues'), 'data-autofocus': 'true' },
-        }) as HTMLTextAreaElement;
-        if (input.existing?.kind === 'list') {
-          listValues.value = input.existing.values.join('\n');
-        }
-        const listTruncatedNote = el('p', { className: 'dialog-note' });
-        const listSection = panelSection(null, [
-          panelField(t('dialog.dataValidation.listValues'), listValues, t('dialog.dataValidation.listHint')),
-          listTruncatedNote,
-        ]);
-        body.append(listSection);
-
-        const minInput = el('input', {
-          attrs: { type: 'number', 'aria-label': t('dialog.dataValidation.min') },
-        }) as HTMLInputElement;
-        const maxInput = el('input', {
-          attrs: { type: 'number', 'aria-label': t('dialog.dataValidation.max') },
-        }) as HTMLInputElement;
-        if (input.existing?.kind === 'number') {
-          if (input.existing.min !== null) {
-            minInput.value = String(input.existing.min);
-          }
-          if (input.existing.max !== null) {
-            maxInput.value = String(input.existing.max);
-          }
-        }
-        const numberSection = panelSection(null, [
-          el('div', { className: 'panel-grid' }, [
-            panelField(t('dialog.dataValidation.min'), minInput),
-            panelField(t('dialog.dataValidation.max'), maxInput),
-          ]),
-        ]);
-        body.append(numberSection);
-
-        const error = el('p', {
-          className: 'dialog-error',
-          attrs: { role: 'status', 'aria-live': 'polite' },
-        });
-        body.append(error);
-
-        // Set by buildRule() as a side effect, read by refresh() right after —
-        // avoids parsing the textarea twice per keystroke just to learn
-        // whether the list was cut off.
-        let listTruncated = false;
-
-        const buildRule = (): ValidationRule | null => {
-          if (kindList.checked) {
-            const parsed = parseListRule(listValues.value);
-            listTruncated = parsed.truncated;
-            return parsed.rule;
-          }
-          listTruncated = false;
-          return parseNumberRule(minInput.value, maxInput.value);
-        };
-
-        const applyBtn = dialogButton(t('dialog.dataValidation.apply'), true, false, () => {
-          const rule = buildRule();
-          if (rule) {
-            apply({ action: 'apply', rule });
-          }
-        });
-
-        const refresh = (): void => {
-          listSection.hidden = !kindList.checked;
-          numberSection.hidden = !kindNumber.checked;
-          const rule = buildRule();
-          error.textContent = rule ? '' : t('dialog.dataValidation.incomplete');
-          applyBtn.disabled = rule === null;
-          listTruncatedNote.textContent = listTruncated
-            ? t('dialog.dataValidation.listTruncated', { n: MAX_VALIDATION_LIST_VALUES })
-            : '';
-        };
-        kindList.addEventListener('change', refresh);
-        kindNumber.addEventListener('change', refresh);
-        listValues.addEventListener('input', refresh);
-        minInput.addEventListener('input', refresh);
-        maxInput.addEventListener('input', refresh);
-        refresh();
-
-        if (input.existing) {
-          buttons.append(
-            dialogButton(t('dialog.dataValidation.clear'), false, false, () => apply({ action: 'clear' })),
-          );
-        }
-        buttons.append(applyBtn);
-      },
-    );
+    return chooseDataValidation(input, onApply);
   }
 
   /**
    * The accessible cell-comment dialog for the active cell: a single free-text
-   * note, capped at {@link MAX_COMMENT_LENGTH}. Mirrors `chooseDataValidation`'s
+   * note, capped at {@link MAX_COMMENT_LENGTH}. Mirrors the data-validation panel's
    * Apply/Clear/Cancel layout: a Clear button appears only when the cell
    * already carries a comment. Resolves with the chosen action, or null when
    * cancelled (nothing changes).
@@ -336,45 +213,4 @@ export class RangeRuleDialogs {
       },
     );
   }
-}
-
-/**
- * A list rule from one value per line: trimmed, blank lines and duplicates
- * dropped, at most `MAX_VALIDATION_LIST_VALUES` kept (`truncated` says whether
- * more distinct values were given). Null when no value remains.
- */
-function parseListRule(text: string): { rule: ValidationRule | null; truncated: boolean } {
-  const seen = new Set<string>();
-  const values: string[] = [];
-  let distinctCount = 0;
-  for (const raw of text.split('\n')) {
-    const v = raw.trim();
-    if (v !== '' && !seen.has(v)) {
-      seen.add(v);
-      distinctCount++;
-      if (values.length < MAX_VALIDATION_LIST_VALUES) {
-        values.push(v);
-      }
-    }
-  }
-  return {
-    rule: values.length > 0 ? { kind: 'list', values } : null,
-    truncated: distinctCount > MAX_VALIDATION_LIST_VALUES,
-  };
-}
-
-/** A number-range rule from the min/max fields, or null when neither is set, either is invalid, or min > max. */
-function parseNumberRule(minText: string, maxText: string): ValidationRule | null {
-  const min = minText.trim() === '' ? null : Number(minText);
-  const max = maxText.trim() === '' ? null : Number(maxText);
-  if (min === null && max === null) {
-    return null;
-  }
-  if ((min !== null && !Number.isFinite(min)) || (max !== null && !Number.isFinite(max))) {
-    return null;
-  }
-  if (min !== null && max !== null && min > max) {
-    return null;
-  }
-  return { kind: 'number', min, max };
 }

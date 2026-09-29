@@ -64,17 +64,27 @@ export function sheetExtrasFromJson(
   return out;
 }
 
-/** `{ "range": "B2:C10", "list": [...] }` or `{ "range": ..., "min"?, "max"? }`. */
+/**
+ * `{ "range": "B2:C10", "list": [...] }`, `{ "range": ..., "min"?, "max"?,
+ * "integer"? }` (a number), or `{ "range": ..., "type": "textLength" |
+ * "date", "min"?, "max"? }`; `required` and `toEnd` when set.
+ */
 function validationToJson(v: CellValidation): { [key: string]: Json } {
-  const range = `${cellLabel(v.top, v.left)}:${cellLabel(v.bottom, v.right)}`;
-  if (v.rule.kind === 'list') {
-    return { range, list: v.rule.values.slice() };
-  }
-  return {
-    range,
-    ...(v.rule.min !== null ? { min: v.rule.min } : {}),
-    ...(v.rule.max !== null ? { max: v.rule.max } : {}),
+  const out: { [key: string]: Json } = {
+    range: `${cellLabel(v.top, v.left)}:${cellLabel(v.bottom, v.right)}`,
   };
+  const { rule } = v;
+  if (rule.kind === 'list') {
+    out.list = rule.values.slice();
+  } else {
+    if (rule.kind !== 'number') out.type = rule.kind;
+    if (rule.min !== null) out.min = rule.min;
+    if (rule.max !== null) out.max = rule.max;
+    if (rule.kind === 'number' && rule.integer === true) out.integer = true;
+  }
+  if (v.required === true) out.required = true;
+  if (v.toEnd === true) out.toEnd = true;
+  return out;
 }
 
 function validationFromJson(raw: unknown, rows: number, cols: number, fail: Fail): CellValidation {
@@ -88,9 +98,12 @@ function validationFromJson(raw: unknown, rows: number, cols: number, fail: Fail
   if (!from || !to) {
     return fail();
   }
+  const flag = (key: string): true | undefined =>
+    entry[key] === undefined ? undefined : entry[key] === true ? true : fail();
   let rule: ValidationRule;
   if (entry.list !== undefined) {
-    if (entry.min !== undefined || entry.max !== undefined || !Array.isArray(entry.list)) {
+    const extra = ['type', 'min', 'max', 'integer'].some((key) => entry[key] !== undefined);
+    if (extra || !Array.isArray(entry.list)) {
       return fail();
     }
     if (entry.list.length > MAX_VALIDATION_LIST_VALUES) {
@@ -100,15 +113,42 @@ function validationFromJson(raw: unknown, rows: number, cols: number, fail: Fail
       typeof item === 'string' && item.length <= MAX_VALIDATION_VALUE_LENGTH ? item : fail(),
     );
     rule = { kind: 'list', values };
-  } else {
+  } else if (entry.type === 'date') {
+    const day = (key: 'min' | 'max'): string | null =>
+      entry[key] === undefined ? null : typeof entry[key] === 'string' ? entry[key] : fail();
+    rule = { kind: 'date', min: day('min'), max: day('max') };
+  } else if (entry.type === undefined || entry.type === 'textLength') {
     const bound = (key: 'min' | 'max'): number | null => {
       const n = entry[key];
       return n === undefined ? null : typeof n === 'number' && Number.isFinite(n) ? n : fail();
     };
-    rule = { kind: 'number', min: bound('min'), max: bound('max') };
+    rule =
+      entry.type === 'textLength'
+        ? { kind: 'textLength', min: bound('min'), max: bound('max') }
+        : {
+            kind: 'number',
+            min: bound('min'),
+            max: bound('max'),
+            ...(flag('integer') ? { integer: true } : {}),
+          };
+  } else {
+    return fail();
   }
+  if (rule.kind !== 'number' && entry.integer !== undefined) {
+    return fail();
+  }
+  const required = flag('required');
+  const toEnd = flag('toEnd');
   const validation = validateValidation(
-    { top: from.row, left: from.col, bottom: to.row, right: to.col, rule },
+    {
+      top: from.row,
+      left: from.col,
+      bottom: to.row,
+      right: to.col,
+      rule,
+      ...(required ? { required } : {}),
+      ...(toEnd ? { toEnd } : {}),
+    },
     rows,
     cols,
   );

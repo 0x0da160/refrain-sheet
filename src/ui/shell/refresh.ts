@@ -33,6 +33,7 @@ export function subscribeSurfaces(
     s.formulaBar.refresh(selectionChanged);
     s.statusBar.render();
     s.commentsPanel.render();
+    s.validationCheckPanel.render();
   };
 
   state.subscribe((event) => {
@@ -99,6 +100,7 @@ export function subscribeSurfaces(
         s.sheetBar.render(true);
         s.grid.refresh();
         s.commentsPanel.render();
+        s.validationCheckPanel.render();
         return;
     }
   });
@@ -108,6 +110,7 @@ export function subscribeSurfaces(
     refreshAll(false);
     s.findBar.refresh();
     s.commentsPanel.refresh();
+    s.validationCheckPanel.refresh();
     dropMessage.textContent = t('drop.hint');
   });
   return refreshAll;
@@ -121,4 +124,5 @@ function refreshDocumentSurfaces(s: Surfaces, selectionChanged: boolean): void {
   s.statusBar.render();
   s.findBar.refresh();
   s.commentsPanel.render();
+  s.validationCheckPanel.render();
 }

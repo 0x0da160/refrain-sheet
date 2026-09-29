@@ -8,7 +8,7 @@
  */
 import { isWorkbook } from '../../core/editor-document';
 import { cellLabel } from '../../core/formula';
-import { checkValidationValue, findValidation } from '../../core/workbook/data-validation';
+import { findValidation, validationProblem } from '../../core/workbook/data-validation';
 import { sortDataTop } from '../../core/workbook/sort';
 import { t } from '../i18n';
 import type { AppState } from './index';
@@ -120,9 +120,9 @@ export class WriteGuards {
 
   /**
    * Refuse a write whose new value violates the data-validation rule covering
-   * that cell, announcing why. Blank values always pass (clearing a cell is
-   * never itself invalid), and only RSF documents carry rules. Returns true
-   * when the caller must stop.
+   * that cell, announcing why. A blank value passes unless the rule makes the
+   * cell required, and only RSF documents carry rules. Returns true when the
+   * caller must stop.
    */
   refuseInvalidWrite(
     tab: Tab,
@@ -134,8 +134,14 @@ export class WriteGuards {
     }
     for (const change of changes) {
       const rule = findValidation(doc.validations, change.row, change.col);
-      if (rule && !checkValidationValue(rule.rule, change.after ?? '')) {
-        this.state.announce?.(t('notify.invalidValue', { cell: cellLabel(change.row, change.col) }));
+      const problem = rule ? validationProblem(rule, change.after ?? '') : null;
+      if (problem) {
+        this.state.announce?.(
+          t('notify.invalidValue', {
+            cell: cellLabel(change.row, change.col),
+            reason: t(`validation.problem.${problem}`),
+          }),
+        );
         return true;
       }
     }

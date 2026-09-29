@@ -137,15 +137,49 @@ describe('.rsf codec: round trips', () => {
     expect(rsfTree(encodeRsfWorkbook(book)).sheets[0].validations).toBeUndefined();
   });
 
+  it('round-trips column-schema rules: whole numbers, text length, dates, required, to the end', () => {
+    const validations: CellValidation[] = [
+      {
+        top: 1,
+        left: 0,
+        bottom: 2,
+        right: 0,
+        rule: { kind: 'number', min: 0, max: null, integer: true },
+        toEnd: true,
+      },
+      { top: 0, left: 1, bottom: 2, right: 1, rule: { kind: 'textLength', min: 1, max: 8 }, required: true },
+      { top: 0, left: 2, bottom: 0, right: 2, rule: { kind: 'date', min: '2026-01-01', max: null } },
+      { top: 1, left: 2, bottom: 1, right: 2, rule: { kind: 'number', min: null, max: null } },
+    ];
+    const data: RsfWorkbookData = { ...book, sheets: [{ ...sheet, validations }] };
+    const decoded = decodeRsfWorkbook(encodeRsfWorkbook(data));
+    expect(decoded.ok && decoded.data.sheets[0].validations).toEqual(validations);
+    expect(rsfTree(encodeRsfWorkbook(data)).sheets[0].validations).toEqual([
+      { range: 'A2:A3', min: 0, integer: true, toEnd: true },
+      { range: 'B1:B3', type: 'textLength', min: 1, max: 8, required: true },
+      { range: 'C1:C1', type: 'date', min: '2026-01-01' },
+      { range: 'C2:C2' },
+    ]);
+  });
+
   it.each([
     ['a lowercase range', { range: 'a1:A1', list: ['x'] }],
     ['a range outside the worksheet', { range: 'A1:Z99', list: ['x'] }],
     ['a reversed range', { range: 'A2:A1', list: ['x'] }],
     ['an empty list value', { range: 'A1:A1', list: [''] }],
     ['a list and a bound', { range: 'A1:A1', list: ['x'], min: 1 }],
-    ['no bound at all', { range: 'A1:A1' }],
     ['min above max', { range: 'A1:A1', min: 2, max: 1 }],
     ['a text bound', { range: 'A1:A1', min: '1' }],
+    ['an unknown type', { range: 'A1:A1', type: 'time' }],
+    ['a list with a type', { range: 'A1:A1', list: ['x'], type: 'date' }],
+    ['a text length with no bound', { range: 'A1:A1', type: 'textLength' }],
+    ['a fractional text length', { range: 'A1:A1', type: 'textLength', max: 1.5 }],
+    ['integer on a text length', { range: 'A1:A1', type: 'textLength', max: 3, integer: true }],
+    ['integer on a list', { range: 'A1:A1', list: ['x'], integer: true }],
+    ['a date that does not exist', { range: 'A1:A1', type: 'date', min: '2026-02-30' }],
+    ['a numeric date', { range: 'A1:A1', type: 'date', min: 20260101 }],
+    ['required set to false', { range: 'A1:A1', list: ['x'], required: false }],
+    ['toEnd given as a string', { range: 'A1:A1', list: ['x'], toEnd: 'yes' }],
   ])('rejects a validation with %s', (_, rule) => {
     const t = rsfTree(encodeRsfWorkbook(book));
     t.sheets[0].validations = [rule];

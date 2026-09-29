@@ -6,6 +6,7 @@ import {
 } from '../../core/workbook/conditional-format';
 import {
   findValidation,
+  replacesValidation,
   validationRangesEqual,
   type CellValidation,
 } from '../../core/workbook/data-validation';
@@ -208,16 +209,17 @@ export class WorksheetsState {
 
   /**
    * Apply (add or replace) a data-validation rule on the active worksheet,
-   * as one undoable history entry (rules are saved in the file). Any
-   * existing rule covering the exact same range is replaced; other rules are
-   * left as-is, so several ranges can each carry their own rule at once.
+   * as one undoable history entry (rules are saved in the file). An existing
+   * rule on the exact same range (or, for a column rule, on the same
+   * columns) is replaced; other rules are left as-is, so several ranges can
+   * each carry their own rule at once.
    */
   setValidation(tab: Tab, validation: CellValidation): boolean {
     const sheet = activeSheetOf(tab.doc);
     if (!sheet) {
       return false;
     }
-    const next = sheet.validations.filter((v) => !validationRangesEqual(v, validation));
+    const next = sheet.validations.filter((v) => !replacesValidation(validation, v));
     next.push(validation);
     return this.replaceValidations(tab, sheet.id, sheet.validations, next, 'history.setValidation');
   }

@@ -13,6 +13,7 @@ import { getTheme } from '../../app/theme';
 import { isCsv, isWorkbook } from '../../core/editor-document';
 import { validateDocument } from '../../core/csv/validation';
 import { CommentsPanel } from '../comments-panel';
+import { ValidationCheckPanel } from '../validation-check-panel';
 import type { Dialogs, Toasts } from '../dialogs';
 import { FindBar } from '../find-bar';
 import { FormulaBar } from '../formula-bar';
@@ -35,6 +36,7 @@ export interface Surfaces {
   textSheetView: TextSheetView;
   clipboard: ClipboardController;
   commentsPanel: CommentsPanel;
+  validationCheckPanel: ValidationCheckPanel;
   menuBar: MenuBar;
   tabBar: TabBar;
   sheetBar: SheetBar;
@@ -72,8 +74,11 @@ export function createSurfaces(
   // The cell comments list: a dockable side panel like Filter/Sort/Format —
   // see src/ui/comments-panel.ts.
   const commentsPanel = new CommentsPanel(state, grid);
+  // Data > Check Data…: the same kind of panel, listing values that break a rule.
+  const validationCheckPanel = new ValidationCheckPanel(state, grid);
   commands.panelActions = {
     openComments: () => commentsPanel.open(),
+    openValidationCheck: () => validationCheckPanel.open(),
   };
   const menuBar = createMenuBar(state, commands);
   const tabBar = new TabBar(state, commands);
@@ -125,6 +130,7 @@ export function createSurfaces(
     textSheetView,
     clipboard,
     commentsPanel,
+    validationCheckPanel,
     menuBar,
     tabBar,
     sheetBar,

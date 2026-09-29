@@ -345,6 +345,7 @@ function dataMenu(): MenuDef {
       { labelKey: 'menu.data.compareDiff', command: 'data.compareDiff' },
       'separator',
       { labelKey: 'menu.data.validation', command: 'data.validation' },
+      { labelKey: 'menu.data.checkValidation', command: 'data.checkValidation' },
       { labelKey: 'menu.data.comment', command: 'data.comment' },
     ],
   };

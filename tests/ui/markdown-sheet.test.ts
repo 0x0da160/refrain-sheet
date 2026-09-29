@@ -93,6 +93,18 @@ function setup(): {
 }
 
 describe('MarkdownSheetView', () => {
+  it('is read-only while its worksheet is locked, so nothing typed is refused later', () => {
+    const { view, state, tab, notes } = setup();
+    state.setSheetLocked(tab, notes.id, true);
+    view.refresh();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    expect(textarea.readOnly).toBe(true);
+
+    state.setSheetLocked(tab, notes.id, false);
+    view.refresh();
+    expect(textarea.readOnly).toBe(false);
+  });
+
   it('gives the source textarea the shared flex-sizing style class, not just its own id-scoped class', () => {
     const { view } = setup();
     const textarea = view.element.querySelector('textarea')!;

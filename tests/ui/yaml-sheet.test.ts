@@ -279,6 +279,53 @@ describe('YamlSheetView', () => {
     expect(workbook.autoFormatSource).toBe(false);
   });
 
+  it('keeps empty values, ~, quoting and comments when it auto-formats', () => {
+    const { view, tab, workbook } = setup();
+    workbook.setAutoFormatSource(true);
+    view.refresh();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = '# settings\naaa:\nbbb: ~   # none\nccc: "1.0"\nddd:\n    - x\n';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('blur'));
+
+    expect(textarea.value).toBe('# settings\naaa:\nbbb: ~ # none\nccc: "1.0"\nddd:\n  - x\n');
+    expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe(textarea.value);
+  });
+
+  it('does not auto-format during a pause in typing, only when leaving the editor', () => {
+    vi.useFakeTimers();
+    try {
+      const { view, tab, workbook } = setup();
+      workbook.setAutoFormatSource(true);
+      view.refresh();
+      const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+      textarea.value = 'b: [1, 2]\n';
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      vi.advanceTimersByTime(1000);
+
+      expect(textarea.value).toBe('b: [1, 2]\n');
+      expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.yamlText : '').toBe('b: [1, 2]\n');
+
+      textarea.dispatchEvent(new Event('blur'));
+      expect(textarea.value).toBe('b:\n  - 1\n  - 2\n');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('is read-only while its worksheet is locked', () => {
+    const { view, state, tab, data } = setup();
+    state.setSheetLocked(tab, data.id, true);
+    view.refresh();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    expect(textarea.readOnly).toBe(true);
+    expect((view.element.querySelector('.yaml-sheet-format') as HTMLButtonElement).disabled).toBe(true);
+
+    state.setSheetLocked(tab, data.id, false);
+    view.refresh();
+    expect(textarea.readOnly).toBe(false);
+  });
+
   it('auto-formats valid YAML on commit (blur) once the checkbox is checked', () => {
     const { view, tab, workbook } = setup();
     workbook.setAutoFormatSource(true);

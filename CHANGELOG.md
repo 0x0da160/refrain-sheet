@@ -62,6 +62,19 @@ really is internal, rather than inventing an entry to satisfy it.
 - **Password managers no longer offer to fill app fields.** Entry fields such
   as the name box, Find, and dialog inputs showed 1Password and similar
   prompts; they are now marked as not login fields.
+- **A locked sheet cannot be typed into in the Markdown, JSON, YAML and text
+  editors.** Before, the editor let you type and only refused the change when
+  it was saved, which asked about unlocking every time you switched sheets.
+  The editor is now read-only while the sheet is locked.
+- **Automatic formatting of YAML keeps what you wrote.** An empty value
+  (`aaa:`) no longer becomes `aaa: null`, `~` stays `~`, and comments are
+  kept. Only indentation and spacing change.
+- **Formatting JSON keeps numbers as written.** `1.0` stays `1.0` and long
+  integers keep all their digits.
+- **Automatic formatting waits until you leave the editor.** It no longer runs
+  while you pause typing, so the text does not change under the cursor and
+  half-typed JSON or YAML does not show an error. The option now reads
+  "Format automatically when you leave the editor".
 
 ## [0.9.21] - 2026-09-29
 

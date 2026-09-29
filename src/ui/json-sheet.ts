@@ -15,6 +15,7 @@ import { el } from './dom';
 import { SourceEditor } from './source-editor';
 import { SourceProblemBar } from './source-problem-bar';
 import { validateJson } from '../core/source-validation';
+import { reindentJson } from '../core/json-format';
 import { CoalescedRenderer, isLargePreviewSource, syncScroll } from './editor-preview-perf';
 
 /** How long to wait after the last keystroke before committing an undoable edit. */
@@ -74,6 +75,8 @@ export class JsonSheetView {
   /** The (tab, sheetId) the textarea currently reflects, so a pending debounced edit commits to the right place. */
   private bound: { tab: Tab; sheetId: string } | null = null;
   private commitTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Typed since the last load or auto-format: the next non-typing commit formats (when on). */
+  private formatPending = false;
   /** Whether the preview panel should be open while this view is active; opened by `previewToggle` and closed by its header ×, not persisted across reloads. */
   private previewVisible = true;
 
@@ -149,6 +152,7 @@ export class JsonSheetView {
 
     this.textarea.addEventListener('input', () => {
       this.previewRenderer.schedule();
+      this.formatPending = true;
       this.scheduleCommit();
     });
     this.textarea.addEventListener('blur', () => this.flushCommit());
@@ -217,10 +221,14 @@ export class JsonSheetView {
       this.flushCommit();
       this.bound = { tab, sheetId: sheet.id };
       this.editor.setValue(sheet.jsonText);
+      this.formatPending = false;
       this.renderPreview();
     }
-    this.textarea.readOnly = tab.readOnly;
-    this.formatButton.disabled = tab.readOnly;
+    // A locked worksheet is read-only here too, not only a protected file:
+    // typing would otherwise be refused only when the edit is committed.
+    const readOnly = tab.readOnly || sheet.locked;
+    this.textarea.readOnly = readOnly;
+    this.formatButton.disabled = readOnly;
     this.autoFormatCheckbox.checked = doc.autoFormatSource;
     this.autoFormatCheckbox.disabled = tab.readOnly;
     this.element.hidden = false;
@@ -253,7 +261,7 @@ export class JsonSheetView {
    * exactly as typed and its parse error reported (see `tryFormatJson`), but
    * the edit itself is never blocked on that, so the raw text still commits.
    */
-  flushCommit(): void {
+  flushCommit(typing = false): void {
     if (this.commitTimer !== null) {
       clearTimeout(this.commitTimer);
       this.commitTimer = null;
@@ -269,12 +277,16 @@ export class JsonSheetView {
     if (!isWorkbook(tab.doc) || tab.doc.activeSheet.id !== sheetId) {
       return;
     }
+    // Auto-format waits until the user leaves the editor (blur, worksheet
+    // switch, save): a pause in typing only commits the text as typed, so
+    // the text never changes under the caret mid-edit.
+    if (tab.doc.autoFormatSource && !typing && this.formatPending && !this.textarea.readOnly) {
+      this.formatPending = false;
+      this.tryFormatJson();
+    }
     const sheet = tab.doc.activeSheet;
     if (sheet.jsonText === this.textarea.value) {
       return;
-    }
-    if (tab.doc.autoFormatSource) {
-      this.tryFormatJson();
     }
     void this.commands.commitCellEdit(tab, 0, 0, this.textarea.value);
   }
@@ -285,7 +297,7 @@ export class JsonSheetView {
     }
     this.commitTimer = setTimeout(() => {
       this.commitTimer = null;
-      this.flushCommit();
+      this.flushCommit(true);
     }, COMMIT_DEBOUNCE_MS);
   }
 
@@ -322,9 +334,8 @@ export class JsonSheetView {
    * apply the identical "never guess at invalid input" rule (issue #529).
    */
   private tryFormatJson(): boolean {
-    let parsed: unknown;
     try {
-      parsed = JSON.parse(this.textarea.value);
+      JSON.parse(this.textarea.value);
     } catch (error) {
       this.commands.notify(
         t('dialog.jsonEditor.invalidJson', { error: error instanceof Error ? error.message : String(error) }),
@@ -332,7 +343,9 @@ export class JsonSheetView {
       );
       return false;
     }
-    const formatted = JSON.stringify(parsed, null, 2);
+    // Re-indent the text itself rather than re-serialize the parsed value,
+    // which would rewrite numbers (`1.0` → `1`) and lose big integers' digits.
+    const formatted = reindentJson(this.textarea.value);
     if (formatted !== this.textarea.value) {
       this.textarea.value = formatted;
       this.renderPreview();

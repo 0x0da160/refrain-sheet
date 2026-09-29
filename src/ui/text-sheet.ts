@@ -85,7 +85,10 @@ export class TextSheetView {
       this.bound = { tab, sheetId: sheet.id };
       this.editor.setValue(sheet.plainText);
     }
-    this.textarea.readOnly = tab.readOnly;
+    // A locked worksheet is read-only here too, not only a protected file:
+    // typing would otherwise be refused only when the edit is committed.
+    const readOnly = tab.readOnly || sheet.locked;
+    this.textarea.readOnly = readOnly;
     this.element.hidden = false;
   }
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { isWorkbook } from '../core/editor-document';
-import { parse as parseYaml, stringify as stringifyYaml, YAMLParseError } from 'yaml';
+import { parseAllDocuments, visit } from 'yaml';
 import type { AppState, Tab } from '../app/state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -73,6 +73,8 @@ export class YamlSheetView {
   /** The (tab, sheetId) the textarea currently reflects, so a pending debounced edit commits to the right place. */
   private bound: { tab: Tab; sheetId: string } | null = null;
   private commitTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Typed since the last load or auto-format: the next non-typing commit formats (when on). */
+  private formatPending = false;
   /** Whether the preview panel should be open while this view is active; opened by `previewToggle` and closed by its header ×, not persisted across reloads. */
   private previewVisible = true;
 
@@ -142,6 +144,7 @@ export class YamlSheetView {
 
     this.textarea.addEventListener('input', () => {
       this.previewRenderer.schedule();
+      this.formatPending = true;
       this.scheduleCommit();
     });
     this.textarea.addEventListener('blur', () => this.flushCommit());
@@ -210,10 +213,14 @@ export class YamlSheetView {
       this.flushCommit();
       this.bound = { tab, sheetId: sheet.id };
       this.editor.setValue(sheet.yamlText);
+      this.formatPending = false;
       this.renderPreview();
     }
-    this.textarea.readOnly = tab.readOnly;
-    this.formatButton.disabled = tab.readOnly;
+    // A locked worksheet is read-only here too, not only a protected file:
+    // typing would otherwise be refused only when the edit is committed.
+    const readOnly = tab.readOnly || sheet.locked;
+    this.textarea.readOnly = readOnly;
+    this.formatButton.disabled = readOnly;
     this.autoFormatCheckbox.checked = doc.autoFormatSource;
     this.autoFormatCheckbox.disabled = tab.readOnly;
     this.element.hidden = false;
@@ -246,7 +253,7 @@ export class YamlSheetView {
    * YAML is left exactly as typed (see `tryFormatYaml`), but the edit itself
    * is never blocked on that, so the raw text still commits.
    */
-  flushCommit(): void {
+  flushCommit(typing = false): void {
     if (this.commitTimer !== null) {
       clearTimeout(this.commitTimer);
       this.commitTimer = null;
@@ -259,12 +266,16 @@ export class YamlSheetView {
     if (!isWorkbook(tab.doc) || tab.doc.activeSheet.id !== sheetId) {
       return;
     }
+    // Auto-format waits until the user leaves the editor (blur, worksheet
+    // switch, save): a pause in typing only commits the text as typed, so
+    // the text never changes under the caret mid-edit.
+    if (tab.doc.autoFormatSource && !typing && this.formatPending && !this.textarea.readOnly) {
+      this.formatPending = false;
+      this.tryFormatYaml();
+    }
     const sheet = tab.doc.activeSheet;
     if (sheet.yamlText === this.textarea.value) {
       return;
-    }
-    if (tab.doc.autoFormatSource) {
-      this.tryFormatYaml();
     }
     void this.commands.commitCellEdit(tab, 0, 0, this.textarea.value);
   }
@@ -275,7 +286,7 @@ export class YamlSheetView {
     }
     this.commitTimer = setTimeout(() => {
       this.commitTimer = null;
-      this.flushCommit();
+      this.flushCommit(true);
     }, COMMIT_DEBOUNCE_MS);
   }
 
@@ -309,19 +320,31 @@ export class YamlSheetView {
     if (this.textarea.value.trim() === '') {
       return true;
     }
-    let parsed: unknown;
-    try {
-      parsed = parseYaml(this.textarea.value);
-    } catch (error) {
-      this.commands.notify(
-        t('dialog.yamlEditor.invalidYaml', {
-          error: error instanceof YAMLParseError ? error.message : String(error),
-        }),
-        'error',
-      );
+    // Re-print the parsed documents rather than their values, so comments,
+    // an empty value (`aaa:`), `~`, quoting and number spellings stay as
+    // written; only indentation and spacing are normalized.
+    const documents = parseAllDocuments(this.textarea.value);
+    if (!Array.isArray(documents)) {
+      // Only comments or directives: nothing to format.
+      return true;
+    }
+    const error = documents.flatMap((doc) => doc.errors)[0];
+    if (error) {
+      this.commands.notify(t('dialog.yamlEditor.invalidYaml', { error: error.message }), 'error');
       return false;
     }
-    const formatted = stringifyYaml(parsed);
+    for (const doc of documents) {
+      // Lay non-empty flow collections (`[1, 2]`, `{a: 1}`) out as blocks,
+      // one item per line, as Format always has.
+      visit(doc, {
+        Collection(_, node) {
+          if (node.items.length > 0) {
+            node.flow = false;
+          }
+        },
+      });
+    }
+    const formatted = documents.map((doc) => doc.toString()).join('');
     if (formatted !== this.textarea.value) {
       this.textarea.value = formatted;
       this.renderPreview();

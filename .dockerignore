@@ -9,5 +9,6 @@ compose.yaml
 wasm/target
 wasm/pkg
 dist-hosted
+dist-minimal
 landing
 .claude/worktrees

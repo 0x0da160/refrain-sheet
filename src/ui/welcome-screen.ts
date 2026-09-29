@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isCommandAvailable, isMinimalEdition } from '../app/edition';
 import { FilePlus, FilePlus2, FolderClock, FolderOpen } from 'lucide';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -76,7 +77,10 @@ export class WelcomeScreen {
       // one <h1> for heading semantics; sized via width/height attributes so
       // it never shifts layout, and it follows the light/dark theme.
       el('h1', { className: 'm-0' }, [createAppLogotype('welcome-logotype block', 44)]),
-      el('p', { className: 'm-0 text-dim', text: t('app.subtitle') }),
+      el('p', {
+        className: 'm-0 text-dim',
+        text: t(isMinimalEdition() ? 'app.subtitleMinimal' : 'app.subtitle'),
+      }),
       // Equal-width buttons: one column in the phone layout, one row of
       // equal columns above it (`desktop:`, tailwind-token-bridge.css).
       el(
@@ -85,7 +89,7 @@ export class WelcomeScreen {
           className:
             'mt-(--space-2) mb-(--space-0-5) grid gap-(--space-2) desktop:grid-flow-col desktop:auto-cols-fr',
         },
-        [open, create, createCsv],
+        isCommandAvailable('file.new') ? [open, create, createCsv] : [open, createCsv],
       ),
       ...(this.commands.isEnabled('file.openRecent') ? [recent] : []),
       el('p', {

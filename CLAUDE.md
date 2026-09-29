@@ -52,6 +52,9 @@ GitHub Actions runners instead use `actions/setup-node` + `npm ci --ignore-scrip
 | Rebuild embedded WASM        | `npm run build:wasm` (only when `wasm/` changes)                                     |
 | Build the landing site       | `npm run build:landing` (add `-- https://refrain-sheet.com/` for the production URL) |
 | Self-contained dist check    | `npm run check:dist`                                                                 |
+| Build the minimal edition    | `npm run build:minimal` (CSV-only edition → `dist-minimal/`; `src/app/edition.ts`)   |
+| Minimal dist check           | `npm run check:dist:minimal`                                                         |
+| Minimal edition UI check     | `npm run ui:check:minimal` (needs `dist/` and `dist-minimal/`; same saved bytes)     |
 | Version consistency          | `npm run check:versions`                                                             |
 | Headless-browser UI check    | `npm run ui:check` (requires `dist/`; confirms the built app loads; CI runs it)      |
 | Changelog gate (PR CI only)  | `npm run check:changelog`                                                            |

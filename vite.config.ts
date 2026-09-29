@@ -15,6 +15,8 @@ import { assertBuildMode, buildCsp } from './scripts/lib/csp.mjs';
  *
  *   vite build                → offline, dist/        (file:// + release ZIP)
  *   vite build --mode hosted  → hosted,  dist-hosted/ (app.refrain-sheet.com)
+ *   vite build --mode minimal → offline, dist-minimal/ (the CSV-only minimal
+ *                               edition: src/app/edition.ts)
  *
  * The two policies are byte-identical today. The split exists so that a future
  * hosted-only CSP relaxation for the opt-in cloud sync described in
@@ -48,11 +50,14 @@ export default defineConfig(({ command, mode }) => {
       // entirely (see src/app/commands/index.ts). Only `vite build` in offline mode;
       // dev and Vitest keep it false so the Drive code stays testable.
       __OFFLINE_BUILD__: JSON.stringify(command === 'build' && buildMode === 'offline'),
+      // The CSV-only minimal edition (src/app/edition.ts): offline policy,
+      // its own output directory. Dev and Vitest keep the full edition.
+      __MINIMAL_BUILD__: JSON.stringify(command === 'build' && mode === 'minimal'),
       __DRIVE_CLIENT_ID__: hostedEnv('VITE_GOOGLE_OAUTH_CLIENT_ID'),
       __DRIVE_API_KEY__: hostedEnv('VITE_GOOGLE_DRIVE_API_KEY'),
     },
     build: {
-      outDir: buildMode === 'hosted' ? 'dist-hosted' : 'dist',
+      outDir: buildMode === 'hosted' ? 'dist-hosted' : mode === 'minimal' ? 'dist-minimal' : 'dist',
       target: 'es2020',
       modulePreload: false,
       cssCodeSplit: false,

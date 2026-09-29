@@ -26,6 +26,7 @@ export default tseslint.config(
     ignores: [
       'dist/',
       'dist-hosted/',
+      'dist-minimal/',
       'node_modules/',
       'coverage/',
       'src/generated/',

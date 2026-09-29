@@ -88,17 +88,21 @@ Google Drive sync.
 The two artifacts are built separately so a hosted-only CSP relaxation can
 never reach the offline build or the release ZIP:
 
-| Build                  | Output         | Ships as                                  |
-| ---------------------- | -------------- | ----------------------------------------- |
-| `npm run build`        | `dist/`        | the `file://` build and the release ZIP   |
-| `npm run build:hosted` | `dist-hosted/` | the GitHub Pages deploy (the hosted site) |
+| Build                   | Output          | Ships as                                  |
+| ----------------------- | --------------- | ----------------------------------------- |
+| `npm run build`         | `dist/`         | the `file://` build and the release ZIP   |
+| `npm run build:hosted`  | `dist-hosted/`  | the GitHub Pages deploy (the hosted site) |
+| `npm run build:minimal` | `dist-minimal/` | not shipped yet: the CSV-only edition     |
 
 `scripts/lib/csp.mjs` is the single source of truth for the policy — one CSP
 per build mode, substituted into `index.html`'s `__CSP__` placeholder by
 `vite.config.ts`. `npm run check:dist` validates `dist/` in offline mode
 (requires `connect-src 'none'`, no `http:`/`https:` source anywhere);
 `npm run check:dist:hosted` validates `dist-hosted/` in hosted mode
-(rejects any origin absent from `HOSTED_ALLOWLIST`). Both assert the built
+(rejects any origin absent from `HOSTED_ALLOWLIST`). The CSV-only minimal
+edition (`src/app/edition.ts`) uses the offline policy, and
+`npm run check:dist:minimal` validates `dist-minimal/` exactly as `dist/`.
+All assert the built
 CSP matches `scripts/lib/csp.mjs` byte-for-byte. `.github/workflows/ci.yml` and
 `.github/workflows/release.yml` build and validate both artifacts on every
 change.

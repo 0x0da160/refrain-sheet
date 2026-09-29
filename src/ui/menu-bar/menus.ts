@@ -26,6 +26,8 @@ import {
   ZoomIn,
 } from 'lucide';
 import type { CommandId } from '../../app/commands';
+import { isCommandAvailable } from '../../app/edition';
+import { pruneItems } from './prune';
 import type { Arrangement } from '../../core/workbook/object-arrange';
 import { getLocale } from '../../app/i18n';
 import { getShiftPasteMode, SHEET_ZOOM_LEVELS, type ShiftPasteMode } from '../../app/settings';
@@ -150,7 +152,14 @@ function driveMenuItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
   ];
 }
 
+/** The menus, without any command this edition leaves out (and any menu left empty). */
 export function defaultMenus(checks: MenuChecks): MenuDef[] {
+  return allMenus(checks)
+    .map((menu) => ({ ...menu, items: pruneItems(menu.items, isCommandAvailable) }))
+    .filter((menu) => menu.items.length > 0);
+}
+
+function allMenus(checks: MenuChecks): MenuDef[] {
   return [
     fileMenu(checks),
     editMenu(),

@@ -196,6 +196,18 @@ jobs:
       - name: Headless-browser UI check
         run: npm run ui:check
 
+      # The CSV-only minimal edition (src/app/edition.ts): the offline policy in
+      # its own dist-minimal/. The check opens the same CSV in both editions,
+      # edits and saves it, and fails unless the saved bytes are identical.
+      - name: Build the minimal edition
+        run: npm run build:minimal
+
+      - name: Validate minimal distribution
+        run: npm run check:dist:minimal
+
+      - name: Minimal edition UI check
+        run: npm run ui:check:minimal
+
       # The hosted artifact (app.refrain-sheet.com) is built from the same
       # sources and differs only in its Content-Security-Policy, which
       # scripts/lib/csp.mjs emits per mode. The two policies are byte-identical

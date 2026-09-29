@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isMinimalEdition } from './edition';
 
 export interface OpenedFile {
   name: string;
@@ -114,8 +115,9 @@ export async function pickFiles(doc: Document, maxSize: number): Promise<OpenedF
     // still accepted so existing files open (then re-save as `.rsf`). `.xlsx`
     // imports as a new `.rsf` tab; Markdown, JSON, YAML, and text files open
     // in their editors (see `FileOpening.openFile`).
-    input.accept =
-      '.csv,.tsv,.txt,.rsf,.rcsv,.xlsx,.json,.md,.markdown,.yaml,.yml,text/csv,text/tab-separated-values,text/plain,text/markdown,application/json,application/yaml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    input.accept = isMinimalEdition()
+      ? '.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain'
+      : '.csv,.tsv,.txt,.rsf,.rcsv,.xlsx,.json,.md,.markdown,.yaml,.yml,text/csv,text/tab-separated-values,text/plain,text/markdown,application/json,application/yaml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     input.style.display = 'none';
     input.addEventListener('change', () => {
       const files = Array.from(input.files ?? []);

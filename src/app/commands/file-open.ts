@@ -5,6 +5,7 @@
  * Markdown/JSON/YAML/text files that open in an editor) into a tab. Validation problems are shown before anything opens; a file already
  * open in another tab is activated instead of opened twice.
  */
+import { isMinimalEdition } from '../edition';
 import { isCsv } from '../../core/editor-document';
 import { initCsvEngine } from '../../core/csv/csv-engine';
 import { detectEncoding, type EncodingDetection } from '../../core/csv/encoding';
@@ -155,12 +156,31 @@ export class FileOpening {
     return true;
   }
 
+  /**
+   * The CSV-only edition opens CSV and plain text as a table and turns away
+   * workbooks (`.rsf`, `.xlsx`) and Markdown, JSON and YAML files, saying so.
+   * True when `file` was turned away.
+   */
+  private refuseInMinimal(file: OpenedFile): boolean {
+    const lower = file.name.toLowerCase();
+    const kind = textFileKindOf(file.name);
+    const workbook = [RSF_EXTENSION, RSF_LEGACY_EXTENSION, XLSX_EXTENSION].some((ext) => lower.endsWith(ext));
+    if (!workbook && (kind === null || kind === 'text')) {
+      return false;
+    }
+    this.core.ui.notify(t('notify.minimalCsvOnly', { name: file.name }), 'error');
+    return true;
+  }
+
   private async openFile(file: OpenedFile, opts: { confirmNonCsv: boolean }): Promise<void> {
     if (await this.refuseTooLarge(file)) {
       return;
     }
 
     const lowerName = file.name.toLowerCase();
+    if (isMinimalEdition() && this.refuseInMinimal(file)) {
+      return;
+    }
     if (lowerName.endsWith(RSF_EXTENSION) || lowerName.endsWith(RSF_LEGACY_EXTENSION)) {
       if (await this.alreadyOpen(file)) {
         return;
@@ -175,7 +195,7 @@ export class FileOpening {
     }
 
     const textKind = textFileKindOf(file.name);
-    if (textKind) {
+    if (textKind && !isMinimalEdition()) {
       if (await this.alreadyOpen(file)) {
         return;
       }

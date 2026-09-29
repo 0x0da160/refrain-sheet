@@ -231,12 +231,25 @@ export type SortDialogResult = { action: 'apply'; headerRow: boolean; keys: Sort
 export interface DataValidationDialogInput {
   /** Human-readable A1 range the rule would apply to, e.g. "A1:A20". */
   rangeLabel: string;
-  /** The rule already covering this exact range, or null when creating one. */
+  /** The rule already covering this exact range (or these whole columns), or null when creating one. */
   existing: ValidationRule | null;
+  /** Whether the existing rule makes its cells required. */
+  required?: boolean;
+  /**
+   * The whole-column choice: the selected columns' label (e.g. "B:C"),
+   * whether the rule starts as a column rule, and whether it skips a header row.
+   */
+  columns?: { label: string; checked: boolean; headerRow: boolean };
 }
 
-/** What the data-validation dialog resolved to (null = cancelled, nothing changes). */
-export type DataValidationDialogResult = { action: 'apply'; rule: ValidationRule } | { action: 'clear' };
+/**
+ * What the data-validation dialog resolved to (null = cancelled, nothing
+ * changes). `columns` is set when the rule covers the selected columns to the
+ * last row (a column rule), starting below the header row when `headerRow`.
+ */
+export type DataValidationDialogResult =
+  | { action: 'apply'; rule: ValidationRule; required?: boolean; columns?: { headerRow: boolean } }
+  | { action: 'clear' };
 
 /**
  * Everything the conditional-formatting dialog needs to edit the selected

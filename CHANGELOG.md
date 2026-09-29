@@ -46,6 +46,14 @@ really is internal, rather than inventing an entry to satisfy it.
   result. `&` binds more loosely than `+ -` and more tightly than the
   comparisons, so `=1+2&3` gives `33`. Formulas using `&` used to show
   an error.
+- **Column rules and more kinds of data validation.** Data > Data
+  Validation… can now require whole numbers, limit text length, or accept
+  only dates (`YYYY-MM-DD`, optionally between two days), and can refuse
+  blank cells. Ticking "Apply to all of columns" makes the rule cover
+  those columns to the last row, below the header if you like, including
+  rows added later. A refused value now says why.
+- **Data > Check Data…** lists every cell whose value breaks its rule, on
+  the sheet or across the file, and goes to a cell when you select it.
 
 ### Changed
 

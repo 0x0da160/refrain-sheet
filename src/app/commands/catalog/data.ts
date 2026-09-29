@@ -77,5 +77,12 @@ export const DATA_COMMANDS = {
     enabled: hasSelection,
     run: ({ tab, commands }) => tab && commands.validationDialog(tab),
   },
+  // Opens only, like View > Comments Panel; on a CSV tab the panel explains
+  // that rules need an RSF spreadsheet.
+  'data.checkValidation': {
+    run: (ctx) => {
+      ctx.commands.panelActions?.openValidationCheck();
+    },
+  },
   'data.comment': { enabled: hasSelection, run: ({ tab, commands }) => tab && commands.commentDialog(tab) },
 } satisfies Record<string, CommandSpec>;

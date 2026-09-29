@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 import type { NotifyPort, RangeDialogsPort } from '../ui-port';
 import {
+  findColumnValidation,
+  replacesValidation,
   validateValidation,
-  validationRangesEqual,
   MAX_VALIDATION_RULES,
   type CellValidation,
 } from '../../core/workbook/data-validation';
-import { cellLabel } from '../../core/formula';
+import { cellLabel, columnLabel } from '../../core/formula';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
@@ -64,11 +65,19 @@ export class ValidationCommands {
     if (!range) {
       return false;
     }
-    const existing = this.state.validationForRange(tab, range);
-
+    const existing =
+      this.state.validationForRange(tab, range) ??
+      findColumnValidation(doc.validations, range.left, range.right);
+    const wholeColumns = range.top === 0 && range.bottom === doc.rowCount - 1;
     const input: DataValidationDialogInput = {
       rangeLabel: `${cellLabel(range.top, range.left)}:${cellLabel(range.bottom, range.right)}`,
       existing: existing?.rule ?? null,
+      required: existing?.required === true,
+      columns: {
+        label: `${columnLabel(range.left)}:${columnLabel(range.right)}`,
+        checked: existing ? existing.toEnd === true : wholeColumns,
+        headerRow: existing?.toEnd === true ? existing.top > 0 : true,
+      },
     };
     const sheet = doc.activeSheet;
     return applyWhileOpen<DataValidationDialogResult>(
@@ -78,19 +87,37 @@ export class ValidationCommands {
           return false; // replaced document, or the user switched away: nothing changes
         }
         if (result.action === 'clear') {
-          const applied = this.state.clearValidation(tab, range);
+          const applied = existing !== null && this.state.clearValidation(tab, existing);
           if (applied) {
             this.ui.notify(t('notify.validationCleared'), 'info');
           }
           return applied;
         }
 
-        const candidate = validateValidation({ ...range, rule: result.rule }, doc.rowCount, doc.columnCount);
+        // A column rule runs from the first row (below the header) to the last.
+        const target = result.columns
+          ? {
+              top: result.columns.headerRow ? 1 : 0,
+              left: range.left,
+              bottom: doc.rowCount - 1,
+              right: range.right,
+            }
+          : range;
+        const candidate = validateValidation(
+          {
+            ...target,
+            rule: result.rule,
+            ...(result.required === true ? { required: true } : {}),
+            ...(result.columns ? { toEnd: true } : {}),
+          },
+          doc.rowCount,
+          doc.columnCount,
+        );
         if (!candidate) {
           await this.ui.showMessage(t('dialog.dataValidation.title'), t('dialog.dataValidation.invalid'));
           return false;
         }
-        const replacingExisting = doc.validations.some((v) => validationRangesEqual(v, range));
+        const replacingExisting = doc.validations.some((v) => replacesValidation(candidate, v));
         if (!replacingExisting && doc.validations.length >= MAX_VALIDATION_RULES) {
           await this.ui.showMessage(t('dialog.dataValidation.title'), t('dialog.dataValidation.tooMany'));
           return false;

@@ -89,10 +89,12 @@ export class Commands {
     goToCell: (row: number, col: number) => void;
   } | null = null;
 
-  /** Set by main.ts so the View menu can open the comments panel. */
+  /** Set by main.ts so the menus can open the comments and Check Data panels. */
   panelActions: {
     /** Open the cell comments panel (only its header × closes it). */
     openComments: () => void;
+    /** Open the Check Data panel (values that break a data-validation rule). */
+    openValidationCheck: () => void;
   } | null = null;
 
   /**

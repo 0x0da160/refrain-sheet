@@ -174,15 +174,26 @@ the user is warned, while the rest of the file loads.
 ### Validations
 
 `validations` lists the worksheet's data-validation rules in the order they
-were applied; where ranges overlap, the later rule wins. Each is
-`{ "range": "B2:C10", "list": ["Yes", "No"] }` (the cell must be one of
-the values) or `{ "range": "B2:C10", "min": 0, "max": 100 }` (the cell must
-be a number in the range; either bound may be left out, not both). `range`
-is two A1 references as the writer spells them (upper case, no `$`), top
-left first, inside the worksheet. A list has 1–500 non-empty values of at
-most 2,000 characters. Anything else, or the key on a source worksheet, is
-`bad-shape`; more than 64 rules or 500 values is `too-large`. A blank cell
-always passes. Releases older than this key ignore it and apply no rules.
+were applied; where ranges overlap, the later rule wins. Each entry has a
+`range` (two A1 references as the writer spells them, upper case, no `$`,
+top left first, inside the worksheet) and one kind of rule:
+
+| Entry                                                         | The cell must be                                           |
+| ------------------------------------------------------------- | ---------------------------------------------------------- |
+| `"list": ["Yes", "No"]`                                       | one of the values (1–500 non-empty, at most 2,000 chars)   |
+| no `type`; `"min"`, `"max"`, `"integer": true` (all optional) | a number, within the bounds; a whole number with `integer` |
+| `"type": "textLength"`, `"min"` and/or `"max"`                | text of that many characters (whole numbers, 0–1,000,000)  |
+| `"type": "date"`, `"min"`, `"max"` (optional)                 | a date written `YYYY-MM-DD`, within the bounds (same form) |
+
+Two flags may be added to any entry, each only as `true`: `"required"` (a
+blank cell fails; otherwise a blank always passes) and `"toEnd"` (a column
+rule: it also covers every row below the range, so rows added after the
+last one are covered). A bound must not be above the other. Anything
+else — an unknown `type`, a `list` with `type`/`min`/`max`/`integer`,
+`integer` on a non-number rule, a flag set to anything but `true`, or the
+key on a source worksheet — is `bad-shape`; more than 64 rules or 500
+values is `too-large`. Releases older than this key ignore it and apply no
+rules.
 
 ## History
 

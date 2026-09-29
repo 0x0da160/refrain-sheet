@@ -91,6 +91,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'data.runSqlQuery',
   'data.compareDiff',
   'data.validation',
+  'data.checkValidation',
   'data.comment',
   'worksheet.add',
   'worksheet.addMarkdown',

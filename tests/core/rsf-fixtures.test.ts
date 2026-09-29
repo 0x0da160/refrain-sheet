@@ -290,6 +290,40 @@ const cases: FixtureCase[] = [
       ],
     },
   },
+  {
+    // Column-schema rules: whole numbers, text length, dates, required, to the last row.
+    file: 'validation-schema.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: {
+      delimiter: ',',
+      activeSheetId: 's1',
+      sheets: [
+        {
+          ...grid,
+          validations: [
+            {
+              top: 1,
+              left: 0,
+              bottom: 3,
+              right: 0,
+              rule: { kind: 'number', min: 1, max: null, integer: true },
+              required: true,
+              toEnd: true,
+            },
+            { top: 1, left: 1, bottom: 3, right: 1, rule: { kind: 'textLength', min: null, max: 40 } },
+            {
+              top: 0,
+              left: 2,
+              bottom: 3,
+              right: 2,
+              rule: { kind: 'date', min: '2026-01-01', max: '2026-12-31' },
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 function loadFixture(file: string, encode: () => Uint8Array): Uint8Array {

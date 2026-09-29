@@ -8,7 +8,12 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
-import { Commands, type DataValidationDialogResult, type UiPort } from '../../src/app/commands';
+import {
+  Commands,
+  type DataValidationDialogInput,
+  type DataValidationDialogResult,
+  type UiPort,
+} from '../../src/app/commands';
 import {
   checkValidationValue,
   findValidation,
@@ -235,9 +240,11 @@ describe('validateValidation', () => {
     expect(validateValidation({ ...base, rule: { kind: 'list', values: ['a', ''] } }, 4, 4)).toBeNull();
   });
 
-  it('rejects a number rule with both bounds null, or min > max', () => {
+  it('accepts a number rule with no bound (any number) but rejects min > max', () => {
     const base = { top: 0, left: 0, bottom: 1, right: 1 };
-    expect(validateValidation({ ...base, rule: { kind: 'number', min: null, max: null } }, 4, 4)).toBeNull();
+    expect(
+      validateValidation({ ...base, rule: { kind: 'number', min: null, max: null } }, 4, 4),
+    ).not.toBeNull();
     expect(validateValidation({ ...base, rule: { kind: 'number', min: 10, max: 1 } }, 4, 4)).toBeNull();
   });
 });
@@ -502,5 +509,73 @@ describe('data validation command flow', () => {
     expect(doc.validations).toHaveLength(2);
     expect(state.editCell(tab, 0, 0, 'a')).toBe(true);
     expect(state.editCell(tab, 1, 0, '3')).toBe(true);
+  });
+});
+
+describe('column schema through the dialog', () => {
+  it('applies a required whole-number rule to entire columns below the header, covering rows added later', async () => {
+    const result: DataValidationDialogResult = {
+      action: 'apply',
+      rule: { kind: 'number', min: 0, max: null, integer: true },
+      required: true,
+      columns: { headerRow: true },
+    };
+    const ui = stubUi({ chooseDataValidation: vi.fn(async () => result) });
+    const { state, commands, tab, doc } = sheet([['Qty'], ['1'], ['2']], ui);
+    state.setSelection(tab, { row: 1, col: 0 }, { row: 1, col: 0 });
+    expect(await commands.validationDialog(tab)).toBe(true);
+    const input = vi.mocked(ui.chooseDataValidation).mock.calls[0][0];
+    expect(input.columns).toEqual({ label: 'A:A', checked: false, headerRow: true });
+    expect(doc.validations).toEqual([
+      { top: 1, left: 0, bottom: 2, right: 0, rule: result.rule, required: true, toEnd: true },
+    ]);
+    expect(state.insertRows(tab, 3, 1)).toBe(true); // a row added at the end
+    expect(state.editCell(tab, 3, 0, '1.5')).toBe(false);
+    expect(state.editCell(tab, 3, 0, '4')).toBe(true);
+    expect(state.editCell(tab, 0, 0, 'Quantity')).toBe(true); // the header row stays free
+    expect(state.editCell(tab, 1, 0, '')).toBe(false); // required
+  });
+
+  it('reopens a column rule from any cell in its columns, and applying again replaces it', async () => {
+    const first: DataValidationDialogResult = {
+      action: 'apply',
+      rule: { kind: 'list', values: ['a'] },
+      columns: { headerRow: false },
+    };
+    const second: DataValidationDialogResult = {
+      action: 'apply',
+      rule: { kind: 'textLength', min: null, max: 2 },
+      columns: { headerRow: true },
+    };
+    const choose = vi
+      .fn(async (_input: DataValidationDialogInput) => first)
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second);
+    const ui = stubUi({ chooseDataValidation: choose });
+    const { state, commands, tab, doc } = sheet([['a'], ['a'], ['a']], ui);
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 0 });
+    await commands.validationDialog(tab);
+    state.setSelection(tab, { row: 2, col: 0 }, { row: 2, col: 0 });
+    await commands.validationDialog(tab);
+    const reopened = choose.mock.calls[1][0];
+    expect(reopened.existing).toEqual(first.rule);
+    expect(reopened.columns).toEqual({ label: 'A:A', checked: true, headerRow: false });
+    expect(doc.validations).toHaveLength(1);
+    expect(doc.validations[0]).toMatchObject({ top: 1, rule: second.rule, toEnd: true });
+  });
+
+  it('names the reason when a value is refused', () => {
+    const { state, tab } = sheet([['']]);
+    const announced: string[] = [];
+    state.announce = (message) => announced.push(message);
+    state.setValidation(tab, {
+      top: 0,
+      left: 0,
+      bottom: 0,
+      right: 0,
+      rule: { kind: 'date', min: '2026-01-01', max: null },
+    });
+    expect(state.editCell(tab, 0, 0, '2025-12-31')).toBe(false);
+    expect(announced[announced.length - 1]).toContain('the date is before the earliest allowed');
   });
 });

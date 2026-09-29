@@ -165,12 +165,11 @@ export const SHEET_COMMANDS = {
     enabled: ({ tab }) => tab !== null && tab.selection !== null && isGridSurface(tab),
     run: (ctx) => ctx.commands.gridActions?.autoFitSelectedColumns(),
   },
-  // Filter and Sort stay clickable on a CSV tab: running one explains that it
-  // needs an RSF spreadsheet document and offers to convert right there.
+  // Filter and Sort work on a CSV tab too, on screen only: the file is saved unchanged.
   'sheet.filter': { enabled: hasSelection, run: ({ tab, commands }) => tab && commands.filterDialog(tab) },
   'sheet.filterClear': withTab(
     (ctx, tab) => ctx.commands.clearAllFilters(tab),
-    (_, tab) => isWorkbook(tab.doc) && tab.doc.filter !== null,
+    (_, tab) => tab.doc.filter !== null,
   ),
   'sheet.headerFilter': {
     enabled: (ctx) => hasSelection(ctx) || ctx.commands.hasFilter(ctx.tab),
@@ -179,7 +178,7 @@ export const SHEET_COMMANDS = {
   'sheet.sort': { enabled: hasSelection, run: ({ tab, commands }) => tab && commands.sortDialog(tab) },
   'sheet.sortClear': withTab(
     (ctx, tab) => ctx.commands.clearSort(tab),
-    (_, tab) => isWorkbook(tab.doc) && tab.doc.sort !== null,
+    (_, tab) => tab.doc.sort !== null,
   ),
   // Recalculation drops every cached result and advances the clock the
   // volatile functions read. It changes no cell input, so the document does

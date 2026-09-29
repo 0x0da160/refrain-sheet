@@ -85,8 +85,6 @@ export type ConvertReason =
   | 'structure'
   | 'fill'
   | 'command'
-  | 'filter'
-  | 'sort'
   | 'validation'
   | 'conditionalFormat'
   | 'comment'

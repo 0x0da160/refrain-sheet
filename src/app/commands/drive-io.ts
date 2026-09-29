@@ -178,7 +178,7 @@ export class DriveIoCommands {
           encoding: tab.doc.encoding,
           delimiter: tab.doc.delimiter,
         });
-        this.state.setBaseline(tab, baseline);
+        this.state.setBaseline(tab, baseline, true);
       } else {
         this.state.markTabSaved(tab);
       }

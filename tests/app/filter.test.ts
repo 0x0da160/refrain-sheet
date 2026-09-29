@@ -23,6 +23,7 @@ import {
 import { decodeRsf, encodeRsf, rsfFromTree, rsfTree, type RsfData } from '../rsf-single-sheet';
 import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { doc as csvDoc } from '../helpers';
+import { KEEP_SAVE_OPTIONS, serializeDocument } from '../../src/core/csv/serializer';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   return {
@@ -360,29 +361,50 @@ describe('filter command flow', () => {
     expect(state.isRowHidden(tab, 2)).toBe(true);
   });
 
-  it('CSV documents offer the explicit RSF conversion, then continue into the filter dialog', async () => {
-    const ui = stubUi({ confirmConvert: vi.fn(async () => true) });
+  it('filters a CSV table on screen only: it stays a CSV and saves the same bytes', async () => {
+    const applied: FilterDialogResult = {
+      action: 'apply',
+      headerRow: true,
+      column: textCol(1, [{ kind: 'number', op: 'numGreaterEq', value: 10 }]),
+    };
+    const ui = stubUi({ chooseFilter: vi.fn(async () => applied) });
     const state = new AppState();
     const commands = new Commands(state, ui, document);
-    const tab = state.addTab('t.csv', csvDoc('a,b\n1,2\n'), null);
-    state.setSelection(tab, { row: 0, col: 0 }, null);
-    await commands.filterDialog(tab);
-    expect(ui.confirmConvert).toHaveBeenCalledWith('filter', 't.csv');
-    expect(ui.chooseFilter).toHaveBeenCalled();
-    expect(tab.doc.kind).toBe('rsf');
+    const source = 'name,qty\napple,10\nbanana,3\n';
+    const csv = csvDoc(source);
+    const tab = state.addTab('t.csv', csv, null);
+    state.setSelection(tab, { row: 1, col: 1 }, null);
+    expect(await commands.filterDialog(tab)).toBe(true);
+    expect(ui.confirmConvert).not.toHaveBeenCalled();
+    expect(tab.doc).toBe(csv);
+    expect(state.isRowHidden(tab, 2)).toBe(true);
+    expect(commands.hasFilter(tab)).toBe(true);
+    expect(csv.isDirty).toBe(false);
+    const saved = serializeDocument(csv, KEEP_SAVE_OPTIONS, false);
+    expect(saved.ok && new TextDecoder().decode(saved.bytes)).toBe(source);
+    // Saving keeps the filter on the saved table.
+    state.setBaseline(tab, csvDoc(source), true);
+    expect(tab.doc).not.toBe(csv);
+    expect(state.isRowHidden(tab, 2)).toBe(true);
+    // Clearing shows every row again; a CSV filter is not an undo step.
+    expect(commands.clearAllFilters(tab)).toBe(true);
+    expect(state.hiddenRows(tab)).toBeNull();
+    expect(tab.history.canUndo).toBe(false);
   });
 
-  it('declining the CSV -> RSF conversion offer leaves the document unchanged', async () => {
-    const ui = stubUi({ confirmConvert: vi.fn(async () => false) });
+  it('keeps a CSV filter when the table is converted to a workbook', async () => {
     const state = new AppState();
-    const commands = new Commands(state, ui, document);
-    const tab = state.addTab('t.csv', csvDoc('a,b\n1,2\n'), null);
-    state.setSelection(tab, { row: 0, col: 0 }, null);
-    const result = await commands.filterDialog(tab);
-    expect(result).toBe(false);
-    expect(ui.confirmConvert).toHaveBeenCalledWith('filter', 't.csv');
-    expect(ui.chooseFilter).not.toHaveBeenCalled();
-    expect(tab.doc.kind).toBe('csv');
+    const commands = new Commands(state, stubUi(), document);
+    const tab = state.addTab('t.csv', csvDoc('a\n1\n2\n'), null);
+    const filter = validateFilter(
+      { top: 0, left: 0, bottom: 2, right: 0, headerRow: true, columns: [textCol(0, [], ['1'])] },
+      3,
+      1,
+    )!;
+    expect(state.setFilter(tab, filter)).toBe(true);
+    const book = await commands.ensureRsf(tab, 'structure');
+    expect(book?.filter).toEqual(filter);
+    expect(state.isRowHidden(tab, 2)).toBe(true);
   });
 
   it('clear-all makes every row visible again (undoable)', () => {

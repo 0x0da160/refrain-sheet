@@ -395,14 +395,14 @@ export class WorksheetCommands {
     // behavior; Undo restores structure and filter together). The user is
     // told when that happened. An active sort is dropped the same way (see
     // `Worksheet.insertRows` etc.) but, being session-only view state, is not
-    // restored by undo. Neither exists on a plain CSV document.
-    const hadFilter = isWorkbook(doc) && doc.filter !== null;
-    const hadSort = isWorkbook(doc) && doc.sort !== null;
+    // restored by undo. A CSV table's are dropped too (the table is rebuilt).
+    const hadFilter = doc.filter !== null;
+    const hadSort = doc.sort !== null;
     const done = (applied: boolean): void => {
-      if (applied && hadFilter && isWorkbook(doc) && doc.filter === null) {
+      if (applied && hadFilter && tab.doc.filter === null) {
         this.ui.notify(t('notify.filterClearedByStructure'), 'info');
       }
-      if (applied && hadSort && isWorkbook(doc) && doc.sort === null) {
+      if (applied && hadSort && tab.doc.sort === null) {
         this.ui.notify(t('notify.sortClearedByStructure'), 'info');
       }
     };
@@ -472,16 +472,16 @@ export class WorksheetCommands {
     if (!doc) {
       return;
     }
-    const hadFilter = isWorkbook(doc) && doc.filter !== null;
-    const hadSort = isWorkbook(doc) && doc.sort !== null;
+    const hadFilter = doc.filter !== null;
+    const hadSort = doc.sort !== null;
     const applied =
       axis === 'row'
         ? this.state.insertRows(tab, doc.rowCount, 1)
         : this.state.insertCols(tab, doc.columnCount, 1);
-    if (applied && hadFilter && isWorkbook(doc) && doc.filter === null) {
+    if (applied && hadFilter && tab.doc.filter === null) {
       this.ui.notify(t('notify.filterClearedByStructure'), 'info');
     }
-    if (applied && hadSort && isWorkbook(doc) && doc.sort === null) {
+    if (applied && hadSort && tab.doc.sort === null) {
       this.ui.notify(t('notify.sortClearedByStructure'), 'info');
     }
   }

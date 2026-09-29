@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { embedChartData } from '../../core/workbook/sheet-charts';
-import { activeSheetOf, isWorkbook, workbookOf } from '../../core/editor-document';
+import { activeSheetOf, isCsv, isWorkbook, workbookOf } from '../../core/editor-document';
 import {
   conditionalFormatRangesEqual,
   type CellConditionalFormat,
@@ -66,7 +66,7 @@ export class WorksheetsState {
    */
   hiddenRows(tab: Tab): Set<number> | null {
     const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.filter === null) {
+    if (doc.filter === null) {
       return null;
     }
     let hidden = this.hiddenRowsCache.get(doc.filter);
@@ -89,13 +89,19 @@ export class WorksheetsState {
 
   /**
    * Set (or clear, with null) the document's filter as one atomic, undoable
-   * history entry. Never touches cell values. Returns false when the tab is
-   * not an RSF document or the filter is unchanged.
+   * history entry. Never touches cell values. On a CSV document the filter
+   * is never saved, so it is set directly, like a sort: not undoable and the
+   * file stays unchanged. Returns false when the filter is unchanged.
    */
   setFilter(tab: Tab, filter: SheetFilter | null): boolean {
     const doc = tab.doc;
-    if (!isWorkbook(doc) || filtersEqual(doc.filter, filter)) {
+    if (filtersEqual(doc.filter, filter)) {
       return false;
+    }
+    if (isCsv(doc)) {
+      doc.filter = filter;
+      this.state.emit('doc');
+      return true;
     }
     const entry: HistoryEntry = {
       label: 'history.filter',
@@ -138,7 +144,7 @@ export class WorksheetsState {
    */
   sortOrder(tab: Tab): number[] | null {
     const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.sort === null) {
+    if (doc.sort === null) {
       return null;
     }
     let order = this.sortOrderCache.get(doc.sort);
@@ -178,7 +184,7 @@ export class WorksheetsState {
    */
   sortSlot(tab: Tab, row: number): number {
     const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.sort === null) {
+    if (doc.sort === null) {
       return row;
     }
     const sort = doc.sort;
@@ -198,15 +204,19 @@ export class WorksheetsState {
    * Set (or clear, with null) the active worksheet's sort. Session-only view
    * state — like the current selection — so this is a direct mutation, not an
    * undoable history entry: it never touches cell values, never marks the
-   * document dirty, and is never written to the saved container. Returns
-   * false when the tab is not an RSF document or the sort is unchanged.
+   * document dirty, and is never written to the saved container (nor to a
+   * CSV file). Returns false when the sort is unchanged.
    */
   setSort(tab: Tab, sort: SheetSort | null): boolean {
     const doc = tab.doc;
-    if (!isWorkbook(doc) || sortsEqual(doc.activeSheet.sort, sort)) {
+    if (sortsEqual(doc.sort, sort)) {
       return false;
     }
-    doc.activeSheet.sort = sort;
+    if (isCsv(doc)) {
+      doc.sort = sort;
+    } else {
+      doc.activeSheet.sort = sort;
+    }
     this.state.emit('doc');
     return true;
   }

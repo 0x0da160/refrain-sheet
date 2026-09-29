@@ -1017,8 +1017,6 @@
   "dialog.convert.structure": "To insert or delete rows or columns, convert \"{name}\" to an RSF spreadsheet first. A CSV file's row and column structure is never changed.",
   "dialog.convert.fill": "To fill values or formulas across cells, convert \"{name}\" to an RSF spreadsheet first.",
   "dialog.convert.command": "Converts \"{name}\" to an RSF spreadsheet, which supports formulas, inserting and deleting rows and columns, fill, saved column widths, and more. The current content, including unsaved changes, is converted.",
-  "dialog.convert.filter": "To use filters, convert \"{name}\" to an RSF spreadsheet first.",
-  "dialog.convert.sort": "To sort, convert \"{name}\" to an RSF spreadsheet first.",
   "dialog.convert.validation": "To use data validation, convert \"{name}\" to an RSF spreadsheet first.",
   "dialog.convert.conditionalFormat": "To use conditional formatting, convert \"{name}\" to an RSF spreadsheet first.",
   "dialog.convert.comment": "To add cell comments, convert \"{name}\" to an RSF spreadsheet first.",

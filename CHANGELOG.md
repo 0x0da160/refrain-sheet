@@ -40,6 +40,12 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Sort and filter a CSV without converting it.** Sheet > Filter & Sort
+  (Sort…, Filter…, and the filter buttons on the header row) now works on a
+  CSV file as it is. The sort and filter only change which rows show and in
+  what order: the file stays a CSV and saving writes the same bytes as
+  before. They stay on after saving, and carry over if you convert the file
+  to an RSF spreadsheet. On a CSV, a filter is not an undo step.
 - **Grid paper sheets.** Sheet > Add Grid Paper Sheet (or Grid paper sheet
   in the Add Sheet dialog) adds a sheet of small squares for forms, screen
   mock-ups and wireframes. Its squares stay empty: text goes in text boxes,

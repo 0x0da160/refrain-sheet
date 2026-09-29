@@ -143,7 +143,7 @@ export class GridMetrics {
   heightIndex(tab: Tab): RowHeightIndex {
     let index = this.rowHeights.get(tab.doc);
     const hidden = this.hiddenOf(tab);
-    const sort = isWorkbook(tab.doc) ? tab.doc.sort : null;
+    const sort = tab.doc.sort;
     if (
       !index ||
       this.indexZoom.get(tab.doc) !== tab.zoom ||

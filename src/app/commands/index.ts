@@ -126,12 +126,12 @@ export class Commands {
   ) {
     const ensureRsf = (tab: Tab, reason: ConvertReason) => this.ensureRsf(tab, reason);
     const fileIo = new FileIoCommands(state, ui, dom, () => this.gridActions);
-    const sort = new SortCommands(state, ui, ensureRsf);
+    const sort = new SortCommands(state, ui);
     this.parts = {
       fileIo,
       drive: __OFFLINE_BUILD__ ? null : new DriveIoCommands(state, ui, fileIo),
       sort,
-      filter: new FilterCommands(state, ui, ensureRsf, sort),
+      filter: new FilterCommands(state, ui, sort),
       validation: new ValidationCommands(state, ui, ensureRsf),
       conditionalFormat: new ConditionalFormatCommands(state, ui, ensureRsf),
       comment: new CommentCommands(state, ui, ensureRsf),
@@ -492,7 +492,7 @@ export class Commands {
 
   /** Whether the active tab's sheet shows filter buttons (has a filter range). */
   hasFilter(tab: Tab | null): boolean {
-    return tab !== null && isWorkbook(tab.doc) && tab.doc.filter !== null;
+    return tab !== null && tab.doc.filter !== null;
   }
 
   /**

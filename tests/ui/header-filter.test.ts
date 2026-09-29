@@ -14,6 +14,7 @@ import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { openColumnMenu } from '../../src/ui/column-menu';
 import { contextMenuEntries } from '../../src/ui/grid/context-menu-items';
 import { Grid } from '../../src/ui/grid';
+import { doc as csvDoc } from '../helpers';
 
 function stubUi(overrides: Partial<UiPort> = {}): UiPort {
   const target: Record<string | symbol, unknown> = {
@@ -300,6 +301,26 @@ describe('header-row filter buttons in the grid', () => {
     doc.setCell(3, 3, 'late');
     grid.refresh();
     expect(cols()).toEqual(['0', '1', '2', '3']);
+  });
+
+  it('show on a CSV table too, which stays a CSV', async () => {
+    document.body.textContent = '';
+    const ui = stubUi();
+    const state = new AppState();
+    const commands = new Commands(state, ui, document);
+    const csv = csvDoc(DATA.map((row) => row.slice(0, 3).join(',')).join('\n') + '\n');
+    const tab = state.addTab('t.csv', csv, null);
+    state.setSelection(tab, { row: 1, col: 0 }, null);
+    const grid = new Grid(state, commands);
+    Object.defineProperty(grid.element, 'clientHeight', { value: 400, configurable: true });
+    Object.defineProperty(grid.element, 'clientWidth', { value: 800, configurable: true });
+    document.body.append(grid.element);
+    expect(await commands.toggleHeaderFilter(tab)).toBe(true);
+    grid.refresh();
+    const buttons = grid.element.querySelectorAll<HTMLButtonElement>('.header-filter-button');
+    expect([...buttons].map((b) => b.dataset.headerfilter)).toEqual(['0', '1', '2']);
+    expect(ui.confirmConvert).not.toHaveBeenCalled();
+    expect(tab.doc).toBe(csv);
   });
 });
 

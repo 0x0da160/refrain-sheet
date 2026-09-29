@@ -35,7 +35,7 @@ export class EditingState {
     }
     if (isCsv(tab.doc)) {
       const field = tab.doc.getField(row, col);
-      if (!field) {
+      if (!field || this.guards.refuseSortedWrite(tab, [{ row, col }])) {
         return false;
       }
       const before = tab.doc.isEdited(row, col) ? tab.doc.getValue(row, col) : null;

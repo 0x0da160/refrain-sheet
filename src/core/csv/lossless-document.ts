@@ -13,6 +13,8 @@ import {
 } from './byte-csv-parser';
 import { getCsvEngine } from './csv-engine';
 import { decodeBytes, decodesCleanly, detectEncoding, type EncodingId } from './encoding';
+import type { SheetFilter } from '../workbook/filter';
+import type { SheetSort } from '../workbook/sort';
 
 export interface DocumentInterpretation {
   encoding: EncodingId;
@@ -78,6 +80,16 @@ export class LosslessDocument {
   readonly columnCount: number;
   /** Name of the engine that parsed this document ('wasm' or 'js'). */
   readonly engineName: string;
+  /**
+   * The table's sort and filter (Sheet > Filter & Sort). They only change
+   * which rows show and in what order: they are never written to the file,
+   * so saving gives the same bytes with or without them. Set through
+   * `AppState` (`setSort` / `setFilter`), never directly.
+   */
+  sort: SheetSort | null = null;
+  filter: SheetFilter | null = null;
+  /** Bumped on every value change, so views can cache per revision. */
+  private revision = 0;
 
   private readonly index: ParsedIndex;
   private readonly edits = new Map<string, string>();
@@ -326,14 +338,22 @@ export class LosslessDocument {
     } else {
       this.edits.set(`${row},${col}`, value);
     }
+    this.revision += 1;
   }
 
   revert(row: number, col: number): void {
     this.edits.delete(`${row},${col}`);
+    this.revision += 1;
   }
 
   revertAll(): void {
     this.edits.clear();
+    this.revision += 1;
+  }
+
+  /** Changes each time a value changes. */
+  get revisionCounter(): number {
+    return this.revision;
   }
 
   get editCount(): number {

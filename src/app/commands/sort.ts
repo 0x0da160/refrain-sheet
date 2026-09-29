@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { NotifyPort, RangeDialogsPort } from '../ui-port';
-import { isWorkbook } from '../../core/editor-document';
+import { sortFilterOwnerOf } from '../../core/editor-document';
 import {
   computeSortOrder,
   validateSort,
@@ -8,21 +8,21 @@ import {
   type SheetSort,
 } from '../../core/workbook/sort';
 import { cellLabel, columnLabel } from '../../core/formula';
-import type { RsfDocument } from '../../core/workbook/rsf-document';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
-import type { ConvertReason, SortDialogInput, SortDialogResult } from '../commands';
+import type { SortDialogInput, SortDialogResult } from '../commands';
 import { applyWhileOpen, LARGE_OP_CELLS, withBusyIfLarge } from './shared';
 
 /**
- * Sorting commands for RSF spreadsheet documents: the sort dialog flow and
+ * Sorting commands (RSF documents and CSV tables alike): the sort dialog flow and
  * applying/clearing a sort. Extracted from `Commands` as a cohesive slice,
  * mirroring `FilterCommands` (`src/app/commands/filter.ts`) — `Commands`
  * still exposes the same public methods, delegating to an instance of this
  * class. This is the `Commands`-layer dispatch code, distinct from (and a
  * consumer of) the pure sort logic in `src/core/workbook/sort.ts`.
  *
- * Unlike filtering, a sort is session-only view state (see `Worksheet.sort`):
+ * Unlike filtering in a workbook, a sort is session-only view state (see
+ * `Worksheet.sort`, and `LosslessDocument.sort` for a CSV table):
  * applying or clearing it is a direct state change, not a `HistoryEntry` — it
  * is never undoable and never marks the document dirty, exactly like the
  * live selection. Editing a cell inside the sorted range is refused by
@@ -33,7 +33,6 @@ export class SortCommands {
   constructor(
     private readonly state: AppState,
     private readonly ui: NotifyPort & RangeDialogsPort,
-    private readonly ensureRsf: (tab: Tab, reason: ConvertReason) => Promise<RsfDocument | null>,
   ) {}
 
   /** The active tab's sort display order, or null when unsorted. */
@@ -45,10 +44,8 @@ export class SortCommands {
    * Sheet > Filter & Sort > Sort… : open the sort dialog and apply the
    * result as one (non-undoable) view-state change.
    *
-   * RSF-only: on a plain CSV document the explicit-conversion dialog explains
-   * that sorting requires converting to RSF and offers to do so right there
-   * (`ensureRsf`, same pattern as paste/fill); declining leaves the document
-   * unchanged. The sort range is the existing sort's range when one is active;
+   * A CSV table is sorted in place, on screen only: it stays a CSV and is
+   * saved unchanged. The sort range is the existing sort's range when one is active;
    * otherwise the selected rectangle (when more than one cell is selected)
    * or the detected contiguous data block around the active cell — the same
    * range-detection rule `FilterCommands.filterDialog` uses — with the first
@@ -58,10 +55,7 @@ export class SortCommands {
     if (!tab.selection) {
       return false;
     }
-    const doc = await this.ensureRsf(tab, 'sort');
-    if (!doc) {
-      return false;
-    }
+    const doc = tab.doc;
     const existing = doc.sort;
 
     let top: number;
@@ -119,11 +113,11 @@ export class SortCommands {
       existingKeys: existing?.keys ?? [],
       hasActiveSort: existing !== null,
     };
-    const sheet = doc.activeSheet;
+    const sheet = sortFilterOwnerOf(doc);
     return applyWhileOpen<SortDialogResult>(
       (onApply) => this.ui.chooseSort(input, onApply),
       async (result) => {
-        if (tab.doc !== doc || this.state.activeTab !== tab || doc.activeSheet !== sheet) {
+        if (tab.doc !== doc || this.state.activeTab !== tab || sortFilterOwnerOf(doc) !== sheet) {
           return false; // replaced document, or the user switched away: nothing changes
         }
         if (result.action === 'clear') {
@@ -161,9 +155,6 @@ export class SortCommands {
    */
   async applySort(tab: Tab, sort: SheetSort, announce = true): Promise<boolean> {
     const doc = tab.doc;
-    if (!isWorkbook(doc)) {
-      return false;
-    }
     const rows = sort.bottom - sort.top + 1;
     const order = await withBusyIfLarge(rows > LARGE_OP_CELLS, this.ui, t('loading.sorting'), () =>
       computeSortOrder(sort, doc.rowCount, this.state.hiddenRows(tab), (r, c) => doc.getDisplayValue(r, c)),

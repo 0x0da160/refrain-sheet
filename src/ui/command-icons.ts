@@ -2,6 +2,7 @@
 import {
   ArrowDown,
   BringToFront,
+  ChartColumn,
   Circle,
   Minus,
   MoveUpRight,
@@ -207,6 +208,7 @@ export const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'insert.arrow': MoveUpRight,
   'insert.textBox': Type,
   'insert.image': ImageIcon,
+  'insert.chart': ChartColumn,
   'insert.objectList': Shapes,
   'object.bringToFront': BringToFront,
   'object.sendToBack': SendToBack,

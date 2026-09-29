@@ -52,7 +52,7 @@ export function createUiPort({ dialogs, toasts, loadingOverlay, findBar }: UiPor
     chooseFolder: (input) => dialogs.chooseFolder(input),
     promptSheetName: (mode, current, validate, kindOptions) =>
       dialogs.promptSheetName(mode, current, validate, kindOptions),
-    confirmDeleteSheet: (name, references) => dialogs.confirmDeleteSheet(name, references),
+    confirmDeleteSheet: (name, references, charts) => dialogs.confirmDeleteSheet(name, references, charts),
     chooseExportSheet: (sheets, currentId) => dialogs.chooseExportSheet(sheets, currentId),
     confirm: (title, message, ok, cancel) => dialogs.confirm(title, message, ok, cancel),
     showMessage: (title, message) => dialogs.showMessage(title, message),

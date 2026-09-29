@@ -16,6 +16,7 @@ import {
 } from './rsf-codec';
 import { DEFAULT_SHEET_NAME, MAX_WORKSHEETS } from './sheet-registry';
 import { DEFAULT_TIMEZONE, isValidTimeZone, localTimeZone } from './timezone';
+import { detachLostCharts } from './sheet-charts';
 import type { SheetImageEntry } from './sheet-images';
 import { VersionHistory } from './version-history';
 import { Workbook } from './workbook';
@@ -499,6 +500,7 @@ export class RsfDocument extends Workbook {
       }
       return entry;
     });
+    detachLostCharts(sheets);
     const images = this.keepShownImages(sheets);
     const content: RsfWorkbookData = {
       delimiter: this.delimiter,

@@ -612,7 +612,7 @@ export interface WorksheetDialogsPort {
    * display settings. `referenceCount` is how many formulas elsewhere in the
    * workbook point at it and will become #REF!, so the warning is truthful.
    */
-  confirmDeleteSheet(name: string, referenceCount: number): Promise<boolean>;
+  confirmDeleteSheet(name: string, referenceCount: number, chartCount: number): Promise<boolean>;
 }
 
 /** Panels and settings dialogs the command catalog opens directly. */

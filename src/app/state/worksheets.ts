@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { embedChartData } from '../../core/workbook/sheet-charts';
 import { activeSheetOf, isWorkbook, workbookOf } from '../../core/editor-document';
 import {
   conditionalFormatRangesEqual,
@@ -732,6 +733,8 @@ export class WorksheetsState {
         ops.push({ type: 'cells', changes, sheetId: target.id });
       }
     }
+    // Charts showing a deleted worksheet keep its data; undo puts their ranges back.
+    ops.push(...embedChartData(doc.sheets, ids, doc).map((kept) => ({ type: 'objects' as const, ...kept })));
     // Last first, so each recorded index is still right when the removals
     // replay in order, and when undo re-inserts them in reverse.
     for (const sheet of doomed.slice().reverse()) {

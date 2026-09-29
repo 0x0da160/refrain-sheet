@@ -11,12 +11,13 @@ import {
   type SheetObjectKind,
 } from '../../core/workbook/sheet-objects';
 import { imageSize, MAX_IMAGE_BYTES, sniffImageType } from '../../core/workbook/sheet-images';
+import { dataRegionAround } from '../../core/workbook/sheet-charts';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
 import type { ConvertReason, NotifyPort } from '../ui-port';
 
 /** The kinds Insert > Rectangle… makes (an image comes from a picture: {@link ObjectCommands.insertImage}). */
-export type ShapeKind = Exclude<SheetObjectKind, 'image'>;
+export type ShapeKind = Exclude<SheetObjectKind, 'image' | 'chart'>;
 
 /** A new object's size, in px at 100% zoom. */
 const DEFAULT_SIZE: Record<ShapeKind, { width: number; height: number }> = {
@@ -104,11 +105,46 @@ export class ObjectCommands {
     this.ui.notify(t('object.image.tooLarge', { max: Math.round(MAX_IMAGE_BYTES / 1024 / 1024) }), 'warn');
   }
 
+  /**
+   * Insert a bar chart of the selected cells (or, when one cell is
+   * selected, the filled block around it) and select it. Its range follows
+   * the cells; the object list changes its type, range and look.
+   */
+  async insertChart(tab: Tab): Promise<boolean> {
+    const doc = await this.ensureRsf(tab, 'command');
+    if (!doc || doc.activeSheet.kind !== 'grid') {
+      return false;
+    }
+    let range = this.state.selectedRange(tab) ?? { top: 0, left: 0, bottom: 0, right: 0 };
+    if (range.top === range.bottom && range.left === range.right) {
+      range = dataRegionAround(
+        (r, c) => doc.getValue(r, c) !== '',
+        range.top,
+        range.left,
+        doc.rowCount,
+        doc.columnCount,
+      );
+    }
+    if (
+      range.top === range.bottom &&
+      range.left === range.right &&
+      doc.getValue(range.top, range.left) === ''
+    ) {
+      this.ui.notify(t('object.chart.noData'), 'warn');
+      return false;
+    }
+    const source = { sheetId: doc.activeSheetId, ...range };
+    // Beside the data, not over it.
+    const at = { row: range.top, col: Math.min(range.right + 1, doc.columnCount - 1) };
+    return this.place(tab, 'chart', () => ({ width: 480, height: 300, chart: { type: 'bar', source } }), at);
+  }
+
   /** Add an object of `kind` near the active cell (fields from `fill`) and select it. */
   private async place(
     tab: Tab,
     kind: SheetObjectKind,
     fill: (doc: RsfDocument) => Pick<SheetObject, 'width' | 'height'> & Partial<SheetObject>,
+    at?: { row: number; col: number },
   ): Promise<boolean> {
     const doc = await this.ensureRsf(tab, 'command');
     if (!doc || doc.activeSheet.kind !== 'grid') {
@@ -119,7 +155,7 @@ export class ObjectCommands {
       this.ui.notify(t('object.tooMany', { max: MAX_SHEET_OBJECTS }), 'warn');
       return false;
     }
-    const cell = tab.selection ?? { row: 0, col: 0 };
+    const cell = at ?? tab.selection ?? { row: 0, col: 0 };
     const n = before.filter((o) => o.kind === kind).length + 1;
     const object: SheetObject = {
       id: nextObjectId(before),

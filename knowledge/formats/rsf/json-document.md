@@ -7,6 +7,7 @@ sources:
   - resource: ../../../src/core/workbook/history-delta.ts
   - resource: ../../../src/core/workbook/rsf-folders.ts
   - resource: ../../../src/core/workbook/rsf-sheet-extras.ts
+  - resource: ../../../src/core/workbook/rsf-sheet-charts.ts
   - resource: ../../../tests/core/rsf-codec.test.ts
   - resource: ../../../tests/fixtures/rsf/v1/features.rsf
 status: stable
@@ -218,7 +219,7 @@ a row height or column width changes.
 | -------------------------- | ------ | ---------------------------------------------------------------------------------- |
 | `id`                       | string | 1–32 of `A-Z a-z 0-9 _ -`, unique in the worksheet.                                |
 | `name`                     | string | Shown in the object list: 1–100 characters, no control characters.                 |
-| `kind`                     | string | `rect`, `ellipse`, `line`, `arrow`, `text` (a text box), or `image`.               |
+| `kind`                     | string | `rect`, `ellipse`, `line`, `arrow`, `text` (a text box), `image`, or `chart`.      |
 | `at`                       | string | The anchor cell, an A1 reference as the writer spells it, inside the worksheet.    |
 | `dx`, `dy`                 | number | The top-left corner's offset from the anchor cell's, in pixels at 100%, 0–1e5.     |
 | `width`, `height`          | number | The size in pixels at 100%, 0–100,000 (a straight line may be 0 either way).       |
@@ -237,6 +238,7 @@ a row height or column width changes.
 | `image`                    | string | Image only, required: the id of its picture in the file's `images`.                |
 | `crop`                     | object | Image only: `{ "top", "right", "bottom", "left" }`, percent cut off each side.     |
 | `aspectFree`               | `true` | Image only: resizing may change its width-to-height ratio.                         |
+| `chart`                    | object | Chart only, required: the chart's type, cells and settings (Charts, below).        |
 
 Anything else in a known key — a flag set to anything but `true`, an
 anchor spelled another way or outside the worksheet, a duplicate `id`, an
@@ -249,6 +251,44 @@ An image object's `crop` values are each at least 0 and below 100, with
 fills the object's box. An image object with `text`, an `image` that names
 no picture in `images`, or `image`, `crop` or `aspectFree` on another kind
 is `bad-shape`.
+
+### Charts
+
+A chart object's `chart` shows a bar, line or pie chart of one rectangular
+range of a grid worksheet, recalculated as its cells change.
+
+| Key            | Type   | Meaning                                                                                    |
+| -------------- | ------ | ------------------------------------------------------------------------------------------ |
+| `type`         | string | `bar`, `line` or `pie`.                                                                    |
+| `source`       | object | `{ "sheet": "<worksheet id>", "range": "A1:C5" }`: the cells shown.                        |
+| `data`         | object | `{ "categories": [string], "series": [{ "name"?: string, "values": [number or null] }] }`. |
+| `seriesInRows` | `true` | Each row of the range is a series (by default each column is).                             |
+| `title`        | string | The chart's title.                                                                         |
+| `legend`       | string | `bottom` or `none`. Left out: at the right.                                                |
+| `xTitle`       | string | The category axis title (bar and line).                                                    |
+| `yTitle`       | string | The value axis title (bar and line).                                                       |
+| `colors`       | array  | `#rrggbb` (lowercase) per series (pie: per slice), in order; the rest use defaults.        |
+| `dataLabels`   | `true` | Each value is shown next to its bar, point or slice.                                       |
+
+Exactly one of `source` and `data` is set. `source.range` is spelled as the
+writer spells it (upper case, no `$`, top-left corner first) and must lie
+inside `source.sheet`, which must be a grid worksheet of the file. `data` is
+what the chart keeps when the worksheet it showed is deleted: each series
+has one value (a finite number or `null`) per category. Texts are at most
+255 characters; at most 50 series (and colors) and 1,000 categories.
+
+The range follows its cells: inserting or deleting rows or columns in the
+worksheet moves, grows or shrinks it (the chart itself may be on any
+worksheet). Which cells are names is read from the range, not stored: the
+first row holds the series names when any of its cells (other than the
+top-left one) is text, and the first column the category names when any of
+its cells is text, or when the top-left cell is empty above series names.
+
+Anything else — an unknown `type` or `legend`, both or neither of `source`
+and `data`, a range spelled another way, outside its worksheet or on a
+worksheet the file does not hold, `text` on a chart object, or `chart` on
+another kind — is `bad-shape`. Charts arrived after `objects`, before any
+release that reads `objects`.
 
 ### Images
 

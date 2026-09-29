@@ -40,6 +40,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Charts on a sheet.** Insert > Chart draws a bar chart of the selected
+  cells (or of the filled block around the selected cell) beside them on an
+  RSF spreadsheet sheet. The chart updates as the cells change, and its
+  range follows rows and columns inserted or deleted in its sheet. The
+  object list switches it to a line or pie chart and changes its sheet and
+  range, whether each column or each row is a series, its title, axis
+  titles, legend, series colors and value labels. Deleting the sheet a
+  chart shows warns first; the chart then keeps the values it showed, and
+  undo brings the range back.
 - **Pictures on a sheet.** Insert > Image… places a PNG, JPEG, WebP or SVG
   picture at the selected cell of an RSF spreadsheet sheet, and Ctrl+V
   places a copied picture when the clipboard holds no text. A picture is

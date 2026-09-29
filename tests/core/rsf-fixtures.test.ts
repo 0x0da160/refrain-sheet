@@ -458,6 +458,72 @@ const cases: FixtureCase[] = [
       images: [{ id: 'p1', type: 'image/png', bytes: FIXTURE_PNG }],
     },
   },
+  {
+    // Charts (`chart` on a chart object): one showing a range of another
+    // worksheet, one keeping its own data (its worksheet was deleted).
+    file: 'charts.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: {
+      delimiter: ',',
+      activeSheetId: 's1',
+      sheets: [
+        grid,
+        {
+          id: 's2',
+          name: 'Charts',
+          rowCount: 20,
+          columnCount: 10,
+          cells: [],
+          objects: [
+            {
+              id: 'o1',
+              name: 'Chart 1',
+              kind: 'chart',
+              row: 0,
+              col: 0,
+              dx: 0,
+              dy: 0,
+              width: 480,
+              height: 300,
+              chart: {
+                type: 'bar',
+                source: { sheetId: 's1', top: 0, left: 0, bottom: 2, right: 1 },
+                seriesInRows: true,
+                title: 'Totals',
+                colors: ['#123456'],
+              },
+            },
+            {
+              id: 'o2',
+              name: 'Chart 2',
+              kind: 'chart',
+              row: 16,
+              col: 0,
+              dx: 0,
+              dy: 0,
+              width: 300,
+              height: 200,
+              chart: {
+                type: 'line',
+                data: {
+                  categories: ['Q1', 'Q2'],
+                  series: [
+                    { name: 'East', values: [1, null] },
+                    { name: null, values: [2.5, -3] },
+                  ],
+                },
+                legend: 'bottom',
+                xTitle: 'Quarter',
+                yTitle: 'Sales',
+                dataLabels: true,
+              },
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 function loadFixture(file: string, encode: () => Uint8Array): Uint8Array {

@@ -328,8 +328,8 @@ export class Dialogs {
   }
 
   /** See `SheetOpsDialogs.confirmDeleteSheet` for the full behavior contract. */
-  confirmDeleteSheet(name: string, referenceCount: number): Promise<boolean> {
-    return this.sheetOps.confirmDeleteSheet(name, referenceCount);
+  confirmDeleteSheet(name: string, referenceCount: number, chartCount: number): Promise<boolean> {
+    return this.sheetOps.confirmDeleteSheet(name, referenceCount, chartCount);
   }
 
   /** See `SheetOpsDialogs.confirmRangeMoveOverwrite` for the full behavior contract. */

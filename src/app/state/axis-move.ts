@@ -14,6 +14,7 @@ import {
   type CellValidation,
 } from '../../core/workbook/data-validation';
 import type { RsfDocument } from '../../core/workbook/rsf-document';
+import { showsSheet } from '../../core/workbook/sheet-charts';
 import {
   moveObjects,
   shiftObjectsForDelete,
@@ -21,6 +22,22 @@ import {
   type SheetObject,
 } from '../../core/workbook/sheet-objects';
 import { colWidthsAt } from './col-widths';
+
+/**
+ * Charts elsewhere that show this worksheet keep their ranges through a
+ * move (the cells stay within the worksheet's rows and columns); these
+ * snapshots put them back as they were on undo.
+ */
+function chartedSnapshots(doc: RsfDocument, sheetId: string): Operation[] {
+  return doc.sheets
+    .filter((other) => other.id !== sheetId && showsSheet(other.objects, [sheetId]))
+    .map((other): Operation => ({
+      type: 'objects',
+      before: other.objects,
+      after: other.objects,
+      sheetId: other.id,
+    }));
+}
 
 /**
  * Plan moving whole rows or columns of the active worksheet — `count` of
@@ -132,10 +149,12 @@ export function planAxisMove(
   // moved rules are put where their rows or columns went.
   const rules = sheet.validations;
   const objects = sheet.objects;
+  const charted = chartedSnapshots(doc, sheetId);
   const ops: Operation[] = [
     ...leading,
     { type: 'validations', before: rules, after: rules, sheetId },
     { type: 'objects', before: objects, after: objects, sheetId },
+    ...charted,
     { type: 'cells', changes: active, sheetId },
     ...others,
     { type: 'styles', changes: clearStyles, sheetId },
@@ -160,6 +179,7 @@ export function planAxisMove(
       after: moveObjects(objects, axis, from, count, to),
       sheetId,
     },
+    ...charted,
   ];
   return { label: axis === 'row' ? 'history.moveRows' : 'history.moveCols', sheetId, ops };
 }

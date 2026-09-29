@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * How one sheet object (a shape or a picture: see
+ * How one sheet object (a shape, a picture or a chart: see
  * `src/core/workbook/sheet-objects.ts`) is drawn: an absolutely positioned
  * box holding an SVG for the shape and a text block over it, or the picture
  * as an `<img>` (where an SVG picture's scripts never run). Colours come only from validated `#rrggbb` values and
@@ -164,13 +164,15 @@ function pictureElement(o: SheetObject, box: ObjectBox, image: SheetImage | unde
 
 /**
  * The object's element, placed at `box` (canvas pixels) for `zoom`; an
- * image object shows `image`, its picture from the workbook.
+ * image object shows `image`, its picture from the workbook, and a chart
+ * object shows `chart`, its drawing (see `chart-view.ts`).
  */
 export function buildObjectElement(
   o: SheetObject,
   box: ObjectBox,
   zoom: number,
   image?: SheetImage,
+  chart?: SVGElement,
 ): HTMLElement {
   const node = el('div', {
     className: `sheet-object sheet-object-${o.kind}`,
@@ -185,6 +187,10 @@ export function buildObjectElement(
   }
   if (o.kind === 'image') {
     node.append(pictureElement(o, box, image));
+    return node;
+  }
+  if (o.kind === 'chart') {
+    if (chart) node.append(chart);
     return node;
   }
   node.append(shapeSvg(o, box.w, box.h, zoom));

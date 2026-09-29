@@ -6,6 +6,7 @@
  * does not know is ignored.
  */
 import { cellLabel, parseRef } from '../formula';
+import { chartFromJson, chartToJson } from './rsf-sheet-charts';
 import { MAX_SHEET_OBJECTS, validateObject, type ObjectCrop, type SheetObject } from './sheet-objects';
 
 type Fail = (reason?: 'too-large') => never;
@@ -52,6 +53,9 @@ export function objectsToJson(objects: readonly SheetObject[]): Json[] {
       if (value !== undefined) {
         out[key] = typeof value === 'object' ? { ...value } : value;
       }
+    }
+    if (o.chart) {
+      out.chart = chartToJson(o.chart);
     }
     return out;
   });
@@ -103,6 +107,9 @@ export function objectsFromJson(value: unknown, rows: number, cols: number, fail
     }
     if (entry.crop !== undefined) {
       object.crop = cropFromJson(entry.crop, fail);
+    }
+    if (entry.chart !== undefined) {
+      object.chart = chartFromJson(entry.chart, fail);
     }
     if (!validateObject(object, rows, cols) || ids.has(object.id)) {
       return fail();

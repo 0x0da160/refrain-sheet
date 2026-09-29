@@ -298,14 +298,18 @@ export class WorksheetCommands {
     }
     const sheet = doc.activeSheet;
     const references = this.state.countReferencesToSheet(doc, sheet.id);
+    const charts = doc.sheets
+      .filter((other) => other.id !== sheet.id)
+      .reduce((n, other) => n + other.objects.filter((o) => o.chart?.source?.sheetId === sheet.id).length, 0);
     const meaningful =
       sheet.hasAnyContent() ||
       sheet.filter !== null ||
       sheet.displayZoom !== undefined ||
       sheet.displayColWidths.some((w) => w > 0) ||
-      references > 0;
+      references > 0 ||
+      charts > 0;
     if (meaningful) {
-      const ok = await this.ui.confirmDeleteSheet(sheet.name, references);
+      const ok = await this.ui.confirmDeleteSheet(sheet.name, references, charts);
       if (!ok || tab.doc !== doc) {
         return;
       }

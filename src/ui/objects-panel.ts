@@ -4,6 +4,7 @@ import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import type { AppState, Tab } from '../app/state';
 import { isWorkbook } from '../core/editor-document';
+import { chartData } from '../core/workbook/sheet-charts';
 import {
   isLineKind,
   isPositionLocked,
@@ -31,6 +32,7 @@ import { clearChildren, el } from './dom';
 import { fontSizeSelect } from './font-choices';
 import type { Grid } from './grid';
 import { createIcon } from './icon';
+import { chartSection } from './objects-panel-chart';
 
 type Unit = 'px' | 'mm';
 const MM_PER_PX = 25.4 / 96;
@@ -64,12 +66,12 @@ function withValue<K extends keyof SheetObject>(
 }
 
 /**
- * Insert > Object List…: the shapes and pictures on the active sheet, top first, each
+ * Insert > Object List…: the shapes, pictures and charts on the active sheet, top first, each
  * with show/hide, the two locks (配置を固定 keeps it where it is; 編集をロック
  * also keeps its content and format as they are) and a step up or down the
  * stacking order; and, for the one selected object, its name, position,
  * size, rotation, fill, line and text (a picture: its crop, mirroring and
- * whether it keeps its shape). A dockable side panel like the
+ * whether it keeps its shape; a chart: its settings, `objects-panel-chart.ts`). A dockable side panel like the
  * comments list, closed only by its ×. Every change is one undoable step
  * through `Commands.updateObjects`, which refuses what a lock forbids.
  */
@@ -294,12 +296,23 @@ export class ObjectsPanel {
       panelSection(null, [panelField(t('panel.objects.name'), name)]),
       this.placement(tab, o, positionLocked),
     ];
-    if (o.kind === 'image') {
+    const doc = tab.doc;
+    if (o.chart && isWorkbook(doc)) {
+      sections.push(
+        chartSection({
+          spec: o.chart,
+          data: chartData(doc, o.chart),
+          sheets: doc.sheets,
+          disabled: editLocked,
+          apply: (chart) => this.update(tab, o, { ...o, chart }, 'history.editObject'),
+        }),
+      );
+    } else if (o.kind === 'image') {
       sections.push(this.picture(tab, o, editLocked, positionLocked));
     } else {
       sections.push(this.style(tab, o, editLocked));
     }
-    if (!isLineKind(o.kind) && o.kind !== 'image') {
+    if (!isLineKind(o.kind) && o.kind !== 'image' && o.kind !== 'chart') {
       sections.push(this.textSection(tab, o, editLocked));
     }
     return sections;

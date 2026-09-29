@@ -16,6 +16,7 @@ import { CommentsPanel } from '../comments-panel';
 import { ValidationCheckPanel } from '../validation-check-panel';
 import { ObjectsPanel } from '../objects-panel';
 import { openPrint } from '../print-view';
+import { objectImageBytes, textMeasure } from '../object-export';
 import type { Dialogs, Toasts } from '../dialogs';
 import { FindBar } from '../find-bar';
 import { FormulaBar } from '../formula-bar';
@@ -186,6 +187,16 @@ function wireCommandActions(
   commands.objectGeometry = {
     objectPosition: (tab, o) => grid.objectPosition(tab, o),
     objectMovedTo: (tab, o, x, y) => grid.objectMovedTo(tab, o, x, y),
+  };
+  commands.objectImages = {
+    render: (tab, objects, format) => {
+      const book = tab.doc;
+      if (!isWorkbook(book)) return Promise.resolve(null);
+      const items = objects.map((o) => ({ o, ...grid.objectPosition(tab, o) }));
+      const canvas = grid.element.querySelector('.vgrid-canvas') ?? grid.element;
+      const family = getComputedStyle(canvas).fontFamily || 'sans-serif';
+      return objectImageBytes(document, book, items, format, { family, measure: textMeasure(document) });
+    },
   };
   // Entering or leaving full screen (the View menu, or Escape) refreshes the
   // View menu's check mark.

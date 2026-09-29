@@ -7,8 +7,9 @@
  *
  * What prints is what the sheet shows: displayed values (formula results,
  * number formats), cell formatting and conditional formatting, column
- * widths, and on the active sheet its sort order and filter. Everything is
- * text, never HTML. Page size and orientation go to `@page` through a
+ * widths, on the active sheet its sort order and filter, and the shapes,
+ * pictures and charts over the cells (hidden ones left out), each drawn at
+ * its offset from the cell it is anchored to. Everything is text, never HTML. Page size and orientation go to `@page` through a
  * constructed stylesheet (a `<style>` element would be refused by the
  * offline build's CSP); where the browser cannot adopt one, its own print
  * dialog still lets the user pick them.
@@ -36,6 +37,7 @@ import {
   type CellStyle,
 } from '../core/workbook/cell-style';
 import type { ConditionalFormatStyle } from '../core/workbook/conditional-format';
+import type { SheetObject } from '../core/workbook/sheet-objects';
 import { runsForText } from '../core/workbook/rich-text';
 import { el } from './dom';
 import { COL_WIDTH, ROW_HEAD_WIDTH } from './grid/geometry';
@@ -43,6 +45,7 @@ import { openPrintPanel } from './dialogs/print-dialog';
 import { renderMarkdownBlocks } from './markdown-render';
 import { paintFont } from './font-choices';
 import { richTextNodes } from './rich-text-render';
+import { drawObject } from './sheet-object-view';
 
 /** One grid to print: its rows (document rows, in print order) and columns. */
 interface GridPart {
@@ -55,6 +58,12 @@ interface GridPart {
   input: (row: number, col: number) => string;
   style: (row: number, col: number) => CellStyle | null;
   conditional: (row: number, col: number) => ConditionalFormatStyle | null;
+  /** The shown objects anchored to each cell (`row:col`), bottom to top, with their stacking place. */
+  objects: Map<string, Array<{ o: SheetObject; z: number }>>;
+  /** Draw an object at its offset from the cell's corner. */
+  draw: (o: SheetObject) => HTMLElement;
+  /** Objects already drawn: a repeated first row draws its objects on the first page only. */
+  drawn: Set<string>;
 }
 
 /** A Markdown, JSON, YAML or text sheet: its source. */
@@ -152,6 +161,9 @@ function collectParts(state: AppState, tab: Tab, settings: PrintSettings): Print
         input: (r, c) => doc.getDisplayValue(r, c),
         style: () => null,
         conditional: () => null,
+        objects: new Map(),
+        draw: () => el('div'),
+        drawn: new Set(),
       },
     ];
   }
@@ -166,7 +178,8 @@ function collectParts(state: AppState, tab: Tab, settings: PrintSettings): Print
       continue;
     }
     const active = sheet === doc.activeSheet;
-    const area = printArea(sheet.usedExtent(), active ? selection : null);
+    const shown = sheet.objects.filter((o) => !o.hidden);
+    const area = printArea(extentWithObjects(sheet.usedExtent(), shown), active ? selection : null);
     if (!area) {
       continue;
     }
@@ -184,9 +197,32 @@ function collectParts(state: AppState, tab: Tab, settings: PrintSettings): Print
       input: (r, c) => sheet.getValue(r, c),
       style: (r, c) => sheet.getStyle(r, c),
       conditional: (r, c) => doc.getConditionalFormatStyleOn(sheet.id, r, c),
+      objects: objectsByCell(shown),
+      draw: (o) => drawObject(doc, o, { x: o.dx, y: o.dy, w: o.width, h: o.height }, 1),
+      drawn: new Set(),
     });
   }
   return parts;
+}
+
+/** The used cells grown to reach every shown object's anchor cell, so a sheet of only objects prints too. */
+function extentWithObjects(
+  used: { rows: number; cols: number },
+  objects: readonly SheetObject[],
+): { rows: number; cols: number } {
+  return objects.reduce(
+    (at, o) => ({ rows: Math.max(at.rows, o.row + 1), cols: Math.max(at.cols, o.col + 1) }),
+    used,
+  );
+}
+
+function objectsByCell(objects: readonly SheetObject[]): GridPart['objects'] {
+  const map: GridPart['objects'] = new Map();
+  objects.forEach((o, i) => {
+    const key = `${o.row}:${o.col}`;
+    map.set(key, [...(map.get(key) ?? []), { o, z: i + 1 }]);
+  });
+  return map;
 }
 
 /**
@@ -282,6 +318,7 @@ function rowElement(part: GridPart, row: number, headings: boolean): HTMLElement
 
 function cellElement(part: GridPart, row: number, col: number): HTMLElement {
   const td = el('td');
+  placeObjects(part, row, col, td);
   const value = part.value(row, col);
   const style = part.style(row, col);
   const conditional = part.conditional(row, col);
@@ -289,7 +326,7 @@ function cellElement(part: GridPart, row: number, col: number): HTMLElement {
   if (runs) {
     td.append(...richTextNodes(runs, style, conditional?.textColor));
   } else {
-    td.textContent = value;
+    td.append(value);
   }
   if (!style && !conditional) {
     return td;
@@ -305,6 +342,26 @@ function cellElement(part: GridPart, row: number, col: number): HTMLElement {
   td.style.borderBottom = cssBorder(borderSideValue(style, 'borderBottom'));
   td.style.borderLeft = cssBorder(borderSideValue(style, 'borderLeft'));
   return td;
+}
+
+/**
+ * The objects anchored to this cell, drawn in it at their offsets (over
+ * later cells, in the sheet's stacking order). Objects anchored to a cell
+ * that is not printed (outside the selection, or on a row the filter
+ * hides) are left out.
+ */
+function placeObjects(part: GridPart, row: number, col: number, td: HTMLElement): void {
+  const here = part.objects.get(`${row}:${col}`)?.filter(({ o }) => !part.drawn.has(o.id));
+  if (!here?.length) {
+    return;
+  }
+  td.classList.add('print-object-anchor');
+  for (const { o, z } of here) {
+    part.drawn.add(o.id);
+    const node = part.draw(o);
+    node.style.zIndex = String(z);
+    td.append(node);
+  }
 }
 
 function cssBorder(border: BorderSideValue | null): string {

@@ -38,6 +38,15 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- **Save objects as a picture, and print them.** Insert > Save Objects as
+  PNG Image… and Save Objects as SVG Image… (also on an object's right-click
+  menu) save the selected shapes, pictures and charts as one image, laid out
+  and stacked as on the sheet, on a transparent background. File > Print…
+  now prints shapes, pictures and charts over the cells, each from the cell
+  it is anchored to. Hidden objects are left out of both.
+
 ## [0.9.17] - 2026-09-29
 
 ### Added

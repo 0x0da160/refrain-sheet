@@ -6,10 +6,22 @@
  * as an `<img>` (where an SVG picture's scripts never run). Colours come only from validated `#rrggbb` values and
  * text is set with `textContent`, never parsed as markup.
  */
+import { t } from '../app/i18n';
+import type { RsfDocument } from '../core/workbook/rsf-document';
+import { chartData } from '../core/workbook/sheet-charts';
 import { bytesToBase64, type SheetImage } from '../core/workbook/sheet-images';
 import { isLineKind, objectDefaults, type SheetObject } from '../core/workbook/sheet-objects';
+import { buildChartSvg, type ChartWords } from './chart-view';
 import { el } from './dom';
 import { fontSizeCss } from './font-choices';
+
+/** The words a chart shows that come from the application. */
+const CHART_WORDS: ChartWords = {
+  series: (n) => t('chart.series', { n }),
+  get noData() {
+    return t('chart.noData');
+  },
+};
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -41,7 +53,7 @@ export function lineEnds(
 }
 
 /** The shape's SVG, `w` × `h` pixels, drawn at `zoom`. */
-function shapeSvg(o: SheetObject, w: number, h: number, zoom: number): SVGElement {
+export function shapeSvg(o: SheetObject, w: number, h: number, zoom: number): SVGElement {
   const d = objectDefaults(o.kind);
   const fill = o.fill ?? d.fill;
   const stroke = o.stroke ?? d.stroke;
@@ -127,7 +139,7 @@ function shapeSvg(o: SheetObject, w: number, h: number, zoom: number): SVGElemen
 const dataUrls = new WeakMap<Uint8Array, string>();
 
 /** A picture as a `data:` URL (the only image source the offline policy allows), made once per picture. */
-function imageDataUrl(image: SheetImage): string {
+export function imageDataUrl(image: SheetImage): string {
   let url = dataUrls.get(image.bytes);
   if (url === undefined) {
     url = `data:${image.type};base64,${bytesToBase64(image.bytes)}`;
@@ -210,4 +222,16 @@ export function buildObjectElement(
     node.append(text);
   }
   return node;
+}
+
+/** The object's element for `book` (its picture, or its chart drawn from the file's cells), placed at `box`. */
+export function drawObject(book: RsfDocument, o: SheetObject, box: ObjectBox, zoom: number): HTMLElement {
+  const image = o.image !== undefined ? book.images.get(o.image) : undefined;
+  const chart = o.chart ? chartSvg(book, o, box.w, box.h, zoom) : undefined;
+  return buildObjectElement(o, box, zoom, image, chart);
+}
+
+/** A chart object's drawing, `w` × `h` pixels at `zoom`. */
+export function chartSvg(book: RsfDocument, o: SheetObject, w: number, h: number, zoom: number): SVGElement {
+  return buildChartSvg(o.chart!, chartData(book, o.chart!), w, h, zoom, CHART_WORDS);
 }

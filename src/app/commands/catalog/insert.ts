@@ -4,6 +4,7 @@ import { MAX_IMAGE_BYTES } from '../../../core/workbook/sheet-images';
 import { pickImageFile } from '../../file-access';
 import { ARRANGEMENTS, type Arrangement } from '../../../core/workbook/object-arrange';
 import type { ObjectOrder, ShapeKind } from '../objects';
+import { exportableObjects, exportObjectImage, type ObjectImageFormat } from '../object-export';
 import { withTab, type CommandSpec } from './types';
 
 const shape = (kind: ShapeKind): CommandSpec =>
@@ -25,6 +26,15 @@ const arrange = (how: Arrangement): CommandSpec =>
       if (geometry) ctx.parts.objects.arrange(tab, how, geometry);
     },
     (ctx, tab) => ctx.parts.objects.canArrange(tab, how),
+  );
+
+const saveImage = (format: ObjectImageFormat): CommandSpec =>
+  withTab(
+    (ctx, tab) => {
+      const port = ctx.commands.objectImages;
+      return port ? exportObjectImage(ctx.state, ctx.ui, ctx.dom, tab, format, port) : false;
+    },
+    (ctx, tab) => exportableObjects(ctx.state, tab).length > 0,
   );
 
 /** `object.alignLeft`, … `object.distributeVertically`. */
@@ -71,6 +81,8 @@ export const INSERT_COMMANDS = {
     (ctx, tab) => ctx.parts.objects.canUngroup(tab),
   ),
   ...ARRANGE_COMMANDS,
+  'object.saveAsPng': saveImage('png'),
+  'object.saveAsSvg': saveImage('svg'),
   'object.delete': withTab(
     (ctx, tab) => ctx.parts.objects.deleteSelected(tab),
     (ctx, tab) => ctx.state.objectSelection.selected(tab).length > 0,

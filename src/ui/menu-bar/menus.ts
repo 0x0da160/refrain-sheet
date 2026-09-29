@@ -329,6 +329,9 @@ function insertMenu(): MenuDef {
       { labelKey: 'menu.insert.group', command: 'object.group' },
       { labelKey: 'menu.insert.ungroup', command: 'object.ungroup' },
       { labelKey: 'menu.insert.deleteObject', command: 'object.delete' },
+      'separator',
+      { labelKey: 'menu.insert.saveAsPng', command: 'object.saveAsPng' },
+      { labelKey: 'menu.insert.saveAsSvg', command: 'object.saveAsSvg' },
     ],
   };
 }

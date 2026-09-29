@@ -40,6 +40,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Added
 
+- **Grid paper sheets.** Sheet > Add Grid Paper Sheet (or Grid paper sheet
+  in the Add Sheet dialog) adds a sheet of small squares for forms, screen
+  mock-ups and wireframes. Its squares stay empty: text goes in text boxes,
+  and a text box inserted over several selected squares covers them.
+  Shapes, pictures and charts on grid paper are placed, dragged, resized and
+  moved with the arrow keys square by square, and the sheet prints with
+  squares of the same size. Its tab shows a grid icon. Releases without grid
+  paper open the file as an ordinary sheet with the same objects.
 - **Save objects as a picture, and print them.** Insert > Save Objects as
   PNG Image… and Save Objects as SVG Image… (also on an object's right-click
   menu) save the selected shapes, pictures and charts as one image, laid out

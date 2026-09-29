@@ -708,40 +708,29 @@ export class AppState {
     return this.worksheetsState.addSheetFromValues(tab, name, rows, extra);
   }
 
-  /**
-   * Add a new worksheet holding one empty Markdown document after the active
-   * one, as one atomic, undoable operation, and activate it. `name` must
-   * already be validated and unique (see the command layer).
-   */
+  /** Add a new worksheet holding one empty Markdown document after the active one (see `addDocumentSheet`). */
   addMarkdownSheet(tab: Tab, name: string): Worksheet | null {
-    return this.worksheetsState.addMarkdownSheet(tab, name);
+    return this.worksheetsState.addDocumentSheet(tab, 'markdown', name);
   }
 
-  /**
-   * Add a new worksheet holding one empty JSON document after the active
-   * one, as one atomic, undoable operation, and activate it. `name` must
-   * already be validated and unique (see the command layer).
-   */
+  /** Add a new worksheet holding one empty JSON document after the active one. */
   addJsonSheet(tab: Tab, name: string): Worksheet | null {
-    return this.worksheetsState.addJsonSheet(tab, name);
+    return this.worksheetsState.addDocumentSheet(tab, 'json', name);
   }
 
-  /**
-   * Add a new worksheet holding one empty YAML document after the active
-   * one, as one atomic, undoable operation, and activate it. `name` must
-   * already be validated and unique (see the command layer).
-   */
+  /** Add a new worksheet holding one empty YAML document after the active one. */
   addYamlSheet(tab: Tab, name: string): Worksheet | null {
-    return this.worksheetsState.addYamlSheet(tab, name);
+    return this.worksheetsState.addDocumentSheet(tab, 'yaml', name);
   }
 
-  /**
-   * Add a new worksheet holding one empty plain-text document after the
-   * active one, as one atomic, undoable operation, and activate it. `name`
-   * must already be validated and unique (see the command layer).
-   */
+  /** Add a new worksheet holding one empty plain-text document after the active one. */
   addTextSheet(tab: Tab, name: string): Worksheet | null {
-    return this.worksheetsState.addTextSheet(tab, name);
+    return this.worksheetsState.addDocumentSheet(tab, 'text', name);
+  }
+
+  /** Add a new, empty grid-paper sheet after the active one, as one undoable step, and activate it. */
+  addPaperSheet(tab: Tab, name: string): Worksheet | null {
+    return this.worksheetsState.addPaperSheet(tab, name);
   }
 
   /**

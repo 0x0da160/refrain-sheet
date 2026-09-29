@@ -531,6 +531,14 @@
   border-right: 2px solid var(--canvas-frozen-divider);
 }
 
+/* Grid paper (src/core/workbook/grid-paper.ts): column letters in small
+   type, cut rather than ellipsized, so the narrow squares stay readable. */
+.grid-paper .vcell.vhead {
+  padding: 0;
+  font-size: calc(9px * var(--sheet-zoom, 1));
+  text-overflow: clip;
+}
+
 .vcell.vhead.pinned {
   color: var(--canvas-header-selected-text);
 }

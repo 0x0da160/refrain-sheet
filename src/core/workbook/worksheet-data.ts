@@ -38,6 +38,7 @@ export function worksheetFromData(entry: RsfWorksheetData): Worksheet {
   sheet.locked = entry.locked === true;
   sheet.tabColor = entry.tabColor;
   sheet.folderId = entry.folderId;
+  sheet.paper = entry.paper;
   sheet.validations = entry.validations?.slice() ?? [];
   sheet.objects = entry.objects?.slice() ?? [];
   for (const [r, c, style] of entry.styles ?? []) {
@@ -94,6 +95,9 @@ export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, 
   }
   if (sheet.folderId !== undefined) {
     entry.folderId = sheet.folderId;
+  }
+  if (sheet.paper !== undefined && sheet.kind === 'grid') {
+    entry.paper = sheet.paper;
   }
   // Only rules that fit the worksheet as it is, so the file always reads back.
   const validations = sheet.validations.filter((v) =>

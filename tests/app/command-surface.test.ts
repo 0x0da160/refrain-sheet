@@ -121,6 +121,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'object.saveAsSvg',
   'object.delete',
   'worksheet.add',
+  'worksheet.addPaper',
   'worksheet.addMarkdown',
   'worksheet.addJson',
   'worksheet.addYaml',

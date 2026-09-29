@@ -4,7 +4,8 @@
  * rather than itself (knowledge/formats/rsf/json-document.md): a
  * worksheet's `tabColor` and `folder` and the file's `folders`
  * (`rsf-folders.ts`), a worksheet's `validations`, its `objects`
- * (`rsf-sheet-objects.ts`), and the file's `images` (`rsf-images.ts`). Like every key in
+ * (`rsf-sheet-objects.ts`), its `paper` square (`grid-paper.ts`), and the
+ * file's `images` (`rsf-images.ts`). Like every key in
  * the codec, a known key with the wrong shape fails the whole file.
  */
 import { cellLabel, parseRef } from '../formula';
@@ -28,6 +29,7 @@ import { checkImageReferences, imagesFromJson, imagesToJson, type RsfImageList }
 import { checkChartSources } from './rsf-sheet-charts';
 import { objectsFromJson, objectsToJson } from './rsf-sheet-objects';
 import type { SheetObject } from './sheet-objects';
+import { isPaperSquare } from './grid-paper';
 
 /** The file-level keys kept here: the sheet folders and the pictures. */
 export interface RsfFileExtras extends RsfFolderList, RsfImageList {}
@@ -70,6 +72,8 @@ export interface RsfSheetExtras extends RsfSheetPlacement {
   validations?: CellValidation[];
   /** Shapes over the grid, bottom to top. */
   objects?: SheetObject[];
+  /** A grid-paper sheet's square side (px at 100% zoom). */
+  paper?: number;
 }
 
 type Fail = (reason?: 'too-large') => never;
@@ -83,6 +87,9 @@ export function sheetExtrasToJson(sheet: RsfSheetExtras): { [key: string]: Json 
   }
   if (sheet.objects && sheet.objects.length > 0) {
     out.objects = objectsToJson(sheet.objects);
+  }
+  if (sheet.paper !== undefined) {
+    out.paper = sheet.paper;
   }
   return out;
 }
@@ -119,6 +126,9 @@ export function sheetExtrasFromJson(
     if (objects.length > 0) {
       out.objects = objects;
     }
+  }
+  if (value.paper !== undefined) {
+    out.paper = (sheet.kind ?? 'grid') === 'grid' && isPaperSquare(value.paper) ? value.paper : fail();
   }
   return out;
 }

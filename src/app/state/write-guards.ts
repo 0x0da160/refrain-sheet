@@ -98,6 +98,21 @@ export class WriteGuards {
   }
 
   /**
+   * Refuse a cell or format write to a grid-paper sheet (see
+   * `grid-paper.ts`), announcing where its text goes instead: its squares
+   * stay empty, and text lives in text boxes. `sheetId` defaults to the
+   * active worksheet. Returns true when the caller must stop.
+   */
+  refusePaperWrite(tab: Tab, sheetId?: string): boolean {
+    const doc = tab.doc;
+    if (!isWorkbook(doc) || doc.sheetById(sheetId ?? doc.activeSheetId)?.paper === undefined) {
+      return false;
+    }
+    this.state.announce?.(t('notify.paperCells'));
+    return true;
+  }
+
+  /**
    * Refuse a write that would land inside an active sort's range, announcing
    * why. Editing a sorted range is disabled — rather than translated cell by
    * cell — so a sort can never turn "edit what I see" into a silent write to

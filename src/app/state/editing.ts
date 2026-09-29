@@ -60,6 +60,7 @@ export class EditingState {
       return false;
     }
     if (
+      this.guards.refusePaperWrite(tab) ||
       this.guards.refuseSpillWrite(tab, [{ row, col }]) ||
       this.guards.refuseSortedWrite(tab, [{ row, col }]) ||
       this.guards.refuseInvalidWrite(tab, [{ row, col, after: value }])
@@ -86,6 +87,7 @@ export class EditingState {
     if (
       this.guards.refuseReadOnlyWrite(tab, retry) ||
       this.guards.refuseLockedSheetWrite(tab, retry) ||
+      this.guards.refusePaperWrite(tab) ||
       this.guards.refuseSpillWrite(tab, effective) ||
       this.guards.refuseSortedWrite(tab, effective) ||
       this.guards.refuseInvalidWrite(tab, effective)
@@ -151,6 +153,13 @@ export class EditingState {
     // Structural operations (row/column insert and delete) move a spill's
     // anchor rather than writing into it, so only the cell writes are checked.
     for (const op of entry.ops) {
+      if (
+        (op.type === 'cells' || op.type === 'styles') &&
+        op.changes.length > 0 &&
+        this.guards.refusePaperWrite(tab, op.sheetId)
+      ) {
+        return false;
+      }
       if (
         op.type === 'cells' &&
         (this.guards.refuseSpillWrite(tab, op.changes) ||

@@ -11,6 +11,7 @@ import {
   Lock,
   LockOpen,
   Plus,
+  Grid3x3,
   Table,
   type IconNode,
 } from 'lucide';
@@ -24,7 +25,7 @@ import {
   type SheetTreeNode,
 } from '../core/workbook/sheet-folders';
 import { t } from '../app/i18n';
-import type { WorksheetKind } from '../core/workbook/worksheet';
+import { sheetKindOf, type NewSheetKind } from '../core/workbook/grid-paper';
 import { ICON_BY_COMMAND } from './command-icons';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
@@ -36,8 +37,9 @@ import { createIcon } from './icon';
  * so no business logic is duplicated across entry points.
  */
 /** Localized kind label per worksheet kind, shown as the tab's icon tooltip. */
-const SHEET_KIND_LABEL_KEY: Record<WorksheetKind, string> = {
+const SHEET_KIND_LABEL_KEY: Record<NewSheetKind, string> = {
   grid: 'sheets.kind.grid',
+  paper: 'sheets.kind.paper',
   markdown: 'sheets.kind.markdown',
   json: 'sheets.kind.json',
   yaml: 'sheets.kind.yaml',
@@ -45,8 +47,9 @@ const SHEET_KIND_LABEL_KEY: Record<WorksheetKind, string> = {
 };
 
 /** Tab icon per worksheet kind. */
-const SHEET_KIND_ICON: Record<WorksheetKind, IconNode> = {
+const SHEET_KIND_ICON: Record<NewSheetKind, IconNode> = {
   grid: Table,
+  paper: Grid3x3,
   markdown: FileText,
   json: FileJson,
   yaml: FileCode,
@@ -197,7 +200,7 @@ export class SheetBar {
             this.buildSheetTab(
               sheet.id,
               sheet.name,
-              sheet.kind,
+              sheetKindOf(sheet),
               sheet.locked,
               sheet.tabColor,
               sheet.id === doc.activeSheetId,
@@ -303,7 +306,7 @@ export class SheetBar {
   private buildSheetTab(
     id: string,
     name: string,
-    kind: WorksheetKind,
+    kind: NewSheetKind,
     locked: boolean,
     tabColor: string | undefined,
     active: boolean,
@@ -546,6 +549,12 @@ export class SheetBar {
         icon: ICON_BY_COMMAND['worksheet.add'],
         disabled: !this.commands.isEnabled('worksheet.add'),
         onSelect: () => void this.commands.run('worksheet.add'),
+      },
+      {
+        label: t('menu.sheet.addPaperSheet'),
+        icon: ICON_BY_COMMAND['worksheet.addPaper'],
+        disabled: !this.commands.isEnabled('worksheet.addPaper'),
+        onSelect: () => void this.commands.run('worksheet.addPaper'),
       },
       {
         label: t('menu.sheet.addMarkdownSheet'),

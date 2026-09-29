@@ -83,6 +83,11 @@
     text-decoration: underline;
   }
 
+  /* Grid paper: squares of a fixed size, so objects sit on them as on screen. */
+  .print-table.print-paper td {
+    padding: 0;
+  }
+
   /* A cell with objects anchored to it: they are drawn from its corner, over
      the cells after it (src/ui/print-view.ts). The objects take nothing from
      the cell's own formatting. */

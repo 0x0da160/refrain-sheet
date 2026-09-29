@@ -16,6 +16,8 @@ interface ColOffsetCache {
    *  required (see `invalidateColOffsets`); this reference check catches the
    *  cases where a new array is assigned instead (e.g. restoring a tab). */
   widths: number[];
+  /** The grid-paper square the index was built for (undefined: not paper). */
+  paper: number | undefined;
 }
 
 /**
@@ -48,6 +50,8 @@ export class GridMetrics {
    * instead of the visible window.
    */
   private readonly colOffsets = new WeakMap<object, ColOffsetCache>();
+  /** Default row height the row-height index was built with (a grid-paper sheet's differs), per document. */
+  private readonly indexBase = new WeakMap<object, number>();
   /** Zoom the row-height index was built for, per document. */
   private readonly indexZoom = new WeakMap<object, number>();
   /** Hidden-row snapshot the row-height index was seeded with, per document. */
@@ -98,9 +102,14 @@ export class GridMetrics {
     return this.state.docRow(tab, row);
   }
 
-  /** Zoomed default (single-line) row height in px. */
+  /** The active sheet's square side when it is grid paper (px at 100%), else undefined. */
+  paperOf(tab: Tab): number | undefined {
+    return isWorkbook(tab.doc) ? tab.doc.activeSheet.paper : undefined;
+  }
+
+  /** Zoomed default (single-line) row height in px; on grid paper, one square. */
   rowH(tab: Tab): number {
-    return Math.round(ROW_HEIGHT * this.zoomOf(tab));
+    return Math.round((this.paperOf(tab) ?? ROW_HEIGHT) * this.zoomOf(tab));
   }
 
   /** Zoomed wrapped-line box height in px. */
@@ -138,6 +147,7 @@ export class GridMetrics {
     if (
       !index ||
       this.indexZoom.get(tab.doc) !== tab.zoom ||
+      this.indexBase.get(tab.doc) !== this.rowH(tab) ||
       this.indexHidden.get(tab.doc) !== hidden ||
       this.indexSort.get(tab.doc) !== sort
     ) {
@@ -153,6 +163,7 @@ export class GridMetrics {
       }
       this.rowHeights.set(tab.doc, index);
       this.indexZoom.set(tab.doc, tab.zoom);
+      this.indexBase.set(tab.doc, this.rowH(tab));
       this.indexHidden.set(tab.doc, hidden ?? null);
       this.indexSort.set(tab.doc, sort);
       this.onIndexReset(); // re-measure wrapped heights for the new state
@@ -278,9 +289,10 @@ export class GridMetrics {
     return this.headW(tab) + this.frozenColsWidth(tab);
   }
 
-  /** Rendered pixel width of a column (per-tab override or default, zoomed). */
+  /** Rendered pixel width of a column (per-tab override or default, zoomed; on grid paper, one square). */
   colWidth(tab: Tab, col: number): number {
-    const w = tab.colWidths[col];
+    const paper = this.paperOf(tab);
+    const w = paper ?? tab.colWidths[col];
     return Math.round((w && w > 0 ? w : COL_WIDTH) * this.zoomOf(tab));
   }
 
@@ -296,12 +308,19 @@ export class GridMetrics {
       cached &&
       cached.zoom === tab.zoom &&
       cached.widths === tab.colWidths &&
-      cached.columnCount === columnCount
+      cached.columnCount === columnCount &&
+      cached.paper === this.paperOf(tab)
     ) {
       return cached.index;
     }
     const index = new ColOffsetIndex(columnCount, (c) => this.colWidth(tab, c));
-    this.colOffsets.set(tab.doc, { index, zoom: tab.zoom, columnCount, widths: tab.colWidths });
+    this.colOffsets.set(tab.doc, {
+      index,
+      zoom: tab.zoom,
+      columnCount,
+      widths: tab.colWidths,
+      paper: this.paperOf(tab),
+    });
     return index;
   }
 

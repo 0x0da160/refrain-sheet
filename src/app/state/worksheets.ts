@@ -26,6 +26,7 @@ import {
 } from '../../core/workbook/rsf-document';
 import { computeSortOrder, sortsEqual, type SheetSort } from '../../core/workbook/sort';
 import type { Worksheet } from '../../core/workbook/worksheet';
+import { PAPER_COLUMNS, PAPER_ROWS, PAPER_SQUARE } from '../../core/workbook/grid-paper';
 import type { AppState } from './index';
 import type { Tab } from './types';
 import { decidedBySheet, resolveWrap, resolveZoom } from './view-layers';
@@ -443,24 +444,9 @@ export class WorksheetsState {
    * (see the command layer).
    */
   addSheet(tab: Tab, name: string): Worksheet | null {
-    const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
-      return null;
-    }
-    const sheet = doc.createWorksheet(name, NEW_DOC_ROWS, NEW_DOC_COLS);
-    const index = doc.sheetIndex(doc.activeSheetId) + 1;
-    // The view is saved before the entry runs, because applying it activates
-    // the new worksheet and would otherwise capture the wrong sheet's view.
-    this.saveSheetView(tab, doc);
-    const applied = this.state.pushEntry(tab, {
-      label: 'history.addSheet',
-      ops: [{ type: 'sheets', op: { action: 'add', sheet, index } }],
-    });
-    if (!applied) {
-      return null;
-    }
-    this.state.emit('sheets');
-    return sheet;
+    return this.addBuilt(tab, 'history.addSheet', (doc) =>
+      doc.createWorksheet(name, NEW_DOC_ROWS, NEW_DOC_COLS),
+    );
   }
 
   /**
@@ -494,99 +480,53 @@ export class WorksheetsState {
   }
 
   /**
-   * Add a new worksheet holding one empty Markdown document after the active
-   * one, as one atomic, undoable operation, and activate it. `name` must
-   * already be validated and unique (see the command layer). Otherwise
-   * identical to {@link addSheet} — a markdown worksheet's lifecycle (undo,
-   * rename, duplicate, delete, reorder) is the same `sheets` operation every
-   * other worksheet uses; only its content model differs (see
-   * `Worksheet.kind`).
+   * Add a new worksheet holding one empty Markdown, JSON, YAML or plain-text
+   * document after the active one, as one atomic, undoable operation, and
+   * activate it. `name` must already be validated and unique (see the
+   * command layer). A document worksheet's lifecycle (undo, rename,
+   * duplicate, delete, reorder) is the same `sheets` operation every other
+   * worksheet uses; only its content model differs (see `Worksheet.kind`).
    */
-  addMarkdownSheet(tab: Tab, name: string): Worksheet | null {
+  addDocumentSheet(tab: Tab, kind: 'markdown' | 'json' | 'yaml' | 'text', name: string): Worksheet | null {
+    const label = {
+      markdown: 'history.addMarkdownSheet',
+      json: 'history.addJsonSheet',
+      yaml: 'history.addYamlSheet',
+      text: 'history.addTextSheet',
+    }[kind];
+    return this.addBuilt(tab, label, (doc) =>
+      kind === 'markdown'
+        ? doc.createMarkdownWorksheet(name)
+        : kind === 'json'
+          ? doc.createJsonWorksheet(name)
+          : kind === 'yaml'
+            ? doc.createYamlWorksheet(name)
+            : doc.createTextWorksheet(name),
+    );
+  }
+
+  /** Add a new, empty grid-paper sheet (see `grid-paper.ts`) after the active one, like {@link addSheet}. */
+  addPaperSheet(tab: Tab, name: string): Worksheet | null {
+    return this.addBuilt(tab, 'history.addSheet', (doc) => {
+      const sheet = doc.createWorksheet(name, PAPER_ROWS, PAPER_COLUMNS);
+      sheet.paper = PAPER_SQUARE;
+      return sheet;
+    });
+  }
+
+  /** Insert the worksheet `build` makes after the active one as one undoable step, and activate it. */
+  private addBuilt(tab: Tab, label: string, build: (doc: RsfDocument) => Worksheet): Worksheet | null {
     const doc = tab.doc;
     if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
       return null;
     }
-    const sheet = doc.createMarkdownWorksheet(name);
+    const sheet = build(doc);
     const index = doc.sheetIndex(doc.activeSheetId) + 1;
     // The view is saved before the entry runs, because applying it activates
     // the new worksheet and would otherwise capture the wrong sheet's view.
     this.saveSheetView(tab, doc);
     const applied = this.state.pushEntry(tab, {
-      label: 'history.addMarkdownSheet',
-      ops: [{ type: 'sheets', op: { action: 'add', sheet, index } }],
-    });
-    if (!applied) {
-      return null;
-    }
-    this.state.emit('sheets');
-    return sheet;
-  }
-
-  /**
-   * Add a new worksheet holding one empty JSON document after the active
-   * one, as one atomic, undoable operation, and activate it. Identical to
-   * {@link addMarkdownSheet} except for what the new worksheet contains.
-   */
-  addJsonSheet(tab: Tab, name: string): Worksheet | null {
-    const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
-      return null;
-    }
-    const sheet = doc.createJsonWorksheet(name);
-    const index = doc.sheetIndex(doc.activeSheetId) + 1;
-    this.saveSheetView(tab, doc);
-    const applied = this.state.pushEntry(tab, {
-      label: 'history.addJsonSheet',
-      ops: [{ type: 'sheets', op: { action: 'add', sheet, index } }],
-    });
-    if (!applied) {
-      return null;
-    }
-    this.state.emit('sheets');
-    return sheet;
-  }
-
-  /**
-   * Add a new worksheet holding one empty YAML document after the active
-   * one, as one atomic, undoable operation, and activate it. Identical to
-   * {@link addMarkdownSheet} except for what the new worksheet contains.
-   */
-  addYamlSheet(tab: Tab, name: string): Worksheet | null {
-    const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
-      return null;
-    }
-    const sheet = doc.createYamlWorksheet(name);
-    const index = doc.sheetIndex(doc.activeSheetId) + 1;
-    this.saveSheetView(tab, doc);
-    const applied = this.state.pushEntry(tab, {
-      label: 'history.addYamlSheet',
-      ops: [{ type: 'sheets', op: { action: 'add', sheet, index } }],
-    });
-    if (!applied) {
-      return null;
-    }
-    this.state.emit('sheets');
-    return sheet;
-  }
-
-  /**
-   * Add a new worksheet holding one empty plain-text document after the
-   * active one, as one atomic, undoable operation, and activate it.
-   * Identical to {@link addMarkdownSheet} except for what the new worksheet
-   * contains.
-   */
-  addTextSheet(tab: Tab, name: string): Worksheet | null {
-    const doc = tab.doc;
-    if (!isWorkbook(doc) || doc.sheetCount >= MAX_WORKSHEETS) {
-      return null;
-    }
-    const sheet = doc.createTextWorksheet(name);
-    const index = doc.sheetIndex(doc.activeSheetId) + 1;
-    this.saveSheetView(tab, doc);
-    const applied = this.state.pushEntry(tab, {
-      label: 'history.addTextSheet',
+      label,
       ops: [{ type: 'sheets', op: { action: 'add', sheet, index } }],
     });
     if (!applied) {

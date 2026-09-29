@@ -36,7 +36,7 @@ import type { EncodingId } from '../../core/csv/encoding';
 import type { RsfHistorySnapshot } from '../../core/workbook/rsf-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/csv/serializer';
 import type { ValidationSummary } from '../../core/csv/validation';
-import type { WorksheetKind } from '../../core/workbook/worksheet';
+import type { NewSheetKind } from '../../core/workbook/grid-paper';
 import type { FolderPickerInput } from '../../app/ui-port';
 import { openColumnMenu } from '../column-menu';
 import { chooseFolder, promptFolderName } from './sheet-folders';
@@ -322,8 +322,8 @@ export class Dialogs {
     mode: 'add' | 'rename' | 'duplicate',
     current: string,
     validate: (name: string) => string | null,
-    kindOptions?: { initialKind: WorksheetKind; suggestName: (kind: WorksheetKind) => string },
-  ): Promise<{ name: string; kind: WorksheetKind } | null> {
+    kindOptions?: { initialKind: NewSheetKind; suggestName: (kind: NewSheetKind) => string },
+  ): Promise<{ name: string; kind: NewSheetKind } | null> {
     return this.sheetOps.promptSheetName(mode, current, validate, kindOptions);
   }
 

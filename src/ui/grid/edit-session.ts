@@ -151,6 +151,12 @@ export class EditSession {
     if (row < 0 || row >= tab.doc.rowCount || col >= tab.doc.fieldCount(row)) {
       return;
     }
+    if (isWorkbook(tab.doc) && tab.doc.activeSheet.paper !== undefined) {
+      // Grid paper keeps its squares empty: text goes in text boxes.
+      this.core.sink.value = '';
+      this.core.state.announce?.(t('notify.paperCells'));
+      return;
+    }
     // A double-tap's first tap already focused the sink through `focusGrid()`'s
     // read-only suppression (#469). iOS Safari shows no on-screen keyboard
     // for refocusing that same element, even after a blur (on-device probe,

@@ -502,6 +502,41 @@ const cases: FixtureCase[] = [
     },
   },
   {
+    // A grid-paper sheet (`paper`: the square's side) with a text box on it.
+    file: 'grid-paper.rsf',
+    engine: 'wasm',
+    encodes: true,
+    data: {
+      delimiter: ',',
+      activeSheetId: 's2',
+      sheets: [
+        grid,
+        {
+          id: 's2',
+          name: 'Paper1',
+          rowCount: 40,
+          columnCount: 30,
+          cells: [],
+          paper: 20,
+          objects: [
+            {
+              id: 'o1',
+              name: 'Title',
+              kind: 'text',
+              row: 1,
+              col: 2,
+              dx: 0,
+              dy: 0,
+              width: 200,
+              height: 40,
+              text: '申込書',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Charts (`chart` on a chart object): one showing a range of another
     // worksheet, one keeping its own data (its worksheet was deleted).
     file: 'charts.rsf',

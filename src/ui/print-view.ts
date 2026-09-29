@@ -64,6 +64,8 @@ interface GridPart {
   draw: (o: SheetObject) => HTMLElement;
   /** Objects already drawn: a repeated first row draws its objects on the first page only. */
   drawn: Set<string>;
+  /** A grid-paper sheet's square (px): every row and column prints one square wide. */
+  paper?: number;
 }
 
 /** A Markdown, JSON, YAML or text sheet: its source. */
@@ -192,7 +194,8 @@ function collectParts(state: AppState, tab: Tab, settings: PrintSettings): Print
       title: sheet.name,
       rows,
       cols: range(area.left, area.right),
-      widths: active ? tab.colWidths : sheet.view.colWidths,
+      widths: sheet.paper ? [] : active ? tab.colWidths : sheet.view.colWidths,
+      paper: sheet.paper,
       value: (r, c) => doc.getSheetDisplayValue(sheet.id, r, c),
       input: (r, c) => sheet.getValue(r, c),
       style: (r, c) => sheet.getStyle(r, c),
@@ -249,7 +252,7 @@ function range(from: number, to: number): number[] {
 /** One table per page run, each with its own header rows (repeated on every printed page). */
 function gridTables(part: GridPart, settings: PrintSettings): HTMLElement[] {
   const widths = part.cols.map((c) => {
-    const w = part.widths[c];
+    const w = part.paper ?? part.widths[c];
     return w && w > 0 ? w : COL_WIDTH;
   });
   const contentWidth = widths.reduce((a, b) => a + b, 0) + (settings.headings ? ROW_HEAD_WIDTH : 0);
@@ -266,7 +269,7 @@ function gridTables(part: GridPart, settings: PrintSettings): HTMLElement[] {
     start = at;
   }
   return runs.map((rows, i) => {
-    const table = el('table', { className: 'print-table' });
+    const table = el('table', { className: `print-table${part.paper ? ' print-paper' : ''}` });
     table.style.width = `${contentWidth}px`;
     table.style.zoom = String(zoom);
     if (i > 0) {
@@ -307,6 +310,9 @@ function widthCol(width: number): HTMLElement {
 
 function rowElement(part: GridPart, row: number, headings: boolean): HTMLElement {
   const tr = el('tr');
+  if (part.paper) {
+    tr.style.height = `${part.paper}px`;
+  }
   if (headings) {
     tr.append(el('th', { className: 'print-row-heading', text: String(row + 1) }));
   }

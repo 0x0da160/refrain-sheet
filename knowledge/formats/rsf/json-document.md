@@ -73,6 +73,17 @@ the same content is the same document.
 | `comments`    | object           | Cell comments keyed by A1 reference: `{ "B2": "text" }` (at most 2,000 characters each). |
 | `validations` | array of objects | Grid only: data-validation rules (below), at most 64. Left out when none.                |
 | `objects`     | array of objects | Grid only: shapes over the grid (below), bottom to top, at most 1,000. Left out if none. |
+| `paper`       | integer          | Grid only: makes it a grid-paper sheet (below), the side of one square in px (8–64).     |
+
+### Grid paper
+
+A grid worksheet with `paper` is a grid-paper sheet, for forms, screen
+mock-ups and wireframes (`src/core/workbook/grid-paper.ts`). The app draws
+every row and column `paper` pixels wide (at 100% zoom), keeps its cells
+empty (text goes in text boxes, which are `objects`), and snaps objects to
+the squares. Its `cells`, `styles` and other grid keys keep their usual
+meaning. A reader that does not know `paper` ignores it and shows an
+ordinary grid with the same objects, so the key keeps `"version": 1`.
 
 ### Folders
 

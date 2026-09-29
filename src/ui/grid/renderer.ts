@@ -431,6 +431,7 @@ export class GridRenderer {
     // of truth so CSS line heights and element heights can never drift apart.
     this.core.element.style.setProperty('--sheet-zoom', String(this.core.metrics.zoomOf(tab)));
     this.core.element.style.setProperty('--grid-row-height', `${this.core.metrics.rowH(tab)}px`);
+    this.core.element.classList.toggle('grid-paper', this.core.metrics.paperOf(tab) !== undefined);
     this.core.element.style.setProperty('--grid-wrap-line', `${this.core.metrics.wrapLineH(tab)}px`);
     // Use the element's own document, not the global `document`: a deferred
     // wrap pass (see runWrapPass) can still call render() after a torn-down

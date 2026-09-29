@@ -580,6 +580,7 @@ function moveTabItems(): Array<MenuItemDef | 'separator'> {
 function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
   return [
     { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add', shortcut: 'Shift+F11' },
+    { labelKey: 'menu.sheet.addPaperSheet', command: 'worksheet.addPaper' },
     { labelKey: 'menu.sheet.addMarkdownSheet', command: 'worksheet.addMarkdown' },
     { labelKey: 'menu.sheet.addJsonSheet', command: 'worksheet.addJson' },
     { labelKey: 'menu.sheet.addYamlSheet', command: 'worksheet.addYaml' },

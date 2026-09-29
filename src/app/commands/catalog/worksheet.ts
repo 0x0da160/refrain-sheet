@@ -30,6 +30,7 @@ const notLast = (doc: RsfDocument): boolean => doc.sheetIndex(doc.activeSheetId)
 
 export const WORKSHEET_COMMANDS = {
   'worksheet.add': onWorkbook(({ parts }, tab) => parts.worksheets.addWorksheet(tab)),
+  'worksheet.addPaper': onWorkbook(({ parts }, tab) => parts.worksheets.addPaperWorksheet(tab)),
   'worksheet.addMarkdown': onWorkbook(({ parts }, tab) => parts.worksheets.addMarkdownWorksheet(tab)),
   'worksheet.addJson': onWorkbook(({ parts }, tab) => parts.worksheets.addJsonWorksheet(tab)),
   'worksheet.addYaml': onWorkbook(({ parts }, tab) => parts.worksheets.addYamlWorksheet(tab)),

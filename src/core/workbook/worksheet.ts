@@ -191,6 +191,14 @@ export class Worksheet {
    */
   folderId: string | undefined = undefined;
 
+  /**
+   * Set on a grid-paper sheet (see `grid-paper.ts`): the side of one square,
+   * in pixels at 100% zoom. Such a sheet is drawn as squares, holds no cell
+   * text (its text lives in text boxes) and snaps objects to the squares.
+   * Persisted as the worksheet's `paper`.
+   */
+  paper: number | undefined = undefined;
+
   /** Session-only view state, restored when this worksheet becomes active. */
   readonly view: WorksheetView = {
     selection: null,
@@ -700,6 +708,7 @@ export class Worksheet {
     copy.locked = this.locked;
     copy.tabColor = this.tabColor;
     copy.folderId = this.folderId;
+    copy.paper = this.paper;
     copy.validations = this.validations.slice();
     copy.objects = this.objects.slice();
     copy.styles = this.styles.clone();
@@ -725,6 +734,7 @@ export class Worksheet {
     copy.locked = this.locked;
     copy.tabColor = this.tabColor;
     copy.folderId = this.folderId;
+    copy.paper = this.paper;
     copy.validations = this.validations.slice();
     copy.objects = this.objects.slice();
     return copy;

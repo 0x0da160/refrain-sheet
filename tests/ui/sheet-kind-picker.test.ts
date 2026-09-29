@@ -71,8 +71,8 @@ describe('promptSheetName kind picker', () => {
     });
     const dialog = document.querySelector('dialog')!;
     const radios = Array.from(dialog.querySelectorAll<HTMLInputElement>('input[type="radio"]'));
-    expect(radios).toHaveLength(5);
-    expect(radios.map((r) => r.value)).toEqual(['grid', 'markdown', 'json', 'yaml', 'text']);
+    expect(radios).toHaveLength(6);
+    expect(radios.map((r) => r.value)).toEqual(['grid', 'paper', 'markdown', 'json', 'yaml', 'text']);
     expect(radios.find((r) => r.value === 'grid')!.checked).toBe(true);
     expect(radios.filter((r) => r.checked)).toHaveLength(1);
   });
@@ -88,6 +88,7 @@ describe('promptSheetName kind picker', () => {
     );
     expect(labels).toEqual([
       t('sheets.kind.grid'),
+      t('sheets.kind.paper'),
       t('sheets.kind.markdown'),
       t('sheets.kind.json'),
       t('sheets.kind.yaml'),

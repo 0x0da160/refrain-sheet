@@ -233,6 +233,40 @@ export class ObjectLayer {
     return { ...o, row, col, dx, dy };
   }
 
+  /** The grid-paper square in canvas pixels (zoomed), or null on an ordinary sheet. */
+  private paperSquare(tab: Tab): number | null {
+    const paper = this.core.metrics.paperOf(tab);
+    return paper === undefined ? null : paper * this.core.metrics.zoomOf(tab);
+  }
+
+  /** A move of the box `bounds` by (`dx`, `dy`), corrected so its corner lands on a square's corner. */
+  private squareMove(
+    tab: Tab,
+    bounds: GuideBox,
+    dx: number,
+    dy: number,
+  ): { dx: number; dy: number; guides: [] } {
+    const [x] = this.toSquareEdges(tab, 'x', bounds.x + dx, bounds.x + dx, true);
+    const [y] = this.toSquareEdges(tab, 'y', bounds.y + dy, bounds.y + dy, true);
+    return { dx: x - bounds.x, dy: y - bounds.y, guides: [] };
+  }
+
+  /** Two canvas edges on one axis moved to the nearest square edges, `from` before `to` (and a square apart unless `flat`). */
+  private toSquareEdges(
+    tab: Tab,
+    axis: 'x' | 'y',
+    from: number,
+    to: number,
+    flat: boolean,
+  ): [number, number] {
+    const square = this.paperSquare(tab) ?? 1;
+    const origin = axis === 'x' ? this.core.metrics.headW(tab) : this.core.metrics.rowH(tab);
+    const snap = (v: number): number => origin + Math.max(0, Math.round((v - origin) / square)) * square;
+    const a = snap(from);
+    const b = snap(to);
+    return flat || b > a ? [a, b] : [a, a + square];
+  }
+
   /** An object's top-left corner from the sheet's top-left corner, in pixels at 100%. */
   positionOf(tab: Tab, o: SheetObject): { x: number; y: number } {
     const box = this.boxOf(tab, o);
@@ -325,9 +359,14 @@ export class ObjectLayer {
     drag.moved = true;
     event.preventDefault();
     if (drag.mode === 'move') {
-      // Alt snaps to cell corners instead (on release), so no guides then.
+      // Alt snaps to cell corners instead (on release), so no guides then;
+      // on grid paper the moved objects step from square to square.
       const snap =
-        drag.bounds && !event.altKey ? snapMove(drag.bounds, drag.others, dx, dy) : { dx, dy, guides: [] };
+        drag.bounds && !event.altKey
+          ? this.paperSquare(tab)
+            ? this.squareMove(tab, drag.bounds, dx, dy)
+            : snapMove(drag.bounds, drag.others, dx, dy)
+          : { dx, dy, guides: [] };
       drag.shift = { dx: snap.dx, dy: snap.dy };
       for (const o of drag.originals) {
         const node = this.elementFor(o.id);
@@ -405,6 +444,11 @@ export class ObjectLayer {
         [top, bottom] = [bottom, top];
         flipV = !flipV;
       }
+    }
+    if (this.paperSquare(tab)) {
+      // On grid paper every edge lands on a square's edge, at least a square apart (a line may lie flat).
+      [left, right] = this.toSquareEdges(tab, 'x', left, right, isLineKind(o.kind));
+      [top, bottom] = this.toSquareEdges(tab, 'y', top, bottom, isLineKind(o.kind));
     }
     const placed = this.placeAt(tab, o, left, top);
     const next: SheetObject = {
@@ -504,7 +548,8 @@ export class ObjectLayer {
     event.stopPropagation();
     const selected = new Set(this.core.state.objectSelection.selected(tab));
     const picked = this.objects(tab).filter((o) => selected.has(o.id));
-    const step = event.shiftKey ? 10 : 1;
+    const paper = this.core.metrics.paperOf(tab);
+    const step = (paper ?? 1) * (event.shiftKey ? (paper ? 5 : 10) : 1);
     const arrows: Record<string, [number, number]> = {
       ArrowLeft: [-step, 0],
       ArrowRight: [step, 0],

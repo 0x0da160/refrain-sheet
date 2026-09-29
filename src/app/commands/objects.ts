@@ -20,6 +20,7 @@ import {
   type Arrangement,
   type Box,
 } from '../../core/workbook/object-arrange';
+import { toSquares } from '../../core/workbook/grid-paper';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
 import type { ConvertReason, NotifyPort } from '../ui-port';
@@ -173,7 +174,7 @@ export class ObjectCommands {
     }
     const cell = at ?? tab.selection ?? { row: 0, col: 0 };
     const n = before.filter((o) => o.kind === kind).length + 1;
-    const object: SheetObject = {
+    let object: SheetObject = {
       id: nextObjectId(before),
       name: t(`object.kind.${kind}`) + ` ${n}`,
       kind,
@@ -183,11 +184,43 @@ export class ObjectCommands {
       dy: isLineKind(kind) ? 10 : 4,
       ...fill(doc),
     };
+    const square = doc.activeSheet.paper;
+    if (square !== undefined) {
+      object = this.onSquares(tab, object, square, at === undefined);
+    }
     if (!this.replace(tab, [...before, object], 'history.insertObject')) {
       return false;
     }
     this.state.objectSelection.select(tab, [object.id]);
     return true;
+  }
+
+  /**
+   * A new object on grid paper: in the corner of its square and a whole
+   * number of squares in size (a line lies along the squares' edge). A text
+   * box inserted over several selected squares covers them.
+   */
+  private onSquares(tab: Tab, o: SheetObject, square: number, atSelection: boolean): SheetObject {
+    const range = atSelection ? this.state.selectedRange(tab) : null;
+    const spans = o.kind === 'text' && range && (range.bottom > range.top || range.right > range.left);
+    if (spans) {
+      return {
+        ...o,
+        row: range.top,
+        col: range.left,
+        dx: 0,
+        dy: 0,
+        width: (range.right - range.left + 1) * square,
+        height: (range.bottom - range.top + 1) * square,
+      };
+    }
+    return {
+      ...o,
+      dx: 0,
+      dy: 0,
+      width: toSquares(o.width, square),
+      height: isLineKind(o.kind) ? 0 : toSquares(o.height, square),
+    };
   }
 
   /**

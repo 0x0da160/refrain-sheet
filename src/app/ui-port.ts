@@ -19,7 +19,7 @@ import type { SortKey } from '../core/workbook/sort';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/csv/serializer';
 import type { ValidationSummary } from '../core/csv/validation';
 import type { RsfHistorySnapshot } from '../core/workbook/rsf-codec';
-import type { WorksheetKind } from '../core/workbook/worksheet';
+import type { NewSheetKind } from '../core/workbook/grid-paper';
 import type { Tab } from './state';
 import type { LocaleId } from './i18n';
 import type { SqlRunOutcome, SqlSource } from './commands/sql';
@@ -605,8 +605,8 @@ export interface WorksheetDialogsPort {
     mode: 'add' | 'rename' | 'duplicate',
     current: string,
     validate: (name: string) => string | null,
-    kindOptions?: { initialKind: WorksheetKind; suggestName: (kind: WorksheetKind) => string },
-  ): Promise<{ name: string; kind: WorksheetKind } | null>;
+    kindOptions?: { initialKind: NewSheetKind; suggestName: (kind: NewSheetKind) => string },
+  ): Promise<{ name: string; kind: NewSheetKind } | null>;
   /**
    * Confirm deleting a worksheet that holds content, a filter, or non-default
    * display settings. `referenceCount` is how many formulas elsewhere in the

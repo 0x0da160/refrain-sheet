@@ -4,7 +4,8 @@ import { isCsv, isWorkbook } from '../../core/editor-document';
 import { isValidSheetName, MAX_SHEET_NAME_LENGTH } from '../../core/formula';
 import { MAX_WORKSHEETS, type RsfDocument } from '../../core/workbook/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
-import type { Worksheet, WorksheetKind } from '../../core/workbook/worksheet';
+import type { Worksheet } from '../../core/workbook/worksheet';
+import { sheetKindOf, type NewSheetKind } from '../../core/workbook/grid-paper';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
 import type { ConvertReason } from '../commands';
@@ -76,24 +77,28 @@ export class WorksheetCommands {
    * two Markdown sheets already named "Notes1"/"Notes2") and de-duplicated
    * workbook-wide via `uniqueSheetName`.
    */
-  private suggestNameForKind(doc: RsfDocument, kind: WorksheetKind): string {
-    const n = doc.sheets.filter((s) => s.kind === kind).length + 1;
+  private suggestNameForKind(doc: RsfDocument, kind: NewSheetKind): string {
+    const n = doc.sheets.filter((s) => sheetKindOf(s) === kind).length + 1;
     const key =
-      kind === 'markdown'
-        ? 'sheet.defaultMarkdownName'
-        : kind === 'json'
-          ? 'sheet.defaultJsonName'
-          : kind === 'yaml'
-            ? 'sheet.defaultYamlName'
-            : kind === 'text'
-              ? 'sheet.defaultTextName'
-              : 'sheet.defaultName';
+      kind === 'paper'
+        ? 'sheet.defaultPaperName'
+        : kind === 'markdown'
+          ? 'sheet.defaultMarkdownName'
+          : kind === 'json'
+            ? 'sheet.defaultJsonName'
+            : kind === 'yaml'
+              ? 'sheet.defaultYamlName'
+              : kind === 'text'
+                ? 'sheet.defaultTextName'
+                : 'sheet.defaultName';
     return doc.uniqueSheetName(t(key, { n }));
   }
 
   /** Add a new worksheet of `kind`, mirroring each kind-specific `add*Sheet` method on `AppState`. */
-  private addSheetOfKind(tab: Tab, kind: WorksheetKind, name: string): Worksheet | null {
+  private addSheetOfKind(tab: Tab, kind: NewSheetKind, name: string): Worksheet | null {
     switch (kind) {
+      case 'paper':
+        return this.state.addPaperSheet(tab, name);
       case 'markdown':
         return this.state.addMarkdownSheet(tab, name);
       case 'json':
@@ -121,7 +126,7 @@ export class WorksheetCommands {
     if (!isWorkbook(doc) || !this.canAddWorksheet(doc)) {
       return;
     }
-    const initialKind: WorksheetKind = 'grid';
+    const initialKind: NewSheetKind = 'grid';
     const suggested = this.suggestNameForKind(doc, initialKind);
     const result = await this.ui.promptSheetName(
       'add',
@@ -176,13 +181,21 @@ export class WorksheetCommands {
   }
 
   /**
+   * Add a new, empty grid-paper sheet (squares for forms, mock-ups and
+   * wireframes: see `grid-paper.ts`) after the active one and activate it.
+   */
+  async addPaperWorksheet(tab: Tab): Promise<void> {
+    return this.addSingleKindWorksheet(tab, 'paper');
+  }
+
+  /**
    * Shared body of `addMarkdownWorksheet`/`addJsonWorksheet`/
    * `addYamlWorksheet`/`addTextWorksheet` — each is a fixed-kind shortcut
    * that skips the kind picker `addWorksheet` (the generic `worksheet.add`
    * command) shows, since the kind is already implied by which command was
    * invoked.
    */
-  private async addSingleKindWorksheet(tab: Tab, kind: Exclude<WorksheetKind, 'grid'>): Promise<void> {
+  private async addSingleKindWorksheet(tab: Tab, kind: Exclude<NewSheetKind, 'grid'>): Promise<void> {
     const doc = tab.doc;
     if (!isWorkbook(doc) || !this.canAddWorksheet(doc)) {
       return;

@@ -1491,6 +1491,7 @@
   "panel.objects.unavailable": "Shapes and pictures can be placed on a spreadsheet sheet of an RSF file. Add one from the Insert menu; a CSV file is converted first.",
   "panel.objects.empty": "This sheet has no objects. Add one from the Insert menu.",
   "panel.objects.many": "{n} objects selected.",
+  "panel.objects.hint": "Double-click a rectangle, ellipse or text box to type its text on it. Hold Alt while moving or resizing an object to line it up with cell edges.",
   "panel.objects.list": "Objects on this sheet, front first",
   "panel.objects.shown": "Show {name}",
   "panel.objects.lockPosition": "Fix Position: {name}",

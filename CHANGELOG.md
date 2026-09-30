@@ -56,6 +56,8 @@ really is internal, rather than inventing an entry to satisfy it.
   them back to the left. The alignment is saved in the RSF file and shows on
   screen, in print and PDF, and in Copy as Image. Older versions of the app
   open such files and show the text at the left.
+- Type a rectangle's, an ellipse's or a text box's text right on the shape: double-click it (or press F2 with it selected). Enter starts a new line, Ctrl+Enter or clicking elsewhere keeps the text as one undo step, and Escape puts it back. Double-clicking any other object still opens its settings, and the object list now says how both work.
+- Hold Alt while resizing an object to put the edges you drag on the nearest cell edges, as Alt already does when moving one.
 
 ### Changed
 
@@ -79,6 +81,7 @@ really is internal, rather than inventing an entry to satisfy it.
   border then the inside lines gives a framed table.
 - **The in-cell text toolbar uses the palette's colors** and shows your recent
   colors first.
+- Objects now stay on whole pixels: an edit rounds their position and size to whole pixels, line widths to whole pixels of at least 1, and text sizes to whole points, and the object list takes whole numbers only for line width and text size. A fractional value from an older file is kept until the object is next edited.
 
 ### Fixed
 

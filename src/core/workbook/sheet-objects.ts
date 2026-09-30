@@ -46,7 +46,7 @@ export interface ObjectCrop {
 }
 
 /** Line widths, in pixels at 100% zoom. */
-export const MIN_OBJECT_LINE_WIDTH = 0.25;
+const MIN_OBJECT_LINE_WIDTH = 0.25;
 export const MAX_OBJECT_LINE_WIDTH = 20;
 
 export interface SheetObject {
@@ -100,6 +100,35 @@ export interface SheetObject {
   lockEdit?: true;
   /** The group it belongs to (objects sharing an id move and copy as one; see `object-arrange.ts`). */
   group?: string;
+}
+
+/**
+ * `o` on whole pixels: its offset, size and line width rounded to whole
+ * pixels (a line at least 1px), and its font size to whole points. Returns
+ * `o` itself when it already is. Applied to every edit; an object read from
+ * a file keeps what the file says (the RSF reader stays exact) until it is
+ * next edited.
+ */
+export function wholePixels(o: SheetObject): SheetObject {
+  const next = { ...o };
+  next.dx = Math.round(o.dx);
+  next.dy = Math.round(o.dy);
+  next.width = Math.round(o.width);
+  next.height = Math.round(o.height);
+  if (o.strokeWidth !== undefined) {
+    next.strokeWidth = Math.min(MAX_OBJECT_LINE_WIDTH, Math.max(1, Math.round(o.strokeWidth)));
+  }
+  if (o.fontSize !== undefined) {
+    next.fontSize = Math.round(o.fontSize);
+  }
+  const same =
+    next.dx === o.dx &&
+    next.dy === o.dy &&
+    next.width === o.width &&
+    next.height === o.height &&
+    next.strokeWidth === o.strokeWidth &&
+    next.fontSize === o.fontSize;
+  return same ? o : next;
 }
 
 /** Whether a kind is drawn as a line between two corners of its box. */

@@ -7,6 +7,7 @@ import {
   nextObjectId,
   objectListsEqual,
   MAX_SHEET_OBJECTS,
+  wholePixels,
   type SheetObject,
   type SheetObjectKind,
 } from '../../core/workbook/sheet-objects';
@@ -229,7 +230,9 @@ export class ObjectCommands {
    * locked object; reordering, showing/hiding and the locks themselves are
    * always allowed.
    */
-  replace(tab: Tab, next: readonly SheetObject[], label: string): boolean {
+  replace(tab: Tab, changed: readonly SheetObject[], label: string): boolean {
+    // Every edit leaves objects on whole pixels (see `wholePixels`).
+    const next = changed.map(wholePixels);
     const doc = tab.doc;
     if (!isWorkbook(doc) || doc.activeSheet.kind !== 'grid') {
       return false;

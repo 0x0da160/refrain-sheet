@@ -87,6 +87,18 @@
   user-select: none;
 }
 
+.sheet-object-text.sheet-object-text-editing {
+  pointer-events: auto;
+  user-select: text;
+}
+
+.sheet-object-text-field {
+  min-width: 1ch;
+  outline: none;
+  cursor: text;
+  caret-color: var(--canvas-text);
+}
+
 .sheet-object-text.align-left {
   justify-content: flex-start;
   text-align: left;

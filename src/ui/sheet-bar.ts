@@ -82,6 +82,7 @@ const SHEET_MENU_ITEMS: SheetMenuDef[] = [
       { command: 'worksheet.addYaml', labelKey: 'menu.sheet.addYamlSheet' },
       { command: 'worksheet.addText', labelKey: 'menu.sheet.addTextSheet' },
       'separator',
+      { command: 'worksheet.addCsv', labelKey: 'menu.sheet.addEmptyCsvSheet' },
       { command: 'worksheet.addFromCsv', labelKey: 'menu.sheet.addCsvSheet' },
     ],
   },

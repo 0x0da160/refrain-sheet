@@ -199,6 +199,7 @@ export class DriveIoCommands {
       // "brand-new, never-saved CSV" structural-edit exception (#479), same
       // as a local save.
       tab.neverSaved = false;
+      tab.fileSize = encoded.bytes.length;
       if (isCsv(tab.doc)) {
         const baseline = LosslessDocument.fromBytes(encoded.bytes, {
           encoding: tab.doc.encoding,

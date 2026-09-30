@@ -35,6 +35,9 @@ const LEFT_OUT_GROUPS = ['data.', 'drive.', 'format.', 'insert.', 'object.', 'wo
 /** Single commands the minimal edition leaves out: each needs a workbook or is not about a CSV. */
 const LEFT_OUT = new Set<CommandId>([
   'file.new',
+  'file.newMarkdown',
+  'file.newJson',
+  'file.newYaml',
   'file.importJsonTable',
   'file.print',
   'edit.copyScreenshot',

@@ -62,4 +62,48 @@ describe('Toasts', () => {
     vi.advanceTimersByTime(7000);
     expect(toasts.element.querySelectorAll('.toast')).toHaveLength(0);
   });
+
+  it('merges a repeated message into one toast with a count', () => {
+    const toasts = new Toasts();
+    toasts.notify('Saved.', 'info');
+    toasts.notify('Saved.', 'info');
+    toasts.notify('Saved.', 'info');
+
+    expect(toasts.element.querySelectorAll('.toast')).toHaveLength(1);
+    const count = toasts.element.querySelector<HTMLElement>('.toast-count');
+    expect(count?.hidden).toBe(false);
+    expect(count?.textContent).toBe('×3');
+  });
+
+  it('keeps different messages or kinds as separate toasts', () => {
+    const toasts = new Toasts();
+    toasts.notify('Saved.', 'info');
+    toasts.notify('Saved.', 'warn');
+    toasts.notify('Opened.', 'info');
+
+    expect(toasts.element.querySelectorAll('.toast')).toHaveLength(3);
+    expect(toasts.element.querySelector<HTMLElement>('.toast-count')?.hidden).toBe(true);
+  });
+
+  it('restarts the dismiss timer from the latest repeat', () => {
+    const toasts = new Toasts();
+    toasts.notify('Saved.', 'info');
+    vi.advanceTimersByTime(5000);
+    toasts.notify('Saved.', 'info');
+    vi.advanceTimersByTime(5000);
+    expect(toasts.element.querySelectorAll('.toast')).toHaveLength(1);
+    vi.advanceTimersByTime(2000);
+    expect(toasts.element.querySelectorAll('.toast')).toHaveLength(0);
+  });
+
+  it('shows a fresh toast after the merged one was closed', () => {
+    const toasts = new Toasts();
+    toasts.notify('Saved.', 'info');
+    toasts.notify('Saved.', 'info');
+    toasts.element.querySelector<HTMLButtonElement>('.toast-close')?.click();
+    toasts.notify('Saved.', 'info');
+
+    expect(toasts.element.querySelectorAll('.toast')).toHaveLength(1);
+    expect(toasts.element.querySelector<HTMLElement>('.toast-count')?.hidden).toBe(true);
+  });
 });

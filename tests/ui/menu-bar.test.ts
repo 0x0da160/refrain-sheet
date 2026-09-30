@@ -134,6 +134,10 @@ describe('menu-bar dropdown keyboard navigation', () => {
     expect((document.activeElement as HTMLButtonElement).disabled).toBe(false);
 
     document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    // Then the New Markdown / JSON / YAML submenu.
+    expect(document.activeElement?.textContent).toContain(t('menu.file.newOther'));
+
+    document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
     // The very next command in menu order (Open) is enabled, so this lands
     // there directly.
     expect(document.activeElement?.textContent).toContain(t('menu.file.open'));

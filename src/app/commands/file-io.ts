@@ -11,7 +11,7 @@ import {
 import { initCsvEngine } from '../../core/csv/csv-engine';
 import { forEachIndexSliced } from '../../core/scheduler';
 import { LosslessDocument } from '../../core/csv/lossless-document';
-import { RsfDocument, RSF_EXTENSION, NEW_DOC_ROWS, NEW_DOC_COLS } from '../../core/workbook/rsf-document';
+import { RsfDocument, RSF_EXTENSION } from '../../core/workbook/rsf-document';
 import {
   serializeDocument,
   KEEP_SAVE_OPTIONS,
@@ -35,7 +35,6 @@ import { getLocale, t } from '../i18n';
 import { getSuppressHistoryCapWarning } from '../settings';
 import type { ConvertReason } from '../commands';
 import {
-  CSV_EXTENSION,
   LARGE_OP_CELLS,
   nextPaint,
   pct,
@@ -44,6 +43,7 @@ import {
   withBusyIfLarge,
 } from './shared';
 import { FileOpening, type RecentDriveOpener } from './file-open';
+import { NewDocuments } from './new-documents';
 import { FileExporting } from './file-export';
 
 /** The subset of `Commands.gridActions` file I/O needs to auto-fit a newly opened tab. */
@@ -58,10 +58,8 @@ interface GridAutoFitPort {
  * exposes the same public methods, delegating to an instance of this class.
  */
 export class FileIoCommands {
-  /** Blank-document counter so each File > New tab gets a distinct default name. */
-  private newDocCount = 0;
-  /** Blank-document counter so each File > New CSV tab gets a distinct default name. */
-  private newCsvDocCount = 0;
+  /** File > New, New CSV and New Markdown / JSON / YAML. */
+  readonly creating: NewDocuments;
   /** Opening files: picked, dropped, recent, reopened, and every supported format. */
   readonly opening: FileOpening;
 
@@ -76,6 +74,7 @@ export class FileIoCommands {
   ) {
     this.opening = new FileOpening(this);
     this.exporting = new FileExporting(this);
+    this.creating = new NewDocuments(state);
   }
 
   /** Open picked or dropped files. Every entry point (menu, shortcut, drop) funnels through here. */
@@ -183,6 +182,7 @@ export class FileIoCommands {
       return false;
     }
     const outcome = written.value;
+    tab.fileSize = result.bytes.length;
     await this.recordWrittenFile(tab, outcome);
     // A real save (however it landed) ends the "brand-new, never-saved CSV"
     // exception (#479): further structural edits go through the normal
@@ -240,6 +240,7 @@ export class FileIoCommands {
       return false;
     }
     const outcome = written.value;
+    tab.fileSize = bytes.length;
     if (outcome.fellBack) {
       this.ui.notify(t('notify.permissionDenied'), 'warn');
     }
@@ -414,6 +415,7 @@ export class FileIoCommands {
       return false;
     }
     const outcome = written.value;
+    tab.fileSize = bytes.length;
     if (outcome.fellBack) {
       this.ui.notify(t('notify.permissionDenied'), 'warn');
     }
@@ -619,50 +621,6 @@ export class FileIoCommands {
       defaultSheetName(),
       getLocale(),
     );
-  }
-
-  /**
-   * File > New: create a blank spreadsheet document in a new active tab. New
-   * documents are RSF because a blank spreadsheet may gain formulas,
-   * structural edits, metadata, and user-defined dimensions that a plain CSV
-   * cannot hold. The document starts unsaved (marked dirty) and is saved as
-   * `.rsf`; its filename and location are chosen on the first save. Creating
-   * it never mutates any other open document.
-   */
-  newDocument(): Tab {
-    this.newDocCount += 1;
-    const suffix = this.newDocCount > 1 ? `-${this.newDocCount}` : '';
-    const name = `${t('untitled.new')}${suffix}${RSF_EXTENSION}`;
-    const doc = RsfDocument.blank(name, NEW_DOC_ROWS, NEW_DOC_COLS, defaultSheetName(), getLocale());
-    return this.state.addTab(name, doc, null);
-  }
-
-  /**
-   * File > New CSV: create a blank, byte-preserving CSV document in a new
-   * active tab (#396) — the CSV counterpart of `newDocument`'s blank RSF
-   * spreadsheet. The starting content is a single blank line (one empty
-   * row/column) rather than zero bytes: a genuinely empty (0-row) document
-   * renders no selectable cell at all (see `Grid.refresh`'s `grid.empty`
-   * state), which would leave a freshly created tab with no way to select a
-   * cell, paste, or insert a row — a dead end for a command whose whole
-   * point is to start editing. Unlike `newDocument`'s RSF workbook, the tab
-   * is not force-marked dirty: `LosslessDocument.isDirty` tracks actual
-   * edits, so an untouched new CSV closes silently, exactly like opening a
-   * real file and not touching it. Its filename and location are chosen on
-   * the first save (as `.csv`). Creating it never mutates any other open
-   * document.
-   */
-  newCsvDocument(): Tab {
-    this.newCsvDocCount += 1;
-    const suffix = this.newCsvDocCount > 1 ? `-${this.newCsvDocCount}` : '';
-    const name = `${t('untitled.new')}${suffix}${CSV_EXTENSION}`;
-    const doc = LosslessDocument.fromBytes(new TextEncoder().encode('\n'));
-    const tab = this.state.addTab(name, doc, null);
-    // Until the first save there is no on-disk byte layout to protect, so
-    // row/column structural edits are allowed directly on this CSV document
-    // (#479) — see `Tab.neverSaved` and `StructuralOpsState`.
-    tab.neverSaved = true;
-    return tab;
   }
 
   /**

@@ -33,6 +33,18 @@
   overflow-wrap: anywhere;
 }
 
+/* How many times the same message was shown while this toast was up. */
+.toast-count {
+  flex: none;
+  align-self: center;
+  border-radius: var(--radius-full);
+  padding: 0 var(--space-1-5);
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
 .toast-close {
   flex: none;
   display: inline-flex;

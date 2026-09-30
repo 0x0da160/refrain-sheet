@@ -17,6 +17,9 @@ import type { RsfDocument } from '../../src/core/workbook/rsf-document';
 const COMMAND_IDS: readonly CommandId[] = [
   'file.new',
   'file.newCsv',
+  'file.newMarkdown',
+  'file.newJson',
+  'file.newYaml',
   'file.open',
   'file.openRecent',
   'file.importJsonTable',
@@ -135,6 +138,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'worksheet.addJson',
   'worksheet.addYaml',
   'worksheet.addText',
+  'worksheet.addCsv',
   'worksheet.addFromCsv',
   'worksheet.rename',
   'worksheet.tabColor',

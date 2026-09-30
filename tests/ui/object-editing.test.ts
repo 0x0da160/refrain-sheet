@@ -55,14 +55,14 @@ function key(target: HTMLElement, init: KeyboardEventInit): void {
 }
 
 describe('typing a shape’s text on the shape', () => {
-  it('opens an editor on double-click and keeps the text on Ctrl+Enter as one undo step', () => {
+  it('opens an editor and the object settings on double-click, and keeps the text on Ctrl+Enter as one undo step', () => {
     const { grid, doc, state, tab, run } = setup();
     doc.setObjectsOn(undefined, [shape('a', 'rect', { text: 'old' })]);
     grid.refresh();
     doublePress(grid, 'a');
     const editor = field(grid)!;
     expect(editor.textContent).toBe('old');
-    expect(run).not.toHaveBeenCalledWith('insert.objectList');
+    expect(run).toHaveBeenCalledWith('insert.objectList');
     editor.textContent = 'line 1\nline 2';
     key(editor, { key: 'Enter', ctrlKey: true });
     expect(doc.objects[0].text).toBe('line 1\nline 2');

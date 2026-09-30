@@ -113,7 +113,7 @@ export interface Tab {
    */
   readOnly: boolean;
   /**
-   * True only for a CSV tab created by `File > New CSV` (`FileIoCommands.newCsvDocument`)
+   * True only for a CSV tab created by `File > New CSV` (`NewDocuments.newCsvDocument`)
    * that has never been saved (to disk or Drive) since. There is no on-disk
    * byte layout to protect yet, so structural edits (row/column insert and
    * delete) are allowed directly on the CSV document as an exception to the
@@ -129,6 +129,13 @@ export interface Tab {
    * every other tab.
    */
   textFile: TextFileFormat | null;
+  /**
+   * The size in bytes of the file this tab was opened from or last saved to
+   * (on disk, as a download, or on Google Drive), for the status bar. Null
+   * while the document has never been read from or written to a file. A CSV
+   * tab's size is its baseline bytes instead (`LosslessDocument.bytes`).
+   */
+  fileSize: number | null;
 }
 
 /**

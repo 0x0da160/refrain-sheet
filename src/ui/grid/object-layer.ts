@@ -18,14 +18,12 @@ import type { Tab } from '../../app/state';
 import { t } from '../../app/i18n';
 import { isWorkbook } from '../../core/editor-document';
 import { isLineKind, isPositionLocked, type SheetObject } from '../../core/workbook/sheet-objects';
-import { ContextMenu, type ContextMenuEntry } from '../context-menu';
 import { clearChildren, el } from '../dom';
 import { buildObjectElement, drawObject, lineEnds, type ObjectBox } from '../sheet-object-view';
 import { snapMove, unionBox, type GuideBox, type GuideLine } from './object-guides';
-import { withGroups, type Arrangement } from '../../core/workbook/object-arrange';
-import { AlignStartVertical, ImageDown, Layers } from 'lucide';
+import { withGroups } from '../../core/workbook/object-arrange';
+import { openObjectMenu, swallowNextAltUp } from './object-menu';
 import type { GridCore } from './core';
-import type { CommandId } from '../../app/commands';
 
 /** Pointer travel (px) before a press on an object becomes a drag. */
 const DRAG_THRESHOLD = 3;
@@ -52,6 +50,13 @@ interface ObjectDrag {
   shift: { dx: number; dy: number };
   /** A press on a member of a picked group: a click (no drag) picks that member alone. */
   pickMember: boolean;
+  /** Alt (Option) held: snap to cells. From pointer events and the key's own presses. */
+  alt: boolean;
+  /** Whether Shift is held (a picture then stretches freely). */
+  shiftKey: boolean;
+  /** The pointer's latest position, to redraw when only a key changed. */
+  lastX: number;
+  lastY: number;
 }
 
 export class ObjectLayer {
@@ -68,6 +73,7 @@ export class ObjectLayer {
   private readonly onMove = (event: PointerEvent): void => this.dragMove(event);
   private readonly onUp = (event: PointerEvent): void => this.dragEnd(event, false);
   private readonly onCancel = (event: PointerEvent): void => this.dragEnd(event, true);
+  private readonly onDragKey = (event: KeyboardEvent): void => this.dragKey(event);
 
   constructor(private readonly core: GridCore) {
     this.element = el('div', { className: 'sheet-objects' });
@@ -379,10 +385,34 @@ export class ObjectLayer {
       others: objects.filter((o) => !o.hidden && !picked.has(o.id)).map((o) => this.boxOf(tab, o)),
       shift: { dx: 0, dy: 0 },
       pickMember,
+      alt: event.altKey,
+      shiftKey: event.shiftKey,
+      lastX: event.clientX,
+      lastY: event.clientY,
     };
     document.addEventListener('pointermove', this.onMove);
     document.addEventListener('pointerup', this.onUp);
     document.addEventListener('pointercancel', this.onCancel);
+    document.addEventListener('keydown', this.onDragKey, true);
+    document.addEventListener('keyup', this.onDragKey, true);
+  }
+
+  /** Alt pressed or let go mid-drag: snap (or stop) at once, keeping the key from the browser's menu. */
+  private dragKey(event: KeyboardEvent): void {
+    const drag = this.drag;
+    if (!drag || (event.key !== 'Alt' && event.key !== 'Shift')) {
+      return;
+    }
+    const down = event.type === 'keydown';
+    if (event.key === 'Alt') {
+      event.preventDefault();
+      drag.alt = down;
+    } else {
+      drag.shiftKey = down;
+    }
+    if (drag.moved) {
+      this.dragTo(drag.lastX, drag.lastY);
+    }
   }
 
   private dragMove(event: PointerEvent): void {
@@ -402,16 +432,45 @@ export class ObjectLayer {
       return;
     }
     drag.moved = true;
+    drag.alt = event.altKey;
+    drag.shiftKey = event.shiftKey;
     event.preventDefault();
+    this.dragTo(event.clientX, event.clientY);
+  }
+
+  /** Show the drag with the pointer at (`x`, `y`) and the keys as `this.drag` holds them. */
+  private dragTo(x: number, y: number): void {
+    const drag = this.drag;
+    const tab = this.core.state.activeTab;
+    if (!drag || !tab) {
+      return;
+    }
+    drag.lastX = x;
+    drag.lastY = y;
+    const dx = x - drag.startX;
+    const dy = y - drag.startY;
     if (drag.mode === 'move') {
-      // Alt snaps to cell corners instead (on release), so no guides then;
-      // on grid paper the moved objects step from square to square.
-      const snap =
-        drag.bounds && !event.altKey
-          ? this.paperSquare(tab)
-            ? this.squareMove(tab, drag.bounds, dx, dy)
-            : snapMove(drag.bounds, drag.others, dx, dy)
-          : { dx, dy, guides: [] };
+      if (drag.alt && !this.paperSquare(tab)) {
+        // Alt: each moved object's corner lands on the nearest cell corner,
+        // shown while dragging, exactly where the release will put it.
+        drag.shift = { dx, dy };
+        for (const o of drag.originals) {
+          const node = this.elementFor(o.id);
+          if (node) {
+            const box = this.boxOf(tab, o);
+            const to = this.boxOf(tab, this.placeAt(tab, o, box.x + dx, box.y + dy, true));
+            node.style.translate = `${to.x - box.x}px ${to.y - box.y}px`;
+          }
+        }
+        this.showGuides([]);
+        return;
+      }
+      // On grid paper the moved objects step from square to square.
+      const snap = drag.bounds
+        ? this.paperSquare(tab)
+          ? this.squareMove(tab, drag.bounds, dx, dy)
+          : snapMove(drag.bounds, drag.others, dx, dy)
+        : { dx, dy, guides: [] };
       drag.shift = { dx: snap.dx, dy: snap.dy };
       for (const o of drag.originals) {
         const node = this.elementFor(o.id);
@@ -423,7 +482,7 @@ export class ObjectLayer {
       return;
     }
     const o = drag.originals[0];
-    drag.preview = this.resized(tab, o, drag.handle ?? 'se', dx, dy, event.shiftKey, event.altKey);
+    drag.preview = this.resized(tab, o, drag.handle ?? 'se', dx, dy, drag.shiftKey, drag.alt);
     const node = this.elementFor(o.id);
     node?.replaceWith(this.objectElement(tab, drag.preview, true));
   }
@@ -527,13 +586,18 @@ export class ObjectLayer {
       return;
     }
     let done: boolean;
+    // Alt as the release reports it, or as its own key press last said.
+    const alt = (event.altKey || drag.alt) && !this.paperSquare(tab);
+    if (alt) {
+      swallowNextAltUp();
+    }
     if (drag.mode === 'move') {
-      const { dx, dy } = event.altKey
+      const { dx, dy } = alt
         ? { dx: event.clientX - drag.startX, dy: event.clientY - drag.startY }
         : drag.shift;
       const moved = drag.originals.map((o) => {
         const box = this.boxOf(tab, o);
-        return this.placeAt(tab, o, box.x + dx, box.y + dy, event.altKey);
+        return this.placeAt(tab, o, box.x + dx, box.y + dy, alt);
       });
       done = this.core.commands.updateObjects(tab, moved, 'history.moveObject');
     } else {
@@ -571,6 +635,8 @@ export class ObjectLayer {
     document.removeEventListener('pointermove', this.onMove);
     document.removeEventListener('pointerup', this.onUp);
     document.removeEventListener('pointercancel', this.onCancel);
+    document.removeEventListener('keydown', this.onDragKey, true);
+    document.removeEventListener('keyup', this.onDragKey, true);
   }
 
   /** Escape during a drag puts everything back. */
@@ -587,10 +653,11 @@ export class ObjectLayer {
 
   /**
    * Whether this press on object `id` is the second of a double press (the
-   * same object, soon after, in about the same place). A double press types
-   * a shape's text on the shape; on any other object, or a shape whose text
-   * is locked, it opens the object's settings. Either way it picks that one
-   * object, out of its group too. Presses on a resize handle never count.
+   * same object, soon after, in about the same place). A double press opens
+   * the object's settings and, on a shape or text box whose text is not
+   * locked, also starts typing its text on it — the settings panel beside
+   * it does not take the keyboard. Either way it picks that one object, out
+   * of its group too. Presses on a resize handle never count.
    */
   private doublePress(event: PointerEvent, id: string, onHandle: boolean): boolean {
     const last = this.lastPress;
@@ -613,9 +680,8 @@ export class ObjectLayer {
     if (tab) {
       this.core.state.objectSelection.select(tab, [id]);
     }
-    if (!this.editText(id)) {
-      void this.core.commands.run('insert.objectList');
-    }
+    void this.core.commands.run('insert.objectList');
+    this.editText(id);
     return true;
   }
 
@@ -711,68 +777,12 @@ export class ObjectLayer {
   }
 
   private contextMenu(event: MouseEvent): void {
-    const node = this.objectFrom(event.target);
-    const tab = this.core.state.activeTab;
-    if (!node || !tab) {
+    if (!this.objectFrom(event.target) || !this.core.state.activeTab) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    const item = (command: CommandId, labelKey: string): ContextMenuEntry => ({
-      label: t(labelKey),
-      disabled: !this.core.commands.isEnabled(command),
-      onSelect: () => void this.core.commands.run(command),
-    });
-    this.core.pointer.closeContextMenu();
-    const align = (how: Arrangement): ContextMenuEntry => item(`object.${how}`, `menu.insert.${how}`);
-    // Grouped the way Insert > Arrange Objects is, so the menu stays short.
-    this.core.contextMenu = ContextMenu.open(
-      [
-        item('edit.cut', 'menu.edit.cut'),
-        item('edit.copy', 'menu.edit.copy'),
-        item('edit.paste', 'menu.edit.paste'),
-        'separator',
-        {
-          label: t('menu.insert.order'),
-          icon: Layers,
-          submenu: [
-            item('object.bringToFront', 'menu.insert.bringToFront'),
-            item('object.bringForward', 'menu.insert.bringForward'),
-            item('object.sendBackward', 'menu.insert.sendBackward'),
-            item('object.sendToBack', 'menu.insert.sendToBack'),
-          ],
-        },
-        {
-          label: t('menu.insert.align'),
-          icon: AlignStartVertical,
-          submenu: [
-            ...(
-              ['alignLeft', 'alignCenter', 'alignRight', 'alignTop', 'alignMiddle', 'alignBottom'] as const
-            ).map(align),
-            'separator',
-            align('distributeHorizontally'),
-            align('distributeVertically'),
-          ],
-        },
-        item('object.group', 'menu.insert.group'),
-        item('object.ungroup', 'menu.insert.ungroup'),
-        'separator',
-        {
-          label: t('menu.insert.saveObjects'),
-          icon: ImageDown,
-          submenu: [
-            item('object.saveAsPng', 'menu.insert.saveAsPng'),
-            item('object.saveAsSvg', 'menu.insert.saveAsSvg'),
-          ],
-        },
-        item('insert.objectList', 'menu.insert.objectList'),
-        'separator',
-        item('object.delete', 'menu.insert.deleteObject'),
-      ],
-      event.clientX,
-      event.clientY,
-      { onClose: () => (this.core.contextMenu = null) },
-    );
+    openObjectMenu(this.core, event.clientX, event.clientY);
   }
 }
 

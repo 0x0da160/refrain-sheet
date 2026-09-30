@@ -26,7 +26,7 @@ export async function checkSheetAddDialog(page) {
   const kinds = await page.$$eval('.sheet-kind-picker input[type="radio"]', (radios) =>
     radios.map((radio) => ({ kind: radio.value, checked: radio.checked })),
   );
-  const expected = ['grid', 'paper', 'markdown', 'json', 'yaml', 'text'];
+  const expected = ['grid', 'csv', 'paper', 'markdown', 'json', 'yaml', 'text'];
   if (kinds.map((k) => k.kind).join() !== expected.join()) {
     errors.push(`sheet-type picker offers ${kinds.map((k) => k.kind).join()}, expected ${expected.join()}`);
   }

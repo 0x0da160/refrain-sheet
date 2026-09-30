@@ -111,6 +111,9 @@ import type { CommandId } from '../app/commands';
 export const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'file.new': FilePlus,
   'file.newCsv': FilePlus2,
+  'file.newMarkdown': FilePenLine,
+  'file.newJson': FileJson,
+  'file.newYaml': FileCode,
   'file.open': FolderOpen,
   'file.openRecent': FolderClock,
   'drive.open': CloudDownload,
@@ -168,6 +171,7 @@ export const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'worksheet.addJson': FileJson,
   'worksheet.addYaml': FileCode,
   'worksheet.addText': FileType,
+  'worksheet.addCsv': FileSpreadsheet,
   'worksheet.addFromCsv': FileSpreadsheet,
   'worksheet.rename': Pencil,
   'worksheet.tabColor': Palette,

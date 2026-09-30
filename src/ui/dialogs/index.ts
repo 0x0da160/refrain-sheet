@@ -36,7 +36,7 @@ import type { EncodingId } from '../../core/csv/encoding';
 import type { RsfHistorySnapshot } from '../../core/workbook/rsf-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/csv/serializer';
 import type { ValidationSummary } from '../../core/csv/validation';
-import type { NewSheetKind } from '../../core/workbook/grid-paper';
+import type { AddSheetKind } from '../../core/workbook/grid-paper';
 import type { FolderPickerInput, SheetNameResult } from '../../app/ui-port';
 import { openColumnMenu } from '../column-menu';
 import { chooseFolder, promptFolderName } from './sheet-folders';
@@ -322,7 +322,7 @@ export class Dialogs {
     mode: 'add' | 'rename' | 'duplicate',
     current: string,
     validate: (name: string) => string | null,
-    kindOptions?: { initialKind: NewSheetKind; suggestName: (kind: NewSheetKind) => string },
+    kindOptions?: { initialKind: AddSheetKind; suggestName: (kind: AddSheetKind) => string },
   ): Promise<SheetNameResult | null> {
     return this.sheetOps.promptSheetName(mode, current, validate, kindOptions);
   }
@@ -492,31 +492,71 @@ export class Dialogs {
   }
 }
 
-/** Non-blocking toast notifications. */
+/** How long a toast stays up after it (or its latest repeat) was shown. */
+const TOAST_DURATION_MS = 7000;
+
+interface ShownToast {
+  element: HTMLElement;
+  count: HTMLElement;
+  repeats: number;
+  timer: ReturnType<typeof setTimeout>;
+}
+
+/**
+ * Non-blocking toast notifications. The same message of the same kind shown
+ * again while its toast is still up does not stack a second toast: the one
+ * toast counts the repeats (×2, ×3, …) and its dismiss timer starts over
+ * from the latest repeat.
+ */
 export class Toasts {
   readonly element: HTMLElement;
+  private readonly shown = new Map<string, ShownToast>();
 
   constructor() {
     this.element = el('div', { className: 'toasts', attrs: { 'aria-live': 'polite' } });
   }
 
   notify(text: string, kind: 'info' | 'warn' | 'error'): void {
+    const key = `${kind}\u0000${text}`;
+    const existing = this.shown.get(key);
+    if (existing) {
+      existing.repeats += 1;
+      existing.count.textContent = t('toast.count', { count: existing.repeats });
+      existing.count.hidden = false;
+      clearTimeout(existing.timer);
+      existing.timer = setTimeout(() => this.dismiss(key), TOAST_DURATION_MS);
+      return;
+    }
     const toast = el('div', {
       className: kind === 'info' ? 'toast' : `toast ${kind}`,
       attrs: { role: kind === 'error' ? 'alert' : 'status' },
     });
     const message = el('span', { className: 'toast-message', text });
+    const count = el('span', { className: 'toast-count' });
+    count.hidden = true;
     const closeBtn = el('button', {
       className: 'toast-close',
       attrs: { type: 'button', 'aria-label': t('toast.close') },
     });
     closeBtn.append(createIcon(X, 'toast-close-icon', 14));
-    const timer = setTimeout(() => toast.remove(), 7000);
-    closeBtn.addEventListener('click', () => {
-      clearTimeout(timer);
-      toast.remove();
-    });
-    toast.append(message, closeBtn);
+    closeBtn.addEventListener('click', () => this.dismiss(key));
+    toast.append(message, count, closeBtn);
     this.element.append(toast);
+    this.shown.set(key, {
+      element: toast,
+      count,
+      repeats: 1,
+      timer: setTimeout(() => this.dismiss(key), TOAST_DURATION_MS),
+    });
+  }
+
+  private dismiss(key: string): void {
+    const shown = this.shown.get(key);
+    if (!shown) {
+      return;
+    }
+    clearTimeout(shown.timer);
+    shown.element.remove();
+    this.shown.delete(key);
   }
 }

@@ -44,6 +44,7 @@ export const WORKSHEET_COMMANDS = {
     const files = await pickFiles(dom, getMaxFileSize(), CSV_FILE_TYPES);
     await parts.fileIo.opening.addCsvSheets(tab, files);
   }),
+  'worksheet.addCsv': onWorkbook(({ parts }, tab) => parts.worksheets.addCsvWorksheet(tab)),
   'worksheet.addPaper': onWorkbook(({ parts }, tab) => parts.worksheets.addPaperWorksheet(tab)),
   'worksheet.addMarkdown': onWorkbook(({ parts }, tab) => parts.worksheets.addMarkdownWorksheet(tab)),
   'worksheet.addJson': onWorkbook(({ parts }, tab) => parts.worksheets.addJsonWorksheet(tab)),

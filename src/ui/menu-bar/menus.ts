@@ -15,6 +15,7 @@ import {
   Rows3,
   FileCog,
   FileDown,
+  FilePenLine,
   History,
   Layers,
   AlignStartVertical,
@@ -210,6 +211,15 @@ function fileMenu(checks: MenuChecks): MenuDef {
       // family-submenu convention as Sheet/View below.
       { labelKey: 'menu.file.new', command: 'file.new' },
       { labelKey: 'menu.file.newCsv', command: 'file.newCsv' },
+      {
+        labelKey: 'menu.file.newOther',
+        icon: FilePenLine,
+        submenu: [
+          { labelKey: 'menu.file.newMarkdown', command: 'file.newMarkdown' },
+          { labelKey: 'menu.file.newJson', command: 'file.newJson' },
+          { labelKey: 'menu.file.newYaml', command: 'file.newYaml' },
+        ],
+      },
       { labelKey: 'menu.file.open', command: 'file.open', shortcut: 'Ctrl+O' },
       { labelKey: 'menu.file.openRecent', command: 'file.openRecent' },
       { labelKey: 'menu.file.importJsonTable', command: 'file.importJsonTable' },
@@ -610,6 +620,7 @@ function addSheetItems(): Array<MenuItemDef | 'separator'> {
     { labelKey: 'menu.sheet.addYamlSheet', command: 'worksheet.addYaml' },
     { labelKey: 'menu.sheet.addTextSheet', command: 'worksheet.addText' },
     'separator',
+    { labelKey: 'menu.sheet.addEmptyCsvSheet', command: 'worksheet.addCsv' },
     { labelKey: 'menu.sheet.addCsvSheet', command: 'worksheet.addFromCsv' },
   ];
 }

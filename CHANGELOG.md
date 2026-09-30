@@ -44,6 +44,38 @@ really is internal, rather than inventing an entry to satisfy it.
   right of the window, drawn as pixel art. They never get in the way of a
   click, stand still when the system asks for reduced motion, and are left
   out on a phone. Turn them off in File > Settings… (kept in this browser).
+- **New Markdown, JSON and YAML files.** The start screen has New Markdown,
+  New JSON and New YAML buttons, and File > New Markdown / JSON / YAML has
+  the same three. Each opens an empty editor that saves as a UTF-8 text file.
+- **Blank CSV sheets in an RSF file.** The Add Sheet dialog has a CSV Sheet
+  choice, and Sheet > Manage Sheets > New Sheet has Add CSV Sheet: a blank
+  sheet named CSV1, CSV2, … next to Add from CSV File….
+- **Markdown display themes.** The Markdown sheet's toolbar has a Theme
+  list (Standard, Easy Reading, Paper, Dark, High Contrast) for the preview
+  and the Formatted editor. The choice is kept in this browser.
+- **Markdown turns into formatting as you type.** In the Formatted editor,
+  typing `# ` (up to `###### `) at the start of a line makes it a heading,
+  `- ` a bulleted list, `1. ` a numbered list and `> ` a quote, and Enter on
+  a line of just ` ``` ` starts a code block. The full-width marks a
+  Japanese input method types (`＃　` and so on) work too.
+- **File size and details in the status bar.** RSF, Markdown, JSON and YAML
+  files now show their size, and every size also shows in KB or MB. On a
+  desktop the status bar always has a Details button listing the file's
+  name, where it is saved, and every detail about it.
+
+### Changed
+
+- **Repeated messages no longer pile up.** When the same message pops up
+  again while it is still on screen, it stays one message with a count
+  (×2, ×3, …), and it stays up for the full time from the latest repeat.
+- **Double-clicking a shape or text box also opens its settings.** The text
+  is typed on the shape as before, and the object settings panel opens
+  beside it.
+- **Alt-dragging a shape snaps to cells reliably.** The shape now shows the
+  cell corner it will land on while you drag, Alt can also be pressed during
+  the drag, and the browser no longer takes the Alt key for its own menu.
+- **Protection is one switch.** The status bar shows one button, Protected
+  with a lock or Edit with a pencil, and clicking it switches between them.
 
 ## [0.9.22] - 2026-09-30
 

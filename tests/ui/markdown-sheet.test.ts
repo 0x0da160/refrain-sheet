@@ -93,6 +93,30 @@ function setup(): {
 }
 
 describe('MarkdownSheetView', () => {
+  it('applies the chosen display theme to the preview and the Formatted editor, and remembers it', () => {
+    localStorage.clear();
+    const { view, state } = setup();
+    const select = view.element.querySelector('.markdown-theme-select') as HTMLSelectElement;
+    const preview = view.panelElement.querySelector('.markdown-editor-preview') as HTMLElement;
+    const visual = view.element.querySelector('.markdown-visual') as HTMLElement;
+    expect(select.value).toBe('standard');
+    expect(preview.dataset.mdTheme).toBeUndefined();
+
+    select.value = 'paper';
+    select.dispatchEvent(new Event('change'));
+    expect(preview.dataset.mdTheme).toBe('paper');
+    expect(visual.dataset.mdTheme).toBe('paper');
+
+    // A new view (another window, a reload) starts with the remembered theme.
+    const again = new MarkdownSheetView(state, new Commands(state, stubUi(), document));
+    expect((again.element.querySelector('.markdown-theme-select') as HTMLSelectElement).value).toBe('paper');
+
+    select.value = 'standard';
+    select.dispatchEvent(new Event('change'));
+    expect(preview.dataset.mdTheme).toBeUndefined();
+    expect(localStorage.length).toBe(0);
+  });
+
   it('is read-only while its worksheet is locked, so nothing typed is refused later', () => {
     const { view, state, tab, notes } = setup();
     state.setSheetLocked(tab, notes.id, true);

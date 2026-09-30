@@ -11,6 +11,9 @@ const driveAvailable = (ctx: CommandContext): boolean => ctx.commands.driveAvail
 export const FILE_COMMANDS = {
   'file.new': { run: (ctx) => ctx.commands.newDocument() },
   'file.newCsv': { run: (ctx) => ctx.commands.newCsvDocument() },
+  'file.newMarkdown': { run: (ctx) => ctx.commands.newTextDocument('markdown') },
+  'file.newJson': { run: (ctx) => ctx.commands.newTextDocument('json') },
+  'file.newYaml': { run: (ctx) => ctx.commands.newTextDocument('yaml') },
   'file.open': {
     run: async (ctx) => {
       const files = await pickFiles(ctx.dom, getMaxFileSize());

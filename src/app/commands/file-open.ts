@@ -319,6 +319,7 @@ export class FileOpening {
     const name = file.name;
     const tab = this.core.state.addTab(name, result.doc, file.handle, true);
     tab.diskStamp = file.handle ? (file.stamp ?? null) : null;
+    tab.fileSize = file.bytes.length;
     tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
     if (result.doc.filterDropped) {
       // The container carried filter metadata that failed validation; it was
@@ -406,6 +407,7 @@ export class FileOpening {
     const tab = this.core.state.addTab(file.name, doc, file.handle, true);
     tab.diskStamp = file.handle ? (file.stamp ?? null) : null;
     tab.textFile = format;
+    tab.fileSize = file.bytes.length;
   }
 
   /**

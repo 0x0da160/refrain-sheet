@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { isCommandAvailable, isMinimalEdition } from '../app/edition';
-import { FilePlus, FilePlus2, FolderClock, FolderOpen } from 'lucide';
+import { FileCode, FileJson, FilePenLine, FilePlus, FilePlus2, FolderClock, FolderOpen } from 'lucide';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { createAppLogotype } from './app-icon';
@@ -57,6 +57,28 @@ export class WelcomeScreen {
       [createIcon(FilePlus2, 'flex-none', 18), el('span', { text: t('welcome.newCsv') })],
     );
     createCsv.addEventListener('click', () => void this.commands.run('file.newCsv'));
+    // New Markdown / JSON / YAML: a second, quieter row under the main
+    // entry points (the same editors a .md / .json / .yaml file opens in).
+    const textKinds = [
+      { command: 'file.newMarkdown', labelKey: 'welcome.newMarkdown', icon: FilePenLine },
+      { command: 'file.newJson', labelKey: 'welcome.newJson', icon: FileJson },
+      { command: 'file.newYaml', labelKey: 'welcome.newYaml', icon: FileCode },
+    ] as const;
+    const textActionClasses = actionClasses.replace('welcome-action ', 'welcome-text-action ');
+    const createText = textKinds
+      .filter(({ command }) => isCommandAvailable(command))
+      .map(({ command, labelKey, icon }) => {
+        const button = el(
+          'button',
+          {
+            className: `${textActionClasses} bg-surface text-accent-text`,
+            attrs: { type: 'button' },
+          },
+          [createIcon(icon, 'flex-none', 16), el('span', { text: t(labelKey) })],
+        );
+        button.addEventListener('click', () => void this.commands.run(command));
+        return button;
+      });
     // A quieter link to File > Open Recent…, only where the browser can
     // reopen files at all (the File System Access API).
     const recent = el(
@@ -91,6 +113,18 @@ export class WelcomeScreen {
         },
         isCommandAvailable('file.new') ? [open, create, createCsv] : [open, createCsv],
       ),
+      ...(createText.length > 0
+        ? [
+            el(
+              'div',
+              {
+                className:
+                  'welcome-text-actions mb-(--space-0-5) grid gap-(--space-2) desktop:grid-flow-col desktop:auto-cols-fr',
+              },
+              createText,
+            ),
+          ]
+        : []),
       ...(this.commands.isEnabled('file.openRecent') ? [recent] : []),
       el('p', {
         className:

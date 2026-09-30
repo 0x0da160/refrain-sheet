@@ -1,0 +1,145 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Markdown display themes (`app/markdown-theme.ts`) ----------
+   The Markdown sheet's preview and its Formatted (visual) editor share one
+   display theme, picked from the sheet's toolbar. "Standard" is the plain
+   look above (the app's own colours); the others set their own colours from
+   the design system's palette, so they read the same in every app theme.
+   Every text colour here is at least 4.5:1 on its background (WCAG AA body
+   text); body text and headings are above 7:1. */
+
+.markdown-editor-preview[data-md-theme] {
+  background: var(--md-bg);
+  color: var(--md-fg);
+}
+
+.markdown-editor-preview[data-md-theme] :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--md-heading);
+}
+
+.markdown-editor-preview[data-md-theme] :is(h1, h2) {
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--md-rule);
+}
+
+.markdown-editor-preview[data-md-theme] a {
+  color: var(--md-link);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.markdown-editor-preview[data-md-theme] :is(code, pre) {
+  background: var(--md-code-bg);
+  color: var(--md-fg);
+}
+
+.markdown-editor-preview[data-md-theme] code {
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-xs);
+}
+
+.markdown-editor-preview[data-md-theme] pre code {
+  padding: 0;
+}
+
+.markdown-editor-preview[data-md-theme] blockquote {
+  border-left-color: var(--md-quote-bar);
+  color: var(--md-muted);
+}
+
+.markdown-editor-preview[data-md-theme] :is(th, td) {
+  border-color: var(--md-rule);
+}
+
+.markdown-editor-preview[data-md-theme] th {
+  background: var(--md-code-bg);
+}
+
+.markdown-editor-preview[data-md-theme] hr {
+  border: 0;
+  border-top: 1px solid var(--md-rule);
+}
+
+.markdown-editor-preview[data-md-theme] :is(.markdown-visual-block, [contenteditable='true']):focus {
+  box-shadow: 0 0 0 var(--focus-width) var(--md-link);
+}
+
+.markdown-editor-preview[data-md-theme] .markdown-visual-block[data-placeholder]:empty::before {
+  color: var(--md-muted);
+}
+
+/* Paper: dark ink on a warm off-white page, in a book-like line length. */
+.markdown-editor-preview[data-md-theme='paper'] {
+  --md-bg: var(--paper-50);
+  --md-fg: var(--ink-900);
+  --md-heading: var(--green-800);
+  --md-muted: var(--ink-500);
+  --md-link: var(--blue-700);
+  --md-code-bg: var(--paper-100);
+  --md-rule: var(--paper-400);
+  --md-quote-bar: var(--green-600);
+  color-scheme: light;
+}
+
+/* Easy reading: the app's own colours, larger text, roomier lines and a
+   comfortable line length. */
+.markdown-editor-preview[data-md-theme='reading'] {
+  --md-bg: var(--bg-surface);
+  --md-fg: var(--fg-default);
+  --md-heading: var(--fg-default);
+  --md-muted: var(--fg-muted);
+  --md-link: var(--link);
+  --md-code-bg: var(--bg-raised);
+  --md-rule: var(--border-default);
+  --md-quote-bar: var(--accent);
+  font-size: 1.125em;
+  line-height: 1.9;
+}
+
+.markdown-editor-preview[data-md-theme='reading'] > * {
+  max-width: 40em;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.markdown-editor-preview[data-md-theme='reading'] :is(p, li) {
+  margin-block: 0.6em;
+}
+
+/* Dark: light text on a near-black page, whatever the app theme. */
+.markdown-editor-preview[data-md-theme='dark'] {
+  --md-bg: var(--ink-950);
+  --md-fg: var(--paper-100);
+  --md-heading: var(--paper-0);
+  --md-muted: var(--ink-150);
+  --md-link: var(--blue-300);
+  --md-code-bg: var(--ink-700);
+  --md-rule: var(--ink-500);
+  --md-quote-bar: var(--green-400);
+  color-scheme: dark;
+}
+
+/* High contrast: black on white, bold rules, and underlined links. */
+.markdown-editor-preview[data-md-theme='contrast'] {
+  --md-bg: var(--paper-0);
+  --md-fg: var(--ink-1000);
+  --md-heading: var(--ink-1000);
+  --md-muted: var(--ink-700);
+  --md-link: var(--blue-900);
+  --md-code-bg: var(--paper-100);
+  --md-rule: var(--ink-1000);
+  --md-quote-bar: var(--ink-1000);
+  color-scheme: light;
+}
+
+.markdown-editor-preview[data-md-theme='contrast'] :is(h1, h2) {
+  border-bottom-width: 2px;
+}
+
+.markdown-editor-preview[data-md-theme='contrast'] :is(strong, b, h1, h2, h3, h4, h5, h6, th) {
+  font-weight: 800;
+}
+
+.markdown-editor-preview[data-md-theme='contrast'] blockquote {
+  border-left-width: 4px;
+}

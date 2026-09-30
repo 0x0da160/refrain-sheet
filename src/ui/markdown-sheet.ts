@@ -3,6 +3,12 @@ import { isWorkbook } from '../core/editor-document';
 import type { AppState, Tab } from '../app/state';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
+import {
+  getMarkdownTheme,
+  MARKDOWN_THEMES,
+  setMarkdownTheme,
+  type MarkdownTheme,
+} from '../app/markdown-theme';
 import { parseMarkdown } from '../core/markdown';
 import {
   applySidePanelPosition,
@@ -75,6 +81,7 @@ export class MarkdownSheetView {
   private readonly modeButtons: Record<MarkdownMode, HTMLButtonElement>;
   private readonly formatTools: HTMLElement;
   private readonly blockKindSelect: HTMLSelectElement;
+  private readonly themeSelect: HTMLSelectElement;
   private mode: MarkdownMode = 'source';
 
   /** The (tab, sheetId) the textarea currently reflects, so a pending debounced edit commits to the right place. */
@@ -122,10 +129,15 @@ export class MarkdownSheetView {
       this.formatButton(Italic, t('dialog.markdownEditor.italic'), 'em'),
       this.formatButton(Code, t('dialog.markdownEditor.code'), 'code'),
     ]);
+    this.themeSelect = this.buildThemeSelect();
     const toolbar = el('div', { className: 'markdown-editor-toolbar' }, [
       modeGroup,
       this.formatTools,
       this.previewToggle,
+      el('label', { className: 'markdown-theme-field' }, [
+        el('span', { text: t('dialog.markdownEditor.theme') }),
+        this.themeSelect,
+      ]),
     ]);
 
     const panes = el('div', { className: 'markdown-editor-panes' }, [this.sourcePane, visualPane]);
@@ -154,6 +166,7 @@ export class MarkdownSheetView {
     const body = el('div', { className: 'dialog-body' }, [this.preview]);
     this.panelElement.append(previewChrome.heading, body, previewChrome.resizeHandle);
     this.panelElement.hidden = true;
+    this.applyTheme(getMarkdownTheme());
 
     this.visual.onChange = (source) => {
       this.editor.setValue(source);
@@ -229,6 +242,33 @@ export class MarkdownSheetView {
       }
     });
     return select;
+  }
+
+  /** The display theme picker: how the preview and the Formatted editor look (see `markdown-themes.css`). */
+  private buildThemeSelect(): HTMLSelectElement {
+    const select = el('select', { className: 'markdown-theme-select' }) as HTMLSelectElement;
+    for (const theme of MARKDOWN_THEMES) {
+      select.append(
+        el('option', { text: t(`dialog.markdownEditor.theme.${theme}`), attrs: { value: theme } }),
+      );
+    }
+    select.value = getMarkdownTheme();
+    select.addEventListener('change', () => {
+      const theme = select.value as MarkdownTheme;
+      setMarkdownTheme(theme);
+      this.applyTheme(theme);
+    });
+    return select;
+  }
+
+  private applyTheme(theme: MarkdownTheme): void {
+    for (const surface of [this.preview, this.visual.element]) {
+      if (theme === 'standard') {
+        surface.removeAttribute('data-md-theme');
+      } else {
+        surface.dataset.mdTheme = theme;
+      }
+    }
   }
 
   private formatButton(icon: typeof Bold, label: string, kind: 'strong' | 'em' | 'code'): HTMLButtonElement {

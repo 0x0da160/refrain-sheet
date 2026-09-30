@@ -5,7 +5,7 @@ import { isValidSheetName, MAX_SHEET_NAME_LENGTH } from '../../core/formula';
 import { MAX_WORKSHEETS, type RsfDocument } from '../../core/workbook/rsf-document';
 import { forEachIndexSliced } from '../../core/scheduler';
 import type { Worksheet } from '../../core/workbook/worksheet';
-import { sheetKindOf, type NewSheetKind } from '../../core/workbook/grid-paper';
+import { sheetKindOf, type AddSheetKind } from '../../core/workbook/grid-paper';
 import type { AppState, Tab } from '../state';
 import { t } from '../i18n';
 import type { ConvertReason } from '../commands';
@@ -77,7 +77,15 @@ export class WorksheetCommands {
    * two Markdown sheets already named "Notes1"/"Notes2") and de-duplicated
    * workbook-wide via `uniqueSheetName`.
    */
-  private suggestNameForKind(doc: RsfDocument, kind: NewSheetKind): string {
+  private suggestNameForKind(doc: RsfDocument, kind: AddSheetKind): string {
+    if (kind === 'csv') {
+      // Not a kind of its own: the first CSV<n> name no sheet has yet.
+      let n = 1;
+      while (doc.sheetByName(t('sheet.defaultCsvName', { n }))) {
+        n += 1;
+      }
+      return doc.uniqueSheetName(t('sheet.defaultCsvName', { n }));
+    }
     const n = doc.sheets.filter((s) => sheetKindOf(s) === kind).length + 1;
     const key =
       kind === 'paper'
@@ -95,7 +103,7 @@ export class WorksheetCommands {
   }
 
   /** Add a new worksheet of `kind`, mirroring each kind-specific `add*Sheet` method on `AppState`. */
-  private addSheetOfKind(tab: Tab, kind: NewSheetKind, name: string): Worksheet | null {
+  private addSheetOfKind(tab: Tab, kind: AddSheetKind, name: string): Worksheet | null {
     switch (kind) {
       case 'paper':
         return this.state.addPaperSheet(tab, name);
@@ -107,6 +115,7 @@ export class WorksheetCommands {
         return this.state.addYamlSheet(tab, name);
       case 'text':
         return this.state.addTextSheet(tab, name);
+      case 'csv':
       case 'grid':
         return this.state.addSheet(tab, name);
     }
@@ -127,7 +136,7 @@ export class WorksheetCommands {
     if (!isWorkbook(doc) || !this.canAddWorksheet(doc)) {
       return;
     }
-    const initialKind: NewSheetKind = 'grid';
+    const initialKind: AddSheetKind = 'grid';
     const suggested = this.suggestNameForKind(doc, initialKind);
     const result = await this.ui.promptSheetName(
       'add',
@@ -185,6 +194,15 @@ export class WorksheetCommands {
   }
 
   /**
+   * Add a new, blank sheet of cells for CSV data after the active one (named
+   * CSV1, CSV2, …) and activate it: the same ordinary sheet Add from CSV
+   * File… fills from a file. An RSF file has no separate CSV sheet kind.
+   */
+  async addCsvWorksheet(tab: Tab): Promise<void> {
+    return this.addSingleKindWorksheet(tab, 'csv');
+  }
+
+  /**
    * Add a new, empty grid-paper sheet (squares for forms, mock-ups and
    * wireframes: see `grid-paper.ts`) after the active one and activate it.
    */
@@ -199,7 +217,7 @@ export class WorksheetCommands {
    * command) shows, since the kind is already implied by which command was
    * invoked.
    */
-  private async addSingleKindWorksheet(tab: Tab, kind: Exclude<NewSheetKind, 'grid'>): Promise<void> {
+  private async addSingleKindWorksheet(tab: Tab, kind: Exclude<AddSheetKind, 'grid'>): Promise<void> {
     const doc = tab.doc;
     if (!isWorkbook(doc) || !this.canAddWorksheet(doc)) {
       return;

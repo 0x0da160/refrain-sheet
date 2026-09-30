@@ -32,6 +32,7 @@ import { el } from './dom';
 import { renderMarkdownBlock } from './markdown-render';
 import { moveMarkdownBlock } from '../core/markdown-blocks';
 import { buildBlockTools, type BlockAction } from './markdown-block-tools';
+import { typedBlock, typedCodeFence } from '../core/markdown-typed-blocks';
 
 /** The block kinds the block-type menu can turn a block into. */
 export type MarkdownBlockKind = 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullets' | 'numbers' | 'quote' | 'code';
@@ -275,7 +276,14 @@ function placeCaret(element: HTMLElement, offset: number): void {
     }
     left -= length;
   }
-  range.selectNodeContents(element);
+  // No text to go past: into the innermost last element (the empty item of
+  // a new list, the empty paragraph of a new quote), so what is typed next
+  // lands inside it rather than beside it.
+  let inner = element;
+  while (inner.lastElementChild instanceof HTMLElement && inner.lastElementChild.tagName !== 'BR') {
+    inner = inner.lastElementChild;
+  }
+  range.selectNodeContents(inner);
   range.collapse(false);
   selection.removeAllRanges();
   selection.addRange(range);
@@ -339,6 +347,13 @@ export class MarkdownVisualEditor {
       attrs: { role: 'document', 'aria-label': t('dialog.markdownEditor.visual') },
     });
     this.element.addEventListener('input', (event) => this.onInput(event));
+    // A marker typed through an input method is only final once composing ends.
+    this.element.addEventListener('compositionend', (event) => {
+      const index = this.indexOf(event.target);
+      if (index >= 0 && !this.readOnly) {
+        this.convertTyped(index);
+      }
+    });
     this.element.addEventListener('keydown', (event) => this.onKeyDown(event));
     this.element.addEventListener('paste', (event) => this.onPaste(event));
     this.element.addEventListener('drop', (event) => event.preventDefault());
@@ -631,9 +646,42 @@ export class MarkdownVisualEditor {
 
   private onInput(event: Event): void {
     const index = this.indexOf(event.target);
-    if (index >= 0 && !this.readOnly) {
+    if (index < 0 || this.readOnly) {
+      return;
+    }
+    if ((event as InputEvent).isComposing || !this.convertTyped(index)) {
       this.blockEdited(index);
     }
+  }
+
+  /**
+   * Turn paragraph `index` into a heading, list or quote when it now starts
+   * with the Markdown for one (`# `, `- `, `1. `, `> `: see `typedBlock`),
+   * dropping the marker and keeping the caret where it was in the text.
+   * True when it did.
+   */
+  private convertTyped(index: number): boolean {
+    const element = this.blocks[index].element;
+    if (element.tagName !== 'P') {
+      return false;
+    }
+    const typed = typedBlock(readBlock(element));
+    if (!typed) {
+      return false;
+    }
+    const range = selectionRange();
+    let caret = 0;
+    if (range && element.contains(range.startContainer)) {
+      const before = document.createRange();
+      before.selectNodeContents(element);
+      before.setEnd(range.startContainer, range.startOffset);
+      caret = before.toString().length;
+    }
+    delete element.dataset.placeholder;
+    this.replace(index, blockToMarkdown(typed.block));
+    this.show(index, typed.block, Math.max(0, caret - typed.marker));
+    this.onFocusBlock?.(typed.block);
+    return true;
   }
 
   private onKeyDown(event: KeyboardEvent): void {
@@ -661,6 +709,13 @@ export class MarkdownVisualEditor {
       this.blockEdited(index);
     } else if (tag === 'TABLE') {
       event.preventDefault();
+    } else if (tag === 'P' && typedCodeFence(readBlock(element))) {
+      // A paragraph of just ``` (or ```js …): Enter opens a code block there.
+      event.preventDefault();
+      const code = typedCodeFence(readBlock(element)) as MarkdownBlock;
+      this.replace(index, blockToMarkdown(code));
+      this.show(index, code, 0);
+      this.onFocusBlock?.(code);
     } else if (tag === 'P' || tag in HEADING_LEVEL) {
       // Enter starts a new paragraph; Shift+Enter (browser default) breaks the line.
       event.preventDefault();

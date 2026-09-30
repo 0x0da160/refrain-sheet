@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.22] - 2026-09-30
+
 ### Added
 
 - **One color picker everywhere.** Text and fill colors, borders, sheet tabs,

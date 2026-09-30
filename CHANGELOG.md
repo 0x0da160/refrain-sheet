@@ -67,6 +67,7 @@ really is internal, rather than inventing an entry to satisfy it.
 - Copy a Markdown table with or without a header row: Edit > Copy As > Markdown Table now asks whether the first row is the header; No Header writes an empty header row and keeps every selected row as data.
 - Rearrange a Markdown sheet in Formatted mode: each block now has tools beside it to move it up or down (also Alt+Shift+↑/↓), drag it by its grip, add a paragraph below it, or delete it. Only the moved block's lines change place, so the rest of the Markdown stays exactly as written.
 - Save a Markdown, JSON, YAML or text sheet as a file of its own: File > Export > Export This Sheet as a File… (also on the sheet tab's right-click menu) writes it as UTF-8 to a `.md`, `.json`, `.yaml` or `.txt` file named after the sheet.
+- File > Open Recent… now lists Google Drive files too (on the hosted site with Google Drive): the Drive files you last opened or saved appear under their own Google Drive heading, apart from the files on this device, and open again without the Drive file picker. Clear List empties both lists.
 
 ### Changed
 

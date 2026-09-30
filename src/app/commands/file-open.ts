@@ -38,6 +38,7 @@ import {
   recordRecentFile,
   removeRecentFile,
 } from '../recent-files';
+import { clearRecentDriveFiles, listRecentDriveFiles } from '../recent-drive-files';
 import { getLocale, t } from '../i18n';
 import { getAutoFitOnOpen, getMaxFileSize } from '../settings';
 import { isGridSurface, LARGE_OPEN_BYTES, withBusyIfLarge } from './shared';
@@ -48,6 +49,14 @@ import { CSV_EXTENSION } from './shared';
 const CSV_LIKE_EXTENSIONS = [CSV_EXTENSION, '.tsv', RSF_EXTENSION, RSF_LEGACY_EXTENSION];
 const XLSX_EXTENSION = '.xlsx';
 const JSON_EXTENSION = '.json';
+
+/** Opens a Drive file from File > Open Recent… again (`DriveIoCommands.reopen`). */
+export interface RecentDriveOpener {
+  reopen(fileId: string, name: string): Promise<void>;
+}
+
+/** Marks a Drive row's id in the recent list, apart from the ids of files on this device. */
+const DRIVE_ID_PREFIX = 'drive:';
 
 export class FileOpening {
   constructor(private readonly core: FileIoCommands) {}
@@ -84,22 +93,44 @@ export class FileOpening {
    * handle loses it when the page reloads). A file that has since been
    * moved or deleted is reported and dropped from the list. The dialog can
    * also clear the whole list.
+   *
+   * `drive` (the hosted build with Google Drive) adds the Drive files this
+   * browser opened or saved, listed apart from the files on this device and
+   * opened again through it.
    */
-  async openRecent(): Promise<void> {
+  async openRecent(drive: RecentDriveOpener | null = null): Promise<void> {
     const entries = await listRecentFiles();
-    if (entries.length === 0) {
-      this.core.ui.notify(t('notify.recentEmpty'), 'info');
+    const driveEntries = drive ? listRecentDriveFiles() : [];
+    if (entries.length === 0 && driveEntries.length === 0) {
+      this.core.ui.notify(t(drive ? 'notify.recentEmptyDrive' : 'notify.recentEmpty'), 'info');
       return;
     }
-    const choice = await this.core.ui.chooseRecentFile(
-      entries.map((entry) => ({ id: entry.id, name: entry.name, openedAt: entry.openedAt })),
-    );
+    const choice = await this.core.ui.chooseRecentFile([
+      ...entries.map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        openedAt: entry.openedAt,
+        where: 'device' as const,
+      })),
+      ...driveEntries.map((entry) => ({
+        id: `${DRIVE_ID_PREFIX}${entry.fileId}`,
+        name: entry.name,
+        openedAt: entry.openedAt,
+        where: 'drive' as const,
+      })),
+    ]);
     if (choice === null) {
       return;
     }
     if (choice === 'clear') {
       await clearRecentFiles();
+      clearRecentDriveFiles();
       this.core.ui.notify(t('notify.recentCleared'), 'info');
+      return;
+    }
+    const driveEntry = driveEntries.find((e) => `${DRIVE_ID_PREFIX}${e.fileId}` === choice);
+    if (drive && driveEntry) {
+      await drive.reopen(driveEntry.fileId, driveEntry.name);
       return;
     }
     const entry = entries.find((e) => e.id === choice);

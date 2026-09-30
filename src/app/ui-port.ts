@@ -102,6 +102,8 @@ export interface RecentFileChoice {
   name: string;
   /** Epoch milliseconds of the last open or save. */
   openedAt: number;
+  /** A file on this device, or one in Google Drive (listed apart). */
+  where: 'device' | 'drive';
 }
 
 export type VersionHistoryChoice =

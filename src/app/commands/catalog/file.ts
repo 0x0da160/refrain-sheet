@@ -24,9 +24,10 @@ export const FILE_COMMANDS = {
     },
   },
   'file.openRecent': {
-    // Only the File System Access API gives the app a file it can reopen.
-    enabled: () => fileSystemAccessAvailable(),
-    run: (ctx) => ctx.parts.fileIo.openRecent(),
+    // Only the File System Access API gives the app a local file it can
+    // reopen; Google Drive (hosted build) lists its files there too.
+    enabled: (ctx) => fileSystemAccessAvailable() || driveAvailable(ctx),
+    run: (ctx) => ctx.parts.fileIo.openRecent(driveAvailable(ctx) ? ctx.parts.drive : null),
   },
   'file.reopen': withTab(
     (ctx, tab) => ctx.parts.fileIo.reopen(tab),

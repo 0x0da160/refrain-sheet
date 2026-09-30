@@ -331,10 +331,13 @@ export class MarkdownSheetView {
       // Changed from elsewhere (Undo, Redo, Replace All) with no edit of ours pending.
       this.load(sheet.markdownText);
     }
-    if (this.textarea.readOnly !== tab.readOnly) {
-      this.visual.setReadOnly(tab.readOnly);
+    // A locked worksheet is read-only here too, not only a protected file:
+    // typing would otherwise be refused only when the edit is committed.
+    const readOnly = tab.readOnly || sheet.locked;
+    if (this.textarea.readOnly !== readOnly) {
+      this.visual.setReadOnly(readOnly);
     }
-    this.textarea.readOnly = tab.readOnly;
+    this.textarea.readOnly = readOnly;
     this.element.hidden = false;
     this.updatePanelVisibility();
   }

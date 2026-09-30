@@ -269,6 +269,43 @@ describe('JsonSheetView', () => {
     expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.jsonText : '').toBe(textarea.value);
   });
 
+  it('keeps numbers exactly as written when it formats', () => {
+    const { view } = setup();
+    const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+    textarea.value = '{"a":1.0,"b":12345678901234567890}';
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    (view.element.querySelector('.json-sheet-format') as HTMLButtonElement).click();
+
+    expect(textarea.value).toBe('{\n  "a": 1.0,\n  "b": 12345678901234567890\n}');
+  });
+
+  it('does not auto-format or report errors during a pause in typing', () => {
+    vi.useFakeTimers();
+    try {
+      const notify = vi.fn();
+      const { view, tab, workbook } = setup(stubUi({ notify }));
+      workbook.setAutoFormatSource(true);
+      view.refresh();
+      const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
+      textarea.value = '{"a":';
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      vi.advanceTimersByTime(1000);
+
+      expect(notify).not.toHaveBeenCalled();
+      expect(tab.doc.kind === 'rsf' ? tab.doc.activeSheet.jsonText : '').toBe('{"a":');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('is read-only while its worksheet is locked', () => {
+    const { view, state, tab, data } = setup();
+    state.setSheetLocked(tab, data.id, true);
+    view.refresh();
+    expect((view.element.querySelector('textarea') as HTMLTextAreaElement).readOnly).toBe(true);
+    expect((view.element.querySelector('.json-sheet-format') as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('leaves invalid JSON untouched on commit but still commits it, even with auto-format checked', () => {
     const notify = vi.fn();
     const { view, tab, workbook } = setup(stubUi({ notify }));

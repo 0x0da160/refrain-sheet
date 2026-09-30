@@ -1,0 +1,84 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Pixel pets (src/ui/pixel-pets.ts) ----------
+   A white puppy and a black kitten playing at the right end of the menu
+   bar's row. Decoration only: never hit by the pointer, never read out.
+
+   `.pixel-pets` is the last child of `#app`. In the plain column layout it
+   is taken out of the flow and aligned to the end of the cross axis, so it
+   sits at the top right of `#app`'s content box (a right-docked side panel
+   pads that box, so the pets stay beside it rather than under it); a spacer
+   at the end of the menu bar keeps the menu names clear of it. While the
+   document tabs share the menu bar's row (`.tabs-in-menu-row`, tab-bar.css)
+   it gets that grid's last column instead, so the tabs end before it.
+   `updateShellLayout` counts its width when deciding whether the tabs fit.
+   Phones (below 43.75em) have no room for it, and it is never printed. */
+.pixel-pets {
+  --pets-w: calc(128px + 2 * var(--space-2));
+  --pet-kitten-line: #000000;
+  --pet-kitten-fur: #1f1f22;
+  display: none;
+}
+
+[data-theme='dark'] .pixel-pets,
+[data-theme='hybrid'] .pixel-pets {
+  /* A light outline so the black kitten still reads on a dark bar. */
+  --pet-kitten-line: #a4abb5;
+  --pet-kitten-fur: #2a2e36;
+}
+
+.pixel-pets canvas {
+  display: block;
+  width: 128px;
+  height: 24px;
+  image-rendering: pixelated;
+}
+
+@media (width > 43.75em) {
+  .pixel-pets:not([hidden]) {
+    display: flex;
+    position: absolute;
+    align-self: flex-end;
+    align-items: center;
+    justify-content: center;
+    width: var(--pets-w);
+    height: var(--bar-h);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  #app.pets-shown:not(.tabs-in-menu-row) > .menu-bar::after {
+    content: '';
+    flex: none;
+    width: var(--pets-w);
+    margin-left: auto;
+  }
+
+  #app.pets-shown.tabs-in-menu-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  #app.pets-shown.sheet-tabs-vertical.tabs-in-menu-row {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+  }
+
+  #app.pets-shown.tabs-in-menu-row > .pixel-pets {
+    position: static;
+    grid-row: 1;
+    grid-column: -2;
+    box-sizing: border-box;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  /* No document open: the menu bar takes the row up to the pets. */
+  #app.pets-shown.tabs-in-menu-row.welcome-mode > .menu-bar {
+    grid-column: 1 / -2;
+  }
+}
+
+@media print {
+  .pixel-pets {
+    display: none !important;
+  }
+}

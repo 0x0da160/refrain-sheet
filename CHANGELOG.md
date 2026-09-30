@@ -38,6 +38,13 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- A white puppy and a black kitten now play in the free space at the top
+  right of the window, drawn as pixel art. They never get in the way of a
+  click, stand still when the system asks for reduced motion, and are left
+  out on a phone. Turn them off in File > Settings… (kept in this browser).
+
 ## [0.9.22] - 2026-09-30
 
 ### Added

@@ -53,7 +53,7 @@ export function mountLayout(
   // in its own trailing column, past the status bar — see the mobile layout
   // comment in styles.css and `MenuBar.toggleElement` (#478). Desktop-width
   // CSS keeps it `display: none` regardless of DOM position.
-  app.append(s.menuBar.element, appBody, s.statusBar.element, s.menuBar.toggleElement);
+  app.append(s.menuBar.element, appBody, s.statusBar.element, s.menuBar.toggleElement, s.pets.element);
   // Document tabs share the menu bar's row whenever they fit (#596).
   installShellLayout();
 

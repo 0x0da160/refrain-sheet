@@ -436,6 +436,7 @@
   "dialog.settings.shiftPaste.values": "値のみ（既定）",
   "dialog.settings.shiftPasteNote": "どちらも「編集 > 形式を選択して貼り付け」からいつでも使えます。macOS では Cmd+Shift+V です。",
   "dialog.settings.showToolbar": "メニューバーの下にツールバーを表示",
+  "dialog.settings.showPets": "右上にドット絵のペット（子犬と子猫）を表示",
   "dialog.settings.local": "「このファイル」以外の設定は、このブラウザにだけ保存され、外部には送信されません。",
   "dialog.settings.display": "表示",
   "dialog.settings.displayOrder": "シート、ファイル、このブラウザの順に優先します。「指定しない」にすると、次の設定に従います。",

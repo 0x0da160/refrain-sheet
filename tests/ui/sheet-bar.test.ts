@@ -450,6 +450,7 @@ describe('SheetBar tab colors', () => {
       t('menu.sheet.renameSheet'),
       t('menu.sheet.tabColor'),
       t('menu.sheet.duplicateSheet'),
+      t('menu.sheet.exportSheetText'),
       t('menu.sheet.deleteSheet'),
       t('menu.sheet.folders'),
       t('menu.sheet.lockSheet'),

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 /**
  * The explicit, confirmed lossy exports of a document: CSV (with encoding,
- * delimiter, quoting, line-ending and BOM choices), XLSX, and JSON. The
+ * delimiter, quoting, line-ending and BOM choices), XLSX, and JSON; and the
+ * text of one Markdown, JSON, YAML or text sheet as a file of its own. The
  * source document is never modified.
  */
 import { isWorkbook } from '../../core/editor-document';
@@ -16,11 +17,19 @@ import type { NcrCellReport } from '../../core/csv/serializer';
 import { buildXlsxExport, type XlsxSheetInput } from '../../core/interchange/xlsx-export';
 import { buildJsonExport } from '../../core/interchange/json-export';
 import type { Tab } from '../state';
-import { saveBytesAs } from '../file-access';
+import { saveBytesAs, type SavePickerKind } from '../file-access';
 import { t } from '../i18n';
 import { LARGE_OP_CELLS, pct, withBusyIfLarge } from './shared';
 
 import type { FileIoCommands } from './file-io';
+
+/** A text sheet's file extension and save-picker kind, by sheet kind. */
+const TEXT_SHEET_FILES: Partial<Record<string, { ext: string; kind: SavePickerKind }>> = {
+  markdown: { ext: 'md', kind: 'markdown' },
+  json: { ext: 'json', kind: 'json' },
+  yaml: { ext: 'yaml', kind: 'yaml' },
+  text: { ext: 'txt', kind: 'text' },
+};
 
 export class FileExporting {
   constructor(private readonly core: FileIoCommands) {}
@@ -323,6 +332,40 @@ export class FileExporting {
       outcome.mode === 'overwrite'
         ? t('notify.exportedJson', { name })
         : t('notify.exportedJsonDownload', { name: outcome.downloadName ?? name }),
+      'info',
+    );
+    return true;
+  }
+
+  /**
+   * The active Markdown, JSON, YAML or text sheet's text as a file of its
+   * own (`<sheet name>.md` / `.json` / `.yaml` / `.txt`), UTF-8 without a
+   * BOM, exactly as the sheet holds it. Nothing is lost, so there is no
+   * confirmation; the picker opens straight from the menu click.
+   */
+  async exportSheetText(tab: Tab): Promise<boolean> {
+    if (!isWorkbook(tab.doc)) {
+      return false;
+    }
+    const sheet = tab.doc.activeSheet;
+    const file = TEXT_SHEET_FILES[sheet.kind];
+    if (!file) {
+      return false;
+    }
+    const base = sheet.name.replace(/\.(md|markdown|json|ya?ml|txt)$/i, '');
+    const name = `${base}.${file.ext}`;
+    const bytes = new TextEncoder().encode(sheet.getValue(0, 0));
+    const written = await this.core.runSaveStep(name, () =>
+      saveBytesAs(this.core.dom, name, bytes, file.kind),
+    );
+    if (!written.ok) {
+      return false;
+    }
+    const outcome = written.value;
+    this.core.ui.notify(
+      outcome.mode === 'overwrite'
+        ? t('notify.exportedSheetText', { name })
+        : t('notify.exportedSheetTextDownload', { name: outcome.downloadName ?? name }),
       'info',
     );
     return true;

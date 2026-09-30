@@ -211,4 +211,9 @@ export const SHEET_COMMANDS = {
   // an .xlsx or .json file, so both kinds can export to either.
   'sheet.exportXlsx': withTab((ctx, tab) => ctx.commands.exportXlsx(tab)),
   'sheet.exportJson': withTab((ctx, tab) => ctx.commands.exportJson(tab)),
+  // A Markdown, JSON, YAML or text sheet's own text, as its own file.
+  'sheet.exportSheetText': withTab(
+    (ctx, tab) => ctx.commands.exportSheetText(tab),
+    (_, tab) => sceneOf(tab) === 'text',
+  ),
 } satisfies Record<string, CommandSpec>;

@@ -655,12 +655,14 @@ function filterSortItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
  * supported file types. Distinct from File > This File > Convert to RSF Spreadsheet…,
  * which changes the *document's* underlying kind rather than writing a copy.
  */
-function exportItems(): MenuItemDef[] {
+function exportItems(): Array<MenuItemDef | 'separator'> {
   return [
     { labelKey: 'menu.file.saveOptions', command: 'file.saveOptions', shortcut: 'Ctrl+Shift+S' },
     { labelKey: 'menu.sheet.exportCsv', command: 'sheet.exportCsv' },
     { labelKey: 'menu.sheet.exportXlsx', command: 'sheet.exportXlsx' },
     { labelKey: 'menu.sheet.exportJson', command: 'sheet.exportJson' },
+    'separator',
+    { labelKey: 'menu.sheet.exportSheetText', command: 'sheet.exportSheetText' },
   ];
 }
 

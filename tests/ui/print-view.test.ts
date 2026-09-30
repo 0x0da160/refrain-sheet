@@ -152,6 +152,71 @@ describe('printTab', () => {
     expect(cell!.style.backgroundColor).toBe('rgb(255, 238, 0)');
   });
 
+  describe('as the sheet shows it', () => {
+    /** The print tables as they stand when print() is called. */
+    function tablesOf(run: (win: Window) => void): HTMLTableElement[] {
+      const { win } = fakeWindow();
+      const print = win.print;
+      let tables: HTMLTableElement[] = [];
+      win.print = () => {
+        tables = Array.from(document.querySelectorAll<HTMLTableElement>('.print-table')).map(
+          (table) => table.cloneNode(true) as HTMLTableElement,
+        );
+        print();
+      };
+      run(win);
+      return tables;
+    }
+
+    it('keeps each row to one line, cut at the edge, unless the sheet wraps text', () => {
+      const { state, tab } = book([['one\ntwo', '']]);
+      tab.wrapCells = false;
+      let [table] = tablesOf((win) => printTab(state, tab, settings(), win));
+      expect(table.classList.contains('print-nowrap')).toBe(true);
+      expect(table.querySelector('td .print-line')?.textContent).toBe('one\ntwo');
+      tab.wrapCells = true;
+      [table] = tablesOf((win) => printTab(state, tab, settings(), win));
+      expect(table.classList.contains('print-nowrap')).toBe(false);
+      expect(table.querySelector('.print-line')).toBeNull();
+      expect(table.querySelector('td')?.textContent).toBe('one\ntwo');
+    });
+
+    it('bands every other shown row in the band strength, carrying on across pages', () => {
+      const { state, doc, tab } = book([['h'], ['1'], ['2'], ['3'], ['4']]);
+      let [table] = tablesOf((win) => printTab(state, tab, settings(), win));
+      expect(table.classList.contains('print-banded')).toBe(false);
+      doc.activeSheet.displayLook.bands = true;
+      doc.activeSheet.displayLook.bandLevel = 3;
+      const tables = tablesOf((win) =>
+        printTab(state, tab, settings({ rowsPerPage: 3, repeatFirstRow: false }), win),
+      );
+      [table] = tables;
+      expect(table.classList.contains('print-banded')).toBe(true);
+      expect(table.dataset.bandLevel).toBe('3');
+      const alt = tables.flatMap((t) =>
+        Array.from(t.querySelectorAll('tbody tr')).map((tr) => tr.classList.contains('alt')),
+      );
+      expect(alt).toEqual([false, true, false, true, false]);
+    });
+
+    it('takes each sheet of the file at its own settings', () => {
+      const { state, doc, tab } = book([['one']]);
+      const second = state.addSheet(tab, 'Two');
+      second?.setCell(0, 0, 'two');
+      // Leaving a sheet writes its live settings back, so set the second sheet's afterwards.
+      state.setActiveSheet(tab, doc.sheets[0].id);
+      second!.displayLook.bands = true;
+      second!.displayWrap = true;
+      tab.wrapCells = false;
+      const [first, other] = tablesOf((win) => printTab(state, tab, settings({ scope: 'file' }), win));
+      expect(doc.activeSheet).toBe(doc.sheets[0]);
+      expect(first.classList.contains('print-banded')).toBe(false);
+      expect(first.classList.contains('print-nowrap')).toBe(true);
+      expect(other.classList.contains('print-banded')).toBe(true);
+      expect(other.classList.contains('print-nowrap')).toBe(false);
+    });
+  });
+
   it('prints a CSV document', () => {
     const state = new AppState();
     const tab = state.addTab('a.csv', csvDoc('x,y\n1,2\n'), null);

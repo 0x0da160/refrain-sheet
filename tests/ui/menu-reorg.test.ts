@@ -263,6 +263,7 @@ describe('File menu reorganization (#518)', () => {
       'sheet.exportCsv',
       'sheet.exportXlsx',
       'sheet.exportJson',
+      'sheet.exportSheetText',
     ]);
   });
 

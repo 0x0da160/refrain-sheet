@@ -36,7 +36,3 @@
 .json-preview-panel[hidden] {
   display: none;
 }
-
-.json-preview-panel .markdown-editor-preview {
-  min-height: 0;
-}

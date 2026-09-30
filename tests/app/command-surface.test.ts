@@ -98,6 +98,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'sheet.exportCsv',
   'sheet.exportXlsx',
   'sheet.exportJson',
+  'sheet.exportSheetText',
   'data.runSqlQuery',
   'data.compareDiff',
   'data.validation',

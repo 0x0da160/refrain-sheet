@@ -9,13 +9,19 @@
  * number formats), cell formatting and conditional formatting, column
  * widths, on the active sheet its sort order and filter, and the shapes,
  * pictures and charts over the cells (hidden ones left out), each drawn at
- * its offset from the cell it is anchored to. Everything is text, never HTML. Page size and orientation go to `@page` through a
+ * its offset from the cell it is anchored to. Rows are as tall as on screen:
+ * one line each, text cut at the cell's edge, unless the sheet wraps text,
+ * when they grow to fit it. Banded rows print when the sheet shows them, in
+ * its band strength (the selected row and column highlights follow the
+ * cursor, so they do not print). Everything is text, never HTML. Page size and orientation go to `@page` through a
  * constructed stylesheet (a `<style>` element would be refused by the
  * offline build's CSP); where the browser cannot adopt one, its own print
  * dialog still lets the user pick them.
  */
 import { isWorkbook } from '../core/editor-document';
 import type { AppState, Tab } from '../app/state';
+import { resolveGridLook, resolveWrap } from '../app/state/view-layers';
+import type { BandLevel } from '../core/grid-look';
 import { t } from '../app/i18n';
 import { getPrintSettings, setPrintSettings } from '../app/settings';
 import { columnLabel } from '../core/formula';
@@ -66,6 +72,10 @@ interface GridPart {
   drawn: Set<string>;
   /** A grid-paper sheet's square (px): every row and column prints one square wide. */
   paper?: number;
+  /** Whether long text wraps onto more lines (as the sheet shows it) or is cut at the cell's edge. */
+  wrap: boolean;
+  /** The band strength when the sheet shows banded rows. */
+  bands: BandLevel | null;
 }
 
 /** A Markdown, JSON, YAML or text sheet: its source. */
@@ -166,6 +176,8 @@ function collectParts(state: AppState, tab: Tab, settings: PrintSettings): Print
         objects: new Map(),
         draw: () => el('div'),
         drawn: new Set(),
+        wrap: tab.wrapCells,
+        bands: bandsOf(resolveGridLook(doc)),
       },
     ];
   }
@@ -180,6 +192,7 @@ function collectParts(state: AppState, tab: Tab, settings: PrintSettings): Print
       continue;
     }
     const active = sheet === doc.activeSheet;
+    const look = resolveGridLook(doc, sheet);
     const shown = sheet.objects.filter((o) => !o.hidden);
     const area = printArea(extentWithObjects(sheet.usedExtent(), shown), active ? selection : null);
     if (!area) {
@@ -203,9 +216,15 @@ function collectParts(state: AppState, tab: Tab, settings: PrintSettings): Print
       objects: objectsByCell(shown),
       draw: (o) => drawObject(doc, o, { x: o.dx, y: o.dy, w: o.width, h: o.height }, 1),
       drawn: new Set(),
+      wrap: active ? tab.wrapCells : resolveWrap(doc, sheet).value,
+      bands: bandsOf(look),
     });
   }
   return parts;
+}
+
+function bandsOf(look: { bands: boolean; bandLevel: BandLevel }): BandLevel | null {
+  return look.bands ? look.bandLevel : null;
 }
 
 /** The used cells grown to reach every shown object's anchor cell, so a sheet of only objects prints too. */
@@ -270,6 +289,11 @@ function gridTables(part: GridPart, settings: PrintSettings): HTMLElement[] {
   }
   return runs.map((rows, i) => {
     const table = el('table', { className: `print-table${part.paper ? ' print-paper' : ''}` });
+    table.classList.toggle('print-nowrap', !part.wrap);
+    if (part.bands) {
+      table.classList.add('print-banded');
+      table.dataset.bandLevel = String(part.bands);
+    }
     table.style.width = `${contentWidth}px`;
     table.style.zoom = String(zoom);
     if (i > 0) {
@@ -292,10 +316,16 @@ function gridTables(part: GridPart, settings: PrintSettings): HTMLElement[] {
     if (firstRow !== null) {
       head.append(rowElement(part, firstRow, settings.headings));
     }
+    // Bands count shown rows from the top of the sheet, as on screen, so they carry on across pages.
+    const offset = part.rows.indexOf(rows[0]);
     const body = el(
       'tbody',
       {},
-      rows.map((row) => rowElement(part, row, settings.headings)),
+      rows.map((row, k) => {
+        const tr = rowElement(part, row, settings.headings);
+        tr.classList.toggle('alt', (offset + k) % 2 === 1);
+        return tr;
+      }),
     );
     table.append(colgroup, head, body);
     return table;
@@ -329,11 +359,10 @@ function cellElement(part: GridPart, row: number, col: number): HTMLElement {
   const style = part.style(row, col);
   const conditional = part.conditional(row, col);
   const runs = style?.runs && part.input(row, col) === value ? runsForText(style.runs, value) : null;
-  if (runs) {
-    td.append(...richTextNodes(runs, style, conditional?.textColor));
-  } else {
-    td.append(value);
-  }
+  const text = runs ? richTextNodes(runs, style, conditional?.textColor) : [value];
+  // Unwrapped text shows one line, cut at the cell's edge as on screen; the
+  // box keeps anchored objects out of that cut.
+  td.append(...(part.wrap || value === '' ? text : [el('div', { className: 'print-line' }, text)]));
   if (!style && !conditional) {
     return td;
   }

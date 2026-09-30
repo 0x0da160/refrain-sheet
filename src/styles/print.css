@@ -59,6 +59,29 @@
     break-inside: avoid;
   }
 
+  /* A sheet that does not wrap text: one line per row, cut at the cell's
+     edge (src/ui/print-view.ts). */
+  .print-table.print-nowrap .print-line {
+    max-height: 1lh;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: pre;
+  }
+
+  /* Banded rows, in the sheet's band strength. Paper is always light, so
+     these are the light theme's band colors. A cell's own fill wins. */
+  .print-table.print-banded tbody tr.alt td:not([style*='background-color']) {
+    background-color: rgb(244 244 235 / 0.5);
+  }
+
+  .print-table.print-banded[data-band-level='2'] tbody tr.alt td:not([style*='background-color']) {
+    background-color: #f4f4eb;
+  }
+
+  .print-table.print-banded[data-band-level='3'] tbody tr.alt td:not([style*='background-color']) {
+    background-color: #edede4;
+  }
+
   .print-gridlines .print-table td,
   .print-gridlines .print-table th {
     border: 0.5pt solid #bdbdbd;

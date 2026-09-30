@@ -11,6 +11,11 @@
  * back never reformats a document by itself. A horizontal rule is not
  * editable here. An empty paragraph at the end takes new text.
  *
+ * Each block sits in a row with its tools (`markdown-block-tools.ts`): drag
+ * it by the grip, or move it up or down, add a paragraph below it, or
+ * delete it (also Alt+Shift+Up/Down to move the block holding the caret).
+ * A move swaps whole source blocks (`moveMarkdownBlock`) and reloads.
+ *
  * Content is only ever rendered through `el()`/`textContent`
  * (`markdown-render.ts`), and paste and drop insert plain text, so nothing
  * pasted into the page can add markup or run anything.
@@ -25,6 +30,8 @@ import { blockToMarkdown } from '../core/markdown-serialize';
 import { t } from '../app/i18n';
 import { el } from './dom';
 import { renderMarkdownBlock } from './markdown-render';
+import { moveMarkdownBlock } from '../core/markdown-blocks';
+import { buildBlockTools, type BlockAction } from './markdown-block-tools';
 
 /** The block kinds the block-type menu can turn a block into. */
 export type MarkdownBlockKind = 'paragraph' | 'h1' | 'h2' | 'h3' | 'bullets' | 'numbers' | 'quote' | 'code';
@@ -304,6 +311,8 @@ function caretAtStart(element: HTMLElement, caret: Range): boolean {
 
 interface VisualBlock {
   element: HTMLElement;
+  /** The block's row: its tools and `element`. */
+  row: HTMLElement;
   /** What the source held for this block (for blocks shown as text only). */
   block: MarkdownBlock;
   start: number;
@@ -321,6 +330,8 @@ export class MarkdownVisualEditor {
   private blocks: VisualBlock[] = [];
   private focused = -1;
   private readOnly = false;
+  /** The block being dragged by its grip, or null. */
+  private dragFrom: number | null = null;
 
   constructor() {
     this.element = el('div', {
@@ -346,24 +357,20 @@ export class MarkdownVisualEditor {
   load(source: string): void {
     this.lines = source.replace(/\r\n?/g, '\n').split('\n');
     const ranges = parseMarkdownRanges(source);
-    this.blocks = ranges.map(({ block, start, end }) => ({ block, start, end, element: this.render(block) }));
+    this.blocks = ranges.map(({ block, start, end }) => this.makeBlock(block, start, end));
     // A trailing empty paragraph takes new text at the end of the document.
     const blank = this.lines.every((line) => line.trim() === '');
     const at = blank ? 0 : this.lines.length;
-    const tail = this.render({ type: 'paragraph', children: [] });
-    tail.dataset.placeholder = t('dialog.markdownEditor.newParagraph');
-    this.blocks.push({
-      block: { type: 'paragraph', children: [] },
-      start: at,
-      end: blank ? this.lines.length : at,
-      element: tail,
-    });
-    this.element.replaceChildren(...this.blocks.map((b) => b.element));
+    const tail = this.makeBlock({ type: 'paragraph', children: [] }, at, blank ? this.lines.length : at);
+    tail.element.dataset.placeholder = t('dialog.markdownEditor.newParagraph');
+    this.blocks.push(tail);
+    this.element.replaceChildren(...this.blocks.map((b) => b.row));
     this.focused = -1;
   }
 
   setReadOnly(readOnly: boolean): void {
     this.readOnly = readOnly;
+    this.element.classList.toggle('read-only', readOnly);
     this.element.querySelectorAll<HTMLElement>('[contenteditable]').forEach((node) => {
       node.contentEditable = readOnly ? 'false' : 'true';
     });
@@ -409,6 +416,144 @@ export class MarkdownVisualEditor {
     range.insertNode(wrapper);
     range.selectNodeContents(wrapper);
     this.blockEdited(index);
+  }
+
+  /** A block with its row, tools and drop handling. */
+  private makeBlock(block: MarkdownBlock, start: number, end: number): VisualBlock {
+    const element = this.render(block);
+    const row = el('div', { className: 'markdown-visual-row' });
+    const at = (): number => this.blocks.findIndex((b) => b.row === row);
+    row.append(
+      ...buildBlockTools(
+        (action) => this.act(at(), action),
+        (event) => this.startDrag(at(), row, event),
+      ),
+      element,
+    );
+    row.addEventListener('dragover', (event) => this.dragOver(row, event));
+    row.addEventListener('dragleave', () => row.classList.remove('drop-before', 'drop-after'));
+    row.addEventListener('drop', (event) => this.dropOn(at(), row, event));
+    return { block, start, end, element, row };
+  }
+
+  /** The position of block `index` among the blocks that have source lines (-1 for an empty one). */
+  private sourceIndex(index: number): number {
+    const target = this.blocks[index];
+    if (!target || target.start === target.end) {
+      return -1;
+    }
+    return this.blocks.slice(0, index).filter((b) => b.start !== b.end).length;
+  }
+
+  /** Run one of block `index`'s tools. */
+  private act(index: number, action: BlockAction): void {
+    if (this.readOnly || index < 0) {
+      return;
+    }
+    if (action === 'add') {
+      this.addParagraphAfter(index);
+      return;
+    }
+    const from = this.sourceIndex(index);
+    if (action === 'delete') {
+      if (from < 0 && index === this.blocks.length - 1) {
+        return; // the empty paragraph at the end always stays, for new text
+      }
+      if (from >= 0) {
+        this.replace(index, '');
+      }
+      this.blocks.splice(index, 1)[0].row.remove();
+      if (this.blocks.length === 0 || from >= 0) {
+        this.reload(Math.max(0, Math.min(from, this.blocks.length - 2)));
+      }
+      return;
+    }
+    if (from >= 0) {
+      this.moveTo(from, from + (action === 'up' ? -1 : 1));
+    }
+  }
+
+  /** Move source block `from` to position `to`, reload, and put the caret in it. */
+  private moveTo(from: number, to: number): void {
+    const ranges = parseMarkdownRanges(this.source);
+    if (to < 0 || to >= ranges.length || to === from) {
+      return;
+    }
+    this.lines = moveMarkdownBlock(this.lines, ranges, from, to);
+    this.onChange?.(this.source);
+    this.reload(to);
+  }
+
+  /** Show the source afresh and focus block `index`. */
+  private reload(index: number): void {
+    this.load(this.source);
+    const target = this.blocks[Math.min(index, this.blocks.length - 1)];
+    const editable =
+      target.element.contentEditable === 'true'
+        ? target.element
+        : target.element.querySelector<HTMLElement>('[contenteditable="true"]');
+    (editable ?? target.row).focus();
+    if (editable) {
+      placeCaret(editable, 0);
+    }
+  }
+
+  /** An empty paragraph right after block `index`, with the caret in it. */
+  private addParagraphAfter(index: number): void {
+    const paragraph: MarkdownBlock = { type: 'paragraph', children: [] };
+    const at = this.blocks[index].end;
+    const added = this.makeBlock(paragraph, at, at);
+    this.blocks.splice(index + 1, 0, added);
+    this.blocks[index].row.after(added.row);
+    this.show(index + 1, paragraph, 0);
+    this.blocks[index + 1].element.dataset.placeholder = t('dialog.markdownEditor.newParagraph');
+  }
+
+  private startDrag(index: number, row: HTMLElement, event: DragEvent): void {
+    if (this.readOnly || this.sourceIndex(index) < 0) {
+      event.preventDefault();
+      return;
+    }
+    this.dragFrom = index;
+    row.classList.add('dragging');
+    event.dataTransfer?.setData('text/plain', '');
+    event.dataTransfer?.setDragImage?.(row, 0, 0);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+    }
+    row.addEventListener('dragend', () => this.endDrag(), { once: true });
+  }
+
+  private dragOver(row: HTMLElement, event: DragEvent): void {
+    if (this.dragFrom === null) {
+      return;
+    }
+    event.preventDefault();
+    const before = event.clientY < row.getBoundingClientRect().top + row.offsetHeight / 2;
+    row.classList.toggle('drop-before', before);
+    row.classList.toggle('drop-after', !before);
+  }
+
+  private dropOn(index: number, row: HTMLElement, event: DragEvent): void {
+    const dragged = this.dragFrom;
+    if (dragged === null) {
+      return;
+    }
+    event.preventDefault();
+    const before = row.classList.contains('drop-before');
+    this.endDrag();
+    const from = this.sourceIndex(dragged);
+    // Blocks with source lines before the drop edge: where the block lands.
+    const edge = before ? index : index + 1;
+    const slot = this.blocks.slice(0, edge).filter((b) => b.start !== b.end).length;
+    this.moveTo(from, slot > from ? slot - 1 : slot);
+  }
+
+  private endDrag(): void {
+    this.dragFrom = null;
+    this.element
+      .querySelectorAll('.markdown-visual-row')
+      .forEach((row) => row.classList.remove('dragging', 'drop-before', 'drop-after'));
   }
 
   private render(block: MarkdownBlock): HTMLElement {
@@ -498,7 +643,10 @@ export class MarkdownVisualEditor {
       return;
     }
     const element = this.blocks[index].element;
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.altKey && event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      event.preventDefault();
+      this.act(index, event.key === 'ArrowUp' ? 'up' : 'down');
+    } else if (event.key === 'Enter' && !event.shiftKey) {
       this.onEnter(event, index, element, range);
     } else if (event.key === 'Backspace' && (element.tagName === 'P' || element.tagName in HEADING_LEVEL)) {
       this.onBackspace(event, index, element, range);
@@ -526,8 +674,8 @@ export class MarkdownVisualEditor {
       this.replace(index, markdownOf(head));
       this.show(index, head, 0);
       const at = this.blocks[index].end;
-      this.blocks.splice(index + 1, 0, { block: tail, start: at, end: at, element: this.render(tail) });
-      this.blocks[index].element.after(this.blocks[index + 1].element);
+      this.blocks.splice(index + 1, 0, this.makeBlock(tail, at, at));
+      this.blocks[index].row.after(this.blocks[index + 1].row);
       this.replace(index + 1, markdownOf(tail));
       this.show(index + 1, tail, 0);
     }
@@ -555,8 +703,7 @@ export class MarkdownVisualEditor {
     const offset = previous.element.textContent?.length ?? 0;
     const merged: MarkdownBlock = { ...into, children: [...into.children, ...from.children] };
     this.replace(index, '');
-    this.blocks.splice(index, 1);
-    element.remove();
+    this.blocks.splice(index, 1)[0].row.remove();
     this.replace(index - 1, markdownOf(merged));
     this.show(index - 1, merged, offset);
   }

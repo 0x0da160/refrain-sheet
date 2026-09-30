@@ -91,6 +91,7 @@ import {
   type IconNode,
   PanelBottom,
   Table2,
+  FileDown,
 } from 'lucide';
 import type { CommandId } from '../app/commands';
 
@@ -123,6 +124,7 @@ export const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'sheet.exportCsv': FileText,
   'sheet.exportXlsx': FileSpreadsheet,
   'sheet.exportJson': FileJson,
+  'sheet.exportSheetText': FileDown,
   'app.settings': Settings,
   'file.print': Printer,
   'file.closeTab': X,

@@ -90,6 +90,7 @@ import {
   X,
   type IconNode,
   PanelBottom,
+  Table2,
 } from 'lucide';
 import type { CommandId } from '../app/commands';
 
@@ -131,6 +132,10 @@ export const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'edit.copy': Copy,
   'edit.copyScreenshot': Image,
   'edit.copyAsMarkdown': FileCode,
+  'edit.copyAsMarkdownNoHeader': FileCode,
+  'edit.copyAsBacklog': Table2,
+  'edit.copyAsBacklogHeaderRow': Table2,
+  'edit.copyAsBacklogHeaderCol': Table2,
   'edit.paste': ClipboardPaste,
   'edit.pasteValues': ClipboardType,
   'edit.pasteFormats': Paintbrush,

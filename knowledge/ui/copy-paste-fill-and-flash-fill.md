@@ -36,6 +36,28 @@ empty and is pasted from the internal clipboard.
   gains rows or columns silently — such pastes require the explicit RSF
   conversion (see [../formats/index.md](../formats/index.md)).
 
+## Copy As
+
+**Edit > Copy As** (also on the cell context menu) holds the copy formats
+other than plain Copy. Each writes the selection's displayed values to the
+system clipboard, leaving hidden rows out:
+
+- **Copy Image** — a PNG that looks like the selection on screen.
+- **Markdown Table ▸ First Row as Header / No Header** — a GitHub-Flavored
+  Markdown table. A Markdown table cannot lack a header row, so No Header
+  writes an empty one (`| | |`) and every selected row as data. `|` is
+  escaped as `\|` and line breaks become spaces.
+- **Backlog Table ▸ No Header / First Row as Header / First Column as
+  Header** — Backlog's wiki table notation, `| a | b |` per row. The first
+  row as header adds `h` after that row; the first column as header starts
+  every row with `|~`. A line break in a cell becomes `&br;`, and a `|` in a
+  cell becomes the full-width `｜`, because the notation has no escape for
+  it.
+
+The formatters are pure (`rangeToTextTable` in `src/core/clipboard.ts`).
+The table formats are left out of the CSV-only minimal edition, like Copy
+Image.
+
 ## Paste Special
 
 **Edit > Paste Special** has two commands, and **Ctrl+Shift+V /
@@ -144,7 +166,7 @@ step; Escape cancels a drag before it commits; and it is RSF-only.
 
 ## Flash Fill
 
-**Edit > Flash Fill…** (also on the cell context menu) fills a column by
+**Edit > Fill > Flash Fill…** (also on the cell context menu) fills a column by
 inferring a pattern from examples already typed — entirely **offline and
 deterministic**: no cloud service, no AI model, no telemetry, no dynamic
 code (this determinism is also recorded as an invariant in

@@ -40,7 +40,15 @@ export function pruneItems<T extends PrunableItem>(
     const next = kept[i + 1];
     return next !== undefined && next !== 'separator' && !next.heading;
   });
-  return withoutEmptyHeadings.filter(
-    (item, i, list) => item !== 'separator' || (i > 0 && i < list.length - 1 && list[i - 1] !== 'separator'),
-  );
+  // No separator first, last, or right after another.
+  const tidied: Array<T | 'separator'> = [];
+  for (const item of withoutEmptyHeadings) {
+    if (item !== 'separator' || (tidied.length > 0 && tidied[tidied.length - 1] !== 'separator')) {
+      tidied.push(item);
+    }
+  }
+  if (tidied[tidied.length - 1] === 'separator') {
+    tidied.pop();
+  }
+  return tidied;
 }

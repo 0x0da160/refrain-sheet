@@ -157,7 +157,7 @@ hidden on the welcome screen. Any menu command with an icon can go on it
 a check mark instead); its tooltip, shortcut and pressed state come from the
 command's menu item, a divider separates commands from different menus, and
 an unavailable command is `aria-disabled` with its reason in the tooltip.
-View > Show Toolbar hides it; **View > Customize Toolbar…** (also its
+View > Toolbar & Status Bar > Show Toolbar hides it; **View > Toolbar & Status Bar > Customize Toolbar…** (also its
 trailing button) opens a dockable panel to reorder, remove and add
 commands, and Reset Toolbar restores the default set. Every change applies
 at once. The list and visibility are stored in this browser's `localStorage`
@@ -170,8 +170,8 @@ The bar under the grid (`src/ui/status-bar.ts`). Its information items —
 file type, encoding, delimiter, line endings, size, rows × columns,
 formula count, edited cells, filter, sort, CSV engine, the selected cell
 with its totals, and the version — each show in the bar, behind the bar's
-**Details** button (a popover), or not at all, as **View > Customize
-Status Bar…** sets (also a right-click on the bar, and the popover's own
+**Details** button (a popover), or not at all, as **View > Toolbar &
+Status Bar > Customize Status Bar…** sets (also a right-click on the bar, and the popover's own
 link). The places are stored in this browser only
 (`src/app/status-bar-prefs.ts`); every item starts in the bar. Warnings
 and controls are always in the bar: structure problems, unreadable

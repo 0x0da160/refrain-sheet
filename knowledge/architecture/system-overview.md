@@ -128,6 +128,10 @@ a regression. `src/ui/context-menu.ts` (`ContextMenu`) is the one surface
 for every right-click menu (grid, document tab strip, worksheet strip),
 owning placement, roving-focus keyboard navigation, submenu open/flip, and
 dismissal.
+The menu bar (`src/ui/menu-bar/`) and `ContextMenu` both open a submenu
+inside a submenu; by convention menus go no deeper than that (a test
+checks the menu bar), and each keeps its long families in submenus so no
+top-level menu grows past about 16 entries.
 
 ## The WASM boundary
 

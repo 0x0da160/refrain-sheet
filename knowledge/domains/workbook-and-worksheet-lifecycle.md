@@ -75,7 +75,7 @@ context menu (right-click a worksheet tab), and the keyboard:
 | Action              | How                                                                                |
 | ------------------- | ---------------------------------------------------------------------------------- |
 | Switch worksheet    | Click a tab, `←` / `→`, `Home` / `End`, or `Ctrl+Alt+PageDown` / `Ctrl+Alt+PageUp` |
-| Add worksheet       | The `+` button, or Sheet > Add Worksheet                                           |
+| Add worksheet       | The `+` button, or Sheet > Manage Sheets > New Sheet                               |
 | Rename worksheet    | Double-click a tab, `F2`, or Sheet > Rename Worksheet…                             |
 | Duplicate worksheet | Sheet > Duplicate Worksheet…                                                       |
 | Delete worksheet    | Sheet > Delete Worksheet                                                           |

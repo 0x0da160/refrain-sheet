@@ -53,6 +53,24 @@ function menu(labelKey: string): MenuDef {
   return found;
 }
 
+/** Every command under `list`, however deeply nested. */
+function commandsIn(list: ReadonlyArray<MenuItemDef | 'separator'>): string[] {
+  return list.flatMap((i) =>
+    i === 'separator' ? [] : i.submenu ? commandsIn(i.submenu) : i.command ? [i.command] : [],
+  );
+}
+
+/** How many submenu levels `list` holds below itself. */
+function nesting(list: ReadonlyArray<MenuItemDef | 'separator'>): number {
+  return Math.max(0, ...list.map((i) => (i !== 'separator' && i.submenu ? 1 + nesting(i.submenu) : 0)));
+}
+
+function nestedOf(list: MenuItemDef[], labelKey: string): MenuItemDef[] {
+  const parent = list.find((i) => i.labelKey === labelKey);
+  if (!parent?.submenu) throw new Error(`no submenu for ${labelKey}`);
+  return parent.submenu.filter((i): i is MenuItemDef => i !== 'separator');
+}
+
 function submenuOf(menuDef: MenuDef, labelKey: string): MenuItemDef[] {
   const parent = items(menuDef).find((i) => i.labelKey === labelKey);
   if (!parent?.submenu) throw new Error(`no submenu for ${labelKey}`);
@@ -85,10 +103,14 @@ describe('Sheet menu reorganization', () => {
 
   it('keeps every worksheet command reachable inside the Worksheet submenu', () => {
     const worksheet = submenuOf(menu('menu.sheet'), 'menu.sheet.worksheet');
-    const commands = worksheet.map((i) => i.command);
+    const commands = commandsIn(worksheet);
     expect(commands).toEqual(
       expect.arrayContaining([
         'worksheet.add',
+        'worksheet.addPaper',
+        'worksheet.addFromCsv',
+        'worksheet.newFolder',
+        'worksheet.moveToFolder',
         'worksheet.rename',
         'worksheet.duplicate',
         'worksheet.delete',
@@ -100,6 +122,23 @@ describe('Sheet menu reorganization', () => {
         'worksheet.moveLast',
       ]),
     );
+    // The add, folder and move families are one level deeper.
+    expect(nestedOf(worksheet, 'menu.sheet.newSheet').map((i) => i.command)).toEqual([
+      'worksheet.add',
+      'worksheet.addPaper',
+      'worksheet.addMarkdown',
+      'worksheet.addJson',
+      'worksheet.addYaml',
+      'worksheet.addText',
+      'worksheet.addFromCsv',
+    ]);
+    expect(nestedOf(worksheet, 'menu.sheet.moveSheet').map((i) => i.command)).toEqual([
+      'worksheet.moveFirst',
+      'worksheet.moveLeft',
+      'worksheet.moveRight',
+      'worksheet.moveLast',
+    ]);
+    expect(worksheet.some((i) => i.command === 'worksheet.add')).toBe(false);
   });
 
   it('flips the Lock Sheet item label between its two states, distinct from book-protect wording', () => {
@@ -162,12 +201,29 @@ describe('Edit menu reorganization', () => {
     ]);
     // Unrelated Edit commands are unaffected.
     expect(topLevel.some((i) => i.command === 'edit.undo')).toBe(true);
-    expect(topLevel.some((i) => i.command === 'edit.fillDown')).toBe(true);
+    expect(submenuOf(edit, 'menu.edit.fill').map((i) => i.command)).toEqual([
+      'edit.fillDown',
+      'edit.flashFill',
+    ]);
   });
 
   it('groups the alternate copy formats into a Copy As submenu, leaving Copy itself at the top level (#518)', () => {
     const copyAs = submenuOf(menu('menu.edit'), 'menu.edit.copyAs');
-    expect(copyAs.map((i) => i.command)).toEqual(['edit.copyScreenshot', 'edit.copyAsMarkdown']);
+    expect(copyAs.map((i) => i.command ?? i.labelKey)).toEqual([
+      'edit.copyScreenshot',
+      'menu.edit.copyAsMarkdownTable',
+      'menu.edit.copyAsBacklogTable',
+    ]);
+    // Each text-table format offers its header choices one level deeper.
+    expect(nestedOf(copyAs, 'menu.edit.copyAsMarkdownTable').map((i) => [i.labelKey, i.command])).toEqual([
+      ['menu.edit.tableHeaderRow', 'edit.copyAsMarkdown'],
+      ['menu.edit.tableNoHeader', 'edit.copyAsMarkdownNoHeader'],
+    ]);
+    expect(nestedOf(copyAs, 'menu.edit.copyAsBacklogTable').map((i) => [i.labelKey, i.command])).toEqual([
+      ['menu.edit.tableNoHeader', 'edit.copyAsBacklog'],
+      ['menu.edit.tableHeaderRow', 'edit.copyAsBacklogHeaderRow'],
+      ['menu.edit.tableHeaderCol', 'edit.copyAsBacklogHeaderCol'],
+    ]);
     const topLevel = items(menu('menu.edit'));
     expect(topLevel.some((i) => i.command === 'edit.copy')).toBe(true);
     expect(topLevel.some((i) => i.command === 'edit.copyScreenshot')).toBe(false);
@@ -253,7 +309,22 @@ describe('Format menu reorganization (#518)', () => {
     // Bold/Italic/Underline (the most frequently used Format commands) and
     // the other single-item entries are unaffected.
     expect(topLevel.some((i) => i.command === 'format.bold')).toBe(true);
-    expect(topLevel.some((i) => i.command === 'format.numberFormat')).toBe(true);
+  });
+
+  it('groups text alignment and number formats into their own submenus', () => {
+    const format = menu('menu.format');
+    expect(submenuOf(format, 'menu.format.alignment').map((i) => i.command)).toEqual([
+      'format.alignLeft',
+      'format.alignCenter',
+      'format.alignRight',
+    ]);
+    expect(submenuOf(format, 'menu.format.numbers').map((i) => i.command)).toEqual([
+      'format.numberFormat',
+      'format.presetNumber',
+      'format.presetCurrency',
+      'format.presetPercent',
+    ]);
+    expect(items(format).some((i) => i.command === 'format.numberFormat')).toBe(false);
   });
 });
 
@@ -292,7 +363,9 @@ describe('View menu reorganization', () => {
   });
 
   it('offers Banded Rows as a View toggle, off by default', () => {
-    const banded = items(menu('menu.view')).find((i) => i.command === 'view.bandedRows');
+    const banded = submenuOf(menu('menu.view'), 'menu.view.gridLook').find(
+      (i) => i.command === 'view.bandedRows',
+    );
     expect(banded?.labelKey).toBe('menu.view.bandedRows');
     expect(banded?.checked?.()).toBe(false);
   });
@@ -322,8 +395,44 @@ describe('View menu reorganization', () => {
     ]);
   });
 
-  it('the Language group stays a top-level heading, not folded into a submenu', () => {
-    const topLevel = items(menu('menu.view'));
-    expect(topLevel.some((i) => i.labelKey === 'menu.language' && i.heading)).toBe(true);
+  it('groups sticky panes, the grid look, and the two bars into submenus', () => {
+    const view = menu('menu.view');
+    expect(submenuOf(view, 'menu.view.freeze').map((i) => i.command)).toEqual([
+      'view.stickyFirstRow',
+      'view.stickyFirstColumn',
+      'view.freezeAtSelection',
+    ]);
+    expect(submenuOf(view, 'menu.view.gridLook').map((i) => i.command)).toEqual([
+      'view.bandedRows',
+      'view.gridlines',
+      'view.highlightRow',
+      'view.highlightCol',
+    ]);
+    expect(submenuOf(view, 'menu.view.bars').map((i) => i.command)).toEqual([
+      'view.toolbar',
+      'view.customizeToolbar',
+      'view.customizeStatusBar',
+    ]);
+  });
+
+  it('puts the two languages in a Language submenu', () => {
+    expect(submenuOf(menu('menu.view'), 'menu.language').map((i) => i.command)).toEqual([
+      'lang.en',
+      'lang.ja',
+    ]);
+  });
+});
+
+describe('menu length and depth', () => {
+  it('nests no deeper than a submenu inside a submenu', () => {
+    for (const m of defaultMenus(checks())) {
+      expect(nesting(m.items), m.labelKey).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('keeps every top-level menu to at most 16 entries', () => {
+    for (const m of defaultMenus(checks())) {
+      expect(items(m).length, m.labelKey).toBeLessThanOrEqual(16);
+    }
   });
 });

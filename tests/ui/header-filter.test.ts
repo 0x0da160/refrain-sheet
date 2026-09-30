@@ -328,10 +328,12 @@ describe('the right-click menu', () => {
   it('toggles Filter & Sort from Headers and shows whether it is on', async () => {
     const { commands, tab } = sheet();
     const find = () =>
-      contextMenuEntries(commands, tab).find(
-        (e): e is Exclude<typeof e, 'separator'> =>
-          e !== 'separator' && e.label === 'Filter & Sort from Headers',
-      )!;
+      contextMenuEntries(commands, tab)
+        .flatMap((e) => (e !== 'separator' && e.submenu ? e.submenu : [e]))
+        .find(
+          (e): e is Exclude<typeof e, 'separator'> =>
+            e !== 'separator' && e.label === 'Filter & Sort from Headers',
+        )!;
     setLocale('en');
     expect(find().checked).toBe(false);
     await commands.toggleHeaderFilter(tab);

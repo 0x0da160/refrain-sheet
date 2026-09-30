@@ -40,20 +40,22 @@ function checks(): MenuChecks {
 
 const items = (menu: MenuDef): MenuItemDef[] => menu.items.filter((i): i is MenuItemDef => i !== 'separator');
 
+/** View > Language's entries. */
+const languages = (menu: MenuDef): MenuItemDef[] =>
+  (items(menu).find((i) => i.labelKey === 'menu.language')?.submenu ?? []).filter(
+    (i): i is MenuItemDef => i !== 'separator',
+  );
+
 describe('Language menu placement', () => {
   it('has no top-level Language menu', () => {
     const menus = defaultMenus(checks());
     expect(menus.some((m) => m.labelKey === 'menu.language')).toBe(false);
   });
 
-  it('exposes a Language group with both locales under View', () => {
+  it('exposes a Language submenu with both locales under View', () => {
     const view = defaultMenus(checks()).find((m) => m.labelKey === 'menu.view');
     expect(view).toBeDefined();
-    const viewItems = items(view!);
-    // A localized "Language" heading precedes the two language items.
-    expect(viewItems.some((i) => i.labelKey === 'menu.language' && i.heading)).toBe(true);
-    expect(viewItems.some((i) => i.command === 'lang.en')).toBe(true);
-    expect(viewItems.some((i) => i.command === 'lang.ja')).toBe(true);
+    expect(languages(view!).map((i) => i.command)).toEqual(['lang.en', 'lang.ja']);
   });
 
   it('the language items reflect the active locale', () => {
@@ -61,14 +63,14 @@ describe('Language menu placement', () => {
     try {
       setLocale('ja');
       const view = defaultMenus(checks()).find((m) => m.labelKey === 'menu.view')!;
-      const ja = items(view).find((i) => i.command === 'lang.ja')!;
-      const en = items(view).find((i) => i.command === 'lang.en')!;
+      const ja = languages(view).find((i) => i.command === 'lang.ja')!;
+      const en = languages(view).find((i) => i.command === 'lang.en')!;
       expect(ja.checked?.()).toBe(true);
       expect(en.checked?.()).toBe(false);
       setLocale('en');
       const view2 = defaultMenus(checks()).find((m) => m.labelKey === 'menu.view')!;
       expect(
-        items(view2)
+        languages(view2)
           .find((i) => i.command === 'lang.en')!
           .checked?.(),
       ).toBe(true);

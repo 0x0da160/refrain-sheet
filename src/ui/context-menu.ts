@@ -111,7 +111,8 @@ export function closeAllContextMenus(): void {
 
 export class ContextMenu {
   readonly element: HTMLElement;
-  private submenu: { parent: HTMLElement; element: HTMLElement } | null = null;
+  /** The open submenus, outermost first: each opened from an item of the list before it. */
+  private submenus: Array<{ parent: HTMLElement; element: HTMLElement }> = [];
   private readonly restoreFocus: HTMLElement | null;
   private closed = false;
   private readonly onClose: (() => void) | undefined;
@@ -138,7 +139,7 @@ export class ContextMenu {
     // interaction before it can act on whatever is underneath the menu.
     const onPointerDown = (event: Event): void => {
       const target = event.target as Node | null;
-      if (target && (this.element.contains(target) || this.submenu?.element.contains(target))) {
+      if (target && this.containsNode(target)) {
         return;
       }
       this.close();
@@ -150,7 +151,7 @@ export class ContextMenu {
     // to the window in the capture phase from a different subtree.
     const onScroll = (event: Event): void => {
       const target = event.target as Node | null;
-      if (target && (this.element.contains(target) || this.submenu?.element.contains(target))) {
+      if (target && this.containsNode(target)) {
         return;
       }
       this.close();
@@ -188,6 +189,16 @@ export class ContextMenu {
     return menu;
   }
 
+  /** Whether `node` is inside the menu or one of its open submenus. */
+  private containsNode(node: Node): boolean {
+    return this.element.contains(node) || this.submenus.some((sub) => sub.element.contains(node));
+  }
+
+  /** How deep `list` sits: 0 for the menu itself, 1 for its submenu, and so on. */
+  private depthOf(list: HTMLElement): number {
+    return list === this.element ? 0 : this.submenus.findIndex((sub) => sub.element === list) + 1;
+  }
+
   private on(
     target: EventTarget,
     type: string,
@@ -198,11 +209,11 @@ export class ContextMenu {
     this.listeners.push(() => target.removeEventListener(type, handler, capture));
   }
 
-  /** Re-measure and re-place the menu (and any open submenu). */
+  /** Re-measure and re-place the menu (and any open submenus, outermost first). */
   reposition(): void {
     positionPopup(this.element, { kind: 'point', x: this.placementX, y: this.placementY });
-    if (this.submenu) {
-      positionPopup(this.submenu.element, { kind: 'beside', rect: rectOf(this.submenu.parent) });
+    for (const sub of this.submenus) {
+      positionPopup(sub.element, { kind: 'beside', rect: rectOf(sub.parent) });
     }
   }
 
@@ -212,7 +223,7 @@ export class ContextMenu {
     }
     this.closed = true;
     openMenus.delete(this);
-    this.closeSubmenu();
+    this.closeSubmenusFrom(0);
     this.element.remove();
     for (const off of this.listeners) {
       off();
@@ -431,23 +442,22 @@ export class ContextMenu {
         if (entry.submenu?.length) {
           event.preventDefault();
           this.openSubmenu(button, entry.submenu);
-          enabledItems(this.submenu!.element)[0]?.focus();
+          const opened = this.submenus[this.submenus.length - 1];
+          if (opened) {
+            enabledItems(opened.element)[0]?.focus();
+          }
         }
         return;
       case 'ArrowLeft':
         if (list !== this.element) {
           event.preventDefault();
-          const parent = this.submenu?.parent;
-          this.closeSubmenu();
-          parent?.focus();
+          this.leaveSubmenu(list);
         }
         return;
       case 'Escape':
         event.preventDefault();
         if (list !== this.element) {
-          const parent = this.submenu?.parent;
-          this.closeSubmenu();
-          parent?.focus();
+          this.leaveSubmenu(list);
           return;
         }
         this.close();
@@ -478,13 +488,23 @@ export class ContextMenu {
    * submenu no longer dismisses it before the pointer arrives (#399).
    */
   private onSiblingHover(event: MouseEvent, list: HTMLElement): void {
-    if (!this.submenu || this.submenu.parent.parentElement !== list) {
+    const depth = this.depthOf(list);
+    const opened = this.submenus[depth];
+    if (!opened || opened.parent.parentElement !== list) {
       return;
     }
-    if (this.pointerHeadingTowardSubmenu(event)) {
+    if (this.pointerHeadingTowardSubmenu(event, opened.element)) {
       return;
     }
-    this.closeSubmenu();
+    this.closeSubmenusFrom(depth);
+  }
+
+  /** Close the submenu `list` and return focus to the item that opened it. */
+  private leaveSubmenu(list: HTMLElement): void {
+    const depth = this.depthOf(list) - 1;
+    const parent = this.submenus[depth]?.parent;
+    this.closeSubmenusFrom(depth);
+    parent?.focus();
   }
 
   /**
@@ -494,37 +514,35 @@ export class ContextMenu {
    * Falls back to treating the pointer as heading toward the submenu when no
    * prior position is known yet (the first move after the menu opens).
    */
-  private pointerHeadingTowardSubmenu(event: MouseEvent): boolean {
-    if (!this.submenu) {
-      return false;
-    }
+  private pointerHeadingTowardSubmenu(event: MouseEvent, submenu: HTMLElement): boolean {
     const point: Point = { x: event.clientX, y: event.clientY };
     const origin = this.lastPointer ?? point;
-    const rect = this.submenu.element.getBoundingClientRect();
+    const rect = submenu.getBoundingClientRect();
     const nearX = rect.left >= point.x ? rect.left : rect.right;
     return pointInTriangle(point, origin, { x: nearX, y: rect.top }, { x: nearX, y: rect.bottom });
   }
 
+  /** Open `parent`'s submenu, closing any other open from the same list (and everything inside it). */
   private openSubmenu(parent: HTMLElement, entries: ContextMenuEntry[]): void {
-    if (this.submenu?.parent === parent) {
+    const depth = parent.parentElement ? this.depthOf(parent.parentElement) : 0;
+    if (this.submenus[depth]?.parent === parent) {
       return;
     }
-    this.closeSubmenu();
+    this.closeSubmenusFrom(depth);
     const element = this.buildList(entries);
     element.classList.add('submenu');
     document.body.append(element);
-    this.submenu = { parent, element };
+    this.submenus.push({ parent, element });
     parent.setAttribute('aria-expanded', 'true');
     positionPopup(element, { kind: 'beside', rect: rectOf(parent) });
   }
 
-  private closeSubmenu(): void {
-    if (!this.submenu) {
-      return;
+  /** Close the submenus at `depth` and deeper (0 closes them all). */
+  private closeSubmenusFrom(depth: number): void {
+    for (const sub of this.submenus.splice(depth)) {
+      sub.parent.setAttribute('aria-expanded', 'false');
+      sub.element.remove();
     }
-    this.submenu.parent.setAttribute('aria-expanded', 'false');
-    this.submenu.element.remove();
-    this.submenu = null;
   }
 }
 

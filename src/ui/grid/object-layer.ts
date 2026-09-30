@@ -22,7 +22,8 @@ import { ContextMenu, type ContextMenuEntry } from '../context-menu';
 import { clearChildren, el } from '../dom';
 import { buildObjectElement, drawObject, lineEnds, type ObjectBox } from '../sheet-object-view';
 import { snapMove, unionBox, type GuideBox, type GuideLine } from './object-guides';
-import { withGroups } from '../../core/workbook/object-arrange';
+import { withGroups, type Arrangement } from '../../core/workbook/object-arrange';
+import { AlignStartVertical, ImageDown, Layers } from 'lucide';
 import type { GridCore } from './core';
 import type { CommandId } from '../../app/commands';
 
@@ -723,25 +724,50 @@ export class ObjectLayer {
       onSelect: () => void this.core.commands.run(command),
     });
     this.core.pointer.closeContextMenu();
+    const align = (how: Arrangement): ContextMenuEntry => item(`object.${how}`, `menu.insert.${how}`);
+    // Grouped the way Insert > Arrange Objects is, so the menu stays short.
     this.core.contextMenu = ContextMenu.open(
       [
         item('edit.cut', 'menu.edit.cut'),
         item('edit.copy', 'menu.edit.copy'),
         item('edit.paste', 'menu.edit.paste'),
         'separator',
-        item('object.bringToFront', 'menu.insert.bringToFront'),
-        item('object.bringForward', 'menu.insert.bringForward'),
-        item('object.sendBackward', 'menu.insert.sendBackward'),
-        item('object.sendToBack', 'menu.insert.sendToBack'),
-        'separator',
+        {
+          label: t('menu.insert.order'),
+          icon: Layers,
+          submenu: [
+            item('object.bringToFront', 'menu.insert.bringToFront'),
+            item('object.bringForward', 'menu.insert.bringForward'),
+            item('object.sendBackward', 'menu.insert.sendBackward'),
+            item('object.sendToBack', 'menu.insert.sendToBack'),
+          ],
+        },
+        {
+          label: t('menu.insert.align'),
+          icon: AlignStartVertical,
+          submenu: [
+            ...(
+              ['alignLeft', 'alignCenter', 'alignRight', 'alignTop', 'alignMiddle', 'alignBottom'] as const
+            ).map(align),
+            'separator',
+            align('distributeHorizontally'),
+            align('distributeVertically'),
+          ],
+        },
         item('object.group', 'menu.insert.group'),
         item('object.ungroup', 'menu.insert.ungroup'),
-        item('object.delete', 'menu.insert.deleteObject'),
         'separator',
-        item('object.saveAsPng', 'menu.insert.saveAsPng'),
-        item('object.saveAsSvg', 'menu.insert.saveAsSvg'),
-        'separator',
+        {
+          label: t('menu.insert.saveObjects'),
+          icon: ImageDown,
+          submenu: [
+            item('object.saveAsPng', 'menu.insert.saveAsPng'),
+            item('object.saveAsSvg', 'menu.insert.saveAsSvg'),
+          ],
+        },
         item('insert.objectList', 'menu.insert.objectList'),
+        'separator',
+        item('object.delete', 'menu.insert.deleteObject'),
       ],
       event.clientX,
       event.clientY,

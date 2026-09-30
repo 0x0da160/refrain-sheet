@@ -159,7 +159,7 @@ A date is a **number**, not a separate kind of value:
   end date, so they never return the negative values Excel's `MD` is known
   for. A reversed range or an unknown unit is an error, not a guess.
 - **Dates display as their serial number.** Cell number formats
-  (**Format > Number Format…**) offer Number, Percent, and Currency, but
+  (**Format > Number Format > Number Format…**) offer Number, Percent, and Currency, but
   no date kind, so applying one to a date cell only changes how the serial
   itself is displayed — use `YEAR`/`MONTH`/`DAY`, or `TEXTJOIN`, to present
   a date readably.

@@ -480,15 +480,24 @@ describe('row/column header tools', () => {
     return grid.element.querySelector<HTMLElement>(`[data-colhead="${col}"]`)!;
   }
 
-  it('offers a move grip and an insert button on each header of an RSF worksheet', () => {
+  it('offers a move grip and an insert button on both boundaries of each header of an RSF worksheet', () => {
     const { grid } = setupRsf(RsfDocument.empty('book', 5, 4, 'Sheet1'));
     const head = colHead(grid, 1);
     expect(head.querySelector('[data-axismove="col"]')).not.toBeNull();
-    expect(head.querySelector('.head-insert')?.getAttribute('aria-label')).toBe(
+    expect(head.querySelector('.head-insert-before')?.getAttribute('aria-label')).toBe(
+      t('grid.insertColLeftButton'),
+    );
+    expect(head.querySelector('.head-insert-after')?.getAttribute('aria-label')).toBe(
       t('grid.insertColRightButton'),
     );
     const rowHead = grid.element.querySelector<HTMLElement>('[data-rowhead="0"]')!;
     expect(rowHead.querySelector('[data-axismove="row"]')).not.toBeNull();
+    expect(rowHead.querySelector('.head-insert-before')?.getAttribute('aria-label')).toBe(
+      t('grid.insertRowAboveButton'),
+    );
+    expect(rowHead.querySelector('.head-insert-after')?.getAttribute('aria-label')).toBe(
+      t('grid.insertRowBelowButton'),
+    );
   });
 
   it('shows no move grip on a CSV file, whose bytes cannot be reordered', () => {
@@ -515,9 +524,23 @@ describe('row/column header tools', () => {
 
   it('inserts a column to the right from the header button', () => {
     const { grid, tab } = setupRsf(RsfDocument.empty('book', 5, 4, 'Sheet1'));
-    const insert = colHead(grid, 1).querySelector<HTMLButtonElement>('.head-insert')!;
+    const insert = colHead(grid, 1).querySelector<HTMLButtonElement>('.head-insert-after')!;
     insert.click();
     return vi.waitFor(() => expect(tab.doc.columnCount).toBe(5));
+  });
+
+  it('runs the matching insert command from each boundary button', async () => {
+    const { commands, grid, tab } = setupRsf(RsfDocument.empty('book', 5, 4, 'Sheet1'));
+    const run = vi.spyOn(commands, 'run').mockResolvedValue(undefined);
+    colHead(grid, 2).querySelector<HTMLButtonElement>('.head-insert-before')!.click();
+    expect(run).toHaveBeenLastCalledWith('sheet.insertColLeft');
+    expect(tab.selectionKind).toBe('col');
+    const rowHead = () => grid.element.querySelector<HTMLElement>('[data-rowhead="1"]')!;
+    rowHead().querySelector<HTMLButtonElement>('.head-insert-before')!.click();
+    expect(run).toHaveBeenLastCalledWith('sheet.insertRowAbove');
+    rowHead().querySelector<HTMLButtonElement>('.head-insert-after')!.click();
+    expect(run).toHaveBeenLastCalledWith('sheet.insertRowBelow');
+    expect(tab.selection?.row).toBe(1);
   });
 });
 

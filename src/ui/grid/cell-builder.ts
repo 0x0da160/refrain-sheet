@@ -9,7 +9,16 @@
  * `this.core`.
  */
 import { isCsv, isWorkbook } from '../../core/editor-document';
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, GripVertical, ListFilter, Plus } from 'lucide';
+import {
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  ChevronDown,
+  GripHorizontal,
+  GripVertical,
+  ListFilter,
+  Plus,
+} from 'lucide';
+import type { CommandId } from '../../app/commands';
 import type { Tab } from '../../app/state';
 import { t } from '../../app/i18n';
 import { runsForText, type TextRun } from '../../core/workbook/rich-text';
@@ -26,6 +35,14 @@ import {
 import { malformedFieldTooltip, paintCellStyle } from './cell-paint';
 import { richTextNodes } from '../rich-text-render';
 import type { GridCore, RenderWindow } from './core';
+
+/** The tooltip of each header boundary's + (see `CellBuilder.insertButton`). */
+const INSERT_BUTTON_LABELS = {
+  'sheet.insertRowAbove': 'grid.insertRowAboveButton',
+  'sheet.insertRowBelow': 'grid.insertRowBelowButton',
+  'sheet.insertColLeft': 'grid.insertColLeftButton',
+  'sheet.insertColRight': 'grid.insertColRightButton',
+} satisfies Partial<Record<CommandId, string>>;
 
 export class CellBuilder {
   constructor(private readonly core: GridCore) {}
@@ -91,12 +108,15 @@ export class CellBuilder {
   /**
    * The row/column header's hover tools: a grip to drag the row/column (or
    * the selected rows/columns it belongs to) somewhere else, and a small +
-   * that inserts one row below / one column to the right. CSS shows them
-   * only while a mouse hovers the header; the same actions stay reachable
-   * from the menus and the context menu. The grip is offered only where a
-   * move is possible: an RSF worksheet (moving is a structural edit a
-   * byte-preserving CSV cannot represent), and for rows not while a sort
-   * reorders what is shown. A locked worksheet gets neither tool.
+   * on each of its two boundaries that inserts one row there (above or
+   * below) or one column (left or right). CSS shows them only while a mouse
+   * hovers the header: a column's grip at the middle of its top edge, a
+   * row's at its left end, and each + centered on the boundary line it
+   * inserts at. The same actions stay reachable from the menus and the
+   * context menu. The grip is offered only where a move is possible: an RSF
+   * worksheet (moving is a structural edit a byte-preserving CSV cannot
+   * represent), and for rows not while a sort reorders what is shown. A
+   * locked worksheet gets neither tool.
    */
   private appendHeaderTools(tab: Tab, head: HTMLElement, axis: 'row' | 'col', index: number): void {
     const doc = tab.doc;
@@ -112,12 +132,25 @@ export class CellBuilder {
           title: t(axis === 'row' ? 'grid.moveRowGrip' : 'grid.moveColGrip'),
         },
       });
-      grip.append(createIcon(GripVertical, '', 12));
+      grip.append(createIcon(axis === 'row' ? GripVertical : GripHorizontal, '', 12));
       head.append(grip);
     }
-    const label = t(axis === 'row' ? 'grid.insertRowBelowButton' : 'grid.insertColRightButton');
+    head.append(this.insertButton(axis, index, 'before'), this.insertButton(axis, index, 'after'));
+  }
+
+  /** The + on a header's leading (`before`: top/left) or trailing (`after`: bottom/right) boundary. */
+  private insertButton(axis: 'row' | 'col', index: number, side: 'before' | 'after'): HTMLButtonElement {
+    const command: keyof typeof INSERT_BUTTON_LABELS =
+      axis === 'row'
+        ? side === 'before'
+          ? 'sheet.insertRowAbove'
+          : 'sheet.insertRowBelow'
+        : side === 'before'
+          ? 'sheet.insertColLeft'
+          : 'sheet.insertColRight';
+    const label = t(INSERT_BUTTON_LABELS[command]);
     const insert = el('button', {
-      className: 'head-insert',
+      className: `head-insert head-insert-${side}`,
       attrs: { type: 'button', tabindex: '-1', 'aria-label': label, title: label },
     });
     insert.append(createIcon(Plus, '', 12));
@@ -138,9 +171,9 @@ export class CellBuilder {
         this.core.pointer.selectCols(current, index, index);
       }
       this.core.editing.focusGrid();
-      void this.core.commands.run(axis === 'row' ? 'sheet.insertRowBelow' : 'sheet.insertColRight');
+      void this.core.commands.run(command);
     });
-    head.append(insert);
+    return insert;
   }
 
   /**

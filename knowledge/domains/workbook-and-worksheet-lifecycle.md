@@ -48,7 +48,11 @@ automatically or on save; `text` has no preview panel, since there is
 nothing to render beyond the source itself). None of these four kinds ever
 carries formulas, styles, a filter, or a sort, none is ever evaluated as a
 formula, and all four are excluded from CSV export (CSV has no analog for a
-whole-sheet document). How the file stores each kind (as its lines of
+whole-sheet document). Each can instead be saved as a file of its own:
+**File > Export > Export This Sheet as a File…** (also on the sheet tab's
+right-click menu; `sheet.exportSheetText`) writes the source as UTF-8 to
+`<sheet name>.md`, `.json`, `.yaml` or `.txt`, dropping the extension the
+sheet name already has. How the file stores each kind (as its lines of
 text) is covered by
 [`../formats/rsf/json-document.md`](../formats/rsf/json-document.md) —
 this file only describes what a worksheet kind means to the person editing
@@ -66,6 +70,16 @@ reformats the rest of a document. Enter starts a new paragraph,
 Shift+Enter breaks the line, Backspace at a paragraph's start joins it to
 the one before, and paste inserts plain text only. Horizontal rules and
 anything the Markdown parser does not model are edited in Markdown mode.
+
+Each block has tools beside it (`src/ui/markdown-block-tools.ts`, shown on
+hover or while the caret is in the block, hidden when the sheet is locked):
+a grip to drag it elsewhere, Move Block Up / Down (also Alt+Shift+↑/↓),
+Add Paragraph Below, and Delete Block. A move reorders only the blocks'
+source lines; the blank lines and anything else between blocks stay put,
+and a blank line is added where two blocks would otherwise run together
+(`moveMarkdownBlock` in `src/core/markdown-blocks.ts`). The empty
+paragraph at the end, for new text, cannot be deleted. In Markdown mode
+the editor and its preview scroll together.
 
 ## Worksheet operations
 

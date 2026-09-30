@@ -31,10 +31,22 @@
   outline-offset: 1px;
 }
 
-/* `.dialog-body` (see above) is already the bounded, scrollable ancestor —
-   same as the comments panel's list — so the preview itself just needs to
-   stop imposing its own `min-height: 320px` floor, which would otherwise
-   force the panel wider/taller than its docked size on a small viewport. */
-.markdown-preview-panel .markdown-editor-preview {
+/* The preview itself is the scroller, not `.dialog-body` around it: the
+   source and preview scroll together (`syncScroll`), which needs the
+   element it was given to be the one that scrolls. The body only bounds
+   it; `min-height: 0` drops the preview's own 320px floor so a small
+   viewport does not force the panel past its docked size. The JSON and
+   YAML preview panels work the same way. */
+.markdown-preview-panel .dialog-body,
+.json-preview-panel .dialog-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.markdown-preview-panel .markdown-editor-preview,
+.json-preview-panel .markdown-editor-preview {
+  flex: 1 1 auto;
   min-height: 0;
+  overflow: auto;
 }

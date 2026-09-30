@@ -65,6 +65,8 @@ really is internal, rather than inventing an entry to satisfy it.
 - Choose what the status bar shows: View > Toolbar & Status Bar > Customize Status Bar… (or right-click the status bar) sets each item — file type, encoding, delimiter, line endings, size, rows × columns, formula count, edited cells, filter, sort, CSV engine, the selected cell and totals, version — to show in the bar, in Details, or not at all. Items in Details open from the Details button at the right end. The choice is kept in this browser.
 - Copy a selection as a Backlog table: Edit > Copy As > Backlog Table (also on the cell right-click menu) copies the selected cells in Backlog's table notation, with no header, the first row as header (`|h`), or the first column as header (`|~`).
 - Copy a Markdown table with or without a header row: Edit > Copy As > Markdown Table now asks whether the first row is the header; No Header writes an empty header row and keeps every selected row as data.
+- Rearrange a Markdown sheet in Formatted mode: each block now has tools beside it to move it up or down (also Alt+Shift+↑/↓), drag it by its grip, add a paragraph below it, or delete it. Only the moved block's lines change place, so the rest of the Markdown stays exactly as written.
+- Save a Markdown, JSON, YAML or text sheet as a file of its own: File > Export > Export This Sheet as a File… (also on the sheet tab's right-click menu) writes it as UTF-8 to a `.md`, `.json`, `.yaml` or `.txt` file named after the sheet.
 
 ### Changed
 
@@ -93,6 +95,8 @@ really is internal, rather than inventing an entry to satisfy it.
 - The status bar's protection control is now one switch, Edit | Protected, with the current state pressed, instead of a "Protected" label beside an "Edit" or "Protect" button.
 - Shorter menus: related commands now sit together in submenus, and a submenu can open one more level inside it: Edit > Fill; Sheet > Manage Sheets > New Sheet, Sheet Folders and Move Sheet; Insert > Shape, Arrange Objects and Save Objects as Image; Format > Text Alignment and Number Format; View > Sticky Rows & Columns, Grid Look, Toolbar & Status Bar and Language. The right-click menus for cells, sheet tabs and shapes are grouped the same way. The CSV-only edition follows the same layout.
 - The row and column header tools moved: a column's move grip is now at the middle of its top edge, and each header shows a + on both of its boundaries, centered on the line, that inserts a column left or right (or a row above or below) right there. A row's grip stays at its left end.
+- Bold text in a Markdown sheet's Formatted mode and preview now stands out clearly from the text around it; both use a font with a true bold weight.
+- Printing and PDF now keep rows as tall as on screen: when the sheet does not wrap long text, each row prints one line tall and the text is cut at the cell's edge, as on screen. Banded rows print too when the sheet shows them, in the sheet's band strength.
 
 ### Fixed
 
@@ -115,6 +119,7 @@ really is internal, rather than inventing an entry to satisfy it.
   while you pause typing, so the text does not change under the cursor and
   half-typed JSON or YAML does not show an error. The option now reads
   "Format automatically when you leave the editor".
+- In a Markdown sheet (and a JSON or YAML sheet with its preview open), the preview now scrolls along with the editor, and the editor with the preview. The preview's panel was scrolling instead of the preview itself, so the two never moved together.
 
 ## [0.9.21] - 2026-09-29
 

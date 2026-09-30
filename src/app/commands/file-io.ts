@@ -514,6 +514,11 @@ export class FileIoCommands {
     return this.exporting.exportJson(tab);
   }
 
+  /** The active text sheet as a file of its own. See `FileExporting.exportSheetText`. */
+  exportSheetText(tab: Tab): Promise<boolean> {
+    return this.exporting.exportSheetText(tab);
+  }
+
   async closeTab(tab: Tab): Promise<void> {
     if (tab.doc.isDirty) {
       const choice = await this.ui.confirmUnsaved([tab.name]);

@@ -335,6 +335,11 @@ export class Commands {
     return this.parts.fileIo.exportJson(tab);
   }
 
+  /** The active Markdown, JSON, YAML or text sheet as a file of its own. See `FileExporting.exportSheetText`. */
+  async exportSheetText(tab: Tab): Promise<boolean> {
+    return this.parts.fileIo.exportSheetText(tab);
+  }
+
   async closeTab(tab: Tab): Promise<void> {
     return this.parts.fileIo.closeTab(tab);
   }

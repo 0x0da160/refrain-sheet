@@ -36,7 +36,9 @@ function last(changes: string[]): string {
 }
 
 function blocks(visual: MarkdownVisualEditor): HTMLElement[] {
-  return Array.from(visual.element.children) as HTMLElement[];
+  return Array.from(
+    visual.element.querySelectorAll(':scope > .markdown-visual-row > .markdown-visual-block'),
+  ) as HTMLElement[];
 }
 
 function caretIn(node: Node, offset: number): void {
@@ -168,5 +170,87 @@ describe('MarkdownVisualEditor', () => {
     const { visual } = editor();
     visual.setReadOnly(true);
     expect(visual.element.querySelectorAll('[contenteditable="true"]')).toHaveLength(0);
+  });
+
+  describe('block tools', () => {
+    const tool = (visual: MarkdownVisualEditor, index: number, action: string): HTMLButtonElement =>
+      blocks(visual)[index].parentElement!.querySelector<HTMLButtonElement>(`.markdown-block-${action}`)!;
+
+    it('labels each tool and keeps it out of the editable text', () => {
+      const { visual } = editor();
+      const tools = blocks(visual)[1].parentElement!.querySelector<HTMLElement>('.markdown-block-tools')!;
+      expect(tools.getAttribute('contenteditable')).toBe('false');
+      expect(tool(visual, 1, 'up').getAttribute('aria-label')).toBe('Move Block Up');
+      expect(tool(visual, 1, 'delete').getAttribute('aria-label')).toBe('Delete Block');
+    });
+
+    it('moves a block down and up, keeping every other line', () => {
+      const { visual, changes } = editor();
+      tool(visual, 1, 'down').click();
+      expect(last(changes)).toBe(
+        ['#   Title  ', '', '* one', '*  two', '', 'First *para*.', '', '| a |', '|---|', '| 1 |'].join('\n'),
+      );
+      expect(blocks(visual).map((node) => node.tagName)).toEqual(['H1', 'UL', 'P', 'TABLE', 'P']);
+      tool(visual, 2, 'up').click();
+      expect(last(changes)).toBe(SOURCE);
+    });
+
+    it('does not move the first block up or the last block down', () => {
+      const { visual, changes } = editor();
+      tool(visual, 0, 'up').click();
+      tool(visual, 3, 'down').click();
+      expect(changes).toHaveLength(0);
+    });
+
+    it('keeps two blocks apart when a move puts them side by side', () => {
+      const { visual, changes } = editor('A\n\n* one\nB');
+      expect(blocks(visual).map((node) => node.tagName)).toEqual(['P', 'UL', 'P', 'P']);
+      tool(visual, 0, 'down').click();
+      expect(last(changes)).toBe('* one\n\nA\n\nB');
+    });
+
+    it('deletes a block with its source lines', () => {
+      const { visual, changes } = editor();
+      tool(visual, 2, 'delete').click();
+      expect(last(changes)).toBe(
+        ['#   Title  ', '', 'First *para*.', '', '| a |', '|---|', '| 1 |'].join('\n'),
+      );
+      expect(blocks(visual).map((node) => node.tagName)).toEqual(['H1', 'P', 'TABLE', 'P']);
+    });
+
+    it('keeps the empty paragraph at the end for new text', () => {
+      const { visual, changes } = editor();
+      tool(visual, 4, 'delete').click();
+      expect(changes).toHaveLength(0);
+      expect(blocks(visual)).toHaveLength(5);
+    });
+
+    it('adds an empty paragraph below a block, written once text is typed', () => {
+      const { visual, changes } = editor();
+      tool(visual, 0, 'add').click();
+      const shown = blocks(visual);
+      expect(shown.map((node) => node.tagName)).toEqual(['H1', 'P', 'P', 'UL', 'TABLE', 'P']);
+      type(shown[1], 'New');
+      expect(last(changes)).toContain('#   Title  \n\nNew\n\nFirst *para*.');
+    });
+
+    it('moves the block with the caret on Alt+Shift+Arrow', () => {
+      const { visual, changes } = editor();
+      const paragraph = blocks(visual)[1];
+      caretIn(paragraph.firstChild!, 0);
+      paragraph.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, shiftKey: true, bubbles: true }),
+      );
+      expect(last(changes).startsWith('First *para*.\n\n#   Title  ')).toBe(true);
+    });
+
+    it('does nothing while the sheet is locked', () => {
+      const { visual, changes } = editor();
+      visual.setReadOnly(true);
+      tool(visual, 1, 'down').click();
+      tool(visual, 1, 'delete').click();
+      expect(changes).toHaveLength(0);
+      expect(visual.element.classList.contains('read-only')).toBe(true);
+    });
   });
 });

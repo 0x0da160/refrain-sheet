@@ -2,6 +2,7 @@
 import { type EditorDocument, workbookOf } from '../../core/editor-document';
 import { resolveGridLook as resolveLookLayers, type GridLook } from '../../core/grid-look';
 import { resolveSetting, type ResolvedSetting, type SettingSource } from '../../core/settings-cascade';
+import type { Worksheet } from '../../core/workbook/worksheet';
 import { getBrowserGridLook } from '../grid-look';
 import { clampSheetZoom, getBrowserWrap, getBrowserZoom, getSheetZoom, getWrapCells } from '../settings';
 import { DEFAULT_SHEET_FONT, getBrowserSheetFont, isSheetFontId, type SheetFontId } from '../sheet-font';
@@ -22,11 +23,11 @@ export function resolveZoom(doc: EditorDocument): ResolvedSetting<number> {
   return { value: clampSheetZoom(resolved.value), source: resolved.source };
 }
 
-/** See {@link resolveZoom}. */
-export function resolveWrap(doc: EditorDocument): ResolvedSetting<boolean> {
+/** See {@link resolveZoom}; `sheet` picks a worksheet other than the active one (for printing). */
+export function resolveWrap(doc: EditorDocument, sheet?: Worksheet): ResolvedSetting<boolean> {
   const rsf = workbookOf(doc);
   return resolveSetting(
-    { browser: getBrowserWrap(), file: rsf?.fileWrap, sheet: rsf?.activeSheet.displayWrap },
+    { browser: getBrowserWrap(), file: rsf?.fileWrap, sheet: (sheet ?? rsf?.activeSheet)?.displayWrap },
     getWrapCells(),
   );
 }
@@ -52,12 +53,13 @@ export function resolveSheetFont(doc: EditorDocument | null): ResolvedSetting<Sh
  * A document's effective grid look (bands, band strength, gridlines, and the
  * selected row/column highlight), each key resolved like zoom and wrap. Only
  * RSF files carry a file and worksheet level; everything else uses this
- * browser's, else the defaults.
+ * browser's, else the defaults. `sheet` picks a worksheet other than the
+ * active one (for printing).
  */
-export function resolveGridLook(doc: EditorDocument | null): GridLook {
+export function resolveGridLook(doc: EditorDocument | null, sheet?: Worksheet): GridLook {
   const rsf = workbookOf(doc);
   return resolveLookLayers({
-    sheet: rsf?.activeSheet.displayLook,
+    sheet: (sheet ?? rsf?.activeSheet)?.displayLook,
     file: rsf?.fileLook,
     browser: getBrowserGridLook(),
   });

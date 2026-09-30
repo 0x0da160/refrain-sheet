@@ -89,6 +89,7 @@ const SHEET_MENU_ITEMS: SheetMenuDef[] = [
   { command: 'worksheet.rename', labelKey: 'menu.sheet.renameSheet' },
   { command: 'worksheet.tabColor', labelKey: 'menu.sheet.tabColor' },
   { command: 'worksheet.duplicate', labelKey: 'menu.sheet.duplicateSheet' },
+  { command: 'sheet.exportSheetText', labelKey: 'menu.sheet.exportSheetText' },
   { command: 'worksheet.delete', labelKey: 'menu.sheet.deleteSheet' },
   {
     labelKey: 'menu.sheet.folders',

@@ -37,9 +37,19 @@ There is no keyboard shortcut: Ctrl+P stays the browser's (see
   sheet's stacking order; the grid reaches every shown object's anchor cell,
   so a sheet of only objects prints too. Hidden objects never print, and an
   object whose anchor cell does not print (outside the selection, on a row
-  the filter hides) is left out. Rows print at their natural height, so an
+  the filter hides) is left out.
+- Rows are as tall as on screen. When the sheet does not wrap text (View >
+  Wrap Long Cell Text), each row prints one line tall and text is cut at the cell's
+  edge, as on screen; when it wraps, rows grow to fit their text, so an
   object that spans many rows may not line up with the same cells as on
-  screen.
+  screen. Each sheet uses its own wrap setting (sheet > file > browser).
+  The app has no manual row height, so there is none to print.
+- Banded rows print when the sheet shows them (View > Grid Look), in the
+  sheet's band strength, counted over the shown rows so the pattern carries
+  on across pages; a cell's own fill wins. Paper is always light, so the
+  light theme's band colors print. The selected row and column highlights
+  follow the cursor, so they never print. Gridlines follow the print
+  panel's own Gridlines option.
 - A Markdown sheet prints rendered; a JSON, YAML or text sheet prints its
   text. A CSV document prints as one grid.
 - Everything is rendered as text into a print-only layer

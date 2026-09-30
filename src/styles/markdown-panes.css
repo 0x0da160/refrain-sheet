@@ -55,6 +55,20 @@
   color: var(--fg-default);
 }
 
+/* Formatted Markdown (preview and visual editing) reads in a document
+   font whose bold is clearly heavier than its regular. The interface
+   font's UD Gothic is heavy even at regular weight, so bold text barely
+   stood out in it; it stays as the fallback. */
+:is(.markdown-preview-panel .markdown-editor-preview, .markdown-visual) {
+  font-family:
+    'Yu Gothic UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', Meiryo, var(--font-ui);
+}
+
+:is(.markdown-preview-panel .markdown-editor-preview, .markdown-visual)
+  :is(strong, b, h1, h2, h3, h4, h5, h6, th) {
+  font-weight: var(--weight-bold);
+}
+
 .markdown-editor-preview {
   flex: 1;
   min-height: 320px;

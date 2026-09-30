@@ -59,6 +59,7 @@ const LEFT_OUT = new Set<CommandId>([
   'sheet.exportCsv',
   'sheet.exportXlsx',
   'sheet.exportJson',
+  'sheet.exportSheetText',
   'view.commentsPanel',
   'view.sheetTabsVertical',
   'help.formula',

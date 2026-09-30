@@ -1,13 +1,22 @@
 // SPDX-License-Identifier: MIT
 import type { RangeMoveConfirmInput, WorkbookReplaceConfirmInput } from '../../app/commands';
-import type { ColorDialogResult } from '../../app/ui-port';
+import type { ColorDialogResult, SheetNameResult } from '../../app/ui-port';
 import { t } from '../../app/i18n';
 import { MAX_SHEET_NAME_LENGTH } from '../../core/formula';
 import type { NewSheetKind } from '../../core/workbook/grid-paper';
 import { buildColorPicker } from '../color-picker';
 import { el } from '../dom';
 import { createIcon } from '../icon';
-import { FileCode, FileJson, FileText, FileType, Grid3x3, Table, type IconNode } from 'lucide';
+import {
+  FileCode,
+  FileJson,
+  FileSpreadsheet,
+  FileText,
+  FileType,
+  Grid3x3,
+  Table,
+  type IconNode,
+} from 'lucide';
 import { dialogButton, helpDetails, openDialog, submitOnEnter } from './shared';
 
 /**
@@ -23,6 +32,62 @@ const WORKSHEET_KIND_OPTIONS: ReadonlyArray<{ kind: NewSheetKind; labelKey: stri
   { kind: 'yaml', labelKey: 'sheets.kind.yaml', icon: FileCode },
   { kind: 'text', labelKey: 'sheets.kind.text', icon: FileType },
 ];
+
+/** The Add Sheet dialog's sheet kinds, as a radio group of pills; `choose` gets each new pick. */
+function kindPicker(initial: NewSheetKind, choose: (kind: NewSheetKind) => void): HTMLElement {
+  const groupName = 'sheet-kind-picker';
+  let selected = initial;
+  const labels: HTMLElement[] = [];
+  const updateSelectedClass = (): void => {
+    for (const label of labels) {
+      label.classList.toggle('selected', label.dataset.kind === selected);
+    }
+  };
+  const radios = WORKSHEET_KIND_OPTIONS.map(({ kind, labelKey, icon }) => {
+    const radioId = `${groupName}-${kind}`;
+    const radio = el('input', {
+      attrs: { type: 'radio', name: groupName, id: radioId, value: kind },
+    }) as HTMLInputElement;
+    radio.checked = kind === selected;
+    radio.addEventListener('change', () => {
+      if (!radio.checked) {
+        return;
+      }
+      selected = kind;
+      updateSelectedClass();
+      choose(kind);
+    });
+    const label = el(
+      'label',
+      {
+        className: 'sheet-kind-picker-option',
+        attrs: { for: radioId, 'data-kind': kind },
+      },
+      [radio, createIcon(icon, 'sheet-kind-picker-icon', 16), el('span', { text: t(labelKey) })],
+    );
+    labels.push(label);
+    return label;
+  });
+  updateSelectedClass();
+  return el(
+    'div',
+    {
+      className: 'form-row sheet-kind-picker',
+      attrs: { role: 'radiogroup', 'aria-label': t('dialog.sheetName.kind') },
+    },
+    radios,
+  );
+}
+
+/** The Add Sheet dialog's way to fill new sheets from CSV files instead (the file chooser opens next). */
+function fromCsvButton(choose: () => void): HTMLElement {
+  const button = el('button', { className: 'sheet-kind-csv', attrs: { type: 'button' } }, [
+    createIcon(FileSpreadsheet, 'sheet-kind-picker-icon', 16),
+    el('span', { text: t('dialog.sheetName.fromCsv') }),
+  ]);
+  button.addEventListener('click', choose);
+  return el('div', { className: 'form-row' }, [button]);
+}
 
 /**
  * Sheet/range/filter dialogs: the column-filter popover, insert-shift
@@ -88,8 +153,8 @@ export class SheetOpsDialogs {
     current: string,
     validate: (name: string) => string | null,
     kindOptions?: { initialKind: NewSheetKind; suggestName: (kind: NewSheetKind) => string },
-  ): Promise<{ name: string; kind: NewSheetKind } | null> {
-    return openDialog<{ name: string; kind: NewSheetKind } | null>(
+  ): Promise<SheetNameResult | null> {
+    return openDialog<SheetNameResult | null>(
       t(`dialog.sheetName.title.${mode}`),
       null,
       (body, buttons, close) => {
@@ -129,51 +194,16 @@ export class SheetOpsDialogs {
         };
 
         if (mode === 'add' && kindOptions) {
-          const groupName = 'sheet-kind-picker';
-          const labels: HTMLElement[] = [];
-          const updateSelectedClass = (): void => {
-            for (const label of labels) {
-              label.classList.toggle('selected', label.dataset.kind === selectedKind);
+          const picker = kindPicker(selectedKind, (kind) => {
+            selectedKind = kind;
+            if (!nameTouchedByUser) {
+              input.value = kindOptions.suggestName(kind);
+              refresh();
             }
-          };
-          const radios = WORKSHEET_KIND_OPTIONS.map(({ kind, labelKey, icon }) => {
-            const radioId = `${groupName}-${kind}`;
-            const radio = el('input', {
-              attrs: { type: 'radio', name: groupName, id: radioId, value: kind },
-            }) as HTMLInputElement;
-            radio.checked = kind === selectedKind;
-            radio.addEventListener('change', () => {
-              if (!radio.checked) {
-                return;
-              }
-              selectedKind = kind;
-              updateSelectedClass();
-              if (!nameTouchedByUser) {
-                input.value = kindOptions.suggestName(kind);
-                refresh();
-              }
-            });
-            const label = el(
-              'label',
-              {
-                className: 'sheet-kind-picker-option',
-                attrs: { for: radioId, 'data-kind': kind },
-              },
-              [radio, createIcon(icon, 'sheet-kind-picker-icon', 16), el('span', { text: t(labelKey) })],
-            );
-            labels.push(label);
-            return label;
           });
-          updateSelectedClass();
           body.append(
-            el(
-              'div',
-              {
-                className: 'form-row sheet-kind-picker',
-                attrs: { role: 'radiogroup', 'aria-label': t('dialog.sheetName.kind') },
-              },
-              radios,
-            ),
+            picker,
+            fromCsvButton(() => close({ name: '', kind: 'grid', fromCsv: true })),
           );
         }
 

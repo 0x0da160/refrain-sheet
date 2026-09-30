@@ -260,6 +260,27 @@ export function setSheetTabsVertical(vertical: boolean): void {
   safeStorageSet(SHEET_TABS_VERTICAL_KEY, vertical ? '1' : '0');
 }
 
+const SHEET_TABS_WIDTH_KEY = 'refrain-csv-html.sheetTabsWidth';
+
+/** The standard, narrowest and widest width of the sheet list down the left side, in CSS pixels. */
+export const SHEET_TABS_WIDTH = { standard: 180, min: 120, max: 480 } as const;
+
+/** The width of the sheet list down the left side (a per-browser preference). */
+export function getSheetTabsWidth(): number {
+  const stored = Number(safeStorageGet(SHEET_TABS_WIDTH_KEY));
+  return Number.isFinite(stored) && stored > 0 ? clampSheetTabsWidth(stored) : SHEET_TABS_WIDTH.standard;
+}
+
+/** Keep a width for the sheet list within its range, in whole pixels. */
+export function clampSheetTabsWidth(width: number): number {
+  return Math.round(Math.min(SHEET_TABS_WIDTH.max, Math.max(SHEET_TABS_WIDTH.min, width)));
+}
+
+/** Persist the sheet list's width locally (clamped). */
+export function setSheetTabsWidth(width: number): void {
+  safeStorageSet(SHEET_TABS_WIDTH_KEY, String(clampSheetTabsWidth(width)));
+}
+
 // ---------------------------------------------------------------------------
 // Auto-fit column width on open
 // ---------------------------------------------------------------------------

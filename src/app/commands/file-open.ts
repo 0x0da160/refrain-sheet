@@ -6,7 +6,7 @@
  * open in another tab is activated instead of opened twice.
  */
 import { isMinimalEdition } from '../edition';
-import { isCsv } from '../../core/editor-document';
+import { isCsv, isWorkbook } from '../../core/editor-document';
 import { initCsvEngine } from '../../core/csv/csv-engine';
 import { detectEncoding, type EncodingDetection } from '../../core/csv/encoding';
 import {
@@ -18,6 +18,7 @@ import {
 import { isValidSheetName } from '../../core/formula';
 import { LosslessDocument } from '../../core/csv/lossless-document';
 import {
+  MAX_WORKSHEETS,
   RsfDocument,
   RSF_EXTENSION,
   RSF_LEGACY_EXTENSION,
@@ -432,6 +433,65 @@ export class FileOpening {
     tab.rsfSaveExplained = true; // opened as a spreadsheet file; no explanation needed
     this.core.ui.notify(t('notify.jsonImported', { name }), 'info');
     await this.autoFitOnOpen(tab);
+  }
+
+  /**
+   * Sheet > Add Sheet from CSV File…: add each picked CSV file to `tab`'s
+   * workbook as a new sheet after the active one, named after the file. The
+   * file is read with the same encoding detection as opening it; the file
+   * itself is only read, never linked to the workbook.
+   */
+  async addCsvSheets(tab: Tab, files: OpenedFile[]): Promise<void> {
+    for (const file of files) {
+      const doc = tab.doc;
+      if (!isWorkbook(doc) || this.core.state.activeTab !== tab) {
+        return;
+      }
+      if (doc.sheetCount >= MAX_WORKSHEETS) {
+        this.core.ui.notify(t('notify.sheetLimit', { max: MAX_WORKSHEETS }), 'warn');
+        return;
+      }
+      if (await this.refuseTooLarge(file)) {
+        continue;
+      }
+      await this.warnAboutEncoding(file, detectEncoding(file.bytes));
+      let csv: LosslessDocument;
+      try {
+        csv = await withBusyIfLarge(
+          file.size > LARGE_OPEN_BYTES,
+          this.core.ui,
+          t('loading.opening', { name: file.name }),
+          async () => {
+            await initCsvEngine();
+            return LosslessDocument.fromBytes(file.bytes);
+          },
+        );
+      } catch (err) {
+        this.core.ui.notify(
+          t('notify.openFailed', {
+            name: file.name,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+          'error',
+        );
+        continue;
+      }
+      const base = file.name.replace(/\.(csv|tsv|txt)$/i, '').trim();
+      const name = doc.uniqueSheetName(base && isValidSheetName(base) ? base : defaultSheetName());
+      // Read the same way as Convert to RSF (`RsfDocument.fromLossless`).
+      const rows: string[][] = [];
+      for (let r = 0; r < csv.rowCount; r++) {
+        const row: string[] = [];
+        for (let c = 0; c < csv.fieldCount(r); c++) {
+          row.push(csv.getValue(r, c));
+        }
+        rows.push(row);
+      }
+      const sheet = this.core.state.addSheetFromValues(tab, name, rows);
+      if (sheet) {
+        this.core.ui.notify(t('notify.csvSheetAdded', { name: sheet.name, file: file.name }), 'info');
+      }
+    }
   }
 
   /**

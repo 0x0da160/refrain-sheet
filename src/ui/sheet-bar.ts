@@ -8,6 +8,7 @@ import {
   FileText,
   FileType,
   Folder,
+  FolderPlus,
   Lock,
   LockOpen,
   Plus,
@@ -30,6 +31,8 @@ import { ICON_BY_COMMAND } from './command-icons';
 import { ContextMenu, type ContextMenuEntry } from './context-menu';
 import { el, clearChildren } from './dom';
 import { createIcon } from './icon';
+import { editNameInPlace } from './sheet-name-field';
+import { buildSheetListResizer } from './sheet-list-resizer';
 
 /**
  * Context-menu actions for a worksheet. Every one is also a command in the
@@ -55,6 +58,9 @@ const SHEET_KIND_ICON: Record<NewSheetKind, IconNode> = {
   yaml: FileCode,
   text: FileType,
 };
+
+/** Two clicks on one tab or folder this close together (ms) are a double-click. */
+const DOUBLE_CLICK_MS = 500;
 
 const SHEET_MENU_ITEMS: Array<{ command: CommandId; labelKey: string; separatorBefore?: boolean }> = [
   { command: 'worksheet.rename', labelKey: 'menu.sheet.renameSheet' },
@@ -104,6 +110,16 @@ export class SheetBar {
   private renderedKey = '';
   /** Folders shown closed, per workbook. Session-only: not saved in the file. */
   private readonly collapsed = new WeakMap<RsfDocument, Set<string>>();
+  /** A tab's or folder's name is being typed on it; the strip waits until that ends. */
+  private renaming = false;
+  /**
+   * The last click on a tab or folder. A click redraws the strip (it
+   * activates a sheet or opens a folder), so the browser's own dblclick
+   * never arrives: a second click here soon after is the double-click.
+   */
+  private lastClick: { key: string; at: number } | null = null;
+  /** The edge that sets the width of the sheet list down the left side. */
+  private readonly resizer: HTMLElement;
 
   constructor(
     private readonly state: AppState,
@@ -115,7 +131,8 @@ export class SheetBar {
       attrs: { 'aria-live': 'polite', role: 'status' },
     });
     this.strip = el('div', { className: 'sheet-strip', attrs: { role: 'tablist' } });
-    this.element.append(this.liveRegion, this.strip);
+    this.resizer = buildSheetListResizer(this.element);
+    this.element.append(this.liveRegion, this.strip, this.resizer);
     this.element.addEventListener('dragend', () => this.clearDragState());
     this.render();
   }
@@ -135,9 +152,10 @@ export class SheetBar {
     const key = isWorkbook(doc)
       ? `rsf|${doc.activeSheetId}|${doc.sheets.map((s) => `${s.id}:${s.name}:${s.locked ? 1 : 0}:${s.tabColor ?? ''}:${s.folderId ?? ''}`).join('')}|${JSON.stringify(doc.folders)}|${[...this.closedFolders(doc)].join()}`
       : 'csv';
-    if (!force && key === this.renderedKey) {
+    if ((!force && key === this.renderedKey) || (this.renaming && !force)) {
       return;
     }
+    this.renaming = false;
     this.renderedKey = key;
     this.closeContextMenu();
     clearChildren(this.strip);
@@ -167,7 +185,19 @@ export class SheetBar {
     );
     add.disabled = !this.commands.isEnabled('worksheet.add');
     add.addEventListener('click', () => void this.commands.run('worksheet.add'));
-    this.strip.append(add);
+    const folder = el(
+      'button',
+      {
+        className: 'sheet-add sheet-add-folder',
+        attrs: { type: 'button', 'aria-label': t('sheets.newFolder'), title: t('sheets.newFolder') },
+      },
+      [createIcon(FolderPlus, 'sheet-add-icon', 14)],
+    );
+    folder.disabled = !this.commands.isEnabled('worksheet.newFolder');
+    folder.addEventListener('click', () => void this.commands.run('worksheet.newFolder'));
+    this.strip.append(el('div', { className: 'sheet-add-buttons', attrs: { role: 'none' } }, [add, folder]));
+    this.resizer.setAttribute('aria-label', t('sheets.resize'));
+    this.resizer.title = t('sheets.resize');
     // Keep the active worksheet visible when the strip scrolls horizontally.
     // Guarded because scrollIntoView is not implemented in every environment.
     const activeTab = this.strip.querySelector<HTMLElement>('.sheet-tab[aria-selected="true"]');
@@ -244,15 +274,28 @@ export class SheetBar {
         el('span', { className: 'sheet-label', text: folder.name }),
       ],
     );
-    header.addEventListener('click', () => {
+    const toggle = (): void => {
       const closed = this.closedFolders(doc);
       if (!closed.delete(folder.id)) {
         closed.add(folder.id);
       }
       this.render(true);
-      this.strip
-        .querySelector<HTMLElement>(`.sheet-folder-header[data-folder-id="${CSS.escape(folder.id)}"]`)
-        ?.focus();
+    };
+    header.addEventListener('click', (event) => {
+      // Each click opens or closes the folder, so a double-click (typing a
+      // new name on it) leaves it as it was.
+      toggle();
+      if (this.secondClick(`folder:${folder.id}`, event)) {
+        this.renameFolderInPlace(folder.id);
+      } else {
+        this.folderHeader(folder.id)?.focus();
+      }
+    });
+    header.addEventListener('keydown', (event) => {
+      if (event.key === 'F2') {
+        event.preventDefault();
+        this.renameFolderInPlace(folder.id);
+      }
     });
     header.addEventListener('contextmenu', (event) => {
       event.preventDefault();
@@ -345,10 +388,12 @@ export class SheetBar {
       tabEl.classList.add('has-color');
       tabEl.style.setProperty('--sheet-tab-color', tabColor);
     }
-    tabEl.addEventListener('click', () => this.activate(id));
-    tabEl.addEventListener('dblclick', () => {
+    tabEl.addEventListener('click', (event) => {
       this.activate(id);
-      void this.commands.run('worksheet.rename');
+      // A double-click types a new name on the tab.
+      if (this.secondClick(`sheet:${id}`, event)) {
+        this.renameSheetInPlace(id);
+      }
     });
     tabEl.addEventListener('keydown', (event) => this.onKeyDown(event, id));
     tabEl.addEventListener('contextmenu', (event) => {
@@ -467,7 +512,7 @@ export class SheetBar {
         return;
       case 'F2':
         event.preventDefault();
-        void this.commands.run('worksheet.rename');
+        this.renameSheetInPlace(id);
         return;
       case 'Enter':
       case ' ':
@@ -477,6 +522,84 @@ export class SheetBar {
       default:
         return;
     }
+  }
+
+  /** Whether this click on `key` follows another click on it closely enough to make a double-click. */
+  private secondClick(key: string, event: MouseEvent): boolean {
+    const last = this.lastClick;
+    const now = event.timeStamp;
+    const second = last !== null && last.key === key && now - last.at <= DOUBLE_CLICK_MS;
+    this.lastClick = second ? null : { key, at: now };
+    return second;
+  }
+
+  private folderHeader(folderId: string): HTMLElement | null {
+    return this.strip.querySelector<HTMLElement>(
+      `.sheet-folder-header[data-folder-id="${CSS.escape(folderId)}"]`,
+    );
+  }
+
+  // ----- Typing a new name on a tab or folder -----
+
+  /** Type worksheet `id`'s new name on its tab. */
+  private renameSheetInPlace(id: string): void {
+    const tabEl = this.strip.querySelector<HTMLElement>(`.sheet-tab[data-sheet-id="${CSS.escape(id)}"]`);
+    const label = tabEl?.querySelector<HTMLElement>('.sheet-label');
+    const name = this.state.activeWorkbook()?.sheetById(id)?.name;
+    if (!tabEl || !label || name === undefined || !this.commands.isEnabled('worksheet.rename')) {
+      return;
+    }
+    tabEl.draggable = false;
+    this.editName(
+      label,
+      name,
+      t('sheets.nameField'),
+      (next) => this.commands.renameSheetTo(id, next),
+      () => this.focusActive(),
+    );
+  }
+
+  /** Type folder `folderId`'s new name on its header. */
+  private renameFolderInPlace(folderId: string): void {
+    const header = this.folderHeader(folderId);
+    const name = this.state.activeWorkbook()?.folders.find((f) => f.id === folderId)?.name;
+    if (!header || name === undefined || !this.commands.isEnabled('worksheet.rename')) {
+      return;
+    }
+    // A text field cannot sit inside the header's button: it takes the button's place while typing.
+    const row = el('div', { className: 'sheet-folder-header editing', attrs: { role: 'none' } }, [
+      createIcon(Folder, 'sheet-folder-icon', 14),
+      el('span', { className: 'sheet-label' }),
+    ]);
+    header.replaceWith(row);
+    this.editName(
+      row.querySelector<HTMLElement>('.sheet-label')!,
+      name,
+      t('sheets.folder.nameField'),
+      (next) => this.commands.renameFolderTo(folderId, next),
+      () => this.folderHeader(folderId)?.focus(),
+    );
+  }
+
+  /** Type a new name in place of `label`'s content (see `editNameInPlace`); the strip waits meanwhile. */
+  private editName(
+    label: HTMLElement,
+    name: string,
+    fieldLabel: string,
+    rename: (next: string) => string | null,
+    refocus: () => void,
+  ): void {
+    this.renaming = true;
+    editNameInPlace(label, {
+      name,
+      label: fieldLabel,
+      rename,
+      announce: (message) => (this.liveRegion.textContent = message),
+      done: () => {
+        this.render(true);
+        refocus();
+      },
+    });
   }
 
   /** Activate a worksheet and announce the switch. */

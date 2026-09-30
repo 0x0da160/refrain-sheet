@@ -617,13 +617,23 @@ export interface WorksheetDialogsPort {
     current: string,
     validate: (name: string) => string | null,
     kindOptions?: { initialKind: NewSheetKind; suggestName: (kind: NewSheetKind) => string },
-  ): Promise<{ name: string; kind: NewSheetKind } | null>;
+  ): Promise<SheetNameResult | null>;
   /**
    * Confirm deleting a worksheet that holds content, a filter, or non-default
    * display settings. `referenceCount` is how many formulas elsewhere in the
    * workbook point at it and will become #REF!, so the warning is truthful.
    */
   confirmDeleteSheet(name: string, referenceCount: number, chartCount: number): Promise<boolean>;
+}
+
+/**
+ * The Add/Rename/Duplicate Sheet dialog's answer. `fromCsv` means the user
+ * chose to add sheets from CSV files instead (Add Sheet only).
+ */
+export interface SheetNameResult {
+  name: string;
+  kind: NewSheetKind;
+  fromCsv?: true;
 }
 
 /** Panels and settings dialogs the command catalog opens directly. */

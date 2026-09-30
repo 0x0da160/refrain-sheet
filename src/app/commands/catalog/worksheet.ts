@@ -9,7 +9,12 @@
 import { workbookOf } from '../../../core/editor-document';
 import type { RsfDocument } from '../../../core/workbook/rsf-document';
 import type { Tab } from '../../state';
+import { pickFiles } from '../../file-access';
+import { getMaxFileSize } from '../../settings';
 import type { CommandContext, CommandSpec } from './types';
+
+/** What Add Sheet from CSV File… offers in the browser's file chooser. */
+const CSV_FILE_TYPES = '.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain';
 
 function onWorkbook(
   run: (ctx: CommandContext, tab: Tab) => unknown,
@@ -29,7 +34,16 @@ const notFirst = (doc: RsfDocument): boolean => doc.sheetIndex(doc.activeSheetId
 const notLast = (doc: RsfDocument): boolean => doc.sheetIndex(doc.activeSheetId) < doc.sheetCount - 1;
 
 export const WORKSHEET_COMMANDS = {
-  'worksheet.add': onWorkbook(({ parts }, tab) => parts.worksheets.addWorksheet(tab)),
+  'worksheet.add': onWorkbook(async ({ commands, parts }, tab) => {
+    // The Add Sheet dialog can hand over to Add Sheet from CSV File….
+    if ((await parts.worksheets.addWorksheet(tab)) === 'csv') {
+      await commands.run('worksheet.addFromCsv');
+    }
+  }),
+  'worksheet.addFromCsv': onWorkbook(async ({ dom, parts }, tab) => {
+    const files = await pickFiles(dom, getMaxFileSize(), CSV_FILE_TYPES);
+    await parts.fileIo.opening.addCsvSheets(tab, files);
+  }),
   'worksheet.addPaper': onWorkbook(({ parts }, tab) => parts.worksheets.addPaperWorksheet(tab)),
   'worksheet.addMarkdown': onWorkbook(({ parts }, tab) => parts.worksheets.addMarkdownWorksheet(tab)),
   'worksheet.addJson': onWorkbook(({ parts }, tab) => parts.worksheets.addJsonWorksheet(tab)),

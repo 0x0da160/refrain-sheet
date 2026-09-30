@@ -37,7 +37,7 @@ import type { RsfHistorySnapshot } from '../../core/workbook/rsf-codec';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../../core/csv/serializer';
 import type { ValidationSummary } from '../../core/csv/validation';
 import type { NewSheetKind } from '../../core/workbook/grid-paper';
-import type { FolderPickerInput } from '../../app/ui-port';
+import type { FolderPickerInput, SheetNameResult } from '../../app/ui-port';
 import { openColumnMenu } from '../column-menu';
 import { chooseFolder, promptFolderName } from './sheet-folders';
 import { el } from '../dom';
@@ -323,7 +323,7 @@ export class Dialogs {
     current: string,
     validate: (name: string) => string | null,
     kindOptions?: { initialKind: NewSheetKind; suggestName: (kind: NewSheetKind) => string },
-  ): Promise<{ name: string; kind: NewSheetKind } | null> {
+  ): Promise<SheetNameResult | null> {
     return this.sheetOps.promptSheetName(mode, current, validate, kindOptions);
   }
 

@@ -130,6 +130,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'worksheet.addJson',
   'worksheet.addYaml',
   'worksheet.addText',
+  'worksheet.addFromCsv',
   'worksheet.rename',
   'worksheet.tabColor',
   'worksheet.newFolder',

@@ -87,9 +87,10 @@ export async function readFileObject(
  * Ask the user to pick one or more files. Uses the File System Access API
  * when available (so saves can overwrite the original file); otherwise falls
  * back to a hidden <input type="file"> element. The configured size limit is
- * enforced before any file's bytes are read into memory.
+ * enforced before any file's bytes are read into memory. `accept` narrows
+ * the fallback chooser's file types (default: every type the app opens).
  */
-export async function pickFiles(doc: Document, maxSize: number): Promise<OpenedFile[]> {
+export async function pickFiles(doc: Document, maxSize: number, accept?: string): Promise<OpenedFile[]> {
   const picker = (globalThis as FilePickerCapableWindow).showOpenFilePicker;
   if (typeof picker === 'function') {
     let handles: FileSystemFileHandle[];
@@ -115,9 +116,11 @@ export async function pickFiles(doc: Document, maxSize: number): Promise<OpenedF
     // still accepted so existing files open (then re-save as `.rsf`). `.xlsx`
     // imports as a new `.rsf` tab; Markdown, JSON, YAML, and text files open
     // in their editors (see `FileOpening.openFile`).
-    input.accept = isMinimalEdition()
-      ? '.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain'
-      : '.csv,.tsv,.txt,.rsf,.rcsv,.xlsx,.json,.md,.markdown,.yaml,.yml,text/csv,text/tab-separated-values,text/plain,text/markdown,application/json,application/yaml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    input.accept =
+      accept ??
+      (isMinimalEdition()
+        ? '.csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain'
+        : '.csv,.tsv,.txt,.rsf,.rcsv,.xlsx,.json,.md,.markdown,.yaml,.yml,text/csv,text/tab-separated-values,text/plain,text/markdown,application/json,application/yaml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     input.style.display = 'none';
     input.addEventListener('change', () => {
       const files = Array.from(input.files ?? []);

@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState, type Tab } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { setLocale, t } from '../../src/app/i18n';
-import { getSheetTabsVertical } from '../../src/app/settings';
+import { getSheetTabsVertical, getSheetTabsWidth } from '../../src/app/settings';
 import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { SheetBar } from '../../src/ui/sheet-bar';
 import { TabBar } from '../../src/ui/tab-bar';
@@ -231,14 +231,55 @@ describe('keyboard model', () => {
     expect(doc.activeSheet.name).toBe('A');
   });
 
-  it('F2 starts a rename through the shared command', async () => {
-    const promptSheetName = vi.fn(async () => ({ name: 'Renamed', kind: 'grid' as const }));
-    const { bar, doc } = setup(['A'], stubUi({ promptSheetName }));
+  const nameField = (bar: SheetBar): HTMLInputElement | null =>
+    bar.element.querySelector<HTMLInputElement>('.sheet-name-edit');
+  const type = (field: HTMLInputElement, text: string, key: string): void => {
+    field.value = text;
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    press(field, key);
+  };
+
+  it('F2 types a new name on the tab: Enter keeps it as one undo step, Escape puts the old one back', () => {
+    const { bar, doc, state, tab } = setup(['A', 'B']);
     press(tabs(bar)[0], 'F2');
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(promptSheetName).toHaveBeenCalled();
+    const field = nameField(bar)!;
+    expect(field.value).toBe('A');
+    expect(field.getAttribute('aria-label')).toBe(t('sheets.nameField'));
+    type(field, 'Renamed', 'Enter');
     expect(doc.sheets[0].name).toBe('Renamed');
+    expect(nameField(bar)).toBeNull();
+    expect(tabs(bar)[0].textContent).toBe('Renamed');
+    state.undo(tab);
+    expect(doc.sheets[0].name).toBe('A');
+    bar.render(true);
+    press(tabs(bar)[0], 'F2');
+    type(nameField(bar)!, 'Other', 'Escape');
+    expect(doc.sheets[0].name).toBe('A');
+    expect(nameField(bar)).toBeNull();
+  });
+
+  it('keeps the field open and says why when the name cannot be used, and gives up on leaving it', () => {
+    const { bar, doc } = setup(['A', 'B']);
+    press(tabs(bar)[0], 'F2');
+    const field = nameField(bar)!;
+    type(field, 'b', 'Enter');
+    expect(nameField(bar)).toBe(field);
+    expect(field.getAttribute('aria-invalid')).toBe('true');
+    expect(field.title).toBe(t('sheet.error.duplicate', { name: 'b' }));
+    field.dispatchEvent(new FocusEvent('blur'));
+    expect(nameField(bar)).toBeNull();
+    expect(doc.sheets.map((s) => s.name)).toEqual(['A', 'B']);
+  });
+
+  it('types a new name on a tab double-clicked, even when the first click switched to it', () => {
+    const { bar, doc } = setup(['A', 'B']);
+    tabs(bar)[1].click();
+    expect(doc.activeSheet.name).toBe('B');
+    tabs(bar)[1].click();
+    const field = nameField(bar)!;
+    expect(field.value).toBe('B');
+    type(field, 'Second', 'Enter');
+    expect(doc.sheets[1].name).toBe('Second');
   });
 });
 
@@ -450,6 +491,25 @@ describe('worksheet tabs on the left (View > Sheet Tabs on the Left)', () => {
     expect(getSheetTabsVertical()).toBe(false);
   });
 
+  it('changes the sheet list’s width from its edge, kept in this browser within a range', () => {
+    const { bar } = setup(['A']);
+    const edge = bar.element.querySelector<HTMLElement>('.sheet-bar-resize')!;
+    expect(edge.getAttribute('role')).toBe('separator');
+    expect(bar.element.style.getPropertyValue('--sheet-tabs-width')).toBe('180px');
+    edge.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    expect(bar.element.style.getPropertyValue('--sheet-tabs-width')).toBe('196px');
+    expect(getSheetTabsWidth()).toBe(196);
+    edge.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    expect(getSheetTabsWidth()).toBe(480);
+    edge.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 300 }));
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 100 }));
+    // jsdom lays nothing out (width 0), so the drag lands on the narrowest width.
+    expect(getSheetTabsWidth()).toBe(120);
+    edge.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    expect(getSheetTabsWidth()).toBe(180);
+    expect(edge.getAttribute('aria-valuenow')).toBe('180');
+  });
+
   it('announces its orientation to assistive technologies', () => {
     const { bar } = setup(['A', 'B']);
     const strip = bar.element.querySelector<HTMLElement>('.sheet-strip')!;
@@ -516,6 +576,7 @@ describe('sheet folders in the strip', () => {
   it('closes and opens a folder from its header, keeping the active worksheet in view', () => {
     const { bar, state, tab, doc } = withFolders();
     header(bar, 'Sales').click();
+    tabs(bar)[0].click(); // anything else clicked in between: the next click is not a double-click
     expect(shown(bar)).toEqual(['A', 'Sales', 'D']);
     expect(header(bar, 'Sales').getAttribute('aria-expanded')).toBe('false');
     state.setActiveSheet(tab, doc.sheetByName('C')!.id);
@@ -566,6 +627,29 @@ describe('sheet folders in the strip', () => {
     expect(doc.sheetByName('A')!.folderId).toBe(folder);
     bar.render();
     expect(shown(bar)).toEqual(['Sales', 'B', 'A', '2026', 'C', 'D']);
+  });
+
+  it('types a new name on a folder double-clicked, leaving it open', () => {
+    const { bar, doc } = withFolders();
+    header(bar, 'Sales').click();
+    header(bar, 'Sales').click();
+    const field = bar.element.querySelector<HTMLInputElement>('.sheet-name-edit')!;
+    expect(field.value).toBe('Sales');
+    expect(field.getAttribute('aria-label')).toBe(t('sheets.folder.nameField'));
+    field.value = 'Revenue';
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    expect(doc.folders.find((f) => f.name === 'Revenue')).toBeDefined();
+    expect(header(bar, 'Revenue').getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('puts the active worksheet in a new folder from the button next to Add', async () => {
+    const promptFolderName = vi.fn(async () => 'New');
+    const { bar, doc } = setup(['A', 'B'], stubUi({ promptFolderName }));
+    const button = bar.element.querySelector<HTMLButtonElement>('.sheet-add-folder')!;
+    expect(button.getAttribute('aria-label')).toBe(t('sheets.newFolder'));
+    button.click();
+    await vi.waitFor(() => expect(doc.folders.map((f) => f.name)).toEqual(['New']));
+    expect(doc.sheets[0].folderId).toBe(doc.folders[0].id);
   });
 
   it('offers rename, move, remove, and delete on a folder’s context menu', () => {

@@ -58,6 +58,9 @@ really is internal, rather than inventing an entry to satisfy it.
   open such files and show the text at the left.
 - Type a rectangle's, an ellipse's or a text box's text right on the shape: double-click it (or press F2 with it selected). Enter starts a new line, Ctrl+Enter or clicking elsewhere keeps the text as one undo step, and Escape puts it back. Double-clicking any other object still opens its settings, and the object list now says how both work.
 - Hold Alt while resizing an object to put the edges you drag on the nearest cell edges, as Alt already does when moving one.
+- Add a CSV file to an RSF file as a new sheet: Sheet > Add Sheet from CSV File…, or From a CSV File… in the Add Sheet dialog. Each file becomes a sheet named after it, read with the same encoding detection as opening it; the CSV file itself is left unchanged.
+- A folder button next to the sheet tabs' + puts the current sheet in a new folder.
+- With the sheet tabs on the left, drag the list's right edge (or focus it and use the arrow keys) to make it wider or narrower; double-click the edge to go back to the standard width. The width is kept in this browser.
 
 ### Changed
 
@@ -82,6 +85,7 @@ really is internal, rather than inventing an entry to satisfy it.
 - **The in-cell text toolbar uses the palette's colors** and shows your recent
   colors first.
 - Objects now stay on whole pixels: an edit rounds their position and size to whole pixels, line widths to whole pixels of at least 1, and text sizes to whole points, and the object list takes whole numbers only for line width and text size. A fractional value from an older file is kept until the object is next edited.
+- Renaming a sheet or a sheet folder now happens on its tab: double-click it (or press F2) and type. Enter keeps the name, Escape puts the old one back, and a name that cannot be used says why without closing the field. Double-clicking a sheet that was not active now renames it too.
 
 ### Fixed
 

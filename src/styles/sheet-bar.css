@@ -239,9 +239,10 @@
   }
 
   #app.sheet-tabs-vertical .sheet-bar {
+    position: relative;
     flex-direction: column;
     align-items: stretch;
-    width: 180px;
+    width: var(--sheet-tabs-width, 180px);
     min-height: 0;
     border-top: none;
     border-right: 1px solid var(--border-default);
@@ -272,8 +273,33 @@
     box-sizing: border-box;
   }
 
-  #app.sheet-tabs-vertical .sheet-add {
+  #app.sheet-tabs-vertical .sheet-add-buttons {
     align-self: flex-start;
+  }
+
+  #app.sheet-tabs-vertical .sheet-tab .sheet-label:has(.sheet-name-edit),
+  #app.sheet-tabs-vertical .sheet-name-edit {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  #app.sheet-tabs-vertical .sheet-bar-resize {
+    display: block;
+    position: absolute;
+    top: 0;
+    right: -3px;
+    bottom: 0;
+    z-index: 1;
+    width: 6px;
+    cursor: col-resize;
+    touch-action: none;
+  }
+
+  #app.sheet-tabs-vertical .sheet-bar-resize:hover,
+  #app.sheet-tabs-vertical .sheet-bar-resize:focus-visible {
+    background: var(--accent);
+    outline: none;
   }
 
   #app.sheet-tabs-vertical .sheet-tab.active {
@@ -337,6 +363,39 @@
   cursor: default;
 }
 
+/* Add Sheet and New Folder, side by side at the end of the strip. */
+.sheet-add-buttons {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-0-5);
+  flex: none;
+}
+
+/* The field a tab's or folder's new name is typed in, in place of the name. */
+.sheet-name-edit {
+  width: 12ch;
+  min-width: 4ch;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: inherit;
+  font: inherit;
+}
+
+.sheet-name-edit[aria-invalid='true'] {
+  border-color: var(--danger-text);
+}
+
+.sheet-folder-header.editing {
+  cursor: default;
+}
+
+/* The edge that sets the sheet list's width: only beside the grid. */
+.sheet-bar-resize {
+  display: none;
+}
+
 .sheet-name-input {
   width: 100%;
   box-sizing: border-box;
@@ -369,6 +428,23 @@
   border-color: var(--accent);
   color: var(--accent-subtle-text);
   background: var(--accent-subtle);
+}
+
+.sheet-kind-csv {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: var(--space-1) var(--space-2);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sheet-kind-csv:hover {
+  background: var(--bg-hover);
 }
 
 .sheet-kind-picker-option input[type='radio'] {

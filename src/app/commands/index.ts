@@ -214,6 +214,18 @@ export class Commands {
     }
   }
 
+  /** Rename a worksheet of the active workbook to a name typed on its tab; see `WorksheetCommands.renameSheetTo`. */
+  renameSheetTo(sheetId: string, name: string): string | null {
+    const tab = this.state.activeTab;
+    return tab ? this.parts.worksheets.renameSheetTo(tab, sheetId, name) : null;
+  }
+
+  /** Rename a sheet folder of the active workbook to a name typed on its header. */
+  renameFolderTo(folderId: string, name: string): string | null {
+    const tab = this.state.activeTab;
+    return tab ? this.parts.folders.renameFolderTo(tab, folderId, name) : null;
+  }
+
   /** Move a worksheet dropped onto a folder in the strip into that folder. */
   dropSheetOnFolder(sheetId: string, folderId: string): boolean {
     const tab = this.state.activeTab;

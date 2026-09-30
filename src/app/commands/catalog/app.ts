@@ -16,6 +16,7 @@ import { GRID_LOOK_KEYS } from '../../../core/grid-look';
 import { getBrowserGridLook, setBrowserGridLook } from '../../grid-look';
 import { getBrowserSheetFont, isSheetFontId, setBrowserSheetFont } from '../../sheet-font';
 import type { Tab } from '../../state';
+import { getPetsShown, setPetsShown } from '../../pets-prefs';
 import { getToolbarShown, setToolbarShown } from '../../toolbar-prefs';
 import { withTab, type CommandContext, type CommandSpec } from './types';
 
@@ -26,6 +27,7 @@ async function settings(ctx: CommandContext): Promise<void> {
     maxFileSize: getMaxFileSize(),
     shiftPaste: getShiftPasteMode(),
     showToolbar: getToolbarShown(),
+    showPets: getPetsShown(),
     browserDisplay: {
       zoom: getBrowserZoom(),
       wrap: getBrowserWrap(),
@@ -47,6 +49,7 @@ async function settings(ctx: CommandContext): Promise<void> {
   const applied = setMaxFileSize(chosen.maxFileSize);
   setShiftPasteMode(chosen.shiftPaste);
   setToolbarShown(chosen.showToolbar);
+  setPetsShown(chosen.showPets);
   setBrowserZoom(chosen.browserDisplay.zoom);
   setBrowserWrap(chosen.browserDisplay.wrap);
   setBrowserSheetFont(chosen.browserDisplay.font);

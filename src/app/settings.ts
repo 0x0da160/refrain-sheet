@@ -392,6 +392,8 @@ export interface LocalSettings {
   shiftPaste: ShiftPasteMode;
   /** Whether the toolbar under the menu bar is shown (also View > Show Toolbar). */
   showToolbar: boolean;
+  /** Whether the pixel pets play at the top right of the window. */
+  showPets: boolean;
   /** This browser's default display settings (the file's outrank them). */
   browserDisplay: DisplayLevelSettings;
   /** The active RSF file's display settings, or null when the active tab is not an RSF file. */

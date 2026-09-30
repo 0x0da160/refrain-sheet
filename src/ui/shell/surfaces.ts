@@ -24,6 +24,7 @@ import { Grid } from '../grid';
 import { JsonSheetView } from '../json-sheet';
 import { MarkdownSheetView } from '../markdown-sheet';
 import { MenuBar } from '../menu-bar';
+import { PixelPets } from '../pixel-pets';
 import { defaultMenus, type MenuChecks } from '../menu-bar/menus';
 import { AppToolbar } from '../app-toolbar';
 import { customizeToolbar } from '../dialogs/toolbar-customize';
@@ -60,6 +61,8 @@ export interface Surfaces {
   welcome: WelcomeScreen;
   formulaBar: FormulaBar;
   statusBar: StatusBar;
+  /** The puppy and kitten at the top right (File > Settings… hides them). */
+  pets: PixelPets;
   /** Show the grid or the active worksheet's source view, and refresh the source views. */
   refreshSourceSheetViews: () => void;
 }
@@ -171,6 +174,7 @@ export function createSurfaces(
     welcome,
     formulaBar,
     statusBar,
+    pets: new PixelPets(),
     refreshSourceSheetViews,
   };
 }

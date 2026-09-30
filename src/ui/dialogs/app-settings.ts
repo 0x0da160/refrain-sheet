@@ -67,9 +67,10 @@ const FUNCTION_CATEGORY_LABEL_KEY: Record<FunctionCategory, string> = {
 export class AppSettingsDialogs {
   /**
    * Edit local settings: the maximum file-size limit (in MiB), what
-   * Ctrl+Shift+V pastes, and the browser- and file-level zoom/wrap (the file
-   * level only when the active tab is an RSF file). Returns the chosen
-   * settings, or null when cancelled. The size is clamped into the supported
+   * Ctrl+Shift+V pastes, whether the toolbar and the pixel pets show, and
+   * the browser- and file-level zoom/wrap (the file level only when the
+   * active tab is an RSF file). Returns the chosen settings, or null when
+   * cancelled. The size is clamped into the supported
    * range before being returned.
    */
   chooseSettings(current: LocalSettings): Promise<LocalSettings | null> {
@@ -102,6 +103,10 @@ export class AppSettingsDialogs {
       const toolbarId = 'settings-show-toolbar';
       const toolbarCheck = el('input', { attrs: { type: 'checkbox', id: toolbarId } }) as HTMLInputElement;
       toolbarCheck.checked = current.showToolbar;
+
+      const petsId = 'settings-show-pets';
+      const petsCheck = el('input', { attrs: { type: 'checkbox', id: petsId } }) as HTMLInputElement;
+      petsCheck.checked = current.showPets;
 
       // "Not specified" names what then applies: for this browser, the
       // default (zoom and wrap: the value last used); for the file, this
@@ -146,6 +151,10 @@ export class AppSettingsDialogs {
           toolbarCheck,
           el('label', { text: t('dialog.settings.showToolbar'), attrs: { for: toolbarId } }),
         ]),
+        el('div', { className: 'form-row' }, [
+          petsCheck,
+          el('label', { text: t('dialog.settings.showPets'), attrs: { for: petsId } }),
+        ]),
         el('h3', { text: t('dialog.settings.display') }),
         el('p', { className: 'dialog-note', text: t('dialog.settings.displayOrder') }),
         el('h4', { text: t('dialog.settings.browserLevel') }),
@@ -170,6 +179,7 @@ export class AppSettingsDialogs {
           maxFileSize: clampMaxFileSize(miBToBytes(mib)),
           shiftPaste: pasteSelect.value === 'formats' ? 'formats' : 'values',
           showToolbar: toolbarCheck.checked,
+          showPets: petsCheck.checked,
           browserDisplay: browserFields.read(),
           fileDisplay: fileFields ? fileFields.read() : null,
         });

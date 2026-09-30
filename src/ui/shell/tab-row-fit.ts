@@ -37,12 +37,16 @@ export function updateShellLayout(): void {
   // bar's own end padding) is the bar's natural width in either layout.
   const menuRight = menuRow.getBoundingClientRect().right - menuBar.getBoundingClientRect().left;
   const natural = menuRight + px(getComputedStyle(menuBar).paddingRight);
-  app.classList.toggle(TABS_IN_MENU_ROW_CLASS, available - natural >= MIN_SHARED_TAB_STRIP_PX);
+  // The pixel pets keep the row's right end for themselves in either layout.
+  const pets = app.querySelector<HTMLElement>(':scope > .pixel-pets');
+  const petsWidth = pets && !pets.hidden ? pets.getBoundingClientRect().width : 0;
+  app.classList.toggle(TABS_IN_MENU_ROW_CLASS, available - natural - petsWidth >= MIN_SHARED_TAB_STRIP_PX);
 }
 
 /**
- * Keeps `updateShellLayout` current as the window resizes and as the menu
- * names change width (a language switch). Side-panel docking calls
+ * Keeps `updateShellLayout` current as the window resizes, as the menu
+ * names change width (a language switch), and as the pixel pets are shown
+ * or hidden. Side-panel docking calls
  * `updateShellLayout` itself, synchronously.
  */
 export function installShellLayout(): void {
@@ -55,4 +59,9 @@ export function installShellLayout(): void {
   const observer = new ResizeObserver(() => updateShellLayout());
   observer.observe(app);
   observer.observe(menuRow);
+  // Shown or hidden from File > Settings…: resizes to or from nothing.
+  const pets = app.querySelector<HTMLElement>(':scope > .pixel-pets');
+  if (pets) {
+    observer.observe(pets);
+  }
 }

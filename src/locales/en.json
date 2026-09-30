@@ -436,6 +436,7 @@
   "dialog.settings.shiftPaste.values": "Values only (default)",
   "dialog.settings.shiftPasteNote": "Both are always available from Edit > Paste Special. On macOS the key is Cmd+Shift+V.",
   "dialog.settings.showToolbar": "Show the toolbar under the menu bar",
+  "dialog.settings.showPets": "Show the pixel pets (a puppy and a kitten) at the top right",
   "dialog.settings.local": "Except for \"This file\", these settings are stored only in this browser and are never sent anywhere.",
   "dialog.settings.display": "Display",
   "dialog.settings.displayOrder": "The sheet's setting wins over the file's, and the file's over this browser's. \"Not specified\" uses the next one.",

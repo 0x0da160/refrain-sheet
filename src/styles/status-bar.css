@@ -61,19 +61,15 @@
   text-decoration: none;
 }
 
-/* Edit | Protected: the current one pressed (see StatusBar.appendProtection). */
-.status-bar .status-protect {
-  display: inline-flex;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.status-bar .status-protect button {
+/* Protected / Edit: one button showing the file's state, flipped by a
+   click (see StatusBar.appendProtection). Protected stands out; Edit is
+   quiet. */
+.status-bar button.status-protect {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  border: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--fg-muted);
   font: inherit;
@@ -81,19 +77,15 @@
   cursor: pointer;
 }
 
-.status-bar .status-protect button + button {
-  border-left: 1px solid var(--border-default);
-}
-
-.status-bar .status-protect button[aria-pressed='true'] {
+.status-bar button.status-protect-on {
   background: var(--accent-subtle);
   color: var(--accent-subtle-text);
   font-weight: var(--weight-bold);
-  cursor: default;
 }
 
-.status-bar .status-protect button:hover:not([aria-pressed='true']) {
+.status-bar button.status-protect:hover {
   background: var(--bg-hover);
+  color: var(--fg-default);
 }
 
 .status-protected-icon {

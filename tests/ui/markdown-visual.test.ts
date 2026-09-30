@@ -254,3 +254,63 @@ describe('MarkdownVisualEditor', () => {
     });
   });
 });
+
+describe('MarkdownVisualEditor: Markdown typed at the start of a line', () => {
+  it('turns "# " into a heading as it is typed, keeping the text after it', () => {
+    const { visual, changes } = editor('Intro');
+    const tail = blocks(visual)[1];
+    tail.textContent = '## Plan';
+    caretIn(tail.firstChild!, 7);
+    tail.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(blocks(visual)[1].tagName).toBe('H2');
+    expect(blocks(visual)[1].textContent).toBe('Plan');
+    expect(last(changes)).toBe('Intro\n\n## Plan');
+    // The caret stays after "Plan", inside the heading.
+    const selection = document.getSelection()!;
+    expect(blocks(visual)[1].contains(selection.anchorNode)).toBe(true);
+    expect(selection.anchorOffset).toBe(4);
+  });
+
+  it('starts an empty heading, list or quote from its marker alone', () => {
+    for (const [typed, tag, source] of [
+      ['# ', 'H1', '# '],
+      ['- ', 'UL', '- '],
+      ['1. ', 'OL', '1. '],
+      ['> ', 'BLOCKQUOTE', '>'],
+    ] as const) {
+      const { visual, changes } = editor('');
+      const paragraph = blocks(visual)[0];
+      type(paragraph, typed);
+      expect(blocks(visual)[0].tagName).toBe(tag);
+      expect(last(changes)).toBe(source);
+    }
+  });
+
+  it('accepts the full-width marks a Japanese input method types, once composing ends', () => {
+    const { visual, changes } = editor('');
+    const paragraph = blocks(visual)[0];
+    paragraph.textContent = '＃　見出し';
+    paragraph.dispatchEvent(new InputEvent('input', { bubbles: true, isComposing: true }));
+    expect(blocks(visual)[0].tagName).toBe('P');
+    paragraph.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    expect(blocks(visual)[0].tagName).toBe('H1');
+    expect(last(changes)).toBe('# 見出し');
+  });
+
+  it('leaves a paragraph alone when the mark is not at its start', () => {
+    const { visual, changes } = editor('');
+    type(blocks(visual)[0], 'Use # for headings');
+    expect(blocks(visual)[0].tagName).toBe('P');
+    expect(last(changes)).toBe('Use # for headings');
+  });
+
+  it('opens a code block when Enter is pressed on a fence', () => {
+    const { visual, changes } = editor('');
+    const paragraph = blocks(visual)[0];
+    type(paragraph, '```js');
+    caretIn(paragraph.firstChild!, 5);
+    paragraph.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(blocks(visual)[0].tagName).toBe('PRE');
+    expect(last(changes)).toBe('```js\n\n```');
+  });
+});

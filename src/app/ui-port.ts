@@ -20,7 +20,7 @@ import type { SortKey } from '../core/workbook/sort';
 import type { NcrCellReport, SaveOptions, UnrepresentableCell } from '../core/csv/serializer';
 import type { ValidationSummary } from '../core/csv/validation';
 import type { RsfHistorySnapshot } from '../core/workbook/rsf-codec';
-import type { NewSheetKind } from '../core/workbook/grid-paper';
+import type { AddSheetKind } from '../core/workbook/grid-paper';
 import type { Tab } from './state';
 import type { LocaleId } from './i18n';
 import type { SqlRunOutcome, SqlSource } from './commands/sql';
@@ -618,7 +618,7 @@ export interface WorksheetDialogsPort {
     mode: 'add' | 'rename' | 'duplicate',
     current: string,
     validate: (name: string) => string | null,
-    kindOptions?: { initialKind: NewSheetKind; suggestName: (kind: NewSheetKind) => string },
+    kindOptions?: { initialKind: AddSheetKind; suggestName: (kind: AddSheetKind) => string },
   ): Promise<SheetNameResult | null>;
   /**
    * Confirm deleting a worksheet that holds content, a filter, or non-default
@@ -634,7 +634,7 @@ export interface WorksheetDialogsPort {
  */
 export interface SheetNameResult {
   name: string;
-  kind: NewSheetKind;
+  kind: AddSheetKind;
   fromCsv?: true;
 }
 

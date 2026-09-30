@@ -121,6 +121,22 @@ describe('welcome screen (initial screen)', () => {
     expect(welcome.element.hidden).toBe(true);
   });
 
+  it.each([
+    ['markdown', '.md', 0],
+    ['json', '.json', 1],
+    ['yaml', '.yaml', 2],
+  ] as const)('the New %s entry point opens an empty %s editor', (kind, ext, index) => {
+    const { state, welcome } = setup();
+    welcome.element.querySelectorAll<HTMLButtonElement>('.welcome-text-action')[index].click();
+    expect(state.tabs).toHaveLength(1);
+    const tab = state.tabs[0];
+    expect(tab.name.endsWith(ext)).toBe(true);
+    expect(tab.textFile?.kind).toBe(kind);
+    expect(tab.doc.kind).toBe('rsf');
+    expect(tab.doc.isDirty).toBe(false);
+    expect(welcome.element.hidden).toBe(true);
+  });
+
   it('returns after the last clean tab is closed', async () => {
     const { state, commands, welcome } = setup();
     const tab = state.addTab('a.csv', doc('x,y\n'), null);

@@ -3,7 +3,7 @@ import type { RangeMoveConfirmInput, WorkbookReplaceConfirmInput } from '../../a
 import type { ColorDialogResult, SheetNameResult } from '../../app/ui-port';
 import { t } from '../../app/i18n';
 import { MAX_SHEET_NAME_LENGTH } from '../../core/formula';
-import type { NewSheetKind } from '../../core/workbook/grid-paper';
+import type { AddSheetKind } from '../../core/workbook/grid-paper';
 import { buildColorPicker } from '../color-picker';
 import { el } from '../dom';
 import { createIcon } from '../icon';
@@ -24,8 +24,9 @@ import { dialogButton, helpDetails, openDialog, submitOnEnter } from './shared';
  * radio group — same icon set as the worksheet tab strip (`ui/sheet-bar.ts`)
  * so a worksheet's kind reads the same wherever it appears.
  */
-const WORKSHEET_KIND_OPTIONS: ReadonlyArray<{ kind: NewSheetKind; labelKey: string; icon: IconNode }> = [
+const WORKSHEET_KIND_OPTIONS: ReadonlyArray<{ kind: AddSheetKind; labelKey: string; icon: IconNode }> = [
   { kind: 'grid', labelKey: 'sheets.kind.grid', icon: Table },
+  { kind: 'csv', labelKey: 'sheets.kind.csv', icon: FileSpreadsheet },
   { kind: 'paper', labelKey: 'sheets.kind.paper', icon: Grid3x3 },
   { kind: 'markdown', labelKey: 'sheets.kind.markdown', icon: FileText },
   { kind: 'json', labelKey: 'sheets.kind.json', icon: FileJson },
@@ -34,7 +35,7 @@ const WORKSHEET_KIND_OPTIONS: ReadonlyArray<{ kind: NewSheetKind; labelKey: stri
 ];
 
 /** The Add Sheet dialog's sheet kinds, as a radio group of pills; `choose` gets each new pick. */
-function kindPicker(initial: NewSheetKind, choose: (kind: NewSheetKind) => void): HTMLElement {
+function kindPicker(initial: AddSheetKind, choose: (kind: AddSheetKind) => void): HTMLElement {
   const groupName = 'sheet-kind-picker';
   let selected = initial;
   const labels: HTMLElement[] = [];
@@ -152,13 +153,13 @@ export class SheetOpsDialogs {
     mode: 'add' | 'rename' | 'duplicate',
     current: string,
     validate: (name: string) => string | null,
-    kindOptions?: { initialKind: NewSheetKind; suggestName: (kind: NewSheetKind) => string },
+    kindOptions?: { initialKind: AddSheetKind; suggestName: (kind: AddSheetKind) => string },
   ): Promise<SheetNameResult | null> {
     return openDialog<SheetNameResult | null>(
       t(`dialog.sheetName.title.${mode}`),
       null,
       (body, buttons, close) => {
-        let selectedKind: NewSheetKind = kindOptions?.initialKind ?? 'grid';
+        let selectedKind: AddSheetKind = kindOptions?.initialKind ?? 'grid';
         let nameTouchedByUser = false;
 
         const inputId = 'sheet-name-input';

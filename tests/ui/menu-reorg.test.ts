@@ -130,6 +130,7 @@ describe('Sheet menu reorganization', () => {
       'worksheet.addJson',
       'worksheet.addYaml',
       'worksheet.addText',
+      'worksheet.addCsv',
       'worksheet.addFromCsv',
     ]);
     expect(nestedOf(worksheet, 'menu.sheet.moveSheet').map((i) => i.command)).toEqual([

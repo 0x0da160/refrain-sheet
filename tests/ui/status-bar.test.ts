@@ -6,7 +6,8 @@ import { Commands, type UiPort } from '../../src/app/commands';
 import { setLocale, t } from '../../src/app/i18n';
 import { getStatusItemPlace, setStatusItemPlace, STATUS_ITEMS } from '../../src/app/status-bar-prefs';
 import { customizeStatusBar } from '../../src/ui/dialogs/status-bar-customize';
-import { StatusBar } from '../../src/ui/status-bar';
+import { formatFileSize, StatusBar } from '../../src/ui/status-bar';
+import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { doc } from '../helpers';
 
 beforeEach(() => {
@@ -108,7 +109,8 @@ describe('StatusBar items, zoom, full screen and protection', () => {
   it('shows each item in the bar, behind Details, or not at all, as chosen', () => {
     const { statusBar } = withCommands();
     expect(statusBar.element.textContent).toContain('Delimiter');
-    expect(statusBar.element.querySelector('.status-more')).toBeNull();
+    // Details is always there on a desktop: it lists every file detail.
+    expect(statusBar.element.querySelector('.status-more')).not.toBeNull();
     setStatusItemPlace('delimiter', 'details');
     setStatusItemPlace('engine', 'hidden');
     statusBar.render();
@@ -119,7 +121,23 @@ describe('StatusBar items, zoom, full screen and protection', () => {
     more.click();
     const popover = document.querySelector('.status-details-popover')!;
     expect(popover.textContent).toContain('Delimiter: Comma');
+    // Hidden from the bar, still listed among the file's details.
+    expect(popover.textContent).toContain('Engine');
+    expect(popover.textContent).toContain('File:');
     expect(popover.textContent).toContain(t('menu.view.customizeStatusBar'));
+  });
+
+  it('shows the size of an RSF or text file once it was opened or saved, in bytes and KB', () => {
+    const { state, statusBar } = withCommands();
+    expect(formatFileSize(512)).toBe('512 bytes');
+    expect(formatFileSize(2048)).toBe('2,048 bytes (2.0 KB)');
+    expect(formatFileSize(3 * 1024 * 1024)).toBe('3,145,728 bytes (3.0 MB)');
+    const book = state.addTab('book.rsf', RsfDocument.empty('book.rsf', 3, 3), null);
+    statusBar.render();
+    expect(statusBar.element.textContent).not.toContain('bytes');
+    book.fileSize = 4096;
+    statusBar.render();
+    expect(statusBar.element.textContent).toContain('4,096 bytes (4.0 KB)');
   });
 
   it('keeps the places in this browser, ignoring anything unreadable', () => {
@@ -168,18 +186,24 @@ describe('StatusBar items, zoom, full screen and protection', () => {
     expect(select.value).toBe('80');
   });
 
-  it('switches protection between Edit and Protected, the current one pressed', () => {
+  it('shows protection as one button that flips between Protected and Edit', () => {
     const { state, tab, toggle, statusBar } = withCommands();
     state.setReadOnly(tab, true);
     statusBar.render();
-    const edit = statusBar.element.querySelector<HTMLButtonElement>('.status-protect-edit')!;
-    const on = statusBar.element.querySelector<HTMLButtonElement>('.status-protect-on')!;
-    expect(on.getAttribute('aria-pressed')).toBe('true');
-    expect(edit.getAttribute('aria-pressed')).toBe('false');
+    expect(statusBar.element.querySelectorAll('.status-protect')).toHaveLength(1);
+    const on = statusBar.element.querySelector<HTMLButtonElement>('.status-protect')!;
+    expect(on.classList.contains('status-protect-on')).toBe(true);
+    expect(on.textContent).toBe(t('status.protected'));
+    expect(on.querySelector('svg')).not.toBeNull();
     on.click();
-    expect(toggle).not.toHaveBeenCalled();
-    edit.click();
     expect(toggle).toHaveBeenCalledTimes(1);
+    state.setReadOnly(tab, false);
+    statusBar.render();
+    const edit = statusBar.element.querySelector<HTMLButtonElement>('.status-protect')!;
+    expect(edit.classList.contains('status-protect-edit')).toBe(true);
+    expect(edit.textContent).toBe(t('status.protect.edit'));
+    edit.click();
+    expect(toggle).toHaveBeenCalledTimes(2);
   });
 
   it('offers Customize Status Bar… on a right-click', () => {

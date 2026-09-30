@@ -14,6 +14,13 @@ import type { WorksheetKind } from './worksheet';
 /** What the Add Sheet dialog offers: every worksheet kind, and grid paper. */
 export type NewSheetKind = WorksheetKind | 'paper';
 
+/**
+ * A choice in the Add Sheet dialog: a kind of sheet, or `csv` — a blank
+ * sheet of cells for CSV data, the same ordinary sheet Add from CSV File…
+ * makes (an RSF file has no separate CSV sheet kind).
+ */
+export type AddSheetKind = NewSheetKind | 'csv';
+
 /** A worksheet's kind as the user sees it (a grid-paper sheet is its own). */
 export function sheetKindOf(sheet: { kind: WorksheetKind; paper?: number }): NewSheetKind {
   return sheet.kind === 'grid' && sheet.paper !== undefined ? 'paper' : sheet.kind;

@@ -204,3 +204,24 @@
 .markdown-visual-row.drop-after {
   box-shadow: inset 0 -2px 0 var(--accent);
 }
+
+/* The display theme picker, at the toolbar's trailing edge. */
+.markdown-theme-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  margin-left: auto;
+  color: var(--fg-muted);
+}
+
+.markdown-theme-select {
+  height: var(--field-h);
+  font: inherit;
+  color: var(--fg-default);
+}
+
+/* An empty list item or quote paragraph (just made from `- ` or `> `) keeps
+   a line's height, so the caret has somewhere to sit. */
+.markdown-visual-block :is(p, li):empty {
+  min-height: 1.5em;
+}

@@ -16,6 +16,7 @@ import { CommentCommands } from './comment';
 import { ConditionalFormatCommands } from './conditional-format';
 import { ValidationCommands } from './data-validation';
 import { FileIoCommands } from './file-io';
+import type { NewTextFileKind } from './new-documents';
 import { DriveIoCommands } from './drive-io';
 import { isSignedIn as driveIsSignedIn } from '../drive/auth';
 import { FilterCommands } from './filter';
@@ -362,20 +363,24 @@ export class Commands {
 
   /**
    * File > New: create a blank spreadsheet document in a new active tab. See
-   * `FileIoCommands.newDocument` for the full behavior contract.
+   * `NewDocuments.newDocument` for the full behavior contract.
    */
   newDocument(): Tab {
-    return this.parts.fileIo.newDocument();
+    return this.parts.fileIo.creating.newDocument();
   }
 
   /**
    * File > New CSV: create a blank, byte-preserving CSV document in a new
    * active tab (#396) — the CSV counterpart of `newDocument`'s blank RSF
-   * spreadsheet. See `FileIoCommands.newCsvDocument` for the full behavior
+   * spreadsheet. See `NewDocuments.newCsvDocument` for the full behavior
    * contract.
    */
   newCsvDocument(): Tab {
-    return this.parts.fileIo.newCsvDocument();
+    return this.parts.fileIo.creating.newCsvDocument();
+  }
+  /** File > New Markdown / JSON / YAML. See `NewDocuments.newTextDocument`. */
+  newTextDocument(kind: NewTextFileKind): Tab {
+    return this.parts.fileIo.creating.newTextDocument(kind);
   }
 
   /**

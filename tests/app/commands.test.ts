@@ -1058,6 +1058,39 @@ describe('opening and saving Markdown, JSON, YAML, and text files', () => {
     expect(ui.confirmChangedOnDisk).not.toHaveBeenCalled();
   });
 
+  it('remembers the size of the file it opened and of each save, for the status bar', async () => {
+    const { state, commands } = setup();
+    const disk = diskHandle('ci.yaml', utf8('a: 1\n'));
+    await commands.openFiles([disk.opened()], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    expect(tab.fileSize).toBe(5);
+    state.setReadOnly(tab, false);
+    state.editCell(tab, 0, 0, 'a: 12\n');
+    expect(await commands.save(tab, KEEP)).toBe(true);
+    expect(tab.fileSize).toBe(6);
+  });
+
+  it('File > New Markdown / JSON / YAML opens an empty editor that saves as UTF-8 text', async () => {
+    const { state, commands } = setup();
+    await commands.run('file.newJson');
+    const tab = state.activeTab!;
+    expect(tab.name).toBe('untitled.json');
+    expect(tab.textFile).toMatchObject({ kind: 'json', encoding: 'utf-8', bom: false, lineEnding: 'lf' });
+    expect(tab.doc.isDirty).toBe(false);
+    expect(tab.fileSize).toBeNull();
+    await commands.run('file.newJson');
+    expect(state.activeTab!.name).toBe('untitled-2.json');
+    await commands.run('file.newMarkdown');
+    expect(state.activeTab!.name).toBe('untitled.md');
+    await commands.run('file.newYaml');
+    expect(state.activeTab!.name).toBe('untitled.yaml');
+    const yaml = state.activeTab!;
+    state.editCell(yaml, 0, 0, 'a: 1\n');
+    expect(await commands.save(yaml, KEEP)).toBe(true);
+    expect(yaml.fileSize).toBe(5);
+    expect(yaml.textFile?.savedText).toBe('a: 1\n');
+  });
+
   it('saves a new .rsf file instead once a second sheet is added, leaving the original alone', async () => {
     const ui = stubUi();
     const { state, commands } = setup(ui);
@@ -1131,6 +1164,25 @@ describe('adding sheets from CSV files', () => {
     expect(run).toHaveBeenCalledWith('worksheet.addFromCsv');
     expect(picker).toHaveBeenCalled();
     expect((state.activeTab!.doc as RsfDocument).sheetCount).toBe(1);
+  });
+
+  it('adds a blank CSV sheet, from the Add Sheet dialog or Add CSV Sheet, named CSV1, CSV2, …', async () => {
+    const ui = stubUi({
+      promptSheetName: vi.fn(async (_mode, current, _validate, kindOptions) => ({
+        name: kindOptions ? kindOptions.suggestName('csv') : current,
+        kind: 'csv' as const,
+      })),
+    });
+    const { state, commands } = setup(ui);
+    await commands.run('file.new');
+    await commands.run('worksheet.add');
+    await commands.run('worksheet.addCsv');
+    const doc = state.activeTab!.doc as RsfDocument;
+    expect(doc.sheets.map((s) => [s.name, s.kind, s.paper])).toEqual([
+      ['Sheet1', 'grid', undefined],
+      ['CSV1', 'grid', undefined],
+      ['CSV2', 'grid', undefined],
+    ]);
   });
 });
 

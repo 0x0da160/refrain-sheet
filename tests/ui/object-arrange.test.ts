@@ -194,3 +194,54 @@ describe('object arrange: the grid', () => {
     expect(grid.objectPosition(tab, doc.objects[0])).toEqual({ x: 200, y: 30 });
   });
 });
+
+describe('object arrange: Alt snaps to cell corners', () => {
+  const press = (grid: Grid, id: string, init: MouseEventInit = {}) => {
+    const node = grid.element.querySelector<HTMLElement>(`[data-object-id="${id}"]`)!;
+    node.dispatchEvent(
+      new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 0, clientY: 0, ...init }),
+    );
+    return node;
+  };
+
+  it('shows the snapped place while dragging with Alt and drops there', () => {
+    const { grid, doc, tab } = setup();
+    doc.setObjectsOn(undefined, [box('a', 10, 5)]);
+    grid.refresh();
+    press(grid, 'a');
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 40, clientY: 10, altKey: true }));
+    const shown = grid.element.querySelector<HTMLElement>('[data-object-id="a"]')!.style.translate;
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 40, clientY: 10, altKey: true }));
+    const o = doc.objects[0];
+    expect([o.dx, o.dy]).toEqual([0, 0]);
+    const at = grid.objectPosition(tab, o);
+    expect(shown).toBe(`${at.x - 10}px ${at.y - 5}px`);
+  });
+
+  it('snaps when Alt was pressed during the drag even if the release does not report it', () => {
+    const { grid, doc } = setup();
+    doc.setObjectsOn(undefined, [box('a', 10, 5)]);
+    grid.refresh();
+    press(grid, 'a');
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 40, clientY: 10 }));
+    const altDown = new KeyboardEvent('keydown', { key: 'Alt', cancelable: true });
+    document.dispatchEvent(altDown);
+    expect(altDown.defaultPrevented).toBe(true);
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 40, clientY: 10 }));
+    expect([doc.objects[0].dx, doc.objects[0].dy]).toEqual([0, 0]);
+    const altUp = new KeyboardEvent('keyup', { key: 'Alt', cancelable: true });
+    document.dispatchEvent(altUp);
+    expect(altUp.defaultPrevented).toBe(true);
+  });
+
+  it('does not snap when Alt was let go before the release', () => {
+    const { grid, doc } = setup();
+    doc.setObjectsOn(undefined, [box('a', 10, 5)]);
+    grid.refresh();
+    press(grid, 'a');
+    document.dispatchEvent(new MouseEvent('pointermove', { clientX: 40, clientY: 10, altKey: true }));
+    document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Alt', cancelable: true }));
+    document.dispatchEvent(new MouseEvent('pointerup', { clientX: 40, clientY: 10 }));
+    expect(doc.objects[0].dx + doc.objects[0].dy).toBeGreaterThan(0);
+  });
+});

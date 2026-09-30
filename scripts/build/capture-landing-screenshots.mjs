@@ -135,9 +135,9 @@ async function openCleanFile(page, name, bytes) {
 
 async function editRemarkCell(page) {
   // Opening an existing file now defaults to read-only protection (see
-  // status-bar.ts); unlock it via the status bar's Edit switch first, or the
-  // demo edit below is silently rejected.
-  await page.locator('.status-protect-edit').click();
+  // status-bar.ts); unlock it via the status bar's Protected switch first, or
+  // the demo edit below is silently rejected.
+  await page.locator('.status-protect-on').click();
 
   // Column 4 ("備考"/remarks) of the B-2002 row (row index 2 — row 0 is the
   // header) — empty in the fixture, so editing it demonstrates the landing

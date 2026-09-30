@@ -31,6 +31,7 @@
 @import './markdown-panes.css';
 @import './markdown-sheet.css';
 @import './markdown-preview-panel.css';
+@import './markdown-themes.css';
 @import './json-sheet.css';
 @import './yaml-sheet.css';
 @import './text-sheet.css';

@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.23] - 2026-09-30
+
 ### Added
 
 - A white puppy and a black kitten now play in the free space at the top

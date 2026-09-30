@@ -34,6 +34,7 @@ exports[`core export surface > keeps every core module exporting the same names 
     "BORDER_WIDTH_PX",
     "DEFAULT_BORDER_LINE_STYLE",
     "DEFAULT_BORDER_WIDTH",
+    "HORIZONTAL_ALIGNS",
     "MAX_CURRENCY_SYMBOL_LENGTH",
     "MAX_NUMBER_FORMAT_DECIMALS",
     "NUMBER_FORMAT_KINDS",

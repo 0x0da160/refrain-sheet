@@ -11,6 +11,7 @@ import {
   type BorderSide,
   type CellStylePatch,
   type NumberFormat,
+  type HorizontalAlign,
 } from '../../core/workbook/cell-style';
 import { borderPresetPatch } from '../../core/workbook/border-presets';
 import type { CellRange } from '../../core/clipboard';
@@ -57,6 +58,7 @@ const CLEAR_PATCH: CellStylePatch = {
   numberFormat: null,
   fontFamily: null,
   fontSize: null,
+  horizontalAlign: null,
   runs: null,
 };
 
@@ -394,6 +396,33 @@ export class FormatCommands {
    */
   private isStillActive(tab: Tab, doc: Tab['doc']): boolean {
     return tab.doc === doc && this.state.activeTab === tab;
+  }
+
+  /**
+   * Whether every visible selected cell sits at `align` (a cell with no
+   * alignment of its own sits at the left). Drives the menu and toolbar
+   * pressed state.
+   */
+  isAlignActive(tab: Tab, align: HorizontalAlign): boolean {
+    const doc = tab.doc;
+    const range = this.state.selectedRange(tab);
+    if (!isWorkbook(doc) || !range) {
+      return false;
+    }
+    const hidden = this.state.hiddenRows(tab);
+    return rangeCells(range, hidden).every(
+      ({ row, col }) => (doc.getStyle(row, col)?.horizontalAlign ?? 'left') === align,
+    );
+  }
+
+  /**
+   * Align the selection's text left, center or right, as one undo step.
+   * Pressing the alignment the whole selection already has takes it back to
+   * the default (the left).
+   */
+  setHorizontalAlign(tab: Tab, align: HorizontalAlign): boolean {
+    const next = this.isAlignActive(tab, align) ? null : align;
+    return this.applyToSelection(tab, { horizontalAlign: next }, 'history.setAlign');
   }
 
   private toggleProperty(tab: Tab, key: 'bold' | 'italic' | 'underline', label: string): boolean {

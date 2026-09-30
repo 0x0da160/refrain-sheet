@@ -549,6 +549,27 @@ describe('FormatCommands via Commands (RSF worksheets)', () => {
     expect(setup.doc.getStyle(0, 0)?.borderTop).toBe('#000000');
   });
 
+  it('aligns the selection, and pressing the same alignment again goes back to the left', () => {
+    const { commands, tab, doc, state } = sheet([['a', 'b']]);
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 1 });
+    expect(commands.isAlignActive(tab, 'left')).toBe(true);
+    expect(commands.setHorizontalAlign(tab, 'center')).toBe(true);
+    expect(doc.getStyle(0, 1)).toEqual({ horizontalAlign: 'center' });
+    expect(commands.isAlignActive(tab, 'center')).toBe(true);
+    expect(commands.isAlignActive(tab, 'left')).toBe(false);
+    expect(commands.setHorizontalAlign(tab, 'center')).toBe(true);
+    expect(doc.getStyle(0, 0)).toBeNull();
+    expect(commands.setHorizontalAlign(tab, 'left')).toBe(false);
+  });
+
+  it('Clear Formatting removes the alignment too', () => {
+    const { commands, tab, doc, state } = sheet([['a']]);
+    doc.setCellStyleOn(undefined, 0, 0, { horizontalAlign: 'right' });
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    expect(commands.clearFormatting(tab)).toBe(true);
+    expect(doc.getStyle(0, 0)).toBeNull();
+  });
+
   it('draws a Borders preset across the selected range as one undo step', async () => {
     const ui = stubUi({
       chooseBorders: vi.fn(async (_current, _style, _width, onApply) => {

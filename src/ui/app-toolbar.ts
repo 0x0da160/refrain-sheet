@@ -8,7 +8,18 @@
  * item, so the toolbar never words a command differently from the menus.
  */
 import { noteInvoker } from './anchored-popover';
-import { Bold, Italic, Maximize, Settings2, Underline, WrapText, type IconNode } from 'lucide';
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  Italic,
+  Maximize,
+  Settings2,
+  Underline,
+  WrapText,
+  type IconNode,
+} from 'lucide';
 import type { CommandId, Commands } from '../app/commands';
 import { t } from '../app/i18n';
 import { getToolbarItems, getToolbarShown } from '../app/toolbar-prefs';
@@ -26,6 +37,9 @@ const CHECKABLE_ICONS: Partial<Record<CommandId, IconNode>> = {
   'format.bold': Bold,
   'format.italic': Italic,
   'format.underline': Underline,
+  'format.alignLeft': AlignLeft,
+  'format.alignCenter': AlignCenter,
+  'format.alignRight': AlignRight,
   'view.wrap': WrapText,
   'view.fullscreen': Maximize,
 };

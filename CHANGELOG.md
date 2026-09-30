@@ -50,6 +50,12 @@ really is internal, rather than inventing an entry to satisfy it.
   Borders chosen from the toolbar or the right-click menu open as a small
   panel beside the button instead of the side panel; from the Format menu
   they still open in the side panel.
+- **Align cell text left, center or right.** Format > Align Left, Align
+  Center and Align Right, and three new toolbar buttons, place the text of
+  the selected cells. Pressing the alignment the cells already have takes
+  them back to the left. The alignment is saved in the RSF file and shows on
+  screen, in print and PDF, and in Copy as Image. Older versions of the app
+  open such files and show the text at the left.
 
 ### Changed
 

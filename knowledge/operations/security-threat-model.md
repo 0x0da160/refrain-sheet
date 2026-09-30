@@ -172,7 +172,13 @@ stored, nothing in it is ever sent anywhere, and the list is capped at 10
 entries. A stored handle grants nothing by itself: reopening asks the
 browser for read permission again in each session. Only browsers with the
 File System Access API record anything; the dialog's Clear List button
-empties it.
+empties it. In the hosted build with Google Drive, the same dialog also
+lists the last 10 Drive files opened or saved (`src/app/recent-drive-files.ts`):
+per file only its name, its Drive file id, and when it was opened, in
+`localStorage`. The id grants nothing by itself: reopening needs the user's
+Google sign-in and the app's per-file `drive.file` access. Clear List
+empties this list too. The offline build has no Drive, so it never
+writes it.
 
 **Opened from `file://`, storage is shared with other local files.**
 Chromium-based browsers give every local HTML file one storage origin

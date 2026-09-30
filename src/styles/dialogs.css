@@ -745,6 +745,13 @@ table.diag-table th {
   overflow-y: auto;
 }
 
+.recent-files-heading {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+  color: var(--fg-muted);
+}
+
 .recent-file {
   display: grid;
   width: 100%;

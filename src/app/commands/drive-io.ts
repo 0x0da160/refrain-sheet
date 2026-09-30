@@ -29,6 +29,7 @@ import {
 } from '../drive/client';
 import { driveConfigured } from '../drive/config';
 import { pickDriveFile } from '../drive/picker';
+import { recordRecentDriveFile, removeRecentDriveFile } from '../recent-drive-files';
 import { DriveScriptError } from '../drive/script-loader';
 import type { FileIoCommands } from './file-io';
 import { withBusy } from './shared';
@@ -90,28 +91,52 @@ export class DriveIoCommands {
     try {
       const picked = await this.withToken(async (token) => pickDriveFile(token, t('drive.picker.title')));
       if (!picked) return;
-
-      const bytes = await withBusy(this.ui, t('loading.drive.downloading', { name: picked.name }), () =>
-        this.withToken((token) => downloadFile(picked.id, token)),
-      );
-
-      const maxSize = getMaxFileSize();
-      if (bytes.length > maxSize) {
-        this.ui.notify(t('notify.drive.tooLarge', { name: picked.name }), 'error');
-        return;
-      }
-
-      await this.fileIo.openFiles([{ name: picked.name, bytes, handle: null, size: bytes.length }], {
-        confirmNonCsv: true,
-      });
-      // Associate whichever tab the open produced, so a later save overwrites
-      // this same Drive file rather than creating a duplicate.
-      const tab = this.state.activeTab;
-      if (tab) tab.drive = { fileId: picked.id, name: picked.name };
-      this.state.emit('tabs');
+      await this.load(picked.id, picked.name);
     } catch (err) {
       this.report(err);
     }
+  }
+
+  /**
+   * File > Open Recent…: open a Drive file from the recent list again, with
+   * no Picker. A file that has since been deleted, or that this account can
+   * no longer reach, is reported and dropped from the list.
+   */
+  async reopen(fileId: string, name: string): Promise<void> {
+    if (!this.available()) return;
+    try {
+      await this.load(fileId, name);
+    } catch (err) {
+      if (err instanceof DriveApiError && (err.status === 404 || err.status === 403)) {
+        removeRecentDriveFile(fileId);
+        this.ui.notify(t('notify.recentMissing', { name }), 'warn');
+        return;
+      }
+      this.report(err);
+    }
+  }
+
+  /** Download a Drive file, open it, and remember it for File > Open Recent…. */
+  private async load(fileId: string, name: string): Promise<void> {
+    const bytes = await withBusy(this.ui, t('loading.drive.downloading', { name }), () =>
+      this.withToken((token) => downloadFile(fileId, token)),
+    );
+
+    const maxSize = getMaxFileSize();
+    if (bytes.length > maxSize) {
+      this.ui.notify(t('notify.drive.tooLarge', { name }), 'error');
+      return;
+    }
+
+    await this.fileIo.openFiles([{ name, bytes, handle: null, size: bytes.length }], {
+      confirmNonCsv: true,
+    });
+    // Associate whichever tab the open produced, so a later save overwrites
+    // this same Drive file rather than creating a duplicate.
+    const tab = this.state.activeTab;
+    if (tab) tab.drive = { fileId, name };
+    recordRecentDriveFile(fileId, name);
+    this.state.emit('tabs');
   }
 
   /**
@@ -166,6 +191,7 @@ export class DriveIoCommands {
       );
 
       tab.drive = { fileId: meta.id, name: meta.name };
+      recordRecentDriveFile(meta.id, meta.name);
       // Save As asks for a name; the tab label follows the Drive file's name.
       this.state.adoptSavedName(tab, meta.name);
       // The uploaded bytes become the new baseline, exactly as a local save

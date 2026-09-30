@@ -42,7 +42,11 @@ synchronously. Phones always give the tabs their own row at the top.
   first, and opens the one picked after the browser grants read permission
   again; a file that has been moved or deleted is dropped from the list.
   Browsers without that API (Safari, Firefox) cannot reopen a file, so the
-  command is disabled there. See
+  command is disabled there. In the hosted build with Google Drive, the
+  dialog also lists the Drive files last opened or saved, under their own
+  heading (**On This Device** / **Google Drive**; no headings when only one
+  kind is listed), and opens one again with no Picker; the command is then
+  enabled in every browser. A Drive file that is gone is dropped. See
   [../operations/security-threat-model.md](../operations/security-threat-model.md)
   for what the list stores.
 - Unsaved tabs show a `●` dirty indicator.

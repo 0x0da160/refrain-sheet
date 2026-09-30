@@ -425,31 +425,51 @@ export class FileIoDialogs {
       t('dialog.recentFiles.title'),
       null,
       (body, buttons, close) => {
-        const list = el('ul', { className: 'recent-files-list' });
-        entries.forEach((entry, index) => {
-          const button = el(
-            'button',
-            {
-              className: 'recent-file',
-              attrs: { type: 'button', ...(index === 0 ? { 'data-autofocus': 'true' } : {}) },
-            },
-            [
-              el('span', { className: 'recent-file-name', text: entry.name }),
-              el('span', {
-                className: 'recent-file-time',
-                text: new Date(entry.openedAt).toLocaleString(getLocale(), {
-                  dateStyle: 'medium',
-                  timeStyle: 'short',
+        // Files on this device and files in Google Drive are listed apart,
+        // each under its own heading; with only one kind, no heading.
+        const groups = (['device', 'drive'] as const)
+          .map((where) => ({ where, rows: entries.filter((entry) => entry.where === where) }))
+          .filter((group) => group.rows.length > 0);
+        const lists = groups.flatMap(({ where, rows }) => {
+          const list = el('ul', { className: 'recent-files-list' });
+          for (const entry of rows) {
+            const button = el(
+              'button',
+              {
+                className: 'recent-file',
+                attrs: { type: 'button', ...(entry === entries[0] ? { 'data-autofocus': 'true' } : {}) },
+              },
+              [
+                el('span', { className: 'recent-file-name', text: entry.name }),
+                el('span', {
+                  className: 'recent-file-time',
+                  text: new Date(entry.openedAt).toLocaleString(getLocale(), {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  }),
                 }),
-              }),
-            ],
-          );
-          button.addEventListener('click', () => close(entry.id));
-          list.append(el('li', {}, [button]));
+              ],
+            );
+            button.addEventListener('click', () => close(entry.id));
+            list.append(el('li', {}, [button]));
+          }
+          if (groups.length === 1) {
+            return [list];
+          }
+          const headingId = `recent-files-${where}`;
+          list.setAttribute('aria-labelledby', headingId);
+          return [
+            el('h3', {
+              className: 'recent-files-heading',
+              text: t(`dialog.recentFiles.${where}`),
+              attrs: { id: headingId },
+            }),
+            list,
+          ];
         });
         body.append(
           el('p', { text: t('dialog.recentFiles.message') }),
-          list,
+          ...lists,
           el('p', {
             className: 'dialog-note',
             text: t(

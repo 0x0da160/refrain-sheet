@@ -43,7 +43,7 @@ import {
   withBusy,
   withBusyIfLarge,
 } from './shared';
-import { FileOpening } from './file-open';
+import { FileOpening, type RecentDriveOpener } from './file-open';
 import { FileExporting } from './file-export';
 
 /** The subset of `Commands.gridActions` file I/O needs to auto-fit a newly opened tab. */
@@ -88,10 +88,10 @@ export class FileIoCommands {
    * picked, asking the browser for read permission again first (a stored
    * handle loses it when the page reloads). A file that has since been
    * moved or deleted is reported and dropped from the list. The dialog can
-   * also clear the whole list.
+   * also clear the whole list. `drive` adds the recent Google Drive files.
    */
-  openRecent(): Promise<void> {
-    return this.opening.openRecent();
+  openRecent(drive: RecentDriveOpener | null = null): Promise<void> {
+    return this.opening.openRecent(drive);
   }
 
   openDroppedFiles(fileList: File[], handles: Array<FileSystemFileHandle | null>): Promise<void> {

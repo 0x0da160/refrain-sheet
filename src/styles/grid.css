@@ -544,15 +544,14 @@
 }
 
 /* Row/column header hover tools (see `CellBuilder.appendHeaderTools`): a
-   grip to drag the row/column elsewhere and a small + that inserts one row
-   below / one column to the right. Shown only while a mouse hovers the
-   header, and hidden during a drag; touch uses the menus instead. */
+   grip to drag the row/column elsewhere, and a + centered on each boundary
+   that inserts a row or column there. Shown only while a mouse hovers the
+   header, and hidden during a drag; touch uses the menus instead. A column's
+   grip sits at the middle of its top edge; a row's stays at its left end. */
 .head-grip,
 .head-insert {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 3;
+  z-index: 5;
   display: none;
   align-items: center;
   justify-content: center;
@@ -561,15 +560,27 @@
 }
 
 .head-grip {
-  left: 1px;
-  width: 12px;
-  height: 18px;
   cursor: grab;
   opacity: 0.75;
 }
 
+.vhead > .head-grip {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 10px;
+}
+
+.vrowhead > .head-grip {
+  top: 50%;
+  left: 1px;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 18px;
+}
+
 .head-insert {
-  right: calc(8px * var(--sheet-zoom, 1));
   width: 16px;
   height: 16px;
   background: var(--canvas-bg);
@@ -578,15 +589,33 @@
   cursor: pointer;
 }
 
-/* Beside an active filter's button, the + moves left of it. */
-.vhead:has(.filter-indicator) .head-insert {
-  right: calc(8px * var(--sheet-zoom, 1) + 22px);
+/* Centered on the boundary line: half the button lies over the neighbor. */
+.vhead > .head-insert {
+  top: 50%;
 }
 
-/* Row numbers are right-aligned, so the row's + sits beside its grip. */
-.vrowhead .head-insert {
-  right: auto;
-  left: 15px;
+.vhead > .head-insert-before {
+  left: 0;
+  transform: translate(-50%, -50%);
+}
+
+.vhead > .head-insert-after {
+  left: 100%;
+  transform: translate(-50%, -50%);
+}
+
+.vrowhead > .head-insert {
+  left: 50%;
+}
+
+.vrowhead > .head-insert-before {
+  top: 0;
+  transform: translate(-50%, -50%);
+}
+
+.vrowhead > .head-insert-after {
+  top: 100%;
+  transform: translate(-50%, -50%);
 }
 
 .head-grip:hover,
@@ -602,6 +631,17 @@
   .grid-container:not(.moving-cols, .moving-rows, .moving-range) .vrowhead:hover > .head-grip,
   .grid-container:not(.moving-cols, .moving-rows, .moving-range) .vrowhead:hover > .head-insert {
     display: inline-flex;
+  }
+
+  /* The + half-overhangs the header, so the hovered header lets it show
+     and sits above its neighbors (row numbers are each their own layer). */
+  .grid-container:not(.moving-cols, .moving-rows, .moving-range) .vhead:hover,
+  .grid-container:not(.moving-cols, .moving-rows, .moving-range) .vrowhead:hover {
+    overflow: visible;
+  }
+
+  .grid-container:not(.moving-cols, .moving-rows, .moving-range) .vrowhead:hover {
+    z-index: 7;
   }
 }
 
@@ -642,7 +682,8 @@
 .filter-indicator {
   position: absolute;
   top: 50%;
-  right: calc(6px * var(--sheet-zoom, 1));
+  /* Clear of the column's right-boundary + (8px into the header). */
+  right: max(9px, 6px * var(--sheet-zoom, 1));
   transform: translateY(-50%);
   z-index: 3;
   display: inline-flex;

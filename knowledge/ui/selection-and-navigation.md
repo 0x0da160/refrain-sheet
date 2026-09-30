@@ -25,6 +25,23 @@ generated:
   commands unchanged. Structural row/column operations still require an
   explicit CSV → RSF conversion (see [../formats/index.md](../formats/index.md)).
 
+## Header tools
+
+With a mouse, hovering a row or column header shows its tools
+(`CellBuilder.appendHeaderTools` in `src/ui/grid/cell-builder.ts`):
+
+- a **grip** that drags the row or column (or the selected ones it belongs
+  to) elsewhere — at the middle of a column header's top edge, and at the
+  left end of a row header. RSF worksheets only, and for rows not while a
+  sort is on;
+- a **+ on each boundary**, centered on the line: a column header's left
+  and right edges insert a column there, a row header's top and bottom
+  edges a row. The + selects that row or column first and runs the same
+  Insert command as the menus.
+
+A locked sheet shows neither. Touch uses the menus and context menu
+instead.
+
 ## Four visually distinct selection roles
 
 Selection state is rendered as four visually distinct roles, never

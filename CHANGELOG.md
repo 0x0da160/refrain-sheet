@@ -92,6 +92,7 @@ really is internal, rather than inventing an entry to satisfy it.
 - Renaming a sheet or a sheet folder now happens on its tab: double-click it (or press F2) and type. Enter keeps the name, Escape puts the old one back, and a name that cannot be used says why without closing the field. Double-clicking a sheet that was not active now renames it too.
 - The status bar's protection control is now one switch, Edit | Protected, with the current state pressed, instead of a "Protected" label beside an "Edit" or "Protect" button.
 - Shorter menus: related commands now sit together in submenus, and a submenu can open one more level inside it: Edit > Fill; Sheet > Manage Sheets > New Sheet, Sheet Folders and Move Sheet; Insert > Shape, Arrange Objects and Save Objects as Image; Format > Text Alignment and Number Format; View > Sticky Rows & Columns, Grid Look, Toolbar & Status Bar and Language. The right-click menus for cells, sheet tabs and shapes are grouped the same way. The CSV-only edition follows the same layout.
+- The row and column header tools moved: a column's move grip is now at the middle of its top edge, and each header shows a + on both of its boundaries, centered on the line, that inserts a column left or right (or a row above or below) right there. A row's grip stays at its left end.
 
 ### Fixed
 

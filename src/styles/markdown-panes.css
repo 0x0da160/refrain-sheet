@@ -45,7 +45,7 @@
 .markdown-editor-source {
   flex: 1;
   min-height: 320px;
-  font-family: var(--font-sheet);
+  font-family: var(--font-ui);
   font-size: var(--text-body);
   padding: var(--space-2);
   border: 1px solid var(--border-default);
@@ -78,7 +78,7 @@
 }
 
 .markdown-editor-preview code {
-  font-family: var(--font-sheet);
+  font-family: var(--font-code);
   font-size: 0.9em;
 }
 

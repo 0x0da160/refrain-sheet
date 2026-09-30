@@ -404,3 +404,55 @@ describe('Flash Fill command flow', () => {
     expect(ui.confirmFlashFill).not.toHaveBeenCalled();
   });
 });
+
+describe('Flash Fill on a table with a heading row', () => {
+  const HEADED = [
+    ['Last', 'First', 'Name'],
+    ['Yamada', 'Taro', 'Yamada Taro'],
+    ['Sato', 'Hanako', ''],
+    ['Suzuki', 'Jiro', ''],
+  ];
+
+  for (const [where, row] of [
+    ['the heading', 0],
+    ['the example', 1],
+    ['a row to fill', 2],
+  ] as const) {
+    it(`skips the heading when ${where} is selected`, async () => {
+      const ui = stubUi({ confirmFlashFill: vi.fn(async () => true) });
+      const { state, commands, tab, doc } = sheet(HEADED, ui);
+      state.setSelection(tab, { row, col: 2 }, null);
+      expect(await commands.flashFill(tab)).toBe(true);
+      expect(doc.getValue(0, 2)).toBe('Name');
+      expect(doc.getValue(2, 2)).toBe('Sato Hanako');
+      expect(doc.getValue(3, 2)).toBe('Suzuki Jiro');
+    });
+  }
+
+  it('keeps a first row the pattern makes: it is an example, not a heading', async () => {
+    const ui = stubUi({ confirmFlashFill: vi.fn(async () => true) });
+    const values = [
+      ['Taro', 'Yamada', 'Taro Yamada'],
+      ['Hanako', 'Sato', 'Hanako Sato'],
+      ['Jiro', 'Suzuki', ''],
+    ];
+    const { state, commands, tab, doc } = sheet(values, ui);
+    state.setSelection(tab, { row: 0, col: 2 }, null);
+    expect(await commands.flashFill(tab)).toBe(true);
+    expect(doc.getValue(2, 2)).toBe('Jiro Suzuki');
+  });
+
+  it('asks for an example when only the heading is there', async () => {
+    const ui = stubUi();
+    const values = [
+      ['Last', 'First', 'Name'],
+      ['Yamada', 'Taro', ''],
+      ['Sato', 'Hanako', ''],
+    ];
+    const { state, commands, tab, doc } = sheet(values, ui);
+    state.setSelection(tab, { row: 1, col: 2 }, null);
+    expect(await commands.flashFill(tab)).toBe(false);
+    expect(doc.getValue(1, 2)).toBe('');
+    expect(ui.showMessage).toHaveBeenCalled();
+  });
+});

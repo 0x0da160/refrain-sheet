@@ -44,7 +44,7 @@
 }
 
 .shortcut-table td:first-child {
-  font-family: var(--font-sheet);
+  font-family: var(--font-code);
   white-space: nowrap;
 }
 

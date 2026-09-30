@@ -38,6 +38,31 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- **Filtering is called "フィルター" everywhere in Japanese.** Menus, header
+  buttons and messages used both 絞り込み and フィルター for the same
+  feature; they now all say フィルター.
+- **Panels and bars outside the grid use the interface font.** The comments
+  panel, Find and Replace, the name box and the Markdown source editor now use
+  the same font as the menus, and code (SQL, formula signatures, shortcut keys)
+  uses the code font.
+- **Sheet tabs beside the grid have more room.** In the vertical tab layout,
+  each tab, folder and the add button is taller, with more space between them,
+  so they are easier to read and click.
+- **Flash Fill explains how to use it.** When it cannot find a pattern, the
+  message now says to type one or two examples from the row just under the
+  headings and press Ctrl+E.
+
+### Fixed
+
+- **Flash Fill works on a table with a heading row.** With the heading typed
+  in the column to fill, Flash Fill treated it as an example and found no
+  pattern. It now skips the heading and fills from the examples under it.
+- **Password managers no longer offer to fill app fields.** Entry fields such
+  as the name box, Find, and dialog inputs showed 1Password and similar
+  prompts; they are now marked as not login fields.
+
 ## [0.9.21] - 2026-09-29
 
 ### Added

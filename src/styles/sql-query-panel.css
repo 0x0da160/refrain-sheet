@@ -4,7 +4,7 @@
 
 .sql-query-input {
   flex: 1;
-  font-family: var(--font-sheet);
+  font-family: var(--font-code);
   font-size: var(--text-body);
   padding: var(--space-1-5) var(--space-2);
   border: 1px solid var(--border-default);
@@ -53,7 +53,7 @@
 .sql-query-help-panel .help-code {
   display: block;
   margin-top: var(--space-1-5);
-  font-family: var(--font-sheet);
+  font-family: var(--font-code);
   background: var(--bg-raised);
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-1-5);
@@ -186,7 +186,7 @@ table.sql-query-table td {
 }
 
 .sql-query-list-code {
-  font-family: var(--font-sheet);
+  font-family: var(--font-code);
   font-size: var(--text-caption);
   white-space: nowrap;
   overflow: hidden;

@@ -103,7 +103,7 @@
   display: flex;
   align-items: baseline;
   gap: var(--space-1-5);
-  font-family: var(--font-sheet);
+  font-family: var(--font-ui);
   font-size: var(--text-caption);
   font-weight: var(--weight-bold);
 }
@@ -118,7 +118,7 @@
 }
 
 .find-result-text {
-  font-family: var(--font-sheet);
+  font-family: var(--font-ui);
   font-size: 0.9em;
   color: var(--fg-muted);
   white-space: pre-wrap;

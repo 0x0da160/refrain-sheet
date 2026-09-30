@@ -8,8 +8,25 @@ export interface ElOptions {
 }
 
 /**
+ * What every text field the app makes starts with. The app has no logins or
+ * passwords, but password managers still guess that unnamed text fields are
+ * login fields and pop up their own prompts ("Unlock 1Password") over the
+ * app. `autocomplete="off"` alone does not stop them, so the fields also
+ * carry each manager's opt-out: 1Password, LastPass, Bitwarden, Dashlane.
+ * A field's own `attrs` still win.
+ */
+const TEXT_FIELD_DEFAULTS: Readonly<Record<string, string>> = {
+  autocomplete: 'off',
+  'data-1p-ignore': 'true',
+  'data-lpignore': 'true',
+  'data-bwignore': 'true',
+  'data-form-type': 'other',
+};
+
+/**
  * Small DOM builder. All text goes through textContent, so untrusted CSV
  * content, filenames, and search terms are always rendered as plain text.
+ * Inputs and textareas get {@link TEXT_FIELD_DEFAULTS}.
  */
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -17,6 +34,11 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   children: Array<Node | string> = [],
 ): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
+  if (tag === 'input' || tag === 'textarea') {
+    for (const [name, value] of Object.entries(TEXT_FIELD_DEFAULTS)) {
+      node.setAttribute(name, value);
+    }
+  }
   if (options.className) {
     node.className = options.className;
   }

@@ -61,6 +61,8 @@ really is internal, rather than inventing an entry to satisfy it.
 - Add a CSV file to an RSF file as a new sheet: Sheet > Add Sheet from CSV File…, or From a CSV File… in the Add Sheet dialog. Each file becomes a sheet named after it, read with the same encoding detection as opening it; the CSV file itself is left unchanged.
 - A folder button next to the sheet tabs' + puts the current sheet in a new folder.
 - With the sheet tabs on the left, drag the list's right edge (or focus it and use the arrow keys) to make it wider or narrower; double-click the edge to go back to the standard width. The width is kept in this browser.
+- Choose what the status bar shows: View > Customize Status Bar… (or right-click the status bar) sets each item — file type, encoding, delimiter, line endings, size, rows × columns, formula count, edited cells, filter, sort, CSV engine, the selected cell and totals, version — to show in the bar, in Details, or not at all. Items in Details open from the Details button at the right end. The choice is kept in this browser.
+- The status bar's right end has the spreadsheet zoom (−, a list of the zoom levels, +) and a Full Screen button (on a desktop-width window; a phone keeps them in the View menu).
 
 ### Changed
 
@@ -86,6 +88,7 @@ really is internal, rather than inventing an entry to satisfy it.
   colors first.
 - Objects now stay on whole pixels: an edit rounds their position and size to whole pixels, line widths to whole pixels of at least 1, and text sizes to whole points, and the object list takes whole numbers only for line width and text size. A fractional value from an older file is kept until the object is next edited.
 - Renaming a sheet or a sheet folder now happens on its tab: double-click it (or press F2) and type. Enter keeps the name, Escape puts the old one back, and a name that cannot be used says why without closing the field. Double-clicking a sheet that was not active now renames it too.
+- The status bar's protection control is now one switch, Edit | Protected, with the current state pressed, instead of a "Protected" label beside an "Edit" or "Protect" button.
 
 ### Fixed
 

@@ -109,6 +109,8 @@ export class Commands {
     openPrint: () => void;
     /** Open View > Customize Toolbar… (which commands the toolbar shows, in which order). */
     customizeToolbar: () => void;
+    /** Open View > Customize Status Bar… (where each status bar item shows). */
+    customizeStatusBar: () => void;
     /** Open the object list (shapes on the sheet, with their properties and locks). */
     openObjects: () => void;
   } | null = null;

@@ -89,6 +89,7 @@ import {
   Wand2,
   X,
   type IconNode,
+  PanelBottom,
 } from 'lucide';
 import type { CommandId } from '../app/commands';
 
@@ -191,6 +192,7 @@ export const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'sheet.sortClear': ArrowUpDown,
   'format.font': Type,
   'view.customizeToolbar': Settings2,
+  'view.customizeStatusBar': PanelBottom,
   'format.textColor': Palette,
   'format.backgroundColor': PaintBucket,
   'format.borders': Table,

@@ -102,6 +102,7 @@ export function subscribeSurfaces(
         app.classList.toggle('sheet-tabs-vertical', getSheetTabsVertical());
         s.menuBar.render();
         s.toolbar.render();
+        s.statusBar.render();
         s.sheetBar.render(true);
         s.grid.refresh();
         s.commentsPanel.render();

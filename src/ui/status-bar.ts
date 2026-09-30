@@ -2,9 +2,12 @@
 import { isWorkbook } from '../core/editor-document';
 import type { LosslessDocument } from '../core/csv/lossless-document';
 import type { RsfDocument } from '../core/workbook/rsf-document';
-import { Lock, LockOpen, TriangleAlert } from 'lucide';
+import { Lock, Maximize, Minimize, Minus, Plus, TriangleAlert } from 'lucide';
 import type { AppState, Tab } from '../app/state';
+import type { CommandId } from '../app/commands';
 import { t } from '../app/i18n';
+import { SHEET_ZOOM_LEVELS } from '../app/settings';
+import { getStatusItemPlace, type StatusItemId } from '../app/status-bar-prefs';
 import { APP_VERSION_DISPLAY } from '../app/version';
 import { forEachIndexSliced } from '../core/scheduler';
 import type { CaretPosition } from '../core/text-editing';
@@ -16,6 +19,8 @@ import {
 } from '../core/stats';
 import { el, clearChildren } from './dom';
 import { createIcon } from './icon';
+import { openAnchoredPopover } from './anchored-popover';
+import { ContextMenu } from './context-menu';
 
 /**
  * Selections up to this many cells compute their statistics synchronously
@@ -34,6 +39,25 @@ function formatStat(n: number): string {
     return n.toLocaleString('en-US');
   }
   return Number(n.toFixed(10)).toLocaleString('en-US', { maximumFractionDigits: 10 });
+}
+
+/** Items that a phone keeps behind Details even when they are set to show in the bar. */
+const PHONE_DETAILS: ReadonlySet<StatusItemId> = new Set([
+  'kind',
+  'encoding',
+  'delimiter',
+  'lineEndings',
+  'size',
+  'gridSize',
+  'formulas',
+  'engine',
+  'version',
+]);
+
+/** What the status bar's own controls (zoom, full screen, Details) run. */
+export interface StatusBarCommands {
+  run(id: CommandId): Promise<void>;
+  isEnabled(id: CommandId): boolean;
 }
 
 /**
@@ -59,20 +83,43 @@ export class StatusBar {
   editorCaret: (() => CaretPosition | null) | null = null;
   /** The line/column segment while an editor worksheet is active, updated in place as the caret moves. */
   private editorPosition: HTMLElement | null = null;
+  /** The items set to show behind Details, as last drawn. */
+  private detailItems: HTMLElement[] = [];
 
   constructor(
     private readonly state: AppState,
     private readonly onShowProblems: () => void,
     private readonly onToggleProtect: () => void,
+    private readonly commands: StatusBarCommands | null = null,
   ) {
     this.element = el('div', { className: 'status-bar' });
+    this.element.addEventListener('contextmenu', (event) => {
+      if (this.commands && !(event.target as Element).closest('select')) {
+        event.preventDefault();
+        this.openMenu(event.clientX, event.clientY);
+      }
+    });
+    document.addEventListener('fullscreenchange', () => this.render());
     this.render();
   }
 
-  /** A file detail: always shown on a desktop, behind Details on a phone. */
-  private detail(node: HTMLElement): HTMLElement {
-    node.classList.add('status-detail');
-    return node;
+  /**
+   * Add item `id` where View > Customize Status Bar… puts it: in the bar
+   * (on a phone, file details go behind Details), behind the Details
+   * button, or nowhere.
+   */
+  private place(id: StatusItemId, node: HTMLElement, parent: HTMLElement = this.element): void {
+    const place = getStatusItemPlace(id);
+    if (place === 'hidden') {
+      return;
+    }
+    if (place === 'details') {
+      node.classList.add('status-detail', 'status-in-details');
+      this.detailItems.push(node);
+    } else if (PHONE_DETAILS.has(id)) {
+      node.classList.add('status-detail');
+    }
+    parent.append(node);
   }
 
   /** The phone-only button that shows or hides the file details. */
@@ -94,47 +141,46 @@ export class StatusBar {
     // Any rerender invalidates a scan targeting the previous selection/document.
     this.statsToken += 1;
     this.editorPosition = null;
+    this.detailItems = [];
     clearChildren(this.element);
     this.element.classList.toggle('details-open', this.detailsOpen);
     const tab = this.state.activeTab;
     if (!tab) {
-      this.appendVersion();
+      this.appendEnd(null);
       return;
     }
     const doc = tab.doc;
 
     if (isWorkbook(doc)) {
       this.renderWorkbook(tab, doc);
-      return;
+    } else {
+      this.renderCsv(tab, doc);
+      this.appendDetailsToggle();
+      this.appendSelection(tab);
     }
-    this.renderCsv(tab, doc);
-    this.appendDetailsToggle();
-    this.appendSelection(tab);
-    this.appendVersion();
+    this.appendEnd(tab);
   }
 
   /** Workbook status: grid size, formulas, filter and sort indicators — or an editor worksheet's caret. */
   private renderWorkbook(tab: Tab, doc: RsfDocument): void {
     const textFile = tab.textFile;
-    this.element.append(
-      this.detail(
-        el('span', {
-          className: 'doc-kind',
-          text: t(textFile ? `status.doc.${textFile.kind}` : 'status.doc.rsf'),
-        }),
-      ),
+    this.place(
+      'kind',
+      el('span', {
+        className: 'doc-kind',
+        text: t(textFile ? `status.doc.${textFile.kind}` : 'status.doc.rsf'),
+      }),
     );
     if (textFile) {
       // Opened from a text file: Save writes back in this encoding and these line endings.
       const bom =
         textFile.encoding === 'utf-8' ? `, ${textFile.bom ? t('status.bom.yes') : t('status.bom.no')}` : '';
       const lineEnding = textFile.lineEnding.toUpperCase();
-      this.element.append(
-        this.detail(
-          el('span', {
-            text: `${t('status.encoding')}: ${t(`encoding.${textFile.encoding}`)}${bom} · ${t('status.lineEndings')}: ${lineEnding}`,
-          }),
-        ),
+      this.place(
+        'encoding',
+        el('span', {
+          text: `${t('status.encoding')}: ${t(`encoding.${textFile.encoding}`)}${bom} · ${t('status.lineEndings')}: ${lineEnding}`,
+        }),
       );
     }
     this.appendProtection(tab);
@@ -146,18 +192,19 @@ export class StatusBar {
         this.element.append(el('span', { text: t('status.unsaved') }));
       }
       this.appendDetailsToggle();
-      this.editorPosition = el('span', { className: 'status-editor-position', attrs: { role: 'status' } });
-      this.element.append(this.editorPosition);
+      const position = el('span', { className: 'status-editor-position', attrs: { role: 'status' } });
+      this.place('selection', position);
+      this.editorPosition = position;
       this.updateEditorCaret(caret);
-      this.appendVersion();
       return;
     }
-    this.element.append(
-      this.detail(el('span', { text: t('status.gridSize', { rows: doc.rowCount, cols: doc.columnCount }) })),
+    this.place(
+      'gridSize',
+      el('span', { text: t('status.gridSize', { rows: doc.rowCount, cols: doc.columnCount }) }),
     );
     const formulas = doc.countFormulaCells();
     if (formulas > 0) {
-      this.element.append(this.detail(el('span', { text: t('status.formulas', { n: formulas }) })));
+      this.place('formulas', el('span', { text: t('status.formulas', { n: formulas }) }));
     }
     this.appendSortFilter(tab);
     if (doc.isDirty) {
@@ -165,8 +212,6 @@ export class StatusBar {
     }
     this.appendDetailsToggle();
     this.appendSelection(tab);
-    this.appendVersion();
-    return;
   }
 
   /** The filter (rows shown of all) and sort indicators, when either is on. */
@@ -178,7 +223,8 @@ export class StatusBar {
       const dataTop = doc.filter.headerRow ? doc.filter.top + 1 : doc.filter.top;
       const total = Math.max(0, doc.filter.bottom - dataTop + 1);
       const shown = total - (hidden ? hidden.size : 0);
-      this.element.append(
+      this.place(
+        'filter',
         el('span', {
           className: 'status-filter',
           text: t('status.filtered', { shown, total }),
@@ -188,7 +234,8 @@ export class StatusBar {
     }
     // Active sort: session-only view state, like the filter indicator above.
     if (doc.sort !== null) {
-      this.element.append(
+      this.place(
+        'sort',
         el('span', {
           className: 'status-sort',
           text: t('status.sorted', { keys: doc.sort.keys.length }),
@@ -200,14 +247,12 @@ export class StatusBar {
 
   /** CSV status: encoding, delimiter, line endings, size, problems, edits, engine. */
   private renderCsv(tab: Tab, doc: LosslessDocument): void {
-    this.element.append(this.detail(el('span', { className: 'doc-kind', text: t('status.doc.csv') })));
+    this.place('kind', el('span', { className: 'doc-kind', text: t('status.doc.csv') }));
     this.appendProtection(tab);
     const encodingLabel = t(`encoding.${doc.encoding}`);
     const bomLabel =
       doc.encoding === 'utf-8' ? `, ${doc.bomLength > 0 ? t('status.bom.yes') : t('status.bom.no')}` : '';
-    this.element.append(
-      this.detail(el('span', { text: `${t('status.encoding')}: ${encodingLabel}${bomLabel}` })),
-    );
+    this.place('encoding', el('span', { text: `${t('status.encoding')}: ${encodingLabel}${bomLabel}` }));
 
     const delimiterKey =
       doc.delimiter === ','
@@ -215,7 +260,7 @@ export class StatusBar {
         : doc.delimiter === ';'
           ? 'status.delimiter.semicolon'
           : 'status.delimiter.tab';
-    this.element.append(this.detail(el('span', { text: `${t('status.delimiter')}: ${t(delimiterKey)}` })));
+    this.place('delimiter', el('span', { text: `${t('status.delimiter')}: ${t(delimiterKey)}` }));
 
     const { crlf, lf, cr } = doc.lineEndings;
     const kinds = [crlf > 0, lf > 0, cr > 0].filter(Boolean).length;
@@ -226,10 +271,10 @@ export class StatusBar {
     if (doc.rowCount > 0 && !doc.hasFinalNewline && kinds > 0) {
       leLabel += ` (${t('status.noFinalNewline')})`;
     }
-    this.element.append(this.detail(el('span', { text: `${t('status.lineEndings')}: ${leLabel}` })));
-
-    this.element.append(
-      this.detail(el('span', { text: t('status.size', { size: doc.bytes.length.toLocaleString('en-US') }) })),
+    this.place('lineEndings', el('span', { text: `${t('status.lineEndings')}: ${leLabel}` }));
+    this.place(
+      'size',
+      el('span', { text: t('status.size', { size: doc.bytes.length.toLocaleString('en-US') }) }),
     );
 
     if (doc.diagnostics.length > 0) {
@@ -247,18 +292,17 @@ export class StatusBar {
     }
 
     if (doc.editCount > 0) {
-      this.element.append(el('span', { text: t('status.edits', { n: doc.editCount }) }));
+      this.place('edits', el('span', { text: t('status.edits', { n: doc.editCount }) }));
     }
     this.appendSortFilter(tab);
 
-    this.element.append(
-      this.detail(
-        el('span', {
-          className: 'engine-tag',
-          text: t('status.engine', { engine: doc.engineName.toUpperCase() }),
-          attrs: { title: t('status.engineTitle') },
-        }),
-      ),
+    this.place(
+      'engine',
+      el('span', {
+        className: 'engine-tag',
+        text: t('status.engine', { engine: doc.engineName.toUpperCase() }),
+        attrs: { title: t('status.engineTitle') },
+      }),
     );
   }
 
@@ -274,48 +318,56 @@ export class StatusBar {
   }
 
   /**
-   * Append the read-only protection indicator and toggle. Locked: a static
-   * "Protected" badge plus an "Edit" button that unlocks. Unlocked: a
-   * "Protect" button that re-locks — mirrors the File > Protect Book
-   * menu toggle (`file.toggleProtect`), see `AppState.setReadOnly`.
+   * Append the protection switch: "Edit" and "Protected", with the current
+   * one pressed. Choosing the other runs File > Protect File
+   * (`file.toggleProtect`, see `AppState.setReadOnly`).
    */
   private appendProtection(tab: Tab): void {
-    if (tab.readOnly) {
-      this.element.append(
-        el('span', { className: 'status-protected', attrs: { title: t('status.protectedTitle') } }, [
-          createIcon(Lock, 'status-protected-icon', 12),
-          el('span', { text: t('status.protected') }),
-        ]),
-      );
-    }
-    const button = el(
-      'button',
-      {
-        className: 'status-protect-toggle',
-        attrs: {
-          type: 'button',
-          title: t(tab.readOnly ? 'status.protect.editTitle' : 'status.protect.protectTitle'),
+    const choice = (protectedSide: boolean): HTMLElement => {
+      const pressed = tab.readOnly === protectedSide;
+      const button = el(
+        'button',
+        {
+          className: protectedSide ? 'status-protect-on' : 'status-protect-edit',
+          attrs: {
+            type: 'button',
+            'aria-pressed': String(pressed),
+            title: pressed
+              ? t(protectedSide ? 'status.protectedTitle' : 'status.editingTitle')
+              : t(protectedSide ? 'status.protect.protectTitle' : 'status.protect.editTitle'),
+          },
         },
-      },
-      [
-        createIcon(tab.readOnly ? LockOpen : Lock, 'status-protect-toggle-icon', 12),
-        el('span', { text: t(tab.readOnly ? 'status.protect.edit' : 'status.protect.protect') }),
-      ],
+        [
+          ...(protectedSide ? [createIcon(Lock, 'status-protected-icon', 12)] : []),
+          el('span', { text: t(protectedSide ? 'status.protected' : 'status.protect.edit') }),
+        ],
+      );
+      if (!pressed) {
+        button.addEventListener('click', this.onToggleProtect);
+      }
+      return button;
+    };
+    this.element.append(
+      el(
+        'span',
+        { className: 'status-protect', attrs: { role: 'group', 'aria-label': t('status.protect.group') } },
+        [choice(false), choice(true)],
+      ),
     );
-    button.addEventListener('click', this.onToggleProtect);
-    this.element.append(button);
   }
 
   /**
-   * Append the app version, right-aligned as the last segment of the status
-   * bar. Two variants are rendered together — the full localized "Version
-   * v1.2.3" text and a bare "v1.2.3" — and CSS picks one per breakpoint
-   * (`.status-version-full`/`.status-version-short` in styles.css): mobile
-   * shows only the short form to save space (#478), desktop only the full
-   * one. Rendering both (rather than swapping text at render time) keeps
-   * this independent of viewport width, which this module never reads.
+   * The bar's right end: the Details button (items set to show there), the
+   * app version, the spreadsheet zoom (− , the zoom levels, +) and full
+   * screen. Two versions are drawn — "Version v1.2.3" and a bare
+   * "v1.2.3" — and CSS picks one per breakpoint (a phone shows the short one,
+   * #478), so this never reads the viewport width.
    */
-  private appendVersion(): void {
+  private appendEnd(tab: Tab | null): void {
+    if (this.detailItems.length > 0) {
+      this.element.append(this.detailsButton());
+    }
+    const end = el('span', { className: 'status-end' });
     const version = el('span', { className: 'status-version' }, [
       el('span', {
         className: 'status-version-full',
@@ -323,9 +375,127 @@ export class StatusBar {
       }),
       el('span', { className: 'status-version-short', text: APP_VERSION_DISPLAY }),
     ]);
-    // With a document open, a phone keeps the version behind Details too;
-    // with none open it is all the bar shows.
-    this.element.append(this.state.activeTab ? this.detail(version) : version);
+    // With no document open, the version is all the bar shows.
+    if (tab) {
+      this.place('version', version, end);
+    } else {
+      end.append(version);
+    }
+    if (tab && this.commands?.isEnabled('view.zoom.in')) {
+      end.append(this.zoomControl(tab));
+    }
+    if (this.commands?.isEnabled('view.fullscreen')) {
+      end.append(this.fullscreenButton());
+    }
+    this.element.append(end);
+  }
+
+  /** − , a list of the zoom levels (and the current one when it is not a level), + . */
+  private zoomControl(tab: Tab): HTMLElement {
+    const commands = this.commands!;
+    const step = (id: CommandId, icon: typeof Plus, label: string): HTMLElement => {
+      const button = el('button', {
+        className: 'status-icon-button',
+        attrs: { type: 'button', 'aria-label': label, 'data-tooltip': label },
+      });
+      button.append(createIcon(icon, 'status-icon', 14));
+      button.addEventListener('click', () => void commands.run(id));
+      return button;
+    };
+    const levels: number[] = [...SHEET_ZOOM_LEVELS];
+    if (!levels.includes(tab.zoom)) {
+      levels.push(tab.zoom);
+      levels.sort((a, b) => a - b);
+    }
+    const select = el(
+      'select',
+      {
+        className: 'status-zoom-select',
+        attrs: { 'aria-label': t('status.zoom'), 'data-tooltip': t('status.zoom') },
+      },
+      levels.map((level) => el('option', { text: `${level}%`, attrs: { value: String(level) } })),
+    ) as HTMLSelectElement;
+    select.value = String(tab.zoom);
+    select.addEventListener('change', () => {
+      const id = `view.zoom.${select.value}` as CommandId;
+      if ((SHEET_ZOOM_LEVELS as readonly number[]).includes(Number(select.value))) {
+        void commands.run(id);
+      }
+    });
+    return el(
+      'span',
+      { className: 'status-zoom', attrs: { role: 'group', 'aria-label': t('status.zoom') } },
+      [
+        step('view.zoom.out', Minus, t('menu.view.zoomOut')),
+        select,
+        step('view.zoom.in', Plus, t('menu.view.zoomIn')),
+      ],
+    );
+  }
+
+  private fullscreenButton(): HTMLElement {
+    const on = document.fullscreenElement != null;
+    const label = t(on ? 'status.exitFullscreen' : 'menu.view.fullscreen');
+    const button = el('button', {
+      className: 'status-icon-button status-fullscreen',
+      attrs: { type: 'button', 'aria-label': label, 'aria-pressed': String(on), 'data-tooltip': label },
+    });
+    button.append(createIcon(on ? Minimize : Maximize, 'status-icon', 14));
+    button.addEventListener('click', () => void this.commands?.run('view.fullscreen'));
+    return button;
+  }
+
+  /** The desktop Details button: the items set to show behind it, and a way to change that. */
+  private detailsButton(): HTMLElement {
+    const button = el('button', {
+      className: 'status-more',
+      text: t('status.details'),
+      attrs: { type: 'button', 'aria-haspopup': 'dialog' },
+    });
+    const items = this.detailItems;
+    button.addEventListener('click', () => {
+      void openAnchoredPopover({
+        placement: { kind: 'below', rect: button.getBoundingClientRect() },
+        label: t('status.details'),
+        className: 'status-details-popover',
+        build: (root, close) => {
+          const list = el(
+            'ul',
+            { className: 'status-details-list' },
+            items.map((item) => {
+              const copy = item.cloneNode(true) as HTMLElement;
+              copy.classList.remove('status-detail', 'status-in-details');
+              copy.removeAttribute('role');
+              return el('li', {}, [copy]);
+            }),
+          );
+          const customize = el('button', {
+            className: 'status-customize',
+            text: t('menu.view.customizeStatusBar'),
+            attrs: { type: 'button' },
+          });
+          customize.addEventListener('click', () => {
+            close();
+            void this.commands?.run('view.customizeStatusBar');
+          });
+          root.append(list, customize);
+        },
+      });
+    });
+    return button;
+  }
+
+  private openMenu(x: number, y: number): void {
+    ContextMenu.open(
+      [
+        {
+          label: t('menu.view.customizeStatusBar'),
+          onSelect: () => void this.commands?.run('view.customizeStatusBar'),
+        },
+      ],
+      x,
+      y,
+    );
   }
 
   /**
@@ -340,12 +510,12 @@ export class StatusBar {
    * re-announces on each `render()`.
    */
   private appendSelection(tab: Tab): void {
-    if (!tab.selection) {
+    if (!tab.selection || getStatusItemPlace('selection') === 'hidden') {
       return;
     }
     const region = el('span', { className: 'status-selection', attrs: { role: 'status' } });
     region.append(this.selectionLabel(tab.selection.row, tab.selection.col));
-    this.element.append(region);
+    this.place('selection', region);
 
     const range = this.state.selectedRange(tab);
     if (!range) {

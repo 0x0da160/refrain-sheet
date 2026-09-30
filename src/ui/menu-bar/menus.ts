@@ -463,6 +463,7 @@ function viewMenu(checks: MenuChecks): MenuDef {
       { labelKey: 'menu.view.highlightCol', command: 'view.highlightCol', checked: checks.highlightCol },
       { labelKey: 'menu.view.toolbar', command: 'view.toolbar', checked: checks.toolbar },
       { labelKey: 'menu.view.customizeToolbar', command: 'view.customizeToolbar' },
+      { labelKey: 'menu.view.customizeStatusBar', command: 'view.customizeStatusBar' },
       { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
       {
         labelKey: 'menu.view.autoFitOnOpen',

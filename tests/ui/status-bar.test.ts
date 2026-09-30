@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
+import { Commands, type UiPort } from '../../src/app/commands';
+import { setLocale, t } from '../../src/app/i18n';
+import { getStatusItemPlace, setStatusItemPlace, STATUS_ITEMS } from '../../src/app/status-bar-prefs';
+import { customizeStatusBar } from '../../src/ui/dialogs/status-bar-customize';
 import { StatusBar } from '../../src/ui/status-bar';
 import { doc } from '../helpers';
 
@@ -81,5 +85,122 @@ describe('StatusBar file details (#594)', () => {
       false,
     );
     expect(statusBar.element.querySelector('.status-details-toggle')).toBeNull();
+  });
+});
+
+describe('StatusBar items, zoom, full screen and protection', () => {
+  function withCommands(csv = 'a,1\nb,2\n') {
+    localStorage.clear();
+    setLocale('en');
+    const state = new AppState();
+    const commands = new Commands(
+      state,
+      new Proxy({} as UiPort, { get: () => vi.fn(async () => null) }),
+      document,
+    );
+    const tab = state.addTab('data.csv', doc(csv), null);
+    const toggle = vi.fn();
+    const statusBar = new StatusBar(state, () => undefined, toggle, commands);
+    document.body.append(statusBar.element);
+    return { state, commands, tab, toggle, statusBar };
+  }
+
+  it('shows each item in the bar, behind Details, or not at all, as chosen', () => {
+    const { statusBar } = withCommands();
+    expect(statusBar.element.textContent).toContain('Delimiter');
+    expect(statusBar.element.querySelector('.status-more')).toBeNull();
+    setStatusItemPlace('delimiter', 'details');
+    setStatusItemPlace('engine', 'hidden');
+    statusBar.render();
+    const inDetails = statusBar.element.querySelectorAll('.status-in-details');
+    expect([...inDetails].map((node) => node.textContent)).toEqual(['Delimiter: Comma']);
+    expect(statusBar.element.textContent).not.toContain('Engine');
+    const more = statusBar.element.querySelector<HTMLButtonElement>('.status-more')!;
+    more.click();
+    const popover = document.querySelector('.status-details-popover')!;
+    expect(popover.textContent).toContain('Delimiter: Comma');
+    expect(popover.textContent).toContain(t('menu.view.customizeStatusBar'));
+  });
+
+  it('keeps the places in this browser, ignoring anything unreadable', () => {
+    localStorage.clear();
+    setStatusItemPlace('size', 'hidden');
+    expect(getStatusItemPlace('size')).toBe('hidden');
+    setStatusItemPlace('size', 'bar');
+    expect(localStorage.getItem('refrain-csv-html.statusItems')).toBeNull();
+    localStorage.setItem('refrain-csv-html.statusItems', '{"size":"nowhere","kind":"details"}');
+    expect(getStatusItemPlace('size')).toBe('bar');
+    expect(getStatusItemPlace('kind')).toBe('details');
+    localStorage.setItem('refrain-csv-html.statusItems', 'not json');
+    expect(getStatusItemPlace('kind')).toBe('bar');
+  });
+
+  it('zooms the spreadsheet from − , the list of levels and +', async () => {
+    const { tab, statusBar } = withCommands();
+    const select = statusBar.element.querySelector<HTMLSelectElement>('.status-zoom-select')!;
+    expect(select.value).toBe('100');
+    expect([...select.options].map((o) => o.value)).toEqual([
+      '50',
+      '75',
+      '90',
+      '100',
+      '110',
+      '125',
+      '150',
+      '200',
+    ]);
+    select.value = '150';
+    select.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(tab.zoom).toBe(150));
+    statusBar.render();
+    statusBar.element.querySelector<HTMLButtonElement>(`[aria-label="${t('menu.view.zoomIn')}"]`)!.click();
+    await vi.waitFor(() => expect(tab.zoom).toBe(200));
+    statusBar.render();
+    statusBar.element.querySelector<HTMLButtonElement>(`[aria-label="${t('menu.view.zoomOut')}"]`)!.click();
+    await vi.waitFor(() => expect(tab.zoom).toBe(150));
+  });
+
+  it('lists a zoom that is not one of the levels', () => {
+    const { tab, statusBar } = withCommands();
+    tab.zoom = 80;
+    statusBar.render();
+    const select = statusBar.element.querySelector<HTMLSelectElement>('.status-zoom-select')!;
+    expect(select.value).toBe('80');
+  });
+
+  it('switches protection between Edit and Protected, the current one pressed', () => {
+    const { state, tab, toggle, statusBar } = withCommands();
+    state.setReadOnly(tab, true);
+    statusBar.render();
+    const edit = statusBar.element.querySelector<HTMLButtonElement>('.status-protect-edit')!;
+    const on = statusBar.element.querySelector<HTMLButtonElement>('.status-protect-on')!;
+    expect(on.getAttribute('aria-pressed')).toBe('true');
+    expect(edit.getAttribute('aria-pressed')).toBe('false');
+    on.click();
+    expect(toggle).not.toHaveBeenCalled();
+    edit.click();
+    expect(toggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers Customize Status Bar… on a right-click', () => {
+    const { statusBar } = withCommands();
+    statusBar.element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    expect(document.body.textContent).toContain(t('menu.view.customizeStatusBar'));
+  });
+});
+
+describe('View > Customize Status Bar…', () => {
+  it('lists every item with its place, saving and redrawing at each change', () => {
+    localStorage.clear();
+    setLocale('en');
+    const onChange = vi.fn();
+    void customizeStatusBar(onChange);
+    const select = document.querySelector<HTMLSelectElement>('#status-item-encoding')!;
+    expect(document.querySelectorAll('[data-item]')).toHaveLength(STATUS_ITEMS.length);
+    expect(select.value).toBe('bar');
+    select.value = 'details';
+    select.dispatchEvent(new Event('change'));
+    expect(getStatusItemPlace('encoding')).toBe('details');
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 });

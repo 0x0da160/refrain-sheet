@@ -119,12 +119,20 @@ function submenuLabels(): (string | null)[] {
   );
 }
 
+/** The `depth`-th open submenu (1 = the first level) and its items by label. */
+function submenuItem(depth: number, label: string): HTMLButtonElement {
+  const lists = document.querySelectorAll('.context-menu.submenu');
+  return Array.from(lists[depth - 1].querySelectorAll<HTMLButtonElement>(':scope > .menu-item')).find(
+    (b) => b.querySelector('.label')?.textContent === label,
+  )!;
+}
+
 beforeEach(() => {
   document.body.textContent = '';
 });
 
 describe('the grid right-click menu (#396)', () => {
-  it('keeps Cut/Copy/Paste/Select All at the top level and groups the rest into Edit / Rows & Columns', () => {
+  it('keeps the clipboard actions first and groups each family the way the menu bar does', () => {
     const { state, grid, tab } = grid3x3();
     state.setSelection(tab, { row: 0, col: 0 }, null);
     openCellContextMenu(grid);
@@ -132,14 +140,17 @@ describe('the grid right-click menu (#396)', () => {
     expect(topLevelLabels()).toEqual([
       t('menu.edit.cut'),
       t('menu.edit.copy'),
+      t('menu.edit.copyAs'),
       t('menu.edit.paste'),
+      t('menu.edit.pasteSpecial'),
       t('menu.edit.selectAll'),
-      t('menu.edit'),
-      t('menu.data.comment'),
-      t('menu.sheet.headerFilter'),
-      t('menu.sheet.filter'),
-      t('menu.sheet.filterClear'),
+      t('menu.edit.insertCopied'),
+      t('menu.edit.fill'),
+      t('menu.edit.moveRange'),
       t('menu.sheet.rowsAndColumns'),
+      t('menu.sheet.filterSort'),
+      t('menu.data.comment'),
+      t('menu.edit.revertCell'),
     ]);
   });
 
@@ -159,22 +170,37 @@ describe('the grid right-click menu (#396)', () => {
     }
   });
 
-  it('reaches every previously-flat edit command inside the Edit submenu', () => {
+  it('offers the same Copy As list as the menu bar, with header choices one level deeper', () => {
     const { state, grid, tab } = grid3x3();
     state.setSelection(tab, { row: 0, col: 0 }, null);
     openCellContextMenu(grid);
 
-    openSubmenu(t('menu.edit'));
+    openSubmenu(t('menu.edit.copyAs'));
     expect(submenuLabels()).toEqual([
       t('menu.edit.copyScreenshot'),
-      t('menu.edit.copyAsMarkdown'),
-      t('menu.edit.insertCopiedCells'),
-      t('menu.edit.insertCopiedRows'),
-      t('menu.edit.insertCopiedCols'),
-      t('menu.edit.flashFill'),
-      t('menu.edit.moveRange'),
-      t('menu.edit.revertCell'),
+      t('menu.edit.copyAsMarkdownTable'),
+      t('menu.edit.copyAsBacklogTable'),
     ]);
+    submenuItem(1, t('menu.edit.copyAsBacklogTable')).click();
+    expect(document.querySelectorAll('.context-menu.submenu')).toHaveLength(2);
+    const backlog = Array.from(
+      document.querySelectorAll('.context-menu.submenu')[1].querySelectorAll('.label'),
+    );
+    expect(backlog.map((el) => el.textContent)).toEqual([
+      t('menu.edit.tableNoHeader'),
+      t('menu.edit.tableHeaderRow'),
+      t('menu.edit.tableHeaderCol'),
+    ]);
+    // Opening a sibling closes the deeper list.
+    submenuItem(1, t('menu.edit.copyAsMarkdownTable')).click();
+    expect(document.querySelectorAll('.context-menu.submenu')).toHaveLength(2);
+    expect(submenuItem(2, t('menu.edit.tableHeaderRow'))).toBeDefined();
+    // Escape leaves only the innermost list, and focus returns to its parent item.
+    submenuItem(2, t('menu.edit.tableHeaderRow')).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
+    expect(document.querySelectorAll('.context-menu.submenu')).toHaveLength(1);
+    expect(document.activeElement).toBe(submenuItem(1, t('menu.edit.copyAsMarkdownTable')));
   });
 
   it('reaches every previously-flat row/column command inside the Rows & Columns submenu', () => {
@@ -200,17 +226,15 @@ describe('the grid right-click menu (#396)', () => {
     const run = vi.spyOn(commands, 'run');
     openCellContextMenu(grid);
 
-    openSubmenu(t('menu.edit'));
-    // Revert Cell stays disabled (the cell was never edited), so exercise an
-    // always-enabled grouped command instead: Copy as Markdown only needs a
-    // selection, like the top-level Copy button does.
-    const copyAsMarkdown = Array.from(
-      document.querySelectorAll<HTMLButtonElement>('.context-menu.submenu > .menu-item'),
-    ).find((b) => b.querySelector('.label')?.textContent === t('menu.edit.copyAsMarkdown'))!;
-    expect(copyAsMarkdown.disabled).toBe(false);
-    copyAsMarkdown.click();
+    openSubmenu(t('menu.edit.copyAs'));
+    // A Markdown table only needs a selection, like the top-level Copy
+    // button does, so it is enabled here.
+    submenuItem(1, t('menu.edit.copyAsMarkdownTable')).click();
+    const noHeader = submenuItem(2, t('menu.edit.tableNoHeader'));
+    expect(noHeader.disabled).toBe(false);
+    noHeader.click();
 
-    expect(run).toHaveBeenCalledWith('edit.copyAsMarkdown');
+    expect(run).toHaveBeenCalledWith('edit.copyAsMarkdownNoHeader');
     // The whole context menu (including the submenu) closes after a selection.
     expect(document.querySelector('.context-menu')).toBeNull();
   });

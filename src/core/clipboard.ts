@@ -136,38 +136,101 @@ export function rangeToStyleMatrix(
   return out;
 }
 
+/** Reads a range's display values as rows of cells, each passed through `escape`. */
+function readTableRows(
+  doc: ReadableDocument,
+  range: CellRange,
+  rowList: readonly number[],
+  escape: (text: string) => string,
+): string[][] {
+  return rowList.map((r) => {
+    const cells: string[] = [];
+    for (let c = range.left; c <= range.right; c++) {
+      cells.push(escape(doc.getDisplayValue(r, c)));
+    }
+    return cells;
+  });
+}
+
 /**
- * Build a GitHub-Flavored Markdown table from a range (display values): the
- * range's first row becomes the header, followed by the `---` separator row
- * GFM requires, then the remaining rows. Cell newlines are collapsed to
- * spaces and `|` is escaped, since GFM table cells cannot contain literal
- * pipes or line breaks. `rows` limits the copy to specific document rows
- * (see {@link rangeToTsv}).
+ * Build a GitHub-Flavored Markdown table from a range (display values). With
+ * `header` (the default) the range's first row becomes the header, followed
+ * by the `---` separator row GFM requires, then the remaining rows. Without
+ * it, every row is data under an empty header row, since a GFM table cannot
+ * omit its header. Cell newlines are collapsed to spaces and `|` is escaped,
+ * since GFM table cells cannot contain literal pipes or line breaks. `rows`
+ * limits the copy to specific document rows (see {@link rangeToTsv}).
  */
 export function rangeToMarkdownTable(
   doc: ReadableDocument,
   range: CellRange,
   rows?: readonly number[],
+  header = true,
 ): string {
   const rowList = rows ?? copyRows(range, null);
   if (rowList.length === 0) {
     return '';
   }
   const escapeCell = (text: string): string => text.replace(/\r\n|\r|\n/g, ' ').replace(/\|/g, '\\|');
-  const readRow = (r: number): string[] => {
-    const cells: string[] = [];
-    for (let c = range.left; c <= range.right; c++) {
-      cells.push(escapeCell(doc.getDisplayValue(r, c)));
-    }
-    return cells;
-  };
   const toLine = (cells: string[]): string => `| ${cells.join(' | ')} |`;
   const width = range.right - range.left + 1;
-  const lines = [toLine(readRow(rowList[0])), toLine(new Array(width).fill('---') as string[])];
-  for (let i = 1; i < rowList.length; i++) {
-    lines.push(toLine(readRow(rowList[i])));
+  const body = readTableRows(doc, range, rowList, escapeCell).map(toLine);
+  const separator = toLine(new Array(width).fill('---') as string[]);
+  if (!header) {
+    return ['|' + ' |'.repeat(width), separator, ...body].join('\n');
   }
-  return lines.join('\n');
+  return [body[0], separator, ...body.slice(1)].join('\n');
+}
+
+/** Which cells a Backlog table marks as headings: none, the first row (`h`), or the first column (`~`). */
+type BacklogTableHeader = 'none' | 'row' | 'col';
+
+/** The text table formats Copy As offers. */
+export type TableCopyFormat =
+  'markdown' | 'markdownNoHeader' | 'backlog' | 'backlogHeaderRow' | 'backlogHeaderCol';
+
+/** A range as text in one of the {@link TableCopyFormat}s (see the formatters above and below). */
+export function rangeToTextTable(
+  doc: ReadableDocument,
+  range: CellRange,
+  rows: readonly number[] | undefined,
+  format: TableCopyFormat,
+): string {
+  switch (format) {
+    case 'markdown':
+      return rangeToMarkdownTable(doc, range, rows);
+    case 'markdownNoHeader':
+      return rangeToMarkdownTable(doc, range, rows, false);
+    case 'backlog':
+      return rangeToBacklogTable(doc, range, rows, 'none');
+    case 'backlogHeaderRow':
+      return rangeToBacklogTable(doc, range, rows, 'row');
+    case 'backlogHeaderCol':
+      return rangeToBacklogTable(doc, range, rows, 'col');
+  }
+}
+
+/**
+ * Build a table in Backlog's wiki notation from a range (display values):
+ * `| a | b |` per row. `header` marks the first row as headings with a
+ * trailing `h`, or the first column with a leading `|~` on every row. Cell
+ * line breaks become Backlog's `&br;`, and a `|` inside a cell becomes the
+ * full-width `｜`, since the notation has no escape for a literal pipe.
+ */
+function rangeToBacklogTable(
+  doc: ReadableDocument,
+  range: CellRange,
+  rows: readonly number[] | undefined,
+  header: BacklogTableHeader,
+): string {
+  const rowList = rows ?? copyRows(range, null);
+  const escapeCell = (text: string): string => text.replace(/\r\n|\r|\n/g, '&br;').replace(/\|/g, '｜');
+  return readTableRows(doc, range, rowList, escapeCell)
+    .map((cells, i) => {
+      const line = `${header === 'col' ? '|~' : '|'} ${cells.join(' | ')} |`;
+      return header === 'row' && i === 0 ? `${line}h` : line;
+    })
+    .join('\n');
 }
 
 /** Split one Markdown table row into trimmed cells, unescaping `\|`. Leading/trailing `|` are optional. */

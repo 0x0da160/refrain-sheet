@@ -202,7 +202,7 @@ function wireCommandActions(
     cut: () => (onTextSheet() ? inTextSheet('cut') : clipboard.cutViaApi()),
     copy: () => (onTextSheet() ? inTextSheet('copy') : clipboard.copyViaApi()),
     copyScreenshot: () => clipboard.copyScreenshotAsPng(),
-    copyAsMarkdown: () => clipboard.copyMarkdownTable(),
+    copyAsTable: (format) => clipboard.copyTextTable(format),
     paste: () => (onTextSheet() ? inTextSheet('paste') : clipboard.pasteViaApi()),
     pasteValues: () => clipboard.pasteValuesViaApi(),
     pasteFormats: () => clipboard.pasteFormatsViaApi(),

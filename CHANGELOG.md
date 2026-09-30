@@ -50,19 +50,21 @@ really is internal, rather than inventing an entry to satisfy it.
   Borders chosen from the toolbar or the right-click menu open as a small
   panel beside the button instead of the side panel; from the Format menu
   they still open in the side panel.
-- **Align cell text left, center or right.** Format > Align Left, Align
-  Center and Align Right, and three new toolbar buttons, place the text of
+- Type a rectangle's, an ellipse's or a text box's text right on the shape: double-click it (or press F2 with it selected). Enter starts a new line, Ctrl+Enter or clicking elsewhere keeps the text as one undo step, and Escape puts it back. Double-clicking any other object still opens its settings, and the object list now says how both work.
+- Hold Alt while resizing an object to put the edges you drag on the nearest cell edges, as Alt already does when moving one.
+- A folder button next to the sheet tabs' + puts the current sheet in a new folder.
+- With the sheet tabs on the left, drag the list's right edge (or focus it and use the arrow keys) to make it wider or narrower; double-click the edge to go back to the standard width. The width is kept in this browser.
+- The status bar's right end has the spreadsheet zoom (−, a list of the zoom levels, +) and a Full Screen button (on a desktop-width window; a phone keeps them in the View menu).
+- **Align cell text left, center or right.** Format > Text Alignment > Align
+  Left, Align Center and Align Right, and three new toolbar buttons, place the text of
   the selected cells. Pressing the alignment the cells already have takes
   them back to the left. The alignment is saved in the RSF file and shows on
   screen, in print and PDF, and in Copy as Image. Older versions of the app
   open such files and show the text at the left.
-- Type a rectangle's, an ellipse's or a text box's text right on the shape: double-click it (or press F2 with it selected). Enter starts a new line, Ctrl+Enter or clicking elsewhere keeps the text as one undo step, and Escape puts it back. Double-clicking any other object still opens its settings, and the object list now says how both work.
-- Hold Alt while resizing an object to put the edges you drag on the nearest cell edges, as Alt already does when moving one.
-- Add a CSV file to an RSF file as a new sheet: Sheet > Add Sheet from CSV File…, or From a CSV File… in the Add Sheet dialog. Each file becomes a sheet named after it, read with the same encoding detection as opening it; the CSV file itself is left unchanged.
-- A folder button next to the sheet tabs' + puts the current sheet in a new folder.
-- With the sheet tabs on the left, drag the list's right edge (or focus it and use the arrow keys) to make it wider or narrower; double-click the edge to go back to the standard width. The width is kept in this browser.
-- Choose what the status bar shows: View > Customize Status Bar… (or right-click the status bar) sets each item — file type, encoding, delimiter, line endings, size, rows × columns, formula count, edited cells, filter, sort, CSV engine, the selected cell and totals, version — to show in the bar, in Details, or not at all. Items in Details open from the Details button at the right end. The choice is kept in this browser.
-- The status bar's right end has the spreadsheet zoom (−, a list of the zoom levels, +) and a Full Screen button (on a desktop-width window; a phone keeps them in the View menu).
+- Add a CSV file to an RSF file as a new sheet: Sheet > Manage Sheets > New Sheet > Add Sheet from CSV File…, or From a CSV File… in the Add Sheet dialog. Each file becomes a sheet named after it, read with the same encoding detection as opening it; the CSV file itself is left unchanged.
+- Choose what the status bar shows: View > Toolbar & Status Bar > Customize Status Bar… (or right-click the status bar) sets each item — file type, encoding, delimiter, line endings, size, rows × columns, formula count, edited cells, filter, sort, CSV engine, the selected cell and totals, version — to show in the bar, in Details, or not at all. Items in Details open from the Details button at the right end. The choice is kept in this browser.
+- Copy a selection as a Backlog table: Edit > Copy As > Backlog Table (also on the cell right-click menu) copies the selected cells in Backlog's table notation, with no header, the first row as header (`|h`), or the first column as header (`|~`).
+- Copy a Markdown table with or without a header row: Edit > Copy As > Markdown Table now asks whether the first row is the header; No Header writes an empty header row and keeps every selected row as data.
 
 ### Changed
 
@@ -89,6 +91,7 @@ really is internal, rather than inventing an entry to satisfy it.
 - Objects now stay on whole pixels: an edit rounds their position and size to whole pixels, line widths to whole pixels of at least 1, and text sizes to whole points, and the object list takes whole numbers only for line width and text size. A fractional value from an older file is kept until the object is next edited.
 - Renaming a sheet or a sheet folder now happens on its tab: double-click it (or press F2) and type. Enter keeps the name, Escape puts the old one back, and a name that cannot be used says why without closing the field. Double-clicking a sheet that was not active now renames it too.
 - The status bar's protection control is now one switch, Edit | Protected, with the current state pressed, instead of a "Protected" label beside an "Edit" or "Protect" button.
+- Shorter menus: related commands now sit together in submenus, and a submenu can open one more level inside it: Edit > Fill; Sheet > Manage Sheets > New Sheet, Sheet Folders and Move Sheet; Insert > Shape, Arrange Objects and Save Objects as Image; Format > Text Alignment and Number Format; View > Sticky Rows & Columns, Grid Look, Toolbar & Status Bar and Language. The right-click menus for cells, sheet tabs and shapes are grouped the same way. The CSV-only edition follows the same layout.
 
 ### Fixed
 

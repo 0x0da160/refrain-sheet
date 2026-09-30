@@ -439,6 +439,32 @@ describe('SheetBar tab colors', () => {
     expect(b.style.getPropertyValue('--sheet-tab-color')).toBe('#287ccf');
   });
 
+  it('groups the tab context menu: new sheets, folders and moves each open one level deeper', () => {
+    const { bar } = setup(['A', 'B']);
+    tabs(bar)[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    const top = Array.from(document.querySelectorAll('.context-menu:not(.submenu) > .menu-item .label')).map(
+      (el) => el.textContent,
+    );
+    expect(top).toEqual([
+      t('menu.sheet.newSheet'),
+      t('menu.sheet.renameSheet'),
+      t('menu.sheet.tabColor'),
+      t('menu.sheet.duplicateSheet'),
+      t('menu.sheet.deleteSheet'),
+      t('menu.sheet.folders'),
+      t('menu.sheet.lockSheet'),
+      t('menu.sheet.moveSheet'),
+    ]);
+    Array.from(document.querySelectorAll<HTMLButtonElement>('.context-menu > .menu-item'))
+      .find((b) => b.textContent?.includes(t('menu.sheet.newSheet')))!
+      .click();
+    const kinds = Array.from(document.querySelectorAll('.context-menu.submenu .label')).map(
+      (el) => el.textContent,
+    );
+    expect(kinds).toContain(t('menu.sheet.addCsvSheet'));
+    expect(kinds).toContain(t('menu.sheet.addMarkdownSheet'));
+  });
+
   it('offers Sheet Tab Color… in the tab context menu', () => {
     const { bar } = setup(['A']);
     tabs(bar)[0].dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));

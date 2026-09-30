@@ -18,7 +18,20 @@ import {
   History,
   Layers,
   AlignStartVertical,
+  AlignCenter,
+  ArrowDownToLine,
+  FileCode,
+  FilePlus2,
+  Folder,
+  Grid3x3,
+  Hash,
+  ImageDown,
+  Languages,
   ListFilter,
+  PanelTop,
+  Pin,
+  Shapes,
+  Table2,
   SwatchBook,
   Table,
   Type as TypeIcon,
@@ -30,11 +43,21 @@ import { isCommandAvailable } from '../../app/edition';
 import { pruneItems } from './prune';
 import type { Arrangement } from '../../core/workbook/object-arrange';
 import { getLocale } from '../../app/i18n';
-import { getShiftPasteMode, SHEET_ZOOM_LEVELS, type ShiftPasteMode } from '../../app/settings';
+import { getShiftPasteMode, type ShiftPasteMode } from '../../app/settings';
 import { displayShortcut, isMacPlatform } from '../../app/shortcuts';
-import { SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../../app/sheet-font';
-import { DENSITIES, densityLabelKey, type DensityChoice } from '../../app/density';
-import { THEMES, themeLabelKey, type ThemeChoice } from '../../app/theme';
+import type { SheetFontId } from '../../app/sheet-font';
+import type { DensityChoice } from '../../app/density';
+import type { ThemeChoice } from '../../app/theme';
+import {
+  barItems,
+  densityItems,
+  freezeItems,
+  gridLookItems,
+  moveTabItems,
+  sheetFontItems,
+  themeItems,
+  zoomItems,
+} from './view-items';
 
 /** Menu shortcut labels name Cmd instead of Ctrl on macOS. */
 const IS_MAC = isMacPlatform();
@@ -213,9 +236,10 @@ function editMenu(): MenuDef {
       'separator',
       { labelKey: 'menu.edit.cut', command: 'edit.cut', shortcut: 'Ctrl+X' },
       { labelKey: 'menu.edit.copy', command: 'edit.copy', shortcut: 'Ctrl+C' },
-      // Copy Image and Copy as Markdown Table are alternate copy formats,
+      // Copy Image and the text-table formats are alternate copy formats,
       // not the everyday Copy — grouped into their own submenu, the same
-      // way Insert Copied's three variants are below (#518).
+      // way Insert Copied's three variants are below (#518). Each table
+      // format's header choices are one level deeper.
       { labelKey: 'menu.edit.copyAs', icon: ClipboardCopy, submenu: copyAsItems() },
       { labelKey: 'menu.edit.paste', command: 'edit.paste', shortcut: 'Ctrl+V' },
       {
@@ -251,8 +275,14 @@ function editMenu(): MenuDef {
           { labelKey: 'menu.edit.insertCopiedCols', command: 'edit.insertCopiedCols' },
         ],
       },
-      { labelKey: 'menu.edit.fillDown', command: 'edit.fillDown', shortcut: 'Ctrl+D' },
-      { labelKey: 'menu.edit.flashFill', command: 'edit.flashFill', shortcut: 'Ctrl+E' },
+      {
+        labelKey: 'menu.edit.fill',
+        icon: ArrowDownToLine,
+        submenu: [
+          { labelKey: 'menu.edit.fillDown', command: 'edit.fillDown', shortcut: 'Ctrl+D' },
+          { labelKey: 'menu.edit.flashFill', command: 'edit.flashFill', shortcut: 'Ctrl+E' },
+        ],
+      },
       {
         labelKey: 'menu.edit.insertDateTime',
         icon: CalendarClock,
@@ -305,6 +335,7 @@ function sheetMenu(checks: MenuChecks): MenuDef {
       { labelKey: 'menu.sheet.recalculate', command: 'sheet.recalculate', shortcut: 'F9' },
       { labelKey: 'menu.sheet.timezone', command: 'sheet.timezone' },
       { labelKey: 'menu.sheet.displayLanguage', command: 'sheet.displayLanguage' },
+      'separator',
       { labelKey: 'menu.sheet.versionHistory', command: 'sheet.versionHistory' },
       { labelKey: 'menu.sheet.clearVersionHistory', command: 'sheet.clearVersionHistory' },
     ],
@@ -317,37 +348,56 @@ function insertMenu(): MenuDef {
     items: [
       // Shapes, pictures and charts go on a spreadsheet sheet of an RSF file, at the
       // selected cell; the object list places, orders and locks them.
-      { labelKey: 'menu.insert.rectangle', command: 'insert.rectangle' },
-      { labelKey: 'menu.insert.ellipse', command: 'insert.ellipse' },
-      { labelKey: 'menu.insert.line', command: 'insert.line' },
-      { labelKey: 'menu.insert.arrow', command: 'insert.arrow' },
+      {
+        labelKey: 'menu.insert.shape',
+        icon: Shapes,
+        submenu: [
+          { labelKey: 'menu.insert.rectangle', command: 'insert.rectangle' },
+          { labelKey: 'menu.insert.ellipse', command: 'insert.ellipse' },
+          { labelKey: 'menu.insert.line', command: 'insert.line' },
+          { labelKey: 'menu.insert.arrow', command: 'insert.arrow' },
+        ],
+      },
       { labelKey: 'menu.insert.textBox', command: 'insert.textBox' },
       { labelKey: 'menu.insert.image', command: 'insert.image' },
       { labelKey: 'menu.insert.chart', command: 'insert.chart' },
       'separator',
       { labelKey: 'menu.insert.objectList', command: 'insert.objectList' },
+      { labelKey: 'menu.insert.arrange', icon: Layers, submenu: arrangeItems() },
+      { labelKey: 'menu.insert.deleteObject', command: 'object.delete' },
       {
-        labelKey: 'menu.insert.order',
-        icon: Layers,
+        labelKey: 'menu.insert.saveObjects',
+        icon: ImageDown,
         submenu: [
-          { labelKey: 'menu.insert.bringToFront', command: 'object.bringToFront' },
-          { labelKey: 'menu.insert.bringForward', command: 'object.bringForward' },
-          { labelKey: 'menu.insert.sendBackward', command: 'object.sendBackward' },
-          { labelKey: 'menu.insert.sendToBack', command: 'object.sendToBack' },
+          { labelKey: 'menu.insert.saveAsPng', command: 'object.saveAsPng' },
+          { labelKey: 'menu.insert.saveAsSvg', command: 'object.saveAsSvg' },
         ],
       },
-      { labelKey: 'menu.insert.align', icon: AlignStartVertical, submenu: alignItems() },
-      { labelKey: 'menu.insert.group', command: 'object.group' },
-      { labelKey: 'menu.insert.ungroup', command: 'object.ungroup' },
-      { labelKey: 'menu.insert.deleteObject', command: 'object.delete' },
-      'separator',
-      { labelKey: 'menu.insert.saveAsPng', command: 'object.saveAsPng' },
-      { labelKey: 'menu.insert.saveAsSvg', command: 'object.saveAsSvg' },
     ],
   };
 }
 
-/** Insert > Align: line the selected objects up, or space three or more evenly. */
+/** Insert > Arrange: stacking order, alignment, and grouping of the selected objects. */
+function arrangeItems(): Array<MenuItemDef | 'separator'> {
+  return [
+    {
+      labelKey: 'menu.insert.order',
+      icon: Layers,
+      submenu: [
+        { labelKey: 'menu.insert.bringToFront', command: 'object.bringToFront' },
+        { labelKey: 'menu.insert.bringForward', command: 'object.bringForward' },
+        { labelKey: 'menu.insert.sendBackward', command: 'object.sendBackward' },
+        { labelKey: 'menu.insert.sendToBack', command: 'object.sendToBack' },
+      ],
+    },
+    { labelKey: 'menu.insert.align', icon: AlignStartVertical, submenu: alignItems() },
+    'separator',
+    { labelKey: 'menu.insert.group', command: 'object.group' },
+    { labelKey: 'menu.insert.ungroup', command: 'object.ungroup' },
+  ];
+}
+
+/** Insert > Arrange > Align: line the selected objects up, or space three or more evenly. */
 function alignItems(): Array<MenuItemDef | 'separator'> {
   const item = (how: Arrangement): MenuItemDef => ({
     labelKey: `menu.insert.${how}`,
@@ -389,32 +439,30 @@ function formatMenu(checks: MenuChecks): MenuDef {
         checked: () => checks.formatActive('underline'),
       },
       { labelKey: 'menu.format.font', command: 'format.font' },
-      'separator',
       {
-        labelKey: 'menu.format.alignLeft',
-        command: 'format.alignLeft',
-        checked: () => checks.alignActive('left'),
-      },
-      {
-        labelKey: 'menu.format.alignCenter',
-        command: 'format.alignCenter',
-        checked: () => checks.alignActive('center'),
-      },
-      {
-        labelKey: 'menu.format.alignRight',
-        command: 'format.alignRight',
-        checked: () => checks.alignActive('right'),
+        labelKey: 'menu.format.alignment',
+        icon: AlignCenter,
+        submenu: [
+          {
+            labelKey: 'menu.format.alignLeft',
+            command: 'format.alignLeft',
+            checked: () => checks.alignActive('left'),
+          },
+          {
+            labelKey: 'menu.format.alignCenter',
+            command: 'format.alignCenter',
+            checked: () => checks.alignActive('center'),
+          },
+          {
+            labelKey: 'menu.format.alignRight',
+            command: 'format.alignRight',
+            checked: () => checks.alignActive('right'),
+          },
+        ],
       },
       'separator',
       { labelKey: 'menu.format.colorAndBorders', icon: SwatchBook, submenu: colorAndBordersItems() },
-      { labelKey: 'menu.format.numberFormat', command: 'format.numberFormat' },
-      { labelKey: 'menu.format.presetNumber', command: 'format.presetNumber', shortcut: 'Ctrl+Shift+1' },
-      {
-        labelKey: 'menu.format.presetCurrency',
-        command: 'format.presetCurrency',
-        shortcut: 'Ctrl+Shift+4',
-      },
-      { labelKey: 'menu.format.presetPercent', command: 'format.presetPercent', shortcut: 'Ctrl+Shift+5' },
+      { labelKey: 'menu.format.numbers', icon: Hash, submenu: numberFormatItems() },
       'separator',
       { labelKey: 'menu.format.conditionalFormatting', command: 'format.conditionalFormatting' },
       'separator',
@@ -442,34 +490,21 @@ function viewMenu(checks: MenuChecks): MenuDef {
     labelKey: 'menu.view',
     items: [
       { labelKey: 'menu.view.wrap', command: 'view.wrap', checked: checks.wrap },
-      {
-        labelKey: 'menu.view.stickyFirstRow',
-        command: 'view.stickyFirstRow',
-        checked: checks.stickyFirstRow,
-      },
-      {
-        labelKey: 'menu.view.stickyFirstColumn',
-        command: 'view.stickyFirstColumn',
-        checked: checks.stickyFirstColumn,
-      },
-      {
-        labelKey: 'menu.view.freezeAtSelection',
-        command: 'view.freezeAtSelection',
-        checked: checks.freezeAtSelection,
-      },
-      { labelKey: 'menu.view.bandedRows', command: 'view.bandedRows', checked: checks.bandedRows },
-      { labelKey: 'menu.view.gridlines', command: 'view.gridlines', checked: checks.gridlines },
-      { labelKey: 'menu.view.highlightRow', command: 'view.highlightRow', checked: checks.highlightRow },
-      { labelKey: 'menu.view.highlightCol', command: 'view.highlightCol', checked: checks.highlightCol },
-      { labelKey: 'menu.view.toolbar', command: 'view.toolbar', checked: checks.toolbar },
-      { labelKey: 'menu.view.customizeToolbar', command: 'view.customizeToolbar' },
-      { labelKey: 'menu.view.customizeStatusBar', command: 'view.customizeStatusBar' },
-      { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
-      {
-        labelKey: 'menu.view.autoFitOnOpen',
-        command: 'view.autoFitOnOpen',
-        checked: checks.autoFitOnOpen,
-      },
+      { labelKey: 'menu.view.freeze', icon: Pin, submenu: freezeItems(checks) },
+      { labelKey: 'menu.view.gridLook', icon: Grid3x3, submenu: gridLookItems(checks) },
+      'separator',
+      // Spreadsheet zoom, Spreadsheet Font, Theme and Density each live in
+      // their own submenu: grouping every choice family this way (rather
+      // than a heading followed by its options inline) keeps the top-level
+      // View menu to one line per family instead of growing with every
+      // added choice. They dispatch the identical shared commands as the
+      // shortcuts and Ctrl/Cmd + wheel.
+      { labelKey: 'menu.view.zoom', icon: ZoomIn, submenu: zoomItems(checks) },
+      { labelKey: 'menu.view.sheetFont', icon: TypeIcon, submenu: sheetFontItems(checks) },
+      { labelKey: 'menu.view.theme', icon: Contrast, submenu: themeItems(checks) },
+      { labelKey: 'menu.view.density', icon: Rows3, submenu: densityItems(checks) },
+      'separator',
+      { labelKey: 'menu.view.bars', icon: PanelTop, submenu: barItems(checks) },
       {
         labelKey: 'menu.view.sheetTabsVertical',
         command: 'view.sheetTabsVertical',
@@ -480,28 +515,28 @@ function viewMenu(checks: MenuChecks): MenuDef {
       // cannot reliably take over in every browser.
       { labelKey: 'menu.view.fullscreen', command: 'view.fullscreen', checked: checks.fullscreen },
       'separator',
-      // Spreadsheet zoom, Spreadsheet Font, and Theme each live in their own
-      // submenu: grouping every choice family this way (rather than a
-      // heading followed by its options inline) keeps the top-level View
-      // menu to one line per family instead of growing with every added
-      // choice. They dispatch the identical shared commands as the
-      // shortcuts and Ctrl/Cmd + wheel.
-      { labelKey: 'menu.view.zoom', icon: ZoomIn, submenu: zoomItems(checks) },
-      { labelKey: 'menu.view.sheetFont', icon: TypeIcon, submenu: sheetFontItems(checks) },
-      { labelKey: 'menu.view.theme', icon: Contrast, submenu: themeItems(checks) },
-      { labelKey: 'menu.view.density', icon: Rows3, submenu: densityItems(checks) },
+      { labelKey: 'menu.view.editHints', command: 'view.editHints', checked: checks.editHints },
+      {
+        labelKey: 'menu.view.autoFitOnOpen',
+        command: 'view.autoFitOnOpen',
+        checked: checks.autoFitOnOpen,
+      },
       'separator',
       // Tab movement stays menu/context-menu driven: every remaining
       // Ctrl/Alt+arrow-style accelerator conflicts with browser or OS tab
       // and history shortcuts, so no shortcut is assigned by design.
       { labelKey: 'menu.view.moveTab', icon: ArrowLeftRight, submenu: moveTabItems() },
-      'separator',
       // Language lives under View (no top-level Language menu). Switching
       // is immediate, persisted locally, and initialized from the browser
       // language with an English fallback — unchanged behavior.
-      { labelKey: 'menu.language', heading: true },
-      { labelKey: 'English', command: 'lang.en', checked: () => getLocale() === 'en' },
-      { labelKey: '日本語', command: 'lang.ja', checked: () => getLocale() === 'ja' },
+      {
+        labelKey: 'menu.language',
+        icon: Languages,
+        submenu: [
+          { labelKey: 'English', command: 'lang.en', checked: () => getLocale() === 'en' },
+          { labelKey: '日本語', command: 'lang.ja', checked: () => getLocale() === 'ja' },
+        ],
+      },
     ],
   };
 }
@@ -518,88 +553,6 @@ function helpMenu(): MenuDef {
 }
 
 /**
- * The spreadsheet-zoom presets plus Reset Zoom (View > Spreadsheet Zoom).
- * This is application-level zoom for the spreadsheet area only — browser
- * zoom and its keyboard shortcuts are never touched or intercepted.
- */
-function zoomItems(checks: MenuChecks): MenuItemDef[] {
-  const levels: Array<{ level: (typeof SHEET_ZOOM_LEVELS)[number]; command: CommandId }> =
-    SHEET_ZOOM_LEVELS.map((level) => ({ level, command: `view.zoom.${level}` as CommandId }));
-  return [
-    // Zoom In/Out step through the presets; their shortcuts (and Ctrl/Cmd +
-    // mouse wheel) drive the same shared commands, so the menu remains a
-    // complete alternative. Browser zoom keys are never intercepted.
-    { labelKey: 'menu.view.zoomIn', command: 'view.zoom.in', shortcut: 'Ctrl+Shift+.' },
-    { labelKey: 'menu.view.zoomOut', command: 'view.zoom.out', shortcut: 'Ctrl+Shift+,' },
-    ...levels.map(({ level, command }) => ({
-      labelKey: `${level}%`,
-      command,
-      checked: () => checks.zoom() === level,
-    })),
-    { labelKey: 'menu.view.zoomReset', command: 'view.zoom.reset' as CommandId, shortcut: 'Ctrl+Shift+0' },
-  ];
-}
-
-/** The three spreadsheet-font choices as checkable menu items (View > Spreadsheet Font). */
-function sheetFontItems(checks: MenuChecks): MenuItemDef[] {
-  const font2command: Record<SheetFontId, CommandId> = {
-    'biz-ud': 'view.sheetFont.bizUd',
-    ms: 'view.sheetFont.ms',
-    'ms-ui': 'view.sheetFont.msUi',
-    'noto-sans-jp': 'view.sheetFont.notoSansJp',
-    'meiryo-ui': 'view.sheetFont.meiryoUi',
-    'yu-gothic-ui': 'view.sheetFont.yuGothicUi',
-  };
-  return SHEET_FONTS.map((id) => ({
-    labelKey: sheetFontLabelKey(id),
-    command: font2command[id],
-    checked: () => checks.sheetFont() === id,
-  }));
-}
-
-/** The four color-theme choices as checkable menu items (View > Theme). */
-function themeItems(checks: MenuChecks): MenuItemDef[] {
-  const theme2command: Record<ThemeChoice, CommandId> = {
-    system: 'view.theme.system',
-    light: 'view.theme.light',
-    dark: 'view.theme.dark',
-    hybrid: 'view.theme.hybrid',
-  };
-  return THEMES.map((id) => ({
-    labelKey: themeLabelKey(id),
-    command: theme2command[id],
-    checked: () => checks.theme() === id,
-  }));
-}
-
-/** The three UI densities as checkable menu items (View > Density). */
-function densityItems(checks: MenuChecks): MenuItemDef[] {
-  const density2command: Record<DensityChoice, CommandId> = {
-    compact: 'view.density.compact',
-    standard: 'view.density.standard',
-    comfortable: 'view.density.comfortable',
-  };
-  return DENSITIES.map((id) => ({
-    labelKey: densityLabelKey(id),
-    command: density2command[id],
-    checked: () => checks.density() === id,
-  }));
-}
-
-/**
- * Tab movement (View > Move Tab): reordering the open-file tab strip itself,
- * distinct from worksheet reordering inside a workbook (Sheet > Worksheet).
- */
-function moveTabItems(): Array<MenuItemDef | 'separator'> {
-  return [
-    { labelKey: 'menu.view.moveTabFirst', command: 'tab.moveFirst' },
-    { labelKey: 'menu.view.moveTabLeft', command: 'tab.moveLeft' },
-    { labelKey: 'menu.view.moveTabRight', command: 'tab.moveRight' },
-    { labelKey: 'menu.view.moveTabLast', command: 'tab.moveLast' },
-  ];
-}
-
-/**
  * Worksheet add/rename/duplicate/delete/reorder inside the active RSF
  * workbook (Sheet > Worksheet). These are the same commands the worksheet
  * tab strip and its context menu dispatch, so every one is reachable
@@ -607,19 +560,19 @@ function moveTabItems(): Array<MenuItemDef | 'separator'> {
  */
 function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
   return [
-    { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add', shortcut: 'Shift+F11' },
-    { labelKey: 'menu.sheet.addPaperSheet', command: 'worksheet.addPaper' },
-    { labelKey: 'menu.sheet.addMarkdownSheet', command: 'worksheet.addMarkdown' },
-    { labelKey: 'menu.sheet.addJsonSheet', command: 'worksheet.addJson' },
-    { labelKey: 'menu.sheet.addYamlSheet', command: 'worksheet.addYaml' },
-    { labelKey: 'menu.sheet.addTextSheet', command: 'worksheet.addText' },
-    { labelKey: 'menu.sheet.addCsvSheet', command: 'worksheet.addFromCsv' },
+    { labelKey: 'menu.sheet.newSheet', icon: FilePlus2, submenu: addSheetItems() },
     { labelKey: 'menu.sheet.renameSheet', command: 'worksheet.rename' },
     { labelKey: 'menu.sheet.tabColor', command: 'worksheet.tabColor' },
-    { labelKey: 'menu.sheet.newFolder', command: 'worksheet.newFolder' },
-    { labelKey: 'menu.sheet.moveToFolder', command: 'worksheet.moveToFolder' },
     { labelKey: 'menu.sheet.duplicateSheet', command: 'worksheet.duplicate' },
     { labelKey: 'menu.sheet.deleteSheet', command: 'worksheet.delete' },
+    {
+      labelKey: 'menu.sheet.folders',
+      icon: Folder,
+      submenu: [
+        { labelKey: 'menu.sheet.newFolder', command: 'worksheet.newFolder' },
+        { labelKey: 'menu.sheet.moveToFolder', command: 'worksheet.moveToFolder' },
+      ],
+    },
     'separator',
     {
       // The label itself carries the Lock/Unlock distinction (not just the
@@ -634,11 +587,30 @@ function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
     'separator',
     { labelKey: 'menu.sheet.nextSheet', command: 'worksheet.next', shortcut: 'Ctrl+Alt+PageDown' },
     { labelKey: 'menu.sheet.prevSheet', command: 'worksheet.prev', shortcut: 'Ctrl+Alt+PageUp' },
+    {
+      labelKey: 'menu.sheet.moveSheet',
+      icon: ArrowLeftRight,
+      submenu: [
+        { labelKey: 'menu.sheet.moveSheetFirst', command: 'worksheet.moveFirst' },
+        { labelKey: 'menu.sheet.moveSheetLeft', command: 'worksheet.moveLeft' },
+        { labelKey: 'menu.sheet.moveSheetRight', command: 'worksheet.moveRight' },
+        { labelKey: 'menu.sheet.moveSheetLast', command: 'worksheet.moveLast' },
+      ],
+    },
+  ];
+}
+
+/** Sheet > Manage Sheets > New Sheet: one entry per kind of sheet, plus sheets read from CSV files. */
+function addSheetItems(): Array<MenuItemDef | 'separator'> {
+  return [
+    { labelKey: 'menu.sheet.addSheet', command: 'worksheet.add', shortcut: 'Shift+F11' },
+    { labelKey: 'menu.sheet.addPaperSheet', command: 'worksheet.addPaper' },
+    { labelKey: 'menu.sheet.addMarkdownSheet', command: 'worksheet.addMarkdown' },
+    { labelKey: 'menu.sheet.addJsonSheet', command: 'worksheet.addJson' },
+    { labelKey: 'menu.sheet.addYamlSheet', command: 'worksheet.addYaml' },
+    { labelKey: 'menu.sheet.addTextSheet', command: 'worksheet.addText' },
     'separator',
-    { labelKey: 'menu.sheet.moveSheetFirst', command: 'worksheet.moveFirst' },
-    { labelKey: 'menu.sheet.moveSheetLeft', command: 'worksheet.moveLeft' },
-    { labelKey: 'menu.sheet.moveSheetRight', command: 'worksheet.moveRight' },
-    { labelKey: 'menu.sheet.moveSheetLast', command: 'worksheet.moveLast' },
+    { labelKey: 'menu.sheet.addCsvSheet', command: 'worksheet.addFromCsv' },
   ];
 }
 
@@ -713,11 +685,31 @@ function documentItems(checks: MenuChecks): MenuItemDef[] {
   ];
 }
 
-/** Alternate copy formats (Edit > Copy As), distinct from the everyday Copy. */
-function copyAsItems(): MenuItemDef[] {
+/**
+ * Alternate copy formats (Edit > Copy As), distinct from the everyday Copy:
+ * an image, or a text table whose header choice is one level deeper. The
+ * right-click menu offers the same list (see `context-menu-items.ts`).
+ */
+export function copyAsItems(): MenuItemDef[] {
   return [
     { labelKey: 'menu.edit.copyScreenshot', command: 'edit.copyScreenshot' },
-    { labelKey: 'menu.edit.copyAsMarkdown', command: 'edit.copyAsMarkdown' },
+    {
+      labelKey: 'menu.edit.copyAsMarkdownTable',
+      icon: FileCode,
+      submenu: [
+        { labelKey: 'menu.edit.tableHeaderRow', command: 'edit.copyAsMarkdown' },
+        { labelKey: 'menu.edit.tableNoHeader', command: 'edit.copyAsMarkdownNoHeader' },
+      ],
+    },
+    {
+      labelKey: 'menu.edit.copyAsBacklogTable',
+      icon: Table2,
+      submenu: [
+        { labelKey: 'menu.edit.tableNoHeader', command: 'edit.copyAsBacklog' },
+        { labelKey: 'menu.edit.tableHeaderRow', command: 'edit.copyAsBacklogHeaderRow' },
+        { labelKey: 'menu.edit.tableHeaderCol', command: 'edit.copyAsBacklogHeaderCol' },
+      ],
+    },
   ];
 }
 
@@ -726,6 +718,17 @@ function revertItems(): MenuItemDef[] {
   return [
     { labelKey: 'menu.edit.revertCell', command: 'edit.revertCell' },
     { labelKey: 'menu.edit.revertAll', command: 'edit.revertAll' },
+  ];
+}
+
+/** How numbers show (Format > Number Format): the full dialog, then the one-key presets. */
+function numberFormatItems(): Array<MenuItemDef | 'separator'> {
+  return [
+    { labelKey: 'menu.format.numberFormat', command: 'format.numberFormat' },
+    'separator',
+    { labelKey: 'menu.format.presetNumber', command: 'format.presetNumber', shortcut: 'Ctrl+Shift+1' },
+    { labelKey: 'menu.format.presetCurrency', command: 'format.presetCurrency', shortcut: 'Ctrl+Shift+4' },
+    { labelKey: 'menu.format.presetPercent', command: 'format.presetPercent', shortcut: 'Ctrl+Shift+5' },
   ];
 }
 

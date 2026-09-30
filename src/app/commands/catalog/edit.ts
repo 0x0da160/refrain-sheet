@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** Edit commands (`edit.*`): undo/redo, clipboard, fill, insert, revert. */
+import type { TableCopyFormat } from '../../../core/clipboard';
 import { isCsv } from '../../../core/editor-document';
 import { t } from '../../i18n';
 import { localDateStamp } from '../../shortcuts';
@@ -36,6 +37,14 @@ function insertStamp(kind: 'date' | 'time'): CommandSpec {
   };
 }
 
+/** Copy As > a text table format (Markdown or Backlog notation) of the selected cells. */
+function copyAsTable(format: TableCopyFormat): CommandSpec {
+  return {
+    enabled: hasCellSelection,
+    run: (ctx) => ctx.commands.clipboardActions?.copyAsTable(format),
+  };
+}
+
 export const EDIT_COMMANDS = {
   'edit.undo': withTab(
     (ctx, tab) => ctx.state.undo(tab),
@@ -57,10 +66,11 @@ export const EDIT_COMMANDS = {
       typeof navigator.clipboard?.write === 'function',
     run: (ctx) => ctx.commands.clipboardActions?.copyScreenshot(),
   },
-  'edit.copyAsMarkdown': {
-    enabled: hasCellSelection,
-    run: (ctx) => ctx.commands.clipboardActions?.copyAsMarkdown(),
-  },
+  'edit.copyAsMarkdown': copyAsTable('markdown'),
+  'edit.copyAsMarkdownNoHeader': copyAsTable('markdownNoHeader'),
+  'edit.copyAsBacklog': copyAsTable('backlog'),
+  'edit.copyAsBacklogHeaderRow': copyAsTable('backlogHeaderRow'),
+  'edit.copyAsBacklogHeaderCol': copyAsTable('backlogHeaderCol'),
   'edit.paste': { enabled: clipboardTarget, run: (ctx) => ctx.commands.clipboardActions?.paste() },
   'edit.pasteValues': {
     enabled: hasCellSelection,

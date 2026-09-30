@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { isWorkbook } from '../core/editor-document';
 import type { CellStyle } from '../core/workbook/cell-style';
-import type { CellRange } from '../core/clipboard';
+import type { CellRange, TableCopyFormat } from '../core/clipboard';
 import {
   copyRows,
   parsePastedText,
-  rangeToMarkdownTable,
   rangeToMatrix,
   rangeToStyleMatrix,
+  rangeToTextTable,
   rangeToTsv,
   rangeToValueMatrix,
 } from '../core/clipboard';
@@ -316,13 +316,13 @@ export class ClipboardController {
   }
 
   /**
-   * Menu "Copy as Markdown Table": writes the selected range to the system
-   * clipboard as a GitHub-Flavored Markdown table (the range's first row
-   * becomes the header). Text only — unlike `copyScreenshotAsPng`, no image
-   * is produced — so this does not need the image-write Clipboard API and
-   * works wherever `copyViaApi` does.
+   * Menu Copy As > Markdown Table / Backlog Table: writes the selected range
+   * to the system clipboard as a text table (see `rangeToTextTable` for the
+   * formats). Text only — unlike `copyScreenshotAsPng`, no image is
+   * produced — so this does not need the image-write Clipboard API and works
+   * wherever `copyViaApi` does.
    */
-  async copyMarkdownTable(): Promise<void> {
+  async copyTextTable(format: TableCopyFormat): Promise<void> {
     const tab = this.state.activeTab;
     if (!tab) {
       return;
@@ -335,10 +335,10 @@ export class ClipboardController {
     if (rows.length === 0) {
       return;
     }
-    const text = rangeToMarkdownTable(tab.doc, range, rows);
+    const text = rangeToTextTable(tab.doc, range, rows, format);
     try {
       await navigator.clipboard.writeText(text);
-      this.notify(t('notify.copiedMarkdown'), 'info');
+      this.notify(t(format.startsWith('backlog') ? 'notify.copiedBacklog' : 'notify.copiedMarkdown'), 'info');
     } catch {
       this.notify(t('notify.clipboardBlocked'), 'warn');
     }

@@ -74,7 +74,7 @@ context menu (right-click a worksheet tab), and the keyboard:
 | Action              | How                                                                                |
 | ------------------- | ---------------------------------------------------------------------------------- |
 | Switch worksheet    | Click a tab, `←` / `→`, `Home` / `End`, or `Ctrl+Alt+PageDown` / `Ctrl+Alt+PageUp` |
-| Add worksheet       | The `+` button, or Sheet > Add Worksheet; from a CSV file too (below)              |
+| Add worksheet       | The `+` button, or Sheet > Manage Sheets > New Sheet; from a CSV file too (below)  |
 | Rename worksheet    | Double-click a tab or `F2` (typed on the tab), or Sheet > Rename Worksheet…        |
 | Duplicate worksheet | Sheet > Duplicate Worksheet…                                                       |
 | Delete worksheet    | Sheet > Delete Worksheet                                                           |
@@ -107,7 +107,7 @@ the browser's own `dblclick` never reaches the new tab: the strip treats a
 second click on the same tab or folder within 500 ms as the double-click,
 and a folder double-clicked is left open or closed as it was.
 
-**Adding sheets from CSV files.** Sheet > Add Sheet from CSV File… (also
+**Adding sheets from CSV files.** Sheet > Manage Sheets > New Sheet > Add Sheet from CSV File… (also
 the Add Sheet dialog's From a CSV File… button) adds each chosen CSV file
 as a new worksheet after the active one, named after the file and
 de-duplicated like any new name, one undoable step per file. The file is
@@ -141,9 +141,9 @@ nothing to a bottom dock's offset (`reserveAppEdge` and `sheetBarHeight`
 in `src/ui/dialogs/side-panel.ts`).
 
 **Sheet folders.** Worksheets can be grouped in folders, nested to any
-depth; a worksheet is in at most one folder. Sheet > Move to New Folder…
+depth; a worksheet is in at most one folder. Sheet > Manage Sheets > Sheet Folders > Move to New Folder…
 (or the folder button next to `+`) puts the active worksheet into a new
-folder where it is (so inside its current folder), and Sheet > Move to Folder… moves it to any folder or out
+folder where it is (so inside its current folder), and Sheet > Manage Sheets > Sheet Folders > Move to Folder… moves it to any folder or out
 of all of them. A folder's header in the strip opens and closes it (a
 closed folder still shows the active worksheet; open/closed is not saved),
 takes a dropped worksheet, and has its own context menu: Rename, Move

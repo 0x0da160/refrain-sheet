@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { isWorkbook } from '../core/editor-document';
 import {
+  ArrowLeftRight,
   ChevronDown,
   ChevronRight,
   FileCode,
+  FilePlus2,
   FileJson,
   FileText,
   FileType,
@@ -62,18 +64,52 @@ const SHEET_KIND_ICON: Record<NewSheetKind, IconNode> = {
 /** Two clicks on one tab or folder this close together (ms) are a double-click. */
 const DOUBLE_CLICK_MS = 500;
 
-const SHEET_MENU_ITEMS: Array<{ command: CommandId; labelKey: string; separatorBefore?: boolean }> = [
+type SheetMenuDef =
+  | { command: CommandId; labelKey: string }
+  | { labelKey: string; icon: IconNode; submenu: SheetMenuDef[] }
+  | 'separator';
+
+/** A worksheet tab's right-click menu: the commands, grouped the way Sheet > Manage Sheets is. */
+const SHEET_MENU_ITEMS: SheetMenuDef[] = [
+  {
+    labelKey: 'menu.sheet.newSheet',
+    icon: FilePlus2,
+    submenu: [
+      { command: 'worksheet.add', labelKey: 'menu.sheet.addSheet' },
+      { command: 'worksheet.addPaper', labelKey: 'menu.sheet.addPaperSheet' },
+      { command: 'worksheet.addMarkdown', labelKey: 'menu.sheet.addMarkdownSheet' },
+      { command: 'worksheet.addJson', labelKey: 'menu.sheet.addJsonSheet' },
+      { command: 'worksheet.addYaml', labelKey: 'menu.sheet.addYamlSheet' },
+      { command: 'worksheet.addText', labelKey: 'menu.sheet.addTextSheet' },
+      'separator',
+      { command: 'worksheet.addFromCsv', labelKey: 'menu.sheet.addCsvSheet' },
+    ],
+  },
+  'separator',
   { command: 'worksheet.rename', labelKey: 'menu.sheet.renameSheet' },
   { command: 'worksheet.tabColor', labelKey: 'menu.sheet.tabColor' },
-  { command: 'worksheet.newFolder', labelKey: 'menu.sheet.newFolder' },
-  { command: 'worksheet.moveToFolder', labelKey: 'menu.sheet.moveToFolder' },
   { command: 'worksheet.duplicate', labelKey: 'menu.sheet.duplicateSheet' },
   { command: 'worksheet.delete', labelKey: 'menu.sheet.deleteSheet' },
-  { command: 'worksheet.toggleLock', labelKey: 'menu.sheet.lockSheet', separatorBefore: true },
-  { command: 'worksheet.moveFirst', labelKey: 'menu.sheet.moveSheetFirst', separatorBefore: true },
-  { command: 'worksheet.moveLeft', labelKey: 'menu.sheet.moveSheetLeft' },
-  { command: 'worksheet.moveRight', labelKey: 'menu.sheet.moveSheetRight' },
-  { command: 'worksheet.moveLast', labelKey: 'menu.sheet.moveSheetLast' },
+  {
+    labelKey: 'menu.sheet.folders',
+    icon: Folder,
+    submenu: [
+      { command: 'worksheet.newFolder', labelKey: 'menu.sheet.newFolder' },
+      { command: 'worksheet.moveToFolder', labelKey: 'menu.sheet.moveToFolder' },
+    ],
+  },
+  'separator',
+  { command: 'worksheet.toggleLock', labelKey: 'menu.sheet.lockSheet' },
+  {
+    labelKey: 'menu.sheet.moveSheet',
+    icon: ArrowLeftRight,
+    submenu: [
+      { command: 'worksheet.moveFirst', labelKey: 'menu.sheet.moveSheetFirst' },
+      { command: 'worksheet.moveLeft', labelKey: 'menu.sheet.moveSheetLeft' },
+      { command: 'worksheet.moveRight', labelKey: 'menu.sheet.moveSheetRight' },
+      { command: 'worksheet.moveLast', labelKey: 'menu.sheet.moveSheetLast' },
+    ],
+  },
 ];
 
 /**
@@ -666,52 +702,16 @@ export class SheetBar {
 
   private openContextMenu(x: number, y: number): void {
     this.closeContextMenu();
-    const entries: ContextMenuEntry[] = [
-      {
-        label: t('menu.sheet.addSheet'),
-        icon: ICON_BY_COMMAND['worksheet.add'],
-        disabled: !this.commands.isEnabled('worksheet.add'),
-        onSelect: () => void this.commands.run('worksheet.add'),
-      },
-      {
-        label: t('menu.sheet.addPaperSheet'),
-        icon: ICON_BY_COMMAND['worksheet.addPaper'],
-        disabled: !this.commands.isEnabled('worksheet.addPaper'),
-        onSelect: () => void this.commands.run('worksheet.addPaper'),
-      },
-      {
-        label: t('menu.sheet.addMarkdownSheet'),
-        icon: ICON_BY_COMMAND['worksheet.addMarkdown'],
-        disabled: !this.commands.isEnabled('worksheet.addMarkdown'),
-        onSelect: () => void this.commands.run('worksheet.addMarkdown'),
-      },
-      {
-        label: t('menu.sheet.addJsonSheet'),
-        icon: ICON_BY_COMMAND['worksheet.addJson'],
-        disabled: !this.commands.isEnabled('worksheet.addJson'),
-        onSelect: () => void this.commands.run('worksheet.addJson'),
-      },
-      {
-        label: t('menu.sheet.addYamlSheet'),
-        icon: ICON_BY_COMMAND['worksheet.addYaml'],
-        disabled: !this.commands.isEnabled('worksheet.addYaml'),
-        onSelect: () => void this.commands.run('worksheet.addYaml'),
-      },
-      {
-        label: t('menu.sheet.addTextSheet'),
-        icon: ICON_BY_COMMAND['worksheet.addText'],
-        disabled: !this.commands.isEnabled('worksheet.addText'),
-        onSelect: () => void this.commands.run('worksheet.addText'),
-      },
-    ];
-    const activeSheet = this.state.activeWorkbook()?.activeSheet;
-    const locked = activeSheet?.locked === true;
-    for (const item of SHEET_MENU_ITEMS) {
-      if (item.separatorBefore) {
-        entries.push('separator');
+    const locked = this.state.activeWorkbook()?.activeSheet?.locked === true;
+    const toEntry = (item: SheetMenuDef): ContextMenuEntry => {
+      if (item === 'separator') {
+        return item;
+      }
+      if ('submenu' in item) {
+        return { label: t(item.labelKey), icon: item.icon, submenu: item.submenu.map(toEntry) };
       }
       const isLockItem = item.command === 'worksheet.toggleLock';
-      entries.push({
+      return {
         // The lock item's label itself says Lock/Unlock (not just its
         // checkmark), and carries a matching icon — a checkable item's
         // checkmark and icon share one column, so `icon` here is only ever
@@ -721,8 +721,9 @@ export class SheetBar {
         disabled: !this.commands.isEnabled(item.command),
         ...(isLockItem ? { checked: locked } : {}),
         onSelect: () => void this.commands.run(item.command).then(() => this.focusActive()),
-      });
-    }
+      };
+    };
+    const entries = SHEET_MENU_ITEMS.map(toEntry);
     this.contextMenu = ContextMenu.open(entries, x, y, { onClose: () => (this.contextMenu = null) });
   }
 

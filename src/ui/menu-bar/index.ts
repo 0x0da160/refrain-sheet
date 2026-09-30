@@ -13,7 +13,8 @@ import { defaultMenus, shortcutLabel, type MenuChecks, type MenuDef, type MenuIt
 /**
  * Desktop-style menu bar. Fully keyboard operable: Enter/Space or ArrowDown
  * opens a menu, arrows navigate, Esc closes, Left/Right switch menus, and
- * ArrowRight/ArrowLeft open and close a submenu. Every item simply runs a
+ * ArrowRight/ArrowLeft open and close a submenu (and a submenu's own
+ * submenu, one level deeper at most by convention). Every item simply runs a
  * command; the command layer is shared with context menus, shortcuts, and
  * drag-and-drop.
  *
@@ -39,10 +40,13 @@ export class MenuBar {
   readonly toggleElement: HTMLButtonElement;
   private menus: MenuDef[];
   private openIndex: number | null = null;
-  /** `labelKey` of the item whose submenu is open in the current menu. */
-  private openSubmenuKey: string | null = null;
-  /** The mounted submenu list (in `document.body`, so it is never clipped). */
-  private submenuEl: HTMLElement | null = null;
+  /**
+   * `labelKey`s of the open submenu parents, outermost first: `[a]` is a
+   * submenu open in the current menu, `[a, b]` one open inside it.
+   */
+  private openPath: string[] = [];
+  /** The mounted submenu lists, outermost first (in `document.body`, so they are never clipped). */
+  private submenuEls: HTMLElement[] = [];
   /**
    * Mobile only: whether `.menu-row` (File / Edit / …) is expanded below the
    * logo row. Toggled by `.menu-bar-toggle`, ignored by desktop-width CSS
@@ -82,13 +86,13 @@ export class MenuBar {
     document.addEventListener('mousedown', (event) => {
       const target = event.target as Node | null;
       const insideBar = this.element.contains(target) || this.toggleElement.contains(target);
-      const insideSubmenu = Boolean(this.submenuEl && target && this.submenuEl.contains(target));
+      const insideSubmenu = Boolean(target && this.submenuEls.some((list) => list.contains(target)));
       if (insideBar || insideSubmenu) {
         return;
       }
       if (this.openIndex !== null || this.mobileMenuOpen) {
         this.openIndex = null;
-        this.openSubmenuKey = null;
+        this.openPath = [];
         this.mobileMenuOpen = false;
         this.render();
       }
@@ -111,10 +115,10 @@ export class MenuBar {
   }
 
   render(): void {
-    // The submenu lives in document.body, so it must be torn down explicitly
-    // before the list that owns it is rebuilt.
-    this.submenuEl?.remove();
-    this.submenuEl = null;
+    // Submenus live in document.body, so they must be torn down explicitly
+    // before the list that owns them is rebuilt.
+    this.submenuEls.forEach((list) => list.remove());
+    this.submenuEls = [];
     clearChildren(this.element);
     // Mobile only: lets the mobile layout (`@media (max-width: 43.75em)` in
     // styles.css) grow `.menu-bar` to the full width of its shared row with
@@ -184,29 +188,39 @@ export class MenuBar {
       row.append(wrapper);
     });
     this.element.append(row);
+    document.body.append(...this.submenuEls);
     if (this.openIndex !== null) {
       this.placePopups();
     }
   }
 
   /**
-   * Place the open drop-down (and any submenu) against the visual viewport.
+   * Place the open drop-down (and any submenus) against the visual viewport.
    * Runs after every render, because a render is exactly what a locale change,
-   * a state change, or opening a submenu produces.
+   * a state change, or opening a submenu produces. Each submenu is placed
+   * after its parent list, beside that list's expanded item.
    */
   private placePopups(): void {
     const list = this.element.querySelector<HTMLElement>('.menu > .menu-list');
     const button = list?.parentElement?.querySelector('button');
-    if (list && button) {
-      positionPopup(list, { kind: 'below', rect: rectOf(button) });
+    if (!list || !button) {
+      return;
     }
-    const parentItem = this.element.querySelector<HTMLElement>('.menu-item[aria-expanded="true"]');
-    if (this.submenuEl && parentItem) {
-      positionPopup(this.submenuEl, { kind: 'beside', rect: rectOf(parentItem) });
+    positionPopup(list, { kind: 'below', rect: rectOf(button) });
+    let parentList = list;
+    for (const submenu of this.submenuEls) {
+      const parentItem = parentList.querySelector<HTMLElement>('.menu-item[aria-expanded="true"]');
+      if (!parentItem) {
+        return;
+      }
+      positionPopup(submenu, { kind: 'beside', rect: rectOf(parentItem) });
+      parentList = submenu;
     }
   }
 
-  private buildList(items: Array<MenuItemDef | 'separator'>, menuIndex: number, nested = false): HTMLElement {
+  /** One list of the open menu: `depth` 0 is the drop-down, 1 a submenu, 2 a submenu's submenu. */
+  private buildList(items: Array<MenuItemDef | 'separator'>, menuIndex: number, depth = 0): HTMLElement {
+    const nested = depth > 0;
     const list = el('div', {
       className: nested ? 'menu-list submenu' : 'menu-list',
       attrs: { role: 'menu' },
@@ -219,7 +233,7 @@ export class MenuBar {
       const resolvedLabelKey = typeof item.labelKey === 'function' ? item.labelKey() : item.labelKey;
       const label = resolvedLabelKey.includes('.') ? t(resolvedLabelKey) : resolvedLabelKey;
       if (item.submenu && item.submenu.length > 0) {
-        list.append(this.buildSubmenuParent(item, item.submenu, list, menuIndex, label));
+        list.append(this.buildSubmenuParent(item, item.submenu, list, menuIndex, label, depth));
         continue;
       }
       if (item.heading || !item.command) {
@@ -277,31 +291,32 @@ export class MenuBar {
       });
       button.addEventListener('mouseenter', () => {
         // Moving onto a plain item dismisses a sibling's open submenu.
-        if (!nested && this.openSubmenuKey !== null) {
-          this.setOpenSubmenu(null);
+        if (this.openPath.length > depth) {
+          this.setOpenPath(this.openPath.slice(0, depth));
         }
       });
       button.addEventListener('keydown', (event) =>
-        this.onItemKeyDown(event, list, button, menuIndex, nested),
+        this.onItemKeyDown(event, list, button, menuIndex, depth),
       );
       list.append(button);
     }
     return list;
   }
 
-  /** A menu entry that opens a nested list (e.g. View > Spreadsheet Zoom). */
+  /** A menu entry that opens a nested list (e.g. View > Spreadsheet Zoom), at `depth` of its own list. */
   private buildSubmenuParent(
     item: MenuItemDef,
     submenu: Array<MenuItemDef | 'separator'>,
     list: HTMLElement,
     menuIndex: number,
     label: string,
+    depth: number,
   ): HTMLButtonElement {
     // Submenu parents always use the plain-string form in practice (only
     // leaf items need state-dependent wording), but resolve defensively so
-    // the identity key passed to setOpenSubmenu is always a plain string.
+    // the identity key in openPath is always a plain string.
     const key = typeof item.labelKey === 'function' ? item.labelKey() : item.labelKey;
-    const expanded = this.openSubmenuKey === key;
+    const expanded = this.openPath[depth] === key;
     const button = el(
       'button',
       {
@@ -311,6 +326,7 @@ export class MenuBar {
           role: 'menuitem',
           'aria-haspopup': 'menu',
           'aria-expanded': String(expanded),
+          'data-submenu': key,
         },
       },
       [
@@ -324,7 +340,11 @@ export class MenuBar {
       ],
     );
     const open = (focusFirst: boolean): void => {
-      this.setOpenSubmenu(key, focusFirst);
+      // Hovering an already open parent keeps any submenu open inside it.
+      if (expanded && !focusFirst) {
+        return;
+      }
+      this.setOpenPath([...this.openPath.slice(0, depth), key], focusFirst);
     };
     button.addEventListener('click', () => open(false));
     button.addEventListener('mouseenter', () => open(false));
@@ -334,13 +354,16 @@ export class MenuBar {
         open(true);
         return;
       }
-      this.onItemKeyDown(event, list, button, menuIndex, false);
+      this.onItemKeyDown(event, list, button, menuIndex, depth);
     });
     if (expanded) {
-      // Mounted in document.body so a scrollable parent list cannot clip it;
-      // positioned (and mirrored when needed) after the render completes.
-      this.submenuEl = this.buildList(submenu, menuIndex, true);
-      document.body.append(this.submenuEl);
+      // Mounted in document.body (by render, outermost first) so a
+      // scrollable parent list cannot clip it; positioned (and mirrored
+      // when needed) after the render completes. Its slot is taken before
+      // it is built, so a deeper submenu lands after it.
+      const index = this.submenuEls.length;
+      this.submenuEls.push(el('div'));
+      this.submenuEls[index] = this.buildList(submenu, menuIndex, depth + 1);
     }
     return button;
   }
@@ -350,8 +373,9 @@ export class MenuBar {
     list: HTMLElement,
     button: HTMLButtonElement,
     menuIndex: number,
-    nested: boolean,
+    depth: number,
   ): void {
+    const nested = depth > 0;
     const items = Array.from(list.querySelectorAll<HTMLButtonElement>('.menu-item')).filter(
       (item) => !item.disabled,
     );
@@ -383,7 +407,7 @@ export class MenuBar {
         event.preventDefault();
         if (nested) {
           // Escape leaves the submenu first, never the whole menu.
-          this.setOpenSubmenu(null, false, true);
+          this.setOpenPath(this.openPath.slice(0, depth - 1), false, true);
           return;
         }
         this.closeMenu();
@@ -391,14 +415,14 @@ export class MenuBar {
         return;
       case 'ArrowRight':
         if (nested) {
-          return; // no deeper level exists
+          return; // a plain item opens nothing deeper
         }
         this.openMenu(menuIndex + 1);
         return;
       case 'ArrowLeft':
         if (nested) {
           event.preventDefault();
-          this.setOpenSubmenu(null, false, true);
+          this.setOpenPath(this.openPath.slice(0, depth - 1), false, true);
           return;
         }
         this.openMenu(menuIndex - 1);
@@ -409,30 +433,42 @@ export class MenuBar {
   }
 
   /**
-   * Open (or close) a submenu and re-render. `focusFirst` moves focus into the
-   * submenu for keyboard users; `focusParent` returns it to the parent item
-   * when the submenu is dismissed with Escape / ArrowLeft.
+   * Open (or close) submenus down to `path` and re-render. `focusFirst` moves
+   * focus into the innermost submenu for keyboard users; `focusParent`
+   * returns it to the item whose submenu was dismissed with Escape /
+   * ArrowLeft.
    */
-  private setOpenSubmenu(labelKey: string | null, focusFirst = false, focusParent = false): void {
-    if (this.openSubmenuKey === labelKey && !focusFirst) {
+  private setOpenPath(path: string[], focusFirst = false, focusParent = false): void {
+    if (path.join('\n') === this.openPath.join('\n') && !focusFirst) {
       return;
     }
-    const previous = this.openSubmenuKey;
-    this.openSubmenuKey = labelKey;
+    const closed = this.openPath[path.length];
+    this.openPath = path;
     this.render();
-    if (focusFirst && this.submenuEl) {
-      this.submenuEl.querySelector<HTMLButtonElement>('.menu-item:not(:disabled)')?.focus();
+    const innermost = this.submenuEls[this.submenuEls.length - 1];
+    const listAbove = (depth: number): HTMLElement | null =>
+      depth === 0
+        ? this.element.querySelector<HTMLElement>('.menu > .menu-list')
+        : (this.submenuEls[depth - 1] ?? null);
+    const parentItem = (depth: number, key: string | undefined): HTMLButtonElement | undefined =>
+      Array.from(listAbove(depth)?.querySelectorAll<HTMLButtonElement>('.menu-item.has-submenu') ?? []).find(
+        (item) => item.dataset.submenu === key,
+      );
+    if (focusFirst && innermost) {
+      // With every entry disabled, focus stays on the item that opened it.
+      const first = innermost.querySelector<HTMLButtonElement>('.menu-item:not(:disabled)');
+      (first ?? parentItem(path.length - 1, path[path.length - 1]))?.focus();
       return;
     }
-    if (focusParent && previous !== null) {
-      this.element.querySelector<HTMLButtonElement>('.menu-item.has-submenu')?.focus();
+    if (focusParent && closed !== undefined) {
+      parentItem(path.length, closed)?.focus();
     }
   }
 
   private openMenu(index: number): void {
     const wrapped = (index + this.menus.length) % this.menus.length;
     this.openIndex = wrapped;
-    this.openSubmenuKey = null;
+    this.openPath = [];
     this.render();
     const first = this.element.querySelector<HTMLButtonElement>('.menu-item:not(:disabled)');
     first?.focus();
@@ -440,7 +476,7 @@ export class MenuBar {
 
   private closeMenu(): void {
     this.openIndex = null;
-    this.openSubmenuKey = null;
+    this.openPath = [];
     this.render();
   }
 

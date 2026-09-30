@@ -159,6 +159,69 @@ describe('menu-bar dropdown keyboard navigation', () => {
   });
 });
 
+describe('menu-bar submenus inside submenus', () => {
+  const key = (target: Element | null, k: string): void => {
+    target?.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+  };
+  const itemIn = (list: Element, label: string): HTMLButtonElement =>
+    Array.from(list.querySelectorAll<HTMLButtonElement>(':scope > .menu-item')).find(
+      (b) => b.querySelector('.label')?.textContent === label,
+    )!;
+  const submenus = (): HTMLElement[] =>
+    Array.from(document.querySelectorAll<HTMLElement>('.menu-list.submenu'));
+
+  it('opens Edit > Copy As > Backlog Table by keyboard and walks back out one level at a time', () => {
+    document.body.textContent = '';
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    const tab = state.addTab('t.csv', csvDoc('a,b\n'), null);
+    state.setSelection(tab, { row: 0, col: 0 }, null);
+    const bar = new MenuBar(commands, menuChecks());
+    document.body.append(bar.element);
+    Array.from(bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'))
+      .find((b) => b.textContent === t('menu.edit'))!
+      .click();
+    const dropDown = bar.element.querySelector('.menu > .menu-list')!;
+    key(itemIn(dropDown, t('menu.edit.copyAs')), 'ArrowRight');
+    expect(submenus()).toHaveLength(1);
+
+    const backlog = itemIn(submenus()[0], t('menu.edit.copyAsBacklogTable'));
+    key(backlog, 'ArrowRight');
+    expect(submenus()).toHaveLength(2);
+    const deepest = submenus()[1];
+    expect(Array.from(deepest.querySelectorAll('.label')).map((el) => el.textContent)).toEqual([
+      t('menu.edit.tableNoHeader'),
+      t('menu.edit.tableHeaderRow'),
+      t('menu.edit.tableHeaderCol'),
+    ]);
+    expect(deepest.contains(document.activeElement)).toBe(true);
+
+    // ArrowLeft closes only the deepest list and returns to Backlog Table.
+    key(document.activeElement, 'ArrowLeft');
+    expect(submenus()).toHaveLength(1);
+    expect(document.activeElement).toBe(itemIn(submenus()[0], t('menu.edit.copyAsBacklogTable')));
+    // Escape then closes Copy As and returns to it in the drop-down.
+    key(document.activeElement, 'Escape');
+    expect(submenus()).toHaveLength(0);
+    expect(document.activeElement?.textContent).toContain(t('menu.edit.copyAs'));
+  });
+
+  it('keeps the deeper list open while its parent is hovered, and closes it on a sibling', () => {
+    document.body.textContent = '';
+    const bar = buildBar();
+    Array.from(bar.element.querySelectorAll<HTMLButtonElement>('.menu-row .menu > button'))
+      .find((b) => b.textContent === t('menu.edit'))!
+      .click();
+    itemIn(bar.element.querySelector('.menu > .menu-list')!, t('menu.edit.copyAs')).click();
+    itemIn(submenus()[0], t('menu.edit.copyAsMarkdownTable')).click();
+    expect(submenus()).toHaveLength(2);
+    itemIn(submenus()[0], t('menu.edit.copyAsMarkdownTable')).dispatchEvent(new MouseEvent('mouseenter'));
+    expect(submenus()).toHaveLength(2);
+    itemIn(submenus()[0], t('menu.edit.copyScreenshot')).dispatchEvent(new MouseEvent('mouseenter'));
+    expect(submenus()).toHaveLength(1);
+  });
+});
+
 describe('menu-bar disabled-item tooltips (#293)', () => {
   it('shows the RSF-only explanation as a tooltip on the disabled Format menu items on a CSV tab', () => {
     const state = new AppState();

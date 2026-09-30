@@ -1,13 +1,24 @@
 // SPDX-License-Identifier: MIT
 // What the grid's right-click menu offers: the command entries and the
 // quick-format toolbar above them. The grid opens the menu (see Grid).
-import { Grid3x3, PaintBucket, PencilLine, Table, type IconNode } from 'lucide';
+import {
+  ArrowDownToLine,
+  ClipboardCopy,
+  ClipboardList,
+  ClipboardPaste,
+  Grid3x3,
+  ListFilter,
+  PaintBucket,
+  Table,
+  type IconNode,
+} from 'lucide';
 import type { Tab } from '../../app/state';
 import type { CommandId, Commands } from '../../app/commands';
 import { t } from '../../app/i18n';
 import { ICON_BY_COMMAND } from '../command-icons';
 import { isCommandAvailable } from '../../app/edition';
 import { pruneItems } from '../menu-bar/prune';
+import { copyAsItems, type MenuItemDef } from '../menu-bar/menus';
 import type { ContextMenuEntry, ContextMenuToolbarItem } from '../context-menu';
 
 interface ContextMenuCommandDef {
@@ -21,48 +32,66 @@ interface ContextMenuCommandDef {
 interface ContextMenuGroupDef {
   labelKey: string;
   icon: IconNode;
-  submenu: Array<ContextMenuCommandDef | 'separator'>;
+  submenu: ContextMenuDef[];
+}
+
+type ContextMenuDef = ContextMenuCommandDef | ContextMenuGroupDef | 'separator';
+
+/** Menu-bar items (plain labels, no live checks) as right-click entries, so both menus share one list. */
+function fromMenuItems(items: ReadonlyArray<MenuItemDef | 'separator'>): ContextMenuDef[] {
+  return items.map((item): ContextMenuDef => {
+    if (item === 'separator') {
+      return item;
+    }
+    const labelKey = typeof item.labelKey === 'string' ? item.labelKey : item.labelKey();
+    if (item.submenu) {
+      return { labelKey, icon: item.icon ?? ClipboardCopy, submenu: fromMenuItems(item.submenu) };
+    }
+    return { command: item.command!, labelKey };
+  });
 }
 
 /**
- * The cell/header right-click menu. Copy, Paste, and Select All stay at the
- * top level as the three highest-frequency actions; every less-common family
- * is grouped into a submenu, the same "long flat menu → submenus by feature
- * group" treatment already applied to the top menu bar's Sheet/Edit/View
- * menus (see `menu-bar.ts`'s `rowsAndColumnsItems`/`sheetFontItems` and
- * #280) — reusing their exact group labels (`menu.edit`,
- * `menu.sheet.rowsAndColumns`) so the grouping reads the same way in both
- * places (#396).
+ * The cell/header right-click menu, grouped the way the menu bar is (#396):
+ * the clipboard actions first, with Copy As and Paste Special as the same
+ * submenus as Edit's; then inserting and moving cells; then Rows & Columns
+ * and Filter & Sort under the Sheet menu's group labels; then comments and
+ * reverting. Each group is a submenu when it has more than a couple of
+ * members, so the menu stays short enough to scan.
  */
-const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupDef | 'separator'> = [
+const CONTEXT_MENU_ITEMS: ContextMenuDef[] = [
   { command: 'edit.cut', labelKey: 'menu.edit.cut', shortcut: 'Ctrl+X' },
   { command: 'edit.copy', labelKey: 'menu.edit.copy', shortcut: 'Ctrl+C' },
+  { labelKey: 'menu.edit.copyAs', icon: ClipboardCopy, submenu: fromMenuItems(copyAsItems()) },
   { command: 'edit.paste', labelKey: 'menu.edit.paste', shortcut: 'Ctrl+V' },
+  {
+    labelKey: 'menu.edit.pasteSpecial',
+    icon: ClipboardPaste,
+    submenu: [
+      { command: 'edit.pasteValues', labelKey: 'menu.edit.pasteValues' },
+      { command: 'edit.pasteFormats', labelKey: 'menu.edit.pasteFormats' },
+    ],
+  },
   { command: 'edit.selectAll', labelKey: 'menu.edit.selectAll', shortcut: 'Ctrl+A' },
   'separator',
   {
-    labelKey: 'menu.edit',
-    icon: PencilLine,
+    labelKey: 'menu.edit.insertCopied',
+    icon: ClipboardList,
     submenu: [
-      { command: 'edit.copyScreenshot', labelKey: 'menu.edit.copyScreenshot' },
-      { command: 'edit.copyAsMarkdown', labelKey: 'menu.edit.copyAsMarkdown' },
       { command: 'edit.insertCopiedCells', labelKey: 'menu.edit.insertCopiedCells' },
       { command: 'edit.insertCopiedRows', labelKey: 'menu.edit.insertCopiedRows' },
       { command: 'edit.insertCopiedCols', labelKey: 'menu.edit.insertCopiedCols' },
-      { command: 'edit.flashFill', labelKey: 'menu.edit.flashFill' },
-      { command: 'edit.moveRange', labelKey: 'menu.edit.moveRange' },
-      { command: 'edit.revertCell', labelKey: 'menu.edit.revertCell' },
     ],
   },
-  { command: 'data.comment', labelKey: 'menu.data.comment' },
-  'separator',
   {
-    command: 'sheet.headerFilter',
-    labelKey: 'menu.sheet.headerFilter',
-    checked: (commands, tab) => commands.hasFilter(tab),
+    labelKey: 'menu.edit.fill',
+    icon: ArrowDownToLine,
+    submenu: [
+      { command: 'edit.fillDown', labelKey: 'menu.edit.fillDown', shortcut: 'Ctrl+D' },
+      { command: 'edit.flashFill', labelKey: 'menu.edit.flashFill', shortcut: 'Ctrl+E' },
+    ],
   },
-  { command: 'sheet.filter', labelKey: 'menu.sheet.filter' },
-  { command: 'sheet.filterClear', labelKey: 'menu.sheet.filterClear' },
+  { command: 'edit.moveRange', labelKey: 'menu.edit.moveRange' },
   'separator',
   {
     labelKey: 'menu.sheet.rowsAndColumns',
@@ -79,6 +108,25 @@ const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupDef | 's
       { command: 'sheet.autoFitCols', labelKey: 'menu.sheet.autoFitCols' },
     ],
   },
+  {
+    labelKey: 'menu.sheet.filterSort',
+    icon: ListFilter,
+    submenu: [
+      {
+        command: 'sheet.headerFilter',
+        labelKey: 'menu.sheet.headerFilter',
+        checked: (commands, tab) => commands.hasFilter(tab),
+      },
+      { command: 'sheet.filter', labelKey: 'menu.sheet.filter' },
+      { command: 'sheet.filterClear', labelKey: 'menu.sheet.filterClear' },
+      'separator',
+      { command: 'sheet.sort', labelKey: 'menu.sheet.sort' },
+      { command: 'sheet.sortClear', labelKey: 'menu.sheet.sortClear' },
+    ],
+  },
+  'separator',
+  { command: 'data.comment', labelKey: 'menu.data.comment' },
+  { command: 'edit.revertCell', labelKey: 'menu.edit.revertCell' },
 ];
 
 /**
@@ -89,11 +137,7 @@ const CONTEXT_MENU_ITEMS: Array<ContextMenuCommandDef | ContextMenuGroupDef | 's
  * the app's existing convention for RSF-only commands on a plain CSV tab.
  */
 /** One menu definition as a live context-menu entry, enabled per the command's current state. */
-function buildContextEntry(
-  commands: Commands,
-  tab: Tab,
-  item: ContextMenuCommandDef | ContextMenuGroupDef | 'separator',
-): ContextMenuEntry {
+function buildContextEntry(commands: Commands, tab: Tab, item: ContextMenuDef): ContextMenuEntry {
   if (item === 'separator') {
     return 'separator';
   }

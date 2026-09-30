@@ -9,6 +9,7 @@ import {
   rangeContains,
   rangeToMarkdownTable,
   rangeToMatrix,
+  rangeToTextTable,
   rangeToTsv,
 } from '../../src/core/clipboard';
 import { doc } from '../helpers';
@@ -120,6 +121,49 @@ describe('Markdown table copy output', () => {
   it('returns an empty string when there are no rows to copy', () => {
     const d = doc('a,b\n');
     expect(rangeToMarkdownTable(d, { top: 0, left: 0, bottom: 0, right: 1 }, [])).toBe('');
+  });
+});
+
+describe('text tables for Copy As', () => {
+  const range = { top: 0, left: 0, bottom: 2, right: 1 };
+  const hosts = () => doc('host,ip\nsun,192.168.100.1\nmoon,\n');
+
+  it('writes a Markdown table with no header as an empty header row over every row', () => {
+    expect(rangeToTextTable(hosts(), range, undefined, 'markdownNoHeader')).toBe(
+      '| | |\n| --- | --- |\n| host | ip |\n| sun | 192.168.100.1 |\n| moon |  |',
+    );
+    expect(rangeToMarkdownTable(hosts(), range, undefined, false)).toBe(
+      rangeToTextTable(hosts(), range, undefined, 'markdownNoHeader'),
+    );
+  });
+
+  it('writes a Markdown table whose first row is the header', () => {
+    expect(rangeToTextTable(hosts(), range, undefined, 'markdown')).toBe(
+      '| host | ip |\n| --- | --- |\n| sun | 192.168.100.1 |\n| moon |  |',
+    );
+  });
+
+  it('writes a Backlog table with no header, a header row (h), or a header column (~)', () => {
+    expect(rangeToTextTable(hosts(), range, undefined, 'backlog')).toBe(
+      '| host | ip |\n| sun | 192.168.100.1 |\n| moon |  |',
+    );
+    expect(rangeToTextTable(hosts(), range, undefined, 'backlogHeaderRow')).toBe(
+      '| host | ip |h\n| sun | 192.168.100.1 |\n| moon |  |',
+    );
+    expect(rangeToTextTable(hosts(), range, undefined, 'backlogHeaderCol')).toBe(
+      '|~ host | ip |\n|~ sun | 192.168.100.1 |\n|~ moon |  |',
+    );
+  });
+
+  it('keeps a Backlog cell on one row: line breaks become &br; and a pipe becomes a full-width one', () => {
+    const d = doc('"a|b","c\nd"\n');
+    expect(rangeToTextTable(d, { top: 0, left: 0, bottom: 0, right: 1 }, undefined, 'backlog')).toBe(
+      '| a｜b | c&br;d |',
+    );
+  });
+
+  it('copies only the given rows, so hidden rows stay out', () => {
+    expect(rangeToTextTable(hosts(), range, [0, 2], 'backlogHeaderRow')).toBe('| host | ip |h\n| moon |  |');
   });
 });
 

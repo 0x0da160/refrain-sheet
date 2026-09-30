@@ -59,6 +59,7 @@ exports[`core export surface > keeps every core module exporting the same names 
     "rangeToMarkdownTable",
     "rangeToMatrix",
     "rangeToStyleMatrix",
+    "rangeToTextTable",
     "rangeToTsv",
     "rangeToValueMatrix",
   ],

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { isCsv, isWorkbook } from '../../core/editor-document';
 import type { CellStyle, HorizontalAlign } from '../../core/workbook/cell-style';
-import type { CellRange } from '../../core/clipboard';
+import type { CellRange, TableCopyFormat } from '../../core/clipboard';
 import type { CellValidation } from '../../core/workbook/data-validation';
 import { isFormula } from '../../core/formula';
 import type { TextRun } from '../../core/workbook/rich-text';
@@ -70,8 +70,8 @@ export class Commands {
     copy: () => Promise<void>;
     /** Render the selection's actual on-screen appearance to a PNG and write it to the system clipboard. */
     copyScreenshot: () => Promise<void>;
-    /** Write the selection to the system clipboard as a GitHub-Flavored Markdown table. */
-    copyAsMarkdown: () => Promise<void>;
+    /** Write the selection to the system clipboard as a text table (Markdown or Backlog notation). */
+    copyAsTable: (format: TableCopyFormat) => Promise<void>;
     paste: () => Promise<void>;
     /** Paste only the copied cells' calculated values (no formulas, no formatting). */
     pasteValues: () => Promise<void>;

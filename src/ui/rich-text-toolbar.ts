@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { Bold, Eraser, Italic, Underline, type IconNode } from 'lucide';
 import { t } from '../app/i18n';
-import { ensureSwatchList } from './document-colors';
+import { getRecentColors, rememberColor } from '../app/color-prefs';
+import { ensureSwatchList, SWATCH_COLORS } from './document-colors';
 import { el } from './dom';
 import { fontFamilySelect, fontSizeSelect } from './font-choices';
 import { createIcon } from './icon';
@@ -26,15 +27,18 @@ export interface RichTextToolbarState {
   fontSize: number | null;
 }
 
-/** The ready-made text colors, by locale key. */
-const PALETTE: ReadonlyArray<[string, string]> = [
-  ['red', '#d32f2f'],
-  ['orange', '#e65100'],
-  ['green', '#2e7d32'],
-  ['blue', '#1565c0'],
-  ['purple', '#7b1fa2'],
-  ['gray', '#757575'],
-];
+/**
+ * The ready-made text colors: step 6 of six of the palette's hues (the shared
+ * color picker's palette, dark enough for text), by hue.
+ */
+const PALETTE_HUES = ['red', 'orange', 'green', 'blue', 'violet', 'gray'] as const;
+const HUE_ORDER = ['gray', 'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'violet', 'pink'];
+const PALETTE: ReadonlyArray<[string, string]> = PALETTE_HUES.map((hue) => [
+  hue,
+  SWATCH_COLORS[HUE_ORDER.indexOf(hue) * 7 + 5],
+]);
+/** How many recently chosen colors lead the ready-made ones. */
+const RECENT_SHOWN = 3;
 
 /**
  * The small floating toolbar shown over text selected in the cell editor:
@@ -48,6 +52,9 @@ export class RichTextToolbar {
   private readonly element: HTMLElement;
   private readonly toggles: Record<'bold' | 'italic' | 'underline', HTMLButtonElement>;
   private readonly fonts: HTMLElement;
+  /** The recently chosen colors (shared with the color picker), refreshed on each show. */
+  private recent!: HTMLElement;
+  private readonly recentSwatch: (color: string) => HTMLButtonElement;
 
   constructor(
     private readonly onAction: (action: RichTextAction) => void,
@@ -80,8 +87,13 @@ export class RichTextToolbar {
       if (color) {
         dot.style.backgroundColor = color;
       }
-      return button(label, dot, { kind: 'color', color });
+      const node = button(label, dot, { kind: 'color', color });
+      if (color) {
+        node.addEventListener('click', () => rememberColor(color));
+      }
+      return node;
     };
+    this.recentSwatch = (color) => swatch(color, t('richText.color.named', { name: color }));
     const custom = el('input', {
       className: 'rich-toolbar-custom',
       attrs: {
@@ -91,7 +103,10 @@ export class RichTextToolbar {
         list: ensureSwatchList(),
       },
     }) as HTMLInputElement;
-    custom.addEventListener('change', () => onAction({ kind: 'color', color: custom.value.toLowerCase() }));
+    custom.addEventListener('change', () => {
+      rememberColor(custom.value);
+      onAction({ kind: 'color', color: custom.value.toLowerCase() });
+    });
     custom.addEventListener('blur', (event) => onLeave(event.relatedTarget));
     this.fonts = el('span', { className: 'rich-toolbar-fonts' });
     this.element = el(
@@ -108,7 +123,10 @@ export class RichTextToolbar {
         this.toggles.underline,
         el('span', { className: 'rich-toolbar-divider', attrs: { 'aria-hidden': 'true' } }),
         swatch(null, t('richText.color.auto')),
-        ...PALETTE.map(([name, color]) => swatch(color, t(`richText.color.${name}`))),
+        (this.recent = el('span', { className: 'rich-toolbar-recent' })),
+        ...PALETTE.map(([hue, color]) =>
+          swatch(color, t('richText.color.named', { name: t(`colorPicker.hue.${hue}`) })),
+        ),
         custom,
         el('span', { className: 'rich-toolbar-divider', attrs: { 'aria-hidden': 'true' } }),
         button(t('richText.clear'), icon(Eraser), { kind: 'clear' }),
@@ -128,6 +146,13 @@ export class RichTextToolbar {
       this.toggles[key].setAttribute('aria-pressed', String(state[key]));
     }
     this.showFonts(state);
+    const palette = new Set(PALETTE.map(([, color]) => color));
+    this.recent.replaceChildren(
+      ...getRecentColors()
+        .filter((color) => !palette.has(color))
+        .slice(0, RECENT_SHOWN)
+        .map((color) => this.recentSwatch(color)),
+    );
     this.element.hidden = false;
     const height = this.element.offsetHeight || 34;
     const width = this.element.offsetWidth || 320;

@@ -38,6 +38,19 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- **One color picker everywhere.** Text and fill colors, borders, sheet tabs,
+  shapes, charts and conditional formats now share one picker: recently used
+  colors, favorites (the star), the colors already used in this file, the
+  full palette, and "More colors" for a color code, a CSS color name such as
+  `tomato`, or any color from the browser's chooser. Picking a color applies
+  it at once. Recent colors and favorites are kept in this browser.
+- **Colors and borders open next to the button.** Text Color, Fill Color and
+  Borders chosen from the toolbar or the right-click menu open as a small
+  panel beside the button instead of the side panel; from the Format menu
+  they still open in the side panel.
+
 ### Changed
 
 - **Filtering is called "フィルター" everywhere in Japanese.** Menus, header
@@ -53,6 +66,13 @@ really is internal, rather than inventing an entry to satisfy it.
 - **Flash Fill explains how to use it.** When it cannot find a pattern, the
   message now says to type one or two examples from the row just under the
   headings and press Ctrl+E.
+- **Borders are drawn with one press.** The Borders panel now has buttons for
+  all borders, the outside border, the lines inside the selection, one edge,
+  and no borders, applied as soon as you press them (no Apply button). Choose
+  the line's color, style and width first; presses combine, so the outside
+  border then the inside lines gives a framed table.
+- **The in-cell text toolbar uses the palette's colors** and shows your recent
+  colors first.
 
 ### Fixed
 

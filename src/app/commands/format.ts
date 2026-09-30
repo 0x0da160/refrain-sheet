@@ -12,6 +12,7 @@ import {
   type CellStylePatch,
   type NumberFormat,
 } from '../../core/workbook/cell-style';
+import { borderPresetPatch } from '../../core/workbook/border-presets';
 import type { CellRange } from '../../core/clipboard';
 import type { Operation, StyleChange } from '../../core/workbook/history';
 import { remapRuns, runsEqual, runsForText, type TextRun } from '../../core/workbook/rich-text';
@@ -154,6 +155,18 @@ export class FormatCommands {
       (result) => {
         if (!this.isStillActive(tab, doc)) {
           return false;
+        }
+        if (result.action === 'preset') {
+          const range = this.state.selectedRange(tab);
+          return (
+            range !== null &&
+            this.applyPatchPerCell(
+              tab,
+              range,
+              (row, col) => borderPresetPatch(result.preset, result, range, row, col),
+              'history.setBorders',
+            )
+          );
         }
         const patch: CellStylePatch = { ...result.sides };
         for (const side of BORDER_SIDES) {
@@ -396,6 +409,16 @@ export class FormatCommands {
   }
 
   private applyPatch(tab: Tab, range: CellRange, patch: CellStylePatch, label: string): boolean {
+    return this.applyPatchPerCell(tab, range, () => patch, label);
+  }
+
+  /** Apply the patch `patchAt` gives each visible cell of `range` (null leaves it alone) as one undo step. */
+  private applyPatchPerCell(
+    tab: Tab,
+    range: CellRange,
+    patchAt: (row: number, col: number) => CellStylePatch | null,
+    label: string,
+  ): boolean {
     const doc = tab.doc;
     if (!isWorkbook(doc)) {
       return false;
@@ -408,6 +431,10 @@ export class FormatCommands {
         continue;
       }
       for (let c = range.left; c <= range.right; c++) {
+        const patch = patchAt(r, c);
+        if (!patch) {
+          continue;
+        }
         const before = doc.getStyle(r, c);
         const after = applyCellStylePatch(before, patch);
         if (!cellStylesEqual(before, after)) {

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { colorField } from './color-picker';
 import { ArrowDown, ArrowUp, Eye, EyeOff, Lock, Pin, Shapes, type IconNode } from 'lucide';
 import type { Commands } from '../app/commands';
 import { t } from '../app/i18n';
@@ -494,8 +495,12 @@ export class ObjectsPanel {
         'history.editObject',
       ),
     );
-    const color = this.input('color', 'textColor', o.textColor ?? '#000000', editLocked, (value) =>
-      this.update(tab, o, { ...o, textColor: value.toLowerCase() }, 'history.editObject'),
+    const color = this.color(
+      'textColor',
+      o.textColor ?? '#000000',
+      editLocked,
+      t('panel.objects.textColor'),
+      (value) => this.update(tab, o, { ...o, textColor: value }, 'history.editObject'),
     );
     const size = fontSizeSelect(
       o.fontSize ?? null,
@@ -554,12 +559,12 @@ export class ObjectsPanel {
     }) as HTMLInputElement;
     none.checked = value === 'none';
     none.disabled = disabled;
-    const color = this.input(
-      'color',
+    const color = this.color(
       key,
       value === 'none' ? '#ffffff' : value,
       disabled || value === 'none',
-      (next) => this.update(tab, o, { ...o, [key]: next.toLowerCase() }, 'history.editObject'),
+      t(`panel.objects.${key}`),
+      (next) => this.update(tab, o, { ...o, [key]: next }, 'history.editObject'),
     );
     none.addEventListener('change', () =>
       this.update(
@@ -570,6 +575,21 @@ export class ObjectsPanel {
       ),
     );
     return [panelField(t(`panel.objects.${key}`), color), panelCheck(none, t(`panel.objects.${key}.none`))];
+  }
+
+  /** A color field (the shared picker) that reports each pick. */
+  private color(
+    key: string,
+    value: string,
+    disabled: boolean,
+    label: string,
+    onChange: (value: string) => void,
+  ): HTMLButtonElement {
+    const field = colorField(null, value, label);
+    field.dataset.focusKey = key;
+    field.disabled = disabled;
+    field.addEventListener('change', () => onChange(field.value.toLowerCase()));
+    return field;
   }
 
   private input(

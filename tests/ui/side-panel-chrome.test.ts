@@ -84,17 +84,23 @@ describe('side panel chrome', () => {
     }
   });
 
-  it('keeps the Borders panel open on Apply when the caller applies in place', async () => {
+  it('keeps the Borders panel open while each preset is applied in place', async () => {
     const onApply = vi.fn();
     const promise = new Dialogs().chooseBorders({}, null, null, onApply);
     const p = panel();
-    p.querySelector<HTMLInputElement>('#format-border-borderTop')!.click();
 
-    button(p, t('dialog.borders.apply')).click();
-    button(p, t('dialog.borders.apply')).click();
+    p.querySelector<HTMLButtonElement>('#format-borders-preset-outside')!.click();
+    p.querySelector<HTMLButtonElement>('#format-borders-preset-inside')!.click();
 
     expect(onApply).toHaveBeenCalledTimes(2);
-    expect(onApply.mock.calls[0][0]).toMatchObject({ action: 'apply', sides: { borderTop: '#000000' } });
+    expect(onApply.mock.calls[0][0]).toEqual({
+      action: 'preset',
+      preset: 'outside',
+      color: '#000000',
+      lineStyle: 'solid',
+      width: 'thin',
+    });
+    expect(onApply.mock.calls[1][0]).toMatchObject({ action: 'preset', preset: 'inside' });
     expect(document.querySelector('.side-panel')).toBe(p);
 
     p.querySelector<HTMLButtonElement>('.side-panel-close-btn')!.click();
@@ -118,8 +124,8 @@ describe('side panel chrome', () => {
 
   it('still resolves with the result and closes when no in-place handler is given', async () => {
     const promise = new Dialogs().chooseTextColor('#123456');
-    button(panel(), t('dialog.color.apply')).click();
-    expect(await promise).toEqual({ action: 'apply', color: '#123456' });
+    panel().querySelector<HTMLButtonElement>('.color-swatch[data-color="#287ccf"]')!.click();
+    expect(await promise).toEqual({ action: 'apply', color: '#287ccf' });
     expect(document.querySelector('.side-panel')).toBeNull();
   });
 });

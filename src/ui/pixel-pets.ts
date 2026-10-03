@@ -5,7 +5,7 @@
  * from the sprites below (no image files), hidden from assistive tech, and
  * never hit by the pointer, so it cannot get in the way of anything.
  *
- * Shown unless turned off in File > Settings… (`pets-prefs.ts`). With
+ * Hidden unless turned on in File > Settings… (`pets-prefs.ts`). With
  * "reduce motion" requested by the system it shows one still frame, and it
  * stops drawing while the page is in the background.
  */

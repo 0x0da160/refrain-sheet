@@ -13,8 +13,8 @@ import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
   ChevronDown,
-  GripHorizontal,
-  GripVertical,
+  Ellipsis,
+  EllipsisVertical,
   ListFilter,
   Plus,
 } from 'lucide';
@@ -110,9 +110,10 @@ export class CellBuilder {
    * the selected rows/columns it belongs to) somewhere else, and a small +
    * on each of its two boundaries that inserts one row there (above or
    * below) or one column (left or right). CSS shows them only while a mouse
-   * hovers the header: a column's grip at the middle of its top edge, a
-   * row's at its left end, and each + centered on the boundary line it
-   * inserts at. The same actions stay reachable from the menus and the
+   * hovers the header: a column's grip (one row of dots) along the middle
+   * of its top edge, a row's along its left edge, and each + on the outer
+   * corner of the boundary it inserts at, clear of the label and of the
+   * column resize strip. The same actions stay reachable from the menus and the
    * context menu. The grip is offered only where a move is possible: an RSF
    * worksheet (moving is a structural edit a byte-preserving CSV cannot
    * represent), and for rows not while a sort reorders what is shown. A
@@ -132,7 +133,7 @@ export class CellBuilder {
           title: t(axis === 'row' ? 'grid.moveRowGrip' : 'grid.moveColGrip'),
         },
       });
-      grip.append(createIcon(axis === 'row' ? GripVertical : GripHorizontal, '', 12));
+      grip.append(createIcon(axis === 'row' ? EllipsisVertical : Ellipsis, '', 12));
       head.append(grip);
     }
     head.append(this.insertButton(axis, index, 'before'), this.insertButton(axis, index, 'after'));

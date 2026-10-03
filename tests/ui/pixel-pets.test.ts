@@ -11,17 +11,18 @@ describe('pixel pets', () => {
     HTMLCanvasElement.prototype.getContext = () => null;
   });
 
-  it('are shown until turned off, and the choice is kept in this browser', () => {
+  it('are hidden until turned on, and the choice is kept in this browser', () => {
+    expect(getPetsShown()).toBe(false);
+    setPetsShown(true);
+    expect(localStorage.getItem('refrain-csv-html.pets')).toBe('true');
     expect(getPetsShown()).toBe(true);
     setPetsShown(false);
     expect(localStorage.getItem('refrain-csv-html.pets')).toBe('false');
     expect(getPetsShown()).toBe(false);
-    setPetsShown(true);
-    expect(localStorage.getItem('refrain-csv-html.pets')).toBeNull();
-    expect(getPetsShown()).toBe(true);
   });
 
   it('hide their element when turned off, and never take the pointer or a screen reader', () => {
+    setPetsShown(true);
     const pets = new PixelPets();
     expect(pets.element.hidden).toBe(false);
     expect(pets.element.getAttribute('aria-hidden')).toBe('true');

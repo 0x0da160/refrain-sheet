@@ -3,20 +3,19 @@
  * Whether the pixel pets (a white puppy and a black kitten playing at the
  * top right of the window) are shown. A per-browser preference kept in
  * `localStorage` only, never in a file: it is decoration, not a property of
- * any document. Shown unless turned off in File > Settings….
+ * any document. Hidden unless turned on in File > Settings…; only an
+ * explicit `'true'` shows them, so a browser that never chose (or turned
+ * them off, stored as `'false'` before they were hidden by default) keeps
+ * them hidden.
  */
-import { safeStorageGet, safeStorageRemove, safeStorageSet } from './storage';
+import { safeStorageGet, safeStorageSet } from './storage';
 
 const KEY = 'refrain-csv-html.pets';
 
 export function getPetsShown(): boolean {
-  return safeStorageGet(KEY) !== 'false';
+  return safeStorageGet(KEY) === 'true';
 }
 
 export function setPetsShown(shown: boolean): void {
-  if (shown) {
-    safeStorageRemove(KEY);
-  } else {
-    safeStorageSet(KEY, 'false');
-  }
+  safeStorageSet(KEY, shown ? 'true' : 'false');
 }

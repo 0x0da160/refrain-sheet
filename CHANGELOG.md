@@ -40,6 +40,10 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ### Changed
 
+- The pixel pets (the puppy and kitten at the top right) are now hidden
+  until turned on in File > Settings…. Once turned on there, they stay on
+  in this browser.
+
 - The row and column header hover tools are smaller and no longer cover
   each other, the header label, or a column's width handle. Each + now sits
   on the outer corner of the boundary it inserts at, and the move grip is a

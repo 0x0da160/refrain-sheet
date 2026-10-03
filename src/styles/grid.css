@@ -544,10 +544,16 @@
 }
 
 /* Row/column header hover tools (see `CellBuilder.appendHeaderTools`): a
-   grip to drag the row/column elsewhere, and a + centered on each boundary
-   that inserts a row or column there. Shown only while a mouse hovers the
-   header, and hidden during a drag; touch uses the menus instead. A column's
-   grip sits at the middle of its top edge; a row's stays at its left end. */
+   grip to drag the row/column elsewhere, and a + on each boundary that
+   inserts a row or column there. Shown only while a mouse hovers the
+   header, and hidden during a drag; touch uses the menus instead.
+   Everything keeps clear of the label and of the column resize strip, even
+   on a narrow column or a short (zoomed-out) row: a column's grip is a thin
+   bar along the middle of its top edge and each + sits on the bottom corner
+   of its boundary, so only the strip's bottom few pixels are covered; a
+   row's grip is a thin bar along its left edge and each + sits on the right
+   corner of its boundary. The + is smaller when zoomed out, so a short
+   row's two never meet. */
 .head-grip,
 .head-insert {
   position: absolute;
@@ -564,34 +570,59 @@
   opacity: 0.75;
 }
 
+/* The dots overhang the thin bar instead of being squeezed into it. */
+.head-grip .ui-icon {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
 .vhead > .head-grip {
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 18px;
-  height: 10px;
+  width: min(20px, calc(100% - 8px));
+  height: 7px;
+  align-items: flex-start;
+}
+
+/* The dots ride the top edge, well above the column letter. */
+.vhead > .head-grip .ui-icon {
+  margin-top: -4px;
 }
 
 .vrowhead > .head-grip {
   top: 50%;
-  left: 1px;
+  left: 0;
   transform: translateY(-50%);
-  width: 12px;
-  height: 18px;
+  width: 7px;
+  height: min(20px, 100%);
+  justify-content: flex-start;
+}
+
+.vrowhead > .head-grip .ui-icon {
+  margin-left: -4px;
 }
 
 .head-insert {
-  width: 16px;
-  height: 16px;
+  --head-insert-size: clamp(10px, calc(14px * var(--sheet-zoom, 1)), 14px);
+  width: var(--head-insert-size);
+  height: var(--head-insert-size);
   background: var(--canvas-bg);
   border: 1px solid var(--canvas-grid-strong);
   border-radius: var(--radius-xs);
   cursor: pointer;
 }
 
-/* Centered on the boundary line: half the button lies over the neighbor. */
+.head-insert .ui-icon {
+  width: calc(var(--head-insert-size) - 4px);
+  height: calc(var(--head-insert-size) - 4px);
+}
+
+/* Centered on the boundary's outer corner: a quarter of the button lies
+   over the header, the rest over the neighbor and the cells beyond. */
 .vhead > .head-insert {
-  top: 50%;
+  top: 100%;
 }
 
 .vhead > .head-insert-before {
@@ -605,7 +636,7 @@
 }
 
 .vrowhead > .head-insert {
-  left: 50%;
+  left: 100%;
 }
 
 .vrowhead > .head-insert-before {

@@ -38,6 +38,16 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- The row and column header hover tools are smaller and no longer cover
+  each other, the header label, or a column's width handle. Each + now sits
+  on the outer corner of the boundary it inserts at, and the move grip is a
+  thin row of dots along the header's top edge (columns) or left edge
+  (rows), so narrow columns, grid-paper squares and short rows keep their
+  letter or number readable and a column's width can be dragged from most
+  of its boundary.
+
 ## [0.9.23] - 2026-09-30
 
 ### Added

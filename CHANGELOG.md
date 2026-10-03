@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.25] - 2026-10-03
+
 ### Changed
 
 - The row and column header hover tools are smaller and no longer cover

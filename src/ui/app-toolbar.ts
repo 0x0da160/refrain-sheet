@@ -13,6 +13,7 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
+  CaseSensitive,
   Italic,
   Maximize,
   Settings2,
@@ -42,6 +43,7 @@ const CHECKABLE_ICONS: Partial<Record<CommandId, IconNode>> = {
   'format.alignRight': AlignRight,
   'view.wrap': WrapText,
   'view.fullscreen': Maximize,
+  'view.proportionalFont': CaseSensitive,
 };
 
 /** A command the toolbar can hold. */

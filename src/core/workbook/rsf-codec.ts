@@ -6,7 +6,7 @@ import { getRsfCodec } from '../csv/csv-engine';
 import { MAX_COMMENT_LENGTH } from './cell-comment';
 import { DEFAULT_DISPLAY_LANGUAGE } from './display-language';
 import { DEFAULT_TIMEZONE } from './timezone';
-import { hasViewSettings, viewFromJson, viewToJson, type RsfViewSettings } from './rsf-view';
+import { hasViewSettings, sheetWrapFalse, viewFromJson, viewToJson, type RsfViewSettings } from './rsf-view';
 import * as place from './rsf-sheet-extras';
 import * as cellStyle from './rsf-cell-style';
 import { applyJsonDelta, diffJson, HistoryDeltaError } from './history-delta';
@@ -293,9 +293,9 @@ function sheetToJson(sheet: RsfWorksheetData): { [key: string]: Json } {
     out.lines = text.split('\n');
   }
   const display = sheet.display;
-  if (display && (hasViewSettings(display, 'drop') || (display.colWidths?.length ?? 0) > 0)) {
+  if (display && (hasViewSettings(display, sheetWrapFalse(kind)) || (display.colWidths?.length ?? 0) > 0)) {
     const view: { [key: string]: Json } = {};
-    viewToJson(display, 'drop', view);
+    viewToJson(display, sheetWrapFalse(kind), view);
     const widths: { [key: string]: Json } = {};
     let any = false;
     for (const [col, width] of [...(display.colWidths ?? [])].sort((a, b) => a[0] - b[0])) {
@@ -594,7 +594,7 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
     if (!isObject(view)) {
       fail();
     }
-    const display: RsfDisplaySettings = viewFromJson(view, 'drop', fail);
+    const display: RsfDisplaySettings = viewFromJson(view, sheetWrapFalse(sheet.kind ?? 'grid'), fail);
     if (view.colWidths !== undefined) {
       if (!isObject(view.colWidths)) {
         fail();
@@ -613,7 +613,7 @@ function sheetFromJson(value: unknown, totals: Totals): RsfWorksheetData {
         display.colWidths = widths;
       }
     }
-    if (hasViewSettings(display, 'drop') || display.colWidths) {
+    if (hasViewSettings(display, sheetWrapFalse(sheet.kind ?? 'grid')) || display.colWidths) {
       sheet.display = display;
     }
   }

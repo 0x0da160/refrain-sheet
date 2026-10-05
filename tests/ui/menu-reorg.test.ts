@@ -357,6 +357,30 @@ describe('View menu reorganization', () => {
     expect(system?.checked?.()).toBe(true);
   });
 
+  it('groups the sheet fonts into monospace and proportional', () => {
+    const fontSub = submenuOf(menu('menu.view'), 'menu.view.sheetFont');
+    expect(fontSub.map((i) => (i.heading ? `# ${String(i.labelKey)}` : i.command))).toEqual([
+      '# menu.view.sheetFont.monospace',
+      'view.sheetFont.bizUd',
+      'view.sheetFont.ms',
+      '# menu.view.sheetFont.proportional',
+      'view.sheetFont.msUi',
+      'view.sheetFont.notoSansJp',
+      'view.sheetFont.meiryoUi',
+      'view.sheetFont.yuGothicUi',
+    ]);
+  });
+
+  it('shows Alt+Z on Wrap, worded for long lines on a text worksheet', () => {
+    const wrap = items(menu('menu.view')).find((i) => i.command === 'view.wrap');
+    expect(wrap?.shortcut).toBe('Alt+Z');
+    expect(typeof wrap?.labelKey === 'function' ? wrap.labelKey() : wrap?.labelKey).toBe('menu.view.wrap');
+    const onText = defaultMenus({ ...checks(), textSheet: () => true })
+      .find((m) => m.labelKey === 'menu.view')!
+      .items.find((i): i is MenuItemDef => i !== 'separator' && i.command === 'view.wrap');
+    expect(typeof onText?.labelKey === 'function' ? onText.labelKey() : '').toBe('menu.view.wrapLines');
+  });
+
   it('offers the hybrid theme choice alongside system/light/dark (#363)', () => {
     const themeSub = submenuOf(menu('menu.view'), 'menu.view.theme');
     const hybrid = themeSub.find((i) => i.command === 'view.theme.hybrid');

@@ -105,8 +105,19 @@ export function resolveShortcut(event: ShortcutKey, ctx: ShortcutContext): Comma
   ) {
     return event.key === 'PageDown' ? 'worksheet.next' : 'worksheet.prev';
   }
-  // Alt is never part of an application accelerator, so AltGr and OS
-  // combinations are left alone.
+  // Alt+Z (Option+Z on a Mac) turns wrapping on or off, as in common code
+  // editors. Matched on the physical key, since Option+Z types "Ω" on a Mac;
+  // AltGr (Ctrl+Alt) is left alone.
+  if (
+    event.altKey &&
+    !mod &&
+    !event.shiftKey &&
+    (event.code === 'KeyZ' || (event.code === undefined && event.key.toLowerCase() === 'z'))
+  ) {
+    return 'view.wrap';
+  }
+  // Apart from Alt+Z above, Alt is never part of an application accelerator,
+  // so AltGr and OS combinations are left alone.
   if (mod && !event.altKey) {
     return resolveModified(event, ctx);
   }
@@ -376,6 +387,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
       { keys: ['Ctrl+Shift+,'], descKey: 'shortcut.zoomOut' },
       { keys: ['Ctrl+Shift+0'], descKey: 'shortcut.zoomReset' },
       { keys: ['Ctrl+Wheel'], descKey: 'shortcut.zoomWheel' },
+      { keys: ['Alt+Z'], descKey: 'shortcut.wrap' },
       { keys: ['Ctrl+/'], descKey: 'shortcut.list' },
     ],
   },
@@ -395,6 +407,7 @@ const MAC_SHORTCUT_OVERRIDES: Readonly<Record<string, string>> = {
   // The Mac keyboard names the Alt key Option.
   'Alt+Enter': 'Option+Enter',
   'Alt+Down': 'Option+Down',
+  'Alt+Z': 'Option+Z',
 };
 
 /** True on macOS (and iPadOS with a hardware keyboard), where Cmd replaces Ctrl. */

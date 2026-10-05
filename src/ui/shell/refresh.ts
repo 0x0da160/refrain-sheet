@@ -110,6 +110,7 @@ export function subscribeSurfaces(
         s.toolbar.render();
         s.statusBar.render();
         s.sheetBar.render(true);
+        s.applySourceSheetDisplay();
         s.grid.refresh();
         s.commentsPanel.render();
         s.validationCheckPanel.render();

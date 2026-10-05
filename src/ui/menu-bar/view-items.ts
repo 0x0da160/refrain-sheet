@@ -6,7 +6,7 @@
  */
 import type { CommandId } from '../../app/commands';
 import { SHEET_ZOOM_LEVELS } from '../../app/settings';
-import { SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../../app/sheet-font';
+import { isMonospaceSheetFont, SHEET_FONTS, sheetFontLabelKey, type SheetFontId } from '../../app/sheet-font';
 import { DENSITIES, densityLabelKey, type DensityChoice } from '../../app/density';
 import { THEMES, themeLabelKey, type ThemeChoice } from '../../app/theme';
 import type { MenuChecks, MenuItemDef } from './menus';
@@ -80,11 +80,18 @@ export function sheetFontItems(checks: MenuChecks): MenuItemDef[] {
     'meiryo-ui': 'view.sheetFont.meiryoUi',
     'yu-gothic-ui': 'view.sheetFont.yuGothicUi',
   };
-  return SHEET_FONTS.map((id) => ({
+  const item = (id: SheetFontId): MenuItemDef => ({
     labelKey: sheetFontLabelKey(id),
     command: font2command[id],
     checked: () => checks.sheetFont() === id,
-  }));
+  });
+  // Grouped so it is clear which fonts line characters up in columns.
+  return [
+    { labelKey: 'menu.view.sheetFont.monospace', heading: true },
+    ...SHEET_FONTS.filter(isMonospaceSheetFont).map(item),
+    { labelKey: 'menu.view.sheetFont.proportional', heading: true },
+    ...SHEET_FONTS.filter((id) => !isMonospaceSheetFont(id)).map(item),
+  ];
 }
 
 /** The four color-theme choices as checkable menu items (View > Theme). */

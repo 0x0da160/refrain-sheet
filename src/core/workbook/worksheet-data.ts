@@ -27,8 +27,8 @@ export function worksheetFromData(entry: RsfWorksheetData): Worksheet {
     for (const [col, width] of entry.display.colWidths ?? []) {
       sheet.displayColWidths[col] = width;
     }
-    if (entry.display.wrap) {
-      sheet.displayWrap = true;
+    if (entry.display.wrap === true || (entry.display.wrap === false && sheet.kind !== 'grid')) {
+      sheet.displayWrap = entry.display.wrap;
     }
     sheet.displayFont = entry.display.font;
     sheet.displayLook = { ...entry.display.look };
@@ -69,17 +69,19 @@ export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, 
   if (sheet.kind !== 'grid') {
     entry.kind = sheet.kind;
   }
+  // A text worksheet keeps wrap off as a choice (it wraps by default); a grid only wrap on.
+  const wrap = sheet.kind === 'grid' ? (sheet.displayWrap === true ? true : undefined) : sheet.displayWrap;
   if (
     sheet.displayZoom !== undefined ||
     colWidths.length > 0 ||
-    sheet.displayWrap === true ||
+    wrap !== undefined ||
     sheet.displayFont !== undefined ||
     !isEmptyGridLook(sheet.displayLook)
   ) {
     entry.display = {
       ...(sheet.displayZoom !== undefined ? { zoom: sheet.displayZoom } : {}),
       ...(colWidths.length > 0 ? { colWidths } : {}),
-      ...(sheet.displayWrap === true ? { wrap: true } : {}),
+      ...(wrap !== undefined ? { wrap } : {}),
       ...(sheet.displayFont !== undefined ? { font: sheet.displayFont } : {}),
       ...(!isEmptyGridLook(sheet.displayLook) ? { look: { ...sheet.displayLook } } : {}),
     };

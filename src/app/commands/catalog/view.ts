@@ -7,7 +7,7 @@
 import { workbookOf } from '../../../core/editor-document';
 import type { GridLook } from '../../../core/grid-look';
 import { getBrowserGridLook, setBrowserGridLook } from '../../grid-look';
-import { resolveGridLook } from '../../state/view-layers';
+import { resolveGridLook, showsProportionalFont } from '../../state/view-layers';
 import { setDensity, type DensityChoice } from '../../density';
 import { t } from '../../i18n';
 import {
@@ -69,6 +69,17 @@ function sheetFont(font: SheetFontId): CommandSpec {
     },
   };
 }
+
+/**
+ * Switch between a fixed-pitch and a proportional font in one step (handy on
+ * a Markdown or text worksheet): the default BIZ UD Gothic, or Yu Gothic UI.
+ * Stored like any font choice, so a worksheet keeps its own.
+ */
+const proportionalFont: CommandSpec = {
+  run: (ctx) => {
+    return sheetFont(showsProportionalFont(ctx.tab?.doc ?? null) ? 'biz-ud' : 'yu-gothic-ui').run(ctx);
+  },
+};
 
 /**
  * Toggle one key of the grid look. Like the font, an RSF worksheet remembers
@@ -183,6 +194,7 @@ export const VIEW_COMMANDS = {
   'view.sheetFont.notoSansJp': sheetFont('noto-sans-jp'),
   'view.sheetFont.meiryoUi': sheetFont('meiryo-ui'),
   'view.sheetFont.yuGothicUi': sheetFont('yu-gothic-ui'),
+  'view.proportionalFont': proportionalFont,
   'view.theme.system': theme('system'),
   'view.theme.light': theme('light'),
   'view.theme.dark': theme('dark'),

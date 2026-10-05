@@ -20,10 +20,12 @@ describe('mobile focus-zoom prevention', () => {
     expect(match![1]).toMatch(/font-size:\s*16px/);
   });
 
-  it('floors the docked Markdown worksheet source textarea to 16px too (#486), same rule as the dialogs', () => {
-    const match = /\.dialog-body input\[type='text'\][^{]*\{([^}]*)\}/.exec(css);
-    expect(match).not.toBeNull();
-    expect(match![0]).toMatch(/\.markdown-sheet-view \.markdown-editor-source/);
-    expect(match![1]).toMatch(/font-size:\s*16px/);
+  it('floors the docked worksheet source textareas to 16px too (#486), while following their zoom above it', () => {
+    const match = /\.markdown-sheet-view \.markdown-editor-source,[^{]*\{([^}]*)\}/.exec(css);
+    expect(match, 'missing the worksheet source 16px-floor rule').not.toBeNull();
+    expect(match![0]).toMatch(/\.text-sheet-view \.markdown-editor-source/);
+    expect(match![1]).toMatch(
+      /font-size:\s*max\(16px,\s*calc\(var\(--text-body\)\s*\*\s*var\(--sheet-zoom,\s*1\)\)\)/,
+    );
   });
 });

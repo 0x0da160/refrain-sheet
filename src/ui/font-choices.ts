@@ -13,16 +13,21 @@ import { FONT_SIZES } from '../core/workbook/text-font';
 import { el } from './dom';
 
 /** The fonts always offered: the sheet fonts plus common Latin ones. */
-const PRESET_FONTS: ReadonlyArray<{ family: string; labelKey?: string; css?: string }> = [
-  { family: 'BIZ UDGothic', labelKey: 'font.biz-ud', css: 'var(--sheet-font-biz-ud)' },
-  { family: 'MS Gothic', labelKey: 'font.ms', css: 'var(--sheet-font-ms)' },
-  { family: 'MS UI Gothic', labelKey: 'font.ms-ui', css: 'var(--sheet-font-ms-ui)' },
-  { family: 'Noto Sans JP', labelKey: 'font.noto-sans-jp' },
-  { family: 'Meiryo UI', labelKey: 'font.meiryo-ui', css: 'var(--sheet-font-meiryo-ui)' },
-  { family: 'Yu Gothic UI', labelKey: 'font.yu-gothic-ui', css: 'var(--sheet-font-yu-gothic-ui)' },
-  { family: 'Arial' },
-  { family: 'Times New Roman' },
-  { family: 'Courier New' },
+const PRESET_FONTS: ReadonlyArray<{ family: string; mono: boolean; labelKey?: string; css?: string }> = [
+  { family: 'BIZ UDGothic', mono: true, labelKey: 'font.biz-ud', css: 'var(--sheet-font-biz-ud)' },
+  { family: 'MS Gothic', mono: true, labelKey: 'font.ms', css: 'var(--sheet-font-ms)' },
+  { family: 'Courier New', mono: true },
+  { family: 'MS UI Gothic', mono: false, labelKey: 'font.ms-ui', css: 'var(--sheet-font-ms-ui)' },
+  { family: 'Noto Sans JP', mono: false, labelKey: 'font.noto-sans-jp' },
+  { family: 'Meiryo UI', mono: false, labelKey: 'font.meiryo-ui', css: 'var(--sheet-font-meiryo-ui)' },
+  {
+    family: 'Yu Gothic UI',
+    mono: false,
+    labelKey: 'font.yu-gothic-ui',
+    css: 'var(--sheet-font-yu-gothic-ui)',
+  },
+  { family: 'Arial', mono: false },
+  { family: 'Times New Roman', mono: false },
 ];
 
 /** The CSS `font-family` for a stored family name: the font, then the sheet font. */
@@ -88,19 +93,33 @@ export function fontFamilySelect(
     const option = (value: string, label: string): HTMLOptionElement =>
       el('option', { text: label, attrs: { value } }) as HTMLOptionElement;
     const families = new Set<string>();
-    const options = [option('', defaultLabel)];
-    for (const font of PRESET_FONTS) {
-      families.add(font.family);
-      options.push(option(font.family, font.labelKey ? t(font.labelKey) : font.family));
-    }
+    const group = (labelKey: string, mono: boolean): HTMLElement =>
+      el(
+        'optgroup',
+        { attrs: { label: t(labelKey) } },
+        PRESET_FONTS.filter((font) => font.mono === mono).map((font) => {
+          families.add(font.family);
+          return option(font.family, font.labelKey ? t(font.labelKey) : font.family);
+        }),
+      );
+    // The fixed list is grouped so it is clear which fonts line characters up.
+    const options: HTMLElement[] = [
+      option('', defaultLabel),
+      group('font.group.monospace', true),
+      group('font.group.proportional', false),
+    ];
+    const others: HTMLOptionElement[] = [];
     for (const family of localFamilies ?? []) {
       if (!families.has(family)) {
         families.add(family);
-        options.push(option(family, family));
+        others.push(option(family, family));
       }
     }
     if (selected !== '' && !families.has(selected)) {
-      options.push(option(selected, selected));
+      others.push(option(selected, selected));
+    }
+    if (others.length > 0) {
+      options.push(el('optgroup', { attrs: { label: t('font.group.other') } }, others));
     }
     if (localFamilies === null && canQueryLocalFonts()) {
       options.push(option(LOAD_LOCAL, t('font.loadLocal')));

@@ -165,8 +165,10 @@ describe('TextSheetView', () => {
     expect(view.element.hidden).toBe(true);
     expect(view.active).toBe(false);
   });
-  it('does not turn on Wrap Long Rows when the text gains a line break', () => {
+  it('does not change wrapping when the text gains a line break', () => {
     const { view, tab } = setup();
+    // A text worksheet wraps by default; switch it off so a change would show.
+    tab.wrapCells = false;
     const textarea = view.element.querySelector('textarea') as HTMLTextAreaElement;
     textarea.value = 'line one\nline two';
     textarea.dispatchEvent(new Event('input', { bubbles: true }));

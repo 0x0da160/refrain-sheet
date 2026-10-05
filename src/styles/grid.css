@@ -239,10 +239,39 @@
 }
 
 .vgrid-stickyrow.wrapped .vcell.vrowhead,
-.vgrid-row.wrapped .vcell.vrowhead {
+.vgrid-row.wrapped .vcell.vrowhead,
+.vgrid-stickyrow.sized .vcell.vrowhead,
+.vgrid-row.sized .vcell.vrowhead {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+}
+
+/* A row whose height the person set (Format > Row Height…, or the row
+   header's bottom edge): its cells keep one line each (unless wrapping is
+   on, above) and place the text up and down — in the middle unless the cell
+   says top or bottom (`paintAlign` in cell-paint.ts sets align-items). */
+.vgrid-stickyrow.sized .vcell[data-col],
+.vgrid-row.sized .vcell[data-col] {
+  display: flex;
+  align-items: center;
+  line-height: var(--grid-wrap-line);
+}
+
+.row-resize-handle {
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  width: 100%;
+  height: 7px;
+  cursor: row-resize;
+  z-index: 4;
+  touch-action: none;
+}
+
+.row-resize-handle:hover {
+  background: var(--canvas-selection-border);
+  opacity: 0.45;
 }
 
 /* A small corner marker on cells carrying a comment (#235): a CSS triangle

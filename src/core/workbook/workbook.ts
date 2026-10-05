@@ -650,8 +650,13 @@ export class Workbook {
     this.setCellOn(undefined, row, col, input);
   }
 
-  insertRowsOn(sheetId: string | undefined, index: number, rows: string[][]): void {
-    this.resolveSheet(sheetId).insertRows(index, rows);
+  insertRowsOn(
+    sheetId: string | undefined,
+    index: number,
+    rows: string[][],
+    heights?: readonly number[],
+  ): void {
+    this.resolveSheet(sheetId).insertRows(index, rows, heights);
     followCharts(this.sheets, this.resolveSheet(sheetId), 'row', 'insert', index, rows.length);
     this.touch();
   }

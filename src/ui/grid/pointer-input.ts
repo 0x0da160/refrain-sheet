@@ -114,6 +114,21 @@ export class PointerInput {
       event.stopPropagation();
       return true;
     }
+    const rowHandle = target?.closest<HTMLElement>('[data-rowresize]');
+    if (rowHandle && isWorkbook(tab.doc)) {
+      const row = Number(rowHandle.dataset.rowresize);
+      const head = rowHandle.parentElement;
+      this.core.editing.commitEditor();
+      this.core.rowResizing = {
+        row,
+        startY: event.clientY,
+        startHeight: head?.parentElement?.getBoundingClientRect().height || this.core.metrics.rowH(tab),
+        before: tab.doc.activeSheet.rowHeights.get(row),
+      };
+      event.preventDefault();
+      event.stopPropagation();
+      return true;
+    }
     if (target?.closest<HTMLElement>('[data-movehandle]')) {
       // Begin a range-move drag from the current selection (RSF only).
       const range = this.core.state.selectedRange(tab);
@@ -439,10 +454,12 @@ export class PointerInput {
       return;
     }
     const target = event.target as HTMLElement | null;
-    const onHandle = !!target?.closest('[data-colresize], [data-movehandle], [data-fillhandle]');
+    const onHandle = !!target?.closest(
+      '[data-colresize], [data-rowresize], [data-movehandle], [data-fillhandle]',
+    );
     if (onHandle) {
       this.onMouseDown(event);
-      if (this.core.resizing || this.core.movingRange || this.core.filling) {
+      if (this.core.resizing || this.core.rowResizing || this.core.movingRange || this.core.filling) {
         this.capturePointer(event.pointerId);
       }
       return;
@@ -465,6 +482,7 @@ export class PointerInput {
     }
     if (
       !this.core.resizing &&
+      !this.core.rowResizing &&
       !this.core.movingRange &&
       !this.core.filling &&
       !this.core.dragging &&
@@ -630,6 +648,13 @@ export class PointerInput {
       return;
     }
     const target = event.target as HTMLElement | null;
+    const rowHandle = target?.closest<HTMLElement>('[data-rowresize]');
+    if (rowHandle) {
+      // Back to the automatic height (one line, or what wrapped text needs).
+      event.preventDefault();
+      this.core.commands.setRowHeight(tab, [Number(rowHandle.dataset.rowresize)], null);
+      return;
+    }
     const resizeHandle = target?.closest<HTMLElement>('[data-colresize]');
     if (resizeHandle && isGridSurface(tab)) {
       event.preventDefault();

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { deleteRowHeights, insertRowHeights, type RowHeights } from './row-heights';
 import { cellStylesEqual, type CellStyle } from './cell-style';
 import type { CellConditionalFormat } from './conditional-format';
 import { shiftValidationsForDelete, shiftValidationsForInsert, type CellValidation } from './data-validation';
@@ -149,6 +150,8 @@ export class Worksheet {
    */
   displayZoom: number | undefined;
   displayColWidths: number[] = [];
+  /** Row heights a person set (`row-heights.ts`); follows inserted, deleted and moved rows. */
+  rowHeights: RowHeights = new Map();
   /**
    * Whether long cells wrap onto several visual lines on this worksheet.
    * `undefined` means "not stored" (the application-level preference applies).
@@ -551,7 +554,7 @@ export class Worksheet {
     return true;
   }
 
-  insertRows(index: number, rows: string[][]): void {
+  insertRows(index: number, rows: string[][], heights?: readonly number[]): void {
     const at = Math.max(0, Math.min(this.data.length, index));
     const prepared = rows.map((row) => {
       const out = new Array<string>(this.cols).fill('');
@@ -562,6 +565,7 @@ export class Worksheet {
     });
     this.data.splice(at, 0, ...prepared);
     this.formulaPerRow?.splice(at, 0, ...prepared.map((row) => this.countRowFormulas(row)));
+    this.rowHeights = insertRowHeights(this.rowHeights, at, prepared.length, heights);
     this.shiftAnnotationRows((row) => (row >= at ? row + prepared.length : row));
     this.validations = shiftValidationsForInsert(this.validations, 'row', at, prepared.length);
     this.objects = shiftObjectsForInsert(this.objects, 'row', at, prepared.length);
@@ -582,6 +586,7 @@ export class Worksheet {
       this.formulaPerRow?.push(0);
     }
     this.shiftAnnotationRows((row) => (row < index ? row : row < index + count ? null : row - count));
+    this.rowHeights = deleteRowHeights(this.rowHeights, index, count);
     this.validations = shiftValidationsForDelete(this.validations, 'row', index, count);
     this.objects = shiftObjectsForDelete(this.objects, 'row', index, count, this.data.length);
     this.revision += 1;
@@ -702,6 +707,7 @@ export class Worksheet {
     copy.filter = this.filter;
     copy.displayZoom = this.displayZoom;
     copy.displayColWidths = this.displayColWidths.slice();
+    copy.rowHeights = this.rowHeights;
     copy.displayWrap = this.displayWrap;
     copy.displayFont = this.displayFont;
     copy.displayLook = { ...this.displayLook };
@@ -728,6 +734,7 @@ export class Worksheet {
     copy.filter = this.filter;
     copy.displayZoom = this.displayZoom;
     copy.displayColWidths = this.displayColWidths.slice();
+    copy.rowHeights = this.rowHeights;
     copy.displayWrap = this.displayWrap;
     copy.displayFont = this.displayFont;
     copy.displayLook = { ...this.displayLook };

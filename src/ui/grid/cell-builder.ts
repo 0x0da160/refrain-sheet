@@ -314,6 +314,15 @@ export class CellBuilder {
     }
     head.style.width = `${this.core.metrics.headW(tab)}px`;
     this.appendHeaderTools(tab, head, 'row', row);
+    // An RSF sheet of cells: the bottom edge drags to set the row's height.
+    if (isWorkbook(doc) && doc.activeSheet.kind === 'grid' && doc.activeSheet.paper === undefined) {
+      head.append(
+        el('div', {
+          className: 'row-resize-handle',
+          attrs: { 'data-rowresize': String(row), 'aria-hidden': 'true', title: t('grid.rowResizeTitle') },
+        }),
+      );
+    }
     rowEl.append(head);
     const fieldCount = doc.fieldCount(row);
     const frozenCols = this.core.metrics.frozenColCount(tab);

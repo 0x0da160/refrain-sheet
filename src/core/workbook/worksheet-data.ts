@@ -39,6 +39,9 @@ export function worksheetFromData(entry: RsfWorksheetData): Worksheet {
   sheet.tabColor = entry.tabColor;
   sheet.folderId = entry.folderId;
   sheet.paper = entry.paper;
+  if (entry.rowHeights) {
+    sheet.rowHeights = new Map(entry.rowHeights);
+  }
   sheet.validations = entry.validations?.slice() ?? [];
   sheet.objects = entry.objects?.slice() ?? [];
   for (const [r, c, style] of entry.styles ?? []) {
@@ -97,6 +100,11 @@ export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, 
   }
   if (sheet.folderId !== undefined) {
     entry.folderId = sheet.folderId;
+  }
+  if (sheet.rowHeights.size > 0 && sheet.kind === 'grid') {
+    entry.rowHeights = [...sheet.rowHeights]
+      .filter(([row]) => row < sheet.rowCount)
+      .sort((a, b) => a[0] - b[0]);
   }
   if (sheet.paper !== undefined && sheet.kind === 'grid') {
     entry.paper = sheet.paper;

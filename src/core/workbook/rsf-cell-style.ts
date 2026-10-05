@@ -17,6 +17,7 @@ import {
   MAX_CURRENCY_SYMBOL_LENGTH,
   MAX_NUMBER_FORMAT_DECIMALS,
   NUMBER_FORMAT_KINDS,
+  VERTICAL_ALIGNS,
   normalizeHexColor,
   type CellStyle,
   type NumberFormat,
@@ -68,6 +69,7 @@ export function styleToJson(style: CellStyle, input: string): { [key: string]: J
   }
   fontToJson(style, out);
   if (style.horizontalAlign) out.horizontalAlign = style.horizontalAlign;
+  if (style.verticalAlign) out.verticalAlign = style.verticalAlign;
   const runs = runsForText(style.runs, input);
   if (runs) {
     out.runs = runs.map((run) => {
@@ -118,6 +120,9 @@ export function styleFromJson(value: unknown, maxText: number, fail: Fail): Cell
   read.font(value, style);
   if (value.horizontalAlign !== undefined) {
     style.horizontalAlign = read.oneOf(value.horizontalAlign, HORIZONTAL_ALIGNS);
+  }
+  if (value.verticalAlign !== undefined) {
+    style.verticalAlign = read.oneOf(value.verticalAlign, VERTICAL_ALIGNS);
   }
   if (value.runs !== undefined) {
     style.runs = read.runs(value.runs, maxText);

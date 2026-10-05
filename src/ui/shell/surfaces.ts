@@ -295,6 +295,10 @@ function menuChecks(state: AppState, commands: Commands): MenuChecks {
       const tab = state.activeTab;
       return tab !== null && commands.isAlignActive(tab, align);
     },
+    verticalAlignActive: (align) => {
+      const tab = state.activeTab;
+      return tab !== null && commands.isVerticalAlignActive(tab, align);
+    },
     driveAvailable: () => commands.driveAvailable(),
     protectedDoc: () => state.activeTab?.readOnly ?? false,
     headerFilter: () => commands.hasFilter(state.activeTab),

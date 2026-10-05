@@ -41,6 +41,8 @@ export interface CellStyle {
   fontSize?: number;
   /** Where the text sits across the cell; absent is the start (left), as before. */
   horizontalAlign?: HorizontalAlign;
+  /** Where the text sits up and down a taller row; absent is the middle, as before. */
+  verticalAlign?: VerticalAlign;
   /**
    * Parts of the cell's text with their own bold/italic/underline/text color/font/size
    * (rich text, see `rich-text.ts`). Applied only while the segments still
@@ -216,6 +218,10 @@ export function normalizeHexColor(value: string): string | null {
 export type HorizontalAlign = 'left' | 'center' | 'right';
 export const HORIZONTAL_ALIGNS: readonly HorizontalAlign[] = ['left', 'center', 'right'];
 
+/** Where a cell's text sits up and down. */
+export type VerticalAlign = 'top' | 'middle' | 'bottom';
+export const VERTICAL_ALIGNS: readonly VerticalAlign[] = ['top', 'middle', 'bottom'];
+
 /** True when a style carries no properties (the canonical "no style" form is `null`, not `{}`). */
 export function isEmptyCellStyle(style: CellStyle): boolean {
   return (
@@ -232,6 +238,7 @@ export function isEmptyCellStyle(style: CellStyle): boolean {
     style.fontFamily === undefined &&
     style.fontSize === undefined &&
     style.horizontalAlign === undefined &&
+    style.verticalAlign === undefined &&
     style.runs === undefined
   );
 }
@@ -262,6 +269,7 @@ export function cellStylesEqual(a: CellStyle | null, b: CellStyle | null): boole
     an.fontFamily === bn.fontFamily &&
     an.fontSize === bn.fontSize &&
     an.horizontalAlign === bn.horizontalAlign &&
+    an.verticalAlign === bn.verticalAlign &&
     runsEqual(an.runs, bn.runs)
   );
 }
@@ -300,12 +308,14 @@ export interface CellStylePatch {
   fontSize?: number | null;
   /** `null` goes back to the start (left). */
   horizontalAlign?: HorizontalAlign | null;
+  /** `null` goes back to the middle. */
+  verticalAlign?: VerticalAlign | null;
   /** `null` removes the rich-text runs; an array replaces them whole. */
   runs?: TextRun[] | null;
 }
 
 /** The patch keys whose value is set as-is, or removed by `null`. */
-const PLAIN_KEYS = ['fontFamily', 'fontSize', 'horizontalAlign'] as const;
+const PLAIN_KEYS = ['fontFamily', 'fontSize', 'horizontalAlign', 'verticalAlign'] as const;
 
 function applyPlainKeys(next: CellStyle, patch: CellStylePatch): void {
   for (const key of PLAIN_KEYS) {

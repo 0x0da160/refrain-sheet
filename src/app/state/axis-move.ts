@@ -21,6 +21,7 @@ import {
   shiftObjectsForInsert,
   type SheetObject,
 } from '../../core/workbook/sheet-objects';
+import { rowHeightsAt } from '../../core/workbook/row-heights';
 import { colWidthsAt } from './col-widths';
 
 /**
@@ -45,7 +46,7 @@ function chartedSnapshots(doc: RsfDocument, sheetId: string): Operation[] {
  * layout: moving columns B:C to `to = 5` puts them just before the current
  * column F). A reorder, not an overwrite: the rows/columns passed over close
  * the gap, every formula reference follows the cell it pointed at, and the
- * moved cells keep their values, styles, comments, and (for columns) widths.
+ * moved cells keep their values, styles, comments, and widths or heights.
  * Null when the move is out of range or drops the span back onto itself.
  *
  * Recorded with the existing operations so undo/redo needs nothing new: the
@@ -144,6 +145,7 @@ export function planAxisMove(
     }
   }
   const widths = axis === 'col' ? { widths: colWidthsAt(colWidths, from, count) } : {};
+  const heights = axis === 'row' ? { heights: rowHeightsAt(sheet.rowHeights, from, count) } : {};
 
   // The rules as they stand, restored first on undo; after the insert, the
   // moved rules are put where their rows or columns went.
@@ -160,10 +162,10 @@ export function planAxisMove(
     { type: 'styles', changes: clearStyles, sheetId },
     { type: 'comments', changes: clearComments, sheetId },
     axis === 'row'
-      ? { type: 'rows', action: 'delete', index: from, count, data, sheetId }
+      ? { type: 'rows', action: 'delete', index: from, count, data, sheetId, ...heights }
       : { type: 'cols', action: 'delete', index: from, count, data, sheetId, ...widths },
     axis === 'row'
-      ? { type: 'rows', action: 'insert', index: dest, count, data, sheetId }
+      ? { type: 'rows', action: 'insert', index: dest, count, data, sheetId, ...heights }
       : { type: 'cols', action: 'insert', index: dest, count, data, sheetId, ...widths },
     { type: 'styles', changes: placeStyles, sheetId },
     { type: 'comments', changes: placeComments, sheetId },

@@ -4,8 +4,8 @@
  * rather than itself (knowledge/formats/rsf/json-document.md): a
  * worksheet's `tabColor` and `folder` and the file's `folders`
  * (`rsf-folders.ts`), a worksheet's `validations`, its `objects`
- * (`rsf-sheet-objects.ts`), its `paper` square (`grid-paper.ts`), and the
- * file's `images` (`rsf-images.ts`). Like every key in
+ * (`rsf-sheet-objects.ts`), its `paper` square (`grid-paper.ts`), its
+ * `rowHeights` (`row-heights.ts`), and the file's `images` (`rsf-images.ts`). Like every key in
  * the codec, a known key with the wrong shape fails the whole file.
  */
 import { cellLabel, parseRef } from '../formula';
@@ -30,6 +30,7 @@ import { checkChartSources } from './rsf-sheet-charts';
 import { objectsFromJson, objectsToJson } from './rsf-sheet-objects';
 import type { SheetObject } from './sheet-objects';
 import { isPaperSquare } from './grid-paper';
+import { clampRowHeight } from './row-heights';
 
 /** The file-level keys kept here: the sheet folders and the pictures. */
 export interface RsfFileExtras extends RsfFolderList, RsfImageList {}
@@ -74,6 +75,8 @@ export interface RsfSheetExtras extends RsfSheetPlacement {
   objects?: SheetObject[];
   /** A grid-paper sheet's square side (px at 100% zoom). */
   paper?: number;
+  /** Row heights a person set, as [row, px-at-100%] pairs in row order. */
+  rowHeights?: Array<[number, number]>;
 }
 
 type Fail = (reason?: 'too-large') => never;
@@ -90,6 +93,9 @@ export function sheetExtrasToJson(sheet: RsfSheetExtras): { [key: string]: Json 
   }
   if (sheet.paper !== undefined) {
     out.paper = sheet.paper;
+  }
+  if (sheet.rowHeights && sheet.rowHeights.length > 0) {
+    out.rowHeights = Object.fromEntries(sheet.rowHeights.map(([row, px]) => [String(row + 1), px]));
   }
   return out;
 }
@@ -130,7 +136,45 @@ export function sheetExtrasFromJson(
   if (value.paper !== undefined) {
     out.paper = (sheet.kind ?? 'grid') === 'grid' && isPaperSquare(value.paper) ? value.paper : fail();
   }
+  if (value.rowHeights !== undefined) {
+    const heights = rowHeightsFromJson(value.rowHeights, sheet, fail);
+    if (heights.length > 0) {
+      out.rowHeights = heights;
+    }
+  }
   return out;
+}
+
+/**
+ * `{ "3": 40 }`: a grid worksheet's row heights by 1-based row number, in px
+ * at 100% zoom (clamped into range). A row past the worksheet's rows is
+ * dropped; a key that is not a row number, or a height that is not a
+ * number, is `bad-shape`.
+ */
+function rowHeightsFromJson(
+  value: unknown,
+  sheet: { kind?: string; rowCount: number },
+  fail: Fail,
+): Array<[number, number]> {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    Array.isArray(value) ||
+    (sheet.kind ?? 'grid') !== 'grid'
+  ) {
+    return fail();
+  }
+  const out: Array<[number, number]> = [];
+  for (const [key, px] of Object.entries(value)) {
+    if (!/^[1-9][0-9]{0,8}$/.test(key) || typeof px !== 'number' || !Number.isFinite(px)) {
+      return fail();
+    }
+    const row = Number(key) - 1;
+    if (row < sheet.rowCount) {
+      out.push([row, clampRowHeight(px)]);
+    }
+  }
+  return out.sort((a, b) => a[0] - b[0]);
 }
 
 /**

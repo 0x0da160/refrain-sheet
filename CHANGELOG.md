@@ -67,6 +67,9 @@ really is internal, rather than inventing an entry to satisfy it.
 - Formatted Markdown and its preview show headings in green and bold text
   in violet, so they stand out from the body text (all themes except High
   contrast).
+- After clicking + under the last row (or right of the last column), the
+  sheet scrolls by the added row or column, so the + stays under the
+  pointer and the new row is in view.
 
 ### Fixed
 
@@ -85,6 +88,13 @@ really is internal, rather than inventing an entry to satisfy it.
 - View > Proportional Font switches the sheet between a monospace font
   (BIZ UD Gothic) and a proportional one (Yu Gothic UI). A font chosen on a
   Markdown, JSON, YAML or text sheet now applies to it.
+- Row heights on RSF sheets: drag the bottom edge of a row number to make
+  the row taller or shorter (double-click it to go back to the automatic
+  height), or set an exact height in px with Format > Row Height…. The
+  heights are saved with the file and move with their rows.
+- Format > Text Alignment now also has Align Top, Align Middle and Align
+  Bottom, which place a cell's text up and down a taller row. Middle stays
+  the default.
 
 ## [0.9.25] - 2026-10-03
 

@@ -12,6 +12,7 @@ import {
   type CellStylePatch,
   type NumberFormat,
   type HorizontalAlign,
+  type VerticalAlign,
 } from '../../core/workbook/cell-style';
 import { borderPresetPatch } from '../../core/workbook/border-presets';
 import type { CellRange } from '../../core/clipboard';
@@ -59,6 +60,7 @@ const CLEAR_PATCH: CellStylePatch = {
   fontFamily: null,
   fontSize: null,
   horizontalAlign: null,
+  verticalAlign: null,
   runs: null,
 };
 
@@ -423,6 +425,31 @@ export class FormatCommands {
   setHorizontalAlign(tab: Tab, align: HorizontalAlign): boolean {
     const next = this.isAlignActive(tab, align) ? null : align;
     return this.applyToSelection(tab, { horizontalAlign: next }, 'history.setAlign');
+  }
+
+  /** Whether every visible selected cell sits at `align` up and down (no alignment of its own: the middle). */
+  isVerticalAlignActive(tab: Tab, align: VerticalAlign): boolean {
+    const doc = tab.doc;
+    const range = this.state.selectedRange(tab);
+    if (!isWorkbook(doc) || !range) {
+      return false;
+    }
+    const hidden = this.state.hiddenRows(tab);
+    return rangeCells(range, hidden).every(
+      ({ row, col }) => (doc.getStyle(row, col)?.verticalAlign ?? 'middle') === align,
+    );
+  }
+
+  /**
+   * Put the selection's text at the top, middle or bottom of its rows, as
+   * one undo step. The middle is the default, so it is stored as no value.
+   */
+  setVerticalAlign(tab: Tab, align: VerticalAlign): boolean {
+    return this.applyToSelection(
+      tab,
+      { verticalAlign: align === 'middle' ? null : align },
+      'history.setVerticalAlign',
+    );
   }
 
   private toggleProperty(tab: Tab, key: 'bold' | 'italic' | 'underline', label: string): boolean {

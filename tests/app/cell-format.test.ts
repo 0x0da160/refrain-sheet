@@ -21,7 +21,7 @@ import {
   resolveSharedBorder,
   type CellStyle,
 } from '../../src/core/workbook/cell-style';
-import { decodeRsf, encodeRsf, type RsfData } from '../rsf-single-sheet';
+import { decodeRsf, encodeRsf, rsfFromTree, rsfTree, type RsfData } from '../rsf-single-sheet';
 import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { Worksheet } from '../../src/core/workbook/worksheet';
 import { doc as csvDoc } from '../helpers';
@@ -60,6 +60,7 @@ function stubUi(overrides: Partial<UiPort> = {}): UiPort {
     confirmRangeMoveOverwrite: vi.fn(async () => true),
     promptMoveTarget: vi.fn(async () => null),
     promptGoToCell: vi.fn(async () => null),
+    promptRowHeight: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
     showMessage: vi.fn(async () => undefined),
     notify: vi.fn(),
@@ -560,6 +561,37 @@ describe('FormatCommands via Commands (RSF worksheets)', () => {
     expect(commands.setHorizontalAlign(tab, 'center')).toBe(true);
     expect(doc.getStyle(0, 0)).toBeNull();
     expect(commands.setHorizontalAlign(tab, 'left')).toBe(false);
+  });
+
+  it('puts the text at the top, middle or bottom as one undo step; the middle is no value', async () => {
+    const { commands, tab, doc, state } = sheet([['a', 'b']]);
+    state.setSelection(tab, { row: 0, col: 0 }, { row: 0, col: 1 });
+    expect(commands.isVerticalAlignActive(tab, 'middle')).toBe(true);
+    await commands.run('format.alignTop');
+    expect(doc.getStyle(0, 1)).toEqual({ verticalAlign: 'top' });
+    expect(commands.isVerticalAlignActive(tab, 'top')).toBe(true);
+    await commands.run('format.alignBottom');
+    expect(doc.getStyle(0, 0)).toEqual({ verticalAlign: 'bottom' });
+    await commands.run('format.alignMiddle');
+    expect(doc.getStyle(0, 0)).toBeNull();
+    await commands.run('edit.undo');
+    expect(doc.getStyle(0, 0)).toEqual({ verticalAlign: 'bottom' });
+  });
+
+  it('keeps the vertical alignment in the file, and fails a file with an unknown one', () => {
+    const data: RsfData = {
+      name: 'S',
+      delimiter: ',',
+      rowCount: 1,
+      columnCount: 1,
+      cells: [[0, 0, 'x']],
+      styles: [[0, 0, { verticalAlign: 'bottom' }]],
+    };
+    const decoded = decodeRsf(encodeRsf(data));
+    expect(decoded.ok && decoded.data.styles).toEqual([[0, 0, { verticalAlign: 'bottom' }]]);
+    const tree = rsfTree(encodeRsf(data));
+    tree.sheets[0].styles = { A1: { verticalAlign: 'baseline' } };
+    expect(decodeRsf(rsfFromTree(tree)).ok).toBe(false);
   });
 
   it('Clear Formatting removes the alignment too', () => {

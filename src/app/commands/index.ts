@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { isCsv, isWorkbook } from '../../core/editor-document';
-import type { CellStyle, HorizontalAlign } from '../../core/workbook/cell-style';
+import type { CellStyle, HorizontalAlign, VerticalAlign } from '../../core/workbook/cell-style';
+import { setRowHeights } from './row-height';
 import type { CellRange, TableCopyFormat } from '../../core/clipboard';
 import type { CellValidation } from '../../core/workbook/data-validation';
 import { isFormula } from '../../core/formula';
@@ -730,6 +731,21 @@ export class Commands {
   /** Whether the whole selection sits at `align`. See `FormatCommands.isAlignActive`. */
   isAlignActive(tab: Tab, align: HorizontalAlign): boolean {
     return this.parts.format.isAlignActive(tab, align);
+  }
+
+  /** Put the selection's text at the top, middle or bottom. See `FormatCommands.setVerticalAlign`. */
+  setVerticalAlign(tab: Tab, align: VerticalAlign): boolean {
+    return this.parts.format.setVerticalAlign(tab, align);
+  }
+
+  /** Whether the whole selection sits at `align` up and down. See `FormatCommands.isVerticalAlignActive`. */
+  isVerticalAlignActive(tab: Tab, align: VerticalAlign): boolean {
+    return this.parts.format.isVerticalAlignActive(tab, align);
+  }
+
+  /** Set rows' height (px at 100% zoom), or give them back their automatic height. See `setRowHeights`. */
+  setRowHeight(tab: Tab, rows: Iterable<number>, height: number | null): boolean {
+    return setRowHeights(this.state, tab, rows, height);
   }
 
   /** Whether Bold/Italic/Underline is "on" for the whole selection. See `FormatCommands.isActive`. */

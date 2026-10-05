@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * The drag operations that commit on release: column resize, the fill
+ * The drag operations that commit on release: column and row resize, the fill
  * handle, range move, and pointer reference entry into a formula. Escape
  * aborts any of them without committing.
  *
@@ -52,13 +52,32 @@ export class DragOperations {
     this.setColWidth(tab, col, width);
   });
 
+  /** Frame-coalesced row-height application from an on-screen height (stored at 100% zoom). */
+  readonly applyRowResize = frameCoalesced<{ tab: Tab; row: number; height: number }>(
+    ({ tab, row, height }) => {
+      if (!this.core.rowResizing || this.core.state.activeTab !== tab) {
+        return;
+      }
+      this.core.commands.setRowHeight(tab, [row], height / this.core.metrics.zoomOf(tab));
+    },
+  );
+
   onResizeMove(event: MouseEvent): void {
-    const drag = this.core.resizing;
-    if (!drag) {
-      return;
-    }
     const tab = this.core.state.activeTab;
     if (!tab) {
+      return;
+    }
+    const rowDrag = this.core.rowResizing;
+    if (rowDrag) {
+      this.applyRowResize({
+        tab,
+        row: rowDrag.row,
+        height: rowDrag.startHeight + (event.clientY - rowDrag.startY),
+      });
+      return;
+    }
+    const drag = this.core.resizing;
+    if (!drag) {
       return;
     }
     this.applyResize({ tab, col: drag.col, width: drag.startWidth + (event.clientX - drag.startX) });
@@ -66,18 +85,21 @@ export class DragOperations {
 
   endResize(): void {
     this.core.resizing = null;
+    this.core.rowResizing = null;
   }
 
-  /** Abort a column-resize drag, restoring the width it started at. */
+  /** Abort a column-width or row-height drag, restoring the size it started at. */
   cancelResize(): void {
     const drag = this.core.resizing;
-    if (!drag) {
-      return;
-    }
+    const rowDrag = this.core.rowResizing;
     this.core.resizing = null;
+    this.core.rowResizing = null;
     const tab = this.core.state.activeTab;
-    if (tab) {
+    if (tab && drag) {
       this.setColWidth(tab, drag.col, drag.startWidth);
+    }
+    if (tab && rowDrag) {
+      this.core.commands.setRowHeight(tab, [rowDrag.row], rowDrag.before ?? null);
     }
   }
 

@@ -3,6 +3,7 @@ import { isWorkbook } from '../../core/editor-document';
 import type { AppState, Tab } from '../../app/state';
 import { ColOffsetIndex } from '../../core/col-offset-index';
 import { RowHeightIndex } from '../../core/row-height-index';
+import type { RowHeights } from '../../core/workbook/row-heights';
 import type { SheetSort } from '../../core/workbook/sort';
 import { COL_WIDTH, ROW_HEAD_WIDTH, ROW_HEIGHT, WRAP_LINE_HEIGHT, WRAP_VERTICAL_PAD } from './geometry';
 
@@ -58,6 +59,8 @@ export class GridMetrics {
   private readonly indexHidden = new WeakMap<object, Set<number> | null>();
   /** Active sort the row-height index was built against, per document. */
   private readonly indexSort = new WeakMap<object, SheetSort | null>();
+  /** Set row heights the row-height index was built with, per document. */
+  private readonly indexSized = new WeakMap<object, RowHeights | null>();
 
   /**
    * @param onIndexReset called whenever a row-height index is rebuilt from
@@ -107,6 +110,33 @@ export class GridMetrics {
     return isWorkbook(tab.doc) ? tab.doc.activeSheet.paper : undefined;
   }
 
+  /**
+   * Put the heights no measuring changes into `index`: the rows the person
+   * sized, and 0 for the rows the active filter hides.
+   */
+  seedFixedHeights(tab: Tab, index: RowHeightIndex): void {
+    for (const [row, px] of this.sizedOf(tab) ?? []) {
+      if (row < tab.doc.rowCount) {
+        index.set(this.state.sortSlot(tab, row), Math.round(px * this.zoomOf(tab)));
+      }
+    }
+    for (const row of this.hiddenOf(tab) ?? []) {
+      index.set(row, 0);
+    }
+  }
+
+  /** The row heights a person set on the active sheet (doc row → px at 100%), or null for none. */
+  sizedOf(tab: Tab): RowHeights | null {
+    const sheet = isWorkbook(tab.doc) ? tab.doc.activeSheet : null;
+    return sheet && sheet.paper === undefined && sheet.rowHeights.size > 0 ? sheet.rowHeights : null;
+  }
+
+  /** A document row's set height in on-screen px, or null when it has none. */
+  sizedRowH(tab: Tab, row: number): number | null {
+    const px = this.sizedOf(tab)?.get(row);
+    return px === undefined ? null : Math.round(px * this.zoomOf(tab));
+  }
+
   /** Zoomed default (single-line) row height in px; on grid paper, one square. */
   rowH(tab: Tab): number {
     return Math.round((this.paperOf(tab) ?? ROW_HEIGHT) * this.zoomOf(tab));
@@ -149,23 +179,21 @@ export class GridMetrics {
       this.indexZoom.get(tab.doc) !== tab.zoom ||
       this.indexBase.get(tab.doc) !== this.rowH(tab) ||
       this.indexHidden.get(tab.doc) !== hidden ||
-      this.indexSort.get(tab.doc) !== sort
+      this.indexSort.get(tab.doc) !== sort ||
+      this.indexSized.get(tab.doc) !== this.sizedOf(tab)
     ) {
       // A zoom, filter, or sort change invalidates every cached height (the
       // uniform default and any wrapped measurements — a sort change moves
       // which document row's content each slot's height came from), so the
       // index starts fresh.
       index = new RowHeightIndex(this.rowH(tab));
-      if (hidden) {
-        for (const row of hidden) {
-          index.set(row, 0);
-        }
-      }
+      this.seedFixedHeights(tab, index);
       this.rowHeights.set(tab.doc, index);
       this.indexZoom.set(tab.doc, tab.zoom);
       this.indexBase.set(tab.doc, this.rowH(tab));
       this.indexHidden.set(tab.doc, hidden ?? null);
       this.indexSort.set(tab.doc, sort);
+      this.indexSized.set(tab.doc, this.sizedOf(tab));
       this.onIndexReset(); // re-measure wrapped heights for the new state
       this.heightsVersion += 1;
     }

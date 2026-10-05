@@ -82,6 +82,10 @@ export class WrapLayout {
     if (this.core.metrics.hiddenOf(tab)?.has(row)) {
       return 0; // filtered out: the row's band collapses entirely
     }
+    const sized = this.core.metrics.sizedRowH(tab, row);
+    if (sized !== null) {
+      return sized; // a height the person set wins over the wrapped one
+    }
     const doc = tab.doc;
     const fields = doc.fieldCount(row);
     let maxLines = 1;

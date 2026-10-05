@@ -34,9 +34,6 @@ import type { Grid } from './grid';
 import { createIcon } from './icon';
 import { chartSection } from './objects-panel-chart';
 
-type Unit = 'px' | 'mm';
-const MM_PER_PX = 25.4 / 96;
-
 /** The optional flags an object carries as `true` or not at all. */
 type Flag = 'hidden' | 'lockPosition' | 'lockEdit' | 'bold' | 'italic';
 
@@ -79,7 +76,6 @@ export class ObjectsPanel {
   readonly element: HTMLElement;
   private readonly chrome: SidePanelChrome;
   private readonly body: HTMLElement;
-  private unit: Unit = 'px';
   /** Set while a field's change is applied: the redraw waits (see {@link update}). */
   private deferRender = false;
 
@@ -324,37 +320,23 @@ export class ObjectsPanel {
     return sections;
   }
 
-  /** Position and size, in pixels at 100% zoom or millimetres, and rotation. */
+  /** Position and size, in pixels at 100% zoom, and rotation. */
   private placement(tab: Tab, o: SheetObject, positionLocked: boolean): HTMLElement {
-    const unit = el('select', { attrs: { 'data-focus-key': 'unit' } }) as HTMLSelectElement;
-    for (const value of ['px', 'mm'] as const) {
-      unit.append(el('option', { text: t(`panel.objects.unit.${value}`), attrs: { value } }));
-    }
-    unit.value = this.unit;
-    unit.addEventListener('change', () => {
-      this.unit = unit.value === 'mm' ? 'mm' : 'px';
-      this.render();
-    });
-    const toUnit = (px: number): string =>
-      this.unit === 'mm' ? String(Math.round(px * MM_PER_PX * 10) / 10) : String(Math.round(px));
-    const fromUnit = (text: string): number | null => {
+    const fromText = (text: string): number | null => {
       const value = Number(text);
-      if (text.trim() === '' || !Number.isFinite(value) || value < 0) {
-        return null;
-      }
-      return Math.round(this.unit === 'mm' ? value / MM_PER_PX : value);
+      return text.trim() === '' || !Number.isFinite(value) || value < 0 ? null : Math.round(value);
     };
     const at = this.grid.objectPosition(tab, o);
     const keepsRatio = o.kind === 'image' && o.aspectFree !== true;
     const number = (key: string, px: number, apply: (px: number) => SheetObject): HTMLElement => {
-      const input = this.input('number', key, toUnit(px), positionLocked, (value) => {
-        const next = fromUnit(value);
+      const input = this.input('number', key, String(Math.round(px)), positionLocked, (value) => {
+        const next = fromText(value);
         if (next !== null) {
           this.update(tab, o, apply(next), 'history.moveObject');
         }
       });
       input.min = '0';
-      input.step = this.unit === 'mm' ? '0.1' : '1';
+      input.step = '1';
       return panelField(t(`panel.objects.${key}`), input);
     };
     const rotation = this.input('number', 'rotation', String(o.rotation ?? 0), positionLocked, (value) => {
@@ -371,7 +353,6 @@ export class ObjectsPanel {
     });
     rotation.step = '1';
     return panelSection(t('panel.objects.placement'), [
-      panelField(t('panel.objects.unit'), unit),
       el('div', { className: 'objects-grid' }, [
         number('x', at.x, (x) => this.grid.objectMovedTo(tab, o, x, at.y)),
         number('y', at.y, (y) => this.grid.objectMovedTo(tab, o, at.x, y)),

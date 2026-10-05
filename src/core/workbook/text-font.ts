@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 /**
  * A cell's (or part of a cell's text's) own font: a family name and a size
- * in points, stored on {@link CellStyle} and on rich-text runs. The name is
+ * in points, stored on {@link CellStyle} and on rich-text runs (the app shows
+ * and draws sizes in px, 4/3 of a point; see `ui/font-choices.ts`). The name is
  * kept exactly as chosen even where that font is not installed: the display
  * falls back to the sheet font, and the file still names the chosen one.
  */
@@ -12,9 +13,6 @@ const MAX_FONT_SIZE = 96;
 
 /** Longest font family name stored. */
 export const MAX_FONT_FAMILY_LENGTH = 100;
-
-/** The sizes offered in menus, in points (any half point in range is accepted). */
-export const FONT_SIZES: readonly number[] = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72];
 
 /** A font size as stored: a half point from 6 to 96, or null for anything else. */
 export function normalizeFontSize(value: number): number | null {

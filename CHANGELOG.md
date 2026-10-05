@@ -70,6 +70,12 @@ really is internal, rather than inventing an entry to satisfy it.
 - After clicking + under the last row (or right of the last column), the
   sheet scrolls by the added row or column, so the + stays under the
   pointer and the new row is in view.
+- Font sizes are now shown in px everywhere (Format > Font…, the text
+  toolbar in the cell editor, and the object list), and the size list
+  offers px steps (8, 10, 12, 14, 16 … 96). Sizes saved in earlier files
+  keep how they look; they are shown at their px value.
+- The object list shows position and size in whole px only; the
+  Millimeters unit choice is removed.
 
 ### Fixed
 

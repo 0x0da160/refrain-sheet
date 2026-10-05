@@ -56,6 +56,9 @@ really is internal, rather than inventing an entry to satisfy it.
   Don't Show). Drag an item by its grip to another list or to a new place
   in its list. The bar and Details show the items in the order you
   arranged them.
+- The pixel pets play twelve different scenes in a random order instead of
+  one loop: a chase, ball play, a nap, a butterfly, a ball of yarn, a hopping
+  game, a song, a fish, a shooting star, the zoomies, a nose boop, and a bone.
 
 ### Fixed
 

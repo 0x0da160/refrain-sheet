@@ -52,6 +52,10 @@ really is internal, rather than inventing an entry to satisfy it.
   since the last one: the content, a sheet's or the file's settings saved in
   the RSF file. Saving again without changes (or after only switching
   sheets) no longer adds an identical version.
+- Customize Status Bar now shows three lists (Show in Bar, Show in Details,
+  Don't Show). Drag an item by its grip to another list or to a new place
+  in its list. The bar and Details show the items in the order you
+  arranged them.
 
 ### Fixed
 

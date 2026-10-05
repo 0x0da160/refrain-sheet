@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /**
  * Where each status bar item shows (View > Customize Status Bar…): in the
- * bar, behind the bar's Details button, or not at all. Kept in this
+ * bar, behind the bar's Details button, or not at all, and in what order. Kept in this
  * browser's `localStorage` only, never in a file. Items that are warnings or
  * controls (structure problems, unreadable characters, unsaved changes,
  * protection, zoom, full screen) are always in the bar and are not listed.
@@ -9,6 +9,7 @@
 import { safeStorageGet, safeStorageRemove, safeStorageSet } from './storage';
 
 const KEY = 'refrain-csv-html.statusItems';
+const ORDER_KEY = 'refrain-csv-html.statusOrder';
 
 /** The status bar items whose place can be chosen, in the order the bar shows them. */
 export const STATUS_ITEMS = [
@@ -73,5 +74,47 @@ export function setStatusItemPlace(id: StatusItemId, place: StatusItemPlace): vo
     safeStorageRemove(KEY);
   } else {
     safeStorageSet(KEY, JSON.stringify(next));
+  }
+}
+
+/**
+ * Every item in the order the user arranged them (the bar and Details show
+ * theirs in this order). Items never placed keep their default position
+ * relative to the ones before them; anything unreadable is ignored.
+ */
+export function getStatusItemOrder(): StatusItemId[] {
+  let stored: unknown;
+  try {
+    stored = JSON.parse(safeStorageGet(ORDER_KEY) ?? 'null');
+  } catch {
+    stored = null;
+  }
+  const known = new Set<string>(STATUS_ITEMS);
+  const order: StatusItemId[] = [];
+  if (Array.isArray(stored)) {
+    for (const id of stored) {
+      if (typeof id === 'string' && known.has(id) && !order.includes(id as StatusItemId)) {
+        order.push(id as StatusItemId);
+      }
+    }
+  }
+  // An item missing from the stored order goes right after the item before it in the default order.
+  STATUS_ITEMS.forEach((id, index) => {
+    if (!order.includes(id)) {
+      const before = STATUS_ITEMS.slice(0, index)
+        .reverse()
+        .find((prev) => order.includes(prev));
+      order.splice(before === undefined ? 0 : order.indexOf(before) + 1, 0, id);
+    }
+  });
+  return order;
+}
+
+/** Save the order (`null`: back to the default). */
+export function setStatusItemOrder(order: readonly StatusItemId[] | null): void {
+  if (order === null || order.join() === STATUS_ITEMS.join()) {
+    safeStorageRemove(ORDER_KEY);
+  } else {
+    safeStorageSet(ORDER_KEY, JSON.stringify(order));
   }
 }

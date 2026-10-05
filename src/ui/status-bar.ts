@@ -7,7 +7,7 @@ import type { AppState, Tab } from '../app/state';
 import type { CommandId } from '../app/commands';
 import { t } from '../app/i18n';
 import { SHEET_ZOOM_LEVELS } from '../app/settings';
-import { getStatusItemPlace, type StatusItemId } from '../app/status-bar-prefs';
+import { getStatusItemOrder, getStatusItemPlace, type StatusItemId } from '../app/status-bar-prefs';
 import { APP_VERSION_DISPLAY } from '../app/version';
 import { forEachIndexSliced } from '../core/scheduler';
 import type { CaretPosition } from '../core/text-editing';
@@ -100,7 +100,9 @@ export class StatusBar {
    * hidden): the desktop Details button lists them all, so it always has
    * the whole picture of the file.
    */
-  private allDetails: HTMLElement[] = [];
+  private allDetails: Array<{ id: StatusItemId; node: HTMLElement }> = [];
+  /** The items put in the bar (or behind Details) this render, to arrange in the user's order. */
+  private placed: Array<{ id: StatusItemId; node: HTMLElement }> = [];
 
   constructor(
     private readonly state: AppState,
@@ -127,7 +129,7 @@ export class StatusBar {
   private place(id: StatusItemId, node: HTMLElement, parent: HTMLElement = this.element): void {
     const place = getStatusItemPlace(id);
     if (id !== 'selection' && id !== 'version') {
-      this.allDetails.push(node);
+      this.allDetails.push({ id, node });
     }
     if (place === 'hidden') {
       return;
@@ -139,6 +141,27 @@ export class StatusBar {
       node.classList.add('status-detail');
     }
     parent.append(node);
+    if (parent === this.element) {
+      this.placed.push({ id, node });
+    }
+  }
+
+  /**
+   * Arrange the items put in the bar in the order View > Customize Status
+   * Bar… gives them, all together where the first of them was drawn; the
+   * fixed indicators and controls drawn between them follow after.
+   */
+  private arrangePlaced(): void {
+    if (this.placed.length < 2) {
+      return;
+    }
+    const rank = rankOf(getStatusItemOrder());
+    const marker = document.createComment('');
+    this.element.insertBefore(marker, this.placed[0]!.node);
+    for (const { node } of [...this.placed].sort((a, b) => rank(a.id) - rank(b.id))) {
+      this.element.insertBefore(node, marker);
+    }
+    marker.remove();
   }
 
   /** The phone-only button that shows or hides the file details. */
@@ -162,6 +185,7 @@ export class StatusBar {
     this.editorPosition = null;
     this.detailItems = [];
     this.allDetails = [];
+    this.placed = [];
     clearChildren(this.element);
     this.element.classList.toggle('details-open', this.detailsOpen);
     const tab = this.state.activeTab;
@@ -178,6 +202,7 @@ export class StatusBar {
       this.appendDetailsToggle();
       this.appendSelection(tab);
     }
+    this.arrangePlaced();
     this.appendEnd(tab);
   }
 
@@ -473,13 +498,14 @@ export class StatusBar {
         : tab.fileSize !== null
           ? t('status.location.opened')
           : t('status.location.none');
+    const rank = rankOf(getStatusItemOrder());
     const items = [
       el('span', { text: t('status.fileName', { name: tab.name }) }),
       el('span', { text: t('status.location', { place: location }) }),
       ...(isWorkbook(doc) && !tab.textFile
         ? [el('span', { text: t('status.sheetCount', { n: doc.sheetCount }) })]
         : []),
-      ...this.allDetails,
+      ...[...this.allDetails].sort((a, b) => rank(a.id) - rank(b.id)).map((item) => item.node),
     ];
     button.addEventListener('click', () => {
       void openAnchoredPopover({
@@ -640,4 +666,9 @@ export class StatusBar {
   private selectionLabel(row: number, col: number): HTMLElement {
     return el('span', { text: t('status.cell', { row: row + 1, col: col + 1 }) });
   }
+}
+
+/** Position of each item in `order`, as a sort key. */
+function rankOf(order: readonly StatusItemId[]): (id: StatusItemId) => number {
+  return (id) => order.indexOf(id);
 }

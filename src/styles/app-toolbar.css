@@ -180,3 +180,23 @@
 .toolbar-customize-row.drop-after {
   box-shadow: inset 0 -2px 0 var(--accent);
 }
+
+/* View > Customize Status Bar… (src/ui/dialogs/status-bar-customize.ts):
+   one list per place, each a drop target even when empty. */
+.status-customize-list {
+  min-height: 28px;
+  border-radius: var(--radius-sm);
+}
+
+.status-customize-list.drop-into {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.status-customize-list select {
+  flex: none;
+  max-width: 9em;
+}
+
+.status-customize-empty {
+  padding: var(--space-1);
+}

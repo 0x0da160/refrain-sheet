@@ -172,9 +172,15 @@ formula count, edited cells, filter, sort, CSV engine, the selected cell
 with its totals, and the version — each show in the bar, behind the bar's
 **Details** button (a popover), or not at all, as **View > Toolbar &
 Status Bar > Customize Status Bar…** sets (also a right-click on the bar, and the popover's own
-link). The places are stored in this browser only
-(`src/app/status-bar-prefs.ts`); every item starts in the bar. Warnings
-and controls are always in the bar: structure problems, unreadable
+link). The panel lists the items in three lists (in the bar, in Details,
+not shown); an item is dragged by its grip to another list or another
+place in its list (Up/Down and a place list per item do the same from the
+keyboard), and the bar and the Details popover show items in the order
+listed, the bar's all together where the first of them would be. The
+places and the order are stored in this browser only
+(`src/app/status-bar-prefs.ts`); every item starts in the bar, in the
+default order. Warnings and controls are always in the bar, after the
+arranged items: structure problems, unreadable
 characters, unsaved changes, the protection switch (**Edit | Protected**,
 the current one pressed; choosing the other runs `file.toggleProtect`),
 and at the right end the spreadsheet zoom (− , the View > Spreadsheet

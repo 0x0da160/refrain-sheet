@@ -4,7 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppState } from '../../src/app/state';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { setLocale, t } from '../../src/app/i18n';
-import { getStatusItemPlace, setStatusItemPlace, STATUS_ITEMS } from '../../src/app/status-bar-prefs';
+import {
+  getStatusItemOrder,
+  getStatusItemPlace,
+  setStatusItemOrder,
+  setStatusItemPlace,
+  STATUS_ITEMS,
+} from '../../src/app/status-bar-prefs';
 import { customizeStatusBar } from '../../src/ui/dialogs/status-bar-customize';
 import { formatFileSize, StatusBar } from '../../src/ui/status-bar';
 import { RsfDocument } from '../../src/core/workbook/rsf-document';
@@ -140,6 +146,32 @@ describe('StatusBar items, zoom, full screen and protection', () => {
     expect(statusBar.element.textContent).toContain('4,096 bytes (4.0 KB)');
   });
 
+  it('shows the bar items in the order arranged', () => {
+    localStorage.clear();
+    const { statusBar } = withCommands();
+    const text = (): string => statusBar.element.textContent ?? '';
+    expect(text().indexOf('Encoding')).toBeLessThan(text().indexOf('Delimiter'));
+    setStatusItemOrder(['delimiter', ...STATUS_ITEMS.filter((id) => id !== 'delimiter')]);
+    statusBar.render();
+    expect(text().indexOf('Delimiter')).toBeLessThan(text().indexOf('Encoding'));
+    setStatusItemOrder(null);
+  });
+
+  it('reads a saved order, ignoring unknown items and placing missing ones by default', () => {
+    localStorage.clear();
+    expect(getStatusItemOrder()).toEqual([...STATUS_ITEMS]);
+    localStorage.setItem('refrain-csv-html.statusOrder', '["size","nope","kind","size"]');
+    const order = getStatusItemOrder();
+    expect(order[0]).toBe('size');
+    expect(order.indexOf('size')).toBeLessThan(order.indexOf('kind'));
+    expect([...order].sort()).toEqual([...STATUS_ITEMS].sort());
+    // Encoding follows Kind, the item before it by default.
+    expect(order.indexOf('encoding')).toBe(order.indexOf('kind') + 1);
+    localStorage.setItem('refrain-csv-html.statusOrder', 'not json');
+    expect(getStatusItemOrder()).toEqual([...STATUS_ITEMS]);
+    localStorage.clear();
+  });
+
   it('keeps the places in this browser, ignoring anything unreadable', () => {
     localStorage.clear();
     setStatusItemPlace('size', 'hidden');
@@ -226,5 +258,24 @@ describe('View > Customize Status Bar…', () => {
     select.dispatchEvent(new Event('change'));
     expect(getStatusItemPlace('encoding')).toBe('details');
     expect(onChange).toHaveBeenCalledTimes(1);
+    // Redrawn: the item now sits at the end of the Details list.
+    const details = document.querySelector('[data-place="details"]')!;
+    expect([...details.querySelectorAll('[data-item]')].map((n) => n.getAttribute('data-item'))).toEqual([
+      'encoding',
+    ]);
+  });
+
+  it('moves an item up or down within its list and keeps that order', () => {
+    localStorage.clear();
+    setLocale('en');
+    void customizeStatusBar(() => undefined);
+    const bar = (): string[] =>
+      [...document.querySelectorAll('[data-place="bar"] [data-item]')].map((n) =>
+        n.getAttribute('data-item')!,
+      );
+    expect(bar().slice(0, 2)).toEqual(['kind', 'encoding']);
+    document.querySelector<HTMLButtonElement>('[data-item="encoding"] [data-control="up"]')!.click();
+    expect(bar().slice(0, 2)).toEqual(['encoding', 'kind']);
+    expect(getStatusItemOrder().slice(0, 2)).toEqual(['encoding', 'kind']);
   });
 });

@@ -87,6 +87,11 @@ export class Grid {
     return this.core.editing.focusGrid();
   }
 
+  /** Focus the grid without ever popping an on-screen keyboard (see `focusGrid`). */
+  focusGridSilently(): void {
+    this.core.editing.focusSinkSilently();
+  }
+
   /**
    * Test seam: install a deterministic text measurer so wrapping can be
    * exercised without a real 2D canvas (jsdom returns none). Pass null to

@@ -1271,6 +1271,15 @@ describe('sheet folder commands', () => {
     expect(commands.isEnabled('worksheet.moveToFolder')).toBe(true);
   });
 
+  it('creates an empty folder named in the dialog, leaving the worksheets where they are', async () => {
+    const promptFolderName = vi.fn(async () => 'Notes');
+    const { commands, doc } = setup(stubUi({ promptFolderName }));
+    await commands.run('worksheet.createFolder');
+    expect(doc.folders.map((f) => f.name)).toEqual(['Notes']);
+    expect(doc.activeSheet.folderId).toBeUndefined();
+    expect(commands.isEnabled('worksheet.moveToFolder')).toBe(true);
+  });
+
   it('offers the top level and every folder, and moves the worksheet to the choice', async () => {
     const chooseFolder = vi.fn(async () => ({ folderId: null }));
     const { state, commands, tab, doc } = setup(stubUi({ chooseFolder }));

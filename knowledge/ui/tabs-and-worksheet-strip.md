@@ -145,11 +145,15 @@ nothing to a bottom dock's offset (`reserveAppEdge` and `sheetBarHeight`
 in `src/ui/dialogs/side-panel.ts`).
 
 **Sheet folders.** Worksheets can be grouped in folders, nested to any
-depth; a worksheet is in at most one folder. Sheet > Manage Sheets > Sheet Folders > Move to New Folder…
-(or the folder button next to `+`) puts the active worksheet into a new
-folder where it is (so inside its current folder), and Sheet > Manage Sheets > Sheet Folders > Move to Folder… moves it to any folder or out
+depth; a worksheet is in at most one folder. Sheet > Manage Sheets > Sheet Folders > New Folder…
+(or the icon-only folder button next to `+`) creates an empty folder at the
+top level, and worksheets are dragged into it; Move to New Folder… puts the
+active worksheet into a new folder where it is (so inside its current
+folder), and Move to Folder… moves it to any folder or out
 of all of them. A folder's header in the strip opens and closes it (a
-closed folder still shows the active worksheet; open/closed is not saved),
+closed folder hides all its worksheets, the active one too: its header is
+then marked active, and the arrow keys on it move to the tabs beside it;
+open/closed is not saved),
 takes a dropped worksheet, and has its own context menu: Rename, Move
 (never into itself), Remove Folder, Keep Sheets (its contents move up a
 level), and Delete Folder and Its Sheets (confirmed; formulas pointing at

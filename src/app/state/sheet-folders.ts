@@ -42,6 +42,20 @@ export class SheetFoldersState {
     return done ? id : null;
   }
 
+  /** Create an empty folder at the top level (after everything else in the strip). */
+  createEmptyFolder(tab: Tab, name: string): string | null {
+    const doc = workbookOf(tab);
+    if (!doc) {
+      return null;
+    }
+    const id = doc.mintFolderId();
+    const done = this.organize(tab, doc, 'history.newFolder', (org) => {
+      org.folders.push({ id, name });
+      return org;
+    });
+    return done ? id : null;
+  }
+
   renameFolder(tab: Tab, folderId: string, name: string): boolean {
     const doc = workbookOf(tab);
     return (

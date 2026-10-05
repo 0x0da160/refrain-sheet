@@ -600,17 +600,48 @@ describe('sheet folders in the strip', () => {
     expect(inner.getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('closes and opens a folder from its header, keeping the active worksheet in view', () => {
+  it('closes and opens a folder from its header, marking it while it holds the active worksheet', () => {
     const { bar, state, tab, doc } = withFolders();
     header(bar, 'Sales').click();
     tabs(bar)[0].click(); // anything else clicked in between: the next click is not a double-click
     expect(shown(bar)).toEqual(['A', 'Sales', 'D']);
     expect(header(bar, 'Sales').getAttribute('aria-expanded')).toBe('false');
+    expect(header(bar, 'Sales').classList.contains('active')).toBe(false);
     state.setActiveSheet(tab, doc.sheetByName('C')!.id);
     bar.render();
-    expect(shown(bar)).toEqual(['A', 'Sales', 'C', 'D']);
+    // The active worksheet stays folded away; its closed folder is marked instead.
+    expect(shown(bar)).toEqual(['A', 'Sales', 'D']);
+    expect(header(bar, 'Sales').classList.contains('active')).toBe(true);
+    expect(header(bar, 'Sales').getAttribute('aria-current')).toBe('true');
+    expect(header(bar, 'Sales').title).toContain('C');
     header(bar, 'Sales').click();
     expect(shown(bar)).toEqual(['A', 'Sales', 'B', '2026', 'C', 'D']);
+    expect(header(bar, 'Sales').classList.contains('active')).toBe(false);
+  });
+
+  it('moves on from a closed folder holding the active worksheet with the arrows', () => {
+    const { bar, state, tab, doc } = withFolders();
+    header(bar, 'Sales').click();
+    state.setActiveSheet(tab, doc.sheetByName('C')!.id);
+    bar.render();
+    header(bar, 'Sales').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }),
+    );
+    expect(doc.activeSheet.name).toBe('D');
+    state.setActiveSheet(tab, doc.sheetByName('C')!.id);
+    bar.render();
+    header(bar, 'Sales').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }),
+    );
+    expect(doc.activeSheet.name).toBe('A');
+  });
+
+  it('hands the keyboard to the sheet after a tab is clicked', () => {
+    const { bar } = withFolders();
+    const onPointerActivate = vi.fn();
+    bar.onPointerActivate = onPointerActivate;
+    tabs(bar)[0].click();
+    expect(onPointerActivate).toHaveBeenCalledTimes(1);
   });
 
   it('moves with the arrows through the worksheets as shown, skipping closed folders', () => {
@@ -669,14 +700,16 @@ describe('sheet folders in the strip', () => {
     expect(header(bar, 'Revenue').getAttribute('aria-expanded')).toBe('true');
   });
 
-  it('puts the active worksheet in a new folder from the button next to Add', async () => {
+  it('creates an empty folder from the button next to Add', async () => {
     const promptFolderName = vi.fn(async () => 'New');
     const { bar, doc } = setup(['A', 'B'], stubUi({ promptFolderName }));
     const button = bar.element.querySelector<HTMLButtonElement>('.sheet-add-folder')!;
     expect(button.getAttribute('aria-label')).toBe(t('sheets.newFolder'));
     button.click();
     await vi.waitFor(() => expect(doc.folders.map((f) => f.name)).toEqual(['New']));
-    expect(doc.sheets[0].folderId).toBe(doc.folders[0].id);
+    expect(doc.sheets.map((s) => s.folderId)).toEqual([undefined, undefined]);
+    bar.render();
+    expect(bar.element.querySelector('.sheet-folder-header')?.textContent).toBe('New');
   });
 
   it('offers rename, move, remove, and delete on a folder’s context menu', () => {

@@ -145,6 +145,12 @@
   outline-offset: -2px;
 }
 
+.sheet-folder-header.active {
+  color: var(--fg-default);
+  font-weight: var(--weight-bold);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
 .sheet-folder-header.drop-into {
   box-shadow: inset 0 0 0 2px var(--accent);
 }
@@ -262,8 +268,7 @@
     min-height: 0;
   }
 
-  #app.sheet-tabs-vertical .sheet-tab,
-  #app.sheet-tabs-vertical .sheet-add {
+  #app.sheet-tabs-vertical .sheet-tab {
     border-top: 1px solid var(--border-default);
     border-right: none;
     border-radius: var(--radius-md) 0 0 var(--radius-md);
@@ -275,6 +280,11 @@
 
   #app.sheet-tabs-vertical .sheet-add-buttons {
     align-self: flex-start;
+  }
+
+  #app.sheet-tabs-vertical .sheet-add {
+    min-height: var(--control-h);
+    padding: 0 var(--space-2);
   }
 
   #app.sheet-tabs-vertical .sheet-tab .sheet-label:has(.sheet-name-edit),
@@ -337,6 +347,10 @@
     margin-left: var(--space-2);
   }
 
+  #app.sheet-tabs-vertical .sheet-folder-header.active {
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+
   #app.sheet-tabs-vertical .sheet-folder-header {
     max-width: none;
     min-height: var(--control-h);
@@ -344,18 +358,23 @@
   }
 }
 
+/* Icon-only buttons: no tab outline, so nothing reads as a cut-off tab. */
 .sheet-add {
   display: flex;
   align-items: center;
-  border: 1px solid var(--border-default);
-  border-top: none;
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
-  background: var(--bg-hover);
-  color: inherit;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-muted);
   padding: var(--space-1) var(--space-2);
   cursor: pointer;
   font: inherit;
   line-height: 1;
+}
+
+.sheet-add:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--fg-default);
 }
 
 .sheet-add:disabled {

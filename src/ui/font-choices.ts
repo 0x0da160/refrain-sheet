@@ -9,7 +9,6 @@
  * sheet font.
  */
 import { t } from '../app/i18n';
-import { FONT_SIZES } from '../core/workbook/text-font';
 import { el } from './dom';
 
 /** The fonts always offered: the sheet fonts plus common Latin ones. */
@@ -36,9 +35,23 @@ export function fontFamilyCss(family: string): string {
   return preset ? `${preset}, var(--font-sheet)` : `"${family}", var(--font-sheet)`;
 }
 
-/** The CSS `font-size` for a size in points, following the sheet's zoom. */
+/** Pixels per point (CSS: 1pt = 4/3 px). Sizes are shown and drawn in px; the file keeps points. */
+const PX_PER_PT = 4 / 3;
+
+/** A size in points as px, to one decimal (a whole number for every size the menus offer). */
+function pointsToPx(points: number): number {
+  return Math.round(points * PX_PER_PT * 10) / 10;
+}
+
+/**
+ * The sizes offered, in px. Each is a whole or half point (what the file
+ * stores, `normalizeFontSize`), so a size chosen here is kept exactly.
+ */
+const FONT_SIZES_PX: readonly number[] = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 64, 72, 96];
+
+/** The CSS `font-size` for a size in points, in px, following the sheet's zoom. */
 export function fontSizeCss(points: number): string {
-  return `calc(${points}pt * var(--sheet-zoom, 1))`;
+  return `calc(${pointsToPx(points)}px * var(--sheet-zoom, 1))`;
 }
 
 /**
@@ -140,7 +153,12 @@ export function fontFamilySelect(
   return select;
 }
 
-/** A `<select>` of font sizes in points (`wholeOnly`: whole points only); the first option (`''`) is the grid's size. */
+/**
+ * A `<select>` of font sizes shown in px; `current` and `onChange` speak
+ * points, as stored (`wholeOnly`: whole points only). The first option
+ * (`''`) is the grid's size. A stored size the list lacks (e.g. 11 pt from
+ * an older file) is shown at its px value.
+ */
 export function fontSizeSelect(
   current: number | null,
   onChange: (size: number | null) => void,
@@ -150,14 +168,14 @@ export function fontSizeSelect(
 ): HTMLSelectElement {
   const select = el('select', { attrs }) as HTMLSelectElement;
   // A shape's text takes whole points only (see `wholePixels`).
-  const sizes = FONT_SIZES.filter((size) => !wholeOnly || Number.isInteger(size));
+  const sizes = FONT_SIZES_PX.map((px) => (px * 3) / 4).filter((pt) => !wholeOnly || Number.isInteger(pt));
   if (current !== null && !sizes.includes(current)) {
     sizes.push(current);
     sizes.sort((a, b) => a - b);
   }
   select.append(
     el('option', { text: defaultLabel, attrs: { value: '' } }),
-    ...sizes.map((size) => el('option', { text: String(size), attrs: { value: String(size) } })),
+    ...sizes.map((size) => el('option', { text: String(pointsToPx(size)), attrs: { value: String(size) } })),
   );
   select.value = current === null ? '' : String(current);
   select.addEventListener('change', () => onChange(select.value === '' ? null : Number(select.value)));

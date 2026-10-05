@@ -140,8 +140,9 @@ serials). Keyboard shortcuts: **Ctrl+B / Ctrl+I / Ctrl+U**, **Ctrl+\\**
 **Ctrl+Shift+5** (Percent). The presets keep the Control key on macOS,
 where Cmd+Shift+4 / 5 take screenshots.
 
-**Format > Font…** sets the selection's own font family and size in points
-(RSF keys in [the JSON document](../formats/rsf/json-document.md)); the
+**Format > Font…** sets the selection's own font family and size. Sizes are
+shown and drawn in px; the file stores points (1pt = 4/3 px, so every size
+the px list offers is a whole or half point; RSF keys in [the JSON document](../formats/rsf/json-document.md)); the
 toolbar over text selected in the cell editor sets them for just that text.
 Choices are a fixed list (the sheet fonts plus common Latin fonts) and,
 where `queryLocalFonts` is allowed, the device's fonts — never a typed name.

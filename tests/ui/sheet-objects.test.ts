@@ -386,6 +386,8 @@ describe('sheet objects: the object list', () => {
     expect(state.objectSelection.selected(tab)).toEqual(['o1']);
     const width = panel.element.querySelector<HTMLInputElement>('[data-focus-key="width"]');
     expect(width?.value).toBe('100');
+    // Sizes are whole px only: no unit choice.
+    expect(panel.element.querySelector('[data-focus-key="unit"]')).toBeNull();
     width!.value = '140';
     width!.dispatchEvent(new Event('change'));
     expect(doc.objects[0].width).toBe(140);

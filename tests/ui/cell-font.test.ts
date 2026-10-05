@@ -79,7 +79,9 @@ describe('cell fonts: the model', () => {
   it('paints the stored font with the sheet font behind it', () => {
     expect(fontFamilyCss('Arial')).toBe('"Arial", var(--font-sheet)');
     expect(fontFamilyCss('MS Gothic')).toBe('var(--sheet-font-ms), var(--font-sheet)');
-    expect(fontSizeCss(12)).toBe('calc(12pt * var(--sheet-zoom, 1))');
+    // Shown and drawn in px (1pt = 4/3 px); the file keeps points.
+    expect(fontSizeCss(12)).toBe('calc(16px * var(--sheet-zoom, 1))');
+    expect(fontSizeCss(11)).toBe('calc(14.7px * var(--sheet-zoom, 1))');
   });
 });
 
@@ -172,14 +174,14 @@ describe('cell fonts: painting and the toolbar', () => {
     const { grid, doc } = setup();
     doc.setCellStyleOn(undefined, 0, 0, {
       fontFamily: 'Arial',
-      runs: [{ text: 'Hello ' }, { text: 'world', fontSize: 20 }],
+      runs: [{ text: 'Hello ' }, { text: 'world', fontSize: 18 }],
     });
     grid.refresh();
     const cell = grid.element.querySelector<HTMLElement>('[data-row="0"][data-col="0"]')!;
     expect(cell.style.fontFamily).toContain('Arial');
     const spans = [...cell.querySelectorAll<HTMLElement>('.rich-run')];
     expect(spans[0].style.fontSize).toBe('');
-    expect(spans[1].style.fontSize).toContain('20pt');
+    expect(spans[1].style.fontSize).toContain('24px');
   });
 
   it('the toolbar sets the size of the selected text only', () => {
@@ -192,9 +194,12 @@ describe('cell fonts: painting and the toolbar', () => {
       `.rich-text-toolbar select[aria-label="${t('richText.fontSize')}"]`,
     )!;
     expect(size.value).toBe('');
-    size.value = '16';
+    // The option shown as 16 (px) stores 12 (pt).
+    const option = [...size.options].find((o) => o.text === '16')!;
+    expect(option.value).toBe('12');
+    size.value = option.value;
     size.dispatchEvent(new Event('change'));
     grid.commitEditor();
-    expect(doc.getStyle(0, 0)?.runs).toEqual([{ text: 'Hello ' }, { text: 'world', fontSize: 16 }]);
+    expect(doc.getStyle(0, 0)?.runs).toEqual([{ text: 'Hello ' }, { text: 'world', fontSize: 12 }]);
   });
 });

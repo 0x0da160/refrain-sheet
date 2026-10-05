@@ -143,6 +143,25 @@ export function createSurfaces(
       }
     };
   }
+  // A clicked worksheet tab hands the keyboard straight to the sheet, so
+  // typing reaches the selected cell (or the text) without another click. A
+  // touch never focuses a text editor here: that would pop the on-screen keyboard.
+  sheetBar.onPointerActivate = (pointerType) => {
+    const view = sourceSheetViews.find((v) => v.active);
+    if (!view) {
+      if (pointerType === 'mouse') {
+        grid.focusGrid();
+      } else {
+        grid.focusGridSilently();
+      }
+    } else if (pointerType === 'mouse' || pointerType === '') {
+      if (view instanceof MarkdownSheetView) {
+        view.focusEditor();
+      } else {
+        view.editor.textarea.focus({ preventScroll: true });
+      }
+    }
+  };
   const refreshSourceSheetViews = (): void => {
     for (const view of sourceSheetViews) {
       view.refresh();

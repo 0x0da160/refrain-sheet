@@ -579,6 +579,7 @@ function worksheetItems(checks: MenuChecks): Array<MenuItemDef | 'separator'> {
       labelKey: 'menu.sheet.folders',
       icon: Folder,
       submenu: [
+        { labelKey: 'menu.sheet.createFolder', command: 'worksheet.createFolder' },
         { labelKey: 'menu.sheet.newFolder', command: 'worksheet.newFolder' },
         { labelKey: 'menu.sheet.moveToFolder', command: 'worksheet.moveToFolder' },
       ],

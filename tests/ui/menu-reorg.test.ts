@@ -109,6 +109,7 @@ describe('Sheet menu reorganization', () => {
         'worksheet.add',
         'worksheet.addPaper',
         'worksheet.addFromCsv',
+        'worksheet.createFolder',
         'worksheet.newFolder',
         'worksheet.moveToFolder',
         'worksheet.rename',

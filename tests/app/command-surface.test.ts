@@ -142,6 +142,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'worksheet.addFromCsv',
   'worksheet.rename',
   'worksheet.tabColor',
+  'worksheet.createFolder',
   'worksheet.newFolder',
   'worksheet.moveToFolder',
   'worksheet.duplicate',

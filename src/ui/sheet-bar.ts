@@ -96,6 +96,7 @@ const SHEET_MENU_ITEMS: SheetMenuDef[] = [
     labelKey: 'menu.sheet.folders',
     icon: Folder,
     submenu: [
+      { command: 'worksheet.createFolder', labelKey: 'menu.sheet.createFolder' },
       { command: 'worksheet.newFolder', labelKey: 'menu.sheet.newFolder' },
       { command: 'worksheet.moveToFolder', labelKey: 'menu.sheet.moveToFolder' },
     ],
@@ -158,6 +159,8 @@ export class SheetBar {
   private lastClick: { key: string; at: number } | null = null;
   /** The edge that sets the width of the sheet list down the left side. */
   private readonly resizer: HTMLElement;
+  /** Set by the shell: give the keyboard to the active worksheet after a tab is clicked. */
+  onPointerActivate: ((pointerType: string) => void) | null = null;
 
   constructor(
     private readonly state: AppState,
@@ -231,14 +234,14 @@ export class SheetBar {
       },
       [createIcon(FolderPlus, 'sheet-add-icon', 14)],
     );
-    folder.disabled = !this.commands.isEnabled('worksheet.newFolder');
-    folder.addEventListener('click', () => void this.commands.run('worksheet.newFolder'));
+    folder.disabled = !this.commands.isEnabled('worksheet.createFolder');
+    folder.addEventListener('click', () => void this.commands.run('worksheet.createFolder'));
     this.strip.append(el('div', { className: 'sheet-add-buttons', attrs: { role: 'none' } }, [add, folder]));
     this.resizer.setAttribute('aria-label', t('sheets.resize'));
     this.resizer.title = t('sheets.resize');
     // Keep the active worksheet visible when the strip scrolls horizontally.
     // Guarded because scrollIntoView is not implemented in every environment.
-    const activeTab = this.strip.querySelector<HTMLElement>('.sheet-tab[aria-selected="true"]');
+    const activeTab = this.activeItem();
     if (activeTab && typeof activeTab.scrollIntoView === 'function') {
       activeTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
@@ -256,8 +259,8 @@ export class SheetBar {
 
   /**
    * Render tree items: a worksheet as its tab, a folder as a group of a
-   * header and its items. A closed folder still shows the active worksheet,
-   * so the tab being edited never disappears.
+   * header and its items. A closed folder shows only its header; when the
+   * active worksheet is inside it, the header is marked as active instead.
    */
   private appendNodes(parent: HTMLElement, doc: RsfDocument, nodes: readonly SheetTreeNode[]): void {
     for (const node of nodes) {
@@ -281,12 +284,11 @@ export class SheetBar {
       const items = el('div', { className: 'sheet-folder-items', attrs: { role: 'none' } });
       if (open) {
         this.appendNodes(items, doc, node.children);
-      } else if (folderPath(doc.folders, doc.activeSheet.folderId).includes(node.folder)) {
-        this.appendNodes(items, doc, [{ kind: 'sheet', id: doc.activeSheetId }]);
       }
+      const holdsActive = !open && folderPath(doc.folders, doc.activeSheet.folderId).includes(node.folder);
       parent.append(
         el('div', { className: `sheet-folder${open ? '' : ' closed'}`, attrs: { role: 'none' } }, [
-          this.buildFolderHeader(doc, node.folder, open),
+          this.buildFolderHeader(doc, node.folder, open, holdsActive),
           items,
         ]),
       );
@@ -294,16 +296,25 @@ export class SheetBar {
   }
 
   /** A folder's header: click opens or closes it, a worksheet dropped on it moves in. */
-  private buildFolderHeader(doc: RsfDocument, folder: SheetFolder, open: boolean): HTMLElement {
+  private buildFolderHeader(
+    doc: RsfDocument,
+    folder: SheetFolder,
+    open: boolean,
+    holdsActive: boolean,
+  ): HTMLElement {
+    const title = t(open ? 'sheets.folder.close' : 'sheets.folder.open', { name: folder.name });
     const header = el(
       'button',
       {
-        className: 'sheet-folder-header',
+        className: `sheet-folder-header${holdsActive ? ' active' : ''}`,
         attrs: {
           type: 'button',
           'data-folder-id': folder.id,
           'aria-expanded': open ? 'true' : 'false',
-          title: t(open ? 'sheets.folder.close' : 'sheets.folder.open', { name: folder.name }),
+          title: holdsActive
+            ? `${title}\n${t('sheets.folder.holdsActive', { name: doc.activeSheet.name })}`
+            : title,
+          ...(holdsActive ? { 'aria-current': 'true' } : {}),
         },
       },
       [
@@ -333,6 +344,10 @@ export class SheetBar {
       if (event.key === 'F2') {
         event.preventDefault();
         this.renameFolderInPlace(folder.id);
+      } else if (header.classList.contains('active') && !event.altKey) {
+        // Standing in for the active worksheet folded inside: the arrows
+        // move on to the tab shown before or after this folder.
+        this.stepFromFolder(event, header);
       }
     });
     header.addEventListener('contextmenu', (event) => {
@@ -431,6 +446,9 @@ export class SheetBar {
       // A double-click types a new name on the tab.
       if (this.secondClick(`sheet:${id}`, event)) {
         this.renameSheetInPlace(id);
+      } else {
+        // Clicked, not keyed: typing goes to the sheet's cells or text, not the tab.
+        this.onPointerActivate?.(event instanceof PointerEvent ? event.pointerType : 'mouse');
       }
     });
     tabEl.addEventListener('keydown', (event) => this.onKeyDown(event, id));
@@ -562,6 +580,23 @@ export class SheetBar {
     }
   }
 
+  /** Arrow keys on the closed folder that holds the active worksheet: activate the tab shown next to it. */
+  private stepFromFolder(event: KeyboardEvent, header: HTMLElement): void {
+    const back = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+    if (!back && event.key !== 'ArrowRight' && event.key !== 'ArrowDown') {
+      return;
+    }
+    const tabs = Array.from(this.strip.querySelectorAll<HTMLElement>('.sheet-tab'));
+    const after = (tab: HTMLElement): boolean =>
+      (header.compareDocumentPosition(tab) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    const target = back ? tabs.filter((tab) => !after(tab)).pop() : tabs.find(after);
+    event.preventDefault();
+    if (target?.dataset.sheetId) {
+      this.activate(target.dataset.sheetId);
+      this.focusActive();
+    }
+  }
+
   /** Whether this click on `key` follows another click on it closely enough to make a double-click. */
   private secondClick(key: string, event: MouseEvent): boolean {
     const last = this.lastClick;
@@ -656,9 +691,16 @@ export class SheetBar {
     }
   }
 
-  /** Return keyboard focus to the active worksheet tab after an action. */
+  /** The active worksheet's tab, or the header of the closed folder it is in. */
+  private activeItem(): HTMLElement | null {
+    return this.strip.querySelector<HTMLElement>(
+      '.sheet-tab[aria-selected="true"], .sheet-folder-header.active',
+    );
+  }
+
+  /** Return keyboard focus to the active worksheet tab (or its closed folder) after an action. */
   focusActive(): void {
-    this.strip.querySelector<HTMLElement>('.sheet-tab[aria-selected="true"]')?.focus();
+    this.activeItem()?.focus();
   }
 
   /** True when the pointer sits in the left half (top half, in a vertical

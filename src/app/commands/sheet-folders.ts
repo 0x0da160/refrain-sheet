@@ -45,6 +45,22 @@ export class SheetFolderCommands {
     }
   }
 
+  /** Create an empty folder, asking for its name; worksheets are dragged into it. */
+  async createFolder(tab: Tab): Promise<void> {
+    const doc = workbook(tab);
+    if (!doc) {
+      return;
+    }
+    if (doc.folders.length >= MAX_SHEET_FOLDERS) {
+      this.ui.notify(t('notify.tooManyFolders', { max: MAX_SHEET_FOLDERS }), 'warn');
+      return;
+    }
+    const name = await this.ui.promptFolderName('create', t('sheets.folder.defaultName'), validateFolderName);
+    if (name !== null && tab.doc === doc) {
+      this.state.folders.createEmptyFolder(tab, name);
+    }
+  }
+
   /** Move the active worksheet into a folder, or to the top level. */
   async moveSheetToFolder(tab: Tab): Promise<void> {
     const doc = workbook(tab);

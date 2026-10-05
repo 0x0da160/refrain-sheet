@@ -52,6 +52,7 @@ export const WORKSHEET_COMMANDS = {
   'worksheet.addText': onWorkbook(({ parts }, tab) => parts.worksheets.addTextWorksheet(tab)),
   'worksheet.rename': onWorkbook(({ parts }, tab) => parts.worksheets.renameWorksheet(tab)),
   'worksheet.tabColor': onWorkbook(({ parts }, tab) => parts.worksheets.chooseTabColor(tab)),
+  'worksheet.createFolder': onWorkbook(({ parts }, tab) => parts.folders.createFolder(tab)),
   'worksheet.newFolder': onWorkbook(({ parts }, tab) => parts.folders.newFolder(tab)),
   'worksheet.moveToFolder': onWorkbook(
     ({ parts }, tab) => parts.folders.moveSheetToFolder(tab),

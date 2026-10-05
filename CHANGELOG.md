@@ -38,6 +38,22 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Changed
+
+- A closed sheet folder now folds away the sheet being shown too; the
+  folder's header is marked instead, so you can see which folder it is in.
+- The Add Sheet and New Folder buttons at the end of the sheet tabs are
+  plain icons, so they no longer look like a cut-off tab, below the grid or
+  beside it.
+- The folder button now creates an empty folder (New Folder… /
+  フォルダを作成…), and sheets are dragged into it. Moving the current sheet
+  into a new folder is still in the sheet's right-click menu.
+
+### Fixed
+
+- After clicking a sheet tab, typing now goes straight into the selected
+  cell (or the sheet's text) instead of being lost on the tab.
+
 ## [0.9.25] - 2026-10-03
 
 ### Changed

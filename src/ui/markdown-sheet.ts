@@ -348,6 +348,11 @@ export class MarkdownSheetView {
     return tab !== null && isWorkbook(tab.doc) && tab.doc.activeSheet.kind === 'markdown';
   }
 
+  /** Put the keyboard in the editor shown now (the text, or the formatted document). */
+  focusEditor(): void {
+    (this.mode === 'visual' ? this.visual.element : this.textarea).focus({ preventScroll: true });
+  }
+
   /** Show/hide and (re)populate from the active tab/worksheet. Call on every `tabs`/`active`/`sheets`/`doc` event. */
   refresh(): void {
     const tab = this.state.activeTab;

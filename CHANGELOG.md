@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.27] - 2026-10-05
+
 ### Changed
 
 - A closed sheet folder now folds away the sheet being shown too; the

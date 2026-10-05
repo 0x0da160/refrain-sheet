@@ -72,6 +72,8 @@ interface GridPart {
   drawn: Set<string>;
   /** A grid-paper sheet's square (px): every row and column prints one square wide. */
   paper?: number;
+  /** Row heights the person set (document row → px). */
+  rowHeights: ReadonlyMap<number, number>;
   /** Whether long text wraps onto more lines (as the sheet shows it) or is cut at the cell's edge. */
   wrap: boolean;
   /** The band strength when the sheet shows banded rows. */
@@ -176,6 +178,7 @@ function collectParts(state: AppState, tab: Tab, settings: PrintSettings): Print
         objects: new Map(),
         draw: () => el('div'),
         drawn: new Set(),
+        rowHeights: new Map(),
         wrap: tab.wrapCells,
         bands: bandsOf(resolveGridLook(doc)),
       },
@@ -209,6 +212,7 @@ function collectParts(state: AppState, tab: Tab, settings: PrintSettings): Print
       cols: range(area.left, area.right),
       widths: sheet.paper ? [] : active ? tab.colWidths : sheet.view.colWidths,
       paper: sheet.paper,
+      rowHeights: sheet.rowHeights,
       value: (r, c) => doc.getSheetDisplayValue(sheet.id, r, c),
       input: (r, c) => sheet.getValue(r, c),
       style: (r, c) => sheet.getStyle(r, c),
@@ -340,8 +344,9 @@ function widthCol(width: number): HTMLElement {
 
 function rowElement(part: GridPart, row: number, headings: boolean): HTMLElement {
   const tr = el('tr');
-  if (part.paper) {
-    tr.style.height = `${part.paper}px`;
+  const height = part.paper ?? part.rowHeights.get(row);
+  if (height) {
+    tr.style.height = `${height}px`;
   }
   if (headings) {
     tr.append(el('th', { className: 'print-row-heading', text: String(row + 1) }));
@@ -371,6 +376,7 @@ function cellElement(part: GridPart, row: number, col: number): HTMLElement {
   td.classList.toggle('cell-underline', !!style?.underline && !runs);
   paintFont(td, style);
   td.style.textAlign = style?.horizontalAlign ?? '';
+  td.style.verticalAlign = style?.verticalAlign ?? '';
   td.style.color = conditional?.textColor ?? style?.textColor ?? '';
   td.style.backgroundColor = conditional?.backgroundColor ?? style?.backgroundColor ?? '';
   td.style.borderTop = cssBorder(borderSideValue(style, 'borderTop'));

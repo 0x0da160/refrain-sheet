@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Cell formatting commands (`format.*`). */
 import { t } from '../../i18n';
+import { promptRowHeight } from '../row-height';
 import { hasCellSelection, hasSelection, sceneOf, type CommandContext, type CommandSpec } from './types';
 
 /**
@@ -50,6 +51,14 @@ export const FORMAT_COMMANDS = {
   'format.alignRight': workbookFormatting(
     ({ tab, commands }) => tab && commands.setHorizontalAlign(tab, 'right'),
   ),
+  'format.alignTop': workbookFormatting(({ tab, commands }) => tab && commands.setVerticalAlign(tab, 'top')),
+  'format.alignMiddle': workbookFormatting(
+    ({ tab, commands }) => tab && commands.setVerticalAlign(tab, 'middle'),
+  ),
+  'format.alignBottom': workbookFormatting(
+    ({ tab, commands }) => tab && commands.setVerticalAlign(tab, 'bottom'),
+  ),
+  'format.rowHeight': workbookFormatting(({ tab, state, ui }) => tab && promptRowHeight(state, ui, tab)),
   'format.textColor': workbookFormatting(({ tab, commands }) => tab && commands.promptTextColor(tab)),
   'format.backgroundColor': workbookFormatting(
     ({ tab, commands }) => tab && commands.promptBackgroundColor(tab),

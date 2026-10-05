@@ -375,16 +375,12 @@ export class GridRenderer {
     // metrics) every row keeps the single-line height.
     const measurer = this.core.state.wrapCells ? this.core.wrap.buildWrapMeasurer() : null;
     if (!measurer) {
-      // No wrapping: every row is single-line — except rows an active filter
-      // hides, whose collapsed (0-height) overrides must be preserved so the
-      // virtualization still skips their bands.
+      // No wrapping: every row is single-line — except rows the person
+      // sized, and rows an active filter hides, whose collapsed (0-height)
+      // overrides must be preserved so the virtualization still skips their
+      // bands.
       idx.clear();
-      const hidden = this.core.metrics.hiddenOf(tab);
-      if (hidden) {
-        for (const row of hidden) {
-          idx.set(row, 0);
-        }
-      }
+      this.core.metrics.seedFixedHeights(tab, idx);
       this.core.wrapPassSig = null;
     }
     let win = this.computeWindow(tab);
@@ -495,9 +491,7 @@ export class GridRenderer {
           attrs: { role: 'row', 'data-row': String(row), 'aria-rowindex': String(slot + 2) },
         });
         const height = idx.heightOf(slot);
-        if (height > this.core.metrics.rowH(tab)) {
-          rowEl.classList.add('wrapped');
-        }
+        this.markRowHeight(tab, rowEl, row, height);
         rowEl.style.width = `${totalW}px`;
         rowEl.style.height = `${height}px`;
         this.core.cells.buildRowCells(tab, rowEl, row, win, !autoPinned);
@@ -524,17 +518,31 @@ export class GridRenderer {
         continue; // hidden by the active filter: no DOM is materialized
       }
       const row = this.core.metrics.docRowOf(tab, slot);
-      const wrapped = height > this.core.metrics.rowH(tab);
       const rowEl = el('div', {
-        className: `vgrid-row ${slot % 2 === 1 ? 'alt' : ''}${wrapped ? ' wrapped' : ''}`,
+        className: `vgrid-row ${slot % 2 === 1 ? 'alt' : ''}`,
         attrs: { role: 'row', 'data-row': String(row), 'aria-rowindex': String(slot + 2) },
       });
+      this.markRowHeight(tab, rowEl, row, height);
       rowEl.style.top = `${idx.offsetOf(slot) - originY}px`;
       rowEl.style.height = `${height}px`;
       rowEl.style.width = `${totalW}px`;
       this.core.cells.buildRowCells(tab, rowEl, row, win, false);
       this.core.rowsLayer.append(rowEl);
     }
+  }
+
+  /**
+   * Classes for a row that is not one default line high: `wrapped` when its
+   * text wraps onto several lines (wrapping on), `sized` when the person set
+   * its height. Both lay the cells out to place the text up and down.
+   */
+  private markRowHeight(tab: Tab, rowEl: HTMLElement, row: number, height: number): void {
+    const sized = this.core.metrics.sizedRowH(tab, row) !== null;
+    rowEl.classList.toggle('sized', sized);
+    rowEl.classList.toggle(
+      'wrapped',
+      height > this.core.metrics.rowH(tab) && (!sized || this.core.state.wrapCells),
+    );
   }
 
   /**

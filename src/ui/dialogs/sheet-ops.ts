@@ -4,6 +4,7 @@ import type { ColorDialogResult, SheetNameResult } from '../../app/ui-port';
 import { t } from '../../app/i18n';
 import { MAX_SHEET_NAME_LENGTH } from '../../core/formula';
 import type { AddSheetKind } from '../../core/workbook/grid-paper';
+import { MAX_ROW_HEIGHT, MIN_ROW_HEIGHT } from '../../core/workbook/row-heights';
 import { buildColorPicker } from '../color-picker';
 import { el } from '../dom';
 import { createIcon } from '../icon';
@@ -410,6 +411,60 @@ export class SheetOpsDialogs {
         ok,
       );
       refresh();
+    });
+  }
+
+  /**
+   * Format > Row Height…: a height in px for the selected rows. Resolves
+   * with the height, `'auto'` to give the rows back their automatic height,
+   * or null when cancelled.
+   */
+  promptRowHeight(current: number): Promise<number | 'auto' | null> {
+    return openDialog<number | 'auto' | null>(t('dialog.rowHeight.title'), null, (body, buttons, close) => {
+      const inputId = 'row-height-input';
+      const input = el('input', {
+        attrs: {
+          type: 'number',
+          id: inputId,
+          min: String(MIN_ROW_HEIGHT),
+          max: String(MAX_ROW_HEIGHT),
+          step: '1',
+          inputmode: 'numeric',
+          'data-autofocus': 'true',
+        },
+      }) as HTMLInputElement;
+      input.value = String(current);
+      const value = (): number | null => {
+        const n = Number(input.value);
+        return input.value.trim() !== '' && Number.isFinite(n) && n >= MIN_ROW_HEIGHT && n <= MAX_ROW_HEIGHT
+          ? Math.round(n)
+          : null;
+      };
+      const submit = (): void => {
+        const n = value();
+        if (n !== null) {
+          close(n);
+        }
+      };
+      const ok = dialogButton(t('dialog.rowHeight.ok'), true, false, submit);
+      input.addEventListener('input', () => {
+        ok.disabled = value() === null;
+        input.setAttribute('aria-invalid', ok.disabled ? 'true' : 'false');
+      });
+      submitOnEnter(input, submit);
+      body.append(
+        el('label', { attrs: { for: inputId }, text: t('dialog.rowHeight.label') }),
+        input,
+        el('p', {
+          className: 'dialog-note',
+          text: t('dialog.rowHeight.hint', { min: MIN_ROW_HEIGHT, max: MAX_ROW_HEIGHT }),
+        }),
+      );
+      buttons.append(
+        dialogButton(t('dialog.rowHeight.auto'), false, false, () => close('auto')),
+        dialogButton(t('dialog.rowHeight.cancel'), false, true, () => close(null)),
+        ok,
+      );
     });
   }
 

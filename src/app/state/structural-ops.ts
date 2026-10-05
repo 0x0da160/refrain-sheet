@@ -13,6 +13,7 @@ import { getLocale, t } from '../i18n';
 import { clampSheetZoom, setSheetZoom, setWrapCellsPreference } from '../settings';
 import { safeStorageSet } from '../storage';
 import { resolveWrap, resolveZoom } from './view-layers';
+import { rowHeightsAt } from '../../core/workbook/row-heights';
 import { colWidthsAt, deleteColWidths, insertColWidths } from './col-widths';
 import { planAxisMove } from './axis-move';
 import { showsSheet } from '../../core/workbook/sheet-charts';
@@ -120,7 +121,15 @@ export class StructuralOpsState {
         ...this.state.filterClearOpsFor(doc),
         validationsSnapshot(doc),
         ...objectsSnapshots(doc),
-        { type: 'rows', action: 'delete', index, count, data, sheetId },
+        {
+          type: 'rows',
+          action: 'delete',
+          index,
+          count,
+          data,
+          sheetId,
+          heights: rowHeightsAt(doc.activeSheet.rowHeights, index, count),
+        },
         { type: 'cells', changes: rewrites.active, sheetId },
         ...rewrites.others,
       ],

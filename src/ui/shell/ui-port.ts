@@ -64,6 +64,7 @@ export function createUiPort({ dialogs, toasts, loadingOverlay, findBar }: UiPor
     promptMoveTarget: (source, suggestion, validate) =>
       dialogs.promptMoveTarget(source, suggestion, validate),
     promptGoToCell: (suggestion, validate) => dialogs.promptGoToCell(suggestion, validate),
+    promptRowHeight: (current) => dialogs.promptRowHeight(current),
     showAbout: (section) => void dialogs.showAbout(section),
     showFormulaHelp: () => void dialogs.showFormulaHelp(),
     showSqlQuery: (input) => dialogs.showSqlQuery(input),

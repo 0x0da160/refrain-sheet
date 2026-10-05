@@ -148,6 +148,7 @@ const noopUi: UiPort = {
   confirmRangeMoveOverwrite: async () => true,
   promptMoveTarget: async () => null,
   promptGoToCell: async () => null,
+  promptRowHeight: async () => null,
   confirm: async () => true,
   showMessage: async () => undefined,
   notify: () => undefined,

@@ -74,6 +74,7 @@ the same content is the same document.
 | `validations` | array of objects | Grid only: data-validation rules (below), at most 64. Left out when none.                |
 | `objects`     | array of objects | Grid only: shapes over the grid (below), bottom to top, at most 1,000. Left out if none. |
 | `paper`       | integer          | Grid only: makes it a grid-paper sheet (below), the side of one square in px (8–64).     |
+| `rowHeights`  | object           | Grid only: row heights a person set (below), `{ "3": 40 }`. Left out when none.          |
 
 ### Grid paper
 
@@ -84,6 +85,18 @@ empty (text goes in text boxes, which are `objects`), and snaps objects to
 the squares. Its `cells`, `styles` and other grid keys keep their usual
 meaning. A reader that does not know `paper` ignores it and shows an
 ordinary grid with the same objects, so the key keeps `"version": 1`.
+
+### Row heights
+
+`rowHeights` maps a 1-based row number (`"3"`) to that row's height in px
+at 100% zoom, set with Format > Row Height… or by dragging the row
+header's bottom edge (`src/core/workbook/row-heights.ts`). A height is
+clamped into 8–600 and rounded; a row past `rows` is dropped. A key that
+is not a row number, a height that is not a number, or the key on a
+non-grid worksheet is `bad-shape`. A row not listed takes the default
+height, or the height its wrapped text needs. A reader that does not know
+the key ignores it and shows every row at its usual height, so the key
+keeps `"version": 1`.
 
 ### Folders
 
@@ -165,6 +178,7 @@ outside the grid, or a malformed one, is `bad-shape`.
 | `fontFamily`                                             | string  | The cell's own font, by family name                       |
 | `fontSize`                                               | number  | The cell's own font size in points                        |
 | `horizontalAlign`                                        | string  | `left`, `center` or `right`; absent is the start (left)   |
+| `verticalAlign`                                          | string  | `top` or `bottom`; absent is the middle                   |
 | `runs`                                                   | array   | Rich text: parts of the cell's text with their own format |
 
 A line style or width without its border color is ignored. `numberFormat`'s
@@ -183,6 +197,11 @@ ignore them and show the cell in the sheet font and size.
 `right`. Absent keeps the text at the start of the cell, as before this key.
 Any other value is `bad-shape`. Readers older than this key ignore it and
 show the text at the start of the cell.
+
+`verticalAlign` places the text up and down a row taller than one line:
+`top`, `middle` or `bottom` (`middle` is never written, since absent is
+the middle, as before this key). Any other value is `bad-shape`. Readers
+older than this key ignore it and show the text in the middle.
 
 `runs` lists the cell's text as segments,
 `[{ "text": "Hello " }, { "text": "world", "bold": true }]`, each with

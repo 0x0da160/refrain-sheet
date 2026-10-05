@@ -180,6 +180,8 @@ export class GridCore {
   resizeScheduled = false;
   /** Active column-resize drag, if any. */
   resizing: { col: number; startX: number; startWidth: number } | null = null;
+  /** A row-height drag: the document row, where it started, and the height it had (undefined: automatic). */
+  rowResizing: { row: number; startY: number; startHeight: number; before: number | undefined } | null = null;
   /** Active fill-handle drag, if any. */
   filling: { source: CellRange; target: { row: number; col: number } } | null = null;
   /** The range currently outlined as a copy source (see `setCopySource`), or
@@ -319,7 +321,7 @@ export class GridCore {
       },
       [createIcon(Plus, 'sheet-grid-add-icon', 14)],
     );
-    this.addRowButton.addEventListener('click', () => void this.commands.run('sheet.addRow'));
+    this.addRowButton.addEventListener('click', () => void this.addAndFollow('row'));
     this.addRowAnchor = el('div', { className: 'vgrid-add-row-anchor' }, [this.addRowButton]);
     this.addColButton = el(
       'button',
@@ -329,7 +331,7 @@ export class GridCore {
       },
       [createIcon(Plus, 'sheet-grid-add-icon', 14)],
     );
-    this.addColButton.addEventListener('click', () => void this.commands.run('sheet.addColumn'));
+    this.addColButton.addEventListener('click', () => void this.addAndFollow('col'));
     this.addColAnchor = el('div', { className: 'vgrid-add-col-anchor' }, [this.addColButton]);
     // Hidden probe carrying the real cell font/box metrics (same `.vcell`
     // styling the grid renders with) so wrap measurement never depends on a
@@ -426,7 +428,7 @@ export class GridCore {
       if (this.filling) {
         this.drags.cancelFill();
       }
-      if (this.resizing) {
+      if (this.resizing || this.rowResizing) {
         this.drags.cancelResize();
       }
       // Dismiss the copy-source outline, matching the conventional
@@ -457,6 +459,24 @@ export class GridCore {
    * must call it on close so a series of opens doesn't accumulate observers
    * and orphaned DOM nodes.
    */
+  /**
+   * The + under the last row (or right of the last column): add one, then
+   * scroll by however much the grid grew, so the button stays under the
+   * pointer for the next click and the new row or column is in view.
+   */
+  private async addAndFollow(axis: 'row' | 'col'): Promise<void> {
+    const before = axis === 'row' ? this.element.scrollHeight : this.element.scrollWidth;
+    await this.commands.run(axis === 'row' ? 'sheet.addRow' : 'sheet.addColumn');
+    const grown = (axis === 'row' ? this.element.scrollHeight : this.element.scrollWidth) - before;
+    if (grown > 0) {
+      if (axis === 'row') {
+        this.element.scrollTop += grown;
+      } else {
+        this.element.scrollLeft += grown;
+      }
+    }
+  }
+
   dispose(): void {
     this.resizeObserver?.disconnect();
     this.offKeyboardOpenChange();

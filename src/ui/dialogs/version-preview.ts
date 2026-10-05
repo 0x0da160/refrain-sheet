@@ -69,6 +69,7 @@ function noOpUiPort(): UiPort {
     confirmRangeMoveOverwrite: async () => false,
     promptMoveTarget: async () => null,
     promptGoToCell: async () => null,
+    promptRowHeight: async () => null,
     chooseSettings: async () => null,
     chooseTimezone: async () => null,
     chooseDisplayLanguage: async () => null,

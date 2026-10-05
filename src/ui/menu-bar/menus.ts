@@ -147,6 +147,8 @@ export interface MenuChecks {
   formatActive: (key: 'bold' | 'italic' | 'underline') => boolean;
   /** Whether the whole current selection sits at `align`. */
   alignActive: (align: 'left' | 'center' | 'right') => boolean;
+  /** Whether the whole current selection sits at `align` up and down. */
+  verticalAlignActive?: (align: 'top' | 'middle' | 'bottom') => boolean;
   /** Whether the active tab is read-only protected (see `Tab.readOnly`). */
   protectedDoc: () => boolean;
   /** Whether the active worksheet is locked (see `Worksheet.locked`). */
@@ -473,8 +475,15 @@ function formatMenu(checks: MenuChecks): MenuDef {
             command: 'format.alignRight',
             checked: () => checks.alignActive('right'),
           },
+          'separator',
+          ...(['top', 'middle', 'bottom'] as const).map((align) => ({
+            labelKey: `menu.format.align${align[0]!.toUpperCase()}${align.slice(1)}`,
+            command: `format.align${align[0]!.toUpperCase()}${align.slice(1)}` as CommandId,
+            checked: () => checks.verticalAlignActive?.(align) ?? false,
+          })),
         ],
       },
+      { labelKey: 'menu.format.rowHeight', command: 'format.rowHeight' },
       'separator',
       { labelKey: 'menu.format.colorAndBorders', icon: SwatchBook, submenu: colorAndBordersItems() },
       { labelKey: 'menu.format.numbers', icon: Hash, submenu: numberFormatItems() },

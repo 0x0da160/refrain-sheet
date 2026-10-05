@@ -39,6 +39,9 @@ export function worksheetFromData(entry: RsfWorksheetData): Worksheet {
   sheet.tabColor = entry.tabColor;
   sheet.folderId = entry.folderId;
   sheet.paper = entry.paper;
+  if (entry.rowHeights) {
+    sheet.rowHeights = new Map(entry.rowHeights);
+  }
   sheet.validations = entry.validations?.slice() ?? [];
   sheet.objects = entry.objects?.slice() ?? [];
   for (const [r, c, style] of entry.styles ?? []) {
@@ -50,24 +53,14 @@ export function worksheetFromData(entry: RsfWorksheetData): Worksheet {
   return sheet;
 }
 
-/** The persisted record of a worksheet whose non-empty cells are `cells`. */
-export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, string]>): RsfWorksheetData {
+/** A worksheet's own display settings as persisted, or undefined when it has none. */
+function displayToData(sheet: Worksheet): RsfWorksheetData['display'] {
   const colWidths: Array<[number, number]> = [];
   for (let c = 0; c < sheet.displayColWidths.length && c < sheet.columnCount; c++) {
     const w = sheet.displayColWidths[c];
     if (w && w > 0) {
       colWidths.push([c, w]);
     }
-  }
-  const entry: RsfWorksheetData = {
-    id: sheet.id,
-    name: sheet.name,
-    rowCount: sheet.rowCount,
-    columnCount: sheet.columnCount,
-    cells,
-  };
-  if (sheet.kind !== 'grid') {
-    entry.kind = sheet.kind;
   }
   // A text worksheet keeps wrap off as a choice (it wraps by default); a grid only wrap on.
   const wrap = sheet.kind === 'grid' ? (sheet.displayWrap === true ? true : undefined) : sheet.displayWrap;
@@ -78,13 +71,32 @@ export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, 
     sheet.displayFont !== undefined ||
     !isEmptyGridLook(sheet.displayLook)
   ) {
-    entry.display = {
+    return {
       ...(sheet.displayZoom !== undefined ? { zoom: sheet.displayZoom } : {}),
       ...(colWidths.length > 0 ? { colWidths } : {}),
       ...(wrap !== undefined ? { wrap } : {}),
       ...(sheet.displayFont !== undefined ? { font: sheet.displayFont } : {}),
       ...(!isEmptyGridLook(sheet.displayLook) ? { look: { ...sheet.displayLook } } : {}),
     };
+  }
+  return undefined;
+}
+
+/** The persisted record of a worksheet whose non-empty cells are `cells`. */
+export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, string]>): RsfWorksheetData {
+  const entry: RsfWorksheetData = {
+    id: sheet.id,
+    name: sheet.name,
+    rowCount: sheet.rowCount,
+    columnCount: sheet.columnCount,
+    cells,
+  };
+  if (sheet.kind !== 'grid') {
+    entry.kind = sheet.kind;
+  }
+  const display = displayToData(sheet);
+  if (display) {
+    entry.display = display;
   }
   if (sheet.filter !== null) {
     entry.filter = sheet.filter;
@@ -97,6 +109,11 @@ export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, 
   }
   if (sheet.folderId !== undefined) {
     entry.folderId = sheet.folderId;
+  }
+  if (sheet.rowHeights.size > 0 && sheet.kind === 'grid') {
+    entry.rowHeights = [...sheet.rowHeights]
+      .filter(([row]) => row < sheet.rowCount)
+      .sort((a, b) => a[0] - b[0]);
   }
   if (sheet.paper !== undefined && sheet.kind === 'grid') {
     entry.paper = sheet.paper;

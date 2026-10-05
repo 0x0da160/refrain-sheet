@@ -325,6 +325,7 @@ export class EditingState {
           op.sheetId,
           op.index,
           op.data.length > 0 ? op.data : Array.from({ length: op.count }, () => []),
+          op.heights,
         );
       } else {
         doc.deleteRowsOn(op.sheetId, op.index, op.count);

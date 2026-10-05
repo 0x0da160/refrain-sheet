@@ -38,6 +38,7 @@ exports[`core export surface > keeps every core module exporting the same names 
     "MAX_CURRENCY_SYMBOL_LENGTH",
     "MAX_NUMBER_FORMAT_DECIMALS",
     "NUMBER_FORMAT_KINDS",
+    "VERTICAL_ALIGNS",
     "applyCellStylePatch",
     "borderSideValue",
     "cellStylesEqual",

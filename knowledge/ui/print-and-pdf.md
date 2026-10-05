@@ -43,7 +43,7 @@ There is no keyboard shortcut: Ctrl+P stays the browser's (see
   edge, as on screen; when it wraps, rows grow to fit their text, so an
   object that spans many rows may not line up with the same cells as on
   screen. Each sheet uses its own wrap setting (sheet > file > browser).
-  The app has no manual row height, so there is none to print.
+  A row whose height was set (Format > Row Height…) prints at that height.
 - Banded rows print when the sheet shows them (View > Grid Look), in the
   sheet's band strength, counted over the shown rows so the pattern carries
   on across pages; a cell's own fill wins. Paper is always light, so the

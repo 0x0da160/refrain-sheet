@@ -47,6 +47,7 @@ function stubUi(): UiPort {
     confirmRangeMoveOverwrite: vi.fn(async () => true),
     promptMoveTarget: vi.fn(async () => null),
     promptGoToCell: vi.fn(async () => null),
+    promptRowHeight: vi.fn(async () => null),
     confirm: vi.fn(async () => true),
     showMessage: vi.fn(async () => undefined),
     notify: vi.fn(),

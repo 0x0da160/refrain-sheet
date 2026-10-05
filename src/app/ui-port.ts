@@ -447,6 +447,12 @@ export interface EditDialogsPort {
    * cancelled.
    */
   promptGoToCell(suggestion: string, validate: (text: string) => string | null): Promise<string | null>;
+  /**
+   * Format > Row Height…: ask for a row height in px (at 100% zoom),
+   * seeded with `current`. Resolves with the height, `'auto'` for the
+   * automatic height, or null when cancelled.
+   */
+  promptRowHeight(current: number): Promise<number | 'auto' | null>;
 }
 
 /** Rules attached to a range: filter, sort, data validation, conditional formatting and cell comments. */

@@ -346,6 +346,11 @@ export class Dialogs {
     return this.sheetOps.promptMoveTarget(source, suggestion, validate);
   }
 
+  /** See `SheetOpsDialogs.promptRowHeight`. */
+  promptRowHeight(current: number): Promise<number | 'auto' | null> {
+    return this.sheetOps.promptRowHeight(current);
+  }
+
   /** See `SheetOpsDialogs.promptGoToCell` for the full behavior contract. */
   promptGoToCell(suggestion: string, validate: (text: string) => string | null): Promise<string | null> {
     return this.sheetOps.promptGoToCell(suggestion, validate);

@@ -320,6 +320,9 @@ describe('Format menu reorganization (#518)', () => {
       'format.alignLeft',
       'format.alignCenter',
       'format.alignRight',
+      'format.alignTop',
+      'format.alignMiddle',
+      'format.alignBottom',
     ]);
     expect(submenuOf(format, 'menu.format.numbers').map((i) => i.command)).toEqual([
       'format.numberFormat',

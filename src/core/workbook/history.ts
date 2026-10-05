@@ -107,6 +107,8 @@ export type Operation =
       count: number;
       data: string[][];
       sheetId?: string;
+      /** The deleted rows' heights (0 = default), restored on undo like a column's width. */
+      heights?: number[];
     }
   | {
       type: 'cols';

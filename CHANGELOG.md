@@ -48,6 +48,10 @@ really is internal, rather than inventing an entry to satisfy it.
 - The folder button now creates an empty folder (New Folder… /
   フォルダを作成…), and sheets are dragged into it. Moving the current sheet
   into a new folder is still in the sheet's right-click menu.
+- File version history now keeps a new version only when something changed
+  since the last one: the content, a sheet's or the file's settings saved in
+  the RSF file. Saving again without changes (or after only switching
+  sheets) no longer adds an identical version.
 
 ### Fixed
 

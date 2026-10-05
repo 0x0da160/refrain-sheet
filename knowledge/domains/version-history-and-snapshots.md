@@ -1,7 +1,7 @@
 ---
 type: domain-concept
 title: Version history and snapshots
-description: Per-file on-by-default snapshot recording on every successful save, the retained-snapshot cap and its custom/unlimited override, Restore vs. read-only Preview, and Clear Version History.
+description: Per-file on-by-default snapshot recording on every successful save that changed something, the retained-snapshot cap and its custom/unlimited override, Restore vs. read-only Preview, and Clear Version History.
 sources:
   - resource: ../../README.md
   - resource: ../../CHANGELOG.md
@@ -16,8 +16,17 @@ generated:
 Not to be confused with [Undo/Redo](undo-redo-and-history.md), whose
 history is in-memory only and clears on save: version history is a
 per-file, **on by default** setting that records a **snapshot** of the
-file's content on every successful save, stored inside the `.rsf`
-container itself, so past states survive after save and reload.
+file's content on every successful save that changed something, stored
+inside the `.rsf` container itself, so past states survive after save and
+reload.
+
+A save that changes nothing since the newest snapshot adds none
+(`VersionHistory.record`). Everything the file stores counts as a change:
+cells, styles, objects, each worksheet's own settings, and the file-level
+display settings and auto-format option (compared through a key kept in
+memory, since a snapshot holds content only; on open, the file's own
+settings are the baseline). The save time, the writing release, and which
+worksheet is shown do not count.
 
 ## How snapshots are stored
 

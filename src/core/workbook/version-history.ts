@@ -42,14 +42,25 @@ export class VersionHistory {
    */
   private maxOverrideValue: number | null | undefined;
 
+  /** {@link contentKey} of the newest snapshot, once worked out (null: not yet). */
+  private newestKey: string | null = null;
+
+  /**
+   * The file-level settings (see `RsfDocument`) as of the newest snapshot:
+   * a snapshot holds only content, so a change to these is told apart here.
+   */
+  private settingsKey: string;
+
   constructor(
     enabled = true,
     snapshots: RsfHistorySnapshot[] = [],
     maxOverride: number | null | undefined = undefined,
+    settingsKey = '',
   ) {
     this.enabledFlag = enabled;
     this.snapshots = snapshots;
     this.maxOverrideValue = maxOverride;
+    this.settingsKey = settingsKey;
   }
 
   get enabled(): boolean {
@@ -102,6 +113,7 @@ export class VersionHistory {
       return false;
     }
     this.snapshots = [];
+    this.newestKey = null;
     return true;
   }
 
@@ -128,13 +140,45 @@ export class VersionHistory {
    * save's document state (see `encodeRsfBody`) — and drops the oldest
    * snapshots beyond the retained cap ("unlimited" still falls back to the
    * hard ceiling). Disabled recording never clears existing snapshots.
+   *
+   * A save that changes nothing since the newest snapshot adds none: not the
+   * content (cells, styles, each worksheet's own settings…) and not the
+   * file-level `settingsKey`. The save time, the writing release, and which
+   * worksheet is shown do not count as changes. True when a snapshot was added.
    */
-  record(content: RsfWorkbookData, timestamp: number): void {
+  record(content: RsfWorkbookData, timestamp: number, settingsKey = ''): boolean {
     if (!this.enabledFlag) {
-      return;
+      return false;
     }
-    const snapshot: RsfHistorySnapshot = { timestamp, bytes: encodeRsfBody(content) };
+    const bytes = encodeRsfBody(content);
+    const key = contentKey(bytes);
+    const newest = this.snapshots[this.snapshots.length - 1];
+    if (newest && settingsKey === this.settingsKey && (this.newestKey ?? contentKey(newest.bytes)) === key) {
+      this.newestKey = key;
+      return false;
+    }
     const limit = this.effectiveMax ?? MAX_RSF_HISTORY_SNAPSHOTS;
-    this.snapshots = [...this.snapshots, snapshot].slice(-limit);
+    this.snapshots = [...this.snapshots, { timestamp, bytes }].slice(-limit);
+    this.newestKey = key;
+    this.settingsKey = settingsKey;
+    return true;
+  }
+}
+
+/**
+ * A snapshot's content without what changes on every save or does not
+ * change the document: the save time, the writing release, and the shown
+ * worksheet. Unreadable bytes key as themselves (never equal to a real save).
+ */
+function contentKey(bytes: Uint8Array): string {
+  const text = new TextDecoder().decode(bytes);
+  try {
+    const json = JSON.parse(text) as Record<string, unknown>;
+    delete json.app;
+    delete json.updated;
+    delete json.activeSheet;
+    return JSON.stringify(json);
+  } catch {
+    return `raw:${text}`;
   }
 }

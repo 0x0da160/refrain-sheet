@@ -38,6 +38,14 @@ export const SHEET_FONTS: readonly SheetFontId[] = [
   'yu-gothic-ui',
 ];
 
+/** The fixed-pitch fonts (every character the same width); the rest are proportional. */
+const MONOSPACE_SHEET_FONTS: readonly SheetFontId[] = ['biz-ud', 'ms'];
+
+/** True for a fixed-pitch font, so the menus can group it under "Monospace". */
+export function isMonospaceSheetFont(id: SheetFontId): boolean {
+  return MONOSPACE_SHEET_FONTS.includes(id);
+}
+
 /**
  * BIZ UD Gothic is the default: bundled with Windows 10 (1809+) / 11, the
  * primary target, and fixed-pitch so kana/kanji and digits line up across
@@ -57,6 +65,11 @@ const CSS_VALUE: Record<SheetFontId, string> = {
   'meiryo-ui': 'var(--sheet-font-meiryo-ui)',
   'yu-gothic-ui': 'var(--sheet-font-yu-gothic-ui)',
 };
+
+/** The CSS `font-family` value for a font id (one of the `--sheet-font-*` variables). */
+export function sheetFontCss(id: SheetFontId): string {
+  return CSS_VALUE[id];
+}
 
 /** The i18n label key for a font id (localized in en/ja catalogs). */
 export function sheetFontLabelKey(id: SheetFontId): string {

@@ -8,6 +8,23 @@
    Every text colour here is at least 4.5:1 on its background (WCAG AA body
    text); body text and headings are above 7:1. */
 
+/* Headings and bold text are coloured in every theme but High contrast, so
+   a document's structure and its emphasis stand out from the body text:
+   green headings (the accent) and violet bold, darker on a light page and
+   lighter on a dark one. All above 6.8:1 on their page. */
+.markdown-editor-preview {
+  --md-heading: var(--accent-text);
+  --md-strong: light-dark(var(--violet-700), var(--violet-300));
+}
+
+.markdown-editor-preview :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--md-heading);
+}
+
+.markdown-editor-preview :is(strong, b) {
+  color: var(--md-strong);
+}
+
 .markdown-editor-preview[data-md-theme] {
   background: var(--md-bg);
   color: var(--md-fg);
@@ -73,6 +90,7 @@
   --md-bg: var(--paper-50);
   --md-fg: var(--ink-900);
   --md-heading: var(--green-800);
+  --md-strong: var(--violet-700);
   --md-muted: var(--ink-500);
   --md-link: var(--blue-700);
   --md-code-bg: var(--paper-100);
@@ -86,7 +104,7 @@
 .markdown-editor-preview[data-md-theme='reading'] {
   --md-bg: var(--bg-surface);
   --md-fg: var(--fg-default);
-  --md-heading: var(--fg-default);
+  --md-heading: var(--accent-text);
   --md-muted: var(--fg-muted);
   --md-link: var(--link);
   --md-code-bg: var(--bg-raised);
@@ -110,7 +128,8 @@
 .markdown-editor-preview[data-md-theme='dark'] {
   --md-bg: var(--ink-950);
   --md-fg: var(--paper-100);
-  --md-heading: var(--paper-0);
+  --md-heading: var(--green-300);
+  --md-strong: var(--violet-300);
   --md-muted: var(--ink-150);
   --md-link: var(--blue-300);
   --md-code-bg: var(--ink-700);
@@ -124,6 +143,7 @@
   --md-bg: var(--paper-0);
   --md-fg: var(--ink-1000);
   --md-heading: var(--ink-1000);
+  --md-strong: var(--ink-1000);
   --md-muted: var(--ink-700);
   --md-link: var(--blue-900);
   --md-code-bg: var(--paper-100);

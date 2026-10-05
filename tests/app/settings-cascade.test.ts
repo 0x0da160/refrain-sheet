@@ -9,12 +9,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Commands, type UiPort } from '../../src/app/commands';
 import { AppState } from '../../src/app/state';
-import { setBrowserWrap, setBrowserZoom, setSheetZoom } from '../../src/app/settings';
+import {
+  getSheetZoom,
+  getWrapCells,
+  setBrowserWrap,
+  setBrowserZoom,
+  setSheetZoom,
+  setWrapCellsPreference,
+} from '../../src/app/settings';
 import { decodeRsfWorkbook, rsfJsonText } from '../../src/core/workbook/rsf-codec';
 import { RsfDocument } from '../../src/core/workbook/rsf-document';
 import { resolveSetting, SETTING_PRECEDENCE } from '../../src/core/settings-cascade';
 import { getSheetFont, setBrowserSheetFont } from '../../src/app/sheet-font';
-import { resolveSheetFont } from '../../src/app/state/view-layers';
+import {
+  displayedSheetFont,
+  resolveSheetFont,
+  resolveWrap,
+  resolveZoom,
+  showsProportionalFont,
+} from '../../src/app/state/view-layers';
 
 beforeEach(() => {
   localStorage.clear();
@@ -224,5 +237,58 @@ describe('commands: where font and file-level settings are written', () => {
     expect(doc.activeSheet.displayZoom).toBeUndefined();
     expect(resolveSheetFont(doc)).toEqual({ value: 'noto-sans-jp', source: 'file' });
     expect(tab.zoom).toBe(125);
+  });
+});
+
+describe('text worksheets: their own wrap, zoom and font', () => {
+  function textDoc(): RsfDocument {
+    const doc = rsfDoc();
+    const notes = doc.createMarkdownWorksheet('Notes');
+    doc.insertSheetAt(1, notes);
+    doc.setActiveSheetId(notes.id);
+    return doc;
+  }
+
+  it('wraps at 100% by default, whatever the file and browser say for grids', () => {
+    setBrowserWrap(false);
+    setBrowserZoom(150);
+    const doc = textDoc();
+    doc.fileZoom = 75;
+    expect(resolveWrap(doc)).toEqual({ value: true, source: 'browser' });
+    expect(resolveZoom(doc)).toEqual({ value: 100, source: 'browser' });
+  });
+
+  it("keeps wrap off and its zoom in the file, and leaves the grid's last-used values alone", async () => {
+    setSheetZoom(100);
+    setWrapCellsPreference(true);
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    const tab = state.addTab('a.rsf', textDoc(), null);
+    await commands.run('view.wrap');
+    await commands.run('view.zoom.150');
+    expect(tab.wrapCells).toBe(false);
+    expect(getWrapCells()).toBe(true);
+    expect(getSheetZoom()).toBe(100);
+
+    const back = reopen(tab.doc as RsfDocument);
+    expect(back.activeSheet.kind).toBe('markdown');
+    expect(resolveWrap(back)).toEqual({ value: false, source: 'sheet' });
+    expect(resolveZoom(back)).toEqual({ value: 150, source: 'sheet' });
+  });
+
+  it('switches between a fixed-pitch and a proportional font', async () => {
+    const state = new AppState();
+    const commands = new Commands(state, stubUi(), document);
+    const doc = textDoc();
+    state.addTab('a.rsf', doc, null);
+    // Markdown shows the (proportional) interface font until a font is chosen.
+    expect(displayedSheetFont(doc)).toBeNull();
+    expect(showsProportionalFont(doc)).toBe(true);
+    await commands.run('view.proportionalFont');
+    expect(doc.activeSheet.displayFont).toBe('biz-ud');
+    expect(showsProportionalFont(doc)).toBe(false);
+    await commands.run('view.proportionalFont');
+    expect(doc.activeSheet.displayFont).toBe('yu-gothic-ui');
+    expect(showsProportionalFont(doc)).toBe(true);
   });
 });

@@ -7,9 +7,10 @@ import { ClipboardController } from '../../app/clipboard-controller';
 import type { Commands } from '../../app/commands';
 import { getAutoFitOnOpen, getEditHints, getSheetTabsVertical, getSheetZoom } from '../../app/settings';
 import type { AppState } from '../../app/state';
-import { resolveGridLook, resolveSheetFont } from '../../app/state/view-layers';
+import { displayedSheetFont, resolveGridLook, showsProportionalFont } from '../../app/state/view-layers';
 import { getDensity } from '../../app/density';
 import { getTheme } from '../../app/theme';
+import { isSheetFontId, sheetFontCss } from '../../app/sheet-font';
 import { isCsv, isWorkbook } from '../../core/editor-document';
 import { validateDocument } from '../../core/csv/validation';
 import { CommentsPanel } from '../comments-panel';
@@ -65,6 +66,8 @@ export interface Surfaces {
   pets: PixelPets;
   /** Show the grid or the active worksheet's source view, and refresh the source views. */
   refreshSourceSheetViews: () => void;
+  /** Apply the active text worksheet's zoom, wrap and font to its view (a `view` change). */
+  applySourceSheetDisplay: () => void;
 }
 
 export function createSurfaces(
@@ -162,10 +165,12 @@ export function createSurfaces(
       }
     }
   };
+  const applySourceSheetDisplay = wireSourceSheetDisplay(state, commands, sourceSheetViews);
   const refreshSourceSheetViews = (): void => {
     for (const view of sourceSheetViews) {
       view.refresh();
     }
+    applySourceSheetDisplay();
     const sourceActive = sourceSheetViews.some((view) => view.active);
     grid.element.hidden = sourceActive;
     // The formula bar's name box and input field only mean anything for a
@@ -195,6 +200,7 @@ export function createSurfaces(
     statusBar,
     pets: new PixelPets(),
     refreshSourceSheetViews,
+    applySourceSheetDisplay,
   };
 }
 
@@ -263,7 +269,12 @@ function menuChecks(state: AppState, commands: Commands): MenuChecks {
     stickyFirstRow: () => state.stickyFirstRowShown,
     stickyFirstColumn: () => state.stickyFirstColumnShown,
     freezeAtSelection: () => state.activeTab?.freeze != null,
-    sheetFont: () => resolveSheetFont(state.activeTab?.doc ?? null).value,
+    sheetFont: () => displayedSheetFont(state.activeTab?.doc ?? null),
+    proportionalFont: () => showsProportionalFont(state.activeTab?.doc ?? null),
+    textSheet: () => {
+      const doc = state.activeTab?.doc;
+      return isWorkbook(doc) && doc.activeSheet.kind !== 'grid';
+    },
     theme: () => getTheme(),
     density: () => getDensity(),
     zoom: () => state.activeTab?.zoom ?? getSheetZoom(),
@@ -317,4 +328,68 @@ function createFormulaBar(state: AppState, commands: Commands, grid: Grid): Form
   );
   grid.addKeyboardEditField(formulaBar.element);
   return formulaBar;
+}
+
+/**
+ * A text worksheet's own display settings on its view: the zoom scales the
+ * text (`--sheet-zoom`, as on the grid), wrap off keeps each line on one
+ * line (scrolling sideways), and a font chosen for the worksheet replaces
+ * the default (`--text-sheet-font`; none chosen keeps the views' own font).
+ */
+function applyTextSheetDisplay(
+  roots: readonly HTMLElement[],
+  textarea: HTMLTextAreaElement,
+  display: { zoom: number; wrap: boolean; font: string | undefined } | null,
+): void {
+  const font = display?.font !== undefined && isSheetFontId(display.font) ? sheetFontCss(display.font) : '';
+  for (const root of roots) {
+    root.style.setProperty('--sheet-zoom', display ? String(display.zoom / 100) : '1');
+    if (font) {
+      root.style.setProperty('--text-sheet-font', font);
+    } else {
+      root.style.removeProperty('--text-sheet-font');
+    }
+  }
+  textarea.wrap = display && !display.wrap ? 'off' : 'soft';
+  roots[0]?.classList.toggle('text-sheet-nowrap', display !== null && !display.wrap);
+}
+
+type SourceSheetView = MarkdownSheetView | JsonSheetView | YamlSheetView | TextSheetView;
+
+/**
+ * Ctrl/Cmd + mouse wheel zoom on the text worksheets' views; returns the
+ * function that applies the active text worksheet's zoom, wrap and font.
+ */
+function wireSourceSheetDisplay(
+  state: AppState,
+  commands: Commands,
+  sourceSheetViews: readonly SourceSheetView[],
+): () => void {
+  // Ctrl/Cmd + mouse wheel zooms a text worksheet too, like the grid.
+  for (const view of sourceSheetViews) {
+    view.element.addEventListener(
+      'wheel',
+      (event) => {
+        const tab = state.activeTab;
+        if (!tab || !(event.ctrlKey || event.metaKey) || event.altKey || event.deltaY === 0) {
+          return;
+        }
+        event.preventDefault();
+        commands.zoomStep(tab, event.deltaY < 0 ? 1 : -1);
+      },
+      { passive: false },
+    );
+  }
+  return (): void => {
+    const tab = state.activeTab;
+    const doc = tab?.doc;
+    const sheet = isWorkbook(doc) && doc.activeSheet.kind !== 'grid' ? doc.activeSheet : null;
+    for (const view of sourceSheetViews) {
+      applyTextSheetDisplay(
+        'panelElement' in view ? [view.element, view.panelElement] : [view.element],
+        view.editor.textarea,
+        sheet && tab ? { zoom: tab.zoom, wrap: tab.wrapCells, font: sheet.displayFont } : null,
+      );
+    }
+  };
 }

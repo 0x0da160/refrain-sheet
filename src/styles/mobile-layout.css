@@ -362,12 +362,16 @@
   .dialog-body input[type='number'],
   .dialog-body input[type='search'],
   .dialog-body select,
-  .dialog-body textarea,
+  .dialog-body textarea {
+    font-size: 16px;
+  }
+
+  /* A worksheet's source editor still follows its zoom above 16px. */
   .markdown-sheet-view .markdown-editor-source,
   .json-sheet-view .markdown-editor-source,
   .yaml-sheet-view .markdown-editor-source,
   .text-sheet-view .markdown-editor-source {
-    font-size: 16px;
+    font-size: max(16px, calc(var(--text-body) * var(--sheet-zoom, 1)));
   }
 
   /* The formula bar and the grid's cell editor scale with the spreadsheet

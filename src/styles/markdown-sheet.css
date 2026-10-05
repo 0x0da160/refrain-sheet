@@ -122,8 +122,9 @@
 }
 
 /* Each block's row (see `markdown-block-tools.ts`): a gutter on the left
-   holds the drag grip, and the move/add/delete buttons float at the row's
-   top right corner. Both show while the row is hovered or holds focus. */
+   holds the drag grip, and the move/add/delete buttons float just above the
+   block's top left corner, next to where the pointer and the caret are.
+   Both show while the row is hovered or holds focus. */
 .markdown-visual-row {
   position: relative;
   padding-left: 22px;
@@ -148,8 +149,8 @@
 
 .markdown-block-tools {
   position: absolute;
-  top: 0;
-  right: 0;
+  bottom: 100%;
+  left: 22px;
   z-index: 1;
   display: none;
   gap: 2px;
@@ -158,6 +159,11 @@
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm);
+}
+
+/* Room above the first block for its buttons. */
+.markdown-visual:not(.read-only) {
+  padding-top: 32px;
 }
 
 .markdown-block-tool {

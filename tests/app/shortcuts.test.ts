@@ -274,3 +274,20 @@ describe('resolveShortcut — F4 / F7 / F8 are not bound', () => {
     }
   });
 });
+
+describe('resolveShortcut — Alt+Z', () => {
+  it('turns wrapping on or off, also in a text field and on a Mac (Option+Z types "Ω")', () => {
+    expect(resolveShortcut(key({ key: 'z', code: 'KeyZ', altKey: true }), GRID)).toBe('view.wrap');
+    expect(
+      resolveShortcut(key({ key: 'Ω', code: 'KeyZ', altKey: true }), {
+        inTextField: true,
+        isComposing: false,
+      }),
+    ).toBe('view.wrap');
+  });
+
+  it('leaves AltGr (Ctrl+Alt) and Alt+Shift+Z alone', () => {
+    expect(resolveShortcut(key({ key: 'ż', code: 'KeyZ', altKey: true, ctrlKey: true }), GRID)).toBeNull();
+    expect(resolveShortcut(key({ key: 'Z', code: 'KeyZ', altKey: true, shiftKey: true }), GRID)).toBeNull();
+  });
+});

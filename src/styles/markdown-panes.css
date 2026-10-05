@@ -45,8 +45,10 @@
 .markdown-editor-source {
   flex: 1;
   min-height: 320px;
-  font-family: var(--font-ui);
-  font-size: var(--text-body);
+  /* A worksheet's own font and zoom (View menu), set on the sheet view by
+     `applyTextSheetDisplay` in `shell/surfaces.ts`. */
+  font-family: var(--text-sheet-font, var(--font-ui));
+  font-size: calc(var(--text-body) * var(--sheet-zoom, 1));
   padding: var(--space-2);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -60,8 +62,21 @@
    font's UD Gothic is heavy even at regular weight, so bold text barely
    stood out in it; it stays as the fallback. */
 :is(.markdown-preview-panel .markdown-editor-preview, .markdown-visual) {
-  font-family:
-    'Yu Gothic UI', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', Meiryo, var(--font-ui);
+  font-family: var(
+    --text-sheet-font,
+    'Yu Gothic UI',
+    'Hiragino Sans',
+    'Hiragino Kaku Gothic ProN',
+    'Noto Sans JP',
+    Meiryo,
+    var(--font-ui)
+  );
+}
+
+/* The worksheet's zoom scales the formatted text too (set on the
+   containers, so a theme's own relative size still applies inside). */
+:is(.markdown-preview-panel > .dialog-body, .markdown-visual-pane) {
+  font-size: calc(var(--text-body) * var(--sheet-zoom, 1));
 }
 
 :is(.markdown-preview-panel .markdown-editor-preview, .markdown-visual)
@@ -202,7 +217,21 @@
    offline). */
 .json-sheet-source.source-editor,
 .yaml-sheet-source.source-editor {
-  font-family: var(--font-code);
+  font-family: var(--text-sheet-font, var(--font-code));
+}
+
+/* Wrap off (Alt+Z): each line stays on one line and scrolls sideways. */
+.text-sheet-nowrap .source-editor {
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.text-sheet-nowrap .markdown-visual {
+  overflow-x: auto;
+}
+
+.text-sheet-nowrap .markdown-visual-block {
+  text-wrap-mode: nowrap;
 }
 
 /* The JSON/YAML syntax-check line under the editor (`ui/source-problem-bar.ts`):

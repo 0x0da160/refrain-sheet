@@ -71,8 +71,9 @@ Shift+Enter breaks the line, Backspace at a paragraph's start joins it to
 the one before, and paste inserts plain text only. Horizontal rules and
 anything the Markdown parser does not model are edited in Markdown mode.
 
-Each block has tools beside it (`src/ui/markdown-block-tools.ts`, shown on
-hover or while the caret is in the block, hidden when the sheet is locked):
+Each block has tools just above its top left corner
+(`src/ui/markdown-block-tools.ts`, shown on hover or while the caret is in
+the block, hidden when the sheet is locked):
 a grip to drag it elsewhere, Move Block Up / Down (also Alt+Shift+↑/↓),
 Add Paragraph Below, and Delete Block. A move reorders only the blocks'
 source lines; the blank lines and anything else between blocks stay put,
@@ -80,6 +81,20 @@ and a blank line is added where two blocks would otherwise run together
 (`moveMarkdownBlock` in `src/core/markdown-blocks.ts`). The empty
 paragraph at the end, for new text, cannot be deleted. In Markdown mode
 the editor and its preview scroll together.
+
+Each of these worksheets has its own view settings, kept in the file with
+the worksheet (`view` in RSF) and never taken from the file or browser
+levels, which are grid defaults (`resolveZoom` / `resolveWrap` in
+`src/app/state/view-layers.ts`): its **zoom** (100% until changed; the
+View menu, the zoom keys, or Ctrl/Cmd + mouse wheel), **wrap** (on until
+turned off with View > Wrap Long Lines or Alt+Z; off keeps each line on
+one line and scrolls sideways, and is stored as `wrap: false`, which a grid
+worksheet never stores), and **font** (View > Spreadsheet Font, grouped
+into monospace and proportional, or View > Proportional Font to switch
+between BIZ UD Gothic and Yu Gothic UI). With no font chosen, JSON and YAML
+show the fixed-pitch code face and Markdown and text the interface font.
+Changing these on a text worksheet never changes the grid's last-used zoom
+or wrap.
 
 ## Worksheet operations
 

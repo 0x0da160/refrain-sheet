@@ -32,6 +32,15 @@ export interface RsfViewSettings {
  */
 export type WrapFalse = 'drop' | 'keep';
 
+/**
+ * How a worksheet's `view.wrap: false` is treated: a Markdown, JSON, YAML or
+ * text worksheet wraps by default, so its `false` is a choice and is kept; a
+ * grid's means "not specified" and is dropped.
+ */
+export function sheetWrapFalse(kind: string): WrapFalse {
+  return kind === 'grid' ? 'drop' : 'keep';
+}
+
 const clampZoom = (zoom: number): number => Math.max(RSF_ZOOM_MIN, Math.min(RSF_ZOOM_MAX, Math.round(zoom)));
 
 /** Whether any shared key is specified. */

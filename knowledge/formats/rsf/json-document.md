@@ -130,6 +130,11 @@ A width for a column past `cols` is dropped; a key that is not a column
 letter is `bad-shape`. The grid-look keys (`bands` through `colHighlight`)
 store `false` as well as `true`, since `false` is a choice ("no gridlines")
 rather than "not specified"; a boolean of the wrong type is `bad-shape`.
+`wrap: false` is stored and read only for a `markdown`, `json`, `yaml` or
+`text` worksheet, which wraps unless told otherwise; on a `grid` worksheet
+it is not written and is read as "not specified", as before. For those four
+kinds `zoom` and `wrap` are the worksheet's own: the file-level `view` does
+not apply to them.
 
 ### File-level view
 

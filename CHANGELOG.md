@@ -59,11 +59,32 @@ really is internal, rather than inventing an entry to satisfy it.
 - The pixel pets play twelve different scenes in a random order instead of
   one loop: a chase, ball play, a nap, a butterfly, a ball of yarn, a hopping
   game, a song, a fish, a shooting star, the zoomies, a nose boop, and a bone.
+- The font lists (View > Spreadsheet Font, and the font picker in Format >
+  Font…) are grouped into monospace and proportional fonts.
+- In the formatted Markdown editor, a block's buttons (move, add, delete)
+  now appear just above its top left corner, close to the text, instead of
+  at the far right.
+- Formatted Markdown and its preview show headings in green and bold text
+  in violet, so they stand out from the body text (all themes except High
+  contrast).
 
 ### Fixed
 
 - After clicking a sheet tab, typing now goes straight into the selected
   cell (or the sheet's text) instead of being lost on the tab.
+
+### Added
+
+- Markdown, JSON, YAML and text sheets each keep their own zoom (View >
+  Spreadsheet Zoom, the zoom keys, or Ctrl/Cmd + mouse wheel), saved with
+  the sheet.
+- Alt+Z (Option+Z on a Mac) turns wrapping on or off. On a Markdown, JSON,
+  YAML or text sheet the View menu item reads "Wrap Long Lines"; with
+  wrapping off, long lines stay on one line and scroll sideways. Each sheet
+  keeps its own setting.
+- View > Proportional Font switches the sheet between a monospace font
+  (BIZ UD Gothic) and a proportional one (Yu Gothic UI). A font chosen on a
+  Markdown, JSON, YAML or text sheet now applies to it.
 
 ## [0.9.25] - 2026-10-03
 

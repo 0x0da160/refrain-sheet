@@ -187,6 +187,7 @@ const COMMAND_IDS: readonly CommandId[] = [
   'view.sheetFont.notoSansJp',
   'view.sheetFont.meiryoUi',
   'view.sheetFont.yuGothicUi',
+  'view.proportionalFont',
   'view.theme.system',
   'view.theme.light',
   'view.theme.dark',

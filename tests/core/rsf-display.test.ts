@@ -144,4 +144,17 @@ describe('codec: wrap long rows', () => {
     if (!loaded.ok) return;
     expect(loaded.doc.displayWrap).toBe(true);
   });
+
+  it("keeps a text worksheet's wrap off, but never stores a grid's", () => {
+    const doc = RsfDocument.empty('t.rsf', 3, 2);
+    doc.activeSheet.displayWrap = false;
+    const notes = doc.createTextWorksheet('Notes');
+    notes.displayWrap = false;
+    doc.insertSheetAt(1, notes);
+    const loaded = RsfDocument.fromBytes(doc.toBytes(), 't.rsf');
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.doc.sheets[0]!.displayWrap).toBeUndefined();
+    expect(loaded.doc.sheets[1]!.displayWrap).toBe(false);
+  });
 });

@@ -483,8 +483,12 @@ export class StructuralOpsState {
    * persistence with the next save.
    */
   setWrapCells(wrap: boolean): void {
-    setWrapCellsPreference(wrap);
     const tab = this.state.activeTab;
+    // A Markdown/JSON/YAML/text worksheet's wrap is its own; it is not the
+    // grid's last-used value.
+    if (!(tab && isWorkbook(tab.doc) && tab.doc.activeSheet.kind !== 'grid')) {
+      setWrapCellsPreference(wrap);
+    }
     if (!tab) {
       this.state.emit('view');
       return;
@@ -619,7 +623,10 @@ export class StructuralOpsState {
    */
   setTabZoom(tab: Tab, zoom: number): void {
     const z = clampSheetZoom(zoom);
-    setSheetZoom(z);
+    // A text worksheet's zoom is its own, not the grid's last-used value.
+    if (!(isWorkbook(tab.doc) && tab.doc.activeSheet.kind !== 'grid')) {
+      setSheetZoom(z);
+    }
     if (isWorkbook(tab.doc)) {
       tab.doc.displayZoom = z;
     }

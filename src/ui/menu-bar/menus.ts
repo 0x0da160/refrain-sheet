@@ -114,7 +114,12 @@ export interface MenuChecks {
   stickyFirstColumn: () => boolean;
   /** Whether the active tab is frozen at a selected cell. */
   freezeAtSelection: () => boolean;
-  sheetFont: () => SheetFontId;
+  /** The font the active worksheet shows; null when a text worksheet shows the interface font. */
+  sheetFont: () => SheetFontId | null;
+  /** Whether the active worksheet is a Markdown/JSON/YAML/text sheet (its source shows instead of the grid). */
+  textSheet?: () => boolean;
+  /** Whether the active worksheet shows a proportional font (View > Proportional Font). */
+  proportionalFont?: () => boolean;
   theme: () => ThemeChoice;
   /** The UI density choice (View > Density). */
   density: () => DensityChoice;
@@ -499,7 +504,13 @@ function viewMenu(checks: MenuChecks): MenuDef {
   return {
     labelKey: 'menu.view',
     items: [
-      { labelKey: 'menu.view.wrap', command: 'view.wrap', checked: checks.wrap },
+      {
+        // On a Markdown/JSON/YAML/text worksheet it wraps the editor's long lines.
+        labelKey: () => (checks.textSheet?.() ? 'menu.view.wrapLines' : 'menu.view.wrap'),
+        command: 'view.wrap',
+        shortcut: 'Alt+Z',
+        checked: checks.wrap,
+      },
       { labelKey: 'menu.view.freeze', icon: Pin, submenu: freezeItems(checks) },
       { labelKey: 'menu.view.gridLook', icon: Grid3x3, submenu: gridLookItems(checks) },
       'separator',
@@ -511,6 +522,11 @@ function viewMenu(checks: MenuChecks): MenuDef {
       // shortcuts and Ctrl/Cmd + wheel.
       { labelKey: 'menu.view.zoom', icon: ZoomIn, submenu: zoomItems(checks) },
       { labelKey: 'menu.view.sheetFont', icon: TypeIcon, submenu: sheetFontItems(checks) },
+      {
+        labelKey: 'menu.view.proportionalFont',
+        command: 'view.proportionalFont',
+        checked: () => checks.proportionalFont?.() ?? false,
+      },
       { labelKey: 'menu.view.theme', icon: Contrast, submenu: themeItems(checks) },
       { labelKey: 'menu.view.density', icon: Rows3, submenu: densityItems(checks) },
       'separator',

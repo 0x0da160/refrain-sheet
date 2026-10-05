@@ -497,7 +497,7 @@
   "dialog.displayLanguage.cancel": "Cancel",
   "dialog.versionHistory.title": "Version History",
   "dialog.versionHistory.label": "Save version history for this file",
-  "dialog.versionHistory.note": "When on, each save keeps a version of the content inside the file.",
+  "dialog.versionHistory.note": "When on, each save that changed something keeps a version of the content inside the file.",
   "dialog.versionHistory.help": "Versions are stored inside the file, compressed with the rest of its content. Turning this off stops keeping new versions but leaves existing ones; delete them with Sheet > Clear Version History.",
   "dialog.versionHistory.count": "{n} version(s) kept:",
   "dialog.versionHistory.countNone": "No versions kept yet.",

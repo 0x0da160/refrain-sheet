@@ -18,6 +18,7 @@ import { DEFAULT_SHEET_NAME, MAX_WORKSHEETS } from './sheet-registry';
 import { DEFAULT_TIMEZONE, isValidTimeZone, localTimeZone } from './timezone';
 import { detachLostCharts } from './sheet-charts';
 import type { SheetImageEntry } from './sheet-images';
+import { viewToJson, type RsfViewSettings } from './rsf-view';
 import { VersionHistory } from './version-history';
 import { Workbook } from './workbook';
 import { Worksheet, type WorksheetKind } from './worksheet';
@@ -290,6 +291,7 @@ export class RsfDocument extends Workbook {
       data.historyEnabled ?? true,
       data.history ?? [],
       data.historyMaxOverride,
+      fileSettingsKey(data.display, data.autoFormatSource ?? false),
     );
     doc.autoFormatSourceFlag = data.autoFormatSource ?? false;
     doc.fileZoom = data.display?.zoom;
@@ -517,29 +519,30 @@ export class RsfDocument extends Workbook {
       sheets,
       images,
     };
-    // Version history: while enabled, every successful save appends one
-    // snapshot of exactly the content being saved (see `VersionHistory.record`).
-    this.versions.record(content, this.updatedAt);
+    const display: RsfViewSettings | undefined =
+      this.fileZoom !== undefined ||
+      this.fileWrap !== undefined ||
+      this.fileFont !== undefined ||
+      !isEmptyGridLook(this.fileLook)
+        ? {
+            ...(this.fileZoom !== undefined ? { zoom: this.fileZoom } : {}),
+            ...(this.fileWrap !== undefined ? { wrap: this.fileWrap } : {}),
+            ...(this.fileFont !== undefined ? { font: this.fileFont } : {}),
+            ...(!isEmptyGridLook(this.fileLook) ? { look: { ...this.fileLook } } : {}),
+          }
+        : undefined;
+    // Version history: while enabled, a save that changed something since
+    // the newest snapshot appends one of exactly the content being saved
+    // (see `VersionHistory.record`).
+    this.versions.record(content, this.updatedAt, fileSettingsKey(display, this.autoFormatSourceFlag));
     const payload: RsfWorkbookData = {
       ...content,
       historyEnabled: this.versions.enabled,
       history: [...this.versions.list],
       historyMaxOverride: this.versions.maxOverride,
       autoFormatSource: this.autoFormatSourceFlag,
+      ...(display ? { display } : {}),
     };
-    if (
-      this.fileZoom !== undefined ||
-      this.fileWrap !== undefined ||
-      this.fileFont !== undefined ||
-      !isEmptyGridLook(this.fileLook)
-    ) {
-      payload.display = {
-        ...(this.fileZoom !== undefined ? { zoom: this.fileZoom } : {}),
-        ...(this.fileWrap !== undefined ? { wrap: this.fileWrap } : {}),
-        ...(this.fileFont !== undefined ? { font: this.fileFont } : {}),
-        ...(!isEmptyGridLook(this.fileLook) ? { look: { ...this.fileLook } } : {}),
-      };
-    }
     return encodeRsfWorkbook(payload);
   }
 
@@ -606,4 +609,13 @@ function renameImages(entry: RsfWorksheetData, renamed: Map<string, string>): Rs
       o.image !== undefined && renamed.has(o.image) ? { ...o, image: renamed.get(o.image) } : o,
     ),
   };
+}
+
+/** The file-level settings a version is told apart by (see `VersionHistory.record`), as comparable text. */
+function fileSettingsKey(display: RsfViewSettings | undefined, autoFormatSource: boolean): string {
+  const view: { [key: string]: unknown } = {};
+  if (display) {
+    viewToJson(display, 'keep', view);
+  }
+  return JSON.stringify({ view, autoFormatSource });
 }

@@ -236,6 +236,43 @@ describe('version history (snapshots)', () => {
     expect(sheet.history.length).toBe(2);
   });
 
+  it('adds no snapshot for a save that changed nothing, even after reopening', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    sheet.toBytes();
+    sheet.toBytes();
+    expect(sheet.history.length).toBe(1);
+    const reopened = RsfDocument.fromBytes(sheet.toBytes(), 'again.rsf');
+    expect(reopened.ok).toBe(true);
+    if (!reopened.ok) return;
+    reopened.doc.toBytes();
+    expect(reopened.doc.history.length).toBe(1);
+    reopened.doc.setCell(0, 0, 'w');
+    reopened.doc.toBytes();
+    expect(reopened.doc.history.length).toBe(2);
+  });
+
+  it('counts a changed file setting as a change, but not the shown worksheet', () => {
+    const sheet = rcsvFromCells([[0, 0, 'v']]);
+    const first = sheet.activeSheetId;
+    const other = sheet.createWorksheet('Other');
+    sheet.toBytes();
+    expect(sheet.history.length).toBe(1);
+    sheet.setActiveSheetId(other.id);
+    sheet.toBytes();
+    expect(sheet.history.length).toBe(1);
+    sheet.setActiveSheetId(first);
+    sheet.fileZoom = 150;
+    sheet.toBytes();
+    expect(sheet.history.length).toBe(2);
+    const reopened = RsfDocument.fromBytes(sheet.toBytes(), 'again.rsf');
+    if (!reopened.ok) throw new Error('reopen failed');
+    reopened.doc.toBytes();
+    expect(reopened.doc.history.length).toBe(2);
+    reopened.doc.fileZoom = undefined;
+    reopened.doc.toBytes();
+    expect(reopened.doc.history.length).toBe(3);
+  });
+
   it('caps retained snapshots at the default limit, dropping the oldest first', () => {
     const sheet = rcsvFromCells([[0, 0, 'v']]);
     for (let i = 0; i < DEFAULT_HISTORY_SNAPSHOT_LIMIT + 3; i++) {
@@ -259,6 +296,7 @@ describe('version history (snapshots)', () => {
   it('clearHistory discards every recorded snapshot without touching enabled state', () => {
     const sheet = rcsvFromCells([[0, 0, 'v']]);
     sheet.toBytes();
+    sheet.setCell(0, 0, 'w');
     sheet.toBytes();
     expect(sheet.history.length).toBe(2);
     sheet.clearHistory();

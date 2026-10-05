@@ -497,7 +497,7 @@
   "dialog.displayLanguage.cancel": "キャンセル",
   "dialog.versionHistory.title": "バージョン履歴",
   "dialog.versionHistory.label": "このファイルのバージョン履歴を保存する",
-  "dialog.versionHistory.note": "有効にすると、保存するたびにその時点の内容を版としてファイル内に記録します。",
+  "dialog.versionHistory.note": "有効にすると、前の版から変更がある保存のたびに、その時点の内容を版としてファイル内に記録します。",
   "dialog.versionHistory.help": "版はファイルの中に、ほかの内容と一緒に圧縮して保存されます。無効にすると新しい版は記録されませんが、記録済みの版は残ります。削除するには「シート > バージョン履歴を削除」を使います。",
   "dialog.versionHistory.count": "記録済みの版（{n} 件）:",
   "dialog.versionHistory.countNone": "記録済みの版はまだありません。",

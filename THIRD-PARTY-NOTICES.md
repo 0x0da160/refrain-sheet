@@ -85,7 +85,7 @@ SOFTWARE.
 
 ## lucide
 
-- Version: 1.48.0
+- Version: 1.49.0
 - Author: Lucide Contributors
 - Source: https://github.com/lucide-icons/lucide
 - Purpose: UI icons (menu toggle, close/add buttons, checkmarks, file actions,

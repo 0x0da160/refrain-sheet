@@ -16,6 +16,7 @@ import {
   currentSidePanelPlacement,
   type SidePanelChrome,
 } from './dialogs/side-panel';
+import { formField } from './dialogs/form-layout';
 import { clearChildren, el } from './dom';
 import type { Grid } from './grid';
 
@@ -54,11 +55,8 @@ export class ValidationCheckPanel {
       el('option', { text: t('find.scope.workbook'), attrs: { value: 'workbook' } }),
     );
     this.scopeSelect.addEventListener('change', () => this.render());
-    this.scopeLabelEl = el('span', { text: t('find.scope') });
-    const scopeLabel = el('label', { className: 'comments-scope-label' }, [
-      this.scopeLabelEl,
-      this.scopeSelect,
-    ]);
+    const scopeField = formField(t('find.scope'), this.scopeSelect);
+    this.scopeLabelEl = scopeField.querySelector('label')!;
 
     this.messageEl = el('p', { className: 'comments-empty', attrs: { role: 'status' } });
     this.listEl = el('ul', { className: 'comments-list' });
@@ -74,12 +72,14 @@ export class ValidationCheckPanel {
       closeLabel: t('panel.checkData.close'),
       onClose: () => this.close(),
     });
-    const body = el('div', { className: 'dialog-body' }, [
-      scopeLabel,
+    // As in the Comments panel: scope, message and the truncation note in
+    // the form layout, the issue list edge to edge below them.
+    const controls = el('div', { className: 'form-layout comments-controls' }, [
+      scopeField,
       this.messageEl,
-      this.listEl,
       this.noteEl,
     ]);
+    const body = el('div', { className: 'dialog-body' }, [controls, this.listEl]);
     this.element.append(this.chrome.heading, body, this.chrome.resizeHandle);
     this.element.hidden = true;
   }

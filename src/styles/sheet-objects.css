@@ -270,7 +270,7 @@
 .objects-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
+  gap: var(--stack-gap) var(--field-col-gap);
 }
 
 .objects-text {

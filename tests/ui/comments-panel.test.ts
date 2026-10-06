@@ -127,6 +127,10 @@ describe('CommentsPanel', () => {
     panel.open();
 
     const scopeSelect = panel.element.querySelector('.comments-scope') as HTMLSelectElement;
+    // The scope is a labelled field in the panel's form layout (D-47).
+    const label = scopeSelect.closest('.form-layout .form-field')?.querySelector('label');
+    expect(label?.textContent).toBe(t('find.scope'));
+    expect(label?.getAttribute('for')).toBe(scopeSelect.id);
     scopeSelect.value = 'workbook';
     scopeSelect.dispatchEvent(new Event('change'));
 

@@ -79,6 +79,11 @@ really is internal, rather than inventing an entry to satisfy it.
   inside side panels follows one set of rules: fields 12 px apart, groups
   16 px apart, and the same padding as the panel title. It also follows the
   display density, tighter in Compact and roomier in Comfortable.
+- The Comments, Check Data and Object List panels now use the same layout
+  as the other side panels: the Scope picker has its label above it, and
+  the panels' padding and spacing match. In a column's filter menu, Show
+  All now sits at the left with Filter by Condition…, leaving Apply on its
+  own at the right. The home screen's groups use the same spacing.
 
 ## [0.9.27] - 2026-10-05
 

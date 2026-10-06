@@ -184,7 +184,10 @@ function sortSection(
   return out;
 }
 
-/** "More filter options…", "Clear filter" (when the column has one), and Apply. */
+/**
+ * "More filter options…" and "Clear filter" (when the column has one) at the
+ * left, Apply alone at the right (design system D-49).
+ */
 function footer(
   input: ColumnMenuInput,
   finish: (result: ColumnMenuResult | null) => void,
@@ -203,7 +206,8 @@ function footer(
     attrs: { type: 'button' },
   }) as HTMLButtonElement;
   applyBtn.addEventListener('click', apply);
-  const foot = el('div', { className: 'column-menu-foot' }, [moreBtn]);
+  const start = el('div', { className: 'column-menu-foot-start' }, [moreBtn]);
+  const foot = el('div', { className: 'column-menu-foot' }, [start]);
   if (input.hasColumnFilter) {
     const clearBtn = el('button', {
       className: 'panel-button',
@@ -211,7 +215,7 @@ function footer(
       attrs: { type: 'button' },
     });
     clearBtn.addEventListener('click', () => finish({ action: 'clearColumn' }));
-    foot.append(clearBtn);
+    start.append(clearBtn);
   }
   foot.append(applyBtn);
   return { foot, applyBtn };

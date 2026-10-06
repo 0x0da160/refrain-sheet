@@ -92,7 +92,7 @@ export class ObjectsPanel {
       closeLabel: t('panel.objects.close'),
       onClose: () => this.close(),
     });
-    this.body = el('div', { className: 'dialog-body' });
+    this.body = el('div', { className: 'dialog-body form-layout' });
     this.element.append(this.chrome.heading, this.body, this.chrome.resizeHandle);
     this.element.hidden = true;
   }

@@ -38,6 +38,8 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+## [0.9.28] - 2026-10-06
+
 ### Added
 
 - File > New Text File > Plain Text creates an empty `.txt` file. The

@@ -5,6 +5,7 @@ import type { History } from '../../core/workbook/history';
 import type { FreezePanes } from '../../core/workbook/worksheet';
 import type { FileStamp } from '../file-access';
 import type { TextFileFormat } from '../../core/interchange/text-file';
+import type { PrintArea } from '../../core/print-layout';
 
 export interface Selection {
   row: number;
@@ -136,6 +137,12 @@ export interface Tab {
    * tab's size is its baseline bytes instead (`LosslessDocument.bytes`).
    */
   fileSize: number | null;
+  /**
+   * A CSV table's print area (`state/print-area.ts`): a CSV file has nowhere
+   * to keep one, so the tab remembers it until it is closed. A workbook
+   * keeps each worksheet's in the file instead.
+   */
+  printArea?: PrintArea | null;
 }
 
 /**

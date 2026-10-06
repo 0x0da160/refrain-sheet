@@ -10,9 +10,12 @@
  * column that hold anything.
  */
 
-/** What to print: the active sheet, the selected cells, or every sheet of the file. */
-export type PrintScope = 'sheet' | 'selection' | 'file';
-const PRINT_SCOPES: readonly PrintScope[] = ['sheet', 'selection', 'file'];
+/**
+ * What to print: the active sheet, the selected cells, the sheet's print
+ * area, or every sheet of the file.
+ */
+export type PrintScope = 'sheet' | 'selection' | 'area' | 'file';
+const PRINT_SCOPES: readonly PrintScope[] = ['sheet', 'selection', 'area', 'file'];
 
 export type PaperSize = 'A4' | 'A3' | 'B5' | 'Letter' | 'Legal';
 export const PAPER_SIZES: readonly PaperSize[] = ['A4', 'A3', 'B5', 'Letter', 'Legal'];

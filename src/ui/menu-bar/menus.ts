@@ -37,6 +37,7 @@ import {
   Table,
   Type as TypeIcon,
   type IconNode,
+  SquareDashed,
   ZoomIn,
 } from 'lucide';
 import type { CommandId } from '../../app/commands';
@@ -236,6 +237,14 @@ function fileMenu(checks: MenuChecks): MenuDef {
       { labelKey: 'menu.file.export', icon: FileDown, submenu: exportItems() },
       { labelKey: 'menu.file.document', icon: FileCog, submenu: documentItems(checks) },
       { labelKey: 'menu.file.print', command: 'file.print' },
+      {
+        labelKey: 'menu.file.printArea',
+        icon: SquareDashed,
+        submenu: [
+          { labelKey: 'menu.file.setPrintArea', command: 'file.setPrintArea' },
+          { labelKey: 'menu.file.clearPrintArea', command: 'file.clearPrintArea' },
+        ],
+      },
       ...driveMenuItems(checks),
       'separator',
       { labelKey: 'menu.file.settings', command: 'app.settings' },

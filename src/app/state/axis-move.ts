@@ -22,6 +22,11 @@ import {
   type SheetObject,
 } from '../../core/workbook/sheet-objects';
 import { rowHeightsAt } from '../../core/workbook/row-heights';
+import {
+  movePrintArea,
+  shiftPrintAreaForDelete,
+  shiftPrintAreaForInsert,
+} from '../../core/workbook/print-area';
 import { colWidthsAt } from './col-widths';
 
 /**
@@ -53,8 +58,8 @@ function chartedSnapshots(doc: RsfDocument, sheetId: string): Operation[] {
  * formula rewrites in the pre-move layout, then clearing the source's
  * styles/comments (so undoing the delete gets them back), deleting the
  * source span, inserting it at the destination, and restoring its styles
- * and comments there. Data-validation rules move with their rows or
- * columns the same way. `leading` (e.g. the filter-clear operations) goes
+ * and comments there. Data-validation rules and the print area move with
+ * their rows or columns the same way. `leading` (e.g. the filter-clear operations) goes
  * first.
  */
 export function planAxisMove(
@@ -93,22 +98,7 @@ export function planAxisMove(
       rewritten.set(`${row},${col}`, after);
     }
   }
-  const others: Operation[] = [];
-  for (const other of doc.sheets) {
-    if (other.id === sheetId) {
-      continue;
-    }
-    const changes: CellChange[] = [];
-    for (const { row, col, src } of other.listFormulaCells()) {
-      const after = rewrite(src, other.name);
-      if (after !== src) {
-        changes.push({ row, col, before: src, after });
-      }
-    }
-    if (changes.length > 0) {
-      others.push({ type: 'cells', changes, sheetId: other.id });
-    }
-  }
+  const others = otherSheetRewrites(doc, sheetId, rewrite);
 
   // The moved span's values as they stand after the formula rewrites, in
   // the row-major (rows) or column-major (cols) shape the ops carry.
@@ -151,11 +141,13 @@ export function planAxisMove(
   // moved rules are put where their rows or columns went.
   const rules = sheet.validations;
   const objects = sheet.objects;
+  const area = sheet.printArea;
   const charted = chartedSnapshots(doc, sheetId);
   const ops: Operation[] = [
     ...leading,
     { type: 'validations', before: rules, after: rules, sheetId },
     { type: 'objects', before: objects, after: objects, sheetId },
+    { type: 'printArea', before: area, after: area, sheetId },
     ...charted,
     { type: 'cells', changes: active, sheetId },
     ...others,
@@ -181,9 +173,40 @@ export function planAxisMove(
       after: moveObjects(objects, axis, from, count, to),
       sheetId,
     },
+    {
+      type: 'printArea',
+      before: shiftPrintAreaForInsert(shiftPrintAreaForDelete(area, axis, from, count), axis, dest, count),
+      after: movePrintArea(area, axis, from, count, to),
+      sheetId,
+    },
     ...charted,
   ];
   return { label: axis === 'row' ? 'history.moveRows' : 'history.moveCols', sheetId, ops };
+}
+
+/** The formula rewrites a move makes on every other worksheet, one operation each. */
+function otherSheetRewrites(
+  doc: RsfDocument,
+  sheetId: string,
+  rewrite: (src: string, home: string) => string,
+): Operation[] {
+  const others: Operation[] = [];
+  for (const other of doc.sheets) {
+    if (other.id === sheetId) {
+      continue;
+    }
+    const changes: CellChange[] = [];
+    for (const { row, col, src } of other.listFormulaCells()) {
+      const after = rewrite(src, other.name);
+      if (after !== src) {
+        changes.push({ row, col, before: src, after });
+      }
+    }
+    if (changes.length > 0) {
+      others.push({ type: 'cells', changes, sheetId: other.id });
+    }
+  }
+  return others;
 }
 
 /** Where the delete and insert of a move leave the rules on their own. */

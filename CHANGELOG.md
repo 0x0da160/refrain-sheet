@@ -42,6 +42,14 @@ really is internal, rather than inventing an entry to satisfy it.
 
 - File > New Text File > Plain Text creates an empty `.txt` file. The
   submenu that held New Markdown / JSON / YAML is now called New Text File.
+- Print areas: File > Print Area > Set Print Area to Selection (and Clear
+  Print Area) sets the block of cells a sheet prints, shown on the grid
+  with a dashed outline. The print panel gains a Print area choice where
+  the range can be typed, and opens on it when the sheet has one; Entire
+  file prints each sheet's print area. An `.rsf` file saves it per sheet
+  (new optional `printArea` key; older versions ignore it and print the
+  whole sheet), and it moves with inserted, deleted and moved rows and
+  columns. A CSV tab remembers it until the tab is closed.
 
 ### Changed
 

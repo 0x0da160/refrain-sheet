@@ -18,9 +18,11 @@
  * offline build's CSP); where the browser cannot adopt one, its own print
  * dialog still lets the user pick them.
  */
-import { isWorkbook } from '../core/editor-document';
+import { isCsv, isWorkbook } from '../core/editor-document';
 import type { AppState, Tab } from '../app/state';
 import { resolveGridLook, resolveWrap } from '../app/state/view-layers';
+import { canHoldPrintArea, printAreaOf, selectionPrintArea, setPrintArea } from '../app/state/print-area';
+import { clipPrintArea, parsePrintArea, printAreaToText } from '../core/workbook/print-area';
 import type { BandLevel } from '../core/grid-look';
 import { t } from '../app/i18n';
 import { getPrintSettings, setPrintSettings } from '../app/settings';
@@ -101,8 +103,9 @@ export function printTab(
   tab: Tab,
   settings: PrintSettings,
   win: Window = window,
+  area: PrintArea | null = printAreaOf(tab),
 ): PrintRefusal | null {
-  const parts = collectParts(state, tab, settings);
+  const parts = collectParts(state, tab, settings, area);
   const cells = parts.reduce((n, p) => n + (p.kind === 'grid' ? p.rows.length * p.cols.length : 0), 0);
   if (parts.length === 0) {
     return 'empty';
@@ -156,11 +159,28 @@ export function printTab(
   return null;
 }
 
-function collectParts(state: AppState, tab: Tab, settings: PrintSettings): PrintPart[] {
+/**
+ * The sheets to print, each cut to what prints of it. `printAreaHere` is
+ * the active sheet's print area (the "Print area" choice, and within
+ * "Entire file"); every other sheet prints its own when it has one.
+ */
+function collectParts(
+  state: AppState,
+  tab: Tab,
+  settings: PrintSettings,
+  printAreaHere: PrintArea | null,
+): PrintPart[] {
   const doc = tab.doc;
   const selection = settings.scope === 'selection' ? state.selectedRange(tab) : null;
+  if (settings.scope === 'area' && !printAreaHere) {
+    return [];
+  }
+  const ownArea = settings.scope === 'area' || settings.scope === 'file';
   if (!isWorkbook(doc)) {
-    const area = printArea({ rows: doc.rowCount, cols: doc.columnCount }, selection);
+    const area = printArea(
+      { rows: doc.rowCount, cols: doc.columnCount },
+      selection ?? (ownArea ? printAreaHere : null),
+    );
     if (!area) {
       return [];
     }
@@ -197,11 +217,18 @@ function collectParts(state: AppState, tab: Tab, settings: PrintSettings): Print
     const active = sheet === doc.activeSheet;
     const look = resolveGridLook(doc, sheet);
     const shown = sheet.objects.filter((o) => !o.hidden);
-    const area = printArea(extentWithObjects(sheet.usedExtent(), shown), active ? selection : null);
+    const own = !ownArea
+      ? null
+      : active
+        ? printAreaHere
+        : sheet.printArea && clipPrintArea(sheet.printArea, sheet.rowCount, sheet.columnCount);
+    const area = printArea(extentWithObjects(sheet.usedExtent(), shown), active ? (selection ?? own) : own);
     if (!area) {
       continue;
     }
-    const rows = active ? shownRows(state, tab, area, selection !== null) : range(area.top, area.bottom);
+    const rows = active
+      ? shownRows(state, tab, area, selection ? 'selection' : own ? 'area' : 'used')
+      : range(area.top, area.bottom);
     if (rows.length === 0) {
       continue;
     }
@@ -256,12 +283,22 @@ function objectsByCell(objects: readonly SheetObject[]): GridPart['objects'] {
  * filter hides. `area` is in display positions for a selection and in
  * document rows otherwise (where rows below the data are left out).
  */
-function shownRows(state: AppState, tab: Tab, area: PrintArea, isSelection: boolean): number[] {
+function shownRows(
+  state: AppState,
+  tab: Tab,
+  area: PrintArea,
+  from: 'selection' | 'area' | 'used',
+): number[] {
+  // A selection is in shown order (sorted rows where the sort put them); a
+  // print area and the used block are document rows, printed in shown order.
   const rows: number[] = [];
-  const [from, to] = isSelection ? [area.top, area.bottom] : [0, tab.doc.rowCount - 1];
-  for (let slot = from; slot <= to; slot++) {
+  const isSelection = from === 'selection';
+  const [first, last] = isSelection ? [area.top, area.bottom] : [0, tab.doc.rowCount - 1];
+  const top = from === 'area' ? area.top : 0;
+  for (let slot = first; slot <= last; slot++) {
     const row = state.docRow(tab, slot);
-    if ((isSelection || row <= area.bottom) && !state.isRowHidden(tab, row)) {
+    const inside = isSelection || (row >= top && row <= area.bottom);
+    if (inside && !state.isRowHidden(tab, row)) {
       rows.push(row);
     }
   }
@@ -431,15 +468,37 @@ function setPageStyle(doc: Document, settings: PrintSettings): () => void {
 /**
  * Open the File > Print… panel for the active tab. Each Print remembers the
  * settings in this browser and prints whatever tab is active at that moment.
+ * Printing a print area typed in the panel also sets it as the sheet's
+ * print area (undoably), unless the file is protected or the sheet locked:
+ * then that one print uses it and the sheet keeps its own.
  */
 export function openPrint(state: AppState, notify: (text: string) => void): void {
-  const doc = state.activeTab?.doc;
+  const opened = state.activeTab;
+  const doc = opened?.doc;
+  const saved = opened ? printAreaOf(opened) : null;
+  const start = saved ?? (opened ? selectionPrintArea(state, opened) : null);
+  const settings = getPrintSettings();
+  const scope = saved ? 'area' : settings.scope === 'area' ? 'sheet' : settings.scope;
   void openPrintPanel(
-    { settings: getPrintSettings(), canPrintFile: isWorkbook(doc) && doc.sheets.length > 1 },
-    (settings) => {
-      setPrintSettings(settings);
+    {
+      settings: { ...settings, scope },
+      canPrintFile: isWorkbook(doc) && doc.sheets.length > 1,
+      canPrintArea: opened ? canHoldPrintArea(opened) : false,
+      area: start ? printAreaToText(start) : '',
+      keepsArea: opened ? keepsPrintArea(opened) : false,
+    },
+    (chosen, areaText) => {
+      setPrintSettings(chosen);
       const tab = state.activeTab;
-      const refusal = tab ? printTab(state, tab, settings) : 'empty';
+      let area = tab ? printAreaOf(tab) : null;
+      if (tab && chosen.scope === 'area') {
+        area = parsePrintArea(areaText);
+        if (area && keepsPrintArea(tab)) {
+          setPrintArea(state, tab, area);
+        }
+        area = area && clipPrintArea(area, tab.doc.rowCount, tab.doc.columnCount);
+      }
+      const refusal = tab ? printTab(state, tab, chosen, window, area) : 'empty';
       if (refusal) {
         notify(
           refusal === 'empty'
@@ -449,4 +508,9 @@ export function openPrint(state: AppState, notify: (text: string) => void): void
       }
     },
   );
+}
+
+/** Whether printing a typed print area may also set it: not on a protected file or a locked sheet. */
+function keepsPrintArea(tab: Tab): boolean {
+  return isCsv(tab.doc) || (!tab.readOnly && isWorkbook(tab.doc) && !tab.doc.activeSheet.locked);
 }

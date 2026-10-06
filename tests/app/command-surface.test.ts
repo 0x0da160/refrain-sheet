@@ -29,6 +29,8 @@ const COMMAND_IDS: readonly CommandId[] = [
   'file.save',
   'file.saveOptions',
   'file.print',
+  'file.setPrintArea',
+  'file.clearPrintArea',
   'file.closeTab',
   'drive.open',
   'drive.save',

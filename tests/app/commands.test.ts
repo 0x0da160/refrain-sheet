@@ -1193,6 +1193,25 @@ describe('adding sheets from CSV files', () => {
   });
 });
 
+describe('print area commands', () => {
+  it('sets the print area from the selection and clears it, saying so', async () => {
+    const ui = stubUi();
+    const { state, commands } = setup(ui);
+    await commands.openFiles([opened('a.csv', utf8('a,b,c\n1,2,3\n'))], { confirmNonCsv: false });
+    const tab = state.activeTab!;
+    expect(commands.isEnabled('file.clearPrintArea')).toBe(false);
+    state.setSelection(tab, { row: 1, col: 1 }, { row: 0, col: 0 });
+    expect(commands.isEnabled('file.setPrintArea')).toBe(true);
+    await commands.run('file.setPrintArea');
+    expect(tab.printArea).toEqual({ top: 0, left: 0, bottom: 1, right: 1 });
+    expect(ui.notify).toHaveBeenLastCalledWith(t('notify.printAreaSet', { range: 'A1:B2' }), 'info');
+    expect(commands.isEnabled('file.clearPrintArea')).toBe(true);
+    await commands.run('file.clearPrintArea');
+    expect(tab.printArea).toBeNull();
+    expect(ui.notify).toHaveBeenLastCalledWith(t('notify.printAreaCleared'), 'info');
+  });
+});
+
 describe('replace all', () => {
   it('is a single atomic undoable operation with counts', async () => {
     const { state, commands } = setup();

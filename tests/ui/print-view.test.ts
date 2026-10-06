@@ -126,6 +126,42 @@ describe('printTab', () => {
     ]);
   });
 
+  it('prints the print area for Print area, and each sheet its own within Entire file', () => {
+    const { state, doc, tab } = book([
+      ['a', 'b', 'c'],
+      ['d', 'e', 'f'],
+      ['g', 'h', 'i'],
+    ]);
+    const other = state.addSheet(tab, 'Two')!;
+    other.setCell(0, 0, 'x');
+    other.setCell(1, 1, 'y');
+    other.printArea = { top: 1, left: 1, bottom: 1, right: 1 };
+    state.setActiveSheet(tab, doc.sheets[0].id);
+    doc.setPrintAreaOn(undefined, { top: 1, left: 0, bottom: 2, right: 1 });
+    const { win, printed } = fakeWindow();
+    printTab(state, tab, settings({ scope: 'area' }), win);
+    printTab(state, tab, settings({ scope: 'file' }), win);
+    printTab(state, tab, settings({ scope: 'sheet' }), win);
+    expect(printed).toEqual([
+      [
+        ['d', 'e'],
+        ['g', 'h'],
+      ],
+      [
+        ['d', 'e'],
+        ['g', 'h'],
+      ],
+      [['y']],
+      [
+        ['a', 'b', 'c'],
+        ['d', 'e', 'f'],
+        ['g', 'h', 'i'],
+      ],
+    ]);
+    doc.setPrintAreaOn(undefined, null);
+    expect(printTab(state, tab, settings({ scope: 'area' }), win)).toBe('empty');
+  });
+
   it('prints every sheet of the file with its name, and a Markdown sheet as text', () => {
     const { state, doc, tab } = book([['one']]);
     const second = state.addMarkdownSheet(tab, 'Notes');
@@ -248,10 +284,20 @@ describe('the print panel', () => {
     vi.stubGlobal('innerWidth', 1000);
     vi.stubGlobal('innerHeight', 800);
     const onPrint = vi.fn();
-    void openPrintPanel({ settings: DEFAULT_PRINT_SETTINGS, canPrintFile: false }, onPrint);
+    void openPrintPanel(
+      {
+        settings: DEFAULT_PRINT_SETTINGS,
+        canPrintFile: false,
+        canPrintArea: false,
+        area: '',
+        keepsArea: true,
+      },
+      onPrint,
+    );
     const panel = document.querySelector<HTMLElement>('.side-panel')!;
     const options = Array.from(panel.querySelectorAll('option')).map((o) => o.value);
     expect(options).not.toContain('file');
+    expect(options).not.toContain('area');
     const fit = Array.from(panel.querySelectorAll('label'))
       .find((l) => l.textContent === t('dialog.print.fitWidth'))!
       .querySelector('input')!;
@@ -266,8 +312,45 @@ describe('the print panel', () => {
     scale.value = '150';
     scale.dispatchEvent(new Event('input'));
     print.click();
-    expect(onPrint).toHaveBeenCalledWith({ ...DEFAULT_PRINT_SETTINGS, scale: 150 });
+    expect(onPrint).toHaveBeenCalledWith({ ...DEFAULT_PRINT_SETTINGS, scale: 150 }, '');
     expect(document.querySelector('.side-panel')).not.toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it('offers a print area typed as a range, and disables Print until it reads as one', () => {
+    setLocale('en');
+    vi.stubGlobal('innerWidth', 1000);
+    vi.stubGlobal('innerHeight', 800);
+    const onPrint = vi.fn();
+    void openPrintPanel(
+      {
+        settings: { ...DEFAULT_PRINT_SETTINGS, scope: 'area' },
+        canPrintFile: false,
+        canPrintArea: true,
+        area: 'A1:B2',
+        keepsArea: true,
+      },
+      onPrint,
+    );
+    const panel = document.querySelector<HTMLElement>('.side-panel')!;
+    const scope = panel.querySelector<HTMLSelectElement>('select')!;
+    expect(scope.value).toBe('area');
+    const field = panel.querySelector<HTMLInputElement>('input[placeholder="A1:F40"]')!;
+    expect(field.value).toBe('A1:B2');
+    const print = Array.from(panel.querySelectorAll('button')).find(
+      (b) => b.textContent === t('dialog.print.print'),
+    )!;
+    field.value = 'B2:';
+    field.dispatchEvent(new Event('input'));
+    expect(print.disabled).toBe(true);
+    expect(panel.textContent).toContain(t('dialog.print.areaInvalid'));
+    field.value = 'c3:a1';
+    field.dispatchEvent(new Event('input'));
+    print.click();
+    expect(onPrint).toHaveBeenCalledWith({ ...DEFAULT_PRINT_SETTINGS, scope: 'area' }, 'c3:a1');
+    scope.value = 'sheet';
+    scope.dispatchEvent(new Event('change'));
+    expect(field.closest<HTMLElement>('.panel-field')!.hidden).toBe(true);
     vi.unstubAllGlobals();
   });
 });

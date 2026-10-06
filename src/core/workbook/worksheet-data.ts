@@ -10,6 +10,7 @@ import { isEmptyGridLook } from '../grid-look';
 import { MAX_VALIDATION_RULES, validateValidation } from './data-validation';
 import type { RsfWorksheetData } from './rsf-codec';
 import { MAX_SHEET_OBJECTS, validateObject } from './sheet-objects';
+import { clipPrintArea } from './print-area';
 import { Worksheet } from './worksheet';
 
 /** Materialize one decoded worksheet record (already validated by the codec). */
@@ -42,6 +43,7 @@ export function worksheetFromData(entry: RsfWorksheetData): Worksheet {
   if (entry.rowHeights) {
     sheet.rowHeights = new Map(entry.rowHeights);
   }
+  sheet.printArea = entry.printArea ?? null;
   sheet.validations = entry.validations?.slice() ?? [];
   sheet.objects = entry.objects?.slice() ?? [];
   for (const [r, c, style] of entry.styles ?? []) {
@@ -114,6 +116,10 @@ export function worksheetToData(sheet: Worksheet, cells: Array<[number, number, 
     entry.rowHeights = [...sheet.rowHeights]
       .filter(([row]) => row < sheet.rowCount)
       .sort((a, b) => a[0] - b[0]);
+  }
+  const printArea = sheet.printArea && clipPrintArea(sheet.printArea, sheet.rowCount, sheet.columnCount);
+  if (printArea && sheet.kind === 'grid') {
+    entry.printArea = printArea;
   }
   if (sheet.paper !== undefined && sheet.kind === 'grid') {
     entry.paper = sheet.paper;

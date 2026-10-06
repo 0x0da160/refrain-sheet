@@ -20,6 +20,8 @@ import { detachLostCharts } from './sheet-charts';
 import type { SheetImageEntry } from './sheet-images';
 import { viewToJson, type RsfViewSettings } from './rsf-view';
 import { VersionHistory } from './version-history';
+import { printAreasEqual } from './print-area';
+import type { PrintArea } from '../print-layout';
 import { Workbook } from './workbook';
 import { Worksheet, type WorksheetKind } from './worksheet';
 import { valuesToCsvText, worksheetFromData, worksheetToData } from './worksheet-data';
@@ -328,6 +330,14 @@ export class RsfDocument extends Workbook {
    */
   get history(): readonly RsfHistorySnapshot[] {
     return this.versions.list;
+  }
+
+  /** Set or clear a worksheet's print area (persisted, so this marks the file changed). */
+  setPrintAreaOn(sheetId: string | undefined, area: PrintArea | null): void {
+    const sheet = this.resolveSheet(sheetId);
+    if (this.bumpIf(!printAreasEqual(sheet.printArea, area))) {
+      sheet.printArea = area ? { ...area } : null;
+    }
   }
 
   /** Turn recording on or off; existing snapshots are kept (see {@link clearHistory}). */

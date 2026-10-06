@@ -75,6 +75,7 @@ the same content is the same document.
 | `objects`     | array of objects | Grid only: shapes over the grid (below), bottom to top, at most 1,000. Left out if none. |
 | `paper`       | integer          | Grid only: makes it a grid-paper sheet (below), the side of one square in px (8–64).     |
 | `rowHeights`  | object           | Grid only: row heights a person set (below), `{ "3": 40 }`. Left out when none.          |
+| `printArea`   | string           | Grid only: the print area (below), `"A1:F40"`. Left out when none.                       |
 
 ### Grid paper
 
@@ -97,6 +98,19 @@ non-grid worksheet is `bad-shape`. A row not listed takes the default
 height, or the height its wrapped text needs. A reader that does not know
 the key ignores it and shows every row at its usual height, so the key
 keeps `"version": 1`.
+
+### Print area
+
+`printArea` is the block File > Print… prints for "Print area" and for the
+sheet within "Entire file", set with File > Print Area or typed in the
+print panel (`src/core/workbook/print-area.ts`). It is written as an A1
+range in upper case without `$`, top-left corner first (a single cell is
+still `"B2:B2"`); any other spelling, a value that is not a string, or the
+key on a non-grid worksheet is `bad-shape`. A range reaching past `rows`
+or `cols` is cut to the worksheet, and one wholly outside it is dropped.
+Inserting, deleting and moving rows and columns move the area with them.
+A reader that does not know the key ignores it and prints the whole sheet,
+so the key keeps `"version": 1`.
 
 ### Folders
 

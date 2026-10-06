@@ -5,7 +5,8 @@
  * worksheet's `tabColor` and `folder` and the file's `folders`
  * (`rsf-folders.ts`), a worksheet's `validations`, its `objects`
  * (`rsf-sheet-objects.ts`), its `paper` square (`grid-paper.ts`), its
- * `rowHeights` (`row-heights.ts`), and the file's `images` (`rsf-images.ts`). Like every key in
+ * `rowHeights` (`row-heights.ts`), its `printArea` (`print-area.ts`), and the file's `images`
+ * (`rsf-images.ts`). Like every key in
  * the codec, a known key with the wrong shape fails the whole file.
  */
 import { cellLabel, parseRef } from '../formula';
@@ -31,6 +32,8 @@ import { objectsFromJson, objectsToJson } from './rsf-sheet-objects';
 import type { SheetObject } from './sheet-objects';
 import { isPaperSquare } from './grid-paper';
 import { clampRowHeight } from './row-heights';
+import { clipPrintArea, parsePrintArea, printAreaToText } from './print-area';
+import type { PrintArea } from '../print-layout';
 
 /** The file-level keys kept here: the sheet folders and the pictures. */
 export interface RsfFileExtras extends RsfFolderList, RsfImageList {}
@@ -77,6 +80,8 @@ export interface RsfSheetExtras extends RsfSheetPlacement {
   paper?: number;
   /** Row heights a person set, as [row, px-at-100%] pairs in row order. */
   rowHeights?: Array<[number, number]>;
+  /** The block File > Print… prints for "Print area". */
+  printArea?: PrintArea;
 }
 
 type Fail = (reason?: 'too-large') => never;
@@ -96,6 +101,9 @@ export function sheetExtrasToJson(sheet: RsfSheetExtras): { [key: string]: Json 
   }
   if (sheet.rowHeights && sheet.rowHeights.length > 0) {
     out.rowHeights = Object.fromEntries(sheet.rowHeights.map(([row, px]) => [String(row + 1), px]));
+  }
+  if (sheet.printArea) {
+    out.printArea = printAreaToText(sheet.printArea);
   }
   return out;
 }
@@ -140,6 +148,19 @@ export function sheetExtrasFromJson(
     const heights = rowHeightsFromJson(value.rowHeights, sheet, fail);
     if (heights.length > 0) {
       out.rowHeights = heights;
+    }
+  }
+  if (value.printArea !== undefined) {
+    // Written as "A1:F40" (upper case, no `$`); a block reaching past the
+    // worksheet is cut to it, and one wholly outside it is dropped.
+    const text = value.printArea;
+    const area = typeof text === 'string' ? parsePrintArea(text) : null;
+    if (!area || printAreaToText(area) !== text || (sheet.kind ?? 'grid') !== 'grid') {
+      return fail();
+    }
+    const clipped = clipPrintArea(area, sheet.rowCount, sheet.columnCount);
+    if (clipped) {
+      out.printArea = clipped;
     }
   }
   return out;

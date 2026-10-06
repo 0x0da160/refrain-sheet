@@ -4,7 +4,10 @@ import { isCsv } from '../../../core/editor-document';
 import { KEEP_SAVE_OPTIONS } from '../../../core/csv/serializer';
 import { fileSystemAccessAvailable, pickFiles } from '../../file-access';
 import { getMaxFileSize } from '../../settings';
-import { withTab, type CommandContext, type CommandSpec } from './types';
+import { printAreaToText } from '../../../core/workbook/print-area';
+import { t } from '../../i18n';
+import { canHoldPrintArea, printAreaOf, selectionPrintArea, setPrintArea } from '../../state/print-area';
+import { hasGridSelection, withTab, type CommandContext, type CommandSpec } from './types';
 
 const driveAvailable = (ctx: CommandContext): boolean => ctx.commands.driveAvailable();
 
@@ -46,6 +49,23 @@ export const FILE_COMMANDS = {
   ),
   // The panel prints through the browser's own print, which also saves PDFs.
   'file.print': withTab((ctx) => ctx.commands.panelActions?.openPrint()),
+  'file.setPrintArea': withTab(
+    (ctx, tab) => {
+      const area = selectionPrintArea(ctx.state, tab);
+      if (area && setPrintArea(ctx.state, tab, area)) {
+        ctx.ui.notify(t('notify.printAreaSet', { range: printAreaToText(area) }), 'info');
+      }
+    },
+    (ctx, tab) => hasGridSelection(ctx) && canHoldPrintArea(tab),
+  ),
+  'file.clearPrintArea': withTab(
+    (ctx, tab) => {
+      if (setPrintArea(ctx.state, tab, null)) {
+        ctx.ui.notify(t('notify.printAreaCleared'), 'info');
+      }
+    },
+    (_, tab) => printAreaOf(tab) !== null,
+  ),
   'file.closeTab': withTab((ctx, tab) => ctx.commands.closeTab(tab)),
   'drive.open': {
     enabled: driveAvailable,

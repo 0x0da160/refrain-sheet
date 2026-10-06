@@ -150,10 +150,16 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--button-gap);
+}
+
+.column-menu-foot-start {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--button-gap);
+  margin-inline-end: auto;
 }
 
 .column-menu-more {
   gap: var(--space-1);
-  margin-right: auto;
 }

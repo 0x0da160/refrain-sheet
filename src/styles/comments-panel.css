@@ -3,9 +3,10 @@
 /* ---------- Comments panel ----------
    A dockable `.side-panel` (see below) like Filter/Sort/Format/SQL Query,
    rather than a fixed always-right layout sibling of the grid (#399); this
-   rule only overrides its `.dialog-body` padding back to zero so the
-   scope-label/empty-message/list below keep their own original spacing
-   instead of also getting `.dialog-body`'s outer padding. */
+   rule only overrides its `.dialog-body` padding back to zero: the scope
+   and message sit in a `.form-layout` block with the panel inset, and the
+   list below runs edge to edge, each entry inset like the rest. The Check
+   Data panel shares these rules. */
 
 .comments-panel[hidden] {
   display: none;
@@ -15,29 +16,11 @@
   padding: 0;
 }
 
-.comments-scope-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+.comments-controls {
   border-bottom: 1px solid var(--border-default);
 }
 
-.comments-scope {
-  flex: 1;
-  min-width: 0;
-  height: var(--field-h);
-  font: inherit;
-  padding: 0 var(--space-1-5);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  color: var(--fg-default);
-}
-
 .comments-empty {
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
   color: var(--fg-muted);
   font-size: 0.9em;
 }
@@ -57,7 +40,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-0-5);
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--inset-inline);
   border-bottom: 1px solid var(--border-default);
   cursor: pointer;
 }

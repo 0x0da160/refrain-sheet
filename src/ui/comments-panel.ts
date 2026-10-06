@@ -16,6 +16,7 @@ import {
   currentSidePanelPlacement,
   type SidePanelChrome,
 } from './dialogs/side-panel';
+import { formField } from './dialogs/form-layout';
 import { clearChildren, el } from './dom';
 import type { Grid } from './grid';
 
@@ -60,11 +61,8 @@ export class CommentsPanel {
       el('option', { text: t('find.scope.workbook'), attrs: { value: 'workbook' } }),
     );
     this.scopeSelect.addEventListener('change', () => this.render());
-    this.scopeLabelEl = el('span', { text: t('find.scope') });
-    const scopeLabel = el('label', { className: 'comments-scope-label' }, [
-      this.scopeLabelEl,
-      this.scopeSelect,
-    ]);
+    const scopeField = formField(t('find.scope'), this.scopeSelect);
+    this.scopeLabelEl = scopeField.querySelector('label')!;
 
     this.messageEl = el('p', { className: 'comments-empty' });
     this.listEl = el('ul', { className: 'comments-list' });
@@ -79,7 +77,10 @@ export class CommentsPanel {
       closeLabel: t('panel.comments.close'),
       onClose: () => this.close(),
     });
-    const body = el('div', { className: 'dialog-body' }, [scopeLabel, this.messageEl, this.listEl]);
+    // The scope and any message take the form layout (D-47, D-48); the list
+    // below runs edge to edge, each entry keeping the same inset.
+    const controls = el('div', { className: 'form-layout comments-controls' }, [scopeField, this.messageEl]);
+    const body = el('div', { className: 'dialog-body' }, [controls, this.listEl]);
     this.element.append(this.chrome.heading, body, this.chrome.resizeHandle);
     this.element.hidden = true;
   }

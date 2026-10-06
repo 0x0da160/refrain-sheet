@@ -38,8 +38,17 @@ really is internal, rather than inventing an entry to satisfy it.
 
 ## [Unreleased]
 
+### Added
+
+- File > New Text File > Plain Text creates an empty `.txt` file. The
+  submenu that held New Markdown / JSON / YAML is now called New Text File.
+
 ### Changed
 
+- The home screen is reorganized into two groups: Open (Open File…, Open
+  from Google Drive… where available, Import JSON as Table…) and New
+  (Spreadsheet, CSV, Markdown, JSON, YAML, Plain Text). The five most
+  recent files are listed below them, with Show All… for the rest.
 - Switching sheets is faster, most of all to and from a Markdown, JSON,
   YAML or text sheet: the grid is no longer redrawn while a text sheet
   hides it, and the page is measured fewer times per switch.

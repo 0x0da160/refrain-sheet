@@ -37,7 +37,8 @@ synchronously. Phones always give the tabs their own row at the top.
 ## Document tabs (above the grid)
 
 - Multiple files open as tabs; a newly opened file always becomes active.
-- **File > Open Recent…** (also a link on the welcome screen) lists the
+- **File > Open Recent…** (also **Show All…** on the home screen, which
+  lists the five newest recent files itself) lists the
   last 10 files opened or saved through the File System Access API, newest
   first, and opens the one picked after the browser grants read permission
   again; a file that has been moved or deleted is dropped from the list.
@@ -66,7 +67,11 @@ synchronously. Phones always give the tabs their own row at the top.
 - Closing a modified tab asks **Save / Discard / Cancel**. When leaving the
   page with modified tabs, browsers do not allow custom dialogs, so the
   browser's own standard leave-page confirmation appears instead.
-- Closing the **last** tab returns the app to its welcome screen; see
+- Closing the **last** tab returns the app to its home screen: an **Open**
+  group (Open File…, Open from Google Drive… in the hosted build, Import
+  JSON as Table…), a **New** group (Spreadsheet, CSV, Markdown, JSON, YAML,
+  Plain Text — the same kinds as File > New), the recent files, and the
+  drop hint (`src/ui/welcome-screen.ts`); see
   `README.md`'s "The initial screen" section for what state is cleared
   versus what application-level preference persists across that boundary.
 

@@ -271,11 +271,6 @@
     min-height: var(--field-h);
   }
 
-  .welcome-action {
-    padding: 0 var(--space-4);
-    min-height: var(--field-h);
-  }
-
   /* Chrome surfaces the mobile breakpoint above didn't previously cover:
      the status bar, the formula bar's cell-ref label, and the context
      menu's formatting toolbar/its own padding. */

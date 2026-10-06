@@ -34,7 +34,7 @@ import type { FlashFillPreview } from './fill';
 import { PasteFillCommands } from './paste-fill';
 import { RangeOpsCommands, type ReplaceAllReport } from './range-ops';
 import { isGridSurface, LARGE_OP_CELLS } from './shared';
-import type { ColumnMenuInput, ConvertReason, UiPort } from '../ui-port';
+import type { ColumnMenuInput, ConvertReason, RecentFileChoice, UiPort } from '../ui-port';
 
 export { isGridSurface, LARGE_OP_CELLS };
 
@@ -291,6 +291,17 @@ export class Commands {
 
   async openDroppedFiles(fileList: File[], handles: Array<FileSystemFileHandle | null>): Promise<void> {
     return this.parts.fileIo.openDroppedFiles(fileList, handles);
+  }
+
+  /** The recently opened files (with the recent Drive files where Drive is available), for the home screen. */
+  recentFiles(): Promise<RecentFileChoice[]> {
+    return this.parts.fileIo.opening.recentChoices(this.driveAvailable());
+  }
+
+  /** Open one of {@link recentFiles} by its id, as File > Open Recent… does. */
+  openRecentFile(id: string): Promise<void> {
+    const drive = this.driveAvailable() ? this.parts.drive : null;
+    return this.parts.fileIo.opening.openRecentChoice(id, drive);
   }
 
   /**

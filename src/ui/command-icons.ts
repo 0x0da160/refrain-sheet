@@ -115,6 +115,7 @@ export const ICON_BY_COMMAND: Partial<Record<CommandId, IconNode>> = {
   'file.newMarkdown': FilePenLine,
   'file.newJson': FileJson,
   'file.newYaml': FileCode,
+  'file.newText': FileType,
   'file.open': FolderOpen,
   'file.openRecent': FolderClock,
   'drive.open': CloudDownload,

@@ -126,6 +126,7 @@ describe('welcome screen (initial screen)', () => {
     ['markdown', '.md', 0],
     ['json', '.json', 1],
     ['yaml', '.yaml', 2],
+    ['text', '.txt', 3],
   ] as const)('the New %s entry point opens an empty %s editor', (kind, ext, index) => {
     const { state, welcome } = setup();
     welcome.element.querySelectorAll<HTMLButtonElement>('.welcome-text-action')[index].click();
@@ -136,6 +137,42 @@ describe('welcome screen (initial screen)', () => {
     expect(tab.doc.kind).toBe('rsf');
     expect(tab.doc.isDirty).toBe(false);
     expect(welcome.element.hidden).toBe(true);
+  });
+
+  it('groups the entry points under Open and New', () => {
+    const { welcome } = setup();
+    const titles = [...welcome.element.querySelectorAll('.welcome-group-title')].map((h) => h.textContent);
+    expect(titles).toEqual([t('welcome.openTitle'), t('welcome.newTitle')]);
+    const open = welcome.element.querySelector('.welcome-open-group')!;
+    // No Google Drive in this build; the JSON-table import is there.
+    expect([...open.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
+      t('welcome.open'),
+      t('welcome.importJsonTable'),
+    ]);
+    const kinds = welcome.element.querySelectorAll('.welcome-new-group button');
+    expect(kinds).toHaveLength(6);
+  });
+
+  it('lists the newest recent files and opens one when clicked', async () => {
+    const { commands, welcome } = setup();
+    vi.spyOn(commands, 'isEnabled').mockImplementation((id) => id === 'file.openRecent');
+    vi.spyOn(commands, 'recentFiles').mockResolvedValue(
+      Array.from({ length: 7 }, (_, i) => ({
+        id: `f${i}`,
+        name: `file${i}.csv`,
+        openedAt: i * 1000,
+        where: 'device' as const,
+      })),
+    );
+    const open = vi.spyOn(commands, 'openRecentFile').mockResolvedValue(undefined);
+    welcome.refresh(true);
+    await vi.waitFor(() =>
+      expect(welcome.element.querySelector('.welcome-recent-section')!.hasAttribute('hidden')).toBe(false),
+    );
+    const names = [...welcome.element.querySelectorAll('.welcome-recent-name')].map((n) => n.textContent);
+    expect(names).toEqual(['file6.csv', 'file5.csv', 'file4.csv', 'file3.csv', 'file2.csv']);
+    welcome.element.querySelector<HTMLButtonElement>('.welcome-recent-file')!.click();
+    expect(open).toHaveBeenCalledWith('f6');
   });
 
   it('returns after the last clean tab is closed', async () => {

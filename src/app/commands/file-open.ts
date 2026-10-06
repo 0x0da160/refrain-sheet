@@ -44,6 +44,7 @@ import { getAutoFitOnOpen, getMaxFileSize } from '../settings';
 import { isGridSurface, LARGE_OPEN_BYTES, withBusyIfLarge } from './shared';
 
 import type { FileIoCommands } from './file-io';
+import type { RecentFileChoice } from '../ui-port';
 import { CSV_EXTENSION } from './shared';
 
 const CSV_LIKE_EXTENSIONS = [CSV_EXTENSION, '.tsv', RSF_EXTENSION, RSF_LEGACY_EXTENSION];
@@ -99,13 +100,33 @@ export class FileOpening {
    * opened again through it.
    */
   async openRecent(drive: RecentDriveOpener | null = null): Promise<void> {
-    const entries = await listRecentFiles();
-    const driveEntries = drive ? listRecentDriveFiles() : [];
-    if (entries.length === 0 && driveEntries.length === 0) {
+    const choices = await this.recentChoices(drive !== null);
+    if (choices.length === 0) {
       this.core.ui.notify(t(drive ? 'notify.recentEmptyDrive' : 'notify.recentEmpty'), 'info');
       return;
     }
-    const choice = await this.core.ui.chooseRecentFile([
+    const choice = await this.core.ui.chooseRecentFile(choices);
+    if (choice === null) {
+      return;
+    }
+    if (choice === 'clear') {
+      await clearRecentFiles();
+      clearRecentDriveFiles();
+      this.core.ui.notify(t('notify.recentCleared'), 'info');
+      return;
+    }
+    await this.openRecentChoice(choice, drive);
+  }
+
+  /**
+   * The recently opened files, newest first within each place: those on
+   * this device, then (with `withDrive`) the Drive files this browser
+   * opened or saved. The home screen lists the first few of these.
+   */
+  async recentChoices(withDrive: boolean): Promise<RecentFileChoice[]> {
+    const entries = await listRecentFiles();
+    const driveEntries = withDrive ? listRecentDriveFiles() : [];
+    return [
       ...entries.map((entry) => ({
         id: entry.id,
         name: entry.name,
@@ -118,22 +139,25 @@ export class FileOpening {
         openedAt: entry.openedAt,
         where: 'drive' as const,
       })),
-    ]);
-    if (choice === null) {
+    ];
+  }
+
+  /**
+   * Open one recent file by its {@link recentChoices} id, asking the browser
+   * for read permission again first (a stored handle loses it when the page
+   * reloads). A file that has since been moved or deleted is reported and
+   * dropped from the list.
+   */
+  async openRecentChoice(id: string, drive: RecentDriveOpener | null): Promise<void> {
+    if (id.startsWith(DRIVE_ID_PREFIX)) {
+      const fileId = id.slice(DRIVE_ID_PREFIX.length);
+      const driveEntry = drive ? listRecentDriveFiles().find((e) => e.fileId === fileId) : undefined;
+      if (drive && driveEntry) {
+        await drive.reopen(driveEntry.fileId, driveEntry.name);
+      }
       return;
     }
-    if (choice === 'clear') {
-      await clearRecentFiles();
-      clearRecentDriveFiles();
-      this.core.ui.notify(t('notify.recentCleared'), 'info');
-      return;
-    }
-    const driveEntry = driveEntries.find((e) => `${DRIVE_ID_PREFIX}${e.fileId}` === choice);
-    if (drive && driveEntry) {
-      await drive.reopen(driveEntry.fileId, driveEntry.name);
-      return;
-    }
-    const entry = entries.find((e) => e.id === choice);
+    const entry = (await listRecentFiles()).find((e) => e.id === id);
     if (!entry) {
       return;
     }

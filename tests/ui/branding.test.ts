@@ -190,7 +190,7 @@ describe('README links', () => {
   });
 });
 
-describe('About dialog links', () => {
+describe('About panel links', () => {
   const locale = getLocale();
   // jsdom does not implement <dialog>.showModal(); the shim only needs to make
   // the element "open" so the dialog content is queryable in tests.
@@ -211,12 +211,12 @@ describe('About dialog links', () => {
   });
   afterEach(() => {
     setLocale(locale);
-    document.querySelectorAll('dialog').forEach((d) => d.remove());
+    document.querySelectorAll('dialog, .side-panel').forEach((d) => d.remove());
   });
 
   function openAbout(): HTMLAnchorElement[] {
     void new Dialogs().showAbout();
-    const dialog = document.body.querySelector('dialog')!;
+    const dialog = document.body.querySelector('.side-panel')!;
     return Array.from(dialog.querySelectorAll<HTMLAnchorElement>('.about-links a'));
   }
 
@@ -242,7 +242,7 @@ describe('About dialog links', () => {
     setLocale('ja');
     const jaLabels = openAbout().map((a) => a.textContent);
     expect(jaLabels).toEqual(['ウェブアプリ', 'リリース']);
-    document.querySelectorAll('dialog').forEach((d) => d.remove());
+    document.querySelectorAll('dialog, .side-panel').forEach((d) => d.remove());
     setLocale('en');
     const enLabels = openAbout().map((a) => a.textContent);
     expect(enLabels).toEqual(['Web App', 'Releases']);
@@ -250,16 +250,16 @@ describe('About dialog links', () => {
     expect(openAbout()[0].getAttribute('href')).toBe(SITE_URL);
   });
 
-  it('no longer mixes the keyboard-shortcut table into the About dialog', () => {
+  it('no longer mixes the keyboard-shortcut table into the About panel', () => {
     setLocale('en');
     void new Dialogs().showAbout('about');
-    const dialog = document.body.querySelector('dialog')!;
+    const dialog = document.body.querySelector('.side-panel')!;
     expect(dialog.querySelector('.shortcut-table')).toBeNull();
-    expect(dialog.querySelector('.dialog-title')?.textContent).toBe(t('dialog.about.title'));
+    expect(dialog.querySelector('.side-panel-title-label')?.textContent).toBe(t('dialog.about.title'));
   });
 });
 
-describe('Keyboard Shortcuts dialog (independent of About)', () => {
+describe('Keyboard Shortcuts panel (independent of About)', () => {
   const locale = getLocale();
   beforeEach(() => {
     const proto = HTMLDialogElement.prototype as unknown as {
@@ -278,14 +278,14 @@ describe('Keyboard Shortcuts dialog (independent of About)', () => {
   });
   afterEach(() => {
     setLocale(locale);
-    document.querySelectorAll('dialog').forEach((d) => d.remove());
+    document.querySelectorAll('dialog, .side-panel').forEach((d) => d.remove());
   });
 
   it('shows the shortcut table and no About-only content', () => {
     setLocale('en');
     void new Dialogs().showAbout('shortcuts');
-    const dialog = document.body.querySelector('dialog')!;
-    expect(dialog.querySelector('.dialog-title')?.textContent).toBe(t('dialog.shortcuts.title'));
+    const dialog = document.body.querySelector('.side-panel')!;
+    expect(dialog.querySelector('.side-panel-title-label')?.textContent).toBe(t('dialog.shortcuts.title'));
     expect(dialog.querySelector('.shortcut-table')).not.toBeNull();
     expect(dialog.querySelector('.about-links')).toBeNull();
     expect(dialog.querySelector('.about-version')).toBeNull();

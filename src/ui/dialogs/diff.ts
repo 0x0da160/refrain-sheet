@@ -2,8 +2,11 @@
 import type { DiffDialogInput } from '../../app/commands';
 import { t } from '../../app/i18n';
 import type { DiffOptions, DiffResult, DiffRow, DiffRowType } from '../../core/diff-engine';
+import { GitCompare } from 'lucide';
 import { el } from '../dom';
-import { dialogButton, openDialog } from './shared';
+import { formCheck, formField, formSection } from './form-layout';
+import { dialogButton } from './shared';
+import { openSidePanel } from './side-panel';
 
 const ROW_BADGE_CLASS: Record<DiffRowType, string> = {
   unchanged: 'diff-badge diff-badge-unchanged',
@@ -22,184 +25,154 @@ function mergedColumns(baselineColumns: string[], currentColumns: string[]): str
   return [...baselineColumns, ...extra];
 }
 
-/** One checkbox + label row, appended to `into`; returns the checkbox. */
-function columnCheckbox(
-  into: HTMLElement,
-  idPrefix: string,
-  name: string,
-  checked: boolean,
-): HTMLInputElement {
-  const id = `${idPrefix}-${name}`;
-  const check = el('input', { attrs: { type: 'checkbox', id, value: name } }) as HTMLInputElement;
-  check.checked = checked;
-  into.append(
-    el('div', { className: 'diff-column-item' }, [check, el('label', { text: name, attrs: { for: id } })]),
+/** One checkbox per column, put in `into`; returns the checkboxes. */
+function columnChecks(into: HTMLElement, names: string[], checked: boolean): HTMLInputElement[] {
+  into.replaceChildren();
+  return names.map((name) => {
+    const check = el('input', { attrs: { type: 'checkbox', value: name } }) as HTMLInputElement;
+    check.checked = checked;
+    into.append(formCheck(check, name));
+    return check;
+  });
+}
+
+/** The controls a comparison reads, built into the panel body. */
+interface DiffControls {
+  baselineSelect: HTMLSelectElement;
+  filterSelect: HTMLSelectElement;
+  options: () => DiffOptions;
+}
+
+function diffControls(body: HTMLElement, input: DiffDialogInput): DiffControls {
+  const baselineSelect = el('select') as HTMLSelectElement;
+  for (const tabOption of input.tabs) {
+    baselineSelect.append(el('option', { text: tabOption.name, attrs: { value: tabOption.id } }));
+  }
+  const columnGroup = (labelKey: string): HTMLElement =>
+    el('div', {
+      className: 'form-choices form-choices-inline',
+      attrs: { role: 'group', 'aria-label': t(labelKey) },
+    });
+  const keyList = columnGroup('dialog.diff.keyColumns');
+  const compareList = columnGroup('dialog.diff.compareColumns');
+  let keyChecks: HTMLInputElement[] = [];
+  let compareChecks: HTMLInputElement[] = [];
+  const rebuildColumnLists = (): void => {
+    const cols = mergedColumns(input.columnsForTab(baselineSelect.value), input.currentColumns);
+    keyChecks = columnChecks(keyList, cols, false);
+    compareChecks = columnChecks(compareList, cols, true);
+  };
+  rebuildColumnLists();
+  baselineSelect.addEventListener('change', rebuildColumnLists);
+
+  const trimCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+  const caseCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
+  const filterSelect = el('select') as HTMLSelectElement;
+  filterSelect.append(
+    el('option', { text: t('dialog.diff.filter.changed'), attrs: { value: 'changed' } }),
+    el('option', { text: t('dialog.diff.filter.all'), attrs: { value: 'all' } }),
   );
-  return check;
+  body.append(
+    formSection(null, [
+      el('p', { text: t('dialog.diff.intro') }),
+      el('p', { className: 'dialog-note', text: t('dialog.diff.current', { name: input.currentTabName }) }),
+      formField(t('dialog.diff.baseline'), baselineSelect),
+      el('div', { className: 'form-field' }, [
+        el('span', { className: 'form-field-label', text: t('dialog.diff.keyColumns') }),
+        keyList,
+      ]),
+      el('details', { className: 'diff-compare-columns' }, [
+        el('summary', { text: t('dialog.diff.compareColumns') }),
+        compareList,
+      ]),
+      el('div', { className: 'form-choices' }, [
+        formCheck(trimCheck, t('dialog.diff.normalizeTrim')),
+        formCheck(caseCheck, t('dialog.diff.normalizeCase')),
+      ]),
+      formField(t('dialog.diff.filter'), filterSelect),
+    ]),
+  );
+  return {
+    baselineSelect,
+    filterSelect,
+    options: () => ({
+      keyColumns: keyChecks.filter((c) => c.checked).map((c) => c.value),
+      compareColumns: compareChecks.filter((c) => c.checked).map((c) => c.value),
+      normalize: { trim: trimCheck.checked, caseInsensitive: caseCheck.checked },
+    }),
+  };
 }
 
 /**
- * The local two-tab compare panel: pick a baseline tab to compare the active
- * tab against, pick one or more key columns, and view every row classified
- * as added/modified/deleted/unchanged/key_invalid. Nothing here mutates
- * either source document — see `src/core/diff-engine.ts` for the engine and
+ * The local two-tab compare panel, a side panel beside the sheet (design
+ * system D-46): pick a baseline tab to compare the active tab against, pick
+ * one or more key columns, and view every row classified as
+ * added/modified/deleted/unchanged/key_invalid. Compare and Export Diff as
+ * CSV sit in the footer, and the panel stays open so a comparison can be
+ * adjusted and run again. Nothing here mutates either source document —
+ * see `src/core/diff-engine.ts` for the engine and
  * docs/proposals/csv-diff-review.md for the scope this first slice
- * deliberately stays within (no rule engine, templates, approvals, or audit
- * export yet; results render as a plain, non-virtualized table).
+ * deliberately stays within (results render as a plain, non-virtualized
+ * table).
  */
 export class DiffDialogs {
   showDiff(input: DiffDialogInput): Promise<void> {
-    return openDialog<void>(t('dialog.diff.title'), undefined, (body, buttons, close) => {
-      body.classList.add('diff-dialog');
-      body.append(el('p', { text: t('dialog.diff.intro') }));
-      body.append(
-        el('p', { className: 'dialog-note', text: t('dialog.diff.current', { name: input.currentTabName }) }),
-      );
+    return openSidePanel<void>(
+      { title: t('dialog.diff.title'), icon: GitCompare, fallback: undefined, key: 'data.compareDiff' },
+      (body, buttons) => {
+        body.classList.add('diff-panel');
+        const controls = diffControls(body, input);
+        const status = el('p', {
+          className: 'diff-status',
+          attrs: { role: 'status', 'aria-live': 'polite' },
+        });
+        const resultsWrap = el('div', { className: 'diff-results', attrs: { tabindex: '0' } });
+        body.append(formSection(null, [status, resultsWrap]));
 
-      // ----- Baseline tab picker -----
-      const baselineLabel = el('label', {
-        className: 'form-label',
-        text: t('dialog.diff.baseline'),
-        attrs: { for: 'diff-baseline-tab' },
-      });
-      const baselineSelect = el('select', { attrs: { id: 'diff-baseline-tab' } });
-      for (const tabOption of input.tabs) {
-        baselineSelect.append(el('option', { text: tabOption.name, attrs: { value: tabOption.id } }));
-      }
-      body.append(el('div', { className: 'form-row' }, [baselineLabel, baselineSelect]));
-
-      // ----- Key / compare column pickers -----
-      const keyLabel = el('p', { className: 'form-label', text: t('dialog.diff.keyColumns') });
-      const keyList = el('div', {
-        className: 'diff-column-list',
-        attrs: { role: 'group', 'aria-label': t('dialog.diff.keyColumns') },
-      });
-      body.append(keyLabel, keyList);
-
-      const compareDetails = el('details', { className: 'diff-compare-columns' });
-      const compareBody = el('div', {
-        className: 'diff-column-list',
-        attrs: { role: 'group', 'aria-label': t('dialog.diff.compareColumns') },
-      });
-      compareDetails.append(el('summary', { text: t('dialog.diff.compareColumns') }), compareBody);
-      body.append(compareDetails);
-
-      let keyChecks: HTMLInputElement[] = [];
-      let compareChecks: HTMLInputElement[] = [];
-
-      const rebuildColumnLists = (): void => {
-        const cols = mergedColumns(input.columnsForTab(baselineSelect.value), input.currentColumns);
-        keyList.replaceChildren();
-        compareBody.replaceChildren();
-        keyChecks = cols.map((name) => columnCheckbox(keyList, 'diff-key', name, false));
-        compareChecks = cols.map((name) => columnCheckbox(compareBody, 'diff-compare', name, true));
-      };
-      rebuildColumnLists();
-      baselineSelect.addEventListener('change', rebuildColumnLists);
-
-      // ----- Normalization options -----
-      const { trimCheck, caseCheck } = normalizeOptions(body);
-
-      // ----- Filter (defaults to "changed only": unchanged rows are not the point of a diff) -----
-      const filterLabel = el('label', {
-        className: 'form-label',
-        text: t('dialog.diff.filter'),
-        attrs: { for: 'diff-filter' },
-      });
-      const filterSelect = el('select', { attrs: { id: 'diff-filter' } });
-      filterSelect.append(
-        el('option', { text: t('dialog.diff.filter.changed'), attrs: { value: 'changed' } }),
-        el('option', { text: t('dialog.diff.filter.all'), attrs: { value: 'all' } }),
-      );
-      body.append(el('div', { className: 'form-row' }, [filterLabel, filterSelect]));
-
-      // ----- Run / export -----
-      const runRow = el('div', { className: 'form-row diff-run-row' });
-      const exportButton = dialogButton(t('dialog.diff.exportCsv'), false, false, () => void doExport());
-      exportButton.disabled = true;
-      const runButton = dialogButton(t('dialog.diff.run'), true, false, () => runDiff());
-      runRow.append(exportButton, runButton);
-      body.append(runRow);
-
-      // ----- Status (announced) and results -----
-      const status = el('p', { className: 'diff-status', attrs: { role: 'status', 'aria-live': 'polite' } });
-      body.append(status);
-      const resultsWrap = el('div', { className: 'diff-results', attrs: { tabindex: '0' } });
-      body.append(resultsWrap);
-
-      const setStatus = (text: string, isError: boolean): void => {
-        status.textContent = text;
-        status.setAttribute('role', isError ? 'alert' : 'status');
-      };
-
-      let lastResult: DiffResult | null = null;
-
-      const renderResult = (result: DiffResult, filter: FilterMode): void => {
-        resultsWrap.replaceChildren();
-        const shown = filter === 'changed' ? result.rows.filter((r) => r.type !== 'unchanged') : result.rows;
-        if (shown.length === 0) {
-          setStatus(t('dialog.diff.status.noRows'), false);
-          return;
-        }
-        resultsWrap.append(diffTable(result, shown));
-        setStatus(diffStatusText(result), false);
-      };
-
-      filterSelect.addEventListener('change', () => {
-        if (lastResult) renderResult(lastResult, filterSelect.value as FilterMode);
-      });
-
-      const runDiff = (): void => {
-        resultsWrap.replaceChildren();
-        lastResult = null;
-        exportButton.disabled = true;
-        const options: DiffOptions = {
-          keyColumns: keyChecks.filter((c) => c.checked).map((c) => c.value),
-          compareColumns: compareChecks.filter((c) => c.checked).map((c) => c.value),
-          normalize: { trim: trimCheck.checked, caseInsensitive: caseCheck.checked },
+        const setStatus = (text: string, isError: boolean): void => {
+          status.textContent = text;
+          status.setAttribute('role', isError ? 'alert' : 'status');
         };
-        const outcome = input.runDiff(baselineSelect.value, options);
-        if (!outcome.ok) {
-          setStatus(t(`diff.error.${outcome.error.code}`, outcome.error.params), true);
-          return;
-        }
-        lastResult = outcome.result;
-        exportButton.disabled = false;
-        renderResult(outcome.result, filterSelect.value as FilterMode);
-      };
+        let lastResult: DiffResult | null = null;
+        const renderResult = (result: DiffResult, filter: FilterMode): void => {
+          resultsWrap.replaceChildren();
+          const shown =
+            filter === 'changed' ? result.rows.filter((r) => r.type !== 'unchanged') : result.rows;
+          if (shown.length === 0) {
+            setStatus(t('dialog.diff.status.noRows'), false);
+            return;
+          }
+          resultsWrap.append(diffTable(result, shown));
+          setStatus(diffStatusText(result), false);
+        };
+        controls.filterSelect.addEventListener('change', () => {
+          if (lastResult) renderResult(lastResult, controls.filterSelect.value as FilterMode);
+        });
 
-      const doExport = async (): Promise<void> => {
-        if (!lastResult) return;
-        const ok = await input.exportCsv(lastResult);
-        if (ok) setStatus(t('dialog.diff.status.exported'), false);
-      };
-
-      buttons.append(dialogButton(t('dialog.diff.close'), false, true, () => close(undefined)));
-    });
+        const exportButton = dialogButton(t('dialog.diff.exportCsv'), false, false, () => void doExport());
+        exportButton.disabled = true;
+        const runDiff = (): void => {
+          resultsWrap.replaceChildren();
+          lastResult = null;
+          exportButton.disabled = true;
+          const outcome = input.runDiff(controls.baselineSelect.value, controls.options());
+          if (!outcome.ok) {
+            setStatus(t(`diff.error.${outcome.error.code}`, outcome.error.params), true);
+            return;
+          }
+          lastResult = outcome.result;
+          exportButton.disabled = false;
+          renderResult(outcome.result, controls.filterSelect.value as FilterMode);
+        };
+        const doExport = async (): Promise<void> => {
+          if (!lastResult) return;
+          const ok = await input.exportCsv(lastResult);
+          if (ok) setStatus(t('dialog.diff.status.exported'), false);
+        };
+        buttons.append(exportButton, dialogButton(t('dialog.diff.run'), true, false, runDiff));
+      },
+    );
   }
-}
-
-/** The whitespace-trim and case-insensitive comparison checkboxes. */
-function normalizeOptions(body: HTMLElement): { trimCheck: HTMLInputElement; caseCheck: HTMLInputElement } {
-  const trimCheck = el('input', {
-    attrs: { type: 'checkbox', id: 'diff-normalize-trim' },
-  }) as HTMLInputElement;
-  const caseCheck = el('input', {
-    attrs: { type: 'checkbox', id: 'diff-normalize-case' },
-  }) as HTMLInputElement;
-  body.append(
-    el('div', { className: 'diff-normalize-options' }, [
-      el('div', { className: 'diff-column-item' }, [
-        trimCheck,
-        el('label', { text: t('dialog.diff.normalizeTrim'), attrs: { for: 'diff-normalize-trim' } }),
-      ]),
-      el('div', { className: 'diff-column-item' }, [
-        caseCheck,
-        el('label', { text: t('dialog.diff.normalizeCase'), attrs: { for: 'diff-normalize-case' } }),
-      ]),
-    ]),
-  );
-  return { trimCheck, caseCheck };
 }
 
 /** One result row: its type badge (with the reason as a tooltip) and cells, changed cells marked. */

@@ -35,7 +35,7 @@ beforeEach(() => {
 
 afterEach(() => {
   setLocale(getLocale());
-  document.querySelectorAll('dialog').forEach((d) => d.remove());
+  document.querySelectorAll('dialog, .side-panel').forEach((d) => d.remove());
 });
 
 function snapshotWithSheets(
@@ -84,7 +84,7 @@ describe('Version history: Preview action', () => {
     expect(labels).toEqual([t('dialog.versionHistory.preview'), t('dialog.versionHistory.restore')]);
   });
 
-  it('opens a full-screen, read-only book UI showing the snapshot content, without closing the version-history dialog underneath', async () => {
+  it('opens a full-screen, read-only book UI showing the snapshot content, without closing the version-history panel', async () => {
     const { Dialogs } = await import('../../src/ui/dialogs');
     void new Dialogs().chooseVersionHistory(true, undefined, [
       snapshotWith([
@@ -95,8 +95,8 @@ describe('Version history: Preview action', () => {
 
     clickPreviewButton();
 
-    const dialogs = document.querySelectorAll('dialog');
-    expect(dialogs.length).toBe(2);
+    const panel = document.querySelector('.side-panel');
+    expect(document.querySelectorAll('dialog').length).toBe(1);
     const preview = previewDialog();
 
     expect(preview.querySelector('.grid-container')).not.toBeNull();
@@ -105,8 +105,8 @@ describe('Version history: Preview action', () => {
     expect(cellText(preview, 1, 2)).toBe('42');
     expect(preview.querySelector('#version-preview-title')?.textContent).toMatch(/^Preview: /);
 
-    // The version-history dialog underneath is unaffected.
-    expect(dialogs[0].hasAttribute('open')).toBe(true);
+    // The version-history panel is unaffected.
+    expect(panel?.isConnected).toBe(true);
   });
 
   it('is not bounded to any row/column cap — a far-away cell renders, unlike the old table preview', async () => {
@@ -179,7 +179,7 @@ describe('Version history: Preview action', () => {
     ]);
 
     const buttons = () => Array.from(document.querySelectorAll('.version-history-entry-actions button'));
-    // Newest snapshot listed first (see the version-history dialog's own
+    // Newest snapshot listed first (see the version-history panel's own
     // newest-first display order).
     (buttons()[0] as HTMLButtonElement).click();
     expect(cellText(previewDialog(), 0, 0)).toBe('second');

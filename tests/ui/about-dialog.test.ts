@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /**
- * The About dialog's offline/network-behavior claim must not be an
+ * The About panel's offline/network-behavior claim must not be an
  * unconditional "runs fully offline; no data ever leaves this page" — that
  * is only true for the offline HTML build. The hosted build
  * (app.refrain-sheet.com) offers opt-in Google Drive sync, so its copy
@@ -31,23 +31,23 @@ beforeEach(() => {
 
 afterEach(() => {
   setLocale(getLocale());
-  document.querySelectorAll('dialog').forEach((d) => d.remove());
+  document.querySelectorAll('dialog, .side-panel').forEach((d) => d.remove());
   vi.resetModules();
 });
 
-describe('About dialog: offline build', () => {
+describe('About panel: offline build', () => {
   it('keeps the unconditional offline / no-data-leaves-the-page claim', async () => {
     vi.resetModules();
     const { Dialogs } = await import('../../src/ui/dialogs');
     void new Dialogs().showAbout();
-    const dialog = document.querySelector('dialog')!;
+    const dialog = document.querySelector('.side-panel')!;
     const paragraphs = Array.from(dialog.querySelectorAll('.dialog-body p')).map((p) => p.textContent);
     expect(paragraphs).toContain(t('dialog.about.body'));
     expect(paragraphs).not.toContain(t('dialog.about.bodyHosted'));
   });
 });
 
-describe('About dialog: hosted build (Drive sync configured)', () => {
+describe('About panel: hosted build (Drive sync configured)', () => {
   it('describes optional Google Drive sync instead of an unconditional offline claim', async () => {
     vi.resetModules();
     vi.doMock('../../src/app/drive/config', async (importOriginal) => {
@@ -56,7 +56,7 @@ describe('About dialog: hosted build (Drive sync configured)', () => {
     });
     const { Dialogs } = await import('../../src/ui/dialogs');
     void new Dialogs().showAbout();
-    const dialog = document.querySelector('dialog')!;
+    const dialog = document.querySelector('.side-panel')!;
     const paragraphs = Array.from(dialog.querySelectorAll('.dialog-body p')).map((p) => p.textContent);
     expect(paragraphs).toContain(t('dialog.about.bodyHosted'));
     expect(paragraphs).not.toContain(t('dialog.about.body'));

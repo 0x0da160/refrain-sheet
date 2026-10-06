@@ -70,7 +70,7 @@ paints it.
 ## The semantic token system
 
 The theme is a **semantic CSS custom-property system** taken from the
-Refrain Sheet Design System v2 (`design-system/v2/`, currently 2.1.0), whose generated
+Refrain Sheet Design System v2 (`design-system/v2/`, currently 2.5.0), whose generated
 token CSS `src/styles/index.css` loads first: `foundations.css` holds the shell
 colours (`--bg-*`, `--fg-*`, `--border-*`, `--accent-*`, status colours,
 `--inverse-*`, `--overlay`, `--shadow-*`) for light and dark, and

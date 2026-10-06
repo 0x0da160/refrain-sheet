@@ -60,6 +60,10 @@ really is internal, rather than inventing an entry to satisfy it.
 - Switching sheets is faster, most of all to and from a Markdown, JSON,
   YAML or text sheet: the grid is no longer redrawn while a text sheet
   hides it, and the page is measured fewer times per switch.
+- Dialog and side panel buttons are at least 80 px wide, and the spacing
+  inside side panels follows one set of rules: fields 12 px apart, groups
+  16 px apart, and the same padding as the panel title. It also follows the
+  display density, tighter in Compact and roomier in Comfortable.
 
 ## [0.9.27] - 2026-10-05
 

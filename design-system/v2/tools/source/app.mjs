@@ -147,7 +147,8 @@ export const density = {
     'control-h': [28, 36, 'Inline controls in bars and menus, menu items, tabs, list rows'],
     'field-h': [32, 40, 'Buttons and fields in dialogs and panels'],
     inset: [12, null, 'Block (top and bottom) padding of panels, dialogs, popovers'],
-    'stack-gap': [12, null, 'Vertical gap between form rows'],
+    'stack-gap': [12, null, 'Vertical gap between fields in a form (D-48)'],
+    'section-gap': [16, null, 'Vertical gap between form sections; a rule sits in it (D-48)'],
   },
 };
 
@@ -155,6 +156,21 @@ export const density = {
 export const inline = [
   ['control-px', 8, 'Horizontal padding of controls and menu items'],
   ['inset-inline', 16, 'Side padding of dialogs and panels'],
+];
+
+/* ---------------------------------------------------------------------------
+   Layout of dialogs and panels (D-47 to D-50): the same in every density.
+   [name, px, description].
+   ------------------------------------------------------------------------- */
+export const layout = [
+  ['label-gap', 4, 'Between a field label and its control, and between the control and its hint'],
+  ['field-col-gap', 12, 'Between fields placed side by side'],
+  ['button-gap', 8, 'Between buttons in a footer or a button row'],
+  ['button-min-w', 80, 'Minimum width of a dialog or panel button with a text label'],
+  ['dialog-w-sm', 360, 'Small dialog: a confirmation or one short input'],
+  ['dialog-w-md', 480, 'Medium dialog (default): a form of a few fields'],
+  ['dialog-w-lg', 640, 'Large dialog: a list, a table or a long form'],
+  ['panel-w', 380, 'Default width of a docked side panel (the person can resize it)'],
 ];
 
 /* ---------------------------------------------------------------------------

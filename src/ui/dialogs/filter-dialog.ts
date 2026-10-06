@@ -18,7 +18,7 @@ import {
 import { el } from '../dom';
 import { Filter } from 'lucide';
 import { dialogButton, helpDetails } from './shared';
-import { panelCheck, panelSection } from './side-panel';
+import { formCheck, formSection } from './form-layout';
 import { openSidePanel } from './side-panel';
 
 export class FilterDialog {
@@ -47,7 +47,7 @@ export class FilterDialog {
         const conditions = buildConditions(input, body, () => refresh());
         const values = buildValueList(input, body);
         body.append(
-          panelSection(null, [
+          formSection(null, [
             helpDetails(
               t('dialog.filter.combineNote'),
               t('dialog.filter.crossNote', { n: input.otherColumns }),
@@ -98,7 +98,7 @@ export class FilterDialog {
 function buildIntro(input: FilterDialogInput, body: HTMLElement): HTMLInputElement {
   const intro: Node[] = [
     el('p', {
-      className: 'panel-lead',
+      className: 'form-lead',
       text: t('dialog.filter.range', { range: input.rangeLabel, col: input.colLetter }),
     }),
   ];
@@ -110,11 +110,11 @@ function buildIntro(input: FilterDialogInput, body: HTMLElement): HTMLInputEleme
   const headerCheck = el('input', { attrs: { type: 'checkbox' } }) as HTMLInputElement;
   headerCheck.checked = input.headerRow;
   headerCheck.disabled = input.hasActiveFilter;
-  intro.push(panelCheck(headerCheck, t('dialog.filter.headerRow')));
+  intro.push(formCheck(headerCheck, t('dialog.filter.headerRow')));
   if (input.hasActiveFilter) {
     intro.push(el('p', { className: 'dialog-note', text: t('dialog.filter.headerLocked') }));
   }
-  body.append(panelSection(null, intro));
+  body.append(formSection(null, intro));
   return headerCheck;
 }
 
@@ -182,7 +182,7 @@ function buildConditions(
   changed: () => void,
 ): { conditions: () => FilterCondition[]; join: () => 'and' | 'or'; hasIncomplete: () => boolean } {
   const joinWrap = el('div', {
-    className: 'panel-choices panel-choices-inline',
+    className: 'form-choices form-choices-inline',
     attrs: { role: 'radiogroup' },
   });
   const joinAnd = el('input', { attrs: { type: 'radio', name: 'filter-join' } }) as HTMLInputElement;
@@ -191,11 +191,11 @@ function buildConditions(
   joinAnd.checked = existingJoin === 'and';
   joinOr.checked = existingJoin === 'or';
   joinWrap.append(
-    panelCheck(joinAnd, t('dialog.filter.joinAnd')),
-    panelCheck(joinOr, t('dialog.filter.joinOr')),
+    formCheck(joinAnd, t('dialog.filter.joinAnd')),
+    formCheck(joinOr, t('dialog.filter.joinOr')),
   );
-  const conditionsHost = el('div', { className: 'filter-conditions panel-stack' });
-  const conditionsSection = panelSection(t('dialog.filter.conditions'), [joinWrap, conditionsHost]);
+  const conditionsHost = el('div', { className: 'filter-conditions form-stack' });
+  const conditionsSection = formSection(t('dialog.filter.conditions'), [joinWrap, conditionsHost]);
   body.append(conditionsSection);
 
   const rows: ConditionRow[] = [];
@@ -223,7 +223,7 @@ function buildConditions(
     changed();
   });
   addBtn.disabled = rows.length >= MAX_FILTER_CONDITIONS;
-  conditionsSection.append(el('div', { className: 'panel-row' }, [addBtn]));
+  conditionsSection.append(el('div', { className: 'form-inline' }, [addBtn]));
   return {
     conditions: () => rows.map(rowCondition).filter((cond): cond is FilterCondition => cond !== null),
     join: () => (joinOr.checked ? 'or' : 'and'),
@@ -309,10 +309,10 @@ function buildValueList(input: FilterDialogInput, body: HTMLElement): { selected
     attrs: { type: 'button' },
   }) as HTMLButtonElement;
   const valueList = el('div', { className: 'filter-value-list', attrs: { role: 'group' } });
-  const valuesSection = panelSection(t('dialog.filter.values'), [
-    panelCheck(allValuesCheck, t('dialog.filter.allValues')),
+  const valuesSection = formSection(t('dialog.filter.values'), [
+    formCheck(allValuesCheck, t('dialog.filter.allValues')),
     search,
-    el('div', { className: 'panel-row' }, [selectAllBtn, deselectAllBtn]),
+    el('div', { className: 'form-inline' }, [selectAllBtn, deselectAllBtn]),
     valueList,
   ]);
   if (input.valuesTruncated) {

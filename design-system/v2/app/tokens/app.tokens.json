@@ -861,6 +861,65 @@
       "$description": "Comment corner mark"
     }
   },
+  "layout": {
+    "$type": "dimension",
+    "label-gap": {
+      "$value": {
+        "value": 4,
+        "unit": "px"
+      },
+      "$description": "Between a field label and its control, and between the control and its hint"
+    },
+    "field-col-gap": {
+      "$value": {
+        "value": 12,
+        "unit": "px"
+      },
+      "$description": "Between fields placed side by side"
+    },
+    "button-gap": {
+      "$value": {
+        "value": 8,
+        "unit": "px"
+      },
+      "$description": "Between buttons in a footer or a button row"
+    },
+    "button-min-w": {
+      "$value": {
+        "value": 80,
+        "unit": "px"
+      },
+      "$description": "Minimum width of a dialog or panel button with a text label"
+    },
+    "dialog-w-sm": {
+      "$value": {
+        "value": 360,
+        "unit": "px"
+      },
+      "$description": "Small dialog: a confirmation or one short input"
+    },
+    "dialog-w-md": {
+      "$value": {
+        "value": 480,
+        "unit": "px"
+      },
+      "$description": "Medium dialog (default): a form of a few fields"
+    },
+    "dialog-w-lg": {
+      "$value": {
+        "value": 640,
+        "unit": "px"
+      },
+      "$description": "Large dialog: a list, a table or a long form"
+    },
+    "panel-w": {
+      "$value": {
+        "value": 380,
+        "unit": "px"
+      },
+      "$description": "Default width of a docked side panel (the person can resize it)"
+    }
+  },
   "layer": {
     "$type": "number",
     "base": {

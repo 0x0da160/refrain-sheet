@@ -19,7 +19,8 @@ import { el } from '../dom';
 import { Printer } from 'lucide';
 import { parsePrintArea } from '../../core/workbook/print-area';
 import { dialogButton } from './shared';
-import { openSidePanel, panelCheck, panelField, panelSection } from './side-panel';
+import { openSidePanel } from './side-panel';
+import { formCheck, formField, formSection, formGrid } from './form-layout';
 
 export interface PrintPanelInput {
   settings: PrintSettings;
@@ -79,20 +80,20 @@ export function openPrintPanel(
       rowsPerPage.value = String(s.rowsPerPage);
 
       body.append(
-        panelSection(null, [panelField(t('dialog.print.scope'), scope), areaField]),
-        panelSection(t('dialog.print.page'), [
-          el('div', { className: 'panel-grid' }, [
-            panelField(t('dialog.print.paper'), paper),
-            panelField(t('dialog.print.orientation'), orientation),
+        formSection(null, [formField(t('dialog.print.scope'), scope), areaField]),
+        formSection(t('dialog.print.page'), [
+          formGrid([
+            formField(t('dialog.print.paper'), paper),
+            formField(t('dialog.print.orientation'), orientation),
           ]),
-          panelCheck(fit, t('dialog.print.fitWidth')),
-          panelField(t('dialog.print.scale'), percent),
-          panelField(t('dialog.print.rowsPerPage'), rowsPerPage, t('dialog.print.rowsPerPageHint')),
+          formCheck(fit, t('dialog.print.fitWidth')),
+          formField(t('dialog.print.scale'), percent),
+          formField(t('dialog.print.rowsPerPage'), rowsPerPage, t('dialog.print.rowsPerPageHint')),
         ]),
-        panelSection(t('dialog.print.show'), [
-          panelCheck(gridlines, t('dialog.print.gridlines')),
-          panelCheck(headings, t('dialog.print.headings')),
-          panelCheck(repeat, t('dialog.print.repeatFirstRow')),
+        formSection(t('dialog.print.show'), [
+          formCheck(gridlines, t('dialog.print.gridlines')),
+          formCheck(headings, t('dialog.print.headings')),
+          formCheck(repeat, t('dialog.print.repeatFirstRow')),
         ]),
         el('p', { className: 'dialog-note', text: t('dialog.print.pdfHint') }),
       );
@@ -175,5 +176,5 @@ function scopeFields(
   const scope = choice(scopes, scopes.some(([key]) => key === wanted) ? wanted : 'sheet');
   areaInput.value = input.area;
   const hint = t(input.keepsArea ? 'dialog.print.areaHint' : 'dialog.print.areaHintOnce');
-  return { scope, areaField: panelField(t('dialog.print.area'), areaInput, hint) };
+  return { scope, areaField: formField(t('dialog.print.area'), areaInput, hint) };
 }

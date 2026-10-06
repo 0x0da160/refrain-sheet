@@ -9,8 +9,8 @@
 // Colour references are 'hue.step' strings into `palette`; translucent
 // values are { ref, alpha }. Rationale: docs/decisions.md.
 
-export const VERSION = '2.4.1';
-export const RELEASED = '2026-09-27';
+export const VERSION = '2.5.0';
+export const RELEASED = '2026-10-06';
 
 /* ---------------------------------------------------------------------------
    Colour primitives. v1.0.0 hues are kept byte-for-byte (they are the

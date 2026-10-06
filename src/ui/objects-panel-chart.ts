@@ -21,7 +21,7 @@ import {
   type ChartData,
   type ChartSpec,
 } from '../core/workbook/sheet-charts';
-import { panelCheck, panelField, panelSection } from './dialogs/side-panel';
+import { formCheck, formField, formSection } from './dialogs/form-layout';
 import { el } from './dom';
 
 interface ChartSheet {
@@ -135,9 +135,9 @@ function dataFields(ctx: ChartPanelContext): HTMLElement[] {
     (value) => ctx.apply(withSetting(spec, 'seriesInRows', value === 'rows' ? true : undefined)),
   );
   const fields = [
-    panelField(t('panel.objects.chart.sheet'), sheet),
-    panelField(t('panel.objects.chart.range'), range),
-    panelField(t('panel.objects.chart.series'), series),
+    formField(t('panel.objects.chart.sheet'), sheet),
+    formField(t('panel.objects.chart.range'), range),
+    formField(t('panel.objects.chart.series'), series),
   ];
   if (!source) {
     fields.push(...keptDataFields(ctx));
@@ -169,7 +169,7 @@ function keptDataFields(ctx: ChartPanelContext): HTMLElement[] {
   toSheet.addEventListener('click', () => ctx.dataToSheet());
   return [
     el('p', { className: 'dialog-note', text: t('panel.objects.chart.keptNote') }),
-    panelField(t('panel.objects.chart.data'), text),
+    formField(t('panel.objects.chart.data'), text),
     toSheet,
   ];
 }
@@ -183,7 +183,7 @@ function textField(
     ctx.apply(withSetting(ctx.spec, key, value.trim() === '' ? undefined : value.slice(0, MAX_CHART_TEXT))),
   );
   box.maxLength = MAX_CHART_TEXT;
-  return panelField(t(`panel.objects.chart.${key}`), box);
+  return formField(t(`panel.objects.chart.${key}`), box);
 }
 
 /** One color per series (pie: per slice), named as the chart names it. */
@@ -206,7 +206,7 @@ function colorFields(ctx: ChartPanelContext): HTMLElement[] {
       colors[i] = box.value.toLowerCase();
       ctx.apply({ ...spec, colors: [...colors, ...(spec.colors?.slice(i + 1) ?? [])] });
     });
-    return panelField(label, box);
+    return formField(label, box);
   });
 }
 
@@ -236,16 +236,16 @@ export function chartSection(ctx: ChartPanelContext): HTMLElement {
     ctx.apply(withSetting(spec, 'dataLabels', labels.checked ? true : undefined)),
   );
   const colors = colorFields(ctx);
-  return panelSection(t('panel.objects.chart'), [
-    panelField(t('panel.objects.chart.type'), type),
+  return formSection(t('panel.objects.chart'), [
+    formField(t('panel.objects.chart.type'), type),
     ...dataFields(ctx),
     textField(ctx, 'title', disabled),
     el('div', { className: 'objects-grid' }, [
       textField(ctx, 'xTitle', disabled || spec.type === 'pie'),
       textField(ctx, 'yTitle', disabled || spec.type === 'pie'),
     ]),
-    panelField(t('panel.objects.chart.legend'), legend),
-    panelCheck(labels, t('panel.objects.chart.dataLabels')),
+    formField(t('panel.objects.chart.legend'), legend),
+    formCheck(labels, t('panel.objects.chart.dataLabels')),
     ...(colors.length > 0
       ? [
           el('p', { className: 'dialog-note', text: t('panel.objects.chart.colors') }),

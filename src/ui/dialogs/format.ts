@@ -43,7 +43,7 @@ import {
   CF_DEFAULT_TEXT,
 } from '../document-colors';
 import { dialogButton, submitOnEnter } from './shared';
-import { panelCheck, panelField, panelSection } from './side-panel';
+import { formCheck, formField, formSection, formGrid } from './form-layout';
 import { openSidePanel } from './side-panel';
 
 const DEFAULT_COLOR = '#000000';
@@ -96,7 +96,7 @@ function styleFields(
   for (const control of [bgCheckbox, bgInput, textCheckbox, textInput]) {
     control.addEventListener('change', onChange);
   }
-  const row = el('div', { className: 'panel-stack' }, [
+  const row = el('div', { className: 'form-stack' }, [
     colorToggleRow(bgCheckbox, t('dialog.conditionalFormat.backgroundColor'), bgInput),
     colorToggleRow(textCheckbox, t('dialog.conditionalFormat.textColor'), textInput),
   ]);
@@ -120,7 +120,7 @@ function styleFields(
  * swatch on the right, lined up with every other such row in the panel.
  */
 function colorToggleRow(checkbox: HTMLInputElement, label: string, swatch: HTMLButtonElement): HTMLElement {
-  return el('div', { className: 'panel-row panel-row-spread' }, [panelCheck(checkbox, label), swatch]);
+  return el('div', { className: 'form-inline form-inline-spread' }, [formCheck(checkbox, label), swatch]);
 }
 
 const BORDER_PRESET_LABEL_KEY: Record<BorderPreset, string> = {
@@ -260,7 +260,7 @@ export class FormatDialogs {
           picker.id = 'format-color-picker';
           section.replaceChildren(picker);
         };
-        const section = panelSection(null, []);
+        const section = formSection(null, []);
         body.append(section);
         draw();
       },
@@ -356,9 +356,9 @@ export class FormatDialogs {
       container.append(
         presets,
         el('div', { className: 'format-borders-line' }, [
-          panelField(t('dialog.borders.color'), colorInput),
-          panelField(t('dialog.borders.style'), lineStyleSelect),
-          panelField(t('dialog.borders.width'), widthSelect),
+          formField(t('dialog.borders.color'), colorInput),
+          formField(t('dialog.borders.style'), lineStyleSelect),
+          formField(t('dialog.borders.width'), widthSelect),
         ]),
         el('p', { className: 'dialog-note', text: t('dialog.borders.note') }),
       );
@@ -379,7 +379,7 @@ export class FormatDialogs {
     return openSidePanel<BordersDialogResult | null>(
       { title: t('dialog.borders.title'), icon: Table, fallback: null, onApply },
       (body, _buttons, apply) => {
-        const section = panelSection(null, []);
+        const section = formSection(null, []);
         installTooltips(section);
         build(section, apply);
         body.append(section);
@@ -454,13 +454,13 @@ export class FormatDialogs {
         updateSymbolEnabled();
 
         body.append(
-          panelSection(null, [
-            el('div', { className: 'panel-grid' }, [
-              panelField(t('dialog.numberFormat.kind'), kindSelect),
-              panelField(t('dialog.numberFormat.decimals'), decimalsInput),
+          formSection(null, [
+            formGrid([
+              formField(t('dialog.numberFormat.kind'), kindSelect),
+              formField(t('dialog.numberFormat.decimals'), decimalsInput),
             ]),
-            panelCheck(thousandsInput, t('dialog.numberFormat.thousands')),
-            panelField(t('dialog.numberFormat.currencySymbol'), symbolInput),
+            formCheck(thousandsInput, t('dialog.numberFormat.thousands')),
+            formField(t('dialog.numberFormat.currencySymbol'), symbolInput),
           ]),
         );
         const submit = (): void => {
@@ -508,7 +508,7 @@ export class FormatDialogs {
       (body, buttons, apply) => {
         body.append(
           el('p', {
-            className: 'panel-lead',
+            className: 'form-lead',
             text: t('dialog.conditionalFormat.range', { range: input.rangeLabel }),
           }),
         );
@@ -529,18 +529,15 @@ export class FormatDialogs {
           attrs: { type: 'text', id: 'cf-value2' },
         }) as HTMLInputElement;
         value2Input.value = existingCellValue?.value2 ?? '';
-        const value2Row = panelField(t('dialog.conditionalFormat.value2'), value2Input);
+        const value2Row = formField(t('dialog.conditionalFormat.value2'), value2Input);
         const cellValueStyle = styleFields(
           'cf-cellvalue',
           existingCellValue?.style ?? { backgroundColor: CF_DEFAULT_BACKGROUND, textColor: CF_DEFAULT_TEXT },
           refresh,
         );
-        const cellValueSection = panelSection(null, [
-          panelField(t('dialog.conditionalFormat.operator'), operatorSelect),
-          el('div', { className: 'panel-grid' }, [
-            panelField(t('dialog.conditionalFormat.value1'), value1Input),
-            value2Row,
-          ]),
+        const cellValueSection = formSection(null, [
+          formField(t('dialog.conditionalFormat.operator'), operatorSelect),
+          formGrid([formField(t('dialog.conditionalFormat.value1'), value1Input), value2Row]),
           cellValueStyle.row,
         ]);
         body.append(cellValueSection);
@@ -551,7 +548,7 @@ export class FormatDialogs {
             ? input.existing.style
             : { backgroundColor: CF_DEFAULT_BACKGROUND, textColor: CF_DEFAULT_TEXT };
         const duplicateStyle = styleFields('cf-duplicate', existingDuplicateStyle, refresh);
-        const duplicateSection = panelSection(null, [duplicateStyle.row]);
+        const duplicateSection = formSection(null, [duplicateStyle.row]);
         body.append(duplicateSection);
 
         // ----- Color scale section -----
@@ -681,11 +678,11 @@ function ruleKindChoices(
   kindDuplicate.checked = initialKind === 'duplicate';
   kindColorScale.checked = initialKind === 'colorScale';
   body.append(
-    panelSection(null, [
-      el('div', { className: 'panel-choices', attrs: { role: 'radiogroup' } }, [
-        panelCheck(kindCellValue, t('dialog.conditionalFormat.kindCellValue')),
-        panelCheck(kindDuplicate, t('dialog.conditionalFormat.kindDuplicate')),
-        panelCheck(kindColorScale, t('dialog.conditionalFormat.kindColorScale')),
+    formSection(null, [
+      el('div', { className: 'form-choices', attrs: { role: 'radiogroup' } }, [
+        formCheck(kindCellValue, t('dialog.conditionalFormat.kindCellValue')),
+        formCheck(kindDuplicate, t('dialog.conditionalFormat.kindDuplicate')),
+        formCheck(kindColorScale, t('dialog.conditionalFormat.kindColorScale')),
       ]),
     ]),
   );
@@ -699,10 +696,10 @@ function colorScaleFields(
 ): { minColorInput: HTMLButtonElement; maxColorInput: HTMLButtonElement; colorScaleSection: HTMLElement } {
   const minColorInput = colorField('cf-min-color', minColor, t('dialog.conditionalFormat.minColor'));
   const maxColorInput = colorField('cf-max-color', maxColor, t('dialog.conditionalFormat.maxColor'));
-  const colorScaleSection = panelSection(null, [
-    el('div', { className: 'panel-grid' }, [
-      panelField(t('dialog.conditionalFormat.minColor'), minColorInput),
-      panelField(t('dialog.conditionalFormat.maxColor'), maxColorInput),
+  const colorScaleSection = formSection(null, [
+    formGrid([
+      formField(t('dialog.conditionalFormat.minColor'), minColorInput),
+      formField(t('dialog.conditionalFormat.maxColor'), maxColorInput),
     ]),
   ]);
   return { minColorInput, maxColorInput, colorScaleSection };

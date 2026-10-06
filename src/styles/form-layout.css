@@ -1,0 +1,203 @@
+/* SPDX-License-Identifier: MIT */
+
+/* ---------- Form layout (design system D-47, D-48) ----------
+   The one layout of every side panel's body (and, as they move to it, every
+   dialog's): sections --section-gap apart with a rule above each titled one
+   after the first, fields --stack-gap apart, each a label above a
+   full-width control (--label-gap between), every text field and select
+   --field-h tall, and the same inset as the title and footer. The builders
+   are in src/ui/dialogs/form-layout.ts. */
+.form-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
+  padding: var(--inset) var(--inset-inline);
+}
+
+.form-layout [hidden] {
+  display: none !important;
+}
+
+.form-layout p {
+  margin: 0;
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--stack-gap);
+  min-width: 0;
+}
+
+/* A titled section starts a new group: a rule above it separates it from
+   whatever precedes it. */
+.form-section:has(> .form-section-title):not(:first-child) {
+  padding-top: var(--section-gap);
+  border-top: 1px solid var(--border-default);
+}
+
+.form-section-title {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+}
+
+.form-lead {
+  font-weight: var(--weight-bold);
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--label-gap);
+  min-width: 0;
+}
+
+.form-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.form-field-label {
+  color: var(--fg-muted);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-bold);
+}
+
+/* Side-by-side fields (e.g. color / style / width) share the width evenly
+   and wrap onto another row when the panel is narrow. */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--stack-gap) var(--field-col-gap);
+  align-items: end;
+}
+
+/* In a dialog, side-by-side fields take two columns at most. */
+dialog .form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+
+.form-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.form-inline-end {
+  justify-content: flex-end;
+}
+
+.form-inline-spread {
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+
+.form-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.form-choices-inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+}
+
+.form-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-height: 24px;
+  cursor: pointer;
+}
+
+.form-layout :where(input[type='checkbox'], input[type='radio']) {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+/* :where() keeps these at single-class specificity so a panel's own rule
+   (e.g. .sql-query-input's monospace font) still wins. */
+.form-layout
+  :where(input[type='text'], input[type='number'], input[type='search'], input:not([type]), select) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: var(--field-h);
+  padding: 0 var(--space-1-5);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--fg-default);
+  font: inherit;
+}
+
+.form-layout :where(textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 96px;
+  padding: var(--space-1-5) var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--fg-default);
+  font: inherit;
+  resize: vertical;
+}
+
+.form-layout :where(input, select, textarea):disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-layout :where(input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* An empty note or live region (a status/error line with nothing to say
+   yet) takes no room in the layout, so it never leaves a stray gap; a live
+   region stays in the accessibility tree (visually hidden, not display:
+   none) so what it later says is still announced. */
+.form-layout .dialog-note:empty:not([aria-live]) {
+  display: none;
+}
+
+.form-layout [aria-live]:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* A native color picker as one fixed-size swatch, not stretched. */
+.form-swatch {
+  flex: none;
+  align-self: flex-start;
+  box-sizing: border-box;
+  width: 48px;
+  height: 28px;
+  padding: var(--space-0-5);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  cursor: pointer;
+}

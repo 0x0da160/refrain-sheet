@@ -277,7 +277,7 @@ export function buildColorPicker(options: ColorPickerOptions): HTMLElement {
  */
 export function colorField(id: string | null, value: string, label?: string): HTMLButtonElement {
   const button = el('button', {
-    className: 'color-field panel-swatch',
+    className: 'color-field form-swatch',
     attrs: { type: 'button', 'aria-haspopup': 'dialog', ...(id === null ? {} : { id }) },
   }) as HTMLButtonElement;
   const show = (): void => {

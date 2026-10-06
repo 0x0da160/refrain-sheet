@@ -15,7 +15,7 @@ import {
   type SearchScope,
   type SheetCellMatch,
 } from '../core/search';
-import { panelCheck, panelField } from './dialogs/side-panel';
+import { formCheck, formField } from './dialogs/form-layout';
 import {
   applySidePanelPosition,
   buildSidePanelChrome,
@@ -124,25 +124,25 @@ export class FindBar {
       return node;
     };
 
-    const findField = panelField('', this.findInput);
-    const replaceField = panelField('', this.replaceInput);
-    const scopeField = panelField('', this.scopeSelect);
+    const findField = formField('', this.findInput);
+    const replaceField = formField('', this.replaceInput);
+    const scopeField = formField('', this.scopeSelect);
     const fieldLabel = (field: HTMLElement, key: string) =>
-      this.labels.push({ node: field.querySelector<HTMLElement>('.panel-field-label')!, key });
+      this.labels.push({ node: field.querySelector<HTMLElement>('.form-field-label')!, key });
     fieldLabel(findField, 'find.find');
     fieldLabel(replaceField, 'find.replace');
     fieldLabel(scopeField, 'find.scope');
-    const caseCheck = panelCheck(this.caseBox, '');
-    const regexCheck = panelCheck(this.regexBox, '');
+    const caseCheck = formCheck(this.caseBox, '');
+    const regexCheck = formCheck(this.regexBox, '');
     caseCheck.lastElementChild!.replaceWith(text('find.matchCase'));
     regexCheck.lastElementChild!.replaceWith(text('find.regex'));
 
-    const findButtons = el('div', { className: 'panel-row find-actions' }, [
+    const findButtons = el('div', { className: 'form-inline find-actions' }, [
       button('find.prev', () => this.next(-1), 'find-prev'),
       button('find.next', () => this.next(1), 'find-next primary'),
       button('find.findAll', () => this.findAll(), 'find-all'),
     ]);
-    const replaceButtons = el('div', { className: 'panel-row find-actions' }, [
+    const replaceButtons = el('div', { className: 'form-inline find-actions' }, [
       button('find.replaceOne', () => this.replaceCurrent(), 'find-replace'),
       button('find.replaceAll', () => void this.replaceAll(), 'find-replace-all'),
     ]);
@@ -157,12 +157,12 @@ export class FindBar {
       closeLabel: t('find.close'),
       onClose: () => this.close(),
     });
-    const body = el('div', { className: 'dialog-body side-panel-form find-panel-body' }, [
+    const body = el('div', { className: 'dialog-body form-layout find-panel-body' }, [
       findField,
       findButtons,
       replaceField,
       replaceButtons,
-      el('div', { className: 'panel-choices panel-choices-inline' }, [caseCheck, regexCheck]),
+      el('div', { className: 'form-choices form-choices-inline' }, [caseCheck, regexCheck]),
       scopeField,
       this.countEl,
       this.errorEl,

@@ -22,12 +22,10 @@ import {
   applySidePanelPosition,
   buildSidePanelChrome,
   currentSidePanelPlacement,
-  panelCheck,
-  panelField,
-  panelSection,
   releaseSidePanel,
   type SidePanelChrome,
 } from './dialogs/side-panel';
+import { formCheck, formField, formSection } from './dialogs/form-layout';
 import { clearChildren, el } from './dom';
 import { fontSizeSelect } from './font-choices';
 import type { Grid } from './grid';
@@ -148,7 +146,7 @@ export class ObjectsPanel {
       return;
     }
     const selected = this.state.objectSelection.selected(tab);
-    this.body.append(panelSection(null, [this.list(tab, objects, selected)]));
+    this.body.append(formSection(null, [this.list(tab, objects, selected)]));
     if (selected.length === 1) {
       const object = objects.find((o) => o.id === selected[0]);
       if (object) {
@@ -290,7 +288,7 @@ export class ObjectsPanel {
     });
     name.maxLength = MAX_OBJECT_NAME_LENGTH;
     const sections = [
-      panelSection(null, [panelField(t('panel.objects.name'), name)]),
+      formSection(null, [formField(t('panel.objects.name'), name)]),
       this.placement(tab, o, positionLocked),
     ];
     const doc = tab.doc;
@@ -337,7 +335,7 @@ export class ObjectsPanel {
       });
       input.min = '0';
       input.step = '1';
-      return panelField(t(`panel.objects.${key}`), input);
+      return formField(t(`panel.objects.${key}`), input);
     };
     const rotation = this.input('number', 'rotation', String(o.rotation ?? 0), positionLocked, (value) => {
       const degrees = Number(value);
@@ -352,7 +350,7 @@ export class ObjectsPanel {
       }
     });
     rotation.step = '1';
-    return panelSection(t('panel.objects.placement'), [
+    return formSection(t('panel.objects.placement'), [
       el('div', { className: 'objects-grid' }, [
         number('x', at.x, (x) => this.grid.objectMovedTo(tab, o, x, at.y)),
         number('y', at.y, (y) => this.grid.objectMovedTo(tab, o, at.x, y)),
@@ -367,7 +365,7 @@ export class ObjectsPanel {
             ? { ...o, height, width: Math.round((height * o.width) / o.height) }
             : { ...o, height },
         ),
-        panelField(t('panel.objects.rotation'), rotation),
+        formField(t('panel.objects.rotation'), rotation),
       ]),
     ]);
   }
@@ -390,7 +388,7 @@ export class ObjectsPanel {
         const label = key === 'aspectFree' ? 'history.editObject' : 'history.moveObject';
         this.update(tab, o, withValue(o, key, on ? true : undefined), label);
       });
-      return panelCheck(box, t(`panel.objects.${key === 'aspectFree' ? 'keepAspect' : key}`));
+      return formCheck(box, t(`panel.objects.${key === 'aspectFree' ? 'keepAspect' : key}`));
     };
     const crop = o.crop ?? { top: 0, right: 0, bottom: 0, left: 0 };
     const side = (key: keyof ObjectCrop): HTMLElement => {
@@ -421,9 +419,9 @@ export class ObjectsPanel {
       input.min = '0';
       input.max = '99';
       input.step = '1';
-      return panelField(t(`panel.objects.crop.${key}`), input);
+      return formField(t(`panel.objects.crop.${key}`), input);
     };
-    return panelSection(t('panel.objects.picture'), [
+    return formSection(t('panel.objects.picture'), [
       check('aspectFree', o.aspectFree !== true, editLocked),
       check('flipH', o.flipH === true, positionLocked),
       check('flipV', o.flipV === true, positionLocked),
@@ -456,8 +454,8 @@ export class ObjectsPanel {
     lineWidth.min = '1';
     lineWidth.max = String(MAX_OBJECT_LINE_WIDTH);
     lineWidth.step = '1';
-    style.push(panelField(t('panel.objects.strokeWidth'), lineWidth));
-    return panelSection(t('panel.objects.style'), style);
+    style.push(formField(t('panel.objects.strokeWidth'), lineWidth));
+    return formSection(t('panel.objects.style'), style);
   }
 
   /** The text on a shape or text box. */
@@ -499,7 +497,7 @@ export class ObjectsPanel {
       box.addEventListener('change', () =>
         this.update(tab, o, withFlag(o, key, box.checked), 'history.editObject'),
       );
-      return panelCheck(box, t(`panel.objects.${key}`));
+      return formCheck(box, t(`panel.objects.${key}`));
     };
     const choice = <T extends string>(
       key: 'align' | 'valign',
@@ -515,13 +513,13 @@ export class ObjectsPanel {
       select.addEventListener('change', () =>
         this.update(tab, o, { ...o, [key]: select.value } as SheetObject, 'history.editObject'),
       );
-      return panelField(t(`panel.objects.${key}`), select);
+      return formField(t(`panel.objects.${key}`), select);
     };
-    return panelSection(t('panel.objects.text'), [
-      panelField(t('panel.objects.textContent'), text),
+    return formSection(t('panel.objects.text'), [
+      formField(t('panel.objects.textContent'), text),
       el('div', { className: 'objects-grid' }, [
-        panelField(t('panel.objects.textColor'), color),
-        panelField(t('panel.objects.fontSize'), size),
+        formField(t('panel.objects.textColor'), color),
+        formField(t('panel.objects.fontSize'), size),
         choice('align', OBJECT_TEXT_ALIGNS, o.align ?? d.align),
         choice('valign', OBJECT_TEXT_VALIGNS, o.valign ?? d.valign),
       ]),
@@ -558,7 +556,7 @@ export class ObjectsPanel {
         'history.editObject',
       ),
     );
-    return [panelField(t(`panel.objects.${key}`), color), panelCheck(none, t(`panel.objects.${key}.none`))];
+    return [formField(t(`panel.objects.${key}`), color), formCheck(none, t(`panel.objects.${key}.none`))];
   }
 
   /** A color field (the shared picker) that reports each pick. */

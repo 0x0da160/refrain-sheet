@@ -350,7 +350,7 @@ describe('the print panel', () => {
     expect(onPrint).toHaveBeenCalledWith({ ...DEFAULT_PRINT_SETTINGS, scope: 'area' }, 'c3:a1');
     scope.value = 'sheet';
     scope.dispatchEvent(new Event('change'));
-    expect(field.closest<HTMLElement>('.panel-field')!.hidden).toBe(true);
+    expect(field.closest<HTMLElement>('.form-field')!.hidden).toBe(true);
     vi.unstubAllGlobals();
   });
 });

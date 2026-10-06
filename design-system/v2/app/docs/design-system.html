@@ -37,7 +37,7 @@
 <header class="doc-head">
   <div class="wrap">
     <img src="../../foundations/logo/refrain-sheet-logotype-horizontal-reverse.svg" alt="Refrain Sheet" height="36">
-    <p class="eyebrow">APP DESIGN SYSTEM · <!-- gen:version -->v2.4.1 · 2026-09-27<!-- /gen:version --></p>
+    <p class="eyebrow">APP DESIGN SYSTEM · <!-- gen:version -->v2.5.0 · 2026-10-06<!-- /gen:version --></p>
     <h1>表を主役にする、静かな道具</h1>
     <p>書式を保持する CSV・スプレッドシートエディタ Refrain Sheet の、<b>アプリ UI</b> のためのデザインシステムです。
       表計算ソフトに慣れた人が迷わず使える操作感を、独自のモダンな表現で実現します。
@@ -233,7 +233,8 @@
 <tr><th><code>--control-h</code></th><td class="num">24px</td><td class="num">28px</td><td class="num">36px</td><td class="num">28 / 36 / 44px</td><td>Inline controls in bars and menus, menu items, tabs, list rows</td></tr>
 <tr><th><code>--field-h</code></th><td class="num">24px</td><td class="num">32px</td><td class="num">40px</td><td class="num">32 / 40 / 48px</td><td>Buttons and fields in dialogs and panels</td></tr>
 <tr><th><code>--inset</code></th><td class="num">4px</td><td class="num">12px</td><td class="num">20px</td><td class="num">—</td><td>Block (top and bottom) padding of panels, dialogs, popovers</td></tr>
-<tr><th><code>--stack-gap</code></th><td class="num">4px</td><td class="num">12px</td><td class="num">20px</td><td class="num">—</td><td>Vertical gap between form rows</td></tr>
+<tr><th><code>--stack-gap</code></th><td class="num">4px</td><td class="num">12px</td><td class="num">20px</td><td class="num">—</td><td>Vertical gap between fields in a form (D-48)</td></tr>
+<tr><th><code>--section-gap</code></th><td class="num">8px</td><td class="num">16px</td><td class="num">24px</td><td class="num">—</td><td>Vertical gap between form sections; a rule sits in it (D-48)</td></tr>
 <tr><th><code>--control-px</code></th><td class="num">8px</td><td class="num">8px</td><td class="num">8px</td><td class="num">—</td><td>Horizontal padding of controls and menu items</td></tr>
 <tr><th><code>--inset-inline</code></th><td class="num">16px</td><td class="num">16px</td><td class="num">16px</td><td class="num">—</td><td>Side padding of dialogs and panels</td></tr></tbody></table></div><!-- /gen:density -->
   <ul>
@@ -306,6 +307,43 @@
     </tbody>
   </table></div>
   <p>メディアクエリは em で書きます。利用者が既定の文字サイズを大きくしていると、その実効幅に見合ったレイアウトになります。</p>
+
+  <h3 id="dialog-or-panel">ダイアログかサイドパネルか</h3>
+  <p>決め方は 1 つです：<b>答えるまで先に進めないものだけをダイアログにし、シートを見ながら使うものはサイドパネルにする。</b>
+    迷ったら「開いたままシートを触りたくなるか」で決めます（D-46）。</p>
+  <div class="doc-scroll"><table class="doc-table">
+    <thead><tr><th>器</th><th>使うもの</th><th>例</th><th>閉じ方</th></tr></thead>
+    <tbody>
+      <tr><th rowspan="4">ダイアログ<br>（モーダル）</th><td>確認</td><td>保存していない変更、上書き、削除、変換、文字コードの問題</td><td rowspan="4">ボタン、または Esc（安全な側の答え）</td></tr>
+      <tr><td>操作を始めるための短い入力</td><td>名前、移動先のセル、行の高さ、フォルダ名、保存の形式</td></tr>
+      <tr><td>選ぶとすぐ閉じる選択</td><td>最近使ったファイル、書き出すシート、タブの色</td></tr>
+      <tr><td>OK で反映・キャンセルで取り消しの設定</td><td>ファイル &gt; 設定…</td></tr>
+      <tr><th rowspan="3">サイドパネル<br>（シートの横）</th><td>読みながら作業する説明</td><td>ショートカット一覧、関数のヘルプ、バージョン情報</td><td rowspan="3">右上の × と Esc だけ。適用しても閉じない</td></tr>
+      <tr><td>結果を見ながら調整する設定</td><td>書式、罫線、条件付き書式、フィルター、並べ替え、入力規則、印刷、状態バー・ツールバーの変更</td></tr>
+      <tr><td>行き来する一覧</td><td>検索結果、コメント、入力規則のチェック、図、版の履歴、比較の結果、SQL</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="form-layout">ダイアログとパネルの中の並べ方</h3>
+  <p>ダイアログもパネルも同じ「フォームの器」です。中の並べ方は同じにし、違うのは開き方（浮くか、シートの横に付くか）だけです（D-47〜D-51）。</p>
+  <ul>
+    <li><b>項目はラベルが上、入力欄が全幅。</b>ラベル（<code>--text-caption</code>・太字・<code>--fg-muted</code>）→ 入力欄 → 補足の縦 1 列。ラベルを入力欄の横には置きません。</li>
+    <li><b>チェックボックスとラジオボタン</b>はボタンが左、ラベルが右の 1 行。短い選択肢 2〜3 個だけ横に並べてよい。</li>
+    <li><b>横に並べるのは短くて関係の深い項目だけ</b>（用紙と向き、色と線の種類）。ダイアログは 2 列まで、パネルは 96px 以上の列を幅に合わせて折り返す。</li>
+    <li><b>まとまり</b>には太字の見出しを付け、2 つ目からは上に 1px の線を引く。</li>
+    <li><b>余白は 4 つだけ。</b>ラベルと入力欄 <code>--label-gap</code>、項目の間 <code>--stack-gap</code>、まとまりの間 <code>--section-gap</code>（線を挟む）、器の内側 <code>--inset</code> × <code>--inset-inline</code>。</li>
+    <li><b>ボタンは右下。</b>確定する操作を右端、その左にキャンセル。確定でも取り消しでもない操作（「規則を解除」）は左端。主な操作は 1 つだけ緑。「OK」は使わず動詞で書く。テキストのボタンは最小 80px。パネルにはキャンセルを置かない。</li>
+    <li><b>ダイアログの幅は 3 段。</b>小 360px（確認・入力 1 つ）、中 480px（既定、数項目のフォーム）、大 640px（一覧・表・長いフォーム）。パネルの既定は 380px。</li>
+    <li><b>タイトルとボタン欄に地色の帯を付けない。</b>本文と同じ <code>--bg-raised</code> の上に置き、1px の線で区切る。</li>
+  </ul>
+  <!-- gen:layout --><div class="doc-scroll"><table class="doc-table"><thead><tr><th>トークン</th><th class="num">値</th><th>用途</th></tr></thead><tbody><tr><th><code>--label-gap</code></th><td class="num">4px</td><td>Between a field label and its control, and between the control and its hint</td></tr>
+<tr><th><code>--field-col-gap</code></th><td class="num">12px</td><td>Between fields placed side by side</td></tr>
+<tr><th><code>--button-gap</code></th><td class="num">8px</td><td>Between buttons in a footer or a button row</td></tr>
+<tr><th><code>--button-min-w</code></th><td class="num">80px</td><td>Minimum width of a dialog or panel button with a text label</td></tr>
+<tr><th><code>--dialog-w-sm</code></th><td class="num">360px</td><td>Small dialog: a confirmation or one short input</td></tr>
+<tr><th><code>--dialog-w-md</code></th><td class="num">480px</td><td>Medium dialog (default): a form of a few fields</td></tr>
+<tr><th><code>--dialog-w-lg</code></th><td class="num">640px</td><td>Large dialog: a list, a table or a long form</td></tr>
+<tr><th><code>--panel-w</code></th><td class="num">380px</td><td>Default width of a docked side panel (the person can resize it)</td></tr></tbody></table></div><!-- /gen:layout -->
 </div></section>
 
 <section id="grid"><div class="wrap">
@@ -399,12 +437,13 @@
       <fieldset class="rs-fieldset"><legend>改行コード</legend>
         <label class="rs-check"><input type="radio" name="d-eol" checked> 元のまま（CRLF）</label><br>
         <label class="rs-check"><input type="radio" name="d-eol"> LF に統一</label></fieldset>
-      <div class="rs-field rs-field--inline" style="margin-block-start: var(--stack-gap)"><label class="rs-label" for="d-sep">区切り文字</label><input id="d-sep" class="rs-input rs-input--data" value="," size="4"></div>
+      <div class="rs-field" style="margin-block-start: var(--stack-gap)"><label class="rs-label" for="d-sep">区切り文字</label><input id="d-sep" class="rs-input rs-input--data" value=","></div>
       <label class="rs-check"><input type="checkbox" checked> 先頭行を見出しとして固定</label>
     </div>
   </div>
   <p>ラベル（何を）・ヘルパー（どう入れるか）・プレースホルダ（例）・検証（正しいか）の 4 層。プレースホルダをラベルの代わりにしません。
-    エラーは <code>aria-describedby</code> で入力欄と結び、理由と直し方を文章で書きます。パネルでは項目名を横に置く <code>.rs-field--inline</code> を使えます。</p>
+    エラーは <code>aria-describedby</code> で入力欄と結び、理由と直し方を文章で書きます。
+    ラベルはダイアログでもパネルでも入力欄の上に置きます（<a href="#form-layout">並べ方</a>）。2.5.0 で <code>.rs-field--inline</code> は廃止しました。</p>
 
   <h3>メニュー</h3>
   <div class="cols">
@@ -439,7 +478,7 @@
   <h3>浮く部品と docked パネル</h3>
   <div class="cols">
     <div class="demo">
-      <div class="rs-dialog" role="dialog" aria-labelledby="d-dt">
+      <div class="rs-dialog rs-dialog--sm" role="dialog" aria-labelledby="d-dt">
         <div class="rs-dialog__head"><h2 class="rs-dialog__title" id="d-dt">3 行を削除しますか？</h2></div>
         <div class="rs-dialog__body"><p>「Sheet1」の 12〜14 行目を削除します。元に戻すには Ctrl+Z を使います。</p></div>
         <div class="rs-dialog__foot rs-actions"><button type="button" class="rs-btn rs-btn--secondary">キャンセル</button><button type="button" class="rs-btn rs-btn--danger">3 行を削除</button></div>
@@ -459,9 +498,8 @@
       <tr><td>ツールチップ</td><td>しない</td><td>名前とショートカット。1〜2 行</td><td>—</td><td><code>--z-tooltip</code></td></tr>
       <tr><td>ポップオーバー</td><td>しない</td><td>フィルタ条件・色の選択・候補</td><td>する</td><td><code>--z-popover</code></td></tr>
       <tr><td>メニュー</td><td>しない</td><td>コマンド</td><td>する</td><td><code>--z-menu</code></td></tr>
-      <tr><td>docked パネル</td><td>しない</td><td>表を見ながら続ける作業（フィルタ・並べ替え・書式・SQL・コメント・プレビュー）</td><td>しない（閉じるボタン）</td><td><code>--z-panel</code></td></tr>
-      <tr><td>非モーダルダイアログ</td><td>しない</td><td>検索と置換など、表と行き来する作業</td><td>する</td><td><code>--z-panel</code></td></tr>
-      <tr><td>モーダルダイアログ</td><td>止める</td><td>決めないと進めない確認（保存形式・破壊的な操作）</td><td>破壊的な確認ではしない</td><td><code>--z-modal</code></td></tr>
+      <tr><td>docked パネル</td><td>しない</td><td>シートを見ながら使うもの：読みながら作業する説明・結果を見ながら調整する設定・行き来する一覧（<a href="#dialog-or-panel">基準</a>）</td><td>する（ほかは × だけ）</td><td><code>--z-panel</code></td></tr>
+      <tr><td>モーダルダイアログ</td><td>止める</td><td>答えるまで進めないもの：確認・操作を始める短い入力・選ぶとすぐ閉じる選択</td><td>する（安全な側の答え）</td><td><code>--z-modal</code></td></tr>
     </tbody>
   </table></div>
   <p>パネルやダイアログがアクティブセルを隠さないようにします。隠れる場合はグリッドを自動でスクロールします。</p>
@@ -620,7 +658,7 @@ node design-system/v2/tools/build.mjs --check  # 生成物が最新か・監査�
 
 </main>
 
-<footer><div class="wrap">Refrain Sheet Design System · App · <!-- gen:version -->v2.4.1 · 2026-09-27<!-- /gen:version --> · 色は OKLCH で設計し sRGB で納品 · Web フォント 0 件</div></footer>
+<footer><div class="wrap">Refrain Sheet Design System · App · <!-- gen:version -->v2.5.0 · 2026-10-06<!-- /gen:version --> · 色は OKLCH で設計し sRGB で納品 · Web フォント 0 件</div></footer>
 
 <script src="../../foundations/docs/doc.js"></script>
 </body>

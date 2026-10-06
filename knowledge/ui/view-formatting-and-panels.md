@@ -7,6 +7,8 @@ sources:
   - resource: ../../CHANGELOG.md
   - resource: ../../src/ui/dialogs/shared.ts
   - resource: ../../src/ui/dialogs/side-panel.ts
+  - resource: ../../src/ui/dialogs/form-layout.ts
+  - resource: ../../design-system/v2/docs/decisions.md
 status: stable
 generated:
   by: claude-code/claude-sonnet-5
@@ -203,12 +205,24 @@ instead of separate popup layouts:
   an icon (the same one its menu item uses; an eye for previews) before
   the title, then the dock-side buttons, maximize, and a close (×) button,
   always in that order and size. No panel builds its own header.
-- **One form layout.** `openSidePanel`'s body (`.side-panel-form`) stacks
-  `panelSection`s; each `panelField` puts its label above a full-width
-  control, side-by-side fields share a `.panel-grid`, checkboxes/radios use
-  `panelCheck`, and every text field, select, and in-body button
-  (`.panel-button`) is the same height. Build new panel controls from
-  these helpers rather than ad-hoc rows.
+- **One form layout.** `openSidePanel`'s body (`.form-layout`, styled in
+  `src/styles/form-layout.css`) stacks `formSection`s; each `formField`
+  puts its label above a full-width control, side-by-side fields share a
+  `formGrid`, checkboxes/radios use `formCheck`, and every text field,
+  select, and in-body button (`.panel-button`) is the same height. The
+  builders live in `src/ui/dialogs/form-layout.ts` and are meant for
+  dialogs as well as panels: design system 2.5.0 (D-47 to D-51 in
+  `design-system/v2/docs/decisions.md`) sets the rules both follow —
+  label above the control, gaps from `--label-gap`, `--stack-gap` and
+  `--section-gap` only, the committing button rightmost, dialog widths
+  360 / 480 / 640px. Build new controls from these helpers rather than
+  ad-hoc rows.
+- **Dialog or panel.** Design system D-46: a modal dialog only for what
+  must be answered before going on (a confirmation, a short input that
+  starts an action, a pick-and-close choice, the OK/Cancel Settings);
+  everything used while looking at the sheet (reference text such as the
+  shortcut list and formula help, settings adjusted while watching the
+  result, lists moved through) is a side panel.
 
 - **Dock position.** Buttons in the panel's header pick top, right,
   bottom, or left; a top/bottom dock sits below the menu bar and document
